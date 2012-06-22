@@ -1,0 +1,9 @@
+#AuthUserFile /home/n286/html/.htusers
+#AuthGroupFile /dev/null 
+#AuthName "admin area dude"
+#AuthType Basic 
+#
+#<Limit GET> 
+#require valid-user
+#</Limit> 
+#
