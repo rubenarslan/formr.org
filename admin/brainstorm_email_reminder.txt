@@ -1,0 +1,16 @@
+# an alle
+SELECT email FROM vans
+
+# zufallsziehung
+SELECT email FROM vans ORDER BY RAND() LIMIT 1000
+
+# nach demographischen Charakteristika
+SELECT email from vpnueberblick LEFT OUTER JOIN demographics ON demographics.vpncode= demographics.vpncode  WHERE demographics.sex = 1 
+
+
+### schon ausgefüllt?
+SELECT email from vpnueberblick LEFT OUTER JOIN demographics ON demographics.vpncode= demographics.vpncode  WHERE demographics.beginsurveysmsintvar IS NULL
+
+### nicht zu ende ausgefüllt
+SELECT email from vpnueberblick LEFT OUTER JOIN demographics ON demographics.vpncode= demographics.vpncode  WHERE demographics.endedsurveysmsintvar IS NULL AND  demographics.beginsurveysmsintvar IS NOT NULL
+
