@@ -170,6 +170,7 @@ if (!table_exists(ITEMSTABLE, $database) && $ok!=0) {
     }
     if (mysql_query($query)) {
       echo "Datei wurde erfolgreich importiert.";
+		deleteresults(); # only if conditions are met, otherwise ask for confirmation and show number of rows
     }
     echo mysql_error();
   }
