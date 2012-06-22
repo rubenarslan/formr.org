@@ -120,12 +120,13 @@ function updateitems(){
         resetitemdisplaytable();
     }
 }
-
-function export_results() {
+function get_results() {
 	require("../includes/settings.php");
+	$table = RESULTSTABLE;
 
 	$query = "SELECT * FROM ".RESULTSTABLE;
 	$results = mysql_query( $query ) or die( error_log( mysql_error() . " in export_results: \n" . $query));
+
 
 	$csv = "";
 	$fields = mysql_list_fields($DBName,RESULTSTABLE);
@@ -133,23 +134,40 @@ function export_results() {
 
 	for ($i = 0; $i < $columns; $i++) {
 		$l=mysql_field_name($fields, $i);
-		$csv .= '"'.$l.'";';
+		$csv .= '"'.$l.'"\t';
 	}
 	$csv .="\n";
 
 	for($i=0; $i < mysql_num_rows($results); $i++) {
-		$row = mysql_fetch_assoc($results);
-		foreach( $row as $column => $column_value) {
-			$csv .='"'.$column_value.'";';
+		$row = mysql_fetch_row($results);
+		foreach( $row as $column_value) {
+			$column_value = preg_replace("/[\r\n|\r|\n]/","\\n",$column_value);
+			$rowwidth = count($row);
+			$column_value = str_replace("\t","    ",$column_value);
+			if($i!=($rowwidth)-1) $csv .=$column_value.'\t';
+			else $csv .=$column_value;
 		}
 		$csv .= "\n";
 	}
+	return $csv;
+}
 
-	header('Content-Description: File Transfer');
-	header("Content-type: text/x-csv");
-	header('Content-Disposition: attachment; filename=csv-export.csv');
+function export_results() {
 
-	echo $csv;
+
+	header("Content-type: application/csv");
+	header("Content-Disposition: attachment; filename=$table".date('YmdHis').".csv");
+	header("Pragma: no-cache");
+	header("Expires: 0");
+
+	echo get_results();
+	exit;
+}
+
+function backup_results() {
+	fopen()
+
+	echo get_results();
 	exit;
 }
 
@@ -234,11 +252,14 @@ function mcalternatives($id) {
 
 function deleteresults() {
     if (isset($_GET['confirm'])) $confirm = $_GET['confirm'];
+
     if ($confirm=="576879ccc") {
+		
         $query= "DROP TABLE ".RESULTSTABLE;
         mysql_query($query);
         $message="Ergebnistabelle wurde gelöscht.<br />" . mysql_error();
 		createresulttab();
+		
     } else {
         $message="Willst du wirklich die gesamte Ergebnistabelle löschen? <a class=\"adminmessage\" href=\"index.php?action=deleteresults&confirm=576879ccc\">LÖSCHEN</a> / <a class=\"adminmessage\" href=\"index.php\">Bloß nicht!</a><br />";
     }
