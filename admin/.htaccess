@@ -1,0 +1,12 @@
+# php_flag display_startup_errors on
+# php_flag display_errors on
+#php_flag html_errors on
+#php_value error_reporting 8191
+
+AuthUserFile /www/htdocs/w0086f32//.htpasswdselfinsight
+AuthGroupFile /dev/null
+AuthName ByPassword
+AuthType Basic
+<Limit GET POST>
+require valid-user
+</Limit>

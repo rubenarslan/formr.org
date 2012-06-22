@@ -1,0 +1,22 @@
+#copyright {
+	display: none;
+}
+
+.welcome {
+	background-color: #C9E9B3;
+}
+
+.instruction {
+	background-color: #fa7777;
+}
+
+.feedback {
+	width: 85%;
+	padding-bottom: 100px;
+}
+
+.legend {
+	text-align: center;
+	font-size: 10px;
+	font-style: italic;
+}

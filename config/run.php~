@@ -1,0 +1,57 @@
+<?php
+
+function nameExists($name) {
+  global $dbhost,$dbname,$dbuser,$dbpass,$lang;
+  $conn=mysql_connect($dbhost,$dbuser,$dbpass);
+  if(!$conn)
+    return $lang['CONNECT_ERROR'];
+  if(!mysql_select_db($dbname,$conn)) {
+    mysql_close();
+    return $lang['DBSELECT_ERROR'];
+  }
+  $query="SELECT * FROM runs WHERE name='".mysql_real_escape_string($name)."'";
+  $res=mysql_query($query);
+  if($res===false)
+    return $lang['QUERY_ERROR'];
+  if(mysql_num_rows($res))
+    return true;
+  return false;
+}
+
+function nameValid($name) {
+  $name=trim($name);
+  if($name=="")
+    return "Name darf nicht leer sein";
+  if(!isInRange($name,3,20))
+    return "Name muss 3-20 Zeichen lang sein";
+  $tmp=nameExists($name);
+  if($tmp==true)
+    return "Name existiert bereits";
+  return true;
+}
+
+class Run {
+  public $status=false;
+  private $errors=array();
+  public $id;
+  public $user_id;
+  public $name;
+
+  function Constructor($name,$user_id) {
+    $tmp=nameValid($name);
+    if($tmp!==true) {
+      $this->status=false;
+      $this->errors[]=$tmp;
+    }
+    $this->name=$name;
+    $this->user_id=$user_id;
+    if(count($this->errors)==0)
+      $this->status=true;
+    return true;
+  }
+
+
+
+}
+
+?>

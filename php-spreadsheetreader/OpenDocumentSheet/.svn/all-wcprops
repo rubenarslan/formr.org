@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 34
+/svn/!svn/ver/27/OpenDocumentSheet
+END
+extract_tables_simplexml.xslt
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svn/!svn/ver/20/OpenDocumentSheet/extract_tables_simplexml.xslt
+END
+SpreadsheetReader_OpenDocumentSheetTest.php
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svn/!svn/ver/27/OpenDocumentSheet/SpreadsheetReader_OpenDocumentSheetTest.php
+END
+SpreadsheetReader_OpenDocumentSheet.php
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svn/!svn/ver/27/OpenDocumentSheet/SpreadsheetReader_OpenDocumentSheet.php
+END

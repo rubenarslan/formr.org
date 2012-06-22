@@ -1,0 +1,180 @@
+#container {
+    width: 90%;
+    margin: 10px auto;
+    background-color: #fff;
+    color: #333;
+    border: 1px gray solid;
+    line-height: 130%;
+}
+
+#top {
+    padding: .5em;
+    background-color: #ddd;
+    border-bottom: 1px gray solid;
+}
+
+#top h1 {
+    padding: 0;
+    margin: 0;
+}
+
+#top h6 {
+    padding: 0;
+    margin: 0;
+}
+
+#top p {
+    padding: 0;
+    margin: 0;
+}
+
+#leftnav {
+    float: left;
+    width: 160px;
+    padding: 1em;
+    margin: 0;
+}
+
+ul#navigation {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid #666;
+    padding: .5em 0;
+}
+
+ul#navigation li a {
+    display: block;
+    width: 100%;
+    color: #FFF;
+    background-color: #036;
+    padding: .2em 0;
+    text-align: center;
+    text-decoration: none;
+}
+
+ul#navigation li a:hover {
+    color: #FFF;
+    background-color: #69C;
+}
+
+ul#navigation .navi {
+    float: left;
+    width: 100%;
+    clear: left;
+    margin-bottom: 10%; 
+}
+
+#content {
+    margin-left: 200px;
+    border-left: 1px gray solid;
+    padding: 1em;
+    max-width: 36em;
+}
+
+#footer {
+    clear: both;
+    padding: .5em;
+    margin: 0;
+    background-color: #ddd;
+    color: #333;
+    border-top: 1px gray solid;
+}
+
+#footer p {
+    padding: 0;
+    margin: 0;
+}
+
+#leftnav p {
+    margin: 0 0 1em 0;
+}
+
+#content h2 {
+    margin: 0 0 .5em 0;
+}
+
+
+
+
+
+
+
+
+
+form, button{border:0; margin:0; padding:0;}
+
+.spacer{clear:both; height:1px;}
+
+.myform {
+    margin:0 auto;
+    width:400px;
+    padding:14px;
+}
+
+#form {
+    border:solid 2px #b7ddf2;
+    background:#ebf4fb;
+}
+
+#form h1 {
+    font-size:14px;
+    font-weight:bold;
+    margin-bottom:8px;
+}
+
+#form p {
+    font-size:11px;
+    color:#666666;
+    margin-bottom:20px;
+    border-bottom:solid 1px #b7ddf2;
+    padding-bottom:10px;
+}
+
+.error  {
+    font-size:11px;
+    color:rgb(255,50,50);
+    margin-bottom:20px;
+    border-bottom:solid 1px #b7ddf2;
+    padding-bottom:10px;
+    display: block;
+}
+
+#form label {
+    display:block;
+    font-weight:bold;
+    text-align:right;
+    width:140px;
+    float:left;
+}
+
+#form .small {
+    color:#666666;
+    display:block;
+    font-size:11px;
+    font-weight:normal;
+    text-align:right;
+    width:140px;
+}
+
+#form input {
+    float:left;
+    font-size:12px;
+    padding:4px 2px;
+    border:solid 1px #aacfe4;
+    width:200px;
+    margin:2px 0 20px 10px;
+}
+
+#form button {
+    clear:both;
+    margin-left:150px;
+    width:125px;
+    height:31px;
+    background:#666666 url(img/button.png) no-repeat;
+    text-align:center;
+    line-height:31px;
+    color:#FFFFFF;
+    font-size:11px;
+    font-weight:bold;
+}

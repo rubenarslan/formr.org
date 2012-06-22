@@ -1,0 +1,47 @@
+K 25
+svn:wc:ra_dav:version-url
+V 16
+/svn/!svn/ver/27
+END
+SpreadsheetReader.php
+K 25
+svn:wc:ra_dav:version-url
+V 38
+/svn/!svn/ver/26/SpreadsheetReader.php
+END
+SpreadsheetReaderTest.php
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/!svn/ver/25/SpreadsheetReaderTest.php
+END
+COPYRIGHT.txt
+K 25
+svn:wc:ra_dav:version-url
+V 30
+/svn/!svn/ver/15/COPYRIGHT.txt
+END
+workbook.dtd
+K 25
+svn:wc:ra_dav:version-url
+V 29
+/svn/!svn/ver/15/workbook.dtd
+END
+SpreadsheetReaderFactoryTest.php
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/svn/!svn/ver/23/SpreadsheetReaderFactoryTest.php
+END
+SpreadsheetReaderFactory.php
+K 25
+svn:wc:ra_dav:version-url
+V 45
+/svn/!svn/ver/26/SpreadsheetReaderFactory.php
+END
+LGPL.txt
+K 25
+svn:wc:ra_dav:version-url
+V 25
+/svn/!svn/ver/14/LGPL.txt
+END
