@@ -153,7 +153,7 @@ function get_results() {
 }
 
 function export_results() {
-
+	$table = RESULTSTABLE;
 
 	header("Content-type: application/csv");
 	header("Content-Disposition: attachment; filename=$table".date('YmdHis').".csv");
@@ -165,10 +165,30 @@ function export_results() {
 }
 
 function backup_results() {
-	fopen()
+	$filename = "/home/n286/html/admin/results_backups/".$table.date('YmdHis').".csv";
+	// Sichergehen, dass die Datei existiert und beschreibbar ist
+	if (is_writable($filename)) {
 
-	echo get_results();
-	exit;
+	    // Wir öffnen $filename im "Anhänge" - Modus.
+	    // Der Dateizeiger befindet sich am Ende der Datei, und
+	    // dort wird $somecontent später mit fwrite() geschrieben.
+	    if (!$handle = fopen($filename, "w")) {
+	         die("Kann die Datei $filename nicht öffnen");
+	    }
+
+	    // Schreibe $somecontent in die geöffnete Datei.
+	    if (!fwrite($handle, get_results())) {
+				die("Kann in die Datei $filename nicht schreiben");
+	    }
+	else {
+		return true;
+	}
+	    fclose($handle);
+
+	} else {
+	    die("Die Datei $filename ist nicht schreibbar");
+	}
+	
 }
 
 function printitemsforedit($allowedtypes, $id, $variablenname, $wortlaut, $altwortlautbasedon, $altwortlaut, $typ, $antwortformatanzahl, $ratinguntererpol, $ratingobererpol) {
@@ -252,16 +272,19 @@ function mcalternatives($id) {
 
 function deleteresults() {
     if (isset($_GET['confirm'])) $confirm = $_GET['confirm'];
+	$how_much_already = mysql_query("SELECT * FROM ".RESULTSTABLE);
+	$how_much_already = mysql_num_rows($how_much_already);
 
-    if ($confirm=="576879ccc") {
+    if ($how_much_already<10 || $confirm=="576879ccc") {
 		
-        $query= "DROP TABLE ".RESULTSTABLE;
-        mysql_query($query);
-        $message="Ergebnistabelle wurde gelöscht.<br />" . mysql_error();
-		createresulttab();
-		
+		if($how_much_already<2 || backup_results()) {
+	        $query= "DROP TABLE ".RESULTSTABLE;
+	        mysql_query($query);
+	        $message="Ergebnistabelle wurde gelöscht.<br />" . mysql_error();
+			createresulttab();
+		}
     } else {
-        $message="Willst du wirklich die gesamte Ergebnistabelle löschen? <a class=\"adminmessage\" href=\"index.php?action=deleteresults&confirm=576879ccc\">LÖSCHEN</a> / <a class=\"adminmessage\" href=\"index.php\">Bloß nicht!</a><br />";
+        $message="Willst du wirklich die gesamte Ergebnistabelle mit bereits <big>$how_much_already</big> löschen? <a class=\"adminmessage\" href=\"index.php?action=deleteresults&confirm=576879ccc\">LÖSCHEN</a> / <a class=\"adminmessage\" href=\"index.php\">Bloß nicht!</a><br />";
     }
     echo $message;
     resetitemdisplaytable();
