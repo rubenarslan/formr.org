@@ -238,6 +238,7 @@ function deleteresults() {
         $query= "DROP TABLE ".RESULTSTABLE;
         mysql_query($query);
         $message="Ergebnistabelle wurde gelöscht.<br />" . mysql_error();
+		createresulttab();
     } else {
         $message="Willst du wirklich die gesamte Ergebnistabelle löschen? <a class=\"adminmessage\" href=\"index.php?action=deleteresults&confirm=576879ccc\">LÖSCHEN</a> / <a class=\"adminmessage\" href=\"index.php\">Bloß nicht!</a><br />";
     }
