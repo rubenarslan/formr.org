@@ -306,7 +306,6 @@ class Study {
   }
 
   function changePrefix($prefix) {
-    //todo: actually change the prefix in other db
     global $dbhost,$dbname,$dbuser,$dbpass;
     $tmp=prefixValid($prefix);
     if($tmp!==true) {
