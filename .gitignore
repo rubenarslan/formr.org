@@ -1,4 +1,5 @@
 admin/upload/*.csv
 admin/upload/
 log/*
+*.*~
 .DS_Store
