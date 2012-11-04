@@ -1,5 +1,4 @@
 <?php
-/* require_once $_SERVER['DOCUMENT_ROOT']."/tmp/config/config.php"; */
 require_once "../config/config.php";
 global $currentUser;
 if(!userIsAdmin()) {
@@ -44,7 +43,9 @@ if(!empty($_POST) and count($errors)>0) {
   </label>
   <input type="text" name="name" id="name"  value="<?php if(isset($_POST['name'])) echo $_POST['name']; ?>"/>
   </p>
+  <p>
   <button type="submit">Run erstellen</button>
+  </p>
   </form>
 
 <?php

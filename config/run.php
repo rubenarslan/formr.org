@@ -10,18 +10,10 @@ class Run {
   public $public=false;
 
   function isEmpty() {
-    global $dbhost,$dbname,$dbuser,$dbpass,$lang;
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn)
-      return $lang['CONNECT_ERROR'];
-    if(!mysql_select_db($dbname,$conn)) {
-      mysql_close();
-      return $lang['DBSELECT_ERROR'];
-    }
     $query="SELECT * FROM run_data WHERE run_id='".mysql_real_escape_string($this->id)."'";
     $res=mysql_query($query);
     if($res===false)
-      return $lang['QUERY_ERROR'];
+      return _("Datenbankfehler");
     if(mysql_num_rows($res))
       return false;
     return true;
@@ -31,24 +23,11 @@ class Run {
     $studies=array();
     if(!isset($study))
       return NULL;
-    global $dbhost,$dbname,$dbuser,$dbpass,$lang;
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return NULL;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
-      return NULL;
-    }
     $query="SELECT * FROM run_data WHERE run_id='".mysql_real_escape_string($this->id)."'"."AND study_id='".$study->id."'";
     $res=mysql_query($query);
     if(!$res or mysql_num_rows($res)==false) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
+      $this->errors[]=_("Datenbankfehler");
       return NULL;
     }
     $row=mysql_fetch_array($res);    
@@ -57,8 +36,7 @@ class Run {
     $res=mysql_query($query);
     if(!$res or mysql_num_rows($res)==false) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return NULL;
     }
     if(!mysql_num_rows($res))
@@ -75,25 +53,11 @@ class Run {
   }
 
   function getFirstStudyId() {
-    global $dbhost,$dbname,$dbuser,$dbpass,$lang;
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return -1;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
-      return -1;
-    }
     $query="SELECT * FROM run_data WHERE run_id='".mysql_real_escape_string($this->id)."' AND position = 0";
     $res=mysql_query($query);
     if(!$res or mysql_num_rows($res)==false) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return -1;
     }
     $row=mysql_fetch_array($res);    
@@ -134,16 +98,8 @@ class Run {
   }
 
   function getPosition() {
-    global $dbhost,$dbname,$dbuser,$dbpass,$lang;
     if($this->isEmpty())
       return 0;
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn)
-      return -1;
-    if(!mysql_select_db($dbname,$conn)) {
-      mysql_close();
-      return -1;
-    }
     $query="SELECT * FROM run_data WHERE run_id='".mysql_real_escape_string($this->id)."'";
     $res=mysql_query($query);
     if(!$res)
@@ -161,22 +117,9 @@ class Run {
   }
 
   function addStudy($study,$optional=false) {
-    global $dbhost,$dbname,$dbuser,$dbpass,$lang;
     if(!isset($study) or !is_object($study)) {
       $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
+      $this->errors[]=_("Interner Fehler");
       return;
     }
     $id=uniqid();
@@ -188,32 +131,23 @@ class Run {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query2";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     return true;
   }
 
   function nameExists($name) {
-    global $dbhost,$dbname,$dbuser,$dbpass,$lang;
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn)
-      return $lang['CONNECT_ERROR'];
-    if(!mysql_select_db($dbname,$conn)) {
-      mysql_close();
-      return $lang['DBSELECT_ERROR'];
-    }
     $query="SELECT * FROM runs WHERE name='".mysql_real_escape_string($name)."'";
     $res=mysql_query($query);
     if($res===false)
-      return $lang['QUERY_ERROR'];
+      return _("Datenbankfehler");
     if(mysql_num_rows($res))
       return true;
     $query="SELECT * FROM studies WHERE name='".mysql_real_escape_string($name)."'";
     $res=mysql_query($query);
     if($res===false)
-      return $lang['QUERY_ERROR'];
+      return _("Datenbankfehler");
     if(mysql_num_rows($res))
       return true;
     return false;
@@ -222,42 +156,28 @@ class Run {
   function nameValid($name) {
     $name=trim($name);
     if($name=="")
-      return "Name darf nicht leer sein";
+      return _("Keine Runname angegeben");
     if(!isInRange($name,3,20))
-      return "Name muss 3-20 Zeichen lang sein";
+      return _("Runname muss zwischen 3 und 20 Zeichen lang sein");
     $tmp=nameExists($name);
     if($tmp==true)
-      return "Name existiert bereits";
+      return _("Ein Run mit diesem Namen existiert bereits");
     return true;
   }
 
 
   function changeName($name) {
-    global $dbhost,$dbname,$dbuser,$dbpass;
     $tmp=nameValid($name);
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
       return;
     }
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
-      return;
-    }
     $query="UPDATE runs SET name = '$name' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $this->name=$name;
@@ -265,66 +185,38 @@ class Run {
   }
 
   function changePublic($public) {
-    global $dbhost,$dbname,$dbuser,$dbpass;
     $tmp=true;
     if($public!=false and $public!=true)
-      $tmp="falscher wert fuer public";
+      $tmp=_("Falscher Wert f&uuml;r Variable public");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
-      return;
-    }
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
       return;
     }
     $query="UPDATE runs SET public = '$public' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $this->public=$public;
     $this->status=true;
   }
   function changeRegisteredReq($registered_req) {
-    global $dbhost,$dbname,$dbuser,$dbpass;
     $tmp=true;
     if($registered_req!=false and $registered_req!=true)
-      $tmp="falscher wert fuer reg_req";
+      $tmp=_("Falscher Wert f&uuml;r Variable reg_req");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
-      return;
-    }
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
       return;
     }
     $query="UPDATE runs SET registered_req = '$registered_req' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $this->registered_req=$registered_req;
@@ -333,31 +225,16 @@ class Run {
 
   function GetRunData() {
     $run_data=array();
-    global $dbhost,$dbname,$dbuser,$dbpass,$lang;
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return false;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
-      return false;
-    }
     $id=(isset($this->id))?mysql_real_escape_string($this->id):'';
     $query="SELECT * FROM run_data WHERE run_id='".$id."' ORDER BY position";
     $result=mysql_query($query);
     if(mysql_num_rows($result)==false) {
       $this->status=false;
-      mysql_close();
       return false;
     }
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return false;
     }
     if(mysql_num_rows($result)!=false) {
@@ -378,7 +255,6 @@ class Run {
     return $run_data;
   }
 
-
   function Constructor($name,$user_id) {
     $tmp=nameValid($name);
     if($tmp!==true) {
@@ -393,19 +269,6 @@ class Run {
   }
 
   function Register() { 
-    global $dbhost,$dbname,$dbuser,$dbpass,$lang;
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return false;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
-      return false;
-    }
     $name=mysql_real_escape_string($this->name);
     $user_id=mysql_real_escape_string($this->user_id);
     $id=uniqid();
@@ -413,8 +276,7 @@ class Run {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query2";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return false;
     }
     $this->id=$id;
@@ -422,26 +284,12 @@ class Run {
   }
 
   function fillIn($id) {
-    global $dbhost,$dbname,$dbuser,$dbpass,$lang;
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return false;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
-      return false;
-    }
     $id=mysql_real_escape_string($id);
     $query="SELECT * FROM runs WHERE id='".$id."'";
     $result=mysql_query($query);
     if(!$result or mysql_num_rows($result)==false) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return false;
     }
     $row=mysql_fetch_array($result);

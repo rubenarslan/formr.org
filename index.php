@@ -1,5 +1,4 @@
 <?php
-/* require_once $_SERVER['DOCUMENT_ROOT']."/config/config.php"; */
 require_once "config/config.php";
 
 global $currentUser;
@@ -9,13 +8,14 @@ global $currentUser;
 include("pre_content.php");
 ?>
 
-<p>Aktuelle Studien:</p>
 <?php
 
 $studies=$currentUser->GetAvailableStudies();
 $runs=$currentUser->GetAvailableRuns();
-if($studies or $runs)
+if($studies or $runs) {
+  echo "<p>Aktuelle Studien:</p>";
   echo "<ul>";
+}
 if($runs) {
   foreach($runs as $run) {
     if($currentUser->anonymous and $run->registered_req)

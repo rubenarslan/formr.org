@@ -1,18 +1,10 @@
 <?php
 
 function nameExists($name) {
-  global $dbhost,$dbname,$dbuser,$dbpass,$lang;
-  $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-  if(!$conn)
-    return $lang['CONNECT_ERROR'];
-  if(!mysql_select_db($dbname,$conn)) {
-    mysql_close();
-    return $lang['DBSELECT_ERROR'];
-  }
   $query="SELECT * FROM studies WHERE name='".mysql_real_escape_string($name)."'";
   $res=mysql_query($query);
   if($res===false)
-    return $lang['QUERY_ERROR'];
+    return _("Datenbankfehler");
   if(mysql_num_rows($res))
     return true;
   return false;
@@ -21,28 +13,20 @@ function nameExists($name) {
 function nameValid($name) {
   $name=trim($name);
   if($name=="")
-    return "Name darf nicht leer sein";
+    return _("Kein Studienname angegeben");
   if(!isInRange($name,3,20))
-    return "Name muss 3-20 Zeichen lang sein";
+    return _("Studienname muss zwischen 3 und 20 Zeichen lang sein");
   $tmp=nameExists($name);
   if($tmp==true)
-    return "Name existiert bereits";
+    return _("Eine Studie mit diesem Namen existiert bereits");
   return true;
 }
 
 function prefixExists($prefix) {
-  global $dbhost,$dbname,$dbuser,$dbpass,$lang;
-  $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-  if(!$conn)
-    return $lang['CONNECT_ERROR'];
-  if(!mysql_select_db($dbname,$conn)) {
-    mysql_close();
-    return $lang['DBSELECT_ERROR'];
-  }
   $query="SELECT * FROM studies WHERE prefix='".mysql_real_escape_string($prefix)."'";
   $res=mysql_query($query);
   if($res===false)
-    return $lang['QUERY_ERROR'];
+    return _("Datenbankfehler");
   if(mysql_num_rows($res))
     return true;
   return false;
@@ -51,12 +35,12 @@ function prefixExists($prefix) {
 function prefixValid($prefix) {
   $prefix=trim($prefix);
   if($prefix=="")
-    return "Prefix darf nicht leer sein";
+    return _("Kein Datenbankprefix angegeben");
   if(!isInRange($prefix,3,20))
-    return "Prefix muss 3-20 Zeichen lang sein";
+    return _("Das Datenbankprefix muss zwischen 3 und 20 Zeichen lang sein");
   $tmp=prefixExists($prefix);
   if($tmp==true)
-    return "Prefix existiert bereits";
+    return _("Das Datenbankprefix existiert bereits");
   return true;
 }
 
@@ -93,26 +77,12 @@ class Study {
   }
 
   function fillIn($id) {
-    global $dbhost,$dbname,$dbuser,$dbpass,$lang;
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return false;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
-      return false;
-    }
     $id=mysql_real_escape_string($id);
     $query="SELECT * FROM studies WHERE id='".$id."'";
     $result=mysql_query($query);
     if(!$result or mysql_num_rows($result)==false) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return false;
     }
     $row=mysql_fetch_array($result);
@@ -137,19 +107,6 @@ class Study {
   }
 
   function Register() { 
-    global $dbhost,$dbname,$dbuser,$dbpass,$lang;
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return false;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
-      return false;
-    }
     $name=mysql_real_escape_string($this->name);
     $prefix=mysql_real_escape_string($this->prefix);
     $user_id=mysql_real_escape_string($this->user_id);
@@ -158,8 +115,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query2";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return false;
     }
     $this->id=$id;
@@ -199,21 +155,20 @@ class Study {
   }
 
   function uploadLogo() {
-    global $dbhost,$dbname,$dbuser,$dbpass;
     if(!(isset($_FILES['logo'])) or $_FILES['logo']['error']!=0) {
       $this->status=false;
-      $this->errors[]="Could not upload Logo";
+      $this->errors[]=_("Fehler beim hochladen des Logos");
       return;
     }
     if($_FILES['logo']['size']>1000000) {
       $this->status=false;
-      $this->errors[]="Datei muss unter 1Mb sein";
+      $this->errors[]=_("Die Datei muss unter 1Mb sein");
       return;
     }
     $file_type=substr(strrchr($_FILES['logo']['name'],'.'),1);
     if($file_type!='gif' and $file_type!='jpg' and $file_type!='jpeg') {
       $this->status=false;
-      $this->errors[]="Datei muss gif, jpg oder jpeg Endung habe";
+      $this->errors[]=_("Die Datei muss gif, jpg oder jpeg Endung habe");
       return;
     }
     $file_name=substr(md5(uniqid(rand(),true)),0,5).'.'.$file_type;
@@ -222,27 +177,14 @@ class Study {
     $target="../images/".$file_name;
     if(!move_uploaded_file($_FILES['logo']['tmp_name'], $target)) {
       $this->status=false;
-      $this->errors[]="Datei konnte nicht gespeichert werden";
-      return;
-    }
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
+      $this->errors[]=_("Die Datei konnte nicht gespeichert werden");
       return;
     }
     $query="UPDATE studies SET logo_name = '".mysql_real_escape_string($file_name)."' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     mysql_close();
@@ -252,12 +194,12 @@ class Study {
     $conn=mysql_connect($DBhost,$DBuser,$DBpass);
     if(!$conn) {
       $this->status=false;
-      $this->errors[]="Could not connect do database";
+      $this->errors[]=_("Konnte keine Verbindung zur Datenbank herstellen");
       return;
     }
     if(!mysql_select_db($DBName,$conn)) {
       $this->status=false;
-      $this->errors[]="Could not connect do database";
+      $this->errors[]=_("Datenbankfehler");
       mysql_close();
       return;
     }
@@ -265,7 +207,7 @@ class Study {
     $result=mysql_query($query) or die(mysql_error());  
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query2";
+      $this->errors[]=_("Datenbankfehler");
       mysql_close();
       return;
     }
@@ -274,63 +216,35 @@ class Study {
   
 
   function changeName($name) {
-    global $dbhost,$dbname,$dbuser,$dbpass;
     $tmp=nameValid($name);
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
       return;
     }
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
-      return;
-    }
     $query="UPDATE studies SET name = '$name' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $this->name=$name;
     $this->status=true;
   }
 
-  function changePrefix($prefix) {
-    global $dbhost,$dbname,$dbuser,$dbpass;
+  function changePrefix($prefix) { //todo: do a change table name query for every query
     $tmp=prefixValid($prefix);
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
       return;
     }
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
-      return;
-    }
     $query="UPDATE studies SET prefix = '$prefix' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $this->prefix=$prefix;
@@ -338,33 +252,19 @@ class Study {
   }
 
   function changePublic($public) {
-    global $dbhost,$dbname,$dbuser,$dbpass;
     $tmp=true;
     if($public!=false and $public!=true)
-      $tmp="falscher wert fuer public";
+      $tmp=_("Falscher Wert f&uuml;r Variable Public");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
-      return;
-    }
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
       return;
     }
     $query="UPDATE studies SET public = '$public' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $this->public=$public;
@@ -372,33 +272,19 @@ class Study {
   }
 
   function changeRegisteredReq($registered_req) {
-    global $dbhost,$dbname,$dbuser,$dbpass;
     $tmp=true;
     if($registered_req!=false and $registered_req!=true)
-      $tmp="falscher wert fuer reg_req";
+      $tmp=_("Falscher Wert f&uuml;r Variable reg_req");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
-      return;
-    }
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
       return;
     }
     $query="UPDATE studies SET registered_req = '$registered_req' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $this->registered_req=$registered_req;
@@ -406,66 +292,38 @@ class Study {
   }
 
   function changeEmailReq($email_req) {
-    global $dbhost,$dbname,$dbuser,$dbpass;
     $tmp=true;
     if($email_req!=false and $email_req!=true)
-      $tmp="falscher wert fuer reg_req";
+      $tmp=_("Falscher Wert f&uuml;r Variable email_req");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
-      return;
-    }
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
       return;
     }
     $query="UPDATE studies SET email_req = '$email_req' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $this->email_req=$email_req;
     $this->status=true;
   }
   function changeBdayReq($bday_req) {
-    global $dbhost,$dbname,$dbuser,$dbpass;
     $tmp=true;
     if($bday_req!=false and $bday_req!=true)
-      $tmp="falscher wert fuer reg_req";
+      $tmp=_("Falscher Wert f&uuml;r Variable bday_req");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
-      return;
-    }
-    $conn=mysql_connect($dbhost,$dbuser,$dbpass);
-    if(!$conn) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      return;
-    }
-    if(!mysql_select_db($dbname,$conn)) {
-      $this->status=false;
-      $this->errors[]="Could not connect do database";
-      mysql_close();
       return;
     }
     $query="UPDATE studies SET bday_req = '$bday_req' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
-      mysql_close();
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $this->bday_req=$bday_req;

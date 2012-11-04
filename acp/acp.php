@@ -1,5 +1,4 @@
 <?php
-/* require_once $_SERVER['DOCUMENT_ROOT']."/tmp/config/config.php"; */
 require_once "../config/config.php";
 if(!userIsAdmin()) {
   header("Location: index.php");

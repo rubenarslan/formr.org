@@ -3,8 +3,8 @@
 
 <head>
 
-<title>PSYTEST</title> <!-- change to whatever you want as the title for your website -->
-<meta http-equiv="Content-Language" content="en-gb" />
+<title>PSYTESTS</title> 
+<meta http-equiv="Content-Language" content="de-DE" />
 <meta http-equiv="Content-Type" content="text/html; charset=windows-1252" />
 
 <link rel="stylesheet" type="text/css" href="../css/style.css" />
@@ -16,7 +16,7 @@
 <div id="container">
 	<div id="headercont">
 		<div id="headerleft">
-   <span class="simple"><h1><a href="../index.php">Psytest.<span>de</span></a></h1></span>
+   <span class="simple"><h1><a href="../index.php">Psytests.<span>de</span></a></h1></span>
 		</div>
 		<div id="headerright">
 			<ul>

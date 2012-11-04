@@ -1,5 +1,4 @@
 <?php
-/* require_once $_SERVER['DOCUMENT_ROOT']."/tmp/config/config.php"; */
 require_once "config/config.php";
 if(userIsLoggedIn()) {
   header("Location: index.php");
@@ -42,7 +41,9 @@ if(!empty($_POST) and count($errors)>0) {
   </label>
   <input type="password" name="password" id="password" value="<?php if(isset($_POST['password']))echo $_POST['password'];?>"/>
   </p>
+<p>
   <button type="submit">Login</button>
+</p>
   </form>
 
 

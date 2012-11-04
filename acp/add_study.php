@@ -1,5 +1,4 @@
 <?php
-/* require_once $_SERVER['DOCUMENT_ROOT']."/tmp/config/config.php"; */
 require_once "../config/config.php";
 global $currentUser;
 if(!userIsAdmin()) {
@@ -50,8 +49,10 @@ if(!empty($_POST) and count($errors)>0) {
   <label>Datenbank Prefix
   </label>
   <input type="text" name="prefix" id="prefix"  value="<?php if(isset($_POST['prefix'])) echo $_POST['prefix']; ?>"/>
-  </p>
+  </p> 
+  <p>
   <button type="submit">Studie anlegen</button>
+  </p>
   </form>
 
 <?php

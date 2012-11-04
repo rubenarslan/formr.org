@@ -2,18 +2,18 @@
           if(userIsLoggedIn()) {  
             global $currentUser;
             ?>
-            <a href="logout.php"><?php echo $lang['LOGOUT']; ?></a>
-            <a href="edit_user.php"><?php echo $lang['EDIT_USER']; ?></a>
+            <a href="logout.php"><?php echo _("Ausloggen"); ?></a> | 
+            <a href="edit_user.php"><?php echo _("Einstellungen &auml;ndern"); ?></a>
 
 <?php
    if(userIsAdmin()) 
-     echo "<a href='acp/acp.php'>ACP</a>";
+     echo "| <a href='acp/acp.php'>ACP</a>";
     } else {
 ?>
-    <a href="login.php"><?php echo $lang['LOGIN']; ?></a>
-    <a href="register.php"><?php echo $lang['REGISTER']; ?></a>
+     <a href="login.php"><?php echo _("Login"); ?></a> | 
+     <a href="register.php"><?php echo _("Registrieren") ?></a>
 <?php
     }
-if(isset($currentUser))
-  echo " ".$currentUser->email." ".$currentUser->vpncode;
+/* if(isset($currentUser)) */
+/*   echo " ".$currentUser->email." ".$currentUser->vpncode; */
 ?>

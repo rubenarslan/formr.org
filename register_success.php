@@ -1,5 +1,4 @@
 <?php
-/* require_once $_SERVER['DOCUMENT_ROOT']."/tmp/config/config.php"; */
 require_once "config/config.php";
 
 if(userIsLoggedIn()) {
@@ -13,9 +12,8 @@ if(!isset($_SESSION['userMail']))
 include("pre_content.php");
 ?>	
 
-
-<p><a href="index.php"><?php echo $lang['INDEX']; ?></a></p>
-<p><a href="login.php"><?php echo $lang['LOGIN']; ?></a></p>
+<p>Registrierung erfolgreich!</p>
+<p><a href="login.php"><?php echo _("Einloggen"); ?></a></p>
 
 	
 <?php

@@ -165,7 +165,7 @@ function export_results() {
 }
 
 function backup_results() {
-	$filename = "/home/n286/html/admin/results_backups/".$table.date('YmdHis').".csv"; ## TODO: basepath sollte irgendwo zentral gesetzt sein oder so
+        $filename = "../results_backups/".$table.date('YmdHis').".csv"; ## TODO: basepath sollte irgendwo zentral gesetzt sein oder so
 	// Sichergehen, dass die Datei existiert und beschreibbar ist
 	if (is_writable($filename)) {
 
