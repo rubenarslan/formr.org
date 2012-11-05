@@ -1,12 +1,10 @@
 <?php
-/* require_once $_SERVER['DOCUMENT_ROOT']."/tmp/config/config.php"; */
 require_once "../config/config.php";
 global $currentUser;
 if(!userIsAdmin() or !isset($_GET['id'])) {
   header("Location: index.php");
   die();
 }
-global $language,$available_languages,$lang;
 $study=new Study;
 $study->fillIn($_GET['id']);
 if(!$study->status)
@@ -47,7 +45,7 @@ if(!empty($_POST)) {
 include("pre_content.php");
 ?>	
 
-<p><strong>Email Benachrichtigungen:</strong> <?php echo $study->name; ?> <br /> 
+<p><strong><?php echo _("Email Benachrichtigungen: "); ?></strong> <?php echo $study->name; ?> <br /> 
 <?php
 if(!empty($_POST) and count($errors)>0) {
 ?>
@@ -59,34 +57,34 @@ if(!empty($_POST) and count($errors)>0) {
 ?>
 <form id="mail_form" name="mail_form" method="post" action="edit_study_mails.php?id=<?php echo $_GET['id']; ?>" >
   <p>
-  <label>Name
+  <label><?php echo _("Name"); ?>
   </label>
   <input type="text" name="name" id="name"  value="<?php if(isset($_POST['name'])) echo $_POST['name']; ?>"/>
   </p>
   <p>
-  <label>Betreff
+  <label><?php echo _("Betreff"); ?>
   </label>
   <input type="text" name="subject" id="subject"  value="<?php if(isset($_POST['subject'])) echo $_POST['subject']; ?>"/>
   </p>
   <p>
-  <label>Nachricht
+  <label><?php echo _("Nachricht"); ?>
   </label>
    <TEXTAREA name="message" id="message" rows="12" cols="60">
   <?php if(isset($_POST['message'])) echo $_POST['message']; ?>
    </TEXTAREA>
   </p>
   <p>
-  <label>Email schicken nach wieviel Tagen?
+  <label><?php echo _("Email schicken nach wieviel Tagen?"); ?>
   </label>
   <input type="text" name="subject" id="subject"  value="<?php if(isset($_POST['subject'])) echo $_POST['subject']; ?>"/>
   </p>
-  <button type="submit">Benachrichtigung einrichten</button>
+  <button type="submit"><?php echo _("Benachrichtigung einrichten"); ?></button>
   </form>
 
 
 
 <br>
-<p><a href="view_study.php?id=<?php echo $study->id; ?>">Zur&uuml;ck zur Studie</a></p>
+  <p><a href="view_study.php?id=<?php echo $study->id; ?>"><?php echo _("Zur&uuml;ck zur Studie"); ?></a></p>
 
 <?php
 include("post_content.php");

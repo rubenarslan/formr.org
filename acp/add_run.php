@@ -7,10 +7,8 @@ if(!userIsAdmin()) {
 }
 ?>
 <?php
-global $language,$available_languages,$lang;
 if(!empty($_POST)) {
   $errors=array();
-  
   $run=new Run;
   $run->Constructor($_POST['name'],$currentUser->id);
   if(!$run->status) {
@@ -39,12 +37,12 @@ if(!empty($_POST) and count($errors)>0) {
 <form id="add_run" name="add_run" method="post" action="add_run.php">
   <p>
   <p>
-  <label>Run Name
+  <label><?php echo _("Run Name"); ?>
   </label>
   <input type="text" name="name" id="name"  value="<?php if(isset($_POST['name'])) echo $_POST['name']; ?>"/>
   </p>
   <p>
-  <button type="submit">Run erstellen</button>
+  <button type="submit"><?php echo _("Run erstellen"); ?></button>
   </p>
   </form>
 

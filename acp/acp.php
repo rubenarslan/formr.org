@@ -21,7 +21,7 @@ if($studies) {
 ?>
 </p>
 <p>
-<a href="add_study.php">Studie anlegen</a>
+<a href="add_study.php"><?php echo _("Studie anlegen"); ?></a>
 </p>
 <p>
 <?php
@@ -36,7 +36,7 @@ if($runs) {
 ?>
 </p>
 <p>
-<a href="add_run.php">Studien Run erstellen</a>
+<a href="add_run.php"><?php echo _("Studien Run erstellen"); ?></a>
 </p>
 	
 <?php

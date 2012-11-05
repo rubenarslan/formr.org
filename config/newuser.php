@@ -99,6 +99,7 @@ class NewUser {
   /*   return false; */
   /* } */
 
+  //todo: not used
   function sendMail() {
     if(!sendActivationMail($this->email,$this->email_token)) {
       $this->errors[]="send mail error";

@@ -12,7 +12,7 @@ if(!isset($_SESSION['userMail']))
 include("pre_content.php");
 ?>	
 
-<p>Registrierung erfolgreich!</p>
+<p><?php echo _("Registrierung erfolgreich!"); ?></p>
 <p><a href="login.php"><?php echo _("Einloggen"); ?></a></p>
 
 	

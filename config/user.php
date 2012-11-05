@@ -124,16 +124,16 @@ class User {
   function EligibleForStudy($study) {
     $this->status=true;
     if(!isset($study) or !is_object($study)) {
-      $this->errors[]="study is no object. something is wrong";
+      $this->errors[]=_("Interner Fehler");
       $this->status=false;
       return false;
     }
     if(!$study->public) {
-      $this->errors[]="Diese Studie wurde noch nicht ver&ouml;ffentlicht";
+      $this->errors[]=_("Diese Studie wurde noch nicht ver&ouml;ffentlicht");
       $this->status=false;
     }
     if($study->registered_req and $this->anonymous==true) {
-      $this->errors[]="Sie m&uuml;ssen registriert sein um an dieser Studie teilzunehmen.";
+      $this->errors[]=_("Sie m&uuml;ssen registriert sein um an dieser Studie teilzunehmen.");
       $this->status=false;
     }
     return $this->status;
@@ -142,16 +142,16 @@ class User {
   function EligibleForRun($run) {
     $this->status=true;
     if(!isset($run) or !is_object($run)) {
-      $this->errors[]="run is no object. something is wrong";
+      $this->errors[]=_("Interner Fehler");
       $this->status=false;
       return false;
     }
     if(!$run->public) {
-      $this->errors[]="Diese Studie wurde noch nicht ver&ouml;ffentlicht";
+      $this->errors[]=_("Diese Studie wurde noch nicht ver&ouml;ffentlicht");
       $this->status=false;
     }
     if($run->registered_req and $this->anonymous==true) {
-      $this->errors[]="Sie m&uuml;ssen registriert sein um an dieser Studie teilzunehmen.";
+      $this->errors[]=_("Sie m&uuml;ssen registriert sein um an dieser Studie teilzunehmen.");
       $this->status=false;
     }
     return $this->status;
@@ -176,18 +176,18 @@ class User {
       return;
     }
     if(mysql_num_rows($result)===false) {
-      $this->errors[]="Email/Password combination is not correct";
+      $this->errors[]=_("Die Login Daten sind nicht korrekt");
       return;
     } 
     $row=mysql_fetch_array($result);
     if(!isset($row['password'])) {
-      $this->errors[]="Email/Password combination is not correct";
+      $this->errors[]=_("Die Login Daten sind nicht korrekt");
       return;
     }
     $user_pwd=$row['password'];
     $secure_pwd=generateHash($password,$user_pwd);
     if($secure_pwd!==$user_pwd) {
-      $this->errors[]="Email/Password combination is not correct";
+      $this->errors[]=_("Die Login Daten sind nicht korrekt");
       return;
     }
 
@@ -207,7 +207,7 @@ class User {
     /* return; */
 
     if(!$this->getUsersStudies()) {
-      $this->errors[]="Could not get users studies";
+      $this->errors[]=_("Interner Fehler");
       return;
     }
     $id=isset($row['id']) ? $row['id'] : '';
@@ -230,7 +230,7 @@ class User {
       return;
     }
     if(mysql_num_rows($result)===false) {
-      $this->errors[]="Invalid ID";
+      $this->errors[]=_("Interner Fehler");
       return;
     }
     $row=mysql_fetch_array($result);
@@ -258,18 +258,18 @@ class User {
     $query.="WHERE id='$this->id'";
     $result=mysql_query($query);
     if(mysql_num_rows($result)===false) {
-      $this->errors[]="Could not execurte query";
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $row=mysql_fetch_array($result);
     if(!isset($row['password'])) {
-      $this->errors[]="Could not change password";
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $user_pwd=$row['password'];
     $secure_pwd=generateHash($password,$user_pwd);
     if($secure_pwd!==$user_pwd) {
-      $this->errors[]="Wrong password";
+      $this->errors[]=_("Das eingegebene Passwort ist nicht korrekt");
       return;
     }
     $secure_pwd_new=generateHash($password_new);
@@ -277,7 +277,7 @@ class User {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $this->password=$secure_pwd_new;
@@ -298,7 +298,7 @@ class User {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
+      $this->errors[]=_("Datenbankfehler");
       return;
     }
     $this->email=$email;
@@ -336,7 +336,7 @@ class User {
     }
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
+      $this->errors[]=_("Datenbankfehler");
       return false;
     }
     if(mysql_num_rows($result)!=false) {
@@ -360,7 +360,7 @@ class User {
     }
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
+      $this->errors[]=_("Datenbankfehler");
       return false;
     }
     if(mysql_num_rows($result)!=false) {
@@ -423,7 +423,7 @@ class User {
     }
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
+      $this->errors[]=_("Datenbankfehler");
       return false;
     }
     if(mysql_num_rows($result)!=false) {
@@ -448,7 +448,7 @@ class User {
     }
     if(!$result) {
       $this->status=false;
-      $this->errors[]="Could not execute query";
+      $this->errors[]=_("Datenbankfehler");
       return false;
     }
     if(mysql_num_rows($result)!=false) {

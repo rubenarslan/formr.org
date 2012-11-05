@@ -38,22 +38,22 @@ if(!empty($_POST) and count($errors)>0) {
   </p>
 <br>
   <p>
-  <label>Aktuelles Passwort
+  <label><?php echo _("Aktuelles Passwort"); ?>
   </label>
   <input type="password" name="password" id="password"/>
   </p>
   <p>
-  <label>Neues Passwort
+  <label><?php echo _("Neues Passwort"); ?>
   </label>
   <input type="password" name="password_new" id="password_new"/>
   </p>
   <p>
-  <label>Neues Passwort Wiederholung
+  <label><?php echo _("Neues Passwort Wiederholung"); ?>
   </label>
   <input type="password" name="password_newr" id="password_newr"/>
   </p>
 <p>
-  <button type="submit">Speichern</button>
+  <button type="submit"><?php echo _("Speichern"); ?></button>
 </p>
   </form>
 

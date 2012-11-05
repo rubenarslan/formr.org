@@ -41,17 +41,17 @@ if(!empty($_POST) and count($errors)>0) {
 <form id="add_study" name="add_study" method="post" action="add_study.php">
   <p>
   <p>
-  <label>Studien Name
+  <label><?php echo _("Studien Name"); ?>
   </label>
   <input type="text" name="name" id="name"  value="<?php if(isset($_POST['name'])) echo $_POST['name']; ?>"/>
   </p>
   <p>
-  <label>Datenbank Prefix
+  <label><?php echo _("Datebank Prefix"); ?>
   </label>
   <input type="text" name="prefix" id="prefix"  value="<?php if(isset($_POST['prefix'])) echo $_POST['prefix']; ?>"/>
   </p> 
   <p>
-  <button type="submit">Studie anlegen</button>
+  <button type="submit"><?php echo _("Studie anlegen"); ?></button>
   </p>
   </form>
 

@@ -32,17 +32,17 @@ if(!empty($_POST) and count($errors)>0) {
 ?>
 <form id="login_form" name="login_form" method="post" action="login.php">
   <p>
-  <label>Email
+  <label><?php echo _("Email Adresse"); ?>
   </label>
   <input type="text" name="email" id="email" value="<?php if(isset($_POST['email']))echo $_POST['email'];?>"/>
   </p>
   <p>
-  <label>Passwort
+  <label><?php echo _("Passwort"); ?>
   </label>
   <input type="password" name="password" id="password" value="<?php if(isset($_POST['password']))echo $_POST['password'];?>"/>
   </p>
 <p>
-  <button type="submit">Login</button>
+  <button type="submit"><?php echo _("Login"); ?></button>
 </p>
   </form>
 
