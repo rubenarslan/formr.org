@@ -53,12 +53,12 @@ if($run->isEmpty()) {
       echo "<p>";
       if($rd[2]!=0) {
         if($rd[3]==1)
-          echo "<p><h6>"._("Optional")." - <img src='../images/pfeil.gif' alt='Pfeil' /> - <a href=change_option.php?id=$run->id&sid=$rd[0]&op=0>"._("Mache verpflichtend")."</a></h6></p>";
+          echo "<p><h6>"._("Optional")." - <img src='../images/pfeil.gif' alt='Pfeil' /> - <a href=change_option.php?id=$run->id&sid=$rd[0]&pos=$rd[2]&op=0>"._("Mache verpflichtend")."</a></h6></p>";
         else 
-          echo "<p><h6>"._("Verpflichtend")." - <img src='../images/pfeil.gif' alt='Pfeil' /> - <a href=change_option.php?id=$run->id&sid=$rd[0]&op=1>"._("Mache Optional")."</a></h6></p>";
+          echo "<p><h6>"._("Verpflichtend")." - <img src='../images/pfeil.gif' alt='Pfeil' /> - <a href=change_option.php?id=$run->id&sid=$rd[0]&pos=$rd[2]&op=1>"._("Mache Optional")."</a></h6></p>";
       }
       echo "$rd[2]: <a href=view_study.php?id=$rd[0]>$rd[1]</a>";
-      echo " - <a href=remove_study_from_run.php?id=$run->id&sid=$rd[0]>[x]</a>";
+      echo " - <a href=remove_study_from_run.php?id=$run->id&sid=$rd[0]&pos=$rd[2]>[x]</a>";
       echo "</p>";
     }
   }

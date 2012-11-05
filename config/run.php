@@ -19,7 +19,12 @@ class Run {
     return true;
   }
 
-  function getPrevStudies($study) {
+/* todo/bug: the same study may appear in a single run multiple times. 
+they can only be differentiated by position. 
+See: getNextStudiesById($sid,$pos) for one way to solve it, may not work for this function though.
+also: add study position to the $study[] array
+*/
+  function getPrevStudies($study) { 
     $studies=array();
     if(!isset($study))
       return NULL;
@@ -48,6 +53,25 @@ class Run {
       if(!$st->status)
         return NULL;
       $studies[]=$st;
+    }
+    return $studies;
+  }
+
+  function getNextStudiesByIdAsRunData($sid,$pos) {
+    $studies=array();
+    $query="SELECT * FROM run_data WHERE run_id='".mysql_real_escape_string($this->id)."' AND position > $pos";
+    $res=mysql_query($query);
+    if(!$res or mysql_num_rows($res)==false) {
+      $this->status=false;
+      $this->errors[]=_("Datenbankfehler");
+      return NULL;
+    }
+    if(!mysql_num_rows($res))
+      return NULL;
+    while($row=mysql_fetch_array($res)) {
+      $id=$row['id'];
+      $pos=$row['position'];
+      $studies[]=array($id,$pos);
     }
     return $studies;
   }
@@ -202,6 +226,34 @@ class Run {
     }
     $this->public=$public;
     $this->status=true;
+  }
+
+  function removeStudy($sid,$pos) {
+    $query="DELETE FROM run_data WHERE run_id = '$this->id' AND study_id = '$sid' AND position='$pos'";
+    $result=mysql_query($query);
+    if($result!=true)
+      return false;
+    $studies=$this->getNextStudiesByIdAsRunData($sid,$pos);
+    foreach($studies as $study) {
+      $this->changeRunDataPosition($study[0],$study[1]-1);
+    }
+    return true;
+  }
+
+  function changeRunDataPosition($id,$new_pos) {
+    $query="UPDATE run_data SET position = '$new_pos' WHERE id = '$id'";
+    $result=mysql_query($query);
+    return $result;
+  }
+
+  function changeOptional($op,$sid,$pos) {
+    if($op!=1 and $op!=0)
+      return false;
+    if(!is_numeric($pos))
+      return false;
+    $query="UPDATE run_data SET optional = '$op' WHERE run_id = '$this->id' AND study_id = '$sid' AND position='$pos'";
+    $result=mysql_query($query);
+    return $result;
   }
   function changeRegisteredReq($registered_req) {
     $tmp=true;
