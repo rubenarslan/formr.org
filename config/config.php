@@ -11,6 +11,14 @@ mysql_connect($dbhost,$dbuser,$dbpass) or die("Datenbank-Verbindung fehlgeschlag
 @mysql_select_db("$dbname") or die("Datenbank-Auswahl fehlgeschlagen. Bitte versuchen Sie es noch einmal.");
 /* } */
 
+/*table names*/
+$prefix = 'survey_';
+define('USERS',$prefix . 'users');
+define('STUDIES',$prefix . 'users');
+define('USERS_STUDIES',$prefix . 'users_studies');
+define('RUNS',$prefix . 'users');
+define('RUN_DATA',$prefix . 'users');
+
 require_once "newuser.php";
 require_once "user.php";
 require_once "study.php";
@@ -92,7 +100,7 @@ function setLanguage($lang) {
 /*     mysql_close(); */
 /*     return $lang['DBSELECT_ERROR']; */
 /*   } */
-/*   $query="UPDATE users SET email_verified = 1 WHERE email='".mysql_real_escape_string(trim($email))."' AND email_token='".mysql_real_escape_string(trim($token))."'"; */
+/*   $query="UPDATE ".USERS." SET email_verified = 1 WHERE email='".mysql_real_escape_string(trim($email))."' AND email_token='".mysql_real_escape_string(trim($token))."'"; */
 /*   $res=mysql_query($query); */
 /*   if($res!==true) */
 /*     return "Query error"; */
@@ -108,7 +116,7 @@ function setLanguage($lang) {
 /*     mysql_close(); */
 /*     return $lang['DBSELECT_ERROR']; */
 /*   } */
-/*   $query="SELECT email_token FROM users WHERE email_token='".mysql_real_escape_string(trim($token))."'"; */
+/*   $query="SELECT email_token FROM ".USERS." WHERE email_token='".mysql_real_escape_string(trim($token))."'"; */
 /*   $res=mysql_query($query); */
 /*   if(mysql_num_rows($res)===false or mysql_num_rows($res)===0) */
 /*     return true; */
@@ -166,7 +174,7 @@ function userIsLoggedIn() {
   /* } */
   $email=$currentUser->email;
   $pwd=$currentUser->password;
-  $query="SELECT email, password FROM users "; 
+  $query="SELECT email, password FROM ".USERS." "; 
   $query.="WHERE email='$email' AND password='$pwd'";
   $ret=mysql_query($query);
   /* mysql_close(); */
@@ -189,7 +197,7 @@ function userIsAdmin() {
   /* } */
   $email=$currentUser->email;
   $pwd=$currentUser->password;
-  $query="SELECT admin FROM users ";
+  $query="SELECT admin FROM ".USERS." ";
   $query.="WHERE email='$email' AND password='$pwd'";
   $ret=mysql_query($query);
   if($ret===false)

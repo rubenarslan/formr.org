@@ -1,7 +1,7 @@
 <?php
 
 function nameExists($name) {
-  $query="SELECT * FROM studies WHERE name='".mysql_real_escape_string($name)."'";
+  $query="SELECT * FROM ".STUDIES." WHERE name='".mysql_real_escape_string($name)."'";
   $res=mysql_query($query);
   if($res===false)
     return _("Datenbankfehler");
@@ -23,7 +23,7 @@ function nameValid($name) {
 }
 
 function prefixExists($prefix) {
-  $query="SELECT * FROM studies WHERE prefix='".mysql_real_escape_string($prefix)."'";
+  $query="SELECT * FROM ".STUDIES." WHERE prefix='".mysql_real_escape_string($prefix)."'";
   $res=mysql_query($query);
   if($res===false)
     return _("Datenbankfehler");
@@ -78,7 +78,7 @@ class Study {
 
   function fillIn($id) {
     $id=mysql_real_escape_string($id);
-    $query="SELECT * FROM studies WHERE id='".$id."'";
+    $query="SELECT * FROM ".STUDIES." WHERE id='".$id."'";
     $result=mysql_query($query);
     if(!$result or mysql_num_rows($result)==false) {
       $this->status=false;
@@ -111,7 +111,7 @@ class Study {
     $prefix=mysql_real_escape_string($this->prefix);
     $user_id=mysql_real_escape_string($this->user_id);
     $id=uniqid();
-    $query="INSERT INTO studies (id,user_id,name,prefix) VALUES ('$id','$user_id','$name','$prefix');";
+    $query="INSERT INTO ".STUDIES." (id,user_id,name,prefix) VALUES ('$id','$user_id','$name','$prefix');";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -142,7 +142,7 @@ class Study {
     /* $prefix=mysql_real_escape_string($this->prefix); */
     /* $user_id=mysql_real_escape_string($this->user_id); */
     /* $id=uniqid(); */
-    /* $query="INSERT INTO studies (id,user_id,prefix) VALUES ('$id','$user_id','$prefix');"; */
+    /* $query="INSERT INTO ".STUDIES." (id,user_id,prefix) VALUES ('$id','$user_id','$prefix');"; */
     /* $result=mysql_query($query); */
     /* if(!$result) { */
     /*   $this->status=false; */
@@ -180,7 +180,7 @@ class Study {
       $this->errors[]=_("Die Datei konnte nicht gespeichert werden");
       return;
     }
-    $query="UPDATE studies SET logo_name = '".mysql_real_escape_string($file_name)."' WHERE id = '$this->id'";
+    $query="UPDATE ".STUDIES." SET logo_name = '".mysql_real_escape_string($file_name)."' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -197,7 +197,7 @@ class Study {
       $this->errors[]=_("Konnte keine Verbindung zur Datenbank herstellen");
       return;
     }
-    if(!mysql_select_db($DBName,$conn)) {
+    if(!mysql_select_db($DBname,$conn)) {
       $this->status=false;
       $this->errors[]=_("Datenbankfehler");
       mysql_close();
@@ -222,7 +222,7 @@ class Study {
       $this->errors[]=$tmp;
       return;
     }
-    $query="UPDATE studies SET name = '$name' WHERE id = '$this->id'";
+    $query="UPDATE ".STUDIES." SET name = '$name' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -240,7 +240,7 @@ class Study {
       $this->errors[]=$tmp;
       return;
     }
-    $query="UPDATE studies SET prefix = '$prefix' WHERE id = '$this->id'";
+    $query="UPDATE ".STUDIES." SET prefix = '$prefix' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -254,13 +254,13 @@ class Study {
   function changePublic($public) {
     $tmp=true;
     if($public!=false and $public!=true)
-      $tmp=_("Falscher Wert f&uuml;r Variable Public");
+      $tmp=_("Falscher Wert für Variable Public");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
       return;
     }
-    $query="UPDATE studies SET public = '$public' WHERE id = '$this->id'";
+    $query="UPDATE ".STUDIES." SET public = '$public' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -274,13 +274,13 @@ class Study {
   function changeRegisteredReq($registered_req) {
     $tmp=true;
     if($registered_req!=false and $registered_req!=true)
-      $tmp=_("Falscher Wert f&uuml;r Variable reg_req");
+      $tmp=_("Falscher Wert für Variable reg_req");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
       return;
     }
-    $query="UPDATE studies SET registered_req = '$registered_req' WHERE id = '$this->id'";
+    $query="UPDATE ".STUDIES." SET registered_req = '$registered_req' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -294,13 +294,13 @@ class Study {
   function changeEmailReq($email_req) {
     $tmp=true;
     if($email_req!=false and $email_req!=true)
-      $tmp=_("Falscher Wert f&uuml;r Variable email_req");
+      $tmp=_("Falscher Wert für Variable email_req");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
       return;
     }
-    $query="UPDATE studies SET email_req = '$email_req' WHERE id = '$this->id'";
+    $query="UPDATE ".STUDIES." SET email_req = '$email_req' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -313,13 +313,13 @@ class Study {
   function changeBdayReq($bday_req) {
     $tmp=true;
     if($bday_req!=false and $bday_req!=true)
-      $tmp=_("Falscher Wert f&uuml;r Variable bday_req");
+      $tmp=_("Falscher Wert für Variable bday_req");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
       return;
     }
-    $query="UPDATE studies SET bday_req = '$bday_req' WHERE id = '$this->id'";
+    $query="UPDATE ".STUDIES." SET bday_req = '$bday_req' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;

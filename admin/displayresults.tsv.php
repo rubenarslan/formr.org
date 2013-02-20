@@ -5,7 +5,7 @@ date_default_timezone_set('Europe/Berlin');
 $db_host = $DBhost;
 $db_user = $DBuser;
 $db_pwd = $DBpass;
-$database = $DBName;
+$database = $DBname;
 
 
 if (!mysql_connect($db_host, $db_user, $db_pwd))

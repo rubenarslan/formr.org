@@ -53,12 +53,12 @@ if(!empty($_POST) and count($errors)>0) {
   <input type="text" name="name" id="name" value="<?php echo $run->name; ?>"/>
   </p>
   <p>
-  <label><?php echo _("Run nur f&uuml;r registrierte Benutzer verf&uuml;gbar"); ?>
+  <label><?php echo _("Run nur für registrierte Benutzer verfügbar"); ?>
   </label>
   <input type="checkbox" name="registered" id="registered" <?php if($run->registered_req==true) echo "checked";?>/>
   </p>
   <p>
-  <label><?php echo _("Ver&ouml;ffentlichen"); ?>
+  <label><?php echo _("Veröffentlichen"); ?>
   </label>
   <input type="checkbox" name="public" id="public" <?php if($run->public==true) echo "checked";?>/>
   </p>
@@ -69,7 +69,7 @@ if(!empty($_POST) and count($errors)>0) {
 
 
 <br>
-  <p><a href="view_run.php?id=<?php echo $run->id; ?>"><?php echo _("Zur&uuml;ck zum Run"); ?></a></p>
+  <p><a href="view_run.php?id=<?php echo $run->id; ?>"><?php echo _("Zurück zum Run"); ?></a></p>
 
 <?php
 include("post_content.php");

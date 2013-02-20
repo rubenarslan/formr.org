@@ -45,7 +45,7 @@ include("pre_content.php");
 <?php
 
 if($run->isEmpty()) {
-  echo _("Dieser Run enth&auml;lt noch keine Studien.");
+  echo _("Dieser Run enthält noch keine Studien.");
 } else {
   $run_data=$run->GetRunData();
   if($run_data) {
@@ -96,7 +96,7 @@ $studies=$currentUser->GetStudies();
 <?php
       }
 ?>
-  <button type="submit"><?php echo _("Studie hinzuf&uuml;gen"); ?></button>
+  <button type="submit"><?php echo _("Studie hinzufügen"); ?></button>
   </form>
 
 
@@ -104,7 +104,7 @@ $studies=$currentUser->GetStudies();
 
 <br>
   <p><a href="edit_run.php?id=<?php echo $run->id; ?>"><?php echo _("Einstellungen"); ?></a></p>
-  <p><a href="acp.php"><?php echo _("Zur&uuml;ck zum ACP"); ?></a></p>
+  <p><a href="acp.php"><?php echo _("Zurück zum ACP"); ?></a></p>
 
 <?php
 include("post_content.php");

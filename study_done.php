@@ -35,14 +35,14 @@ $timestarted = $_GET['ts'];
 if((isset($run) and !$next_study) or !isset($run)) {
 ?>
 
-<p>Danke f&uuml;r das Ausf&uuml;llen der Studie.</p>
+<p>Danke für das Ausfüllen der Studie.</p>
 <p><a href="index.php">Hier gehts weiter</a></p>  
 
                                   <?php }  else {  ?>
 
-<p>Danke f&uuml;r das Ausf&uuml;llen der Studie.</p>
+<p>Danke für das Ausfüllen der Studie.</p>
                                   <p>Machen Sie doch mit diese Studie weiter: <a href=<?php echo "pre_survey.php?study_id=$next_study->id&run_id=$run->id"; ?>><?php echo $next_study->name; ?></a></p>  
-<p><a href="index.php">Zur&uuml;ck zum Index</a></p>  
+<p><a href="index.php">Zurück zum Index</a></p>  
 
 <?php
 }

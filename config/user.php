@@ -35,7 +35,7 @@ class User {
     if(!isset($study))
       return false;
     if(!$this->anonymous) {   
-      $query="SELECT * FROM users_studies where user_id='".mysql_real_escape_string($this->id)."' AND study_id='".mysql_real_escape_string($study->id)."' AND completed = 1";
+      $query="SELECT * FROM ".USERS_STUDIES." where user_id='".mysql_real_escape_string($this->id)."' AND study_id='".mysql_real_escape_string($study->id)."' AND completed = 1";
       $result=mysql_query($query);
       if(!$result or !mysql_num_rows($result) or mysql_num_rows($result)!=1)
         return false;
@@ -63,7 +63,7 @@ class User {
             return false;
           if(!mysql_select_db($dbname,$conn))
             return false;
-          $query="UPDATE users_studies SET completed = 1 WHERE study_id = '$sid' AND user_id = '$this->id'";
+          $query="UPDATE ".USERS_STUDIES." SET completed = 1 WHERE study_id = '$sid' AND user_id = '$this->id'";
           $result=mysql_query($query);
           if(!$result)
             return false;
@@ -94,7 +94,7 @@ class User {
       if(!mysql_select_db($dbname,$conn))
         return false;
       $id=uniqid();
-      $query="INSERT INTO users_studies (id,user_id,study_id) VALUES ('$id','$this->id','$sid');";
+      $query="INSERT INTO ".USERS_STUDIES." (id,user_id,study_id) VALUES ('$id','$this->id','$sid');";
       $result=mysql_query($query);
       if(!$result)
         return false;
@@ -104,14 +104,14 @@ class User {
   }
 
   function getUsersStudies() {
-    $query="SELECT * FROM users_studies where user_id='".mysql_real_escape_string($this->id)."' AND completed = 1";
+    $query="SELECT * FROM ".USERS_STUDIES." where user_id='".mysql_real_escape_string($this->id)."' AND completed = 1";
     $result=mysql_query($query);
     if(!$result or mysql_num_rows($result)===false)
       return false;
     while($row=mysql_fetch_array($result)) {
       $this->completed_studies[]=$row['study_id'];
     }
-    $query="SELECT * FROM users_studies where user_id='".mysql_real_escape_string($this->id)."' AND completed = 0";
+    $query="SELECT * FROM ".USERS_STUDIES." where user_id='".mysql_real_escape_string($this->id)."' AND completed = 0";
     $result=mysql_query($query);
     if(!$result or mysql_num_rows($result)===false)
       return false;
@@ -129,11 +129,11 @@ class User {
       return false;
     }
     if(!$study->public) {
-      $this->errors[]=_("Diese Studie wurde noch nicht ver&ouml;ffentlicht");
+      $this->errors[]=_("Diese Studie wurde noch nicht veröffentlicht");
       $this->status=false;
     }
     if($study->registered_req and $this->anonymous==true) {
-      $this->errors[]=_("Sie m&uuml;ssen registriert sein um an dieser Studie teilzunehmen.");
+      $this->errors[]=_("Sie müssen registriert sein um an dieser Studie teilzunehmen.");
       $this->status=false;
     }
     return $this->status;
@@ -147,11 +147,11 @@ class User {
       return false;
     }
     if(!$run->public) {
-      $this->errors[]=_("Diese Studie wurde noch nicht ver&ouml;ffentlicht");
+      $this->errors[]=_("Diese Studie wurde noch nicht veröffentlicht");
       $this->status=false;
     }
     if($run->registered_req and $this->anonymous==true) {
-      $this->errors[]=_("Sie m&uuml;ssen registriert sein um an dieser Studie teilzunehmen.");
+      $this->errors[]=_("Sie müssen registriert sein um an dieser Studie teilzunehmen.");
       $this->status=false;
     }
     return $this->status;
@@ -168,7 +168,7 @@ class User {
 
   function login($email,$password) {
     global $available_languages;
-    $query="SELECT * FROM users ";
+    $query="SELECT * FROM ".USERS." ";
     $query.="WHERE email='$email'";
     $result=mysql_query($query);
     if($result===false) {
@@ -222,7 +222,7 @@ class User {
 
   function fillIn($id) {
     global $available_languages;
-    $query="SELECT * FROM users ";
+    $query="SELECT * FROM ".USERS." ";
     $query.="WHERE id='$id'";
     $result=mysql_query($query);
     if($result===false) {
@@ -254,7 +254,7 @@ class User {
       $this->errors[]=$tmp;
       return;
     }
-    $query="SELECT password FROM users ";
+    $query="SELECT password FROM ".USERS." ";
     $query.="WHERE id='$this->id'";
     $result=mysql_query($query);
     if(mysql_num_rows($result)===false) {
@@ -273,7 +273,7 @@ class User {
       return;
     }
     $secure_pwd_new=generateHash($password_new);
-    $query="UPDATE users SET password = '$secure_pwd_new' WHERE email = '$this->email'";
+    $query="UPDATE ".USERS." SET password = '$secure_pwd_new' WHERE email = '$this->email'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -293,8 +293,8 @@ class User {
       return;
     }
     /* $token=generateActivationToken(); */
-    /* $query="UPDATE users SET email = '$email', email_verified = 0, email_token='$token' WHERE email = '$this->email'"; */
-    $query="UPDATE users SET email = '$email' WHERE email = '$this->email'";
+    /* $query="UPDATE ".USERS." SET email = '$email', email_verified = 0, email_token='$token' WHERE email = '$this->email'"; */
+    $query="UPDATE ".USERS." SET email = '$email' WHERE email = '$this->email'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -328,7 +328,7 @@ class User {
   function GetStudies() {
     $studies=array();
     $id=(isset($this->id))?mysql_real_escape_string($this->id):'';
-    $query="SELECT * FROM studies WHERE user_id='".$id."'";
+    $query="SELECT * FROM ".STUDIES." WHERE user_id='".$id."'";
     $result=mysql_query($query);
     if(mysql_num_rows($result)==false) {
       $this->status=false;
@@ -352,7 +352,7 @@ class User {
   function GetRuns() {
     $runs=array();
     $id=(isset($this->id))?mysql_real_escape_string($this->id):'';
-    $query="SELECT * FROM runs WHERE user_id='".$id."'";
+    $query="SELECT * FROM ".RUNS." WHERE user_id='".$id."'";
     $result=mysql_query($query);
     if(mysql_num_rows($result)==false) {
       $this->status=false;
@@ -375,7 +375,7 @@ class User {
   }
 
   function ownsStudy($id) {
-    $query="SELECT * FROM studies ";
+    $query="SELECT * FROM ".STUDIES." ";
     $query.="WHERE id='$id'";
     $result=mysql_query($query);
     if($result===false) {
@@ -394,7 +394,7 @@ class User {
   }
 
   function ownsRun($id) {
-    $query="SELECT * FROM runs ";
+    $query="SELECT * FROM ".RUNS." ";
     $query.="WHERE id='$id'";
     $result=mysql_query($query);
     if($result===false) {
@@ -415,7 +415,7 @@ class User {
   function GetAvailableStudies() {
     $studies=array();
     $id=(isset($this->id))?mysql_real_escape_string($this->id):'';
-    $query="SELECT * FROM studies WHERE public='1' ";
+    $query="SELECT * FROM ".STUDIES." WHERE public='1' ";
     $result=mysql_query($query);
     if(mysql_num_rows($result)==false) {
       $this->status=false;
@@ -440,7 +440,7 @@ class User {
   function GetAvailableRuns() {
     $runs=array();
     $id=(isset($this->id))?mysql_real_escape_string($this->id):'';
-    $query="SELECT * FROM runs WHERE public=1";
+    $query="SELECT * FROM ".RUNS." WHERE public=1";
     $result=mysql_query($query);
     if(mysql_num_rows($result)===false) {
       $this->status=false;

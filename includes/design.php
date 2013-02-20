@@ -1,7 +1,7 @@
 <div id="top">
     <div id="sidebar">
         <? Bild(LOGO); ?>
-   <a href="index.php">Zur&uuml;ck</a>
+   <a href="index.php">Zurück</a>
     </div>
 </div>
 

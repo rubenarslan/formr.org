@@ -84,7 +84,7 @@ if(!empty($_POST) and count($errors)>0) {
 
 
 <br>
-  <p><a href="view_study.php?id=<?php echo $study->id; ?>"><?php echo _("Zur&uuml;ck zur Studie"); ?></a></p>
+  <p><a href="view_study.php?id=<?php echo $study->id; ?>"><?php echo _("Zurück zur Studie"); ?></a></p>
 
 <?php
 include("post_content.php");

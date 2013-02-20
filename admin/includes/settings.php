@@ -12,5 +12,5 @@ $analyticsid = "UA-xxxxxx-x";	// UA-xxxxxx-x
 // $DBhost = "localhost";
 // $DBuser = "testframework";
 // $DBpass = "%%7788%%";
-// $DBName = "testframework";
+// $DBname = "testframework";
 ?>

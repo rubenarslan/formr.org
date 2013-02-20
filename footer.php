@@ -3,7 +3,7 @@
             global $currentUser;
             ?>
             <a href="logout.php"><?php echo _("Ausloggen"); ?></a> | 
-            <a href="edit_user.php"><?php echo _("Einstellungen &auml;ndern"); ?></a>
+            <a href="edit_user.php"><?php echo _("Einstellungen ändern"); ?></a>
 
 <?php
    if(userIsAdmin()) 

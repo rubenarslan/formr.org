@@ -9,7 +9,7 @@ require ('includes/settings.php');
 $db_host = $DBhost;
 $db_user = $DBuser;
 $db_pwd = $DBpass;
-$database = $DBName;
+$database = $DBname;
 
 $table = RESULTSTABLE;
 

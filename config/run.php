@@ -10,7 +10,7 @@ class Run {
   public $public=false;
 
   function isEmpty() {
-    $query="SELECT * FROM run_data WHERE run_id='".mysql_real_escape_string($this->id)."'";
+    $query="SELECT * FROM ".RUN_DATA." WHERE run_id='".mysql_real_escape_string($this->id)."'";
     $res=mysql_query($query);
     if($res===false)
       return _("Datenbankfehler");
@@ -28,7 +28,7 @@ also: add study position to the $study[] array
     $studies=array();
     if(!isset($study))
       return NULL;
-    $query="SELECT * FROM run_data WHERE run_id='".mysql_real_escape_string($this->id)."'"."AND study_id='".$study->id."'";
+    $query="SELECT * FROM ".RUN_DATA." WHERE run_id='".mysql_real_escape_string($this->id)."'"."AND study_id='".$study->id."'";
     $res=mysql_query($query);
     if(!$res or mysql_num_rows($res)==false) {
       $this->status=false;
@@ -37,7 +37,7 @@ also: add study position to the $study[] array
     }
     $row=mysql_fetch_array($res);    
     $study_pos=isset($row['position']) ? $row['position'] : '-1';
-    $query="SELECT * FROM run_data WHERE run_id='".mysql_real_escape_string($this->id)."' AND position < $study_pos";
+    $query="SELECT * FROM ".RUN_DATA." WHERE run_id='".mysql_real_escape_string($this->id)."' AND position < $study_pos";
     $res=mysql_query($query);
     if(!$res or mysql_num_rows($res)==false) {
       $this->status=false;
@@ -59,7 +59,7 @@ also: add study position to the $study[] array
 
   function getNextStudiesByIdAsRunData($sid,$pos) {
     $studies=array();
-    $query="SELECT * FROM run_data WHERE run_id='".mysql_real_escape_string($this->id)."' AND position > $pos";
+    $query="SELECT * FROM ".RUN_DATA." WHERE run_id='".mysql_real_escape_string($this->id)."' AND position > $pos";
     $res=mysql_query($query);
     if(!$res or mysql_num_rows($res)==false) {
       $this->status=false;
@@ -77,7 +77,7 @@ also: add study position to the $study[] array
   }
 
   function getFirstStudyId() {
-    $query="SELECT * FROM run_data WHERE run_id='".mysql_real_escape_string($this->id)."' AND position = 0";
+    $query="SELECT * FROM ".RUN_DATA." WHERE run_id='".mysql_real_escape_string($this->id)."' AND position = 0";
     $res=mysql_query($query);
     if(!$res or mysql_num_rows($res)==false) {
       $this->status=false;
@@ -124,7 +124,7 @@ also: add study position to the $study[] array
   function getPosition() {
     if($this->isEmpty())
       return 0;
-    $query="SELECT * FROM run_data WHERE run_id='".mysql_real_escape_string($this->id)."'";
+    $query="SELECT * FROM ".RUN_DATA." WHERE run_id='".mysql_real_escape_string($this->id)."'";
     $res=mysql_query($query);
     if(!$res)
       return -1;
@@ -151,7 +151,7 @@ also: add study position to the $study[] array
     $study_id=mysql_real_escape_string($study->id);
     $position=$this->getPosition();
     $optional=mysql_real_escape_string($optional);
-    $query="INSERT INTO run_data (id,run_id,study_id,position,optional) VALUES ('$id','$run_id','$study_id','$position','$optional');";
+    $query="INSERT INTO ".RUN_DATA." (id,run_id,study_id,position,optional) VALUES ('$id','$run_id','$study_id','$position','$optional');";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -162,13 +162,13 @@ also: add study position to the $study[] array
   }
 
   function nameExists($name) {
-    $query="SELECT * FROM runs WHERE name='".mysql_real_escape_string($name)."'";
+    $query="SELECT * FROM ".RUNS." WHERE name='".mysql_real_escape_string($name)."'";
     $res=mysql_query($query);
     if($res===false)
       return _("Datenbankfehler");
     if(mysql_num_rows($res))
       return true;
-    $query="SELECT * FROM studies WHERE name='".mysql_real_escape_string($name)."'";
+    $query="SELECT * FROM ".STUDIES." WHERE name='".mysql_real_escape_string($name)."'";
     $res=mysql_query($query);
     if($res===false)
       return _("Datenbankfehler");
@@ -197,7 +197,7 @@ also: add study position to the $study[] array
       $this->errors[]=$tmp;
       return;
     }
-    $query="UPDATE runs SET name = '$name' WHERE id = '$this->id'";
+    $query="UPDATE ".RUNS." SET name = '$name' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -211,13 +211,13 @@ also: add study position to the $study[] array
   function changePublic($public) {
     $tmp=true;
     if($public!=false and $public!=true)
-      $tmp=_("Falscher Wert f&uuml;r Variable public");
+      $tmp=_("Falscher Wert für Variable public");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
       return;
     }
-    $query="UPDATE runs SET public = '$public' WHERE id = '$this->id'";
+    $query="UPDATE ".RUNS." SET public = '$public' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -229,7 +229,7 @@ also: add study position to the $study[] array
   }
 
   function removeStudy($sid,$pos) {
-    $query="DELETE FROM run_data WHERE run_id = '$this->id' AND study_id = '$sid' AND position='$pos'";
+    $query="DELETE FROM ".RUN_DATA." WHERE run_id = '$this->id' AND study_id = '$sid' AND position='$pos'";
     $result=mysql_query($query);
     if($result!=true)
       return false;
@@ -241,7 +241,7 @@ also: add study position to the $study[] array
   }
 
   function changeRunDataPosition($id,$new_pos) {
-    $query="UPDATE run_data SET position = '$new_pos' WHERE id = '$id'";
+    $query="UPDATE ".RUN_DATA." SET position = '$new_pos' WHERE id = '$id'";
     $result=mysql_query($query);
     return $result;
   }
@@ -251,20 +251,20 @@ also: add study position to the $study[] array
       return false;
     if(!is_numeric($pos))
       return false;
-    $query="UPDATE run_data SET optional = '$op' WHERE run_id = '$this->id' AND study_id = '$sid' AND position='$pos'";
+    $query="UPDATE ".RUN_DATA." SET optional = '$op' WHERE run_id = '$this->id' AND study_id = '$sid' AND position='$pos'";
     $result=mysql_query($query);
     return $result;
   }
   function changeRegisteredReq($registered_req) {
     $tmp=true;
     if($registered_req!=false and $registered_req!=true)
-      $tmp=_("Falscher Wert f&uuml;r Variable reg_req");
+      $tmp=_("Falscher Wert für Variable reg_req");
     if($tmp!==true) {
       $this->status=false;
       $this->errors[]=$tmp;
       return;
     }
-    $query="UPDATE runs SET registered_req = '$registered_req' WHERE id = '$this->id'";
+    $query="UPDATE ".RUNS." SET registered_req = '$registered_req' WHERE id = '$this->id'";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -278,7 +278,7 @@ also: add study position to the $study[] array
   function GetRunData() {
     $run_data=array();
     $id=(isset($this->id))?mysql_real_escape_string($this->id):'';
-    $query="SELECT * FROM run_data WHERE run_id='".$id."' ORDER BY position";
+    $query="SELECT * FROM ".RUN_DATA." WHERE run_id='".$id."' ORDER BY position";
     $result=mysql_query($query);
     if(mysql_num_rows($result)==false) {
       $this->status=false;
@@ -324,7 +324,7 @@ also: add study position to the $study[] array
     $name=mysql_real_escape_string($this->name);
     $user_id=mysql_real_escape_string($this->user_id);
     $id=uniqid();
-    $query="INSERT INTO runs (id,user_id,name) VALUES ('$id','$user_id','$name');";
+    $query="INSERT INTO ".RUNS." (id,user_id,name) VALUES ('$id','$user_id','$name');";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
@@ -337,7 +337,7 @@ also: add study position to the $study[] array
 
   function fillIn($id) {
     $id=mysql_real_escape_string($id);
-    $query="SELECT * FROM runs WHERE id='".$id."'";
+    $query="SELECT * FROM ".RUNS." WHERE id='".$id."'";
     $result=mysql_query($query);
     if(!$result or mysql_num_rows($result)==false) {
       $this->status=false;

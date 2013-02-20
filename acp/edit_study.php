@@ -67,12 +67,12 @@ if(!empty($_POST) and count($errors)>0) {
   <input type="text" name="prefix" id="prefix" value="<?php echo $study->prefix; ?>"/>
   </p>
   <p>
-  <label><?php echo _("Studie nur f&uuml;r registrierte Benutzer verf&uuml;gbar"); ?>
+  <label><?php echo _("Studie nur für registrierte Benutzer verfügbar"); ?>
   </label>
   <input type="checkbox" name="registered" id="registered" <?php if($study->registered_req==true) echo "checked";?>/>
   </p>
   <p>
-  <label><?php echo _("Ver&ouml;ffentlichen"); ?>
+  <label><?php echo _("Veröffentlichen"); ?>
   </label>
   <input type="checkbox" name="public" id="public" <?php if($study->public==true) echo "checked";?>/>
   </p>
@@ -88,7 +88,7 @@ if(!empty($_POST) and count($errors)>0) {
 
 
 <br>
-  <p><a href="view_study.php?id=<?php echo $study->id; ?>"><?php echo _("Zur&uuml;ck zur Studie"); ?></a></p>
+  <p><a href="view_study.php?id=<?php echo $study->id; ?>"><?php echo _("Zurück zur Studie"); ?></a></p>
 
 <?php
 include("post_content.php");

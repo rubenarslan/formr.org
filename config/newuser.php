@@ -14,12 +14,12 @@ function containsValidChars($username) { //return type check
 }
 
 function emailExists($email) {
-  $query="SELECT * FROM users WHERE email='".mysql_real_escape_string($email)."'";
+  $query="SELECT * FROM ".USERS." WHERE email='".mysql_real_escape_string($email)."'";
   $res=mysql_query($query);
   if($res===false)
-    return _("Datenbankfehler");
+    return _("Datenbankfehler"). mysql_error();
   /* $row=mysql_fetch_assoc($res); */
-  if(mysql_num_rows($res))
+  if(mysql_num_rows($res)===1)
     return true;
   return false;
 }
@@ -28,8 +28,6 @@ function emailExists($email) {
 function emailValid($email) {
   if($email==='')
     return _("Keine Email Adresse angegeben");
-  if(!isInRange($email,7,30))
-    return _("Die angegebene Email Adresse ist ung&uuml;ltig");
   $tmp=emailExists($email);
   if($tmp===true)
     return _("Die angegebene Email Adresse existiert bereits");
@@ -47,7 +45,7 @@ function passwordValid($p0,$p1) {
   if($p1==='')
     return _("Keine Passwortwiederholung angegeben");
   if($p0!==$p1)
-    return _("Die Passw&ouml;rter stimmen nicht &uuml;berein");
+    return _("Die Passwörter stimmen nicht überein");
   if(!isInRange($p0,5,30))
     return _("Das Passwort muss zwischen 5 und 30 Zeichen lang sein");
   if(strpos($p0,' ')!==false)
@@ -116,7 +114,7 @@ class NewUser {
       $email=mysql_real_escape_string($this->email);
       $vpncode=mysql_real_escape_string($this->vpncode);
       $id=uniqid();
-      $query="INSERT INTO users (id,email,password,vpncode) VALUES('$id','$email','$secure_pwd','$vpncode');";
+      $query="INSERT INTO ".USERS." (id,email,password,vpncode) VALUES('$id','$email','$secure_pwd','$vpncode');";
       $ret=mysql_query($query);
       if($ret==false) {
         $this->status=false;

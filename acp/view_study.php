@@ -26,7 +26,7 @@ include("pre_content.php");
 
 
 <br>
-<p><a href="acp.php"><?php echo _("Zur&uuml;ck zum ACP"); ?></a></p>
+<p><a href="acp.php"><?php echo _("Zurück zum ACP"); ?></a></p>
 
 <?php
 include("post_content.php");

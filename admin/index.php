@@ -88,7 +88,7 @@ echo "<tr class=\"even\"><td><a href=\"admin.php\">Globale Einstellungen</a></td
 	}
 
 	echo "<tr class=\"odd\"><td><a href=\"vpncodes.php\">Vpncodes bearbeiten</a></td></tr>";        
-	echo "<tr class=\"even\"><td><a href=\"../acp/acp.php\">Zur&uuml;ck zur Studien&uuml;bersicht</a></td></tr>";
+	echo "<tr class=\"even\"><td><a href=\"../acp/acp.php\">Zurück zur Studienübersicht</a></td></tr>";
 }
 
 echo "</table>";
