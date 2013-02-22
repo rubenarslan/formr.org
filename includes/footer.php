@@ -1,12 +1,6 @@
-<div id="copyright">
-Linus me fecit anno MMX
-</div>
-
 <? 
 // MySQL-Verbindung schließen (wenn wir es nutzen)
-if ($usesql=="yes") {
-	mysql_close();
-}
+mysql_close();
 
 // Analytics-Code setzen, wenn in Settings aktiviert.
 
@@ -31,5 +25,4 @@ echo "<script type=\"text/javascript\">
 <?php 
 if(OUTBUFFER) {
 	ob_end_flush();
-} 
-?>
+}

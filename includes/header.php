@@ -1,7 +1,6 @@
 <?php
 
 /* session_start(); */
-
 header ('Content-type: text/html; charset=utf-8');
 
 // Settings einlesen
@@ -22,16 +21,9 @@ if(OUTBUFFER) {
 	ob_start();
 }
 
-echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
-?>
+?><!DOCTYPE html>
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
-<!-- <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" -->
-<!-- "http://www.w3.org/TR/html4/loose.dtd"> -->
-
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<html>
 <head> 
         <title><?php echo TITLE ?></title>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -39,7 +31,6 @@ echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
         <meta name="keywords" content="<?php echo KEYWORDS ?>"/>
         <meta name="author" content="<?php echo AUTHOR ?>"/>
         <meta name="copyright" content="<?php echo COPYRIGHT ?>"/>
-        <meta name="page-topic" content="<?php echo PAGETOPIC ?>"/>
 
 <?php
 // styles

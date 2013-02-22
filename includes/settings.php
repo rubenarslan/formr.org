@@ -31,7 +31,7 @@ define('ITEMDISPLAYTABLE', $prefix . 'itemdisplay');
 define('ITEMSTABLE', $prefix . 'items');
 define('RESULTSTABLE', $prefix . 'results');
 define('SNRESULTSTABLE', $prefix . 'snresults');
-define('VPNDATATABLE',  $prefix.'vpnueberblick');
+define('VPNDATATABLE',  $prefix.'probands');
 define('STUDIESTABLE', $prefix . 'studies');
 define('TIMESTABLE', $prefix . 'times');
 define('EMAILSTABLE',$prefix . 'emails');
