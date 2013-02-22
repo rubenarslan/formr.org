@@ -14,10 +14,10 @@ mysql_connect($dbhost,$dbuser,$dbpass) or die("Datenbank-Verbindung fehlgeschlag
 /*table names*/
 $prefix = 'survey_';
 define('USERS',$prefix . 'users');
-define('STUDIES',$prefix . 'users');
+define('STUDIES',$prefix . 'studies');
 define('USERS_STUDIES',$prefix . 'users_studies');
-define('RUNS',$prefix . 'users');
-define('RUN_DATA',$prefix . 'users');
+define('RUNS',$prefix . 'runs');
+define('RUN_DATA',$prefix . 'run_data');
 
 require_once "newuser.php";
 require_once "user.php";

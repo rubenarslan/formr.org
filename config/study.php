@@ -26,7 +26,7 @@ function prefixExists($prefix) {
   $query="SELECT * FROM ".STUDIES." WHERE prefix='".mysql_real_escape_string($prefix)."'";
   $res=mysql_query($query);
   if($res===false)
-    return _("Datenbankfehler");
+    die(_("Datenbankfehler").mysql_error());
   if(mysql_num_rows($res))
     return true;
   return false;

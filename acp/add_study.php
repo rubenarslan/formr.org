@@ -20,8 +20,10 @@ if(!empty($_POST)) {
     else {
       if(!$study->CreateDB())
         $errors=$study->GetErrors();
-      else
+      else {
         header("Location: view_study.php?id=".$study->id."");
+		exit;
+	  }
     }
   }
 }
@@ -40,11 +42,9 @@ if(!empty($_POST) and count($errors)>0) {
 ?>
 <form id="add_study" name="add_study" method="post" action="add_study.php">
   <p>
-  <p>
   <label><?php echo _("Studien Name"); ?>
   </label>
   <input type="text" name="name" id="name"  value="<?php if(isset($_POST['name'])) echo $_POST['name']; ?>"/>
-  </p>
   <p>
   <label><?php echo _("Datebank Prefix"); ?>
   </label>
@@ -57,4 +57,4 @@ if(!empty($_POST) and count($errors)>0) {
 
 <?php
 include("post_content.php");
-?>	
+?>
