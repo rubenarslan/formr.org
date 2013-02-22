@@ -13,7 +13,7 @@ class Run {
     $query="SELECT * FROM ".RUN_DATA." WHERE run_id='".mysql_real_escape_string($this->id)."'";
     $res=mysql_query($query);
     if($res===false)
-      return _("Datenbankfehler");
+      return _("Datenbankfehler"). mysql_error();
     if(mysql_num_rows($res))
       return false;
     return true;
@@ -32,7 +32,7 @@ also: add study position to the $study[] array
     $res=mysql_query($query);
     if(!$res or mysql_num_rows($res)==false) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return NULL;
     }
     $row=mysql_fetch_array($res);    
@@ -41,7 +41,7 @@ also: add study position to the $study[] array
     $res=mysql_query($query);
     if(!$res or mysql_num_rows($res)==false) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return NULL;
     }
     if(!mysql_num_rows($res))
@@ -63,7 +63,7 @@ also: add study position to the $study[] array
     $res=mysql_query($query);
     if(!$res or mysql_num_rows($res)==false) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return NULL;
     }
     if(!mysql_num_rows($res))
@@ -81,7 +81,7 @@ also: add study position to the $study[] array
     $res=mysql_query($query);
     if(!$res or mysql_num_rows($res)==false) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return -1;
     }
     $row=mysql_fetch_array($res);    
@@ -155,7 +155,7 @@ also: add study position to the $study[] array
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     return true;
@@ -165,13 +165,13 @@ also: add study position to the $study[] array
     $query="SELECT * FROM ".RUNS." WHERE name='".mysql_real_escape_string($name)."'";
     $res=mysql_query($query);
     if($res===false)
-      return _("Datenbankfehler");
+      return _("Datenbankfehler"). mysql_error();
     if(mysql_num_rows($res))
       return true;
     $query="SELECT * FROM ".STUDIES." WHERE name='".mysql_real_escape_string($name)."'";
     $res=mysql_query($query);
     if($res===false)
-      return _("Datenbankfehler");
+      return _("Datenbankfehler"). mysql_error();
     if(mysql_num_rows($res))
       return true;
     return false;
@@ -201,7 +201,7 @@ also: add study position to the $study[] array
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $this->name=$name;
@@ -221,7 +221,7 @@ also: add study position to the $study[] array
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $this->public=$public;
@@ -268,7 +268,7 @@ also: add study position to the $study[] array
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $this->registered_req=$registered_req;
@@ -286,7 +286,7 @@ also: add study position to the $study[] array
     }
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return false;
     }
     if(mysql_num_rows($result)!=false) {
@@ -328,7 +328,7 @@ also: add study position to the $study[] array
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return false;
     }
     $this->id=$id;
@@ -341,7 +341,7 @@ also: add study position to the $study[] array
     $result=mysql_query($query);
     if(!$result or mysql_num_rows($result)==false) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return false;
     }
     $row=mysql_fetch_array($result);

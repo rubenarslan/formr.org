@@ -113,12 +113,11 @@ class NewUser {
       $secure_pwd=generateHash($this->password);
       $email=mysql_real_escape_string($this->email);
       $vpncode=mysql_real_escape_string($this->vpncode);
-      $id=uniqid();
-      $query="INSERT INTO ".USERS." (id,email,password,vpncode) VALUES('$id','$email','$secure_pwd','$vpncode');";
+      $query="INSERT INTO ".USERS." (email,password,vpncode) VALUES('$email','$secure_pwd','$vpncode');";
       $ret=mysql_query($query);
       if($ret==false) {
         $this->status=false;
-        $this->errors[]=_("Datenbankfehler");
+        $this->errors[]=_("Datenbankfehler"). mysql_error();
         return false;
       }
       return true;

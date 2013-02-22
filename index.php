@@ -9,7 +9,6 @@ include("pre_content.php");
 ?>
 
 <?php
-
 $studies=$currentUser->GetAvailableStudies();
 $runs=$currentUser->GetAvailableRuns();
 if($studies or $runs) {

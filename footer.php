@@ -1,4 +1,5 @@
-          <?php
+<?php
+#die(error_reporting());
           if(userIsLoggedIn()) {  
             global $currentUser;
             ?>

@@ -8,9 +8,7 @@ if (!isset($_FILES['uploaded'])) {
 
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 require ('includes/header.php');
-// Endet mit </html>
 require ('includes/design.php');
-// macht das ganze Klickibunti, endet mit <div id="main"
 
 echo "<table width=\"" . SRVYTBLWIDTH . "\">";
 echo "<tr class=\"adminmessage\"><td>";
@@ -40,20 +38,12 @@ $_FILES['userfile']['size']
 $_FILES['userfile']['tmp_name']
 // Der temporäre Dateiname, unter dem die hochgeladene Datei auf dem Server gespeichert wurde. 
 
-if ($uploaded_size > FILEUPLOADMAXSIZE)
-{
-echo "Die Datei ist zu groß. Bitte kontrollieren und gegebenenfalls Einstellungen höher setzen.<br>";
-$ok=0;
-}
-
-if (!($uploaded_type=="text/csv")) {
-echo "Datei ist keine csv. Es werden nur CSV-Dateien akzeptiert.<br>";
-$ok=0;
-}
 */
 
 if(!move_uploaded_file($_FILES['uploaded']['tmp_name'], $target)) {
   echo "Sorry, es gab ein Problem bei dem Upload.<br />";
+		var_dump($_FILES);
+  $ok = 0;
 } else {
   echo "Datei $target wurde hochgeladen<br />";
 }
@@ -113,12 +103,15 @@ if (!table_exists(ITEMSTABLE, $database) && $ok!=0) {
 }
 
 // Du hast nun entweder ein $ok =1 oder 0 und auf jeden Fall eine existierende, leere Itemtabelle
- if($file_type=="ods" || $file_type=="xls" || $file_type=="csv") {
+ if($ok!=0 AND ($file_type=="ods" || $file_type=="xls" || $file_type=="csv")) {
   
   require_once "SpreadsheetReaderFactory.php";
   $spreadsheetsFilePath=$target; 
   $reader=SpreadsheetReaderFactory::reader($spreadsheetsFilePath);
-  $sheets=$reader->read($spreadsheetsFilePath);
+	if(!$reader) {
+		die(var_dump(is_readable($spreadsheetsFilePath)).$spreadsheetsFilePath. " something wrong with the path.");
+	}
+  $sheets= $reader->read($spreadsheetsFilePath);
 
   foreach($sheets as $sheet) {
     foreach($sheet as $sh) {

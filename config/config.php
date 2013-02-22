@@ -1,9 +1,21 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors','on');
+if (!function_exists('_')) {
+	function _($text) {
+		return $text;
+	}
+}
 
-$dbhost='localhost';
-$dbname='psytest';
-$dbuser='root';
-$dbpass='root';
+#require_once $_SERVER['DOCUMENT_ROOT']."/zwang/app/Config/database.php";
+require_once(dirname(__FILE__)."/../../../Config/database.php");
+
+$db = new DATABASE_CONFIG();
+$dbhost= $db->default['host'];
+$dbname= $db->default['database'];
+$dbuser= $db->default['login'];
+$dbpass= $db->default['password'];
+if(isset($db->default['port'])) $dbhost .= ':'.$db->default['port'];
 
 /* function sqlConnect() { */
   /* global $dbhost,$dbname,$dbuser,$dbpass;   */

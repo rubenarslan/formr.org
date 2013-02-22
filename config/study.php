@@ -4,7 +4,7 @@ function nameExists($name) {
   $query="SELECT * FROM ".STUDIES." WHERE name='".mysql_real_escape_string($name)."'";
   $res=mysql_query($query);
   if($res===false)
-    return _("Datenbankfehler");
+    return _("Datenbankfehler"). mysql_error();
   if(mysql_num_rows($res))
     return true;
   return false;
@@ -82,7 +82,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result or mysql_num_rows($result)==false) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return false;
     }
     $row=mysql_fetch_array($result);
@@ -115,7 +115,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return false;
     }
     $this->id=$id;
@@ -184,7 +184,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     mysql_close();
@@ -199,7 +199,7 @@ class Study {
     }
     if(!mysql_select_db($DBname,$conn)) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       mysql_close();
       return;
     }
@@ -207,7 +207,7 @@ class Study {
     $result=mysql_query($query) or die(mysql_error());  
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       mysql_close();
       return;
     }
@@ -226,7 +226,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $this->name=$name;
@@ -244,7 +244,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $this->prefix=$prefix;
@@ -264,7 +264,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $this->public=$public;
@@ -284,7 +284,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $this->registered_req=$registered_req;
@@ -304,7 +304,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $this->email_req=$email_req;
@@ -323,7 +323,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $this->bday_req=$bday_req;

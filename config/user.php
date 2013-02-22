@@ -258,12 +258,12 @@ class User {
     $query.="WHERE id='$this->id'";
     $result=mysql_query($query);
     if(mysql_num_rows($result)===false) {
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $row=mysql_fetch_array($result);
     if(!isset($row['password'])) {
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $user_pwd=$row['password'];
@@ -277,7 +277,7 @@ class User {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $this->password=$secure_pwd_new;
@@ -298,7 +298,7 @@ class User {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return;
     }
     $this->email=$email;
@@ -336,7 +336,7 @@ class User {
     }
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return false;
     }
     if(mysql_num_rows($result)!=false) {
@@ -360,7 +360,7 @@ class User {
     }
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return false;
     }
     if(mysql_num_rows($result)!=false) {
@@ -423,7 +423,7 @@ class User {
     }
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return false;
     }
     if(mysql_num_rows($result)!=false) {
@@ -448,7 +448,7 @@ class User {
     }
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler");
+      $this->errors[]=_("Datenbankfehler"). mysql_error();
       return false;
     }
     if(mysql_num_rows($result)!=false) {

@@ -122,9 +122,9 @@ if($settings['suppress_fork'] == 'true') {
 	define('SUPPRESS_FORK',false);
 }
 
-if(DEBUG) {
+if(true OR DEBUG) {
     // show E_NOTICE ?
-    // error_reporting(E_ALL);
+    error_reporting(E_ALL);
     // no thanks
     ini_set("display_errors",1);
     ini_set("log_errors",1);
@@ -139,7 +139,7 @@ date_default_timezone_set($settings['timezone']);
 // give me lots of output
 error_reporting(E_ALL & ~E_NOTICE);
 // set a custome log file
-ini_set("error_log", $_SERVER['DOCUMENT_ROOT'] . "/log/errors.log")
+ini_set("error_log", dirname(__FILE__) . "/../log/errors.log")
 
 // $tz = date_default_timezone_get();
 // 
