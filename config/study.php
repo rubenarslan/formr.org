@@ -4,7 +4,7 @@ function nameExists($name) {
   $query="SELECT * FROM ".STUDIES." WHERE name='".mysql_real_escape_string($name)."'";
   $res=mysql_query($query);
   if($res===false)
-    return _("Datenbankfehler"). mysql_error();
+    return _("nameExists Datenbankfehler"). mysql_error();
   if(mysql_num_rows($res))
     return true;
   return false;
@@ -26,7 +26,7 @@ function prefixExists($prefix) {
   $query="SELECT * FROM ".STUDIES." WHERE prefix='".mysql_real_escape_string($prefix)."'";
   $res=mysql_query($query);
   if($res===false)
-    die(_("Datenbankfehler").mysql_error());
+    die(_("prefixExists Datenbankfehler").mysql_error());
   if(mysql_num_rows($res))
     return true;
   return false;
@@ -82,7 +82,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result or mysql_num_rows($result)==false) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler"). mysql_error();
+      $this->errors[]=_("fillIn Datenbankfehler"). mysql_error();
       return false;
     }
     $row=mysql_fetch_array($result);
@@ -111,11 +111,12 @@ class Study {
     $prefix=mysql_real_escape_string($this->prefix);
     $user_id=mysql_real_escape_string($this->user_id);
     $id=uniqid();
+
     $query="INSERT INTO ".STUDIES." (id,user_id,name,prefix) VALUES ('$id','$user_id','$name','$prefix');";
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler"). mysql_error();
+      $this->errors[]=_("Register Datenbankfehler: "). mysql_error();
       return false;
     }
     $this->id=$id;
@@ -124,33 +125,26 @@ class Study {
 
   function CreateDB() { 
     $prefix=$this->prefix;
-    define('TABLEPREFIX',$prefix."_");    
-    require ('../install.php');
-    /* global $dbhost,$dbname,$dbuser,$dbpass,$lang; */
-    /* $conn=mysql_connect($dbhost,$dbuser,$dbpass); */
-    /* if(!$conn) { */
-    /*   $this->status=false; */
-    /*   $this->errors[]="Could not connect do database"; */
-    /*   return false; */
-    /* } */
-    /* if(!mysql_select_db($dbname,$conn)) { */
-    /*   $this->status=false; */
-    /*   $this->errors[]="Could not connect do database"; */
-    /*   mysql_close(); */
-    /*   return false; */
-    /* } */
-    /* $prefix=mysql_real_escape_string($this->prefix); */
-    /* $user_id=mysql_real_escape_string($this->user_id); */
-    /* $id=uniqid(); */
-    /* $query="INSERT INTO ".STUDIES." (id,user_id,prefix) VALUES ('$id','$user_id','$prefix');"; */
-    /* $result=mysql_query($query); */
-    /* if(!$result) { */
-    /*   $this->status=false; */
-    /*   $this->errors[]="Could not execute query2"; */
-    /*   mysql_close(); */
-    /*   return false; */
-    /* } */
-    /* $this->id=$id; */
+
+    define('TABLEPREFIX',$prefix."_");
+	
+	require_once ('../includes/settings.php');
+	require_once ('../includes/functions.php');
+	require_once ('../admin/includes/functions.php');
+
+	$table_exists = false;
+
+	// test if tables exist already
+	$tables = array(ADMINTABLE,EMAILSTABLE,ITEMDISPLAYTABLE,
+	ITEMSTABLE,MESSAGEQUEUE,
+	RESULTSTABLE,SNRESULTSTABLE,STUDIESTABLE,SUBSTABLE,TIMESTABLE,VPNDATATABLE);
+
+	foreach ($tables as $table) {
+	    if( !table_exists($table) ) {
+	      create_table($table);		
+	    }
+	}
+
     return true;
   }
 
@@ -184,7 +178,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler"). mysql_error();
+      $this->errors[]=_("uploadLogo Datenbankfehler"). mysql_error();
       return;
     }
     mysql_close();
@@ -199,7 +193,7 @@ class Study {
     }
     if(!mysql_select_db($DBname,$conn)) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler"). mysql_error();
+      $this->errors[]=_("uploadLogo2 Datenbankfehler"). mysql_error();
       mysql_close();
       return;
     }
@@ -207,7 +201,7 @@ class Study {
     $result=mysql_query($query) or die(mysql_error());  
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler"). mysql_error();
+      $this->errors[]=_("uploadLogo3 Datenbankfehler"). mysql_error();
       mysql_close();
       return;
     }
@@ -226,7 +220,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler"). mysql_error();
+      $this->errors[]=_("changeName Datenbankfehler"). mysql_error();
       return;
     }
     $this->name=$name;
@@ -244,7 +238,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler"). mysql_error();
+      $this->errors[]=_("changePrefix Datenbankfehler"). mysql_error();
       return;
     }
     $this->prefix=$prefix;
@@ -264,7 +258,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler"). mysql_error();
+      $this->errors[]=_("changePublic Datenbankfehler"). mysql_error();
       return;
     }
     $this->public=$public;
@@ -284,7 +278,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler"). mysql_error();
+      $this->errors[]=_("changeRegisteredReq Datenbankfehler"). mysql_error();
       return;
     }
     $this->registered_req=$registered_req;
@@ -304,7 +298,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler"). mysql_error();
+      $this->errors[]=_("changeEmailReq Datenbankfehler"). mysql_error();
       return;
     }
     $this->email_req=$email_req;
@@ -323,7 +317,7 @@ class Study {
     $result=mysql_query($query);
     if(!$result) {
       $this->status=false;
-      $this->errors[]=_("Datenbankfehler"). mysql_error();
+      $this->errors[]=_("changeBdayReq Datenbankfehler"). mysql_error();
       return;
     }
     $this->bday_req=$bday_req;

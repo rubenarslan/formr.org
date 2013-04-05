@@ -5,22 +5,16 @@ header ('Content-type: text/html; charset=utf-8');
 
 // Settings einlesen
 require ('includes/settings.php');
-
-// MySQL verbinden und Datenbank auswählen (Tabelle noch nicht)
-require ('includes/mysql.php');
-
 require('includes/variables.php');	
 
 // Functions einbinden
 require ('includes/functions.php');
 
-// run our 'cron' jobs
-require('includes/schedule.php');
-
 if(OUTBUFFER) {
 	ob_start();
 }
 
+$vpncode = getvpncode();
 ?><!DOCTYPE html>
 
 <html>
@@ -28,36 +22,38 @@ if(OUTBUFFER) {
         <title><?php echo TITLE ?></title>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
         <meta name="description" content="<?php echo DESCRIPTION ?>"/>
-        <meta name="keywords" content="<?php echo KEYWORDS ?>"/>
-        <meta name="author" content="<?php echo AUTHOR ?>"/>
-        <meta name="copyright" content="<?php echo COPYRIGHT ?>"/>
-
-<?php
-// styles
-require ('style.php');
-// Scripts
-require ('scripts.php');
-// color variables from admin-backend
-echo '<style type="text/css">';
-if( PRIMARY_COLOR != "" ) {
-	echo '.primary-color { background-color: '.PRIMARY_COLOR.';}' . PHP_EOL;
-}
-if( SECONDARY_COLOR != "" ) {
-	echo '.secondary-color { background-color: '.SECONDARY_COLOR.';}' . PHP_EOL;
-}
-if( ODD_COLOR != "" ) {
-	echo '.odd, .odd-repeat { background-color: '.ODD_COLOR.';}' . PHP_EOL;
-}
-if( EVEN_COLOR != "" ) {
-	echo '.even, .even-repeat { background-color: '.EVEN_COLOR.';}' . PHP_EOL;
-}
-echo '</style>';
-?>
-
-
+		<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css" />
+		<link rel="stylesheet" href="css/screen.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/debug.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="css/backend.css" type="text/css" media="screen" />
+        <link rel="stylesheet" href="css/font-awesome.min.css">
+		<!--[if IE 7]>
+		<link rel="stylesheet" href="css/font-awesome-ie7.min.css">
+		<![endif]-->
+		
 </head>
 <body>
+	<header class="study-header">
+		
+	</header>
+    <!--[if lt IE 7]>
+        <p class="chromeframe">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
+    <![endif]-->
 
-<?php 
-$vpncode = getvpncode();
-?>
+    <!-- This code is taken from http://twitter.github.com/bootstrap/examples/hero.html -->
+
+	<div class="maincontent container clearfix">
+		<div id="top">
+		    <div id="sidebar">
+		        <img src="img/<?=LOGO?>">
+			   <a href="index.php">Zurück</a>
+		    </div>
+		</div>
+
+		<div id="main">
+		    <div id="title">
+		        <? echo "<h1>" . TITLE . "</h1>";
+		        echo DESCRIPTION;
+		        ?>
+		    </div>
+		    <div class="clearer"></div>

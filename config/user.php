@@ -48,6 +48,8 @@ class User {
   }
 
   function userCompletedStudy($study) {
+  	global $dbhost,$dbname,$dbuser,$dbpass;
+	  
     if(!isset($study))
       return false;
     $sid=$study->id;
@@ -76,6 +78,8 @@ class User {
   }
 
   function userStartedStudy($study) {
+	  global $dbhost,$dbname,$dbuser,$dbpass;
+	  
     if(!isset($study))
       return false;
     $sid=$study->id;

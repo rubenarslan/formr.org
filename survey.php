@@ -6,10 +6,8 @@ global $run;
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 require ('includes/header.php');
 
-// Endet mit </html>
-require ('includes/design.php');
-// macht das ganze Klickibunti, endet mit <div id="main"
 
+$timestarted = null;
 
 date_default_timezone_set('Europe/Berlin');
 
@@ -25,6 +23,7 @@ $times = get_edit_times();
 
 /* current unix time with timezone offset */
 $curtime = time();
+
 if( TIMEDMODE AND !empty($times) ) {
     // check if we can edit now, otherwise show a message
 	/* if( can_edit_now( $study, $curtime, $times, $vpncode)  ) { */
@@ -125,8 +124,11 @@ if( TIMEDMODE AND !empty($times) ) {
 	echo "timedmode = true aber keine edit-zeiten eingetragen. bitte richtiges setup machen!";
 } else { 
 
-  //todo! study is done, all items answered.
-  $already_answered = get_already_answered($vpncode,$starttime,$endtime);
+  //todo: study is done, all items answered.
+  if(TIMEDMODE)
+	  $already_answered = get_already_answered($vpncode,$starttime,$endtime);
+  else $already_answered = get_already_answered($vpncode);
+
   $rows = get_next_items($vpncode, $timestarted, $already_answered);
   $all_inst=true;
   foreach($rows as $row) {
@@ -140,7 +142,10 @@ if( TIMEDMODE AND !empty($times) ) {
 
     /* TIMEDMODE is FALSE */
     /* again, before we do anyting write whats left post array to database */
-	writepostedvars($vpncode,$starttime,$endtime,$timestarted);
+    if(TIMEDMODE)
+		writepostedvars($vpncode,$starttime,$endtime,$timestarted);
+	else 
+		writepostedvars($vpncode);
 	/* writepostedvars($vpncode,$starttime,$endtime,$timestarted,$study); */
     /* render form header without $timestarted (hidden input won't be rendered) */
     render_form_header($vpncode,NULL);
@@ -153,8 +158,6 @@ if( TIMEDMODE AND !empty($times) ) {
 
 /* close main div */
 echo "</div>\n";
-/* navgation */
-// require ('includes/navigation.php');
 /* close database connection, include ga if enabled */
 require('includes/footer.php');
 ?>

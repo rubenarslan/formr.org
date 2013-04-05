@@ -6,9 +6,7 @@ June, 2010 - remember the great wheather!
 
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 require ('includes/header.php');
-// Endet mit </html>
-require ('includes/design.php');
-// macht das ganze Klickibunti, endet mit <div id="main"
+
 
 if( !table_exists(ADMINTABLE) ) {
   setupadmin();
@@ -23,7 +21,7 @@ while($r = mysql_fetch_assoc( $results )) {
 }
 
 
-if( mysql_numrows($results) > 0 ) {
+if( mysql_num_rows($results) > 0 ) {
 
 		
 	if( isset($_POST['updateitems']) ) {	
@@ -53,7 +51,10 @@ if( mysql_numrows($results) > 0 ) {
 		echo "<tr>";
 		echo "<td>".$key."</td>";
 		echo "<td>-</td>";
-		echo "<td><input type=\"text\" size=\"50\" name=\"".$key."\" value=\"".$value."\"/></td>";
+		if(!is_bool($value))
+			echo "<td><input type=\"text\" size=\"50\" name=\"".$key."\" value=\"".$value."\"/></td>";
+		else
+			echo "<td><input type=\"text\" size=\"50\" name=\"".$key."\" value=\"". $value?1:0 ."\"/></td>";
 		echo "</tr>";
 	}
 	echo "</table><input type=\"submit\" name=\"updateitems\" value=\"Submit Changes\" /></form>";
@@ -68,8 +69,7 @@ if( mysql_numrows($results) > 0 ) {
 
 // schließe main-div
 echo "</div>\n";
-// binde Navigation ein
-require ('includes/navigation.php');
+
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
 require('includes/footer.php');
 ?>

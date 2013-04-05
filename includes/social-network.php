@@ -388,7 +388,7 @@ function isComplete($vpncode,$special,$numentry) { // function to check the comp
 
 function snUpdatePostedVars($vpncode,$currentid) {
 	// Prüfe, ob es überhaupt schon eine results-Tabelle gibt
-	if (table_exists(SNRESULTSTABLE, $DBname)) {
+	if (table_exists(SNRESULTSTABLE)) {
 		$query="SHOW COLUMNS FROM ".SNRESULTSTABLE;
 		$items=mysql_query($query);
 		if (!$query) {
@@ -427,7 +427,7 @@ function snUpdatePostedVars($vpncode,$currentid) {
 
 function snUpdatePostedRels($vpncode,$currentid) {
 	// Prüfe, ob es überhaupt schon eine results-Tabelle gibt
-	if (table_exists(SNRESULTSTABLE, $DBname)) {
+	if (table_exists(SNRESULTSTABLE)) {
 		$query="SHOW COLUMNS FROM ".SNRESULTSTABLE;
 		$items=mysql_query($query);
 		if (!$query) {
@@ -527,7 +527,7 @@ function snUpdatePostedRels($vpncode,$currentid) {
 
 function snWritePostedVars($vpncode){
 	// Prüfe, ob es überhaupt schon eine results-Tabelle gibt
-	if (table_exists(SNRESULTSTABLE, $DBname)) {
+	if (table_exists(SNRESULTSTABLE)) {
 		$query="SHOW COLUMNS FROM ".SNRESULTSTABLE;
 		$items=mysql_query($query);
 		if (!$query) {

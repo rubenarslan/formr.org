@@ -12,26 +12,24 @@ function get_study_by_id($id) {    /* generic function to look up which study an
 
 function write_post_data($id) {
   $item_variables = get_all_item_variables();
+
   if( !empty( $id ) ) {
     if(mysql_num_rows($item_variables) > 0) {
       while ($row = mysql_fetch_assoc($item_variables)) {
         /* foreach($row as $r) */
         /*   echo "<p>".$r."</p>"; */
-        /* echo $row[Field]; */
+        /* echo $row['Field']; */
         /* echo "<p>-------</p>"; */
         // Loope durch alle Variablennamen
         // Wenn einer davon per POST übergeben wurde, und nicht leer ist (auch ausgelassene werden als "" gepostet!)
-        if (isset($_POST[$row[Field]]) AND ($_POST[$row[Field]]!="")) {
-          if( $row[Field] != "timestarted" ) {
+#		var_dump($_POST[$row['Field']]);
+        if (isset($_POST[$row['Field']]) AND ($_POST[$row['Field']]!="")) {
+          if( $row['Field'] != "timestarted" ) {
             /* schreibt alles außer timestarted */
-            $value = mysql_real_escape_string($_POST[$row[Field]]);
-            $variable = $row[Field];
+            $value = mysql_real_escape_string($_POST[$row['Field']]);
+            $variable = $row['Field'];
 
-            if(TIMEDMODE) {
-              $query= "UPDATE ".RESULTSTABLE." SET `$variable`='$value', updated_at=NOW() WHERE id=".$id;
-            } else {
-              $query= "UPDATE ".RESULTSTABLE." SET `$variable`='$value', updated_at=NOW() WHERE id=".$id;
-            }
+	        $query= "UPDATE ".RESULTSTABLE." SET `$variable`='$value', updated_at=NOW() WHERE id=".$id;
 
             mysql_query($query) or die (exception_handler(mysql_error() . "<br/>" . $query . "<br/> in write_post_data" ));
           }
@@ -41,26 +39,9 @@ function write_post_data($id) {
             // echo "if ist angeschlagen" . $variable . "<br />";
             $hauptvariablenname = substr($variable, 0, strpos($variable, "mmcalt"));
 
-            if(TIMEDMODE) {
-              $query= "UPDATE ".RESULTSTABLE." SET $hauptvariablenname='99', updated_at=NOW() WHERE id=".$id;
-            } else {
-              $query= "UPDATE ".RESULTSTABLE." SET $hauptvariablenname='99', updated_at=NOW() WHERE id=".$id;
-            }
+          $query= "UPDATE ".RESULTSTABLE." SET $hauptvariablenname='99', updated_at=NOW() WHERE id=".$id;
 
             mysql_query($query) or die (exception_handler(mysql_error() . "<br/>" . $query . "<br/> in write_post_data" ));
-
-            /*  GEHT NICHT Setze alle Fragen, die aufgrund dieser Antwort übergangen werden, auf beantwortet mit 99
-
-                $skipifcode = $variable . " == " . $value;
-                $query="SELECT * FROM ".ITEMSTABLE." WHERE skipif='$skipifcode'";
-                while ($skip = mysql_fetch_assoc(mysql($query))) {
-                $skipthis = $skip[variablenname];
-                $query= "UPDATE ".RESULTSTABLE." SET
-                $skipthis='99'
-                WHERE vpncode='$vpncode'";
-                echo $query;
-                mysql_query($query) or die ("Fehler bei " . $query . mysql_error() . "<br />");
-            */
 
           }
         } else {
@@ -82,7 +63,7 @@ function get_entry_by_id($id) {
     return mysql_fetch_object($result);
 }
 
-function writepostedvars($vpncode,$starttime,$endtime,$timestarted) {
+function writepostedvars($vpncode,$starttime = NULL,$endtime = NULL,$timestarted = NULL) {
     /* if the current user has no entires for this particular edit cycle 
      * or for this study at all (if timedmode is off the time flags are ignored) */
     if( !has_entries_for_study($vpncode) ) {
@@ -170,7 +151,7 @@ function remove_stale_itemsdisplayed($vpncode, $starttime) {
 
 
 /* returns an array with all items that have already been answered for that study in this edit period (when TIMEDMODE == true) */
-function get_already_answered($vpncode,$starttime,$endtime) {
+function get_already_answered($vpncode,$starttime = NULL,$endtime = NULL) {
     if(TIMEDMODE) {             /* if TIMEDMODE true */
 		$query="SELECT * FROM ".RESULTSTABLE." WHERE vpncode='$vpncode'  AND (timestarted BETWEEN $starttime AND $endtime);";
     } else {                    /* if TIMEDMODE false */
@@ -197,7 +178,10 @@ function get_already_answered($vpncode,$starttime,$endtime) {
 function get_next_items($vpncode, $timestarted, $already_answered) { 
 
     // now, get all the items from the table that have not yet been answered and check whether they should be displayed or not
-    $all_items = "SELECT * FROM " . ITEMSTABLE . " WHERE (typ='Instruktion' OR  (variablenname NOT IN (". implode(",", array_map('quote', $already_answered)) . ")));";
+    $all_items = "SELECT * FROM " . ITEMSTABLE . " WHERE typ='Instruktion'";
+	if(!empty($already_answered)) $all_items .= " OR  (variablenname NOT IN (". implode(",", array_map('quote', $already_answered)) . "))";
+	
+	$all_items .= ';';
 
     $itemtable=mysql_query($all_items) or die(exception_handler(mysql_error() . "<br/>" . $all_items . "<br/> in get_next_items" ));
 
@@ -387,7 +371,7 @@ function create_new_entry($vpncode,$timestarted,$iterate) {
 			post_debug("<strong>create_new_entry:</strong> timestarted not set and loop true");
             post_debug("<strong>create_new_entry:</strong> 'insert-query is': " . $query_string);
         } else {
-            $query_string = "INSERT INTO ".RESULTSTABLE." (vpncode,begansurveysmsintvar,created_at,updated_at) VALUES('".$vpncode."', NOW(),, NOW(), NOW())";
+            $query_string = "INSERT INTO ".RESULTSTABLE." (vpncode,begansurveysmsintvar,created_at,updated_at) VALUES('".$vpncode."', NOW(), NOW(), NOW())";
 			post_debug("<strong>create_new_entry:</strong> timestarted not set and loop false");
             post_debug("<strong>create_new_entry:</strong> 'insert-query is': " . $query_string);
         }

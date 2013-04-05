@@ -1,6 +1,6 @@
 <?php
 // und dann bitte noch die User-Funktionen zur Verfügung stellen!
-// require('../includes/functions.php');
+require_once('../includes/functions.php');
 
 function setupadmin() {
     // set up the admin table
@@ -23,18 +23,18 @@ function setupadmin() {
 		array( "fileuploadmaxsize" => "100000"),
 		array( "loginpage" => "survey.php"),
 		array( "userpool" => "open"),
-		array( "diary" => "true"),
-		array( "timed" => "true"),
-		array( "partner" => "true"),
-		array( "random" => "true"),
-		array( "allowedtypes" => 'rating,offen,pse,mc,instruktion,mmc,fork,ym,snpartner,datepicker,email,imc'),
+		array( "diary" => 0),
+		array( "timed" => 0),
+		array( "partner" => 0),
+		array( "random" => 0),
+		array( "allowedtypes" => 'rating,offen,pse,mc,instruktion,mmc,fork,ym,snpartner,datepicker,email,imc,mcnt,pse,bek'),
 		array( "specialtestsallowed" => "SN"),
 		array( "specialteststrigger" => "foo"),
 		array( "snmaxentries" => "35"),
 		array( "timezone" => "Europe/Berlin"),
-		array( "debug" => "true"),
-		array( "skipif_debug" => "true"),
-		array( "suppress_fork" => "false"),
+		array( "debug" => 0),
+		array( "skipif_debug" => 0),
+		array( "suppress_fork" => 0),
 		array( "maxsendemails" => "25"),
 		array( "email_header_from" => "user@host.com"),
 		array( "email_header_reply_to" => "user@host.com"),
@@ -71,7 +71,7 @@ function updateitems(){
         $ratinguntererpol = $_POST["ratinguntererpol"];
         $ratingobererpol = $_POST["ratingobererpol"];
         // Anzahl von MC-Alternativen ist unbekannt, stelle sie daher fest, und loope mit dem POST-Befehl
-        for ($k=1; $k <= howmanymcs(ITEMSTABLE, $DBname); $k++) {
+        for ($k=1; $k <= howmanymcs(ITEMSTABLE); $k++) {
             $variable = "MCalt".$k;
             if (isset($_POST["$variable"])) {
                 $$variable = $_POST["$variable"];
@@ -94,7 +94,7 @@ function updateitems(){
                 $variable = "MCalt".$counter;
                 $value = $$variable;
                 // Prüfe, ob des die Variable in der Tabelle gibt
-                if(!variable_exists(ITEMSTABLE, $DBname, $variable)) {
+                if(!variable_exists(ITEMSTABLE, $variable)) {
                     // Wenn Variable nicht besteht, erstelle sie
                     $subquery = "ALTER TABLE  `" . ITEMSTABLE . "` ADD  `" . $variable . "` VARCHAR(100) NOT NULL \n";
                     // Das soll natürlich sofort geschehen, und nicht erst nachher
@@ -129,6 +129,7 @@ function get_results() {
 
 
 	$csv = "";
+	global $DBname;
 	$fields = mysql_list_fields($DBname,RESULTSTABLE);
 	$columns = mysql_num_fields($fields);
 
@@ -165,9 +166,9 @@ function export_results() {
 }
 
 function backup_results() {
-        $filename = "../results_backups/".$table.date('YmdHis').".csv"; ## TODO: basepath sollte irgendwo zentral gesetzt sein oder so
+        $filename = dirname(__FILE__)."/../results_backups/".$table.date('YmdHis').".csv"; ## TODO: basepath sollte irgendwo zentral gesetzt sein oder so
 	// Sichergehen, dass die Datei existiert und beschreibbar ist
-	if (is_writable($filename)) {
+	if (is_writable($filename) OR !file_exists ( $filename )) {
 
 	    // Wir öffnen $filename im "Anhänge" - Modus.
 	    // Der Dateizeiger befindet sich am Ende der Datei, und
@@ -272,7 +273,7 @@ function mcalternatives($id) {
 
 function deleteresults() {
     if (isset($_GET['confirm'])) $confirm = $_GET['confirm'];
-	$how_much_already = mysql_query("SELECT * FROM ".RESULTSTABLE);
+	$how_much_already = mysql_query("SELECT * FROM ".RESULTSTABLE) or die(mysql_error());
 	$how_much_already = mysql_num_rows($how_much_already);
 
     if ($how_much_already<10 || $confirm=="576879ccc") {
@@ -292,15 +293,15 @@ function deleteresults() {
 
 function createresulttab() {
     //Prüfe, ob Tabelle existiert
-    if (table_exists(RESULTSTABLE, $DBname)) {
+    if (table_exists(RESULTSTABLE)) {
         // Wenn ja, dann breche ab.
         $message="Eine Ergebnistabelle existiert bereits.<br />Eine neue kann nur erstellt werden, wenn vorher die alte gelöscht wird.<br />Vorsicht! Dabei gehen alle bisher erhobenen Daten verloren.";
         echo $message;
     } else {
         // Prüfe, ob es überhaupt schon eine item-Tabelle gibt
-        if (table_exists(ITEMSTABLE, $DBname)) {
+        if (table_exists(ITEMSTABLE)) {
             if(PARTNER AND DIARYMODE) {				
-                $query="CREATE TABLE IF NOT EXISTS " . $DBname . ".".RESULTSTABLE." (
+                $query="CREATE TABLE IF NOT EXISTS ".RESULTSTABLE." (
                     id INT NOT NULL AUTO_INCREMENT,
                     begansurveysmsintvar DATETIME DEFAULT NULL,
                     vpncode VARCHAR( 100 ) NOT NULL,
@@ -315,7 +316,7 @@ function createresulttab() {
                         id
                     )) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";
             } elseif(PARTNER AND !DIARYMODE) {
-                $query="CREATE TABLE IF NOT EXISTS " . $DBname . ".".RESULTSTABLE." (
+                $query="CREATE TABLE IF NOT EXISTS ".RESULTSTABLE." (
                     id INT NOT NULL AUTO_INCREMENT,
                     begansurveysmsintvar DATETIME DEFAULT NULL ,
                     vpncode VARCHAR( 100 ) NOT NULL,
@@ -327,7 +328,7 @@ function createresulttab() {
                         id
                     )) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";
             } elseif(!PARTNER AND DIARYMODE) {
-                $query="CREATE TABLE IF NOT EXISTS " . $DBname . ".".RESULTSTABLE." (
+                $query="CREATE TABLE IF NOT EXISTS ".RESULTSTABLE." (
                     id INT NOT NULL AUTO_INCREMENT,
                     begansurveysmsintvar DATETIME DEFAULT NULL ,
                     vpncode VARCHAR( 100 ) NOT NULL,
@@ -341,7 +342,7 @@ function createresulttab() {
                         id
                     )) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";				
             } elseif(!PARTNER AND !DIARYMODE) {
-                $query="CREATE TABLE IF NOT EXISTS " . $DBname . ".".RESULTSTABLE." (
+                $query="CREATE TABLE IF NOT EXISTS ".RESULTSTABLE." (
                     id INT NOT NULL AUTO_INCREMENT,
                     begansurveysmsintvar DATETIME DEFAULT NULL ,
                     vpncode VARCHAR( 100 ) NOT NULL,
@@ -360,9 +361,9 @@ function createresulttab() {
             $usedcolumnnames = array();
 
             // Wähle dir die Items aus der Itemtabelle aus, und übergehe Instruktionen
-            $query=" SELECT * FROM " . ITEMSTABLE . " WHERE special = ''";
+            $query=" SELECT * FROM " . ITEMSTABLE . " WHERE special IS NULL OR special = ''";
             $message="";
-            $itemtable=mysql_query($query);
+            $itemtable=mysql_query($query) or die(mysql_error());
 
             // Erstelle je nach Variablentyp eine neue Variable in der Ergebnistabelle
             $query = "ALTER TABLE  `".RESULTSTABLE."` ";
@@ -433,7 +434,7 @@ function createresulttab() {
 
 
             // Füge noch die Standardvariablen an, die ans Ende der Tabelle kommen
-            $query = $query . "ADD  `" . endedsurveysmsintvar . "` DATETIME DEFAULT NULL";
+            $query = $query . "ADD  `endedsurveysmsintvar` DATETIME DEFAULT NULL";
 
             // echo $query;
             if (mysql_query($query)) {
@@ -461,13 +462,13 @@ function get_all_emails() {
 }
 
 function createvpndatatab() {
-    if(table_exists(VPNDATATABLE,$DBname)) {
+    if(table_exists(VPNDATATABLE)) {
         $message = "Eine Vpndatatabelle existiert bereits... :-/";
         echo $message;
     } else {
         if(PARTNER) {
             $query =
-                "CREATE TABLE IF NOT EXISTS ". $DBname .".".VPNDATATABLE." ( 
+                "CREATE TABLE IF NOT EXISTS ".VPNDATATABLE." ( 
                     id INT(11) NOT NULL AUTO_INCREMENT, 
                     vpncode VARCHAR(100) NOT NULL, 
                     partnercode VARCHAR(100) DEFAULT NULL, 
@@ -480,7 +481,7 @@ function createvpndatatab() {
 
         } elseif(!PARTNER) {
             $query =
-                "CREATE TABLE IF NOT EXISTS ". $DBname .".".VPNDATATABLE." ( 
+                "CREATE TABLE IF NOT EXISTS ".VPNDATATABLE." ( 
                     id INT(11) NOT NULL AUTO_INCREMENT, 
                     vpncode VARCHAR(100) NOT NULL, 
                     email VARCHAR(100) DEFAULT NULL, 
@@ -574,14 +575,14 @@ function deletevpndatatab() {
 
 function sncreateresulttab() {
     //Prüfe, ob Tabelle existiert
-    if (table_exists(SNRESULTSTABLE, $DBname)) {
+    if (table_exists(SNRESULTSTABLE)) {
         // Wenn ja, dann breche ab.
         $message="Eine SN-Ergebnistabelle existiert bereits.<br />Eine neue kann nur erstellt werden, wenn vorher die alte gelöscht wird.<br />Vorsicht! Dabei gehen alle bisher erhobenen Daten verloren.";
         echo $message;
     } else {
         // Prüfe, ob es überhaupt schon eine item-Tabelle gibt
-        if (table_exists(ITEMSTABLE, $DBname)) {
-            $query="CREATE TABLE IF NOT EXISTS " . $DBname . ".".SNRESULTSTABLE." (
+        if (table_exists(ITEMSTABLE)) {
+            $query="CREATE TABLE IF NOT EXISTS ".SNRESULTSTABLE." (
                 id INT(11) NOT NULL AUTO_INCREMENT,
                 begansurveysmsintvar DATETIME NOT NULL ,
                 vpncode VARCHAR( 100 ) NOT NULL ,
@@ -597,7 +598,7 @@ function sncreateresulttab() {
             $usedcolumnnames = array();
 
             // Wähle dir die Items aus der Itemtabelle aus, und übergehe Instruktionen
-            $query=" SELECT * FROM ".ITEMSTABLE." WHERE special!=''";
+            $query=" SELECT * FROM ".ITEMSTABLE." WHERE special != '' AND special IS NOT NULL";
             $message="";
             $itemtable=mysql_query($query);
 
@@ -657,8 +658,8 @@ function sndeleteresults() {
     echo $message;
 }
 
-function variable_exists($table, $database, $variable) {
-    if (table_exists($table, $database)) {
+function variable_exists($table, $variable) {
+    if (table_exists($table)) {
         $query ="DESCRIBE $table";
         $tablenames = mysql_query($query);
         while($i = mysql_fetch_assoc($tablenames)) {
@@ -676,7 +677,7 @@ function variable_exists($table, $database, $variable) {
     }
 }
 
-function howmanymcs($table, $database) {
+function howmanymcs($table) {
     // Sagt, wie viele Multiple Choice-Optionen es bis jetzt in der Tabelle gibt
     // Nimm dir die Tabelle
     $query ="DESCRIBE $table";
@@ -707,7 +708,7 @@ function createitemdisplaytable() {
 
 
 function resetitemdisplaytable() {
-    if (table_exists(ITEMDISPLAYTABLE, $DBname)) {
+    if (table_exists(ITEMDISPLAYTABLE)) {
         $query="truncate " . ITEMDISPLAYTABLE .";";
         mysql_query($query);
         $message="existierende Itemdisplay-Tabelle wurde geleert.<br />" . mysql_error();
@@ -719,7 +720,7 @@ function resetitemdisplaytable() {
 }
 
 function createtimestable() {
-    $query="CREATE TABLE IF NOT EXISTS " . $DBname . ".".TIMESTABLE." (
+    $query="CREATE TABLE IF NOT EXISTS ".TIMESTABLE." (
         id INT NOT NULL AUTO_INCREMENT,
         date_added DATETIME DEFAULT NULL,
         starttime INT NOT NULL,
@@ -731,7 +732,7 @@ function createtimestable() {
 }
 
 function createsubstable() {
-    $query="CREATE TABLE IF NOT EXISTS " . $DBname . ".".SUBSTABLE." (
+    $query="CREATE TABLE IF NOT EXISTS ".SUBSTABLE." (
         id INT NOT NULL AUTO_INCREMENT,
         `mode` INT DEFAULT 0,
         `key` VARCHAR(100),
@@ -743,7 +744,7 @@ function createsubstable() {
 }
 
 function createemailtables() {
-    $query="CREATE TABLE IF NOT EXISTS " . $DBname . ".".EMAILSTABLE." (
+    $query="CREATE TABLE IF NOT EXISTS ".EMAILSTABLE." (
         id INT NOT NULL AUTO_INCREMENT,
         name VARCHAR(30) NOT NULL,
         subject VARCHAR(100) NOT NULL,
@@ -755,7 +756,7 @@ function createemailtables() {
         )) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";
     mysql_query($query) or die( mysql_error() );
 
-    $query="CREATE TABLE IF NOT EXISTS " . $DBname . ".".MESSAGEQUEUE." (
+    $query="CREATE TABLE IF NOT EXISTS ".MESSAGEQUEUE." (
         id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         email_id INT NOT NULL,
 		vpncode VARCHAR(50) NOT NULL,

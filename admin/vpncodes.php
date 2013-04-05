@@ -6,9 +6,7 @@ June, 2010 - remember the great wheather!
 
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 require ('includes/header.php');
-// Endet mit </html>
-require ('includes/design.php');
-// macht das ganze Klickibunti, endet mit <div id="main"
+
 //
 
 if($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -35,7 +33,7 @@ table#vpn {
 <?
 if( table_exists(VPNDATATABLE) ) {
 	echo "<table id=\"vpn\" border=\"1\">";
-	echo "<tr><th>ID</th><th>vpncode</th><th>partnercode</th><th>email</th><th>type</th><th>study</th></tr>";
+	echo "<tr><th>ID</th><th>vpncode</th><th>email</th><th>type</th><th>study</th></tr>";
 
 	$query = "SELECT * FROM ".VPNDATATABLE;
 	$results = mysql_query($query) or die( "something went wrong" );
@@ -43,7 +41,6 @@ if( table_exists(VPNDATATABLE) ) {
 		echo "<tr>";
 		echo "<td>".$row['id']."</td>";
 		echo "<td>".$row['vpncode']."</td>";
-		echo "<td>".$row['partnercode']."</td>";
 		echo "<td><textarea name=\"email_".$row['id']."\">".$row['email']."</textarea></td>";
 		echo "<td>".$row['vpntype']."</td>";
 		echo "<td>".$row['study']."</td>";
@@ -58,8 +55,7 @@ if( table_exists(VPNDATATABLE) ) {
 <?
 // schließe main-div
 echo "</div>\n";
-// binde navigation ein
-require ('includes/navigation.php');
+
 // schließe datenbank-verbindung, füge bei bedarf analytics ein
 require('includes/footer.php');
 ?>

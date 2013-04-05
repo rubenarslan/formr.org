@@ -2,9 +2,7 @@
 require ('admin_header.php');
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 require ('includes/header.php');
-// Endet mit </html>
-require ('includes/design.php');
-// macht das ganze Klickibunti, endet mit <div id="main"
+
 
 //write new times to the database
 if( ( isset($_POST['starthour']) and $_POST['starthour'] != "" ) AND 
@@ -64,8 +62,7 @@ if( mysql_numrows($results) > 0 ) {
 
 // schließe main-div
 echo "</div>\n";
-// binde Navigation ein
-require ('includes/navigation.php');
+
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
 require('includes/footer.php');
 ?>

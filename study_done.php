@@ -12,9 +12,7 @@ if(isset($run)) {
 
 
 require ('includes/header.php');
-// ends with </html>
-require ('includes/design.php');
-// ends with <div id="main"
+
 
 
 
@@ -48,8 +46,6 @@ if((isset($run) and !$next_study) or !isset($run)) {
 }
 // schließe main-div
 echo "</div>\n";
-// binde Navigation ein
-require ('includes/navigation.php');
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
 require('includes/footer.php');
 ?>

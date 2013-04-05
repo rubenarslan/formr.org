@@ -2,19 +2,6 @@
 require ('includes/settings.php');
 date_default_timezone_set('Europe/Berlin');
 
-$db_host = $DBhost;
-$db_user = $DBuser;
-$db_pwd = $DBpass;
-$database = $DBname;
-
-
-if (!mysql_connect($db_host, $db_user, $db_pwd))
-    die("Can't connect to database");
-
-if (!mysql_select_db($database))
-    die("Can't select database");
-mysql_query("set names 'utf8';");
-
 $table = RESULTSTABLE;
 
 // sending query

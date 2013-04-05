@@ -1,46 +1,54 @@
-<?
+<?php
 
-header ('Content-type: text/html; charset=utf-8');
+	/* session_start(); */
+	header ('Content-type: text/html; charset=utf-8');
 
-// Settings einlesen
-require ('includes/settings.php');
+	// Settings einlesen
+	require ('../includes/settings.php');
 
-// MySQL verbinden und Datenbank auswählen (Tabelle noch nicht)
-require ('includes/mysql.php');
+	require ('../includes/variables.php');
+	require ('../includes/functions.php');
+	require ('functions.php');
 
-require ('../includes/variables.php');
-require ('../includes/functions.php');
+	?><!DOCTYPE html>
 
-echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
-?>
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-
-<head> 
-		<title><? echo TITLE ?></title>
-		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-		<meta name="description" content="<? echo DESCRIPTION; ?>" />
-		<meta name="keywords" content="<? echo KEYWORDS; ?>" />
-		<meta name="author" content="<? echo AUTHOR; ?>" />
-		<meta name="copyright" content="<? echo COPYRIGHT; ?>" />
-		<meta name="page-topic" content="<? echo PAGETOPIC; ?>" />
+	<html>
+	<head> 
+	        <title><?php echo TITLE ?></title>
+	        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+	        <meta name="description" content="<?php echo DESCRIPTION ?>"/>
+			<link rel="stylesheet" type="text/css" href="../css/bootstrap.min.css" />
+			<link rel="stylesheet" href="../css/screen.css" type="text/css" media="screen" />
+			<link rel="stylesheet" href="../css/debug.css" type="text/css" media="screen" />
+			<link rel="stylesheet" href="../css/backend.css" type="text/css" media="screen" />
+	        <link rel="stylesheet" href="../css/font-awesome.min.css">
+			<!--[if IE 7]>
+			<link rel="stylesheet" href="css/font-awesome-ie7.min.css">
+			<![endif]-->
 		
-		<?
+	</head>
+	<body>
+		<header class="study-header">
 		
-		// Style einbinden
-		require ('style.php');
+		</header>
+	    <!--[if lt IE 7]>
+	        <p class="chromeframe">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
+	    <![endif]-->
 
-		// Scripts einbinden
-		require ('scripts.php');
-		
-		// Functions einbinden
-		require ('functions.php');
-		
-		?>
-			
-</head>
+	    <!-- This code is taken from http://twitter.github.com/bootstrap/examples/hero.html -->
 
-<body>
+		<div class="maincontent container clearfix">
+			<div id="top">
+			    <div id="sidebar">
+			        <img src="img/<?=LOGO?>">
+				   <a href="index.php">Zurück</a>
+			    </div>
+			</div>
+
+			<div id="main">
+			    <div id="title">
+			        <? echo "<h1>" . TITLE . "</h1>";
+			        echo DESCRIPTION;
+			        ?>
+			    </div>
+			    <div class="clearer"></div>

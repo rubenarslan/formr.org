@@ -16,9 +16,12 @@ echo "<script type=\"text/javascript\">
 	} catch(err) {} 
 </script>";
 };
-
 ?>
+</div>
 
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.js"></script>
+<script>window.jQuery || document.write('<script src="js/vendor/jquery-1.9.1.js"><\/script>')</script>
+<script src="js/bootstrap.js"></script>
 </body>
 </html>
 

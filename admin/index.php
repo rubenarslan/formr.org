@@ -3,9 +3,7 @@ require ('admin_header.php');
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 require ('includes/header.php');
 
-// Endet mit </html>
-require ('includes/design.php');
-// macht das ganze Klickibunti, endet mit <div id="main"
+
 
 typesdropdown($allowedtypes, "mc");
 
@@ -62,12 +60,10 @@ echo "<tr class=\"even\"><td><a href=\"admin.php\">Globale Einstellungen</a></td
 		echo "<tr class=\"even\"><td><a href=\"index.php?action=sndeleteresults\">SN-Ergebnistabelle löschen</a></td></tr>";
 	}
 
-	if(PARTNER) {
-		if (!table_exists(VPNDATATABLE, $DBhost)) {
-			echo "<tr class=\"even\"><td><a href=\"index.php?action=createvpndatatab\">VPNDatatabelle erstellen</a></td></tr>";
-		} else {
-			echo "<tr class=\"even\"><td><a href=\"index.php?action=deletevpndatatab\">VPNDatatabelle löschen</a></td></tr>";
-		}
+	if (!table_exists(VPNDATATABLE, $DBhost)) {
+		echo "<tr class=\"even\"><td><a href=\"index.php?action=createvpndatatab\">VPNDatatabelle erstellen</a></td></tr>";
+	} else {
+		echo "<tr class=\"even\"><td><a href=\"index.php?action=deletevpndatatab\">VPNDatatabelle löschen</a></td></tr>";
 	}
 
 	echo "<tr class=\"odd\"><td><a href=\"edititems.php\">Items editieren</a></td></tr>";
@@ -96,8 +92,7 @@ echo "</table>";
 
 // schließe main-div
 echo "</div>\n";
-// binde Navigation ein
-require ('includes/navigation.php');
+
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
 require('includes/footer.php');#
 

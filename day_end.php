@@ -1,8 +1,6 @@
 <?
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 require ('includes/header.php');
-require ('includes/design.php');
-// macht das ganze Klickibunti, endet mit <div id="main"
 
 
 
@@ -59,8 +57,6 @@ if(false) {
 <?
 // schließe main-div
 echo "</div>\n";
-// binde Navigation ein
-require ('includes/navigation.php');
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
 require('includes/footer.php');
 ?>

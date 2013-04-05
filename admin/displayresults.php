@@ -6,20 +6,7 @@ require ('admin_header.php');
 
 require ('includes/settings.php');
 
-$db_host = $DBhost;
-$db_user = $DBuser;
-$db_pwd = $DBpass;
-$database = $DBname;
-
 $table = RESULTSTABLE;
-
-if (!mysql_connect($db_host, $db_user, $db_pwd))
-    die("Can't connect to database");
-
-if (!mysql_select_db($database))
-    die("Can't select database");
-
-mysql_query("set names 'utf8';");
 
 // sending query
 $result = mysql_query("SELECT * FROM {$table}");

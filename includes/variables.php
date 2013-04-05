@@ -13,7 +13,6 @@ while( $setting = mysql_fetch_assoc($settings_query) ) {
 // PAGE-INFOS
 define('TITLE', $settings['title']);
 define('DESCRIPTION', $settings['description']);
-define('KEYWORDS', $settings['keywords']);
 define('AUTHOR', $settings['author']);
 define('COPYRIGHT', $settings['copyright']);
 define('PAGETOPIC', $settings['pagetopic']);
@@ -45,7 +44,6 @@ define ('WELCOME', $settings['welcome']);
 
 define('EMAIL', $settings['admin_email']);
 
-// is there at a diary in this study? FIXME: should be migrated to the database hence configurable from web interface //
 define('DIARYMODE', (boolean) $settings['diary']);
 
 // ist es eine partner oder single studie? 
@@ -59,13 +57,12 @@ define('RANDOM', (boolean) $settings['random']);
 
 // how many emails per cron run should get sent out?
 define('MAXSENDEMAILS',$settings['maxsendemails']);
-define('EMAILHEADER', "From: ". $settings['email_header_from'] . "\r\nReply-To: " . $settings['email_header_reply-to'] . "\r\nCc: " . $settings['email_header_cc']);
 
 // WICHTIG! Erlaubte Variablentypen - alle anderen werden ignoriert!
 // $allowedtypes = array("rating", "offen", "mc", "instruktion","mmc","fork","snpartner");
 //$allowedtypes = array("rating","offen","mc","instruktion","mmc","fork","ym","snpartner","datepicker","email","imc");
 // use the value from the database
-$allowedtypes = split(',', $settings['allowedtypes']);
+$allowedtypes = explode(',', $settings['allowedtypes']);
 
 // WICHTIG! ERLAUBTE specialtests!
 // möglich sind:
@@ -73,7 +70,7 @@ $allowedtypes = split(',', $settings['allowedtypes']);
 $specialtestsallowed = $settings['specialtestsallowed'];
 
 // ...und wie die specialtests getriggert werden FIXME
-// FIXME FIXME FIXMEFIXMEFIXMEFIXMEFIXME
+// FIXME: FIXME FIXMEFIXMEFIXMEFIXMEFIXME
 $specialteststrigger = array("SN"=>"snstart","test"=>"test");
 
 // maximum number of persons people can enter into the SN test.
@@ -102,29 +99,17 @@ define('FILEUPLOADMAXSIZE', $settings['fileuploadmaxsize']); // in k
 
 // debugging?
 // define('DEBUG', (boolean) $settings['debug']);
-if($settings['debug'] == "true") {
-	define('DEBUG',true);
-} else {
-	define('DEBUG',false);
-}
+if(!in_array($settings['debug'], array(-1,0,1,2))) $settings['debug'] = 1;
+define('DEBUG', $settings['debug']);
 
 // debugging?
 // define('DEBUG', (boolean) $settings['debug']);
-if($settings['skipif_debug'] == "true") {
-	define('SKIPIF_DEBUG',true);
-} else {
-	define('SKIPIF_DEBUG',false);
-}
+define('SKIPIF_DEBUG',(boolean)$settings['skipif_debug']);
 
-if($settings['suppress_fork'] == 'true') {
-	define('SUPPRESS_FORK',true);
-} else {
-	define('SUPPRESS_FORK',false);
-}
+define('SUPPRESS_FORK',(boolean)$settings['suppress_fork']);
 
-if(true OR DEBUG) {
+if(DEBUG>-1) {
     // show E_NOTICE ?
-    error_reporting(E_ALL);
     // no thanks
     ini_set("display_errors",1);
     ini_set("log_errors",1);
@@ -132,12 +117,12 @@ if(true OR DEBUG) {
     ini_set("display_errors",0);
     ini_set("log_errors",1);
 }
+// give me lots of output
+error_reporting(-1);
 
 // set the timezone
 date_default_timezone_set($settings['timezone']);
 
-// give me lots of output
-error_reporting(E_ALL & ~E_NOTICE);
 // set a custome log file
 ini_set("error_log", dirname(__FILE__) . "/../log/errors.log")
 

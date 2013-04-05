@@ -6,10 +6,12 @@ function render_form_header($vpncode,$timestarted) {
     /* form begins */	
   global $study;
   global $run;
+  $action = "survey.php?study_id=".$study->id;
   if(isset($run))
-    echo "<form  action=survey.php?study_id=".$study->id."&run_id=".$run->id." method=post>";
-  else
-    echo "<form  action=survey.php?study_id=".$study->id." method=post>";
+    $action .= "&run_id=".$run->id;
+
+  echo '<form action="'.$action.'" method="post" class="form-horizontal" accept-charset="utf-8">';
+
     /* pass on hidden values */
     echo '<input type="hidden" name="vpncode" value="' . $vpncode . '" />';
     if( !empty( $timestarted ) ) {
@@ -38,7 +40,7 @@ function printitems($vpncode,$allowedtypes,$specialteststrigger,$starttime,$endt
 
     $rows = get_next_items($vpncode, $timestarted, $already_answered);
     
-    // randomized blocks of quesitons?
+    // randomized blocks of questions?
     if(RANDOM) {
 
         $random_items = array();
@@ -135,9 +137,7 @@ function printitems($vpncode,$allowedtypes,$specialteststrigger,$starttime,$endt
         }
     }
 
-    if (ALTERNATESUBMIT!="set") {
-        standardsubmit();
-    }
+    standardsubmit();
 }
 
 function substitute($vpncode,$formulierung) {
@@ -367,7 +367,8 @@ function should_skip($vpncode,$row,$timestarted) {
       if($global_skip) {
         post_skipif_debug("<strong>FINAL</strong> global result with mode: <strong>" . $global["mode"] . "</strong> is: <strong>TRUE</strong>");
       } else {
-        post_skipif_debug("<strong>FINAL</strong> global result with mode: <strong>"  . $global["mode"] . "</strong> is: <strong>FALSE</strong>");
+		  if(isset($global))
+	        post_skipif_debug("<strong>FINAL</strong> global result with mode: <strong>"  . $global["mode"] . "</strong> is: <strong>FALSE</strong>");
       }
 
       // local skipif tests
@@ -531,6 +532,167 @@ function should_skip($vpncode,$row,$timestarted) {
 
 }
 
+class Item {
+	public $id = null;
+	public $type = null;
+	public $name = null;
+	public $text = null;
+	public $nr_of_reply_options = null;
+	public $reply_options = null;
+	public $displayed_before = null;
+	public $required = true;
+	public $classes_controls = array('controls');
+	public $classes_wrapper = array('control-group','form-row');
+	
+	function __construct($id,$type,$name,$text,$reply_options,$displayed_before,$size) {
+		$this->id = $id;
+		$this->type = $type;
+		$this->name = $name;
+		$this->text = htmlspecialchars($text);
+		if(!empty($reply_options))
+			$this->size = count($reply_options);
+		elseif(isset($size))
+			$this->size = (int)$size;
+				
+		$this->reply_options = $reply_options;
+		$this->displayed_before = $displayed_before;
+		if($this->required) $this->classes_wrapper[] = 'required';
+		$this->classes_wrapper[] = "item-" . $this->type;
+		$this->setMoreOptions();
+	}
+	private function setMoreOptions() {
+		
+	}
+	private function render_label() {
+		return '
+					<label class="control-label" for="item' . $this->id . '">' . $this->text . '</label>
+		';
+	}
+	private function render_prepended () {
+		if(isset($this->prepend))
+			return '<span class="add-on"><i class="'.$this->prepend.'"></i></span>';
+		else return '';
+	}
+	private function render_input() {
+		return 		
+			'<input type="'. $this->type .'"'. 
+			( $this->required ? ' required="required"':'' ) .
+			' id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'" size="'. $this->size .'" name="item' . $this->name . '">';
+	}
+	private function render_appended () {
+		if(isset($this->append))
+			return '<span class="add-on"><i class="'.$this->append.'"></i></span>';
+		else return '';
+	}
+	private function render() {
+		return $this->render_label() . '
+					<div class="'. implode(" ",$this->classes_controls) .'">'.
+					$this->render_prepended().
+					$this->render_input().
+					$this->render_appended().
+					'</div>
+				</div>
+		';
+	}
+	public function show() {
+		return '<div class="'. implode(" ",$this->classes_wrapper) .'">' .
+			$this->render().
+		 '</div>';
+	}
+}
+class Item_textarea extends Item {
+	private function setMoreOptions() {
+		$this->type = 'textarea';
+		$this->classes_wrapper[] = "item-" . $this->type;
+	}
+	private function render_input() {
+		return 		
+			'<textarea '. 
+			( $this->required ? ' required="required"':'' ) .
+			' id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'" rows="'. $this->size .'" name="item' . $this->name . '">';
+	}
+}
+class Item_number extends Item {
+	private function setMoreOptions() {
+		$this->type = 'number';
+		$this->classes_wrapper[] = "item-" . $this->type;
+		$this->restrictions = '';
+		if(isset($reply_options[0])) $this->restrictions .= ' min="'.(int)$reply_options[0].'"';
+		if(isset($reply_options[1])) $this->restrictions .= ' max="'.(int)$reply_options[1].'"';
+		if(isset($reply_options[2])) $this->restrictions .= ' step="'.$reply_options[2].'"';
+	}
+	private function render_input() {
+		return 		
+			'<input type="'. $this->type .'"'. 
+			( $this->required ? ' required="required"':'' ) .
+				$this->restrictions .
+			' id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'" size="'. $this->size .'" name="item' . $this->name . '">';
+		
+	}
+}
+class Item_email extends Item {
+	private function setMoreOptions() {
+		$this->classes_wrapper[] = 'input-prepend';
+		$this->prepend = 'icon-envelope';
+	}
+}
+class Item_instruction extends Item {
+	private function render() {
+		return '
+					<div class="'. implode(" ",$this->classes_controls) .'">'.
+					$this->text.
+					'</div>
+				</div>
+		';
+	}
+}
+class Item_MC extends Item {
+	private function setMoreOptions() {
+		$this->type = 'radio';
+		$this->name .= '[]';
+		$this->classes_wrapper[] = 'control-radiolabel';
+	}
+	private function render_label() {
+		return '
+					<label class="control-label">' . $this->text . '</label>
+		';
+	}
+	private function render_input() {
+		$ret = '
+			<input type="hidden" value="" id="item' . $this->id . '_" name="' . $this->name . '">
+		';
+		foreach($this->reply_options AS $value => $option) {
+			$ret .= '
+			<input type="' . $this->type . '" '. 
+			( $this->required ? ' required="required"':'' ) .
+			' value="'.$value.'" class="control-label" id="item' . $this->id .$value . '" name="' . $this->name . '">
+			
+			<label for="item' . $this->id .$value . '">' . $option . '</label>
+		';
+		}
+	}
+}
+class Item_MMC extends Item_MC {
+	private function setMoreOptions() {
+		$this->type = 'checkbox';
+		$this->name .= 'mmcalt';
+		$this->classes_wrapper[] = 'control-radiolabel';
+	}
+	private function render_input() {
+		$ret = '
+			<input type="hidden" value="" id="item' . $this->id . '_" name="' . $this->name . '">
+		';
+		foreach($this->reply_options AS $value => $option) {
+			$ret .= '
+			<input type="' . $this->type . '" '. 
+			( $this->required ? ' required="required"':'' ) .
+			' value="'.$value.'" class="control-label" id="item' . $this->id . $value . '" name="' . $this->name . $value . '">
+			
+			<label for="item' . $this->id .$value . '">' . $option . '</label>
+		';
+		}
+	}
+}
 
 function printitem($id, $variablenname, $typ, $wortlaut, $antwortformatanzahl, $ratinguntererpol, $ratingobererpol, $allowedtypes, $zeile, $next, $rows, $timestarted, $vpncode) {
 
@@ -575,7 +737,7 @@ function printitem($id, $variablenname, $typ, $wortlaut, $antwortformatanzahl, $
 	// INSTRUKTION
 	if ($typ=="instruktion") {
 		if ($rows[$zeile+1]['typ'] != "instruktion" AND $rows[$zeile+1]['typ'] != "fork") {
-			echo "<div class='$oe survey-item'>"."\n\n<div class=\"". $item_disp . " instruction $instruktioncss\"><p>"; 
+			echo "<div class='$oe survey-item'>"."\n\n<div class=\"". $item_disp . " instruction\"><p>"; 
 			echo $wortlaut;
 			echo "<input type=\"hidden\" name=\"$variablenname\" value=\"done\" /></p></div></div>\n<div class=\"clearer\"></div>\n";
 		}
@@ -707,7 +869,7 @@ function printitem($id, $variablenname, $typ, $wortlaut, $antwortformatanzahl, $
         for ($k=1; $k <= $antwortformatanzahl; $k++) {
 			echo "<div class='mc-radio-input'>";
 			echo "<input type=\"radio\" id=\"".$variablenname."_".$k."\" name=\"" . $variablenname . "\" value=\"$k\" />";
-			echo "<label for=\"".$variablenname."_".$k."\"> " . $thismc[MCalt.$k] . "</label>\n";
+			echo "<label for=\"".$variablenname."_".$k."\"> " . $thismc["MCalt$k"] . "</label>\n";
 			echo "</div>";
         }
         echo "</div>\n";
@@ -878,19 +1040,6 @@ function bildanzeigen() {
 	//close the item div
 	if ($typ!="instruktion") 	echo "</div>\n";
 	if ($typ!="instruktion") 	echo "<div class='clearer'></div>\n";
-}
-
-
-// Design-Funktionen
-function Bild($name) {
-    // Bild-Datei muss ich im imagefolder befinden, das in Settings bestimmt wird.
-    $datei = IMAGEFOLDER . $name;
-    if (file_exists($datei)) {
-        list($width, $height, $type, $attr) = getimagesize("$datei");
-        echo "<img src=\"$datei\" $attr alt=\"\" />";
-    } else {
-        echo "Bild " . $datei . "existiert nicht!";
-    }
 }
 
 

@@ -8,7 +8,7 @@ function get_edit_times() {
     while($row = mysql_fetch_assoc($results)) {
         array_push($arr,$row);
     }
-	post_debug("<strong>get_edit_times:</strong> $arr size: " . sizeof($arr) . " items");
+	post_debug("<strong>get_edit_times:</strong> Array size: " . sizeof($arr) . " items");
     return $arr;
 }
 
@@ -49,7 +49,10 @@ function update_timestamps($vpncode,$timestarted) {
  * function to check, wether entries exist for the given study and vpncode AND start- and endtime
  * only select id for performances' sake */
 function has_entries_for_edit_time($vpncode,$starttime,$endtime) {
-    $query_string = "SELECT id FROM ".RESULTSTABLE." WHERE vpncode='$vpncode' AND timestarted BETWEEN $starttime AND $endtime";
+	if(TIMEDMODE)
+	    $query_string = "SELECT id FROM ".RESULTSTABLE." WHERE vpncode='$vpncode' AND timestarted BETWEEN $starttime AND $endtime";
+	else
+	    $query_string = "SELECT id FROM ".RESULTSTABLE." WHERE vpncode='$vpncode'";
     post_debug("<strong>has_entries_for_edit_time</strong> 'query is': " . $query_string);
     $results = mysql_query( $query_string) or die(exception_handler(mysql_error() . "<br/>" . $query_string . "<br/> in has_entries_for_edit_time" ));
     if( mysql_num_rows($results) > 0) {
@@ -100,7 +103,10 @@ function can_edit_now($curtime,$times,$vpncode) { # MOOONSTER
 }
 
 function get_entry_for_time($vpncode,$starttime,$endtime) {
-    $query_string = "SELECT id FROM ".RESULTSTABLE." WHERE vpncode='$vpncode' AND timestarted BETWEEN $starttime AND $endtime";
+	if(TIMEDMODE)
+	    $query_string = "SELECT id FROM ".RESULTSTABLE." WHERE vpncode='$vpncode' AND timestarted BETWEEN $starttime AND $endtime";
+	else
+	    $query_string = "SELECT id FROM ".RESULTSTABLE." WHERE vpncode='$vpncode'";
     post_debug( "<strong>get_entry_for_time:</strong> says ''query is': " . $query_string);
     $result = mysql_query( $query_string ) or die( exception_handler(mysql_error() . "<br/>" . $query_string . "<br/> in get_entry_for_time" ) );
     $entry = mysql_fetch_object($result);
@@ -114,11 +120,13 @@ function get_entry_for_time($vpncode,$starttime,$endtime) {
 
 
 function get_timestarted($vpncode,$starttime,$endtime) {
+	if(!TIMEDMODE) return null;
 	post_debug("<strong>get_timestarted:</strong> vpncode => " . $vpncode);
 	post_debug("<strong>get_timestarted:</strong> starttime => " . $starttime);
 	post_debug("<strong>get_timestarted:</strong> endtime => " . $endtime);
 
 	$query = "SELECT timestarted FROM ".RESULTSTABLE." WHERE vpncode='".$vpncode."' AND (timestarted BETWEEN ".$starttime." AND ".$endtime.") ORDER BY timestarted DESC LIMIT 1";
+	
 	$result = mysql_query($query) or die( exception_handler( mysql_error() . "<br/>" . $query . "</br>in get_timestarted"));
 	$entry = mysql_fetch_assoc($result);
 	if( empty($entry["timestarted"]) ) {

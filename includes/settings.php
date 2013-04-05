@@ -7,7 +7,7 @@ $DBhost= $db->default['host'];
 $DBname= $db->default['database'];
 $DBuser= $db->default['login'];
 $DBpass= $db->default['password'];
-$DBport= $db->default['port'];
+$DBport= isset($db->default['port'])?$db->default['port']:'';
 if(strlen($DBport)>0) $DBhost .= ":$DBport";
 
 // ANALYTICS
@@ -17,9 +17,14 @@ $analyticsid = "UA-2102103-4";	// UA-xxxxxx-x
 /*
 // MYSQL
  */
-//change this setting with each install!!
 
-define('TABLEPREFIX',"zwang_");
+/* function sqlConnect() { */
+  /* global $dbhost,$dbname,$dbuser,$dbpass;   */
+mysql_connect($DBhost,$DBuser,$DBpass) or die("Datenbank-Verbindung fehlgeschlagen. Bitte versuchen Sie es noch einmal.");
+mysql_select_db($DBname) or die("Datenbank-Auswahl fehlgeschlagen. Bitte versuchen Sie es noch einmal.");
+/* } */
+mysql_query("set names 'utf8';");
+
 
 // Important! Table settings
 // for every Install, change prefix!!!

@@ -1,8 +1,8 @@
-#AuthUserFile /Applications/MAMP/htdocs/zwang/.htpasswd
-#AuthUserFile /.htpasswd
-#AuthName ByPassword
-#AuthType Basic
-#<Limit GET POST>
-#require valid-user
-#</Limit>
-# commented out because HU Berlin servers suck
+AuthType Basic
+AuthName "AdminBereich"
+AuthBasicProvider file
+#local
+AuthUserFile /Applications/MAMP/htdocs/zwang/.htpasswd
+#prod
+#AuthUserFile /usr/local/www/htdocs/zwang/.htpasswd
+Require valid-user

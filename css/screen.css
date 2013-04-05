@@ -115,7 +115,6 @@ body {
 	padding-bottom: 10px;
 	float: left;
 	width: 100%;
-	height: 100%;
 }
 
 .odd-repeat {
@@ -151,7 +150,6 @@ body {
 .survey-item .right {
 	float: right;
 	width: 48%;
-	height: 100%;
 	margin-left: 2%;
 }
 
@@ -163,7 +161,6 @@ body {
 }
 
 .open-answer {
-	height: 100%;
 	padding-top: 10px;
 }
 
@@ -192,7 +189,6 @@ body {
 
 .image-input {
 	line-height: 100%;
-	height: 100%;
 }
 
 .image-input img {
