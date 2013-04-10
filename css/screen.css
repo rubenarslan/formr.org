@@ -250,3 +250,17 @@ img.study-feedback {
 .mc-radio-input {
 	vertical-align: middle;
 }
+.skipif_false {
+	border: 1px solid black;
+	background-color: #f00;
+}
+
+.skipif_true {
+	border: 1px solid black;
+	background-color: #0f0;
+}
+table.editstudies td {
+    padding-left: 3px;
+    padding-right: 3px;
+}
+

@@ -1,3 +1,17 @@
+	<div class="span2">
+	    <img src="img/<?=LOGO?>">
+	   <a href="index.php">Zurück</a>
+	</div>
+		</div>
+		<div class="row-fluid">
+			<div class="span12">
+				Bei Problemen wenden Sie sich bitte an <strong><a href="mailto:"<?=EMAIL?>"><?=EMAIL?></a>.</strong>
+			</div>
+		</div>
+	</div>
+</div>
+
+
 <? 
 // MySQL-Verbindung schließen (wenn wir es nutzen)
 mysql_close();
@@ -17,11 +31,8 @@ echo "<script type=\"text/javascript\">
 </script>";
 };
 ?>
-</div>
 
-<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.js"></script>
-<script>window.jQuery || document.write('<script src="js/vendor/jquery-1.9.1.js"><\/script>')</script>
-<script src="js/bootstrap.js"></script>
+
 </body>
 </html>
 

@@ -1,9 +1,7 @@
 <?
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 require ('includes/header.php');
-?>
 
-<?
 $time = date("Y.m.d - H.i.s");
 $unixtime = time();
 

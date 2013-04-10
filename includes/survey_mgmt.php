@@ -1,4 +1,5 @@
 <?php
+#require_once "Survey.php";
 
 function get_study_by_id($id) {    /* generic function to look up which study an item is associated with; $id is the unique integer id of the items; */
   $query = "SELECT * FROM ".STUDIESTABLE." WHERE id='".$id."';";
@@ -10,9 +11,12 @@ function get_study_by_id($id) {    /* generic function to look up which study an
   }
 }
 
+// todo: in the future, we should only fetch the variables that will be displayed. they can all be initialised for either display or validation. nothing else needs to be available for either display or validation, riight?
+
 function write_post_data($id) {
   $item_variables = get_all_item_variables();
-
+	
+#  var_dump($_POST);
   if( !empty( $id ) ) {
     if(mysql_num_rows($item_variables) > 0) {
       while ($row = mysql_fetch_assoc($item_variables)) {
@@ -23,27 +27,19 @@ function write_post_data($id) {
         // Loope durch alle Variablennamen
         // Wenn einer davon per POST übergeben wurde, und nicht leer ist (auch ausgelassene werden als "" gepostet!)
 #		var_dump($_POST[$row['Field']]);
-        if (isset($_POST[$row['Field']]) AND ($_POST[$row['Field']]!="")) {
+        if (isset($_POST[$row['Field']]) AND ($_POST[$row['Field']]!="")) { // fixme: '' should be allowed for optional fields 
           if( $row['Field'] != "timestarted" ) {
             /* schreibt alles außer timestarted */
-            $value = mysql_real_escape_string($_POST[$row['Field']]);
             $variable = $row['Field'];
 
-	        $query= "UPDATE ".RESULTSTABLE." SET `$variable`='$value', updated_at=NOW() WHERE id=".$id;
+			if(is_array($_POST[$variable])) $value = implode(", ",$_POST[$variable]);
+			else $value = $_POST[ $variable ];
+			
+	        $query= "UPDATE ".RESULTSTABLE." SET `$variable`='".mysql_real_escape_string($value)."', updated_at=NOW() WHERE id=".$id;
 
             mysql_query($query) or die (exception_handler(mysql_error() . "<br/>" . $query . "<br/> in write_post_data" ));
           }
 
-          // Wenn eine mmc-Antwort gepostet wurde, setze auch die Frage auf beantwortet
-          if (strpos($variable,"mmcalt")>0) {
-            // echo "if ist angeschlagen" . $variable . "<br />";
-            $hauptvariablenname = substr($variable, 0, strpos($variable, "mmcalt"));
-
-          $query= "UPDATE ".RESULTSTABLE." SET $hauptvariablenname='99', updated_at=NOW() WHERE id=".$id;
-
-            mysql_query($query) or die (exception_handler(mysql_error() . "<br/>" . $query . "<br/> in write_post_data" ));
-
-          }
         } else {
           // echo "if ist nicht angeschlagen" . $variable . "<br />";
         }

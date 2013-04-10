@@ -31,45 +31,9 @@ if(!move_uploaded_file($_FILES['uploaded']['tmp_name'], $target)) {
 
 
 // Leere / erstelle items
-if (!table_exists(ITEMSTABLE, $database) AND $ok) {
+if (!table_exists(ITEMSTABLE) AND $ok) {
 // FIX Hier limitieren wir auf 14 MC-Alternativen! Anpassung ist notwendig, wenn mehr oder weniger gegeben werden.
-		$query = "CREATE TABLE IF NOT EXISTS `".ITEMSTABLE."` (
-  `id` int(11) NOT NULL,
-  `variablenname` varchar(100) NOT NULL,
-  `wortlaut` text,
-  `altwortlautbasedon` varchar(150),
-  `altwortlaut` text,
-  `typ` varchar(100) NOT NULL,
-  `antwortformatanzahl` int(100),
-  `ratinguntererpol` text,
-  `ratingobererpol` text,
-  `MCalt1` text,
-  `MCalt2` text,
-  `MCalt3` text,
-  `MCalt4` text,
-  `MCalt5` text,
-  `MCalt6` text,
-  `MCalt7` text,
-  `MCalt8` text,
-  `MCalt9` text,
-  `MCalt10` text,
-  `MCalt11` text,
-  `MCalt12` text,
-  `MCalt13` text,
-  `MCalt14` text,
-  `Teil` varchar(255),
-  `relevant` char(1),
-  `skipif` text,
-  `special` varchar(100),
-  `rand` varchar(10),
-  `study` varchar(100),
-  PRIMARY KEY  (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;";
-	mysql_query($query);
-	if(DEBUG) {
-		echo $query;	
-		echo mysql_error();
-	}
+	createItemsTable();
 } elseif ($ok) {
 	$query = "truncate ".ITEMSTABLE.";";
 	mysql_query($query);
@@ -150,7 +114,7 @@ if($ok):
 		
 		$data[$row_number] = array();
 		
-  		foreach($cellIterator AS $cell):
+ 		foreach($cellIterator AS $cell):
   			if (!is_null($cell) ):
 				$column_number = $cell->columnIndexFromString( $cell->getColumn() ) - 1;
 
@@ -164,41 +128,44 @@ if($ok):
 				elseif($col == 'variablenname'):
 					if(trim($val)==''):
 						$messages[] = "Zeile $row_number: Variablenname leer. Zeile übersprungen.";
-						if(isset($data[$row_number])) unset($data[$row_number]);
+						if(isset($data[$row_number])):
+							unset($data[$row_number]);
+						endif;
 						continue 2; # skip this row
-					elseif( !preg_match('/[A-Za-z0-9_]+/',$val) ): 
-						$errors[] = "Zeile $row_number: Variablenname darf nur a-Z, 0-9 und den Unterstrich enthalten. Zeile übersprungen.";
 					endif;
-					
-
-				elseif($col == 'typ'):
-					if( trim($val) == "" ):
-						$errors[] = "Zeile $row_number: Typ darf nicht leer sein.";
-					elseif(!in_array($val,$allowedtypes) ):
-						$errors[] = "Zeile $row_number: Typ $val nicht erlaubt.";
-					endif;
-					
-					
-				elseif($col == 'skipif'):
-					if( trim($val) != "" AND is_null(json_decode($val, true)) ):
-						$errors[] = "Zeile $row_number: skipif cannot be decoded: check the skipif!";
-					endif;
-					
 					
 				elseif( is_int( $pos = strpos("mcalt",$col) ) ):
 				  $nr = substr($col, $pos + 5);
-				  if(trim($val) != '' AND $nr > $data[$row_number]['antwortformatanzahl'] ) $errors[] = "Zeile $row_number: mehr Antwortoptionen als angegeben!";
-				
-				
-				
+				  if(trim($val) != '' AND $nr > $data[$row_number]['antwortformatanzahl'] ): 
+					  $errors[] = "Zeile $row_number: mehr Antwortoptionen als angegeben!";
+				  endif;
+				  				
 				endif; // validation
+				
 			  
 			$data[$row_number][ $col ] = $val;
 				
 			endif; // cell null
 			
-		endforeach;
-	endforeach;
+		endforeach; // cell loop
+		
+		
+		// row has been put into array
+		if(!isset($data[$row_number]['id'])) $data[$row_number]['id'] = $row_number;
+
+		require_once "../includes/Item.php";
+		$class = "Item_".strtolower($data[$row_number]['typ']);
+		if(!class_exists($class)) 
+			$class = 'Item';
+		$item = new $class($data[$row_number]['typ'],$data[$row_number]['variablenname'],$data[$row_number]);
+		$val_errors = $item->validate();
+		
+		if(!empty($val_errors)):
+			$errors = $errors + $val_errors;
+			unset($data[$row_number]);
+		endif;
+		
+	endforeach; // row loop
 
 
   $callEndTime = microtime(true);
@@ -214,15 +181,12 @@ endif;
 var_dump($data);
 echo '</pre>';
 
-if(true or empty($errors)) {
+if(empty($errors)) {
 
 	// Connect to an ODBC database using driver invocation
-	try {
-	    $dbh = new PDO("mysql:dbname=$DBname;host=$DBhost;port=$DBport;charset=utf8", $DBuser, $DBpass);
-	} catch (PDOException $e) {
-	    echo 'Connection failed: ' . $e->getMessage();
-	}
+	require_once "../includes/DB.php";
 	
+	$dbh = new DB();
 	
 	$dbh->beginTransaction();
 	

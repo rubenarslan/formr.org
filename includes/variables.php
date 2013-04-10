@@ -48,6 +48,7 @@ define('DIARYMODE', (boolean) $settings['diary']);
 
 // ist es eine partner oder single studie? 
 define('PARTNER', (boolean) $settings['partner']);
+#var_dump(PARTNER);
 
 // wenn die studie nur in bestimmten zeiträumen zugänglich sein darf
 define('TIMEDMODE', (boolean) $settings['timed']);
@@ -109,8 +110,6 @@ define('SKIPIF_DEBUG',(boolean)$settings['skipif_debug']);
 define('SUPPRESS_FORK',(boolean)$settings['suppress_fork']);
 
 if(DEBUG>-1) {
-    // show E_NOTICE ?
-    // no thanks
     ini_set("display_errors",1);
     ini_set("log_errors",1);
 } else {

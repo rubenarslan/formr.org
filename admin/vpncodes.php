@@ -42,7 +42,6 @@ if( table_exists(VPNDATATABLE) ) {
 		echo "<td>".$row['id']."</td>";
 		echo "<td>".$row['vpncode']."</td>";
 		echo "<td><textarea name=\"email_".$row['id']."\">".$row['email']."</textarea></td>";
-		echo "<td>".$row['vpntype']."</td>";
 		echo "<td>".$row['study']."</td>";
 		echo "</tr>";
 	}

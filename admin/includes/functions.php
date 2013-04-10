@@ -116,7 +116,7 @@ function updateitems(){
         // FIX mit in SQL aufnehmen: altwortlautbasedon = '$altwortlautbasedon', altwortlaut = '$altwortlaut',
         // funktionieren im Moment nicht, weil der Variablenname geändert werden muss, beinhaltet im Moment störendes minus
         mysql_query($query) or die(mysql_error());
-        echo $query . mysql_error();
+#        echo $query . mysql_error();
         resetitemdisplaytable();
     }
 }
@@ -192,84 +192,6 @@ function backup_results() {
 	
 }
 
-function printitemsforedit($allowedtypes, $id, $variablenname, $wortlaut, $altwortlautbasedon, $altwortlaut, $typ, $antwortformatanzahl, $ratinguntererpol, $ratingobererpol) {
-    // FIX: Frei skalierbare MC-Alternativen: Wenn mehr als 5 muss entsprechende Variable in items erstellt werden.
-    // Funktion erstellt eine Zeile von <tr> bis </tr> mit Editierfunktion
-    // gerade oder ungerade Zeile?
-    if( is_odd($id) ) {
-        $oe = "even";
-    } else {
-        $oe = "odd";
-    }
-    // Mache eine Zeile auf, gib ihr Klasse odd/even
-    echo "\n<tr class=\"" . $oe ."\">\n";
-    // FIX: Method = POST
-    echo "<form method=\"POST\" value=\"edititems.php\">\n";
-    // id in Tabelle items als Zeilennummer
-    echo "<td class=\"$typ\" id=\"$typ\"><a name=\"$id\">" . $id . "</a></td>\n";
-    // Textfeld zur Änderung des Variablennamens
-    echo "<td class=\"$typ\" id=\"$typ\">Variable:<br /><input type=\"text\" size=\"8\" name=\"variablenname\" value=\"$variablenname\"></td>\n";
-    // Änderung des Wortlauts
-    echo "<td class=\"$typ\" id=\"$typ\"><textarea cols=\"" .  22 . "\" rows=\"10\" name=\"wortlaut\" wrap=\"virtual\">" . $wortlaut . "</textarea></td>\n";
-    // FIX: Alternativen Wortlaut und Bedingung dafür!
-    echo "<td class=\"$typ\" id=\"$typ\"><textarea cols=\"" .  22 . "\" rows=\"10\" name=\"altwortlaut\" wrap=\"virtual\">" . $altwortlaut . "</textarea></td>\n";
-
-    // echo "<td class=\"$typ\" id=\"$typ\">" . $altwortlautbasedon . "</td>";
-    // echo "<td class=\"$typ\" id=\"$typ\">" . $altwortlaut . "</td>";
-    echo "<td class=\"$typ\" id=\"$typ\">Typ:" . typesdropdown($allowedtypes, $typ) . "</td>\n";
-    if ($typ != "instruktion") {
-        // Nur, wenn NICHT Instruktion, dann
-        echo "<td class=\"$typ\" id=\"$typ\">Umfang: <input type=\"text\" size=\"3\" name=\"antwortformatanzahl\" value=\"$antwortformatanzahl\"></td>\n";
-        if ($typ == "rating") {
-            // Wenn Rating, dann entsprechende Pole zur Verfügung stellen
-            echo "<td class=\"$typ\" id=\"$typ\">unterer Pol:<br /><input type=\"text\" size=\"10\" name=\"ratinguntererpol\" value=\"$ratinguntererpol\"></td>\n";
-            echo "<td class=\"$typ\" id=\"$typ\">oberer Pol:<br /><input type=\"text\" size=\"10\" name=\"ratingobererpol\" value=\"$ratingobererpol\"></td>\n";
-        } else {
-            if ($typ == "mc") {
-                // Wenn Multiple Choice, dann Alternativen darstellen
-                echo "<td class=\"$typ\" id=\"$typ\">Alternativen:</td><td class=\"$typ\" id=\"$typ\">\n";
-                mcalternatives($id);
-                echo "</td>\n";
-            } else {
-                for ( $counter = 1; $counter <= 2; $counter++) {
-                    // Auffüllen der leer gebliebenen Zellen bei Rating (?)
-                    echo "<td class=\"$typ\" id=\"$typ\"></td>\n";
-                }
-            }
-        }
-    } else {
-        // Auffüllen der leer gebliebenen Zellen bei Instruktion
-        for ( $counter = 1; $counter <= 3; $counter++) {
-            echo "<td class=\"$typ\" id=\"$typ\"></td>\n";
-        }
-    }
-    echo "<input type=\"hidden\" name=\"id\" value=\"$id\"><td class=\"$typ\" id=\"$typ\">Dieses Zeile<br /><input type=\"submit\" value=\"speichern\">\n</form>\n</tr>\n";
-}
-
-function typesdropdown($allowedtypes, $typ) {
-    $output = "<select name=\"typ\">\n";
-    foreach ($allowedtypes as $allowedtype) {
-        if ($allowedtype == $typ) {
-            $output = $output . "<option selected value=\"$allowedtype\">$allowedtype</option>\n";
-        } else {
-            $output = $output . "<option value=\"$allowedtype\">$allowedtype</option>\n";			
-        }
-    }
-    $output = $output . "</select>\n";
-    return $output;
-}
-
-function mcalternatives($id) {
-    $query="SELECT * FROM " . ITEMSTABLE . " WHERE id ='$id'";
-    $thismc=mysql_fetch_array(mysql_query($query));
-    // Debug: Wie viele sind es? id ist unique, also darf es nur 1 sein!
-    $nummc=mysql_numrows(mysql_query($query));
-    if ($nummc > 1) die ("massiver Fehler! Die id ist 2x vergeben");
-    for ($k=1; $k <= $thismc[antwortformatanzahl]; $k++) {
-        echo "<input type=\"text\" name=\"MCalt" .$k . "\" value=\"" . $thismc[MCalt.$k] . "\"><br />\n";
-    }
-}
-
 
 function deleteresults() {
     if (isset($_GET['confirm'])) $confirm = $_GET['confirm'];
@@ -300,7 +222,7 @@ function createresulttab() {
     } else {
         // Prüfe, ob es überhaupt schon eine item-Tabelle gibt
         if (table_exists(ITEMSTABLE)) {
-            if(PARTNER AND DIARYMODE) {				
+            if(defined('PARTNER') AND PARTNER AND defined('DIARYMODE') AND DIARYMODE) {				
                 $query="CREATE TABLE IF NOT EXISTS ".RESULTSTABLE." (
                     id INT NOT NULL AUTO_INCREMENT,
                     begansurveysmsintvar DATETIME DEFAULT NULL,
@@ -315,7 +237,7 @@ function createresulttab() {
                     UNIQUE (
                         id
                     )) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";
-            } elseif(PARTNER AND !DIARYMODE) {
+            } elseif(defined('PARTNER') AND PARTNER AND !defined('DIARYMODE') || !DIARYMODE) {
                 $query="CREATE TABLE IF NOT EXISTS ".RESULTSTABLE." (
                     id INT NOT NULL AUTO_INCREMENT,
                     begansurveysmsintvar DATETIME DEFAULT NULL ,
@@ -327,7 +249,7 @@ function createresulttab() {
                     UNIQUE (
                         id
                     )) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";
-            } elseif(!PARTNER AND DIARYMODE) {
+            } elseif(!defined('PARTNER') || PARTNER AND defined('DIARYMODE') AND DIARYMODE) {
                 $query="CREATE TABLE IF NOT EXISTS ".RESULTSTABLE." (
                     id INT NOT NULL AUTO_INCREMENT,
                     begansurveysmsintvar DATETIME DEFAULT NULL ,
@@ -341,7 +263,7 @@ function createresulttab() {
                     UNIQUE (
                         id
                     )) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";				
-            } elseif(!PARTNER AND !DIARYMODE) {
+            } else {
                 $query="CREATE TABLE IF NOT EXISTS ".RESULTSTABLE." (
                     id INT NOT NULL AUTO_INCREMENT,
                     begansurveysmsintvar DATETIME DEFAULT NULL ,
@@ -354,9 +276,9 @@ function createresulttab() {
                     )) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";
             }
 
-            mysql_query($query);
+            mysql_query($query) or die(mysql_error());
             $message="Ergebnistabelle wurde erstellt.<br />" . mysql_error();
-            echo $message;
+#            echo $message;
             // Mache ein Array, um dir benutze Variablennamen zu merken, damit es nicht zu Dopplungen komme
             $usedcolumnnames = array();
 
@@ -387,7 +309,7 @@ function createresulttab() {
                         $used=$row["variablenname"];
                         array_push ($usedcolumnnames, $used);
                     } elseif ($row["typ"] == "mmc") {
-                        echo "multiple Antworten eingerichtet für: " . $row["variablenname"] . "(" . $row["antwortformatanzahl"] . ")<br />";
+#                        echo "multiple Antworten eingerichtet für: " . $row["variablenname"] . "(" . $row["antwortformatanzahl"] . ")<br />";
                         $query = $query . "ADD  `" . $row["variablenname"] . "` INT(100), \n";
                         $used=$row["variablenname"];
                         array_push ($usedcolumnnames, $used);
@@ -397,7 +319,7 @@ function createresulttab() {
                             array_push ($usedcolumnnames, $mmcvarname);
                         }
                     } elseif ($row["typ"] == "ym") {
-                        echo "multiple Antworten eingerichtet für: " . $row["variablenname"] . "(2)<br />";
+ #                       echo "multiple Antworten eingerichtet für: " . $row["variablenname"] . "(2)<br />";
                         $query = $query . "ADD  `" . $row["variablenname"] . "` INT(100), \n";
                         $used=$row["variablenname"];
                         array_push ($usedcolumnnames, $used);
@@ -408,7 +330,7 @@ function createresulttab() {
                         $query = $query . "ADD  `" . $months . "` INT(100) NOT NULL DEFAULT '0', \n";
                         array_push ($usedcolumnnames, $months);
                     } elseif ($row["typ"] == "datepicker") {
-                        echo "multiple Antworten eingerichtet für: " . $row["variablenname"] . "(3)<br />";
+#                        echo "multiple Antworten eingerichtet für: " . $row["variablenname"] . "(3)<br />";
                         $query = $query . "ADD  `" . $row["variablenname"] . "` INT(100), \n";
                         $used=$row["variablenname"];
                         array_push ($usedcolumnnames, $used);
@@ -446,7 +368,7 @@ function createresulttab() {
         } else {
             $message = $message . "Ey, du Pansen! Es gibt doch noch nicht einmal eine item-Tabelle!";
         }
-        echo $message;
+#        echo $message;
         resetitemdisplaytable();
     }
 }
@@ -466,26 +388,25 @@ function createvpndatatab() {
         $message = "Eine Vpndatatabelle existiert bereits... :-/";
         echo $message;
     } else {
-        if(PARTNER) {
+        if(defined('PARTNER') AND PARTNER) {
             $query =
                 "CREATE TABLE IF NOT EXISTS ".VPNDATATABLE." ( 
                     id INT(11) NOT NULL AUTO_INCREMENT, 
                     vpncode VARCHAR(100) NOT NULL, 
                     partnercode VARCHAR(100) DEFAULT NULL, 
                     email VARCHAR(100) DEFAULT NULL, 
-                    vpntype INT(10) DEFAULT 1, 
                     study VARCHAR(100), 
                     UNIQUE(id)) 
 					ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";
 			$mailuser = "INSERT INTO ".VPNDATATABLE." (vpncode,study) VALUES ('mailman','none')";
 
-        } elseif(!PARTNER) {
+        } else {
             $query =
                 "CREATE TABLE IF NOT EXISTS ".VPNDATATABLE." ( 
                     id INT(11) NOT NULL AUTO_INCREMENT, 
                     vpncode VARCHAR(100) NOT NULL, 
                     email VARCHAR(100) DEFAULT NULL, 
-                    study VARCHAR(100)
+                    study VARCHAR(100),
                     UNIQUE(id)) 
                     ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";
 			$mailuser = "INSERT INTO ".VPNDATATABLE." (vpncode,study) VALUES ('mailman','none')";
@@ -497,39 +418,38 @@ function createvpndatatab() {
 
 
 function createItemsTable() {
-$query="CREATE  TABLE IF NOT EXISTS `".ITEMSTABLE."` (
-  `id` INT(11) NOT NULL ,
-  `variablenname` VARCHAR(100) NOT NULL ,
-  `wortlaut` TEXT NOT NULL ,
-  `altwortlautbasedon` VARCHAR(150) NOT NULL ,
-  `altwortlaut` TEXT NOT NULL ,
-  `typ` VARCHAR(100) NOT NULL ,
-  `antwortformatanzahl` INT(100) NOT NULL ,
-  `ratinguntererpol` TEXT NOT NULL ,
-  `ratingobererpol` TEXT NOT NULL ,
-  `MCalt1` TEXT NOT NULL ,
-  `MCalt2` TEXT NOT NULL ,
-  `MCalt3` TEXT NOT NULL ,
-  `MCalt4` TEXT NOT NULL ,
-  `MCalt5` TEXT NOT NULL ,
-  `MCalt6` TEXT NOT NULL ,
-  `MCalt7` TEXT NOT NULL ,
-  `MCalt8` TEXT NOT NULL ,
-  `MCalt9` TEXT NOT NULL ,
-  `MCalt10` TEXT NOT NULL ,
-  `MCalt11` TEXT NOT NULL ,
-  `MCalt12` TEXT NOT NULL ,
-  `MCalt13` TEXT NOT NULL ,
-  `MCalt14` TEXT NOT NULL ,
-  `Teil` VARCHAR(255) NOT NULL ,
-  `relevant` CHAR(1) NOT NULL ,
-  `skipif` TEXT NOT NULL ,
-  `special` VARCHAR(100) NOT NULL ,
-  `rand` VARCHAR(10) NOT NULL ,
-  `study` VARCHAR(100) NOT NULL ,
-  PRIMARY KEY (`id`) )
-ENGINE = MyISAM
-DEFAULT CHARACTER SET = utf8";
+$query = "CREATE TABLE IF NOT EXISTS `".ITEMSTABLE."` (
+	  `id` int(11) NOT NULL,
+	  `variablenname` varchar(100) NOT NULL,
+	  `wortlaut` text,
+	  `altwortlautbasedon` varchar(150),
+	  `altwortlaut` text,
+	  `typ` varchar(100) NOT NULL,
+	  `antwortformatanzahl` int(100),
+	  `ratinguntererpol` text,
+	  `ratingobererpol` text,
+	  `MCalt1` text,
+	  `MCalt2` text,
+	  `MCalt3` text,
+	  `MCalt4` text,
+	  `MCalt5` text,
+	  `MCalt6` text,
+	  `MCalt7` text,
+	  `MCalt8` text,
+	  `MCalt9` text,
+	  `MCalt10` text,
+	  `MCalt11` text,
+	  `MCalt12` text,
+	  `MCalt13` text,
+	  `MCalt14` text,
+	  `Teil` varchar(255),
+	  `relevant` char(1),
+	  `skipif` text,
+	  `special` varchar(100),
+	  `rand` varchar(10),
+	  `study` varchar(100),
+	  PRIMARY KEY  (`id`)
+	) ENGINE=MyISAM DEFAULT CHARSET=utf8;";
 	mysql_query($query) or die( mysql_error() );
 }
 
@@ -593,7 +513,7 @@ function sncreateresulttab() {
                 )) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";
             mysql_query($query);
             $message="SN-Ergebnistabelle wurde erstellt.<br />" . mysql_error();
-            echo $message;
+#            echo $message;
             // Mache ein Array, um dir benutze Variablennamen zu merken, damit es nicht zu Dopplungen komme
             $usedcolumnnames = array();
 
@@ -630,7 +550,7 @@ function sncreateresulttab() {
             }
 
             // Füge noch die Standardvariablen an, die ans Ende der Tabelle kommen
-            $query = $query . "ADD  `" . endedsurveysmsintvar . "` DATE NOT NULL";
+            $query = $query . "ADD  `endedsurveysmsintvar` DATE NOT NULL";
 
             // echo $query;
             if (mysql_query($query)) {
@@ -642,7 +562,7 @@ function sncreateresulttab() {
         } else {
             $message = $message . "Ey, du Pansen! Es gibt doch noch nicht einmal eine item-Tabelle!";
         }
-        echo $message;
+#        echo $message;
     }
 }
 
@@ -677,22 +597,6 @@ function variable_exists($table, $variable) {
     }
 }
 
-function howmanymcs($table) {
-    // Sagt, wie viele Multiple Choice-Optionen es bis jetzt in der Tabelle gibt
-    // Nimm dir die Tabelle
-    $query ="DESCRIBE $table";
-    $tablenames = mysql_query($query);
-    while($i = mysql_fetch_assoc($tablenames)) {
-        $variablennamen[] = $i['Field'];
-    }
-    for ($counter=1; $counter <= 100; $counter++) {
-        // Es werden theoretisch nicht mehr als 100 MC-Alternativen zugelassen
-        $variable = "MCalt".$counter;
-        if (!in_array($variable, $variablennamen)) {
-            return $counter;
-        }
-    }
-}
 
 function createitemdisplaytable() {
     $query ="CREATE TABLE IF NOT EXISTS `" . ITEMDISPLAYTABLE . "` (
@@ -716,7 +620,7 @@ function resetitemdisplaytable() {
         createitemdisplaytable();
         $message="Eine leere Itemdisplay-Tabelle wurde angelegt.<br />" . mysql_error();
     }
-    echo $message;
+#    echo $message;
 }
 
 function createtimestable() {
@@ -881,33 +785,43 @@ function create_table($table) {
 	switch( $table ) {
 	case ADMINTABLE:
 		setupadmin();
+#        echo "Admintabelle erstellt.<br />";
 		break;
 	case EMAILSTABLE:
 		createemailtables();
+#        echo "Emailtabelle erstellt.<br />";
 		break;
 	case ITEMDISPLAYTABLE:
 		createitemdisplaytable();
+#        echo "Itemdisplaytabelle erstellt.<br />";
 		break;
 	case ITEMSTABLE:
 		createItemsTable();
+#        echo "Itemtabelle erstellt.<br />";
 		break;
 	case RESULTSTABLE:
 		createresulttab();
+#        echo "Ergebnistabelle erstellt.<br />";
 		break;
 	case SNRESULTSTABLE:
-		sncreateresulttab();
+#		sncreateresulttab();
+#		echo "SN-Ergebnistabelle erstellt.<br />";
 		break;
 	case STUDIESTABLE:
 		createstudiestable();
+#        echo "Studientabelle erstellt.<br />";
 		break;
 	case SUBSTABLE:
 		createsubstable();
+#        echo "Substitutionstabelle erstellt.<br />";
 		break;
 	case TIMESTABLE:
 		createtimestable();
+#        echo "Zeitentabelle erstellt.<br />";
 		break;
 	case VPNDATATABLE:
 		createvpndatatab();
+#        echo "Vpndatatabelle erstellt.<br />";
 		break;
 	}	
 }

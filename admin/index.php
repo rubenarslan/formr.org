@@ -4,15 +4,6 @@ require ('admin_header.php');
 require ('includes/header.php');
 
 
-
-typesdropdown($allowedtypes, "mc");
-
-echo "<table width=\"" . SRVYTBLWIDTH . "\">";
-
-if( !table_exists(ADMINTABLE,$DBhost) ) {
-	setupadmin();
-}
-
 //übernehme Action
 if (isset($_GET['action'])) {
 	$action = $_GET['action'];
@@ -31,67 +22,60 @@ if (isset($_GET['action'])) {
   
 	if (in_array($action, $allowed)) {
 		// Führe sie aus
-		echo "<tr class=\"adminmessage\"><td>";
+		echo "<li>";
 		$action();
-		echo "</td></tr>";
+		echo "</li>";
 	} else {
 		// Meckere
 		echo "What the <i>beep</i> do you want from me?";
 	}
 }
 
-echo "<tr class=\"even\"><td><a href=\"admin.php\">Globale Einstellungen</a></td></tr>";
+echo '<nav>
+	<ul class="nav nav-pills nav-stacked">';
 
- if (!table_exists(ITEMSTABLE, $DBhost)) {
-	echo "<tr class=\"even\"><td><a href=\"uploaditems.php\">Itemtabelle importieren</a></td></tr>";
-} else {
-	echo "<tr class=\"even\"><td><a href=\"uploaditems.php\">Itemtabelle importieren</a></td></tr>";
-	
-	if (!table_exists(RESULTSTABLE, $DBhost)) {
-		echo "<tr class=\"odd\"><td><a href=\"index.php?action=createresulttab\">Ergebnistabelle erstellen</a></td></tr>";
-	} else {
-		echo "<tr class=\"odd\"><td><a href=\"index.php?action=deleteresults\">Ergebnistabelle löschen</a></td></tr>";
-		echo "<tr class=\"odd\"><td><a href=\"csv_export.php\">Ergebnistabelle exportieren</a></td></tr>";
-	}
-
-	if (!table_exists(SNRESULTSTABLE, $DBhost)) {
-		echo "<tr class=\"even\"><td><a href=\"index.php?action=sncreateresulttab\">SN-Ergebnistabelle erstellen</a></td></tr>";
-	} else {
-		echo "<tr class=\"even\"><td><a href=\"index.php?action=sndeleteresults\">SN-Ergebnistabelle löschen</a></td></tr>";
-	}
-
-	if (!table_exists(VPNDATATABLE, $DBhost)) {
-		echo "<tr class=\"even\"><td><a href=\"index.php?action=createvpndatatab\">VPNDatatabelle erstellen</a></td></tr>";
-	} else {
-		echo "<tr class=\"even\"><td><a href=\"index.php?action=deletevpndatatab\">VPNDatatabelle löschen</a></td></tr>";
-	}
-
-	echo "<tr class=\"odd\"><td><a href=\"edititems.php\">Items editieren</a></td></tr>";
-
-	echo "<tr class=\"even\"><td><a href=\"index.php?action=resetitemdisplaytable\">Anzeige-Zähler zurücksetzen</a></td></tr>";
-
-	if (table_exists(RESULTSTABLE, $DBhost)) {
-		echo "<tr class=\"odd\"><td><a href=\"displayresults.php\">Ergebnisse anzeigen</a></td></tr>";
-		echo "<tr class=\"even\"><td><a href=\"editstudies.php\">Studien editieren</a></td></tr>";	
-		echo "<tr class=\"even\"><td><a href=\"edittimes.php\">Edit-Zeiten editieren</a></td></tr>";	
-		echo "<tr class=\"even\"><td><a href=\"editemails.php\">Emails editieren</a></td></tr>";	
-		echo "<tr class=\"even\"><td><a href=\"editsubstitutions.php\">Subsitutionen editieren</a></td></tr>";	
-	} else {
-		echo "<tr class=\"odd\"><td><a href=\"editstudies.php\">Studien editieren</a></td></tr>";	
-		echo "<tr class=\"even\"><td><a href=\"edittimes.php\">Edit-Zeiten editieren</a></td></tr>";	
-		echo "<tr class=\"even\"><td><a href=\"editemails.php\">Emails editieren</a></td></tr>";	
-		echo "<tr class=\"even\"><td><a href=\"editsubstitutions.php\">Subsitutionen editieren</a></td></tr>";	
-	}
-
-	echo "<tr class=\"odd\"><td><a href=\"vpncodes.php\">Vpncodes bearbeiten</a></td></tr>";        
-	echo "<tr class=\"even\"><td><a href=\"../acp/acp.php\">Zurück zur Studienübersicht</a></td></tr>";
+if( !table_exists(ADMINTABLE,$DBhost) ) {
+	setupadmin();
 }
 
-echo "</table>";
+echo "<li><a href=\"admin.php\">Globale Einstellungen</a></li>";
+
+ if (!table_exists(ITEMSTABLE, $DBhost)) {
+	echo "<li><a href=\"uploaditems.php\">Itemtabelle importieren</a></li>";
+} else {
+	echo "<li><a href=\"uploaditems.php\">Itemtabelle importieren</a></li>";
+	
+	if (!table_exists(RESULTSTABLE, $DBhost)) {
+		echo "<li><a href=\"index.php?action=createresulttab\">Ergebnistabelle erstellen</a></li>";
+	} else {
+		$danger_zone[] = "<li><a href=\"index.php?action=deleteresults\">Ergebnistabelle löschen</a></li>";
+		echo "<li><a href=\"csv_export.php\">Ergebnistabelle exportieren</a></li>";
+	}
 
 
-// schließe main-div
-echo "</div>\n";
+	if (!table_exists(VPNDATATABLE, $DBhost)) {
+		echo "<li><a href=\"index.php?action=createvpndatatab\">VPNDatatabelle erstellen</a></li>";
+	} else {
+		$danger_zone[] = "<li><a href=\"index.php?action=deletevpndatatab\">VPNDatatabelle löschen</a></li>";
+	}
+
+	if (table_exists(RESULTSTABLE, $DBhost)) {
+		echo "<li><a href=\"displayresults.php\">Ergebnisse anzeigen</a></li>";
+	}
+	echo '<li class="nav-header">For more complex studies</li>';
+	echo "<li><a href=\"editstudies.php\">Studien editieren</a></li>";
+	echo "<li><a href=\"edittimes.php\">Edit-Zeiten editieren</a></li>";
+	echo "<li><a href=\"editemails.php\">Emails editieren</a></li>";
+	echo "<li><a href=\"editsubstitutions.php\">Subsitutionen editieren</a></li>";	
+
+	echo "<li><a href=\"vpncodes.php\">Vpncodes bearbeiten</a></li>";
+	echo "<li><a href=\"../acp/acp.php\">Zurück zur Studienübersicht</a></li>";
+	
+	echo '<li class="nav-header">Danger Zone</li>';
+	echo implode($danger_zone);
+}
+
+echo "</ul></nav>";
 
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
 require('includes/footer.php');#

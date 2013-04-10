@@ -1,5 +1,5 @@
 <?php
-
+require_once "Item.php";
 
 /* php is ugly */
 function render_form_header($vpncode,$timestarted) {
@@ -9,7 +9,6 @@ function render_form_header($vpncode,$timestarted) {
   $action = "survey.php?study_id=".$study->id;
   if(isset($run))
     $action .= "&run_id=".$run->id;
-
   echo '<form action="'.$action.'" method="post" class="form-horizontal" accept-charset="utf-8">';
 
     /* pass on hidden values */
@@ -19,126 +18,21 @@ function render_form_header($vpncode,$timestarted) {
 	} else {
 		post_debug("<strong>render_form_header:</strong> timestarted was not set or empty");
 	}
-	echo '<div id="content">';
+	
+    echo '<div class="progress">
+  <div class="bar" style="width: '.progress($vpncode).'%;"></div>
+</div>';
+
 }
 
 /* php is frikkin ugly */
 function render_form_footer() {
-	echo '</div>'; // end of <div id="main">
-    echo "</form>"; /* close form */
-
-	echo '<div id="problems">';
-		echo "Bei Problemen wenden Sie sich bitte an ";
-		echo "<strong><a href=\"mailto:".EMAIL."\">".EMAIL."</a> </strong><br />";
-	echo '</div>';
-	
+	$submit = new Item_submit('submit_button', array('text' => 'Weiter!'));
+#	$id,$type,$name,$text,$reply_options,$displayed_before,$size)
+	echo $submit->render();
+    echo "</form>"; /* close form */	
 }
 
-
-function printitems($vpncode,$allowedtypes,$specialteststrigger,$starttime,$endtime,$timestarted) {
-    $already_answered = get_already_answered($vpncode,$starttime,$endtime);
-
-    $rows = get_next_items($vpncode, $timestarted, $already_answered);
-    
-    // randomized blocks of questions?
-    if(RANDOM) {
-
-        $random_items = array();
-        $final = array();
-        $previous = false;
-
-        foreach($rows as $row) {
-            if( strtolower($row['rand']) != 'true') {
-                /* if its not a rand element, shuffle the random element array, push those items to $final and then push the current non-rand  straight to $final */
-                if($previous AND !empty($random_items)) { /* if the previous element was a rand and the rand items arr is not empty (like in the beginning) */
-					shuffle($random_items);               /* randomise */
-					foreach($random_items as $item) {     /* write back all random items into the final array */
-					array_push($final,$item);
-					}
-					/* reset the variables */
-					$random_items = array();
-					$previous = false;
-                }
-                array_push($final,$row);
-            } else {
-                array_push($random_items,$row);
-                $previous = true;
-            }
-        }
-        /* finalise operation: put all remaining random items into final array  */
-        /* this is in particular true, when the last item is also a rand item, so that the first if clause doesn't get called on the last items */
-        if( !empty($random_items) ) {
-				shuffle($random_items);
-				foreach($random_items as $item) {     /* write back all random items into the final array */
-				array_push($final,$item);
-            }
-        }
-        $rows = $final;
-    }
-    
-    // loope jetzt bitte durch die Itemtabelle
-    $itemsDisplayed = 0;
-    for($i=0; $i < sizeof($rows); $i++) {
-        $row = $rows[$i];
-
-        // fork-items sind relevant, werden aber nur behandelt, wenn sie auch an erster Stelle sind, also alles vor ihnen schon behandelt wurde
-        if ($row["typ"]=="fork" AND $itemsDisplayed==0) {
-            printitem($row["id"], $row["variablenname"], $row["typ"], $formulierung, $row["antwortformatanzahl"], $row["ratinguntererpol"], $row["ratingobererpol"], $allowedtypes, $i, $row["id"]+1, $rows, $timestarted, $vpncode);
-            break;
-        } elseif ($row["typ"]=="fork" AND $itemsDisplayed>0) {
-            break;
-        }
-
-        // Gibt es Bedingungen, unter denen das Item alternativ formuliert wird?
-        $formulierung = $row["wortlaut"];
-        if ($row["altwortlautbasedon"]!="") {
-            // und prüfe, ob sie zutrifft
-            // $altwortlaut = eval('if ($result[' . preg_replace('/\s/', '] ', $row["altwortlautbasedon"], 1) .') return $row[altwortlaut];');
-            eval('if ($result[' . preg_replace('/\s/', '] ', $row[altwortlautbasedon], 1) .') $formulierung = $row[altwortlaut];');
-            // echo 'if ($result[' . preg_replace('/\s/', '] ', $row[altwortlautbasedon], 1) .') $formulierung = $row[altwortlaut];';
-            if ($altwortlaut != "") {
-                // nimm die alternative formultierung
-                $formulierung = $altwortlaut;
-            }
-        }
-
-        // FIX: Logik-Hack: Einsetzen des Datums
-        // Sollte einmal als grundsätzliche Funktion bereitgestellt werden
-        // $formulierung = preg_replace("/LOGIKDATE2003/",date2003($vpncode),$formulierung);
-        $formulierung = substitute($vpncode,$formulierung);
-
-        // Schreibe das item hin
-        printitem($row["id"], $row["variablenname"], $row["typ"], $formulierung, $row["antwortformatanzahl"], $row["ratinguntererpol"], $row["ratingobererpol"], $allowedtypes, $i, $row["id"]+1, $rows, $timestarted, $vpncode);
-
-        if ($row["typ"]!="instruktion") {
-            $itemsDisplayed++;
-            post_debug("<strong>printitems:</strong> items displayed: " . $itemsDisplayed);
-            post_debug("<strong>printitems:</strong> MAXNUMITEMS: " . MAXNUMITEMS);
-        }
-
-        // merke dir, dass du das Item angezeigt hast.
-        // Das machst du auch nicht für special-items, denn die werden ja vorher schon gefiltert!
-        $query = "UPDATE " . ITEMDISPLAYTABLE . " SET displaycount=displaycount+1 WHERE vpncode='$vpncode' AND variablenname = '".$row["variablenname"]."';";
-        $itemdisplay = mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in printitems" ));
-        if (mysql_affected_rows()==0) {
-            $itemdisplay = mysql_query("insert into " . ITEMDISPLAYTABLE . " (variablenname,vpncode,displaycount,created_at) values ('".$row["variablenname"]."','$vpncode',1,".time().");");
-        }
-
-        post_debug("<strong>printitems:</strong> displaying items: " . $itemsDisplayed . " " . $row["variablenname"]);
-
-        // do not continue displaying items if item is relevant
-        if ($row["relevant"]=="x") {
-            break;
-        }
-
-        // when the maximum number of items to display is reached, stop
-        if ($itemsDisplayed >= MAXNUMITEMS) {
-            break;
-        }
-    }
-
-    standardsubmit();
-}
 
 function substitute($vpncode,$formulierung) {
     //	preg_replace("/LOGIKDATE2003/",date2003($vpncode),$formulierung);
@@ -532,453 +426,131 @@ function should_skip($vpncode,$row,$timestarted) {
 
 }
 
-class Item {
-	public $id = null;
-	public $type = null;
-	public $name = null;
-	public $text = null;
-	public $nr_of_reply_options = null;
-	public $reply_options = null;
-	public $displayed_before = null;
-	public $required = true;
-	public $classes_controls = array('controls');
-	public $classes_wrapper = array('control-group','form-row');
-	
-	function __construct($id,$type,$name,$text,$reply_options,$displayed_before,$size) {
-		$this->id = $id;
-		$this->type = $type;
-		$this->name = $name;
-		$this->text = htmlspecialchars($text);
-		if(!empty($reply_options))
-			$this->size = count($reply_options);
-		elseif(isset($size))
-			$this->size = (int)$size;
-				
-		$this->reply_options = $reply_options;
-		$this->displayed_before = $displayed_before;
-		if($this->required) $this->classes_wrapper[] = 'required';
-		$this->classes_wrapper[] = "item-" . $this->type;
-		$this->setMoreOptions();
-	}
-	private function setMoreOptions() {
-		
-	}
-	private function render_label() {
-		return '
-					<label class="control-label" for="item' . $this->id . '">' . $this->text . '</label>
-		';
-	}
-	private function render_prepended () {
-		if(isset($this->prepend))
-			return '<span class="add-on"><i class="'.$this->prepend.'"></i></span>';
-		else return '';
-	}
-	private function render_input() {
-		return 		
-			'<input type="'. $this->type .'"'. 
-			( $this->required ? ' required="required"':'' ) .
-			' id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'" size="'. $this->size .'" name="item' . $this->name . '">';
-	}
-	private function render_appended () {
-		if(isset($this->append))
-			return '<span class="add-on"><i class="'.$this->append.'"></i></span>';
-		else return '';
-	}
-	private function render() {
-		return $this->render_label() . '
-					<div class="'. implode(" ",$this->classes_controls) .'">'.
-					$this->render_prepended().
-					$this->render_input().
-					$this->render_appended().
-					'</div>
-				</div>
-		';
-	}
-	public function show() {
-		return '<div class="'. implode(" ",$this->classes_wrapper) .'">' .
-			$this->render().
-		 '</div>';
-	}
-}
-class Item_textarea extends Item {
-	private function setMoreOptions() {
-		$this->type = 'textarea';
-		$this->classes_wrapper[] = "item-" . $this->type;
-	}
-	private function render_input() {
-		return 		
-			'<textarea '. 
-			( $this->required ? ' required="required"':'' ) .
-			' id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'" rows="'. $this->size .'" name="item' . $this->name . '">';
-	}
-}
-class Item_number extends Item {
-	private function setMoreOptions() {
-		$this->type = 'number';
-		$this->classes_wrapper[] = "item-" . $this->type;
-		$this->restrictions = '';
-		if(isset($reply_options[0])) $this->restrictions .= ' min="'.(int)$reply_options[0].'"';
-		if(isset($reply_options[1])) $this->restrictions .= ' max="'.(int)$reply_options[1].'"';
-		if(isset($reply_options[2])) $this->restrictions .= ' step="'.$reply_options[2].'"';
-	}
-	private function render_input() {
-		return 		
-			'<input type="'. $this->type .'"'. 
-			( $this->required ? ' required="required"':'' ) .
-				$this->restrictions .
-			' id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'" size="'. $this->size .'" name="item' . $this->name . '">';
-		
-	}
-}
-class Item_email extends Item {
-	private function setMoreOptions() {
-		$this->classes_wrapper[] = 'input-prepend';
-		$this->prepend = 'icon-envelope';
-	}
-}
-class Item_instruction extends Item {
-	private function render() {
-		return '
-					<div class="'. implode(" ",$this->classes_controls) .'">'.
-					$this->text.
-					'</div>
-				</div>
-		';
-	}
-}
-class Item_MC extends Item {
-	private function setMoreOptions() {
-		$this->type = 'radio';
-		$this->name .= '[]';
-		$this->classes_wrapper[] = 'control-radiolabel';
-	}
-	private function render_label() {
-		return '
-					<label class="control-label">' . $this->text . '</label>
-		';
-	}
-	private function render_input() {
-		$ret = '
-			<input type="hidden" value="" id="item' . $this->id . '_" name="' . $this->name . '">
-		';
-		foreach($this->reply_options AS $value => $option) {
-			$ret .= '
-			<input type="' . $this->type . '" '. 
-			( $this->required ? ' required="required"':'' ) .
-			' value="'.$value.'" class="control-label" id="item' . $this->id .$value . '" name="' . $this->name . '">
-			
-			<label for="item' . $this->id .$value . '">' . $option . '</label>
-		';
-		}
-	}
-}
-class Item_MMC extends Item_MC {
-	private function setMoreOptions() {
-		$this->type = 'checkbox';
-		$this->name .= 'mmcalt';
-		$this->classes_wrapper[] = 'control-radiolabel';
-	}
-	private function render_input() {
-		$ret = '
-			<input type="hidden" value="" id="item' . $this->id . '_" name="' . $this->name . '">
-		';
-		foreach($this->reply_options AS $value => $option) {
-			$ret .= '
-			<input type="' . $this->type . '" '. 
-			( $this->required ? ' required="required"':'' ) .
-			' value="'.$value.'" class="control-label" id="item' . $this->id . $value . '" name="' . $this->name . $value . '">
-			
-			<label for="item' . $this->id .$value . '">' . $option . '</label>
-		';
-		}
-	}
-}
 
 function printitem($id, $variablenname, $typ, $wortlaut, $antwortformatanzahl, $ratinguntererpol, $ratingobererpol, $allowedtypes, $zeile, $next, $rows, $timestarted, $vpncode) {
 
-    // FIX: Fehlende itemtypen:
-    // mcm -multiple answer - einfach neuen Typ mcm, und in printitem eine entsprechende Zeile mit Setting mehrfachnennung. In Results jede einzelne Antwort als Variable. SCHEIßE!
-
-    // in welche Farbe wird das Item unterlegt?
-    // Stelle fest, ob es schon einmal angezeigt wurde
-
-	$check="select displaycount from " . ITEMDISPLAYTABLE . " where variablenname='$variablenname' and vpncode='".$vpncode."';";
+	$check = "select displaycount from " . ITEMDISPLAYTABLE . " where variablenname='$variablenname' and vpncode='".$vpncode."';";
 	$checkthis = mysql_query($check) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in printitem" ));
-	$displayedbefore = mysql_fetch_assoc($checkthis);
-	if ($displayedbefore["displaycount"]!="" AND $displayedbefore["displaycount"]!=NULL AND $displayedbefore["displaycount"]>=0){
-		// item was displayed before
+	$displayed_before = mysql_fetch_assoc($checkthis);
+	$displayed_before = $displayed_before["displaycount"];
+	if ($displayed_before!="" AND $displayed_before!=NULL AND $displayed_before>0) {
 		post_debug("<strong>printitem:</strong> item was displayed before");
-
-		$item_disp = "item-displayed";
-		if( is_odd($zeile) ) {
-			$oe = "even-repeat";
-		} else {
-			$oe = "odd-repeat";
-		}
+		$displayed_before = (int)$displayed_before;
 	} else {
-		// item was not yet displayed
-		post_debug("<strong>printitem:</strong> item was not displayed before");
-		$item_disp = "item";
-
-		if( is_odd($zeile) ) {
-			$oe = "even";
-		} else {
-			$oe = "odd";
-		}
+		$displayed_before = false;
 	}
 
-	if (!in_array($typ,$allowedtypes)) {
-		post_debug("$id -> $variablenname <strong>not a valid item</strong>");
-	}
-
-	// outmost div
-	if ($typ!="instruktion") 	echo "<div class='$oe survey-item'>\n\n";
-
+	if($typ == 'offen') $type = 'text';
+	if($typ == 'instruktion') $type = 'instruction'; 
+	else $type = strtolower($typ);
+	
+	$text = $wortlaut;
+	$name = $variablenname;
+	$reply_options = array();
+	$size = 1;
+	
 	// INSTRUKTION
-	if ($typ=="instruktion") {
-		if ($rows[$zeile+1]['typ'] != "instruktion" AND $rows[$zeile+1]['typ'] != "fork") {
-			echo "<div class='$oe survey-item'>"."\n\n<div class=\"". $item_disp . " instruction\"><p>"; 
-			echo $wortlaut;
-			echo "<input type=\"hidden\" name=\"$variablenname\" value=\"done\" /></p></div></div>\n<div class=\"clearer\"></div>\n";
-		}
-	}
-
-    // RATING
-    if ($typ=="rating") {
-		echo '<div class="left">';
-		echo '<div class="item-description"><p class="' . $typ . '">' . $wortlaut . '</p></div>';
-		echo '</div>';
-        // if both poles are numeric
-        if (is_numeric($ratinguntererpol) && is_numeric($ratingobererpol)) {
-            // FIX Hier gehört eine $step Variable hin!
-            echo '<div class="right rating-input">';
-            for ($k=$ratinguntererpol; $k <= $ratingobererpol; $k++) {
-				echo "<div class=\"integerrating\">";
-				echo "<input type=\"radio\" id=\"".$variablenname."_".$k."\" name=\"$variablenname\" value=\"$k\" />";
-				echo "<label for=\"" . $variablenname . "_". $k ."\">" . $k . "</label>";
-				echo "</div>";
-            }
-            echo "</div>\n";
-
-        } elseif (is_numeric($ratinguntererpol) && !is_numeric($ratingobererpol) && ((!is_numeric(substr($ratingobererpol,-1)) or ((substr($ratingobererpol,-1)=="+"))))) {
-            // Wenn unterer numerisch, oberer nicht
-            // FIX: auch andersherum
-            // FIXED? Aufpassen, damit wir nicht zu hoch zählen! Fall $ratinguntererpol != 0 ist ungeprüft
-            if ($ratinguntererpol == 0) {
-                $anzahl=$antwortformatanzahl-1;
-            } else {
-                $anzahl=$antwortformatanzahl;
-            }
-
-            // Mache eine kleine Table auf, damit unser Rating schön dargestellt wird
-            echo "<div class='right small-table'>\n";
-            for ($k=$ratinguntererpol; $k <= $anzahl; $k++) {
-                if ($k < $anzahl){
-                    // alle bis zur letzten Checkbox
-                    echo "<div class=\"integerrating\"><input type=\"radio\" name=\"$variablenname\" value=\"$k\" />" . ($k) . "</div>";
-                } else {
-                    // die letzte Checkbox
-                    echo "<div class=\"mixed-last-rating\"><input type=\"radio\" name=\"$variablenname\" value=\"$k\" />" . ($ratingobererpol) . "</div>";
-                    break;
-                }
-            }
-            echo "</div>\n";
-
-        } else {
-            // WENN beide Itempole Text sind
-            // Mache eine kleine Table auf, damit unser Rating schön dargestellt wird
-            echo "<div class='right small-table'>";
-            echo "<span class=\"text-first-rating\" style='width:". round(SRVYTBLWIDTH/6,0) ."' />$ratinguntererpol</span>";
-            for ($k=1; $k <= $antwortformatanzahl; $k++) {
-                echo "<input type=\"radio\" name=\"" . $variablenname . "\" value=\"$k\" />";
-            }
-            echo "<span class=\"text-last-rating\" style='width:". round(SRVYTBLWIDTH/6,0) ."' />$ratingobererpol</span>";
-            echo "</div>\n";
-        }
-
-    }
-
-    // ym (Jahr / Monat picker)
-
-	if ($typ=="ym") {
-		echo "<div class='left'>";
-		echo "<div class='item-description'><p class='$typ'>$wortlaut</p></div>\n";
-		echo "</div>";
-		echo "<div class='right year-month-picker'>\n";
-		echo "<select name=\"" . $variablenname . "mmcaltyears\">\n";
-		for ($years=0; $years <= $antwortformatanzahl; $years++) {
-			echo "<option value=\"" . $years . "\">". $years . "</option>";
-		}
-		echo "</select> Jahre und ";
-		echo "<select name=\"" . $variablenname . "mmcaltmonths\">\n";
-		for ($months=0; $months <= 11; $months++) {
-			echo "<option value=\"" . $months . "\">". $months . "</option>";
-		}
-		echo "</select> Monate\n";
-		echo "</div>\n";
-	}
-
-    // datepicker
-
-    if ($typ=="datepicker") {
-		echo "<div class='left'>";
-		echo "<div class='item-description'><p class='$typ'>$wortlaut</p></div>\n";
-		echo "</div>";
-		echo "<div class='right date-picker-answer'>\n";
-
-        echo "<select name=\"" . $variablenname . "mmcaltday\">";
-        for ($day=1; $day <= 31; $day++) {
-            echo "<option value=\"" . $day . "\">". $day . "</option>";
-        }
-        echo "</select>";
-
-        $months = array("Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember");
-        echo "<select name=\"" . $variablenname . "mmcaltmonth\">";
-        $mnr=1;
-        foreach ($months as $month) {
-            echo "<option value=\"" . $mnr . "\">". $month . "</option>";
-            $mnr++;
-        }
-        echo "</select>";
-
-        echo "<select name=\"" . $variablenname . "mmcaltyear\">";
-        $year = date(Y);
-        for ($printyear=$year; $printyear >= ($year-$antwortformatanzahl); $printyear--) {
-            echo "<option value=\"" . $printyear . "\">". $printyear . "</option>";
-        }
-		echo "</select>";
-        echo "</div>\n";
-    }
-
-
-    // MULTIPLE CHOICE
-    if ($typ=="mc") {
-		echo "<div class='left'>";
-		echo "<div class='item-description'><p class='$typ'>$wortlaut</p></div>\n";
-		echo "</div>";
-		echo "<div class='right multiple-choice'>\n";
-
-		//fetch data to corresponding item
-        $query="SELECT * FROM ".ITEMSTABLE." WHERE id ='$id'";
-        $mc_query_results = mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in printitem" ));
-        $thismc=mysql_fetch_array( $mc_query_results );
-
-        if (mysql_numrows($mc_query_results) > 1) die ("massiver Fehler! Die id " . $id . " ist 2x vergeben");
-
-		// and display it
-        for ($k=1; $k <= $antwortformatanzahl; $k++) {
-			echo "<div class='mc-radio-input'>";
-			echo "<input type=\"radio\" id=\"".$variablenname."_".$k."\" name=\"" . $variablenname . "\" value=\"$k\" />";
-			echo "<label for=\"".$variablenname."_".$k."\"> " . $thismc["MCalt$k"] . "</label>\n";
-			echo "</div>";
-        }
-        echo "</div>\n";
-    }
-
-    // IMAGE RATING
-    if ($typ=="imc") {
-		echo "<div class='left'>";
-		echo "<div class='item-description'><p class='$typ'>$wortlaut</p></div>\n";
-		echo "</div>";
-
-        echo "<div class='right image-rating'>";
-
-		//fetch data to corresponding item
-        $query="SELECT * FROM ".ITEMSTABLE." WHERE id ='$id'";
-        $imc_rating_results = mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in printitem" ));
-        $thismc=mysql_fetch_array( $imc_rating_results );
-
-        if (mysql_numrows( $imc_rating_results ) > 1) die ("massiver Fehler! Die id " . $id . " ist 2x vergeben");
-
-		// and display it
-        for ($k=1; $k <= $antwortformatanzahl; $k++) {
-            echo "<div class='image-input'><img src=".$thismc[MCalt.$k]." ></img><input type=\"radio\" id=\"".$variablenname."_".$k."\" name=\"" . $variablenname . "\" value=\"$k\" /></div>";
-        }
-        echo "</div>\n";
-    }
-
-    // Multiple MULTIPLE CHOICE (mehrere Antwortmöglichkeiten gleichzeitig wählbar)
-    if ($typ=="mmc") {
-		echo "<div class='left'>";
-		echo "<div class='item-description'><p class='$typ'>$wortlaut</p></div>\n";
-		echo "</div>";
-
-        echo "<div class='right multiple-multiple-choice'>";
-
-		//fetch data corresponding to this item
-        $query="SELECT * FROM ".ITEMSTABLE." WHERE id ='$id'";
-        $mmc_results_query = mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in printitem" ));
-        $thismc=mysql_fetch_array( $mmc_results_query );
-
-        if (mysql_numrows( $mmc_results_query ) > 1) die ("massiver Fehler! Die id " . $id . " ist 2x vergeben");
-
-		// and display it
-        for ($k=1; $k <= $antwortformatanzahl; $k++) {
-			echo "<div class='mmc-input'><input type=\"checkbox\" name=\"" . $variablenname . "mmcalt" . $k . "\" value=\"1\" /></div>\n";
-			echo "<div class='mmc-checkbox-label'> " . $thismc[MCalt.$k] . "</div>";
-        }
-        echo "</div>\n";
-    }
-
-    // OFFEN
-    if ($typ=="offen") {
-		echo "<div class='left'>";
-		echo "<div class='item-description'><p class='$typ'>$wortlaut</p></div>\n";
-		echo "</div>";
-
-        echo "<div class='right open-answer'>";
-
-		// how big should the box be?
-        if ($antwortformatanzahl > TXTBXWIDTH) {
-            $rows = round($antwortformatanzahl/TXTBXWIDTH);
-            echo "<textarea cols=\"" .  TXTBXWIDTH . "\" rows=\"" . $rows ."\" name=\"" . $variablenname . "\" ></textarea>";
-        } else {
-
-            echo "<textarea cols=\"" .  $antwortformatanzahl . "\" rows=\"1\" name=\"" . $variablenname . "\" ></textarea>";
-        }
-        echo "</div>\n";
-    }
-
-    if ($typ=="pse") {
-		echo "\n\n<div><p>"; 
-		echo $wortlaut;
-		echo '</p><p><input type="button" value="Bild anzeigen" onclick="bildanzeigen();" id="bildzeigebutton"/><br><br>';
-
-		// how big should the box be?
-        if ($antwortformatanzahl > (TXTBXWIDTH*2)) {
-            $rows = round($antwortformatanzahl/(TXTBXWIDTH*2));
-            echo "<textarea cols=\"" .  (TXTBXWIDTH*2) . "\" rows=\"" . $rows ."\" name=\"" . $variablenname . "\" ></textarea>";
-        } else {
-
-            echo "<textarea cols=\"" .  $antwortformatanzahl . "\" rows=\"1\" name=\"" . $variablenname . "\" ></textarea>";
-        }
-?>
-<script type="text/javascript">
-window.onload = function () {
-	document.getElementById("weiterbutton").disabled = true; // make inactive as long as we wait
-	document.getElementsByTagName("img")[1].style.display = 'none'; // hide directly
+	switch($typ) {
+		case "instruktion":
+			if (
+				!$displayed_before OR 
+				!in_array($rows[$zeile+1]['typ'], array('instruktion','fork'))
+			) {
+				$item = new Item_instruction($name, array(
+					'id' => $id,
+					'text' => $text,
+					'displayed_before' => $displayed_before,
+					));
+				echo $item->render();
+			}
+			break;
+		case "rating":
+			if(!isset($antwortformatanzahl)) $antwortformatanzahl = 2;
+			$reply_options = array_fill(1, $antwortformatanzahl, '');
+			if(isset($rows[$zeile]['ratinguntererpol']) ) {
+				$lower = $rows[$zeile]['ratinguntererpol'];
+				$upper = $rows[$zeile]['ratingobererpol'];
+			} elseif(isset($rows[$zeile]['MCalt1']) ) {
+				$lower = $rows[$zeile]['MCalt1'];
+				$upper = $rows[$zeile]['MCalt2'];	
+			} else {
+				$reply_options = range(1, $antwortformatanzahl);
+				$reply_options = array_combine($reply_options, $reply_options);
+				$lower = 1;
+				$upper = $antwortformatanzahl;
+			}
+			$reply_options[1] = $lower;
+			$reply_options[$antwortformatanzahl] = $upper;
+			
+			$item = new Item_mc($name, array(
+					'id' => $id,
+					'text' => $text,
+					'reply_options' => $reply_options,
+					'displayed_before' => $displayed_before
+					));
+			echo $item->render();
+		
+			break;
+		case "mc":
+		case "mmc":
+		case "select":
+		case "mselect":
+		case "range":
+		case "btnradio":
+		case "btncheckbox":
+			$reply_options = array();
+			if(!isset($antwortformatanzahl)) $antwortformatanzahl = 12;
+			
+			for($op = 1; $op <= $antwortformatanzahl; $op++) {
+				if(isset($rows[$zeile]['MCalt'.$op]))
+					$reply_options[ $op ] = $rows[$zeile]['MCalt'.$op];
+			}
+			$class = "Item_".$type;
+			
+			$item = new $class($name, array(
+					'id' => $id,
+					'text' => $text,
+					'reply_options' => $reply_options,
+					'displayed_before' => $displayed_before
+					));
+			echo $item->render();
 	
-}
-function bildanzeigen() {
-	document.getElementById("bildzeigebutton").style.display = 'none';
-	document.getElementsByTagName("img")[1].style.display = 'inline'; // show when button is clicked
-	setTimeout(function() {
-		document.getElementsByTagName("img")[1].style.display = 'none'; // hide after 10s
-	},10*1000);
+			break;
+		case "offen":
+			if($antwortformatanzahl / 150 < 1) {
+				$class = 'Item';
+				$size = $antwortformatanzahl;
+			}
+			else {
+				$class = 'Item_textarea';
+				$size = round( $antwortformatanzahl / 150 );
+			}
+			$item = new $class($name, array(
+					'id' => $id,
+					'text' => $text,
+					'displayed_before' => $displayed_before,
+					'size' => $size,
+				));
+			echo $item->render();
+
+			break;
 	
-	setTimeout(function() {
-		document.getElementById("weiterbutton").disabled = false; // activate button after 4
-	},4*60*1000);
-	setTimeout(function() { // and submit after 5
-		document.getElementsByTagName("textarea")[0].readOnly = true;
-		document.getElementsByTagName("textarea")[0].value = document.getElementsByTagName("textarea")[0].value + "**//autofin";
-		document.forms[0].submit();
-	},5*60*1000);
-}
-</script>
-<?php
-        echo "</p></div>\n";
-    }
+		default:
+			$class = "Item_".strtoupper($type);
+			if(!class_exists($class)) 
+				$class = 'Item';
+			$item = new $class($name, array(
+					'id' => $id,
+					'text' => $text,
+					'type' => $type,
+					'reply_options' => $reply_options,
+					'displayed_before' => $displayed_before,
+					'size' => $size
+					));
+			echo $item->render();
+
+			break;
+	}
 
 
     // FORK
@@ -1006,78 +578,140 @@ function bildanzeigen() {
 			echo "<div><strong>SUPPRESS FORK MODE ACTIVATED: </strong> to turn this off, visit global settings in /admin</div>";
 		}
     }
-
-	// EMAIL
-	if ($typ=="email") {
-		echo "<div class='$oe'>\n";
-		echo "<div class='item-description'><p class='$typ'>$wortlaut</p></div>\n";
-
-		echo "<div class='right email-answer'>";
-
-		// if ($antwortformatanzahl > TXTBXWIDTH) {
-		//     $rows = round($antwortformatanzahl/TXTBXWIDTH);
-		//     echo "<table id='".$variablenname."_table'>";
-		//     echo "<tr><td><textarea id='".$variablenname."_A' style='margin: 3px;' onKeyUp='checkEmail(\"".$variablenname."_table\",this,\"".$variablenname."_B\")' cols=\"" .  TXTBXWIDTH . "\" rows=\"" . $rows ."\" name=\"" . $variablenname . "\" ></textarea></td></tr>";
-		//     echo "<tr><td><textarea id='".$variablenname."_B' style='margin: 3px;' onKeyUp='checkEmail(\"".$variablenname."_table\",this,\"".$variablenname."_A\")' cols=\"" .  TXTBXWIDTH . "\" rows=\"" . $rows ."\" name=\"" . $variablenname."_check". "\" ></textarea></td></tr>";
-		//     echo "</table>";
-		//     echo "</td></tr>";
-		// } else {
-		//     echo "<table id='".$variablenname."_table'>";
-		//     echo "<tr><td><textarea id='".$variablenname."_A' style='margin: 3px;' onKeyUp='checkEmail(\"".$variablenname."_table\",this,\"".$variablenname."_B\")' cols=\"" .  $antwortformatanzahl . "\" rows=\"1\" name=\"" . $variablenname . "\" ></textarea></td></tr>";
-		//     echo "<tr><td><textarea id='".$variablenname."_B' style='margin: 3px;' onKeyUp='checkEmail(\"".$variablenname."_table\",this,\"".$variablenname."_A\")' cols=\"" .  $antwortformatanzahl . "\" rows=\"1\" name=\"" . $variablenname."_check"."\" ></textarea></td></tr>";
-		//     echo "</table>";
-		//     echo "</td></tr>";
-		// }
-
-		// FIXME: js email validation in a global js file
-        // echo "<script type=\"text/javascript\" src=\"js/email.js\"></script>";
-
-		echo "<textarea id='$variablenname'></textarea>\n";
-		echo "</div>\n";
-		echo "</div>\n";
-    }
-
-	//close the item div
-	if ($typ!="instruktion") 	echo "</div>\n";
-	if ($typ!="instruktion") 	echo "<div class='clearer'></div>\n";
 }
 
 
-function progress($vpncode,$study) {
-    $query = "SELECT *
-        FROM ".ITEMSTABLE."
-        WHERE skipif =  \"\"
-        AND study = '$study'
-        AND typ !=  \"instruktion\"
-        AND special =  \"\"";
-    $items=mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in progress" ));
-    $allitems=mysql_num_rows($items);
-    mysql_free_result($items);
+function printitems($vpncode,$allowedtypes,$specialteststrigger,$starttime,$endtime,$timestarted) {
+    $already_answered = get_already_answered($vpncode,$starttime,$endtime);
 
-    // hole dir alle Werte dieser Person
-    $query="SELECT * FROM ".RESULTSTABLE." WHERE vpncode='$vpncode' AND study='$study'";
-    $dieseperson=mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in progress" ));
-    $result=mysql_fetch_assoc($dieseperson);
+    $rows = get_next_items($vpncode, $timestarted, $already_answered);
+    
+    // randomized blocks of questions?
+    if(RANDOM) {
 
-    $already_answered = array();
-    foreach ($result as $key => $value) {
-        if ($value != NULL) {
-            array_push($already_answered, $key);
+        $random_items = array();
+        $final = array();
+        $previous = false;
+
+        foreach($rows as $row) {
+            if( strtolower($row['rand']) != true) {
+                /* if its not a rand element, shuffle the random element array, push those items to $final and then push the current non-rand  straight to $final */
+                if($previous AND !empty($random_items)) { /* if the previous element was a rand and the rand items arr is not empty (like in the beginning) */
+					shuffle($random_items);               /* randomise */
+					foreach($random_items as $item) {     /* write back all random items into the final array */
+					array_push($final,$item);
+					}
+					/* reset the variables */
+					$random_items = array();
+					$previous = false;
+                }
+                array_push($final,$row);
+            } else {
+                array_push($random_items,$row);
+                $previous = true;
+            }
+        }
+        /* finalise operation: put all remaining random items into final array  */
+        /* this is in particular true, when the last item is also a rand item, so that the first if clause doesn't get called on the last items */
+        if( !empty($random_items) ) {
+				shuffle($random_items);
+				foreach($random_items as $item) {     /* write back all random items into the final array */
+				array_push($final,$item);
+            }
+        }
+        $rows = $final;
+    }
+    
+    // loope jetzt bitte durch die Itemtabelle
+    $itemsDisplayed = 0;
+    for($i=0; $i < sizeof($rows); $i++) {
+        $row = $rows[$i];
+
+        // fork-items sind relevant, werden aber nur behandelt, wenn sie auch an erster Stelle sind, also alles vor ihnen schon behandelt wurde
+        if ($row["typ"]=="fork" AND $itemsDisplayed==0) {
+            printitem($row["id"], $row["variablenname"], $row["typ"], $formulierung, $row["antwortformatanzahl"], $row["ratinguntererpol"], $row["ratingobererpol"], $allowedtypes, $i, $row["id"]+1, $rows, $timestarted, $vpncode);
+            break;
+        } elseif ($row["typ"]=="fork" AND $itemsDisplayed>0) {
+            break;
+        }
+
+        // Gibt es Bedingungen, unter denen das Item alternativ formuliert wird?
+        $formulierung = $row["wortlaut"];
+        if ($row["altwortlautbasedon"]!="") {
+            // und prüfe, ob sie zutrifft
+            // $altwortlaut = eval('if ($result[' . preg_replace('/\s/', '] ', $row["altwortlautbasedon"], 1) .') return $row[altwortlaut];');
+            eval('if ($result[' . preg_replace('/\s/', '] ', $row[altwortlautbasedon], 1) .') $formulierung = $row[altwortlaut];');
+            // echo 'if ($result[' . preg_replace('/\s/', '] ', $row[altwortlautbasedon], 1) .') $formulierung = $row[altwortlaut];';
+            if ($altwortlaut != "") {
+                // nimm die alternative formultierung
+                $formulierung = $altwortlaut;
+            }
+        }
+
+        // FIX: Logik-Hack: Einsetzen des Datums
+        // Sollte einmal als grundsätzliche Funktion bereitgestellt werden
+        // $formulierung = preg_replace("/LOGIKDATE2003/",date2003($vpncode),$formulierung);
+        $formulierung = substitute($vpncode,$formulierung);
+
+        // Schreibe das item hin
+        printitem($row["id"], $row["variablenname"], $row["typ"], $formulierung, $row["antwortformatanzahl"], $row["ratinguntererpol"], $row["ratingobererpol"], $allowedtypes, $i, $row["id"]+1, $rows, $timestarted, $vpncode);
+
+        if ($row["typ"]!="instruktion") {
+            $itemsDisplayed++;
+            post_debug("<strong>printitems:</strong> $itemsDisplayed of ". MAXNUMITEMS . " items per page displayed. " );
+        }
+
+        // merke dir, dass du das Item angezeigt hast.
+        // Das machst du auch nicht für special-items, denn die werden ja vorher schon gefiltert!
+        $query = "UPDATE " . ITEMDISPLAYTABLE . " SET displaycount=displaycount+1 WHERE vpncode='$vpncode' AND variablenname = '".$row["variablenname"]."';";
+        $itemdisplay = mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in printitems" ));
+        if (mysql_affected_rows()==0) {
+            $itemdisplay = mysql_query("insert into " . ITEMDISPLAYTABLE . " (variablenname,vpncode,displaycount,created_at) values ('".$row["variablenname"]."','$vpncode',1,".time().");");
+        }
+
+        post_debug("<strong>printitems:</strong> displaying items: " . $itemsDisplayed . " " . $row["variablenname"]);
+
+        // do not continue displaying items if item is relevant
+        if ($row["relevant"]==true) {
+            break;
+        }
+
+        // when the maximum number of items to display is reached, stop
+        if ($itemsDisplayed >= MAXNUMITEMS) {
+            break;
         }
     }
-    echo mysql_error();
-
-    $query="SELECT * FROM ".ITEMSTABLE." WHERE study='$study' AND typ!='Instruktion' AND skipif =  \"\" AND special =  \"\" AND variablenname NOT IN (". implode(",", array_map('quote', $already_answered)) . ")";
-    $openitems=mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in progress" ));
-    $unanswered=mysql_numrows($openitems);
-    mysql_free_result($openitems);
-    $answered=$allitems-$unanswered;
-    $progress=$answered/$allitems;
-    return round($progress,2)*100;
 }
 
-function progressbar($progress) {
-    $width=round($progress, 0)*(SRVYTBLWIDTH/100);
+function progress($vpncode) {
+    $query = "SELECT variablenname
+        FROM ".ITEMSTABLE."
+        WHERE (skipif =  '' OR skipif IS NULL)
+        AND typ !=  \"instruktion\"
+        AND typ !=  \"fork\"
+        AND (special =  '' OR special IS NULL)";
+    $items=mysql_query($query) or die(mysql_error() );
+    
+	$used_vars = '';
+	while($item = mysql_fetch_assoc($items)) {
+		$used_vars .= '`'. $item['variablenname'] . '`, ';
+	}
+	$used_vars .= '`endedsurveysmsintvar`';
+	
+    // hole dir alle Werte dieser Person
+    $query="SELECT $used_vars FROM ".RESULTSTABLE." WHERE vpncode='$vpncode'";
+#	var_dump($query);
+    $dieseperson = mysql_query($query) or die(mysql_error());
+    $result = mysql_fetch_assoc($dieseperson);
+    $already_answered = $not_answered = 0;
+    foreach ($result as $value) {
+        if ($value != NULL)
+           $already_answered++;
+        else
+        	$not_answered++;
+    }
+	$all_items = $already_answered + $not_answered;
 
-    echo "<div class=\"progressbackground\" style=\"width:" . SRVYTBLWIDTH ."px\"><div class=\"progressbar\" style=\"width:$width"."px\"></div><div style=\"z-index: 4; position: relative; left:0px; top:-20px\">" . $progress . "% abgeschlossen</div></div>";
+    $progress= $already_answered / $all_items ;
+    return round($progress,2)*100;
 }

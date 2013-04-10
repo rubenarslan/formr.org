@@ -80,7 +80,7 @@ function get_base_path() {
 }
 
 function add_vpn($vpncode,$email,$study,$type) {
-    $insert_partner = "INSERT INTO ".VPNDATATABLE." SET vpncode='".$vpncode."',email='".$email."',study='".$study."',vpntype=".$type;
+    $insert_partner = "INSERT INTO ".VPNDATATABLE." SET vpncode='".$vpncode."',email='".$email."',study='".$study."'";
     mysql_query( $insert_partner ) or die( exception_handler(mysql_error() . "<br/>" . $insert_partner . "<br/> in add_vpn" ));
 }
 
@@ -102,8 +102,11 @@ function exception_handler($exception) {
 function exception_mailer($exception) {
 	$to = "rubenarslan@gmail.com";
 	$subject = "SURVEY Exception";
-	$body = $exception . "\n\n\n" . debug_backtrace();
-	mail($to,$subject,$body);
+	$body = implode("\n",(array)$exception) . "\n\n\n" . var_export(debug_backtrace(),true);
+	if(DEBUG<0)
+		mail($to,$subject,$body);
+	else
+		die($body);
 }
 
 // function to retrieve config options

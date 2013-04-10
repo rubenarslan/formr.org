@@ -1,7 +1,7 @@
 <?
 require ('admin_header.php');
 /* 	admin.php - Editor to add string subsitutions in $formulierung texts
-June, 2010 - remember the great wheather!
+June, 2010 - remember the great weather!
  */
 
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein

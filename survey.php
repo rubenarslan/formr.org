@@ -1,10 +1,10 @@
 <?
-require ('header.php');
+require_once 'header.php';
 global $study;
 global $run;
 
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
-require ('includes/header.php');
+require_once 'includes/header.php';
 
 
 $timestarted = null;

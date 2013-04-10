@@ -1,11 +1,6 @@
 
 <? 
 
-// MySQL-Verbindung schließen (wenn wir es nutzen)
-if ($usesql=="yes") {
-	mysql_close();
-}
-
 // Analytics-Code setzen, wenn in Settings aktiviert.
 
 if ($useanalytics == "yes") {

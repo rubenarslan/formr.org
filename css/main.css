@@ -1,0 +1,91 @@
+button.btn.btn-checked {
+  background-color: #e6e6e6;
+  background-color: #d9d9d9 \9;
+  background-image: none;
+  outline: 0;
+  -webkit-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+     -moz-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.hidden {
+    display: none !important;
+    visibility: hidden !important;
+}
+.control-group.warning .controls button.btn, 
+.control-group.warning .controls label
+{
+    color: #c09853;
+    border-color: #c09853;
+}
+
+.control-group.controls-checkbox input[type=checkbox] {
+	margin-top:-3px;
+	margin-left: -30px;
+	margin-right: 17px;
+}
+.control-group.controls-checkbox label {
+	display:inline;
+	width:330px;
+}
+div.control-group div.date div.controls select[name*=day] {
+	width:60px;
+}
+div.control-group div.date div.controls select[name*=month] {
+	width:120px;
+}
+div.control-group div.date div.controls select[name*=year] {
+	width:80px;
+}
+form.form-horizontal div.control-group div.controls label {
+    display:inline-block;
+}
+form.form-horizontal div.control-group div.controls input[type=radio],form.form-horizontal div.control-group div.controls input[type=checkbox] {
+    vertical-align:top;
+}
+form.form-horizontal div.control-group.form-row.item-instruction div.controls {
+    margin-left:0;
+}
+form.form-horizontal div.form-row:nth-child(odd) {
+  background-color: #f9f9f9;
+}
+form.form-horizontal div.form-row.item-radio div.controls,form.form-horizontal div.form-row.item-checkbox div.controls {
+  display:table;
+}
+form.form-horizontal div.form-row.item-checkbox div.controls label, form.form-horizontal div.form-row.item-radio div.controls label {
+  display:table-cell;
+  padding-left:18px;
+  padding-right:5px;
+  padding-top:5px;
+  text-indent:-18px;
+}
+.form-horizontal .control-label {
+  float: left;
+  width: 300px;
+  padding-top: 5px;
+  text-align: right;
+}
+.form-horizontal .controls {
+  	margin-left: 320px;
+}
+/*
+@media (min-width: 30em) {
+    ul {
+        display: table;
+        padding: 0;
+    }
+
+    li {
+        display: table-cell;
+        border: 1px solid;
+    }
+}
+*/
+
+.input-append input.has-input-buttons:focus,
+.input-prepend input.has-input-buttons:focus,
+.input-append select.has-input-buttons:focus,
+.input-prepend select.has-input-buttons:focus,
+.input-append .has-input-buttons.uneditable-input:focus,
+.input-prepend .has-input-buttons.uneditable-input:focus {
+  z-index: auto;
+}
