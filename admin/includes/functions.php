@@ -195,6 +195,7 @@ function backup_results() {
 
 function deleteresults() {
     if (isset($_GET['confirm'])) $confirm = $_GET['confirm'];
+	else $confirm = false;
 	$how_much_already = mysql_query("SELECT * FROM ".RESULTSTABLE) or die(mysql_error());
 	$how_much_already = mysql_num_rows($how_much_already);
 
@@ -600,14 +601,16 @@ function variable_exists($table, $variable) {
 
 function createitemdisplaytable() {
     $query ="CREATE TABLE IF NOT EXISTS `" . ITEMDISPLAYTABLE . "` (
+	`created` datetime,
+	`modified` datetime,
   `variablenname` varchar(100) NOT NULL,
   `vpncode` varchar(100) NOT NULL,
-  `displaycount` int(2) NOT NULL,
-  `created_at` bigint(20) unsigned NOT NULL DEFAULT '0',
-  PRIMARY KEY (`variablenname`,`vpncode`),
-  UNIQUE KEY `varcre` (`variablenname`,`created_at`)
+  `displaycount` tinyint(3) NOT NULL,
+  `answered` tinyint(3),
+  PRIMARY KEY (`variablenname`,`vpncode`)
+  
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;";
-    mysql_query($query);
+    mysql_query($query) or die(mysql_error());
 }
 
 

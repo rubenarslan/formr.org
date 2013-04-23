@@ -19,10 +19,9 @@ class Survey {
 		$this->timestarted = @$options['timestarted'];
 		$this->dbh = new DB();
 		
+		$this->getNextItems();
 		if($this->getProgress()===1)
 			$this->finish();
-		else
-			$this->getNextItems();
 	}
 	public function render() {
 		$ret = $this->render_form_header().
@@ -109,7 +108,7 @@ class Survey {
 			else $this->not_answered += $item['count'];
 		}
 		$all_items = $this->already_answered + count($this->unanswered_batch);
-
+		
 		$this->progress = $this->already_answered / $all_items ;			
 
 		return $this->progress;
@@ -138,7 +137,7 @@ class Survey {
 		
 		while($item = $get_items->fetch(PDO::FETCH_ASSOC) )
 		{
-			$this->unanswered_batch[$item['variablenname']] = $this->legacy_translate_item($item);
+			$this->unanswered_batch[$item['variablenname']] = legacy_translate_item($item);
 		}
 		return $this->unanswered_batch;
 		
@@ -159,7 +158,6 @@ class Survey {
 			debug("<strong>render_form_header:</strong> timestarted was not set or empty");
 		}
 	
-		pr($this->errors);
 	    $ret .= '<div class="progress">
 				  <div class="bar" style="width: '.(round($this->progress,2)*100).'%;"></div>
 			</div>';
@@ -253,116 +251,6 @@ class Survey {
 		return $ret;
 	}
 
-	protected function legacy_translate_item($item) { // may have been a bad idea to name (array)input and (object)return value identically?
-		$options = array();
-		$options['id'] = $item['id'];
-		$name = $item['variablenname'];
-		$type = trim(strtolower($item['typ']));
-		if($type === 'offen') $type = 'text';
-		if($type === 'instruktion') $type = 'instruction'; 
-	
-		$options['text'] = $item['wortlaut'];
-		$options['displayed_before'] = (int)$item['displaycount'];
-
-		$reply_options = array();
-		
-		if(isset($item['antwortformatanzahl']))
-		{
-			$options['size'] = $item['antwortformatanzahl'];
-		}
-		
-		if(strpos($type," ")!==false)
-		{
-			$type = preg_replace(" +"," ",$type); // multiple spaces collapse into one
-			$type_options = explode(" ",$type); // get real type and options
-			$type = $type_options[0];
-			unset($type_options[0]); // remove real type from options
-			
-			$options['type_options'] = $type_options;
-		}
-		$options['type'] = $type;
-	
-		// INSTRUCTION
-		switch($type) {
-			case "fork":
-				if(isset($item['ratinguntererpol']) ) 
-					$redirect = $item['ratinguntererpol'];
-				elseif(isset($item['MCalt1']) ) 
-					$redirect = $item['MCalt1'];
-				else 
-					$redirect = 'survey.php';
-				$item = new Item_fork($name, array(
-						'redirect' => $redirect,
-						) + $options);
-				
-				break;
-			case "rating": // todo: ratings will disappear and just be MCs with empty options
-				$reply_options = array_fill(1, $item['size'], '');
-				if(isset($item['ratinguntererpol']) ) 
-				{
-					$lower = $item['ratinguntererpol'];
-					$upper = $item['ratingobererpol'];
-				} elseif(isset($item['MCalt1']) ) 
-				{
-					$lower = $item['MCalt1'];
-					$upper = $item['MCalt2'];	
-				} else 
-				{
-					$reply_options = range(1, $item['size']);
-					$reply_options = array_combine($reply_options, $reply_options);
-					$lower = 1;
-					$upper = $item['size'];
-				}
-				$reply_options[1] = $lower;
-				$reply_options[$item['size']] = $upper;
-			
-				$item = new Item_mc($name, array(
-						'reply_options' => $reply_options,
-						) + $options);
-		
-				break;
-			case "mc":
-			case "mmc":
-			case "select":
-			case "mselect":
-			case "range":
-			case "btnradio":
-			case "btncheckbox":
-				$reply_options = array();
-							
-				for($op = 1; $op <= 12; $op++) 
-				{
-					if(isset($item['MCalt'.$op]))
-						$reply_options[ $op ] = $item['MCalt'.$op];
-				}
-				$class = "Item_".$type;
-			
-				$item = new $class($name, array(
-						'reply_options' => $reply_options,
-						) + $options);
-	
-				break;
-			case "text":
-				if(isset($options['size']) AND $options['size'] / 150 < 1) // of course Item_textarea can also be specified directly, but in old surveys it isn't
-					$class = 'Item';
-				else
-					$class = 'Item_textarea';
-
-				$item = new $class($name, $options);
-
-				break;
-	
-			default:
-				$class = "Item_".strtoupper($type);
-				if(!class_exists($class)) 
-					$class = 'Item';
-				$item = new $class($name, $options);
-
-				break;
-		}
-
-		return $item;
-	}
 	protected function render_form_footer() 
 	{
 	    return "</form>"; /* close form */

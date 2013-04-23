@@ -26,5 +26,18 @@ $(document).ready(function() {
 		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
 	});
 	
+	$('div.btn-check button.btn').off('click').click(function(event){
+		var $btn = $(this);
+		var checked = $('#'+$btn.attr('data-for')).attr('checked');
+		$btn.find('i').toggleClass('icon-check',!checked).toggleClass('icon-check-empty',checked);
+		$('#'+$btn.attr('data-for')).attr('checked',!checked); // couple with its radio button
+		$btn.toggleClass('btn-checked',!checked); // check this one
+		return false;
+	}).each(function() {
+		var $btn = $(this);
+		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
+		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
+	});
+	
 	$('.hastooltip').tooltip();
 });

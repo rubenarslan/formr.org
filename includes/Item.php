@@ -1,4 +1,116 @@
 <?php
+
+function legacy_translate_item($item) { // may have been a bad idea to name (array)input and (object)return value identically?
+	$options = array();
+	$options['id'] = $item['id'];
+	$name = $item['variablenname'];
+	$type = trim(strtolower($item['typ']));
+	if($type === 'offen') $type = 'text';
+	if($type === 'instruktion') $type = 'instruction'; 
+
+	$options['text'] = $item['wortlaut'];
+	$options['displayed_before'] = (int)@$item['displaycount'];
+
+	$reply_options = array();
+	
+	if(isset($item['antwortformatanzahl']))
+	{
+		$options['size'] = $item['antwortformatanzahl'];
+	}
+	
+	if(strpos($type," ")!==false)
+	{
+		$type = preg_replace(" +"," ",$type); // multiple spaces collapse into one
+		$type_options = explode(" ",$type); // get real type and options
+		$type = $type_options[0];
+		unset($type_options[0]); // remove real type from options
+		
+		$options['type_options'] = $type_options;
+	}
+	$options['type'] = $type;
+
+	// INSTRUCTION
+	switch($type) {
+		case "fork":
+			if(isset($item['ratinguntererpol']) ) 
+				$redirect = $item['ratinguntererpol'];
+			elseif(isset($item['MCalt1']) ) 
+				$redirect = $item['MCalt1'];
+			else 
+				$redirect = 'survey.php';
+			$item = new Item_fork($name, array(
+					'redirect' => $redirect,
+					) + $options);
+			
+			break;
+		case "rating": // todo: ratings will disappear and just be MCs with empty options
+			$reply_options = array_fill(1, $item['size'], '');
+			if(isset($item['ratinguntererpol']) ) 
+			{
+				$lower = $item['ratinguntererpol'];
+				$upper = $item['ratingobererpol'];
+			} elseif(isset($item['MCalt1']) ) 
+			{
+				$lower = $item['MCalt1'];
+				$upper = $item['MCalt2'];	
+			} else 
+			{
+				$reply_options = range(1, $item['size']);
+				$reply_options = array_combine($reply_options, $reply_options);
+				$lower = 1;
+				$upper = $item['size'];
+			}
+			$reply_options[1] = $lower;
+			$reply_options[$item['size']] = $upper;
+		
+			$item = new Item_mc($name, array(
+					'reply_options' => $reply_options,
+					) + $options);
+	
+			break;
+		case "mc":
+		case "mmc":
+		case "select":
+		case "mselect":
+		case "range":
+		case "btnradio":
+		case "btncheckbox":
+			$reply_options = array();
+						
+			for($op = 1; $op <= 12; $op++) 
+			{
+				if(isset($item['MCalt'.$op]))
+					$reply_options[ $op ] = $item['MCalt'.$op];
+			}
+			$class = "Item_".$type;
+		
+			$item = new $class($name, array(
+					'reply_options' => $reply_options,
+					) + $options);
+
+			break;
+		case "text":
+			if(isset($options['size']) AND $options['size'] / 150 < 1) // of course Item_textarea can also be specified directly, but in old surveys it isn't
+				$class = 'Item';
+			else
+				$class = 'Item_textarea';
+
+			$item = new $class($name, $options);
+
+			break;
+
+		default:
+			$class = "Item_".strtoupper($type);
+			if(!class_exists($class)) 
+				$class = 'Item';
+			$item = new $class($name, $options);
+
+			break;
+	}
+
+	return $item;
+}
+
 // the default item is a text input, as many browser render any input type they don't understand as 'text'.
 // the base class should also work for inputs like date, datetime which are either native or polyfilled but don't require
 // special label handling
@@ -17,6 +129,7 @@ class Item
 	public $error = null;
 	public $optional = false;
 	public $size = null;
+	public $skipIf = null;
 	protected $input_attributes = array();
 	protected $classes_controls = array('controls');
 	protected $classes_wrapper = array('control-group','form-row');
@@ -157,12 +270,12 @@ class Item
 			$this->skipIf = $options['skipIf'];
 
 		
-		if(@$options['error'])
+		if(isset($options['error']) AND $options['error'])
 		{
 			$this->error = $options['error'];
 			$this->classes_wrapper[] = "error";
 		}
-		if(@$options['displayed_before']>0)
+		if(isset($options['displayed_before']) AND $options['displayed_before']>0)
 		{
 			$this->displayed_before = $options['displayed_before'];
 			if(!$this->error)
@@ -215,13 +328,13 @@ class Item
 		
 		if( trim($this->type) == "" ):
 			$this->val_errors[] = "ID {$this->id}: Typ darf nicht leer sein.";
-		elseif(!in_array($this->type,$this->allowedTypes) ):
-			$this->val_errors[] = "ID {$this->id}: Typ '{$this->type}' nicht erlaubt. In den Admineinstellungen änderbar.";
+#		elseif(!in_array($this->type,$this->allowedTypes) ):
+#			$this->val_errors[] = "ID {$this->id}: Typ '{$this->type}' nicht erlaubt. In den Admineinstellungen änderbar.";
 		endif;
 			
 			
-		if( trim($this->skipIf) != "" AND is_null(json_decode($this->skipIf, true)) ):
-			$this->val_errors[] = "ID {$this->id}: skipif '{$this->skipIf}' cannot be decoded: check the skipif!";
+		if($this->skipIf!=null AND trim($this->skipIf) != "" AND is_null(json_decode($this->skipIf, true)) ):
+			$this->val_errors[] = "ID {$this->id}: The skipIf command '".h($this->skipIf)."' cannot be decoded!";
 		endif;
 		
 		return $this->val_errors;
@@ -282,7 +395,7 @@ class Item
 		{
 			$this->error = __("The minimum is %d",$this->input_attributes['min']);
 		}
-		elseif (isset($this->input_attributes['maxlength']) AND $this->input_attributes['maxlength'] > 0 AND strlen($reply) > $this->input_attributes['maxlength']) // verify maximum length 
+		elseif (is_string($reply) AND isset($this->input_attributes['maxlength']) AND $this->input_attributes['maxlength'] > 0 AND strlen($reply) > $this->input_attributes['maxlength']) // verify maximum length 
 		{
 			$this->error = __("You can't use that many characters. The maximum is %d",$this->input_attributes['maxlength']);
 		}
@@ -312,9 +425,9 @@ class Item
 	
 	protected function setMoreOptions() 
 	{	
-		if(count($this->type_options) == 1)
+		if(is_array($this->type_options) AND count($this->type_options) == 1)
 		{
-			$this->size = $type_split[1];
+			$this->size = current($type_split);
 		}		
 	}
 	protected function render_label() 
@@ -393,17 +506,20 @@ class Item_number extends Item
 	{
 		$this->input_attributes['step'] = 1;
 		
-		if(count($this->type_options) == 1) 
-			$constraint_split = explode(",",$this->type_options[1]);
+		if(isset($this->type_options) AND is_array($this->type_options))
+		{
+			if(count($this->type_options) == 1) 
+				$this->type_options = explode(",",current($this->type_options));
 
-		$min = reset($this->type_options);
-		if(is_numeric($min)) $this->input_attributes['min'] = $min;
+			$min = reset($this->type_options);
+			if(is_numeric($min)) $this->input_attributes['min'] = $min;
 		
-		$max = next($this->type_options);
-		if(is_numeric($max)) $this->input_attributes['max'] = $max;
+			$max = next($this->type_options);
+			if(is_numeric($max)) $this->input_attributes['max'] = $max;
 		
-		$step = next($this->type_options);
-		if(is_numeric($step) OR $step==='any') $this->input_attributes['step'] = $step;
+			$step = next($this->type_options);
+			if(is_numeric($step) OR $step==='any') $this->input_attributes['step'] = $step;	
+		}
 		
 		$this->type = 'number';
 	}
@@ -553,6 +669,21 @@ class Item_mmc extends Item_mc
 	}
 }
 
+// multiple multiple choice, also checkboxes
+class Item_check extends Item_mmc 
+{
+	protected function render_input() 
+	{
+		$ret = '
+			<input type="hidden" value="" id="item' . $this->id . '_" '.self::_parseAttributes($this->input_attributes,array('id','type')).'>
+		<label for="item' . $this->id . '_1">
+		<input '.self::_parseAttributes($this->input_attributes,array('id')).
+		' value="1" id="item' . $this->id . '_1"></label>		
+		';
+		return $ret;
+	}
+}
+
 // dropdown select, choose one
 class Item_select extends Item 
 {
@@ -632,6 +763,24 @@ class Item_btncheckbox extends Item_mmc
 				$option.
 			'</button>';
 		endforeach;
+		$ret .= '</div>';
+		
+		return $ret;
+	}
+}
+class Item_btncheck extends Item_check 
+{
+	protected function setMoreOptions() 
+	{
+		parent::setMoreOptions();
+		$this->classes_wrapper[] = 'btn-check';
+	}
+	protected function render_appended () 
+	{
+		$ret = '<div class="btn-group hidden">
+			<button class="btn" data-for="item' . $this->id . '_1">' . 
+		'<i class="icon-check-empty"></i>
+			</button>';
 		$ret .= '</div>';
 		
 		return $ret;

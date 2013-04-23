@@ -119,7 +119,7 @@ if($ok):
 				$column_number = $cell->columnIndexFromString( $cell->getColumn() ) - 1;
 
 				if(!array_key_exists($column_number,$columns)) continue; // skip columns that aren't allowed
-							
+				
 				$col = $columns[$column_number];
 				$val = $cell->getCalculatedValue();
 				if($col == 'id'):
@@ -139,7 +139,7 @@ if($ok):
 				  if(trim($val) != '' AND $nr > $data[$row_number]['antwortformatanzahl'] ): 
 					  $errors[] = "Zeile $row_number: mehr Antwortoptionen als angegeben!";
 				  endif;
-				  				
+
 				endif; // validation
 				
 			  
@@ -149,16 +149,12 @@ if($ok):
 			
 		endforeach; // cell loop
 		
-		// todo: automatically set relevant field to the id of the first item that depends on it.
-		
 		// row has been put into array
 		if(!isset($data[$row_number]['id'])) $data[$row_number]['id'] = $row_number;
 
 		require_once "../includes/Item.php";
-		$class = "Item_".strtolower($data[$row_number]['typ']);
-		if(!class_exists($class)) 
-			$class = 'Item';
-		$item = new $class($data[$row_number]['typ'],$data[$row_number]['variablenname'],$data[$row_number]);
+		$item = legacy_translate_item($data[$row_number]);
+#		$item = new $class($data[$row_number]['typ'],$data[$row_number]['variablenname'],$data[$row_number]);
 		$val_errors = $item->validate();
 		
 		if(!empty($val_errors)):
