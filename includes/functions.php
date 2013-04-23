@@ -8,7 +8,66 @@ require_once "loop_mgmt.php";
 require_once "email_mgmt.php";
 
 function redirect_to($location) {
-	echo "<script type=\"text/javascript\">document.location.href = \"$location\";</script>";
+	if(substr($location,0,3)!= 'http'){
+		$base = $_SERVER['SERVER_NAME'] . dirname($_SERVER['REQUEST_URI']);
+		if(substr($location,0,1)=='/')
+			$location = $base . substr($location,1);
+		else $locaton = $base . $location;
+	}
+	try
+	{
+	    header("Location: $location");
+		exit;
+	}
+	catch (Exception $e)
+	{ // legacy of not doing things properly, ie needing redirects after headers were sent. 
+		echo "<script type=\"text/javascript\">document.location.href = \"$location\";</script>";
+	}
+}
+function h($text) {
+	return htmlspecialchars($text);
+}
+
+
+if (!function_exists('__')) {
+
+/**
+taken from cakePHP
+ */
+	function __($singular, $args = null) {
+		if (!$singular) {
+			return;
+		}
+
+		$translated = _($singular);
+		if ($args === null) {
+			return $translated;
+		} elseif (!is_array($args)) {
+			$args = array_slice(func_get_args(), 1);
+		}
+		return vsprintf($translated, $args);
+	}
+}
+
+if (!function_exists('__n')) {
+
+/**
+taken from cakePHP
+ */
+	function __n($singular, $plural, $count, $args = null) {
+		if (!$singular) {
+			return;
+		}
+
+		$translated = ngettext($singular, $plural, null, 6, $count);
+		if ($args === null) {
+			return $translated;
+		} elseif (!is_array($args)) {
+			$args = array_slice(func_get_args(), 3);
+		}
+		return vsprintf($translated, $args);
+	}
+
 }
 
 function table_exists($table) {
@@ -21,25 +80,27 @@ function table_exists($table) {
     }
 }
 
-function post_debug($string) {
+function debug($string) {
     if( DEBUG ) {
-        echo "<br/>" . $string . "<br/>";
+		echo "<pre>";
+        var_dump($string);
+		echo "</pre>";
+    }
+}
+function pr($string) {
+    if( DEBUG!==-1 ) {
+		echo "<pre>";
+        var_dump($string);
+		echo "</pre>";
     }
 }
 
-function quote($s) {
-    return "'".mysql_real_escape_string($s)."'";
-}
-
-function post_skipif_debug($string) {
+function skipif_debug($string) {
 	if(SKIPIF_DEBUG) {
 		echo $string."<br/>";
 	}
 }
 
-function standardsubmit() {
-    echo '<div class="secondary-color bottom-submit"><input type="submit" name="weiterbutton" id="weiterbutton" value="Weiter!" /></div>';
-}
 
 // wird genutzt
 function specialitemhandler($row,$specialteststrigger,$allowedtypes){
@@ -95,7 +156,7 @@ function update_email($vpncode,$email) {
 }
 
 function exception_handler($exception) {
-	post_debug($exception);
+	debug($exception);
 	exception_mailer($exception);
 }
 

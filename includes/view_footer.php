@@ -1,8 +1,9 @@
-	<div class="span2">
-	    <img src="img/<?=LOGO?>">
-	   <a href="index.php">Zurück</a>
-	</div>
-		</div>
+			</div> <!-- end of span10 div -->
+			<div class="span2">
+			    <img src="img/<?=LOGO?>">
+			   <a href="index.php">Zurück</a>
+			</div>
+		</div> <!-- end of row-fluid div -->
 		<div class="row-fluid">
 			<div class="span12">
 				Bei Problemen wenden Sie sich bitte an <strong><a href="mailto:"<?=EMAIL?>"><?=EMAIL?></a>.</strong>

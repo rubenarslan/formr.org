@@ -1,5 +1,5 @@
 <?php
-require_once "header.php";
+require_once "includes/Study.php";
 global $currentUser;
 global $study;
 global $run;
@@ -14,9 +14,6 @@ else if(isset($study) and is_object($study))
 else 
   header("Location: index.php");
 
-?>
-
-<?php
 include("pre_content.php");
 ?>
 
@@ -30,4 +27,3 @@ errorOutput($errors);
 
 <?php
 include("post_content.php");
-?>

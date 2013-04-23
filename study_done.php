@@ -1,7 +1,5 @@
 <?
-require ('header.php');
-global $study;
-global $run;
+require ('includes/Study.php');
 
 if(isset($run)) {
   $next_study=$run->getNextStudy($study);
@@ -11,13 +9,13 @@ if(isset($run)) {
 }   
 
 
-require ('includes/header.php');
+require ('includes/view_header.php');
 
 
 
 
 //$vpndata = get_vpn_data($vpncode); // returns an object
-$timestarted = $_GET['ts'];
+$timestarted = @$_GET['ts'];
 
 //todo
 /* if(study_part_completed($vpncode,'pretest')) {  */
@@ -47,5 +45,5 @@ if((isset($run) and !$next_study) or !isset($run)) {
 // schließe main-div
 echo "</div>\n";
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
-require('includes/footer.php');
+require('includes/view_footer.php');
 ?>

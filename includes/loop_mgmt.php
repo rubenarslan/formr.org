@@ -6,13 +6,13 @@ function study_is_looped() {
     $result=mysql_query($query_string) or die( exception_handler(mysql_error() . "<br/>" . $query_string . "<br/> in study_is_looped" ));
     $study_config = mysql_fetch_object($result);
     if( $study_config->loop == 0 ) {
-		post_debug("<strong>study_is_looped:</strong> FALSE");
+		debug("<strong>study_is_looped:</strong> FALSE");
         return false;
     } elseif( $study_config->loop == 1 ) {
-		post_debug("<strong>study_is_looped:</strong> TRUE");
+		debug("<strong>study_is_looped:</strong> TRUE");
         return true;
     } else {
-        post_debug("<strong>study_is_looped:</strong> something went really wrong");
+        debug("<strong>study_is_looped:</strong> something went really wrong");
         exit;
     }
 }
@@ -22,10 +22,10 @@ function get_iteration($vpncode) {
     $result = mysql_query( $query_string ) or die( exception_handler(mysql_error() . "<br/>" . $query_string . "<br/> in get_iteration" ) );
     $count = mysql_fetch_object($result);
     if( !is_null($count->iteration) ) {
-		post_debug("<strong>get_iteration:</strong> " . $count->iteration);
+		debug("<strong>get_iteration:</strong> " . $count->iteration);
         return $count->iteration;
     } else {
-		post_debug("<strong>get_iteration:</strong> " . $count->iteration);
+		debug("<strong>get_iteration:</strong> " . $count->iteration);
         return 1;
     }
 }

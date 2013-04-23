@@ -1,12 +1,10 @@
 <?php
-#require_once "Survey.php";
-
 function get_study_by_id($id) {    /* generic function to look up which study an item is associated with; $id is the unique integer id of the items; */
   $query = "SELECT * FROM ".STUDIESTABLE." WHERE id='".$id."';";
   $result = mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in get_study_by_id" ));
   $obj = mysql_fetch_object($result);
   if( $obj->id == $id ) {
-    post_debug("<strong>get_study_by_id:</strong> id: " . $id . " " . $obj->name);
+    debug("<strong>get_study_by_id:</strong> id: " . $id . " " . $obj->name);
     return $obj;
   }
 }
@@ -73,7 +71,7 @@ function writepostedvars($vpncode,$starttime = NULL,$endtime = NULL,$timestarted
     /* oh, the vpncode *does* have entries for this study already */
     else {
 
-        /* post_debug( "<strong>writepostedvars:</strong> " . $vpncode . " has an entry for study: " . $study); */
+        /* debug( "<strong>writepostedvars:</strong> " . $vpncode . " has an entry for study: " . $study); */
         /* if its a diary study check if the vpncode has entries for that time period */
         if( TIMEDMODE ) {
             /* timemode is on, meaning only at certain times site can be accessed and entries created
@@ -81,16 +79,16 @@ function writepostedvars($vpncode,$starttime = NULL,$endtime = NULL,$timestarted
              * this particular edit cycle */
             /* if vpncode has no entries for that edit time period create a bare one */
             if( !has_entries_for_edit_time($vpncode,$starttime,$endtime) ) {
-                post_debug("<strong>writepostedvars:</strong> in timedmode, vpncode has no entires for edit time");
+                debug("<strong>writepostedvars:</strong> in timedmode, vpncode has no entires for edit time");
                 if( last_entry_complete($vpncode) ) {
-                    post_debug("<strong>writepostedvars:</strong> last entry is complete");
+                    debug("<strong>writepostedvars:</strong> last entry is complete");
                     // create a new entry, don't iterate the count
                     $entry_id = create_new_entry($vpncode,$timestarted,true);
                     if( $entry_id != false ) {
                         write_post_data($entry_id);
                     }
                 } else {
-                    post_debug("<strong>writepostedvars:</strong> last entry is not complete");
+                    debug("<strong>writepostedvars:</strong> last entry is not complete");
                     // create a new entry and interate the count
                     $entry_id = create_new_entry($vpncode,$timestarted,false);
                     if( $entry_id != false ) {
@@ -100,7 +98,7 @@ function writepostedvars($vpncode,$starttime = NULL,$endtime = NULL,$timestarted
             }
             /* vpncode has entries, try and complete what is left open with what is in $_POST */
             else {
-                post_debug("<strong>writepostedvars</strong> in timedmode, vpncode has entires for edit time");
+                debug("<strong>writepostedvars</strong> in timedmode, vpncode has entires for edit time");
                 $entry_id = get_entry_for_time($vpncode,$starttime,$endtime);
                 if( $entry_id != false ) {
                     write_post_data($entry_id);
@@ -120,7 +118,7 @@ function writepostedvars($vpncode,$starttime = NULL,$endtime = NULL,$timestarted
 function get_study_by_vpn($vpncode) {
     $query = "SELECT study FROM ".VPNDATATABLE." WHERE vpncode='$vpncode';";
     $results = mysql_query($query) or die( exception_handler(mysql_error() . "<br/>" . $query . "<br/> in get_study_by_vpn" ));
-    post_debug("<strong>get_study_by_vpn:</strong> $query");
+    debug("<strong>get_study_by_vpn:</strong> $query");
     $result = mysql_fetch_assoc($results);
     foreach($result as $item) {
         return $item;
@@ -154,7 +152,7 @@ function get_already_answered($vpncode,$starttime = NULL,$endtime = NULL) {
 		$query="SELECT * FROM ".RESULTSTABLE." WHERE vpncode='$vpncode' ;";
     }
 
-	post_debug($query);
+	debug($query);
     $dieseperson=mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in get_already_answered" ));
     $result=mysql_fetch_assoc($dieseperson);
 
@@ -169,6 +167,9 @@ function get_already_answered($vpncode,$starttime = NULL,$endtime = NULL) {
     return $already_answered;
 }
 
+function quote($s) {
+    return "'".mysql_real_escape_string($s)."'";
+}
 
 /* returns an array with the next items to be displayed */
 function get_next_items($vpncode, $timestarted, $already_answered) { 
@@ -245,7 +246,7 @@ function next_study($vpncode,$row) {
             mysql_query($query) or die( exception_handler(mysql_error() . "<br/>" . $query . "<br/> in next_study" ));
         }
     } else {
-        post_debug("ERROR: study order field is empty!");
+        debug("ERROR: study order field is empty!");
     }
 }
 
@@ -253,15 +254,15 @@ function skip_study($vpncode,$study,$results) {
     $studyskip = false;
 
     foreach( $results as $result ) {
-		// post_debug("<strong>skip_study</strong> fixme :)");
+		// debug("<strong>skip_study</strong> fixme :)");
 		// timestarted set to 0 as we cannot use local skipifs here anyways
         if( should_skip($vpncode,$result,0) ) {
             $studyskip = true;
-			post_debug("<strong>skip_study:</strong> is TRUE");
+			debug("<strong>skip_study:</strong> is TRUE");
             break;
         }
     }
-	post_debug("<strong>skip_study:</strong> is FALSE");
+	debug("<strong>skip_study:</strong> is FALSE");
     return $studyskip;
 }
 
@@ -278,18 +279,18 @@ function entry_complete($id) {
 
     if( TIMEDMODE ) {
         if( $row['timefinished'] > 0 AND $row['endedsurveysmsintvar'] != NULL) {
-			post_debug("<strong>entry_complete: </strong> in timedmode: TRUE ");
+			debug("<strong>entry_complete: </strong> in timedmode: TRUE ");
             return true;
         } else {
-			post_debug("<strong>entry_complete: </strong> in timedmode: FALSE ");
+			debug("<strong>entry_complete: </strong> in timedmode: FALSE ");
             return false;
         }
     } else {
         if( $row['endedsurveysmsintvar'] != NULL) {
-			post_debug("<strong>entry_complete:</strong> not in timedmode: TRUE ");
+			debug("<strong>entry_complete:</strong> not in timedmode: TRUE ");
             return true;
         } else {
-			post_debug("<strong>entry_complete:</strong> not in timedmode: FALSE");
+			debug("<strong>entry_complete:</strong> not in timedmode: FALSE");
             return false;
         }
     }
@@ -301,10 +302,10 @@ function last_entry_complete($vpncode) {
     $obj = mysql_fetch_object($result);
 
     if( entry_complete( $obj->id ) ) {
-		post_debug("<strong>last_entry_complete:</strong> TRUE");
+		debug("<strong>last_entry_complete:</strong> TRUE");
         return true;
     } else {
-		post_debug("<strong>last_entry_complete:</strong> FALSE");
+		debug("<strong>last_entry_complete:</strong> FALSE");
         return false;
     }
 }
@@ -345,13 +346,13 @@ function create_new_entry($vpncode,$timestarted,$iterate) {
             }
             $query_string = "INSERT INTO ".RESULTSTABLE." (vpncode,begansurveysmsintvar,timestarted,iteration,created_at,updated_at) VALUES('".$vpncode."', NOW(),".$timestarted.",".$iteration.", NOW(), NOW())";
 
-			post_debug("<strong>create_new_entry:</strong> timestarted set and loop true");
-            post_debug("<strong>create_new_entry:</strong> 'insert-query is': " . $query_string);
+			debug("<strong>create_new_entry:</strong> timestarted set and loop true");
+            debug("<strong>create_new_entry:</strong> 'insert-query is': " . $query_string);
         } else {
             $query_string = "INSERT INTO ".RESULTSTABLE." (vpncode,begansurveysmsintvar,timestarted,created_at,updated_at) VALUES('".$vpncode."', NOW(),".$timestarted.", NOW(), NOW())";
 
-			post_debug("<strong>create_new_entry:</strong> timestarted set and loop false");
-            post_debug("<strong>create_new_entry:</strong> 'insert-query is': " . $query_string);
+			debug("<strong>create_new_entry:</strong> timestarted set and loop false");
+            debug("<strong>create_new_entry:</strong> 'insert-query is': " . $query_string);
         }
     }
     /* $timestarted is NULL */
@@ -364,12 +365,12 @@ function create_new_entry($vpncode,$timestarted,$iterate) {
                 $iteration = get_iteration($vpncode);
             }
             $query_string = "INSERT INTO ".RESULTSTABLE." (vpncode,begansurveysmsintvar,iteration,created_at,updated_at) VALUES('".$vpncode."', NOW(), ".$iteration.", NOW(), NOW())";
-			post_debug("<strong>create_new_entry:</strong> timestarted not set and loop true");
-            post_debug("<strong>create_new_entry:</strong> 'insert-query is': " . $query_string);
+			debug("<strong>create_new_entry:</strong> timestarted not set and loop true");
+            debug("<strong>create_new_entry:</strong> 'insert-query is': " . $query_string);
         } else {
             $query_string = "INSERT INTO ".RESULTSTABLE." (vpncode,begansurveysmsintvar,created_at,updated_at) VALUES('".$vpncode."', NOW(), NOW(), NOW())";
-			post_debug("<strong>create_new_entry:</strong> timestarted not set and loop false");
-            post_debug("<strong>create_new_entry:</strong> 'insert-query is': " . $query_string);
+			debug("<strong>create_new_entry:</strong> timestarted not set and loop false");
+            debug("<strong>create_new_entry:</strong> 'insert-query is': " . $query_string);
         }
     }
 
@@ -378,15 +379,15 @@ function create_new_entry($vpncode,$timestarted,$iterate) {
 
     /*  query to get id of new entry */
     $get_id_query = "SELECT id FROM ".RESULTSTABLE." WHERE vpncode='".$vpncode."' ORDER BY created_at DESC LIMIT 1;";
-    post_debug("<strong>create_new_entry:</strong> 'new entry query is': " . $get_id_query);
+    debug("<strong>create_new_entry:</strong> 'new entry query is': " . $get_id_query);
     $result = mysql_query($get_id_query) or die( exception_handler(mysql_error() . "<br/>" . $get_id_query . "<br/> in create_new_entry" ) );
     $entry = mysql_fetch_object($result);
     /* return new id or exit with error */
     if( !empty( $entry->id ) ) {
-		post_debug("<strong>create_new_entry:</strong> id is " . $entry->id );
+		debug("<strong>create_new_entry:</strong> id is " . $entry->id );
         return $entry->id;
     } else {
-        post_debug("<strong>create_new_entry:</strong> ERROR: no ID returned by " . $get_id_query);
+        debug("<strong>create_new_entry:</strong> ERROR: no ID returned by " . $get_id_query);
         exit();
     }
 }
@@ -398,11 +399,11 @@ function check_vpn_results($vpncode,$statement, $timestarted){
 
 	while( $entry = mysql_fetch_assoc($results)) {
 		if( should_skip($vpncode,$statement,$timestarted) ) {
-			post_debug("<strong>check_vpn_results:</strong> TRUE");
+			debug("<strong>check_vpn_results:</strong> TRUE");
 			return true;
 		}
 	}
-	post_debug("<strong>check_vpn_results:</strong> FALSE");
+	debug("<strong>check_vpn_results:</strong> FALSE");
 	return false;
 }
 

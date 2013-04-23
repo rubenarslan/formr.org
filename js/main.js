@@ -25,4 +25,6 @@ $(document).ready(function() {
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
 	});
+	
+	$('.hastooltip').tooltip();
 });

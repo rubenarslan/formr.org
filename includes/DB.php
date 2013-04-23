@@ -34,18 +34,20 @@ class DB extends PDO
             $stmt->execute();
 
             return $stmt->rowCount();
-        } 
+        }
         else
         {
-            return self::get_error();
+            return $this->errorInfo();
         }
     }
 
-    #display error
-    public function get_error() 
-    {
-        $this->connection->errorInfo();
-    }
+	public function table_exists($table) {
+	    if( $this->num_rows("SHOW TABLES LIKE '".$table."'") == 1 ) {
+	        return true;
+	    } else {
+	        return false;
+	    }
+	}
 
     # closes the database connection when object is destroyed.
     public function __destruct()

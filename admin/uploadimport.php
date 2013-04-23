@@ -149,6 +149,7 @@ if($ok):
 			
 		endforeach; // cell loop
 		
+		// todo: automatically set relevant field to the id of the first item that depends on it.
 		
 		// row has been put into array
 		if(!isset($data[$row_number]['id'])) $data[$row_number]['id'] = $row_number;

@@ -49,7 +49,6 @@ if(!isset($run)) {
   if(!$currentUser->EligibleForStudyRun($study,$run))
     header("Location: index.php");
 }
-  define('TABLEPREFIX',$study->prefix."_");    
 
 function studyDone() {
   global $study;
@@ -64,7 +63,13 @@ function studyDone() {
     header("Location: study_done.php?study_id=$study->id");
   } else {
     header("Location: study_done.php?study_id=$study->id&run_id=$run->id");
-  }  
+  }
 }
 
-?>
+define('TABLEPREFIX', $study->prefix . "_");    
+
+require_once 'includes/settings.php';
+require_once 'includes/variables.php';
+// Functions einbinden
+require_once 'includes/functions.php';
+$vpncode = getvpncode();

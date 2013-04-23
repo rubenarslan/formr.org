@@ -16,7 +16,7 @@ function render_form_header($vpncode,$timestarted) {
     if( !empty( $timestarted ) ) {
         echo '<input type="hidden" name="timestarted" value="' . $timestarted .'" />';
 	} else {
-		post_debug("<strong>render_form_header:</strong> timestarted was not set or empty");
+		debug("<strong>render_form_header:</strong> timestarted was not set or empty");
 	}
 	
     echo '<div class="progress">
@@ -74,19 +74,19 @@ function should_skip($vpncode,$row,$timestarted) {
     $global_skip = true;
     $local_skip = true;
 
-    post_skipif_debug("item id: " . $row["id"]);
-    post_skipif_debug("special field set, not skipping");
+    skipif_debug("item id: " . $row["id"]);
+    skipif_debug("special field set, not skipping");
   } else {
     /* also test whether the skipif string contains whitespace and don't go through this if it does */
     if ($row["skipif"] != NULL && trim($row["skipif"]) != "") {
 
-      post_skipif_debug("<div style='margin-top: 100px; border: 1px solid black; background-color: #fdd;'>item id: " . $row["id"] . "<br/>item variable: ".$row["variablenname"]."</div>");
-      post_skipif_debug("skipif statement: <br/><div style='background-color:#d85;border: 1px solid black;'><code>".$row["skipif"]."</code></div>");
+      skipif_debug("<div style='margin-top: 100px; border: 1px solid black; background-color: #fdd;'>item id: " . $row["id"] . "<br/>item variable: ".$row["variablenname"]."</div>");
+      skipif_debug("skipif statement: <br/><div style='background-color:#d85;border: 1px solid black;'><code>".$row["skipif"]."</code></div>");
 
       $skipif_json = json_decode($row["skipif"],true);
       // global skipif tests
       if( empty($skipif_json["global"]) ) {
-        post_skipif_debug("global part of skipif is empty");
+        skipif_debug("global part of skipif is empty");
         $global_skip = false;
       } else {
         $global = $skipif_json["global"];
@@ -113,7 +113,7 @@ function should_skip($vpncode,$row,$timestarted) {
         // fire the query
         $mquery = $mquery . " FROM ".RESULTSTABLE." JOIN ".VPNDATATABLE." ON ".RESULTSTABLE.".vpncode = ".VPNDATATABLE.".vpncode WHERE ".RESULTSTABLE.".vpncode='".$vpncode."') as T1";
 
-        post_skipif_debug("global skipif query is: <br/><div style='background-color:#ddd;border:solid black 1px;'><code>". $mquery . "</code></div>");
+        skipif_debug("global skipif query is: <br/><div style='background-color:#ddd;border:solid black 1px;'><code>". $mquery . "</code></div>");
 
         $mquery_result = mysql_query($mquery) or die( exception_handler($mquery . " went wrong in skipif function"));
 
@@ -203,7 +203,7 @@ function should_skip($vpncode,$row,$timestarted) {
           }
         }
 				
-        post_skipif_debug("<div style='padding-top:10px;'><strong>GLOBAL RESULTS after evaluation</strong></div>");
+        skipif_debug("<div style='padding-top:10px;'><strong>GLOBAL RESULTS after evaluation</strong></div>");
         if(SKIPIF_DEBUG) {
           echo "<div style='display: block; '>";
           foreach($global_results_boolean as $total) {
@@ -218,40 +218,40 @@ function should_skip($vpncode,$row,$timestarted) {
           case "any_true":
             if($condition_value == true) {
               $global_skip = true;
-              post_skipif_debug("global skipif " . $condition_name . "  is <strong>TRUE</strong>");
+              skipif_debug("global skipif " . $condition_name . "  is <strong>TRUE</strong>");
               break 2;
             } else {
               $global_skip = false;
-              post_skipif_debug("global skipif " . $condition_name . "  is <strong>FALSE</strong>");
+              skipif_debug("global skipif " . $condition_name . "  is <strong>FALSE</strong>");
             }
             break 1;
           case "any_false":
             if($condition_value == false) {
               $global_skip = true;
-              post_skipif_debug("global skipif " . $condition_name . "  is <strong>TRUE</strong>");
+              skipif_debug("global skipif " . $condition_name . "  is <strong>TRUE</strong>");
               break 2;
             } else {
-              post_skipif_debug("global skipif " . $condition_name . "  is <strong>FALSE</strong>");
+              skipif_debug("global skipif " . $condition_name . "  is <strong>FALSE</strong>");
             }
             break 1;
           case "all_true":
             if($condition_value == false) {
               $global_skip = false;
-              post_skipif_debug("global skipif " . $condition_name . "  is <strong>FALSE</strong>");
+              skipif_debug("global skipif " . $condition_name . "  is <strong>FALSE</strong>");
               break 2;
             } else {
               $global_skip = true;
-              post_skipif_debug("global skipif " . $condition_name . "  is <strong>TRUE</strong>");
+              skipif_debug("global skipif " . $condition_name . "  is <strong>TRUE</strong>");
             }
             break 1;
           case "all_false":
             if($condition_value == true) {
               $global_skip = false;
-              post_skipif_debug("global skipif " . $condition_name . "  is <strong>TRUE</strong>");
+              skipif_debug("global skipif " . $condition_name . "  is <strong>TRUE</strong>");
               break 2;
             } else {
               $global_skip = true;
-              post_skipif_debug("global skipif " . $condition_name . "  is <strong>TRUE</strong>");
+              skipif_debug("global skipif " . $condition_name . "  is <strong>TRUE</strong>");
             }
             break 1;
           }
@@ -259,10 +259,10 @@ function should_skip($vpncode,$row,$timestarted) {
       }
 
       if($global_skip) {
-        post_skipif_debug("<strong>FINAL</strong> global result with mode: <strong>" . $global["mode"] . "</strong> is: <strong>TRUE</strong>");
+        skipif_debug("<strong>FINAL</strong> global result with mode: <strong>" . $global["mode"] . "</strong> is: <strong>TRUE</strong>");
       } else {
 		  if(isset($global))
-	        post_skipif_debug("<strong>FINAL</strong> global result with mode: <strong>"  . $global["mode"] . "</strong> is: <strong>FALSE</strong>");
+	        skipif_debug("<strong>FINAL</strong> global result with mode: <strong>"  . $global["mode"] . "</strong> is: <strong>FALSE</strong>");
       }
 
       // local skipif tests
@@ -287,7 +287,7 @@ function should_skip($vpncode,$row,$timestarted) {
 
         $m_local_query = $m_local_query . " FROM ".RESULTSTABLE." JOIN ".VPNDATATABLE." ON ".RESULTSTABLE.".vpncode = ".VPNDATATABLE.".vpncode WHERE ".RESULTSTABLE.".vpncode='".$vpncode."' AND ".RESULTSTABLE.".timestarted=".$timestarted." ORDER BY timestarted DESC LIMIT 1) as T1";
 
-        post_skipif_debug("local skipif query:<br/><div style='border: 1px solid black;background-color: #aff;'><code>" . $m_local_query . "</code></div>");
+        skipif_debug("local skipif query:<br/><div style='border: 1px solid black;background-color: #aff;'><code>" . $m_local_query . "</code></div>");
         //todo: next line breaks, temp fix in place
         /* $local_query_result = mysql_query($m_local_query) or die( exception_handler($m_local_query . " went wrong in skipif function")); */
         $local_query_result = mysql_query($m_local_query);
@@ -314,51 +314,51 @@ function should_skip($vpncode,$row,$timestarted) {
         foreach ($local_result_row as $key => $value) {
           switch($local["mode"]) {
           case "any_true":
-            post_skipif_debug("<strong>should_skip:</strong> mode is: " . $local["mode"]);
+            skipif_debug("<strong>should_skip:</strong> mode is: " . $local["mode"]);
             if($value == true) {
               $local_skip = true;
-              post_skipif_debug("local skipif with mode: <strong>ANY_TRUE</strong> evaluates to <strong>TRUE</strong>");
+              skipif_debug("local skipif with mode: <strong>ANY_TRUE</strong> evaluates to <strong>TRUE</strong>");
               break 2;
             } else {
               $local_skip = false;
             }
-            post_skipif_debug("local skipif with mode: <strong>ANY_TRUE</strong> evaluates to <strong>FALSE</strong>");
+            skipif_debug("local skipif with mode: <strong>ANY_TRUE</strong> evaluates to <strong>FALSE</strong>");
             break;
           case "any_false":
-            post_skipif_debug("<strong>should_skip:</strong> mode is: " . $local["mode"]);
+            skipif_debug("<strong>should_skip:</strong> mode is: " . $local["mode"]);
             if($value == false) {
-              post_skipif_debug("local skipif with mode: <strong>ANY_FALSE</strong> evaluates to <strong>TRUE</strong>");
+              skipif_debug("local skipif with mode: <strong>ANY_FALSE</strong> evaluates to <strong>TRUE</strong>");
               $local_skip = true;
               break 2;
             } else {
               $local_skip = false;
             }
-            post_skipif_debug("local skipif with mode: <strong>ANY_FALSE</strong> evaluates to <strong>FALSE</strong>");
+            skipif_debug("local skipif with mode: <strong>ANY_FALSE</strong> evaluates to <strong>FALSE</strong>");
             break;
           case "all_true":
-            post_skipif_debug("<strong>should_skip:</strong> mode is: " . $local["mode"]);
+            skipif_debug("<strong>should_skip:</strong> mode is: " . $local["mode"]);
             if($value == false) {
-              post_skipif_debug("local skipif with mode: <strong>ALL_TRUE</strong> evaluates to <strong>FALSE</strong>");
+              skipif_debug("local skipif with mode: <strong>ALL_TRUE</strong> evaluates to <strong>FALSE</strong>");
               $local_skip = false;
               break 2;
             } else {
               $local_skip = true;
             }
-            post_skipif_debug("local skipif with mode: <strong>ALL_TRUE</strong> evaluates to <strong>TRUE</strong>");
+            skipif_debug("local skipif with mode: <strong>ALL_TRUE</strong> evaluates to <strong>TRUE</strong>");
             break;
           case "all_false":
-            post_skipif_debug("<strong>should_skip:</strong> mode is: " . $local["mode"]);
+            skipif_debug("<strong>should_skip:</strong> mode is: " . $local["mode"]);
             if($value == true) {
-              post_skipif_debug("local skipif with mode: <strong>ALL_FALSE</strong> evaluates to <strong>FALSE</strong>");
+              skipif_debug("local skipif with mode: <strong>ALL_FALSE</strong> evaluates to <strong>FALSE</strong>");
               $local_skip = false;
               break 2;
             } else {
               $local_skip = true;
             }
-            post_skipif_debug("local skipif with mode: <strong>ALL_FALSE</strong> evaluates to <strong>TRUE</strong>");
+            skipif_debug("local skipif with mode: <strong>ALL_FALSE</strong> evaluates to <strong>TRUE</strong>");
             break;
           default:
-            post_skipif_debug("no mode statement for local skipif found! please double check this as is considered a BUG");
+            skipif_debug("no mode statement for local skipif found! please double check this as is considered a BUG");
           }
         }
       }
@@ -377,44 +377,44 @@ function should_skip($vpncode,$row,$timestarted) {
 
         if( strtolower($skipif_json["mode"]) == "and") { 
 
-          post_skipif_debug("condition contains <strong>AND</strong><br/>");
+          skipif_debug("condition contains <strong>AND</strong><br/>");
 
           if($local_skip && $global_skip){
-            post_skipif_debug("TOTAL RESULT:<div class='skipif_true'>local && global = true</div>");
+            skipif_debug("TOTAL RESULT:<div class='skipif_true'>local && global = true</div>");
             return true;
           } else {
-            post_skipif_debug("TOTAL RESULT:<div class='skipif_false'>local && global = false</div>");
+            skipif_debug("TOTAL RESULT:<div class='skipif_false'>local && global = false</div>");
             return false;
           }
         } else if( strtolower($skipif_json["mode"]) == "or") {
 
-          post_skipif_debug("condition contains <strong>OR</strong><br/>");
+          skipif_debug("condition contains <strong>OR</strong><br/>");
 
           if($local_skip || $global_skip){
-            post_skipif_debug("TOTAL RESULT:<div class='skipif_true'>local || global = true</div>");
+            skipif_debug("TOTAL RESULT:<div class='skipif_true'>local || global = true</div>");
             return true;
           } else {
-            post_skipif_debug("TOTAL RESULT:<div class='skipif_false'>local || global = false</div>");
+            skipif_debug("TOTAL RESULT:<div class='skipif_false'>local || global = false</div>");
             return false;
           }
         } else {
-          post_skipif_debug("condition contains nothing useful<br/>");
+          skipif_debug("condition contains nothing useful<br/>");
 
           if($local_skip || $global_skip){
-            post_skipif_debug("TOTAL RESULT:<div class='skipif_true'>local || global = true</div>");
+            skipif_debug("TOTAL RESULT:<div class='skipif_true'>local || global = true</div>");
             return true;
           } else {
-            post_skipif_debug("TOTAL RESULT:<div class='skipif_false'>local || global = false</div>");
+            skipif_debug("TOTAL RESULT:<div class='skipif_false'>local || global = false</div>");
             return false;
           }
         }
       } else {
         if($local_skip || $global_skip){
-          post_skipif_debug("condition contains nothing<br/>");
-          post_skipif_debug("TOTAL RESULT:<div class='skipif_true'>local || global = true</div>");
+          skipif_debug("condition contains nothing<br/>");
+          skipif_debug("TOTAL RESULT:<div class='skipif_true'>local || global = true</div>");
           return true;
         } else {
-          post_skipif_debug("TOTAL RESULT:<div class='skipif_false' >local || global = false</div>");
+          skipif_debug("TOTAL RESULT:<div class='skipif_false' >local || global = false</div>");
           return false;
         }
       }
@@ -434,7 +434,7 @@ function printitem($id, $variablenname, $typ, $wortlaut, $antwortformatanzahl, $
 	$displayed_before = mysql_fetch_assoc($checkthis);
 	$displayed_before = $displayed_before["displaycount"];
 	if ($displayed_before!="" AND $displayed_before!=NULL AND $displayed_before>0) {
-		post_debug("<strong>printitem:</strong> item was displayed before");
+		debug("<strong>printitem:</strong> item was displayed before");
 		$displayed_before = (int)$displayed_before;
 	} else {
 		$displayed_before = false;
@@ -658,7 +658,7 @@ function printitems($vpncode,$allowedtypes,$specialteststrigger,$starttime,$endt
 
         if ($row["typ"]!="instruktion") {
             $itemsDisplayed++;
-            post_debug("<strong>printitems:</strong> $itemsDisplayed of ". MAXNUMITEMS . " items per page displayed. " );
+            debug("<strong>printitems:</strong> $itemsDisplayed of ". MAXNUMITEMS . " items per page displayed. " );
         }
 
         // merke dir, dass du das Item angezeigt hast.
@@ -669,7 +669,7 @@ function printitems($vpncode,$allowedtypes,$specialteststrigger,$starttime,$endt
             $itemdisplay = mysql_query("insert into " . ITEMDISPLAYTABLE . " (variablenname,vpncode,displaycount,created_at) values ('".$row["variablenname"]."','$vpncode',1,".time().");");
         }
 
-        post_debug("<strong>printitems:</strong> displaying items: " . $itemsDisplayed . " " . $row["variablenname"]);
+        debug("<strong>printitems:</strong> displaying items: " . $itemsDisplayed . " " . $row["variablenname"]);
 
         // do not continue displaying items if item is relevant
         if ($row["relevant"]==true) {

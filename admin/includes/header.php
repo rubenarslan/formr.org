@@ -2,11 +2,10 @@
 header ('Content-type: text/html; charset=utf-8');
 
 // Settings einlesen
-require ('../includes/settings.php');
-
-require ('../includes/variables.php');
-require ('../includes/functions.php');
-require ('functions.php');
+require_once '../includes/settings.php';
+require_once '../includes/variables.php';
+require_once '../includes/functions.php';
+require_once 'functions.php';
 ?><!DOCTYPE html>
 
 <html>

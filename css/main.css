@@ -42,14 +42,20 @@ form.form-horizontal div.control-group div.controls label {
 form.form-horizontal div.control-group div.controls input[type=radio],form.form-horizontal div.control-group div.controls input[type=checkbox] {
     vertical-align:top;
 }
-form.form-horizontal div.control-group.form-row.item-instruction div.controls {
+form.form-horizontal div.control-group.form-row.item-instruction div.control-label,
+form.form-horizontal div.control-group.form-message div.control-label {
     margin-left:0;
+	text-align:left;
+	width:100%;
 }
 form.form-horizontal div.form-row:nth-child(odd) {
   background-color: #f9f9f9;
 }
 form.form-horizontal div.form-row.item-radio div.controls,form.form-horizontal div.form-row.item-checkbox div.controls {
   display:table;
+}
+form.form-horizontal div.form-row.control-group.optional .control-label::after {
+	content:'*';
 }
 form.form-horizontal div.form-row.item-checkbox div.controls label, form.form-horizontal div.form-row.item-radio div.controls label {
   display:table-cell;

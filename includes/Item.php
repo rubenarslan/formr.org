@@ -13,12 +13,16 @@ class Item
 	public $text = null;
 	public $reply_options = null;
 	public $required = true;
-	public $input_attributes = array();
-	public $classes_controls = array('controls');
-	public $classes_wrapper = array('control-group','form-row');
-	public $classes_input = array();
-	public $classes_label = array('control-label');
-	public $type_options = array();
+	public $displayed_before = 0;
+	public $error = null;
+	public $optional = false;
+	public $size = null;
+	protected $input_attributes = array();
+	protected $classes_controls = array('controls');
+	protected $classes_wrapper = array('control-group','form-row');
+	protected $classes_input = array();
+	protected $classes_label = array('control-label');
+	protected $type_options = array();
 	
 	// from CakePHP
 	/**
@@ -127,41 +131,51 @@ class Item
 				return '';
 			}
 			return sprintf($this->_attributeFormat, $key, ($escape ? h($value) : $value));
-		}
-		
+		}		
 		
 	public function __construct($name,$options = array()) 
 	{ 
 		global $allowedtypes;
 		$this->allowedTypes = $allowedtypes;
 		
-		$this->id = isset($options['id'])?$options['id']:0;
-		$this->type = isset($options['type'])?$options['type']:'text';
+		$this->id = isset($options['id']) ? $options['id'] : 0;
+		$this->type = isset($options['type']) ? $options['type'] : 'text';
 		$this->name = $name;
 		
 		$this->text = isset($options['text'])?$options['text']:'';
 		
-		if(!empty($options['reply_options']))
-			$this->size = count($options['reply_options']);
-		elseif(isset($options['size'])) 
-		{
+		if(isset($options['size'])) 
 			$this->size = (int)$options['size'];
-			$this->input_attributes['maxlength'] = $this->size;
-		}
+		
 		if(isset($options['type_options']))
 			$this->type_options = $options['type_options'];
-				
-		$this->reply_options = isset($options['reply_options'])?$options['reply_options']:array();
-		$this->skipIf = isset($options['skipIf'])?$options['skipIf']:null;
+		
+		if(isset($options['reply_options']))
+			$this->reply_options =  $options['reply_options'];
 
-		if(isset($options['displayed_before']))
-			$this->classes_wrapper[] = "warning";
+		if(isset($options['skipIf']))
+			$this->skipIf = $options['skipIf'];
 
-		if(!isset($this->options['optional'])) 
+		
+		if(@$options['error'])
+		{
+			$this->error = $options['error'];
+			$this->classes_wrapper[] = "error";
+		}
+		if(@$options['displayed_before']>0)
+		{
+			$this->displayed_before = $options['displayed_before'];
+			if(!$this->error)
+				$this->classes_wrapper[] = "warning";
+		}
+		
+		
+		if(isset($this->options['optional'])) 
 		{
 			$this->optional = true;
 			unset($this->options['optional']);
-		} else $this->optional = false;
+		}
+		$this->input_attributes['name'] = $this->name;
 		
 		$this->setMoreOptions();
 
@@ -169,10 +183,27 @@ class Item
 		{
 			$this->classes_wrapper[] = 'required';
 			$this->input_attributes['required'] = 'required';
+		} else
+		{
+			$this->classes_wrapper[] = 'optional';			
 		}
 		
 		$this->classes_wrapper[] = "item-" . $this->type;
-	}
+		
+		$this->input_attributes['type'] = $this->type;
+		
+		if($this->size) 
+			$this->input_attributes['maxlength'] = $this->size;
+		
+		$this->input_attributes['class'] = implode(" ",$this->classes_input);
+		
+		$this->input_attributes['id'] = "item{$this->id}";
+		
+		
+/*		echo "<pre>".
+			self::_parseAttributes($this->input_attributes).
+			'</pre>';
+*/	}
 	
 	public function validate() 
 	{
@@ -196,42 +227,102 @@ class Item
 		return $this->val_errors;
 	}
 	
-	
+	public function viewedBy($view_update) {		
+		$view_update->bindParam(":variablenname", $this->name);
+		
+   	   	$view_update->execute() or die(print_r($view_update->errorInfo(), true));
+	}
+	public function switchText($person,$dbh) {
+        if (@$this->switch_text != null) 
+		{
+			if(! preg_match("(/[A-Za-z0-9_]+)\s*(!=|=|==|>|<)\s*['\"]*(\w+)['\"]*\s*/",trim($this->switch_text), $matches) )
+			{
+				die ($this->name . " invalid switch_text");
+			} else {
+				$switch_condition = $dbh->prepare("SELECT COUNT(*) FROM `" . RESULTSTABLE . "` WHERE 
+				vpncode = :vpncode AND
+				`{$matches[1]}` {$matches[2]} :value");
+				$switch_condition->bindParam(":vpncode", $person);
+				$switch_condition->bindParam(":value", $matches[3]);
+				$switch_condition->execute() or die(print_r($switch_condition->errorInfo(), true));
+				$switch = (bool)$switch_condition->rowCount();
+				if($switch)
+	                $item->text = $item->alt_text;
+			}
+        }
+	}
+	public function substituteText($substitutions) {
+        $this->text = str_replace($substitutions['search'], $substitutions['replace'], $this->text);
+	}
 	public function validateInput($reply) 
 	{
-		$this->valInp_errors = array();
-		
-		if(!empty($this->reply_options)) 
+		$this->reply = $reply;
+#		var_dump($this->optional);
+		if (!$this->optional AND 
+			(( $reply===null || $reply===false || $reply === array() || $reply === '') OR 
+			(is_array($reply) AND count($reply)===1 AND current($reply)===''))
+		) // missed a required field
 		{
-			
-			if( ( is_string($reply) AND !in_array($reply,$this->reply_options,true) ) OR // mc
-				( is_array($reply) AND $diff = array_diff($reply,$this->reply_options) AND !empty($diff) ) // mmc
-				) 
-			{
-				$this->valInp_errors[$this->id] = _("You chose an option that is not permitted.");
-			}
-		} elseif (empty($this->reply_options)) 
+			$this->error = _("This field is required.");			
+		}
+		elseif(isset($this->input_attributes['min']) AND $reply <= $this->input_attributes['min']) // lower number than allowed
 		{
-			if(isset($this->size) AND $this->size > 0 AND strlen($reply) > $this->size) 
-			{
-				$this->valInp_errors[$this->id] = _("You can't use that many characters. The maximum is {$this->size}.");
-			}
+			$this->error = __("The minimum is %d",$this->input_attributes['min']);
+		}
+		elseif(isset($this->input_attributes['max']) AND $reply >= $this->input_attributes['max']) // larger number than allowed
+		{
+			$this->error = __("The maximum is %d",$this->input_attributes['max']);
+		}
+		elseif(isset($this->input_attributes['step']) AND $this->input_attributes['step'] !== 'any' AND 
+			abs( 
+		 			(round($reply / $this->input_attributes['step']) * $this->input_attributes['step'])  // divide, round and multiply by step
+					- $reply // should be equal to reply
+			) > 0.000000001 // with floats I have to leave a small margin of error
+		)
+		{
+			$this->error = __("The minimum is %d",$this->input_attributes['min']);
+		}
+		elseif (isset($this->input_attributes['maxlength']) AND $this->input_attributes['maxlength'] > 0 AND strlen($reply) > $this->input_attributes['maxlength']) // verify maximum length 
+		{
+			$this->error = __("You can't use that many characters. The maximum is %d",$this->input_attributes['maxlength']);
+		}
+		elseif($this->type != 'range' AND !empty($this->reply_options) AND
+			( is_string($reply) AND !in_array($reply,array_keys($this->reply_options)) ) OR // mc
+				( is_array($reply) AND $diff = array_diff($reply, array_keys($this->reply_options) ) AND !empty($diff) && current($diff) !=='' ) // mmc
+		) // invalid multiple choice answer 
+		{
+#				pr($reply);
+				pr(array_keys($this->reply_options));
+				if(isset($diff)) 
+				{
+#					pr($diff);
+					$problem = $diff;
+				}
+				else $problem = $reply;
+				if(is_array($problem)) $problem = implode("', '",$problem);
+				$this->error = __("You chose an option '%s' that is not permitted.",h($problem));
+		} 
+		elseif($this->type == 'instruction')
+		{
+			$this->error = _("You cannot answer instructions.");
 		}
 		
-		return $this->val_errors;
+		return $this->error;
 	}
 	
 	protected function setMoreOptions() 
 	{	
-		if(count($type_options) == 1)
+		if(count($this->type_options) == 1)
 		{
-			$this->$size = $type_split[1];
+			$this->size = $type_split[1];
 		}		
 	}
 	protected function render_label() 
 	{
 		return '
-					<label class="'. implode(" ",$this->classes_label) .'" for="item' . $this->id . '">' . $this->text . '</label>
+					<label class="'. implode(" ",$this->classes_label) .'" for="item' . $this->id . '">'.
+		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
+			 	$this->text . '</label>
 		';
 	}
 	protected function render_prepended () 
@@ -243,9 +334,7 @@ class Item
 	protected function render_input() 
 	{
 		return 		
-			'<input type="'. $this->type .'"'. 
-			( $this->optional ? '':' required="required"' ) .
-			' id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'" size="'. $this->size .'" name="' . $this->name . '">';
+			'<input '.self::_parseAttributes($this->input_attributes).'>';
 	}
 	protected function render_appended () 
 	{
@@ -265,9 +354,20 @@ class Item
 	}
 	public function render() 
 	{
-		return '<div class="'. implode(" ",$this->classes_wrapper) .'">' .
-			$this->render_inner().
-		 '</div>';
+		if(!isset($this->prepend) AND !isset($this->append))
+			return '<div class="'. implode(" ",$this->classes_wrapper) .'">' .
+				$this->render_inner().
+			 '</div>';
+		else 
+		{
+			$classes = isset($this->prepend) ? 'input-prepend':'';
+			$classes .= isset($this->append) ? ' input-append':'';
+			return '<div class="'. implode(" ",$this->classes_wrapper) .'">
+				<div class="'.$classes.'">' .
+				$this->render_inner().
+			 '</div>
+		</div>';
+		}
 	}
 }
 
@@ -278,14 +378,11 @@ class Item_textarea extends Item
 	{
 		parent::setMoreOptions();
 		$this->type = 'textarea';
-		$this->classes_wrapper[] = "item-" . $this->type;
 	}
 	protected function render_input() 
 	{
 		return 		
-			'<textarea '. 
-			( $this->optional ? '':' required="required"' ) .
-			' id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'" rows="'. $this->size .'" name="' . $this->name . '"></textarea>';
+			'<textarea '.self::_parseAttributes($this->input_attributes).' rows="'. round($this->size/150) .'" cols="150" name="' . $this->name . '"></textarea>';
 	}
 }
 
@@ -294,30 +391,21 @@ class Item_number extends Item
 {
 	protected function setMoreOptions() 
 	{
+		$this->input_attributes['step'] = 1;
+		
 		if(count($this->type_options) == 1) 
-		{
 			$constraint_split = explode(",",$this->type_options[1]);
-			$input_attributes['min'] = @is_numeric($constraint_split[0]) ? $constraint_split[0] : null; // take care to allow 0 as lim
-			$input_attributes['max'] = @is_numeric($constraint_split[1]) ? $constraint_split[1] : null; // but also allow omission
-			$input_attributes['step'] = @is_numeric($constraint_split[2]) ? $constraint_split[2] : null;
-		} else 
-		{
-			$input_attributes['min'] = @is_numeric($reply_options[0]) ? (int)$reply_options[0] : null;
-			$input_attributes['max'] = @is_numeric($reply_options[1]) ? (int)$reply_options[1] : null;
-			$input_attributes['step'] = @is_numeric($reply_options[2]) ? (int)$reply_options[2] : null;
-		}
+
+		$min = reset($this->type_options);
+		if(is_numeric($min)) $this->input_attributes['min'] = $min;
+		
+		$max = next($this->type_options);
+		if(is_numeric($max)) $this->input_attributes['max'] = $max;
+		
+		$step = next($this->type_options);
+		if(is_numeric($step) OR $step==='any') $this->input_attributes['step'] = $step;
 		
 		$this->type = 'number';
-		$this->classes_wrapper[] = "item-" . $this->type;
-		
-	}
-	protected function render_input() 
-	{
-		return 		
-			'<input type="'. $this->type .'"'. 
-			( $this->optional ? '':' required="required"' ) .
-			' id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'" size="'. $this->size .'" name="' . $this->name . '">';
-		
 	}
 }
 
@@ -327,16 +415,15 @@ class Item_range extends Item_number
 {
 	protected function setMoreOptions() 
 	{
+		$this->input_attributes['min'] = 0;
+		$this->input_attributes['max'] = 100;
 		parent::setMoreOptions();
 		$this->type = 'range';
 	}
 	protected function render_input() 
 	{
 		return (isset($this->reply_options[1]) ? '<label>'. $this->reply_options[1] . ' </label>': '') . 		
-			'<input type="'. $this->type .'"'. 
-			( $this->optional ? '':' required="required"' ) .
-			( $this->size ? ' size="'. $this->size .'"':'' ) .
-			' id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'"  name="' . $this->name . '">'.
+			'<input '.self::_parseAttributes($this->input_attributes).'>'.
 			(isset($this->reply_options[2]) ? '<label>'. $this->reply_options[2] . ' </label>': '') ;
 	}
 }
@@ -349,14 +436,7 @@ class Item_email extends Item
 	{
 		$this->type = 'email';
 		$this->prepend = 'icon-envelope';
-	}
-	public function render() 
-	{
-		return '<div class="'. implode(" ",$this->classes_wrapper) .'">
-			<div class="input-prepend">' .
-			$this->render_inner().
-		 '</div>
-	</div>';
+		$this->size = 250;
 	}
 }
 
@@ -367,17 +447,8 @@ class Item_time extends Item
 	{
 		$this->type = 'time';
 		$this->prepend = 'icon-time';
-		$this->classes_input[] = 'span4';
+		$this->input_attributes['style'] = 'width:80px';
 	}
-	public function render() 
-	{
-		return '<div class="'. implode(" ",$this->classes_wrapper) .'">
-			<div class="input-prepend">' .
-			$this->render_inner().
-		 '</div>
-	</div>';
-	}
-	
 }
 // instructions are rendered at full width
 class Item_instruction extends Item 
@@ -389,7 +460,7 @@ class Item_instruction extends Item
 	protected function render_inner() 
 	{
 		return '
-					<div class="'. implode(" ",$this->classes_controls) .'">'.
+					<div class="'. implode(" ",$this->classes_label) .'">'.
 					$this->text.
 					'</div>
 		';
@@ -405,16 +476,9 @@ class Item_submit extends Item
 		$this->classes_input[] = 'btn';
 		$this->classes_input[] = 'btn-large';
 		$this->classes_input[] = 'btn-success';
+		$this->input_attributes['value'] = $this->text;
+		$this->text = '';
 		$this->type = 'submit';
-	}
-	protected function render_inner() 
-	{
-		return '
-					<div class="'. implode(" ",$this->classes_controls) .'">'.
-						'<input type="'. $this->type .'"'. 
-						' class="'. implode(" ",$this->classes_input) .'" name="' . $this->name . '" value="' . $this->text . '">'.
-					'</div>
-		';
 	}
 }
 
@@ -428,13 +492,15 @@ class Item_mc extends Item
 	protected function render_label() 
 	{
 		return '
-					<label class="'. implode(" ",$this->classes_label) .'">' . $this->text . '</label>
+					<label class="'. implode(" ",$this->classes_label) .'">' .
+		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
+		 $this->text . '</label>
 		';
 	}
 	protected function render_input() 
 	{
 		$ret = '
-			<input type="hidden" value="" id="item' . $this->id . '_" name="' . $this->name . '">
+			<input '.self::_parseAttributes($this->input_attributes,array('type','id')).' type="hidden" value="" id="item' . $this->id . '_">
 		';
 		
 		$opt_values = array_count_values($this->reply_options);
@@ -447,11 +513,10 @@ class Item_mc extends Item
 		
 		foreach($this->reply_options AS $value => $option):			
 			$ret .= '
-				<label for="item' . $this->id . $value . '">' . 
+				<label for="item' . $this->id . '_' . $value . '">' . 
 					($this->label_first ? $option.'&nbsp;' : '') . 
-				'<input type="' . $this->type . '" '. 
-					( $this->optional ? '':' required="required"' ) .
-				' value="'.$value.'" class="'. implode(" ",$this->classes_input) .'" id="item' . $this->id .$value . '" name="' . $this->name . '">' .
+				'<input '.self::_parseAttributes($this->input_attributes,array('id')).
+				' value="'.$value.'" id="item' . $this->id . '_' . $value . '">' .
 					($this->label_first ? "&nbsp;" : ' ' . $option) . '</label>';
 					
 			if($this->label_first) $this->label_first = false;
@@ -468,21 +533,19 @@ class Item_mmc extends Item_mc
 	protected function setMoreOptions() 
 	{
 		$this->type = 'checkbox';
-		$this->name .= '[]';
 		$this->optional = true;
+		$this->input_attributes['name'] = $this->name . '[]';
 	}
 	protected function render_input() 
 	{
 		$ret = '
-			<input type="hidden" value="" id="item' . $this->id . '_" name="' . $this->name . '">
+			<input type="hidden" value="" id="item' . $this->id . '_" '.self::_parseAttributes($this->input_attributes,array('id','type')).'>
 		';
 		foreach($this->reply_options AS $value => $option) {
 			$ret .= '
-			<label for="item' . $this->id .$value . '">
-			<input type="' . $this->type . '" '. 
-			( $this->optional ? '':' required="required"' ) .
-			' value="'.$value.'" class="'. implode(" ",$this->classes_input) .'" id="item' . $this->id . $value . '" name="' . $this->name . '">
-			
+			<label for="item' . $this->id . '_' . $value . '">
+			<input '.self::_parseAttributes($this->input_attributes,array('id')).
+			' value="'.$value.'" id="item' . $this->id . '_' . $value . '">
 			' . $option . '</label>
 		';
 		}
@@ -499,8 +562,10 @@ class Item_select extends Item
 	}
 	protected function render_input() 
 	{
-		$ret = '<select id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'" name="' . $this->name . 
-				( $this->optional ? '':' required="required"' ) .'">'; 
+		$ret = '<select '.self::_parseAttributes($this->input_attributes).'>'; 
+		
+		if(!isset($this->input_attributes['multiple'])) $ret .= '<option value=""></option>';
+		
 		foreach($this->reply_options AS $value => $option):
 			$ret .= '
 				<option value="' . $value . '">' . 
@@ -521,21 +586,8 @@ class Item_mselect extends Item_select
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
-		$this->name .= '[]';
-	}
-	protected function render_input() 
-	{
-		$ret = '<select multiple size="'.$this->size.'" id="item' . $this->id . '" class="'. implode(" ",$this->classes_input) .'" name="' . $this->name . 
-				( $this->optional ? '':' required="required"' ) .'">'; 
-		foreach($this->reply_options AS $value => $option):			
-			$ret .= '
-				<option value="' . $value . '">' . 
-					 $option .
-				'</option>';
-		endforeach;
-		$ret .= '</select>';
-		
-		return $ret;
+		$this->input_attributes['multiple'] = true;
+		$this->input_attributes['name'] = $this->name.'[]';
 	}
 }
 
@@ -554,7 +606,7 @@ class Item_btnradio extends Item_mc
 		';
 		foreach($this->reply_options AS $value => $option):			
 		$ret .= '
-			<button class="btn" data-for="item' . $this->id . $value . '">' . 
+			<button class="btn" data-for="item' . $this->id . '_' . $value . '">' . 
 				$option.
 			'</button>';
 		endforeach;
@@ -576,7 +628,7 @@ class Item_btncheckbox extends Item_mmc
 		';
 		foreach($this->reply_options AS $value => $option):			
 		$ret .= '
-			<button class="btn" data-for="item' . $this->id . $value . '">' . 
+			<button class="btn" data-for="item' . $this->id . '_' . $value . '">' . 
 				$option.
 			'</button>';
 		endforeach;
@@ -591,6 +643,51 @@ class Item_sex extends Item_btnradio
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
-		$this->reply_options = array('♀','♂');
+		$this->reply_options = array(1=>'♂',2=>'♀');
 	}
 }
+
+class Item_fork extends Item {
+	protected function setMoreOptions() 
+	{
+		$this->type = 'fork';
+	}
+	public function render() {
+        global $study;
+        global $run;
+		$ret = '';
+	    // fixme: forks should do PROPER redirects, but at the moment the primitive MVC separation makes this a problem
+		if(isset($run))
+			$link=$ratinguntererpol."?study_id=".$study->id."&run_id=".$run->id;
+		else
+			$link=$ratinguntererpol."?study_id=".$study->id;
+		
+		if(TIMEDMODE) 
+			$link .= "&ts=$timestarted";
+		redirect_to($link);
+	}
+}
+
+class Item_ip extends Item {
+	protected function setMoreOptions() 
+	{
+		$this->type = 'ip';
+	}
+	protected function render_input() 
+	{
+		return '
+			<input type="hidden" value="IP" id="item' . $this->id . '_" name="' . $this->name . '">
+		';
+	}
+	public function render() {
+		return $this->render_input();
+	}
+}
+
+/*
+ * todo: item - rank / sortable
+ * todo: item - select + or add our own (optionally: load other users' entries), both as dropdown and as radio/btnradio, checkbox/btncheckbox
+ * todo: item - likert scale with head (special kind of instruction?)
+ * todo: item - facebook connect?
+ * todo: item - IP
+*/
