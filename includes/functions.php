@@ -2,8 +2,8 @@
 
 require_once "edit_times.php";
 require_once "proband_mgmt.php";
-require_once "survey_mgmt.php";
-require_once "survey_rendering.php";
+#require_once "survey_mgmt.php";
+#require_once "survey_rendering.php";
 require_once "loop_mgmt.php";
 require_once "email_mgmt.php";
 

@@ -9,7 +9,10 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 	if($type === 'instruktion') $type = 'instruction'; 
 
 	$options['text'] = $item['wortlaut'];
+	$options['alt_text'] = @$item['altwortlaut'];
+	$options['switch_text'] = @$item['altwortlautbasedon'];
 	$options['displayed_before'] = (int)@$item['displaycount'];
+	$options['class'] = @$item['class'];
 
 	$reply_options = array();
 	
@@ -90,8 +93,8 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 
 			break;
 		case "text":
-			if(isset($options['size']) AND $options['size'] / 150 < 1) // of course Item_textarea can also be specified directly, but in old surveys it isn't
-				$class = 'Item';
+			if(isset($options['size']) AND $options['size'] / 255 < 1) // of course Item_textarea can also be specified directly, but in old surveys it isn't
+				$class = 'Item_text';
 			else
 				$class = 'Item_textarea';
 
@@ -317,7 +320,52 @@ class Item
 			self::_parseAttributes($this->input_attributes).
 			'</pre>';
 */	}
-	
+	public function skip($dbh,$person)
+	{	
+		// fixme: cant deal with parentheses, mixed and/or etc.
+		if($this->skipIf!=null):
+			
+			if(strpos($this->skipIf,'AND')!==false AND strpos($this->skipIf,'OR')!==false):
+				die($this->name . " mixed AND/OR not yet possible.");
+			endif;
+			
+			$skipIfs = preg_split('(AND|OR)',$this->skipIf);
+			$constraints = array();
+			foreach($skipIfs AS $skip):
+				if(! preg_match("(/[A-Za-z0-9_]+)\s*(!=|=|==|>|<)\s*['\"]*(\w+)['\"]*\s*/",trim($skip), $matches) ):
+					die ($this->name . " invalid skipIf");
+				else:
+					if($matches[2] == '==') $matches[2] = '=';
+					
+					$should_skip = $dbh->prepare("SELECT COUNT(*) FROM `" . RESULTSTABLE . "` WHERE 
+					vpncode = :vpncode AND
+					`{$matches[1]}` {$matches[2]} :value");
+					$should_skip->bindParam(":vpncode", $person);
+					$should_skip->bindParam(":value", $matches[3]);
+					$should_skip->execute() or die(print_r($should_skip->errorInfo(), true));
+					$constraints[] = (bool)$should_skip->rowCount();
+				endif;
+			endforeach;
+			if(strpos($this->skipIf,'AND')!==false AND !in_array($constraints,false,true)):
+				return true; // skip if all AND conditions evaluate to true 
+			elseif(strpos($this->skipIf,'OR')!==false AND in_array($constraints,true,true)):
+				return true; // skip when one of the OR conditions evaluates to true
+			elseif(in_array($constraints,true,true)):
+				return true; // skip
+			else:
+				return false; // don't skip if this is not given
+			endif;
+		else:
+			return false;
+		endif;
+	}
+	public function validateSkipIf()
+	{
+		if($this->skipIf!=null AND trim($this->skipIf) != "" AND is_null(json_decode($this->skipIf, true)) ):
+			return "ID {$this->id}: The skipIf command '".h($this->skipIf)."' cannot be decoded!";
+		endif;
+		return false;
+	}
 	public function validate() 
 	{
 		$this->val_errors = array();
@@ -332,10 +380,10 @@ class Item
 #			$this->val_errors[] = "ID {$this->id}: Typ '{$this->type}' nicht erlaubt. In den Admineinstellungen änderbar.";
 		endif;
 			
-			
-		if($this->skipIf!=null AND trim($this->skipIf) != "" AND is_null(json_decode($this->skipIf, true)) ):
-			$this->val_errors[] = "ID {$this->id}: The skipIf command '".h($this->skipIf)."' cannot be decoded!";
-		endif;
+		if($error = $this->validateSkipIf())
+		{
+			$this->val_errors[] = $error;
+		}
 		
 		return $this->val_errors;
 	}
@@ -351,7 +399,9 @@ class Item
 			if(! preg_match("(/[A-Za-z0-9_]+)\s*(!=|=|==|>|<)\s*['\"]*(\w+)['\"]*\s*/",trim($this->switch_text), $matches) )
 			{
 				die ($this->name . " invalid switch_text");
-			} else {
+			} 
+			else
+			{
 				$switch_condition = $dbh->prepare("SELECT COUNT(*) FROM `" . RESULTSTABLE . "` WHERE 
 				vpncode = :vpncode AND
 				`{$matches[1]}` {$matches[2]} :value");
@@ -370,7 +420,7 @@ class Item
 	public function validateInput($reply) 
 	{
 		$this->reply = $reply;
-#		var_dump($this->optional);
+
 		if (!$this->optional AND 
 			(( $reply===null || $reply===false || $reply === array() || $reply === '') OR 
 			(is_array($reply) AND count($reply)===1 AND current($reply)===''))
@@ -378,57 +428,10 @@ class Item
 		{
 			$this->error = _("This field is required.");			
 		}
-		elseif(isset($this->input_attributes['min']) AND $reply <= $this->input_attributes['min']) // lower number than allowed
-		{
-			$this->error = __("The minimum is %d",$this->input_attributes['min']);
-		}
-		elseif(isset($this->input_attributes['max']) AND $reply >= $this->input_attributes['max']) // larger number than allowed
-		{
-			$this->error = __("The maximum is %d",$this->input_attributes['max']);
-		}
-		elseif(isset($this->input_attributes['step']) AND $this->input_attributes['step'] !== 'any' AND 
-			abs( 
-		 			(round($reply / $this->input_attributes['step']) * $this->input_attributes['step'])  // divide, round and multiply by step
-					- $reply // should be equal to reply
-			) > 0.000000001 // with floats I have to leave a small margin of error
-		)
-		{
-			$this->error = __("The minimum is %d",$this->input_attributes['min']);
-		}
-		elseif (is_string($reply) AND isset($this->input_attributes['maxlength']) AND $this->input_attributes['maxlength'] > 0 AND strlen($reply) > $this->input_attributes['maxlength']) // verify maximum length 
-		{
-			$this->error = __("You can't use that many characters. The maximum is %d",$this->input_attributes['maxlength']);
-		}
-		elseif($this->type != 'range' AND !empty($this->reply_options) AND
-			( is_string($reply) AND !in_array($reply,array_keys($this->reply_options)) ) OR // mc
-				( is_array($reply) AND $diff = array_diff($reply, array_keys($this->reply_options) ) AND !empty($diff) && current($diff) !=='' ) // mmc
-		) // invalid multiple choice answer 
-		{
-#				pr($reply);
-				pr(array_keys($this->reply_options));
-				if(isset($diff)) 
-				{
-#					pr($diff);
-					$problem = $diff;
-				}
-				else $problem = $reply;
-				if(is_array($problem)) $problem = implode("', '",$problem);
-				$this->error = __("You chose an option '%s' that is not permitted.",h($problem));
-		} 
-		elseif($this->type == 'instruction')
-		{
-			$this->error = _("You cannot answer instructions.");
-		}
-		
-		return $this->error;
 	}
 	
 	protected function setMoreOptions() 
 	{	
-		if(is_array($this->type_options) AND count($this->type_options) == 1)
-		{
-			$this->size = current($type_split);
-		}		
 	}
 	protected function render_label() 
 	{
@@ -484,6 +487,24 @@ class Item
 	}
 }
 
+class Item_text extends Item
+{
+	protected function setMoreOptions() 
+	{	
+		if(is_array($this->type_options) AND count($this->type_options) == 1)
+		{
+			$this->size = current($type_split);
+		}		
+	}
+	public function validateInput($reply)
+	{
+		if (isset($this->input_attributes['maxlength']) AND $this->input_attributes['maxlength'] > 0 AND strlen($reply) > $this->input_attributes['maxlength']) // verify maximum length 
+		{
+			$this->error = __("You can't use that many characters. The maximum is %d",$this->input_attributes['maxlength']);
+		}
+		parent::validateInput($reply);
+	}
+}
 // textarea automatically chosen when size exceeds a certain limit
 class Item_textarea extends Item 
 {
@@ -522,6 +543,27 @@ class Item_number extends Item
 		}
 		
 		$this->type = 'number';
+	}
+	public function validateInput($reply)
+	{
+		if(isset($this->input_attributes['min']) AND $reply <= $this->input_attributes['min']) // lower number than allowed
+		{
+			$this->error = __("The minimum is %d",$this->input_attributes['min']);
+		}
+		elseif(isset($this->input_attributes['max']) AND $reply >= $this->input_attributes['max']) // larger number than allowed
+		{
+			$this->error = __("The maximum is %d",$this->input_attributes['max']);
+		}
+		elseif(isset($this->input_attributes['step']) AND $this->input_attributes['step'] !== 'any' AND 
+			abs( 
+		 			(round($reply / $this->input_attributes['step']) * $this->input_attributes['step'])  // divide, round and multiply by step
+					- $reply // should be equal to reply
+			) > 0.000000001 // with floats I have to leave a small margin of error
+		)
+		{
+			$this->error = __("The minimum is %d",$this->input_attributes['min']);
+		}
+		parent::validateInput($reply);
 	}
 }
 
@@ -573,6 +615,10 @@ class Item_instruction extends Item
 	{
 		$this->type = 'instruction';
 	}
+	public function validateInput($reply)
+	{
+		$this->error = _("You cannot answer instructions.");
+	}
 	protected function render_inner() 
 	{
 		return '
@@ -593,8 +639,14 @@ class Item_submit extends Item
 		$this->classes_input[] = 'btn-large';
 		$this->classes_input[] = 'btn-success';
 		$this->input_attributes['value'] = $this->text;
+		unset($this->input_attributes['required']);
+		unset($this->input_attributes['name']);
 		$this->text = '';
 		$this->type = 'submit';
+	}
+	public function validateInput($reply)
+	{
+		$this->error = _("You cannot answer instructions.");
 	}
 }
 
@@ -604,6 +656,25 @@ class Item_mc extends Item
 	protected function setMoreOptions() 
 	{
 		$this->type = 'radio';
+	}
+	public function validateInput($reply)
+	{
+		if(!empty($this->reply_options) AND
+			( is_string($reply) AND !in_array($reply,array_keys($this->reply_options)) ) OR // mc
+				( is_array($reply) AND $diff = array_diff($reply, array_keys($this->reply_options) ) AND !empty($diff) && current($diff) !=='' ) // mmc
+		) // invalid multiple choice answer 
+		{
+#				pr($reply);
+				if(isset($diff)) 
+				{
+#					pr($diff);
+					$problem = $diff;
+				}
+				else $problem = $reply;
+				if(is_array($problem)) $problem = implode("', '",$problem);
+				$this->error = __("You chose an option '%s' that is not permitted.",h($problem));
+		}
+		parent::validateInput($reply);
 	}
 	protected function render_label() 
 	{
@@ -616,7 +687,7 @@ class Item_mc extends Item
 	protected function render_input() 
 	{
 		$ret = '
-			<input '.self::_parseAttributes($this->input_attributes,array('type','id')).' type="hidden" value="" id="item' . $this->id . '_">
+			<input '.self::_parseAttributes($this->input_attributes,array('type','id','required')).' type="hidden" value="" id="item' . $this->id . '_">
 		';
 		
 		$opt_values = array_count_values($this->reply_options);
@@ -652,10 +723,11 @@ class Item_mmc extends Item_mc
 		$this->optional = true;
 		$this->input_attributes['name'] = $this->name . '[]';
 	}
+	
 	protected function render_input() 
 	{
 		$ret = '
-			<input type="hidden" value="" id="item' . $this->id . '_" '.self::_parseAttributes($this->input_attributes,array('id','type')).'>
+			<input type="hidden" value="" id="item' . $this->id . '_" '.self::_parseAttributes($this->input_attributes,array('id','type','required')).'>
 		';
 		foreach($this->reply_options AS $value => $option) {
 			$ret .= '
@@ -672,10 +744,31 @@ class Item_mmc extends Item_mc
 // multiple multiple choice, also checkboxes
 class Item_check extends Item_mmc 
 {
+	protected function setMoreOptions() 
+	{
+		parent::setMoreOptions();
+		$this->input_attributes['name'] = $this->name;
+	}
+	
+	protected function render_label() 
+	{
+		return '
+					<label  for="item' . $this->id . '_1" class="'. implode(" ",$this->classes_label) .'">' .
+		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
+		 $this->text . '</label>
+		';
+	}
+	public function validateInput($reply)
+	{
+		if(!in_array($reply,array(0,1)))
+		{
+			$this->error = __("You chose an option '%s' that is not permitted.",h($reply));	
+		}
+	}
 	protected function render_input() 
 	{
 		$ret = '
-			<input type="hidden" value="" id="item' . $this->id . '_" '.self::_parseAttributes($this->input_attributes,array('id','type')).'>
+			<input type="hidden" value="" id="item' . $this->id . '_" '.self::_parseAttributes($this->input_attributes,array('id','type','required')).'>
 		<label for="item' . $this->id . '_1">
 		<input '.self::_parseAttributes($this->input_attributes,array('id')).
 		' value="1" id="item' . $this->id . '_1"></label>		

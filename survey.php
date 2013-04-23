@@ -1,6 +1,6 @@
 <?
-require_once 'includes/Study.php'; # Study , nothing is echoed yet
-require_once 'includes/Survey.php'; # Survey class, nothing is echoed yet
+require_once 'Model/Study.php'; # Study , nothing is echoed yet
+require_once 'Model/Survey.php'; # Survey class, nothing is echoed yet
 
 $survey = new Survey($vpncode,$study,@$run,array('timestarted'=>@$timestarted));
 

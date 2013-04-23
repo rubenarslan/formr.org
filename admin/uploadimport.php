@@ -31,17 +31,14 @@ if(!move_uploaded_file($_FILES['uploaded']['tmp_name'], $target)) {
 
 
 // Leere / erstelle items
-if (!table_exists(ITEMSTABLE) AND $ok) {
-// FIX Hier limitieren wir auf 14 MC-Alternativen! Anpassung ist notwendig, wenn mehr oder weniger gegeben werden.
-	createItemsTable();
-} elseif ($ok) {
-	$query = "truncate ".ITEMSTABLE.";";
-	mysql_query($query);
-	echo "Existierende Itemtabelle wurde geleert.<br />";
-	if(DEBUG) {
-		echo $query;	
-		echo mysql_error();
+if ($ok) {
+	if (table_exists(ITEMSTABLE))
+	{
+		$query = "drop table `".ITEMSTABLE."`;";
+		mysql_query($query) or die (mysql_error());
+		echo "Existierende Itemtabelle ".ITEMSTABLE." wurde gelöscht.<br />";	
 	}
+	createItemsTable();	
 } elseif (!$ok) {
 	echo "Es wurden keine Änderungen an der Datenbank vorgenommen.";
 	// $ok muss 0 gewesen sein
@@ -84,8 +81,10 @@ if($ok):
   //  Get worksheet dimensions
 	$worksheet = $objPHPExcel->getSheet(0); 
 	
-	$allowed_columns = array('id', 'variablenname', 'wortlaut', 'altwortlautbasedon', 'altwortlaut', 'typ', 'antwortformatanzahl', 'ratinguntererpol', 'ratingobererpol', 'MCalt1', 'MCalt2', 'MCalt3', 'MCalt4', 'MCalt5', 'MCalt6', 'MCalt7', 'MCalt8', 'MCalt9', 'MCalt10', 'MCalt11', 'MCalt12', 'MCalt13', 'MCalt14', 'Teil', 'relevant', 'skipif', 'special', 'rand', 'study');
+	$allowed_columns = array('id', 'variablenname', 'wortlaut', 'altwortlautbasedon', 'altwortlaut', 'typ', 'antwortformatanzahl', 'ratinguntererpol', 'ratingobererpol', 'MCalt1', 'MCalt2', 'MCalt3', 'MCalt4', 'MCalt5', 'MCalt6', 'MCalt7', 'MCalt8', 'MCalt9', 'MCalt10', 'MCalt11', 'MCalt12', 'MCalt13', 'MCalt14', 'optional', 'class' ,'skipif');
+	$used_columns = array('id', 'variablenname', 'wortlaut', 'altwortlautbasedon', 'altwortlaut', 'typ', 'antwortformatanzahl', 'MCalt1', 'MCalt2', 'MCalt3', 'MCalt4', 'MCalt5', 'MCalt6', 'MCalt7', 'MCalt8', 'MCalt9', 'MCalt10', 'MCalt11', 'MCalt12', 'MCalt13', 'MCalt14', 'optional', 'class' ,'skipif');
 	$allowed_columns = array_map('strtolower', $allowed_columns);
+	$used_columns = array_map('strtolower', $used_columns);
 
 	// non-allowed columns will be ignored, allows to specify auxiliary information if needed
 	
@@ -101,7 +100,7 @@ if($ok):
 
 #	var_dump($columns);
 
-	$data = $errors = $messages = array();
+	$variablennames = $data = $errors = $messages = array();
 	
   	foreach($worksheet->getRowIterator() AS $row):
 		$row_number = $row->getRowIndex();
@@ -134,6 +133,21 @@ if($ok):
 						continue 2; # skip this row
 					endif;
 					
+					if(in_array($val,array('vpncode','created','ended'))):
+						$errors[] = "Zeile $row_number: Itemname '$val' ist nicht erlaubt.";
+					endif;
+
+					if(($previous = array_search(strtolower($val),$variablennames)) === false):
+						$variablennames[$row_number] = strtolower($val);	
+					else:
+						$errors[] = "Zeile $row_number: Itemname '$val' kam bereits vor, zuletzt in Zeile $previous.";
+					endif;
+				elseif($col == 'optional'):
+					$val = (int)$val; // allow * etc.
+				elseif($col == 'ratinguntererpol'):
+					$col = 'MCalt1';
+				elseif($col == 'ratingobererpol'):
+					$col = 'MCalt2';
 				elseif( is_int( $pos = strpos("mcalt",$col) ) ):
 				  $nr = substr($col, $pos + 5);
 				  if(trim($val) != '' AND $nr > $data[$row_number]['antwortformatanzahl'] ): 
@@ -152,7 +166,7 @@ if($ok):
 		// row has been put into array
 		if(!isset($data[$row_number]['id'])) $data[$row_number]['id'] = $row_number;
 
-		require_once "../includes/Item.php";
+		require_once "../Model/Item.php";
 		$item = legacy_translate_item($data[$row_number]);
 #		$item = new $class($data[$row_number]['typ'],$data[$row_number]['variablenname'],$data[$row_number]);
 		$val_errors = $item->validate();
@@ -181,7 +195,7 @@ echo '</pre>';
 if(empty($errors)) {
 
 	// Connect to an ODBC database using driver invocation
-	require_once "../includes/DB.php";
+	require_once "../Model/DB.php";
 	
 	$dbh = new DB();
 	
@@ -193,39 +207,29 @@ if(empty($errors)) {
         altwortlautbasedon,
         altwortlaut,
         typ,
+        optional,
         antwortformatanzahl,
-        ratinguntererpol,
-        ratingobererpol,
         MCalt1, MCalt2,	MCalt3,	MCalt4,	MCalt5,	MCalt6,	MCalt7,	MCalt8,	MCalt9,	MCalt10, MCalt11,	MCalt12,	MCalt13,	MCalt14,
-        Teil,
-        relevant,
-        skipif,
-        special,
-        rand,
-        study) VALUES (:id,
+        class,
+        skipif) VALUES (:id,
 		:variablenname,
 		:wortlaut,
 		:altwortlautbasedon,
 		:altwortlaut,
 		:typ,
+		:optional,
 		:antwortformatanzahl,
-		:ratinguntererpol,
-		:ratingobererpol,
 		:mcalt1, :mcalt2,	:mcalt3,	:mcalt4,	:mcalt5,	:mcalt6,	:mcalt7,	:mcalt8,	:mcalt9,	:mcalt10, :mcalt11,	:mcalt12,	:mcalt13,	:mcalt14,
-		:teil,
-		:relevant,
-		:skipif,
-		:special,
-		:rand,
-		:study)');
+		:class,
+		:skipif
+		)');
 
 	  foreach($data as $row) {
-		  foreach ($allowed_columns as $param) {
+		  foreach ($used_columns as $param) {
 #			  if(!isset($row[$param]))
 #				  $row[$param] = null;
 			  
 			  $stmt->bindParam(":$param", $row[$param]);
-			  
 		  }
 	   	 $stmt->execute() or die(print_r($stmt->errorInfo(), true));
 	  }

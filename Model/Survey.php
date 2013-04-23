@@ -1,5 +1,6 @@
 <?php
-require_once "includes/DB.php";
+require_once "Model/DB.php";
+require_once "Model/Item.php";
 
 class Survey {
 	public $items = array();
@@ -94,7 +95,6 @@ class Survey {
 							'fork',
 							'submit'
 						)
-			        AND (`".ITEMSTABLE."`.special =  '' OR `".ITEMSTABLE."`.special IS NULL)
 					GROUP BY `".ITEMDISPLAYTABLE."`.answered;";
 
 		//fixme: just realised the progress bar score is not the same as the actual progress (skipifs etc.)
@@ -137,7 +137,15 @@ class Survey {
 		
 		while($item = $get_items->fetch(PDO::FETCH_ASSOC) )
 		{
-			$this->unanswered_batch[$item['variablenname']] = legacy_translate_item($item);
+			$name = $item['variablenname'];
+			$this->unanswered_batch[$name] = legacy_translate_item($item);
+			if($this->unanswered_batch[$name]->skipIf !== null)
+			{
+				if($this->unanswered_batch[$name]->skip($this->dbh,$this->person))
+				{
+					unset($this->unanswered_batch[$name]); // do something else with this.
+				}
+			}
 		}
 		return $this->unanswered_batch;
 		
@@ -185,8 +193,8 @@ class Survey {
 	    foreach($items AS &$item) 
 		{
 			$i++;
-	        // fork-items sind relevant, werden aber nur behandelt, wenn sie auch an erster Stelle sind, also alles vor ihnen schon behandelt wurde
 
+	        // fork-items sind relevant, werden aber nur behandelt, wenn sie auch an erster Stelle sind, also alles vor ihnen schon behandelt wurde
 	        if ($item->type === "fork") 
 			{
 				if($itemsDisplayed !== 0)
@@ -204,9 +212,9 @@ class Survey {
 					$item->displayed_before AND 											 // if this was displayed before
 					(
 						$next === false OR 								    				 // this is the end of the survey
-						in_array( $next->type , array('instruction','fork'))  				 // the next item isn't a normal item
+						in_array( $next->type , array('instruction','fork','submit'))  		 // the next item isn't a normal item
 					)
-				) 
+				)
 				{
 					continue; // skip this instruction							
 				}

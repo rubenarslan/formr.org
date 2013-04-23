@@ -284,7 +284,7 @@ function createresulttab() {
             $usedcolumnnames = array();
 
             // Wähle dir die Items aus der Itemtabelle aus, und übergehe Instruktionen
-            $query=" SELECT * FROM " . ITEMSTABLE . " WHERE special IS NULL OR special = ''";
+            $query=" SELECT * FROM " . ITEMSTABLE;
             $message="";
             $itemtable=mysql_query($query) or die(mysql_error());
 
@@ -421,14 +421,13 @@ function createvpndatatab() {
 function createItemsTable() {
 $query = "CREATE TABLE IF NOT EXISTS `".ITEMSTABLE."` (
 	  `id` int(11) NOT NULL,
+	  `study_id` int(11),
 	  `variablenname` varchar(100) NOT NULL,
 	  `wortlaut` text,
 	  `altwortlautbasedon` varchar(150),
 	  `altwortlaut` text,
 	  `typ` varchar(100) NOT NULL,
 	  `antwortformatanzahl` int(100),
-	  `ratinguntererpol` text,
-	  `ratingobererpol` text,
 	  `MCalt1` text,
 	  `MCalt2` text,
 	  `MCalt3` text,
@@ -443,12 +442,9 @@ $query = "CREATE TABLE IF NOT EXISTS `".ITEMSTABLE."` (
 	  `MCalt12` text,
 	  `MCalt13` text,
 	  `MCalt14` text,
-	  `Teil` varchar(255),
-	  `relevant` char(1),
+	  `optional` tinyint,
+	  `class` varchar(255),
 	  `skipif` text,
-	  `special` varchar(100),
-	  `rand` varchar(10),
-	  `study` varchar(100),
 	  PRIMARY KEY  (`id`)
 	) ENGINE=MyISAM DEFAULT CHARSET=utf8;";
 	mysql_query($query) or die( mysql_error() );

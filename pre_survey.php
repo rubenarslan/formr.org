@@ -1,5 +1,5 @@
 <?php
-require_once "includes/Study.php";
+require_once "Model/Study.php";
 global $currentUser;
 global $study;
 global $run;

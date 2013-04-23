@@ -1,5 +1,5 @@
 <?
-require ('includes/Study.php');
+require ('Model/Study.php');
 
 if(isset($run)) {
   $next_study=$run->getNextStudy($study);
