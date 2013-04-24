@@ -1,5 +1,4 @@
 <?php
-
 function nameExists($name) {
   $query="SELECT * FROM ".STUDIES." WHERE name='".mysql_real_escape_string($name)."'";
   $res=mysql_query($query);
@@ -78,8 +77,8 @@ class Study {
 
   function fillIn($id) {
     $id=mysql_real_escape_string($id);
-    $query="SELECT * FROM ".STUDIES." WHERE id='".$id."'";
-    $result=mysql_query($query);
+    $query="SELECT * FROM ".STUDIES." WHERE id='".$id."' LIMIT 1";
+    $result=mysql_query($query) or die(mysql_error());
     if(!$result or mysql_num_rows($result)==false) {
       $this->status=false;
       $this->errors[]=_("fillIn Datenbankfehler"). mysql_error();
@@ -128,9 +127,8 @@ class Study {
 
     define('TABLEPREFIX',$prefix."_");
 	
-	require_once ('../includes/settings.php');
-	require_once ('../includes/functions.php');
-	require_once ('../admin/includes/functions.php');
+	require_once INCLUDE_ROOT.'includes/settings.php';
+	require_once INCLUDE_ROOT.'includes/functions.php';
 
 	$table_exists = false;
 
@@ -183,7 +181,7 @@ class Study {
     }
     mysql_close();
     define('TABLEPREFIX',$this->prefix."_");    
-    require_once('../includes/settings.php');
+    require_once INCLUDE_ROOT.'includes/settings.php';
     
     $conn=mysql_connect($DBhost,$DBuser,$DBpass);
     if(!$conn) {

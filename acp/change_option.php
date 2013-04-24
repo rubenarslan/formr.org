@@ -1,5 +1,7 @@
 <?php
-require_once "../config/config.php";
+require_once '../includes/define_root.php';
+require_once INCLUDE_ROOT . "config/config.php";
+
 global $currentUser;
 if(!userIsAdmin() or !isset($_GET['id']) or !isset($_GET['sid']) or !isset($_GET['op']) or !isset($_GET['pos'])) {
   header("Location: index.php");
@@ -26,4 +28,3 @@ if($res=$run->changeOptional($_GET['op'],$_GET['sid'],$_GET['pos'])) {
   die();
 }
 header("Location: ../index.php");
-?>

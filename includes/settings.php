@@ -10,10 +10,6 @@ $DBpass= $db->default['password'];
 $DBport= isset($db->default['port'])?$db->default['port']:'';
 if(strlen($DBport)>0) $DBhost .= ":$DBport";
 
-// ANALYTICS
-$useanalytics = "no";			// yes/no
-$analyticsid = "UA-2102103-4";	// UA-xxxxxx-x
-
 /*
 // MYSQL
  */

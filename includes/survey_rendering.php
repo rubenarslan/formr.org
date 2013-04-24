@@ -1,6 +1,4 @@
 <?php
-require_once "Item.php";
-
 /* php is ugly */
 function render_form_header($vpncode,$timestarted) {
     /* form begins */	

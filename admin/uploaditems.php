@@ -1,7 +1,12 @@
 <?
-require ('admin_header.php');
+require_once "../includes/define_root.php";
+require_once INCLUDE_ROOT.'admin/admin_header.php';
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
-require ('includes/header.php');
+
+require_once INCLUDE_ROOT.'includes/settings.php';
+require_once INCLUDE_ROOT.'includes/variables.php';	
+
+require_once INCLUDE_ROOT.'view_header.php';
 
 
 echo "<table width=\"" . SRVYTBLWIDTH . "\">";
@@ -37,7 +42,8 @@ Die Datei muss folgenden Kriterien genügen:
 </td></tr>
 
 <tr class="odd"><td>
-<form enctype="multipart/form-data" action="uploadimport.php" method="POST">
+<form enctype="multipart/form-data" action="study_added.php" method="POST">
+	<input type="hidden" name="study_id" value="<?=$_SESSION['study_id']?>">
 Bitte Datei auswählen:<br /><input name="uploaded" type="file" /><br /><br />
 <input type="submit" value="Upload &amp; Import" />
 </form> 
@@ -50,5 +56,4 @@ Bitte Datei auswählen:<br /><input name="uploaded" type="file" /><br /><br />
 echo "</div>\n";
 
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
-require('includes/footer.php');
-?>
+require_once INCLUDE_ROOT.'view_footer.php';

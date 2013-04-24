@@ -1,12 +1,13 @@
 <?php
-require_once "../config/config.php";
+require_once '../includes/define_root.php';
+require_once INCLUDE_ROOT . "config/config.php";
+
 global $currentUser;
 if(!userIsAdmin()) {
   header("Location: ../index.php");
   die();
 }
-?>
-<?php
+
 if(!empty($_POST)) {
   $errors=array();
   $run=new Run;
@@ -21,10 +22,25 @@ if(!empty($_POST)) {
   }
 
 }
+
+require_once INCLUDE_ROOT . "view_header.php";
 ?>
-<?php
-include("pre_content.php");
-?>	
+<ul class="nav nav-tabs">
+    <li><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("Admin control panel"); ?></a></li>   
+	
+	<li>
+		<a href="<?=WEBROOT?>acp/add_study.php"><?php echo _("Studie anlegen"); ?></a>
+	</li>
+	<li class="active">
+		<a href="<?=WEBROOT?>acp/add_run.php"><?php echo _("Studien Run erstellen"); ?></a>
+	</li>
+	<li>
+		<a href="<?=WEBROOT?>index.php"><?php echo _("Zum öffentlichen Bereich"); ?></a>
+	</li>
+
+	<li><a href="<?=WEBROOT?>logout.php"><?php echo _("Ausloggen"); ?></a></li>
+	<li><a href="<?=WEBROOT?>edit_user.php"><?php echo _("Einstellungen ändern"); ?></a></li>
+</ul>
 <?php
 if(!empty($_POST) and count($errors)>0) {
 ?>
@@ -47,5 +63,4 @@ if(!empty($_POST) and count($errors)>0) {
   </form>
 
 <?php
-include("post_content.php");
-?>	
+require_once INCLUDE_ROOT . "view_footer.php";

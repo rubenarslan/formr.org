@@ -109,9 +109,17 @@ class Survey {
 		}
 		$all_items = $this->already_answered + count($this->unanswered_batch);
 		
-		$this->progress = $this->already_answered / $all_items ;			
+		if($all_items !== 0) {
+			$this->progress = $this->already_answered / $all_items ;
 
-		return $this->progress;
+			return $this->progress;
+		}
+		else
+		{
+			$this->errors[] = _('Something went wrong, there are no items in this survey!');
+			$this->progress = 0;
+			return 0;
+		}
 	}
 	protected function getNextItems() {
 		$this->unanswered_batch = array();
@@ -157,7 +165,8 @@ class Survey {
 			$action .= "&run_id=".$this->run->id;
 
 		$ret = '<form novalidate action="'.$action.'" method="post" class="form-horizontal" accept-charset="utf-8">';
-
+		// fixme: remove novalidate in production
+		
 	    /* pass on hidden values */
 	    $ret .= '<input type="hidden" name="vpncode" value="' . $this->person . '" />';
 	    if( !empty( $timestarted ) ) {

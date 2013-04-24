@@ -1,10 +1,11 @@
 <?php
-require_once 'admin_header.php';
+require_once "includes/define_root.php";
+require_once INCLUDE_ROOT.'admin/admin_header.php';
 ?>
 <html><head><title>MySQL Table Viewer</title></head><body>
 <?php
 
-require_once 'includes/header.php';
+require_once INCLUDE_ROOT.'includes/view_header.php';
 
 $table = RESULTSTABLE;
 
@@ -44,4 +45,4 @@ mysql_free_result($result);
 
 echo "</tbody></table>\n";
 
-require_once 'includes/footer.php';
+require_once INCLUDE_ROOT.'view_footer.php';

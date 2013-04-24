@@ -125,8 +125,14 @@ class User {
     return true;    
   }
 
+  function userCreatedStudy($study)
+  {
+	  return $this->id === $study->user_id; 
+  }
   function EligibleForStudy($study) {
     $this->status=true;
+	if($this->userCreatedStudy($study))
+		return true;
     if(!isset($study) or !is_object($study)) {
       $this->errors[]=_("Interner Fehler");
       $this->status=false;
@@ -195,20 +201,6 @@ class User {
       return;
     }
 
-    //todo: email verification and inactive user functionality currently not used
-    /* if(!isset($row['email_verified']) or $row['email_verified']==false) { */
-    /*   $this->errors[]="This Accounts email address has not been verified."; */
-    /*   mysql_close(); */
-    /*   return; */
-    /* } */
-    /* if(!isset($row['active']) or $row['active']==false) { */
-    /*   $this->errors[]="This account has not been activated."; */
-    /*   mysql_close(); */
-    /*   return; */
-    /* } */
-
-    /* $this->errors[]=$this->getUsersStudies(); */
-    /* return; */
 
     if(!$this->getUsersStudies()) {
       $this->errors[]=_("Interner Fehler");

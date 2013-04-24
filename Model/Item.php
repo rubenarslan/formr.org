@@ -1,5 +1,6 @@
 <?php
 
+#require '/Applications/MAMP/htdocs/zwang/app/webroot/survey/Markdown/Michelf/Markdown.php';
 function legacy_translate_item($item) { // may have been a bad idea to name (array)input and (object)return value identically?
 	$options = array();
 	$options['id'] = $item['id'];
@@ -13,6 +14,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 	$options['switch_text'] = @$item['altwortlautbasedon'];
 	$options['displayed_before'] = (int)@$item['displaycount'];
 	$options['class'] = @$item['class'];
+	$options['optional'] = @$item['optional'];
 
 	$reply_options = array();
 	
@@ -23,7 +25,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 	
 	if(strpos($type," ")!==false)
 	{
-		$type = preg_replace(" +"," ",$type); // multiple spaces collapse into one
+		$type = preg_replace("/ +/"," ",$type); // multiple spaces collapse into one
 		$type_options = explode(" ",$type); // get real type and options
 		$type = $type_options[0];
 		unset($type_options[0]); // remove real type from options
@@ -47,7 +49,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 			
 			break;
 		case "rating": // todo: ratings will disappear and just be MCs with empty options
-			$reply_options = array_fill(1, $item['size'], '');
+			$reply_options = array_fill(1, $options['size'], '');
 			if(isset($item['ratinguntererpol']) ) 
 			{
 				$lower = $item['ratinguntererpol'];
@@ -58,13 +60,13 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 				$upper = $item['MCalt2'];	
 			} else 
 			{
-				$reply_options = range(1, $item['size']);
+				$reply_options = range(1, $options['size']);
 				$reply_options = array_combine($reply_options, $reply_options);
 				$lower = 1;
-				$upper = $item['size'];
+				$upper = $options['size'];
 			}
 			$reply_options[1] = $lower;
-			$reply_options[$item['size']] = $upper;
+			$reply_options[$options['size']] = $upper;
 		
 			$item = new Item_mc($name, array(
 					'reply_options' => $reply_options,
@@ -103,8 +105,8 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 			break;
 
 		default:
-			$class = "Item_".strtoupper($type);
-			if(!class_exists($class)) 
+			$class = "Item_".$type;
+			if(!class_exists($class,false)) // false to combat false positives using the spl_autoloader 
 				$class = 'Item';
 			$item = new $class($name, $options);
 
@@ -259,7 +261,7 @@ class Item
 		$this->name = $name;
 		
 		$this->text = isset($options['text'])?$options['text']:'';
-		
+				
 		if(isset($options['size'])) 
 			$this->size = (int)$options['size'];
 		
@@ -285,11 +287,10 @@ class Item
 				$this->classes_wrapper[] = "warning";
 		}
 		
-		
-		if(isset($this->options['optional'])) 
+		if(isset($options['optional']) AND $options['optional']) 
 		{
 			$this->optional = true;
-			unset($this->options['optional']);
+			unset($options['optional']);
 		}
 		$this->input_attributes['name'] = $this->name;
 		
@@ -304,6 +305,9 @@ class Item
 			$this->classes_wrapper[] = 'optional';			
 		}
 		
+		if(isset($options['class']) AND $options['class'])
+			$this->classes_wrapper[] = $options['class'];
+		
 		$this->classes_wrapper[] = "item-" . $this->type;
 		
 		$this->input_attributes['type'] = $this->type;
@@ -314,7 +318,6 @@ class Item
 		$this->input_attributes['class'] = implode(" ",$this->classes_input);
 		
 		$this->input_attributes['id'] = "item{$this->id}";
-		
 		
 /*		echo "<pre>".
 			self::_parseAttributes($this->input_attributes).
@@ -329,7 +332,7 @@ class Item
 				die($this->name . " mixed AND/OR not yet possible.");
 			endif;
 			
-			$skipIfs = preg_split('(AND|OR)',$this->skipIf);
+			$skipIfs = preg_split('/(AND|OR)/',$this->skipIf);
 			$constraints = array();
 			foreach($skipIfs AS $skip):
 				if(! preg_match("(/[A-Za-z0-9_]+)\s*(!=|=|==|>|<)\s*['\"]*(\w+)['\"]*\s*/",trim($skip), $matches) ):
@@ -337,27 +340,27 @@ class Item
 				else:
 					if($matches[2] == '==') $matches[2] = '=';
 					
-					$should_skip = $dbh->prepare("SELECT COUNT(*) FROM `" . RESULTSTABLE . "` WHERE 
-					vpncode = :vpncode AND
-					`{$matches[1]}` {$matches[2]} :value");
+					$should_skip = $dbh->prepare("SELECT COUNT(1) FROM `" . RESULTSTABLE . "` WHERE 
+					`vpncode` = :vpncode AND
+					`{$matches[1]}` IS NULL OR 
+					`{$matches[1]}` {$matches[2]} :value"); // IS NULL clause so that skipifs are not shown if the relevant question has not yet been answered. this will be more conspicuous during testing
 					$should_skip->bindParam(":vpncode", $person);
 					$should_skip->bindParam(":value", $matches[3]);
 					$should_skip->execute() or die(print_r($should_skip->errorInfo(), true));
 					$constraints[] = (bool)$should_skip->rowCount();
 				endif;
 			endforeach;
+			pr($constraints);
+			
 			if(strpos($this->skipIf,'AND')!==false AND !in_array($constraints,false,true)):
 				return true; // skip if all AND conditions evaluate to true 
 			elseif(strpos($this->skipIf,'OR')!==false AND in_array($constraints,true,true)):
 				return true; // skip when one of the OR conditions evaluates to true
 			elseif(in_array($constraints,true,true)):
 				return true; // skip
-			else:
-				return false; // don't skip if this is not given
 			endif;
-		else:
-			return false;
 		endif;
+		return false;
 	}
 	public function validateSkipIf()
 	{
@@ -402,6 +405,8 @@ class Item
 			} 
 			else
 			{
+				if($matches[2] == '==') $matches[2] = '=';
+				
 				$switch_condition = $dbh->prepare("SELECT COUNT(*) FROM `" . RESULTSTABLE . "` WHERE 
 				vpncode = :vpncode AND
 				`{$matches[1]}` {$matches[2]} :value");
@@ -638,16 +643,26 @@ class Item_submit extends Item
 		$this->classes_input[] = 'btn';
 		$this->classes_input[] = 'btn-large';
 		$this->classes_input[] = 'btn-success';
-		$this->input_attributes['value'] = $this->text;
+#		$this->input_attributes['value'] = $this->text;
 		unset($this->input_attributes['required']);
 		unset($this->input_attributes['name']);
-		$this->text = '';
+#		$this->text = '';
 		$this->type = 'submit';
 	}
 	public function validateInput($reply)
 	{
 		$this->error = _("You cannot answer instructions.");
 	}
+	protected function render_input() 
+	{
+		return 		
+			'<button type="submit" '.self::_parseAttributes($this->input_attributes).'>'.$this->text.'</button>';
+	}
+	protected function render_label() 
+	{
+		return '';
+	}
+	
 }
 
 // radio buttons

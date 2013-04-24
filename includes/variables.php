@@ -11,8 +11,8 @@ while( $setting = mysql_fetch_assoc($settings_query) ) {
 }
 
 // PAGE-INFOS
-define('TITLE', $settings['title']);
-define('DESCRIPTION', $settings['description']);
+$title = $settings['title'];
+$description = $settings['description'];
 define('AUTHOR', $settings['author']);
 define('COPYRIGHT', $settings['copyright']);
 define('PAGETOPIC', $settings['pagetopic']);

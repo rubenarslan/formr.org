@@ -9,13 +9,13 @@ if (!function_exists('_')) {
 }
 
 #require_once $_SERVER['DOCUMENT_ROOT']."/zwang/app/Config/database.php";
-require_once(dirname(__FILE__)."/../../../Config/database.php");
+require_once INCLUDE_ROOT."../../Config/database.php";
 
 $db = new DATABASE_CONFIG();
-$dbhost= $db->default['host'];
-$dbname= $db->default['database'];
-$dbuser= $db->default['login'];
-$dbpass= $db->default['password'];
+$DBhost = $dbhost= $db->default['host'];
+$DBname = $dbname= $db->default['database'];
+$DBuser = $dbuser= $db->default['login'];
+$DBpass = $dbpass= $db->default['password'];
 if(isset($db->default['port'])) $dbhost .= ':'.$db->default['port'];
 
 /* function sqlConnect() { */
@@ -32,10 +32,10 @@ define('USERS_STUDIES',$prefix . 'users_studies');
 define('RUNS',$prefix . 'runs');
 define('RUN_DATA',$prefix . 'run_data');
 
-require_once "newuser.php";
-require_once "user.php";
-require_once "study.php";
-require_once "run.php";
+require_once INCLUDE_ROOT."config/newuser.php";
+require_once INCLUDE_ROOT."config/user.php";
+require_once INCLUDE_ROOT."config/study.php";
+require_once INCLUDE_ROOT."config/run.php";
 
 session_start();
 
@@ -101,54 +101,6 @@ function setLanguage($lang) {
   $_SESSION['lang']=$lang;
   setcookie('lang',$lang);
 }
-
-//todo: (de)activate email verification/activation via root admin acp
-//user account activation via token validation. not used
-/* function tokenValid($email,$token) { */
-/*   global $dbhost,$dbname,$dbuser,$dbpass,$lang; */
-/*   $conn=mysql_connect($dbhost,$dbuser,$dbpass); */
-/*   if(!$conn) */
-/*     return $lang['CONNECT_ERROR']; */
-/*   if(!mysql_select_db($dbname,$conn)) { */
-/*     mysql_close(); */
-/*     return $lang['DBSELECT_ERROR']; */
-/*   } */
-/*   $query="UPDATE ".USERS." SET email_verified = 1 WHERE email='".mysql_real_escape_string(trim($email))."' AND email_token='".mysql_real_escape_string(trim($token))."'"; */
-/*   $res=mysql_query($query); */
-/*   if($res!==true) */
-/*     return "Query error"; */
-/*   mysql_close(); */
-/*   return true; */
-/* } */
-/* function validateToken($token) { */
-/*   global $dbhost,$dbname,$dbuser,$dbpass,$lang; */
-/*   $conn=mysql_connect($dbhost,$dbuser,$dbpass); */
-/*   if(!$conn) */
-/*     return $lang['CONNECT_ERROR']; */
-/*   if(!mysql_select_db($dbname,$conn)) { */
-/*     mysql_close(); */
-/*     return $lang['DBSELECT_ERROR']; */
-/*   } */
-/*   $query="SELECT email_token FROM ".USERS." WHERE email_token='".mysql_real_escape_string(trim($token))."'"; */
-/*   $res=mysql_query($query); */
-/*   if(mysql_num_rows($res)===false or mysql_num_rows($res)===0) */
-/*     return true; */
-/*   return false; */
-/* } */
-/* function generateActivationToken() { */
-/*   $token; */
-/*   do { */
-/*     $token=md5(uniqid(mt_rand(),true)); */
-/*   } while(!validateToken($token)); */
-/*   return $token; */
-/* } */
-/* function sendActivationMail($mail,$token) { */
-/*   if($mail==='' or $token==='') */
-/*     return false; */
-/*   $link="http://[URL]/activate_account.php?email=".$mail."&token=".$token.""; */
-/*   //return mail($mail,"Activate Account",$link); */
-/*   return true; */
-/* } */
 
 
 function generateHash($plainText,$salt=null) {
@@ -222,5 +174,3 @@ function userIsAdmin() {
     return true;
   return false;
 }
-
-?>

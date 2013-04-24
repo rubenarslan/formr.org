@@ -1,5 +1,7 @@
 <?php
-require_once "../config/config.php";
+require_once '../includes/define_root.php';
+require_once INCLUDE_ROOT . "config/config.php";
+
 global $currentUser;
 if(!userIsAdmin() or !isset($_GET['id'])) {
   header("Location: index.php");
@@ -34,10 +36,8 @@ if(!empty($_POST)) {
   }
 }
 
+require_once INCLUDE_ROOT . "view_header.php";
 ?>
-<?php
-include("pre_content.php");
-?>	
 <p>
 <h2><?php echo $run->name;?></h2>
 </p>
@@ -66,10 +66,7 @@ if($run->isEmpty()) {
 }
 ?>
  </p>                    
-<br>
-<br>
-<br>
-<br>
+
 <form id="add_study" name="add_study" method="post" action="view_run.php?id=<?php echo $run->id?>">
   <p>
   <p>
@@ -107,5 +104,4 @@ $studies=$currentUser->GetStudies();
   <p><a href="acp.php"><?php echo _("Zurück zum ACP"); ?></a></p>
 
 <?php
-include("post_content.php");
-?>	
+require_once INCLUDE_ROOT . "view_footer.php";

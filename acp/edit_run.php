@@ -1,5 +1,7 @@
 <?php
-require_once "../config/config.php";
+require_once '../includes/define_root.php';
+require_once INCLUDE_ROOT . "config/config.php";
+
 global $currentUser;
 if(!userIsAdmin() or !isset($_GET['id'])) {
   header("Location: index.php");
@@ -31,9 +33,7 @@ if(!empty($_POST)) {
     $errors=array_merge($errors,$run->GetErrors());
 }
 
-?>
-<?php
-include("pre_content.php");
+require_once INCLUDE_ROOT . "view_header.php";
 ?>	
 
 <p><strong><?php echo _("Editiere Studie: "); ?></strong> <?php echo $run->name; ?> <br /> 
@@ -72,5 +72,4 @@ if(!empty($_POST) and count($errors)>0) {
   <p><a href="view_run.php?id=<?php echo $run->id; ?>"><?php echo _("Zurück zum Run"); ?></a></p>
 
 <?php
-include("post_content.php");
-?>	
+require_once INCLUDE_ROOT . "view_footer.php";

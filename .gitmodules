@@ -1,3 +1,6 @@
 [submodule "PHPExcel"]
 	path = PHPExcel
 	url = https://github.com/PHPOffice/PHPExcel.git
+[submodule "Markdown"]
+	path = Markdown
+	url = https://github.com/scornflakes/php-markdown.git

@@ -1,11 +1,32 @@
 <?
-require ('admin_header.php');
-/* 	admin.php - Editor to add string subsitutions in $formulierung texts
-June, 2010 - remember the great weather!
- */
-
+require_once "includes/define_root.php";
+require_once INCLUDE_ROOT.'admin/admin_header.php';
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
-require ('includes/header.php');
+
+require_once INCLUDE_ROOT.'includes/settings.php';
+require_once INCLUDE_ROOT.'includes/variables.php';	
+require_once INCLUDE_ROOT.'view_header.php';
+?>
+<h2><?php echo $study->name;?></h2>
+
+<ul class="nav nav-tabs">
+	<li class="active">
+		<a href="<?=WEBROOT?>admin/index.php?study_id=<?php echo $study->id; ?>"><?php echo _("Admin Bereich"); ?></a>
+
+		<ul class="nav nav-tabs">
+			<li class="active"><a href="<?=WEBROOT?>admin/index.php?study_id=<?php echo $study->id; ?>"><?php echo _("Admin Bereich"); ?></a>
+			</li>
+			<li><a href="<?=WEBROOT?>acp/edit_study.php?id=<?php echo $study->id; ?>"><?php echo _("Veröffentlichung kontrollieren"); ?></a></li>
+			<li><a href="<?=WEBROOT?>survey.php?study_id=<?php echo $study->id; ?>"><?php echo _("Studie testen"); ?></a></li>
+			<li><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("Zurück zum ACP"); ?></a></li>	
+		</ul>
+	</li>
+	<li><a href="<?=WEBROOT?>acp/edit_study.php?id=<?php echo $study->id; ?>"><?php echo _("Veröffentlichung kontrollieren"); ?></a></li>
+	<li><a href="<?=WEBROOT?>survey.php?study_id=<?php echo $study->id; ?>"><?php echo _("Studie testen"); ?></a></li>
+	<li><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("Zurück zum ACP"); ?></a></li>	
+</ul>
+
+<?php
 
 
 if( !table_exists(ADMINTABLE) ) {
@@ -40,9 +61,6 @@ if( mysql_num_rows($results) > 0 ) {
 
 	}
 			
-	echo "<p style=\"background: #CCCCCC;\"><strong>Navigation</strong></p>";
-	echo "<form method=\"POST\" action=\"index.php\"><input type=\"submit\" value=\"Back to main menu\" /></form>";
-
 	echo "<p style=\"background: #CCCCCC;\"><strong>Globale Settings</strong></p>";
 	echo "<form method=\"POST\" action=\"admin.php\"><table class=\"editstudies\">";
 	echo "<th>Option</th> <th> - </th> <th>Value</th>";
@@ -71,5 +89,4 @@ if( mysql_num_rows($results) > 0 ) {
 echo "</div>\n";
 
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
-require('includes/footer.php');
-?>
+require_once INCLUDE_ROOT.'view_footer.php';

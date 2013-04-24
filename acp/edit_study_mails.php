@@ -1,5 +1,7 @@
 <?php
-require_once "../config/config.php";
+require_once '../includes/define_root.php';
+require_once INCLUDE_ROOT . "config/config.php";
+
 global $currentUser;
 if(!userIsAdmin() or !isset($_GET['id'])) {
   header("Location: index.php");
@@ -42,7 +44,7 @@ if(!empty($_POST)) {
 
 ?>
 <?php
-include("pre_content.php");
+require_once INCLUDE_ROOT . "view_header.php";
 ?>	
 
 <p><strong><?php echo _("Email Benachrichtigungen: "); ?></strong> <?php echo $study->name; ?> <br /> 
@@ -87,5 +89,4 @@ if(!empty($_POST) and count($errors)>0) {
   <p><a href="view_study.php?id=<?php echo $study->id; ?>"><?php echo _("Zurück zur Studie"); ?></a></p>
 
 <?php
-include("post_content.php");
-?>	
+require_once INCLUDE_ROOT . "view_footer.php";

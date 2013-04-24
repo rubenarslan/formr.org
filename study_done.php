@@ -5,7 +5,7 @@ if(isset($run)) {
   $next_study=$run->getNextStudy($study);
   $optional=$run->isOptional($next_study);
   if(($next_study and !$optional) or ($next_study and $optional and $currentUser->userHasCompletedStudy($study)))
-    header("Location: pre_survey.php?study_id=$next_study->id&run_id=$run->id");
+    header("Location: survey.php?study_id=$next_study->id&run_id=$run->id");
 }   
 
 
@@ -37,7 +37,7 @@ if((isset($run) and !$next_study) or !isset($run)) {
                                   <?php }  else {  ?>
 
 <p>Danke für das Ausfüllen der Studie.</p>
-                                  <p>Machen Sie doch mit diese Studie weiter: <a href=<?php echo "pre_survey.php?study_id=$next_study->id&run_id=$run->id"; ?>><?php echo $next_study->name; ?></a></p>  
+                                  <p>Machen Sie doch mit diese Studie weiter: <a href=<?php echo "survey.php?study_id=$next_study->id&run_id=$run->id"; ?>><?php echo $next_study->name; ?></a></p>  
 <p><a href="index.php">Zurück zum Index</a></p>  
 
 <?php

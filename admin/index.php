@@ -1,9 +1,23 @@
 <?
-require ('admin_header.php');
+require_once "../includes/define_root.php";
+require_once INCLUDE_ROOT.'admin/admin_header.php';
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
-require ('includes/header.php');
 
+require_once INCLUDE_ROOT.'includes/settings.php';
+require_once INCLUDE_ROOT.'includes/variables.php';	
+require_once INCLUDE_ROOT.'view_header.php';
 
+?>
+<h2><?php echo $study->name;?></h2>
+
+<ul class="nav nav-tabs">
+	<li class="active"><a href="<?=WEBROOT?>admin/index.php?study_id=<?php echo $study->id; ?>"><?php echo _("Admin Bereich"); ?></a></li>
+	<li><a href="<?=WEBROOT?>acp/edit_study.php?id=<?php echo $study->id; ?>"><?php echo _("Veröffentlichung kontrollieren"); ?></a></li>
+	<li><a href="<?=WEBROOT?>survey.php?study_id=<?php echo $study->id; ?>"><?php echo _("Studie testen"); ?></a></li>
+	<li><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("Zurück zum ACP"); ?></a></li>	
+</ul>
+
+<?php
 //übernehme Action
 if (isset($_GET['action'])) {
 	$action = $_GET['action'];
@@ -40,35 +54,34 @@ if( !table_exists(ADMINTABLE,$DBhost) ) {
 
 echo "<li><a href=\"admin.php\">Globale Einstellungen</a></li>";
 
+echo "<li><a href=\"uploaditems.php?study_id=".$study->id."\">Itemtabelle importieren</a></li>";
  if (!table_exists(ITEMSTABLE, $DBhost)) {
-	echo "<li><a href=\"uploaditems.php\">Itemtabelle importieren</a></li>";
 } else {
-	echo "<li><a href=\"uploaditems.php\">Itemtabelle importieren</a></li>";
 	
 	if (!table_exists(RESULTSTABLE, $DBhost)) {
 		echo "<li><a href=\"index.php?action=createresulttab\">Ergebnistabelle erstellen</a></li>";
 	} else {
-		$danger_zone[] = "<li><a href=\"index.php?action=deleteresults\">Ergebnistabelle löschen</a></li>";
-		echo "<li><a href=\"csv_export.php\">Ergebnistabelle exportieren</a></li>";
+		$danger_zone[] = "<li><a href=\"index.php?action=deleteresults&study_id=".$study->id."\">Ergebnistabelle löschen</a></li>";
+		echo "<li><a href=\"csv_export.php?study_id=".$study->id."\">Ergebnistabelle exportieren</a></li>";
 	}
 
 
 	if (!table_exists(VPNDATATABLE, $DBhost)) {
-		echo "<li><a href=\"index.php?action=createvpndatatab\">VPNDatatabelle erstellen</a></li>";
+		echo "<li><a href=\"index.php?action=createvpndatatab&study_id=".$study->id."\">VPNDatatabelle erstellen</a></li>";
 	} else {
-		$danger_zone[] = "<li><a href=\"index.php?action=deletevpndatatab\">VPNDatatabelle löschen</a></li>";
+		$danger_zone[] = "<li><a href=\"index.php?action=deletevpndatatab&study_id=".$study->id."\">VPNDatatabelle löschen</a></li>";
 	}
 
 	if (table_exists(RESULTSTABLE, $DBhost)) {
-		echo "<li><a href=\"displayresults.php\">Ergebnisse anzeigen</a></li>";
+		echo "<li><a href=\"displayresults.php?study_id=".$study->id."\">Ergebnisse anzeigen</a></li>";
 	}
 	echo '<li class="nav-header">For more complex studies</li>';
-	echo "<li><a href=\"editstudies.php\">Studien editieren</a></li>";
-	echo "<li><a href=\"edittimes.php\">Edit-Zeiten editieren</a></li>";
-	echo "<li><a href=\"editemails.php\">Emails editieren</a></li>";
-	echo "<li><a href=\"editsubstitutions.php\">Subsitutionen editieren</a></li>";	
+	echo "<li><a href=\"editstudies.php?study_id=".$study->id."\">Studien editieren</a></li>";
+	echo "<li><a href=\"edittimes.php?study_id=".$study->id."\">Edit-Zeiten editieren</a></li>";
+	echo "<li><a href=\"editemails.php?study_id=".$study->id."\">Emails editieren</a></li>";
+	echo "<li><a href=\"editsubstitutions.php?study_id=".$study->id."\">Subsitutionen editieren</a></li>";	
 
-	echo "<li><a href=\"vpncodes.php\">Vpncodes bearbeiten</a></li>";
+	echo "<li><a href=\"vpncodes.php?study_id=".$study->id."\">Vpncodes bearbeiten</a></li>";
 	echo "<li><a href=\"../acp/acp.php\">Zurück zur Studienübersicht</a></li>";
 	
 	echo '<li class="nav-header">Danger Zone</li>';
@@ -78,6 +91,4 @@ echo "<li><a href=\"admin.php\">Globale Einstellungen</a></li>";
 echo "</ul></nav>";
 
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
-require('includes/footer.php');#
-
-?>
+require_once INCLUDE_ROOT.'view_footer.php';
