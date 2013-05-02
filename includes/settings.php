@@ -1,6 +1,5 @@
 <?
-#require_once $_SERVER['DOCUMENT_ROOT']."/zwang/app/Config/database.php";
-require_once(dirname(__FILE__)."/../../../Config/database.php");
+require_once INCLUDE_ROOT."../../Config/database.php";
 
 $db = new DATABASE_CONFIG();
 $DBhost= $db->default['host'];
@@ -25,12 +24,13 @@ mysql_query("set names 'utf8';");
 // Important! Table settings
 // for every Install, change prefix!!!
 $prefix = TABLEPREFIX;
+$name = substr($prefix,0,-1);
 
 // This should probably not be changed unless you really know what you do
 define('ADMINTABLE', $prefix . "admin");
 define('ITEMDISPLAYTABLE', $prefix . 'itemdisplay');
 define('ITEMSTABLE', $prefix . 'items');
-define('RESULTSTABLE', $prefix . 'results');
+define('RESULTSTABLE', $name);
 define('SNRESULTSTABLE', $prefix . 'snresults');
 define('VPNDATATABLE',  $prefix.'probands');
 define('STUDIESTABLE', $prefix . 'studies');
@@ -38,5 +38,3 @@ define('TIMESTABLE', $prefix . 'times');
 define('EMAILSTABLE',$prefix . 'emails');
 define('MESSAGEQUEUE',$prefix . 'messagequeue');
 define('SUBSTABLE',$prefix . 'substitutions');
-
-?>

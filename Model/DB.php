@@ -5,7 +5,7 @@ class DB extends PDO
     #make a connection
     public function __construct() 
 	{
-		require_once(dirname(__FILE__)."/../../../Config/database.php");
+		require_once INCLUDE_ROOT."../../Config/database.php";
 
 		$db = new DATABASE_CONFIG();
 		$db->default['port'] = isset($db->default['port'])?$db->default['port']:'';

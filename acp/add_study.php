@@ -31,7 +31,7 @@ require_once INCLUDE_ROOT . "view_header.php";
 			<?php echo _("Studien Kurzname<br>(wird für URL und Ergebnistabelle in der Datenbank benutzt):"); ?>
 		</label>
 		<div class="controls">
-			<input required type="text" name="name" id="kurzname"  value="<?php if(isset($_POST['name'])) echo $_POST['name']; ?>"/>
+			<input required type="text" placeholder="Name (a-Z0-9)" name="name" id="kurzname"  value="<?php if(isset($_POST['name'])) echo $_POST['name']; ?>"/>
 		</div>
 	</div>
 	<div class="control-group">

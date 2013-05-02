@@ -1,12 +1,18 @@
 <?
 require_once "includes/define_root.php";
+$description = $title = 'Survey'; // fixme: import vars
+define('DEBUG',0);
 
 require_once INCLUDE_ROOT . "config/config.php";
 
-require_once INCLUDE_ROOT . 'Model/Study.php'; # Study , nothing is echoed yet
+require_once INCLUDE_ROOT . 'Model/StudyX.php'; # Study , nothing is echoed yet
 require_once INCLUDE_ROOT . 'Model/Survey.php'; # Survey class, nothing is echoed yet
 
-$survey = new Survey($vpncode,$study,@$run,array('timestarted'=>@$timestarted));
+
+
+$study = new StudyX($_GET['study_id']);
+$session_id = mt_rand(1,100000000);
+$survey = new Survey($session_id,$study,@$run,array('timestarted'=>@$timestarted));
 
 if($survey->progress===1) 
 {
@@ -17,8 +23,8 @@ if($survey->progress===1)
 }
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 // Settings einlesen
-require_once INCLUDE_ROOT . 'includes/settings.php';
-require_once INCLUDE_ROOT . 'includes/variables.php';	
+#require_once INCLUDE_ROOT . 'includes/settings.php';
+#require_once INCLUDE_ROOT . 'includes/variables.php';	
 require_once INCLUDE_ROOT . 'view_header.php';
 
 ?>
@@ -34,7 +40,7 @@ require_once INCLUDE_ROOT . 'view_header.php';
 
 <?php
 
-if(isset($_POST['vpncode'])) 
+if(isset($_POST['session_id'])) 
 {
 	$survey->post($_POST);
 }

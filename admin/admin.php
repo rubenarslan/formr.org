@@ -1,5 +1,5 @@
 <?
-require_once "includes/define_root.php";
+require_once "../includes/define_root.php";
 require_once INCLUDE_ROOT.'admin/admin_header.php';
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 
@@ -13,7 +13,7 @@ require_once INCLUDE_ROOT.'view_header.php';
 	<li class="active">
 		<a href="<?=WEBROOT?>admin/index.php?study_id=<?php echo $study->id; ?>"><?php echo _("Admin Bereich"); ?></a>
 
-		<ul class="nav nav-tabs">
+		<ul class="nav nav-dropdown">
 			<li class="active"><a href="<?=WEBROOT?>admin/index.php?study_id=<?php echo $study->id; ?>"><?php echo _("Admin Bereich"); ?></a>
 			</li>
 			<li><a href="<?=WEBROOT?>acp/edit_study.php?id=<?php echo $study->id; ?>"><?php echo _("Veröffentlichung kontrollieren"); ?></a></li>

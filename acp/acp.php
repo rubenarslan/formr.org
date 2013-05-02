@@ -2,7 +2,7 @@
 require_once '../includes/define_root.php';
 require_once INCLUDE_ROOT . "config/config.php";
 if(!userIsAdmin()) {
-  header("Location: index.php");
+  header("Location: ".WEBROOT."index.php");
   die();
 }
 

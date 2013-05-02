@@ -822,7 +822,7 @@ function createsubstable() {
         id INT NOT NULL AUTO_INCREMENT,
         `mode` INT DEFAULT 0,
         `key` VARCHAR(100),
-                `value` VARCHAR(100),
+        `value` VARCHAR(100),
             UNIQUE (
                 id
             )) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci;";

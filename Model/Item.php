@@ -7,7 +7,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 	$name = $item['variablenname'];
 	$type = trim(strtolower($item['typ']));
 	if($type === 'offen') $type = 'text';
-	if($type === 'instruktion') $type = 'instruction'; 
+	elseif($type === 'instruktion') $type = 'instruction'; 
 
 	$options['text'] = $item['wortlaut'];
 	$options['alt_text'] = @$item['altwortlaut'];
@@ -15,6 +15,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 	$options['displayed_before'] = (int)@$item['displaycount'];
 	$options['class'] = @$item['class'];
 	$options['optional'] = @$item['optional'];
+	$options['skipIf'] = @$item['skipif'];
 
 	$reply_options = array();
 	
@@ -135,12 +136,15 @@ class Item
 	public $optional = false;
 	public $size = null;
 	public $skipIf = null;
+	protected $prepend = null;
+	protected $append = null;
 	protected $input_attributes = array();
 	protected $classes_controls = array('controls');
 	protected $classes_wrapper = array('control-group','form-row');
 	protected $classes_input = array();
 	protected $classes_label = array('control-label');
 	protected $type_options = array();
+	protected $mysql_field =  'TEXT DEFAULT NULL';
 	
 	// from CakePHP
 	/**
@@ -257,7 +261,12 @@ class Item
 		$this->allowedTypes = $allowedtypes;
 		
 		$this->id = isset($options['id']) ? $options['id'] : 0;
-		$this->type = isset($options['type']) ? $options['type'] : 'text';
+		if(isset($options['type']) AND $this->type === NULL):
+			$this->type = $options['type'];
+#		elseif($this->type !== NULL AND $this->type!==$options['type']):
+#			echo "$name: Type mismatch {$this->type} != {$options['type']}"; // mc != radio, mselect != select etc
+		endif;
+		
 		$this->name = $name;
 		
 		$this->text = isset($options['text'])?$options['text']:'';
@@ -322,50 +331,68 @@ class Item
 /*		echo "<pre>".
 			self::_parseAttributes($this->input_attributes).
 			'</pre>';
-*/	}
-	public function skip($dbh,$person)
+*/	
+	}
+	public function getResultField()
+	{
+		if($this->mysql_field!==null)
+			return "`{$this->name}` {$this->mysql_field}";
+		else return null;
+	}
+	public function skip($person,$dbh,$results_table)
 	{	
 		// fixme: cant deal with parentheses, mixed and/or etc.
 		if($this->skipIf!=null):
 			
-			if(strpos($this->skipIf,'AND')!==false AND strpos($this->skipIf,'OR')!==false):
+			if(
+			(strpos($this->skipIf,'AND')!==false AND strpos($this->skipIf,'OR')!==false)
+				OR strpos($this->skipIf,'.') !== false
+				):
 				die($this->name . " mixed AND/OR not yet possible.");
 			endif;
 			
 			$skipIfs = preg_split('/(AND|OR)/',$this->skipIf);
 			$constraints = array();
 			foreach($skipIfs AS $skip):
-				if(! preg_match("(/[A-Za-z0-9_]+)\s*(!=|=|==|>|<)\s*['\"]*(\w+)['\"]*\s*/",trim($skip), $matches) ):
+				if(! preg_match("/([A-Za-z0-9_]+)\s*(!=|=|==|>|<|>=|<=)\s*['\"]*(\w+)['\"]*\s*/",trim($skip), $matches) ):
 					die ($this->name . " invalid skipIf");
 				else:
 					if($matches[2] == '==') $matches[2] = '=';
 					
-					$should_skip = $dbh->prepare("SELECT COUNT(1) FROM `" . RESULTSTABLE . "` WHERE 
-					`vpncode` = :vpncode AND
-					`{$matches[1]}` IS NULL OR 
-					`{$matches[1]}` {$matches[2]} :value"); // IS NULL clause so that skipifs are not shown if the relevant question has not yet been answered. this will be more conspicuous during testing
-					$should_skip->bindParam(":vpncode", $person);
+					$q = "SELECT (
+						`{$matches[1]}` IS NULL OR 
+						`{$matches[1]}` {$matches[2]} :value 
+					) AS test FROM `{$results_table}` WHERE 
+					`session_id` = :session_id
+					
+					LIMIT 1";
+					
+					// fixme: multiple results rows being added
+					echo $q;
+					$should_skip = $dbh->prepare($q); // IS NULL clause so that skipifs are not shown if the relevant question has not yet been answered. this will be more conspicuous during testing
+					$should_skip->bindParam(":session_id", $person);
+
 					$should_skip->bindParam(":value", $matches[3]);
+
 					$should_skip->execute() or die(print_r($should_skip->errorInfo(), true));
-					$constraints[] = (bool)$should_skip->rowCount();
+					if($should_skip->rowCount()>0):
+						$constraints[$skip] = $should_skip->fetch();
+						$constraints[$skip] = $constraints[$skip][0];
+					else:
+						$constraints[$skip] = true;
+					endif;
 				endif;
 			endforeach;
+			echo $this->name;
 			pr($constraints);
 			
-			if(strpos($this->skipIf,'AND')!==false AND !in_array($constraints,false,true)):
+			if(strpos($this->skipIf,'AND')!==false AND !in_array(false,$constraints,true)):
 				return true; // skip if all AND conditions evaluate to true 
-			elseif(strpos($this->skipIf,'OR')!==false AND in_array($constraints,true,true)):
+			elseif(strpos($this->skipIf,'OR')!==false AND in_array(true,$constraints,true)):
 				return true; // skip when one of the OR conditions evaluates to true
-			elseif(in_array($constraints,true,true)):
+			elseif(in_array(true,$constraints,true)):
 				return true; // skip
 			endif;
-		endif;
-		return false;
-	}
-	public function validateSkipIf()
-	{
-		if($this->skipIf!=null AND trim($this->skipIf) != "" AND is_null(json_decode($this->skipIf, true)) ):
-			return "ID {$this->id}: The skipIf command '".h($this->skipIf)."' cannot be decoded!";
 		endif;
 		return false;
 	}
@@ -374,32 +401,27 @@ class Item
 		$this->val_errors = array();
 		
 		if( !preg_match('/[A-Za-z0-9_]+/',$this->name) ): 
-			$this->val_errors[] = "'{$this->name}' Variablenname darf nur a-Z, 0-9 und den Unterstrich enthalten. Zeile übersprungen.";
+			$this->val_errors[] = "'{$this->name}' Variablenname darf nur a-Z, 0-9 und den Unterstrich enthalten.";
 		endif;
 		
 		if( trim($this->type) == "" ):
-			$this->val_errors[] = "ID {$this->id}: Typ darf nicht leer sein.";
+			$this->val_errors[] = "{$this->name}: Typ darf nicht leer sein.";
 #		elseif(!in_array($this->type,$this->allowedTypes) ):
-#			$this->val_errors[] = "ID {$this->id}: Typ '{$this->type}' nicht erlaubt. In den Admineinstellungen änderbar.";
+#			$this->val_errors[] = "{$this->name}: Typ '{$this->type}' nicht erlaubt. In den Admineinstellungen änderbar.";
 		endif;
-			
-		if($error = $this->validateSkipIf())
-		{
-			$this->val_errors[] = $error;
-		}
 		
 		return $this->val_errors;
 	}
 	
 	public function viewedBy($view_update) {		
-		$view_update->bindParam(":variablenname", $this->name);
+		$view_update->bindParam(":item_id", $this->id);
 		
    	   	$view_update->execute() or die(print_r($view_update->errorInfo(), true));
 	}
-	public function switchText($person,$dbh) {
+	public function switchText($person,$dbh,$results_table) {
         if (@$this->switch_text != null) 
 		{
-			if(! preg_match("(/[A-Za-z0-9_]+)\s*(!=|=|==|>|<)\s*['\"]*(\w+)['\"]*\s*/",trim($this->switch_text), $matches) )
+			if(! preg_match("(/([A-Za-z0-9_]+)\s*(!=|=|==|>|<)\s*['\"]*(\w+)['\"]*\s*/",trim($this->switch_text), $matches) )
 			{
 				die ($this->name . " invalid switch_text");
 			} 
@@ -407,13 +429,13 @@ class Item
 			{
 				if($matches[2] == '==') $matches[2] = '=';
 				
-				$switch_condition = $dbh->prepare("SELECT COUNT(*) FROM `" . RESULTSTABLE . "` WHERE 
-				vpncode = :vpncode AND
-				`{$matches[1]}` {$matches[2]} :value");
-				$switch_condition->bindParam(":vpncode", $person);
+				$switch_condition = $dbh->prepare("SELECT (`{$matches[1]}` {$matches[2]} :value) AS test FROM `{$results_table}` WHERE session_id = :session_id");
+				$switch_condition->bindParam(":session_id", $person);
 				$switch_condition->bindParam(":value", $matches[3]);
 				$switch_condition->execute() or die(print_r($switch_condition->errorInfo(), true));
-				$switch = (bool)$switch_condition->rowCount();
+				$switch = $switch_condition->fetch();
+				$switch = (bool)$switch[0];
+				
 				if($switch)
 	                $item->text = $item->alt_text;
 			}
@@ -494,6 +516,7 @@ class Item
 
 class Item_text extends Item
 {
+	public $type = 'text';
 	protected function setMoreOptions() 
 	{	
 		if(is_array($this->type_options) AND count($this->type_options) == 1)
@@ -513,11 +536,7 @@ class Item_text extends Item
 // textarea automatically chosen when size exceeds a certain limit
 class Item_textarea extends Item 
 {
-	protected function setMoreOptions() 
-	{
-		parent::setMoreOptions();
-		$this->type = 'textarea';
-	}
+	public $type = 'textarea';
 	protected function render_input() 
 	{
 		return 		
@@ -528,6 +547,9 @@ class Item_textarea extends Item
 // spinbox is polyfilled in browsers that lack it 
 class Item_number extends Item 
 {
+	public $type = 'number';
+	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	
 	protected function setMoreOptions() 
 	{
 		$this->input_attributes['step'] = 1;
@@ -547,7 +569,20 @@ class Item_number extends Item
 			if(is_numeric($step) OR $step==='any') $this->input_attributes['step'] = $step;	
 		}
 		
-		$this->type = 'number';
+		if(isset($this->input_attributes['min']) AND $this->input_attributes['min']<0)
+			$this->mysql_field = str_replace($this->mysql_field,"UNSIGNED ", "");
+		if(
+			(isset($this->input_attributes['min']) OR isset($this->input_attributes['max'])) AND
+				 (abs($this->input_attributes['min'])>32767 OR abs($this->input_attributes['max'])>32767))
+			$this->mysql_field = str_replace($this->mysql_field,"TINYINT ", "MEDIUMINT");
+		elseif(
+			(isset($this->input_attributes['min']) OR isset($this->input_attributes['max'])) AND
+				(abs($this->input_attributes['min'])>126 OR abs($this->input_attributes['max'])>126))
+			$this->mysql_field = str_replace($this->mysql_field,"TINYINT ", "SMALLINT");
+		if(isset($this->input_attributes['step']) AND 
+		(string)(int)$this->input_attributes['step'] == $this->input_attributes['step'])
+			$this->mysql_field = str_replace($this->mysql_field,"TINYINT ", "FLOAT");
+		
 	}
 	public function validateInput($reply)
 	{
@@ -576,12 +611,14 @@ class Item_number extends Item
 // slider, polyfilled in most browsers, native in chrome, ..?
 class Item_range extends Item_number 
 {
+	public $type = 'range';
+
 	protected function setMoreOptions() 
 	{
 		$this->input_attributes['min'] = 0;
 		$this->input_attributes['max'] = 100;
+			
 		parent::setMoreOptions();
-		$this->type = 'range';
 	}
 	protected function render_input() 
 	{
@@ -595,31 +632,56 @@ class Item_range extends Item_number
 // email is a special HTML5 type, validation is polyfilled in browsers that lack it
 class Item_email extends Item 
 {
-	protected function setMoreOptions() 
-	{
-		$this->type = 'email';
-		$this->prepend = 'icon-envelope';
-		$this->size = 250;
-	}
+	public $type = 'email';
+	public $size = 250;
+	protected $prepend = 'icon-envelope';
+	protected $mysql_field = 'VARCHAR (255) DEFAULT NULL';
+	
 }
 
 // time is polyfilled, we prepended a clock
 class Item_time extends Item 
 {
-	protected function setMoreOptions() 
-	{
-		$this->type = 'time';
-		$this->prepend = 'icon-time';
-		$this->input_attributes['style'] = 'width:80px';
-	}
+	public $type = 'time';
+	protected $prepend = 'icon-time';
+	protected $input_attributes = array('style' => 'width:80px');
+	protected $mysql_field = 'TIME DEFAULT NULL';
+	
 }
+
+class Item_date extends Item 
+{
+	public $type = 'date';
+	protected $mysql_field = 'DATE DEFAULT NULL';
+}
+
+class Item_yearmonth extends Item_date 
+{
+	public $type = 'yearmonth';
+}
+
+class Item_month extends Item_date 
+{
+	public $type = 'month';
+}
+class Item_datetime extends Item 
+{
+	public $type = 'datetime';
+	protected $mysql_field = 'DATETIME DEFAULT NULL';
+}
+
+class Item_year extends Item 
+{
+	public $type = 'year';
+	protected $mysql_field = 'YEAR DEFAULT NULL';
+}
+
 // instructions are rendered at full width
 class Item_instruction extends Item 
 {
-	protected function setMoreOptions() 
-	{
-		$this->type = 'instruction';
-	}
+	public $type = 'instruction';
+	protected $mysql_field = null;
+	
 	public function validateInput($reply)
 	{
 		$this->error = _("You cannot answer instructions.");
@@ -637,17 +699,17 @@ class Item_instruction extends Item
 // todo: should this be addable by the user? instead of relevant-column?
 class Item_submit extends Item 
 {
+	public $type = 'submit';
+	protected $mysql_field = null;
+	
 	protected function setMoreOptions() 
 	{
 		$this->classes_wrapper = array('control-group');
 		$this->classes_input[] = 'btn';
 		$this->classes_input[] = 'btn-large';
 		$this->classes_input[] = 'btn-success';
-#		$this->input_attributes['value'] = $this->text;
 		unset($this->input_attributes['required']);
 		unset($this->input_attributes['name']);
-#		$this->text = '';
-		$this->type = 'submit';
 	}
 	public function validateInput($reply)
 	{
@@ -662,16 +724,14 @@ class Item_submit extends Item
 	{
 		return '';
 	}
-	
 }
 
 // radio buttons
 class Item_mc extends Item 
 {
-	protected function setMoreOptions() 
-	{
-		$this->type = 'radio';
-	}
+	public $type = 'radio';
+	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	
 	public function validateInput($reply)
 	{
 		if(!empty($this->reply_options) AND
@@ -732,10 +792,12 @@ class Item_mc extends Item
 // multiple multiple choice, also checkboxes
 class Item_mmc extends Item_mc 
 {
+	public $type = 'checkbox';
+	public $optional = true;
+	protected $mysql_field = 'VARCHAR (40) DEFAULT NULL';
+	
 	protected function setMoreOptions() 
 	{
-		$this->type = 'checkbox';
-		$this->optional = true;
 		$this->input_attributes['name'] = $this->name . '[]';
 	}
 	
@@ -759,6 +821,8 @@ class Item_mmc extends Item_mc
 // multiple multiple choice, also checkboxes
 class Item_check extends Item_mmc 
 {
+	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
@@ -795,10 +859,9 @@ class Item_check extends Item_mmc
 // dropdown select, choose one
 class Item_select extends Item 
 {
-	protected function setMoreOptions() 
-	{
-		$this->type = 'select';
-	}
+	public $type = 'select';
+	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	
 	protected function render_input() 
 	{
 		$ret = '<select '.self::_parseAttributes($this->input_attributes).'>'; 
@@ -822,6 +885,8 @@ class Item_select extends Item
 // dropdown select, choose multiple
 class Item_mselect extends Item_select 
 {
+	protected $mysql_field = 'VARCHAR (40) DEFAULT NULL';
+	
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
@@ -834,6 +899,8 @@ class Item_mselect extends Item_select
 // dropdown select, choose multiple
 class Item_btnradio extends Item_mc 
 {
+	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
@@ -854,8 +921,11 @@ class Item_btnradio extends Item_mc
 		return $ret;
 	}
 }
+
 class Item_btncheckbox extends Item_mmc 
 {
+	protected $mysql_field = 'VARCHAR (40) DEFAULT NULL';
+	
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
@@ -876,8 +946,11 @@ class Item_btncheckbox extends Item_mmc
 		return $ret;
 	}
 }
+
 class Item_btncheck extends Item_check 
 {
+	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
@@ -897,6 +970,8 @@ class Item_btncheck extends Item_check
 
 class Item_sex extends Item_btnradio 
 {
+	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
@@ -905,10 +980,8 @@ class Item_sex extends Item_btnradio
 }
 
 class Item_fork extends Item {
-	protected function setMoreOptions() 
-	{
-		$this->type = 'fork';
-	}
+	public $type = 'fork';
+	protected $mysql_field =  null;
 	public function render() {
         global $study;
         global $run;
@@ -926,10 +999,8 @@ class Item_fork extends Item {
 }
 
 class Item_ip extends Item {
-	protected function setMoreOptions() 
-	{
-		$this->type = 'ip';
-	}
+	public $type = 'ip';
+	protected $mysql_field =  'VARCHAR 100 DEFAULT NULL';
 	protected function render_input() 
 	{
 		return '

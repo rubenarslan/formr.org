@@ -8,7 +8,6 @@ if (!function_exists('_')) {
 	}
 }
 
-#require_once $_SERVER['DOCUMENT_ROOT']."/zwang/app/Config/database.php";
 require_once INCLUDE_ROOT."../../Config/database.php";
 
 $db = new DATABASE_CONFIG();
