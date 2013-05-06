@@ -9,13 +9,13 @@ class Survey {
 	public $already_answered = 0;
 	public $not_answered = 0;
 	public $progress = 0;
-	public $person = null;
+	public $session = null;
 	public $timestarted = null;
 	public $errors = array();
 	public $results_table = null;
 	
-	public function __construct($person, $study, $run, $options = array()) {
-		$this->person = $person;
+	public function __construct($session, $study, $run, $options = array()) {
+		$this->session = $session;
 		$this->study = $study;
 		$this->results_table = $this->study->name;
 
@@ -36,7 +36,10 @@ class Survey {
 	}
 	public function post($posted) {
 
+		unset($posted['id']); // cant overwrite your session
+		unset($posted['session']); // cant overwrite your session
 		unset($posted['session_id']); // cant overwrite your session ID
+		unset($posted['study_id']); // cant overwrite your study ID
 		unset($posted['created']); // cant overwrite
 		unset($posted['modified']); // cant overwrite
 		unset($posted['ended']); // cant overwrite
@@ -46,7 +49,7 @@ class Survey {
 																  VALUES(	:study_id, :item_id, :session_id, 1, 		NOW(),	NOW()	) 
 		ON DUPLICATE KEY UPDATE 											answered = 1");
 		
-		$answered->bindParam(":session_id", $this->person);
+		$answered->bindParam(":session_id", $this->session->id);
 		$answered->bindParam(":study_id", $this->study->id);
 		
 		foreach($posted AS $name => $value)
@@ -63,12 +66,12 @@ class Survey {
 					$answered->bindParam(":item_id", $this->unanswered_batch[$name]->id);
 			   	   	$answered->execute() or die(print_r($answered->errorInfo(), true));
 					
-					$post_form = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `created`, `modified`, `$name`)
-																			  VALUES(:session_id, 		NOW(),	    NOW(),	 		:$name) 
+					$post_form = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`, `$name`)
+																			  VALUES(:session_id, :study_id, NOW(),	    NOW(),	 		:$name) 
 					ON DUPLICATE KEY UPDATE `$name` = :$name, modified = NOW();");
 				    $post_form->bindParam(":$name", $value);
-					$post_form->bindParam(":id", $id);
-					$post_form->bindParam(":session_id", $this->person);
+					$post_form->bindParam(":session_id", $this->session->id);
+					$post_form->bindParam(":study_id", $this->study->id);
 					$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 
 					$this->dbh->commit() or die(print_r($answered->errorInfo(), true));
@@ -79,10 +82,14 @@ class Survey {
 			}
 		} //endforeach
 
-		if(empty($this->errors) AND !empty($variables))
+		if(empty($this->errors))
 		{ // PRG
-			redirect_to("survey.php?study_id=".$this->study->id);
+			redirect_to(WEBROOT."{$this->study->name}/survey/?session={$this->session->session}");
+		} else
+		{
+			$this->getProgress();
 		}
+		
 	}
 	protected function getProgress() {
 		
@@ -102,7 +109,7 @@ class Survey {
 
 		//fixme: just realised the progress bar score is not the same as the actual progress (skipifs etc.)
 		$progress = $this->dbh->prepare($query);
-		$progress->bindParam(":session_id", $this->person);
+		$progress->bindParam(":session_id", $this->session->id);
 		$progress->bindParam(":study_id", $this->study->id);
 		
 		$progress->execute() or die(print_r($progress->errorInfo(), true));
@@ -112,13 +119,17 @@ class Survey {
 			if($item['answered']!=null) $this->already_answered += $item['count'];
 			else $this->not_answered += $item['count'];
 		}
-		function proper_type($item)
+		
+		
+		$this->not_answered = count( array_filter($this->unanswered_batch, function ($item)
 		{
 			if(in_array($item->type, array('instruction','submit')) ) return false;
 			else return true;
 		}
-		$all_items = $this->already_answered + count( array_filter($this->unanswered_batch,'proper_type') );
+) );
+		$all_items = $this->already_answered + $this->not_answered;
 		
+		#pr(array_filter($this->unanswered_batch,'proper_type'));
 		if($all_items !== 0) {
 			$this->progress = $this->already_answered / $all_items ;
 
@@ -150,7 +161,7 @@ class Survey {
 #		todo: max_displayed many annoyances with forward looking kind of items, and I want to do this dynamically anyway.		
 		$get_items = $this->dbh->prepare($item_query) or die(print_r($this->dbh->errorInfo(), true));
 		
-		$get_items->bindParam(":session_id",$this->person);
+		$get_items->bindParam(":session_id",$this->session->id);
 		$get_items->bindParam(":study_id", $this->study->id);
 		
 		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
@@ -161,7 +172,7 @@ class Survey {
 			$this->unanswered_batch[$name] = legacy_translate_item($item);
 			if($this->unanswered_batch[$name]->skipIf !== null)
 			{
-				if($this->unanswered_batch[$name]->skip($this->person,$this->dbh,$this->results_table))
+				if($this->unanswered_batch[$name]->skip($this->session->id,$this->dbh,$this->results_table))
 				{
 					unset($this->unanswered_batch[$name]); // fixme: do something else with this when we want JS?
 				}
@@ -170,7 +181,7 @@ class Survey {
 		return $this->unanswered_batch;
 	}
 	protected function render_form_header() {
-		$action = "survey.php?study_id=".$this->study->id;
+		$action = WEBROOT."{$this->study->name}/survey/?session={$this->session->session}";
 		if(isset($this->run))
 			$action .= "&run_id=".$this->run->id;
 
@@ -178,7 +189,7 @@ class Survey {
 		// fixme: remove novalidate in production
 		
 	    /* pass on hidden values */
-	    $ret .= '<input type="hidden" name="session_id" value="' . $this->person . '" />';
+	    $ret .= '<input type="hidden" name="session_id" value="' . $this->session->id . '" />';
 	    if( !empty( $timestarted ) ) {
 	        $ret .= '<input type="hidden" name="timestarted" value="' . $timestarted .'" />';
 		} else {
@@ -186,7 +197,7 @@ class Survey {
 		}
 	
 	    $ret .= '<div class="progress">
-				  <div class="bar" style="width: '.(round($this->progress,2)*100).'%;"></div>
+				  <div class="bar" style="width: '.(round($this->progress,2)*100).'%;">'.(round($this->progress,2)*100).'%</div>
 			</div>';
 		$ret .= '<div class="control-group error form-message">
 			<div class="control-label">'.implode("<br>",array_unique($this->errors)).'
@@ -205,7 +216,7 @@ class Survey {
 											     VALUES(  :item_id, :session_id, 1,				 NOW(), NOW()	) 
 		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
 		$view_update = $this->dbh->prepare($view_query);
-		$view_update->bindParam(":session_id", $this->person);
+		$view_update->bindParam(":session_id", $this->session->id);
 	
 		$itemsDisplayed = $i = 0;
 		$need_submit = true;
@@ -245,7 +256,7 @@ class Survey {
 			$item->viewedBy($view_update);
 			$itemsDisplayed++;
 			
-			$item->switchText($this->person,$this->dbh,$this->results_table);
+			$item->switchText($this->session->id,$this->dbh,$this->results_table);
 			
 			if(!empty($substitutions['search']))
 			{
@@ -285,7 +296,7 @@ class Survey {
 	protected function getSubstitutions() 
 	{
 		
-	$subs_query = $this->dbh->prepare ( "SELECT * FROM `survey_substitutions` WHERE `study_id` = :study_id ORDER BY id DESC" ) or die(print_r($this->dbh->errorInfo(), true));	// get all substitutions
+	$subs_query = $this->dbh->prepare ( "SELECT `search`,`replace`,`mode` FROM `survey_substitutions` WHERE `study_id` = :study_id ORDER BY id DESC" ) or die(print_r($this->dbh->errorInfo(), true));	// get all substitutions
 	
 	$subs_query->bindParam(':study_id',$this->study->id);
 	$subs_query->execute() or die(print_r($subs_query->errorInfo(), true));	// get all substitutions
@@ -294,23 +305,22 @@ class Survey {
 	$search = $replace = array();
 	while( $substitution = $subs_query->fetch() ) 
 		{
-		
 	        switch( $substitution['mode'] ) 
 			{
 		        case NULL:
-					$get_entered = $this->dbh->prepare("SELECT `{$substitution['replace']}` FROM `{$this->results_table}` WHERE session_id = :person AND `{$substitution['replace']}` IS NOT NULL ORDER BY created DESC LIMIT 1;");
+					$get_entered = $this->dbh->prepare("SELECT {$substitution['replace']} FROM `{$this->results_table}` WHERE session_id = :session_id AND {$substitution['replace']} IS NOT NULL ORDER BY created DESC LIMIT 1;") or die(print_r($get_entered->errorInfo(), true));
 					break;
 				default:
-					$get_entered = $this->dbh->prepare("SELECT `{$substitution['replace']}` FROM `{$this->results_table}` WHERE session_id = :person AND `{$substitution['replace']}` IS NOT NULL AND {$substitution['mode']} LIMIT 1;");
+					$get_entered = $this->dbh->prepare("SELECT {$substitution['replace']} FROM `{$this->results_table}` WHERE session_id = :session_id AND {$substitution['replace']} IS NOT NULL AND {$substitution['mode']} LIMIT 1;") or die(print_r($get_entered->errorInfo(), true));
 //					$get_entered->bindParam(":mode",$subst['mode']); // fixme: mode not meaningfully used atm, gotta autocreate joins
 					break;
 	        }
-			$get_entered->bindParam(":person",$this->person);
-			$get_entered->execute() or die(print_r($switch_condition->errorInfo(), true));
+			$get_entered->bindParam(":session_id",$this->session->id);
+			$get_entered->execute() or die(print_r($get_entered->errorInfo(), true));
 		
-			if( $data = $get_entered->fetch(PDO::FETCH_NUM) )
+			if( $data = $get_entered->fetch(PDO::FETCH_NUM) or die(print_r($get_entered->errorInfo(), true)) )
 			{
-			    $search[] = $subst['search'];
+			    $search[] = $substitution['search'];
 			    $replace[] = h($data[0]);
 			}
 		}
@@ -319,6 +329,10 @@ class Survey {
 	
 	protected function finish()
 	{
-		
+		$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS NULL;");
+		$post_form->bindParam(":session_id", $this->session->id);
+		$post_form->bindParam(":study_id", $this->study->id);
+		$post_form->execute() or die(print_r($post_form->errorInfo(), true));
+		return true;
 	}
 }

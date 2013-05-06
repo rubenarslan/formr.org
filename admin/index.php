@@ -3,92 +3,84 @@ require_once "../includes/define_root.php";
 require_once INCLUDE_ROOT.'admin/admin_header.php';
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 
-require_once INCLUDE_ROOT.'includes/settings.php';
-require_once INCLUDE_ROOT.'includes/variables.php';	
+if( !empty($_POST) ) {
+	$study->changeSettings($_POST);
+	redirect_to(WEBROOT."admin/{$study->name}/index");
+}
+
 require_once INCLUDE_ROOT.'view_header.php';
 
+require_once INCLUDE_ROOT.'admin/admin_nav.php';
 ?>
-<h2><?php echo $study->name;?></h2>
 
-<ul class="nav nav-tabs">
-	<li class="active"><a href="<?=WEBROOT?>admin/index.php?study_id=<?php echo $study->id; ?>"><?php echo _("Admin Bereich"); ?></a></li>
-	<li><a href="<?=WEBROOT?>acp/edit_study.php?id=<?php echo $study->id; ?>"><?php echo _("Veröffentlichung kontrollieren"); ?></a></li>
-	<li><a href="<?=WEBROOT?>survey.php?study_id=<?php echo $study->id; ?>"><?php echo _("Studie testen"); ?></a></li>
-	<li><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("Zurück zum ACP"); ?></a></li>	
-</ul>
+<div class="span8">
+	<h2><?=_('Study settings'); ?></h2>
+	<form id="edit_form" name="edit_form" method="post" action="<?=WEBROOT?>admin/<?=$study->name?>/index" enctype="multipart/form-data" class="form-horizontal">
+	
+<div class="control-group">
+	<p class="control-label">
+		<label for="logo">Logo Upload (gif/jpg up to 1MB)</label>
+	</p>
+	<p class="controls">
+		<input type="file" name="logo" id="logo"/>
+	</p>                    
+</div>
 
+<div class="control-group">
+	<p class="control-label">
+		<?= _("Require"); ?></label>
+	</p>
+	<p class="controls">
+		<label for="registered"><input type="checkbox" name="registered" id="registered" <?php if($study->registration_required) echo "checked";?>> registration</label><br>
+		<label><input type="checkbox" name="email_required" id="email_required" <?php if($study->email_required) echo "checked";?>>  email</label><br>
+		<label><input type="checkbox" name="birthday_required" id="birthday_required" <?php if($study->birthday_required) echo "checked";?>> a birthday</label>
+	</p>
+</div>
+
+
+<div class="control-group">
+	<p class="control-label">
+		<label for="public"><?= _("Publish this study to the front page"); ?></label>
+	</p>
+	<p class="controls">
+		<input type="checkbox" name="public" id="public" <?php if($study->public) echo "checked"; ?>>
+	</p>
+</div>
+
+<div class="control-group">
+	<p class="controls">
+		<button type="submit"><?php echo _("Save"); ?></button>
+	</p>
+</div>
+	</form>
+
+	
+  	<h3><?=_('other settings'); ?></h3>
+	
+	<form method="POST" action="<?=WEBROOT?>admin/<?=$study->name?>/index">
+		<table class="table table-striped span6 editstudies">
+			<thead>
+				<tr>
+					<th>Option</th>
+					<th>Value</th>
+				</tr>
+			</thead>
+			<tbody>
+	<?php
+		foreach( $study->settings as $key => $value ):
+			echo "<tr>";
+			echo "<td>".h($key)."</td>";
+
+			echo "<td><input type=\"text\" size=\"50\" name=\"".h($key)."\" value=\"".h($value)."\"/></td>";
+			echo "</tr>";
+		endforeach;
+	?>
+			</tbody>
+		</table>
+		<div class="row span6">
+			<input type="submit" name="updateitems" value="Submit Changes">
+		</div>
+	</form>
+</div>
 <?php
-//übernehme Action
-if (isset($_GET['action'])) {
-	$action = $_GET['action'];
-	// Prüfe, ob Funktion erlaubt ist
-  $allowed = array(
-    "deleteresults", 
-    "createresulttab", 
-    "export_results", 
-    "createvpndatatab", 
-    "deletevpndatatab", 
-    "deleteinstructionstab", 
-    "createinstuctionstab", 
-    "sndeleteresults", 
-    "sncreateresulttab", 
-    "resetitemdisplaytable");
-  
-	if (in_array($action, $allowed)) {
-		// Führe sie aus
-		echo "<li>";
-		$action();
-		echo "</li>";
-	} else {
-		// Meckere
-		echo "What the <i>beep</i> do you want from me?";
-	}
-}
-
-echo '<nav>
-	<ul class="nav nav-pills nav-stacked">';
-
-if( !table_exists(ADMINTABLE,$DBhost) ) {
-	setupadmin();
-}
-
-echo "<li><a href=\"admin.php\">Globale Einstellungen</a></li>";
-
-echo "<li><a href=\"uploaditems.php?study_id=".$study->id."\">Itemtabelle importieren</a></li>";
- if (!table_exists(ITEMSTABLE, $DBhost)) {
-} else {
-	
-	if (!table_exists(RESULTSTABLE, $DBhost)) {
-		echo "<li><a href=\"index.php?action=createresulttab\">Ergebnistabelle erstellen</a></li>";
-	} else {
-		$danger_zone[] = "<li><a href=\"index.php?action=deleteresults&study_id=".$study->id."\">Ergebnistabelle löschen</a></li>";
-		echo "<li><a href=\"csv_export.php?study_id=".$study->id."\">Ergebnistabelle exportieren</a></li>";
-	}
-
-
-	if (!table_exists(VPNDATATABLE, $DBhost)) {
-		echo "<li><a href=\"index.php?action=createvpndatatab&study_id=".$study->id."\">VPNDatatabelle erstellen</a></li>";
-	} else {
-		$danger_zone[] = "<li><a href=\"index.php?action=deletevpndatatab&study_id=".$study->id."\">VPNDatatabelle löschen</a></li>";
-	}
-
-	if (table_exists(RESULTSTABLE, $DBhost)) {
-		echo "<li><a href=\"displayresults.php?study_id=".$study->id."\">Ergebnisse anzeigen</a></li>";
-	}
-	echo '<li class="nav-header">For more complex studies</li>';
-	echo "<li><a href=\"editstudies.php?study_id=".$study->id."\">Studien editieren</a></li>";
-	echo "<li><a href=\"edittimes.php?study_id=".$study->id."\">Edit-Zeiten editieren</a></li>";
-	echo "<li><a href=\"editemails.php?study_id=".$study->id."\">Emails editieren</a></li>";
-	echo "<li><a href=\"editsubstitutions.php?study_id=".$study->id."\">Subsitutionen editieren</a></li>";	
-
-	echo "<li><a href=\"vpncodes.php?study_id=".$study->id."\">Vpncodes bearbeiten</a></li>";
-	echo "<li><a href=\"../acp/acp.php\">Zurück zur Studienübersicht</a></li>";
-	
-	echo '<li class="nav-header">Danger Zone</li>';
-	echo implode($danger_zone);
-}
-
-echo "</ul></nav>";
-
-// schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
 require_once INCLUDE_ROOT.'view_footer.php';

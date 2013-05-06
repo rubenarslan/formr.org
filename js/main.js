@@ -39,5 +39,18 @@ $(document).ready(function() {
 		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
 	});
 	
+	$('label.btn-remove').off('click').click(function(event){
+		var $btn = $(this);
+		var checked = $btn.find('input').attr('checked');
+		console.log(!checked);
+		$btn.find('input').attr('checked',!checked); // couple with its radio button
+		$btn.toggleClass('btn-checked',!checked); // check this one
+		return false;
+	}).each(function() {
+		var $btn = $(this);
+		$btn.addClass('btn'); // make buttons
+		$btn.find('input').addClass('hidden'); // hide normal radio buttons
+	});
+	
 	$('.hastooltip').tooltip();
 });

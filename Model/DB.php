@@ -6,7 +6,8 @@ class DB extends PDO
     public function __construct() 
 	{
 		require_once INCLUDE_ROOT."../../Config/database.php";
-
+		
+		
 		$db = new DATABASE_CONFIG();
 		$db->default['port'] = isset($db->default['port'])?$db->default['port']:'';
 		
@@ -25,6 +26,7 @@ class DB extends PDO
     #get the number of rows in a result
     public function num_rows($query)
     {
+		
         # create a prepared statement
         $stmt = parent::prepare($query);
 

@@ -2,7 +2,6 @@
 require_once "includes/define_root.php";
 
 require_once INCLUDE_ROOT."config/config.php";
-
 require_once INCLUDE_ROOT."view_header.php";
 
 $studies = $currentUser->GetAvailableStudies();
@@ -40,7 +39,7 @@ if($runs) {
     if($currentUser->anonymous and $run->registered_req)
       break;
     echo "<li>
-		<a href='".WEBROOT."survey.php?run_id=".$run->id."'>".$run->name."</a>
+		<a href='".WEBROOT."{$run->name}/survey'>".$run->name."</a>
 	</li>";
   }
 }
@@ -49,7 +48,7 @@ if($studies) {
     if($currentUser->anonymous and $study->registered_req)
       break;
     echo "<li>
-		<a href='".WEBROOT."survey.php?study_id=".$study->id."'>".$study->name."</a>
+		<a href='".WEBROOT."{$study->name}/survey'>".$study->name."</a>
 	</li>";
   }
 }

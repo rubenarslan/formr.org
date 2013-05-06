@@ -55,40 +55,10 @@ if(!empty($_POST) and count($errors)>0) {
 <?php
     }
 ?>
-<form id="edit_form" name="edit_form" method="post" action="edit_study.php?id=<?php echo $_GET['id']; ?>" enctype="multipart/form-data">
-  <p>
-  <label><?php echo _("Name"); ?>
-  </label>
-  <input type="text" name="name" id="name" value="<?php echo $study->name; ?>"/>
-  </p>
-  <p>
-  <label><?php echo _("Datenbank Prefix"); ?>
-  </label>
-  <input type="text" name="prefix" id="prefix" value="<?php echo $study->prefix; ?>"/>
-  </p>
-  <p>
-  <label><?php echo _("Studie nur für registrierte Benutzer verfügbar"); ?>
-  </label>
-  <input type="checkbox" name="registered" id="registered" <?php if($study->registered_req==true) echo "checked";?>/>
-  </p>
-  <p>
-  <label><?php echo _("Veröffentlichen"); ?>
-  </label>
-  <input type="checkbox" name="public" id="public" <?php if($study->public==true) echo "checked";?>/>
-  </p>
-
-  <p>
-  <label>Logo Upload(gif/jpg/jpeg bis 1Mb)</label>
-  <input type="file" name="logo" id="logo"/>
-  </p>                    
-
-  <button type="submit"><?php echo _("Absenden"); ?></button>
-  </form>
-
 
 
 <br>
-  <p><a href="view_study.php?id=<?php echo $study->id; ?>"><?php echo _("Zurück zur Studie"); ?></a></p>
+  <p><a href="<?=WEBROOT?>admin<?=$study->name?>/index"><?php echo _("Zurück zur Studie"); ?></a></p>
 
 <?php
 require_once INCLUDE_ROOT . "view_footer.php";

@@ -6,8 +6,9 @@ class Session
 	{
 		$this->dbh = new DB();
 		$this->study = $study;
-		if($session === null): // called with null in instructor if they have access but no session yet
-			$this->new();
+		
+		if($session === null): // called with null in instructor if they have no session yet
+			$this->session = null;
 		else:
 			$session_q = "SELECT *  FROM  `survey_sessions`
 			WHERE 
@@ -22,25 +23,31 @@ class Session
 		
 			$valid_session->execute() or die(print_r($valid_session->errorInfo(), true));
 			$valid = $valid_session->rowCount();
-		
-			if($valid)
-				$this->session = $session;
-			else $this->session = null;
+			$sess_array = $valid_session->fetch(PDO::FETCH_ASSOC);
+			if($valid):
+				$this->session = $sess_array['session'];
+				$this->id = $sess_array['id'];
+			else: 
+				$this->session = null;
+			endif;
+					
 		endif;
+		
 	}
-	public function new()
+	public function create()
 	{
 		$this->session = bin2hex(openssl_random_pseudo_bytes(32));
 		$session_q = "INSERT INTO  `survey_sessions`
 		(study_id,session)
 	 	VALUES(:study_id, :session);";
-		$session = $this->dbh->prepare($session_q) or die(print_r($this->dbh->errorInfo(), true));
+		$add_session = $this->dbh->prepare($session_q) or die(print_r($this->dbh->errorInfo(), true));
 	
-		$session->bindParam(":session",$this->session);
-		$session->bindParam(":study_id", $this->study->id);
+		$add_session->bindParam(":session",$this->session);
+		$add_session->bindParam(":study_id", $this->study->id);
 	
-		$session->execute() or die(print_r($session->errorInfo(), true));
-		$valid = $session->rowCount();
+		$add_session->execute() or die(print_r($add_session->errorInfo(), true));
 		
+		if($add_session->rowCount()!==1) 
+			$this->session = null;
 	}
 }

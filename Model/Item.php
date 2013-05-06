@@ -339,7 +339,7 @@ class Item
 			return "`{$this->name}` {$this->mysql_field}";
 		else return null;
 	}
-	public function skip($person,$dbh,$results_table)
+	public function skip($session_id,$dbh,$results_table)
 	{	
 		// fixme: cant deal with parentheses, mixed and/or etc.
 		if($this->skipIf!=null):
@@ -370,7 +370,7 @@ class Item
 					// fixme: multiple results rows being added
 					echo $q;
 					$should_skip = $dbh->prepare($q); // IS NULL clause so that skipifs are not shown if the relevant question has not yet been answered. this will be more conspicuous during testing
-					$should_skip->bindParam(":session_id", $person);
+					$should_skip->bindParam(":session_id", $session_id);
 
 					$should_skip->bindParam(":value", $matches[3]);
 
@@ -418,7 +418,7 @@ class Item
 		
    	   	$view_update->execute() or die(print_r($view_update->errorInfo(), true));
 	}
-	public function switchText($person,$dbh,$results_table) {
+	public function switchText($session_id,$dbh,$results_table) {
         if (@$this->switch_text != null) 
 		{
 			if(! preg_match("(/([A-Za-z0-9_]+)\s*(!=|=|==|>|<)\s*['\"]*(\w+)['\"]*\s*/",trim($this->switch_text), $matches) )
@@ -430,7 +430,7 @@ class Item
 				if($matches[2] == '==') $matches[2] = '=';
 				
 				$switch_condition = $dbh->prepare("SELECT (`{$matches[1]}` {$matches[2]} :value) AS test FROM `{$results_table}` WHERE session_id = :session_id");
-				$switch_condition->bindParam(":session_id", $person);
+				$switch_condition->bindParam(":session_id", $session_id);
 				$switch_condition->bindParam(":value", $matches[3]);
 				$switch_condition->execute() or die(print_r($switch_condition->errorInfo(), true));
 				$switch = $switch_condition->fetch();

@@ -78,18 +78,20 @@ if(empty($errors))
 	}
 	elseif(isset($_POST['study_id'])) // an existing study is being modified
 	{
-		$messages[] = 'Study ID taken from POST. Existing study is being modified.';
-		$study = new StudyX($_POST['study_id']);
+		$messages[] = 'Existing study is being modified.';
+		$study = new StudyX($_POST['study_name']);
 	}
 
-	if($study->valid)
+	if(!$study->valid)
 	{
-		$messages[] = 'Study successfully constructed.';
+		$errors[] = 'Study is broken.';
 	}
 	
     if (empty($study->errors) AND $study->insertItems($data) AND $study->createResultsTable($data)) 
 	{
-		echo "<h1><a href='../acp/view_study.php?id={$study->id}'>"._('Zur Studie').'</a></h1>';
+		echo "
+			<div class='alert alert-success'><strong>Erfolg!</strong> Studie wurde erstellt!</div>
+		<div><a class='btn btn-large btn-success' href='".WEBROOT."admin/{$study->name}/index'>"._('Zur Studie').'</a></div>';
     }
     else
 	{

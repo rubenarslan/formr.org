@@ -1,12 +1,5 @@
 <?php
-error_reporting(-1);
-date_default_timezone_set('Europe/Berlin');
-ini_set('display_errors',1);
-if (!function_exists('_')) {
-	function _($text) {
-		return $text;
-	}
-}
+require_once INCLUDE_ROOT."includes/Site.php";
 
 require_once INCLUDE_ROOT."../../Config/database.php";
 

@@ -31,7 +31,7 @@ if($studies) {
   echo '<ul class="nav nav-pills nav-stacked">';
   foreach($studies as $study) {
     echo "<li>
-		<a href='".WEBROOT."acp/view_study.php?id=".$study->id."'>".$study->name."</a>
+		<a href='".WEBROOT."admin/".$study->name."/index'>".$study->name."</a>
 	</li>";
   }
   echo "</ul>";
@@ -43,7 +43,7 @@ if($runs) {
 	echo '<ul class="nav nav-pills nav-stacked">';
 	foreach($runs as $run) {
 		echo "<li>
-			<a href='".WEBROOT."acp/view_run.php?id=".$run->id."'>".$run->name."
+			<a href='".WEBROOT."acp/view_run.php?run_id=".$run->id."'>".$run->name."
 		</li>";
 	}
   echo "</ul>";

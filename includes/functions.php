@@ -1,4 +1,5 @@
 <?php
+require_once INCLUDE_ROOT . "includes/Site.php";
 require_once INCLUDE_ROOT . "includes/edit_times.php";
 require_once INCLUDE_ROOT . "includes/proband_mgmt.php";
 #require_once INCLUDE_ROOT . "includes/survey_mgmt.php";
@@ -7,69 +8,6 @@ require_once INCLUDE_ROOT . "includes/loop_mgmt.php";
 require_once INCLUDE_ROOT . "includes/email_mgmt.php";
 
 
-function redirect_to($location) {
-	if(substr($location,0,3)!= 'http'){
-		$base = $_SERVER['SERVER_NAME'] . dirname($_SERVER['REQUEST_URI']);
-		if(substr($location,0,1)=='/')
-			$location = $base . substr($location,1);
-		else $locaton = $base . $location;
-	}
-	try
-	{
-	    header("Location: $location");
-		exit;
-	}
-	catch (Exception $e)
-	{ // legacy of not doing things properly, ie needing redirects after headers were sent. 
-		echo "<script type=\"text/javascript\">document.location.href = \"$location\";</script>";
-	}
-}
-function h($text) {
-	return htmlspecialchars($text);
-}
-
-
-if (!function_exists('__')) {
-
-/**
-taken from cakePHP
- */
-	function __($singular, $args = null) {
-		if (!$singular) {
-			return;
-		}
-
-		$translated = _($singular);
-		if ($args === null) {
-			return $translated;
-		} elseif (!is_array($args)) {
-			$args = array_slice(func_get_args(), 1);
-		}
-		return vsprintf($translated, $args);
-	}
-}
-
-if (!function_exists('__n')) {
-
-/**
-taken from cakePHP
- */
-	function __n($singular, $plural, $count, $args = null) {
-		if (!$singular) {
-			return;
-		}
-
-		$translated = ngettext($singular, $plural, null, 6, $count);
-		if ($args === null) {
-			return $translated;
-		} elseif (!is_array($args)) {
-			$args = array_slice(func_get_args(), 3);
-		}
-		return vsprintf($translated, $args);
-	}
-
-}
-
 function table_exists($table) {
     $query = "SHOW TABLES LIKE '".$table."'";
     $result = mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in table_exists" ));
@@ -77,21 +15,6 @@ function table_exists($table) {
         return true;
     } else {
         return false;
-    }
-}
-
-function debug($string) {
-    if( DEBUG ) {
-		echo "<pre>";
-        var_dump($string);
-		echo "</pre>";
-    }
-}
-function pr($string) {
-    if( DEBUG!==-1 ) {
-		echo "<pre>";
-        var_dump($string);
-		echo "</pre>";
     }
 }
 

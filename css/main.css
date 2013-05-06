@@ -15,7 +15,7 @@ header.study-header {
 }
 
 
-button.btn.btn-checked {
+button.btn.btn-checked,label.btn.btn-checked {
   background-color: #e6e6e6;
   background-color: #d9d9d9 \9;
   background-image: none;

@@ -1,49 +1,66 @@
 <?
-require ('Model/Study.php');
+require_once "includes/define_root.php";
 
-if(isset($run)) {
-  $next_study=$run->getNextStudy($study);
-  $optional=$run->isOptional($next_study);
-  if(($next_study and !$optional) or ($next_study and $optional and $currentUser->userHasCompletedStudy($study)))
-    header("Location: survey.php?study_id=$next_study->id&run_id=$run->id");
-}   
+require_once INCLUDE_ROOT . "includes/Site.php";
+require_once INCLUDE_ROOT . "Model/Session.php";
+require_once INCLUDE_ROOT . 'Model/StudyX.php'; # Study , nothing is echoed yet
+require_once INCLUDE_ROOT . 'Model/Survey.php'; # Survey class, nothing is echoed yet
 
+session_start();
 
-require ('includes/view_header.php');
+$study = new StudyX($_GET['study_name']);
 
+$session = new Session($_SESSION['session'],$study);
+if($session->session === null)
+{
+	die("You don't have access at the moment.");
+}
 
+$survey = new Survey($session,$study,@$run,array('timestarted'=>@$timestarted));
 
+if(isset($_POST['session_id'])) 
+{
+	$survey->post($_POST);
+}
 
-//$vpndata = get_vpn_data($vpncode); // returns an object
-$timestarted = @$_GET['ts'];
+if($survey->progress===1) 
+{
+	$goto = "{$study->name}/study_done";
+	if(isset($run))
+		$goto .= "&run_id=".$run->id;
+	redirect_to($goto);
+}
+require_once INCLUDE_ROOT . 'view_header.php';
 
-//todo
-/* if(study_part_completed($vpncode,'pretest')) {  */
-/* 	/\* update_timestamps($vpncode,$study,$timestarted); *\/ */
-/* 	update_timestamps($vpncode,$timestarted); */
-/* 	// update study field in vpndata table and send/queue emails if needed */
-/* 	/\* post_study_hook($vpncode,$study); *\/ */
-/* 	post_study_hook($vpncode); */
-/* 	// garbage collection */
-/* 	remove_stale_itemsdisplayed($vpncode,$timestarted); */
-/* 	} */
-
-if((isset($run) and !$next_study) or !isset($run)) {
 ?>
-
-<p>Danke für das Ausfüllen der Studie.</p>
-<p><a href="index.php">Hier gehts weiter</a></p>  
-
-                                  <?php }  else {  ?>
-
-<p>Danke für das Ausfüllen der Studie.</p>
-                                  <p>Machen Sie doch mit diese Studie weiter: <a href=<?php echo "survey.php?study_id=$next_study->id&run_id=$run->id"; ?>><?php echo $next_study->name; ?></a></p>  
-<p><a href="index.php">Zurück zum Index</a></p>  
+<div class="row-fluid">
+    <div id="span12">
+        <? echo "<h1>{$study->settings['description']}</h1>";
+        echo $study->settings['description'];
+        ?>
+    </div>
+</div>
+<div class="row-fluid">
+	<div class="span12">
 
 <?php
-}
-// schließe main-div
-echo "</div>\n";
-// schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
-require('includes/view_footer.php');
+
+echo $survey->render();
+
 ?>
+		</div> <!-- end of span10 div -->
+	</div> <!-- end of row-fluid div -->
+<?php
+if(isset($study->settings['problem_email'])):
+?>
+	<div class="row-fluid">
+		<div class="span12">
+			Bei Problemen wenden Sie sich bitte an <strong><a href="mailto:<?=$study->settings['problem_email'];?>"><?=$study->settings['problem_email']; ?></a>.</strong>
+		</div>
+	</div>
+<?php endif; ?>
+</div>
+
+<?php
+
+require_once INCLUDE_ROOT . 'view_footer.php';

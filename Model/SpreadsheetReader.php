@@ -8,6 +8,87 @@ class SpreadsheetReader
 	public $messages = array();
 	public $errors = array();
 	
+
+	protected function objectFromArray($array)
+	{
+		// Include PHPExcel_IOFactory
+		require_once INCLUDE_ROOT.'PHPExcel/Classes/PHPExcel/IOFactory.php';
+
+	    $objPHPExcel = new PHPExcel();
+		array_unshift($array, array_keys(current($array)));
+		$objPHPExcel->getSheet(0)->fromArray($array);
+		
+		return $objPHPExcel;
+	}
+	public function exportCSV($array,$filename)
+	{
+		$objPHPExcel = $this->objectFromArray($array);
+		
+		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
+		
+	    header('Content-Disposition: attachment;filename="'.$filename.'.csv"');
+	    header('Cache-Control: max-age=0');
+		header('Content-type: text/csv');
+
+	    $objWriter->save('php://output');
+	    exit;
+	}
+	public function exportTSV($array,$filename)
+	{
+		$objPHPExcel = $this->objectFromArray($array);
+		
+		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
+		$objWriter->setDelimiter("\t");
+		$objWriter->setEnclosure("");
+		
+	    header('Content-Disposition: attachment;filename="'.$filename.'.tab"');
+	    header('Cache-Control: max-age=0');
+		header('Content-type: text/csv'); // or maybe text/tab-separated-values?
+
+	    $objWriter->save('php://output');
+	    exit;
+	}
+	public function exportCSV_german($array,$filename)
+	{
+		$objPHPExcel = $this->objectFromArray($array);
+		
+		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
+		$objWriter->setDelimiter(";");
+		$objWriter->setEnclosure('"');
+		
+	    header('Content-Disposition: attachment;filename="'.$filename.'.csv"');
+	    header('Cache-Control: max-age=0');
+		header('Content-type: text/csv');
+
+	    $objWriter->save('php://output');
+	    exit;
+	}
+	public function exportXLS($array,$filename)
+	{
+		$objPHPExcel = $this->objectFromArray($array);
+		
+		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
+		
+	    header('Content-Disposition: attachment;filename="'.$filename.'.xls"');
+	    header('Cache-Control: max-age=0');
+	    header('Content-Type: application/vnd.ms-excel'); 
+
+	    $objWriter->save('php://output');
+	    exit;
+	}
+	public function exportXLSX($array,$filename)
+	{
+		$objPHPExcel = $this->objectFromArray($array);
+		
+		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+		
+	    header('Content-Disposition: attachment;filename="'.$filename.'.xls"');
+	    header('Cache-Control: max-age=0');
+		header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+	    $objWriter->save('php://output');
+	    exit;
+	}
 	public function readItemTableFile($inputFileName)
 	{
 		$errors = $messages = array();
