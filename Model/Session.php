@@ -34,9 +34,16 @@ class Session
 		endif;
 		
 	}
-	public function create()
+	public function create($session = NULL)
 	{
-		$this->session = bin2hex(openssl_random_pseudo_bytes(32));
+		if($session !== NULL)
+		{
+			if(str_length($session)==64)
+				$this->session = $session;
+			else die('invalid token');
+		}
+		else
+			$this->session = bin2hex(openssl_random_pseudo_bytes(32));
 		$session_q = "INSERT INTO  `survey_sessions`
 		(study_id,session)
 	 	VALUES(:study_id, :session);";

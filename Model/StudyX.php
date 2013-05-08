@@ -84,6 +84,9 @@ class StudyX
 
 		return false;
 	}
+	
+	/* ADMIN functions */
+	
 	public function create($options)
 	{
 	    $name = trim($options['name']);
@@ -214,10 +217,32 @@ class StudyX
 		
 		return $results;
 	}
+	public function getItemDisplayResults()
+	{
+		$get = "SELECT `survey_sessions`.session, `survey_items_display`.* FROM `survey_items_display` 
+		LEFT JOIN `survey_sessions`
+		ON `survey_sessions`.id = `survey_items_display`.session_id";
+		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
+		$results = array();
+		while($row = $get->fetch(PDO::FETCH_ASSOC))
+			$results[] = $row;
+		
+		return $results;
+	}
 	public function deleteResults()
 	{
+		if($this->getResultCount()['finished'] > 10)
+			$this->backupResults();
 		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
 		return $delete;
+	}
+	public function backupResults()
+	{
+        $filename = INCLUDE_ROOT . "admin/results_backups/".$this->name . date('YmdHis') . ".tab";
+		require_once INCLUDE_ROOT . 'Model/SpreadsheetReader.php';
+
+		$SPR = new SpreadsheetReader();
+		$SPR->exportCSV( $this->getResults() , $filename);
 	}
 	public function getResultCount()
 	{

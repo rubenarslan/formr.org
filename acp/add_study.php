@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/define_root.php';
+require_once '../define_root.php';
 require_once INCLUDE_ROOT . "config/config.php";
 
 if(!userIsAdmin()) {
@@ -8,23 +8,9 @@ if(!userIsAdmin()) {
 }
 
 require_once INCLUDE_ROOT . "view_header.php";
-?>
-<ul class="nav nav-tabs">
-    <li><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("Admin control panel"); ?></a></li>   
-	
-	<li class="active">
-		<a href="<?=WEBROOT?>acp/add_study.php"><?php echo _("Studie anlegen"); ?></a>
-	</li>
-	<li>
-		<a href="<?=WEBROOT?>acp/add_run.php"><?php echo _("Studien Run erstellen"); ?></a>
-	</li>
-	<li>
-		<a href="<?=WEBROOT?>index.php"><?php echo _("Zum öffentlichen Bereich"); ?></a>
-	</li>
+require_once INCLUDE_ROOT . "acp/acp_nav.php";
+?>	
 
-	<li><a href="<?=WEBROOT?>logout.php"><?php echo _("Ausloggen"); ?></a></li>
-	<li><a href="<?=WEBROOT?>edit_user.php"><?php echo _("Einstellungen ändern"); ?></a></li>
-</ul>
 <form class="form-horizontal" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="../admin/study_added.php">
 	<div class="control-group">
 		<label class="control-label" for="kurzname">

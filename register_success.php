@@ -1,32 +1,9 @@
 <?php
-require_once "includes/define_root.php";
+require_once 'define_root.php';
 require_once INCLUDE_ROOT."config/config.php";
 
 require_once INCLUDE_ROOT."view_header.php";
-
-
-echo '<ul class="nav nav-tabs">';
-
-if(userIsAdmin())
-{
-   ?>
-    <li><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("Admin control panel"); ?></a></li>   
-   <?php
-}
-
-if(userIsLoggedIn()) {  
-	?>
-	<li><a href="<?=WEBROOT?>logout.php"><?php echo _("Ausloggen"); ?></a></li>
-	<li><a href="<?=WEBROOT?>edit_user.php"><?php echo _("Einstellungen ändern"); ?></a></li>
-<?php
-} else {
-?>
-     <li><a href="<?=WEBROOT?>login.php"><?php echo _("Login"); ?></a></li>
-     <li><a href="<?=WEBROOT?>register.php"><?php echo _("Registrieren") ?></a></li>
-<?php
-}
-
-echo "</ul>";
+require_once INCLUDE_ROOT."public_nav.php";
 
 if(userIsLoggedIn()) {
   header("Location: index.php");
@@ -36,8 +13,8 @@ if(!isset($_SESSION['userMail']))
   header("Location: index.php");
 ?>
 
-<p><?php echo _("Registrierung erfolgreich!"); ?></p>
-<p><a href="<?=WEBROOT?>login.php"><?php echo _("Einloggen"); ?></a></p>
+<p><?php echo _("Successfully registered!"); ?></p>
+<p><a href="<?=WEBROOT?>login.php"><?php echo _("Login now"); ?></a></p>
 
 	
 <?php

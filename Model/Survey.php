@@ -47,7 +47,7 @@ class Survey {
 		
 		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (study_id, item_id,  session_id, answered, answered_time, modified)
 																  VALUES(	:study_id, :item_id, :session_id, 1, 		NOW(),	NOW()	) 
-		ON DUPLICATE KEY UPDATE 											answered = 1");
+		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
 		
 		$answered->bindParam(":session_id", $this->session->id);
 		$answered->bindParam(":study_id", $this->study->id);
@@ -318,7 +318,7 @@ class Survey {
 			$get_entered->bindParam(":session_id",$this->session->id);
 			$get_entered->execute() or die(print_r($get_entered->errorInfo(), true));
 		
-			if( $data = $get_entered->fetch(PDO::FETCH_NUM) or die(print_r($get_entered->errorInfo(), true)) )
+			if( $data = $get_entered->fetch(PDO::FETCH_NUM))
 			{
 			    $search[] = $substitution['search'];
 			    $replace[] = h($data[0]);

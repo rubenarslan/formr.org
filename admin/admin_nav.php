@@ -5,10 +5,16 @@ $resultCount = $study->getResultCount();
 <h1><?php echo $study->name;?> <small><?= ($resultCount['begun']+$resultCount['finished'])?> results</small></h1>
 
 <ul class="nav nav-tabs">
-	<li class="active"><a href="<?=WEBROOT?>admin/<?php echo $study->name; ?>/index"><?php echo _("Admin Area"); ?></a></li>
-	<li><a href="<?=WEBROOT?>acp/edit_study.php?id=<?php echo $study->id; ?>"><?php echo _("Control publication"); ?></a></li>
-	<li><a href="<?=WEBROOT?><?php echo $study->name; ?>/access"><?php echo _("Test study"); ?></a></li>
-	<li><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("Back to ACP"); ?></a></li>	
+	<li class="active">
+		<a href="<?=WEBROOT?>admin/<?php echo $study->name; ?>/index"><?php echo _("Admin Area"); ?></a>
+	</li>
+
+	<li>
+		<a href="<?=WEBROOT?><?php echo $study->name; ?>/access"><?php echo _("Test study"); ?></a>
+	</li>
+	<li>
+		<a href="<?=WEBROOT?>acp/acp.php"><?php echo _("Back to ACP"); ?></a>
+	</li>
 </ul>
 
 <nav class="span2">

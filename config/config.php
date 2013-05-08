@@ -1,5 +1,5 @@
 <?php
-require_once INCLUDE_ROOT."includes/Site.php";
+require_once INCLUDE_ROOT."Model/Site.php";
 
 require_once INCLUDE_ROOT."../../Config/database.php";
 

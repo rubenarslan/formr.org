@@ -12,6 +12,13 @@ class DB extends PDO
 		$db->default['port'] = isset($db->default['port'])?$db->default['port']:'';
 		
         parent::__construct( "mysql:dbname={$db->default['database']};host={$db->default['host']};port={$db->default['port']};charset=utf8",  $db->default['login'], $db->default['password']);
+		
+		$dt = new DateTime();
+		$offset = $dt->format("P");
+
+		# Finally, we execute the SET time_zone command.
+
+		parent::exec("SET time_zone='$offset';");
 
         try 
         { 

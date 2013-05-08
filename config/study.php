@@ -9,6 +9,17 @@ function nameExists($name) {
   return false;
 }
 
+
+function table_exists($table) {
+    $query = "SHOW TABLES LIKE '".$table."'";
+    $result = mysql_query($query) or die(exception_handler(mysql_error() . "<br/>" . $query . "<br/> in table_exists" ));
+    if( mysql_num_rows($result) == 1 ) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 function nameValid($name) {
   $name=trim($name);
   if($name=="")
@@ -128,7 +139,7 @@ class Study {
     define('TABLEPREFIX',$prefix."_");
 	
 	require_once INCLUDE_ROOT.'includes/settings.php';
-	require_once INCLUDE_ROOT.'includes/functions.php';
+	require_once INCLUDE_ROOT . "Model/Site.php";
 
 	$table_exists = false;
 

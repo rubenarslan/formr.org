@@ -1,7 +1,7 @@
 <?
-require_once "includes/define_root.php";
+require_once 'define_root.php';
 
-require_once INCLUDE_ROOT . "includes/Site.php";
+require_once INCLUDE_ROOT . "Model/Site.php";
 require_once INCLUDE_ROOT . "Model/Session.php";
 require_once INCLUDE_ROOT . 'Model/StudyX.php'; # Study , nothing is echoed yet
 require_once INCLUDE_ROOT . 'Model/Survey.php'; # Survey class, nothing is echoed yet
@@ -16,7 +16,7 @@ if($session->session === null)
 	die("You don't have access at the moment.");
 }
 
-$survey = new Survey($session,$study,@$run,array('timestarted'=>@$timestarted));
+$survey = new Survey($session,$study,@$run);
 
 if(isset($_POST['session_id'])) 
 {

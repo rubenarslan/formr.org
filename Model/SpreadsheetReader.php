@@ -9,6 +9,16 @@ class SpreadsheetReader
 	public $errors = array();
 	
 
+	public function backupTSV($array,$filename)
+	{
+		$objPHPExcel = $this->objectFromArray($array);
+		
+		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
+		$objWriter->setDelimiter("\t");
+		$objWriter->setEnclosure("");
+		
+	    $objWriter->save($filename);
+	}
 	protected function objectFromArray($array)
 	{
 		// Include PHPExcel_IOFactory

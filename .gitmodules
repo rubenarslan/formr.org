@@ -4,3 +4,6 @@
 [submodule "Markdown"]
 	path = Markdown
 	url = https://github.com/michelf/php-markdown.git
+[submodule "PHPMailer"]
+	path = PHPMailer
+	url = https://github.com/PHPMailer/PHPMailer.git

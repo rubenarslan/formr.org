@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/define_root.php';
+require_once '../define_root.php';
 unset($_SESSION['study_id']);
 unset($_GET['study_id']);
 require_once INCLUDE_ROOT . "config/config.php";

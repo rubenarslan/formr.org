@@ -1,5 +1,5 @@
 <?php
-require_once '../includes/define_root.php';
+require_once '../define_root.php';
 require_once INCLUDE_ROOT . "config/config.php";
 if(!userIsAdmin()) {
   header("Location: ".WEBROOT."index.php");
@@ -7,46 +7,47 @@ if(!userIsAdmin()) {
 }
 
 require_once INCLUDE_ROOT . "view_header.php";
+require_once INCLUDE_ROOT . "acp/acp_nav.php";
 ?>	
-<ul class="nav nav-tabs">
-    <li class="active"><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("Admin control panel"); ?></a></li>   
-	
-	<li>
-		<a href="<?=WEBROOT?>acp/add_study.php"><?php echo _("Studie anlegen"); ?></a>
-	</li>
-	<li>
-		<a href="<?=WEBROOT?>acp/add_run.php"><?php echo _("Studien Run erstellen"); ?></a>
-	</li>
-	<li>
-		<a href="<?=WEBROOT?>index.php"><?php echo _("Zum öffentlichen Bereich"); ?></a>
-	</li>
+<h2>runs &amp; studies <small>what's the difference?</small></h2>
+<p>
+	<strong>Studies</strong> are meant to be a simple survey that can be completed
+in one session (though it can reference fields in other surveys for skipif and substitution logic).<br>
+The only way a survey can be accessed is through a session key (which allows
+exactly one session). These keys can be created by another applications (via API), a user, by runs.
 
-	<li><a href="<?=WEBROOT?>logout.php"><?php echo _("Ausloggen"); ?></a></li>
-	<li><a href="<?=WEBROOT?>edit_user.php"><?php echo _("Einstellungen ändern"); ?></a></li>
-</ul>
+<p>
+	<strong>Runs</strong> on the other hand can manage access to studies, combine them with other studies or external pages (e.g. social network), send emails to re-invite someone after a break. They will also be able to loop studies (for diaries or experience sampling). Runs have users, so they can allow access to certain studies based on whether someone has registered with an email or they can let the same user fill out the same study repeatedly (diary loops).
+</p>
 
 <?php
 $studies = $currentUser->GetStudies();
 if($studies) {
-  echo '<ul class="nav nav-pills nav-stacked">';
+  echo '
+	  <div class="span5">
+	  <h3>Studies</h3>
+	  <ul class="nav nav-pills nav-stacked">';
   foreach($studies as $study) {
     echo "<li>
 		<a href='".WEBROOT."admin/".$study->name."/index'>".$study->name."</a>
 	</li>";
   }
-  echo "</ul>";
+  echo "</ul></div>";
 }
 ?>
 <?php
 $runs=$currentUser->GetRuns();
 if($runs) {
-	echo '<ul class="nav nav-pills nav-stacked">';
+	echo '
+  	  <div class="span5">
+		<h3>Runs</h3>
+		<ul class="nav nav-pills nav-stacked">';
 	foreach($runs as $run) {
 		echo "<li>
 			<a href='".WEBROOT."acp/view_run.php?run_id=".$run->id."'>".$run->name."
 		</li>";
 	}
-  echo "</ul>";
+  echo "</ul></div>";
 }
 ?>
 	

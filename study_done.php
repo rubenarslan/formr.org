@@ -1,7 +1,7 @@
 <?
-require_once "includes/define_root.php";
+require_once 'define_root.php';
 
-require_once INCLUDE_ROOT . "includes/Site.php";
+require_once INCLUDE_ROOT . "Model/Site.php";
 require_once INCLUDE_ROOT . "Model/Session.php";
 require_once INCLUDE_ROOT . 'Model/StudyX.php'; # Study , nothing is echoed yet
 require_once INCLUDE_ROOT . 'Model/Survey.php'; # Survey class, nothing is echoed yet
@@ -18,14 +18,9 @@ if($session->session === null)
 
 $survey = new Survey($session,$study,@$run,array('timestarted'=>@$timestarted));
 
-if(isset($_POST['session_id'])) 
+if($survey->progress!==1) 
 {
-	$survey->post($_POST);
-}
-
-if($survey->progress===1) 
-{
-	$goto = "{$study->name}/study_done";
+	$goto = "{$study->name}/survey";
 	if(isset($run))
 		$goto .= "&run_id=".$run->id;
 	redirect_to($goto);
@@ -43,12 +38,8 @@ require_once INCLUDE_ROOT . 'view_header.php';
 <div class="row-fluid">
 	<div class="span12">
 
-<?php
-
-echo $survey->render();
-
-?>
-		</div> <!-- end of span10 div -->
+<h1>Vielen Dank für Ihre Teilnahme</h1>
+	</div> <!-- end of span10 div -->
 	</div> <!-- end of row-fluid div -->
 <?php
 if(isset($study->settings['problem_email'])):
