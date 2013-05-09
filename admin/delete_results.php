@@ -5,17 +5,12 @@ require_once INCLUDE_ROOT.'admin/admin_header.php';
 if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name)
 {
 	$study->deleteResults();
-	redirect_to(WEBROOT."admin/{$study->name}/delete_results?msg=Successfully+deleted+all+results");
+	alert("<strong>Success.</strong> All results in '{$study->name}' were deleted.",'alert-success');
+	redirect_to(WEBROOT."admin/{$study->name}/delete_results");
 }
 elseif(isset($_POST['delete']))
 {
-	$msg = "<b>Error:</b> Study's name must match '{$study->name}' to delete results.";
-	$alertclass = 'alert-error';
-}
-if(isset($_GET['msg']))
-{
-	$msg = "<b>Success:</b> ".h($_GET['msg']);
-	$alertclass = 'alert-success';
+	alert("<b>Error:</b> Study's name must match '{$study->name}' to delete results.",'alert-error');
 }
 
 $resultCount = $study->getResultCount();

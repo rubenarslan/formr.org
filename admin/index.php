@@ -26,6 +26,7 @@ require_once INCLUDE_ROOT.'admin/admin_nav.php';
 	</p>                    
 </div>
 
+<?php /*
 <div class="control-group">
 	<p class="control-label">
 		<?= _("Require"); ?></label>
@@ -46,6 +47,8 @@ require_once INCLUDE_ROOT.'admin/admin_nav.php';
 		<input type="checkbox" name="public" id="public" <?php if($study->public) echo "checked"; ?>>
 	</p>
 </div>
+*/	
+	?>
 
 <div class="control-group">
 	<p class="controls">

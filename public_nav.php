@@ -3,22 +3,13 @@
     <li <?=endsWith($_SERVER['PHP_SELF'],'index.php')?' class="active"':''?>><a href="<?=WEBROOT?>index.php"><?php echo _("home"); ?></a></li>   
 
 <?php
-function endsWith($haystack, $needle)
-{
-    $length = strlen($needle);
-    if ($length == 0) {
-        return true;
-    }
 
-    return (substr($haystack, -$length) === $needle);
-}
-if(userIsAdmin()):
+if($user->admin):
    ?>
     <li><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("admin control panel"); ?></a></li>   
    <?php
 endif;
-
-if(userIsLoggedIn()):
+if($user->logged_in):
 ?>
 	<li <?=endsWith($_SERVER['PHP_SELF'],'edit_user.php')?' class="active"':''?>><a href="<?=WEBROOT?>edit_user.php"><?php echo _("settings"); ?></a></li>
 	<li><a href="<?=WEBROOT?>logout.php"><?php echo _("logout"); ?></a></li>
@@ -32,3 +23,7 @@ endif;
 ?>
 </ul>
 </nav>
+
+<?php 
+echo $site->renderAlerts();
+?>

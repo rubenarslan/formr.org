@@ -1,6 +1,5 @@
 <?php
 $resultCount = $study->getResultCount();
-	
 ?>
 <h1><?php echo $study->name;?> <small><?= ($resultCount['begun']+$resultCount['finished'])?> results</small></h1>
 
@@ -10,7 +9,7 @@ $resultCount = $study->getResultCount();
 	</li>
 
 	<li>
-		<a href="<?=WEBROOT?><?php echo $study->name; ?>/access"><?php echo _("Test study"); ?></a>
+		<a href="<?=WEBROOT?>admin/<?php echo $study->name; ?>/access"><?php echo _("Test study"); ?></a>
 	</li>
 	<li>
 		<a href="<?=WEBROOT?>acp/acp.php"><?php echo _("Back to ACP"); ?></a>
@@ -83,3 +82,12 @@ $resultCount = $study->getResultCount();
 </ul>
 
 </nav>
+
+<?php 
+$alerts = $site->renderAlerts();
+if(!empty($alerts)):
+	echo '<div class="span8 all-alerts">';
+	echo $alerts;
+	echo '</div>';
+endif;
+?>

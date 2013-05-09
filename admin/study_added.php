@@ -1,62 +1,67 @@
 <?php
-require_once '../define_root.php';
 unset($_SESSION['study_id']);
-unset($_GET['study_id']);
-require_once INCLUDE_ROOT . "config/config.php";
-require_once INCLUDE_ROOT . "Model/StudyX.php";
+unset($_GET['study_name']);
+require_once '../define_root.php';
+require_once INCLUDE_ROOT . "admin/admin_header.php";
 
-
-$ok = false;
 $errors = $messages = array();
 
-if(!userIsAdmin()) 
+if(empty($_POST))
 {
-	header("Location: ../index.php");
-	exit;
+	alert('<strong>Info:</strong> Please choose your item table file here.','alert-info');
+	redirect_to("acp/add_study.php");
 }
-elseif(empty($_POST))
+elseif (!isset($_FILES['uploaded']) OR !isset($_POST['study_name'])) 
 {
-	header("Location: ../acp/add_study.php");
-	exit;
+	alert('<strong>Error:</strong> You have to select an item table file here.','alert-error');
+	redirect_to("acp/add_study.php");
 }
 
-require_once INCLUDE_ROOT.'view_header.php';
-?>
-<ul class="nav nav-tabs">
-	<li><a href="<?=WEBROOT?>acp/acp.php">Zum Admin-Überblick</a></li>
-</ul>
-
-<?php
-
-
-if (empty($errors) AND !isset($_FILES['uploaded'])) {
-	$errors[] = 'No file';
-}
-elseif(empty($errors))
+if(isset($_POST['study_id']))
 {
+	$messages[] = 'Existing study is being modified.';
+	$study = new StudyX($_POST['study_name']);
+	if($user->ownStudy($study))
+		$errors[] = "You don't own this study.";
+}
+else  // a new study is being created
+{
+	$study = new StudyX(null, array(
+		'name' => $_POST['study_name'],
+		'user_id' => $user->id
+	));
+}
+
+if(!$study->valid)
+{
+	$errors = $errors + $study->errors;
+}
+
+if (empty($errors)):	
 	umask(0002);
 	ini_set('memory_limit', '256M');
 	$target = "upload/"; // todo: simply use temp name instead of moving to a folder so that permissions need to be set?
-	$target = $target . basename( $_FILES['uploaded']['name']) ;
+	$target = $target . basename( $_FILES['uploaded']['name']);
+
 	if (file_exists($target)) 
 	{
 	  rename($target,$target . "-overwritten-" . date('Y-m-d-H:m'));
-	  $messages[] = "Eine Datei mit gleichem Namen existierte schon und wurde unter " . $target . "-overwritten-" . date('Y-m-d-H:m') . " gesichert.<br />";
+	  $messages[] = "Eine Datei mit gleichem Namen existierte schon und wurde unter " . $target . "-overwritten-" . date('Y-m-d-H:m') . " gesichert.";
 	}
+
 	if(!move_uploaded_file($_FILES['uploaded']['tmp_name'], $target)) 
 	{
-		$errors[] = "Sorry, es gab ein Problem bei dem Upload.<br />";
+		$errors[] = "Sorry, es gab ein Problem bei dem Upload.";
 		var_dump($_FILES);
-	} else {
-		$messages[] = "Datei $target wurde hochgeladen<br />";
-		$ok = true;
+	} else 
+	{
+		$messages[] = "Datei $target wurde hochgeladen";
 	}
-}
-
+endif;
 
 
 // Leere / erstelle items
-if ($ok):	
+if (empty($errors)):
 	require_once INCLUDE_ROOT.'Model/SpreadsheetReader.php';
 	
 	$SPR = new SpreadsheetReader();
@@ -66,53 +71,36 @@ if ($ok):
 	
 endif;
 
-if(empty($errors))
-{
-	
-	if(!isset($_POST['study_id'])) // a new study is being created
-	{
-		$study = new StudyX(null, array(
-			'name' => $_POST['name'],
-			'user_id' => $currentUser->id
-		));
-	}
-	elseif(isset($_POST['study_id'])) // an existing study is being modified
-	{
-		$messages[] = 'Existing study is being modified.';
-		$study = new StudyX($_POST['study_name']);
-	}
+if (empty($errors)):
 
-	if(!$study->valid)
-	{
-		$errors[] = 'Study is broken.';
-	}
-	
     if (empty($study->errors) AND $study->insertItems($data) AND $study->createResultsTable($data)) 
 	{
-		echo "
-			<div class='alert alert-success'><strong>Erfolg!</strong> Studie wurde erstellt!</div>
-		<div><a class='btn btn-large btn-success' href='".WEBROOT."admin/{$study->name}/index'>"._('Zur Studie').'</a></div>';
+		alert('<strong>Erfolg!</strong> Studie wurde erstellt!','alert-success');
+		$study_link = "<div><a class='btn btn-large btn-success' href='".WEBROOT."admin/{$study->name}/show_item_table'>"._('Check item table').'</a></div>';
+		$messages = $messages + $study->messages;
     }
     else
 	{
 		$errors = $errors + $study->errors;
 		$messages = $messages + $study->messages;
 	}
-}
-
-if(!empty($errors))
-{
-	echo "<h1 style='color:red'>Fehler:</h1>
-	<ul><li>";
-	echo implode("</li><li>",$errors);
-	echo "</li></ul>";
-}
-if(isset($messages)):
-	echo "<h3>Meldungen:</h3>
-	<ul><li>";
-	echo implode("</li><li>",$messages);
-	echo "</li></ul>";
 endif;
+
+require_once INCLUDE_ROOT.'view_header.php';
+
+if(!empty($messages))
+	alert('<ul><li>' . implode("</li><li>",$messages).'</li></ul>','alert-info');
+
+if(!empty($errors)):
+	alert('<ul><li>' . implode("</li><li>",$errors).'</li></ul>','alert-error');
+	require_once INCLUDE_ROOT.'acp/acp_nav.php';
+	echo '<div class="span8">';
+else:
+	require_once INCLUDE_ROOT.'admin/admin_nav.php';
+	echo '<div class="span8">';
+	echo $study_link;
+endif;
+
 
 if(isset($data)):?>
 	<pre style="overflow:scroll;height:100px;">
@@ -124,5 +112,6 @@ if(isset($data)):?>
 else:
 	echo "<h2>Nothing imported</h2>";
 endif;
+echo '</div>';
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
 require_once INCLUDE_ROOT.'view_footer.php';

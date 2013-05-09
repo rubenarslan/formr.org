@@ -29,10 +29,8 @@ class StudyX
 			
 		if($vars):
 			$this->id = $vars['id'];
-			$this->public = $vars['public'];
-		    $this->registration_required = $vars['registered_req'];
-		    $this->email_required = $vars['email_req'];
-		    $this->birthday_required = $vars['bday_req'];			
+			$this->logo_name = $vars['logo_name'];
+			$this->user_id = $vars['user_id'];
 			
 			$this->getSettings();
 			
@@ -100,13 +98,16 @@ class StudyX
 			$this->errors[] = __("The study's name %s is already taken.",h($name));
 			return false;
 		endif;
-		
-		$create = $this->dbh->prepare("INSERT INTO `survey_studies` (user_id,name,prefix) VALUES (:user_id,:name,:name);");
+
+		$this->dbh->beginTransaction();
+		$this->id = $this->dbh->unit_id();
+		$create = $this->dbh->prepare("INSERT INTO `survey_studies` (id, user_id,name) VALUES (:run_item_id, :user_id,:name);");
+		$create->bindParam(':run_item_id',$this->id);
 		$create->bindParam(':user_id',$options['user_id']);
 		$create->bindParam(':name',$name);
 		$create->execute() or die(print_r($create->errorInfo(), true));
-
-		$this->id = $this->dbh->lastInsertId();
+		$this->dbh->commit();
+		
 		$this->name = $name;
 		
 		$this->changeSettings(array
@@ -231,7 +232,8 @@ class StudyX
 	}
 	public function deleteResults()
 	{
-		if($this->getResultCount()['finished'] > 10)
+		$resC = $this->getResultCount();
+		if($resC['finished'] > 10)
 			$this->backupResults();
 		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
 		return $delete;

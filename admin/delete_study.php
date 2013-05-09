@@ -5,12 +5,12 @@ require_once INCLUDE_ROOT.'admin/admin_header.php';
 if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name)
 {
 	$study->delete();
-	redirect_to(WEBROOT."acp/acp.php?msg=Successfully+deleted+{$study->name}");
+	alert("<strong>Success.</strong> Successfully deleted study '{$study->name}'.",'alert-success');
+	redirect_to(WEBROOT."acp/acp.php");
 }
 elseif(isset($_POST['delete']))
 {
-	$msg = "<b>Error:</b> You must type the study's name '{$study->name}' to delete it.";
-	$alertclass = 'alert-error';
+	alert("<b>Error:</b> You must type the study's name '{$study->name}' to delete it.",'alert-error');
 }
 
 $resultCount = $study->getResultCount();

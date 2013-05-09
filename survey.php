@@ -6,14 +6,13 @@ require_once INCLUDE_ROOT . "Model/Session.php";
 require_once INCLUDE_ROOT . 'Model/StudyX.php'; # Study , nothing is echoed yet
 require_once INCLUDE_ROOT . 'Model/Survey.php'; # Survey class, nothing is echoed yet
 
-session_start();
-
 $study = new StudyX($_GET['study_name']);
 
 $session = new Session($_SESSION['session'],$study);
 if($session->session === null)
 {
-	die("You don't have access at the moment.");
+	alert("<strong>Sorry.</strong> You don't have access at the moment.",'alert-error');
+	redirect_to("index.php");
 }
 
 $survey = new Survey($session,$study,@$run);
@@ -31,12 +30,14 @@ if($survey->progress===1)
 	redirect_to($goto);
 }
 require_once INCLUDE_ROOT . 'view_header.php';
-
+echo $site->renderAlerts();
 ?>
 <div class="row-fluid">
     <div id="span12">
-        <? echo "<h1>{$study->settings['description']}</h1>";
-        echo $study->settings['description'];
+        <? 
+		
+		echo isset($study->settings['title'])?"<h1>{$study->settings['title']}</h1>":'';
+		echo isset($study->settings['description'])?"<p class='lead'>{$study->settings['description']}</h1>":'';
         ?>
     </div>
 </div>

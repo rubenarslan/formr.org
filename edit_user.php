@@ -1,62 +1,54 @@
 <?php
 require_once 'define_root.php';
-require_once INCLUDE_ROOT."config/config.php";
-if(!userIsLoggedIn()) {
-  header("Location: index.php");
-  die();
+require_once INCLUDE_ROOT."Model/Site.php";
+if(!$user->logged_in) {
+	alert('You need to be logged in to go here.','alert-info');
+	redirect_to("index.php");
 }
-
-require_once INCLUDE_ROOT."view_header.php";
-require_once INCLUDE_ROOT."public_nav.php";
 
 
 if(!empty($_POST)) {
-  $errors=array();
-  if(isset($_POST['email']) and $_POST['email']!=$currentUser->email)
-    $currentUser->changeEmail($_POST['email']);
-  if(!$currentUser->status)
-    $errors=array_merge($errors,$currentUser->GetErrors());
-  if(isset($_POST['password']) and isset($_POST['password_new']) and isset($_POST['password_newr']) and ($_POST['password']!='' or $_POST['password_new']!='' or $_POST['password_newr']!=''))
-    $currentUser->changePassword($_POST['password'],$_POST['password_new'],$_POST['password_newr']);
-  if(!$currentUser->status)
-    $errors=$currentUser->GetErrors();
-}   
+	if( 
+		$user->changePassword($_POST['password'],$_POST['new_password'])
+	)
+	{
+		alert('<strong>Success!</strong> Your password was changed!','alert-success');
+		redirect_to('index.php');
+	}
+	else {
+		alert(implode($user->errors),'alert-error');
+	}
+}
+require_once INCLUDE_ROOT."view_header.php";
+require_once INCLUDE_ROOT."public_nav.php";
 
-
-if(!empty($_POST) and count($errors)>0) {
 ?>
-<div id="errors">
-<?php errorOutput($errors); ?>
+<h2>Edit settings</h2>
+<form class="form-horizontal" id="edit_user" name="edit_user" method="post" action="edit_user.php">
+	<div class="control-group small-left">
+		<label class="control-label" for="password">
+			<?php echo _("Old password"); ?>
+		</label>
+		<div class="controls">
+			<input required type="password" placeholder="Please choose a secure phrase" name="password" id="password">
+		</div>
+	</div>
+	<div class="control-group small-left">
+		<label class="control-label" for="password">
+			<?php echo _("New password"); ?>
+		</label>
+		<div class="controls">
+			<input required type="password" placeholder="Please choose a secure phrase" name="new_password" id="password">
+		</div>
+	</div>
+	<div class="control-group small-left">
+		<div class="controls">
+			<input required type="submit" value="<?php echo _("Save"); ?>">
+		</div>
+	</div>
+</form>
 </div>
-<?php
-    }
-?>
-<form id="edit_form" name="edit_form" method="post" action="edit_user.php">
-  <p>
-  <label><?php echo _("Email Adresse"); ?>
-  </label>
-  <input type="text" name="email" id="email" value="<?php echo $currentUser->email; ?>"/>
-  </p>
-<br>
-  <p>
-  <label><?php echo _("Aktuelles Passwort"); ?>
-  </label>
-  <input type="password" name="password" id="password"/>
-  </p>
-  <p>
-  <label><?php echo _("Neues Passwort"); ?>
-  </label>
-  <input type="password" name="password_new" id="password_new"/>
-  </p>
-  <p>
-  <label><?php echo _("Neues Passwort Wiederholung"); ?>
-  </label>
-  <input type="password" name="password_newr" id="password_newr"/>
-  </p>
-<p>
-  <button type="submit"><?php echo _("Speichern"); ?></button>
-</p>
-  </form>
+
 
 <?php
 require_once INCLUDE_ROOT."view_footer.php";

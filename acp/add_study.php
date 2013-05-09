@@ -1,23 +1,17 @@
 <?php
 require_once '../define_root.php';
-require_once INCLUDE_ROOT . "config/config.php";
-
-if(!userIsAdmin()) {
-  header("Location: index.php");
-  die();
-}
-
+require_once INCLUDE_ROOT . "admin/admin_header.php";
 require_once INCLUDE_ROOT . "view_header.php";
 require_once INCLUDE_ROOT . "acp/acp_nav.php";
-?>	
+?>
 
-<form class="form-horizontal" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="../admin/study_added.php">
+<form class="form-horizontal" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>admin/study_added.php">
 	<div class="control-group">
 		<label class="control-label" for="kurzname">
 			<?php echo _("Studien Kurzname<br>(wird für URL und Ergebnistabelle in der Datenbank benutzt):"); ?>
 		</label>
 		<div class="controls">
-			<input required type="text" placeholder="Name (a-Z0-9_)" name="name" id="kurzname"  value="<?php if(isset($_POST['name'])) echo $_POST['name']; ?>"/>
+			<input required type="text" placeholder="Name (a-Z0-9_)" name="study_name" id="kurzname">
 		</div>
 	</div>
 	<div class="control-group">

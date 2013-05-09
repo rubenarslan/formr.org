@@ -7,3 +7,6 @@
 [submodule "PHPMailer"]
 	path = PHPMailer
 	url = https://github.com/PHPMailer/PHPMailer.git
+[submodule "phpass"]
+	path = phpass
+	url = https://github.com/scornflakes/phpass

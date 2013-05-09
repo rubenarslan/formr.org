@@ -1,10 +1,8 @@
 <?php
 require_once 'define_root.php';
-require_once INCLUDE_ROOT."config/config.php";
-if(userIsLoggedIn()) {
-  global $currentUser;
-  $currentUser->logout();
+require_once INCLUDE_ROOT."Model/Site.php";
+if($user->logged_in) {
+	$user->logout();
+	alert('<strong>Logged out:</strong> You have been logged out.','alert-info');
 }
-header("Location: index.php");
-die();
-?>
+redirect_to("index.php");

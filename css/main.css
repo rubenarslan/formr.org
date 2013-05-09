@@ -113,3 +113,16 @@ form.form-horizontal div.form-row.item-checkbox div.controls label, form.form-ho
 .input-prepend .has-input-buttons.uneditable-input:focus {
   z-index: auto;
 }
+
+
+/* CLASSES THAT COULD BE ADDED BY USER */
+.form-horizontal .control-group.small-left .control-label {
+  float: left;
+  width: 100px;
+  padding-top: 5px;
+  text-align: right;
+  white-space:normal;
+}
+.form-horizontal .control-group.small-left .controls {
+  	margin-left: 120px;
+}

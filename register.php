@@ -1,68 +1,53 @@
 <?php
 require_once 'define_root.php';
-require_once INCLUDE_ROOT."config/config.php";
+require_once 'Model/Site.php';
 
-if(userIsLoggedIn()) {
-  header("Location: index.php");
-  die();
+if($user->logged_in) {
+	alert('You were already logged in. Please logout before you can register.','alert-info');
+	redirect_to("index.php");
 }
 
 if(!empty($_POST)) {
-  $user=new NewUser($_POST['email'],$_POST['password'],$_POST['passwordr']);
-  $errors=array();
-  if(!$user->status) {
-    $errors=$user->GetErrors();
-  } else {
-    if(!$user->Register())
-      $errors=$user->GetErrors();
-    else {
-      /* if(!$user->sendMail()) */
-      /*   $errors=$user->GetErrors(); */
-      /* else { */
-      $_SESSION['userMail']=$user->email;
-      header("Location: register_success.php");
-      /* } */
-    }
-  }
+	if( 
+		$user->register($_POST['email'],$_POST['password'])
+	)
+	{
+		alert('<strong>Success!</strong> You were registered and logged in!','success');
+		redirect_to('index.php');
+	}
+	else {
+		alert(implode($user->errors),'alert-error');
+	}
 }
 
 require_once INCLUDE_ROOT."view_header.php";
 require_once INCLUDE_ROOT."public_nav.php";
-
-
-
-if(!empty($_POST) and count($errors)>0) {
 ?>
-<div id="errors">
-<?php errorOutput($errors); ?>
+<div class="span8">
+<h2>Registration</h2>
+<form class="form-horizontal" id="register" name="register" method="post" action="register.php">
+	<div class="control-group small-left">
+		<label class="control-label" for="email">
+			<?php echo _("Email"); ?>
+		</label>
+		<div class="controls">
+			<input required type="email" placeholder="email@example.com" name="email" id="email">
+		</div>
+	</div>
+	<div class="control-group small-left">
+		<label class="control-label" for="password">
+			<?php echo _("Password"); ?>
+		</label>
+		<div class="controls">
+			<input required type="password" placeholder="Please choose a secure phrase" name="password" id="password">
+		</div>
+	</div>
+	<div class="control-group small-left">
+		<div class="controls">
+			<input required type="submit" value="<?php echo _("Register"); ?>">
+		</div>
+	</div>
+</form>
 </div>
-<?php
-    }
-?>
-
-
-<form id="register_form" name="register_form" method="post" action="register.php">
-  <p>
-  <label><?php echo _("email address"); ?>
-  </label>
-  <input type="text" name="email" id="email" value="<?php if(isset($_POST['email'])) echo $_POST['email'];?>"/>
-  </p>
-  <p>
-  <p>
-  <label><?php echo _("password"); ?>
-  </label>
-  <input type="password" name="password" id="password" value="<?php if(isset($_POST['password'])) echo $_POST['password'];?>"/>
-  </p>
-  <p>
-  <label><?php echo _("repeat password"); ?>
-  </label>
-  <input type="password" name="passwordr" id="passwordr" value="<?php if(isset($_POST['passwordr'])) echo $_POST['passwordr'];?>"/>
-  </p>
-<p>
-  <button type="submit"><?php echo _("Registrieren"); ?></button>
-</p>
-  </form>
-
-
 <?php
 require_once INCLUDE_ROOT."view_footer.php";

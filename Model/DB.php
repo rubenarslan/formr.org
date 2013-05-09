@@ -29,7 +29,11 @@ class DB extends PDO
             die($e->getMessage());
         }
     }
-
+	public function unit_id()
+	{
+		$this->query("INSERT INTO `survey_units` () VALUES ();");
+		return $this->lastInsertId();
+	}
     #get the number of rows in a result
     public function num_rows($query)
     {

@@ -3,15 +3,6 @@
 <nav>
 	<ul class="nav nav-tabs">
 	    <li <?php
-		function endsWith($haystack, $needle)
-		{
-		    $length = strlen($needle);
-		    if ($length == 0) {
-		        return true;
-		    }
-
-		    return (substr($haystack, -$length) === $needle);
-		}
 		echo endsWith($_SERVER['PHP_SELF'],'acp.php')?' class="active"':''?>><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("admin control panel"); ?></a></li>   
 	
 		<li <?=endsWith($_SERVER['PHP_SELF'],'add_study.php')?' class="active"':''?>>
@@ -29,3 +20,7 @@
 
 
 </nav>
+
+<?php 
+echo $site->renderAlerts();
+?>

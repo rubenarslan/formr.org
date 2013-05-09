@@ -1,51 +1,57 @@
 <?php
 require_once 'define_root.php';
-require_once INCLUDE_ROOT."config/config.php";
+require_once INCLUDE_ROOT."Model/Site.php";
 
-if(userIsLoggedIn()) {
+if($user->logged_in) {
   header("Location: index.php");
-  die();
+  exit;
 }
 
 if(!empty($_POST)) {
-  $user=new User;
-  $user->login($_POST['email'],$_POST['password']);
-  $errors=array();
-  if(!$user->status) {
-    $errors=$user->GetErrors();
-  } else {
-    $_SESSION["userObj"]=$user;
-    header("Location: index.php");
-  }
+	if( 
+		$user->login($_POST['email'],$_POST['password'])
+	)
+	{
+		alert('<strong>Success!</strong> You were logged in!','success');
+		redirect_to('index.php');
+	}
+	else {
+		alert(implode($user->errors),'alert-error');
+	}
 }
+
 require_once INCLUDE_ROOT."view_header.php";
 require_once INCLUDE_ROOT."public_nav.php";
 
 
-if(!empty($_POST) and count($errors)>0) {
+require_once INCLUDE_ROOT."view_header.php";
+require_once INCLUDE_ROOT."public_nav.php";
 ?>
-<div id="errors">
-<?php errorOutput($errors); ?>
+<div class="span8">
+<h2>Login</h2>
+<form class="form-horizontal" id="login" name="login" method="post" action="login.php">
+	<div class="control-group small-left">
+		<label class="control-label" for="email">
+			<?php echo _("Email"); ?>
+		</label>
+		<div class="controls">
+			<input required type="email" placeholder="email@example.com" name="email" id="email">
+		</div>
+	</div>
+	<div class="control-group small-left">
+		<label class="control-label" for="password">
+			<?php echo _("Password"); ?>
+		</label>
+		<div class="controls">
+			<input required type="password" placeholder="Please choose a secure phrase" name="password" id="password">
+		</div>
+	</div>
+	<div class="control-group small-left">
+		<div class="controls">
+			<input required type="submit" value="<?php echo _("login"); ?>">
+		</div>
+	</div>
+</form>
 </div>
-<?php
-    }
-?>
-<form id="login_form" name="login_form" method="post" action="login.php">
-  <p>
-  <label><?php echo _("email address"); ?>
-  </label>
-  <input type="text" name="email" id="email" value="<?php if(isset($_POST['email']))echo $_POST['email'];?>"/>
-  </p>
-  <p>
-  <label><?php echo _("password"); ?>
-  </label>
-  <input type="password" name="password" id="password" value="<?php if(isset($_POST['password']))echo $_POST['password'];?>"/>
-  </p>
-<p>
-  <button type="submit"><?php echo _("Login"); ?></button>
-</p>
-  </form>
-
-
 <?php
 require_once INCLUDE_ROOT."view_footer.php";

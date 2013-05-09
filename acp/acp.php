@@ -1,11 +1,6 @@
 <?php
 require_once '../define_root.php';
-require_once INCLUDE_ROOT . "config/config.php";
-if(!userIsAdmin()) {
-  header("Location: ".WEBROOT."index.php");
-  die();
-}
-
+require_once INCLUDE_ROOT . "admin/admin_header.php";
 require_once INCLUDE_ROOT . "view_header.php";
 require_once INCLUDE_ROOT . "acp/acp_nav.php";
 ?>	
@@ -21,7 +16,7 @@ exactly one session). These keys can be created by another applications (via API
 </p>
 
 <?php
-$studies = $currentUser->GetStudies();
+$studies = $user->getStudies();
 if($studies) {
   echo '
 	  <div class="span5">
@@ -29,14 +24,14 @@ if($studies) {
 	  <ul class="nav nav-pills nav-stacked">';
   foreach($studies as $study) {
     echo "<li>
-		<a href='".WEBROOT."admin/".$study->name."/index'>".$study->name."</a>
+		<a href='".WEBROOT."admin/".$study['name']."/index'>".$study['name']."</a>
 	</li>";
   }
   echo "</ul></div>";
 }
 ?>
 <?php
-$runs=$currentUser->GetRuns();
+$runs = $user->getRuns();
 if($runs) {
 	echo '
   	  <div class="span5">
