@@ -27,6 +27,7 @@ CREATE  TABLE IF NOT EXISTS `zwang`.`survey_runs` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `owner_id` INT UNSIGNED NOT NULL ,
   `name` VARCHAR(45) NULL ,
+  `api_secret` CHAR(64) NULL ,
   PRIMARY KEY (`id`) ,
   INDEX `fk_runs_survey_users1_idx` (`owner_id` ASC) ,
   CONSTRAINT `fk_runs_survey_users1`
@@ -67,6 +68,7 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 CREATE  TABLE IF NOT EXISTS `zwang`.`survey_units` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
+  `type` VARCHAR(20) NULL ,
   PRIMARY KEY (`id`) )
 ENGINE = InnoDB;
 
@@ -87,7 +89,7 @@ CREATE  TABLE IF NOT EXISTS `zwang`.`survey_studies` (
     REFERENCES `zwang`.`survey_users` (`id` )
     ON DELETE NO ACTION
     ON UPDATE NO ACTION,
-  CONSTRAINT `fk_survey_studies_run_items1`
+  CONSTRAINT `fk_study_unit`
     FOREIGN KEY (`id` )
     REFERENCES `zwang`.`survey_units` (`id` )
     ON DELETE CASCADE
@@ -101,18 +103,18 @@ ENGINE = InnoDB;
 CREATE  TABLE IF NOT EXISTS `zwang`.`survey_run_units` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `run_id` INT UNSIGNED NOT NULL ,
-  `run_unit_id` INT UNSIGNED NOT NULL ,
+  `unit_id` INT UNSIGNED NOT NULL ,
   `position` TINYINT NOT NULL ,
   PRIMARY KEY (`id`) ,
   INDEX `fk_survey_run_data_survey_runs1_idx` (`run_id` ASC) ,
-  INDEX `fk_survey_run_data_survey_run_items1_idx` (`run_unit_id` ASC) ,
+  INDEX `fk_survey_run_data_survey_run_items1_idx` (`unit_id` ASC) ,
   CONSTRAINT `fk_suru`
     FOREIGN KEY (`run_id` )
     REFERENCES `zwang`.`survey_runs` (`id` )
     ON DELETE NO ACTION
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_suru_it`
-    FOREIGN KEY (`run_unit_id` )
+    FOREIGN KEY (`unit_id` )
     REFERENCES `zwang`.`survey_units` (`id` )
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
@@ -196,18 +198,20 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `zwang`.`survey_sessions`
+-- Table `zwang`.`survey_unit_sessions`
 -- -----------------------------------------------------
-CREATE  TABLE IF NOT EXISTS `zwang`.`survey_sessions` (
+CREATE  TABLE IF NOT EXISTS `zwang`.`survey_unit_sessions` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
-  `study_id` INT UNSIGNED NOT NULL ,
+  `unit_id` INT UNSIGNED NOT NULL ,
+  `created` DATETIME NOT NULL ,
   `session` CHAR(64) NULL ,
+  `ended` DATETIME NULL DEFAULT NULL ,
   PRIMARY KEY (`id`) ,
-  INDEX `fk_survey_sessions_survey_studies1_idx` (`study_id` ASC) ,
-  UNIQUE INDEX `session_uq` (`session` ASC) ,
-  CONSTRAINT `fk_survey_sessions_survey_studies1`
-    FOREIGN KEY (`study_id` )
-    REFERENCES `zwang`.`survey_studies` (`id` )
+  UNIQUE INDEX `session_uq` (`unit_id` ASC, `session` ASC) ,
+  INDEX `fk_survey_sessions_survey_units1_idx` (`unit_id` ASC) ,
+  CONSTRAINT `fk_survey_sessions_survey_units1`
+    FOREIGN KEY (`unit_id` )
+    REFERENCES `zwang`.`survey_units` (`id` )
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
@@ -254,14 +258,14 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `zwang`.`survey_external`
+-- Table `zwang`.`survey_externals`
 -- -----------------------------------------------------
-CREATE  TABLE IF NOT EXISTS `zwang`.`survey_external` (
+CREATE  TABLE IF NOT EXISTS `zwang`.`survey_externals` (
   `id` INT UNSIGNED NOT NULL ,
   `address` VARCHAR(255) NULL ,
   INDEX `fk_survey_forks_survey_run_items1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
-  CONSTRAINT `fk_survey_forks_survey_run_items1`
+  CONSTRAINT `fk_external_unit`
     FOREIGN KEY (`id` )
     REFERENCES `zwang`.`survey_units` (`id` )
     ON DELETE NO ACTION
@@ -277,6 +281,7 @@ CREATE  TABLE IF NOT EXISTS `zwang`.`survey_breaks` (
   `wait_until_time` TIME NULL ,
   `wait_until_date` DATE NULL ,
   `wait_minutes` INT UNSIGNED NULL ,
+  `relative_to` VARCHAR(255) NULL ,
   INDEX `fk_survey_breaks_survey_run_items1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
   CONSTRAINT `fk_survey_breaks_survey_run_items1`
@@ -288,16 +293,16 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `zwang`.`survey_branch`
+-- Table `zwang`.`survey_branches`
 -- -----------------------------------------------------
-CREATE  TABLE IF NOT EXISTS `zwang`.`survey_branch` (
+CREATE  TABLE IF NOT EXISTS `zwang`.`survey_branches` (
   `id` INT UNSIGNED NOT NULL ,
   `condition` VARCHAR(2000) NULL ,
   `if_true` TINYINT NULL ,
   `if_false` TINYINT NULL ,
   INDEX `fk_survey_branch_survey_units1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
-  CONSTRAINT `fk_survey_branch_survey_units1`
+  CONSTRAINT `fk_branch_unit`
     FOREIGN KEY (`id` )
     REFERENCES `zwang`.`survey_units` (`id` )
     ON DELETE NO ACTION
@@ -348,16 +353,17 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `zwang`.`survey_feedback`
+-- Table `zwang`.`survey_pages`
 -- -----------------------------------------------------
-CREATE  TABLE IF NOT EXISTS `zwang`.`survey_feedback` (
+CREATE  TABLE IF NOT EXISTS `zwang`.`survey_pages` (
   `id` INT UNSIGNED NOT NULL ,
+  `body` TEXT NULL ,
   `name` VARCHAR(255) NOT NULL ,
   `title` VARCHAR(255) NOT NULL ,
-  `body` TEXT NULL ,
+  `end` TINYINT(1) NOT NULL DEFAULT 1 ,
   INDEX `fk_survey_feedback_survey_units1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
-  CONSTRAINT `fk_survey_feedback_survey_units1`
+  CONSTRAINT `fk_page_unit`
     FOREIGN KEY (`id` )
     REFERENCES `zwang`.`survey_units` (`id` )
     ON DELETE NO ACTION

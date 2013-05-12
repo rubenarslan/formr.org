@@ -2,7 +2,7 @@
 require_once 'define_root.php';
 require_once 'Model/Site.php';
 
-if($user->logged_in) {
+if($user->loggedIn()) {
 	alert('You were already logged in. Please logout before you can register.','alert-info');
 	redirect_to("index.php");
 }

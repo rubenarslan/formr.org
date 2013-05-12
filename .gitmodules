@@ -10,3 +10,6 @@
 [submodule "phpass"]
 	path = phpass
 	url = https://github.com/scornflakes/phpass
+[submodule "js/vendor/select2"]
+	path = js/vendor/select2
+	url = https://github.com/scornflakes/select2.git

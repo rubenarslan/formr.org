@@ -1,52 +1,37 @@
 <?php
 require_once '../define_root.php';
-require_once INCLUDE_ROOT . "config/config.php";
+require_once INCLUDE_ROOT . "admin/admin_header.php";
+require_once INCLUDE_ROOT . "Model/Run.php";
 
-global $currentUser;
-if(!userIsAdmin()) {
-  header("Location: ../index.php");
-  die();
-}
-
-if(!empty($_POST)) {
-  $errors=array();
-  $run=new Run;
-  $run->Constructor($_POST['name'],$currentUser->id);
-  if(!$run->status) {
-    $errors=$run->GetErrors();
-  } else {
-    if(!$run->Register())
-      $errors=$run->GetErrors();
-    else
-      header("Location: view_run.php?id=".$run->id."");
-  }
-
+if( !empty($_POST) ) {
+	$run = new Run($fdb, null, array('run_name' => $_POST['run_name'], 'owner_id' => $user->id));
+	if($run->valid)
+	{
+		alert('<strong>Success.</strong> Run "'.$run->name . '" was created.','alert-success');
+		redirect_to(WEBROOT . "acp/{$run->name}");
+	}
+	else
+		alert('<strong>Sorry.</strong> '.implode($run->errors),'alert-error');
 }
 
 require_once INCLUDE_ROOT . "view_header.php";
 require_once INCLUDE_ROOT . "acp/acp_nav.php";
-?>	
-
-<?php
-if(!empty($_POST) and count($errors)>0) {
 ?>
-<div id="errors">
-<?php errorOutput($errors); ?>
-</div>
-<?php
-    }
-?>
-<form id="add_run" name="add_run" method="post" action="add_run.php">
-  <p>
-  <p>
-  <label><?php echo _("Run Name"); ?>
-  </label>
-  <input type="text" name="name" id="name"  value="<?php if(isset($_POST['name'])) echo $_POST['name']; ?>"/>
-  </p>
-  <p>
-  <button type="submit"><?php echo _("Run erstellen"); ?></button>
-  </p>
+<form class="form-horizontal" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>acp/add_run">
+  	<div class="control-group">
+  		<label class="control-label" for="kurzname">
+  			<?php echo _("Run Kurzname<br>(wird für URL benutzt):"); ?>
+  		</label>
+  		<div class="controls">
+  			<input required type="text" placeholder="Name (a-Z0-9_)" name="run_name" id="kurzname">
+  		</div>
+  	</div>
+  	<div class="control-group">
+  		<div class="controls">
+  			<input required type="submit" value="<?php echo _("Run anlegen"); ?>">
+  		</div>
+  	</div>
   </form>
 
-<?php
-require_once INCLUDE_ROOT . "view_footer.php";
+  <?php
+  require_once INCLUDE_ROOT . "view_footer.php";

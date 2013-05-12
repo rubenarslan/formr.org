@@ -1,8 +1,13 @@
 <?php
 require_once INCLUDE_ROOT."Model/DB.php";
 require_once INCLUDE_ROOT."Model/Item.php";
+require_once INCLUDE_ROOT."Model/RunUnit.php";
 
-class Survey {
+class Survey extends RunUnit {
+	public $id = null;
+	public $name = null;
+	public $run_name = null;
+	public $logo_name = null;
 	public $items = array();
 	public $maximum_number_displayed = null;
 	public $unanswered_batch = array();
@@ -14,18 +19,34 @@ class Survey {
 	public $errors = array();
 	public $results_table = null;
 	
-	public function __construct($session, $study, $run, $options = array()) {
+	public function __construct($session, $unit)
+	{
 		$this->session = $session;
-		$this->study = $study;
-		$this->results_table = $this->study->name;
-
-		$this->run = $run;
-		$this->timestarted = @$options['timestarted'];
 		$this->dbh = new DB();
 		
+		$this->run_name = $unit['run_name'];
+
+		$study_data = $this->dbh->prepare("SELECT id,name FROM `survey_studies` WHERE id = :study_id LIMIT 1");
+		$study_data->bindParam(":study_id",$unit['unit_id']);
+		$study_data->execute() or die(print_r($study_data->errorInfo(), true));
+		$vars = $study_data->fetch(PDO::FETCH_ASSOC);
+			
+		if($vars):
+			$this->id = $vars['id'];
+			$this->name = $vars['name'];
+#			$this->logo_name = $vars['logo_name'];
+			$this->results_table = $this->name;
+		endif;
+		
 		$this->getNextItems();
+
+		if(isset($_POST['session_id'])) 
+		{
+			$this->post($_POST);
+		}
+		
 		if($this->getProgress()===1)
-			$this->finish();
+			$this->end();
 	}
 	public function render() {
 		$ret = $this->render_form_header().
@@ -50,7 +71,7 @@ class Survey {
 		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
 		
 		$answered->bindParam(":session_id", $this->session->id);
-		$answered->bindParam(":study_id", $this->study->id);
+		$answered->bindParam(":study_id", $this->id);
 		
 		foreach($posted AS $name => $value)
 		{
@@ -71,7 +92,7 @@ class Survey {
 					ON DUPLICATE KEY UPDATE `$name` = :$name, modified = NOW();");
 				    $post_form->bindParam(":$name", $value);
 					$post_form->bindParam(":session_id", $this->session->id);
-					$post_form->bindParam(":study_id", $this->study->id);
+					$post_form->bindParam(":study_id", $this->id);
 					$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 
 					$this->dbh->commit() or die(print_r($answered->errorInfo(), true));
@@ -84,7 +105,7 @@ class Survey {
 
 		if(empty($this->errors))
 		{ // PRG
-			redirect_to(WEBROOT."{$this->study->name}/survey/?session={$this->session->session}");
+			redirect_to(WEBROOT."{$this->run_name}");
 		} else
 		{
 			$this->getProgress();
@@ -102,15 +123,14 @@ class Survey {
 					`survey_items`.study_id = :study_id AND
 			        `survey_items`.typ NOT IN (
 							'instruction',
-							'fork',
 							'submit'
 						)
 					GROUP BY `survey_items_display`.answered;";
 
-		//fixme: just realised the progress bar score is not the same as the actual progress (skipifs etc.)
+		//fixme: progress can become smaller when questions enabling a lot of skipif turn on
 		$progress = $this->dbh->prepare($query);
 		$progress->bindParam(":session_id", $this->session->id);
-		$progress->bindParam(":study_id", $this->study->id);
+		$progress->bindParam(":study_id", $this->id);
 		
 		$progress->execute() or die(print_r($progress->errorInfo(), true));
 
@@ -162,7 +182,7 @@ class Survey {
 		$get_items = $this->dbh->prepare($item_query) or die(print_r($this->dbh->errorInfo(), true));
 		
 		$get_items->bindParam(":session_id",$this->session->id);
-		$get_items->bindParam(":study_id", $this->study->id);
+		$get_items->bindParam(":study_id", $this->id);
 		
 		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
 		
@@ -181,12 +201,9 @@ class Survey {
 		return $this->unanswered_batch;
 	}
 	protected function render_form_header() {
-		$action = WEBROOT."{$this->study->name}/survey/?session={$this->session->session}";
-		if(isset($this->run))
-			$action .= "&run_id=".$this->run->id;
+		$action = WEBROOT."{$this->run_name}";
 
-		$ret = '<form novalidate action="'.$action.'" method="post" class="form-horizontal" accept-charset="utf-8">';
-		// fixme: remove novalidate in production
+		$ret = '<form action="'.$action.'" method="post" class="form-horizontal" accept-charset="utf-8">';
 		
 	    /* pass on hidden values */
 	    $ret .= '<input type="hidden" name="session_id" value="' . $this->session->id . '" />';
@@ -225,12 +242,7 @@ class Survey {
 			$i++;
 
 	        // fork-items sind relevant, werden aber nur behandelt, wenn sie auch an erster Stelle sind, also alles vor ihnen schon behandelt wurde
-	        if ($item->type === "fork") 
-			{
-				if($itemsDisplayed !== 0)
-					break; // only render items up to a fork
-	        }
-			elseif ($item->type === 'submit')
+			if ($item->type === 'submit')
 			{
 				if($itemsDisplayed === 0)
 					continue; // skip submit buttons once everything before them was dealt with				
@@ -242,7 +254,7 @@ class Survey {
 					$item->displayed_before AND 											 // if this was displayed before
 					(
 						$next === false OR 								    				 // this is the end of the survey
-						in_array( $next->type , array('instruction','fork','submit'))  		 // the next item isn't a normal item
+						in_array( $next->type , array('instruction','submit'))  		 // the next item isn't a normal item
 					)
 				)
 				{
@@ -271,7 +283,6 @@ class Survey {
 	        if (
 				($this->maximum_number_displayed != null AND
 				$itemsDisplayed >= $this->maximum_number_displayed) OR 
-				$item->type === 'fork'  OR 
 				$item->type === 'submit'  // todo: relevant-column can be killed off now
 			)
 			{
@@ -298,7 +309,7 @@ class Survey {
 		
 	$subs_query = $this->dbh->prepare ( "SELECT `search`,`replace`,`mode` FROM `survey_substitutions` WHERE `study_id` = :study_id ORDER BY id DESC" ) or die(print_r($this->dbh->errorInfo(), true));	// get all substitutions
 	
-	$subs_query->bindParam(':study_id',$this->study->id);
+	$subs_query->bindParam(':study_id',$this->id);
 	$subs_query->execute() or die(print_r($subs_query->errorInfo(), true));	// get all substitutions
 	
 
@@ -327,12 +338,55 @@ class Survey {
 		return array('search' => $search,'replace' => $replace);
 	}
 	
-	protected function finish()
+	protected function end()
 	{
 		$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS NULL;");
 		$post_form->bindParam(":session_id", $this->session->id);
-		$post_form->bindParam(":study_id", $this->study->id);
+		$post_form->bindParam(":study_id", $this->id);
 		$post_form->execute() or die(print_r($post_form->errorInfo(), true));
-		return true;
+		if($post_form->rowCount() === 1):
+			return parent::end();
+		else:
+			return false;
+		endif;
+	}
+	public function exec()
+	{
+		return
+			'
+			
+		<div class="row-fluid">
+		    <div id="span12">
+		        '.
+		
+				 (isset($study->settings['title'])?"<h1>{$study->settings['title']}</h1>":'') . 
+				 (isset($study->settings['description'])?"<p class='lead'>{$study->settings['description']}</h1>":'') .
+				 '
+		    </div>
+		</div>
+		<div class="row-fluid">
+			<div class="span12">
+
+		'.
+
+		 $this->render().
+		
+		 '.
+
+				</div> <!-- end of span10 div -->
+			</div> <!-- end of row-fluid div -->
+		'.
+		(isset($study->settings['problem_email'])?
+		'.
+			<div class="row-fluid">
+				<div class="span12">
+					Bei Problemen wenden Sie sich bitte an <strong><a href="mailto:'.$study->settings['problem_email'].'">'.$study->settings['problem_email'].'</a>.</strong>
+				</div>
+			</div>
+		':'') .
+		'
+		</div>
+		';
+
 	}
 }

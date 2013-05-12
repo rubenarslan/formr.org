@@ -4,20 +4,20 @@
 
 <?php
 
-if($user->admin):
+if($user->isAdmin()):
    ?>
-    <li><a href="<?=WEBROOT?>acp/acp.php"><?php echo _("admin control panel"); ?></a></li>   
+    <li><a href="<?=WEBROOT?>acp/acp"><?php echo _("admin control panel"); ?></a></li>   
    <?php
 endif;
-if($user->logged_in):
+if($user->loggedIn()):
 ?>
-	<li <?=endsWith($_SERVER['PHP_SELF'],'edit_user.php')?' class="active"':''?>><a href="<?=WEBROOT?>edit_user.php"><?php echo _("settings"); ?></a></li>
+	<li <?=endsWith($_SERVER['PHP_SELF'],'edit_user.php')?' class="active"':''?>><a href="<?=WEBROOT?>edit_user"><?php echo _("settings"); ?></a></li>
 	<li><a href="<?=WEBROOT?>logout.php"><?php echo _("logout"); ?></a></li>
 <?php
 else:
 ?>
-	<li <?=endsWith($_SERVER['PHP_SELF'],'login.php')?' class="active"':''?>><a href="<?=WEBROOT?>login.php"><?php echo _("login"); ?></a></li>
-	<li <?=endsWith($_SERVER['PHP_SELF'],'register.php')?' class="active"':''?>><a href="<?=WEBROOT?>register.php"><?php echo _("sign up") ?></a></li>
+	<li <?=endsWith($_SERVER['PHP_SELF'],'login.php')?' class="active"':''?>><a href="<?=WEBROOT?>login"><?php echo _("login"); ?></a></li>
+	<li <?=endsWith($_SERVER['PHP_SELF'],'register.php')?' class="active"':''?>><a href="<?=WEBROOT?>register"><?php echo _("sign up") ?></a></li>
 <?php
 endif;
 ?>

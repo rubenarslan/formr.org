@@ -2,5 +2,12 @@
     RewriteEngine On
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^/?([a-z0-9_]+)/([a-z0-9_]+)/?$ $2.php?study_name=$1 [QSA,L]
+    RewriteCond %{REQUEST_FILENAME}.php !-d
+    RewriteCond %{REQUEST_FILENAME}.php !-f
+  	RewriteRule ^([a-z0-9_]+)/?$ run.php?run_name=$1 [QSA,L]
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^([a-z0-9_]+)/?$ $1.php [QSA,L]
+	# on HU subdomain
+#	RewriteBase /survey/
 </IfModule>

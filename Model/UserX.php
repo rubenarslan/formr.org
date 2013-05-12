@@ -6,19 +6,56 @@ class UserX
 {
 	public $id = null;
 	public $email = null;
-	public $logged_in = false;
-	public $admin = false;
+	public $user_code = null;
+	private $logged_in = false;
+	private $admin = false;
 	// todo: time zone, etc.
 	public $settings = array();
 	public $errors = array();
 	public $messages = array();
+	private $dbh;
 
 
-	public function __construct($id,$options = NULL) 
+	public function __construct($fdb, $id, $user_code) 
 	{		
-		if($id !== NULL):
+		$this->dbh = $fdb;
+		if($id !== NULL): // if there is a registered, logged in user
 			$this->id = $id;
+			$this->load(); // load his stuff
+		elseif($user_code !== NULL):
+			$this->user_code = $user_code; // if there is someone who has been browsing the site
+		else:
+			$this->user_code = bin2hex(openssl_random_pseudo_bytes(32)); // a new arrival
 		endif;
+	}
+	public function __sleep()
+	{
+		return array('id','user_code');
+	}
+	private function load()
+	{
+		$load = $this->dbh->prepare("SELECT id, email, password, admin, user_code FROM `survey_users` WHERE id = :id LIMIT 1");
+		$load->bindParam(':id',$this->id);
+		$load->execute() or die('db');
+		if($user = $load->fetch())
+		{
+			$this->logged_in = true;
+			$this->email = $user['email'];
+			$this->id = $user['id'];
+			$this->user_code = $user['user_code'];
+			$this->admin = $user['admin'];
+			return true;
+		}
+		$this->errors[]=_("Die Login Daten sind nicht korrekt");
+		return false;
+	}
+	public function loggedIn()
+	{
+		return $this->logged_in;
+	}
+	public function isAdmin()
+	{
+		return $this->admin;
 	}
 	public function createdStudy($study)
 	{
@@ -47,8 +84,7 @@ class UserX
 	}
 	public function register($email, $password) 
 	{
-		$db = new DB();
-		$exists = $db->prepare("SELECT email FROM `survey_users` WHERE email = :email LIMIT 1");
+		$exists = $this->dbh->prepare("SELECT email FROM `survey_users` WHERE email = :email LIMIT 1");
 		$exists->bindParam(':email',$email);
 		$exists->execute() or die('db');
 		if($user = $exists->rowCount() === 0)
@@ -56,11 +92,13 @@ class UserX
 			$hash = new PasswordHash(8, FALSE);
 			$hash = $hash->HashPassword($password);
 
-			$add = $db->prepare('INSERT INTO `survey_users` SET 
+			$add = $this->dbh->prepare('INSERT INTO `survey_users` SET 
 					email = :email,
-					password = :password');
+					password = :password,
+					user_code = :user_code');
 			$add->bindParam(':email',$email);
 			$add->bindParam(':password',$hash);
+			$add->bindParam(':user_code',$this->user_code);
 			$add->execute() or die('probl');
 			
 			return $this->login($email,$password);
@@ -71,8 +109,7 @@ class UserX
 		return false;
 	}
 	public function login($email,$password) {
-		$db = new DB();
-		$login = $db->prepare("SELECT id, password, admin FROM `survey_users` WHERE email = :email LIMIT 1");
+		$login = $this->dbh->prepare("SELECT id, password, admin, user_code FROM `survey_users` WHERE email = :email LIMIT 1");
 		$login->bindParam(':email',$email);
 		$login->execute() or die('db');
 		if($user = $login->fetch())
@@ -87,6 +124,7 @@ class UserX
 				$this->logged_in = true;
 				$this->email = $email;
 				$this->id = $user['id'];
+				$this->user_code = $user['user_code'];
 				$this->admin = $user['admin'];
 				return true;
 			}
@@ -101,13 +139,12 @@ class UserX
 	{
 		if($this->login($this->email,$password))
 		{
-			$db = new DB();
 			# Try to use stronger but system-specific hashes, with a possible fallback to
 			# the weaker portable hashes.
 			$hash = new PasswordHash(8, FALSE);
 			$hash = $hash->HashPassword($new_password);
 
-			$change = $db->prepare('UPDATE `survey_users` SET password = :new_password WHERE email = :email');
+			$change = $this->dbh->prepare('UPDATE `survey_users` SET password = :new_password WHERE email = :email');
 			$change->bindParam(':email',$email);
 			$change->bindParam(':new_password',$hash);
 			$change->execute() or die('db');
@@ -117,9 +154,8 @@ class UserX
 	}
 
 	public function getStudies() {
-		if($this->admin):
-			$db = new DB();
-			$studies = $db->query("SELECT * FROM `survey_studies`");
+		if($this->isAdmin()):
+			$studies = $this->dbh->query("SELECT * FROM `survey_studies`");
 			$results = array();
 			while($study = $studies->fetch())
 			{
@@ -130,9 +166,9 @@ class UserX
 		return false;
 	}
 	public function getRuns() {
-		if($this->admin):
+		if($this->isAdmin()):
 			$db = new DB();
-			$studies = $db->query("SELECT * FROM `survey_runs`");
+			$studies = $this->dbh->query("SELECT * FROM `survey_runs`");
 			$results = array();
 			while($study = $studies->fetch())
 			{
@@ -147,7 +183,6 @@ class UserX
 
 	function getAvailableRuns()
 	{
-		return array();
 	}
 
 

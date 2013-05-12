@@ -9,7 +9,12 @@ header ('Content-type: text/html; charset=utf-8');
 
 		<link rel="stylesheet" type="text/css" href="<?=WEBROOT?>css/bootstrap.min.css" />
         <link rel="stylesheet" href="<?=WEBROOT?>css/font-awesome.min.css">
-		<!--[if IE 7]>
+		<?php /*
+		<link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.no-icons.min.css" rel="stylesheet">
+		<link href="//netdna.bootstrapcdn.com/font-awesome/3.1.0/css/font-awesome.css" rel="stylesheet">
+		*/?>
+		
+        <!--[if IE 7]>
 		<link rel="stylesheet" href="css/font-awesome-ie7.min.css">
 		<![endif]-->
 		<link rel="stylesheet" href="<?=WEBROOT?>css/main.css" type="text/css" media="screen" />
@@ -21,6 +26,7 @@ header ('Content-type: text/html; charset=utf-8');
 		<script src="<?=WEBROOT?>js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
 		<script src="<?=WEBROOT?>js/vendor/js-webshim/minified/polyfiller.js"></script>
 		<script src="<?=WEBROOT?>js/main.js"></script>
+		<?php echo isset($head)?$head:'' ?>
 </head>
 <body>
 	<header class="study-header">

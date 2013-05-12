@@ -1,75 +1,74 @@
 <?php
+// todo: add each step should display how many people have reached it
 require_once '../define_root.php';
-require_once INCLUDE_ROOT . "config/config.php";
+require_once INCLUDE_ROOT . "admin/admin_header.php";
+require_once INCLUDE_ROOT . "Model/Run.php";
 
-global $currentUser;
-if(!userIsAdmin() or !isset($_GET['id'])) {
-  header("Location: index.php");
-  die();
+$run = new Run($fdb, $_GET['run_name']);
+
+if( !empty($_POST) ) {
+	if($run->valid)
+	{
+		alert('<strong>Success.</strong> Run "'.$run->name . '" was created.','alert-success');
+		redirect_to(WEBROOT . "acp/{$run->name}");
+	}
+	else
+		alert('<strong>Sorry.</strong> '.implode($run->errors),'alert-error');
 }
-$run=new Run;
-$run->fillIn($_GET['id']);
-if(!$run->status)
-  header("Location: ../index.php");
-if(!$currentUser->ownsRun($_GET['id']))
-  header("Location: ../index.php");
-if(!empty($_POST)) {
-  $errors=array();
-  if(isset($_POST['name']) and $_POST['name']!==$run->name)
-    $run->changeName($_POST['name']);
-  if(!$run->status)
-    $errors=array_merge($errors,$run->GetErrors());
-  if($run->public==true and !isset($_POST['public']))
-    $run->changePublic(false);
-  elseif($run->public==false and isset($_POST['public']))
-    $run->changePublic(true);
-  if(!$run->status)
-    $errors=array_merge($errors,$run->GetErrors());
-  if($run->registered_req==true and !isset($_POST['registered']))
-    $run->changeRegisteredReq(false);
-  elseif($run->registered_req==false and isset($_POST['registered']))
-    $run->changeRegisteredReq(true);
-  if(!$run->status)
-    $errors=array_merge($errors,$run->GetErrors());
-}
+
+$head = '
+<link rel="stylesheet" type="text/css" href="'.WEBROOT.'js/vendor/select2/select2.css" />
+<script src="'.WEBROOT.'js/run.js"></script>
+<script type="text/javascript" src="'.WEBROOT.'js/vendor/select2/select2.js"></script>';
 
 require_once INCLUDE_ROOT . "view_header.php";
-?>	
-
-<p><strong><?php echo _("Editiere Studie: "); ?></strong> <?php echo $run->name; ?> <br /> 
-<?php
-if(!empty($_POST) and count($errors)>0) {
+require_once INCLUDE_ROOT . "acp/acp_nav.php";
 ?>
-<div id="errors">
-<?php errorOutput($errors); ?>
+<form class="form-horizontal" enctype="multipart/form-data"  id="edit_run" name="edit_run" method="post" action="<?=WEBROOT?>acp/<?=$run->name ;?>" data-units='<?php
+	echo json_encode($run->getAllUnitIds());	
+	?>'>
+<div class="span9 run_dialog">
+	<h2 class="row" id="run_dialog_heading">
+		
+	  	<div class="control-group" style="font:inherit;line-height:inherit">
+	  			<?php echo __("%s <small>run</small>" , $run->name); ?>
+	  			<input type="hidden" value="<?=$run->name?>" name="old_run_name" id="run_name">
+	  	</div>
+	</h2>
+
+	<div class="row" id="run_dialog_choices">
+		<div class="span2">
+			<a class="add_survey add_run_unit btn btn-large hastooltip" title="Save new positions" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_reorder">
+				<i class="icon-exchange icon-rotate-90 icon-larger"></i>
+			</a>
+		</div>
+	  	<div class="control-group span7">
+			<div class="btn-group">
+				<a class="add_survey add_run_unit btn btn-large hastooltip" title="Add survey" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_add_survey">
+					<i class="icon-question icon-2x"></i>
+				</a>
+				<a class="add_branch add_run_unit btn btn-large hastooltip" title="Add branch" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_add_branch">
+					<i class="icon-code-fork icon-2x icon-flip-vertical"></i>
+				</a>
+				<a class="add_break add_run_unit btn btn-large hastooltip" title="Add break">
+					<i class="icon-time icon-2x"></i>
+				</a>
+				<a class="add_external add_run_unit  btn btn-large hastooltip" title="Add external link">
+					<i class="icon-external-link icon-2x"></i>
+				</a>
+				<a class="add_email add_run_unit btn btn-large hastooltip" title="Add email">
+					<i class="icon-envelope icon-2x"></i>
+				</a>
+				<a class="add_page add_run_unit btn btn-large hastooltip" title="Add feedback page">
+					<i class="icon-bar-chart icon-2x"></i>
+				</a>
+			</div>
+		</div>
+  	</div>
 </div>
-<?php
-    }
-?>
-<form id="edit_form" name="edit_form" method="post" action="edit_run.php?id=<?php echo $_GET['id']; ?>" >
-  <p>
-  <label><?php echo _("Name"); ?>
-  </label>
-  <input type="text" name="name" id="name" value="<?php echo $run->name; ?>"/>
-  </p>
-  <p>
-  <label><?php echo _("Run nur für registrierte Benutzer verfügbar"); ?>
-  </label>
-  <input type="checkbox" name="registered" id="registered" <?php if($run->registered_req==true) echo "checked";?>/>
-  </p>
-  <p>
-  <label><?php echo _("Veröffentlichen"); ?>
-  </label>
-  <input type="checkbox" name="public" id="public" <?php if($run->public==true) echo "checked";?>/>
-  </p>
-
-  <button type="submit"><?php echo _("Absenden"); ?></button>
+<div class="clearfix"></div>
+	
   </form>
 
-
-
-<br>
-  <p><a href="view_run.php?id=<?php echo $run->id; ?>"><?php echo _("Zurück zum Run"); ?></a></p>
-
-<?php
-require_once INCLUDE_ROOT . "view_footer.php";
+  <?php
+  require_once INCLUDE_ROOT . "view_footer.php";

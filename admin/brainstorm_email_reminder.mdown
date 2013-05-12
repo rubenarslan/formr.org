@@ -16,7 +16,7 @@ SELECT email from vpnueberblick LEFT OUTER JOIN demographics ON demographics.vpn
 
 #  brainstorm RUNS!
 
-## types of run items
+## types of run units
 * survey
 * social network
 * breaks
@@ -28,7 +28,7 @@ SELECT email from vpnueberblick LEFT OUTER JOIN demographics ON demographics.vpn
 * __branches__ to other runs?
 
 ## access regulation
-
+* can all be done by branches
 * require
 	- email
 	- birthday

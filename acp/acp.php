@@ -39,7 +39,7 @@ if($runs) {
 		<ul class="nav nav-pills nav-stacked">';
 	foreach($runs as $run) {
 		echo "<li>
-			<a href='".WEBROOT."acp/view_run.php?run_id=".$run->id."'>".$run->name."
+			<a href='".WEBROOT."acp/{$run['name']}'>{$run['name']}</a>
 		</li>";
 	}
   echo "</ul></div>";

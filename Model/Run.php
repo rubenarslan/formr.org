@@ -1,43 +1,240 @@
 <?php
 require_once INCLUDE_ROOT . "Model/DB.php";
-require_once INCLUDE_ROOT . "Model/RunUnit.php";
 
-// this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
-class StudyX extends RunUnit
+/*
+## types of run units
+	* branches 
+		(these evaluate a condition and go to one position in the run, can be used for allowing access)
+	* feedback 
+		(atm just markdown pages with a title and body, but will have to use these for making graphs etc at some point)
+		(END POINTS, does not automatically lead to next run unit in list, but doesn't have to be at the end because of branches)
+	* breaks
+		(go on if it's the next day, a certain date etc., so many days after beginning etc.)
+	* emails
+		(there should be another unit afterwards, otherwise shows default end page after email was sent)
+	* surveys 
+		(main component, upon completion give up steering back to run)
+	* external 
+		(formerly forks, can redirect internally to other runs too)
+	* social network (later)
+	* lab date selector (later)
+
+*/
+class Run
 {
 	public $id = null;
 	public $name = null;
 	public $valid = false;
 	public $public = false;
+	private $api_secret = null;
 	public $settings = array();
 	public $errors = array();
 	public $messages = array();
+	private $dbh;
 	
-	public function __construct($name,$options = NULL) 
+	public function __construct($fdb, $name, $options = null) 
 	{
-		$this->dbh = new DB();
+		$this->dbh = $fdb;
 		
-		if($name === null):
-			if(!$this->create($options)):
-			endif;
-		else:
+		if($name !== null OR ($name = $this->create($options))):
 			$this->name = $name;
+			$run_data = $this->dbh->prepare("SELECT id,owner_id,name,api_secret FROM `survey_runs` WHERE name = :run_name LIMIT 1");
+			$run_data->bindParam(":run_name",$this->name);
+			$run_data->execute() or die(print_r($run_data->errorInfo(), true));
+			$vars = $run_data->fetch(PDO::FETCH_ASSOC);
+			
+			if($vars):
+				$this->id = $vars['id'];
+				$this->owner_id = $vars['owner_id'];
+				$this->api_secret = $vars['api_secret'];
+			
+				$this->valid = true;
+			endif;
 		endif;
+	}
+	public function create($options)
+	{
+	    $name = trim($options['run_name']);
+	    if($name == ""):
+			$this->errors[] = _("You have to specify a run name.");
+			return false;
+		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,20}/",$name)):
+			$this->errors[] = _("The run's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
+			return false;
+		elseif($this->existsByName($name)):
+			$this->errors[] = __("The run's name '%s' is already taken.",h($name));
+			return false;
+		endif;
+
+		$this->dbh->beginTransaction();
+		$create = $this->dbh->prepare("INSERT INTO `survey_runs` (owner_id, name, api_secret) VALUES (:owner_id, :name, :api_secret);");
+		$create->bindParam(':owner_id',$options['owner_id']);
+		$create->bindParam(':name',$name);
+		$new_secret = bin2hex(openssl_random_pseudo_bytes(32));
+		$create->bindParam(':api_secret',$new_secret);
+		$create->execute() or die(print_r($create->errorInfo(), true));
+		$this->dbh->commit();
+
+		return $name;
+	}
+	protected function existsByName($name)
+	{
+		$exists = $this->dbh->prepare("SELECT name FROM `survey_runs` WHERE name = :name LIMIT 1");
+		$exists->bindParam(':name',$name);
+		$exists->execute() or die(print_r($create->errorInfo(), true));
+		if($exists->rowCount())
+			return true;
 		
-		$study_data = $this->dbh->prepare("SELECT * FROM `survey_studies` WHERE name = :study_name LIMIT 1");
-		$study_data->bindParam(":study_name",$this->name);
-		$study_data->execute() or die(print_r($study_data->errorInfo(), true));
-		$vars = $study_data->fetch(PDO::FETCH_ASSOC);
+		return false;
+	}
+	public function getAllUnitIds()
+	{
+		$g_unit = $this->dbh->prepare(
+		"SELECT 
+			`survey_run_units`.unit_id,
+			`survey_run_units`.position
 			
-		if($vars):
-			$this->id = $vars['id'];
-			$this->logo_name = $vars['logo_name'];
-			$this->user_id = $vars['user_id'];
+			 FROM `survey_run_units` 
+		WHERE 
+			`survey_run_units`.run_id = :run_id
 			
-			$this->getSettings();
+		ORDER BY `survey_run_units`.position ASC
+		;");
+		$g_unit->bindParam(':run_id',$this->id);
+		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$units = array();
+		while($unit = $g_unit->fetch(PDO::FETCH_ASSOC))
+			$units[] = $unit;
+		
+		return $units;
+	}
+	public function getUnitAdmin($id)
+	{
+		$g_unit = $this->dbh->prepare(
+		"SELECT 
+			`survey_run_units`.*,
+			`survey_units`.*
 			
-			$this->valid = true;
+			 FROM `survey_run_units` 
+			 
+		LEFT JOIN `survey_units`
+		ON `survey_units`.id = `survey_run_units`.unit_id
+		
+		WHERE 
+			`survey_run_units`.run_id = :run_id AND
+			`survey_run_units`.unit_id = :unit_id
+		LIMIT 1
+		;");
+		$g_unit->bindParam(':run_id',$this->id);
+		$g_unit->bindParam(':unit_id',$id);
+		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+
+		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+		return $unit;
+	}
+	public function getUnit($user_code)
+	{
+		$unit = $this->getCurrentUnit($user_code);
+		if(!$unit):
+			$unit = $this->getNextUnit($user_code);
 		endif;
+
+		return $unit;
+	}
+	public function getCurrentUnit($session)
+	{
+		$g_unit = $this->dbh->prepare(
+		"SELECT 
+			`survey_runs`.name AS run_name,
+			`survey_runs`.id,
+			`survey_runs`.owner_id,
+			`survey_run_units`.*,
+			`survey_units`.*,
+			`survey_unit_sessions`.*
+		
+			 FROM `survey_run_units` 
+		 
+		LEFT JOIN `survey_units`
+		ON `survey_units`.id = `survey_run_units`.unit_id
+	
+		LEFT JOIN `survey_runs`
+		ON `survey_run_units`.run_id = `survey_runs`.id
+	
+		LEFT JOIN `survey_unit_sessions`
+		ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+		WHERE 
+			`survey_run_units`.run_id = :run_id AND
+			`survey_unit_sessions`.session = :session AND
+			`survey_unit_sessions`.ended IS NULL
+		
+		ORDER BY `survey_unit_sessions`.created DESC
+		LIMIT 1
+		;");
+		$g_unit->bindParam(':run_id',$this->id);
+		$g_unit->bindParam(':session',$session);
+		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+		return $unit;
+
+	}
+	public function getLastUnit($session)
+	{
+		$g_unit = $this->dbh->prepare(
+		"SELECT *
+			 FROM `survey_run_units` 
+			 
+		LEFT JOIN `survey_units`
+		ON `survey_units`.id = `survey_run_units`.unit_id
+		
+		LEFT JOIN `survey_unit_sessions`
+		ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+		WHERE 
+			`survey_run_units`.run_id = :run_id AND
+			`survey_unit_sessions`.session = :session AND
+			`survey_unit_sessions`.ended IS NOT NULL
+			
+		ORDER BY `survey_unit_sessions`.created DESC
+		LIMIT 1
+		;");
+		$g_unit->bindParam(':run_id',$this->id);
+		$g_unit->bindParam(':session',$session);
+		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+		return $unit;
+	}
+	public function getNextUnit($session)
+	{
+		$last_unit = $this->getLastUnit($session);
+		$g_unit = $this->dbh->prepare(
+		"SELECT 
+			`survey_runs`.name AS run_name,
+			`survey_runs`.id,
+			`survey_runs`.owner_id,
+			`survey_run_units`.*,
+			`survey_units`.*
+			
+			 FROM `survey_run_units` 
+		LEFT JOIN `survey_units`
+		ON `survey_units`.id = `survey_run_units`.unit_id
+
+		LEFT JOIN `survey_runs`
+		ON `survey_run_units`.run_id = `survey_runs`.id
+		
+			WHERE 
+			`survey_run_units`.run_id = :run_id AND
+			`survey_run_units`.position > :position
+		ORDER BY `survey_run_units`.position ASC
+		LIMIT 1
+		;");
+		$g_unit->bindParam(':run_id',$this->id);
+		if($last_unit)
+			$g_unit->bindValue(':position',$last_unit['position']);
+		else
+			$g_unit->bindValue(':position',-1000);
+		
+		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+		return $unit;
 	}
 	protected function getSettings()
 	{
@@ -68,70 +265,11 @@ class StudyX extends RunUnit
 		
 		$this->getSettings();
 	}
-	protected function existsByName($name)
-	{
-		$exists = $this->dbh->prepare("SELECT name FROM `survey_studies` WHERE name = :name LIMIT 1");
-		$exists->bindParam(':name',$name);
-		$exists->execute() or die(print_r($create->errorInfo(), true));
-		if($exists->rowCount())
-			return true;
-		
-		$reserved = $this->dbh->prepare("SHOW TABLES LIKE :name");
-		$reserved->bindParam(':name',$name);
-		$reserved->execute() or die(print_r($reserved->errorInfo(), true));
-		if($reserved->rowCount())
-			return true;
 
-		return false;
-	}
 	
 	/* ADMIN functions */
 	
-	public function create($options)
-	{
-	    $name = trim($options['name']);
-	    if($name == ""):
-			$this->errors[] = _("You have to specify a study name.");
-			return false;
-		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,20}/",$name)):
-			$this->errors[] = _("The study's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
-			return false;
-		elseif($this->existsByName($options['name'])):
-			$this->errors[] = __("The study's name %s is already taken.",h($name));
-			return false;
-		endif;
 
-		$this->dbh->beginTransaction();
-		$this->id = parent::create('Survey');
-		$create = $this->dbh->prepare("INSERT INTO `survey_studies` (id, user_id,name) VALUES (:run_item_id, :user_id,:name);");
-		$create->bindParam(':run_item_id',$this->id);
-		$create->bindParam(':user_id',$options['user_id']);
-		$create->bindParam(':name',$name);
-		$create->execute() or die(print_r($create->errorInfo(), true));
-		$this->dbh->commit();
-		
-		$this->name = $name;
-		
-		$this->changeSettings(array
-			(
-				"logo" => "hu.gif",
-				"welcome" => "Welcome!",
-				"title" => "Survey",
-				"description" => "",
-				"problem_email" => "problems@example.com",
-				"fileuploadmaxsize" => "100000",
-				"closed_user_pool" => 0,
-				"timezone" => "Europe/Berlin",
-				"debug" => 0,
-				"skipif_debug" => 0,
-				"primary_color" => "#ff0000",
-				"secondary_color" => "#00ff00",
-				'custom_styles' => ''
-			)
-		);
-		
-		return true;
-	}
 	protected $user_defined_columns = array(
 		'variablenname', 'wortlaut', 'altwortlautbasedon', 'altwortlaut', 'typ', 'antwortformatanzahl', 'mcalt1', 'mcalt2', 'mcalt3', 'mcalt4', 'mcalt5', 'mcalt6', 'mcalt7', 'mcalt8', 'mcalt9', 'mcalt10', 'mcalt11', 'mcalt12', 'mcalt13', 'mcalt14', 'optional', 'class' ,'skipif' // study_id is not among the user_defined columns
 	);
@@ -250,7 +388,7 @@ class StudyX extends RunUnit
 	}
 	public function getResultCount()
 	{
-		$get = "SELECT SUM(`{$this->name}`.ended IS NULL) AS begun, SUM(`{$this->name}`.ended IS NOT NULL) AS finished FROM `{$this->name}` 
+		$get = "SELECT SUM(ended IS NULL) AS begun, SUM(ended IS NOT NULL) AS finished FROM `{$this->name}` 
 		LEFT JOIN `survey_unit_sessions`
 		ON `survey_unit_sessions`.id = `{$this->name}`.session_id";
 		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
@@ -373,28 +511,41 @@ class StudyX extends RunUnit
 		
 		$this->dbh->commit();
 	}
-	public function displayForRun($position = null,$prepend = '')
-	{
-		if($this->id):
-			$dialog = "<p><strong>Survey:</strong> <a href='".WEBROOT."admin/{$this->name}'>{$this->name}</a></p>";
-		else:
-			$g_studies = $this->dbh->query("SELECT * FROM `survey_studies`");
-			$studies = array();
-			while($study = $g_studies->fetch())
-				$studies[] = $study;
-			if($studies):
-				$dialog = '<div class="control-group">
-				<select class="select2" name="study_name" style="width:300px">
-				<option value=""></option>';
-				foreach($studies as $study):
-				    $dialog .= "<option value=\"{$study['name']}\">{$study['name']}</option>";
-				endforeach;
-				$dialog .= "</select>";
-				$dialog .= '<a class="btn unit_save" href="ajax_add_survey">Add to this run.</a></div>';
-			endif;
-		endif;
-		$dialog = $prepend . $dialog;
-		
-		return parent::runDialog($dialog,'<i class="icon-question icon-4x"></i>',$position);
-	}
 }
+
+
+/*
+
+		$g_unit = $this->dbh->prepare(
+		"SELECT `survey_run_units`.*,`survey_unit_sessions`.*,
+			 `survey_breaks`.id AS break,
+			 `survey_emails`.id AS email,
+			 `survey_pages`.id AS page,
+			 `survey_externals`.id AS external,
+			 `survey_branches`.id AS branch,
+			 `survey_studies`.id AS study
+			 FROM `survey_run_units` 
+		LEFT JOIN `survey_unit_sessions`
+		ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+		
+		left join	`survey_breaks`
+		on 			`survey_breaks`.id =  `survey_run_units`.unit_id
+		left join	`survey_emails`
+		on 			`survey_emails`.id =  `survey_run_units`.unit_id
+		left join	`survey_branches`
+		on 			`survey_branches`.id =  `survey_run_units`.unit_id
+		left join	`survey_pages`
+		on 			`survey_pages`.id =  `survey_run_units`.unit_id
+		left join	`survey_studies`
+		on 			`survey_studies`.id =  `survey_run_units`.unit_id
+		left join	`survey_externals`
+		on 			`survey_externals`.id =  `survey_run_units`.unit_id
+
+
+		WHERE 
+			`survey_run_units`.run_id = :run_id AND
+			`survey_unit_sessions`.session = :session
+		ORDER BY `survey_unit_sessions`.created DESC
+		LIMIT 1
+		;");
+*/

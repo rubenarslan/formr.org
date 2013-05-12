@@ -8,7 +8,7 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 <form class="form-horizontal" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>admin/study_added.php">
 	<div class="control-group">
 		<label class="control-label" for="kurzname">
-			<?php echo _("Studien Kurzname<br>(wird für URL und Ergebnistabelle in der Datenbank benutzt):"); ?>
+			<?php echo _("Studien Kurzname<br>(wird für Ergebnistabelle in der Datenbank (und somit skipifs etc.) benutzt):"); ?>
 		</label>
 		<div class="controls">
 			<input required type="text" placeholder="Name (a-Z0-9_)" name="study_name" id="kurzname">

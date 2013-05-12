@@ -37,18 +37,6 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 
 	// INSTRUCTION
 	switch($type) {
-		case "fork":
-			if(isset($item['ratinguntererpol']) ) 
-				$redirect = $item['ratinguntererpol'];
-			elseif(isset($item['MCalt1']) ) 
-				$redirect = $item['MCalt1'];
-			else 
-				$redirect = 'survey.php';
-			$item = new Item_fork($name, array(
-					'redirect' => $redirect,
-					) + $options);
-			
-			break;
 		case "rating": // todo: ratings will disappear and just be MCs with empty options
 			$reply_options = array_fill(1, $options['size'], '');
 			if(isset($item['ratinguntererpol']) ) 
@@ -339,7 +327,7 @@ class Item
 			return "`{$this->name}` {$this->mysql_field}";
 		else return null;
 	}
-	public function skip($session_id,$dbh,$results_table)
+	public function skip($session_id,$rdb,$results_table)
 	{	
 		// fixme: cant deal with parentheses, mixed and/or etc.
 		if($this->skipIf!=null):
@@ -367,9 +355,8 @@ class Item
 					
 					LIMIT 1";
 					
-					// fixme: multiple results rows being added
 					echo $q;
-					$should_skip = $dbh->prepare($q); // IS NULL clause so that skipifs are not shown if the relevant question has not yet been answered. this will be more conspicuous during testing
+					$should_skip = $rdb->prepare($q); // IS NULL clause so that skipifs are not shown if the relevant question has not yet been answered. this will be more conspicuous during testing
 					$should_skip->bindParam(":session_id", $session_id);
 
 					$should_skip->bindParam(":value", $matches[3]);
@@ -418,7 +405,7 @@ class Item
 		
    	   	$view_update->execute() or die(print_r($view_update->errorInfo(), true));
 	}
-	public function switchText($session_id,$dbh,$results_table) {
+	public function switchText($session_id,$rdb,$results_table) {
         if (@$this->switch_text != null) 
 		{
 			if(! preg_match("(/([A-Za-z0-9_]+)\s*(!=|=|==|>|<)\s*['\"]*(\w+)['\"]*\s*/",trim($this->switch_text), $matches) )
@@ -429,7 +416,7 @@ class Item
 			{
 				if($matches[2] == '==') $matches[2] = '=';
 				
-				$switch_condition = $dbh->prepare("SELECT (`{$matches[1]}` {$matches[2]} :value) AS test FROM `{$results_table}` WHERE session_id = :session_id");
+				$switch_condition = $rdb->prepare("SELECT (`{$matches[1]}` {$matches[2]} :value) AS test FROM `{$results_table}` WHERE session_id = :session_id");
 				$switch_condition->bindParam(":session_id", $session_id);
 				$switch_condition->bindParam(":value", $matches[3]);
 				$switch_condition->execute() or die(print_r($switch_condition->errorInfo(), true));
@@ -976,25 +963,6 @@ class Item_sex extends Item_btnradio
 	{
 		parent::setMoreOptions();
 		$this->reply_options = array(1=>'♂',2=>'♀');
-	}
-}
-
-class Item_fork extends Item {
-	public $type = 'fork';
-	protected $mysql_field =  null;
-	public function render() {
-        global $study;
-        global $run;
-		$ret = '';
-	    // fixme: forks should do PROPER redirects, but at the moment the primitive MVC separation makes this a problem
-		if(isset($run))
-			$link=$ratinguntererpol."?study_id=".$study->id."&run_id=".$run->id;
-		else
-			$link=$ratinguntererpol."?study_id=".$study->id;
-		
-		if(TIMEDMODE) 
-			$link .= "&ts=$timestarted";
-		redirect_to($link);
 	}
 }
 

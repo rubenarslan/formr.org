@@ -126,3 +126,18 @@ form.form-horizontal div.form-row.item-checkbox div.controls label, form.form-ho
 .form-horizontal .control-group.small-left .controls {
   	margin-left: 120px;
 }
+
+input.position
+{
+	border:0;
+	box-shadow:none;
+	background:transparent;
+	font-weight:bold;
+	font-size:50px;
+	height:53px;
+	text-align:right;
+	width:53px;
+}
+div.run_unit {
+	padding-bottom:20px;
+}

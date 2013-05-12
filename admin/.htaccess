@@ -3,7 +3,7 @@ AuthName "AdminBereich"
 AuthBasicProvider file
 #local
 AuthUserFile /Applications/MAMP/htdocs/zwang/.htpasswd
-#prod
+# on HU subdomain
 #AuthUserFile /usr/local/www/htdocs/zwang/.htpasswd
 Require valid-user
 
@@ -11,5 +11,7 @@ Require valid-user
     RewriteEngine On
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^/?([a-z0-9_]+)/([a-z0-9_]+)/?$ $2.php?study_name=$1 [QSA,L]
+    RewriteRule ^([a-z0-9_]+)/([a-z0-9_]+)/?$ $2.php?study_name=$1 [QSA,L]
+	# on HU subdomain
+#	RewriteBase /survey/admin/
 </IfModule>
