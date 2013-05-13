@@ -207,7 +207,7 @@ LIMIT 10";
 			
 $q = "SELECT ( $condition ) AS test FROM `survey_unit_sessions`
 $join
-WHERE `survey_unit_sessions`.session_id = :session_id
+WHERE `survey_unit_sessions`.id = :session_id
 LIMIT 1";
 		
 		$evaluate = $this->dbh->prepare($q); // should use readonly
@@ -225,6 +225,8 @@ LIMIT 1";
 			$result = false;
 		endif;
 
+#		if(DEBUG>-1)
+#			$this->message_parsed .= "<pre>$q</pre>";
 		if($result)
 		{
 			$this->end();

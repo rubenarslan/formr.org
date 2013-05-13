@@ -205,9 +205,7 @@ class StudyX extends RunUnit
 	}
 	public function getResults()
 	{
-		$get = "SELECT `survey_unit_sessions`.session, `{$this->name}`.* FROM `{$this->name}` 
-		LEFT JOIN `survey_unit_sessions`
-		ON `survey_unit_sessions`.id = `{$this->name}`.session_id";
+		$get = "SELECT `{$this->name}`.* FROM `{$this->name}`";
 		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
 		$results = array();
 		while($row = $get->fetch(PDO::FETCH_ASSOC))
@@ -230,15 +228,18 @@ class StudyX extends RunUnit
 	public function deleteResults()
 	{
 		$resC = $this->getResultCount();
-		if($resC['finished'] > 10)
+		if($resC['finished'] > 10):
 			$this->backupResults();
-		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
-		$delete_sessions = $this->dbh->prepare ( "DELETE FROM `survey_unit_sessions` 
-		WHERE `unit_id` = :study_id" ) or die(print_r($this->dbh->errorInfo(), true));
-		$delete_sessions->bindParam(':study_id',$this->id);
-		$delete_sessions->execute();
-		
-		return $delete;
+		elseif($resC['finished']>0):
+			$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
+			$delete_sessions = $this->dbh->prepare ( "DELETE FROM `survey_unit_sessions` 
+			WHERE `unit_id` = :study_id" ) or die(print_r($this->dbh->errorInfo(), true));
+			$delete_sessions->bindParam(':study_id',$this->id);
+			$delete_sessions->execute();
+			// todo: rm item displays too
+			return $delete;
+		endif;
+		return false;
 	}
 	public function backupResults()
 	{
@@ -250,14 +251,19 @@ class StudyX extends RunUnit
 	}
 	public function getResultCount()
 	{
-		$get = "SELECT SUM(`{$this->name}`.ended IS NULL) AS begun, SUM(`{$this->name}`.ended IS NOT NULL) AS finished FROM `{$this->name}` 
-		LEFT JOIN `survey_unit_sessions`
-		ON `survey_unit_sessions`.id = `{$this->name}`.session_id";
-		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
-		return $get->fetch(PDO::FETCH_ASSOC);
+		if($this->dbh->table_exists($this->name)):
+			$get = "SELECT SUM(`{$this->name}`.ended IS NULL) AS begun, SUM(`{$this->name}`.ended IS NOT NULL) AS finished FROM `{$this->name}` 
+			LEFT JOIN `survey_unit_sessions`
+			ON `survey_unit_sessions`.id = `{$this->name}`.session_id";
+			$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
+			return $get->fetch(PDO::FETCH_ASSOC);
+		else:
+			return array('finished' => 0, 'begun' => 0);
+		endif;
 	}
 	public function createResultsTable($items)
 	{
+		$this->deleteResults();
 		$columns = array();
 		foreach($items AS $item)
 		{
@@ -269,16 +275,24 @@ class StudyX extends RunUnit
 		
 		$columns = implode(",\n", $columns);
 #		pr($this->name);
-		$create = "CREATE TABLE IF NOT EXISTS `{$this->name}` (
-                    session_id INT NOT NULL,
-					study_id INT NOT NULL,
-                    modified DATETIME DEFAULT NULL,
-                    created DATETIME DEFAULT NULL,
-                    ended DATETIME DEFAULT NULL,
-					$columns,
-                    UNIQUE (
-                        session_id
-                    )) ENGINE = MyISAM CHARACTER SET utf8 COLLATE utf8_general_ci";
+		$drop = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}` ;");
+		$drop->execute();
+		$create = "CREATE TABLE `{$this->name}` (
+		  `session_id` INT UNSIGNED NOT NULL ,
+		  `study_id` INT UNSIGNED NOT NULL ,
+		  `session` CHAR(64) NOT NULL ,
+		  `modified` DATETIME NULL DEFAULT NULL ,
+		  `created` DATETIME NULL DEFAULT NULL ,
+		  `ended` DATETIME NULL DEFAULT NULL ,
+			$columns,
+		  
+		  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
+		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
+		  UNIQUE INDEX `session_UNIQUE` (`session` ASC) ,
+		  PRIMARY KEY (`session_id`) )
+		ENGINE = MyISAM
+		DEFAULT CHARACTER SET = utf8";
+#		pr($create);
 
 		$create_table = $this->dbh->query($create) or die(print_r($this->dbh->errorInfo(), true));
 		if($create_table)

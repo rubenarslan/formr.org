@@ -286,7 +286,8 @@ function join_builder($fdb,$q)
 		if(!in_array($table,array('users','survey_users'))):
 $join .= "
 left join `$table`
-	on `$table`.session_id = `survey_unit_sessions`.id";
+	on `$table`.session = `survey_unit_sessions`.session";
+	
 		elseif($table == 'users'):
 $join .= "
 left join `$table`

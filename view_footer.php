@@ -3,7 +3,7 @@
 	$_SESSION['user'] = serialize($user);
 
 	session_write_close();
-	pr($_SESSION);
+#	pr($_SESSION);
 ?>
 </div> <!-- end of main content div -->
 

@@ -8,6 +8,7 @@ class Email extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
+	private $mail_sent = false;
 	
 	private $body = '';
 	private $body_parsed = '';
@@ -26,108 +27,243 @@ class Email extends RunUnit {
 			
 			if($vars):
 				$this->account_id = $vars['account_id'];
+				$this->recipient_field = $vars['recipient_field'];
 				$this->body = $vars['body'];
-				$this->body_parsed = $vars['body_parsed'];t
+				$this->body_parsed = $vars['body_parsed'];
 				$this->subject = $vars['subject'];
-				$this->can_end = $vars['end'];
+				$this->html = $vars['html'];
 		
 				$this->valid = true;
 			endif;
 		endif;
-		
-		if(!empty($_POST) AND isset($_POST['page_submit']))
-		{
-			unset($_POST['page_submit']);
-			$this->end();
-		}
 	}
 	public function create($options)
 	{
 		$this->dbh->beginTransaction();
 		if(!$this->id)
-			$this->id = parent::create('Page');
+			$this->id = parent::create('Email');
 		
 		if(isset($options['body']))
 		{
+			$this->recipient_field = $options['recipient_field'];
 			$this->body = $options['body'];
 			$this->subject = $options['subject'];
-			$this->can_end = $options['end'];
+			$this->account_id = $options['account_id'];
+			$this->html = $options['html'];
 		}
 		
 		$this->body_parsed = Markdown::defaultTransform($this->body); // transform upon insertion into db instead of at runtime
 		
-		$create = $this->dbh->prepare("INSERT INTO `survey_pages` (`id`, `body`, `body_parsed`, `subject`, `end`)
-			VALUES (:id, :body, :body_parsed, :subject, :end)
+		$create = $this->dbh->prepare("
+		INSERT INTO `survey_emails` (
+		`id` ,
+		`account_id` ,
+		`subject` ,
+		`recipient_field` ,
+		`body` ,
+		`body_parsed` ,
+		`html`
+		)
+			VALUES (:id, :account_id, :recipient_field, :body, :body_parsed, :subject, :html)
 		ON DUPLICATE KEY UPDATE
+			`recipient_field` = :recipient_field, 
+			`account_id` = :account_id,
 			`body` = :body, 
 			`body_parsed` = :body_parsed, 
 			`subject` = :subject, 
-			`end` = :end
+			`html` = :html
 		;");
 		$create->bindParam(':id',$this->id);
+		$create->bindParam(':account_id',$this->account_id);
+		$create->bindParam(':recipient_field',$this->recipient_field);
 		$create->bindParam(':body',$this->body);
 		$create->bindParam(':body_parsed',$this->body_parsed);
 		$create->bindParam(':subject',$this->subject);
-		$create->bindParam(':end',$this->can_end);
+		$create->bindParam(':html',$this->html);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
 		$this->valid = true;
 		
 		return true;
 	}
+	private function getBody()
+	{
+		if(isset($this->run_name))		
+			$login_link = WEBROOT."access.php?run_name={$this->run_name}&code={$this->session}";
+		else $login_link = WEBROOT;
+		if($this->html):
+			$login_link = "<a href='$login_link'>Login link</a>";
+			$this->body_parsed = str_replace("{{login_link}}", $login_link , $this->body_parsed);
+			return $this->body_parsed;
+		else:
+			$this->body_parsed = str_replace("{{login_link}}", $login_link , $this->body_parsed);
+			return $this->body;
+		endif;
+	}
 	public function displayForRun($prepend = '')
 	{
-		if($this->id):
-			$dialog = '<p><label>Subject: <br>
-				<input type="text" placeholder="Email subject" name="subject" value="'.$this->subject.'">
-			</label></p>
-			<p><label>Body: <br>
-				<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" style="width:399px">'.$this->body.'</textarea></label></p>
-			<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
-			$dialog .= '<p><a class="btn unit_save" href="ajax_save_run_unit?type=Email">Save.</a></p>';
-			$dialog .= '<p><a class="btn unit_test" href="ajax_test_unit?type=Email">Preview.</a></p>';
-			
-		else:
-			$dialog = '';
-			$g_studies = $this->dbh->query("SELECT * FROM `survey_email_accounts`");
-			$accs = array();
-			while($acc = $g_studies->fetch())
-				$accs[] = $acc;
-			if($accs):
-				$dialog = '<div class="control-group">
-				<select class="select2" name="account_id" style="width:300px">
-				<option value=""></option>';
-				foreach($accs as $acc):
+		$accs = $this->dbh->prepare("SELECT `id`,`from` FROM `survey_email_accounts` WHERE user_id = :user_id");
+		global $user;
+		$accs->bindParam(':user_id',$user->id);
+		$accs->execute();
+		$results = array();
+		while($acc = $accs->fetch(PDO::FETCH_ASSOC))
+			$results[] = $acc;
+		
+		if($results):
+			$dialog = '<div class="control-group"><label>Account:
+			<select class="select2" name="account_id" style="width:300px">
+			<option value=""></option>';
+			foreach($results as $acc):
+				if($this->account_id == $acc['id'])
+				    $dialog .= "<option selected value=\"{$acc['id']}\">{$acc['from']}</option>";
+				else
 				    $dialog .= "<option value=\"{$acc['id']}\">{$acc['from']}</option>";
-				endforeach;
-				$dialog .= "</select>";
-				$dialog .= '<a class="btn unit_save" href="ajax_save_run_unit?type=Email">Add to this run.</a></div>';
-			else:
-				$dialog .= "<h5>No email accounts. Add some first</h5>";
-			endif;
+			endforeach;
+			$dialog .= "</select>";
+			$dialog .= '</label></div>';
+		else:
+			$dialog .= "<h5>No email accounts. Add some first</h5>";
 		endif;
+		$dialog .= '<p><label>Subject: <br>
+			<input type="text" placeholder="Email subject" name="subject" value="'.$this->subject.'">
+		</label></p>
+		<p><label>Recipient-Field: <br>
+					<input type="text" placeholder="survey_users.email" name="recipient_field" value="'.$this->recipient_field.'">
+				</label></p>
+		<p><label>Body: <br>
+			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" style="width:399px">'.$this->body.'</textarea></label><br>
+			<code>{{login_link}}</code> will be replaced by a personalised link to this run.</p>
+		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
+		$dialog .= '<p><a class="btn unit_save" href="ajax_save_run_unit?type=Email">Save.</a></p>';
+		$dialog .= '<p><a class="btn unit_test" href="ajax_test_unit?type=Email">Test</a></p>';
+		
 		$dialog = $prepend . $dialog;
 		return parent::runDialog($dialog,'icon-envelope');
 	}
-	public function removeFromRun($run_id)
+	public function getRecipientField()
 	{
-		return $this->delete();		
+		if($this->recipient_field!== null AND trim($this->recipient_field)!='')
+		{
+			$join = join_builder($this->dbh, $this->recipient_field);
+		}
+		else {
+			$this->relative_to = '`survey_users`.email';
+			$join = 'left join `survey_users`
+on `survey_users`.user_code = `survey_unit_sessions`.session';
+		}
+			
+$q = "SELECT {$this->recipient_field} AS email FROM `survey_unit_sessions`
+$join
+WHERE `survey_unit_sessions`.id = :session_id
+LIMIT 1";
+
+		$g_email = $this->dbh->prepare($q); // should use readonly
+		$g_email->bindParam(":session_id", $this->session_id);
+
+
+		$g_email->execute() or die(print_r($g_email->errorInfo(), true));
+		if($g_email->rowCount()===1):
+			$temp = $g_email->fetch(PDO::FETCH_ASSOC);
+			$email = $temp['email'];
+		else:
+			$email = '';
+		endif;
+		return $email;
+	}
+	public function sendMail($who = NULL)
+	{
+		if($who===null):
+			$this->recipient = $this->getRecipientField();
+		else:
+			$this->recipient = $who;
+		endif;
+		require_once INCLUDE_ROOT. 'Model/EmailAccount.php';
+		
+		$acc = new EmailAccount($this->dbh, $this->account_id, null);
+		$mail = $acc->makeMailer();
+		if($this->html)
+			$mail->IsHTML(true);  
+		
+		$mail->AddAddress($this->recipient);
+		$mail->Subject = $this->subject;
+		$mail->Body    = $this->getBody();
+		
+		if(!$mail->Send())
+		{
+		   return $mail->ErrorInfo;
+		}
+		else 
+		{
+			$this->mail_sent = true;
+	    	if($who===null) $this->logMail();
+		}
+	}
+	private function logMail()
+	{
+		$log = $this->dbh->prepare("INSERT INTO `survey_email_log` (id, session_id, email_id, created, recipient)
+			VALUES ('', :session_id, :email_id, NOW(), :recipient)");
+		$log->bindParam(':session_id', $this->session_id);
+		$log->bindParam(':email_id', $this->id);
+		$log->bindParam(':recipient', $this->recipient);
+		$log->execute();	
 	}
 	public function test()
 	{
-		echo $this->body_parsed;
-		if(!$this->can_end)
-		{
-			$ret = '<form method="post" accept-charset="utf-8">';
-			$ret = '<input type="button" class="btn btn-success" value="Weiter!" name="page_submit">';
-			$ret .= '</form>';
-			echo $ret;
-		}
+		$RandReceiv = bin2hex(openssl_random_pseudo_bytes(5));
+		$receiver = $RandReceiv . '@mailinator.com';
+		$this->sendMail($receiver);
+		$link = "{$RandReceiv}.mailinator.com";
+		
+		echo "<h4>{$this->subject}</h4>";
+		echo "<p><a href='http://$link'>$link</a></p>";
+		echo $this->getBody();
+		
+		if($this->recipient_field === null OR trim($this->recipient_field)=='')
+			$this->recipient_field = '`survey_users`.email';
+		
+		$join = join_builder($this->dbh, $this->recipient_field);
 			
-	} 
+$q = "SELECT DISTINCT {$this->recipient_field} AS email,session FROM `survey_unit_sessions`
+$join
+ORDER BY RAND()
+LIMIT 20";
+#echo $q;
+
+		$g_email = $this->dbh->prepare($q); // should use readonly
+
+		$g_email->execute() or die(print_r($g_email->errorInfo(), true));
+		if($g_email->rowCount()>=1):
+			$results = array();
+			while($temp = $g_email->fetch())
+				$results[] = $temp;
+		else:
+			echo 'Nothing found';
+			return false;
+		endif;
+		
+		echo '<table class="table table-striped">
+				<thead><tr>
+					<th>Code</th>
+					<th>Email</th>
+				</tr></thead>
+				<tbody>"';
+		foreach($results AS $row):
+			echo "<tr>
+					<td><small>{$row['session']}</small></td>
+					<td>".h($row['email'])."</td>
+				</tr>";
+		endforeach;
+		echo '</tbody></table>';
+	}
 	public function exec()
 	{
-		$this->sendMail();
-		return false;
+		$err = $this->sendMail();
+		if($this->mail_sent):
+			$this->end();
+			return false;
+		else:
+			return array('body'=>$err);
+		endif;
 	}
 }

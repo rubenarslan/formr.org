@@ -11,6 +11,9 @@
 		<li <?=endsWith($_SERVER['PHP_SELF'],'add_run.php')?' class="active"':''?>>
 			<a href="<?=WEBROOT?>acp/add_run"><?php echo _("create run"); ?></a>
 		</li>
+		<li <?=endsWith($_SERVER['PHP_SELF'],'list_email_accounts.php')?' class="active"':''?>>
+			<a href="<?=WEBROOT?>acp/list_email_accounts"><?php echo _("list accounts"); ?></a>
+		</li>
 		<li <?=endsWith($_SERVER['PHP_SELF'],'index.php')?' class="active"':''?>>
 			<a href="<?=WEBROOT?>index"><?php echo _("public area"); ?></a>
 		</li>

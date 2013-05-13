@@ -21,7 +21,7 @@ if(isset($_POST['study_id']))
 {
 	$messages[] = 'Existing study is being modified.';
 	$study = new StudyX($fdb,null,array('unit_id' => $_POST['study_id']));
-	if($user->ownStudy($study))
+	if(!$user->createdStudy($study))
 		$errors[] = "You don't own this study.";
 }
 else  // a new study is being created
@@ -76,7 +76,7 @@ if (empty($errors)):
 
     if (empty($study->errors) AND $study->insertItems($data) AND $study->createResultsTable($data)) 
 	{
-		alert('<strong>Erfolg!</strong> Studie wurde erstellt!','alert-success');
+		alert('<strong>Success!</strong> Study created!','alert-success');
 		$study_link = "<div><a class='btn btn-large btn-success' href='".WEBROOT."admin/{$study->name}/show_item_table'>"._('Check item table').'</a></div>';
 		$messages = $messages + $study->messages;
     }

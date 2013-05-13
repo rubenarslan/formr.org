@@ -110,7 +110,6 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 // special label handling
 
 // todo: geolocation
-// todo: parse attributes properly, generalise items
 class Item 
 {
 	public $id = null;
@@ -360,7 +359,7 @@ class Item
 			$skipIfs = preg_split('/(AND|OR)/',$this->skipIf);
 			$constraints = array();
 			foreach($skipIfs AS $skip):
-				if(! preg_match("/([A-Za-z0-9_]+)\s*(!=|=|==|>|<|>=|<=)\s*['\"]*(\w+)['\"]*\s*/",trim($skip), $matches) ):
+				if(! preg_match("/([A-Za-z0-9_]+)\s*(!=|=|==|>|<|>=|<=|LIKE)\s*['\"]*([\w%_]+)['\"]*\s*/",trim($skip), $matches) ):
 					die ($this->name . " invalid skipIf");
 				else:
 					if($matches[2] == '==') $matches[2] = '=';
@@ -380,15 +379,15 @@ class Item
 					$should_skip->bindParam(":value", $matches[3]);
 
 					$should_skip->execute() or die(print_r($should_skip->errorInfo(), true));
-					if($should_skip->rowCount()>0):
-						$constraints[$skip] = $should_skip->fetch();
-						$constraints[$skip] = $constraints[$skip][0];
+					if($should_skip->rowCount() > 0):
+						$tmp = $should_skip->fetch(PDO::FETCH_ASSOC);
+						$constraints[$skip] = (bool)$tmp['test'];
 					else:
 						$constraints[$skip] = true;
 					endif;
 				endif;
 			endforeach;
-			echo $this->name;
+#			echo $this->name;
 #			pr($constraints);
 			
 			if(strpos($this->skipIf,'AND')!==false AND !in_array(false,$constraints,true)):
@@ -701,7 +700,6 @@ class Item_instruction extends Item
 	}
 }
 
-// todo: should this be addable by the user? instead of relevant-column?
 class Item_submit extends Item 
 {
 	public $type = 'submit';

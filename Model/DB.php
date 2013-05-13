@@ -50,7 +50,8 @@ class DB extends PDO
     }
 
 	public function table_exists($table) {
-	    if( $this->num_rows("SHOW TABLES LIKE '".$table."'") == 1 ) {
+		$num = $this->num_rows("SHOW TABLES LIKE '".$table."'");
+	    if( $num == 1 ) {
 	        return true;
 	    } else {
 	        return false;

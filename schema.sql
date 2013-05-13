@@ -242,6 +242,7 @@ CREATE  TABLE IF NOT EXISTS `zwang`.`survey_email_accounts` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `user_id` INT UNSIGNED NOT NULL ,
   `from` VARCHAR(255) NULL ,
+  `from_name` VARCHAR(255) NULL ,
   `host` VARCHAR(255) NULL ,
   `port` SMALLINT NULL ,
   `tls` TINYINT NULL ,
@@ -317,8 +318,9 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 CREATE  TABLE IF NOT EXISTS `zwang`.`survey_emails` (
   `id` INT UNSIGNED NOT NULL ,
-  `account_id` INT UNSIGNED NOT NULL ,
+  `account_id` INT UNSIGNED NULL ,
   `subject` VARCHAR(255) NULL ,
+  `recipient_field` VARCHAR(255) NULL ,
   `body` TEXT NULL ,
   `body_parsed` TEXT NULL ,
   `html` TINYINT(1) NULL ,
@@ -380,6 +382,24 @@ CREATE  TABLE IF NOT EXISTS `zwang`.`survey_pages` (
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `zwang`.`survey_results`
+-- -----------------------------------------------------
+CREATE  TABLE IF NOT EXISTS `zwang`.`survey_results` (
+  `session_id` INT UNSIGNED NOT NULL ,
+  `study_id` INT UNSIGNED NOT NULL ,
+  `session` CHAR(64) NOT NULL ,
+  `modified` DATETIME NULL DEFAULT NULL ,
+  `created` DATETIME NULL DEFAULT NULL ,
+  `ended` DATETIME NULL DEFAULT NULL ,
+  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
+  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
+  UNIQUE INDEX `session_UNIQUE` (`session` ASC) ,
+  PRIMARY KEY (`session_id`) )
+ENGINE = MyISAM
+DEFAULT CHARACTER SET = utf8;
 
 
 -- -----------------------------------------------------

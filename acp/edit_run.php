@@ -1,5 +1,4 @@
 <?php
-// todo: add each step should display how many people have reached it
 require_once '../define_root.php';
 require_once INCLUDE_ROOT . "admin/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Run.php";
@@ -49,10 +48,10 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 				<a class="add_pause add_run_unit btn btn-large hastooltip" title="Add pause" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=Pause">
 					<i class="icon-time icon-2x"></i>
 				</a>
-				<a class="add_external add_run_unit  btn btn-large hastooltip" title="Add external link">
+				<a class="add_external add_run_unit  btn btn-large hastooltip" title="Add external link"href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=External">
 					<i class="icon-external-link icon-2x"></i>
 				</a>
-				<a class="add_email add_run_unit btn btn-large hastooltip" title="Add email">
+				<a class="add_email add_run_unit btn btn-large hastooltip" title="Add email" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=Email">
 					<i class="icon-envelope icon-2x"></i>
 				</a>
 				<a class="add_page add_run_unit btn btn-large hastooltip" title="Add feedback page" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=Page">

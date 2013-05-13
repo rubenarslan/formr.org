@@ -76,8 +76,8 @@ class Survey extends RunUnit {
 		unset($posted['ended']); // cant overwrite
 
 		
-		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (study_id, item_id,  session_id, answered, answered_time, modified)
-																  VALUES(	:study_id, :item_id, :session_id, 1, 		NOW(),	NOW()	) 
+		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (study_id, item_id, session_id, answered, answered_time, modified)
+																  VALUES(	:study_id, :item_id,  :session_id, 1, 		NOW(),	NOW()	) 
 		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
 		
 		$answered->bindParam(":session_id", $this->session_id);
@@ -90,18 +90,19 @@ class Survey extends RunUnit {
 				if( ! $this->unanswered_batch[$name]->error )
 				{
 					
-					if(is_array($posted[$name])) $value = implode(", ",$posted[$name]);
+					if(is_array($posted[$name])) $value = implode(", ",array_filter($posted[$name]));
 					else $value = $posted[$name];
 
 					$this->dbh->beginTransaction() or die(print_r($answered->errorInfo(), true));
 					$answered->bindParam(":item_id", $this->unanswered_batch[$name]->id);
 			   	   	$answered->execute() or die(print_r($answered->errorInfo(), true));
 					
-					$post_form = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`, `$name`)
-																			  VALUES(:session_id, :study_id, NOW(),	    NOW(),	 		:$name) 
+					$post_form = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `session`, `study_id`, `created`, `modified`, `$name`)
+																			  VALUES(:session_id, :session, :study_id, NOW(),	    NOW(),	 		:$name) 
 					ON DUPLICATE KEY UPDATE `$name` = :$name, modified = NOW();");
 				    $post_form->bindParam(":$name", $value);
 					$post_form->bindParam(":session_id", $this->session_id);
+					$post_form->bindParam(":session", $this->session);
 					$post_form->bindParam(":study_id", $this->id);
 					$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 
@@ -189,7 +190,6 @@ class Survey extends RunUnit {
 		ORDER BY `survey_items`.id ASC;";
 		
 #		if($this->maximum_number_displayed) $item_query .= " LIMIT {$this->maximum_number_displayed}";
-#		todo: max_displayed many annoyances with forward looking kind of items, and I want to do this dynamically anyway.		
 		$get_items = $this->dbh->prepare($item_query) or die(print_r($this->dbh->errorInfo(), true));
 		
 		$get_items->bindParam(":session_id",$this->session_id);
@@ -294,7 +294,7 @@ class Survey extends RunUnit {
 	        if (
 				($this->maximum_number_displayed != null AND
 				$itemsDisplayed >= $this->maximum_number_displayed) OR 
-				$item->type === 'submit'  // todo: relevant-column can be killed off now
+				$item->type === 'submit' 
 			)
 			{
 				$need_submit = ($item->type !== 'submit');

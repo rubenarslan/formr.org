@@ -165,6 +165,22 @@ class UserX
 		endif;
 		return false;
 	}
+	public function getEmailAccounts() {
+		if($this->isAdmin()):
+			$accs = $this->dbh->prepare("SELECT `id`,`from` FROM `survey_email_accounts` WHERE user_id = :user_id");
+			$accs->bindParam(':user_id',$this->id);
+			$accs->execute();
+			$results = array();
+			while($acc = $accs->fetch(PDO::FETCH_ASSOC))
+			{
+				if($acc['from']==null) $acc['from'] = 'New.';
+				$results[] = $acc;
+			}
+			return $results;
+		endif;
+		
+		return false;
+	}
 	public function getRuns() {
 		if($this->isAdmin()):
 			$studies = $this->dbh->query("SELECT * FROM `survey_runs`");

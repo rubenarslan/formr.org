@@ -13,7 +13,7 @@ RunUnit.prototype.init = function(content)
 	this.position.change($.proxy(this.position_changes,this));
 		
 	this.dialog_inputs = this.block.find('div.run_unit_dialog input,div.run_unit_dialog  select, div.run_unit_dialog button, div.run_unit_dialog textarea,div.run_unit_position input.position');
-	console.log(this.dialog_inputs);
+//	console.log(this.dialog_inputs);
 	this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
 	this.dialog_inputs.change($.proxy(this.changes,this));
 	
@@ -72,7 +72,7 @@ RunUnit.prototype.test = function(e)
 		.done($.proxy(function(data)
 		{
 			
-			var $modal = $($.parseHTML('<!-- Modal --><div id="myModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">  <div class="modal-header">    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>    <h3 id="myModalLabel">Test result</h3>  </div>  <div class="modal-body">' + data + '  </div>  <div class="modal-footer">    <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>  </div></div>'));
+			var $modal = $($.parseHTML('<div id="myModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">  <div class="modal-header">    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>    <h3 id="myModalLabel">Test result</h3>  </div>  <div class="modal-body">' + data + '  </div>  <div class="modal-footer">    <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>  </div></div>'));
 			$modal.modal('show');
 		},this))
 		.fail(ajaxErrorHandling);
@@ -280,7 +280,7 @@ $(document).ready(function () {
 			message = true;
 			return false;
 		});
-		console.log(message);
+//		console.log(message);
 		if (message ) {
 			return 'You have unsaved changes.'
 		}
