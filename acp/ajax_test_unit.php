@@ -19,7 +19,7 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 		require_once INCLUDE_ROOT . "Model/$type.php";
 		$unit = new $type($fdb,null,$unit);
 		
-		echo $unit->displayForRun();
+		$unit->test();
 	endif;
 endif;
 

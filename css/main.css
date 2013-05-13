@@ -141,3 +141,11 @@ input.position
 div.run_unit {
 	padding-bottom:20px;
 }
+/* bugfix so flipping works */
+a [class^="icon-"], a [class*=" icon-"], a [class^="icon-"]:before, a [class*=" icon-"]:before {
+    display: inline-block;
+}
+.icon-6-5x
+{
+	font-size:6.5em;
+}

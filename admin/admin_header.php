@@ -7,7 +7,7 @@ if(!$user->isAdmin()) {
 	redirect_to("index.php");
 }
 if(isset($_GET['study_name'])):
-	$study = new StudyX($_GET['study_name']);
+	$study = new StudyX($fdb,null,array('name' => $_GET['study_name']));
 
 	if(!$study->valid)
 	{

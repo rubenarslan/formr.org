@@ -274,14 +274,16 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `zwang`.`survey_breaks`
+-- Table `zwang`.`survey_pauses`
 -- -----------------------------------------------------
-CREATE  TABLE IF NOT EXISTS `zwang`.`survey_breaks` (
+CREATE  TABLE IF NOT EXISTS `zwang`.`survey_pauses` (
   `id` INT UNSIGNED NOT NULL ,
   `wait_until_time` TIME NULL ,
   `wait_until_date` DATE NULL ,
   `wait_minutes` INT UNSIGNED NULL ,
   `relative_to` VARCHAR(255) NULL ,
+  `message` TEXT NULL ,
+  `message_parsed` TEXT NULL ,
   INDEX `fk_survey_breaks_survey_run_items1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
   CONSTRAINT `fk_survey_breaks_survey_run_items1`
@@ -317,7 +319,9 @@ CREATE  TABLE IF NOT EXISTS `zwang`.`survey_emails` (
   `id` INT UNSIGNED NOT NULL ,
   `account_id` INT UNSIGNED NOT NULL ,
   `subject` VARCHAR(255) NULL ,
-  `body` VARCHAR(255) NULL ,
+  `body` TEXT NULL ,
+  `body_parsed` TEXT NULL ,
+  `html` TINYINT(1) NULL ,
   INDEX `fk_survey_emails_survey_units1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
   INDEX `fk_survey_emails_survey_email_accounts1_idx` (`account_id` ASC) ,
@@ -339,15 +343,22 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 CREATE  TABLE IF NOT EXISTS `zwang`.`survey_email_log` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
+  `session_id` INT UNSIGNED NOT NULL ,
   `email_id` INT UNSIGNED NOT NULL ,
   `created` DATETIME NOT NULL ,
   `recipient` VARCHAR(255) NULL ,
   PRIMARY KEY (`id`) ,
   INDEX `fk_survey_email_log_survey_emails1_idx` (`email_id` ASC) ,
+  INDEX `fk_survey_email_log_survey_unit_sessions1_idx` (`session_id` ASC) ,
   CONSTRAINT `fk_survey_email_log_survey_emails1`
     FOREIGN KEY (`email_id` )
     REFERENCES `zwang`.`survey_emails` (`id` )
     ON DELETE CASCADE
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_survey_email_log_survey_unit_sessions1`
+    FOREIGN KEY (`session_id` )
+    REFERENCES `zwang`.`survey_unit_sessions` (`id` )
+    ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
@@ -358,9 +369,9 @@ ENGINE = InnoDB;
 CREATE  TABLE IF NOT EXISTS `zwang`.`survey_pages` (
   `id` INT UNSIGNED NOT NULL ,
   `body` TEXT NULL ,
-  `name` VARCHAR(255) NOT NULL ,
-  `title` VARCHAR(255) NOT NULL ,
-  `end` TINYINT(1) NOT NULL DEFAULT 1 ,
+  `body_parsed` TEXT NULL ,
+  `title` VARCHAR(255) NULL ,
+  `end` TINYINT(1) NULL DEFAULT 1 ,
   INDEX `fk_survey_feedback_survey_units1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
   CONSTRAINT `fk_page_unit`
@@ -370,6 +381,42 @@ CREATE  TABLE IF NOT EXISTS `zwang`.`survey_pages` (
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
+
+-- -----------------------------------------------------
+-- Placeholder table for view `zwang`.`view_run_unit_sessions`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `zwang`.`view_run_unit_sessions` (`session_id` INT, `session` INT, `created` INT, `ended` INT, `run_name` INT, `id` INT, `owner_id` INT, `position` INT, `unit_id` INT, `run_id` INT, `type` INT);
+
+-- -----------------------------------------------------
+-- View `zwang`.`view_run_unit_sessions`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `zwang`.`view_run_unit_sessions`;
+USE `zwang`;
+CREATE  OR REPLACE VIEW `zwang`.`view_run_unit_sessions` AS
+SELECT 
+			`survey_unit_sessions`.id AS session_id,
+			`survey_unit_sessions`.session,
+			`survey_unit_sessions`.created,
+			`survey_unit_sessions`.ended,
+			`survey_runs`.name AS run_name,
+			`survey_runs`.id,
+			`survey_runs`.owner_id,
+			`survey_run_units`.position,
+			`survey_run_units`.unit_id,
+			`survey_run_units`.run_id,
+			`survey_units`.type
+		
+			 FROM `survey_unit_sessions`
+
+ 		LEFT JOIN `survey_units`
+	 		ON `survey_unit_sessions`.unit_id = `survey_units`.id
+ 	
+		LEFT JOIN `survey_run_units` 
+	 		ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+		 
+		LEFT JOIN `survey_runs`
+		ON `survey_run_units`.run_id = `survey_runs`.id
+;
 
 
 SET SQL_MODE=@OLD_SQL_MODE;

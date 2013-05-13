@@ -15,7 +15,8 @@ class UnitSession
 			$session_q = "SELECT id, session, unit_id  FROM  `survey_unit_sessions`
 			WHERE 
 			unit_id = :unit_id AND
-			session = :session
+			session = :session AND
+			ended IS NULL
 			LIMIT 1;";
 		
 			$valid_session = $this->dbh->prepare($session_q) or die(print_r($dbh->errorInfo(), true));

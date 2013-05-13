@@ -18,24 +18,24 @@ class Survey extends RunUnit {
 	public $timestarted = null;
 	public $errors = array();
 	public $results_table = null;
+	protected $dbh;
 	
-	public function __construct($session, $unit)
+	public function __construct($fdb, $session, $unit)
 	{
-		$this->session = $session;
-		$this->dbh = new DB();
+		parent::__construct($fdb,$session,$unit);
 		
-		$this->run_name = $unit['run_name'];
 
 		$study_data = $this->dbh->prepare("SELECT id,name FROM `survey_studies` WHERE id = :study_id LIMIT 1");
 		$study_data->bindParam(":study_id",$unit['unit_id']);
 		$study_data->execute() or die(print_r($study_data->errorInfo(), true));
 		$vars = $study_data->fetch(PDO::FETCH_ASSOC);
-			
+		
 		if($vars):
 			$this->id = $vars['id'];
 			$this->name = $vars['name'];
 #			$this->logo_name = $vars['logo_name'];
 			$this->results_table = $this->name;
+			$this->getSettings();
 		endif;
 		
 		$this->getNextItems();
@@ -47,6 +47,16 @@ class Survey extends RunUnit {
 		
 		if($this->getProgress()===1)
 			$this->end();
+	}
+	protected function getSettings()
+	{
+		$study_settings = $this->dbh->prepare("SELECT `key`, `value` FROM `survey_settings` WHERE study_id = :study_id");
+		$study_settings->bindParam(":study_id",$this->id);
+		$study_settings->execute() or die(print_r($study_settings->errorInfo(), true));
+		while($setting = $study_settings->fetch(PDO::FETCH_ASSOC))
+			$this->settings[$setting['key']] = $setting['value'];
+
+		return $this->settings;
 	}
 	public function render() {
 		$ret = $this->render_form_header().
@@ -70,7 +80,7 @@ class Survey extends RunUnit {
 																  VALUES(	:study_id, :item_id, :session_id, 1, 		NOW(),	NOW()	) 
 		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
 		
-		$answered->bindParam(":session_id", $this->session->id);
+		$answered->bindParam(":session_id", $this->session_id);
 		$answered->bindParam(":study_id", $this->id);
 		
 		foreach($posted AS $name => $value)
@@ -91,7 +101,7 @@ class Survey extends RunUnit {
 																			  VALUES(:session_id, :study_id, NOW(),	    NOW(),	 		:$name) 
 					ON DUPLICATE KEY UPDATE `$name` = :$name, modified = NOW();");
 				    $post_form->bindParam(":$name", $value);
-					$post_form->bindParam(":session_id", $this->session->id);
+					$post_form->bindParam(":session_id", $this->session_id);
 					$post_form->bindParam(":study_id", $this->id);
 					$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 
@@ -129,7 +139,7 @@ class Survey extends RunUnit {
 
 		//fixme: progress can become smaller when questions enabling a lot of skipif turn on
 		$progress = $this->dbh->prepare($query);
-		$progress->bindParam(":session_id", $this->session->id);
+		$progress->bindParam(":session_id", $this->session_id);
 		$progress->bindParam(":study_id", $this->id);
 		
 		$progress->execute() or die(print_r($progress->errorInfo(), true));
@@ -175,13 +185,14 @@ class Survey extends RunUnit {
 		AND `survey_items`.id = `survey_items_display`.item_id
 		WHERE 
 		`survey_items`.study_id = :study_id AND
-		`survey_items_display`.answered IS NULL;";
+		`survey_items_display`.answered IS NULL
+		ORDER BY `survey_items`.id ASC;";
 		
 #		if($this->maximum_number_displayed) $item_query .= " LIMIT {$this->maximum_number_displayed}";
 #		todo: max_displayed many annoyances with forward looking kind of items, and I want to do this dynamically anyway.		
 		$get_items = $this->dbh->prepare($item_query) or die(print_r($this->dbh->errorInfo(), true));
 		
-		$get_items->bindParam(":session_id",$this->session->id);
+		$get_items->bindParam(":session_id",$this->session_id);
 		$get_items->bindParam(":study_id", $this->id);
 		
 		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
@@ -192,7 +203,7 @@ class Survey extends RunUnit {
 			$this->unanswered_batch[$name] = legacy_translate_item($item);
 			if($this->unanswered_batch[$name]->skipIf !== null)
 			{
-				if($this->unanswered_batch[$name]->skip($this->session->id,$this->dbh,$this->results_table))
+				if($this->unanswered_batch[$name]->skip($this->session_id,$this->dbh,$this->results_table))
 				{
 					unset($this->unanswered_batch[$name]); // fixme: do something else with this when we want JS?
 				}
@@ -206,7 +217,7 @@ class Survey extends RunUnit {
 		$ret = '<form action="'.$action.'" method="post" class="form-horizontal" accept-charset="utf-8">';
 		
 	    /* pass on hidden values */
-	    $ret .= '<input type="hidden" name="session_id" value="' . $this->session->id . '" />';
+	    $ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
 	    if( !empty( $timestarted ) ) {
 	        $ret .= '<input type="hidden" name="timestarted" value="' . $timestarted .'" />';
 		} else {
@@ -233,7 +244,7 @@ class Survey extends RunUnit {
 											     VALUES(  :item_id, :session_id, 1,				 NOW(), NOW()	) 
 		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
 		$view_update = $this->dbh->prepare($view_query);
-		$view_update->bindParam(":session_id", $this->session->id);
+		$view_update->bindParam(":session_id", $this->session_id);
 	
 		$itemsDisplayed = $i = 0;
 		$need_submit = true;
@@ -268,7 +279,7 @@ class Survey extends RunUnit {
 			$item->viewedBy($view_update);
 			$itemsDisplayed++;
 			
-			$item->switchText($this->session->id,$this->dbh,$this->results_table);
+			$item->switchText($this->session_id,$this->dbh,$this->results_table);
 			
 			if(!empty($substitutions['search']))
 			{
@@ -326,7 +337,7 @@ class Survey extends RunUnit {
 //					$get_entered->bindParam(":mode",$subst['mode']); // fixme: mode not meaningfully used atm, gotta autocreate joins
 					break;
 	        }
-			$get_entered->bindParam(":session_id",$this->session->id);
+			$get_entered->bindParam(":session_id",$this->session_id);
 			$get_entered->execute() or die(print_r($get_entered->errorInfo(), true));
 		
 			if( $data = $get_entered->fetch(PDO::FETCH_NUM))
@@ -338,10 +349,10 @@ class Survey extends RunUnit {
 		return array('search' => $search,'replace' => $replace);
 	}
 	
-	protected function end()
+	public function end()
 	{
 		$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS NULL;");
-		$post_form->bindParam(":session_id", $this->session->id);
+		$post_form->bindParam(":session_id", $this->session_id);
 		$post_form->bindParam(":study_id", $this->id);
 		$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 		if($post_form->rowCount() === 1):
@@ -352,15 +363,17 @@ class Survey extends RunUnit {
 	}
 	public function exec()
 	{
-		return
+		if($this->getProgress()===1) return false;
+		return array('title' => (isset($this->settings['title'])?$this->settings['title']: null),
+		'body' => 
 			'
 			
 		<div class="row-fluid">
 		    <div id="span12">
 		        '.
 		
-				 (isset($study->settings['title'])?"<h1>{$study->settings['title']}</h1>":'') . 
-				 (isset($study->settings['description'])?"<p class='lead'>{$study->settings['description']}</h1>":'') .
+				 (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
+				 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</h1>":'') .
 				 '
 		    </div>
 		</div>
@@ -371,22 +384,22 @@ class Survey extends RunUnit {
 
 		 $this->render().
 		
-		 '.
+		 '
 
 				</div> <!-- end of span10 div -->
 			</div> <!-- end of row-fluid div -->
 		'.
-		(isset($study->settings['problem_email'])?
-		'.
+		(isset($this->settings['problem_email'])?
+		'
 			<div class="row-fluid">
 				<div class="span12">
-					Bei Problemen wenden Sie sich bitte an <strong><a href="mailto:'.$study->settings['problem_email'].'">'.$study->settings['problem_email'].'</a>.</strong>
+					Bei Problemen wenden Sie sich bitte an <strong><a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>.</strong>
 				</div>
 			</div>
 		':'') .
 		'
 		</div>
-		';
+		');
 
 	}
 }

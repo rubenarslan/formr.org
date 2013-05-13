@@ -264,3 +264,40 @@ function env($key) {
 	}
 	return null;
 }
+function join_builder($fdb,$q)
+{
+	$result_tables = $fdb->query("SELECT name FROM `survey_studies`");
+	$results = array();
+	while($res = $result_tables->fetch(PDO::FETCH_ASSOC))
+		$results[] = $res['name'];
+	
+	$results[] = 'users';
+	$results[] = 'survey_users';
+	$results[] = 'survey_email_log';
+
+	$tables = array();
+	foreach($results AS $result):
+		if(preg_match("/($result\.|`$result`\.)/",$q))
+			$tables[] = $result;
+	endforeach;
+	
+	$join = '';
+	foreach($tables AS $table):
+		if(!in_array($table,array('users','survey_users'))):
+$join .= "
+left join `$table`
+	on `$table`.session_id = `survey_unit_sessions`.id";
+		elseif($table == 'users'):
+$join .= "
+left join `$table`
+	on `$table`.code = `survey_unit_sessions`.session";
+		elseif($table == 'survey_users'):
+$join .= "
+left join `$table`
+	on `$table`.user_code = `survey_unit_sessions`.session";
+		endif;
+			
+	endforeach;
+	
+	return $join;
+}

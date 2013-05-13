@@ -167,7 +167,6 @@ class UserX
 	}
 	public function getRuns() {
 		if($this->isAdmin()):
-			$db = new DB();
 			$studies = $this->dbh->query("SELECT * FROM `survey_runs`");
 			$results = array();
 			while($study = $studies->fetch())

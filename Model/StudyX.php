@@ -12,25 +12,20 @@ class StudyX extends RunUnit
 	public $settings = array();
 	public $errors = array();
 	public $messages = array();
+	public $position;
 	
-	public function __construct($name,$options = NULL) 
+	public function __construct($fdb, $session = NULL,$unit = NULL) 
 	{
-		$this->dbh = new DB();
-		
-		if($name === null):
-			if(!$this->create($options)):
-			endif;
-		else:
-			$this->name = $name;
-		endif;
-		
-		$study_data = $this->dbh->prepare("SELECT * FROM `survey_studies` WHERE name = :study_name LIMIT 1");
-		$study_data->bindParam(":study_name",$this->name);
+		parent::__construct($fdb,$session,$unit);
+		$study_data = $this->dbh->prepare("SELECT * FROM `survey_studies` WHERE id = :id OR name = :name LIMIT 1");
+		$study_data->bindParam(":id",$this->id);
+		$study_data->bindParam(":name",$this->unit['name']);
 		$study_data->execute() or die(print_r($study_data->errorInfo(), true));
 		$vars = $study_data->fetch(PDO::FETCH_ASSOC);
 			
 		if($vars):
 			$this->id = $vars['id'];
+			$this->name = $vars['name'];
 			$this->logo_name = $vars['logo_name'];
 			$this->user_id = $vars['user_id'];
 			
@@ -87,16 +82,16 @@ class StudyX extends RunUnit
 	
 	/* ADMIN functions */
 	
-	public function create($options)
+	public function create($type = null)
 	{
-	    $name = trim($options['name']);
+	    $name = trim($this->unit['name']);
 	    if($name == ""):
 			$this->errors[] = _("You have to specify a study name.");
 			return false;
 		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,20}/",$name)):
 			$this->errors[] = _("The study's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
 			return false;
-		elseif($this->existsByName($options['name'])):
+		elseif($this->existsByName($name)):
 			$this->errors[] = __("The study's name %s is already taken.",h($name));
 			return false;
 		endif;
@@ -105,7 +100,7 @@ class StudyX extends RunUnit
 		$this->id = parent::create('Survey');
 		$create = $this->dbh->prepare("INSERT INTO `survey_studies` (id, user_id,name) VALUES (:run_item_id, :user_id,:name);");
 		$create->bindParam(':run_item_id',$this->id);
-		$create->bindParam(':user_id',$options['user_id']);
+		$create->bindParam(':user_id',$this->unit['user_id']);
 		$create->bindParam(':name',$name);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
@@ -190,7 +185,7 @@ class StudyX extends RunUnit
 	}
 	public function getItems()
 	{
-		$get_items = $this->dbh->prepare("SELECT * FROM `survey_items` WHERE `survey_items`.study_id = :study_id");
+		$get_items = $this->dbh->prepare("SELECT * FROM `survey_items` WHERE `survey_items`.study_id = :study_id ORDER BY id ASC");
 		$get_items->bindParam(":study_id", $this->id);
 		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
 
@@ -238,6 +233,11 @@ class StudyX extends RunUnit
 		if($resC['finished'] > 10)
 			$this->backupResults();
 		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
+		$delete_sessions = $this->dbh->prepare ( "DELETE FROM `survey_unit_sessions` 
+		WHERE `unit_id` = :study_id" ) or die(print_r($this->dbh->errorInfo(), true));
+		$delete_sessions->bindParam(':study_id',$this->id);
+		$delete_sessions->execute();
+		
 		return $delete;
 	}
 	public function backupResults()
@@ -303,7 +303,7 @@ class StudyX extends RunUnit
 	public function editSubstitutions($posted)
 	{
 		$posted = array_unique($posted, SORT_REGULAR);
-		function addPrefix(&$arr,$key,$study_name)
+/*		function addPrefix(&$arr,$key,$study_name)
 		{
 			if(isset($arr['replace']) AND !preg_match(
 			"/^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$/"
@@ -317,7 +317,7 @@ class StudyX extends RunUnit
 			,$arr['replace']))
 				$arr['replace'] = 'invalid';
 		}
-		array_walk($posted,"addPrefix",$this->name);
+		array_walk($posted,"addPrefix",$this->name);*/
 		if(isset($posted['new']) AND $posted['new']['search'] != '' AND $posted['new']['replace'] != ''):
 		
 			$sub_add = $this->dbh->prepare ( "INSERT INTO `survey_substitutions` 
@@ -373,28 +373,35 @@ class StudyX extends RunUnit
 		
 		$this->dbh->commit();
 	}
-	public function displayForRun($position = null,$prepend = '')
+	public function displayForRun($prepend = '')
 	{
 		if($this->id):
-			$dialog = "<p><strong>Survey:</strong> <a href='".WEBROOT."admin/{$this->name}'>{$this->name}</a></p>";
+			$dialog = "<p>
+				<strong>Survey:</strong> <a href='".WEBROOT."admin/{$this->name}/index'>{$this->name}</a>
+			</p>
+			<p>
+				<a class='btn' href='".WEBROOT."admin/{$this->name}/access'>Test</a>
+			</p>";
 		else:
+			$dialog = '';
 			$g_studies = $this->dbh->query("SELECT * FROM `survey_studies`");
 			$studies = array();
 			while($study = $g_studies->fetch())
 				$studies[] = $study;
 			if($studies):
 				$dialog = '<div class="control-group">
-				<select class="select2" name="study_name" style="width:300px">
+				<select class="select2" name="unit_id" style="width:300px">
 				<option value=""></option>';
 				foreach($studies as $study):
-				    $dialog .= "<option value=\"{$study['name']}\">{$study['name']}</option>";
+				    $dialog .= "<option value=\"{$study['id']}\">{$study['name']}</option>";
 				endforeach;
 				$dialog .= "</select>";
-				$dialog .= '<a class="btn unit_save" href="ajax_add_survey">Add to this run.</a></div>';
+				$dialog .= '<a class="btn unit_save" href="ajax_save_run_unit?type=Survey">Add to this run.</a></div>';
+			else:
+				$dialog .= "<h5>No studies. Add some first</h5>";
 			endif;
 		endif;
 		$dialog = $prepend . $dialog;
-		
-		return parent::runDialog($dialog,'<i class="icon-question icon-4x"></i>',$position);
+		return parent::runDialog($dialog,'icon-question');
 	}
 }

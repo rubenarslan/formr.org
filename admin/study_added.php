@@ -20,16 +20,17 @@ elseif (!isset($_FILES['uploaded']) OR !isset($_POST['study_name']))
 if(isset($_POST['study_id']))
 {
 	$messages[] = 'Existing study is being modified.';
-	$study = new StudyX($_POST['study_name']);
+	$study = new StudyX($fdb,null,array('unit_id' => $_POST['study_id']));
 	if($user->ownStudy($study))
 		$errors[] = "You don't own this study.";
 }
 else  // a new study is being created
 {
-	$study = new StudyX(null, array(
+	$study = new StudyX($fdb, null, array(
 		'name' => $_POST['study_name'],
 		'user_id' => $user->id
 	));
+	$study->create();
 }
 
 if(!$study->valid)

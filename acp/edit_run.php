@@ -6,14 +6,10 @@ require_once INCLUDE_ROOT . "Model/Run.php";
 
 $run = new Run($fdb, $_GET['run_name']);
 
-if( !empty($_POST) ) {
-	if($run->valid)
-	{
-		alert('<strong>Success.</strong> Run "'.$run->name . '" was created.','alert-success');
-		redirect_to(WEBROOT . "acp/{$run->name}");
-	}
-	else
-		alert('<strong>Sorry.</strong> '.implode($run->errors),'alert-error');
+if(!$run->valid)
+{
+	alert('<strong>Sorry.</strong> '.implode($run->errors),'alert-error');
+	redirect_to(WEBROOT . "acp/acp");
 }
 
 $head = '
@@ -38,19 +34,19 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 
 	<div class="row" id="run_dialog_choices">
 		<div class="span2">
-			<a class="add_survey add_run_unit btn btn-large hastooltip" title="Save new positions" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_reorder">
+			<a class="reorder_units btn btn-large hastooltip" title="Save new positions" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_reorder">
 				<i class="icon-exchange icon-rotate-90 icon-larger"></i>
 			</a>
 		</div>
 	  	<div class="control-group span7">
 			<div class="btn-group">
-				<a class="add_survey add_run_unit btn btn-large hastooltip" title="Add survey" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_add_survey">
+				<a class="add_survey add_run_unit btn btn-large hastooltip" title="Add survey" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=Survey">
 					<i class="icon-question icon-2x"></i>
 				</a>
-				<a class="add_branch add_run_unit btn btn-large hastooltip" title="Add branch" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_add_branch">
+				<a class="add_branch add_run_unit btn btn-large hastooltip" title="Add branch" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=Branch">
 					<i class="icon-code-fork icon-2x icon-flip-vertical"></i>
 				</a>
-				<a class="add_break add_run_unit btn btn-large hastooltip" title="Add break">
+				<a class="add_pause add_run_unit btn btn-large hastooltip" title="Add pause" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=Pause">
 					<i class="icon-time icon-2x"></i>
 				</a>
 				<a class="add_external add_run_unit  btn btn-large hastooltip" title="Add external link">
@@ -59,7 +55,7 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 				<a class="add_email add_run_unit btn btn-large hastooltip" title="Add email">
 					<i class="icon-envelope icon-2x"></i>
 				</a>
-				<a class="add_page add_run_unit btn btn-large hastooltip" title="Add feedback page">
+				<a class="add_page add_run_unit btn btn-large hastooltip" title="Add feedback page" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=Page">
 					<i class="icon-bar-chart icon-2x"></i>
 				</a>
 			</div>

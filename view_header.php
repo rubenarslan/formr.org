@@ -4,7 +4,7 @@ header ('Content-type: text/html; charset=utf-8');
 
 <html>
 <head> 
-        <title><?php echo isset($title) ? $title : 'Studien'; ?></title>
+        <title><?php echo isset($title) ? $title : 'Studie'; ?></title>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 
 		<link rel="stylesheet" type="text/css" href="<?=WEBROOT?>css/bootstrap.min.css" />

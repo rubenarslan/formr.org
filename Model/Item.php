@@ -1,5 +1,5 @@
 <?php
-
+// fixme: mmc leading comma should be gone
 #require '/Applications/MAMP/htdocs/zwang/app/webroot/survey/Markdown/Michelf/Markdown.php';
 function legacy_translate_item($item) { // may have been a bad idea to name (array)input and (object)return value identically?
 	$options = array();
@@ -329,14 +329,32 @@ class Item
 	}
 	public function skip($session_id,$rdb,$results_table)
 	{	
-		// fixme: cant deal with parentheses, mixed and/or etc.
+		
 		if($this->skipIf!=null):
-			
 			if(
 			(strpos($this->skipIf,'AND')!==false AND strpos($this->skipIf,'OR')!==false)
 				OR strpos($this->skipIf,'.') !== false
-				):
-				die($this->name . " mixed AND/OR not yet possible.");
+				): // fixme: SO UNSAFE, should at least use least privilege principle and readonly user (but not on all-inkl...)
+					$join = join_builder($this->dbh, $this->skipIf);
+					$q = "SELECT ( {$this->skipIf} ) AS test FROM `survey_unit_sessions`
+		
+					$join
+		
+					WHERE 
+					`session_id` = :session_id
+					LIMIT 1";
+		
+					$evaluate = $this->dbh->prepare($q); // should use readonly
+					$evaluate->bindParam(":session_id", $this->session_id);
+
+					$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
+					if($evaluate->rowCount()===1):
+						$temp = $evaluate->fetch();
+						$result = (bool)$temp['test'];
+					else:
+						$result = false;
+					endif;
+					return $result;
 			endif;
 			
 			$skipIfs = preg_split('/(AND|OR)/',$this->skipIf);
@@ -355,7 +373,7 @@ class Item
 					
 					LIMIT 1";
 					
-					echo $q;
+#					echo $q;
 					$should_skip = $rdb->prepare($q); // IS NULL clause so that skipifs are not shown if the relevant question has not yet been answered. this will be more conspicuous during testing
 					$should_skip->bindParam(":session_id", $session_id);
 
@@ -371,7 +389,7 @@ class Item
 				endif;
 			endforeach;
 			echo $this->name;
-			pr($constraints);
+#			pr($constraints);
 			
 			if(strpos($this->skipIf,'AND')!==false AND !in_array(false,$constraints,true)):
 				return true; // skip if all AND conditions evaluate to true 
