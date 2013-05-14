@@ -3,7 +3,7 @@
 class UnitSession
 {
 	public $session = null;
-	public $id, $unit_id;
+	public $id, $unit_id, $ended;
 	private $dbh;
 	
 	public function __construct($fdb, $session, $unit_id)
@@ -12,11 +12,10 @@ class UnitSession
 		$this->unit_id = $unit_id;
 		
 		if($session != null AND $unit_id != null): // called with null in constructor if they have no session yet
-			$session_q = "SELECT id, session, unit_id  FROM  `survey_unit_sessions`
+			$session_q = "SELECT id, session, unit_id, ended  FROM  `survey_unit_sessions`
 			WHERE 
 			unit_id = :unit_id AND
-			session = :session AND
-			ended IS NULL
+			session = :session
 			LIMIT 1;";
 		
 			$valid_session = $this->dbh->prepare($session_q) or die(print_r($dbh->errorInfo(), true));
@@ -31,6 +30,7 @@ class UnitSession
 				$this->id = $sess_array['id'];
 				$this->session = $sess_array['session'];
 				$this->unit_id = $sess_array['unit_id'];
+				$this->ended = $sess_array['ended'];
 			endif;
 		endif;
 		

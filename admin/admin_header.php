@@ -2,7 +2,7 @@
 require_once '../define_root.php';
 require_once INCLUDE_ROOT . "Model/Site.php";
 require_once INCLUDE_ROOT . "Model/StudyX.php";
-if(!$user->isAdmin()) {
+if(!$user->loggedIn() AND !$user->isAdmin()) {
 	alert("<strong>Sorry:</strong> Only admins have access.",'alert-info');
 	redirect_to("index.php");
 }

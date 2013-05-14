@@ -7,9 +7,9 @@
 [submodule "PHPMailer"]
 	path = PHPMailer
 	url = https://github.com/PHPMailer/PHPMailer.git
-[submodule "phpass"]
-	path = phpass
-	url = https://github.com/scornflakes/phpass
 [submodule "js/vendor/select2"]
 	path = js/vendor/select2
 	url = https://github.com/scornflakes/select2.git
+[submodule "password_compat"]
+	path = password_compat
+	url = https://github.com/ircmaxell/password_compat.git

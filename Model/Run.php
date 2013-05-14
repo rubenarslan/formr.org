@@ -52,10 +52,40 @@ class Run
 			endif;
 		endif;
 	}
+	public function getCronDues()
+	{
+		$g_unit = $this->dbh->prepare(
+		"SELECT 
+			`survey_unit_sessions`.session
+		
+			 FROM `survey_unit_sessions`
 
-	public function getUnit($session)
+		LEFT JOIN `survey_run_units` 
+	 		ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+			
+		LEFT JOIN `survey_units` 
+	 		ON `survey_run_units`.unit_id = `survey_units`.id
+	
+		WHERE 
+			`survey_run_units`.run_id = :run_id AND
+			`survey_units`.type IN ('Branch','Pause','Email') AND
+			`survey_unit_sessions`.ended IS NULL
+		
+		ORDER BY `survey_unit_sessions`.id DESC 
+		LIMIT 20
+		;"); // in the order they were added
+		$g_unit->bindParam(':run_id',$this->id);
+		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$dues = array();
+		while($unit = $g_unit->fetch(PDO::FETCH_ASSOC))
+			$dues[] = $unit['session'];
+		return $dues;
+	}
+	public function getCronUnit($session)
 	{
 		$i = 0;
+		$done = array('Pause' => 0,'Email' => 0,'Branch' => 0);
+		
 		$search_units = true;
 		while($search_units):
 			$i++;
@@ -68,10 +98,43 @@ class Run
 #			pr($unit);
 			if($unit):								 // if there is one, spin that shit
 				$type = $unit['type'];
+				if(!in_array($type, array('Pause','Email','Branch'))) break; // only these items can be called from a cron job.
+				require_once INCLUDE_ROOT . "Model/$type.php";
+				$unit = new $type($this->dbh, $session, $unit);
+				$done[$type]++;
+				$unit->exec();
+				if(!$unit->ended):
+					break; // usually this would lead to some display
+				endif;
+			else:
+				$this->getNextUnit($session); 		// if there is nothing in line yet, add the next one in run order
+			endif;
+		endwhile;
+		
+		return $done;
+	}
+	
+
+	public function getUnit($session)
+	{
+		$i = 0;
+		$search_units = true;
+		while($search_units):
+			$i++;
+			if($i > 90) {
+				global $user;
+				if($user->isAdmin())
+					 pr($unit);
+				die('Nesting too deep. Could there be an infinite loop or maybe no landing page?');
+			}
+			$unit = $this->getCurrentUnit($session); // get first unit in line
+#			pr($unit);
+			if($unit):								 // if there is one, spin that shit
+				$type = $unit['type'];
 				if(!in_array($type, array('Survey','Pause','Email','External','Page','Branch','End'))) die('imp type');
 				require_once INCLUDE_ROOT . "Model/$type.php";
 				$unit = new $type($this->dbh, $session, $unit);
-				if($output = $unit->exec() ):
+				if($output = $unit->exec()):
 					$search_units = false; 			// only when there is something to display, stop.
 				endif;
 			else:
@@ -173,7 +236,7 @@ class Run
 			die('Forgot a landing page');
 		}
 		$unit_session = new UnitSession($this->dbh, $session, $unit['unit_id']);
-		if(!$unit_session->session)
+		if(!$unit_session->session AND !$unit_session->ended)
 			$unit_session->create($session);
 		$_SESSION['session'] = $session;
 	}

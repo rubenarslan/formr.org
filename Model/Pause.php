@@ -129,6 +129,8 @@ class Pause extends RunUnit {
 			$this->relative_to = '`survey_unit_sessions`.created';
 			$join = '';
 		}
+		$conditions = array();
+		
 		
 		if($this->wait_minutes AND $this->wait_minutes!='')
 			$conditions['minute'] = "DATE_ADD({$this->relative_to}, INTERVAL :wait_minutes MINUTE) <= NOW()";
@@ -140,28 +142,32 @@ class Pause extends RunUnit {
 		if(isset($conditions['time']) AND !isset($conditions['date']) AND !isset($conditions['minute']))
 			$conditions['date'] = "DATE_ADD({$this->relative_to}, INTERVAL 1 DAY) >= CURDATE()";
 		
-		$condition = implode($conditions," AND ");
+		if(!empty($conditions)):
+			$condition = implode($conditions," AND ");
 			
-$q = "SELECT ( $condition ) AS test,`survey_unit_sessions`.session FROM `survey_unit_sessions`
+$q = "SELECT DISTINCT ( $condition ) AS test,`survey_unit_sessions`.session FROM `survey_unit_sessions`
 $join
 ORDER BY RAND()
 LIMIT 10";
 		
-		echo "<pre>$q</pre>";
-		$evaluate = $this->dbh->prepare($q); // should use readonly
-		if(isset($conditions['minute'])) $evaluate->bindParam(':wait_minutes',$this->wait_minutes);
-		if(isset($conditions['date'])) $evaluate->bindParam(':wait_date',$this->wait_until_date);
-		if(isset($conditions['time'])) $evaluate->bindParam(':wait_time',$this->wait_until_time);
+			echo "<pre>$q</pre>";
+			$evaluate = $this->dbh->prepare($q); // should use readonly
+			if(isset($conditions['minute'])) $evaluate->bindParam(':wait_minutes',$this->wait_minutes);
+			if(isset($conditions['date'])) $evaluate->bindParam(':wait_date',$this->wait_until_date);
+			if(isset($conditions['time'])) $evaluate->bindParam(':wait_time',$this->wait_until_time);
 		
 
-		$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
-		if($evaluate->rowCount()>=1):
-			$results = array();
-			while($temp = $evaluate->fetch())
-				$results[] = $temp;
+			$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
+			if($evaluate->rowCount()>=1):
+				$results = array();
+				while($temp = $evaluate->fetch())
+					$results[] = $temp;
+			else:
+				echo 'Nothing found';
+				return false;
+			endif;
 		else:
-			echo 'Nothing found';
-			return false;
+			$result = true;
 		endif;
 		
 		echo '<table class="table table-striped">
@@ -193,6 +199,7 @@ LIMIT 10";
 			$join = '';
 		}
 		
+		$conditions = array();
 		if($this->wait_minutes AND $this->wait_minutes!='')
 			$conditions['minute'] = "DATE_ADD({$this->relative_to}, INTERVAL :wait_minutes MINUTE) <= NOW()";
 		if($this->wait_until_date AND $this->wait_until_date != '0000-00-00') 
@@ -203,26 +210,30 @@ LIMIT 10";
 		if(isset($conditions['time']) AND !isset($conditions['date']) AND !isset($conditions['minute']))
 			$conditions['date'] = "DATE_ADD({$this->relative_to}, INTERVAL 1 DAY) >= CURDATE()";
 		
-		$condition = implode($conditions," AND ");
+		if(!empty($conditions)):
+			$condition = implode($conditions," AND ");
 			
-$q = "SELECT ( $condition ) AS test FROM `survey_unit_sessions`
-$join
-WHERE `survey_unit_sessions`.id = :session_id
-LIMIT 1";
+	$q = "SELECT ( $condition ) AS test FROM `survey_unit_sessions`
+	$join
+	WHERE `survey_unit_sessions`.id = :session_id
+	LIMIT 1";
 		
-		$evaluate = $this->dbh->prepare($q); // should use readonly
-		if(isset($conditions['minute'])) $evaluate->bindParam(':wait_minutes',$this->wait_minutes);
-		if(isset($conditions['date'])) $evaluate->bindParam(':wait_date',$this->wait_until_date);
-		if(isset($conditions['time'])) $evaluate->bindParam(':wait_time',$this->wait_until_time);
-		$evaluate->bindParam(":session_id", $this->session_id);
+			$evaluate = $this->dbh->prepare($q); // should use readonly
+			if(isset($conditions['minute'])) $evaluate->bindParam(':wait_minutes',$this->wait_minutes);
+			if(isset($conditions['date'])) $evaluate->bindParam(':wait_date',$this->wait_until_date);
+			if(isset($conditions['time'])) $evaluate->bindParam(':wait_time',$this->wait_until_time);
+			$evaluate->bindParam(":session_id", $this->session_id);
 		
 
-		$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
-		if($evaluate->rowCount()===1):
-			$temp = $evaluate->fetch();
-			$result = (bool)$temp['test'];
+			$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
+			if($evaluate->rowCount()===1):
+				$temp = $evaluate->fetch();
+				$result = (bool)$temp['test'];
+			else:
+				$result = false;
+			endif;
 		else:
-			$result = false;
+			$result = true;
 		endif;
 
 #		if(DEBUG>-1)

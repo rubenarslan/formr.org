@@ -91,12 +91,13 @@ class Email extends RunUnit {
 		if(isset($this->run_name))		
 			$login_link = WEBROOT."access.php?run_name={$this->run_name}&code={$this->session}";
 		else $login_link = WEBROOT;
+
 		if($this->html):
 			$login_link = "<a href='$login_link'>Login link</a>";
 			$this->body_parsed = str_replace("{{login_link}}", $login_link , $this->body_parsed);
 			return $this->body_parsed;
 		else:
-			$this->body_parsed = str_replace("{{login_link}}", $login_link , $this->body_parsed);
+			$this->body = str_replace("{{login_link}}", $login_link , $this->body);
 			return $this->body;
 		endif;
 	}
@@ -182,6 +183,7 @@ LIMIT 1";
 		
 		$acc = new EmailAccount($this->dbh, $this->account_id, null);
 		$mail = $acc->makeMailer();
+		
 		if($this->html)
 			$mail->IsHTML(true);  
 		
@@ -217,6 +219,7 @@ LIMIT 1";
 		
 		echo "<h4>{$this->subject}</h4>";
 		echo "<p><a href='http://$link'>$link</a></p>";
+		
 		echo $this->getBody();
 		
 		if($this->recipient_field === null OR trim($this->recipient_field)=='')
@@ -224,7 +227,7 @@ LIMIT 1";
 		
 		$join = join_builder($this->dbh, $this->recipient_field);
 			
-$q = "SELECT DISTINCT {$this->recipient_field} AS email,session FROM `survey_unit_sessions`
+$q = "SELECT DISTINCT {$this->recipient_field} AS email,`survey_unit_sessions`.session FROM `survey_unit_sessions`
 $join
 ORDER BY RAND()
 LIMIT 20";

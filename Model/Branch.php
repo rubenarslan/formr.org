@@ -90,7 +90,7 @@ class Branch extends RunUnit {
 	public function test()
 	{
 		$join = join_builder($this->dbh, $this->condition);
-$q = "SELECT ( {$this->condition} ) AS test,`survey_unit_sessions`.session FROM `survey_unit_sessions`
+$q = "SELECT DISTINCT ( {$this->condition} ) AS test,`survey_unit_sessions`.session FROM `survey_unit_sessions`
 
 $join
 

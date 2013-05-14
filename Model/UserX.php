@@ -1,6 +1,6 @@
 <?php
 require_once INCLUDE_ROOT . "Model/DB.php";
-require_once INCLUDE_ROOT . 'phpass/PasswordHash.php';
+require_once INCLUDE_ROOT . 'password_compat/lib/password.php';
 
 class UserX
 {
@@ -89,19 +89,23 @@ class UserX
 		$exists->execute() or die('db');
 		if($user = $exists->rowCount() === 0)
 		{
-			$hash = new PasswordHash(8, FALSE);
-			$hash = $hash->HashPassword($password);
+			$hash = password_hash($password, PASSWORD_DEFAULT);
 
-			$add = $this->dbh->prepare('INSERT INTO `survey_users` SET 
-					email = :email,
-					password = :password,
-					user_code = :user_code');
-			$add->bindParam(':email',$email);
-			$add->bindParam(':password',$hash);
-			$add->bindParam(':user_code',$this->user_code);
-			$add->execute() or die('probl');
+			if($hash):
+				$add = $this->dbh->prepare('INSERT INTO `survey_users` SET 
+						email = :email,
+						password = :password,
+						user_code = :user_code');
+				$add->bindParam(':email',$email);
+				$add->bindParam(':password',$hash);
+				$add->bindParam(':user_code',$this->user_code);
+				$add->execute() or die('probl');
 			
-			return $this->login($email,$password);
+				return $this->login($email,$password);
+			else:
+				alert('<strong>Error!</strong> Hash error.','alert-error');
+				return false;
+			endif;
 		} else
 		{
 			$this->errors[] = 'User exists already.';
@@ -114,13 +118,23 @@ class UserX
 		$login->execute() or die('db');
 		if($user = $login->fetch())
 		{
-			# Try to use stronger but system-specific hashes, with a possible fallback to
-			# the weaker portable hashes.
-			$hash = new PasswordHash(8, FALSE);
-			
-			$check = $hash->CheckPassword($password, $user['password']);
-			if($check)
+			if(password_verify($password, $user['password']))
 			{
+				if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) 
+				{
+			        $hash = password_hash($password, PASSWORD_DEFAULT);
+			        /* Store new hash in db */
+					if($hash):
+						$add = $this->dbh->prepare('UPDATE `survey_users` SET 
+								password = :password WHERE email = :email');
+						$add->bindParam(':email',$email);
+						$add->bindParam(':password',$hash);
+						$add->execute() or die('probl');
+					else:
+						alert('<strong>Error!</strong> Hash error.','alert-error');
+						return false;
+					endif;
+			    }
 				$this->logged_in = true;
 				$this->email = $email;
 				$this->id = $user['id'];
@@ -137,19 +151,22 @@ class UserX
 	}
 	public function changePassword($password,$new_password) 
 	{
-		if($this->login($this->email,$password))
-		{
-			# Try to use stronger but system-specific hashes, with a possible fallback to
-			# the weaker portable hashes.
-			$hash = new PasswordHash(8, FALSE);
-			$hash = $hash->HashPassword($new_password);
-
-			$change = $this->dbh->prepare('UPDATE `survey_users` SET password = :new_password WHERE email = :email');
-			$change->bindParam(':email',$email);
-			$change->bindParam(':new_password',$hash);
-			$change->execute() or die('db');
-			return true;
-		}
+		if($this->login($this->email,$password)):
+			
+	        $hash = password_hash($new_password, PASSWORD_DEFAULT);
+	        /* Store new hash in db */
+			if($hash):
+				$add = $this->dbh->prepare('UPDATE `survey_users` SET 
+						password = :password WHERE email = :email');
+				$add->bindParam(':email',$email);
+				$add->bindParam(':password',$hash);
+				$add->execute() or die('probl');
+				return true;
+			else:
+				alert('<strong>Error!</strong> Hash error.','alert-error');
+				return false;
+			endif;
+		endif;
 		return false;
 	}
 

@@ -41,8 +41,8 @@ if(!$study->valid)
 if (empty($errors)):	
 	umask(0002);
 	ini_set('memory_limit', '256M');
-	$target = $_FILES['uploaded']['name'];
-#	$target = "upload/"; // todo: simply use temp name instead of moving to a folder so that permissions need to be set?
+	$target = $_FILES['uploaded']['tmp_name'];
+#	$target = "upload/";
 #	$target = $target . basename( $_FILES['uploaded']['name']);
 
 #	if (file_exists($target)) 
