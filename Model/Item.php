@@ -1,6 +1,5 @@
 <?php
-// fixme: mmc leading comma should be gone
-#require '/Applications/MAMP/htdocs/zwang/app/webroot/survey/Markdown/Michelf/Markdown.php';
+
 function legacy_translate_item($item) { // may have been a bad idea to name (array)input and (object)return value identically?
 	$options = array();
 	$options['id'] = $item['id'];
@@ -107,7 +106,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 
 // the default item is a text input, as many browser render any input type they don't understand as 'text'.
 // the base class should also work for inputs like date, datetime which are either native or polyfilled but don't require
-// special label handling
+// special handling here
 
 // todo: geolocation
 class Item 
@@ -544,7 +543,7 @@ class Item_textarea extends Item
 	protected function render_input() 
 	{
 		return 		
-			'<textarea '.self::_parseAttributes($this->input_attributes).' rows="'. round($this->size/150) .'" cols="150" name="' . $this->name . '"></textarea>';
+			'<textarea '.self::_parseAttributes($this->input_attributes, array('type')).'></textarea>';
 	}
 }
 
@@ -627,7 +626,7 @@ class Item_range extends Item_number
 	protected function render_input() 
 	{
 		return (isset($this->reply_options[1]) ? '<label>'. $this->reply_options[1] . ' </label>': '') . 		
-			'<input '.self::_parseAttributes($this->input_attributes).'>'.
+			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
 			(isset($this->reply_options[2]) ? '<label>'. $this->reply_options[2] . ' </label>': '') ;
 	}
 }
@@ -711,8 +710,6 @@ class Item_submit extends Item
 		$this->classes_input[] = 'btn';
 		$this->classes_input[] = 'btn-large';
 		$this->classes_input[] = 'btn-success';
-		unset($this->input_attributes['required']);
-		unset($this->input_attributes['name']);
 	}
 	public function validateInput($reply)
 	{
@@ -721,7 +718,7 @@ class Item_submit extends Item
 	protected function render_input() 
 	{
 		return 		
-			'<button type="submit" '.self::_parseAttributes($this->input_attributes).'>'.$this->text.'</button>';
+			'<button '.self::_parseAttributes($this->input_attributes, array('required','name')).'>'.$this->text.'</button>';
 	}
 	protected function render_label() 
 	{
@@ -757,9 +754,9 @@ class Item_mc extends Item
 	protected function render_label() 
 	{
 		return '
-					<label class="'. implode(" ",$this->classes_label) .'">' .
+					<div class="'. implode(" ",$this->classes_label) .'">' .
 		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
-		 $this->text . '</label>
+		 $this->text . '</div>
 		';
 	}
 	protected function render_input() 
@@ -864,10 +861,9 @@ class Item_select extends Item
 {
 	public $type = 'select';
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
-	
 	protected function render_input() 
 	{
-		$ret = '<select '.self::_parseAttributes($this->input_attributes).'>'; 
+		$ret = '<select '.self::_parseAttributes($this->input_attributes, array('type')).'>'; 
 		
 		if(!isset($this->input_attributes['multiple'])) $ret .= '<option value=""></option>';
 		

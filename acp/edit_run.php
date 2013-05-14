@@ -24,11 +24,8 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 	?>'>
 <div class="span9 run_dialog">
 	<h2 class="row" id="run_dialog_heading">
-		
-	  	<div class="control-group" style="font:inherit;line-height:inherit">
-	  			<?php echo __("%s <small>run</small>" , $run->name); ?>
-	  			<input type="hidden" value="<?=$run->name?>" name="old_run_name" id="run_name">
-	  	</div>
+		<?php echo __("%s <small>run</small>" , $run->name); ?>
+		<input type="hidden" value="<?=$run->name?>" name="old_run_name" id="run_name">
 	</h2>
 
 	<div class="row" id="run_dialog_choices">
@@ -48,7 +45,7 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 				<a class="add_pause add_run_unit btn btn-large hastooltip" title="Add pause" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=Pause">
 					<i class="icon-time icon-2x"></i>
 				</a>
-				<a class="add_external add_run_unit  btn btn-large hastooltip" title="Add external link"href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=External">
+				<a class="add_external add_run_unit  btn btn-large hastooltip" title="Add external link" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=External">
 					<i class="icon-external-link icon-2x"></i>
 				</a>
 				<a class="add_email add_run_unit btn btn-large hastooltip" title="Add email" href="<?=WEBROOT?>acp/<?=$run->name ;?>/ajax_save_run_unit?type=Email">

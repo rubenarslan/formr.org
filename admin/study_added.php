@@ -41,23 +41,24 @@ if(!$study->valid)
 if (empty($errors)):	
 	umask(0002);
 	ini_set('memory_limit', '256M');
-	$target = "upload/"; // todo: simply use temp name instead of moving to a folder so that permissions need to be set?
-	$target = $target . basename( $_FILES['uploaded']['name']);
+	$target = $_FILES['uploaded']['name'];
+#	$target = "upload/"; // todo: simply use temp name instead of moving to a folder so that permissions need to be set?
+#	$target = $target . basename( $_FILES['uploaded']['name']);
 
-	if (file_exists($target)) 
-	{
-	  rename($target,$target . "-overwritten-" . date('Y-m-d-H:m'));
-	  $messages[] = "Eine Datei mit gleichem Namen existierte schon und wurde unter " . $target . "-overwritten-" . date('Y-m-d-H:m') . " gesichert.";
-	}
+#	if (file_exists($target)) 
+#	{
+#	  rename($target,$target . "-overwritten-" . date('Y-m-d-H:m'));
+#	  $messages[] = "Eine Datei mit gleichem Namen existierte schon und wurde unter " . $target . "-overwritten-" . date('Y-m-d-H:m') . " gesichert.";
+#	}
 
-	if(!move_uploaded_file($_FILES['uploaded']['tmp_name'], $target)) 
-	{
-		$errors[] = "Sorry, es gab ein Problem bei dem Upload.";
-		var_dump($_FILES);
-	} else 
-	{
+#	if(!move_uploaded_file($_FILES['uploaded']['tmp_name'], $target)) 
+#	{
+#		$errors[] = "Sorry, es gab ein Problem bei dem Upload.";
+#		var_dump($_FILES);
+#	} else 
+#	{
 		$messages[] = "Datei $target wurde hochgeladen";
-	}
+#	}
 endif;
 
 

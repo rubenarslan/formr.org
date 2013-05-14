@@ -33,20 +33,17 @@ function empty_column($col,$arr)
 $empty_columns = array();
 
 foreach(current($results) AS $field => $value):
-	if( in_array($field, array('id','study_id')))
-		continue;
-	
-	if(empty_column($field,$results)):
-		array_push($empty_columns,$field);
-		continue;
-	endif;
-	
-	if( !isset($choices) AND strtolower(substr($field,0,5)) === 'mcalt')
-	{
+	if( !isset($choices) AND strtolower(substr($field,0,5)) === 'mcalt'):
 		$choices = true;
 		$field = 'choices';
-	} elseif(strtolower(substr($field,0,5)) === 'mcalt') continue;
-	
+	elseif(strtolower(substr($field,0,5)) === 'mcalt'):
+		continue;
+	else:
+		if(empty_column($field,$results) OR in_array($field, array('id','study_id'))):
+			array_push($empty_columns,$field);
+			continue;
+		endif;
+	endif;
 		
     echo "<th>{$field}</th>";
 endforeach;
@@ -56,6 +53,7 @@ endforeach;
 
 <?php
 // printing table rows
+$open = false;
 foreach($results AS $row):
     echo "<tr>";
 
@@ -66,16 +64,27 @@ foreach($results AS $row):
 			OR in_array($field, $empty_columns))
 			continue;
 		
+		
 		if(strtolower(substr($field,0,5)) == 'mcalt')
 		{
-			if(strtolower(substr($field,5))==1)
-				echo '<td><ol>';
+			if(strtolower(substr($field,5))==1):
+				echo '<td>';
+				if($cell!=''):
+					echo '<ol>';
+					$open = true;
+				endif;
+			endif;
 			
 			if($cell!='')
 		        echo "<li>$cell</li>";
 		
-			if(strtolower(substr($field,5))==14)
-				echo '</ol></td>';
+			if(strtolower(substr($field,5))==14):
+				if($open):
+					echo '</ol>';
+					$open = false;
+				endif;
+				echo '</td>';
+			endif;
 		
 			continue;	
 		}

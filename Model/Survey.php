@@ -373,7 +373,7 @@ class Survey extends RunUnit {
 		        '.
 		
 				 (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
-				 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</h1>":'') .
+				 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</p>":'') .
 				 '
 		    </div>
 		</div>
@@ -386,20 +386,18 @@ class Survey extends RunUnit {
 		
 		 '
 
-				</div> <!-- end of span10 div -->
-			</div> <!-- end of row-fluid div -->
+			</div> <!-- end of span12 div -->
+		</div> <!-- end of row-fluid div -->
 		'.
 		(isset($this->settings['problem_email'])?
 		'
-			<div class="row-fluid">
-				<div class="span12">
-					Bei Problemen wenden Sie sich bitte an <strong><a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>.</strong>
-				</div>
+		<div class="row-fluid">
+			<div class="span12">
+				Bei Problemen wenden Sie sich bitte an <strong><a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>.</strong>
 			</div>
-		':'') .
-		'
 		</div>
-		');
+		':'')
+		);
 
 	}
 }
