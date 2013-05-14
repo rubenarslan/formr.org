@@ -7,12 +7,12 @@ function define_webroot() {
 	if(isset($_SERVER['SERVER_NAME'])){
 		switch($_SERVER['SERVER_NAME']){
 			case 'localhost':
-				$doc_root = "localhost:8888/zwang/survey/";
-				$server_root = "/Applications/MAMP/htdocs/zwang/app/webroot/survey/";
+				$doc_root = "localhost:8888/jena/survey/";
+				$server_root = __DIR__ . '/';
 				break;
 			default:
 				$doc_root = $_SERVER['SERVER_NAME'].'/survey/';
-				$server_root = "/usr/local/www/htdocs/zwang/app/webroot/survey/";
+				$server_root = __DIR__ . '/';
 				break;
 		}
 	}
