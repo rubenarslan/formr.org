@@ -1,5 +1,18 @@
 $.webshims.polyfill('forms forms-ext');
+$.webshims.setOptions('forms', {
+       customDatalist: true
+});
 $(document).ready(function() {
+    $('.range_list_output').each(function () {
+        var output = $('output', this);
+		console.log(output);	
+        var change = function () {
+            output.text($(this).prop('value') || '');
+        };
+        $('input[type="range"]', this)
+            .on('input', change)
+            .each(change);
+    });
 	
 	$('div.btn-radio button.btn').off('click').click(function(event){
 		var $btn = $(this);

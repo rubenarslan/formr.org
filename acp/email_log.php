@@ -8,8 +8,10 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 
 <?php
 $g_emails = $fdb->query("SELECT 
-	`survey_email_accounts`.from_name AS `from`, 
+	`survey_email_accounts`.from_name, 
+	`survey_email_accounts`.`from`, 
 	`survey_emails`.subject,
+	`survey_emails`.body,
 	`survey_email_log`.created,
 	`survey_email_log`.recipient FROM `survey_email_log`
 	
@@ -21,14 +23,19 @@ ON `survey_emails`.account_id = `survey_email_accounts`.id
 
 $emails = array();
 while($email = $g_emails->fetch(PDO::FETCH_ASSOC))
+{
+	$email['from'] = "{$email['from_name']}<br><small>{$email['from']}</small>";
+	unset($email['from_name']);
+	$email['body'] = "<small title=\"{$email['body']}\">". substr($email['body'],0,50). "…</small>";
+	
 	$emails[] = $email;
-
+}
 if(!empty($emails)) {
 	?>
 	<table class='table table-striped'>
 		<thead><tr>
 	<?php
-	foreach(current($results) AS $field => $value):
+	foreach(current($emails) AS $field => $value):
 	    echo "<th>{$field}</th>";
 	endforeach;
 	?>
@@ -36,7 +43,7 @@ if(!empty($emails)) {
 	<tbody>
 		<?php
 		// printing table rows
-		foreach($results AS $row):
+		foreach($emails AS $row):
 		    echo "<tr>";
 
 		    // $row is array... foreach( .. ) puts every element

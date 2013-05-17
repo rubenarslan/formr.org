@@ -52,7 +52,7 @@ class External extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p><label>Address: <br>
-			<input style="width:300px" type="text" placeholder="http://external.example.org?session=" name="address" value="'.$this->address.'"></label></p>'
+			<input style="width:300px" type="text" placeholder="http://examp.org?code=%s" name="address" value="'.$this->address.'"></label></p>'
 		;
 		$dialog .= '<p><a class="btn unit_save" href="ajax_save_run_unit?type=External">Save.</a></p>';
 		$dialog .= '<p><a class="btn unit_test" href="ajax_test_unit?type=External">Preview.</a></p>';
@@ -68,12 +68,13 @@ class External extends RunUnit {
 	}
 	public function test()
 	{
+		$this->address = __($this->address, "TESTCODE");
 		echo "<p><a href='{$this->address}'>{$this->address}</a></p>";
 	} 
 	public function exec()
 	{
 		$this->end();
-		redirect_to($this->address . $this->session);
+		redirect_to(__($this->address,  $this->session));
 		return false;
 	}
 }

@@ -72,7 +72,6 @@ class Run
 			`survey_unit_sessions`.ended IS NULL
 		
 		ORDER BY `survey_unit_sessions`.id DESC 
-		LIMIT 20
 		;"); // in the order they were added
 		$g_unit->bindParam(':run_id',$this->id);
 		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));

@@ -7,22 +7,27 @@ header ('Content-type: text/html; charset=utf-8');
         <title><?php echo isset($title) ? $title : 'Studie'; ?></title>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 
+	<?php 
+	if(ONLINE):
+	?>
+		<link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.no-icons.min.css" rel="stylesheet">
+		<link href="//netdna.bootstrapcdn.com/font-awesome/3.1.1/css/font-awesome.min.css" rel="stylesheet">
+		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.js"></script>
+		<script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/js/bootstrap.min.js"></script>
+	<?php
+	else:
+	?>
+		<script src="<?=WEBROOT?>js/vendor/jquery-1.9.1.min.js"></script>
 		<link rel="stylesheet" type="text/css" href="<?=WEBROOT?>css/bootstrap.min.css" />
         <link rel="stylesheet" href="<?=WEBROOT?>css/font-awesome.min.css">
-		<?php /*
-		<link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.no-icons.min.css" rel="stylesheet">
-		<link href="//netdna.bootstrapcdn.com/font-awesome/3.1.0/css/font-awesome.css" rel="stylesheet">
-		*/?>
-		
+		<script src="<?=WEBROOT?>js/vendor/bootstrap.min.js"></script>
+	<?php
+	endif;
+	?>		
         <!--[if IE 7]>
 		<link rel="stylesheet" href="css/font-awesome-ie7.min.css">
 		<![endif]-->
 		<link rel="stylesheet" href="<?=WEBROOT?>css/main.css" type="text/css" media="screen" />
-<?php // fixme: enable this again when in production, annoying when on a slow connection
-
-	//	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.js"></script>
-?>		<script>window.jQuery || document.write('<script src="<?=WEBROOT?>js/vendor/jquery-1.9.1.min.js"><\/script>')</script>
-		<script src="<?=WEBROOT?>js/vendor/bootstrap.min.js"></script>
 		<script src="<?=WEBROOT?>js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
 		<script src="<?=WEBROOT?>js/vendor/js-webshim/minified/polyfiller.js"></script>
 		<script src="<?=WEBROOT?>js/main.js"></script>

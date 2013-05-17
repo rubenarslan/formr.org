@@ -111,12 +111,12 @@ class Email extends RunUnit {
 		while($acc = $accs->fetch(PDO::FETCH_ASSOC))
 			$results[] = $acc;
 		
-		if($results):
+		if(!empty($results)):
 			$dialog = '<div class="control-group"><label>Account:
 			<select class="select2" name="account_id" style="width:300px">
 			<option value=""></option>';
 			foreach($results as $acc):
-				if($this->account_id == $acc['id'])
+				if(isset($this->account_id) AND $this->account_id == $acc['id'])
 				    $dialog .= "<option selected value=\"{$acc['id']}\">{$acc['from']}</option>";
 				else
 				    $dialog .= "<option value=\"{$acc['id']}\">{$acc['from']}</option>";
@@ -258,6 +258,17 @@ LIMIT 20";
 				</tr>";
 		endforeach;
 		echo '</tbody></table>';
+	}
+	public function remind($who)
+	{
+		pr($this->id);
+		$err = $this->sendMail($who);
+		if($this->mail_sent):
+			$this->end();
+			return false;
+		else:
+			return array('body'=>$err);
+		endif;
 	}
 	public function exec()
 	{
