@@ -8,10 +8,15 @@ szenario: wartezeit von 4 wochen nach trainingsbeginn. dann branch: wenn 8 mal a
 4 loop (if training > 8) -> wave 2 (5) else training (3)
 5 wave 2
 
-* validate ALL html.
-* cron jobs
+* run_sessions
+
 
 ### what to do when rolling out
 * htaccess config pruefen, often problems with RewriteBase
 * ist results_backups writable?
 * define_root has a hardcoded path atm.
+* bei fehlern: permissions, case-sensitive paths, htaccess pfadprobleme
+
+### debugging todo
+* place select2 als item
+* give all session/code field collate BINARY collation so they are compared case-sensitive

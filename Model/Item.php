@@ -45,7 +45,10 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 			} elseif(isset($item['MCalt1']) ) 
 			{
 				$lower = $item['MCalt1'];
-				$upper = $item['MCalt2'];	
+				if(isset($item['MCalt2']) AND $item['MCalt2'] != '')
+					$upper = $item['MCalt2'];	
+				else 
+					$upper = $item['MCalt'.$options['size']];	
 			} else 
 			{
 				$reply_options = range(1, $options['size']);
@@ -66,6 +69,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 		case "select":
 		case "mselect":
 		case "range":
+		case "range_list":
 		case "btnradio":
 		case "btncheckbox":
 			$reply_options = array();
@@ -333,7 +337,7 @@ class Item
 			(strpos($this->skipIf,'AND')!==false AND strpos($this->skipIf,'OR')!==false)
 				OR strpos($this->skipIf,'.') !== false
 				): // fixme: SO UNSAFE, should at least use least privilege principle and readonly user (but not on all-inkl...)
-					$join = join_builder($this->dbh, $this->skipIf);
+					$join = join_builder($rdb, $this->skipIf);
 					$q = "SELECT ( {$this->skipIf} ) AS test FROM `survey_unit_sessions`
 		
 					$join
@@ -342,7 +346,7 @@ class Item
 					`session_id` = :session_id
 					LIMIT 1";
 		
-					$evaluate = $this->dbh->prepare($q); // should use readonly
+					$evaluate = $rdb->prepare($q); // should use readonly
 					$evaluate->bindParam(":session_id", $this->session_id);
 
 					$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
@@ -524,7 +528,7 @@ class Item_text extends Item
 	{	
 		if(is_array($this->type_options) AND count($this->type_options) == 1)
 		{
-			$this->size = current($type_split);
+			$this->size = (int)trim(current($type_split));
 		}		
 	}
 	public function validateInput($reply)
@@ -547,6 +551,16 @@ class Item_textarea extends Item
 	}
 }
 
+// textarea automatically chosen when size exceeds a certain limit
+class Item_letters extends Item 
+{
+	public $type = 'text';
+	protected function setMoreOptions()
+	{
+		$this->input_attributes['pattern'] = "[A-Za-züäöß.;,!: ]+";
+	}
+}
+
 // spinbox is polyfilled in browsers that lack it 
 class Item_number extends Item 
 {
@@ -562,13 +576,13 @@ class Item_number extends Item
 			if(count($this->type_options) == 1) 
 				$this->type_options = explode(",",current($this->type_options));
 
-			$min = reset($this->type_options);
+			$min = trim(reset($this->type_options));
 			if(is_numeric($min)) $this->input_attributes['min'] = $min;
 		
-			$max = next($this->type_options);
+			$max = trim(next($this->type_options));
 			if(is_numeric($max)) $this->input_attributes['max'] = $max;
 		
-			$step = next($this->type_options);
+			$step = trim(next($this->type_options));
 			if(is_numeric($step) OR $step==='any') $this->input_attributes['step'] = $step;	
 		}
 		
@@ -589,11 +603,11 @@ class Item_number extends Item
 	}
 	public function validateInput($reply)
 	{
-		if(isset($this->input_attributes['min']) AND $reply <= $this->input_attributes['min']) // lower number than allowed
+		if(isset($this->input_attributes['min']) AND $reply < $this->input_attributes['min']) // lower number than allowed
 		{
 			$this->error = __("The minimum is %d",$this->input_attributes['min']);
 		}
-		elseif(isset($this->input_attributes['max']) AND $reply >= $this->input_attributes['max']) // larger number than allowed
+		elseif(isset($this->input_attributes['max']) AND $reply > $this->input_attributes['max']) // larger number than allowed
 		{
 			$this->error = __("The maximum is %d",$this->input_attributes['max']);
 		}
@@ -611,7 +625,7 @@ class Item_number extends Item
 }
 
 
-// slider, polyfilled in most browsers, native in chrome, ..?
+// slider, polyfilled in firefox etc, native in many, ..?
 class Item_range extends Item_number 
 {
 	public $type = 'range';
@@ -625,9 +639,43 @@ class Item_range extends Item_number
 	}
 	protected function render_input() 
 	{
-		return (isset($this->reply_options[1]) ? '<label>'. $this->reply_options[1] . ' </label>': '') . 		
+		return (isset($this->reply_options[1]) ? '<label>'. $this->reply_options[1] . ' </label> ': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
-			(isset($this->reply_options[2]) ? '<label>'. $this->reply_options[2] . ' </label>': '') ;
+			(isset($this->reply_options[2]) ? ' <label>'. $this->reply_options[2] . ' </label>': '') ;
+	}
+}
+
+// slider with ticks
+class Item_range_list extends Item_number 
+{
+	public $type = 'range';
+
+	protected function setMoreOptions() 
+	{
+		$this->input_attributes['min'] = 0;
+		$this->input_attributes['max'] = 100;
+		$this->input_attributes['list'] = 'dlist'.$this->id;
+		$this->input_attributes['data-range'] = "{'animate': true}";
+		$this->classes_input[] = "range-list";
+		$this->classes_wrapper[] = 'range_list_output';
+		
+		parent::setMoreOptions();
+	}
+	protected function render_input() 
+	{
+		$ret = (isset($this->reply_options[1]) ? '<label>'. $this->reply_options[1] . ' </label> ': '') . 		
+			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
+			(isset($this->reply_options[2]) ? ' <label>'. $this->reply_options[2] . ' </label>': '') ;
+		$ret .= '<output id="output'.$this->id.'" class="output"></output>';
+		$ret .= '<datalist id="dlist'.$this->id.'">
+        <select>';
+		for($i = $this->input_attributes['min']; $i <= $this->input_attributes['max']; $i = $i + $this->input_attributes['step']):
+        	$ret .= '<option value="'.$i.'" label="'.$i.'" />';
+		endfor;
+			$ret .= '
+	        </select>
+	    </datalist>';
+		return $ret;
 	}
 }
 
@@ -709,7 +757,7 @@ class Item_submit extends Item
 		$this->classes_wrapper = array('control-group');
 		$this->classes_input[] = 'btn';
 		$this->classes_input[] = 'btn-large';
-		$this->classes_input[] = 'btn-success';
+		$this->classes_input[] = 'btn-info';
 	}
 	public function validateInput($reply)
 	{
@@ -764,6 +812,8 @@ class Item_mc extends Item
 		$ret = '
 			<input '.self::_parseAttributes($this->input_attributes,array('type','id','required')).' type="hidden" value="" id="item' . $this->id . '_">
 		';
+		
+#		pr($this->reply_options);
 		
 		$opt_values = array_count_values($this->reply_options);
 		if(

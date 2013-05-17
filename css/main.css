@@ -149,3 +149,11 @@ a [class^="icon-"], a [class*=" icon-"], a [class^="icon-"]:before, a [class*=" 
 {
 	font-size:6.5em;
 }
+output.output {
+    
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 3px;
+    margin: 0 0 0 10px;
+}

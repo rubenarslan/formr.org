@@ -20,30 +20,28 @@ if(!empty($_POST) AND isset($_POST['create'])) {
 require_once INCLUDE_ROOT . "view_header.php";
 require_once INCLUDE_ROOT . "acp/acp_nav.php";
 
-
-
+?>
+<form id="list_email_accounts" name="list_email_accounts" method="post" action="<?=WEBROOT?>acp/list_email_accounts">
+<div class="span5">
+<h3>Email accounts</h3>
+<ul class="nav nav-pills nav-stacked">
+	<li>
+		<input class="btn btn-info" name="create" type="submit" value="<?php echo _("Create new account"); ?>">
+	</li>
+<?php
 $accs = $user->getEmailAccounts();
 if($accs) {
   echo '
-	  <div class="span5">
-	  <h3>Email accounts</h3>
-	  <ul class="nav nav-pills nav-stacked">';
+	  ';
   foreach($accs as $account) {
     echo "<li>
 		<a href='".WEBROOT."acp/edit_email_account.php?account_id=".$account['id']."'>".$account['from']."</a>
 	</li>";
   }
-  echo "</ul></div>";
 }
 ?>
-
-<form class="form-horizontal"  id="list_email_accounts" name="list_email_accounts" method="post" action="<?=WEBROOT?>acp/list_email_accounts">
-
-	<div class="control-group">
-		<div class="controls">
-			<input required name="create" type="submit" value="<?php echo _("Create new account"); ?>">
-		</div>
-	</div>
+</ul>
+</div>
 </form>
 
 <?php
