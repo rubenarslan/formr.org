@@ -26,6 +26,8 @@ CREATE  TABLE IF NOT EXISTS `survey_runs` (
   `owner_id` INT UNSIGNED NOT NULL ,
   `name` VARCHAR(45) NULL ,
   `api_secret` CHAR(64) NULL ,
+  `cron_active` TINYINT(1) NULL DEFAULT 0 ,
+  `active` TINYINT(1) NULL DEFAULT 0 ,
   PRIMARY KEY (`id`) ,
   INDEX `fk_runs_survey_users1_idx` (`owner_id` ASC) ,
   CONSTRAINT `fk_runs_survey_users1`
@@ -102,7 +104,7 @@ CREATE  TABLE IF NOT EXISTS `survey_run_units` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `run_id` INT UNSIGNED NOT NULL ,
   `unit_id` INT UNSIGNED NOT NULL ,
-  `position` TINYINT NOT NULL ,
+  `position` SMALLINT NOT NULL ,
   PRIMARY KEY (`id`) ,
   INDEX `fk_survey_run_data_survey_runs1_idx` (`run_id` ASC) ,
   INDEX `fk_survey_run_data_survey_run_items1_idx` (`unit_id` ASC) ,
@@ -279,7 +281,7 @@ CREATE  TABLE IF NOT EXISTS `survey_pauses` (
   `id` INT UNSIGNED NOT NULL ,
   `wait_until_time` TIME NULL ,
   `wait_until_date` DATE NULL ,
-  `wait_minutes` INT UNSIGNED NULL ,
+  `wait_minutes` INT NULL ,
   `relative_to` VARCHAR(255) NULL ,
   `message` TEXT NULL ,
   `message_parsed` TEXT NULL ,
@@ -299,8 +301,8 @@ ENGINE = InnoDB;
 CREATE  TABLE IF NOT EXISTS `survey_branches` (
   `id` INT UNSIGNED NOT NULL ,
   `condition` VARCHAR(2000) NULL ,
-  `if_true` TINYINT NULL ,
-  `if_false` TINYINT NULL ,
+  `if_true` SMALLINT NULL ,
+  `if_false` SMALLINT NULL ,
   INDEX `fk_survey_branch_survey_units1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
   CONSTRAINT `fk_branch_unit`
@@ -398,6 +400,23 @@ CREATE  TABLE IF NOT EXISTS `survey_results` (
   PRIMARY KEY (`session_id`) )
 ENGINE = MyISAM
 DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `survey_run_sessions`
+-- -----------------------------------------------------
+CREATE  TABLE IF NOT EXISTS `survey_run_sessions` (
+  `id` INT NOT NULL ,
+  `run_id` INT UNSIGNED NOT NULL ,
+  `session` CHAR(64) NULL ,
+  PRIMARY KEY (`id`) ,
+  INDEX `fk_survey_run_sessions_survey_runs1_idx` (`run_id` ASC) ,
+  CONSTRAINT `fk_survey_run_sessions_survey_runs1`
+    FOREIGN KEY (`run_id` )
+    REFERENCES `survey_runs` (`id` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------

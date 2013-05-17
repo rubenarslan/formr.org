@@ -1,6 +1,6 @@
 <?php
 require_once INCLUDE_ROOT . "Model/DB.php";
-
+// todo: cron_active field, active field
 /*
 ## types of run units
 	* branches 

@@ -109,19 +109,19 @@ class StudyX extends RunUnit
 		
 		$this->changeSettings(array
 			(
-				"logo" => "hu.gif",
+//				"logo" => "hu.gif",
 				"welcome" => "Welcome!",
 				"title" => "Survey",
 				"description" => "",
 				"problem_email" => "problems@example.com",
-				"fileuploadmaxsize" => "100000",
-				"closed_user_pool" => 0,
-				"timezone" => "Europe/Berlin",
-				"debug" => 0,
-				"skipif_debug" => 0,
-				"primary_color" => "#ff0000",
-				"secondary_color" => "#00ff00",
-				'custom_styles' => ''
+//				"fileuploadmaxsize" => "100000",
+//				"closed_user_pool" => 0,
+//				"timezone" => "Europe/Berlin",
+//				"debug" => 0,
+//				"skipif_debug" => 0,
+//				"primary_color" => "#ff0000",
+//				"secondary_color" => "#00ff00",
+//				'custom_styles' => ''
 			)
 		);
 		

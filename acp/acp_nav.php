@@ -27,7 +27,7 @@
 					<a href="<?=WEBROOT?>acp/user_overview"><?php echo _("user overview"); ?></a>
 				</li>
 				<li <?=endsWith($_SERVER['PHP_SELF'],'user_detail.php')?' class="active"':''?>>
-					<a href="<?=WEBROOT?>acp/detail"><?php echo _("user detail"); ?></a>
+					<a href="<?=WEBROOT?>acp/user_detail"><?php echo _("user detail"); ?></a>
 				</li>
 				<li <?=endsWith($_SERVER['PHP_SELF'],'cron_log.php')?' class="active"':''?>>
 					<a href="<?=WEBROOT?>acp/cron_log"><?php echo _("cron log"); ?></a>
