@@ -210,6 +210,10 @@ output.output {
   	margin-left: 920px;
 }
 
+form.form-horizontal div.form-row.item-radio.control-group.mc-block div.controls label input,form.form-horizontal div.form-row.item-checkbox.control-group.mc-block div.controls label input {
+  display:block;
+}
+
 form.form-horizontal div.form-row.item-radio.control-group.mc-vertical div.controls,form.form-horizontal div.form-row.item-checkbox.control-group.mc-vertical div.controls {
   display:block;
 }

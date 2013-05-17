@@ -822,14 +822,18 @@ class Item_mc extends Item
 			current($this->reply_options)!= '' // and the first option isn't empty
 		) $this->label_first = true;  // the first option label will be rendered before the radio button instead of after it.
 		else $this->label_first = false;
+#		pr((implode(" ",$this->classes_wrapper)));
+		if(strpos(implode(" ",$this->classes_wrapper),'mc-first-left')!==false) $this->label_first = true;
+		$all_left = false;
+		if(strpos(implode(" ",$this->classes_wrapper),'mc-all-left')!==false) $all_left = true;
 		
 		foreach($this->reply_options AS $value => $option):			
 			$ret .= '
 				<label for="item' . $this->id . '_' . $value . '">' . 
-					($this->label_first ? $option.'&nbsp;' : '') . 
+					(($this->label_first || $all_left) ? $option.'&nbsp;' : '') . 
 				'<input '.self::_parseAttributes($this->input_attributes,array('id')).
 				' value="'.$value.'" id="item' . $this->id . '_' . $value . '">' .
-					($this->label_first ? "&nbsp;" : ' ' . $option) . '</label>';
+					(($this->label_first || $all_left) ? "&nbsp;" : ' ' . $option) . '</label>';
 					
 			if($this->label_first) $this->label_first = false;
 			

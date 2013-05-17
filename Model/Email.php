@@ -193,7 +193,7 @@ LIMIT 1";
 		
 		if(!$mail->Send())
 		{
-		   return $mail->ErrorInfo;
+		   die($mail->ErrorInfo);
 		}
 		else 
 		{

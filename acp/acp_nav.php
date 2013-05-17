@@ -21,10 +21,13 @@
 			</a>
 			<ul class="dropdown-menu">
 				<li <?=endsWith($_SERVER['PHP_SELF'],'list_email_accounts.php')?' class="active"':''?>>
-					<a href="<?=WEBROOT?>acp/list_email_accounts"><?php echo _("list accounts"); ?></a>
+					<a href="<?=WEBROOT?>acp/list_email_accounts"><?php echo _("list mail accounts"); ?></a>
 				</li>
 				<li <?=endsWith($_SERVER['PHP_SELF'],'user_overview.php')?' class="active"':''?>>
 					<a href="<?=WEBROOT?>acp/user_overview"><?php echo _("user overview"); ?></a>
+				</li>
+				<li <?=endsWith($_SERVER['PHP_SELF'],'user_detail.php')?' class="active"':''?>>
+					<a href="<?=WEBROOT?>acp/detail"><?php echo _("user detail"); ?></a>
 				</li>
 				<li <?=endsWith($_SERVER['PHP_SELF'],'cron_log.php')?' class="active"':''?>>
 					<a href="<?=WEBROOT?>acp/cron_log"><?php echo _("cron log"); ?></a>

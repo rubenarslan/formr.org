@@ -249,7 +249,7 @@ LIMIT 10";
 				'title' => 'Pause',
 				'body' => $this->message_parsed
 			);
-		}		
+		}	
 	}
 	
 }

@@ -107,7 +107,7 @@ class Page extends RunUnit {
 	} 
 	public function exec()
 	{
-		if($this->ended) return false;
+		if($this->can_end AND $this->ended) return false;
 		
 		if(!$this->can_end):
 			$action = WEBROOT."{$this->run_name}";
