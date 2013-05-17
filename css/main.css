@@ -68,11 +68,11 @@ form.form-horizontal div.control-group.form-message div.control-label {
 form.form-horizontal div.form-row:nth-child(odd) {
   background-color: #f9f9f9;
 }
-form.form-horizontal div.form-row.item-radio div.controls,form.form-horizontal div.form-row.item-checkbox div.controls {
-  display:table;
-}
 form.form-horizontal div.form-row.control-group.optional .control-label::after {
 	content:'*';
+}
+form.form-horizontal div.form-row.item-radio div.controls,form.form-horizontal div.form-row.item-checkbox div.controls {
+  display:table;
 }
 form.form-horizontal div.form-row.item-checkbox div.controls label, form.form-horizontal div.form-row.item-radio div.controls label {
   display:table-cell;
@@ -115,18 +115,6 @@ form.form-horizontal div.form-row.item-checkbox div.controls label, form.form-ho
 }
 
 
-/* CLASSES THAT COULD BE ADDED BY USER */
-.form-horizontal .control-group.small-left .control-label {
-  float: left;
-  width: 100px;
-  padding-top: 5px;
-  text-align: right;
-  white-space:normal;
-}
-.form-horizontal .control-group.small-left .controls {
-  	margin-left: 120px;
-}
-
 input.position
 {
 	border:0;
@@ -156,4 +144,79 @@ output.output {
     border-radius: 4px;
     padding: 3px;
     margin: 0 0 0 10px;
+}
+
+
+/* CLASSES THAT COULD BE ADDED BY USER */
+.form-horizontal .control-group.left100 .control-label {
+  width: 100px;
+}
+.form-horizontal .control-group.left100 .controls {
+  	margin-left: 120px;
+}
+
+.form-horizontal .control-group.left200 .control-label {
+  width: 200px;
+}
+.form-horizontal .control-group.left200 .controls {
+  	margin-left: 220px;
+}
+
+.form-horizontal .control-group.left300 .control-label {
+  width: 300px;
+}
+.form-horizontal .control-group.left300 .controls {
+  	margin-left: 320px;
+}
+
+.form-horizontal .control-group.left400 .control-label {
+  width: 400px;
+}
+.form-horizontal .control-group.left400 .controls {
+  	margin-left: 420px;
+}
+
+.form-horizontal .control-group.left500 .control-label {
+  width: 500px;
+}
+.form-horizontal .control-group.left500 .controls {
+  	margin-left: 520px;
+}
+
+.form-horizontal .control-group.left600 .control-label {
+  width: 600px;
+}
+.form-horizontal .control-group.left600 .controls {
+  	margin-left: 620px;
+}
+
+.form-horizontal .control-group.left700 .control-label {
+  width: 700px;
+}
+.form-horizontal .control-group.left700 .controls {
+  	margin-left: 720px;
+}
+
+.form-horizontal .control-group.left800 .control-label {
+  width: 800px;
+}
+.form-horizontal .control-group.left800 .controls {
+  	margin-left: 820px;
+}
+.form-horizontal .control-group.left900 .control-label {
+  width: 900px;
+}
+.form-horizontal .control-group.left900 .controls {
+  	margin-left: 920px;
+}
+
+form.form-horizontal div.form-row.item-radio.control-group.mc-vertical div.controls,form.form-horizontal div.form-row.item-checkbox.control-group.mc-vertical div.controls {
+  display:block;
+}
+form.form-horizontal div.form-row.item-radio.control-group.mc-vertical div.controls label, form.form-horizontal div.form-row.item-checkbox.control-group.mc-vertical div.controls label {
+  display:block;
+  padding-left:18px;
+  padding-right:5px;
+  padding-top:5px;
+  text-indent:-18px;
 }
