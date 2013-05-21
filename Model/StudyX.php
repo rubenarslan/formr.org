@@ -230,7 +230,7 @@ class StudyX extends RunUnit
 	public function deleteResults()
 	{
 		$resC = $this->getResultCount();
-		if(true OR $resC['finished'] > 10):
+		if($resC['finished'] > 10):
 			$this->backupResults();
 		elseif($resC['finished']>0):
 			$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));

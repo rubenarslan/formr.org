@@ -23,11 +23,13 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 		$options['size'] = $item['antwortformatanzahl'];
 	}
 	
+#	pr($type);
 	if(strpos($type," ")!==false)
 	{
 		$type = preg_replace("/ +/"," ",$type); // multiple spaces collapse into one
 		$type_options = explode(" ",$type); // get real type and options
 		$type = $type_options[0];
+#		pr($type_options);
 		unset($type_options[0]); // remove real type from options
 		
 		$options['type_options'] = $type_options;
@@ -72,6 +74,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 		case "range_list":
 		case "btnradio":
 		case "btncheckbox":
+		case "btnrating":
 			$reply_options = array();
 						
 			for($op = 1; $op <= 12; $op++) 
@@ -528,7 +531,7 @@ class Item_text extends Item
 	{	
 		if(is_array($this->type_options) AND count($this->type_options) == 1)
 		{
-			$this->size = (int)trim(current($type_split));
+			$this->size = (int)trim(current($this->type_options));
 		}		
 	}
 	public function validateInput($reply)
@@ -974,6 +977,51 @@ class Item_btnradio extends Item_mc
 		return $ret;
 	}
 }
+// dropdown select, choose multiple
+class Item_btnrating extends Item_btnradio 
+{
+	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	protected function setMoreOptions() 
+	{	
+		parent::setMoreOptions();
+		if(is_array($this->type_options) AND count($this->type_options) == 1)
+		{
+			$this->size = (int)trim(current($this->type_options));
+		}
+		
+		$this->lower_text = current($this->reply_options);
+		$this->upper_text = next($this->reply_options);
+		$this->reply_options =array_combine(range(1, $this->size),range(1, $this->size));
+		
+	}
+	protected function render_input() 
+	{
+		$ret = '
+			<input '.self::_parseAttributes($this->input_attributes,array('type','id','required')).' type="hidden" value="" id="item' . $this->id . '_">
+		';
+		
+
+		$ret .= $this->lower_text;
+		foreach($this->reply_options AS $option):			
+			$ret .= '
+				<label for="item' . $this->id . '_' . $option . '">' . 
+				'<input '.self::_parseAttributes($this->input_attributes,array('id')).
+				' value="'.$option.'" id="item' . $this->id . '_' . $option . '">' .
+					$option . '</label>';
+		endforeach;
+		
+		return $ret;
+	}
+	protected function render_appended () 
+	{
+		$ret = parent::render_appended();
+		$ret .= $this->upper_text;
+		
+		return $ret;
+		
+	}
+}
+
 
 class Item_btncheckbox extends Item_mmc 
 {
