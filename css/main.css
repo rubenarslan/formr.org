@@ -19,7 +19,9 @@ button.btn.btn-checked,label.btn.btn-checked {
   background-color: #e6e6e6;
   background-color: #d9d9d9 \9;
   background-image: none;
-  outline: 0;
+  z-index:2;
+  border:1px black solid !important;
+  outline: 1;
   -webkit-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
      -moz-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
           box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -223,4 +225,36 @@ form.form-horizontal div.form-row.item-radio.control-group.mc-vertical div.contr
   padding-right:5px;
   padding-top:5px;
   text-indent:-18px;
+}
+form.form-horizontal div.form-row.item-radio.control-group.mc-equal-widths div.controls,form.form-horizontal div.form-row.item-checkbox.control-group.mc-equal-widths div.controls {
+/*  width:100%;*/
+  table-layout:fixed;
+}
+form.form-horizontal div.form-row.item-radio.control-group.mc-equal-widths div.controls label,form.form-horizontal div.form-row.item-checkbox.control-group.mc-equal-widths div.controls label {
+	width:2%;
+}
+form.form-horizontal div.form-row.item-radio.control-group.mc-width50 div.controls label,
+form.form-horizontal div.form-row.item-checkbox.control-group.mc-width50 div.controls label,
+form.form-horizontal div.form-row.control-group.mc-width50 div.controls button.btn {
+	width:50px;
+}
+form.form-horizontal div.form-row.item-radio.control-group.mc-width70 div.controls label,
+form.form-horizontal div.form-row.item-checkbox.control-group.mc-width70 div.controls label,
+form.form-horizontal div.form-row.control-group.mc-width70 div.controls button.btn {
+	width:70px;
+}
+form.form-horizontal div.form-row.item-radio.control-group.mc-width100 div.controls label,
+form.form-horizontal div.form-row.item-checkbox.control-group.mc-width100 div.controls label,
+form.form-horizontal div.form-row.control-group.mc-width100 div.controls button.btn {
+	width:100px;
+}
+form.form-horizontal div.form-row.item-radio.control-group.mc-width150 div.controls label,
+form.form-horizontal div.form-row.item-checkbox.control-group.mc-width150 div.controls label,
+form.form-horizontal div.form-row.control-group.mc-width150 div.controls button.btn {
+	width:150px;
+}
+form.form-horizontal div.form-row.item-radio.control-group.mc-width200 div.controls label,
+form.form-horizontal div.form-row.item-checkbox.control-group.mc-width200 div.controls label,
+form.form-horizontal div.form-row.control-group.mc-width200 div.controls button.btn {
+	width:150px;
 }

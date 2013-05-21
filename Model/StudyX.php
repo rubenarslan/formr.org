@@ -114,6 +114,8 @@ class StudyX extends RunUnit
 				"title" => "Survey",
 				"description" => "",
 				"problem_email" => "problems@example.com",
+				"displayed_percentage_maximum" => 100,
+				"add_percentage_points" => 0,
 //				"fileuploadmaxsize" => "100000",
 //				"closed_user_pool" => 0,
 //				"timezone" => "Europe/Berlin",
@@ -228,7 +230,7 @@ class StudyX extends RunUnit
 	public function deleteResults()
 	{
 		$resC = $this->getResultCount();
-		if($resC['finished'] > 10):
+		if(true OR $resC['finished'] > 10):
 			$this->backupResults();
 		elseif($resC['finished']>0):
 			$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
@@ -247,7 +249,7 @@ class StudyX extends RunUnit
 		require_once INCLUDE_ROOT . 'Model/SpreadsheetReader.php';
 
 		$SPR = new SpreadsheetReader();
-		$SPR->exportCSV( $this->getResults() , $filename);
+		$SPR->saveTSV( $this->getResults() , $filename);
 	}
 	public function getResultCount()
 	{

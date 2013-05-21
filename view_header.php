@@ -27,9 +27,12 @@ header ('Content-type: text/html; charset=utf-8');
         <!--[if IE 7]>
 		<link rel="stylesheet" href="css/font-awesome-ie7.min.css">
 		<![endif]-->
-		<link rel="stylesheet" href="<?=WEBROOT?>css/main.css" type="text/css" media="screen" />
+		<link rel="stylesheet" href="<?=WEBROOT?>css/main.css" type="text/css" media="screen">
 		<script src="<?=WEBROOT?>js/vendor/modernizr-2.6.2-respond-1.1.0.min.js"></script>
 		<script src="<?=WEBROOT?>js/vendor/js-webshim/minified/polyfiller.js"></script>
+		<link rel="stylesheet" type="text/css" href="<?=WEBROOT?>js/vendor/select2/select2.css">
+		<script type="text/javascript" src="<?=WEBROOT?>js/vendor/select2/select2.js"></script>
+		
 		<script src="<?=WEBROOT?>js/main.js"></script>
 		<?php echo isset($head)?$head:'' ?>
 </head>

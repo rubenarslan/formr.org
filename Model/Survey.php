@@ -224,8 +224,14 @@ class Survey extends RunUnit {
 			debug("<strong>render_form_header:</strong> timestarted was not set or empty");
 		}
 	
+		if(!isset($this->settings["displayed_percentage_maximum"]))
+			$this->settings["displayed_percentage_maximum"] = 90;
+		$prog = round($this->progress,2) * $this->settings["displayed_percentage_maximum"];
+		if(isset($this->settings["add_percentage_points"]))
+			$prog += $this->settings["add_percentage_points"];
+		
 	    $ret .= '<div class="progress">
-				  <div class="bar" style="width: '.(round($this->progress,2)*100).'%;">'.(round($this->progress,2)*100).'%</div>
+				  <div class="bar" style="width: '.$prog.'%;">'.$prog.'%</div>
 			</div>';
 		$ret .= '<div class="control-group error form-message">
 			<div class="control-label">'.implode("<br>",array_unique($this->errors)).'

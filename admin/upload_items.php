@@ -52,7 +52,13 @@ require_once INCLUDE_ROOT.'admin/admin_nav.php';
 	</div>
 	<div class="control-group">
 		<div class="controls">
-			<input required type="submit" value="<?php echo _("Studie anlegen"); ?>">
+			<?php
+				$res = ($resultCount['begun']+$resultCount['finished']);
+				if($res>10) $class = 'btn-danger';
+				elseif($res>0) $class = 'btn-warning';
+				else $class = 'btn-success';
+			?>
+			<input class="btn <?=$class?>" required type="submit" value="<?php echo __("Studie anlegen und %d Ergebnisse überschreiben.", $res); ?>">
 		</div>
 	</div>
 </form>

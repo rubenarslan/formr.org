@@ -65,5 +65,51 @@ $(document).ready(function() {
 		$btn.find('input').addClass('hidden'); // hide normal radio buttons
 	});
 	
+	var pathArray = location.href.split( '/' );
+	var protocol = pathArray[0];
+	var host = pathArray[2];
+	if(host=='localhost:8888') host = host + "/jena";
+	var url = protocol + '//' + host + "/";
+	
+	$('.select2place').select2({
+	    ajax: {
+	        url: url + "places/search",
+	        dataType: 'json',
+	        quietMillis: 100,
+	        data: function (term, page) { // page is the one-based page number tracked by Select2
+	            return {
+	                term: term, //search term
+	                page: page, // page number
+	            };
+	        },
+	        results: function (data, page) {
+	            var more = (page * 10) < data.total; // whether or not there are more results available
+
+	            // notice we return the value of more so Select2 knows if more results can be loaded
+	            return {results: data.places, more: more};
+	        }
+	    },
+	    initSelection: function(element, callback) {
+		   // the input tag has a value attribute preloaded that points to a preselected movie's id
+		   // this function resolves that id attribute to an object that select2 can render
+		   // using its formatResult renderer - that way the movie name is shown preselected
+		   var id=$(element).val();
+		   if (id!=="") {
+			   $.ajax(url + "places/get/"+id, {
+				   dataType: "json"
+			   }).done(function(data) { 
+				   callback(data[0]); 
+			   }).fail(ajaxErrorHandling);
+		   }
+		},
+		minimumInputLength: 3,
+		formatInputTooShort: function (term, minLength) {
+			return "Bitte geben Sie mindestens 3 Zeichen ein."
+		},
+		formatNoMatches: function (term) {
+			return "Ort nicht gefunden, bitte geben Sie ihn selbst ein."					
+		}
+	});
+	
 	$('.hastooltip').tooltip();
 });

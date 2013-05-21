@@ -1046,6 +1046,13 @@ class Item_ip extends Item {
 	}
 }
 
+class Item_place extends Item_text
+{
+	protected function setMoreOptions() 
+	{
+		$this->classes_input[] = 'select2place';
+	}
+}
 /*
  * todo: item - rank / sortable
  * todo: item - select + or add our own (optionally: load other users' entries), both as dropdown and as radio/btnradio, checkbox/btncheckbox

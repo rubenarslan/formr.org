@@ -43,6 +43,16 @@ class SpreadsheetReader
 	    $objWriter->save('php://output');
 	    exit;
 	}
+	public function saveTSV($array,$filename)
+	{
+		$objPHPExcel = $this->objectFromArray($array);
+		
+		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
+		$objWriter->setDelimiter("\t");
+		$objWriter->setEnclosure("");
+		
+	    $objWriter->save($filename);
+	}
 	public function exportTSV($array,$filename)
 	{
 		$objPHPExcel = $this->objectFromArray($array);

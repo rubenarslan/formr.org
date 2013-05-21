@@ -18,5 +18,4 @@ szenario: wartezeit von 4 wochen nach trainingsbeginn. dann branch: wenn 8 mal a
 * bei fehlern: permissions, case-sensitive paths, htaccess pfadprobleme
 
 ### debugging todo
-* place select2 als item
 * give all session/code field collate BINARY collation so they are compared case-sensitive
