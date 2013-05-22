@@ -129,7 +129,7 @@ class RunUnit {
 			<div>
 				<div class="span1 run_unit_position">
 
-					<input value="'.$position.'" style="width:67px" type="number" name="position['.$this->id.']" class="position" step="1" max="127" min="-127"><br>
+					<input value="'.$position.'" style="width:67px" type="number" name="position['.$this->id.']" class="position" step="1" max="32000" min="-32000"><br>
 					<div class="btn-group">
 						<a href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-small hastooltip" title="Remove unit from run"><i class="icon-remove"></i> Remove</a>
 					</div>

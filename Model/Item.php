@@ -984,14 +984,35 @@ class Item_btnrating extends Item_btnradio
 	protected function setMoreOptions() 
 	{	
 		parent::setMoreOptions();
-		if(is_array($this->type_options) AND count($this->type_options) == 1)
+		$step = 1;
+		$lower_limit = 1;
+		$upper_limit = 5;
+		
+		if(isset($this->type_options) AND is_array($this->type_options))
 		{
-			$this->size = (int)trim(current($this->type_options));
+			if(count($this->type_options) == 1) 
+				$this->type_options = explode(",",current($this->type_options));
+
+			if(count($this->type_options) == 1)
+			{
+				$upper_limit = (int)trim(current($this->type_options));
+			}
+			elseif(count($this->type_options) == 2)
+			{
+				$lower_limit = (int)trim(current($this->type_options));
+				$upper_limit = (int)trim(next($this->type_options));
+			}
+			elseif(count($this->type_options) == 3)
+			{
+				$lower_limit = (int)trim(current($this->type_options));
+				$upper_limit = (int)trim(next($this->type_options));
+				$step = (int)trim(next($this->type_options));
+			}
 		}
 		
 		$this->lower_text = current($this->reply_options);
 		$this->upper_text = next($this->reply_options);
-		$this->reply_options =array_combine(range(1, $this->size),range(1, $this->size));
+		$this->reply_options =array_combine(range($lower_limit,$upper_limit),range($lower_limit,$upper_limit));
 		
 	}
 	protected function render_input() 
@@ -1001,7 +1022,7 @@ class Item_btnrating extends Item_btnradio
 		';
 		
 
-		$ret .= $this->lower_text;
+		$ret .= $this->lower_text . " ";
 		foreach($this->reply_options AS $option):			
 			$ret .= '
 				<label for="item' . $this->id . '_' . $option . '">' . 
@@ -1015,7 +1036,7 @@ class Item_btnrating extends Item_btnradio
 	protected function render_appended () 
 	{
 		$ret = parent::render_appended();
-		$ret .= $this->upper_text;
+		$ret .= " ". $this->upper_text;
 		
 		return $ret;
 		

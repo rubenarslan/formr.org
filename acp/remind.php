@@ -28,12 +28,11 @@ if($run AND trim($_GET['email'])!=''):
 		'unit_id' => $run['id']
 		)
 	);
-	$email->remind($_GET['email']);
-
-	alert('<strong>Reminder sent.</strong> in run '.$_GET['run_name'], 'alert-info');
-	redirect_to("acp/user_overview");
-else:
-	alert('<strong>Something went wrong with the reminder.</strong> in run '.$_GET['run_name'], 'alert-error');
-	redirect_to("acp/user_overview");
-	
+	if($email->remind($_GET['email'])===true):
+		alert('<strong>Reminder sent.</strong> in run '.$_GET['run_name'], 'alert-info');
+		redirect_to("acp/user_overview");
+	endif;
 endif;
+
+alert('<strong>Something went wrong with the reminder.</strong> in run '.$_GET['run_name'], 'alert-error');
+redirect_to("acp/user_overview");
