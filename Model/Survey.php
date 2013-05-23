@@ -86,13 +86,9 @@ class Survey extends RunUnit {
 		foreach($posted AS $name => $value)
 		{
 	        if (isset($this->unanswered_batch[$name])) {
-				$this->unanswered_batch[$name]->validateInput($value);
+				$value = $this->unanswered_batch[$name]->validateInput($value);
 				if( ! $this->unanswered_batch[$name]->error )
 				{
-					
-					if(is_array($posted[$name])) $value = implode(", ",array_filter($posted[$name]));
-					else $value = $posted[$name];
-
 					$this->dbh->beginTransaction() or die(print_r($answered->errorInfo(), true));
 					$answered->bindParam(":item_id", $this->unanswered_batch[$name]->id);
 			   	   	$answered->execute() or die(print_r($answered->errorInfo(), true));

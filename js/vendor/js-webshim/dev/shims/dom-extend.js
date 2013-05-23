@@ -1,16 +1,70 @@
 //DOM-Extension helper
-jQuery.webshims.register('dom-extend', function($, webshims, window, document, undefined){
+webshims.register('dom-extend', function($, webshims, window, document, undefined){
 	"use strict";
 	
-	webshims.assumeARIA = Modernizr.localstorage || Modernizr.video || Modernizr.boxsizing;
+	webshims.assumeARIA = $.support.getSetAttribute || Modernizr.canvas || Modernizr.video || Modernizr.boxsizing;
 	
-	if($('<form />').attr('novalidate') === "" || ('required' in $('<input />')[0].attributes)){
+	if($('<input type="email" />').attr('type') == 'text' || $('<form />').attr('novalidate') === "" || ('required' in $('<input />')[0].attributes)){
 		webshims.error("IE browser modes are busted in IE10. Please test your HTML/CSS/JS with a real IE version or at least IETester or similiar tools");
 	}
 	
 	if(!$.parseHTML){
 		webshims.error("Webshims needs jQuery 1.8+ to work properly. Please update your jQuery version or downgrade webshims.");
 	}
+	if (!webshims.cfg.no$Switch) {
+		var switch$ = function(){
+			if (window.jQuery && (!window.$ || window.jQuery == window.$) && !window.jQuery.webshims) {
+				webshims.error("jQuery was included more than once. Make sure to include it only once or try the $.noConflict(extreme) feature! Webshims and other Plugins might not work properly..");
+				if (window.$) {
+					window.$ = webshims.$;
+				}
+				window.jQuery = webshims.$;
+			}
+			if(webshims.M != Modernizr){
+				webshims.error("Modernizr was included more than once. Make sure to include it only once! Webshims and other scripts might not work properly.");
+				for(var i in Modernizr){
+					if(!(i in webshims.M)){
+						webshims.M[i] = Modernizr[i];
+					}
+				}
+				Modernizr = webshims.M;
+			}
+		};
+		switch$();
+		setTimeout(switch$, 90);
+		webshims.ready('DOM', switch$);
+		$(switch$);
+		webshims.ready('WINDOWLOAD', switch$);
+		
+	}
+//	(function(){
+//		var hostNames = {
+//			'afarkas.github.io': 1,
+//			localhost: 1,
+//			'127.0.0.1': 1
+//		};
+//		
+//		if( webshims.debug && (hostNames[location.hostname] || location.protocol == 'file:') ){
+//			var list = $('<ul class="webshims-debug-list" />');
+//			webshims.errorLog.push = function(message){
+//				list.appendTo('body');
+//				$('<li style="display: none;">'+ message +'</li>')
+//					.appendTo(list)
+//					.slideDown()
+//					.delay(3000)
+//					.slideUp(function(){
+//						$(this).remove();
+//						if(!$('li', list).length){
+//							list.detach();
+//						}
+//					})
+//				;
+//			};
+//			$.each(webshims.errorLog, function(i, message){
+//				webshims.errorLog.push(message);
+//			});
+//		}
+//	})();
 
 	//shortcus
 	var modules = webshims.modules;
@@ -27,6 +81,24 @@ jQuery.webshims.register('dom-extend', function($, webshims, window, document, u
 	var singleVal = function(elem, name, val, pass, _argless){
 		return (_argless) ? oldVal.call($(elem)) : oldVal.call($(elem), val);
 	};
+	
+	//jquery mobile and jquery ui
+	if(!$.widget){
+		(function(){
+			var _cleanData = $.cleanData;
+			$.cleanData = function( elems ) {
+				if(!$.widget){
+					for ( var i = 0, elem; (elem = elems[i]) != null; i++ ) {
+						try {
+							$( elem ).triggerHandler( "remove" );
+						// http://bugs.jquery.com/ticket/8235
+						} catch( e ) {}
+					}
+				}
+				_cleanData( elems );
+			};
+		})();
+	}
 	
 
 	$.fn.val = function(val){
@@ -61,6 +133,18 @@ jQuery.webshims.register('dom-extend', function($, webshims, window, document, u
 		return this.on(evt, fn).each(fn);
 	};
 	
+	$.fn.onWSOff = function(evt, fn, trigger, evtDel){
+		if(!evtDel){
+			evtDel = document;
+		}
+		$(evtDel)[trigger ? 'onTrigger' : 'on'](evt, fn);
+		this.on('remove', function(e){
+			if(!e.originalEvent){
+				$(evtDel).off(evt, fn);
+			}
+		});
+	};
+	
 	var dataID = '_webshimsLib'+ (Math.round(Math.random() * 1000));
 	var elementData = function(elem, key, val){
 		elem = elem.jquery ? elem[0] : elem;
@@ -81,45 +165,67 @@ jQuery.webshims.register('dom-extend', function($, webshims, window, document, u
 
 	[{name: 'getNativeElement', prop: 'nativeElement'}, {name: 'getShadowElement', prop: 'shadowElement'}, {name: 'getShadowFocusElement', prop: 'shadowFocusElement'}].forEach(function(data){
 		$.fn[data.name] = function(){
-			return this.map(function(){
+			var elems = [];
+			this.each(function(){
 				var shadowData = elementData(this, 'shadowData');
-				return shadowData && shadowData[data.prop] || this;
+				var elem = shadowData && shadowData[data.prop] || this;
+				if($.inArray(elem, elems) == -1){
+					elems.push(elem);
+				}
 			});
+			return this.pushStack(elems);
 		};
 	});
 	
-	if($.Tween.propHooks._default){
-		$.extend($.Tween.propHooks._default, {
-			get: function( tween ) {
-				var result;
-				
-				if ( (tween.elem[ tween.prop ] != null || havePolyfill[ tween.prop ]) &&
-					(!tween.elem.style || tween.elem.style[ tween.prop ] == null) ) {
-					return havePolyfill[ tween.prop ] ? $.prop(tween.elem, tween.prop) : tween.elem[ tween.prop ];
-				}
-	
-				// passing an empty string as a 3rd parameter to .css will automatically
-				// attempt a parseFloat and fallback to a string if the parse fails
-				// so, simple values such as "10px" are parsed to Float.
-				// complex values such as "rotate(1rad)" are returned as is.
-				result = jQuery.css( tween.elem, tween.prop, "" );
-				// Empty strings, null, undefined and "auto" are converted to 0.
-				return !result || result === "auto" ? 0 : result;
-			},
-			set: function( tween ) {
-				// use step hook for back compat - use cssHook if its there - use .style if its
-				// available and use plain properties where available
-				if ( jQuery.fx.step[ tween.prop ] ) {
-					jQuery.fx.step[ tween.prop ]( tween );
-				} else if ( tween.elem.style && ( tween.elem.style[ jQuery.cssProps[ tween.prop ] ] != null || jQuery.cssHooks[ tween.prop ] ) ) {
-					jQuery.style( tween.elem, tween.prop, tween.now + tween.unit );
-				} else if( !havePolyfill[ tween.prop ] ) {
-					tween.elem[ tween.prop ] = tween.now;
-				} else {
-					$.prop(tween.elem, tween.prop, tween.now);
-				}
+	if($.Tween.propHooks._default && $.css){
+		(function(){
+			var isjQ8 = false;
+			try {
+				isjQ8 = $.css($('<b style="width: 10px" />')[0], 'width', '') == '10px';
+			} catch(er){
+				webshims.error(er);
 			}
-		});
+			var css = isjQ8 ? 
+				function(elem, prop){
+					return $.css( elem, prop, false, "" );
+				} :
+				function(elem, prop){
+					return $.css( elem, prop, "" );
+				}
+			;
+				
+			$.extend($.Tween.propHooks._default, {
+				get: function( tween ) {
+					var result;
+					
+					if ( (tween.elem[ tween.prop ] != null || havePolyfill[ tween.prop ]) &&
+						(!tween.elem.style || tween.elem.style[ tween.prop ] == null) ) {
+						return havePolyfill[ tween.prop ] ? $.prop(tween.elem, tween.prop) : tween.elem[ tween.prop ];
+					}
+		
+					// passing an empty string as a 3rd parameter to .css will automatically
+					// attempt a parseFloat and fallback to a string if the parse fails
+					// so, simple values such as "10px" are parsed to Float.
+					// complex values such as "rotate(1rad)" are returned as is.
+					result = css( tween.elem, tween.prop );
+					// Empty strings, null, undefined and "auto" are converted to 0.
+					return !result || result === "auto" ? 0 : result;
+				},
+				set: function( tween ) {
+					// use step hook for back compat - use cssHook if its there - use .style if its
+					// available and use plain properties where available
+					if ( jQuery.fx.step[ tween.prop ] ) {
+						jQuery.fx.step[ tween.prop ]( tween );
+					} else if ( tween.elem.style && ( tween.elem.style[ jQuery.cssProps[ tween.prop ] ] != null || jQuery.cssHooks[ tween.prop ] ) ) {
+						jQuery.style( tween.elem, tween.prop, tween.now + tween.unit );
+					} else if( !havePolyfill[ tween.prop ] ) {
+						tween.elem[ tween.prop ] = tween.now;
+					} else {
+						$.prop(tween.elem, tween.prop, tween.now);
+					}
+				}
+			});
+		})();
 	}
 	
 	
@@ -400,7 +506,7 @@ jQuery.webshims.register('dom-extend', function($, webshims, window, document, u
 		implement: function(elem, type){
 			var data = elementData(elem, 'implemented') || elementData(elem, 'implemented', {});
 			if(data[type]){
-				webshims.info(type +' already implemented for element #'+elem.id);
+				webshims.warn(type +' already implemented for element #'+elem.id);
 				return false;
 			}
 			data[type] = true;
@@ -543,6 +649,12 @@ jQuery.webshims.register('dom-extend', function($, webshims, window, document, u
 					}
 					shadowFocusElementData = $.data(opts.shadowFocusElement, dataID) || $.data(opts.shadowFocusElement, dataID, shadowFocusElementData);
 				}
+				
+				$(nativeElem).on('remove', function(e){
+					if (!e.originalEvent) {
+						$(shadowElem).remove();
+					}
+				});
 				
 				nativeData.hasShadow = shadowElem;
 				shadowFocusElementData.nativeElement = shadowData.nativeElement = nativeElem;
@@ -844,7 +956,7 @@ jQuery.webshims.register('dom-extend', function($, webshims, window, document, u
 //				register: moduleName:string,
 //				callback: callback:function
 //			});
-//		get/set including removeLang
+//		get/set including remoteLang
 //			- webshims.activeLang({
 //				module: moduleName:string,
 //				callback: callback:function,

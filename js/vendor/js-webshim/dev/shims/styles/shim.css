@@ -7,7 +7,51 @@
   content: ' ';
 }
 
+.ws-important-hide {
+  display: none !important;
+  visibility: hidden !important;
+  position: absolute;
+  top: -999999px;
+}
+
+/*
+.webshims-debug-list {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	margin: 5px;
+	padding: 5px;
+	list-style: none;
+	background: #fff;
+	color: #930;
+	font-size: 16px;
+	font-weight: bold;
+	max-height: 200px;
+	z-index: 99999;
+	overflow-y: auto;
+	
+	li {
+		border: 1px solid #c60;
+		margin: 2px 0;
+		padding: 5px;
+	}
+}*/
 article, aside, canvas, details, figcaption, figure, footer, header, hgroup, main, nav, section, summary {
+  display: block;
+}
+
+dialog {
+  display: none;
+  postion: absolute;
+  left: 0;
+  right: 0;
+  border: solid;
+  background: #fff;
+  color: #000;
+  padding: 1em;
+}
+dialog[open] {
   display: block;
 }
 
@@ -42,6 +86,7 @@ audio > * {
 .flashblocker-assumed {
   min-height: 20px;
   min-width: 20px;
+  z-index: 2147483647;
 }
 
 .cue-display {
@@ -113,7 +158,6 @@ mark {
 .ws-range *,
 .placeholder-box,
 .placeholder-text,
-.input-datetime-local,
 .input-buttons,
 .input-buttons *,
 .details-open-indicator,
@@ -246,22 +290,37 @@ output {
   cursor: pointer;
   background: #ccc;
 }
-
 .ws-popover-opener span {
   display: block;
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 13px;
-  height: 13px;
-  margin: -6.5px 0 0 -6.5px;
-  background: url(forms.png) no-repeat -322px -2px;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  background: url(forms.png) no-repeat -321px -1px;
+}
+.color-input-buttons .ws-popover-opener span {
+  background-position: -348px 0;
+}
+.ws-popover-opener span.ws-color-indicator-bg {
+  background: url(../jpicker/images/preview-opacity.png) no-repeat 0;
+}
+.ws-popover-opener span.ws-color-indicator {
+  background: none;
+}
+
+input[type="color"] {
+  width: 6.5em;
 }
 
 .polyfill-important .input-buttons {
   display: inline-block !important;
   padding: 0 !important;
   vertical-align: middle !important;
+}
+.input-buttons.color-input-buttons {
+  margin-left: 2px;
 }
 .input-buttons.input-button-size-1.month-input-buttons, .input-buttons.input-button-size-1.date-input-buttons {
   margin-left: -24px;
@@ -386,7 +445,7 @@ output {
   height: 19px;
   width: 155px;
   border-radius: 1px;
-  background: url(forms.png) 0 -40px no-repeat;
+  background: url(range-track.png) 0 center no-repeat;
   cursor: pointer;
   font-size: 0;
   line-height: 0;
@@ -405,20 +464,20 @@ output {
   margin: -2px 0 0 -6px;
   height: 22px;
   width: 11px;
-  background: url(forms.png) -3px 0 no-repeat;
+  background: url(forms.png) -3px 1px no-repeat;
   cursor: pointer;
   outline: none;
   font-size: 0;
   line-height: 0;
 }
 .ws-range .ws-range-thumb:hover {
-  background-position: -20px 0;
+  background-position: -20px 1px;
 }
 .ws-range.ws-focus .ws-range-thumb {
-  background-position: -20px 0;
+  background-position: -20px 1px;
 }
 .ws-range.ws-active .ws-range-thumb {
-  background-position: -37px 0;
+  background-position: -37px 1px;
 }
 .ws-range[aria-disabled="true"], .ws-range[aria-readonly="true"] {
   cursor: default;
@@ -428,7 +487,7 @@ output {
   cursor: default;
 }
 .ws-range[aria-disabled="true"] .ws-range-thumb {
-  background-position: -54px 0;
+  background-position: -54px 1px;
 }
 .ws-range .ws-range-rail {
   position: absolute;
@@ -442,9 +501,9 @@ output {
 }
 .ws-range .ws-range-min {
   position: absolute !important;
-  display: block !important;
+  display: block;
   padding: 0 !important;
-  top: 7px;
+  top: 0;
   height: 1px;
   left: 0;
   z-index: 1;
@@ -452,16 +511,20 @@ output {
   background: #b6e2fb;
 }
 .ws-range .ws-range-ticks {
+  overflow: hidden;
   position: absolute;
   bottom: 0px;
   left: 0;
   height: 4px;
   width: 1px;
   margin: 0 0 0 -1.5px;
+  font-size: 0;
+  line-height: 0;
+  text-indent: -999px;
   background: #ccc;
 }
 .ws-range.vertical-range {
-  background: url(vertical-range.png) -30px bottom no-repeat;
+  background: url(vertical-range.png) center bottom no-repeat;
   width: 20px;
 }
 .ws-range.vertical-range .ws-range-thumb {
@@ -485,7 +548,7 @@ output {
 .ws-range.vertical-range .ws-range-min {
   top: auto;
   bottom: 1px;
-  left: 11px;
+  left: 0;
   width: 1px;
   height: 0;
 }
@@ -519,6 +582,9 @@ output {
   min-width: 90px;
   transition: visibility 400ms ease-in-out;
 }
+.no-csstransitions .ws-popover, .no-opacity .ws-popover {
+  display: none;
+}
 .ws-popover button {
   display: inline-block;
   overflow: visible;
@@ -545,6 +611,7 @@ output {
 }
 .ws-popover.ws-po-visible {
   visibility: visible;
+  display: block;
 }
 
 .ws-po-outerbox {
@@ -562,7 +629,7 @@ output {
 }
 
 .ws-po-box {
-  border: 1px solid #ccc;
+  border: 1px solid #cccccc;
   background: #fefefe;
   padding: 5px;
   box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
@@ -577,7 +644,7 @@ output {
   height: 0;
   border-left: 9px solid transparent;
   border-right: 9px solid transparent;
-  border-bottom: 7px solid #ccc;
+  border-bottom: 7px solid #cccccc;
   border-top: none;
   zoom: 1;
   font-size: 0;
@@ -628,13 +695,16 @@ html .ws-po-arrow .ws-po-arrowbox {
   outline: none;
   text-align: center;
   font-family: sans-serif;
-  width: 300px;
+  width: 330px;
 }
 .input-picker.ws-size-2 {
-  width: 538px;
+  width: 645px;
 }
 .input-picker.ws-size-3 {
-  width: 796px;
+  width: 960px;
+}
+.input-picker.color-popover {
+  width: 590px;
 }
 .input-picker abbr[title] {
   cursor: help;
@@ -648,7 +718,7 @@ html .ws-po-arrow .ws-po-arrowbox {
 }
 .input-picker .ws-focus,
 .input-picker :focus {
-  outline: 1px dotted #000;
+  outline: 1px dotted black;
 }
 .input-picker .ws-po-box {
   position: relative;
@@ -660,7 +730,7 @@ html .ws-po-arrow .ws-po-arrowbox {
 .input-picker .ws-next {
   position: absolute;
   top: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid #cccccc;
   border-radius: 5px;
   padding: 0;
   width: 24px;
@@ -698,15 +768,15 @@ html .ws-po-arrow .ws-po-arrowbox {
 .input-picker .ws-button-row {
   position: relative;
   margin: 10px 0 0;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #eeeeee;
   padding: 10px 0 0;
   text-align: left;
   z-index: 2;
 }
 .input-picker .ws-button-row button {
-  border: 1px solid #ccc;
+  border: 1px solid #cccccc;
   border-radius: 5px;
-  box-shadow: 1px 1px 0 #fff;
+  box-shadow: 1px 1px 0 white;
   background-color: #ddd;
   background-image: -webkit-linear-gradient(top, #ececec 0%, #dddddd 100%);
   background-image: linear-gradient(to bottom, #ececec 0%, #dddddd 100%);
@@ -758,7 +828,7 @@ html .ws-po-arrow .ws-po-arrowbox {
 .input-picker .picker-list {
   position: relative;
   zoom: 1;
-  width: 238px;
+  width: 290px;
   float: left;
   margin: 0 10px;
 }
@@ -809,7 +879,7 @@ html .ws-po-arrow .ws-po-arrowbox {
 }
 .input-picker .ws-options {
   margin: 10px 0 0;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #eeeeee;
   padding: 10px 0 0;
   text-align: left;
 }
@@ -876,31 +946,71 @@ datalist {
   cursor: default;
   zoom: 1;
   overflow: hidden;
-}
-.datalist-polyfill .option-label {
-  display: inline-block;
-  float: left;
-  max-width: 100%;
   text-overflow: ellipsis;
+  background-color: #fff;
+  transition: background-color 400ms;
+}
+.datalist-polyfill mark {
+  font-weight: normal;
+  font-style: normal;
 }
 .datalist-polyfill .option-value {
-  display: none;
-  float: right;
+  display: inline-block;
   text-overflow: ellipsis;
+  max-width: 100%;
+  color: #000;
+  float: left;
+  transition: color 400ms;
+}
+.datalist-polyfill .option-label {
+  display: none;
+  max-width: 100%;
+  float: right;
+  font-size: 90%;
+  color: #666;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  margin-top: 0.15em;
+  margin-left: 10px;
+  text-align: right;
+  transition: color 400ms;
+}
+.datalist-polyfill .has-option-label .option-label {
+  display: inline-block;
 }
 .datalist-polyfill .hidden-item {
   display: none !important;
 }
 .datalist-polyfill .active-item {
   background-color: #39f;
-  color: #fff;
   cursor: default;
+}
+.datalist-polyfill .active-item .option-value {
+  color: #fff;
+}
+.datalist-polyfill .active-item .option-label {
+  color: #eee;
 }
 
 .validity-alert {
   display: inline-block;
   font: 12px/140% sans-serif;
   z-index: 1000000000;
+}
+
+.ws-errorbox {
+  display: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+}
+.ws-errorbox p {
+  margin: 2px 0 3px;
+  padding: 0;
+  color: #933;
+  font: 90%/120% sans-serif;
 }
 
 progress {
@@ -911,7 +1021,7 @@ progress {
 }
 progress[data-position] {
   vertical-align: -0.2em;
-  border: 1px solid #ccc;
+  border: 1px solid #cccccc;
   background: #e6e6e6;
 }
 progress > * {
@@ -990,6 +1100,6 @@ summary {
 }
 
 summary.summary-has-focus {
-  outline: 1px dotted #aaa;
+  outline: 1px dotted #aaaaaa;
   outline-offset: -1px;
 }

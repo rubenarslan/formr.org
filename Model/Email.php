@@ -261,7 +261,6 @@ LIMIT 20";
 	}
 	public function remind($who)
 	{
-#		pr($this->id);
 		$err = $this->sendMail($who);
 		if($this->mail_sent):
 			return true;

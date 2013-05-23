@@ -42,6 +42,7 @@
 			var oVal = val;
 			var thumbStyle = {};
 			var rangeStyle = {};
+			
 			if(!_noNormalize && parseFloat(val, 10) != val){
 				val = o.min + ((o.max - o.min) / 2);
 			}
@@ -51,6 +52,7 @@
 			}
 			left =  100 * ((val - o.min) / (o.max - o.min));
 			
+			if(this._init && val == o.value && oVal == val){return;}
 			this.options.value = val;
 			this.thumb.stop();
 			this.range.stop();
@@ -68,6 +70,10 @@
 			} else {
 				if(typeof animate != 'object'){
 					animate = {};
+				} else {
+					animate = $.extend({}, animate);
+				}
+				if(!animate.duration){
 					posDif = Math.abs(left - parseInt(this.thumb[0].style[this.dirs.left] || 50, 10));
 					animate.duration = Math.max(Math.min(999, posDif * 5), 99);
 				}
@@ -116,24 +122,30 @@
 			$('.ws-range-ticks', trail).remove();
 			
 			
-			$(this.orig).jProp('list').find('option').each(function(){
-				o.options[$.prop(this, 'value')] = $.prop(this, 'label');
+			$(this.orig).jProp('list').find('option:not([disabled])').each(function(){
+				o.options[$.prop(this, 'value')] = $.prop(this, 'label') || '';
 			});
 			
 			$.each(o.options, function(val, label){
 				if(!isNumber(val) || val < min || val > max){return;}
 				var left = 100 * ((val - min) / (max - min));
-				var title = o.showLabels ? ' title="'+ label +'"' : '';
+				var title = o.showLabels && label ? ' title="'+ label +'"' : '';
 				if(that.vertical){
 					left = Math.abs(left - 100);
 				}
-				trail.append('<span class="ws-range-ticks"'+ title +' style="'+(that.dirs.left)+': '+left+'%;" />');
+				
+				that.posCenter(
+					$('<span class="ws-range-ticks"'+ title +' data-label="'+label+'" style="'+(that.dirs.left)+': '+left+'%;" />').appendTo(trail)
+				);
 			});
 		},
 		readonly: function(val){
 			val = !!val;
 			this.options.readonly = val;
 			this.element.attr('aria-readonly', ''+val);
+			if(this._init){
+				this.updateMetrics();
+			}
 		},
 		disabled: function(val){
 			val = !!val;
@@ -142,6 +154,9 @@
 				this.element.attr({tabindex: -1, 'aria-disabled': 'true'});
 			} else {
 				this.element.attr({tabindex: this.options.tabindex, 'aria-disabled': 'false'});
+			}
+			if(this._init){
+				this.updateMetrics();
 			}
 		},
 		tabindex: function(val){
@@ -222,6 +237,24 @@
 			
 			return val;
 		},
+		addRemoveClass: function(cName, add){
+			var isIn = this.element.prop('className').indexOf(cName) != -1;
+			var action;
+			if(!add && isIn){
+				action = 'removeClass';
+				this.element.removeClass(cName);
+				this.updateMetrics();
+			} else if(add && !isIn){
+				action = 'addClass';
+				
+			}
+			if(action){
+				this.element[action](cName);
+				if(this._init){
+					this.updateMetrics();
+				}
+			}
+		},
 		addBindings: function(){
 			var leftOffset, widgetUnits, hasFocus;
 			var that = this;
@@ -261,25 +294,36 @@
 					that.value(val, false, animate);
 					eventTimer.call('input', val);
 				}
+				if(e && e.type == 'mousemove'){
+					e.preventDefault();
+				}
 			};
-			
 			var remove = function(e){
 				if(e && e.type == 'mouseup'){
 					eventTimer.call('input', o.value);
 					eventTimer.call('change', o.value);
 				}
-				that.element.removeClass('ws-active');
+				that.addRemoveClass('ws-active');
 				$(document).off('mousemove', setValueFromPos).off('mouseup', remove);
+				$(window).off('blur', removeWin);
+			};
+			var removeWin = function(e){
+				if(e.target == window){remove();}
 			};
 			var add = function(e){
+				var outerWidth;
 				e.preventDefault();
 				$(document).off('mousemove', setValueFromPos).off('mouseup', remove);
+				$(window).off('blur', removeWin);
 				if(!o.readonly && !o.disabled){
-					leftOffset = that.element.focus().addClass('ws-active').offset();
-					widgetUnits = that.element[that.dirs.width]();
+					that.element.focus();
+					that.addRemoveClass('ws-active', true);
+					leftOffset = that.element.focus().offset();
+					widgetUnits = that.element[that.dirs.innerWidth]();
 					if(!widgetUnits || !leftOffset){return;}
+					outerWidth = that.thumb[that.dirs.outerWidth]();
 					leftOffset = leftOffset[that.dirs.pos];
-					widgetUnits = 100 / (widgetUnits  - ((that.thumb[that.dirs.outerWidth]() || 2) / 2));
+					widgetUnits = 100 / widgetUnits;
 					setValueFromPos(e, o.animate);
 					$(document)
 						.on({
@@ -287,6 +331,7 @@
 							mousemove: setValueFromPos
 						})
 					;
+					$(window).on('blur', removeWin);
 					e.stopPropagation();
 				}
 			};
@@ -296,18 +341,20 @@
 					if(!o.disabled){
 						eventTimer.init('input', o.value);
 						eventTimer.init('change', o.value);
-						that.element.addClass('ws-focus');
+						that.addRemoveClass('ws-focus', true);
+						that.updateMetrics();
 					}
 					hasFocus = true;
 				},
 				blur: function(e){
 					that.element.removeClass('ws-focus ws-active');
+					that.updateMetrics();
 					hasFocus = false;
 					eventTimer.init('input', o.value);
 					eventTimer.call('change', o.value);
 				},
 				keyup: function(){
-					that.element.removeClass('ws-active');
+					that.addRemoveClass('ws-active');
 					eventTimer.call('input', o.value);
 					eventTimer.call('change', o.value);
 				},
@@ -332,7 +379,7 @@
 							step = false;
 						}
 						if (step) {
-							that.element.addClass('ws-active');
+							that.addRemoveClass('ws-active', true);
 							eventTimer.call('input', o.value);
 							e.preventDefault();
 						}
@@ -354,31 +401,96 @@
 			this.thumb.on({
 				mousedown: add
 			});
+			$(function(){
+				if(window.webshims){
+					webshims.ready('dom-support', function(){
+						if($.fn.onWSOff){
+							that.element.onWSOff('updateshadowdom', function(){
+								that.updateMetrics();
+							});
+						}
+					});
+					if(!$.fn.onWSOff && webshims._polyfill){
+						webshims._polyfill(['dom-support']);
+					}
+				}
+			});
+		},
+		posCenter: function(elem, outerWidth){
+			var temp;
+			if(this.options.calcCenter && (!this._init || this.element[0].offsetWidth)){
+				if(!elem){
+					elem = this.thumb;
+				}
+				if(!outerWidth){
+					outerWidth = elem[this.dirs.outerWidth]();
+				}
+				outerWidth = outerWidth / -2;
+				elem.css(this.dirs.marginLeft, outerWidth);
+				
+				if(this.options.calcTrail && elem[0] == this.thumb[0]){
+					temp = this.element[this.dirs.innerHeight]();
+					elem.css(this.dirs.marginTop, (elem[this.dirs.outerHeight]() - temp) / -2);
+					this.range.css(this.dirs.marginTop, (this.range[this.dirs.outerHeight]() - temp) / -2 );
+					outerWidth *= -1;
+					this.trail
+						.css(this.dirs.left, outerWidth)
+						.css(this.dirs.right, outerWidth)
+					;
+				}
+			}
 		},
 		updateMetrics: function(){
 			var width = this.element.innerWidth();
 			this.vertical = (width && this.element.innerHeight() - width  > 10);
 			
 			this.dirs = this.vertical ? 
-				{mouse: 'pageY', pos: 'top', min: 'max', max: 'min', left: 'top', width: 'height', outerWidth: 'outerHeight'} :
-				{mouse: 'pageX', pos: 'left', min: 'min', max: 'max', left: 'left', width: 'width', outerWidth: 'outerWidth'}
+				{mouse: 'pageY', pos: 'top', min: 'max', max: 'min', left: 'top', right: 'bottom', width: 'height', innerWidth: 'innerHeight', innerHeight: 'innerWidth', outerWidth: 'outerHeight', outerHeight: 'outerWidth', marginTop: 'marginLeft', marginLeft: 'marginTop'} :
+				{mouse: 'pageX', pos: 'left', min: 'min', max: 'max', left: 'left', right: 'right', width: 'width', innerWidth: 'innerWidth', innerHeight: 'innerHeight', outerWidth: 'outerWidth', outerHeight: 'outerHeight', marginTop: 'marginTop', marginLeft: 'marginLeft'}
 			;
 			this.element
 				[this.vertical ? 'addClass' : 'removeClass']('vertical-range')
 				[this.vertical ? 'addClass' : 'removeClass']('horizontal-range')
 			;
+			this.posCenter();
 		}
 	};
 	
+	var oCreate = function (o) {
+		function F() {}
+		F.prototype = o;
+		return new F();
+	};
+	
 	$.fn.rangeUI = function(opts){
-		opts = $.extend({readonly: false, disabled: false, tabindex: 0, min: 0, step: 1, max: 100, value: 50, input: $.noop, change: $.noop, _change: $.noop, showLabels: true, options: {}}, opts);
+		opts = $.extend({
+			readonly: false, 
+			disabled: false, 
+			tabindex: 0, 
+			min: 0, 
+			step: 1, 
+			max: 100, 
+			value: 50, 
+			input: $.noop, 
+			change: $.noop, 
+			_change: $.noop, 
+			showLabels: true, 
+			options: {},
+			calcCenter: true,
+			calcTrail: true
+		}, opts);
 		return this.each(function(){
-			$.webshims.objectCreate(rangeProto, {
-				element: {
-					value: $(this)
-				}
-			}, opts);
+			var obj = $.extend(oCreate(rangeProto), {element: $(this)});
+			obj.options = opts;
+			obj._create.call(obj);
 		});
 	};
-	jQuery.webshims.isReady('range-ui', true);
+	if(window.webshims && webshims.isReady){
+		webshims.ready('es5', function(){
+			webshims.isReady('range-ui', true);
+		});
+		if(webshims._polyfill){
+			 webshims._polyfill(['es5']);
+		}
+	}
 })(jQuery);

@@ -9,8 +9,54 @@
 	}
 }
 
+.ws-important-hide {
+	display: none !important;
+	visibility: hidden !important;
+	position: absolute;
+	top: -999999px;
+}
+
+/*
+.webshims-debug-list {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	margin: 5px;
+	padding: 5px;
+	list-style: none;
+	background: #fff;
+	color: #930;
+	font-size: 16px;
+	font-weight: bold;
+	max-height: 200px;
+	z-index: 99999;
+	overflow-y: auto;
+	
+	li {
+		border: 1px solid #c60;
+		margin: 2px 0;
+		padding: 5px;
+	}
+}*/
+
 article, aside, canvas, details, figcaption, figure, footer, header, hgroup, main, nav, section, summary {
 	display: block;
+}
+
+dialog {
+	display: none;
+	postion: absolute;
+	left: 0;
+	right: 0;
+	border: solid;
+	background: #fff;
+	color: #000;
+	padding: 1em;
+	
+	&[open] {
+		display: block;
+	}
 }
 
 audio {
@@ -44,6 +90,7 @@ audio > * {
 .flashblocker-assumed {
 	min-height: 20px;
 	min-width: 20px;
+	z-index: 2147483647;
 }
 
 .cue-display {
@@ -122,7 +169,6 @@ mark {
 .ws-range *,
 .placeholder-box,
 .placeholder-text,
-.input-datetime-local,
 .input-buttons,
 .input-buttons *,
 .details-open-indicator,
@@ -260,17 +306,33 @@ output {
 	border-radius: 3px;
 	cursor: pointer;
 	background: #ccc;
+	
+	span {
+		display: block;
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 16px;
+		height: 16px;
+		margin: -8px 0 0 -8px;
+		background: url(forms.png) no-repeat -321px -1px;
+		
+		
+		.color-input-buttons & {
+			background-position: -348px 0;
+		}
+		
+		&.ws-color-indicator-bg {
+			background: url(../jpicker/images/preview-opacity.png) no-repeat 0;
+		}
+		&.ws-color-indicator {
+			background: none;
+		}
+	}
 }
 
-.ws-popover-opener span {
-	display: block;
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	width: 13px;
-	height: 13px;
-	margin: -6.5px 0 0 -6.5px;
-	background: url(forms.png) no-repeat -322px -2px;
+input[type="color"] {
+	width: 6.5em;
 }
 
 .input-buttons {
@@ -278,6 +340,9 @@ output {
 		display: inline-block !important;
 		padding: 0 !important;
 		vertical-align: middle !important;
+	}
+	&.color-input-buttons {
+		margin-left: 2px;
 	}
 	&.input-button-size-1 {
 		&.month-input-buttons,
@@ -426,7 +491,7 @@ output {
 	height: 19px;
 	width: 155px;
 	border-radius: 1px;
-	background: url(forms.png) 0 -40px no-repeat;
+	background: url(range-track.png) 0 center no-repeat;
 	cursor: pointer;
 	font-size: 0;
 	line-height: 0;
@@ -446,23 +511,23 @@ output {
 		margin: -2px 0 0 -6px;
 		height: 22px;
 		width: 11px;
-		background: url(forms.png) -3px 0 no-repeat;
+		background: url(forms.png) -3px 1px no-repeat;
 		cursor: pointer;
 		outline: none;
 		font-size: 0;
 		line-height: 0;
 
 		&:hover {
-			background-position: -20px 0;
+			background-position: -20px 1px;
 		}
 	}
 
 	&.ws-focus .ws-range-thumb {
-		background-position: -20px 0;
+		background-position: -20px 1px;
 	}
 	
 	&.ws-active .ws-range-thumb {
-		background-position: -37px 0;
+		background-position: -37px 1px;
 	}
 	
 	&[aria-disabled="true"],
@@ -477,7 +542,7 @@ output {
 	}
 	
 	&[aria-disabled="true"] .ws-range-thumb {
-		background-position: -54px 0;
+		background-position: -54px 1px;
 	}
 
 	.ws-range-rail {
@@ -493,9 +558,9 @@ output {
 
 	.ws-range-min {
 		position: absolute !important;
-		display: block !important;
+		display: block;
 		padding: 0 !important;
-		top: 7px;
+		top: 0;
 		height: 1px;
 		left: 0;
 		z-index: 1;
@@ -504,17 +569,21 @@ output {
 	}
 
 	.ws-range-ticks {
+		overflow: hidden;
 		position: absolute;
 		bottom: 0px;
 		left: 0;
 		height: 4px;
 		width: 1px;
 		margin: 0 0 0 -1.5px;
+		font-size: 0;
+		line-height: 0;
+		text-indent: -999px;
 		background: #ccc;
 	}
 
 	&.vertical-range {
-		background: url(vertical-range.png) -30px bottom no-repeat;
+		background: url(vertical-range.png) center bottom no-repeat;
 		width: 20px;
 
 		.ws-range-thumb {
@@ -542,7 +611,7 @@ output {
 		.ws-range-min {
 			top: auto;
 			bottom: 1px;
-			left: 11px;
+			left: 0;
 			width: 1px;
 			height: 0;
 		}
@@ -585,6 +654,11 @@ output {
 	z-index: 1000;
 	min-width: 90px;
 	transition: visibility 400ms ease-in-out;
+	
+	.no-csstransitions &,
+	.no-opacity & {
+		display: none;
+	}
 
 	button {
 		display: inline-block;
@@ -612,9 +686,10 @@ output {
 			color: #888;
 		}
 	}
-
+	
 	&.ws-po-visible {
 		visibility: visible;
+		display: block;
 	}
 }
 
@@ -710,14 +785,18 @@ $button-bgcolor: #f5f5f5;
 	outline: none;
 	text-align: center;
 	font-family: sans-serif;
-	width: 300px;
+	width: 330px;
 	
 	&.ws-size-2 {
-		width: 538px;
+		width: 645px;
 	}
 	
 	&.ws-size-3 {
-		width: 796px;
+		width: 960px;
+	}
+	
+	&.color-popover {
+		width: 590px;
 	}
 	
 	abbr[title] {
@@ -872,7 +951,7 @@ $button-bgcolor: #f5f5f5;
 		@extend %clearfix;
 		position: relative;
 		zoom: 1;
-		width: 238px;
+		width: 290px;
 		float: left;
 		margin: 0 10px;
 		
@@ -1026,20 +1105,45 @@ datalist {
 		cursor: default;
 		zoom: 1;
 		overflow: hidden;
+		text-overflow: ellipsis;
+		background-color: #fff;
+		transition: background-color 400ms;
 	}
 
-	.option-label {
-		display: inline-block;
-		float: left;
-		max-width: 100%;
-		text-overflow: ellipsis;
+	mark {
+		font-weight: normal;
+		font-style: normal;
 	}
 
 	.option-value {
-		display: none;
-		float: right;
+		display: inline-block;
 		text-overflow: ellipsis;
+		max-width: 100%;
+		color: #000;
+		float: left;
+		transition: color 400ms;
 	}
+	
+	.option-label {
+		display: none;
+		max-width: 100%;
+		float: right;
+		font-size: 90%;
+		color: #666;
+		text-overflow: ellipsis;
+		vertical-align: bottom;
+		margin-top: 0.15em;
+		margin-left: 10px;
+		text-align: right;
+		transition: color 400ms;
+	}
+	
+	.has-option-label  {
+		.option-label {
+			display: inline-block;
+		}
+	}
+
 
 	.hidden-item {
 		display: none !important;
@@ -1047,7 +1151,12 @@ datalist {
 
 	.active-item {
 		background-color: #39f;
-		color: #fff;
+		.option-value {
+			color: #fff;
+		}
+		.option-label {
+			color: #eee;
+		}
 		cursor: default;
 	}
 }
@@ -1057,6 +1166,22 @@ datalist {
 	display: inline-block;
 	font: 12px/140% sans-serif;
 	z-index: 1000000000;
+}
+
+.ws-errorbox {
+	display: none;
+	border: none;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+	position: relative;
+	
+	p {
+		margin: 2px 0 3px;
+		padding: 0;
+		color: #933;
+		font: 90%/120% sans-serif;
+	}
 }
 
 progress {

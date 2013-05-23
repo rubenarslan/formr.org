@@ -6,7 +6,7 @@ require_once INCLUDE_ROOT . "Model/Email.php";
 
 $g_email = $fdb->prepare("SELECT 
 	`survey_units`.id,
-	MAX(`survey_run_units`.position) AS position
+	`survey_run_units`.position AS position
 	
 FROM `survey_runs`
 LEFT JOIN `survey_run_units`
@@ -15,17 +15,19 @@ LEFT JOIN `survey_units`
 ON `survey_units`.id = `survey_run_units`.unit_id
 
 WHERE `survey_units`.type = 'Email'
-AND `survey_runs`.name = :name;");
+AND `survey_runs`.name = :name
+ORDER BY `survey_run_units`.position DESC
+LIMIT 1;");
 $g_email->bindParam(':name',$_GET['run_name']);
 $g_email->execute();
-$run = $g_email->fetch(PDO::FETCH_ASSOC);
+$Reminder = $g_email->fetch(PDO::FETCH_ASSOC);
 
-if($run AND trim($_GET['email'])!=''):
+if($Reminder AND trim($_GET['email'])!=''):
 
 	$email = new Email($fdb, $_GET['session'], 
 		array(
 		'run_name' => $_GET['run_name'],
-		'unit_id' => $run['id']
+		'unit_id' => $Reminder['id']
 		)
 	);
 	if($email->remind($_GET['email'])===true):

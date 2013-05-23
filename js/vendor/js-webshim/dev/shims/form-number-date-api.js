@@ -1,6 +1,8 @@
-jQuery.webshims.register('form-number-date-api', function($, webshims, window, document, undefined){
+webshims.register('form-number-date-api', function($, webshims, window, document, undefined, options){
 	"use strict";
-	
+	if(!webshims.addInputType){
+		webshims.error("you can not call forms-ext feature after calling forms feature. call both at once instead: $.webshims.polyfill('forms forms-ext')");
+	}
 	
 	if(!webshims.getStep){
 		webshims.getStep = function(elem, type){
@@ -270,7 +272,14 @@ jQuery.webshims.register('form-number-date-api', function($, webshims, window, d
 			minDefault: 0,
 			maxDefault: 100
 		},
-		
+		color: {
+			mismatch: (function(){
+				var cReg = /^\u0023[a-f0-9]{6}$/;
+				return function(val){
+					return (!val || val.length != 7 || !(cReg.test(val)));
+				};
+			})()
+		},
 		date: {
 			mismatch: function(val){
 				if(!val || !val.split || !(/\d$/.test(val))){return true;}
@@ -468,20 +477,22 @@ jQuery.webshims.register('form-number-date-api', function($, webshims, window, d
 //		}
 	};
 	
-	if(typeBugs || !supportsType('range') || !supportsType('time')){
+	if(typeBugs || !supportsType('range') || !supportsType('time') || !supportsType('month')){
 		typeProtos.range = $.extend({}, typeProtos.number, typeProtos.range);
 		typeProtos.time = $.extend({}, typeProtos.date, typeProtos.time);
 		typeProtos.month = $.extend({}, typeProtos.date, typeProtos.month);
 //		typeProtos['datetime-local'] = $.extend({}, typeProtos.date, typeProtos.time, typeProtos['datetime-local']);
 	}
 	
+	
+	
 	//'datetime-local'
-	['number', 'month', 'range', 'date', 'time'].forEach(function(type){
+	['number', 'month', 'range', 'date', 'time', 'color'].forEach(function(type){
 		if(typeBugs || !supportsType(type)){
 			webshims.addInputType(type, typeProtos[type]);
 		}
 	});
-
+	
 	if($('<input />').prop('labels') == null){
 		webshims.defineNodeNamesProperty('button, input, keygen, meter, output, progress, select, textarea', 'labels', {
 			prop: {
@@ -505,5 +516,5 @@ jQuery.webshims.register('form-number-date-api', function($, webshims, window, d
 			}
 		});
 	}
-		
+	
 });
