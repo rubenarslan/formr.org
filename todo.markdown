@@ -19,3 +19,4 @@ szenario: wartezeit von 4 wochen nach trainingsbeginn. dann branch: wenn 8 mal a
 
 ### debugging todo
 * give all session/code field collate BINARY collation so they are compared case-sensitive
+* how to upload places: export .sql file (nonzipped), with multiple values per statement (50000 lim), but not column names, zip manually, import.

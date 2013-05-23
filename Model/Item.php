@@ -1044,7 +1044,7 @@ class Item_btnrating extends Item_btnradio
 		';
 		
 
-		$ret .= $this->lower_text . " ";
+		$ret .= "<label class='keep-label'>{$this->lower_text} </label> ";
 		foreach($this->reply_options AS $option):			
 			$ret .= '
 				<label for="item' . $this->id . '_' . $option . '">' . 
@@ -1058,7 +1058,7 @@ class Item_btnrating extends Item_btnradio
 	protected function render_appended () 
 	{
 		$ret = parent::render_appended();
-		$ret .= " ". $this->upper_text;
+		$ret .= " <label class='keep-label'> {$this->upper_text}</label>";
 		
 		return $ret;
 		
@@ -1150,4 +1150,5 @@ class Item_place extends Item_text
  * todo: item - likert scale with head (special kind of instruction?)
  * todo: item - facebook connect?
  * todo: item - IP
+ * todo: _GET items for presetting 
 */

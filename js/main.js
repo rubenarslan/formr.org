@@ -24,7 +24,7 @@ $(document).ready(function() {
 	}).each(function() {
 		var $btn = $(this);
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
+		$btn.closest('.controls').find('label[class!=keep-label]').addClass('hidden'); // hide normal radio buttons
 	});
 	
 	$('div.btn-checkbox button.btn').off('click').click(function(event){

@@ -76,7 +76,7 @@ form.form-horizontal div.form-row.control-group.optional .control-label::after {
 form.form-horizontal div.form-row.item-radio div.controls,form.form-horizontal div.form-row.item-checkbox div.controls {
   display:table;
 }
-form.form-horizontal div.form-row.item-checkbox div.controls label, form.form-horizontal div.form-row.item-radio div.controls label {
+form.form-horizontal div.form-row.item-checkbox div.controls label:not(.keep-label), form.form-horizontal div.form-row.item-radio div.controls label:not(.keep-label) {
   display:table-cell;
   padding-left:18px;
   padding-right:5px;
