@@ -7,7 +7,9 @@ function define_webroot() {
 	if(isset($_SERVER['SERVER_NAME'])){
 		switch($_SERVER['SERVER_NAME']){
 			case 'localhost':
-				$doc_root = "localhost:8888/zwang/survey/";
+				$sn = explode("/",$_SERVER['SCRIPT_NAME']);
+				$sn = $sn[1];
+				$doc_root = "localhost:8888/$sn/survey/";
 				$server_root = __DIR__ . '/';
 				$online = false;
 				break;

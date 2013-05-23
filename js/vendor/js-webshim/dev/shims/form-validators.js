@@ -1,14 +1,11 @@
-(function($, window, document, undefined){
-	"use strict";
-	if(!$.webshims){
-		var langs = navigator.browserLanguage || navigator.language || $('html').attr('lang') || '';
-		$.webshims = {
-			addReady: function(fn){$(function(){fn(document, $([]));});},
-			ready: function(n, fn){fn();},
-			activeLang: function(){return langs;}
-		};
-	} 
-	var webshims = $.webshims;
+webshims.register('form-validators', function($, webshims, window, document, undefined, options){
+"use strict";
+
+(function(){
+	if(webshims.refreshCustomValidityRules){
+		webshims.error("form-validators already included. please remove custom-validity.js");
+	}
+	
 	var customValidityRules = {};
 	var formReady = false;
 	var blockCustom;
@@ -64,16 +61,10 @@
 	};
 	var testValidityRules = webshims.refreshCustomValidityRules;
 	
-	webshims.ready('forms', function(){
-		formReady = true;
+	webshims.ready('forms form-validation', function(){
+		
 				
-		var oldCustomValidity = $.fn.setCustomValidity || function(message){
-			return this.each(function(){
-				if(this.setCustomValidity){
-					this.setCustomValidity(message);
-				}
-			});
-		};
+		var oldCustomValidity = $.fn.setCustomValidity;
 		
 		
 		$.fn.setCustomValidity = function(message){
@@ -83,21 +74,21 @@
 			return oldCustomValidity.apply(this, arguments);
 		};
 		
-		
-		$(document).bind('change', onEventTest);
-		
-		webshims.addReady(function(context, selfElement){
-			initTest = true;
-			$('input, select, textarea', context).add(selfElement.filter('input, select, textarea')).each(function(){
-				testValidityRules(this);
+		setTimeout(function(){
+			webshims.addReady(function(context, selfElement){
+				initTest = true;
+				$('input, select, textarea', context).add(selfElement.filter('input, select, textarea')).each(function(){
+					testValidityRules(this);
+				});
+				initTest = false;
+				formReady = true;
 			});
-			initTest = false;
-		});
-		$(document).bind('refreshCustomValidityRules', onEventTest);
+			$(document).on('refreshCustomValidityRules change', onEventTest);
+		}, 9);
 		
 	});
 	
-})(jQuery, window, document);
+})();
 
 /*
  * adds support for HTML5 constraint validation
@@ -108,8 +99,8 @@
  *  	- <input type="date" id="start" data-dependent-validation='{"from": "end", "prop": "max"}' /> <input type="date" id="end" data-dependent-validation='{"from": "start", "prop": "min"}' />
  *  	- <input type="checkbox" id="check" /> <input data-dependent-validation='checkbox' />
  */
-(function($, window, document, undefined){
-	"use strict";
+(function(){
+	
 	var addCustomValidityRule = $.webshims.addCustomValidityRule;
 	addCustomValidityRule('partialPattern', function(elem, val){
 		if(!val || !elem.getAttribute('data-partial-pattern')){return;}
@@ -134,6 +125,7 @@
 		}
 		groupTimer[name] = setTimeout(function(){
 			checkboxes
+				.addClass('group-required')
 				.unbind('click.groupRequired')
 				.bind('click.groupRequired', function(){
 					checkboxes.filter('.group-required').each(function(){
@@ -176,7 +168,7 @@
 	var getGroupElements = function(elem) {
 		return $(elem.form[elem.name]).filter('[type="radio"]');
 	};
-	$.webshims.ready('form-core', function(){
+	$.webshims.ready('form-validation', function(){
 		if($.webshims.modules){
 			getGroupElements = $.webshims.modules["form-core"].getGroupElements || getGroupElements;
 		}
@@ -198,6 +190,9 @@
 				val = !val;
 			}
 			$.prop( elem, data.prop, val);
+			if(e){
+				$(elem).getShadowElement().filter('.user-error, .user-success').trigger('refreshvalidityui');
+			}
 		};
 		
 		if(!data._init || !data.masterElement){
@@ -235,9 +230,7 @@
 			} else {
 				$(data.masterElement).bind('change', function(){
 					$.webshims.refreshCustomValidityRules(elem);
-					if($(elem).is('.user-error, .user-success')){
-						$(elem).trigger('refreshvalidityui');
-					}
+					$(elem).getShadowElement().filter('.user-error, .user-success').trigger('refreshvalidityui');
 				});
 			}
 		}
@@ -250,4 +243,6 @@
 		}
 		
 	}, 'The value of this field does not repeat the value of the other field');
-})(jQuery, window, document);
+})();
+
+});

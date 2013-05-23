@@ -1,4 +1,4 @@
-jQuery.webshims.register('mediaelement-yt', function($, webshims, window, document, undefined, options){
+webshims.register('mediaelement-yt', function($, webshims, window, document, undefined, options){
 "use strict";
 var mediaelement = webshims.mediaelement;
 var ytAPI = jQuery.Deferred();
@@ -445,8 +445,10 @@ mediaelement.createSWF = function(mediaElem, src, data){
 	addMediaToStopEvents(mediaElem);
 	
 	addYtAPI(mediaElem, elemId, data, ytID);
-	$(mediaElem).on('updatemediaelementdimensions', setDimension);
-	$(document).on('updateshadowdom', setDimension);
+	$(mediaElem)
+		.on('updatemediaelementdimensions', setDimension)
+		.onWSOff('updateshadowdom', setDimension)
+	;
 };
 
 (function(){

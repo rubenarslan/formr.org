@@ -465,6 +465,7 @@ class Item
 		{
 			$this->error = _("This field is required.");			
 		}
+		return $reply;
 	}
 	
 	protected function setMoreOptions() 
@@ -540,7 +541,7 @@ class Item_text extends Item
 		{
 			$this->error = __("You can't use that many characters. The maximum is %d",$this->input_attributes['maxlength']);
 		}
-		parent::validateInput($reply);
+		return parent::validateInput($reply);
 	}
 }
 // textarea automatically chosen when size exceeds a certain limit
@@ -623,7 +624,7 @@ class Item_number extends Item
 		{
 			$this->error = __("The minimum is %d",$this->input_attributes['min']);
 		}
-		parent::validateInput($reply);
+		return parent::validateInput($reply);
 	}
 }
 
@@ -673,7 +674,7 @@ class Item_range_list extends Item_number
 		$ret .= '<datalist id="dlist'.$this->id.'">
         <select>';
 		for($i = $this->input_attributes['min']; $i <= $this->input_attributes['max']; $i = $i + $this->input_attributes['step']):
-        	$ret .= '<option value="'.$i.'" label="'.$i.'" />';
+        	$ret .= '<option value="'.$i.'">'.$i.'</option>';
 		endfor;
 			$ret .= '
 	        </select>
@@ -712,9 +713,14 @@ class Item_date extends Item
 class Item_yearmonth extends Item_date 
 {
 	public $type = 'yearmonth';
+	public function validateInput($reply)
+	{
+		$reply = $reply.'-01'; # add day part, so it can be stored in a date field
+		return $reply;
+	}
 }
 
-class Item_month extends Item_date 
+class Item_month extends Item_yearmonth 
 {
 	public $type = 'month';
 }
@@ -739,6 +745,7 @@ class Item_instruction extends Item
 	public function validateInput($reply)
 	{
 		$this->error = _("You cannot answer instructions.");
+		return $reply;
 	}
 	protected function render_inner() 
 	{
@@ -765,6 +772,7 @@ class Item_submit extends Item
 	public function validateInput($reply)
 	{
 		$this->error = _("You cannot answer instructions.");
+		return $reply;
 	}
 	protected function render_input() 
 	{
@@ -800,7 +808,7 @@ class Item_mc extends Item
 				if(is_array($problem)) $problem = implode("', '",$problem);
 				$this->error = __("You chose an option '%s' that is not permitted.",h($problem));
 		}
-		parent::validateInput($reply);
+		return parent::validateInput($reply);
 	}
 	protected function render_label() 
 	{
@@ -873,6 +881,12 @@ class Item_mmc extends Item_mc
 		}
 		return $ret;
 	}
+	public function validateInput($reply)
+	{
+		$reply = parent::validateInput($reply);
+		if(is_array($reply)) $reply = implode(", ",array_filter($reply));
+		return $reply;
+	}
 }
 
 // multiple multiple choice, also checkboxes
@@ -900,6 +914,8 @@ class Item_check extends Item_mmc
 		{
 			$this->error = __("You chose an option '%s' that is not permitted.",h($reply));	
 		}
+		$reply = parent::validateInput($reply);
+		return $reply;
 	}
 	protected function render_input() 
 	{
@@ -948,6 +964,12 @@ class Item_mselect extends Item_select
 		parent::setMoreOptions();
 		$this->input_attributes['multiple'] = true;
 		$this->input_attributes['name'] = $this->name.'[]';
+	}
+	public function validateInput($reply)
+	{
+		$reply = parent::validateInput($reply);
+		if(is_array($reply)) $reply = implode(", ",array_filter($reply));
+		return $reply;
 	}
 }
 

@@ -1,9 +1,10 @@
-if(!Modernizr.formvalidation || jQuery.webshims.bugs.bustedValidity){
-jQuery.webshims.register('form-shim-extend', function($, webshims, window, document){
+if(!Modernizr.formvalidation || webshims.bugs.bustedValidity){
+webshims.register('form-shim-extend', function($, webshims, window, document, undefined, options){
 "use strict";
 webshims.inputTypes = webshims.inputTypes || {};
 //some helper-functions
 var cfg = webshims.cfg.forms;
+var bugs = webshims.bugs;
 var isSubmit;
 
 var isNumber = function(string){
@@ -18,6 +19,51 @@ var isNumber = function(string){
 		return (elem.getAttribute('type') || elem.type || '').toLowerCase();
 	}
 ;
+
+(function(){
+	if('querySelector' in document){
+		try {
+			bugs.findRequired = !($('<form action="#" style="width: 1px; height: 1px; overflow: hidden;"><select name="b" required="" /></form>')[0].querySelector('select:required'));
+		} catch(er){
+			bugs.findRequired = false;
+		}
+		
+		if (bugs.bustedValidity || bugs.findRequired) {
+			(function(){
+				var find = $.find;
+				var matchesSelector = $.find.matchesSelector;
+				
+				var regExp = /(\:valid|\:invalid|\:optional|\:required|\:in-range|\:out-of-range)(?=[\s\[\~\.\+\>\:\#*]|$)/ig;
+				var regFn = function(sel){
+					return sel + '-element';
+				};
+				
+				$.find = (function(){
+					var slice = Array.prototype.slice;
+					var fn = function(sel){
+						var ar = arguments;
+						ar = slice.call(ar, 1, ar.length);
+						ar.unshift(sel.replace(regExp, regFn));
+						return find.apply(this, ar);
+					};
+					for (var i in find) {
+						if(find.hasOwnProperty(i)){
+							fn[i] = find[i];
+						}
+					}
+					return fn;
+				})();
+				if(!Modernizr.prefixed || Modernizr.prefixed("matchesSelector", document.documentElement)){
+					$.find.matchesSelector = function(node, expr){
+						expr = expr.replace(regExp, regFn);
+						return matchesSelector.call(this, node, expr);
+					};
+				}
+				
+			})();
+		}
+	}
+})();
 
 //API to add new input types
 webshims.addInputType = function(type, obj){
@@ -46,7 +92,29 @@ var isPlaceholderOptionSelected = function(select){
 	} 
 	return false;
 };
-
+var modules = webshims.modules;
+var emptyJ = $([]);
+var getGroupElements = function(elem){
+	elem = $(elem);
+	var name;
+	var form;
+	var ret = emptyJ;
+	if(elem[0].type == 'radio'){
+		form = elem.prop('form');
+		name = elem[0].name;
+		if(!name){
+			ret = elem;
+		} else if(form){
+			ret = $(form[name]);
+		} else {
+			ret = $(document.getElementsByName(name)).filter(function(){
+				return !$.prop(this, 'form');
+			});
+		}
+		ret = ret.filter('[type="radio"]');
+	}
+	return ret;
+};
 var validityRules = {
 		valueMissing: function(input, val, cache){
 			if(!input.prop('required')){return false;}
@@ -57,7 +125,7 @@ var validityRules = {
 			if(cache.nodeName == 'select'){
 				ret = (!val && (input[0].selectedIndex < 0 || isPlaceholderOptionSelected(input[0]) ));
 			} else if(checkTypes[cache.type]){
-				ret = (cache.type == 'checkbox') ? !input.is(':checked') : !webshims.modules["form-core"].getGroupElements(input).filter(':checked')[0];
+				ret = (cache.type == 'checkbox') ? !input.is(':checked') : !getGroupElements(input).filter(':checked')[0];
 			} else {
 				ret = !(val);
 			}
@@ -852,6 +920,52 @@ webshims.addReady(function(context, contextElem){
 	
 });
 
+if(!Modernizr.input.list){
+	webshims.defineNodeNameProperty('datalist', 'options', {
+		prop: {
+			writeable: false,
+			get: function(){
+				var elem = this;
+				var select = $('select', elem);
+				var options;
+				if(select[0]){
+					options = select[0].options;
+				} else {
+					options = $('option', elem).get();
+					if(options.length){
+						webshims.warn('you should wrap your option-elements for a datalist in a select element to support IE and other old browsers.');
+					}
+				}
+				return options;
+			}
+		}
+	});
+	
+	webshims.ready('form-datalist', function(){
+		webshims.defineNodeNameProperties('input', {
+			list: {
+				attr: {
+					get: function(){
+						var val = webshims.contentAttr(this, 'list');
+						return (val == null) ? undefined : val;
+					},
+					set: function(value){
+						var elem = this;
+						webshims.contentAttr(elem, 'list', value);
+						webshims.objectCreate(options.shadowListProto, undefined, {input: elem, id: value, datalist: $.prop(elem, 'list')});
+						$(elem).triggerHandler('listdatalistchange');
+					}
+				},
+				initAttr: true,
+				reflect: true,
+				propType: 'element',
+				propNodeName: 'datalist'
+			}
+		});
+	});
+	
+}
+
 if(!Modernizr.formattribute || !Modernizr.fieldsetdisabled){
 	(function(){
 		(function(prop, undefined){
@@ -1103,7 +1217,9 @@ if(!Modernizr.formattribute || !Modernizr.fieldsetdisabled){
 						value: function(){
 							this.removeAttribute(name);
 							if(removeProp){
-								delete this.value;
+								try {
+									delete this.value;
+								} catch(er){}
 							}
 							updateProgress.isInChange = name;
 							updateProgress(this);
@@ -1202,7 +1318,7 @@ try {
 		webshims.onNodeNamesPropertyModify('input', 'checked', function(value, boolVal){
 			var type = this.type;
 			if(type == 'radio' && boolVal){
-				webshims.modules["form-core"].getGroupElements(this).each(checkChange);
+				getGroupElements(this).each(checkChange);
 			} else if(checkInputs[type]) {
 				$(this).each(checkChange);
 			}
@@ -1212,7 +1328,7 @@ try {
 			
 			if(checkInputs[e.target.type]){
 				if(e.target.type == 'radio'){
-					webshims.modules["form-core"].getGroupElements(e.target).each(checkChange);
+					getGroupElements(e.target).each(checkChange);
 				} else {
 					$(e.target)[$.prop(e.target, 'checked') ? 'addClass' : 'removeClass']('prop-checked');
 				}
@@ -1230,7 +1346,7 @@ try {
 						prop = 'checked';
 					} else if(this.nodeName.toLowerCase() == 'option'){
 						prop = 'selected';
-					}  
+					}
 					if(prop){
 						$(this)[$.prop(this, prop) ? 'addClass' : 'removeClass']('prop-checked');
 					}
@@ -1242,13 +1358,41 @@ try {
 }
 
 (function(){
+	var bustedPlaceholder;
 	Modernizr.textareaPlaceholder = !!('placeholder' in $('<textarea />')[0]);
-	if(Modernizr.input.placeholder && Modernizr.textareaPlaceholder){return;}
+	if(Modernizr.input.placeholder && options.overridePlaceholder){
+		bustedPlaceholder = true;
+	}
+	if(Modernizr.input.placeholder && Modernizr.textareaPlaceholder && !bustedPlaceholder){
+		(function(){
+			var ua = navigator.userAgent;
+			
+			if(ua.indexOf('Mobile') != -1 && ua.indexOf('Safari') != -1){
+				$(window).on('orientationchange', (function(){
+					var timer;
+					var retVal = function(i, value){
+						return value;
+					};
+					
+					var set = function(){
+						$('input[placeholder], textarea[placeholder]').attr('placeholder', retVal);
+					};
+					return function(e){
+						clearTimeout(timer);
+						timer = setTimeout(set, 9);
+					};
+				})());
+			}
+		})();
+		
+		//abort
+		return;
+	}
 	
 	var isOver = (webshims.cfg.forms.placeholderType == 'over');
 	var isResponsive = (webshims.cfg.forms.responsivePlaceholder);
 	var polyfillElements = ['textarea'];
-	if(!Modernizr.input.placeholder){
+	if(!Modernizr.input.placeholder || bustedPlaceholder){
 		polyfillElements.push('input');
 	}
 	
@@ -1385,7 +1529,7 @@ try {
 				}
 			;
 			
-			if(webshims.modules["form-number-date-ui"].loaded){
+			if(modules["form-number-date-ui"].loaded){
 				delete allowedPlaceholder.number;
 			}
 			
@@ -1403,11 +1547,11 @@ try {
 					});
 					
 					if((form = $.prop(elem, 'form'))){
-						$(form).on('reset.placeholder', function(e){
+						$(elem).onWSOff('reset.placeholder', function(e){
 							setTimeout(function(){
 								changePlaceholderVisibility(elem, false, false, data, e.type );
 							}, 0);
-						});
+						}, false, form);
 					}
 					
 					if(elem.type == 'password' || isOver){
@@ -1446,8 +1590,8 @@ try {
 							data.text.css('padding'+ side, size);
 						});
 						
-						$(document)
-							.onTrigger('updateshadowdom', function(){
+						$(elem)
+							.onWSOff('updateshadowdom', function(){
 								var height, width; 
 								if((width = elem.offsetWidth) || (height = elem.offsetHeight)){
 									data.text
@@ -1458,27 +1602,25 @@ try {
 										.css($(elem).position())
 									;
 								}
-							})
+							}, true)
 						;
 						
 					} else {
 						var reset = function(e){
 							if($(elem).hasClass('placeholder-visible')){
 								hidePlaceholder(elem, data, '');
-								if(e && e.type == 'submit'){
-									setTimeout(function(){
-										if(e.isDefaultPrevented()){
-											changePlaceholderVisibility(elem, false, false, data );
-										}
-									}, 9);
-								}
+								setTimeout(function(){
+									if(!e || e.type != 'submit' || e.isDefaultPrevented()){
+										changePlaceholderVisibility(elem, false, false, data );
+									}
+								}, 9);
 							}
 						};
 						
-						$(window).on('beforeunload', reset);
+						$(elem).onWSOff('beforeunload', reset, false, window);
 						data.box = $(elem);
 						if(form){
-							$(form).submit(reset);
+							$(elem).onWSOff('submit', reset, false, form);
 						}
 					}
 					
@@ -1511,11 +1653,20 @@ try {
 			attr: {
 				set: function(val){
 					var elem = this;
-					webshims.contentAttr(elem, 'placeholder', val);
+					if(bustedPlaceholder){
+						webshims.data(elem, 'bustedPlaceholder', val);
+						elem.placeholder = '';
+					} else {
+						webshims.contentAttr(elem, 'placeholder', val);
+					}
 					pHolder.update(elem, val);
 				},
 				get: function(){
-					return webshims.contentAttr(this, 'placeholder');
+					var placeholder;
+					if(bustedPlaceholder){
+						placeholder = webshims.data(this, 'bustedPlaceholder');
+					}
+					return  placeholder || webshims.contentAttr(this, 'placeholder');
 				}
 			},
 			reflect: true,
@@ -1532,7 +1683,9 @@ try {
 				set: function(val){
 					var elem = this;
 					var placeholder;
-					
+					if(bustedPlaceholder){
+						placeholder = webshims.data(elem, 'bustedPlaceholder');
+					}
 					if(!placeholder){
 						placeholder = webshims.contentAttr(elem, 'placeholder');
 					}
@@ -1652,7 +1805,6 @@ try {
 							//input === null
 							if(!input){return;}
 							var newVal = input.prop('value');
-							
 							if(newVal !== lastVal){
 								lastVal = newVal;
 								if(!e || !noInputTriggerEvts[e.type]){
@@ -1677,7 +1829,7 @@ try {
 					;
 					
 					clearInterval(timer);
-					timer = setInterval(trigger, 99);
+					timer = setInterval(trigger, 200);
 					extraTest();
 					input.on({
 						'keyup keypress keydown paste cut': extraTest,
@@ -1692,7 +1844,7 @@ try {
 			
 			$(doc)
 				.on('focusin', function(e){
-					if( e.target && e.target.type && !e.target.readOnly && !e.target.disabled && (e.target.nodeName || '').toLowerCase() == 'input' && !noInputTypes[e.target.type] ){
+					if( e.target && !e.target.readOnly && !e.target.disabled && (e.target.nodeName || '').toLowerCase() == 'input' && !noInputTypes[e.target.type] && !(webshims.data(e.target, 'implemented') || {}).inputwidgets){
 						observe($(e.target));
 					}
 				})
