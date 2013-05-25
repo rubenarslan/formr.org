@@ -83,6 +83,13 @@ form.form-horizontal div.form-row.item-checkbox div.controls label:not(.keep-lab
   padding-top:5px;
   text-indent:-18px;
 }
+form.form-horizontal div.form-row div.controls label.keep-label {
+	margin-right:5px;
+}
+form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label {
+	margin-right:0px;
+	margin-left:5px;
+}
 .form-horizontal .control-label {
   float: left;
   width: 300px;
