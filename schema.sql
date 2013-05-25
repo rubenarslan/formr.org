@@ -6,6 +6,8 @@ SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='TRADITIONAL,ALLOW_INVALID_DATES';
 -- -----------------------------------------------------
 -- Table `survey_users`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_users` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_users` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `email` VARCHAR(255) NULL ,
@@ -21,6 +23,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_runs`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_runs` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_runs` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `owner_id` INT UNSIGNED NOT NULL ,
@@ -41,6 +45,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_run_users`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_run_users` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_run_users` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `user_id` INT UNSIGNED NOT NULL ,
@@ -66,6 +72,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_units`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_units` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_units` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `type` VARCHAR(20) NULL ,
@@ -76,6 +84,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_studies`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_studies` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_studies` (
   `id` INT UNSIGNED NOT NULL ,
   `user_id` INT UNSIGNED NOT NULL ,
@@ -100,6 +110,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_run_units`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_run_units` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_run_units` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `run_id` INT UNSIGNED NOT NULL ,
@@ -124,6 +136,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_items`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_items` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_items` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT ,
   `study_id` INT UNSIGNED NOT NULL ,
@@ -152,14 +166,20 @@ CREATE  TABLE IF NOT EXISTS `survey_items` (
   `skipif` TEXT NULL DEFAULT NULL ,
   PRIMARY KEY (`id`) ,
   UNIQUE INDEX `study_item` (`study_id` ASC, `variablenname` ASC) ,
-  INDEX `fk_survey_items_survey_studies1_idx` (`study_id` ASC) )
-ENGINE = MyISAM
-DEFAULT CHARACTER SET = utf8;
+  INDEX `fk_survey_items_survey_studies1_idx` (`study_id` ASC) ,
+  CONSTRAINT `fk_survey_items_survey_studies1`
+    FOREIGN KEY (`study_id` )
+    REFERENCES `survey_studies` (`id` )
+    ON DELETE CASCADE
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
 -- Table `survey_items_display`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_items_display` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_items_display` (
   `item_id` INT UNSIGNED NOT NULL ,
   `session_id` INT UNSIGNED NOT NULL ,
@@ -172,14 +192,25 @@ CREATE  TABLE IF NOT EXISTS `survey_items_display` (
   PRIMARY KEY (`item_id`, `session_id`) ,
   INDEX `id_idx` (`item_id` ASC) ,
   INDEX `fk_survey_items_display_survey_studies1_idx` (`study_id` ASC) ,
-  INDEX `session_item_views` (`study_id` ASC, `session_id` ASC, `item_id` ASC) )
-ENGINE = MyISAM
-DEFAULT CHARACTER SET = utf8;
+  INDEX `session_item_views` (`study_id` ASC, `session_id` ASC, `item_id` ASC) ,
+  CONSTRAINT `itemid`
+    FOREIGN KEY (`item_id` )
+    REFERENCES `survey_items` (`id` )
+    ON DELETE CASCADE
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_survey_items_display_survey_studies1`
+    FOREIGN KEY (`study_id` )
+    REFERENCES `survey_studies` (`id` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
 -- Table `survey_substitutions`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_substitutions` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_substitutions` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `study_id` INT UNSIGNED NOT NULL ,
@@ -200,6 +231,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_unit_sessions`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_unit_sessions` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_unit_sessions` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `unit_id` INT UNSIGNED NOT NULL ,
@@ -220,6 +253,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_settings`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_settings` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_settings` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT ,
   `study_id` INT UNSIGNED NOT NULL ,
@@ -232,12 +267,15 @@ CREATE  TABLE IF NOT EXISTS `survey_settings` (
     FOREIGN KEY (`study_id` )
     REFERENCES `survey_studies` (`id` )
     ON DELETE CASCADE
-    ON UPDATE NO ACTION);
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
 -- Table `survey_email_accounts`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_email_accounts` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_email_accounts` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `user_id` INT UNSIGNED NOT NULL ,
@@ -261,6 +299,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_externals`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_externals` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_externals` (
   `id` INT UNSIGNED NOT NULL ,
   `address` VARCHAR(255) NULL ,
@@ -277,6 +317,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_pauses`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_pauses` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_pauses` (
   `id` INT UNSIGNED NOT NULL ,
   `wait_until_time` TIME NULL ,
@@ -298,6 +340,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_branches`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_branches` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_branches` (
   `id` INT UNSIGNED NOT NULL ,
   `condition` VARCHAR(2000) NULL ,
@@ -316,6 +360,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_emails`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_emails` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_emails` (
   `id` INT UNSIGNED NOT NULL ,
   `account_id` INT UNSIGNED NULL ,
@@ -343,6 +389,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_email_log`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_email_log` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_email_log` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `session_id` INT UNSIGNED NOT NULL ,
@@ -368,6 +416,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_pages`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_pages` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_pages` (
   `id` INT UNSIGNED NOT NULL ,
   `body` TEXT NULL ,
@@ -387,6 +437,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 -- Table `survey_results`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_results` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_results` (
   `session_id` INT UNSIGNED NOT NULL ,
   `study_id` INT UNSIGNED NOT NULL ,
@@ -397,14 +449,25 @@ CREATE  TABLE IF NOT EXISTS `survey_results` (
   INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
   INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
   UNIQUE INDEX `session_UNIQUE` (`session` ASC) ,
-  PRIMARY KEY (`session_id`) )
-ENGINE = MyISAM
-DEFAULT CHARACTER SET = utf8;
+  PRIMARY KEY (`session_id`) ,
+  CONSTRAINT `fk_survey_results_survey_unit_sessions1`
+    FOREIGN KEY (`session_id` )
+    REFERENCES `survey_unit_sessions` (`id` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_survey_results_survey_studies1`
+    FOREIGN KEY (`study_id` )
+    REFERENCES `survey_studies` (`id` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
 -- Table `survey_run_sessions`
 -- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_run_sessions` ;
+
 CREATE  TABLE IF NOT EXISTS `survey_run_sessions` (
   `id` INT NOT NULL ,
   `run_id` INT UNSIGNED NOT NULL ,
@@ -427,6 +490,7 @@ CREATE TABLE IF NOT EXISTS `view_run_unit_sessions` (`session_id` INT, `session`
 -- -----------------------------------------------------
 -- View `view_run_unit_sessions`
 -- -----------------------------------------------------
+DROP VIEW IF EXISTS `view_run_unit_sessions` ;
 DROP TABLE IF EXISTS `view_run_unit_sessions`;
 CREATE  OR REPLACE VIEW `view_run_unit_sessions` AS
 SELECT 

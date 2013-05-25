@@ -132,9 +132,10 @@ LIMIT 10";
 		$join
 		
 		WHERE 
-		`session` = :session
+		`survey_unit_sessions`.`session` = :session
 		LIMIT 1";
 		
+		pr($q);
 		$evaluate = $this->dbh->prepare($q); // should use readonly
 		$evaluate->bindParam(":session", $this->session);
 

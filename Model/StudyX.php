@@ -292,8 +292,7 @@ class StudyX extends RunUnit
 		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
 		  UNIQUE INDEX `session_UNIQUE` (`session` ASC) ,
 		  PRIMARY KEY (`session_id`) )
-		ENGINE = MyISAM
-		DEFAULT CHARACTER SET = utf8";
+		ENGINE = InnoDB";
 #		pr($create);
 
 		$create_table = $this->dbh->query($create) or die(print_r($this->dbh->errorInfo(), true));
