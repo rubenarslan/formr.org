@@ -5,6 +5,11 @@ require_once INCLUDE_ROOT . "admin/admin_header.php";
 require_once INCLUDE_ROOT . "Model/EmailAccount.php";
 
 $acc = new EmailAccount($fdb, $_GET['account_id'], $user->id);
+if($user->created($acc)):
+	alert("<strong>Error:</strong> Not your email account.",'alert-error');
+	redirect_to("/index");
+endif;
+
 if(!empty($_POST)) 
 {
 	$acc->changeSettings($_POST);

@@ -26,6 +26,7 @@ class Run
 	public $name = null;
 	public $valid = false;
 	public $public = false;
+	public $cron_active = false;
 	private $api_secret = null;
 	public $settings = array();
 	public $errors = array();
@@ -38,15 +39,17 @@ class Run
 		
 		if($name !== null OR ($name = $this->create($options))):
 			$this->name = $name;
-			$run_data = $this->dbh->prepare("SELECT id,owner_id,name,api_secret FROM `survey_runs` WHERE name = :run_name LIMIT 1");
+			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret,public,cron_active FROM `survey_runs` WHERE name = :run_name LIMIT 1");
 			$run_data->bindParam(":run_name",$this->name);
 			$run_data->execute() or die(print_r($run_data->errorInfo(), true));
 			$vars = $run_data->fetch(PDO::FETCH_ASSOC);
 			
 			if($vars):
 				$this->id = $vars['id'];
-				$this->owner_id = $vars['owner_id'];
+				$this->user_id = $vars['user_id'];
 				$this->api_secret = $vars['api_secret'];
+				$this->public = $vars['public'];
+				$this->cron_active = $vars['cron_active'];
 			
 				$this->valid = true;
 			endif;
@@ -152,7 +155,7 @@ class Run
 			`survey_unit_sessions`.created,
 			`survey_runs`.name AS run_name,
 			`survey_runs`.id,
-			`survey_runs`.owner_id,
+			`survey_runs`.user_id,
 			`survey_run_units`.position,
 			`survey_run_units`.unit_id,
 			`survey_run_units`.run_id,
@@ -252,6 +255,22 @@ class Run
 		
 		$this->dbh->commit();
 	}
+	public function toggleCron($on)
+	{
+		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET cron_active = :cron_active WHERE id = :id;");
+		$toggle->bindParam(':id',$this->id);
+		$toggle->bindParam(':cron_active', $on );
+		$success = $toggle->execute() or die(print_r($toggle->errorInfo(), true));
+		return $success;
+	}
+	public function togglePublic($on)
+	{
+		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET public = :public WHERE id = :id;");
+		$toggle->bindParam(':id',$this->id);
+		$toggle->bindParam(':public', $on );
+		$success = $toggle->execute() or die(print_r($toggle->errorInfo(), true));
+		return $success;
+	}
 	public function create($options)
 	{
 	    $name = trim($options['run_name']);
@@ -267,8 +286,8 @@ class Run
 		endif;
 
 		$this->dbh->beginTransaction();
-		$create = $this->dbh->prepare("INSERT INTO `survey_runs` (owner_id, name, api_secret) VALUES (:owner_id, :name, :api_secret);");
-		$create->bindParam(':owner_id',$options['owner_id']);
+		$create = $this->dbh->prepare("INSERT INTO `survey_runs` (user_id, name, api_secret) VALUES (:user_id, :name, :api_secret);");
+		$create->bindParam(':user_id',$options['user_id']);
 		$create->bindParam(':name',$name);
 		$new_secret = bin2hex(openssl_random_pseudo_bytes(32));
 		$create->bindParam(':api_secret',$new_secret);
@@ -276,6 +295,12 @@ class Run
 		$this->dbh->commit();
 
 		return $name;
+	}
+	public function getApiSecret($user)
+	{
+		if($user->isAdmin())
+			return $this->api_secret;
+		return false;
 	}
 	protected function existsByName($name)
 	{

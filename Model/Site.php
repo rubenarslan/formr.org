@@ -8,7 +8,7 @@ ini_set("error_log", INCLUDE_ROOT . "log/errors.log");
 
 error_reporting(-1);
 date_default_timezone_set('Europe/Berlin');
-require_once INCLUDE_ROOT."Model/UserX.php";
+require_once INCLUDE_ROOT."Model/User.php";
 
 $fdb = new DB();
 
@@ -42,12 +42,12 @@ if(isset($_SESSION['user']))
 	$sess_user = unserialize($_SESSION['user']);
 	
 	if(isset($sess_user->id))
-		$user = new UserX($fdb, $sess_user->id, $sess_user->user_code);
+		$user = new User($fdb, $sess_user->id, $sess_user->user_code);
 	elseif(isset($sess_user->user_code))
-		$user = new UserX($fdb, null, $sess_user->user_code);	
+		$user = new User($fdb, null, $sess_user->user_code);	
 }
 if(!isset($user))
-	$user = new UserX($fdb, null, null);
+	$user = new User($fdb, null, null);
 
 /*
 HELPER FUNCTIONS
@@ -284,6 +284,13 @@ function join_builder($fdb,$q)
 	$join = '';
 	foreach($tables AS $table):
 		if(!in_array($table,array('users','survey_users'))):
+/*$join .= "
+left join `$table`
+	on `$table`.session_id = `survey_unit_sessions`.id
+left join 
+	`survey_run_sessions`
+    on `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id";
+*/			
 $join .= "
 left join `$table`
 	on `$table`.session = `survey_unit_sessions`.session";

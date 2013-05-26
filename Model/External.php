@@ -30,6 +30,8 @@ class External extends RunUnit {
 		$this->dbh->beginTransaction();
 		if(!$this->id)
 			$this->id = parent::create('External');
+		else
+			$this->modify($this->id);
 		
 		if(isset($options['address']))
 		{

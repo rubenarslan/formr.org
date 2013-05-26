@@ -13,7 +13,7 @@ if($runs) {
   echo "<ul class='span4 nav nav-pills nav-stacked'>";
   foreach($runs as $run) {
     echo "<li>
-		<a href='".WEBROOT."{$run->name}/survey'>".$run->name."</a>
+		<a href='".WEBROOT."{$run['name']}'>".$run['name']."</a>
 	</li>";
   }
   echo "</ul>";

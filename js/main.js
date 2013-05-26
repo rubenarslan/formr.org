@@ -111,5 +111,43 @@ $(document).ready(function() {
 		}
 	});
 	
-	$('.hastooltip').tooltip();
+	$('.hastooltip').tooltip({
+		container: 'body'
+	});
 });
+function bootstrap_alert(message,bold) 
+{
+	var $alert = $('<div class="alert alert-error"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold:'Problem' ) + '</strong> ' + message + '</div>');
+	$alert.insertAfter( $('nav') );
+	$alert[0].scrollIntoView(false);
+}
+
+function ajaxErrorHandling (e, x, settings, exception) 
+{
+	var message;
+	var statusErrorMap = 
+	{
+	    '400' : "Server understood the request but request content was invalid.",
+	    '401' : "You don't have access.",
+	    '403' : "You were logged out while coding, please open a new tab and login again. This way no data will be lost.",
+	    '404' : "Page not found.",
+	    '500' : "Internal Server Error.",
+	    '503' : "Server can't be reached."
+	};
+	if (e.status) 
+	{
+	    message =statusErrorMap[e.status];
+		if(!message)
+			message= (typeof e.statusText != 'undefined' && e.statusText != 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
+	}
+	else if(e.statusText=='parsererror')
+	    message="Parsing JSON Request failed.";
+	else if(e.statusText=='timeout')
+	    message="The attempt to save timed out. Are you connected to the internet?";
+	else if(e.statusText=='abort')
+	    message="The request was aborted by the server.";
+	else
+		message= (typeof e.statusText != 'undefined' && e.statusText != 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
+
+	bootstrap_alert(message, 'Fehler.');
+}

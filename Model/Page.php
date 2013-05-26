@@ -45,6 +45,8 @@ class Page extends RunUnit {
 		$this->dbh->beginTransaction();
 		if(!$this->id)
 			$this->id = parent::create('Page');
+		else
+			$this->modify($this->id);
 		
 		if(isset($options['body']))
 		{

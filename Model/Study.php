@@ -3,7 +3,7 @@ require_once INCLUDE_ROOT . "Model/DB.php";
 require_once INCLUDE_ROOT . "Model/RunUnit.php";
 
 // this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
-class StudyX extends RunUnit
+class Study extends RunUnit
 {
 	public $id = null;
 	public $name = null;
@@ -116,6 +116,7 @@ class StudyX extends RunUnit
 				"problem_email" => "problems@example.com",
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
+				"submit_button_text" => 'Weiter',
 //				"fileuploadmaxsize" => "100000",
 //				"closed_user_pool" => 0,
 //				"timezone" => "Europe/Berlin",

@@ -4,7 +4,7 @@ require_once INCLUDE_ROOT . "admin/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Run.php";
 
 if( !empty($_POST) ) {
-	$run = new Run($fdb, null, array('run_name' => $_POST['run_name'], 'owner_id' => $user->id));
+	$run = new Run($fdb, null, array('run_name' => $_POST['run_name'], 'user_id' => $user->id));
 	if($run->valid)
 	{
 		alert('<strong>Success.</strong> Run "'.$run->name . '" was created.','alert-success');
@@ -33,5 +33,5 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
   	</div>
   </form>
 
-  <?php
-  require_once INCLUDE_ROOT . "view_footer.php";
+<?php
+require_once INCLUDE_ROOT . "view_footer.php";

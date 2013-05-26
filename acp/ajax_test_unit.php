@@ -13,7 +13,7 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 		if(!in_array($type, array('Survey','Pause','Email','External','Page','Branch','End'))) die('imp type');
 
 		if($type==='Survey'):
-			$type = 'StudyX';
+			$type = 'Study';
 		endif;
 
 		require_once INCLUDE_ROOT . "Model/$type.php";

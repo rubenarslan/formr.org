@@ -115,7 +115,6 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 // the base class should also work for inputs like date, datetime which are either native or polyfilled but don't require
 // special handling here
 
-// todo: geolocation
 class Item 
 {
 	public $id = null;
@@ -1151,4 +1150,6 @@ class Item_place extends Item_text
  * todo: item - facebook connect?
  * todo: item - IP
  * todo: _GET items for presetting 
+ * todo: geolocation
+
 */

@@ -98,7 +98,6 @@ class Survey extends RunUnit {
 					ON DUPLICATE KEY UPDATE `$name` = :$name, modified = NOW();");
 				    $post_form->bindParam(":$name", $value);
 					$post_form->bindParam(":session_id", $this->session_id);
-					$post_form->bindParam(":session", $this->session);
 					$post_form->bindParam(":study_id", $this->id);
 					$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 
@@ -306,7 +305,15 @@ class Survey extends RunUnit {
 		
 		if($need_submit) // only if no submit was part of the form
 		{
-			$item = new Item_submit('final_submit',array('text'=>'Weiter!'));
+			if(isset($this->settings["submit_button_text"])):
+				$sub_sets = array(
+								'text' => $this->settings["submit_button_text"],
+								'class_input' => $this->settings["submit_button_class"]
+				);
+			else:
+				$sub_sets = array('text' => 'Weiter', 'class_input' => 'btn-info');
+			endif;
+			$item = new Item_submit('final_submit', $sub_sets);
 			$ret .= $item->render();
 		}
 		

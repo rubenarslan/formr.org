@@ -4,7 +4,7 @@ require_once INCLUDE_ROOT.'admin/admin_header.php';
 require_once INCLUDE_ROOT . "Model/UnitSession.php";
 
 $has_access = false;
-if($user->createdStudy($study)):
+if($user->created($study)):
 	$has_access = true;
 endif;
 

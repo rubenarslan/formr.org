@@ -34,6 +34,8 @@ class Branch extends RunUnit {
 		$this->dbh->beginTransaction();
 		if(!$this->id)
 			$this->id = parent::create('Branch');
+		else
+			$this->modify($this->id);
 		
 		if(isset($options['condition']))
 		{

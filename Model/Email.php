@@ -42,6 +42,8 @@ class Email extends RunUnit {
 		$this->dbh->beginTransaction();
 		if(!$this->id)
 			$this->id = parent::create('Email');
+		else
+			$this->modify($this->id);
 		
 		if(isset($options['body']))
 		{

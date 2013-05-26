@@ -3,7 +3,7 @@
 <nav>
 	<ul class="nav nav-tabs">
 	    <li <?php
-		echo endsWith($_SERVER['PHP_SELF'],'acp.php')?' class="active"':''?>><a href="<?=WEBROOT?>acp/acp"><?php echo _("admin control panel"); ?></a></li>   
+		echo endsWith($_SERVER['PHP_SELF'],'acp.php')?' class="active"':''?>><a href="<?=WEBROOT?>acp/index"><?php echo _("admin control panel"); ?></a></li>   
 	
 		<li <?=endsWith($_SERVER['PHP_SELF'],'add_study.php')?' class="active"':''?>>
 			<a href="<?=WEBROOT?>acp/add_study"><?php echo _("create study"); ?></a>

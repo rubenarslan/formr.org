@@ -13,9 +13,13 @@ header.study-header {
 	background-repeat:no-repeat;
 	background-position:center 5px;
 }
+.maincontent
+{
+	margin-left:60px;
+}
 
 
-button.btn.btn-checked,label.btn.btn-checked {
+button.btn.btn-checked,label.btn.btn-checked,a.btn.btn-checked {
   background-color: #e6e6e6;
   background-color: #d9d9d9 \9;
   background-image: none;

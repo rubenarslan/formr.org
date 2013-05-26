@@ -45,6 +45,8 @@ class Pause extends RunUnit {
 		$this->dbh->beginTransaction();
 		if(!$this->id)
 			$this->id = parent::create('Pause');
+		else
+			$this->modify($this->id);
 		
 		if(isset($options['message']))
 		{

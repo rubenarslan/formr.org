@@ -5,7 +5,7 @@ require_once INCLUDE_ROOT . 'Model/Run.php'; # Study , nothing is echoed yet
 require_once INCLUDE_ROOT . "Model/UnitSession.php";
 
 /// GET ALL RUNS
-$g_runs = $fdb->query("SELECT * FROM `survey_runs`");
+$g_runs = $fdb->query("SELECT * FROM `survey_runs` WHERE cron_active = 1");
 $runs = array();
 while($tmp = $g_runs->fetch())
 {

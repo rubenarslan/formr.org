@@ -5,7 +5,7 @@ require_once INCLUDE_ROOT . "admin/admin_header.php";
 require_once INCLUDE_ROOT . "Model/EmailAccount.php";
 
 if(!empty($_POST) AND isset($_POST['create'])) {
-	$acc = new EmailAccount($fdb, null,$user->id);
+	$acc = new EmailAccount($fdb, null, $user->id);
 	if( 
 		$acc->create()
 	)

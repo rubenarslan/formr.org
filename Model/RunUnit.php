@@ -25,12 +25,26 @@ class RunUnit {
 	public function create($type)
 	{
 		$c_unit = $this->dbh->prepare("INSERT INTO `survey_units` 
-			SET type = :type ;");
+			SET type = :type,
+		 created = NOW(),
+	 	 modified = NOW();");
 		$c_unit->bindParam(':type', $type);
 		
 		$c_unit->execute() or die(print_r($c_unit->errorInfo(), true));
 		
 		return $this->dbh->lastInsertId();
+	}
+	public function modify($id)
+	{
+		$c_unit = $this->dbh->prepare("UPDATE `survey_units` 
+			SET 
+	 	 modified = NOW()
+	 WHERE id = :id;");
+		$c_unit->bindParam(':id', $id);
+		
+		$success = $c_unit->execute() or die(print_r($c_unit->errorInfo(), true));
+		
+		return $success;
 	}
 	public function addToRun($run_id, $position = 1)
 	{
