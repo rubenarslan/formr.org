@@ -5,7 +5,6 @@ class EmailAccount
 	public function __construct($fdb, $id, $user_id) 
 	{
 		$this->dbh = $fdb;
-		$this->user_id = $user_id;
 		$this->id = $id;
 		
 		if($id)
@@ -18,6 +17,8 @@ class EmailAccount
 			
 			if($this->account):
 				$this->valid = true;
+				$this->user_id = (int)$this->account['user_id'];
+				
 			endif;
 		}
 	}

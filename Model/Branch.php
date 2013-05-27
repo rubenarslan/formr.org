@@ -77,30 +77,25 @@ class Branch extends RunUnit {
 	}
 	public function removeFromRun($run_id)
 	{
-		return $this->delete();		
-	}
-	public function getUnitIdAtPosition($position)
-	{
-		$data = $this->dbh->prepare("SELECT unit_id FROM `survey_run_units` WHERE position = :position LIMIT 1");
-		$data->bindParam(":position",$position);
-		$data->execute() or die(print_r($data->errorInfo(), true));
-		$vars = $data->fetch(PDO::FETCH_ASSOC);
-		if($vars)
-			return $vars['unit_id'];
-		return false;
+		return $this->delete();
 	}
 	public function test()
 	{
 		$join = join_builder($this->dbh, $this->condition);
-$q = "SELECT DISTINCT ( {$this->condition} ) AS test,`survey_unit_sessions`.session FROM `survey_unit_sessions`
+$q = "SELECT DISTINCT ( {$this->condition} ) AS test,`survey_run_sessions`.session FROM `survey_run_sessions`
 
 $join
 
-ORDER BY RAND()
-LIMIT 10";
-		
+WHERE 
+	`survey_run_sessions`.run_id = :run_id
+
+ORDER BY IF(ISNULL(test),1,0), RAND()
+
+LIMIT 20";
+
 		echo "<pre>$q</pre>";
 		$evaluate = $this->dbh->prepare($q); // should use readonly
+		$evaluate->bindParam(':run_id',$this->run_id);
 
 		$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
 		if($evaluate->rowCount()>=1):
@@ -129,17 +124,20 @@ LIMIT 10";
 	public function exec()
 	{
 		$join = join_builder($this->dbh, $this->condition);
-		$q = "SELECT ( {$this->condition} ) AS test FROM `survey_unit_sessions`
+		$q = "SELECT ( {$this->condition} ) AS test FROM `survey_run_sessions`
 		
 		$join
 		
 		WHERE 
-		`survey_unit_sessions`.`session` = :session
+		`survey_run_sessions`.`id` = :run_session_id
+
+		ORDER BY IF(ISNULL( ( {$this->condition} ) ),1,0), `survey_unit_sessions`.id DESC
+		
 		LIMIT 1";
 		
-		pr($q);
+#		pr($q);
 		$evaluate = $this->dbh->prepare($q); // should use readonly
-		$evaluate->bindParam(":session", $this->session);
+		$evaluate->bindParam(":run_session_id", $this->run_session_id);
 
 		$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
 		if($evaluate->rowCount()===1):
@@ -148,16 +146,19 @@ LIMIT 10";
 		else:
 			$result = false;
 		endif;
+#		pr($temp);
+#		pr($this->run_session_id);
 		
 		// evaluate condition
-		$goto = $result ? $this->if_true : $this->if_false;
-		$goto_id = $this->getUnitIdAtPosition( $goto  );
+		$position = $result ? $this->if_true : $this->if_false;
+#		$run_to_id = $this->getUnitIdAtPosition( $run_to  );
 		
-		$session = new UnitSession($this->dbh, $this->session, $goto_id);
-		if(!$session->session):
-			$session->create($this->session);
+#		$run_session = new RunSession($this->dbh, $this->run_id, $this->user_id, $this->session);
+		global $run_session;
+		if($run_session->session):
+			$this->end();
+			$run_session->runTo($position);
 		endif;
-		$this->end();
 		
 		return false;
 	}

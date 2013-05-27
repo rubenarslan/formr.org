@@ -147,8 +147,12 @@ class Pause extends RunUnit {
 		if(!empty($conditions)):
 			$condition = implode($conditions," AND ");
 			
-$q = "SELECT DISTINCT ( $condition ) AS test,`survey_unit_sessions`.session FROM `survey_unit_sessions`
+$q = "SELECT DISTINCT ( $condition ) AS test,`survey_run_sessions`.session FROM `survey_unit_sessions`
 $join
+
+LEFT JOIN `survey_run_sessions`
+ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+
 ORDER BY RAND()
 LIMIT 10";
 		
@@ -217,6 +221,10 @@ LIMIT 10";
 			
 	$q = "SELECT ( $condition ) AS test FROM `survey_unit_sessions`
 	$join
+	
+	LEFT JOIN `survey_run_sessions`
+	ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+	
 	WHERE `survey_unit_sessions`.id = :session_id
 	LIMIT 1";
 		

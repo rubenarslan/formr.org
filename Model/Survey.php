@@ -15,7 +15,6 @@ class Survey extends RunUnit {
 	public $not_answered = 0;
 	public $progress = 0;
 	public $session = null;
-	public $timestarted = null;
 	public $errors = array();
 	public $results_table = null;
 	protected $dbh;
@@ -93,8 +92,8 @@ class Survey extends RunUnit {
 					$answered->bindParam(":item_id", $this->unanswered_batch[$name]->id);
 			   	   	$answered->execute() or die(print_r($answered->errorInfo(), true));
 					
-					$post_form = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `session`, `study_id`, `created`, `modified`, `$name`)
-																			  VALUES(:session_id, :session, :study_id, NOW(),	    NOW(),	 		:$name) 
+					$post_form = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`, `$name`)
+																			  VALUES(:session_id, :study_id, NOW(),	    NOW(),	 		:$name) 
 					ON DUPLICATE KEY UPDATE `$name` = :$name, modified = NOW();");
 				    $post_form->bindParam(":$name", $value);
 					$post_form->bindParam(":session_id", $this->session_id);
@@ -189,7 +188,9 @@ class Survey extends RunUnit {
 		
 		$get_items->bindParam(":session_id",$this->session_id);
 		$get_items->bindParam(":study_id", $this->id);
-		
+#		pr($item_query);
+#		pr($this->id);
+#		pr($this->session_id);
 		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
 		
 		while($item = $get_items->fetch(PDO::FETCH_ASSOC) )
@@ -198,7 +199,7 @@ class Survey extends RunUnit {
 			$this->unanswered_batch[$name] = legacy_translate_item($item);
 			if($this->unanswered_batch[$name]->skipIf !== null)
 			{
-				if($this->unanswered_batch[$name]->skip($this->session_id,$this->dbh,$this->results_table))
+				if($this->unanswered_batch[$name]->skip($this->session_id,$this->run_session_id,$this->dbh,$this->results_table))
 				{
 					unset($this->unanswered_batch[$name]); // fixme: do something else with this when we want JS?
 				}
@@ -213,11 +214,6 @@ class Survey extends RunUnit {
 		
 	    /* pass on hidden values */
 	    $ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
-	    if( !empty( $timestarted ) ) {
-	        $ret .= '<input type="hidden" name="timestarted" value="' . $timestarted .'" />';
-		} else {
-			debug("<strong>render_form_header:</strong> timestarted was not set or empty");
-		}
 	
 		if(!isset($this->settings["displayed_percentage_maximum"]))
 			$this->settings["displayed_percentage_maximum"] = 90;
@@ -241,10 +237,11 @@ class Survey extends RunUnit {
 		$substitutions = $this->getSubstitutions();
 		$items = $this->unanswered_batch;
 		
-		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
-											     VALUES(  :item_id, :session_id, 1,				 NOW(), NOW()	) 
+		$view_query = "INSERT INTO `survey_items_display` (study_id, item_id,  session_id, displaycount, created, modified)
+											     VALUES(:study_id,  :item_id, :session_id, 1,				 NOW(), NOW()	) 
 		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
 		$view_update = $this->dbh->prepare($view_query);
+		$view_update->bindParam(":study_id", $this->id);
 		$view_update->bindParam(":session_id", $this->session_id);
 	
 		$itemsDisplayed = $i = 0;
@@ -307,8 +304,7 @@ class Survey extends RunUnit {
 		{
 			if(isset($this->settings["submit_button_text"])):
 				$sub_sets = array(
-								'text' => $this->settings["submit_button_text"],
-								'class_input' => $this->settings["submit_button_class"]
+								'text' => $this->settings["submit_button_text"]
 				);
 			else:
 				$sub_sets = array('text' => 'Weiter', 'class_input' => 'btn-info');
@@ -360,19 +356,24 @@ class Survey extends RunUnit {
 	
 	public function end()
 	{
-		$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS NULL;");
+		$post_form = $this->dbh->prepare("UPDATE 
+					`{$this->results_table}` 
+			SET `ended` = NOW() 
+		WHERE `session_id` = :session_id AND 
+		`study_id` = :study_id AND 
+		`ended` IS NULL;");
 		$post_form->bindParam(":session_id", $this->session_id);
 		$post_form->bindParam(":study_id", $this->id);
 		$post_form->execute() or die(print_r($post_form->errorInfo(), true));
-		if($post_form->rowCount() === 1):
-			return parent::end();
-		else:
-			return false;
-		endif;
+		
+		return parent::end();
 	}
 	public function exec()
 	{
-		if($this->getProgress()===1) return false;
+		if($this->getProgress()===1) {
+			$this->end();
+			return false;
+		}
 		return array('title' => (isset($this->settings['title'])?$this->settings['title']: null),
 		'body' => 
 			'

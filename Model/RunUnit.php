@@ -4,6 +4,7 @@ require_once INCLUDE_ROOT."Model/DB.php";
 class RunUnit {
 	public $errors = array();
 	public $id = null;
+	public $user_id = null;
 	public $session = null;
 	public $unit = null;
 	public $ended = false;
@@ -14,13 +15,21 @@ class RunUnit {
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->unit = $unit;
+		
+		if(isset($unit['run_id']))
+			$this->run_id = $unit['run_id'];
+		
 		if(isset($unit['run_name']))
-			$this->run_name = $unit['run_name'];		
+			$this->run_name = $unit['run_name'];
+
 		if(isset($unit['session_id']))
 			$this->session_id = $unit['session_id'];
-		
-		if(isset($this->unit['unit_id'])) $this->id = $this->unit['unit_id'];
-	
+
+		if(isset($unit['run_session_id']))
+			$this->run_session_id = $unit['run_session_id'];
+
+		if(isset($this->unit['unit_id'])) 
+			$this->id = $this->unit['unit_id'];
 	}
 	public function create($type)
 	{
@@ -95,9 +104,10 @@ class RunUnit {
 		
 		return $affected;
 	}
-	public function end()
+	public function end() // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
 	{
-		$finish_unit = $this->dbh->prepare("UPDATE `survey_unit_sessions` SET `ended` = NOW()
+		$finish_unit = $this->dbh->prepare("UPDATE `survey_unit_sessions` 
+			SET `ended` = NOW()
 			WHERE 
 			`id` = :session_id AND 
 			`unit_id` = :unit_id AND 

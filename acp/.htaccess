@@ -1,4 +1,5 @@
 <IfModule mod_rewrite.c>
+# fixme: users who choose run names that clash with filenames, dont get to access runs
     RewriteEngine On
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f

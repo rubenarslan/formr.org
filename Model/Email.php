@@ -50,7 +50,8 @@ class Email extends RunUnit {
 			$this->recipient_field = $options['recipient_field'];
 			$this->body = $options['body'];
 			$this->subject = $options['subject'];
-			$this->account_id = $options['account_id'];
+			if(isset($options['account_id']))
+				$this->account_id = $options['account_id'];
 			$this->html = $options['html'];
 		}
 		
@@ -126,7 +127,7 @@ class Email extends RunUnit {
 			$dialog .= "</select>";
 			$dialog .= '</label></div>';
 		else:
-			$dialog .= "<h5>No email accounts. Add some first</h5>";
+			$dialog = "<h5>No email accounts. Add some first</h5>";
 		endif;
 		$dialog .= '<p><label>Subject: <br>
 			<input type="text" placeholder="Email subject" name="subject" value="'.$this->subject.'">
@@ -146,29 +147,31 @@ class Email extends RunUnit {
 	}
 	public function getRecipientField()
 	{
-		if($this->recipient_field!== null AND trim($this->recipient_field)!='')
-		{
-			$join = join_builder($this->dbh, $this->recipient_field);
-		}
-		else {
-			$this->relative_to = '`survey_users`.email';
-			$join = 'left join `survey_users`
-on `survey_users`.user_code = `survey_unit_sessions`.session';
-		}
+		if($this->recipient_field === null OR trim($this->recipient_field)=='')
+			$this->recipient_field = '`survey_users`.email';
+
+		$join = join_builder($this->dbh, $this->recipient_field);
 			
-$q = "SELECT {$this->recipient_field} AS email FROM `survey_unit_sessions`
+$q = "SELECT {$this->recipient_field} AS email_field FROM `survey_run_sessions`
+	
 $join
-WHERE `survey_unit_sessions`.id = :session_id
+
+WHERE `survey_run_sessions`.id = :run_session_id
+
+ORDER BY IF(ISNULL(email_field),1,0), `survey_unit_sessions`.id DESC
+
 LIMIT 1";
 
-		$g_email = $this->dbh->prepare($q); // should use readonly
-		$g_email->bindParam(":session_id", $this->session_id);
+#pr($q);
+#pr($this->run_session_id);
 
+		$g_email = $this->dbh->prepare($q); // should use readonly
+		$g_email->bindParam(":run_session_id", $this->run_session_id);
 
 		$g_email->execute() or die(print_r($g_email->errorInfo(), true));
 		if($g_email->rowCount()===1):
 			$temp = $g_email->fetch(PDO::FETCH_ASSOC);
-			$email = $temp['email'];
+			$email = $temp['email_field'];
 		else:
 			$email = '';
 		endif;
@@ -195,7 +198,7 @@ LIMIT 1";
 		
 		if(!$mail->Send())
 		{
-		   die($mail->ErrorInfo);
+		   alert($mail->ErrorInfo,'alert-error');
 		}
 		else 
 		{
@@ -229,13 +232,18 @@ LIMIT 1";
 		
 		$join = join_builder($this->dbh, $this->recipient_field);
 			
-$q = "SELECT DISTINCT {$this->recipient_field} AS email,`survey_unit_sessions`.session FROM `survey_unit_sessions`
+$q = "SELECT DISTINCT {$this->recipient_field} AS email,`survey_run_sessions`.session FROM `survey_run_sessions`
+
 $join
+
+WHERE `survey_run_sessions`.run_id = :run_id
+AND email IS NOT NULL
+
 ORDER BY RAND()
 LIMIT 20";
 #echo $q;
-
 		$g_email = $this->dbh->prepare($q); // should use readonly
+		$g_email->bindParam(':run_id',$this->run_id);
 
 		$g_email->execute() or die(print_r($g_email->errorInfo(), true));
 		if($g_email->rowCount()>=1):

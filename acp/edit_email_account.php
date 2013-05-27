@@ -7,7 +7,7 @@ require_once INCLUDE_ROOT . "Model/EmailAccount.php";
 $acc = new EmailAccount($fdb, $_GET['account_id'], $user->id);
 if($user->created($acc)):
 	alert("<strong>Error:</strong> Not your email account.",'alert-error');
-	redirect_to("/index");
+	redirect_to("/acp/list_email_accounts");
 endif;
 
 if(!empty($_POST)) 

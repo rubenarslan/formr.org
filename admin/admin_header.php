@@ -1,12 +1,15 @@
 <?php
 require_once '../define_root.php';
 require_once INCLUDE_ROOT . "Model/Site.php";
+
 if(!$user->loggedIn() AND !$user->isAdmin()) {
 	alert("<strong>Sorry:</strong> Only admins have access.",'alert-info');
 	redirect_to("index.php");
 }
+
 if(isset($_GET['study_name'])):
 	require_once INCLUDE_ROOT . "Model/Study.php";
+
 	$study = new Study($fdb,null,array('name' => $_GET['study_name']));
 
 	if(!$study->valid):
@@ -21,7 +24,7 @@ elseif(isset($_GET['run_name'])):
 	$run = new Run($fdb, $_GET['run_name']);
 	
 	if(!$run->valid):
-		alert("<strong>Error:</strong> Study broken.",'alert-error');
+		alert("<strong>Error:</strong> Run broken.",'alert-error');
 		redirect_to("/index");
 	elseif(!$user->created($run)):
 		alert("<strong>Error:</strong> Not your run.",'alert-error');

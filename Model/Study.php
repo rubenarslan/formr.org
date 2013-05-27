@@ -218,10 +218,18 @@ class Study extends RunUnit
 	}
 	public function getItemDisplayResults()
 	{
-		$get = "SELECT `survey_unit_sessions`.session, `survey_items_display`.* FROM `survey_items_display` 
+		$get = "SELECT `survey_run_sessions`.session, `survey_items_display`.* FROM `survey_items_display` 
+		
 		LEFT JOIN `survey_unit_sessions`
-		ON `survey_unit_sessions`.id = `survey_items_display`.session_id";
-		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
+		ON `survey_unit_sessions`.id = `survey_items_display`.session_id
+		
+		LEFT JOIN `survey_run_sessions`
+		ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+		
+		WHERE `survey_items_display`.study_id = :id";
+		$get = $this->dbh->prepare($get) or die(print_r($this->dbh->errorInfo(), true));
+		$get->bindParam(':id',$id);
+		$get->execute() or die(print_r($this->dbh->errorInfo(), true));
 		$results = array();
 		while($row = $get->fetch(PDO::FETCH_ASSOC))
 			$results[] = $row;
@@ -280,19 +288,28 @@ class Study extends RunUnit
 #		pr($this->name);
 		$drop = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}` ;");
 		$drop->execute();
-		$create = "CREATE TABLE `{$this->name}` (
+		$create = "CREATE  TABLE `{$this->name}` (
 		  `session_id` INT UNSIGNED NOT NULL ,
 		  `study_id` INT UNSIGNED NOT NULL ,
-		  `session` CHAR(64) NOT NULL ,
 		  `modified` DATETIME NULL DEFAULT NULL ,
 		  `created` DATETIME NULL DEFAULT NULL ,
 		  `ended` DATETIME NULL DEFAULT NULL ,
-			$columns,
+	
+	$columns,
 		  
 		  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
 		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
-		  UNIQUE INDEX `session_UNIQUE` (`session` ASC) ,
-		  PRIMARY KEY (`session_id`) )
+		  PRIMARY KEY (`session_id`) ,
+		  CONSTRAINT `fk_{$this->name}_survey_unit_sessions1`
+		    FOREIGN KEY (`session_id` )
+		    REFERENCES `survey_unit_sessions` (`id` )
+		    ON DELETE CASCADE
+		    ON UPDATE NO ACTION,
+		  CONSTRAINT `fk_{$this->name}_survey_studies1`
+		    FOREIGN KEY (`study_id` )
+		    REFERENCES `survey_studies` (`id` )
+		    ON DELETE NO ACTION
+		    ON UPDATE NO ACTION)
 		ENGINE = InnoDB";
 #		pr($create);
 

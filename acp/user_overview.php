@@ -8,7 +8,7 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 
 <?php
 $g_users = $fdb->query("SELECT 
-	`survey_unit_sessions`.session,
+	`survey_run_sessions`.session,
 	`survey_runs`.name AS run_name,
 	MAX(`survey_run_units`.position) AS position,
 	`survey_units`.type AS unit_type,
@@ -16,8 +16,10 @@ $g_users = $fdb->query("SELECT
 	`survey_unit_sessions`.created
 	
 	
-FROM `survey_unit_sessions`
+FROM `survey_run_sessions`
 
+LEFT JOIN `survey_unit_sessions`
+ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 LEFT JOIN `survey_units`
 ON `survey_unit_sessions`.unit_id = `survey_units`.id
 LEFT JOIN `survey_run_units`
@@ -25,8 +27,9 @@ ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
 LEFT JOIN `survey_runs`
 ON `survey_runs`.id = `survey_run_units`.run_id
 LEFT JOIN `users`
-ON `survey_unit_sessions`.session = `users`.code
-GROUP BY `survey_unit_sessions`.session
+ON `survey_run_sessions`.session = `users`.code
+
+GROUP BY `survey_run_sessions`.session
 ORDER BY `survey_unit_sessions`.created DESC;");
 
 $users = array();

@@ -75,7 +75,7 @@ CREATE  TABLE IF NOT EXISTS `survey_runs` (
   `name` VARCHAR(45) NULL ,
   `api_secret` CHAR(64) BINARY NULL ,
   `cron_active` TINYINT(1) NULL DEFAULT 0 ,
-  `active` TINYINT(1) NULL DEFAULT 0 ,
+  `public` TINYINT(1) NULL DEFAULT 0 ,
   PRIMARY KEY (`id`) ,
   INDEX `fk_runs_survey_users1_idx` (`user_id` ASC) ,
   CONSTRAINT `fk_runs_survey_users1`
@@ -213,13 +213,14 @@ ENGINE = InnoDB;
 DROP TABLE IF EXISTS `survey_run_sessions` ;
 
 CREATE  TABLE IF NOT EXISTS `survey_run_sessions` (
-  `id` INT NOT NULL ,
+  `id` INT NOT NULL AUTO_INCREMENT ,
   `run_id` INT UNSIGNED NOT NULL ,
-  `user_id` INT UNSIGNED NULL ,
+  `user_id` INT UNSIGNED NULL DEFAULT NULL ,
   `session` CHAR(64) BINARY NOT NULL ,
   `created` DATETIME NULL ,
-  `ended` DATETIME NULL ,
-  `position` SMALLINT NULL ,
+  `ended` DATETIME NULL DEFAULT NULL ,
+  `last_access` DATETIME NULL DEFAULT NULL ,
+  `position` SMALLINT NULL DEFAULT NULL ,
   PRIMARY KEY (`id`) ,
   INDEX `fk_survey_run_sessions_survey_runs1_idx` (`run_id` ASC) ,
   INDEX `fk_survey_run_sessions_survey_users1_idx` (`user_id` ASC) ,
@@ -251,7 +252,7 @@ CREATE  TABLE IF NOT EXISTS `survey_unit_sessions` (
   `ended` DATETIME NULL DEFAULT NULL ,
   `expires` DATETIME NULL ,
   PRIMARY KEY (`id`) ,
-  UNIQUE INDEX `session_uq` (`created` ASC, `run_session_id` ASC, `unit_id` ASC) ,
+  INDEX `session_uq` (`created` ASC, `run_session_id` ASC, `unit_id` ASC) ,
   INDEX `fk_survey_sessions_survey_units1_idx` (`unit_id` ASC) ,
   INDEX `fk_survey_unit_sessions_survey_run_sessions1_idx` (`run_session_id` ASC) ,
   CONSTRAINT `fk_survey_sessions_survey_units1`
@@ -262,7 +263,7 @@ CREATE  TABLE IF NOT EXISTS `survey_unit_sessions` (
   CONSTRAINT `fk_survey_unit_sessions_survey_run_sessions1`
     FOREIGN KEY (`run_session_id` )
     REFERENCES `survey_run_sessions` (`id` )
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
@@ -469,7 +470,7 @@ CREATE  TABLE IF NOT EXISTS `survey_results` (
   CONSTRAINT `fk_survey_results_survey_unit_sessions1`
     FOREIGN KEY (`session_id` )
     REFERENCES `survey_unit_sessions` (`id` )
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_results_survey_studies1`
     FOREIGN KEY (`study_id` )

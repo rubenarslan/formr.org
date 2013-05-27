@@ -1,6 +1,5 @@
 <?php
 require_once INCLUDE_ROOT . "Model/DB.php";
-// todo: cron_active field, active field
 /*
 ## types of run units
 	* branches 
@@ -59,192 +58,42 @@ class Run
 	{
 		$g_unit = $this->dbh->prepare(
 		"SELECT 
-			`survey_unit_sessions`.session
+			`survey_run_sessions`.session, (`survey_unit_sessions`.expires < NOW()) AS expired
 		
-			 FROM `survey_unit_sessions`
+			 FROM `survey_run_sessions`
 
-		LEFT JOIN `survey_run_units` 
-	 		ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-			
+ 		LEFT JOIN `survey_unit_sessions`
+	 		ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+
 		LEFT JOIN `survey_units` 
-	 		ON `survey_run_units`.unit_id = `survey_units`.id
+	 		ON `survey_unit_sessions`.unit_id = `survey_units`.id
 	
 		WHERE 
-			`survey_run_units`.run_id = :run_id AND
-			`survey_units`.type IN ('Branch','Pause','Email') AND
-			`survey_unit_sessions`.ended IS NULL
+			`survey_run_sessions`.run_id = :run_id AND
+			`survey_unit_sessions`.ended IS NULL AND
+			(
+			`survey_units`.type IN ('Branch','Pause','Email') OR
+			`survey_unit_sessions`.expires < NOW()
+			)
 		
 		ORDER BY `survey_unit_sessions`.id DESC 
 		;"); // in the order they were added
 		$g_unit->bindParam(':run_id',$this->id);
 		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
 		$dues = array();
-		while($unit = $g_unit->fetch(PDO::FETCH_ASSOC))
-			$dues[] = $unit['session'];
+		while($run_session = $g_unit->fetch(PDO::FETCH_ASSOC))
+			$dues[] = $run_session;
 		return $dues;
 	}
-	public function getCronUnit($session)
-	{
-		$i = 0;
-		$done = array('Pause' => 0,'Email' => 0,'Branch' => 0);
-		
-		$search_units = true;
-		while($search_units):
-			$i++;
-			if($i > 90) {
-				global $user;
-				if($user->isAdmin()) pr($unit);
-				die('Nesting too deep. Could there be an infinite loop or maybe no landing page?');
-			}
-			$unit = $this->getCurrentUnit($session); // get first unit in line
-#			pr($unit);
-			if($unit):								 // if there is one, spin that shit
-				$type = $unit['type'];
-				if(!in_array($type, array('Pause','Email','Branch'))) break; // only these items can be called from a cron job.
-				require_once INCLUDE_ROOT . "Model/$type.php";
-				$unit = new $type($this->dbh, $session, $unit);
-				$done[$type]++;
-				$unit->exec();
-				if(!$unit->ended):
-					break; // usually this would lead to some display
-				endif;
-			else:
-				$this->getNextUnit($session); 		// if there is nothing in line yet, add the next one in run order
-			endif;
-		endwhile;
-		
-		return $done;
-	}
-	
 
-	public function getUnit($session)
-	{
-		$i = 0;
-		$search_units = true;
-		while($search_units):
-			$i++;
-			if($i > 90) {
-				global $user;
-				if($user->isAdmin())
-					 pr($unit);
-				die('Nesting too deep. Could there be an infinite loop or maybe no landing page?');
-			}
-			$unit = $this->getCurrentUnit($session); // get first unit in line
-#			pr($unit);
-			if($unit):								 // if there is one, spin that shit
-				$type = $unit['type'];
-				if(!in_array($type, array('Survey','Pause','Email','External','Page','Branch','End'))) die('imp type');
-				require_once INCLUDE_ROOT . "Model/$type.php";
-				$unit = new $type($this->dbh, $session, $unit);
-				if($output = $unit->exec()):
-					$search_units = false; 			// only when there is something to display, stop.
-				endif;
-			else:
-				$this->getNextUnit($session); 		// if there is nothing in line yet, add the next one in run order
-			endif;
-		endwhile;
-		
-		return $output;
-	}
-	public function getCurrentUnit($session)
-	{
-		$g_unit = $this->dbh->prepare(
-		"SELECT 
-			`survey_unit_sessions`.id AS session_id,
-			`survey_unit_sessions`.session,
-			`survey_unit_sessions`.created,
-			`survey_runs`.name AS run_name,
-			`survey_runs`.id,
-			`survey_runs`.user_id,
-			`survey_run_units`.position,
-			`survey_run_units`.unit_id,
-			`survey_run_units`.run_id,
-			`survey_units`.type
-		
-			 FROM `survey_unit_sessions`
-
- 		LEFT JOIN `survey_units`
-	 		ON `survey_unit_sessions`.unit_id = `survey_units`.id
- 	
-		LEFT JOIN `survey_run_units` 
-	 		ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-		 
-		LEFT JOIN `survey_runs`
-		ON `survey_run_units`.run_id = `survey_runs`.id
-	
-		WHERE 
-			`survey_run_units`.run_id = :run_id AND
-			`survey_unit_sessions`.session = :session AND
-			
-			`survey_unit_sessions`.ended IS NULL
-		
-		ORDER BY `survey_unit_sessions`.id DESC 
-		LIMIT 1
-		;"); // in the order they were added
-		$g_unit->bindParam(':run_id',$this->id);
-		$g_unit->bindParam(':session',$session);
-		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
-		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
-		return $unit;
-	}
-	public function getPreviousUnit($session)
-	{
-		$g_unit = $this->dbh->prepare(
-		"SELECT `survey_run_units`.position
-			 FROM `survey_unit_sessions`
-			 
-		LEFT JOIN `survey_run_units` 
-		ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-		
-		WHERE 
-			`survey_run_units`.run_id = :run_id AND
-			`survey_unit_sessions`.session = :session AND
-			`survey_unit_sessions`.ended IS NOT NULL
-			
-		ORDER BY `survey_unit_sessions`.id DESC
-		LIMIT 1
-		;");
-		$g_unit->bindParam(':run_id',$this->id);
-		$g_unit->bindParam(':session',$session);
-		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
-		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
-		return $unit;
-	}
-	public function getNextUnit($session)
-	{
-		$last_unit = $this->getPreviousUnit($session);
-		$g_unit = $this->dbh->prepare(
-		"SELECT 
-			`survey_run_units`.unit_id
-			
-			 FROM `survey_run_units` 
-			 
-		WHERE 
-			`survey_run_units`.run_id = :run_id AND
-			`survey_run_units`.position > :position
-		ORDER BY `survey_run_units`.position ASC
-		LIMIT 1
-		;");
-		$g_unit->bindParam(':run_id',$this->id);
-		if($last_unit)
-			$g_unit->bindParam(':position',$last_unit['position']);
-		else
-			$g_unit->bindValue(':position',-1000);
-		
-		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
-		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
-		if(!$unit)
-		{
-			die('Forgot a landing page');
-		}
-		$unit_session = new UnitSession($this->dbh, $session, $unit['unit_id']);
-		if(!$unit_session->session AND !$unit_session->ended)
-			$unit_session->create($session);
-		$_SESSION['session'] = $session;
-	}
-
-	
 	/* ADMIN functions */
+	
+	public function getApiSecret($user)
+	{
+		if($user->isAdmin())
+			return $this->api_secret;
+		return false;
+	}
 	
 	public function delete()
 	{
@@ -296,12 +145,7 @@ class Run
 
 		return $name;
 	}
-	public function getApiSecret($user)
-	{
-		if($user->isAdmin())
-			return $this->api_secret;
-		return false;
-	}
+
 	protected function existsByName($name)
 	{
 		$exists = $this->dbh->prepare("SELECT name FROM `survey_runs` WHERE name = :name LIMIT 1");
