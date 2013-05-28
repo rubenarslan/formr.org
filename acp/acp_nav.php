@@ -40,7 +40,50 @@
 				</li>
 
 			</ul>
-			</li>
+		</li>
+		
+		<?php
+		$studies = $user->getStudies();
+		if($studies) {
+		  echo '
+	  		<li class="dropdown">
+	  			<a class="dropdown-toggle"
+	  			data-toggle="dropdown"
+	  			href="#">
+	  				surveys
+	  				<b class="caret"></b>
+	  			</a>
+			  <ul class="dropdown-menu">';
+		  foreach($studies as $menu_study) {
+		    echo "<li>
+				<a href='".WEBROOT."admin/".$menu_study['name']."/index'>".$menu_study['name']."</a>
+			</li>";
+		  }
+		  echo "</ul>
+		  </li>";
+		}
+		?>
+		<?php
+		$runs = $user->getRuns();
+		if($runs) {
+		  echo '
+	  		<li class="dropdown">
+	  			<a class="dropdown-toggle"
+	  			data-toggle="dropdown"
+	  			href="#">
+	  				runs
+	  				<b class="caret"></b>
+	  			</a>
+			  <ul class="dropdown-menu">';
+		  foreach($runs as $menu_run) {
+		    echo "<li>
+				<a href='".WEBROOT."acp/".$menu_run['name']."'>".$menu_run['name']."</a>
+			</li>";
+		  }
+		  echo "</ul>
+		  </li>";
+		}
+		?>
 
 		<li><a href="<?=WEBROOT?>logout"><?php echo _("log out"); ?></a></li>
 	</ul>

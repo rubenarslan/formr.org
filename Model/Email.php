@@ -136,11 +136,11 @@ class Email extends RunUnit {
 					<input type="text" placeholder="survey_users.email" name="recipient_field" value="'.$this->recipient_field.'">
 				</label></p>
 		<p><label>Body: <br>
-			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" style="width:399px">'.$this->body.'</textarea></label><br>
+			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" class="span5">'.$this->body.'</textarea></label><br>
 			<code>{{login_link}}</code> will be replaced by a personalised link to this run.</p>
 		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
-		$dialog .= '<p><a class="btn unit_save" href="ajax_save_run_unit?type=Email">Save.</a></p>';
-		$dialog .= '<p><a class="btn unit_test" href="ajax_test_unit?type=Email">Test</a></p>';
+		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Email">Save.</a>
+		<a class="btn unit_test" href="ajax_test_unit?type=Email">Test</a></p>';
 		
 		$dialog = $prepend . $dialog;
 		return parent::runDialog($dialog,'icon-envelope');

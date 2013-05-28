@@ -7,17 +7,18 @@ require_once INCLUDE_ROOT . "Model/DB.php";
 	* feedback 
 		(atm just markdown pages with a title and body, but will have to use these for making graphs etc at some point)
 		(END POINTS, does not automatically lead to next run unit in list, but doesn't have to be at the end because of branches)
-	* breaks
+	* pauses
 		(go on if it's the next day, a certain date etc., so many days after beginning etc.)
+	* time-branches
+		(like pauses+branches: jump to x if it's a certain date or y if not yet. CronJobs stop if not yet. can be used for access periods)
 	* emails
-		(there should be another unit afterwards, otherwise shows default end page after email was sent)
+		(send reminders, invites etc.)
 	* surveys 
 		(main component, upon completion give up steering back to run)
 	* external 
 		(formerly forks, can redirect internally to other runs too)
 	* social network (later)
 	* lab date selector (later)
-
 */
 class Run
 {
@@ -58,31 +59,19 @@ class Run
 	{
 		$g_unit = $this->dbh->prepare(
 		"SELECT 
-			`survey_run_sessions`.session, (`survey_unit_sessions`.expires < NOW()) AS expired
+			`survey_run_sessions`.session
 		
 			 FROM `survey_run_sessions`
 
- 		LEFT JOIN `survey_unit_sessions`
-	 		ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-
-		LEFT JOIN `survey_units` 
-	 		ON `survey_unit_sessions`.unit_id = `survey_units`.id
-	
 		WHERE 
-			`survey_run_sessions`.run_id = :run_id AND
-			`survey_unit_sessions`.ended IS NULL AND
-			(
-			`survey_units`.type IN ('Branch','Pause','Email') OR
-			`survey_unit_sessions`.expires < NOW()
-			)
-		
-		ORDER BY `survey_unit_sessions`.id DESC 
+			`survey_run_sessions`.run_id = :run_id
+		ORDER BY RAND() 
 		;"); // in the order they were added
 		$g_unit->bindParam(':run_id',$this->id);
 		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
 		$dues = array();
 		while($run_session = $g_unit->fetch(PDO::FETCH_ASSOC))
-			$dues[] = $run_session;
+			$dues[] = $run_session['session'];
 		return $dues;
 	}
 
@@ -93,6 +82,10 @@ class Run
 		if($user->isAdmin())
 			return $this->api_secret;
 		return false;
+	}
+	public function hasApiAccess($secret)
+	{
+		return $this->api_secret === $secret;
 	}
 	
 	public function delete()
@@ -213,6 +206,10 @@ class Run
 		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
 
 		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+		if($unit['type']==='Survey'):
+			$unit['type'] = 'Study';
+		endif;
+		
 		return $unit;
 	}
 }

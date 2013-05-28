@@ -2,7 +2,7 @@ function RunUnit(content)
 {
 	this.block = $('<div class="run_unit row"></div>');
 	this.init(content);
-	this.block.insertBefore($('#run_dialog_choices'));
+	this.block.insertPolyfillBefore($('#run_dialog_choices'));
 }
 RunUnit.prototype.init = function(content)
 {
@@ -17,7 +17,9 @@ RunUnit.prototype.init = function(content)
 	this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
 	this.dialog_inputs.change($.proxy(this.changes,this));
 	
-	this.block.find('.hastooltip').tooltip();
+	this.block.find('.hastooltip').tooltip({
+		container: 'body'
+	});
 	this.block.find('.select2').select2();
 	
 	this.unsavedChanges = false;
@@ -38,7 +40,7 @@ RunUnit.prototype.init = function(content)
 	this.test_button
 	.click($.proxy(this.test,this));
 	
-	this.remove_button = this.block.find('a.remove_unit_from_run');
+	this.remove_button = this.block.find('button.remove_unit_from_run');
 	this.remove_button
 	.click($.proxy(this.removeFromRun,this))
 	.mouseenter(function() {
@@ -165,7 +167,9 @@ $(document).ready(function () {
 	$run_name = $('#run_name').val();
 	$run_url = $('#edit_run').prop('action');
 	$run_units = new Array();
-	$('#edit_run').find('.hastooltip').tooltip();
+	$('#edit_run').find('.hastooltip').tooltip({
+		container: 'body'
+	});
 	$('#edit_run').find('.select2').select2();
 		
 	var units = $.parseJSON($('#edit_run').attr('data-units'));

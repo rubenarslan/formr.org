@@ -28,7 +28,7 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
   	</div>
   	<div class="control-group">
   		<div class="controls">
-  			<input required type="submit" value="<?php echo _("Run anlegen"); ?>">
+  			<input class="btn btn-success" type="submit" value="<?php echo _("Run anlegen"); ?>">
   		</div>
   	</div>
   </form>

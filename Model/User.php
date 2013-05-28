@@ -46,7 +46,6 @@ class User
 			$this->admin = $user['admin'];
 			return true;
 		}
-		$this->errors[]=_("Die Login Daten sind nicht korrekt");
 		return false;
 	}
 	public function loggedIn()

@@ -46,7 +46,7 @@ button.btn.btn-checked,label.btn.btn-checked,a.btn.btn-checked {
 	margin-left: -30px;
 	margin-right: 17px;
 }
-.control-group.controls-checkbox label {
+.control-group.controls-checkbox label,label.inline {
 	display:inline;
 	width:330px;
 }
@@ -128,16 +128,15 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
 }
 
 
-input.position
+.run_unit_position input
 {
 	border:0;
 	box-shadow:none;
-	background:transparent;
 	font-weight:bold;
 	font-size:50px;
 	height:53px;
-	text-align:right;
-	width:53px;
+	width:110px;
+	text-align:left
 }
 div.run_unit {
 	padding-bottom:20px;
@@ -146,9 +145,13 @@ div.run_unit {
 a [class^="icon-"], a [class*=" icon-"], a [class^="icon-"]:before, a [class*=" icon-"]:before {
     display: inline-block;
 }
-.icon-6-5x
+.icon-1-5x
 {
-	font-size:6.5em;
+	font-size:1.7em;
+}
+.icon-2-5x
+{
+	font-size:2.5em;
 }
 output.output {
     

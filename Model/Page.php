@@ -81,15 +81,15 @@ class Page extends RunUnit {
 		$dialog = '<p><label>Title: <br>
 			<input type="text" placeholder="Headline" name="title" value="'.$this->title.'"></label></p>
 		<p><label>Body: <br>
-			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" style="width:399px">'.$this->body.'</textarea></label></p>
+			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" class="span5">'.$this->body.'</textarea></label></p>
 		<p><input type="hidden" name="end" value="0"><label><input type="checkbox" name="end" value="1"'.($this->can_be_ended ?' checked ':'').'> allow user to continue after viewing page</label></p>';
-		$dialog .= '<p><a class="btn unit_save" href="ajax_save_run_unit?type=Page">Save.</a></p>';
-		$dialog .= '<p><a class="btn unit_test" href="ajax_test_unit?type=Page">Preview.</a></p>';
+		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Page">Save.</a>
+		<a class="btn unit_test" href="ajax_test_unit?type=Page">Preview</a></p>';
 		
 
 		$dialog = $prepend . $dialog;
 		
-		return parent::runDialog($dialog,'icon-bar-chart');
+		return parent::runDialog($dialog,'icon-bar-chart icon-1-5x');
 	}
 	public function removeFromRun($run_id)
 	{
@@ -109,6 +109,9 @@ class Page extends RunUnit {
 	} 
 	public function exec()
 	{
+		if($this->called_by_cron)
+			return true; // never show to the cronjob
+		
 		if($this->can_be_ended AND $this->ended) return false;
 		
 		if($this->can_be_ended):

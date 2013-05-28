@@ -6,6 +6,7 @@ class EmailAccount
 	{
 		$this->dbh = $fdb;
 		$this->id = $id;
+		$this->user_id = $user_id;
 		
 		if($id)
 		{
@@ -24,7 +25,7 @@ class EmailAccount
 	}
 	public function create()
 	{
-		$create = $this->dbh->prepare("INSERT INTO `survey_email_accounts` (id,user_id) VALUES ('',:user_id);");
+		$create = $this->dbh->prepare("INSERT INTO `survey_email_accounts` (user_id) VALUES (:user_id);");
 		$create->bindParam(":user_id",$this->user_id);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->id = $this->dbh->lastInsertId();

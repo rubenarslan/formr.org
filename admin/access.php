@@ -18,6 +18,7 @@ if($has_access):
 	
 	$_SESSION['session'] = $test_code;
 	$_SESSION['survey_test_id'] = $session->id;
+	$_SESSION['test_survey_name'] = $study->name;
 	
 	$goto = "fake_test_run";
 	

@@ -87,7 +87,7 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 	
 	<div class="control-group">
 		<div class="controls">
-			<input required type="submit" value="<?php echo _("Save account"); ?>">
+			<input class="btn" required type="submit" value="<?php echo _("Save account"); ?>">
 		</div>
 	</div>
 </form>

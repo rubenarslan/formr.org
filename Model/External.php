@@ -59,10 +59,12 @@ class External extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p><label>Address: <br>
-			<input style="width:300px" type="text" placeholder="http://examp.org?code=%s" name="address" value="'.$this->address.'"></label></p>'
-		;
-		$dialog .= '<p><a class="btn unit_save" href="ajax_save_run_unit?type=External">Save.</a></p>';
-		$dialog .= '<p><a class="btn unit_test" href="ajax_test_unit?type=External">Preview.</a></p>';
+			<input style="width:300px" type="text" placeholder="http://examp.org?code=%s" name="address" value="'.$this->address.'"></label></p>
+
+		<p><input type="hidden" name="api_end" value="0"><label><input type="checkbox" name="api_end" value="1"'.($this->api_end ?' checked ':'').'> end using <abbr>API</abbr></label></p>';
+		
+		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=External">Save.</a>
+		<a class="btn unit_test" href="ajax_test_unit?type=External">Preview.</a></p>';
 		
 
 		$dialog = $prepend . $dialog;
@@ -80,6 +82,9 @@ class External extends RunUnit {
 	}
 	public function exec()
 	{
+		if($this->called_by_cron)
+			return true; // never show to the cronjob
+		
 		if(!$this->api_end) 
 			$this->end();
 		

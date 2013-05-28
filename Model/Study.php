@@ -208,7 +208,11 @@ class Study extends RunUnit
 	}
 	public function getResults()
 	{
-		$get = "SELECT `{$this->name}`.* FROM `{$this->name}`";
+		$get = "SELECT `survey_run_sessions`.session, `{$this->name}`.* FROM `{$this->name}`
+		LEFT JOIN `survey_unit_sessions`
+		ON  `{$this->name}`.session_id = `survey_unit_sessions`.id
+		LEFT JOIN `survey_run_sessions`
+		ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id";
 		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
 		$results = array();
 		while($row = $get->fetch(PDO::FETCH_ASSOC))
@@ -218,7 +222,7 @@ class Study extends RunUnit
 	}
 	public function getItemDisplayResults()
 	{
-		$get = "SELECT `survey_run_sessions`.session, `survey_items_display`.* FROM `survey_items_display` 
+		$get = "SELECT `survey_run_sessions`.session,`survey_items`.variablenname, `survey_items_display`.* FROM `survey_items_display` 
 		
 		LEFT JOIN `survey_unit_sessions`
 		ON `survey_unit_sessions`.id = `survey_items_display`.session_id
@@ -226,9 +230,12 @@ class Study extends RunUnit
 		LEFT JOIN `survey_run_sessions`
 		ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 		
-		WHERE `survey_items_display`.study_id = :id";
+		LEFT JOIN `survey_items`
+		ON `survey_items_display`.item_id = `survey_items`.id
+		
+		WHERE `survey_items`.study_id = :study_id";
 		$get = $this->dbh->prepare($get) or die(print_r($this->dbh->errorInfo(), true));
-		$get->bindParam(':id',$id);
+		$get->bindParam(':study_id',$this->id);
 		$get->execute() or die(print_r($this->dbh->errorInfo(), true));
 		$results = array();
 		while($row = $get->fetch(PDO::FETCH_ASSOC))
@@ -395,6 +402,15 @@ class Study extends RunUnit
 			endif;
 		endforeach;
 	}
+	public function getAverageTimeItTakes()
+	{
+		$get = "SELECT AVG( ended - created) FROM `{$this->name}`";
+		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
+		$time = $get->fetch(PDO::FETCH_NUM);
+		$time = round($time[0] / 60, 2); # seconds to minutes
+		
+		return $time;
+	}
 	public function delete()
 	{
 		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
@@ -409,10 +425,19 @@ class Study extends RunUnit
 	public function displayForRun($prepend = '')
 	{
 		if($this->id):
-			$dialog = "<p>
-				<strong>Survey:</strong> <a href='".WEBROOT."admin/{$this->name}/index'>{$this->name}</a>
-			</p>
+			$resultCount = $this->getResultCount();
+			$time = $this->getAverageTimeItTakes();
+			
+			$dialog = "<h3>
+				<strong>Survey:</strong> <a href='".WEBROOT."admin/{$this->name}/index'>{$this->name}</a><br>
+			<small>".(int)$resultCount['finished']." complete results,
+		".(int)$resultCount['begun']." begun</small><br>
+			<small>Takes on average $time minutes</small>
+			</h3>
 			<p>
+			<p class='btn-group'>
+				<a class='btn' href='".WEBROOT."admin/{$this->name}/show_results'>View results</a>
+				<a class='btn' href='".WEBROOT."admin/{$this->name}/show_item_table'>View items</a>
 				<a class='btn' href='".WEBROOT."admin/{$this->name}/access'>Test</a>
 			</p>";
 		else:

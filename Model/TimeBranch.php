@@ -1,16 +1,13 @@
 <?php
 require_once INCLUDE_ROOT."Model/RunUnit.php";
-require_once INCLUDE_ROOT. 'Markdown/Michelf/Markdown.php';
-use \Michelf\Markdown AS Markdown;
 
-class Pause extends RunUnit {
-	
+class TimeBranch extends RunUnit {
 	public $errors = array();
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $message = '';
-	private $message_parsed = '';
+	private $if_true = '';
+	private $if_false = '';
 	private $relative_to = null;
 	private $wait_minutes = null;
 	private $wait_until_time = null;
@@ -22,14 +19,14 @@ class Pause extends RunUnit {
 		parent::__construct($fdb,$session,$unit);
 
 		if($this->id):
-			$data = $this->dbh->prepare("SELECT * FROM `survey_pauses` WHERE id = :id LIMIT 1");
+			$data = $this->dbh->prepare("SELECT * FROM `survey_time_branches` WHERE id = :id LIMIT 1");
 			$data->bindParam(":id",$this->id);
 			$data->execute() or die(print_r($data->errorInfo(), true));
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
 			
 			if($vars):
-				$this->message = $vars['message'];
-				$this->message_parsed = $vars['message_parsed'];
+				$this->if_true = $vars['if_true'];
+				$this->if_false = $vars['if_false'];
 				$this->wait_until_time = $vars['wait_until_time'];
 				$this->wait_until_date = $vars['wait_until_date'];
 				$this->wait_minutes = $vars['wait_minutes'];
@@ -38,44 +35,44 @@ class Pause extends RunUnit {
 				$this->valid = true;
 			endif;
 		endif;
-		
 	}
 	public function create($options)
 	{
 		$this->dbh->beginTransaction();
 		if(!$this->id)
-			$this->id = parent::create('Pause');
+			$this->id = parent::create('TimeBranch');
 		else
 			$this->modify($this->id);
 		
-		if(isset($options['message']))
+		if(isset($options['if_true']))
 		{
-			$this->message = $options['message'];
+			$this->if_true = $options['if_true'];
+			$this->if_false = $options['if_false'];
 			$this->wait_until_time = $options['wait_until_time'];
 			$this->wait_until_date = $options['wait_until_date'];
 			$this->wait_minutes = $options['wait_minutes'];
 			$this->relative_to = $options['relative_to'];
 		}
 		
-		$this->message_parsed = Markdown::defaultTransform($this->message); // transform upon insertion into db instead of at runtime
-		
-		$create = $this->dbh->prepare("INSERT INTO `survey_pauses` (`id`, `message`, `message_parsed`, `wait_until_time`, `wait_until_date` , `wait_minutes`, `relative_to`)
-			VALUES (:id, :message, :message_parsed, :wait_until_time, :wait_until_date, :wait_minutes, :relative_to)
+		$create = $this->dbh->prepare("INSERT INTO `survey_time_branches` (`id`, if_true, if_false, `wait_until_time`, `wait_until_date` , `wait_minutes`, `relative_to`)
+			VALUES (:id, :if_true, :if_false, :wait_until_time, :wait_until_date, :wait_minutes, :relative_to)
 		ON DUPLICATE KEY UPDATE
-			`message` = :message, 
-			`message_parsed` = :message_parsed, 
+			`if_true` = :if_true, 
+			`if_false` = :if_false,
 			`wait_until_time` = :wait_until_time, 
 			`wait_until_date` = :wait_until_date, 
 			`wait_minutes` = :wait_minutes, 
 			`relative_to` = :relative_to
+			
 		;");
 		$create->bindParam(':id',$this->id);
-		$create->bindParam(':message',$this->message);
-		$create->bindParam(':message_parsed',$this->message_parsed);
+		$create->bindParam(':if_true',$this->if_true);
+		$create->bindParam(':if_false',$this->if_false);
 		$create->bindParam(':wait_until_time',$this->wait_until_time);
 		$create->bindParam(':wait_until_date',$this->wait_until_date);
 		$create->bindParam(':wait_minutes',$this->wait_minutes);
 		$create->bindParam(':relative_to',$this->relative_to);
+		
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
 		$this->valid = true;
@@ -85,18 +82,18 @@ class Pause extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p>
-				<label class="inline hastooltip" title="Leave empty so that this does not apply">wait until time: 
+				<label class="inline hastooltip" title="Leave empty so that this does not apply">until time: 
 				<input type="time" placeholder="daybreak" name="wait_until_time" value="'.$this->wait_until_time.'">
 				</label> <strong>and</strong>
 				
 				</p>
 				<p>
-				<label class="inline hastooltip" title="Leave empty so that this does not apply">wait until date: 
+				<label class="inline hastooltip" title="Leave empty so that this does not apply">until date: 
 				<input type="date" placeholder="the next day" name="wait_until_date" value="'.$this->wait_until_date.'">
 				</label> <strong>and</strong>
 				
 				</p>
-				<p>wait
+				<p>
 				<span class="input-append">
 				<input type="number" class="span2" placeholder="" name="wait_minutes" value="'.$this->wait_minutes.'"><button class="btn from_days hastooltip" title="Enter a number of days and press this button to convert them to minutes (*60*24)"><small>convert days</small></button>
 				</span>
@@ -104,22 +101,25 @@ class Pause extends RunUnit {
 					<input type="text" class="span2" placeholder="Survey.DateField" name="relative_to" value="'.$this->relative_to.'">
 					</label
 				</p> 
-		<p><label>Message to show while waiting: <br>
-			<textarea placeholder="You can use Markdown" name="message" rows="4" cols="60" class="span5">'.$this->message.'</textarea></label></p>
 			';
-		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
-		<a class="btn unit_test" href="ajax_test_unit?type=Pause">Test</a></p>';
-		
+		$dialog .= '
+			<div class="row">
+				<p class="span2"><label>…if there <strong>still is time</strong> <br><i class="icon-hand-right"></i> <input type="number" class="span1" name="if_false" max="127" min="-127" step="1" value="'.$this->if_false.'"></p>
+				<p class="span1"><i class="icon-fast-forward icon-flip-vertical icon-3x icon-muted"></i></p>
+				<p class="span2"><label>…if the time is <strong>up</strong> <br><i class="icon-hand-right"></i> <input type="number" class="span1" name="if_true" max="127" min="-127" step="1" value="'.$this->if_true.'"></p>
+			</div>
+			';
+			$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=TimeBranch">Save.</a>
+			<a class="btn unit_test" href="ajax_test_unit?type=TimeBranch">Test</a></p>';
 
 		$dialog = $prepend . $dialog;
 		
-		return parent::runDialog($dialog,'icon-time');
+		return parent::runDialog($dialog,'icon-fast-forward');
 	}
 	public function removeFromRun($run_id)
 	{
-		return $this->delete();		
+		return $this->delete();
 	}
-	
 	public function test()
 	{
 		if($this->relative_to=== null OR trim($this->relative_to)=='')
@@ -190,9 +190,6 @@ LIMIT 20";
 		endforeach;
 		echo '</tbody></table>';
 		
-		echo "<h2>Pause message</h2>";
-		
-		echo $this->message_parsed;
 	}
 	public function exec()
 	{
@@ -202,6 +199,7 @@ LIMIT 20";
 		}
 		$join = join_builder($this->dbh, $this->relative_to);
 		
+
 		
 		$conditions = array();
 		if($this->wait_minutes AND $this->wait_minutes!='')
@@ -227,6 +225,7 @@ LIMIT 20";
 	ORDER BY IF(ISNULL( ( {$condition} ) ),1,0), `survey_unit_sessions`.id DESC
 	
 	LIMIT 1";
+#	pr($q);
 			$evaluate = $this->dbh->prepare($q); // should use readonly
 			if(isset($conditions['minute'])) $evaluate->bindParam(':wait_minutes',$this->wait_minutes);
 			if(isset($conditions['date'])) $evaluate->bindParam(':wait_date',$this->wait_until_date);
@@ -245,18 +244,17 @@ LIMIT 20";
 			$result = true;
 		endif;
 
-		if($result)
-		{
-			$this->end();
-			return false;
-		}
-		else
-		{
-			return array(
-				'title' => 'Pause',
-				'body' => $this->message_parsed
-			);
-		}	
+		$position = $result ? $this->if_true : $this->if_false;
+		
+		
+		if($result OR !$this->called_by_cron):
+			global $run_session;
+			if($run_session->session):
+				$this->end();
+				$run_session->runTo($position);
+			endif;
+		else:
+			return true; // if the cron job is knocking and the wait time is not over yet, stop. we're waiting for the real user.
+		endif;
 	}
-	
 }

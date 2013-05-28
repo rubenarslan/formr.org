@@ -33,7 +33,6 @@ CREATE  TABLE IF NOT EXISTS `survey_units` (
   `type` VARCHAR(20) NULL ,
   `created` DATETIME NULL ,
   `modified` DATETIME NULL ,
-  `expiry` SMALLINT UNSIGNED NULL ,
   PRIMARY KEY (`id`) )
 ENGINE = InnoDB;
 
@@ -160,27 +159,21 @@ ENGINE = InnoDB;
 DROP TABLE IF EXISTS `survey_items_display` ;
 
 CREATE  TABLE IF NOT EXISTS `survey_items_display` (
+  `id` INT NOT NULL AUTO_INCREMENT ,
   `item_id` INT UNSIGNED NOT NULL ,
   `session_id` INT UNSIGNED NOT NULL ,
-  `study_id` INT UNSIGNED NOT NULL ,
   `created` DATETIME NULL DEFAULT NULL ,
   `modified` DATETIME NULL DEFAULT NULL ,
   `answered_time` DATETIME NULL DEFAULT NULL ,
   `answered` TINYINT UNSIGNED NULL DEFAULT NULL ,
   `displaycount` TINYINT UNSIGNED NULL DEFAULT NULL ,
-  PRIMARY KEY (`item_id`, `session_id`) ,
+  PRIMARY KEY (`id`) ,
   INDEX `id_idx` (`item_id` ASC) ,
-  INDEX `fk_survey_items_display_survey_studies1_idx` (`study_id` ASC) ,
-  INDEX `session_item_views` (`study_id` ASC, `session_id` ASC, `item_id` ASC) ,
+  UNIQUE INDEX `session_item_views` (`session_id` ASC, `item_id` ASC) ,
   CONSTRAINT `itemid`
     FOREIGN KEY (`item_id` )
     REFERENCES `survey_items` (`id` )
     ON DELETE CASCADE
-    ON UPDATE NO ACTION,
-  CONSTRAINT `fk_survey_items_display_survey_studies1`
-    FOREIGN KEY (`study_id` )
-    REFERENCES `survey_studies` (`id` )
-    ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
@@ -225,7 +218,7 @@ CREATE  TABLE IF NOT EXISTS `survey_run_sessions` (
   INDEX `fk_survey_run_sessions_survey_runs1_idx` (`run_id` ASC) ,
   INDEX `fk_survey_run_sessions_survey_users1_idx` (`user_id` ASC) ,
   UNIQUE INDEX `run_user` (`user_id` ASC, `run_id` ASC) ,
-  UNIQUE INDEX `run_session` (`session` ASC, `user_id` ASC, `run_id` ASC) ,
+  UNIQUE INDEX `run_session` (`session` ASC, `run_id` ASC) ,
   CONSTRAINT `fk_survey_run_sessions_survey_runs1`
     FOREIGN KEY (`run_id` )
     REFERENCES `survey_runs` (`id` )
@@ -250,7 +243,6 @@ CREATE  TABLE IF NOT EXISTS `survey_unit_sessions` (
   `run_session_id` INT NULL ,
   `created` DATETIME NOT NULL ,
   `ended` DATETIME NULL DEFAULT NULL ,
-  `expires` DATETIME NULL ,
   PRIMARY KEY (`id`) ,
   INDEX `session_uq` (`created` ASC, `run_session_id` ASC, `unit_id` ASC) ,
   INDEX `fk_survey_sessions_survey_units1_idx` (`unit_id` ASC) ,
@@ -475,6 +467,29 @@ CREATE  TABLE IF NOT EXISTS `survey_results` (
   CONSTRAINT `fk_survey_results_survey_studies1`
     FOREIGN KEY (`study_id` )
     REFERENCES `survey_studies` (`id` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `survey_time_branches`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_time_branches` ;
+
+CREATE  TABLE IF NOT EXISTS `survey_time_branches` (
+  `id` INT UNSIGNED NOT NULL ,
+  `wait_until_time` TIME NULL ,
+  `wait_until_date` DATE NULL ,
+  `wait_minutes` INT NULL ,
+  `relative_to` VARCHAR(255) NULL ,
+  `if_true` SMALLINT NULL ,
+  `if_false` SMALLINT NULL ,
+  INDEX `fk_survey_breaks_survey_run_items1_idx` (`id` ASC) ,
+  PRIMARY KEY (`id`) ,
+  CONSTRAINT `fk_survey_breaks_survey_run_items10`
+    FOREIGN KEY (`id` )
+    REFERENCES `survey_units` (`id` )
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;

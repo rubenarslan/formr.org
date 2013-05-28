@@ -30,7 +30,7 @@ class RunSession
 		else
 			$session = bin2hex(openssl_random_pseudo_bytes(32));
 		
-		$session_q = "INSERT INTO  `survey_run_sessions`
+		$session_q = "INSERT IGNORE INTO  `survey_run_sessions`
 		SET run_id = :run_id,
 		session = :session,
 		user_id = :user_id,
@@ -92,10 +92,12 @@ class RunSession
 		endif;
 	}
 	
-	public function getUnit()
+	public function getUnit($cron = false)
 	{
 #		pr($this->id);
 		$i = 0;
+		$done = array();
+			
 		$output = false;
 		while(! $output): // only when there is something to display, stop.
 			$i++;
@@ -108,59 +110,27 @@ class RunSession
 			}
 			$unit = $this->getCurrentUnit(); // get first unit in line
 			if($unit):								 // if there is one, spin that shit
-				$type = $unit['type'];
-				if(!in_array($type, array('Survey','Pause','Email','External','Page','Branch','End'))) die('imp type');
-				require_once INCLUDE_ROOT . "Model/$type.php";
-				$unit = new $type($this->dbh, $this->session, $unit);
-				$output = $unit->exec();
-			else:
-				$this->runToNextUnit(); 		// if there is nothing in line yet, add the next one in run order
-			endif;
-		endwhile;
-		
-		return $output;
-	}
-	public function getCronUnit($expired = false)
-	{
-		$i = 0;
-		$done = array('Pause' => 0,'Email' => 0,'Branch' => 0, 'Expired' => 0);
-		
-		$output = false;
-		while(! $output): // only when there is something to display, stop.
-			$i++;
-			if($i > 80) {
-				global $user;
-				if($user->isAdmin())
-					 pr($unit);
-				if($i > 90)
-					die('Nesting too deep. Could there be an infinite loop or maybe no landing page?');
-			}
-			$unit = $this->getCurrentUnit(); // get first unit in line
-			if($unit):								 // if there is one, spin that shit
-				$type = $unit['type'];
-				if(!in_array($type, array('Pause','Email','Branch')) OR $expired) break; // only these items can be called from a cron job
-				require_once INCLUDE_ROOT . "Model/$type.php";
-				$unit = new $type($this->dbh, $this->session, $unit);
-				if($expired):
-					$unit->end();
-					break;
-				else:
-					$done[$type]++;
-					$unit->exec();
-					if(!$unit->ended):
-						break; // usually this would lead to some display
-					endif;
+				if($cron):
+					$unit['cron'] = true;
 				endif;
+				@$done[ $unit['type'] ]++;
+				
+				
+				$unit = makeUnit($this->dbh, $this->session, $unit);
+				$output = $unit->exec();
+				
 				
 			else:
 				$this->runToNextUnit(); 		// if there is nothing in line yet, add the next one in run order
 			endif;
 		endwhile;
 		
-		return $done;
+		if($cron)
+			return $done;
+
+		return $output;
 	}
-	
-	
+
 	public function getUnitIdAtPosition($position)
 	{
 		$data = $this->dbh->prepare("SELECT unit_id FROM `survey_run_units` WHERE 
@@ -174,6 +144,17 @@ class RunSession
 		if($vars)
 			return $vars['unit_id'];
 		return false;
+	}
+	public function forceTo($position)
+	{
+		$unit = $this->getCurrentUnit(); // get first unit in line
+		if($unit):
+			$unit = makeUnit($fdb,null,$unit);
+			$unit->end(); 				// cancel it
+
+			$this->runTo($position);
+			alert(__('<strong>Success.</strong> User moved to position', $position));
+		endif;
 	}
 	public function runTo($position,$unit_id = null)
 	{
@@ -295,8 +276,7 @@ class RunSession
 		WHERE 
 		`survey_unit_sessions`.run_session_id = :id AND
 		`survey_units`.type = 'External' AND 
-		`survey_unit_sessions`.ended IS NULL 
-		LIMIT 1;";
+		`survey_unit_sessions`.ended IS NULL;";
 	
 		$end_external = $this->dbh->prepare($end_q) or die(print_r($dbh->errorInfo(), true));
 	

@@ -13,6 +13,14 @@ if($_GET['run_name'] == 'fake_test_run' AND $user->isAdmin()): // for testing pu
 	
 	$unit = new Survey($fdb, $_SESSION['session'], $to_test);
 	$output = $unit->exec();
+
+	if(!$output):
+		$output['title'] = 'Finish';
+		$output['body'] = "
+			<h1>Finish</h1>
+			<p>
+			You're finished with testing this survey.</p><a href='".WEBROOT."admin/".$_SESSION['test_survey_name']."/index'>Back to the admin control panel.</a>";
+	endif;
 	
 else:
 
@@ -39,8 +47,7 @@ else:
 				( $run->public AND $run_session->create() ) // if the run is public, we create a new session on-the-fly
 			):
 				$user->user_code = $run_session->session;
-				$output = $run_session->getUnit($user->user_code);
-				
+				$output = $run_session->getUnit();
 			else:
 				alert("<strong>Error:</strong> You don't have access to this run.",'alert-error');
 				redirect_to("/index");

@@ -12,7 +12,7 @@ while($tmp = $g_runs->fetch())
 }
 $i = 0;
 $r = 0;
-$done = array('Pause' => 0,'Email' => 0,'Branch' => 0, 'Expired' => 0);
+$done = array('Pause' => 0,'Email' => 0,'Branch' => 0, 'TimeBranch' => 0);
 
 
 foreach($runs AS $run_data):
@@ -24,23 +24,26 @@ foreach($runs AS $run_data):
 	
 	// get all session codes that have Branch, Pause, or Email lined up (not ended)
 	$dues = $run->getCronDues();
+	
 	foreach($dues AS $session):
 		require_once INCLUDE_ROOT . "Model/RunSession.php";
 		
-		$run_session = new RunSession($fdb, $run->id, null, $session['session']);
+		$run_session = new RunSession($fdb, $run->id, null, $session);
 		
-		$types = $run_session->getCronUnit($session['expired']); // start looping thru their units (stop if not branch, pause, or email)
+		$types = $run_session->getUnit(true); // start looping thru their units. par = $cron = true
 		$i++;
-		$done['Pause'] += $types['Pause'];
-		$done['Email'] += $types['Email'];
-		$done['Branch'] += $types['Branch'];
-		$done['Expired'] += $types['Expired'];
-		
+		foreach($types AS $type => $nr):
+			if(isset($done[$type])):
+				$done[$type] += $nr;
+			else:
+				$done[$type] = $nr;
+			endif;
+		endforeach;
 	endforeach;
-	
+
 endforeach;
 
-$msg = gmdate( 'Y-m-d H:i:s' ) . ' ' . "$i sessions in $r runs were processed. {$done['Email']} emails were sent. {$done['Branch']} branches and {$done['Pause']} pauses were evaluated. {$done['Expired']} units expired." . "\n";
+$msg = gmdate( 'Y-m-d H:i:s' ) . ' ' . "$i sessions in $r runs were processed. {$done['Email']} emails were sent. {$done['Branch']} branches, {$done['TimeBranch']} time-branches and {$done['Pause']} pauses were evaluated." . "\n";
 $msg .= $site->renderAlerts();
 
 error_log( $msg, 3, INCLUDE_ROOT ."admin/cron.log");

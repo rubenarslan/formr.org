@@ -39,10 +39,10 @@ class Survey extends RunUnit {
 		
 		$this->getNextItems();
 
-		if(isset($_POST['session_id'])) 
-		{
+#		if(isset($_POST['session_id'])) 
+#		{
 			$this->post($_POST);
-		}
+#		}
 		
 		if($this->getProgress()===1)
 			$this->end();
@@ -75,12 +75,19 @@ class Survey extends RunUnit {
 		unset($posted['ended']); // cant overwrite
 
 		
-		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (study_id, item_id, session_id, answered, answered_time, modified)
-																  VALUES(	:study_id, :item_id,  :session_id, 1, 		NOW(),	NOW()	) 
+		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (item_id, session_id, answered, answered_time, modified)
+																  VALUES(	:item_id,  :session_id, 1, 		NOW(),	NOW()	) 
 		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
 		
 		$answered->bindParam(":session_id", $this->session_id);
-		$answered->bindParam(":study_id", $this->id);
+		
+		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`)
+																  VALUES(:session_id, :study_id, NOW(),	    NOW()) 
+		ON DUPLICATE KEY UPDATE modified = NOW();");
+		$start_entry->bindParam(":session_id", $this->session_id);
+		$start_entry->bindParam(":study_id", $this->id);
+		$start_entry->execute() or die(print_r($start_entry->errorInfo(), true));
+		
 		
 		foreach($posted AS $name => $value)
 		{
@@ -92,9 +99,10 @@ class Survey extends RunUnit {
 					$answered->bindParam(":item_id", $this->unanswered_batch[$name]->id);
 			   	   	$answered->execute() or die(print_r($answered->errorInfo(), true));
 					
-					$post_form = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`, `$name`)
-																			  VALUES(:session_id, :study_id, NOW(),	    NOW(),	 		:$name) 
-					ON DUPLICATE KEY UPDATE `$name` = :$name, modified = NOW();");
+					$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}`
+					SET 
+					`$name` = :$name
+					WHERE session_id = :session_id AND study_id = :study_id;");
 				    $post_form->bindParam(":$name", $value);
 					$post_form->bindParam(":session_id", $this->session_id);
 					$post_form->bindParam(":study_id", $this->id);
@@ -108,7 +116,7 @@ class Survey extends RunUnit {
 			}
 		} //endforeach
 
-		if(empty($this->errors))
+		if(empty($this->errors) AND !empty($posted))
 		{ // PRG
 			redirect_to(WEBROOT."{$this->run_name}");
 		} else
@@ -237,11 +245,11 @@ class Survey extends RunUnit {
 		$substitutions = $this->getSubstitutions();
 		$items = $this->unanswered_batch;
 		
-		$view_query = "INSERT INTO `survey_items_display` (study_id, item_id,  session_id, displaycount, created, modified)
-											     VALUES(:study_id,  :item_id, :session_id, 1,				 NOW(), NOW()	) 
+		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
+											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
 		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
 		$view_update = $this->dbh->prepare($view_query);
-		$view_update->bindParam(":study_id", $this->id);
+
 		$view_update->bindParam(":session_id", $this->session_id);
 	
 		$itemsDisplayed = $i = 0;
@@ -330,19 +338,33 @@ class Survey extends RunUnit {
 	
 
 	$search = $replace = array();
+	
 	while( $substitution = $subs_query->fetch() ) 
 		{
 	        switch( $substitution['mode'] ) 
 			{
-		        case NULL:
-					$get_entered = $this->dbh->prepare("SELECT {$substitution['replace']} FROM `{$this->results_table}` WHERE session_id = :session_id AND {$substitution['replace']} IS NOT NULL ORDER BY created DESC LIMIT 1;") or die(print_r($get_entered->errorInfo(), true));
-					break;
+
+#		        case NULL:
+#					break;
 				default:
-					$get_entered = $this->dbh->prepare("SELECT {$substitution['replace']} FROM `{$this->results_table}` WHERE session_id = :session_id AND {$substitution['replace']} IS NOT NULL AND {$substitution['mode']} LIMIT 1;") or die(print_r($get_entered->errorInfo(), true));
+					$join = join_builder($rdb, $substitution['replace']);
+					$q = "SELECT ( {$substitution['replace']} ) AS replace FROM `survey_run_sessions`
+
+					$join
+
+					WHERE 
+					`survey_run_sessions`.`id` = :run_session_id
+
+					ORDER BY IF(ISNULL( ( {$substitution['replace']} ) ),1,0), `survey_unit_sessions`.id DESC
+
+					LIMIT 1";
+					$get_entered = $this->dbh->prepare($q) or die(print_r($get_entered->errorInfo(), true));
+
+/*					$get_entered = $this->dbh->prepare("SELECT {$substitution['replace']} FROM `{$this->results_table}` WHERE session_id = :session_id AND {$substitution['replace']} IS NOT NULL AND {$substitution['mode']} LIMIT 1;") or die(print_r($get_entered->errorInfo(), true));
 //					$get_entered->bindParam(":mode",$subst['mode']); // fixme: mode not meaningfully used atm, gotta autocreate joins
 					break;
-	        }
-			$get_entered->bindParam(":session_id",$this->session_id);
+*/	        }
+			$get_entered->bindParam(":run_session_id",$this->run_session_id);
 			$get_entered->execute() or die(print_r($get_entered->errorInfo(), true));
 		
 			if( $data = $get_entered->fetch(PDO::FETCH_NUM))
@@ -370,6 +392,9 @@ class Survey extends RunUnit {
 	}
 	public function exec()
 	{
+		if($this->called_by_cron)
+			return true; // never show to the cronjob
+		
 		if($this->getProgress()===1) {
 			$this->end();
 			return false;

@@ -17,9 +17,8 @@ else:
 	alert("<strong>Error.</strong> This run does not exist.",'alert-error');
 endif;
 
-$problems = $site->renderAlerts()
-if(!empty($problems))
-{
+$problems = $site->renderAlerts();
+if(!empty($problems)):
 	echo $problems;
 	exit;
-}
+endif;

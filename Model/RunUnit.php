@@ -9,6 +9,7 @@ class RunUnit {
 	public $unit = null;
 	public $ended = false;
 	public $position;
+	public $called_by_cron = false;
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -30,6 +31,10 @@ class RunUnit {
 
 		if(isset($this->unit['unit_id'])) 
 			$this->id = $this->unit['unit_id'];
+		
+		if(isset($this->unit['cron'])) 
+			$this->called_by_cron = true;
+		
 	}
 	public function create($type)
 	{
@@ -132,7 +137,7 @@ class RunUnit {
 		$reached_unit->bindParam(":unit_id", $this->id);
 		$reached_unit->execute() or die(print_r($reached_unit->errorInfo(), true));
 		$reached = $reached_unit->fetch(PDO::FETCH_ASSOC);
-		return "<span class='hastooltip' title='Number of unfinished sessions'>".(int)$reached['begun']."</span>, <span class='hastooltip' title='Number of finished sessions'>".(int)$reached['finished']."</span>";
+		return "<span class='hastooltip badge' title='Number of unfinished sessions'>".(int)$reached['begun']."</span> <span class='hastooltip badge badge-success' title='Number of finished sessions'>".(int)$reached['finished']."</span>";
 	}
 	public function runDialog($dialog,$icon = '')
 	{
@@ -151,15 +156,11 @@ class RunUnit {
 
 		return '
 			<div>
-				<div class="span1 run_unit_position">
-
-					<input value="'.$position.'" style="width:67px" type="number" name="position['.$this->id.']" class="position" step="1" max="32000" min="-32000"><br>
-					<div class="btn-group">
-						<a href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-small hastooltip" title="Remove unit from run"><i class="icon-remove"></i> Remove</a>
-					</div>
-				</div>
-				<h5 class="span1 run_unit_icon"><i class="icon-4x '.$icon.'"></i><small><br>
-				'.$this->howManyReachedIt().'</small></h5>
+				<div class="span2 run_unit_position">
+				<h1><i class="icon-2x icon-muted '.$icon.'"></i></h1>
+					'.$this->howManyReachedIt().' <button href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-mini hastooltip" title="Remove unit from run"><i class="icon-remove"></i></button>
+<br>
+					<input class="position" value="'.$position.'" type="number" name="position['.$this->id.']" step="1" max="32000" min="-32000"><br>
 			</div>
 			<div class="span7 run_unit_dialog"><input type="hidden" value="'.$this->id.'" name="unit_id">'.$dialog.'</div>';
 	}
