@@ -104,9 +104,9 @@ class TimeBranch extends RunUnit {
 			';
 		$dialog .= '
 			<div class="row">
-				<p class="span2"><label>…if there <strong>still is time</strong> <br><i class="icon-hand-right"></i> <input type="number" class="span1" name="if_false" max="127" min="-127" step="1" value="'.$this->if_false.'"></p>
+				<p class="span2"><label>…if there <strong>still is time</strong> <br><i class="icon-hand-right"></i> <input type="number" class="span1" name="if_false" max="32000" min="-32000" step="1" value="'.$this->if_false.'"></p>
 				<p class="span1"><i class="icon-fast-forward icon-flip-vertical icon-3x icon-muted"></i></p>
-				<p class="span2"><label>…if the time is <strong>up</strong> <br><i class="icon-hand-right"></i> <input type="number" class="span1" name="if_true" max="127" min="-127" step="1" value="'.$this->if_true.'"></p>
+				<p class="span2"><label>…if the time is <strong>up</strong> <br><i class="icon-hand-right"></i> <input type="number" class="span1" name="if_true" max="32000" min="-32000" step="1" value="'.$this->if_true.'"></p>
 			</div>
 			';
 			$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=TimeBranch">Save.</a>

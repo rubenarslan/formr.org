@@ -7,4 +7,4 @@ if($user->loggedIn()) {
 	
 	alert('<strong>Logged out:</strong> You have been logged out.','alert-info');
 }
-redirect_to("index.php");
+redirect_to("index");

@@ -17,6 +17,7 @@ class Survey extends RunUnit {
 	public $session = null;
 	public $errors = array();
 	public $results_table = null;
+	public $run_session_id = null;
 	protected $dbh;
 	
 	public function __construct($fdb, $session, $unit)

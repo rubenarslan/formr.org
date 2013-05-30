@@ -5,13 +5,17 @@ class RunSession
 	public $session = null;
 	public $id, $run_id, $ended, $position;
 	private $dbh;
+	private $cron = false;
 	
 	public function __construct($fdb, $run_id, $user_id, $session)
 	{
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->run_id = $run_id;
-		$this->user_id = $user_id;
+		if($user_id == 'cron')
+			$this->cron = true;
+		else
+			$this->user_id = $user_id;
 		
 		if($this->session != null AND $this->run_id != null): // called with null in constructor if they have no session yet
 			$this->load();
@@ -89,10 +93,26 @@ class RunSession
 			$this->ended = $sess_array['ended'];
 			$this->position = $sess_array['position'];
 			$this->run_name = $sess_array['run_name'];
+			
+			if(!$this->cron):
+				$last_access_q = "UPDATE `survey_run_sessions`
+					SET last_access = NOW()
+				WHERE 
+				id = :id
+				LIMIT 1;";
+				
+		
+				$last_access = $this->dbh->prepare($last_access_q) or die(print_r($dbh->errorInfo(), true));
+	
+				$last_access->bindParam(":id",$this->id);
+	
+				$success = $last_access->execute() or die(print_r($last_access->errorInfo(), true));
+			endif;
+			
 		endif;
 	}
 	
-	public function getUnit($cron = false)
+	public function getUnit()
 	{
 #		pr($this->id);
 		$i = 0;
@@ -105,15 +125,21 @@ class RunSession
 				global $user;
 				if($user->isAdmin())
 					 pr($unit);
-				if($i > 90)
-					die('Nesting too deep. Could there be an infinite loop or maybe no landing page?');
+				if($i > 90):
+					alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?','alert-error');
+					return false;
+				endif;
 			}
 			$unit = $this->getCurrentUnit(); // get first unit in line
 			if($unit):								 // if there is one, spin that shit
-				if($cron):
+				if($this->cron):
 					$unit['cron'] = true;
 				endif;
-				@$done[ $unit['type'] ]++;
+				
+				if(isset($done[ $unit['type'] ]))
+					$done[ $unit['type'] ]++;
+				else
+					$done[ $unit['type'] ] = 1;
 				
 				
 				$unit = makeUnit($this->dbh, $this->session, $unit);
@@ -121,11 +147,12 @@ class RunSession
 				
 				
 			else:
-				$this->runToNextUnit(); 		// if there is nothing in line yet, add the next one in run order
+				if(!$this->runToNextUnit()) 		// if there is nothing in line yet, add the next one in run order
+					return false; // if that fails because the run is wrongly configured, return
 			endif;
 		endwhile;
 		
-		if($cron)
+		if($this->cron)
 			return $done;
 
 		return $output;
@@ -149,12 +176,15 @@ class RunSession
 	{
 		$unit = $this->getCurrentUnit(); // get first unit in line
 		if($unit):
-			$unit = makeUnit($fdb,null,$unit);
+			$unit = makeUnit($this->dbh,null,$unit);
 			$unit->end(); 				// cancel it
-
-			$this->runTo($position);
-			alert(__('<strong>Success.</strong> User moved to position', $position));
 		endif;
+		
+		if($this->runTo($position)):
+			alert(__('<strong>Success.</strong> User moved to position %s', $position), 'alert-success');
+			return true;
+		endif;
+		return false;
 	}
 	public function runTo($position,$unit_id = null)
 	{
@@ -169,7 +199,7 @@ class RunSession
 		
 			if($unit_session->id):
 				$run_to_q = "UPDATE `survey_run_sessions`
-					SET position = :position
+					SET position = :position 
 				WHERE 
 				id = :id
 				LIMIT 1;";
@@ -184,7 +214,11 @@ class RunSession
 					$this->position = (int)$position;
 					return true;
 				endif;
+			else:
+				alert(__('<strong>Error.</strong> Could not create unit session for unit %s at pos. %s.', $unit_id, $position), 'alert-error');
 			endif;
+		else:
+			alert(__('<strong>Error.</strong> The run position %s does not exist.', $position), 'alert-error');
 		endif;
 		return false;
 	}
@@ -218,13 +252,13 @@ class RunSession
 		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
 		if($unit):
 			// unit needs:
-			# run_id
-			# run_name
-			# unit_id
-			# session_id
-			# run_session_id
-			# type
-			# session? 
+				# run_id
+				# run_name
+				# unit_id
+				# session_id
+				# run_session_id
+				# type
+				# session? 
 			$unit['run_id'] = $this->run_id;
 			$unit['run_name'] = $this->run_name;
 			$unit['run_session_id'] = $this->id;
@@ -259,13 +293,10 @@ class RunSession
 		
 		if(!$next)
 		{
-			die('Forgot a landing page');
+			alert('Forgot a landing page','alert-error');
+			return false;
 		}
-		if(!$this->runTo($next['position'],$next['unit_id']))
-		{
-			pr($next);
-			die('Missing unit.');
-		}
+		return $this->runTo($next['position'],$next['unit_id']);
 	}
 	public function endLastExternal()
 	{

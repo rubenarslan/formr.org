@@ -4,7 +4,7 @@ define('DEBUG', ONLINE ? 1 : 1);
 if(DEBUG > -1)
 	ini_set('display_errors',1);
 ini_set("log_errors",1);
-ini_set("error_log", INCLUDE_ROOT . "log/errors.log");
+ini_set("error_log", INCLUDE_ROOT . "tmp/logs/errors.log");
 error_reporting(-1);
 
 date_default_timezone_set('Europe/Berlin');

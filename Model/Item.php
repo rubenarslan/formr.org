@@ -1004,7 +1004,7 @@ class Item_btnradio extends Item_mc
 // dropdown select, choose multiple
 class Item_btnrating extends Item_btnradio 
 {
-	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	protected $mysql_field = 'SMALLINT DEFAULT NULL';
 	protected function setMoreOptions() 
 	{	
 		parent::setMoreOptions();

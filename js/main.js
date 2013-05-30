@@ -1,11 +1,13 @@
-$.webshims.polyfill('forms forms-ext');
 $.webshims.setOptions('forms', {
-       customDatalist: true
+       customDatalist: true,
+	   waitReady: false
 });
+$.webshims.polyfill('es5 forms forms-ext');
+
 $(document).ready(function() {
     $('.range_list_output').each(function () {
         var output = $('output', this);
-		console.log(output);	
+//		console.log(output);	
         var change = function () {
             output.text($(this).prop('value') || '');
         };
@@ -13,7 +15,7 @@ $(document).ready(function() {
             .on('input', change)
             .each(change);
     });
-	
+	// fixme: FOUCs for btnratings etc in IE8
 	$('div.btn-radio button.btn').off('click').click(function(event){
 		var $btn = $(this);
 		$('#'+$btn.attr('data-for')).attr('checked',true); // couple with its radio button
@@ -55,7 +57,7 @@ $(document).ready(function() {
 	$('label.btn-remove').off('click').click(function(event){
 		var $btn = $(this);
 		var checked = $btn.find('input').attr('checked');
-		console.log(!checked);
+//		console.log(!checked);
 		$btn.find('input').attr('checked',!checked); // couple with its radio button
 		$btn.toggleClass('btn-checked',!checked); // check this one
 		return false;
@@ -107,7 +109,7 @@ $(document).ready(function() {
 			return "Bitte geben Sie mindestens 3 Zeichen ein."
 		},
 		formatNoMatches: function (term) {
-			return "Ort nicht gefunden, bitte geben Sie ihn selbst ein."					
+			return "Ort nicht gefunden, bitte geben Sie den nächstgelegenen größeren Ort ein."					
 		}
 	});
 	
