@@ -4,7 +4,7 @@ require_once 'Model/Site.php';
 
 if($user->loggedIn()) {
 	alert('You were already logged in. Please logout before you can register.','alert-info');
-	redirect_to("index.php");
+	redirect_to("index");
 }
 
 if(!empty($_POST)) {
@@ -13,7 +13,7 @@ if(!empty($_POST)) {
 	)
 	{
 		alert('<strong>Success!</strong> You were registered and logged in!','success');
-		redirect_to('index.php');
+		redirect_to('index');
 	}
 	else {
 		alert(implode($user->errors),'alert-error');

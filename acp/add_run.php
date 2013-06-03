@@ -8,7 +8,7 @@ if( !empty($_POST) ) {
 	if($run->valid)
 	{
 		alert('<strong>Success.</strong> Run "'.$run->name . '" was created.','alert-success');
-		redirect_to(WEBROOT . "acp/{$run->name}");
+		redirect_to("acp/{$run->name}");
 	}
 	else
 		alert('<strong>Sorry.</strong> '.implode($run->errors),'alert-error');
