@@ -8,8 +8,8 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 
 <?php
 $g_users = $fdb->query("SELECT 
+	`survey_run_sessions`.session,
 	`survey_unit_sessions`.id AS session_id,
-	`survey_unit_sessions`.session,
 	`survey_runs`.name AS run_name,
 	`survey_run_units`.position,
 	`survey_units`.type AS unit_type,
@@ -20,6 +20,8 @@ $g_users = $fdb->query("SELECT
 	
 FROM `survey_unit_sessions`
 
+LEFT JOIN `survey_run_sessions`
+ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 LEFT JOIN `survey_units`
 ON `survey_unit_sessions`.unit_id = `survey_units`.id
 LEFT JOIN `survey_run_units`
@@ -27,8 +29,8 @@ ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
 LEFT JOIN `survey_runs`
 ON `survey_runs`.id = `survey_run_units`.run_id
 LEFT JOIN `users`
-ON `survey_unit_sessions`.session = `users`.code
-ORDER BY `survey_unit_sessions`.id DESC;");
+ON `survey_run_sessions`.session = `users`.code
+ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;");
 
 $users = array();
 while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
@@ -47,7 +49,7 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 }
 if(!empty($users)) {
 	?>
-	<table class='table table-striped'>
+	<table class='table'>
 		<thead><tr>
 	<?php
 	foreach(current($users) AS $field => $value):
@@ -57,9 +59,16 @@ if(!empty($users)) {
 		</tr></thead>
 	<tbody>
 		<?php
+		$last_user = '';
+		$tr_class = '';
+		
 		// printing table rows
 		foreach($users AS $row):
-		    echo "<tr>";
+			if($row['email']!==$last_user):
+				$tr_class = ($tr_class=='') ? 'alternate' : '';
+				$last_user = $row['email'];
+			endif;
+			echo '<tr class="'.$tr_class.'">';
 
 		    // $row is array... foreach( .. ) puts every element
 		    // of $row to $cell variable

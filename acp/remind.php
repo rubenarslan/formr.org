@@ -3,7 +3,7 @@ require_once '../define_root.php';
 require_once INCLUDE_ROOT . "admin/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Email.php";
 
-
+// find the last email unit
 $g_email = $fdb->prepare("SELECT 
 	`survey_units`.id,
 	`survey_run_units`.position AS position

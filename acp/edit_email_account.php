@@ -5,6 +5,11 @@ require_once INCLUDE_ROOT . "admin/admin_header.php";
 require_once INCLUDE_ROOT . "Model/EmailAccount.php";
 
 $acc = new EmailAccount($fdb, $_GET['account_id'], $user->id);
+if($user->created($acc)):
+	alert("<strong>Error:</strong> Not your email account.",'alert-error');
+	redirect_to("/acp/list_email_accounts");
+endif;
+
 if(!empty($_POST)) 
 {
 	$acc->changeSettings($_POST);
@@ -82,7 +87,7 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 	
 	<div class="control-group">
 		<div class="controls">
-			<input required type="submit" value="<?php echo _("Save account"); ?>">
+			<input class="btn" required type="submit" value="<?php echo _("Save account"); ?>">
 		</div>
 	</div>
 </form>

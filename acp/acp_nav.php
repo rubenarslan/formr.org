@@ -3,7 +3,7 @@
 <nav>
 	<ul class="nav nav-tabs">
 	    <li <?php
-		echo endsWith($_SERVER['PHP_SELF'],'acp.php')?' class="active"':''?>><a href="<?=WEBROOT?>acp/acp"><?php echo _("admin control panel"); ?></a></li>   
+		echo endsWith($_SERVER['PHP_SELF'],'acp.php')?' class="active"':''?>><a href="<?=WEBROOT?>acp/index"><?php echo _("admin control panel"); ?></a></li>   
 	
 		<li <?=endsWith($_SERVER['PHP_SELF'],'add_study.php')?' class="active"':''?>>
 			<a href="<?=WEBROOT?>acp/add_study"><?php echo _("create study"); ?></a>
@@ -40,7 +40,50 @@
 				</li>
 
 			</ul>
-			</li>
+		</li>
+		
+		<?php
+		$studies = $user->getStudies();
+		if($studies) {
+		  echo '
+	  		<li class="dropdown">
+	  			<a class="dropdown-toggle"
+	  			data-toggle="dropdown"
+	  			href="#">
+	  				surveys
+	  				<b class="caret"></b>
+	  			</a>
+			  <ul class="dropdown-menu">';
+		  foreach($studies as $menu_study) {
+		    echo "<li>
+				<a href='".WEBROOT."admin/".$menu_study['name']."/index'>".$menu_study['name']."</a>
+			</li>";
+		  }
+		  echo "</ul>
+		  </li>";
+		}
+		?>
+		<?php
+		$runs = $user->getRuns();
+		if($runs) {
+		  echo '
+	  		<li class="dropdown">
+	  			<a class="dropdown-toggle"
+	  			data-toggle="dropdown"
+	  			href="#">
+	  				runs
+	  				<b class="caret"></b>
+	  			</a>
+			  <ul class="dropdown-menu">';
+		  foreach($runs as $menu_run) {
+		    echo "<li>
+				<a href='".WEBROOT."acp/".$menu_run['name']."'>".$menu_run['name']."</a>
+			</li>";
+		  }
+		  echo "</ul>
+		  </li>";
+		}
+		?>
 
 		<li><a href="<?=WEBROOT?>logout"><?php echo _("log out"); ?></a></li>
 	</ul>

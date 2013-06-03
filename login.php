@@ -12,8 +12,8 @@ if(!empty($_POST)) {
 		$user->login($_POST['email'],$_POST['password'])
 	)
 	{
-		alert('<strong>Success!</strong> You were logged in!','success');
-		redirect_to('index.php');
+		alert('<strong>Success!</strong> You were logged in!', 'alert-success');
+		redirect_to('index');
 	}
 	else {
 		alert(implode($user->errors),'alert-error');
@@ -48,7 +48,7 @@ require_once INCLUDE_ROOT."public_nav.php";
 	</div>
 	<div class="control-group small-left">
 		<div class="controls">
-			<input required type="submit" value="<?php echo _("login"); ?>">
+			<input type="submit" value="<?php echo _("login"); ?>"  class="btn btn-info">
 		</div>
 	</div>
 </form>

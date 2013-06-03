@@ -3,7 +3,7 @@ require_once 'define_root.php';
 require_once INCLUDE_ROOT."Model/Site.php";
 if(!$user->loggedIn()) {
 	alert('You need to be logged in to go here.','alert-info');
-	redirect_to("index.php");
+	redirect_to("index");
 }
 
 
@@ -13,7 +13,7 @@ if(!empty($_POST)) {
 	)
 	{
 		alert('<strong>Success!</strong> Your password was changed!','alert-success');
-		redirect_to('index.php');
+		redirect_to('index');
 	}
 	else {
 		alert(implode($user->errors),'alert-error');

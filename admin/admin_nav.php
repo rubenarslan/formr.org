@@ -12,7 +12,7 @@ $resultCount = $study->getResultCount();
 		<a href="<?=WEBROOT?>admin/<?php echo $study->name; ?>/access"><?php echo _("Test study"); ?></a>
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>acp/acp"><?php echo _("Back to ACP"); ?></a>
+		<a href="<?=WEBROOT?>acp/index"><?php echo _("Back to ACP"); ?></a>
 	</li>
 </ul>
 

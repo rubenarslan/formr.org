@@ -1,16 +1,18 @@
 <?php
-define('DEBUG',0);
+define('DEBUG', ONLINE ? 1 : 1);
 
 if(DEBUG > -1)
 	ini_set('display_errors',1);
 ini_set("log_errors",1);
-ini_set("error_log", INCLUDE_ROOT . "log/errors.log");
-
+ini_set("error_log", INCLUDE_ROOT . "tmp/logs/errors.log");
 error_reporting(-1);
-date_default_timezone_set('Europe/Berlin');
-require_once INCLUDE_ROOT."Model/UserX.php";
 
+date_default_timezone_set('Europe/Berlin');
+
+require_once INCLUDE_ROOT . "Model/DB.php";
 $fdb = new DB();
+
+require_once INCLUDE_ROOT."Model/User.php";
 
 class Site
 {
@@ -42,12 +44,12 @@ if(isset($_SESSION['user']))
 	$sess_user = unserialize($_SESSION['user']);
 	
 	if(isset($sess_user->id))
-		$user = new UserX($fdb, $sess_user->id, $sess_user->user_code);
+		$user = new User($fdb, $sess_user->id, $sess_user->user_code);
 	elseif(isset($sess_user->user_code))
-		$user = new UserX($fdb, null, $sess_user->user_code);	
+		$user = new User($fdb, null, $sess_user->user_code);
 }
 if(!isset($user))
-	$user = new UserX($fdb, null, null);
+	$user = new User($fdb, null, null);
 
 /*
 HELPER FUNCTIONS
@@ -69,15 +71,15 @@ function redirect_to($location) {
 			$location = $base . substr($location,1);
 		else $location = $base . $location;
 	}
-	try
-	{
+#	try
+#	{
 	    header("Location: $location");
 		exit;
-	}
-	catch (Exception $e)
-	{ // legacy of not doing things properly, ie needing redirects after headers were sent. 
-		echo "<script type=\"text/javascript\">document.location.href = \"$location\";</script>";
-	}
+#	}
+#	catch (Exception $e)
+#	{ // legacy of not doing things properly, ie needing redirects after headers were sent. 
+#		echo "<script type=\"text/javascript\">document.location.href = \"$location\";</script>";
+#	}
 }
 function h($text) {
 	return htmlspecialchars($text);
@@ -91,7 +93,7 @@ function debug($string) {
     }
 }
 function pr($string) {
-    if( DEBUG!==-1 ) {
+    if( DEBUG > -1 ) {
 		echo "<pre>";
         var_dump($string);
 		echo "</pre>";
@@ -281,24 +283,36 @@ function join_builder($fdb,$q)
 			$tables[] = $result;
 	endforeach;
 	
-	$join = '';
+	$join = '
+left join `survey_unit_sessions`
+	on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+';
 	foreach($tables AS $table):
 		if(!in_array($table,array('users','survey_users'))):
 $join .= "
 left join `$table`
-	on `$table`.session = `survey_unit_sessions`.session";
+	on `$table`.session_id = `survey_unit_sessions`.id";
 	
 		elseif($table == 'users'):
 $join .= "
 left join `$table`
-	on `$table`.code = `survey_unit_sessions`.session";
+	on `$table`.code = `survey_run_sessions`.session";
 		elseif($table == 'survey_users'):
 $join .= "
 left join `$table`
-	on `$table`.user_code = `survey_unit_sessions`.session";
+	on `$table`.id = `survey_run_sessions`.user_id";
 		endif;
 			
 	endforeach;
 	
 	return $join;
+}
+function makeUnit($dbh, $session, $unit)
+{
+	$type = $unit['type'];
+	if(!in_array($type, array('Survey', 'Study','Pause','Email','External','Page','Branch','End', 'TimeBranch'))) 
+		die('The unit type is not allowed!');
+	
+	require_once INCLUDE_ROOT . "Model/$type.php";
+	return new $type($dbh, $session, $unit);
 }

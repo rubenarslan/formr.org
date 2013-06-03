@@ -1,0 +1,759 @@
+[28-May-2013 11:42:00 UTC] PHP Fatal error:  Cannot use object of type Pause as array in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php on line 120
+[28-May-2013 11:42:16 UTC] PHP Notice:  Undefined index: Email in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php on line 117
+[28-May-2013 11:42:18 UTC] PHP Notice:  Undefined index: TimeBranch in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php on line 117
+[28-May-2013 11:42:36 UTC] PHP Notice:  Undefined index: TimeBranch in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php on line 116
+[28-May-2013 11:42:54 UTC] PHP Notice:  Undefined index: body in /Applications/MAMP/htdocs/jena/app/webroot/survey/run.php on line 68
+[28-May-2013 11:44:32 UTC] PHP Notice:  Undefined index: body in /Applications/MAMP/htdocs/jena/app/webroot/survey/run.php on line 68
+[28-May-2013 11:45:00 UTC] PHP Notice:  Undefined index: body in /Applications/MAMP/htdocs/jena/app/webroot/survey/run.php on line 68
+[28-May-2013 11:45:26 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php:97) in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 2
+[28-May-2013 11:45:26 UTC] PHP Notice:  Undefined index: body in /Applications/MAMP/htdocs/jena/app/webroot/survey/run.php on line 68
+[28-May-2013 11:45:29 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php:97) in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 2
+[28-May-2013 11:45:29 UTC] PHP Notice:  Undefined index: body in /Applications/MAMP/htdocs/jena/app/webroot/survey/run.php on line 68
+[28-May-2013 11:45:29 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php:97) in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 2
+[28-May-2013 11:45:29 UTC] PHP Notice:  Undefined index: body in /Applications/MAMP/htdocs/jena/app/webroot/survey/run.php on line 68
+[28-May-2013 11:45:45 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php:97) in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 2
+[28-May-2013 11:45:45 UTC] PHP Notice:  Undefined index: body in /Applications/MAMP/htdocs/jena/app/webroot/survey/run.php on line 68
+[28-May-2013 11:46:02 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php:97) in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 2
+[28-May-2013 11:46:02 UTC] PHP Notice:  Undefined index: body in /Applications/MAMP/htdocs/jena/app/webroot/survey/run.php on line 68
+[28-May-2013 11:46:18 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php:97) in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 2
+[28-May-2013 11:46:22 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php:97) in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 2
+[28-May-2013 11:46:23 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php:97) in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 2
+[28-May-2013 11:50:26 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[42S22]: Column not found: 1054 Unknown column 'study_id' in 'field list'' in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Item.php:431
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Item.php(431): PDOStatement->execute()
+#1 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Survey.php(286): Item->viewedBy(Object(PDOStatement))
+#2 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Survey.php(62): Survey->render_items()
+#3 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Survey.php(421): Survey->render()
+#4 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php(120): Survey->exec()
+#5 /Applications/MAMP/htdocs/jena/app/webroot/survey/run.php(50): RunSession->getUnit()
+#6 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Item.php on line 431
+[28-May-2013 11:51:50 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[42S22]: Column not found: 1054 Unknown column 'study_id' in 'field list'' in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Survey.php:101
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Survey.php(101): PDOStatement->execute()
+#1 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Survey.php(44): Survey->post(Array)
+#2 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php(317): Survey->__construct(Object(DB), 'fdb4f7321f8af68...', Array)
+#3 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php(119): makeUnit(Object(DB), 'fdb4f7321f8af68...', Array)
+#4 /Applications/MAMP/htdocs/jena/app/webroot/survey/run.php(50): RunSession->getUnit()
+#5 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Survey.php on line 101
+[28-May-2013 11:55:57 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[42S22]: Column not found: 1054 Unknown column 'study_id' in 'field list'' in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Survey.php:101
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Survey.php(101): PDOStatement->execute()
+#1 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Survey.php(44): Survey->post(Array)
+#2 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php(317): Survey->__construct(Object(DB), 'fdb4f7321f8af68...', Array)
+#3 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php(119): makeUnit(Object(DB), 'fdb4f7321f8af68...', Array)
+#4 /Applications/MAMP/htdocs/jena/app/webroot/survey/run.php(50): RunSession->getUnit()
+#5 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Survey.php on line 101
+[28-May-2013 13:26:21 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[23000]: Integrity constraint violation: 1452 Cannot add or update a child row: a foreign key constraint fails (`jena`.`survey_emails`, CONSTRAINT `fk_email_acc` FOREIGN KEY (`account_id`) REFERENCES `survey_email_accounts` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION)' in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Email.php:86
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Email.php(86): PDOStatement->execute()
+#1 /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/ajax_save_run_unit.php(16): Email->create(Array)
+#2 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Email.php on line 86
+[28-May-2013 13:28:37 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[23000]: Integrity constraint violation: 1452 Cannot add or update a child row: a foreign key constraint fails (`jena`.`survey_emails`, CONSTRAINT `fk_email_acc` FOREIGN KEY (`account_id`) REFERENCES `survey_email_accounts` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION)' in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Email.php:86
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Email.php(86): PDOStatement->execute()
+#1 /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/ajax_save_run_unit.php(16): Email->create(Array)
+#2 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Email.php on line 86
+[28-May-2013 15:33:14 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ':run_id
+
+LEFT JOIN `survey_units`
+ON `survey_run_units`.unit_id = `survey_units`' at line 14' in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php:34
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php(34): PDO->query('SELECT ??`surve...')
+#1 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php on line 34
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 69
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:44:24 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 69
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:14 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 69
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:45:26 UTC] PHP Notice:  Undefined index: email in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_detail.php on line 67
+[28-May-2013 15:50:22 UTC] PHP Warning:  Invalid argument supplied for foreach() in /Applications/MAMP/htdocs/jena/app/webroot/survey/admin/cron.php on line 35
+[28-May-2013 15:50:22 UTC] PHP Warning:  Invalid argument supplied for foreach() in /Applications/MAMP/htdocs/jena/app/webroot/survey/admin/cron.php on line 35
+[28-May-2013 15:50:56 UTC] PHP Warning:  Invalid argument supplied for foreach() in /Applications/MAMP/htdocs/jena/app/webroot/survey/admin/cron.php on line 35
+[28-May-2013 15:50:56 UTC] PHP Warning:  Invalid argument supplied for foreach() in /Applications/MAMP/htdocs/jena/app/webroot/survey/admin/cron.php on line 35
+[28-May-2013 15:51:31 UTC] PHP Warning:  Invalid argument supplied for foreach() in /Applications/MAMP/htdocs/jena/app/webroot/survey/admin/cron.php on line 35
+[28-May-2013 15:51:31 UTC] PHP Warning:  Invalid argument supplied for foreach() in /Applications/MAMP/htdocs/jena/app/webroot/survey/admin/cron.php on line 35
+[28-May-2013 15:51:32 UTC] PHP Warning:  Invalid argument supplied for foreach() in /Applications/MAMP/htdocs/jena/app/webroot/survey/admin/cron.php on line 35
+[28-May-2013 15:51:32 UTC] PHP Warning:  Invalid argument supplied for foreach() in /Applications/MAMP/htdocs/jena/app/webroot/survey/admin/cron.php on line 35
+[28-May-2013 16:17:54 UTC] PHP Notice:  Undefined index: run_name in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/send_to_position.php on line 7
+[28-May-2013 16:17:54 UTC] PHP Notice:  Undefined index: session in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/send_to_position.php on line 10
+[28-May-2013 16:17:54 UTC] PHP Notice:  Undefined index: new_position in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/send_to_position.php on line 12
+[28-May-2013 16:17:54 UTC] PHP Notice:  Undefined index: run_name in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/send_to_position.php on line 13
+[28-May-2013 16:17:54 UTC] PHP Warning:  Cannot modify header information - headers already sent by (output started at /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/send_to_position.php:7) in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php on line 76
+[28-May-2013 16:18:39 UTC] PHP Notice:  Undefined variable: fdb in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php on line 155
+[28-May-2013 16:18:39 UTC] PHP Fatal error:  Call to a member function prepare() on a non-object in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Page.php on line 22
+[29-May-2013 08:11:18 UTC] PHP Notice:  Undefined index: Page in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php on line 118
+[29-May-2013 08:11:18 UTC] PHP Notice:  Undefined index: Page in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php on line 118
+[29-May-2013 08:11:18 UTC] PHP Notice:  Undefined index: Page in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php on line 118
+[29-May-2013 08:11:18 UTC] PHP Notice:  Undefined index: Page in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php on line 118
+[29-May-2013 08:11:18 UTC] PHP Notice:  Undefined index: Page in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php on line 118
+[29-May-2013 08:15:48 UTC] PHP Parse error:  syntax error, unexpected ')' in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/RunSession.php on line 279
+[29-May-2013 12:53:01 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ') AS hang
+	
+	
+FROM `survey_run_sessions`
+
+LEFT JOIN `survey_run_units`
+ON `surve' at line 9' in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php:35
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php(35): PDO->query('SELECT ??`surve...')
+#1 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php on line 35
+[29-May-2013 12:53:11 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[42S22]: Column not found: 1054 Unknown column 'unit_type' in 'field list'' in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php:35
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php(35): PDO->query('SELECT ??`surve...')
+#1 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php on line 35
+[29-May-2013 12:56:11 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'NOW()),
+	(`survey_units`.type IN ('Survey','External') AND TO_DAYS(`survey_run_s' at line 9' in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php:36
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php(36): PDO->query('SELECT ??`surve...')
+#1 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php on line 36
+[29-May-2013 12:56:14 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[42000]: Syntax error or access violation: 1305 FUNCTION jena.DATESUB does not exist' in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php:36
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php(36): PDO->query('SELECT ??`surve...')
+#1 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/acp/user_overview.php on line 36
+[30-May-2013 09:31:18 UTC] PHP Fatal error:  Using $this when not in object context in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 29
+[30-May-2013 09:31:19 UTC] PHP Fatal error:  Using $this when not in object context in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 29
+[30-May-2013 09:31:45 UTC] PHP Warning:  PDO::__construct(): [2002] No such file or directory (trying to connect via unix:///var/mysql/mysql.sock) in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/DB.php on line 14
+[30-May-2013 09:31:45 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[HY000] [2002] No such file or directory' in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/DB.php:14
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/DB.php(14): PDO->__construct('mysql:dbname=je...', 'jena', 'w7wMLDj4Y8YbSBv...')
+#1 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php(13): DB->__construct()
+#2 /Applications/MAMP/htdocs/jena/app/webroot/survey/register.php(3): require_once('/Applications/M...')
+#3 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/DB.php on line 14
+[30-May-2013 09:31:47 UTC] PHP Warning:  PDO::__construct(): [2002] No such file or directory (trying to connect via unix:///var/mysql/mysql.sock) in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/DB.php on line 14
+[30-May-2013 09:31:47 UTC] PHP Fatal error:  Uncaught exception 'PDOException' with message 'SQLSTATE[HY000] [2002] No such file or directory' in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/DB.php:14
+Stack trace:
+#0 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/DB.php(14): PDO->__construct('mysql:dbname=je...', 'jena', 'w7wMLDj4Y8YbSBv...')
+#1 /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/Site.php(13): DB->__construct()
+#2 /Applications/MAMP/htdocs/jena/app/webroot/survey/register.php(3): require_once('/Applications/M...')
+#3 {main}
+  thrown in /Applications/MAMP/htdocs/jena/app/webroot/survey/Model/DB.php on line 14
+[30-May-2013 09:31:52 UTC] PHP Fatal error:  Using $this when not in object context in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 29
+[30-May-2013 09:32:07 UTC] PHP Fatal error:  Using $this when not in object context in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 29
+[30-May-2013 09:32:26 UTC] PHP Fatal error:  Using $this when not in object context in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 29
+[30-May-2013 09:32:54 UTC] PHP Fatal error:  Using $this when not in object context in /Applications/MAMP/htdocs/jena/app/webroot/survey/view_header.php on line 29

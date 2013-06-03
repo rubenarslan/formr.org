@@ -4,40 +4,63 @@ require_once INCLUDE_ROOT . "admin/admin_header.php";
 require_once INCLUDE_ROOT . "view_header.php";
 require_once INCLUDE_ROOT . "acp/acp_nav.php";
 ?>
-<h2>user log</h2>
+<h1>user overview</h1>
 
 <?php
 $g_users = $fdb->query("SELECT 
-	`survey_unit_sessions`.session,
+	`survey_run_sessions`.session,
+	`survey_run_sessions`.position,
+	`survey_run_sessions`.last_access,
+	`survey_run_sessions`.created,
 	`survey_runs`.name AS run_name,
-	MAX(`survey_run_units`.position) AS position,
 	`survey_units`.type AS unit_type,
 	`users`.`email`,
-	`survey_unit_sessions`.created
+	DATEDIFF(NOW(), `survey_run_sessions`.last_access) AS last_access_days,
+	(`survey_units`.type IN ('Survey','External') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
 	
 	
-FROM `survey_unit_sessions`
+FROM `survey_run_sessions`
+
+LEFT JOIN `survey_run_units`
+ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
 
 LEFT JOIN `survey_units`
-ON `survey_unit_sessions`.unit_id = `survey_units`.id
-LEFT JOIN `survey_run_units`
-ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+ON `survey_run_units`.unit_id = `survey_units`.id
+
 LEFT JOIN `survey_runs`
-ON `survey_runs`.id = `survey_run_units`.run_id
+ON `survey_run_sessions`.run_id = `survey_runs`.id 
+
 LEFT JOIN `users`
-ON `survey_unit_sessions`.session = `users`.code
-GROUP BY `survey_unit_sessions`.session
-ORDER BY `survey_unit_sessions`.created DESC;");
+ON `survey_run_sessions`.session = `users`.code
+
+ORDER BY hang DESC, `survey_run_sessions`.last_access DESC;");
 
 $users = array();
 while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 {
-	$userx['remind'] = "<a href='".WEBROOT."acp/remind?session={$userx['session']}&run_name={$userx['run_name']}&email={$userx['email']}' class='hastooltip' title='Remind this user'><i class='icon-bullhorn'></i></a>";
-	$userx['email'] = "<small title=\"{$userx['session']}\">{$userx['email']}</small>";
-	$userx['created'] = "<small>{$userx['created']}</small>";
-	$userx['run_name'] = "<span>{$userx['run_name']} <span class='hastooltip' title='Current position in run'>({$userx['position']})</span></small>";
+	$userx['Run position'] = "<span>{$userx['run_name']} <span class='hastooltip' title='Current position in run'>({$userx['position']} – {$userx['unit_type']})</span></small>";
+	$userx['Email'] = "<small title=\"{$userx['session']}\">{$userx['email']}</small>";
+	$userx['Created'] = "<small>{$userx['created']}</small>";
+	$userx['last access'] = "<small class='hastooltip' title='{$userx['last_access']}'>{$userx['last_access_days']} days ago</small>";
+	$userx['Action'] = "
+		<form class='form-inline' action='".WEBROOT."acp/send_to_position?session={$userx['session']}&run_name={$userx['run_name']}' method='post'>
+		<span class='input-append input-prepend'>
+	<button type='submit' class='btn hastooltip'
+	title='Send this user to that position'><i class='icon-hand-right'></i></button>
+		<input type='number' name='new_position' value='{$userx['position']}' class='span1'>
+		<a class='btn hastooltip' href='".WEBROOT."acp/remind?session={$userx['session']}&run_name={$userx['run_name']}&email={$userx['email']}' 
+		title='Remind this user using the last email in the run'><i class='icon-bullhorn'></i></a>
+		
+		</span></form>";
+	
 	unset($userx['session']);
 	unset($userx['position']);
+	unset($userx['run_name']);
+	unset($userx['unit_type']);
+	unset($userx['last_access']);
+	unset($userx['last_access_days']);
+	unset($userx['created']);
+	unset($userx['email']);
 #	$user['body'] = "<small title=\"{$user['body']}\">". substr($user['body'],0,50). "…</small>";
 	
 	$users[] = $userx;
@@ -48,7 +71,8 @@ if(!empty($users)) {
 		<thead><tr>
 	<?php
 	foreach(current($users) AS $field => $value):
-	    echo "<th>{$field}</th>";
+		if($field != 'hang')
+		    echo "<th>{$field}</th>";
 	endforeach;
 	?>
 		</tr></thead>
@@ -56,7 +80,11 @@ if(!empty($users)) {
 		<?php
 		// printing table rows
 		foreach($users AS $row):
-		    echo "<tr>";
+			if($row['hang'])
+				echo '<tr class="warning">';
+			else
+			    echo "<tr>";
+			unset($row['hang']);
 
 		    // $row is array... foreach( .. ) puts every element
 		    // of $row to $cell variable

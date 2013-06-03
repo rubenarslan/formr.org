@@ -5,8 +5,8 @@ class EmailAccount
 	public function __construct($fdb, $id, $user_id) 
 	{
 		$this->dbh = $fdb;
-		$this->user_id = $user_id;
 		$this->id = $id;
+		$this->user_id = $user_id;
 		
 		if($id)
 		{
@@ -18,12 +18,14 @@ class EmailAccount
 			
 			if($this->account):
 				$this->valid = true;
+				$this->user_id = (int)$this->account['user_id'];
+				
 			endif;
 		}
 	}
 	public function create()
 	{
-		$create = $this->dbh->prepare("INSERT INTO `survey_email_accounts` (id,user_id) VALUES ('',:user_id);");
+		$create = $this->dbh->prepare("INSERT INTO `survey_email_accounts` (user_id) VALUES (:user_id);");
 		$create->bindParam(":user_id",$this->user_id);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->id = $this->dbh->lastInsertId();

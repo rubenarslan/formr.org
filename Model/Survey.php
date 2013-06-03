@@ -15,9 +15,9 @@ class Survey extends RunUnit {
 	public $not_answered = 0;
 	public $progress = 0;
 	public $session = null;
-	public $timestarted = null;
 	public $errors = array();
 	public $results_table = null;
+	public $run_session_id = null;
 	protected $dbh;
 	
 	public function __construct($fdb, $session, $unit)
@@ -40,10 +40,10 @@ class Survey extends RunUnit {
 		
 		$this->getNextItems();
 
-		if(isset($_POST['session_id'])) 
-		{
+#		if(isset($_POST['session_id'])) 
+#		{
 			$this->post($_POST);
-		}
+#		}
 		
 		if($this->getProgress()===1)
 			$this->end();
@@ -76,12 +76,19 @@ class Survey extends RunUnit {
 		unset($posted['ended']); // cant overwrite
 
 		
-		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (study_id, item_id, session_id, answered, answered_time, modified)
-																  VALUES(	:study_id, :item_id,  :session_id, 1, 		NOW(),	NOW()	) 
+		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (item_id, session_id, answered, answered_time, modified)
+																  VALUES(	:item_id,  :session_id, 1, 		NOW(),	NOW()	) 
 		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
 		
 		$answered->bindParam(":session_id", $this->session_id);
-		$answered->bindParam(":study_id", $this->id);
+		
+		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`)
+																  VALUES(:session_id, :study_id, NOW(),	    NOW()) 
+		ON DUPLICATE KEY UPDATE modified = NOW();");
+		$start_entry->bindParam(":session_id", $this->session_id);
+		$start_entry->bindParam(":study_id", $this->id);
+		$start_entry->execute() or die(print_r($start_entry->errorInfo(), true));
+		
 		
 		foreach($posted AS $name => $value)
 		{
@@ -93,12 +100,12 @@ class Survey extends RunUnit {
 					$answered->bindParam(":item_id", $this->unanswered_batch[$name]->id);
 			   	   	$answered->execute() or die(print_r($answered->errorInfo(), true));
 					
-					$post_form = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `session`, `study_id`, `created`, `modified`, `$name`)
-																			  VALUES(:session_id, :session, :study_id, NOW(),	    NOW(),	 		:$name) 
-					ON DUPLICATE KEY UPDATE `$name` = :$name, modified = NOW();");
+					$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}`
+					SET 
+					`$name` = :$name
+					WHERE session_id = :session_id AND study_id = :study_id;");
 				    $post_form->bindParam(":$name", $value);
 					$post_form->bindParam(":session_id", $this->session_id);
-					$post_form->bindParam(":session", $this->session);
 					$post_form->bindParam(":study_id", $this->id);
 					$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 
@@ -110,7 +117,7 @@ class Survey extends RunUnit {
 			}
 		} //endforeach
 
-		if(empty($this->errors))
+		if(empty($this->errors) AND !empty($posted))
 		{ // PRG
 			redirect_to(WEBROOT."{$this->run_name}");
 		} else
@@ -190,7 +197,9 @@ class Survey extends RunUnit {
 		
 		$get_items->bindParam(":session_id",$this->session_id);
 		$get_items->bindParam(":study_id", $this->id);
-		
+#		pr($item_query);
+#		pr($this->id);
+#		pr($this->session_id);
 		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
 		
 		while($item = $get_items->fetch(PDO::FETCH_ASSOC) )
@@ -199,7 +208,7 @@ class Survey extends RunUnit {
 			$this->unanswered_batch[$name] = legacy_translate_item($item);
 			if($this->unanswered_batch[$name]->skipIf !== null)
 			{
-				if($this->unanswered_batch[$name]->skip($this->session_id,$this->dbh,$this->results_table))
+				if($this->unanswered_batch[$name]->skip($this->session_id,$this->run_session_id,$this->dbh,$this->results_table))
 				{
 					unset($this->unanswered_batch[$name]); // fixme: do something else with this when we want JS?
 				}
@@ -214,11 +223,6 @@ class Survey extends RunUnit {
 		
 	    /* pass on hidden values */
 	    $ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
-	    if( !empty( $timestarted ) ) {
-	        $ret .= '<input type="hidden" name="timestarted" value="' . $timestarted .'" />';
-		} else {
-			debug("<strong>render_form_header:</strong> timestarted was not set or empty");
-		}
 	
 		if(!isset($this->settings["displayed_percentage_maximum"]))
 			$this->settings["displayed_percentage_maximum"] = 90;
@@ -243,9 +247,10 @@ class Survey extends RunUnit {
 		$items = $this->unanswered_batch;
 		
 		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
-											     VALUES(  :item_id, :session_id, 1,				 NOW(), NOW()	) 
+											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
 		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
 		$view_update = $this->dbh->prepare($view_query);
+
 		$view_update->bindParam(":session_id", $this->session_id);
 	
 		$itemsDisplayed = $i = 0;
@@ -306,7 +311,14 @@ class Survey extends RunUnit {
 		
 		if($need_submit) // only if no submit was part of the form
 		{
-			$item = new Item_submit('final_submit',array('text'=>'Weiter!'));
+			if(isset($this->settings["submit_button_text"])):
+				$sub_sets = array(
+								'text' => $this->settings["submit_button_text"]
+				);
+			else:
+				$sub_sets = array('text' => 'Weiter', 'class_input' => 'btn-info');
+			endif;
+			$item = new Item_submit('final_submit', $sub_sets);
 			$ret .= $item->render();
 		}
 		
@@ -327,19 +339,33 @@ class Survey extends RunUnit {
 	
 
 	$search = $replace = array();
+	
 	while( $substitution = $subs_query->fetch() ) 
 		{
 	        switch( $substitution['mode'] ) 
 			{
-		        case NULL:
-					$get_entered = $this->dbh->prepare("SELECT {$substitution['replace']} FROM `{$this->results_table}` WHERE session_id = :session_id AND {$substitution['replace']} IS NOT NULL ORDER BY created DESC LIMIT 1;") or die(print_r($get_entered->errorInfo(), true));
-					break;
+
+#		        case NULL:
+#					break;
 				default:
-					$get_entered = $this->dbh->prepare("SELECT {$substitution['replace']} FROM `{$this->results_table}` WHERE session_id = :session_id AND {$substitution['replace']} IS NOT NULL AND {$substitution['mode']} LIMIT 1;") or die(print_r($get_entered->errorInfo(), true));
+					$join = join_builder($rdb, $substitution['replace']);
+					$q = "SELECT ( {$substitution['replace']} ) AS replace FROM `survey_run_sessions`
+
+					$join
+
+					WHERE 
+					`survey_run_sessions`.`id` = :run_session_id
+
+					ORDER BY IF(ISNULL( ( {$substitution['replace']} ) ),1,0), `survey_unit_sessions`.id DESC
+
+					LIMIT 1";
+					$get_entered = $this->dbh->prepare($q) or die(print_r($get_entered->errorInfo(), true));
+
+/*					$get_entered = $this->dbh->prepare("SELECT {$substitution['replace']} FROM `{$this->results_table}` WHERE session_id = :session_id AND {$substitution['replace']} IS NOT NULL AND {$substitution['mode']} LIMIT 1;") or die(print_r($get_entered->errorInfo(), true));
 //					$get_entered->bindParam(":mode",$subst['mode']); // fixme: mode not meaningfully used atm, gotta autocreate joins
 					break;
-	        }
-			$get_entered->bindParam(":session_id",$this->session_id);
+*/	        }
+			$get_entered->bindParam(":run_session_id",$this->run_session_id);
 			$get_entered->execute() or die(print_r($get_entered->errorInfo(), true));
 		
 			if( $data = $get_entered->fetch(PDO::FETCH_NUM))
@@ -353,19 +379,27 @@ class Survey extends RunUnit {
 	
 	public function end()
 	{
-		$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS NULL;");
+		$post_form = $this->dbh->prepare("UPDATE 
+					`{$this->results_table}` 
+			SET `ended` = NOW() 
+		WHERE `session_id` = :session_id AND 
+		`study_id` = :study_id AND 
+		`ended` IS NULL;");
 		$post_form->bindParam(":session_id", $this->session_id);
 		$post_form->bindParam(":study_id", $this->id);
 		$post_form->execute() or die(print_r($post_form->errorInfo(), true));
-		if($post_form->rowCount() === 1):
-			return parent::end();
-		else:
-			return false;
-		endif;
+		
+		return parent::end();
 	}
 	public function exec()
 	{
-		if($this->getProgress()===1) return false;
+		if($this->called_by_cron)
+			return true; // never show to the cronjob
+		
+		if($this->getProgress()===1) {
+			$this->end();
+			return false;
+		}
 		return array('title' => (isset($this->settings['title'])?$this->settings['title']: null),
 		'body' => 
 			'

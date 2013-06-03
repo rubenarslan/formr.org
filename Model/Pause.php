@@ -45,6 +45,8 @@ class Pause extends RunUnit {
 		$this->dbh->beginTransaction();
 		if(!$this->id)
 			$this->id = parent::create('Pause');
+		else
+			$this->modify($this->id);
 		
 		if(isset($options['message']))
 		{
@@ -83,31 +85,30 @@ class Pause extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p>
-				<label>Wait until time: 
+				<label class="inline hastooltip" title="Leave empty so that this does not apply">wait until time: 
 				<input type="time" placeholder="daybreak" name="wait_until_time" value="'.$this->wait_until_time.'">
-				</label>
+				</label> <strong>and</strong>
 				
 				</p>
 				<p>
-				<label>Wait until date: 
+				<label class="inline hastooltip" title="Leave empty so that this does not apply">wait until date: 
 				<input type="date" placeholder="the next day" name="wait_until_date" value="'.$this->wait_until_date.'">
-				</label>
+				</label> <strong>and</strong>
 				
 				</p>
-				Wait minutes: 
-					<input type="number" placeholder="" name="wait_minutes" value="'.$this->wait_minutes.'">
-				
-					<button class="btn from_days">From days</button>
-				</p>
-				<label>Relative to: 
-					<input type="text" placeholder="Survey.DateField" name="relative_to" value="'.$this->relative_to.'">
+				<p>wait
+				<span class="input-append">
+				<input type="number" class="span2" placeholder="" name="wait_minutes" value="'.$this->wait_minutes.'"><button class="btn from_days hastooltip" title="Enter a number of days and press this button to convert them to minutes (*60*24)"><small>convert days</small></button>
+				</span>
+				 minutes <label class="inline">relative to 
+					<input type="text" class="span2" placeholder="Survey.DateField" name="relative_to" value="'.$this->relative_to.'">
 					</label
-				</p>
-		<p><label>Message: <br>
-			<textarea placeholder="You can use Markdown" name="message" rows="4" cols="60" style="width:399px">'.$this->message.'</textarea></label></p>
+				</p> 
+		<p><label>Message to show while waiting: <br>
+			<textarea placeholder="You can use Markdown" name="message" rows="4" cols="60" class="span5">'.$this->message.'</textarea></label></p>
 			';
-		$dialog .= '<p><a class="btn unit_save" href="ajax_save_run_unit?type=Pause">Save.</a></p>';
-		$dialog .= '<p><a class="btn unit_test" href="ajax_test_unit?type=Pause">Test.</a></p>';
+		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
+		<a class="btn unit_test" href="ajax_test_unit?type=Pause">Test</a></p>';
 		
 
 		$dialog = $prepend . $dialog;
@@ -121,14 +122,13 @@ class Pause extends RunUnit {
 	
 	public function test()
 	{
-		if($this->relative_to!== null AND trim($this->relative_to)!='')
+		if($this->relative_to=== null OR trim($this->relative_to)=='')
 		{
-			$join = join_builder($this->dbh, $this->relative_to);
-		}
-		else {
 			$this->relative_to = '`survey_unit_sessions`.created';
-			$join = '';
 		}
+		$join = join_builder($this->dbh, $this->relative_to);
+		
+
 		$conditions = array();
 		
 		
@@ -145,17 +145,23 @@ class Pause extends RunUnit {
 		if(!empty($conditions)):
 			$condition = implode($conditions," AND ");
 			
-$q = "SELECT DISTINCT ( $condition ) AS test,`survey_unit_sessions`.session FROM `survey_unit_sessions`
+$q = "SELECT DISTINCT ( {$condition} ) AS test,`survey_run_sessions`.session FROM `survey_run_sessions`
+
 $join
-ORDER BY RAND()
-LIMIT 10";
+
+WHERE 
+	`survey_run_sessions`.run_id = :run_id
+
+ORDER BY IF(ISNULL(test),1,0), RAND()
+
+LIMIT 20";
 		
 			echo "<pre>$q</pre>";
 			$evaluate = $this->dbh->prepare($q); // should use readonly
 			if(isset($conditions['minute'])) $evaluate->bindParam(':wait_minutes',$this->wait_minutes);
 			if(isset($conditions['date'])) $evaluate->bindParam(':wait_date',$this->wait_until_date);
 			if(isset($conditions['time'])) $evaluate->bindParam(':wait_time',$this->wait_until_time);
-		
+			$evaluate->bindParam(':run_id',$this->run_id);
 
 			$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
 			if($evaluate->rowCount()>=1):
@@ -190,14 +196,12 @@ LIMIT 10";
 	}
 	public function exec()
 	{
-		if($this->relative_to!== null AND trim($this->relative_to)!='')
+		if($this->relative_to=== null OR trim($this->relative_to)=='')
 		{
-			$join = join_builder($this->dbh, $this->relative_to);
-		}
-		else {
 			$this->relative_to = '`survey_unit_sessions`.created';
-			$join = '';
 		}
+		$join = join_builder($this->dbh, $this->relative_to);
+		
 		
 		$conditions = array();
 		if($this->wait_minutes AND $this->wait_minutes!='')
@@ -212,17 +216,22 @@ LIMIT 10";
 		
 		if(!empty($conditions)):
 			$condition = implode($conditions," AND ");
-			
-	$q = "SELECT ( $condition ) AS test FROM `survey_unit_sessions`
+
+	$q = "SELECT ( {$condition} ) AS test FROM `survey_run_sessions`
+	
 	$join
-	WHERE `survey_unit_sessions`.id = :session_id
+	
+	WHERE 
+	`survey_run_sessions`.`id` = :run_session_id
+
+	ORDER BY IF(ISNULL( ( {$condition} ) ),1,0), `survey_unit_sessions`.id DESC
+	
 	LIMIT 1";
-		
 			$evaluate = $this->dbh->prepare($q); // should use readonly
 			if(isset($conditions['minute'])) $evaluate->bindParam(':wait_minutes',$this->wait_minutes);
 			if(isset($conditions['date'])) $evaluate->bindParam(':wait_date',$this->wait_until_date);
 			if(isset($conditions['time'])) $evaluate->bindParam(':wait_time',$this->wait_until_time);
-			$evaluate->bindParam(":session_id", $this->session_id);
+			$evaluate->bindParam(":run_session_id", $this->run_session_id);
 		
 
 			$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
@@ -236,8 +245,6 @@ LIMIT 10";
 			$result = true;
 		endif;
 
-#		if(DEBUG>-1)
-#			$this->message_parsed .= "<pre>$q</pre>";
 		if($result)
 		{
 			$this->end();
