@@ -3,7 +3,7 @@ require_once '../define_root.php';
 require_once INCLUDE_ROOT . "admin/admin_header.php";
 require_once INCLUDE_ROOT . "view_header.php";
 require_once INCLUDE_ROOT . "acp/acp_nav.php";
-?>	
+?>
 <h2>runs &amp; studies <small>what's the difference?</small></h2>
 <p>
 	<strong>Studies</strong> are meant to be a simple survey that can be completed

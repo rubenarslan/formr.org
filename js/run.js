@@ -2,7 +2,7 @@ function RunUnit(content)
 {
 	this.block = $('<div class="run_unit row"></div>');
 	this.init(content);
-	this.block.insertBefore($('#run_dialog_choices'));
+	this.block.insertPolyfillBefore($('#run_dialog_choices'));
 }
 RunUnit.prototype.init = function(content)
 {
@@ -17,7 +17,9 @@ RunUnit.prototype.init = function(content)
 	this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
 	this.dialog_inputs.change($.proxy(this.changes,this));
 	
-	this.block.find('.hastooltip').tooltip();
+	this.block.find('.hastooltip').tooltip({
+		container: 'body'
+	});
 	this.block.find('.select2').select2();
 	
 	this.unsavedChanges = false;
@@ -38,7 +40,7 @@ RunUnit.prototype.init = function(content)
 	this.test_button
 	.click($.proxy(this.test,this));
 	
-	this.remove_button = this.block.find('a.remove_unit_from_run');
+	this.remove_button = this.block.find('button.remove_unit_from_run');
 	this.remove_button
 	.click($.proxy(this.removeFromRun,this))
 	.mouseenter(function() {
@@ -138,33 +140,6 @@ RunUnit.prototype.removeFromRun = function(e)
 	return false;
 };
 
-function toggleAutosave() {
-	autosaveglobal = !autosaveglobal;
-	icon = autosaveglobal ? ' <i class="icon-refresh icon-white"></i>' : '';
-	$("#toggle_autosave").button('toggle').html('Toggle Autosave' + icon);
-	return false;
-}
-function unsavedChanges () {
-	$('#save_run').addClass('btn-info').removeAttr('disabled').text('Unsaved changes…');
-	if(autosaveglobal) {
-		if( ($.now() - lastSave ) > 7000) {
-			save_run();
-		}
-	}
-}
-function activateInputs ($container) {
-	formelms = $('#edit_run input[type=text]:not([class*="select2-input"]),	#edit_run input[type=number],			#edit_run input[type=search],	#edit_run select,	#edit_run input[type=radio],	#edit_run input[type=checkbox],	#edit_run textarea').filter(':visible').filter(':not([class*="hidden"])');
-	
-	
-	
-
-	
-}
-function bootstrap_alert(message,bold) {
-	var $alert = $('<div class="alert alert-error"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold:'Problem' ) + '</strong> ' + message + '</div>');
-	$('#edit_run').prepend( $alert);
-	$alert[0].scrollIntoView(false);
-}
 
 function loadNextUnit(units)
 {
@@ -192,11 +167,40 @@ $(document).ready(function () {
 	$run_name = $('#run_name').val();
 	$run_url = $('#edit_run').prop('action');
 	$run_units = new Array();
-	$('#edit_run').find('.hastooltip').tooltip();
+	$('#edit_run').find('.hastooltip').tooltip({
+		container: 'body'
+	});
 	$('#edit_run').find('.select2').select2();
 		
 	var units = $.parseJSON($('#edit_run').attr('data-units'));
 	loadNextUnit(units);
+	
+	
+	$('#edit_run').find('a.run-toggle')
+	.click(function () 
+	{
+		var on = (! $(this).hasClass('btn-checked') ) ? 1 : 0;
+		var self = $(this);
+ 		$.ajax( 
+		{
+			url: self.attr('href'),
+			dataType:"html",
+			method: 'POST',
+			data: {
+				on: on
+			}
+		})
+		.done(function(data)
+		{
+			if(! (data.indexOf('error') >= 0) ) 
+			{
+				self.toggleClass('btn-checked',on);
+			}
+		})
+		.fail(ajaxErrorHandling);
+		return false;
+	});
+	
 	
 	$('#edit_run').find('a.add_run_unit')
 	.click(function () 
@@ -287,32 +291,3 @@ $(document).ready(function () {
 	};
 		
 });
-function ajaxErrorHandling (e, x, settings, exception) 
-{
-	var message;
-	var statusErrorMap = 
-	{
-	    '400' : "Server understood the request but request content was invalid.",
-	    '401' : "You don't have access.",
-	    '403' : "You were logged out while coding, please open a new tab and login again. This way no data will be lost.",
-	    '404' : "Page not found.",
-	    '500' : "Internal Server Error.",
-	    '503' : "Server can't be reached."
-	};
-	if (e.status) 
-	{
-	    message =statusErrorMap[e.status];
-		if(!message)
-			message= (typeof e.statusText != 'undefined' && e.statusText != 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
-	}
-	else if(e.statusText=='parsererror')
-	    message="Parsing JSON Request failed.";
-	else if(e.statusText=='timeout')
-	    message="The attempt to save timed out. Are you connected to the internet?";
-	else if(e.statusText=='abort')
-	    message="The request was aborted by the server.";
-	else
-		message= (typeof e.statusText != 'undefined' && e.statusText != 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
-
-	bootstrap_alert(message, 'Fehler.');
-}

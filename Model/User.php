@@ -2,7 +2,7 @@
 require_once INCLUDE_ROOT . "Model/DB.php";
 require_once INCLUDE_ROOT . 'password_compat/lib/password.php';
 
-class UserX
+class User
 {
 	public $id = null;
 	public $email = null;
@@ -46,7 +46,6 @@ class UserX
 			$this->admin = $user['admin'];
 			return true;
 		}
-		$this->errors[]=_("Die Login Daten sind nicht korrekt");
 		return false;
 	}
 	public function loggedIn()
@@ -57,30 +56,9 @@ class UserX
 	{
 		return $this->admin;
 	}
-	public function createdStudy($study)
+	public function created($object)
 	{
-		return $this->id === $study->user_id; 
-	}
-	public function createdRun($run)
-	{
-		return $this->id === $run->user_id; 
-	}
-	
-	public function eligibleForStudy($study) {
-		$this->status=true;
-		if(!isset($study) or !is_object($study)) {
-			$this->errors[]=_("Interner Fehler");
-			$this->status=false;
-			return false;
-		}
-		if($this->userCreatedStudy($study))
-			return true;
-	
-		if($study->registered_req and $this->anonymous==true) {
-			$this->errors[]=_("Sie müssen registriert sein um an dieser Studie teilzunehmen.");
-			$this->status=false;
-		}
-		return $this->status;
+		return $this->id === $object->user_id; 
 	}
 	public function register($email, $password) 
 	{
@@ -112,7 +90,8 @@ class UserX
 		}
 		return false;
 	}
-	public function login($email,$password) {
+	public function login($email,$password) 
+	{
 		$login = $this->dbh->prepare("SELECT id, password, admin, user_code FROM `survey_users` WHERE email = :email LIMIT 1");
 		$login->bindParam(':email',$email);
 		$login->execute() or die('db');
@@ -146,7 +125,8 @@ class UserX
 		$this->errors[]=_("Die Login Daten sind nicht korrekt");
 		return false;
 	}
-	function logout() {
+	function logout() 
+	{
 		$this->logged_in = false;
 	}
 	public function changePassword($password,$new_password) 
@@ -170,13 +150,17 @@ class UserX
 		return false;
 	}
 
-	public function getStudies() {
+	public function getStudies() 
+	{
 		if($this->isAdmin()):
-			$studies = $this->dbh->query("SELECT * FROM `survey_studies`");
+			$g_studies = $this->dbh->prepare("SELECT * FROM `survey_studies` WHERE user_id = :user_id");
+			$g_studies->bindParam(':user_id',$this->id);
+			$g_studies->execute();
+			
 			$results = array();
-			while($study = $studies->fetch())
+			while($run = $g_studies->fetch())
 			{
-				$results[] = $study;
+				$results[] = $run;
 			}
 			return $results;
 		endif;
@@ -200,11 +184,14 @@ class UserX
 	}
 	public function getRuns() {
 		if($this->isAdmin()):
-			$studies = $this->dbh->query("SELECT * FROM `survey_runs`");
+			$g_runs = $this->dbh->prepare("SELECT * FROM `survey_runs` WHERE user_id = :user_id");
+			$g_runs->bindParam(':user_id',$this->id);
+			$g_runs->execute();
+			
 			$results = array();
-			while($study = $studies->fetch())
+			while($run = $g_runs->fetch())
 			{
-				$results[] = $study;
+				$results[] = $run;
 			}
 			return $results;
 		endif;
@@ -215,6 +202,13 @@ class UserX
 
 	function getAvailableRuns()
 	{
+		$runs = $this->dbh->query("SELECT name FROM `survey_runs` WHERE public = 1");
+		$results = array();
+		while($run = $runs->fetch())
+		{
+			$results[] = $run;
+		}
+		return $results;
 	}
 
 

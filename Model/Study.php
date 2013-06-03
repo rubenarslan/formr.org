@@ -3,7 +3,7 @@ require_once INCLUDE_ROOT . "Model/DB.php";
 require_once INCLUDE_ROOT . "Model/RunUnit.php";
 
 // this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
-class StudyX extends RunUnit
+class Study extends RunUnit
 {
 	public $id = null;
 	public $name = null;
@@ -116,6 +116,7 @@ class StudyX extends RunUnit
 				"problem_email" => "problems@example.com",
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
+				"submit_button_text" => 'Weiter',
 //				"fileuploadmaxsize" => "100000",
 //				"closed_user_pool" => 0,
 //				"timezone" => "Europe/Berlin",
@@ -207,7 +208,11 @@ class StudyX extends RunUnit
 	}
 	public function getResults()
 	{
-		$get = "SELECT `{$this->name}`.* FROM `{$this->name}`";
+		$get = "SELECT `survey_run_sessions`.session, `{$this->name}`.* FROM `{$this->name}`
+		LEFT JOIN `survey_unit_sessions`
+		ON  `{$this->name}`.session_id = `survey_unit_sessions`.id
+		LEFT JOIN `survey_run_sessions`
+		ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id";
 		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
 		$results = array();
 		while($row = $get->fetch(PDO::FETCH_ASSOC))
@@ -217,10 +222,21 @@ class StudyX extends RunUnit
 	}
 	public function getItemDisplayResults()
 	{
-		$get = "SELECT `survey_unit_sessions`.session, `survey_items_display`.* FROM `survey_items_display` 
+		$get = "SELECT `survey_run_sessions`.session,`survey_items`.variablenname, `survey_items_display`.* FROM `survey_items_display` 
+		
 		LEFT JOIN `survey_unit_sessions`
-		ON `survey_unit_sessions`.id = `survey_items_display`.session_id";
-		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
+		ON `survey_unit_sessions`.id = `survey_items_display`.session_id
+		
+		LEFT JOIN `survey_run_sessions`
+		ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+		
+		LEFT JOIN `survey_items`
+		ON `survey_items_display`.item_id = `survey_items`.id
+		
+		WHERE `survey_items`.study_id = :study_id";
+		$get = $this->dbh->prepare($get) or die(print_r($this->dbh->errorInfo(), true));
+		$get->bindParam(':study_id',$this->id);
+		$get->execute() or die(print_r($this->dbh->errorInfo(), true));
 		$results = array();
 		while($row = $get->fetch(PDO::FETCH_ASSOC))
 			$results[] = $row;
@@ -279,19 +295,28 @@ class StudyX extends RunUnit
 #		pr($this->name);
 		$drop = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}` ;");
 		$drop->execute();
-		$create = "CREATE TABLE `{$this->name}` (
+		$create = "CREATE  TABLE `{$this->name}` (
 		  `session_id` INT UNSIGNED NOT NULL ,
 		  `study_id` INT UNSIGNED NOT NULL ,
-		  `session` CHAR(64) NOT NULL ,
 		  `modified` DATETIME NULL DEFAULT NULL ,
 		  `created` DATETIME NULL DEFAULT NULL ,
 		  `ended` DATETIME NULL DEFAULT NULL ,
-			$columns,
+	
+	$columns,
 		  
 		  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
 		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
-		  UNIQUE INDEX `session_UNIQUE` (`session` ASC) ,
-		  PRIMARY KEY (`session_id`) )
+		  PRIMARY KEY (`session_id`) ,
+		  CONSTRAINT `fk_{$this->name}_survey_unit_sessions1`
+		    FOREIGN KEY (`session_id` )
+		    REFERENCES `survey_unit_sessions` (`id` )
+		    ON DELETE CASCADE
+		    ON UPDATE NO ACTION,
+		  CONSTRAINT `fk_{$this->name}_survey_studies1`
+		    FOREIGN KEY (`study_id` )
+		    REFERENCES `survey_studies` (`id` )
+		    ON DELETE NO ACTION
+		    ON UPDATE NO ACTION)
 		ENGINE = InnoDB";
 #		pr($create);
 
@@ -377,6 +402,15 @@ class StudyX extends RunUnit
 			endif;
 		endforeach;
 	}
+	public function getAverageTimeItTakes()
+	{
+		$get = "SELECT AVG( ended - created) FROM `{$this->name}`";
+		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
+		$time = $get->fetch(PDO::FETCH_NUM);
+		$time = round($time[0] / 60, 2); # seconds to minutes
+		
+		return $time;
+	}
 	public function delete()
 	{
 		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
@@ -391,10 +425,19 @@ class StudyX extends RunUnit
 	public function displayForRun($prepend = '')
 	{
 		if($this->id):
-			$dialog = "<p>
-				<strong>Survey:</strong> <a href='".WEBROOT."admin/{$this->name}/index'>{$this->name}</a>
-			</p>
+			$resultCount = $this->getResultCount();
+			$time = $this->getAverageTimeItTakes();
+			
+			$dialog = "<h3>
+				<strong>Survey:</strong> <a href='".WEBROOT."admin/{$this->name}/index'>{$this->name}</a><br>
+			<small>".(int)$resultCount['finished']." complete results,
+		".(int)$resultCount['begun']." begun</small><br>
+			<small>Takes on average $time minutes</small>
+			</h3>
 			<p>
+			<p class='btn-group'>
+				<a class='btn' href='".WEBROOT."admin/{$this->name}/show_results'>View results</a>
+				<a class='btn' href='".WEBROOT."admin/{$this->name}/show_item_table'>View items</a>
 				<a class='btn' href='".WEBROOT."admin/{$this->name}/access'>Test</a>
 			</p>";
 		else:

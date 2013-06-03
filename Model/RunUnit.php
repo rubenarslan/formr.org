@@ -4,33 +4,61 @@ require_once INCLUDE_ROOT."Model/DB.php";
 class RunUnit {
 	public $errors = array();
 	public $id = null;
+	public $user_id = null;
 	public $session = null;
 	public $unit = null;
 	public $ended = false;
 	public $position;
+	public $called_by_cron = false;
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->unit = $unit;
+		
+		if(isset($unit['run_id']))
+			$this->run_id = $unit['run_id'];
+		
 		if(isset($unit['run_name']))
-			$this->run_name = $unit['run_name'];		
+			$this->run_name = $unit['run_name'];
+
 		if(isset($unit['session_id']))
 			$this->session_id = $unit['session_id'];
+
+		if(isset($unit['run_session_id']))
+			$this->run_session_id = $unit['run_session_id'];
+
+		if(isset($this->unit['unit_id'])) 
+			$this->id = $this->unit['unit_id'];
 		
-		if(isset($this->unit['unit_id'])) $this->id = $this->unit['unit_id'];
-	
+		if(isset($this->unit['cron'])) 
+			$this->called_by_cron = true;
+		
 	}
 	public function create($type)
 	{
 		$c_unit = $this->dbh->prepare("INSERT INTO `survey_units` 
-			SET type = :type ;");
+			SET type = :type,
+		 created = NOW(),
+	 	 modified = NOW();");
 		$c_unit->bindParam(':type', $type);
 		
 		$c_unit->execute() or die(print_r($c_unit->errorInfo(), true));
 		
 		return $this->dbh->lastInsertId();
+	}
+	public function modify($id)
+	{
+		$c_unit = $this->dbh->prepare("UPDATE `survey_units` 
+			SET 
+	 	 modified = NOW()
+	 WHERE id = :id;");
+		$c_unit->bindParam(':id', $id);
+		
+		$success = $c_unit->execute() or die(print_r($c_unit->errorInfo(), true));
+		
+		return $success;
 	}
 	public function addToRun($run_id, $position = 1)
 	{
@@ -81,9 +109,10 @@ class RunUnit {
 		
 		return $affected;
 	}
-	public function end()
+	public function end() // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
 	{
-		$finish_unit = $this->dbh->prepare("UPDATE `survey_unit_sessions` SET `ended` = NOW()
+		$finish_unit = $this->dbh->prepare("UPDATE `survey_unit_sessions` 
+			SET `ended` = NOW()
 			WHERE 
 			`id` = :session_id AND 
 			`unit_id` = :unit_id AND 
@@ -108,7 +137,7 @@ class RunUnit {
 		$reached_unit->bindParam(":unit_id", $this->id);
 		$reached_unit->execute() or die(print_r($reached_unit->errorInfo(), true));
 		$reached = $reached_unit->fetch(PDO::FETCH_ASSOC);
-		return "<span class='hastooltip' title='Number of unfinished sessions'>".(int)$reached['begun']."</span>, <span class='hastooltip' title='Number of finished sessions'>".(int)$reached['finished']."</span>";
+		return "<span class='hastooltip badge' title='Number of unfinished sessions'>".(int)$reached['begun']."</span> <span class='hastooltip badge badge-success' title='Number of finished sessions'>".(int)$reached['finished']."</span>";
 	}
 	public function runDialog($dialog,$icon = '')
 	{
@@ -127,15 +156,11 @@ class RunUnit {
 
 		return '
 			<div>
-				<div class="span1 run_unit_position">
-
-					<input value="'.$position.'" style="width:67px" type="number" name="position['.$this->id.']" class="position" step="1" max="32000" min="-32000"><br>
-					<div class="btn-group">
-						<a href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-small hastooltip" title="Remove unit from run"><i class="icon-remove"></i> Remove</a>
-					</div>
-				</div>
-				<h5 class="span1 run_unit_icon"><i class="icon-4x '.$icon.'"></i><small><br>
-				'.$this->howManyReachedIt().'</small></h5>
+				<div class="span2 run_unit_position">
+				<h1><i class="icon-2x icon-muted '.$icon.'"></i></h1>
+					'.$this->howManyReachedIt().' <button href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-mini hastooltip" title="Remove unit from run"><i class="icon-remove"></i></button>
+<br>
+					<input class="position" value="'.$position.'" type="number" name="position['.$this->id.']" step="1" max="32000" min="-32000"><br>
 			</div>
 			<div class="span7 run_unit_dialog"><input type="hidden" value="'.$this->id.'" name="unit_id">'.$dialog.'</div>';
 	}

@@ -115,7 +115,6 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 // the base class should also work for inputs like date, datetime which are either native or polyfilled but don't require
 // special handling here
 
-// todo: geolocation
 class Item 
 {
 	public $id = null;
@@ -332,25 +331,28 @@ class Item
 			return "`{$this->name}` {$this->mysql_field}";
 		else return null;
 	}
-	public function skip($session_id,$rdb,$results_table)
+	public function skip($session_id, $run_session_id, $rdb, $results_table)
 	{	
 		
 		if($this->skipIf!=null):
 			if(
-			(strpos($this->skipIf,'AND')!==false AND strpos($this->skipIf,'OR')!==false)
-				OR strpos($this->skipIf,'.') !== false
-				): // fixme: SO UNSAFE, should at least use least privilege principle and readonly user (but not on all-inkl...)
+			(strpos($this->skipIf,'AND')!==false AND strpos($this->skipIf,'OR')!==false) // and/or mixed? 
+				OR strpos($this->skipIf,'.') !== false // references to other tables (very simplistic check)
+				): // fixme: SO UNSAFE, should at least use least privilege principle and readonly user (not possible on all-inkl...)
 					$join = join_builder($rdb, $this->skipIf);
-					$q = "SELECT ( {$this->skipIf} ) AS test FROM `survey_unit_sessions`
+					$q = "SELECT ( {$this->skipIf} ) AS test FROM `survey_run_sessions`
 		
 					$join
 		
 					WHERE 
-					`session_id` = :session_id
+					`survey_run_sessions`.`id` = :run_session_id
+
+					ORDER BY IF(ISNULL( ( {$this->skipIf} ) ),1,0), `survey_unit_sessions`.id DESC
+		
 					LIMIT 1";
 		
 					$evaluate = $rdb->prepare($q); // should use readonly
-					$evaluate->bindParam(":session_id", $this->session_id);
+					$evaluate->bindParam(":run_session_id", $run_session_id);
 
 					$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
 					if($evaluate->rowCount()===1):
@@ -1002,7 +1004,7 @@ class Item_btnradio extends Item_mc
 // dropdown select, choose multiple
 class Item_btnrating extends Item_btnradio 
 {
-	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	protected $mysql_field = 'SMALLINT DEFAULT NULL';
 	protected function setMoreOptions() 
 	{	
 		parent::setMoreOptions();
@@ -1151,4 +1153,6 @@ class Item_place extends Item_text
  * todo: item - facebook connect?
  * todo: item - IP
  * todo: _GET items for presetting 
+ * todo: geolocation
+
 */

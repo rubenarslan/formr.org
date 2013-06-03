@@ -1,11 +1,13 @@
-$.webshims.polyfill('forms forms-ext');
 $.webshims.setOptions('forms', {
-       customDatalist: true
+       customDatalist: true,
+	   waitReady: false
 });
+$.webshims.polyfill('es5 forms forms-ext');
+
 $(document).ready(function() {
     $('.range_list_output').each(function () {
         var output = $('output', this);
-		console.log(output);	
+//		console.log(output);	
         var change = function () {
             output.text($(this).prop('value') || '');
         };
@@ -13,7 +15,7 @@ $(document).ready(function() {
             .on('input', change)
             .each(change);
     });
-	
+	// fixme: FOUCs for btnratings etc in IE8
 	$('div.btn-radio button.btn').off('click').click(function(event){
 		var $btn = $(this);
 		$('#'+$btn.attr('data-for')).attr('checked',true); // couple with its radio button
@@ -55,7 +57,7 @@ $(document).ready(function() {
 	$('label.btn-remove').off('click').click(function(event){
 		var $btn = $(this);
 		var checked = $btn.find('input').attr('checked');
-		console.log(!checked);
+//		console.log(!checked);
 		$btn.find('input').attr('checked',!checked); // couple with its radio button
 		$btn.toggleClass('btn-checked',!checked); // check this one
 		return false;
@@ -107,9 +109,47 @@ $(document).ready(function() {
 			return "Bitte geben Sie mindestens 3 Zeichen ein."
 		},
 		formatNoMatches: function (term) {
-			return "Ort nicht gefunden, bitte geben Sie ihn selbst ein."					
+			return "Ort nicht gefunden, bitte geben Sie den nächstgelegenen größeren Ort ein."					
 		}
 	});
 	
-	$('.hastooltip').tooltip();
+	$('.hastooltip').tooltip({
+		container: 'body'
+	});
 });
+function bootstrap_alert(message,bold) 
+{
+	var $alert = $('<div class="alert alert-error"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold:'Problem' ) + '</strong> ' + message + '</div>');
+	$alert.insertAfter( $('nav') );
+	$alert[0].scrollIntoView(false);
+}
+
+function ajaxErrorHandling (e, x, settings, exception) 
+{
+	var message;
+	var statusErrorMap = 
+	{
+	    '400' : "Server understood the request but request content was invalid.",
+	    '401' : "You don't have access.",
+	    '403' : "You were logged out while coding, please open a new tab and login again. This way no data will be lost.",
+	    '404' : "Page not found.",
+	    '500' : "Internal Server Error.",
+	    '503' : "Server can't be reached."
+	};
+	if (e.status) 
+	{
+	    message =statusErrorMap[e.status];
+		if(!message)
+			message= (typeof e.statusText != 'undefined' && e.statusText != 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
+	}
+	else if(e.statusText=='parsererror')
+	    message="Parsing JSON Request failed.";
+	else if(e.statusText=='timeout')
+	    message="The attempt to save timed out. Are you connected to the internet?";
+	else if(e.statusText=='abort')
+	    message="The request was aborted by the server.";
+	else
+		message= (typeof e.statusText != 'undefined' && e.statusText != 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
+
+	bootstrap_alert(message, 'Fehler.');
+}

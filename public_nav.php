@@ -6,7 +6,7 @@
 
 if($user->isAdmin()):
    ?>
-    <li><a href="<?=WEBROOT?>acp/acp"><?php echo _("admin control panel"); ?></a></li>   
+    <li><a href="<?=WEBROOT?>acp/index"><?php echo _("admin control panel"); ?></a></li>   
    <?php
 endif;
 if($user->loggedIn()):

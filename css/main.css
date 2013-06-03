@@ -1,7 +1,14 @@
-@media (min-width: 940px) { 
+header.study-header {
+	/*width:940px;*/
+	background-image:url(../../img/Study_header_big.png);
+	height:208px;
+	background-repeat:no-repeat;
+	background-position:center 5px;
+}
+@media (max-width: 940px) { 
 	header.study-header {
-		background-image:url(../../img/Study_header_big.png);
-		height:208px;
+		background-image: none;
+		height:auto;
 	}
 }
 @media (min-width: 1170px) {
@@ -9,13 +16,14 @@
 		margin-left:-230px;
 	}
 }
-header.study-header {
-	background-repeat:no-repeat;
-	background-position:center 5px;
+
+.maincontent
+{
+	margin-left:60px;
 }
 
 
-button.btn.btn-checked,label.btn.btn-checked {
+button.btn.btn-checked,label.btn.btn-checked,a.btn.btn-checked {
   background-color: #e6e6e6;
   background-color: #d9d9d9 \9;
   background-image: none;
@@ -42,7 +50,7 @@ button.btn.btn-checked,label.btn.btn-checked {
 	margin-left: -30px;
 	margin-right: 17px;
 }
-.control-group.controls-checkbox label {
+.control-group.controls-checkbox label,label.inline {
 	display:inline;
 	width:330px;
 }
@@ -124,16 +132,15 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
 }
 
 
-input.position
+.run_unit_position input
 {
 	border:0;
 	box-shadow:none;
-	background:transparent;
 	font-weight:bold;
 	font-size:50px;
 	height:53px;
-	text-align:right;
-	width:53px;
+	width:110px;
+	text-align:left
 }
 div.run_unit {
 	padding-bottom:20px;
@@ -142,9 +149,13 @@ div.run_unit {
 a [class^="icon-"], a [class*=" icon-"], a [class^="icon-"]:before, a [class*=" icon-"]:before {
     display: inline-block;
 }
-.icon-6-5x
+.icon-1-5x
 {
-	font-size:6.5em;
+	font-size:1.7em;
+}
+.icon-2-5x
+{
+	font-size:2.5em;
 }
 output.output {
     
@@ -264,4 +275,8 @@ form.form-horizontal div.form-row.item-radio.control-group.mc-width200 div.contr
 form.form-horizontal div.form-row.item-checkbox.control-group.mc-width200 div.controls label,
 form.form-horizontal div.form-row.control-group.mc-width200 div.controls button.btn {
 	width:150px;
+}
+.table tbody > tr.alternate > td
+{
+	background-color:#F9F9F9;
 }

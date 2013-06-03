@@ -2,8 +2,6 @@
 require_once '../define_root.php';
 require_once INCLUDE_ROOT . "admin/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Site.php";
-require_once INCLUDE_ROOT . "Model/Run.php";
-$run = new Run($fdb, $_GET['run_name']);
 require_once INCLUDE_ROOT . "Model/RunUnit.php";
 
 $to_delete = $_POST['unit_id'];
