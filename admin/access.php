@@ -27,5 +27,5 @@ if($has_access):
 	redirect_to($goto);
 else:
 	alert("<strong>Sorry.</strong> You don't have access to this study",'alert-error');
-	redirect_to("index.php");	
+	redirect_to("index");	
 endif;
