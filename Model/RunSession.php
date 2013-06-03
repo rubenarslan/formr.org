@@ -213,6 +213,8 @@ class RunSession
 				if($success):
 					$this->position = (int)$position;
 					return true;
+				else:
+					alert(__('<strong>Error.</strong> Could not edit run session position for unit %s at pos. %s.', $unit_id, $position), 'alert-error');
 				endif;
 			else:
 				alert(__('<strong>Error.</strong> Could not create unit session for unit %s at pos. %s.', $unit_id, $position), 'alert-error');

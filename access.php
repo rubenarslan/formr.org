@@ -13,5 +13,5 @@ if(isset($_GET['run_name']) AND isset($_GET['code']) AND strlen($_GET['code'])==
 	redirect_to($_GET['run_name']);
 else:
 	alert("<strong>Sorry.</strong> Something went wrong when you tried to access.",'alert-error');
-	redirect_to("index.php");
+	redirect_to("index");
 endif;
