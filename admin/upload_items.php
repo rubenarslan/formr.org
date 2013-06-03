@@ -10,18 +10,16 @@ require_once INCLUDE_ROOT.'admin/admin_nav.php';
 
 <div class="span8">
 
-<p>Die Datei muss folgenden Kriterien genügen:</p>
+<p>The item table has to fulfill the following criteria:</p>
 
 <ol>
-<li>Datei muss entweder .csv, .xls, .xlsx, .ods (OpenOffice), .xml oder .txt sein.</li>
-<li>.csv-Dateien brauchen Komma als Feldtrenner, "" als Feldmarkierung und UTF-8 als Textkodierung. Besser nicht mehr benutzen.</li>
-<li>In der ersten Zeile müssen die Variablennamen stehen (die erste Zeile wird  nicht übernommen!)</li>
-<li>Folgende Spalten können vorkommen (* Pflicht): <ul>
-	<li>variablenname*</li>
-	<li>typ*</li>
+<li>The format must be one of .csv, .xls, .xlsx, .ods (OpenOffice), .xml, .txt</li>
+<li>.csv-files have to use the comma as a separator, "" as escape characters and UTF-8 as the charset. Because there are inconsistencies when creating CSV files using various spreadsheet programs (e.g. German excel), you should probably steer clear of this.</li>
+<li>The first line has to contain the column names you used.</li>
+<li>The following column names are used. You can add others, they will be ignored.<ul>
+	<li><strong>variablenname</strong> (mandatory)</li>
+	<li><strong>typ</strong> (mandatory)</li>
 	<li>wortlaut</li>
-	<li>altwortlautbasedon</li>
-	<li>altwortlaut</li>
 	<li>antwortformatanzahl</li>
 	<li>ratinguntererpol</li> 
 	<li>ratingobererpol</li>

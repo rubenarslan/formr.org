@@ -190,7 +190,7 @@ class SpreadsheetReader
 				
 					elseif($col == 'variablenname'):
 						if(trim($val)==''):
-							$messages[] = "Zeile $row_number: Variablenname leer. Zeile übersprungen.";
+							$messages[] = "Row $row_number: variable name empty. Row skipped.";
 							if(isset($data[$row_number])):
 								unset($data[$row_number]);
 							endif;
@@ -202,13 +202,13 @@ class SpreadsheetReader
 						endif;
 					
 						if(in_array($val,array('session_id','created','modified','ended'))):
-							$errors[] = "Zeile $row_number: Itemname '$val' ist nicht erlaubt.";
+							$errors[] = "Row $row_number: variable name '$val' is not permitted.";
 						endif;
 
 						if(($previous = array_search(strtolower($val),$variablennames)) === false):
 							$variablennames[$row_number] = strtolower($val);	
 						else:
-							$errors[] = "Zeile $row_number: Itemname '$val' kam bereits vor, zuletzt in Zeile $previous.";
+							$errors[] = "Row $row_number: variable name '$val' already appeared, last in row $previous.";
 						endif;
 					elseif($col == 'wortlaut' OR $col == 'altwortlaut'):
 						$val = Markdown::defaultTransform($val); // transform upon insertion into db instead of at runtime
@@ -221,7 +221,7 @@ class SpreadsheetReader
 					elseif( is_int( $pos = strpos("mcalt",$col) ) ):
 					  $nr = substr($col, $pos + 5);
 					  if(trim($val) != '' AND $nr > $data[$row_number]['antwortformatanzahl'] ): 
-						  $errors[] = "Zeile $row_number: mehr Antwortoptionen als angegeben!";
+						  $errors[] = "Row $row_number: You specified to many choices!";
 					  endif;
 
 					endif; // validation

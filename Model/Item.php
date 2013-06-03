@@ -706,15 +706,25 @@ class Item_time extends Item
 	
 }
 
+class Item_url extends Item 
+{
+	public $type = 'url';
+	protected $prepend = 'icon-link';
+	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	
+}
+
 class Item_date extends Item 
 {
 	public $type = 'date';
+	protected $prepend = 'icon-calendar';	
 	protected $mysql_field = 'DATE DEFAULT NULL';
 }
 
 class Item_yearmonth extends Item_date 
 {
 	public $type = 'yearmonth';
+	protected $prepend = 'icon-calendar-empty';	
 	public function validateInput($reply)
 	{
 		$reply = $reply.'-01'; # add day part, so it can be stored in a date field
@@ -729,12 +739,14 @@ class Item_month extends Item_yearmonth
 class Item_datetime extends Item 
 {
 	public $type = 'datetime';
+	protected $prepend = 'icon-calendar';
 	protected $mysql_field = 'DATETIME DEFAULT NULL';
 }
 
 class Item_year extends Item 
 {
 	public $type = 'year';
+	protected $prepend = 'icon-calendar-empty';	
 	protected $mysql_field = 'YEAR DEFAULT NULL';
 }
 
