@@ -198,12 +198,13 @@ LIMIT 1";
 		
 		if(!$mail->Send())
 		{
-		   alert($mail->ErrorInfo,'alert-error');
+			$this->mail_sent = false;
+			alert($mail->ErrorInfo,'alert-error');
 		}
 		else 
 		{
 			$this->mail_sent = true;
-	    	if($who===null) $this->logMail();
+	    	$this->logMail();
 		}
 	}
 	private function logMail()

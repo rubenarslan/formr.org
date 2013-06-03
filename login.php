@@ -13,7 +13,7 @@ if(!empty($_POST)) {
 	)
 	{
 		alert('<strong>Success!</strong> You were logged in!', 'alert-success');
-		redirect_to('index.php');
+		redirect_to('index');
 	}
 	else {
 		alert(implode($user->errors),'alert-error');

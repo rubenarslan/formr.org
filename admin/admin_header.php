@@ -4,7 +4,7 @@ require_once INCLUDE_ROOT . "Model/Site.php";
 
 if(!$user->loggedIn() AND !$user->isAdmin()) {
 	alert("<strong>Sorry:</strong> Only admins have access.",'alert-info');
-	redirect_to("index.php");
+	redirect_to("index");
 }
 
 if(isset($_GET['study_name'])):
