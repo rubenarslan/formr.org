@@ -1,6 +1,7 @@
 $.webshims.setOptions('forms', {
        customDatalist: true,
-	   waitReady: false
+	   waitReady: false,
+	   addValidators: true
 });
 $.webshims.polyfill('es5 forms forms-ext');
 

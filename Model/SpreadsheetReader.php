@@ -184,7 +184,7 @@ class SpreadsheetReader
 					if(!array_key_exists($column_number,$columns)) continue; // skip columns that aren't allowed
 				
 					$col = $columns[$column_number];
-					$val = $cell->getCalculatedValue();
+					$val = $cell->getValue();
 					if($col == 'id'):
 						$val = $row_number;
 				
@@ -196,7 +196,7 @@ class SpreadsheetReader
 							endif;
 							continue 2; # skip this row
 								
-						elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,20}/",$val)):
+						elseif(!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,20}$/",$val)):
 							$errors[] = __("The variable name '%s' is invalid. It has to be between 3 and 20 characters. It needs to start with a letter and may not contain anything other than a-Z_0-9.",$val);
 
 						endif;
@@ -213,7 +213,9 @@ class SpreadsheetReader
 					elseif($col == 'wortlaut' OR $col == 'altwortlaut'):
 						$val = Markdown::defaultTransform($val); // transform upon insertion into db instead of at runtime
 					elseif($col == 'optional'):
-						$val = ($val===null OR $val===0) ? 0 : 1; // allow * etc.
+						if($val==='*') $val = 1;
+						elseif($val==='!') $val = 0;
+						else $val = null;
 					elseif($col == 'ratinguntererpol'):
 						$col = 'MCalt1';
 					elseif($col == 'ratingobererpol'):
