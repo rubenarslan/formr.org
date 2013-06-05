@@ -73,6 +73,35 @@ $(document).ready(function() {
 	if(host=='localhost:8888') host = host + "/jena";
 	var url = protocol + '//' + host + "/";
 	
+	$("input.select2add").each(function(i,elm)
+	{
+		var slct = $(elm); 
+		slct.select2({
+			createSearchChoice:function(term, data)
+				{ 
+					if ($(data).filter(function() 
+					{ 
+						return this.text.localeCompare(term)===0; 
+					}).length===0) 
+					{
+						return {id:term, text:term};
+					}
+				},
+		    initSelection : function (element, callback) {
+				var data = {id: element.val(), text: element.val()};
+				$.each(test_stats, function(k, v) {
+				                       if(v.id ==  element.val()) {
+				                           data = v;
+				                           return false;
+				                       } 
+	            });
+		        callback(data);
+		    },
+			data: $.parseJSON(slct.attr('data-select2add')), 
+			multiple: !!slct.prop('multiple'), 
+			allowClear: true,
+		});
+	});
 	$('.select2place').select2({
 	    ajax: {
 	        url: url + "places/search",

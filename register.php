@@ -2,6 +2,7 @@
 require_once 'define_root.php';
 require_once 'Model/Site.php';
 
+//fixme: cookie problems lead to fatal error with missing user code
 if($user->loggedIn()) {
 	alert('You were already logged in. Please logout before you can register.','alert-info');
 	redirect_to("index");
