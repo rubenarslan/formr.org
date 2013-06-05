@@ -1,5 +1,3 @@
-admin/upload/*.csv
-admin/upload/
-log/*
+tmp/*
 *.*~
 .DS_Store
