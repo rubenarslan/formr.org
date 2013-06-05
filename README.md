@@ -4,28 +4,27 @@
 
 You can design simple surveys using this framework.  
 Surveys are series of questions that are created using simple spreadsheets/**item tables** (ie. Excel, OpenOffice, etc.: *.xls, *.ods, *.xlsx, *.csv etc.).
+Survey results are stored in MySQL tables of the same name (using only the characters `a-zA-Z0-9_`), which can be used for various conditions later on.
 
 ### Item table criteria
 
 * The format must be one of .csv, .xls, .xlsx, .ods (OpenOffice), .xml, .txt
-* The first line has to contain the column names you used.
-* The following column names are used. You can add others, they will be ignored. The order doesn't matter.
-	* **variablenname** (mandatory)
-	* **typ** (mandatory)
-	* wortlaut
-	* antwortformatanzahl
-	* ratinguntererpol 
-	* ratingobererpol
-	* MCalt1-14
+* The first line has to contain the column names you used. The order doesn't matter.
+* The following column names are used. You can add others, they will be ignored. 
+	* **variablenname** (mandatory). This can only contain `a-zA-Z0-9_`
+	* **typ** (mandatory). See below.
+	* wortlaut. You can use [Markdown](http://daringfireball.net/projects/markdown/) and HTML in the question texts.
+	* antwortformatanzahl (deprecated, can be written as part of *typ*)
+	* ratinguntererpol (deprecated, it's simply translated to MCalt1)
+	* ratingobererpol (deprecated)
+	* MCalt1-14 (choices, should probably be on a different sheet)
 	* skipif
 
-### Text
-You can use [Markdown](http://daringfireball.net/projects/markdown/) and HTML in the question texts.
 
 ### Items
 Surveys support the following item types. HTML5 form elements and validation are used and polyfilled when necessary using the [Webshims lib](http://afarkas.github.io/webshim/demos/index.html).
 
-* `instruction` display text. instructions are displayed at least once and disappear only when there is no unanswered items left behind them (so putting an instruction directly before another ensures it will be displayed only once)
+* `instruction` display text. instructions are displayed at least once and disappear only when there are no unanswered items left behind them (so putting an instruction directly before another ensures it will be displayed only once)
 * `submit` display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for `skipIf` or substitutions have been given. 
 * multiple choice family
 	* `mc` multipe choice (radio buttons), you can choose only one. Choices are (currently) defined using the MCalt1-12 columns
@@ -55,7 +54,7 @@ Surveys support the following item types. HTML5 form elements and validation are
 	* `month`, `yearmonth` etc. should work too
 * `url`, `cc`, `color`, `tel` should work too
 
-### skipIfs
+### skipIf
 
 You can make item display contingent on simple and complex conditions like `(survey1.married = 1) OR (survey2.in_relationship = 1 AND survey2.cohabit = 1)`.
 
@@ -74,8 +73,19 @@ Runs allow you to:
 * send e-mail invites and reminders
 * implement delays
 * add external modules
-* soon: loop surveys and thus enable diaries, experience-sampling studies etc.
+* loop surveys and thus enable diaries, experience-sampling studies etc.
 * soon: give feedback based on user input (already primitively possible using branches)
+
+### Problems and plans
+
+#### Security
+##### Database
+End user input is properly escaped where necessary, we use prepared queries etc.  
+However, study creators could potentially wreak havoc, because they can write SQL expressions for skipIfs, substitutions, branches, etc. This could be ameliorated by using the least privilege principle, i.e. where these SQL expressions are allowed users can only read the tables that they created.  
+For now, the system assumes a high level of trust in study creators.
+
+##### API
+Todo: Should be storing an API key hash, not the API key itself.
 
 ### Credit
 

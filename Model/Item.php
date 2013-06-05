@@ -14,6 +14,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 	$options['displayed_before'] = (int)@$item['displaycount'];
 	$options['class'] = @$item['class'];
 	$options['optional'] = @$item['optional'];
+	
 	$options['skipIf'] = @$item['skipif'];
 
 	$reply_options = array();
@@ -70,6 +71,8 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 		case "mmc":
 		case "select":
 		case "mselect":
+		case "select_add":
+		case "mselect_add":
 		case "range":
 		case "range_list":
 		case "btnradio":
@@ -250,6 +253,7 @@ class Item
 	public function __construct($name,$options = array()) 
 	{ 
 		global $allowedtypes;
+		
 		$this->allowedTypes = $allowedtypes;
 		
 		$this->id = isset($options['id']) ? $options['id'] : 0;
@@ -987,6 +991,39 @@ class Item_mselect extends Item_select
 	}
 }
 
+
+// dropdown select, choose one
+class Item_select_add extends Item
+{
+	public $type = 'text';
+	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	protected function setMoreOptions() 
+	{
+		parent::setMoreOptions();
+		$this->classes_input[] = 'select2add';
+		$for_select2 = array();
+		foreach($this->reply_options AS $option)
+			$for_select2[] = array('id' => $option, 'text' => $option);
+
+		$this->input_attributes['data-select2add'] = json_encode($for_select2);
+	}
+}
+class Item_mselect_add extends Item_select_add
+{
+	public $type = 'text';
+	protected $mysql_field = 'TEXT DEFAULT NULL';
+	protected function setMoreOptions() 
+	{
+		parent::setMoreOptions();
+		$this->input_attributes['multiple'] = true;
+	}
+	public function validateInput($reply)
+	{
+		$reply = parent::validateInput($reply);
+		if(is_array($reply)) $reply = implode("\n",array_filter($reply));
+		return $reply;
+	}
+}
 
 // dropdown select, choose multiple
 class Item_btnradio extends Item_mc 
