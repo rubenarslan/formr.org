@@ -33,10 +33,10 @@ function empty_column($col,$arr)
 $empty_columns = array();
 
 foreach(current($results) AS $field => $value):
-	if( !isset($choices) AND strtolower(substr($field,0,5)) === 'mcalt'):
+	if( !isset($choices) AND strtolower(substr($field,0,5)) === 'choice'):
 		$choices = true;
 		$field = 'choices';
-	elseif(strtolower(substr($field,0,5)) === 'mcalt'):
+	elseif(strtolower(substr($field,0,5)) === 'choice'):
 		continue;
 	else:
 		if(empty_column($field,$results) OR in_array($field, array('id','study_id'))):
@@ -65,7 +65,7 @@ foreach($results AS $row):
 			continue;
 		
 		
-		if(strtolower(substr($field,0,5)) == 'mcalt')
+		if(strtolower(substr($field,0,5)) == 'choice')
 		{
 			if(strtolower(substr($field,5))==1):
 				echo '<td>';

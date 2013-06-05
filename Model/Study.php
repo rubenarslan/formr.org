@@ -131,7 +131,7 @@ class Study extends RunUnit
 		return true;
 	}
 	protected $user_defined_columns = array(
-		'variablenname', 'wortlaut', 'altwortlautbasedon', 'altwortlaut', 'typ', 'antwortformatanzahl', 'mcalt1', 'mcalt2', 'mcalt3', 'mcalt4', 'mcalt5', 'mcalt6', 'mcalt7', 'mcalt8', 'mcalt9', 'mcalt10', 'mcalt11', 'mcalt12', 'mcalt13', 'mcalt14', 'optional', 'class' ,'skipif' // study_id is not among the user_defined columns
+		'variablenname', 'wortlaut', 'altwortlautbasedon', 'altwortlaut', 'typ', 'antwortformatanzahl', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'optional', 'class' ,'skipif' // study_id is not among the user_defined columns
 	);
 	public function insertItems($items)
 	{
@@ -151,7 +151,7 @@ class Study extends RunUnit
 	        typ,
 	        optional,
 	        antwortformatanzahl,
-	        MCalt1, MCalt2,	MCalt3,	MCalt4,	MCalt5,	MCalt6,	MCalt7,	MCalt8,	MCalt9,	MCalt10, MCalt11,	MCalt12,	MCalt13,	MCalt14,
+	        choice1, choice2,	choice3,	choice4,	choice5,	choice6,	choice7,	choice8,	choice9,	choice10, choice11,	choice12,	choice13,	choice14,
 	        class,
 	        skipif) VALUES (
 			:study_id,
@@ -162,7 +162,7 @@ class Study extends RunUnit
 			:typ,
 			:optional,
 			:antwortformatanzahl,
-			:mcalt1, :mcalt2,	:mcalt3,	:mcalt4,	:mcalt5,	:mcalt6,	:mcalt7,	:mcalt8,	:mcalt9,	:mcalt10, :mcalt11,	:mcalt12,	:mcalt13,	:mcalt14,
+			:choice1, :choice2,	:choice3,	:choice4,	:choice5,	:choice6,	:choice7,	:choice8,	:choice9,	:choice10, :choice11,	:choice12,	:choice13,	:choice14,
 			:class,
 			:skipif
 			)');

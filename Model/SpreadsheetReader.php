@@ -109,6 +109,23 @@ class SpreadsheetReader
 	    $objWriter->save('php://output');
 	    exit;
 	}
+	private function translate_legacy_column($col)
+	{
+		if(strtolower($col)=='variablenname')
+			$col = 'name';
+		elseif(strtolower($col)=='typ')
+			$col = 'type'
+		elseif(strtolower($col)=='wortlaut' or strtolower($col)=='text')
+			$col = 'text'
+		elseif(strtolower(substr($col,0,5))=='mcalt')
+			$col = 'choice'.substr($field,5);
+		elseif(strtolower($col)=='ratinguntererpol')
+			$col = 'choice1';
+		elseif(strtolower($col)=='ratingobererpol')
+			$col = 'choice2';
+		
+		return strtolower($col);
+	}
 	public function readItemTableFile($inputFileName)
 	{
 		$errors = $messages = array();
@@ -145,8 +162,8 @@ class SpreadsheetReader
 	  //  Get worksheet dimensions
 		$worksheet = $objPHPExcel->getSheet(0); // fixme: get sheet named items in the future
 	
-		$allowed_columns = array('id', 'variablenname', 'wortlaut', 'altwortlautbasedon', 'altwortlaut', 'typ', 'antwortformatanzahl', 'ratinguntererpol', 'ratingobererpol', 'MCalt1', 'MCalt2', 'MCalt3', 'MCalt4', 'MCalt5', 'MCalt6', 'MCalt7', 'MCalt8', 'MCalt9', 'MCalt10', 'MCalt11', 'MCalt12', 'MCalt13', 'MCalt14', 'optional', 'class' ,'skipif');
-		$used_columns = array('id', 'variablenname', 'wortlaut', 'altwortlautbasedon', 'altwortlaut', 'typ', 'antwortformatanzahl', 'MCalt1', 'MCalt2', 'MCalt3', 'MCalt4', 'MCalt5', 'MCalt6', 'MCalt7', 'MCalt8', 'MCalt9', 'MCalt10', 'MCalt11', 'MCalt12', 'MCalt13', 'MCalt14', 'optional', 'class' ,'skipif');
+		$allowed_columns = array('id', 'variablenname', 'wortlaut', 'altwortlautbasedon', 'altwortlaut', 'typ', 'antwortformatanzahl', 'ratinguntererpol', 'ratingobererpol', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'optional', 'class' ,'skipif');
+		$used_columns = array('id', 'variablenname', 'wortlaut', 'altwortlautbasedon', 'altwortlaut', 'typ', 'antwortformatanzahl', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'optional', 'class' ,'skipif');
 		$allowed_columns = array_map('strtolower', $allowed_columns);
 		$used_columns = array_map('strtolower', $used_columns);
 
@@ -185,6 +202,9 @@ class SpreadsheetReader
 				
 					$col = $columns[$column_number];
 					$val = $cell->getCalculatedValue();
+					
+					$col = $this->translate_legacy_column($col);
+					
 					if($col == 'id'):
 						$val = $row_number;
 				
@@ -210,21 +230,16 @@ class SpreadsheetReader
 						else:
 							$errors[] = "Row $row_number: variable name '$val' already appeared, last in row $previous.";
 						endif;
-					elseif($col == 'wortlaut' OR $col == 'altwortlaut'):
+					elseif($col == 'label'):
 						$val = Markdown::defaultTransform($val); // transform upon insertion into db instead of at runtime
 					elseif($col == 'optional'):
 						$val = ($val===null OR $val===0) ? 0 : 1; // allow * etc.
-					elseif($col == 'ratinguntererpol'):
-						$col = 'MCalt1';
-					elseif($col == 'ratingobererpol'):
-						$col = 'MCalt2';
-					elseif( is_int( $pos = strpos("mcalt",$col) ) ):
-					  $nr = substr($col, $pos + 5);
-					  if(trim($val) != '' AND $nr > $data[$row_number]['antwortformatanzahl'] ): 
-						  $errors[] = "Row $row_number: You specified to many choices!";
-					  endif;
+					elseif( is_int( $pos = strpos("choice",$col) ) ):
+					  $nr = substr($col, 5);
+					  
+				  endif;
 
-					endif; // validation
+				endif; // validation
 				
 			  
 				$data[$row_number][ $col ] = $val;
