@@ -58,7 +58,8 @@ if (empty($errors)):
 #		var_dump($_FILES);
 #	} else 
 #	{
-		$messages[] = "Datei $target wurde hochgeladen";
+		$filename = basename( $_FILES['uploaded']['name']);
+		$messages[] = "File <b>$filename</b> was uploaded";
 #	}
 endif;
 
