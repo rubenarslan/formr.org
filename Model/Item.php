@@ -45,13 +45,13 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 			{
 				$lower = $item['ratinguntererpol'];
 				$upper = $item['ratingobererpol'];
-			} elseif(isset($item['MCalt1']) ) 
+			} elseif(isset($item['choicee1']) ) 
 			{
-				$lower = $item['MCalt1'];
-				if(isset($item['MCalt2']) AND $item['MCalt2'] != '')
-					$upper = $item['MCalt2'];	
+				$lower = $item['choicee1'];
+				if(isset($item['choicee2']) AND $item['choicee2'] != '')
+					$upper = $item['choicee2'];	
 				else 
-					$upper = $item['MCalt'.$options['size']];	
+					$upper = $item['choicee'.$options['size']];	
 			} else 
 			{
 				$reply_options = range(1, $options['size']);
@@ -82,8 +82,8 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 						
 			for($op = 1; $op <= 12; $op++) 
 			{
-				if(isset($item['MCalt'.$op]))
-					$reply_options[ $op ] = $item['MCalt'.$op];
+				if(isset($item['choicee'.$op]))
+					$reply_options[ $op ] = $item['choicee'.$op];
 			}
 			$class = "Item_".$type;
 		

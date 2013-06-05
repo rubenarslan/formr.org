@@ -23,7 +23,7 @@ require_once INCLUDE_ROOT.'admin/admin_nav.php';
 	<li>antwortformatanzahl</li>
 	<li>ratinguntererpol</li> 
 	<li>ratingobererpol</li>
-	<li>MCalt1, MCalt2,	MCalt3,	MCalt4,	MCalt5,	MCalt6,	MCalt7,	MCalt8,	MCalt9,	MCalt10, MCalt11,	MCalt12,	MCalt13,	MCalt14</li>
+	<li>choice1, choice2,	choice3,	choice4,	choice5,	choice6,	choice7,	choice8,	choice9,	choice10, choice11,	choice12,	choice13,	choice14</li>
 	<li>skipif</li>
 </ul>
 </li>
