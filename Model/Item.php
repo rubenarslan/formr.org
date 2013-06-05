@@ -292,15 +292,20 @@ class Item
 				$this->classes_wrapper[] = "warning";
 		}
 		
+		$this->input_attributes['name'] = $this->name;
+		
+		$this->setMoreOptions();
+
 		if(isset($options['optional']) AND $options['optional']) 
 		{
 			$this->optional = true;
 			unset($options['optional']);
 		}
-		$this->input_attributes['name'] = $this->name;
+		elseif(isset($options['optional']) AND !$options['optional'])
+		{ 
+			$this->optional = false;
+		} // else optional stays default
 		
-		$this->setMoreOptions();
-
 		if(!$this->optional) 
 		{
 			$this->classes_wrapper[] = 'required';
@@ -811,7 +816,8 @@ class Item_mc extends Item
 	
 	public function validateInput($reply)
 	{
-		if(!empty($this->reply_options) AND
+		if( !($this->optional AND $reply=='') AND
+		!empty($this->reply_options) AND // check
 			( is_string($reply) AND !in_array($reply,array_keys($this->reply_options)) ) OR // mc
 				( is_array($reply) AND $diff = array_diff($reply, array_keys($this->reply_options) ) AND !empty($diff) && current($diff) !=='' ) // mmc
 		) // invalid multiple choice answer 
@@ -882,10 +888,14 @@ class Item_mmc extends Item_mc
 	protected function setMoreOptions() 
 	{
 		$this->input_attributes['name'] = $this->name . '[]';
+		$this->classes_input[] = 'group-required';
 	}
 	
 	protected function render_input() 
 	{
+#		$this->classes_wrapper = array_diff($this->classes_wrapper, array('required'));
+		unset($this->input_attributes['required']);
+		
 		$ret = '
 			<input type="hidden" value="" id="item' . $this->id . '_" '.self::_parseAttributes($this->input_attributes,array('id','type','required')).'>
 		';
