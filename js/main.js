@@ -3,7 +3,11 @@ $.webshims.setOptions('forms', {
 	   waitReady: false,
 	   addValidators: true
 });
+$.webshims.setOptions('forms-ext', {
+       types: 'range date time number month color',
+});
 $.webshims.polyfill('es5 forms forms-ext');
+$.webshims.activeLang('de');
 
 $(document).ready(function() {
     $('.range_list_output').each(function () {
