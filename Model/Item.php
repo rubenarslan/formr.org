@@ -35,6 +35,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 		
 		$options['type_options'] = $type_options;
 	}
+	$type = str_replace("-","_", $type); // so datetime-local can be entered intuitively
 	$options['type'] = $type;
 
 	// INSTRUCTION
@@ -80,7 +81,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 		case "btnrating":
 			$reply_options = array();
 						
-			for($op = 1; $op <= 12; $op++) 
+			for($op = 1; $op <= 14; $op++) 
 			{
 				if(isset($item['choicee'.$op]))
 					$reply_options[ $op ] = $item['choicee'.$op];
@@ -106,6 +107,7 @@ function legacy_translate_item($item) { // may have been a bad idea to name (arr
 			$class = "Item_".$type;
 			if(!class_exists($class,false)) // false to combat false positives using the spl_autoloader 
 				$class = 'Item';
+			
 			$item = new $class($name, $options);
 
 			break;
@@ -474,7 +476,7 @@ class Item
 			(is_array($reply) AND count($reply)===1 AND current($reply)===''))
 		) // missed a required field
 		{
-			$this->error = _("This field is required.");			
+			$this->error = _("Bitte beantworte diese Frage auch.");			
 		}
 		return $reply;
 	}
@@ -705,15 +707,6 @@ class Item_email extends Item
 	
 }
 
-// time is polyfilled, we prepended a clock
-class Item_time extends Item 
-{
-	public $type = 'time';
-	protected $prepend = 'icon-time';
-	protected $input_attributes = array('style' => 'width:80px');
-	protected $mysql_field = 'TIME DEFAULT NULL';
-	
-}
 
 class Item_url extends Item 
 {
@@ -723,17 +716,84 @@ class Item_url extends Item
 	
 }
 
-class Item_date extends Item 
+
+class Item_datetime extends Item 
+{
+	public $type = 'datetime';
+	protected $prepend = 'icon-calendar';	
+	protected $mysql_field = 'DATETIME DEFAULT NULL';
+	protected $html5_date_format = 'Y-m-dTH:i';
+	protected function setMoreOptions() 
+	{
+#		$this->input_attributes['step'] = 'any';
+		
+		if(isset($this->type_options) AND is_array($this->type_options))
+		{
+			if(count($this->type_options) == 1) 
+				$this->type_options = explode(",",current($this->type_options));
+
+			$min = trim(reset($this->type_options));
+			if(strtotime($min)) $this->input_attributes['min'] = date($this->html5_date_format, strtotime($min));
+		
+			$max = trim(next($this->type_options));
+			if(strtotime($max)) $this->input_attributes['max'] = date($this->html5_date_format, strtotime($max));
+		
+#			$step = trim(next($this->type_options));
+#			if(strtotime($step) OR $step==='any') $this->input_attributes['step'] = $step;	
+		}
+		
+	}
+	public function validateInput($reply)
+	{
+		if(isset($this->input_attributes['min']) AND strtotime($reply) < strtotime($this->input_attributes['min'])) // lower number than allowed
+		{
+			$this->error = __("The minimum is %d",$this->input_attributes['min']);
+		}
+		elseif(isset($this->input_attributes['max']) AND strtotime($reply) > strtotime($this->input_attributes['max'])) // larger number than allowed
+		{
+			$this->error = __("The maximum is %d",$this->input_attributes['max']);
+		}
+/*		elseif(isset($this->input_attributes['step']) AND $this->input_attributes['step'] !== 'any' AND 
+			abs( 
+		 			(round($reply / $this->input_attributes['step']) * $this->input_attributes['step'])  // divide, round and multiply by step
+					- $reply // should be equal to reply
+			) > 0.000000001 // with floats I have to leave a small margin of error
+		)
+		{
+			$this->error = __("The minimum is %d",$this->input_attributes['min']);
+		}
+*/		return parent::validateInput($reply);
+	}
+}
+// time is polyfilled, we prepended a clock
+class Item_time extends Item_datetime 
+{
+	public $type = 'time';
+	protected $prepend = 'icon-time';
+	protected $input_attributes = array('style' => 'width:80px');
+	protected $mysql_field = 'TIME DEFAULT NULL';
+	protected $html5_date_format = 'H:i';	
+	
+}
+class Item_datetime_local extends Item_datetime 
+{
+	public $type = 'datetime-local';
+}
+
+class Item_date extends Item_datetime 
 {
 	public $type = 'date';
 	protected $prepend = 'icon-calendar';	
 	protected $mysql_field = 'DATE DEFAULT NULL';
+	protected $html5_date_format = 'Y-m-d';
+	
 }
 
-class Item_yearmonth extends Item_date 
+class Item_yearmonth extends Item_datetime 
 {
 	public $type = 'yearmonth';
 	protected $prepend = 'icon-calendar-empty';	
+	protected $html5_date_format = 'Y-m';
 	public function validateInput($reply)
 	{
 		$reply = $reply.'-01'; # add day part, so it can be stored in a date field
@@ -745,16 +805,18 @@ class Item_month extends Item_yearmonth
 {
 	public $type = 'month';
 }
-class Item_datetime extends Item 
-{
-	public $type = 'datetime';
-	protected $prepend = 'icon-calendar';
-	protected $mysql_field = 'DATETIME DEFAULT NULL';
-}
 
-class Item_year extends Item 
+class Item_year extends Item_datetime 
 {
 	public $type = 'year';
+	protected $html5_date_format = 'Y';
+	protected $prepend = 'icon-calendar-empty';	
+	protected $mysql_field = 'YEAR DEFAULT NULL';
+}
+class Item_week extends Item_datetime 
+{
+	public $type = 'year';
+	protected $html5_date_format = 'Y-mW';
 	protected $prepend = 'icon-calendar-empty';	
 	protected $mysql_field = 'YEAR DEFAULT NULL';
 }
@@ -888,11 +950,12 @@ class Item_mmc extends Item_mc
 	protected function setMoreOptions() 
 	{
 		$this->input_attributes['name'] = $this->name . '[]';
-		$this->classes_input[] = 'group-required';
 	}
 	
 	protected function render_input() 
 	{
+		if(!$this->optional)
+			$this->input_attributes['class'] .= 'group-required';
 #		$this->classes_wrapper = array_diff($this->classes_wrapper, array('required'));
 		unset($this->input_attributes['required']);
 		
