@@ -8,6 +8,7 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 
 <?php
 $g_users = $fdb->query("SELECT 
+	`survey_run_sessions`.id AS run_session_id,
 	`survey_run_sessions`.session,
 	`survey_run_sessions`.position,
 	`survey_run_sessions`.last_access,
@@ -48,7 +49,7 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 	<button type='submit' class='btn hastooltip'
 	title='Send this user to that position'><i class='icon-hand-right'></i></button>
 		<input type='number' name='new_position' value='{$userx['position']}' class='span1'>
-		<a class='btn hastooltip' href='".WEBROOT."acp/remind?session={$userx['session']}&run_name={$userx['run_name']}&email={$userx['email']}' 
+		<a class='btn hastooltip' href='".WEBROOT."acp/remind?run_session_id={$userx['run_session_id']}&session={$userx['session']}&run_name={$userx['run_name']}' 
 		title='Remind this user using the last email in the run'><i class='icon-bullhorn'></i></a>
 		
 		</span></form>";
@@ -56,6 +57,7 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 	unset($userx['session']);
 	unset($userx['position']);
 	unset($userx['run_name']);
+	unset($userx['run_session_id']);
 	unset($userx['unit_type']);
 	unset($userx['last_access']);
 	unset($userx['last_access_days']);

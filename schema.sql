@@ -404,7 +404,7 @@ DROP TABLE IF EXISTS `survey_email_log` ;
 
 CREATE  TABLE IF NOT EXISTS `survey_email_log` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
-  `session_id` INT UNSIGNED NOT NULL ,
+  `session_id` INT UNSIGNED NULL ,
   `email_id` INT UNSIGNED NOT NULL ,
   `created` DATETIME NOT NULL ,
   `recipient` VARCHAR(255) NULL ,
