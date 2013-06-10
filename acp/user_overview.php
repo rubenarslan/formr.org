@@ -49,7 +49,7 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 	<button type='submit' class='btn hastooltip'
 	title='Send this user to that position'><i class='icon-hand-right'></i></button>
 		<input type='number' name='new_position' value='{$userx['position']}' class='span1'>
-		<a class='btn hastooltip' href='".WEBROOT."acp/remind?run_session_id={$userx['run_session_id']}&session={$userx['session']}&run_name={$userx['run_name']}' 
+		<a class='btn hastooltip' href='".WEBROOT."acp/remind?run_session_id={$userx['run_session_id']}&session={$userx['session']}&run_name={$userx['run_name']}&email={$userx['email']}' 
 		title='Remind this user using the last email in the run'><i class='icon-bullhorn'></i></a>
 		
 		</span></form>";
