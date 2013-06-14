@@ -3,8 +3,8 @@ header.study-header, .maincontent, .container, .navbar-static-top .container, .n
 	margin-left:60px;
 }
 header.study-header {
-	background-image:url(../../img/Study_header_big.jpg);
-	height:170px;
+	background-image:url(../../img/Study_header_big.png);
+	height:208px;
 	width:910px;
 	background-repeat:no-repeat;
 	background-position:0px 5px;
@@ -276,6 +276,12 @@ form.form-horizontal div.form-row.item-checkbox.control-group.mc-width200 div.co
 form.form-horizontal div.form-row.control-group.mc-width200 div.controls button.btn {
 	width:150px;
 }
+form.form-horizontal div.form-row.control-group.hidden {
+	display:none;
+}
+
+
+
 .table tbody > tr.alternate > td
 {
 	background-color:#F9F9F9;

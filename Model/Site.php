@@ -30,6 +30,14 @@ class Site
 	{
 		$this->alerts[] = "<div class='alert $class'>$msg</div>";
 	}
+	public function lastOutsideReferrer()
+	{
+		$ref = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
+		if(strpos($ref, WEBROOT) !== 0)
+		{
+			$this->last_outside_referrer = $ref;
+		}
+	}
 }
 
 session_start();
@@ -315,4 +323,7 @@ function makeUnit($dbh, $session, $unit)
 	
 	require_once INCLUDE_ROOT . "Model/$type.php";
 	return new $type($dbh, $session, $unit);
+}
+function emptyNull(&$x){
+	$x = ($x=='') ? null : $x;
 }

@@ -129,8 +129,8 @@ class Item
 	public $reply_options = null;
 	public $required = true;
 	public $displayed_before = 0;
+	public $optional = 0;
 	public $error = null;
-	public $optional = false;
 	public $size = null;
 	public $skipIf = null;
 	protected $prepend = null;

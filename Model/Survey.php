@@ -107,9 +107,17 @@ class Survey extends RunUnit {
 				    $post_form->bindParam(":$name", $value);
 					$post_form->bindParam(":session_id", $this->session_id);
 					$post_form->bindParam(":study_id", $this->id);
-					$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 
-					$this->dbh->commit() or die(print_r($answered->errorInfo(), true));
+					try
+					{
+						$post_form->execute();
+						$this->dbh->commit();
+					}
+					catch(Exception $e)
+					{
+						pr($e);
+						pr($value);
+					}
 					unset($this->unanswered_batch[$name]);
 				} else {
 					$this->errors[$name] = $this->unanswered_batch[$name]->error;
