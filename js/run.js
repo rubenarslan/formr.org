@@ -31,8 +31,9 @@ RunUnit.prototype.init = function(content)
 	.click(function(e)
 	{
 		e.preventDefault();
-		var days = $(this).prev('input[type=number]').val();
-		$(this).prev('input[type=number]').val( days * 60 * 24);
+		var numberinput = $(this).closest('.input-append').find('input[type=number]');
+		var days = numberinput.val();
+		numberinput.val( days * 60 * 24);
 	});
 	
 	

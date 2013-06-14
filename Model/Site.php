@@ -17,8 +17,10 @@ require_once INCLUDE_ROOT."Model/User.php";
 class Site
 {
 	public $alerts = array();
-	public function __construct()
+	public $last_outside_referrer;
+	public function refresh()
 	{
+		$this->lastOutsideReferrer();
 	}
 	public function renderAlerts()
 	{
@@ -46,6 +48,8 @@ if(isset($_SESSION['site']) AND is_object($_SESSION['site']))
 	$site = $_SESSION['site'];
 else
 	$site = new Site();
+
+$site->refresh();
 
 if(isset($_SESSION['user']))
 {

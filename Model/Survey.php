@@ -18,6 +18,7 @@ class Survey extends RunUnit {
 	public $errors = array();
 	public $results_table = null;
 	public $run_session_id = null;
+	public $settings = array();
 	protected $dbh;
 	
 	public function __construct($fdb, $session, $unit)
@@ -143,7 +144,7 @@ class Survey extends RunUnit {
 					AND `survey_items`.id = `survey_items_display`.item_id
 					WHERE 
 					`survey_items`.study_id = :study_id AND
-			        `survey_items`.typ NOT IN (
+			        `survey_items`.type NOT IN (
 							'instruction',
 							'submit'
 						)
@@ -184,6 +185,21 @@ class Survey extends RunUnit {
 			return 0;
 		}
 	}
+	protected function getChoices()
+	{
+		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
+		ORDER BY `survey_item_choices`.id ASC;");
+		$get_item_choices->bindParam(":study_id", $this->id); // delete cascades to item display
+		$get_item_choices->execute() or die(print_r($get_item_choices->errorInfo(), true));
+		$choice_lists = array();
+		while($row = $get_item_choices->fetch(PDO::FETCH_ASSOC)):
+			if(!isset($choice_lists[ $row['list_name'] ]))
+				$choice_lists[ $row['list_name'] ] = array();
+			
+			$choice_lists[ $row['list_name'] ][$row['name']] = $row['label'];
+		endwhile;
+		return $choice_lists;	
+	}
 	protected function getNextItems() {
 		$this->unanswered_batch = array();
 		
@@ -205,16 +221,18 @@ class Survey extends RunUnit {
 		
 		$get_items->bindParam(":session_id",$this->session_id);
 		$get_items->bindParam(":study_id", $this->id);
-#		pr($item_query);
-#		pr($this->id);
-#		pr($this->session_id);
+
 		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
+		
+		$choice_lists = $this->getChoices();
+		$item_factory = new ItemFactory($choice_lists);
+		
 		
 		while($item = $get_items->fetch(PDO::FETCH_ASSOC) )
 		{
-			$name = $item['variablenname'];
-			$this->unanswered_batch[$name] = legacy_translate_item($item);
-			if($this->unanswered_batch[$name]->skipIf !== null)
+			$name = $item['name'];
+			$this->unanswered_batch[$name] = $item_factory->make($item);
+			if($this->unanswered_batch[$name]->skipif !== null)
 			{
 				if($this->unanswered_batch[$name]->skip($this->session_id,$this->run_session_id,$this->dbh,$this->results_table))
 				{
@@ -277,7 +295,7 @@ class Survey extends RunUnit {
 			{
 				$next = current($items);
 				if(
-					$item->displayed_before AND 											 // if this was displayed before
+					$item->displaycount AND 											 // if this was displayed before
 					(
 						$next === false OR 								    				 // this is the end of the survey
 						in_array( $next->type , array('instruction','submit'))  		 // the next item isn't a normal item
@@ -293,8 +311,6 @@ class Survey extends RunUnit {
 			
 			$item->viewedBy($view_update);
 			$itemsDisplayed++;
-			
-			$item->switchText($this->session_id,$this->dbh,$this->results_table);
 			
 			if(!empty($substitutions['search']))
 			{
@@ -324,9 +340,9 @@ class Survey extends RunUnit {
 								'text' => $this->settings["submit_button_text"]
 				);
 			else:
-				$sub_sets = array('text' => 'Weiter', 'class_input' => 'btn-info');
+				$sub_sets = array('label' => 'Weiter', 'class_input' => 'btn-info');
 			endif;
-			$item = new Item_submit('final_submit', $sub_sets);
+			$item = new Item_submit($sub_sets);
 			$ret .= $item->render();
 		}
 		
@@ -339,48 +355,59 @@ class Survey extends RunUnit {
 	}
 	protected function getSubstitutions() 
 	{
-		
-	$subs_query = $this->dbh->prepare ( "SELECT `search`,`replace`,`mode` FROM `survey_substitutions` WHERE `study_id` = :study_id ORDER BY id DESC" ) or die(print_r($this->dbh->errorInfo(), true));	// get all substitutions
-	
-	$subs_query->bindParam(':study_id',$this->id);
-	$subs_query->execute() or die(print_r($subs_query->errorInfo(), true));	// get all substitutions
-	
+		$subs_query = $this->dbh->prepare ( "SELECT `search`,`replace`,`mode` FROM `survey_substitutions` WHERE `study_id` = :study_id ORDER BY id DESC" );	// get all substitutions
 
-	$search = $replace = array();
-	
-	while( $substitution = $subs_query->fetch() ) 
+		$subs_query->bindParam(':study_id',$this->id);
+		$subs_query->execute();	// get all substitutions
+
+
+		$search = $replace = array();
+
+		while( $substitution = $subs_query->fetch() ) 
 		{
-	        switch( $substitution['mode'] ) 
-			{
+			if(!$this->run_session_id):
+				alert('<strong>Information:</strong> You can only test substitutions within runs.','alert-info');
+			else:
+			
+				if($substitution['mode']=='ASC'):
+					$mode = 'ASC';
+				else:
+					$mode = 'DESC';
+				endif;
+			
+				if(strpos($substitution['replace'], ".")===-1)
+					$substitution['replace'] = $this->results_table . "." . $substitution['replace'];
 
-#		        case NULL:
-#					break;
-				default:
-					$join = join_builder($rdb, $substitution['replace']);
-					$q = "SELECT ( {$substitution['replace']} ) AS replace FROM `survey_run_sessions`
+				$join = join_builder($this->dbh, $substitution['replace']);
+				$q = "SELECT ( {$substitution['replace']} ) AS `replace` FROM `survey_run_sessions`
 
-					$join
+				$join
 
-					WHERE 
-					`survey_run_sessions`.`id` = :run_session_id
+				WHERE 
+				`survey_run_sessions`.`id` = :run_session_id
 
-					ORDER BY IF(ISNULL( ( {$substitution['replace']} ) ),1,0), `survey_unit_sessions`.id DESC
+				ORDER BY IF(ISNULL( ( {$substitution['replace']} ) ),1,0), `survey_unit_sessions`.id $mode
 
-					LIMIT 1";
-					$get_entered = $this->dbh->prepare($q) or die(print_r($get_entered->errorInfo(), true));
-
-/*					$get_entered = $this->dbh->prepare("SELECT {$substitution['replace']} FROM `{$this->results_table}` WHERE session_id = :session_id AND {$substitution['replace']} IS NOT NULL AND {$substitution['mode']} LIMIT 1;") or die(print_r($get_entered->errorInfo(), true));
-//					$get_entered->bindParam(":mode",$subst['mode']); // fixme: mode not meaningfully used atm, gotta autocreate joins
-					break;
-*/	        }
-			$get_entered->bindParam(":run_session_id",$this->run_session_id);
-			$get_entered->execute() or die(print_r($get_entered->errorInfo(), true));
+				LIMIT 1";
+				$get_entered = $this->dbh->prepare($q);
 		
-			if( $data = $get_entered->fetch(PDO::FETCH_NUM))
-			{
-			    $search[] = $substitution['search'];
-			    $replace[] = h($data[0]);
-			}
+				$get_entered->bindParam(":run_session_id",$this->run_session_id);
+				try
+				{
+					$get_entered->execute();
+				}
+				catch(Exception $e)
+				{
+					echo __("Column %s not found.", $substitution['replace']);
+					print_r($e);
+				}
+
+				if( $data = $get_entered->fetch(PDO::FETCH_NUM))
+				{
+				    $search[] = $substitution['search'];
+				    $replace[] = h($data[0]);
+				}
+			endif;
 		}
 		return array('search' => $search,'replace' => $replace);
 	}
@@ -436,9 +463,12 @@ class Survey extends RunUnit {
 		(isset($this->settings['problem_email'])?
 		'
 		<div class="row-fluid">
-			<div class="span12">
-				Bei Problemen wenden Sie sich bitte an <strong><a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>.</strong>
-			</div>
+			<div class="span12">'.
+			(isset($this->settings['problem_text'])?
+				str_replace("%s",$this->settings['problem_email'],$this->settings['problem_text']) :
+				('<a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>')
+			).
+			'</div>
 		</div>
 		':'')
 		);
