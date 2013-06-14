@@ -17,8 +17,10 @@ require_once INCLUDE_ROOT."Model/User.php";
 class Site
 {
 	public $alerts = array();
-	public function __construct()
+	public $last_outside_referrer;
+	public function refresh()
 	{
+		$this->lastOutsideReferrer();
 	}
 	public function renderAlerts()
 	{
@@ -30,6 +32,14 @@ class Site
 	{
 		$this->alerts[] = "<div class='alert $class'>$msg</div>";
 	}
+	public function lastOutsideReferrer()
+	{
+		$ref = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
+		if(strpos($ref, WEBROOT) !== 0)
+		{
+			$this->last_outside_referrer = $ref;
+		}
+	}
 }
 
 session_start();
@@ -38,6 +48,8 @@ if(isset($_SESSION['site']) AND is_object($_SESSION['site']))
 	$site = $_SESSION['site'];
 else
 	$site = new Site();
+
+$site->refresh();
 
 if(isset($_SESSION['user']))
 {
@@ -315,4 +327,7 @@ function makeUnit($dbh, $session, $unit)
 	
 	require_once INCLUDE_ROOT . "Model/$type.php";
 	return new $type($dbh, $session, $unit);
+}
+function emptyNull(&$x){
+	$x = ($x=='') ? null : $x;
 }

@@ -59,7 +59,7 @@ endif;
 if($output):
 	if(isset($output['title']))
 		$title = $output['title'];
-	else $title = $run->name;
+	elseif(isset($run)) $title = $run->name;
 	
 	require_once INCLUDE_ROOT . 'view_header.php';
 	echo $site->renderAlerts();

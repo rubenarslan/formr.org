@@ -1,296 +1,116 @@
 <?php
-
-function legacy_translate_item($item) { // may have been a bad idea to name (array)input and (object)return value identically?
-	$options = array();
-	$options['id'] = $item['id'];
-	$name = $item['variablenname'];
-	$type = trim(strtolower($item['typ']));
-	if($type === 'offen') $type = 'text';
-	elseif($type === 'instruktion') $type = 'instruction'; 
-
-#	pr($item['optional']);
-	$options['text'] = $item['wortlaut'];
-	$options['alt_text'] = @$item['altwortlaut'];
-	$options['switch_text'] = @$item['altwortlautbasedon'];
-	$options['displayed_before'] = (int)@$item['displaycount'];
-	$options['class'] = @$item['class'];
-	$options['optional'] = @$item['optional'];
-	
-	$options['skipIf'] = @$item['skipif'];
-
-	$reply_options = array();
-	
-	if(isset($item['antwortformatanzahl']))
+class ItemFactory
+{
+	public $errors;
+	private $choice_lists = array();
+	private $used_choice_lists = array();
+	function __construct($choice_lists)
 	{
-		$options['size'] = $item['antwortformatanzahl'];
+		$this->choice_lists = $choice_lists;
 	}
-	
-#	pr($type);
-	if(strpos($type," ")!==false)
-	{
-		$type = preg_replace("/ +/"," ",$type); // multiple spaces collapse into one
-		$type_options = explode(" ",$type); // get real type and options
-		$type = $type_options[0];
-#		pr($type_options);
-		unset($type_options[0]); // remove real type from options
-		
-		$options['type_options'] = $type_options;
-	}
-	$type = str_replace("-","_", $type); // so datetime-local can be entered intuitively
-	$options['type'] = $type;
+	function make($item) {
+		$type = $item['type'];
 
-	// INSTRUCTION
-	switch($type) {
-		case "rating": // todo: ratings will disappear and just be MCs with empty options
-			$reply_options = array_fill(1, $options['size'], '');
-			if(isset($item['ratinguntererpol']) ) 
-			{
-				$lower = $item['ratinguntererpol'];
-				$upper = $item['ratingobererpol'];
-			} elseif(isset($item['MCalt1']) ) 
-			{
-				$lower = $item['MCalt1'];
-				if(isset($item['MCalt2']) AND $item['MCalt2'] != '')
-					$upper = $item['MCalt2'];	
-				else 
-					$upper = $item['MCalt'.$options['size']];	
-			} else 
-			{
-				$reply_options = range(1, $options['size']);
-				$reply_options = array_combine($reply_options, $reply_options);
-				$lower = 1;
-				$upper = $options['size'];
-			}
-			$reply_options[1] = $lower;
-			$reply_options[$options['size']] = $upper;
-		
-			$item = new Item_mc($name, array(
-					'reply_options' => $reply_options,
-					) + $options);
-	
-			break;
-		case "mc":
-		case "mmc":
-		case "select":
-		case "mselect":
-		case "select_add":
-		case "mselect_add":
-		case "range":
-		case "range_list":
-		case "btnradio":
-		case "btncheckbox":
-		case "btnrating":
-			$reply_options = array();
-						
-			for($op = 1; $op <= 14; $op++) 
-			{
-				if(isset($item['MCalt'.$op]))
-					$reply_options[ $op ] = $item['MCalt'.$op];
-			}
-			$class = "Item_".$type;
-		
-			$item = new $class($name, array(
-					'reply_options' => $reply_options,
-					) + $options);
-
-			break;
-		case "text":
-			if(isset($options['size']) AND $options['size'] / 255 < 1) // of course Item_textarea can also be specified directly, but in old surveys it isn't
-				$class = 'Item_text';
-			else
-				$class = 'Item_textarea';
-
-			$item = new $class($name, $options);
-
-			break;
-
-		default:
-			$class = "Item_".$type;
-			if(!class_exists($class,false)) // false to combat false positives using the spl_autoloader 
-				$class = 'Item';
+		if(isset($item['choice_list']) AND $item['choice_list']):
+			if(isset($this->choice_lists[ $item['choice_list'] ])):
+				$item['choices'] = $this->choice_lists[ $item['choice_list'] ];
+				$this->used_choice_lists[ $item['choice_list'] ] = true;
+			else:
+				$item['val_errors'] = array(__("Choice list %s does not exist, but is specified for item %s", $item['choice_list'], $item['name']));
+			endif;
 			
-			$item = new $class($name, $options);
-
-			break;
+		endif;
+		
+		$type = str_replace("-","_",$type);
+		$class = "Item_".$type;
+	
+		if(!class_exists($class,false)) // false to combat false positives using the spl_autoloader 
+			return false;
+	
+		return new $class($item);
 	}
-
-	return $item;
+	public function unusedChoiceLists()
+	{
+		return array_diff(
+				array_keys($this->choice_lists),
+				array_keys($this->used_choice_lists)
+		);
+	}
 }
 
 // the default item is a text input, as many browser render any input type they don't understand as 'text'.
 // the base class should also work for inputs like date, datetime which are either native or polyfilled but don't require
 // special handling here
 
-class Item 
+class Item extends HTML_element
 {
 	public $id = null;
-	public $type = null;
 	public $name = null;
-	public $text = null;
-	public $reply_options = null;
-	public $required = true;
-	public $displayed_before = 0;
+	public $type = null;
+	public $type_options = null;
+	public $choice_list = null;
+	public $label = null;
+	public $optional = 0;
+	public $class = null;
+	public $skipif = null;
+	
+	public $displaycount = 0;
 	public $error = null;
-	public $optional = false;
-	public $size = null;
-	public $skipIf = null;
+	public $val_errors = array();
+	
+
+	protected $mysql_field =  'TEXT DEFAULT NULL';
 	protected $prepend = null;
 	protected $append = null;
+	protected $type_options_array = array();
+	public $choices = array();
+	
+	
 	protected $input_attributes = array();
 	protected $classes_controls = array('controls');
 	protected $classes_wrapper = array('control-group','form-row');
 	protected $classes_input = array();
 	protected $classes_label = array('control-label');
-	protected $type_options = array();
-	protected $mysql_field =  'TEXT DEFAULT NULL';
-	
-	// from CakePHP
-	/**
-	 * Minimized attributes
-	 *
-	 * @var array
-	 */
-		protected $_minimizedAttributes = array(
-			'compact', 'checked', 'declare', 'readonly', 'disabled', 'selected',
-			'defer', 'ismap', 'nohref', 'noshade', 'nowrap', 'multiple', 'noresize',
-			'autoplay', 'controls', 'loop', 'muted', 'required', 'novalidate', 'formnovalidate'
-		);
-
-	/**
-	 * Format to attribute
-	 *
-	 * @var string
-	 */
-		protected $_attributeFormat = '%s="%s"';
-
-	/**
-	 * Format to attribute
-	 *
-	 * @var string
-	 */
-		protected $_minimizedAttributeFormat = '%s="%s"';
-		/**
-	 * Returns a space-delimited string with items of the $options array. If a key
-	 * of $options array happens to be one of those listed in `Helper::$_minimizedAttributes`
-	 *
-	 * And its value is one of:
-	 *
-	 * - '1' (string)
-	 * - 1 (integer)
-	 * - true (boolean)
-	 * - 'true' (string)
-	 *
-	 * Then the value will be reset to be identical with key's name.
-	 * If the value is not one of these 3, the parameter is not output.
-	 *
-	 * 'escape' is a special option in that it controls the conversion of
-	 *  attributes to their html-entity encoded equivalents. Set to false to disable html-encoding.
-	 *
-	 * If value for any option key is set to `null` or `false`, that option will be excluded from output.
-	 *
-	 * @param array $options Array of options.
-	 * @param array $exclude Array of options to be excluded, the options here will not be part of the return.
-	 * @param string $insertBefore String to be inserted before options.
-	 * @param string $insertAfter String to be inserted after options.
-	 * @return string Composed attributes.
-	 * @deprecated This method will be moved to HtmlHelper in 3.0
-	 */
-		protected function _parseAttributes($options, $exclude = null, $insertBefore = ' ', $insertAfter = null) 
-		{
-			if (!is_string($options)) 
-			{
-				$options = (array)$options + array('escape' => true);
-
-				if (!is_array($exclude)) 
-				{
-					$exclude = array();
-				}
-
-				$exclude = array('escape' => true) + array_flip($exclude);
-				$escape = $options['escape'];
-				$attributes = array();
-
-				foreach ($options as $key => $value) 
-				{
-					if (!isset($exclude[$key]) && $value !== false && $value !== null) 
-					{
-						$attributes[] = $this->_formatAttribute($key, $value, $escape);
-					}
-				}
-				$out = implode(' ', $attributes);
-			} else 
-			{
-				$out = $options;
-			}
-			return $out ? $insertBefore . $out . $insertAfter : '';
-		}
-
-	/**
-	 * Formats an individual attribute, and returns the string value of the composed attribute.
-	 * Works with minimized attributes that have the same value as their name such as 'disabled' and 'checked'
-	 *
-	 * @param string $key The name of the attribute to create
-	 * @param string $value The value of the attribute to create.
-	 * @param boolean $escape Define if the value must be escaped
-	 * @return string The composed attribute.
-	 * @deprecated This method will be moved to HtmlHelper in 3.0
-	 */
-		protected function _formatAttribute($key, $value, $escape = true) {
-			if (is_array($value)) {
-				$value = implode(' ' , $value);
-			}
-			if (is_numeric($key)) {
-				return sprintf($this->_minimizedAttributeFormat, $value, $value);
-			}
-			$truthy = array(1, '1', true, 'true', $key);
-			$isMinimized = in_array($key, $this->_minimizedAttributes);
-			if ($isMinimized && in_array($value, $truthy, true)) {
-				return sprintf($this->_minimizedAttributeFormat, $key, $key);
-			}
-			if ($isMinimized) {
-				return '';
-			}
-			return sprintf($this->_attributeFormat, $key, ($escape ? h($value) : $value));
-		}		
 		
-	public function __construct($name,$options = array()) 
+	public function __construct($options = array()) 
 	{ 
-		global $allowedtypes;
-		
-		$this->allowedTypes = $allowedtypes;
-		
 		$this->id = isset($options['id']) ? $options['id'] : 0;
-		if(isset($options['type']) AND $this->type === NULL):
+
+		if(isset($options['type'])):
 			$this->type = $options['type'];
-#		elseif($this->type !== NULL AND $this->type!==$options['type']):
-#			echo "$name: Type mismatch {$this->type} != {$options['type']}"; // mc != radio, mselect != select etc
 		endif;
 		
-		$this->name = $name;
+		if(isset($options['name']))
+			$this->name = $options['name'];
 		
-		$this->text = isset($options['text'])?$options['text']:'';
+		$this->label = isset($options['label'])?$options['label']:'';
 				
-		if(isset($options['size'])) 
-			$this->size = (int)$options['size'];
-		
-		if(isset($options['type_options']))
+		if(isset($options['type_options'])):
 			$this->type_options = $options['type_options'];
+			$this->type_options_array = explode(" ",$options['type_options']);
+		endif;
 		
-		if(isset($options['reply_options']))
-			$this->reply_options =  $options['reply_options'];
+		if(isset($options['choice_list']))
+			$this->choice_list =  $options['choice_list'];
 
-		if(isset($options['skipIf']))
-			$this->skipIf = $options['skipIf'];
+		if(isset($options['choices']))
+			$this->choices =  $options['choices'];
 
+		if(isset($options['skipif']))
+			$this->skipif = $options['skipif'];
+
+		if(isset($options['val_error']) AND $options['val_error'])
+			$this->val_error = $options['val_error'];
 		
 		if(isset($options['error']) AND $options['error'])
 		{
 			$this->error = $options['error'];
 			$this->classes_wrapper[] = "error";
 		}
-		if(isset($options['displayed_before']) AND $options['displayed_before']>0)
+		
+		if(isset($options['displaycount']) AND $options['displaycount']>0)
 		{
-			$this->displayed_before = $options['displayed_before'];
+			$this->displaycount = $options['displaycount'];
 			if(!$this->error)
 				$this->classes_wrapper[] = "warning";
 		}
@@ -301,12 +121,12 @@ class Item
 
 		if(isset($options['optional']) AND $options['optional']) 
 		{
-			$this->optional = true;
+			$this->optional = 1;
 			unset($options['optional']);
 		}
 		elseif(isset($options['optional']) AND !$options['optional'])
 		{ 
-			$this->optional = false;
+			$this->optional = 0;
 		} // else optional stays default
 		
 		if(!$this->optional) 
@@ -318,24 +138,50 @@ class Item
 			$this->classes_wrapper[] = 'optional';			
 		}
 		
-		if(isset($options['class']) AND $options['class'])
+		if(isset($options['class']) AND $options['class']):
 			$this->classes_wrapper[] = $options['class'];
+			$this->class = $options['class'];
+		endif;
 		
 		$this->classes_wrapper[] = "item-" . $this->type;
 		
-		$this->input_attributes['type'] = $this->type;
-		
-		if($this->size) 
-			$this->input_attributes['maxlength'] = $this->size;
+		if(!isset($this->input_attributes['type']))
+			$this->input_attributes['type'] = $this->type;
 		
 		$this->input_attributes['class'] = implode(" ",$this->classes_input);
 		
 		$this->input_attributes['id'] = "item{$this->id}";
 		
-/*		echo "<pre>".
-			self::_parseAttributes($this->input_attributes).
-			'</pre>';
-*/	
+		if(!empty($this->choices))
+			$this->chooseResultFieldBasedOnChoices();
+	}
+	protected function chooseResultFieldBasedOnChoices()
+	{
+		$choices = array_keys($this->choices);
+		
+		$len = count($choices);
+		if( $len == count(array_filter($choices, "is_numeric")) ):
+			$this->mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+		
+			$min = min($choices);
+			$max = max($choices);
+			
+			if($min < 0 ):
+				$this->mysql_field = str_replace($this->mysql_field,"UNSIGNED ", "");
+			endif;
+			
+			if( abs($min)>32767 OR abs($max)>32767 ):
+				$this->mysql_field = str_replace($this->mysql_field,"TINYINT", "MEDIUMINT");
+			elseif( abs($min)>126 OR abs($min)>126 ):
+				$this->mysql_field = str_replace($this->mysql_field,"TINYINT", "SMALLINT");
+			elseif( count(array_filter($choices, "is_float")) ):
+				$this->mysql_field = str_replace($this->mysql_field,"TINYINT", "FLOAT");
+			endif;
+		else:
+			$lengths = array_map("strlen",$choices);
+			$maxlen = max($lengths);
+			$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
+		endif;
 	}
 	public function getResultField()
 	{
@@ -346,20 +192,20 @@ class Item
 	public function skip($session_id, $run_session_id, $rdb, $results_table)
 	{	
 		
-		if($this->skipIf!=null):
+		if($this->skipif!=null):
 			if(
-			(strpos($this->skipIf,'AND')!==false AND strpos($this->skipIf,'OR')!==false) // and/or mixed? 
-				OR strpos($this->skipIf,'.') !== false // references to other tables (very simplistic check)
+			(strpos($this->skipif,'AND')!==false AND strpos($this->skipif,'OR')!==false) // and/or mixed? 
+				OR strpos($this->skipif,'.') !== false // references to other tables (very simplistic check)
 				): // fixme: SO UNSAFE, should at least use least privilege principle and readonly user (not possible on all-inkl...)
-					$join = join_builder($rdb, $this->skipIf);
-					$q = "SELECT ( {$this->skipIf} ) AS test FROM `survey_run_sessions`
+					$join = join_builder($rdb, $this->skipif);
+					$q = "SELECT ( {$this->skipif} ) AS test FROM `survey_run_sessions`
 		
 					$join
 		
 					WHERE 
 					`survey_run_sessions`.`id` = :run_session_id
 
-					ORDER BY IF(ISNULL( ( {$this->skipIf} ) ),1,0), `survey_unit_sessions`.id DESC
+					ORDER BY IF(ISNULL( ( {$this->skipif} ) ),1,0), `survey_unit_sessions`.id DESC
 		
 					LIMIT 1";
 		
@@ -376,11 +222,11 @@ class Item
 					return $result;
 			endif;
 			
-			$skipIfs = preg_split('/(AND|OR)/',$this->skipIf);
+			$skipifs = preg_split('/(AND|OR)/',$this->skipif);
 			$constraints = array();
-			foreach($skipIfs AS $skip):
-				if(! preg_match("/([A-Za-z0-9_]+)\s*(!=|=|==|>|<|>=|<=|LIKE)\s*['\"]*([\w%_]+)['\"]*\s*/",trim($skip), $matches) ):
-					die ($this->name . " invalid skipIf");
+			foreach($skipifs AS $skip):
+				if(! preg_match("/^([A-Za-z0-9_]+)\s*(!=|=|==|>|<|>=|<=|LIKE)\s*['\"]*([\w%_]+)['\"]*\s*$/",trim($skip), $matches) ):
+					die ($this->name . " invalid skipif");
 				else:
 					if($matches[2] == '==') $matches[2] = '=';
 					
@@ -410,9 +256,9 @@ class Item
 #			echo $this->name;
 #			pr($constraints);
 			
-			if(strpos($this->skipIf,'AND')!==false AND !in_array(false,$constraints,true)):
+			if(strpos($this->skipif,'AND')!==false AND !in_array(false,$constraints,true)):
 				return true; // skip if all AND conditions evaluate to true 
-			elseif(strpos($this->skipIf,'OR')!==false AND in_array(true,$constraints,true)):
+			elseif(strpos($this->skipif,'OR')!==false AND in_array(true,$constraints,true)):
 				return true; // skip when one of the OR conditions evaluates to true
 			elseif(in_array(true,$constraints,true)):
 				return true; // skip
@@ -422,9 +268,7 @@ class Item
 	}
 	public function validate() 
 	{
-		$this->val_errors = array();
-		
-		if( !preg_match('/[A-Za-z0-9_]+/',$this->name) ): 
+		if( !preg_match('/^[A-Za-z0-9_]+$/',$this->name) ): 
 			$this->val_errors[] = "'{$this->name}' Variablenname darf nur a-Z, 0-9 und den Unterstrich enthalten.";
 		endif;
 		
@@ -442,31 +286,8 @@ class Item
 		
    	   	$view_update->execute() or die(print_r($view_update->errorInfo(), true));
 	}
-	public function switchText($session_id,$rdb,$results_table) {
-        if (@$this->switch_text != null) 
-		{
-			if(! preg_match("(/([A-Za-z0-9_]+)\s*(!=|=|==|>|<)\s*['\"]*(\w+)['\"]*\s*/",trim($this->switch_text), $matches) )
-			{
-				die ($this->name . " invalid switch_text");
-			} 
-			else
-			{
-				if($matches[2] == '==') $matches[2] = '=';
-				
-				$switch_condition = $rdb->prepare("SELECT (`{$matches[1]}` {$matches[2]} :value) AS test FROM `{$results_table}` WHERE session_id = :session_id");
-				$switch_condition->bindParam(":session_id", $session_id);
-				$switch_condition->bindParam(":value", $matches[3]);
-				$switch_condition->execute() or die(print_r($switch_condition->errorInfo(), true));
-				$switch = $switch_condition->fetch();
-				$switch = (bool)$switch[0];
-				
-				if($switch)
-	                $item->text = $item->alt_text;
-			}
-        }
-	}
 	public function substituteText($substitutions) {
-        $this->text = str_replace($substitutions['search'], $substitutions['replace'], $this->text);
+        $this->label = str_replace($substitutions['search'], $substitutions['replace'], $this->label);
 	}
 	public function validateInput($reply) 
 	{
@@ -477,8 +298,9 @@ class Item
 			(is_array($reply) AND count($reply)===1 AND current($reply)===''))
 		) // missed a required field
 		{
-			$this->error = _("Bitte beantworte diese Frage auch.");			
-		}
+			$this->error = _("This field is required.");			
+		} elseif($this->optional AND $reply=='')
+			$reply = null;
 		return $reply;
 	}
 	
@@ -490,7 +312,7 @@ class Item
 		return '
 					<label class="'. implode(" ",$this->classes_label) .'" for="item' . $this->id . '">'.
 		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
-			 	$this->text . '</label>
+			 	$this->label . '</label>
 		';
 	}
 	protected function render_prepended () 
@@ -542,12 +364,13 @@ class Item
 class Item_text extends Item
 {
 	public $type = 'text';
+	protected $input_attributes = array('type' => 'text');
 	protected function setMoreOptions() 
 	{	
-		if(is_array($this->type_options) AND count($this->type_options) == 1)
+		if(is_array($this->type_options_array) AND count($this->type_options_array) == 1)
 		{
-			$this->size = (int)trim(current($this->type_options));
-		}		
+			$this->input_attributes['maxlength'] = (int)trim(current($this->type_options_array));	
+		}
 	}
 	public function validateInput($reply)
 	{
@@ -572,7 +395,9 @@ class Item_textarea extends Item
 // textarea automatically chosen when size exceeds a certain limit
 class Item_letters extends Item 
 {
-	public $type = 'text';
+	public $type = 'letters';
+	protected $input_attributes = array('type' => 'text');
+	
 	protected function setMoreOptions()
 	{
 		$this->input_attributes['pattern'] = "[A-Za-züäöß.;,!: ]+";
@@ -583,40 +408,48 @@ class Item_letters extends Item
 class Item_number extends Item 
 {
 	public $type = 'number';
+	protected $input_attributes = array('type' => 'number');
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	
 	protected function setMoreOptions() 
 	{
 		$this->input_attributes['step'] = 1;
 		
-		if(isset($this->type_options) AND is_array($this->type_options))
+		if(isset($this->type_options_array) AND is_array($this->type_options_array))
 		{
-			if(count($this->type_options) == 1) 
-				$this->type_options = explode(",",current($this->type_options));
+			if(count($this->type_options_array) == 1) 
+				$this->type_options_array = explode(",",current($this->type_options_array));
 
-			$min = trim(reset($this->type_options));
+			$min = trim(reset($this->type_options_array));
 			if(is_numeric($min)) $this->input_attributes['min'] = $min;
 		
-			$max = trim(next($this->type_options));
+			$max = trim(next($this->type_options_array));
 			if(is_numeric($max)) $this->input_attributes['max'] = $max;
-		
-			$step = trim(next($this->type_options));
+			
+			$step = trim(next($this->type_options_array));
 			if(is_numeric($step) OR $step==='any') $this->input_attributes['step'] = $step;	
 		}
 		
+		$multiply = 2;
 		if(isset($this->input_attributes['min']) AND $this->input_attributes['min']<0)
-			$this->mysql_field = str_replace($this->mysql_field,"UNSIGNED ", "");
+		{
+			$this->mysql_field = str_replace($this->mysql_field,"UNSIGNED", "");
+			$multiply = 1;
+		}
 		if(
-			(isset($this->input_attributes['min']) OR isset($this->input_attributes['max'])) AND
-				 (abs($this->input_attributes['min'])>32767 OR abs($this->input_attributes['max'])>32767))
-			$this->mysql_field = str_replace($this->mysql_field,"TINYINT ", "MEDIUMINT");
+			(isset($this->input_attributes['min']) AND abs($this->input_attributes['min'])>32767) OR 			
+			(isset($this->input_attributes['max']) AND abs($this->input_attributes['max'])> ($multiply*32767) )
+		)
+			$this->mysql_field = str_replace($this->mysql_field,"TINYINT", "MEDIUMINT");
 		elseif(
-			(isset($this->input_attributes['min']) OR isset($this->input_attributes['max'])) AND
-				(abs($this->input_attributes['min'])>126 OR abs($this->input_attributes['max'])>126))
-			$this->mysql_field = str_replace($this->mysql_field,"TINYINT ", "SMALLINT");
+			(isset($this->input_attributes['min']) AND abs($this->input_attributes['min'])>126) OR 			
+			(isset($this->input_attributes['max']) AND abs($this->input_attributes['max'])> ($multiply*126) )
+		)
+			$this->mysql_field = str_replace($this->mysql_field,"TINYINT", "SMALLINT");
+			
 		if(isset($this->input_attributes['step']) AND 
-		(string)(int)$this->input_attributes['step'] == $this->input_attributes['step'])
-			$this->mysql_field = str_replace($this->mysql_field,"TINYINT ", "FLOAT");
+		(string)(int)$this->input_attributes['step'] != $this->input_attributes['step'])
+			$this->mysql_field = str_replace($this->mysql_field,array("TINYINT","SMALLINT","MEDIUMINT"), "FLOAT");
 		
 	}
 	public function validateInput($reply)
@@ -647,27 +480,32 @@ class Item_number extends Item
 class Item_range extends Item_number 
 {
 	public $type = 'range';
+	protected $input_attributes = array('type' => 'range');
 
 	protected function setMoreOptions() 
 	{
 		$this->input_attributes['min'] = 0;
 		$this->input_attributes['max'] = 100;
+		$this->lower_text = current($this->choices);
+		$this->upper_text = next($this->choices);
+		
 			
 		parent::setMoreOptions();
 	}
 	protected function render_input() 
 	{
-		return (isset($this->reply_options[1]) ? '<label>'. $this->reply_options[1] . ' </label> ': '') . 		
+		return (isset($this->choices[1]) ? '<label>'. $this->choices[1] . ' </label> ': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
-			(isset($this->reply_options[2]) ? ' <label>'. $this->reply_options[2] . ' </label>': '') ;
+			(isset($this->choices[2]) ? ' <label>'. $this->choices[2] . ' </label>': '') ;
 	}
 }
 
 // slider with ticks
 class Item_range_list extends Item_number 
 {
-	public $type = 'range';
-
+	public $type = 'range_list';
+	protected $input_attributes = array('type' => 'range');
+	
 	protected function setMoreOptions() 
 	{
 		$this->input_attributes['min'] = 0;
@@ -681,9 +519,9 @@ class Item_range_list extends Item_number
 	}
 	protected function render_input() 
 	{
-		$ret = (isset($this->reply_options[1]) ? '<label>'. $this->reply_options[1] . ' </label> ': '') . 		
+		$ret = (isset($this->choices[1]) ? '<label>'. $this->choices[1] . ' </label> ': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
-			(isset($this->reply_options[2]) ? ' <label>'. $this->reply_options[2] . ' </label>': '') ;
+			(isset($this->choices[2]) ? ' <label>'. $this->choices[2] . ' </label>': '') ;
 		$ret .= '<output id="output'.$this->id.'" class="output"></output>';
 		$ret .= '<datalist id="dlist'.$this->id.'">
         <select>';
@@ -702,88 +540,153 @@ class Item_range_list extends Item_number
 class Item_email extends Item 
 {
 	public $type = 'email';
-	public $size = 250;
+	protected $input_attributes = array('type' => 'email', 'maxlength' => 255);
 	protected $prepend = 'icon-envelope';
 	protected $mysql_field = 'VARCHAR (255) DEFAULT NULL';
-	
+	public function validateInput($reply)
+	{
+		if($this->optional AND trim($reply)==''):
+			return parent::validateInput($reply);
+		else:
+			$reply_valid = filter_var( $reply, FILTER_VALIDATE_EMAIL);
+			if(!$reply_valid):
+				$this->error = __('The email address %s is not valid', h($reply));
+			endif;
+		endif;
+		return $reply_valid;
+	}
 }
 
 
 class Item_url extends Item 
 {
 	public $type = 'url';
+	protected $input_attributes = array('type' => 'url');
 	protected $prepend = 'icon-link';
 	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	public function validateInput($reply)
+	{
+		if($this->optional AND trim($reply)==''):
+			return parent::validateInput($reply);
+		else:
+			$reply_valid = filter_var( $reply, FILTER_VALIDATE_URL);
+			if(!$reply_valid):
+				$this->error = __('The URL %s is not valid', h($reply));
+			endif;
+		endif;
+		return $reply_valid;
+	}
+}
+
+class Item_tel extends Item 
+{
+	public $type = 'tel';
+	protected $input_attributes = array('type' => 'tel');
 	
+	protected $prepend = 'icon-phone';
+	protected $mysql_field = 'VARCHAR(100) DEFAULT NULL';	
+}
+
+class Item_cc extends Item 
+{
+	public $type = 'cc';
+	protected $input_attributes = array('type' => 'cc');
+	
+	protected $prepend = 'icon-credit-card';
+	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';	
+}
+
+class Item_color extends Item 
+{
+	public $type = 'color';
+	protected $input_attributes = array('type' => 'color');
+	
+	protected $prepend = 'icon-tint';
+	protected $mysql_field = 'CHAR(7) DEFAULT NULL';	
+	public function validateInput($reply)
+	{
+		if($this->optional AND trim($reply)==''):
+			return parent::validateInput($reply);
+		else:
+			$reply_valid = preg_match( "/^#[0-9A-Fa-f]{6}$/", $reply);
+			if(!$reply_valid):
+				$this->error = __('The color %s is not valid', h($reply));
+			endif;
+		endif;
+		return $reply;
+	}
 }
 
 
 class Item_datetime extends Item 
 {
 	public $type = 'datetime';
+	protected $input_attributes = array('type' => 'datetime');
+	
 	protected $prepend = 'icon-calendar';	
 	protected $mysql_field = 'DATETIME DEFAULT NULL';
-	protected $html5_date_format = 'Y-m-dTH:i';
+	protected $html5_date_format = 'Y-m-d\TH:i';
 	protected function setMoreOptions() 
 	{
 #		$this->input_attributes['step'] = 'any';
 		
-		if(isset($this->type_options) AND is_array($this->type_options))
+		if(isset($this->type_options_array) AND is_array($this->type_options_array))
 		{
-			if(count($this->type_options) == 1) 
-				$this->type_options = explode(",",current($this->type_options));
+			if(count($this->type_options_array) == 1) 
+				$this->type_options_array = explode(",",current($this->type_options_array));
 
-			$min = trim(reset($this->type_options));
+			$min = trim(reset($this->type_options_array));
 			if(strtotime($min)) $this->input_attributes['min'] = date($this->html5_date_format, strtotime($min));
 		
-			$max = trim(next($this->type_options));
+			$max = trim(next($this->type_options_array));
 			if(strtotime($max)) $this->input_attributes['max'] = date($this->html5_date_format, strtotime($max));
 		
-#			$step = trim(next($this->type_options));
+#			$step = trim(next($this->type_options_array));
 #			if(strtotime($step) OR $step==='any') $this->input_attributes['step'] = $step;	
 		}
 		
 	}
 	public function validateInput($reply)
 	{
-		if(isset($this->input_attributes['min']) AND strtotime($reply) < strtotime($this->input_attributes['min'])) // lower number than allowed
+		$time_reply = strtotime($reply);
+		if($time_reply===false)
+		{
+			$this->error = _('You did not enter a valid date.');	
+		}
+		if(isset($this->input_attributes['min']) AND $time_reply < strtotime($this->input_attributes['min'])) // lower number than allowed
 		{
 			$this->error = __("The minimum is %d",$this->input_attributes['min']);
 		}
-		elseif(isset($this->input_attributes['max']) AND strtotime($reply) > strtotime($this->input_attributes['max'])) // larger number than allowed
+		elseif(isset($this->input_attributes['max']) AND $time_reply > strtotime($this->input_attributes['max'])) // larger number than allowed
 		{
 			$this->error = __("The maximum is %d",$this->input_attributes['max']);
 		}
-/*		elseif(isset($this->input_attributes['step']) AND $this->input_attributes['step'] !== 'any' AND 
-			abs( 
-		 			(round($reply / $this->input_attributes['step']) * $this->input_attributes['step'])  // divide, round and multiply by step
-					- $reply // should be equal to reply
-			) > 0.000000001 // with floats I have to leave a small margin of error
-		)
-		{
-			$this->error = __("The minimum is %d",$this->input_attributes['min']);
-		}
-*/		return parent::validateInput($reply);
+		$reply = date($this->html5_date_format, $time_reply);
+		return parent::validateInput($reply);
 	}
 }
 // time is polyfilled, we prepended a clock
 class Item_time extends Item_datetime 
 {
 	public $type = 'time';
+	protected $input_attributes = array('type' => 'time', 'style' => 'width:80px');
+	
 	protected $prepend = 'icon-time';
-	protected $input_attributes = array('style' => 'width:80px');
 	protected $mysql_field = 'TIME DEFAULT NULL';
 	protected $html5_date_format = 'H:i';	
-	
 }
 class Item_datetime_local extends Item_datetime 
 {
 	public $type = 'datetime-local';
+	protected $input_attributes = array('type' => 'datetime-local');
+	
 }
 
 class Item_date extends Item_datetime 
 {
 	public $type = 'date';
+	protected $input_attributes = array('type' => 'date');
+	
 	protected $prepend = 'icon-calendar';	
 	protected $mysql_field = 'DATE DEFAULT NULL';
 	protected $html5_date_format = 'Y-m-d';
@@ -793,33 +696,36 @@ class Item_date extends Item_datetime
 class Item_yearmonth extends Item_datetime 
 {
 	public $type = 'yearmonth';
+	protected $input_attributes = array('type' => 'yearmonth');
+	
 	protected $prepend = 'icon-calendar-empty';	
-	protected $html5_date_format = 'Y-m';
-	public function validateInput($reply)
-	{
-		$reply = $reply.'-01'; # add day part, so it can be stored in a date field
-		return $reply;
-	}
+	protected $html5_date_format = 'Y-m-01';
 }
 
 class Item_month extends Item_yearmonth 
 {
 	public $type = 'month';
+	protected $input_attributes = array('type' => 'month');
+	
 }
 
 class Item_year extends Item_datetime 
 {
 	public $type = 'year';
+	protected $input_attributes = array('type' => 'year');
+	
 	protected $html5_date_format = 'Y';
 	protected $prepend = 'icon-calendar-empty';	
 	protected $mysql_field = 'YEAR DEFAULT NULL';
 }
 class Item_week extends Item_datetime 
 {
-	public $type = 'year';
+	public $type = 'week';
+	protected $input_attributes = array('type' => 'week');
+	
 	protected $html5_date_format = 'Y-mW';
 	protected $prepend = 'icon-calendar-empty';	
-	protected $mysql_field = 'YEAR DEFAULT NULL';
+	protected $mysql_field = 'VARCHAR(9) DEFAULT NULL';
 }
 
 // instructions are rendered at full width
@@ -837,7 +743,7 @@ class Item_instruction extends Item
 	{
 		return '
 					<div class="'. implode(" ",$this->classes_label) .'">'.
-					$this->text.
+					$this->label.
 					'</div>
 		';
 	}
@@ -846,6 +752,8 @@ class Item_instruction extends Item
 class Item_submit extends Item 
 {
 	public $type = 'submit';
+	protected $input_attributes = array('type' => 'submit');
+	
 	protected $mysql_field = null;
 	
 	protected function setMoreOptions() 
@@ -857,13 +765,13 @@ class Item_submit extends Item
 	}
 	public function validateInput($reply)
 	{
-		$this->error = _("You cannot answer instructions.");
+		$this->error = _("You cannot answer buttons.");
 		return $reply;
 	}
 	protected function render_input() 
 	{
 		return 		
-			'<button '.self::_parseAttributes($this->input_attributes, array('required','name')).'>'.$this->text.'</button>';
+			'<button '.self::_parseAttributes($this->input_attributes, array('required','name')).'>'.$this->label.'</button>';
 	}
 	protected function render_label() 
 	{
@@ -874,15 +782,17 @@ class Item_submit extends Item
 // radio buttons
 class Item_mc extends Item 
 {
-	public $type = 'radio';
+	public $type = 'mc';
+	protected $input_attributes = array('type' => 'radio');
+	
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	
 	public function validateInput($reply)
 	{
 		if( !($this->optional AND $reply=='') AND
-		!empty($this->reply_options) AND // check
-			( is_string($reply) AND !in_array($reply,array_keys($this->reply_options)) ) OR // mc
-				( is_array($reply) AND $diff = array_diff($reply, array_keys($this->reply_options) ) AND !empty($diff) && current($diff) !=='' ) // mmc
+		!empty($this->choices) AND // check
+			( is_string($reply) AND !in_array($reply,array_keys($this->choices)) ) OR // mc
+				( is_array($reply) AND $diff = array_diff($reply, array_keys($this->choices) ) AND !empty($diff) && current($diff) !=='' ) // mmc
 		) // invalid multiple choice answer 
 		{
 #				pr($reply);
@@ -902,7 +812,7 @@ class Item_mc extends Item
 		return '
 					<div class="'. implode(" ",$this->classes_label) .'">' .
 		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
-		 $this->text . '</div>
+		 $this->label . '</div>
 		';
 	}
 	protected function render_input() 
@@ -911,13 +821,13 @@ class Item_mc extends Item
 			<input '.self::_parseAttributes($this->input_attributes,array('type','id','required')).' type="hidden" value="" id="item' . $this->id . '_">
 		';
 		
-#		pr($this->reply_options);
+#		pr($this->choices);
 		
-		$opt_values = array_count_values($this->reply_options);
+		$opt_values = array_count_values($this->choices);
 		if(
 			isset($opt_values['']) AND // if there are empty options
 #			$opt_values[''] > 0 AND 
-			current($this->reply_options)!= '' // and the first option isn't empty
+			current($this->choices)!= '' // and the first option isn't empty
 		) $this->label_first = true;  // the first option label will be rendered before the radio button instead of after it.
 		else $this->label_first = false;
 #		pr((implode(" ",$this->classes_wrapper)));
@@ -925,7 +835,7 @@ class Item_mc extends Item
 		$all_left = false;
 		if(strpos(implode(" ",$this->classes_wrapper),'mc-all-left')!==false) $all_left = true;
 		
-		foreach($this->reply_options AS $value => $option):			
+		foreach($this->choices AS $value => $option):			
 			$ret .= '
 				<label for="item' . $this->id . '_' . $value . '">' . 
 					(($this->label_first || $all_left) ? $option.'&nbsp;' : '') . 
@@ -944,15 +854,23 @@ class Item_mc extends Item
 // multiple multiple choice, also checkboxes
 class Item_mmc extends Item_mc 
 {
-	public $type = 'checkbox';
-	public $optional = true;
-	protected $mysql_field = 'VARCHAR (40) DEFAULT NULL';
+	public $type = 'mmc';
+	protected $input_attributes = array('type' => 'checkbox');
+	
+	public $optional = 1;
+	protected $mysql_field = 'VARCHAR(40) DEFAULT NULL';
 	
 	protected function setMoreOptions() 
 	{
 		$this->input_attributes['name'] = $this->name . '[]';
 	}
-	
+	protected function chooseResultFieldBasedOnChoices()
+	{
+		$choices = array_keys($this->choices);
+		$max = implode(", ",array_filter($choices));
+		$maxlen = strlen($max);
+		$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
+	}
 	protected function render_input() 
 	{
 		if(!$this->optional)
@@ -963,7 +881,7 @@ class Item_mmc extends Item_mc
 		$ret = '
 			<input type="hidden" value="" id="item' . $this->id . '_" '.self::_parseAttributes($this->input_attributes,array('id','type','required')).'>
 		';
-		foreach($this->reply_options AS $value => $option) {
+		foreach($this->choices AS $value => $option) {
 			$ret .= '
 			<label for="item' . $this->id . '_' . $value . '">
 			<input '.self::_parseAttributes($this->input_attributes,array('id')).
@@ -997,7 +915,7 @@ class Item_check extends Item_mmc
 		return '
 					<label  for="item' . $this->id . '_1" class="'. implode(" ",$this->classes_label) .'">' .
 		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
-		 $this->text . '</label>
+		 $this->label . '</label>
 		';
 	}
 	public function validateInput($reply)
@@ -1007,7 +925,7 @@ class Item_check extends Item_mmc
 			$this->error = __("You chose an option '%s' that is not permitted.",h($reply));	
 		}
 		$reply = parent::validateInput($reply);
-		return $reply;
+		return $reply ? 1 : 0;
 	}
 	protected function render_input() 
 	{
@@ -1032,7 +950,7 @@ class Item_select extends Item
 		
 		if(!isset($this->input_attributes['multiple'])) $ret .= '<option value=""></option>';
 		
-		foreach($this->reply_options AS $value => $option):
+		foreach($this->choices AS $value => $option):
 			$ret .= '
 				<option value="' . $value . '">' . 
 					 $option .
@@ -1051,6 +969,13 @@ class Item_mselect extends Item_select
 {
 	protected $mysql_field = 'VARCHAR (40) DEFAULT NULL';
 	
+	protected function chooseResultFieldBasedOnChoices()
+	{
+		$choices = array_keys($this->choices);
+		$max = implode(", ",array_filter($choices));
+		$maxlen = strlen($max);
+		$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
+	}
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
@@ -1074,12 +999,35 @@ class Item_select_add extends Item
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
+		if(isset($this->type_options_array) AND is_array($this->type_options_array))
+		{
+			if(count($this->type_options_array) == 1) 
+				$this->type_options_array = explode(",",current($this->type_options_array));
+
+			$maxSelect = trim(reset($this->type_options_array));
+			if(!is_numeric($maxSelect)) $maxSelect = 0;
+		
+			$maxType = trim(next($this->type_options_array));
+			if(!is_numeric($maxType)) $maxType = 255;
+		
+		}
+		
 		$this->classes_input[] = 'select2add';
 		$for_select2 = array();
-		foreach($this->reply_options AS $option)
+		foreach($this->choices AS $option)
 			$for_select2[] = array('id' => $option, 'text' => $option);
 
 		$this->input_attributes['data-select2add'] = json_encode($for_select2);
+		$this->input_attributes['data-select2maximumSelectionSize'] = (int)$maxSelect;
+		$this->input_attributes['data-select2maximumInputLength'] = (int)$maxType;
+	}
+	protected function chooseResultFieldBasedOnChoices()
+	{
+		$choices = array_keys($this->choices);
+		$lengths = array_map("strlen",$choices);
+		$lengths[] = $this->input_attributes['data-select2maximumInputLength'];
+		$maxlen = max($lengths);
+		$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
 	}
 }
 class Item_mselect_add extends Item_select_add
@@ -1089,6 +1037,7 @@ class Item_mselect_add extends Item_select_add
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
+		$this->text_choices = true;
 		$this->input_attributes['multiple'] = true;
 	}
 	public function validateInput($reply)
@@ -1096,6 +1045,19 @@ class Item_mselect_add extends Item_select_add
 		$reply = parent::validateInput($reply);
 		if(is_array($reply)) $reply = implode("\n",array_filter($reply));
 		return $reply;
+	}
+	protected function chooseResultFieldBasedOnChoices()
+	{
+		$choices = array_keys($this->choices);
+		$max = implode(", ",array_filter($choices));
+		if(!$this->input_attributes['data-select2maximumSelectionSize']):
+			$this->mysql_field = 'TEXT DEFAULT NULL';
+		else:
+			$maxUserAdded = ($this->input_attributes['data-select2maximumInputLength']+2) * $this->input_attributes['data-select2maximumSelectionSize'];
+			$maxlen = strlen($max) + $maxUserAdded;
+	#		$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
+			$this->mysql_field = 'TEXT DEFAULT NULL';
+		endif;
 	}
 }
 
@@ -1113,7 +1075,7 @@ class Item_btnradio extends Item_mc
 	{
 		$ret = '<div class="btn-group hidden">
 		';
-		foreach($this->reply_options AS $value => $option):			
+		foreach($this->choices AS $value => $option):			
 		$ret .= '
 			<button class="btn" data-for="item' . $this->id . '_' . $value . '">' . 
 				$option.
@@ -1135,31 +1097,31 @@ class Item_btnrating extends Item_btnradio
 		$lower_limit = 1;
 		$upper_limit = 5;
 		
-		if(isset($this->type_options) AND is_array($this->type_options))
+		if(isset($this->type_options_array) AND is_array($this->type_options_array))
 		{
-			if(count($this->type_options) == 1) 
-				$this->type_options = explode(",",current($this->type_options));
+			if(count($this->type_options_array) == 1) 
+				$this->type_options_array = explode(",",current($this->type_options_array));
 
-			if(count($this->type_options) == 1)
+			if(count($this->type_options_array) == 1)
 			{
-				$upper_limit = (int)trim(current($this->type_options));
+				$upper_limit = (int)trim(current($this->type_options_array));
 			}
-			elseif(count($this->type_options) == 2)
+			elseif(count($this->type_options_array) == 2)
 			{
-				$lower_limit = (int)trim(current($this->type_options));
-				$upper_limit = (int)trim(next($this->type_options));
+				$lower_limit = (int)trim(current($this->type_options_array));
+				$upper_limit = (int)trim(next($this->type_options_array));
 			}
-			elseif(count($this->type_options) == 3)
+			elseif(count($this->type_options_array) == 3)
 			{
-				$lower_limit = (int)trim(current($this->type_options));
-				$upper_limit = (int)trim(next($this->type_options));
-				$step = (int)trim(next($this->type_options));
+				$lower_limit = (int)trim(current($this->type_options_array));
+				$upper_limit = (int)trim(next($this->type_options_array));
+				$step = (int)trim(next($this->type_options_array));
 			}
 		}
 		
-		$this->lower_text = current($this->reply_options);
-		$this->upper_text = next($this->reply_options);
-		$this->reply_options =array_combine(range($lower_limit,$upper_limit, $step),range($lower_limit,$upper_limit, $step));
+		$this->lower_text = current($this->choices);
+		$this->upper_text = next($this->choices);
+		$this->choices =array_combine(range($lower_limit,$upper_limit, $step),range($lower_limit,$upper_limit, $step));
 		
 	}
 	protected function render_input() 
@@ -1170,7 +1132,7 @@ class Item_btnrating extends Item_btnradio
 		
 
 		$ret .= "<label class='keep-label'>{$this->lower_text} </label> ";
-		foreach($this->reply_options AS $option):			
+		foreach($this->choices AS $option):			
 			$ret .= '
 				<label for="item' . $this->id . '_' . $option . '">' . 
 				'<input '.self::_parseAttributes($this->input_attributes,array('id')).
@@ -1204,7 +1166,7 @@ class Item_btncheckbox extends Item_mmc
 	{
 		$ret = '<div class="btn-group hidden">
 		';
-		foreach($this->reply_options AS $value => $option):			
+		foreach($this->choices AS $value => $option):			
 		$ret .= '
 			<button class="btn" data-for="item' . $this->id . '_' . $value . '">' . 
 				$option.
@@ -1244,23 +1206,96 @@ class Item_sex extends Item_btnradio
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
-		$this->reply_options = array(1=>'♂',2=>'♀');
+		$this->choices = array(1=>'♂',2=>'♀');
 	}
 }
 
 class Item_ip extends Item {
 	public $type = 'ip';
-	protected $mysql_field =  'VARCHAR 100 DEFAULT NULL';
-	protected function render_input() 
+	protected $input_attributes = array('type' => 'hidden');
+	
+	protected $mysql_field =  'VARCHAR (46) DEFAULT NULL';
+	public function validateInput($reply)
 	{
-		return '
-			<input type="hidden" value="IP" id="item' . $this->id . '_" name="' . $this->name . '">
-		';
+		return $_SERVER["REMOTE_ADDR"];
 	}
 	public function render() {
 		return $this->render_input();
 	}
 }
+
+class Item_geolocation extends Item {
+	public $type = 'geolocation';
+	protected $input_attributes = array('type' => 'text', 'readonly');
+	protected $append = true;
+	
+	protected $mysql_field =  'TEXT DEFAULT NULL';
+	protected function render_appended () 
+	{
+		$ret = '
+			<input type="hidden" name="'.$this->name.'" value="">
+			<div class="btn-group hidden">
+			<button class="btn geolocator item' . $this->id . '">
+			<i class="icon-location-arrow"></i>
+			</button>';
+		$ret .= '</div>';
+		
+		return $ret;
+	}
+	
+}
+
+class Item_referrer extends Item {
+	public $type = 'referrer';
+	protected $input_attributes = array('type' => 'hidden');
+	protected $mysql_field =  'VARCHAR (255) DEFAULT NULL';
+	public function validateInput($reply)
+	{
+		global $site;
+		return $site->last_outside_referrer;
+	}
+	public function render() {
+		return $this->render_input();
+	}
+}
+
+
+class Item_server extends Item {
+	public $type = 'server';
+	protected $input_attributes = array('type' => 'hidden');
+	
+	protected $mysql_field =  'VARCHAR (255) DEFAULT NULL';
+	public function validateInput($reply)
+	{
+		return $_SERVER[$this->name];
+	}
+	public function validate() 
+	{
+		parent::validate();
+		if(!in_array($this->name, array(
+			'HTTP_USER_AGENT',
+			'HTTP_ACCEPT',
+			'HTTP_ACCEPT_CHARSET',
+			'HTTP_ACCEPT_ENCODING',
+			'HTTP_ACCEPT_LANGUAGE',
+			'HTTP_CONNECTION',
+			'HTTP_HOST',
+			'QUERY_STRING',
+			'REQUEST_TIME',
+			'REQUEST_TIME_FLOAT'
+		)))
+		{
+			$this->val_errors[] = __('The server variable %s cannot be saved', $this->name);
+		}
+		
+		return $this->val_errors;
+	}
+	
+	public function render() {
+		return $this->render_input();
+	}
+}
+
 
 class Item_place extends Item_text
 {
@@ -1277,5 +1312,119 @@ class Item_place extends Item_text
  * todo: item - IP
  * todo: _GET items for presetting 
  * todo: geolocation
+ * todo: captcha items
 
 */
+
+class HTML_element
+{
+	
+	// from CakePHP
+	/**
+	 * Minimized attributes
+	 *
+	 * @var array
+	 */
+	protected $_minimizedAttributes = array(
+		'compact', 'checked', 'declare', 'readonly', 'disabled', 'selected',
+		'defer', 'ismap', 'nohref', 'noshade', 'nowrap', 'multiple', 'noresize',
+		'autoplay', 'controls', 'loop', 'muted', 'required', 'novalidate', 'formnovalidate'
+	);
+
+	/**
+	 * Format to attribute
+	 *
+	 * @var string
+	 */
+	protected $_attributeFormat = '%s="%s"';
+
+	/**
+	 * Format to attribute
+	 *
+	 * @var string
+	 */
+	protected $_minimizedAttributeFormat = '%s="%s"';
+	/**
+	 * Returns a space-delimited string with items of the $options array. If a key
+	 * of $options array happens to be one of those listed in `Helper::$_minimizedAttributes`
+	 *
+	 * And its value is one of:
+	 *
+	 * - '1' (string)
+	 * - 1 (integer)
+	 * - true (boolean)
+	 * - 'true' (string)
+	 *
+	 * Then the value will be reset to be identical with key's name.
+	 * If the value is not one of these 3, the parameter is not output.
+	 *
+	 * 'escape' is a special option in that it controls the conversion of
+	 *  attributes to their html-entity encoded equivalents. Set to false to disable html-encoding.
+	 *
+	 * If value for any option key is set to `null` or `false`, that option will be excluded from output.
+	 *
+	 * @param array $options Array of options.
+	 * @param array $exclude Array of options to be excluded, the options here will not be part of the return.
+	 * @param string $insertBefore String to be inserted before options.
+	 * @param string $insertAfter String to be inserted after options.
+	 * @return string Composed attributes.
+	 * @deprecated This method will be moved to HtmlHelper in 3.0
+	 */
+	protected function _parseAttributes($options, $exclude = null, $insertBefore = ' ', $insertAfter = null) 
+	{
+		if (!is_string($options)) 
+		{
+			$options = (array)$options + array('escape' => true);
+
+			if (!is_array($exclude)) 
+			{
+				$exclude = array();
+			}
+
+			$exclude = array('escape' => true) + array_flip($exclude);
+			$escape = $options['escape'];
+			$attributes = array();
+
+			foreach ($options as $key => $value) 
+			{
+				if (!isset($exclude[$key]) && $value !== false && $value !== null) 
+				{
+					$attributes[] = $this->_formatAttribute($key, $value, $escape);
+				}
+			}
+			$out = implode(' ', $attributes);
+		} else 
+		{
+			$out = $options;
+		}
+		return $out ? $insertBefore . $out . $insertAfter : '';
+	}
+
+	/**
+	 * Formats an individual attribute, and returns the string value of the composed attribute.
+	 * Works with minimized attributes that have the same value as their name such as 'disabled' and 'checked'
+	 *
+	 * @param string $key The name of the attribute to create
+	 * @param string $value The value of the attribute to create.
+	 * @param boolean $escape Define if the value must be escaped
+	 * @return string The composed attribute.
+	 * @deprecated This method will be moved to HtmlHelper in 3.0
+	 */
+	protected function _formatAttribute($key, $value, $escape = true) {
+		if (is_array($value)) {
+			$value = implode(' ' , $value);
+		}
+		if (is_numeric($key)) {
+			return sprintf($this->_minimizedAttributeFormat, $value, $value);
+		}
+		$truthy = array(1, '1', true, 'true', $key);
+		$isMinimized = in_array($key, $this->_minimizedAttributes);
+		if ($isMinimized && in_array($value, $truthy, true)) {
+			return sprintf($this->_minimizedAttributeFormat, $key, $key);
+		}
+		if ($isMinimized) {
+			return '';
+		}
+		return sprintf($this->_attributeFormat, $key, ($escape ? h($value) : $value));
+	}		
+}

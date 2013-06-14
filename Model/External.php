@@ -7,7 +7,7 @@ class External extends RunUnit {
 	public $session = null;
 	public $unit = null;
 	private $address = null;
-	private $api_end = false;
+	private $api_end = 0;
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -21,7 +21,7 @@ class External extends RunUnit {
 			
 			if($vars):
 				$this->address = $vars['address'];
-				$this->api_end = $vars['api_end'];
+				$this->api_end = $vars['api_end'] ? 1 :0;
 				$this->valid = true;
 			endif;
 		endif;
@@ -38,7 +38,7 @@ class External extends RunUnit {
 		if(isset($options['address']))
 		{
 			$this->address = $options['address'];
-			$this->api_end = $options['api_end'];
+			$this->api_end = $options['api_end'] ? 1 : 0;
 		}
 		
 		$create = $this->dbh->prepare("INSERT INTO `survey_externals` (`id`, `address`,`api_end`)

@@ -3,13 +3,62 @@ $.webshims.setOptions('forms', {
 	   waitReady: false,
 	   addValidators: true
 });
+$.webshims.setOptions('geolocation', {
+	confirmText: '{location} wants to know your position. You will have to enter one manually, if you decline.'
+});
 $.webshims.setOptions('forms-ext', {
        types: 'range date time number month color',
 });
-$.webshims.polyfill('es5 forms forms-ext');
+$.webshims.polyfill('es5 forms forms-ext geolocation json-storage');
 $.webshims.activeLang('de');
 
+function flatStringifyGeo(geo) {
+    var result = {};
+	result.timestamp = geo.timestamp;
+	var coords = {};
+	coords.accuracy = geo.coords.accuracy;
+	coords.altitude = geo.coords.altitude;
+	coords.altitudeAccuracy = geo.coords.altitudeAccuracy;
+	coords.heading = geo.coords.heading;
+	coords.latitude = geo.coords.latitude;
+	coords.longitude = geo.coords.longitude;
+	coords.speed = geo.coords.speed;
+	result.coords = coords;
+    return JSON.stringify(result);
+}
+
 $(document).ready(function() {
+	$('.geolocator').click(function()
+	{
+		var real_loc = $(this).closest('.controls').find('input[type=hidden]');
+		var enter_loc = $(this).closest('.controls').find('input[type=text]');
+
+		enter_loc.attr('placeholder','You can also enter your location manually');
+		enter_loc.prop('readonly',false);
+		
+		navigator.geolocation.getCurrentPosition(
+			function(pos) {
+				real_loc.attr('value',flatStringifyGeo(pos) );
+				enter_loc.attr('value', "lat:"+ pos.coords.latitude +"/long:" + pos.coords.longitude );
+				enter_loc.prop('readonly',true); // fixme: for some reason, if there is user entered text, FF doesn't show new JS-set texgt
+			},
+			function(err)
+			{
+				// error handling - this isn't called in firefox, when the user clicks "Not now".
+			}
+			/*
+			todo: would be a nice options thing for geoloc
+ interface PositionOptions {
+    attribute boolean enableHighAccuracy;
+    attribute long timeout;
+    attribute long maximumAge;
+  };*/
+		);
+		return false;
+	}).each(function()
+	{
+		$(this).closest('.btn-group.hidden').removeClass('hidden');
+	});
     $('.range_list_output').each(function () {
         var output = $('output', this);
 //		console.log(output);	
@@ -102,6 +151,8 @@ $(document).ready(function() {
 	            });
 		        callback(data);
 		    },
+			maximumSelectionSize: slct.attr('data-select2maximumSelectionSize'),
+			maximumInputLength: slct.attr('data-select2maximumInputLength'),
 			data: $.parseJSON(slct.attr('data-select2add')), 
 			multiple: !!slct.prop('multiple'), 
 			allowClear: true,

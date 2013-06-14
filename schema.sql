@@ -119,31 +119,16 @@ DROP TABLE IF EXISTS `survey_items` ;
 CREATE  TABLE IF NOT EXISTS `survey_items` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT ,
   `study_id` INT UNSIGNED NOT NULL ,
-  `variablenname` VARCHAR(100) NOT NULL ,
-  `wortlaut` TEXT NULL DEFAULT NULL ,
-  `altwortlautbasedon` VARCHAR(150) NULL DEFAULT NULL ,
-  `altwortlaut` TEXT NULL DEFAULT NULL ,
-  `typ` VARCHAR(100) NOT NULL ,
-  `antwortformatanzahl` TINYINT NULL DEFAULT NULL ,
-  `MCalt1` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt2` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt3` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt4` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt5` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt6` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt7` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt8` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt9` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt10` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt11` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt12` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt13` VARCHAR(255) NULL DEFAULT NULL ,
-  `MCalt14` VARCHAR(255) NULL DEFAULT NULL ,
+  `type` VARCHAR(100) NOT NULL ,
+  `choice_list` VARCHAR(100) NULL DEFAULT NULL ,
+  `type_options` VARCHAR(100) NULL DEFAULT NULL ,
+  `name` VARCHAR(100) NOT NULL ,
+  `label` TEXT NULL DEFAULT NULL ,
   `optional` TINYINT NULL DEFAULT NULL ,
   `class` VARCHAR(255) NULL DEFAULT NULL ,
   `skipif` TEXT NULL DEFAULT NULL ,
   PRIMARY KEY (`id`) ,
-  UNIQUE INDEX `study_item` (`study_id` ASC, `variablenname` ASC) ,
+  UNIQUE INDEX `study_item` (`study_id` ASC, `name` ASC) ,
   INDEX `fk_survey_items_survey_studies1_idx` (`study_id` ASC) ,
   CONSTRAINT `fk_survey_items_survey_studies1`
     FOREIGN KEY (`study_id` )
@@ -214,11 +199,13 @@ CREATE  TABLE IF NOT EXISTS `survey_run_sessions` (
   `ended` DATETIME NULL DEFAULT NULL ,
   `last_access` DATETIME NULL DEFAULT NULL ,
   `position` SMALLINT NULL DEFAULT NULL ,
+  `current_unit_id` INT UNSIGNED NULL ,
   PRIMARY KEY (`id`) ,
   INDEX `fk_survey_run_sessions_survey_runs1_idx` (`run_id` ASC) ,
   INDEX `fk_survey_run_sessions_survey_users1_idx` (`user_id` ASC) ,
   UNIQUE INDEX `run_user` (`user_id` ASC, `run_id` ASC) ,
   UNIQUE INDEX `run_session` (`session` ASC, `run_id` ASC) ,
+  INDEX `fk_survey_run_sessions_survey_units1_idx` (`current_unit_id` ASC) ,
   CONSTRAINT `fk_survey_run_sessions_survey_runs1`
     FOREIGN KEY (`run_id` )
     REFERENCES `survey_runs` (`id` )
@@ -227,6 +214,11 @@ CREATE  TABLE IF NOT EXISTS `survey_run_sessions` (
   CONSTRAINT `fk_survey_run_sessions_survey_users1`
     FOREIGN KEY (`user_id` )
     REFERENCES `survey_users` (`id` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_survey_run_sessions_survey_units1`
+    FOREIGN KEY (`current_unit_id` )
+    REFERENCES `survey_units` (`id` )
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
@@ -491,6 +483,28 @@ CREATE  TABLE IF NOT EXISTS `survey_time_branches` (
     FOREIGN KEY (`id` )
     REFERENCES `survey_units` (`id` )
     ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `survey_item_choices`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_item_choices` ;
+
+CREATE  TABLE IF NOT EXISTS `survey_item_choices` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
+  `study_id` INT UNSIGNED NOT NULL ,
+  `list_name` VARCHAR(20) NULL ,
+  `name` VARCHAR(20) NULL ,
+  `label` TEXT NULL ,
+  PRIMARY KEY (`id`) ,
+  INDEX `fk_survey_item_choices_survey_studies1_idx` (`study_id` ASC) ,
+  INDEX `listname` (`list_name` ASC) ,
+  CONSTRAINT `fk_survey_item_choices_survey_studies1`
+    FOREIGN KEY (`study_id` )
+    REFERENCES `survey_studies` (`id` )
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 

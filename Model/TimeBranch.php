@@ -6,8 +6,8 @@ class TimeBranch extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $if_true = '';
-	private $if_false = '';
+	private $if_true = null;
+	private $if_false = null;
 	private $relative_to = null;
 	private $wait_minutes = null;
 	private $wait_until_time = null;
@@ -25,6 +25,7 @@ class TimeBranch extends RunUnit {
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
 			
 			if($vars):
+				array_walk($vars,"emptyNull");
 				$this->if_true = $vars['if_true'];
 				$this->if_false = $vars['if_false'];
 				$this->wait_until_time = $vars['wait_until_time'];
@@ -46,6 +47,7 @@ class TimeBranch extends RunUnit {
 		
 		if(isset($options['if_true']))
 		{
+			array_walk($options,"emptyNull");
 			$this->if_true = $options['if_true'];
 			$this->if_false = $options['if_false'];
 			$this->wait_until_time = $options['wait_until_time'];

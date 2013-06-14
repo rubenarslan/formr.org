@@ -69,53 +69,43 @@ if (empty($errors)):
 	require_once INCLUDE_ROOT.'Model/SpreadsheetReader.php';
 	
 	$SPR = new SpreadsheetReader();
-	$data = $SPR->readItemTableFile($target);
-	$errors = $errors + $SPR->errors;
-	$messages = $messages + $SPR->messages;
-	
+	$SPR->readItemTableFile($target);
+	$errors = array_merge($errors, $SPR->errors);
+	$messages =  array_merge($messages, $SPR->messages);
 endif;
 
 if (empty($errors)):
 
-    if (empty($study->errors) AND $study->insertItems($data) AND $study->createResultsTable($data)) 
-	{
+    if (empty($study->errors) AND $study->createSurvey($SPR) ):
 		alert('<strong>Success!</strong> Study created!','alert-success');
-		$study_link = "<div><a class='btn btn-large btn-success' href='".WEBROOT."admin/{$study->name}/show_item_table'>"._('Check item table').'</a></div>';
-		$messages = $messages + $study->messages;
-    }
-    else
-	{
-		$errors = $errors + $study->errors;
-		$messages = $messages + $study->messages;
-	}
+		$study_link = "<a class='btn btn-large btn-success' href='".WEBROOT."admin/{$study->name}/show_item_table'>"._('Check item table').'</a>';
+	endif;
 endif;
+$errors =  array_merge($errors, $study->errors);
+$messages = array_merge($messages, $study->messages);
+#	$errors = array_unique($errors);
+$messages = array_unique($messages);
 
 require_once INCLUDE_ROOT.'view_header.php';
-
-if(!empty($messages))
-	alert('<ul><li>' . implode("</li><li>",$messages).'</li></ul>','alert-info');
 
 if(!empty($errors)):
 	alert('<ul><li>' . implode("</li><li>",$errors).'</li></ul>','alert-error');
 	require_once INCLUDE_ROOT.'acp/acp_nav.php';
-	echo '<div class="span8">';
 else:
 	require_once INCLUDE_ROOT.'admin/admin_nav.php';
-	echo '<div class="span8">';
+	echo '<p class="span8">';
 	echo $study_link;
+	echo '</p>';
 endif;
 
-
-if(isset($data)):?>
-	<pre style="overflow:scroll;height:100px;">
-	<?php
-	var_dump($data);
-	?>
-	</pre>
-	<?php
-else:
-	echo "<h2>Nothing imported</h2>";
+if(!empty($messages)):
+	alert('<ul><li>' . implode("</li><li>",$messages).'</li></ul>','alert-info');
+	
+	echo '<div class="span8">';
+	echo $site->renderAlerts();
+	echo '</div>';
+	
 endif;
-echo '</div>';
+
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
 require_once INCLUDE_ROOT.'view_footer.php';

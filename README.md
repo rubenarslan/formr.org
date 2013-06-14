@@ -9,16 +9,20 @@ Survey results are stored in MySQL tables of the same name (using only the chara
 ### Item table criteria
 
 * The format must be one of .csv, .xls, .xlsx, .ods (OpenOffice), .xml, .txt
-* The first line has to contain the column names you used. The order doesn't matter.
-* The following column names are used. You can add others, they will be ignored. 
-	* **variablenname** (mandatory). This can only contain `a-zA-Z0-9_`
-	* **typ** (mandatory). See below.
-	* wortlaut. You can use [Markdown](http://daringfireball.net/projects/markdown/) and HTML in the question texts.
-	* antwortformatanzahl (deprecated, can be written as part of *typ*)
-	* ratinguntererpol (deprecated, it's simply translated to MCalt1)
-	* ratingobererpol (deprecated)
-	* MCalt1-14 (choices, should probably be on a different sheet)
-	* skipif
+* You can use two sheets
+* The first sheet should have the name **survey**, if no such sheet exists, we use the first one.
+	* The first line has to contain the column names you used. The order doesn't matter.
+	* The following column names are used. You can add others, they will be ignored. 
+		* **_name_** (mandatory). This can only contain `a-zA-Z0-9_` and needs to start with a letter.
+		* **_type_** (mandatory). See below.
+		* **label**. You can use [Markdown](http://daringfireball.net/projects/markdown/) and HTML in the question texts.
+		* **skipif** You can refer to the same survey here or you can reference other surveys using `survey_name.variable_name`. SQL syntax.
+		* **choice1, choice2, ..., choice14** (you can use these columns to quickly add choices. If you use many choices repeatedly or need more than 14 choices, it makes more sense to put them on the choices sheet)
+* The second, optional sheet should have the name **choices**, if no such sheet exists, we use the second one.
+	* The following column names are used
+	* **list name** - you can reference the list of choices using this name on the 'survey' sheet.
+	* **label** - the text for the choice that is displayed (if you leave this column out or empty, we'll use the name text)
+	* **name** - the text for the choice that will be stored. This can only contain `a-zA-Z0-9_`.
 
 
 ### Items
@@ -52,7 +56,8 @@ Surveys support the following item types. HTML5 form elements and validation are
 	* `date` for a date
 	* `datetime` for a date & time
 	* `month`, `yearmonth` etc. should work too
-* `url`, `cc`, `color`, `tel` should work too
+* 
+* `url`, `cc` (credit card number), `color`, `tel` work too
 
 ### skipIf
 
