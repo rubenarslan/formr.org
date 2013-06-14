@@ -6,9 +6,9 @@ class Branch extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $condition = '';
-	private $if_true = '';
-	private $if_false = '';
+	private $condition = null;
+	private $if_true = null;
+	private $if_false = null;
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -21,6 +21,7 @@ class Branch extends RunUnit {
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
 			
 			if($vars):
+				array_walk($vars,"emptyNull");
 				$this->condition = $vars['condition'];
 				$this->if_true = $vars['if_true'];
 				$this->if_false = $vars['if_false'];
@@ -39,6 +40,7 @@ class Branch extends RunUnit {
 		
 		if(isset($options['condition']))
 		{
+			array_walk($options,"emptyNull");
 			$this->condition = $options['condition'];
 			$this->if_true = $options['if_true'];
 			$this->if_false = $options['if_false'];
@@ -90,7 +92,7 @@ $join
 WHERE 
 	`survey_run_sessions`.run_id = :run_id
 
-ORDER BY IF(ISNULL(test),1,0), RAND()
+ORDER BY IF(ISNULL( ( {$this->condition} ) ),1,0), RAND()
 
 LIMIT 20";
 
