@@ -120,6 +120,8 @@ CREATE  TABLE IF NOT EXISTS `survey_items` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT ,
   `study_id` INT UNSIGNED NOT NULL ,
   `type` VARCHAR(100) NOT NULL ,
+  `choice_list` VARCHAR(100) NULL DEFAULT NULL ,
+  `type_options` VARCHAR(100) NULL DEFAULT NULL ,
   `name` VARCHAR(100) NOT NULL ,
   `label` TEXT NULL DEFAULT NULL ,
   `optional` TINYINT NULL DEFAULT NULL ,
@@ -197,11 +199,13 @@ CREATE  TABLE IF NOT EXISTS `survey_run_sessions` (
   `ended` DATETIME NULL DEFAULT NULL ,
   `last_access` DATETIME NULL DEFAULT NULL ,
   `position` SMALLINT NULL DEFAULT NULL ,
+  `current_unit_id` INT UNSIGNED NULL ,
   PRIMARY KEY (`id`) ,
   INDEX `fk_survey_run_sessions_survey_runs1_idx` (`run_id` ASC) ,
   INDEX `fk_survey_run_sessions_survey_users1_idx` (`user_id` ASC) ,
   UNIQUE INDEX `run_user` (`user_id` ASC, `run_id` ASC) ,
   UNIQUE INDEX `run_session` (`session` ASC, `run_id` ASC) ,
+  INDEX `fk_survey_run_sessions_survey_units1_idx` (`current_unit_id` ASC) ,
   CONSTRAINT `fk_survey_run_sessions_survey_runs1`
     FOREIGN KEY (`run_id` )
     REFERENCES `survey_runs` (`id` )
@@ -210,6 +214,11 @@ CREATE  TABLE IF NOT EXISTS `survey_run_sessions` (
   CONSTRAINT `fk_survey_run_sessions_survey_users1`
     FOREIGN KEY (`user_id` )
     REFERENCES `survey_users` (`id` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_survey_run_sessions_survey_units1`
+    FOREIGN KEY (`current_unit_id` )
+    REFERENCES `survey_units` (`id` )
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
@@ -387,7 +396,7 @@ DROP TABLE IF EXISTS `survey_email_log` ;
 
 CREATE  TABLE IF NOT EXISTS `survey_email_log` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
-  `session_id` INT UNSIGNED NULL ,
+  `session_id` INT UNSIGNED NOT NULL ,
   `email_id` INT UNSIGNED NOT NULL ,
   `created` DATETIME NOT NULL ,
   `recipient` VARCHAR(255) NULL ,
@@ -474,6 +483,28 @@ CREATE  TABLE IF NOT EXISTS `survey_time_branches` (
     FOREIGN KEY (`id` )
     REFERENCES `survey_units` (`id` )
     ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `survey_item_choices`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_item_choices` ;
+
+CREATE  TABLE IF NOT EXISTS `survey_item_choices` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
+  `study_id` INT UNSIGNED NOT NULL ,
+  `list_name` VARCHAR(20) NULL ,
+  `name` VARCHAR(20) NULL ,
+  `label` TEXT NULL ,
+  PRIMARY KEY (`id`) ,
+  INDEX `fk_survey_item_choices_survey_studies1_idx` (`study_id` ASC) ,
+  INDEX `listname` (`list_name` ASC) ,
+  CONSTRAINT `fk_survey_item_choices_survey_studies1`
+    FOREIGN KEY (`study_id` )
+    REFERENCES `survey_studies` (`id` )
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 

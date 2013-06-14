@@ -1,6 +1,7 @@
 <?php
 require_once INCLUDE_ROOT . "Model/DB.php";
 require_once INCLUDE_ROOT . "Model/RunUnit.php";
+require_once INCLUDE_ROOT."Model/Item.php";
 
 // this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
 class Study extends RunUnit
@@ -13,6 +14,7 @@ class Study extends RunUnit
 	public $errors = array();
 	public $messages = array();
 	public $position;
+	private $SPR;
 	
 	public function __construct($fdb, $session = NULL,$unit = NULL) 
 	{
@@ -113,6 +115,7 @@ class Study extends RunUnit
 				"welcome" => "Welcome!",
 				"title" => "Survey",
 				"description" => "",
+				"problem_text" => 'Bei Problemen wende dich bitte an <strong><a href="mailto:%s">%s</a></strong>.',
 				"problem_email" => "problems@example.com",
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
@@ -131,60 +134,247 @@ class Study extends RunUnit
 		return true;
 	}
 	protected $user_defined_columns = array(
-		'variablenname', 'wortlaut', 'altwortlautbasedon', 'altwortlaut', 'typ', 'antwortformatanzahl', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'optional', 'class' ,'skipif' // study_id is not among the user_defined columns
+		'name', 'label', 'type',  'type_options', 'choice_list', 'optional', 'class' ,'skipif' // study_id is not among the user_defined columns
 	);
-	public function insertItems($items)
+	protected $choices_user_defined_columns = array(
+		'list_name', 'name', 'label' // study_id is not among the user_defined columns
+	);
+	protected function getChoices()
 	{
+		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
+		ORDER BY `survey_item_choices`.id ASC;");
+		$get_item_choices->bindParam(":study_id", $this->id); // delete cascades to item display
+		$get_item_choices->execute() or die(print_r($get_item_choices->errorInfo(), true));
+		$choice_lists = array();
+		while($row = $get_item_choices->fetch(PDO::FETCH_ASSOC)):
+			if(!isset($choice_lists[ $row['list_name'] ]))
+				$choice_lists[ $row['list_name'] ] = array();
+			
+			$choice_lists[ $row['list_name'] ][$row['name']] = $row['label'];
+		endwhile;
+		return $choice_lists;	
+	}
+	public function createSurvey($SPR) {
+		$this->SPR = $SPR;
+		
+		
 		$this->dbh->beginTransaction();
 		
+		$old_syntax = $this->getOldSyntax();
+		
+		$this->addChoices();
+		
 		$delete_old_items = $this->dbh->prepare("DELETE FROM `survey_items` WHERE `survey_items`.study_id = :study_id");
-		$delete_old_items->bindParam(":study_id", $this->id);
+		$delete_old_items->bindParam(":study_id", $this->id); // delete cascades to item display
 		$delete_old_items->execute() or die(print_r($delete_old_items->errorInfo(), true));
 		
 	
-		$stmt = $this->dbh->prepare('INSERT INTO `survey_items` (
+		$add_items = $this->dbh->prepare('INSERT INTO `survey_items` (
 			study_id,
-	        variablenname,
-	        wortlaut,
-	        altwortlautbasedon,
-	        altwortlaut,
-	        typ,
+	        name,
+	        label,
+	        type,
+			type_options,
+			choice_list,
 	        optional,
-	        antwortformatanzahl,
-	        choice1, choice2,	choice3,	choice4,	choice5,	choice6,	choice7,	choice8,	choice9,	choice10, choice11,	choice12,	choice13,	choice14,
 	        class,
-	        skipif) VALUES (
+	        skipif
+		) VALUES (
 			:study_id,
-			:variablenname,
-			:wortlaut,
-			:altwortlautbasedon,
-			:altwortlaut,
-			:typ,
+			:name,
+			:label,
+			:type,
+			:type_options,
+			:choice_list,
 			:optional,
-			:antwortformatanzahl,
-			:choice1, :choice2,	:choice3,	:choice4,	:choice5,	:choice6,	:choice7,	:choice8,	:choice9,	:choice10, :choice11,	:choice12,	:choice13,	:choice14,
 			:class,
 			:skipif
 			)');
 	
-		foreach($items as $row) 
+		$result_columns = array();
+		
+		$add_items->bindParam(":study_id", $this->id);
+		
+		$choice_lists = $this->getChoices();
+		$item_factory = new ItemFactory($choice_lists);
+		
+		foreach($this->SPR->survey as $row_number => $row) 
 		{
+			$item = $item_factory->make($row);
+			
+			if(!$item):
+				$this->errors[] = __("Row %s: Type %s is invalid.",$row_number,$this->SPR->survey[$row_number]['type']);
+				unset($this->SPR->survey[$row_number]);
+				continue;
+			else:
+
+				$val_errors = $item->validate();
+		
+				if(!empty($val_errors)):
+					$this->errors = $this->errors + $val_errors;
+					unset($this->SPR->survey[$row_number]);
+					continue;
+				endif;
+			endif;
+
 			foreach ($this->user_defined_columns as $param) 
 			{
-				$stmt->bindParam(":$param", $row[$param]);
+				$add_items->bindParam(":$param", $item->$param);
 			}
+			$result_columns[] = $item->getResultField();
 			
-			$stmt->bindParam(":study_id", $this->id);
-			$stmt->execute() or die(print_r($stmt->errorInfo(), true));
+			$add_items->execute() or die(print_r($add_items->errorInfo(), true));
 		}
+		
+		$unused = $item_factory->unusedChoiceLists();
+		if(! empty( $unused ) ):
+			$this->messages[] = __("These choice lists were not used: '%s'", implode("', '",$unused));
+		endif;
 	
-		if ($this->dbh->commit()) 
+		$new_syntax = $this->getResultsTableSyntax($result_columns);
+		
+		if(!empty($this->errors))
+		{
+			$this->dbh->rollBack();
+			$this->errors[] = "All changes were rolled back";
+			return false;
+		}
+		elseif ($this->dbh->commit()) 
 		{
 			$this->messages[] = $delete_old_items->rowCount() . " old items deleted.";
-			$this->messages[] = $stmt->rowCount() . " items were successfully loaded.";
-			return true;
+			$this->messages[] = count($this->SPR->survey) . " items were successfully loaded.";
+			
+			if($new_syntax !== $old_syntax)
+			{
+				$this->messages[] = "A new results table was created.";
+				return $this->createResultsTable($new_syntax);
+			}
+			else
+			{
+				$this->messages[] = "The old results table was kept.";
+				return true;
+			}
 		}
 		return false;
+	}
+	public function getItemsWithChoices()
+	{
+		$choice_lists = $this->getChoices();
+		$item_factory = new ItemFactory($choice_lists);
+		
+		$raw_items = $this->getItems();
+		
+		
+		$items = array();
+		foreach($raw_items as $row) 
+		{
+			$item = $item_factory->make($row);
+			$items[$item->name] = $item;
+		}
+		return $items;
+	}
+	private function addChoices()
+	{
+		$delete_old_choices = $this->dbh->prepare("DELETE FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id");
+		$delete_old_choices->bindParam(":study_id", $this->id); // delete cascades to item display
+		$delete_old_choices->execute() or die(print_r($delete_old_choices->errorInfo(), true));
+	
+
+		$add_choices = $this->dbh->prepare('INSERT INTO `survey_item_choices` (
+			study_id,
+	        list_name,
+			name,
+	        label
+		) VALUES (
+			:study_id,
+			:list_name,
+			:name,
+			:label
+		)');
+		$add_choices->bindParam(":study_id", $this->id);
+		
+		foreach($this->SPR->choices AS $choice)
+		{
+			foreach ($this->choices_user_defined_columns as $param) 
+			{
+				$add_choices->bindParam(":$param", $choice[ $param ]);
+			}
+			$add_choices->execute() or die(print_r($add_choices->errorInfo(), true));
+		}
+		$this->messages[] = $delete_old_choices->rowCount() . " old choices deleted.";
+		$this->messages[] = count($this->SPR->choices) . " choices were successfully loaded.";
+		
+		return true;
+	}
+	private function getResultsTableSyntax($columns)
+	{
+		$columns = array_filter($columns); // remove NULL, false, '' values (instruction, fork, submit, ...)
+		if(empty($columns))
+			return null;
+		
+		$columns = implode(",\n", $columns);
+		
+		$create = "CREATE TABLE `{$this->name}` (
+		  `session_id` INT UNSIGNED NOT NULL ,
+		  `study_id` INT UNSIGNED NOT NULL ,
+		  `modified` DATETIME NULL DEFAULT NULL ,
+		  `created` DATETIME NULL DEFAULT NULL ,
+		  `ended` DATETIME NULL DEFAULT NULL ,
+	
+		  $columns,
+		  
+		  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
+		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
+		  PRIMARY KEY (`session_id`) ,
+		  CONSTRAINT `fk_{$this->name}_survey_unit_sessions1`
+		    FOREIGN KEY (`session_id` )
+		    REFERENCES `survey_unit_sessions` (`id` )
+		    ON DELETE CASCADE
+		    ON UPDATE NO ACTION,
+		  CONSTRAINT `fk_{$this->name}_survey_studies1`
+		    FOREIGN KEY (`study_id` )
+		    REFERENCES `survey_studies` (`id` )
+		    ON DELETE NO ACTION
+		    ON UPDATE NO ACTION)
+		ENGINE = InnoDB";
+		return $create;
+	}
+	private function getOldSyntax()
+	{
+		$resC = $this->getResultCount();
+		if($resC == array('finished' => 0, 'begun' => 0)):
+			$this->messages[] = __("The results table was empty.",array_sum($resC));
+			return null;
+		endif;
+		
+		$old_items = $this->getItems();
+		require_once INCLUDE_ROOT."Model/Item.php";
+		
+		$choice_lists = $this->getChoices();
+		$item_factory = new ItemFactory($choice_lists);
+		
+		$old_result_columns = array();
+		foreach($old_items AS $row)
+		{
+			$item = $item_factory->make($row);
+			$old_result_columns[] = $item->getResultField();
+		}
+		
+		return $this->getResultsTableSyntax($old_result_columns);
+	}
+	private function createResultsTable($syntax)
+	{
+		if($this->deleteResults()):
+			$drop = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}` ;");
+			$drop->execute();
+		else:
+			return false;
+		endif;
+		
+		$create_table = $this->dbh->query($syntax) or die(print_r($this->dbh->errorInfo(), true));
+		if($create_table)
+			return true;
+		else return false;
 	}
 	public function getItems()
 	{
@@ -192,6 +382,7 @@ class Study extends RunUnit
 		$get_items->bindParam(":study_id", $this->id);
 		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
 
+		$results = array();
 		while($row = $get_items->fetch(PDO::FETCH_ASSOC))
 			$results[] = $row;
 		
@@ -222,7 +413,7 @@ class Study extends RunUnit
 	}
 	public function getItemDisplayResults()
 	{
-		$get = "SELECT `survey_run_sessions`.session,`survey_items`.variablenname, `survey_items_display`.* FROM `survey_items_display` 
+		$get = "SELECT `survey_run_sessions`.session,`survey_items`.name, `survey_items_display`.* FROM `survey_items_display` 
 		
 		LEFT JOIN `survey_unit_sessions`
 		ON `survey_unit_sessions`.id = `survey_items_display`.session_id
@@ -247,17 +438,27 @@ class Study extends RunUnit
 	{
 		$resC = $this->getResultCount();
 		if($resC['finished'] > 10):
-			$this->backupResults();
-		elseif($resC['finished']>0):
-			$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
-			$delete_sessions = $this->dbh->prepare ( "DELETE FROM `survey_unit_sessions` 
-			WHERE `unit_id` = :study_id" ) or die(print_r($this->dbh->errorInfo(), true));
-			$delete_sessions->bindParam(':study_id',$this->id);
-			$delete_sessions->execute();
-			// todo: rm item displays too
-			return $delete;
+			if($this->backupResults()):
+				$this->messages[] = __("%s results rows were backed up.",array_sum($resC));
+			else:
+				$this->errors[] = "Backup of %s result rows failed. Deletion cancelled.";
+				return false;
+			endif;
+		elseif($resC == array('finished' => 0, 'begun' => 0)):
+			$this->messages[] = __("The results table was empty.",array_sum($resC));
+			return true;		
+		else:
+			$this->messages[] = __("%s results rows were deleted.",array_sum($resC));
 		endif;
-		return false;
+		
+		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
+		
+		$delete_sessions = $this->dbh->prepare ( "DELETE FROM `survey_unit_sessions` 
+		WHERE `unit_id` = :study_id" ) or die(print_r($this->dbh->errorInfo(), true));
+		$delete_sessions->bindParam(':study_id',$this->id);
+		$delete_sessions->execute();
+		
+		return $delete;
 	}
 	public function backupResults()
 	{
@@ -265,7 +466,7 @@ class Study extends RunUnit
 		require_once INCLUDE_ROOT . 'Model/SpreadsheetReader.php';
 
 		$SPR = new SpreadsheetReader();
-		$SPR->saveTSV( $this->getResults() , $filename);
+		return $SPR->backupTSV( $this->getResults() , $filename);
 	}
 	public function getResultCount()
 	{
@@ -279,52 +480,7 @@ class Study extends RunUnit
 			return array('finished' => 0, 'begun' => 0);
 		endif;
 	}
-	public function createResultsTable($items)
-	{
-		$this->deleteResults();
-		$columns = array();
-		foreach($items AS $item)
-		{
-			$name = $item['variablenname'];
-			$item = legacy_translate_item($item);
-			$columns[] = $item->getResultField();
-		}
-		$columns = array_filter($columns); // remove NULL, false, '' values (instruction, fork, submit, ...)
-		
-		$columns = implode(",\n", $columns);
-#		pr($this->name);
-		$drop = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}` ;");
-		$drop->execute();
-		$create = "CREATE  TABLE `{$this->name}` (
-		  `session_id` INT UNSIGNED NOT NULL ,
-		  `study_id` INT UNSIGNED NOT NULL ,
-		  `modified` DATETIME NULL DEFAULT NULL ,
-		  `created` DATETIME NULL DEFAULT NULL ,
-		  `ended` DATETIME NULL DEFAULT NULL ,
-	
-	$columns,
-		  
-		  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
-		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
-		  PRIMARY KEY (`session_id`) ,
-		  CONSTRAINT `fk_{$this->name}_survey_unit_sessions1`
-		    FOREIGN KEY (`session_id` )
-		    REFERENCES `survey_unit_sessions` (`id` )
-		    ON DELETE CASCADE
-		    ON UPDATE NO ACTION,
-		  CONSTRAINT `fk_{$this->name}_survey_studies1`
-		    FOREIGN KEY (`study_id` )
-		    REFERENCES `survey_studies` (`id` )
-		    ON DELETE NO ACTION
-		    ON UPDATE NO ACTION)
-		ENGINE = InnoDB";
-#		pr($create);
 
-		$create_table = $this->dbh->query($create) or die(print_r($this->dbh->errorInfo(), true));
-		if($create_table)
-			return true;
-		else return false;
-	}
 	public function getSubstitutions()
 	{
 		$subs_query = $this->dbh->prepare ( "SELECT * FROM `survey_substitutions` WHERE `study_id` = :study_id ORDER BY id ASC" ) or die(print_r($this->dbh->errorInfo(), true));	// get all substitutions
