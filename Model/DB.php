@@ -19,6 +19,7 @@ class DB extends PDO
 		# Finally, we execute the SET time_zone command.
 
 		parent::exec("SET time_zone='$offset';");
+		parent::exec("SET SESSION sql_mode='STRICT_ALL_TABLES';");
 
         try 
         { 

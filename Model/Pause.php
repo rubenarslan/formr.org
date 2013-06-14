@@ -28,6 +28,7 @@ class Pause extends RunUnit {
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
 			
 			if($vars):
+				array_walk($vars,"emptyNull");
 				$this->message = $vars['message'];
 				$this->message_parsed = $vars['message_parsed'];
 				$this->wait_until_time = $vars['wait_until_time'];
@@ -50,6 +51,7 @@ class Pause extends RunUnit {
 		
 		if(isset($options['message']))
 		{
+			array_walk($options,"emptyNull");
 			$this->message = $options['message'];
 			$this->wait_until_time = $options['wait_until_time'];
 			$this->wait_until_date = $options['wait_until_date'];

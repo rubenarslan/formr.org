@@ -2,7 +2,7 @@
 require_once '../define_root.php';
 require_once INCLUDE_ROOT.'admin/admin_header.php';
 
-$results = $study->getItems();
+$results = $study->getItemsWithChoices();
 require_once INCLUDE_ROOT.'view_header.php';
 
 require_once INCLUDE_ROOT.'admin/admin_nav.php';
@@ -22,7 +22,7 @@ function empty_column($col,$arr)
 {
 	$empty = true;
 	foreach($arr AS $row):
-		if(trim($row[$col]) != ''):
+		if(empty($row->col) OR trim($row->$col) != ''):
 			$empty = false;
 			break;
 		endif;
@@ -31,18 +31,13 @@ function empty_column($col,$arr)
 	return $empty;
 }
 $empty_columns = array();
+$display_cols = array('type','name','label','optional','class','skipif','choices');
 
 foreach(current($results) AS $field => $value):
-	if( !isset($choices) AND strtolower(substr($field,0,5)) === 'mcalt'):
-		$choices = true;
-		$field = 'choices';
-	elseif(strtolower(substr($field,0,5)) === 'mcalt'):
+	
+	if(empty_column($field,$results) OR !in_array($field,$display_cols)):
+		array_push($empty_columns,$field);
 		continue;
-	else:
-		if(empty_column($field,$results) OR in_array($field, array('id','study_id'))):
-			array_push($empty_columns,$field);
-			continue;
-		endif;
 	endif;
 		
     echo "<th>{$field}</th>";
@@ -59,34 +54,34 @@ foreach($results AS $row):
 
     // $row is array... foreach( .. ) puts every element
     // of $row to $cell variable
-    foreach($row as $field => $cell):
-		if( in_array($field, array('id','study_id'))
-			OR in_array($field, $empty_columns))
+	$row->type = implode(" ", array('<b>'.$row->type.'</b>', $row->choice_list, '<i>'.$row->type_options . '</i>'));
+    foreach($display_cols AS $field):
+		$cell = $row->$field;
+		if( in_array($field, $empty_columns))
 			continue;
 		
 		
-		if(strtolower(substr($field,0,5)) == 'mcalt')
+		if(strtolower($field) == 'choices')
 		{
-			if(strtolower(substr($field,5))==1):
-				echo '<td>';
-				if($cell!=''):
-					echo '<ol>';
-					$open = true;
-				endif;
+			echo '<td>';
+			if($cell!=''):
+				echo '<ol>';
+				$open = true;
 			endif;
 			
-			if($cell!='')
-		        echo "<li>$cell</li>";
-		
-			if(strtolower(substr($field,5))==14):
-				if($open):
-					echo '</ol>';
-					$open = false;
+			foreach($cell AS $name => $label):
+				if($label!=''):
+			        echo "<li title='$name' class='hastooltip'>$label</li>";
 				endif;
-				echo '</td>';
-			endif;
+			endforeach;
 		
-			continue;	
+			if($open):
+				echo '</ol>';
+				$open = false;
+			endif;
+			echo '</td>';
+		
+			continue;
 		}
 
 		

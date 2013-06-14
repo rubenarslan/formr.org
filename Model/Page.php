@@ -11,7 +11,7 @@ class Page extends RunUnit {
 	private $body = '';
 	private $body_parsed = '';
 	private $title = '';
-	private $can_be_ended = true;
+	private $can_be_ended = 1;
 	public $ended = false;
 	
 	public function __construct($fdb, $session = null, $unit = null) 
@@ -28,7 +28,7 @@ class Page extends RunUnit {
 				$this->body = $vars['body'];
 				$this->body_parsed = $vars['body_parsed'];
 				$this->title = $vars['title'];
-				$this->can_be_ended = $vars['end'];
+				$this->can_be_ended = $vars['end'] ? 1:0;
 		
 				$this->valid = true;
 			endif;
@@ -52,7 +52,7 @@ class Page extends RunUnit {
 		{
 			$this->body = $options['body'];
 			$this->title = $options['title'];
-			$this->can_be_ended = $options['end'];
+			$this->can_be_ended = $options['end'] ? 1:0;
 		}
 		
 		$this->body_parsed = Markdown::defaultTransform($this->body); // transform upon insertion into db instead of at runtime

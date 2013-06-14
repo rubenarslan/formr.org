@@ -35,7 +35,7 @@ require_once INCLUDE_ROOT."public_nav.php";
 			<?php echo _("Email"); ?>
 		</label>
 		<div class="controls">
-			<input required type="email" placeholder="email@example.com" name="email" id="email">
+			<input required type="email" placeholder="Your email" name="email" id="email">
 		</div>
 	</div>
 	<div class="control-group small-left">
@@ -43,7 +43,7 @@ require_once INCLUDE_ROOT."public_nav.php";
 			<?php echo _("Password"); ?>
 		</label>
 		<div class="controls">
-			<input required type="password" placeholder="Please choose a secure phrase" name="password" id="password">
+			<input required type="password" placeholder="Your password" name="password" id="password">
 		</div>
 	</div>
 	<div class="control-group small-left">

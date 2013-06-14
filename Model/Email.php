@@ -11,10 +11,10 @@ class Email extends RunUnit {
 	public $unit = null;
 	private $mail_sent = false;
 	
-	private $body = '';
-	private $body_parsed = '';
-	private $subject = '';
-	private $html = false;
+	private $body = null;
+	private $body_parsed = null;
+	private $subject = null;
+	private $html = null;
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -32,7 +32,7 @@ class Email extends RunUnit {
 				$this->body = $vars['body'];
 				$this->body_parsed = $vars['body_parsed'];
 				$this->subject = $vars['subject'];
-				$this->html = $vars['html'];
+				$this->html = $vars['html'] ? 1:0;
 		
 				$this->valid = true;
 			endif;
@@ -53,7 +53,7 @@ class Email extends RunUnit {
 			$this->subject = $options['subject'];
 			if(isset($options['account_id']))
 				$this->account_id = $options['account_id'];
-			$this->html = $options['html'];
+			$this->html = $options['html'] ? 1:0;
 		}
 		
 		$this->body_parsed = Markdown::defaultTransform($this->body); // transform upon insertion into db instead of at runtime
