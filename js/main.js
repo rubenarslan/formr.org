@@ -4,7 +4,7 @@ $.webshims.setOptions('forms', {
 	   addValidators: true
 });
 $.webshims.setOptions('geolocation', {
-	confirmText: '{location} wants to know your position. You will have to enter one manually, if you decline.'
+	confirmText: '{location} wants to know your position. You will have to enter one manually if you decline.'
 });
 $.webshims.setOptions('forms-ext', {
        types: 'range date time number month color',

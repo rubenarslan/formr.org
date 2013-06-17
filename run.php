@@ -2,6 +2,16 @@
 require_once 'define_root.php';
 require_once INCLUDE_ROOT . "Model/Site.php";
 
+if(isset($_GET['run_name']) AND isset($_GET['code']) AND strlen($_GET['code'])==64):
+	$test_code = $_GET['code'];
+	$user->user_code = $test_code;
+	
+	$_SESSION['session'] = $test_code;
+elseif(!isset($_GET['run_name']) OR !isset($user->user_code)):
+	alert("<strong>Sorry.</strong> Something went wrong when you tried to access.",'alert-error');
+	redirect_to("index");
+endif;
+
 if($_GET['run_name'] == 'fake_test_run' AND $user->isAdmin()): // for testing purposes
 	require_once INCLUDE_ROOT . "Model/Survey.php";
 
