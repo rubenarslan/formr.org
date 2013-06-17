@@ -10,6 +10,7 @@ class RunUnit {
 	public $ended = false;
 	public $position;
 	public $called_by_cron = false;
+	public $knitr = false;
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -167,5 +168,70 @@ class RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		return parent::runDialog($prepend,'<i class="icon-puzzle-piece"></i>');
+	}
+	private function getUserDataInRun()
+	{
+		$result_tables = $this->dbh->prepare("SELECT `survey_studies`.name FROM survey_run_units 
+			LEFT JOIN survey_units 
+		ON `survey_units`.id = `survey_run_units`.unit_id
+		LEFT JOIN `survey_studies`
+		ON `survey_units`.id = `survey_studies`.id
+		
+		WHERE `survey_run_units`.run_id = :run_id
+			AND `survey_units`.type = 'Survey'");
+		
+		$result_tables->bindParam(":run_id",$this->run_id);
+		$result_tables->execute();
+		$surveys = array();
+		while($res = $result_tables->fetch(PDO::FETCH_ASSOC))
+			$surveys[] = $res['name'];
+		
+		$results = array();
+		foreach($surveys AS $survey_name):
+			$get_results = $this->dbh->prepare("SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
+			left join `survey_unit_sessions`
+				on `$survey_name`.session_id = `survey_unit_sessions`.id
+			left join `survey_run_sessions`
+				on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+			
+			WHERE  `survey_run_sessions`.id = :run_session_id;");
+			$get_results->bindParam(':run_session_id', $this->run_session_id);
+			$get_results->execute();
+			$results[$survey_name] = array();
+			while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
+				foreach($res AS $var => $val):
+					
+					if(!isset($results[$survey_name][$var]))
+						$results[$survey_name][$var] = array();
+					
+					$results[$survey_name][$var][] = $val;
+					
+				endforeach;
+			endwhile;
+		endforeach;
+		return $results;
+	}
+	private function makeOpenCPU()
+	{
+		require_once INCLUDE_ROOT . "Model/OpenCPU.php";
+
+		global $head;
+		$head = '
+		<script type="text/javascript" src="'.WEBROOT.'js/vendor/knitr.js"></script>
+		<link rel="stylesheet" href="'.WEBROOT.'css/knitr.css" type="text/css">';
+
+		$openCPU = new OpenCPU();
+		$openCPU->addUserData($this->getUserDataInRun());
+		return $openCPU;
+	}
+	public function knitForAdmin($source)
+	{
+		$openCPU = $this->makeOpenCPU();
+		return $openCPU->knitForAdminDebug($source);
+	}
+	public function knitForUser($source)
+	{
+		$openCPU = $this->makeOpenCPU();
+		return $openCPU->knitForUserDisplay($source);
 	}
 }

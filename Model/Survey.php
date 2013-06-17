@@ -337,7 +337,7 @@ class Survey extends RunUnit {
 		{
 			if(isset($this->settings["submit_button_text"])):
 				$sub_sets = array(
-								'text' => $this->settings["submit_button_text"]
+								'label' => $this->settings["submit_button_text"]
 				);
 			else:
 				$sub_sets = array('label' => 'Weiter', 'class_input' => 'btn-info');
