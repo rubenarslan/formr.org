@@ -93,7 +93,7 @@ class Email extends RunUnit {
 	private function getBody()
 	{
 		if(isset($this->run_name))		
-			$login_link = WEBROOT."access.php?run_name={$this->run_name}&code={$this->session}";
+			$login_link = WEBROOT."{$this->run_name}?code={$this->session}";
 		else $login_link = WEBROOT;
 
 		if($this->html):

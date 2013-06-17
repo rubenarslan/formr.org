@@ -114,6 +114,8 @@ class Page extends RunUnit {
 		
 		if($this->can_be_ended AND $this->ended) return false;
 		
+		$this->body_parsed = $this->knitForUser($this->body);
+		
 		if($this->can_be_ended):
 			$action = WEBROOT."{$this->run_name}";
 			$ret = '<form action="'.$action.'" method="post" accept-charset="utf-8">';
