@@ -1004,12 +1004,15 @@ class Item_select_add extends Item
 			if(count($this->type_options_array) == 1) 
 				$this->type_options_array = explode(",",current($this->type_options_array));
 
-			$maxSelect = trim(reset($this->type_options_array));
-			if(!is_numeric($maxSelect)) $maxSelect = 0;
 		
-			$maxType = trim(next($this->type_options_array));
+			$maxType = trim(reset($this->type_options_array));
 			if(!is_numeric($maxType)) $maxType = 255;
 		
+			if(count($this->type_options_array) > 1)
+			{ 
+				$maxSelect = trim(next($this->type_options_array));
+			}
+			if(!isset($maxSelect) OR !is_numeric($maxSelect)) $maxSelect = 0;
 		}
 		
 		$this->classes_input[] = 'select2add';
@@ -1210,20 +1213,6 @@ class Item_sex extends Item_btnradio
 	}
 }
 
-class Item_ip extends Item {
-	public $type = 'ip';
-	protected $input_attributes = array('type' => 'hidden');
-	
-	protected $mysql_field =  'VARCHAR (46) DEFAULT NULL';
-	public function validateInput($reply)
-	{
-		return $_SERVER["REMOTE_ADDR"];
-	}
-	public function render() {
-		return $this->render_input();
-	}
-}
-
 class Item_geolocation extends Item {
 	public $type = 'geolocation';
 	protected $input_attributes = array('type' => 'text', 'readonly');
@@ -1245,6 +1234,22 @@ class Item_geolocation extends Item {
 	
 }
 
+class Item_ip extends Item {
+	public $type = 'ip';
+	protected $input_attributes = array('type' => 'hidden');
+	
+	protected $mysql_field =  'VARCHAR (46) DEFAULT NULL';
+	public function validateInput($reply)
+	{
+		return $_SERVER["REMOTE_ADDR"];
+	}
+	public function render() {
+		return $this->render_input();
+	}
+}
+
+
+
 class Item_referrer extends Item {
 	public $type = 'referrer';
 	protected $input_attributes = array('type' => 'hidden');
@@ -1263,16 +1268,25 @@ class Item_referrer extends Item {
 class Item_server extends Item {
 	public $type = 'server';
 	protected $input_attributes = array('type' => 'hidden');
+	private $server_var = 'HTTP_USER_AGENT';
 	
 	protected $mysql_field =  'VARCHAR (255) DEFAULT NULL';
+	protected function setMoreOptions() 
+	{	
+		if(isset($this->type_options_array) AND is_array($this->type_options_array))
+		{
+			if(count($this->type_options_array) == 1) 
+				$this->server_var = trim(current($this->type_options_array));
+		}
+	}
 	public function validateInput($reply)
 	{
-		return $_SERVER[$this->name];
+		return $_SERVER[$this->server_var];
 	}
 	public function validate() 
 	{
 		parent::validate();
-		if(!in_array($this->name, array(
+		if(!in_array($this->server_var, array(
 			'HTTP_USER_AGENT',
 			'HTTP_ACCEPT',
 			'HTTP_ACCEPT_CHARSET',
