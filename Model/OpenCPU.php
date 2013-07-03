@@ -13,7 +13,7 @@ class OpenCPU {
 	public function addUserData($datasets)
 	{
 		foreach($datasets AS $df_name => $data):
-			$this->user_data .= $df_name . ' = as.data.frame(RJSONIO::fromJSON("'.addslashes(json_encode($data,JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK)).'", nullValue = NA))
+			$this->user_data .= $df_name . ' = as.data.frame(RJSONIO::fromJSON("'.addslashes(my_json_encode($data)).'", nullValue = NA), stringsAsFactors=F)
 ';
 		endforeach;
 	}
@@ -75,4 +75,14 @@ sub(
 		return $html[0];
 	}
 }
-
+function my_json_encode($arr)
+{
+	if(!defined("JSON_UNESCAPED_UNICODE")):
+	
+        //convmap since 0x80 char codes so it takes all multibyte codes (above ASCII 127). So such characters are being "hidden" from normal json_encoding
+        array_walk_recursive($arr, function (&$item, $key) { if (is_string($item)) $item = mb_encode_numericentity($item, array (0x80, 0xffff, 0, 0xffff), 'UTF-8'); });
+        return mb_decode_numericentity(json_encode($arr, JSON_NUMERIC_CHECK), array (0x80, 0xffff, 0, 0xffff), 'UTF-8');
+	else:
+		return json_encode($arr,JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK);
+	endif;
+}

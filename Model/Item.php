@@ -369,7 +369,11 @@ class Item_text extends Item
 	{	
 		if(is_array($this->type_options_array) AND count($this->type_options_array) == 1)
 		{
-			$this->input_attributes['maxlength'] = (int)trim(current($this->type_options_array));	
+			$val = (int)trim(current($this->type_options_array));
+			if(is_numeric($val))
+				$this->input_attributes['maxlength'] = $val;
+			else
+				$this->input_attributes['pattern'] = trim(current($this->type_options_array));	
 		}
 	}
 	public function validateInput($reply)
@@ -1299,7 +1303,7 @@ class Item_server extends Item {
 			'REQUEST_TIME_FLOAT'
 		)))
 		{
-			$this->val_errors[] = __('The server variable %s cannot be saved', $this->name);
+			$this->val_errors[] = __('The server variable %s with the value %s cannot be saved', $this->name, $this->server_var);
 		}
 		
 		return $this->val_errors;

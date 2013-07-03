@@ -438,7 +438,7 @@ class SpreadsheetReader
 							$val = $type_options[0];
 							unset($type_options[0]); // remove real type from options
 			
-							if(preg_match('/^[A-Za-z0-9_]{1,20}$/',trim($type_options[1]) ) ):
+							if($val != 'server' AND preg_match('/^[A-Za-z0-9_]{1,20}$/',trim($type_options[1]) ) ):
 								$data[$row_number]['choice_list'] = $type_options[1];
 								unset($type_options[1]);
 							endif;
