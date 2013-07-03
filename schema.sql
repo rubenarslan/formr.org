@@ -328,8 +328,8 @@ CREATE  TABLE IF NOT EXISTS `survey_pauses` (
   `wait_until_date` DATE NULL ,
   `wait_minutes` INT NULL ,
   `relative_to` VARCHAR(255) NULL ,
-  `message` TEXT NULL ,
-  `message_parsed` TEXT NULL ,
+  `body` TEXT NULL ,
+  `body_parsed` TEXT NULL ,
   INDEX `fk_survey_breaks_survey_run_items1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
   CONSTRAINT `fk_survey_breaks_survey_run_items1`
@@ -396,7 +396,7 @@ DROP TABLE IF EXISTS `survey_email_log` ;
 
 CREATE  TABLE IF NOT EXISTS `survey_email_log` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
-  `session_id` INT UNSIGNED NULL ,
+  `session_id` INT UNSIGNED NOT NULL ,
   `email_id` INT UNSIGNED NOT NULL ,
   `created` DATETIME NOT NULL ,
   `recipient` VARCHAR(255) NULL ,
@@ -505,6 +505,33 @@ CREATE  TABLE IF NOT EXISTS `survey_item_choices` (
     FOREIGN KEY (`study_id` )
     REFERENCES `survey_studies` (`id` )
     ON DELETE CASCADE
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `survey_reports`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_reports` ;
+
+CREATE  TABLE IF NOT EXISTS `survey_reports` (
+  `session_id` INT UNSIGNED NOT NULL ,
+  `unit_id` INT UNSIGNED NOT NULL ,
+  `created` DATETIME NULL DEFAULT NULL ,
+  `last_viewed` DATETIME NULL DEFAULT NULL ,
+  `body_knit` TEXT NULL ,
+  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
+  PRIMARY KEY (`session_id`) ,
+  INDEX `fk_survey_reports_survey_units1_idx` (`unit_id` ASC) ,
+  CONSTRAINT `fk_survey_results_survey_unit_sessions10`
+    FOREIGN KEY (`session_id` )
+    REFERENCES `survey_unit_sessions` (`id` )
+    ON DELETE CASCADE
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_survey_reports_survey_units1`
+    FOREIGN KEY (`unit_id` )
+    REFERENCES `survey_units` (`id` )
+    ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
