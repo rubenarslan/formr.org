@@ -30,6 +30,9 @@ class SpreadsheetReader
 	}
 	protected function objectFromArray($array)
 	{
+		set_time_limit(300); # defaults to 30
+		ini_set('memory_limit', '256M');
+		
 		// Include PHPExcel_IOFactory
 		require_once INCLUDE_ROOT.'PHPExcel/Classes/PHPExcel/IOFactory.php';
 

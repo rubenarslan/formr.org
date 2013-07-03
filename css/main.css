@@ -286,3 +286,6 @@ form.form-horizontal div.form-row.control-group.hidden {
 {
 	background-color:#F9F9F9;
 }
+body .select2-offscreen, body .select2-offscreen:focus {
+	position:absolute;
+}
