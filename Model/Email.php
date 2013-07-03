@@ -98,7 +98,11 @@ class Email extends RunUnit {
 
 		if($this->html):
 			$login_link = "<a href='$login_link'>Login link</a>";
-			$this->body_parsed = str_replace("{{login_link}}", $login_link , $this->getParsedBody($this->body) );
+			if($this->session_id)
+				$this->body_parsed = $this->getParsedBody($this->body);
+			else
+				$this->body_parsed = $this->getParsedBodyAdmin($this->body);
+			$this->body_parsed = str_replace("{{login_link}}", $login_link , $this->body_parsed );
 			return $this->body_parsed;
 		else:
 			$this->body = str_replace("{{login_link}}", $login_link , $this->body);

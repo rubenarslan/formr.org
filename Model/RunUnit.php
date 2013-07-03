@@ -11,6 +11,7 @@ class RunUnit {
 	public $position;
 	public $called_by_cron = false;
 	public $knitr = false;
+	public $session_id = null;
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -233,6 +234,24 @@ class RunUnit {
 	}
 	public function getParsedBodyAdmin($source)
 	{
+		$q = "SELECT id,run_session_id FROM `survey_unit_sessions`
+
+		WHERE unit_id = :unit_id
+		AND run_session_id IS NOT NULL
+		ORDER BY RAND()
+		LIMIT 1";
+
+		$g_user = $this->dbh->prepare($q); // should use readonly
+		$g_user->bindParam(':unit_id',$this->id);
+		$g_user->execute() or die(print_r($g_user->errorInfo(), true));
+		
+		if($g_user->rowCount()>=1):
+			$temp_user = $g_user->fetch(PDO::FETCH_ASSOC);
+			$this->session_id = $temp_user['id'];
+			$this->run_session_id = $temp_user['run_session_id'];
+			pr($temp_user);
+		endif;
+			
 		if($this->knittingNeeded($source)):
 			$openCPU = $this->makeOpenCPU();
 			return $openCPU->knitForAdminDebug($source);
