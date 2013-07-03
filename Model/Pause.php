@@ -9,8 +9,8 @@ class Pause extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $message = '';
-	private $message_parsed = '';
+	private $body = '';
+	protected $body_parsed = '';
 	private $relative_to = null;
 	private $wait_minutes = null;
 	private $wait_until_time = null;
@@ -29,8 +29,8 @@ class Pause extends RunUnit {
 			
 			if($vars):
 				array_walk($vars,"emptyNull");
-				$this->message = $vars['message'];
-				$this->message_parsed = $vars['message_parsed'];
+				$this->body = $vars['body'];
+				$this->body_parsed = $vars['body_parsed'];
 				$this->wait_until_time = $vars['wait_until_time'];
 				$this->wait_until_date = $vars['wait_until_date'];
 				$this->wait_minutes = $vars['wait_minutes'];
@@ -49,31 +49,31 @@ class Pause extends RunUnit {
 		else
 			$this->modify($this->id);
 		
-		if(isset($options['message']))
+		if(isset($options['body']))
 		{
 			array_walk($options,"emptyNull");
-			$this->message = $options['message'];
+			$this->body = $options['body'];
 			$this->wait_until_time = $options['wait_until_time'];
 			$this->wait_until_date = $options['wait_until_date'];
 			$this->wait_minutes = $options['wait_minutes'];
 			$this->relative_to = $options['relative_to'];
 		}
 		
-		$this->message_parsed = Markdown::defaultTransform($this->message); // transform upon insertion into db instead of at runtime
+		$this->body_parsed = Markdown::defaultTransform($this->body); // transform upon insertion into db instead of at runtime
 		
-		$create = $this->dbh->prepare("INSERT INTO `survey_pauses` (`id`, `message`, `message_parsed`, `wait_until_time`, `wait_until_date` , `wait_minutes`, `relative_to`)
-			VALUES (:id, :message, :message_parsed, :wait_until_time, :wait_until_date, :wait_minutes, :relative_to)
+		$create = $this->dbh->prepare("INSERT INTO `survey_pauses` (`id`, `body`, `body_parsed`, `wait_until_time`, `wait_until_date` , `wait_minutes`, `relative_to`)
+			VALUES (:id, :body, :body_parsed, :wait_until_time, :wait_until_date, :wait_minutes, :relative_to)
 		ON DUPLICATE KEY UPDATE
-			`message` = :message, 
-			`message_parsed` = :message_parsed, 
+			`body` = :body, 
+			`body_parsed` = :body_parsed, 
 			`wait_until_time` = :wait_until_time, 
 			`wait_until_date` = :wait_until_date, 
 			`wait_minutes` = :wait_minutes, 
 			`relative_to` = :relative_to
 		;");
 		$create->bindParam(':id',$this->id);
-		$create->bindParam(':message',$this->message);
-		$create->bindParam(':message_parsed',$this->message_parsed);
+		$create->bindParam(':body',$this->body);
+		$create->bindParam(':body_parsed',$this->body_parsed);
 		$create->bindParam(':wait_until_time',$this->wait_until_time);
 		$create->bindParam(':wait_until_date',$this->wait_until_date);
 		$create->bindParam(':wait_minutes',$this->wait_minutes);
@@ -107,7 +107,7 @@ class Pause extends RunUnit {
 					</label
 				</p> 
 		<p><label>Message to show while waiting: <br>
-			<textarea placeholder="You can use Markdown" name="message" rows="4" cols="60" class="span5">'.$this->message.'</textarea></label></p>
+			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" class="span5">'.$this->body.'</textarea></label></p>
 			';
 		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
 		<a class="btn unit_test" href="ajax_test_unit?type=Pause">Test</a></p>';
@@ -194,7 +194,7 @@ LIMIT 20";
 		
 		echo "<h2>Pause message</h2>";
 		
-		echo $this->message_parsed;
+		echo $this->getParsedBodyAdmin($this->body);
 	}
 	public function exec()
 	{
@@ -256,7 +256,7 @@ LIMIT 20";
 		{
 			return array(
 				'title' => 'Pause',
-				'body' => $this->message_parsed
+				'body' => $this->getParsedBody($this->body)
 			);
 		}	
 	}

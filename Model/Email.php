@@ -12,7 +12,7 @@ class Email extends RunUnit {
 	private $mail_sent = false;
 	
 	private $body = null;
-	private $body_parsed = null;
+	protected $body_parsed = null;
 	private $subject = null;
 	private $html = null;
 	
@@ -98,7 +98,7 @@ class Email extends RunUnit {
 
 		if($this->html):
 			$login_link = "<a href='$login_link'>Login link</a>";
-			$this->body_parsed = str_replace("{{login_link}}", $login_link , $this->body_parsed);
+			$this->body_parsed = str_replace("{{login_link}}", $login_link , $this->getParsedBody($this->body) );
 			return $this->body_parsed;
 		else:
 			$this->body = str_replace("{{login_link}}", $login_link , $this->body);
@@ -210,12 +210,12 @@ LIMIT 1";
 	}
 	private function logMail()
 	{
-		$log = $this->dbh->prepare("INSERT INTO `survey_email_log` (id, session_id, email_id, created, recipient)
-			VALUES ('', :session_id, :email_id, NOW(), :recipient)");
+		$log = $this->dbh->prepare("INSERT INTO `survey_email_log` (session_id, email_id, created, recipient)
+			VALUES (:session_id, :email_id, NOW(), :recipient)");
 		$log->bindParam(':session_id', $this->session_id);
 		$log->bindParam(':email_id', $this->id);
 		$log->bindParam(':recipient', $this->recipient);
-		$log->execute();	
+		$log->execute();
 	}
 	public function test()
 	{

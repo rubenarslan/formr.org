@@ -224,14 +224,58 @@ class RunUnit {
 		$openCPU->addUserData($this->getUserDataInRun());
 		return $openCPU;
 	}
-	public function knitForAdmin($source)
+	private function knittingNeeded($source)
 	{
-		$openCPU = $this->makeOpenCPU();
-		return $openCPU->knitForAdminDebug($source);
+		if(strpos($source,'`r ')!==false OR strpos($source,'```{r')!==false)
+			 return true;
+		 else
+			return false;
 	}
-	public function knitForUser($source)
+	public function getParsedBodyAdmin($source)
 	{
-		$openCPU = $this->makeOpenCPU();
-		return $openCPU->knitForUserDisplay($source);
+		if($this->knittingNeeded($source)):
+			$openCPU = $this->makeOpenCPU();
+			return $openCPU->knitForAdminDebug($source);
+		else:
+			return $this->body_parsed;
+		endif;
 	}
+	public function getParsedBody($source)
+	{
+		if(!$this->knittingNeeded($source))
+		{ // knit if need be
+			return $this->body_parsed;
+		}
+		else
+		{
+			$get_report = $this->dbh->prepare("SELECT `body_knit` FROM `survey_reports` WHERE 
+				`session_id` = :session_id AND 
+				`unit_id` = :unit_id");
+			$get_report->bindParam(":unit_id",$this->id);
+			$get_report->bindParam(":session_id",$this->session_id);
+			$get_report->execute();
+			if($get_report->rowCount() > 0) 
+			{
+				$report = $get_report->fetch(PDO::FETCH_ASSOC);
+				return $report['body_knit'];
+			}
+			else
+			{
+				$openCPU = $this->makeOpenCPU();
+				$report = $openCPU->knitForUserDisplay($source);
+				if($report)
+				{
+					$set_report = $this->dbh->prepare("INSERT INTO `survey_reports` 
+						(`session_id`, `unit_id`, `body_knit`, `created`,	`last_viewed`) 
+				VALUES  (:session_id, :unit_id, :body_knit,  NOW(), 	NOW() ) ");
+					$set_report->bindParam(":unit_id",$this->id);
+					$set_report->bindParam(":body_knit",$report);
+					$set_report->bindParam(":session_id",$this->session_id);
+					$set_report->execute();
+					return $report;
+				}
+			}
+		}
+	}
+	// when body is changed, delete all survey reports?
 }
