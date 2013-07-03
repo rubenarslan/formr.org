@@ -12,6 +12,8 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 		$unit = makeUnit($fdb,null,$unit);
 		
 		$unit->test();
+		echo $site->renderAlerts();
+		
 	endif;
 endif;
 

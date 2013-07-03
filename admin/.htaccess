@@ -1,12 +1,12 @@
-AuthType Basic
-AuthName "AdminBereich"
-AuthBasicProvider file
-#local
-AuthUserFile /Applications/MAMP/htdocs/zwang/.htpasswd
-# on HU subdomain
-#AuthUserFile /usr/local/www/htdocs/zwang/.htpasswd
-Require valid-user
-
+#AuthType Basic
+#AuthName "AdminBereich"
+#AuthBasicProvider file
+##local
+#AuthUserFile /Applications/MAMP/htdocs/zwang/.htpasswd
+## on HU subdomain
+##AuthUserFile /usr/local/www/htdocs/zwang/.htpasswd
+#Require valid-user
+#
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteCond %{REQUEST_FILENAME} !-d
