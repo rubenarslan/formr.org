@@ -9,7 +9,7 @@ class Page extends RunUnit {
 	public $session = null;
 	public $unit = null;
 	private $body = '';
-	private $body_parsed = '';
+	protected $body_parsed = '';
 	private $title = '';
 	private $can_be_ended = 1;
 	public $ended = false;
@@ -97,7 +97,8 @@ class Page extends RunUnit {
 	}
 	public function test()
 	{
-		echo $this->body_parsed;
+		
+		echo $this->getParsedBodyAdmin($this->body);
 		if($this->can_be_ended)
 		{
 			$ret = '<form method="post" accept-charset="utf-8">';
@@ -106,15 +107,17 @@ class Page extends RunUnit {
 			echo $ret;
 		}
 			
-	} 
+	}
 	public function exec()
 	{
-		if($this->called_by_cron)
+		if($this->called_by_cron):
+			$this->getParsedBody($this->body);
 			return true; // never show to the cronjob
+		endif;
 		
 		if($this->can_be_ended AND $this->ended) return false;
 		
-		$this->body_parsed = $this->knitForUser($this->body);
+		$this->body_parsed = $this->getParsedBody($this->body);
 		
 		if($this->can_be_ended):
 			$action = WEBROOT."{$this->run_name}";

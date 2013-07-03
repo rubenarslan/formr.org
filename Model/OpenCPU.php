@@ -41,6 +41,7 @@ $this->user_data .
 '```
 '.
 		$source;
+
 		pr($source);
 		
 		return $this->knit($source);
@@ -64,9 +65,11 @@ sub(
 		$result = curl_exec($this->curl_c);
 		curl_close($this->curl_c);
 		$html = json_decode($result);
+		
 		if(!$html):
-			pr($result);
-			pr($source);
+			alert($result,'alert-error');
+			alert($source,'alert-error');
+			return false;
 		endif;
 		
 		return $html[0];
