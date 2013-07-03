@@ -45,7 +45,7 @@ require_once INCLUDE_ROOT."public_nav.php";
 	</div>
 	<div class="control-group small-left">
 		<div class="controls">
-			<input required type="submit" value="<?php echo _("Register"); ?>">
+			<input required class="btn btn-success" type="submit" value="<?php echo _("Register"); ?>">
 		</div>
 	</div>
 </form>
