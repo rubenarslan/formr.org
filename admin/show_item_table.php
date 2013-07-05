@@ -64,13 +64,14 @@ foreach($results AS $row):
 		if(strtolower($field) == 'choices')
 		{
 			echo '<td>';
-			if($cell!=''):
+			if($cell!=='' AND $cell!==NULL):
 				echo '<ol>';
 				$open = true;
 			endif;
 			
 			foreach($cell AS $name => $label):
-				if($label!=''):
+				if($label!=='' AND $label!==NULL):
+					
 			        echo "<li title='$name' class='hastooltip'>$label</li>";
 				endif;
 			endforeach;

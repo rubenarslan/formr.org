@@ -821,7 +821,7 @@ class Item_mc extends Item
 	}
 	protected function render_input() 
 	{
-		$ret = '
+		$ret = '<div class="mc-table">
 			<input '.self::_parseAttributes($this->input_attributes,array('type','id','required')).' type="hidden" value="" id="item' . $this->id . '_">
 		';
 		
@@ -851,6 +851,7 @@ class Item_mc extends Item
 			
 		endforeach;
 		
+		$ret .= '</div>';
 		return $ret;
 	}
 }
@@ -882,7 +883,7 @@ class Item_mmc extends Item_mc
 #		$this->classes_wrapper = array_diff($this->classes_wrapper, array('required'));
 		unset($this->input_attributes['required']);
 		
-		$ret = '
+		$ret = '<div class="mc-table">
 			<input type="hidden" value="" id="item' . $this->id . '_" '.self::_parseAttributes($this->input_attributes,array('id','type','required')).'>
 		';
 		foreach($this->choices AS $value => $option) {
@@ -893,6 +894,7 @@ class Item_mmc extends Item_mc
 			' . $option . '</label>
 		';
 		}
+		$ret .= '</div>';
 		return $ret;
 	}
 	public function validateInput($reply)

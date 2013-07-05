@@ -156,29 +156,38 @@ class SpreadsheetReader
 	}
 	private function translate_legacy_column($col)
 	{
-		if(strtolower($col)=='variablenname')
+		$col = trim(strtolower($col));
+		if($col=='variablenname')
 			$col = 'name';
-		elseif(strtolower($col)=='typ')
+		elseif($col=='typ')
 			$col = 'type';
-		elseif(strtolower($col)=='wortlaut' or strtolower($col)=='text')
-			$col = 'text';
-		elseif(strtolower(substr($col,0,5))=='mcalt')
+		elseif($col=='wortlaut' or $col=='text')
+			$col = 'label';
+		elseif(substr($col,0,5)=='mcalt')
 			$col = 'choice'.substr($col,5);
-		elseif(strtolower($col)=='ratinguntererpol')
+		elseif($col=='ratinguntererpol')
 			$col = 'choice1';
-		elseif(strtolower($col)=='ratingobererpol')
+		elseif($col=='ratingobererpol')
 			$col = 'choice2';
 		
-		return strtolower($col);
+		return $col;
 	}
 	private function translate_legacy_type($type)
 	{
-		if(strtolower($type)=='offen')
-			$type = 'text';
-		elseif(strtolower($type)=='instruktion')
-			$type = 'instruktion';
+		$type = trim(strtolower($type));
 		
-		return strtolower($type);
+		if($type=='offen')
+			$type = 'text';
+		elseif($type=='instruktion')
+			$type = 'instruction';
+		elseif($type=='fork')
+			$type = 'instruction';
+		elseif($type=='rating')
+			$type = 'mc';
+		elseif($type=='mcnt')
+			$type = 'mc';
+		
+		return $type;
 	}
 	public function readItemTableFile($inputFileName)
 	{
@@ -408,6 +417,7 @@ class SpreadsheetReader
 				
 					$col = $columns[$column_number];
 					$val = $cell->getValue();
+					
 				
 					if($col == 'name'):
 						if(trim($val)==''):
@@ -437,7 +447,7 @@ class SpreadsheetReader
 							$type_options = explode(" ",$val); // get real type and options
 							$val = $type_options[0];
 							unset($type_options[0]); // remove real type from options
-			
+							
 							if($val != 'server' AND preg_match('/^[A-Za-z0-9_]{1,20}$/',trim($type_options[1]) ) ):
 								$data[$row_number]['choice_list'] = $type_options[1];
 								unset($type_options[1]);
@@ -446,13 +456,21 @@ class SpreadsheetReader
 							$data[$row_number]['type_options'] = implode(" ", $type_options);
 						endif;
 						
+						$oldType = $val;
+						$val = $this->translate_legacy_type($val);
+			
+						if($oldType != $val):
+							$this->messages[] = __('The type "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"',$oldType,$val);
+						endif;
+						
+						
 					elseif($col == 'label'):
 						$val = Markdown::defaultTransform($val); // transform upon insertion into db instead of at runtime
 					elseif($col == 'optional'):
 						if($val==='*') $val = 1;
 						elseif($val==='!') $val = 0;
 						else $val = null;
-					elseif( strpos($col,"choice") === 0 AND $val):
+					elseif( strpos($col,"choice") === 0 AND ($val!==null AND $val!=='')):
 
 						$nr = substr($col, 6);
 						$this->choices[] = array(
