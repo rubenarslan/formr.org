@@ -1,7 +1,7 @@
 $.webshims.setOptions('forms', {
-       customDatalist: true,
-	   waitReady: false,
-	   addValidators: true
+	customDatalist: true,
+	addValidators: true,
+	waitReady: false
 });
 $.webshims.setOptions('geolocation', {
 	confirmText: '{location} wants to know your position. You will have to enter one manually if you decline.'
@@ -12,6 +12,64 @@ $.webshims.setOptions('forms-ext', {
 $.webshims.polyfill('es5 forms forms-ext geolocation json-storage');
 $.webshims.activeLang('de');
 
+$.webshims.ready('form-validators', function(){
+	//$.webshims.addCustomValidityRule(name of constraint, test-function, default error message); 
+	var groupTimer = {};
+	
+	$.webshims.addCustomValidityRule('choose2days', function(elem, val){
+		var name = elem.name;
+		if(!name || elem.type !== 'checkbox' || !$(elem).hasClass('choose2days')){return;}
+		var checkboxes = $( (elem.form && elem.form[name]) || document.getElementsByName(name));
+		var isValid = checkboxes.filter(':checked:enabled');
+		if(groupTimer[name]){
+			clearTimeout(groupTimer[name]);
+		}
+		groupTimer[name] = setTimeout(function(){
+			checkboxes
+				.addClass('group-required')
+				.unbind('click.groupRequired')
+				.bind('click.groupRequired', function(){
+					checkboxes.filter('.group-required').each(function(){
+						$.webshims.refreshCustomValidityRules(this);
+					});
+				})
+			;
+		}, 9);
+		
+		if(isValid.length != 2)
+		{
+			return true;
+		} else
+		{
+			// [1,2] F
+			// [1,7] F
+			// [3,2] F
+			// [1,3] T
+			// [1,6] T
+			var chosen = isValid.map( function() {
+			    return +$(this).attr('value');
+			}).get();
+			
+			
+			var forbidden_wrong = $([chosen[0] - 2, chosen[0] - 1, chosen[0], chosen[0] + 1, chosen[0] + 2]);
+			var forbidden = forbidden_wrong.map( function() {
+				if(this < 1) return 7 + this;
+				if(this > 7) return this - 7;
+				return +this;
+			});
+			if($.inArray(chosen[1],forbidden)!==-1)
+				return true;
+			else
+				return false;
+		}
+	}, 'Du musst zwei Wochentage auswählen, die mehr als zwei Tage auseinander liegen.');
+	
+	
+	//changing default message
+	$.webshims.customErrorMessages.choose2days[''] = 'Du musst zwei Wochentage auswählen, die mehr als zwei Tage auseinander liegen.';
+	//adding new languages
+	$.webshims.customErrorMessages.choose2days['de'] = 'Du musst zwei Wochentage auswählen, die mehr als zwei Tage auseinander liegen.';
+});
 function flatStringifyGeo(geo) {
     var result = {};
 	result.timestamp = geo.timestamp;

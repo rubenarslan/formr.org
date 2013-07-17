@@ -168,6 +168,8 @@ output.output {
 
 
 /* CLASSES THAT COULD BE ADDED BY USER */
+
+
 .form-horizontal div.control-group.left100 .control-label {
   width: 100px;
 }
@@ -298,6 +300,41 @@ output.output {
   padding-left: 900px;
 }
 
+
+.form-horizontal div.control-group.left100 .controls {
+  width: 100px;
+}
+
+.form-horizontal div.control-group.left200 .controls {
+  width: 200px;
+}
+.form-horizontal div.control-group.left300 .controls {
+  width: 300px;
+}
+
+.form-horizontal div.control-group.left400 .controls {
+  width: 400px;
+}
+
+.form-horizontal div.control-group.left500 .controls {
+  width: 500px;
+}
+
+.form-horizontal div.control-group.left600 .controls {
+  width: 600px;
+}
+
+.form-horizontal div.control-group.left700 .controls {
+  width: 700px;
+}
+
+.form-horizontal div.control-group.left800 .controls {
+  width: 800px;
+}
+
+.form-horizontal div.control-group.left900 .controls {
+  width: 900px;
+}
 
 
 form.form-horizontal div.label-align-left .control-label {
