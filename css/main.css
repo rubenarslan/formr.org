@@ -81,15 +81,23 @@ form.form-horizontal div.form-row:nth-child(odd) {
 form.form-horizontal div.form-row.control-group.optional .control-label::after {
 	content:'*';
 }
-form.form-horizontal div.form-row.item-radio div.controls,form.form-horizontal div.form-row.item-checkbox div.controls {
+form.form-horizontal div.form-row.item-radio div.controls,
+form.form-horizontal div.form-row.item-checkbox div.controls,
+form.form-horizontal div.form-row.item-mc_heading div.controls  {
   display:table;
 }
-form.form-horizontal div.form-row.item-checkbox div.controls label:not(.keep-label), form.form-horizontal div.form-row.item-radio div.controls label:not(.keep-label) {
+form.form-horizontal div.form-row.item-radio div.controls label:not(.keep-label),
+form.form-horizontal div.form-row.item-checkbox div.controls label:not(.keep-label), 
+form.form-horizontal div.form-row.item-mc_heading div.controls label:not(.keep-label) {
   display:table-cell;
   padding-left:18px;
   padding-right:5px;
   padding-top:5px;
   text-indent:-18px;
+}
+.form-horizontal.unspaced_rows .control-group
+{
+	margin-bottom:0px;
 }
 form.form-horizontal div.form-row div.controls label.keep-label {
 	margin-right:5px;
@@ -230,51 +238,79 @@ output.output {
   	margin-left: 920px;
 }
 
-form.form-horizontal div.form-row.item-radio.control-group.mc-block div.controls label input,form.form-horizontal div.form-row.item-checkbox.control-group.mc-block div.controls label input {
+form.form-horizontal div.form-row.control-group.mc-boxed div.controls label {
+  border-left:1px solid #EEE;
+  border-right:1px solid #EEE;
+}
+form.form-horizontal div.form-row.control-group.mc-boxed div.controls label:first-of-type {
+  border-left:0px;
+}
+form.form-horizontal div.form-row.control-group.mc-boxed div.controls label:last-of-type {
+  border-right:0px;
+}
+form.form-horizontal div.form-row.control-group.mc-boxed div.controls {
+  border-collapse:collapse;
+}
+
+form.form-horizontal div.form-row.item-mc_heading.control-group div.controls label {
+	text-align:center;
+	text-indent:0;
+}
+form.form-horizontal div.form-row.item-mc_heading.control-group div.controls label input {
+	display:none;
+}
+form.form-horizontal div.form-row.control-group.hide_label div.controls label {
+	text-align:center;
+	text-indent:0;
+	height:30px; 
+	overflow:hidden;
+	line-height:0;
+	font-size:0px;
+}
+form.form-horizontal div.form-row.control-group.hide_label div.controls label input {
+    visibility:visible;
+}
+
+form.form-horizontal div.form-row.control-group.mc-block div.controls label input {
   display:block;
 }
 
-form.form-horizontal div.form-row.item-radio.control-group.mc-vertical div.controls,form.form-horizontal div.form-row.item-checkbox.control-group.mc-vertical div.controls {
+form.form-horizontal div.form-row.control-group.mc-vertical div.controls {
   display:block;
 }
-form.form-horizontal div.form-row.item-radio.control-group.mc-vertical div.controls label, form.form-horizontal div.form-row.item-checkbox.control-group.mc-vertical div.controls label {
+form.form-horizontal div.form-row.control-group.mc-vertical div.controls label {
   display:block;
   padding-left:18px;
   padding-right:5px;
   padding-top:5px;
   text-indent:-18px;
 }
-form.form-horizontal div.form-row.item-radio.control-group.mc-equal-widths div.controls,form.form-horizontal div.form-row.item-checkbox.control-group.mc-equal-widths div.controls {
+form.form-horizontal div.form-row.control-group.mc-equal-widths div.controls {
 /*  width:100%;*/
   table-layout:fixed;
 }
-form.form-horizontal div.form-row.item-radio.control-group.mc-equal-widths div.controls label,form.form-horizontal div.form-row.item-checkbox.control-group.mc-equal-widths div.controls label {
+form.form-horizontal div.form-row.control-group.mc-equal-widths div.controls label {
 	width:2%;
 }
-form.form-horizontal div.form-row.item-radio.control-group.mc-width50 div.controls label,
-form.form-horizontal div.form-row.item-checkbox.control-group.mc-width50 div.controls label,
+form.form-horizontal div.form-row.control-group.mc-width50 div.controls label,
 form.form-horizontal div.form-row.control-group.mc-width50 div.controls button.btn {
 	width:50px;
 }
-form.form-horizontal div.form-row.item-radio.control-group.mc-width70 div.controls label,
-form.form-horizontal div.form-row.item-checkbox.control-group.mc-width70 div.controls label,
+form.form-horizontal div.form-row.control-group.mc-width70 div.controls label,
 form.form-horizontal div.form-row.control-group.mc-width70 div.controls button.btn {
 	width:70px;
 }
-form.form-horizontal div.form-row.item-radio.control-group.mc-width100 div.controls label,
-form.form-horizontal div.form-row.item-checkbox.control-group.mc-width100 div.controls label,
+form.form-horizontal div.form-row.control-group.mc-width100 div.controls label,
 form.form-horizontal div.form-row.control-group.mc-width100 div.controls button.btn {
 	width:100px;
 }
-form.form-horizontal div.form-row.item-radio.control-group.mc-width150 div.controls label,
-form.form-horizontal div.form-row.item-checkbox.control-group.mc-width150 div.controls label,
+form.form-horizontal div.form-row.control-group.mc-width150 div.controls label,
 form.form-horizontal div.form-row.control-group.mc-width150 div.controls button.btn {
 	width:150px;
 }
-form.form-horizontal div.form-row.item-radio.control-group.mc-width200 div.controls label,
-form.form-horizontal div.form-row.item-checkbox.control-group.mc-width200 div.controls label,
+form.form-horizontal div.form-row.control-group.mc-width200 div.controls label,
 form.form-horizontal div.form-row.control-group.mc-width200 div.controls button.btn {
-	width:150px;
+	width:200px;
 }
 .table tbody > tr.alternate > td
 {

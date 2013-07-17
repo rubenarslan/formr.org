@@ -78,6 +78,7 @@ $(document).ready(function() {
 	if(host=='localhost:8888') host = host + "/jena";
 	var url = protocol + '//' + host + "/";
 	
+	$("select.select2zone").select2();
 	$("input.select2add").each(function(i,elm)
 	{
 		var slct = $(elm); 
