@@ -245,7 +245,8 @@ class Survey extends RunUnit {
 	protected function render_form_header() {
 		$action = WEBROOT."{$this->run_name}";
 
-		$ret = '<form action="'.$action.'" method="post" class="form-horizontal" accept-charset="utf-8">';
+		if(!isset($this->settings['form_classes'])) $this->settings['form_classes'] = '';
+		$ret = '<form action="'.$action.'" method="post" class="form-horizontal '.$this->settings['form_classes'].'" accept-charset="utf-8">';
 		
 	    /* pass on hidden values */
 	    $ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';

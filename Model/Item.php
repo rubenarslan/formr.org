@@ -1364,6 +1364,99 @@ class Item_choose_two_weekdays extends Item_mmc
 		$this->classes_input[] = 'choose2days';
 	}
 }
+class Item_timezone extends Item_select
+{
+	protected function setMoreOptions()
+	{
+		$zonenames = timezone_identifiers_list();
+		asort($zonenames);
+		$zones = array();
+		$offsets = array();
+		foreach($zonenames AS $zonename):
+			$zone = timezone_open($zonename);
+			$offsets[] = timezone_offset_get($zone,date_create());
+			$zones[] = str_replace("/"," - ",str_replace("_"," ",$zonename));
+		endforeach;
+		$this->reply_options = $zones;
+		$this->offsets = $offsets;
+		$this->classes_input[] = 'select2zone';
+	parent::setMoreOptions();
+	}
+	protected function render_input() 
+	{
+		$ret = '<select '.self::_parseAttributes($this->input_attributes, array('type')).'>'; 
+		
+		if(!isset($this->input_attributes['multiple'])) $ret .= '<option value=""></option>';
+		
+		foreach($this->reply_options AS $value => $option):
+			$ret .= '
+				<option value="' . $this->offsets[$value] . '">' . 
+					 $option .
+				'</option>';
+		endforeach;
+
+		$ret .= '</select>';
+		
+		return $ret;
+	}
+}
+
+
+// instructions are rendered at full width
+class Item_mc_heading extends Item_mc
+{
+	public $type = 'mc_heading';
+	protected $mysql_field = null;
+	
+	protected function setMoreOptions()
+	{
+		$this->input_attributes['disabled'] = 'disabled';
+	}
+	public function validateInput($reply)
+	{
+		$this->error = _("You cannot answer headings.");
+		return $reply;
+	}
+	protected function render_label() 
+	{
+		return '
+					<div class="'. implode(" ",$this->classes_label) .'">' .
+		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
+		 $this->text . '</div>
+		';
+	}
+	protected function render_input() 
+	{
+		$ret = '';
+		$this->input_attributes['type'] = 'radio';
+		$opt_values = array_count_values($this->reply_options);
+		if(
+			isset($opt_values['']) AND // if there are empty options
+#			$opt_values[''] > 0 AND 
+			current($this->reply_options)!= '' // and the first option isn't empty
+		) $this->label_first = true;  // the first option label will be rendered before the radio button instead of after it.
+		else $this->label_first = false;
+#		pr((implode(" ",$this->classes_wrapper)));
+		if(strpos(implode(" ",$this->classes_wrapper),'mc-first-left')!==false) $this->label_first = true;
+		$all_left = false;
+		if(strpos(implode(" ",$this->classes_wrapper),'mc-all-left')!==false) $all_left = true;
+		
+		foreach($this->reply_options AS $value => $option):			
+			$ret .= '
+				<label for="item' . $this->id . '_' . $value . '">' . 
+					(($this->label_first || $all_left) ? $option.'&nbsp;' : '') . 
+				'<input '.self::_parseAttributes($this->input_attributes,array('id')).
+				' value="'.$value.'" id="item' . $this->id . '_' . $value . '">' .
+					(($this->label_first || $all_left) ? "&nbsp;" : ' ' . $option) . '</label>';
+					
+			if($this->label_first) $this->label_first = false;
+			
+		endforeach;
+		
+		return $ret;
+	}
+}
+	
 /*
  * todo: item - rank / sortable
  * todo: item - likert scale with head (special kind of instruction?)
