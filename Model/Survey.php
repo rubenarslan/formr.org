@@ -429,7 +429,7 @@ class Survey extends RunUnit {
 		'
 		<div class="row-fluid">
 			<div class="span12">
-				Bei Problemen wenden Sie sich bitte an <strong><a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>.</strong>
+				Bei Problemen wende dich bitte an <strong><a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>.</strong>
 			</div>
 		</div>
 		':'')

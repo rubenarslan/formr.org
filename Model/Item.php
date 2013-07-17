@@ -1269,6 +1269,131 @@ class Item_place extends Item_text
 		$this->classes_input[] = 'select2place';
 	}
 }
+// bundesland, gastland, sprache
+class Item_bundesland extends Item_select
+{
+	protected function setMoreOptions()
+	{
+		
+		$this->reply_options = array(
+			'',
+			'Baden-Württemberg',
+			'Bayern',
+			'Berlin',
+			'Brandenburg',
+			'Bremen',
+			'Hamburg',
+			'Hessen',
+			'Mecklenburg-Vorpommern',
+			'Niedersachsen',
+			'Nordrhein-Westfalen',
+			'Rheinland-Pfalz',
+			'Saarland',
+			'Sachsen',
+			'Sachsen-Anhalt',
+			'Schleswig-Holstein',
+			'Thüringen'
+		);
+	unset($this->reply_options[0]);
+	parent::setMoreOptions();
+	
+	}
+}
+
+class Item_gastland extends Item_select
+{
+	protected function setMoreOptions()
+	{
+		$this->reply_options = array(
+			'',
+			'Ägypten',
+			'Argentinien',
+			'Australien',
+			'Belgien Flandern',
+			'Belgien Wallonien',
+			'Bolivien',
+			'Bosnien-Herzegowina',
+			'Brasilien',
+			'Chile',
+			'China',
+			'Costa Rica',
+			'Dänemark',
+			'Dominikanische Republik',
+			'Ecuador',
+			'Finnland',
+			'Frankreich',
+			'Honduras',
+			'Hongkong',
+			'Indien',
+			'Indonesien',
+			'Island',
+			'Italien',
+			'Japan',
+			'Kanada',
+			'Kolumbien',
+			'Kroatien',
+			'Lettland',
+			'Malaysia',
+			'Mexiko',
+			'Niederlande',
+			'Norwegen',
+			'Panama',
+			'Paraguay',
+			'Peru',
+			'Philippinen',
+			'Polen',
+			'Portugal',
+			'Russland',
+			'Schweden',
+			'Schweiz',
+			'Serbien',
+			'Slowakei',
+			'Spanien',
+			'Südafrika',
+			'Thailand',
+			'Tschechien',
+			'Türkei',
+			'Ungarn',
+			'USA',
+			'Venezuela'
+		);
+	unset($this->reply_options[0]);
+	parent::setMoreOptions();
+	
+	}
+}
+
+class Item_sprache extends Item_select_add
+{
+	protected function setMoreOptions()
+	{
+		$this->reply_options = array(
+			'',
+			'Afrikaans',
+			'Arabisch',
+			'Bengali',
+			'Chinesisch',
+			'Deutsch',
+			'Englisch',
+			'Finnisch',
+			'Französisch',
+			'Hindi',
+			'Italienisch',
+			'Japanisch',
+			'Malaiisch',
+			'Malaiisch-Indonesisch',
+			'Norwegisch',
+			'Portugiesisch',
+			'Russisch',
+			'Spanisch',
+			'Thai',
+			'Türkisch',
+		);
+	unset($this->reply_options[0]);
+	parent::setMoreOptions();
+	
+	}
+}
 /*
  * todo: item - rank / sortable
  * todo: item - select + or add our own (optionally: load other users' entries), both as dropdown and as radio/btnradio, checkbox/btncheckbox
