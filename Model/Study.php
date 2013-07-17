@@ -120,6 +120,7 @@ class Study extends RunUnit
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
 				"submit_button_text" => 'Weiter',
+				"form_classes" => 'unspaced_rows',
 //				"fileuploadmaxsize" => "100000",
 //				"closed_user_pool" => 0,
 //				"timezone" => "Europe/Berlin",
