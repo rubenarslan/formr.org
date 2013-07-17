@@ -1274,7 +1274,7 @@ class Item_referrer extends Item {
 class Item_server extends Item {
 	public $type = 'server';
 	protected $input_attributes = array('type' => 'hidden');
-	private $server_var = 'HTTP_USER_AGENT';
+	private $get_var = 'HTTP_USER_AGENT';
 	
 	protected $mysql_field =  'VARCHAR (255) DEFAULT NULL';
 	protected function setMoreOptions() 
@@ -1282,17 +1282,17 @@ class Item_server extends Item {
 		if(isset($this->type_options_array) AND is_array($this->type_options_array))
 		{
 			if(count($this->type_options_array) == 1) 
-				$this->server_var = trim(current($this->type_options_array));
+				$this->get_var = trim(current($this->type_options_array));
 		}
 	}
 	public function validateInput($reply)
 	{
-		return $_SERVER[$this->server_var];
+		return $_SERVER[$this->get_var];
 	}
 	public function validate() 
 	{
 		parent::validate();
-		if(!in_array($this->server_var, array(
+		if(!in_array($this->get_var, array(
 			'HTTP_USER_AGENT',
 			'HTTP_ACCEPT',
 			'HTTP_ACCEPT_CHARSET',
@@ -1305,9 +1305,41 @@ class Item_server extends Item {
 			'REQUEST_TIME_FLOAT'
 		)))
 		{
-			$this->val_errors[] = __('The server variable %s with the value %s cannot be saved', $this->name, $this->server_var);
+			$this->val_errors[] = __('The server variable %s with the value %s cannot be saved', $this->name, $this->get_var);
 		}
 		
+		return $this->val_errors;
+	}
+	
+	public function render() {
+		return $this->render_input();
+	}
+}
+
+class Item_get extends Item {
+	public $type = 'get';
+	protected $input_attributes = array('type' => 'hidden');
+	private $get_var = 'referred_by';
+	
+	protected $mysql_field =  'TEXT DEFAULT NULL';
+	protected function setMoreOptions() 
+	{
+		if(isset($this->type_options_array) AND is_array($this->type_options_array))
+		{
+			if(count($this->type_options_array) == 1) 
+				$this->get_var = trim(current($this->type_options_array));
+		}
+		if(isset($_GET[$this->get_var]))
+			$this->input_attributes['value'] = $_GET[$this->get_var];
+		else
+			$this->input_attributes['value'] = '';
+	}
+	public function validate() 
+	{
+		parent::validate();
+		if( !preg_match('/^[A-Za-z0-9_]+$/',$this->get_var) ): 
+			$this->val_errors[] = __('Problem wiht variable %s "get %s". The part after get can only contain a-Z0-9 and the underscore.', $this->name, $this->get_var);
+		endif;
 		return $this->val_errors;
 	}
 	
@@ -1324,14 +1356,18 @@ class Item_place extends Item_text
 		$this->classes_input[] = 'select2place';
 	}
 }
+
+class Item_choose_two_weekdays extends Item_mmc
+{
+	protected function setMoreOptions() 
+	{
+		$this->classes_input[] = 'choose2days';
+	}
+}
 /*
  * todo: item - rank / sortable
- * todo: item - select + or add our own (optionally: load other users' entries), both as dropdown and as radio/btnradio, checkbox/btncheckbox
  * todo: item - likert scale with head (special kind of instruction?)
  * todo: item - facebook connect?
- * todo: item - IP
- * todo: _GET items for presetting 
- * todo: geolocation
  * todo: captcha items
 
 */
