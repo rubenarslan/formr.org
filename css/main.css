@@ -1,3 +1,6 @@
+/*
+todo: test layout on mobile phones, various screen sizes
+*/
 header.study-header, .maincontent, .container, .navbar-static-top .container, .navbar-fixed-top .container, .navbar-fixed-bottom .container
 {
 	margin-left:60px;
@@ -85,9 +88,6 @@ div.mc-table {
   display:table;
 }
 div.mc-table label:not(.keep-label) {
-form.form-horizontal div.form-row.item-radio div.controls,
-form.form-horizontal div.form-row.item-checkbox div.controls,
-form.form-horizontal div.form-row.item-mc_heading div.controls  {
   display:table;
 }
 form.form-horizontal div.form-row.item-radio div.controls label:not(.keep-label),
@@ -183,63 +183,63 @@ output.output {
 
 
 .form-horizontal div.control-group.left100 .control-label {
-  width: 100px;
+  max-width: 100px;
 }
 .form-horizontal div.control-group.left100 .controls {
   	margin-left: 120px;
 }
 
 .form-horizontal div.control-group.left200 .control-label {
-  width: 200px;
+  max-width: 200px;
 }
 .form-horizontal div.control-group.left200 .controls {
   	margin-left: 220px;
 }
 
 .form-horizontal div.control-group.left300 .control-label {
-  width: 300px;
+  max-width: 300px;
 }
 .form-horizontal div.control-group.left300 .controls {
   	margin-left: 320px;
 }
 
 .form-horizontal div.control-group.left400 .control-label {
-  width: 400px;
+  max-width: 400px;
 }
 .form-horizontal div.control-group.left400 .controls {
   	margin-left: 420px;
 }
 
 .form-horizontal div.control-group.left500 .control-label {
-  width: 500px;
+  max-width: 500px;
 }
 .form-horizontal div.control-group.left500 .controls {
   	margin-left: 520px;
 }
 
 .form-horizontal div.control-group.left600 .control-label {
-  width: 600px;
+  max-width: 600px;
 }
 .form-horizontal div.control-group.left600 .controls {
   	margin-left: 620px;
 }
 
 .form-horizontal div.control-group.left700 .control-label {
-  width: 700px;
+  max-width: 700px;
 }
 .form-horizontal div.control-group.left700 .controls {
   	margin-left: 720px;
 }
 
 .form-horizontal div.control-group.left800 .control-label {
-  width: 800px;
+  max-width: 800px;
 }
 .form-horizontal div.control-group.left800 .controls {
   	margin-left: 820px;
 }
 
 .form-horizontal div.control-group.left900 .control-label {
-  width: 900px;
+  max-width: 900px;
 }
 .form-horizontal div.control-group.left900 .controls {
   	margin-left: 920px;
@@ -314,38 +314,38 @@ output.output {
 
 
 .form-horizontal div.control-group.left100 .controls {
-  width: 100px;
+  max-width: 100px;
 }
 
 .form-horizontal div.control-group.left200 .controls {
-  width: 200px;
+  max-width: 200px;
 }
 .form-horizontal div.control-group.left300 .controls {
-  width: 300px;
+  max-width: 300px;
 }
 
 .form-horizontal div.control-group.left400 .controls {
-  width: 400px;
+  max-width: 400px;
 }
 
 .form-horizontal div.control-group.left500 .controls {
-  width: 500px;
+  max-width: 500px;
 }
 
 .form-horizontal div.control-group.left600 .controls {
-  width: 600px;
+  max-width: 600px;
 }
 
 .form-horizontal div.control-group.left700 .controls {
-  width: 700px;
+  max-width: 700px;
 }
 
 .form-horizontal div.control-group.left800 .controls {
-  width: 800px;
+  max-width: 800px;
 }
 
 .form-horizontal div.control-group.left900 .controls {
-  width: 900px;
+  max-width: 900px;
 }
 
 
@@ -363,7 +363,6 @@ form.form-horizontal div.form-row.control-group.answer-below-label .control-labe
 }
 form.form-horizontal div.form-row.control-group.answer-below-label div.controls {
   margin-left:5px;
-form.form-horizontal div.form-row.control-group.mc-boxed div.controls label {
   border-left:1px solid #EEE;
   border-right:1px solid #EEE;
 }
@@ -380,6 +379,7 @@ form.form-horizontal div.form-row.control-group.mc-boxed div.controls {
 form.form-horizontal div.form-row.item-mc_heading.control-group div.controls label {
 	text-align:center;
 	text-indent:0;
+	padding:0;
 }
 form.form-horizontal div.form-row.item-mc_heading.control-group div.controls label input {
 	display:none;
@@ -442,11 +442,26 @@ form.form-horizontal div.form-row.control-group.hidden {
 }
 
 
-
 .table tbody > tr.alternate > td
 {
 	background-color:#F9F9F9;
 }
 body .select2-offscreen, body .select2-offscreen:focus {
 	position:absolute;
+}
+div.pos_changed input {
+	color:#49afcd;
+}
+
+/*responsive layouts for mobile */
+@media (max-width: 600px) { 
+	form.form-horizontal div.form-row.control-group .controls {
+		clear:both;
+		margin-left:0;
+		width:100%;
+	}
+	form.form-horizontal div.form-row.control-group .control-label {
+		text-align:left;
+		width:100%;
+	}
 }

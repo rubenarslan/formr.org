@@ -96,9 +96,9 @@ $(document).ready(function() {
 		
 		navigator.geolocation.getCurrentPosition(
 			function(pos) {
-				real_loc.attr('value',flatStringifyGeo(pos) );
-				enter_loc.attr('value', "lat:"+ pos.coords.latitude +"/long:" + pos.coords.longitude );
-				enter_loc.prop('readonly',true); // fixme: for some reason, if there is user entered text, FF doesn't show new JS-set texgt
+				real_loc.val(flatStringifyGeo(pos) );
+				enter_loc.val("lat:"+ pos.coords.latitude +"/long:" + pos.coords.longitude );
+				enter_loc.prop('readonly',true); // fixme: for some reason, if there is user entered text, FF doesn't show new JS-set text
 			},
 			function(err)
 			{
