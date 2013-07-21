@@ -1,5 +1,5 @@
 #AuthType Basic
-#AuthName "AdminBereich"
+#AuthName "AdminArea"
 #AuthBasicProvider file
 ##local
 #AuthUserFile /Applications/MAMP/htdocs/zwang/.htpasswd
@@ -11,7 +11,7 @@
     RewriteEngine On
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^([A-Za-z0-9_]+)/([A-Za-z0-9_]+)/?$ $2.php?study_name=$1 [QSA,L]
+    RewriteRule ^/?([A-Za-z0-9_]+)/?$ $1.php [QSA,L]
 	# on HU subdomain
 #	RewriteBase /survey/admin/
 </IfModule>
