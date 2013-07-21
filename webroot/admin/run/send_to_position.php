@@ -1,6 +1,6 @@
 <?php
 require_once '../define_root.php';
-require_once INCLUDE_ROOT . "survey/admin_header.php";
+require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Email.php";
 require_once INCLUDE_ROOT . "Model/Run.php";
 $run = new Run($fdb, $_GET['run_name']);
@@ -14,4 +14,4 @@ if(!$run_session->forceTo($new_position)):
 	alert('<strong>Something went wrong with the position change.</strong> in run '.$_GET['run_name'], 'alert-error');
 endif;
 
-redirect_to("acp/user_overview");
+redirect_to(">admin/user_overview");

@@ -1,6 +1,6 @@
 <?php
-require_once '../define_root.php';
-require_once INCLUDE_ROOT . "survey/admin_header.php";
+require_once '../../../define_root.php';
+require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Site.php";
 
 $del = $fdb->prepare('DELETE FROM `survey_unit_sessions` WHERE id = :id');
@@ -10,4 +10,4 @@ if($del->execute())
 else
 	alert('<strong>Couldn\'t delete.</strong> Sorry. <pre>'. print_r($data->errorInfo(), true).'</pre>','alert-error');
 
-redirect_to("acp/user_detail");
+redirect_to(">admin/user_detail");

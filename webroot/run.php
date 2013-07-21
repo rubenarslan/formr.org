@@ -1,5 +1,5 @@
 <?
-require_once 'define_root.php';
+require_once '../define_root.php';
 require_once INCLUDE_ROOT . "Model/Site.php";
 
 if(isset($_GET['run_name']) AND isset($_GET['code']) AND strlen($_GET['code'])==64):

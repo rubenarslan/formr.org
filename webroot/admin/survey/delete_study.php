@@ -1,12 +1,12 @@
 <?php
-require_once '../define_root.php';
+require_once '../../../define_root.php';
 require_once INCLUDE_ROOT.'View/admin_header.php';
 
 if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name)
 {
 	$study->delete();
 	alert("<strong>Success.</strong> Successfully deleted study '{$study->name}'.",'alert-success');
-	redirect_to(WEBROOT."acp/index");
+	redirect_to(WEBROOT.">admin/index");
 }
 elseif(isset($_POST['delete']))
 {
@@ -16,7 +16,7 @@ elseif(isset($_POST['delete']))
 $resultCount = $study->getResultCount();
 
 
-require_once INCLUDE_ROOT.'view_header.php';
+require_once INCLUDE_ROOT.'View/header.php';
 
 require_once INCLUDE_ROOT.'View/admin_nav.php';
 ?>
@@ -37,4 +37,4 @@ if(isset($msg)) echo '<div class="alert '.$alertclass.' span6">'.$msg.'</div>';
 </div>
 
 <?php
-require_once INCLUDE_ROOT.'view_footer.php';
+require_once INCLUDE_ROOT.'View/footer.php';

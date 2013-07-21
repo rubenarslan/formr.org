@@ -1,6 +1,6 @@
 <?php
 require_once '../define_root.php';
-require_once INCLUDE_ROOT . "survey/admin_header.php";
+require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Site.php";
 require_once INCLUDE_ROOT . "Model/RunUnit.php";
 

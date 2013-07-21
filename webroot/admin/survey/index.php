@@ -8,7 +8,7 @@ if( !empty($_POST) ) {
 	redirect_to(WEBROOT."survey/{$study->name}/index");
 }
 
-require_once INCLUDE_ROOT.'view_header.php';
+require_once INCLUDE_ROOT.'View/header.php';
 
 require_once INCLUDE_ROOT.'View/admin_nav.php';
 ?>
@@ -52,7 +52,7 @@ require_once INCLUDE_ROOT.'View/admin_nav.php';
 
 <div class="control-group">
 	<p class="controls">
-		<button type="submit"><?php echo _("Save"); ?></button>
+		<button type="submit" class="btn"><?php echo _("Save"); ?></button>
 	</p>
 </div>
 	</form>
@@ -81,9 +81,9 @@ require_once INCLUDE_ROOT.'View/admin_nav.php';
 			</tbody>
 		</table>
 		<div class="row span6">
-			<input type="submit" name="updateitems" value="Submit Changes">
+			<input type="submit" name="updateitems" value="Submit Changes" class="btn">
 		</div>
 	</form>
 </div>
 <?php
-require_once INCLUDE_ROOT.'view_footer.php';
+require_once INCLUDE_ROOT.'View/footer.php';

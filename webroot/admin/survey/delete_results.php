@@ -1,5 +1,5 @@
 <?php
-require_once '../define_root.php';
+require_once '../../../define_root.php';
 require_once INCLUDE_ROOT.'View/admin_header.php';
 
 if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name)
@@ -16,7 +16,7 @@ elseif(isset($_POST['delete']))
 $resultCount = $study->getResultCount();
 
 
-require_once INCLUDE_ROOT.'view_header.php';
+require_once INCLUDE_ROOT.'View/header.php';
 
 require_once INCLUDE_ROOT.'View/admin_nav.php';
 ?>
@@ -45,4 +45,4 @@ Please <a href="'.WEBROOT.'survey/'.$study->name.'/show_results">review the exis
 </div>
 
 <?php
-require_once INCLUDE_ROOT.'view_footer.php';
+require_once INCLUDE_ROOT.'View/footer.php';

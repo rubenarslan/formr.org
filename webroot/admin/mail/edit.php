@@ -1,26 +1,26 @@
 <?php
-require_once '../define_root.php';
-require_once INCLUDE_ROOT . "survey/admin_header.php";
+require_once '../../../define_root.php';
+require_once INCLUDE_ROOT . "View/admin_header.php";
 
 require_once INCLUDE_ROOT . "Model/EmailAccount.php";
 
 $acc = new EmailAccount($fdb, $_GET['account_id'], $user->id);
 if($user->created($acc)):
 	alert("<strong>Error:</strong> Not your email account.",'alert-error');
-	redirect_to("/acp/list_email_accounts");
+	redirect_to("/>admin/list_email_accounts");
 endif;
 
 if(!empty($_POST)) 
 {
 	$acc->changeSettings($_POST);
-	redirect_to("acp/edit_email_account?account_id=".$_GET['account_id']);
+	redirect_to(">admin/edit_email_account?account_id=".$_GET['account_id']);
 	alert('<strong>Success!</strong> Your email account settings were changed!','alert-success');
 }
 require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "acp/acp_nav.php";
+require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
 
-<form class="form-horizontal"  id="edit_email_account" name="edit_email_account" method="post" action="<?=WEBROOT?>acp/edit_email_account?account_id=<?=h($_GET['account_id'])?>">
+<form class="form-horizontal"  id="edit_email_account" name="edit_email_account" method="post" action="<?=WEBROOT?>admin/edit_email_account?account_id=<?=h($_GET['account_id'])?>">
 	<div class="control-group">
 		<label class="control-label" for="from">
 			<?php echo _("From:"); ?>
@@ -59,7 +59,7 @@ require_once INCLUDE_ROOT . "acp/acp_nav.php";
 	
 	<div class="control-group">
 		<label class="control-label" for="tls">
-			<?php echo _("tls:"); ?>
+			<?php echo _("TLS:"); ?>
 		</label>
 		<div class="controls">
 			<input type="hidden" name="tls" value="0">
