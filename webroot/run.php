@@ -29,7 +29,7 @@ if($_GET['run_name'] == 'fake_test_run' AND $user->isAdmin()): // for testing pu
 		$output['body'] = "
 			<h1>Finish</h1>
 			<p>
-			You're finished with testing this survey.</p><a href='".WEBROOT."admin/".$_SESSION['test_survey_name']."/index'>Back to the admin control panel.</a>";
+			You're finished with testing this survey.</p><a href='".WEBROOT."admin/survey/".$_SESSION['test_survey_name']."/index'>Back to the admin control panel.</a>";
 	endif;
 	
 else:
@@ -71,9 +71,9 @@ if($output):
 		$title = $output['title'];
 	elseif(isset($run)) $title = $run->name;
 	
-	require_once INCLUDE_ROOT . 'view_header.php';
+	require_once INCLUDE_ROOT . 'View/header.php';
 	echo $site->renderAlerts();
 
 	echo $output['body'];
-	require_once INCLUDE_ROOT . 'view_footer.php';
+	require_once INCLUDE_ROOT . 'View/footer.php';
 endif;

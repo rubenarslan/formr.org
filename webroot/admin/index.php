@@ -1,89 +1,50 @@
-<?
-require_once '../define_root.php';
-require_once INCLUDE_ROOT.'admin/admin_header.php';
-// Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
-
-if( !empty($_POST) ) {
-	$study->changeSettings($_POST);
-	redirect_to(WEBROOT."admin/{$study->name}/index");
-}
-
-require_once INCLUDE_ROOT.'view_header.php';
-
-require_once INCLUDE_ROOT.'admin/admin_nav.php';
-?>
-
-<div class="span8">
-	<h2><?=_('Study settings'); ?></h2>
-	<form id="edit_form" name="edit_form" method="post" action="<?=WEBROOT?>admin/<?=$study->name?>/index" enctype="multipart/form-data" class="form-horizontal">
-	
-<div class="control-group">
-	<p class="control-label">
-		<label for="logo">Logo Upload (gif/jpg up to 1MB)</label>
-	</p>
-	<p class="controls">
-		<input type="file" name="logo" id="logo"/>
-	</p>                    
-</div>
-
-<?php /*
-<div class="control-group">
-	<p class="control-label">
-		<?= _("Require"); ?></label>
-	</p>
-	<p class="controls">
-		<label for="registered"><input type="checkbox" name="registered" id="registered" <?php if($study->registration_required) echo "checked";?>> registration</label><br>
-		<label><input type="checkbox" name="email_required" id="email_required" <?php if($study->email_required) echo "checked";?>>  email</label><br>
-		<label><input type="checkbox" name="birthday_required" id="birthday_required" <?php if($study->birthday_required) echo "checked";?>> a birthday</label>
-	</p>
-</div>
-
-
-<div class="control-group">
-	<p class="control-label">
-		<label for="public"><?= _("Publish this study to the front page"); ?></label>
-	</p>
-	<p class="controls">
-		<input type="checkbox" name="public" id="public" <?php if($study->public) echo "checked"; ?>>
-	</p>
-</div>
-*/	
-	?>
-
-<div class="control-group">
-	<p class="controls">
-		<button type="submit"><?php echo _("Save"); ?></button>
-	</p>
-</div>
-	</form>
-
-	
-  	<h3><?=_('other settings'); ?></h3>
-	
-	<form method="POST" action="<?=WEBROOT?>admin/<?=$study->name?>/index">
-		<table class="table table-striped span6 editstudies">
-			<thead>
-				<tr>
-					<th>Option</th>
-					<th>Value</th>
-				</tr>
-			</thead>
-			<tbody>
-	<?php
-		foreach( $study->settings as $key => $value ):
-			echo "<tr>";
-			echo "<td>".h($key)."</td>";
-
-			echo "<td><input type=\"text\" size=\"50\" name=\"".h($key)."\" value=\"".h($value)."\"/></td>";
-			echo "</tr>";
-		endforeach;
-	?>
-			</tbody>
-		</table>
-		<div class="row span6">
-			<input type="submit" name="updateitems" value="Submit Changes">
-		</div>
-	</form>
-</div>
 <?php
-require_once INCLUDE_ROOT.'view_footer.php';
+require_once '../../define_root.php';
+require_once INCLUDE_ROOT . "View/admin_header.php";
+require_once INCLUDE_ROOT . "View/header.php";
+require_once INCLUDE_ROOT . "acp/acp_nav.php";
+?>
+<h2>runs &amp; studies <small>what's the difference?</small></h2>
+<p>
+	<strong>Studies</strong> are meant to be a simple survey that can be completed
+in one session (though it can reference fields in other surveys for skipif and substitution logic).<br>
+The only way a survey can be accessed is through a session key (which allows
+exactly one session). These keys can be created by another applications (via API), a user, by runs.
+
+<p>
+	<strong>Runs</strong> on the other hand can manage access to studies, combine them with other studies or external pages (e.g. social network), send emails to re-invite someone after a break. They will also be able to loop studies (for diaries or experience sampling). Runs have users, so they can allow access to certain studies based on whether someone has registered with an email or they can let the same user fill out the same study repeatedly (diary loops).
+</p>
+
+<?php
+$studies = $user->getStudies();
+if($studies) {
+  echo '
+	  <div class="span5">
+	  <h3>Studies</h3>
+	  <ul class="nav nav-pills nav-stacked">';
+  foreach($studies as $study) {
+    echo "<li>
+		<a href='".WEBROOT."survey/".$study['name']."/index'>".$study['name']."</a>
+	</li>";
+  }
+  echo "</ul></div>";
+}
+?>
+<?php
+$runs = $user->getRuns();
+if($runs) {
+	echo '
+  	  <div class="span5">
+		<h3>Runs</h3>
+		<ul class="nav nav-pills nav-stacked">';
+	foreach($runs as $run) {
+		echo "<li>
+			<a href='".WEBROOT."acp/{$run['name']}'>{$run['name']}</a>
+		</li>";
+	}
+  echo "</ul></div>";
+}
+?>
+	
+<?php
+require_once INCLUDE_ROOT . "View/footer.php";

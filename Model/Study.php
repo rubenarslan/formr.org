@@ -463,7 +463,7 @@ class Study extends RunUnit
 	}
 	public function backupResults()
 	{
-        $filename = INCLUDE_ROOT . "admin/results_backups/".$this->name . date('YmdHis') . ".tab";
+        $filename = INCLUDE_ROOT ."results_backups/".$this->name . date('YmdHis') . ".tab";
 		require_once INCLUDE_ROOT . 'Model/SpreadsheetReader.php';
 
 		$SPR = new SpreadsheetReader();
@@ -586,16 +586,16 @@ class Study extends RunUnit
 			$time = $this->getAverageTimeItTakes();
 			
 			$dialog = "<h3>
-				<strong>Survey:</strong> <a href='".WEBROOT."admin/{$this->name}/index'>{$this->name}</a><br>
+				<strong>Survey:</strong> <a href='".WEBROOT."admin/survey/{$this->name}/index'>{$this->name}</a><br>
 			<small>".(int)$resultCount['finished']." complete results,
 		".(int)$resultCount['begun']." begun</small><br>
 			<small>Takes on average $time minutes</small>
 			</h3>
 			<p>
 			<p class='btn-group'>
-				<a class='btn' href='".WEBROOT."admin/{$this->name}/show_results'>View results</a>
-				<a class='btn' href='".WEBROOT."admin/{$this->name}/show_item_table'>View items</a>
-				<a class='btn' href='".WEBROOT."admin/{$this->name}/access'>Test</a>
+				<a class='btn' href='".WEBROOT."admin/survey/{$this->name}/show_results'>View results</a>
+				<a class='btn' href='".WEBROOT."admin/survey/{$this->name}/show_item_table'>View items</a>
+				<a class='btn' href='".WEBROOT."admin/survey/{$this->name}/access'>Test</a>
 			</p>";
 		else:
 			$dialog = '';
