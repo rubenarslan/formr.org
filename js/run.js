@@ -12,10 +12,11 @@ RunUnit.prototype.init = function(content)
 	this.position_changed = false;
 	this.position.change($.proxy(this.position_changes,this));
 		
-	this.dialog_inputs = this.block.find('div.run_unit_dialog input,div.run_unit_dialog  select, div.run_unit_dialog button, div.run_unit_dialog textarea,div.run_unit_position input.position');
+	this.dialog_inputs = this.block.find('div.run_unit_dialog input,div.run_unit_dialog  select, div.run_unit_dialog button, div.run_unit_dialog textarea');
 //	console.log(this.dialog_inputs);
 	this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
-	this.dialog_inputs.change($.proxy(this.changes,this));
+	this.dialog_inputs.on('input',$.proxy(this.changes,this));
+	// todo: file bug report with webshims, oninput fires only onchange for number inputs
 	
 	this.block.find('.hastooltip').tooltip({
 		container: 'body'
@@ -54,6 +55,7 @@ RunUnit.prototype.init = function(content)
 RunUnit.prototype.position_changes = function (e) 
 {
 	this.position_changed = true;
+	this.position.parent().addClass('pos_changed');
 	$reorderer.addClass('btn-info').removeAttr('disabled');
 };
 RunUnit.prototype.changes = function (e) 
@@ -206,13 +208,17 @@ $(document).ready(function () {
 	$('#edit_run').find('a.add_run_unit')
 	.click(function () 
 	{
+		var positions = $('.run_unit_position input:visible').map(function() { return +$(this).val(); }); // :visible in case of webshims. 
+		var positions = $.makeArray(positions);
+		var max = positions.sort(function(x,y){ return x-y; }).pop(); // get maximum by sorting and popping the last elm
 		$.ajax( 
 		{
 			url: $(this).attr('href'),
 			dataType:"html",
 			method: 'POST',
-			data: {
-				position: ($run_units.length + 1)
+			data: 
+			{
+				position: max + 1
 			}
 		})
 		.done(function(data)
@@ -235,7 +241,6 @@ $(document).ready(function () {
 	
 	$reorderer = $('#edit_run').find('a.reorder_units');
 	
-	pos_go = false;
 	$reorderer
 	.click(function (e) 
 	{
@@ -244,8 +249,9 @@ $(document).ready(function () {
 		{
 			var positions = {};
 			$($run_units).each(function(i,elm) {
-				positions[elm.unit_id] = elm.position.val();
+				positions[elm.unit_id] = +elm.position.val();
 			});
+			
 			$.ajax( 
 			{
 				url: $(this).attr('href'),
@@ -259,9 +265,18 @@ $(document).ready(function () {
 			{
 				if(! (data.indexOf('error') >= 0) ) 
 				{
-					pos_go = true;
-					location.reload();
-				}			
+					$($run_units).each(function(i,elm) {
+						elm.position_changed = false;
+					});
+					$reorderer.removeClass('btn-info').attr('disabled', 'disabled');
+					var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
+					var new_positions = old_positions;
+					old_positions = old_positions.join(','); // for some reason I have to join to compare contents, otherwise annoying behavior with clones etc
+					new_positions.sort(function(x,y){ return x-y; }).join(',');
+					
+					if(old_positions != new_positions)
+						location.reload();
+				}		
 				else
 				{				
 					var $alert = $(data);
@@ -272,8 +287,7 @@ $(document).ready(function () {
 			.fail(ajaxErrorHandling);
 			return false;
 		}
-	})
-	.removeClass('btn-info').attr('disabled', 'disabled');
+	}).removeClass('btn-info').attr('disabled', 'disabled');
 	
 	
 	
@@ -281,11 +295,12 @@ $(document).ready(function () {
 		var message = false;
 		$($run_units).each(function(i, elm)
 		{
-			if( (!pos_go && elm.position_changed) || elm.unsavedChanges)
-			message = true;
-			return false;
+			if(elm.position_changed || elm.unsavedChanges)
+			{
+				message = true;
+				return false;
+			}
 		});
-//		console.log(message);
 		if (message ) {
 			return 'You have unsaved changes.'
 		}

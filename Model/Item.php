@@ -1225,6 +1225,11 @@ class Item_geolocation extends Item {
 	protected $append = true;
 	
 	protected $mysql_field =  'TEXT DEFAULT NULL';
+	public function validateInput($reply)
+	{
+		var_dump($reply);
+		return $reply;
+	}
 	protected function render_appended () 
 	{
 		$ret = '
@@ -1377,7 +1382,7 @@ class Item_timezone extends Item_select
 			$offsets[] = timezone_offset_get($zone,date_create());
 			$zones[] = str_replace("/"," - ",str_replace("_"," ",$zonename));
 		endforeach;
-		$this->reply_options = $zones;
+		$this->choices = $zones;
 		$this->offsets = $offsets;
 		$this->classes_input[] = 'select2zone';
 	parent::setMoreOptions();
@@ -1388,7 +1393,7 @@ class Item_timezone extends Item_select
 		
 		if(!isset($this->input_attributes['multiple'])) $ret .= '<option value=""></option>';
 		
-		foreach($this->reply_options AS $value => $option):
+		foreach($this->choices AS $value => $option):
 			$ret .= '
 				<option value="' . $this->offsets[$value] . '">' . 
 					 $option .
@@ -1422,18 +1427,18 @@ class Item_mc_heading extends Item_mc
 		return '
 					<div class="'. implode(" ",$this->classes_label) .'">' .
 		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
-		 $this->text . '</div>
+		 $this->label . '</div>
 		';
 	}
 	protected function render_input() 
 	{
 		$ret = '';
 		$this->input_attributes['type'] = 'radio';
-		$opt_values = array_count_values($this->reply_options);
+		$opt_values = array_count_values($this->choices);
 		if(
 			isset($opt_values['']) AND // if there are empty options
 #			$opt_values[''] > 0 AND 
-			current($this->reply_options)!= '' // and the first option isn't empty
+			current($this->choices)!= '' // and the first option isn't empty
 		) $this->label_first = true;  // the first option label will be rendered before the radio button instead of after it.
 		else $this->label_first = false;
 #		pr((implode(" ",$this->classes_wrapper)));
@@ -1441,7 +1446,7 @@ class Item_mc_heading extends Item_mc
 		$all_left = false;
 		if(strpos(implode(" ",$this->classes_wrapper),'mc-all-left')!==false) $all_left = true;
 		
-		foreach($this->reply_options AS $value => $option):			
+		foreach($this->choices AS $value => $option):			
 			$ret .= '
 				<label for="item' . $this->id . '_' . $value . '">' . 
 					(($this->label_first || $all_left) ? $option.'&nbsp;' : '') . 
