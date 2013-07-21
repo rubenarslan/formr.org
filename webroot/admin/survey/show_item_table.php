@@ -1,9 +1,9 @@
 <?php
-require_once '../define_root.php';
+require_once '../../../define_root.php';
 require_once INCLUDE_ROOT.'View/admin_header.php';
 
 $results = $study->getItemsWithChoices();
-require_once INCLUDE_ROOT.'view_header.php';
+require_once INCLUDE_ROOT.'View/header.php';
 
 require_once INCLUDE_ROOT.'View/admin_nav.php';
 ?>
@@ -100,4 +100,4 @@ endforeach;
 
 <?php
 endif;
-require_once INCLUDE_ROOT.'view_footer.php';
+require_once INCLUDE_ROOT.'View/footer.php';

@@ -1,6 +1,6 @@
 <?php
-require_once '../define_root.php';
-require_once INCLUDE_ROOT . "survey/admin_header.php";
+require_once '../../define_root.php';
+require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Run.php";
 
 if( !empty($_POST) ) {
@@ -8,16 +8,16 @@ if( !empty($_POST) ) {
 	if($run->valid)
 	{
 		alert('<strong>Success.</strong> Run "'.$run->name . '" was created.','alert-success');
-		redirect_to("acp/{$run->name}");
+		redirect_to(">admin/{$run->name}");
 	}
 	else
 		alert('<strong>Sorry.</strong> '.implode($run->errors),'alert-error');
 }
 
 require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "acp/acp_nav.php";
+require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
-<form class="form-horizontal" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>acp/add_run">
+<form class="form-horizontal" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>admin/add_run">
   	<div class="control-group">
   		<label class="control-label" for="kurzname">
   			<?php echo _("Run Kurzname<br>(wird für URL benutzt):"); ?>

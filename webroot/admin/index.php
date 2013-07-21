@@ -2,7 +2,7 @@
 require_once '../../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "acp/acp_nav.php";
+require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
 <h2>runs &amp; studies <small>what's the difference?</small></h2>
 <p>
@@ -24,7 +24,7 @@ if($studies) {
 	  <ul class="nav nav-pills nav-stacked">';
   foreach($studies as $study) {
     echo "<li>
-		<a href='".WEBROOT."survey/".$study['name']."/index'>".$study['name']."</a>
+		<a href='".WEBROOT."admin/survey/".$study['name']."/'>".$study['name']."</a>
 	</li>";
   }
   echo "</ul></div>";
@@ -37,9 +37,9 @@ if($runs) {
   	  <div class="span5">
 		<h3>Runs</h3>
 		<ul class="nav nav-pills nav-stacked">';
-	foreach($runs as $run) {
+	foreach($runs as $menu_run) {
 		echo "<li>
-			<a href='".WEBROOT."acp/{$run['name']}'>{$run['name']}</a>
+			<a href='".WEBROOT."admin/run/{$menu_run['name']}/'>{$menu_run['name']}</a>
 		</li>";
 	}
   echo "</ul></div>";

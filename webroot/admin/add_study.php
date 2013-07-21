@@ -1,8 +1,8 @@
 <?php
-require_once '../define_root.php';
-require_once INCLUDE_ROOT . "survey/admin_header.php";
+require_once '../../define_root.php';
+require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "acp/acp_nav.php";
+require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
 <h2>Create new study and upload item table</h2>
 <p>The item table has to fulfill the following criteria:</p>

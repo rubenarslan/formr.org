@@ -1,5 +1,5 @@
 <?php
-require_once '../define_root.php';
+require_once '../../../define_root.php';
 require_once INCLUDE_ROOT.'View/admin_header.php';
 
 if( !empty($_POST) ) {
@@ -7,7 +7,7 @@ if( !empty($_POST) ) {
 	redirect_to(WEBROOT . "survey/{$study->name}/edit_substitutions");
 }
 
-require_once INCLUDE_ROOT.'view_header.php';
+require_once INCLUDE_ROOT.'View/header.php';
 
 require_once INCLUDE_ROOT.'View/admin_nav.php';
 
@@ -59,4 +59,4 @@ $subs = $study->getSubstitutions();
 	</form>
 </div>
 <?php
-require_once INCLUDE_ROOT.'view_footer.php';
+require_once INCLUDE_ROOT.'View/footer.php';

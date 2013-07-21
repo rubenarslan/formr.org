@@ -1,6 +1,6 @@
 <?php
-require_once '../define_root.php';
-require_once INCLUDE_ROOT . "survey/admin_header.php";
+require_once '../../../define_root.php';
+require_once INCLUDE_ROOT . "View/admin_header.php";
 
 require_once INCLUDE_ROOT . "Model/EmailAccount.php";
 
@@ -11,6 +11,7 @@ if(!empty($_POST) AND isset($_POST['create'])) {
 	)
 	{
 		alert('<strong>Success!</strong> You added a new email account!','alert-success');
+		redirect_to("admin/mail/edit/?account_id=".$acc->id);
 	}
 	else {
 		alert(implode($acc->errors),'alert-error');
@@ -18,10 +19,10 @@ if(!empty($_POST) AND isset($_POST['create'])) {
 }
 
 require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "acp/acp_nav.php";
+require_once INCLUDE_ROOT . "View/acp_nav.php";
 
 ?>
-<form id="list_email_accounts" name="list_email_accounts" method="post" action="<?=WEBROOT?>acp/list_email_accounts">
+<form id="list_email_accounts" name="list_email_accounts" method="post" action="<?=WEBROOT?>admin/mail/">
 <div class="span5">
 <h3>Email accounts</h3>
 <ul class="nav nav-pills nav-stacked">
@@ -35,7 +36,7 @@ if($accs) {
 	  ';
   foreach($accs as $account) {
     echo "<li>
-		<a href='".WEBROOT."acp/edit_email_account.php?account_id=".$account['id']."'>".$account['from']."</a>
+		<a href='".WEBROOT."admin/mail/edit/?account_id=".$account['id']."'>".$account['from']."</a>
 	</li>";
   }
 }

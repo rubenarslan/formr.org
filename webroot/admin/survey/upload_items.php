@@ -1,9 +1,9 @@
 <?
-require_once '../define_root.php';
+require_once '../../../define_root.php';
 require_once INCLUDE_ROOT.'View/admin_header.php';
 // Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
 
-require_once INCLUDE_ROOT.'view_header.php';
+require_once INCLUDE_ROOT.'View/header.php';
 
 require_once INCLUDE_ROOT.'View/admin_nav.php';
 ?>
@@ -51,4 +51,4 @@ require_once INCLUDE_ROOT.'View/admin_nav.php';
 
 <?
 
-require_once INCLUDE_ROOT.'view_footer.php';
+require_once INCLUDE_ROOT.'View/footer.php';

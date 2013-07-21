@@ -2,7 +2,7 @@
 unset($_SESSION['study_id']);
 unset($_GET['study_name']);
 require_once '../define_root.php';
-require_once INCLUDE_ROOT . "survey/admin_header.php";
+require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Study.php";
 
 $errors = $messages = array();
@@ -10,12 +10,12 @@ $errors = $messages = array();
 if(empty($_POST))
 {
 	alert('<strong>Info:</strong> Please choose your item table file here.','alert-info');
-	redirect_to("acp/add_study.php");
+	redirect_to(">admin/add_study.php");
 }
 elseif (!isset($_FILES['uploaded']) OR !isset($_POST['study_name'])) 
 {
 	alert('<strong>Error:</strong> You have to select an item table file here.','alert-error');
-	redirect_to("acp/add_study.php");
+	redirect_to(">admin/add_study.php");
 }
 
 if(isset($_POST['study_id']))
@@ -86,11 +86,11 @@ $messages = array_merge($messages, $study->messages);
 #	$errors = array_unique($errors);
 $messages = array_unique($messages);
 
-require_once INCLUDE_ROOT.'view_header.php';
+require_once INCLUDE_ROOT.'View/header.php';
 
 if(!empty($errors)):
 	alert('<ul><li>' . implode("</li><li>",$errors).'</li></ul>','alert-error');
-	require_once INCLUDE_ROOT.'acp/acp_nav.php';
+	require_once INCLUDE_ROOT.'>admin/acp_nav.php';
 else:
 	require_once INCLUDE_ROOT.'View/admin_nav.php';
 	echo '<p class="span8">';
@@ -108,4 +108,4 @@ if(!empty($messages)):
 endif;
 
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
-require_once INCLUDE_ROOT.'view_footer.php';
+require_once INCLUDE_ROOT.'View/footer.php';
