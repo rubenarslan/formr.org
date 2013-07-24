@@ -1,5 +1,5 @@
 <?php
-require_once 'define_root.php';
+require_once '../../define_root.php';
 require_once INCLUDE_ROOT."Model/Site.php";
 
 if($user->loggedIn()) {
@@ -29,7 +29,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 ?>
 <div class="span8">
 <h2>Login</h2>
-<form class="form-horizontal" id="login" name="login" method="post" action="login.php">
+<form class="form-horizontal" id="login" name="login" method="post" action="<?=WEBROOT?>public/login">
 	<div class="control-group small-left">
 		<label class="control-label" for="email">
 			<?php echo _("Email"); ?>

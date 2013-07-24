@@ -10,7 +10,7 @@ if( !empty($_POST) ) {
 
 require_once INCLUDE_ROOT.'View/header.php';
 
-require_once INCLUDE_ROOT.'View/admin_nav.php';
+require_once INCLUDE_ROOT.'View/acp_nav.php';
 ?>
 
 <div class="span8">

@@ -1,15 +1,18 @@
-[submodule "PHPExcel"]
-	path = PHPExcel
-	url = https://github.com/PHPOffice/PHPExcel.git
-[submodule "Markdown"]
-	path = Markdown
-	url = https://github.com/michelf/php-markdown.git
-[submodule "PHPMailer"]
-	path = PHPMailer
-	url = https://github.com/PHPMailer/PHPMailer.git
-[submodule "js/vendor/select2"]
-	path = js/vendor/select2
-	url = https://github.com/scornflakes/select2.git
-[submodule "password_compat"]
-	path = password_compat
-	url = https://github.com/ircmaxell/password_compat.git
+[submodule "vendors/Markdown"]
+	path = vendors/Markdown
+	url = https://github.com/michelf/php-markdown
+[submodule "webroot/js/vendor/select2"]
+	path = webroot/js/vendor/select2
+	url = https://github.com/ivaynberg/select2
+[submodule "vendors/PHPMailer"]
+	path = vendors/PHPMailer
+	url = https://github.com/PHPMailer/PHPMailer
+[submodule "vendors/password_compat"]
+	path = vendors/password_compat
+	url = https://github.com/ircmaxell/password_compat
+[submodule "webroot/js/vendor/Font-Awesome"]
+	path = webroot/js/vendor/Font-Awesome
+	url = https://github.com/FortAwesome/Font-Awesome
+[submodule "vendors/PHPExcel"]
+	path = vendors/PHPExcel
+	url = https://github.com/PHPOffice/PHPExcel

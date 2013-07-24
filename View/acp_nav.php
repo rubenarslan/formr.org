@@ -1,4 +1,4 @@
-<h1>Admin control panel</h1>
+<h1><em>formr</em> admin area</h1>
 
 <nav>
 	<ul class="nav nav-tabs">
@@ -110,14 +110,121 @@
 		</li>
 
 		<li <?=endsWith($_SERVER['PHP_SELF'],'webroot/index.php')?' class="active"':''?>>
-			<a href="<?=WEBROOT?>index"><?php echo _("public area"); ?></a>
+			<a href="<?=WEBROOT?>"><?php echo _("public area"); ?></a>
 		</li>
 
-		<li><a href="<?=WEBROOT?>logout"><?php echo _("log out"); ?></a></li>
+		<li><a href="<?=WEBROOT?>public/logout"><?php echo _("log out"); ?></a></li>
 	</ul>
 
 </nav>
 
+<?php if(isset($study)): ?>
+
+<?php
+$resultCount = $study->getResultCount();
+?>
+<h2><?php echo $study->name;?> <small><?= ($resultCount['begun']+$resultCount['finished'])?> results</small></h2>
+	
+<nav class="span2">
+	<ul class="nav nav-pills nav-stacked">
+		<li <?=endsWith($_SERVER['PHP_SELF'],'survey/access.php')?' class="active"':''?>>
+			<a href="<?=WEBROOT?>admin/survey/<?php echo $study->name; ?>/access">
+				<i class="icon-caret-right"></i> <?php echo _("Test study"); ?></a>
+		</li>
+		
+
+<li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/index.php')?' class="active"':''?>>
+	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/index"><i class="icon-caret-right"></i> Global settings</a>
+</li>
+<li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/upload_items.php')?' class="active"':''?>>
+	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/upload_items"><i class="icon-caret-right"></i> Import item table</a>
+</li>
+
+<li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/show_item_table.php')?' class="active"':''?>>
+	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_item_table"><i class="icon-caret-right"></i> View item table</a>
+</li>
+
+<li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/show_results.php')?' class="active"':''?>>
+	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_results"><i class="icon-caret-right"></i> Show results</a>
+</li>
+
+<li class="dropdown">
+    <a class="dropdown-toggle"
+       data-toggle="dropdown"
+       href="#">
+        <i class="icon-caret-right"></i> Export results
+        <b class="caret"></b>
+      </a>
+    <ul class="dropdown-menu">
+		<li>
+			
+			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv"><i class="icon-caret-down"></i> Download CSV</a>
+		</li>
+		<li>
+			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv_german"><i class="icon-caret-down"></i> Download German CSV</a>
+		</li>
+		<li>
+			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_tsv"><i class="icon-caret-down"></i> Download TSV</a>
+		</li>
+		<li>
+			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xls"><i class="icon-caret-down"></i> Download XLS</a>
+		</li>
+		<li>
+			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xlsx"><i class="icon-caret-down"></i> Download XLSX</a>
+		</li>
+		
+    </ul>
+  </li>
+
+<li class="nav-header">complex studies</li>
+
+<li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/edit_substitutions.php')?' class="active"':''?>>
+	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/edit_substitutions"><i class="icon-caret-right"></i> Edit substitutions</a>
+</li>
+
+<li class="nav-header">Danger Zone</li>
+
+<li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/delete_study.php')?' class="active"':''?>>
+	<a class="hastooltip" title="Go to deletion dialog, does not delete yet" href="<?=WEBROOT?>admin/survey/<?=$study->name?>/delete_study"><i class="icon-caret-right"></i> Delete study</a>
+</li>
+
+<li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/delete_results.php')?' class="active"':''?>>
+	<a class="hastooltip" title="Go to deletion dialog, does not delete yet" href="<?=WEBROOT?>admin/survey/<?=$study->name?>/delete_results"><i class="icon-caret-right"></i> Delete <?= ($resultCount['begun']+$resultCount['finished'])?> results</a>
+	
+</li>
+
+</ul>
+
+</nav>
+<?php endif; ?>
+
+
+<?php if(isset($run)): ?>
+
+<h2><?php echo $run->name;?></h2>
+
+<ul class="nav nav-tabs">
+	<li <?=endsWith($_SERVER['PHP_SELF'],'run/index.php')?' class="active"':''?>>
+		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><?php echo _("Run"); ?></a>
+	</li>
+
+	<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_overview.php')?' class="active"':''?>>
+		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><?php echo _("Overview"); ?></a>
+	</li>
+	<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_detail.php')?' class="active"':''?>>
+		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><?php echo _("Detail"); ?></a>
+	</li>
+</ul>
+
+
+</nav>
+<?php endif; ?>
+
 <?php 
-echo $site->renderAlerts();
+$alerts = $site->renderAlerts();
+if(!empty($alerts)):
+	echo '<div class="span8 all-alerts">';
+	echo $alerts;
+	echo '</div>';
+endif;
 ?>

@@ -6,7 +6,7 @@ $resultCount = $study->getResultCount();
 $results = $study->getItemDisplayResults();
 require_once INCLUDE_ROOT.'View/header.php';
 
-require_once INCLUDE_ROOT.'View/admin_nav.php';
+require_once INCLUDE_ROOT.'View/acp_nav.php';
 ?>
 <h2>Detailed result times <small>
 		<?=(int)$resultCount['finished']?> complete,

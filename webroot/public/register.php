@@ -1,5 +1,5 @@
 <?php
-require_once 'define_root.php';
+require_once '../../define_root.php';
 require_once 'Model/Site.php';
 
 //fixme: cookie problems lead to fatal error with missing user code
