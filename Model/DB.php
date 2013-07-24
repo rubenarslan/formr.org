@@ -5,7 +5,7 @@ class DB extends PDO
     #make a connection
     public function __construct() 
 	{
-		require_once INCLUDE_ROOT. "config/settings.php";
+		require_once INCLUDE_ROOT. "config/database.php";
 		
 		
 		$db = new DATABASE_CONFIG();

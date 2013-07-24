@@ -1,5 +1,5 @@
 <?php
-require_once INCLUDE_ROOT ."vendors/PHPMailer/class.phpmailer.php";
+#require_once INCLUDE_ROOT ."vendor/phpmailer/phpmailer/class.phpmailer.php";
 class EmailAccount
 {
 	public function __construct($fdb, $id, $user_id) 

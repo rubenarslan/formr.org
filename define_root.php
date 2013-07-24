@@ -1,4 +1,5 @@
 <?php
+require_once "vendor/autoload.php";
 function define_webroot() {
 	if(defined('WEBROOT')) return;
 	

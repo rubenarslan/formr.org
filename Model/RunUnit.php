@@ -216,10 +216,9 @@ class RunUnit {
 	{
 		require_once INCLUDE_ROOT . "Model/OpenCPU.php";
 
-		global $head;
-		$head = '
-		<script type="text/javascript" src="'.WEBROOT.'js/vendor/knitr.js"></script>
-		<link rel="stylesheet" href="'.WEBROOT.'css/knitr.css" type="text/css">';
+		global $css,$js;
+		$css = '<link rel="stylesheet" href="'.WEBROOT.'assets/knitr.css" type="text/css">';
+		$js = '<script type="text/javascript" src="'.WEBROOT.'assets/knitr.js"></script>';
 
 		$openCPU = new OpenCPU();
 		$openCPU->addUserData($this->getUserDataInRun());
