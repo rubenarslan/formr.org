@@ -12,10 +12,10 @@ RunUnit.prototype.init = function(content)
 	this.position_changed = false;
 	this.position.change($.proxy(this.position_changes,this));
 		
-	this.dialog_inputs = this.block.find('div.run_unit_dialog input,div.run_unit_dialog  select, div.run_unit_dialog button, div.run_unit_dialog textarea');
+	this.dialog_inputs = this.block.find('div.run_unit_dialog input,div.run_unit_dialog select, div.run_unit_dialog button, div.run_unit_dialog textarea');
 //	console.log(this.dialog_inputs);
 	this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
-	this.dialog_inputs.on('input',$.proxy(this.changes,this));
+	this.dialog_inputs.on('input change',$.proxy(this.changes,this));
 	// todo: file bug report with webshims, oninput fires only onchange for number inputs
 	
 	this.block.find('.hastooltip').tooltip({
@@ -34,7 +34,7 @@ RunUnit.prototype.init = function(content)
 		e.preventDefault();
 		var numberinput = $(this).closest('.input-append').find('input[type=number]');
 		var days = numberinput.val();
-		numberinput.val( days * 60 * 24);
+		numberinput.val( days * 60 * 24).change();
 	});
 	
 	

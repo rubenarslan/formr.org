@@ -51,8 +51,8 @@ class Email extends RunUnit {
 			$this->recipient_field = $options['recipient_field'];
 			$this->body = $options['body'];
 			$this->subject = $options['subject'];
-			if(isset($options['account_id']))
-				$this->account_id = $options['account_id'];
+			if(isset($options['account_id']) AND is_numeric($options['account_id']))
+				$this->account_id = (int)$options['account_id'];
 			$this->html = $options['html'] ? 1:0;
 		}
 		
@@ -184,6 +184,7 @@ LIMIT 1";
 	}
 	public function sendMail($who = NULL)
 	{
+		
 		if($who===null):
 			$this->recipient = $this->getRecipientField();
 		else:

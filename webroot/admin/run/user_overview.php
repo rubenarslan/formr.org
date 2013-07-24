@@ -48,12 +48,12 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 	$userx['Created'] = "<small>{$userx['created']}</small>";
 	$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>{$userx['last_access_days']} days ago</small>";
 	$userx['Action'] = "
-		<form class='form-inline' action='".WEBROOT.">admin/send_to_position?session={$userx['session']}&run_name={$userx['run_name']}' method='post'>
+		<form class='form-inline' action='".WEBROOT."admin/run/{$userx['run_name']}/send_to_position?session={$userx['session']}' method='post'>
 		<span class='input-append input-prepend'>
 	<button type='submit' class='btn hastooltip'
 	title='Send this user to that position'><i class='icon-hand-right'></i></button>
 		<input type='number' name='new_position' value='{$userx['position']}' class='span1'>
-		<a class='btn hastooltip' href='".WEBROOT.">admin/remind?run_session_id={$userx['run_session_id']}&session={$userx['session']}&run_name={$userx['run_name']}&email={$userx['email']}' 
+		<a class='btn hastooltip' href='".WEBROOT."admin/run/{$userx['run_name']}/remind?run_session_id={$userx['run_session_id']}&session={$userx['session']}&email={$userx['email']}' 
 		title='Remind this user using the last email in the run'><i class='icon-bullhorn'></i></a>
 		
 		</span></form>";

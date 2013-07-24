@@ -99,6 +99,7 @@ class Run
 	}
 	public function toggleCron($on)
 	{
+		$on = (int)$on;
 		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET cron_active = :cron_active WHERE id = :id;");
 		$toggle->bindParam(':id',$this->id);
 		$toggle->bindParam(':cron_active', $on );
@@ -107,6 +108,7 @@ class Run
 	}
 	public function togglePublic($on)
 	{
+		$on = (int)$on;
 		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET public = :public WHERE id = :id;");
 		$toggle->bindParam(':id',$this->id);
 		$toggle->bindParam(':public', $on );
