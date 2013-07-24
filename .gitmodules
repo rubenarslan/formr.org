@@ -16,3 +16,6 @@
 [submodule "vendors/PHPExcel"]
 	path = vendors/PHPExcel
 	url = https://github.com/PHPOffice/PHPExcel
+[submodule "webroot/js/vendor/webshim"]
+	path = webroot/js/vendor/webshim
+	url = https://github.com/aFarkas/webshim
