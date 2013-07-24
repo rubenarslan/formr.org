@@ -7,20 +7,20 @@ require_once INCLUDE_ROOT . "Model/EmailAccount.php";
 $acc = new EmailAccount($fdb, $_GET['account_id'], $user->id);
 if($user->created($acc)):
 	alert("<strong>Error:</strong> Not your email account.",'alert-error');
-	redirect_to("/>admin/list_email_accounts");
+	redirect_to("/admin/mail/index");
 endif;
 
 if(!empty($_POST)) 
 {
 	$acc->changeSettings($_POST);
-	redirect_to(">admin/edit_email_account?account_id=".$_GET['account_id']);
 	alert('<strong>Success!</strong> Your email account settings were changed!','alert-success');
+	redirect_to("/admin/mail/edit?account_id=".$_GET['account_id']);
 }
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
 
-<form class="form-horizontal"  id="edit_email_account" name="edit_email_account" method="post" action="<?=WEBROOT?>admin/edit_email_account?account_id=<?=h($_GET['account_id'])?>">
+<form class="form-horizontal"  id="edit_email_account" name="edit_email_account" method="post" action="<?=WEBROOT?>admin/mail/edit?account_id=<?=h($_GET['account_id'])?>">
 	<div class="control-group">
 		<label class="control-label" for="from">
 			<?php echo _("From:"); ?>

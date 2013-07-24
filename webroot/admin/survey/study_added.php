@@ -1,7 +1,7 @@
 <?php
 unset($_SESSION['study_id']);
 unset($_GET['study_name']);
-require_once '../define_root.php';
+require_once '../../../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Study.php";
 
@@ -10,12 +10,12 @@ $errors = $messages = array();
 if(empty($_POST))
 {
 	alert('<strong>Info:</strong> Please choose your item table file here.','alert-info');
-	redirect_to(">admin/add_study.php");
+	redirect_to("admin/survey/add_study");
 }
 elseif (!isset($_FILES['uploaded']) OR !isset($_POST['study_name'])) 
 {
 	alert('<strong>Error:</strong> You have to select an item table file here.','alert-error');
-	redirect_to(">admin/add_study.php");
+	redirect_to("admin/survey/add_study");
 }
 
 if(isset($_POST['study_id']))
@@ -78,7 +78,7 @@ if (empty($errors)):
 
     if (empty($study->errors) AND $study->createSurvey($SPR) ):
 		alert('<strong>Success!</strong> Study created!','alert-success');
-		$study_link = "<a class='btn btn-large btn-success' href='".WEBROOT."survey/{$study->name}/show_item_table'>"._('Check item table').'</a>';
+		$study_link = "<a class='btn btn-large btn-success' href='".WEBROOT."admin/survey/{$study->name}/show_item_table'>"._('Check item table').'</a>';
 	endif;
 endif;
 $errors =  array_merge($errors, $study->errors);
@@ -90,7 +90,7 @@ require_once INCLUDE_ROOT.'View/header.php';
 
 if(!empty($errors)):
 	alert('<ul><li>' . implode("</li><li>",$errors).'</li></ul>','alert-error');
-	require_once INCLUDE_ROOT.'>admin/acp_nav.php';
+	require_once INCLUDE_ROOT.'View/acp_nav.php';
 else:
 	require_once INCLUDE_ROOT.'View/acp_nav.php';
 	echo '<p class="span8">';

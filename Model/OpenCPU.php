@@ -1,11 +1,12 @@
 <?php
 class OpenCPU {
-#	private $instance = 'https://public.opencpu.org/';
-	private $instance = '134.76.136.21';
+	private $instance;
 	private $user_data = '';
 	private $curl_c;
 	public function __construct()
 	{
+		global $settings;
+		$this->instance = $settings['opencpu_instance'];
 		$this->curl_c = curl_init();
 		curl_setopt($this->curl_c, CURLOPT_URL, $this->instance.'R/pub/base/identity/json');
 		curl_setopt($this->curl_c, CURLOPT_POST, 1); // Method is "POST"
@@ -43,7 +44,7 @@ $this->user_data .
 '.
 		$source;
 
-		pr($source);
+#		pr($source);
 		
 		return $this->knit($source);
 	}

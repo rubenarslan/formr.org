@@ -10,4 +10,4 @@ if($del->execute())
 else
 	alert('<strong>Couldn\'t delete.</strong> Sorry. <pre>'. print_r($data->errorInfo(), true).'</pre>','alert-error');
 
-redirect_to(">admin/user_detail");
+redirect_to("admin/user_detail");

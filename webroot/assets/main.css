@@ -449,6 +449,10 @@ form.form-horizontal div.form-row.control-group.hidden {
 body .select2-offscreen, body .select2-offscreen:focus {
 	position:absolute;
 }
+body .select2-container
+{
+	min-width:200px;
+}
 div.pos_changed input {
 	color:#49afcd;
 }
@@ -464,4 +468,8 @@ div.pos_changed input {
 		text-align:left;
 		width:100%;
 	}
+}
+.all-alerts
+{
+	clear:both;
 }

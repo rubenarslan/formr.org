@@ -1,4 +1,11 @@
-<h1><em>formr</em> admin area</h1>
+<h2><em>formr</em> admin<?php if(isset($run)): ?>
+/run/<?php echo $run->name;?>
+
+<?php elseif(isset($study)): ?>
+/survey/<?php echo $study->name;?>
+
+<?php endif;?>
+</h2>
 
 <nav>
 	<ul class="nav nav-tabs">
@@ -96,12 +103,6 @@
 				<b class="caret"></b>
 			</a>
 			<ul class="dropdown-menu">
-				<li <?=endsWith($_SERVER['PHP_SELF'],'user_overview.php')?' class="active"':''?>>
-					<a href="<?=WEBROOT?>admin/user_overview"><?php echo _("user overview"); ?></a>
-				</li>
-				<li <?=endsWith($_SERVER['PHP_SELF'],'user_detail.php')?' class="active"':''?>>
-					<a href="<?=WEBROOT?>admin/user_detail"><?php echo _("user detail"); ?></a>
-				</li>
 				<li <?=endsWith($_SERVER['PHP_SELF'],'cron_log.php')?' class="active"':''?>>
 					<a href="<?=WEBROOT?>admin/cron_log"><?php echo _("cron log"); ?></a>
 				</li>
@@ -123,7 +124,7 @@
 <?php
 $resultCount = $study->getResultCount();
 ?>
-<h2><?php echo $study->name;?> <small><?= ($resultCount['begun']+$resultCount['finished'])?> results</small></h2>
+<h3><?php echo $study->name;?> <small><?= ($resultCount['begun']+$resultCount['finished'])?> results</small></h3>
 	
 <nav class="span2">
 	<ul class="nav nav-pills nav-stacked">
@@ -201,8 +202,6 @@ $resultCount = $study->getResultCount();
 
 <?php if(isset($run)): ?>
 
-<h2><?php echo $run->name;?></h2>
-
 <ul class="nav nav-tabs">
 	<li <?=endsWith($_SERVER['PHP_SELF'],'run/index.php')?' class="active"':''?>>
 		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><?php echo _("Run"); ?></a>
@@ -223,8 +222,8 @@ $resultCount = $study->getResultCount();
 <?php 
 $alerts = $site->renderAlerts();
 if(!empty($alerts)):
-	echo '<div class="span8 all-alerts">';
+	echo '<div class="row-fluid"><div class="span8 all-alerts">';
 	echo $alerts;
-	echo '</div>';
+	echo '</div></div>';
 endif;
 ?>

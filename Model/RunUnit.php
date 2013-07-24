@@ -248,7 +248,7 @@ class RunUnit {
 			$temp_user = $g_user->fetch(PDO::FETCH_ASSOC);
 			$this->session_id = $temp_user['id'];
 			$this->run_session_id = $temp_user['run_session_id'];
-			pr($temp_user);
+#			pr($temp_user);
 		endif;
 			
 		if($this->knittingNeeded($source)):

@@ -9,6 +9,7 @@ error_reporting(-1);
 
 date_default_timezone_set('Europe/Berlin');
 
+require_once INCLUDE_ROOT . "config/settings.php";
 require_once INCLUDE_ROOT . "Model/DB.php";
 $fdb = new DB();
 
@@ -108,6 +109,7 @@ function pr($string) {
     if( DEBUG > -1 ) {
 		echo "<pre>";
         var_dump($string);
+#		print_r(	debug_backtrace());
 		echo "</pre>";
     }
 }

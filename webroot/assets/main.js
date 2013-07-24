@@ -8,7 +8,7 @@ $.webshims.setOptions('geolocation', {
 	confirmText: '{location} wants to know your position. You will have to enter one manually if you decline.'
 });
 $.webshims.setOptions('forms-ext', {
-       types: 'range date time number month color',
+		types: 'range date time number month color',
 });
 $.webshims.polyfill('es5 forms forms-ext geolocation json-storage');
 $.webshims.activeLang('de');
@@ -37,7 +37,7 @@ $.webshims.ready('form-validators', function(){
 			;
 		}, 9);
 		
-		if(isValid.length != 2)
+		if(isValid.length !== 2)
 		{
 			return true;
 		} else
@@ -48,7 +48,7 @@ $.webshims.ready('form-validators', function(){
 			// [1,3] T
 			// [1,6] T
 			var chosen = isValid.map( function() {
-			    return +$(this).attr('value');
+				return +$(this).attr('value');
 			}).get();
 			
 			
@@ -72,7 +72,7 @@ $.webshims.ready('form-validators', function(){
 	$.webshims.customErrorMessages.choose2days['de'] = 'Du musst zwei Wochentage auswählen, die mehr als zwei Tage auseinander liegen.';
 });
 function flatStringifyGeo(geo) {
-    var result = {};
+	var result = {};
 	result.timestamp = geo.timestamp;
 	var coords = {};
 	coords.accuracy = geo.coords.accuracy;
@@ -83,7 +83,7 @@ function flatStringifyGeo(geo) {
 	coords.longitude = geo.coords.longitude;
 	coords.speed = geo.coords.speed;
 	result.coords = coords;
-    return JSON.stringify(result);
+	return JSON.stringify(result);
 }
 
 $(document).ready(function() {
@@ -108,26 +108,26 @@ $(document).ready(function() {
 			/*
 			todo: would be a nice options thing for geoloc
  interface PositionOptions {
-    attribute boolean enableHighAccuracy;
-    attribute long timeout;
-    attribute long maximumAge;
-  };*/
+	attribute boolean enableHighAccuracy;
+	attribute long timeout;
+	attribute long maximumAge;
+	};*/
 		);
 		return false;
 	}).each(function()
 	{
 		$(this).closest('.btn-group.hidden').removeClass('hidden');
 	});
-    $('.range_list_output').each(function () {
-        var output = $('output', this);
+	$('.range_list_output').each(function () {
+		var output = $('output', this);
 //		console.log(output);	
-        var change = function () {
-            output.text($(this).prop('value') || '');
-        };
-        $('input[type="range"]', this)
-            .on('input', change)
-            .each(change);
-    });
+		var change = function () {
+			output.text($(this).prop('value') || '');
+		};
+		$('input[type="range"]', this)
+			.on('input', change)
+			.each(change);
+	});
 	// fixme: FOUCs for btnratings etc in IE8
 	$('div.btn-radio button.btn').off('click').click(function(event){
 		var $btn = $(this);
@@ -183,82 +183,83 @@ $(document).ready(function() {
 	var pathArray = location.href.split( '/' );
 	var protocol = pathArray[0];
 	var host = pathArray[2];
-	if(host=='localhost:8888') host = host + "/jena";
+	if(host==='localhost:8888') host = host + "/zwang";
 	var url = protocol + '//' + host + "/";
 	
 	$("select.select2zone").select2();
 	$("input.select2add").each(function(i,elm)
 	{
 		var slct = $(elm); 
+		var slctdata = $.parseJSON(slct.attr('data-select2add'));
 		slct.select2({
 			createSearchChoice:function(term, data)
-				{ 
-					if ($(data).filter(function() 
-					{ 
-						return this.text.localeCompare(term)===0; 
-					}).length===0) 
-					{
-						return {id:term, text:term};
-					}
-				},
-		    initSelection : function (element, callback) {
+			{ 
+				if ($(data).filter(function() { 
+					return this.text.localeCompare(term)==0; 
+				}).length===0) 
+				{
+					return {id:term, text:term};
+				}
+			},
+			initSelection:function(element, callback)
+			{
 				var data = {id: element.val(), text: element.val()};
-				$.each(test_stats, function(k, v) {
-				                       if(v.id ==  element.val()) {
-				                           data = v;
-				                           return false;
-				                       } 
-	            });
-		        callback(data);
-		    },
+				$.each(slctdata, function(k, v) {
+					if(v.id ==	element.val()) {
+						data = v;
+						return false;
+					} 
+				});
+				callback(data);
+			},
 			maximumSelectionSize: slct.attr('data-select2maximumSelectionSize'),
 			maximumInputLength: slct.attr('data-select2maximumInputLength'),
-			data: $.parseJSON(slct.attr('data-select2add')), 
+			data: slctdata, 
 			multiple: !!slct.prop('multiple'), 
 			allowClear: true,
 		});
 	});
 	$('.select2place').select2({
-	    ajax: {
-	        url: url + "places/search",
-	        dataType: 'json',
-	        quietMillis: 100,
-	        data: function (term, page) { // page is the one-based page number tracked by Select2
-	            return {
-	                term: term, //search term
-	                page: page, // page number
-	            };
-	        },
-	        results: function (data, page) {
-	            var more = (page * 10) < data.total; // whether or not there are more results available
+		ajax: {
+			url: url + "places/search",
+			dataType: 'json',
+			quietMillis: 100,
+			data: function (term, page) { // page is the one-based page number tracked by Select2
+				return {
+					term: term, //search term
+					page: page, // page number
+				};
+			},
+			results: function (data, page) {
+				var more = (page * 10) < data.total; // whether or not there are more results available
 
-	            // notice we return the value of more so Select2 knows if more results can be loaded
-	            return {results: data.places, more: more};
-	        }
-	    },
-	    initSelection: function(element, callback) {
-		   // the input tag has a value attribute preloaded that points to a preselected movie's id
-		   // this function resolves that id attribute to an object that select2 can render
-		   // using its formatResult renderer - that way the movie name is shown preselected
-		   var id=$(element).val();
-		   if (id!=="") {
-			   $.ajax(url + "places/get/"+id, {
-				   dataType: "json"
-			   }).done(function(data) { 
-				   callback(data[0]); 
-			   }).fail(ajaxErrorHandling);
-		   }
+				// notice we return the value of more so Select2 knows if more results can be loaded
+				return {results: data.places, more: more};
+			}
+		},
+		initSelection: function(element, callback) {
+			// the input tag has a value attribute preloaded that points to a preselected movie's id
+			// this function resolves that id attribute to an object that select2 can render
+			// using its formatResult renderer - that way the movie name is shown preselected
+			var id=$(element).val();
+			if (id!=="") {
+				$.ajax(url + "places/get/"+id, {
+					dataType: "json"
+				}).done(function(data) { 
+					callback(data[0]); 
+				}).fail(ajaxErrorHandling);
+			}
 		},
 		minimumInputLength: 3,
 		formatInputTooShort: function (term, minLength) {
-			return "Bitte geben Sie mindestens 3 Zeichen ein."
+			return "Bitte geben Sie mindestens 3 Zeichen ein.";
 		},
 		formatNoMatches: function (term) {
-			return "Ort nicht gefunden, bitte geben Sie den nächstgelegenen größeren Ort ein."					
+			return "Ort nicht gefunden, bitte geben Sie den nächstgelegenen größeren Ort ein.";				
 		}
 	});
 	
-	$('.hastooltip').tooltip({
+	$('*[title]').tooltip({
 		container: 'body'
 	});
 });
@@ -274,27 +275,27 @@ function ajaxErrorHandling (e, x, settings, exception)
 	var message;
 	var statusErrorMap = 
 	{
-	    '400' : "Server understood the request but request content was invalid.",
-	    '401' : "You don't have access.",
-	    '403' : "You were logged out while coding, please open a new tab and login again. This way no data will be lost.",
-	    '404' : "Page not found.",
-	    '500' : "Internal Server Error.",
-	    '503' : "Server can't be reached."
+		'400' : "Server understood the request but request content was invalid.",
+		'401' : "You don't have access.",
+		'403' : "You were logged out while coding, please open a new tab and login again. This way no data will be lost.",
+		'404' : "Page not found.",
+		'500' : "Internal Server Error.",
+		'503' : "Server can't be reached."
 	};
 	if (e.status) 
 	{
-	    message =statusErrorMap[e.status];
+		message =statusErrorMap[e.status];
 		if(!message)
-			message= (typeof e.statusText != 'undefined' && e.statusText != 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
+			message= (typeof e.statusText !== 'undefined' && e.statusText !== 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
 	}
-	else if(e.statusText=='parsererror')
-	    message="Parsing JSON Request failed.";
-	else if(e.statusText=='timeout')
-	    message="The attempt to save timed out. Are you connected to the internet?";
-	else if(e.statusText=='abort')
-	    message="The request was aborted by the server.";
+	else if(e.statusText==='parsererror')
+		message="Parsing JSON Request failed.";
+	else if(e.statusText==='timeout')
+		message="The attempt to save timed out. Are you connected to the internet?";
+	else if(e.statusText==='abort')
+		message="The request was aborted by the server.";
 	else
-		message= (typeof e.statusText != 'undefined' && e.statusText != 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
+		message= (typeof e.statusText !== 'undefined' && e.statusText !== 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
 
 	bootstrap_alert(message, 'Fehler.');
 }
