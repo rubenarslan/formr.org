@@ -1,6 +1,6 @@
 <?php
 require_once INCLUDE_ROOT . "Model/DB.php";
-require_once INCLUDE_ROOT . 'password_compat/lib/password.php';
+#require_once INCLUDE_ROOT . 'vendor/ircmaxell/password-compat/lib/password.php';
 
 class User
 {

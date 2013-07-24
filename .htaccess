@@ -1,13 +1,6 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME}.php !-d
-    RewriteCond %{REQUEST_FILENAME}.php !-f
-  	RewriteRule ^([A-Za-z0-9_]+)/?$ run.php?run_name=$1 [QSA,L]
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^([A-Za-z0-9_]+)/?$ $1.php [QSA,L]
+    RewriteRule ^(.*)$ webroot/$1 [QSA,L]
 	# on HU subdomain
 #	RewriteBase /survey/
 </IfModule>

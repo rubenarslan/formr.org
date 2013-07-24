@@ -1,0 +1,10 @@
+{
+  "name": "bootstrap.zip",
+  "_cacheHeaders": {
+    "Last-Modified": "Fri, 17 May 2013 17:29:19 GMT",
+    "Content-Length": "85762",
+    "Content-Type": "application/zip"
+  },
+  "_source": "http://twitter.github.com/bootstrap/assets/bootstrap.zip",
+  "_target": "*"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "font-awesome",
+  "_cacheHeaders": {
+    "Last-Modified": "Wed, 26 Jun 2013 15:44:10 GMT",
+    "Content-Length": "276410",
+    "Content-Type": "application/zip"
+  },
+  "_source": "http://fortawesome.github.io/Font-Awesome/assets/font-awesome.zip",
+  "_target": "*"
+}
