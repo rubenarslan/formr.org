@@ -1,3 +1,4 @@
 tmp/*
+vendor/*
 *.*~
 .DS_Store
