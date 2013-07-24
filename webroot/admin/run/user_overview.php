@@ -7,7 +7,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 <h1>user overview</h1>
 
 <?php
-$g_users = $fdb->query("SELECT 
+$g_users = $fdb->prepare("SELECT 
 	`survey_run_sessions`.id AS run_session_id,
 	`survey_run_sessions`.session,
 	`survey_run_sessions`.position,
@@ -34,15 +34,19 @@ ON `survey_run_sessions`.run_id = `survey_runs`.id
 LEFT JOIN `users`
 ON `survey_run_sessions`.session = `users`.code
 
+WHERE `survey_runs`.name = :run_name
+
 ORDER BY hang DESC, `survey_run_sessions`.last_access DESC;");
+$g_users->bindParam(':run_name',$run->name);
+$g_users->execute();
 
 $users = array();
 while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 {
-	$userx['Run position'] = "<span>{$userx['run_name']} <span class='hastooltip' title='Current position in run'>({$userx['position']} – {$userx['unit_type']})</span></small>";
+	$userx['Run position'] = "<span class='hastooltip' title='Current position in run'>({$userx['position']}</span> – <small>{$userx['unit_type']})</small>";
 	$userx['Email'] = "<small title=\"{$userx['session']}\">{$userx['email']}</small>";
 	$userx['Created'] = "<small>{$userx['created']}</small>";
-	$userx['last access'] = "<small class='hastooltip' title='{$userx['last_access']}'>{$userx['last_access_days']} days ago</small>";
+	$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>{$userx['last_access_days']} days ago</small>";
 	$userx['Action'] = "
 		<form class='form-inline' action='".WEBROOT.">admin/send_to_position?session={$userx['session']}&run_name={$userx['run_name']}' method='post'>
 		<span class='input-append input-prepend'>

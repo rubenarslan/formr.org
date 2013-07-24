@@ -1,6 +1,7 @@
 <?php
 class OpenCPU {
-	private $instance = 'https://public.opencpu.org/';
+#	private $instance = 'https://public.opencpu.org/';
+	private $instance = '134.76.136.21';
 	private $user_data = '';
 	private $curl_c;
 	public function __construct()

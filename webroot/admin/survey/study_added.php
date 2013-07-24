@@ -92,7 +92,7 @@ if(!empty($errors)):
 	alert('<ul><li>' . implode("</li><li>",$errors).'</li></ul>','alert-error');
 	require_once INCLUDE_ROOT.'>admin/acp_nav.php';
 else:
-	require_once INCLUDE_ROOT.'View/admin_nav.php';
+	require_once INCLUDE_ROOT.'View/acp_nav.php';
 	echo '<p class="span8">';
 	echo $study_link;
 	echo '</p>';

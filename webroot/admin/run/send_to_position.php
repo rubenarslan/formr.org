@@ -2,9 +2,6 @@
 require_once '../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Email.php";
-require_once INCLUDE_ROOT . "Model/Run.php";
-$run = new Run($fdb, $_GET['run_name']);
-
 require_once INCLUDE_ROOT . 'Model/RunSession.php';
 $run_session = new RunSession($fdb, $run->id, null, $_GET['session']);
 

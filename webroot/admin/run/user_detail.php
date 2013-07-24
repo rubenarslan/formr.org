@@ -7,7 +7,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 <h2>user log</h2>
 
 <?php
-$g_users = $fdb->query("SELECT 
+$g_users = $fdb->prepare("SELECT 
 	`survey_run_sessions`.session,
 	`survey_unit_sessions`.id AS session_id,
 	`survey_runs`.name AS run_name,
@@ -30,7 +30,10 @@ LEFT JOIN `survey_runs`
 ON `survey_runs`.id = `survey_run_units`.run_id
 LEFT JOIN `users`
 ON `survey_run_sessions`.session = `users`.code
+WHERE `survey_runs`.name = :run_name
 ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;");
+$g_users->bindParam(':run_name',$run->name);
+$g_users->execute();
 
 $users = array();
 while($userx = $g_users->fetch(PDO::FETCH_ASSOC))

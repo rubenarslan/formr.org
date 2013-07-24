@@ -6,7 +6,7 @@ $resultCount = $study->getResultCount();
 $results = $study->getResults();
 require_once INCLUDE_ROOT.'View/header.php';
 
-require_once INCLUDE_ROOT.'View/admin_nav.php';
+require_once INCLUDE_ROOT.'View/acp_nav.php';
 ?>
 <h2>Results <small>
 		<?=(int)$resultCount['finished']?> complete,

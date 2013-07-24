@@ -1,5 +1,9 @@
 <?php
-require_once 'define_root.php';
+/* todo: allow changing email address
+todo: email address verification
+todo: my access code has been compromised, reset? possible problems with external data, maybe they should get their own tokens...
+*/
+require_once '../../define_root.php';
 require_once INCLUDE_ROOT."Model/Site.php";
 if(!$user->loggedIn()) {
 	alert('You need to be logged in to go here.','alert-info');
