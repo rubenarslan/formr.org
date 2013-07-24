@@ -3,15 +3,12 @@ require_once '../../../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Run.php";
 
-$head = '
-<link rel="stylesheet" type="text/css" href="'.WEBROOT.'js/vendor/select2/select2.css" />
-<script src="'.WEBROOT.'js/run.js"></script>
-<script type="text/javascript" src="'.WEBROOT.'js/vendor/select2/select2.js"></script>';
+$js = '<script src="'.WEBROOT.'assets/run.js"></script>';
 
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
-<form class="form-horizontal" enctype="multipart/form-data"  id="edit_run" name="edit_run" method="post" action="<?=WEBROOT?>admin/<?=$run->name ;?>" data-units='<?php
+<form class="form-horizontal" enctype="multipart/form-data"  id="edit_run" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>/" data-units='<?php
 	echo json_encode($run->getAllUnitIds());	
 	?>'>
 <div class="span10 run_dialog">
