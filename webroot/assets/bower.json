@@ -13,7 +13,7 @@
     "bootstrap": "http://twitter.github.com/bootstrap/assets/bootstrap.zip",
     "font-awesome": "http://fortawesome.github.io/Font-Awesome/assets/font-awesome.zip",
     "jquery": "git://github.com/components/jquery.git#1.*",
-    "select2": "git://github.com/ivaynberg/select2.git#3.*",
+    "select2": "git://github.com/ivaynberg/select2.git#3.3.*",
     "webshim": "git://github.com/aFarkas/webshim.git#1.*"
   }
 }

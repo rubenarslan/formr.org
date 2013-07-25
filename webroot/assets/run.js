@@ -7,7 +7,7 @@ function RunUnit(content)
 RunUnit.prototype.init = function(content)
 {
 	this.block.html($($.parseHTML(content))); // .html annoying but necessary, somewhere in here a clone where there should be none, appears
-	this.position = this.block.find('.run_unit_position input.position')
+	this.position = this.block.find('.run_unit_position input.position');
 	
 	this.position_changed = false;
 	this.position.change($.proxy(this.position_changes,this));
@@ -98,7 +98,7 @@ RunUnit.prototype.save = function(e)
 		.done($.proxy(function(data)
 		{
 			
-			if(! (data.indexOf('error') >= 0) ) 
+			if(data.indexOf('error') < 0) 
 			{
 				$.proxy( this.init(data),this);
 			}
@@ -127,7 +127,7 @@ RunUnit.prototype.removeFromRun = function(e)
 		})
 		.done(function(data)
 		{
-			if(! (data.indexOf('error') >= 0) ) 
+			if(data.indexOf('error') < 0) 
 			{
 				$unit.html(data);
 			}
@@ -147,7 +147,7 @@ RunUnit.prototype.removeFromRun = function(e)
 function loadNextUnit(units)
 {
 	var data = units.shift();
-	if(typeof data != 'undefined')
+	if(typeof data !== 'undefined')
 	{
 		$.ajax( 
 		{
@@ -163,13 +163,13 @@ function loadNextUnit(units)
 	}
 }
 $(document).ready(function () {
-	if(typeof autosaveglobal == 'undefined') {
+	if(typeof autosaveglobal === 'undefined') {
 		lastSave = $.now(); // only set when loading the first time
 		autosaveglobal = false;
 	}
 	$run_name = $('#run_name').val();
 	$run_url = $('#edit_run').prop('action');
-	$run_units = new Array();
+	$run_units = [];
 	$('#edit_run').find('.hastooltip').tooltip({
 		container: 'body'
 	});
@@ -195,7 +195,7 @@ $(document).ready(function () {
 		})
 		.done(function(data)
 		{
-			if(! (data.indexOf('error') >= 0) ) 
+			if(data.indexOf('error') < 0) 
 			{
 				self.toggleClass('btn-checked',on);
 			}
@@ -208,9 +208,11 @@ $(document).ready(function () {
 	$('#edit_run').find('a.add_run_unit')
 	.click(function () 
 	{
-		var positions = $('.run_unit_position input:visible').map(function() { return +$(this).val(); }); // :visible in case of webshims. 
+		var positions = $('.run_unit_position input:visible').map(function() { 
+			return +$(this).val(); 
+		}); // :visible in case of webshims. 
 		var positions = $.makeArray(positions);
-		var max = positions.sort(function(x,y){ return x-y; }).pop(); // get maximum by sorting and popping the last elm
+		var max = positions.slice().sort(function(x,y){ return x-y; }).pop(); // get maximum by sorting and popping the last elm. slice to copy (and later reuse) array
 		$.ajax( 
 		{
 			url: $(this).attr('href'),
@@ -223,7 +225,7 @@ $(document).ready(function () {
 		})
 		.done(function(data)
 		{
-			if(! (data.indexOf('error') >= 0) ) 
+			if(data.indexOf('error') < 0) 
 			{
 				$run_units.push(new RunUnit(data));
 				loadNextUnit(units);
@@ -245,7 +247,7 @@ $(document).ready(function () {
 	.click(function (e) 
 	{
 		e.preventDefault();
-		if(typeof $(this).attr('disabled') == 'undefined')
+		if(typeof $(this).attr('disabled') === 'undefined')
 		{
 			var positions = {};
 			$($run_units).each(function(i,elm) {
@@ -263,7 +265,7 @@ $(document).ready(function () {
 			})
 			.done(function(data)
 			{
-				if(! (data.indexOf('error') >= 0) ) 
+				if(data.indexOf('error') < 0) 
 				{
 					$($run_units).each(function(i,elm) {
 						elm.position_changed = false;
@@ -274,7 +276,7 @@ $(document).ready(function () {
 					old_positions = old_positions.join(','); // for some reason I have to join to compare contents, otherwise annoying behavior with clones etc
 					new_positions.sort(function(x,y){ return x-y; }).join(',');
 					
-					if(old_positions != new_positions)
+					if(old_positions !== new_positions)
 						location.reload();
 				}		
 				else

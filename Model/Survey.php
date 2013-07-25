@@ -146,6 +146,7 @@ class Survey extends RunUnit {
 					`survey_items`.study_id = :study_id AND
 			        `survey_items`.type NOT IN (
 							'instruction',
+							'mc_heading',
 							'submit'
 						)
 					GROUP BY `survey_items_display`.answered;";
@@ -166,7 +167,7 @@ class Survey extends RunUnit {
 		
 		$this->not_answered = count( array_filter($this->unanswered_batch, function ($item)
 		{
-			if(in_array($item->type, array('instruction','submit')) ) return false;
+			if(in_array($item->type, array('instruction','submit','mc_heading')) ) return false;
 			else return true;
 		}
 ) );
@@ -306,7 +307,19 @@ class Survey extends RunUnit {
 					continue; // skip this instruction							
 				}
 			}
-				
+			else if ($item->type === "mc_heading")
+			{
+				$next = current($items);
+				if(
+					(
+						$next === false OR 								    				 // this is the end of the survey
+						!in_array( $next->type , array('mc','mmc',))  		 // the next item isn't a normal item
+					)
+				)
+				{
+					continue; // skip this instruction							
+				}
+			}
 			
 	        // Gibt es Bedingungen, unter denen das Item alternativ formuliert wird?
 			

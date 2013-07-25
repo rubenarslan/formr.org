@@ -1225,9 +1225,17 @@ class Item_geolocation extends Item {
 	protected $append = true;
 	
 	protected $mysql_field =  'TEXT DEFAULT NULL';
+	protected function setMoreOptions() 
+	{
+		$this->input_attributes['name'] = $this->name.'[]';
+	}
 	public function validateInput($reply)
 	{
-		var_dump($reply);
+		$reply = parent::validateInput($reply);
+		if(is_array($reply)):
+			$reply = array_filter($reply);
+			$reply = end($reply);
+		endif;
 		return $reply;
 	}
 	protected function render_appended () 
@@ -1371,6 +1379,7 @@ class Item_choose_two_weekdays extends Item_mmc
 }
 class Item_timezone extends Item_select
 {
+	protected $mysql_field = 'INT UNSIGNED DEFAULT NULL';
 	protected function setMoreOptions()
 	{
 		$zonenames = timezone_identifiers_list();
