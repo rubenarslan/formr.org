@@ -64,12 +64,12 @@ class Pause extends RunUnit {
 		$create = $this->dbh->prepare("INSERT INTO `survey_pauses` (`id`, `body`, `body_parsed`, `wait_until_time`, `wait_until_date` , `wait_minutes`, `relative_to`)
 			VALUES (:id, :body, :body_parsed, :wait_until_time, :wait_until_date, :wait_minutes, :relative_to)
 		ON DUPLICATE KEY UPDATE
-			`body` = :body, 
-			`body_parsed` = :body_parsed, 
-			`wait_until_time` = :wait_until_time, 
-			`wait_until_date` = :wait_until_date, 
-			`wait_minutes` = :wait_minutes, 
-			`relative_to` = :relative_to
+			`body` = :body2, 
+			`body_parsed` = :body_parsed2, 
+			`wait_until_time` = :wait_until_time2, 
+			`wait_until_date` = :wait_until_date2, 
+			`wait_minutes` = :wait_minutes2, 
+			`relative_to` = :relative_to2
 		;");
 		$create->bindParam(':id',$this->id);
 		$create->bindParam(':body',$this->body);
@@ -78,6 +78,12 @@ class Pause extends RunUnit {
 		$create->bindParam(':wait_until_date',$this->wait_until_date);
 		$create->bindParam(':wait_minutes',$this->wait_minutes);
 		$create->bindParam(':relative_to',$this->relative_to);
+		$create->bindParam(':body2',$this->body);
+		$create->bindParam(':body_parsed2',$this->body_parsed);
+		$create->bindParam(':wait_until_time2',$this->wait_until_time);
+		$create->bindParam(':wait_until_date2',$this->wait_until_date);
+		$create->bindParam(':wait_minutes2',$this->wait_minutes);
+		$create->bindParam(':relative_to2',$this->relative_to);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
 		$this->valid = true;

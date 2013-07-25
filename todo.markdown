@@ -8,3 +8,8 @@
 
 ### debugging todo
 * how to upload places: export .sql file (nonzipped), with multiple values per statement (50000 lim), but not column names, zip manually, import.
+
+### switch to R
+- wherever we allow user-defined mysql (substitutions, skipifs, branches, timebranches, pauses) use R instead. 
+- have to figure out how let various skipifs etc use the same data
+- easy next step: JS skipifs

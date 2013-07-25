@@ -16,6 +16,8 @@ RunUnit.prototype.init = function(content)
 //	console.log(this.dialog_inputs);
 	this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
 	this.dialog_inputs.on('input change',$.proxy(this.changes,this));
+	this.save_inputs = this.dialog_inputs.add(this.position);
+	
 	// todo: file bug report with webshims, oninput fires only onchange for number inputs
 	
 	this.block.find('.hastooltip').tooltip({
@@ -71,7 +73,7 @@ RunUnit.prototype.test = function(e)
 		{
 			url: $run_url + "/" + this.test_button.attr('href'),
 			dataType: 'html',
-			data: this.dialog_inputs.serialize(),
+			data: this.save_inputs.serialize(),
 			method: 'GET'
 		})
 		.done($.proxy(function(data)
@@ -92,7 +94,7 @@ RunUnit.prototype.save = function(e)
 		{
 			url: $run_url + "/" + this.save_button.attr('href'),
 			dataType: 'html',
-			data: this.dialog_inputs.serialize(),
+			data: this.save_inputs.serialize(),
 			method: 'POST'
 		})
 		.done($.proxy(function(data)
@@ -122,7 +124,7 @@ RunUnit.prototype.removeFromRun = function(e)
 		{
 			url: $run_url + "/" + this.remove_button.attr('href'),
 			dataType: 'html',
-			data: this.dialog_inputs.serialize(),
+			data: this.save_inputs.serialize(),
 			method: 'POST'
 		})
 		.done(function(data)

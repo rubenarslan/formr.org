@@ -60,16 +60,20 @@ class Page extends RunUnit {
 		$create = $this->dbh->prepare("INSERT INTO `survey_pages` (`id`, `body`, `body_parsed`, `title`, `end`)
 			VALUES (:id, :body, :body_parsed, :title, :end)
 		ON DUPLICATE KEY UPDATE
-			`body` = :body, 
-			`body_parsed` = :body_parsed, 
-			`title` = :title, 
-			`end` = :end
+			`body` = :body2, 
+			`body_parsed` = :body_parsed2, 
+			`title` = :title2, 
+			`end` = :end2
 		;");
 		$create->bindParam(':id',$this->id);
 		$create->bindParam(':body',$this->body);
 		$create->bindParam(':body_parsed',$this->body_parsed);
 		$create->bindParam(':title',$this->title);
 		$create->bindParam(':end',$this->can_be_ended);
+		$create->bindParam(':body2',$this->body);
+		$create->bindParam(':body_parsed2',$this->body_parsed);
+		$create->bindParam(':title2',$this->title);
+		$create->bindParam(':end2',$this->can_be_ended);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
 		$this->valid = true;

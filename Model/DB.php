@@ -23,7 +23,7 @@ class DB extends PDO
 
         try 
         { 
-#			$this->setAttribute(PDO::ATTR_EMULATE_PREPARES, false); // todo: fix query caching, but not now
+			$this->setAttribute(PDO::ATTR_EMULATE_PREPARES, false); // todo: fix query caching, but not now
             $this->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); 
         }
         catch (PDOException $e) 

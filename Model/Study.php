@@ -51,13 +51,14 @@ class Study extends RunUnit
 		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
 		$post_form = $this->dbh->prepare("INSERT INTO `survey_settings` (`study_id`, `key`, `value`)
 																		  VALUES(:study_id, :key, :value) 
-				ON DUPLICATE KEY UPDATE `value` = :value;");
-	    $post_form->bindParam(":study_id", $this->id);
+				ON DUPLICATE KEY UPDATE `value` = :value2;");
 		
+	    $post_form->bindParam(":study_id", $this->id);
 		foreach($key_value_pairs AS $key => $value)
 		{
 		    $post_form->bindParam(":key", $key);
 		    $post_form->bindParam(":value", $value);
+		    $post_form->bindParam(":value2", $value);
 			$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 		}
 
@@ -67,15 +68,15 @@ class Study extends RunUnit
 	}
 	protected function existsByName($name)
 	{
+		if(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,20}/",$name)) return;
+		
 		$exists = $this->dbh->prepare("SELECT name FROM `survey_studies` WHERE name = :name LIMIT 1");
 		$exists->bindParam(':name',$name);
 		$exists->execute() or die(print_r($create->errorInfo(), true));
 		if($exists->rowCount())
 			return true;
 		
-		$reserved = $this->dbh->prepare("SHOW TABLES LIKE :name");
-		$reserved->bindParam(':name',$name);
-		$reserved->execute() or die(print_r($reserved->errorInfo(), true));
+		$reserved = $this->dbh->query("SHOW TABLES LIKE '$name';");
 		if($reserved->rowCount())
 			return true;
 
