@@ -56,7 +56,7 @@ $.webshims.ready('form-validators', function(){
 			var forbidden = forbidden_wrong.map( function() {
 				if(this < 1) return 7 + this;
 				if(this > 7) return this - 7;
-				return +this;
+				return this;
 			});
 			if($.inArray(chosen[1],forbidden)!==-1)
 				return true;
@@ -216,9 +216,10 @@ $(document).ready(function() {
 			maximumInputLength: slct.attr('data-select2maximumInputLength'),
 			data: slctdata, 
 			multiple: !!slct.prop('multiple'), 
-			allowClear: true,
+			allowClear: true
 		});
 	});
+	
 	$('.select2place').select2({
 		ajax: {
 			url: url + "places/search",
