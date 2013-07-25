@@ -5,7 +5,6 @@ if(!$user->loggedIn() AND !$user->isAdmin()) {
 	alert("<strong>Sorry:</strong> Only admins have access.",'alert-info');
 	redirect_to("index");
 }
-
 if(isset($_GET['study_name'])):
 	require_once INCLUDE_ROOT . "Model/Study.php";
 
@@ -30,3 +29,5 @@ elseif(isset($_GET['run_name'])):
 		redirect_to("/index");
 	endif;
 endif;
+
+$css = (isset($css)?$css:'') . '<link rel="stylesheet" href="'.WEBROOT.'assets/admin.css" type="text/css" media="screen">';

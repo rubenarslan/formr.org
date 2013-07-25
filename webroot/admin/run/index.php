@@ -8,6 +8,7 @@ $js = '<script src="'.WEBROOT.'assets/run.js"></script>';
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
+<div class="span8">
 <form class="form-horizontal" enctype="multipart/form-data"  id="edit_run" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>/" data-units='<?php
 	echo json_encode($run->getAllUnitIds());	
 	?>'>
@@ -62,6 +63,6 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 <div class="clearfix"></div>
 	
   </form>
-
+</div>
   <?php
   require_once INCLUDE_ROOT . "View/footer.php";

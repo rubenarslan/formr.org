@@ -26,7 +26,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 ?>
 <div class="span8">
 <h2>Registration</h2>
-<form class="form-horizontal" id="register" name="register" method="post" action="register.php">
+<form class="form-horizontal" id="register" name="register" method="post" action="<?=WEBROOT?>public/register">
 	<div class="control-group small-left">
 		<label class="control-label" for="email">
 			<?php echo _("Email"); ?>

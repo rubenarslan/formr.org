@@ -33,7 +33,7 @@ if((int)$resultCount['finished'] > 10)
 Please <a href="'.WEBROOT.'survey/'.$study->name.'/show_results">review the existing results</a> before deleting them.</div>';
 ?>
 <div class="span7">
-<form method="post" action="<?=WEBROOT?>survey/<?=$study->name?>/delete_results">
+<form method="post" action="<?=WEBROOT?>admin/survey/<?=$study->name?>/delete_results">
 	
 	<label>Type the study's name to confirm <br>
 		<input name="delete_confirm" title="Confirm" type="text" placeholder="Study-Name"></label>

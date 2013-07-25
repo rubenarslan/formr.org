@@ -27,10 +27,10 @@ $.webshims.ready('form-validators', function(){
 		}
 		groupTimer[name] = setTimeout(function(){
 			checkboxes
-				.addClass('group-required')
-				.unbind('click.groupRequired')
-				.bind('click.groupRequired', function(){
-					checkboxes.filter('.group-required').each(function(){
+				.addClass('choose2days')
+				.unbind('click.choose2days')
+				.bind('click.choose2days', function(){
+					checkboxes.filter('.choose2days').each(function(){
 						$.webshims.refreshCustomValidityRules(this);
 					});
 				})
@@ -48,7 +48,7 @@ $.webshims.ready('form-validators', function(){
 			// [1,3] T
 			// [1,6] T
 			var chosen = isValid.map( function() {
-				return +$(this).attr('value');
+				return +$(this).val();
 			}).get();
 			
 			
@@ -56,12 +56,16 @@ $.webshims.ready('form-validators', function(){
 			var forbidden = forbidden_wrong.map( function() {
 				if(this < 1) return 7 + this;
 				if(this > 7) return this - 7;
-				return this;
+				return +this;
 			});
 			if($.inArray(chosen[1],forbidden)!==-1)
+			{
 				return true;
+			}
 			else
+			{
 				return false;
+			}
 		}
 	}, 'Du musst zwei Wochentage auswählen, die mehr als zwei Tage auseinander liegen.');
 	

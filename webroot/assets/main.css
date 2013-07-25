@@ -183,6 +183,7 @@ output.output {
 
 
 .form-horizontal div.control-group.left100 .control-label {
+  width: 100px;
   max-width: 100px;
 }
 .form-horizontal div.control-group.left100 .controls {
@@ -190,6 +191,7 @@ output.output {
 }
 
 .form-horizontal div.control-group.left200 .control-label {
+  width: 200px;
   max-width: 200px;
 }
 .form-horizontal div.control-group.left200 .controls {
@@ -197,6 +199,7 @@ output.output {
 }
 
 .form-horizontal div.control-group.left300 .control-label {
+  width: 300px;
   max-width: 300px;
 }
 .form-horizontal div.control-group.left300 .controls {
@@ -204,6 +207,7 @@ output.output {
 }
 
 .form-horizontal div.control-group.left400 .control-label {
+  width: 400px;
   max-width: 400px;
 }
 .form-horizontal div.control-group.left400 .controls {
@@ -211,6 +215,7 @@ output.output {
 }
 
 .form-horizontal div.control-group.left500 .control-label {
+  width: 500px;
   max-width: 500px;
 }
 .form-horizontal div.control-group.left500 .controls {
@@ -218,6 +223,7 @@ output.output {
 }
 
 .form-horizontal div.control-group.left600 .control-label {
+  width: 600px;
   max-width: 600px;
 }
 .form-horizontal div.control-group.left600 .controls {
@@ -232,6 +238,7 @@ output.output {
 }
 
 .form-horizontal div.control-group.left800 .control-label {
+  width: 800px;
   max-width: 800px;
 }
 .form-horizontal div.control-group.left800 .controls {
@@ -239,6 +246,7 @@ output.output {
 }
 
 .form-horizontal div.control-group.left900 .control-label {
+  width: 900px;
   max-width: 900px;
 }
 .form-horizontal div.control-group.left900 .controls {
@@ -313,38 +321,38 @@ output.output {
 }
 
 
-.form-horizontal div.control-group.left100 .controls {
+.form-horizontal div.control-group.right100 .controls {
   max-width: 100px;
 }
 
-.form-horizontal div.control-group.left200 .controls {
+.form-horizontal div.control-group.right200 .controls {
   max-width: 200px;
 }
-.form-horizontal div.control-group.left300 .controls {
+.form-horizontal div.control-group.right300 .controls {
   max-width: 300px;
 }
 
-.form-horizontal div.control-group.left400 .controls {
+.form-horizontal div.control-group.right400 .controls {
   max-width: 400px;
 }
 
-.form-horizontal div.control-group.left500 .controls {
+.form-horizontal div.control-group.right500 .controls {
   max-width: 500px;
 }
 
-.form-horizontal div.control-group.left600 .controls {
+.form-horizontal div.control-group.right600 .controls {
   max-width: 600px;
 }
 
-.form-horizontal div.control-group.left700 .controls {
+.form-horizontal div.control-group.right700 .controls {
   max-width: 700px;
 }
 
-.form-horizontal div.control-group.left800 .controls {
+.form-horizontal div.control-group.right800 .controls {
   max-width: 800px;
 }
 
-.form-horizontal div.control-group.left900 .controls {
+.form-horizontal div.control-group.right900 .controls {
   max-width: 900px;
 }
 
@@ -404,6 +412,30 @@ form.form-horizontal div.form-row.control-group.hide_label div.controls label {
 }
 form.form-horizontal div.form-row.control-group.hide_label div.controls label input {
     visibility:visible;
+}
+form.form-horizontal div.form-row.control-group.rotate-label div.controls label {
+	transform: rotate(-45deg);
+	-webkit-transform: rotate(-45deg);
+	-moz-transform: rotate(-45deg);   
+	-o-transform: rotate(-45deg);
+}
+form.form-horizontal div.form-row.control-group.rotate-label45 div.controls label {
+	transform: rotate(-45deg);
+	-webkit-transform: rotate(-45deg);
+	-moz-transform: rotate(-45deg);   
+	-o-transform: rotate(-45deg);
+}
+form.form-horizontal div.form-row.control-group.rotate-label30 div.controls label {
+	transform: rotate(-30deg);
+	-webkit-transform: rotate(-30deg);
+	-moz-transform: rotate(-30deg);   
+	-o-transform: rotate(-30deg);
+}
+form.form-horizontal div.form-row.control-group.rotate-label90 div.controls label {
+	transform: rotate(-90deg);
+	-webkit-transform: rotate(-90deg);
+	-moz-transform: rotate(-90deg);   
+	-o-transform: rotate(-90deg);
 }
 
 form.form-horizontal div.form-row.control-group.mc-block div.controls label input {

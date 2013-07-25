@@ -92,7 +92,9 @@ $messages = array_merge($messages, $study->messages);
 $messages = array_unique($messages);
 
 require_once INCLUDE_ROOT.'View/header.php';
-
+?>
+<div class="span8">
+<?php
 if(!empty($errors)):
 	alert('<ul><li>' . implode("</li><li>",$errors).'</li></ul>','alert-error');
 	require_once INCLUDE_ROOT.'View/acp_nav.php';
@@ -111,6 +113,8 @@ if(!empty($messages)):
 	echo '</div>';
 	
 endif;
-
+?>
+</div>
+<?php
 // schließe Datenbank-Verbindung, füge bei Bedarf Analytics ein
 require_once INCLUDE_ROOT.'View/footer.php';
