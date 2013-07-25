@@ -4,14 +4,22 @@ require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Run.php";
 
 if( !empty($_POST) ) {
-	$run = new Run($fdb, null, array('run_name' => $_POST['run_name'], 'user_id' => $user->id));
-	if($run->valid)
+	if(isset($_POST['run_name']) AND !preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,20}$/",$_POST['run_name']))
 	{
-		alert('<strong>Success.</strong> Run "'.$run->name . '" was created.','alert-success');
-		redirect_to("admin/run/{$run->name}");
+		alert('<strong>Error:</strong> The run name can only contain a-zA-Z0-9 and the underscore. It needs to start with a letter.','alert-error');
+		redirect_to("admin/add_run");	
 	}
 	else
-		alert('<strong>Sorry.</strong> '.implode($run->errors),'alert-error');
+	{
+		$run = new Run($fdb, null, array('run_name' => $_POST['run_name'], 'user_id' => $user->id));
+		if($run->valid)
+		{
+			alert('<strong>Success.</strong> Run "'.$run->name . '" was created.','alert-success');
+			redirect_to("admin/run/{$run->name}");
+		}
+		else
+			alert('<strong>Sorry.</strong> '.implode($run->errors),'alert-error');
+	}
 }
 
 require_once INCLUDE_ROOT . "View/header.php";

@@ -363,8 +363,12 @@ form.form-horizontal div.form-row.control-group.answer-below-label .control-labe
 }
 form.form-horizontal div.form-row.control-group.answer-below-label div.controls {
   margin-left:5px;
+}
+
+form.form-horizontal div.form-row.control-group.mc-boxed div.controls label {
   border-left:1px solid #EEE;
   border-right:1px solid #EEE;
+  margin:0;
 }
 form.form-horizontal div.form-row.control-group.mc-boxed div.controls label:first-of-type {
   border-left:0px;
@@ -376,6 +380,7 @@ form.form-horizontal div.form-row.control-group.mc-boxed div.controls {
   border-collapse:collapse;
 }
 
+
 form.form-horizontal div.form-row.item-mc_heading.control-group div.controls label {
 	text-align:center;
 	text-indent:0;
@@ -384,13 +389,18 @@ form.form-horizontal div.form-row.item-mc_heading.control-group div.controls lab
 form.form-horizontal div.form-row.item-mc_heading.control-group div.controls label input {
 	display:none;
 }
+form.form-horizontal div.form-row.control-group.hide_label div.controls {
+}
+form.form-horizontal div.form-row.control-group.hide_label div.controls .mc-table {
+}
 form.form-horizontal div.form-row.control-group.hide_label div.controls label {
 	text-align:center;
 	text-indent:0;
-	height:30px; 
+	height:100%;
 	overflow:hidden;
 	line-height:0;
 	font-size:0px;
+	min-height:100%;
 }
 form.form-horizontal div.form-row.control-group.hide_label div.controls label input {
     visibility:visible;

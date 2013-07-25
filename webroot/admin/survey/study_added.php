@@ -10,12 +10,17 @@ $errors = $messages = array();
 if(empty($_POST))
 {
 	alert('<strong>Info:</strong> Please choose your item table file here.','alert-info');
-	redirect_to("admin/survey/add_study");
+	redirect_to("admin/add_study");
 }
 elseif (!isset($_FILES['uploaded']) OR !isset($_POST['study_name'])) 
 {
 	alert('<strong>Error:</strong> You have to select an item table file here.','alert-error');
-	redirect_to("admin/survey/add_study");
+	redirect_to("admin/add_study");
+}
+elseif (isset($_POST['study_name']) AND !preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,20}$/",$_POST['study_name'])) 
+{
+	alert('<strong>Error:</strong> The study name can only contain a-zA-Z0-9 and the underscore. It needs to start with a letter.','alert-error');
+	redirect_to("admin/add_study");
 }
 
 if(isset($_POST['study_id']))
