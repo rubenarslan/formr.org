@@ -36,7 +36,7 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 		if(isset($_POST['unit_id'])):
 			$unit = makeUnit($fdb, null, array('type' => $type,'unit_id'=>$_POST['unit_id']));
 			if($unit->valid):
-				$unit->addToRun($run->id, current($_POST['position']));
+				$unit->addToRun($run->id, $_POST['position']);
 				alert('<strong>Success.</strong> '.$type.' unit was added.','alert-success');
 				echo $unit->displayForRun($site->renderAlerts());
 			else:
@@ -44,6 +44,7 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 			endif;
 		else:
 			$unit = new Study($fdb,null,array('type' => $type));
+			if($_POST['position']==NULL OR $_POST['position']=='NaN') $_POST['position'] = 1;
 			$unit->position = $_POST['position'];
 			echo $unit->displayForRun($site->renderAlerts());
 		endif;

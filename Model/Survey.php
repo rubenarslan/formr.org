@@ -237,7 +237,7 @@ class Survey extends RunUnit {
 			{
 				if($this->unanswered_batch[$name]->skip($this->session_id,$this->run_session_id,$this->dbh,$this->results_table))
 				{
-					unset($this->unanswered_batch[$name]); // fixme: do something else with this when we want JS?
+					unset($this->unanswered_batch[$name]); // todo: do something else with this when we want JS?
 				}
 			}
 		}
@@ -300,7 +300,7 @@ class Survey extends RunUnit {
 					$item->displaycount AND 											 // if this was displayed before
 					(
 						$next === false OR 								    				 // this is the end of the survey
-						in_array( $next->type , array('instruction','submit'))  		 // the next item isn't a normal item
+						in_array( $next->type , array('instruction','submit','mc_heading'))  		 // the next item isn't a normal item
 					)
 				)
 				{

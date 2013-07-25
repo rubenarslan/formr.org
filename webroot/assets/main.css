@@ -435,6 +435,10 @@ form.form-horizontal div.form-row.control-group.mc-width70 div.controls label,
 form.form-horizontal div.form-row.control-group.mc-width70 div.controls button.btn {
 	width:70px;
 }
+form.form-horizontal div.form-row.control-group.mc-width80 div.controls label,
+form.form-horizontal div.form-row.control-group.mc-width80 div.controls button.btn {
+	width:80px;
+}
 form.form-horizontal div.form-row.control-group.mc-width100 div.controls label,
 form.form-horizontal div.form-row.control-group.mc-width100 div.controls button.btn {
 	width:100px;

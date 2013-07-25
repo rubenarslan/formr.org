@@ -59,12 +59,12 @@ class TimeBranch extends RunUnit {
 		$create = $this->dbh->prepare("INSERT INTO `survey_time_branches` (`id`, if_true, if_false, `wait_until_time`, `wait_until_date` , `wait_minutes`, `relative_to`)
 			VALUES (:id, :if_true, :if_false, :wait_until_time, :wait_until_date, :wait_minutes, :relative_to)
 		ON DUPLICATE KEY UPDATE
-			`if_true` = :if_true, 
-			`if_false` = :if_false,
-			`wait_until_time` = :wait_until_time, 
-			`wait_until_date` = :wait_until_date, 
-			`wait_minutes` = :wait_minutes, 
-			`relative_to` = :relative_to
+			`if_true` = :if_true2, 
+			`if_false` = :if_false2,
+			`wait_until_time` = :wait_until_time2, 
+			`wait_until_date` = :wait_until_date2, 
+			`wait_minutes` = :wait_minutes2, 
+			`relative_to` = :relative_to2
 			
 		;");
 		$create->bindParam(':id',$this->id);
@@ -74,6 +74,12 @@ class TimeBranch extends RunUnit {
 		$create->bindParam(':wait_until_date',$this->wait_until_date);
 		$create->bindParam(':wait_minutes',$this->wait_minutes);
 		$create->bindParam(':relative_to',$this->relative_to);
+		$create->bindParam(':if_true2',$this->if_true);
+		$create->bindParam(':if_false2',$this->if_false);
+		$create->bindParam(':wait_until_time2',$this->wait_until_time);
+		$create->bindParam(':wait_until_date2',$this->wait_until_date);
+		$create->bindParam(':wait_minutes2',$this->wait_minutes);
+		$create->bindParam(':relative_to2',$this->relative_to);
 		
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();

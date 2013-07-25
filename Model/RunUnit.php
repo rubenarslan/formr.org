@@ -64,6 +64,7 @@ class RunUnit {
 	}
 	public function addToRun($run_id, $position = 1)
 	{
+		if($position=='NaN') $position = 1;
 		$this->position = (int)$position;
 		$s_run_unit = $this->dbh->prepare("SELECT id FROM `survey_run_units` WHERE unit_id = :id AND run_id = :run_id;");
 		$s_run_unit->bindParam(':id', $this->id);

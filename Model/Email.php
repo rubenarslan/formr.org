@@ -70,12 +70,12 @@ class Email extends RunUnit {
 		)
 			VALUES (:id, :account_id, :recipient_field, :body, :body_parsed, :subject, :html)
 		ON DUPLICATE KEY UPDATE
-			`recipient_field` = :recipient_field, 
-			`account_id` = :account_id,
-			`body` = :body, 
-			`body_parsed` = :body_parsed, 
-			`subject` = :subject, 
-			`html` = :html
+			`recipient_field` = :recipient_field2, 
+			`account_id` = :account_id2,
+			`body` = :body2, 
+			`body_parsed` = :body_parsed2, 
+			`subject` = :subject2, 
+			`html` = :html2
 		;");
 		$create->bindParam(':id',$this->id);
 		$create->bindParam(':account_id',$this->account_id);
@@ -84,6 +84,12 @@ class Email extends RunUnit {
 		$create->bindParam(':body_parsed',$this->body_parsed);
 		$create->bindParam(':subject',$this->subject);
 		$create->bindParam(':html',$this->html);
+		$create->bindParam(':account_id2',$this->account_id);
+		$create->bindParam(':recipient_field2',$this->recipient_field);
+		$create->bindParam(':body2',$this->body);
+		$create->bindParam(':body_parsed2',$this->body_parsed);
+		$create->bindParam(':subject2',$this->subject);
+		$create->bindParam(':html2',$this->html);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
 		$this->valid = true;

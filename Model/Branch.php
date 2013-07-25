@@ -49,14 +49,17 @@ class Branch extends RunUnit {
 		$create = $this->dbh->prepare("INSERT INTO `survey_branches` (`id`, `condition`, if_true, if_false)
 			VALUES (:id, :condition, :if_true, :if_false)
 		ON DUPLICATE KEY UPDATE
-			`condition` = :condition, 
-			`if_true` = :if_true, 
-			`if_false` = :if_false
+			`condition` = :condition2, 
+			`if_true` = :if_true2, 
+			`if_false` = :if_false2
 		;");
 		$create->bindParam(':id',$this->id);
 		$create->bindParam(':condition',$this->condition);
+		$create->bindParam(':condition2',$this->condition);
 		$create->bindParam(':if_true',$this->if_true);
+		$create->bindParam(':if_true2',$this->if_true);
 		$create->bindParam(':if_false',$this->if_false);
+		$create->bindParam(':if_false2',$this->if_false);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
 		$this->valid = true;

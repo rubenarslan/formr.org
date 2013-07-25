@@ -44,12 +44,14 @@ class External extends RunUnit {
 		$create = $this->dbh->prepare("INSERT INTO `survey_externals` (`id`, `address`,`api_end`)
 			VALUES (:id, :address,:api_end)
 		ON DUPLICATE KEY UPDATE
-			`address` = :address, 
-			`api_end` = :api_end 
+			`address` = :address2, 
+			`api_end` = :api_end2 
 		;");
 		$create->bindParam(':id',$this->id);
 		$create->bindParam(':address',$this->address);
 		$create->bindParam(':api_end',$this->api_end);
+		$create->bindParam(':address2',$this->address);
+		$create->bindParam(':api_end2',$this->api_end);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
 		$this->valid = true;

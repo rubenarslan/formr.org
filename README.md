@@ -86,6 +86,7 @@ Surveys support the following item types. HTML5 form elements and validation are
 	* `mselect` dropdowns, choose many
 	* `select_add maxType` like `select`, allows users to choose an option not given. Uses [Select2](http://ivaynberg.github.io/select2/). `maxType` can be used to set an upper limit on the length of the user-added option. Defaults to 255.
 	* `mselect_add maxType,maxChoose` like `mselect` and `select_add`, allows users to add options not given. `maxChoose` can be used to place an upper limit on the number of chooseable options.
+	* `mc_heading` To get a tabular look, assign a constant width to the choices (with classes), give the heading the same choices as the `mc`s, and give the following `mc`s (or `mmc`s)  the same classes + hide_label. 
 * `range min,max,step` these are sliders. The numeric value chosen is not displayed. Text to be shown to the left and right of the slider can be defined using the choice1 and choice2 fields. Defaults are `1,100,1`.
 * `range_list min,max,step` like `range` but the individual steps are visually indicated using ticks and the chosen number is shown to the right. 
 * `color` allows you to pick a color, using the OS color picker (or one polyfilled by Webshims)
