@@ -201,17 +201,18 @@ $resultCount = $study->getResultCount();
 
 
 <?php if(isset($run)): ?>
+<nav class="span2">
+	<ul class="nav nav-pills nav-stacked">
 
-<ul class="nav nav-tabs">
 	<li <?=endsWith($_SERVER['PHP_SELF'],'run/index.php')?' class="active"':''?>>
-		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><?php echo _("Run"); ?></a>
+		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><i class="icon-caret-right"></i> <?php echo _("Edit Run"); ?></a>
 	</li>
 
 	<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_overview.php')?' class="active"':''?>>
-		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><?php echo _("Overview"); ?></a>
+		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><i class="icon-caret-right"></i> <?php echo _("User Overview"); ?></a>
 	</li>
 	<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_detail.php')?' class="active"':''?>>
-		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><?php echo _("Detail"); ?></a>
+		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="icon-caret-right"></i> <?php echo _("User Detail"); ?></a>
 	</li>
 </ul>
 

@@ -16,7 +16,7 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 <li>The format must be one of .csv, .xls, .xlsx, .ods (OpenOffice), .xml, .txt</li>
 <li>.csv-files have to use the comma as a separator, "" as escape characters and UTF-8 as the charset. Because there are inconsistencies when creating CSV files using various spreadsheet programs (e.g. German excel), you should probably steer clear of this.</li>
 
-<form class="form-horizontal" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>survey/<?=$study->name?>/study_added">
+<form class="form-horizontal" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>admin/survey/<?=$study->name?>/study_added">
 	<div class="control-group">
 		<label class="control-label" for="kurzname">
 			<?php echo _("Studien Kurzname<br>(wird für URL und Ergebnistabelle in der Datenbank benutzt):"); ?>

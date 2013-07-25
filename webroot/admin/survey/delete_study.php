@@ -25,7 +25,7 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 if(isset($msg)) echo '<div class="alert '.$alertclass.' span6">'.$msg.'</div>';
 ?>
 <div class="span7">
-<form method="post" action="<?=WEBROOT?>survey/<?=$study->name?>/delete_study">
+<form method="post" action="<?=WEBROOT?>admin/survey/<?=$study->name?>/delete_study">
 	
 	<label>Type the study's name to confirm its deletion<br>
 		<input name="delete_confirm" title="Confirm" type="text" placeholder="Study-Name"></label>

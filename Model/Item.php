@@ -879,7 +879,7 @@ class Item_mmc extends Item_mc
 	protected function render_input() 
 	{
 		if(!$this->optional)
-			$this->input_attributes['class'] .= 'group-required';
+			$this->input_attributes['class'] .= ' group-required';
 #		$this->classes_wrapper = array_diff($this->classes_wrapper, array('required'));
 		unset($this->input_attributes['required']);
 		
@@ -1374,6 +1374,7 @@ class Item_choose_two_weekdays extends Item_mmc
 {
 	protected function setMoreOptions() 
 	{
+		$this->optional = 0;
 		$this->classes_input[] = 'choose2days';
 	}
 }
