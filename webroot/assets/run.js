@@ -278,8 +278,13 @@ $(document).ready(function () {
 					old_positions = old_positions.join(','); // for some reason I have to join to compare contents, otherwise annoying behavior with clones etc
 					new_positions.sort(function(x,y){ return x-y; }).join(',');
 					
-					if(old_positions !== new_positions)
+					if(old_positions != new_positions)
+					{
 						location.reload();
+					} else
+					{
+						$('.pos_changed').removeClass('pos_changed');
+					}
 				}		
 				else
 				{				

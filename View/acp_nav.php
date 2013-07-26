@@ -13,7 +13,7 @@
 		echo endsWith($_SERVER['PHP_SELF'],'admin/index.php')?' class="active"':''?>><a href="<?=WEBROOT?>admin/"><?php echo _("admin control panel"); ?></a></li>   
 	
 		
-  		<li class="dropdown">
+  		<li class="dropdown <?=strpos($_SERVER['PHP_SELF'],'/admin/survey/')?'active':''?>">
   			<a class="dropdown-toggle"
   			data-toggle="dropdown"
   			href="#">
@@ -38,7 +38,7 @@
 		?>
 		</ul>
 	</li>
-	<li class="dropdown">
+	<li class="dropdown <?=strpos($_SERVER['PHP_SELF'],'/run/')?'active':''?>">
 		<a class="dropdown-toggle"
 		data-toggle="dropdown"
 		href="#">
@@ -63,7 +63,7 @@
 		</ul>
 	</li>
 	
-	<li class="dropdown">
+	<li class="dropdown <?=strpos($_SERVER['PHP_SELF'],'/mail/')?'active':''?>">
 		<a class="dropdown-toggle"
 		data-toggle="dropdown"
 		href="#">
