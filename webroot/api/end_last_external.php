@@ -1,5 +1,5 @@
 <?php
-require_once '../define_root.php';
+require_once '../../define_root.php';
 require_once INCLUDE_ROOT . "api/api_header.php";
 
 if(isset($_POST['session'])):

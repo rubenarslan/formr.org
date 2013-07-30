@@ -3,8 +3,7 @@ require_once '../../define_root.php';
 require_once INCLUDE_ROOT."Model/Site.php";
 
 if($user->loggedIn()) {
-  header("Location: index.php");
-  exit;
+	redirect_to("index");
 }
 
 if(!empty($_POST)) {
