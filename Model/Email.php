@@ -55,23 +55,16 @@ class Email extends RunUnit {
 				$this->account_id = (int)$options['account_id'];
 			$this->html = $options['html'] ? 1:0;
 		}
-		
+
 		$this->body_parsed = Markdown::defaultTransform($this->body); // transform upon insertion into db instead of at runtime
 		
 		$create = $this->dbh->prepare("
-		INSERT INTO `survey_emails` (
-		`id` ,
-		`account_id` ,
-		`subject` ,
-		`recipient_field` ,
-		`body` ,
-		`body_parsed` ,
-		`html`
-		)
-			VALUES (:id, :account_id, :recipient_field, :body, :body_parsed, :subject, :html)
+		INSERT INTO `survey_emails` 
+		(`id` , `account_id` ,	`subject` ,	`recipient_field` ,	`body` ,`body_parsed` ,	`html`	)
+VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :html)
 		ON DUPLICATE KEY UPDATE
-			`recipient_field` = :recipient_field2, 
 			`account_id` = :account_id2,
+			`recipient_field` = :recipient_field2, 
 			`body` = :body2, 
 			`body_parsed` = :body_parsed2, 
 			`subject` = :subject2, 
@@ -84,13 +77,16 @@ class Email extends RunUnit {
 		$create->bindParam(':body_parsed',$this->body_parsed);
 		$create->bindParam(':subject',$this->subject);
 		$create->bindParam(':html',$this->html);
+		
 		$create->bindParam(':account_id2',$this->account_id);
 		$create->bindParam(':recipient_field2',$this->recipient_field);
 		$create->bindParam(':body2',$this->body);
 		$create->bindParam(':body_parsed2',$this->body_parsed);
 		$create->bindParam(':subject2',$this->subject);
 		$create->bindParam(':html2',$this->html);
-		$create->execute() or die(print_r($create->errorInfo(), true));
+
+		$create->execute();
+		
 		$this->dbh->commit();
 		$this->valid = true;
 		
