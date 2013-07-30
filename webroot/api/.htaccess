@@ -8,5 +8,5 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^/?([A-Za-z0-9_]+)/?$ $1.php [QSA,L]
 	# on HU subdomain
-#	RewriteBase /survey/acp/
+#	RewriteBase /survey/api/
 </IfModule>
