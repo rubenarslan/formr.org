@@ -64,6 +64,7 @@ class Item extends HTML_element
 	protected $append = null;
 	protected $type_options_array = array();
 	public $choices = array();
+	protected $hasChoices = false;
 	
 	
 	protected $input_attributes = array();
@@ -152,11 +153,13 @@ class Item extends HTML_element
 		
 		$this->input_attributes['id'] = "item{$this->id}";
 		
-		if(!empty($this->choices))
+		if(!empty($this->choices)):
 			$this->chooseResultFieldBasedOnChoices();
+		endif;
 	}
 	protected function chooseResultFieldBasedOnChoices()
 	{
+		if($this->mysql_field==null) return;
 		$choices = array_keys($this->choices);
 		
 		$len = count($choices);
@@ -268,12 +271,15 @@ class Item extends HTML_element
 	}
 	public function validate() 
 	{
+		if(!$this->hasChoices AND $this->choice_list!=null):
+			$this->val_errors[] = "'{$this->name}' You defined choices for this item, even though this type doesn't have choices.";
+		endif;
 		if( !preg_match('/^[A-Za-z0-9_]+$/',$this->name) ): 
-			$this->val_errors[] = "'{$this->name}' Variablenname darf nur a-Z, 0-9 und den Unterstrich enthalten.";
+			$this->val_errors[] = "'{$this->name}' The variable name can only contain a-Z, 0-9 and the underscore (_).";
 		endif;
 		
 		if( trim($this->type) == "" ):
-			$this->val_errors[] = "{$this->name}: Typ darf nicht leer sein.";
+			$this->val_errors[] = "{$this->name}: The type column must not be empty.";
 #		elseif(!in_array($this->type,$this->allowedTypes) ):
 #			$this->val_errors[] = "{$this->name}: Typ '{$this->type}' nicht erlaubt. In den Admineinstellungen änderbar.";
 		endif;
@@ -485,6 +491,7 @@ class Item_range extends Item_number
 {
 	public $type = 'range';
 	protected $input_attributes = array('type' => 'range');
+	protected $hasChoices = true;
 
 	protected function setMoreOptions() 
 	{
@@ -509,6 +516,7 @@ class Item_range_list extends Item_number
 {
 	public $type = 'range_list';
 	protected $input_attributes = array('type' => 'range');
+	protected $hasChoices = true;
 	
 	protected function setMoreOptions() 
 	{
@@ -652,20 +660,24 @@ class Item_datetime extends Item
 	}
 	public function validateInput($reply)
 	{
-		$time_reply = strtotime($reply);
-		if($time_reply===false)
+		if(!($this->optional AND $reply==''))
 		{
-			$this->error = _('You did not enter a valid date.');	
+				
+			$time_reply = strtotime($reply);
+			if($time_reply===false)
+			{
+				$this->error = _('You did not enter a valid date.');	
+			}
+			if(isset($this->input_attributes['min']) AND $time_reply < strtotime($this->input_attributes['min'])) // lower number than allowed
+			{
+				$this->error = __("The minimum is %d",$this->input_attributes['min']);
+			}
+			elseif(isset($this->input_attributes['max']) AND $time_reply > strtotime($this->input_attributes['max'])) // larger number than allowed
+			{
+				$this->error = __("The maximum is %d",$this->input_attributes['max']);
+			}
+			$reply = date($this->html5_date_format, $time_reply);
 		}
-		if(isset($this->input_attributes['min']) AND $time_reply < strtotime($this->input_attributes['min'])) // lower number than allowed
-		{
-			$this->error = __("The minimum is %d",$this->input_attributes['min']);
-		}
-		elseif(isset($this->input_attributes['max']) AND $time_reply > strtotime($this->input_attributes['max'])) // larger number than allowed
-		{
-			$this->error = __("The maximum is %d",$this->input_attributes['max']);
-		}
-		$reply = date($this->html5_date_format, $time_reply);
 		return parent::validateInput($reply);
 	}
 }
@@ -703,6 +715,7 @@ class Item_yearmonth extends Item_datetime
 	protected $input_attributes = array('type' => 'yearmonth');
 	
 	protected $prepend = 'icon-calendar-empty';	
+	protected $mysql_field = 'DATE DEFAULT NULL';
 	protected $html5_date_format = 'Y-m-01';
 }
 
@@ -710,7 +723,6 @@ class Item_month extends Item_yearmonth
 {
 	public $type = 'month';
 	protected $input_attributes = array('type' => 'month');
-	
 }
 
 class Item_year extends Item_datetime 
@@ -788,8 +800,8 @@ class Item_mc extends Item
 {
 	public $type = 'mc';
 	protected $input_attributes = array('type' => 'radio');
-	
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	protected $hasChoices = true;
 	
 	public function validateInput($reply)
 	{
@@ -950,6 +962,8 @@ class Item_select extends Item
 {
 	public $type = 'select';
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	protected $hasChoices = true;
+	
 	protected function render_input() 
 	{
 		$ret = '<select '.self::_parseAttributes($this->input_attributes, array('type')).'>'; 
@@ -1002,6 +1016,8 @@ class Item_select_add extends Item
 {
 	public $type = 'text';
 	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	protected $hasChoices = true;
+	
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
@@ -1380,7 +1396,7 @@ class Item_choose_two_weekdays extends Item_mmc
 }
 class Item_timezone extends Item_select
 {
-	protected $mysql_field = 'INT UNSIGNED DEFAULT NULL';
+	protected $mysql_field = 'FLOAT DEFAULT NULL';
 	protected function setMoreOptions()
 	{
 		$zonenames = timezone_identifiers_list();
