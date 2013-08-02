@@ -130,6 +130,7 @@ LIMIT 20";
 	public function exec()
 	{
 		$join = join_builder($this->dbh, $this->condition);
+		
 		$q = "SELECT ( {$this->condition} ) AS test FROM `survey_run_sessions`
 		
 		$join

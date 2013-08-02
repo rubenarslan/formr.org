@@ -465,7 +465,17 @@ class SpreadsheetReader
 						
 						
 					elseif($col == 'label'):
-						$val = Markdown::defaultTransform($val); // transform upon insertion into db instead of at runtime
+						$val = trim($val);
+						$markdown = Markdown::defaultTransform($val); // transform upon insertion into db instead of at runtime
+#						if(trim($markdown) !== "<p>$val</p>"):
+#							$val = $markdown;
+#						endif;
+						
+						if(substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
+							$val = $matches[1];
+						else:
+							$val = $markdown;
+						endif;
 					elseif($col == 'optional'):
 						if($val==='*') $val = 1;
 						elseif($val==='!') $val = 0;
