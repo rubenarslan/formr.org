@@ -56,7 +56,8 @@ class TimeBranch extends RunUnit {
 			$this->relative_to = $options['relative_to'];
 		}
 		
-		$create = $this->dbh->prepare("INSERT INTO `survey_time_branches` (`id`, if_true, if_false, `wait_until_time`, `wait_until_date` , `wait_minutes`, `relative_to`)
+		$create = $this->dbh->prepare("INSERT INTO `survey_time_branches` 
+			(`id`, if_true, if_false, `wait_until_time`, `wait_until_date` , `wait_minutes`, `relative_to`)
 			VALUES (:id, :if_true, :if_false, :wait_until_time, :wait_until_date, :wait_minutes, :relative_to)
 		ON DUPLICATE KEY UPDATE
 			`if_true` = :if_true2, 
@@ -74,6 +75,7 @@ class TimeBranch extends RunUnit {
 		$create->bindParam(':wait_until_date',$this->wait_until_date);
 		$create->bindParam(':wait_minutes',$this->wait_minutes);
 		$create->bindParam(':relative_to',$this->relative_to);
+		
 		$create->bindParam(':if_true2',$this->if_true);
 		$create->bindParam(':if_false2',$this->if_false);
 		$create->bindParam(':wait_until_time2',$this->wait_until_time);
@@ -153,6 +155,9 @@ class TimeBranch extends RunUnit {
 		if(!empty($conditions)):
 			$condition = implode($conditions," AND ");
 			
+			
+		$order = str_replace(array(':wait_minutes',':wait_date','wait_time'),array(':wait_minutes2',':wait_date2','wait_time2'),$condition);
+		
 $q = "SELECT DISTINCT ( {$condition} ) AS test,`survey_run_sessions`.session FROM `survey_run_sessions`
 
 $join
@@ -160,15 +165,24 @@ $join
 WHERE 
 	`survey_run_sessions`.run_id = :run_id
 
-ORDER BY IF(ISNULL(test),1,0), RAND()
+ORDER BY IF(ISNULL($order),1,0), RAND()
 
 LIMIT 20";
 		
 			echo "<pre>$q</pre>";
 			$evaluate = $this->dbh->prepare($q); // should use readonly
-			if(isset($conditions['minute'])) $evaluate->bindParam(':wait_minutes',$this->wait_minutes);
-			if(isset($conditions['date'])) $evaluate->bindParam(':wait_date',$this->wait_until_date);
-			if(isset($conditions['time'])) $evaluate->bindParam(':wait_time',$this->wait_until_time);
+			if(isset($conditions['minute'])):
+				$evaluate->bindParam(':wait_minutes',$this->wait_minutes);
+				$evaluate->bindParam(':wait_minutes2',$this->wait_minutes);
+			endif;
+			if(isset($conditions['date'])): 
+				$evaluate->bindParam(':wait_date',$this->wait_until_date);
+				$evaluate->bindParam(':wait_date2',$this->wait_until_date);
+			endif;
+			if(isset($conditions['time'])): 
+				$evaluate->bindParam(':wait_time',$this->wait_until_time);
+				$evaluate->bindParam(':wait_time2',$this->wait_until_time);
+			endif;
 			$evaluate->bindParam(':run_id',$this->run_id);
 
 			$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
@@ -222,6 +236,8 @@ LIMIT 20";
 		
 		if(!empty($conditions)):
 			$condition = implode($conditions," AND ");
+			
+		$order = str_replace(array(':wait_minutes',':wait_date','wait_time'),array(':wait_minutes2',':wait_date2','wait_time2'),$condition);
 
 	$q = "SELECT ( {$condition} ) AS test FROM `survey_run_sessions`
 	
@@ -230,14 +246,23 @@ LIMIT 20";
 	WHERE 
 	`survey_run_sessions`.`id` = :run_session_id
 
-	ORDER BY IF(ISNULL( ( {$condition} ) ),1,0), `survey_unit_sessions`.id DESC
+	ORDER BY IF(ISNULL( ( {$order} ) ),1,0), `survey_unit_sessions`.id DESC
 	
 	LIMIT 1";
 #	pr($q);
 			$evaluate = $this->dbh->prepare($q); // should use readonly
-			if(isset($conditions['minute'])) $evaluate->bindParam(':wait_minutes',$this->wait_minutes);
-			if(isset($conditions['date'])) $evaluate->bindParam(':wait_date',$this->wait_until_date);
-			if(isset($conditions['time'])) $evaluate->bindParam(':wait_time',$this->wait_until_time);
+			if(isset($conditions['minute'])):
+				$evaluate->bindParam(':wait_minutes',$this->wait_minutes);
+				$evaluate->bindParam(':wait_minutes2',$this->wait_minutes);
+			endif;
+			if(isset($conditions['date'])): 
+				$evaluate->bindParam(':wait_date',$this->wait_until_date);
+				$evaluate->bindParam(':wait_date2',$this->wait_until_date);
+			endif;
+			if(isset($conditions['time'])): 
+				$evaluate->bindParam(':wait_time',$this->wait_until_time);
+				$evaluate->bindParam(':wait_time2',$this->wait_until_time);
+			endif;
 			$evaluate->bindParam(":run_session_id", $this->run_session_id);
 		
 

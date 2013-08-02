@@ -1,10 +1,10 @@
 <?php
-require_once '../define_root.php';
+require_once '../../define_root.php';
 require_once INCLUDE_ROOT . "Model/Site.php";
 require_once INCLUDE_ROOT . 'Model/Run.php'; # Study , nothing is echoed yet
 
 set_time_limit(300); # defaults to 30
-	
+
 /// GET ALL RUNS
 $g_runs = $fdb->query("SELECT * FROM `survey_runs` WHERE cron_active = 1");
 $runs = array();
