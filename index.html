@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>Formr by rubenarslan</title>
+  </head>
+
+  <body>
+    <header>
+      <div class="inner">
+        <h1>Formr</h1>
+        <h2>a framework that allows you to create simple and complex studies using spreadsheets with items for the surveys and &quot;runs&quot; for chaining together various modules</h2>
+        <a href="https://github.com/rubenarslan/formr" class="button"><small>View project on</small>GitHub</a>
+      </div>
+    </header>
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h1>
+<a name="formr-survey-framework" class="anchor" href="#formr-survey-framework"><span class="octicon octicon-link"></span></a>formr survey framework</h1>
+
+<p>This is a framework that allows you to create simple and complex studies using Spreadsheets with items for the surveys and "runs" for chaining together various modules.</p>
+
+<h2>
+<a name="runs-and-their-modules" class="anchor" href="#runs-and-their-modules"><span class="octicon octicon-link"></span></a>Runs and their modules</h2>
+
+<p>Simple surveys can be made into elaborate studies by using "runs".</p>
+
+<p>Runs allow you to chain various modules and thus:</p>
+
+<ul>
+<li>manage access and eligibility for a study</li>
+<li>use different pathways for different users using branches</li>
+<li>send e-mail invites and reminders</li>
+<li>implement delays/pauses</li>
+<li>add external modules</li>
+<li>loop surveys and thus enable diaries, experience-sampling studies using branches</li>
+<li>give feedback based on user input, using <a href="http://yihui.name/knitr/">knitr</a> and <a href="http://daringfireball.net/projects/markdown/">Markdown</a> through <a href="https://public.opencpu.org/pages/">OpenCPU</a>'s <a href="http://www.r-project.org/">R</a> API</li>
+</ul><p>Using branching and pauses, the following designs should be possible:</p>
+
+<ul>
+<li>simple one-shot surveys</li>
+<li>surveys with eligibility rules (using branch conditions, e.g. <code>demographics.age &gt; 30</code>)</li>
+<li>diary studies (using branch conditions <code>COUNT(diary.session_id) &lt; 14</code> -&gt; start diary again the next day -&gt; if finished continue)</li>
+<li>longitudinal studies using pauses (ie. wait 2 months after last participation). The items of wave 2 need not be clear at wave 1!</li>
+</ul><h3>
+<a name="pause" class="anchor" href="#pause"><span class="octicon octicon-link"></span></a>Pause</h3>
+
+<p>This simple component allows you to delay the continuation of the run until a certain date, time of day or to wait relative to a date that a user specified (such as her graduation date or the last time he cut his nails). See the <strong>OpenCPU + R + Knitr + Markdown</strong> section to find out how to personalise the text shown while waiting.</p>
+
+<h3>
+<a name="branch" class="anchor" href="#branch"><span class="octicon octicon-link"></span></a>Branch</h3>
+
+<p>Branches are components that allow to execute readonly SQL commands on all surveys you created. Depending on whether the results evaluates to true/1 or false/0, you can go to different positions in the run - these can be later in the run or earlier in the run (thus creating loops).</p>
+
+<h3>
+<a name="timebranch" class="anchor" href="#timebranch"><span class="octicon octicon-link"></span></a>TimeBranch</h3>
+
+<p>These components are the bastard children of a Pause + Branch: If the user accesses the run within the specified time frame (like a Pause), the run jumps to one position in the run (like a Branch). If she doesn't, the run progresses to a different position in the run (e.g. to a reminder email). This component is useful, if you need to set up a period during which a survey is accessible or if you want to send reminders automatically after some time elapsed. 
+See the <strong>OpenCPU + R + Knitr + Markdown</strong> section to find out how to customise the text shown while waiting.</p>
+
+<h3>
+<a name="email" class="anchor" href="#email"><span class="octicon octicon-link"></span></a>Email</h3>
+
+<p>Using an SMTP gateway that you can set up in the admin area, you can send emails to your users. Using the tag <code>{{login_link}}</code>, you can send users a personalised link to the run. See the <strong>OpenCPU + R + Knitr + Markdown</strong> section to find out how to personalise email text.</p>
+
+<h3>
+<a name="external-link" class="anchor" href="#external-link"><span class="octicon octicon-link"></span></a>External link</h3>
+
+<p>These are simple external links - you can use them to send users to other, specialised data collection modules, such as a social network generator. If you insert the placeholder <code>%s</code>, it will be replaced by the users run_session code, allowing you to link data later. You can choose to "end" this component before the user is redirected to the link or by enabling your external module to call our API to close it, when it's done. </p>
+
+<h3>
+<a name="page" class="anchor" href="#page"><span class="octicon octicon-link"></span></a>Page</h3>
+
+<p>Simple text pages. See the <strong>OpenCPU + R + Knitr + Markdown</strong> section to find out how to generate personalised feedback.</p>
+
+<h3>
+<a name="survey" class="anchor" href="#survey"><span class="octicon octicon-link"></span></a>Survey</h3>
+
+<p>Surveys are series of questions that are created using simple spreadsheets/**item tables** (ie. Excel, OpenOffice, etc.: *.xls, *.ods, *.xlsx, *.csv etc.).
+Survey results are stored in MySQL tables of the same name, which can be used for various conditions later on.</p>
+
+<p>You can add the same survey several times or even loop using branches.<br>
+You can also use the same survey across different runs. For example this would allow you to ask respondents for their demographic information only once. You'd do this by using a Branch with the condition <code>COUNT(demographics.session_id) &gt; 0</code> and skipping over the demographics survey, if true.</p>
+
+<p>Survey names may only contain the characters <code>a-zA-Z0-9_</code> and need to start with a letter.</p>
+
+<h4>
+<a name="item-table-criteria" class="anchor" href="#item-table-criteria"><span class="octicon octicon-link"></span></a>Item table criteria</h4>
+
+<ul>
+<li>The format must be one of .csv, .xls, .xlsx, .ods (OpenOffice), .xml, .txt</li>
+<li>You can use two sheets</li>
+<li>The first sheet should have the name <strong>survey</strong>, if no such sheet exists, we use the first one.
+
+<ul>
+<li>The first line has to contain the column names you used. Name and type should be leftmost.</li>
+<li>The following column names are used. You can add others, they will be ignored. 
+
+<ul>
+<li>
+<strong><em>name</em></strong> (mandatory). This can only contain <code>a-zA-Z0-9_</code> and needs to start with a letter.</li>
+<li>
+<strong><em>type</em></strong> (mandatory). See below.</li>
+<li>
+<strong>label</strong>. You can use <a href="http://daringfireball.net/projects/markdown/">Markdown</a> and HTML in the question texts. You can also use <a href="http://fontawesome.io">Font Awesome</a> icons.</li>
+<li>
+<strong>skipif</strong> You can refer to the same survey here or you can reference other surveys using <code>survey_name.variable_name</code>. SQL syntax.</li>
+<li>
+<strong>optional</strong> You can make an item optional (most items are mandatory by default), by using the <code>*</code> character in the optional-column. Items optional by default (<code>check</code>, <code>btncheck</code>, <code>mmc</code>) can be made mandatory by using the the <code>#</code> character in the optional-column.</li>
+<li>
+<strong>choice1, choice2, ..., choice14</strong> (you can use these columns to quickly add choices. If you use many choices repeatedly or need more than 14 choices, it makes more sense to put them on the choices sheet)</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>The second, optional sheet should have the name <strong>choices</strong>, if no such sheet exists, we use the second one.
+
+<ul>
+<li>The following column names are used (in order).
+
+<ul>
+<li>
+<strong>list name</strong> - you can reference the list of choices using this name on the 'survey' sheet.</li>
+<li>
+<strong>name</strong> - the text for the choice that will be stored. This can only contain <code>a-zA-Z0-9_</code>.</li>
+<li>
+<strong>label</strong> - the text for the choice that is displayed (if you leave this column out or empty, we'll use the name text)</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul><h4>
+<a name="items" class="anchor" href="#items"><span class="octicon octicon-link"></span></a>Items</h4>
+
+<p>Surveys support the following item types. HTML5 form elements and validation are used and polyfilled where necessary using the <a href="http://afarkas.github.io/webshim/demos/index.html">Webshims lib</a>.</p>
+
+<ul>
+<li>
+<code>instruction</code> display text. instructions are displayed at least once and disappear only when there are no unanswered items left behind them (so putting an instruction directly before another ensures it will be displayed only once)</li>
+<li>
+<code>submit</code> display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>skipif</code> or substitutions have been given. </li>
+<li>multiple choice family
+
+<ul>
+<li>
+<code>mc</code> multipe choice (radio buttons), you can choose only one. Choices are (currently) defined using the choice1-12 columns</li>
+<li>
+<code>mmc</code> multiple multiple choice (check boxes), you can choose several. Choices defined as above</li>
+<li>
+<code>check</code> a single check box for confirmation of a statement.</li>
+<li>
+<code>btnradio</code> like <code>mc</code> but radio buttons are styled as buttons containing the choice text</li>
+<li>
+<code>btncheckbox</code> like <code>mmc</code> and <code>btnradio</code>
+</li>
+<li>
+<code>btncheck</code> like <code>check</code> and <code>btnradio</code>
+</li>
+<li>
+<code>btnrating min,max,step</code> This shows choice1 to the left, choice2 to the right and a series of buttons as defined by <code>min,max,step</code> in between. Defaults to <code>1,5,1</code>
+</li>
+<li>
+<code>sex</code> shorthand for <code>btnradio</code> with the ♂, ♀ symbols as choices</li>
+<li>
+<code>select</code> dropdowns, you can choose only one</li>
+<li>
+<code>mselect</code> dropdowns, choose many</li>
+<li>
+<code>select_add maxType</code> like <code>select</code>, allows users to choose an option not given. Uses <a href="http://ivaynberg.github.io/select2/">Select2</a>. <code>maxType</code> can be used to set an upper limit on the length of the user-added option. Defaults to 255.</li>
+<li>
+<code>mselect_add maxType,maxChoose</code> like <code>mselect</code> and <code>select_add</code>, allows users to add options not given. <code>maxChoose</code> can be used to place an upper limit on the number of chooseable options.</li>
+<li>
+<code>mc_heading</code> To get a tabular look, assign a constant width to the choices (with classes), give the heading the same choices as the <code>mc</code>s, and give the following <code>mc</code>s (or <code>mmc</code>s)  the same classes + hide_label. </li>
+</ul>
+</li>
+<li>
+<code>range min,max,step</code> these are sliders. The numeric value chosen is not displayed. Text to be shown to the left and right of the slider can be defined using the choice1 and choice2 fields. Defaults are <code>1,100,1</code>.</li>
+<li>
+<code>range_list min,max,step</code> like <code>range</code> but the individual steps are visually indicated using ticks and the chosen number is shown to the right. </li>
+<li>
+<code>color</code> allows you to pick a color, using the OS color picker (or one polyfilled by Webshims)</li>
+<li>simple input family
+
+<ul>
+<li>
+<code>text</code> allows you to enter a text in a single-line input field. Adding a number <code>text 100</code> defines the maximum number of characters that may be entered.</li>
+<li>
+<code>textarea</code> displays a multi-line input field</li>
+<li>
+<code>letters</code> like <code>text</code>, allows only letters, not numbers.</li>
+<li>
+<code>number min,max,step</code> for numbers. <code>step</code> defaults to <code>1</code>, using <code>any</code> will allow any decimals.</li>
+<li>
+<code>email</code> for email addresses</li>
+<li>
+<code>url</code>, <code>cc</code> (credit card number), <code>tel</code> are allowed too, but webshims doesn't polyfill them yet and most major browsers don't support them</li>
+</ul>
+</li>
+<li>datetime family
+
+<ul>
+<li>
+<code>time</code> for time. a small clock is prepended to the input</li>
+<li>
+<code>date</code> for a date</li>
+<li>
+<code>datetime</code> for a date &amp; time</li>
+<li>
+<code>month</code>, <code>yearmonth</code> etc. should work too, but don't in most browsers</li>
+</ul>
+</li>
+<li>
+<code>geolocation</code> shows a text input and a geolocation arrow. If the user allows it, the geolocation object is stored as a JSON string, if not the user can enter a text string.</li>
+<li>"server" family
+
+<ul>
+<li>
+<code>ip</code> saves the value of the PHP superglobal <code>$_SERVER['REMOTE_ADDR']</code> ie. the user's IP.</li>
+<li>
+<code>referrer</code> saves the last outside referrer (if any), ie. how the user got to the site</li>
+<li>
+<code>server var</code> saves the <code>$_SERVER</code> value with the index given by <code>var</code>. Can be used to store one of <code>'HTTP_USER_AGENT',    'HTTP_ACCEPT',  'HTTP_ACCEPT_CHARSET',  'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION',  'HTTP_HOST',    'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT'</code>
+</li>
+</ul>
+</li>
+</ul><h4>
+<a name="skipif" class="anchor" href="#skipif"><span class="octicon octicon-link"></span></a>skipif</h4>
+
+<p>You can make item display contingent on simple and complex conditions like <code>(survey1.married = 1) OR (survey2.in_relationship = 1 AND survey2.cohabit = 1)</code>.</p>
+
+<h2>
+<a name="opencpu--r--knitr--markdown" class="anchor" href="#opencpu--r--knitr--markdown"><span class="octicon octicon-link"></span></a>OpenCPU + R + Knitr + Markdown</h2>
+
+<p>In pauses, emails and pages you can display text to the user. This text is easily formatted using <a href="http://daringfireball.net/projects/markdown/">Markdown</a> a simple syntax that formats text nicely if you simply write like you would write a plain text email. Markdown can be freely mixed with HTML, so you can e.g. insert icons from the <a href="http://fontawesome.io">Font Awesome</a> library using <code>&lt;i class="icon-smile"&gt;&lt;/i&gt;</code>.</p>
+
+<p>If you use knitr syntax, where Markdown can be used, the text will not just be parsed as Markdown (which is mostly static, unless you use Javascript), but also be parsed (anew each time) by <a href="http://yihui.name/knitr/">knitr</a>. Knitr allows for mixing R syntax chunks and Markdown. <a href="http://www.r-project.org/">R</a> is a popular open-source statistical programming language, that you can use via <a href="https://public.opencpu.org/pages/">OpenCPU</a>, a RESTful interface to the language that deals with the problem that R was not meant to be used as part of web apps and is insecure. R data frames with the same names as the surveys they derive from will be available in this knitr call, they contain all data that the current user has filled out so far.<br>
+Combined with norm data etc. you can tailor feedback to the user's input, e.g. show where the user lies on the bell curve etc.</p>
+
+<h3>
+<a name="example" class="anchor" href="#example"><span class="octicon octicon-link"></span></a>Example</h3>
+
+<p>This may sound complicated at first, but should be really simple to use, while still providing most of the functionality available to R users (e.g. pretty <a href="http://ggplot2.org/">ggplot2</a> plots).</p>
+
+<p>Using this syntax will yield the following results (assuming that the surveys "demographics" and "mood_diary" exist and contain the appropriate data)</p>
+
+<pre><code>Hi `r demographics[1,]$first_name`!
+
+This is a graph showing how **your mood** fluctuated across the 50 days that you filled out our diary.
+
+### Graph
+```{r mood.plot}
+library(ggplot2)
+mood_diary$mood &lt;- rowSums(user_data[,c('mood1','mood2','mood3')])
+qplot(Day, mood, data = mood_diary) + geom_smooth() + scale_y_continuous("Your mood") + theme_bw()
+```
+</code></pre>
+
+<h4>
+<a name="this-will-be-displayed-to-the-user" class="anchor" href="#this-will-be-displayed-to-the-user"><span class="octicon octicon-link"></span></a>This will be displayed to the user</h4>
+
+<p>Hi Petunia!</p>
+
+<p>This is a graph showing how <strong>your mood</strong> fluctuated across the 50 days that you filled out our diary.</p>
+
+<h3>
+<a name="graph" class="anchor" href="#graph"><span class="octicon octicon-link"></span></a>Graph</h3>
+
+<p>(Image)</p>
+
+<h2>
+<a name="installation" class="anchor" href="#installation"><span class="octicon octicon-link"></span></a>Installation</h2>
+
+<p>If you want to test formr, you can simply clone this repository. 
+You need to rename the "config_default" directory to "config" and supply your database settings. You will also have to make the folders "tmp" and "backups" writeable. 
+If you get internal server errors, these most likely stem from .htaccess files or the aforementioned folder permissions.</p>
+
+<h2>
+<a name="problems-and-plans" class="anchor" href="#problems-and-plans"><span class="octicon octicon-link"></span></a>Problems and plans</h2>
+
+<h3>
+<a name="security" class="anchor" href="#security"><span class="octicon octicon-link"></span></a>Security</h3>
+
+<h4>
+<a name="database" class="anchor" href="#database"><span class="octicon octicon-link"></span></a>Database</h4>
+
+<p>End user input should be safe, we use prepared queries etc.  </p>
+
+<p>However, study creators can wreak havoc, because they can write SQL expressions for skipIfs, substitutions, branches, etc. 
+A future version will rely on OpenCPU's R API to sandbox these problems.</p>
+
+<h4>
+<a name="api" class="anchor" href="#api"><span class="octicon octicon-link"></span></a>API</h4>
+
+<ul>
+<li>you can create run access tokens using the API</li>
+<li>you can end "External" units using the API</li>
+</ul><h3>
+<a name="plans" class="anchor" href="#plans"><span class="octicon octicon-link"></span></a>Plans</h3>
+
+<ul>
+<li>Todo: Should allow a "service message" to be displayed in runs, to make run completely inactive.</li>
+<li>Todo: Switch user-supplied run logic to R instead of SQL.</li>
+<li>Todo: Should be storing an API key hash, not the API key itself.</li>
+</ul><h2>
+<a name="credit" class="anchor" href="#credit"><span class="octicon octicon-link"></span></a>Credit</h2>
+
+<h3>
+<a name="author" class="anchor" href="#author"><span class="octicon octicon-link"></span></a>Author:</h3>
+
+<p>Ruben C. Arslan (2013)</p>
+
+<h3>
+<a name="based-on-work-ideas-and-feedback-by" class="anchor" href="#based-on-work-ideas-and-feedback-by"><span class="octicon octicon-link"></span></a>Based on work, ideas, and feedback by:</h3>
+
+<p>Linus Neumann, Jaap J. A. Denissen, Karsten Gebbert, Julia Zimmermann, Sarah Lennartz, Isabelle Habedank, Jörg Basedow</p>
+
+<h4>
+<a name="funded-by" class="anchor" href="#funded-by"><span class="octicon octicon-link"></span></a>Funded by</h4>
+
+<h4>
+<a name="friedrich-schiller-universit%C3%A4t-jena" class="anchor" href="#friedrich-schiller-universit%C3%A4t-jena"><span class="octicon octicon-link"></span></a>Friedrich-Schiller-Universität Jena</h4>
+
+<ul>
+<li>Julia Zimmermann</li>
+<li>Franz J. Neyer</li>
+</ul><h4>
+<a name="humboldt-universit%C3%A4t-zu-berlin" class="anchor" href="#humboldt-universit%C3%A4t-zu-berlin"><span class="octicon octicon-link"></span></a>Humboldt Universität zu Berlin</h4>
+
+<p>Jaap J. A. Denissen</p>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/rubenarslan/formr/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/rubenarslan/formr/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/rubenarslan/formr"></a> is maintained by <a href="https://github.com/rubenarslan">rubenarslan</a>.</p>
+
+          <p>This page was generated by <a href="pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
+    </div>
+
+  
+  </body>
+</html>
