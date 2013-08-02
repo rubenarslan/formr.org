@@ -26,7 +26,9 @@ header.study-header {
 }
 
 
-button.btn.btn-checked,label.btn.btn-checked,a.btn.btn-checked {
+button.btn.btn-checked,
+label.btn.btn-checked,
+a.btn.btn-checked {
   background-color: #e6e6e6;
   background-color: #d9d9d9 \9;
   background-image: none;
@@ -53,7 +55,8 @@ button.btn.btn-checked,label.btn.btn-checked,a.btn.btn-checked {
 	margin-left: -30px;
 	margin-right: 17px;
 }
-.control-group.controls-checkbox label,label.inline {
+.control-group.controls-checkbox label,
+label.inline {
 	display:inline;
 	width:330px;
 }
@@ -87,13 +90,10 @@ form.form-horizontal div.form-row.control-group.optional .control-label::after {
 div.mc-table {
   display:table;
 }
-div.mc-table label:not(.keep-label) {
-  display:table;
-}
-form.form-horizontal div.form-row.item-radio div.controls label:not(.keep-label),
-form.form-horizontal div.form-row.item-checkbox div.controls label:not(.keep-label), 
-form.form-horizontal div.form-row.item-mc_heading div.controls label:not(.keep-label) {
+form.form-horizontal div.form-row div.controls div.mc-table label {
   display:table-cell;
+  padding-left:2px;
+  padding-right:2px;
   padding-left:18px;
   padding-right:5px;
   padding-top:5px;
@@ -392,50 +392,45 @@ form.form-horizontal div.form-row.control-group.mc-boxed div.controls {
 form.form-horizontal div.form-row.item-mc_heading.control-group div.controls label {
 	text-align:center;
 	text-indent:0;
-	padding:0;
 }
 form.form-horizontal div.form-row.item-mc_heading.control-group div.controls label input {
 	display:none;
 }
-form.form-horizontal div.form-row.control-group.hide_label div.controls {
-}
-form.form-horizontal div.form-row.control-group.hide_label div.controls .mc-table {
-}
 form.form-horizontal div.form-row.control-group.hide_label div.controls label {
 	text-align:center;
 	text-indent:0;
-	height:100%;
+	height:25px;
 	overflow:hidden;
 	line-height:0;
 	font-size:0px;
-	min-height:100%;
+	min-height:25px;
 }
 form.form-horizontal div.form-row.control-group.hide_label div.controls label input {
     visibility:visible;
 }
 form.form-horizontal div.form-row.control-group.rotate-label div.controls label {
-	transform: rotate(-45deg);
 	-webkit-transform: rotate(-45deg);
 	-moz-transform: rotate(-45deg);   
 	-o-transform: rotate(-45deg);
+	transform: rotate(-45deg);
 }
 form.form-horizontal div.form-row.control-group.rotate-label45 div.controls label {
-	transform: rotate(-45deg);
 	-webkit-transform: rotate(-45deg);
 	-moz-transform: rotate(-45deg);   
 	-o-transform: rotate(-45deg);
+	transform: rotate(-45deg);
 }
 form.form-horizontal div.form-row.control-group.rotate-label30 div.controls label {
-	transform: rotate(-30deg);
 	-webkit-transform: rotate(-30deg);
 	-moz-transform: rotate(-30deg);   
 	-o-transform: rotate(-30deg);
+	transform: rotate(-30deg);
 }
 form.form-horizontal div.form-row.control-group.rotate-label90 div.controls label {
-	transform: rotate(-90deg);
 	-webkit-transform: rotate(-90deg);
 	-moz-transform: rotate(-90deg);   
 	-o-transform: rotate(-90deg);
+	transform: rotate(-90deg);
 }
 
 form.form-horizontal div.form-row.control-group.mc-block div.controls label input {
