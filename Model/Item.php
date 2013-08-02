@@ -1458,7 +1458,7 @@ class Item_mc_heading extends Item_mc
 	}
 	protected function render_input() 
 	{
-		$ret = '';
+		$ret = '<div class="mc-table">';
 		$this->input_attributes['type'] = 'radio';
 		$opt_values = array_count_values($this->choices);
 		if(
@@ -1483,6 +1483,8 @@ class Item_mc_heading extends Item_mc
 			if($this->label_first) $this->label_first = false;
 			
 		endforeach;
+		
+		$ret .= '</div>';
 		
 		return $ret;
 	}
