@@ -1495,6 +1495,7 @@ class Item_mc_heading extends Item_mc
  * todo: item - likert scale with head (special kind of instruction?)
  * todo: item - facebook connect?
  * todo: captcha items
+ * todo: item - random number
 
 */
 
