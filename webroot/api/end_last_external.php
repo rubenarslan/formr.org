@@ -1,6 +1,6 @@
 <?php
 require_once '../../define_root.php';
-require_once INCLUDE_ROOT . "api/api_header.php";
+require_once INCLUDE_ROOT . "View/api_header.php";
 
 if(isset($_POST['session'])):
 	$run_session = new RunSession($fdb, $run->id, null, $_POST['session']);
