@@ -94,6 +94,7 @@ class Survey extends RunUnit {
 		foreach($posted AS $name => $value)
 		{
 	        if (isset($this->unanswered_batch[$name])) {
+				
 				$value = $this->unanswered_batch[$name]->validateInput($value);
 				if( ! $this->unanswered_batch[$name]->error )
 				{
