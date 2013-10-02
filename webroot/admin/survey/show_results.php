@@ -18,25 +18,25 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 		Details
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>survey/<?=$study->name?>/show_itemdisplay">Table of item display and answer times.</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_itemdisplay">Table of item display and answer times.</a>
 	</li>
 	<li class="nav-header">
 		Export results as
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>survey/<?=$study->name?>/export_csv">CSV – good for big files, problematic to import into German Excel (comma-separated)</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv">CSV – good for big files, problematic to import into German Excel (comma-separated)</a>
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>survey/<?=$study->name?>/export_csv_german">CSV – good for German Excel (semicolon-separated)</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv_german">CSV – good for German Excel (semicolon-separated)</a>
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>survey/<?=$study->name?>/export_tsv">TSV – tab-separated, human readable as plaintext</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_tsv">TSV – tab-separated, human readable as plaintext</a>
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>survey/<?=$study->name?>/export_xls">XLS – old excel format, won't work with more than 16384 rows or 256 columns</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xls">XLS – old excel format, won't work with more than 16384 rows or 256 columns</a>
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>survey/<?=$study->name?>/export_xlsx">xlsX – new excel format, higher limits</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xlsx">xlsX – new excel format, higher limits</a>
 	</li>
 		
 </ul>

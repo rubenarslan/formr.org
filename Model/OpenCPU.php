@@ -53,12 +53,9 @@ $this->user_data .
 #		pr($source);
 		$post = array('x' => '{
 library(knitr); library(markdown);
-sub(
-	".*<body>(.*)</body>.*", 
-	"\\\\1", 
-	markdownToHTML(text = 
-		knit(text = "' . addslashes($source) . '")
-	)
+markdownToHTML(text = 
+	knit(text = "' . addslashes($source) . '"),
+    fragment.only = T
 )
 }');
 #pr(htmlspecialchars($post['x']));

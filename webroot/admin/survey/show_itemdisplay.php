@@ -1,5 +1,5 @@
 <?php
-require_once '../define_root.php';
+require_once '../../../define_root.php';
 require_once INCLUDE_ROOT.'View/admin_header.php';
 
 $resultCount = $study->getResultCount();
@@ -18,16 +18,16 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 		Results
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>survey/<?=$study->name?>/show_results">Go back to results.</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_results">Go back to results.</a>
 	</li>
 	<li class="nav-header">
 		Export results as
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>survey/<?=$study->name?>/export_itemdisplay_tsv">TSV – tab-separated, human readable as plaintext</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_itemdisplay_tsv">TSV – tab-separated, human readable as plaintext</a>
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>survey/<?=$study->name?>/export_itemdisplay_xlsx">xlsX – new excel format, higher limits</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_itemdisplay_xlsx">xlsX – new excel format, higher limits</a>
 	</li>
 		
 </ul>

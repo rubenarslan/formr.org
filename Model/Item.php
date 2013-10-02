@@ -1392,6 +1392,7 @@ class Item_choose_two_weekdays extends Item_mmc
 	{
 		$this->optional = 0;
 		$this->classes_input[] = 'choose2days';
+		$this->input_attributes['name'] = $this->name . '[]';
 	}
 }
 class Item_timezone extends Item_select
@@ -1492,9 +1493,9 @@ class Item_mc_heading extends Item_mc
 	
 /*
  * todo: item - rank / sortable
- * todo: item - likert scale with head (special kind of instruction?)
  * todo: item - facebook connect?
  * todo: captcha items
+ * todo: item - random number
 
 */
 
