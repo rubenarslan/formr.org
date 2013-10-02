@@ -6,11 +6,18 @@ header.study-header, .maincontent, .container, .navbar-static-top .container, .n
 	margin-left:60px;
 }
 header.study-header {
-	background-image:url(../../img/Study_header_big.png);
+/*	background-image:url(../../img/Study_header_big.png);
 	height:208px;
 	width:940px;
 	background-repeat:no-repeat;
 	background-position:0px 5px;
+*/
+    height:40px;
+    margin-top:10px;
+}
+header.study-header::before {
+    content:"formr";
+    font-size:2em;
 }
 @media (max-width: 970px) { 
 	header.study-header, .maincontent, .container, .navbar-static-top .container, .navbar-fixed-top .container, .navbar-fixed-bottom .container
