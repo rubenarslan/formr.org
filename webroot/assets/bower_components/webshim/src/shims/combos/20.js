@@ -804,8 +804,9 @@ if((!advancedObjectProperties || !Object.create || !Object.defineProperties || !
 //DOM-Extension helper
 webshims.register('dom-extend', function($, webshims, window, document, undefined){
 	"use strict";
-	
-	webshims.assumeARIA = $.support.getSetAttribute || Modernizr.canvas || Modernizr.video || Modernizr.boxsizing;
+	var supportHrefNormalized = !('hrefNormalized' in $.support) || $.support.hrefNormalized;
+	var supportGetSetAttribute = !('getSetAttribute' in $.support) || $.support.getSetAttribute;
+	webshims.assumeARIA = supportGetSetAttribute || Modernizr.canvas || Modernizr.video || Modernizr.boxsizing;
 	
 	if($('<input type="email" />').attr('type') == 'text' || $('<form />').attr('novalidate') === "" || ('required' in $('<input />')[0].attributes)){
 		webshims.error("IE browser modes are busted in IE10. Please test your HTML/CSS/JS with a real IE version or at least IETester or similiar tools");
@@ -813,10 +814,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	
 	if(!$.parseHTML){
 		webshims.error("Webshims needs jQuery 1.8+ to work properly. Please update your jQuery version or downgrade webshims.");
-	}
-	
-	if(webshims.cfg.extendNative === 1){
-		webshims.warn("extendNative configuration will be set to false by default with next release. In case you rely on it set it to 'true' otherwise to 'false'. See http://bit.ly/16OOTQO");
 	}
 	
 	if (!webshims.cfg.no$Switch) {
@@ -1488,7 +1485,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 							
 							anchor.setAttribute('href', href+'' );
 							
-							if(!$.support.hrefNormalized){
+							if(!supportHrefNormalized){
 								try {
 									$(anchor).insertAfter(this);
 									ret = anchor.getAttribute('href', 4);
@@ -1909,7 +1906,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}
 		});
 	};
-	var options = webshims.cfg.mediaelement;
+	var wsCfg = webshims.cfg;
+	var options = wsCfg.mediaelement;
 	var hasFullTrackSupport;
 	var hasSwf;
 	if(!options){
@@ -1919,6 +1917,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	if(hasNative){
 		var videoElem = document.createElement('video');
 		Modernizr.videoBuffered = ('buffered' in videoElem);
+		Modernizr.mediaDefaultMuted = ('defaultMuted' in videoElem);
 		supportsLoop = ('loop' in videoElem);
 		
 		webshims.capturingEvents(['play', 'playing', 'waiting', 'paused', 'ended', 'durationchange', 'loadedmetadata', 'canplay', 'volumechange']);
@@ -1932,20 +1931,15 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		
 		if(!options.preferFlash){
 			var noSwitch = {
-				1: 1,
-				2: 1
+				1: 1
 			};
 			var switchOptions = function(e){
 				var media, error, parent;
 				if(!options.preferFlash && 
 				($(e.target).is('audio, video') || ((parent = e.target.parentNode) && $('source:last', parent)[0] == e.target)) && 
-				(media = $(e.target).closest('audio, video')) && !noSwitch[(error = media.prop('error'))]
+				(media = $(e.target).closest('audio, video')) && (error = media.prop('error')) && !noSwitch[error.code]
 				){
-					if(error == null){
-						webshims.warn("There was an unspecified error on a mediaelement");
-						return;
-						
-					}
+					
 					$(function(){
 						if(hasSwf && !options.preferFlash){
 							loadSwf();
@@ -1957,7 +1951,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 										$('audio, video').each(function(){
 											webshims.mediaelement.selectSource(this);
 										});
-										webshims.error("switching mediaelements option to 'preferFlash', due to an error with native player: "+e.target.src+" Mediaerror: "+ media.prop('error'));
+										webshims.error("switching mediaelements option to 'preferFlash', due to an error with native player: "+e.target.src+" Mediaerror: "+ media.prop('error')+ 'first error: '+ error);
 									}
 								}, 9);
 							});
@@ -1996,7 +1990,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	}
 	hasFullTrackSupport = Modernizr.track && !bugs.track;
 
-webshims.register('mediaelement-core', function($, webshims, window, document, undefined){
+webshims.register('mediaelement-core', function($, webshims, window, document, undefined, options){
 	hasSwf = swfmini.hasFlashPlayerVersion('9.0.115');
 	$('html').addClass(hasSwf ? 'swf' : 'no-swf');
 	var mediaelement = webshims.mediaelement;
@@ -2080,11 +2074,21 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 	var loadTrackUi = function(){
 		if(loadTrackUi.loaded){return;}
 		loadTrackUi.loaded = true;
-		webshims.ready('WINDOWLOAD', function(){
-			loadThird();
-			webshims.loader.loadList(['track-ui']);
-		});
+		if(!options.noAutoTrack){
+			webshims.ready('WINDOWLOAD', function(){
+				loadThird();
+				webshims.loader.loadList(['track-ui']);
+			});
+		}
 	};
+//	var loadMediaGroup = function(){
+//		if(!loadMediaGroup.loaded){
+//			loadMediaGroup.loaded = true;
+//			webshims.ready(window.MediaController ? 'WINDOWLOAD' : 'DOM', function(){
+//				webshims.loader.loadList(['mediagroup']);
+//			});
+//		}
+//	};
 	var loadYt = (function(){
 		var loaded;
 		return function(){
@@ -2108,6 +2112,11 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		test: !hasYt,
 		d: ['dom-support']
 	});
+	
+	
+//	webshims.addModule('mediagroup', {
+//		d: ['mediaelement', 'dom-support']
+//	});
 	
 	mediaelement.mimeTypes = {
 		audio: {
@@ -2148,7 +2157,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		if(src.indexOf('rtmp') === 0){
 			return nodeName+'/rtmp';
 		}
-		src = src.split('?')[0].split('.');
+		src = src.split('?')[0].split('#')[0].split('.');
 		src = src[src.length - 1];
 		var mt;
 		
@@ -2267,7 +2276,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			webshims.error('mediaelementError: '+ message);
 			setTimeout(function(){
 				if($(elem).data('mediaerror')){
-					$(elem).trigger('mediaerror');
+					$(elem).addClass('media-error').trigger('mediaerror');
 				}
 			}, 1);
 		}
@@ -2331,6 +2340,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		var parent = elem.parentNode;
 		
 		clearTimeout(baseData.loadTimer);
+		$(elem).removeClass('media-error');
 		$.data(elem, 'mediaerror', false);
 		
 		if(!_srces.length || !parent || parent.nodeType != 1 || stopParent.test(parent.nodeName || '')){return;}
@@ -2358,7 +2368,9 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		var testFixMedia = function(){
 			if(webshims.implement(this, 'mediaelement')){
 				selectSource(this);
-				
+				if(!Modernizr.mediaDefaultMuted && $.attr(this, 'muted') != null){
+					$.prop(this, 'muted', true);
+				}
 				//fixes for FF 12 and IE9/10 || does not hurt, if run in other browsers
 				if(hasNative && (!supportsLoop || ('ActiveXObject' in window))){
 					var bufferTimer;
@@ -2407,8 +2419,6 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			
 		};
 		
-		
-		
 		webshims.ready('dom-support', function(){
 			handleMedia = true;
 			
@@ -2417,7 +2427,8 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			}
 			
 			['audio', 'video'].forEach(function(nodeName){
-				var supLoad = webshims.defineNodeNameProperty(nodeName, 'load',  {
+				var supLoad, supController;
+				supLoad = webshims.defineNodeNameProperty(nodeName, 'load',  {
 					prop: {
 						value: function(){
 							var data = webshims.data(this, 'mediaelement');
@@ -2448,7 +2459,59 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 						}
 					}
 				});
+				
+//				supController = webshims.defineNodeNameProperty(nodeName, 'controller',  {
+//					prop: {
+//						get: function(type){
+//							if(!loadMediaGroup.loaded){
+//								loadMediaGroup();
+//							}
+//							if(mediaelement.controller){
+//								return mediaelement.controller[nodeName].get.apply(this, arguments);
+//							}
+//							return supController.prop._supget && supController.prop._supget.apply(this, arguments);
+//						},
+//						set: function(){
+//							var that = this;
+//							var args = arguments;
+//							if(!loadMediaGroup.loaded){
+//								loadMediaGroup();
+//							}
+//							if(mediaelement.controller){
+//								return mediaelement.controller[nodeName].set.apply(that, args);
+//							} else {
+//								webshims.ready('mediagroup', function(){
+//									mediaelement.controller[nodeName].set.apply(that, args);
+//								});
+//							}
+//							return supController.prop._supset && supController.prop._supset.apply(this, arguments);
+//						}
+//					}
+//				});
+				
+//				webshims.ready('mediagroup', function(){
+//					mediaelement.controller[nodeName].sup = supController;
+//				});
 			});
+			
+//			webshims.onNodeNamesPropertyModify(['audio', 'video'], ['mediaGroup'], {
+//				set: function(){
+//					var that = this;
+//					var args = arguments;
+//					if(!loadMediaGroup.loaded){
+//						loadMediaGroup();
+//					}
+//					if(mediaelement.mediagroup){
+//						mediaelement.mediagroup.set.apply(that, args);
+//					} else {
+//						webshims.ready('mediagroup', function(){
+//							mediaelement.mediagroup.set.apply(that, args);
+//						});
+//					}
+//				},
+//				initAttr: true
+//			});
+			
 			webshims.onNodeNamesPropertyModify(['audio', 'video'], ['src', 'poster'], {
 				set: function(){
 					var elem = this;
@@ -2470,6 +2533,9 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				if(!loadTrackUi.loaded && $('track', media).length){
 					loadTrackUi();
 				}
+//				if(!loadMediaGroup.loaded && this.getAttribute('mediagroup')){
+//					loadMediaGroup();
+//				}
 				media = null;
 			});
 		});
@@ -2484,9 +2550,6 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 								loadThird();
 								handleMedia = true;
 								return false;
-							}
-							if((!hasFullTrackSupport || webshims.modules.track.options.override) && !loadTrackUi.loaded && $('track', this).length){
-								loadTrackUi();
 							}
 						})
 					;
@@ -2531,6 +2594,7 @@ webshims.register('mediaelement-jaris', function($, webshims, window, document, 
 		networkState: 0,
 		videoHeight: 0,
 		videoWidth: 0,
+		seeking: false,
 		error: null,
 		buffered: {
 			start: function(index){
@@ -2634,7 +2698,12 @@ webshims.register('mediaelement-jaris', function($, webshims, window, document, 
 		}
 		data.readyState = readyState;
 	};
-	
+	var callSeeked = function(data){
+		if(data.seeking && Math.abs(data.currentTime - data._lastSeektime) < 2){
+			data.seeking = false;
+			$(data._elem).triggerHandler('seeked');
+		}
+	};
 	
 	
 	mediaelement.jarisEvent = {};
@@ -2662,6 +2731,20 @@ webshims.register('mediaelement-jaris', function($, webshims, window, document, 
 					trigger(data._elem, 'playing');
 				}
 			}
+		},
+		onSeek: function(jaris, data){
+			data._lastSeektime = jaris.seekTime;
+			
+			data.seeking = true;
+			$(data._elem).triggerHandler('seeking');
+			clearTimeout(data._seekedTimer);
+			data._seekedTimer = setTimeout(function(){
+				callSeeked(data);
+				data.seeking = false;
+			}, 300);
+		},
+		onConnectionFailed: function(){
+			webshims.error('media error');
 		},
 		onNotBuffering: function(jaris, data){
 			setReadyState(3, data);
@@ -2718,7 +2801,9 @@ webshims.register('mediaelement-jaris', function($, webshims, window, document, 
 				setReadyState(3, data);
 				trigger(data._elem, 'playing');
 			}
-			
+			if(data.seeking){
+				callSeeked(data);
+			}
 			trigger(data._elem, 'timeupdate');
 		},
 		onProgress: function(jaris, data){
@@ -2774,6 +2859,7 @@ webshims.register('mediaelement-jaris', function($, webshims, window, document, 
 			
 			return function(jaris, data){
 				var i = 0;
+				
 				var doneFn = function(){
 					if(i > 9){
 						data.tryedReframeing = 0;
@@ -2933,11 +3019,12 @@ webshims.register('mediaelement-jaris', function($, webshims, window, document, 
 	
 	
 	var resetSwfProps = (function(){
-		var resetProtoProps = ['_calledMeta', 'lastDuration', '_bufferedEnd', '_bufferedStart', '_ppFlag', 'currentSrc', 'currentTime', 'duration', 'ended', 'networkState', 'paused', 'videoHeight', 'videoWidth'];
+		var resetProtoProps = ['_calledMeta', 'lastDuration', '_bufferedEnd', '_bufferedStart', '_ppFlag', 'currentSrc', 'currentTime', 'duration', 'ended', 'networkState', 'paused', 'seeking', 'videoHeight', 'videoWidth'];
 		var len = resetProtoProps.length;
 		return function(data){
 			
 			if(!data){return;}
+			clearTimeout(data._seekedTimer);
 			var lenI = len;
 			var networkState = data.networkState;
 			setReadyState(0, data);
@@ -3379,6 +3466,8 @@ webshims.register('mediaelement-jaris', function($, webshims, window, document, 
 			descs[key].set = setFn;
 		};
 		
+		createGetSetProp('seeking');
+		
 		createGetSetProp('volume', function(v){
 			var data = getSwfDataFromElem(this);
 			if(data){
@@ -3489,7 +3578,25 @@ webshims.register('mediaelement-jaris', function($, webshims, window, document, 
 		});
 		
 		mediaSup = webshims.defineNodeNameProperties(nodeName, descs, 'prop');
+		
+		if(!Modernizr.mediaDefaultMuted){
+			webshims.defineNodeNameProperties(nodeName, {
+				defaultMuted: {
+					get: function(){
+						return $.attr(this, 'muted') != null;
+					},
+					set: function(val){
+						if(val){
+							$.attr(this, 'muted', '');
+						} else {
+							$(this).removeAttr('muted');
+						}
+					}
+				}
+			}, 'prop');
+		}
 	});
+	
 	
 	if(hasFlash && $.cleanData){
 		var oldClean = $.cleanData;

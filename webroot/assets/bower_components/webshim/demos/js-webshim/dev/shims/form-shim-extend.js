@@ -75,6 +75,7 @@ var validityPrototype = {
 	customError: false,
 
 	typeMismatch: false,
+	badInput: false,
 	rangeUnderflow: false,
 	rangeOverflow: false,
 	stepMismatch: false,
@@ -134,20 +135,6 @@ var validityRules = {
 		tooLong: function(){
 			return false;
 		},
-		typeMismatch: function (input, val, cache){
-			if(val === '' || cache.nodeName == 'select'){return false;}
-			var ret = false;
-			if(!('type' in cache)){
-				cache.type = getType(input[0]);
-			}
-			
-			if(typeModels[cache.type] && typeModels[cache.type].mismatch){
-				ret = typeModels[cache.type].mismatch(val, input);
-			} else if('validity' in input[0]){
-				ret = input[0].validity.typeMismatch;
-			}
-			return ret;
-		},
 		patternMismatch: function(input, val, cache) {
 			if(val === '' || cache.nodeName == 'select'){return false;}
 			var pattern = input.attr('pattern');
@@ -163,6 +150,23 @@ var validityRules = {
 		}
 	}
 ;
+
+$.each({typeMismatch: 'mismatch', badInput: 'bad'}, function(name, fn){
+	validityRules[name] = function (input, val, cache){
+		if(val === '' || cache.nodeName == 'select'){return false;}
+		var ret = false;
+		if(!('type' in cache)){
+			cache.type = getType(input[0]);
+		}
+		
+		if(typeModels[cache.type] && typeModels[cache.type][fn]){
+			ret = typeModels[cache.type][fn](val, input);
+		} else if('validity' in input[0] && ('name' in input[0].validity)){
+			ret = input[0].validity[name] || false;
+		}
+		return ret;
+	};
+});
 
 webshims.addValidityRule = function(type, fn){
 	validityRules[type] = fn;
@@ -209,8 +213,9 @@ $.event.special.invalid = {
 	}
 };
 
+var supportSubmitBubbles = !('submitBubbles' in $.support) || $.support.submitBubbles;
 var addSubmitBubbles = function(form){
-	if (!$.support.submitBubbles && form && typeof form == 'object' && !form._submit_attached ) {
+	if (!supportSubmitBubbles && form && typeof form == 'object' && !form._submit_attached ) {
 				
 		$.event.add( form, 'submit._submit', function( event ) {
 			event._submit_bubble = true;
@@ -219,7 +224,7 @@ var addSubmitBubbles = function(form){
 		form._submit_attached = true;
 	}
 };
-if(!$.support.submitBubbles && $.event.special.submit){
+if(!supportSubmitBubbles && $.event.special.submit){
 	$.event.special.submit.setup = function() {
 		// Only need this for delegated form submit events
 		if ( $.nodeName( this, "form" ) ) {
@@ -1326,6 +1331,7 @@ try {
 	var isOver = (webshims.cfg.forms.placeholderType == 'over');
 	var isResponsive = (webshims.cfg.forms.responsivePlaceholder);
 	var polyfillElements = ['textarea'];
+	var debug = webshims.debug !== false;
 	if(!Modernizr.input.placeholder || bustedPlaceholder){
 		polyfillElements.push('input');
 	}
@@ -1416,6 +1422,11 @@ try {
 				data = $.data(elem, 'placeHolder');
 				if(!data){return;}
 			}
+			var isVisible = $(elem).hasClass('placeholder-visible');
+			if(placeholderTxt === false){
+				placeholderTxt = $.attr(elem, 'placeholder') || '';
+			}
+			
 			$(elem).unbind('.placeholderremove');
 			
 			if(value === false){
@@ -1423,7 +1434,7 @@ try {
 			}
 			
 			if(!value && (type == 'focus' || (!type && $(elem).is(':focus')))){
-				if(elem.type == 'password' || isOver || $(elem).hasClass('placeholder-visible')){
+				if(elem.type == 'password' || isOver || isVisible){
 					hidePlaceholder(elem, data, '', true);
 				}
 				return;
@@ -1433,9 +1444,7 @@ try {
 				hidePlaceholder(elem, data, value);
 				return;
 			}
-			if(placeholderTxt === false){
-				placeholderTxt = $.attr(elem, 'placeholder') || '';
-			}
+			
 			if(placeholderTxt && !value){
 				showPlaceholder(elem, data, placeholderTxt);
 			} else {
@@ -1543,6 +1552,7 @@ try {
 						var reset = function(e){
 							if($(elem).hasClass('placeholder-visible')){
 								hidePlaceholder(elem, data, '');
+								
 								setTimeout(function(){
 									if(!e || e.type != 'submit' || e.isDefaultPrevented()){
 										changePlaceholderVisibility(elem, false, false, data );
