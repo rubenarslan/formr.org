@@ -84,9 +84,9 @@ form.form-horizontal div.control-group.form-message div.control-label {
 form.form-horizontal div.form-row:nth-child(odd) {
   background-color: #f9f9f9;
 }
-form.form-horizontal div.form-row.control-group.optional .control-label::after {
+/*form.form-horizontal div.form-row.control-group.optional .control-label::after {
 	content:'*';
-}
+}*/
 div.mc-table {
   display:table;
 }

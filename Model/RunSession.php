@@ -295,7 +295,7 @@ class RunSession
 		
 		if(!$next)
 		{
-			alert('Forgot a landing page','alert-error');
+			alert('Run '.$this->run_name.': Forgot a landing page','alert-error');
 			return false;
 		}
 		return $this->runTo($next['position'],$next['unit_id']);
