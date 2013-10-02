@@ -1,10 +1,12 @@
 # formr survey framework
 
-This is a framework that allows you to create simple and complex studies using Spreadsheets with items for the surveys and "runs" for chaining together various modules.
+**chain simple forms / surveys into longer runs using the power of R to generate pretty feedback and complex designs**
+
+This is a framework that allows you to create simple and complex studies using spreadsheets with items for the surveys and "runs" for chaining together various modules.
 
 ## Runs and their modules
 
-Simple surveys can be made into elaborate studies by using "runs".
+Simple surveys can be turned into elaborate studies by using "runs".
 
 Runs allow you to chain various modules and thus:
 
@@ -21,7 +23,7 @@ Using branching and pauses, the following designs should be possible:
 * simple one-shot surveys
 * surveys with eligibility rules (using branch conditions, e.g. `demographics.age > 30`)
 * diary studies (using branch conditions `COUNT(diary.session_id) < 14` -> start diary again the next day -> if finished continue)
-* longitudinal studies using pauses (ie. wait 2 months after last participation). The items of wave 2 need not be clear at wave 1!
+* longitudinal studies using pauses (ie. wait 2 months after last participation). The items of wave 2 need not be finalised at wave 1.
 
 ### Pause
 This simple component allows you to delay the continuation of the run until a certain date, time of day or to wait relative to a date that a user specified (such as her graduation date or the last time he cut his nails). See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise the text shown while waiting.
@@ -34,7 +36,7 @@ These components are the bastard children of a Pause + Branch: If the user acces
 See the **OpenCPU + R + Knitr + Markdown** section to find out how to customise the text shown while waiting.
 
 ### Email
-Using an SMTP gateway that you can set up in the admin area, you can send emails to your users. Using the tag `{{login_link}}`, you can send users a personalised link to the run. See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise email text.
+Using an SMTP gateway that you can set up in the admin area, you can send emails to your users. Using the tag `{{login_link}}`, you can send users a personalised link to the run, using the tag `{{login_code}}` you can build links for informants to report on users. See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise email text.
 
 ### External link
 These are simple external links - you can use them to send users to other, specialised data collection modules, such as a social network generator. If you insert the placeholder `%s`, it will be replaced by the users run_session code, allowing you to link data later. You can choose to "end" this component before the user is redirected to the link or by enabling your external module to call our API to close it, when it's done. 

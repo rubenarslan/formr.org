@@ -105,9 +105,11 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			else
 				$this->body_parsed = $this->getParsedBodyAdmin($this->body);
 			$this->body_parsed = str_replace("{{login_link}}", $login_link , $this->body_parsed );
+			$this->body = str_replace("{{login_code}}", $this->session , $this->body_parsed);
 			return $this->body_parsed;
 		else:
 			$this->body = str_replace("{{login_link}}", $login_link , $this->body);
+			$this->body = str_replace("{{login_code}}", $this->session , $this->body);
 			return $this->body;
 		endif;
 	}
