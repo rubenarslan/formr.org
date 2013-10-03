@@ -149,8 +149,8 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 					} else {
 						webshims.error('INVALID_STATE_ERR: DOM Exception 11');
 					}
-				} else {
-					valueAsNumberDescriptor.prop._supset && valueAsNumberDescriptor.prop._supset.apply(elem, arguments);
+				} else if(valueAsNumberDescriptor.prop._supset) {
+					 valueAsNumberDescriptor.prop._supset.apply(elem, arguments);
 				}
 			}
 		}
@@ -277,7 +277,7 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 	var typeProtos = {
 		
 		number: {
-			mismatch: function(val){
+			bad: function(val){
 				return !(isNumber(val));
 			},
 			step: 1,
@@ -296,7 +296,7 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 			maxDefault: 100
 		},
 		color: {
-			mismatch: (function(){
+			bad: (function(){
 				var cReg = /^\u0023[a-f0-9]{6}$/;
 				return function(val){
 					return (!val || val.length != 7 || !(cReg.test(val)));
@@ -304,7 +304,7 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 			})()
 		},
 		date: {
-			mismatch: function(val){
+			bad: function(val){
 				if(!val || !val.split || !(/\d$/.test(val))){return true;}
 				var i;
 				var valA = val.split(/\u002D/);
@@ -329,14 +329,14 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 			//stepBase: 0, 0 = default
 			stepScaleFactor:  86400000,
 			asDate: function(val, _noMismatch){
-				if(!_noMismatch && this.mismatch(val)){
+				if(!_noMismatch && this.bad(val)){
 					return null;
 				}
 				return new Date(this.asNumber(val, true));
 			},
 			asNumber: function(str, _noMismatch){
 				var ret = nan;
-				if(_noMismatch || !this.mismatch(str)){
+				if(_noMismatch || !this.bad(str)){
 					str = str.split(/\u002D/);
 					ret = Date.UTC(str[0], str[1] - 1, str[2]);
 				}
@@ -353,7 +353,7 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 		 * ToDO: WEEK
 		 */
 //		week: {
-//			mismatch: function(val){
+//			bad: function(val){
 //				if(!val || !val.split){return true;}
 //				var valA = val.split('-W');
 //				var ret = true;
@@ -367,7 +367,7 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 //			stepBase: -259200000,
 //			asDate: function(str, _noMismatch){
 //				var ret = null;
-//				if(_noMismatch || !this.mismatch(str)){
+//				if(_noMismatch || !this.bad(str)){
 //					ret = str.split('-W');
 //					ret = setWeek(ret[0], ret[1]);
 //				}
@@ -400,7 +400,7 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 //			}
 //		},
 		time: {
-			mismatch: function(val, _getParsed){
+			bad: function(val, _getParsed){
 				if(!val || !val.split || !(/\d$/.test(val))){return true;}
 				val = val.split(/\u003A/);
 				if(val.length < 2 || val.length > 3){return true;}
@@ -445,7 +445,7 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 			},
 			asNumber: function(val){
 				var ret = nan;
-				val = this.mismatch(val, true);
+				val = this.bad(val, true);
 				if(val !== true){
 					ret = Date.UTC('1970', 0, 1, val[0][0], val[0][1], val[0][2] || 0);
 					if(val[1]){
@@ -473,8 +473,8 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 			}
 		},
 		month: {
-			mismatch: function(val){
-				return typeProtos.date.mismatch(val+'-01');
+			bad: function(val){
+				return typeProtos.date.bad(val+'-01');
 			},
 			step: 1,
 			stepScaleFactor:  false,
@@ -485,7 +485,7 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 			asNumber: function(val){
 				//1970-01
 				var ret = nan;
-				if(val && !this.mismatch(val)){
+				if(val && !this.bad(val)){
 					val = val.split(/\u002D/);
 					val[0] = (val[0] * 1) - 1970;
 					val[1] = (val[1] * 1) - 1;
@@ -519,46 +519,46 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 				}
 			}
 		}
-//		,'datetime-local': {
-//			mismatch: function(val, _getParsed){
-//				if(!val || !val.split || (val+'special').split(/\u0054/).length !== 2){return true;}
-//				val = val.split(/\u0054/);
-//				return ( typeProtos.date.mismatch(val[0]) || typeProtos.time.mismatch(val[1], _getParsed) );
-//			},
-//			noAsDate: true,
-//			asDate: function(val){
-//				val = new Date(this.asNumber(val));
-//				
-//				return (isNaN(val)) ? null : val;
-//			},
-//			asNumber: function(val){
-//				var ret = nan;
-//				var time = this.mismatch(val, true);
-//				if(time !== true){
-//					val = val.split(/\u0054/)[0].split(/\u002D/);
-//					
-//					ret = Date.UTC(val[0], val[1] - 1, val[2], time[0][0], time[0][1], time[0][2] || 0);
-//					if(time[1]){
-//						ret += time[1];
-//					}
-//				}
-//				return ret;
-//			},
-//			dateToString: function(date, _getParsed){
-//				return typeProtos.date.dateToString(date) +'T'+ typeProtos.time.dateToString(date, _getParsed);
-//			}
-//		}
+		,'datetime-local': {
+			bad: function(val, _getParsed){
+				if(!val || !val.split || (val+'special').split(/\u0054/).length !== 2){return true;}
+				val = val.split(/\u0054/);
+				return ( typeProtos.date.bad(val[0]) || typeProtos.time.bad(val[1], _getParsed) );
+			},
+			noAsDate: true,
+			asDate: function(val){
+				val = new Date(this.asNumber(val));
+				
+				return (isNaN(val)) ? null : val;
+			},
+			asNumber: function(val){
+				var ret = nan;
+				var time = this.bad(val, true);
+				if(time !== true){
+					val = val.split(/\u0054/)[0].split(/\u002D/);
+					
+					ret = Date.UTC(val[0], val[1] - 1, val[2], time[0][0], time[0][1], time[0][2] || 0);
+					if(time[1]){
+						ret += time[1];
+					}
+				}
+				return ret;
+			},
+			dateToString: function(date, _getParsed){
+				return typeProtos.date.dateToString(date) +'T'+ typeProtos.time.dateToString(date, _getParsed);
+			}
+		}
 	};
 	
-	if(typeBugs || !supportsType('range') || !supportsType('time') || !supportsType('month')){
+	if(typeBugs || !supportsType('range') || !supportsType('time') || !supportsType('month') || !supportsType('datetime-local')){
 		typeProtos.range = $.extend({}, typeProtos.number, typeProtos.range);
 		typeProtos.time = $.extend({}, typeProtos.date, typeProtos.time);
 		typeProtos.month = $.extend({}, typeProtos.date, typeProtos.month);
-//		typeProtos['datetime-local'] = $.extend({}, typeProtos.date, typeProtos.time, typeProtos['datetime-local']);
+		typeProtos['datetime-local'] = $.extend({}, typeProtos.date, typeProtos.time, typeProtos['datetime-local']);
 	}
 	
-	//'datetime-local'
-	['number', 'month', 'range', 'date', 'time', 'color'].forEach(function(type){
+	//
+	['number', 'month', 'range', 'date', 'time', 'color', 'datetime-local'].forEach(function(type){
 		if(typeBugs || !supportsType(type)){
 			webshims.addInputType(type, typeProtos[type]);
 		}
