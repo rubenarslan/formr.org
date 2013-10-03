@@ -22,7 +22,7 @@ function empty_column($col,$arr)
 {
 	$empty = true;
 	foreach($arr AS $row):
-		if(empty($row->col) OR trim($row->$col) != ''):
+		if(!(empty($row->$col) OR (!is_array($row->$col) AND trim($row->$col)) == '')):
 			$empty = false;
 			break;
 		endif;

@@ -20,22 +20,13 @@
 	<script src="../js-webshim/minified/extras/modernizr-custom.js"></script>
 	<script src="../js-webshim/minified/polyfiller.js"></script>
 	<!--
-		<script src="../../src/polyfiller.js"></script> 
-		<script>
-			$.webshims.setOptions({
-				mediaelement: {
-					playerPath: '../../swfs/jaris/bin/JarisFLVPlayer.swf'
-				}
-			});
-			$.webshims.debug = 'noCombo';
-		</script>
+		
 	-->
 	<script>
 		$.webshims.polyfill();
 		
 		
 		$(function(){
-			
 			
 			//If you want to build a simple player the following code can help you
 			$('div.player').each(function(){
@@ -113,6 +104,10 @@
 						if($.prop(this, 'readyState') > $.prop(this, 'HAVE_NOTHING')){
 							$(this).triggerHandler('updateMediaState');
 						}
+						//currently neither implemented in webshims nor in any browser!
+						$( [$(this).prop('textTracks')] ).on('change', function(){
+							$('input.texttrack', player).prop('checked', $('track', player).prop('track').mode == 'showing');
+						});
 					})
 				;
 				
@@ -267,11 +262,11 @@
 			<section>
 				<h3>Implemented/fixed elements, attributes, properties, methods, events</h3>
 				<ul>
-					<li><strong>elements:</strong> <a href="http://www.w3.org/TR/html5/video.html#video">video</a>, <a href="http://www.w3.org/TR/html5/video.html#audio">audio</a>, <a href="http://www.w3.org/TR/html5/video.html#the-source-element">source</a></li>
-					<li><strong>attributes and IDL/properties</strong>: <a href="http://www.w3.org/TR/html5/video.html#attr-media-controls">controls</a>, <a href="http://www.w3.org/TR/html5/video.html#attr-media-loop">loop</a>, <a href="http://www.w3.org/TR/html5/video.html#attr-media-autoplay">autoplay</a>, <a href="http://www.w3.org/TR/html5/video.html#attr-source-src">src</a>, <a href="http://www.w3.org/TR/html5/embedded-content-0.html#dom-source-media">media</a>, <a href="http://www.w3.org/TR/html5/embedded-content-0.html#dom-source-media">type</a></li>
-					<li><strong>properties/IDLs</strong>: <a href="http://www.w3.org/TR/html5/video.html#dom-media-paused">paused</a>, <a href="http://www.w3.org/TR/html5/video.html#dom-media-ended">ended</a>, <a href="http://www.w3.org/TR/html5/video.html#dom-media-muted">muted</a>, <a href="http://www.w3.org/TR/html5/video.html#dom-media-volume">volume</a>, <a href="http://www.w3.org/TR/html5/video.html#dom-media-currenttime">currentTime</a>, <a href="http://www.w3.org/TR/html5/video.html#dom-media-duration">duration</a>, <a href="http://www.w3.org/TR/html5/video.html#dom-media-buffered">buffered</a><sup>1</sup>, <a href="http://www.w3.org/TR/html5/video.html#dom-media-currentsrc">currentSrc</a>, <a href="http://www.w3.org/TR/html5/video.html#dom-media-readystate">readyState</a>, <a href="http://www.w3.org/TR/html5/video.html#dom-media-networkstate">networkState</a>, <a href="http://www.w3.org/TR/html5/video.html#dom-video-videoheight">videoHeight</a><sup>2</sup>, <a href="http://www.w3.org/TR/html5/video.html#dom-video-videowidth">videoWidth</a><sup>2</sup></li>
-					<li><strong>methods</strong>: <a href="http://www.w3.org/TR/html5/video.html#dom-media-play">play</a>, <a href="http://www.w3.org/TR/html5/video.html#dom-media-pause">pause</a>, <a href="http://www.w3.org/TR/html5/video.html#dom-media-load">load</a> (mediaLoad<sup>3</sup>), <a href="http://www.w3.org/TR/html5/video.html#dom-navigator-canplaytype">canPlayType</a> <sup>4</sup> </li>
-					<li><strong>events</strong>: <a href="http://www.w3.org/TR/html5/video.html#event-media-loadedmetadata">loadedmetadata</a>, <a href="http://www.w3.org/TR/html5/video.html#event-media-play">play</a>, <a href="http://www.w3.org/TR/html5/video.html#event-media-pause">pause</a>, <a href="http://www.w3.org/TR/html5/video.html#event-media-playing">playing</a>, <a href="http://www.w3.org/TR/html5/video.html#event-media-canplay">canplay</a>, <a href="http://www.w3.org/TR/html5/video.html#event-media-ended">ended</a>, <a href="http://www.w3.org/TR/html5/video.html#event-media-waiting">waiting</a>, <a href="http://www.w3.org/TR/html5/video.html#event-media-timeupdate">timeupdate</a>, <a href="http://www.w3.org/TR/html5/video.html#event-media-progress">progress</a>, <a href="http://www.w3.org/TR/html5/video.html#event-media-emptied">emptied</a>, <a href="http://www.w3.org/TR/html5/video.html#event-media-volumechange">volumechange</a>, <a href="http://www.w3.org/TR/html5/video.html#event-media-durationchange">durationchange</a></li>
+					<li><strong>elements:</strong> <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#video">video</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#audio">audio</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#the-source-element">source</a></li>
+					<li><strong>attributes and IDL/properties</strong>: <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#attr-media-controls">controls</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#attr-media-loop">loop</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#attr-media-autoplay">autoplay</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#attr-source-src">src</a>, <a href="http://www.w3.org/TR/html5/embedded-content-0.html#dom-source-media">media</a>, <a href="http://www.w3.org/TR/html5/embedded-content-0.html#dom-source-media">type</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#attr-media-muted">muted</a></li>
+					<li><strong>properties/IDLs</strong>: <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-paused">paused</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-ended">ended</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-muted">muted</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-volume">volume</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-currenttime">currentTime</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-duration">duration</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-buffered">buffered</a><sup>1</sup>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-currentsrc">currentSrc</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-readystate">readyState</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-networkstate">networkState</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-video-videoheight">videoHeight</a><sup>2</sup>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-video-videowidth">videoWidth</a><sup>2</sup>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-seeking">seeking</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-defaultmuted">defaultMuted</a></li>
+					<li><strong>methods</strong>: <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-play">play</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-pause">pause</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-media-load">load</a> (mediaLoad<sup>3</sup>), <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#dom-navigator-canplaytype">canPlayType</a> <sup>4</sup> </li>
+					<li><strong>events</strong>: <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-loadedmetadata">loadedmetadata</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-play">play</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-pause">pause</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-playing">playing</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-canplay">canplay</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-ended">ended</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-waiting">waiting</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-timeupdate">timeupdate</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-progress">progress</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-emptied">emptied</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-volumechange">volumechange</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-durationchange">durationchange</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-seeking">seeking</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#event-media-seeked">seeked</a></li>
 				</ul>
 				<ul>
 					<li><small>1.buffered is a little bit buggy with youtube videos.</small></li>
@@ -319,7 +314,7 @@ $("video.my-video").loadMediaSrc(
 				</ul>
 				<ul>
 					<li><small>1. Use additional [] to bind events to Array-like objects (<code>$([ $('video').prop('textTracks') ]).on('addtrack', function(e){console.log('track was added');});</code>)</small></li>
-					<li><small>2. Use shimActiveCues instead of activeCues property. In case override is set to true or all track supporting browsers (currently only Chrome 23) won't load the flash- or the youtube iframe fallback  for video/audio playback, activeCues can be also used savely.</small></li>
+					<li><small>2. Use $.prop to get activeCues property.  (i.e.: <code>$.prop(track, 'activeCues');</code> ).</small></li>
 				</ul>
 				
 				<h3>Options for the <code>track</code> feature</h3>
@@ -585,6 +580,7 @@ $('video, audio')
 				<ul>
 					<li><a href="http://jsfiddle.net/trixta/VvmmC/">Player with some custom controls using input[type="range"]</a></li>
 					<li><a href="http://jsfiddle.net/trixta/QZJTM/">Working with the TextTrack API</a></li>
+					<li><a href="mediaelement/track-demo.html">Tree of Life demo (using video, textTrack, datalist/input[list], input[placeholder], input[autofocus] and JSON</a></li>
 				</ul>
 			</aside>
 				

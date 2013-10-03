@@ -8,9 +8,12 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		var ret = [date.getFullYear(), moduleOpts.addZero(date.getMonth() + 1), moduleOpts.addZero(date.getDate())];
 		ret.month = ret[0]+'-'+ret[1];
 		ret.date = ret[0]+'-'+ret[1]+'-'+ret[2];
+		ret.time = date.getHours() +':'+ date.getMinutes();
+		
+		ret['datetime-local'] = ret.date +'T'+ ret.time;
 		return ret;
 	};
-	var today = getDateArray(new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60 * 1000 )));
+	var today = getDateArray(new Date());
 	
 	
 	var _setFocus = function(element, _noFocus){
@@ -296,11 +299,12 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 	picker.getYearList = function(value, data){
 		var j, i, val, disabled, lis, prevDisabled, nextDisabled, classStr, classArray, start;
 		
-		
-		var size = data.options.size;
-		var max = data.options.max.split('-');
-		var min = data.options.min.split('-');
-		var currentValue = data.options.value.split('-');
+		var o = data.options;
+		var size = o.size;
+		var max = o.max.split('-');
+		var min = o.min.split('-');
+		var cols = o.cols || 4;
+		var currentValue = o.value.split('-');
 		var xthCorrect = 0;
 		var enabled = 0;
 		var str = '';
@@ -346,7 +350,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 				
 				classStr = classArray.length ? ' class="'+ (classArray.join(' ')) +'"' : '';
 				
-				if(i && !(i % 3)){
+				if(i && !(i % cols)){
 					rowNum++;
 					lis.push('</tr><tr class="ws-row-'+ rowNum +'">');
 				}
@@ -375,6 +379,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		var size = o.size;
 		var max = o.max.split('-');
 		var min = o.min.split('-');
+		var cols = o.cols || 4;
 		var currentValue = o.value.split('-');
 		var enabled = 0;
 		var rowNum = 0;
@@ -387,6 +392,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 			} else {
 				prevDisabled = picker.isInRange([value-1], max, min) ? {'data-action': 'setMonthList','value': value-1} : false;
 			}
+			
 			if(j == size - 1){
 				nextDisabled = picker.isInRange([value+1], max, min) ? {'data-action': 'setMonthList','value': value+1} : false;
 			}
@@ -431,7 +437,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 				}
 				
 				classStr = (classArray.length) ? ' class="'+ (classArray.join(' ')) +'"' : '';
-				if(i && !(i % 3)){
+				if(i && !(i % cols)){
 					rowNum++;
 					lis.push('</tr><tr class="ws-row-'+ rowNum +'">');
 				}
@@ -455,7 +461,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 	
 	picker.getDayList = function(value, data){
 		
-		var j, i, k, day, nDay, name, val, disabled, lis,  prevDisabled, nextDisabled, addTr, week, rowNum;
+		var j, i, k, day, nDay, name, val, disabled, lis,  prevDisabled, nextDisabled, yearNext, yearPrev, addTr, week, rowNum;
 		
 		var lastMotnh, curMonth, otherMonth, dateArray, monthName, fullMonthName, buttonStr, date2, classArray;
 		var o = data.options;
@@ -467,8 +473,18 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		var enabled = 0;
 		var str = [];
 		var date = new Date(value[0], value[1] - 1, 1);
+		var action = (data.type == 'datetime-local') ? 'setTimeList' : 'changeInput';
 		
 		date.setMonth(date.getMonth()  - Math.floor((size - 1) / 2));
+		
+		if(o.yearButtons){
+			yearNext = [ (value[0] * 1) + 1, value[1] ];
+			yearNext = picker.isInRange(yearNext, max, min) ? {'data-action': 'setDayList','value': yearNext.join('-')} : false;
+			
+			yearPrev = [ (value[0] * 1) - 1, value[1] ];
+			yearPrev = picker.isInRange(yearPrev, max, min) ? {'data-action': 'setDayList','value': yearPrev.join('-')} : false;
+		}
+		
 		
 		for(j = 0;  j < size; j++){
 			date.setDate(1);
@@ -482,6 +498,8 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 			}
 			
 			dateArray = getDateArray(date);
+			
+			
 			
 			str.push('<div class="day-list picker-list ws-index-'+ j +'"><div class="ws-picker-header">');
 			if( o.selectNav ){
@@ -563,7 +581,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 				}
 				
 				dateArray = getDateArray(date);
-				buttonStr = '<td role="presentation" class="day-'+ day +'"><button data-id="day-'+ date.getDate() +'" role="gridcell" data-action="changeInput" value="'+ (dateArray.join('-')) +'"';
+				buttonStr = '<td role="presentation" class="day-'+ day +'"><button data-id="day-'+ date.getDate() +'" role="gridcell" data-action="'+action+'" value="'+ (dateArray.join('-')) +'" type="button"';
 				
 				if(otherMonth){
 					classArray.push('othermonth');
@@ -605,6 +623,77 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 			main: str.join(''),
 			prev: prevDisabled,
 			next: nextDisabled,
+			yearPrev: yearPrev,
+			yearNext: yearNext,
+			type: 'Grid'
+		};
+	};
+	
+//	var createDatimeValue = 
+	
+	
+	picker.getTimeList = function(value, data){
+		var label, tmpValue, iVal, hVal, valPrefix;
+		var str = '<div class="time-list picker-list ws-index-0">';
+		var i = 0;
+		var rowNum = 0;
+		var len = 23;
+		var attrs = {
+			min: $.prop(data.orig, 'min'),
+			max: $.prop(data.orig, 'max'),
+			step: $.prop(data.orig, 'step')
+		};
+		var o = data.options;
+		var monthNames = curCfg.date[o.monthNamesHead] || curCfg.date[o.monthNames] || curCfg.date.monthNames; 
+		var gridLabel = '';
+		
+		if(data.type == 'time'){
+			label = '<button type="button" disabled="">'+ $.trim($(data.orig).jProp('labels').text() || '').replace(/[\:\*]/g, '')+'</button>';
+		} else {
+			tmpValue = value[2].split('T');
+			value[2] = tmpValue[0];
+			if(tmpValue[1]){
+				value[3] = tmpValue[1];
+			}
+			label = value[2] +'. '+ (monthNames[(value[1] * 1) - 1]) +' '+ value[0];
+			gridLabel = ' aria-label="'+ label +'"';
+			label = '<button tabindex="-1" data-action="setDayList" value="'+value[0]+'-'+value[1]+'-'+value[2]+'" type="button">'+label+'</button>';
+			valPrefix = value[0] +'-'+value[1]+'-'+value[2]+'T';
+		}
+		
+		str += '<div class="ws-picker-header">'+label+'</div>';
+		
+		str += '<div class="picker-grid"><table role="grid"'+ gridLabel +'><tbody><tr>';
+		for(; i <= len; i++){
+			iVal = moduleOpts.addZero(''+i) +':00';
+			hVal = valPrefix ? 
+				valPrefix+iVal :
+				iVal
+			;
+				
+			if(i && !(i % 4)){
+				rowNum++;
+				str += '</tr><tr class="ws-row-'+ rowNum +'">';
+			}
+			str += '<td role="presentation"><button role="gridcell" data-action="changeInput" value="'+ hVal +'" type="button" tabindex="-1"';
+			
+			if(!data.isValid(hVal, attrs)){
+				str += ' disabled=""';
+			}
+			if(value == iVal){
+				str += ' class="checked-value"';
+			}
+			str += '>'+ data.formatValue(iVal) +'</button></td>';
+		}
+		
+		
+		str += '</tr></tbody></table></div></div>';
+		
+		return {
+			enabled: 9,
+			main: str,
+			prev: false,
+			next: false,
 			type: 'Grid'
 		};
 	};
@@ -691,10 +780,25 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		var stops = {
 			date: 'Day',
 			week: 'Day',
-			month: 'Month'
+			month: 'Month',
+			'datetime-local': 'Time',
+			time: 'Time'
+		};
+		var setDirButtons = function(content, popover, dir){
+			if(content[dir]){
+					popover[dir+'Element']
+						.attr(content[dir])
+						.prop({disabled: false})
+					;
+				} else {
+					popover[dir+'Element']
+						.removeAttr('data-action')
+						.prop({disabled: true})
+					;
+				}
 		};
 		
-		$.each({'setYearList' : ['Year', 'Month', 'Day'], 'setMonthList': ['Month', 'Day'], 'setDayList': ['Day']}, function(setName, names){
+		$.each({'setYearList' : ['Year', 'Month', 'Day', 'Time'], 'setMonthList': ['Month', 'Day', 'Time'], 'setDayList': ['Day', 'Time'], 'setTimeList': ['Time']}, function(setName, names){
 			var getNames = names.map(retNames);
 			var setNames = names.map(retSetNames);
 			actions[setName] = function(val, popover, data, startAt){
@@ -719,32 +823,22 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 								})
 							;
 							popover.bodyElement.html(content.main);
-							if(content.prev){
-								popover.prevElement
-									.attr(content.prev)
-									.prop({disabled: false})
-								;
-							} else {
-								popover.prevElement
-									.removeAttr('data-action')
-									.prop({disabled: true})
-								;
+							
+							setDirButtons(content, popover, 'prev');
+							setDirButtons(content, popover, 'next');
+							
+							if(o.yearButtons){
+								setDirButtons(content, popover, 'yearPrev');
+								setDirButtons(content, popover, 'yearNext');
 							}
-							if(content.next){
-								popover.nextElement
-									.attr(content.next)
-									.prop({disabled: false})
-								;
-							} else {
-								popover.nextElement
-									.removeAttr('data-action')
-									.prop({disabled: true})
-								;
-							}
+							
 							if(webshims[content.type]){
 								new webshims[content.type](popover.bodyElement.children(), popover, content);
 							}
-							popover.element.trigger('pickerchange');
+							popover.element.trigger('pickerchange')
+								.filter('[data-vertical="bottom"]')
+								.triggerHandler('pospopover')
+							;
 							return false;
 						}
 					}
@@ -780,6 +874,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 			return false;
 		};
 		var id = new Date().getTime();
+		
 		var generateList = function(o, max, min){
 			var options = [];
 			var label = '';
@@ -791,7 +886,10 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 					'' :
 					' disabled="" '
 				;
-				options.push('<li role="presentation"><button value="'+ val +'" '+disabled+' data-action="changeInput" tabindex="-1"  role="option">'+ (label || data.formatValue(val, false)) +'</button></li>');
+				if(label){
+					label = ' <span class="ws-label">'+ label +'</span>';
+				}
+				options.push('<li role="presentation"><button value="'+ val +'" '+disabled+' data-action="changeInput" tabindex="-1"  role="option"><span class="ws-value">'+ data.formatValue(val, false) +'</span>'+ label +'</button></li>');
 			});
 			if(options.length){
 				id++;
@@ -820,10 +918,12 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 					} else if($(this).is('.ws-current')){
 						text = (curCfg[data.type] || {}).currentText;
 						if(!text){
-							text = (formcfg[''][[data.type]] || {}).currentText || 'current';
-							webshims.warn("could not get currentText from form cfg");
+							text = (formcfg[''][[data.type]] || {}).currentText || (curCfg.date || {}).currentText || 'current';
+							webshims.warn("could not get currentText from form cfg for "+data.type);
 						}
-						$.prop(this, 'disabled', !picker.isInRange(today[data.type].split('-'), o.maxS, o.minS));
+						if(today[data.type] && data.type != 'time'){
+							$.prop(this, 'disabled', !picker.isInRange(today[data.type].split('-'), o.maxS, o.minS));
+						}
 					}
 					if(text){
 						$(this).text(text).attr({'aria-label': text});
@@ -833,12 +933,35 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 					}
 					
 				});
-				popover.nextElement.attr({'aria-label': curCfg.date.nextText});
-				$('> span', popover.nextElement).html(curCfg.date.nextText);
-				popover.prevElement.attr({'aria-label': curCfg.date.prevText});
-				$('> span', popover.prevElement).html(curCfg.date.prevText);
+				popover.nextElement
+					.attr({'aria-label': curCfg.date.nextText})
+					.find('span')
+					.html(curCfg.date.nextText)
+				;
+				popover.prevElement
+					.attr({'aria-label': curCfg.date.prevText})
+					.find('span')
+					.html(curCfg.date.prevText)
+				;
+				
+				if(o.yearButtons){
+					popover.yearNextElement
+						.attr({'aria-label': curCfg.date.nextText})
+						.find('span')
+						.html(curCfg.date.nextText)
+					;
+					popover.yearPrevElement
+						.attr({'aria-label': curCfg.date.prevText})
+						.find('span')
+						.html(curCfg.date.prevText)
+					;
+				}
 				
 				generateList(o, o.maxS, o.minS);
+				
+				if(popover.isVisible){
+					picker.showPickerContent(data, popover);
+				}
 				
 			}
 			$('button.ws-empty', popover.buttonRow).prop('disabled', $.prop(data.orig, 'required'));
@@ -853,6 +976,8 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 			}
 		};
 		
+		
+		
 		popover.contentElement.html('<button class="ws-prev" tabindex="0"><span></span></button> <button class="ws-next" tabindex="0"><span></span></button><div class="ws-picker-body"></div><div class="ws-button-row"><button type="button" class="ws-current" data-action="changeInput" value="'+today[data.type]+'" tabindex="0"></button> <button type="button" data-action="changeInput" value="" class="ws-empty" tabindex="0"></button></div>');
 		popover.nextElement = $('button.ws-next', popover.contentElement);
 		popover.prevElement = $('button.ws-prev', popover.contentElement);
@@ -860,10 +985,20 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		popover.buttonRow = $('div.ws-button-row', popover.contentElement);
 		popover.element.on('updatepickercontent', updateContent);
 		
+		if(data.options.yearButtons){
+			popover.element.addClass('ws-year-buttons');
+			popover.yearNextElement = $('<button class="ws-super-next" tabindex="0"><span></span></button>').insertAfter(popover.nextElement);
+			popover.yearPrevElement = $('<button class="ws-super-prev" tabindex="0"><span></span></button>').insertBefore(popover.prevElement);
+		}
+		
 		popover.contentElement
 			.on('click', 'button[data-action]', actionfn)
 			.on('change', 'select[data-action]', actionfn)
 		;
+		
+		if(data.options.inlinePicker){
+			data.options.updateOnInput = true;
+		}
 		
 		$(data.options.orig).on('input', function(){
 			var currentView;

@@ -166,13 +166,11 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 				if(window.QUnit || (forceShow = ($(that.input).is(':focus') && ($(that.input).hasClass('list-focus') || $.prop(that.input, 'value'))) )){
 					that.updateListOptions(forceShow);
 				} else {
-					webshims.ready('WINDOWLOAD', function(){
-						that.updateTimer = setTimeout(function(){
-							that.updateListOptions();
-							that = null;
-							listidIndex = 1;
-						}, 200 + (100 * listidIndex));
-					});
+					that.updateTimer = setTimeout(function(){
+						that.updateListOptions();
+						that = null;
+						listidIndex = 1;
+					}, 200 + (100 * listidIndex));
 				}
 			}
 		},
@@ -181,8 +179,11 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 			clearTimeout(this.updateTimer);
 			this.updateTimer = false;
 			
-			this.searchStart = formsCFG.customDatalist && $(this.input).hasClass('search-start');
+			if($(this.input).hasClass('ws-nosearch') || $(this.input).hasClass('search-start')){
+				webshims.error('please use listFilter/data-list-filer configuration with values: "*", "^" or "!"');
+			}
 			this.addMarkElement = options.addMark || $(this.input).hasClass('mark-option-text');
+			this.listFilter = $(this.input).data('listFilter') || options.listFilter || '*';
 			
 			var list = [];
 			
@@ -195,7 +196,8 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 					rItem = {
 						value: value.replace(lReg, '&lt;').replace(gReg, '&gt;'),
 						label: $.trim($.attr(rElem, 'label')) || '',
-						className: rElem.className || ''
+						className: rElem.className || '',
+						elem: options.getOptionContent ? rElem : null
 					};
 					
 					if(rItem.label){
@@ -224,22 +226,29 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 			this.arrayOptions = allOptions;
 			this.popover.contentElement.html('<div class="datalist-box"><ul role="list">'+ list.join("\n") +'</ul></div>');
 			
+			if(options.datalistCreated){
+				options.datalistCreated.apply(this);
+			}
 			
 			if(_forceShow || this.popover.isVisible){
 				this.showHideOptions();
 			}
 		},
 		getOptionContent: function(item){
-			var content = '';
+			var content;
 			if(options.getOptionContent){
-				content = options.apply(this, arguments) || '';
-			} else {
+				content = options.getOptionContent.apply(this, arguments);
+				if(content != null){
+					content += '<span class="option-value" style="display: none;">'+ item.value +'</span>'
+				}
+			} 
+			if(content == null){
 				content = '<span class="option-value">'+ item.value +'</span>';
 				if(item.label){
 					content += ' <span class="option-label">'+ item.label +'</span>';
 				}
 			}
-			return content;
+			return content || '';
 		},
 		showHideOptions: function(_fromShowList){
 			var value = $.prop(this.input, 'value').toLowerCase();
@@ -256,10 +265,10 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 			
 			this.lastUpdatedValue = value;
 			var found = false;
-			var startSearch = this.searchStart;
+			var startSearch = this.listFilter == '^';
 			var lis = $('li', this.shadowList);
 			var that = this;
-			if(value){
+			if(value && this.listFilter != '!'){
 				
 				this.arrayOptions.forEach(function(item, i){
 					var search, searchIndex, foundName;
@@ -296,6 +305,9 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 			
 			this.hasViewableData = found;
 			if(!_fromShowList && found){
+				if(this.popover.isVisible && this.popover.element.attr('data-vertical') == 'bottom'){
+					this.popover.element.triggerHandler('pospopover');
+				}
 				this.showList();
 			}
 			
