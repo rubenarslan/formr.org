@@ -40,8 +40,8 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 	$userx['Email'] = "<small title=\"{$userx['session']}\">{$userx['email']}</small>";
 	$userx['entered'] = "<small>{$userx['created']}</small>";
 	$userx['left'] = "<small>{$userx['ended']}</small>";
-	if($userx['unit_type']!= 'Survey') $userx['delete'] = "<a onclick='return confirm(\"Are you sure you want to delete this unit session?\")' href='".WEBROOT."admin/delete_unit_session?session_id={$userx['session_id']}' class='hastooltip' title='Delete this waypoint'><i class='icon-remove'></i></a>";
-	else $userx['Delete'] =  "<a onclick='return confirm(\"You shouldnt delete survey sessions, you might delete data! REALLY sure?\")' href='".WEBROOT."admin/delete_unit_session?session_id={$userx['session_id']}' class='hastooltip' title='Survey sessions should not be deleted'><i class='icon-remove'></i></a>";
+	if($userx['unit_type']!= 'Survey') $userx['delete'] = "<a onclick='return confirm(\"Are you sure you want to delete this unit session?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/delete_unit_session?session_id={$userx['session_id']}' class='hastooltip' title='Delete this waypoint'><i class='icon-remove'></i></a>";
+	else $userx['Delete'] =  "<a onclick='return confirm(\"You shouldnt delete survey sessions, you might delete data! REALLY sure?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/delete_unit_session?session_id={$userx['session_id']}' class='hastooltip' title='Survey sessions should not be deleted'><i class='icon-remove'></i></a>";
 	
 	unset($userx['session']);
 	unset($userx['run_name']);

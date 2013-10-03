@@ -572,11 +572,11 @@ class Study extends RunUnit
 	public function delete()
 	{
 		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
+		$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
+		
 		$delete_study = $this->dbh->prepare("DELETE FROM `survey_studies` WHERE id = :study_id") or die(print_r($this->dbh->errorInfo(), true)); // Cascades
 		$delete_study->bindParam(':study_id',$this->id);
 		$delete_study->execute() or die(print_r($delete_study->errorInfo(), true));
-		
-		$delete_results = $this->dbh->query("DROP TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
 		
 		$this->dbh->commit();
 	}
