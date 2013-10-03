@@ -1,8 +1,8 @@
 <?php
-unset($_SESSION['study_id']);
-unset($_GET['study_name']);
 require_once '../../../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
+unset($_SESSION['study_id']);
+unset($_GET['study_name']);
 require_once INCLUDE_ROOT . "Model/Study.php";
 
 $errors = $messages = array();

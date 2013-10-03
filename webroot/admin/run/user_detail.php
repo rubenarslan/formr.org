@@ -14,7 +14,6 @@ $g_users = $fdb->prepare("SELECT
 	`survey_runs`.name AS run_name,
 	`survey_run_units`.position,
 	`survey_units`.type AS unit_type,
-	`users`.`email`,
 	`survey_unit_sessions`.created,
 	`survey_unit_sessions`.ended
 	
@@ -29,8 +28,6 @@ LEFT JOIN `survey_run_units`
 ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
 LEFT JOIN `survey_runs`
 ON `survey_runs`.id = `survey_run_units`.run_id
-LEFT JOIN `users`
-ON `survey_run_sessions`.session = `users`.code
 WHERE `survey_runs`.name = :run_name
 ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;");
 $g_users->bindParam(':run_name',$run->name);
