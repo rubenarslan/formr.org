@@ -5,7 +5,7 @@ require_once INCLUDE_ROOT.'View/admin_header.php';
 
 if( !empty($_POST) ) {
 	$study->changeSettings($_POST);
-	redirect_to(WEBROOT."survey/{$study->name}/index");
+	redirect_to(WEBROOT."admin/survey/{$study->name}/index");
 }
 
 require_once INCLUDE_ROOT.'View/header.php';
@@ -31,12 +31,13 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 		<button type="submit" class="btn"><?php echo _("Save"); ?></button>
 	</p>
 </div>
+
 	</form>
 
 	
   	<h3><?=_('other settings'); ?></h3>
 	
-	<form method="POST" action="<?=WEBROOT?>survey/<?=$study->name?>/index">
+	<form method="POST" action="<?=WEBROOT?>admin/survey/<?=$study->name?>/index">
 		<table class="table table-striped span6 editstudies">
 			<thead>
 				<tr>
