@@ -464,7 +464,7 @@ class Study extends RunUnit
 	}
 	public function backupResults()
 	{
-        $filename = INCLUDE_ROOT ."results_backups/".$this->name . date('YmdHis') . ".tab";
+        $filename = INCLUDE_ROOT ."backups/results/".$this->name . date('YmdHis') . ".tab";
 		require_once INCLUDE_ROOT . 'Model/SpreadsheetReader.php';
 
 		$SPR = new SpreadsheetReader();
