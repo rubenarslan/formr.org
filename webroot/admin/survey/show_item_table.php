@@ -21,26 +21,29 @@ if(count($results)>0):
 function empty_column($col,$arr)
 {
 	$empty = true;
+	$last = null;
 	foreach($arr AS $row):
-		if(!(empty($row->$col) OR (!is_array($row->$col) AND trim($row->$col)) == '')):
+		if(!(empty($row->$col)) OR // not empty column? (also treats 0 and empty strings as empty)
+		$last != $row->$col OR // any variation in this column?
+		!(!is_array($row->$col) AND trim($row->$col)=='')
+		):
 			$empty = false;
 			break;
 		endif;
+		$last = $row->$col;
 	endforeach;
 	
 	return $empty;
 }
-$empty_columns = array();
-$display_cols = array('type','name','label','optional','class','skipif','choices');
-
+$use_columns = $empty_columns = array();
+$display_columns = array('type','name','label','optional','class','skipif','choices');
 foreach(current($results) AS $field => $value):
 	
-	if(empty_column($field,$results) OR !in_array($field,$display_cols)):
-		array_push($empty_columns,$field);
-		continue;
+	if(in_array($field,$display_columns) AND !empty_column($field,$results)):
+		array_push($use_columns,$field);
+	    echo "<th>{$field}</th>";
 	endif;
 		
-    echo "<th>{$field}</th>";
 endforeach;
 ?>
 	</tr></thead>
@@ -55,14 +58,11 @@ foreach($results AS $row):
     // $row is array... foreach( .. ) puts every element
     // of $row to $cell variable
 	$row->type = implode(" ", array('<b>'.$row->type.'</b>', $row->choice_list, '<i>'.$row->type_options . '</i>'));
-    foreach($display_cols AS $field):
+    foreach($use_columns AS $field):
 		$cell = $row->$field;
-		if( in_array($field, $empty_columns))
-			continue;
 		
-		
-		if(strtolower($field) == 'choices')
-		{
+		if(strtolower($field) == 'choices'):
+
 			echo '<td>';
 			if($cell!=='' AND $cell!==NULL):
 				echo '<ol>';
@@ -83,11 +83,10 @@ foreach($results AS $row):
 			echo '</td>';
 		
 			continue;
-		}
-
 		
-		
-        echo "<td>$cell</td>";
+		else:
+	        echo "<td>$cell</td>";
+		endif;
 	endforeach;
 
     echo "</tr>\n";
