@@ -8,7 +8,8 @@ class OpenCPU {
 		global $settings;
 		$this->instance = $settings['opencpu_instance'];
 		$this->curl_c = curl_init();
-		curl_setopt($this->curl_c, CURLOPT_URL, $this->instance.'R/pub/base/identity/json');
+#		curl_setopt($this->curl_c, CURLOPT_HTTPHEADER,array('Content-Type: application/json'));
+		curl_setopt($this->curl_c, CURLOPT_URL, $this->instance.'ocpu/library/base/R/identity/json');
 		curl_setopt($this->curl_c, CURLOPT_POST, 1); // Method is "POST"
 		curl_setopt($this->curl_c, CURLOPT_RETURNTRANSFER, 1); // Returns the curl_exec string, rather than just Logical value
 	}
@@ -67,11 +68,47 @@ markdownToHTML(text =
 		
 		if(!$html):
 			alert($result,'alert-error');
-			alert($source,'alert-error');
+			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-error');
 			return false;
 		endif;
 		
 		return $html[0];
+	}
+	public function selftest() 
+	{
+		$source = '{
+		library(knitr); library(markdown);
+		markdownToHTML(text = 
+			knit(text = "__Hello__ World `r 1`"),
+		    fragment.only = T
+		)
+		}';
+		
+/*		$source = '{
+		library(knitr); library(markdown);
+		paste(markdownToHTML(text = 
+			knit(text = "__Hello__ World"),
+		    fragment.only = T
+		), "```{r}1```")
+		}';
+*/		curl_setopt($this->curl_c, CURLOPT_POSTFIELDS, http_build_query(array('x' => $source)));
+		curl_setopt($this->curl_c, CURLOPT_HEADER, 1);
+
+		// Then, after your curl_exec call:
+		$header_size = curl_getinfo($this->curl_c, CURLINFO_HEADER_SIZE);
+		$result = curl_exec($this->curl_c);
+		list($header, $body) = explode("\r\n\r\n", $result, 2);
+		$result = $body;
+		$status = curl_getinfo($this->curl_c,CURLINFO_HTTP_CODE);
+		curl_close($this->curl_c);
+		$html = json_decode($result);
+		
+		alert("HTTP header: <pre style='background-color:transparent;border:0'>$header</pre>",'alert-error');
+		alert("HTTP status $status: $result",'alert-error');
+		alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-error');
+		
+		return $html[0];
+		
 	}
 }
 function my_json_encode($arr)
