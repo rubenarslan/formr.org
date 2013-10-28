@@ -24,6 +24,7 @@ class OpenCPU {
 	{
 		$source =
 '```{r settings,message=FALSE,warning=F,echo=F}
+options(bitmapType = "quartz");
 library(knitr)
 opts_chunk$set(warning=F,message=F,echo=F)
 '.
@@ -37,6 +38,7 @@ $this->user_data .
 	{
 		$source =
 '```{r settings,message=FALSE,warning=F,echo=F}
+options(bitmapType = "quartz");
 library(knitr)
 opts_chunk$set(warning=T,message=T,echo=T)
 '.
@@ -77,6 +79,7 @@ markdownToHTML(text =
 	public function selftest() 
 	{
 		$source = '{
+			options(bitmapType = "quartz");
 		library(knitr); library(markdown);
 		markdownToHTML(text = 
 			knit(text = "__Hello__ World `r 1`"),
