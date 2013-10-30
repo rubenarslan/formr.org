@@ -221,7 +221,8 @@ class RunUnit {
 		$css = '<link rel="stylesheet" href="'.WEBROOT.'assets/knitr.css" type="text/css">';
 		$js = '<script type="text/javascript" src="'.WEBROOT.'assets/knitr.js"></script>';
 
-		$openCPU = new OpenCPU();
+		global $settings;
+		$openCPU = new OpenCPU($settings['opencpu_instance']);
 		$openCPU->addUserData($this->getUserDataInRun());
 		return $openCPU;
 	}
