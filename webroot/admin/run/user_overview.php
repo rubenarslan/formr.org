@@ -16,7 +16,7 @@ $g_users = $fdb->prepare("SELECT
 	`survey_run_sessions`.created,
 	`survey_runs`.name AS run_name,
 	`survey_units`.type AS unit_type,
-	`users`.`email`,
+	`survey_users`.`email`,
 	DATEDIFF(NOW(), `survey_run_sessions`.last_access) AS last_access_days,
 	(`survey_units`.type IN ('Survey','External') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
 	
@@ -32,8 +32,8 @@ ON `survey_run_units`.unit_id = `survey_units`.id
 LEFT JOIN `survey_runs`
 ON `survey_run_sessions`.run_id = `survey_runs`.id 
 
-LEFT JOIN `users`
-ON `survey_run_sessions`.session = `users`.code
+LEFT JOIN `survey_users`
+ON `survey_run_sessions`.session = `survey_users`.user_code
 
 WHERE `survey_runs`.name = :run_name
 
