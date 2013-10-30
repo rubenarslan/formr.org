@@ -171,23 +171,8 @@ class RunUnit {
 	{
 		return parent::runDialog($prepend,'<i class="icon-puzzle-piece"></i>');
 	}
-	private function getUserDataInRun()
+	protected function getUserDataInRun($surveys)
 	{
-		$result_tables = $this->dbh->prepare("SELECT `survey_studies`.name FROM survey_run_units 
-			LEFT JOIN survey_units 
-		ON `survey_units`.id = `survey_run_units`.unit_id
-		LEFT JOIN `survey_studies`
-		ON `survey_units`.id = `survey_studies`.id
-		
-		WHERE `survey_run_units`.run_id = :run_id
-			AND `survey_units`.type = 'Survey'");
-		
-		$result_tables->bindParam(":run_id",$this->run_id);
-		$result_tables->execute();
-		$surveys = array();
-		while($res = $result_tables->fetch(PDO::FETCH_ASSOC))
-			$surveys[] = $res['name'];
-		
 		$results = array();
 		foreach($surveys AS $survey_name):
 			$get_results = $this->dbh->prepare("SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
@@ -213,7 +198,7 @@ class RunUnit {
 		endforeach;
 		return $results;
 	}
-	private function makeOpenCPU()
+	protected function makeOpenCPU()
 	{
 		require_once INCLUDE_ROOT . "Model/OpenCPU.php";
 
@@ -223,7 +208,6 @@ class RunUnit {
 
 		global $settings;
 		$openCPU = new OpenCPU($settings['opencpu_instance']);
-		$openCPU->addUserData($this->getUserDataInRun());
 		return $openCPU;
 	}
 	private function knittingNeeded($source)
@@ -232,6 +216,20 @@ class RunUnit {
 			 return true;
 		 else
 			return false;
+	}
+	protected function dataNeeded($fdb,$q)
+	{
+		$result_tables = $fdb->query("SELECT name FROM `survey_studies`");
+		$tables = array();
+		
+		while($res = $result_tables->fetch(PDO::FETCH_ASSOC)):
+			$result = $res['name'];
+			if(preg_match("/($result\\\$|$result\\[)/",$q)):
+				$tables[] = $result;
+			endif;
+		endwhile;
+	
+		return $tables;
 	}
 	public function getParsedBodyAdmin($source)
 	{
@@ -255,6 +253,11 @@ class RunUnit {
 			
 		if($this->knittingNeeded($source)):
 			$openCPU = $this->makeOpenCPU();
+			
+			$openCPU->addUserData($this->getUserDataInRun(
+				$this->dataNeeded($this->dbh,$source)
+			));
+			
 			return $openCPU->knitForAdminDebug($source);
 		else:
 			return $this->body_parsed;
@@ -282,6 +285,9 @@ class RunUnit {
 			else
 			{
 				$openCPU = $this->makeOpenCPU();
+				$openCPU->addUserData($this->getUserDataInRun(
+					$this->dataNeeded($this->dbh,$source)
+				));
 				$report = $openCPU->knitForUserDisplay($source);
 				if($report)
 				{

@@ -333,3 +333,9 @@ function makeUnit($dbh, $session, $unit)
 function emptyNull(&$x){
 	$x = ($x=='') ? null : $x;
 }
+function stringBool($x)
+{
+	if($x===false) return 'false';
+	elseif($x===true) return 'true';
+	else return 'null';
+}

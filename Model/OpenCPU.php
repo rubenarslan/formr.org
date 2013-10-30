@@ -40,13 +40,39 @@ class OpenCPU {
 		return $this->r_function('base/R/identity'.$return, $post, $headers);
 	}
 	
-	public function isTrue($source,$return = 'json',$headers = false)
+	public function isTrue($source,$return = '/json',$headers = false)
 	{
-		$post = array('x' => '{ $source }');
-		return $this->identity($post,$return,$headers);
+		$post = array('x' => '{ 
+			(function() {
+		'.$this->user_data.'
+			'.$source.'
+			})() }');
+			
+		$result = $this->identity($post,$return,$headers);
+		$parsed = json_decode($result);
+		if($parsed===null):
+			alert($result,'alert-error');
+			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-error');
+			return null;
+		elseif(empty($parsed)):
+			return null;
+		else:
+			return $parsed[0];
+		endif;
+	}
+	public function isTrueAdmin($source,$return = '',$headers = true)
+	{
+		$post = array('x' => '{ 
+			(function() {
+		'.$this->user_data.'
+			'.$source.'
+			})() }');
+			
+		$result = $this->identity($post,$return,$headers);
+		return $this->debugCall($result);
 	}
 	
-	public function knit($source,$return,$headers = false)
+	public function knit($source,$return = '/json',$headers = false)
 	{
 		$post = array('x' => '{
 library(knitr)
@@ -127,26 +153,32 @@ $this->user_data .
 	private function debugCall($results)
 	{
 		list($header, $results) = explode("\r\n\r\n", $results, 2);
-		
 		if($this->http_status > 302):
 			 $response = array(
 				 'Response' => '<pre>'. htmlspecialchars($results). '</pre>',
 				 'HTTP headers' => '<pre>'. htmlspecialchars($header). '</pre>',
 			 );
 		else:
-			list($first) = explode("\n",$results);
+			$available = explode("\n",$results);
 			
-			$session = explode('/',$first);
+			$session = explode('/',$available[0]);
 			$session = '/'.$session[1].'/'.$session[2] .'/'.$session[3] . '/';
 			// info/text stdout/text console/text R/.val/text
-		
-			 $response = array(
-				 'Result' => file_get_contents($this->instance. $session . 'R/.val/text'),
-				 'Console' => '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'console/text')).'</pre>',
-				 'Stdout' => '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/text')). '</pre>',
-				 'HTTP headers' => '<pre>'. htmlspecialchars($header). '</pre>',
-				 'Session info' => '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'info/text')). '</pre>'
-			 );
+			
+			$response = array();
+			if(in_array($session . 'R/.val',$available))
+				$response['Result'] = file_get_contents($this->instance. $session . 'R/.val/text');
+
+			if(in_array($session . 'console',$available))
+				$response['Console'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'console/text')).'</pre>';
+			if(in_array($session . 'stdout',$available))
+			
+				$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/text')). '</pre>';
+			
+			$response['HTTP headers'] = '<pre>'. htmlspecialchars($header). '</pre>';
+			
+			if(in_array($session . 'info',$available))
+				$response['Session info'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'info/text')). '</pre>';
 		endif;
 		
 		return $this->ArrayToAccordion($response);
