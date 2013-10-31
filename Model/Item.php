@@ -4,11 +4,12 @@ class ItemFactory
 	public $errors;
 	private $choice_lists = array();
 	private $used_choice_lists = array();
+	public $skipifs = array();
 	function __construct($choice_lists)
 	{
 		$this->choice_lists = $choice_lists;
 	}
-	function make($item) {
+	public function make($item) {
 		$type = $item['type'];
 
 		if(isset($item['choice_list']) AND $item['choice_list']):
@@ -35,6 +36,11 @@ class ItemFactory
 				array_keys($this->choice_lists),
 				array_keys($this->used_choice_lists)
 		);
+	}
+	public function skip($openCPU, $skipif)
+	{
+		$this->skipifs[$skipif] = $openCPU->evaluate($skipif);
+		return $this->skipifs[$skipif];
 	}
 }
 
@@ -195,6 +201,7 @@ class Item extends HTML_element
 	public function skip($session_id, $run_session_id, $rdb, $results_table)
 	{	
 		if($this->skipif!=null):
+			
 			if(
 			(strpos($this->skipif,'AND')!==false AND strpos($this->skipif,'OR')!==false) // and/or mixed? 
 				OR strpos($this->skipif,'.') !== false // references to other tables (very simplistic check)

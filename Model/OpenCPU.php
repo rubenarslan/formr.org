@@ -40,7 +40,7 @@ class OpenCPU {
 		return $this->r_function('base/R/identity'.$return, $post, $headers);
 	}
 	
-	public function isTrue($source,$return = '/json',$headers = false)
+	public function evaluate($source,$return = '/json',$headers = false)
 	{
 		$post = array('x' => '{ 
 			(function() {
@@ -60,7 +60,7 @@ class OpenCPU {
 			return $parsed[0];
 		endif;
 	}
-	public function isTrueAdmin($source,$return = '',$headers = true)
+	public function evaluateAdmin($source,$return = '',$headers = true)
 	{
 		$post = array('x' => '{ 
 			(function() {
@@ -170,15 +170,15 @@ $this->user_data .
 				$response['Result'] = file_get_contents($this->instance. $session . 'R/.val/text');
 
 			if(in_array($session . 'console',$available))
-				$response['Console'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'console/text')).'</pre>';
+				$response['Console'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'console/print')).'</pre>';
 			if(in_array($session . 'stdout',$available))
 			
-				$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/text')). '</pre>';
+				$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/print')). '</pre>';
 			
 			$response['HTTP headers'] = '<pre>'. htmlspecialchars($header). '</pre>';
 			
 			if(in_array($session . 'info',$available))
-				$response['Session info'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'info/text')). '</pre>';
+				$response['Session info'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'info/print')). '</pre>';
 		endif;
 		
 		return $this->ArrayToAccordion($response);
@@ -188,6 +188,7 @@ $this->user_data .
 		$acc = '<div class="accordion" id="opencpu_accordion">';
 		$first = ' in';
 		foreach($array AS $title => $content):
+			if($content == null) $content = stringBool($content);
 			$acc .= '
 <div class="accordion-group">
 	<div class="accordion-heading">

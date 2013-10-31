@@ -140,7 +140,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			<input type="text" placeholder="Email subject" name="subject" value="'.$this->subject.'">
 		</label></p>
 		<p><label>Recipient-Field: <br>
-					<input type="text" placeholder="survey_users.email" name="recipient_field" value="'.$this->recipient_field.'">
+					<input type="text" placeholder="survey_users$email" name="recipient_field" value="'.$this->recipient_field.'">
 				</label></p>
 		<p><label>Body: <br>
 			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" class="span5">'.$this->body.'</textarea></label><br>
@@ -154,35 +154,16 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	}
 	public function getRecipientField()
 	{
+		$openCPU = $this->makeOpenCPU();
+
+		$openCPU->addUserData($this->getUserDataInRun(
+			$this->dataNeeded($this->dbh,$this->recipient_field)
+		));
+
 		if($this->recipient_field === null OR trim($this->recipient_field)=='')
-			$this->recipient_field = '`survey_users`.email';
+			$this->recipient_field = 'survey_users$email';
 
-		$join = join_builder($this->dbh, $this->recipient_field);
-			
-$q = "SELECT {$this->recipient_field} AS email_field FROM `survey_run_sessions`
-	
-$join
-
-WHERE `survey_run_sessions`.id = :run_session_id
-
-ORDER BY IF(ISNULL(email_field),1,0), `survey_unit_sessions`.id DESC
-
-LIMIT 1";
-
-#pr($q);
-#pr($this->run_session_id);
-
-		$g_email = $this->dbh->prepare($q); // should use readonly
-		$g_email->bindParam(":run_session_id", $this->run_session_id);
-
-		$g_email->execute() or die(print_r($g_email->errorInfo(), true));
-		if($g_email->rowCount()===1):
-			$temp = $g_email->fetch(PDO::FETCH_ASSOC);
-			$email = $temp['email_field'];
-		else:
-			$email = '';
-		endif;
-		return $email;
+		return $openCPU->evaluate($this->recipient_field);
 	}
 	public function sendMail($who = NULL)
 	{
@@ -236,47 +217,53 @@ LIMIT 1";
 		
 		echo $this->getBody();
 		
-		if($this->recipient_field === null OR trim($this->recipient_field)=='')
-			$this->recipient_field = '`survey_users`.email';
 		
-		$join = join_builder($this->dbh, $this->recipient_field);
-			
-$q = "SELECT DISTINCT {$this->recipient_field} AS email,`survey_run_sessions`.session FROM `survey_run_sessions`
+		if($this->recipient_field === null OR trim($this->recipient_field)=='')
+			$this->recipient_field = 'survey_users$email';
+		
+		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
-$join
+		WHERE 
+			`survey_run_sessions`.run_id = :run_id
 
-WHERE `survey_run_sessions`.run_id = :run_id
-AND email IS NOT NULL
+		ORDER BY `survey_run_sessions`.position DESC,RAND()
 
-ORDER BY RAND()
-LIMIT 20";
-#echo $q;
-		$g_email = $this->dbh->prepare($q); // should use readonly
-		$g_email->bindParam(':run_id',$this->run_id);
+		LIMIT 20";
+		$get_sessions = $this->dbh->prepare($q); // should use readonly
+		$get_sessions->bindParam(':run_id',$this->run_id);
 
-		$g_email->execute() or die(print_r($g_email->errorInfo(), true));
-		if($g_email->rowCount()>=1):
+		$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
+		if($get_sessions->rowCount()>=1):
 			$results = array();
-			while($temp = $g_email->fetch())
+			while($temp = $get_sessions->fetch())
 				$results[] = $temp;
 		else:
-			echo 'Nothing found';
+			echo 'No data to compare to yet.';
 			return false;
 		endif;
-		
+
 		echo '<table class="table table-striped">
 				<thead><tr>
-					<th>Code</th>
-					<th>Email</th>
+					<th>Code (Position)</th>
+					<th>Test</th>
 				</tr></thead>
 				<tbody>"';
 		foreach($results AS $row):
+			$openCPU = $this->makeOpenCPU();
+			$this->run_session_id = $row['id'];
+
+			$openCPU->addUserData($this->getUserDataInRun(
+				$this->dataNeeded($this->dbh,$this->recipient_field)
+			));
+			$email = stringBool($openCPU->evaluate($this->recipient_field) );
+			$good = filter_var( $email, FILTER_VALIDATE_EMAIL) ? '' : 'warning';
 			echo "<tr>
-					<td><small>{$row['session']}</small></td>
-					<td>".h($row['email'])."</td>
+					<td><small>{$row['session']} ({$row['position']})</small></td>
+					<td class='$good'>".$email."</td>
 				</tr>";
 		endforeach;
 		echo '</tbody></table>';
+		$this->run_session_id = null;
 	}
 	public function remind($who)
 	{

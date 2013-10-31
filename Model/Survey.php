@@ -234,9 +234,25 @@ class Survey extends RunUnit {
 		{
 			$name = $item['name'];
 			$this->unanswered_batch[$name] = $item_factory->make($item);
-			if($this->unanswered_batch[$name]->skipif !== null)
+			$skipif = $this->unanswered_batch[$name]->skipif;
+			if($skipif !== null)
 			{
-				if($this->unanswered_batch[$name]->skip($this->session_id,$this->run_session_id,$this->dbh,$this->results_table))
+				if(isset($item_factory->skipifs[ $skipif ]))
+				{
+					$skip = $item_factory->skipifs[ $skipif ];
+				}
+				else
+				{
+					$openCPU = $this->makeOpenCPU();
+
+					$openCPU->addUserData($this->getUserDataInRun(
+						$this->dataNeeded($this->dbh, $skipif )
+					));
+					
+					$skip = $item_factory->skip($openCPU, $skipif );
+				}
+				
+				if($skip)
 				{
 					unset($this->unanswered_batch[$name]); // todo: do something else with this when we want JS?
 				}

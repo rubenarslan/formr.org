@@ -337,5 +337,7 @@ function stringBool($x)
 {
 	if($x===false) return 'false';
 	elseif($x===true) return 'true';
-	else return 'null';
+	elseif($x===null)  return 'null';
+	elseif($x===0)  return '0';
+	else return $x;
 }
