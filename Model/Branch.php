@@ -87,12 +87,12 @@ class Branch extends RunUnit {
 	}
 	public function test()
 	{
-		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id FROM `survey_run_sessions`
+		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
 		WHERE 
 			`survey_run_sessions`.run_id = :run_id
 
-		ORDER BY RAND()
+		ORDER BY `survey_run_sessions`.position DESC,RAND()
 
 		LIMIT 20";
 		$get_sessions = $this->dbh->prepare($q); // should use readonly
@@ -114,11 +114,11 @@ class Branch extends RunUnit {
 		$openCPU->addUserData($this->getUserDataInRun(
 			$this->dataNeeded($this->dbh,$this->condition)
 		));
-		echo $openCPU->isTrueAdmin($this->condition);
+		echo $openCPU->evaluateAdmin($this->condition);
 
 		echo '<table class="table table-striped">
 				<thead><tr>
-					<th>Code</th>
+					<th>Code (Position)</th>
 					<th>Test</th>
 				</tr></thead>
 				<tbody>"';
@@ -131,11 +131,12 @@ class Branch extends RunUnit {
 			));
 
 			echo "<tr>
-					<td><small>{$row['session']}</small></td>
-					<td>".stringBool($openCPU->isTrue($this->condition) )."</td>
+					<td><small>{$row['session']} ({$row['position']})</small></td>
+					<td>".stringBool($openCPU->evaluate($this->condition) )."</td>
 				</tr>";
 		endforeach;
 		echo '</tbody></table>';
+		$this->run_session_id = null;
 	} 
 	public function exec()
 	{
@@ -145,7 +146,7 @@ class Branch extends RunUnit {
 		$openCPU->addUserData($this->getUserDataInRun(
 			$this->dataNeeded($this->dbh,$this->condition)
 		));
-		$result = (bool)$openCPU->isTrue($this->condition);
+		$result = (bool)$openCPU->evaluate($this->condition);
 		$join = join_builder($this->dbh, $this->condition);
 	
 		$position = $result ? $this->if_true : $this->if_false;
