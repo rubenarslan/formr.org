@@ -175,13 +175,31 @@ class RunUnit {
 	{
 		$results = array();
 		foreach($surveys AS $survey_name):
-			$get_results = $this->dbh->prepare("SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
-			left join `survey_unit_sessions`
-				on `$survey_name`.session_id = `survey_unit_sessions`.id
-			left join `survey_run_sessions`
-				on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+			$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
+			";
+
+			$q4 = "
+			WHERE  `survey_run_sessions`.id = :run_session_id;";
 			
-			WHERE  `survey_run_sessions`.id = :run_session_id;");
+			if(!in_array($survey_name,array('survey_users'))):
+				$q2 = "left join `survey_unit_sessions`
+					on `$survey_name`.session_id = `survey_unit_sessions`.id
+				";
+				$q3 = "left join `survey_run_sessions`
+					on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+				";
+				
+			elseif($survey_name == 'survey_users'):
+				$q2 = '';
+				$q3 = "left join `survey_run_sessions`
+					on `survey_users`.id = `survey_run_sessions`.user_id
+				";
+			endif;
+			
+			$q = $q1 . $q2 . $q3 . $q4;
+
+			$get_results = $this->dbh->prepare($q);
+			
 			$get_results->bindParam(':run_session_id', $this->run_session_id);
 			$get_results->execute();
 			$results[$survey_name] = array();
@@ -219,19 +237,24 @@ class RunUnit {
 	}
 	protected function dataNeeded($fdb,$q)
 	{
+		$matches = $tables = array();
 		$result_tables = $fdb->query("SELECT name FROM `survey_studies`");
-		$tables = array();
-		
 		while($res = $result_tables->fetch(PDO::FETCH_ASSOC)):
-			$result = $res['name'];
-			if(preg_match("/($result\\\$|$result\\[)/",$q)):
-				$tables[] = $result;
-			endif;
+			$tables[] = $res['name'];
 		endwhile;
+		$tables[] = 'survey_users';
+		$tables[] = 'survey_unit_sessions';
+		$tables[] = 'survey_email_log';
+		
+		foreach($tables AS $result):
+			if(preg_match("/($result\\\$|$result\\[)/",$q)):
+				$matches[] = $result;
+			endif;
+		endforeach;
 	
-		return $tables;
+		return $matches;
 	}
-	public function getParsedBodyAdmin($source)
+	public function getParsedBodyAdmin($source,$email_embed = false)
 	{
 		$q = "SELECT id,run_session_id FROM `survey_unit_sessions`
 
@@ -248,7 +271,6 @@ class RunUnit {
 			$temp_user = $g_user->fetch(PDO::FETCH_ASSOC);
 			$this->session_id = $temp_user['id'];
 			$this->run_session_id = $temp_user['run_session_id'];
-#			pr($temp_user);
 		endif;
 			
 		if($this->knittingNeeded($source)):
@@ -258,12 +280,18 @@ class RunUnit {
 				$this->dataNeeded($this->dbh,$source)
 			));
 			
-			return $openCPU->knitForAdminDebug($source);
+			if($email_embed):
+				return $openCPU->knitEmail($source); # currently not caching email reports
+			else:
+				$report = $openCPU->knitForAdminDebug($source);
+			endif;
+			return $report;
+			
 		else:
 			return $this->body_parsed;
 		endif;
 	}
-	public function getParsedBody($source)
+	public function getParsedBody($source,$email_embed = false)
 	{
 		if(!$this->knittingNeeded($source))
 		{ // knit if need be
@@ -277,7 +305,8 @@ class RunUnit {
 			$get_report->bindParam(":unit_id",$this->id);
 			$get_report->bindParam(":session_id",$this->session_id);
 			$get_report->execute();
-			if($get_report->rowCount() > 0) 
+			
+			if(!$email_embed AND $get_report->rowCount() > 0) 
 			{
 				$report = $get_report->fetch(PDO::FETCH_ASSOC);
 				return $report['body_knit'];
@@ -288,9 +317,14 @@ class RunUnit {
 				$openCPU->addUserData($this->getUserDataInRun(
 					$this->dataNeeded($this->dbh,$source)
 				));
-				$report = $openCPU->knitForUserDisplay($source);
-				if($report)
-				{
+			
+				if($email_embed):
+					return $openCPU->knitEmail($source); # currently not caching email reports
+				else:
+					$report = $openCPU->knitForUserDisplay($source);
+				endif;
+				
+				if($report):
 					$set_report = $this->dbh->prepare("INSERT INTO `survey_reports` 
 						(`session_id`, `unit_id`, `body_knit`, `created`,	`last_viewed`) 
 				VALUES  (:session_id, :unit_id, :body_knit,  NOW(), 	NOW() ) ");
@@ -299,7 +333,7 @@ class RunUnit {
 					$set_report->bindParam(":session_id",$this->session_id);
 					$set_report->execute();
 					return $report;
-				}
+				endif;
 			}
 		}
 	}
