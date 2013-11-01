@@ -162,8 +162,6 @@ class Pause extends RunUnit {
 		
 $q = "SELECT DISTINCT ( {$condition} ) AS test,`survey_run_sessions`.session FROM `survey_run_sessions`
 
-$join
-
 WHERE 
 	`survey_run_sessions`.run_id = :run_id
 

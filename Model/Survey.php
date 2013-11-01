@@ -245,11 +245,14 @@ class Survey extends RunUnit {
 				{
 					$openCPU = $this->makeOpenCPU();
 
+					$dataNeeded = $this->dataNeeded($this->dbh, $skipif );
+					$dataNeeded[] = $this->results_table; // currently we stupidly at the current results table to every request, because it would be quite bothersome to parse the statement to understand
+					$dataNeeded = array_unique($dataNeeded);
 					$openCPU->addUserData($this->getUserDataInRun(
-						$this->dataNeeded($this->dbh, $skipif )
+						$dataNeeded
 					));
 					
-					$skip = $item_factory->skip($openCPU, $skipif );
+					$skip = $item_factory->skip($this->results_table, $openCPU, $skipif);
 				}
 				
 				if($skip)

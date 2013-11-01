@@ -37,9 +37,9 @@ class ItemFactory
 				array_keys($this->used_choice_lists)
 		);
 	}
-	public function skip($openCPU, $skipif)
+	public function skip($results_table, $openCPU, $skipif)
 	{
-		$this->skipifs[$skipif] = $openCPU->evaluate($skipif);
+		$this->skipifs[$skipif] = $openCPU->evaluateWith($results_table, $skipif);
 		return $this->skipifs[$skipif];
 	}
 }

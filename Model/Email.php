@@ -13,6 +13,7 @@ class Email extends RunUnit {
 	
 	private $body = null;
 	protected $body_parsed = null;
+	private $images = array();
 	private $subject = null;
 	private $html = null;
 	
@@ -92,7 +93,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		
 		return true;
 	}
-	private function getBody()
+	private function getBody($embed_email = true)
 	{
 		if(isset($this->run_name))		
 			$login_link = WEBROOT."{$this->run_name}?code={$this->session}";
@@ -100,14 +101,26 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 
 		if($this->html):
 			$login_link = "<a href='$login_link'>Login link</a>";
-			if($this->session_id)
-				$this->body_parsed = $this->getParsedBody($this->body);
-			else
-				$this->body_parsed = $this->getParsedBodyAdmin($this->body);
+			if($this->session_id):
+				$response = $this->getParsedBody($this->body,true);
+				$this->body_parsed = $response['body'];
+				$this->images = $response['images'];
+			else:
+				$response = $this->getParsedBodyAdmin($this->body,$embed_email);
+				if($embed_email):
+					$this->body_parsed = $response['body'];
+					$this->images = $response['images'];
+				else:
+					$this->body_parsed = $response;
+				endif;
+			endif;
+			
 			$this->body_parsed = str_replace("{{login_link}}", $login_link , $this->body_parsed );
+			$this->body_parsed = str_replace("{{login_code}}", $this->session, $this->body_parsed);
 			return $this->body_parsed;
 		else:
 			$this->body = str_replace("{{login_link}}", $login_link , $this->body);
+			$this->body = str_replace("{{login_code}}", $this->session,  $this->body);
 			return $this->body;
 		endif;
 	}
@@ -144,7 +157,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 				</label></p>
 		<p><label>Body: <br>
 			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" class="span5">'.$this->body.'</textarea></label><br>
-			<code>{{login_link}}</code> will be replaced by a personalised link to this run.</p>
+			<code>{{login_link}}</code> will be replaced by a personalised link to this run, <code>{{login_code}}</code> will be replaced with this user\'s session code.</p>
 		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
 		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Email">Save.</a>
 		<a class="btn unit_test" href="ajax_test_unit?type=Email">Test</a></p>';
@@ -156,12 +169,12 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	{
 		$openCPU = $this->makeOpenCPU();
 
+		if($this->recipient_field === null OR trim($this->recipient_field)=='')
+			$this->recipient_field = 'survey_users$email';
+		
 		$openCPU->addUserData($this->getUserDataInRun(
 			$this->dataNeeded($this->dbh,$this->recipient_field)
 		));
-
-		if($this->recipient_field === null OR trim($this->recipient_field)=='')
-			$this->recipient_field = 'survey_users$email';
 
 		return $openCPU->evaluate($this->recipient_field);
 	}
@@ -183,7 +196,23 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		
 		$mail->AddAddress($this->recipient);
 		$mail->Subject = $this->subject;
-		$mail->Body    = $this->getBody();
+		$mail->Body = $this->getBody();
+		
+		foreach($this->images AS $image_id => $image):
+			$local_image =  INCLUDE_ROOT . 'tmp/' . uniqid(). $image_id;
+			copy($image,$local_image);
+			register_shutdown_function(create_function('', "unlink('{$local_image}');")); 
+			
+	        if (!$mail->AddEmbeddedImage(
+	            $local_image,
+	            $image_id,
+	            $image_id,
+	            'base64',
+	            'image/png'
+	        )) {
+	            alert($mail->ErrorInfo,'alert-error');
+	        }
+		endforeach;
 		
 		if(!$mail->Send())
 		{
@@ -215,7 +244,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		echo "<h4>{$this->subject}</h4>";
 		echo "<p><a href='http://$link'>$link</a></p>";
 		
-		echo $this->getBody();
+		echo $this->getBody(false);
 		
 		
 		if($this->recipient_field === null OR trim($this->recipient_field)=='')
