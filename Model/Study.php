@@ -2,6 +2,7 @@
 require_once INCLUDE_ROOT . "Model/DB.php";
 require_once INCLUDE_ROOT . "Model/RunUnit.php";
 require_once INCLUDE_ROOT."Model/Item.php";
+use \Michelf\Markdown AS Markdown;
 
 // this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
 class Study extends RunUnit
@@ -136,10 +137,10 @@ class Study extends RunUnit
 		return true;
 	}
 	protected $user_defined_columns = array(
-		'name', 'label', 'type',  'type_options', 'choice_list', 'optional', 'class' ,'skipif' // study_id is not among the user_defined columns
+		'name', 'label', 'label_parsed', 'type',  'type_options', 'choice_list', 'optional', 'class' ,'skipif' // study_id is not among the user_defined columns
 	);
 	protected $choices_user_defined_columns = array(
-		'list_name', 'name', 'label' // study_id is not among the user_defined columns
+		'list_name', 'name', 'label', 'label_parsed' // study_id is not among the user_defined columns
 	);
 	protected function getChoices()
 	{
@@ -175,6 +176,7 @@ class Study extends RunUnit
 			study_id,
 	        name,
 	        label,
+			label_parsed,
 	        type,
 			type_options,
 			choice_list,
@@ -185,6 +187,7 @@ class Study extends RunUnit
 			:study_id,
 			:name,
 			:label,
+			:label_parsed,
 			:type,
 			:type_options,
 			:choice_list,
@@ -216,6 +219,16 @@ class Study extends RunUnit
 					$this->errors = $this->errors + $val_errors;
 					unset($this->SPR->survey[$row_number]);
 					continue;
+				else:
+					if(!$this->knittingNeeded($item->label)): // if the parsed label is constant
+						$markdown = Markdown::defaultTransform($item->label); // transform upon insertion into db instead of at runtime
+
+						if(substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
+							$item->label_parsed = $matches[1];
+						else:
+							$item->label_parsed = $markdown;
+						endif;
+					endif;
 				endif;
 			endif;
 
@@ -286,17 +299,29 @@ class Study extends RunUnit
 			study_id,
 	        list_name,
 			name,
-	        label
+	        label,
+			label_parsed
 		) VALUES (
 			:study_id,
 			:list_name,
 			:name,
-			:label
+			:label,
+			:label_parsed
 		)');
 		$add_choices->bindParam(":study_id", $this->id);
 		
 		foreach($this->SPR->choices AS $choice)
 		{
+			if(!$this->knittingNeeded( $choice['label'] )): // if the parsed label is constant
+				$markdown = Markdown::defaultTransform($choice['label']); // transform upon insertion into db instead of at runtime
+
+				if(substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
+					$choice['label_parsed'] = $matches[1];
+				else:
+					$choice['label_parsed'] = $markdown;
+				endif;
+			endif;
+			
 			foreach ($this->choices_user_defined_columns as $param) 
 			{
 				$add_choices->bindParam(":$param", $choice[ $param ]);
@@ -400,7 +425,7 @@ class Study extends RunUnit
 		return $row['count'];
 	}
 	public function getResults()
-	{
+	{ // fixme: shouldnt be using wildcard operator here.
 		$get = "SELECT `survey_run_sessions`.session, `{$this->name}`.* FROM `{$this->name}`
 		LEFT JOIN `survey_unit_sessions`
 		ON  `{$this->name}`.session_id = `survey_unit_sessions`.id
@@ -415,7 +440,17 @@ class Study extends RunUnit
 	}
 	public function getItemDisplayResults()
 	{
-		$get = "SELECT `survey_run_sessions`.session,`survey_items`.name, `survey_items_display`.* FROM `survey_items_display` 
+		$get = "SELECT `survey_run_sessions`.session,`survey_items`.name, 
+		`survey_items_display`.id,
+		`survey_items_display`.item_id,
+		`survey_items_display`.session_id,
+		`survey_items_display`.created,
+		`survey_items_display`.modified,
+		`survey_items_display`.answered_time,
+		`survey_items_display`.answered,
+		`survey_items_display`.displaycount
+		 
+		FROM `survey_items_display` 
 		
 		LEFT JOIN `survey_unit_sessions`
 		ON `survey_unit_sessions`.id = `survey_items_display`.session_id
@@ -482,84 +517,6 @@ class Study extends RunUnit
 			return array('finished' => 0, 'begun' => 0);
 		endif;
 	}
-
-	public function getSubstitutions()
-	{
-		$subs_query = $this->dbh->prepare ( "SELECT * FROM `survey_substitutions` WHERE `study_id` = :study_id ORDER BY id ASC" ) or die(print_r($this->dbh->errorInfo(), true));	// get all substitutions
-
-		$subs_query->bindParam(':study_id',$this->id);
-		$subs_query->execute() or die(print_r($subs_query->errorInfo(), true));	// get all substitutions
-	
-
-		$substitutions = array();
-		while( $substitution = $subs_query->fetch() )
-			$substitutions[] = $substitution; 
-
-		return $substitutions;
-		
-	}
-	public function editSubstitutions($posted)
-	{
-		$posted = array_unique($posted, SORT_REGULAR);
-/*		function addPrefix(&$arr,$key,$study_name)
-		{
-			if(isset($arr['replace']) AND !preg_match(
-			"/^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$/"
-			,$arr['replace']) AND
-			preg_match(
-						"/^[a-zA-Z0-9_]+$/"
-						,$arr['replace']))
-				$arr['replace'] = $study_name . '.' . $arr['replace'];
-			if(isset($arr['replace']) AND !preg_match(
-			"/^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$/"
-			,$arr['replace']))
-				$arr['replace'] = 'invalid';
-		}
-		array_walk($posted,"addPrefix",$this->name);*/
-		if(isset($posted['new']) AND $posted['new']['search'] != '' AND $posted['new']['replace'] != ''):
-		
-			$sub_add = $this->dbh->prepare ( "INSERT INTO `survey_substitutions` 
-			SET	
-				`study_id` = :study_id,
-				`search` = :search,
-				`replace` = :replace,
-				`mode` = :mode
-			" ) or die(print_r($this->dbh->errorInfo(), true));
-
-			$sub_add->bindParam(':study_id',$this->id);
-			$sub_add->bindParam(':mode',$posted['new']['mode']);
-			$sub_add->bindParam(':search',$posted['new']['search']);
-			$sub_add->bindParam(':replace',$posted['new']['replace']);
-			$sub_add->execute() or die(print_r($sub_add->errorInfo(), true));
-			
-			unset($posted['new']);
-		endif;
-		
-		$sub_update = $this->dbh->prepare ( "UPDATE `survey_substitutions` 
-			SET 
-				`search` = :search, 
-				`replace` = :replace, 
-				`mode` = :mode
-		WHERE `study_id` = :study_id AND id = :id" ) or die(print_r($this->dbh->errorInfo(), true));
-		$sub_update->bindParam(':study_id',$this->id);
-		
-		$sub_delete = $this->dbh->prepare ( "DELETE FROM `survey_substitutions` 
-		WHERE `study_id` = :study_id AND id = :id" ) or die(print_r($this->dbh->errorInfo(), true));
-		$sub_delete->bindParam(':study_id',$this->id);
-
-		foreach($posted AS $id => $val):
-			if(isset($val['delete'])):
-				$sub_delete->bindParam(':id',$id);
-				$sub_delete->execute() or die(print_r($sub_delete->errorInfo(), true));
-			elseif(is_array($val) AND isset($val['search']) AND $val['search']!= '' AND $val['replace']!=''):
-				$sub_update->bindParam(':id',$id);
-				$sub_update->bindParam(':search',$val['search']);
-				$sub_update->bindParam(':replace',$val['replace']);
-				$sub_update->bindParam(':mode',$val['mode']);
-				$sub_update->execute() or die(print_r($sub_update->errorInfo(), true));
-			endif;
-		endforeach;
-	}
 	public function getAverageTimeItTakes()
 	{
 		$get = "SELECT AVG( ended - created) FROM `{$this->name}`";
@@ -571,14 +528,9 @@ class Study extends RunUnit
 	}
 	public function delete()
 	{
-		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
 		$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
 		
-		$delete_study = $this->dbh->prepare("DELETE FROM `survey_studies` WHERE id = :study_id") or die(print_r($this->dbh->errorInfo(), true)); // Cascades
-		$delete_study->bindParam(':study_id',$this->id);
-		$delete_study->execute() or die(print_r($delete_study->errorInfo(), true));
-		
-		$this->dbh->commit();
+		return parent::delete();
 	}
 	public function displayForRun($prepend = '')
 	{

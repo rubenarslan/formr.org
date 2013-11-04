@@ -285,9 +285,9 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 				$this->dataNeeded($this->dbh,$this->recipient_field)
 			));
 			$email = stringBool($openCPU->evaluate($this->recipient_field) );
-			$good = filter_var( $email, FILTER_VALIDATE_EMAIL) ? '' : 'warning';
+			$good = filter_var( $email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
 			echo "<tr>
-					<td><small>{$row['session']} ({$row['position']})</small></td>
+					<td style='word-wrap:break-word;max-width:150px'><small>".$row['session']." ({$row['position']})</small></td>
 					<td class='$good'>".$email."</td>
 				</tr>";
 		endforeach;

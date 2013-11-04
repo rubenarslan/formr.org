@@ -102,7 +102,7 @@ class RunUnit {
 		$d_unit->execute() or $this->errors = $d_unit->errorInfo();
 		
 		$affected = $d_unit->rowCount();
-		if($affected):
+		if($affected): // remove from all runs
 			$d_run_unit = $this->dbh->prepare("DELETE FROM `survey_run_units` WHERE unit_id = :id;");
 			$d_run_unit->bindParam(':id', $this->id);
 			$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
@@ -174,7 +174,7 @@ class RunUnit {
 	protected function getUserDataInRun($surveys)
 	{
 		$results = array();
-		foreach($surveys AS $survey_name):
+		foreach($surveys AS $survey_name): // fixme: shouldnt be using wildcard operator here.
 			$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
 			";
 
@@ -228,7 +228,7 @@ class RunUnit {
 		$openCPU = new OpenCPU($settings['opencpu_instance']);
 		return $openCPU;
 	}
-	private function knittingNeeded($source)
+	protected function knittingNeeded($source)
 	{
 		if(strpos($source,'`r ')!==false OR strpos($source,'```{r')!==false)
 			 return true;

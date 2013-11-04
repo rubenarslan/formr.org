@@ -134,114 +134,160 @@ class TimeBranch extends RunUnit {
 	{
 		if($this->relative_to=== null OR trim($this->relative_to)=='')
 		{
-			$this->relative_to = '`survey_unit_sessions`.created';
+			$this->relative_to = 'survey_unit_sessions$created';
 		}
-		$join = join_builder($this->dbh, $this->relative_to);
-		
-
-		$conditions = array();
 		
 		
-		if($this->wait_minutes AND $this->wait_minutes!='')
-			$conditions['minute'] = "DATE_ADD({$this->relative_to}, INTERVAL :wait_minutes MINUTE) <= NOW()";
-		if($this->wait_until_date AND $this->wait_until_date != '0000-00-00') 
-			$conditions['date'] = "CURDATE() >= :wait_date";
-		if($this->wait_until_time AND $this->wait_until_time != '00:00:00')
-			$conditions['time'] = "CURTIME() >= :wait_time";
+		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
-		if(isset($conditions['time']) AND !isset($conditions['date']) AND !isset($conditions['minute']))
-			$conditions['date'] = "DATE_ADD({$this->relative_to}, INTERVAL 1 DAY) >= CURDATE()";
-		
-		if(!empty($conditions)):
-			$condition = implode($conditions," AND ");
-			
-			
-		$order = str_replace(array(':wait_minutes',':wait_date','wait_time'),array(':wait_minutes2',':wait_date2','wait_time2'),$condition);
-		
-$q = "SELECT DISTINCT ( {$condition} ) AS test,`survey_run_sessions`.session FROM `survey_run_sessions`
+		WHERE 
+			`survey_run_sessions`.run_id = :run_id
 
-$join
+		ORDER BY `survey_run_sessions`.position DESC,RAND()
 
-WHERE 
-	`survey_run_sessions`.run_id = :run_id
+		LIMIT 20";
+		$get_sessions = $this->dbh->prepare($q); // should use readonly
+		$get_sessions->bindParam(':run_id',$this->run_id);
 
-ORDER BY IF(ISNULL($order),1,0), RAND()
-
-LIMIT 20";
-		
-			echo "<pre>$q</pre>";
-			$evaluate = $this->dbh->prepare($q); // should use readonly
-			if(isset($conditions['minute'])):
-				$evaluate->bindParam(':wait_minutes',$this->wait_minutes);
-				$evaluate->bindParam(':wait_minutes2',$this->wait_minutes);
-			endif;
-			if(isset($conditions['date'])): 
-				$evaluate->bindParam(':wait_date',$this->wait_until_date);
-				$evaluate->bindParam(':wait_date2',$this->wait_until_date);
-			endif;
-			if(isset($conditions['time'])): 
-				$evaluate->bindParam(':wait_time',$this->wait_until_time);
-				$evaluate->bindParam(':wait_time2',$this->wait_until_time);
-			endif;
-			$evaluate->bindParam(':run_id',$this->run_id);
-
-			$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
-			if($evaluate->rowCount()>=1):
-				$results = array();
-				while($temp = $evaluate->fetch())
-					$results[] = $temp;
-			else:
-				echo 'Nothing found';
-				return false;
-			endif;
+		$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
+		if($get_sessions->rowCount()>=1):
+			$results = array();
+			while($temp = $get_sessions->fetch())
+				$results[] = $temp;
 		else:
-			$result = true;
+			echo 'No data to compare to yet.';
+			return false;
 		endif;
+		
+		$openCPU = $this->makeOpenCPU();
+		$this->run_session_id = current($results)['id'];
+
+		$openCPU->addUserData($this->getUserDataInRun(
+			$this->dataNeeded($this->dbh,$this->relative_to)
+		));
+
+		echo $openCPU->evaluateAdmin($this->relative_to);
 		
 		echo '<table class="table table-striped">
 				<thead><tr>
 					<th>Code</th>
+					<th>Relative to</th>
 					<th>Test</th>
 				</tr></thead>
 				<tbody>"';
+				
 		foreach($results AS $row):
+			$openCPU = $this->makeOpenCPU();
+			$this->run_session_id = $row['id'];
+
+			$openCPU->addUserData($this->getUserDataInRun(
+				$this->dataNeeded($this->dbh,$this->relative_to)
+			));
+			
+			$relative_to = $openCPU->evaluate($this->relative_to);
+	if($relative_to !== null):
+
+			$conditions = array();
+			if($this->wait_minutes AND $this->wait_minutes!='')
+				$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
+			if($this->wait_until_date AND $this->wait_until_date != '0000-00-00') 
+				$conditions['date'] = "CURDATE() >= :wait_date";
+			if($this->wait_until_time AND $this->wait_until_time != '00:00:00')
+				$conditions['time'] = "CURTIME() >= :wait_time";
+
+			if(isset($conditions['time']) AND !isset($conditions['date']) AND !isset($conditions['minute']))
+				$conditions['date'] = "DATE_ADD(:relative_to, INTERVAL 1 DAY) >= CURDATE()";
+		
+			if(!empty($conditions)):
+				$condition = implode($conditions," AND ");
+		
+				$order = str_replace(array(':wait_minutes',':wait_date',':wait_time',':relative_to'),array(':wait_minutes2',':wait_date2',':wait_time2',':relative_to2'),$condition);
+		
+	$q = "SELECT DISTINCT ( {$condition} ) AS test,`survey_run_sessions`.session FROM `survey_run_sessions`
+
+		left join `survey_unit_sessions`
+			on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+
+	WHERE 
+		`survey_run_sessions`.id = :run_session_id AND
+		:relative_to3 IS NOT NULL
+
+	ORDER BY IF(ISNULL($order),1,0), RAND()
+
+	LIMIT 1";
+		
+				$evaluate = $this->dbh->prepare($q); // should use readonly
+				if(isset($conditions['minute'])):
+					$evaluate->bindParam(':wait_minutes',$this->wait_minutes);
+					$evaluate->bindParam(':wait_minutes2',$this->wait_minutes);
+				endif;
+				if(isset($conditions['date'])): 
+					$evaluate->bindParam(':wait_date',$this->wait_until_date);
+					$evaluate->bindParam(':wait_date2',$this->wait_until_date);
+				endif;
+				if(isset($conditions['time'])): 
+					$evaluate->bindParam(':wait_time',$this->wait_until_time);
+					$evaluate->bindParam(':wait_time2',$this->wait_until_time);
+				endif;
+				$evaluate->bindParam(':relative_to',$relative_to);
+				$evaluate->bindParam(':relative_to2',$relative_to);
+				$evaluate->bindParam(':relative_to3',$relative_to);
+				$evaluate->bindParam(':run_session_id',$this->run_session_id);
+
+				$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
+				if($evaluate->rowCount()===1):
+					$temp = $evaluate->fetch();
+					$result = $temp['test'];
+				endif;
+			else:
+				$result = true;
+			endif;
+	else:
+		$result = null;
+	endif;
+			
 			echo "<tr>
-					<td><small>{$row['session']}</small></td>
-					<td>".h((int)$row['test'])."</td>
+					<td style='word-wrap:break-word;max-width:150px'><small>".$row['session']." ({$row['position']})</small></td>
+					<td><small>".stringBool($relative_to )."</small></td>
+					<td>".stringBool($result )."</td>
 				</tr>";
+
 		endforeach;
 		echo '</tbody></table>';
-		
 	}
 	public function exec()
 	{
 		if($this->relative_to=== null OR trim($this->relative_to)=='')
 		{
-			$this->relative_to = '`survey_unit_sessions`.created';
+			$this->relative_to = 'survey_unit_sessions$created';
 		}
-		$join = join_builder($this->dbh, $this->relative_to);
-		
+		$openCPU = $this->makeOpenCPU();
 
+		$openCPU->addUserData($this->getUserDataInRun(
+			$this->dataNeeded($this->dbh,$this->relative_to)
+		));
 		
+		$relative_to = $openCPU->evaluate($this->relative_to);
+
 		$conditions = array();
 		if($this->wait_minutes AND $this->wait_minutes!='')
-			$conditions['minute'] = "DATE_ADD({$this->relative_to}, INTERVAL :wait_minutes MINUTE) <= NOW()";
+			$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
 		if($this->wait_until_date AND $this->wait_until_date != '0000-00-00') 
 			$conditions['date'] = "CURDATE() >= :wait_date";
 		if($this->wait_until_time AND $this->wait_until_time != '00:00:00')
 			$conditions['time'] = "CURTIME() >= :wait_time";
 
 		if(isset($conditions['time']) AND !isset($conditions['date']) AND !isset($conditions['minute']))
-			$conditions['date'] = "DATE_ADD({$this->relative_to}, INTERVAL 1 DAY) >= CURDATE()";
+			$conditions['date'] = "DATE_ADD(:relative_to, INTERVAL 1 DAY) >= CURDATE()";
 		
 		if(!empty($conditions)):
 			$condition = implode($conditions," AND ");
-			
-		$order = str_replace(array(':wait_minutes',':wait_date','wait_time'),array(':wait_minutes2',':wait_date2','wait_time2'),$condition);
+
+		$order = str_replace(array(':wait_minutes',':wait_date',':wait_time',':relative_to'),array(':wait_minutes2',':wait_date2',':wait_time2',':relative_to2'),$condition);
 
 	$q = "SELECT ( {$condition} ) AS test FROM `survey_run_sessions`
-	
-	$join
+		left join `survey_unit_sessions`
+			on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 	
 	WHERE 
 	`survey_run_sessions`.`id` = :run_session_id
@@ -249,7 +295,6 @@ LIMIT 20";
 	ORDER BY IF(ISNULL( ( {$order} ) ),1,0), `survey_unit_sessions`.id DESC
 	
 	LIMIT 1";
-#	pr($q);
 			$evaluate = $this->dbh->prepare($q); // should use readonly
 			if(isset($conditions['minute'])):
 				$evaluate->bindParam(':wait_minutes',$this->wait_minutes);
@@ -263,6 +308,8 @@ LIMIT 20";
 				$evaluate->bindParam(':wait_time',$this->wait_until_time);
 				$evaluate->bindParam(':wait_time2',$this->wait_until_time);
 			endif;
+			$evaluate->bindParam(':relative_to',$relative_to);
+			$evaluate->bindParam(':relative_to2',$relative_to);			
 			$evaluate->bindParam(":run_session_id", $this->run_session_id);
 		
 
@@ -276,7 +323,7 @@ LIMIT 20";
 		else:
 			$result = true;
 		endif;
-
+		
 		$position = $result ? $this->if_true : $this->if_false;
 		
 		

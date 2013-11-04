@@ -36,7 +36,7 @@ function empty_column($col,$arr)
 	return $empty;
 }
 $use_columns = $empty_columns = array();
-$display_columns = array('type','name','label','optional','class','skipif','choices');
+$display_columns = array('type','name','label_parsed','optional','class','skipif','choices');
 foreach(current($results) AS $field => $value):
 	
 	if(in_array($field,$display_columns) AND !empty_column($field,$results)):
@@ -85,6 +85,7 @@ foreach($results AS $row):
 			continue;
 		
 		else:
+			if($field == 'label_parsed' AND $cell === null) $cell = $row->label;
 	        echo "<td>$cell</td>";
 		endif;
 	endforeach;

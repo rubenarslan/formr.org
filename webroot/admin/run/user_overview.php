@@ -33,7 +33,7 @@ LEFT JOIN `survey_runs`
 ON `survey_run_sessions`.run_id = `survey_runs`.id 
 
 LEFT JOIN `survey_users`
-ON `survey_run_sessions`.session = `survey_users`.user_code
+ON `survey_run_sessions`.user_id = `survey_users`.id
 
 WHERE `survey_runs`.name = :run_name
 

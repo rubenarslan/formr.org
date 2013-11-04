@@ -2,6 +2,7 @@
 require_once INCLUDE_ROOT."Model/DB.php";
 require_once INCLUDE_ROOT."Model/Item.php";
 require_once INCLUDE_ROOT."Model/RunUnit.php";
+use \Michelf\Markdown AS Markdown;
 
 class Survey extends RunUnit {
 	public $id = null;
@@ -189,16 +190,32 @@ class Survey extends RunUnit {
 	}
 	protected function getChoices()
 	{
-		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
+		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label, label_parsed FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
 		ORDER BY `survey_item_choices`.id ASC;");
 		$get_item_choices->bindParam(":study_id", $this->id); // delete cascades to item display
 		$get_item_choices->execute() or die(print_r($get_item_choices->errorInfo(), true));
 		$choice_lists = array();
 		while($row = $get_item_choices->fetch(PDO::FETCH_ASSOC)):
-			if(!isset($choice_lists[ $row['list_name'] ]))
+			if(!isset($choice_lists[ $row['list_name'] ])):
 				$choice_lists[ $row['list_name'] ] = array();
+			endif;
 			
-			$choice_lists[ $row['list_name'] ][$row['name']] = $row['label'];
+			if($row['label_parsed'] === null):
+				$openCPU = $this->makeOpenCPU();
+		
+				$openCPU->addUserData($this->getUserDataInRun(
+					$this->dataNeeded($this->dbh, $row['label'])
+				));
+				
+				$markdown = $openCPU->knitForUserDisplay($row['label']);
+				
+				if(substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)): // simple wraps are eliminated
+					$row['label_parsed'] = $matches[1];
+				else:
+					$row['label_parsed'] = $markdown;
+				endif;
+			endif;
+			$choice_lists[ $row['list_name'] ][$row['name']] = $row['label_parsed'];
 		endwhile;
 		return $choice_lists;	
 	}
@@ -206,9 +223,21 @@ class Survey extends RunUnit {
 		$this->unanswered_batch = array();
 		
 		$item_query = "SELECT 
-				`survey_items`.*,
+				`survey_items`.id,
+				`survey_items`.study_id,
+				`survey_items`.type,
+				`survey_items`.choice_list,
+				`survey_items`.type_options,
+				`survey_items`.name,
+				`survey_items`.label,
+				`survey_items`.label_parsed,
+				`survey_items`.optional,
+				`survey_items`.class,
+				`survey_items`.skipif,
+				
 		`survey_items_display`.displaycount, 
 		`survey_items_display`.session_id
+		
 					FROM 
 			`survey_items` LEFT JOIN `survey_items_display`
 		ON `survey_items_display`.session_id = :session_id
@@ -291,7 +320,6 @@ class Survey extends RunUnit {
 	protected function render_items() 
 	{
 		$ret = '';
-		$substitutions = $this->getSubstitutions();
 		$items = $this->unanswered_batch;
 		
 		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
@@ -341,19 +369,26 @@ class Survey extends RunUnit {
 				}
 			}
 			
-	        // Gibt es Bedingungen, unter denen das Item alternativ formuliert wird?
 			
 			$item->viewedBy($view_update);
 			$itemsDisplayed++;
 			
-			if(!empty($substitutions['search']))
-			{
-		        $item->substituteText($substitutions);				
-			}
+			if($item->label_parsed === null): // item label has to be dynamically generated with user data
+				$openCPU = $this->makeOpenCPU();
+		
+				$openCPU->addUserData($this->getUserDataInRun(
+					$this->dataNeeded($this->dbh,$item->label)
+				));
+				$markdown = $openCPU->knitForUserDisplay($item->label);
+				
+				if(substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)): // simple wraps are eliminated
+					$item->label_parsed = $matches[1];
+				else:
+					$item->label_parsed = $markdown;
+				endif;
+			endif;
 
-			
 			$ret .= $item->render();
-#			$ret .= '<strong>'.key($items);
 
 	        // when the maximum number of items to display is reached, stop
 	        if (
@@ -371,10 +406,10 @@ class Survey extends RunUnit {
 		{
 			if(isset($this->settings["submit_button_text"])):
 				$sub_sets = array(
-								'label' => $this->settings["submit_button_text"]
+								'label_parsed' => $this->settings["submit_button_text"]
 				);
 			else:
-				$sub_sets = array('label' => 'Weiter', 'class_input' => 'btn-info');
+				$sub_sets = array('label_parsed' => 'Weiter', 'class_input' => 'btn-info');
 			endif;
 			$item = new Item_submit($sub_sets);
 			$ret .= $item->render();
@@ -387,65 +422,7 @@ class Survey extends RunUnit {
 	{
 	    return "</form>"; /* close form */
 	}
-	protected function getSubstitutions() 
-	{
-		$subs_query = $this->dbh->prepare ( "SELECT `search`,`replace`,`mode` FROM `survey_substitutions` WHERE `study_id` = :study_id ORDER BY id DESC" );	// get all substitutions
 
-		$subs_query->bindParam(':study_id',$this->id);
-		$subs_query->execute();	// get all substitutions
-
-
-		$search = $replace = array();
-
-		while( $substitution = $subs_query->fetch() ) 
-		{
-			if(!$this->run_session_id):
-				alert('<strong>Information:</strong> You can only test substitutions within runs.','alert-info');
-			else:
-			
-				if($substitution['mode']=='ASC'):
-					$mode = 'ASC';
-				else:
-					$mode = 'DESC';
-				endif;
-			
-				if(strpos($substitution['replace'], ".")===-1)
-					$substitution['replace'] = $this->results_table . "." . $substitution['replace'];
-
-				$join = join_builder($this->dbh, $substitution['replace']);
-				$q = "SELECT ( {$substitution['replace']} ) AS `replace` FROM `survey_run_sessions`
-
-				$join
-
-				WHERE 
-				`survey_run_sessions`.`id` = :run_session_id
-
-				ORDER BY IF(ISNULL( ( {$substitution['replace']} ) ),1,0), `survey_unit_sessions`.id $mode
-
-				LIMIT 1";
-				$get_entered = $this->dbh->prepare($q);
-		
-				$get_entered->bindParam(":run_session_id",$this->run_session_id);
-				try
-				{
-					$get_entered->execute();
-				}
-				catch(Exception $e)
-				{
-					echo __("Column %s not found.", $substitution['replace']);
-					print_r($e);
-				}
-
-				if( $data = $get_entered->fetch(PDO::FETCH_NUM))
-				{
-				    $search[] = $substitution['search'];
-				    $replace[] = h($data[0]);
-				}
-			endif;
-		}
-		return array('search' => $search,'replace' => $replace);
-	}
-	
 	public function end()
 	{
 		$post_form = $this->dbh->prepare("UPDATE 
