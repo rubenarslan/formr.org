@@ -44,7 +44,7 @@ if(!$study->valid)
 	$errors = $errors + $study->errors;
 }
 
-if (empty($errors)):	
+if (empty($errors)):
 	umask(0002);
 	ini_set('memory_limit', '256M');
 	$target = $_FILES['uploaded']['tmp_name'];
@@ -79,6 +79,7 @@ if (empty($errors)):
 	$messages =  array_merge($messages, $SPR->messages);
 endif;
 
+// if items are ok, make actual survey
 if (empty($errors)):
 
     if (empty($study->errors) AND $study->createSurvey($SPR) ):

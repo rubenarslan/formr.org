@@ -27,7 +27,7 @@ class Run
 	public $valid = false;
 	public $public = false;
 	public $cron_active = false;
-	private $api_secret = null;
+	private $api_secret_hash = null;
 	public $settings = array();
 	public $errors = array();
 	public $messages = array();
@@ -39,7 +39,7 @@ class Run
 		
 		if($name !== null OR ($name = $this->create($options))):
 			$this->name = $name;
-			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret,public,cron_active FROM `survey_runs` WHERE name = :run_name LIMIT 1");
+			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active FROM `survey_runs` WHERE name = :run_name LIMIT 1");
 			$run_data->bindParam(":run_name",$this->name);
 			$run_data->execute() or die(print_r($run_data->errorInfo(), true));
 			$vars = $run_data->fetch(PDO::FETCH_ASSOC);
@@ -47,7 +47,7 @@ class Run
 			if($vars):
 				$this->id = $vars['id'];
 				$this->user_id = $vars['user_id'];
-				$this->api_secret = $vars['api_secret'];
+				$this->api_secret_hash = $vars['api_secret_hash'];
 				$this->public = $vars['public'];
 				$this->cron_active = $vars['cron_active'];
 			
@@ -80,12 +80,12 @@ class Run
 	public function getApiSecret($user)
 	{
 		if($user->isAdmin())
-			return $this->api_secret;
+			return $this->api_secret_hash;
 		return false;
 	}
 	public function hasApiAccess($secret)
 	{
-		return $this->api_secret === $secret;
+		return $this->api_secret_hash === $secret;
 	}
 	
 	public function delete()
@@ -130,11 +130,11 @@ class Run
 		endif;
 
 		$this->dbh->beginTransaction();
-		$create = $this->dbh->prepare("INSERT INTO `survey_runs` (user_id, name, api_secret) VALUES (:user_id, :name, :api_secret);");
+		$create = $this->dbh->prepare("INSERT INTO `survey_runs` (user_id, name, api_secret_hash) VALUES (:user_id, :name, :api_secret_hash);");
 		$create->bindParam(':user_id',$options['user_id']);
 		$create->bindParam(':name',$name);
 		$new_secret = bin2hex(openssl_random_pseudo_bytes(32));
-		$create->bindParam(':api_secret',$new_secret);
+		$create->bindParam(':api_secret_hash',$new_secret);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
 
@@ -190,8 +190,15 @@ class Run
 	{
 		$g_unit = $this->dbh->prepare(
 		"SELECT 
-			`survey_run_units`.*,
-			`survey_units`.*
+			`survey_run_units`.id,
+			`survey_run_units`.run_id,
+			`survey_run_units`.unit_id,
+			`survey_run_units`.position,
+			
+			`survey_units`.id,
+			`survey_units`.type,
+			`survey_units`.created,
+			`survey_units`.modified
 			
 			 FROM `survey_run_units` 
 			 

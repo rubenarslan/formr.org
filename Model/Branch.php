@@ -131,7 +131,7 @@ class Branch extends RunUnit {
 			));
 
 			echo "<tr>
-					<td><small>{$row['session']} ({$row['position']})</small></td>
+					<td style='word-wrap:break-word;max-width:150px'><small>".$row['session']." ({$row['position']})</small></td>
 					<td>".stringBool($openCPU->evaluate($this->condition) )."</td>
 				</tr>";
 		endforeach;

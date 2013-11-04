@@ -192,17 +192,21 @@ $this->user_data .
 	}
 	public function debugCall($results)
 	{
-		list($header, $results) = explode("\r\n\r\n", $results, 2);
+		$header = substr($results, 0, $this->header_size);
+		$results = substr($results, $this->header_size);
+##		list($header, $results) = explode("\r\n\r\n", $results, 2); # does not work with 100 Continue
 		if($this->http_status > 302):
 			 $response = array(
 				 'Response' => '<pre>'. htmlspecialchars($results). '</pre>',
 				 'HTTP headers' => '<pre>'. htmlspecialchars($header). '</pre>',
 			 );
 		else:
+			$header_parsed = http_parse_headers($header);
 			$available = explode("\n",$results);
-			
-			$session = explode('/',$available[0]);
-			$session = '/'.$session[1].'/'.$session[2] .'/'.$session[3] . '/';
+
+			$session = '/ocpu/tmp/'. $header_parsed['X-ocpu-session'] . '/';
+#			$session = explode('/',$available[0]);
+#			$session = '/'.$session[1].'/'.$session[2] .'/'.$session[3] . '/';
 			// info/text stdout/text console/text R/.val/text
 			
 			$response = array();
