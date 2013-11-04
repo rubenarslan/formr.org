@@ -1,10 +1,12 @@
 # formr survey framework
 
-This is a framework that allows you to create simple and complex studies using Spreadsheets with items for the surveys and "runs" for chaining together various modules.
+**chain simple forms into longer runs using the power of R to generate pretty feedback and complex designs**
+
+This is a framework that allows you to create simple and complex studies using spreadsheets with items for the surveys and "runs" for chaining together various modules.
 
 ## Runs and their modules
 
-Simple surveys can be made into elaborate studies by using "runs".
+Simple surveys can be turned into elaborate studies by using "runs".
 
 Runs allow you to chain various modules and thus:
 
@@ -20,34 +22,33 @@ Using branching and pauses, the following designs should be possible:
 
 * simple one-shot surveys
 * surveys with eligibility rules (using branch conditions, e.g. `demographics.age > 30`)
-* diary studies (using branch conditions `COUNT(diary.session_id) < 14` -> start diary again the next day -> if finished continue)
-* longitudinal studies using pauses (ie. wait 2 months after last participation). The items of wave 2 need not be clear at wave 1!
+* diary studies (using branch conditions `nrow(diary) < 14` -> start diary again the next day -> if finished continue)
+* longitudinal studies using pauses (ie. wait 2 months after last participation). The items of wave 2 need not be finalised at wave 1.
 
 ### Pause
 This simple component allows you to delay the continuation of the run until a certain date, time of day or to wait relative to a date that a user specified (such as her graduation date or the last time he cut his nails). See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise the text shown while waiting.
 
 ### Branch
-Branches are components that allow to execute readonly SQL commands on all surveys you created. Depending on whether the results evaluates to true/1 or false/0, you can go to different positions in the run - these can be later in the run or earlier in the run (thus creating loops).
+Branches are components that allow to evaluate R conditions on a user's data. Depending on whether the result evaluates to true/1 or false/0, you can go to different positions in the run - these can be later or earlier in the run (the latter creates loops, for e.g. diaries, training interventions, etc.).
 
 ### TimeBranch
-These components are the bastard children of a Pause + Branch: If the user accesses the run within the specified time frame (like a Pause), the run jumps to one position in the run (like a Branch). If she doesn't, the run progresses to a different position in the run (e.g. to a reminder email). This component is useful, if you need to set up a period during which a survey is accessible or if you want to send reminders automatically after some time elapsed. 
+These components are the bastard children of a Pause + Branch: If the user accesses the run within the specified time frame (like a Pause), the run jumps to one position in the run (like a Branch). If she doesn't, the run progresses to a different position in the run (e.g. to a reminder email). This component is useful, if you need to set up a period during which a survey is accessible or if you want to automatically send reminders after some time elapsed. 
 See the **OpenCPU + R + Knitr + Markdown** section to find out how to customise the text shown while waiting.
 
 ### Email
-Using an SMTP gateway that you can set up in the admin area, you can send emails to your users. Using the tag `{{login_link}}`, you can send users a personalised link to the run, you can also use `{{login_code}}` to use the session code to create custom links, e.g. for inviting peers to rate this person. See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise email text.
+Using an SMTP gateway that you can set up in the admin area, you can send emails to your users. Using the tag `{{login_link}}`, you can send users a personalised link to the run, you can also use `{{login_code}}` to use the session code to create custom links, e.g. for inviting peers to rate this person (informants). See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise email text.
 
 ### External link
-These are simple external links - you can use them to send users to other, specialised data collection modules, such as a social network generator. If you insert the placeholder `%s`, it will be replaced by the users run_session code, allowing you to link data later. You can choose to "end" this component before the user is redirected to the link or by enabling your external module to call our API to close it, when it's done. 
+These are simple external links - use them to send users to other, specialised data collection modules, such as a social network generator. If you insert the placeholder `%s`, it will be replaced by the users run_session code, allowing you to link data later. You can either choose to "finish" this component *before* the user is redirected (the simple way) or enable your external module to call our API to close it only, when the external component is finished (the proper way). 
 
 ### Page
-Simple text pages. See the **OpenCPU + R + Knitr + Markdown** section to find out how to generate personalised feedback.
+Simple text pages. See the **OpenCPU + R + Knitr + Markdown** section to find out how to generate personalised feedback, including plots.
 
 ### Survey
 Surveys are series of questions that are created using simple spreadsheets/**item tables** (ie. Excel, OpenOffice, etc.: *.xls, *.ods, *.xlsx, *.csv etc.).
-Survey results are stored in MySQL tables of the same name, which can be used for various conditions later on.
 
-You can add the same survey several times or even loop using branches.  
-You can also use the same survey across different runs. For example this would allow you to ask respondents for their demographic information only once. You'd do this by using a Branch with the condition `COUNT(demographics.session_id) > 0` and skipping over the demographics survey, if true.
+You can add the same survey to a run several times or even loop them using branches.  
+You can also use the same survey across different runs. For example this would allow you to ask respondents for their demographic information only once. You'd do this by using a Branch with the condition `nrow(demographics) > 0` and skipping over the demographics survey, if true.
 
 Survey names may only contain the characters `a-zA-Z0-9_` and need to start with a letter.
 
@@ -60,9 +61,9 @@ Survey names may only contain the characters `a-zA-Z0-9_` and need to start with
 	* The following column names are used. You can add others, they will be ignored. 
 		* **_name_** (mandatory). This can only contain `a-zA-Z0-9_` and needs to start with a letter.
 		* **_type_** (mandatory). See below.
-		* **label**. You can use [Markdown](http://daringfireball.net/projects/markdown/) and HTML in the question texts. You can also use [Font Awesome](http://fontawesome.io) icons.
-		* **skipif** You can refer to the same survey here or you can reference other surveys using `survey_name.variable_name`. SQL syntax.
-		* **optional** You can make an item optional (most items are mandatory by default), by using the `*` character in the optional-column. Items optional by default (`check`, `btncheck`, `mmc`) can be made mandatory by using the the `#` character in the optional-column.
+		* **label**. You can use Knitr, [Markdown](http://daringfireball.net/projects/markdown/) and HTML in the question texts. You can also use [Font Awesome](http://fontawesome.io) icons.
+		* **skipif** You can refer to the same survey here `variable_name == 2` or you can reference other surveys using `survey_name$variable_name == 2` (evaluated via OpenCPU in R).
+		* **optional** You can make an item optional (most items are mandatory by default), by using the `*` character in the optional-column. Items optional by default (`check`, `btncheck`, `mmc`) can be made mandatory by using the the `!` character in the optional-column.
 		* **choice1, choice2, ..., choice14** (you can use these columns to quickly add choices. If you use many choices repeatedly or need more than 14 choices, it makes more sense to put them on the choices sheet)
 * The second, optional sheet should have the name **choices**, if no such sheet exists, we use the second one.
 	* The following column names are used (in order).
@@ -112,27 +113,32 @@ Surveys support the following item types. HTML5 form elements and validation are
 
 #### skipif
 
-You can make item display contingent on simple and complex conditions like `(survey1.married = 1) OR (survey2.in_relationship = 1 AND survey2.cohabit = 1)`.
+You can make item display contingent on simple and complex conditions like `(survey1$married == 1) | (survey2$in_relationship == 1 & survey2$cohabit == 1)`.
 
 ## OpenCPU + R + Knitr + Markdown
+[OpenCPU](https://public.opencpu.org/pages/) is a way to safely use complex [R](http://www.r-project.org/) expressions on the web. We use it for all kinds of stuff.
+
 In pauses, emails and pages you can display text to the user. This text is easily formatted using [Markdown](http://daringfireball.net/projects/markdown/) a simple syntax that formats text nicely if you simply write like you would write a plain text email. Markdown can be freely mixed with HTML, so you can e.g. insert icons from the [Font Awesome](http://fontawesome.io) library using `<i class="icon-smile"></i>`.
 
-If you use knitr syntax, where Markdown can be used, the text will not just be parsed as Markdown (which is mostly static, unless you use Javascript), but also be parsed (anew each time) by [knitr](http://yihui.name/knitr/). Knitr allows for mixing R syntax chunks and Markdown. [R](http://www.r-project.org/) is a popular open-source statistical programming language, that you can use via [OpenCPU](https://public.opencpu.org/pages/), a RESTful interface to the language that deals with the problem that R was not meant to be used as part of web apps and is insecure. R data frames with the same names as the surveys they derive from will be available in this knitr call, they contain all data that the current user has filled out so far.  
+If you use knitr syntax, where Markdown can be used, the text will not just be parsed as Markdown (which is mostly static, unless you use Javascript), but also be parsed (anew each time) by [knitr](http://yihui.name/knitr/). Knitr allows for mixing R syntax chunks and Markdown.  
+[R](http://www.r-project.org/) is a popular open-source statistical programming language, that you can use via [OpenCPU](https://public.opencpu.org/pages/), a RESTful interface to the language that deals with the problem that R was not meant to be used as part of web apps and is insecure. R data frames with the same names as the surveys they derive from will be available in this knitr call, they contain all data that the current user has filled out so far.  
 Combined with norm data etc. you can tailor feedback to the user's input, e.g. show where the user lies on the bell curve etc.
+
+R expressions are also evaluated in many other places, e.g. in the simplest case to find out which address an email should be sent to, or what date a pause should be relative to. More complex logic will probably take place in branches, where you might even want to do some basic data analysis
 
 ### Example
 This may sound complicated at first, but should be really simple to use, while still providing most of the functionality available to R users (e.g. pretty [ggplot2](http://ggplot2.org/) plots).
 
 Using this syntax will yield the following results (assuming that the surveys "demographics" and "mood_diary" exist and contain the appropriate data)
 
-	Hi `r demographics[1,]$first_name`!
+	Hi `r demographics$first_name`!
 	
 	This is a graph showing how **your mood** fluctuated across the 50 days that you filled out our diary.
 	
 	### Graph
 	```{r mood.plot}
 	library(ggplot2)
-	mood_diary$mood <- rowSums(user_data[,c('mood1','mood2','mood3')])
+	mood_diary$mood <- rowSums(mood_diary[,c('mood1','mood2','mood3')])
 	qplot(Day, mood, data = mood_diary) + geom_smooth() + scale_y_continuous("Your mood") + theme_bw()
 	```
 	
@@ -140,7 +146,7 @@ Using this syntax will yield the following results (assuming that the surveys "d
 
 Hi Petunia!
 
-This is a graph showing how <strong>your mood</strong> fluctuated across the 50 days that you filled out our diary.
+This is a graph showing how **your mood** fluctuated across the 50 days that you filled out our diary.
 
 ### Graph
 
