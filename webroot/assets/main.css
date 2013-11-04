@@ -521,3 +521,66 @@ div.pos_changed input {
 {
 	clear:both;
 }
+
+.btn {
+    background-color: transparent;
+    background-image: none;
+    border: #000 solid 1px;
+    color: #000;
+    text-shadow: none;
+}
+.btn:hover,.btn:active,.btn:focus {
+    background-color: #F0F0F0;
+    color: #000;
+}
+.btn-info {
+    background-color: transparent;
+    background-image: none;
+    border: #5BC0DE solid 1px;
+    color: #5BC0DE;
+    text-shadow: none;
+}
+.btn-info:hover,.btn-info:active,.btn-info:focus {
+    background-color: #DCF7FB;
+    color: #5BC0DE;
+}
+.btn-success {
+    background-color: transparent;
+    background-image: none;
+    border: #62c462 solid 1px;
+    color: #62c462;
+    text-shadow: none;
+}
+.btn-success:hover,.btn-success:active,.btn-success:focus {
+    background-color: #CFEACC;
+    color: #62c462;
+}
+.btn-danger {
+    background-color: transparent;
+    background-image: none;
+    border: #ee5f5b solid 1px;
+    color: #ee5f5b;
+    text-shadow: none;
+}
+.btn-danger:hover,.btn-danger:active,.btn-danger:focus {
+    background-color: #FFBBB6;
+    color: #ee5f5b;
+}
+.btn-warning {
+    background-color: transparent;
+    background-image: none;
+    border: #fbb450 solid 1px;
+    color: #fbb450;
+    text-shadow: none;
+}
+.btn-warning:hover,.btn-warning:active,.btn-warning:focus {
+    background-color: #FDEFD9;
+    color: #fbb450;
+}
+.form-horizontal .item-submit .controls
+{
+    padding-top:10px;
+    padding-bottom:10px;
+}
+.bigdrop.select2-container .select2-results {max-height: 300px;}
+.bigdrop .select2-results {max-height: 300px;}
