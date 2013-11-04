@@ -79,9 +79,14 @@ RunUnit.prototype.test = function(e)
 		.done($.proxy(function(data)
 		{
 			
-			var $modal = $($.parseHTML('<div id="myModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">  <div class="modal-header">    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>    <h3 id="myModalLabel">Test result</h3>  </div>  <div class="modal-body">' + data + '  </div>  <div class="modal-footer">    <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>  </div></div>'));
-			$modal.modal('show');
+			var $modal = $($.parseHTML('<div class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">  <div class="modal-header">    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>    <h3 id="myModalLabel">Test result</h3>  </div>  <div class="modal-body">' + data + '  </div>  <div class="modal-footer">    <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>  </div></div>'));
+			$modal.modal('show').on('hidden',function() {
+			    $modal.remove();
+			});
             $("#opencpu_accordion").collapse({toggle:true});
+            $modal.find('#opencpu_accordion').on('hidden', function (event) {
+              event.stopPropagation()
+            });
 		},this))
 		.fail(ajaxErrorHandling);
 	return false;

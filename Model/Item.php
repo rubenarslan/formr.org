@@ -4,17 +4,18 @@ class ItemFactory
 	public $errors;
 	private $choice_lists = array();
 	private $used_choice_lists = array();
+	public $skipifs = array();
 	function __construct($choice_lists)
 	{
 		$this->choice_lists = $choice_lists;
 	}
-	function make($item) {
+	public function make($item) {
 		$type = $item['type'];
 
-		if(isset($item['choice_list']) AND $item['choice_list']):
-			if(isset($this->choice_lists[ $item['choice_list'] ])):
-				$item['choices'] = $this->choice_lists[ $item['choice_list'] ];
-				$this->used_choice_lists[ $item['choice_list'] ] = true;
+		if(isset($item['choice_list']) AND $item['choice_list']): // if it has choices
+			if(isset($this->choice_lists[ $item['choice_list'] ])): // if this choice_list exists
+				$item['choices'] = $this->choice_lists[ $item['choice_list'] ]; // take it
+				$this->used_choice_lists[ $item['choice_list'] ] = true; // check it as used
 			else:
 				$item['val_errors'] = array(__("Choice list %s does not exist, but is specified for item %s", $item['choice_list'], $item['name']));
 			endif;
@@ -36,6 +37,11 @@ class ItemFactory
 				array_keys($this->used_choice_lists)
 		);
 	}
+	public function skip($results_table, $openCPU, $skipif)
+	{
+		$this->skipifs[$skipif] = $openCPU->evaluateWith($results_table, $skipif);
+		return $this->skipifs[$skipif];
+	}
 }
 
 // the default item is a text input, as many browser render any input type they don't understand as 'text'.
@@ -50,6 +56,7 @@ class Item extends HTML_element
 	public $type_options = null;
 	public $choice_list = null;
 	public $label = null;
+	public $label_parsed = null;
 	public $optional = 0;
 	public $class = null;
 	public $skipif = null;
@@ -85,6 +92,7 @@ class Item extends HTML_element
 			$this->name = $options['name'];
 		
 		$this->label = isset($options['label'])?$options['label']:'';
+		$this->label_parsed = isset($options['label_parsed'])?$options['label_parsed']:null;
 				
 		if(isset($options['type_options'])):
 			$this->type_options = $options['type_options'];
@@ -195,6 +203,7 @@ class Item extends HTML_element
 	public function skip($session_id, $run_session_id, $rdb, $results_table)
 	{	
 		if($this->skipif!=null):
+			
 			if(
 			(strpos($this->skipif,'AND')!==false AND strpos($this->skipif,'OR')!==false) // and/or mixed? 
 				OR strpos($this->skipif,'.') !== false // references to other tables (very simplistic check)
@@ -292,9 +301,6 @@ class Item extends HTML_element
 		
    	   	$view_update->execute() or die(print_r($view_update->errorInfo(), true));
 	}
-	public function substituteText($substitutions) {
-        $this->label = str_replace($substitutions['search'], $substitutions['replace'], $this->label);
-	}
 	public function validateInput($reply) 
 	{
 		$this->reply = $reply;
@@ -318,7 +324,7 @@ class Item extends HTML_element
 		return '
 					<label class="'. implode(" ",$this->classes_label) .'" for="item' . $this->id . '">'.
 		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
-			 	$this->label . '</label>
+			 	$this->label_parsed . '</label>
 		';
 	}
 	protected function render_prepended () 
@@ -759,7 +765,7 @@ class Item_instruction extends Item
 	{
 		return '
 					<div class="'. implode(" ",$this->classes_label) .'">'.
-					$this->label.
+					$this->label_parsed.
 					'</div>
 		';
 	}
@@ -787,7 +793,7 @@ class Item_submit extends Item
 	protected function render_input() 
 	{
 		return 		
-			'<button '.self::_parseAttributes($this->input_attributes, array('required','name')).'>'.$this->label.'</button>';
+			'<button '.self::_parseAttributes($this->input_attributes, array('required','name')).'>'.$this->label_parsed.'</button>';
 	}
 	protected function render_label() 
 	{
@@ -828,7 +834,7 @@ class Item_mc extends Item
 		return '
 					<div class="'. implode(" ",$this->classes_label) .'">' .
 		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
-		 $this->label . '</div>
+		 $this->label_parsed . '</div>
 		';
 	}
 	protected function render_input() 
@@ -933,7 +939,7 @@ class Item_check extends Item_mmc
 		return '
 					<label  for="item' . $this->id . '_1" class="'. implode(" ",$this->classes_label) .'">' .
 		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
-		 $this->label . '</label>
+		 $this->label_parsed . '</label>
 		';
 	}
 	public function validateInput($reply)
