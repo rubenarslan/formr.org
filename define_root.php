@@ -8,14 +8,14 @@ function define_webroot() {
 	if(isset($_SERVER['SERVER_NAME'])){
 		switch($_SERVER['SERVER_NAME']){
 			case 'localhost':
-				$sn = explode("/",$_SERVER['SCRIPT_NAME']);
-				$sn = $sn[1];
-				$doc_root = "localhost:8888/$sn/survey/";
+#				$sn = explode("/",$_SERVER['SCRIPT_NAME']);
+#				$sn = $sn[1];
+				$doc_root = "localhost:8888/formr/";
 				$server_root = __DIR__ . '/';
 				$online = false;
 				break;
 			default:
-				$doc_root = $_SERVER['SERVER_NAME'].'/survey/';
+				$doc_root = $_SERVER['SERVER_NAME'].'/';
 				$server_root = __DIR__ . '/';
 				$online = true;
 				break;

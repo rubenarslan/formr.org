@@ -27,12 +27,12 @@
 	
 	
 	var webshims = {
-		version: '1.10.10',
+		version: '1.11.1',
 		cfg: {
-			useImportantStyles: true,
+			
 			//addCacheBuster: false,
 			waitReady: true,
-			extendNative: 1,
+//			extendNative: false,
 			loadStyles: true,
 			disableShivMethods: true,
 			wspopover: {appendTo: 'body', hideOnBlur: true},
@@ -40,7 +40,7 @@
 				var script = jScripts.filter('[src*="polyfiller.js"]');
 				var path;
 				script = script[0] || script.end()[script.end().length - 1];
-				path = ( ($.support.hrefNormalized) ? script.src : script.getAttribute("src", 4) ).split('?')[0];
+				path = ( ( !('hrefNormalized' in $.support) || $.support.hrefNormalized  ) ? script.src : script.getAttribute("src", 4) ).split('?')[0];
 				path = path.slice(0, path.lastIndexOf("/") + 1) + 'shims/';
 				return path;
 			})()
@@ -143,9 +143,6 @@
 					webshims.warn('Call webshims.polyfill before DOM-Ready or set waitReady to false.');
 				}
 				onReady(features, removeLoader);
-				if (webCFG.useImportantStyles) {
-					addClass.push('polyfill-important');
-				}
 				if (addClass[0]) {
 					$('html').addClass(addClass.join(' '));
 				}
@@ -1053,7 +1050,7 @@
 		addPolyfill(fNuAPI, {
 			f: 'forms-ext',
 			options: {
-				types: 'month date time range number'
+				types: 'datetime-local month date time range number'
 			},
 			test: function(){
 				var ret = true;
@@ -1116,7 +1113,7 @@
 			f: 'forms',
 			test: function(){
 				initialFormTest();
-				return modernizrInputAttrs.list && !formOptions.customDatalist;
+				return modernizrInputAttrs.list && !formOptions.fD;
 			},
 			d: ['form-core', DOMSUPPORT],
 			c: [16, 7, 6, 2, 9, 15, 30, 31]
@@ -1203,10 +1200,12 @@
 			nM: 'texttrackapi'
 		});
 		
+		
 		addModule('track-ui', {
 			d: ['track', DOMSUPPORT],
 			c: [29]
 		});
+		
 	})();
 	//>
 	
@@ -1248,4 +1247,5 @@
 			webshims.polyfill(asyncWebshims.polyfill);
 		}
 	}
+	return webshims;
 }));

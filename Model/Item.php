@@ -194,13 +194,13 @@ class Item extends HTML_element
 	}
 	public function skip($session_id, $run_session_id, $rdb, $results_table)
 	{	
-		
 		if($this->skipif!=null):
 			if(
 			(strpos($this->skipif,'AND')!==false AND strpos($this->skipif,'OR')!==false) // and/or mixed? 
 				OR strpos($this->skipif,'.') !== false // references to other tables (very simplistic check)
 				): // fixme: SO UNSAFE, should at least use least privilege principle and readonly user (not possible on all-inkl...)
 					$join = join_builder($rdb, $this->skipif);
+					
 					$q = "SELECT ( {$this->skipif} ) AS test FROM `survey_run_sessions`
 		
 					$join
@@ -211,16 +211,16 @@ class Item extends HTML_element
 					ORDER BY IF(ISNULL( ( {$this->skipif} ) ),1,0), `survey_unit_sessions`.id DESC
 		
 					LIMIT 1";
-		
 					$evaluate = $rdb->prepare($q); // should use readonly
 					$evaluate->bindParam(":run_session_id", $run_session_id);
 
 					$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
 					if($evaluate->rowCount()===1):
 						$temp = $evaluate->fetch();
-						$result = (bool)$temp['test'];
+						if($temp['test']===null) $result = true;
+						else $result = (bool)$temp['test'];
 					else:
-						$result = false;
+						$result = true;
 					endif;
 					return $result;
 			endif;
@@ -1398,6 +1398,9 @@ class Item_choose_two_weekdays extends Item_mmc
 class Item_timezone extends Item_select
 {
 	protected $mysql_field = 'FLOAT DEFAULT NULL';
+	protected function chooseResultFieldBasedOnChoices()
+	{
+	}
 	protected function setMoreOptions()
 	{
 		$zonenames = timezone_identifiers_list();

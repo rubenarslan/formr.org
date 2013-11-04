@@ -20,7 +20,8 @@ class SpreadsheetReader
 		
 		try
 		{
-		    return $objWriter->save($filename);
+			$objWriter->save($filename);
+		    return true;
 		}
 		catch (Exception $e)
 		{
