@@ -6,7 +6,7 @@ if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name)
 {
 	$study->delete();
 	alert("<strong>Success.</strong> Successfully deleted study '{$study->name}'.",'alert-success');
-	redirect_to(WEBROOT.">admin/index");
+	redirect_to(WEBROOT.">admin/survey/index");
 }
 elseif(isset($_POST['delete']))
 {

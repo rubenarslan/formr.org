@@ -260,10 +260,9 @@ $.webshims.ready('DOM canvas', function(){
 					<p><code>setOptions</code> should always be called before the <code>polyfill</code> method.</p>
 					<p>The available general options are the following:</p>
 					<ul>
-						<li><strong>extendNative</strong> (default: true) (will be set to false with next version): Webshims lib will automatically extend DOM-Objects with polyfilled methods and will additionally generate a jQuery plugin with this method name. If extendNative is set to false, webshims lib won't touch any DOM-Objects and will only implement jQuery plugins. Setting this option to false, might be also good for DOM performance (<a href="index.html#polyfill-abstractions">see also</a>).</li>
+						<li><strong>extendNative</strong> (default: false): Webshims lib will automatically extend DOM-Objects with polyfilled methods and will additionally generate a jQuery plugin with this method name. If extendNative is set to false, webshims lib won't touch any DOM-Objects and will only implement jQuery plugins. Setting this option to false, might be also good for DOM performance (<a href="index.html#polyfill-abstractions">see also</a>).</li>
 						<li><strong>basePath</strong> (default: "automatially computed path to the shims folder"): If polyfiller.js was renamed <strong>and</strong> is loaded dynamically, the basePath should be changed manually.</li>
 						<li><strong>waitReady</strong> (default: true): If this option is true, jQuery's ready-event will be delayed until all needed features are ready to use. This option should be set to false, if webshims lib polyfiller.js is loaded async (see also Loading webshims async in the <a href="#polyfill-foucs">loading documentation</a>) or from bottom of the body element. This option can also be set to false, if a website is using only HTML5 markup APIs (pure HTML or $.attr) and do not use any DOM-/JS-APIs on DOM-ready. If this feature is set to false, which might be good against FOUCs, scripted access to polyfilled APIs have to be added inside of a <a href="#polyfill-ready"><code>$.webshims.ready</code></a> callback.</li>
-						<li><strong>useImportantStyles</strong> (default: false): If this option is true, Webshims basic stylesheet won't use any !important styles.</li>
 						<li><strong>disableShivMethods</strong> (default: true): Automatically disables the <a href="https://github.com/aFarkas/html5shiv">shivMethods</a> option of html5shiv.</li>
 					</ul>
 <code class="block">
@@ -324,7 +323,7 @@ $('video').prop('currentTime', 200);
 </code>
 						</li>
 						<li>
-							<p><strong>calling a DOM method</strong>: While DOM properties have to be accessed through jQuery's <code>$.prop/$.attr</code> methods, DOM methods have to be accesed using $.prop and executed in the context of the DOMK element.</p>
+							<p><strong>calling a DOM method</strong>: While DOM properties have to be accessed through jQuery's <code>$.prop/$.attr</code> methods, DOM methods can be accesed using $.prop and executed in the context of the DOM element.</p>
 <code class="block">
 // "this" refers to a DOM element, not a jQuery object
 var fn = $.prop(this, 'checkValidity');
@@ -336,18 +335,27 @@ $(this).checkValidity();
 
 $(this).callProp('checkValidity'); // $(this).callProp('play');
 </code>
+							<p>The jQuerified method can also take some arguments, if specified by the spec.</p>
+							
+<code class="block">
+$('video').addTextTrack('subtitles', 'just a test', 'en');
+
+$('video').callProp('addTextTrack', ['subtitles', 'just a test', 'en']);	
+</code>							
 							<p>If you pass a list of nodes and the method doesn't return anything, the method will be called on each element in this list, otherwise it will be called on the first element.</p>
-							<p>In case a developer wants to make method calling "feel more native", ithe general option <code>extendNative</code> can be set to <code>true</code>.</p>
+							<p>In case a developer wants to make method calling "feel 100% native", the general option <code>extendNative</code> can be set to <code>true</code>.</p>
 <code class="block">
 $.webshims.setOptions("extendNative", true);
 $.webshims.polyfill('forms');
 //...
-this.checkValidity() //does now work cross-browser. $(this).checkValidity(); or $(this).callProp('checkValidity'); can still be used
+this.checkValidity() //$(this).checkValidity(); or $(this).callProp('checkValidity'); can still be used
+
+$('video').get(0).addTextTrack('subtitles', 'just a test', 'en');
 </code>	
 
 						</li>
 						<li>
-							<p><strong>binding to events</strong>: Always use jQuery's <code>bind</code> method to register your event handlers. <code>addEventListener</code> or inline event handler won't work in polyfilled browsers. Most events in the HTML5 specification are so-called simple events. Simple events do not bubble. Due to the fact that developers really like event delegation and jQuery cannot distinguish between the event phases (capturing/propagation), we use event capturing in the native implementation and <code>$.fn.trigger</code> in the shim.</p>
+							<p><strong>binding to events</strong>: Always use jQuery's <code>on</code>, <code>bind</code> method to register your event handlers. <code>addEventListener</code> or inline event handler won't work in polyfilled browsers. Most events in the HTML5 specification are so-called simple events. Simple events do not bubble. Due to the fact that developers really like event delegation and jQuery cannot distinguish between the event phases (capturing/propagation), we use event capturing in the native implementation and <code>$.fn.trigger</code> in the shim.</p>
 							<p>This means that some HTML5 events go down the DOM tree in capable browsers and go up the tree in polyfilled browsers. This can create differences if you are calling <code>event.stopPropagation();</code> or <code>return false;</code> in your event handler. If you only want to prevent the default, don't use <code>return false;</code>, use <code>event.preventDefault();</code> instead.</p>
 						</li>
 						<li>
@@ -369,7 +377,7 @@ $('input[type="date"]').getShadowElement().animate({width: 300});
 </code>
 							<p><strong>re-rendering shadowelements</strong>: On dynamic websites shadowelements dimensions and/or positions sometimes need to be updated, this can be achieved by triggering the <code>updateshadowdom</code>.</p>
 <code class="block">
-$.event.trigger('updateshadowdom');
+$(document).trigger('updateshadowdom');
 </code>
 							<p><small>Note: The <code>updateshadowdom</code> event is automatically (but 'lazily') triggered on window.resize/emchange events.</small></p>
 						</li>
@@ -441,10 +449,10 @@ $.webshims.polyfill(polyfillFeatures);
 &lt;script&gt;
 	Modernizr.load([
 		{
-			load: '//ajax.googleapis.com/ajax/libs/jquery/1.6.3/jquery.js',
+			load: '//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.js',
 			complete: function () {
 				if ( !window.jQuery ) {
-					Modernizr.load('/js/libs/jquery-1.6.2.min.js');
+					Modernizr.load('/js/libs/jquery-1.9.1.min.js');
 				}
 			}
 		},

@@ -1,6 +1,6 @@
 <?php
 require_once '../../define_root.php';
-require_once 'Model/Site.php';
+require_once INCLUDE_ROOT.'Model/Site.php';
 
 //fixme: cookie problems lead to fatal error with missing user code
 if($user->loggedIn()) {

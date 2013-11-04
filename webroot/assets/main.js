@@ -220,7 +220,29 @@ $(document).ready(function() {
 			maximumInputLength: slct.attr('data-select2maximumInputLength'),
 			data: slctdata, 
 			multiple: !!slct.prop('multiple'), 
-			allowClear: true
+			allowClear: true,
+            escapeMarkup: function (m) { return m; }
+		});
+	});
+	$(".select2pills select").each(function(i,elm)
+	{
+		var slct = $(elm); 
+		slct.select2({
+            width:400,
+            dropdownCssClass: "bigdrop", // apply css that makes the dropdown taller
+			maximumSelectionSize: slct.attr('data-select2maximumSelectionSize'),
+			maximumInputLength: slct.attr('data-select2maximumInputLength'),
+            formatResult: function(pill) {
+                var markup = "<table class='movie-result'><tr>";
+                markup += "<td class='movie-image' width='200'><img width='200px' alt='"+pill.text+"' src='/formr/assets/img/pills/" + pill.id + ".jpg'/></td>";
+                    markup += "<td class='movie-info'><div class='movie-title'>" + pill.text + "</div>";
+                markup += "</td></tr></table>"
+                return markup;
+            },
+            formatSelection: function (pill) {
+                return pill.text;
+            },
+            escapeMarkup: function (m) { return m; }
 		});
 	});
 	

@@ -4,9 +4,10 @@ require_once INCLUDE_ROOT.'View/admin_header.php';
 
 if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name)
 {
-	$study->deleteResults();
-	alert("<strong>Success.</strong> All results in '{$study->name}' were deleted.",'alert-success');
-	redirect_to(WEBROOT."survey/{$study->name}/delete_results");
+	if($study->deleteResults()):
+		alert("<strong>Success.</strong> All results in '{$study->name}' were deleted.",'alert-success');
+	endif;
+	redirect_to(WEBROOT."admin/survey/{$study->name}/delete_results");
 }
 elseif(isset($_POST['delete']))
 {
