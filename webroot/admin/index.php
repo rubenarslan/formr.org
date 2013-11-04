@@ -7,7 +7,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 <h2>runs &amp; studies <small>what's the difference?</small></h2>
 <p>
 	<strong>Studies</strong> are meant to be a simple survey that can be completed
-in one session (though it can reference fields in other surveys for skipif and substitution logic).<br>
+in one session (though they can reference and use information gathered in other surveys).<br>
 The only way a survey can be accessed is through a session key (which allows
 exactly one session). These keys can be created by another applications (via API), a user, by runs.
 

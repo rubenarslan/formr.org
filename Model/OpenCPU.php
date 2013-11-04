@@ -3,13 +3,11 @@ class OpenCPU {
 	private $instance;
 	private $user_data = '';
 	private $curl_c;
-	private $http_status = null;
+	public $http_status = null;
 	public function __construct($instance)
 	{
 		$this->instance = $instance;
 		$this->curl_c = curl_init();
-#		curl_setopt($this->curl_c, CURLOPT_HTTPHEADER,array('Content-Type: application/json'));
-		curl_setopt($this->curl_c, CURLOPT_POST, 1); // Method is "POST"
 		curl_setopt($this->curl_c, CURLOPT_RETURNTRANSFER, 1); // Returns the curl_exec string, rather than just Logical value
 	}
 
@@ -18,6 +16,7 @@ class OpenCPU {
 		curl_setopt($this->curl_c, CURLOPT_URL, $this->instance.'/ocpu/library/'.$function);
 		
 		if($post !== null):
+			curl_setopt($this->curl_c, CURLOPT_POST, 1); // Method is "POST"
 			curl_setopt($this->curl_c, CURLOPT_POSTFIELDS, http_build_query($post));
 		endif;
 		if($headers):
@@ -35,23 +34,71 @@ class OpenCPU {
 		return $result;
 	}
 	
-	private function identity($post, $return = '/json',$headers = false)
+	public function identity($post, $return = '/json',$headers = false)
 	{
 		return $this->r_function('base/R/identity'.$return, $post, $headers);
 	}
 	
-	public function isTrue($source,$return = 'json',$headers = false)
+	public function evaluate($source,$return = '/json',$headers = false)
 	{
-		$post = array('x' => '{ $source }');
-		return $this->identity($post,$return,$headers);
+		$post = array('x' => '{ 
+			(function() {
+		'.$this->user_data.'
+			'.$source.'
+			})() }');
+			
+		$result = $this->identity($post,$return,$headers);
+		$parsed = json_decode($result);
+		if($parsed===null):
+			alert($result,'alert-error');
+			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-error');
+			return null;
+		elseif(empty($parsed)):
+			return null;
+		else:
+			return $parsed[0];
+		endif;
+	}
+	public function evaluateWith($results_table, $source,$return = '/json',$headers = false)
+	{
+		$post = array('x' => '{ 
+			(function() {
+		'.$this->user_data.'
+			with('.$results_table.', {
+				'.$source.'
+				})
+			})() }');
+			
+		$result = $this->identity($post,$return,$headers);
+		$parsed = json_decode($result);
+		if($parsed===null):
+			alert($result,'alert-error');
+			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-error');
+			return null;
+		elseif(empty($parsed)):
+			return null;
+		else:
+			return $parsed[0];
+		endif;
+	}
+	public function evaluateAdmin($source,$return = '',$headers = true)
+	{
+		$post = array('x' => '{ 
+			(function() {
+		'.$this->user_data.'
+			'.$source.'
+			})() }');
+			
+		$result = $this->identity($post,$return,$headers);
+		return $this->debugCall($result);
 	}
 	
-	public function knit($source,$return,$headers = false)
+	public function knit($source,$return = '/json',$headers = false,$options = '"base64_images","smartypants","highlight_code","mathjax"')
 	{
 		$post = array('x' => '{
 library(knitr)
 	knit2html(text = "' . addslashes($source) . '",
-    fragment.only = T, options=c("base64_images","smartypants")
+    fragment.only = T, options=c('.$options.')
 )
 }');
 		return $this->identity($post,$return,$headers);
@@ -101,52 +148,81 @@ $this->user_data .
 
 	}
 
-	public function selftest() 
+
+
+	public function knitEmail($source)
 	{
-		$source = '{
-			options(bitmapType = "Xlib");
-		library(knitr); library(markdown); library(ggplot2)
-			knit2html(text = "__Hello__ World `r 1`
-			```{r}
-			qplot(rnorm(10))
-			```
-			",
-		    fragment.only = T, options=c("base64_images","smartypants")
-		)
-		}';
-		$results = $this->identity(array('x' =>  $source),'', true);
+		$source =
+'```{r settings,message=FALSE,warning=F,echo=F}
+email_image = function(x) {
+	cid = gsub("[^a-zA-Z0-9]", "", substring(x,8))
+	structure(paste0("cid:",cid,".png"), link = x)
+}
+opts_chunk$set(warning=F,message=F,echo=F)
+opts_knit$set(upload.fun=email_image)
+'.
+$this->user_data .
+'```
+'.
+		$source;
 		
-		if($this->http_status > 302) $alert_type = 'alert-error';
-		else $alert_type = 'alert-info';
-		alert("HTTP status: ".$this->http_status,'alert-success');
+		$results = $this->knit($source,'',false,'"smartypants","highlight_code","mathjax"');
 		
+		$available = explode("\n",$results);
 		
-		return $this->debugCall($results);
+		$response = array();
+		$response['images'] = array();
+		
+		foreach($available AS $part):
+			$upto = strpos($part,'/files/figure/');
+			if($upto!==false):
+				$image_id = preg_replace("/[^a-zA-Z0-9]/",'',substr($part,$upto+14)) . '.png';
+				$response['images'][ $image_id ] =  $this->instance. $part;
+			endif;
+		endforeach;
+		
+		$session = explode('/',$available[0]);
+		$session = '/'.$session[1].'/'.$session[2] .'/'.$session[3] . '/';
+		// info/text stdout/text console/text R/.val/text
+		
+		if(in_array($session . 'R/.val',$available))
+			$response['body'] = current( json_decode(file_get_contents($this->instance. $session . 'R/.val/json')) );
+		
+		return $response;
 	}
-	
-	private function debugCall($results)
+	public function debugCall($results)
 	{
-		list($header, $results) = explode("\r\n\r\n", $results, 2);
-		
+		$header = substr($results, 0, $this->header_size);
+		$results = substr($results, $this->header_size);
+##		list($header, $results) = explode("\r\n\r\n", $results, 2); # does not work with 100 Continue
 		if($this->http_status > 302):
 			 $response = array(
 				 'Response' => '<pre>'. htmlspecialchars($results). '</pre>',
 				 'HTTP headers' => '<pre>'. htmlspecialchars($header). '</pre>',
 			 );
 		else:
-			list($first) = explode("\n",$results);
-			
-			$session = explode('/',$first);
-			$session = '/'.$session[1].'/'.$session[2] .'/'.$session[3] . '/';
+			$header_parsed = http_parse_headers($header);
+			$available = explode("\n",$results);
+
+			$session = '/ocpu/tmp/'. $header_parsed['X-ocpu-session'] . '/';
+#			$session = explode('/',$available[0]);
+#			$session = '/'.$session[1].'/'.$session[2] .'/'.$session[3] . '/';
 			// info/text stdout/text console/text R/.val/text
-		
-			 $response = array(
-				 'Result' => file_get_contents($this->instance. $session . 'R/.val/text'),
-				 'Console' => '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'console/text')).'</pre>',
-				 'Stdout' => '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/text')). '</pre>',
-				 'HTTP headers' => '<pre>'. htmlspecialchars($header). '</pre>',
-				 'Session info' => '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'info/text')). '</pre>'
-			 );
+			
+			$response = array();
+			if(in_array($session . 'R/.val',$available))
+				$response['Result'] = file_get_contents($this->instance. $session . 'R/.val/text');
+
+			if(in_array($session . 'console',$available))
+				$response['Console'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'console/print')).'</pre>';
+			if(in_array($session . 'stdout',$available))
+			
+				$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/print')). '</pre>';
+			
+			$response['HTTP headers'] = '<pre>'. htmlspecialchars($header). '</pre>';
+			
+			if(in_array($session . 'info',$available))
+				$response['Session info'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'info/print')). '</pre>';
 		endif;
 		
 		return $this->ArrayToAccordion($response);
@@ -156,6 +232,7 @@ $this->user_data .
 		$acc = '<div class="accordion" id="opencpu_accordion">';
 		$first = ' in';
 		foreach($array AS $title => $content):
+			if($content == null) $content = stringBool($content);
 			$acc .= '
 <div class="accordion-group">
 	<div class="accordion-heading">

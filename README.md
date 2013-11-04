@@ -36,7 +36,7 @@ These components are the bastard children of a Pause + Branch: If the user acces
 See the **OpenCPU + R + Knitr + Markdown** section to find out how to customise the text shown while waiting.
 
 ### Email
-Using an SMTP gateway that you can set up in the admin area, you can send emails to your users. Using the tag `{{login_link}}`, you can send users a personalised link to the run, using the tag `{{login_code}}` you can build links for informants to report on users. See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise email text.
+Using an SMTP gateway that you can set up in the admin area, you can send emails to your users. Using the tag `{{login_link}}`, you can send users a personalised link to the run, you can also use `{{login_code}}` to use the session code to create custom links, e.g. for inviting peers to rate this person (informants). See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise email text.
 
 ### External link
 These are simple external links - you can use them to send users to other, specialised data collection modules, such as a social network generator. If you insert the placeholder `%s`, it will be replaced by the users run_session code, allowing you to link data later. You can choose to "end" this component before the user is redirected to the link or by enabling your external module to call our API to close it, when it's done. 
@@ -76,7 +76,7 @@ Survey names may only contain the characters `a-zA-Z0-9_` and need to start with
 Surveys support the following item types. HTML5 form elements and validation are used and polyfilled where necessary using the [Webshims lib](http://afarkas.github.io/webshim/demos/index.html).
 
 * `instruction` display text. instructions are displayed at least once and disappear only when there are no unanswered items left behind them (so putting an instruction directly before another ensures it will be displayed only once)
-* `submit` display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for `skipif` or substitutions have been given. 
+* `submit` display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for `skipif` or for dynamically generating item text have been given. 
 * multiple choice family
 	* `mc` multipe choice (radio buttons), you can choose only one. Choices are (currently) defined using the choice1-12 columns
 	* `mmc` multiple multiple choice (check boxes), you can choose several. Choices defined as above
@@ -157,21 +157,10 @@ If you get internal server errors, these most likely stem from .htaccess files o
 
 ## Problems and plans
 ### Security
-#### Database
-End user input should be safe, we use prepared queries etc.  
-
-However, study creators can wreak havoc, because they can write SQL expressions for skipIfs, substitutions, branches, etc. 
-A future version will rely on OpenCPU's R API to sandbox these problems.
 
 #### API
 * you can create run access tokens using the API
 * you can end "External" units using the API
-
-### Plans
-* Todo: Should allow a "service message" to be displayed in runs, to make run completely inactive.
-* Todo: Switch user-supplied run logic to R instead of SQL.
-* Todo: Should be storing an API key hash, not the API key itself.
-
 
 ## Credit
 

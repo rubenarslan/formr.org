@@ -102,7 +102,7 @@ class RunUnit {
 		$d_unit->execute() or $this->errors = $d_unit->errorInfo();
 		
 		$affected = $d_unit->rowCount();
-		if($affected):
+		if($affected): // remove from all runs
 			$d_run_unit = $this->dbh->prepare("DELETE FROM `survey_run_units` WHERE unit_id = :id;");
 			$d_run_unit->bindParam(':id', $this->id);
 			$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
@@ -171,32 +171,35 @@ class RunUnit {
 	{
 		return parent::runDialog($prepend,'<i class="icon-puzzle-piece"></i>');
 	}
-	private function getUserDataInRun()
+	protected function getUserDataInRun($surveys)
 	{
-		$result_tables = $this->dbh->prepare("SELECT `survey_studies`.name FROM survey_run_units 
-			LEFT JOIN survey_units 
-		ON `survey_units`.id = `survey_run_units`.unit_id
-		LEFT JOIN `survey_studies`
-		ON `survey_units`.id = `survey_studies`.id
-		
-		WHERE `survey_run_units`.run_id = :run_id
-			AND `survey_units`.type = 'Survey'");
-		
-		$result_tables->bindParam(":run_id",$this->run_id);
-		$result_tables->execute();
-		$surveys = array();
-		while($res = $result_tables->fetch(PDO::FETCH_ASSOC))
-			$surveys[] = $res['name'];
-		
 		$results = array();
-		foreach($surveys AS $survey_name):
-			$get_results = $this->dbh->prepare("SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
-			left join `survey_unit_sessions`
-				on `$survey_name`.session_id = `survey_unit_sessions`.id
-			left join `survey_run_sessions`
-				on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+		foreach($surveys AS $survey_name): // fixme: shouldnt be using wildcard operator here.
+			$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
+			";
+
+			$q4 = "
+			WHERE  `survey_run_sessions`.id = :run_session_id;";
 			
-			WHERE  `survey_run_sessions`.id = :run_session_id;");
+			if(!in_array($survey_name,array('survey_users'))):
+				$q2 = "left join `survey_unit_sessions`
+					on `$survey_name`.session_id = `survey_unit_sessions`.id
+				";
+				$q3 = "left join `survey_run_sessions`
+					on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+				";
+				
+			elseif($survey_name == 'survey_users'):
+				$q2 = '';
+				$q3 = "left join `survey_run_sessions`
+					on `survey_users`.id = `survey_run_sessions`.user_id
+				";
+			endif;
+			
+			$q = $q1 . $q2 . $q3 . $q4;
+
+			$get_results = $this->dbh->prepare($q);
+			
 			$get_results->bindParam(':run_session_id', $this->run_session_id);
 			$get_results->execute();
 			$results[$survey_name] = array();
@@ -213,7 +216,7 @@ class RunUnit {
 		endforeach;
 		return $results;
 	}
-	private function makeOpenCPU()
+	protected function makeOpenCPU()
 	{
 		require_once INCLUDE_ROOT . "Model/OpenCPU.php";
 
@@ -223,17 +226,35 @@ class RunUnit {
 
 		global $settings;
 		$openCPU = new OpenCPU($settings['opencpu_instance']);
-		$openCPU->addUserData($this->getUserDataInRun());
 		return $openCPU;
 	}
-	private function knittingNeeded($source)
+	protected function knittingNeeded($source)
 	{
 		if(strpos($source,'`r ')!==false OR strpos($source,'```{r')!==false)
 			 return true;
 		 else
 			return false;
 	}
-	public function getParsedBodyAdmin($source)
+	protected function dataNeeded($fdb,$q)
+	{
+		$matches = $tables = array();
+		$result_tables = $fdb->query("SELECT name FROM `survey_studies`");
+		while($res = $result_tables->fetch(PDO::FETCH_ASSOC)):
+			$tables[] = $res['name'];
+		endwhile;
+		$tables[] = 'survey_users';
+		$tables[] = 'survey_unit_sessions';
+		$tables[] = 'survey_email_log';
+		
+		foreach($tables AS $result):
+			if(preg_match("/($result\\\$|$result\\[)/",$q)):
+				$matches[] = $result;
+			endif;
+		endforeach;
+	
+		return $matches;
+	}
+	public function getParsedBodyAdmin($source,$email_embed = false)
 	{
 		$q = "SELECT id,run_session_id FROM `survey_unit_sessions`
 
@@ -250,17 +271,27 @@ class RunUnit {
 			$temp_user = $g_user->fetch(PDO::FETCH_ASSOC);
 			$this->session_id = $temp_user['id'];
 			$this->run_session_id = $temp_user['run_session_id'];
-#			pr($temp_user);
 		endif;
 			
 		if($this->knittingNeeded($source)):
 			$openCPU = $this->makeOpenCPU();
-			return $openCPU->knitForAdminDebug($source);
+			
+			$openCPU->addUserData($this->getUserDataInRun(
+				$this->dataNeeded($this->dbh,$source)
+			));
+			
+			if($email_embed):
+				return $openCPU->knitEmail($source); # currently not caching email reports
+			else:
+				$report = $openCPU->knitForAdminDebug($source);
+			endif;
+			return $report;
+			
 		else:
 			return $this->body_parsed;
 		endif;
 	}
-	public function getParsedBody($source)
+	public function getParsedBody($source,$email_embed = false)
 	{
 		if(!$this->knittingNeeded($source))
 		{ // knit if need be
@@ -274,7 +305,8 @@ class RunUnit {
 			$get_report->bindParam(":unit_id",$this->id);
 			$get_report->bindParam(":session_id",$this->session_id);
 			$get_report->execute();
-			if($get_report->rowCount() > 0) 
+			
+			if(!$email_embed AND $get_report->rowCount() > 0) 
 			{
 				$report = $get_report->fetch(PDO::FETCH_ASSOC);
 				return $report['body_knit'];
@@ -282,9 +314,17 @@ class RunUnit {
 			else
 			{
 				$openCPU = $this->makeOpenCPU();
-				$report = $openCPU->knitForUserDisplay($source);
-				if($report)
-				{
+				$openCPU->addUserData($this->getUserDataInRun(
+					$this->dataNeeded($this->dbh,$source)
+				));
+			
+				if($email_embed):
+					return $openCPU->knitEmail($source); # currently not caching email reports
+				else:
+					$report = $openCPU->knitForUserDisplay($source);
+				endif;
+				
+				if($report):
 					$set_report = $this->dbh->prepare("INSERT INTO `survey_reports` 
 						(`session_id`, `unit_id`, `body_knit`, `created`,	`last_viewed`) 
 				VALUES  (:session_id, :unit_id, :body_knit,  NOW(), 	NOW() ) ");
@@ -293,7 +333,7 @@ class RunUnit {
 					$set_report->bindParam(":session_id",$this->session_id);
 					$set_report->execute();
 					return $report;
-				}
+				endif;
 			}
 		}
 	}

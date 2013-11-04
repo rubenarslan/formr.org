@@ -24,11 +24,11 @@
 	  		<li <?=endsWith($_SERVER['PHP_SELF'],'add_study.php')?' class="active"':''?>>
 	  			<a href="<?=WEBROOT?>admin/add_study"><?php echo _("create new survey"); ?></a>
 	  		</li>
-			<li class="divider"></li>
-			  		
 		<?php
 		$studies = $user->getStudies();
 		if($studies) {
+			echo '<li class="divider"></li>';
+			
 		  foreach($studies as $menu_study) {
 		    echo "<li>
 				<a href='".WEBROOT."admin/survey/".$menu_study['name']."/'>".$menu_study['name']."</a>
@@ -48,11 +48,12 @@
 	  <ul class="dropdown-menu">
   		<li <?=endsWith($_SERVER['PHP_SELF'],'add_run.php')?' class="active"':''?>>
   			<a href="<?=WEBROOT?>admin/add_run"><?php echo _("create new run"); ?></a>
-		<li class="divider"></li>
 		  		
 		<?php
 		$runs = $user->getRuns();
 		if($runs) {
+			echo '<li class="divider"></li>';
+			
 		  foreach($runs as $menu_run) {
 		    echo '<li>
 				<a href="'.WEBROOT.'admin/run/'.$menu_run['name'].'/">'.$menu_run['name'].'</a>
@@ -81,10 +82,11 @@
 				<?php echo _("email log"); ?>
 			</a>
 		</li>
-		<li class="divider"></li>
 		<?php
 		$accs = $user->getEmailAccounts();
 		if($accs) {
+			echo '<li class="divider"></li>';
+			
 		  foreach($accs as $menu_acc) {
 		    echo '<li'.((isset($_GET['account_id']) AND $menu_acc['id']==$_GET['account_id'])?' class="active"':'').'>
 				<a href="'.WEBROOT.'admin/mail/edit/?account_id='.$menu_acc['id'].'">'.$menu_acc['from'].'</a>
@@ -176,12 +178,6 @@ $resultCount = $study->getResultCount();
 		
     </ul>
   </li>
-
-<li class="nav-header">complex studies</li>
-
-<li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/edit_substitutions.php')?' class="active"':''?>>
-	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/edit_substitutions"><i class="icon-caret-right"></i> Edit substitutions</a>
-</li>
 
 <li class="nav-header">Danger Zone</li>
 
