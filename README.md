@@ -34,7 +34,7 @@ These components are the bastard children of a Pause + Branch: If the user acces
 See the **OpenCPU + R + Knitr + Markdown** section to find out how to customise the text shown while waiting.
 
 ### Email
-Using an SMTP gateway that you can set up in the admin area, you can send emails to your users. Using the tag `{{login_link}}`, you can send users a personalised link to the run. See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise email text.
+Using an SMTP gateway that you can set up in the admin area, you can send emails to your users. Using the tag `{{login_link}}`, you can send users a personalised link to the run, you can also use `{{login_code}}` to use the session code to create custom links, e.g. for inviting peers to rate this person. See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise email text.
 
 ### External link
 These are simple external links - you can use them to send users to other, specialised data collection modules, such as a social network generator. If you insert the placeholder `%s`, it will be replaced by the users run_session code, allowing you to link data later. You can choose to "end" this component before the user is redirected to the link or by enabling your external module to call our API to close it, when it's done. 

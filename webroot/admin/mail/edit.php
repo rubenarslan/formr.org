@@ -10,7 +10,11 @@ if($user->created($acc)):
 	redirect_to("/admin/mail/index");
 endif;
 
-if(!empty($_POST)) 
+if(!empty($_POST) AND isset($_POST['test_account'])) 
+{
+	$acc->test();
+}
+elseif(!empty($_POST)) 
 {
 	$acc->changeSettings($_POST);
 	alert('<strong>Success!</strong> Your email account settings were changed!','alert-success');
@@ -88,6 +92,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 	<div class="control-group">
 		<div class="controls">
 			<input class="btn" required type="submit" value="<?php echo _("Save account"); ?>">
+			<input class="btn" name='test_account' required type="submit" value="Test">
 		</div>
 	</div>
 </form>
