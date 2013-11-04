@@ -87,80 +87,70 @@ class Branch extends RunUnit {
 	}
 	public function test()
 	{
-		$join = join_builder($this->dbh, $this->condition);
-$q = "SELECT DISTINCT ( {$this->condition} ) AS test,`survey_run_sessions`.session FROM `survey_run_sessions`
+		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
-$join
+		WHERE 
+			`survey_run_sessions`.run_id = :run_id
 
-WHERE 
-	`survey_run_sessions`.run_id = :run_id
+		ORDER BY `survey_run_sessions`.position DESC,RAND()
 
-ORDER BY IF(ISNULL( ( {$this->condition} ) ),1,0), RAND()
+		LIMIT 20";
+		$get_sessions = $this->dbh->prepare($q); // should use readonly
+		$get_sessions->bindParam(':run_id',$this->run_id);
 
-LIMIT 20";
-
-		echo "<pre>$q</pre>";
-		$evaluate = $this->dbh->prepare($q); // should use readonly
-		$evaluate->bindParam(':run_id',$this->run_id);
-
-		$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
-		if($evaluate->rowCount()>=1):
+		$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
+		if($get_sessions->rowCount()>=1):
 			$results = array();
-			while($temp = $evaluate->fetch())
+			while($temp = $get_sessions->fetch())
 				$results[] = $temp;
 		else:
-			echo 'Nothing found';
+			echo 'No data to compare to yet.';
 			return false;
 		endif;
-		
+
+		$openCPU = $this->makeOpenCPU();
+		$this->run_session_id = current($results)['id'];
+
+		$openCPU->addUserData($this->getUserDataInRun(
+			$this->dataNeeded($this->dbh,$this->condition)
+		));
+		echo $openCPU->evaluateAdmin($this->condition);
+
 		echo '<table class="table table-striped">
 				<thead><tr>
-					<th>Code</th>
+					<th>Code (Position)</th>
 					<th>Test</th>
 				</tr></thead>
 				<tbody>"';
 		foreach($results AS $row):
+			$openCPU = $this->makeOpenCPU();
+			$this->run_session_id = $row['id'];
+
+			$openCPU->addUserData($this->getUserDataInRun(
+				$this->dataNeeded($this->dbh,$this->condition)
+			));
+
 			echo "<tr>
-					<td><small>{$row['session']}</small></td>
-					<td>".h((int)$row['test'])."</td>
+					<td><small>{$row['session']} ({$row['position']})</small></td>
+					<td>".stringBool($openCPU->evaluate($this->condition) )."</td>
 				</tr>";
 		endforeach;
 		echo '</tbody></table>';
+		$this->run_session_id = null;
 	} 
 	public function exec()
 	{
+		
+		$openCPU = $this->makeOpenCPU();
+
+		$openCPU->addUserData($this->getUserDataInRun(
+			$this->dataNeeded($this->dbh,$this->condition)
+		));
+		$result = (bool)$openCPU->evaluate($this->condition);
 		$join = join_builder($this->dbh, $this->condition);
-		
-		$q = "SELECT ( {$this->condition} ) AS test FROM `survey_run_sessions`
-		
-		$join
-		
-		WHERE 
-		`survey_run_sessions`.`id` = :run_session_id
-
-		ORDER BY IF(ISNULL( ( {$this->condition} ) ),1,0), `survey_unit_sessions`.id DESC
-		
-		LIMIT 1";
-		
-#		pr($q);
-		$evaluate = $this->dbh->prepare($q); // should use readonly
-		$evaluate->bindParam(":run_session_id", $this->run_session_id);
-
-		$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
-		if($evaluate->rowCount()===1):
-			$temp = $evaluate->fetch();
-			$result = (bool)$temp['test'];
-		else:
-			$result = false;
-		endif;
-#		pr($temp);
-#		pr($this->run_session_id);
-		
-		// evaluate condition
+	
 		$position = $result ? $this->if_true : $this->if_false;
-#		$run_to_id = $this->getUnitIdAtPosition( $run_to  );
-		
-#		$run_session = new RunSession($this->dbh, $this->run_id, $this->user_id, $this->session);
+
 		global $run_session;
 		if($run_session->session):
 			$this->end();

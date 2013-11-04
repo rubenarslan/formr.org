@@ -13,6 +13,7 @@ class Email extends RunUnit {
 	
 	private $body = null;
 	protected $body_parsed = null;
+	private $images = array();
 	private $subject = null;
 	private $html = null;
 	
@@ -92,7 +93,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		
 		return true;
 	}
-	private function getBody()
+	private function getBody($embed_email = true)
 	{
 		if(isset($this->run_name))		
 			$login_link = WEBROOT."{$this->run_name}?code={$this->session}";
@@ -100,14 +101,26 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 
 		if($this->html):
 			$login_link = "<a href='$login_link'>Login link</a>";
-			if($this->session_id)
-				$this->body_parsed = $this->getParsedBody($this->body);
-			else
-				$this->body_parsed = $this->getParsedBodyAdmin($this->body);
+			if($this->session_id):
+				$response = $this->getParsedBody($this->body,true);
+				$this->body_parsed = $response['body'];
+				$this->images = $response['images'];
+			else:
+				$response = $this->getParsedBodyAdmin($this->body,$embed_email);
+				if($embed_email):
+					$this->body_parsed = $response['body'];
+					$this->images = $response['images'];
+				else:
+					$this->body_parsed = $response;
+				endif;
+			endif;
+			
 			$this->body_parsed = str_replace("{{login_link}}", $login_link , $this->body_parsed );
+			$this->body_parsed = str_replace("{{login_code}}", $this->session, $this->body_parsed);
 			return $this->body_parsed;
 		else:
 			$this->body = str_replace("{{login_link}}", $login_link , $this->body);
+			$this->body = str_replace("{{login_code}}", $this->session,  $this->body);
 			return $this->body;
 		endif;
 	}
@@ -140,11 +153,11 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			<input type="text" placeholder="Email subject" name="subject" value="'.$this->subject.'">
 		</label></p>
 		<p><label>Recipient-Field: <br>
-					<input type="text" placeholder="survey_users.email" name="recipient_field" value="'.$this->recipient_field.'">
+					<input type="text" placeholder="survey_users$email" name="recipient_field" value="'.$this->recipient_field.'">
 				</label></p>
 		<p><label>Body: <br>
 			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" class="span5">'.$this->body.'</textarea></label><br>
-			<code>{{login_link}}</code> will be replaced by a personalised link to this run.</p>
+			<code>{{login_link}}</code> will be replaced by a personalised link to this run, <code>{{login_code}}</code> will be replaced with this user\'s session code.</p>
 		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
 		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Email">Save.</a>
 		<a class="btn unit_test" href="ajax_test_unit?type=Email">Test</a></p>';
@@ -154,35 +167,16 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	}
 	public function getRecipientField()
 	{
+		$openCPU = $this->makeOpenCPU();
+
 		if($this->recipient_field === null OR trim($this->recipient_field)=='')
-			$this->recipient_field = '`survey_users`.email';
+			$this->recipient_field = 'survey_users$email';
+		
+		$openCPU->addUserData($this->getUserDataInRun(
+			$this->dataNeeded($this->dbh,$this->recipient_field)
+		));
 
-		$join = join_builder($this->dbh, $this->recipient_field);
-			
-$q = "SELECT {$this->recipient_field} AS email_field FROM `survey_run_sessions`
-	
-$join
-
-WHERE `survey_run_sessions`.id = :run_session_id
-
-ORDER BY IF(ISNULL(email_field),1,0), `survey_unit_sessions`.id DESC
-
-LIMIT 1";
-
-#pr($q);
-#pr($this->run_session_id);
-
-		$g_email = $this->dbh->prepare($q); // should use readonly
-		$g_email->bindParam(":run_session_id", $this->run_session_id);
-
-		$g_email->execute() or die(print_r($g_email->errorInfo(), true));
-		if($g_email->rowCount()===1):
-			$temp = $g_email->fetch(PDO::FETCH_ASSOC);
-			$email = $temp['email_field'];
-		else:
-			$email = '';
-		endif;
-		return $email;
+		return $openCPU->evaluate($this->recipient_field);
 	}
 	public function sendMail($who = NULL)
 	{
@@ -202,7 +196,23 @@ LIMIT 1";
 		
 		$mail->AddAddress($this->recipient);
 		$mail->Subject = $this->subject;
-		$mail->Body    = $this->getBody();
+		$mail->Body = $this->getBody();
+		
+		foreach($this->images AS $image_id => $image):
+			$local_image =  INCLUDE_ROOT . 'tmp/' . uniqid(). $image_id;
+			copy($image,$local_image);
+			register_shutdown_function(create_function('', "unlink('{$local_image}');")); 
+			
+	        if (!$mail->AddEmbeddedImage(
+	            $local_image,
+	            $image_id,
+	            $image_id,
+	            'base64',
+	            'image/png'
+	        )) {
+	            alert($mail->ErrorInfo,'alert-error');
+	        }
+		endforeach;
 		
 		if(!$mail->Send())
 		{
@@ -234,49 +244,55 @@ LIMIT 1";
 		echo "<h4>{$this->subject}</h4>";
 		echo "<p><a href='http://$link'>$link</a></p>";
 		
-		echo $this->getBody();
+		echo $this->getBody(false);
+		
 		
 		if($this->recipient_field === null OR trim($this->recipient_field)=='')
-			$this->recipient_field = '`survey_users`.email';
+			$this->recipient_field = 'survey_users$email';
 		
-		$join = join_builder($this->dbh, $this->recipient_field);
-			
-$q = "SELECT DISTINCT {$this->recipient_field} AS email,`survey_run_sessions`.session FROM `survey_run_sessions`
+		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
-$join
+		WHERE 
+			`survey_run_sessions`.run_id = :run_id
 
-WHERE `survey_run_sessions`.run_id = :run_id
-AND email IS NOT NULL
+		ORDER BY `survey_run_sessions`.position DESC,RAND()
 
-ORDER BY RAND()
-LIMIT 20";
-#echo $q;
-		$g_email = $this->dbh->prepare($q); // should use readonly
-		$g_email->bindParam(':run_id',$this->run_id);
+		LIMIT 20";
+		$get_sessions = $this->dbh->prepare($q); // should use readonly
+		$get_sessions->bindParam(':run_id',$this->run_id);
 
-		$g_email->execute() or die(print_r($g_email->errorInfo(), true));
-		if($g_email->rowCount()>=1):
+		$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
+		if($get_sessions->rowCount()>=1):
 			$results = array();
-			while($temp = $g_email->fetch())
+			while($temp = $get_sessions->fetch())
 				$results[] = $temp;
 		else:
-			echo 'Nothing found';
+			echo 'No data to compare to yet.';
 			return false;
 		endif;
-		
+
 		echo '<table class="table table-striped">
 				<thead><tr>
-					<th>Code</th>
-					<th>Email</th>
+					<th>Code (Position)</th>
+					<th>Test</th>
 				</tr></thead>
 				<tbody>"';
 		foreach($results AS $row):
+			$openCPU = $this->makeOpenCPU();
+			$this->run_session_id = $row['id'];
+
+			$openCPU->addUserData($this->getUserDataInRun(
+				$this->dataNeeded($this->dbh,$this->recipient_field)
+			));
+			$email = stringBool($openCPU->evaluate($this->recipient_field) );
+			$good = filter_var( $email, FILTER_VALIDATE_EMAIL) ? '' : 'warning';
 			echo "<tr>
-					<td><small>{$row['session']}</small></td>
-					<td>".h($row['email'])."</td>
+					<td><small>{$row['session']} ({$row['position']})</small></td>
+					<td class='$good'>".$email."</td>
 				</tr>";
 		endforeach;
 		echo '</tbody></table>';
+		$this->run_session_id = null;
 	}
 	public function remind($who)
 	{

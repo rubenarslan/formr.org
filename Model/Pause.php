@@ -132,39 +132,42 @@ class Pause extends RunUnit {
 	{
 		if($this->relative_to=== null OR trim($this->relative_to)=='')
 		{
-			$this->relative_to = '`survey_unit_sessions`.created';
+			$this->relative_to = 'survey_unit_sessions$created';
 		}
-		$join = join_builder($this->dbh, $this->relative_to);
 		
+		$openCPU = $this->makeOpenCPU();
+
+		$openCPU->addUserData($this->getUserDataInRun(
+			$this->dataNeeded($this->dbh,$this->relative_to)
+		));
+		
+		$relative_to = $openCPU->evaluate($this->relative_to);
+
 
 		$conditions = array();
-		
-		
 		if($this->wait_minutes AND $this->wait_minutes!='')
-			$conditions['minute'] = "DATE_ADD({$this->relative_to}, INTERVAL :wait_minutes MINUTE) <= NOW()";
+			$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
 		if($this->wait_until_date AND $this->wait_until_date != '0000-00-00') 
 			$conditions['date'] = "CURDATE() >= :wait_date";
 		if($this->wait_until_time AND $this->wait_until_time != '00:00:00')
 			$conditions['time'] = "CURTIME() >= :wait_time";
 
 		if(isset($conditions['time']) AND !isset($conditions['date']) AND !isset($conditions['minute']))
-			$conditions['date'] = "DATE_ADD({$this->relative_to}, INTERVAL 1 DAY) >= CURDATE()";
+			$conditions['date'] = "DATE_ADD(:relative_to, INTERVAL 1 DAY) >= CURDATE()";
 		
 		if(!empty($conditions)):
 			$condition = implode($conditions," AND ");
 		
-		$order = str_replace(array(':wait_minutes',':wait_date','wait_time'),array(':wait_minutes2',':wait_date2','wait_time2'),$condition);
+			$order = str_replace(array(':wait_minutes',':wait_date',':wait_time',':relative_to'),array(':wait_minutes2',':wait_date2',':wait_time2',':relative_to2'),$condition);
 		
 $q = "SELECT DISTINCT ( {$condition} ) AS test,`survey_run_sessions`.session FROM `survey_run_sessions`
-
-$join
 
 WHERE 
 	`survey_run_sessions`.run_id = :run_id
 
 ORDER BY IF(ISNULL($order),1,0), RAND()
 
-LIMIT 20";
+LIMIT 1";
 		
 			echo "<pre>$q</pre>";
 			$evaluate = $this->dbh->prepare($q); // should use readonly
@@ -180,6 +183,8 @@ LIMIT 20";
 				$evaluate->bindParam(':wait_time',$this->wait_until_time);
 				$evaluate->bindParam(':wait_time2',$this->wait_until_time);
 			endif;
+			$evaluate->bindParam(':relative_to',$relative_to);
+			$evaluate->bindParam(':relative_to2',$relative_to);
 			$evaluate->bindParam(':run_id',$this->run_id);
 
 			$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
@@ -217,30 +222,33 @@ LIMIT 20";
 	{
 		if($this->relative_to=== null OR trim($this->relative_to)=='')
 		{
-			$this->relative_to = '`survey_unit_sessions`.created';
+			$this->relative_to = 'survey_unit_sessions$created';
 		}
-		$join = join_builder($this->dbh, $this->relative_to);
+		$openCPU = $this->makeOpenCPU();
+
+		$openCPU->addUserData($this->getUserDataInRun(
+			$this->dataNeeded($this->dbh,$this->relative_to)
+		));
 		
-		
+		$relative_to = $openCPU->evaluate($this->relative_to);
+
 		$conditions = array();
 		if($this->wait_minutes AND $this->wait_minutes!='')
-			$conditions['minute'] = "DATE_ADD({$this->relative_to}, INTERVAL :wait_minutes MINUTE) <= NOW()";
+			$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
 		if($this->wait_until_date AND $this->wait_until_date != '0000-00-00') 
 			$conditions['date'] = "CURDATE() >= :wait_date";
 		if($this->wait_until_time AND $this->wait_until_time != '00:00:00')
 			$conditions['time'] = "CURTIME() >= :wait_time";
 
 		if(isset($conditions['time']) AND !isset($conditions['date']) AND !isset($conditions['minute']))
-			$conditions['date'] = "DATE_ADD({$this->relative_to}, INTERVAL 1 DAY) >= CURDATE()";
+			$conditions['date'] = "DATE_ADD(:relative_to, INTERVAL 1 DAY) >= CURDATE()";
 		
 		if(!empty($conditions)):
 			$condition = implode($conditions," AND ");
 
-		$order = str_replace(array(':wait_minutes',':wait_date','wait_time'),array(':wait_minutes2',':wait_date2','wait_time2'),$condition);
+		$order = str_replace(array(':wait_minutes',':wait_date',':wait_time',':relative_to'),array(':wait_minutes2',':wait_date2',':wait_time2',':relative_to2'),$condition);
 
 	$q = "SELECT ( {$condition} ) AS test FROM `survey_run_sessions`
-	
-	$join
 	
 	WHERE 
 	`survey_run_sessions`.`id` = :run_session_id
@@ -261,7 +269,8 @@ LIMIT 20";
 				$evaluate->bindParam(':wait_time',$this->wait_until_time);
 				$evaluate->bindParam(':wait_time2',$this->wait_until_time);
 			endif;
-			
+			$evaluate->bindParam(':relative_to',$relative_to);
+			$evaluate->bindParam(':relative_to2',$relative_to);			
 			$evaluate->bindParam(":run_session_id", $this->run_session_id);
 		
 

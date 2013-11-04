@@ -56,6 +56,27 @@ class EmailAccount
 		$acc->execute() or die(print_r($acc->errorInfo(), true));
 		return true;
 	}
+	public function test()
+	{
+		$RandReceiv = bin2hex(openssl_random_pseudo_bytes(5));
+		$receiver = $RandReceiv . '@mailinator.com';
+		$link = "http://{$RandReceiv}.mailinator.com";
+	
+		$mail = $this->makeMailer();
+		
+		$mail->AddAddress($receiver);
+		$mail->Subject = 'Test';
+		$mail->Body = 'You got mail.';
+		
+		if(!$mail->Send())
+		{
+			alert($mail->ErrorInfo,'alert-error');
+		}
+		else 
+		{
+			redirect_to($link);
+		}
+	}
 	public function makeMailer()
 	{
 		$mail = new PHPMailer();
