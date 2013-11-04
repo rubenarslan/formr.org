@@ -4,11 +4,11 @@
   <head>
     <meta charset='utf-8' />
     <meta http-equiv="X-UA-Compatible" content="chrome=1" />
-    <meta name="description" content="formr : a framework that allows you to create simple and complex studies using spreadsheets with items for the surveys and &quot;runs&quot; for chaining together various modules" />
+    <meta name="description" content="formr survey framework : chain simple forms into longer runs using the power of R to generate pretty feedback and complex designs" />
 
     <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
-    <title>formr</title>
+    <title>formr survey framework</title>
   </head>
 
   <body>
@@ -18,8 +18,8 @@
         <header class="inner">
           <a id="forkme_banner" href="https://github.com/rubenarslan/formr">View on GitHub</a>
 
-          <h1 id="project_title">formr</h1>
-          <h2 id="project_tagline">a framework that allows you to create simple and complex studies using spreadsheets with items for the surveys and &quot;runs&quot; for chaining together various modules</h2>
+          <h1 id="project_title">formr survey framework</h1>
+          <h2 id="project_tagline">chain simple forms into longer runs using the power of R to generate pretty feedback and complex designs</h2>
 
             <section id="downloads">
               <a class="zip_download_link" href="https://github.com/rubenarslan/formr/zipball/master">Download this project as a .zip file</a>
@@ -31,15 +31,12 @@
     <!-- MAIN CONTENT -->
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
-        <h1>
-<a name="formr-survey-framework" class="anchor" href="#formr-survey-framework"><span class="octicon octicon-link"></span></a>formr survey framework</h1>
-
-<p>This is a framework that allows you to create simple and complex studies using Spreadsheets with items for the surveys and "runs" for chaining together various modules.</p>
+        <p>This is a framework that allows you to create simple and complex studies using spreadsheets with items for the surveys and "runs" for chaining together various modules.</p>
 
 <h2>
 <a name="runs-and-their-modules" class="anchor" href="#runs-and-their-modules"><span class="octicon octicon-link"></span></a>Runs and their modules</h2>
 
-<p>Simple surveys can be made into elaborate studies by using "runs".</p>
+<p>Simple surveys can be turned into elaborate studies by using "runs".</p>
 
 <p>Runs allow you to chain various modules and thus:</p>
 
@@ -56,8 +53,8 @@
 <ul>
 <li>simple one-shot surveys</li>
 <li>surveys with eligibility rules (using branch conditions, e.g. <code>demographics.age &gt; 30</code>)</li>
-<li>diary studies (using branch conditions <code>COUNT(diary.session_id) &lt; 14</code> -&gt; start diary again the next day -&gt; if finished continue)</li>
-<li>longitudinal studies using pauses (ie. wait 2 months after last participation). The items of wave 2 need not be clear at wave 1!</li>
+<li>diary studies (using branch conditions <code>nrow(diary) &lt; 14</code> -&gt; start diary again the next day -&gt; if finished continue)</li>
+<li>longitudinal studies using pauses (ie. wait 2 months after last participation). The items of wave 2 need not be finalised at wave 1.</li>
 </ul><h3>
 <a name="pause" class="anchor" href="#pause"><span class="octicon octicon-link"></span></a>Pause</h3>
 
@@ -66,37 +63,36 @@
 <h3>
 <a name="branch" class="anchor" href="#branch"><span class="octicon octicon-link"></span></a>Branch</h3>
 
-<p>Branches are components that allow to execute readonly SQL commands on all surveys you created. Depending on whether the results evaluates to true/1 or false/0, you can go to different positions in the run - these can be later in the run or earlier in the run (thus creating loops).</p>
+<p>Branches are components that allow to evaluate R conditions on a user's data. Depending on whether the result evaluates to true/1 or false/0, you can go to different positions in the run - these can be later or earlier in the run (the latter creates loops, for e.g. diaries, training interventions, etc.).</p>
 
 <h3>
 <a name="timebranch" class="anchor" href="#timebranch"><span class="octicon octicon-link"></span></a>TimeBranch</h3>
 
-<p>These components are the bastard children of a Pause + Branch: If the user accesses the run within the specified time frame (like a Pause), the run jumps to one position in the run (like a Branch). If she doesn't, the run progresses to a different position in the run (e.g. to a reminder email). This component is useful, if you need to set up a period during which a survey is accessible or if you want to send reminders automatically after some time elapsed. 
+<p>These components are the bastard children of a Pause + Branch: If the user accesses the run within the specified time frame (like a Pause), the run jumps to one position in the run (like a Branch). If she doesn't, the run progresses to a different position in the run (e.g. to a reminder email). This component is useful, if you need to set up a period during which a survey is accessible or if you want to automatically send reminders after some time elapsed. 
 See the <strong>OpenCPU + R + Knitr + Markdown</strong> section to find out how to customise the text shown while waiting.</p>
 
 <h3>
 <a name="email" class="anchor" href="#email"><span class="octicon octicon-link"></span></a>Email</h3>
 
-<p>Using an SMTP gateway that you can set up in the admin area, you can send emails to your users. Using the tag <code>{{login_link}}</code>, you can send users a personalised link to the run. See the <strong>OpenCPU + R + Knitr + Markdown</strong> section to find out how to personalise email text.</p>
+<p>Using an SMTP gateway that you can set up in the admin area, you can send emails to your users. Using the tag <code>{{login_link}}</code>, you can send users a personalised link to the run, you can also use <code>{{login_code}}</code> to use the session code to create custom links, e.g. for inviting peers to rate this person (informants). See the <strong>OpenCPU + R + Knitr + Markdown</strong> section to find out how to personalise email text.</p>
 
 <h3>
 <a name="external-link" class="anchor" href="#external-link"><span class="octicon octicon-link"></span></a>External link</h3>
 
-<p>These are simple external links - you can use them to send users to other, specialised data collection modules, such as a social network generator. If you insert the placeholder <code>%s</code>, it will be replaced by the users run_session code, allowing you to link data later. You can choose to "end" this component before the user is redirected to the link or by enabling your external module to call our API to close it, when it's done. </p>
+<p>These are simple external links - use them to send users to other, specialised data collection modules, such as a social network generator. If you insert the placeholder <code>%s</code>, it will be replaced by the users run_session code, allowing you to link data later. You can either choose to "finish" this component <em>before</em> the user is redirected (the simple way) or enable your external module to call our API to close it only, when the external component is finished (the proper way). </p>
 
 <h3>
 <a name="page" class="anchor" href="#page"><span class="octicon octicon-link"></span></a>Page</h3>
 
-<p>Simple text pages. See the <strong>OpenCPU + R + Knitr + Markdown</strong> section to find out how to generate personalised feedback.</p>
+<p>Simple text pages. See the <strong>OpenCPU + R + Knitr + Markdown</strong> section to find out how to generate personalised feedback, including plots.</p>
 
 <h3>
 <a name="survey" class="anchor" href="#survey"><span class="octicon octicon-link"></span></a>Survey</h3>
 
-<p>Surveys are series of questions that are created using simple spreadsheets/**item tables** (ie. Excel, OpenOffice, etc.: *.xls, *.ods, *.xlsx, *.csv etc.).
-Survey results are stored in MySQL tables of the same name, which can be used for various conditions later on.</p>
+<p>Surveys are series of questions that are created using simple spreadsheets/<strong>item tables</strong> (ie. Excel, OpenOffice, etc.: *.xls, *.ods, *.xlsx, *.csv etc.).</p>
 
-<p>You can add the same survey several times or even loop using branches.<br>
-You can also use the same survey across different runs. For example this would allow you to ask respondents for their demographic information only once. You'd do this by using a Branch with the condition <code>COUNT(demographics.session_id) &gt; 0</code> and skipping over the demographics survey, if true.</p>
+<p>You can add the same survey to a run several times or even loop them using branches.<br>
+You can also use the same survey across different runs. For example this would allow you to ask respondents for their demographic information only once. You'd do this by using a Branch with the condition <code>nrow(demographics) &gt; 0</code> and skipping over the demographics survey, if true.</p>
 
 <p>Survey names may only contain the characters <code>a-zA-Z0-9_</code> and need to start with a letter.</p>
 
@@ -118,11 +114,11 @@ You can also use the same survey across different runs. For example this would a
 <li>
 <strong><em>type</em></strong> (mandatory). See below.</li>
 <li>
-<strong>label</strong>. You can use <a href="http://daringfireball.net/projects/markdown/">Markdown</a> and HTML in the question texts. You can also use <a href="http://fontawesome.io">Font Awesome</a> icons.</li>
+<strong>label</strong>. You can use Knitr, <a href="http://daringfireball.net/projects/markdown/">Markdown</a> and HTML in the question texts. You can also use <a href="http://fontawesome.io">Font Awesome</a> icons.</li>
 <li>
-<strong>skipif</strong> You can refer to the same survey here or you can reference other surveys using <code>survey_name.variable_name</code>. SQL syntax.</li>
+<strong>skipif</strong> You can refer to the same survey here <code>variable_name == 2</code> or you can reference other surveys using <code>survey_name$variable_name == 2</code> (evaluated via OpenCPU in R).</li>
 <li>
-<strong>optional</strong> You can make an item optional (most items are mandatory by default), by using the <code>*</code> character in the optional-column. Items optional by default (<code>check</code>, <code>btncheck</code>, <code>mmc</code>) can be made mandatory by using the the <code>#</code> character in the optional-column.</li>
+<strong>optional</strong> You can make an item optional (most items are mandatory by default), by using the <code>*</code> character in the optional-column. Items optional by default (<code>check</code>, <code>btncheck</code>, <code>mmc</code>) can be made mandatory by using the the <code>!</code> character in the optional-column.</li>
 <li>
 <strong>choice1, choice2, ..., choice14</strong> (you can use these columns to quickly add choices. If you use many choices repeatedly or need more than 14 choices, it makes more sense to put them on the choices sheet)</li>
 </ul>
@@ -154,7 +150,7 @@ You can also use the same survey across different runs. For example this would a
 <li>
 <code>instruction</code> display text. instructions are displayed at least once and disappear only when there are no unanswered items left behind them (so putting an instruction directly before another ensures it will be displayed only once)</li>
 <li>
-<code>submit</code> display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>skipif</code> or substitutions have been given. </li>
+<code>submit</code> display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>skipif</code> or for dynamically generating item text have been given. </li>
 <li>multiple choice family
 
 <ul>
@@ -242,15 +238,19 @@ You can also use the same survey across different runs. For example this would a
 </ul><h4>
 <a name="skipif" class="anchor" href="#skipif"><span class="octicon octicon-link"></span></a>skipif</h4>
 
-<p>You can make item display contingent on simple and complex conditions like <code>(survey1.married = 1) OR (survey2.in_relationship = 1 AND survey2.cohabit = 1)</code>.</p>
+<p>You can make item display contingent on simple and complex conditions like <code>(survey1$married == 1) | (survey2$in_relationship == 1 &amp; survey2$cohabit == 1)</code>.</p>
 
 <h2>
 <a name="opencpu--r--knitr--markdown" class="anchor" href="#opencpu--r--knitr--markdown"><span class="octicon octicon-link"></span></a>OpenCPU + R + Knitr + Markdown</h2>
 
+<p><a href="https://public.opencpu.org/pages/">OpenCPU</a> is a way to safely use complex <a href="http://www.r-project.org/">R</a> expressions on the web. We use it for all kinds of stuff.</p>
+
 <p>In pauses, emails and pages you can display text to the user. This text is easily formatted using <a href="http://daringfireball.net/projects/markdown/">Markdown</a> a simple syntax that formats text nicely if you simply write like you would write a plain text email. Markdown can be freely mixed with HTML, so you can e.g. insert icons from the <a href="http://fontawesome.io">Font Awesome</a> library using <code>&lt;i class="icon-smile"&gt;&lt;/i&gt;</code>.</p>
 
-<p>If you use knitr syntax, where Markdown can be used, the text will not just be parsed as Markdown (which is mostly static, unless you use Javascript), but also be parsed (anew each time) by <a href="http://yihui.name/knitr/">knitr</a>. Knitr allows for mixing R syntax chunks and Markdown. <a href="http://www.r-project.org/">R</a> is a popular open-source statistical programming language, that you can use via <a href="https://public.opencpu.org/pages/">OpenCPU</a>, a RESTful interface to the language that deals with the problem that R was not meant to be used as part of web apps and is insecure. R data frames with the same names as the surveys they derive from will be available in this knitr call, they contain all data that the current user has filled out so far.<br>
+<p>If you use knitr syntax, where Markdown can be used, the text will not just be parsed as Markdown (which is mostly static, unless you use Javascript), but also be parsed (anew each time) by <a href="http://yihui.name/knitr/">knitr</a>. Knitr allows for mixing R syntax chunks and Markdown.<br><a href="http://www.r-project.org/">R</a> is a popular open-source statistical programming language, that you can use via <a href="https://public.opencpu.org/pages/">OpenCPU</a>, a RESTful interface to the language that deals with the problem that R was not meant to be used as part of web apps and is insecure. R data frames with the same names as the surveys they derive from will be available in this knitr call, they contain all data that the current user has filled out so far.<br>
 Combined with norm data etc. you can tailor feedback to the user's input, e.g. show where the user lies on the bell curve etc.</p>
+
+<p>R expressions are also evaluated in many other places, e.g. in the simplest case to find out which address an email should be sent to, or what date a pause should be relative to. More complex logic will probably take place in branches, where you might even want to do some basic data analysis</p>
 
 <h3>
 <a name="example" class="anchor" href="#example"><span class="octicon octicon-link"></span></a>Example</h3>
@@ -259,14 +259,14 @@ Combined with norm data etc. you can tailor feedback to the user's input, e.g. s
 
 <p>Using this syntax will yield the following results (assuming that the surveys "demographics" and "mood_diary" exist and contain the appropriate data)</p>
 
-<pre><code>Hi `r demographics[1,]$first_name`!
+<pre><code>Hi `r demographics$first_name`!
 
 This is a graph showing how **your mood** fluctuated across the 50 days that you filled out our diary.
 
 ### Graph
 ```{r mood.plot}
 library(ggplot2)
-mood_diary$mood &lt;- rowSums(user_data[,c('mood1','mood2','mood3')])
+mood_diary$mood &lt;- rowSums(mood_diary[,c('mood1','mood2','mood3')])
 qplot(Day, mood, data = mood_diary) + geom_smooth() + scale_y_continuous("Your mood") + theme_bw()
 ```
 </code></pre>
@@ -297,26 +297,11 @@ If you get internal server errors, these most likely stem from .htaccess files o
 <a name="security" class="anchor" href="#security"><span class="octicon octicon-link"></span></a>Security</h3>
 
 <h4>
-<a name="database" class="anchor" href="#database"><span class="octicon octicon-link"></span></a>Database</h4>
-
-<p>End user input should be safe, we use prepared queries etc.  </p>
-
-<p>However, study creators can wreak havoc, because they can write SQL expressions for skipIfs, substitutions, branches, etc. 
-A future version will rely on OpenCPU's R API to sandbox these problems.</p>
-
-<h4>
 <a name="api" class="anchor" href="#api"><span class="octicon octicon-link"></span></a>API</h4>
 
 <ul>
 <li>you can create run access tokens using the API</li>
 <li>you can end "External" units using the API</li>
-</ul><h3>
-<a name="plans" class="anchor" href="#plans"><span class="octicon octicon-link"></span></a>Plans</h3>
-
-<ul>
-<li>Todo: Should allow a "service message" to be displayed in runs, to make run completely inactive.</li>
-<li>Todo: Switch user-supplied run logic to R instead of SQL.</li>
-<li>Todo: Should be storing an API key hash, not the API key itself.</li>
 </ul><h2>
 <a name="credit" class="anchor" href="#credit"><span class="octicon octicon-link"></span></a>Credit</h2>
 
@@ -349,7 +334,7 @@ A future version will rely on OpenCPU's R API to sandbox these problems.</p>
     <!-- FOOTER  -->
     <div id="footer_wrap" class="outer">
       <footer class="inner">
-        <p class="copyright">formr maintained by <a href="https://github.com/rubenarslan">rubenarslan</a></p>
+        <p class="copyright">formr survey framework maintained by <a href="https://github.com/rubenarslan">rubenarslan</a></p>
         <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
       </footer>
     </div>
