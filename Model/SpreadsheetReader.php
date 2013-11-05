@@ -153,15 +153,15 @@ class SpreadsheetReader
 	}
 	private function translate_legacy_column($col)
 	{
-		$col = trim(strtolower($col));
+		$col = trim(mb_strtolower($col));
 		if($col=='variablenname')
 			$col = 'name';
 		elseif($col=='typ')
 			$col = 'type';
 		elseif($col=='wortlaut' or $col=='text')
 			$col = 'label';
-		elseif(substr($col,0,5)=='mcalt')
-			$col = 'choice'.substr($col,5);
+		elseif(mb_substr($col,0,5)=='mcalt')
+			$col = 'choice'.mb_substr($col,5);
 		elseif($col=='ratinguntererpol')
 			$col = 'choice1';
 		elseif($col=='ratingobererpol')
@@ -171,7 +171,7 @@ class SpreadsheetReader
 	}
 	private function translate_legacy_type($type)
 	{
-		$type = trim(strtolower($type));
+		$type = trim(mb_strtolower($type));
 		
 		if($type=='offen')
 			$type = 'text';
@@ -249,7 +249,7 @@ class SpreadsheetReader
 		$nr_of_columns = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestColumn());
 		
 		for($i = 0; $i< $nr_of_columns;$i++):
-			$col_name = strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue() );
+			$col_name = mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue() );
 			if(in_array($col_name,$this->choices_columns) ):
 				$columns[$i] = $col_name;
 			elseif($col_name):
@@ -302,8 +302,8 @@ class SpreadsheetReader
 							$choice_names = array();
 						endif;
 					
-						if(($previous = array_search(strtolower($val),$choice_names)) === false):
-							$choice_names[$row_number] = strtolower($val);	
+						if(($previous = array_search(mb_strtolower($val),$choice_names)) === false):
+							$choice_names[$row_number] = mb_strtolower($val);	
 						else:
 							$this->errors[] = "Row $row_number: choice name '$val' already appeared, last in row $previous.";
 						endif;
@@ -373,7 +373,7 @@ class SpreadsheetReader
 		$columns = array();
 		$nr_of_columns = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestColumn());
 		for($i = 0; $i< $nr_of_columns;$i++):
-			$col_name = strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue() );
+			$col_name = mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue() );
 			if(in_array($col_name,$this->survey_columns) ):
 				$oldCol = $col_name;
 				$col_name = $this->translate_legacy_column($col_name);
@@ -432,14 +432,14 @@ class SpreadsheetReader
 							$this->errors[] = "Row $row_number: variable name '$val' is not permitted.";
 						endif;
 
-						if(($previous = array_search(strtolower($val),$variablennames)) === false):
-							$variablennames[$row_number] = strtolower($val);	
+						if(($previous = array_search(mb_strtolower($val),$variablennames)) === false):
+							$variablennames[$row_number] = mb_strtolower($val);	
 						else:
 							$this->errors[] = "Row $row_number: variable name '$val' already appeared, last in row $previous.";
 						endif;
 					elseif($col == 'type'):
 						
-						if(strpos($val," ")!==false):
+						if(mb_strpos($val," ")!==false):
 							$val = preg_replace("/ +/"," ",$val); // multiple spaces collapse into one
 							$type_options = explode(" ",$val); // get real type and options
 							$val = $type_options[0];
@@ -467,9 +467,9 @@ class SpreadsheetReader
 						if($val==='*') $val = 1;
 						elseif($val==='!') $val = 0;
 						else $val = null;
-					elseif( strpos($col,"choice") === 0 AND ($val!==null AND $val!=='')):
+					elseif( mb_strpos($col,"choice") === 0 AND ($val!==null AND $val!=='')):
 
-						$nr = substr($col, 6);
+						$nr = mb_substr($col, 6);
 						$this->choices[] = array(
 						  'list_name' => $data[$row_number][ 'name' ],
 						  'name' => $nr,

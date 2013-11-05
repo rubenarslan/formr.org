@@ -200,84 +200,6 @@ class Item extends HTML_element
 			return "`{$this->name}` {$this->mysql_field}";
 		else return null;
 	}
-	public function skip($session_id, $run_session_id, $rdb, $results_table)
-	{	
-		if($this->skipif!=null):
-			
-			if(
-			(strpos($this->skipif,'AND')!==false AND strpos($this->skipif,'OR')!==false) // and/or mixed? 
-				OR strpos($this->skipif,'.') !== false // references to other tables (very simplistic check)
-				): // fixme: SO UNSAFE, should at least use least privilege principle and readonly user (not possible on all-inkl...)
-					$join = join_builder($rdb, $this->skipif);
-					
-					$q = "SELECT ( {$this->skipif} ) AS test FROM `survey_run_sessions`
-		
-					$join
-		
-					WHERE 
-					`survey_run_sessions`.`id` = :run_session_id
-
-					ORDER BY IF(ISNULL( ( {$this->skipif} ) ),1,0), `survey_unit_sessions`.id DESC
-		
-					LIMIT 1";
-					$evaluate = $rdb->prepare($q); // should use readonly
-					$evaluate->bindParam(":run_session_id", $run_session_id);
-
-					$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
-					if($evaluate->rowCount()===1):
-						$temp = $evaluate->fetch();
-						if($temp['test']===null) $result = true;
-						else $result = (bool)$temp['test'];
-					else:
-						$result = true;
-					endif;
-					return $result;
-			endif;
-			
-			$skipifs = preg_split('/(AND|OR)/',$this->skipif);
-			$constraints = array();
-			foreach($skipifs AS $skip):
-				if(! preg_match("/^([A-Za-z0-9_]+)\s*(!=|=|==|>|<|>=|<=|LIKE)\s*['\"]*([\w%_]+)['\"]*\s*$/",trim($skip), $matches) ):
-					die ($this->name . " invalid skipif");
-				else:
-					if($matches[2] == '==') $matches[2] = '=';
-					
-					$q = "SELECT (
-						`{$matches[1]}` IS NULL OR 
-						`{$matches[1]}` {$matches[2]} :value 
-					) AS test FROM `{$results_table}` WHERE 
-					`session_id` = :session_id
-					
-					LIMIT 1";
-					
-#					echo $q;
-					$should_skip = $rdb->prepare($q); // IS NULL clause so that skipifs are not shown if the relevant question has not yet been answered. this will be more conspicuous during testing
-					$should_skip->bindParam(":session_id", $session_id);
-
-					$should_skip->bindParam(":value", $matches[3]);
-
-					$should_skip->execute() or die(print_r($should_skip->errorInfo(), true));
-					if($should_skip->rowCount() > 0):
-						$tmp = $should_skip->fetch(PDO::FETCH_ASSOC);
-						$constraints[$skip] = (bool)$tmp['test'];
-					else:
-						$constraints[$skip] = true;
-					endif;
-				endif;
-			endforeach;
-#			echo $this->name;
-#			pr($constraints);
-			
-			if(strpos($this->skipif,'AND')!==false AND !in_array(false,$constraints,true)):
-				return true; // skip if all AND conditions evaluate to true 
-			elseif(strpos($this->skipif,'OR')!==false AND in_array(true,$constraints,true)):
-				return true; // skip when one of the OR conditions evaluates to true
-			elseif(in_array(true,$constraints,true)):
-				return true; // skip
-			endif;
-		endif;
-		return false;
-	}
 	public function validate() 
 	{
 		if(!$this->hasChoices AND $this->choice_list!=null):
@@ -853,9 +775,9 @@ class Item_mc extends Item
 		) $this->label_first = true;  // the first option label will be rendered before the radio button instead of after it.
 		else $this->label_first = false;
 #		pr((implode(" ",$this->classes_wrapper)));
-		if(strpos(implode(" ",$this->classes_wrapper),'mc-first-left')!==false) $this->label_first = true;
+		if(mb_strpos(implode(" ",$this->classes_wrapper),'mc-first-left')!==false) $this->label_first = true;
 		$all_left = false;
-		if(strpos(implode(" ",$this->classes_wrapper),'mc-all-left')!==false) $all_left = true;
+		if(mb_strpos(implode(" ",$this->classes_wrapper),'mc-all-left')!==false) $all_left = true;
 		
 		foreach($this->choices AS $value => $option):			
 			$ret .= '
@@ -1478,9 +1400,9 @@ class Item_mc_heading extends Item_mc
 		) $this->label_first = true;  // the first option label will be rendered before the radio button instead of after it.
 		else $this->label_first = false;
 #		pr((implode(" ",$this->classes_wrapper)));
-		if(strpos(implode(" ",$this->classes_wrapper),'mc-first-left')!==false) $this->label_first = true;
+		if(mb_strpos(implode(" ",$this->classes_wrapper),'mc-first-left')!==false) $this->label_first = true;
 		$all_left = false;
-		if(strpos(implode(" ",$this->classes_wrapper),'mc-all-left')!==false) $all_left = true;
+		if(mb_strpos(implode(" ",$this->classes_wrapper),'mc-all-left')!==false) $all_left = true;
 		
 		foreach($this->choices AS $value => $option):			
 			$ret .= '

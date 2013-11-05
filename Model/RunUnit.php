@@ -230,7 +230,7 @@ class RunUnit {
 	}
 	protected function knittingNeeded($source)
 	{
-		if(strpos($source,'`r ')!==false OR strpos($source,'```{r')!==false)
+		if(mb_strpos($source,'`r ')!==false OR mb_strpos($source,'```{r')!==false)
 			 return true;
 		 else
 			return false;

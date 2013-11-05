@@ -223,7 +223,7 @@ class Study extends RunUnit
 					if(!$this->knittingNeeded($item->label)): // if the parsed label is constant
 						$markdown = Markdown::defaultTransform($item->label); // transform upon insertion into db instead of at runtime
 
-						if(substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
+						if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
 							$item->label_parsed = $matches[1];
 						else:
 							$item->label_parsed = $markdown;
@@ -315,7 +315,7 @@ class Study extends RunUnit
 			if(!$this->knittingNeeded( $choice['label'] )): // if the parsed label is constant
 				$markdown = Markdown::defaultTransform($choice['label']); // transform upon insertion into db instead of at runtime
 
-				if(substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
+				if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
 					$choice['label_parsed'] = $matches[1];
 				else:
 					$choice['label_parsed'] = $markdown;

@@ -155,7 +155,7 @@ $this->user_data .
 		$source =
 '```{r settings,message=FALSE,warning=F,echo=F}
 email_image = function(x) {
-	cid = gsub("[^a-zA-Z0-9]", "", substring(x,8))
+	cid = gsub("[^a-zA-Z0-9]", "", mb_substring(x,8))
 	structure(paste0("cid:",cid,".png"), link = x)
 }
 opts_chunk$set(warning=F,message=F,echo=F)
@@ -174,9 +174,9 @@ $this->user_data .
 		$response['images'] = array();
 		
 		foreach($available AS $part):
-			$upto = strpos($part,'/files/figure/');
+			$upto = mb_strpos($part,'/files/figure/');
 			if($upto!==false):
-				$image_id = preg_replace("/[^a-zA-Z0-9]/",'',substr($part,$upto+14)) . '.png';
+				$image_id = preg_replace("/[^a-zA-Z0-9]/",'',mb_substr($part,$upto+14)) . '.png';
 				$response['images'][ $image_id ] =  $this->instance. $part;
 			endif;
 		endforeach;
@@ -192,8 +192,8 @@ $this->user_data .
 	}
 	public function debugCall($results)
 	{
-		$header = substr($results, 0, $this->header_size);
-		$results = substr($results, $this->header_size);
+		$header = mb_substr($results, 0, $this->header_size);
+		$results = mb_substr($results, $this->header_size);
 ##		list($header, $results) = explode("\r\n\r\n", $results, 2); # does not work with 100 Continue
 		if($this->http_status > 302):
 			 $response = array(
