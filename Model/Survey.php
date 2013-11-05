@@ -209,7 +209,7 @@ class Survey extends RunUnit {
 				
 				$markdown = $openCPU->knitForUserDisplay($row['label']);
 				
-				if(substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)): // simple wraps are eliminated
+				if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)): // simple wraps are eliminated
 					$row['label_parsed'] = $matches[1];
 				else:
 					$row['label_parsed'] = $markdown;
@@ -381,7 +381,7 @@ class Survey extends RunUnit {
 				));
 				$markdown = $openCPU->knitForUserDisplay($item->label);
 				
-				if(substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)): // simple wraps are eliminated
+				if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)): // simple wraps are eliminated
 					$item->label_parsed = $matches[1];
 				else:
 					$item->label_parsed = $markdown;

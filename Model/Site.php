@@ -8,6 +8,7 @@ ini_set("error_log", INCLUDE_ROOT . "tmp/logs/errors.log");
 error_reporting(-1);
 
 date_default_timezone_set('Europe/Berlin');
+mb_internal_encoding("UTF-8");
 
 require_once INCLUDE_ROOT . "config/settings.php";
 require_once INCLUDE_ROOT . "Model/DB.php";
@@ -36,7 +37,7 @@ class Site
 	public function lastOutsideReferrer()
 	{
 		$ref = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
-		if(strpos($ref, WEBROOT) !== 0)
+		if(mb_strpos($ref, WEBROOT) !== 0)
 		{
 			$this->last_outside_referrer = $ref;
 		}
@@ -78,10 +79,10 @@ function redirect_to($location) {
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 
-	if(substr($location,0,4)!= 'http'){
+	if(mb_substr($location,0,4)!= 'http'){
 		$base = WEBROOT;
-		if(substr($location,0,1)=='/')
-			$location = $base . substr($location,1);
+		if(mb_substr($location,0,1)=='/')
+			$location = $base . mb_substr($location,1);
 		else $location = $base . $location;
 	}
 #	try
@@ -169,7 +170,7 @@ function endsWith($haystack, $needle)
         return true;
     }
 
-    return (substr($haystack, -$length) === $needle);
+    return (mb_substr($haystack, -$length) === $needle);
 }
 
 /**
@@ -187,7 +188,7 @@ function env($key) {
 		if (isset($_SERVER['HTTPS'])) {
 			return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
 		}
-		return (strpos(env('SCRIPT_URI'), 'https://') === 0);
+		return (mb_strpos(env('SCRIPT_URI'), 'https://') === 0);
 	}
 
 	if ($key === 'SCRIPT_NAME') {
@@ -226,10 +227,10 @@ function env($key) {
 			$name = env('SCRIPT_NAME');
 			$filename = env('SCRIPT_FILENAME');
 			$offset = 0;
-			if (!strpos($name, '.php')) {
+			if (!mb_strpos($name, '.php')) {
 				$offset = 4;
 			}
-			return substr($filename, 0, -(strlen($name) + $offset));
+			return mb_substr($filename, 0, -(strlen($name) + $offset));
 			break;
 		case 'PHP_SELF':
 			return str_replace(env('DOCUMENT_ROOT'), '', env('SCRIPT_FILENAME'));
@@ -376,7 +377,7 @@ if (!function_exists('http_parse_headers'))
             }
             else // [+]
             { // [+]
-                if (substr($h[0], 0, 1) == "\t") // [+]
+                if (mb_substr($h[0], 0, 1) == "\t") // [+]
                     $headers[$key] .= "\r\n\t".trim($h[0]); // [+]
                 elseif (!$key) // [+]
                     $headers[0] = trim($h[0]); // [+]
