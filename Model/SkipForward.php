@@ -44,19 +44,21 @@ class SkipForward extends Branch {
 		));
 		$result = (bool)$openCPU->evaluate($this->condition);
 		$join = join_builder($this->dbh, $this->condition);
-	
-		if($result AND $this->if_true >= $this->position): // the condition is true and it skips forward
+		
+		$this->automatically_jump = true;
+		$this->automatically_go_on = true;
+		
+		if($result AND ($automatically_jump OR !$this->called_by_cron)): // if condition is true and we're set to jump automatically, or if the user reacted
 			global $run_session;
 			if($run_session->session):
 				$this->end();
 				$run_session->runTo($this->if_true);
 			endif;
-		elseif(!$result AND $this->if_true === $this->position): // the condition is true and it stays here, waits for the user
-			return true;
-		else: // the condition is false
+		elseif(!$result AND ($automatically_go_on OR !$this->called_by_cron)): // the condition is false and it goes on
 			$this->end();
+			return false;
+		else: // we wait for the condition to turn true or false, depends.
+			return true;
 		endif;
-		
-		return false;
 	}
 }
