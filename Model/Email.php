@@ -16,6 +16,7 @@ class Email extends RunUnit {
 	private $images = array();
 	private $subject = null;
 	private $html = 1;
+	public $icon = "fa-envelope";
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{

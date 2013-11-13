@@ -8,6 +8,8 @@ class External extends RunUnit {
 	public $unit = null;
 	private $address = null;
 	private $api_end = 0;
+	public $icon = "fa-external-link-square";
+	
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{

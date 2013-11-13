@@ -6,10 +6,11 @@ class Branch extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $condition = null;
-	private $if_true = null;
-	private $if_false = null;
-	public $type = 'branch';
+	protected $condition = null;
+	protected $if_true = null;
+	protected $if_false = null;
+	public $type = 'Branch';
+	public $icon = 'fa-code-fork fa-flip-vertical';
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -35,7 +36,7 @@ class Branch extends RunUnit {
 	{
 		$this->dbh->beginTransaction();
 		if(!$this->id)
-			$this->id = parent::create('Branch');
+			$this->id = parent::create($this->type);
 		else
 			$this->modify($this->id);
 		
@@ -43,8 +44,10 @@ class Branch extends RunUnit {
 		{
 			array_walk($options,"emptyNull");
 			$this->condition = $options['condition'];
-			$this->if_true = $options['if_true'];
-			$this->if_false = $options['if_false'];
+			if(isset($options['if_true']))
+				$this->if_true = $options['if_true'];
+			if(isset($options['if_false']))
+				$this->if_false = $options['if_false'];
 		}
 		
 		$create = $this->dbh->prepare("INSERT INTO `survey_branches` (`id`, `condition`, if_true, if_false)
@@ -97,7 +100,7 @@ class Branch extends RunUnit {
 
 		$dialog = $prepend . $dialog;
 		
-		return parent::runDialog($dialog,'fa-code-fork fa-flip-vertical fa-2-5x');
+		return parent::runDialog($dialog);
 	}
 	public function removeFromRun($run_id)
 	{
@@ -158,7 +161,6 @@ class Branch extends RunUnit {
 	} 
 	public function exec()
 	{
-		
 		$openCPU = $this->makeOpenCPU();
 
 		$openCPU->addUserData($this->getUserDataInRun(

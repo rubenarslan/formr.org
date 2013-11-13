@@ -13,6 +13,7 @@ class RunUnit {
 	public $knitr = false;
 	public $session_id = null;
 	public $type = '';
+	public $icon = 'fa-wrench';
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -35,6 +36,10 @@ class RunUnit {
 		if(isset($this->unit['unit_id'])) 
 			$this->id = $this->unit['unit_id'];
 		
+		if(isset($this->unit['position'])) 
+			$this->position = (int)$this->unit['position'];
+		
+		
 		if(isset($this->unit['cron'])) 
 			$this->called_by_cron = true;
 		
@@ -45,6 +50,7 @@ class RunUnit {
 			SET type = :type,
 		 created = NOW(),
 	 	 modified = NOW();");
+
 		$c_unit->bindParam(':type', $type);
 		
 		$c_unit->execute() or die(print_r($c_unit->errorInfo(), true));
@@ -143,7 +149,7 @@ class RunUnit {
 		$reached = $reached_unit->fetch(PDO::FETCH_ASSOC);
 		return "<span class='hastooltip badge' title='Number of unfinished sessions'>".(int)$reached['begun']."</span> <span class='hastooltip badge badge-success' title='Number of finished sessions'>".(int)$reached['finished']."</span>";
 	}
-	public function runDialog($dialog,$icon = '')
+	public function runDialog($dialog)
 	{
 		if(isset($this->position))
 			$position = $this->position;
@@ -161,7 +167,7 @@ class RunUnit {
 		return '
 		<div class="run_unit_inner '. $this->type .'">
 				<div class="col-md-2 run_unit_position">
-					<h1><i class="muted fa fa-2x '.$icon.'"></i></h1>
+					<h1><i class="muted fa fa-2x '.$this->icon.'"></i></h1>
 					'.$this->howManyReachedIt().' <button href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run"><i class="fa fa-times"></i></button>
 <br>
 					<input class="position" value="'.$position.'" type="number" name="position['.$this->id.']" step="1" max="32000" min="-32000"><br>
@@ -184,25 +190,28 @@ class RunUnit {
 			$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
 			";
 
-			$q4 = "
+			$q3
+				 = "
 			WHERE  `survey_run_sessions`.id = :run_session_id;";
 			
-			if(!in_array($survey_name,array('survey_users'))):
+			if(!in_array($survey_name,array('survey_users','survey_unit_sessions'))):
 				$q2 = "left join `survey_unit_sessions`
 					on `$survey_name`.session_id = `survey_unit_sessions`.id
-				";
-				$q3 = "left join `survey_run_sessions`
+					left join `survey_run_sessions`
 					on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 				";
 				
+			elseif($survey_name == 'survey_unit_sessions'):
+				$q2 = "left join `survey_run_sessions`
+					on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+				";
 			elseif($survey_name == 'survey_users'):
-				$q2 = '';
-				$q3 = "left join `survey_run_sessions`
+				$q2 = "left join `survey_run_sessions`
 					on `survey_users`.id = `survey_run_sessions`.user_id
 				";
 			endif;
 			
-			$q = $q1 . $q2 . $q3 . $q4;
+			$q = $q1 . $q2 . $q3;
 
 			$get_results = $this->dbh->prepare($q);
 			

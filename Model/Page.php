@@ -14,6 +14,8 @@ class Page extends RunUnit {
 	private $can_be_ended = 0;
 	public $ended = false;
 	public $type = 'endpage';
+	public $icon = "fa-stop";
+	
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -54,7 +56,8 @@ class Page extends RunUnit {
 		{
 			$this->body = $options['body'];
 			$this->title = $options['title'];
-			$this->can_be_ended = $options['end'] ? 1:0;
+//			$this->can_be_ended = $options['end'] ? 1:0;
+			$this->can_be_ended = 0;
 		}
 		
 		$this->body_parsed = Markdown::defaultTransform($this->body); // transform upon insertion into db instead of at runtime

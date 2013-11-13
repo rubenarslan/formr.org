@@ -23,7 +23,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 	  foreach($studies as $study) {
 	    echo "<li>
 			<a href='".WEBROOT."admin/survey/".$study['name']."/'>
-		<i class='fa fa-question-circle fa-fw'></i>
+		<i class='fa fa-pencil-square fa-fw'></i>
 		".$study['name']."</a>
 		</li>";
 	  }

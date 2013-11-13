@@ -77,7 +77,7 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 					$icon = 'fa-exclamation-triangle';
 				else:
 					$btnclass = 'btn-success';
-					$icon = 'fa-question-circle';
+					$icon = 'fa-pencil-square';
 				endif;
 			?>
 				<button class="btn btn-default <?=$btnclass?> btn-lg" type="submit"><i class="fa-fw fa <?=$icon?>"></i> <?php echo __("Upload new items, possibly overwrite %d existing results.", $res); ?></button>

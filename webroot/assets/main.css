@@ -604,6 +604,7 @@ div.all-alerts + div
 
 .tiny-tabs {
     font-size:11px;
+    margin-bottom:10px;
 }
 .tiny-tabs.nav > li > a {
     padding:2px 2px;
@@ -644,17 +645,10 @@ li.nav-header
 {
     margin-left:120px;
 }
-.fa-question-circle
-{
-    color:#a10709;
-}
+
 .muted
 {
     color:#DDD;
-}
-.fa-question-circle.muted
-{
-    color:#bf7273;
 }
 
 .fa-ul li.active a
@@ -666,4 +660,13 @@ li.nav-header
 .form-group.form-row .form-control
 {
     max-width:300px;
+}
+
+.run_unit_dialog {
+    margin-left:40px;
+}
+
+.padding-below
+{
+    margin-bottom:10px;
 }
