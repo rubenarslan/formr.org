@@ -39,7 +39,7 @@ Please <a href="'.WEBROOT.'survey/'.$study->name.'/show_results">review the exis
 		<label class="control-label" for="delete_confirm" title="this is required to avoid accidental deletions">Type the study's name to confirm deletion of results:</label>
 		<div class="controls">
 			<div class="input-group">
-			  <span class="input-group-addon"><i class="fa fa-question-circle"></i></span>
+			  <span class="input-group-addon"><i class="fa fa-pencil-square"></i></span>
 	  			<input class="form-control" required name="delete_confirm" id="delete_confirm" type="text" placeholder="survey name (see up left)"></label>
 			</div>
 		</div>

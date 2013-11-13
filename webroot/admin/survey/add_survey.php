@@ -34,7 +34,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
 <div class="col-md-4 col-md-offset-1 well">
 
-<h2><i class="fa fa-question-circle"></i> Create new survey &amp; upload item table</h2>
+<h2><i class="fa fa-pencil-square"></i> Create new survey &amp; upload item table</h2>
 <p>Please keep this in mind when uploading surveys</p>
 
 <ul class="fa-ul fa-ul-more-padding">
@@ -68,7 +68,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 	</div>
 	<div class="form-group">
 		<div class="controls">
-			<button class="btn btn-default btn-success btn-lg" type="submit"><i class="fa-fw fa fa-question-circle"></i> Create survey</button>
+			<button class="btn btn-default btn-success btn-lg" type="submit"><i class="fa-fw fa fa-pencil-square"></i> Create survey</button>
 		</div>
 	</div>
 </form>

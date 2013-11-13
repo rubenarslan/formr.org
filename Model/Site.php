@@ -325,7 +325,7 @@ left join `$table`
 function makeUnit($dbh, $session, $unit)
 {
 	$type = $unit['type'];
-	if(!in_array($type, array('Survey', 'Study','Pause','Email','External','Page','Branch','End', 'TimeBranch'))) 
+	if(!in_array($type, array('Survey', 'Study','Pause','Email','External','Page','SkipBackward','SkipForward','End')))
 		die('The unit type is not allowed!');
 	
 	require_once INCLUDE_ROOT . "Model/$type.php";

@@ -17,6 +17,7 @@ class Study extends RunUnit
 	public $warnings = array();
 	public $position;
 	private $SPR;
+	public $icon = "fa-pencil-square-o";
 	
 	public function __construct($fdb, $session = NULL,$unit = NULL) 
 	{
@@ -604,6 +605,6 @@ class Study extends RunUnit
 			endif;
 		endif;
 		$dialog = $prepend . $dialog;
-		return parent::runDialog($dialog,'fa-question-circle');
+		return parent::runDialog($dialog,'fa-pencil-square');
 	}
 }

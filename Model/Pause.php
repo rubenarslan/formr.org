@@ -16,6 +16,8 @@ class Pause extends RunUnit {
 	private $wait_until_time = null;
 	private $wait_until_date = null;
 	public $ended = false;
+	public $type = "Pause";
+	public $icon = "fa-pause";
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -45,7 +47,7 @@ class Pause extends RunUnit {
 	{
 		$this->dbh->beginTransaction();
 		if(!$this->id)
-			$this->id = parent::create('Pause');
+			$this->id = parent::create($this->type);
 		else
 			$this->modify($this->id);
 		

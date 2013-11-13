@@ -20,7 +20,7 @@
   			<a class="dropdown-toggle"
   			data-toggle="dropdown"
   			href="#">
-  				<i class="fa fa-question-circle fa-fw"></i> surveys
+  				<i class="fa fa-pencil-square fa-fw"></i> surveys
   				<b class="caret"></b>
   			</a>
 		  <ul class="dropdown-menu">
@@ -138,7 +138,7 @@
 <?php
 $resultCount = $study->getResultCount();
 ?>
-<h3><i class="fa fa-question-circle"></i> <?php echo $study->name;?> <small><?= ($resultCount['begun']+$resultCount['finished'])?> results</small></h3>
+<h3><i class="fa fa-pencil-square"></i> <?php echo $study->name;?> <small><?= ($resultCount['begun']+$resultCount['finished'])?> results</small></h3>
 	
 <nav class="col-md-no-left-pad col-md-1">
 	<ul class="fa-ul fa-ul-more-padding">
