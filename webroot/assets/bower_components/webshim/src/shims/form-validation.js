@@ -169,8 +169,8 @@ webshims.register('form-validation', function($, webshims, window, document, und
 		.on(options.validityUIEvents || 'focusout change refreshvalidityui invalid', switchValidityClass)
 		.on('reset resetvalui', function(e){
 			var elems = $(e.target);
-			if(e.type == 'reset'){
-				elems = elems.filter('form').jProp('elements');
+			if(elems.is('form, fieldset')){
+				elems = elems.jProp('elements');
 			}
 			elems
 				.filter('.user-error, .user-success')
@@ -283,18 +283,41 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			this.element.off('pospopover').on('pospopover', delayedRepos);
 			$(window).on('resize'+this.eventns + ' pospopover'+this.eventns, delayedRepos);
 		},
+		_getAutoAppendElement: (function(){
+			var invalidParent = /^(?:span|i|label|b|p|tr|thead|tbody|table|strong|em|ul|ol|dl|html)$/i;
+			return function(element){
+			
+				var appendElement;
+				var parent = element[0];
+				var body = document.body;
+				while((parent = parent[appendElement ? 'offsetParent' : 'parentNode']) && parent.nodeType == 1  && parent != body){
+					if(!appendElement && !invalidParent.test(parent.nodeName)){
+						appendElement = parent;
+					} 
+					if(appendElement && $.style(parent, 'overflow') == 'hidden' && $.style(parent, 'position') != 'static'){
+						appendElement = false;
+					}
+				}
+				return $(appendElement || body);
+			};
+		})(),
 		prepareFor: function(element, visual){
-			var onBlur;
+			var onBlur, parentElem;
 			var that = this;
 			var css = {};
-			var opts = $.extend(true, {}, this.options, $(element.prop('form') || []).data('wspopover') || {}, element.data('wspopover'));
+			var opts = $.extend(true, {}, this.options, element.jProp('form').data('wspopover') || {}, element.data('wspopover'));
 			this.lastOpts = opts;
 			this.lastElement = $(element).getShadowFocusElement();
 			if(!this.prepared || !this.options.prepareFor){
 				if(opts.appendTo == 'element'){
-					this.element.insertAfter(element);
+					parentElem = element.parent();
+				} else if(opts.appendTo == 'auto'){
+					parentElem = this._getAutoAppendElement(element);
 				} else {
-					this.element.appendTo(opts.appendTo);
+					parentElem = $(opts.appendTo);
+				}
+				if(!this.prepared || parentElem[0] != this.element[0].parentNode){
+					this.element.appendTo(parentElem);
 				}
 			}
 			
@@ -324,9 +347,6 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				
 			}
 			
-			if(!this.prepared && $.fn.bgIframe){
-				this.element.bgIframe();
-			}
 			this.prepared = true;
 		},
 		clear: function(){
@@ -408,8 +428,8 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			},
 			setFocus: function(element){
 				var focusElem = $(element).getShadowFocusElement();
-				var scrollTop = webshims.scrollRoot.scrollTop();
-				var elemTop = focusElem.offset().top - 30;
+				var scrollTop = webshims.scrollRoot.scrollTop() + (options.viewportOffset || 0);
+				var elemTop = focusElem.offset().top - (options.scrollOffset || 30);
 				var focus = function(){
 					try {
 						focusElem[0].focus();
@@ -419,7 +439,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				
 				if(scrollTop > elemTop){
 					webshims.scrollRoot.animate(
-						{scrollTop: elemTop - 5}, 
+						{scrollTop: elemTop - 5 - (options.viewportOffset || 0)}, 
 						{
 							queue: false, 
 							duration: Math.max( Math.min( 600, (scrollTop - elemTop) * 1.5 ), 80 ),
@@ -559,18 +579,24 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			check();
 		},
 		hideError: function(elem, reset){
+			var invalid;
 			var fieldWrapper = this.getFieldWrapper(elem);
-			var errorBox = fieldWrapper.hasClass(invalidWrapperClass) ? this.get(elem, fieldWrapper) : fieldWrapper.data('errorbox');
+			var errorBox = this.get(elem, fieldWrapper);
 			
 			if(errorBox && errorBox.jquery){
-				fieldWrapper.removeClass(invalidWrapperClass);
-				errorBox.message = '';
 				$(elem).filter('input').off('.recheckinvalid');
-				errorBox[fx[options.iVal.fx].hide](function(){
-					$(this).attr({hidden: 'hidden'});
-				});
+				if(!reset && (invalid = $('input:invalid, select:invalid, textarea:invalid', fieldWrapper)[0])){
+					$(invalid).trigger('refreshvalidityui');
+				} else {
+					fieldWrapper.removeClass(invalidWrapperClass);
+					errorBox.message = '';
+					errorBox[fx[options.iVal.fx].hide](function(){
+						$(this).attr({hidden: 'hidden'});
+					});
+				}
+				
 			}
-			if(!reset){
+			if(!reset && !invalid){
 				this.addSuccess(elem, fieldWrapper);
 			}
 			return fieldWrapper;
@@ -598,12 +624,13 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			var fieldWrapper = this.getFieldWrapper(elem);
 			var box = this.get(elem, fieldWrapper);
 			var message = $(elem).getErrorMessage();
+
 			if(box.message != message){
 				box.stop(true, true).html('<p>'+ message +'</p>');
 				box.message = message;
 				fieldWrapper.addClass(invalidWrapperClass).removeClass(successWrapperClass);
+				this.recheckInvalidInput(elem);
 				if(box.is('[hidden]') || box.css('display') == 'none'){
-					this.recheckInvalidInput(elem);
 					box
 						.css({display: 'none'})
 						.removeAttr('hidden')
@@ -742,5 +769,142 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			});
 			
 		})();
+	}
+	
+	if(!$.event.special.change && !$.event.special.input && Modernizr.inputtypes && options.fixRangeChange){
+		var rangeChange = {
+			
+			trigger: function(e){
+				if(rangeChange.blockElement){
+					rangeChange.blockElement = false;
+					setTimeout(function(){
+						if(rangeChange.requestedChange && rangeChange.value != rangeChange.requestedChange.value){
+							$(rangeChange.requestedChange).trigger('change');
+						}
+						rangeChange.value = false;
+					}, 9);
+				}
+				
+			},
+			lastValue: false,
+			updateInputValue: function(e){
+				rangeChange.lastValue = e.target.value;
+			},
+			triggerInput: function(e){
+				if(rangeChange.lastValue !== false && rangeChange.lastValue != e.target.value){
+					$(e.target).trigger('input');
+				}
+			},
+			inputTeardown: function(e){
+				$(e.target)
+					.off('input', rangeChange.updateInputValue)
+					.off('blur', rangeChange.inputTeardown)
+				;
+				rangeChange.lastValue = false;
+			},
+			inputSetup: function(e){
+				
+				if(e.target.type == 'range'){
+					rangeChange.inputTeardown(e);
+					rangeChange.lastValue = e.target.value;
+					$(e.target)
+						.on('input', rangeChange.updateInputValue)
+						.on('blur', rangeChange.inputTeardown)
+					;
+				}
+			}
+		};
+		
+		
+		$.each([{name: 'key', evt: 'keyup'}, {name: 'mouse', evt: 'mouseup'}, {name: 'touch', evt: 'touchend'}], function(i, obj){
+			var setup = obj.name + 'Setup';
+			var commit = obj.name + 'Commit';
+			rangeChange[obj.name+'Block'] = function(e){
+				
+				if(!rangeChange.blockElement && e.target.type == 'range'){
+					
+					rangeChange.blockElement = e.target;
+					rangeChange.value = e.target.value;
+					$(rangeChange.blockElement)
+						.off('blur', rangeChange.trigger)
+						.on('blur', rangeChange.trigger)
+					;
+					
+					$(document.body)
+						.off(obj.evt, rangeChange[commit])
+						.on(obj.evt, rangeChange[commit])
+					;
+				}
+			};
+			
+			rangeChange[commit] = function(e){
+				$(document.body).off(obj.evt, rangeChange[commit]);
+				rangeChange.trigger();
+			};
+			
+		});
+		
+		$(document.body || 'html').on({
+			mousedown: rangeChange.mouseBlock,
+			'keydown kepress': function(e){
+				if(e.keyCode < 45 && e.keyCode > 30){
+					rangeChange.keyBlock(e);
+				}
+			},
+			'touchstart': rangeChange.touchBlock,
+			focusin: rangeChange.inputSetup
+		});
+		
+		$.extend(true, $.event.special, {
+			change: {
+				handle: function(e){
+					
+					if(!e.isTrigger && rangeChange.blockElement == e.target){
+						rangeChange.requestedChange = e.target;
+						rangeChange.triggerInput(e);
+						return false;
+					} else if(rangeChange.requestedChange == e.target){
+						rangeChange.requestedChange = false;
+					}
+					e.handleObj.handler.apply(this, arguments);
+				}
+			},
+			input: {
+				handle: (function(){
+					var lastValue, lastElement;
+					
+					var remove = function(){
+						if(lastElement){
+							$(lastElement).off('change', remove);
+						}
+						lastValue = false;
+						lastElement = false;
+					};
+					
+					var setup = function(e){
+						remove(e);
+						lastElement = e.target;
+						lastValue = e.target.value;
+						$(e.target).on('change', remove);
+					};
+					
+					return function(e){
+						var value;
+						if(!e.isTrigger && e.target.type == 'range'){
+							
+							if(lastElement != e.target){
+								setup(e);
+							} else if(lastElement == e.target){
+								if(lastValue == (value = e.target.value)){
+									return false;
+								}
+								lastValue = e.target.value;
+							}
+						}
+						e.handleObj.handler.apply(this, arguments);
+					};
+				})()
+			}
+		});
 	}
 });

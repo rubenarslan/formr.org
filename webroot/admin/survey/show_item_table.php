@@ -7,13 +7,14 @@ require_once INCLUDE_ROOT.'View/header.php';
 
 require_once INCLUDE_ROOT.'View/acp_nav.php';
 ?>
-<h2>Item table <small>currently active</small></h2>
+<div class="col-md-9">
+
+	<h2>Item table <small>currently active</small></h2>
 
 
 <?php
 if(count($results)>0):
 ?>
-<div class="span12">
 	
 <table class='table table-striped'>
 	<thead><tr>
@@ -96,8 +97,9 @@ endforeach;
 ?>
 </tbody></table>
 
-</div>
-
 <?php
 endif;
+?>
+</div>
+<?php
 require_once INCLUDE_ROOT.'View/footer.php';

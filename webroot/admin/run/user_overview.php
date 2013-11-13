@@ -4,7 +4,7 @@ require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
-<div class="span">
+<div class="col">
 <h1>user overview</h1>
 </div>
 <?php
@@ -50,12 +50,16 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 	$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>{$userx['last_access_days']} days ago</small>";
 	$userx['Action'] = "
 		<form class='form-inline' action='".WEBROOT."admin/run/{$userx['run_name']}/send_to_position?session={$userx['session']}' method='post'>
-		<span class='input-append input-prepend'>
+		<span class='input-group col-md-3'>
+		<span class='input-group-btn'>
 	<button type='submit' class='btn hastooltip'
-	title='Send this user to that position'><i class='icon-hand-right'></i></button>
-		<input type='number' name='new_position' value='{$userx['position']}' class='span1'>
+	title='Send this user to that position'><i class='fa fa-hand-o-right'></i></button>
+	</span>
+		<input type='number' name='new_position' value='{$userx['position']}' class='form-control'>
+		<span class='input-group-btn'>
 		<a class='btn hastooltip' href='".WEBROOT."admin/run/{$userx['run_name']}/remind?run_session_id={$userx['run_session_id']}&session={$userx['session']}&email={$userx['email']}' 
-		title='Remind this user using the last email in the run'><i class='icon-bullhorn'></i></a>
+		title='Remind this user using the last email in the run'><i class='fa fa-bullhorn'></i></a>
+		</span>
 		
 		</span></form>";
 	

@@ -292,7 +292,7 @@ $(document).ready(function() {
 });
 function bootstrap_alert(message,bold) 
 {
-	var $alert = $('<div class="alert alert-error"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold:'Problem' ) + '</strong> ' + message + '</div>');
+	var $alert = $('<div class="alert alert-danger"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold:'Problem' ) + '</strong> ' + message + '</div>');
 	$alert.insertAfter( $('nav') );
 	$alert[0].scrollIntoView(false);
 }

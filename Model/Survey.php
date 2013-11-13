@@ -308,9 +308,9 @@ class Survey extends RunUnit {
 			$prog += $this->settings["add_percentage_points"];
 		
 	    $ret .= '<div class="progress">
-				  <div class="bar" style="width: '.$prog.'%;">'.$prog.'%</div>
+				  <div class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
 			</div>';
-		$ret .= '<div class="control-group error form-message">
+		$ret .= '<div class="form-group error form-message">
 			<div class="control-label">'.implode("<br>",array_unique($this->errors)).'
 			</div></div>';	
 		return $ret;
@@ -450,8 +450,8 @@ class Survey extends RunUnit {
 		'body' => 
 			'
 			
-		<div class="row-fluid">
-		    <div id="span12">
+		<div class="row">
+		    <div id="col-md-12">
 		        '.
 		
 				 (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
@@ -459,8 +459,8 @@ class Survey extends RunUnit {
 				 '
 		    </div>
 		</div>
-		<div class="row-fluid">
-			<div class="span12">
+		<div class="row">
+			<div class="col-md-12">
 
 		'.
 
@@ -468,13 +468,13 @@ class Survey extends RunUnit {
 		
 		 '
 
-			</div> <!-- end of span12 div -->
-		</div> <!-- end of row-fluid div -->
+			</div> <!-- end of col-md-12 div -->
+		</div> <!-- end of row div -->
 		'.
 		(isset($this->settings['problem_email'])?
 		'
-		<div class="row-fluid">
-			<div class="span12">'.
+		<div class="row">
+			<div class="col-md-12">'.
 			(isset($this->settings['problem_text'])?
 				str_replace("%s",$this->settings['problem_email'],$this->settings['problem_text']) :
 				('<a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>')

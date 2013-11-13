@@ -7,22 +7,25 @@
 <?php endif;?>
 </h2>
 
-<nav>
+<nav class="main_admin_nav">
 	<ul class="nav nav-tabs">
 	    <li <?php
-		echo endsWith($_SERVER['PHP_SELF'],'admin/index.php')?' class="active"':''?>><a href="<?=WEBROOT?>admin/"><?php echo _("admin control panel"); ?></a></li>   
+		echo endsWith($_SERVER['PHP_SELF'],'admin/index.php')?' class="active"':''?>><a href="<?=WEBROOT?>admin/">
+		<i class="fa fa-eye-slash fa-fw"></i>
+		admin control panel
+	</a></li>   
 	
 		
-  		<li class="dropdown <?=strpos($_SERVER['PHP_SELF'],'/admin/survey/')?'active':''?>">
+  		<li class="dropdown <?=(strpos($_SERVER['PHP_SELF'],'/admin/survey/') OR strpos($_SERVER['PHP_SELF'],'/admin/survey/'))?'active':''?>">
   			<a class="dropdown-toggle"
   			data-toggle="dropdown"
   			href="#">
-  				surveys
+  				<i class="fa fa-question-circle fa-fw"></i> surveys
   				<b class="caret"></b>
   			</a>
 		  <ul class="dropdown-menu">
 	  		<li <?=endsWith($_SERVER['PHP_SELF'],'add_study.php')?' class="active"':''?>>
-	  			<a href="<?=WEBROOT?>admin/add_study"><?php echo _("create new survey"); ?></a>
+	  			<a href="<?=WEBROOT?>admin/survey/"><?php echo _("create new survey"); ?></a>
 	  		</li>
 		<?php
 		$studies = $user->getStudies();
@@ -38,16 +41,16 @@
 		?>
 		</ul>
 	</li>
-	<li class="dropdown <?=strpos($_SERVER['PHP_SELF'],'/run/')?'active':''?>">
+	<li class="dropdown <?=(strpos($_SERVER['PHP_SELF'],'/admin/run/') OR strpos($_SERVER['PHP_SELF'],'/run/'))?'active':''?>">
 		<a class="dropdown-toggle"
 		data-toggle="dropdown"
 		href="#">
-			runs
+			<i class="fa fa-rocket fa-fw"></i> runs
 			<b class="caret"></b>
 		</a>
 	  <ul class="dropdown-menu">
   		<li <?=endsWith($_SERVER['PHP_SELF'],'add_run.php')?' class="active"':''?>>
-  			<a href="<?=WEBROOT?>admin/add_run"><?php echo _("create new run"); ?></a>
+  			<a href="<?=WEBROOT?>admin/run/"><?php echo _("create new run"); ?></a>
 		  		
 		<?php
 		$runs = $user->getRuns();
@@ -68,7 +71,7 @@
 		<a class="dropdown-toggle"
 		data-toggle="dropdown"
 		href="#">
-			mail
+			<i class="fa fa-envelope fa-fw"></i> mail
 			<b class="caret"></b>
 		</a>
 	  <ul class="dropdown-menu">
@@ -101,22 +104,31 @@
 			<a class="dropdown-toggle"
 			data-toggle="dropdown"
 			href="#">
-				more
+				<i class="fa fa-cog fa-fw"></i> more
 				<b class="caret"></b>
 			</a>
 			<ul class="dropdown-menu">
 				<li <?=endsWith($_SERVER['PHP_SELF'],'cron_log.php')?' class="active"':''?>>
-					<a href="<?=WEBROOT?>admin/cron_log"><?php echo _("cron log"); ?></a>
+					<a href="<?=WEBROOT?>admin/cron_log">
+						<i class="fa fa-cog"></i>
+						cron job log
+					</a>
+				</li>
+				<li>
+					<a href="https://github.com/rubenarslan/formr">
+						<i class="fa fa-github-alt fa-fw"></i>
+						Github repository
+					</a>
 				</li>
 				
 			</ul>
 		</li>
 
 		<li <?=endsWith($_SERVER['PHP_SELF'],'webroot/index.php')?' class="active"':''?>>
-			<a href="<?=WEBROOT?>"><?php echo _("public area"); ?></a>
+			<a href="<?=WEBROOT?>"><i class="fa fa-eye fa-fw"></i> public area</a>
 		</li>
 
-		<li><a href="<?=WEBROOT?>public/logout"><?php echo _("log out"); ?></a></li>
+		<li><a href="<?=WEBROOT?>public/logout"><i class="fa fa-sign-out fa-fw"></i> log out</a></li>
 	</ul>
 
 </nav>
@@ -126,67 +138,68 @@
 <?php
 $resultCount = $study->getResultCount();
 ?>
-<h3><?php echo $study->name;?> <small><?= ($resultCount['begun']+$resultCount['finished'])?> results</small></h3>
+<h3><i class="fa fa-question-circle"></i> <?php echo $study->name;?> <small><?= ($resultCount['begun']+$resultCount['finished'])?> results</small></h3>
 	
-<nav class="span2">
-	<ul class="nav nav-pills nav-stacked">
+<nav class="col-md-no-left-pad col-md-1">
+	<ul class="fa-ul fa-ul-more-padding">
 		<li <?=endsWith($_SERVER['PHP_SELF'],'survey/access.php')?' class="active"':''?>>
 			<a href="<?=WEBROOT?>admin/survey/<?php echo $study->name; ?>/access">
-				<i class="icon-caret-right"></i> <?php echo _("Test study"); ?></a>
+				<i class="fa-li fa fa-play"></i> <?php echo _("Test study"); ?></a>
 		</li>
 		
 
 <li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/index.php')?' class="active"':''?>>
-	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/index"><i class="icon-caret-right"></i> Global settings</a>
+	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/index"><i class="fa-li fa fa-cogs"></i> Settings</a>
 </li>
 <li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/upload_items.php')?' class="active"':''?>>
-	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/upload_items"><i class="icon-caret-right"></i> Import item table</a>
+	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/upload_items"><i class="fa-li fa fa-table"></i> Import items</a>
 </li>
 
 <li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/show_item_table.php')?' class="active"':''?>>
-	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_item_table"><i class="icon-caret-right"></i> View item table</a>
+	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_item_table"><i class="fa-li fa fa-th"></i> Item table</a>
 </li>
 
 <li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/show_results.php')?' class="active"':''?>>
-	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_results"><i class="icon-caret-right"></i> Show results</a>
+	<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_results"><i class="fa-li fa fa-tasks"></i> Show results</a>
 </li>
 
 <li class="dropdown">
     <a class="dropdown-toggle"
        data-toggle="dropdown"
        href="#">
-        <i class="icon-caret-right"></i> Export results
-        <b class="caret"></b>
+        <i class="fa-li fa fa-floppy-o"></i> Export results
       </a>
     <ul class="dropdown-menu">
 		<li>
 			
-			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv"><i class="icon-caret-down"></i> Download CSV</a>
+			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv"><i class="fa fa-floppy-o"></i> Download CSV</a>
 		</li>
 		<li>
-			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv_german"><i class="icon-caret-down"></i> Download German CSV</a>
+			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv_german"><i class="fa fa-floppy-o"></i> Download German CSV</a>
 		</li>
 		<li>
-			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_tsv"><i class="icon-caret-down"></i> Download TSV</a>
+			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_tsv"><i class="fa fa-floppy-o"></i> Download TSV</a>
 		</li>
 		<li>
-			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xls"><i class="icon-caret-down"></i> Download XLS</a>
+			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xls"><i class="fa fa-floppy-o"></i> Download XLS</a>
 		</li>
 		<li>
-			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xlsx"><i class="icon-caret-down"></i> Download XLSX</a>
+			<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xlsx"><i class="fa fa-floppy-o"></i> Download XLSX</a>
 		</li>
 		
     </ul>
   </li>
 
-<li class="nav-header">Danger Zone</li>
+<li class="nav-header"><i class="fa-li fa fa-bolt"></i> Danger Zone</li>
 
 <li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/delete_study.php')?' class="active"':''?>>
-	<a class="hastooltip" title="Go to deletion dialog, does not delete yet" href="<?=WEBROOT?>admin/survey/<?=$study->name?>/delete_study"><i class="icon-caret-right"></i> Delete study</a>
+	<a class="hastooltip" title="Go to deletion dialog, does not delete yet" href="<?=WEBROOT?>admin/survey/<?=$study->name?>/delete_study">
+		<i class="fa-li fa fa-trash-o"></i> Delete study</a>
 </li>
 
 <li <?=endsWith($_SERVER['PHP_SELF'],'admin/survey/delete_results.php')?' class="active"':''?>>
-	<a class="hastooltip" title="Go to deletion dialog, does not delete yet" href="<?=WEBROOT?>admin/survey/<?=$study->name?>/delete_results"><i class="icon-caret-right"></i> Delete <?= ($resultCount['begun']+$resultCount['finished'])?> results</a>
+	<a class="hastooltip" title="Go to deletion dialog, does not delete yet" href="<?=WEBROOT?>admin/survey/<?=$study->name?>/delete_results">
+		<i class="fa-li fa fa-eraser"></i> Delete results</a>
 	
 </li>
 
@@ -197,18 +210,20 @@ $resultCount = $study->getResultCount();
 
 
 <?php if(isset($run)): ?>
-<nav class="span2">
-	<ul class="nav nav-pills nav-stacked">
+	<h3><i class="fa fa-rocket"></i> <?php echo $run->name;?></h3>
+	
+<nav class="col-md-no-left-pad col-md-1">
+	<ul class="fa-ul  fa-ul-more-padding">
 
 	<li <?=endsWith($_SERVER['PHP_SELF'],'run/index.php')?' class="active"':''?>>
-		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><i class="icon-caret-right"></i> <?php echo _("Edit Run"); ?></a>
+		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><i class="fa-li fa fa-pencil"></i> <?php echo _("Edit Run"); ?></a>
 	</li>
 
 	<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_overview.php')?' class="active"':''?>>
-		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><i class="icon-caret-right"></i> <?php echo _("User Overview"); ?></a>
+		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><i class="fa-li fa fa-users"></i> <?php echo _("User Overview"); ?></a>
 	</li>
 	<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_detail.php')?' class="active"':''?>>
-		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="icon-caret-right"></i> <?php echo _("User Detail"); ?></a>
+		<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="fa-li fa fa-search"></i> <?php echo _("User Detail"); ?></a>
 	</li>
 </ul>
 
@@ -216,11 +231,12 @@ $resultCount = $study->getResultCount();
 </nav>
 <?php endif; ?>
 
+<div class="main_body col-md-10">
 <?php 
 $alerts = $site->renderAlerts();
 if(!empty($alerts)):
-	echo '<div class="row-fluid"><div class="span8 all-alerts">';
+	echo '<div class="col-md-6 all-alerts">';
 	echo $alerts;
-	echo '</div></div>';
+	echo '</div>';
 endif;
 ?>

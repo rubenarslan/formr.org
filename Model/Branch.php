@@ -9,6 +9,7 @@ class Branch extends RunUnit {
 	private $condition = null;
 	private $if_true = null;
 	private $if_false = null;
+	public $type = 'branch';
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -68,18 +69,35 @@ class Branch extends RunUnit {
 	}
 	public function displayForRun($prepend = '')
 	{
-		$dialog = '<p><label>Condition: <br>
-			<textarea name="condition" rows="4" class="span5">'.$this->condition.'</textarea></label></p>
-		<div class="row"><p class="span2"><label>…if this evaluates to <code>true</code> <i class="icon-hand-right"></i> <input type="number" class="span1" name="if_true" max="32000" min="-32000" step="1" value="'.$this->if_true.'"></p>
-		<p class="span1"><i class="icon-code-fork icon-flip-vertical icon-4x icon-muted"></i></p>
-		<p class="span2"><label>…if this evaluates to <code>false</code> <i class="icon-hand-right"></i> <input type="number" class="span1" name="if_false" max="32000" min="-32000" step="1" value="'.$this->if_false.'"></p></div>';
-		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Branch">Save.</a>
-		<a class="btn unit_test" href="ajax_test_unit?type=Branch">Test</a></p>';
+		$dialog = '<p>
+			<label>if… <br>
+				<textarea class="form-control" style="width:350px" name="condition" rows="4" class="col-md-5" placeholder="Condition: You can use R here: survey1$item2 == 2">'.$this->condition.'</textarea>
+			</label>
+		</p>
+		<div class="row col-md-12">
+			<p class="col-md-4">
+				<label>…is true, jump to<br>
+				<input type="number" class="form-control col-md-1" name="if_true" max="32000" min="-32000" step="1" value="'.$this->if_true.'">
+			</p>
+			<p class="col-md-4" style="text-align:center">
+			<br>
+			<br>
+				<i class="fa fa-hand-o-left fa-2x"></i>
+				<i class="fa fa-hand-o-right fa-2x"></i>
+			</p>
+			<p class="col-md-4">
+				<label>…is false, jump to<br>
+				<input type="number" class="form-control col-md-1" name="if_false" max="32000" min="-32000" step="1" value="'.$this->if_false.'">
+			</p>
+		</div>';
+		$dialog .= '<p class="btn-group">
+				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Branch">Save.</a>
+		<a class="btn btn-default unit_test" href="ajax_test_unit?type=Branch">Test</a></p>';
 		
 
 		$dialog = $prepend . $dialog;
 		
-		return parent::runDialog($dialog,'icon-code-fork icon-flip-vertical icon-2-5x');
+		return parent::runDialog($dialog,'fa-code-fork fa-flip-vertical fa-2-5x');
 	}
 	public function removeFromRun($run_id)
 	{
