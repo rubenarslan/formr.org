@@ -8,6 +8,8 @@ require_once INCLUDE_ROOT.'View/header.php';
 
 require_once INCLUDE_ROOT.'View/acp_nav.php';
 ?>
+<div class="row">
+<div class="col-md-4">
 <h2>Detailed result times <small>
 		<?=(int)$resultCount['finished']?> complete,
 		<?=(int)$resultCount['begun']?> begun
@@ -18,23 +20,25 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 		Results
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_results">Go back to results.</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_results"><i class="fa fa-tasks fa-fw"></i> Go back to main results.</a>
 	</li>
 	<li class="nav-header">
-		Export results as
+		Export detailed result times as
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_itemdisplay_tsv">TSV – tab-separated, human readable as plaintext</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_itemdisplay_tsv"><i class="fa fa-floppy-o fa-fw"></i>TSV – tab-separated, human readable as plaintext</a>
 	</li>
 	<li>
-		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_itemdisplay_xlsx">xlsX – new excel format, higher limits</a>
+		<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_itemdisplay_xlsx"><i class="fa fa-floppy-o fa-fw"></i> xlsX – new excel format, higher limits</a>
 	</li>
 		
 </ul>
+</div>
+</div>
 <?php
 if(count($results)>0):
 ?>
-<div class="span12">
+<div class="col-md-12">
 	
 <table class='table table-striped'>
 	<thead><tr>

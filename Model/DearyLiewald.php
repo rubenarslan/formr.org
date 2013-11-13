@@ -170,12 +170,12 @@ class DearyLiewald extends RunUnit {
 				<script type="text/javascript" src="'.WEBROOT.'assets/deary_liewald^	.js"></script>
 				
 				<input type="hidden" name="session_id" value="' . $this->session_id . '" />
-				<div class="control-group error form-message">
+				<div class="form-group error form-message">
 						<div class="control-label">'.implode("<br>",array_unique($this->errors)).'
 						</div></div>
 			
-		<div class="row-fluid">
-		    <div id="span12">
+		<div class="row">
+		    <div id="col-md-12">
 		        '.
 		
 				 (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
@@ -183,8 +183,8 @@ class DearyLiewald extends RunUnit {
 				 '
 		    </div>
 		</div>
-		<div class="row-fluid">
-			<div class="span12">
+		<div class="row">
+			<div class="col-md-12">
 
 			<div id="session_outer">
 	
@@ -210,13 +210,13 @@ class DearyLiewald extends RunUnit {
 		
 
 			</div> <!-- end of span12 div -->
-		</div> <!-- end of row-fluid div -->
+		</div> <!-- end of row div -->
 		</form>
 		'.
 		(isset($this->settings['problem_email'])?
 		'
-		<div class="row-fluid">
-			<div class="span12">'.
+		<div class="row">
+			<div class="col-md-12">'.
 			(isset($this->settings['problem_text'])?
 				str_replace("%s",$this->settings['problem_email'],$this->settings['problem_text']) :
 				('<a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>')

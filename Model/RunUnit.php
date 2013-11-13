@@ -12,6 +12,7 @@ class RunUnit {
 	public $called_by_cron = false;
 	public $knitr = false;
 	public $session_id = null;
+	public $type = '';
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -158,18 +159,23 @@ class RunUnit {
 		}
 
 		return '
-			<div>
-				<div class="span2 run_unit_position">
-				<h1><i class="icon-2x icon-muted '.$icon.'"></i></h1>
-					'.$this->howManyReachedIt().' <button href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-mini hastooltip" title="Remove unit from run"><i class="icon-remove"></i></button>
+		<div class="run_unit_inner '. $this->type .'">
+				<div class="col-md-2 run_unit_position">
+					<h1><i class="muted fa fa-2x '.$icon.'"></i></h1>
+					'.$this->howManyReachedIt().' <button href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run"><i class="fa fa-times"></i></button>
 <br>
 					<input class="position" value="'.$position.'" type="number" name="position['.$this->id.']" step="1" max="32000" min="-32000"><br>
+				</div>
+		
+			<div class="col-md-7 run_unit_dialog">
+				<input type="hidden" value="'.$this->id.'" name="unit_id">'.$dialog.'
 			</div>
-			<div class="span7 run_unit_dialog"><input type="hidden" value="'.$this->id.'" name="unit_id">'.$dialog.'</div>';
+			<div class="clearfix"></div>
+		</div>';
 	}
 	public function displayForRun($prepend = '')
 	{
-		return parent::runDialog($prepend,'<i class="icon-puzzle-piece"></i>');
+		return parent::runDialog($prepend,'<i class="fa fa-puzzle-piece"></i>');
 	}
 	protected function getUserDataInRun($surveys)
 	{

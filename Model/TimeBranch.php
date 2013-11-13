@@ -93,38 +93,53 @@ class TimeBranch extends RunUnit {
 	{
 		$dialog = '<p>
 				<label class="inline hastooltip" title="Leave empty so that this does not apply">until time: 
-				<input type="time" placeholder="daybreak" name="wait_until_time" value="'.$this->wait_until_time.'">
+				<input style="width:200px" class="form-control" type="time" placeholder="daybreak" name="wait_until_time" value="'.$this->wait_until_time.'">
 				</label> <strong>and</strong>
 				
 				</p>
 				<p>
 				<label class="inline hastooltip" title="Leave empty so that this does not apply">until date: 
-				<input type="date" placeholder="the next day" name="wait_until_date" value="'.$this->wait_until_date.'">
+				<input style="width:200px" class="form-control" type="date" placeholder="the next day" name="wait_until_date" value="'.$this->wait_until_date.'">
 				</label> <strong>and</strong>
 				
 				</p>
-				<p>
-				<span class="input-append">
-				<input type="number" class="span2" placeholder="" name="wait_minutes" value="'.$this->wait_minutes.'"><button class="btn from_days hastooltip" title="Enter a number of days and press this button to convert them to minutes (*60*24)"><small>convert days</small></button>
-				</span>
-				 minutes <label class="inline">relative to 
-					<input type="text" class="span2" placeholder="Survey.DateField" name="relative_to" value="'.$this->relative_to.'">
+				<p class="well well-sm">
+					<span class="input-group">
+						<input class="form-control" type="number" placeholder="wait this many minutes" name="wait_minutes" value="'.$this->wait_minutes.'">
+				        <span class="input-group-btn">
+					
+							<button class="btn btn-default from_days hastooltip" title="Enter a number of days and press this button to convert them to minutes (*60*24)"><small>convert days</small></button>
+						</span>
+					</span>
+					
+				 <label class="inline">relative to 
+					<input class="form-control" type="text" placeholder="survey1$created" name="relative_to" value="'.$this->relative_to.'">
 					</label
 				</p> 
 			';
 		$dialog .= '
 			<div class="row">
-				<p class="span2"><label>…if there <strong>still is time</strong> <br><i class="icon-hand-right"></i> <input type="number" class="span1" name="if_false" max="32000" min="-32000" step="1" value="'.$this->if_false.'"></p>
-				<p class="span1"><i class="icon-fast-forward icon-flip-vertical icon-3x icon-muted"></i></p>
-				<p class="span2"><label>…if the time is <strong>up</strong> <br><i class="icon-hand-right"></i> <input type="number" class="span1" name="if_true" max="32000" min="-32000" step="1" value="'.$this->if_true.'"></p>
+				<p class="col-md-5">
+				<label>…if time is <em>left</em><br>
+				<input type="number" class="form-control col-md-1" placeholder="jump here" name="if_false" max="32000" min="-32000" step="1" value="'.$this->if_false.'">
+				</label>
+				</p>
+				<p class="col-md-2">
+				<i class="fa fa-fast-forward fa-flip-vertical fa-3x fa-muted"></i>
+				</p>
+				<p class="col-md-5">
+				<label>…if time is <em>up</em><br>
+				<input class="form-control col-md-1" placeholder="jump here" type="number" name="if_true" max="32000" min="-32000" step="1" value="'.$this->if_true.'">
+				</label>
+				</p>
 			</div>
 			';
-			$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=TimeBranch">Save.</a>
-			<a class="btn unit_test" href="ajax_test_unit?type=TimeBranch">Test</a></p>';
+			$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=TimeBranch">Save.</a>
+			<a class="btn btn-default unit_test" href="ajax_test_unit?type=TimeBranch">Test</a></p>';
 
 		$dialog = $prepend . $dialog;
 		
-		return parent::runDialog($dialog,'icon-fast-forward');
+		return parent::runDialog($dialog,'fa-fast-forward');
 	}
 	public function removeFromRun($run_id)
 	{

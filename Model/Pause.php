@@ -93,35 +93,42 @@ class Pause extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p>
+				
 				<label class="inline hastooltip" title="Leave empty so that this does not apply">wait until time: 
-				<input type="time" placeholder="daybreak" name="wait_until_time" value="'.$this->wait_until_time.'">
+				<input style="width:200px" class="form-control" type="time" placeholder="daybreak" name="wait_until_time" value="'.$this->wait_until_time.'">
 				</label> <strong>and</strong>
 				
 				</p>
 				<p>
 				<label class="inline hastooltip" title="Leave empty so that this does not apply">wait until date: 
-				<input type="date" placeholder="the next day" name="wait_until_date" value="'.$this->wait_until_date.'">
+				<input style="width:200px" class="form-control" type="date" placeholder="the next day" name="wait_until_date" value="'.$this->wait_until_date.'">
 				</label> <strong>and</strong>
 				
 				</p>
-				<p>wait
-				<span class="input-append">
-				<input type="number" class="span2" placeholder="" name="wait_minutes" value="'.$this->wait_minutes.'"><button class="btn from_days hastooltip" title="Enter a number of days and press this button to convert them to minutes (*60*24)"><small>convert days</small></button>
-				</span>
-				 minutes <label class="inline">relative to 
-					<input type="text" class="span2" placeholder="Survey.DateField" name="relative_to" value="'.$this->relative_to.'">
+				<p class="well well-sm">
+					<span class="input-group">
+						<input class="form-control" type="number" placeholder="wait this many minutes" name="wait_minutes" value="'.$this->wait_minutes.'">
+				        <span class="input-group-btn">
+					
+							<button class="btn btn-default from_days hastooltip" title="Enter a number of days and press this button to convert them to minutes (*60*24)"><small>convert days</small></button>
+						</span>
+					</span>
+					
+				 <label class="inline">relative to 
+					<input class="form-control" type="text" placeholder="survey1$created" name="relative_to" value="'.$this->relative_to.'">
 					</label
 				</p> 
-		<p><label>Message to show while waiting: <br>
-			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" class="span5">'.$this->body.'</textarea></label></p>
+		<p><label>Text to show while waiting: <br>
+			<textarea class="form-control" placeholder="You can use Markdown" name="body" rows="4" cols="60">'.$this->body.'</textarea>
+		</label></p>
 			';
-		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
-		<a class="btn unit_test" href="ajax_test_unit?type=Pause">Test</a></p>';
+		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
+		<a class="btn btn-default unit_test" href="ajax_test_unit?type=Pause">Test</a></p>';
 		
 
 		$dialog = $prepend . $dialog;
 		
-		return parent::runDialog($dialog,'icon-time');
+		return parent::runDialog($dialog,'fa-pause');
 	}
 	public function removeFromRun($run_id)
 	{

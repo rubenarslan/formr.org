@@ -1,6 +1,6 @@
 function RunUnit(content)
 {
-	this.block = $('<div class="run_unit row"></div>');
+	this.block = $('<div class="run_unit row col-md-12"></div>');
 	this.init(content);
 	this.block.insertPolyfillBefore($('#run_dialog_choices'));
 }
@@ -34,7 +34,7 @@ RunUnit.prototype.init = function(content)
 	.click(function(e)
 	{
 		e.preventDefault();
-		var numberinput = $(this).closest('.input-append').find('input[type=number]');
+		var numberinput = $(this).closest('.input-group').find('input[type=number]');
 		var days = numberinput.val();
 		numberinput.val( days * 60 * 24).change();
 	});
@@ -79,14 +79,15 @@ RunUnit.prototype.test = function(e)
 		.done($.proxy(function(data)
 		{
 			
-			var $modal = $($.parseHTML('<div class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">  <div class="modal-header">    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>    <h3 id="myModalLabel">Test result</h3>  </div>  <div class="modal-body">' + data + '  </div>  <div class="modal-footer">    <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>  </div></div>'));
-			$modal.modal('show').on('hidden',function() {
+			var $modal = $($.parseHTML('<div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">                     <div class="modal-dialog">                         <div class="modal-content">                              <div class="modal-header">                                 <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>                                 <h3>Test result</h3>                             </div>                             <div class="modal-body">' + data + '  </div>                             <div class="modal-footer">                             <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>                         </div>                     </div>                 </div>'));
+
+			$modal.modal('show').on('hidden.bs.modal',function() {
 			    $modal.remove();
 			});
-            $("#opencpu_accordion").collapse({toggle:true});
-            $modal.find('#opencpu_accordion').on('hidden', function (event) {
-              event.stopPropagation()
-            });
+            $(".opencpu_accordion").collapse({toggle:true});
+//            $modal.find('#opencpu_accordion').on('hidden', function (event) {
+//              event.stopPropagation()
+//            });
 		},this))
 		.fail(ajaxErrorHandling);
 	return false;

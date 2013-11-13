@@ -50,8 +50,8 @@ class OpenCPU {
 		$result = $this->identity($post,$return,$headers);
 		$parsed = json_decode($result);
 		if($parsed===null):
-			alert($result,'alert-error');
-			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-error');
+			alert($result,'alert-danger');
+			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-danger');
 			return null;
 		elseif(empty($parsed)):
 			return null;
@@ -72,8 +72,8 @@ class OpenCPU {
 		$result = $this->identity($post,$return,$headers);
 		$parsed = json_decode($result);
 		if($parsed===null):
-			alert($result,'alert-error');
-			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-error');
+			alert($result,'alert-danger');
+			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-danger');
 			return null;
 		elseif(empty($parsed)):
 			return null;
@@ -125,8 +125,8 @@ $this->user_data .
 		$html = json_decode($result);
 		
 		if(!$html):
-			alert($result,'alert-error');
-			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-error');
+			alert($result,'alert-danger');
+			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-danger');
 			return false;
 		endif;
 		
@@ -229,19 +229,20 @@ $this->user_data .
 	}
 	private function ArrayToAccordion($array)
 	{
-		$acc = '<div class="accordion" id="opencpu_accordion">';
+		$rand = mt_rand(0,1000);
+		$acc = '<div class="panel-group" class="opencpu_accordion" id="opencpu_accordion'.$rand.'">';
 		$first = ' in';
 		foreach($array AS $title => $content):
 			if($content == null) $content = stringBool($content);
 			$acc .= '
-<div class="accordion-group">
-	<div class="accordion-heading">
-		<a class="accordion-toggle" data-toggle="collapse" data-parent="#opencpu_accordion" href="#collapse'.str_replace(' ', '', $title).'">
+<div class="panel panel-default">
+	<div class="panel-heading">
+		<a class="accordion-toggle" data-toggle="collapse" data-parent="#opencpu_accordion'.$rand.'" href="#collapse'.str_replace(' ', '', $rand.$title).'">
 			'.$title.'
 		</a>
 	</div>
-	<div id="collapse'.str_replace(' ', '', $title).'" class="accordion-body collapse'.$first.'">
-		<div class="accordion-inner">
+	<div id="collapse'.str_replace(' ', '', $rand.$title).'" class="panel-collapse collapse'.$first.'">
+		<div class="panel-body">
 			'.$content.'
 		</div>
 	</div>

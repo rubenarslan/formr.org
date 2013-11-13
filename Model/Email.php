@@ -15,7 +15,7 @@ class Email extends RunUnit {
 	protected $body_parsed = null;
 	private $images = array();
 	private $subject = null;
-	private $html = null;
+	private $html = 1;
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -33,7 +33,8 @@ class Email extends RunUnit {
 				$this->body = $vars['body'];
 				$this->body_parsed = $vars['body_parsed'];
 				$this->subject = $vars['subject'];
-				$this->html = $vars['html'] ? 1:0;
+//				$this->html = $vars['html'] ? 1:0;
+				$this->html = 1;
 		
 				$this->valid = true;
 			endif;
@@ -54,7 +55,8 @@ class Email extends RunUnit {
 			$this->subject = $options['subject'];
 			if(isset($options['account_id']) AND is_numeric($options['account_id']))
 				$this->account_id = (int)$options['account_id'];
-			$this->html = $options['html'] ? 1:0;
+//			$this->html = $options['html'] ? 1:0;
+			$this->html = 1;
 		}
 
 		$this->body_parsed = Markdown::defaultTransform($this->body); // transform upon insertion into db instead of at runtime
@@ -135,8 +137,8 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$results[] = $acc;
 		
 		if(!empty($results)):
-			$dialog = '<div class="control-group"><label>Account:
-			<select class="select2" name="account_id" style="width:300px">
+			$dialog = '<p><label>Account: <br>
+			<select class="select2" name="account_id" style="width:350px">
 			<option value=""></option>';
 			foreach($results as $acc):
 				if(isset($this->account_id) AND $this->account_id == $acc['id'])
@@ -145,25 +147,25 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 				    $dialog .= "<option value=\"{$acc['id']}\">{$acc['from']}</option>";
 			endforeach;
 			$dialog .= "</select>";
-			$dialog .= '</label></div>';
+			$dialog .= '</label></p>';
 		else:
 			$dialog = "<h5>No email accounts. Add some first</h5>";
 		endif;
 		$dialog .= '<p><label>Subject: <br>
-			<input type="text" placeholder="Email subject" name="subject" value="'.$this->subject.'">
+			<input class="form-control col-md-5" type="text" placeholder="Email subject" name="subject" value="'.$this->subject.'">
 		</label></p>
 		<p><label>Recipient-Field: <br>
-					<input type="text" placeholder="survey_users$email" name="recipient_field" value="'.$this->recipient_field.'">
+					<input class="form-control col-md-5" type="text" placeholder="survey_users$email" name="recipient_field" value="'.$this->recipient_field.'">
 				</label></p>
 		<p><label>Body: <br>
-			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" class="span5">'.$this->body.'</textarea></label><br>
-			<code>{{login_link}}</code> will be replaced by a personalised link to this run, <code>{{login_code}}</code> will be replaced with this user\'s session code.</p>
-		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
-		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Email">Save.</a>
-		<a class="btn unit_test" href="ajax_test_unit?type=Email">Test</a></p>';
+			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" class="form-control col-md-5">'.$this->body.'</textarea></label><br>
+			<code>{{login_link}}</code> will be replaced by a personalised link to this run, <code>{{login_code}}</code> will be replaced with this user\'s session code.</p>';
+//		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
+		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Email">Save.</a>
+		<a class="btn btn-default unit_test" href="ajax_test_unit?type=Email">Test</a></p>';
 		
 		$dialog = $prepend . $dialog;
-		return parent::runDialog($dialog,'icon-envelope');
+		return parent::runDialog($dialog,'fa-envelope');
 	}
 	public function getRecipientField()
 	{
@@ -191,7 +193,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		$acc = new EmailAccount($this->dbh, $this->account_id, null);
 		$mail = $acc->makeMailer();
 		
-		if($this->html)
+//		if($this->html)
 			$mail->IsHTML(true);  
 		
 		$mail->AddAddress($this->recipient);
@@ -210,14 +212,14 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	            'base64',
 	            'image/png'
 	        )) {
-	            alert($mail->ErrorInfo,'alert-error');
+	            alert($mail->ErrorInfo,'alert-danger');
 	        }
 		endforeach;
 		
 		if(!$mail->Send())
 		{
 			$this->mail_sent = false;
-			alert($mail->ErrorInfo,'alert-error');
+			alert($mail->ErrorInfo,'alert-danger');
 		}
 		else 
 		{

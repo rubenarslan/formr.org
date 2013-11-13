@@ -3,6 +3,7 @@ class SpreadsheetReader
 {
 	public $messages = array();
 	public $errors = array();
+	public $warnings = array();
 	public $survey = array();
 	public $choices = array();
 
@@ -21,7 +22,7 @@ class SpreadsheetReader
 		}
 		catch (Exception $e)
 		{
-			alert("Couldn't save file.",'alert-error');
+			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
 	}
@@ -56,7 +57,7 @@ class SpreadsheetReader
 		}
 		catch (Exception $e)
 		{
-			alert("Couldn't save file.",'alert-error');
+			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
 	}
@@ -79,7 +80,7 @@ class SpreadsheetReader
 		}
 		catch (Exception $e)
 		{
-			alert("Couldn't save file.",'alert-error');
+			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
 	}
@@ -102,7 +103,7 @@ class SpreadsheetReader
 		}
 		catch (Exception $e)
 		{
-			alert("Couldn't save file.",'alert-error');
+			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
 	    
@@ -124,7 +125,7 @@ class SpreadsheetReader
 		}
 		catch (Exception $e)
 		{
-			alert("Couldn't save file.",'alert-error');
+			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
 	    
@@ -146,7 +147,7 @@ class SpreadsheetReader
 		}
 		catch (Exception $e)
 		{
-			alert("Couldn't save file.",'alert-error');
+			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
 	    
@@ -216,7 +217,7 @@ class SpreadsheetReader
 		} catch(PHPExcel_Reader_Exception $e) {
 		  die('Error loading file: '.$e->getMessage());
 		}
-		$this->messages[] = date('H:i:s') . " Iterate worksheets" . EOL;
+//		$this->messages[] = date('H:i:s') . " Iterate worksheets" . EOL;
 
 		if($objPHPExcel->sheetNameExists('survey'))
 			$survey_sheet = $objPHPExcel->getSheetByName('survey');
@@ -257,8 +258,9 @@ class SpreadsheetReader
 			endif;
 		endfor;
 	  	$this->messages[] = 'Choices worksheet - ' . $worksheet->getTitle();
-		$choices_messages[] = 'These colums were <strong>used</strong>: '. implode($columns,", ");
-		$choices_messages[] = 'These colums were <strong>skipped</strong>: '. implode($skipped_columns,", ");
+		$choices_messages[] = 'These columns were <strong>used</strong>: '. implode($columns,", ");
+		if(!empty($skipped_columns))
+			$this->warnings[] = 'These choices sheet columns were <strong>skipped</strong>: '. implode($skipped_columns,", ");
 
 	#	var_dump($columns);
 
@@ -353,9 +355,7 @@ class SpreadsheetReader
 
 		$callEndTime = microtime(true);
 		$callTime = $callEndTime - $callStartTime;
-		$choices_messages[] = 'Call time to read choices sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read.";
-		// Echo memory usage
-		$choices_messages[] = date('H:i:s') . ' Current memory usage: ' . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
+		$choices_messages[] = 'Call time to read choices sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
 		
 		$this->messages[] = '<ul><li>'.implode("</li><li>",$choices_messages).'</li></ul>';
 		$this->choices = $data;
@@ -379,7 +379,7 @@ class SpreadsheetReader
 				$col_name = $this->translate_legacy_column($col_name);
 				
 				if($oldCol != $col_name)
-					$this->messages[] = __('The column "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"',$oldCol,$col_name);
+					$this->warnings[] = __('The column "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"',$oldCol,$col_name);
 				
 				$columns[$i] = $col_name;
 				
@@ -387,9 +387,11 @@ class SpreadsheetReader
 				$skipped_columns[$i] = $col_name;
 			endif;
 		endfor;
+		$survey_messages = $empty_rows = array();
 	  	$this->messages[] = 'Survey worksheet - ' . $worksheet->getTitle();
-		$survey_messages[] = 'These colums were <strong>used</strong>: '. implode($columns,", ");
-		$survey_messages[] = 'These colums were <strong>skipped</strong>: '. implode($skipped_columns,", ");
+		$survey_messages[] = 'These columns were <strong>used</strong>: '. implode($columns,", ");
+		if(!empty($skipped_columns))
+			$this->warnings[] = 'These survey sheet columns were <strong>skipped</strong>: '. implode($skipped_columns,", ");
 
 	#	var_dump($columns);
 
@@ -418,7 +420,7 @@ class SpreadsheetReader
 				
 					if($col == 'name'):
 						if(trim($val)==''):
-							$survey_messages[] = "Row $row_number: variable name empty. Row skipped.";
+							$empty_rows[] = $row_number;
 							if(isset($data[$row_number])):
 								unset($data[$row_number]);
 							endif;
@@ -457,7 +459,7 @@ class SpreadsheetReader
 						$val = $this->translate_legacy_type($val);
 			
 						if($oldType != $val):
-							$this->messages[] = __('The type "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"',$oldType,$val);
+							$this->warnings[] = __('The type "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"',$oldType,$val);
 						endif;
 						
 						
@@ -503,9 +505,9 @@ class SpreadsheetReader
 
 		$callEndTime = microtime(true);
 		$callTime = $callEndTime - $callStartTime;
-		$survey_messages[] = 'Call time to read survey sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read.";
-		// Echo memory usage
-		$survey_messages[] = date('H:i:s') . ' Current memory usage: ' . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
+		$survey_messages[] = 'Call time to read survey sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
+		if(!empty($empty_rows))
+			$survey_messages[] = "Rows ".implode($empty_rows,", ").": variable name empty. Rows skipped.";
 
 		$this->messages[] = '<ul><li>'.implode("</li><li>",$survey_messages).'</li></ul>';
 

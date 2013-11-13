@@ -7,17 +7,17 @@ class End extends RunUnit {
 		return
 			'
 			
-		<div class="row-fluid">
-		    <div id="span12">
+		<div class="row">
+		    <div id="col-md-12">
 		        <h1>End</h1>
 		    </div>
 		</div>
-		<div class="row-fluid">
-			<div class="span12">
+		<div class="row">
+			<div class="col-md-12">
 			<p>You reached the end. Thanks!</p>
 
-			</div> <!-- end of span10 div -->
-		</div> <!-- end of row-fluid div -->';
+			</div> <!-- end of col-md-12 div -->
+		</div> <!-- end of row div -->';
 	}
 	protected function end()
 	{

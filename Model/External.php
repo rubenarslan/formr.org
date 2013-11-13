@@ -61,17 +61,17 @@ class External extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p><label>Address: <br>
-			<input style="width:300px" type="text" placeholder="http://examp.org?code=%s" name="address" value="'.$this->address.'"></label></p>
+			<input class="form-control" style="width:350px" type="text" placeholder="http://example.org?code=%s" name="address" value="'.$this->address.'"></label></p>
 
-		<p><input type="hidden" name="api_end" value="0"><label><input type="checkbox" name="api_end" value="1"'.($this->api_end ?' checked ':'').'> end using <abbr>API</abbr></label></p>';
+		<p><input type="hidden" name="api_end" value="0"><label><input type="checkbox" name="api_end" value="1"'.($this->api_end ?' checked ':'').'> end using <abbr class="initialism" title="Application programming interface. Better not check this if you don\'t know what it means">API</abbr></label></p>';
 		
-		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=External">Save.</a>
-		<a class="btn unit_test" href="ajax_test_unit?type=External">Preview.</a></p>';
+		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=External">Save.</a>
+		<a class="btn btn-default unit_test" href="ajax_test_unit?type=External">Preview.</a></p>';
 		
 
 		$dialog = $prepend . $dialog;
 		
-		return parent::runDialog($dialog,'icon-external-link');
+		return parent::runDialog($dialog,'fa-external-link-square');
 	}
 	public function removeFromRun($run_id)
 	{

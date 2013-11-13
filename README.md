@@ -29,7 +29,7 @@ Using branching and pauses, the following designs should be possible:
 This simple component allows you to delay the continuation of the run until a certain date, time of day or to wait relative to a date that a user specified (such as her graduation date or the last time he cut his nails). See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise the text shown while waiting.
 
 ### Branch
-Branches are components that allow to evaluate R conditions on a user's data. Depending on whether the result evaluates to true/1 or false/0, you can go to different positions in the run - these can be later or earlier in the run (the latter creates loops, for e.g. diaries, training interventions, etc.).
+Branches are components that allow you to evaluate R conditions on a user's data. Depending on whether the result evaluates to true/1 or false/0, you can jump to different positions in the run - these can be later or earlier in the run (the latter creates loops, for e.g. diaries, training interventions, etc.).
 
 ### TimeBranch
 These components are the bastard children of a Pause + Branch: If the user accesses the run within the specified time frame (like a Pause), the run jumps to one position in the run (like a Branch). If she doesn't, the run progresses to a different position in the run (e.g. to a reminder email). This component is useful, if you need to set up a period during which a survey is accessible or if you want to automatically send reminders after some time elapsed. 
@@ -118,7 +118,7 @@ You can make item display contingent on simple and complex conditions like `(sur
 ## OpenCPU + R + Knitr + Markdown
 [OpenCPU](https://public.opencpu.org/pages/) is a way to safely use complex [R](http://www.r-project.org/) expressions on the web. We use it for all kinds of stuff.
 
-In pauses, emails and pages you can display text to the user. This text is easily formatted using [Markdown](http://daringfireball.net/projects/markdown/) a simple syntax that formats text nicely if you simply write like you would write a plain text email. Markdown can be freely mixed with HTML, so you can e.g. insert icons from the [Font Awesome](http://fontawesome.io) library using `<i class="icon-smile"></i>`.
+In pauses, emails and pages you can display text to the user. This text is easily formatted using [Markdown](http://daringfireball.net/projects/markdown/) a simple syntax that formats text nicely if you simply write like you would write a plain text email. Markdown can be freely mixed with HTML, so you can e.g. insert icons from the [Font Awesome](http://fontawesome.io/icons/) library using `<i class="fa fa-smile-o"></i>`.
 
 If you use knitr syntax, where Markdown can be used, the text will not just be parsed as Markdown (which is mostly static, unless you use Javascript), but also be parsed (anew each time) by [knitr](http://yihui.name/knitr/). Knitr allows for mixing R syntax chunks and Markdown.  
 [R](http://www.r-project.org/) is a popular open-source statistical programming language, that you can use via [OpenCPU](https://public.opencpu.org/pages/), a RESTful interface to the language that deals with the problem that R was not meant to be used as part of web apps and is insecure. R data frames with the same names as the surveys they derive from will be available in this knitr call, they contain all data that the current user has filled out so far.  

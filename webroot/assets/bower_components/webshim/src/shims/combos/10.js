@@ -3,10 +3,11 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	"use strict";
 	var supportHrefNormalized = !('hrefNormalized' in $.support) || $.support.hrefNormalized;
 	var supportGetSetAttribute = !('getSetAttribute' in $.support) || $.support.getSetAttribute;
+	var has = Object.prototype.hasOwnProperty;
 	webshims.assumeARIA = supportGetSetAttribute || Modernizr.canvas || Modernizr.video || Modernizr.boxsizing;
 	
 	if($('<input type="email" />').attr('type') == 'text' || $('<form />').attr('novalidate') === "" || ('required' in $('<input />')[0].attributes)){
-		webshims.error("IE browser modes are busted in IE10. Please test your HTML/CSS/JS with a real IE version or at least IETester or similiar tools");
+		webshims.error("IE browser modes are busted in IE10+. Please test your HTML/CSS/JS with a real IE version or at least IETester or similiar tools");
 	}
 	
 	if(!$.parseHTML){
@@ -75,6 +76,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	//proxying attribute
 	var olds = {};
 	var havePolyfill = {};
+	var hasPolyfillMethod = {};
 	var extendedProps = {};
 	var extendQ = {};
 	var modifyProps = {};
@@ -180,6 +182,39 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		};
 	});
 	
+	//add support for $('video').trigger('play') in case extendNative is set to false
+	if(!webshims.cfg.extendNative && !webshims.cfg.noTriggerOverride){
+		(function(oldTrigger){
+			$.event.trigger = function(event, data, elem, onlyHandlers){
+				
+				if(!hasPolyfillMethod[event] || onlyHandlers || !elem || elem.nodeType !== 1){
+					return oldTrigger.apply(this, arguments);
+				}
+				var ret, isOrig, origName;
+				var origFn = elem[event];
+				var polyfilledFn = $.prop(elem, event);
+				var changeFn = polyfilledFn && origFn != polyfilledFn;
+				if(changeFn){
+					origName = '__ws'+event;
+					isOrig = (event in elem) && has.call(elem, event);
+					elem[event] = polyfilledFn;
+					elem[origName] = origFn;
+				}
+				
+				ret = oldTrigger.apply(this, arguments);
+				if (changeFn) {
+					if(isOrig){
+						elem[event] = origFn;
+					} else {
+						delete elem[event];
+					}
+					delete elem[origName];
+				}
+				
+				return ret;
+			};
+		})($.event.trigger);
+	}
 	
 	['removeAttr', 'prop', 'attr'].forEach(function(type){
 		olds[type] = $[type];
@@ -264,6 +299,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}
 			var oldDesc = extendedProps[nodeName][prop][type];
 			var getSup = function(propType, descriptor, oDesc){
+				var origProp;
 				if(descriptor && descriptor[propType]){
 					return descriptor[propType];
 				}
@@ -280,8 +316,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					};
 				}
 				if(type == 'prop' && propType == 'value' && desc.value.apply){
+					origProp = '__ws'+prop;
+					hasPolyfillMethod[prop] = true;
 					return  function(value){
-						var sup = olds[type](this, prop);
+						var sup = this[origProp] || olds[type](this, prop);
 						if(sup && sup.apply){
 							sup = sup.apply(this, arguments);
 						} 
@@ -319,7 +357,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	
 	var extendNativeValue = (function(){
 		var UNKNOWN = webshims.getPrototypeOf(document.createElement('foobar'));
-		var has = Object.prototype.hasOwnProperty;
+		
 		//see also: https://github.com/lojjic/PIE/issues/40 | https://prototype.lighthouseapp.com/projects/8886/tickets/1107-ie8-fatal-crash-when-prototypejs-is-loaded-with-rounded-cornershtc
 		var isExtendNativeSave = Modernizr.advancedObjectProperties && Modernizr.objectAccessor;
 		return function(nodeName, prop, desc){
@@ -559,7 +597,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 						$(this.test);
 						webshims.ready('WINDOWLOAD', this.test);
 						$(document).on('updatelayout', this.handler);
-						$(window).bind('resize', this.handler);
+						$(window).on('resize', this.handler);
 						(function(){
 							var oldAnimate = $.fn.animate;
 							var animationTimer;
@@ -581,6 +619,13 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			webshims.docObserve = function(){
 				webshims.ready('DOM', function(){
 					docObserve.start();
+					if($.support.boxSizing == null){
+						$(function(){
+							if($.support.boxSizing){
+								docObserve.handler({type: 'boxsizing'});
+							}
+						});
+					}
 				});
 			};
 			return function(nativeElem, shadowElem, opts){
@@ -741,7 +786,12 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			havePolyfill[prop] = true;
 						
 			if(descs.reflect){
-				webshims.propTypes[descs.propType || 'standard'](descs, prop);
+				if(descs.propType && !webshims.propTypes[descs.propType]){
+					webshims.error('could not finde propType '+ descs.propType);
+				} else {
+					webshims.propTypes[descs.propType || 'standard'](descs, prop);
+				}
+				
 			}
 			
 			['prop', 'attr', 'removeAttr'].forEach(function(type){
@@ -927,7 +977,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			var notLocal = /:\/\/|^\.*\//;
 			var loadRemoteLang = function(data, lang, options){
 				var langSrc;
-				if(lang && options && $.inArray(lang, options.availabeLangs || []) !== -1){
+				if(lang && options && $.inArray(lang, options.availableLangs || options.availabeLangs || []) !== -1){
 					data.loading = true;
 					langSrc = options.langSrc;
 					if(!notLocal.test(langSrc)){
@@ -1087,7 +1137,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	});
 	
 })(webshims.$, document);
-
 (function($){
 	
 	var id = 0;
@@ -1106,9 +1155,9 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			var i;
 			
 			
-			this.element.addClass('ws-range').attr({role: 'slider'}).append('<span class="ws-range-min" /><span class="ws-range-rail"><span class="ws-range-thumb" /></span>');
-			this.trail = $('.ws-range-rail', this.element);
-			this.range = $('.ws-range-min', this.element);
+			this.element.addClass('ws-range').attr({role: 'slider'}).append('<span class="ws-range-min ws-range-progress" /><span class="ws-range-rail ws-range-track"><span class="ws-range-thumb" /></span>');
+			this.trail = $('.ws-range-track', this.element);
+			this.range = $('.ws-range-progress ', this.element);
 			this.thumb = $('.ws-range-thumb', this.trail);
 			
 			this.updateMetrics();
@@ -1118,6 +1167,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			for(i = 0; i < createOpts.length; i++){
 				this[createOpts[i]](this.options[createOpts[i]]);
 			}
+			
 			this.value = this._value;
 			this.value(this.options.value);
 			this.initDataList();
@@ -1356,7 +1406,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}
 		},
 		addBindings: function(){
-			var leftOffset, widgetUnits, hasFocus;
+			var leftOffset, widgetUnits, hasFocus, isActive;
 			var that = this;
 			var o = this.options;
 			
@@ -1386,8 +1436,28 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 				};
 			})();
-			
+			var normalizeTouch = (function(){
+				var types = {
+					touchstart: 1,
+					touchend: 1,
+					touchmove: 1
+				};
+				var normalize = ['pageX', 'pageY'];
+				return function(e){
+					if(types[e.type] && e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length){
+						for(var i = 0; i < normalize.length; i++){
+							e[normalize[i]] = e.originalEvent.touches[0][normalize[i]];
+						}
+						
+					}
+					return e;
+				};
+			})();
 			var setValueFromPos = function(e, animate){
+				if(e.type == 'touchmove'){
+					e.preventDefault();
+					normalizeTouch(e);
+				}
 				
 				var val = that.getStepedValueFromPos((e[that.dirs.mouse] - leftOffset) * widgetUnits);
 				if(val != o.value){
@@ -1404,18 +1474,25 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					eventTimer.call('change', o.value);
 				}
 				that.addRemoveClass('ws-active');
-				$(document).off('mousemove', setValueFromPos).off('mouseup', remove);
+				$(document).off('mousemove touchmove', setValueFromPos).off('mouseup touchend', remove);
 				$(window).off('blur', removeWin);
+				isActive = false;
 			};
 			var removeWin = function(e){
 				if(e.target == window){remove();}
 			};
 			var add = function(e){
 				var outerWidth;
+				
+				if(isActive || (e.type == 'touchstart' && (!e.originalEvent || !e.originalEvent.touches || e.originalEvent.touches.length != 1))){
+					return;
+				}
 				e.preventDefault();
-				$(document).off('mousemove', setValueFromPos).off('mouseup', remove);
+				
+				$(document).off('mousemove touchmove', setValueFromPos).off('mouseup touchend', remove);
 				$(window).off('blur', removeWin);
 				if(!o.readonly && !o.disabled){
+					normalizeTouch(e);
 					that.element.focus();
 					that.addRemoveClass('ws-active', true);
 					leftOffset = that.element.focus().offset();
@@ -1425,20 +1502,27 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					leftOffset = leftOffset[that.dirs.pos];
 					widgetUnits = 100 / widgetUnits;
 					setValueFromPos(e, o.animate);
+					isActive = true;
 					$(document)
-						.on({
-							mouseup: remove,
-							mousemove: setValueFromPos
-						})
+						.on(e.type == 'touchstart' ?
+							{
+								touchend: remove,
+								touchmove: setValueFromPos
+							} :
+							{
+								mouseup: remove,
+								mousemove: setValueFromPos
+							}
+						)
 					;
 					$(window).on('blur', removeWin);
 					e.stopPropagation();
 				}
 			};
 			var elementEvts = {
-				mousedown: add,
+				'touchstart mousedown': add,
 				focus: function(e){
-					if(!o.disabled){
+					if(!o.disabled && !hasFocus){
 						eventTimer.init('input', o.value);
 						eventTimer.init('change', o.value);
 						that.addRemoveClass('ws-focus', true);
@@ -1501,6 +1585,20 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			this.thumb.on({
 				mousedown: add
 			});
+			
+			if(this.orig){
+				$(this.orig).jProp('form').on('reset', function(){
+					var val = $.prop(that.orig, 'value');
+					that.value(val);
+					setTimeout(function(){
+						var val2 = $.prop(that.orig, 'value');
+						if(val != val2){
+							that.value(val2);
+						}
+					}, 4);
+				});
+			}
+			
 			if (window.webshims) {
 				webshims.ready('WINDOWLOAD', function(){
 					webshims.ready('dom-support', function(){
@@ -1606,8 +1704,8 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 		var str;
 		return function(){
 			if(!str){
-				str = ('<option></option>')+$.map(monthDigits, function(val){
-					return '<option>'+val+'</option>';
+				str = ('<option value=""></option>')+$.map(monthDigits, function(val){
+					return '<option value="'+val+'"]>'+val+'</option>';
 				}).join('');
 			}
 			return str;
@@ -1629,7 +1727,7 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 					splits: [$('<input type="text" class="yy" size="4" inputmode="numeric" />')[0]] 
 				};
 				if(opts.monthSelect){
-					obj.splits.push($('<select class="mm">'+getMonthOptions()+'</select>')[0]);
+					obj.splits.push($('<select class="mm">'+getMonthOptions(opts)+'</select>')[0]);
 				} else {
 					obj.splits.push($('<input type="text" class="mm" inputmode="numeric" maxlength="2" size="2" />')[0]);
 				}
@@ -1664,7 +1762,7 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 					splits: [$('<input type="text" class="yy" inputmode="numeric" size="4" />')[0]] 
 				};
 				if(opts.monthSelect){
-					obj.splits.push($('<select class="mm ws-spin">'+getMonthOptions()+'</select>')[0]);
+					obj.splits.push($('<select class="mm ws-spin">'+getMonthOptions(opts)+'</select>')[0]);
 				} else {
 					obj.splits.push($('<input type="text" class="mm ws-spin" />')[0]);
 					if(opts.onlyMonthDigits){
@@ -1756,6 +1854,9 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 			month:  {
 				currentText: 'Aktueller Monat'
 			},
+			time:  {
+				currentText: 'Jetzt'
+			},
 			date: {
 				close: 'schließen',
 				clear: 'Löschen',
@@ -1792,6 +1893,9 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 			meridian: ['AM', 'PM'],
 			month:  {
 				currentText: 'This month'
+			},
+			time: {
+				"currentText": "Now"
 			},
 			date: {
 				"closeText": "Done",
@@ -1854,6 +1958,15 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 			}
 			if(!langCfg['datetime-localSigns']){
 				langCfg['datetime-localSigns'] = langCfg.dateSigns+langCfg.timeSigns;
+			}
+			if(!langCfg['datetime-local']){
+				langCfg['datetime-local'] = {};
+			}
+			if(!langCfg.time){
+				langCfg.time = {};
+			}
+			if(!langCfg['datetime-local'].currentText && langCfg.time.currentText){
+				langCfg['datetime-local'].currentText = langCfg.time.currentText;
 			}
 		};
 		var triggerLocaleChange = function(){
@@ -1921,6 +2034,9 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 						
 					} else {
 						fVal = 0;
+					}
+					if(val[0] === '00'){ 
+						val[0] = '12';
 					}
 					val = $.trim(val.join(':')) + ' '+ curCfg.meridian[fVal];
 				}
@@ -2006,6 +2122,9 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 			time: function(val){
 				var fVal;
 				if(val && curCfg.meridian){
+					if(val.substr(0,2) === "12"){ 
+						val = "00" + val.substr(2);
+					}
 					if(val.indexOf(curCfg.meridian[1]) != -1){
 						val = val.split(':');
 						fVal = (val[0] * 1);
@@ -2091,7 +2210,10 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 				if(hintValue.length == 2){
 					hintValue = opts.splitInput ? 
 						hintValue : 
-						curCfg.patterns.d.replace('yy', hintValue[0]).replace('mm', hintValue[1]);
+						curCfg.date.showMonthAfterYear ?
+							hintValue[0] +' '+hintValue[1] :
+							
+							hintValue[1] +' '+ hintValue[0];
 				} else {
 					hintValue = opts.splitInput ?
 						[val, val] :
@@ -2466,10 +2588,18 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 								}
 								try {
 									that.elemHelper[name](factor);
+									
 									ret = that.elemHelper.prop('value');
+									
+								} catch (er) {
+									if(!o.value && that.maxAsNumber >= that.minAsNumber){
+										ret = o.defValue;
+									}
+								}
+								if(ret !== false && o.value != ret){
 									that.value(ret);
 									eventTimer.call('input', ret);
-								} catch (er) {}
+								}
 								return ret;
 							}
 						};
@@ -2535,15 +2665,6 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 				
 				initChangeEvents();
 			},
-			value: function(val, force){
-				if(!this._init || force || val !== this.options.value){
-					this.element.val(this.formatValue(val));
-					this.options.value = val;
-					this._propertyChange('value');
-					this.mirrorValidity();
-				}
-				
-			},
 			required: function(val, boolVal){
 				this.inputElements.attr({'aria-required': ''+boolVal});
 				this.mirrorValidity();
@@ -2560,7 +2681,7 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 			formatValue: function(val, noSplit){
 				return formatVal[this.type](val, noSplit === false ? false : this.options);
 			},
-			createOpts: ['readonly', 'title', 'disabled', 'tabindex', 'placeholder', 'value', 'required'],
+			createOpts: ['readonly', 'title', 'disabled', 'tabindex', 'placeholder', 'defaultValue', 'value', 'required'],
 			placeholder: function(val){
 				var options = this.options;
 				options.placeholder = val;
@@ -2630,6 +2751,16 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 			}
 		};
 		
+		['defaultValue', 'value'].forEach(function(name){
+			wsWidgetProto[name] = function(val, force){
+				if(!this._init || force || val !== this.options[name]){
+					this.element.prop(name, this.formatValue(val));
+					this.options[name] = val;
+					this._propertyChange(name);
+					this.mirrorValidity();
+				}
+			};
+		});
 		
 		['readonly', 'disabled'].forEach(function(name){
 			var isDisabled = name == 'disabled';
@@ -2683,7 +2814,7 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 				}
 				this._init = true;
 			},
-			createOpts: ['step', 'min', 'max', 'readonly', 'title', 'disabled', 'tabindex', 'placeholder', 'value', 'required'],
+			createOpts: ['step', 'min', 'max', 'readonly', 'title', 'disabled', 'tabindex', 'placeholder', 'defaultValue', 'value', 'required'],
 			_addSplitInputs: function(){
 				if(!this.inputElements){
 					var create = splitInputs[this.type]._create(this.options);
@@ -2753,7 +2884,45 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 				this.options.step = val;
 				this.elemHelper.prop('step', retDefault(val, defStep.step));
 				this.mirrorValidity();
+			},
+			_beforeValue: function(val){
+				this.valueAsNumber = this.asNumber(val);
+				this.options.value = val;
+				
+				if(isNaN(this.valueAsNumber) || (!isNaN(this.minAsNumber) && this.valueAsNumber < this.minAsNumber) || (!isNaN(this.maxAsNumber) && this.valueAsNumber > this.maxAsNumber)){
+					this._setStartInRange();
+				} else {
+					this.elemHelper.prop('value', val);
+					this.options.defValue = "";
+				}
 			}
+		});
+		
+		['defaultValue', 'value'].forEach(function(name){
+			var isValue = name == 'value';
+			spinBtnProto[name] = function(val, force){
+				if(!this._init || force || this.options[name] !== val){
+					if(isValue){
+						this._beforeValue(val);
+					}
+					
+					val = formatVal[this.type](val, this.options);
+					if(this.options.splitInput){
+						$.each(this.splits, function(i, elem){
+							var setOption;
+							if(!(name in elem) && !isValue && $.nodeName(elem, 'select')){
+								$('option[value="'+ val[i] +'"]', elem).prop('defaultSelected', true);
+							} else {
+								$.prop(elem, name, val[i]);
+							}
+						});
+					} else {
+						this.element.prop(name, val);
+					}
+					this._propertyChange(name);
+					this.mirrorValidity();
+				}
+			};
 		});
 		
 		$.each({min: 1, max: -1}, function(name, factor){
@@ -3159,10 +3328,12 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 		var inputTypes = {
 			
 		};
+		var boolAttrs = {disabled: 1, required: 1, readonly: 1};
 		var copyProps = [
 			'disabled',
 			'readonly',
 			'value',
+			'defaultValue',
 			'min',
 			'max',
 			'step',
@@ -3180,14 +3351,18 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 				if(!stopCircular){
 					var shadowData = webshims.data(this, 'shadowData');
 					if(shadowData && shadowData.data && shadowData.nativeElement === this && shadowData.data[fnName]){
-						shadowData.data[fnName](val, boolVal);
+						if(boolAttrs[fnName]){
+							shadowData.data[fnName](val, boolVal);
+						} else {
+							shadowData.data[fnName](val);
+						}
 					}
 				}
 			});
 		});
 		
 		if(options.replaceUI && 'valueAsNumber' in document.createElement('input')){
-			var reflectFn = function(val){
+			var reflectFn = function(){
 				if(webshims.data(this, 'hasShadow')){
 					$.prop(this, 'value', $.prop(this, 'value'));
 				}
@@ -3195,6 +3370,20 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 			
 			webshims.onNodeNamesPropertyModify('input', 'valueAsNumber', reflectFn);
 			webshims.onNodeNamesPropertyModify('input', 'valueAsDate', reflectFn);
+			$.each({stepUp: 1, stepDown: -1}, function(name, stepFactor){
+				var stepDescriptor = webshims.defineNodeNameProperty('input', name, {
+					prop: {
+						value: function(){
+							var ret;
+							if(stepDescriptor.prop && stepDescriptor.prop._supvalue){
+								ret = stepDescriptor.prop._supvalue.apply(this, arguments);
+								reflectFn.apply(this, arguments);
+							}
+							return ret;
+						}
+					}
+				});
+			});
 		}
 		
 		var extendType = (function(){
@@ -3214,7 +3403,7 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 				$(data.orig).removeClass('ws-important-hide');
 				$.style( data.orig, 'display', '' );
 				var hasButtons, marginR, marginL;
-				var correctWidth = 0.6;
+				var correctWidth = 0.8;
 				if(!init || data.orig.offsetWidth){
 					hasButtons = data.buttonWrapper && data.buttonWrapper.filter(isVisible).length;
 					marginR = $.css( data.orig, 'marginRight');
@@ -3238,7 +3427,7 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 							;
 						} else {
 							data.buttonWrapper.css('marginRight', marginR);
-							correctWidth = data.buttonWrapper.outerWidth(true) + 0.6;
+							correctWidth = data.buttonWrapper.outerWidth(true) + correctWidth;
 						}
 					}
 					
@@ -3396,7 +3585,29 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 			});
 		}
 		
-		if(!modernizrInputTypes.range || options.replaceUI){
+		var replace = {};
+		
+		
+		if(options.replaceUI){
+			if( $.isPlainObject(options.replaceUI) ){
+				$.extend(replace, options.replaceUI);
+			} else {
+				$.extend(replace, {
+					'range': 1,
+					'number': 1,
+					'time': 1, 
+					'month': 1, 
+					'date': 1, 
+					'color': 1, 
+					'datetime-local': 1
+				});
+			}
+		}
+		if(modernizrInputTypes.number && navigator.userAgent.indexOf('Touch') == -1 && ((/MSIE 1[0|1]\.\d/.test(navigator.userAgent)) || (/Trident\/7\.0/.test(navigator.userAgent)))){
+			replace.number = 1;
+		}
+		
+		if(!modernizrInputTypes.range || replace.range){
 			extendType('range', {
 				_create: function(opts, set){
 					var data = $('<span />').insertAfter(opts.orig).rangeUI(opts).data('rangeUi');
@@ -3405,9 +3616,9 @@ webshims.register('form-number-date-ui', function($, webshims, window, document,
 			});
 		}
 		
-		var isStupid = modernizrInputTypes.number && navigator.userAgent.indexOf('Touch') == -1 && ((/MSIE 1[0|1]\.\d/.test(navigator.userAgent)) || (/Trident\/7\.0/.test(navigator.userAgent)));
+		
 		['number', 'time', 'month', 'date', 'color', 'datetime-local'].forEach(function(name){
-			if(!modernizrInputTypes[name] || options.replaceUI || (name == 'number' && isStupid)){
+			if(!modernizrInputTypes[name] || replace[name]){
 				extendType(name, {
 					_create: function(opts, set){
 						if(opts.monthSelect){
