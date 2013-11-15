@@ -269,8 +269,9 @@ class Pause extends RunUnit {
 	}
 	public function exec()
 	{
-		if($this->relative_to=== null OR trim($this->relative_to)=='')
+		if($this->relative_to === null OR trim($this->relative_to)=='')
 		{
+			$no_relative_to = true;
 			$this->relative_to = 'survey_unit_sessions$created';
 		}
 		$openCPU = $this->makeOpenCPU();
@@ -280,7 +281,6 @@ class Pause extends RunUnit {
 		));
 		
 		$relative_to = $openCPU->evaluate($this->relative_to);
-
 		$conditions = array();
 		if($this->wait_minutes AND $this->wait_minutes!='')
 			$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
@@ -289,8 +289,8 @@ class Pause extends RunUnit {
 		if($this->wait_until_time AND $this->wait_until_time != '00:00:00')
 			$conditions['time'] = "CURTIME() >= :wait_time";
 
-		if(isset($conditions['time']) AND !isset($conditions['date']) AND !isset($conditions['minute']))
-			$conditions['date'] = "DATE_ADD(:relative_to, INTERVAL 1 DAY) >= CURDATE()";
+//		if(isset($conditions['time']) AND !isset($conditions['date']) AND !isset($conditions['minute']))
+//			$conditions['relative_to'] = "DATE_ADD(:relative_to, INTERVAL 1 DAY) >= CURDATE()";
 		
 		if(!empty($conditions)):
 			$condition = implode($conditions," AND ");
@@ -311,6 +311,8 @@ class Pause extends RunUnit {
 			if(isset($conditions['minute'])):
 				$evaluate->bindParam(':wait_minutes',$this->wait_minutes);
 				$evaluate->bindParam(':wait_minutes2',$this->wait_minutes);
+				$evaluate->bindParam(':relative_to',$relative_to);
+				$evaluate->bindParam(':relative_to2',$relative_to);			
 			endif;
 			if(isset($conditions['date'])): 
 				$evaluate->bindParam(':wait_date',$this->wait_until_date);
@@ -320,8 +322,6 @@ class Pause extends RunUnit {
 				$evaluate->bindParam(':wait_time',$this->wait_until_time);
 				$evaluate->bindParam(':wait_time2',$this->wait_until_time);
 			endif;
-			$evaluate->bindParam(':relative_to',$relative_to);
-			$evaluate->bindParam(':relative_to2',$relative_to);			
 			$evaluate->bindParam(":run_session_id", $this->run_session_id);
 		
 

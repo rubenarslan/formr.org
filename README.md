@@ -62,7 +62,7 @@ Survey names may only contain the characters `a-zA-Z0-9_` and need to start with
 		* **_name_** (mandatory). This can only contain `a-zA-Z0-9_` and needs to start with a letter.
 		* **_type_** (mandatory). See below.
 		* **label**. You can use Knitr, [Markdown](http://daringfireball.net/projects/markdown/) and HTML in the question texts. You can also use [Font Awesome](http://fontawesome.io) icons.
-		* **skipif** You can refer to the same survey here `variable_name == 2` or you can reference other surveys using `survey_name$variable_name == 2` (evaluated via OpenCPU in R).
+		* **showif** By entering a condition here, you can show items optionally. You can refer to the same survey here `variable_name == 2` or you can reference other surveys using `survey_name$variable_name == 2` (evaluated via OpenCPU in R).
 		* **optional** You can make an item optional (most items are mandatory by default), by using the `*` character in the optional-column. Items optional by default (`check`, `btncheck`, `mmc`) can be made mandatory by using the the `!` character in the optional-column.
 		* **choice1, choice2, ..., choice14** (you can use these columns to quickly add choices. If you use many choices repeatedly or need more than 14 choices, it makes more sense to put them on the choices sheet)
 * The second, optional sheet should have the name **choices**, if no such sheet exists, we use the second one.
@@ -75,7 +75,7 @@ Survey names may only contain the characters `a-zA-Z0-9_` and need to start with
 Surveys support the following item types. HTML5 form elements and validation are used and polyfilled where necessary using the [Webshims lib](http://afarkas.github.io/webshim/demos/index.html).
 
 * `instruction` display text. instructions are displayed at least once and disappear only when there are no unanswered items left behind them (so putting an instruction directly before another ensures it will be displayed only once)
-* `submit` display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for `skipif` or for dynamically generating item text have been given. 
+* `submit` display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for `showif` or for dynamically generating item text have been given. 
 * multiple choice family
 	* `mc` multipe choice (radio buttons), you can choose only one. Choices are (currently) defined using the choice1-12 columns
 	* `mmc` multiple multiple choice (check boxes), you can choose several. Choices defined as above
@@ -111,7 +111,7 @@ Surveys support the following item types. HTML5 form elements and validation are
 	* `referrer` saves the last outside referrer (if any), ie. how the user got to the site
 	* `server var` saves the `$_SERVER` value with the index given by `var`. Can be used to store one of `'HTTP_USER_AGENT',	'HTTP_ACCEPT',	'HTTP_ACCEPT_CHARSET',	'HTTP_ACCEPT_ENCODING',	'HTTP_ACCEPT_LANGUAGE',	'HTTP_CONNECTION',	'HTTP_HOST',	'QUERY_STRING',	'REQUEST_TIME',	'REQUEST_TIME_FLOAT'`
 
-#### skipif
+#### showif
 
 You can make item display contingent on simple and complex conditions like `(survey1$married == 1) | (survey2$in_relationship == 1 & survey2$cohabit == 1)`.
 

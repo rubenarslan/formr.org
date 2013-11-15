@@ -154,17 +154,16 @@ class Study extends RunUnit
 				"welcome" => "Welcome!",
 				"title" => "Survey",
 				"description" => "",
-				"problem_text" => 'Bei Problemen wende dich bitte an <strong><a href="mailto:%s">%s</a></strong>.',
+				"problem_text" => 'If you run into problems, please contact <strong><a href="mailto:%s">%s</a></strong>.',
 				"problem_email" => "problems@example.com",
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
-				"submit_button_text" => 'Weiter',
+				"submit_button_text" => 'Submit!',
 				"form_classes" => 'unspaced_rows',
 //				"fileuploadmaxsize" => "100000",
 //				"closed_user_pool" => 0,
 //				"timezone" => "Europe/Berlin",
 //				"debug" => 0,
-//				"skipif_debug" => 0,
 //				"primary_color" => "#ff0000",
 //				"secondary_color" => "#00ff00",
 //				'custom_styles' => ''
@@ -174,7 +173,7 @@ class Study extends RunUnit
 		return true;
 	}
 	protected $user_defined_columns = array(
-		'name', 'label', 'label_parsed', 'type',  'type_options', 'choice_list', 'optional', 'class' ,'skipif' // study_id is not among the user_defined columns
+		'name', 'label', 'label_parsed', 'type',  'type_options', 'choice_list', 'optional', 'class' ,'showif' // study_id is not among the user_defined columns
 	);
 	protected $choices_user_defined_columns = array(
 		'list_name', 'name', 'label', 'label_parsed' // study_id is not among the user_defined columns
@@ -219,7 +218,7 @@ class Study extends RunUnit
 			choice_list,
 	        optional,
 	        class,
-	        skipif
+	        showif
 		) VALUES (
 			:study_id,
 			:name,
@@ -230,7 +229,7 @@ class Study extends RunUnit
 			:choice_list,
 			:optional,
 			:class,
-			:skipif
+			:showif
 			)');
 	
 		$result_columns = array();

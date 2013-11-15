@@ -15,7 +15,7 @@ class SkipBackward extends Branch {
 		</p>
 		<div class="row col-md-12">
 			<label>…skip backward to
-			<input type="number" class="form-control" style="width:100px" name="if_true" max="'.$this->position.'" min="-32000" step="1" value="'.$this->if_true.'">
+			<input type="number" class="form-control" style="width:100px" name="if_true" max="'.($this->position-1).'" min="-32000" step="1" value="'.$this->if_true.'">
 			</label>
 			
 		</div>';
