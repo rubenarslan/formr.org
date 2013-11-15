@@ -40,6 +40,15 @@ endif;
 </ul>
 </nav>
 
+<div class="main_body container">
 <?php 
-echo $site->renderAlerts();
+$alerts = $site->renderAlerts();
+if(!empty($alerts)):
+	echo '
+		<div class="row">
+		<div class="col-md-6 col-sm-6 all-alerts">';
+	echo $alerts;
+	echo '</div>
+		</div>';
+endif;
 ?>

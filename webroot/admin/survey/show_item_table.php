@@ -7,9 +7,9 @@ require_once INCLUDE_ROOT.'View/header.php';
 
 require_once INCLUDE_ROOT.'View/acp_nav.php';
 ?>
-<div class="col-md-9">
-
-	<h2>Item table <small>currently active</small></h2>
+<div class="row">
+	<div class="col-md-12">
+		<h2>Item table <small>currently active</small></h2>
 
 
 <?php
@@ -37,7 +37,7 @@ function empty_column($col,$arr)
 	return $empty;
 }
 $use_columns = $empty_columns = array();
-$display_columns = array('type','name','label_parsed','optional','class','skipif','choices');
+$display_columns = array('type','name','label_parsed','optional','class','showif','choices');
 foreach(current($results) AS $field => $value):
 	
 	if(in_array($field,$display_columns) AND !empty_column($field,$results)):
@@ -100,6 +100,7 @@ endforeach;
 <?php
 endif;
 ?>
+	</div>
 </div>
 <?php
 require_once INCLUDE_ROOT.'View/footer.php';
