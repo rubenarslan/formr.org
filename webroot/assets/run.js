@@ -1,6 +1,6 @@
 function RunUnit(content)
 {
-	this.block = $('<div class="run_unit row col-md-12"></div>');
+	this.block = $('<div class="run_unit row"></div>');
 	this.init(content);
 	this.block.insertPolyfillBefore($('#run_dialog_choices'));
 }

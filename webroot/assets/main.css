@@ -1,10 +1,6 @@
 /*
 todo: test layout on mobile phones, various screen sizes
 */
-header.study-header, .maincontent, .container, .navbar-static-top .container, .navbar-fixed-top .container, .navbar-fixed-bottom .container
-{
-	margin-left:60px;
-}
 header.study-header {
 /*	background-image:url(../../img/Study_header_big.png);
 	height:208px;
@@ -19,6 +15,7 @@ header.study-header::before {
     content:"formr";
     font-size:2em;
 }
+/*
 @media (max-width: 970px) { 
 	header.study-header, .maincontent, .container, .navbar-static-top .container, .navbar-fixed-top .container, .navbar-fixed-bottom .container
 	{
@@ -31,7 +28,7 @@ header.study-header::before {
 		height:auto;
 	}
 }
-
+*/
 
 button.btn.btn-checked,
 label.btn.btn-checked,
@@ -578,9 +575,10 @@ div.all-alerts + div
     background-color: #FDEFD9;
     color: #fbb450;
 }
-.form-horizontal .item-submit .controls
+.form-horizontal .item-submit
 {
     padding-top:10px;
+    text-align:center;
     padding-bottom:10px;
 }
 .bigdrop.select2-container .select2-results {max-height: 300px;}
@@ -662,11 +660,22 @@ li.nav-header
     max-width:300px;
 }
 
-.run_unit_dialog {
-    margin-left:40px;
-}
-
 .padding-below
 {
     margin-bottom:10px;
+}
+div.tiny-panel div.panel-group  div.panel.panel-default
+{
+    margin-top:0;
+    border:0;
+}
+div.tiny-panel div.panel-group  div.panel.panel-default  div.panel-heading
+{
+    padding:5px 7px;
+    border-bottom:1px #EFEFEF solid;
+    background-color:#F7F7F7;
+}
+
+.form-horizontal .form-group {
+    margin-left:0;
 }

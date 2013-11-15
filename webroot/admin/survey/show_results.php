@@ -9,47 +9,49 @@ require_once INCLUDE_ROOT.'View/header.php';
 require_once INCLUDE_ROOT.'View/acp_nav.php';
 ?>
 <div class="row">
-	<div class="col-md-3">
-		<h2>Results <small>
-				<?=(int)$resultCount['finished']?> complete,
-				<?=(int)$resultCount['begun']?> begun
-		</small></h2>
+	<div class="col-md-12">
+		<div class="row">
+			<div class="col-md-8">
+				<h2>Results <small>
+						<?=(int)$resultCount['finished']?> complete,
+						<?=(int)$resultCount['begun']?> begun
+				</small></h2>
 
-		<ul class="nav nav-pills nav-stacked span6">
-			<li class="nav-header">
-				Details
-			</li>
-			<li>
-				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_itemdisplay"><i class="fa fa-table fa-fw"></i> Table of item display and answer times.</a>
-			</li>
-			<li class="nav-header">
-				Export results as
-			</li>
-			<li>
-				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv"><i class="fa fa-floppy-o fa-fw"></i> CSV – good for big files, problematic to import into German Excel (comma-separated)</a>
-			</li>
-			<li>
-				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv_german"><i class="fa fa-floppy-o fa-fw"></i> CSV – good for German Excel (semicolon-separated)</a>
-			</li>
-			<li>
-				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_tsv"><i class="fa fa-floppy-o fa-fw"></i> TSV – tab-separated, human readable as plaintext</a>
-			</li>
-			<li>
-				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xls"><i class="fa fa-floppy-o fa-fw"></i> XLS – old excel format, won't work with more than 16384 rows or 256 columns</a>
-			</li>
-			<li>
-				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xlsx"><i class="fa fa-floppy-o fa-fw"></i> xlsX – new excel format, higher limits</a>
-			</li>
+				<ul class="nav nav-pills nav-stacked span6">
+					<li class="nav-header">
+						Details
+					</li>
+					<li>
+						<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/show_itemdisplay"><i class="fa fa-table fa-fw"></i> Table of item display and answer times.</a>
+					</li>
+					<li class="nav-header">
+						Export results as
+					</li>
+					<li>
+						<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv"><i class="fa fa-floppy-o fa-fw"></i> CSV – good for big files, problematic to import into German Excel (comma-separated)</a>
+					</li>
+					<li>
+						<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv_german"><i class="fa fa-floppy-o fa-fw"></i> CSV – good for German Excel (semicolon-separated)</a>
+					</li>
+					<li>
+						<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_tsv"><i class="fa fa-floppy-o fa-fw"></i> TSV – tab-separated, human readable as plaintext</a>
+					</li>
+					<li>
+						<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xls"><i class="fa fa-floppy-o fa-fw"></i> XLS – old excel format, won't work with more than 16384 rows or 256 columns</a>
+					</li>
+					<li>
+						<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xlsx"><i class="fa fa-floppy-o fa-fw"></i> xlsX – new excel format, higher limits</a>
+					</li>
 		
-		</ul>
-	</div>
-</div>
+				</ul>
+			</div>
+		</div>
 
 <?php
 if(count($results)>0):
 ?>
 <div class="col-md-12">
-	
+
 <table class='table table-striped'>
 	<thead><tr>
 <?php
@@ -81,4 +83,9 @@ endforeach;
 
 <?php
 endif;
+?>
+</div>
+</div>
+
+<?php
 require_once INCLUDE_ROOT.'View/footer.php';

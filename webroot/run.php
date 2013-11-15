@@ -67,13 +67,32 @@ else:
 endif;
 
 if($output):
-	if(isset($output['title']))
+	if(isset($output['title'])):
 		$title = $output['title'];
-	elseif(isset($run)) $title = $run->name;
+	elseif(isset($run)): 
+		$title = $run->name;
+	endif;
 	
+	$survey_view = true;
 	require_once INCLUDE_ROOT . 'View/header.php';
-	echo $site->renderAlerts();
 
+	$alerts = $site->renderAlerts();
+	if(!empty($alerts)):
+		echo '
+			<div class="row">
+				<div class="col-md-6 col-sm-6 all-alerts">';
+					echo $alerts;
+			echo '</div>
+			</div>';
+	endif;
+	?>
+<div class="row">
+	<div class="col-lg-12">
+<?php
 	echo $output['body'];
+?>
+	</div>
+</div>
+<?php
 	require_once INCLUDE_ROOT . 'View/footer.php';
 endif;

@@ -25,30 +25,32 @@ if( !empty($_POST) ) {
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
-<div class="col-md-3 col-md-offset-1 well">
+<div class="row">
+	<div class="col-lg-4 col-md-5 col-sm-6 col-lg-offset-1 well">
 
-<h2><i class="fa fa-rocket"></i> Create a new run</h2>
-<ul class="fa-ul fa-ul-more-padding">
-	<li><i class="fa-li fa fa-exclamation-triangle"></i> This is the name that users will see in their browser's address bar for your study, possibly elsewhere too.</li>
-	<li><i class="fa-li fa fa-unlock-alt"></i> It cannot be changed later.</li>
-	<li><i class="fa-li fa fa-lightbulb-o"></i> Ideally, it should be the memorable name of your study.</li>
-</ul>
+	<h2><i class="fa fa-rocket"></i> Create a new run</h2>
+	<ul class="fa-ul fa-ul-more-padding">
+		<li><i class="fa-li fa fa-exclamation-triangle"></i> This is the name that users will see in their browser's address bar for your study, possibly elsewhere too.</li>
+		<li><i class="fa-li fa fa-unlock-alt"></i> It cannot be changed later.</li>
+		<li><i class="fa-li fa fa-lightbulb-o"></i> Ideally, it should be the memorable name of your study.</li>
+	</ul>
 
-<form class="" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>admin/run/">
-  	<div class="form-group">
-  		<label class="control-label" for="kurzname">
-  			<?php echo _("Run shorthand:"); ?>
-  		</label>
-  		<div class="controls">
-  			<input class="form-control" required type="text" placeholder="Name (a to Z, 0 to 9 and _)" name="run_name" id="kurzname">
-  		</div>
-  	</div>
-  	<div class="form-group">
-  		<div class="controls">
-			<button class="btn btn-default btn-success btn-lg" type="submit"><i class="fa-fw fa fa-rocket"></i> Create run</button>
-  		</div>
-  	</div>
-  </form>
+	<form class="" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>admin/run/">
+	  	<div class="form-group">
+	  		<label class="control-label" for="kurzname">
+	  			<?php echo _("Run shorthand:"); ?>
+	  		</label>
+	  		<div class="controls">
+	  			<input class="form-control" required type="text" placeholder="Name (a to Z, 0 to 9 and _)" name="run_name" id="kurzname">
+	  		</div>
+	  	</div>
+	  	<div class="form-group">
+	  		<div class="controls">
+				<button class="btn btn-default btn-success btn-lg" type="submit"><i class="fa-fw fa fa-rocket"></i> Create run</button>
+	  		</div>
+	  	</div>
+	  </form>
+	</div>
 </div>
 
 <?php

@@ -4,9 +4,9 @@ require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
-<div class="col">
-<h2>log of user activity in this run</h2>
-</div>
+<div class="row">
+	<div class="col-md-12">
+		<h2>log of user activity in this run</h2>
 <?php
 $g_users = $fdb->prepare("SELECT 
 	`survey_run_sessions`.session,
@@ -92,6 +92,8 @@ if(!empty($users)) {
 		?>
 
 	</tbody></table>
+	</div>
+</div>
 
 <?php
 require_once INCLUDE_ROOT . "View/footer.php";

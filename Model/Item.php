@@ -4,7 +4,7 @@ class ItemFactory
 	public $errors;
 	private $choice_lists = array();
 	private $used_choice_lists = array();
-	public $skipifs = array();
+	public $showifs = array();
 	function __construct($choice_lists)
 	{
 		$this->choice_lists = $choice_lists;
@@ -37,10 +37,10 @@ class ItemFactory
 				array_keys($this->used_choice_lists)
 		);
 	}
-	public function skip($results_table, $openCPU, $skipif)
+	public function showif($results_table, $openCPU, $showif)
 	{
-		$this->skipifs[$skipif] = $openCPU->evaluateWith($results_table, $skipif);
-		return $this->skipifs[$skipif];
+		$this->showifs[$showif] = $openCPU->evaluateWith($results_table, $showif);
+		return $this->showifs[$showif];
 	}
 }
 
@@ -59,7 +59,7 @@ class Item extends HTML_element
 	public $label_parsed = null;
 	public $optional = 0;
 	public $class = null;
-	public $skipif = null;
+	public $showif = null;
 	
 	public $displaycount = 0;
 	public $error = null;
@@ -105,8 +105,8 @@ class Item extends HTML_element
 		if(isset($options['choices']))
 			$this->choices =  $options['choices'];
 
-		if(isset($options['skipif']))
-			$this->skipif = $options['skipif'];
+		if(isset($options['showif']))
+			$this->showif = $options['showif'];
 
 		if(isset($options['val_error']) AND $options['val_error'])
 			$this->val_error = $options['val_error'];
@@ -712,14 +712,10 @@ class Item_submit extends Item
 		$this->error = _("You cannot answer buttons.");
 		return $reply;
 	}
-	protected function render_input() 
+	protected function render_inner() 
 	{
 		return 		
 			'<button '.self::_parseAttributes($this->input_attributes, array('required','name')).'>'.$this->label_parsed.'</button>';
-	}
-	protected function render_label() 
-	{
-		return '';
 	}
 }
 
