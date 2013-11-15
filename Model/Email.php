@@ -98,21 +98,31 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	}
 	private function getBody($embed_email = true)
 	{
+		
 		if(isset($this->run_name))		
 			$login_link = WEBROOT."{$this->run_name}?code={$this->session}";
 		else $login_link = WEBROOT;
-
 		if($this->html):
 			$login_link = "<a href='$login_link'>Login link</a>";
+
 			if($this->session_id):
 				$response = $this->getParsedBody($this->body,true);
-				$this->body_parsed = $response['body'];
-				$this->images = $response['images'];
+				if(isset($response['body'])):
+					$this->body_parsed = $response['body'];
+				endif;
+				if(isset($response['images'])):
+					$this->images = $response['images'];
+				endif;
 			else:
 				$response = $this->getParsedBodyAdmin($this->body,$embed_email);
+				
 				if($embed_email):
-					$this->body_parsed = $response['body'];
-					$this->images = $response['images'];
+					if(isset($response['body'])):
+						$this->body_parsed = $response['body'];
+					endif;
+					if(isset($response['images'])):
+						$this->images = $response['images'];
+					endif;
 				else:
 					$this->body_parsed = $response;
 				endif;
@@ -184,6 +194,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	public function sendMail($who = NULL)
 	{
 		
+		
 		if($who===null):
 			$this->recipient = $this->getRecipientField();
 		else:
@@ -191,6 +202,8 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		endif;
 		require_once INCLUDE_ROOT. 'Model/EmailAccount.php';
 		
+		
+		if($this->account_id === null) die("The study administrator did not set up an email account.");
 		$acc = new EmailAccount($this->dbh, $this->account_id, null);
 		$mail = $acc->makeMailer();
 		
@@ -241,6 +254,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	{
 		$RandReceiv = bin2hex(openssl_random_pseudo_bytes(5));
 		$receiver = $RandReceiv . '@mailinator.com';
+		
 		$this->sendMail($receiver);
 		$link = "{$RandReceiv}.mailinator.com";
 		
@@ -248,7 +262,6 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		echo "<p><a href='http://$link'>$link</a></p>";
 		
 		echo $this->getBody(false);
-		
 		
 		if($this->recipient_field === null OR trim($this->recipient_field)=='')
 			$this->recipient_field = 'survey_users$email';

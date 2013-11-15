@@ -360,7 +360,7 @@ class SpreadsheetReader
 		$this->messages[] = '<ul><li>'.implode("</li><li>",$choices_messages).'</li></ul>';
 		$this->choices = $data;
 	}
-	private $survey_columns = array('name', 'type', 'label', 'optional', 'class' ,'skipif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14',
+	private $survey_columns = array('name', 'type', 'label', 'optional', 'class' ,'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14',
 	# legacy
 		'variablenname', 'wortlaut', 'typ', 'ratinguntererpol', 'ratingobererpol', 	'mcalt1', 'mcalt2', 'mcalt3', 'mcalt4', 'mcalt5', 'mcalt6', 'mcalt7', 'mcalt8', 'mcalt9', 'mcalt10', 'mcalt11', 'mcalt12', 'mcalt13', 'mcalt14',);
 	

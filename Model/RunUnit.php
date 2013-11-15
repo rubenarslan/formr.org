@@ -165,18 +165,16 @@ class RunUnit {
 		}
 
 		return '
-		<div class="run_unit_inner '. $this->type .'">
-				<div class="col-md-2 run_unit_position">
+		<div class="col-xs-12 row run_unit_inner '. $this->type .'">
+				<div class="col-xs-3 run_unit_position">
 					<h1><i class="muted fa fa-2x '.$this->icon.'"></i></h1>
 					'.$this->howManyReachedIt().' <button href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run"><i class="fa fa-times"></i></button>
 <br>
 					<input class="position" value="'.$position.'" type="number" name="position['.$this->id.']" step="1" max="32000" min="-32000"><br>
 				</div>
-		
-			<div class="col-md-7 run_unit_dialog">
+			<div class="col-xs-9 run_unit_dialog">
 				<input type="hidden" value="'.$this->id.'" name="unit_id">'.$dialog.'
 			</div>
-			<div class="clearfix"></div>
 		</div>';
 	}
 	public function displayForRun($prepend = '')
@@ -262,7 +260,7 @@ class RunUnit {
 		$tables[] = 'survey_email_log';
 		
 		foreach($tables AS $result):
-			if(preg_match("/($result\\\$|$result\\[)/",$q)):
+			if(preg_match("/\b$result\b)/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
 				$matches[] = $result;
 			endif;
 		endforeach;
@@ -271,24 +269,29 @@ class RunUnit {
 	}
 	public function getParsedBodyAdmin($source,$email_embed = false)
 	{
-		$q = "SELECT id,run_session_id FROM `survey_unit_sessions`
-
-		WHERE unit_id = :unit_id
-		AND run_session_id IS NOT NULL
-		ORDER BY RAND()
-		LIMIT 1";
-
-		$g_user = $this->dbh->prepare($q); // should use readonly
-		$g_user->bindParam(':unit_id',$this->id);
-		$g_user->execute() or die(print_r($g_user->errorInfo(), true));
-		
-		if($g_user->rowCount()>=1):
-			$temp_user = $g_user->fetch(PDO::FETCH_ASSOC);
-			$this->session_id = $temp_user['id'];
-			$this->run_session_id = $temp_user['run_session_id'];
-		endif;
-			
 		if($this->knittingNeeded($source)):
+			$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
+
+			WHERE 
+				`survey_run_sessions`.run_id = :run_id
+
+			ORDER BY `survey_run_sessions`.position DESC,RAND()
+
+			LIMIT 1";
+			$get_sessions = $this->dbh->prepare($q); // should use readonly
+			$get_sessions->bindParam(':run_id',$this->run_id);
+		
+			$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
+		
+			if($get_sessions->rowCount()>=1):
+				$temp_user = $get_sessions->fetch(PDO::FETCH_ASSOC);
+				$this->run_session_id = $temp_user['id'];
+			else:
+				echo 'No data to compare to yet.';
+				return false;
+			endif;
+			
+			
 			$openCPU = $this->makeOpenCPU();
 			
 			$openCPU->addUserData($this->getUserDataInRun(
@@ -300,56 +303,67 @@ class RunUnit {
 			else:
 				$report = $openCPU->knitForAdminDebug($source);
 			endif;
+			
 			return $report;
 			
 		else:
-			return $this->body_parsed;
+			if($email_embed):
+				return array('body'=>$this->body_parsed,'images'=>array());
+			else:
+				return $this->body_parsed;
+			endif;
 		endif;
 	}
 	public function getParsedBody($source,$email_embed = false)
 	{
 		if(!$this->knittingNeeded($source))
 		{ // knit if need be
-			return $this->body_parsed;
+			if($email_embed):
+				return array('body'=>$this->body_parsed,'images'=>array());
+			else:
+				return $this->body_parsed;
+			endif;
 		}
 		else
 		{
-			$get_report = $this->dbh->prepare("SELECT `body_knit` FROM `survey_reports` WHERE 
-				`session_id` = :session_id AND 
-				`unit_id` = :unit_id");
-			$get_report->bindParam(":unit_id",$this->id);
-			$get_report->bindParam(":session_id",$this->session_id);
-			$get_report->execute();
-			
-			if(!$email_embed AND $get_report->rowCount() > 0) 
+			if(!$email_embed)
 			{
-				$report = $get_report->fetch(PDO::FETCH_ASSOC);
-				return $report['body_knit'];
-			}
-			else
-			{
-				$openCPU = $this->makeOpenCPU();
-				$openCPU->addUserData($this->getUserDataInRun(
-					$this->dataNeeded($this->dbh,$source)
-				));
+				$get_report = $this->dbh->prepare("SELECT `body_knit` FROM `survey_reports` WHERE 
+					`session_id` = :session_id AND 
+					`unit_id` = :unit_id");
+				$get_report->bindParam(":unit_id",$this->id);
+				$get_report->bindParam(":session_id",$this->session_id);
+				$get_report->execute();
 			
-				if($email_embed):
-					return $openCPU->knitEmail($source); # currently not caching email reports
-				else:
-					$report = $openCPU->knitForUserDisplay($source);
-				endif;
-				
-				if($report):
-					$set_report = $this->dbh->prepare("INSERT INTO `survey_reports` 
-						(`session_id`, `unit_id`, `body_knit`, `created`,	`last_viewed`) 
-				VALUES  (:session_id, :unit_id, :body_knit,  NOW(), 	NOW() ) ");
-					$set_report->bindParam(":unit_id",$this->id);
-					$set_report->bindParam(":body_knit",$report);
-					$set_report->bindParam(":session_id",$this->session_id);
-					$set_report->execute();
-					return $report;
-				endif;
+				if($get_report->rowCount() > 0) 
+				{
+					$report = $get_report->fetch(PDO::FETCH_ASSOC);
+					return $report['body_knit'];
+				}
 			}
+			
+			$openCPU = $this->makeOpenCPU();
+			$openCPU->addUserData($this->getUserDataInRun(
+				$this->dataNeeded($this->dbh,$source)
+			));
+			
+			
+			if($email_embed):
+				return $openCPU->knitEmail($source); # currently not caching email reports
+			else:
+				$report = $openCPU->knitForUserDisplay($source);
+			endif;
+			
+			if($report):
+				$set_report = $this->dbh->prepare("INSERT INTO `survey_reports` 
+					(`session_id`, `unit_id`, `body_knit`, `created`,	`last_viewed`) 
+			VALUES  (:session_id, :unit_id, :body_knit,  NOW(), 	NOW() ) ");
+				$set_report->bindParam(":unit_id",$this->id);
+				$set_report->bindParam(":body_knit",$report);
+				$set_report->bindParam(":session_id",$this->session_id);
+				$set_report->execute();
+				return $report;
+			endif;
 		}
 	}
 	// when body is changed, delete all survey reports?

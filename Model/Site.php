@@ -30,9 +30,9 @@ class Site
 		$this->alerts = array();
 		return implode($now_handled);
 	}
-	public function alert($msg, $class = '')
+	public function alert($msg, $class = 'alert-warning', $dismissable = true)
 	{
-		$this->alerts[] = "<div class='alert $class'>$msg</div>";
+		$this->alerts[] = "<div class='alert $class'>".'<button type="button" class="close" data-dismiss="alert">&times;</button>'."$msg</div>";
 	}
 	public function lastOutsideReferrer()
 	{
@@ -68,10 +68,10 @@ if(!isset($user))
 /*
 HELPER FUNCTIONS
 */
-function alert($msg, $class) // shorthand
+function alert($msg, $class = 'alert-warning', $dismissable = true) // shorthand
 {
 	global $site;
-	$site->alert($msg,$class);
+	$site->alert($msg,$class, $dismissable);
 }
 
 function redirect_to($location) {

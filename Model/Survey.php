@@ -153,7 +153,7 @@ class Survey extends RunUnit {
 						)
 					GROUP BY `survey_items_display`.answered;";
 
-		//fixme: progress can become smaller when questions enabling a lot of skipif turn on
+		//fixme: progress can become smaller when questions enabling a lot of showifs turn on
 		$progress = $this->dbh->prepare($query);
 		$progress->bindParam(":session_id", $this->session_id);
 		$progress->bindParam(":study_id", $this->id);
@@ -233,7 +233,7 @@ class Survey extends RunUnit {
 				`survey_items`.label_parsed,
 				`survey_items`.optional,
 				`survey_items`.class,
-				`survey_items`.skipif,
+				`survey_items`.showif,
 				
 		`survey_items_display`.displaycount, 
 		`survey_items_display`.session_id
@@ -263,28 +263,28 @@ class Survey extends RunUnit {
 		{
 			$name = $item['name'];
 			$this->unanswered_batch[$name] = $item_factory->make($item);
-			$skipif = $this->unanswered_batch[$name]->skipif;
-			if($skipif !== null)
+			$showif = $this->unanswered_batch[$name]->showif;
+			if($showif !== null)
 			{
-				if(isset($item_factory->skipifs[ $skipif ]))
+				if(isset($item_factory->showifs[ $showif ]))
 				{
-					$skip = $item_factory->skipifs[ $skipif ];
+					$show = $item_factory->showifs[ $showif ];
 				}
 				else
 				{
 					$openCPU = $this->makeOpenCPU();
 
-					$dataNeeded = $this->dataNeeded($this->dbh, $skipif );
-					$dataNeeded[] = $this->results_table; // currently we stupidly at the current results table to every request, because it would be quite bothersome to parse the statement to understand
-					$dataNeeded = array_unique($dataNeeded);
+					$dataNeeded = $this->dataNeeded($this->dbh, $showif );
+					$dataNeeded[] = $this->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
+					$dataNeeded = array_unique($dataNeeded); // no need to add it twice
 					$openCPU->addUserData($this->getUserDataInRun(
 						$dataNeeded
 					));
 					
-					$skip = $item_factory->skip($this->results_table, $openCPU, $skipif);
+					$show = $item_factory->showif($this->results_table, $openCPU, $showif);
 				}
 				
-				if($skip)
+				if(!$show)
 				{
 					unset($this->unanswered_batch[$name]); // todo: do something else with this when we want JS?
 				}
@@ -449,16 +449,12 @@ class Survey extends RunUnit {
 		return array('title' => (isset($this->settings['title'])?$this->settings['title']: null),
 		'body' => 
 			'
-			
-		<div class="row">
-		    <div id="col-md-12">
-		        '.
-		
-				 (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
-				 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</p>":'') .
-				 '
-		    </div>
-		</div>
+	
+        '.
+
+		 (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
+		 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</p>":'') .
+		 '
 		<div class="row">
 			<div class="col-md-12">
 
