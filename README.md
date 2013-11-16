@@ -29,7 +29,7 @@ Using branching and pauses, the following designs should be possible:
 This simple component allows you to delay the continuation of the run until a certain date, time of day or to wait relative to a date that a user specified (such as her graduation date or the last time he cut his nails). See the **OpenCPU + R + Knitr + Markdown** section to find out how to personalise the text shown while waiting.
 
 ### Branch
-Branches are components that allow to evaluate R conditions on a user's data. Depending on whether the result evaluates to true/1 or false/0, you can go to different positions in the run - these can be later or earlier in the run (the latter creates loops, for e.g. diaries, training interventions, etc.).
+Branches are components that allow you to evaluate R conditions on a user's data. Depending on whether the result evaluates to true/1 or false/0, you can jump to different positions in the run - these can be later or earlier in the run (the latter creates loops, for e.g. diaries, training interventions, etc.).
 
 ### TimeBranch
 These components are the bastard children of a Pause + Branch: If the user accesses the run within the specified time frame (like a Pause), the run jumps to one position in the run (like a Branch). If she doesn't, the run progresses to a different position in the run (e.g. to a reminder email). This component is useful, if you need to set up a period during which a survey is accessible or if you want to automatically send reminders after some time elapsed. 
@@ -62,7 +62,7 @@ Survey names may only contain the characters `a-zA-Z0-9_` and need to start with
 		* **_name_** (mandatory). This can only contain `a-zA-Z0-9_` and needs to start with a letter.
 		* **_type_** (mandatory). See below.
 		* **label**. You can use Knitr, [Markdown](http://daringfireball.net/projects/markdown/) and HTML in the question texts. You can also use [Font Awesome](http://fontawesome.io) icons.
-		* **skipif** You can refer to the same survey here `variable_name == 2` or you can reference other surveys using `survey_name$variable_name == 2` (evaluated via OpenCPU in R).
+		* **showif** By entering a condition here, you can show items optionally. You can refer to the same survey here `variable_name == 2` or you can reference other surveys using `survey_name$variable_name == 2` (evaluated via OpenCPU in R).
 		* **optional** You can make an item optional (most items are mandatory by default), by using the `*` character in the optional-column. Items optional by default (`check`, `btncheck`, `mmc`) can be made mandatory by using the the `!` character in the optional-column.
 		* **choice1, choice2, ..., choice14** (you can use these columns to quickly add choices. If you use many choices repeatedly or need more than 14 choices, it makes more sense to put them on the choices sheet)
 * The second, optional sheet should have the name **choices**, if no such sheet exists, we use the second one.
@@ -75,7 +75,7 @@ Survey names may only contain the characters `a-zA-Z0-9_` and need to start with
 Surveys support the following item types. HTML5 form elements and validation are used and polyfilled where necessary using the [Webshims lib](http://afarkas.github.io/webshim/demos/index.html).
 
 * `instruction` display text. instructions are displayed at least once and disappear only when there are no unanswered items left behind them (so putting an instruction directly before another ensures it will be displayed only once)
-* `submit` display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for `skipif` or for dynamically generating item text have been given. 
+* `submit` display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for `showif` or for dynamically generating item text have been given. 
 * multiple choice family
 	* `mc` multipe choice (radio buttons), you can choose only one. Choices are (currently) defined using the choice1-12 columns
 	* `mmc` multiple multiple choice (check boxes), you can choose several. Choices defined as above
@@ -111,14 +111,14 @@ Surveys support the following item types. HTML5 form elements and validation are
 	* `referrer` saves the last outside referrer (if any), ie. how the user got to the site
 	* `server var` saves the `$_SERVER` value with the index given by `var`. Can be used to store one of `'HTTP_USER_AGENT',	'HTTP_ACCEPT',	'HTTP_ACCEPT_CHARSET',	'HTTP_ACCEPT_ENCODING',	'HTTP_ACCEPT_LANGUAGE',	'HTTP_CONNECTION',	'HTTP_HOST',	'QUERY_STRING',	'REQUEST_TIME',	'REQUEST_TIME_FLOAT'`
 
-#### skipif
+#### showif
 
 You can make item display contingent on simple and complex conditions like `(survey1$married == 1) | (survey2$in_relationship == 1 & survey2$cohabit == 1)`.
 
 ## OpenCPU + R + Knitr + Markdown
 [OpenCPU](https://public.opencpu.org/pages/) is a way to safely use complex [R](http://www.r-project.org/) expressions on the web. We use it for all kinds of stuff.
 
-In pauses, emails and pages you can display text to the user. This text is easily formatted using [Markdown](http://daringfireball.net/projects/markdown/) a simple syntax that formats text nicely if you simply write like you would write a plain text email. Markdown can be freely mixed with HTML, so you can e.g. insert icons from the [Font Awesome](http://fontawesome.io) library using `<i class="icon-smile"></i>`.
+In pauses, emails and pages you can display text to the user. This text is easily formatted using [Markdown](http://daringfireball.net/projects/markdown/) a simple syntax that formats text nicely if you simply write like you would write a plain text email. Markdown can be freely mixed with HTML, so you can e.g. insert icons from the [Font Awesome](http://fontawesome.io/icons/) library using `<i class="fa fa-smile-o"></i>`.
 
 If you use knitr syntax, where Markdown can be used, the text will not just be parsed as Markdown (which is mostly static, unless you use Javascript), but also be parsed (anew each time) by [knitr](http://yihui.name/knitr/). Knitr allows for mixing R syntax chunks and Markdown.  
 [R](http://www.r-project.org/) is a popular open-source statistical programming language, that you can use via [OpenCPU](https://public.opencpu.org/pages/), a RESTful interface to the language that deals with the problem that R was not meant to be used as part of web apps and is insecure. R data frames with the same names as the surveys they derive from will be available in this knitr call, they contain all data that the current user has filled out so far.  

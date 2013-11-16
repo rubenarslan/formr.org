@@ -8,7 +8,7 @@ if(isset($_GET['run_name']) AND isset($_GET['code']) AND strlen($_GET['code'])==
 	
 	$_SESSION['session'] = $test_code;
 elseif(!isset($_GET['run_name']) OR !isset($user->user_code)):
-	alert("<strong>Sorry.</strong> Something went wrong when you tried to access.",'alert-error');
+	alert("<strong>Sorry.</strong> Something went wrong when you tried to access.",'alert-danger');
 	redirect_to("index");
 endif;
 
@@ -39,11 +39,11 @@ else:
 		$run = new Run($fdb, $_GET['run_name']);
 	
 		if(!$run->valid):
-			alert("<strong>Error:</strong> Run broken.",'alert-error');
+			alert("<strong>Error:</strong> Run broken.",'alert-danger');
 			redirect_to("/index");
 		else:
 			if($user->loggedIn() AND isset($_SESSION['UnitSession']) AND $user->user_code !== unserialize($_SESSION['UnitSession'])->session):
-				alert('<strong>Error.</strong> You seem to have switched sessions.','alert-error');
+				alert('<strong>Error.</strong> You seem to have switched sessions.','alert-danger');
 				redirect_to('index');
 			endif;
 			
@@ -59,7 +59,7 @@ else:
 				$user->user_code = $run_session->session;
 				$output = $run_session->getUnit();
 			else:
-				alert("<strong>Error:</strong> You don't have access to this run.",'alert-error');
+				alert("<strong>Error:</strong> You don't have access to this run.",'alert-danger');
 				redirect_to("/index");
 			endif;
 		endif;
@@ -67,13 +67,32 @@ else:
 endif;
 
 if($output):
-	if(isset($output['title']))
+	if(isset($output['title'])):
 		$title = $output['title'];
-	elseif(isset($run)) $title = $run->name;
+	elseif(isset($run)): 
+		$title = $run->name;
+	endif;
 	
+	$survey_view = true;
 	require_once INCLUDE_ROOT . 'View/header.php';
-	echo $site->renderAlerts();
 
+	$alerts = $site->renderAlerts();
+	if(!empty($alerts)):
+		echo '
+			<div class="row">
+				<div class="col-md-6 col-sm-6 all-alerts">';
+					echo $alerts;
+			echo '</div>
+			</div>';
+	endif;
+	?>
+<div class="row">
+	<div class="col-lg-12">
+<?php
 	echo $output['body'];
+?>
+	</div>
+</div>
+<?php
 	require_once INCLUDE_ROOT . 'View/footer.php';
 endif;

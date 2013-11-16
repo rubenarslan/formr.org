@@ -70,7 +70,7 @@ class EmailAccount
 		
 		if(!$mail->Send())
 		{
-			alert($mail->ErrorInfo,'alert-error');
+			alert($mail->ErrorInfo,'alert-danger');
 		}
 		else 
 		{

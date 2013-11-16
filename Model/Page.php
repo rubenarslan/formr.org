@@ -11,8 +11,11 @@ class Page extends RunUnit {
 	private $body = '';
 	protected $body_parsed = '';
 	private $title = '';
-	private $can_be_ended = 1;
+	private $can_be_ended = 0;
 	public $ended = false;
+	public $type = 'endpage';
+	public $icon = "fa-stop";
+	
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -28,7 +31,8 @@ class Page extends RunUnit {
 				$this->body = $vars['body'];
 				$this->body_parsed = $vars['body_parsed'];
 				$this->title = $vars['title'];
-				$this->can_be_ended = $vars['end'] ? 1:0;
+#				$this->can_be_ended = $vars['end'] ? 1:0;
+				$this->can_be_ended = 0;
 		
 				$this->valid = true;
 			endif;
@@ -52,7 +56,8 @@ class Page extends RunUnit {
 		{
 			$this->body = $options['body'];
 			$this->title = $options['title'];
-			$this->can_be_ended = $options['end'] ? 1:0;
+//			$this->can_be_ended = $options['end'] ? 1:0;
+			$this->can_be_ended = 0;
 		}
 		
 		$this->body_parsed = Markdown::defaultTransform($this->body); // transform upon insertion into db instead of at runtime
@@ -83,17 +88,17 @@ class Page extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p><label>Title: <br>
-			<input type="text" placeholder="Headline" name="title" value="'.$this->title.'"></label></p>
-		<p><label>Body: <br>
-			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" class="span5">'.$this->body.'</textarea></label></p>
-		<p><input type="hidden" name="end" value="0"><label><input type="checkbox" name="end" value="1"'.($this->can_be_ended ?' checked ':'').'> allow user to continue after viewing page</label></p>';
-		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Page">Save.</a>
-		<a class="btn unit_test" href="ajax_test_unit?type=Page">Preview</a></p>';
+			<input class="form-control col-md-5" type="text" placeholder="Headline" name="title" value="'.$this->title.'"></label></p>
+		<p><label>Text: <br>
+			<textarea style="width:350px" placeholder="You can use Markdown" name="body" rows="4" cols="60" class="form-control col-md-5">'.$this->body.'</textarea></label></p>';
+#			'<p><input type="hidden" name="end" value="0"><label><input type="checkbox" name="end" value="1"'.($this->can_be_ended ?' checked ':'').'> allow user to continue after viewing page</label></p>';
+		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Page">Save.</a>
+		<a class="btn btn-default unit_test" href="ajax_test_unit?type=Page">Preview</a></p>';
 		
 
 		$dialog = $prepend . $dialog;
 		
-		return parent::runDialog($dialog,'icon-bar-chart icon-1-5x');
+		return parent::runDialog($dialog,'fa-stop fa-1-5x');
 	}
 	public function removeFromRun($run_id)
 	{
@@ -103,13 +108,13 @@ class Page extends RunUnit {
 	{
 		
 		echo $this->getParsedBodyAdmin($this->body);
-		if($this->can_be_ended)
-		{
-			$ret = '<form method="post" accept-charset="utf-8">';
-			$ret = '<input type="button" class="btn btn-success" value="Weiter!" name="page_submit">';
-			$ret .= '</form>';
-			echo $ret;
-		}
+#		if($this->can_be_ended)
+#		{
+#			$ret = '<form method="post" accept-charset="utf-8">';
+#			$ret = '<input type="button" class="btn btn-default btn-success" value="Weiter!" name="page_submit">';
+#			$ret .= '</form>';
+#			echo $ret;
+#		}
 			
 	}
 	public function exec()
@@ -119,14 +124,14 @@ class Page extends RunUnit {
 			return true; // never show to the cronjob
 		endif;
 		
-		if($this->can_be_ended AND $this->ended) return false;
+#		if($this->can_be_ended AND $this->ended) return false;
 		
 		$this->body_parsed = $this->getParsedBody($this->body);
 		
 		if($this->can_be_ended):
 			$action = WEBROOT."{$this->run_name}";
 			$ret = '<form action="'.$action.'" method="post" accept-charset="utf-8">';
-			$ret .= '<input type="submit" class="btn btn-success" value="Weiter!" name="page_submit">';
+			$ret .= '<input type="submit" class="btn btn-default btn-success" value="Weiter!" name="page_submit">';
 			$ret .= '</form>';
 			$this->body_parsed .= $ret;
 		endif;

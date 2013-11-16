@@ -40,5 +40,5 @@ if($Reminder AND trim($_GET['run_session_id'])!=''):
 	endif;
 endif;
 
-alert('<strong>Something went wrong with the reminder.</strong> in run '.$_GET['run_name'], 'alert-error');
+alert('<strong>Something went wrong with the reminder.</strong> in run '.$_GET['run_name'], 'alert-danger');
 redirect_to("admin/run/".$run->name."/user_overview");
