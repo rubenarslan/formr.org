@@ -153,7 +153,7 @@ class Survey extends RunUnit {
 						)
 					GROUP BY `survey_items_display`.answered;";
 
-		//fixme: progress can become smaller when questions enabling a lot of skipif turn on
+		//fixme: progress can become smaller when questions enabling a lot of showifs turn on
 		$progress = $this->dbh->prepare($query);
 		$progress->bindParam(":session_id", $this->session_id);
 		$progress->bindParam(":study_id", $this->id);
@@ -233,7 +233,7 @@ class Survey extends RunUnit {
 				`survey_items`.label_parsed,
 				`survey_items`.optional,
 				`survey_items`.class,
-				`survey_items`.skipif,
+				`survey_items`.showif,
 				
 		`survey_items_display`.displaycount, 
 		`survey_items_display`.session_id
@@ -263,28 +263,28 @@ class Survey extends RunUnit {
 		{
 			$name = $item['name'];
 			$this->unanswered_batch[$name] = $item_factory->make($item);
-			$skipif = $this->unanswered_batch[$name]->skipif;
-			if($skipif !== null)
+			$showif = $this->unanswered_batch[$name]->showif;
+			if($showif !== null)
 			{
-				if(isset($item_factory->skipifs[ $skipif ]))
+				if(isset($item_factory->showifs[ $showif ]))
 				{
-					$skip = $item_factory->skipifs[ $skipif ];
+					$show = $item_factory->showifs[ $showif ];
 				}
 				else
 				{
 					$openCPU = $this->makeOpenCPU();
 
-					$dataNeeded = $this->dataNeeded($this->dbh, $skipif );
-					$dataNeeded[] = $this->results_table; // currently we stupidly at the current results table to every request, because it would be quite bothersome to parse the statement to understand
-					$dataNeeded = array_unique($dataNeeded);
+					$dataNeeded = $this->dataNeeded($this->dbh, $showif );
+					$dataNeeded[] = $this->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
+					$dataNeeded = array_unique($dataNeeded); // no need to add it twice
 					$openCPU->addUserData($this->getUserDataInRun(
 						$dataNeeded
 					));
 					
-					$skip = $item_factory->skip($this->results_table, $openCPU, $skipif);
+					$show = $item_factory->showif($this->results_table, $openCPU, $showif);
 				}
 				
-				if($skip)
+				if(!$show)
 				{
 					unset($this->unanswered_batch[$name]); // todo: do something else with this when we want JS?
 				}
@@ -308,9 +308,9 @@ class Survey extends RunUnit {
 			$prog += $this->settings["add_percentage_points"];
 		
 	    $ret .= '<div class="progress">
-				  <div class="bar" style="width: '.$prog.'%;">'.$prog.'%</div>
+				  <div class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
 			</div>';
-		$ret .= '<div class="control-group error form-message">
+		$ret .= '<div class="form-group error form-message">
 			<div class="control-label">'.implode("<br>",array_unique($this->errors)).'
 			</div></div>';	
 		return $ret;
@@ -449,18 +449,14 @@ class Survey extends RunUnit {
 		return array('title' => (isset($this->settings['title'])?$this->settings['title']: null),
 		'body' => 
 			'
-			
-		<div class="row-fluid">
-		    <div id="span12">
-		        '.
-		
-				 (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
-				 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</p>":'') .
-				 '
-		    </div>
-		</div>
-		<div class="row-fluid">
-			<div class="span12">
+	
+        '.
+
+		 (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
+		 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</p>":'') .
+		 '
+		<div class="row">
+			<div class="col-md-12">
 
 		'.
 
@@ -468,13 +464,13 @@ class Survey extends RunUnit {
 		
 		 '
 
-			</div> <!-- end of span12 div -->
-		</div> <!-- end of row-fluid div -->
+			</div> <!-- end of col-md-12 div -->
+		</div> <!-- end of row div -->
 		'.
 		(isset($this->settings['problem_email'])?
 		'
-		<div class="row-fluid">
-			<div class="span12">'.
+		<div class="row">
+			<div class="col-md-12">'.
 			(isset($this->settings['problem_text'])?
 				str_replace("%s",$this->settings['problem_email'],$this->settings['problem_text']) :
 				('<a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>')

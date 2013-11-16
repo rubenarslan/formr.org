@@ -13,7 +13,7 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 		alert('<strong>Success.</strong> Unit with ID '.h($to_delete).' was deleted.','alert-success');
 	}
 	else
-		alert('<strong>Sorry.</strong> '.implode($run_unit->errors),'alert-error');
+		alert('<strong>Sorry.</strong> '.implode($run_unit->errors),'alert-danger');
 
 endif;
 

@@ -20,7 +20,7 @@ foreach($runs AS $run_data):
 	$r++;
 	$run = new Run($fdb, $run_data['name']);
 	if(!$run->valid):
-		alert("This run '{$run_data['name']}' caused problems", 'alert-error');
+		alert("This run '{$run_data['name']}' caused problems", 'alert-danger');
 		continue;
 	endif;
 	
@@ -35,7 +35,7 @@ foreach($runs AS $run_data):
 		$types = $run_session->getUnit(); // start looping thru their units.
 		$i++;
 		if($types===false):
-			alert("This session '$session' caused problems", 'alert-error');
+			alert("This session '$session' caused problems", 'alert-danger');
 			continue 1;
 		endif;
 		

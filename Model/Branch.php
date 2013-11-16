@@ -6,16 +6,19 @@ class Branch extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $condition = null;
-	private $if_true = null;
-	private $if_false = null;
+	protected $condition = null;
+	protected $if_true = null;
+	protected $automatically_jump = 1;
+	protected $automatically_go_on = 1;
+	public $type = 'Branch';
+	public $icon = 'fa-code-fork fa-flip-vertical';
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
 		parent::__construct($fdb,$session,$unit);
 
 		if($this->id):
-			$data = $this->dbh->prepare("SELECT * FROM `survey_branches` WHERE id = :id LIMIT 1");
+			$data = $this->dbh->prepare("SELECT `id`, `condition`, `if_true`, `automatically_jump`, `automatically_go_on` FROM `survey_branches` WHERE id = :id LIMIT 1");
 			$data->bindParam(":id",$this->id);
 			$data->execute() or die(print_r($data->errorInfo(), true));
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
@@ -24,7 +27,8 @@ class Branch extends RunUnit {
 				array_walk($vars,"emptyNull");
 				$this->condition = $vars['condition'];
 				$this->if_true = $vars['if_true'];
-				$this->if_false = $vars['if_false'];
+				$this->automatically_jump = $vars['automatically_jump'];
+				$this->automatically_go_on = $vars['automatically_go_on'];
 		
 				$this->valid = true;
 			endif;
@@ -34,7 +38,7 @@ class Branch extends RunUnit {
 	{
 		$this->dbh->beginTransaction();
 		if(!$this->id)
-			$this->id = parent::create('Branch');
+			$this->id = parent::create($this->type);
 		else
 			$this->modify($this->id);
 		
@@ -42,24 +46,32 @@ class Branch extends RunUnit {
 		{
 			array_walk($options,"emptyNull");
 			$this->condition = $options['condition'];
-			$this->if_true = $options['if_true'];
-			$this->if_false = $options['if_false'];
+			if(isset($options['if_true']))
+				$this->if_true = $options['if_true'];
+			if(isset($options['automatically_jump']))
+				$this->automatically_jump = $options['automatically_jump'];
+			if(isset($options['automatically_go_on']))
+				$this->automatically_go_on = $options['automatically_go_on'];
+			
 		}
 		
-		$create = $this->dbh->prepare("INSERT INTO `survey_branches` (`id`, `condition`, if_true, if_false)
-			VALUES (:id, :condition, :if_true, :if_false)
+		$create = $this->dbh->prepare("INSERT INTO `survey_branches` (`id`, `condition`, if_true, automatically_jump, automatically_go_on)
+			VALUES (:id, :condition, :if_true, :automatically_jump, :automatically_go_on)
 		ON DUPLICATE KEY UPDATE
 			`condition` = :condition2, 
-			`if_true` = :if_true2, 
-			`if_false` = :if_false2
+			`if_true` = :if_true2,
+			`automatically_jump` = :automatically_jump2, 
+			`automatically_go_on` = :automatically_go_on2
 		;");
 		$create->bindParam(':id',$this->id);
 		$create->bindParam(':condition',$this->condition);
 		$create->bindParam(':condition2',$this->condition);
 		$create->bindParam(':if_true',$this->if_true);
 		$create->bindParam(':if_true2',$this->if_true);
-		$create->bindParam(':if_false',$this->if_false);
-		$create->bindParam(':if_false2',$this->if_false);
+		$create->bindParam(':automatically_jump',$this->automatically_jump);
+		$create->bindParam(':automatically_jump2',$this->automatically_jump);
+		$create->bindParam(':automatically_go_on',$this->automatically_go_on);
+		$create->bindParam(':automatically_go_on2',$this->automatically_go_on);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
 		$this->valid = true;
@@ -68,18 +80,32 @@ class Branch extends RunUnit {
 	}
 	public function displayForRun($prepend = '')
 	{
-		$dialog = '<p><label>Condition: <br>
-			<textarea name="condition" rows="4" class="span5">'.$this->condition.'</textarea></label></p>
-		<div class="row"><p class="span2"><label>…if this evaluates to <code>true</code> <i class="icon-hand-right"></i> <input type="number" class="span1" name="if_true" max="32000" min="-32000" step="1" value="'.$this->if_true.'"></p>
-		<p class="span1"><i class="icon-code-fork icon-flip-vertical icon-4x icon-muted"></i></p>
-		<p class="span2"><label>…if this evaluates to <code>false</code> <i class="icon-hand-right"></i> <input type="number" class="span1" name="if_false" max="32000" min="-32000" step="1" value="'.$this->if_false.'"></p></div>';
-		$dialog .= '<p class="btn-group"><a class="btn unit_save" href="ajax_save_run_unit?type=Branch">Save.</a>
-		<a class="btn unit_test" href="ajax_test_unit?type=Branch">Test</a></p>';
+		$dialog = '<div class="padding-below">
+			<label>if… <br>
+				<textarea class="form-control" style="width:350px" name="condition" rows="4" class="col-md-5" placeholder="Condition: You can use R here: survey1$item2 == 2">'.$this->condition.'</textarea>
+			</label><br>
+			<select style="width:120px" name="automatically_jump">
+			<option value="1" '.($this->automatically_jump?'selected':'').'>automatically</option>
+			<option value="0" '.($this->automatically_jump?'':'selected').'>if user reacts</option>
+			</select>
+			<label>skip forward to
+			<input type="number" class="form-control" style="width:70px" name="if_true" max="32000" min="'.($this->position+2).'" step="1" value="'.$this->if_true.'">
+			</label><br>
+			<strong>else</strong>
+			<select style="width:120px" name="automatically_go_on">
+			<option value="1" '.($this->automatically_go_on?'selected':'').'>automatically</option>
+			<option value="0" '.($this->automatically_go_on?'':'selected').'>if user reacts</option>
+			</select>
+			<strong>go on</strong>
+		</div>';
+		$dialog .= '<p class="btn-group">
+				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=SkipForward">Save.</a>
+		<a class="btn btn-default unit_test" href="ajax_test_unit?type=SkipForward">Test</a></p>';
 		
 
 		$dialog = $prepend . $dialog;
 		
-		return parent::runDialog($dialog,'icon-code-fork icon-flip-vertical icon-2-5x');
+		return parent::runDialog($dialog);
 	}
 	public function removeFromRun($run_id)
 	{
@@ -137,10 +163,9 @@ class Branch extends RunUnit {
 		endforeach;
 		echo '</tbody></table>';
 		$this->run_session_id = null;
-	} 
+	}
 	public function exec()
 	{
-		
 		$openCPU = $this->makeOpenCPU();
 
 		$openCPU->addUserData($this->getUserDataInRun(
@@ -148,15 +173,19 @@ class Branch extends RunUnit {
 		));
 		$result = (bool)$openCPU->evaluate($this->condition);
 		$join = join_builder($this->dbh, $this->condition);
-	
-		$position = $result ? $this->if_true : $this->if_false;
-
-		global $run_session;
-		if($run_session->session):
+				
+		 // if condition is true and we're set to jump automatically, or if the user reacted
+		if($result AND ($this->automatically_jump OR !$this->called_by_cron)):
+			global $run_session;
+			if($run_session->session):
+				$this->end();
+				$run_session->runTo($this->if_true);
+			endif;
+		elseif(!$result AND ($this->automatically_go_on OR !$this->called_by_cron)): // the condition is false and it goes on
 			$this->end();
-			$run_session->runTo($position);
+			return false;
+		else: // we wait for the condition to turn true or false, depends.
+			return true;
 		endif;
-		
-		return false;
 	}
 }

@@ -11,7 +11,7 @@ class OpenCPU {
 		curl_setopt($this->curl_c, CURLOPT_RETURNTRANSFER, 1); // Returns the curl_exec string, rather than just Logical value
 	}
 
-	public function r_function($function,$post,$headers = false)
+	public function r_function($function,$post)
 	{
 		curl_setopt($this->curl_c, CURLOPT_URL, $this->instance.'/ocpu/library/'.$function);
 		
@@ -19,27 +19,27 @@ class OpenCPU {
 			curl_setopt($this->curl_c, CURLOPT_POST, 1); // Method is "POST"
 			curl_setopt($this->curl_c, CURLOPT_POSTFIELDS, http_build_query($post));
 		endif;
-		if($headers):
-			curl_setopt($this->curl_c, CURLOPT_HEADER, 1);
-		endif;
+
+		curl_setopt($this->curl_c, CURLOPT_HEADER, 1);
 		
 		$result = curl_exec($this->curl_c);
-		
-		if($headers):
-			$this->header_size = curl_getinfo($this->curl_c, CURLINFO_HEADER_SIZE);
-			$this->http_status = curl_getinfo($this->curl_c,CURLINFO_HTTP_CODE);
-		endif;
+		$this->http_status = curl_getinfo($this->curl_c,CURLINFO_HTTP_CODE);
+
+		$this->header_size = curl_getinfo($this->curl_c, CURLINFO_HEADER_SIZE);
 		curl_close($this->curl_c);
+
+		$header = mb_substr($result, 0, $this->header_size);
+		$body = mb_substr($result, $this->header_size);
+		##		list($header, $body) = explode("\r\n\r\n", $results, 2); # does not work with 100 Continue
 		
-		return $result;
+		return compact('header','body');
 	}
-	
-	public function identity($post, $return = '/json',$headers = false)
+	public function identity($post, $return = '/json')
 	{
-		return $this->r_function('base/R/identity'.$return, $post, $headers);
+		return $this->r_function('base/R/identity'.$return, $post);
 	}
 	
-	public function evaluate($source,$return = '/json',$headers = false)
+	public function evaluate($source,$return = '/json')
 	{
 		$post = array('x' => '{ 
 			(function() {
@@ -47,11 +47,11 @@ class OpenCPU {
 			'.$source.'
 			})() }');
 			
-		$result = $this->identity($post,$return,$headers);
-		$parsed = json_decode($result);
+		$result = $this->identity($post,$return);
+		$parsed = json_decode($result['body']);
 		if($parsed===null):
-			alert($result,'alert-error');
-			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-error');
+			alert($result,'alert-danger');
+			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-danger');
 			return null;
 		elseif(empty($parsed)):
 			return null;
@@ -59,7 +59,7 @@ class OpenCPU {
 			return $parsed[0];
 		endif;
 	}
-	public function evaluateWith($results_table, $source,$return = '/json',$headers = false)
+	public function evaluateWith($results_table, $source,$return = '/json')
 	{
 		$post = array('x' => '{ 
 			(function() {
@@ -69,11 +69,12 @@ class OpenCPU {
 				})
 			})() }');
 			
-		$result = $this->identity($post,$return,$headers);
-		$parsed = json_decode($result);
+		$result = $this->identity($post,$return);
+
+		$parsed = json_decode($result['body']);
 		if($parsed===null):
-			alert($result,'alert-error');
-			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-error');
+			alert($result['body'],'alert-danger');
+			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-danger');
 			return null;
 		elseif(empty($parsed)):
 			return null;
@@ -81,7 +82,7 @@ class OpenCPU {
 			return $parsed[0];
 		endif;
 	}
-	public function evaluateAdmin($source,$return = '',$headers = true)
+	public function evaluateAdmin($source,$return = '')
 	{
 		$post = array('x' => '{ 
 			(function() {
@@ -89,11 +90,11 @@ class OpenCPU {
 			'.$source.'
 			})() }');
 			
-		$result = $this->identity($post,$return,$headers);
+		$result = $this->identity($post,$return);
 		return $this->debugCall($result);
 	}
 	
-	public function knit($source,$return = '/json',$headers = false,$options = '"base64_images","smartypants","highlight_code","mathjax"')
+	public function knit($source,$return = '/json',$options = '"base64_images","smartypants","highlight_code","mathjax"')
 	{
 		$post = array('x' => '{
 library(knitr)
@@ -101,7 +102,8 @@ library(knitr)
     fragment.only = T, options=c('.$options.')
 )
 }');
-		return $this->identity($post,$return,$headers);
+		$result = $this->identity($post,$return);
+		return $result;
 	}
 	public function addUserData($datasets)
 	{
@@ -122,11 +124,11 @@ $this->user_data .
 		$source;
 		
 		$result = $this->knit($source,'/json');
-		$html = json_decode($result);
+		$html = json_decode($result['body']);
 		
 		if(!$html):
-			alert($result,'alert-error');
-			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-error');
+			alert($result['body'],'alert-danger');
+			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-danger');
 			return false;
 		endif;
 		
@@ -143,8 +145,8 @@ $this->user_data .
 '.
 		$source;
 		
-		$results = $this->knit($source,'', true);
-		return $this->debugCall($results);
+		$result = $this->knit($source,'');
+		return $this->debugCall($result);
 
 	}
 
@@ -155,7 +157,7 @@ $this->user_data .
 		$source =
 '```{r settings,message=FALSE,warning=F,echo=F}
 email_image = function(x) {
-	cid = gsub("[^a-zA-Z0-9]", "", mb_substring(x,8))
+	cid = gsub("[^a-zA-Z0-9]", "", substring(x,8))
 	structure(paste0("cid:",cid,".png"), link = x)
 }
 opts_chunk$set(warning=F,message=F,echo=F)
@@ -166,43 +168,49 @@ $this->user_data .
 '.
 		$source;
 		
-		$results = $this->knit($source,'',false,'"smartypants","highlight_code","mathjax"');
+		$result = $this->knit($source,'','"smartypants","highlight_code","mathjax"');
+
+		if($this->http_status > 302):
+			 $response = array(
+				 'Response' => '<pre>'. htmlspecialchars($result['body']). '</pre>',
+				 'HTTP headers' => '<pre>'. htmlspecialchars($result['header']). '</pre>',
+			 );
+		else:
+			$header_parsed = http_parse_headers($result['header']);
+			$session = '/ocpu/tmp/'. $header_parsed['X-ocpu-session'] . '/';
 		
-		$available = explode("\n",$results);
+			$available = explode("\n",$result['body']);
 		
-		$response = array();
-		$response['images'] = array();
+			$response = array();
+			$response['images'] = array();
 		
-		foreach($available AS $part):
-			$upto = mb_strpos($part,'/files/figure/');
-			if($upto!==false):
-				$image_id = preg_replace("/[^a-zA-Z0-9]/",'',mb_substr($part,$upto+14)) . '.png';
-				$response['images'][ $image_id ] =  $this->instance. $part;
+			foreach($available AS $part):
+				$upto = mb_strpos($part,'/files/figure/');
+				if($upto!==false):
+					$image_id = preg_replace("/[^a-zA-Z0-9]/",'',mb_substr($part,$upto+14)) . '.png';
+					$response['images'][ $image_id ] =  $this->instance. $part;
+				endif;
+			endforeach;
+		
+			// info/text stdout/text console/text R/.val/text
+		
+			if(in_array($session . 'R/.val',$available)):
+				$response['body'] = current( json_decode(file_get_contents($this->instance. $session . 'R/.val/json')) );
 			endif;
-		endforeach;
-		
-		$session = explode('/',$available[0]);
-		$session = '/'.$session[1].'/'.$session[2] .'/'.$session[3] . '/';
-		// info/text stdout/text console/text R/.val/text
-		
-		if(in_array($session . 'R/.val',$available))
-			$response['body'] = current( json_decode(file_get_contents($this->instance. $session . 'R/.val/json')) );
+		endif;
 		
 		return $response;
 	}
-	public function debugCall($results)
+	public function debugCall($result)
 	{
-		$header = mb_substr($results, 0, $this->header_size);
-		$results = mb_substr($results, $this->header_size);
-##		list($header, $results) = explode("\r\n\r\n", $results, 2); # does not work with 100 Continue
 		if($this->http_status > 302):
 			 $response = array(
-				 'Response' => '<pre>'. htmlspecialchars($results). '</pre>',
-				 'HTTP headers' => '<pre>'. htmlspecialchars($header). '</pre>',
+				 'Response' => '<pre>'. htmlspecialchars($result['body']). '</pre>',
+				 'HTTP headers' => '<pre>'. htmlspecialchars($result['header']). '</pre>',
 			 );
 		else:
-			$header_parsed = http_parse_headers($header);
-			$available = explode("\n",$results);
+			$header_parsed = http_parse_headers($result['header']);
+			$available = explode("\n",$result['body']);
 
 			$session = '/ocpu/tmp/'. $header_parsed['X-ocpu-session'] . '/';
 #			$session = explode('/',$available[0]);
@@ -219,7 +227,7 @@ $this->user_data .
 			
 				$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/print')). '</pre>';
 			
-			$response['HTTP headers'] = '<pre>'. htmlspecialchars($header). '</pre>';
+			$response['HTTP headers'] = '<pre>'. htmlspecialchars($result['header']). '</pre>';
 			
 			if(in_array($session . 'info',$available))
 				$response['Session info'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'info/print')). '</pre>';
@@ -229,19 +237,20 @@ $this->user_data .
 	}
 	private function ArrayToAccordion($array)
 	{
-		$acc = '<div class="accordion" id="opencpu_accordion">';
+		$rand = mt_rand(0,1000);
+		$acc = '<div class="panel-group opencpu_accordion" id="opencpu_accordion'.$rand.'">';
 		$first = ' in';
 		foreach($array AS $title => $content):
 			if($content == null) $content = stringBool($content);
 			$acc .= '
-<div class="accordion-group">
-	<div class="accordion-heading">
-		<a class="accordion-toggle" data-toggle="collapse" data-parent="#opencpu_accordion" href="#collapse'.str_replace(' ', '', $title).'">
+<div class="panel panel-default">
+	<div class="panel-heading">
+		<a class="accordion-toggle" data-toggle="collapse" data-parent="#opencpu_accordion'.$rand.'" href="#collapse'.str_replace(' ', '', $rand.$title).'">
 			'.$title.'
 		</a>
 	</div>
-	<div id="collapse'.str_replace(' ', '', $title).'" class="accordion-body collapse'.$first.'">
-		<div class="accordion-inner">
+	<div id="collapse'.str_replace(' ', '', $rand.$title).'" class="panel-collapse collapse'.$first.'">
+		<div class="panel-body">
 			'.$content.'
 		</div>
 	</div>

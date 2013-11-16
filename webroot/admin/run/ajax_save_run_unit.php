@@ -6,7 +6,7 @@ require_once INCLUDE_ROOT . "Model/RunUnit.php";
 
 if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 	$type = $_GET['type'];
-	if(!in_array($type, array('Survey', 'Study','Pause','Email','External','Page','Branch','End', 'TimeBranch'))) die;
+	if(!in_array($type, array('Survey', 'Study','Pause','Email','External','Page','SkipBackward','SkipForward','End'))) die;
 	if($type == 'Survey') $type = 'Study';
 
 	require_once INCLUDE_ROOT . "Model/$type.php";
@@ -19,7 +19,7 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 				alert('<strong>Success.</strong> '.$type.' unit was updated.','alert-success');
 				echo $unit->displayForRun($site->renderAlerts());
 			else:
-				alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-error');
+				alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-danger');
 			endif;
 		else:
 			$unit = makeUnit($fdb,null,array('type' => $type));
@@ -29,7 +29,7 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 				alert('<strong>Success.</strong> '.$type.' unit was created.','alert-success');
 				echo $unit->displayForRun($site->renderAlerts());
 			else:
-				alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-error');
+				alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-danger');
 			endif;
 		endif;
 	else:
@@ -40,7 +40,7 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 				alert('<strong>Success.</strong> '.$type.' unit was added.','alert-success');
 				echo $unit->displayForRun($site->renderAlerts());
 			else:
-				alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-error');
+				alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-danger');
 			endif;
 		else:
 			$unit = new Study($fdb,null,array('type' => $type));

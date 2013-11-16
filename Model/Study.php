@@ -14,8 +14,10 @@ class Study extends RunUnit
 	public $settings = array();
 	public $errors = array();
 	public $messages = array();
+	public $warnings = array();
 	public $position;
 	private $SPR;
+	public $icon = "fa-pencil-square-o";
 	
 	public function __construct($fdb, $session = NULL,$unit = NULL) 
 	{
@@ -67,6 +69,41 @@ class Study extends RunUnit
 		
 		$this->getSettings();
 	}
+	public function uploadItemTable($file)
+	{
+		umask(0002);
+		ini_set('memory_limit', '256M');
+		$target = $_FILES['uploaded']['tmp_name'];
+		$filename = $_FILES['uploaded']['name'];
+
+		$this->messages[] = "File <b>$filename</b> was uploaded.";
+		$this->messages[] = "Survey name was determined to be <b>{$this->name}</b>.";
+		
+		require_once INCLUDE_ROOT.'Model/SpreadsheetReader.php';
+
+		$SPR = new SpreadsheetReader();
+		$SPR->readItemTableFile($target);
+		$this->errors = array_merge($this->errors, $SPR->errors);
+		$this->warnings =  array_merge($this->warnings, $SPR->warnings);
+		$this->messages =  array_merge($this->messages, $SPR->messages);
+		$this->messages = array_unique($this->messages);
+		$this->warnings = array_unique($this->warnings);
+		
+		// if items are ok, make actual survey
+	    if (empty($this->errors) AND $this->createSurvey($SPR) ):
+			
+			if(!empty($this->warnings))
+				alert('<ul><li>' . implode("</li><li>",$this->warnings).'</li></ul>','alert-warning');
+			
+			if(!empty($this->messages))
+				alert('<ul><li>' . implode("</li><li>",$this->messages).'</li></ul>','alert-info');
+			
+			return true;
+		else:
+			alert('<ul><li>' . implode("</li><li>",$this->errors).'</li></ul>','alert-danger');
+			return false;
+		endif;
+	}
 	protected function existsByName($name)
 	{
 		if(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,20}/",$name)) return;
@@ -90,13 +127,13 @@ class Study extends RunUnit
 	{
 	    $name = trim($this->unit['name']);
 	    if($name == ""):
-			$this->errors[] = _("You have to specify a study name.");
+			alert(_("<strong>Error:</strong> You have to specify a survey name."), 'alert-danger');
 			return false;
 		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,20}/",$name)):
-			$this->errors[] = _("The study's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
+			alert('<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from a to Z, 0 to 9 and the underscore. It needs to start with a letter. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>.','alert-danger');
 			return false;
 		elseif($this->existsByName($name)):
-			$this->errors[] = __("The study's name %s is already taken.",h($name));
+			alert(__("<strong>Error:</strong> The survey name %s is already taken.",h($name)), 'alert-danger');
 			return false;
 		endif;
 
@@ -117,17 +154,16 @@ class Study extends RunUnit
 				"welcome" => "Welcome!",
 				"title" => "Survey",
 				"description" => "",
-				"problem_text" => 'Bei Problemen wende dich bitte an <strong><a href="mailto:%s">%s</a></strong>.',
+				"problem_text" => 'If you run into problems, please contact <strong><a href="mailto:%s">%s</a></strong>.',
 				"problem_email" => "problems@example.com",
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
-				"submit_button_text" => 'Weiter',
+				"submit_button_text" => 'Submit!',
 				"form_classes" => 'unspaced_rows',
 //				"fileuploadmaxsize" => "100000",
 //				"closed_user_pool" => 0,
 //				"timezone" => "Europe/Berlin",
 //				"debug" => 0,
-//				"skipif_debug" => 0,
 //				"primary_color" => "#ff0000",
 //				"secondary_color" => "#00ff00",
 //				'custom_styles' => ''
@@ -137,7 +173,7 @@ class Study extends RunUnit
 		return true;
 	}
 	protected $user_defined_columns = array(
-		'name', 'label', 'label_parsed', 'type',  'type_options', 'choice_list', 'optional', 'class' ,'skipif' // study_id is not among the user_defined columns
+		'name', 'label', 'label_parsed', 'type',  'type_options', 'choice_list', 'optional', 'class' ,'showif' // study_id is not among the user_defined columns
 	);
 	protected $choices_user_defined_columns = array(
 		'list_name', 'name', 'label', 'label_parsed' // study_id is not among the user_defined columns
@@ -182,7 +218,7 @@ class Study extends RunUnit
 			choice_list,
 	        optional,
 	        class,
-	        skipif
+	        showif
 		) VALUES (
 			:study_id,
 			:name,
@@ -193,7 +229,7 @@ class Study extends RunUnit
 			:choice_list,
 			:optional,
 			:class,
-			:skipif
+			:showif
 			)');
 	
 		$result_columns = array();
@@ -243,7 +279,7 @@ class Study extends RunUnit
 		
 		$unused = $item_factory->unusedChoiceLists();
 		if(! empty( $unused ) ):
-			$this->messages[] = __("These choice lists were not used: '%s'", implode("', '",$unused));
+			$this->warnings[] = __("These choice lists were not used: '%s'", implode("', '",$unused));
 		endif;
 	
 		$new_syntax = $this->getResultsTableSyntax($result_columns);
@@ -256,8 +292,7 @@ class Study extends RunUnit
 		}
 		elseif ($this->dbh->commit()) 
 		{
-			$this->messages[] = $delete_old_items->rowCount() . " old items deleted.";
-			$this->messages[] = count($this->SPR->survey) . " items were successfully loaded.";
+			$this->messages[] = $delete_old_items->rowCount() . " old items were replaced with " . count($this->SPR->survey) . " new items.";
 			
 			if($new_syntax !== $old_syntax)
 			{
@@ -482,7 +517,6 @@ class Study extends RunUnit
 				return false;
 			endif;
 		elseif($resC == array('finished' => 0, 'begun' => 0)):
-			$this->messages[] = __("The results table was empty.",array_sum($resC));
 			return true;		
 		else:
 			$this->messages[] = __("%s results rows were deleted.",array_sum($resC));
@@ -557,19 +591,19 @@ class Study extends RunUnit
 			while($study = $g_studies->fetch())
 				$studies[] = $study;
 			if($studies):
-				$dialog = '<div class="control-group">
+				$dialog = '<div class="form-group">
 				<select class="select2" name="unit_id" style="width:300px">
 				<option value=""></option>';
 				foreach($studies as $study):
 				    $dialog .= "<option value=\"{$study['id']}\">{$study['name']}</option>";
 				endforeach;
 				$dialog .= "</select>";
-				$dialog .= '<a class="btn unit_save" href="ajax_save_run_unit?type=Survey">Add to this run.</a></div>';
+				$dialog .= '<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Add to this run.</a></div>';
 			else:
 				$dialog .= "<h5>No studies. Add some first</h5>";
 			endif;
 		endif;
 		$dialog = $prepend . $dialog;
-		return parent::runDialog($dialog,'icon-question');
+		return parent::runDialog($dialog,'fa-pencil-square');
 	}
 }

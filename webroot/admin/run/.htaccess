@@ -1,6 +1,7 @@
 <IfModule mod_rewrite.c>
 
 RewriteEngine On
+RewriteRule ^/?$ add_run.php [QSA,L]
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^/?([A-Za-z0-9_]+)/?$ index.php?run_name=$1 [QSA,L]

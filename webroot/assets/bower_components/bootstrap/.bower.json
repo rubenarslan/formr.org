@@ -1,10 +1,25 @@
 {
-  "name": "bootstrap.zip",
-  "_cacheHeaders": {
-    "Last-Modified": "Fri, 17 May 2013 17:29:19 GMT",
-    "Content-Length": "85762",
-    "Content-Type": "application/zip"
+  "name": "bootstrap",
+  "version": "3.0.2",
+  "main": [
+    "./dist/js/bootstrap.js",
+    "./dist/css/bootstrap.css",
+    "./dist/fonts/*"
+  ],
+  "ignore": [
+    "**/.*"
+  ],
+  "dependencies": {
+    "jquery": ">= 1.9.0"
   },
-  "_source": "http://twitter.github.com/bootstrap/assets/bootstrap.zip",
-  "_target": "*"
+  "homepage": "https://github.com/twbs/bootstrap",
+  "_release": "3.0.2",
+  "_resolution": {
+    "type": "version",
+    "tag": "v3.0.2",
+    "commit": "3887f540b978d593f433bfef15888bc2d103de72"
+  },
+  "_source": "git://github.com/twbs/bootstrap.git",
+  "_target": "*",
+  "_originalSource": "git://github.com/twbs/bootstrap"
 }

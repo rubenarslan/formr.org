@@ -26,7 +26,7 @@ fragment.only = T, options=c("base64_images","smartypants")
 }';
 $results = $openCPU->identity(array('x' =>  $source),'', true);
 		
-if($openCPU->http_status > 302) $alert_type = 'alert-error';
+if($openCPU->http_status > 302) $alert_type = 'alert-danger';
 else $alert_type = 'alert-success';
 
 alert("HTTP status: ".$openCPU->http_status,$alert_type);
@@ -40,7 +40,7 @@ $source = '{
 rnorm(10)
 }';
 $results = $openCPU->identity(array('x' =>  $source),'', true);
-if($openCPU->http_status > 302) $alert_type = 'alert-error';
+if($openCPU->http_status > 302) $alert_type = 'alert-danger';
 else $alert_type = 'alert-success';
 alert("HTTP status: ".$openCPU->http_status,$alert_type);
 $accordion2 = $openCPU->debugCall($results);
@@ -48,7 +48,7 @@ $accordion2 = $openCPU->debugCall($results);
 
 $alerts = $site->renderAlerts();
 if(!empty($alerts)):
-	echo '<div class="row-fluid"><div class="span8 all-alerts">';
+	echo '<div class="row"><div class="col-md-8 all-alerts">';
 	echo $alerts;
 	echo '</div></div>';
 endif;
