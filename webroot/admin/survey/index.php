@@ -38,7 +38,7 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 				</tbody>
 			</table>
 			<div class="row col-md-4">
-				<input type="submit" name="updateitems" value="Save settings" class="btn">
+				<input type="submit" value="Save settings" class="btn">
 			</div>
 		</form>
 	</div>

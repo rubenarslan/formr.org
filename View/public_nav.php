@@ -4,6 +4,11 @@
 		<i class="fa fa-circle fa-fw"></i>
 		<?php echo _("home"); ?>
 	</a></li>
+	
+    <li <?=endsWith($_SERVER['PHP_SELF'],'documentation.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/documentation">
+		<i class="fa fa-file fa-fw"></i>
+		<?php echo _("documentation"); ?>
+	</a></li>
 
 <?php
 
