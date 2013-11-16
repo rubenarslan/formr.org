@@ -81,7 +81,7 @@ class User
 			
 				return $this->login($email,$password);
 			else:
-				alert('<strong>Error!</strong> Hash error.','alert-error');
+				alert('<strong>Error!</strong> Hash error.','alert-danger');
 				return false;
 			endif;
 		} else
@@ -110,7 +110,7 @@ class User
 						$add->bindParam(':password',$hash);
 						$add->execute() or die('probl');
 					else:
-						alert('<strong>Error!</strong> Hash error.','alert-error');
+						alert('<strong>Error!</strong> Hash error.','alert-danger');
 						return false;
 					endif;
 			    }
@@ -143,7 +143,7 @@ class User
 				$add->execute() or die('probl');
 				return true;
 			else:
-				alert('<strong>Error!</strong> Hash error.','alert-error');
+				alert('<strong>Error!</strong> Hash error.','alert-danger');
 				return false;
 			endif;
 		endif;

@@ -4,7 +4,7 @@ class ItemFactory
 	public $errors;
 	private $choice_lists = array();
 	private $used_choice_lists = array();
-	public $skipifs = array();
+	public $showifs = array();
 	function __construct($choice_lists)
 	{
 		$this->choice_lists = $choice_lists;
@@ -37,10 +37,10 @@ class ItemFactory
 				array_keys($this->used_choice_lists)
 		);
 	}
-	public function skip($results_table, $openCPU, $skipif)
+	public function showif($results_table, $openCPU, $showif)
 	{
-		$this->skipifs[$skipif] = $openCPU->evaluateWith($results_table, $skipif);
-		return $this->skipifs[$skipif];
+		$this->showifs[$showif] = $openCPU->evaluateWith($results_table, $showif);
+		return $this->showifs[$showif];
 	}
 }
 
@@ -59,7 +59,7 @@ class Item extends HTML_element
 	public $label_parsed = null;
 	public $optional = 0;
 	public $class = null;
-	public $skipif = null;
+	public $showif = null;
 	
 	public $displaycount = 0;
 	public $error = null;
@@ -76,7 +76,7 @@ class Item extends HTML_element
 	
 	protected $input_attributes = array();
 	protected $classes_controls = array('controls');
-	protected $classes_wrapper = array('control-group','form-row');
+	protected $classes_wrapper = array('form-group','form-row');
 	protected $classes_input = array();
 	protected $classes_label = array('control-label');
 		
@@ -105,8 +105,8 @@ class Item extends HTML_element
 		if(isset($options['choices']))
 			$this->choices =  $options['choices'];
 
-		if(isset($options['skipif']))
-			$this->skipif = $options['skipif'];
+		if(isset($options['showif']))
+			$this->showif = $options['showif'];
 
 		if(isset($options['val_error']) AND $options['val_error'])
 			$this->val_error = $options['val_error'];
@@ -245,14 +245,14 @@ class Item extends HTML_element
 	{
 		return '
 					<label class="'. implode(" ",$this->classes_label) .'" for="item' . $this->id . '">'.
-		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
+		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="fa fa-warning-sign"></i></span> ' : '').
 			 	$this->label_parsed . '</label>
 		';
 	}
 	protected function render_prepended () 
 	{
 		if(isset($this->prepend))
-			return '<span class="add-on"><i class="'.$this->prepend.'"></i></span>';
+			return '<span class="input-group-addon"><i class="fa '.$this->prepend.'"></i></span>';
 		else return '';
 	}
 	protected function render_input() 
@@ -263,35 +263,27 @@ class Item extends HTML_element
 	protected function render_appended () 
 	{
 		if(isset($this->append))
-			return '<span class="add-on"><i class="'.$this->append.'"></i></span>';
+			return '<span class="input-group-addon"><i class="'.$this->append.'"></i></span>';
 		else return '';
 	}
 	protected function render_inner() 
 	{
+		$inputgroup = isset($this->prepend) OR isset($this->append);
 		return $this->render_label() . '
 					<div class="'. implode(" ",$this->classes_controls) .'">'.
+		($inputgroup ? '<div class="input-group">' : '').
 					$this->render_prepended().
 					$this->render_input().
 					$this->render_appended().
+		($inputgroup ? '</div>' : '').
 					'</div>
 		';
 	}
 	public function render() 
 	{
-		if(!isset($this->prepend) AND !isset($this->append))
-			return '<div class="'. implode(" ",$this->classes_wrapper) .'">' .
-				$this->render_inner().
-			 '</div>';
-		else 
-		{
-			$classes = isset($this->prepend) ? 'input-prepend':'';
-			$classes .= isset($this->append) ? ' input-append':'';
-			return '<div class="'. implode(" ",$this->classes_wrapper) .'">
-				<div class="'.$classes.'">' .
-				$this->render_inner().
-			 '</div>
-		</div>';
-		}
+		return '<div class="'. implode(" ",$this->classes_wrapper) .'">' .
+			$this->render_inner().
+		 '</div>';
 	}
 }
 
@@ -309,6 +301,7 @@ class Item_text extends Item
 			else
 				$this->input_attributes['pattern'] = trim(current($this->type_options_array));	
 		}
+		$this->classes_input[] = 'form-control';
 	}
 	public function validateInput($reply)
 	{
@@ -323,6 +316,10 @@ class Item_text extends Item
 class Item_textarea extends Item 
 {
 	public $type = 'textarea';
+	protected function setMoreOptions() 
+	{	
+		$this->classes_input[] = 'form-control';
+	}
 	protected function render_input() 
 	{
 		return 		
@@ -331,7 +328,7 @@ class Item_textarea extends Item
 }
 
 // textarea automatically chosen when size exceeds a certain limit
-class Item_letters extends Item 
+class Item_letters extends Item_text 
 {
 	public $type = 'letters';
 	protected $input_attributes = array('type' => 'text');
@@ -339,6 +336,7 @@ class Item_letters extends Item
 	protected function setMoreOptions()
 	{
 		$this->input_attributes['pattern'] = "[A-Za-züäöß.;,!: ]+";
+		return parent::setMoreOptions();
 	}
 }
 
@@ -351,8 +349,8 @@ class Item_number extends Item
 	
 	protected function setMoreOptions() 
 	{
+		$this->classes_input[] = 'form-control';
 		$this->input_attributes['step'] = 1;
-		
 		if(isset($this->type_options_array) AND is_array($this->type_options_array))
 		{
 			if(count($this->type_options_array) == 1) 
@@ -477,11 +475,11 @@ class Item_range_list extends Item_number
 
 
 // email is a special HTML5 type, validation is polyfilled in browsers that lack it
-class Item_email extends Item 
+class Item_email extends Item_text 
 {
 	public $type = 'email';
 	protected $input_attributes = array('type' => 'email', 'maxlength' => 255);
-	protected $prepend = 'icon-envelope';
+	protected $prepend = 'fa-envelope';
 	protected $mysql_field = 'VARCHAR (255) DEFAULT NULL';
 	public function validateInput($reply)
 	{
@@ -498,11 +496,11 @@ class Item_email extends Item
 }
 
 
-class Item_url extends Item 
+class Item_url extends Item_text 
 {
 	public $type = 'url';
 	protected $input_attributes = array('type' => 'url');
-	protected $prepend = 'icon-link';
+	protected $prepend = 'fa-link';
 	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';
 	public function validateInput($reply)
 	{
@@ -518,21 +516,21 @@ class Item_url extends Item
 	}
 }
 
-class Item_tel extends Item 
+class Item_tel extends Item_text 
 {
 	public $type = 'tel';
 	protected $input_attributes = array('type' => 'tel');
 	
-	protected $prepend = 'icon-phone';
+	protected $prepend = 'fa-phone';
 	protected $mysql_field = 'VARCHAR(100) DEFAULT NULL';	
 }
 
-class Item_cc extends Item 
+class Item_cc extends Item_text 
 {
 	public $type = 'cc';
 	protected $input_attributes = array('type' => 'cc');
 	
-	protected $prepend = 'icon-credit-card';
+	protected $prepend = 'fa-credit-card';
 	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';	
 }
 
@@ -541,7 +539,7 @@ class Item_color extends Item
 	public $type = 'color';
 	protected $input_attributes = array('type' => 'color');
 	
-	protected $prepend = 'icon-tint';
+	protected $prepend = 'fa-tint';
 	protected $mysql_field = 'CHAR(7) DEFAULT NULL';	
 	public function validateInput($reply)
 	{
@@ -563,12 +561,13 @@ class Item_datetime extends Item
 	public $type = 'datetime';
 	protected $input_attributes = array('type' => 'datetime');
 	
-	protected $prepend = 'icon-calendar';	
+	protected $prepend = 'fa-calendar';	
 	protected $mysql_field = 'DATETIME DEFAULT NULL';
 	protected $html5_date_format = 'Y-m-d\TH:i';
 	protected function setMoreOptions() 
 	{
 #		$this->input_attributes['step'] = 'any';
+		$this->classes_input[] = 'form-control';
 		
 		if(isset($this->type_options_array) AND is_array($this->type_options_array))
 		{
@@ -615,7 +614,7 @@ class Item_time extends Item_datetime
 	public $type = 'time';
 	protected $input_attributes = array('type' => 'time', 'style' => 'width:80px');
 	
-	protected $prepend = 'icon-time';
+	protected $prepend = 'fa-clock-o';
 	protected $mysql_field = 'TIME DEFAULT NULL';
 	protected $html5_date_format = 'H:i';	
 }
@@ -631,7 +630,7 @@ class Item_date extends Item_datetime
 	public $type = 'date';
 	protected $input_attributes = array('type' => 'date');
 	
-	protected $prepend = 'icon-calendar';	
+	protected $prepend = 'fa-calendar';	
 	protected $mysql_field = 'DATE DEFAULT NULL';
 	protected $html5_date_format = 'Y-m-d';
 	
@@ -642,7 +641,7 @@ class Item_yearmonth extends Item_datetime
 	public $type = 'yearmonth';
 	protected $input_attributes = array('type' => 'yearmonth');
 	
-	protected $prepend = 'icon-calendar-empty';	
+	protected $prepend = 'fa-calendar-o';	
 	protected $mysql_field = 'DATE DEFAULT NULL';
 	protected $html5_date_format = 'Y-m-01';
 }
@@ -650,6 +649,7 @@ class Item_yearmonth extends Item_datetime
 class Item_month extends Item_yearmonth 
 {
 	public $type = 'month';
+	protected $prepend = 'fa-calendar-o';		
 	protected $input_attributes = array('type' => 'month');
 }
 
@@ -659,7 +659,7 @@ class Item_year extends Item_datetime
 	protected $input_attributes = array('type' => 'year');
 	
 	protected $html5_date_format = 'Y';
-	protected $prepend = 'icon-calendar-empty';	
+	protected $prepend = 'fa-calendar-o';	
 	protected $mysql_field = 'YEAR DEFAULT NULL';
 }
 class Item_week extends Item_datetime 
@@ -668,7 +668,7 @@ class Item_week extends Item_datetime
 	protected $input_attributes = array('type' => 'week');
 	
 	protected $html5_date_format = 'Y-mW';
-	protected $prepend = 'icon-calendar-empty';	
+	protected $prepend = 'fa-calendar-o';	
 	protected $mysql_field = 'VARCHAR(9) DEFAULT NULL';
 }
 
@@ -702,9 +702,9 @@ class Item_submit extends Item
 	
 	protected function setMoreOptions() 
 	{
-		$this->classes_wrapper = array('control-group');
+		$this->classes_wrapper = array('form-group');
 		$this->classes_input[] = 'btn';
-		$this->classes_input[] = 'btn-large';
+		$this->classes_input[] = 'btn-lg';
 		$this->classes_input[] = 'btn-info';
 	}
 	public function validateInput($reply)
@@ -712,14 +712,10 @@ class Item_submit extends Item
 		$this->error = _("You cannot answer buttons.");
 		return $reply;
 	}
-	protected function render_input() 
+	protected function render_inner() 
 	{
 		return 		
 			'<button '.self::_parseAttributes($this->input_attributes, array('required','name')).'>'.$this->label_parsed.'</button>';
-	}
-	protected function render_label() 
-	{
-		return '';
 	}
 }
 
@@ -755,7 +751,7 @@ class Item_mc extends Item
 	{
 		return '
 					<div class="'. implode(" ",$this->classes_label) .'">' .
-		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
+		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="fa fa-warning-sign"></i></span> ' : '').
 		 $this->label_parsed . '</div>
 		';
 	}
@@ -860,7 +856,7 @@ class Item_check extends Item_mmc
 	{
 		return '
 					<label  for="item' . $this->id . '_1" class="'. implode(" ",$this->classes_label) .'">' .
-		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
+		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="fa fa-warning-sign"></i></span> ' : '').
 		 $this->label_parsed . '</label>
 		';
 	}
@@ -1144,7 +1140,7 @@ class Item_btncheck extends Item_check
 	{
 		$ret = '<div class="btn-group hidden">
 			<button class="btn" data-for="item' . $this->id . '_1">' . 
-		'<i class="icon-check-empty"></i>
+		'<i class="fa fa-check-empty"></i>
 			</button>';
 		$ret .= '</div>';
 		
@@ -1187,8 +1183,8 @@ class Item_geolocation extends Item {
 		$ret = '
 			<input type="hidden" name="'.$this->name.'" value="">
 			<div class="btn-group hidden">
-			<button class="btn geolocator item' . $this->id . '">
-			<i class="icon-location-arrow"></i>
+			<button class="btn btn-default geolocator item' . $this->id . '">
+			<i class="fa fa-location-arrow"></i>
 			</button>';
 		$ret .= '</div>';
 		
@@ -1384,7 +1380,7 @@ class Item_mc_heading extends Item_mc
 	{
 		return '
 					<div class="'. implode(" ",$this->classes_label) .'">' .
-		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="icon-warning-sign"></i></span> ' : '').
+		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="fa fa-warning-sign"></i></span> ' : '').
 		 $this->label . '</div>
 		';
 	}

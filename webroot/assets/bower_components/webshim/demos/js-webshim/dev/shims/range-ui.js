@@ -16,9 +16,9 @@
 			var i;
 			
 			
-			this.element.addClass('ws-range').attr({role: 'slider'}).append('<span class="ws-range-min" /><span class="ws-range-rail"><span class="ws-range-thumb" /></span>');
-			this.trail = $('.ws-range-rail', this.element);
-			this.range = $('.ws-range-min', this.element);
+			this.element.addClass('ws-range').attr({role: 'slider'}).append('<span class="ws-range-min ws-range-progress" /><span class="ws-range-rail ws-range-track"><span class="ws-range-thumb" /></span>');
+			this.trail = $('.ws-range-track', this.element);
+			this.range = $('.ws-range-progress ', this.element);
 			this.thumb = $('.ws-range-thumb', this.trail);
 			
 			this.updateMetrics();
@@ -28,6 +28,7 @@
 			for(i = 0; i < createOpts.length; i++){
 				this[createOpts[i]](this.options[createOpts[i]]);
 			}
+			
 			this.value = this._value;
 			this.value(this.options.value);
 			this.initDataList();
@@ -266,7 +267,7 @@
 			}
 		},
 		addBindings: function(){
-			var leftOffset, widgetUnits, hasFocus;
+			var leftOffset, widgetUnits, hasFocus, isActive;
 			var that = this;
 			var o = this.options;
 			
@@ -296,8 +297,28 @@
 					}
 				};
 			})();
-			
+			var normalizeTouch = (function(){
+				var types = {
+					touchstart: 1,
+					touchend: 1,
+					touchmove: 1
+				};
+				var normalize = ['pageX', 'pageY'];
+				return function(e){
+					if(types[e.type] && e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length){
+						for(var i = 0; i < normalize.length; i++){
+							e[normalize[i]] = e.originalEvent.touches[0][normalize[i]];
+						}
+						
+					}
+					return e;
+				};
+			})();
 			var setValueFromPos = function(e, animate){
+				if(e.type == 'touchmove'){
+					e.preventDefault();
+					normalizeTouch(e);
+				}
 				
 				var val = that.getStepedValueFromPos((e[that.dirs.mouse] - leftOffset) * widgetUnits);
 				if(val != o.value){
@@ -314,18 +335,25 @@
 					eventTimer.call('change', o.value);
 				}
 				that.addRemoveClass('ws-active');
-				$(document).off('mousemove', setValueFromPos).off('mouseup', remove);
+				$(document).off('mousemove touchmove', setValueFromPos).off('mouseup touchend', remove);
 				$(window).off('blur', removeWin);
+				isActive = false;
 			};
 			var removeWin = function(e){
 				if(e.target == window){remove();}
 			};
 			var add = function(e){
 				var outerWidth;
+				
+				if(isActive || (e.type == 'touchstart' && (!e.originalEvent || !e.originalEvent.touches || e.originalEvent.touches.length != 1))){
+					return;
+				}
 				e.preventDefault();
-				$(document).off('mousemove', setValueFromPos).off('mouseup', remove);
+				
+				$(document).off('mousemove touchmove', setValueFromPos).off('mouseup touchend', remove);
 				$(window).off('blur', removeWin);
 				if(!o.readonly && !o.disabled){
+					normalizeTouch(e);
 					that.element.focus();
 					that.addRemoveClass('ws-active', true);
 					leftOffset = that.element.focus().offset();
@@ -335,20 +363,27 @@
 					leftOffset = leftOffset[that.dirs.pos];
 					widgetUnits = 100 / widgetUnits;
 					setValueFromPos(e, o.animate);
+					isActive = true;
 					$(document)
-						.on({
-							mouseup: remove,
-							mousemove: setValueFromPos
-						})
+						.on(e.type == 'touchstart' ?
+							{
+								touchend: remove,
+								touchmove: setValueFromPos
+							} :
+							{
+								mouseup: remove,
+								mousemove: setValueFromPos
+							}
+						)
 					;
 					$(window).on('blur', removeWin);
 					e.stopPropagation();
 				}
 			};
 			var elementEvts = {
-				mousedown: add,
+				'touchstart mousedown': add,
 				focus: function(e){
-					if(!o.disabled){
+					if(!o.disabled && !hasFocus){
 						eventTimer.init('input', o.value);
 						eventTimer.init('change', o.value);
 						that.addRemoveClass('ws-focus', true);
@@ -411,6 +446,20 @@
 			this.thumb.on({
 				mousedown: add
 			});
+			
+			if(this.orig){
+				$(this.orig).jProp('form').on('reset', function(){
+					var val = $.prop(that.orig, 'value');
+					that.value(val);
+					setTimeout(function(){
+						var val2 = $.prop(that.orig, 'value');
+						if(val != val2){
+							that.value(val2);
+						}
+					}, 4);
+				});
+			}
+			
 			if (window.webshims) {
 				webshims.ready('WINDOWLOAD', function(){
 					webshims.ready('dom-support', function(){

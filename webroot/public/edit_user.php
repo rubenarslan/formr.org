@@ -20,34 +20,35 @@ if(!empty($_POST)) {
 		redirect_to('index');
 	}
 	else {
-		alert(implode($user->errors),'alert-error');
+		alert(implode($user->errors),'alert-danger');
 	}
 }
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/public_nav.php";
 
 ?>
+<div class="col-md-3 col-md-offset-1 well">
 <h2>Edit settings</h2>
-<form class="form-horizontal" id="edit_user" name="edit_user" method="post" action="edit_user.php">
-	<div class="control-group small-left">
+<form class="form-horizontal form-horizontal-small-left" id="edit_user" name="edit_user" method="post" action="edit_user.php">
+	<div class="form-group small-left">
 		<label class="control-label" for="password">
 			<?php echo _("Old password"); ?>
 		</label>
 		<div class="controls">
-			<input required type="password" placeholder="Please choose a secure phrase" name="password" id="password">
+			<input  class="form-control" required type="password" placeholder="Enter your old password" name="password" id="password">
 		</div>
 	</div>
-	<div class="control-group small-left">
+	<div class="form-group small-left">
 		<label class="control-label" for="password">
 			<?php echo _("New password"); ?>
 		</label>
 		<div class="controls">
-			<input required type="password" placeholder="Please choose a secure phrase" name="new_password" id="password">
+			<input  class="form-control" required type="password" placeholder="Please choose a secure phrase" name="new_password" id="password">
 		</div>
 	</div>
-	<div class="control-group small-left">
+	<div class="form-group small-left">
 		<div class="controls">
-			<input required type="submit" value="<?php echo _("Save"); ?>">
+			<button required type="submit" class="btn btn-default"><i class="fa fa-pencil fa-fw"></i> <?php echo _("Save"); ?></button>
 		</div>
 	</div>
 </form>

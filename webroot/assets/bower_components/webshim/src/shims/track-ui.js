@@ -1,5 +1,5 @@
 (function($){
-	if(Modernizr.track && Modernizr.texttrackapi && document.addEventListener){
+	if(Modernizr.texttrackapi && document.addEventListener){
 		var trackOptions = webshims.cfg.track;
 		var trackListener = function(e){
 			$(e.target).filter('track').each(changeApi);
@@ -224,8 +224,8 @@ webshims.register('track-ui', function($, webshims, window, document, undefined)
 		(function(){
 			var block;
 			var triggerDisplayUpdate = function(elem){
+				block = true;
 				setTimeout(function(){
-					block = true;
 					$(elem).triggerHandler('updatetrackdisplay');
 					block = false;
 				}, 9);
@@ -297,15 +297,21 @@ webshims.register('track-ui', function($, webshims, window, document, undefined)
 				};
 				var onUpdate = function(e){
 					clearTimeout(updateTimer);
-					if(e && e.type == 'timeupdate'){
-						getDisplayCues();
+					if(e){
+						if(e.type == 'timeupdate'){
+							getDisplayCues();
+						}
 						updateTimer2 = setTimeout(onUpdate, 90);
 					} else {
 						updateTimer = setTimeout(getDisplayCues, 9);
 					}
 				};
 				var addTrackView = function(){
-					
+					if(!trackList) {
+						trackList = elem.prop('textTracks');
+					}
+					//as soon as change on trackList is implemented in all browsers we do not need to have 'updatetrackdisplay' anymore
+					$( [trackList] ).on('change', onUpdate);
 					elem
 						.off('.trackview')
 						.on('play.trackview timeupdate.trackview updatetrackdisplay.trackview', onUpdate)
@@ -323,25 +329,32 @@ webshims.register('track-ui', function($, webshims, window, document, undefined)
 				if(!usesNativeTrack()){
 					addTrackView();
 				} else {
-					elem.on('mediaelementapichange trackapichange', function(){
-						if(!usesNativeTrack() || elem.is('.nonnative-api-active')){
-							addTrackView();
-						} else {
-							clearTimeout(updateTimer);
-							clearTimeout(updateTimer2);
+					
+					if(elem.is('.nonnative-api-active')){
+						addTrackView();
+					}
+					elem
+						.on('mediaelementapichange trackapichange', function(){
 							
-							trackList = elem.prop('textTracks');
-							baseData = webshims.data(elem[0], 'mediaelementBase') || webshims.data(elem[0], 'mediaelementBase', {});
-							
-							$.each(trackList, function(i, track){
-								if(track._shimActiveCues){
-									delete track._shimActiveCues;
-								}
-							});
-							trackDisplay.hide(baseData);
-							elem.unbind('.trackview');
-						}
-					});
+							if(!usesNativeTrack() || elem.is('.nonnative-api-active')){
+								addTrackView();
+							} else {
+								clearTimeout(updateTimer);
+								clearTimeout(updateTimer2);
+								
+								trackList = elem.prop('textTracks');
+								baseData = webshims.data(elem[0], 'mediaelementBase') || webshims.data(elem[0], 'mediaelementBase', {});
+								
+								$.each(trackList, function(i, track){
+									if(track._shimActiveCues){
+										delete track._shimActiveCues;
+									}
+								});
+								trackDisplay.hide(baseData);
+								elem.unbind('.trackview');
+							}
+						})
+					;
 				}
 			})
 		;

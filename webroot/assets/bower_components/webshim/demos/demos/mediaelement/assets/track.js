@@ -6,15 +6,15 @@ var startTreeOfLife = function(video){
 	
 	var buildInfoPanel = function(textTrack){
 		var updatePanel = function(){
-			var cue = $.prop(this, 'activeCues')[0]; // there is only one active cue in this example
-			if (!cue) {
-				return;
+			var cue = $.prop(this, 'activeCues'); // there is only one active cue in this example
+			
+			if (cue && cue.length && (cue = cue[0])) {
+				// set text in #moreInformation panel
+				var obj = JSON.parse(cue.text);
+				$("#moreInformation h2").html(obj.title);
+				$("#moreInformation p").html(obj.description);
+				$("#originalArticle").attr("href", obj.href);
 			}
-			// set text in #moreInformation panel
-			var obj = JSON.parse(cue.text);
-			$("#moreInformation h2").html(obj.title);
-			$("#moreInformation p").html(obj.description);
-			$("#originalArticle").attr("href", obj.href);
 		};
 		
 		$(textTrack)
@@ -88,8 +88,8 @@ var startTreeOfLife = function(video){
 			}
 		};
 		var highLightItem = function(){
-			var cue = $.prop(textTrack, 'activeCues')[0];
-			if(cue){
+			var cue = $.prop(textTrack, 'activeCues');
+			if(cue && cue.length && (cue = cue[0])){
 				var carouselIndex = $.inArray(cue, textTrack.cues);
 				$('#carousel .active-cueitem').removeClass('active-cueitem');
 				
@@ -103,11 +103,7 @@ var startTreeOfLife = function(video){
 			}
 		};
 		
-		$(textTrack)
-			.on('cuechange', highLightItem)
-			//run immediately in case there is already an active cue
-			.each(highLightItem)
-		;
+		
 		$('#carousel')
 			.jcarousel({
 				size: textTrack.cues.length,
@@ -119,6 +115,12 @@ var startTreeOfLife = function(video){
 				videoElement.prop('currentTime', $(this).data('startTime'));
 				videoElement.callProp('play');
 			})
+		;
+		
+		$(textTrack)
+			.on('cuechange', highLightItem)
+			//run immediately in case there is already an active cue
+			.each(highLightItem)
 		;
 	};
 	
@@ -142,20 +144,13 @@ var startTreeOfLife = function(video){
 		.on("load", onTrackLoad)
 		//run immediately in case track was already loaded
 		.each(onTrackLoad)
-	;
-	//activate all track
-	videoElement
-		//jProp is nice it returns a jQuery-fied property
-		//good for properties, which return a DOM-Element, an event target or an array-like object
-		.jProp('textTracks')
-		.prop('mode', function(i, track){
-			//activate textTracks in case 'default' attribute didn't work (default should be only used on one track per mediaelement!)
-			return $.prop(this, 'kind') == 'subtitles' ? 
-				this.SHOWING :
-				this.HIDDEN
-			;
+		.each(function(){
+			var track = $.prop(this, 'track');
+			//metadata is hidden
+			track.mode = (track.kind == 'metadata') ? 'hidden' : 'showing';
 		})
 	;
+	
 };
 
 $(function(){

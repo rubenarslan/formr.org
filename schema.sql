@@ -53,12 +53,12 @@ CREATE  TABLE IF NOT EXISTS `survey_studies` (
   CONSTRAINT `fk_survey_studies_survey_users`
     FOREIGN KEY (`user_id` )
     REFERENCES `survey_users` (`id` )
-    ON DELETE CASCADE
+    ON DELETE NO ACTION
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_study_unit`
     FOREIGN KEY (`id` )
     REFERENCES `survey_units` (`id` )
-    ON DELETE NO ACTION
+    ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
@@ -142,7 +142,7 @@ CREATE  TABLE IF NOT EXISTS `survey_items` (
   `label_parsed` TEXT NULL DEFAULT NULL ,
   `optional` TINYINT NULL DEFAULT NULL ,
   `class` VARCHAR(255) NULL DEFAULT NULL ,
-  `skipif` TEXT NULL DEFAULT NULL ,
+  `showif` TEXT NULL DEFAULT NULL ,
   PRIMARY KEY (`id`) ,
   UNIQUE INDEX `study_item` (`study_id` ASC, `name` ASC) ,
   INDEX `fk_survey_items_survey_studies1_idx` (`study_id` ASC) ,
@@ -343,7 +343,8 @@ CREATE  TABLE IF NOT EXISTS `survey_branches` (
   `id` INT UNSIGNED NOT NULL ,
   `condition` VARCHAR(2000) NULL ,
   `if_true` SMALLINT NULL ,
-  `if_false` SMALLINT NULL ,
+  `automatically_jump` TINYINT(1) NULL DEFAULT 1 ,
+  `automatically_go_on` TINYINT(1) NULL DEFAULT 1 ,
   INDEX `fk_survey_branch_survey_units1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
   CONSTRAINT `fk_branch_unit`
@@ -454,29 +455,6 @@ CREATE  TABLE IF NOT EXISTS `survey_results` (
     FOREIGN KEY (`study_id` )
     REFERENCES `survey_studies` (`id` )
     ON DELETE CASCADE
-    ON UPDATE NO ACTION)
-ENGINE = InnoDB;
-
-
--- -----------------------------------------------------
--- Table `survey_time_branches`
--- -----------------------------------------------------
-DROP TABLE IF EXISTS `survey_time_branches` ;
-
-CREATE  TABLE IF NOT EXISTS `survey_time_branches` (
-  `id` INT UNSIGNED NOT NULL ,
-  `wait_until_time` TIME NULL ,
-  `wait_until_date` DATE NULL ,
-  `wait_minutes` INT NULL ,
-  `relative_to` VARCHAR(255) NULL ,
-  `if_true` SMALLINT NULL ,
-  `if_false` SMALLINT NULL ,
-  INDEX `fk_survey_breaks_survey_run_items1_idx` (`id` ASC) ,
-  PRIMARY KEY (`id`) ,
-  CONSTRAINT `fk_survey_breaks_survey_run_items10`
-    FOREIGN KEY (`id` )
-    REFERENCES `survey_units` (`id` )
-    ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 

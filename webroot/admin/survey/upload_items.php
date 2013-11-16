@@ -1,52 +1,93 @@
 <?
 require_once '../../../define_root.php';
 require_once INCLUDE_ROOT.'View/admin_header.php';
-// Öffne Datenbank, mache ordentlichen Header, binde Stylesheets, Scripts ein
+
+if (!empty($_POST) AND !isset($_FILES['uploaded'])) 
+{
+	alert('<strong>Error:</strong> You have to select an item table file here.','alert-danger');
+}
+elseif(isset($_FILES['uploaded']))
+{
+	$filename = basename( $_FILES['uploaded']['name']);
+	$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,20})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/","$1",$filename); // take only the first part, before the dash if present or the dot if present
+	
+	if($study->name !== $survey_name)
+	{
+		alert('<strong>Error:</strong> The uploaded file name <code>'.htmlspecialchars($survey_name).'</code> did not match the study name <code>'.$study->name.'</code>.','alert-danger');
+	}
+	else
+	{
+		if($study->uploadItemTable($_FILES['uploaded']))
+		{
+			redirect_to("admin/survey/{$study->name}/show_item_table");
+		}
+	}
+}
 
 require_once INCLUDE_ROOT.'View/header.php';
-
 require_once INCLUDE_ROOT.'View/acp_nav.php';
 ?>
 
-<div class="span8">
+<div class="row">
+	<div class="col-lg-7 col-md-8 well">
 
-<p>The item table has to fulfill the following criteria:</p>
+		<p>Please keep this in mind when uploading item tables:</p>
+		<ul class="fa-ul fa-ul-more-padding">
+			<li>
+				<i class="fa-li fa fa-table"></i> The format must be one of <abbr title='Old-style Excel spreadsheets'>.xls</abbr>, <abbr title='New-style Excel spreadsheets, Office Open XML'>.xlsx</abbr>, <abbr title='OpenOffice spreadsheets / Open document format for Office Applications'>.ods</abbr>, <abbr title='extensible markup language'>.xml</abbr>, <abbr title='text files'>.txt</abbr>, or <abbr title='.csv-files (comma-separated value) have to use the comma as a separator, "" as escape characters and UTF-8 as the charset. Because there are inconsistencies when creating CSV files using various spreadsheet programs (e.g. German excel), you should probably steer clear of this.'>.csv</abbr>.
+			</li>
+			<li>
+				<i class="fa-li fa fa-exclamation-triangle"></i> Existing results <em>should</em> be preserved if you did not add, reorder, rename, <abbr title="that is to say you change their item type to something else, e.g. from number to select">re-type</abbr> or remove items <i class="fa fa-meh-o" title="The boring technical way to say this: if the new item table leads to the same results table structure as the old one."></i>.<br>
+				Changes to labels and choice labels should be okay. <br>
+				<strong>Don't rely on it</strong>, always back up the data.</li>
+				<li>
+					<i class="fa-li fa fa-lock"></i> The name you chose for this survey is now locked.
+					<ul class="fa-ul">
+						<li>
+							<i class="fa-li fa fa-check"></i> The uploaded file's name has to match <code><?=$study->name?></code>, so you cannot accidentally upload the wrong item table.
+						</li>
+						<li>
+							<i class="fa-li fa fa-check"></i> You can, however, put version numbers behind a dash at the end: <code><?=$study->name?>-v2.xlsx</code>. The information after the dash and the file format are ignored.
+						</li>
+					</ul>
+				</li>
+		</ul>
 
-<ol>
-<li>The format must be one of .csv, .xls, .xlsx, .ods (OpenOffice), .xml, .txt</li>
-<li>.csv-files have to use the comma as a separator, "" as escape characters and UTF-8 as the charset. Because there are inconsistencies when creating CSV files using various spreadsheet programs (e.g. German excel), you should probably steer clear of this.</li>
+		<form class="" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="<?=WEBROOT?>admin/survey/<?=$study->name?>/upload_items">
+					<input type="hidden" name="study_id" value="<?=$study->id?>">
 
-<form class="form-horizontal" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>admin/survey/<?=$study->name?>/study_added">
-	<div class="control-group">
-		<label class="control-label" for="kurzname">
-			<?php echo _("Studien Kurzname<br>(wird für URL und Ergebnistabelle in der Datenbank benutzt):"); ?>
-		</label>
-		<div class="controls">
-			<input type="hidden" name="study_id" value="<?=$study->id?>">
-			
-			<input required type="text" placeholder="Name (a-Z0-9_)" name="study_name" id="kurzname" value="<?=$study->name?>" readonly>
-		</div>
+			<div class="form-group">
+				<h3>
+					<label class="control-label" for="file_upload">
+					Please choose an item table <i class="fa fa-info-circle" title="Did you know, that on many computers you can also drag and drop a file on this box instead of navigating there through the file browser?"></i>: 
+					</label>
+				</h3>
+				<div class="controls">
+					<input name="uploaded" type="file" id="file_upload">
+				</div>
+			</div>
+			<div class="form-group">
+				<div class="controls">
+					<?php
+						$res = ($resultCount['begun']+$resultCount['finished']);
+						if($res>10): 
+							$btnclass = 'btn-danger';
+							$icon = 'fa-bolt';
+						elseif($res>0):
+							$btnclass = 'btn-warning';
+							$icon = 'fa-exclamation-triangle';
+						else:
+							$btnclass = 'btn-success';
+							$icon = 'fa-pencil-square';
+						endif;
+					?>
+						<button class="btn btn-default <?=$btnclass?> btn-lg" type="submit"><i class="fa-fw fa <?=$icon?>"></i> <?php echo __("Upload new items, possibly overwrite %d existing results.", $res); ?></button>
+				
+				</div>
+			</div>
+		</form>
 	</div>
-	<div class="control-group">
-		<label class="control-label" for="file_upload">
-				<?php echo _("Bitte Itemtabelle auswählen:"); ?>
-		</label>
-		<div class="controls">
-			<input name="uploaded" type="file" id="file_upload">
-		</div>
-	</div>
-	<div class="control-group">
-		<div class="controls">
-			<?php
-				$res = ($resultCount['begun']+$resultCount['finished']);
-				if($res>10) $class = 'btn-danger';
-				elseif($res>0) $class = 'btn-warning';
-				else $class = 'btn-success';
-			?>
-			<input class="btn <?=$class?>" required type="submit" value="<?php echo __("Studie anlegen und %d Ergebnisse überschreiben.", $res); ?>">
-		</div>
-	</div>
-</form>
+</div>
 
 
 <?

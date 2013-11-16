@@ -7,14 +7,14 @@
 	
 	<style>
 		
-		fieldset div {
+		fieldset div.form-element {
 			position: relative;
 			zoom: 1;
 			padding: 5px;
 			border: 1px solid #000;
 			margin: 5px 0;
 		}
-		fieldset div:after {
+		fieldset div.form-element:after {
 			content: " ";
 			display: block;
 			clear: both;
@@ -108,6 +108,7 @@
 				<li><a href="json-storage.html">storage and JSON</a></li>
 				<li><a href="geolocation.html">geolocation API</a></li>
 				<li><a href="details.html">details &amp; summary</a></li>
+				<li><a href="filereader.html">FileReader</a></li>
 			</ul>
 		</nav>
 		<div class="main-box">
@@ -141,12 +142,12 @@
 					<li><strong>lazyCustomMessages</strong> (boolean): <code>false</code> (default) || <code>true</code>. Similiar to <code>customMessages</code>, but the data is loaded more lazily (good for performance). The customValidationMessage property is not always available on DOM-Ready.</li>
 					<li><strong>replaceValidationUI</strong> (boolean): <code>false</code> (default) || <code>true</code>. Replaces the browser validation UI with a custom styleable UI.</li>
 					<li><strong>placeholderType</strong> (string): <code>"value"</code> (default) || <code>"over"</code>. If placeholderType is set to "over", the polyfill uses the overLabel technique to create a placeholder and doesn't "pollute" the value property.</li>
-					<li><strong>lightweightDatalist</strong> (boolean): <code>true</code> (default) || <code>false</code>. If <code>lightweightDatalist</code> is set to true. Webshims Lib will switch the datalist element and list property implementation from the forms-ext to the forms feature.</li>
 					<li><strong>customDatalist</strong> (boolean): <code>false</code> (default) || <code>true</code>. Allows to use custom styleable datalist elements in all browsers.</li>
 					<li><strong>overridePlaceholder</strong> (boolean): </li>
 					<li><strong>iVal</strong> (mixed options): options for the Instant/Live form validation feature (<a href="webforms/1-webforms-lang-custom-bubble.html#instant-validation">see</a>)</li>
 					<li><strong>addValidators</strong> (boolean): <code>false</code> (default) || <code>true</code>: Should Webshims implement some new custom validators. see: <a href="webforms/4-webforms-custom-validity.html">custom validity</a> </li>
 					<li><strong>listFilter</strong> (string): <code>*</code> (default) || <code>^</code> || <code>!</code>: How to search/filter insdie of a datalist. * (wildcard search), ^ (matches the beginning) or ! (no search at all). This option can be changed on the input[list] element itself, by using data-list-filter="^".</li>
+					<li><strong>fixRangeChange</strong> (boolean): <code>false</code> (default) || <code>true</code>: Wether or not to fix the change event on input[type="range"] especially in Chrome/Safari (input event fix for IE10/11 is always done).</li>
 				</ul>
 				
 				<h3>Options for the <code>forms-ext</code> feature</h3>
@@ -169,7 +170,7 @@
 					<li><strong>event: lastinvalid</strong>: <code>lastinvalid</code> is an extended, bubbling, (but) uncancelable event, which is triggered on the last invalid form element. The property <code>invalidlist</code> is a jQuery-collection of all current invalid elements.</li>
 					<li><strong>event: changedvalid/changedinvalid</strong>: Event is triggered, if the value of the element was changed and is marked as valid/invalid (see also: .form-ui-valid/.form-ui-invalid).</li>
 					<li><strong>event: datalistselect</strong>:  Event is triggered on the input element, if the user selects a value from an option inside of the associated datalist (only available, if customDatalist is set to true)</li>
-					<li><strong>selectors for CSS/JS: .ws-instantvalidation (.ws-invalid/.ws-cussess)</strong>: The class 'ws-instantvalidation' on a form element will implement UX improved Instant Validation for this form. The classes .ws-invalid (similiar to <a href="http://www.w3.org/TR/selectors4/#user-pseudos">:user-error</a>) and .ws-success will mark either "touched" invalid element wrappers or valid and "filled" element wrappers. <a href="webforms/1-webforms-lang-custom-bubble.html#instant-validation">see also</a></li>
+					<li><strong>selectors for CSS/JS: .ws-instantvalidation (.ws-invalid/.ws-success)</strong>: The class 'ws-instantvalidation' on a form element will implement UX improved Instant Validation for this form. The classes .ws-invalid (similiar to <a href="http://www.w3.org/TR/selectors4/#user-pseudos">:user-error</a>) and .ws-success will mark either "touched" invalid element wrappers or valid and "filled" element wrappers. <a href="webforms/1-webforms-lang-custom-bubble.html#instant-validation">see also</a></li>
 					<li><strong>selectors for CSS/JS: .user-success/.user-error</strong>: which work similar to <a href="https://developer.mozilla.org/en/CSS/%3A-moz-ui-valid">:-moz-ui-valid</a>/<a href="https://developer.mozilla.org/en/CSS/%3A-moz-ui-invalid">:-moz-ui-invalid</a> or <a href="http://www.w3.org/TR/selectors4/#user-pseudos">:user-error</a></li>
 					<li><strong>selectors for CSS/JS: .placeholder-visible</strong>: which work similar to <a href="https://developer.mozilla.org/en/CSS/%3A-moz-placeholder">:-moz-placeholder</a>, <a href="http://msdn.microsoft.com/en-us/ie/hh272905#_HTML5FormsVal">:-ms-input-placeholder</a> and <a href="http://css-tricks.com/snippets/css/style-placeholder-text/">::-webkit-input-placeholder</a></li>
 					<li><strong>selectors for CSS: .prop-checked</strong>: which work equal to <a href="http://www.w3.org/TR/selectors4/#checked">:checked</a> pseudoclass. This class is only added, if the browser does not support the <code>:checked</code> pseudoclass (i.e. IE8-).</li>
