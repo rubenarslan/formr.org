@@ -24,6 +24,7 @@ function define_webroot() {
 
 	define('WEBROOT',$protocol . $doc_root);
 	define('INCLUDE_ROOT',$server_root);
-	define('ONLINE',$online);
+#	define('ONLINE',$online);
+	define('ONLINE',false);
 }
 define_webroot();
