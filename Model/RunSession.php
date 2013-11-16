@@ -27,7 +27,7 @@ class RunSession
 		{
 			if(strlen($session)!=64)
 			{
-				alert("<strong>Error.</strong> Session tokens need to be exactly 64 characters long.",'alert-error');
+				alert("<strong>Error.</strong> Session tokens need to be exactly 64 characters long.",'alert-danger');
 				return false;
 			}
 		}
@@ -126,7 +126,7 @@ class RunSession
 				if($user->isAdmin())
 					 pr($unit);
 				if($i > 90):
-					alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?','alert-error');
+					alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?','alert-danger');
 					return false;
 				endif;
 			}
@@ -214,13 +214,13 @@ class RunSession
 					$this->position = (int)$position;
 					return true;
 				else:
-					alert(__('<strong>Error.</strong> Could not edit run session position for unit %s at pos. %s.', $unit_id, $position), 'alert-error');
+					alert(__('<strong>Error.</strong> Could not edit run session position for unit %s at pos. %s.', $unit_id, $position), 'alert-danger');
 				endif;
 			else:
-				alert(__('<strong>Error.</strong> Could not create unit session for unit %s at pos. %s.', $unit_id, $position), 'alert-error');
+				alert(__('<strong>Error.</strong> Could not create unit session for unit %s at pos. %s.', $unit_id, $position), 'alert-danger');
 			endif;
 		else:
-			alert(__('<strong>Error.</strong> The run position %s does not exist.', $position), 'alert-error');
+			alert(__('<strong>Error.</strong> The run position %s does not exist.', $position), 'alert-danger');
 		endif;
 		return false;
 	}
@@ -295,7 +295,7 @@ class RunSession
 		
 		if(!$next)
 		{
-			alert('Run '.$this->run_name.': Forgot a landing page','alert-error');
+			alert('Run '.$this->run_name.': Forgot a landing page','alert-danger');
 			return false;
 		}
 		return $this->runTo($next['position'],$next['unit_id']);

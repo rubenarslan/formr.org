@@ -8,7 +8,7 @@ if(isset($_POST['session'])):
 	if($run_session->session !== NULL)
 		$run_session->endLastExternal();
 	else
-		alert('<strong>Error.</strong> Invalid session token.','alert-error');
+		alert('<strong>Error.</strong> Invalid session token.','alert-danger');
 	
 endif;
 echo $site->renderAlerts();

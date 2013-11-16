@@ -8,60 +8,81 @@ $js = '<script src="'.WEBROOT.'assets/run.js"></script>';
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
-<div class="span8">
-<form class="form-horizontal" enctype="multipart/form-data"  id="edit_run" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>/" data-units='<?php
-	echo json_encode($run->getAllUnitIds());	
-	?>'>
-<div class="span10 run_dialog">
-	
-	<h2 class="row" id="run_dialog_heading">
-		<?php echo __("%s <small>run</small>" , $run->name); ?>
-		<input type="hidden" value="<?=$run->name?>" name="old_run_name" id="run_name">
-		<span class="btn-group">
-			<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_cron_toggle" class="btn btn-mini run-toggle hastooltip <?=($run->cron_active)?'btn-checked':''?>" title="Turn CronJob on (automatic progress checks etc)">Cron</a>
-			<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_public_toggle" class="btn btn-mini run-toggle hastooltip <?=($run->public)?'btn-checked':''?>" title="Make publicly visible on the front page">Public</a>
-		</span>
-	</h2>
-	<h4>
-		Api-Secret: <small><?= $run->getApiSecret($user); ?></small>
-	</h4>
-	<p>&nbsp;</p>
-	<div class="row" id="run_dialog_choices">
-		<div class="span2">
-			<a class="reorder_units btn btn-large hastooltip" title="Save new positions" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_reorder">
-				<i class="icon-exchange icon-rotate-90 icon-larger"></i>
-			</a>
-		</div>
-	  	<div class="control-group span7">
-			<div class="btn-group">
-				<a class="add_survey add_run_unit btn btn-large hastooltip" title="Add survey" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Survey">
-					<i class="icon-question icon-2x"></i>
-				</a>
-				<a class="add_branch add_run_unit btn btn-large hastooltip" title="Add branch" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Branch">
-					<i class="icon-code-fork icon-2x icon-flip-vertical"></i>
-				</a>
-				<a class="add_pause add_run_unit btn btn-large hastooltip" title="Add pause" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Pause">
-					<i class="icon-time icon-2x"></i>
-				</a>
-				<a class="add_pause add_run_unit btn btn-large hastooltip" title="Add time-branch" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=TimeBranch">
-					<i class="icon-fast-forward icon-2x"></i>
-				</a>
-				
-				<a class="add_external add_run_unit  btn btn-large hastooltip" title="Add external link" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=External">
-					<i class="icon-external-link icon-2x"></i>
-				</a>
-				<a class="add_email add_run_unit btn btn-large hastooltip" title="Add email" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Email">
-					<i class="icon-envelope icon-2x"></i>
-				</a>
-				<a class="add_page add_run_unit btn btn-large hastooltip" title="Add feedback page" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Page">
-					<i class="icon-bar-chart icon-2x"></i>
-				</a>
+<div class="row">
+	<div class="col-md-7 run_dialog">
+		<form class="form-horizontal" enctype="multipart/form-data"  id="edit_run" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>/" data-units='<?php
+			echo json_encode($run->getAllUnitIds());	
+			?>'>
+
+			<div class="row">
+				<div class="col-md-12 run_dialog">
+					<h2>
+						<input type="hidden" value="<?=$run->name?>" name="old_run_name" id="run_name">
+						<span class="btn-group">
+						<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_cron_toggle" class="btn btn-default run-toggle hastooltip <?=($run->cron_active)?'btn-checked':''?>" title="Turn the run on. If this is not checked, you won't be able to receive email reminders etc. Only turn off for testing.">
+							<i class="fa fa-play"></i> Play
+						</a>
+						<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_public_toggle" class="btn btn-default run-toggle hastooltip <?=($run->public)?'btn-checked':''?>" title="Make publicly visible and accessible on the front page">
+							<i class="fa fa-volume-up"></i> Public
+						</a>
+						<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_service_message_toggle" class="btn btn-default run-toggle hastooltip <?=($run->being_serviced)?'btn-checked':''?>" title="Show a service message while you fix the already public run">
+							<i class="fa fa-eject"></i> Interrupt
+						</a>
+					</span>
+		
+				</h2>
+				<h4>
+					Api-Secret: <small><?= $run->getApiSecret($user); ?></small>
+				</h4>
+				<h4>
+					Run modules:
+				</h4>
+				</div>
 			</div>
+			<div class="row" id="run_dialog_choices">
+				<div class="col-md-2">
+					<a class="reorder_units btn btn-lg hastooltip" title="Save new positions" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_reorder">
+						<i class="fa fa-exchange fa-rotate-90 fa-larger"></i>
+					</a>
+				</div>
+			  	<div class="form-group span7">
+					<div class="btn-group">
+						<a class="add_survey add_run_unit btn btn-lg hastooltip" title="Add survey" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Survey">
+							<i class="fa fa-pencil-square fa-2x"></i>
+						</a>
+						<a class="add_external add_run_unit  btn btn-lg hastooltip" title="Add external link" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=External">
+							<i class="fa fa-external-link-square fa-2x"></i>
+						</a>
+						<a class="add_email add_run_unit btn btn-lg hastooltip" title="Add email" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Email">
+							<i class="fa fa-envelope fa-2x"></i>
+						</a>
+						<a class="add_skipbackward add_run_unit btn btn-lg hastooltip" title="Add a loop (skip backwards)" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=SkipBackward">
+							<i class="fa fa-backward fa-2x"></i>
+						</a>
+						<a class="add_pause add_run_unit btn btn-lg hastooltip" title="Add pause" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Pause">
+							<i class="fa fa-pause fa-2x"></i>
+						</a>
+						<a class="add_skipforward add_run_unit btn btn-lg hastooltip" title="Add a jump (skip forward)" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=SkipForward">
+							<i class="fa fa-forward fa-2x"></i>
+						</a>
+						<a class="add_page add_run_unit btn btn-lg hastooltip" title="Add a stop point" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Page">
+							<i class="fa fa-stop fa-2x"></i>
+						</a>
+					</div>
+				</div>
+		  	</div>
 		</div>
-  	</div>
+
+
+<div class="col-md-5 pull-right well">
+<?php
+require INCLUDE_ROOT.'View/run_module_explanations.php';	
+?>
 </div>
+
+
 <div class="clearfix"></div>
-	
+
   </form>
 </div>
   <?php

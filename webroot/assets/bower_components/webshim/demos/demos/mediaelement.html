@@ -19,8 +19,17 @@
 	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
 	<script src="../js-webshim/minified/extras/modernizr-custom.js"></script>
 	<script src="../js-webshim/minified/polyfiller.js"></script>
+	
+	
 	<!--
+		<script src="../../src/polyfiller.js"></script> 
+	<script>
+		$.webshims.debug = 'noCombo';
+		webshims.cfg.mediaelement.playerPath = '../../swfs/jaris/bin/JarisFLVPlayer.swf'
 		
+		//style calendar, datalist, validation bubble
+		//$('html').on('wspopoverbeforehide', false);
+	</script>
 	-->
 	<script>
 		$.webshims.polyfill();
@@ -250,6 +259,7 @@
 				<li><a href="json-storage.html">storage and JSON</a></li>
 				<li><a href="geolocation.html">geolocation API</a></li>
 				<li><a href="details.html">details &amp; summary</a></li>
+				<li><a href="filereader.html">FileReader</a></li>
 			</ul>
 		</nav>
 		<div class="main-box">
@@ -335,6 +345,7 @@ $("video.my-video").loadMediaSrc(
 							<track src="subtitle.vtt" srclang="en" label="some description" kind="subtitles" default />
 							<p>You need a modern Browser or install the Flash Plugin or simply download the video (<a href="http://corrupt-system.de/assets/media/sintel/sintel-trailer.m4v">mp4</a>, <a href="http://corrupt-system.de/assets/media/sintel/sintel-trailer.webm">webm</a>)</p>
 						</video>
+						
 					</div>
 					<table>
 						<thead>
