@@ -21,10 +21,6 @@ if(!empty($_POST)) {
 
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/public_nav.php";
-
-
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/public_nav.php";
 ?>
 <div class="row">
 	<div class="col-lg-4 col-lg-offset-1 col-sm-5 col-sm-offset-1 col-xs-12 well">
