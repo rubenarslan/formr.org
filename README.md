@@ -63,7 +63,7 @@ Survey names may only contain the characters `a-zA-Z0-9_` and need to start with
 		* **_type_** (mandatory). See below.
 		* **label**. You can use Knitr, [Markdown](http://daringfireball.net/projects/markdown/) and HTML in the question texts. You can also use [Font Awesome](http://fontawesome.io) icons.
 		* **showif** By entering a condition here, you can show items optionally. You can refer to the same survey here `variable_name == 2` or you can reference other surveys using `survey_name$variable_name == 2` (evaluated via OpenCPU in R).
-		* **optional** You can make an item optional (most items are mandatory by default), by using the `*` character in the optional-column. Items optional by default (`check`, `btncheck`, `mmc`) can be made mandatory by using the the `!` character in the optional-column.
+		* **optional** You can make an item optional (most items are mandatory by default), by using the `*` character in the optional-column. Items optional by default (`check`, `check_button`, `mc_multiple`) can be made mandatory by using the the `!` character in the optional-column.
 		* **choice1, choice2, ..., choice14** (you can use these columns to quickly add choices. If you use many choices repeatedly or need more than 14 choices, it makes more sense to put them on the choices sheet)
 * The second, optional sheet should have the name **choices**, if no such sheet exists, we use the second one.
 	* The following column names are used (in order).
@@ -74,24 +74,24 @@ Survey names may only contain the characters `a-zA-Z0-9_` and need to start with
 #### Items
 Surveys support the following item types. HTML5 form elements and validation are used and polyfilled where necessary using the [Webshims lib](http://afarkas.github.io/webshim/demos/index.html).
 
-* `instruction` display text. instructions are displayed at least once and disappear only when there are no unanswered items left behind them (so putting an instruction directly before another ensures it will be displayed only once)
+* `note` display text. notes are displayed at least once and disappear only when there are no unanswered items left behind them (so putting a note directly before another ensures it will be displayed only once)
 * `submit` display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for `showif` or for dynamically generating item text have been given. 
 * multiple choice family
 	* `mc` multipe choice (radio buttons), you can choose only one. Choices are (currently) defined using the choice1-12 columns
-	* `mmc` multiple multiple choice (check boxes), you can choose several. Choices defined as above
+	* `mc_multiple` multiple multiple choice (check boxes), you can choose several. Choices defined as above
 	* `check` a single check box for confirmation of a statement.
-	* `btnradio` like `mc` but radio buttons are styled as buttons containing the choice text
-	* `btncheckbox` like `mmc` and `btnradio`
-	* `btncheck` like `check` and `btnradio`
-	* `btnrating min,max,step` This shows choice1 to the left, choice2 to the right and a series of buttons as defined by `min,max,step` in between. Defaults to `1,5,1`
-	* `sex` shorthand for `btnradio` with the ♂, ♀ symbols as choices
-	* `select` dropdowns, you can choose only one
-	* `mselect` dropdowns, choose many
-	* `select_add maxType` like `select`, allows users to choose an option not given. Uses [Select2](http://ivaynberg.github.io/select2/). `maxType` can be used to set an upper limit on the length of the user-added option. Defaults to 255.
-	* `mselect_add maxType,maxChoose` like `mselect` and `select_add`, allows users to add options not given. `maxChoose` can be used to place an upper limit on the number of chooseable options.
-	* `mc_heading` To get a tabular look, assign a constant width to the choices (with classes), give the heading the same choices as the `mc`s, and give the following `mc`s (or `mmc`s)  the same classes + hide_label. 
+	* `mc_button` like `mc` but radio buttons are styled as buttons containing the choice text
+	* `check_button` like `mc_multiple` and `mc_button`
+	* `check_button` like `check` and `mc_button`
+	* `rating_button min,max,step` This shows choice1 to the left, choice2 to the right and a series of buttons as defined by `min,max,step` in between. Defaults to `1,5,1`
+	* `sex` shorthand for `mc_button` with the ♂, ♀ symbols as choices
+	* `select_one` dropdowns, you can choose only one
+	* `select_multiple` dropdowns, choose many
+	* `select_or_add_one maxType` like `select_one`, allows users to choose an option not given. Uses [Select2](http://ivaynberg.github.io/select2/). `maxType` can be used to set an upper limit on the length of the user-added option. Defaults to 255.
+	* `select_or_add_multiple maxType,maxChoose` like `select_multiple` and `select_or_add_one`, allows users to add options not given. `maxChoose` can be used to place an upper limit on the number of chooseable options.
+	* `mc_heading` To get a tabular look, assign a constant width to the choices (with classes), give the heading the same choices as the `mc`s, and give the following `mc`s (or `mc_multiple`s)  the same classes + hide_label. 
 * `range min,max,step` these are sliders. The numeric value chosen is not displayed. Text to be shown to the left and right of the slider can be defined using the choice1 and choice2 fields. Defaults are `1,100,1`.
-* `range_list min,max,step` like `range` but the individual steps are visually indicated using ticks and the chosen number is shown to the right. 
+* `range_ticks min,max,step` like `range` but the individual steps are visually indicated using ticks and the chosen number is shown to the right. 
 * `color` allows you to pick a color, using the OS color picker (or one polyfilled by Webshims)
 * simple input family
 	* `text` allows you to enter a text in a single-line input field. Adding a number `text 100` defines the maximum number of characters that may be entered.
@@ -105,7 +105,7 @@ Surveys support the following item types. HTML5 form elements and validation are
 	* `date` for a date
 	* `datetime` for a date & time
 	* `month`, `yearmonth` etc. should work too, but don't in most browsers
-* `geolocation` shows a text input and a geolocation arrow. If the user allows it, the geolocation object is stored as a JSON string, if not the user can enter a text string.
+* `geopoint` shows a text input and a geolocation arrow. If the user allows it, the geolocation object is stored as a JSON string, if not the user can enter a text string.
 * "server" family
 	* `ip` saves the value of the PHP superglobal `$_SERVER['REMOTE_ADDR']` ie. the user's IP.
 	* `referrer` saves the last outside referrer (if any), ie. how the user got to the site

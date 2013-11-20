@@ -32,7 +32,7 @@ class OpenCPU {
 		$body = mb_substr($result, $this->header_size);
 		##		list($header, $body) = explode("\r\n\r\n", $results, 2); # does not work with 100 Continue
 		
-		return compact('header','body');
+		return compact('header','body','post');
 	}
 	public function identity($post, $return = '/json')
 	{
@@ -70,11 +70,15 @@ class OpenCPU {
 			})() }');
 			
 		$result = $this->identity($post,$return);
-
+#		echo $this->debugCall($result);
+# pr($post);
 		$parsed = json_decode($result['body']);
 		if($parsed===null):
-			alert($result['body'],'alert-danger');
-			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-danger');
+			global $user;
+			if($user->isAdmin()):
+				alert($result['body'],'alert-danger',true);
+				alert("Dynamic R expressions can only be tested as part of a proper run. <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
+			endif;
 			return null;
 		elseif(empty($parsed)):
 			return null;
@@ -207,6 +211,7 @@ $this->user_data .
 			 $response = array(
 				 'Response' => '<pre>'. htmlspecialchars($result['body']). '</pre>',
 				 'HTTP headers' => '<pre>'. htmlspecialchars($result['header']). '</pre>',
+				 'Call' => '<pre>'. htmlspecialchars(current($result['post'])). '</pre>',
 			 );
 		else:
 			$header_parsed = http_parse_headers($result['header']);

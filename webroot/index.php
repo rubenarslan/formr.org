@@ -26,6 +26,10 @@ require_once INCLUDE_ROOT."View/public_nav.php";
 					<i class="fa fa-li fa-pencil-square"></i> You can <a href="<?=WEBROOT?>public/studies">take some of the published studies for a test run</a>.
 				</li>
 				<li>
+					<i class="fa fa-li fa-file"></i> 
+					You can read the <a href="<?=WEBROOT?>public/documentation" title="hopefully you'll get some idea of what formr can do for you">super exciting docs</a>.
+				</li>
+				<li>
 					<i class="fa fa-li fa-rocket"></i> If you want to see formr's capabilities as an admin and make some studies yourself,
 					<ul class="fa-ul">
 						<li><i class="fa fa-li fa-envelope"></i> 

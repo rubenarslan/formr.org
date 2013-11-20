@@ -79,7 +79,7 @@ form.form-horizontal div.form-group div.controls label {
 form.form-horizontal div.form-group div.controls input[type=radio],form.form-horizontal div.form-group div.controls input[type=checkbox] {
     vertical-align:top;
 }
-form.form-horizontal div.form-group.form-row.item-instruction div.control-label,
+form.form-horizontal div.form-group.form-row.item-note div.control-label,
 form.form-horizontal div.form-group.form-message div.control-label {
     margin-left:0;
 	text-align:left;
@@ -678,4 +678,15 @@ div.tiny-panel div.panel-group  div.panel.panel-default  div.panel-heading
 
 .form-horizontal .form-group {
     margin-left:0;
+}
+
+dl.dl-wider dt
+{
+    width:200px;
+    margin-bottom:7px;
+}
+dl.dl-wider dd
+{
+    margin-left:220px;
+    margin-bottom:7px;
 }

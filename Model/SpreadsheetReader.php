@@ -177,11 +177,35 @@ class SpreadsheetReader
 		if($type=='offen')
 			$type = 'text';
 		elseif($type=='instruktion')
-			$type = 'instruction';
+			$type = 'note';
+		elseif($type=='instruction')
+			$type = 'note';
 		elseif($type=='fork')
-			$type = 'instruction';
+			$type = 'note';
 		elseif($type=='rating')
-			$type = 'mc';
+			$type = 'rating_button';
+		elseif($type=='mmc')
+			$type = 'mc_multiple';
+		elseif($type=='select')
+			$type = 'select_one';
+		elseif($type=='mselect')
+			$type = 'select_multiple';
+		elseif($type=='select_add')
+			$type = 'select_or_add_one';
+		elseif($type=='mselect_add')
+			$type = 'select_or_add_multiple';
+		elseif($type=='btnrating')
+			$type = 'rating_button';
+		elseif($type=='range_list')
+			$type = 'range_ticks';
+		elseif($type=='btnradio')
+			$type = 'mc_button';
+		elseif($type=='btncheckbox')
+			$type = 'mc_multiple_button';
+		elseif($type=='btncheck')
+			$type = 'check_button';
+		elseif($type=='geolocation')
+			$type = 'geopoint';
 		elseif($type=='mcnt')
 			$type = 'mc';
 		
@@ -286,7 +310,7 @@ class SpreadsheetReader
 					if(!array_key_exists($column_number,$columns)) continue; // skip columns that aren't allowed
 				
 					$col = $columns[$column_number];
-					$val = $cell->getValue();
+					$val = hardTrueFalse($cell->getValue());
 				
 					if($col == 'name'):
 						if(trim($val)==''):
@@ -415,7 +439,7 @@ class SpreadsheetReader
 					if(!array_key_exists($column_number,$columns)) continue; // skip columns that aren't allowed
 				
 					$col = $columns[$column_number];
-					$val = $cell->getValue();
+					$val = hardTrueFalse($cell->getValue());
 					
 				
 					if($col == 'name'):

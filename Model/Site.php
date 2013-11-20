@@ -342,6 +342,16 @@ function stringBool($x)
 	elseif($x===0)  return '0';
 	else return $x;
 }
+function hardTrueFalse($x)
+{
+	if($x===false) return 'FALSE';
+	elseif($x===true) return 'TRUE';
+#	elseif($x===null)  return 'NULL';
+	elseif($x===0)  return '0';
+	else return $x;
+}
+
+
 
 
 
