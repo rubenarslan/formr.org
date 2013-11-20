@@ -370,7 +370,7 @@ class Study extends RunUnit
 	}
 	private function getResultsTableSyntax($columns)
 	{
-		$columns = array_filter($columns); // remove NULL, false, '' values (instruction, fork, submit, ...)
+		$columns = array_filter($columns); // remove NULL, false, '' values (note, fork, submit, ...)
 		if(empty($columns))
 			return null;
 		
