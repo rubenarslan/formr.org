@@ -136,7 +136,7 @@ class SpreadsheetReader
 		
 		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
 		
-	    header('Content-Disposition: attachment;filename="'.$filename.'.xls"');
+	    header('Content-Disposition: attachment;filename="'.$filename.'.xlsx"');
 	    header('Cache-Control: max-age=0');
 		header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
