@@ -147,7 +147,7 @@ class Survey extends RunUnit {
 					WHERE 
 					`survey_items`.study_id = :study_id AND
 			        `survey_items`.type NOT IN (
-							'instruction',
+							'note',
 							'mc_heading',
 							'submit'
 						)
@@ -169,7 +169,7 @@ class Survey extends RunUnit {
 		
 		$this->not_answered = count( array_filter($this->unanswered_batch, function ($item)
 		{
-			if(in_array($item->type, array('instruction','submit','mc_heading')) ) return false;
+			if(in_array($item->type, array('note','submit','mc_heading')) ) return false;
 			else return true;
 		}
 ) );
@@ -264,7 +264,7 @@ class Survey extends RunUnit {
 			$name = $item['name'];
 			$this->unanswered_batch[$name] = $item_factory->make($item);
 			$showif = $this->unanswered_batch[$name]->showif;
-			if($showif !== null)
+			if($showif !== null AND $showif !== '' AND $showif !== "TRUE" AND trim($showif) !== '')
 			{
 				if(isset($item_factory->showifs[ $showif ]))
 				{
@@ -277,6 +277,7 @@ class Survey extends RunUnit {
 					$dataNeeded = $this->dataNeeded($this->dbh, $showif );
 					$dataNeeded[] = $this->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
 					$dataNeeded = array_unique($dataNeeded); // no need to add it twice
+					
 					$openCPU->addUserData($this->getUserDataInRun(
 						$dataNeeded
 					));
@@ -286,7 +287,7 @@ class Survey extends RunUnit {
 				
 				if(!$show)
 				{
-					unset($this->unanswered_batch[$name]); // todo: do something else with this when we want JS?
+					unset($this->unanswered_batch[$name]); // todo: just hide it when we want JS
 				}
 			}
 		}
@@ -341,18 +342,18 @@ class Survey extends RunUnit {
 				if($itemsDisplayed === 0)
 					continue; // skip submit buttons once everything before them was dealt with				
 			}
-			else if ($item->type === "instruction")
+			else if ($item->type === "note")
 			{
 				$next = current($items);
 				if(
 					$item->displaycount AND 											 // if this was displayed before
 					(
 						$next === false OR 								    				 // this is the end of the survey
-						in_array( $next->type , array('instruction','submit','mc_heading'))  		 // the next item isn't a normal item
+						in_array( $next->type , array('note','submit','mc_heading'))  		 // the next item isn't a normal item
 					)
 				)
 				{
-					continue; // skip this instruction							
+					continue; // skip this note							
 				}
 			}
 			else if ($item->type === "mc_heading")
@@ -361,11 +362,11 @@ class Survey extends RunUnit {
 				if(
 					(
 						$next === false OR 								    				 // this is the end of the survey
-						!in_array( $next->type , array('mc','mmc',))  		 // the next item isn't a normal item
+						!in_array( $next->type , array('mc','mc_multiple',))  		 // the next item isn't a normal item
 					)
 				)
 				{
-					continue; // skip this instruction							
+					continue; // skip this note							
 				}
 			}
 			

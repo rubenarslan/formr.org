@@ -260,7 +260,7 @@ class RunUnit {
 		$tables[] = 'survey_email_log';
 		
 		foreach($tables AS $result):
-			if(preg_match("/\b$result\b)/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
+			if(preg_match("/\b$result\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
 				$matches[] = $result;
 			endif;
 		endforeach;
