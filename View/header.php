@@ -4,13 +4,13 @@ header ('Content-type: text/html; charset=utf-8');
 
 <html>
 <head> 
-        <title><?php echo isset($title) ? $title : 'Studie'; ?></title>
+        <title><?php echo isset($title) ? $title : 'formr'; ?></title>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 
 	<?php 
 	if(ONLINE):
 	?>
-		<link href="//netdna.bootstrapcdn.com/twitter-bootstrap/3.0.2/css/bootstrap.min.css" rel="stylesheet">
+		<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css" rel="stylesheet">
 		<link href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css" rel="stylesheet">
 		<link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/select2/3.4.5/select2-bootstrap.css">
 		
@@ -32,10 +32,11 @@ header ('Content-type: text/html; charset=utf-8');
 		if(ONLINE):
 		?>
 			<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.js"></script>
-			<script src="//netdna.bootstrapcdn.com/twitter-bootstrap/3.0.2/js/bootstrap.min.js"></script>
+			<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.2/js/bootstrap.min.js"></script>
 			<script src="<?=WEBROOT?>assets/modernizr-2.6.2-respond-1.1.0.min.js"></script>
-			<script src="//cdn.jsdelivr.net/webshim/1.11.3/polyfiller.js"></script>
-			<script type="text/javascript" src="//cdn.jsdelivr.net/select2/3.4.5/select2.min.js"></script>
+			<script src="<?=WEBROOT?>assets/bower_components/webshim/demos/js-webshim/minified/polyfiller.js"></script>
+<?php //			<script src="//cdn.jsdelivr.net/webshim/1.11.3/polyfiller.js"></script>
+?>			<script type="text/javascript" src="//cdn.jsdelivr.net/select2/3.4.5/select2.min.js"></script>
 			
 		<?php
 		else:

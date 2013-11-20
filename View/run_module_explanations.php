@@ -171,7 +171,7 @@ yields<br>
 					 <li><i class="fa-li fa fa-pause"></i> Pos. 1. a pause which always waits until 6PM</li>
 					 <li><i class="fa-li fa fa-envelope"></i> Pos. 2. an email invitation</li>
 					 <li><i class="fa-li fa fa-pencil-square"></i> Pos. 3. a survey called <strong>diary</strong> containing your diary questions</li>
-					 <li><i class="fa-li fa fa-backward"></i> Pos. 4. You would now add a Skip Backward with the following condition: <code>nrow(diary) &lt; 14</code> and the instruction to jump back to position 1, the pause, if that is true.</li>
+					 <li><i class="fa-li fa fa-backward"></i> Pos. 4. You would now add a Skip Backward with the following condition: <code>nrow(diary) &lt; 14</code> and the instructions to jump back to position 1, the pause, if that is true.</li>
 					 <li><i class="fa-li fa fa-stop"></i> Pos. 5. At this position you could then use a Stop point, marking the end of your diary study.</li>
 				 </ul>
 				 <h5>What would happen?</h5>

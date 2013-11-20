@@ -120,9 +120,9 @@ $(document).ready(function() {
 		return false;
 	}).each(function()
 	{
-		$(this).closest('.btn-group.hidden').removeClass('hidden');
+		$(this).closest('.input-group-btn.hidden').removeClass('hidden');
 	});
-	$('.range_list_output').each(function () {
+	$('.range_ticks_output').each(function () {
 		var output = $('output', this);
 //		console.log(output);	
 		var change = function () {
@@ -132,7 +132,7 @@ $(document).ready(function() {
 			.on('input', change)
 			.each(change);
 	});
-	// fixme: FOUCs for btnratings etc in IE8
+	// fixme: FOUCs for rating_buttons etc in IE8
 	$('div.btn-radio button.btn').off('click').click(function(event){
 		var $btn = $(this);
 		$('#'+$btn.attr('data-for')).attr('checked',true); // couple with its radio button
@@ -161,7 +161,7 @@ $(document).ready(function() {
 	$('div.btn-check button.btn').off('click').click(function(event){
 		var $btn = $(this);
 		var checked = $('#'+$btn.attr('data-for')).attr('checked');
-		$btn.find('i').toggleClass('icon-check',!checked).toggleClass('icon-check-empty',checked);
+		$btn.find('i').toggleClass('fa-check-square-o',!checked).toggleClass('fa-square-o',checked);
 		$('#'+$btn.attr('data-for')).attr('checked',!checked); // couple with its radio button
 		$btn.toggleClass('btn-checked',!checked); // check this one
 		return false;
@@ -244,46 +244,6 @@ $(document).ready(function() {
             },
             escapeMarkup: function (m) { return m; }
 		});
-	});
-	
-	$('.select2place').select2({
-		ajax: {
-			url: url + "places/search",
-			dataType: 'json',
-			quietMillis: 100,
-			data: function (term, page) { // page is the one-based page number tracked by Select2
-				return {
-					term: term, //search term
-					page: page, // page number
-				};
-			},
-			results: function (data, page) {
-				var more = (page * 10) < data.total; // whether or not there are more results available
-
-				// notice we return the value of more so Select2 knows if more results can be loaded
-				return {results: data.places, more: more};
-			}
-		},
-		initSelection: function(element, callback) {
-			// the input tag has a value attribute preloaded that points to a preselected movie's id
-			// this function resolves that id attribute to an object that select2 can render
-			// using its formatResult renderer - that way the movie name is shown preselected
-			var id=$(element).val();
-			if (id!=="") {
-				$.ajax(url + "places/get/"+id, {
-					dataType: "json"
-				}).done(function(data) { 
-					callback(data[0]); 
-				}).fail(ajaxErrorHandling);
-			}
-		},
-		minimumInputLength: 3,
-		formatInputTooShort: function (term, minLength) {
-			return "Bitte geben Sie mindestens 3 Zeichen ein.";
-		},
-		formatNoMatches: function (term) {
-			return "Ort nicht gefunden, bitte geben Sie den nächstgelegenen größeren Ort ein.";				
-		}
 	});
 	
 	$('*[title]').tooltip({

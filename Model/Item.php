@@ -438,9 +438,9 @@ class Item_range extends Item_number
 }
 
 // slider with ticks
-class Item_range_list extends Item_number 
+class Item_range_ticks extends Item_number 
 {
-	public $type = 'range_list';
+	public $type = 'range_ticks';
 	protected $input_attributes = array('type' => 'range');
 	protected $hasChoices = true;
 	
@@ -451,7 +451,7 @@ class Item_range_list extends Item_number
 		$this->input_attributes['list'] = 'dlist'.$this->id;
 		$this->input_attributes['data-range'] = "{'animate': true}";
 		$this->classes_input[] = "range-list";
-		$this->classes_wrapper[] = 'range_list_output';
+		$this->classes_wrapper[] = 'range_ticks_output';
 		
 		parent::setMoreOptions();
 	}
@@ -612,7 +612,7 @@ class Item_datetime extends Item
 class Item_time extends Item_datetime 
 {
 	public $type = 'time';
-	protected $input_attributes = array('type' => 'time', 'style' => 'width:80px');
+	protected $input_attributes = array('type' => 'time', 'style' => 'width:160px');
 	
 	protected $prepend = 'fa-clock-o';
 	protected $mysql_field = 'TIME DEFAULT NULL';
@@ -672,15 +672,15 @@ class Item_week extends Item_datetime
 	protected $mysql_field = 'VARCHAR(9) DEFAULT NULL';
 }
 
-// instructions are rendered at full width
-class Item_instruction extends Item 
+// notes are rendered at full width
+class Item_note extends Item 
 {
-	public $type = 'instruction';
+	public $type = 'note';
 	protected $mysql_field = null;
 	
 	public function validateInput($reply)
 	{
-		$this->error = _("You cannot answer instructions.");
+		$this->error = _("You cannot answer notes.");
 		return $reply;
 	}
 	protected function render_inner() 
@@ -732,7 +732,7 @@ class Item_mc extends Item
 		if( !($this->optional AND $reply=='') AND
 		!empty($this->choices) AND // check
 			( is_string($reply) AND !in_array($reply,array_keys($this->choices)) ) OR // mc
-				( is_array($reply) AND $diff = array_diff($reply, array_keys($this->choices) ) AND !empty($diff) && current($diff) !=='' ) // mmc
+				( is_array($reply) AND $diff = array_diff($reply, array_keys($this->choices) ) AND !empty($diff) && current($diff) !=='' ) // mc_multiple
 		) // invalid multiple choice answer 
 		{
 #				pr($reply);
@@ -793,9 +793,9 @@ class Item_mc extends Item
 }
 
 // multiple multiple choice, also checkboxes
-class Item_mmc extends Item_mc 
+class Item_mc_multiple extends Item_mc 
 {
-	public $type = 'mmc';
+	public $type = 'mc_multiple';
 	protected $input_attributes = array('type' => 'checkbox');
 	
 	public $optional = 1;
@@ -842,7 +842,7 @@ class Item_mmc extends Item_mc
 }
 
 // multiple multiple choice, also checkboxes
-class Item_check extends Item_mmc 
+class Item_check extends Item_mc_multiple 
 {
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	
@@ -882,7 +882,7 @@ class Item_check extends Item_mmc
 }
 
 // dropdown select, choose one
-class Item_select extends Item 
+class Item_select_one extends Item 
 {
 	public $type = 'select';
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
@@ -909,7 +909,7 @@ class Item_select extends Item
 
 
 // dropdown select, choose multiple
-class Item_mselect extends Item_select 
+class Item_select_multiple extends Item_select_one 
 {
 	protected $mysql_field = 'VARCHAR (40) DEFAULT NULL';
 	
@@ -936,7 +936,7 @@ class Item_mselect extends Item_select
 
 
 // dropdown select, choose one
-class Item_select_add extends Item
+class Item_select_or_add_one extends Item
 {
 	public $type = 'text';
 	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';
@@ -979,7 +979,7 @@ class Item_select_add extends Item
 		$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
 	}
 }
-class Item_mselect_add extends Item_select_add
+class Item_select_or_add_multiple extends Item_select_or_add_one
 {
 	public $type = 'text';
 	protected $mysql_field = 'TEXT DEFAULT NULL';
@@ -1011,7 +1011,7 @@ class Item_mselect_add extends Item_select_add
 }
 
 // dropdown select, choose multiple
-class Item_btnradio extends Item_mc 
+class Item_mc_button extends Item_mc 
 {
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	
@@ -1036,7 +1036,7 @@ class Item_btnradio extends Item_mc
 	}
 }
 // dropdown select, choose multiple
-class Item_btnrating extends Item_btnradio 
+class Item_rating_button extends Item_mc_button 
 {
 	protected $mysql_field = 'SMALLINT DEFAULT NULL';
 	protected function setMoreOptions() 
@@ -1102,7 +1102,7 @@ class Item_btnrating extends Item_btnradio
 }
 
 
-class Item_btncheckbox extends Item_mmc 
+class Item_mc_multiple_button extends Item_mc_multiple 
 {
 	protected $mysql_field = 'VARCHAR (40) DEFAULT NULL';
 	
@@ -1127,7 +1127,7 @@ class Item_btncheckbox extends Item_mmc
 	}
 }
 
-class Item_btncheck extends Item_check 
+class Item_check_button extends Item_check 
 {
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	
@@ -1140,7 +1140,7 @@ class Item_btncheck extends Item_check
 	{
 		$ret = '<div class="btn-group hidden">
 			<button class="btn" data-for="item' . $this->id . '_1">' . 
-		'<i class="fa fa-check-empty"></i>
+		'<i class="fa fa-2x fa-square-o"></i>
 			</button>';
 		$ret .= '</div>';
 		
@@ -1148,7 +1148,7 @@ class Item_btncheck extends Item_check
 	}
 }
 
-class Item_sex extends Item_btnradio 
+class Item_sex extends Item_mc_button 
 {
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	
@@ -1159,8 +1159,8 @@ class Item_sex extends Item_btnradio
 	}
 }
 
-class Item_geolocation extends Item {
-	public $type = 'geolocation';
+class Item_geopoint extends Item {
+	public $type = 'geopoint';
 	protected $input_attributes = array('type' => 'text', 'readonly');
 	protected $append = true;
 	
@@ -1168,6 +1168,7 @@ class Item_geolocation extends Item {
 	protected function setMoreOptions() 
 	{
 		$this->input_attributes['name'] = $this->name.'[]';
+		$this->classes_input[] = "form-control";
 	}
 	public function validateInput($reply)
 	{
@@ -1178,20 +1179,53 @@ class Item_geolocation extends Item {
 		endif;
 		return $reply;
 	}
+	protected function render_prepended()
+	{
+		return '
+		<div class="col-xs-3">
+			<input type="hidden" name="'.$this->name.'" value="">
+			<div class="input-group">';
+	}
 	protected function render_appended () 
 	{
 		$ret = '
-			<input type="hidden" name="'.$this->name.'" value="">
-			<div class="btn-group hidden">
-			<button class="btn btn-default geolocator item' . $this->id . '">
-			<i class="fa fa-location-arrow"></i>
-			</button>';
-		$ret .= '</div>';
-		
-		return $ret;
+			<span class="input-group-btn hidden">
+				<button class="btn btn-default geolocator item' . $this->id . '">
+					<i class="fa fa-location-arrow"></i>
+				</button>
+			</span>
+			</div>
+		</div>
+			';
+			return $ret;
 	}
-	
 }
+
+class Item_random extends Item_number 
+{
+	public $type = 'random';
+	protected $input_attributes = array('type' => 'hidden');
+	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	
+	public function validateInput($reply)
+	{
+		if(isset($this->input_attributes['min']) AND isset($this->input_attributes['max'])) // both limits specified
+		{
+			$reply = mt_rand($this->input_attributes['min'],$this->input_attributes['max']);
+		}
+		elseif(!isset($this->input_attributes['min']) AND !isset($this->input_attributes['max'])) // neither limit specified
+		{
+			$reply = mt_rand(0,1);
+		}
+		else
+		{
+			$this->error = __("Both random minimum and maximum need to be specified");
+		}
+		return $reply;
+	}
+}
+
+
 
 class Item_ip extends Item {
 	public $type = 'ip';
@@ -1301,16 +1335,7 @@ class Item_get extends Item {
 	}
 }
 
-
-class Item_place extends Item_text
-{
-	protected function setMoreOptions() 
-	{
-		$this->classes_input[] = 'select2place';
-	}
-}
-
-class Item_choose_two_weekdays extends Item_mmc
+class Item_choose_two_weekdays extends Item_mc_multiple
 {
 	protected function setMoreOptions() 
 	{
@@ -1319,7 +1344,8 @@ class Item_choose_two_weekdays extends Item_mmc
 		$this->input_attributes['name'] = $this->name . '[]';
 	}
 }
-class Item_timezone extends Item_select
+
+class Item_timezone extends Item_select_one
 {
 	protected $mysql_field = 'FLOAT DEFAULT NULL';
 	protected function chooseResultFieldBasedOnChoices()
@@ -1361,7 +1387,6 @@ class Item_timezone extends Item_select
 }
 
 
-// instructions are rendered at full width
 class Item_mc_heading extends Item_mc
 {
 	public $type = 'mc_heading';
