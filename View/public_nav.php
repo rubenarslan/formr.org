@@ -10,6 +10,12 @@
 		<?php echo _("documentation"); ?>
 	</a></li>
 
+    <li <?=endsWith($_SERVER['PHP_SELF'],'studies.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/studies">
+		<i class="fa fa-pencil-square fa-fw"></i>
+		<?php echo _("studies"); ?>
+	</a></li>
+
+
 <?php
 
 if($user->isAdmin()):

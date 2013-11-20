@@ -57,12 +57,6 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 							<th>
 								showif
 							</th>
-							<th>
-								optional
-							</th>
-							<th>
-								class
-							</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -77,10 +71,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 								Please enter your name
 							</td>
 							<td>
-							</td>
-							<td>
-							</td>
-							<td>
+								*
 							</td>
 							<td>
 							</td>
@@ -100,10 +91,6 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 							</td>
 							<td>
 							</td>
-							<td>
-							</td>
-							<td>
-							</td>
 						</tr>
 
 						<tr>
@@ -118,11 +105,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 							</td>
 							<td>
 							</td>
-							<td>
-							</td>
-							<td>
-							</td>
-							<td>
+							<td>age >= 18
 							</td>
 						</tr>
 
@@ -139,10 +122,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 							<td>
 							</td>
 							<td>
-							</td>
-							<td>
-							</td>
-							<td>
+								age >= 18
 							</td>
 						</tr>
 						<tr>
@@ -158,10 +138,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 							<td>
 							</td>
 							<td>
-							</td>
-							<td>
-							</td>
-							<td>
+								age >= 18
 							</td>
 						</tr>
 					</tbody>
@@ -243,161 +220,10 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 					</table>
 				</div>
 				<div class="tab-pane fade" id="available_items">
-					<h4>Plain display types</h4>
-					<dl class="dl-horizontal">
-						<dt>
-							instruction
-						</dt>
-						<dd>
-							 display text. instructions are displayed at least once and disappear only when there are no unanswered items left behind them (so putting an instruction directly before another ensures it will be displayed only once
-						 </dd>
-						 <dt>
-							 submit
-						 </dt>
-						 <dd>
-						 	display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for `showif` or for dynamically generating item text have been given. 
-						 </dd>
-					 </dl>
-  					<h4>Simple input family</h4>
- 					<dl class="dl-horizontal">
- 						<dt>
-							text <i>max_length</i>
-						</dt>
-						<dd>
-							allows you to enter a text in a single-line input field. Adding a number `text 100` defines the maximum number of characters that may be entered.
-						</dd>
- 						<dt>
-							textarea <i>max_length</i>
-						</dt>
-						<dd>
-							displays a multi-line input field
-						</dd>
- 						<dt>
-							number <i>min, max, step</i>
-						</dt>
-						<dd>
-							for numbers. `step` defaults to `1`, using `any` will allow any decimals.
-						</dd>
- 						<dt>
-							email
-						</dt>
-						<dd>
-							for email addresses
-						</dd>
-					</dl>
-					<h4>Sliders</h4>
- 					<dl class="dl-horizontal">
- 						<dt>
-							range <i>min,max,step</i>
-						</dt>
-						<dd>
-							these are sliders. The numeric value chosen is not displayed. Text to be shown to the left and right of the slider can be defined using the choice1 and choice2 fields. Defaults are `1,100,1`.
-						</dd>
- 						<dt>
-							range_list <i>min,max,step</i>
-						</dt>
-						<dd>
-							like range but the individual steps are visually indicated using ticks and the chosen number is shown to the right. 
-						</dd>
-					</dl>
-					
-					<h4>Datetime family</h4>
- 					<dl class="dl-horizontal">
- 						<dt>
-							date
-						</dt>
-						<dd>
-							for dates
-						</dd>
- 						<dt>
-							time
-						</dt>
-						<dd>
-							for times
-						</dd>
-					</dl>
- 					<h4>Multiple choice family</h4>
- 					<dl class="dl-horizontal">
- 						<dt>
-							mc <i>choice_list</i>
-						</dt>
-						<dd>
-							multipe choice (radio buttons), you can choose only one.
-						</dd>
- 						<dt>
-							mmc <i>choice_list</i>
-						</dt>
-						<dd>
-							multiple multiple choice (check boxes), you can choose several. Choices defined as above
-						</dd>
- 						<dt>
-							check
-						</dt>
-						<dd>
-							a single check box for confirmation of a statement.
-						</dd>
- 						<dt>
-							mc_button <i>choices</i>
-						</dt>
-						<dd>
-							like `mc` but instead of the text appearing next to a small button, a big button contains the choice label
-						</dd>
- 						<dt>
-							mmc_button
-						</dt>
-						<dd>
-							like mmc and mc_button
-						</dd>
- 						<dt>
-							check_button
-						</dt>
-						<dd>
-							like check and mc_button
-						</dd>
- 						<dt>
-							btnrating <i>min, max, step</i>
-						</dt>
-						<dd>
-							This shows choice1 to the left, choice2 to the right and a series of buttons as defined by <code>min,max,step</code> in between. Defaults to 1,5,1.
-						</dd>
- 						<dt>
-							sex
-						</dt>
-						<dd>
-							shorthand for `mc_button` with the ♂, ♀ symbols as choices
-						</dd>
-						<dt>
-							select <i>choice_list</i>
-						</dt>
-						<dd>
-							a dropdown, you can choose only one
-						</dd>
-						<dt>
-							select_multiple <i>choice_list</i>
-						</dt>
-						<dd>
-							a list in which, you can choose several options
-						</dd>
-						<dt>
-							select_or_add <i>choice_list, maxType</i>
-						</dt>
-						<dd>
-							like select, but it allows users to choose an option not given. Uses <a href="http://ivaynberg.github.io/select2/">Select2</a>. <i>maxType</i> can be used to set an upper limit on the length of the user-added option. Defaults to 255.
-						</dd>
-						<dt>
-							select_multiple_or_add<br> <i>choice_list, maxType, maxChoose</i>
-						</dt>
-						<dd>
-							 like mselect and select_add, allows users to add options not given. <i>maxChoose</i> can be used to place an upper limit on the number of chooseable options.
-						</dd>
-						<dt>
-							mc_heading <i>choice_list</i>
-						</dt>
-						<dd>
-							This type permits you to show the labels for mc or mmc choices only once.<br>
-							To get the necessary tabular look, assign a constant width to the choices (with classes), give the heading the same choices as the mcs, and give the following mcs (or mmcs)  the same classes + hide_label. 
-						</dd>
-			</dl>
+					<?php
+					require INCLUDE_ROOT.'View/item_types.php';	
+					?>
+
 				</div>
 		</div>
 	</div>
