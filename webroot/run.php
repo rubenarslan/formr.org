@@ -49,14 +49,37 @@ else:
 			
 			require_once INCLUDE_ROOT . 'Model/RunSession.php';
 			
-			$run_session = new RunSession($fdb, $run->id, $user->id, $user->user_code);
-#			pr($user->user_code);
-#			pr($run_session->id);
-
-			if($run_session->id OR 							// if this session exists or
-				( $run->public AND $run_session->create() ) // if the run is public, we create a new session on-the-fly
+			/* ways to get here
+			1. test run link in admin area
+				- check permission (ie did user create study)
+			2. public run link
+				- check whether run is public
+			3. private run link (e.g. email reminder but run not publicly accessible)
+				- check whether session exists
+			
+			turning this downside up
+			1. has session
+				- gets access
+			2. elseif has created study but no session
+				- gets access, create token
+			3. elseif has clicked public link but no session
+				- gets access, create token
+			4. else run not public, no session, no admin
+				- no access
+			*/
+			$run_session = new RunSession($fdb, $run->id, $user->id, $user->user_code); // does this user have a session?
+			
+			if(
+				$run_session->id // would be NULL if no session
+				OR // only if user has no session do other stuff
+				(
+					($user->created($run) // if the user created the study, give access
+						OR
+					 $run->public)		    // or if the run is public
+				AND
+				$run_session->create($user->user_code) // give access. phrased as condition, but should always return true
+				) 
 			):
-				$user->user_code = $run_session->session;
 				$output = $run_session->getUnit();
 			else:
 				alert("<strong>Error:</strong> You don't have access to this run.",'alert-danger');
@@ -65,6 +88,9 @@ else:
 		endif;
 	endif;
 endif;
+
+
+
 
 if($output):
 	if(isset($output['title'])):

@@ -12,50 +12,16 @@ class RunSession
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->run_id = $run_id;
-		if($user_id == 'cron')
+		if($user_id == 'cron'):
 			$this->cron = true;
-		else
+		else:
 			$this->user_id = $user_id;
+		endif;
+		
 		
 		if($this->session != null AND $this->run_id != null): // called with null in constructor if they have no session yet
 			$this->load();
 		endif;
-	}
-	public function create($session = NULL)
-	{
-		if($session !== NULL)
-		{
-			if(strlen($session)!=64)
-			{
-				alert("<strong>Error.</strong> Session tokens need to be exactly 64 characters long.",'alert-danger');
-				return false;
-			}
-		}
-		else
-			$session = bin2hex(openssl_random_pseudo_bytes(32));
-		
-		$session_q = "INSERT IGNORE INTO  `survey_run_sessions`
-		SET run_id = :run_id,
-		session = :session,
-		user_id = :user_id,
-		created = NOW()
-		";
-		$add_session = $this->dbh->prepare($session_q) or die(print_r($this->dbh->errorInfo(), true));
-	
-		$add_session->bindParam(":session",$session);
-		$add_session->bindParam(":run_id", $this->run_id);
-		$add_session->bindParam(":user_id", $this->user_id);
-	
-		$add_session->execute() or die(print_r($add_session->errorInfo(), true));
-		
-#		$add_session->closeCursor();
-		if($add_session->rowCount()===1)
-		{
-			$this->session = $session;
-			$this->load();
-			return true;
-		}
-		return false;
 	}
 	private function load()
 	{
@@ -69,8 +35,10 @@ class RunSession
 			`survey_run_sessions`.position, 
 			`survey_runs`.name AS run_name
 			  FROM  `survey_run_sessions`
-			LEFT JOIN `survey_runs`
+		
+		LEFT JOIN `survey_runs`
 		ON `survey_runs`.id = `survey_run_sessions`.run_id 
+		
 		WHERE 
 		run_id = :run_id AND
 		session = :session
@@ -108,9 +76,45 @@ class RunSession
 	
 				$success = $last_access->execute() or die(print_r($last_access->errorInfo(), true));
 			endif;
-			
+			return true;
 		endif;
+		return false;
 	}
+	public function create($session = NULL)
+	{
+		if($session !== NULL)
+		{
+			if(strlen($session)!=64)
+			{
+				alert("<strong>Error.</strong> Session tokens need to be exactly 64 characters long.",'alert-danger');
+				return false;
+			}
+		}
+		else
+		{
+			$session = bin2hex(openssl_random_pseudo_bytes(32));
+		}
+		
+		$session_q = "INSERT IGNORE INTO  `survey_run_sessions`
+		SET run_id = :run_id,
+		session = :session,
+		user_id = :user_id,
+		created = NOW()
+		";
+		$add_session = $this->dbh->prepare($session_q) or die(print_r($this->dbh->errorInfo(), true));
+	
+		$add_session->bindParam(":session",$session);
+		$add_session->bindParam(":run_id", $this->run_id);
+		$add_session->bindParam(":user_id", $this->user_id);
+	
+		$add_session->execute() or die(print_r($add_session->errorInfo(), true));
+		
+		pr($add_session->rowCount());
+
+		$this->session = $session;
+		return $this->load();
+	}
+
 	
 	public function getUnit()
 	{
