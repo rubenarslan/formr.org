@@ -263,6 +263,7 @@ class Survey extends RunUnit {
 		{
 			$name = $item['name'];
 			$this->unanswered_batch[$name] = $item_factory->make($item);
+//			pr($this->unanswered_batch[$name]);
 			$showif = $this->unanswered_batch[$name]->showif;
 			if($showif !== null AND $showif !== '' AND $showif !== "TRUE" AND trim($showif) !== '')
 			{
