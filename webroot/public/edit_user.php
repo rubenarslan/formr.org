@@ -27,7 +27,7 @@ require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/public_nav.php";
 
 ?>
-<div class="col-md-3 col-md-offset-1 well">
+<div class="col-lg-4 col-md-6 col-sm-7 col-md-offset-1 well">
 <h2>Edit settings</h2>
 <form class="form-horizontal form-horizontal-small-left" id="edit_user" name="edit_user" method="post" action="edit_user.php">
 	<div class="form-group small-left">
