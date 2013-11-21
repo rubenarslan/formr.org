@@ -6,13 +6,14 @@ header ('Content-type: text/html; charset=utf-8');
 <head> 
         <title><?php echo isset($title) ? $title : 'formr'; ?></title>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 
 	<?php 
 	if(ONLINE):
 	?>
 		<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css" rel="stylesheet">
 		<link href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css" rel="stylesheet">
-		<link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/select2/3.4.5/select2-bootstrap.css">
+		<link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/select2/3.4.5/select2.css">
 		
 	<?php
 	else:
