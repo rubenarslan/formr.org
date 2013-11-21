@@ -44,8 +44,11 @@ subset(big5, select = extra1:extra10)
 )
 - extra_norm_mean ) / extra_norm_sd
 
+z = rnorm(1000)
+
 library(ggplot2)
-ggplot() + 
+
+qplot(z, geom = "blank") +
 stat_function(fun=dnorm, aes(x = z)) + 
 geom_vline(xintercept=big5$extraversion, colour="blue") +
 xlab("Extraversion") +

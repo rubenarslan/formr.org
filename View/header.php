@@ -38,7 +38,16 @@ header ('Content-type: text/html; charset=utf-8');
 			<script src="<?=WEBROOT?>assets/bower_components/webshim/demos/js-webshim/minified/polyfiller.js"></script>
 <?php //			<script src="//cdn.jsdelivr.net/webshim/1.11.3/polyfiller.js"></script>
 ?>			<script type="text/javascript" src="//cdn.jsdelivr.net/select2/3.4.5/select2.min.js"></script>
-			
+			<script>
+			  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+			  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+			  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+			  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+			  ga('create', 'UA-45924096-1', 'formr.org');
+			  ga('send', 'pageview');
+
+			</script>
 		<?php
 		else:
 		?>
