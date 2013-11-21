@@ -425,15 +425,16 @@ class Item_range extends Item_number
 		$this->input_attributes['max'] = 100;
 		$this->lower_text = current($this->choices);
 		$this->upper_text = next($this->choices);
+	
+		$this->classes_input[] = "pull-left";
 		
-			
 		parent::setMoreOptions();
 	}
 	protected function render_input() 
 	{
-		return (isset($this->choices[1]) ? '<label>'. $this->choices[1] . ' </label> ': '') . 		
+		return (isset($this->choices[1]) ? '<label class="pull-left pad-right">'. $this->choices[1] . ' </label> ': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
-			(isset($this->choices[2]) ? ' <label>'. $this->choices[2] . ' </label>': '') ;
+			(isset($this->choices[2]) ? ' <label class="pull-left pad-left">'. $this->choices[2] . ' </label>': '') ;
 	}
 }
 
@@ -451,15 +452,17 @@ class Item_range_ticks extends Item_number
 		$this->input_attributes['list'] = 'dlist'.$this->id;
 		$this->input_attributes['data-range'] = "{'animate': true}";
 		$this->classes_input[] = "range-list";
+		$this->classes_input[] = "pull-left";
+		
 		$this->classes_wrapper[] = 'range_ticks_output';
 		
 		parent::setMoreOptions();
 	}
 	protected function render_input() 
 	{
-		$ret = (isset($this->choices[1]) ? '<label>'. $this->choices[1] . ' </label> ': '') . 		
+		$ret = (isset($this->choices[1]) ? '<label class="pull-left pad-right">'. $this->choices[1] . ' </label> ': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
-			(isset($this->choices[2]) ? ' <label>'. $this->choices[2] . ' </label>': '') ;
+			(isset($this->choices[2]) ? ' <label class="pull-left pad-left">'. $this->choices[2] . ' </label>': '') ;
 		$ret .= '<output id="output'.$this->id.'" class="output"></output>';
 		$ret .= '<datalist id="dlist'.$this->id.'">
         <select>';
