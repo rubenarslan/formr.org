@@ -89,6 +89,36 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 	</div>
 </div>
 
+<div class="row">
+	<div class="col-lg-7 col-md-8">
+		<h2><i class="fa fa-question-circle"></i> Help</h2>
+		<ul class="nav nav-tabs">
+		  <li><a href="#sample_survey_sheet" data-toggle="tab">Survey spreadsheet</a></li>
+		  <li><a href="#sample_choices_sheet" data-toggle="tab">Choices spreadsheet</a></li>
+		  <li class="active"><a href="#available_items" data-toggle="tab">Item types</a></li>
+		</ul>
+	
+		<div class="tab-content">
+			<div class="tab-pane fade" id="sample_survey_sheet">
+				<?php
+				require INCLUDE_ROOT.'View/sample_survey_sheet.php';	
+				?>
+			</div>
+			<div class="tab-pane fade" id="sample_choices_sheet">
+				<?php
+				require INCLUDE_ROOT.'View/sample_choices_sheet.php';	
+				?>
+			</div>
+			<div class="tab-pane fade in active" id="available_items">
+				<?php
+				require INCLUDE_ROOT.'View/item_types.php';	
+				?>
+
+			</div>
+		</div>
+	</div>
+</div>
+
 
 <?
 

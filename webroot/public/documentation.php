@@ -39,192 +39,21 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 					?>
 			</div>
 			<div class="tab-pane fade" id="sample_survey_sheet">
-				<table class='table table-striped'>
-					<thead>
-						<tr>
-							<th>
-								type
-							</th>
-							<th>
-								name
-							</th>
-							<th>
-								label
-							</th>
-							<th>
-								optional
-							</th>
-							<th>
-								showif
-							</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								text
-							</td>
-							<td>
-								name
-							</td>
-							<td>
-								Please enter your name
-							</td>
-							<td>
-								*
-							</td>
-							<td>
-							</td>
-						</tr>
-						
-						<tr>
-							<td>
-								number 1,130,1
-							</td>
-							<td>
-								age
-							</td>
-							<td>
-								How old are you?
-							</td>
-							<td>
-							</td>
-							<td>
-							</td>
-						</tr>
-
-						<tr>
-							<td>
-								mc agreement
-							</td>
-							<td>
-								emotional_stability1R
-							</td>
-							<td>
-								I worry a lot.
-							</td>
-							<td>
-							</td>
-							<td>age >= 18
-							</td>
-						</tr>
-
-						<tr>
-							<td>
-								mc agreement
-							</td>
-							<td>
-								emotional_stability2R
-							</td>
-							<td>
-								I easily get nervous and unsure of myself.
-							</td>
-							<td>
-							</td>
-							<td>
-								age >= 18
-							</td>
-						</tr>
-						<tr>
-							<td>
-								mc agreement
-							</td>
-							<td>
-								emotional_stability3
-							</td>
-							<td>
-								I am relaxed and not easily stressed.
-							</td>
-							<td>
-							</td>
-							<td>
-								age >= 18
-							</td>
-						</tr>
-					</tbody>
-				</table>
-				
+				<?php
+				require INCLUDE_ROOT.'View/sample_survey_sheet.php';	
+				?>
 			</div>
 			<div class="tab-pane fade" id="sample_choices_sheet">
-				<table class='table table-striped'>
-					<thead>
-						<tr>
-							<th>
-								list name
-							</th>
-							<th>
-								name
-							</th>
-							<th>
-								label
-							</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								agreement
-							</td>
-							<td>
-								1
-							</td>
-							<td>
-								disagree completely
-							</td>
-						</tr>
-						<tr>
-							<td>
-								agreement
-							</td>
-							<td>
-								2
-							</td>
-							<td>
-								rather disagree
-							</td>
-						</tr>
-						<tr>
-							<td>
-								agreement
-							</td>
-							<td>
-								3
-							</td>
-							<td>
-								neither agree nor disagree
-							</td>
-						</tr>
-						<tr>
-							<td>
-								agreement
-							</td>
-							<td>
-								4
-							</td>
-							<td>
-								rather agree
-							</td>
-						</tr>
-						<tr>
-							<td>
-								agreement
-							</td>
-							<td>
-								5
-							</td>
-							<td>
-								agree completely
-							</td>
-						</tr>
-					</tbody>
-					</table>
-				</div>
-				<div class="tab-pane fade" id="available_items">
-					<?php
-					require INCLUDE_ROOT.'View/item_types.php';	
-					?>
+				<?php
+				require INCLUDE_ROOT.'View/sample_choices_sheet.php';	
+				?>
+			</div>
+			<div class="tab-pane fade" id="available_items">
+				<?php
+				require INCLUDE_ROOT.'View/item_types.php';	
+				?>
 
-				</div>
+			</div>
 		</div>
 	</div>
 </div>
