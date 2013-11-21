@@ -109,7 +109,6 @@ class RunSession
 	
 		$add_session->execute() or die(print_r($add_session->errorInfo(), true));
 		
-		pr($add_session->rowCount());
 
 		$this->session = $session;
 		return $this->load();
