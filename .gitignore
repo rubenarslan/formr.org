@@ -3,3 +3,4 @@ config/*
 vendor/*
 *.*~
 .DS_Store
+~*
