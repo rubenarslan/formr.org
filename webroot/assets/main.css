@@ -690,3 +690,11 @@ dl.dl-wider dd
     margin-left:220px;
     margin-bottom:7px;
 }
+.pad-right
+{
+    padding-right:7px;
+}
+.pad-left
+{
+    padding-left:7px;
+}
