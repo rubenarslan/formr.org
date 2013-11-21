@@ -230,7 +230,11 @@ $resultCount = $study->getResultCount();
 <div class="row">
 	<nav class="col-lg-2 col-md-2 col-sm-3">
 		<ul class="fa-ul  fa-ul-more-padding">
-
+			<li>
+				<a href="<?=WEBROOT?><?php echo $run->name; ?>">
+					<i class="fa-li fa fa-play"></i> <?php echo _("Test run"); ?></a>
+			</li>
+			
 			<li <?=endsWith($_SERVER['PHP_SELF'],'run/index.php')?' class="active"':''?>>
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><i class="fa-li fa fa-pencil"></i> <?php echo _("Edit Run"); ?></a>
 			</li>
