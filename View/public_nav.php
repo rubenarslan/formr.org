@@ -15,6 +15,10 @@
 		<?php echo _("studies"); ?>
 	</a></li>
 
+    <li <?=endsWith($_SERVER['PHP_SELF'],'team.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/team">
+		<i class="fa fa-coffee fa-fw"></i>
+		<?php echo _("team"); ?>
+	</a></li>
 
 <?php
 
