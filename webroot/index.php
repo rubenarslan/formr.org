@@ -36,11 +36,13 @@ require_once INCLUDE_ROOT."View/public_nav.php";
 					<i class="fa fa-li fa-rocket"></i> If you want to see formr's capabilities as an admin and make some studies yourself,
 					<ul class="fa-ul">
 						<li><i class="fa fa-li fa-envelope"></i> 
-							you can <a title="Just send us an email. You'll get a test account, if you're human or feline or cetacean." href="mailto:ruben.arslan@that-big-googly-eyed-email-provider.com?subject=<?=rawurlencode("formr private beta");?>&amp;body=<?=rawurlencode("Hi!
+							you can <a title="Just send us an email. You'll get a test account, if you're human or feline or cetacean." class="schmail" href="mailto:IMNOTSENDINGSPAMTOruben.arslan@that-big-googly-eyed-email-provider.com?subject=<?=rawurlencode("formr private beta");?>&amp;body=<?=rawurlencode("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above.
+
+Hi!
 I'd like an admin account on formr. 
-I have registered with the email address I'm sending this request from already. 
+I already have registered with the email address from which I'm sending this request. 
 I'm affiliated with institution xxxx.
-I didn't forget to change your recipient email address, thus I'm not a spambot.");?>">request an admin account</a> or 
+");?>">request an admin account</a> or 
 						</li>
 						<li><i class="fa fa-li fa-github-alt"></i> 
 							you can <a href="https://github.com/rubenarslan/formr" title="If you don't know what a Github repository is yet, this is probably not the option for you, but for your local techie type. ">check out the Github repo</a>.
