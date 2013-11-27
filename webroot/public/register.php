@@ -13,7 +13,7 @@ if(!empty($_POST)) {
 		$user->register($_POST['email'],$_POST['password'])
 	)
 	{
-		alert('<strong>Success!</strong> You were registered and logged in!','success');
+		alert('<strong>Success!</strong> You were registered and logged in!','alert-success');
 		redirect_to('index');
 	}
 	else {
