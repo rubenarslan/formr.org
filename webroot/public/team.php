@@ -17,7 +17,7 @@ require_once INCLUDE_ROOT."View/public_nav.php";
 			The current incarnation of the survey framework draws on prior work by Linus Neumann, prior funding by Jaap J. A. Denissen, ideas, testing, and feedback by Sarah Lennartz and Isabelle Habedank.
 		</p>
 		<p>
-			formr is open source software and draws on a lot of other free software, see the <a href="https://github.com/rubenarslan/formr">Github repository</a> for some due credit. 
+			formr is open source software and uses a lot of other free software, see the <a href="https://github.com/rubenarslan/formr">Github repository</a> for some due credit. Most importantly, formr uses <a href="http://opencpu.org">OpenCPU</a> as its R backend.
 		</p>
 
 	</div>

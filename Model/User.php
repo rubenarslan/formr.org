@@ -70,14 +70,46 @@ class User
 			$hash = password_hash($password, PASSWORD_DEFAULT);
 
 			if($hash):
+				$token = bin2hex(openssl_random_pseudo_bytes(32));
+				$token_hash = password_hash($token, PASSWORD_DEFAULT);
+				
 				$add = $this->dbh->prepare('INSERT INTO `survey_users` SET 
 						email = :email,
 						password = :password,
-						user_code = :user_code');
+						user_code = :user_code,
+						email_verification_hash = :token_hash,
+						email_verified = 0');
 				$add->bindParam(':email',$email);
 				$add->bindParam(':password',$hash);
+				$add->bindParam(':token_hash',$token_hash);
 				$add->bindParam(':user_code',$this->user_code);
 				$add->execute() or die('probl');
+			
+				$verify_link = WEBROOT."public/verify_email/?email=".rawurlencode($email)."&verification_token=".$token;
+				
+				global $site;
+				$mail = $site->makeAdminMailer();
+				$mail->AddAddress($email);
+				$mail->Subject = 'formr: confirm your email address';
+				$mail->Body = "Dear user,
+
+you, or someone else created an account on ".WEBROOT.".
+For some studies, you will need a verified email address.
+To verify your address, please go to this link:
+".$verify_link."
+
+If you did not sign up, please notify us and we will 
+suspend the account.
+
+Best regards,
+
+formr robots";
+		
+				if(!$mail->Send()):
+					alert($mail->ErrorInfo,'alert-danger');
+				else:
+					alert("You were sent an email to verify your address.",'alert-info');
+				endif;
 			
 				return $this->login($email,$password);
 			else:
@@ -125,6 +157,55 @@ class User
 		$this->errors[]=_("Die Login Daten sind nicht korrekt");
 		return false;
 	}
+	public function forgot_password($email)
+	{
+		$exists = $this->dbh->prepare("SELECT email FROM `survey_users` WHERE email = :email LIMIT 1");
+		$exists->bindParam(':email',$email);
+		$exists->execute() or die('db');
+		if($user = $exists->rowCount() === 0):
+			alert("This email address is not registered here.","alert-error");
+			return false;
+		else:
+			$token = bin2hex(openssl_random_pseudo_bytes(32));
+			$update_token = $this->dbh->prepare("UPDATE `survey_users` SET `reset_token_hash` = :reset_token_hash,
+			`reset_token_expiry` = NOW() + INTERVAL 2 DAY 
+			 WHERE email = :email LIMIT 1");
+			
+			$hash = password_hash($token, PASSWORD_DEFAULT);
+			$update_token->bindParam(':reset_token_hash',$hash);
+			$update_token->bindParam(':email',$email);
+			$update_token->execute() or die('db');
+			
+			$reset_link = WEBROOT."public/reset_password?email=".rawurlencode($email)."&reset_token=".$token;
+
+			global $site;
+			$mail = $site->makeAdminMailer();
+			$mail->AddAddress($email);
+			$mail->Subject = 'formr: forgot password';
+			$mail->Body = "Dear user,
+
+you, or someone else used the forgotten password box on ".WEBROOT."
+to create a link for you to reset your password. 
+If that was you, you can go to this link (within two days)
+to choose a new password:
+".$reset_link."
+
+If that wasn't you, please simply do not react.
+
+Best regards,
+
+formr robots";
+		
+			if(!$mail->Send()):
+				alert($mail->ErrorInfo,'alert-danger');
+			else:
+				alert("You were sent a password reset link.",'alert-info');
+				redirect_to("public/forgot_password");
+			endif;
+			
+		endif;
+		
+	}
 	function logout() 
 	{
 		$this->logged_in = false;
@@ -149,7 +230,53 @@ class User
 		endif;
 		return false;
 	}
-
+	public function reset_password($email, $token, $new_password)
+	{
+		$proper = $this->dbh->prepare("SELECT reset_token_hash FROM `survey_users` WHERE email = :email LIMIT 1");
+		$proper->bindParam(':email',$email);
+		$proper->execute() or die('db');
+		if($user = $proper->fetch()):
+			if(password_verify($token, $user['reset_token_hash'])):
+				
+				$update = $this->dbh->prepare('UPDATE `survey_users` SET 
+						password = :password, reset_token_hash = NULL, reset_token_expiry = NULL
+				WHERE email = :email LIMIT 1');
+		        $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+				$update->bindParam(':email',$email);
+				$update->bindParam(':password',$password_hash);
+				$update->execute() or die('probl');
+				alert("Your password was successfully changed. You can now use it to login.","alert-success");
+				return true;
+			endif;
+		endif;
+		
+		alert("Incorrect token or email address.","alert-error");
+		return false;
+	}
+	public function verify_email($email, $token)
+	{
+		$proper = $this->dbh->prepare("SELECT email_verification_hash FROM `survey_users` WHERE email = :email LIMIT 1");
+		$proper->bindParam(':email',$email);
+		$proper->execute() or die('db');
+		if($user = $proper->fetch()):
+			if(password_verify($token, $user['email_verification_hash'])):
+				
+				$update = $this->dbh->prepare('UPDATE `survey_users` SET 
+						email_verification_hash = NULL, email_verified = 1
+				WHERE email = :email LIMIT 1');
+				$update->bindParam(':email',$email);
+				$update->execute() or die('probl');
+				alert("Your email was successfully verified!","alert-success");
+				return true;
+			else:
+				alert("Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.","alert-error");
+				return false;
+			endif;
+		endif;
+		
+		alert("Incorrect token or email address.","alert-error");
+		return false;
+	}
 	public function getStudies() 
 	{
 		if($this->isAdmin()):
