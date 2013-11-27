@@ -6,7 +6,7 @@ if($user->loggedIn()) {
 	redirect_to("index");
 }
 
-if(!empty($_POST)) {
+if(!empty($_POST) AND isset($_POST['email'])  AND isset($_POST['password'])) {
 	if( 
 		$user->login($_POST['email'],$_POST['password'])
 	)
@@ -52,6 +52,9 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 				<div class="controls">
 					<input type="submit" value="<?php echo _("login"); ?>"  class="btn btn-default btn-info">
 				</div>
+			</div>
+			<div class="form-group small-left">
+				<a href="<?=WEBROOT?>public/forgot_password">I forgot my password</a>
 			</div>
 		</form>
 	</div>
