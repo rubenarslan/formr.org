@@ -70,14 +70,46 @@ class User
 			$hash = password_hash($password, PASSWORD_DEFAULT);
 
 			if($hash):
+				$token = bin2hex(openssl_random_pseudo_bytes(32));
+				$token_hash = password_hash($token, PASSWORD_DEFAULT);
+				
 				$add = $this->dbh->prepare('INSERT INTO `survey_users` SET 
 						email = :email,
 						password = :password,
-						user_code = :user_code');
+						user_code = :user_code,
+						email_verification_hash = :token_hash,
+						email_verified = 0');
 				$add->bindParam(':email',$email);
 				$add->bindParam(':password',$hash);
+				$add->bindParam(':token_hash',$token_hash);
 				$add->bindParam(':user_code',$this->user_code);
 				$add->execute() or die('probl');
+			
+				$verify_link = WEBROOT."public/verify_email/?email=".rawurlencode($email)."&verification_token=".$token;
+				
+				global $site;
+				$mail = $site->makeAdminMailer();
+				$mail->AddAddress($email);
+				$mail->Subject = 'formr: confirm your email address';
+				$mail->Body = "Dear user,
+
+you, or someone else created an account on ".WEBROOT.".
+For some studies, you will need a verified email address.
+To verify your address, please go to this link:
+".$verify_link."
+
+If you did not sign up, please notify us and we will 
+suspend the account.
+
+Best regards,
+
+formr robots";
+		
+				if(!$mail->Send()):
+					alert($mail->ErrorInfo,'alert-danger');
+				else:
+					alert("You were sent an email to verify your address.",'alert-info');
+				endif;
 			
 				return $this->login($email,$password);
 			else:
@@ -215,6 +247,30 @@ formr robots";
 				$update->execute() or die('probl');
 				alert("Your password was successfully changed. You can now use it to login.","alert-success");
 				return true;
+			endif;
+		endif;
+		
+		alert("Incorrect token or email address.","alert-error");
+		return false;
+	}
+	public function verify_email($email, $token)
+	{
+		$proper = $this->dbh->prepare("SELECT email_verification_hash FROM `survey_users` WHERE email = :email LIMIT 1");
+		$proper->bindParam(':email',$email);
+		$proper->execute() or die('db');
+		if($user = $proper->fetch()):
+			if(password_verify($token, $user['email_verification_hash'])):
+				
+				$update = $this->dbh->prepare('UPDATE `survey_users` SET 
+						email_verification_hash = NULL, email_verified = 1
+				WHERE email = :email LIMIT 1');
+				$update->bindParam(':email',$email);
+				$update->execute() or die('probl');
+				alert("Your email was successfully verified!","alert-success");
+				return true;
+			else:
+				alert("Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.","alert-error");
+				return false;
 			endif;
 		endif;
 		
