@@ -42,6 +42,32 @@ class Site
 			$this->last_outside_referrer = $ref;
 		}
 	}
+	public function makeAdminMailer()
+	{
+		global $settings;
+		$mail = new PHPMailer();
+		$mail->SetLanguage("de","/");
+	
+		$mail->IsSMTP();  // telling the class to use SMTP
+		$mail->Mailer = "smtp";
+		$mail->Host = $settings['email']['host'];
+		$mail->Port = $settings['email']['port'];
+		if($settings['email']['tls'])
+			$mail->SMTPSecure = 'tls';
+		else
+			$mail->SMTPSecure = 'ssl';
+		$mail->SMTPAuth = true; // turn on SMTP authentication
+		$mail->Username = $settings['email']['username']; // SMTP username
+		$mail->Password = $settings['email']['password']; // SMTP password
+	
+		$mail->From = $settings['email']['from'];
+		$mail->FromName = $settings['email']['from_name'];
+		$mail->AddReplyTo($settings['email']['from'],$settings['email']['from_name']);
+		$mail->CharSet = "utf-8";
+		$mail->WordWrap = 65;                                 // set word wrap to 50 characters
+
+		return $mail;
+	}
 }
 
 session_start();

@@ -125,6 +125,55 @@ class User
 		$this->errors[]=_("Die Login Daten sind nicht korrekt");
 		return false;
 	}
+	public function forgot_password($email)
+	{
+		$exists = $this->dbh->prepare("SELECT email FROM `survey_users` WHERE email = :email LIMIT 1");
+		$exists->bindParam(':email',$email);
+		$exists->execute() or die('db');
+		if($user = $exists->rowCount() === 0):
+			alert("This email address is not registered here.","alert-error");
+			return false;
+		else:
+			$token = bin2hex(openssl_random_pseudo_bytes(32));
+			$update_token = $this->dbh->prepare("UPDATE `survey_users` SET `reset_token_hash` = :reset_token_hash,
+			`reset_token_expiry` = NOW() + INTERVAL 2 DAY 
+			 WHERE email = :email LIMIT 1");
+			
+			$hash = password_hash($token, PASSWORD_DEFAULT);
+			$update_token->bindParam(':reset_token_hash',$hash);
+			$update_token->bindParam(':email',$email);
+			$update_token->execute() or die('db');
+			
+			$reset_link = WEBROOT."public/reset_password?email=".rawurlencode($email)."&reset_token=".$token;
+
+			global $site;
+			$mail = $site->makeAdminMailer();
+			$mail->AddAddress($email);
+			$mail->Subject = 'formr: forgot password';
+			$mail->Body = "Dear user,
+
+you, or someone else used the forgotten password box on ".WEBROOT."
+to create a link for you to reset your password. 
+If that was you, you can go to this link (within two days)
+to choose a new password:
+".$reset_link."
+
+If that wasn't you, please simply do not react.
+
+Best regards,
+
+formr robots";
+		
+			if(!$mail->Send()):
+				alert($mail->ErrorInfo,'alert-danger');
+			else:
+				alert("You were sent a password reset link.",'alert-info');
+				redirect_to("public/forgot_password");
+			endif;
+			
+		endif;
+		
+	}
 	function logout() 
 	{
 		$this->logged_in = false;
@@ -149,7 +198,29 @@ class User
 		endif;
 		return false;
 	}
-
+	public function reset_password($email, $token, $new_password)
+	{
+		$proper = $this->dbh->prepare("SELECT reset_token_hash FROM `survey_users` WHERE email = :email LIMIT 1");
+		$proper->bindParam(':email',$email);
+		$proper->execute() or die('db');
+		if($user = $proper->fetch()):
+			if(password_verify($token, $user['reset_token_hash'])):
+				
+				$update = $this->dbh->prepare('UPDATE `survey_users` SET 
+						password = :password, reset_token_hash = NULL, reset_token_expiry = NULL
+				WHERE email = :email LIMIT 1');
+		        $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+				$update->bindParam(':email',$email);
+				$update->bindParam(':password',$password_hash);
+				$update->execute() or die('probl');
+				alert("Your password was successfully changed. You can now use it to login.","alert-success");
+				return true;
+			endif;
+		endif;
+		
+		alert("Incorrect token or email address.","alert-error");
+		return false;
+	}
 	public function getStudies() 
 	{
 		if($this->isAdmin()):

@@ -23,7 +23,7 @@ elseif(!empty($_POST))
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
-<div class="col-md-3 col-md-offset-1 well">
+<div class="col-md-6 col-lg-5 col-sm-7 col-md-offset-1 well">
 	<h2>edit email account</h2>
 <form class="form-horizontal form-horizontal-small-left"  id="edit_email_account" name="edit_email_account" method="post" action="<?=WEBROOT?>admin/mail/edit?account_id=<?=h($_GET['account_id'])?>">
 	<div class="form-group">
