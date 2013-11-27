@@ -67,7 +67,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 						does diary studies with automated reminders
 					</li>
 					<li>
-						generates really pretty, dynamic feedback including ggplot2 plots
+						generates pretty feedback "live", including ggplot2 plots
 					</li>
 					<li>
 						looks nice on your phone
@@ -82,7 +82,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 						longitudinal studies
 					</li>
 					<li>
-						easily share, swap and combine surveys as they're simply spreadsheets with items on them
+						easily share, swap and combine surveys (they're simply spreadsheets with survey questions)
 					</li>
 					<li>
 						works on all somewhat modern devices and degrades gracefully where it doesn't
@@ -100,16 +100,13 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 						work offline on mobile phones and other devices with intermittent internet access (in the meantime <a href="https://enketo.org/">enketo</a> is pretty good and free too, but geared towards humanitarian aid)
 					</li>
 					<li>
-						looks nice on your phone
-					</li>
-					<li>
 						easily share, swap and combine runs (in the future higher-level components like filters or diaries can be added with one click)
 					</li>
 					<li>
 						a better API (some basics are there)
 					</li>
 					<li>
-						file, image, video, sound uploads for users and admins (admins can simply use existing services in the meantime, everything can already be embedded)
+						file, image, video, sound uploads for users and admins (admins can simply use existing services in the meantime, everything can be embedded from elsewhere)
 					</li>
 					<li>
 						offline condition evaluation - at the moment you need to submit a form to see conditional items, there is no Javascript evaluation
