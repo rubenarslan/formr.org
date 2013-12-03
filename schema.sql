@@ -16,7 +16,7 @@ CREATE  TABLE IF NOT EXISTS `survey_users` (
   `password` VARCHAR(255) NULL ,
   `email_verification_hash` VARCHAR(255) BINARY NULL ,
   `email_verified` TINYINT(1) NULL DEFAULT 0 ,
-  `reset_token_Hash` VARCHAR(255) BINARY NULL ,
+  `reset_token_hash` VARCHAR(255) BINARY NULL ,
   `reset_token_expiry` DATETIME NULL ,
   PRIMARY KEY (`id`) ,
   UNIQUE INDEX `user_code_UNIQUE` (`user_code` ASC) )
