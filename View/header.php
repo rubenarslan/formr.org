@@ -68,14 +68,9 @@ header ('Content-type: text/html; charset=utf-8');
 	<?php if(isset($survey_view)): ?>
 	<div class="container">
 	<?php else: ?>
-	<div class="container pull-left">
+	<div class="container">
 	<?php endif; ?>
 		
-		<div class="row">
-			<header class="col-lg-12 study-header">
-		
-			</header>
-		</div>
     <!--[if lt IE 7]>
         <p class="alert chromeframe">
 	 <button type="button" class="close" data-dismiss="alert">&times;</button>

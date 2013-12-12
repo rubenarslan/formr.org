@@ -91,9 +91,15 @@ function flatStringifyGeo(geo) {
 }
 
 $(document).ready(function() {
-    var schmail = $(".schmail").attr('href');
-    schmail = schmail.replace("IMNOTSENDINGSPAMTO","").replace("that-big-googly-eyed-email-provider","gmail").replace(encodeURIComponent("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above."),"").replace(encodeURIComponent("\r\n\r\n"),"");
-    $(".schmail").attr('href',schmail);
+    if($(".schmail").length == 1)
+    {
+        var schmail = $(".schmail").attr('href');
+        schmail = schmail.replace("IMNOTSENDINGSPAMTO","").
+        replace("that-big-googly-eyed-email-provider","gmail").
+        replace(encodeURIComponent("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above."),"").
+        replace(encodeURIComponent("\r\n\r\n"),"");
+        $(".schmail").attr('href',schmail);
+    }
     
 	$('.geolocator').click(function()
 	{

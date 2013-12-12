@@ -17,8 +17,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 			use the power of R to generate pretty feedback and complex designs
 		</p>
 		<p>
-			Most documentation is inside formr – you can just get going and it will be waiting for you where you need it.<br>
-			Here, we have collated some information on our modules to give you a preview of formr's feature set.
+			Most documentation is inside formr – you can just get going and it will be waiting for you where you need it.
 		</p>
 	</div>
 </div>

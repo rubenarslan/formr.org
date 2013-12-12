@@ -11,7 +11,7 @@ require_once INCLUDE_ROOT."View/public_nav.php";
 	<div class="col-lg-8 col-lg-offset-1 col-sm-9 col-sm-offset-1 col-xs-12">
 		<div class="jumbotron">
 			<h1>
-				formr <small>survey framework</small>
+				<span class="formr-brand">formr <small>survey framework</small></span>
 			</h1>
 			<p>
 					chain simple forms &amp; surveys into long runs, use the power of <abbr title="A statistics environment. It makes nice plots!">R</abbr> to generate pretty feedback and complex designs
