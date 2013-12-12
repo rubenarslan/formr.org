@@ -12,7 +12,7 @@ elseif(isset($_FILES['uploaded']))
 	unset($_GET['study_name']);
 	require_once INCLUDE_ROOT . "Model/Study.php";
 	$filename = basename( $_FILES['uploaded']['name']);
-	$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,20})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/","$1",$filename); // take only the first part, before the dash if present or the dot if present
+	$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,20})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/","$1",$filename); // take only the first part, before the dash if present or the dot
 
 	$study = new Study($fdb, null, array(
 		'name' => $survey_name,
@@ -24,6 +24,11 @@ elseif(isset($_FILES['uploaded']))
 		{
 			alert('<strong>Success!</strong> New survey created!','alert-success');
 			redirect_to("admin/survey/{$study->name}/show_item_table");
+		}
+		else
+		{
+			alert('<strong>Bugger!</strong> A new survey was created, but there were problems with your item table. Please fix them and try again.','alert-danger');
+			redirect_to("admin/survey/{$study->name}/upload_items");
 		}
 	}
 }
@@ -48,7 +53,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 				<i class="fa-li fa fa-exclamation-triangle"></i> The survey shorthand will be derived from the filename. 
 				<ul class="fa-ul">
 					<li><i class="fa-li fa fa-check"></i> If your spreadsheet was named <code>survey_1-v2.xlsx</code> it would be <code>survey_1</code>.</li> 
-					<li><i class="fa-li fa fa-check"></i> The name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore (at least 2, at most 20).<li>
+					<li><i class="fa-li fa fa-check"></i> The name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 20 characters long. You can't use spaces, periods or dashes in the name.<li>
 					<li><i class="fa-li fa fa-check"></i> It needs to start with a letter.</li>
 					<li><i class="fa-li fa fa-check"></i> As shown above, you can add version numbers, they will be ignored.</li>
 				</ul>
