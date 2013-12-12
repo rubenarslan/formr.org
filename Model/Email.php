@@ -169,7 +169,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 					<input class="form-control col-md-5" type="text" placeholder="survey_users$email" name="recipient_field" value="'.$this->recipient_field.'">
 				</label></p>
 		<p><label>Body: <br>
-			<textarea placeholder="You can use Markdown" name="body" rows="4" cols="60" class="form-control col-md-5">'.$this->body.'</textarea></label><br>
+			<textarea placeholder="You can use Markdown" name="body" rows="10" cols="60" class="form-control col-md-5">'.$this->body.'</textarea></label><br>
 			<code>{{login_link}}</code> will be replaced by a personalised link to this run, <code>{{login_code}}</code> will be replaced with this user\'s session code.</p>';
 //		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
 		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Email">Save.</a>
