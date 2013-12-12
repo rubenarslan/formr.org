@@ -1,21 +1,4 @@
 /*
-todo: test layout on mobile phones, various screen sizes
-*/
-header.study-header {
-/*	background-image:url(../../img/Study_header_big.png);
-	height:208px;
-	width:940px;
-	background-repeat:no-repeat;
-	background-position:0px 5px;
-*/
-    height:40px;
-    margin-top:10px;
-}
-header.study-header::before {
-    content:"formr";
-    font-size:2em;
-}
-/*
 @media (max-width: 970px) { 
 	header.study-header, .maincontent, .container, .navbar-static-top .container, .navbar-fixed-top .container, .navbar-fixed-bottom .container
 	{
@@ -29,6 +12,45 @@ header.study-header::before {
 	}
 }
 */
+.formr-brand, h1, h2, h3, h4
+{
+/*    font-family:"Malayalam MN";
+*/    font-family:"FPL Neu","Palatino";
+}
+.navbar-formr 
+{
+/*    background-color:#F7FAFF;
+ */   border:0;
+}
+.navbar-formr .navbar-nav li.active > a
+{
+    background-color:white;
+}
+.well
+{
+/*    background-color:#F7FAFF;
+    border-color:#F3F9FF;
+*/}
+.jumbotron
+{
+ background-color:#F3F9FF;
+}
+kbd {
+    background: none repeat scroll 0 0 #FAFAFA;
+    border-color: #CCCCCC #CCCCCC #FFFFFF;
+    border-radius: 4px;
+    border-style: solid solid none;
+    border-width: 1px 1px medium;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2), 0 0 0 1px #FFFFFF inset;
+    color: #444444;
+    display: inline-block;
+    font-family: 'Helvetica Neue',Helvetica,Arial,Sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    padding: 2px 6px;
+    white-space: nowrap;
+}
 
 button.btn.btn-checked,
 label.btn.btn-checked,
