@@ -1,6 +1,17 @@
 <h3>Sample survey sheet</h3>
 
-You can <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.xlsx">download a survey Excel file</a> to get started.
+<p>You can <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.xlsx">download a survey Excel file</a> to get started.</p>
+<p>Some helpful tips:</p>
+<ul>
+	<li>
+		You may want to make linebreaks in Excel (you need them to use headlines or lists in your item labels). In Microsoft Excel on Macs, you need to press <kbd>Command ⌘</kbd>+<kbd>Option ⌥</kbd>+<kbd>Enter ↩</kbd>, on Windows it is <kbd>ctrl</kbd>+<kbd>Enter ↩</kbd>
+	</li>
+	<li>
+		You can start a new paragraph using a blank line, for a simple linebreak to appear you need to end the line with two spaces.
+	</li>
+	<li>
+		Make text <strong>bold</strong> through  <code>__bold__</code>, make it <em>italic</em> through <code>*italic*</code>.
+	</li>
 <table class='table table-striped'>
 	<thead>
 		<tr>
