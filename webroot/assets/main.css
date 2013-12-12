@@ -17,6 +17,10 @@
 /*    font-family:"Malayalam MN";
 */    font-family:"FPL Neu","Palatino";
 }
+label
+{
+    font-weight:normal;
+}
 .navbar-formr 
 {
 /*    background-color:#F7FAFF;
