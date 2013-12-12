@@ -205,8 +205,8 @@ class Item extends HTML_element
 		if(!$this->hasChoices AND $this->choice_list!=null):
 			$this->val_errors[] = "'{$this->name}' You defined choices for this item, even though this type doesn't have choices.";
 		endif;
-		if( !preg_match('/^[A-Za-z0-9_]+$/',$this->name) ): 
-			$this->val_errors[] = "'{$this->name}' The variable name can only contain a-Z, 0-9 and the underscore (_).";
+		if( !preg_match('/^[A-Za-z][A-Za-z0-9_]+$/',$this->name) ): 
+			$this->val_errors[] = "'{$this->name}' The variable name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. It needs to start with a letter. You cannot use spaces, dots, or dashes.";
 		endif;
 		
 		if( trim($this->type) == "" ):
@@ -385,7 +385,7 @@ class Item_number extends Item
 			
 		if(isset($this->input_attributes['step']) AND 
 		(string)(int)$this->input_attributes['step'] != $this->input_attributes['step'])
-			$this->mysql_field = str_replace($this->mysql_field,array("TINYINT","SMALLINT","MEDIUMINT"), "FLOAT");
+			$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT"), "FLOAT",$this->mysql_field);
 		
 	}
 	public function validateInput($reply)
