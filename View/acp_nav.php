@@ -1,23 +1,20 @@
-<div class="row">
-	<div class="col-sm-12">
-		<h2><em>formr</em> admin<?php if(isset($run)): ?>
-		/run/<?php echo $run->name;?>
+<nav class="main_admin_nav navbar navbar-default navbar-formr" role="navigation">
+    <!-- Brand and toggle get grouped for better mobile display -->
+     <div class="navbar-header">
+       <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#public-nav-collapse" title="toggle navigaton">
+         <span class="sr-only">Toggle navigation</span>
+         <i class="fa fa-bars"></i>
+       </button>
+       <a class="navbar-brand" href="<?=WEBROOT?>" title="Go to the public area"><i class="fa fa-circle fa-fw"></i> formr</a>
+   	
+     </div>
 
-		<?php elseif(isset($study)): ?>
-		/survey/<?php echo $study->name;?>
-
-		<?php endif;?>
-		</h2>
-	</div>
-</div>
-<div class="row">
-	<div class="col-md-12">
-		<nav class="main_admin_nav">
-			<ul class="nav nav-tabs">
+	  <div class="collapse navbar-collapse" id="public-nav-collapse">
+		<ul class="nav navbar-nav">
 			    <li <?php
 				echo endsWith($_SERVER['PHP_SELF'],'admin/index.php')?' class="active"':''?>><a href="<?=WEBROOT?>admin/">
 				<i class="fa fa-eye-slash fa-fw"></i>
-				admin control panel
+				admin
 			</a></li>   
 	
 		
@@ -129,16 +126,11 @@
 					</ul>
 				</li>
 
-				<li <?=endsWith($_SERVER['PHP_SELF'],'webroot/index.php')?' class="active"':''?>>
-					<a href="<?=WEBROOT?>"><i class="fa fa-eye fa-fw"></i> public area</a>
-				</li>
-
 				<li><a href="<?=WEBROOT?>public/logout"><i class="fa fa-sign-out fa-fw"></i> log out</a></li>
 			</ul>
 
-		</nav>
-	</div>
-</div>
+		</div>
+</nav>
 
 <?php if(isset($study)): ?>
 
