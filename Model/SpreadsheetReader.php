@@ -312,29 +312,8 @@ class SpreadsheetReader
 					$col = $columns[$column_number];
 					$val = hardTrueFalse($cell->getValue());
 				
-					if($col == 'name'):
-						if(trim($val)==''):
-							$choices_messages[] = "Row $row_number: choice name empty. Row skipped.";
-							if(isset($data[$row_number])):
-								unset($data[$row_number]);
-							endif;
-							continue 2; # skip this row
-								
-						elseif(!preg_match("/^[a-zA-Z0-9_]{1,20}$/",$val)):
-							$this->errors[] = __("The choice name '%s' is invalid. It has to be between 1 and 20 characters. It may not contain anything other than a-Z_0-9.",$val);
-						endif;
-					
-						if($lastListName != $data[$row_number]['list_name']):
-							$choice_names = array();
-						endif;
-					
-						if(($previous = array_search(mb_strtolower($val),$choice_names)) === false):
-							$choice_names[$row_number] = mb_strtolower($val);	
-						else:
-							$this->errors[] = "Row $row_number: choice name '$val' already appeared, last in row $previous.";
-						endif;
-						
-					elseif($col == 'list_name'):
+
+					if($col == 'list_name'):
 						
 						if(trim($val)==''):
 							
@@ -356,11 +335,30 @@ class SpreadsheetReader
 						
 						if(!in_array($val, $this->existing_choice_lists)):
 							$this->existing_choice_lists[] = $val;
+							$choice_names[ $val ] = array(); // of course choices only should be unique in a list
 						elseif(in_array($val, $this->existing_choice_lists) AND $val != $lastListName):
 							$this->errors[] = __("We found a discontinuous list: the same list name ('<em>%s</em>') was used before row %s, but other lists came in between.",h($val),$row_number);
 						endif;
 						
 						$lastListName = $val;
+						
+					elseif($col == 'name'):
+						if(trim($val)==''):
+							$choices_messages[] = "Row $row_number: choice name empty. Row skipped.";
+							if(isset($data[$row_number])):
+								unset($data[$row_number]);
+							endif;
+							continue 2; # skip this row
+							
+						elseif(!preg_match("/^[a-zA-Z0-9_]{1,20}$/",$val)):
+							$this->errors[] = __("The choice name '%s' is invalid. It has to be between 1 and 20 characters. It may not contain anything other than a-Z_0-9.",$val);
+						endif;
+				
+						if(($previous = array_search(mb_strtolower($val),$choice_names[ $data[$row_number]['list_name'] ])) === false):
+							$choice_names[ $data[$row_number]['list_name'] ][$row_number] = mb_strtolower($val);	
+						else:
+							$this->errors[] = "Row $row_number: choice name '$val' already appeared in the list of choices, last in row $previous.";
+						endif;
 						
 					elseif($col == 'label'):
 						if(!trim($val))

@@ -68,6 +68,9 @@ RunUnit.prototype.changes = function (e)
 RunUnit.prototype.test = function(e)
 {
 	e.preventDefault();
+    var old_text = this.test_button.text();
+	this.test_button.attr('disabled',true).html(old_text + ' <i class="fa fa-spinner fa-spin"></i>');
+    
 	var $unit = this.block;
 	$.ajax(
 		{
@@ -85,6 +88,9 @@ RunUnit.prototype.test = function(e)
 			    $modal.remove();
 			});
             $(".opencpu_accordion").collapse({toggle:true});
+            
+        	this.test_button.html(old_text).removeAttr('disabled');
+            
 //            $modal.find('#opencpu_accordion').on('hidden', function (event) {
 //              event.stopPropagation()
 //            });
@@ -96,6 +102,10 @@ RunUnit.prototype.test = function(e)
 RunUnit.prototype.save = function(e)
 {
 	e.preventDefault();
+    var old_text = this.save_button.text();
+	this.save_button.attr('disabled',true).html(old_text + ' <i class="fa fa-spinner fa-spin"></i>');
+    
+    
 	var $unit = this.block;
 	$.ajax(
 		{
@@ -117,6 +127,8 @@ RunUnit.prototype.save = function(e)
 				$('#edit_run').prepend( $alert);
 				$alert[0].scrollIntoView(false);
 			}
+//        	this.save_button.html(old_text).removeAttr('disabled');
+            
 		},this))
 		.fail(ajaxErrorHandling);
 	return false;
