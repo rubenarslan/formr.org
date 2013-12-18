@@ -214,9 +214,9 @@ $resultCount = $study->getResultCount();
 
 
 <?php if(isset($run)): ?>
-<div class="row">
+<div class="row run_header">
 	<div class="col-lg-12">
-		<h3><i class="fa fa-rocket"></i> <?php echo $run->name;?></h3>
+		<h1><i class="fa fa-rocket"></i> <?php echo $run->name;?></h1>
 	</div>
 </div>	
 <div class="row">
@@ -228,7 +228,7 @@ $resultCount = $study->getResultCount();
 			</li>
 			
 			<li <?=endsWith($_SERVER['PHP_SELF'],'run/index.php')?' class="active"':''?>>
-				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><i class="fa-li fa fa-pencil"></i> <?php echo _("Edit Run"); ?></a>
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><i class="fa-li fa fa-pencil"></i> <?php echo _("Edit run"); ?></a>
 			</li>
 
 			<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_overview.php')?' class="active"':''?>>
