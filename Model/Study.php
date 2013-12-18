@@ -419,6 +419,11 @@ class Study extends RunUnit
 		foreach($old_items AS $row)
 		{
 			$item = $item_factory->make($row);
+			if(!$item)
+			{
+				alert("While trying to recreate old results table: Item type ".h($row['type']) . " not found.", 'alert-danger');
+				return false;
+			}
 			$old_result_columns[] = $item->getResultField();
 		}
 		

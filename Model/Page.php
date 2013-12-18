@@ -22,7 +22,7 @@ class Page extends RunUnit {
 		parent::__construct($fdb,$session,$unit);
 
 		if($this->id):
-			$data = $this->dbh->prepare("SELECT * FROM `survey_pages` WHERE id = :id LIMIT 1");
+			$data = $this->dbh->prepare("SELECT title,body,body_parsed FROM `survey_pages` WHERE id = :id LIMIT 1");
 			$data->bindParam(":id",$this->id);
 			$data->execute() or die(print_r($data->errorInfo(), true));
 			$vars = $data->fetch(PDO::FETCH_ASSOC);

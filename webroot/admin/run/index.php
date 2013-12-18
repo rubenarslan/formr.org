@@ -37,14 +37,18 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 				<h4>
 					Run modules:
 				</h4>
+				<div class="row">
+					<div class="col-md-3">
+						<a class="reorder_units btn btn-lg hastooltip" title="Save new positions" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_reorder">
+							<i class="fa fa-exchange fa-rotate-90 fa-larger"></i>
+							Reorder
+						</a>
+					</div>
+				</div>
+				
 				</div>
 			</div>
 			<div class="row" id="run_dialog_choices">
-				<div class="col-md-2">
-					<a class="reorder_units btn btn-lg hastooltip" title="Save new positions" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_reorder">
-						<i class="fa fa-exchange fa-rotate-90 fa-larger"></i>
-					</a>
-				</div>
 			  	<div class="form-group span7">
 					<div class="btn-group">
 						<a class="add_survey add_run_unit btn btn-lg hastooltip" title="Add survey" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Survey">
@@ -64,6 +68,9 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 						</a>
 						<a class="add_skipforward add_run_unit btn btn-lg hastooltip" title="Add a jump (skip forward)" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=SkipForward">
 							<i class="fa fa-forward fa-2x"></i>
+						</a>
+						<a class="add_shuffle add_run_unit btn btn-lg hastooltip" title="Add shuffle (randomise participants)" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Shuffle">
+							<i class="fa fa-random fa-2x"></i>
 						</a>
 						<a class="add_page add_run_unit btn btn-lg hastooltip" title="Add a stop point" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Page">
 							<i class="fa fa-stop fa-2x"></i>
