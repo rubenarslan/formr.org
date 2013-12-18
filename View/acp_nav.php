@@ -237,6 +237,18 @@ $resultCount = $study->getResultCount();
 			<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_detail.php')?' class="active"':''?>>
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="fa-li fa fa-search"></i> <?php echo _("User Detail"); ?></a>
 			</li>
+			
+			<li <?=endsWith($_SERVER['PHP_SELF'],'run/random_groups.php')?' class="active"':''?>>
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/random_groups"><i class="fa-li fa fa-random"></i> <?php echo _("Random groups"); ?></a>
+			</li>
+			
+			<li class="nav-header"><i class="fa-li fa fa-bolt"></i> Danger Zone</li>
+			
+			<li <?=endsWith($_SERVER['PHP_SELF'],'admin/run/delete_run.php')?' class="active"':''?>>
+				<a class="hastooltip" title="Go to deletion dialog, does not delete yet" href="<?=WEBROOT?>admin/run/<?=$run->name?>/delete_run">
+					<i class="fa-li fa fa-trash-o"></i> Delete run</a>
+			</li>
+
 		</ul>
 	</nav>
 <?php endif; ?>
