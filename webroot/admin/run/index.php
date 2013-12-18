@@ -81,7 +81,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 		</div>
 
 
-<div class="col-md-5 pull-right well">
+<div class="col-md-5 pull-right well transparent_well">
 <?php
 require INCLUDE_ROOT.'View/run_module_explanations.php';	
 ?>
