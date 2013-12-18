@@ -317,6 +317,8 @@ function join_builder($fdb,$q)
 	$results[] = 'users';
 	$results[] = 'survey_users';
 	$results[] = 'survey_email_log';
+	$results[] = 'shuffle';
+
 
 	$tables = array();
 	foreach($results AS $result):
@@ -351,7 +353,7 @@ left join `$table`
 function makeUnit($dbh, $session, $unit)
 {
 	$type = $unit['type'];
-	if(!in_array($type, array('Survey', 'Study','Pause','Email','External','Page','SkipBackward','SkipForward','End')))
+	if(!in_array($type, array('Survey', 'Study','Pause','Email','External','Page','SkipBackward','SkipForward','End','Shuffle')))
 		die('The unit type is not allowed!');
 	
 	require_once INCLUDE_ROOT . "Model/$type.php";
