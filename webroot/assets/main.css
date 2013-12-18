@@ -30,11 +30,35 @@ label
 {
     background-color:white;
 }
-.well
+
+.run_header > div
 {
-/*    background-color:#F7FAFF;
-    border-color:#F3F9FF;
-*/}
+    height:330px;
+    background-image: linear-gradient(rgba(255,255,255,0),rgba(255,255,255,1)), url("img/boombox_innards.jpg");
+    background-repeat: no-repeat;
+    background-position: 15px 0;
+}
+.run_header
+{
+    margin-bottom:-150px;
+    margin-top:-20px;
+}
+.run_header div h1
+{
+    padding-top:110px;
+    margin-top:0;
+    text-shadow: 4px 4px 2px rgba(150, 150, 150, 1);
+}
+.transparent_well
+{
+    background-color:rgba(255,255,255,0.2);
+    border:0;
+    box-shadow:none;
+}
+.transparent_well .panel-heading, .well .panel-default
+{
+    background-color:rgba(255,255,255,0.2);
+}
 .jumbotron
 {
  background-color:#F3F9FF;
@@ -547,7 +571,7 @@ div.all-alerts + div
 }
 
 .btn {
-    background-color: transparent;
+    background-color: white;
     background-image: none;
     border: #000 solid 1px;
     color: #000;
