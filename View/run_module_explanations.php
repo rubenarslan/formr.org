@@ -309,6 +309,29 @@ yields<br>
 			</div>
 		</div>
 	</div>
+	
+	
+<div class="panel panel-default">
+	<div class="panel-heading">
+		<a class="accordion-toggle" data-toggle="collapse" data-parent="#explanation_accordion" href="#shuffle">
+			<i class="fa-fw fa fa-random"></i> Shuffle <br><small>randomise participants</small>
+		</a>
+	</div>
+	<div id="shuffle" class="panel-collapse collapse shuffle">
+				<div class="panel-body">
+			  <p>
+	 			 <i class="fa fa-random fa-huge fa-fw pull-right"></i>
+				 This is a very simple component. You simply choose how many groups you want to randomly assign your participants to. We start counting at one (1), so if you have two groups you will check <code>shuffle$group == 1</code> and <code>shuffle$group == 2</code>. You can read a person's 
+			group using <code>shuffle$group</code>. If you generate random groups at more than one
+		point in a run, you might have to use the last one <code>tail(shuffle$group,1)</code> or check the unit id <code>shuffle$unit_id</code>, but
+		usually you needn't do this.
+			  </p> 
+			  <p>
+				  If you combine a Shuffle with Skip Forward, you could send one group to an entirely different arm/path of the study. But maybe you just want to randomly switch on a specific item in a survey - then you would use a "showif" in the survey item table containing e.g. <code>shuffle$group == 2</code>. The randomisation always has to occur before you try to use the number, but the user won't even notice it unless you tell him somehow (for example by switching on a note telling them which group they've been assigned to).
+			</p>
+			</div>
+		</div>
+	</div>
 
 </div> <!-- closes panel group-->
 
