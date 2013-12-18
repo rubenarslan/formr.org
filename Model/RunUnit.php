@@ -258,6 +258,7 @@ class RunUnit {
 		$tables[] = 'survey_users';
 		$tables[] = 'survey_unit_sessions';
 		$tables[] = 'survey_email_log';
+		$tables[] = 'shuffle';
 		
 		foreach($tables AS $result):
 			if(preg_match("/\b$result\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
