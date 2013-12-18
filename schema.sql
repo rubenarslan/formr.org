@@ -509,6 +509,50 @@ CREATE  TABLE IF NOT EXISTS `survey_reports` (
 ENGINE = InnoDB;
 
 
+-- -----------------------------------------------------
+-- Table `survey_shuffles`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_shuffles` ;
+
+CREATE  TABLE IF NOT EXISTS `survey_shuffles` (
+  `id` INT UNSIGNED NOT NULL ,
+  `groups` SMALLINT UNSIGNED NULL ,
+  INDEX `fk_survey_branch_survey_units1_idx` (`id` ASC) ,
+  PRIMARY KEY (`id`) ,
+  CONSTRAINT `fk_shuffle_unit`
+    FOREIGN KEY (`id` )
+    REFERENCES `survey_units` (`id` )
+    ON DELETE CASCADE
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `shuffle`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `shuffle` ;
+
+CREATE  TABLE IF NOT EXISTS `shuffle` (
+  `session_id` INT UNSIGNED NOT NULL ,
+  `unit_id` INT UNSIGNED NOT NULL ,
+  `created` DATETIME NULL DEFAULT NULL ,
+  `group` SMALLINT UNSIGNED NULL ,
+  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
+  PRIMARY KEY (`session_id`) ,
+  INDEX `fk_survey_reports_survey_units1_idx` (`unit_id` ASC) ,
+  CONSTRAINT `fk_unit_sessions_shuffle`
+    FOREIGN KEY (`session_id` )
+    REFERENCES `survey_unit_sessions` (`id` )
+    ON DELETE CASCADE
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_unit_shuffle`
+    FOREIGN KEY (`unit_id` )
+    REFERENCES `survey_units` (`id` )
+    ON DELETE CASCADE
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
 
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
