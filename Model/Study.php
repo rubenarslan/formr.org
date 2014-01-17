@@ -2,7 +2,7 @@
 require_once INCLUDE_ROOT . "Model/DB.php";
 require_once INCLUDE_ROOT . "Model/RunUnit.php";
 require_once INCLUDE_ROOT."Model/Item.php";
-require INCLUDE_ROOT."vendor/erusev/parsedown/Parsedown.php";
+use \Michelf\Markdown AS Markdown;
 
 // this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
 class Study extends RunUnit
@@ -257,9 +257,7 @@ class Study extends RunUnit
 					continue;
 				else:
 					if(!$this->knittingNeeded($item->label)): // if the parsed label is constant
-						$markdown = Parsedown::instance()
-    ->set_breaks_enabled(true)
-    ->parse($item->label); // transform upon insertion into db instead of at runtime
+						$markdown = Markdown::defaultTransform($item->label); // transform upon insertion into db instead of at runtime
 
 						if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
 							$item->label_parsed = $matches[1];
@@ -350,9 +348,7 @@ class Study extends RunUnit
 		foreach($this->SPR->choices AS $choice)
 		{
 			if(!$this->knittingNeeded( $choice['label'] )): // if the parsed label is constant
-				$markdown = Parsedown::instance()
-    ->set_breaks_enabled(true)
-    ->parse($choice['label']); // transform upon insertion into db instead of at runtime
+				$markdown = Markdown::defaultTransform($choice['label']); // transform upon insertion into db instead of at runtime
 
 				if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
 					$choice['label_parsed'] = $matches[1];

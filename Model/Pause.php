@@ -1,7 +1,7 @@
 <?php
 require_once INCLUDE_ROOT."Model/RunUnit.php";
 #require_once INCLUDE_ROOT. 'vendor/michelf/php-markdown/Michelf/Markdown.php';
-require INCLUDE_ROOT."vendor/erusev/parsedown/Parsedown.php";
+use \Michelf\Markdown AS Markdown;
 
 class Pause extends RunUnit {
 	
@@ -61,9 +61,7 @@ class Pause extends RunUnit {
 			$this->relative_to = $options['relative_to'];
 		}
 		
-		$this->body_parsed = Parsedown::instance()
-    ->set_breaks_enabled(true)
-    ->parse($this->body); // transform upon insertion into db instead of at runtime
+		$this->body_parsed = Markdown::defaultTransform($this->body); // transform upon insertion into db instead of at runtime
 		
 		$create = $this->dbh->prepare("INSERT INTO `survey_pauses` (`id`, `body`, `body_parsed`, `wait_until_time`, `wait_until_date` , `wait_minutes`, `relative_to`)
 			VALUES (:id, :body, :body_parsed, :wait_until_time, :wait_until_date, :wait_minutes, :relative_to)
