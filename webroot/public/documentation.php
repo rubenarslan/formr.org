@@ -66,7 +66,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 						does diary studies with automated reminders
 					</li>
 					<li>
-						generates pretty feedback "live", including ggplot2 plots
+						generates pretty feedback "live", including ggplot2 &amp; lattice plots
 					</li>
 					<li>
 						looks nice on your phone
@@ -85,6 +85,9 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 					</li>
 					<li>
 						works on all somewhat modern devices and degrades gracefully where it doesn't
+					</li>
+					<li>
+						formats text using Github-flavoured Markdown (a.k.a. the easiest and least bothersome way to mark up text)
 					</li>
 					
 				</ul>
@@ -108,7 +111,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 						file, image, video, sound uploads for users and admins (admins can simply use existing services in the meantime, everything can be embedded from elsewhere)
 					</li>
 					<li>
-						offline condition evaluation - at the moment you need to submit a form to see conditional items, there is no Javascript evaluation
+						offline condition evaluation - at the moment you need to submit a form to see conditional items, there is no Javascript evaluation (again, enketo is more self-contained and does a better job at doing these things offline)
 					</li>
 					<li>
 						social networks, round robin studies - at the moment they are a bit bothersome to implement, but possible. There is a dedicated module already which might also get released as open source if there's time. 
@@ -119,10 +122,10 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 				</h4>
 				<ul class="fa-ul-more-padding">
 					<li>
-						use as app on Apple and Android devices, thus be able to use more OS functionality
+						use as app on Apple and Android devices to be able to use more OS functionality
 					</li>
 					<li>
-						supporting Pushover's API (or something similar) to send push messages to a phone. You can already do this in an R call
+						supporting Pushover's API (or something similar) to send push messages to a phone. You could already do this easily in an R call, so no hurry here.
 					</li>
 					<li>
 						using <a href="https://github.com/ajaxorg/ace">Ace</a> for editing Markdown/Knitr in runs.
