@@ -270,13 +270,13 @@ class Item extends HTML_element
 	{
 		$inputgroup = isset($this->prepend) OR isset($this->append);
 		return $this->render_label() . '
-					<div class="'. implode(" ",$this->classes_controls) .'">'.
+					<div class="'. implode(" ",$this->classes_controls) .'"><span class="controls-inner">'.
 		($inputgroup ? '<div class="input-group">' : '').
 					$this->render_prepended().
 					$this->render_input().
 					$this->render_appended().
 		($inputgroup ? '</div>' : '').
-					'</div>
+					'</span></div>
 		';
 	}
 	public function render() 
@@ -424,17 +424,16 @@ class Item_range extends Item_number
 		$this->input_attributes['min'] = 0;
 		$this->input_attributes['max'] = 100;
 		$this->lower_text = current($this->choices);
-		$this->upper_text = next($this->choices);
-	
-		$this->classes_input[] = "pull-left";
-		
+		$this->upper_text = next($this->choices);		
 		parent::setMoreOptions();
+		
+		$this->classes_input = array_diff($this->classes_input, array('form-control'));
 	}
 	protected function render_input() 
 	{
-		return (isset($this->choices[1]) ? '<label class="pull-left pad-right">'. $this->choices[1] . ' </label> ': '') . 		
+		return (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' </label> ': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
-			(isset($this->choices[2]) ? ' <label class="pull-left pad-left">'. $this->choices[2] . ' </label>': '') ;
+			(isset($this->choices[2]) ? ' <label class="pad-left">'. $this->choices[2] . ' </label>': '') ;
 	}
 }
 
@@ -452,26 +451,27 @@ class Item_range_ticks extends Item_number
 		$this->input_attributes['list'] = 'dlist'.$this->id;
 		$this->input_attributes['data-range'] = "{'animate': true}";
 		$this->classes_input[] = "range-list";
-		$this->classes_input[] = "pull-left";
 		
 		$this->classes_wrapper[] = 'range_ticks_output';
 		
 		parent::setMoreOptions();
+		$this->classes_input = array_diff($this->classes_input, array('form-control'));
 	}
 	protected function render_input() 
 	{
-		$ret = (isset($this->choices[1]) ? '<label class="pull-left pad-right">'. $this->choices[1] . ' </label> ': '') . 		
-			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
-			(isset($this->choices[2]) ? ' <label class="pull-left pad-left">'. $this->choices[2] . ' </label>': '') ;
-		$ret .= '<output id="output'.$this->id.'" class="output"></output>';
+		$ret = (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' </label> ': '') . 		
+			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>';
+		$ret .= '<output id="output'.$this->id.'" class=""></output>';
 		$ret .= '<datalist id="dlist'.$this->id.'">
-        <select>';
+        <select class="">';
 		for($i = $this->input_attributes['min']; $i <= $this->input_attributes['max']; $i = $i + $this->input_attributes['step']):
         	$ret .= '<option value="'.$i.'">'.$i.'</option>';
 		endfor;
 			$ret .= '
 	        </select>
 	    </datalist>';
+		$ret .= (isset($this->choices[2]) ? ' <label class="pad-left">'. $this->choices[2] . ' </label>': '') ;
+		
 		return $ret;
 	}
 }
@@ -517,6 +517,11 @@ class Item_url extends Item_text
 		endif;
 		return $reply_valid;
 	}
+	protected function setMoreOptions() 
+	{
+		$this->classes_input[] = 'form-control';		
+	}
+	
 }
 
 class Item_tel extends Item_text 
@@ -525,16 +530,24 @@ class Item_tel extends Item_text
 	protected $input_attributes = array('type' => 'tel');
 	
 	protected $prepend = 'fa-phone';
-	protected $mysql_field = 'VARCHAR(100) DEFAULT NULL';	
+	protected $mysql_field = 'VARCHAR(100) DEFAULT NULL';
+	protected function setMoreOptions() 
+	{
+		$this->classes_input[] = 'form-control';		
+	}
+	
 }
 
 class Item_cc extends Item_text 
 {
 	public $type = 'cc';
 	protected $input_attributes = array('type' => 'cc');
-	
 	protected $prepend = 'fa-credit-card';
 	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';	
+	protected function setMoreOptions() 
+	{
+		$this->classes_input[] = 'form-control';		
+	}
 }
 
 class Item_color extends Item 
@@ -543,7 +556,11 @@ class Item_color extends Item
 	protected $input_attributes = array('type' => 'color');
 	
 	protected $prepend = 'fa-tint';
-	protected $mysql_field = 'CHAR(7) DEFAULT NULL';	
+	protected $mysql_field = 'CHAR(7) DEFAULT NULL';
+	protected function setMoreOptions() 
+	{
+		$this->classes_input[] = 'form-control';		
+	}
 	public function validateInput($reply)
 	{
 		if($this->optional AND trim($reply)==''):
@@ -1185,7 +1202,7 @@ class Item_geopoint extends Item {
 	protected function render_prepended()
 	{
 		return '
-		<div class="col-xs-3">
+		<div class="col-xs-12">
 			<input type="hidden" name="'.$this->name.'" value="">
 			<div class="input-group">';
 	}
