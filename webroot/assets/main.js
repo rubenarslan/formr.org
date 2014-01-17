@@ -9,10 +9,32 @@ $.webshims.setOptions('geolocation', {
 });
 $.webshims.setOptions('forms-ext', {
 		types: 'range date time number month color',
+        customDatalist: true,
+ 	   replaceUI: {range: true}
 });
 $.webshims.polyfill('es5 forms forms-ext geolocation json-storage');
 $.webshims.activeLang('de');
 
+$(document).ready(function() {
+	if($('input[type=range]').css('display')!='none')
+		$('input[type=range]').css('width',0);
+    $('.range_ticks_output').each(function () {
+		var thumb = $('.ws-range-thumb', this);
+        var output = $('output', this);
+		
+        var changeSlider = function () {
+            output.text($(this).prop('value') || '');
+			output.css('left', thumb.css('left'));
+        };
+
+        $('.ws-range-rail', this).append(output);
+		output.addClass('ws-range-tick-output');
+
+        $('input[type="range"]', this)
+            .on('input', changeSlider)
+            .each(changeSlider);
+    });
+});
 $.webshims.ready('form-validators', function(){
 	//$.webshims.addCustomValidityRule(name of constraint, test-function, default error message); 
 	var groupTimer = {};
