@@ -54,7 +54,11 @@ class User
 	}
 	public function isAdmin()
 	{
-		return $this->admin;
+		return $this->admin >= 1;
+	}
+	public function isSuperAdmin()
+	{
+		return $this->admin >= 10;
 	}
 	public function created($object)
 	{
