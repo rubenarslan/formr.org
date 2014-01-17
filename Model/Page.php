@@ -1,7 +1,7 @@
 <?php
 require_once INCLUDE_ROOT."Model/RunUnit.php";
 #require_once INCLUDE_ROOT. 'vendor/michelf/php-markdown/Michelf/Markdown.php';
-use \Michelf\Markdown AS Markdown;
+require INCLUDE_ROOT."vendor/erusev/parsedown/Parsedown.php";
 
 class Page extends RunUnit {
 	public $errors = array();
@@ -60,7 +60,9 @@ class Page extends RunUnit {
 			$this->can_be_ended = 0;
 		}
 		
-		$this->body_parsed = Markdown::defaultTransform($this->body); // transform upon insertion into db instead of at runtime
+		$this->body_parsed = Parsedown::instance()
+    ->set_breaks_enabled(true)
+    ->parse($this->body); // transform upon insertion into db instead of at runtime
 		
 		$create = $this->dbh->prepare("INSERT INTO `survey_pages` (`id`, `body`, `body_parsed`, `title`, `end`)
 			VALUES (:id, :body, :body_parsed, :title, :end)

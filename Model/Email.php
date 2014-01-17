@@ -2,7 +2,7 @@
 // todo: should check email log so that it never sends more than three emails to the same user in a short amount of time.
 require_once INCLUDE_ROOT."Model/RunUnit.php";
 #require_once INCLUDE_ROOT. 'vendor/michelf/php-markdown/Markdown.php';
-use \Michelf\Markdown AS Markdown;
+require INCLUDE_ROOT."vendor/erusev/parsedown/Parsedown.php";
 
 class Email extends RunUnit {
 	public $errors = array();
@@ -60,7 +60,9 @@ class Email extends RunUnit {
 			$this->html = 1;
 		}
 
-		$this->body_parsed = Markdown::defaultTransform($this->body); // transform upon insertion into db instead of at runtime
+		$this->body_parsed = Parsedown::instance()
+    ->set_breaks_enabled(true)
+    ->parse($this->body); // transform upon insertion into db instead of at runtime
 		
 		$create = $this->dbh->prepare("
 		INSERT INTO `survey_emails` 
