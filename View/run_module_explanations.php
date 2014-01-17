@@ -13,15 +13,15 @@
 				  <p>
 	 	 			 <i class="fa fa-bar-chart-o fa-huge fa-fw pull-right"></i>
 		  
-					You can format your text in a simple way using <a href="http://daringfireball.net/projects/markdown/syntax" title="Go to this link for a more exhaustive guide">Markdown</a>. The philosophy is that you should simply write like you would in a plain-text email and Markdown turns it nice. Specifically:<br>
+					You can format your text in a simple way using <a href="http://daringfireball.net/projects/markdown/syntax" title="Go to this link for a more exhaustive guide">Github-flavoured Markdown</a> and <a href="https://support.rstudio.com/hc/en-us/articles/200486358-R-Markdown-Specification" title="Go to this link for a more exhaustive guide on the specific flavor of Markdown that we're using">Sundown</a>. The philosophy is that you should simply write like you would in a plain-text email and Markdown turns it nice. Specifically:<br>
 <pre>* list item 1
-* list item 2</pre> will turn into a nice list. 
+* list item 2</pre> will turn into a nice list. "Straight" quotes turn into “curly” quotes. <code>#</code> at the beginning of a line turns it into a large headline, <code>##</code> up to <code>######</code> turn it into smaller ones.
 					 <code>*<em>italics</em>* and __<strong>bold</strong>__</code> are also easy to do, as are 
 					 <code>[<a href="http://yihui.name/knitr/">links</a>](http://yihui.name/knitr/)</code>.
 		 		</p>
 					  <h5>Knitr</h5>
 		   		<p>
-					If you want to customise the text or generate custom feedback, including plots, you can use <a href="http://yihui.name/knitr/">Knitr</a>. You can freely mix Markdown and chunks of Knitr. Some examples:
+					If you want to customise the text or generate custom feedback, including plots, you can use <a href="http://yihui.name/knitr/">Knitr</a>. With Knitr you can freely mix Markdown and chunks of R. Some examples:
 				</p>
 				<ul class="fa-ul">
 					<li>
