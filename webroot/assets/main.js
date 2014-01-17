@@ -10,7 +10,7 @@ $.webshims.setOptions('geolocation', {
 $.webshims.setOptions('forms-ext', {
 		types: 'range date time number month color',
         customDatalist: true,
- 	   replaceUI: true
+ 	   replaceUI: {range: true}
 });
 $.webshims.polyfill('es5 forms forms-ext geolocation json-storage');
 $.webshims.activeLang('de');

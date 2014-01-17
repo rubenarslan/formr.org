@@ -427,7 +427,10 @@ class Item_range extends Item_number
 		$this->upper_text = next($this->choices);		
 		parent::setMoreOptions();
 		
-		$this->classes_input = array_diff($this->classes_input, array('form-control'));
+		$this->classes_input = array_diff(
+			$this->classes_input, 
+			array('form-control')
+		);
 	}
 	protected function render_input() 
 	{
