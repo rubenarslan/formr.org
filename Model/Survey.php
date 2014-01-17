@@ -2,7 +2,7 @@
 require_once INCLUDE_ROOT."Model/DB.php";
 require_once INCLUDE_ROOT."Model/Item.php";
 require_once INCLUDE_ROOT."Model/RunUnit.php";
-use \Michelf\Markdown AS Markdown;
+require INCLUDE_ROOT . "vendor/erusev/parsedown/Parsedown.php";
 
 class Survey extends RunUnit {
 	public $id = null;

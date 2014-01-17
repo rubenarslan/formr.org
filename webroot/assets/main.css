@@ -142,7 +142,10 @@ form.form-horizontal div.form-row:nth-child(odd) {
 	content:'*';
 }*/
 div.mc-table {
-  display:table;
+  display: table;
+}
+span.controls-inner {
+    display:inline-block;
 }
 form.form-horizontal div.form-row div.controls div.mc-table label {
   display:table-cell;
@@ -229,309 +232,41 @@ output.output {
     margin: 0 0 0 10px;
 }
 
+.form-group.form-row .form-control
+{
+    max-width:300px;
+}
+.form-group.form-row.range-list .form-control, .form-group.form-row.range .form-control
 
-/* CLASSES THAT COULD BE ADDED BY USER */
-
-
-.form-horizontal div.form-group.left100 .control-label {
-  width: 100px;
-  max-width: 100px;
+{
+    max-width:auto;
 }
-.form-horizontal div.form-group.left100 .controls {
-  	margin-left: 120px;
+.range_ticks_output .controls-inner
+{
+    min-height:50px;
 }
-
-.form-horizontal div.form-group.left200 .control-label {
-  width: 200px;
-  max-width: 200px;
-}
-.form-horizontal div.form-group.left200 .controls {
-  	margin-left: 220px;
-}
-
-.form-horizontal div.form-group.left300 .control-label {
-  width: 300px;
-  max-width: 300px;
-}
-.form-horizontal div.form-group.left300 .controls {
-  	margin-left: 320px;
-}
-
-.form-horizontal div.form-group.left400 .control-label {
-  width: 400px;
-  max-width: 400px;
-}
-.form-horizontal div.form-group.left400 .controls {
-  	margin-left: 420px;
+.ws-range-tick-output
+{
+	position:absolute;
+	top:25px;
+	width:18px;
+	height: 18px;
+    padding:1px 1px;
+    border-radius:4px;
+    text-align:center;
+    vertical-align:middle;
+	margin-left:-9px;
+	background-color: transparent;
+	font-size: 12px;
+    border:1px solid gray;
+    color:gray;
 }
 
-.form-horizontal div.form-group.left500 .control-label {
-  width: 500px;
-  max-width: 500px;
-}
-.form-horizontal div.form-group.left500 .controls {
-  	margin-left: 520px;
+.item-geopoint .input-group-addon, .input-group-btn 
+{
+    width:auto; /*fixes chrome display bug*/
 }
 
-.form-horizontal div.form-group.left600 .control-label {
-  width: 600px;
-  max-width: 600px;
-}
-.form-horizontal div.form-group.left600 .controls {
-  	margin-left: 620px;
-}
-
-.form-horizontal div.form-group.left700 .control-label {
-  max-width: 700px;
-}
-.form-horizontal div.form-group.left700 .controls {
-  	margin-left: 720px;
-}
-
-.form-horizontal div.form-group.left800 .control-label {
-  width: 800px;
-  max-width: 800px;
-}
-.form-horizontal div.form-group.left800 .controls {
-  	margin-left: 820px;
-}
-
-.form-horizontal div.form-group.left900 .control-label {
-  width: 900px;
-  max-width: 900px;
-}
-.form-horizontal div.form-group.left900 .controls {
-  	margin-left: 920px;
-}
-
-/* PADDING classes */
-.form-horizontal div.form-group.padding100 .control-label {
-  padding-left: 100px;
-}
-.form-horizontal div.form-group.padding100 .controls {
-  padding-left: 100px;
-}
-
-.form-horizontal div.form-group.padding200 .control-label {
-  padding-left: 200px;
-}
-.form-horizontal div.form-group.padding200 .controls {
-  padding-left: 200px;
-}
-
-
-.form-horizontal div.form-group.padding300 .control-label {
-  padding-left: 300px;
-}
-.form-horizontal div.form-group.padding300 .controls {
-  padding-left: 300px;
-}
-
-.form-horizontal div.form-group.padding400 .control-label {
-  padding-left: 400px;
-}
-.form-horizontal div.form-group.padding400 .controls {
-  padding-left: 400px;
-}
-
-
-.form-horizontal div.form-group.padding500 .control-label {
-  padding-left: 500px;
-}
-.form-horizontal div.form-group.padding500 .controls {
-  padding-left: 500px;
-}
-
-.form-horizontal div.form-group.padding600 .control-label {
-  padding-left: 600px;
-}
-.form-horizontal div.form-group.padding600 .controls {
-  padding-left: 600px;
-}
-
-.form-horizontal div.form-group.padding700 .control-label {
-  padding-left: 700px;
-}
-.form-horizontal div.form-group.padding700 .controls {
-  padding-left: 700px;
-}
-
-.form-horizontal div.form-group.padding800 .control-label {
-  padding-left: 800px;
-}
-.form-horizontal div.form-group.padding800 .controls {
-  padding-left: 800px;
-}
-
-
-.form-horizontal div.form-group.padding900 .control-label {
-  padding-left: 900px;
-}
-.form-horizontal div.form-group.padding900 .controls {
-  padding-left: 900px;
-}
-
-
-.form-horizontal div.form-group.right100 .controls {
-  max-width: 100px;
-}
-
-.form-horizontal div.form-group.right200 .controls {
-  max-width: 200px;
-}
-.form-horizontal div.form-group.right300 .controls {
-  max-width: 300px;
-}
-
-.form-horizontal div.form-group.right400 .controls {
-  max-width: 400px;
-}
-
-.form-horizontal div.form-group.right500 .controls {
-  max-width: 500px;
-}
-
-.form-horizontal div.form-group.right600 .controls {
-  max-width: 600px;
-}
-
-.form-horizontal div.form-group.right700 .controls {
-  max-width: 700px;
-}
-
-.form-horizontal div.form-group.right800 .controls {
-  max-width: 800px;
-}
-
-.form-horizontal div.form-group.right900 .controls {
-  max-width: 900px;
-}
-
-
-form.form-horizontal div.label-align-left .control-label {
-  text-align:left;
-  padding-left:5px;
-}
-form.form-horizontal div.answer-align-right .controls {
-  text-align:right;
-  padding-right:5px;
-}
-
-form.form-horizontal div.form-row.form-group.answer-below-label .control-label {
-  width:99%;
-}
-form.form-horizontal div.form-row.form-group.answer-below-label div.controls {
-  margin-left:5px;
-}
-
-form.form-horizontal div.form-row.form-group.mc-boxed div.controls label {
-  border-left:1px solid #EEE;
-  border-right:1px solid #EEE;
-  margin:0;
-}
-form.form-horizontal div.form-row.form-group.mc-boxed div.controls label:first-of-type {
-  border-left:0px;
-}
-form.form-horizontal div.form-row.form-group.mc-boxed div.controls label:last-of-type {
-  border-right:0px;
-}
-form.form-horizontal div.form-row.form-group.mc-boxed div.controls {
-  border-collapse:collapse;
-}
-
-
-form.form-horizontal div.form-row.item-mc_heading.form-group div.controls label {
-	text-align:center;
-	text-indent:0;
-}
-form.form-horizontal div.form-row.item-mc_heading.form-group div.controls label input {
-	display:none;
-}
-form.form-horizontal div.form-row.form-group.hide_label div.controls label {
-	text-align:center;
-	text-indent:0;
-	height:25px;
-	overflow:hidden;
-	line-height:0;
-	font-size:0px;
-	min-height:25px;
-}
-form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
-    visibility:visible;
-}
-form.form-horizontal div.form-row.form-group.rotate-label div.controls label {
-	-webkit-transform: rotate(-45deg);
-	-moz-transform: rotate(-45deg);   
-	-o-transform: rotate(-45deg);
-	transform: rotate(-45deg);
-}
-form.form-horizontal div.form-row.form-group.rotate-label45 div.controls label {
-	-webkit-transform: rotate(-45deg);
-	-moz-transform: rotate(-45deg);   
-	-o-transform: rotate(-45deg);
-	transform: rotate(-45deg);
-}
-form.form-horizontal div.form-row.form-group.rotate-label30 div.controls label {
-	-webkit-transform: rotate(-30deg);
-	-moz-transform: rotate(-30deg);   
-	-o-transform: rotate(-30deg);
-	transform: rotate(-30deg);
-}
-form.form-horizontal div.form-row.form-group.rotate-label90 div.controls label {
-	-webkit-transform: rotate(-90deg);
-	-moz-transform: rotate(-90deg);   
-	-o-transform: rotate(-90deg);
-	transform: rotate(-90deg);
-}
-
-form.form-horizontal div.form-row.form-group.mc-block div.controls label input {
-  display:block;
-}
-
-form.form-horizontal div.form-row.form-group.mc-vertical div.controls {
-  display:block;
-}
-form.form-horizontal div.form-row.form-group.mc-vertical div.controls label {
-  display:block;
-  padding-left:18px;
-  padding-right:5px;
-  padding-top:5px;
-  text-indent:-18px;
-}
-form.form-horizontal div.form-row.form-group.mc-equal-widths div.controls {
-/*  width:100%;*/
-  table-layout:fixed;
-}
-form.form-horizontal div.form-row.form-group.mc-equal-widths div.controls label {
-	width:2%;
-}
-form.form-horizontal div.form-row.form-group.mc-width50 div.controls label,
-form.form-horizontal div.form-row.form-group.mc-width50 div.controls button.btn {
-	width:50px;
-}
-form.form-horizontal div.form-row.form-group.mc-width70 div.controls label,
-form.form-horizontal div.form-row.form-group.mc-width70 div.controls button.btn {
-	width:70px;
-}
-form.form-horizontal div.form-row.form-group.mc-width80 div.controls label,
-form.form-horizontal div.form-row.form-group.mc-width80 div.controls button.btn {
-	width:80px;
-}
-form.form-horizontal div.form-row.form-group.mc-width100 div.controls label,
-form.form-horizontal div.form-row.form-group.mc-width100 div.controls button.btn {
-	width:100px;
-}
-form.form-horizontal div.form-row.form-group.mc-width150 div.controls label,
-form.form-horizontal div.form-row.form-group.mc-width150 div.controls button.btn {
-	width:150px;
-}
-form.form-horizontal div.form-row.form-group.mc-width200 div.controls label,
-form.form-horizontal div.form-row.form-group.mc-width200 div.controls button.btn {
-	width:200px;
-}
-form.form-horizontal div.form-row.form-group.hidden {
-	display:none;
-}
 
 
 .table tbody > tr.alternate > td
@@ -705,10 +440,7 @@ li.nav-header
     font-weight:bold;
 }
 
-.form-group.form-row .form-control
-{
-    max-width:300px;
-}
+
 
 .padding-below
 {
@@ -747,4 +479,461 @@ dl.dl-wider dd
 .pad-left
 {
     padding-left:7px;
+}
+
+
+
+/* CLASSES THAT COULD BE ADDED BY USER */
+
+/* answer_below_label */
+form.form-horizontal div.answer_below_label .control-label {
+  width:99%;
+  text-align:left;
+}
+form.form-horizontal div.answer_below_label .controls {
+  width:99%;
+  margin-left:5px;
+  clear: left;
+}
+
+
+.form-horizontal div.form-group.left100 .control-label {
+  width: 100px;
+  max-width: 100px;
+}
+.form-horizontal div.form-group.left100 .controls {
+  	margin-left: 120px;
+}
+
+.form-horizontal div.form-group.left200 .control-label {
+  width: 200px;
+  max-width: 200px;
+}
+.form-horizontal div.form-group.left200 .controls {
+  	margin-left: 220px;
+}
+
+.form-horizontal div.form-group.left300 .control-label {
+  width: 300px;
+  max-width: 300px;
+}
+.form-horizontal div.form-group.left300 .controls {
+  	margin-left: 320px;
+}
+
+.form-horizontal div.form-group.left400 .control-label {
+  width: 400px;
+  max-width: 400px;
+}
+.form-horizontal div.form-group.left400 .controls {
+  	margin-left: 420px;
+}
+
+.form-horizontal div.form-group.left500 .control-label {
+  width: 500px;
+  max-width: 500px;
+}
+.form-horizontal div.form-group.left500 .controls {
+  	margin-left: 520px;
+}
+
+.form-horizontal div.form-group.left600 .control-label {
+  width: 600px;
+  max-width: 600px;
+}
+.form-horizontal div.form-group.left600 .controls {
+  	margin-left: 620px;
+}
+
+.form-horizontal div.form-group.left700 .control-label {
+  max-width: 700px;
+}
+.form-horizontal div.form-group.left700 .controls {
+  	margin-left: 720px;
+}
+
+.form-horizontal div.form-group.left800 .control-label {
+  width: 800px;
+  max-width: 800px;
+}
+.form-horizontal div.form-group.left800 .controls {
+  	margin-left: 820px;
+}
+
+.form-horizontal div.form-group.left900 .control-label {
+  width: 900px;
+  max-width: 900px;
+}
+.form-horizontal div.form-group.left900 .controls {
+  	margin-left: 920px;
+}
+
+/* OFFSET classes */
+.form-horizontal div.form-group.right_offset0 .controls {
+  margin-left: 5px;
+}
+.form-horizontal div.form-group.right_offset100 .controls {
+  margin-left: 120px;
+}
+
+.form-horizontal div.form-group.right_offset200 .controls {
+  margin-left: 220px;
+}
+
+.form-horizontal div.form-group.right_offset300 .controls {
+  margin-left: 320px;
+}
+
+.form-horizontal div.form-group.right_offset400 .controls {
+  margin-left: 420px;
+}
+
+
+.form-horizontal div.form-group.right_offset500 .controls {
+  margin-left: 520px;
+}
+
+.form-horizontal div.form-group.right_offset600 .controls {
+  margin-left: 620px;
+}
+
+.form-horizontal div.form-group.right_offset700 .controls {
+  margin-left: 720px;
+}
+
+.form-horizontal div.form-group.right_offset800 .controls {
+  margin-left: 820px;
+}
+
+.form-horizontal div.form-group.right_offset900 .controls {
+  margin-left: 920px;
+}
+
+
+/* OFFSET classes */
+.form-horizontal div.form-group.left_offset0 .controls {
+  margin-left: 5px;
+}
+.form-horizontal div.form-group.left_offset100 .controls {
+  margin-left: 100px;
+}
+
+.form-horizontal div.form-group.left_offset200 .controls {
+  margin-left: 200px;
+}
+
+.form-horizontal div.form-group.left_offset300 .controls {
+  margin-left: 300px;
+}
+
+.form-horizontal div.form-group.left_offset400 .controls {
+  margin-left: 400px;
+}
+
+
+.form-horizontal div.form-group.left_offset500 .controls {
+  margin-left: 500px;
+}
+
+.form-horizontal div.form-group.left_offset600 .controls {
+  margin-left: 600px;
+}
+
+.form-horizontal div.form-group.left_offset700 .controls {
+  margin-left: 700px;
+}
+
+.form-horizontal div.form-group.left_offset800 .controls {
+  margin-left: 800px;
+}
+
+.form-horizontal div.form-group.left_offset900 .controls {
+  margin-left: 900px;
+}
+
+/* PADDING classes */
+.form-horizontal div.form-group.padding100 .control-label {
+  padding-left: 100px;
+}
+.form-horizontal div.form-group.padding100 .controls {
+  padding-left: 100px;
+}
+
+.form-horizontal div.form-group.padding200 .control-label {
+  padding-left: 200px;
+}
+.form-horizontal div.form-group.padding200 .controls {
+  padding-left: 200px;
+}
+
+
+.form-horizontal div.form-group.padding300 .control-label {
+  padding-left: 300px;
+}
+.form-horizontal div.form-group.padding300 .controls {
+  padding-left: 300px;
+}
+
+.form-horizontal div.form-group.padding400 .control-label {
+  padding-left: 400px;
+}
+.form-horizontal div.form-group.padding400 .controls {
+  padding-left: 400px;
+}
+
+
+.form-horizontal div.form-group.padding500 .control-label {
+  padding-left: 500px;
+}
+.form-horizontal div.form-group.padding500 .controls {
+  padding-left: 500px;
+}
+
+.form-horizontal div.form-group.padding600 .control-label {
+  padding-left: 600px;
+}
+.form-horizontal div.form-group.padding600 .controls {
+  padding-left: 600px;
+}
+
+.form-horizontal div.form-group.padding700 .control-label {
+  padding-left: 700px;
+}
+.form-horizontal div.form-group.padding700 .controls {
+  padding-left: 700px;
+}
+
+.form-horizontal div.form-group.padding800 .control-label {
+  padding-left: 800px;
+}
+.form-horizontal div.form-group.padding800 .controls {
+  padding-left: 800px;
+}
+
+
+.form-horizontal div.form-group.padding900 .control-label {
+  padding-left: 900px;
+}
+.form-horizontal div.form-group.padding900 .controls {
+  padding-left: 900px;
+}
+
+
+.form-horizontal div.form-group.right100 .controls {
+  max-width: 100px;
+}
+
+.form-horizontal div.form-group.right200 .controls {
+  max-width: 200px;
+}
+.form-horizontal div.form-group.right300 .controls {
+  max-width: 300px;
+}
+
+.form-horizontal div.form-group.right400 .controls {
+  max-width: 400px;
+}
+
+.form-horizontal div.form-group.right500 .controls {
+  max-width: 500px;
+}
+
+.form-horizontal div.form-group.right600 .controls {
+  max-width: 600px;
+}
+
+.form-horizontal div.form-group.right700 .controls {
+  max-width: 700px;
+}
+
+.form-horizontal div.form-group.right800 .controls {
+  max-width: 800px;
+}
+
+.form-horizontal div.form-group.right900 .controls {
+  max-width: 900px;
+}
+
+
+form.form-horizontal div.label_align_left label.control-label {
+  text-align:left;
+  padding-left:5px;
+}
+form.form-horizontal div.label_align_center label.control-label {
+  text-align:center;
+  padding-left:5px;
+}
+form.form-horizontal div.label_align_right label.control-label {
+  text-align: right; /* default */
+  padding-left:5px;
+}
+
+form.form-horizontal div.answer_align_left div.controls {
+  text-align: left ;  /* default */
+  padding-right:5px;
+}
+form.form-horizontal div.answer_align_center div.controls {
+  text-align: center;
+  padding-right:5px;
+}
+form.form-horizontal div.answer_align_right div.controls {
+  text-align:right;
+  padding-right:5px;
+}
+
+
+
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls label {
+  border-left:1px solid #EEE;
+  border-right:1px solid #EEE;
+  margin:0;
+}
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls label:first-of-type {
+  border-left:0px;
+}
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls label:last-of-type {
+  border-right:0px;
+}
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls {
+  border-collapse:collapse;
+}
+
+
+form.form-horizontal div.form-row.item-mc_heading.form-group div.controls label {
+	text-align:center;
+	text-indent:0;
+}
+form.form-horizontal div.form-row.item-mc_heading.form-group div.controls label input {
+	display:none;
+}
+form.form-horizontal div.form-row.form-group.hide_label div.controls label {
+	text-align:center;
+	text-indent:0;
+	height:25px;
+	overflow:hidden;
+	line-height:0;
+	font-size:0px;
+	min-height:25px;
+}
+form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
+    visibility:visible;
+}
+form.form-horizontal div.form-row.form-group.rotate-label div.controls label {
+	-webkit-transform: rotate(-45deg);
+	-moz-transform: rotate(-45deg);   
+	-o-transform: rotate(-45deg);
+	transform: rotate(-45deg);
+}
+form.form-horizontal div.form-row.form-group.rotate-label45 div.controls label {
+	-webkit-transform: rotate(-45deg);
+	-moz-transform: rotate(-45deg);   
+	-o-transform: rotate(-45deg);
+	transform: rotate(-45deg);
+}
+form.form-horizontal div.form-row.form-group.rotate-label30 div.controls label {
+	-webkit-transform: rotate(-30deg);
+	-moz-transform: rotate(-30deg);   
+	-o-transform: rotate(-30deg);
+	transform: rotate(-30deg);
+}
+form.form-horizontal div.form-row.form-group.rotate-label90 div.controls label {
+	-webkit-transform: rotate(-90deg);
+	-moz-transform: rotate(-90deg);   
+	-o-transform: rotate(-90deg);
+	transform: rotate(-90deg);
+}
+
+form.form-horizontal div.form-row.form-group.mc_block div.controls label input {
+  display:block;
+}
+
+form.form-horizontal div.form-row.form-group.mc_vertical div.controls {
+  display:block;
+}
+form.form-horizontal div.form-row.form-group.mc_vertical div.controls label {
+  display:block;
+  padding-left:18px;
+  padding-right:5px;
+  padding-top:5px;
+  text-indent:-18px;
+}
+
+/* choice widths */
+
+form.form-horizontal div.form-row.form-group.mc-equal-widths div.controls {
+/*  width:100%;*/
+  table-layout:fixed;
+}
+form.form-horizontal div.form-row.form-group.mc-equal-widths div.controls label {
+	width:2%;
+}
+form.form-horizontal div.form-row.form-group.mc-width50 div.controls label:not(.keep-label),
+form.form-horizontal div.form-row.form-group.mc-width50 div.controls button.btn {
+	width:50px;
+}
+form.form-horizontal div.form-row.form-group.mc-width60 div.controls label:not(.keep-label),
+form.form-horizontal div.form-row.form-group.mc-width60 div.controls button.btn {
+	width:60px;
+}
+form.form-horizontal div.form-row.form-group.mc-width70 div.controls label:not(.keep-label),
+form.form-horizontal div.form-row.form-group.mc-width70 div.controls button.btn {
+	width:70px;
+}
+form.form-horizontal div.form-row.form-group.mc-width80 div.controls label:not(.keep-label),
+form.form-horizontal div.form-row.form-group.mc-width80 div.controls button.btn {
+	width:80px;
+}
+form.form-horizontal div.form-row.form-group.mc-width80 div.controls label:not(.keep-label),
+form.form-horizontal div.form-row.form-group.mc-width80 div.controls button.btn {
+	width:90px;
+}
+form.form-horizontal div.form-row.form-group.mc-width100 div.controls label:not(.keep-label),
+form.form-horizontal div.form-row.form-group.mc-width100 div.controls button.btn {
+	width:100px;
+}
+form.form-horizontal div.form-row.form-group.mc-width150 div.controls label:not(.keep-label),
+form.form-horizontal div.form-row.form-group.mc-width150 div.controls button.btn {
+	width:150px;
+}
+form.form-horizontal div.form-row.form-group.mc-width200 div.controls label:not(.keep-label),
+form.form-horizontal div.form-row.form-group.mc-width200 div.controls button.btn {
+	width:200px;
+}
+
+/* rating_button_label_width */
+
+form.form-horizontal div.form-row.form-group.rating_button_label_width50 div.controls label.keep-label
+{
+	width:50px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width60 div.controls label.keep-label
+{
+	width:60px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width70 div.controls label.keep-label
+{
+	width:70px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width80 div.controls label.keep-label
+{
+	width:80px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width80 div.controls label.keep-label
+{
+	width:90px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width100 div.controls label.keep-label
+{
+	width:100px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width150 div.controls label.keep-label
+{
+	width:150px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width200 div.controls label.keep-label
+{
+	width:200px;
+}
+form.form-horizontal div.form-row.form-group.hidden {
+	display:none;
 }

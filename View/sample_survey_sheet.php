@@ -116,3 +116,106 @@
 		</tr>
 	</tbody>
 </table>
+
+<h3>Optional classes for visual styling</h3>
+<p>You might want to tinker with the look of certain form items. To do so you can use a variety of pre-set CSS classes. This is a fancy way of saying that if you make a new column in your survet sheet, call it "class" and add space-separated magic words, stuff will look different.</p>
+<p>These are the available styling classes:</p>
+<dl class="dl-horizontal dl-wider">
+	<dt>
+		left100, (200, …, 900)
+	</dt>
+	<dd>
+		 controls the width of the left-hand column (labels). The default is left300, you have 100 pixel increments to choose from.
+	 </dd>
+ 	<dt>
+ 		right100, (200, …, 900)
+ 	</dt>
+ 	<dd>
+ 		 controls the width of the right-hand column (answers). There is no default here, usually the right-hand column will extend in accordance with the display width.
+ 	 </dd>
+	 <dt>
+		 right_offset0, (100, …, 900)
+	 </dt>
+	 <dd>
+	 	controls the offset (distance) of the right-hand column to the left (not the label column, just the left). This is 300 pixels (+20 extra) by default. Analogously with left_offset100 etc. (defaults to 0).
+	 </dd>
+	 
+	 <dt>
+		 label_align_left <br>label_align_center <br>label_align_right
+	 </dt>
+	 <dd>
+	 	controls the text alignment of the left-hand column (labels), by default it is aligned to the right.
+	 </dd>
+	 <dt>
+		 answer_align_left <br>answer_align_center <br>answer_align_right
+	 </dt>
+	 <dd>
+	 	controls the text alignment of the right-hand column (answers), by default it is aligned to the left.
+	 </dd>
+	 
+	 <dt>
+		 answer_below_label
+	 </dt>
+	 <dd>
+		 This leads to answers stacking below labels, instead of them being side-by-side (the default). It entails zero offsets and left alignment. Can be overridden with offsets and the alignment classes.
+	 </dd>
+	 
+	 <dt>
+		 answer_below_label
+	 </dt>
+	 <dd>
+		 This leads to answers stacking below labels, instead of them being side-by-side (the default). Can be combined with a larger offset.
+	 </dd>
+	 
+	 <dt>
+		 hide_label
+	 </dt>
+	 <dd>
+		 This hides the labels for mc and mc_multiple replies. Useful in combination with a fixed width for mc, mc_multiple labels and mc_heading – this way you can achieve a tabular layout.
+	 </dd>
+	 
+	 <dt>
+		 rotate-label45, rotate-label30, <br>rotate-label90
+	 </dt>
+	 <dd>
+		 This rotates the labels for mc and mc_multiple replies. Useful if some have long words, that would lead to exaggerated widths for one answer column.
+	 </dd>
+	 
+	 
+	 <dt>
+		 mc_block
+	 </dt>
+	 <dd>
+		 This turns answer labels for mc-family items into blocks, so that lines break before and after the label.
+	 </dd>
+	 
+	 <dt>
+		 mc_vertical
+	 </dt>
+	 <dd>
+		 This makes answer labels for mc-family items stack up. Useful if you have so many options, that they jut out of the viewport. If you have very long list, consider using select-type items instead (they come with a search function).
+	 </dd>
+	 
+	 
+	 <dt>
+		 mc-equal-widths
+	 </dt>
+	 <dd>
+		 This makes answer labels for mc-family items have equal widths, even though their contents would lead them to have different widths. This won't work in combination with every other option for mc-styling and if your widest elements are very wide, the choices might jut out of the viewport.
+	 </dd>
+
+
+	 <dt>
+		 mc-width50 (60, … , <br>100, 150, 200)
+	 </dt>
+	 <dd>
+		 This makes choice labels and choice buttons for mc-family items have fixed widths. If one choice has text wider than that width, it might jut out or ignore the fixed width, depending on the browser.
+	 </dd>
+	 
+	 <dt>
+		 rating_button_label_width50 <br>(60, … , 100, 150, 200)
+	 </dt>
+	 <dd>
+		 This makes the labels for rating_button items have fixed widths. This can be useful to align rating_buttons buttons with each other even though the end points are labelled differently. A more flexible solution would be to horizontally center the choices using answer_align_center.
+	 </dd>
+ </dl>
