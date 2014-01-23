@@ -12,7 +12,7 @@ elseif(isset($_FILES['uploaded']))
 	unset($_GET['study_name']);
 	require_once INCLUDE_ROOT . "Model/Study.php";
 	$filename = basename( $_FILES['uploaded']['name']);
-	$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,20})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/","$1",$filename); // take only the first part, before the dash if present or the dot
+	$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/","$1",$filename); // take only the first part, before the dash if present or the dot
 
 	$study = new Study($fdb, null, array(
 		'name' => $survey_name,
