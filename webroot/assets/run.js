@@ -138,8 +138,8 @@ RunUnit.prototype.save = function(e)
 RunUnit.prototype.removeFromRun = function(e)
 {
 	e.preventDefault();
+    $(".tooltip").hide();
 	var $unit = this.block;
-	
 	$.ajax(
 		{
 			url: $run_url + "/" + this.remove_button.attr('href'),
