@@ -151,7 +151,6 @@ class Study extends RunUnit
 		$this->changeSettings(array
 			(
 //				"logo" => "hu.gif",
-				"welcome" => "Welcome!",
 				"title" => "Survey",
 				"description" => "",
 				"problem_text" => 'If you run into problems, please contact <strong><a href="mailto:%s">%s</a></strong>.',
@@ -159,7 +158,7 @@ class Study extends RunUnit
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
 				"submit_button_text" => 'Submit!',
-				"form_classes" => 'unspaced_rows',
+				"form_classes" => '', // unspaced_rows
 //				"fileuploadmaxsize" => "100000",
 //				"closed_user_pool" => 0,
 //				"timezone" => "Europe/Berlin",
@@ -520,9 +519,9 @@ class Study extends RunUnit
 		$resC = $this->getResultCount();
 		if($resC['finished'] > 10):
 			if($this->backupResults()):
-				$this->messages[] = __("%s results rows were backed up.",array_sum($resC));
+				$this->warnings[] = __("%s results rows were backed up.",array_sum($resC));
 			else:
-				$this->errors[] = "Backup of %s result rows failed. Deletion cancelled.";
+				$this->errors[] = __("Backup of %s result rows failed. Deletion cancelled.",array_sum($resC));
 				return false;
 			endif;
 		elseif($resC == array('finished' => 0, 'begun' => 0)):
