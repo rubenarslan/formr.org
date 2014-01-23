@@ -282,10 +282,10 @@ $(document).ready(function() {
 		container: 'body'
 	});
 });
-function bootstrap_alert(message,bold) 
+function bootstrap_alert(message,bold,where) 
 {
-	var $alert = $('<div class="alert alert-danger"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold:'Problem' ) + '</strong> ' + message + '</div>');
-	$alert.insertAfter( $('nav') );
+	var $alert = $('<div class="row"><div class="col-md-6 col-sm-6 all-alerts"><div class="alert alert-danger"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold:'Problem' ) + '</strong> ' + message + '</div></div></div>');
+	$alert.prependTo( $(where) );
 	$alert[0].scrollIntoView(false);
 }
 
@@ -316,5 +316,5 @@ function ajaxErrorHandling (e, x, settings, exception)
 	else
 		message= (typeof e.statusText !== 'undefined' && e.statusText !== 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
 
-	bootstrap_alert(message, 'Fehler.');
+	bootstrap_alert(message, 'Error.','.main_body');
 }

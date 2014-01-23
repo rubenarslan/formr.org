@@ -2,7 +2,7 @@
 require_once INCLUDE_ROOT . "Model/DB.php";
 require_once INCLUDE_ROOT . "Model/RunUnit.php";
 require_once INCLUDE_ROOT."Model/Item.php";
-require INCLUDE_ROOT . "vendor/erusev/parsedown/Parsedown.php";
+require_once INCLUDE_ROOT . "vendor/erusev/parsedown/Parsedown.php";
 
 // this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
 class Study extends RunUnit
@@ -106,7 +106,7 @@ class Study extends RunUnit
 	}
 	protected function existsByName($name)
 	{
-		if(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,20}/",$name)) return;
+		if(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/",$name)) return;
 		
 		$exists = $this->dbh->prepare("SELECT name FROM `survey_studies` WHERE name = :name LIMIT 1");
 		$exists->bindParam(':name',$name);
@@ -129,7 +129,7 @@ class Study extends RunUnit
 	    if($name == ""):
 			alert(_("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 20 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored."), 'alert-danger');
 			return false;
-		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,20}/",$name)):
+		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/",$name)):
 			alert('<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from a to Z, 0 to 9 and the underscore. It needs to start with a letter. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>.','alert-danger');
 			return false;
 		elseif($this->existsByName($name)):
