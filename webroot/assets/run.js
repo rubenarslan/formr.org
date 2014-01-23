@@ -15,6 +15,7 @@ RunUnit.prototype.init = function(content)
 	this.dialog_inputs = this.block.find('div.run_unit_dialog input,div.run_unit_dialog select, div.run_unit_dialog button, div.run_unit_dialog textarea');
 //	console.log(this.dialog_inputs);
 	this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
+    this.block.attr('id',"unit_"+this.unit_id);
 	this.dialog_inputs.on('input change',$.proxy(this.changes,this));
 	this.save_inputs = this.dialog_inputs.add(this.position);
 	
@@ -271,51 +272,69 @@ $(document).ready(function () {
 		if(typeof $(this).attr('disabled') === 'undefined')
 		{
 			var positions = {};
+            var are_positions_unique = [];
+            var pos;
+            var dupes = false;
 			$($run_units).each(function(i,elm) {
-				positions[elm.unit_id] = +elm.position.val();
+                pos = +elm.position.val();
+                
+                if($.inArray(pos,are_positions_unique)>-1)
+                {
+                	bootstrap_alert("You used the position "+pos+" more than once, therefore the new order could not be saved. <a href='#unit_"+elm.unit_id+"'>Click here to scroll to the duplicated position.</a>", 'Error.','.main_body');
+                    dupes = true;
+                    return;
+                }
+                else
+                {
+    				positions[elm.unit_id] = pos;                    
+                    are_positions_unique.push(pos);
+                }
 			});
-			
-			$.ajax( 
-			{
-				url: $(this).attr('href'),
-				dataType:"html",
-				method: 'POST',
-				data: {
-					position: positions
-				}
-			})
-			.done(function(data)
-			{
-				if(data.indexOf('error') < 0) 
-				{
-					$($run_units).each(function(i,elm) {
-						elm.position_changed = false;
-					});
-					$reorderer.removeClass('btn-info').attr('disabled', 'disabled');
-					var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
-					var new_positions = old_positions;
-					old_positions = old_positions.join(','); // for some reason I have to join to compare contents, otherwise annoying behavior with clones etc
-					new_positions.sort(function(x,y){ return x-y; }).join(',');
+            if(!dupes)
+            {
+    			$.ajax( 
+    			{
+    				url: $(this).attr('href'),
+    				dataType:"html",
+    				method: 'POST',
+    				data: {
+    					position: positions
+    				}
+    			})
+    			.done(function(data)
+    			{
+    				if(data.indexOf('error') < 0) 
+    				{
+    					$($run_units).each(function(i,elm) {
+    						elm.position_changed = false;
+    					});
+    					$reorderer.removeClass('btn-info').attr('disabled', 'disabled');
+    					var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
+    					var new_positions = old_positions;
+    					old_positions = old_positions.join(','); // for some reason I have to join to compare contents, otherwise annoying behavior with clones etc
+    					new_positions.sort(function(x,y){ return x-y; }).join(',');
 					
-					if(old_positions != new_positions)
-					{
-						location.reload();
-					} else
-					{
-						$('.pos_changed').removeClass('pos_changed');
-					}
-				}		
-				else
-				{				
-					var $alert = $(data);
-					$('#edit_run').prepend( $alert);
-					$alert[0].scrollIntoView(false);
-				}
-			})
-			.fail(ajaxErrorHandling);
-			return false;
+                        $reorderer.removeClass('btn-info').attr('disabled', 'disabled');
+    					if(old_positions != new_positions)
+    					{
+    						location.reload();
+    					} else
+    					{
+    						$('.pos_changed').removeClass('pos_changed');
+    					}
+    				}		
+    				else
+    				{				
+    					var $alert = $(data);
+    					$('#edit_run').prepend( $alert);
+    					$alert[0].scrollIntoView(false);
+    				}
+    			})
+    			.fail(ajaxErrorHandling);
+    			return false;
+            }
 		}
-	}).removeClass('btn-info').attr('disabled', 'disabled');
+	});
 	
 	
 	
