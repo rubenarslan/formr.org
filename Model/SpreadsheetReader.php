@@ -408,6 +408,11 @@ class SpreadsheetReader
 			else:
 				$skipped_columns[$i] = $col_name;
 			endif;
+			
+			if($col_name == 'choice1' AND !array_search('name',$columns)):
+				$this->errors[] = 'The name and type column have to be placed to the left of all choice columns.';
+				return false;
+			endif;
 		endfor;
 		$survey_messages = $empty_rows = array();
 	  	$this->messages[] = 'Survey worksheet - ' . $worksheet->getTitle();
