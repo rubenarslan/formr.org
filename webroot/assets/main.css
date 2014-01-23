@@ -812,8 +812,12 @@ form.form-horizontal div.form-row.form-group.hide_label div.controls label {
 	height:25px;
 	overflow:hidden;
 	line-height:0;
-	font-size:0px;
 	min-height:25px;
+}
+form.form-horizontal div.form-row.form-group.hide_label div.controls label span {
+	line-height:0;
+	font-size:0px;
+    visibility:hidden;
 }
 form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
     visibility:visible;
