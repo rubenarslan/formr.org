@@ -2,7 +2,7 @@
 require_once INCLUDE_ROOT . "Model/DB.php";
 require_once INCLUDE_ROOT . "Model/RunUnit.php";
 require_once INCLUDE_ROOT."Model/Item.php";
-require INCLUDE_ROOT . "vendor/erusev/parsedown/Parsedown.php";
+require_once INCLUDE_ROOT . "vendor/erusev/parsedown/Parsedown.php";
 
 // this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
 class Study extends RunUnit
