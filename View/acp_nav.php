@@ -122,13 +122,27 @@
 								Github repository
 							</a>
 						</li>
-				
+						<?php if($user->isSuperAdmin()): ?>
+						<li>
+						    <a href="<?=WEBROOT?>admin/user_management">
+								<i class="fa fa-users fa-fw"></i>
+								<?php echo _("manage users"); ?>
+							</a>
+						</li>
+					   <?php endif;	?>
 					</ul>
 				</li>
 
 				<li><a href="<?=WEBROOT?>public/logout"><i class="fa fa-sign-out fa-fw"></i> log out</a></li>
 			</ul>
-
+			<ul class="nav navbar-nav navbar-right">
+				<li>
+				    <a href="<?=WEBROOT?>/">
+						<i class="fa fa-eye fa-fw"></i>
+						<?php echo _("go to public area"); ?>
+					</a>
+				</li>
+			</ul>
 		</div>
 </nav>
 
@@ -223,7 +237,7 @@ $resultCount = $study->getResultCount();
 	<nav class="col-lg-2 col-md-2 col-sm-3">
 		<ul class="fa-ul  fa-ul-more-padding">
 			<li>
-				<a href="<?=WEBROOT?><?php echo $run->name; ?>">
+				<a href="<?=WEBROOT?><?php echo $run->name; ?>" title="It is best to test the run in a new private/incognito window, this is possible in Chrome &amp; Firefox. That way, you'll start fresh. You need to publish the run, so that this works. If you test using your account, remember that the run saves your progress, so you might have to reset yourself using the user overview.">
 					<i class="fa-li fa fa-play"></i> <?php echo _("Test run"); ?></a>
 			</li>
 			
@@ -231,14 +245,14 @@ $resultCount = $study->getResultCount();
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><i class="fa-li fa fa-pencil"></i> <?php echo _("Edit run"); ?></a>
 			</li>
 
-			<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_overview.php')?' class="active"':''?>>
+			<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_overview.php')?' class="active"':''?> title="Here you can monitor users' progress, send them to a different position and send them manual reminders.">
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><i class="fa-li fa fa-users"></i> <?php echo _("User Overview"); ?></a>
 			</li>
-			<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_detail.php')?' class="active"':''?>>
+			<li <?=endsWith($_SERVER['PHP_SELF'],'run/user_detail.php')?' class="active"':''?> title="Here you'll see users' entire history of participation, i.e. when they left which position etc.">
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="fa-li fa fa-search"></i> <?php echo _("User Detail"); ?></a>
 			</li>
 			
-			<li <?=endsWith($_SERVER['PHP_SELF'],'run/random_groups.php')?' class="active"':''?>>
+			<li <?=endsWith($_SERVER['PHP_SELF'],'run/random_groups.php')?' class="active"':''?> title="This is simply your overview of how users have been randomised.">
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/random_groups"><i class="fa-li fa fa-random"></i> <?php echo _("Random groups"); ?></a>
 			</li>
 			
@@ -256,7 +270,7 @@ $resultCount = $study->getResultCount();
 <?php if(!isset($study) AND !isset($run)): ?>
 	<div class="col-md-12">
 <?php else: ?>
-	<div class="col-lg-10 col-md-10 col-sm-9">
+	<div class="col-lg-10 col-md-10 col-sm-9 main_body">
 <?php endif; ?>
 
 <?php 

@@ -4,7 +4,7 @@ require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Run.php";
 
 if( !empty($_POST) ) {
-	if(isset($_POST['run_name']) AND !preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,20}$/",$_POST['run_name']))
+	if(isset($_POST['run_name']) AND !preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/",$_POST['run_name']))
 	{
 		alert('<strong>Error:</strong> The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore (at least 2 characters, at most 20). It needs to start with a letter.','alert-danger');
 		redirect_to("admin/run/");	

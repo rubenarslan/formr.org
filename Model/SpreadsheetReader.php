@@ -448,7 +448,7 @@ class SpreadsheetReader
 							endif;
 							continue 2; # skip this row
 								
-						elseif(!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,20}$/",$val)):
+						elseif(!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,100}$/",$val)):
 							$this->errors[] = __("The variable name '%s' is invalid. It has to be between 3 and 20 characters. It needs to start with a letter and may not contain anything other than a-Z_0-9.",$val);
 						endif;
 					

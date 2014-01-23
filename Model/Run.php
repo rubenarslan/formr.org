@@ -121,7 +121,7 @@ class Run
 	    if($name == ""):
 			$this->errors[] = _("You have to specify a run name.");
 			return false;
-		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,20}/",$name)):
+		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,255}/",$name)):
 			$this->errors[] = _("The run's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
 			return false;
 		elseif($this->existsByName($name)):
