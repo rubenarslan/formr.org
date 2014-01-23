@@ -801,10 +801,10 @@ class Item_mc extends Item
 		foreach($this->choices AS $value => $option):			
 			$ret .= '
 				<label for="item' . $this->id . '_' . $value . '">' . 
-					(($this->label_first || $all_left) ? $option.'&nbsp;' : '') . 
+					(($this->label_first || $all_left) ? '<span> ' .$option. ' </span>' : '') . 
 				'<input '.self::_parseAttributes($this->input_attributes,array('id')).
 				' value="'.$value.'" id="item' . $this->id . '_' . $value . '">' .
-					(($this->label_first || $all_left) ? "&nbsp;" : ' ' . $option) . '</label>';
+					(($this->label_first || $all_left) ? "<span>&nbsp;</span>" : '<span> ' . $option . '</span>') . '</label>';
 					
 			if($this->label_first) $this->label_first = false;
 			

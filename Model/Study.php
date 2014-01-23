@@ -127,7 +127,7 @@ class Study extends RunUnit
 	{
 	    $name = trim($this->unit['name']);
 	    if($name == ""):
-			alert(_("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 20 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored."), 'alert-danger');
+			alert(_("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored."), 'alert-danger');
 			return false;
 		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/",$name)):
 			alert('<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from a to Z, 0 to 9 and the underscore. It needs to start with a letter. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>.','alert-danger');
@@ -151,7 +151,6 @@ class Study extends RunUnit
 		$this->changeSettings(array
 			(
 //				"logo" => "hu.gif",
-				"welcome" => "Welcome!",
 				"title" => "Survey",
 				"description" => "",
 				"problem_text" => 'If you run into problems, please contact <strong><a href="mailto:%s">%s</a></strong>.',
@@ -159,7 +158,7 @@ class Study extends RunUnit
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
 				"submit_button_text" => 'Submit!',
-				"form_classes" => 'unspaced_rows',
+				"form_classes" => '', // unspaced_rows
 //				"fileuploadmaxsize" => "100000",
 //				"closed_user_pool" => 0,
 //				"timezone" => "Europe/Berlin",
@@ -520,9 +519,9 @@ class Study extends RunUnit
 		$resC = $this->getResultCount();
 		if($resC['finished'] > 10):
 			if($this->backupResults()):
-				$this->messages[] = __("%s results rows were backed up.",array_sum($resC));
+				$this->warnings[] = __("%s results rows were backed up.",array_sum($resC));
 			else:
-				$this->errors[] = "Backup of %s result rows failed. Deletion cancelled.";
+				$this->errors[] = __("Backup of %s result rows failed. Deletion cancelled.",array_sum($resC));
 				return false;
 			endif;
 		elseif($resC == array('finished' => 0, 'begun' => 0)):
