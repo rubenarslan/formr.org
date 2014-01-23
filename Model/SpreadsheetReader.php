@@ -329,8 +329,8 @@ class SpreadsheetReader
 								continue 2; # skip this row
 							endif;
 							
-						elseif(!preg_match("/^[a-zA-Z0-9_]{1,20}$/",$val)):
-							$this->errors[] = __("The list name '%s' is invalid. It has to be between 1 and 20 characters. It may not contain anything other than a-Z_0-9.",$val);
+						elseif(!preg_match("/^[a-zA-Z0-9_]{1,255}$/",$val)):
+							$this->errors[] = __("The list name '%s' is invalid. It has to be between 1 and 255 characters long. It may not contain anything other than the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.",$val);
 						endif;
 						
 						if(!in_array($val, $this->existing_choice_lists)):
@@ -350,8 +350,8 @@ class SpreadsheetReader
 							endif;
 							continue 2; # skip this row
 							
-						elseif(!preg_match("/^[a-zA-Z0-9_]{1,20}$/",$val)):
-							$this->errors[] = __("The choice name '%s' is invalid. It has to be between 1 and 20 characters. It may not contain anything other than a-Z_0-9.",$val);
+						elseif(!preg_match("/^[a-zA-Z0-9_]{1,255}$/",$val)):
+							$this->errors[] = __("The choice name '%s' is invalid. It has to be between 1 and 255 characters long. It may not contain anything other than the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.",$val);
 						endif;
 				
 						if(($previous = array_search(mb_strtolower($val),$choice_names[ $data[$row_number]['list_name'] ])) === false):
