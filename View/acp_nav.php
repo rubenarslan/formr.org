@@ -122,13 +122,27 @@
 								Github repository
 							</a>
 						</li>
-				
+						<?php if($user->isSuperAdmin()): ?>
+						<li>
+						    <a href="<?=WEBROOT?>admin/user_management">
+								<i class="fa fa-users fa-fw"></i>
+								<?php echo _("manage users"); ?>
+							</a>
+						</li>
+					   <?php endif;	?>
 					</ul>
 				</li>
 
 				<li><a href="<?=WEBROOT?>public/logout"><i class="fa fa-sign-out fa-fw"></i> log out</a></li>
 			</ul>
-
+			<ul class="nav navbar-nav navbar-right">
+				<li>
+				    <a href="<?=WEBROOT?>/">
+						<i class="fa fa-eye fa-fw"></i>
+						<?php echo _("go to public area"); ?>
+					</a>
+				</li>
+			</ul>
 		</div>
 </nav>
 
