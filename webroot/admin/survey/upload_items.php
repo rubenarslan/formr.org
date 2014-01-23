@@ -9,7 +9,7 @@ if (!empty($_POST) AND !isset($_FILES['uploaded']))
 elseif(isset($_FILES['uploaded']))
 {
 	$filename = basename( $_FILES['uploaded']['name']);
-	$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,20})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/","$1",$filename); // take only the first part, before the dash if present or the dot if present
+	$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/","$1",$filename); // take only the first part, before the dash if present or the dot if present
 	
 	if($study->name !== $survey_name)
 	{
