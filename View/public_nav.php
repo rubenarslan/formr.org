@@ -51,21 +51,16 @@
 		endif;
 		?>
 		</ul>
+		<?php if($user->isAdmin()): ?>
 		<ul class="nav navbar-nav navbar-right">
 			<li>
-				<?php
-
-				if($user->isAdmin()):
-				   ?>
-				    <li><a href="<?=WEBROOT?>admin/">
+				    <a href="<?=WEBROOT?>admin/">
 						<i class="fa fa-eye-slash fa-fw"></i>
 						<?php echo _("go to admin area"); ?>
-					</a></li>   
-				   <?php
-				endif;
-				?>
+					</a>
 			</li>
 		</ul>
+	   <?php endif;	?>
 	</div>
 </nav>
 
