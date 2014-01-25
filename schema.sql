@@ -553,6 +553,36 @@ CREATE  TABLE IF NOT EXISTS `shuffle` (
 ENGINE = InnoDB;
 
 
+-- -----------------------------------------------------
+-- Table `survey_cron_log`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_cron_log` ;
+
+CREATE  TABLE IF NOT EXISTS `survey_cron_log` (
+  `id` INT NOT NULL AUTO_INCREMENT ,
+  `run_id` INT UNSIGNED NOT NULL ,
+  `created` DATETIME NULL ,
+  `ended` DATETIME NULL ,
+  `sessions` INT UNSIGNED NULL ,
+  `skipforwards` INT UNSIGNED NULL ,
+  `skipbackwards` INT UNSIGNED NULL ,
+  `pauses` INT UNSIGNED NULL ,
+  `emails` INT UNSIGNED NULL ,
+  `shuffles` INT UNSIGNED NULL ,
+  `errors` INT UNSIGNED NULL ,
+  `warnings` INT UNSIGNED NULL ,
+  `notices` INT UNSIGNED NULL ,
+  `message` TEXT NULL ,
+  PRIMARY KEY (`id`) ,
+  INDEX `fk_survey_cron_log_survey_runs1_idx` (`run_id` ASC) ,
+  CONSTRAINT `fk_survey_cron_log_survey_runs1`
+    FOREIGN KEY (`run_id` )
+    REFERENCES `survey_runs` (`id` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
 
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
