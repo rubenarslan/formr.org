@@ -1,5 +1,8 @@
 <?php
-define('DEBUG', ONLINE ? 1 : 1);
+// welcome to the messy section of the code
+require_once INCLUDE_ROOT . "config/settings.php";
+
+define('DEBUG', ONLINE ? 1 : $settings['display_errors_when_live']);
 
 if(DEBUG > -1)
 	ini_set('display_errors',1);
@@ -7,10 +10,9 @@ ini_set("log_errors",1);
 ini_set("error_log", INCLUDE_ROOT . "tmp/logs/errors.log");
 error_reporting(-1);
 
-date_default_timezone_set('Europe/Berlin');
+date_default_timezone_set($settings['timezone']);
 mb_internal_encoding("UTF-8");
 
-require_once INCLUDE_ROOT . "config/settings.php";
 require_once INCLUDE_ROOT . "Model/DB.php";
 $fdb = new DB();
 
@@ -69,28 +71,33 @@ class Site
 		return $mail;
 	}
 }
+if(! TESTING):
+	session_start();
 
-session_start();
+	if(isset($_SESSION['site']) AND is_object($_SESSION['site'])):
+		$site = $_SESSION['site'];
+	else:
+		$site = new Site();
+	endif;
 
-if(isset($_SESSION['site']) AND is_object($_SESSION['site']))
-	$site = $_SESSION['site'];
-else
-	$site = new Site();
+	$site->refresh();
 
-$site->refresh();
-
-if(isset($_SESSION['user']))
-{
-	$sess_user = unserialize($_SESSION['user']);
+	if(isset($_SESSION['user'])):
+		$sess_user = unserialize($_SESSION['user']);
 	
-	if(isset($sess_user->id))
-		$user = new User($fdb, $sess_user->id, $sess_user->user_code);
-	elseif(isset($sess_user->user_code))
-		$user = new User($fdb, null, $sess_user->user_code);
-}
-if(!isset($user))
-	$user = new User($fdb, null, null);
+		if(isset($sess_user->id)):
+			$user = new User($fdb, $sess_user->id, $sess_user->user_code);
+		elseif(isset($sess_user->user_code)):
+			$user = new User($fdb, null, $sess_user->user_code);
+		endif;
+	endif;
+else:
+	$site = new Site();
+endif;
 
+if(!isset($user)):
+	$user = new User($fdb, null, null);
+endif;
 /*
 HELPER FUNCTIONS
 */
@@ -353,7 +360,7 @@ left join `$table`
 function makeUnit($dbh, $session, $unit)
 {
 	$type = $unit['type'];
-	if(!in_array($type, array('Survey', 'Study','Pause','Email','External','Page','SkipBackward','SkipForward','End','Shuffle')))
+	if(!in_array($type, array('Survey', 'Study','Pause','Email','External','Page','SkipBackward','SkipForward','Shuffle')))
 		die('The unit type is not allowed!');
 	
 	require_once INCLUDE_ROOT . "Model/$type.php";
