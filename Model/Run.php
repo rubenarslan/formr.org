@@ -28,6 +28,7 @@ class Run
 	public $public = false;
 	public $cron_active = false;
 	private $api_secret_hash = null;
+	public $being_serviced = false; // todo: implement service messages
 	public $settings = array();
 	public $errors = array();
 	public $messages = array();
