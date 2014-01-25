@@ -482,6 +482,21 @@ dl.dl-wider dd
 }
 
 
+.alert .fa
+{
+    display:none;
+    color: #000000;
+    float: right;
+    font-size: 21px;
+    font-weight: bold;
+    line-height: 1;
+    opacity: 0.2;
+    text-shadow: 0 1px 0 #FFFFFF;
+}
+.table .alert .fa
+{
+    display:block;
+}
 
 /* CLASSES THAT COULD BE ADDED BY USER */
 
