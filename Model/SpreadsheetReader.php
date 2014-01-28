@@ -1,6 +1,11 @@
 <?php
 class SpreadsheetReader
 {
+	private $choices_columns = array('list_name','name','label');
+	private $survey_columns = array('name', 'type', 'label', 'optional', 'class' ,'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'order',
+	# legacy
+		'variablenname', 'wortlaut', 'typ', 'ratinguntererpol', 'ratingobererpol', 	'mcalt1', 'mcalt2', 'mcalt3', 'mcalt4', 'mcalt5', 'mcalt6', 'mcalt7', 'mcalt8', 'mcalt9', 'mcalt10', 'mcalt11', 'mcalt12', 'mcalt13', 'mcalt14',);
+
 	public $messages = array();
 	public $errors = array();
 	public $warnings = array();
@@ -260,7 +265,6 @@ class SpreadsheetReader
 		$this->readSurveySheet($survey_sheet);
 		
 	}
-	private $choices_columns = array('list_name','name','label');
 	private $existing_choice_lists = array();
 	
 	private function readChoicesSheet($worksheet)
@@ -361,9 +365,9 @@ class SpreadsheetReader
 						endif;
 						
 					elseif($col == 'label'):
-						if(!trim($val))
+						if(!trim($val)):
 							$val = $data[$row_number][ 'name' ];
-						
+						endif;
 					endif;
 
 					  
@@ -382,10 +386,6 @@ class SpreadsheetReader
 		$this->messages[] = '<ul><li>'.implode("</li><li>",$choices_messages).'</li></ul>';
 		$this->choices = $data;
 	}
-	private $survey_columns = array('name', 'type', 'label', 'optional', 'class' ,'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14',
-	# legacy
-		'variablenname', 'wortlaut', 'typ', 'ratinguntererpol', 'ratingobererpol', 	'mcalt1', 'mcalt2', 'mcalt3', 'mcalt4', 'mcalt5', 'mcalt6', 'mcalt7', 'mcalt8', 'mcalt9', 'mcalt10', 'mcalt11', 'mcalt12', 'mcalt13', 'mcalt14',);
-	
 	
 	private function readSurveySheet($worksheet)
 	{
@@ -453,8 +453,8 @@ class SpreadsheetReader
 							endif;
 							continue 2; # skip this row
 								
-						elseif(!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,100}$/",$val)):
-							$this->errors[] = __("The variable name '%s' is invalid. It has to be between 3 and 20 characters. It needs to start with a letter and may not contain anything other than a-Z_0-9.",$val);
+						elseif(!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{1,64}$/",$val)):
+							$this->errors[] = __("The variable name '%s' is invalid. It has to be between 1 and 64 characters. It needs to start with a letter and can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.",$val);
 						endif;
 					
 						if(in_array($val,array('session_id','created','modified','ended'))):

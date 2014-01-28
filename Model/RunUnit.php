@@ -188,9 +188,15 @@ class RunUnit {
 			$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
 			";
 
-			$q3
-				 = "
-			WHERE  `survey_run_sessions`.id = :run_session_id;";
+			if($this->run_session_id === NULL):
+				$q3
+					 = "
+				WHERE `$survey_name`.session_id = :session_id;"; // just for testing surveys
+			else:
+				$q3
+					 = "
+				WHERE  `survey_run_sessions`.id = :run_session_id;";
+			endif;
 			
 			if(!in_array($survey_name,array('survey_users','survey_unit_sessions'))):
 				$q2 = "left join `survey_unit_sessions`
@@ -212,13 +218,17 @@ class RunUnit {
 			$q = $q1 . $q2 . $q3;
 
 			$get_results = $this->dbh->prepare($q);
-			
-			$get_results->bindParam(':run_session_id', $this->run_session_id);
+			if($this->run_session_id === NULL):
+				$get_results->bindValue(':session_id', $this->session_id);
+			else:
+				$get_results->bindValue(':run_session_id', $this->run_session_id);
+			endif;
 			$get_results->execute();
 			$results[$survey_name] = array();
+			
 			while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
 				foreach($res AS $var => $val):
-					
+
 					if(!isset($results[$survey_name][$var]))
 						$results[$survey_name][$var] = array();
 					
@@ -227,6 +237,7 @@ class RunUnit {
 				endforeach;
 			endwhile;
 		endforeach;
+
 		return $results;
 	}
 	protected function makeOpenCPU()
@@ -257,12 +268,18 @@ class RunUnit {
 		endwhile;
 		$tables[] = 'survey_users';
 		$tables[] = 'survey_unit_sessions';
+		$tables[] = 'survey_items_display';
 		$tables[] = 'survey_email_log';
 		$tables[] = 'shuffle';
 		
 		foreach($tables AS $result):
 			if(preg_match("/\b$result\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
 				$matches[] = $result;
+// todo: need to think on this some more.
+//				$matches[$result] = array();
+//				if(preg_match_all("/\b$result\$([a-zA-Z0-9_]+)\b/",$q, $variable_matches)): 
+//					$matches[$result] = $variable_matches;
+				
 			endif;
 		endforeach;
 	
