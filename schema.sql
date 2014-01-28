@@ -143,6 +143,8 @@ CREATE  TABLE IF NOT EXISTS `survey_items` (
   `optional` TINYINT NULL DEFAULT NULL ,
   `class` VARCHAR(255) NULL DEFAULT NULL ,
   `showif` TEXT NULL DEFAULT NULL ,
+  `value` TEXT NULL DEFAULT NULL ,
+  `order` VARCHAR(4) NULL ,
   PRIMARY KEY (`id`) ,
   UNIQUE INDEX `study_item` (`study_id` ASC, `name` ASC) ,
   INDEX `fk_survey_items_survey_studies1_idx` (`study_id` ASC) ,

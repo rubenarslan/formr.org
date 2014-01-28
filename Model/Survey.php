@@ -234,6 +234,8 @@ class Survey extends RunUnit {
 				`survey_items`.optional,
 				`survey_items`.class,
 				`survey_items`.showif,
+				`survey_items`.value,
+				`survey_items`.`order`,
 				
 		`survey_items_display`.displaycount, 
 		`survey_items_display`.session_id
@@ -269,7 +271,7 @@ class Survey extends RunUnit {
 			{
 				if(isset($item_factory->showifs[ $showif ]))
 				{
-					$show = $item_factory->showifs[ $showif ];
+					$show = $item_factory->showifs[ $showif ]; // take the cached one
 				}
 				else
 				{
@@ -388,6 +390,27 @@ class Survey extends RunUnit {
 				else:
 					$item->label_parsed = $markdown;
 				endif;
+			endif;
+						
+			if($item->value !== null): // if there is a sticky value to be had
+				if(is_numeric($item->value)):
+					$item->input_attributes['value'] = $item->value;
+				else:
+					$openCPU = $this->makeOpenCPU();
+					if($item->value=="sticky") $item->value = "tail(na.omit({$this->results_table}\${$item->name}),1)";
+					
+					$dataNeeded = $this->dataNeeded($this->dbh, $item->value );
+					$dataNeeded[] = $this->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
+					$dataNeeded = array_unique($dataNeeded); // no need to add it twice
+					
+					$openCPU->addUserData($this->getUserDataInRun(
+						$dataNeeded
+					));
+		
+					$item->input_attributes['value'] = h( $openCPU->evaluateWith($this->results_table, $item->value) );
+				endif;
+			else:
+				$item->presetValue = null;
 			endif;
 
 			$ret .= $item->render();
