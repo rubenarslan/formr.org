@@ -244,10 +244,6 @@ class RunUnit {
 	{
 		require_once INCLUDE_ROOT . "Model/OpenCPU.php";
 
-		global $css,$js;
-		$css = '<link rel="stylesheet" href="'.WEBROOT.'assets/knitr.css" type="text/css">';
-		$js = '<script type="text/javascript" src="'.WEBROOT.'assets/knitr.js"></script>';
-
 		global $settings;
 		$openCPU = new OpenCPU($settings['opencpu_instance']);
 		return $openCPU;

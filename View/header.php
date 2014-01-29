@@ -61,6 +61,7 @@ header ('Content-type: text/html; charset=utf-8');
 		endif;
 		?>
 		<script src="<?=WEBROOT?>assets/main.js"></script>
+		<script type="text/javascript" src="<?=WEBROOT?>assets/knitr.js"></script>
 		
 		<?php echo isset($js)?$js:'' ?>
 </head>
