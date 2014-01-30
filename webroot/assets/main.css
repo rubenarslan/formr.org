@@ -503,48 +503,21 @@ code, pre
     color:#2D2D2D;
     background-color:#F8F8F8;
 }
+pre
+{
+    background-color:#FFFFFF;
+    margin:14px 0px;
+    padding:0;
+    border:0;
+}
+pre code.hljs
+{
+    background-color:#F8F8F8;
+}
 
 tt, code, pre {
    font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
 }
-
-pre code {
-   display: block; padding: 0.5em;
-}
-
-code.r {
-   background-color: #F8F8F8;
-}
-
-/** KNITR STYLES*/
-   pre .operator,
-   pre .paren {
-     color: rgb(104, 118, 135)
-   }
-
-   pre .literal {
-     color: rgb(88, 72, 246)
-   }
-
-   pre .number {
-     color: rgb(0, 0, 205);
-   }
-
-   pre .comment {
-     color: rgb(76, 136, 107);
-   }
-
-   pre .keyword {
-     color: rgb(0, 0, 255);
-   }
-
-   pre .identifier {
-     color: rgb(0, 0, 0);
-   }
-
-   pre .string {
-     color: rgb(3, 106, 7);
-   }
 
 /* CLASSES THAT COULD BE ADDED BY USER */
 

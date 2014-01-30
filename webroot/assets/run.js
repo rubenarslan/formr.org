@@ -91,7 +91,8 @@ RunUnit.prototype.test = function(e)
             $(".opencpu_accordion").collapse({toggle:true});
             
         	this.test_button.html(old_text).removeAttr('disabled');
-            
+            var code_blocks = $modal.find('pre code');
+            Array.prototype.forEach.call(code_blocks, hljs.highlightBlock);
 //            $modal.find('#opencpu_accordion').on('hidden', function (event) {
 //              event.stopPropagation()
 //            });
