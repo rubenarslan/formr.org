@@ -278,6 +278,7 @@ $(document).ready(function() {
 	$('*[title]').tooltip({
 		container: 'body'
 	});
+    hljs.initHighlighting();
 });
 function bootstrap_alert(message,bold,where) 
 {
