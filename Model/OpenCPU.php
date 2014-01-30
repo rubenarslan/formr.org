@@ -112,7 +112,7 @@ library(knitr)
 	public function addUserData($datasets)
 	{
 		foreach($datasets AS $df_name => $data):
-			$this->user_data .= $df_name . ' = as.data.frame(RJSONIO::fromJSON("'.addslashes(my_json_encode($data)).'", nullValue = NA), stringsAsFactors=F)
+			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(my_json_encode($data)).'"), stringsAsFactors=F)
 '; ### loop through the given datasets and import them to R via JSON
 		endforeach;
 	}
