@@ -87,7 +87,7 @@ a.btn.btn-checked {
   background-color: #d9d9d9 \9;
   background-image: none;
   z-index:2;
-  border:1px black solid !important;
+  border:1px black solid;
   outline: 1;
   -webkit-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
      -moz-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -517,6 +517,11 @@ pre code.hljs
 
 tt, code, pre {
    font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+div.btn-check button.btn {
+    border-radius:2px;
+    height:52px;
+    width:52px;
 }
 
 /* CLASSES THAT COULD BE ADDED BY USER */

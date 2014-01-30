@@ -40,11 +40,13 @@ class Survey extends RunUnit {
 			$this->getSettings();
 		endif;
 		
+		$this->startEntry();
+		
 		$this->getNextItems();
 
+		$this->post($_POST);
 #		if(isset($_POST['session_id'])) 
 #		{
-			$this->post($_POST);
 #		}
 		
 		if($this->getProgress()===1)
@@ -67,6 +69,16 @@ class Survey extends RunUnit {
 		$this->dbh = NULL;
 		return $ret;
 	}
+	protected function startEntry()
+	{
+		
+		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`)
+																  VALUES(:session_id, :study_id, NOW(),	    NOW()) 
+		ON DUPLICATE KEY UPDATE modified = NOW();");
+		$start_entry->bindParam(":session_id", $this->session_id);
+		$start_entry->bindParam(":study_id", $this->id);
+		$start_entry->execute() or die(print_r($start_entry->errorInfo(), true));
+	}
 	public function post($posted) {
 
 		unset($posted['id']); // cant overwrite your session
@@ -83,14 +95,6 @@ class Survey extends RunUnit {
 		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
 		
 		$answered->bindParam(":session_id", $this->session_id);
-		
-		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`)
-																  VALUES(:session_id, :study_id, NOW(),	    NOW()) 
-		ON DUPLICATE KEY UPDATE modified = NOW();");
-		$start_entry->bindParam(":session_id", $this->session_id);
-		$start_entry->bindParam(":study_id", $this->id);
-		$start_entry->execute() or die(print_r($start_entry->errorInfo(), true));
-		
 		
 		foreach($posted AS $name => $value)
 		{

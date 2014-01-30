@@ -80,6 +80,7 @@ class Item extends HTML_element
 	protected $classes_wrapper = array('form-group','form-row');
 	protected $classes_input = array();
 	protected $classes_label = array('control-label');
+	protected $presetValues = array();
 		
 	public function __construct($options = array()) 
 	{ 
@@ -298,6 +299,15 @@ class Item extends HTML_element
 			$this->render_inner().
 		 '</div>';
 	}
+	protected function splitValues()
+	{
+		if(isset($this->input_attributes['value'])):
+			$this->presetValues = array_map("trim",explode(",",$this->input_attributes['value']));
+			unset($this->input_attributes['value']);
+		else:
+			$this->presetValues = array();
+		endif;
+	}
 }
 
 class Item_text extends Item
@@ -335,7 +345,8 @@ class Item_textarea extends Item
 	}
 	protected function render_input() 
 	{
-		$value = $this->input_attributes['value'];
+		
+		$value = isset($this->input_attributes['value']) ? $this->input_attributes['value'] : '';
 		unset($this->input_attributes['value']);
 		return 		
 			'<textarea '.self::_parseAttributes($this->input_attributes, array('type')).'>'.$value.'</textarea>';
@@ -795,8 +806,8 @@ class Item_mc extends Item
 	protected function render_input() 
 	{
 	
-		$presetValues = array_map("trim",explode(",",$this->input_attributes['value']));
-		unset($this->input_attributes['value']);
+		$this->splitValues();
+		
 		$ret = '<div class="mc-table">
 			<input '.self::_parseAttributes($this->input_attributes,array('type','id','required')).' type="hidden" value="" id="item' . $this->id . '_">
 		';
@@ -817,7 +828,7 @@ class Item_mc extends Item
 		
 		foreach($this->choices AS $value => $option):
 			// determine whether options needs to be checked
-			if(in_array($value,$presetValues)) $this->input_attributes['checked'] = true;
+			if(in_array($value,$this->presetValues)) $this->input_attributes['checked'] = true;
 			else $this->input_attributes['checked'] = false;
 			
 			$ret .= '
@@ -861,8 +872,7 @@ class Item_mc_multiple extends Item_mc
 		if(!$this->optional)
 			$this->input_attributes['class'] .= ' group-required';
 		
-		$presetValues = array_map("trim",explode(",",$this->input_attributes['value']));
-		unset($this->input_attributes['value']);
+		$this->splitValues();
 		
 #		$this->classes_wrapper = array_diff($this->classes_wrapper, array('required'));
 		unset($this->input_attributes['required']);
@@ -872,7 +882,7 @@ class Item_mc_multiple extends Item_mc
 		';
 		foreach($this->choices AS $value => $option) {
 			// determine whether options needs to be checked
-			if(in_array($value,$presetValues)) $this->input_attributes['checked'] = true;
+			if(in_array($value,$this->presetValues)) $this->input_attributes['checked'] = true;
 			else $this->input_attributes['checked'] = false;
 			
 			$ret .= '
@@ -923,7 +933,7 @@ class Item_check extends Item_mc_multiple
 	}
 	protected function render_input() 
 	{
-		if(trim($this->input_attributes['value'])) $this->input_attributes['checked'] = true;
+		if(isset($this->input_attributes['value']) AND trim($this->input_attributes['value'])) $this->input_attributes['checked'] = true;
 		else $this->input_attributes['checked'] = false;
 		unset($this->input_attributes['value']);
 		
@@ -946,8 +956,7 @@ class Item_select_one extends Item
 	
 	protected function render_input() 
 	{
-		$presetValues = array_map("trim",explode(",",$this->input_attributes['value']));
-		unset($this->input_attributes['value']);
+		$this->splitValues();
 		
 		$ret = '<select '.self::_parseAttributes($this->input_attributes, array('type')).'>'; 
 		
@@ -955,7 +964,7 @@ class Item_select_one extends Item
 		
 		foreach($this->choices AS $value => $option):
 			// determine whether options needs to be checked
-			if(in_array($value,$presetValues)) $selected = ' selected="selected"';
+			if(in_array($value,$this->presetValues)) $selected = ' selected="selected"';
 			else $selected = '';
 			
 			$ret .= '
@@ -1138,8 +1147,7 @@ class Item_rating_button extends Item_mc_button
 	}
 	protected function render_input() 
 	{
-		$presetValues = array_map("trim",explode(",",$this->input_attributes['value']));
-				unset($this->input_attributes['value']);
+		$this->splitValues();
 		
 		
 		$ret = '
@@ -1150,7 +1158,7 @@ class Item_rating_button extends Item_mc_button
 		$ret .= "<label class='keep-label'>{$this->lower_text} </label> ";
 		foreach($this->choices AS $option):	
 			// determine whether options needs to be checked
-			if(in_array($option,$presetValues)) $this->input_attributes['checked'] = true;
+			if(in_array($option,$this->presetValues)) $this->input_attributes['checked'] = true;
 			else $this->input_attributes['checked'] = false;
 					
 			$ret .= '
@@ -1211,7 +1219,7 @@ class Item_check_button extends Item_check
 	{
 		$ret = '<div class="btn-group hidden">
 			<button class="btn" data-for="item' . $this->id . '_1">' . 
-		'<i class="fa fa-2x fa-square-o"></i>
+		'<i class="fa fa-2x fa-fw"></i>
 			</button>';
 		$ret .= '</div>';
 		

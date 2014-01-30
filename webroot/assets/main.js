@@ -199,7 +199,7 @@ $(document).ready(function() {
 	$('div.btn-check button.btn').off('click').click(function(event){
 		var $btn = $(this);
 		var checked = $('#'+$btn.attr('data-for')).attr('checked');
-		$btn.find('i').toggleClass('fa-check-square-o',!checked).toggleClass('fa-square-o',checked);
+		$btn.find('i').toggleClass('fa-check',!checked).toggleClass('',checked);
 		$('#'+$btn.attr('data-for')).attr('checked',!checked); // couple with its radio button
 		$btn.toggleClass('btn-checked',!checked); // check this one
 		return false;
@@ -207,6 +207,8 @@ $(document).ready(function() {
 		var $btn = $(this);
 		var is_checked_already = !!$('#'+$btn.attr('data-for')).attr('checked'); // couple with its radio button
 		$btn.toggleClass('btn-checked', is_checked_already);
+		$btn.find('i').toggleClass('fa-check',is_checked_already).toggleClass('',!is_checked_already);
+        
         
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
