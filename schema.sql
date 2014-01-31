@@ -143,6 +143,8 @@ CREATE  TABLE IF NOT EXISTS `survey_items` (
   `optional` TINYINT NULL DEFAULT NULL ,
   `class` VARCHAR(255) NULL DEFAULT NULL ,
   `showif` TEXT NULL DEFAULT NULL ,
+  `value` TEXT NULL DEFAULT NULL ,
+  `order` VARCHAR(4) NULL ,
   PRIMARY KEY (`id`) ,
   UNIQUE INDEX `study_item` (`study_id` ASC, `name` ASC) ,
   INDEX `fk_survey_items_survey_studies1_idx` (`study_id` ASC) ,
@@ -549,6 +551,36 @@ CREATE  TABLE IF NOT EXISTS `shuffle` (
     FOREIGN KEY (`unit_id` )
     REFERENCES `survey_units` (`id` )
     ON DELETE CASCADE
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `survey_cron_log`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_cron_log` ;
+
+CREATE  TABLE IF NOT EXISTS `survey_cron_log` (
+  `id` INT NOT NULL AUTO_INCREMENT ,
+  `run_id` INT UNSIGNED NOT NULL ,
+  `created` DATETIME NULL ,
+  `ended` DATETIME NULL ,
+  `sessions` INT UNSIGNED NULL ,
+  `skipforwards` INT UNSIGNED NULL ,
+  `skipbackwards` INT UNSIGNED NULL ,
+  `pauses` INT UNSIGNED NULL ,
+  `emails` INT UNSIGNED NULL ,
+  `shuffles` INT UNSIGNED NULL ,
+  `errors` INT UNSIGNED NULL ,
+  `warnings` INT UNSIGNED NULL ,
+  `notices` INT UNSIGNED NULL ,
+  `message` TEXT NULL ,
+  PRIMARY KEY (`id`) ,
+  INDEX `fk_survey_cron_log_survey_runs1_idx` (`run_id` ASC) ,
+  CONSTRAINT `fk_survey_cron_log_survey_runs1`
+    FOREIGN KEY (`run_id` )
+    REFERENCES `survey_runs` (`id` )
+    ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 

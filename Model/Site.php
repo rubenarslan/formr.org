@@ -21,6 +21,7 @@ require_once INCLUDE_ROOT."Model/User.php";
 class Site
 {
 	public $alerts = array();
+	public $alert_types = array("alert-warning" => 0, "alert-success" => 0, "alert-info" => 0, "alert-danger" => 0);
 	public $last_outside_referrer;
 	public function refresh()
 	{
@@ -30,11 +31,29 @@ class Site
 	{
 		$now_handled = $this->alerts;
 		$this->alerts = array();
+		$this->alert_types = array("alert-warning" => 0, "alert-success" => 0, "alert-info" => 0, "alert-danger" => 0);
 		return implode($now_handled);
 	}
 	public function alert($msg, $class = 'alert-warning', $dismissable = true)
 	{
-		$this->alerts[] = "<div class='alert $class'>".'<button type="button" class="close" data-dismiss="alert">&times;</button>'."$msg</div>";
+		if(isset($this->alert_types[$class])): // count types of alerts
+			$this->alert_types[$class]++;
+		else:
+			$this->alert_types[$class] = 1;
+		endif;
+		if(is_array($msg)) $msg = $msg['body'];
+		
+		if($class == 'alert-warning')
+			$class_logo = 'exclamation-triangle';
+		elseif($class == 'alert-danger')
+			$class_logo = 'bolt';
+		elseif($class == 'alert-info')
+			$class_logo = 'info-circle';
+		else // if($class == 'alert-success')
+			$class_logo = 'thumbs-up';
+		
+		$logo = '<i class="fa fa-'.$class_logo.'"></i>';
+		$this->alerts[] = "<div class='alert $class'>".$logo.'<button type="button" class="close" data-dismiss="alert">&times;</button>'."$msg</div>";
 	}
 	public function lastOutsideReferrer()
 	{
@@ -430,5 +449,52 @@ if (!function_exists('http_parse_headers'))
         }
 
         return $headers;
+    }
+}
+
+
+/**
+ * Format a timestamp to display its age (5 days ago, in 3 days, etc.).
+ *
+ * @param   int     $timestamp
+ * @return  string
+ */
+function timetostr($timestamp) {
+    $age = time() - $timestamp;
+    if ($age == 0)
+        return "just now";
+    $future = ($age < 0);
+    $age = abs($age);
+
+    $age = (int)($age / 60);        // minutes ago
+    if ($age == 0) return $future ? "momentarily" : "just now";
+
+    $scales = [
+        ["minute", "minutes", 60],
+        ["hour", "hours", 24],
+        ["day", "days", 7],
+        ["week", "weeks", 4.348214286],     // average with leap year every 4 years
+        ["month", "months", 12],
+        ["year", "years", 10],
+        ["decade", "decades", 10],
+        ["century", "centuries", 1000],
+        ["millenium", "millenia", PHP_INT_MAX]
+    ];
+
+    foreach ($scales as $scale) {
+        list($singular, $plural, $factor) = $scale;
+        if ($age == 0)
+            return $future
+                ? "in less than 1 $singular"
+                : "less than 1 $singular ago";
+        if ($age == 1)
+            return $future
+                ? "in 1 $singular"
+                : "1 $singular ago";
+        if ($age < $factor)
+            return $future
+                ? "in $age $plural"
+                : "$age $plural ago";
+        $age = (int)($age / $factor);
     }
 }

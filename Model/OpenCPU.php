@@ -48,7 +48,7 @@ class OpenCPU {
 			})() }');
 			
 		$result = $this->identity($post,$return);
-		$parsed = json_decode($result['body']);
+		$parsed = json_decode($result['body'], true);
 		if($parsed===null):
 			alert($result,'alert-danger');
 			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-danger');
@@ -72,7 +72,7 @@ class OpenCPU {
 		$result = $this->identity($post,$return);
 #		echo $this->debugCall($result);
 # pr($post);
-		$parsed = json_decode($result['body']);
+		$parsed = json_decode($result['body'], true);
 		if($parsed===null):
 			global $user;
 			if($user->isAdmin()):
@@ -112,7 +112,7 @@ library(knitr)
 	public function addUserData($datasets)
 	{
 		foreach($datasets AS $df_name => $data):
-			$this->user_data .= $df_name . ' = as.data.frame(RJSONIO::fromJSON("'.addslashes(my_json_encode($data)).'", nullValue = NA), stringsAsFactors=F)
+			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(my_json_encode($data)).'"), stringsAsFactors=F)
 '; ### loop through the given datasets and import them to R via JSON
 		endforeach;
 	}
@@ -128,7 +128,7 @@ $this->user_data .
 		$source;
 		
 		$result = $this->knit($source,'/json');
-		$html = json_decode($result['body']);
+		$html = json_decode($result['body'], true);
 		
 		if(!$html):
 			alert($result['body'],'alert-danger');
@@ -199,7 +199,7 @@ $this->user_data .
 			// info/text stdout/text console/text R/.val/text
 		
 			if(in_array($session . 'R/.val',$available)):
-				$response['body'] = current( json_decode(file_get_contents($this->instance. $session . 'R/.val/json')) );
+				$response['body'] = current( json_decode(file_get_contents($this->instance. $session . 'R/.val/json'), true) );
 			endif;
 		endif;
 		

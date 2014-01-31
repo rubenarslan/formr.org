@@ -60,28 +60,32 @@ class Item extends HTML_element
 	public $optional = 0;
 	public $class = null;
 	public $showif = null;
+	public $value = null; // syntax for sticky value
+	public $order = null;
 	
 	public $displaycount = 0;
 	public $error = null;
 	public $val_errors = array();
 	
-
 	protected $mysql_field =  'TEXT DEFAULT NULL';
 	protected $prepend = null;
 	protected $append = null;
 	protected $type_options_array = array();
 	public $choices = array();
 	protected $hasChoices = false;
+
 	
-	
-	protected $input_attributes = array();
-	protected $classes_controls = array('controls');
+	public $input_attributes = array(); // so that the pre-set value can be set externally
+	protected $classes_controls = array('controls') ;
 	protected $classes_wrapper = array('form-group','form-row');
 	protected $classes_input = array();
 	protected $classes_label = array('control-label');
+	protected $presetValues = array();
 		
 	public function __construct($options = array()) 
 	{ 
+		
+		// simply load the array into the object, with some sensible defaults
 		$this->id = isset($options['id']) ? $options['id'] : 0;
 
 		if(isset($options['type'])):
@@ -90,6 +94,12 @@ class Item extends HTML_element
 		
 		if(isset($options['name']))
 			$this->name = $options['name'];
+
+		if(isset($options['value']))
+			$this->value = $options['value'];
+
+		if(isset($options['order']))
+			$this->order = $options['order'];
 		
 		$this->label = isset($options['label'])?$options['label']:'';
 		$this->label_parsed = isset($options['label_parsed'])?$options['label_parsed']:null;
@@ -127,6 +137,8 @@ class Item extends HTML_element
 		$this->input_attributes['name'] = $this->name;
 		
 		$this->setMoreOptions();
+
+		// after the easily overriden setMoreOptions, some post-processing that is universal to all items.
 
 		if(isset($options['optional']) AND $options['optional']) 
 		{
@@ -196,9 +208,11 @@ class Item extends HTML_element
 	}
 	public function getResultField()
 	{
-		if($this->mysql_field!==null)
+		if($this->mysql_field!==null):
 			return "`{$this->name}` {$this->mysql_field}";
-		else return null;
+		else:
+			return null;
+		endif;
 	}
 	public function validate() 
 	{
@@ -285,12 +299,21 @@ class Item extends HTML_element
 			$this->render_inner().
 		 '</div>';
 	}
+	protected function splitValues()
+	{
+		if(isset($this->input_attributes['value'])):
+			$this->presetValues = array_map("trim",explode(",",$this->input_attributes['value']));
+			unset($this->input_attributes['value']);
+		else:
+			$this->presetValues = array();
+		endif;
+	}
 }
 
 class Item_text extends Item
 {
 	public $type = 'text';
-	protected $input_attributes = array('type' => 'text');
+	public $input_attributes = array('type' => 'text');
 	protected function setMoreOptions() 
 	{	
 		if(is_array($this->type_options_array) AND count($this->type_options_array) == 1)
@@ -322,8 +345,11 @@ class Item_textarea extends Item
 	}
 	protected function render_input() 
 	{
+		
+		$value = isset($this->input_attributes['value']) ? $this->input_attributes['value'] : '';
+		unset($this->input_attributes['value']);
 		return 		
-			'<textarea '.self::_parseAttributes($this->input_attributes, array('type')).'></textarea>';
+			'<textarea '.self::_parseAttributes($this->input_attributes, array('type')).'>'.$value.'</textarea>';
 	}
 }
 
@@ -331,7 +357,7 @@ class Item_textarea extends Item
 class Item_letters extends Item_text 
 {
 	public $type = 'letters';
-	protected $input_attributes = array('type' => 'text');
+	public $input_attributes = array('type' => 'text');
 	
 	protected function setMoreOptions()
 	{
@@ -344,7 +370,7 @@ class Item_letters extends Item_text
 class Item_number extends Item 
 {
 	public $type = 'number';
-	protected $input_attributes = array('type' => 'number');
+	public $input_attributes = array('type' => 'number');
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	
 	protected function setMoreOptions() 
@@ -416,7 +442,7 @@ class Item_number extends Item
 class Item_range extends Item_number 
 {
 	public $type = 'range';
-	protected $input_attributes = array('type' => 'range');
+	public $input_attributes = array('type' => 'range');
 	protected $hasChoices = true;
 
 	protected function setMoreOptions() 
@@ -444,7 +470,7 @@ class Item_range extends Item_number
 class Item_range_ticks extends Item_number 
 {
 	public $type = 'range_ticks';
-	protected $input_attributes = array('type' => 'range');
+	public $input_attributes = array('type' => 'range');
 	protected $hasChoices = true;
 	
 	protected function setMoreOptions() 
@@ -484,7 +510,7 @@ class Item_range_ticks extends Item_number
 class Item_email extends Item_text 
 {
 	public $type = 'email';
-	protected $input_attributes = array('type' => 'email', 'maxlength' => 255);
+	public $input_attributes = array('type' => 'email', 'maxlength' => 255);
 	protected $prepend = 'fa-envelope';
 	protected $mysql_field = 'VARCHAR (255) DEFAULT NULL';
 	public function validateInput($reply)
@@ -505,7 +531,7 @@ class Item_email extends Item_text
 class Item_url extends Item_text 
 {
 	public $type = 'url';
-	protected $input_attributes = array('type' => 'url');
+	public $input_attributes = array('type' => 'url');
 	protected $prepend = 'fa-link';
 	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';
 	public function validateInput($reply)
@@ -530,7 +556,7 @@ class Item_url extends Item_text
 class Item_tel extends Item_text 
 {
 	public $type = 'tel';
-	protected $input_attributes = array('type' => 'tel');
+	public $input_attributes = array('type' => 'tel');
 	
 	protected $prepend = 'fa-phone';
 	protected $mysql_field = 'VARCHAR(100) DEFAULT NULL';
@@ -544,7 +570,7 @@ class Item_tel extends Item_text
 class Item_cc extends Item_text 
 {
 	public $type = 'cc';
-	protected $input_attributes = array('type' => 'cc');
+	public $input_attributes = array('type' => 'cc');
 	protected $prepend = 'fa-credit-card';
 	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';	
 	protected function setMoreOptions() 
@@ -556,7 +582,7 @@ class Item_cc extends Item_text
 class Item_color extends Item 
 {
 	public $type = 'color';
-	protected $input_attributes = array('type' => 'color');
+	public $input_attributes = array('type' => 'color');
 	
 	protected $prepend = 'fa-tint';
 	protected $mysql_field = 'CHAR(7) DEFAULT NULL';
@@ -582,7 +608,7 @@ class Item_color extends Item
 class Item_datetime extends Item 
 {
 	public $type = 'datetime';
-	protected $input_attributes = array('type' => 'datetime');
+	public $input_attributes = array('type' => 'datetime');
 	
 	protected $prepend = 'fa-calendar';	
 	protected $mysql_field = 'DATETIME DEFAULT NULL';
@@ -635,23 +661,22 @@ class Item_datetime extends Item
 class Item_time extends Item_datetime 
 {
 	public $type = 'time';
-	protected $input_attributes = array('type' => 'time', 'style' => 'width:160px');
+	public $input_attributes = array('type' => 'time', 'style' => 'width:160px');
 	
 	protected $prepend = 'fa-clock-o';
 	protected $mysql_field = 'TIME DEFAULT NULL';
-	protected $html5_date_format = 'H:i';	
+	protected $html5_date_format = 'H:i';
 }
 class Item_datetime_local extends Item_datetime 
 {
 	public $type = 'datetime-local';
-	protected $input_attributes = array('type' => 'datetime-local');
-	
+	public $input_attributes = array('type' => 'datetime-local');
 }
 
 class Item_date extends Item_datetime 
 {
 	public $type = 'date';
-	protected $input_attributes = array('type' => 'date');
+	public $input_attributes = array('type' => 'date');
 	
 	protected $prepend = 'fa-calendar';	
 	protected $mysql_field = 'DATE DEFAULT NULL';
@@ -662,7 +687,7 @@ class Item_date extends Item_datetime
 class Item_yearmonth extends Item_datetime 
 {
 	public $type = 'yearmonth';
-	protected $input_attributes = array('type' => 'yearmonth');
+	public $input_attributes = array('type' => 'yearmonth');
 	
 	protected $prepend = 'fa-calendar-o';	
 	protected $mysql_field = 'DATE DEFAULT NULL';
@@ -673,13 +698,13 @@ class Item_month extends Item_yearmonth
 {
 	public $type = 'month';
 	protected $prepend = 'fa-calendar-o';		
-	protected $input_attributes = array('type' => 'month');
+	public $input_attributes = array('type' => 'month');
 }
 
 class Item_year extends Item_datetime 
 {
 	public $type = 'year';
-	protected $input_attributes = array('type' => 'year');
+	public $input_attributes = array('type' => 'year');
 	
 	protected $html5_date_format = 'Y';
 	protected $prepend = 'fa-calendar-o';	
@@ -688,7 +713,7 @@ class Item_year extends Item_datetime
 class Item_week extends Item_datetime 
 {
 	public $type = 'week';
-	protected $input_attributes = array('type' => 'week');
+	public $input_attributes = array('type' => 'week');
 	
 	protected $html5_date_format = 'Y-mW';
 	protected $prepend = 'fa-calendar-o';	
@@ -719,7 +744,7 @@ class Item_note extends Item
 class Item_submit extends Item 
 {
 	public $type = 'submit';
-	protected $input_attributes = array('type' => 'submit');
+	public $input_attributes = array('type' => 'submit');
 	
 	protected $mysql_field = null;
 	
@@ -738,7 +763,7 @@ class Item_submit extends Item
 	protected function render_inner() 
 	{
 		return 		
-			'<button '.self::_parseAttributes($this->input_attributes, array('required','name')).'>'.$this->label_parsed.'</button>';
+			'<button '.self::_parseAttributes($this->input_attributes, array('required','name','value')).'>'.$this->label_parsed.'</button>';
 	}
 }
 
@@ -746,7 +771,7 @@ class Item_submit extends Item
 class Item_mc extends Item 
 {
 	public $type = 'mc';
-	protected $input_attributes = array('type' => 'radio');
+	public $input_attributes = array('type' => 'radio');
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	protected $hasChoices = true;
 	
@@ -780,6 +805,9 @@ class Item_mc extends Item
 	}
 	protected function render_input() 
 	{
+	
+		$this->splitValues();
+		
 		$ret = '<div class="mc-table">
 			<input '.self::_parseAttributes($this->input_attributes,array('type','id','required')).' type="hidden" value="" id="item' . $this->id . '_">
 		';
@@ -798,7 +826,11 @@ class Item_mc extends Item
 		$all_left = false;
 		if(mb_strpos(implode(" ",$this->classes_wrapper),'mc-all-left')!==false) $all_left = true;
 		
-		foreach($this->choices AS $value => $option):			
+		foreach($this->choices AS $value => $option):
+			// determine whether options needs to be checked
+			if(in_array($value,$this->presetValues)) $this->input_attributes['checked'] = true;
+			else $this->input_attributes['checked'] = false;
+			
 			$ret .= '
 				<label for="item' . $this->id . '_' . $value . '">' . 
 					(($this->label_first || $all_left) ? '<span> ' .$option. ' </span>' : '') . 
@@ -819,7 +851,7 @@ class Item_mc extends Item
 class Item_mc_multiple extends Item_mc 
 {
 	public $type = 'mc_multiple';
-	protected $input_attributes = array('type' => 'checkbox');
+	public $input_attributes = array('type' => 'checkbox');
 	
 	public $optional = 1;
 	protected $mysql_field = 'VARCHAR(40) DEFAULT NULL';
@@ -839,6 +871,9 @@ class Item_mc_multiple extends Item_mc
 	{
 		if(!$this->optional)
 			$this->input_attributes['class'] .= ' group-required';
+		
+		$this->splitValues();
+		
 #		$this->classes_wrapper = array_diff($this->classes_wrapper, array('required'));
 		unset($this->input_attributes['required']);
 		
@@ -846,6 +881,10 @@ class Item_mc_multiple extends Item_mc
 			<input type="hidden" value="" id="item' . $this->id . '_" '.self::_parseAttributes($this->input_attributes,array('id','type','required')).'>
 		';
 		foreach($this->choices AS $value => $option) {
+			// determine whether options needs to be checked
+			if(in_array($value,$this->presetValues)) $this->input_attributes['checked'] = true;
+			else $this->input_attributes['checked'] = false;
+			
 			$ret .= '
 			<label for="item' . $this->id . '_' . $value . '">
 			<input '.self::_parseAttributes($this->input_attributes,array('id')).
@@ -894,6 +933,10 @@ class Item_check extends Item_mc_multiple
 	}
 	protected function render_input() 
 	{
+		if(isset($this->input_attributes['value']) AND trim($this->input_attributes['value'])) $this->input_attributes['checked'] = true;
+		else $this->input_attributes['checked'] = false;
+		unset($this->input_attributes['value']);
+		
 		$ret = '
 			<input type="hidden" value="" id="item' . $this->id . '_" '.self::_parseAttributes($this->input_attributes,array('id','type','required')).'>
 		<label for="item' . $this->id . '_1">
@@ -913,13 +956,19 @@ class Item_select_one extends Item
 	
 	protected function render_input() 
 	{
+		$this->splitValues();
+		
 		$ret = '<select '.self::_parseAttributes($this->input_attributes, array('type')).'>'; 
 		
 		if(!isset($this->input_attributes['multiple'])) $ret .= '<option value=""></option>';
 		
 		foreach($this->choices AS $value => $option):
+			// determine whether options needs to be checked
+			if(in_array($value,$this->presetValues)) $selected = ' selected="selected"';
+			else $selected = '';
+			
 			$ret .= '
-				<option value="' . $value . '">' . 
+				<option value="' . $value . '"'.$selected.'>' . 
 					 $option .
 				'</option>';
 		endforeach;
@@ -1041,7 +1090,7 @@ class Item_mc_button extends Item_mc
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
-		$this->classes_wrapper[] = 'btn-radio';		
+		$this->classes_wrapper[] = 'btn-radio';
 	}
 	protected function render_appended () 
 	{
@@ -1098,13 +1147,20 @@ class Item_rating_button extends Item_mc_button
 	}
 	protected function render_input() 
 	{
+		$this->splitValues();
+		
+		
 		$ret = '
 			<input '.self::_parseAttributes($this->input_attributes,array('type','id','required')).' type="hidden" value="" id="item' . $this->id . '_">
 		';
 		
 
 		$ret .= "<label class='keep-label'>{$this->lower_text} </label> ";
-		foreach($this->choices AS $option):			
+		foreach($this->choices AS $option):	
+			// determine whether options needs to be checked
+			if(in_array($option,$this->presetValues)) $this->input_attributes['checked'] = true;
+			else $this->input_attributes['checked'] = false;
+					
 			$ret .= '
 				<label for="item' . $this->id . '_' . $option . '">' . 
 				'<input '.self::_parseAttributes($this->input_attributes,array('id')).
@@ -1163,7 +1219,7 @@ class Item_check_button extends Item_check
 	{
 		$ret = '<div class="btn-group hidden">
 			<button class="btn" data-for="item' . $this->id . '_1">' . 
-		'<i class="fa fa-2x fa-square-o"></i>
+		'<i class="fa fa-2x fa-fw"></i>
 			</button>';
 		$ret .= '</div>';
 		
@@ -1184,7 +1240,7 @@ class Item_sex extends Item_mc_button
 
 class Item_geopoint extends Item {
 	public $type = 'geopoint';
-	protected $input_attributes = array('type' => 'text', 'readonly');
+	public $input_attributes = array('type' => 'text', 'readonly');
 	protected $append = true;
 	
 	protected $mysql_field =  'TEXT DEFAULT NULL';
@@ -1227,7 +1283,7 @@ class Item_geopoint extends Item {
 class Item_random extends Item_number 
 {
 	public $type = 'random';
-	protected $input_attributes = array('type' => 'hidden');
+	public $input_attributes = array('type' => 'hidden');
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	
 	public function validateInput($reply)
@@ -1248,11 +1304,23 @@ class Item_random extends Item_number
 	}
 }
 
-
+class Item_calculate extends Item {
+	public $type = 'calculate';
+	public $input_attributes = array('type' => 'hidden');
+	
+	protected $mysql_field =  'TEXT DEFAULT NULL';
+	public function validateInput($reply)
+	{
+		return $this->calculateValue();
+	}
+	public function render() {
+		return $this->render_input();
+	}
+}
 
 class Item_ip extends Item {
 	public $type = 'ip';
-	protected $input_attributes = array('type' => 'hidden');
+	public $input_attributes = array('type' => 'hidden');
 	
 	protected $mysql_field =  'VARCHAR (46) DEFAULT NULL';
 	public function validateInput($reply)
@@ -1268,7 +1336,7 @@ class Item_ip extends Item {
 
 class Item_referrer extends Item {
 	public $type = 'referrer';
-	protected $input_attributes = array('type' => 'hidden');
+	public $input_attributes = array('type' => 'hidden');
 	protected $mysql_field =  'VARCHAR (255) DEFAULT NULL';
 	public function validateInput($reply)
 	{
@@ -1283,7 +1351,7 @@ class Item_referrer extends Item {
 
 class Item_server extends Item {
 	public $type = 'server';
-	protected $input_attributes = array('type' => 'hidden');
+	public $input_attributes = array('type' => 'hidden');
 	private $get_var = 'HTTP_USER_AGENT';
 	
 	protected $mysql_field =  'VARCHAR (255) DEFAULT NULL';
@@ -1328,7 +1396,7 @@ class Item_server extends Item {
 
 class Item_get extends Item {
 	public $type = 'get';
-	protected $input_attributes = array('type' => 'hidden');
+	public $input_attributes = array('type' => 'hidden');
 	private $get_var = 'referred_by';
 	
 	protected $mysql_field =  'TEXT DEFAULT NULL';
@@ -1348,7 +1416,7 @@ class Item_get extends Item {
 	{
 		parent::validate();
 		if( !preg_match('/^[A-Za-z0-9_]+$/',$this->get_var) ): 
-			$this->val_errors[] = __('Problem wiht variable %s "get %s". The part after get can only contain a-Z0-9 and the underscore.', $this->name, $this->get_var);
+			$this->val_errors[] = __('Problem with variable %s "get %s". The part after get can only contain a-Z0-9 and the underscore.', $this->name, $this->get_var);
 		endif;
 		return $this->val_errors;
 	}

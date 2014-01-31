@@ -45,7 +45,7 @@ I'm affiliated with institution xxxx.
 ");?>">request an admin account</a> or 
 						</li>
 						<li><i class="fa fa-li fa-github-alt"></i> 
-							you can <a href="https://github.com/rubenarslan/formr" title="If you don't know what a Github repository is yet, this is probably not the option for you, but for your local techie type. ">check out the Github repo</a>.
+							you can <a href="https://github.com/rubenarslan/formr" title="If you don't know what a Github repository is yet, this is probably not the option for you, but for your local techie type. ">check out the Github repo</a>. It's open source and free-to-use.
 						</li>
 				</li>
 			</ul>

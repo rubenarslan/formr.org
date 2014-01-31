@@ -123,7 +123,7 @@ class Pause extends RunUnit {
 					</label
 				</p> 
 		<p><label>Text to show while waiting: <br>
-			<textarea class="form-control" placeholder="You can use Markdown" name="body" rows="10" cols="60">'.$this->body.'</textarea>
+			<textarea data-editor="markdown" class="form-control" placeholder="You can use Markdown" name="body" rows="10" cols="60">'.$this->body.'</textarea>
 		</label></p>
 			';
 		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
@@ -191,27 +191,41 @@ class Pause extends RunUnit {
 				<tbody>"';
 				
 		foreach($results AS $row):
-			$openCPU = $this->makeOpenCPU();
-			$this->run_session_id = $row['id'];
-
-			$openCPU->addUserData($this->getUserDataInRun(
-				$this->dataNeeded($this->dbh,$this->relative_to)
-			));
-			
-			$relative_to = $openCPU->evaluate($this->relative_to);
-	if($relative_to !== null):
-
 			$conditions = array();
-			if($this->wait_minutes AND $this->wait_minutes!='')
-				$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
-			if($this->wait_until_date AND $this->wait_until_date != '0000-00-00') 
-				$conditions['date'] = "CURDATE() >= :wait_date";
-			if($this->wait_until_time AND $this->wait_until_time != '00:00:00')
-				$conditions['time'] = "CURTIME() >= :wait_time";
-
-			if(isset($conditions['time']) AND !isset($conditions['date']) AND !isset($conditions['minute']))
-				$conditions['date'] = "DATE_ADD(:relative_to, INTERVAL 1 DAY) >= CURDATE()";
 		
+			$wait_minutes_true = !($this->wait_minutes === null OR trim($this->wait_minutes)=='');
+			$relative_to_true = !($this->relative_to === null OR trim($this->relative_to)=='');
+		
+			// disambiguate what user meant
+			if($wait_minutes_true AND !$relative_to_true):  // user said wait minutes relative to, implying a relative to
+				$this->relative_to = 'tail(na.omit(survey_unit_sessions$created),1)'; // we take this as implied
+				$relative_to_true = true;
+			endif;
+		
+			if($relative_to_true): // if a relative_to has been defined by user or automatically, we need to retrieve its value
+				$openCPU = $this->makeOpenCPU();
+				$this->run_session_id = $row['id'];
+
+				$openCPU->addUserData($this->getUserDataInRun(
+					$this->dataNeeded($this->dbh,$this->relative_to)
+				));
+		
+				$relative_to = $openCPU->evaluate($this->relative_to);
+			endif;
+		
+			if(!$wait_minutes_true AND $relative_to_true): // if no wait minutes but a relative to was defined, we just use this as the param (useful for complex R expressions)
+				$conditions['relative_to'] = ":relative_to <= NOW()";
+			elseif($wait_minutes_true): 		// if a wait minutes was defined by user, we need to add it's condition
+				$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
+			endif;
+		
+			if($this->wait_until_date AND $this->wait_until_date != '0000-00-00'):
+				$conditions['date'] = "CURDATE() >= :wait_date";
+			endif;
+			if($this->wait_until_time AND $this->wait_until_time != '00:00:00'):
+				$conditions['time'] = "CURTIME() >= :wait_time";
+			endif;
+			
 			if(!empty($conditions)):
 				$condition = implode($conditions," AND ");
 		
@@ -223,8 +237,7 @@ class Pause extends RunUnit {
 			on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 
 	WHERE 
-		`survey_run_sessions`.id = :run_session_id AND
-		:relative_to3 IS NOT NULL
+		`survey_run_sessions`.id = :run_session_id
 
 	ORDER BY IF(ISNULL($order),1,0), RAND()
 
@@ -234,6 +247,12 @@ class Pause extends RunUnit {
 				if(isset($conditions['minute'])):
 					$evaluate->bindParam(':wait_minutes',$this->wait_minutes);
 					$evaluate->bindParam(':wait_minutes2',$this->wait_minutes);
+					$evaluate->bindParam(':relative_to',$relative_to);
+					$evaluate->bindParam(':relative_to2',$relative_to);
+				endif;
+				if(isset($conditions['relative_to'])):
+					$evaluate->bindParam(':relative_to',$relative_to);
+					$evaluate->bindParam(':relative_to2',$relative_to);	
 				endif;
 				if(isset($conditions['date'])): 
 					$evaluate->bindParam(':wait_date',$this->wait_until_date);
@@ -243,10 +262,7 @@ class Pause extends RunUnit {
 					$evaluate->bindParam(':wait_time',$this->wait_until_time);
 					$evaluate->bindParam(':wait_time2',$this->wait_until_time);
 				endif;
-				$evaluate->bindParam(':relative_to',$relative_to);
-				$evaluate->bindParam(':relative_to2',$relative_to);
-				$evaluate->bindParam(':relative_to3',$relative_to);
-				$evaluate->bindParam(':run_session_id',$this->run_session_id);
+				$evaluate->bindValue(':run_session_id',$this->run_session_id);
 
 				$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
 				if($evaluate->rowCount()===1):
@@ -256,9 +272,6 @@ class Pause extends RunUnit {
 			else:
 				$result = true;
 			endif;
-	else:
-		$result = null;
-	endif;
 			
 			echo "<tr>
 					<td style='word-wrap:break-word;max-width:150px'><small>".$row['session']." ({$row['position']})</small></td>
@@ -271,29 +284,40 @@ class Pause extends RunUnit {
 	}
 	public function exec()
 	{
-		if($this->relative_to === null OR trim($this->relative_to)=='')
-		{
-			$no_relative_to = true;
-			$this->relative_to = 'survey_unit_sessions$created';
-		}
-		$openCPU = $this->makeOpenCPU();
-
-		$openCPU->addUserData($this->getUserDataInRun(
-			$this->dataNeeded($this->dbh,$this->relative_to)
-		));
-		
-		$relative_to = $openCPU->evaluate($this->relative_to);
 		$conditions = array();
-		if($this->wait_minutes AND $this->wait_minutes!='')
-			$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
-		if($this->wait_until_date AND $this->wait_until_date != '0000-00-00') 
-			$conditions['date'] = "CURDATE() >= :wait_date";
-		if($this->wait_until_time AND $this->wait_until_time != '00:00:00')
-			$conditions['time'] = "CURTIME() >= :wait_time";
-
-//		if(isset($conditions['time']) AND !isset($conditions['date']) AND !isset($conditions['minute']))
-//			$conditions['relative_to'] = "DATE_ADD(:relative_to, INTERVAL 1 DAY) >= CURDATE()";
 		
+		$wait_minutes_true = !($this->wait_minutes === null OR trim($this->wait_minutes)=='');
+		$relative_to_true = !($this->relative_to === null OR trim($this->relative_to)=='');
+		
+		// disambiguate what user meant
+		if($wait_minutes_true AND !$relative_to_true):  // user said wait minutes relative to, implying a relative to
+			$this->relative_to = 'tail(na.omit(survey_unit_sessions$created),1)'; // we take this as implied
+			$relative_to_true = true;
+		endif;
+		
+		if($relative_to_true): // if a relative_to has been defined by user or automatically, we need to retrieve its value
+			$openCPU = $this->makeOpenCPU();
+
+			$openCPU->addUserData($this->getUserDataInRun(
+				$this->dataNeeded($this->dbh,$this->relative_to)
+			));
+		
+			$relative_to = $openCPU->evaluate($this->relative_to);
+		endif;
+		
+		if(!$wait_minutes_true AND $relative_to_true): // if no wait minutes but a relative to was defined, we just use this as the param (useful for complex R expressions)
+			$conditions['relative_to'] = ":relative_to <= NOW()";
+		elseif($wait_minutes_true): 		// if a wait minutes was defined by user, we need to add it's condition
+			$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
+		endif;
+		
+		if($this->wait_until_date AND $this->wait_until_date != '0000-00-00'):
+			$conditions['date'] = "CURDATE() >= :wait_date";
+		endif;
+		if($this->wait_until_time AND $this->wait_until_time != '00:00:00'):
+			$conditions['time'] = "CURTIME() >= :wait_time";
+		endif;
+
 		if(!empty($conditions)):
 			$condition = implode($conditions," AND ");
 
@@ -314,7 +338,11 @@ class Pause extends RunUnit {
 				$evaluate->bindParam(':wait_minutes',$this->wait_minutes);
 				$evaluate->bindParam(':wait_minutes2',$this->wait_minutes);
 				$evaluate->bindParam(':relative_to',$relative_to);
-				$evaluate->bindParam(':relative_to2',$relative_to);			
+				$evaluate->bindParam(':relative_to2',$relative_to);	
+			endif;
+			if(isset($conditions['relative_to'])):
+				$evaluate->bindParam(':relative_to',$relative_to);
+				$evaluate->bindParam(':relative_to2',$relative_to);	
 			endif;
 			if(isset($conditions['date'])): 
 				$evaluate->bindParam(':wait_date',$this->wait_until_date);

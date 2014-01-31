@@ -157,7 +157,7 @@ class Study extends RunUnit
 				"problem_email" => "problems@example.com",
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
-				"submit_button_text" => 'Submit!',
+				"submit_button_text" => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!',
 				"form_classes" => '', // unspaced_rows
 //				"fileuploadmaxsize" => "100000",
 //				"closed_user_pool" => 0,
@@ -172,7 +172,7 @@ class Study extends RunUnit
 		return true;
 	}
 	protected $user_defined_columns = array(
-		'name', 'label', 'label_parsed', 'type',  'type_options', 'choice_list', 'optional', 'class' ,'showif' // study_id is not among the user_defined columns
+		'name', 'label', 'label_parsed', 'type',  'type_options', 'choice_list', 'optional', 'class' ,'showif', 'value', 'order' // study_id is not among the user_defined columns
 	);
 	protected $choices_user_defined_columns = array(
 		'list_name', 'name', 'label', 'label_parsed' // study_id is not among the user_defined columns
@@ -217,7 +217,9 @@ class Study extends RunUnit
 			choice_list,
 	        optional,
 	        class,
-	        showif
+	        showif,
+	        value,
+			`order`
 		) VALUES (
 			:study_id,
 			:name,
@@ -228,7 +230,9 @@ class Study extends RunUnit
 			:choice_list,
 			:optional,
 			:class,
-			:showif
+			:showif,
+			:value,
+			:order
 			)');
 	
 		$result_columns = array();
@@ -247,7 +251,6 @@ class Study extends RunUnit
 				unset($this->SPR->survey[$row_number]);
 				continue;
 			else:
-
 				$val_errors = $item->validate();
 		
 				if(!empty($val_errors)):
@@ -257,8 +260,8 @@ class Study extends RunUnit
 				else:
 					if(!$this->knittingNeeded($item->label)): // if the parsed label is constant
 						$markdown = Parsedown::instance()
-    ->set_breaks_enabled(true)
-    ->parse($item->label); // transform upon insertion into db instead of at runtime
+						    ->set_breaks_enabled(true)
+						    ->parse($item->label); // transform upon insertion into db instead of at runtime
 
 						if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
 							$item->label_parsed = $matches[1];
@@ -271,7 +274,7 @@ class Study extends RunUnit
 
 			foreach ($this->user_defined_columns as $param) 
 			{
-				$add_items->bindParam(":$param", $item->$param);
+				$add_items->bindValue(":$param", $item->$param);
 			}
 			$result_columns[] = $item->getResultField();
 			
@@ -448,7 +451,7 @@ class Study extends RunUnit
 	}
 	public function getItems()
 	{
-		$get_items = $this->dbh->prepare("SELECT * FROM `survey_items` WHERE `survey_items`.study_id = :study_id ORDER BY id ASC");
+		$get_items = $this->dbh->prepare("SELECT id,study_id,type,choice_list,type_options,name,label,label_parsed,optional,class,showif,value,`order` FROM `survey_items` WHERE `survey_items`.study_id = :study_id ORDER BY id ASC");
 		$get_items->bindParam(":study_id", $this->id);
 		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
 

@@ -15,7 +15,7 @@
 		  
 					You can format your text in a simple way using <a href="http://daringfireball.net/projects/markdown/syntax" title="Go to this link for a more exhaustive guide">Github-flavoured Markdown</a> and <a href="https://support.rstudio.com/hc/en-us/articles/200486358-R-Markdown-Specification" title="Go to this link for a more exhaustive guide on the specific flavor of Markdown that we're using">Sundown</a>. The philosophy is that you should simply write like you would in a plain-text email and Markdown turns it nice. Specifically:<br>
 <pre>* list item 1
-* list item 2</pre> will turn into a nice list. "Straight" quotes turn into “curly” quotes. <code>#</code> at the beginning of a line turns it into a large headline, <code>##</code> up to <code>######</code> turn it into smaller ones.
+* list item 2</pre> will turn into a nice list. "Straight" quotes turn into “curly” quotes. <code># </code> at the beginning of a line turns it into a large headline, <code>## </code> up to <code>###### </code> turn it into smaller ones.
 					 <code>*<em>italics</em>* and __<strong>bold</strong>__</code> are also easy to do, as are 
 					 <code>[<a href="http://yihui.name/knitr/">links</a>](http://yihui.name/knitr/)</code>.
 		 		</p>
@@ -35,8 +35,7 @@
 					<li>
 						<i class="fa-li fa fa-bar-chart-o"></i>
 						You can also plot someone's extraversion on the standard normal distribution.
-	<pre>```{r}
-extra_norm_mean = 3.2
+	<pre><code class="r">extra_norm_mean = 3.2
 extra_norm_sd = 2.1 
 big5$extraversion = (
 rowMeans(
@@ -54,7 +53,7 @@ geom_vline(xintercept=big5$extraversion, colour="blue") +
 xlab("Extraversion") +
 ylab("Normal distribution") + 
 theme_minimal()
-```</pre><br>
+</code></pre><br>
 yields<br>
 <img src="<?=WEBROOT?>assets/img/examples/example_fb_plot.png" width="330" height="313">
 					</li>
@@ -268,9 +267,9 @@ yields<br>
 				 <ul class="fa-ul">
 					 <li><i class="fa-li fa fa-pause"></i> Pos. 1. a waiting period (e.g. let's say we know when exchange students will arrive in their host country, and do not ask questions before they've been there one week)</li>
 					 <li><i class="fa-li fa fa-envelope"></i> Pos. 2. Now we have to send our exchange students an email to invite them to do the survey.</li>
-					 <li><i class="fa-li fa fa-forward"></i> Pos. 3. a Skip Forward which checks <code>Sys.time() &gt; (exchange$arrival + weeks(2))</code>. The first dropdown is set to "if user reacts", the second to "automatically". It is set to jump to pos. 5.</li>
+					 <li><i class="fa-li fa fa-forward"></i> Pos. 3. a Skip Forward which checks <code>today() &gt; (exchange$arrival + weeks(2))</code>. The first dropdown is set to "if user reacts", the second to "automatically". It is set to jump to pos. 5.</li>
 					 <li><i class="fa-li fa fa-envelope"></i> Pos. 4. This is our email reminder for the students who did not react after one week.</li>
-					 <li><i class="fa-li fa fa-forward"></i> Pos. 5. a Skip Forward which checks <code>Sys.time() &lt; (exchange$arrival + weeks(10))</code>. The first dropdown is set to "automatically", the second to "if user reacts". It is set to jump to pos. 6.</li>
+					 <li><i class="fa-li fa fa-forward"></i> Pos. 5. a Skip Forward which checks <code>today() &lt; (exchange$arrival + weeks(10))</code>. The first dropdown is set to "automatically", the second to "if user reacts". It is set to jump to pos. 6.</li>
 					 <li><i class="fa-li fa fa-pencil-square"></i> Pos. 5. the survey we want the exchange students to fill out</li>
 					 <li><i class="fa-li fa fa-pause"></i> Pos. 6. Because this is a longitudinal study, we now wait for our exchange students to return home. The rest is left out.</li>
 				 </ul>
