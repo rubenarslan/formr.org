@@ -142,6 +142,11 @@
 						<?php echo _("go to public area"); ?>
 					</a>
 				</li>
+				<li>
+				    <a href="<?=WEBROOT?>public/documentation">
+						<i class="fa fa-question-circle fa-fw"></i>
+					</a>
+				</li>
 			</ul>
 		</div>
 </nav>

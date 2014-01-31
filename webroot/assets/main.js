@@ -298,45 +298,7 @@ $(document).ready(function() {
     getProgress();
     
 });
-// https://gist.github.com/duncansmart/5267653
-// Hook up ACE editor to all textareas with data-editor attribute
-function hookUpAceToTextareas () {
-   $('textarea[data-editor]:visible').each(function () {
-       var textarea = $(this);
 
-       var mode = textarea.data('editor');
-
-       var editDiv = $('<div>', {
-           position: 'absolute',
-           width: textarea.width(),
-           height: textarea.height(),
-           'class': textarea.attr('class')
-       }).insertBefore(textarea);
-
-//       textarea.css('visibility', 'hidden');
-       textarea.css('display', 'none');
-
-//       ace.require("ace/ext/language_tools");
-
-       var editor = ace.edit(editDiv[0]);
-       editor.renderer.setShowGutter(false);
-//       editor.setOptions({
-//           enableBasicAutocompletion: true
-//       });
-       editor.getSession().setValue(textarea.val());
-       editor.getSession().setMode("ace/mode/" + mode);
-       editor.setTheme("ace/theme/textmate");
-       editor.on('change', function(){
-         textarea.val(editor.getSession().getValue());
-         textarea.change();
-       });
-//       // copy back to textarea on form submit...
-//       textarea.closest('form').submit(function () {
-//           textarea.val(editor.getSession().getValue());
-//       })
-
-   });
-}
 function getProgress() {
     $progressbar = $('.progress .progress-bar');
 

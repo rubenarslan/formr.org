@@ -17,7 +17,8 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 			use the power of R to generate pretty feedback and complex designs
 		</p>
 		<p>
-			Most documentation is inside formr – you can just get going and it will be waiting for you where you need it.
+			Most documentation is inside formr – you can just get going and it will be waiting for you where you need it. <br>
+			If something just doesn't make sense or if you run into errors, <a href="https://github.com/rubenarslan/formr/issues" title="This link takes you to our Github issue tracker. Please give as much detail as you can.">please let us know</a>.
 		</p>
 	</div>
 </div>
@@ -55,6 +56,10 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 
 			</div>
 			<div class="tab-pane fade in active" id="features">
+				<h4>
+					Disclaimer
+				</h4>
+				<p> This is pretty much brand new software and is supplied for free, open-source. As such, it doesn't come with a warranty of any kind. Still, if you let us know when formr causes you trouble or headaches, we will try to help you resolve the problem and you will get our heartfelt apologies. If you're the technical type, you might consider hosting a stable release of formr yourself, because this version of formr tracks the most recent pre-release and will thus sometimes have kinks.</p>
 				<h2>
 					Features
 				</h2>
@@ -72,10 +77,10 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 						looks nice on your phone
 					</li>
 					<li>
-						you can use R to do basically anything that R can do (complicated at times)
+						you can use R to do basically anything that R can do (complicated stuff!)
 					</li>
 					<li>
-						manage access and eligibility to studies
+						manage access to and eligibility for studies
 					</li>
 					<li>
 						longitudinal studies
@@ -89,6 +94,9 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 					<li>
 						formats text using Github-flavoured Markdown (a.k.a. the easiest and least bothersome way to mark up text)
 					</li>
+					<li>
+						a nice editor, <a href="https://github.com/ajaxorg/ace">Ace</a>, for editing Markdown &amp; R in runs.
+					</li>
 					
 				</ul>
 				<h4>
@@ -96,13 +104,13 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 				</h4>
 				<ul class="fa-ul-more-padding">
 					<li>
-						send text messages
+						send text messages (you can already do this using R and httr)
 					</li>
 					<li>
 						work offline on mobile phones and other devices with intermittent internet access (in the meantime <a href="https://enketo.org/">enketo</a> is pretty good and free too, but geared towards humanitarian aid)
 					</li>
 					<li>
-						easily share, swap and combine runs (in the future higher-level components like filters or diaries can be added with one click)
+						easily share, swap and combine runs (so that you can share designs, e.g. "daily diary study with one reminder", and add higher-level components like filters with one click)
 					</li>
 					<li>
 						a better API (some basics are there)
@@ -116,6 +124,12 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 					<li>
 						social networks, round robin studies - at the moment they are a bit bothersome to implement, but possible. There is a dedicated module already which might also get released as open source if there's time. 
 					</li>
+					<li>
+						dedicated formr R package which handles not only some necessary shortcuts for the run-environment and easy feedback graphs, but also some data munging stuff (such as a data takeout for all surveys in a run, building scales from items automatically, etc.)
+					</li>
+					<li>
+						more <a href="https://github.com/rubenarslan/formr/issues?labels=enhancement&page=1&state=open">planned enhancements on Github</a>
+					</li>
 				</ul>
 				<h4>
 					Might be nice:
@@ -126,9 +140,6 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 					</li>
 					<li>
 						supporting Pushover's API (or something similar) to send push messages to a phone. You could already do this easily in an R call, so no hurry here.
-					</li>
-					<li>
-						using <a href="https://github.com/ajaxorg/ace">Ace</a> for editing Markdown/Knitr in runs.
 					</li>
 				</ul>
 			</div>
