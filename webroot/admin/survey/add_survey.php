@@ -95,19 +95,18 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 		<div class="tab-content">
 			<div class="tab-pane fade" id="sample_survey_sheet">
 				<?php
-				require INCLUDE_ROOT.'View/sample_survey_sheet.php';	
+				require INCLUDE_ROOT.'View/sample_survey_sheet.php';
 				?>
 			</div>
 			<div class="tab-pane fade" id="sample_choices_sheet">
 				<?php
-				require INCLUDE_ROOT.'View/sample_choices_sheet.php';	
+				require INCLUDE_ROOT.'View/sample_choices_sheet.php';
 				?>
 			</div>
 			<div class="tab-pane fade in active" id="available_items">
 				<?php
-				require INCLUDE_ROOT.'View/item_types.php';	
+				require INCLUDE_ROOT.'View/item_types.php';
 				?>
-
 			</div>
 		</div>
 	</div>

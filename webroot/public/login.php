@@ -54,7 +54,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 				</div>
 			</div>
 			<div class="form-group small-left">
-				<a href="<?=WEBROOT?>public/forgot_password">I forgot my password</a>
+				<a href="<?=WEBROOT?>public/forgot_password">I forgot my password.</a>
 			</div>
 		</form>
 	</div>
