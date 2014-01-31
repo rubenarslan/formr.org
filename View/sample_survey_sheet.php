@@ -4,10 +4,7 @@
 <p>Some helpful tips:</p>
 <ul>
 	<li>
-		You may want to make linebreaks in Excel (you need them to use headlines or lists in your item labels). In Microsoft Excel on Macs, you need to press <kbd>Command ⌘</kbd>+<kbd>Option ⌥</kbd>+<kbd>Enter ↩</kbd>, on Windows it is <kbd>ctrl</kbd>+<kbd>Enter ↩</kbd>
-	</li>
-	<li>
-		You can start a new paragraph using a blank line, for a simple linebreak to appear you need to end the line with two spaces.
+		You may want to make linebreaks in Excel to format your text. In Microsoft Excel on Macs, you need to press <kbd>Command ⌘</kbd>+<kbd>Option ⌥</kbd>+<kbd>Enter ↩</kbd>, on Windows it is <kbd>ctrl</kbd>+<kbd>Enter ↩</kbd>. We suggest you start working from the provided sample sheet, because it is already properly formatting for lines wrapping within cells.
 	</li>
 	<li>
 		Make text <strong>bold</strong> through  <code>__bold__</code>, make it <em>italic</em> through <code>*italic*</code>.
@@ -116,6 +113,54 @@
 		</tr>
 	</tbody>
 </table>
+
+<h3>Available columns</h3>
+<p>You can use more columns than the ones shown above. Unknown column types are simply ignored, so you can use them for other information.</p>
+<p>The following column types exist:</p>
+<dl class="dl-horizontal dl-wider">
+	<dt>
+		type
+	</dt>
+	<dd>
+		set the item type (see item types tab)
+	 </dd>
+ 	<dt>
+ 		name
+ 	</dt>
+ 	<dd>
+		this is simply the name of the item. You'll use it to refer to the item in your data analysis and when making complex conditions, so adhere to a systematic naming scheme (we recommend scale1, scale2, scale3R for Likert-type items).
+ 	 </dd>
+	 <dt>
+		 label
+	 </dt>
+	 <dd>
+		 This column is the text that will be shown on the left-hand side of the answer choices (for most items). You can use Markdown formatting here.
+	 </dd>
+	 <dt>
+		 showif
+	 </dt>
+	 <dd>
+		 If you leave this empty, the item will always be shown. If it contains a condition, such as <code>sex == 1</code>, it will only be shown if that condition is true. Conditions are written in R and can be arbitrarily complex. You should always test them well. It is also possible to refer to data in other surveys using e.g. <code>other_survey$item_name != 2</code>.
+	 </dd>
+	 <dt>
+		 optional
+	 </dt>
+	 <dd>
+		 Nearly all items are mandatory by default. By using <code>*</code> in this column, you can turns items optional instead. Using <code>!</code> forces a response to items optional by default.
+	 </dd>
+	 <dt>
+		 value
+	 </dt>
+	 <dd>
+		 Sometimes you may want a value to be pre-set when users first fill out a form. This can be especially handy in longitudinal studies, where you want to check that e.g. contact information is still up-to-date or when you want to highlight changes across days. You can, again, use arbitrarily complex R code (e.g. <code>a_different_survey$item1 + a_different_survey$item2</code>) to pre-set a value, but you can also simply use <code>1</code> to choose the option with the value 1 (remember that choices for mc-family items are saved as numbers, not as the choice labels per default). There is one special word, <code>sticky</code>, which always pre-sets the items value to the most recently chosen value. You also have to keep in mind when pre-setting strings, that they have to be marked up in R, like this <code>"I am text"</code> (preferably do not use single quotes because Excel will mess them up).
+	 </dd>
+	 <dt>
+		 class
+	 </dt>
+	<dd>
+		 This column can optionally be added to visually style items. Find the available classes below.
+	</dd>
+ </dl>
 
 <h3>Optional classes for visual styling</h3>
 <p>You might want to tinker with the look of certain form items. To do so you can use a variety of pre-set CSS classes. This is a fancy way of saying that if you make a new column in your survet sheet, call it "class" and add space-separated magic words, stuff will look different.</p>

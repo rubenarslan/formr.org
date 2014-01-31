@@ -181,61 +181,70 @@ class RunUnit {
 	{
 		return parent::runDialog($prepend,'<i class="fa fa-puzzle-piece"></i>');
 	}
+	protected $survey_results = array();
 	protected function getUserDataInRun($surveys)
 	{
-		$results = array();
 		foreach($surveys AS $survey_name): // fixme: shouldnt be using wildcard operator here.
-			$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
-			";
-
-			$q3
-				 = "
-			WHERE  `survey_run_sessions`.id = :run_session_id;";
-			
-			if(!in_array($survey_name,array('survey_users','survey_unit_sessions'))):
-				$q2 = "left join `survey_unit_sessions`
-					on `$survey_name`.session_id = `survey_unit_sessions`.id
-					left join `survey_run_sessions`
-					on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+			if(!isset($this->survey_results[$survey_name])):
+				$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
 				";
+
+				if($this->run_session_id === NULL):
+					$q3
+						 = "
+					WHERE `$survey_name`.session_id = :session_id;"; // just for testing surveys
+				else:
+					$q3
+						 = "
+					WHERE  `survey_run_sessions`.id = :run_session_id;";
+				endif;
+			
+				if(!in_array($survey_name,array('survey_users','survey_unit_sessions'))):
+					$q2 = "left join `survey_unit_sessions`
+						on `$survey_name`.session_id = `survey_unit_sessions`.id
+						left join `survey_run_sessions`
+						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+					";
 				
-			elseif($survey_name == 'survey_unit_sessions'):
-				$q2 = "left join `survey_run_sessions`
-					on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-				";
-			elseif($survey_name == 'survey_users'):
-				$q2 = "left join `survey_run_sessions`
-					on `survey_users`.id = `survey_run_sessions`.user_id
-				";
-			endif;
+				elseif($survey_name == 'survey_unit_sessions'):
+					$q2 = "left join `survey_run_sessions`
+						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+					";
+				elseif($survey_name == 'survey_users'):
+					$q2 = "left join `survey_run_sessions`
+						on `survey_users`.id = `survey_run_sessions`.user_id
+					";
+				endif;
 			
-			$q = $q1 . $q2 . $q3;
+				$q = $q1 . $q2 . $q3;
 
-			$get_results = $this->dbh->prepare($q);
+				$get_results = $this->dbh->prepare($q);
+				if($this->run_session_id === NULL):
+					$get_results->bindValue(':session_id', $this->session_id);
+				else:
+					$get_results->bindValue(':run_session_id', $this->run_session_id);
+				endif;
+				$get_results->execute();
+				$this->survey_results[$survey_name] = array();
 			
-			$get_results->bindParam(':run_session_id', $this->run_session_id);
-			$get_results->execute();
-			$results[$survey_name] = array();
-			while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
-				foreach($res AS $var => $val):
+				while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
+					foreach($res AS $var => $val):
+
+						if(!isset($this->survey_results[$survey_name][$var]))
+							$this->survey_results[$survey_name][$var] = array();
 					
-					if(!isset($results[$survey_name][$var]))
-						$results[$survey_name][$var] = array();
+						$this->survey_results[$survey_name][$var][] = $val;
 					
-					$results[$survey_name][$var][] = $val;
-					
-				endforeach;
-			endwhile;
+					endforeach;
+				endwhile;
+			endif;
 		endforeach;
-		return $results;
+
+		return $this->survey_results;
 	}
 	protected function makeOpenCPU()
 	{
 		require_once INCLUDE_ROOT . "Model/OpenCPU.php";
-
-		global $css,$js;
-		$css = '<link rel="stylesheet" href="'.WEBROOT.'assets/knitr.css" type="text/css">';
-		$js = '<script type="text/javascript" src="'.WEBROOT.'assets/knitr.js"></script>';
 
 		global $settings;
 		$openCPU = new OpenCPU($settings['opencpu_instance']);
@@ -257,12 +266,18 @@ class RunUnit {
 		endwhile;
 		$tables[] = 'survey_users';
 		$tables[] = 'survey_unit_sessions';
+		$tables[] = 'survey_items_display';
 		$tables[] = 'survey_email_log';
 		$tables[] = 'shuffle';
 		
 		foreach($tables AS $result):
 			if(preg_match("/\b$result\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
 				$matches[] = $result;
+// todo: need to think on this some more.
+//				$matches[$result] = array();
+//				if(preg_match_all("/\b$result\$([a-zA-Z0-9_]+)\b/",$q, $variable_matches)): 
+//					$matches[$result] = $variable_matches;
+				
 			endif;
 		endforeach;
 	

@@ -40,11 +40,13 @@ class Survey extends RunUnit {
 			$this->getSettings();
 		endif;
 		
+		$this->startEntry();
+		
 		$this->getNextItems();
 
+		$this->post($_POST);
 #		if(isset($_POST['session_id'])) 
 #		{
-			$this->post($_POST);
 #		}
 		
 		if($this->getProgress()===1)
@@ -67,6 +69,16 @@ class Survey extends RunUnit {
 		$this->dbh = NULL;
 		return $ret;
 	}
+	protected function startEntry()
+	{
+		
+		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`)
+																  VALUES(:session_id, :study_id, NOW(),	    NOW()) 
+		ON DUPLICATE KEY UPDATE modified = NOW();");
+		$start_entry->bindParam(":session_id", $this->session_id);
+		$start_entry->bindParam(":study_id", $this->id);
+		$start_entry->execute() or die(print_r($start_entry->errorInfo(), true));
+	}
 	public function post($posted) {
 
 		unset($posted['id']); // cant overwrite your session
@@ -83,14 +95,6 @@ class Survey extends RunUnit {
 		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
 		
 		$answered->bindParam(":session_id", $this->session_id);
-		
-		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`)
-																  VALUES(:session_id, :study_id, NOW(),	    NOW()) 
-		ON DUPLICATE KEY UPDATE modified = NOW();");
-		$start_entry->bindParam(":session_id", $this->session_id);
-		$start_entry->bindParam(":study_id", $this->id);
-		$start_entry->execute() or die(print_r($start_entry->errorInfo(), true));
-		
 		
 		foreach($posted AS $name => $value)
 		{
@@ -234,6 +238,8 @@ class Survey extends RunUnit {
 				`survey_items`.optional,
 				`survey_items`.class,
 				`survey_items`.showif,
+				`survey_items`.value,
+				`survey_items`.`order`,
 				
 		`survey_items_display`.displaycount, 
 		`survey_items_display`.session_id
@@ -269,7 +275,7 @@ class Survey extends RunUnit {
 			{
 				if(isset($item_factory->showifs[ $showif ]))
 				{
-					$show = $item_factory->showifs[ $showif ];
+					$show = $item_factory->showifs[ $showif ]; // take the cached one
 				}
 				else
 				{
@@ -310,7 +316,7 @@ class Survey extends RunUnit {
 			$prog += $this->settings["add_percentage_points"];
 		
 	    $ret .= '<div class="progress">
-				  <div class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
+				  <div data-starting-percentage="'.$prog.'" data-number-of-items="'.$this->not_answered.'" class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
 			</div>';
 		$ret .= '<div class="form-group error form-message">
 			<div class="control-label">'.implode("<br>",array_unique($this->errors)).'
@@ -388,6 +394,27 @@ class Survey extends RunUnit {
 				else:
 					$item->label_parsed = $markdown;
 				endif;
+			endif;
+						
+			if($item->value !== null): // if there is a sticky value to be had
+				if(is_numeric($item->value)):
+					$item->input_attributes['value'] = $item->value;
+				else:
+					$openCPU = $this->makeOpenCPU();
+					if($item->value=="sticky") $item->value = "tail(na.omit({$this->results_table}\${$item->name}),1)";
+					
+					$dataNeeded = $this->dataNeeded($this->dbh, $item->value );
+					$dataNeeded[] = $this->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
+					$dataNeeded = array_unique($dataNeeded); // no need to add it twice
+					
+					$openCPU->addUserData($this->getUserDataInRun(
+						$dataNeeded
+					));
+		
+					$item->input_attributes['value'] = h( $openCPU->evaluateWith($this->results_table, $item->value) );
+				endif;
+			else:
+				$item->presetValue = null;
 			endif;
 
 			$ret .= $item->render();
