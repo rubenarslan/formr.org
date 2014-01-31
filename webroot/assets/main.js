@@ -316,8 +316,13 @@ function hookUpAceToTextareas () {
 //       textarea.css('visibility', 'hidden');
        textarea.css('display', 'none');
 
+//       ace.require("ace/ext/language_tools");
+
        var editor = ace.edit(editDiv[0]);
        editor.renderer.setShowGutter(false);
+//       editor.setOptions({
+//           enableBasicAutocompletion: true
+//       });
        editor.getSession().setValue(textarea.val());
        editor.getSession().setMode("ace/mode/" + mode);
        editor.setTheme("ace/theme/textmate");
