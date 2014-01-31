@@ -25,6 +25,7 @@ header ('Content-type: text/html; charset=utf-8');
 	<?php
 	endif;
 	?>
+		<link rel="stylesheet" href="<?=WEBROOT?>assets/highlight/styles/idea.css" type="text/css" media="screen">
 		<link rel="stylesheet" href="<?=WEBROOT?>assets/main.css" type="text/css" media="screen">
 		<?php echo isset($css)?$css:'' ?>
 		
@@ -56,11 +57,18 @@ header ('Content-type: text/html; charset=utf-8');
 			<script src="<?=WEBROOT?>assets/modernizr-2.6.2-respond-1.1.0.min.js"></script>
 			<script src="<?=WEBROOT?>assets/bower_components/webshim/demos/js-webshim/minified/polyfiller.js"></script>
 			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/select2/select2.js"></script>
-			
+			<?php if($user->isAdmin()): ?>
+			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/ace-builds/src-noconflict/ace.js"></script>	
+			<!---
+			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/ace-builds/src-noconflict/ext-language_tools.js"></script>	-->
+			<?php
+			endif;
+			?>
 		<?php
 		endif;
 		?>
 		<script src="<?=WEBROOT?>assets/main.js"></script>
+		<script type="text/javascript" src="<?=WEBROOT?>assets/highlight/highlight.pack.js"></script>
 		
 		<?php echo isset($js)?$js:'' ?>
 </head>
