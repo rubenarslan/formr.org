@@ -49,6 +49,14 @@ header ('Content-type: text/html; charset=utf-8');
 			  ga('send', 'pageview');
 
 			</script>
+			<?php if($user->isAdmin()): ?>
+			<script type="text/javascript" src="//d1n0x3qji82z53.cloudfront.net/src-min-noconflict/ace.js"></script>	
+			<!---
+			<script type="text/javascript" src="//d1n0x3qji82z53.cloudfront.net/src-min-noconflict/ext-language_tools.js"></script>	-->
+			<?php
+			endif;
+			?>
+			
 		<?php
 		else:
 		?>
