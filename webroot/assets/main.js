@@ -167,14 +167,15 @@ $(document).ready(function() {
 	// fixme: FOUCs for rating_buttons etc in IE8
 	$('div.btn-radio button.btn').off('click').click(function(event){
 		var $btn = $(this);
-		$('#'+$btn.attr('data-for')).attr('checked',true); // couple with its radio button
+		$('#'+$btn.attr('data-for')).prop('checked',true); // couple with its radio button
 		var all_buttons = $btn.closest('div.btn-group').find('button.btn'); // find all buttons
 		all_buttons.removeClass('btn-checked'); // uncheck all
 		$btn.addClass('btn-checked'); // check this one
+        $btn.change();
 		return false;
 	}).each(function() {
 		var $btn = $(this);
-		var is_checked_already = !!$('#'+$btn.attr('data-for')).attr('checked'); // couple with its radio button
+		var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
 		$btn.toggleClass('btn-checked', is_checked_already);
         
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
@@ -183,13 +184,15 @@ $(document).ready(function() {
 	
 	$('div.btn-checkbox button.btn').off('click').click(function(event){
 		var $btn = $(this);
-		var checked = $('#'+$btn.attr('data-for')).attr('checked');
-		$('#'+$btn.attr('data-for')).attr('checked',!checked); // couple with its radio button
+		var checked = $('#'+$btn.attr('data-for')).prop('checked');
+		$('#'+$btn.attr('data-for')).prop('checked',!checked); // couple with its radio button
 		$btn.toggleClass('btn-checked',!checked); // check this one
+        $('#'+$btn.attr('data-for')).change();
+        
 		return false;
 	}).each(function() {
 		var $btn = $(this);
-		var is_checked_already = !!$('#'+$btn.attr('data-for')).attr('checked'); // couple with its radio button
+		var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
 		$btn.toggleClass('btn-checked', is_checked_already);
         
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
@@ -197,21 +200,29 @@ $(document).ready(function() {
 	});
 	
 	$('div.btn-check button.btn').off('click').click(function(event){
-		var $btn = $(this);
-		var checked = $('#'+$btn.attr('data-for')).attr('checked');
-		$btn.find('i').toggleClass('fa-check',!checked).toggleClass('',checked);
-		$('#'+$btn.attr('data-for')).attr('checked',!checked); // couple with its radio button
-		$btn.toggleClass('btn-checked',!checked); // check this one
+        var $btn = $(this);
+        $('#'+$btn.attr('data-for')).trigger("togglecheck"); // toggle the button
 		return false;
 	}).each(function() {
 		var $btn = $(this);
-		var is_checked_already = !!$('#'+$btn.attr('data-for')).attr('checked'); // couple with its radio button
-		$btn.toggleClass('btn-checked', is_checked_already);
-		$btn.find('i').toggleClass('fa-check',is_checked_already).toggleClass('',!is_checked_already);
+        var $original_box = $('#'+$btn.attr('data-for'));
         
+        $original_box.change(function()
+        {
+    		var checked = !!$(this).prop('checked');
+            var $btn = $('button.btn[data-for="'+ this.id +'"]');
+    		$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
+        })
+        .change()
+        .on('togglecheck',function()
+        {
+    		var checked = !!$(this).prop('checked');
+    		$(this).prop('checked',!checked); // toggle check
+            $(this).change(); // trigger change event to sync up
+        });
         
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
+		$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
 	});
 	
 	
@@ -281,7 +292,79 @@ $(document).ready(function() {
 		container: 'body'
 	});
     hljs.initHighlighting();
+    
+    $('form').on('change', getProgress);
+    getProgress();
 });
+function getProgress() {
+    $progressbar = $('.progress .progress-bar');
+
+    var successful_controls = $('form').serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
+
+    var remaining_items = $progressbar.data('number-of-items');
+    var remaining_percentage = 1 - $progressbar.data('starting-percentage')/100;
+//    console.log(remaining_items, remaining_percentage);
+	var items_answered_on_page = 0;
+    var page_items = 0;
+	$.each(successful_controls,function(nr,elm){
+
+
+        var elm_non_hidden = $(document.getElementsByName(elm.name)).filter(":not(input[type=hidden])");
+        
+        if(typeof change_events_set == 'undefined')
+        {
+            $(elm_non_hidden).parents(".form-group").change(function(){
+//                console.log(12);
+               $(this).data('ever-changed', true);
+              $(this).off('change'); 
+            });
+        }
+        var elm_non_hidden = elm_non_hidden[0];
+//        $(elm_non_hidden).parents(".controls").append($('<i class="fa fa-cloud"></i>'));
+
+        if(elm_non_hidden)
+        {
+            page_items++;
+/*            if(!$(elm_non_hidden).data('ever-changed'))
+            {
+                console.log(elm_non_hidden);
+                $(elm_non_hidden).data('ever-changed', false); 
+            }
+            
+*/    		if(elm.value.length > 0) // if it's not empty, you get  //  || parseFloat(elm.value)
+            {
+//                $(elm_non_hidden).parents(".controls").append($('<i class="fa fa-cloud"></i>'));
+                
+//                console.log(elm.value);
+                if($(elm_non_hidden).parents(".form-group").data('ever-changed')) //elm.value == elm_non_hidden.defaultValue)  // if it still has the default value, we take that half point away again
+               {
+           			items_answered_on_page += 0.5; // half a point
+//                    $(elm_non_hidden).parents(".controls").append($('<i class="fa fa-circle"></i>'));
+                    
+                    if(elm_non_hidden.validity.valid) { // if it is valid like this, it gets half a point
+            			items_answered_on_page += 0.5;
+//                        $(elm_non_hidden).parents(".controls").append($('<i class="fa fa-check"></i>'));
+                    }
+                }
+                // cases: 
+                // range, default: 0 + 0.5 = 0.05
+                // email, "text": 0.5 + 0 = 0.5
+                // text, "": 0 + 0
+                // text, "xx": 0.5 + 0.5 = 1
+            }
+        }
+	});
+//    console.log(items_answered_on_page)
+
+	var prog_on_remainder = items_answered_on_page / remaining_items;
+	if(prog_on_remainder > 1) prog_on_remainder = 1;
+    
+    var prog = ((1 - remaining_percentage) + (remaining_percentage * prog_on_remainder)) * 100;
+            
+	$progressbar.css('width',Math.round(prog)+'%');
+	$progressbar.text(Math.round(prog)+'%');
+    change_events_set = true;
+}
 function bootstrap_alert(message,bold,where) 
 {
 	var $alert = $('<div class="row"><div class="col-md-6 col-sm-6 all-alerts"><div class="alert alert-danger"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold:'Problem' ) + '</strong> ' + message + '</div></div></div>');

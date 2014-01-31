@@ -316,7 +316,7 @@ class Survey extends RunUnit {
 			$prog += $this->settings["add_percentage_points"];
 		
 	    $ret .= '<div class="progress">
-				  <div class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
+				  <div data-starting-percentage="'.$prog.'" data-number-of-items="'.$this->not_answered.'" class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
 			</div>';
 		$ret .= '<div class="form-group error form-message">
 			<div class="control-label">'.implode("<br>",array_unique($this->errors)).'
