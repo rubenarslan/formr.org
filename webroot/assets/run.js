@@ -3,6 +3,8 @@ function RunUnit(content)
 	this.block = $('<div class="run_unit row"></div>');
 	this.init(content);
 	this.block.insertPolyfillBefore($('#run_dialog_choices'));
+	hookUpAceToTextareas();
+    
 }
 RunUnit.prototype.init = function(content)
 {
@@ -54,6 +56,7 @@ RunUnit.prototype.init = function(content)
 	mouseleave(function(){
 		$(this).removeClass('btn-danger');	
 	});
+	hookUpAceToTextareas();
 };
 RunUnit.prototype.position_changes = function (e) 
 {
@@ -200,7 +203,6 @@ $(document).ready(function () {
 		
 	var units = $.parseJSON($('#edit_run').attr('data-units'));
 	loadNextUnit(units);
-	
 	
 	$('#edit_run').find('a.run-toggle')
 	.click(function () 
