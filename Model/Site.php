@@ -1,5 +1,6 @@
 <?php
 // welcome to the messy section of the code
+require_once INCLUDE_ROOT . "config_default/settings.php"; ## this way, if I add new settings, the defaults are set
 require_once INCLUDE_ROOT . "config/settings.php";
 
 define('DEBUG', ONLINE ? 1 : $settings['display_errors_when_live']);
@@ -333,49 +334,7 @@ function env($key) {
 	}
 	return null;
 }
-function join_builder($fdb,$q)
-{
-	$result_tables = $fdb->query("SELECT name FROM `survey_studies`");
-	$results = array();
-	while($res = $result_tables->fetch(PDO::FETCH_ASSOC))
-		$results[] = $res['name'];
-	
-	$results[] = 'users';
-	$results[] = 'survey_users';
-	$results[] = 'survey_email_log';
-	$results[] = 'shuffle';
 
-
-	$tables = array();
-	foreach($results AS $result):
-		if(preg_match("/($result\.|`$result`\.)/",$q))
-			$tables[] = $result;
-	endforeach;
-	
-	$join = '
-left join `survey_unit_sessions`
-	on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-';
-	foreach($tables AS $table):
-		if(!in_array($table,array('users','survey_users'))):
-$join .= "
-left join `$table`
-	on `$table`.session_id = `survey_unit_sessions`.id";
-	
-		elseif($table == 'users'):
-$join .= "
-left join `$table`
-	on `$table`.code = `survey_run_sessions`.session";
-		elseif($table == 'survey_users'):
-$join .= "
-left join `$table`
-	on `$table`.id = `survey_run_sessions`.user_id";
-		endif;
-			
-	endforeach;
-	
-	return $join;
-}
 function makeUnit($dbh, $session, $unit)
 {
 	$type = $unit['type'];
