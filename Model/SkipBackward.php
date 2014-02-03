@@ -36,7 +36,6 @@ class SkipBackward extends Branch {
 			$this->dataNeeded($this->dbh,$this->condition)
 		));
 		$result = (bool)$openCPU->evaluate($this->condition);
-		$join = join_builder($this->dbh, $this->condition);
 	
 		if($result AND $this->if_true >= $this->position): // the condition is true and it skips forward
 			global $run_session;

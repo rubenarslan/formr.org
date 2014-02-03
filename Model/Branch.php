@@ -172,7 +172,6 @@ class Branch extends RunUnit {
 			$this->dataNeeded($this->dbh,$this->condition)
 		));
 		$result = (bool)$openCPU->evaluate($this->condition);
-		$join = join_builder($this->dbh, $this->condition);
 				
 		 // if condition is true and we're set to jump automatically, or if the user reacted
 		if($result AND ($this->automatically_jump OR !$this->called_by_cron)):
