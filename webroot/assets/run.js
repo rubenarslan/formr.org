@@ -380,12 +380,17 @@ function hookUpAceToTextareas () {
 //       ace.require("ace/ext/language_tools");
 
        var editor = ace.edit(editDiv[0]);
+       editor.setOptions({
+           minLines: 5,
+           maxLines: 30
+       });
        editor.renderer.setShowGutter(false);
+       editor.getSession().setValue(textarea.val());
        editor.getSession().setUseWrapMode(true);
-       editor.getSession().setWrapLimitRange(46, 46);//       editor.setOptions({
+       editor.getSession().setWrapLimitRange(42, 42);
+//       editor.setOptions({
 //           enableBasicAutocompletion: true
 //       });
-       editor.getSession().setValue(textarea.val());
        editor.getSession().setMode("ace/mode/" + mode);
        editor.setTheme("ace/theme/textmate");
        editor.on('change', function(){

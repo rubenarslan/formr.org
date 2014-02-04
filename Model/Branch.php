@@ -54,6 +54,7 @@ class Branch extends RunUnit {
 				$this->automatically_go_on = $options['automatically_go_on'];
 			
 		}
+		$this->condition = cr2nl($this->condition);
 		
 		$create = $this->dbh->prepare("INSERT INTO `survey_branches` (`id`, `condition`, if_true, automatically_jump, automatically_go_on)
 			VALUES (:id, :condition, :if_true, :automatically_jump, :automatically_go_on)
