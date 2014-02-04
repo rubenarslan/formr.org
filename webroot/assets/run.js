@@ -195,6 +195,7 @@ $(document).ready(function () {
 	}
 	$run_name = $('#run_name').val();
 	$run_url = $('#edit_run').prop('action');
+    $('#edit_run').submit(function(){ return false; });
 	$run_units = [];
 	$('#edit_run').find('.hastooltip').tooltip({
 		container: 'body'
