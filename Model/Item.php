@@ -73,6 +73,7 @@ class Item extends HTML_element
 	protected $type_options_array = array();
 	public $choices = array();
 	protected $hasChoices = false;
+	protected $data_showif = false;
 
 	
 	public $input_attributes = array(); // so that the pre-set value can be set externally
@@ -297,7 +298,7 @@ class Item extends HTML_element
 	}
 	public function render() 
 	{
-		return '<div class="'. implode(" ",$this->classes_wrapper) .'">' .
+		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? 'data-showif="' . h($this->showif) .'"' : '').'>' .
 			$this->render_inner().
 		 '</div>';
 	}
@@ -309,6 +310,12 @@ class Item extends HTML_element
 		else:
 			$this->presetValues = array();
 		endif;
+	}
+	public function hide()
+	{
+		$this->classes_wrapper[] = "hidden";
+		$this->data_showif = true;
+		$this->input_attributes['disabled'] = true; ## so it isn't submitted or validated
 	}
 }
 

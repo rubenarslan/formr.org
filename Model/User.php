@@ -167,7 +167,7 @@ formr robots";
 		$exists->bindParam(':email',$email);
 		$exists->execute() or die('db');
 		if($user = $exists->rowCount() === 0):
-			alert("This email address is not registered here.","alert-error");
+			alert("This email address is not registered here.","alert-danger");
 			return false;
 		else:
 			$token = bin2hex(openssl_random_pseudo_bytes(32));
@@ -254,7 +254,7 @@ formr robots";
 			endif;
 		endif;
 		
-		alert("Incorrect token or email address.","alert-error");
+		alert("Incorrect token or email address.","alert-danger");
 		return false;
 	}
 	public function verify_email($email, $token)
@@ -273,12 +273,12 @@ formr robots";
 				alert("Your email was successfully verified!","alert-success");
 				return true;
 			else:
-				alert("Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.","alert-error");
+				alert("Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.","alert-danger");
 				return false;
 			endif;
 		endif;
 		
-		alert("Incorrect token or email address.","alert-error");
+		alert("Incorrect token or email address.","alert-danger");
 		return false;
 	}
 	public function getStudies() 
