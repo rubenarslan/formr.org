@@ -457,3 +457,8 @@ function timetostr($timestamp) {
         $age = (int)($age / $factor);
     }
 }
+
+function cr2nl ($string)
+{
+	return str_replace("\r\n","\n",$string);
+}
