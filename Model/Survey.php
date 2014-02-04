@@ -294,7 +294,8 @@ class Survey extends RunUnit {
 				
 				if(!$show)
 				{
-					unset($this->unanswered_batch[$name]); // todo: just hide it when we want JS
+					$this->unanswered_batch[$name]->hide();
+//					unset($this->unanswered_batch[$name]); // todo: just hide it when we want JS
 				}
 			}
 		}
@@ -369,7 +370,7 @@ class Survey extends RunUnit {
 				if(
 					(
 						$next === false OR 								    				 // this is the end of the survey
-						!in_array( $next->type , array('mc','mc_multiple',))  		 // the next item isn't a normal item
+						!in_array( $next->type , array('mc','mc_multiple','mc_button','mc_multiple_button'))  		 // the next item isn't a mc item
 					)
 				)
 				{
