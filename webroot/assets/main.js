@@ -296,7 +296,7 @@ $(document).ready(function() {
     
     $('form').on('change', getProgress);
     getProgress();
-    
+    showIf();
 });
 
 function getProgress() {
@@ -368,6 +368,66 @@ function getProgress() {
 	$progressbar.text(Math.round(prog)+'%');
     change_events_set = true;
 }
+
+function showIf()
+{
+    $('form').change(function()
+    {
+        var badArray = $('form').serializeArray();
+        var subdata = {};
+        $.each(badArray, function(i, obj)
+        {
+//            if(+obj.value == obj.value) obj.value = +obj.value; // cast as numeric
+            if(!subdata[ obj.name ]) subdata[obj.name] = obj.value;
+            else subdata[obj.name] += ", " + obj.value;
+        });
+        $(".form-group[data-showif]").each(function(i,elm)
+        {
+            var showif = $(elm).data('showif');
+            // primitive R to JS translation
+            showif = showif.replace(/current\(\s*(\w+)\s*\)/, "$1"); // remove current function
+            showif = showif.replace(/tail\(\s*(\w+)\s*, 1\)/, "$1"); // remove current function, JS evaluation is always in session
+            // all other R functions may break
+            showif = showif.replace(/\s\s+/, ""); // get rid of unnecessary space
+            showif = showif.replace(/"/, "'"); // double quotes to single quotes
+            showif = showif.replace(/(^|[^&])(\&)([^&]|$)/, "$1&$3"); // & operators, only single ones need to be doubled
+            showif = showif.replace(/(^|[^|])(\|)([^|]|$)/, "$1&$3"); // | operators, only single ones need to be doubled
+            showif = showif.replace(/FALSE/, "false"); // uppercase, R, FALSE, to lowercase, JS, false
+            showif = showif.replace(/TRUE/, "true"); // uppercase, R, TRUE, to lowercase, JS, true
+            showif = showif.replace(/\s*\%contains\%\s*([a-zA-Z0-9_'"]+)/,".indexOf($1) > -1");
+            try
+            {
+                with(subdata)
+                {
+                    var hide = ! eval(showif);
+                    $(elm).toggleClass('hidden', hide);
+                    $(elm).find('input').prop('disabled', hide);
+                }
+            }
+            catch(e)
+            {
+                if(window.console) console.log("JS showif failed",showif, e,  $(elm).find('input').attr('name'));
+            }
+            finally
+            {
+                return;
+            }
+/*            var parts = showif.match(/(\w+)(==|!=|>=|<=|<|>|%contains%)(\d+|'\w+')/)
+            if(parts) // this is one of the simple showifs that we can read with JS
+            {
+                var item = parts[0];
+                var comparator = parts[1];
+                var compare_to = parts[2];
+                if(subdata[item]) // does this item exist
+                {
+                    subdata[item] 
+                }
+            }
+            */
+        })
+    }).change();
+}
+
 function bootstrap_alert(message,bold,where) 
 {
 	var $alert = $('<div class="row"><div class="col-md-6 col-sm-6 all-alerts"><div class="alert alert-danger"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold:'Problem' ) + '</strong> ' + message + '</div></div></div>');

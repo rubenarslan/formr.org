@@ -205,7 +205,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		require_once INCLUDE_ROOT. 'Model/EmailAccount.php';
 		
 		
-		if($this->account_id === null) die("The study administrator did not set up an email account.");
+		if($this->account_id === null) die("The study administrator (you?) did not set up an email account. <a href='".WEBROOT."/admin/mail/'>Do it now</a> and then select the account in the email dropdown.");
 		$acc = new EmailAccount($this->dbh, $this->account_id, null);
 		$mail = $acc->makeMailer();
 		
