@@ -395,7 +395,6 @@ function showIf()
             showif = showif.replace(/FALSE/, "false"); // uppercase, R, FALSE, to lowercase, JS, false
             showif = showif.replace(/TRUE/, "true"); // uppercase, R, TRUE, to lowercase, JS, true
             showif = showif.replace(/\s*\%contains\%\s*([a-zA-Z0-9_'"]+)/,".indexOf($1) > -1");
-            console.log(showif);
             try
             {
                 with(subdata)
