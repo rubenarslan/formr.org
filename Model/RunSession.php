@@ -222,8 +222,10 @@ class RunSession
 			else:
 				alert(__('<strong>Error.</strong> Could not create unit session for unit %s at pos. %s.', $unit_id, $position), 'alert-danger');
 			endif;
-		else:
+		elseif($unit_id !== $null):
 			alert(__('<strong>Error.</strong> The run position %s does not exist.', $position), 'alert-danger');
+		else:
+			alert('<strong>Error.</strong> You tried to jump to a non-existing run position or forgot to specify one entirely.', 'alert-danger');
 		endif;
 		return false;
 	}
