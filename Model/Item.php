@@ -218,6 +218,8 @@ class Item extends HTML_element
 	{
 		if(!$this->hasChoices AND $this->choice_list!=null):
 			$this->val_errors[] = "'{$this->name}' You defined choices for this item, even though this type doesn't have choices.";
+		elseif($this->hasChoices AND $this->choice_list==null):
+				$this->val_errors[] = "'{$this->name}' You forgot to define choices for this item.";
 		endif;
 		if( !preg_match('/^[A-Za-z][A-Za-z0-9_]+$/',$this->name) ): 
 			$this->val_errors[] = "'{$this->name}' The variable name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. It needs to start with a letter. You cannot use spaces, dots, or dashes.";
@@ -371,11 +373,13 @@ class Item_number extends Item
 {
 	public $type = 'number';
 	public $input_attributes = array('type' => 'number');
-	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	protected $mysql_field = 'INT UNSIGNED DEFAULT NULL';
 	
 	protected function setMoreOptions() 
 	{
 		$this->classes_input[] = 'form-control';
+		$this->input_attributes['min'] = 0;
+		$this->input_attributes['max'] = 10000000;
 		$this->input_attributes['step'] = 1;
 		if(isset($this->type_options_array) AND is_array($this->type_options_array))
 		{
@@ -410,9 +414,17 @@ class Item_number extends Item
 			$this->mysql_field = str_replace($this->mysql_field,"TINYINT", "SMALLINT");
 			
 		if(isset($this->input_attributes['step']) AND 
-		(string)(int)$this->input_attributes['step'] != $this->input_attributes['step'])
-			$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT"), "FLOAT",$this->mysql_field);
-		
+		(string)(int)$this->input_attributes['step'] != $this->input_attributes['step']):
+			if($this->input_attributes['step']==='any'):
+				$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT"), "FLOAT",$this->mysql_field);
+			else:
+				$before_point = max(strlen((int)$this->input_attributes['min']), strlen((int)$this->input_attributes['max']));
+				$after_point = strlen($this->input_attributes['step']) - 2;
+				$d = $before_point + $after_point;
+				
+				$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT"), "DECIMAL($d, $after_point)",$this->mysql_field);
+			endif;
+		endif;
 	}
 	public function validateInput($reply)
 	{
@@ -433,6 +445,7 @@ class Item_number extends Item
 		{
 			$this->error = __("The minimum is %d",$this->input_attributes['min']);
 		}
+
 		return parent::validateInput($reply);
 	}
 }

@@ -17,6 +17,7 @@ class OpenCPU {
 		
 		if($post !== null):
 			curl_setopt($this->curl_c, CURLOPT_POST, 1); // Method is "POST"
+			$post = array_map("cr2nl", $post); # get rid of windows new lines, not that there should be any, but this causes such annoying-to-debug errors
 			curl_setopt($this->curl_c, CURLOPT_POSTFIELDS, http_build_query($post));
 		endif;
 
@@ -62,12 +63,12 @@ class OpenCPU {
 	public function evaluateWith($results_table, $source,$return = '/json')
 	{
 		$post = array('x' => '{ 
-			(function() {
-		'.$this->user_data.'
-			with('.$results_table.', {
-				'.$source.'
-				})
-			})() }');
+(function() {
+'.$this->user_data.'
+with('.$results_table.', {
+'.$source.'
+})
+})() }');
 			
 		$result = $this->identity($post,$return);
 #		echo $this->debugCall($result);
@@ -89,11 +90,10 @@ class OpenCPU {
 	public function evaluateAdmin($source,$return = '')
 	{
 		$post = array('x' => '{ 
-			(function() {
-		'.$this->user_data.'
-			'.$source.'
-			})() }');
-			
+(function() {
+'.$this->user_data.'
+'.$source.'
+})() }');
 		$result = $this->identity($post,$return);
 		return $this->debugCall($result);
 	}

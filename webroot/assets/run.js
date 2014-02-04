@@ -3,8 +3,6 @@ function RunUnit(content)
 	this.block = $('<div class="run_unit row"></div>');
 	this.init(content);
 	this.block.insertPolyfillBefore($('#run_dialog_choices'));
-	hookUpAceToTextareas();
-    
 }
 RunUnit.prototype.init = function(content)
 {
@@ -56,18 +54,59 @@ RunUnit.prototype.init = function(content)
 	mouseleave(function(){
 		$(this).removeClass('btn-danger');	
 	});
-	hookUpAceToTextareas();
+    if(this.block.find('textarea')[0])
+    {
+        this.textarea = this.block.find('textarea');
+        var mode = this.textarea.data('editor');
+
+        var editDiv = $('<div>', {
+            position: 'absolute',
+            width: this.textarea.width(),
+            height: this.textarea.height(),
+            'class': this.textarea.attr('class')
+        }).insertBefore(this.textarea);
+
+ //       textarea.css('visibility', 'hidden');
+        this.textarea.css('display', 'none');
+
+ //       ace.require("ace/ext/language_tools");
+
+        this.editor = ace.edit(editDiv[0]);
+        this.editor.setOptions({
+            minLines: 5,
+            maxLines: 30
+        });
+        this.editor.renderer.setShowGutter(false);
+        this.session = this.editor.getSession();
+        this.session.setValue(this.textarea.val());
+        this.session.setUseWrapMode(true);
+        this.session.setWrapLimitRange(42, 42);
+ //       this.editor.setOptions({
+ //           enableBasicAutocompletion: true
+ //       });
+        this.session.setMode("ace/mode/" + mode);
+        this.editor.setTheme("ace/theme/textmate");
+    	this.editor.on('change',$.proxy(this.changes,this));
+    }
+    
+//	hookUpAceToTextareas();
 };
 RunUnit.prototype.position_changes = function (e) 
 {
-	this.position_changed = true;
+	if(!this.position_changed)
+    {
+        this.position_changed = true;
+    	$reorderer.addClass('btn-info').removeAttr('disabled');
+    }
 	this.position.parent().addClass('pos_changed');
-	$reorderer.addClass('btn-info').removeAttr('disabled');
 };
 RunUnit.prototype.changes = function (e) 
 {
-	this.unsavedChanges = true;
-	this.save_button.addClass('btn-info').removeAttr('disabled').text('Unsaved changes…');
+    if(!this.unsavedChanges) // dont touch the DOM all the time
+    {
+    	this.unsavedChanges = true;
+    	this.save_button.addClass('btn-info').removeAttr('disabled').text('Unsaved changes…');
+    }
 };
 RunUnit.prototype.test = function(e)
 {
@@ -107,9 +146,12 @@ RunUnit.prototype.test = function(e)
 RunUnit.prototype.save = function(e)
 {
 	e.preventDefault();
+    
     var old_text = this.save_button.text();
 	this.save_button.attr('disabled',true).html(old_text + ' <i class="fa fa-spinner fa-spin"></i>');
-    
+
+    if(this.session)
+        this.textarea.val(this.session.getValue());
     
 	var $unit = this.block;
 	$.ajax(
@@ -195,6 +237,7 @@ $(document).ready(function () {
 	}
 	$run_name = $('#run_name').val();
 	$run_url = $('#edit_run').prop('action');
+    $('#edit_run').submit(function(){ return false; });
 	$run_units = [];
 	$('#edit_run').find('.hastooltip').tooltip({
 		container: 'body'
@@ -360,9 +403,9 @@ $(document).ready(function () {
 
 // https://gist.github.com/duncansmart/5267653
 // Hook up ACE editor to all textareas with data-editor attribute
-function hookUpAceToTextareas () {
-   $('textarea[data-editor]:visible').each(function () {
-       var textarea = $(this);
+function hookUpAceToTextarea (textarea) {
+//   $('textarea[data-editor]:visible').each(function () {
+//       var textarea = $(this);
 
        var mode = textarea.data('editor');
 
@@ -379,12 +422,17 @@ function hookUpAceToTextareas () {
 //       ace.require("ace/ext/language_tools");
 
        var editor = ace.edit(editDiv[0]);
+       editor.setOptions({
+           minLines: 5,
+           maxLines: 30
+       });
        editor.renderer.setShowGutter(false);
+       editor.getSession().setValue(textarea.val());
        editor.getSession().setUseWrapMode(true);
-       editor.getSession().setWrapLimitRange(46, 46);//       editor.setOptions({
+       editor.getSession().setWrapLimitRange(42, 42);
+//       editor.setOptions({
 //           enableBasicAutocompletion: true
 //       });
-       editor.getSession().setValue(textarea.val());
        editor.getSession().setMode("ace/mode/" + mode);
        editor.setTheme("ace/theme/textmate");
        editor.on('change', function(){
@@ -396,5 +444,5 @@ function hookUpAceToTextareas () {
 //           textarea.val(editor.getSession().getValue());
 //       })
 
-   });
+//   });
 }

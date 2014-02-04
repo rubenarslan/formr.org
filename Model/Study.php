@@ -597,7 +597,12 @@ class Study extends RunUnit
 			</p>";
 		else:
 			$dialog = '';
-			$g_studies = $this->dbh->query("SELECT * FROM `survey_studies`");
+			$g_studies = $this->dbh->prepare("SELECT * FROM `survey_studies` WHERE user_id = :user_id");
+			global $user;
+			$g_studies->bindValue(':user_id',$user->id);
+			$g_studies->execute();
+			
+			
 			$studies = array();
 			while($study = $g_studies->fetch())
 				$studies[] = $study;
