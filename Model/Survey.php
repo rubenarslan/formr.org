@@ -164,16 +164,16 @@ class Survey extends RunUnit {
 		
 		$progress->execute() or die(print_r($progress->errorInfo(), true));
 
+		$this->already_answered = 0;
 		while($item = $progress->fetch(PDO::FETCH_ASSOC) )
 		{	
 			if($item['answered']!=null) $this->already_answered += $item['count'];
-			else $this->not_answered += $item['count'];
 		}
 		
 		
 		$this->not_answered = count( array_filter($this->unanswered_batch, function ($item)
 		{
-			if(in_array($item->type, array('note','submit','mc_heading')) ) return false;
+			if(in_array($item->type, array('submit','mc_heading')) OR ($item->type == 'note' AND $item->displaycount > 0)) return false;
 			else return true;
 		}
 ) );
@@ -294,7 +294,8 @@ class Survey extends RunUnit {
 				
 				if(!$show)
 				{
-					unset($this->unanswered_batch[$name]); // todo: just hide it when we want JS
+					$this->unanswered_batch[$name]->hide();
+//					unset($this->unanswered_batch[$name]); // todo: just hide it when we want JS
 				}
 			}
 		}
@@ -369,7 +370,7 @@ class Survey extends RunUnit {
 				if(
 					(
 						$next === false OR 								    				 // this is the end of the survey
-						!in_array( $next->type , array('mc','mc_multiple',))  		 // the next item isn't a normal item
+						!in_array( $next->type , array('mc','mc_multiple','mc_button','mc_multiple_button'))  		 // the next item isn't a mc item
 					)
 				)
 				{
@@ -471,7 +472,7 @@ class Survey extends RunUnit {
 		if($this->called_by_cron)
 			return true; // never show to the cronjob
 		
-		if($this->getProgress()===1) {
+		if($this->progress===1) {
 			$this->end();
 			return false;
 		}

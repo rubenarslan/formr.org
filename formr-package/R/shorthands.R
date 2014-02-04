@@ -33,8 +33,23 @@ first = function(x, n = 1, na.rm = TRUE) {
 
 last = function(x, n = 1, na.rm = TRUE) {
     if(na.rm) x = na.omit(x)
-    tail(na.omit(x), n)
+    tail(x, n)
 }
+
+#' Gives the last element, doesn't omit missings
+#'
+#' Just a simple shorthand to get the current element (in a formr df,
+#' where the last element is always the one from the current session).
+#'
+#' @param x vector of which you want the current element
+#' @export
+#' @examples
+#' current( c(1:10,NA) )
+#' current( 1:10 )
+current = function(x) {
+    tail(x, n)
+}
+
 
 #' check whether a character string contains another
 #'

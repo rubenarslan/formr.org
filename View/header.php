@@ -49,6 +49,7 @@ header ('Content-type: text/html; charset=utf-8');
 			  ga('send', 'pageview');
 
 			</script>
+			
 			<?php if($user->isAdmin()): ?>
 			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/ace-builds/src-noconflict/ace.js"></script>	
 			<!---
@@ -56,7 +57,6 @@ header ('Content-type: text/html; charset=utf-8');
 			<?php
 			endif;
 			?>
-			
 		<?php
 		else:
 		?>

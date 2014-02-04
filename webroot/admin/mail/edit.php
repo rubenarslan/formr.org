@@ -31,7 +31,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 			<?php echo _("From:"); ?>
 		</label>
 		<div class="controls">
-			<input class="form-control" required type="text" placeholder="you@example.org" name="from" id="from" value="<?=$acc->account['from']; ?>">
+			<input class="form-control" required type="text" placeholder="maybe your_study_team@gmail.com" name="from" id="from" value="<?=$acc->account['from']; ?>">
 		</div>
 	</div>
 	
@@ -49,7 +49,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 			<?php echo _("SMTP Host:"); ?>
 		</label>
 		<div class="controls">
-			<input class="form-control" required type="text" placeholder="ssl://smtp.gmail.com" name="host" id="host" value="<?=$acc->account['host']; ?>">
+			<input class="form-control" required type="text" placeholder="smtp.gmail.com" name="host" id="host" value="<?=$acc->account['host']; ?>">
 		</div>
 	</div>
 	
@@ -58,7 +58,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 			<?php echo _("Port:"); ?>
 		</label>
 		<div class="controls">
-			<input class="form-control" required type="text" placeholder="467" name="port" id="port" value="<?=$acc->account['port']; ?>">
+			<input class="form-control" required type="text" placeholder="587" name="port" id="port" value="<?=$acc->account['port']; ?>">
 		</div>
 	</div>
 	
@@ -77,7 +77,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 			<?php echo _("Username:"); ?>
 		</label>
 		<div class="controls">
-			<input class="form-control" required type="text" placeholder="you@example.org" name="username" id="username" value="<?=$acc->account['username']; ?>">
+			<input class="form-control" required type="text" placeholder="maybe your_study_team@gmail.com" name="username" id="username" value="<?=$acc->account['username']; ?>">
 		</div>
 	</div>
 	
@@ -86,7 +86,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 			<?php echo _("Password:"); ?>
 		</label>
 		<div class="controls">
-			<input class="form-control" required type="text" placeholder="you@example.org" name="password" id="password" value="<?=$acc->account['password']; ?>">
+			<input class="form-control" required type="password" placeholder="your account password" name="password" id="password" value="<?=$acc->account['password']; ?>">
 		</div>
 	</div>
 	
