@@ -53,6 +53,9 @@ endforeach;
 <?php
 // printing table rows
 foreach($results AS $row):
+	$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
+	$row['modified'] = '<abbr title="'.$row['modified'].'">'.timetostr(strtotime($row['modified'])).'</abbr>';
+	
     echo "<tr>";
 
     // $row is array... foreach( .. ) puts every element

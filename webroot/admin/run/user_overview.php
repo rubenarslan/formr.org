@@ -50,7 +50,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 		$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>{$userx['last_access_days']} days ago</small>";
 		$userx['Action'] = "
 			<form class='form-inline' action='".WEBROOT."admin/run/{$userx['run_name']}/send_to_position?session={$userx['session']}' method='post'>
-			<span class='input-group col-xs-6'>
+			<span class='input-group' style='width:160px'>
 				<span class='input-group-btn'>
 					<button type='submit' class='btn hastooltip'
 					title='Send this user to that position'><i class='fa fa-hand-o-right'></i></button>
