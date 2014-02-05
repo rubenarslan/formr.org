@@ -13,12 +13,18 @@
 				  <p>
 	 	 			 <i class="fa fa-bar-chart-o fa-huge fa-fw pull-right"></i>
 		  
-					You can format your text in a simple way using <a href="http://daringfireball.net/projects/markdown/syntax" title="Go to this link for a more exhaustive guide">Github-flavoured Markdown</a> and <a href="https://support.rstudio.com/hc/en-us/articles/200486358-R-Markdown-Specification" title="Go to this link for a more exhaustive guide on the specific flavor of Markdown that we're using">Sundown</a>. The philosophy is that you should simply write like you would in a plain-text email and Markdown turns it nice. Specifically:<br>
+					You can format text everywhere in a natural fashion using <a href="http://daringfireball.net/projects/markdown/syntax" title="Go to this link for a more exhaustive guide">Github-flavoured Markdown</a>.<br>
+					The philosophy is that you should simply write like you would in a plain-text email and Markdown turns it nice.
+				</p>
+				<p>
 <pre>* list item 1
 * list item 2</pre> will turn into a nice list. "Straight" quotes turn into “curly” quotes. <code># </code> at the beginning of a line turns it into a large headline, <code>## </code> up to <code>###### </code> turn it into smaller ones.
 					 <code>*<em>italics</em>* and __<strong>bold</strong>__</code> are also easy to do, as are 
-					 <code>[<a href="http://yihui.name/knitr/">links</a>](http://yihui.name/knitr/)</code>.
+					 <code>[<a href="http://yihui.name/knitr/">links</a>](http://yihui.name/knitr/)</code> and embedded images <code>![image description](http://imgur.com/imagelink)</code>. You can quote something by placing a &gt; at the beginning of the line. If you you want to use the literal character (for e.g. saying &gt; (greater than) 5), you'll need to escape it like this <code>\&gt;</code>
 		 		</p>
+				<p>
+					If you're already familiar with <a href="https://en.wikipedia.org/wiki/HTML"><abbr title="Hypertext Markup Language">HTML</abbr></a> you can also that instead, though it is a little less human readable. You may for example use it to go beyond Markdown's features and e.g. add icons to your text using <code>&lt;i class=&quot;fa fa-2x fa-smile-o&quot;&gt;&lt;/i&gt;</code> to get a smilie for instance. Check the full set of available icons at <a href="http://fontawesome.io/icons/">Font Awesome</a>.  
+				</p>
 					  <h5>Knitr</h5>
 		   		<p>
 					If you want to customise the text or generate custom feedback, including plots, you can use <a href="http://yihui.name/knitr/">Knitr</a>. With Knitr you can freely mix Markdown and chunks of R. Some examples:
