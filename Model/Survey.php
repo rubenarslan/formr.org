@@ -173,8 +173,14 @@ class Survey extends RunUnit {
 		
 		$this->not_answered = count( array_filter($this->unanswered_batch, function ($item)
 		{
-			if(in_array($item->type, array('submit','mc_heading')) OR ($item->type == 'note' AND $item->displaycount > 0)) return false;
-			else return true;
+			if(
+				in_array($item->type, array('submit','mc_heading')) 
+				OR ($item->type == 'note' AND $item->displaycount > 0) 
+				OR $item->hidden
+			)
+				return false;
+			else 
+				return true;
 		}
 ) );
 		$all_items = $this->already_answered + $this->not_answered;
@@ -357,6 +363,7 @@ class Survey extends RunUnit {
 					$item->displaycount AND 											 // if this was displayed before
 					(
 						$next === false OR 								    				 // this is the end of the survey
+#						$next->hidden === true OR 								    				 // the next item is hidden
 						in_array( $next->type , array('note','submit','mc_heading'))  		 // the next item isn't a normal item
 					)
 				)
@@ -370,6 +377,7 @@ class Survey extends RunUnit {
 				if(
 					(
 						$next === false OR 								    				 // this is the end of the survey
+#						$next->hidden === true OR 								    				 // the next item is hidden
 						!in_array( $next->type , array('mc','mc_multiple','mc_button','mc_multiple_button'))  		 // the next item isn't a mc item
 					)
 				)
@@ -380,7 +388,8 @@ class Survey extends RunUnit {
 			
 			
 			$item->viewedBy($view_update);
-			$itemsDisplayed++;
+			if(! $item->hidden)
+				$itemsDisplayed++;
 			
 			if($item->label_parsed === null): // item label has to be dynamically generated with user data
 				$openCPU = $this->makeOpenCPU();

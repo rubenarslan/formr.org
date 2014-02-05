@@ -385,23 +385,22 @@ function showIf()
         {
             var showif = $(elm).data('showif');
             // primitive R to JS translation
-            showif = showif.replace(/current\(\s*(\w+)\s*\)/, "$1"); // remove current function
-            showif = showif.replace(/tail\(\s*(\w+)\s*, 1\)/, "$1"); // remove current function, JS evaluation is always in session
+            showif = showif.replace(/current\(\s*(\w+)\s*\)/g, "$1"); // remove current function
+            showif = showif.replace(/tail\(\s*(\w+)\s*, 1\)/g, "$1"); // remove current function, JS evaluation is always in session
             // all other R functions may break
-            showif = showif.replace(/\s\s+/, ""); // get rid of unnecessary space
-            showif = showif.replace(/"/, "'"); // double quotes to single quotes
-            showif = showif.replace(/(^|[^&])(\&)([^&]|$)/, "$1&$3"); // & operators, only single ones need to be doubled
-            showif = showif.replace(/(^|[^|])(\|)([^|]|$)/, "$1&$3"); // | operators, only single ones need to be doubled
-            showif = showif.replace(/FALSE/, "false"); // uppercase, R, FALSE, to lowercase, JS, false
-            showif = showif.replace(/TRUE/, "true"); // uppercase, R, TRUE, to lowercase, JS, true
-            showif = showif.replace(/\s*\%contains\%\s*([a-zA-Z0-9_'"]+)/,".indexOf($1) > -1");
+            showif = showif.replace(/"/g, "'"); // double quotes to single quotes
+            showif = showif.replace(/(^|[^&])(\&)([^&]|$)/g, "$1&$3"); // & operators, only single ones need to be doubled
+            showif = showif.replace(/(^|[^|])(\|)([^|]|$)g/, "$1&$3"); // | operators, only single ones need to be doubled
+            showif = showif.replace(/FALSE/g, "false"); // uppercase, R, FALSE, to lowercase, JS, false
+            showif = showif.replace(/TRUE/g, "true"); // uppercase, R, TRUE, to lowercase, JS, true
+            showif = showif.replace(/\s*\%contains\%\s*([a-zA-Z0-9_'"]+)/g,".indexOf($1) > -1");
             try
             {
                 with(subdata)
                 {
                     var hide = ! eval(showif);
-                    $(elm).toggleClass('hidden', hide);
-                    $(elm).find('input').prop('disabled', hide);
+                    $(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
+                    $(elm).find('input,select,textarea').prop('disabled', hide); // enable/disable depending on evaluation
                 }
             }
             catch(e)
