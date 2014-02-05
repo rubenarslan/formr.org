@@ -9,6 +9,9 @@ if(DEBUG > -1)
 	ini_set('display_errors',1);
 ini_set("log_errors",1);
 ini_set("error_log", INCLUDE_ROOT . "tmp/logs/errors.log");
+ini_set('session.gc_maxlifetime', $settings['session_cookie_lifetime'] * 60);
+ini_set('session.cookie_lifetime', $settings['session_cookie_lifetime'] * 60 );
+
 error_reporting(-1);
 
 date_default_timezone_set($settings['timezone']);
@@ -91,27 +94,39 @@ class Site
 		return $mail;
 	}
 }
-if(! TESTING):
-	session_start();
+session_start();
 
-	if(isset($_SESSION['site']) AND is_object($_SESSION['site'])):
-		$site = $_SESSION['site'];
-	else:
-		$site = new Site();
-	endif;
+// first we see what's in that session
+if(isset($_SESSION['site']) AND is_object($_SESSION['site'])):
+	$site = $_SESSION['site'];
+endif;
 
-	$site->refresh();
+$site->refresh();
 
-	if(isset($_SESSION['user'])):
-		$sess_user = unserialize($_SESSION['user']);
-	
-		if(isset($sess_user->id)):
+if(isset($_SESSION['user'])):
+	$sess_user = unserialize($_SESSION['user']);
+
+	// this segment basically checks whether the user-specific expiry time was met
+	if(isset($sess_user->id)):
+		if(! expire_session($settings['expire_registered_session'])):
 			$user = new User($fdb, $sess_user->id, $sess_user->user_code);
-		elseif(isset($sess_user->user_code)):
+			
+			if($user->isAdmin()):
+				if(expire_session($settings['expire_admin_session'])):
+					unset($user);
+				endif;
+			endif;
+		endif;
+	elseif(isset($sess_user->user_code)):
+		if(! expire_session($settings['expire_unregistered_session'])):
 			$user = new User($fdb, null, $sess_user->user_code);
 		endif;
 	endif;
-else:
+endif;
+
+$_SESSION['last_activity'] = time(); // update last activity time stamp
+
+if(!isset($site)): // site is actually preserved, even if sessions expire, because it may contain warnings, referers
 	$site = new Site();
 endif;
 
@@ -125,6 +140,20 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) // shorthand
 {
 	global $site;
 	$site->alert($msg,$class, $dismissable);
+}
+function expire_session($expiry)
+{
+	if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $expiry)) {
+	    // last request was more than 30 minutes ago
+		alert("You were logged out automatically, because you were last active ". timetostr($_SESSION['last_activity']) .'.', 'alert-info');
+		$last_active = $_SESSION['last_activity'];
+	    session_unset();     // unset $_SESSION variable for the run-time 
+	    session_destroy();   // destroy session data in storage
+		session_start();	 // get a new session
+		return true;
+	}
+	else
+		return false;
 }
 
 function redirect_to($location) {
