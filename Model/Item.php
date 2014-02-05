@@ -261,11 +261,9 @@ class Item extends HTML_element
 	}
 	protected function render_label() 
 	{
-		return '
-					<label class="'. implode(" ",$this->classes_label) .'" for="item' . $this->id . '">'.
+		return '<label class="'. implode(" ",$this->classes_label) .'" for="item' . $this->id . '">'.
 		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="fa fa-warning-sign"></i></span> ' : '').
-			 	$this->label_parsed . '</label>
-		';
+			 	$this->label_parsed . '</label>';
 	}
 	protected function render_prepended () 
 	{
@@ -482,7 +480,7 @@ class Item_range extends Item_number
 	}
 	protected function render_input() 
 	{
-		return (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' </label> ': '') . 		
+		return (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' > ': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
 			(isset($this->choices[2]) ? ' <label class="pad-left">'. $this->choices[2] . ' </label>': '') ;
 	}
@@ -853,8 +851,7 @@ class Item_mc extends Item
 			if(in_array($value,$this->presetValues)) $this->input_attributes['checked'] = true;
 			else $this->input_attributes['checked'] = false;
 			
-			$ret .= '
-				<label for="item' . $this->id . '_' . $value . '">' . 
+			$ret .= '<label for="item' . $this->id . '_' . $value . '">' . 
 					(($this->label_first || $all_left) ? '<span> ' .$option. ' </span>' : '') . 
 				'<input '.self::_parseAttributes($this->input_attributes,array('id')).
 				' value="'.$value.'" id="item' . $this->id . '_' . $value . '">' .
@@ -907,8 +904,7 @@ class Item_mc_multiple extends Item_mc
 			if(in_array($value,$this->presetValues)) $this->input_attributes['checked'] = true;
 			else $this->input_attributes['checked'] = false;
 			
-			$ret .= '
-			<label for="item' . $this->id . '_' . $value . '">
+			$ret .= '<label for="item' . $this->id . '_' . $value . '">
 			<input '.self::_parseAttributes($this->input_attributes,array('id')).
 			' value="'.$value.'" id="item' . $this->id . '_' . $value . '">
 			' . $option . '</label>
@@ -929,6 +925,7 @@ class Item_mc_multiple extends Item_mc
 class Item_check extends Item_mc_multiple 
 {
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $choice_list = '*';
 	
 	protected function setMoreOptions() 
 	{
@@ -938,8 +935,7 @@ class Item_check extends Item_mc_multiple
 	
 	protected function render_label() 
 	{
-		return '
-					<label  for="item' . $this->id . '_1" class="'. implode(" ",$this->classes_label) .'">' .
+		return '<label  for="item' . $this->id . '_1" class="'. implode(" ",$this->classes_label) .'">' .
 		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="fa fa-warning-sign"></i></span> ' : '').
 		 $this->label_parsed . '</label>
 		';
@@ -1183,8 +1179,7 @@ class Item_rating_button extends Item_mc_button
 			if(in_array($option,$this->presetValues)) $this->input_attributes['checked'] = true;
 			else $this->input_attributes['checked'] = false;
 					
-			$ret .= '
-				<label for="item' . $this->id . '_' . $option . '">' . 
+			$ret .= '<label for="item' . $this->id . '_' . $option . '">' . 
 				'<input '.self::_parseAttributes($this->input_attributes,array('id')).
 				' value="'.$option.'" id="item' . $this->id . '_' . $option . '">' .
 					$option . '</label>';
@@ -1252,7 +1247,7 @@ class Item_check_button extends Item_check
 class Item_sex extends Item_mc_button 
 {
 	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
-	
+	public $choice_list = '*';
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
@@ -1461,6 +1456,8 @@ class Item_choose_two_weekdays extends Item_mc_multiple
 class Item_timezone extends Item_select_one
 {
 	protected $mysql_field = 'FLOAT DEFAULT NULL';
+	public $choice_list = '*';
+	
 	protected function chooseResultFieldBasedOnChoices()
 	{
 	}
@@ -1539,8 +1536,7 @@ class Item_mc_heading extends Item_mc
 		if(mb_strpos(implode(" ",$this->classes_wrapper),'mc-all-left')!==false) $all_left = true;
 		
 		foreach($this->choices AS $value => $option):			
-			$ret .= '
-				<label for="item' . $this->id . '_' . $value . '">' . 
+			$ret .= '<label for="item' . $this->id . '_' . $value . '">' . 
 					(($this->label_first || $all_left) ? $option.'&nbsp;' : '') . 
 				'<input '.self::_parseAttributes($this->input_attributes,array('id')).
 				' value="'.$value.'" id="item' . $this->id . '_' . $value . '">' .
