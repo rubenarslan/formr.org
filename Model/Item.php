@@ -67,7 +67,7 @@ class Item extends HTML_element
 	public $error = null;
 	public $val_errors = array();
 	
-	protected $mysql_field =  'TEXT DEFAULT NULL';
+	public $mysql_field =  'TEXT DEFAULT NULL';
 	protected $prepend = null;
 	protected $append = null;
 	protected $type_options_array = array();
@@ -380,7 +380,7 @@ class Item_number extends Item
 {
 	public $type = 'number';
 	public $input_attributes = array('type' => 'number');
-	protected $mysql_field = 'INT UNSIGNED DEFAULT NULL';
+	public $mysql_field = 'INT UNSIGNED DEFAULT NULL';
 	
 	protected function setMoreOptions() 
 	{
@@ -532,7 +532,7 @@ class Item_email extends Item_text
 	public $type = 'email';
 	public $input_attributes = array('type' => 'email', 'maxlength' => 255);
 	protected $prepend = 'fa-envelope';
-	protected $mysql_field = 'VARCHAR (255) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR (255) DEFAULT NULL';
 	public function validateInput($reply)
 	{
 		if($this->optional AND trim($reply)==''):
@@ -553,7 +553,7 @@ class Item_url extends Item_text
 	public $type = 'url';
 	public $input_attributes = array('type' => 'url');
 	protected $prepend = 'fa-link';
-	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
 	public function validateInput($reply)
 	{
 		if($this->optional AND trim($reply)==''):
@@ -579,7 +579,7 @@ class Item_tel extends Item_text
 	public $input_attributes = array('type' => 'tel');
 	
 	protected $prepend = 'fa-phone';
-	protected $mysql_field = 'VARCHAR(100) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(100) DEFAULT NULL';
 	protected function setMoreOptions() 
 	{
 		$this->classes_input[] = 'form-control';		
@@ -592,7 +592,7 @@ class Item_cc extends Item_text
 	public $type = 'cc';
 	public $input_attributes = array('type' => 'cc');
 	protected $prepend = 'fa-credit-card';
-	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';	
+	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';	
 	protected function setMoreOptions() 
 	{
 		$this->classes_input[] = 'form-control';		
@@ -605,7 +605,7 @@ class Item_color extends Item
 	public $input_attributes = array('type' => 'color');
 	
 	protected $prepend = 'fa-tint';
-	protected $mysql_field = 'CHAR(7) DEFAULT NULL';
+	public $mysql_field = 'CHAR(7) DEFAULT NULL';
 	protected function setMoreOptions() 
 	{
 		$this->classes_input[] = 'form-control';		
@@ -631,7 +631,7 @@ class Item_datetime extends Item
 	public $input_attributes = array('type' => 'datetime');
 	
 	protected $prepend = 'fa-calendar';	
-	protected $mysql_field = 'DATETIME DEFAULT NULL';
+	public $mysql_field = 'DATETIME DEFAULT NULL';
 	protected $html5_date_format = 'Y-m-d\TH:i';
 	protected function setMoreOptions() 
 	{
@@ -684,7 +684,7 @@ class Item_time extends Item_datetime
 	public $input_attributes = array('type' => 'time', 'style' => 'width:160px');
 	
 	protected $prepend = 'fa-clock-o';
-	protected $mysql_field = 'TIME DEFAULT NULL';
+	public $mysql_field = 'TIME DEFAULT NULL';
 	protected $html5_date_format = 'H:i';
 }
 class Item_datetime_local extends Item_datetime 
@@ -699,7 +699,7 @@ class Item_date extends Item_datetime
 	public $input_attributes = array('type' => 'date');
 	
 	protected $prepend = 'fa-calendar';	
-	protected $mysql_field = 'DATE DEFAULT NULL';
+	public $mysql_field = 'DATE DEFAULT NULL';
 	protected $html5_date_format = 'Y-m-d';
 	
 }
@@ -710,7 +710,7 @@ class Item_yearmonth extends Item_datetime
 	public $input_attributes = array('type' => 'yearmonth');
 	
 	protected $prepend = 'fa-calendar-o';	
-	protected $mysql_field = 'DATE DEFAULT NULL';
+	public $mysql_field = 'DATE DEFAULT NULL';
 	protected $html5_date_format = 'Y-m-01';
 }
 
@@ -728,7 +728,7 @@ class Item_year extends Item_datetime
 	
 	protected $html5_date_format = 'Y';
 	protected $prepend = 'fa-calendar-o';	
-	protected $mysql_field = 'YEAR DEFAULT NULL';
+	public $mysql_field = 'YEAR DEFAULT NULL';
 }
 class Item_week extends Item_datetime 
 {
@@ -737,14 +737,14 @@ class Item_week extends Item_datetime
 	
 	protected $html5_date_format = 'Y-mW';
 	protected $prepend = 'fa-calendar-o';	
-	protected $mysql_field = 'VARCHAR(9) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(9) DEFAULT NULL';
 }
 
 // notes are rendered at full width
 class Item_note extends Item 
 {
 	public $type = 'note';
-	protected $mysql_field = null;
+	public $mysql_field = null;
 	
 	public function validateInput($reply)
 	{
@@ -766,7 +766,7 @@ class Item_submit extends Item
 	public $type = 'submit';
 	public $input_attributes = array('type' => 'submit');
 	
-	protected $mysql_field = null;
+	public $mysql_field = null;
 	
 	protected function setMoreOptions() 
 	{
@@ -792,7 +792,7 @@ class Item_mc extends Item
 {
 	public $type = 'mc';
 	public $input_attributes = array('type' => 'radio');
-	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	protected $hasChoices = true;
 	
 	public function validateInput($reply)
@@ -873,7 +873,7 @@ class Item_mc_multiple extends Item_mc
 	public $input_attributes = array('type' => 'checkbox');
 	
 	public $optional = 1;
-	protected $mysql_field = 'VARCHAR(40) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(40) DEFAULT NULL';
 	
 	protected function setMoreOptions() 
 	{
@@ -924,7 +924,7 @@ class Item_mc_multiple extends Item_mc
 // multiple multiple choice, also checkboxes
 class Item_check extends Item_mc_multiple 
 {
-	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	public $choice_list = '*';
 	
 	protected function setMoreOptions() 
@@ -969,7 +969,7 @@ class Item_check extends Item_mc_multiple
 class Item_select_one extends Item 
 {
 	public $type = 'select';
-	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	protected $hasChoices = true;
 	
 	protected function render_input() 
@@ -1001,7 +1001,7 @@ class Item_select_one extends Item
 // dropdown select, choose multiple
 class Item_select_multiple extends Item_select_one 
 {
-	protected $mysql_field = 'VARCHAR (40) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR (40) DEFAULT NULL';
 	
 	protected function chooseResultFieldBasedOnChoices()
 	{
@@ -1029,7 +1029,7 @@ class Item_select_multiple extends Item_select_one
 class Item_select_or_add_one extends Item
 {
 	public $type = 'text';
-	protected $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
 	protected $hasChoices = true;
 	
 	protected function setMoreOptions() 
@@ -1072,7 +1072,7 @@ class Item_select_or_add_one extends Item
 class Item_select_or_add_multiple extends Item_select_or_add_one
 {
 	public $type = 'text';
-	protected $mysql_field = 'TEXT DEFAULT NULL';
+	public $mysql_field = 'TEXT DEFAULT NULL';
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
@@ -1103,7 +1103,7 @@ class Item_select_or_add_multiple extends Item_select_or_add_one
 // dropdown select, choose multiple
 class Item_mc_button extends Item_mc 
 {
-	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	
 	protected function setMoreOptions() 
 	{
@@ -1128,7 +1128,7 @@ class Item_mc_button extends Item_mc
 // dropdown select, choose multiple
 class Item_rating_button extends Item_mc_button 
 {
-	protected $mysql_field = 'SMALLINT DEFAULT NULL';
+	public $mysql_field = 'SMALLINT DEFAULT NULL';
 	protected function setMoreOptions() 
 	{	
 		parent::setMoreOptions();
@@ -1200,7 +1200,7 @@ class Item_rating_button extends Item_mc_button
 
 class Item_mc_multiple_button extends Item_mc_multiple 
 {
-	protected $mysql_field = 'VARCHAR (40) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR (40) DEFAULT NULL';
 	
 	protected function setMoreOptions() 
 	{
@@ -1225,7 +1225,7 @@ class Item_mc_multiple_button extends Item_mc_multiple
 
 class Item_check_button extends Item_check 
 {
-	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	
 	protected function setMoreOptions() 
 	{
@@ -1246,7 +1246,7 @@ class Item_check_button extends Item_check
 
 class Item_sex extends Item_mc_button 
 {
-	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	public $choice_list = '*';
 	protected function setMoreOptions() 
 	{
@@ -1260,7 +1260,7 @@ class Item_geopoint extends Item {
 	public $input_attributes = array('type' => 'text', 'readonly');
 	protected $append = true;
 	
-	protected $mysql_field =  'TEXT DEFAULT NULL';
+	public $mysql_field =  'TEXT DEFAULT NULL';
 	protected function setMoreOptions() 
 	{
 		$this->input_attributes['name'] = $this->name.'[]';
@@ -1301,7 +1301,7 @@ class Item_random extends Item_number
 {
 	public $type = 'random';
 	public $input_attributes = array('type' => 'hidden');
-	protected $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	
 	public function validateInput($reply)
 	{
@@ -1325,7 +1325,7 @@ class Item_calculate extends Item {
 	public $type = 'calculate';
 	public $input_attributes = array('type' => 'hidden');
 	
-	protected $mysql_field =  'TEXT DEFAULT NULL';
+	public $mysql_field =  'TEXT DEFAULT NULL';
 	public function validateInput($reply)
 	{
 		return $this->calculateValue();
@@ -1339,7 +1339,7 @@ class Item_ip extends Item {
 	public $type = 'ip';
 	public $input_attributes = array('type' => 'hidden');
 	
-	protected $mysql_field =  'VARCHAR (46) DEFAULT NULL';
+	public $mysql_field =  'VARCHAR (46) DEFAULT NULL';
 	public function validateInput($reply)
 	{
 		return $_SERVER["REMOTE_ADDR"];
@@ -1354,7 +1354,7 @@ class Item_ip extends Item {
 class Item_referrer extends Item {
 	public $type = 'referrer';
 	public $input_attributes = array('type' => 'hidden');
-	protected $mysql_field =  'VARCHAR (255) DEFAULT NULL';
+	public $mysql_field =  'VARCHAR (255) DEFAULT NULL';
 	public function validateInput($reply)
 	{
 		global $site;
@@ -1371,7 +1371,7 @@ class Item_server extends Item {
 	public $input_attributes = array('type' => 'hidden');
 	private $get_var = 'HTTP_USER_AGENT';
 	
-	protected $mysql_field =  'VARCHAR (255) DEFAULT NULL';
+	public $mysql_field =  'VARCHAR (255) DEFAULT NULL';
 	protected function setMoreOptions() 
 	{	
 		if(isset($this->type_options_array) AND is_array($this->type_options_array))
@@ -1416,7 +1416,7 @@ class Item_get extends Item {
 	public $input_attributes = array('type' => 'hidden');
 	private $get_var = 'referred_by';
 	
-	protected $mysql_field =  'TEXT DEFAULT NULL';
+	public $mysql_field =  'TEXT DEFAULT NULL';
 	protected function setMoreOptions() 
 	{
 		if(isset($this->type_options_array) AND is_array($this->type_options_array))
@@ -1455,7 +1455,7 @@ class Item_choose_two_weekdays extends Item_mc_multiple
 
 class Item_timezone extends Item_select_one
 {
-	protected $mysql_field = 'FLOAT DEFAULT NULL';
+	public $mysql_field = 'FLOAT DEFAULT NULL';
 	public $choice_list = '*';
 	
 	protected function chooseResultFieldBasedOnChoices()
@@ -1500,7 +1500,7 @@ class Item_timezone extends Item_select_one
 class Item_mc_heading extends Item_mc
 {
 	public $type = 'mc_heading';
-	protected $mysql_field = null;
+	public $mysql_field = null;
 	
 	protected function setMoreOptions()
 	{
