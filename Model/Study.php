@@ -507,7 +507,8 @@ class Study extends RunUnit
 		LEFT JOIN `survey_items`
 		ON `survey_items_display`.item_id = `survey_items`.id
 		
-		WHERE `survey_items`.study_id = :study_id";
+		WHERE `survey_items`.study_id = :study_id
+		ORDER BY `survey_run_sessions`.session, `survey_run_sessions`.created, `survey_items_display`.item_id";
 		$get = $this->dbh->prepare($get) or die(print_r($this->dbh->errorInfo(), true));
 		$get->bindParam(':study_id',$this->id);
 		$get->execute() or die(print_r($this->dbh->errorInfo(), true));

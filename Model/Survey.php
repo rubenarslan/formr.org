@@ -89,7 +89,6 @@ class Survey extends RunUnit {
 		unset($posted['modified']); // cant overwrite
 		unset($posted['ended']); // cant overwrite
 
-		
 		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (item_id, session_id, answered, answered_time, modified)
 																  VALUES(	:item_id,  :session_id, 1, 		NOW(),	NOW()	) 
 		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
@@ -103,27 +102,27 @@ class Survey extends RunUnit {
 				$value = $this->unanswered_batch[$name]->validateInput($value);
 				if( ! $this->unanswered_batch[$name]->error )
 				{
-					$this->dbh->beginTransaction() or die(print_r($answered->errorInfo(), true));
-					$answered->bindParam(":item_id", $this->unanswered_batch[$name]->id);
-			   	   	$answered->execute() or die(print_r($answered->errorInfo(), true));
-					
-					$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}`
-					SET 
-					`$name` = :$name
-					WHERE session_id = :session_id AND study_id = :study_id;");
-				    $post_form->bindParam(":$name", $value);
-					$post_form->bindParam(":session_id", $this->session_id);
-					$post_form->bindParam(":study_id", $this->id);
-
 					try
 					{
+						$this->dbh->beginTransaction() or die(print_r($answered->errorInfo(), true));
+						$answered->bindParam(":item_id", $this->unanswered_batch[$name]->id);
+				   	   	$answered->execute() or die(print_r($answered->errorInfo(), true));
+					
+						$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}`
+						SET 
+						`$name` = :$name
+						WHERE session_id = :session_id AND study_id = :study_id;");
+					    $post_form->bindValue(":$name", $value);
+						$post_form->bindValue(":session_id", $this->session_id);
+						$post_form->bindValue(":study_id", $this->id);
+						
 						$post_form->execute();
 						$this->dbh->commit();
 					}
 					catch(Exception $e)
 					{
-						pr($e);
-						pr($value);
+						trigger_error(date("Ymd H:i:s")." Could not save in survey ".$this->results_table. ", probably because " . $name . "'s field was misconfigured as " . $item->mysql_field .
+							" and the value was " . $value . PHP_EOL . print_r($e, true) , E_USER_WARNING);
 					}
 					unset($this->unanswered_batch[$name]);
 				} else {
@@ -169,20 +168,23 @@ class Survey extends RunUnit {
 		{	
 			if($item['answered']!=null) $this->already_answered += $item['count'];
 		}
+#		pr(array_keys($this->unanswered_batch));
 		
-		
-		$this->not_answered = count( array_filter($this->unanswered_batch, function ($item)
+		$this->not_answered = array_filter($this->unanswered_batch, function ($item)
 		{
 			if(
-				in_array($item->type, array('submit','mc_heading')) 
-				OR ($item->type == 'note' AND $item->displaycount > 0) 
-				OR $item->hidden
+				in_array($item->type, array('submit','mc_heading')) 		 // these items require no user interaction and thus don't count against progress
+				OR ($item->type == 'note' AND $item->displaycount > 0) 		 // item is a note and has already been viewed
+				OR $item->hidden											 // item was skipped
 			)
 				return false;
 			else 
 				return true;
 		}
-) );
+);
+#		pr($this->not_answered);
+		$this->not_answered = count( $this->not_answered );
+
 		$all_items = $this->already_answered + $this->not_answered;
 		
 		#pr(array_filter($this->unanswered_batch,'proper_type'));
@@ -353,8 +355,9 @@ class Survey extends RunUnit {
 	        // fork-items sind relevant, werden aber nur behandelt, wenn sie auch an erster Stelle sind, also alles vor ihnen schon behandelt wurde
 			if ($item->type === 'submit')
 			{
-				if($itemsDisplayed === 0)
-					continue; // skip submit buttons once everything before them was dealt with				
+				if($itemsDisplayed === 0):
+					continue; // skip submit buttons once everything before them was dealt with	
+				endif;			
 			}
 			else if ($item->type === "note")
 			{
@@ -363,7 +366,7 @@ class Survey extends RunUnit {
 					$item->displaycount AND 											 // if this was displayed before
 					(
 						$next === false OR 								    				 // this is the end of the survey
-#						$next->hidden === true OR 								    				 // the next item is hidden
+						$next->hidden === true OR 								    				 // the next item is hidden // todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
 						in_array( $next->type , array('note','submit','mc_heading'))  		 // the next item isn't a normal item
 					)
 				)
@@ -377,7 +380,7 @@ class Survey extends RunUnit {
 				if(
 					(
 						$next === false OR 								    				 // this is the end of the survey
-#						$next->hidden === true OR 								    				 // the next item is hidden
+						$next->hidden === true OR 								    				 // the next item is hidden // todo: same as above
 						!in_array( $next->type , array('mc','mc_multiple','mc_button','mc_multiple_button'))  		 // the next item isn't a mc item
 					)
 				)
@@ -387,9 +390,10 @@ class Survey extends RunUnit {
 			}
 			
 			
-			$item->viewedBy($view_update);
-			if(! $item->hidden)
+			if(! $item->hidden):
+				$item->viewedBy($view_update);
 				$itemsDisplayed++;
+			endif;
 			
 			if($item->label_parsed === null): // item label has to be dynamically generated with user data
 				$openCPU = $this->makeOpenCPU();

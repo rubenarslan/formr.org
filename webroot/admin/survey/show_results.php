@@ -49,6 +49,7 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 
 <?php
 if(count($results)>0):
+
 ?>
 <div class="col-md-12">
 
@@ -65,6 +66,12 @@ endforeach;
 <?php
 // printing table rows
 foreach($results AS $row):
+#    $row = array_reverse($row, true);
+	$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
+	$row['ended'] = '<abbr title="'.$row['ended'].'">'.timetostr(strtotime($row['ended'])).'</abbr>';
+	$row['modified'] = '<abbr title="'.$row['modified'].'">'.timetostr(strtotime($row['modified'])).'</abbr>';
+#    $row = array_reverse($row, true);
+	
     echo "<tr>";
 
     // $row is array... foreach( .. ) puts every element

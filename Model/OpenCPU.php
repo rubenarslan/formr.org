@@ -207,35 +207,46 @@ $this->user_data .
 	}
 	public function debugCall($result)
 	{
-		if($this->http_status > 302):
-			 $response = array(
-				 'Response' => '<pre>'. htmlspecialchars($result['body']). '</pre>',
-				 'HTTP headers' => '<pre>'. htmlspecialchars($result['header']). '</pre>',
-				 'Call' => '<pre>'. htmlspecialchars(current($result['post'])). '</pre>',
-			 );
-		else:
+		if($this->http_status < 303):
 			$header_parsed = http_parse_headers($result['header']);
 			$available = explode("\n",$result['body']);
-
-			$session = '/ocpu/tmp/'. $header_parsed['X-ocpu-session'] . '/';
-#			$session = explode('/',$available[0]);
-#			$session = '/'.$session[1].'/'.$session[2] .'/'.$session[3] . '/';
-			// info/text stdout/text console/text R/.val/text
 			
 			$response = array();
-			if(in_array($session . 'R/.val',$available))
-				$response['Result'] = file_get_contents($this->instance. $session . 'R/.val/text');
 
-			if(in_array($session . 'console',$available))
-				$response['Console'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'console/print')).'</pre>';
-			if(in_array($session . 'stdout',$available))
+			if(isset($header_parsed['X-ocpu-session'])): # won't be there if openCPU is down
+				$session = '/ocpu/tmp/'. $header_parsed['X-ocpu-session'] . '/';
+	#			$session = explode('/',$available[0]);
+	#			$session = '/'.$session[1].'/'.$session[2] .'/'.$session[3] . '/';
+				// info/text stdout/text console/text R/.val/text
 			
-				$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/print')). '</pre>';
+				if(in_array($session . 'R/.val',$available)):
+					$response['Result'] = file_get_contents($this->instance. $session . 'R/.val/text');
+				endif;
+
+				if(in_array($session . 'console',$available)):
+					$response['Console'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'console/print')).'</pre>';
+				endif;
+				if(in_array($session . 'stdout',$available)):
+					$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/print')). '</pre>';
+				endif;
 			
-			$response['HTTP headers'] = '<pre>'. htmlspecialchars($result['header']). '</pre>';
+				$response['HTTP headers'] = '<pre>'. htmlspecialchars($result['header']). '</pre>';
 			
-			if(in_array($session . 'info',$available))
-				$response['Session info'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'info/print')). '</pre>';
+				if(in_array($session . 'info',$available)):
+					$response['Session info'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'info/print')). '</pre>';
+				endif;
+				
+			else:
+		   		 $response = array(
+		   			 'Response' => 'OpenCPU at '.$this->instance.' is down.'
+		   		 );
+			endif;
+		else:
+	   		 $response = array(
+	   			 'Response' => '<pre>'. htmlspecialchars($result['body']). '</pre>',
+	   			 'HTTP headers' => '<pre>'. htmlspecialchars($result['header']). '</pre>',
+	   			 'Call' => '<pre>'. htmlspecialchars(current($result['post'])). '</pre>',
+	   		 );
 		endif;
 		
 		return $this->ArrayToAccordion($response);

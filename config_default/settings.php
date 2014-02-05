@@ -14,3 +14,8 @@ $settings['email']['password'] = ''; # the password
 $settings['display_errors_when_live'] = 0; // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
 
 $settings['timezone'] = 'Europe/Berlin';
+
+$settings['expire_unregistered_session'] = 365 * 24 * 30; # for unregistered users. in minutes (defaults to a year)
+$settings['expire_registered_session'] = 7 * 24 * 30; # for registered users. in minutes (defaults to a week)
+$settings['expire_admin_session'] = 7 * 24 * 30; # for admins. in minutes (defaults to a week)
+$settings['session_cookie_lifetime'] = max($settings['expire_unregistered_session'], $settings['expire_registered_session'], $settings['expire_admin_session']); # upper limit for all values above (defaults to their max)
