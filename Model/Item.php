@@ -74,6 +74,7 @@ class Item extends HTML_element
 	public $choices = array();
 	protected $hasChoices = false;
 	protected $data_showif = false;
+	public $hidden = false;
 
 	
 	public $input_attributes = array(); // so that the pre-set value can be set externally
@@ -316,6 +317,7 @@ class Item extends HTML_element
 		$this->classes_wrapper[] = "hidden";
 		$this->data_showif = true;
 		$this->input_attributes['disabled'] = true; ## so it isn't submitted or validated
+		$this->hidden = true; ## so it isn't submitted or validated
 	}
 }
 
