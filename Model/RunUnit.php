@@ -371,13 +371,20 @@ class RunUnit {
 			endif;
 			
 			if($report):
-				$set_report = $this->dbh->prepare("INSERT INTO `survey_reports` 
-					(`session_id`, `unit_id`, `body_knit`, `created`,	`last_viewed`) 
-			VALUES  (:session_id, :unit_id, :body_knit,  NOW(), 	NOW() ) ");
-				$set_report->bindParam(":unit_id",$this->id);
-				$set_report->bindParam(":body_knit",$report);
-				$set_report->bindParam(":session_id",$this->session_id);
-				$set_report->execute();
+				try
+				{
+					$set_report = $this->dbh->prepare("INSERT INTO `survey_reports` 
+						(`session_id`, `unit_id`, `body_knit`, `created`,	`last_viewed`) 
+				VALUES  (:session_id, :unit_id, :body_knit,  NOW(), 	NOW() ) ");
+					$set_report->bindParam(":unit_id",$this->id);
+					$set_report->bindParam(":body_knit",$report);
+					$set_report->bindParam(":session_id",$this->session_id);
+					$set_report->execute();
+				}
+				catch (Exception $e)
+				{
+					trigger_error("Couldn't save Knitr report, probably too large: ". human_filesize(strlen($report)) , E_USER_WARNING);
+				}
 				return $report;
 			endif;
 		}

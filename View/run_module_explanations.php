@@ -18,12 +18,12 @@
 				</p>
 				<p>
 <pre>* list item 1
-* list item 2</pre> will turn into a nice list. "Straight" quotes turn into “curly” quotes. <code># </code> at the beginning of a line turns it into a large headline, <code>## </code> up to <code>###### </code> turn it into smaller ones.
+* list item 2</pre> will turn into a nice bulleted list. <code># </code> at the beginning of a line turns it into a large headline, <code>## </code> up to <code>###### </code> turn it into smaller ones.
 					 <code>*<em>italics</em>* and __<strong>bold</strong>__</code> are also easy to do, as are 
-					 <code>[<a href="http://yihui.name/knitr/">links</a>](http://yihui.name/knitr/)</code> and embedded images <code>![image description](http://imgur.com/imagelink)</code>. You can quote something by placing a &gt; at the beginning of the line. If you you want to use the literal character (for e.g. saying &gt; (greater than) 5), you'll need to escape it like this <code>\&gt;</code>
+					 <code>[<a href="http://yihui.name/knitr/">links</a>](http://yihui.name/knitr/)</code> and embedded images <code>![image description](http://imgur.com/imagelink)</code>. You can quote something by placing a &gt; at the beginning of the line. If you you want to use the literal character (for e.g. saying &gt; (greater than) 18), you'll need to escape it like this <code>\&gt;</code>
 		 		</p>
 				<p>
-					If you're already familiar with <a href="https://en.wikipedia.org/wiki/HTML"><abbr title="Hypertext Markup Language">HTML</abbr></a> you can also that instead, though it is a little less human readable. You may for example use it to go beyond Markdown's features and e.g. add icons to your text using <code>&lt;i class=&quot;fa fa-2x fa-smile-o&quot;&gt;&lt;/i&gt;</code> to get a smilie for instance. Check the full set of available icons at <a href="http://fontawesome.io/icons/">Font Awesome</a>.  
+					If you're already familiar with <a href="https://en.wikipedia.org/wiki/HTML"><abbr title="Hypertext Markup Language">HTML</abbr></a> you can also that instead, though it is a little less human readable. Or mix it with Markdown! You may for example use it to go beyond Markdown's features and e.g. add icons to your text using <code>&lt;i class=&quot;fa fa-2x fa-smile-o&quot;&gt;&lt;/i&gt;</code> to get a smilie for instance. Check the full set of available icons at <a href="http://fontawesome.io/icons/">Font Awesome</a>. 
 				</p>
 					  <h5>Knitr</h5>
 		   		<p>
@@ -232,7 +232,7 @@ yields<br>
 		<div class="panel panel-default">
 			<div class="panel-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#explanation_accordion" href="#skip_forward">
-					<i class="fa-fw fa fa-forward"></i> Skip Forward <br><small>filters, paths, reminders, access windows</small>
+					<i class="fa-fw fa fa-forward"></i> Skip Forward <br><small>filters/screenings, paths, reminders, access windows</small>
 				</a>
 			</div>
 			<div id="skip_forward" class="panel-collapse collapse skip_forward">
@@ -241,7 +241,7 @@ yields<br>
 				 <i class="fa fa-forward fa-huge fa-fw pull-right"></i>
 				 Skip forward allows you to jump forward in the run, if a specific condition is fulfilled. There are many simple but also complicated applications for this.
 			 </p>
-			 <h4><i class="fa fa-filter"></i> Example 1: <small>a filter</small></h4>
+			 <h4><i class="fa fa-filter"></i> Example 1: <small>a filter/screening</small></h4>
 			 <p>
 				 Let's say your run contains 
 				 <ul class="fa-ul">
