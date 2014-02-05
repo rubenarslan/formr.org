@@ -136,11 +136,6 @@ endif;
 /*
 HELPER FUNCTIONS
 */
-function alert($msg, $class = 'alert-warning', $dismissable = true) // shorthand
-{
-	global $site;
-	$site->alert($msg,$class, $dismissable);
-}
 function expire_session($expiry)
 {
 	if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $expiry)) {
@@ -154,6 +149,12 @@ function expire_session($expiry)
 	}
 	else
 		return false;
+}
+
+function alert($msg, $class = 'alert-warning', $dismissable = true) // shorthand
+{
+	global $site;
+	$site->alert($msg,$class, $dismissable);
 }
 
 function redirect_to($location) {
