@@ -142,13 +142,13 @@ form.form-horizontal div.form-row:nth-child(odd) {
 	content:'*';
 }*/
 div.mc-table {
-  display: table;
-}
+/*  display: table;
+*/}
 span.controls-inner {
     display:inline-block;
 }
 form.form-horizontal div.form-row div.controls div.mc-table label {
-  display:table-cell;
+  display:inline-block;
   padding-left:2px;
   padding-right:2px;
   padding-left:18px;
@@ -523,6 +523,11 @@ div.btn-check button.btn {
     height:52px;
     width:52px;
 }
+
+.mc-table label + label {
+    margin-left: -1px;
+}
+
 
 /* CLASSES THAT COULD BE ADDED BY USER */
 
