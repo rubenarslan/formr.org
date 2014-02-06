@@ -13,7 +13,7 @@
 				  <p>
 	 	 			 <i class="fa fa-bar-chart-o fa-huge fa-fw pull-right"></i>
 		  
-					You can format text everywhere in a natural fashion using <a href="http://daringfireball.net/projects/markdown/syntax" title="Go to this link for a more exhaustive guide">Github-flavoured Markdown</a>.<br>
+					You can format text/feedback everywhere (i.e. item labels, choice labels, the feedback	 shown in Pause, on Stop, in emails) in a natural fashion using <a href="http://daringfireball.net/projects/markdown/syntax" title="Go to this link for a more exhaustive guide">Github-flavoured Markdown</a>.<br>
 					The philosophy is that you should simply write like you would in a plain-text email and Markdown turns it nice.
 				</p>
 				<p>
@@ -27,7 +27,7 @@
 				</p>
 					  <h5>Knitr</h5>
 		   		<p>
-					If you want to customise the text or generate custom feedback, including plots, you can use <a href="http://yihui.name/knitr/">Knitr</a>. With Knitr you can freely mix Markdown and chunks of R. Some examples:
+					If you want to customise the text or generate custom feedback, including plots, you can use <a href="http://yihui.name/knitr/">Knitr</a>. Thanks to Knitr you can freely mix Markdown and chunks of R. Some examples:
 				</p>
 				<ul class="fa-ul">
 					<li>
@@ -37,6 +37,10 @@
 					<li>
 						<i class="fa-li fa fa-user"></i>
 						<code>Hello `r demographics$name`</code> greets someone using the variable "name" from the survey "demographics".<br>
+					</li>
+					<li>
+						<i class="fa-li fa fa-user"></i>
+						<code>Dear `r ifelse(demographics$sex == 1, 'Sir', 'Madam')`</code> greets someone differently based on the variable "sex" from the survey "demographics".<br>
 					</li>
 					<li>
 						<i class="fa-li fa fa-bar-chart-o"></i>
