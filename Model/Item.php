@@ -75,6 +75,7 @@ class Item extends HTML_element
 	protected $hasChoices = false;
 	protected $data_showif = false;
 	public $hidden = false;
+	public $no_user_input_required = false;
 
 	
 	public $input_attributes = array(); // so that the pre-set value can be set externally
@@ -1302,7 +1303,13 @@ class Item_random extends Item_number
 	public $type = 'random';
 	public $input_attributes = array('type' => 'hidden');
 	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $no_user_input_required = true;
 	
+	
+	protected function setMoreOptions() 
+	{	
+		$this->input_attributes['value'] = $this->validateInput();
+	}
 	public function validateInput($reply)
 	{
 		if(isset($this->input_attributes['min']) AND isset($this->input_attributes['max'])) // both limits specified
@@ -1340,6 +1347,12 @@ class Item_ip extends Item {
 	public $input_attributes = array('type' => 'hidden');
 	
 	public $mysql_field =  'VARCHAR (46) DEFAULT NULL';
+	public $no_user_input_required = true;
+	
+	protected function setMoreOptions() 
+	{	
+		$this->input_attributes['value'] = $_SERVER["REMOTE_ADDR"];
+	}
 	public function validateInput($reply)
 	{
 		return $_SERVER["REMOTE_ADDR"];
@@ -1355,6 +1368,14 @@ class Item_referrer extends Item {
 	public $type = 'referrer';
 	public $input_attributes = array('type' => 'hidden');
 	public $mysql_field =  'VARCHAR (255) DEFAULT NULL';
+	public $no_user_input_required = true;
+	
+	protected function setMoreOptions() 
+	{	
+		global $site;
+		
+		$this->input_attributes['value'] = $site->last_outside_referrer;
+	}
 	public function validateInput($reply)
 	{
 		global $site;
@@ -1370,14 +1391,18 @@ class Item_server extends Item {
 	public $type = 'server';
 	public $input_attributes = array('type' => 'hidden');
 	private $get_var = 'HTTP_USER_AGENT';
-	
 	public $mysql_field =  'VARCHAR (255) DEFAULT NULL';
+	public $no_user_input_required = true;
+	
 	protected function setMoreOptions() 
 	{	
 		if(isset($this->type_options_array) AND is_array($this->type_options_array))
 		{
-			if(count($this->type_options_array) == 1) 
+			if(count($this->type_options_array) == 1)
+			{
 				$this->get_var = trim(current($this->type_options_array));
+				$this->input_attributes['value'] = $_SERVER[$this->get_var];
+			}
 		}
 	}
 	public function validateInput($reply)
@@ -1415,6 +1440,9 @@ class Item_get extends Item {
 	public $type = 'get';
 	public $input_attributes = array('type' => 'hidden');
 	private $get_var = 'referred_by';
+	protected $hasChoices = false;
+	public $no_user_input_required = true;
+	
 	
 	public $mysql_field =  'TEXT DEFAULT NULL';
 	protected function setMoreOptions() 
@@ -1556,7 +1584,6 @@ class Item_mc_heading extends Item_mc
  * todo: item - rank / sortable
  * todo: item - facebook connect?
  * todo: captcha items
- * todo: item - random number
 
 */
 
