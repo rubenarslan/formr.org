@@ -37,7 +37,6 @@ $g_users->execute();
 $users = array();
 while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 {
-	unset($userx['session']);
 	unset($userx['run_name']);
 	unset($userx['unit_type']);
 	unset($userx['ended']);

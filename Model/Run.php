@@ -88,15 +88,45 @@ class Run
 	{
 		return $this->api_secret_hash === $secret;
 	}
-	
+	public function rename($new_name)
+	{
+	    $name = trim($new_name);
+	    if($name == ""):
+			$this->errors[] = _("You have to specify a run name.");
+			return false;
+		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,255}/",$name)):
+			$this->errors[] = _("The run's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
+			return false;
+		elseif($this->existsByName($name)):
+			$this->errors[] = __("The run's name '%s' is already taken.",h($name));
+			return false;
+		endif;
+
+		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
+		$rename_run = $this->dbh->prepare("UPDATE `survey_runs` SET `name` = :new_name WHERE id = :run_id") or die(print_r($this->dbh->errorInfo(), true));
+		$rename_run->bindParam(':run_id',$this->id);
+		$rename_run->bindParam(':new_name',$name);
+		$rename_run->execute() or die(print_r($rename_run->errorInfo(), true));
+		$this->dbh->commit();
+		
+		return true;
+	}
 	public function delete()
 	{
-		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
-		$delete_run = $this->dbh->prepare("DELETE FROM `survey_runs` WHERE id = :run_id") or die(print_r($this->dbh->errorInfo(), true)); // Cascades
-		$delete_run->bindParam(':run_id',$this->id);
-		$delete_run->execute() or die(print_r($delete_run->errorInfo(), true));
+		try {
+			$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
+			$delete_run = $this->dbh->prepare("DELETE FROM `survey_runs` WHERE id = :run_id") or die(print_r($this->dbh->errorInfo(), true)); // Cascades
+			$delete_run->bindParam(':run_id',$this->id);
+			$delete_run->execute() or die(print_r($delete_run->errorInfo(), true));
 		
-		$this->dbh->commit();
+			$this->dbh->commit();
+			alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.",'alert-success');
+			redirect_to(WEBROOT."admin/index");
+		}
+		catch (Exception $e)
+		{
+			alert(__('Could not delete run %s. This is probably because there are still run units present. For safety\'s sake you\'ll first need to delete each unit individually.', $this->name), 'alert-danger');
+		}
 	}
 	public function toggleCron($on)
 	{

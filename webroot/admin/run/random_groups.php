@@ -48,7 +48,6 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 	$userx['Group'] = "<big title=\"Assigned group\">{$userx['group']}</small>";
 	$userx['Created'] = "<small>{$userx['created']}</small>";
 	
-	unset($userx['session']);
 	unset($userx['run_name']);
 	unset($userx['unit_type']);
 	unset($userx['created']);
