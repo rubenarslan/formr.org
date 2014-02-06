@@ -94,12 +94,6 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 		<dd>
 			allows you to pick a color, using the operating system color picker (or one polyfilled by Webshims)
 		</dd>
-		<dt>
-			random min,max
-		</dt>
-		<dd>
-			generates <a href="http://php.net/mt_rand">a random number</a> for later use (e.g. randomisation in experiments). Minimum and maximum default to 0 and 1 respectively. If you specify them, you have to specify both.
-		</dd>
 	</dl>
 	<h4><i class="fa fa-fw fa-check-square"></i> Multiple choice family</h4>
 	<p>The, by far, biggest family of items. Please note, that there is some variability in how the answers are stored. You need to know about this, if you (a) intend to analyse the data in a certain way, for example you will want to store numbers for Likert scale, but text for timezones or cities (b) if you plan to use conditions in the run or in showif or somewhere else where R is executed. (b) is especially important, because you might not notice if demographics$sex == 'male' never turns true because sex is stored as 0/1.</p>
@@ -190,13 +184,14 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 
 
 
-<h4><i class="fa fa-fw fa-hdd-o"></i> Server family</h4>
+<h4><i class="fa fa-fw fa-eye-slash"></i> Hidden family</h4>
+These items don't require the user to do anything, so including them simply means that the relevant value will be stored. If you have exclusively hidden items in a form, things will wrap up immediately and move to the next element in the run. This can be useful for hooking up with other software which sends data over the query string i.e. https://formr.org/run_name?param1=10&user_id=29
 <dl class="dl-horizontal dl-wider">
 	<dt>
 		ip
 	</dt>
 	<dd>
-		saves your IP address. This should probably not happen covertly but be explicitly announced or made optional.
+		saves your IP address. You should probably not do this covertly but explicitly announce it.
 	</dd>
 	<dt>
 		referrer
@@ -210,4 +205,17 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 	<dd>
 		 saves the <a href="http://us1.php.net/manual/en/reserved.variables.server.php">$_SERVER</a> value with the index given by var. Can be used to store one of 'HTTP_USER_AGENT', 'HTTP_ACCEPT', 'HTTP_ACCEPT_CHARSET', 'HTTP_ACCEPT_ENCODING', 'HTTP_ACCEPT_LANGUAGE', 'HTTP_CONNECTION', 'HTTP_HOST', 'QUERY_STRING', 'REQUEST_TIME', 'REQUEST_TIME_FLOAT'. In English: the browser, some stuff about browser language information, some server stuff, and access time.
 	</dd>
+	<dt>
+		get var
+	</dt>
+	<dd>
+		 saves the <code>var</code> from the query string, so in the example above <code>get <em>param1</em></code> would lead to 10 being stored.
+	</dd>
+	<dt>
+		random min,max
+	</dt>
+	<dd>
+		generates <a href="http://php.net/mt_rand">a random number</a> for later use (e.g. randomisation in experiments). Minimum and maximum default to 0 and 1 respectively. If you specify them, you have to specify both. You will probably prefer to do your shuffling using the run module Shuffle.
+	</dd>
+
 </dl>
