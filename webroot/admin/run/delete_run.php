@@ -5,8 +5,6 @@ require_once INCLUDE_ROOT.'View/admin_header.php';
 if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $run->name)
 {
 	$run->delete();
-	alert("<strong>Success.</strong> Successfully deleted run '{$run->name}'.",'alert-success');
-	redirect_to(WEBROOT."admin/index");
 }
 elseif(isset($_POST['delete']))
 {
