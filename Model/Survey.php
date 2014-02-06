@@ -43,8 +43,7 @@ class Survey extends RunUnit {
 		$this->startEntry();
 		
 		$this->getNextItems();
-
-		$this->post($_POST);
+		$this->post(array_merge($_POST,$_FILES));
 #		if(isset($_POST['session_id'])) 
 #		{
 #		}
@@ -121,8 +120,9 @@ class Survey extends RunUnit {
 					}
 					catch(Exception $e)
 					{
-						trigger_error(date("Ymd H:i:s")." Could not save in survey ".$this->results_table. ", probably because " . $name . "'s field was misconfigured as " . $item->mysql_field .
-							" and the value was " . $value . PHP_EOL . print_r($e, true) , E_USER_WARNING);
+						if(strlen($value)>10000) $value = '(too big)';
+						trigger_error(date("Y-m-d H:i:s")." Could not save in survey ".$this->results_table. ", probably because " . $name . "'s field was misconfigured as " . $this->unanswered_batch[$name]->mysql_field .
+							" and the value was " . $value . PHP_EOL."<br><pre>" . print_r($e, true) . "</pre>", E_USER_WARNING);
 					}
 					unset($this->unanswered_batch[$name]);
 				} else {
@@ -318,7 +318,8 @@ class Survey extends RunUnit {
 		$action = WEBROOT."{$this->run_name}";
 
 		if(!isset($this->settings['form_classes'])) $this->settings['form_classes'] = '';
-		$ret = '<form action="'.$action.'" method="post" class="form-horizontal '.$this->settings['form_classes'].'" accept-charset="utf-8">';
+		$enctype = ' enctype="multipart/form-data"'; # maybe make this conditional application/x-www-form-urlencoded
+		$ret = '<form action="'.$action.'" method="post" class="form-horizontal '.$this->settings['form_classes'].'" accept-charset="utf-8"'.$enctype.'>';
 		
 	    /* pass on hidden values */
 	    $ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
