@@ -481,7 +481,7 @@ class Item_range extends Item_number
 	}
 	protected function render_input() 
 	{
-		return (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' > ': '') . 		
+		return (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' ': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
 			(isset($this->choices[2]) ? ' <label class="pad-left">'. $this->choices[2] . ' </label>': '') ;
 	}
