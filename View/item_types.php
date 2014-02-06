@@ -102,6 +102,7 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 		</dd>
 	</dl>
 	<h4><i class="fa fa-fw fa-check-square"></i> Multiple choice family</h4>
+	<p>The, by far, biggest family of items. Please note, that there is some variability in how the answers are stored. You need to know about this, if you (a) intend to analyse the data in a certain way, for example you will want to store numbers for Likert scale, but text for timezones or cities (b) if you plan to use conditions in the run or in showif or somewhere else where R is executed. (b) is especially important, because you might not notice if demographics$sex == 'male' never turns true because sex is stored as 0/1.</p>
 	<dl class="dl-horizontal dl-wider">
 		<dt>
 			mc <i>choice_list</i>
@@ -148,7 +149,6 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 		<dd>
 			This shows the choice1 label to the left, the choice2 label to the right and a series of numbered buttons as defined by <code>min,max,step</code> in between. Defaults to 1,5,1.
 		</dd>
-		
 		<dt>
 			sex
 		</dt>
