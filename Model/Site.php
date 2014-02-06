@@ -101,8 +101,6 @@ if(isset($_SESSION['site']) AND is_object($_SESSION['site'])):
 	$site = $_SESSION['site'];
 endif;
 
-$site->refresh();
-
 if(isset($_SESSION['user'])):
 	$sess_user = unserialize($_SESSION['user']);
 
@@ -129,6 +127,8 @@ $_SESSION['last_activity'] = time(); // update last activity time stamp
 if(!isset($site)): // site is actually preserved, even if sessions expire, because it may contain warnings, referers
 	$site = new Site();
 endif;
+
+$site->refresh();
 
 if(!isset($user)):
 	$user = new User($fdb, null, null);
