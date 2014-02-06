@@ -481,7 +481,7 @@ class Item_range extends Item_number
 	}
 	protected function render_input() 
 	{
-		return (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' > ': '') . 		
+		return (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' ': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
 			(isset($this->choices[2]) ? ' <label class="pad-left">'. $this->choices[2] . ' </label>': '') ;
 	}
@@ -1333,10 +1333,6 @@ class Item_calculate extends Item {
 	public $input_attributes = array('type' => 'hidden');
 	
 	public $mysql_field =  'TEXT DEFAULT NULL';
-	public function validateInput($reply)
-	{
-		return $this->calculateValue();
-	}
 	public function render() {
 		return $this->render_input();
 	}
@@ -1586,6 +1582,73 @@ class Item_mc_heading extends Item_mc
  * todo: captcha items
 
 */
+
+class Item_file extends Item
+{
+	public $type = 'file';
+	public $input_attributes = array('type' => 'file');
+	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	private $file_endings = array('image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif');
+	protected $max_size = 16777219;
+	
+	protected function setMoreOptions() 
+	{	
+		if(is_array($this->type_options_array) AND count($this->type_options_array) == 1)
+		{
+			$val = (int)trim(current($this->type_options_array));
+			if(is_numeric($val))
+			{
+				$bytes = $val * 1048576; # size is provided in MB
+#				if($bytes < 2^8 + 1) $this->mysql_field = 'TINYTEXT DEFAULT NULL';
+#				elseif($bytes < 2^16 + 2) $this->mysql_field = 'TEXT DEFAULT NULL';
+#				elseif($bytes < 2^24 + 3) $this->mysql_field = 'MEDIUMTEXT DEFAULT NULL';
+#				elseif($bytes < 2^32 + 4) $this->mysql_field = 'LONGTEXT DEFAULT NULL';
+				$this->max_size = $val;
+			}
+		}
+#		$this->classes_input[] = 'form-control';
+	}
+	public function validateInput($reply)
+	{
+		if($reply['error']===0) // verify maximum length and no errors
+		{
+#			$base64 = base64_encode(file_get_contents($reply['tmp_name']));
+#			if(strlen($base64)+100000 < $this->max_size) // b64 makes it bigger...
+#			{
+			if(filesize($reply['tmp_name']) < $this->max_size)
+			{
+			    $finfo = new finfo(FILEINFO_MIME_TYPE);
+				$mime = $finfo->file($reply['tmp_name']);
+				if(!in_array($mime, array_keys($this->file_endings )))
+				{
+				    $this->error = 'Files of type' . $mime . ' are not allowed to be uploaded.';
+				}
+				else
+				{
+					$new_file_name = bin2hex(openssl_random_pseudo_bytes(64)) . $this->file_endings[ $mime ];
+					
+					if(move_uploaded_file($reply['tmp_name'],INCLUDE_ROOT .'webroot/assets/tmp/'.$new_file_name))
+					{
+						$reply = '<img src="'.WEBROOT.'assets/tmp/'.$new_file_name.'">';
+					}
+					else $reply = null;
+				}
+				
+			}
+			else
+			{
+				$this->error = __("This file is too big the maximum is %d megabytes.",round($this->max_size / 1048576, 2) );
+				$reply = null;
+			}
+		}
+		else
+		{
+			$this->error = "Error uploading file";
+			$reply = null;
+		}
+		return parent::validateInput($reply);
+	}
+}
 
 class HTML_element
 {
