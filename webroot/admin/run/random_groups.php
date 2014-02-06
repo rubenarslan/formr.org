@@ -44,7 +44,7 @@ $users = array();
 while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 {
 	$userx['Unit in Run'] = $userx['unit_type']. " <span class='hastooltip' title='position in run {$userx['run_name']} '>({$userx['position']})</span>";
-	$userx['Email'] = "<small title=\"{$userx['session']}\">{$userx['email']}</small>";
+#	$userx['Email'] = "<small title=\"{$userx['session']}\">{$userx['email']}</small>";
 	$userx['Group'] = "<big title=\"Assigned group\">{$userx['group']}</small>";
 	$userx['Created'] = "<small>{$userx['created']}</small>";
 	
@@ -67,8 +67,21 @@ if(!empty($users)) {
 			Export results as
 		</li>
 		<li>
-			<a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export"><i class="fa fa-floppy-o fa-fw"></i> CSV – good for big files, problematic to import into German Excel (comma-separated)</a>
+			<a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export?format=csv"><i class="fa fa-floppy-o fa-fw"></i> CSV – good for big files, problematic to import into German Excel (comma-separated)</a>
 		</li>
+		<li>
+			<a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export?format=csv_german"><i class="fa fa-floppy-o fa-fw"></i> CSV – good for German Excel (semicolon-separated)</a>
+		</li>
+		<li>
+			<a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export?format=tsv"><i class="fa fa-floppy-o fa-fw"></i> TSV – tab-separated, human readable as plaintext</a>
+		</li>
+		<li>
+			<a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export?format=xls"><i class="fa fa-floppy-o fa-fw"></i> XLS – old excel format, won't work with more than 16384 rows or 256 columns</a>
+		</li>
+		<li>
+			<a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export?format=xlsx"><i class="fa fa-floppy-o fa-fw"></i> xlsX – new excel format, higher limits</a>
+		</li>
+		
 
 	</ul>
 	<table class='table'>
@@ -86,9 +99,9 @@ if(!empty($users)) {
 		
 		// printing table rows
 		foreach($users AS $row):
-			if($row['Email']!==$last_user):
+			if($row['session']!==$last_user):
 				$tr_class = ($tr_class=='') ? 'alternate' : '';
-				$last_user = $row['Email'];
+				$last_user = $row['session'];
 			endif;
 			echo '<tr class="'.$tr_class.'">';
 

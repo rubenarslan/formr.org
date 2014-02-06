@@ -306,6 +306,11 @@ class Survey extends RunUnit {
 //					unset($this->unanswered_batch[$name]); // todo: just hide it when we want JS
 				}
 			}
+			// some items do not require user interaction at all
+			if($this->unanswered_batch[$name]->no_user_input_required)
+			{
+				$_POST[ $this->unanswered_batch[$name]->name ] = $this->unanswered_batch[$name]->input_attributes['value'];
+			}
 		}
 		return $this->unanswered_batch;
 	}
