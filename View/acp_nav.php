@@ -267,6 +267,11 @@ $resultCount = $study->getResultCount();
 				<a class="hastooltip" title="Go to deletion dialog, does not delete yet" href="<?=WEBROOT?>admin/run/<?=$run->name?>/delete_run">
 					<i class="fa-li fa fa-trash-o"></i> Delete run</a>
 			</li>
+			
+			<li <?=endsWith($_SERVER['PHP_SELF'],'admin/run/rename_run.php')?' class="active"':''?>>
+				<a class="hastooltip" title="Rename your run, but be careful, this also changes the link." href="<?=WEBROOT?>admin/run/<?=$run->name?>/rename_run">
+					<i class="fa-li fa fa-unlock"></i> Rename run</a>
+			</li>
 
 		</ul>
 	</nav>

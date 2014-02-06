@@ -101,8 +101,6 @@ if(isset($_SESSION['site']) AND is_object($_SESSION['site'])):
 	$site = $_SESSION['site'];
 endif;
 
-$site->refresh();
-
 if(isset($_SESSION['user'])):
 	$sess_user = unserialize($_SESSION['user']);
 
@@ -130,6 +128,8 @@ if(!isset($site)): // site is actually preserved, even if sessions expire, becau
 	$site = new Site();
 endif;
 
+$site->refresh();
+
 if(!isset($user)):
 	$user = new User($fdb, null, null);
 endif;
@@ -138,7 +138,7 @@ HELPER FUNCTIONS
 */
 function expire_session($expiry)
 {
-	if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $expiry)) {
+	if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $expiry * 60)) {
 	    // last request was more than 30 minutes ago
 		alert("You were logged out automatically, because you were last active ". timetostr($_SESSION['last_activity']) .'.', 'alert-info');
 		$last_active = $_SESSION['last_activity'];
