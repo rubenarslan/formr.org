@@ -585,6 +585,29 @@ CREATE  TABLE IF NOT EXISTS `survey_cron_log` (
 ENGINE = InnoDB;
 
 
+-- -----------------------------------------------------
+-- Table `survey_uploaded_files`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `survey_uploaded_files` ;
+
+CREATE  TABLE IF NOT EXISTS `survey_uploaded_files` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
+  `run_id` INT UNSIGNED NOT NULL ,
+  `created` DATETIME NULL ,
+  `modified` DATETIME NULL ,
+  `original_file_name` VARCHAR(255) NULL ,
+  `new_file_path` VARCHAR(255) NULL ,
+  PRIMARY KEY (`id`, `run_id`) ,
+  INDEX `fk_survey_uploaded_files_survey_runs1_idx` (`run_id` ASC) ,
+  UNIQUE INDEX `unique` (`run_id` ASC, `original_file_name` ASC) ,
+  CONSTRAINT `fk_survey_uploaded_files_survey_runs1`
+    FOREIGN KEY (`run_id` )
+    REFERENCES `survey_runs` (`id` )
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
 
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
