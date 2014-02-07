@@ -1586,9 +1586,15 @@ class Item_mc_heading extends Item_mc
 class Item_file extends Item
 {
 	public $type = 'file';
-	public $input_attributes = array('type' => 'file');
+	public $input_attributes = array('type' => 'file','accept'="image/*,video/*,audio/*,text/*;capture=camera");
 	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
-	private $file_endings = array('image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif');
+	private $file_endings = array(
+		'image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif',
+		'video/mpeg' => '.mpg', 'video/quicktime' => '.mov', 'video/x-flv' => '.flv', 'video/x-f4v' => '.f4v', 'video/x-msvideo' => '.avi',
+		'audio/mpeg' => '.mp3',
+		'text/csv' => '.csv', 'text/css' =>  '.css', 'text/tab-separated-values' => '.tsv', 'text/plain' => '.txt'
+	);
+	private $embed_html = '%s';
 	protected $max_size = 16777219;
 	
 	protected function setMoreOptions() 
@@ -1599,22 +1605,14 @@ class Item_file extends Item
 			if(is_numeric($val))
 			{
 				$bytes = $val * 1048576; # size is provided in MB
-#				if($bytes < 2^8 + 1) $this->mysql_field = 'TINYTEXT DEFAULT NULL';
-#				elseif($bytes < 2^16 + 2) $this->mysql_field = 'TEXT DEFAULT NULL';
-#				elseif($bytes < 2^24 + 3) $this->mysql_field = 'MEDIUMTEXT DEFAULT NULL';
-#				elseif($bytes < 2^32 + 4) $this->mysql_field = 'LONGTEXT DEFAULT NULL';
-				$this->max_size = $val;
+				$this->max_size = $bytes;
 			}
 		}
-#		$this->classes_input[] = 'form-control';
 	}
 	public function validateInput($reply)
 	{
 		if($reply['error']===0) // verify maximum length and no errors
 		{
-#			$base64 = base64_encode(file_get_contents($reply['tmp_name']));
-#			if(strlen($base64)+100000 < $this->max_size) // b64 makes it bigger...
-#			{
 			if(filesize($reply['tmp_name']) < $this->max_size)
 			{
 			    $finfo = new finfo(FILEINFO_MIME_TYPE);
@@ -1625,11 +1623,12 @@ class Item_file extends Item
 				}
 				else
 				{
-					$new_file_name = bin2hex(openssl_random_pseudo_bytes(64)) . $this->file_endings[ $mime ];
+					$new_file_name = bin2hex(openssl_random_pseudo_bytes(100)) . $this->file_endings[ $mime ];
 					
 					if(move_uploaded_file($reply['tmp_name'],INCLUDE_ROOT .'webroot/assets/tmp/'.$new_file_name))
 					{
-						$reply = '<img src="'.WEBROOT.'assets/tmp/'.$new_file_name.'">';
+						$public_path = WEBROOT.'assets/tmp/'.$new_file_name;
+						$reply = __($this->embed_html,$public_path);
 					}
 					else $reply = null;
 				}
@@ -1648,6 +1647,15 @@ class Item_file extends Item
 		}
 		return parent::validateInput($reply);
 	}
+}
+class Item_image extends Item
+{
+	public $type = 'image';
+	public $input_attributes = array('type' => 'file','accept'="image/*;capture=camera");
+	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	private $file_endings = array('image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif');
+	private $embed_html = '<img src="%s">';
+	protected $max_size = 16777219;
 }
 
 class HTML_element
