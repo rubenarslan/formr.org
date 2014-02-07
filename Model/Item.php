@@ -1648,7 +1648,7 @@ class Item_file extends Item
 		return parent::validateInput($reply);
 	}
 }
-class Item_image extends Item
+class Item_image extends Item_file
 {
 	public $type = 'image';
 	public $input_attributes = array('type' => 'file','accept'=>"image/*;capture=camera");
