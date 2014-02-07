@@ -19,12 +19,19 @@ if( !empty($_FILES) ) {
 	}
 }
 $files = $run->getUploadedFiles();
+$js = '<script type="text/javascript">
+// Dropzone.options.uploadFiles = {
+//  paramName: "uploaded_files[]", // The name that will be used to transfer the file
+//  maxFilesize: 50, // MB
+//};
+</script>';
 
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
 <div class="row">
 	<div class="col-lg-6 col-md-8 col-sm-9 col-lg-offset-1 well">
+		<form class="dropzone" enctype="multipart/form-data"  id="upload_files" name="upload_files" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name;?>/upload_files">
 
 	<h2><i class="fa fa-file"></i> Upload files</h2>
 	<ul class="fa-ul fa-ul-more-padding">
@@ -33,20 +40,21 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 		<li><i class="fa-li fa fa-cloud-upload"></i> We do not prevent users from sharing the images with others. If your users see an image/video, there is no way of preventing them from re-sharing it, if you're not looking over their shoulders. They can always take a picture of the screen with a smartphone, take a screenshot, etc. Because almost everyone can do this nowadays, we saw no point in generating single-use links for the images (so that users can't share the picture directly). Please be aware of this and don't use formr to show confidential information in an un-supervised setting (online). However, because the links are large random numbers, it is fairly safe to use formr to upload confidential information to be shown in the lab, the images cannot easily be discovered by people who don't have access to the study including them.</li>
 	</ul>
 
-	<form class="" enctype="multipart/form-data"  id="upload_files" name="upload_files" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name;?>/upload_files">
-	  	<div class="form-group">
-	  		<label class="control-label" for="uploaded_files">
-	  			<?php echo _("Files to upload:"); ?>
-	  		</label>
-	  		<div class="controls">
-	  			<input required multiple type="file" accept="video/*,image/*,audio/*,text/*" name="uploaded_files[]" id="uploaded_files">
-	  		</div>
-	  	</div>
-	  	<div class="form-group">
-	  		<div class="controls">
-				<button class="btn btn-default btn-success btn-lg" type="submit"><i class="fa-fw fa fa-upload fa-2x pull-left"></i> Upload all files</button>
-	  		</div>
-	  	</div>
+		<div class="fallback">
+		  	<div class="form-group">
+		  		<label class="control-label" for="uploaded_files">
+		  			<?php echo _("Files to upload:"); ?>
+		  		</label>
+		  		<div class="controls">
+		  			<input required multiple type="file" accept="video/*,image/*,audio/*,text/*" name="uploaded_files[]" id="uploaded_files">
+		  		</div>
+		  	</div>
+		  	<div class="form-group">
+		  		<div class="controls">
+					<button class="btn btn-default btn-success btn-lg" type="submit"><i class="fa-fw fa fa-upload fa-2x pull-left"></i> Upload all files</button>
+		  		</div>
+		  	</div>
+		</div>
 	  </form>
 	</div>
 	
