@@ -19,3 +19,6 @@ $settings['expire_unregistered_session'] = 365 * 24 * 30; # for unregistered use
 $settings['expire_registered_session'] = 7 * 24 * 30; # for registered users. in minutes (defaults to a week)
 $settings['expire_admin_session'] = 7 * 24 * 30; # for admins. in minutes (defaults to a week)
 $settings['session_cookie_lifetime'] = max($settings['expire_unregistered_session'], $settings['expire_registered_session'], $settings['expire_admin_session']); # upper limit for all values above (defaults to their max)
+
+
+$settings['admin_maximum_size_of_uploaded_files'] = 50; # in MB

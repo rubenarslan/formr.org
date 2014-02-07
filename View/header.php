@@ -54,6 +54,9 @@ header ('Content-type: text/html; charset=utf-8');
 			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/ace-builds/src-noconflict/ace.js"></script>	
 			<!---
 			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/ace-builds/src-noconflict/ext-language_tools.js"></script>	-->
+				<!---
+			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/dropzone/downloads/dropzone.js"></script>	
+-->				
 			<?php
 			endif;
 			?>
@@ -66,10 +69,13 @@ header ('Content-type: text/html; charset=utf-8');
 			<script src="<?=WEBROOT?>assets/bower_components/webshim/demos/js-webshim/minified/polyfiller.js"></script>
 			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/select2/select2.js"></script>
 			<?php if($user->isAdmin()): ?>
-			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/ace-builds/src-noconflict/ace.js"></script>	
-			<!---
-			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/ace-builds/src-noconflict/ext-language_tools.js"></script>	-->
-			<?php
+				<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/ace-builds/src-noconflict/ace.js"></script>	
+				<!---
+				<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/ace-builds/src-noconflict/ext-language_tools.js"></script>	-->
+					<!---
+				<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/dropzone/downloads/dropzone.js"></script>	
+	-->	
+		<?php
 			endif;
 			?>
 		<?php
