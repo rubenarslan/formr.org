@@ -1586,7 +1586,7 @@ class Item_mc_heading extends Item_mc
 class Item_file extends Item
 {
 	public $type = 'file';
-	public $input_attributes = array('type' => 'file','accept'="image/*,video/*,audio/*,text/*;capture=camera");
+	public $input_attributes = array('type' => 'file','accept'=> "image/*,video/*,audio/*,text/*;capture=camera");
 	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
 	private $file_endings = array(
 		'image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif',
@@ -1651,7 +1651,7 @@ class Item_file extends Item
 class Item_image extends Item
 {
 	public $type = 'image';
-	public $input_attributes = array('type' => 'file','accept'="image/*;capture=camera");
+	public $input_attributes = array('type' => 'file','accept'=>"image/*;capture=camera");
 	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
 	private $file_endings = array('image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif');
 	private $embed_html = '<img src="%s">';
