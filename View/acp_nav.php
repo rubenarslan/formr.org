@@ -261,6 +261,10 @@ $resultCount = $study->getResultCount();
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/random_groups"><i class="fa-li fa fa-random"></i> <?php echo _("Random groups"); ?></a>
 			</li>
 			
+			<li <?=endsWith($_SERVER['PHP_SELF'],'run/upload_files.php')?' class="active"':''?> title="Upload images, videos, sounds and the like.">
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/upload_files"><i class="fa-li fa fa-upload"></i> <?php echo _("Upload files"); ?></a>
+			</li>
+			
 			<li class="nav-header"><i class="fa-li fa fa-bolt"></i> Danger Zone</li>
 			
 			<li <?=endsWith($_SERVER['PHP_SELF'],'admin/run/delete_run.php')?' class="active"':''?>>

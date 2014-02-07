@@ -9,8 +9,6 @@ require_once INCLUDE_ROOT . "Model/DB.php";
 		(END POINTS, does not automatically lead to next run unit in list, but doesn't have to be at the end because of branches)
 	* pauses
 		(go on if it's the next day, a certain date etc., so many days after beginning etc.)
-	* time-branches
-		(like pauses+branches: jump to x if it's a certain date or y if not yet. CronJobs stop if not yet. can be used for access periods)
 	* emails
 		(send reminders, invites etc.)
 	* surveys 
@@ -170,6 +168,91 @@ class Run
 		$this->dbh->commit();
 
 		return $name;
+	}
+	public function getUploadedFiles()
+	{
+		$get_files = $this->dbh->prepare("SELECT 
+			`survey_uploaded_files`.id,
+			`survey_uploaded_files`.created,
+			`survey_uploaded_files`.modified,
+			`survey_uploaded_files`.original_file_name,
+			`survey_uploaded_files`.new_file_path
+			
+			 FROM `survey_uploaded_files` 
+		WHERE 
+			`survey_uploaded_files`.run_id = :run_id
+			
+		ORDER BY `survey_uploaded_files`.created ASC
+		;");
+		$get_files->bindParam(':run_id',$this->id);
+		$get_files->execute() or die(print_r($get_files->errorInfo(), true));
+		$files = array();
+		while($file = $get_files->fetch(PDO::FETCH_ASSOC))
+			$files[] = $file;
+		
+		return $files;
+	}
+	public $file_endings = array(
+		'image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif',
+		'video/mpeg' => '.mpg', 'video/quicktime' => '.mov', 'video/x-flv' => '.flv', 'video/x-f4v' => '.f4v', 'video/x-msvideo' => '.avi',
+		'audio/mpeg' => '.mp3',
+		'application/pdf' => '.pdf',
+		'text/csv' => '.csv', 'text/css' =>  '.css', 'text/tab-separated-values' => '.tsv', 'text/plain' => '.txt'
+	);
+	public function uploadFiles($files)
+	{
+		global $settings;
+		// make lookup array
+		$existing_files = $this->getUploadedFiles();
+		$files_by_names = array();
+		foreach($existing_files AS $existing_file):
+			$files_by_names[$existing_file['original_file_name']] = $existing_file['new_file_path'];
+		endforeach;
+		
+		
+		// loop through files and modify them if necessary
+		for($i = 0; $i < count($files['tmp_name']); $i++):
+			if(filesize($files['tmp_name'][$i]) < $settings['admin_maximum_size_of_uploaded_files'] * 1048576)
+			{
+			    $finfo = new finfo(FILEINFO_MIME_TYPE);
+				$mime = $finfo->file($files['tmp_name'][$i]);
+				if(!in_array($mime, array_keys($this->file_endings )))
+				{
+				    $this->errors[] = __('The file "%s" has the MIME type %s and is not allowed to be uploaded.', $files['name'][$i], $mime);
+				}
+				else
+				{
+					$new_file_name = bin2hex(openssl_random_pseudo_bytes(100)) . $this->file_endings[ $mime ];
+				
+					if(move_uploaded_file($files['tmp_name'][$i],INCLUDE_ROOT .'webroot/assets/tmp/admin/'.$new_file_name))
+					{
+						$original_file_name = $files['name'][$i];
+						$new_file_path = 'assets/tmp/admin/'.$new_file_name;
+						$upload = $this->dbh->prepare("INSERT INTO `survey_uploaded_files` (run_id, created, original_file_name, new_file_path) VALUES (:run_id, NOW(), :original_file_name, :new_file_path)
+						ON DUPLICATE KEY UPDATE modified = NOW(),new_file_path = :new_file_path2;");
+						$upload->bindParam(':run_id',$this->id);
+						$upload->bindParam(':original_file_name',$original_file_name);
+						$upload->bindParam(':new_file_path',$new_file_path);
+						$upload->bindParam(':new_file_path2',$new_file_path);
+						$upload->execute() or die(print_r($upload->errorInfo(), true));
+						
+						// cleaning up old files afterwards
+						if(isset($files_by_names[ $original_file_name ]))
+						{
+							if( unlink(INCLUDE_ROOT .'webroot/' . $files_by_names[ $original_file_name ]))
+							{
+								$this->messages[] = __("'%s' was overwritten.<br>",$original_file_name);
+							}
+						}
+					}
+				}
+			}
+			else
+			{
+				$this->errors[] = __("The file '%s' is too big the maximum is %d megabytes.",$files['name'][$i],round($settings['admin_maximum_size_of_uploaded_files'], 2) );
+			}
+		endfor;
+		return empty($this->errors);
 	}
 
 	protected function existsByName($name)
