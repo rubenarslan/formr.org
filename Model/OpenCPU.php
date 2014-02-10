@@ -20,6 +20,7 @@ class OpenCPU {
 			$post = array_map("cr2nl", $post); # get rid of windows new lines, not that there should be any, but this causes such annoying-to-debug errors
 			curl_setopt($this->curl_c, CURLOPT_POSTFIELDS, http_build_query($post));
 		endif;
+		curl_setopt($this->curl_c, CURLINFO_HEADER_OUT, true); // enable tracking
 
 		curl_setopt($this->curl_c, CURLOPT_HEADER, 1);
 		
@@ -27,7 +28,7 @@ class OpenCPU {
 		$this->http_status = curl_getinfo($this->curl_c,CURLINFO_HTTP_CODE);
 
 		$this->header_size = curl_getinfo($this->curl_c, CURLINFO_HEADER_SIZE);
-		curl_close($this->curl_c);
+	#	curl_close($this->curl_c);
 
 		$header = mb_substr($result, 0, $this->header_size);
 		$body = mb_substr($result, $this->header_size);
@@ -229,8 +230,11 @@ $this->user_data .
 				if(in_array($session . 'stdout',$available)):
 					$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/print')). '</pre>';
 				endif;
+				
+  			 	$response['Call'] = '<pre>'. htmlspecialchars(current($result['post'])). '</pre>';
 			
 				$response['HTTP headers'] = '<pre>'. htmlspecialchars($result['header']). '</pre>';
+			 	$response['Headers sent'] = '<pre>'. htmlspecialchars(curl_getinfo($this->curl_c, CURLINFO_HEADER_OUT )) . '</pre>';
 			
 				if(in_array($session . 'info',$available)):
 					$response['Session info'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'info/print')). '</pre>';
@@ -242,10 +246,12 @@ $this->user_data .
 		   		 );
 			endif;
 		else:
+			
 	   		 $response = array(
 	   			 'Response' => '<pre>'. htmlspecialchars($result['body']). '</pre>',
 	   			 'HTTP headers' => '<pre>'. htmlspecialchars($result['header']). '</pre>',
 	   			 'Call' => '<pre>'. htmlspecialchars(current($result['post'])). '</pre>',
+				 'Headers sent' => '<pre>'. htmlspecialchars(curl_getinfo($this->curl_c, CURLINFO_HEADER_OUT )) . '</pre>',
 	   		 );
 		endif;
 		
