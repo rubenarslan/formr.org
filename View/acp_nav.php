@@ -233,7 +233,9 @@ $resultCount = $study->getResultCount();
 
 
 <?php if(isset($run)): ?>
-<div class="row run_header">
+<div class="run_header">&nbsp;
+</div>	
+<div class="row">
 	<div class="col-lg-12">
 		<h1><i class="fa fa-rocket"></i> <?php echo $run->name;?></h1>
 	</div>
