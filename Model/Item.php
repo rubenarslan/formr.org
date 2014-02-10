@@ -1588,13 +1588,13 @@ class Item_file extends Item
 	public $type = 'file';
 	public $input_attributes = array('type' => 'file','accept'=> "image/*,video/*,audio/*,text/*;capture=camera");
 	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
-	private $file_endings = array(
+	protected $file_endings = array(
 		'image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif',
 		'video/mpeg' => '.mpg', 'video/quicktime' => '.mov', 'video/x-flv' => '.flv', 'video/x-f4v' => '.f4v', 'video/x-msvideo' => '.avi',
 		'audio/mpeg' => '.mp3',
 		'text/csv' => '.csv', 'text/css' =>  '.css', 'text/tab-separated-values' => '.tsv', 'text/plain' => '.txt'
 	);
-	private $embed_html = '%s';
+	protected $embed_html = '%s';
 	protected $max_size = 16777219;
 	
 	protected function setMoreOptions() 
@@ -1653,8 +1653,8 @@ class Item_image extends Item_file
 	public $type = 'image';
 	public $input_attributes = array('type' => 'file','accept'=>"image/*;capture=camera");
 	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
-	private $file_endings = array('image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif');
-	private $embed_html = '<img src="%s">';
+	protected $file_endings = array('image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif');
+	protected $embed_html = '<img src="%s">';
 	protected $max_size = 16777219;
 }
 
