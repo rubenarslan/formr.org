@@ -31,6 +31,47 @@ label
     background-color:white;
 }
 
+.broken_tape
+{
+    background-image: url("img/broken_tape.jpg");
+    background-repeat: no-repeat;
+    background-position: 0 0;
+    background-size:cover;
+    position:fixed;
+    left:0;
+    top:0;
+    min-height:100%;
+    min-width:100%;
+}
+
+.broken_tape h1
+{
+    margin-right:auto;
+    margin-left:auto;
+    margin-top:10%;
+    width:35%;
+    height:130px;
+}
+.broken_tape h1 span
+{
+    display:block;
+    margin-left:-11%;
+    background-color:#FEFEFE;
+    height:100px;
+}
+@media (max-width: 1440px) { 
+    .broken_tape h1
+    {
+        margin-left:32%;
+    }
+    .broken_tape h1 span
+    {
+        font-size:0.5em;
+        height:4em;
+    }
+}
+
+
 .run_header > div
 {
     height:330px;
