@@ -137,7 +137,7 @@
 			</ul>
 			<ul class="nav navbar-nav navbar-right">
 				<li>
-				    <a href="<?=WEBROOT?>/">
+				    <a href="<?=WEBROOT?>">
 						<i class="fa fa-eye fa-fw"></i>
 						<?php echo _("go to public area"); ?>
 					</a>
