@@ -11,3 +11,4 @@
 </IfModule>
 
 ErrorDocument 404 /public/not_found 
+Options -Indexes 
