@@ -276,7 +276,7 @@ $(document).ready(function() {
 			maximumInputLength: slct.attr('data-select2maximumInputLength'),
             formatResult: function(pill) {
                 var markup = "<table class='movie-result'><tr>";
-                markup += "<td class='movie-image' width='200'><img width='200px' alt='"+pill.text+"' src='/formr/assets/img/pills/" + pill.id + ".jpg'/></td>";
+                markup += "<td class='movie-image' width='200'><img width='200px' alt='"+pill.text+"' src='/assets/img/pills/" + pill.id + ".jpg'/></td>";
                     markup += "<td class='movie-info'><div class='movie-title'>" + pill.text + "</div>";
                 markup += "</td></tr></table>"
                 return markup;
