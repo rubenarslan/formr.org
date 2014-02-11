@@ -146,12 +146,6 @@ class Pause extends RunUnit {
 		
 		echo "<h3>Pause relative to</h3>";
 		
-		if($this->relative_to=== null OR trim($this->relative_to)=='')
-		{
-			$this->relative_to = 'survey_unit_sessions$created';
-		}
-		
-		
 		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
 		WHERE 
