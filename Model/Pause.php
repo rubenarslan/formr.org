@@ -146,10 +146,15 @@ class Pause extends RunUnit {
 		
 		echo "<h3>Pause relative to</h3>";
 		
-		if($this->relative_to=== null OR trim($this->relative_to)=='')
-		{
-			$this->relative_to = 'survey_unit_sessions$created';
-		}
+		$wait_minutes_true = !($this->wait_minutes === null OR trim($this->wait_minutes)=='');
+		$relative_to_true = !($this->relative_to === null OR trim($this->relative_to)=='');
+	
+		// disambiguate what user meant
+		if($wait_minutes_true AND !$relative_to_true):  // user said wait minutes relative to, implying a relative to
+			$this->relative_to = 'tail(na.omit(survey_unit_sessions$created),1)'; // we take this as implied
+			$relative_to_true = true;
+		endif;
+
 		
 		
 		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
