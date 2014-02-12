@@ -1,8 +1,8 @@
 <?php
 require_once '../../define_root.php';
+ob_start();
 require_once INCLUDE_ROOT . "Model/Site.php";
 require_once INCLUDE_ROOT . 'Model/Run.php'; # Study , nothing is echoed yet
-require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 
@@ -85,3 +85,5 @@ endforeach;
 // error_log( $msg, 3, INCLUDE_ROOT ."tmp/logs/cron.log");
 
 require_once INCLUDE_ROOT . "View/footer.php";
+
+ob_flush();

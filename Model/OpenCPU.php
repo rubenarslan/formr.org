@@ -110,6 +110,10 @@ library(knitr)
 		$result = $this->identity($post,$return);
 		return $result;
 	}
+	public function clearUserData()
+	{
+		$this->user_data = '';
+	}
 	public function addUserData($datasets)
 	{
 		foreach($datasets AS $df_name => $data):
