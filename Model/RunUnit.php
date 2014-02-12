@@ -12,6 +12,7 @@ class RunUnit {
 	public $called_by_cron = false;
 	public $knitr = false;
 	public $session_id = null;
+	public $run_session_id = null;
 	public $type = '';
 	public $icon = 'fa-wrench';
 	
@@ -184,6 +185,7 @@ class RunUnit {
 	protected $survey_results = array();
 	protected function getUserDataInRun($surveys)
 	{
+		$this->survey_results = array();
 		foreach($surveys AS $survey_name): // fixme: shouldnt be using wildcard operator here.
 			if(!isset($this->survey_results[$survey_name])):
 				$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
