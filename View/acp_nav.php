@@ -124,7 +124,7 @@
 						</li>
 						<?php if($user->isSuperAdmin()): ?>
 						<li>
-						    <a href="<?=WEBROOT?>admin/user_management">
+						    <a href="<?=WEBROOT?>superadmin/user_management">
 								<i class="fa fa-users fa-fw"></i>
 								<?php echo _("manage users"); ?>
 							</a>
