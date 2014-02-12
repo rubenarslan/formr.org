@@ -24,7 +24,7 @@ class Pause extends RunUnit {
 		parent::__construct($fdb,$session,$unit);
 
 		if($this->id):
-			$data = $this->dbh->prepare("SELECT * FROM `survey_pauses` WHERE id = :id LIMIT 1");
+			$data = $this->dbh->prepare("SELECT id, body, body_parsed, wait_until_time, wait_until_date, relative_to FROM `survey_pauses` WHERE id = :id LIMIT 1");
 			$data->bindParam(":id",$this->id);
 			$data->execute() or die(print_r($data->errorInfo(), true));
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
@@ -119,7 +119,7 @@ class Pause extends RunUnit {
 					</span>
 					
 				 <label class="inline">relative to 
-					<input class="form-control" type="text" placeholder="survey1$created" name="relative_to" value="'.$this->relative_to.'">
+					<input class="form-control" type="text" placeholder="arriving at this pause" name="relative_to" value="'.$this->relative_to.'">
 					</label
 				</p> 
 		<p><label>Text to show while waiting: <br>
@@ -140,23 +140,7 @@ class Pause extends RunUnit {
 	}
 	public function test()
 	{
-		echo "<h3>Pause message</h3>";
-		
-		echo $this->getParsedBodyAdmin($this->body);
-		
-		echo "<h3>Pause relative to</h3>";
-		
-		$wait_minutes_true = !($this->wait_minutes === null OR trim($this->wait_minutes)=='');
-		$relative_to_true = !($this->relative_to === null OR trim($this->relative_to)=='');
-	
-		// disambiguate what user meant
-		if($wait_minutes_true AND !$relative_to_true):  // user said wait minutes relative to, implying a relative to
-			$this->relative_to = 'tail(na.omit(survey_unit_sessions$created),1)'; // we take this as implied
-			$relative_to_true = true;
-		endif;
-
-		
-		
+		// fetch a couple of sample session
 		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
 		WHERE 
@@ -164,7 +148,7 @@ class Pause extends RunUnit {
 
 		ORDER BY `survey_run_sessions`.position DESC,RAND()
 
-		LIMIT 20";
+		LIMIT 20"; // start with those who are the furthest, because they are most likely to have all the necessary data
 		$get_sessions = $this->dbh->prepare($q); // should use readonly
 		$get_sessions->bindParam(':run_id',$this->run_id);
 
@@ -178,8 +162,27 @@ class Pause extends RunUnit {
 			return false;
 		endif;
 		
+		
+		echo "<h3>Pause message</h3>";
+		
+		echo $this->getParsedBodyAdmin($this->body);
+		
+		echo "<h3>Pause relative to</h3>";
+		
+
+		
 		$openCPU = $this->makeOpenCPU();
+		// take the first sample session
 		$this->run_session_id = current($results)['id'];
+		
+		$wait_minutes_true = !($this->wait_minutes === null OR trim($this->wait_minutes)=='');
+		$relative_to_true = !($this->relative_to === null OR trim($this->relative_to)=='');
+	
+		// disambiguate what user meant
+		if($wait_minutes_true AND !$relative_to_true):  // user said wait minutes relative to, implying a relative to
+			$this->relative_to = 'tail(na.omit(survey_unit_sessions$created),1)'; // we take this as implied, this is the time someone arrived at this pause
+			$relative_to_true = true;
+		endif;
 
 		$openCPU->addUserData($this->getUserDataInRun(
 			$this->dataNeeded($this->dbh,$this->relative_to)
@@ -194,22 +197,14 @@ class Pause extends RunUnit {
 					<th>Test</th>
 				</tr></thead>
 				<tbody>"';
-				
+		
 		foreach($results AS $row):
 			$conditions = array();
 		
-			$wait_minutes_true = !($this->wait_minutes === null OR trim($this->wait_minutes)=='');
-			$relative_to_true = !($this->relative_to === null OR trim($this->relative_to)=='');
-		
-			// disambiguate what user meant
-			if($wait_minutes_true AND !$relative_to_true):  // user said wait minutes relative to, implying a relative to
-				$this->relative_to = 'tail(na.omit(survey_unit_sessions$created),1)'; // we take this as implied
-				$relative_to_true = true;
-			endif;
-		
 			if($relative_to_true): // if a relative_to has been defined by user or automatically, we need to retrieve its value
-				$openCPU = $this->makeOpenCPU();
 				$this->run_session_id = $row['id'];
+				
+				$openCPU->clearUserData();
 
 				$openCPU->addUserData($this->getUserDataInRun(
 					$this->dataNeeded($this->dbh,$this->relative_to)
@@ -233,42 +228,24 @@ class Pause extends RunUnit {
 			
 			if(!empty($conditions)):
 				$condition = implode($conditions," AND ");
-		
-				$order = str_replace(array(':wait_minutes',':wait_date',':wait_time',':relative_to'),array(':wait_minutes2',':wait_date2',':wait_time2',':relative_to2'),$condition);
-		
-	$q = "SELECT DISTINCT ( {$condition} ) AS test,`survey_run_sessions`.session FROM `survey_run_sessions`
 
-		left join `survey_unit_sessions`
-			on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-
-	WHERE 
-		`survey_run_sessions`.id = :run_session_id
-
-	ORDER BY IF(ISNULL($order),1,0), RAND()
-
-	LIMIT 1";
-		
+				$q = "SELECT ( {$condition} ) AS test LIMIT 1";
+			
 				$evaluate = $this->dbh->prepare($q); // should use readonly
 				if(isset($conditions['minute'])):
-					$evaluate->bindParam(':wait_minutes',$this->wait_minutes);
-					$evaluate->bindParam(':wait_minutes2',$this->wait_minutes);
-					$evaluate->bindParam(':relative_to',$relative_to);
-					$evaluate->bindParam(':relative_to2',$relative_to);
+					$evaluate->bindValue(':wait_minutes',$this->wait_minutes);
+					$evaluate->bindValue(':relative_to',$relative_to);
+				elseif(isset($conditions['relative_to'])):
+					$evaluate->bindValue(':relative_to',$relative_to);
 				endif;
-				if(isset($conditions['relative_to'])):
-					$evaluate->bindParam(':relative_to',$relative_to);
-					$evaluate->bindParam(':relative_to2',$relative_to);	
-				endif;
+			
 				if(isset($conditions['date'])): 
-					$evaluate->bindParam(':wait_date',$this->wait_until_date);
-					$evaluate->bindParam(':wait_date2',$this->wait_until_date);
+					$evaluate->bindValue(':wait_date',$this->wait_until_date);
 				endif;
 				if(isset($conditions['time'])): 
-					$evaluate->bindParam(':wait_time',$this->wait_until_time);
-					$evaluate->bindParam(':wait_time2',$this->wait_until_time);
+					$evaluate->bindValue(':wait_time',$this->wait_until_time);
 				endif;
-				$evaluate->bindValue(':run_session_id',$this->run_session_id);
-
+			
 				$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
 				if($evaluate->rowCount()===1):
 					$temp = $evaluate->fetch();
@@ -326,40 +303,24 @@ class Pause extends RunUnit {
 		if(!empty($conditions)):
 			$condition = implode($conditions," AND ");
 
-		$order = str_replace(array(':wait_minutes',':wait_date',':wait_time',':relative_to'),array(':wait_minutes2',':wait_date2',':wait_time2',':relative_to2'),$condition);
 
-	$q = "SELECT ( {$condition} ) AS test FROM `survey_run_sessions`
-		left join `survey_unit_sessions`
-			on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-	
-	WHERE 
-	`survey_run_sessions`.`id` = :run_session_id
-
-	ORDER BY IF(ISNULL( ( {$order} ) ),1,0), `survey_unit_sessions`.id DESC
-	
-	LIMIT 1";
+			$q = "SELECT ( {$condition} ) AS test LIMIT 1";
+			
 			$evaluate = $this->dbh->prepare($q); // should use readonly
 			if(isset($conditions['minute'])):
-				$evaluate->bindParam(':wait_minutes',$this->wait_minutes);
-				$evaluate->bindParam(':wait_minutes2',$this->wait_minutes);
-				$evaluate->bindParam(':relative_to',$relative_to);
-				$evaluate->bindParam(':relative_to2',$relative_to);	
+				$evaluate->bindValue(':wait_minutes',$this->wait_minutes);
+				$evaluate->bindValue(':relative_to',$relative_to);
+			elseif(isset($conditions['relative_to'])):
+				$evaluate->bindValue(':relative_to',$relative_to);
 			endif;
-			if(isset($conditions['relative_to'])):
-				$evaluate->bindParam(':relative_to',$relative_to);
-				$evaluate->bindParam(':relative_to2',$relative_to);	
-			endif;
+			
 			if(isset($conditions['date'])): 
-				$evaluate->bindParam(':wait_date',$this->wait_until_date);
-				$evaluate->bindParam(':wait_date2',$this->wait_until_date);
+				$evaluate->bindValue(':wait_date',$this->wait_until_date);
 			endif;
 			if(isset($conditions['time'])): 
-				$evaluate->bindParam(':wait_time',$this->wait_until_time);
-				$evaluate->bindParam(':wait_time2',$this->wait_until_time);
+				$evaluate->bindValue(':wait_time',$this->wait_until_time);
 			endif;
-			$evaluate->bindParam(":run_session_id", $this->run_session_id);
-		
-
+			
 			$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
 			if($evaluate->rowCount()===1):
 				$temp = $evaluate->fetch();
