@@ -248,6 +248,7 @@ class RunUnit {
 
 		global $settings;
 		$openCPU = new OpenCPU($settings['opencpu_instance']);
+		$openCPU->clearUserData();
 		return $openCPU;
 	}
 	protected function knittingNeeded($source)

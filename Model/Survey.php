@@ -26,7 +26,9 @@ class Survey extends RunUnit {
 	{
 		parent::__construct($fdb,$session,$unit);
 		
-
+		// forgot about this part, should probably move this to exec
+		if($this->called_by_cron) 
+			return true;
 		$study_data = $this->dbh->prepare("SELECT id,name FROM `survey_studies` WHERE id = :study_id LIMIT 1");
 		$study_data->bindParam(":study_id",$unit['unit_id']);
 		$study_data->execute() or die(print_r($study_data->errorInfo(), true));
