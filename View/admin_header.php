@@ -1,8 +1,12 @@
 <?php
 require_once INCLUDE_ROOT . "Model/Site.php";
 
-if(!$user->loggedIn() AND !$user->isAdmin()) {
+if(!$user->isAdmin()) {
 	alert("<strong>Sorry:</strong> Only admins have access.",'alert-info');
+	redirect_to("index");
+}
+if(strpos($_SERVER['PHP_SELF'],'/superadmin/') AND !$user->isSuperAdmin()) {
+	alert("<strong>Sorry:</strong> Only superadmins have access.",'alert-info');
 	redirect_to("index");
 }
 if(isset($_GET['study_name'])):
