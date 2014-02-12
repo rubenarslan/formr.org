@@ -24,7 +24,7 @@ class Pause extends RunUnit {
 		parent::__construct($fdb,$session,$unit);
 
 		if($this->id):
-			$data = $this->dbh->prepare("SELECT id, body, body_parsed, wait_until_time, wait_until_date, relative_to FROM `survey_pauses` WHERE id = :id LIMIT 1");
+			$data = $this->dbh->prepare("SELECT id, body, body_parsed, wait_until_time, wait_minutes ,wait_until_date, relative_to FROM `survey_pauses` WHERE id = :id LIMIT 1");
 			$data->bindParam(":id",$this->id);
 			$data->execute() or die(print_r($data->errorInfo(), true));
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
