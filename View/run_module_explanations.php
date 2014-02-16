@@ -23,7 +23,7 @@
 					 <code>[<a href="http://yihui.name/knitr/">links</a>](http://yihui.name/knitr/)</code> and embedded images <code>![image description](http://imgur.com/imagelink)</code>. You can quote something by placing a &gt; at the beginning of the line. If you you want to use the literal character (for e.g. saying &gt; (greater than) 18), you'll need to escape it like this <code>\&gt;</code>
 		 		</p>
 				<p>
-					If you're already familiar with <a href="https://en.wikipedia.org/wiki/HTML"><abbr title="Hypertext Markup Language">HTML</abbr></a> you can also that instead, though it is a little less human readable. Or mix it with Markdown! You may for example use it to go beyond Markdown's features and e.g. add icons to your text using <code>&lt;i class=&quot;fa fa-2x fa-smile-o&quot;&gt;&lt;/i&gt;</code> to get a smilie for instance. Check the full set of available icons at <a href="http://fontawesome.io/icons/">Font Awesome</a>. 
+					If you're already familiar with <a href="https://en.wikipedia.org/wiki/HTML"><abbr title="Hypertext Markup Language">HTML</abbr></a> you can also use that instead, though it is a little less readable for humans. Or mix it with Markdown! You may for example use it to go beyond Markdown's features and e.g. add icons to your text using <code>&lt;i class=&quot;fa fa-2x fa-smile-o&quot;&gt;&lt;/i&gt;</code> to get a smilie for instance. Check the full set of available icons at <a href="http://fontawesome.io/icons/">Font Awesome</a>. 
 				</p>
 					  <h5>Knitr</h5>
 		   		<p>

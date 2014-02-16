@@ -23,12 +23,16 @@ label
 }
 .navbar-formr 
 {
-/*    background-color:#F7FAFF;
- */   border:0;
+    background-color:rgba(22,22,22,0.15);
+    border:0;
 }
 .navbar-formr .navbar-nav li.active > a
 {
     background-color:white;
+}
+.main_body>.row> .run_dialog
+{
+    background-color:rgba(255,255,255,0.15);
 }
 
 .broken_tape
@@ -251,7 +255,8 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
 	font-size:50px;
 	height:65px;
 	width:110px;
-	text-align:left
+	text-align:left;
+    background-color:transparent;
 }
 div.run_unit {
 	padding-bottom:20px;
