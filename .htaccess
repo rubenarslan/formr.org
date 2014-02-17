@@ -12,3 +12,43 @@
 
 ErrorDocument 404 /public/not_found 
 Options -Indexes 
+
+# Insert filter
+SetOutputFilter DEFLATE
+# Netscape 4.x has some problems...
+BrowserMatch ^Mozilla/4 gzip-only-text/html
+# Netscape 4.06-4.08 have some more problems
+BrowserMatch ^Mozilla/4\.0[678] no-gzip
+# MSIE masquerades as Netscape, but it is fine
+BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
+# Don't compress images
+SetEnvIfNoCase Request_URI \
+\.(?:gif|jpe?g|png)$ no-gzip dont-vary
+
+# disable the server signature
+ServerSignature Off
+
+# set the default character set
+AddDefaultCharset UTF-8
+
+# add MIME types
+AddType image/x-icon .ico
+
+# file caching
+ExpiresActive On
+# 2419200 = 4 weeks
+ExpiresDefault A2419200
+ExpiresByType image/x-icon A2419200
+ExpiresByType image/png A2419200
+ExpiresByType image/gif A2419200
+ExpiresByType image/jpg A2419200
+ExpiresByType image/jpeg A2419200
+ExpiresByType text/css A2419200
+<FilesMatch "\.(js|css)$">
+ExpiresActive On
+ExpiresDefault A2419200
+</FilesMatch>
+# disable caching for scripts and other dynamic files
+<FilesMatch "\.php$">
+ExpiresActive Off
+</FilesMatch>

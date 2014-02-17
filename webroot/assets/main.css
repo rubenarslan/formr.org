@@ -23,12 +23,16 @@ label
 }
 .navbar-formr 
 {
-/*    background-color:#F7FAFF;
- */   border:0;
+    background-color:rgba(22,22,22,0.15);
+    border:0;
 }
 .navbar-formr .navbar-nav li.active > a
 {
     background-color:white;
+}
+.main_body>.row> .run_dialog
+{
+    background-color:rgba(255,255,255,0.15);
 }
 
 .broken_tape
@@ -70,6 +74,10 @@ label
         height:4em;
     }
 }
+.abbreviated_session
+{
+    cursor:pointer !important;
+}
 
 
 .run_header
@@ -80,7 +88,7 @@ label
     background-size:cover;
     background-position: 0 0;
     width:100%;
-    position:fixed;
+    position:absolute;
     left:0;
     top:0;
     z-index:-10;
@@ -155,6 +163,10 @@ a.btn.btn-checked {
 label.inline {
 	display:inline;
 	width:330px;
+}
+.single_unit_display .run_unit_position
+{
+    display:none;
 }
 div.form-group div.date div.controls select[name*=day] {
 	width:60px;
@@ -251,7 +263,8 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
 	font-size:50px;
 	height:65px;
 	width:110px;
-	text-align:left
+	text-align:left;
+    background-color:transparent;
 }
 div.run_unit {
 	padding-bottom:20px;

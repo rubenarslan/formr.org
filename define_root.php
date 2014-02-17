@@ -35,6 +35,6 @@ function define_webroot() {
 	define('INCLUDE_ROOT',$server_root);
 	define('ONLINE',$online);
 	define('TESTING',$testing);
-#	define('ONLINE',true);
+	define('SSL',$protocol === "https://");
 }
 define_webroot();

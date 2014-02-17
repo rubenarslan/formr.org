@@ -291,6 +291,11 @@ $(document).ready(function() {
 	$('*[title]').tooltip({
 		container: 'body'
 	});
+	$('abbr.abbreviated_session').click(function()
+    {
+        $(this).text($(this).data("full-session"));
+        $(this).off('click');
+    });
     hljs.initHighlighting();
     
     
