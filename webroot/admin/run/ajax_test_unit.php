@@ -9,7 +9,9 @@ $run = new Run($fdb, $_GET['run_name']);
 if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 	if(isset($_GET['unit_id'])):
 		$unit = $run->getUnitAdmin($_GET['unit_id']);
-		$unit = makeUnit($fdb,null,$unit);
+		require_once INCLUDE_ROOT."Model/RunUnit.php";
+		$unit_factory = new RunUnitFactory();
+		$unit = $unit_factory->make($fdb,null,$unit);
 		
 		$unit->test();
 		echo $site->renderAlerts();

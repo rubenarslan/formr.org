@@ -38,7 +38,7 @@ class Run
 		
 		if($name !== null OR ($name = $this->create($options))):
 			$this->name = $name;
-			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active FROM `survey_runs` WHERE name = :run_name LIMIT 1");
+			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active,display_service_message FROM `survey_runs` WHERE name = :run_name LIMIT 1");
 			$run_data->bindParam(":run_name",$this->name);
 			$run_data->execute() or die(print_r($run_data->errorInfo(), true));
 			$vars = $run_data->fetch(PDO::FETCH_ASSOC);
@@ -49,6 +49,7 @@ class Run
 				$this->api_secret_hash = $vars['api_secret_hash'];
 				$this->public = $vars['public'];
 				$this->cron_active = $vars['cron_active'];
+				$this->being_serviced = $vars['display_service_message'];
 			
 				$this->valid = true;
 			endif;
@@ -141,6 +142,19 @@ class Run
 		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET public = :public WHERE id = :id;");
 		$toggle->bindParam(':id',$this->id);
 		$toggle->bindParam(':public', $on );
+		$success = $toggle->execute() or die(print_r($toggle->errorInfo(), true));
+		return $success;
+	}
+	public function toggleServiceMessage($on)
+	{
+		$on = (int)$on;
+
+		if($on) // if it is toggled on, then auto-create if necessary
+			$this->getServiceMessageId();
+		
+		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET display_service_message = :display_service_message  WHERE id = :id;");
+		$toggle->bindParam(':id',$this->id);
+		$toggle->bindParam(':display_service_message', $on );
 		$success = $toggle->execute() or die(print_r($toggle->errorInfo(), true));
 		return $success;
 	}
@@ -300,6 +314,58 @@ class Run
 		
 		return $units;
 	}
+	public function getServiceMessage()
+	{
+		$id = $this->getServiceMessageId();
+		require_once INCLUDE_ROOT."Model/RunUnit.php";
+		$unit_factory = new RunUnitFactory();
+		$unit = $unit_factory->make($this->dbh,null,array('type' => "Page", "unit_id" => $id));
+		return $unit;
+	}
+	public function getServiceMessageId()
+	{
+		$g_unit = $this->dbh->prepare(
+		"SELECT `survey_runs`.service_message
+			
+			 FROM `survey_runs` 
+		WHERE 
+			`survey_runs`.id = :run_id;");
+		$g_unit->bindParam(':run_id',$this->id);
+		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$service_message = $g_unit->fetch(PDO::FETCH_ASSOC);
+		$id = $service_message['service_message'];
+		if($id ==  NULL)
+		{
+			$id = $this->addServiceMessage();
+		}
+		return $id;
+	}
+	protected function addServiceMessage()
+	{
+		require_once INCLUDE_ROOT."Model/RunUnit.php";
+		$unit_factory = new RunUnitFactory();
+		$unit = $unit_factory->make($this->dbh,null,array('type' => "Page"));
+		$unit->create(array(
+			"title" => "Service message",
+			"body" =>
+"# Service message
+This study is currently being serviced. Please return at a later time."));
+		if($unit->valid):
+			$add_service_message = $this->dbh->prepare(
+			"UPDATE `survey_runs`
+				SET service_message = :service_message
+			WHERE 
+				`survey_runs`.id = :run_id;");
+			$add_service_message->bindParam(':run_id',$this->id);
+			$add_service_message->bindParam(':service_message',$unit->id);
+			$add_service_message->execute() or die(print_r($add_service_message->errorInfo(), true));
+			alert('A service message was auto-created.','alert-info');
+			return $unit->id;
+		else:
+			alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-danger');
+		endif;
+		
+	}
 	public function getUnitAdmin($id)
 	{
 		$g_unit = $this->dbh->prepare(
@@ -329,6 +395,66 @@ class Run
 		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
 
 		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+		
+		if($unit === false) // unit not found in run_units? maybe we're looking for a service message
+		{
+			$g_unit = $this->dbh->prepare(
+			"SELECT 
+				`survey_runs`.`service_message` AS unit_id,
+				`survey_runs`.id AS run_id,
+			
+				`survey_units`.id,
+				`survey_units`.type,
+				`survey_units`.created,
+				`survey_units`.modified
+			
+				 FROM `survey_runs` 
+			 
+			LEFT JOIN `survey_units`
+			ON `survey_units`.id = `survey_runs`.`service_message`
+		
+			WHERE 
+				`survey_runs`.id = :run_id
+			LIMIT 1
+			;");
+			$g_unit->bindParam(':run_id',$this->id);
+			$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+
+			$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+		}
+		if($unit === false) // or maybe a reminder email
+		{
+			$g_unit = $this->dbh->prepare(
+			"SELECT 
+				`survey_runs`.`reminder_email` AS unit_id,
+				`survey_runs`.id AS run_id,
+			
+				`survey_units`.id,
+				`survey_units`.type,
+				`survey_units`.created,
+				`survey_units`.modified
+			
+				 FROM `survey_runs` 
+			 
+			LEFT JOIN `survey_units`
+			ON `survey_units`.id = `survey_runs`.`reminder_email`
+		
+			WHERE 
+				`survey_runs`.id = :run_id
+			LIMIT 1
+			;");
+			$g_unit->bindParam(':run_id',$this->id);
+			$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+
+			$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+		}
+		if($unit === false) // or maybe a reminder email
+		{
+			alert("Missing unit! $id", 'alert-danger');
+			return false;
+		}
+
+		
 		if($unit['type']==='Survey'):
 			$unit['type'] = 'Study';
 		endif;
