@@ -10,10 +10,11 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 	if($type == 'Survey') $type = 'Study';
 
 	require_once INCLUDE_ROOT . "Model/$type.php";
-	
+	require_once INCLUDE_ROOT."Model/RunUnit.php";
+	$unit_factory = new RunUnitFactory();
 	if($type!='Study'):
 		if(isset($_POST['unit_id'])):
-			$unit = makeUnit($fdb,null,array('type' => $type,'unit_id'=>$_POST['unit_id']));
+			$unit = $unit_factory->make($fdb,null,array('type' => $type,'unit_id'=>$_POST['unit_id']));
 			$unit->create($_POST);
 			if($unit->valid):
 				alert('<strong>Success.</strong> '.$type.' unit was updated.','alert-success');
@@ -22,7 +23,7 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 				alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-danger');
 			endif;
 		else:
-			$unit = makeUnit($fdb,null,array('type' => $type));
+			$unit = $unit_factory->make($fdb,null,array('type' => $type));
 			$unit->create($_POST);
 			if($unit->valid):
 				$unit->addToRun($run->id, $_POST['position']);
@@ -34,7 +35,7 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 		endif;
 	else:
 		if(isset($_POST['unit_id'])):
-			$unit = makeUnit($fdb, null, array('type' => $type,'unit_id'=>$_POST['unit_id']));
+			$unit = $unit_factory->make($fdb, null, array('type' => $type,'unit_id'=>$_POST['unit_id']));
 			if($unit->valid):
 				$unit->addToRun($run->id, $_POST['position']);
 				alert('<strong>Success.</strong> '.$type.' unit was added.','alert-success');
