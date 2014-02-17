@@ -120,7 +120,9 @@ class RunSession
 #		pr($this->id);
 		$i = 0;
 		$done = array();
-			
+		require_once INCLUDE_ROOT."Model/RunUnit.php";
+		$unit_factory = new RunUnitFactory();
+		
 		$output = false;
 		while(! $output): // only when there is something to display, stop.
 			$i++;
@@ -145,7 +147,7 @@ class RunSession
 					$done[ $unit['type'] ] = 1;
 				
 				
-				$unit = makeUnit($this->dbh, $this->session, $unit);
+				$unit = $unit_factory->make($this->dbh, $this->session, $unit);
 				$output = $unit->exec();
 				
 				
@@ -179,7 +181,9 @@ class RunSession
 	{
 		$unit = $this->getCurrentUnit(); // get first unit in line
 		if($unit):
-			$unit = makeUnit($this->dbh,null,$unit);
+			require_once INCLUDE_ROOT."Model/RunUnit.php";
+			$unit_factory = new RunUnitFactory();
+			$unit = $unit_factory->make($this->dbh,null,$unit);
 			$unit->end(); 				// cancel it
 		endif;
 		
