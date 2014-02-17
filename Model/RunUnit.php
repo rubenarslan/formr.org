@@ -225,13 +225,15 @@ class RunUnit {
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					";
 				elseif($survey_name == 'survey_users'):
+					$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.email,`$survey_name`.user_code,`$survey_name`.email_verified FROM `$survey_name` 
+					";
 					$q2 = "left join `survey_run_sessions`
 						on `survey_users`.id = `survey_run_sessions`.user_id
 					";
 				endif;
 			
 				$q = $q1 . $q2 . $q3;
-
+	
 				$get_results = $this->dbh->prepare($q);
 				if($this->run_session_id === NULL):
 					$get_results->bindValue(':session_id', $this->session_id);
