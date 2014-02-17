@@ -198,6 +198,7 @@ RunUnit.prototype.removeFromRun = function(e)
 			if(data.indexOf('error') < 0) 
 			{
 				$unit.html(data);
+                $run_units = $run_units.splice(this.order, 1); // remove from the run unit list
 			}
 			else
 			{				
@@ -224,7 +225,9 @@ function loadNextUnit(units)
 			dataType:"html", 
 			success:function (data, textStatus) 
 			{
-				$run_units.push(new RunUnit(data));
+                var new_order = $run_units.length;
+                $run_units[new_order] = new RunUnit(data);
+                $run_units[new_order].order = new_order;
 				loadNextUnit(units);
 			}
 		});
@@ -322,13 +325,14 @@ $(document).ready(function () {
             var pos;
             var dupes = false;
 			$($run_units).each(function(i,elm) {
+                
                 pos = +elm.position.val();
                 
                 if($.inArray(pos,are_positions_unique)>-1)
                 {
                 	bootstrap_alert("You used the position "+pos+" more than once, therefore the new order could not be saved. <a href='#unit_"+elm.unit_id+"'>Click here to scroll to the duplicated position.</a>", 'Error.','.main_body');
                     dupes = true;
-                    return;
+//                    return;
                 }
                 else
                 {

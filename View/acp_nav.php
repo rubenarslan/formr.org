@@ -266,7 +266,15 @@ $resultCount = $study->getResultCount();
 			<li <?=endsWith($_SERVER['PHP_SELF'],'run/upload_files.php')?' class="active"':''?> title="Upload images, videos, sounds and the like.">
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/upload_files"><i class="fa-li fa fa-upload"></i> <?php echo _("Upload files"); ?></a>
 			</li>
+
+			<li <?=endsWith($_SERVER['PHP_SELF'],'run/edit_service_message.php')?' class="active"':''?> title="Edit the service message, which is shown when the run is interrupted/serviced/ended.">
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/edit_service_message"><i class="fa-li fa fa-eject"></i> <?php echo _("Service message"); ?></a>
+			</li>
 			
+			<li <?=endsWith($_SERVER['PHP_SELF'],'run/edit_reminder.php')?' class="active"':''?> title="Edit the manual reminder.">
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/edit_reminder"><i class="fa-li fa fa-bullhorn"></i> <?php echo _("Reminder"); ?></a>
+			</li>
+
 			<li class="nav-header"><i class="fa-li fa fa-bolt"></i> Danger Zone</li>
 			
 			<li <?=endsWith($_SERVER['PHP_SELF'],'admin/run/delete_run.php')?' class="active"':''?>>

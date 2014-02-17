@@ -29,7 +29,7 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 				<div class="controls">
 					<div class="input-group">
 					  <span class="input-group-addon"><i class="fa fa-pencil-square"></i></span>
-			  			<input class="form-control" required name="delete_confirm" id="delete_confirm" type="text" placeholder="run name (see up left)"></label>
+			  			<input class="form-control" required name="delete_confirm" id="delete_confirm" type="text" autocomplete="off" placeholder="run name (see up left)"></label>
 					</div>
 				</div>
 			</div>

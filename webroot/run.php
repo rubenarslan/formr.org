@@ -39,8 +39,10 @@ else:
 		$run = new Run($fdb, $_GET['run_name']);
 	
 		if(!$run->valid):
-			alert("<strong>Error:</strong> Run broken.",'alert-danger');
+			alert(__("<strong>Error:</strong> Run %s is broken.",$_GET['run_name']),'alert-danger');
 			redirect_to("/index");
+		elseif($run->being_serviced AND !$user->created($run)):
+			$output = $run->getServiceMessage()->exec();
 		else:
 			if($user->loggedIn() AND isset($_SESSION['UnitSession']) AND $user->user_code !== unserialize($_SESSION['UnitSession'])->session):
 				alert('<strong>Error.</strong> You seem to have switched sessions.','alert-danger');
