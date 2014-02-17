@@ -5,39 +5,10 @@ require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Email.php";
 
 // find the last email unit
-$g_email = $fdb->prepare("SELECT 
-	`survey_units`.id,
-	`survey_run_units`.position AS position
-	
-FROM `survey_runs`
-LEFT JOIN `survey_run_units`
-ON `survey_runs`.id = `survey_run_units`.run_id
-LEFT JOIN `survey_units`
-ON `survey_units`.id = `survey_run_units`.unit_id
-
-WHERE `survey_units`.type = 'Email'
-AND `survey_runs`.name = :name
-ORDER BY `survey_run_units`.position DESC
-LIMIT 1;");
-$g_email->bindParam(':name',$_GET['run_name']);
-$g_email->execute();
-$Reminder = $g_email->fetch(PDO::FETCH_ASSOC);
-
-if($Reminder AND trim($_GET['run_session_id'])!=''):
-
-	$email = new Email($fdb, $_GET['session'], 
-		array(
-		'run_name' => $run->name,
-		'unit_id' => $Reminder['id'],
-		'session_id' => null,
-		'run_session_id' => $_GET['run_session_id']
-		)
-	);
-	
-	if($email->remind($_GET['email'])===true):
-		alert(('<strong>Reminder sent.</strong> in run '.$run->name) , 'alert-info');
-		redirect_to("admin/run/".$run->name."/user_overview");
-	endif;
+$email = $run->getReminder($_GET['session'],$_GET['run_session_id']);
+if($email->exec()===false):
+	alert(('<strong>Reminder sent</strong> in run '.$run->name . ".") , 'alert-info');
+	redirect_to("admin/run/".$run->name."/user_overview");
 endif;
 
 alert('<strong>Something went wrong with the reminder.</strong> in run '.$_GET['run_name'], 'alert-danger');

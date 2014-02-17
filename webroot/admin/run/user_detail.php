@@ -40,7 +40,7 @@ $users = array();
 while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 {
 	$userx['Unit in Run'] = $userx['unit_type']. " <span class='hastooltip' title='position in run {$userx['run_name']} '>({$userx['position']})</span>";
-	$userx['Email'] = "<small title=\"{$userx['session']}\">{$userx['email']}</small>";
+	$userx['Session'] = "<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],1,10)."…</abbr></small>";
 	$userx['entered'] = "<small>{$userx['created']}</small>";
 	$userx['left'] = "<small>{$userx['ended']}</small>";
 	if($userx['unit_type']!= 'Survey') $userx['delete'] = "<a onclick='return confirm(\"Are you sure you want to delete this unit session?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/delete_unit_session?session_id={$userx['session_id']}' class='hastooltip' title='Delete this waypoint'><i class='fa-remove'></i></a>";
@@ -74,9 +74,9 @@ if(!empty($users)) {
 		
 		// printing table rows
 		foreach($users AS $row):
-			if($row['Email']!==$last_user):
+			if($row['Session']!==$last_user):
 				$tr_class = ($tr_class=='') ? 'alternate' : '';
-				$last_user = $row['Email'];
+				$last_user = $row['Session'];
 			endif;
 			echo '<tr class="'.$tr_class.'">';
 

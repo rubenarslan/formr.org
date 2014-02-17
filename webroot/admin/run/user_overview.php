@@ -45,7 +45,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 	while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 	{
 		$userx['Run position'] = "<span class='hastooltip' title='Current position in run'>({$userx['position']}</span> – <small>{$userx['unit_type']})</small>";
-		$userx['Email'] = "<small title=\"{$userx['session']}\">{$userx['email']}</small>";
+		$userx['Session'] = "<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],1,10)."…</abbr></small>";
 		$userx['Created'] = "<small>{$userx['created']}</small>";
 		$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>{$userx['last_access_days']} days ago</small>";
 		$userx['Action'] = "
@@ -57,8 +57,8 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 				</span>
 				<input type='number' name='new_position' value='{$userx['position']}' class='form-control'>
 				<span class='input-group-btn'>
-					<a class='btn hastooltip' href='".WEBROOT."admin/run/{$userx['run_name']}/remind?run_session_id={$userx['run_session_id']}&session={$userx['session']}&email={$userx['email']}' 
-					title='Remind this user using the last email in the run'><i class='fa fa-bullhorn'></i></a>
+					<a class='btn hastooltip' href='".WEBROOT."admin/run/{$userx['run_name']}/remind?run_session_id={$userx['run_session_id']}&session={$userx['session']}' 
+					title='Remind this user'><i class='fa fa-bullhorn'></i></a>
 				</span>
 			</span>
 		</form>";

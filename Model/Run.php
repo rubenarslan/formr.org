@@ -314,6 +314,8 @@ class Run
 		
 		return $units;
 	}
+	
+	
 	public function getServiceMessage()
 	{
 		$id = $this->getServiceMessageId();
@@ -366,6 +368,66 @@ This study is currently being serviced. Please return at a later time."));
 		endif;
 		
 	}
+
+
+	public function getReminder($session,$run_session_id)
+	{
+		$id = $this->getReminderId();
+		require_once INCLUDE_ROOT."Model/RunUnit.php";
+		$unit_factory = new RunUnitFactory();
+		$unit = $unit_factory->make($this->dbh, $session ,array(
+			'type' => "Email", 
+			"unit_id" => $id, 
+			"run_name" => $this->name,
+			"run_session_id" => $run_session_id)
+		);
+		return $unit;
+	}
+	public function getReminderId()
+	{
+		$g_unit = $this->dbh->prepare(
+		"SELECT `survey_runs`.reminder_email
+			
+			 FROM `survey_runs` 
+		WHERE 
+			`survey_runs`.id = :run_id;");
+		$g_unit->bindParam(':run_id',$this->id);
+		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$reminder_email = $g_unit->fetch(PDO::FETCH_ASSOC);
+		$id = $reminder_email['reminder_email'];
+		if($id ==  NULL)
+		{
+			$id = $this->addReminder();
+		}
+		return $id;
+	}
+	protected function addReminder()
+	{
+		require_once INCLUDE_ROOT."Model/RunUnit.php";
+		$unit_factory = new RunUnitFactory();
+		$unit = $unit_factory->make($this->dbh,null,array('type' => "Email"));
+		$unit->create(array(
+			"subject" => "Reminder",
+			"recipient_field" => 'survey_users$email',
+			"body" =>
+"Please take part in our study at {{login_link}}."));
+		if($unit->valid):
+			$add_reminder_email = $this->dbh->prepare(
+			"UPDATE `survey_runs`
+				SET reminder_email = :reminder_email
+			WHERE 
+				`survey_runs`.id = :run_id;");
+			$add_reminder_email->bindParam(':run_id',$this->id);
+			$add_reminder_email->bindParam(':reminder_email',$unit->id);
+			$add_reminder_email->execute() or die(print_r($add_reminder_email->errorInfo(), true));
+			alert('A reminder email was auto-created.','alert-info');
+			return $unit->id;
+		else:
+			alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-danger');
+		endif;
+		
+	}
+	
 	public function getUnitAdmin($id)
 	{
 		$g_unit = $this->dbh->prepare(
@@ -414,14 +476,22 @@ This study is currently being serviced. Please return at a later time."));
 			ON `survey_units`.id = `survey_runs`.`service_message`
 		
 			WHERE 
-				`survey_runs`.id = :run_id
+				`survey_runs`.id = :run_id AND
+				`survey_runs`.`service_message` = :unit_id
 			LIMIT 1
 			;");
 			$g_unit->bindParam(':run_id',$this->id);
+			$g_unit->bindParam(':unit_id',$id);
+			
 			$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
 
 			$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+			if($unit["unit_id"])
+				return $unit;
+			else
+				$unit = false;
 		}
+		
 		if($unit === false) // or maybe a reminder email
 		{
 			$g_unit = $this->dbh->prepare(
@@ -440,25 +510,34 @@ This study is currently being serviced. Please return at a later time."));
 			ON `survey_units`.id = `survey_runs`.`reminder_email`
 		
 			WHERE 
-				`survey_runs`.id = :run_id
+				`survey_runs`.id = :run_id AND
+				`survey_runs`.`reminder_email` = :unit_id
 			LIMIT 1
 			;");
 			$g_unit->bindParam(':run_id',$this->id);
+			$g_unit->bindParam(':unit_id',$id);
+			
 			$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
 
 			$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+			
+			if($unit["unit_id"])
+				return $unit;
+			else
+				$unit = false;
 		}
-		if($unit === false) // or maybe a reminder email
+		
+		if($unit === false) // or maybe we've got a problem
 		{
 			alert("Missing unit! $id", 'alert-danger');
 			return false;
 		}
-
 		
 		if($unit['type']==='Survey'):
 			$unit['type'] = 'Study';
 		endif;
 		
+		$unit['run_name'] = $this->name;
 		return $unit;
 	}
 }

@@ -13,6 +13,7 @@ class Email extends RunUnit {
 	
 	private $body = null;
 	protected $body_parsed = null;
+	private $account_id = null;
 	private $images = array();
 	private $subject = null;
 	private $html = 1;
@@ -59,6 +60,13 @@ class Email extends RunUnit {
 //			$this->html = $options['html'] ? 1:0;
 			$this->html = 1;
 		}
+		if($this->account_id === null):
+			$email_accounts = $this->getEmailAccounts();
+			if(count($email_accounts)>0):
+				$this->account_id = current($email_accounts)['id'];
+			endif;
+		endif;
+		
 
 		$this->body_parsed = Parsedown::instance()
     ->set_breaks_enabled(true)
@@ -101,9 +109,17 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	private function getBody($embed_email = true)
 	{
 		
-		if(isset($this->run_name))		
+		if(isset($this->run_name))
+		{
+#			if(!$this->session)
+#				alert("Generated a login link, but no user session was specified", 'alert-info');
 			$login_link = WEBROOT."{$this->run_name}?code={$this->session}";
-		else $login_link = WEBROOT;
+		}
+		else 
+		{
+			$login_link = WEBROOT;
+			alert("Generated a login link, but no run was specified", 'alert-danger');
+		}
 		if($this->html):
 			$login_link = "<a href='$login_link'>Login link</a>";
 
@@ -139,7 +155,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			return $this->body;
 		endif;
 	}
-	public function displayForRun($prepend = '')
+	private function getEmailAccounts()
 	{
 		$accs = $this->dbh->prepare("SELECT `id`,`from` FROM `survey_email_accounts` WHERE user_id = :user_id");
 		global $user;
@@ -148,12 +164,17 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		$results = array();
 		while($acc = $accs->fetch(PDO::FETCH_ASSOC))
 			$results[] = $acc;
+		return $results;
+	}
+	public function displayForRun($prepend = '')
+	{
+		$email_accounts = $this->getEmailAccounts();
 		
-		if(!empty($results)):
+		if(!empty($email_accounts)):
 			$dialog = '<p><label>Account: <br>
 			<select class="select2" name="account_id" style="width:350px">
 			<option value=""></option>';
-			foreach($results as $acc):
+			foreach($email_accounts as $acc):
 				if(isset($this->account_id) AND $this->account_id == $acc['id'])
 				    $dialog .= "<option selected value=\"{$acc['id']}\">{$acc['from']}</option>";
 				else
@@ -162,7 +183,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$dialog .= "</select>";
 			$dialog .= '</label></p>';
 		else:
-			$dialog = "<h5>No email accounts. Add some first</h5>";
+			$dialog = "<h5>No email accounts. <a href='". WEBROOT."admin/mail/". "'>Add some here.</a></h5>";
 		endif;
 		$dialog .= '<p><label>Subject: <br>
 			<input class="form-control col-md-5" type="text" placeholder="Email subject" name="subject" value="'.$this->subject.'">
@@ -228,14 +249,14 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	            'base64',
 	            'image/png'
 	        )) {
-	            alert($mail->ErrorInfo,'alert-danger');
+	            alert('Email with the subject ' . $this->subject . ' was not sent to '. $this->recipient. ':<br>' .$mail->ErrorInfo,'alert-danger');
 	        }
 		endforeach;
 		
 		if(!$mail->Send())
 		{
 			$this->mail_sent = false;
-			alert($mail->ErrorInfo,'alert-danger');
+            alert('Email with the subject ' . $this->subject . ' was not sent to '. $this->recipient. ':<br>' .$mail->ErrorInfo,'alert-danger');
 		}
 		else 
 		{
@@ -261,7 +282,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		$link = "{$RandReceiv}.mailinator.com";
 		
 		echo "<h4>{$this->subject}</h4>";
-		echo "<p><a href='http://$link'>$link</a></p>";
+		echo "<p><a href='http://$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
 		
 		echo $this->getBody(false);
 		
@@ -311,15 +332,6 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		endforeach;
 		echo '</tbody></table>';
 		$this->run_session_id = null;
-	}
-	public function remind($who)
-	{
-		$err = $this->sendMail($who);
-		if($this->mail_sent):
-			return true;
-		else:
-			return array('body'=>$err);
-		endif;
 	}
 	public function exec()
 	{
