@@ -286,13 +286,12 @@ if (!function_exists('http_parse_headers'))
  */
 function timetostr($timestamp) {
     $age = time() - $timestamp;
-    if ($age == 0)
-        return "just now";
-    $future = ($age < 0);
+
+    $future = ($age <= 0);
     $age = abs($age);
 
     $age = (int)($age / 60);        // minutes ago
-    if ($age == 0) return $future ? "momentarily" : "just now";
+    if ($age == 0) return $future ? "a moment" : "just now";
 
     $scales = [
         ["minute", "minutes", 60],
@@ -310,15 +309,15 @@ function timetostr($timestamp) {
         list($singular, $plural, $factor) = $scale;
         if ($age == 0)
             return $future
-                ? "in less than 1 $singular"
+                ? "less than 1 $singular"
                 : "less than 1 $singular ago";
         if ($age == 1)
             return $future
-                ? "in 1 $singular"
+                ? "1 $singular"
                 : "1 $singular ago";
         if ($age < $factor)
             return $future
-                ? "in $age $plural"
+                ? "$age $plural"
                 : "$age $plural ago";
         $age = (int)($age / $factor);
     }
