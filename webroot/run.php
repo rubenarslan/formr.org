@@ -2,11 +2,22 @@
 require_once '../define_root.php';
 require_once INCLUDE_ROOT . "Model/Site.php";
 
-if(isset($_GET['run_name']) AND isset($_GET['code']) AND strlen($_GET['code'])==64):
-	$test_code = $_GET['code'];
-	$user->user_code = $test_code;
+if(isset($_GET['run_name']) AND isset($_GET['code']) AND strlen($_GET['code'])==64): // came here with a login link
+	$login_code = $_GET['code'];
+
+	if($user->user_code !== $login_code): // this user came here with a session code that he wasn't using before. this will always be true if the user is (a) new (auto-assigned code by site) (b) already logged in with a different account
+
+		if($user->loggedIn()): // if the user is new and has an auto-assigned code, there's no need to talk about the behind-the-scenes change
+			// but if he's logged in we should alert them
+			alert("You switched sessions, because you came here with a login link and were already logged in as someone else.", 'alert-info');
+		endif;
+
+		$user->logout();
+		$user = new User($fdb, null, $login_code);
+
+		// a special case are admins. if they are not already logged in, verified through password, they should not be able to obtain access so easily. but because we only create a mock user account, this is no problem. the admin flags are only set/privileges are only given if they legitimately log in
+	endif;
 	
-	$_SESSION['session'] = $test_code;
 elseif(!isset($_GET['run_name']) OR !isset($user->user_code)):
 	alert("<strong>Sorry.</strong> Something went wrong when you tried to access.",'alert-danger');
 	redirect_to("index");
