@@ -9,6 +9,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 		<h1>user overview</h1>
 		<p class="lead">Here you can see users' progress (on which station they currently are).
 			If you're not happy with their progress, you can send manual reminders, <a href="<?=WEBROOT.'admin/run/'.$run->name.'/edit_reminder'?>">customisable here</a>. <br>You can also shove them to a different position in a run if they veer off-track. </p>
+			<p>Participants who have been stuck at the same survey, external link or email for 2 days or more are highlighted in yellow at the top. Being stuck at an email address usually means that the user somehow ended up there without a valid email address, so that the email cannot be sent. Being stuck at a survey or external link usually means that the user interrupted the survey/external part before completion, you probably want to remind them manually.</p>
 	<?php
 	$g_users = $fdb->prepare("SELECT 
 		`survey_run_sessions`.id AS run_session_id,
@@ -19,7 +20,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 		`survey_runs`.name AS run_name,
 		`survey_units`.type AS unit_type,
 		`survey_run_sessions`.last_access,
-		(`survey_units`.type IN ('Survey','External') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
+		(`survey_units`.type IN ('Survey','External','Email') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
 	
 	
 	FROM `survey_run_sessions`
