@@ -229,17 +229,14 @@ $resultCount = $study->getResultCount();
 	</ul>
 
 	</nav>
-<?php endif; ?>
-
-
-<?php if(isset($run)): ?>
+<?php elseif(isset($run)): ?>
 <div class="run_header">&nbsp;
 </div>	
 <div class="row">
 	<div class="col-lg-12">
 		<h1><i class="fa fa-rocket"></i> <?php echo $run->name;?></h1>
 	</div>
-</div>	
+</div>
 <div class="row">
 	<nav class="col-lg-2 col-md-2 col-sm-3">
 		<ul class="fa-ul  fa-ul-more-padding">
@@ -289,6 +286,8 @@ $resultCount = $study->getResultCount();
 
 		</ul>
 	</nav>
+<?php else: ?>
+<div class="row">
 <?php endif; ?>
 
 <?php if(!isset($study) AND !isset($run)): ?>

@@ -5,7 +5,8 @@
 	session_write_close();
 #	pr($_SESSION);
 ?>
-	</div> <!-- end of main body -->
+		</div> <!-- end of main body -->
+	</div> <!-- end of sidenav container -->
 </div> <!-- end of main content div -->
 
 
