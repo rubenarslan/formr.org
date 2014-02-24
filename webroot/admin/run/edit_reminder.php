@@ -17,9 +17,9 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 			echo json_encode(array(array("unit_id" => $reminder_email_id) ) );
 			?>'>
 	<h2><i class="fa fa-bullhorn"></i> Edit email reminder</h2>
-	<ul class="fa-ul fa-ul-more-padding">
-		<li><i class="fa-li fa fa-envelope"></i> Modify the text of a reminder, which you can then send to any user using the <i class="fa fa-bullhorn"></i> reminder button in the <a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/user_overview">user overview</a>.</li>
-	</ul>
+	<p class="lead">
+		Modify the text of a reminder, which you can then send to any user using the <i class="fa fa-bullhorn"></i> reminder button in the <a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/user_overview">user overview</a>.
+	</p>
 	<div id="run_dialog_choices">
 	</div>
 </form>

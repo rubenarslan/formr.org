@@ -113,6 +113,12 @@ label
 {
  background-color:#F3F9FF;
 }
+
+.table > tbody > tr.immediately_continued > td
+{
+    border-top-style:dashed;
+}
+
 kbd {
     background: none repeat scroll 0 0 #FAFAFA;
     border-color: #CCCCCC #CCCCCC #FFFFFF;
