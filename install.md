@@ -4,7 +4,7 @@
 The schema is contained in schema.sql in the root folder and needs to be fed to the DB manually at this time.
 
 #### Configuration
-Rename the folder `config_default` to `config` and customise the database settings.
+Duplicate the folder `config_default`, name it `config` and customise the database settings.
 
 #### Set permissions
 The following folders (and their sub-folders) have to be writable: `backups` and `tmp`.
