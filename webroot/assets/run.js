@@ -119,7 +119,7 @@ RunUnit.prototype.test = function(e)
 		{
 			url: $run_url + "/" + this.test_button.attr('href'),
 			dataType: 'html',
-			data: this.save_inputs.serialize(),
+			data: { "unit_id" : this.unit_id },
 			method: 'GET'
 		})
 		.done($.proxy(function(data)
