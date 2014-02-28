@@ -2,7 +2,8 @@ $.webshims.setOptions("extendNative", false);
 $.webshims.setOptions('forms', {
 	customDatalist: true,
 	addValidators: true,
-	waitReady: false
+	waitReady: false,
+    replaceValidationUI: true
 });
 $.webshims.setOptions('geolocation', {
 	confirmText: '{location} wants to know your position. You will have to enter one manually if you decline.'
@@ -165,6 +166,7 @@ $(document).ready(function() {
 			.each(change);
 	});
 	// fixme: FOUCs for rating_buttons etc in IE8
+    
 	$('div.btn-radio button.btn').off('click').click(function(event){
 		var $btn = $(this);
 		$('#'+$btn.attr('data-for')).prop('checked',true); // couple with its radio button
@@ -180,6 +182,9 @@ $(document).ready(function() {
         
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 		$btn.closest('.controls').find('label[class!=keep-label]').addClass('hidden'); // hide normal radio buttons
+        
+		
+        $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 	});
 	
 	$('div.btn-checkbox button.btn').off('click').click(function(event){
@@ -197,6 +202,8 @@ $(document).ready(function() {
         
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
+
+        $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 	});
 	
 	$('div.btn-check button.btn').off('click').click(function(event){
@@ -223,6 +230,8 @@ $(document).ready(function() {
         
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 		$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
+        
+        $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 	});
 	
 	
@@ -232,7 +241,12 @@ $(document).ready(function() {
 	if(host==='localhost:8888') host = host + "/zwang";
 	var url = protocol + '//' + host + "/";
 	
-	$("select.select2zone").select2();
+	$("select.select2zone").each(function(i,elm)
+    {
+		var slct = $(elm); 
+        slct.select2();
+        $.webshims.addShadowDom(slct, slct.select2("container"));
+    });
 	$("input.select2add").each(function(i,elm)
 	{
 		var slct = $(elm); 
@@ -265,6 +279,8 @@ $(document).ready(function() {
 			allowClear: true,
             escapeMarkup: function (m) { return m; }
 		});
+        $.webshims.addShadowDom(slct, slct.select2("container"));
+        
 	});
 	$(".select2pills select").each(function(i,elm)
 	{
@@ -286,6 +302,7 @@ $(document).ready(function() {
             },
             escapeMarkup: function (m) { return m; }
 		});
+        $.webshims.addShadowDom(slct, slct.select2("container"));
 	});
 	
 	$('*[title]').tooltip({
