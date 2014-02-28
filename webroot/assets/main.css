@@ -904,8 +904,13 @@ form.form-horizontal div.form-row.form-group.mc_boxed div.controls label:last-of
 form.form-horizontal div.form-row.form-group.mc_boxed div.controls {
   border-collapse:collapse;
 }
-
-
+div.item-textarea textarea {
+    width:500px;
+    height:200px;
+}
+div.item-geopoint input[type=text] {
+    width:350px;
+}
 form.form-horizontal div.form-row.item-mc_heading.form-group div.controls label {
 	text-align:center;
 	text-indent:0;
