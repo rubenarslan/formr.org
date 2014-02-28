@@ -65,6 +65,10 @@ class OpenCPU {
 	{
 		$post = array('x' => '{ 
 (function() {
+"%contains%" = function(haystack, needle) {
+    stringr::str_detect(haystack, stringr::fixed(as.character(needle)) )
+}
+
 '.$this->user_data.'
 with('.$results_table.', {
 '.$source.'
