@@ -376,19 +376,17 @@ class Item_letters extends Item_text
 	}
 }
 
+// todo: the min/max stuff is confusing and will fail for real big numbers
 // spinbox is polyfilled in browsers that lack it 
 class Item_number extends Item 
 {
 	public $type = 'number';
-	public $input_attributes = array('type' => 'number');
+	public $input_attributes = array('type' => 'number', 'min' => 0, 'max' => 10000000, 'step' => 1);
 	public $mysql_field = 'INT UNSIGNED DEFAULT NULL';
 	
 	protected function setMoreOptions() 
 	{
 		$this->classes_input[] = 'form-control';
-		$this->input_attributes['min'] = 0;
-		$this->input_attributes['max'] = 10000000;
-		$this->input_attributes['step'] = 1;
 		if(isset($this->type_options_array) AND is_array($this->type_options_array))
 		{
 			if(count($this->type_options_array) == 1) 
@@ -414,23 +412,23 @@ class Item_number extends Item
 			(isset($this->input_attributes['min']) AND abs($this->input_attributes['min'])>32767) OR 			
 			(isset($this->input_attributes['max']) AND abs($this->input_attributes['max'])> ($multiply*32767) )
 		)
-			$this->mysql_field = str_replace($this->mysql_field,"TINYINT", "MEDIUMINT");
+			$this->mysql_field = str_replace($this->mysql_field,"INT", "MEDIUMINT");
 		elseif(
 			(isset($this->input_attributes['min']) AND abs($this->input_attributes['min'])>126) OR 			
 			(isset($this->input_attributes['max']) AND abs($this->input_attributes['max'])> ($multiply*126) )
 		)
-			$this->mysql_field = str_replace($this->mysql_field,"TINYINT", "SMALLINT");
+			$this->mysql_field = str_replace($this->mysql_field,"INT", "SMALLINT");
 			
 		if(isset($this->input_attributes['step']) AND 
 		(string)(int)$this->input_attributes['step'] != $this->input_attributes['step']):
 			if($this->input_attributes['step']==='any'):
-				$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT"), "FLOAT",$this->mysql_field);
+				$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT","INT"), "FLOAT",$this->mysql_field);
 			else:
 				$before_point = max(strlen((int)$this->input_attributes['min']), strlen((int)$this->input_attributes['max']));
 				$after_point = strlen($this->input_attributes['step']) - 2;
 				$d = $before_point + $after_point;
 				
-				$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT"), "DECIMAL($d, $after_point)",$this->mysql_field);
+				$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT","INT"), "DECIMAL($d, $after_point)",$this->mysql_field);
 			endif;
 		endif;
 	}
@@ -463,13 +461,13 @@ class Item_number extends Item
 class Item_range extends Item_number 
 {
 	public $type = 'range';
-	public $input_attributes = array('type' => 'range');
+	public $input_attributes = array('type' => 'range', 'min' => 0, 'max' => 100, 'step' => 1);
 	protected $hasChoices = true;
+	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	
 
 	protected function setMoreOptions() 
 	{
-		$this->input_attributes['min'] = 0;
-		$this->input_attributes['max'] = 100;
 		$this->lower_text = current($this->choices);
 		$this->upper_text = next($this->choices);		
 		parent::setMoreOptions();
@@ -1279,7 +1277,6 @@ class Item_geopoint extends Item {
 	protected function render_prepended()
 	{
 		return '
-		<div class="col-xs-12">
 			<input type="hidden" name="'.$this->name.'" value="">
 			<div class="input-group">';
 	}
@@ -1292,7 +1289,6 @@ class Item_geopoint extends Item {
 				</button>
 			</span>
 			</div>
-		</div>
 			';
 			return $ret;
 	}
