@@ -45,7 +45,7 @@ class Run
 			
 			if($vars):
 				$this->id = $vars['id'];
-				$this->user_id = $vars['user_id'];
+				$this->user_id = (int)$vars['user_id'];
 				$this->api_secret_hash = $vars['api_secret_hash'];
 				$this->public = $vars['public'];
 				$this->cron_active = $vars['cron_active'];
