@@ -32,7 +32,7 @@ class Study extends RunUnit
 			$this->id = $vars['id'];
 			$this->name = $vars['name'];
 			$this->logo_name = $vars['logo_name'];
-			$this->user_id = $vars['user_id'];
+			$this->user_id = (int)$vars['user_id'];
 			
 			$this->getSettings();
 			
