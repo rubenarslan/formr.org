@@ -11,17 +11,17 @@
 
 	  <div class="collapse navbar-collapse" id="public-nav-collapse">
 		<ul class="nav navbar-nav">
-		    <li <?=endsWith($_SERVER['PHP_SELF'],'documentation.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/documentation">
+		    <li <?=endsWith($_SERVER['SCRIPT_NAME'],'documentation.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/documentation">
 				<i class="fa fa-file fa-fw"></i>
 				<?php echo _("documentation"); ?>
 			</a></li>
 
-		    <li <?=endsWith($_SERVER['PHP_SELF'],'studies.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/studies">
+		    <li <?=endsWith($_SERVER['SCRIPT_NAME'],'studies.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/studies">
 				<i class="fa fa-pencil-square fa-fw"></i>
 				<?php echo _("studies"); ?>
 			</a></li>
 
-		    <li <?=endsWith($_SERVER['PHP_SELF'],'team.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/team">
+		    <li <?=endsWith($_SERVER['SCRIPT_NAME'],'team.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/team">
 				<i class="fa fa-coffee fa-fw"></i>
 				<?php echo _("team"); ?>
 			</a></li>
@@ -30,7 +30,7 @@
 
 		if($user->loggedIn()):
 		?>
-			<li <?=endsWith($_SERVER['PHP_SELF'],'edit_user.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/edit_user">
+			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'edit_user.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/edit_user">
 				<i class="fa fa-cogs fa-fw"></i>
 				<?php echo _("settings"); ?></a></li>
 			<li><a href="<?=WEBROOT?>public/logout">
@@ -39,11 +39,11 @@
 		<?php
 		else:
 		?>
-			<li <?=endsWith($_SERVER['PHP_SELF'],'login.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/login">
+			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'login.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/login">
 				<i class="fa fa-sign-in fa-fw"></i>
 				<?php echo _("login"); ?>
 			</a></li>
-			<li <?=endsWith($_SERVER['PHP_SELF'],'register.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/register">
+			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'register.php')?' class="active"':''?>><a href="<?=WEBROOT?>public/register">
 				<i class="fa fa-pencil fa-fw"></i>
 				<?php echo _("sign up") ?>
 			</a></li>

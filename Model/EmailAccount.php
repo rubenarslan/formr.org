@@ -5,8 +5,8 @@ class EmailAccount
 	public function __construct($fdb, $id, $user_id) 
 	{
 		$this->dbh = $fdb;
-		$this->id = $id;
-		$this->user_id = $user_id;
+		$this->id = (int)$id;
+		$this->user_id = (int)$user_id;
 		
 		if($id)
 		{
@@ -28,7 +28,7 @@ class EmailAccount
 		$create = $this->dbh->prepare("INSERT INTO `survey_email_accounts` (user_id) VALUES (:user_id);");
 		$create->bindParam(":user_id",$this->user_id);
 		$create->execute() or die(print_r($create->errorInfo(), true));
-		$this->id = $this->dbh->lastInsertId();
+		$this->id = (int)$this->dbh->lastInsertId();
 		return $this->id;
 	}
 	public function changeSettings($posted)

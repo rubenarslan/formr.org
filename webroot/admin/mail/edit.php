@@ -5,7 +5,8 @@ require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/EmailAccount.php";
 
 $acc = new EmailAccount($fdb, $_GET['account_id'], $user->id);
-if($user->created($acc)):
+
+if(! $user->created($acc)):
 	alert("<strong>Error:</strong> Not your email account.",'alert-danger');
 	redirect_to("/admin/mail/index");
 endif;
