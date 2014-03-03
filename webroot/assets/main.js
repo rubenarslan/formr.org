@@ -324,17 +324,26 @@ $(document).ready(function() {
 function getProgress() {
     $progressbar = $('.progress .progress-bar');
 
-    var successful_controls = $('form').serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
+//    var successful_controls = $('form').serializeArray(); 
 
+    var badArray = $('form').serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
+    var successful_controls = {};
+    $.each(badArray, function(i, obj)
+    {
+        if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
+        if(!successful_controls[ obj.name ]) successful_controls[obj.name] = obj.value;
+        else successful_controls[obj.name] += ", " + obj.value;
+    });
+    
     var remaining_items = $progressbar.data('number-of-items');
     var remaining_percentage = 1 - $progressbar.data('starting-percentage')/100;
 //    console.log(remaining_items, remaining_percentage);
 	var items_answered_on_page = 0;
     var page_items = 0;
-	$.each(successful_controls,function(nr,elm){
+    
+	$.each(successful_controls,function(name,value){
 
-
-        var elm_non_hidden = $(document.getElementsByName(elm.name)).filter(":not(input[type=hidden])");
+        var elm_non_hidden = $(document.getElementsByName(name).length ? document.getElementsByName(name) : document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])");
         
         if(typeof change_events_set == 'undefined')
         {
@@ -356,14 +365,14 @@ function getProgress() {
                 $(elm_non_hidden).data('ever-changed', false); 
             }
             
-*/    		if(elm.value.length > 0) // if it's not empty, you get  //  || parseFloat(elm.value)
+*/    		if(value.length > 0) // if it's not empty, you get  //  || parseFloat(elm.value)
             {
 //                $(elm_non_hidden).parents(".controls").append($('<i class="fa fa-cloud"></i>'));
                 
 //                console.log(elm.value);
-                if($(elm_non_hidden).parents(".form-group").data('ever-changed')) //elm.value == elm_non_hidden.defaultValue)  // if it still has the default value, we take that half point away again
+                if($(elm_non_hidden).parents(".form-group").data('ever-changed')) //elm.value == elm_non_hidden.defaultValue) 
                {
-           			items_answered_on_page += 0.5; // half a point
+           			items_answered_on_page += 0.5; // half a point for changing the default value
 //                    $(elm_non_hidden).parents(".controls").append($('<i class="fa fa-circle"></i>'));
                     
                     if(elm_non_hidden.validity.valid) { // if it is valid like this, it gets half a point
@@ -400,6 +409,7 @@ function showIf()
         $.each(badArray, function(i, obj)
         {
 //            if(+obj.value == obj.value) obj.value = +obj.value; // cast as numeric
+            if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
             if(!subdata[ obj.name ]) subdata[obj.name] = obj.value;
             else subdata[obj.name] += ", " + obj.value;
         });
