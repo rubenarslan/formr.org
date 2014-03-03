@@ -20,7 +20,7 @@ class User
 	{		
 		$this->dbh = $fdb;
 		if($id !== NULL): // if there is a registered, logged in user
-			$this->id = $id;
+			$this->id = (int)$id;
 			$this->load(); // load his stuff
 		elseif($user_code !== NULL):
 			$this->user_code = $user_code; // if there is someone who has been browsing the site
@@ -41,7 +41,7 @@ class User
 		{
 			$this->logged_in = true;
 			$this->email = $user['email'];
-			$this->id = $user['id'];
+			$this->id = (int)$user['id'];
 			$this->user_code = $user['user_code'];
 			$this->admin = $user['admin'];
 			return true;
@@ -62,7 +62,7 @@ class User
 	}
 	public function created($object)
 	{
-		return $this->id === $object->user_id; 
+		return (int)$this->id === (int)$object->user_id; 
 	}
 	public function register($email, $password) 
 	{
