@@ -10,7 +10,7 @@ if(strpos($_SERVER['SCRIPT_NAME'],'/superadmin/')!==FALSE AND !$user->isSuperAdm
 	redirect_to("index");
 }
 
-if(strpos($_SERVER['SCRIPT_NAME'],'/survey/')!==FALSE):
+if(strpos($_SERVER['SCRIPT_NAME'],'/survey/')!==FALSE AND strpos($_SERVER['SCRIPT_NAME'],'/survey/add_survey.php')===FALSE):
 	if(isset($_GET['study_name'])):
 		require_once INCLUDE_ROOT . "Model/Study.php";
 
@@ -27,7 +27,7 @@ if(strpos($_SERVER['SCRIPT_NAME'],'/survey/')!==FALSE):
 		alert("<strong>Error:</strong> No study specified.",'alert-danger');
 		redirect_to("/index");
 	endif;
-elseif(strpos($_SERVER['SCRIPT_NAME'],'/run/')!==FALSE):
+elseif(strpos($_SERVER['SCRIPT_NAME'],'/run/')!==FALSE AND strpos($_SERVER['SCRIPT_NAME'],'/run/add_run.php')===FALSE):
 	if(isset($_GET['run_name'])):
 		require_once INCLUDE_ROOT . "Model/Run.php";
 		$run = new Run($fdb, $_GET['run_name']);
