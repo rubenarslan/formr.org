@@ -328,9 +328,9 @@ class Item_text extends Item
 	{	
 		if(is_array($this->type_options_array) AND count($this->type_options_array) == 1)
 		{
-			$val = (int)trim(current($this->type_options_array));
+			$val = trim(current($this->type_options_array));
 			if(is_numeric($val))
-				$this->input_attributes['maxlength'] = $val;
+				$this->input_attributes['maxlength'] = (int)$val;
 			else
 				$this->input_attributes['pattern'] = trim(current($this->type_options_array));	
 		}
