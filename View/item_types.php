@@ -178,7 +178,8 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 		</dt>
 		<dd>
 			This type permits you to show the labels for mc or mc_multiple choices only once.<br>
-			To get the necessary tabular look, assign a constant width to the choices (with classes), give the heading the same choices as the mcs, and give the following mcs (or mc_multiples)  the same classes + hide_label. 
+			To get the necessary tabular look, assign a constant width to the choices (using e.g. mc-width100), give the heading the same choices as the mcs, and give the following mcs (or mc_multiples)  the same classes + hide_label. <br>
+			On small screens the mc_heading will be hidden and labels will automatically be displayed again, because the tabular layout would otherwise break down.
 		</dd>
 </dl>
 

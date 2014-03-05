@@ -510,11 +510,8 @@ class Survey extends RunUnit {
 			<div class="col-md-12">
 
 		'.
-
 		 $this->render().
-		
 		 '
-
 			</div> <!-- end of col-md-12 div -->
 		</div> <!-- end of row div -->
 		'.
