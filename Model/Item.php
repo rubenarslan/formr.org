@@ -287,18 +287,18 @@ class Item extends HTML_element
 	{
 		$inputgroup = isset($this->prepend) OR isset($this->append);
 		return $this->render_label() . '
-					<div class="'. implode(" ",$this->classes_controls) .'"><span class="controls-inner">'.
+					<div class="'. implode(" ",$this->classes_controls) .'"><div class="controls-inner">'.
 		($inputgroup ? '<div class="input-group">' : '').
 					$this->render_prepended().
 					$this->render_input().
 					$this->render_appended().
 		($inputgroup ? '</div>' : '').
-					'</span></div>
+					'</div></div>
 		';
 	}
 	public function render() 
 	{
-		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? 'data-showif="' . h($this->showif) .'"' : '').'>' .
+		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->showif) .'"' : '').'>' .
 			$this->render_inner().
 		 '</div>';
 	}
@@ -969,6 +969,7 @@ class Item_select_one extends Item
 {
 	public $type = 'select';
 	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $input_attributes = array('type' => 'select');
 	protected $hasChoices = true;
 	
 	protected function render_input() 
@@ -977,7 +978,7 @@ class Item_select_one extends Item
 		
 		$ret = '<select '.self::_parseAttributes($this->input_attributes, array('type')).'>'; 
 		
-		if(!isset($this->input_attributes['multiple'])) $ret .= '<option value=""></option>';
+		if(!isset($this->input_attributes['multiple'])) $ret .= '<option value=""> </option>';
 		
 		foreach($this->choices AS $value => $option):
 			// determine whether options needs to be checked
@@ -1000,6 +1001,7 @@ class Item_select_one extends Item
 // dropdown select, choose multiple
 class Item_select_multiple extends Item_select_one 
 {
+	public $type = 'select_multiple';
 	public $mysql_field = 'VARCHAR (40) DEFAULT NULL';
 	
 	protected function chooseResultFieldBasedOnChoices()
@@ -1027,8 +1029,9 @@ class Item_select_multiple extends Item_select_one
 // dropdown select, choose one
 class Item_select_or_add_one extends Item
 {
-	public $type = 'text';
+	public $type = 'select_or_add_one';
 	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	public $input_attributes = array('type' => 'text');
 	protected $hasChoices = true;
 	
 	protected function setMoreOptions() 
@@ -1070,8 +1073,10 @@ class Item_select_or_add_one extends Item
 }
 class Item_select_or_add_multiple extends Item_select_or_add_one
 {
-	public $type = 'text';
+	public $type = 'select_or_add_multiple';
 	public $mysql_field = 'TEXT DEFAULT NULL';
+	public $input_attributes = array('type' => 'select');
+	
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
@@ -1116,7 +1121,7 @@ class Item_mc_button extends Item_mc
 		foreach($this->choices AS $value => $option):			
 		$ret .= '
 			<button class="btn" data-for="item' . $this->id . '_' . $value . '">' . 
-				$option.
+				"<span class='btn_value'>$value</span><span class='btn_label'>$option</span>".
 			'</button>';
 		endforeach;
 		$ret .= '</div>';
@@ -1128,6 +1133,7 @@ class Item_mc_button extends Item_mc
 class Item_rating_button extends Item_mc_button 
 {
 	public $mysql_field = 'SMALLINT DEFAULT NULL';
+	public $type = "rating_button";
 	protected function setMoreOptions() 
 	{	
 		parent::setMoreOptions();
@@ -1200,6 +1206,7 @@ class Item_rating_button extends Item_mc_button
 class Item_mc_multiple_button extends Item_mc_multiple 
 {
 	public $mysql_field = 'VARCHAR (40) DEFAULT NULL';
+	public $type = "mc_multiple_button";
 	
 	protected function setMoreOptions() 
 	{
@@ -1213,7 +1220,7 @@ class Item_mc_multiple_button extends Item_mc_multiple
 		foreach($this->choices AS $value => $option):			
 		$ret .= '
 			<button class="btn" data-for="item' . $this->id . '_' . $value . '">' . 
-				$option.
+				"<span class='btn_value'>$value</span><span class='btn_label'>$option</span>".
 			'</button>';
 		endforeach;
 		$ret .= '</div>';
@@ -1495,13 +1502,14 @@ class Item_timezone extends Item_select_one
 		$this->choices = $zones;
 		$this->offsets = $offsets;
 		$this->classes_input[] = 'select2zone';
-	parent::setMoreOptions();
+		
+		parent::setMoreOptions();
 	}
 	protected function render_input() 
 	{
 		$ret = '<select '.self::_parseAttributes($this->input_attributes, array('type')).'>'; 
 		
-		if(!isset($this->input_attributes['multiple'])) $ret .= '<option value=""></option>';
+		if(!isset($this->input_attributes['multiple'])) $ret .= '<option value=""> </option>';
 		
 		foreach($this->choices AS $value => $option):
 			$ret .= '
