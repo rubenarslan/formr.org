@@ -216,7 +216,14 @@
 		 hide_label
 	 </dt>
 	 <dd>
-		 This hides the labels for mc and mc_multiple replies. Useful in combination with a fixed width for mc, mc_multiple labels and mc_heading – this way you can achieve a tabular layout.
+		 This hides the labels for mc and mc_multiple replies. Useful in combination with a fixed width for mc, mc_multiple labels and mc_heading – this way you can achieve a tabular layout. On small screens labels will automatically be displayed again, because the tabular layout cannot be maintained then.
+	 </dd>
+	 
+	 <dt>
+		 show_value_instead_of_label
+	 </dt>
+	 <dd>
+		 This hides the labels for mc_button and mc_multiple_button, instead it shows their values (useful numbers from 1 to x). Useful in combination with mc_heading – this way you can achieve a tabular layout. On small screens labels will automatically be displayed again, because the tabular layout cannot be maintained then.
 	 </dd>
 	 
 	 <dt>

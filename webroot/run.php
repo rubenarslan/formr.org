@@ -130,8 +130,6 @@ if($output):
 <?php
 	echo $output['body'];
 ?>
-	</div>
-</div>
 <?php
 	require_once INCLUDE_ROOT . 'View/footer.php';
 endif;

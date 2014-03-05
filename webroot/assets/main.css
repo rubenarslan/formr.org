@@ -144,7 +144,7 @@ a.btn.btn-checked {
   background-image: none;
   z-index:2;
   border:1px black solid;
-  outline: 1;
+  outline: 1px;
   -webkit-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
      -moz-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
           box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -204,7 +204,7 @@ form.form-horizontal div.form-row:nth-child(odd) {
 div.mc-table {
 /*  display: table;
 */}
-span.controls-inner {
+div.controls-inner {
     display:inline-block;
 }
 form.form-horizontal div.form-row div.controls div.mc-table label {
@@ -237,19 +237,6 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
 .form-horizontal .controls {
   	margin-left: 320px;
 }
-/*
-@media (min-width: 30em) {
-    ul {
-        display: table;
-        padding: 0;
-    }
-
-    li {
-        display: table-cell;
-        border: 1px solid;
-    }
-}
-*/
 
 .input-group input.has-input-buttons:focus,
 .input-group input.has-input-buttons:focus,
@@ -300,7 +287,7 @@ output.output {
 .form-group.form-row.range-list .form-control, .form-group.form-row.range .form-control
 
 {
-    max-width:auto;
+    max-width:inherit;
 }
 .range_ticks_output .controls-inner
 {
@@ -345,18 +332,6 @@ div.pos_changed input {
 	color:#49afcd;
 }
 
-/*responsive layouts for mobile */
-@media (max-width: 600px) { 
-	form.form-horizontal div.form-row.form-group .controls {
-		clear:both;
-		margin-left:0;
-		width:100%;
-	}
-	form.form-horizontal div.form-row.form-group .control-label {
-		text-align:left;
-		width:100%;
-	}
-}
 .all-alerts
 {
 /*	clear:both; */
@@ -603,6 +578,15 @@ form.form-horizontal div.answer_below_label .controls {
   clear: left;
 }
 
+
+.form-horizontal div.form-group.left0 .control-label {
+  width: 0px;
+  max-width: 0px;
+  overflow:hidden;
+}
+.form-horizontal div.form-group.left0 .controls {
+  	margin-left: 0px;
+}
 
 .form-horizontal div.form-group.left100 .control-label {
   width: 100px;
@@ -976,43 +960,43 @@ form.form-horizontal div.form-row.form-group.mc_vertical div.controls label {
 
 /* choice widths */
 
-form.form-horizontal div.form-row.form-group.mc-equal-widths div.controls {
+form.form-horizontal div.form-group.mc-equal-widths div.controls {
 /*  width:100%;*/
   table-layout:fixed;
 }
-form.form-horizontal div.form-row.form-group.mc-equal-widths div.controls label {
+form.form-horizontal div.form-group.mc-equal-widths div.controls label {
 	width:2%;
 }
-form.form-horizontal div.form-row.form-group.mc-width50 div.controls label:not(.keep-label),
-form.form-horizontal div.form-row.form-group.mc-width50 div.controls button.btn {
+form.form-horizontal div.form-group.mc-width50 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width50 div.controls button.btn {
 	width:50px;
 }
-form.form-horizontal div.form-row.form-group.mc-width60 div.controls label:not(.keep-label),
-form.form-horizontal div.form-row.form-group.mc-width60 div.controls button.btn {
+form.form-horizontal div.form-group.mc-width60 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width60 div.controls button.btn {
 	width:60px;
 }
-form.form-horizontal div.form-row.form-group.mc-width70 div.controls label:not(.keep-label),
-form.form-horizontal div.form-row.form-group.mc-width70 div.controls button.btn {
+form.form-horizontal div.form-group.mc-width70 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width70 div.controls button.btn {
 	width:70px;
 }
-form.form-horizontal div.form-row.form-group.mc-width80 div.controls label:not(.keep-label),
-form.form-horizontal div.form-row.form-group.mc-width80 div.controls button.btn {
+form.form-horizontal div.form-group.mc-width80 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width80 div.controls button.btn {
 	width:80px;
 }
-form.form-horizontal div.form-row.form-group.mc-width80 div.controls label:not(.keep-label),
-form.form-horizontal div.form-row.form-group.mc-width80 div.controls button.btn {
+form.form-horizontal div.form-group.mc-width80 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width80 div.controls button.btn {
 	width:90px;
 }
-form.form-horizontal div.form-row.form-group.mc-width100 div.controls label:not(.keep-label),
-form.form-horizontal div.form-row.form-group.mc-width100 div.controls button.btn {
+form.form-horizontal div.form-group.mc-width100 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width100 div.controls button.btn {
 	width:100px;
 }
-form.form-horizontal div.form-row.form-group.mc-width150 div.controls label:not(.keep-label),
-form.form-horizontal div.form-row.form-group.mc-width150 div.controls button.btn {
+form.form-horizontal div.form-group.mc-width150 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width150 div.controls button.btn {
 	width:150px;
 }
-form.form-horizontal div.form-row.form-group.mc-width200 div.controls label:not(.keep-label),
-form.form-horizontal div.form-row.form-group.mc-width200 div.controls button.btn {
+form.form-horizontal div.form-group.mc-width200 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width200 div.controls button.btn {
 	width:200px;
 }
 
@@ -1052,4 +1036,169 @@ form.form-horizontal div.form-row.form-group.rating_button_label_width200 div.co
 }
 form.form-horizontal div.form-row.form-group.hidden {
 	display:none;
+}
+
+
+.btn {
+    white-space: normal;
+}
+.btn .btn_value {
+    display:none;
+}
+
+.show_value_instead_of_label .btn .btn_value {
+    display:inline;
+}
+.show_value_instead_of_label .btn .btn_label {
+    display:none;
+}
+
+
+/*responsive layouts for mobile */
+@media (max-width: 768px) { 
+	form.form-horizontal div.form-row.form-group .controls {
+		clear:both;
+		margin-left:0;
+		width:100%;
+	}
+	form.form-horizontal div.form-row.form-group .control-label {
+		text-align:left;
+		width:100%;
+	}
+    /* always make mcs vertical on small screens */
+
+    form.form-horizontal div.form-row.form-group.item-mc  div.controls, 
+    form.form-horizontal div.form-row.form-group.item-mc_multiple div.controls,
+    form.form-horizontal div.form-row.form-group.item-mc_button div.controls,
+    form.form-horizontal div.form-row.form-group.item-mc_multiple_button div.controls {
+      display:block;
+    }
+    form.form-horizontal div.form-row.form-group.item-mc  div.controls label, 
+    form.form-horizontal div.form-row.form-group.item-mc_multiple div.controls label,
+    form.form-horizontal div.form-row.form-group.item-mc_button div.controls label,
+    form.form-horizontal div.form-row.form-group.item-mc_multiple_button div.controls label {
+      display:block;
+      padding-left:18px;
+      padding-right:5px;
+      padding-top:5px;
+      text-indent:-18px;
+    }
+    
+    
+    /* display mc_heading style displays on mobile, when question and choices stack, aren't side-by-side */
+    form.form-horizontal div.form-row.item-mc_heading.form-group  {
+        display:none;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label {
+    	text-align:inherit;
+    	text-indent:inherit;
+    	height:inherit;
+    	overflow:inherit;
+    	line-height:inherit;
+    	min-height:inherit;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label span {
+    	line-height:inherit;
+    	font-size:inherit;
+        visibility:visible;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
+        visibility:visible;
+    }
+    
+    form.form-horizontal div.form-row.form-group div.controls label:not(.keep-label),
+    form.form-horizontal div.form-row.form-group div.controls button.btn
+    {
+        width:100%;
+    }
+    
+    
+    /* make buttons show labels when they're shown vertically  */
+    
+    .show_value_instead_of_label.form-row .btn .btn_value {
+        display:none;
+    }
+    .show_value_instead_of_label.form-row .btn .btn_label {
+        display:inline;
+    }
+
+    /* make buttons go vertical on small screens  */
+    div.form-row.form-group .btn-group > .btn,
+    div.form-row.form-group .btn-group > .btn-group {
+      display: block;
+      float: none;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:before,
+    div.form-row.form-group .btn-group > .btn-group:after {
+      display: table;
+      content: " ";
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:after {
+      clear: both;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:before,
+    div.form-row.form-group .btn-group > .btn-group:after {
+      display: table;
+      content: " ";
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:after {
+      clear: both;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group > .btn {
+      float: none;
+    }
+
+    div.form-row.form-group .btn-group > .btn + .btn,
+    div.form-row.form-group .btn-group > .btn + .btn-group,
+    div.form-row.form-group .btn-group > .btn-group + .btn,
+    div.form-row.form-group .btn-group > .btn-group + .btn-group {
+      margin-top: -1px;
+      margin-left: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn:not(:first-child):not(:last-child) {
+      border-radius: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn:first-child:not(:last-child) {
+      border-top-right-radius: 4px;
+      border-bottom-right-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn:last-child:not(:first-child) {
+      border-top-right-radius: 0;
+      border-bottom-left-radius: 4px;
+      border-top-left-radius: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:not(:first-child):not(:last-child) > .btn {
+      border-radius: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:first-child > .btn:last-child,
+    div.form-row.form-group .btn-group > .btn-group:first-child > .dropdown-toggle {
+      border-bottom-right-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:last-child > .btn:first-child {
+      border-top-right-radius: 0;
+      border-top-left-radius: 0;
+    }
+    
+    /* special logic for rating_button  */
+    form.form-horizontal div.form-group.item-rating_button div.controls .controls-inner {
+        text-align:center;
+    }
+    form.form-horizontal div.form-group.item-rating_button div.controls  label.keep-label {
+        display:block;
+    }
 }
