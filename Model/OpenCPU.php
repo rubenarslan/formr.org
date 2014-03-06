@@ -68,9 +68,12 @@ class OpenCPU {
 "%contains%" = function(haystack, needle) {
     stringr::str_detect(haystack, stringr::fixed(as.character(needle)) )
 }
+current = function(x) {
+    tail(x, n)
+}
 
 '.$this->user_data.'
-with('.$results_table.', {
+with(tail('.$results_table.',1), { ## by default evaluated in the most recent results row
 '.$source.'
 })
 })() }');
