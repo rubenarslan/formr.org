@@ -433,6 +433,7 @@ function showIf()
                     var hide = ! eval(showif);
                     $(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
                     $(elm).find('input,select,textarea').prop('disabled', hide); // enable/disable depending on evaluation
+                    $(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
                 }
             }
             catch(e)
