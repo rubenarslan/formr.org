@@ -1,3 +1,78 @@
+Release 1.12.3
+----------
+
+- fixed removeAttr 'disabled' for fieldset[disabled] elements (fix by @outdooricon)
+- Enable attribute placeholders for custom error elements in Instant Form Validation
+- fix CSS bugs for IE8 in datepicker and range
+- compile Jarisplayer as Flash 10.x (fixe youtube advertisement bug https://code.google.com/p/gdata-issues/issues/detail?id=5911)
+
+Release 1.12.2
+----------
+
+- fixed grouped instant validation
+
+Release 1.12.1
+----------
+
+- improved intelligent calculation of basePath (now works with async loaded and renamed polyfiller, too)
+- fixed regression in IE8 on input type date prev/next buttons (https://github.com/aFarkas/webshim/issues/340)
+- added tooFixed option for input type=number (a good base for a currency input [demo](http://afarkas.github.io/webshim/demos/demos/cfgs/input-number.html#min=0&step=0.01&stepfactor=1000&toFixed=2))
+- added predefined styling configurations for mutliple widgets ([range](http://afarkas.github.io/webshim/demos/demos/cfgs/input-range.html#&max=50&list=range-list&show-activelabeltooltip=on&show-tickvalues=on), [date](http://afarkas.github.io/webshim/demos/demos/cfgs/input-date.html#startView=2&splitInput=on&calculateWidth=on&show-week=on&hide-btnrow=on&hide-spinbtns=on&inputbtns-outside=on))
+- added yearSelect/monthSelect [and daySelect] option to type=month/date pickers ([month](http://afarkas.github.io/webshim/demos/demos/cfgs/input-month.html#yearSelect=on&monthSelect=on&placeholder=yyyy-mm&min=2014-02&max=2020-01&monthNames=monthNamesShort))
+- added noInlineValue to list/datalist ([demo](http://afarkas.github.io/webshim/demos/demos/cfgs/list-datalist.html#list=state-list&filter=^&highlight=on&noInlineValue=on))
+- improved descriptive errormessage markup
+- trigger invalid event on form element itself (only in polyfilled browsers)
+- new stepbase calculation using defaultValue if min isn't applied (only in polyfilled browsers)
+
+
+Release 1.12.0
+----------
+
+- new dir structure for bower (:root/js-webshim is the new folder for build js. :root/demos/js-webshim will be removed with next realease)
+- all locale js files are fetched using XHR (use setOptions('ajax', {crossDomain: true}) to disable)
+- transfer JS options for many pickers to CSS (i.e.: showWeek: true -> .input-picker .ws-week {display: table-cell})
+- fixed fieldset:disabled implementation [demo](http://jsfiddle.net/trixta/K8EPm/)
+- improved styles for type=range, datalist and progress element
+- most widgets are em scalable (base font is 13px)
+- fixed data-errormessage attribute
+- added grunt task to optimize polyfiller.js (-> grunt-tasks/optimize-polyfiller.js)
+- update flashcanvas fixes a security issue (with php)
+- a11y improvements
+
+Release 1.11.5 and 1.11.6
+----------
+
+- improved support for video width=auto/height=auto in combination with min-/max- / width/height
+- full support for jQuery mobile 1.3+
+- update es5-shim v.2.1.0
+- update Modernizr 2.7.1
+- youtube qualitity settings for Flash and iframe API (using ``vq`` parameter on src (/vq\=(small|medium|large|hd720|hd1080|highres)/i)
+- updated dutch language file (thx to @espaan)
+- a lot of undocumented option tweaks
+- implemented/polyfilled setSelectionRange/selectionStart/selectionEnd
+- added fieldset[disabled]/:disabled support (buggy, will be fixed with next release)
+
+Release 1.11.3
+----------
+
+- fixed regression error for time picker (i.e: t.time is undefined)
+- added full support for form reset
+- allow partial UI replacement (replaceUI can take an object instead of a boolean)
+- fix change/input event in capable browsers on type="range" (fixRangeChange option)
+- added czech and br language
+- added support for fieldset:invalid (but not polyfilled in capable browsers without support i.e.: Chrome)
+
+
+Release 1.11.2
+----------
+
+- split form-shims into two files (improves network performance for iOS/Safari7)
+- added getTrackById and onchange event to TrackList Object
+- improved stepUp/stepDown method
+- added touch support to input[type="range"]
+- fixed time picker
+- added support for defaultValue to all input widgets 
+
 Release 1.11.1
 ----------
 
