@@ -47,7 +47,7 @@ last = function(x, n = 1, na.rm = TRUE) {
 #' current( c(1:10,NA) )
 #' current( 1:10 )
 current = function(x) {
-    tail(x, n)
+    tail(x, 1)
 }
 
 
