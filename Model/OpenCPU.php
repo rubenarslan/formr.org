@@ -69,7 +69,7 @@ class OpenCPU {
     stringr::str_detect(haystack, stringr::fixed(as.character(needle)) )
 }
 current = function(x) {
-    tail(x, n)
+    tail(x, 1)
 }
 
 '.$this->user_data.'
