@@ -128,3 +128,5 @@ aggregate2sources = function(df, new_var, var1 = NULL, var2 = NULL, remove_old_v
 	message( paste(oldmiss - sum(is.na(df[, newvar]))	, " fewer missings") )
 	df
 }
+
+# todo: in_time_window() days_passed_since()
