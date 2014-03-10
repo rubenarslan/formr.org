@@ -23,6 +23,6 @@ The cronjob is necessary to send automated email reminders and the like. If you'
 
 ## Problems rolling out?
 * check htaccess config, commonly there are problems which can be fixed by appropriately setting RewriteBase
-* is results_backups writable?
+* is tmp writable?
 * define_root has a hardcoded path atm.
-* internal server errors: check permissions (tmp, backups), case-sensitive paths, htaccess path trouble
+* internal server errors: check permissions (tmp), case-sensitive paths, htaccess path trouble
