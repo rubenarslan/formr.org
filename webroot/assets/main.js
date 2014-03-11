@@ -183,6 +183,7 @@ $(document).ready(function() {
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 		$btn.closest('.controls').find('label[class!=keep-label]').addClass('hidden'); // hide normal radio buttons
         
+        new FastClick(this);
 		
         $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 	});
@@ -202,6 +203,8 @@ $(document).ready(function() {
         
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
+
+        new FastClick(this);
 
         $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 	});
@@ -230,6 +233,8 @@ $(document).ready(function() {
         
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 		$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
+        
+        new FastClick(this);
         
         $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 	});
@@ -304,7 +309,6 @@ $(document).ready(function() {
             escapeMarkup: function (m) { return m; }
 		}).on("change select2-open", function(e) {
             document.activeElement.blur();
-//           slct.find("input[type=text]").blur(); 
         });
         $.webshims.addShadowDom(slct, slct.select2("container"));
 	});

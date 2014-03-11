@@ -902,7 +902,7 @@ div.item-textarea textarea {
     height:200px;
 }
 div.item-geopoint input[type=text] {
-    width:350px;
+    width:250px;
 }
 form.form-horizontal div.form-row.item-mc_heading.form-group div.controls label {
 	text-align:center;
