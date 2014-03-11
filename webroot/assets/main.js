@@ -183,6 +183,7 @@ $(document).ready(function() {
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 		$btn.closest('.controls').find('label[class!=keep-label]').addClass('hidden'); // hide normal radio buttons
         
+        new FastClick(this);
 		
         $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 	});
@@ -202,6 +203,8 @@ $(document).ready(function() {
         
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
+
+        new FastClick(this);
 
         $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 	});
@@ -230,6 +233,8 @@ $(document).ready(function() {
         
 		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 		$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
+        
+        new FastClick(this);
         
         $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 	});
@@ -286,22 +291,25 @@ $(document).ready(function() {
 	{
 		var slct = $(elm); 
 		slct.select2({
-            width:400,
+            width: "element",
             dropdownCssClass: "bigdrop", // apply css that makes the dropdown taller
 			maximumSelectionSize: slct.attr('data-select2maximumSelectionSize'),
 			maximumInputLength: slct.attr('data-select2maximumInputLength'),
             formatResult: function(pill) {
-                var markup = "<table class='movie-result'><tr>";
-                markup += "<td class='movie-image' width='200'><img width='200px' alt='"+pill.text+"' src='/assets/img/pills/" + pill.id + ".jpg'/></td>";
-                    markup += "<td class='movie-info'><div class='movie-title'>" + pill.text + "</div>";
-                markup += "</td></tr></table>"
-                return markup;
+                if(pill.id != '')
+                {
+                    var markup = "<strong>" + pill.text + "</strong><br><img width='200px' alt='"+pill.text+"' src='assets/img/pills/" + pill.id + ".jpg'/>";
+                    return markup;
+                } else
+                return '';
             },
             formatSelection: function (pill) {
                 return pill.text;
             },
             escapeMarkup: function (m) { return m; }
-		});
+		}).on("change select2-open", function(e) {
+            document.activeElement.blur();
+        });
         $.webshims.addShadowDom(slct, slct.select2("container"));
 	});
 	

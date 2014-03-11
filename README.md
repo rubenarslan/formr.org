@@ -156,7 +156,7 @@ This is a graph showing how **your mood** fluctuated across the 50 days that you
 ## Installation
 
 If you want to test formr, you can simply clone this repository. 
-You need to rename the "config_default" directory to "config" and supply your database settings. You will also have to make the folders "tmp" and "backups" writeable. 
+You need to rename the "config_default" directory to "config" and supply your database settings. You will also have to make the folders in "tmp" writeable. 
 If you get internal server errors, these most likely stem from .htaccess files or the aforementioned folder permissions.
 
 ## Problems and plans
