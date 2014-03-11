@@ -1,14 +1,23 @@
 Package: formr
 Title: formr survey framework
-Description: The formr R package provides a few convenience functions 
-	that may be useful to the users of formr (formr.org), an online 
-	survey framework which heavily relies on R via openCPU. 
-	Some of the functions are for conveniently generating individual 
-	feedback graphics, some are just shorthands to make certain common 
-	operations in formr more palatable to R novices. 
+Description: The formr R package provides a few convenience functions
+    that may be useful to the users of formr (formr.org), an online
+    survey framework which heavily relies on R via openCPU.
+    Some of the functions are for conveniently generating individual
+    feedback graphics, some are just shorthands to make certain common
+    operations in formr more palatable to R novices.
 Version: 0.1
-Authors@R: # getOptions('devtools.desc.author')
-Depends: R (>= 3.0.2)
-Imports: ggplot2, stringr, lubridate
-License: # getOptions('devtools.desc.license')
+Authors@R: c(
+    person("Ruben", "Arslan",
+    email = "rubenarslan@gmail.com",
+    role = c("aut","cre"))
+    )
+Depends:
+    R (>= 3.0.2)
+Imports:
+    ggplot2,
+    stringr,
+    lubridate,
+    plyr
+License: BSD_2_clause + file LICENSE
 LazyData: true
