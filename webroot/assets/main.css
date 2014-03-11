@@ -326,8 +326,19 @@ body .select2-offscreen, body .select2-offscreen:focus {
 }
 body .select2-container
 {
-	min-width:200px;
+	min-width:250px;
 }
+.bigdrop.select2-container .select2-results {
+    max-height: 500px;
+}
+.bigdrop .select2-results {
+    max-height: 500px;
+}
+.select2pills
+{
+    width:250px;
+}
+
 div.pos_changed input {
 	color:#49afcd;
 }
@@ -402,8 +413,6 @@ div.all-alerts + div
     text-align:center;
     padding-bottom:10px;
 }
-.bigdrop.select2-container .select2-results {max-height: 300px;}
-.bigdrop .select2-results {max-height: 300px;}
 
 
 .add_run_unit span {
@@ -893,7 +902,7 @@ div.item-textarea textarea {
     height:200px;
 }
 div.item-geopoint input[type=text] {
-    width:350px;
+    width:250px;
 }
 form.form-horizontal div.form-row.item-mc_heading.form-group div.controls label {
 	text-align:center;

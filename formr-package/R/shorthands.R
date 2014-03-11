@@ -54,7 +54,7 @@ current = function(x) {
 #' check whether a character string contains another
 #'
 #' Just a simple shorthand so that inexperienced R users don't have
-#' to use somewhat complex functions such as \code{\link{grepl}} and \code{\link{stringr::str_detect}}
+#' to use somewhat complex functions such as \code{\link{grepl}} and \code{\link[stringr:str_detect]{str_detect}}
 #' with non-default arguments (e.g. fixed params).
 #'
 #' @param haystack string in which you search
@@ -96,9 +96,9 @@ miss_frac = function(df, vars = 1:NCOL(df)) {
 
 #' aggregates two variables from two sources into one
 #'
-#' This functions simply reports the number of missings as the
-#' percentage of the maximum number of rows.
-#' It also works on single variables.
+#' Takes two variables with different missings
+#' and gives one variable with values of the second
+#' variable substituted where the first had missings.
 #'
 #' @param df data.frame or variable
 #' @param new_var new variable name
@@ -107,25 +107,30 @@ miss_frac = function(df, vars = 1:NCOL(df)) {
 #' @param remove_old_variables Defaults to not keeping var1 and var2 in the resulting df.
 #' @export
 #' @examples
-#' 
+#' cars$dist.x = cars$dist
+#' cars$dist.y = cars$dist
+#' cars$dist.y[2:5] = NA
+#' cars$dist.x[10:15] = NA # sprinkle missings
+#' cars$dist = NULL # remove old variable
+#' cars = aggregate2sources(cars, 'dist')
 aggregate2sources = function(df, new_var, var1 = NULL, var2 = NULL, remove_old_variables = TRUE) {
 	if(is.null(var1) && is.null(var2)) {
-		var1 = paste0(newvar,".x")
-		var2 = paste0(newvar,".y")
+		var1 = paste0(new_var,".x")
+		var2 = paste0(new_var,".y")
 	}
-    if(exists(new_var, where = df), )) {
+    if(exists(new_var, where = df)) {
         warning(paste(new_var,"already exists. Maybe delete it or choose a different name, if you're saving over your original dataframe."))
     }
-	df[, newvar ] = df[ , var1 ]
-	oldmiss = sum(is.na(df[, newvar]))
-	df[ is.na( df[, var1] ) , newvar] = df[ is.na( df[, var1] ) , var2]
+	df[, new_var ] = df[ , var1 ]
+	oldmiss = sum(is.na(df[, new_var]))
+	df[ is.na( df[, var1] ) , new_var] = df[ is.na( df[, var1] ) , var2]
     
     if(remove_old_variables) {
     	df[, var1] = NULL
     	df[, var2] = NULL
     }
 	
-	message( paste(oldmiss - sum(is.na(df[, newvar]))	, " fewer missings") )
+	message( paste(oldmiss - sum(is.na(df[, new_var]))	, " fewer missings") )
 	df
 }
 
