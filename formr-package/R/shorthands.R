@@ -54,7 +54,7 @@ current = function(x) {
 #' check whether a character string contains another
 #'
 #' Just a simple shorthand so that inexperienced R users don't have
-#' to use somewhat complex functions such as \code{\link{grepl}} and \code{\link{stringr::str_detect}}
+#' to use somewhat complex functions such as \code{\link{grepl}} and \code{\link[stringr:str_detect]{str_detect}}
 #' with non-default arguments (e.g. fixed params).
 #'
 #' @param haystack string in which you search
