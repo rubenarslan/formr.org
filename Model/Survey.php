@@ -64,6 +64,8 @@ class Survey extends RunUnit {
 		return $this->settings;
 	}
 	public function render() {
+		global $js;
+		$js = (isset($js)?$js:'') . '<script src="'.WEBROOT.'assets/survey.js"></script>';
 		$ret = $this->render_form_header().
 		$this->render_items().
 		$this->render_form_footer();
