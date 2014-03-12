@@ -113,6 +113,7 @@ miss_frac = function(df, vars = 1:NCOL(df)) {
 #' cars$dist.x[10:15] = NA # sprinkle missings
 #' cars$dist = NULL # remove old variable
 #' cars = aggregate2sources(cars, 'dist')
+
 aggregate2sources = function(df, new_var, var1 = NULL, var2 = NULL, remove_old_variables = TRUE) {
 	if(is.null(var1) && is.null(var2)) {
 		var1 = paste0(new_var,".x")
