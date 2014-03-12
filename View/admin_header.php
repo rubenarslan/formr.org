@@ -17,15 +17,15 @@ if(strpos($_SERVER['SCRIPT_NAME'],'/survey/')!==FALSE AND strpos($_SERVER['SCRIP
 		$study = new Study($fdb,null,array('name' => $_GET['study_name']));
 
 		if(!$study->valid):
-			alert("<strong>Error:</strong> Study broken.",'alert-danger');
-			redirect_to("/index");
+			alert("<strong>Error:</strong> Survey does not exist.",'alert-danger');
+			not_found();
 		elseif(!$user->created($study)):
-			alert("<strong>Error:</strong> Not your study.",'alert-danger');
+			alert("<strong>Error:</strong> Not your survey.",'alert-danger');
 			redirect_to("/index");
 		endif;
 	else:
-		alert("<strong>Error:</strong> No study specified.",'alert-danger');
-		redirect_to("/index");
+		alert("<strong>Error:</strong> No survey specified.",'alert-danger');
+		not_found();
 	endif;
 elseif(strpos($_SERVER['SCRIPT_NAME'],'/run/')!==FALSE AND strpos($_SERVER['SCRIPT_NAME'],'/run/add_run.php')===FALSE):
 	if(isset($_GET['run_name'])):
@@ -33,15 +33,15 @@ elseif(strpos($_SERVER['SCRIPT_NAME'],'/run/')!==FALSE AND strpos($_SERVER['SCRI
 		$run = new Run($fdb, $_GET['run_name']);
 	
 		if(!$run->valid):
-			alert("<strong>Error:</strong> Run broken.",'alert-danger');
-			redirect_to("/index");
+			alert("<strong>Error:</strong> Run does not exist.",'alert-danger');
+			not_found();
 		elseif(!$user->created($run)):
 			alert("<strong>Error:</strong> Not your run.",'alert-danger');
 			redirect_to("/index");
 		endif;
 	else:
 		alert("<strong>Error:</strong> No run specified.",'alert-danger');
-		redirect_to("/index");
+		not_found();
 	endif;
 endif;
 
