@@ -158,7 +158,7 @@ formr robots";
 				return true;
 			}
 		}
-		$this->errors[]=_("Die Login Daten sind nicht korrekt");
+		$this->errors[]=_("<strong>Error.</strong> Your login credentials were incorrect.");
 		return false;
 	}
 	public function forgot_password($email)
