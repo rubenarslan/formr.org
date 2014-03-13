@@ -64,6 +64,8 @@ class Survey extends RunUnit {
 		return $this->settings;
 	}
 	public function render() {
+		global $js;
+		$js = (isset($js)?$js:'') . '<script src="'.WEBROOT.'assets/survey.js"></script>';
 		$ret = $this->render_form_header().
 		$this->render_items().
 		$this->render_form_footer();
@@ -280,6 +282,7 @@ class Survey extends RunUnit {
 			$name = $item['name'];
 			$this->unanswered_batch[$name] = $item_factory->make($item);
 //			pr($this->unanswered_batch[$name]);
+			$show = true;
 			$showif = $this->unanswered_batch[$name]->showif;
 			if($showif !== null AND $showif !== '' AND $showif !== "TRUE" AND trim($showif) !== '')
 			{
@@ -301,12 +304,29 @@ class Survey extends RunUnit {
 					
 					$show = $item_factory->showif($this->results_table, $openCPU, $showif);
 				}
+			}
+			if(!$show)
+			{
+				$this->unanswered_batch[$name]->hide();
+			}
+			
+			
+			// determine value if there is a dynamic one, but don't do so for skipped hidden items
+			if($this->unanswered_batch[$name]->no_user_input_required
+				AND $show AND
+				$this->unanswered_batch[$name]->needsDynamicValue()) // if there is a sticky value to be had and it's not numeric
+			{
 				
-				if(!$show)
-				{
-					$this->unanswered_batch[$name]->hide();
-//					unset($this->unanswered_batch[$name]); // todo: just hide it when we want JS
-				}
+				$openCPU = $this->makeOpenCPU();
+				$dataNeeded = $this->dataNeeded($this->dbh, $this->unanswered_batch[$name]->value );
+				$dataNeeded[] = $this->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
+				$dataNeeded = array_unique($dataNeeded); // no need to add it twice
+			
+				$openCPU->addUserData($this->getUserDataInRun(
+					$dataNeeded
+				));
+				
+				$this->unanswered_batch[$name]->determineDynamicValue($openCPU, $this->results_table);
 			}
 			// some items do not require user interaction at all
 			if($this->unanswered_batch[$name]->no_user_input_required)
@@ -418,27 +438,6 @@ class Survey extends RunUnit {
 				endif;
 			endif;
 						
-			if($item->value !== null): // if there is a sticky value to be had
-				if(is_numeric($item->value)):
-					$item->input_attributes['value'] = $item->value;
-				else:
-					$openCPU = $this->makeOpenCPU();
-					if($item->value=="sticky") $item->value = "tail(na.omit({$this->results_table}\${$item->name}),1)";
-					
-					$dataNeeded = $this->dataNeeded($this->dbh, $item->value );
-					$dataNeeded[] = $this->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
-					$dataNeeded = array_unique($dataNeeded); // no need to add it twice
-					
-					$openCPU->addUserData($this->getUserDataInRun(
-						$dataNeeded
-					));
-		
-					$item->input_attributes['value'] = h( $openCPU->evaluateWith($this->results_table, $item->value) );
-				endif;
-			else:
-				$item->presetValue = null;
-			endif;
-
 			$ret .= $item->render();
 
 	        // when the maximum number of items to display is reached, stop

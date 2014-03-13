@@ -318,6 +318,27 @@ class Item extends HTML_element
 		$this->input_attributes['disabled'] = true; ## so it isn't submitted or validated
 		$this->hidden = true; ## so it isn't submitted or validated
 	}
+	public function needsDynamicValue()
+	{
+		if($this->value !== null): // if there is a sticky value to be had
+			if(is_numeric($this->value)):
+				$this->input_attributes['value'] = $this->value;
+			else:
+				return true;
+			endif;
+		else:
+			$this->presetValue = null;
+		endif;
+		return false;
+	}
+	public function determineDynamicValue($openCPU, $results_table)
+	{
+		
+		if($this->value=="sticky") $this->value = "tail(na.omit({$results_table}\${$this->name}),1)";
+	
+		$this->input_attributes['value'] = h( $openCPU->evaluateWith($results_table, $this->value) );
+		
+	}
 }
 
 class Item_text extends Item
@@ -1334,6 +1355,7 @@ class Item_random extends Item_number
 class Item_calculate extends Item {
 	public $type = 'calculate';
 	public $input_attributes = array('type' => 'hidden');
+	public $no_user_input_required = true;
 	
 	public $mysql_field =  'TEXT DEFAULT NULL';
 	public function render() {

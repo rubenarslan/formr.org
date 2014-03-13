@@ -86,10 +86,15 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 			global $user;
 			if($user->isAdmin()):
 				alert($result['body'],'alert-danger',true);
-				alert("Dynamic R expressions can only be tested as part of a proper run. <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
+				alert("There was an R error. This may happen if you do not test as part of a proper run. <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
 			endif;
 			return null;
-		elseif(empty($parsed)):
+		elseif(empty($parsed) OR empty($parsed[0])):
+			global $user;
+			if($user->isAdmin()):
+				alert($result['body'],'alert-danger',true);
+				alert("This expression led to a null result. <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
+			endif;
 			return null;
 		else:
 			return $parsed[0];
