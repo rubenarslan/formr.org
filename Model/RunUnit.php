@@ -200,8 +200,8 @@ class RunUnit {
 		$this->survey_results = array();
 		foreach($surveys AS $survey_name): // fixme: shouldnt be using wildcard operator here.
 			if(!isset($this->survey_results[$survey_name])):
-				$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.* FROM `$survey_name` 
-				";
+				$q1 = "SELECT `survey_run_sessions`.session,`$survey_name`.*";
+				
 
 				if($this->run_session_id === NULL):
 					$q3
@@ -214,10 +214,13 @@ class RunUnit {
 				endif;
 			
 				if(!in_array($survey_name,array('survey_users','survey_unit_sessions'))):
+					$q1 .= ', `survey_run_units`.position AS position_in_run';
 					$q2 = "left join `survey_unit_sessions`
 						on `$survey_name`.session_id = `survey_unit_sessions`.id
 						left join `survey_run_sessions`
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+						left join `survey_run_units`
+						on `survey_run_units`.id = `survey_unit_sessions`.unit_id
 					";
 				
 				elseif($survey_name == 'survey_unit_sessions'):
@@ -225,15 +228,16 @@ class RunUnit {
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					";
 				elseif($survey_name == 'survey_users'):
-					$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.email,`$survey_name`.user_code,`$survey_name`.email_verified FROM `$survey_name` 
-					";
+					$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.email,`$survey_name`.user_code,`$survey_name`.email_verified";
 					$q2 = "left join `survey_run_sessions`
 						on `survey_users`.id = `survey_run_sessions`.user_id
 					";
 				endif;
+				$q1 .= " FROM `$survey_name` 
+				";
 			
 				$q = $q1 . $q2 . $q3;
-	
+				pr($q);
 				$get_results = $this->dbh->prepare($q);
 				if($this->run_session_id === NULL):
 					$get_results->bindValue(':session_id', $this->session_id);
