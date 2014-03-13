@@ -237,7 +237,7 @@ class RunUnit {
 				";
 			
 				$q = $q1 . $q2 . $q3;
-				pr($q);
+			
 				$get_results = $this->dbh->prepare($q);
 				if($this->run_session_id === NULL):
 					$get_results->bindValue(':session_id', $this->session_id);
