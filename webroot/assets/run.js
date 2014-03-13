@@ -54,9 +54,11 @@ RunUnit.prototype.init = function(content)
 	mouseleave(function(){
 		$(this).removeClass('btn-danger');	
 	});
-    if(this.block.find('textarea')[0])
+    
+    var textareas = this.block.find('textarea');
+    if(textareas[0])
     {
-        this.textarea = this.block.find('textarea');
+        this.textarea = $(textareas[0]);
         var mode = this.textarea.data('editor');
 
         var editDiv = $('<div>', {
@@ -88,6 +90,41 @@ RunUnit.prototype.init = function(content)
         this.editor.setTheme("ace/theme/textmate");
     	this.editor.on('change',$.proxy(this.changes,this));
     }
+    if(textareas[1])
+    {
+        this.textarea2 = $(textareas[1]);
+        var mode = this.textarea2.data('editor');
+
+        var editDiv = $('<div>', {
+            position: 'absolute',
+            width: this.textarea2.width(),
+            height: this.textarea2.height(),
+            'class': this.textarea2.attr('class')
+        }).insertBefore(this.textarea2);
+
+ //       textarea.css('visibility', 'hidden');
+        this.textarea2.css('display', 'none');
+
+ //       ace.require("ace/ext/language_tools");
+
+        this.editor = ace.edit(editDiv[0]);
+        this.editor.setOptions({
+            minLines: 5,
+            maxLines: 30
+        });
+        this.editor.renderer.setShowGutter(false);
+        this.session2 = this.editor.getSession();
+        this.session2.setValue(this.textarea2.val());
+        this.session2.setUseWrapMode(true);
+        this.session2.setWrapLimitRange(42, 42);
+ //       this.editor.setOptions({
+ //           enableBasicAutocompletion: true
+ //       });
+        this.session2.setMode("ace/mode/" + mode);
+        this.editor.setTheme("ace/theme/textmate");
+    	this.editor.on('change',$.proxy(this.changes,this));
+    }
+
     
 //	hookUpAceToTextareas();
 };
@@ -152,6 +189,8 @@ RunUnit.prototype.save = function(e)
 
     if(this.session)
         this.textarea.val(this.session.getValue());
+    if(this.session2)
+        this.textarea2.val(this.session.getValue());
     
 	var $unit = this.block;
 	$.ajax(
