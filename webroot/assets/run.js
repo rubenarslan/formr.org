@@ -190,7 +190,7 @@ RunUnit.prototype.save = function(e)
     if(this.session)
         this.textarea.val(this.session.getValue());
     if(this.session2)
-        this.textarea2.val(this.session.getValue());
+        this.textarea2.val(this.session2.getValue());
     
 	var $unit = this.block;
 	$.ajax(
