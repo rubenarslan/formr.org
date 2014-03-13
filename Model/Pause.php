@@ -212,26 +212,28 @@ class Pause extends RunUnit {
 				$relative_to = $openCPU->evaluate($this->relative_to);
 			endif;
 		
+			$bind_relative_to = false;
+		
 			if(!$wait_minutes_true AND $relative_to_true): // if no wait minutes but a relative to was defined, we just use this as the param (useful for complex R expressions)
-				if($relative_to === true)
+				if($relative_to === true):
 					$conditions['relative_to'] = "1=1";
-				elseif($relative_to === false)
+				elseif($relative_to === false):
 					$conditions['relative_to'] = "0=1";
-				elseif(strtotime($relative_to))
+				elseif(strtotime($relative_to)):
 					$conditions['relative_to'] = ":relative_to <= NOW()";
-				else
-				{
+					$bind_relative_to = true;
+				else:
 					alert("Relative to yields neither true nor false, nor a date, nor a time.", 'alert-danger');
 					return false;
-				}
+				endif;
 			elseif($wait_minutes_true): 		// if a wait minutes was defined by user, we need to add it's condition
-				if(strtotime($relative_to))
+				if(strtotime($relative_to)):
 					$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
-				else
-				{
+					$bind_relative_to = true;
+				else:
 					alert("Relative to yields neither true nor false, nor a date, nor a time.", 'alert-danger');
 					return false;
-				}
+				endif;
 			endif;
 		
 			if($this->wait_until_date AND $this->wait_until_date != '0000-00-00'):
@@ -249,8 +251,8 @@ class Pause extends RunUnit {
 				$evaluate = $this->dbh->prepare($q); // should use readonly
 				if(isset($conditions['minute'])):
 					$evaluate->bindValue(':wait_minutes',$this->wait_minutes);
-					$evaluate->bindValue(':relative_to',$relative_to);
-				elseif(isset($conditions['relative_to'])):
+				endif;
+				if($bind_relative_to):
 					$evaluate->bindValue(':relative_to',$relative_to);
 				endif;
 			
