@@ -36,7 +36,7 @@ header ('Content-type: text/html; charset=utf-8');
 			<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
 			<script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
 			<script src="<?=WEBROOT?>assets/modernizr-2.6.2-respond-1.1.0.min.js"></script>
-			<script src="//cdnjs.cloudflare.com/ajax/libs/fastclick/0.6.11/fastclick.min.js"></script>
+			<script src="//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.0/fastclick.min.js"></script>
 			<script src="<?=WEBROOT?>assets/bower_components/webshim/js-webshim/minified/polyfiller.js"></script>
 <?php //			<script src="//cdn.jsdelivr.net/webshim/1.11.3/polyfiller.js"></script>
 ?>			<script type="text/javascript" src="//cdn.jsdelivr.net/select2/3.4.5/select2.min.js"></script>
@@ -67,7 +67,7 @@ header ('Content-type: text/html; charset=utf-8');
 			<script src="<?=WEBROOT?>assets/bower_components/jquery/jquery.js"></script>
 			<script src="<?=WEBROOT?>assets/bower_components/bootstrap/dist/js/bootstrap.js"></script>
 			<script src="<?=WEBROOT?>assets/modernizr-2.6.2-respond-1.1.0.min.js"></script>
-			<script src="<?=WEBROOT?>assets/bower_components/fastclick/lib/fastclick.js"></script>
+			<script src="<?=WEBROOT?>assets/bower_components/fastclick/lib/fastclick.js"></script> 
 			
 			<script src="<?=WEBROOT?>assets/bower_components/webshim/js-webshim/minified/polyfiller.js"></script>
 			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/select2/select2.js"></script>
@@ -78,14 +78,14 @@ header ('Content-type: text/html; charset=utf-8');
 					<!---
 				<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/dropzone/downloads/dropzone.js"></script>	
 	-->	
-		<?php
+			<?php
 			endif;
 			?>
 		<?php
 		endif;
 		?>
 		<script src="<?=WEBROOT?>assets/main.js"></script>
-		<script type="text/javascript" src="<?=WEBROOT?>assets/highlight/highlight.pack.js"></script>
+		<script src="<?=WEBROOT?>assets/highlight/highlight.pack.js"></script>
 		
 		<?php echo isset($js)?$js:'' ?>
 </head>
