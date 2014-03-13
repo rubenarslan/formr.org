@@ -50,12 +50,16 @@ class OpenCPU {
 			})() }');
 			
 		$result = $this->identity($post,$return);
+		
 		$parsed = json_decode($result['body'], true);
+
 		if($parsed===null):
 			alert($result,'alert-danger');
 			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-danger');
 			return null;
-		elseif(empty($parsed)):
+		elseif(empty($parsed) OR $parsed[0]===NULL):
+			alert($result['body'],'alert-danger',true);
+			alert("This expression led to a null result. <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
 			return null;
 		else:
 			return $parsed[0];
@@ -89,7 +93,7 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 				alert("There was an R error. This may happen if you do not test as part of a proper run. <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
 			endif;
 			return null;
-		elseif(empty($parsed) OR empty($parsed[0])):
+		elseif(empty($parsed) OR $parsed[0]===NULL):
 			global $user;
 			if($user->isAdmin()):
 				alert($result['body'],'alert-danger',true);
@@ -108,6 +112,7 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 '.$source.'
 })() }');
 		$result = $this->identity($post,$return);
+		
 		return $this->debugCall($result);
 	}
 	

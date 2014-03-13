@@ -99,13 +99,13 @@ class Pause extends RunUnit {
 		$dialog = '<p>
 				
 				<label class="inline hastooltip" title="Leave empty so that this does not apply">wait until time: 
-				<input style="width:200px" class="form-control" type="time" placeholder="daybreak" name="wait_until_time" value="'.$this->wait_until_time.'">
+				<input style="width:200px" class="form-control" type="time" placeholder="e.g. 12:00" name="wait_until_time" value="'.$this->wait_until_time.'">
 				</label> <strong>and</strong>
 				
 				</p>
 				<p>
 				<label class="inline hastooltip" title="Leave empty so that this does not apply">wait until date: 
-				<input style="width:200px" class="form-control" type="date" placeholder="the next day" name="wait_until_date" value="'.$this->wait_until_date.'">
+				<input style="width:200px" class="form-control" type="date" placeholder="e.g. 01.01.2000" name="wait_until_date" value="'.$this->wait_until_date.'">
 				</label> <strong>and</strong>
 				
 				</p>
@@ -118,7 +118,7 @@ class Pause extends RunUnit {
 					</span>
 					
 				 <label class="inline">relative to 
-					<textarea data-editor="r" style="width:350px" rows="4" class="form-control" placeholder="arriving at this pause" name="relative_to">'.$this->relative_to.'</textarea>
+					<textarea data-editor="r" style="width:350px;" rows="4" class="form-control" placeholder="arriving at this pause" name="relative_to">'.$this->relative_to.'</textarea>
 					</label
 				</p> 
 		<p><label>Text to show while waiting: <br>
@@ -139,6 +139,7 @@ class Pause extends RunUnit {
 	}
 	public function test()
 	{
+		
 		// fetch a couple of sample session
 		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
@@ -161,7 +162,6 @@ class Pause extends RunUnit {
 			return false;
 		endif;
 		
-		
 		echo "<h3>Pause message</h3>";
 		
 		echo $this->getParsedBodyAdmin($this->body);
@@ -179,16 +179,16 @@ class Pause extends RunUnit {
 	
 		// disambiguate what user meant
 		if($wait_minutes_true AND !$relative_to_true):  // user said wait minutes relative to, implying a relative to
-			$this->relative_to = 'tail(na.omit(survey_unit_sessions$created),1)'; // we take this as implied, this is the time someone arrived at this pause
+			$this->relative_to = 'tail(survey_unit_sessions$created,1)'; // we take this as implied, this is the time someone arrived at this pause
 			$relative_to_true = true;
 		endif;
 
 		$openCPU->addUserData($this->getUserDataInRun(
 			$this->dataNeeded($this->dbh,$this->relative_to)
 		));
-
-		echo $openCPU->evaluateAdmin($this->relative_to);
 		
+		echo $openCPU->evaluateAdmin($this->relative_to);
+
 		echo '<table class="table table-striped">
 				<thead><tr>
 					<th>Code</th>
@@ -213,9 +213,25 @@ class Pause extends RunUnit {
 			endif;
 		
 			if(!$wait_minutes_true AND $relative_to_true): // if no wait minutes but a relative to was defined, we just use this as the param (useful for complex R expressions)
-				$conditions['relative_to'] = ":relative_to <= NOW()";
+				if($relative_to === true)
+					$conditions['relative_to'] = "1=1";
+				elseif($relative_to === false)
+					$conditions['relative_to'] = "0=1";
+				elseif(strtotime($relative_to))
+					$conditions['relative_to'] = ":relative_to <= NOW()";
+				else
+				{
+					alert("Relative to yields neither true nor false, nor a date, nor a time.", 'alert-danger');
+					return false;
+				}
 			elseif($wait_minutes_true): 		// if a wait minutes was defined by user, we need to add it's condition
-				$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
+				if(strtotime($relative_to))
+					$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
+				else
+				{
+					alert("Relative to yields neither true nor false, nor a date, nor a time.", 'alert-danger');
+					return false;
+				}
 			endif;
 		
 			if($this->wait_until_date AND $this->wait_until_date != '0000-00-00'):
@@ -229,7 +245,7 @@ class Pause extends RunUnit {
 				$condition = implode($conditions," AND ");
 
 				$q = "SELECT ( {$condition} ) AS test LIMIT 1";
-			
+				
 				$evaluate = $this->dbh->prepare($q); // should use readonly
 				if(isset($conditions['minute'])):
 					$evaluate->bindValue(':wait_minutes',$this->wait_minutes);
