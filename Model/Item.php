@@ -336,8 +336,7 @@ class Item extends HTML_element
 		
 		if($this->value=="sticky") $this->value = "tail(na.omit({$results_table}\${$this->name}),1)";
 	
-		$this->input_attributes['value'] = h( $openCPU->evaluateWith($results_table, $this->value) );
-		
+		$this->input_attributes['value'] = $openCPU->evaluateWith($results_table, $this->value);
 	}
 }
 
