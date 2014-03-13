@@ -58,7 +58,7 @@ foreach($results AS $row):
 
     // $row is array... foreach( .. ) puts every element
     // of $row to $cell variable
-	$row->type = implode(" ", array('<b>'.$row->type.'</b>', $row->choice_list, '<i>'.$row->type_options . '</i>'));
+	$row->type = implode(" ", array('<b>'.$row->type.'</b>', ($row->choice_list == $row->name)?'': $row->choice_list, '<i>'.$row->type_options . '</i>'));
     foreach($use_columns AS $field):
 		$cell = $row->$field;
 		
@@ -87,6 +87,7 @@ foreach($results AS $row):
 		
 		else:
 			if($field == 'label_parsed' AND $cell === null) $cell = $row->label;
+			if(($field == 'value' OR $field == 'showif') AND $cell != '') $cell = "<pre><code class='r'>$cell</code></pre>";
 	        echo "<td>$cell</td>";
 		endif;
 	endforeach;
