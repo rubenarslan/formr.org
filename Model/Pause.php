@@ -111,15 +111,14 @@ class Pause extends RunUnit {
 				</p>
 				<p class="well well-sm">
 					<span class="input-group">
-						<input class="form-control" type="number" placeholder="wait this many minutes" name="wait_minutes" value="'.$this->wait_minutes.'">
+						<input class="form-control" type="number" style="width:230px" placeholder="wait this many minutes" name="wait_minutes" value="'.$this->wait_minutes.'">
 				        <span class="input-group-btn">
-					
 							<button class="btn btn-default from_days hastooltip" title="Enter a number of days and press this button to convert them to minutes (*60*24)"><small>convert days</small></button>
 						</span>
 					</span>
 					
 				 <label class="inline">relative to 
-					<input class="form-control" type="text" placeholder="arriving at this pause" name="relative_to" value="'.$this->relative_to.'">
+					<textarea data-editor="r" style="width:350px" rows="4" class="form-control" placeholder="arriving at this pause" name="relative_to">'.$this->relative_to.'</textarea>
 					</label
 				</p> 
 		<p><label>Text to show while waiting: <br>
