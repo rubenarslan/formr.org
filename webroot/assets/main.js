@@ -27,8 +27,8 @@ $(document).ready(function() {
         replace(encodeURIComponent("\r\n\r\n"),"");
         $(".schmail").attr('href',schmail);
     }
-    
-    new FastClick($(".navbar-toggle")[0]); // particularly annoying if this one doesn't fastclick
+    if($(".navbar-toggle").length == 1)
+        new FastClick($(".navbar-toggle")[0]); // particularly annoying if this one doesn't fastclick
     
 	$('*[title]').tooltip({
 		container: 'body'
