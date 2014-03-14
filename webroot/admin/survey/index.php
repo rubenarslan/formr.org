@@ -15,7 +15,7 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 
 <div class="row">
 	<div class="col-lg-7">
-		<h2><?=_('Study settings'); ?></h2>
+		<h2><?=_('Survey settings'); ?></h2>
 	
 		<form method="POST" action="<?=WEBROOT?>admin/survey/<?=$study->name?>/index">
 			<table class="table table-striped editstudies">

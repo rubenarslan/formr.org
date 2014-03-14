@@ -428,7 +428,7 @@ This study is currently being serviced. Please return at a later time."));
 		
 	}
 	
-	public function getUnitAdmin($id)
+	public function getUnitAdmin($id, $position)
 	{
 		$g_unit = $this->dbh->prepare(
 		"SELECT 
@@ -449,11 +449,14 @@ This study is currently being serviced. Please return at a later time."));
 		
 		WHERE 
 			`survey_run_units`.run_id = :run_id AND
-			`survey_run_units`.unit_id = :unit_id
+			`survey_run_units`.unit_id <=> :unit_id AND
+			`survey_run_units`.position = :position
 		LIMIT 1
 		;");
+		if($id=='') $id = NULL;
 		$g_unit->bindParam(':run_id',$this->id);
 		$g_unit->bindParam(':unit_id',$id);
+		$g_unit->bindParam(':position',$position);
 		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
 
 		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
@@ -532,10 +535,7 @@ This study is currently being serviced. Please return at a later time."));
 			alert("Missing unit! $id", 'alert-danger');
 			return false;
 		}
-		
-		if($unit['type']==='Survey'):
-			$unit['type'] = 'Study';
-		endif;
+
 		
 		$unit['run_name'] = $this->name;
 		return $unit;

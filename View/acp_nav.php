@@ -26,7 +26,7 @@
 		  				<b class="caret"></b>
 		  			</a>
 				  <ul class="dropdown-menu">
-			  		<li <?=endsWith($_SERVER['SCRIPT_NAME'],'add_study.php')?' class="active"':''?>>
+			  		<li <?=endsWith($_SERVER['SCRIPT_NAME'],'add_survey.php')?' class="active"':''?>>
 			  			<a href="<?=WEBROOT?>admin/survey/"><?php echo _("create new survey"); ?></a>
 			  		</li>
 				<?php
@@ -215,7 +215,7 @@ $resultCount = $study->getResultCount();
 
 	<li class="nav-header"><i class="fa-li fa fa-bolt"></i> Danger Zone</li>
 
-	<li <?=endsWith($_SERVER['SCRIPT_NAME'],'admin/survey/delete_study.php')?' class="active"':''?>>
+	<li <?=endsWith($_SERVER['SCRIPT_NAME'],'admin/survey/delete_Survey.php')?' class="active"':''?>>
 		<a class="hastooltip" title="Go to deletion dialog, does not delete yet" href="<?=WEBROOT?>admin/survey/<?=$study->name?>/delete_study">
 			<i class="fa-li fa fa-trash-o"></i> Delete study</a>
 	</li>

@@ -30,13 +30,13 @@ class FirstTest extends PHPUnit_Framework_TestCase
 #	public function testUploadOfAllWidgetsTable()
 #	{
 #		require_once INCLUDE_ROOT . "Model/Site.php";
-#		require_once INCLUDE_ROOT . "Model/Study.php";
+#		require_once INCLUDE_ROOT . "Model/Survey.php";
 #		
-#		$study = new Study($fdb, null, array(
+#		$study = new Survey($fdb, null, array(
 #			'name' => 'all_widgets',
 #			'user_id' => 1
 #		));
-#		$this->assertEquals(TRUE, $study->create() );
+#		$this->assertEquals(TRUE, $study->createIndependently() );
 #		$works = $study->uploadItemTable(INCLUDE_ROOT."/webroot/assets/example_surveys/all_widgets.xlsx");
 #		$this->assertEquals(TRUE, $works);
 #	}

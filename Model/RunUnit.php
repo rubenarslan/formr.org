@@ -6,7 +6,8 @@ class RunUnitFactory
 	public function make($dbh, $session, $unit)
 	{
 		$type = $unit['type'];
-		if(!in_array($type, array('Survey', 'Study','Pause','Email','External','Page','SkipBackward','SkipForward','Shuffle')))
+		if($type == '') $type = 'Survey';
+		if(!in_array($type, array('Survey','Pause','Email','External','Page','SkipBackward','SkipForward','Shuffle')))
 			die('The unit type is not allowed!');
 	
 		require_once INCLUDE_ROOT . "Model/$type.php";
@@ -82,16 +83,35 @@ class RunUnit {
 		
 		return $success;
 	}
+	public function linkToRun($run_id, $position = 1)
+	{
+		if($position=='NaN') $position = 1;
+		$this->position = (int)$position;
+		$d_run_unit = $this->dbh->prepare("UPDATE `survey_run_units` SET 
+			unit_id = :id
+		WHERE 
+		run_id = :run_id AND
+		position = :position
+	;");
+		$d_run_unit->bindParam(':id', $this->id);
+		$d_run_unit->bindParam(':run_id', $run_id);
+		$d_run_unit->bindParam(':position', $this->position);
+		$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
+		return $d_run_unit->rowCount();
+	}
 	public function addToRun($run_id, $position = 1)
 	{
 		if($position=='NaN') $position = 1;
 		$this->position = (int)$position;
+		/*
 		$s_run_unit = $this->dbh->prepare("SELECT id FROM `survey_run_units` WHERE unit_id = :id AND run_id = :run_id;");
 		$s_run_unit->bindParam(':id', $this->id);
 		$s_run_unit->bindParam(':run_id', $run_id);
 		$s_run_unit->execute() or ($this->errors = $s_run_unit->errorInfo());
 		
 		if($s_run_unit->rowCount()===0):
+		*/
+		
 			$d_run_unit = $this->dbh->prepare("INSERT INTO `survey_run_units` SET 
 				unit_id = :id, 
 			run_id = :run_id,
@@ -102,14 +122,23 @@ class RunUnit {
 			$d_run_unit->bindParam(':position', $this->position);
 			$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
 			return $d_run_unit->rowCount();
+		/*
 		endif;
 		return $s_run_unit->rowCount();
+		*/
 	}
 	public function removeFromRun($run_id)
 	{
-		$d_run_unit = $this->dbh->prepare("DELETE FROM `survey_run_units` WHERE unit_id = :id AND run_id = :run_id;");
-		$d_run_unit->bindParam(':id', $this->id);
+		if($this->id==='') $this->id = null;
+
+		$d_run_unit = $this->dbh->prepare("DELETE FROM `survey_run_units` WHERE 
+			run_id = :run_id AND
+			unit_id <=> :unit_id AND
+			position = :position
+		;");
+		$d_run_unit->bindParam(':unit_id', $this->id);
 		$d_run_unit->bindParam(':run_id', $run_id);
+		$d_run_unit->bindParam(':position', $this->position);
 		$d_run_unit->execute() or ($this->errors = $d_run_unit->errorInfo());
 		
 		return $d_run_unit->rowCount();

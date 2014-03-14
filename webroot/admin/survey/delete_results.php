@@ -11,7 +11,7 @@ if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name)
 }
 elseif(isset($_POST['delete']))
 {
-	alert("<b>Error:</b> Study's name must match '{$study->name}' to delete results.",'alert-danger');
+	alert("<b>Error:</b> Survey's name must match '{$study->name}' to delete results.",'alert-danger');
 }
 
 $resultCount = $study->getResultCount();
