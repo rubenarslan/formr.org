@@ -10,15 +10,15 @@ elseif(isset($_FILES['uploaded']))
 {
 	unset($_SESSION['study_id']);
 	unset($_GET['study_name']);
-	require_once INCLUDE_ROOT . "Model/Study.php";
+	require_once INCLUDE_ROOT . "Model/Survey.php";
 	$filename = basename( $_FILES['uploaded']['name']);
 	$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/","$1",$filename); // take only the first part, before the dash if present or the dot
 
-	$study = new Study($fdb, null, array(
+	$study = new Survey($fdb, null, array(
 		'name' => $survey_name,
 		'user_id' => $user->id
 	));
-	if($study->create())
+	if($study->createIndependently())
 	{	
 		if($study->uploadItemTable($_FILES['uploaded']))
 		{

@@ -12,9 +12,10 @@ if(strpos($_SERVER['SCRIPT_NAME'],'/superadmin/')!==FALSE AND !$user->isSuperAdm
 
 if(strpos($_SERVER['SCRIPT_NAME'],'/survey/')!==FALSE AND strpos($_SERVER['SCRIPT_NAME'],'/survey/add_survey.php')===FALSE):
 	if(isset($_GET['study_name'])):
-		require_once INCLUDE_ROOT . "Model/Study.php";
+		require_once INCLUDE_ROOT . "Model/Survey.php";
 
-		$study = new Study($fdb,null,array('name' => $_GET['study_name']));
+		$study = new Survey($fdb,null,array('name' => $_GET['study_name']));
+
 
 		if(!$study->valid):
 			alert("<strong>Error:</strong> Survey does not exist.",'alert-danger');
