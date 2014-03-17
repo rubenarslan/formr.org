@@ -8,7 +8,7 @@ class Shuffle extends RunUnit {
 	public $unit = null;
 	private $groups = 2;
 	public $ended = false;
-	public $type = 'shuffle';
+	public $type = 'Shuffle';
 	public $icon = "fa-random";
 	
 	

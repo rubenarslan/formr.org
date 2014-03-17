@@ -13,7 +13,7 @@ class Page extends RunUnit {
 	private $title = '';
 	private $can_be_ended = 0;
 	public $ended = false;
-	public $type = 'endpage';
+	public $type = 'Endpage';
 	public $icon = "fa-stop";
 	
 	

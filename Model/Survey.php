@@ -30,6 +30,7 @@ class Survey extends RunUnit {
 	public $position;
 	private $SPR;
 	public $icon = "fa-pencil-square-o";
+	public $type = "Survey";
 	
 	public function __construct($fdb, $session, $unit)
 	{

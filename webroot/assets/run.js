@@ -67,7 +67,7 @@ RunUnit.prototype.init = function(content)
         this.textarea2 = $(textareas[1]);
         this.session2 = this.hookAceToTextarea(this.textarea2);
     }
-
+    this.serialize();
 };
 RunUnit.prototype.position_changes = function (e) 
 {
@@ -228,6 +228,22 @@ RunUnit.prototype.removeFromRun = function(e)
 	return false;
 };
 
+RunUnit.prototype.serialize = function()
+{
+    var arr = this.save_inputs.serializeArray();
+    var myself = {};
+
+    myself['type'] = this.block.find('.run_unit_inner').data('type');
+    for(var i = 0; i<arr.length; i++)
+    {
+        if(arr[i].name != "unit_id" && arr[i].name != "run_unit_id" && arr[i].name.substr(0,8) != "position")
+            myself[arr[i].name] = arr[i].value; 
+        else if( arr[i].name.substr(0,8) == "position")
+            myself['position'] = arr[i].value; 
+    }
+    return myself;
+}
+
 
 function loadNextUnit(units)
 {
@@ -248,6 +264,35 @@ function loadNextUnit(units)
 			}
 		});
 	}
+}
+function exportUnits()
+{
+    var units = {};
+    for(var i = 0; i < $run_units.length; i++)
+    {
+        var unit = $run_units[i].serialize();
+        units[unit.position] = unit;
+    }
+    var json = JSON.stringify(units, null, "\t");
+	var $modal = $($.parseHTML('<div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">                     <div class="modal-dialog">                         <div class="modal-content">                              <div class="modal-header">                                 <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>                                 <h3>JSON export of modules</h3>                             </div>                             <div class="modal-body"><h4>Click to select</h4><pre><code class="hljs json">' + json + '</code></pre></div>                             <div class="modal-footer">                             <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>                         </div>                     </div>                 </div>'));
+
+	$modal.modal('show').on('hidden.bs.modal',function() {
+	    $modal.remove();
+	});
+    var code_block = $modal.find('pre code');
+    console.log(code_block);
+    hljs.highlightBlock(code_block.get(0));
+    code_block.on('click', function(e){
+        if (document.selection) {
+            var range = document.body.createTextRange();
+            range.moveToElementText(this);
+            range.select();
+        } else if (window.getSelection) {
+            var range = document.createRange();
+            range.selectNode(this);
+            window.getSelection().addRange(range);
+        }
+    });
 }
 $(document).ready(function () {
 	if(typeof autosaveglobal === 'undefined') {
@@ -328,7 +373,15 @@ $(document).ready(function () {
 		return false;
 	});
 	
-	$reorderer = $('#edit_run').find('a.reorder_units');
+	$exporter = $('#edit_run').find('a.export_run_units');
+    
+    $exporter.click(function(e)
+    {
+		e.preventDefault();
+        exportUnits();
+    });
+	
+    $reorderer = $('#edit_run').find('a.reorder_units');
 	
 	$reorderer
 	.click(function (e) 
