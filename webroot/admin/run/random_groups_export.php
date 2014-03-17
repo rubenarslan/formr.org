@@ -46,10 +46,11 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 }
 require_once INCLUDE_ROOT.'Model/SpreadsheetReader.php';
 
-if(isset($_GET['format']) AND !in_array($_GET['format'], array('csv','csv_german','tsv','xlsx','xls'))) die("invalid format");
+$SPR = new SpreadsheetReader();
+
+if(isset($_GET['format']) AND !in_array($_GET['format'], $SPR->exportFormats)) die("invalid format");
 $format = $_GET['format'];
 
-$SPR = new SpreadsheetReader();
 if($format == 'xlsx')
 	$SPR->exportXLSX($users,"Shuffle_Run_".$run->name);
 elseif($format == 'xls')
@@ -58,6 +59,8 @@ elseif($format == 'csv_german')
 	$SPR->exportCSV_german($users,"Shuffle_Run_".$run->name);
 elseif($format == 'tsv')
 	$SPR->exportTSV($users,"Shuffle_Run_".$run->name);
+elseif($format == 'json')
+	$SPR->exportJSON($users,"Shuffle_Run_".$run->name);
 else
 	$SPR->exportCSV($users,"Shuffle_Run_".$run->name);
 

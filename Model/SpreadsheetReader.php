@@ -12,6 +12,7 @@ class SpreadsheetReader
 	public $survey = array();
 	public $choices = array();
 
+	public $exportFormats = array('csv','csv_german','tsv','xlsx','xls','json');
 	public function backupTSV($array,$filename)
 	{
 		$objPHPExcel = $this->objectFromArray($array);
@@ -58,6 +59,32 @@ class SpreadsheetReader
 		try
 		{
 		    $objWriter->save('php://output');
+		    exit;
+		}
+		catch (Exception $e)
+		{
+			alert("Couldn't save file.",'alert-danger');
+			return false;
+		}
+	}
+	public function exportJSON($array,$filename)
+	{
+		$json_array = array();
+		foreach($array AS $var => $val):
+
+			if(!isset($json_array[$var]))
+				$json_array[$var] = array();
+		
+			$json_array[$var][] = $val;
+		endforeach;
+		
+	    header('Content-Disposition: attachment;filename="'.$filename.'.json"');
+	    header('Cache-Control: max-age=0');
+		header('Content-type: application/json');
+
+		try
+		{
+		    echo json_encode($json_array,JSON_PRETTY_PRINT);
 		    exit;
 		}
 		catch (Exception $e)

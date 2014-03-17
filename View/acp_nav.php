@@ -195,19 +195,22 @@ $resultCount = $study->getResultCount();
 	    <ul class="dropdown-menu">
 			<li>
 			
-				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv"><i class="fa fa-floppy-o"></i> Download CSV</a>
+				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_results?format=csv"><i class="fa fa-floppy-o"></i> Download CSV</a>
 			</li>
 			<li>
-				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_csv_german"><i class="fa fa-floppy-o"></i> Download German CSV</a>
+				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_results?format=csv_german"><i class="fa fa-floppy-o"></i> Download German CSV</a>
 			</li>
 			<li>
-				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_tsv"><i class="fa fa-floppy-o"></i> Download TSV</a>
+				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_results?format=tsv"><i class="fa fa-floppy-o"></i> Download TSV</a>
 			</li>
 			<li>
-				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xls"><i class="fa fa-floppy-o"></i> Download XLS</a>
+				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_results?format=xls"><i class="fa fa-floppy-o"></i> Download XLS</a>
 			</li>
 			<li>
-				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_xlsx"><i class="fa fa-floppy-o"></i> Download XLSX</a>
+				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_results?format=xlsx"><i class="fa fa-floppy-o"></i> Download XLSX</a>
+			</li>
+			<li>
+				<a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_results?format=json"><i class="fa fa-floppy-o"></i> Download JSON</a>
 			</li>
 		
 	    </ul>
