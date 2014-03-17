@@ -700,7 +700,7 @@ class Survey extends RunUnit {
 	protected $choices_user_defined_columns = array(
 		'list_name', 'name', 'label', 'label_parsed' // study_id is not among the user_defined columns
 	);
-	protected function getChoices()
+	public function getChoices()
 	{
 		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
 		ORDER BY `survey_item_choices`.id ASC;");
@@ -714,6 +714,19 @@ class Survey extends RunUnit {
 			$choice_lists[ $row['list_name'] ][$row['name']] = $row['label'];
 		endwhile;
 		return $choice_lists;	
+	}
+	public function getChoicesForSheet()
+	{
+		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
+		ORDER BY `survey_item_choices`.id ASC;");
+		$get_item_choices->bindParam(":study_id", $this->id); // delete cascades to item display
+		$get_item_choices->execute() or die(print_r($get_item_choices->errorInfo(), true));
+
+		$results = array();
+		while($row = $get_item_choices->fetch(PDO::FETCH_ASSOC))
+			$results[] = $row;
+		
+		return $results;
 	}
 	public function createSurvey($SPR) {
 		$this->SPR = $SPR;
@@ -981,6 +994,22 @@ class Survey extends RunUnit {
 		$results = array();
 		while($row = $get_items->fetch(PDO::FETCH_ASSOC))
 			$results[] = $row;
+		
+		return $results;
+	}
+	public function getItemsForSheet()
+	{
+		$get_items = $this->dbh->prepare("SELECT type,type_options,choice_list,name,label,optional,class,showif,value,`order` FROM `survey_items` WHERE `survey_items`.study_id = :study_id ORDER BY id ASC");
+		$get_items->bindParam(":study_id", $this->id);
+		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
+
+		$results = array();
+		while($row = $get_items->fetch(PDO::FETCH_ASSOC)):
+			$row["type"] = $row["type"] ." ". $row["type_options"] ." ". $row["choice_list"];
+			unset($row["choice_list"]);
+			unset($row["type_options"]);
+			$results[] = $row;
+		endwhile;
 		
 		return $results;
 	}
