@@ -118,11 +118,11 @@ class Pause extends RunUnit {
 					</span>
 					
 				 <label class="inline">relative to 
-					<textarea data-editor="r" style="width:350px;" rows="4" class="form-control" placeholder="arriving at this pause" name="relative_to">'.$this->relative_to.'</textarea>
+					<textarea data-editor="r" style="width:368px;" rows="2" class="form-control" placeholder="arriving at this pause" name="relative_to">'.$this->relative_to.'</textarea>
 					</label
 				</p> 
 		<p><label>Text to show while waiting: <br>
-			<textarea data-editor="markdown" class="form-control" placeholder="You can use Markdown" name="body" rows="10" style="width:350px">'.$this->body.'</textarea>
+			<textarea data-editor="markdown" class="form-control" placeholder="You can use Markdown" name="body" rows="10">'.$this->body.'</textarea>
 		</label></p>
 			';
 		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
@@ -133,7 +133,7 @@ class Pause extends RunUnit {
 		
 		return parent::runDialog($dialog,'fa-pause');
 	}
-	public function removeFromRun($run_id)
+	public function removeFromRun()
 	{
 		return $this->delete();		
 	}
@@ -166,9 +166,6 @@ class Pause extends RunUnit {
 		
 		echo $this->getParsedBodyAdmin($this->body);
 		
-		echo "<h3>Pause relative to</h3>";
-		
-
 		
 		$openCPU = $this->makeOpenCPU();
 		// take the first sample session
@@ -183,17 +180,22 @@ class Pause extends RunUnit {
 			$relative_to_true = true;
 		endif;
 
-		$openCPU->addUserData($this->getUserDataInRun(
-			$this->dataNeeded($this->dbh,$this->relative_to)
-		));
+		if($relative_to_true)
+		{
+			echo "<h3>Pause relative to</h3>";
 		
-		echo $openCPU->evaluateAdmin($this->relative_to);
+			$openCPU->addUserData($this->getUserDataInRun(
+				$this->dataNeeded($this->dbh,$this->relative_to)
+			));
+		
+			echo $openCPU->evaluateAdmin($this->relative_to);
+		}
 
 		echo '<table class="table table-striped">
 				<thead><tr>
-					<th>Code</th>
-					<th>Relative to</th>
-					<th>Test</th>
+					<th>Code</th>';
+		if($relative_to_true) echo '<th>Relative to</th>';
+		echo '<th>Test</th>
 				</tr></thead>
 				<tbody>"';
 		
@@ -273,9 +275,9 @@ class Pause extends RunUnit {
 			endif;
 			
 			echo "<tr>
-					<td style='word-wrap:break-word;max-width:150px'><small>".$row['session']." ({$row['position']})</small></td>
-					<td><small>".stringBool($relative_to )."</small></td>
-					<td>".stringBool($result )."</td>
+					<td style='word-wrap:break-word;max-width:150px'><small>".$row['session']." ({$row['position']})</small></td>";
+			if($relative_to_true) echo  "<td><small>".stringBool($relative_to )."</small></td>";
+			echo	"<td>".stringBool($result )."</td>
 				</tr>";
 
 		endforeach;
