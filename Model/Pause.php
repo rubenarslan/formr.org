@@ -122,7 +122,7 @@ class Pause extends RunUnit {
 					</label
 				</p> 
 		<p><label>Text to show while waiting: <br>
-			<textarea data-editor="markdown" class="form-control" placeholder="You can use Markdown" name="body" rows="10">'.$this->body.'</textarea>
+			<textarea style="width:388px;"  data-editor="markdown" class="form-control" placeholder="You can use Markdown" name="body" rows="10">'.$this->body.'</textarea>
 		</label></p>
 			';
 		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>

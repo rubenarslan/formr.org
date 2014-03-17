@@ -10,7 +10,7 @@ class SkipBackward extends Branch {
 	{
 		$dialog = '<p>
 			<label>if… <br>
-				<textarea data-editor="r" class="form-control" name="condition" rows="4" class="col-md-5" placeholder="Condition: You can use R here: survey1$item2 == 2">'.$this->condition.'</textarea>
+				<textarea style="width:388px;" data-editor="r" class="form-control" name="condition" rows="4" class="col-md-5" placeholder="Condition: You can use R here: survey1$item2 == 2">'.$this->condition.'</textarea>
 			</label>
 		</p>
 		<div class="row col-md-12">
