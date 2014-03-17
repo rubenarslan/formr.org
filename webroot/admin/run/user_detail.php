@@ -29,9 +29,9 @@ LEFT JOIN `survey_run_units`
 ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
 LEFT JOIN `survey_runs`
 ON `survey_runs`.id = `survey_run_units`.run_id
-WHERE `survey_runs`.name = :run_name
+WHERE `survey_run_sessions`.run_id = :run_id
 ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;");
-$g_users->bindParam(':run_name',$run->name);
+$g_users->bindParam(':run_id',$run->id);
 $g_users->execute();
 
 $users = array();
