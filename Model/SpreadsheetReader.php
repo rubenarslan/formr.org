@@ -184,6 +184,129 @@ class SpreadsheetReader
 		}
 	    
 	}
+	private function twoSheetsFromArrays($items,$choices)
+	{
+		set_time_limit(300); # defaults to 30
+		ini_set('memory_limit', '256M');
+		
+	    $objPHPExcel = new PHPExcel();
+		$objPHPExcel->getDefaultStyle()->getFont()->setName('Helvetica');
+		$objPHPExcel->getDefaultStyle()->getFont()->setSize(16);
+		$objPHPExcel->getDefaultStyle()->getAlignment()->setWrapText(true);
+		
+		$objPHPExcel->createSheet();
+		array_unshift($choices, array_keys(current($choices)));
+		$objPHPExcel->getSheet(1)->getDefaultColumnDimension()->setWidth(20);
+		$objPHPExcel->getSheet(1)->getColumnDimension('A')->setWidth(20); # list_name
+		$objPHPExcel->getSheet(1)->getColumnDimension('B')->setWidth(20); # name
+		$objPHPExcel->getSheet(1)->getColumnDimension('C')->setWidth(30); # label
+		
+		$objPHPExcel->getSheet(1)->fromArray($choices);
+		$objPHPExcel->getSheet(1)->setTitle('choices');
+		$objPHPExcel->getSheet(1)->getStyle('A1:C1')->applyFromArray(array('font' => array('bold' => true)));
+		
+		array_unshift($items, array_keys(current($items)));
+		$objPHPExcel->getSheet(0)->getColumnDimension('A')->setWidth(20); # type
+		$objPHPExcel->getSheet(0)->getColumnDimension('B')->setWidth(20); # name
+		$objPHPExcel->getSheet(0)->getColumnDimension('C')->setWidth(30); # label
+		$objPHPExcel->getSheet(0)->getColumnDimension('D')->setWidth(3);  # optional
+		$objPHPExcel->getSheet(0)->getStyle('D1')->getAlignment()->setWrapText(false);
+		
+		$objPHPExcel->getSheet(0)->fromArray($items);
+		$objPHPExcel->getSheet(0)->setTitle('survey');
+		$objPHPExcel->getSheet(0)->getStyle('A1:H1')->applyFromArray(array('font' => array('bold' => true)));
+		
+		
+		return $objPHPExcel;
+	}
+	public function exportItemTableXLSX($items,$choices,$filename)
+	{
+		$objPHPExcel = $this->twoSheetsFromArrays($items,$choices);
+		
+		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+		
+	    header('Content-Disposition: attachment;filename="'.$filename.'.xlsx"');
+	    header('Cache-Control: max-age=0');
+		header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+		try
+		{
+		    $objWriter->save('php://output');
+		    exit;
+		}
+		catch (Exception $e)
+		{
+			alert("Couldn't save file.",'alert-danger');
+			return false;
+		}
+	}
+	public function exportItemTableXLS($items,$choices,$filename)
+	{
+		$objPHPExcel = $this->twoSheetsFromArrays($items,$choices);
+		
+		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
+		
+	    header('Content-Disposition: attachment;filename="'.$filename.'.xls"');
+	    header('Cache-Control: max-age=0');
+	    header('Content-Type: application/vnd.ms-excel'); 
+
+		try
+		{
+		    $objWriter->save('php://output');
+		    exit;
+		}
+		catch (Exception $e)
+		{
+			alert("Couldn't save file.",'alert-danger');
+			return false;
+		}
+	    
+	}
+	public function exportItemTableJSON($items,$choices,$filename)
+	{
+		foreach($items AS $i => $val):
+			
+			if(isset($val["choice_list"]) AND isset($choices[$val["choice_list"]])):
+				$items[$i]["choices"] = $choices[$val["choice_list"]];
+				unset($val["choice_list"]);
+			endif;
+		endforeach;
+		
+	    header('Content-Disposition: attachment;filename="'.$filename.'.json"');
+	    header('Cache-Control: max-age=0');
+		header('Content-type: application/json');
+
+		try
+		{
+		    echo json_encode($items,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE);
+		    exit;
+		}
+		catch (Exception $e)
+		{
+			alert("Couldn't save file.",'alert-danger');
+			return false;
+		}
+		$objPHPExcel = $this->twoSheetsFromArrays($items,$choices);
+		
+		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
+		
+	    header('Content-Disposition: attachment;filename="'.$filename.'.xls"');
+	    header('Cache-Control: max-age=0');
+	    header('Content-Type: application/vnd.ms-excel'); 
+
+		try
+		{
+		    $objWriter->save('php://output');
+		    exit;
+		}
+		catch (Exception $e)
+		{
+			alert("Couldn't save file.",'alert-danger');
+			return false;
+		}
+	    
+	}
+	
 	private function translate_legacy_column($col)
 	{
 		$col = trim(mb_strtolower($col));
