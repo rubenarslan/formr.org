@@ -63,7 +63,7 @@ class External extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p><label>Address: <br>
-			<input class="form-control" style="width:350px" type="text" placeholder="http://example.org?code=%s" name="address" value="'.$this->address.'"></label></p>
+			<input class="form-control full_width" type="text" placeholder="http://example.org?code=%s" name="address" value="'.$this->address.'"></label></p>
 
 		<p><input type="hidden" name="api_end" value="0"><label><input type="checkbox" name="api_end" value="1"'.($this->api_end ?' checked ':'').'> end using <abbr class="initialism" title="Application programming interface. Better not check this if you don\'t know what it means">API</abbr></label></p>';
 		
@@ -75,7 +75,7 @@ class External extends RunUnit {
 		
 		return parent::runDialog($dialog,'fa-external-link-square');
 	}
-	public function removeFromRun($run_id)
+	public function removeFromRun()
 	{
 		return $this->delete();		
 	}

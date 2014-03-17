@@ -18,6 +18,7 @@ class RunUnit {
 	public $errors = array();
 	public $id = null;
 	public $user_id = null;
+	public $run_unit_id = null; // this is the ID of the unit-to-run-link entry
 	public $session = null;
 	public $unit = null;
 	public $ended = false;
@@ -37,6 +38,11 @@ class RunUnit {
 		
 		if(isset($unit['run_id']))
 			$this->run_id = $unit['run_id'];
+		
+		if(isset($unit['run_unit_id']))
+			$this->run_unit_id = $unit['run_unit_id'];
+		elseif(isset($unit['id']))
+			$this->run_unit_id = $unit['id'];
 		
 		if(isset($unit['run_name']))
 			$this->run_name = $unit['run_name'];
@@ -69,7 +75,8 @@ class RunUnit {
 		
 		$c_unit->execute() or die(print_r($c_unit->errorInfo(), true));
 		
-		return $this->dbh->lastInsertId();
+		$this->unit_id = $this->dbh->lastInsertId();
+		return $this->unit_id;
 	}
 	public function modify($id)
 	{
@@ -83,19 +90,16 @@ class RunUnit {
 		
 		return $success;
 	}
-	public function linkToRun($run_id, $position = 1)
+	public function linkToRun()
 	{
-		if($position=='NaN') $position = 1;
-		$this->position = (int)$position;
 		$d_run_unit = $this->dbh->prepare("UPDATE `survey_run_units` SET 
-			unit_id = :id
+			unit_id = :unit_id
 		WHERE 
-		run_id = :run_id AND
-		position = :position
+		id = :id
 	;");
-		$d_run_unit->bindParam(':id', $this->id);
-		$d_run_unit->bindParam(':run_id', $run_id);
-		$d_run_unit->bindParam(':position', $this->position);
+	
+		$d_run_unit->bindParam(':unit_id', $this->id);
+		$d_run_unit->bindParam(':id', $this->run_unit_id);
 		$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
 		return $d_run_unit->rowCount();
 	}
@@ -121,24 +125,18 @@ class RunUnit {
 			$d_run_unit->bindParam(':run_id', $run_id);
 			$d_run_unit->bindParam(':position', $this->position);
 			$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
-			return $d_run_unit->rowCount();
+			$this->run_unit_id = $this->dbh->lastInsertId();
+			return $this->run_unit_id;
 		/*
 		endif;
 		return $s_run_unit->rowCount();
 		*/
 	}
-	public function removeFromRun($run_id)
+	public function removeFromRun()
 	{
-		if($this->id==='') $this->id = null;
-
 		$d_run_unit = $this->dbh->prepare("DELETE FROM `survey_run_units` WHERE 
-			run_id = :run_id AND
-			unit_id <=> :unit_id AND
-			position = :position
-		;");
-		$d_run_unit->bindParam(':unit_id', $this->id);
-		$d_run_unit->bindParam(':run_id', $run_id);
-		$d_run_unit->bindParam(':position', $this->position);
+			id = :id;");
+		$d_run_unit->bindParam(':id', $this->run_unit_id);
 		$d_run_unit->execute() or ($this->errors = $d_run_unit->errorInfo());
 		
 		return $d_run_unit->rowCount();
@@ -193,14 +191,15 @@ class RunUnit {
 	}
 	public function runDialog($dialog)
 	{
+		
 		if(isset($this->position))
 			$position = $this->position;
 		elseif(isset($this->unit) AND isset($this->unit['position']))
 			$position = $this->unit['position'];
 		else 
 		{
-			$pos = $this->dbh->prepare("SELECT position FROM survey_run_units WHERE unit_id = :unit_id");
-			$pos->bindParam(":unit_id",$this->id);
+			$pos = $this->dbh->prepare("SELECT position FROM survey_run_units WHERE id = :run_unit_id");
+			$pos->bindParam(":run_unit_id",$this->run_unit_id);
 			$pos->execute();
 			$position = $pos->fetch();
 			$position = $position[0];
@@ -212,9 +211,10 @@ class RunUnit {
 					<h1><i class="muted fa fa-2x '.$this->icon.'"></i></h1>
 					'.$this->howManyReachedIt().' <button href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run" type="button"><i class="fa fa-times"></i></button>
 <br>
-					<input class="position" value="'.$position.'" type="number" name="position['.$this->id.']" step="1" max="32000" min="-32000"><br>
+					<input class="position" value="'.$position.'" type="number" name="position['.$this->run_unit_id.']" step="1" max="32000" min="-32000"><br>
 				</div>
 			<div class="col-xs-9 run_unit_dialog">
+				<input type="hidden" value="'.$this->run_unit_id.'" name="run_unit_id">
 				<input type="hidden" value="'.$this->id.'" name="unit_id">'.$dialog.'
 			</div>
 		</div>';

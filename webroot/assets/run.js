@@ -2,11 +2,11 @@ function RunUnit(content)
 {
 	this.block = $('<div class="run_unit row"></div>');
 	this.init(content);
-	this.block.insertPolyfillBefore($('#run_dialog_choices'));
+	this.block.insertBefore($('#run_dialog_choices'));
 }
 RunUnit.prototype.init = function(content)
 {
-	this.block.html($($.parseHTML(content))); // .html annoying but necessary, somewhere in here a clone where there should be none, appears
+	this.block.htmlPolyfill($($.parseHTML(content))); // .html annoying but necessary, somewhere in here a clone where there should be none, appears
 	this.position = this.block.find('.run_unit_position input.position');
 	
 	this.position_changed = false;
@@ -15,7 +15,8 @@ RunUnit.prototype.init = function(content)
 	this.dialog_inputs = this.block.find('div.run_unit_dialog input,div.run_unit_dialog select, div.run_unit_dialog button, div.run_unit_dialog textarea');
 //	console.log(this.dialog_inputs);
 	this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
-    this.block.attr('id',"unit_"+this.unit_id);
+	this.run_unit_id = this.dialog_inputs.filter('input[name=run_unit_id]').val();
+    this.block.attr('id',"unit_"+this.run_unit_id);
 	this.dialog_inputs.on('input change',$.proxy(this.changes,this));
 	this.save_inputs = this.dialog_inputs.add(this.position);
 	
@@ -59,74 +60,14 @@ RunUnit.prototype.init = function(content)
     if(textareas[0])
     {
         this.textarea = $(textareas[0]);
-        var mode = this.textarea.data('editor');
-
-        var editDiv = $('<div>', {
-            position: 'absolute',
-            width: this.textarea.width(),
-            height: this.textarea.height(),
-            'class': this.textarea.attr('class')
-        }).insertBefore(this.textarea);
-
- //       textarea.css('visibility', 'hidden');
-        this.textarea.css('display', 'none');
-
- //       ace.require("ace/ext/language_tools");
-
-        this.editor = ace.edit(editDiv[0]);
-        this.editor.setOptions({
-            minLines: 5,
-            maxLines: 30
-        });
-        this.editor.renderer.setShowGutter(false);
-        this.session = this.editor.getSession();
-        this.session.setValue(this.textarea.val());
-        this.session.setUseWrapMode(true);
-        this.session.setWrapLimitRange(42, 42);
- //       this.editor.setOptions({
- //           enableBasicAutocompletion: true
- //       });
-        this.session.setMode("ace/mode/" + mode);
-        this.editor.setTheme("ace/theme/textmate");
-    	this.editor.on('change',$.proxy(this.changes,this));
+        this.session = this.hookAceToTextarea(this.textarea);
     }
     if(textareas[1])
     {
         this.textarea2 = $(textareas[1]);
-        var mode = this.textarea2.data('editor');
-
-        var editDiv = $('<div>', {
-            position: 'absolute',
-            width: this.textarea2.width(),
-            height: this.textarea2.height(),
-            'class': this.textarea2.attr('class')
-        }).insertBefore(this.textarea2);
-
- //       textarea.css('visibility', 'hidden');
-        this.textarea2.css('display', 'none');
-
- //       ace.require("ace/ext/language_tools");
-
-        this.editor = ace.edit(editDiv[0]);
-        this.editor.setOptions({
-            minLines: 5,
-            maxLines: 30
-        });
-        this.editor.renderer.setShowGutter(false);
-        this.session2 = this.editor.getSession();
-        this.session2.setValue(this.textarea2.val());
-        this.session2.setUseWrapMode(true);
-        this.session2.setWrapLimitRange(42, 42);
- //       this.editor.setOptions({
- //           enableBasicAutocompletion: true
- //       });
-        this.session2.setMode("ace/mode/" + mode);
-        this.editor.setTheme("ace/theme/textmate");
-    	this.editor.on('change',$.proxy(this.changes,this));
+        this.session2 = this.hookAceToTextarea(this.textarea2);
     }
 
-    
-//	hookUpAceToTextareas();
 };
 RunUnit.prototype.position_changes = function (e) 
 {
@@ -139,10 +80,11 @@ RunUnit.prototype.position_changes = function (e)
 };
 RunUnit.prototype.changes = function (e) 
 {
-    if(!this.unsavedChanges) // dont touch the DOM all the time
+    if(!this.unsavedChanges) // dont touch the DOM for every change
     {
     	this.unsavedChanges = true;
     	this.save_button.addClass('btn-info').removeAttr('disabled').text('Unsaved changes…');
+    	this.test_button.attr('disabled', 'disabled');
     }
 };
 RunUnit.prototype.test = function(e)
@@ -156,7 +98,7 @@ RunUnit.prototype.test = function(e)
 		{
 			url: $run_url + "/" + this.test_button.attr('href'),
 			dataType: 'html',
-			data: { "unit_id" : this.unit_id },
+			data: { "run_unit_id" : this.run_unit_id },
 			method: 'GET'
 		})
 		.done($.proxy(function(data)
@@ -220,6 +162,41 @@ RunUnit.prototype.save = function(e)
 	return false;
 };
 
+// https://gist.github.com/duncansmart/5267653
+// Hook up ACE editor to all textareas with data-editor attribute
+RunUnit.prototype.hookAceToTextarea = function(textarea) {
+   var mode = textarea.data('editor');
+
+   var editDiv = $('<div>', {
+       position: 'absolute',
+       width: textarea.width(),
+       height: textarea.height(),
+       'class': textarea.attr('class')
+   }).insertBefore(textarea);
+
+   textarea.css('display', 'none');
+
+//       ace.require("ace/ext/language_tools");
+
+   this.editor = ace.edit(editDiv[0]);
+   this.editor.setOptions({
+       minLines: textarea.attr('rows') ? textarea.attr('rows') : 3,
+       maxLines: 30
+   });
+   this.editor.setTheme("ace/theme/textmate");
+   var session = this.editor.getSession();
+   session.setValue(textarea.val());
+   this.editor.renderer.setShowGutter(false);
+   
+   session.setUseWrapMode(true);
+   session.setWrapLimitRange(42, 42);
+   session.setMode("ace/mode/" + mode);
+   
+   this.editor.on('change',$.proxy(this.changes,this));
+   
+   return session;
+};
+
 RunUnit.prototype.removeFromRun = function(e)
 {
 	e.preventDefault();
@@ -229,7 +206,7 @@ RunUnit.prototype.removeFromRun = function(e)
 		{
 			url: $run_url + "/" + this.remove_button.attr('href'),
 			dataType: 'html',
-			data: this.save_inputs.serialize(),
+			data: { "run_unit_id" : this.run_unit_id },
 			method: 'POST'
 		})
 		.done(function(data)
@@ -375,7 +352,7 @@ $(document).ready(function () {
                 }
                 else
                 {
-    				positions[elm.unit_id] = pos;                    
+    				positions[elm.run_unit_id] = pos;                    
                     are_positions_unique.push(pos);
                 }
 			});
@@ -443,49 +420,3 @@ $(document).ready(function () {
 	};
 		
 });
-
-// https://gist.github.com/duncansmart/5267653
-// Hook up ACE editor to all textareas with data-editor attribute
-function hookUpAceToTextarea (textarea) {
-//   $('textarea[data-editor]:visible').each(function () {
-//       var textarea = $(this);
-
-       var mode = textarea.data('editor');
-
-       var editDiv = $('<div>', {
-           position: 'absolute',
-           width: textarea.width(),
-           height: textarea.height(),
-           'class': textarea.attr('class')
-       }).insertBefore(textarea);
-
-//       textarea.css('visibility', 'hidden');
-       textarea.css('display', 'none');
-
-//       ace.require("ace/ext/language_tools");
-
-       var editor = ace.edit(editDiv[0]);
-       editor.setOptions({
-           minLines: 5,
-           maxLines: 30
-       });
-       editor.renderer.setShowGutter(false);
-       editor.getSession().setValue(textarea.val());
-       editor.getSession().setUseWrapMode(true);
-       editor.getSession().setWrapLimitRange(42, 42);
-//       editor.setOptions({
-//           enableBasicAutocompletion: true
-//       });
-       editor.getSession().setMode("ace/mode/" + mode);
-       editor.setTheme("ace/theme/textmate");
-       editor.on('change', function(){
-         textarea.val(editor.getSession().getValue());
-         textarea.change();
-       });
-//       // copy back to textarea on form submit...
-//       textarea.closest('form').submit(function () {
-//           textarea.val(editor.getSession().getValue());
-//       })
-
-//   });
-}

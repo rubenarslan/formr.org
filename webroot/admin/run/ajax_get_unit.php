@@ -6,8 +6,9 @@ require_once INCLUDE_ROOT . "Model/RunUnit.php";
 
 if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 
-	if(isset($_GET['unit_id'])):
-		$unit_info = $run->getUnitAdmin($_GET['unit_id'], $_GET['position']);
+	if(isset($_GET['run_unit_id'])):
+		$unit_info = $run->getUnitAdmin($_GET['run_unit_id']);
+
 		require_once INCLUDE_ROOT."Model/RunUnit.php";
 		$unit_factory = new RunUnitFactory();
 		$unit = $unit_factory->make($fdb,null,$unit_info);

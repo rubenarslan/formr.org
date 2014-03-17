@@ -248,14 +248,28 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
 }
 
 
+.run_unit_position
+{
+    width:145px;
+}
+.run_unit_dialog
+{
+    width:390px;
+}
+.run_unit_dialog textarea.form-control {
+    width:388px;
+}
+.run_unit_dialog input.full_width {
+    width:362px;
+}
 .run_unit_position input
 {
 	border:0;
 	box-shadow:none;
 	font-weight:bold;
-	font-size:50px;
+	font-size:45px;
 	height:65px;
-	width:110px;
+	width:100px;
 	text-align:left;
     background-color:transparent;
 }

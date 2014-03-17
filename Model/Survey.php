@@ -33,35 +33,39 @@ class Survey extends RunUnit {
 	
 	public function __construct($fdb, $session, $unit)
 	{
-		if(isset($unit['name']) AND !isset($unit['id'])): // when called via URL
+		if(isset($unit['name']) AND !isset($unit['unit_id'])): // when called via URL
 			$study_data = $fdb->prepare("SELECT id FROM `survey_studies` WHERE name = :name LIMIT 1");
 			$study_data->bindValue(":name",$unit['name']);
 			$study_data->execute() or die(print_r($study_data->errorInfo(), true));
 			$vars = $study_data->fetch(PDO::FETCH_ASSOC);
 			$unit['unit_id'] = $vars['id']; // parent::__construct needs this
+			$this->id = $unit['unit_id'];
 		endif;
 		
 		parent::__construct($fdb,$session,$unit);
 		
 		if($this->id):
-			$study_data = $this->dbh->prepare("SELECT * FROM `survey_studies` WHERE id = :id OR name = :name LIMIT 1");
-			$study_data->bindParam(":id",$this->id);
-			$study_data->bindParam(":name",$this->unit['name']);
-			$study_data->execute() or die(print_r($study_data->errorInfo(), true));
-			$vars = $study_data->fetch(PDO::FETCH_ASSOC);
-			
-			if($vars):
-				$this->id = $vars['id'];
-				$this->name = $vars['name'];
-				$this->logo_name = $vars['logo_name'];
-				$this->user_id = (int)$vars['user_id'];
-				$this->results_table = $this->name;
-			
-			
-				$this->getSettings();
-			
-				$this->valid = true;
-			endif;
+			$this->load();
+		endif;
+	}
+	private function load()
+	{
+		$study_data = $this->dbh->prepare("SELECT * FROM `survey_studies` WHERE id = :id LIMIT 1");
+		$study_data->bindParam(":id",$this->id);
+		$study_data->execute() or die(print_r($study_data->errorInfo(), true));
+		$vars = $study_data->fetch(PDO::FETCH_ASSOC);
+		
+		if($vars):
+			$this->id = $vars['id'];
+			$this->name = $vars['name'];
+			$this->logo_name = $vars['logo_name'];
+			$this->user_id = (int)$vars['user_id'];
+			$this->results_table = $this->name;
+		
+		
+			$this->getSettings();
+		
+			$this->valid = true;
 		endif;
 	}
 	protected function getSettings()
@@ -637,7 +641,9 @@ class Survey extends RunUnit {
 		if(count($options)===1):
 			$this->valid = true;
 		else: // and link it to the run only later
-			$this->linkToRun($this->run_id,$this->position);
+			$this->id = $options['unit_id'];
+			if($this->linkToRun())
+				$this->load();
 		endif;
 	}
 	public function createIndependently()

@@ -37,7 +37,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 					Run modules:
 				</h4>
 				<div class="row">
-					<div class="col-md-3">
+					<div class="col-md-4">
 						<a class="reorder_units btn btn-lg hastooltip" title="Save new positions" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_reorder">
 							<i class="fa fa-exchange fa-rotate-90 fa-larger"></i>
 							Reorder
@@ -50,28 +50,28 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 			<div class="row" id="run_dialog_choices">
 			  	<div class="form-group span7">
 					<div class="btn-group">
-						<a class="add_survey add_run_unit btn btn-lg hastooltip" title="Add survey" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Survey">
+						<a class="add_survey add_run_unit btn btn-lg hastooltip" title="Add survey" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_create_run_unit?type=Survey">
 							<i class="fa fa-pencil-square fa-2x"></i>
 						</a>
-						<a class="add_external add_run_unit  btn btn-lg hastooltip" title="Add external link" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=External">
+						<a class="add_external add_run_unit  btn btn-lg hastooltip" title="Add external link" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_create_run_unit?type=External">
 							<i class="fa fa-external-link-square fa-2x"></i>
 						</a>
-						<a class="add_email add_run_unit btn btn-lg hastooltip" title="Add email" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Email">
+						<a class="add_email add_run_unit btn btn-lg hastooltip" title="Add email" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_create_run_unit?type=Email">
 							<i class="fa fa-envelope fa-2x"></i>
 						</a>
-						<a class="add_skipbackward add_run_unit btn btn-lg hastooltip" title="Add a loop (skip backwards)" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=SkipBackward">
+						<a class="add_skipbackward add_run_unit btn btn-lg hastooltip" title="Add a loop (skip backwards)" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_create_run_unit?type=SkipBackward">
 							<i class="fa fa-backward fa-2x"></i>
 						</a>
-						<a class="add_pause add_run_unit btn btn-lg hastooltip" title="Add pause" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Pause">
+						<a class="add_pause add_run_unit btn btn-lg hastooltip" title="Add pause" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_create_run_unit?type=Pause">
 							<i class="fa fa-pause fa-2x"></i>
 						</a>
-						<a class="add_skipforward add_run_unit btn btn-lg hastooltip" title="Add a jump (skip forward)" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=SkipForward">
+						<a class="add_skipforward add_run_unit btn btn-lg hastooltip" title="Add a jump (skip forward)" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_create_run_unit?type=SkipForward">
 							<i class="fa fa-forward fa-2x"></i>
 						</a>
-						<a class="add_shuffle add_run_unit btn btn-lg hastooltip" title="Add shuffle (randomise participants)" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Shuffle">
+						<a class="add_shuffle add_run_unit btn btn-lg hastooltip" title="Add shuffle (randomise participants)" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_create_run_unit?type=Shuffle">
 							<i class="fa fa-random fa-2x"></i>
 						</a>
-						<a class="add_page add_run_unit btn btn-lg hastooltip" title="Add a stop point" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_run_unit?type=Page">
+						<a class="add_page add_run_unit btn btn-lg hastooltip" title="Add a stop point" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_create_run_unit?type=Page">
 							<i class="fa fa-stop fa-2x"></i>
 						</a>
 					</div>

@@ -83,7 +83,7 @@ class Branch extends RunUnit {
 	{
 		$dialog = '<div class="padding-below">
 			<label>if… <br>
-				<textarea data-editor="r" class="form-control" style="width:350px" name="condition" rows="4" class="col-md-5" placeholder="Condition: You can use R here: survey1$item2 == 2">'.$this->condition.'</textarea>
+				<textarea data-editor="r" class="form-control" name="condition" rows="4" class="col-md-5" placeholder="Condition: You can use R here: survey1$item2 == 2">'.$this->condition.'</textarea>
 			</label><br>
 			<select style="width:120px" name="automatically_jump">
 			<option value="1" '.($this->automatically_jump?'selected':'').'>automatically</option>
@@ -108,7 +108,7 @@ class Branch extends RunUnit {
 		
 		return parent::runDialog($dialog);
 	}
-	public function removeFromRun($run_id)
+	public function removeFromRun()
 	{
 		return $this->delete();
 	}

@@ -283,11 +283,11 @@ class Run
 	{
 		$reorder = $this->dbh->prepare("UPDATE `survey_run_units` SET
 			position = :position WHERE 
-			unit_id = :unit_id AND
-			run_id = :run_id");
+			run_id = :run_id AND
+			id = :run_unit_id");
 		$reorder->bindParam(':run_id',$this->id);
-		foreach($positions AS $unit_id => $pos):
-			$reorder->bindParam(':unit_id',$unit_id);
+		foreach($positions AS $run_unit_id => $pos):
+			$reorder->bindParam(':run_unit_id',$run_unit_id);
 			$reorder->bindParam(':position',$pos);
 			$reorder->execute() or die(print_r($reorder->errorInfo(), true));
 		endforeach;
@@ -297,6 +297,7 @@ class Run
 	{
 		$g_unit = $this->dbh->prepare(
 		"SELECT 
+			`survey_run_units`.id AS run_unit_id,
 			`survey_run_units`.unit_id,
 			`survey_run_units`.position
 			
@@ -428,7 +429,7 @@ This study is currently being serviced. Please return at a later time."));
 		
 	}
 	
-	public function getUnitAdmin($id, $position)
+	public function getUnitAdmin($id)
 	{
 		$g_unit = $this->dbh->prepare(
 		"SELECT 
@@ -437,7 +438,6 @@ This study is currently being serviced. Please return at a later time."));
 			`survey_run_units`.unit_id,
 			`survey_run_units`.position,
 			
-			`survey_units`.id,
 			`survey_units`.type,
 			`survey_units`.created,
 			`survey_units`.modified
@@ -449,14 +449,12 @@ This study is currently being serviced. Please return at a later time."));
 		
 		WHERE 
 			`survey_run_units`.run_id = :run_id AND
-			`survey_run_units`.unit_id <=> :unit_id AND
-			`survey_run_units`.position = :position
+			`survey_run_units`.id = :id
 		LIMIT 1
 		;");
-		if($id=='') $id = NULL;
+		$g_unit->bindParam(':id',$id);
 		$g_unit->bindParam(':run_id',$this->id);
-		$g_unit->bindParam(':unit_id',$id);
-		$g_unit->bindParam(':position',$position);
+		
 		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
 
 		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
