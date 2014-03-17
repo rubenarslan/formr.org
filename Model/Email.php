@@ -18,6 +18,7 @@ class Email extends RunUnit {
 	private $subject = null;
 	private $html = 1;
 	public $icon = "fa-envelope";
+	public $type = "Email";
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
