@@ -69,22 +69,13 @@ class SpreadsheetReader
 	}
 	public function exportJSON($array,$filename)
 	{
-		$json_array = array();
-		foreach($array AS $var => $val):
-
-			if(!isset($json_array[$var]))
-				$json_array[$var] = array();
-		
-			$json_array[$var][] = $val;
-		endforeach;
-		
 	    header('Content-Disposition: attachment;filename="'.$filename.'.json"');
 	    header('Cache-Control: max-age=0');
 		header('Content-type: application/json');
 
 		try
 		{
-		    echo json_encode($json_array,JSON_PRETTY_PRINT);
+		    echo json_encode($array,JSON_PRETTY_PRINT);
 		    exit;
 		}
 		catch (Exception $e)
