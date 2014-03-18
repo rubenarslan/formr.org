@@ -18,6 +18,9 @@ Imports:
     ggplot2,
     stringr,
     lubridate,
-    plyr
+    plyr,
+    httr,
+    jsonlite,
+    psych
 License: BSD_2_clause + file LICENSE
 LazyData: true
