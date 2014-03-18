@@ -23,12 +23,31 @@ function redirect_to($location) {
 		exit;
 }
 
+function access_denied() {
+	global $site,$user;
+	$_SESSION['site'] = $site;
+	$_SESSION['user'] = serialize($user);
+
+    header('HTTP/1.0 403 Forbidden');
+	require_once INCLUDE_ROOT."webroot/public/not_found.php";
+	exit;
+}
 function not_found() {
 	global $site,$user;
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 
     header('HTTP/1.0 404 Not Found');
+	require_once INCLUDE_ROOT."webroot/public/not_found.php";
+	exit;
+}
+
+function bad_request() {
+	global $site,$user;
+	$_SESSION['site'] = $site;
+	$_SESSION['user'] = serialize($user);
+
+    header('HTTP/1.0 400 Bad Request');
 	require_once INCLUDE_ROOT."webroot/public/not_found.php";
 	exit;
 }
