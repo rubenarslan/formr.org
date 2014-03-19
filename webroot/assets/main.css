@@ -587,9 +587,17 @@ div.btn-check button.btn {
     margin-left: -1px;
 }
 
-
+form.form-horizontal img {
+    max-width: 100%;
+    height: auto;
+}
 /* CLASSES THAT COULD BE ADDED BY USER */
-
+form.form-horizontal div.form-group.float_image_right img {
+  float:right;
+}
+form.form-horizontal div.form-group.float_image_left img {
+  float:left;
+}
 /* answer_below_label */
 form.form-horizontal div.answer_below_label .control-label {
   width:99%;
@@ -660,7 +668,8 @@ form.form-horizontal div.answer_below_label .controls {
 }
 
 .form-horizontal div.form-group.left700 .control-label {
-  max-width: 700px;
+    width: 700px;
+    max-width: 700px;
 }
 .form-horizontal div.form-group.left700 .controls {
   	margin-left: 720px;
