@@ -107,12 +107,15 @@ yields<br>
 					  <p>
 			 			 <i class="fa fa-external-link-square fa-huge fa-fw pull-right"></i>
 			  
-						  These are simple external links - use them to send users to other, specialised data collection modules, such as a social network generator. 
+						  These are external links - use them to send users to other, specialised data collection modules, such as a social network generator, a reaction time task, anything really. 
 					  </p>
 						  <p>
-							  If you insert the placeholder <code>%s</code>, it will be replaced by the user's run session code, allowing you to link data later (if your external module picks this variable up). </p>
+							  If you insert the placeholder <code>{{login_code}}</code>, it will be replaced by the user's run session code, allowing you to link data later (but only if your external module picks this variable up!). </p>
 						  <p>
-							  You can either choose to "finish" this component <em>before</em> the user is redirected (the simple way) or enable your external module to call our <abbr class="initialism" title="Application programming interface.">API</abbr> to close it only once the external component is finished (the proper way).
+							  Sometimes, you may find yourself wanting to do more complicated stuff like <b>(a)</b> sending along more data, the user's age for example, <b>(b)</b> calling an <abbr class="initialism" title="Application programming interface.">API</abbr> to do some operations before the user is sent off (e.g. making sure the other end is ready to receive, this is useful if you plan to integrate formr tightly with some other software) <b>(c)</b> redirecting the user to a large number of custom links (e.g. you want to redirect users to the profile of the person who last commented on their Facebook wall to assess closeness) <b>(d)</b> you want to optionally redirect users back to the run (e.g. as a fallback or to do complicated stuff in formr). 
+						  </p>
+						  <p>
+							  You can either choose to "finish/wrap up" this component <em>before</em> the user is redirected (the simple way) or enable your external module to call our <abbr class="initialism" title="Application programming interface.">API</abbr> to close it only once the external component is finished (the proper way). If you do the latter, the user will always be redirected to the external page until that page makes the call that the required input has been made.
 					  </p>
 			</div>
 			</div>
