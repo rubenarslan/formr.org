@@ -370,7 +370,31 @@ This study is currently being serviced. Please return at a later time."));
 		
 	}
 
+	public function getNumberOfSessionsInRun()
+	{
+		$g_users = $this->dbh->prepare("SELECT 
+			COUNT(`survey_run_sessions`.id) AS sessions,
+			AVG(`survey_run_sessions`.position) AS avg_position
+	
+		FROM `survey_run_sessions`
 
+		WHERE `survey_run_sessions`.run_id = :run_id;");
+		$g_users->bindParam(':run_id',$this->id);
+		$g_users->execute();
+		return $g_users->fetch(PDO::FETCH_ASSOC);
+	}
+	public function emptySelf()
+	{
+		$empty_run = $this->dbh->prepare("DELETE FROM 
+			`survey_run_sessions`
+		WHERE `survey_run_sessions`.run_id = :run_id;");
+		$empty_run->bindParam(':run_id',$this->id);
+		$empty_run->execute();
+		$rows = $empty_run->rowCount();
+		alert('Run was emptied. '.$rows.' were deleted.','alert-info');
+		
+		return $rows;
+	}
 	public function getReminder($session,$run_session_id)
 	{
 		$id = $this->getReminderId();
