@@ -152,6 +152,8 @@
 </nav>
 
 <?php if(isset($study)): ?>
+<div class="survey_header">&nbsp;
+</div>	
 
 <?php
 $resultCount = $study->getResultCount();
@@ -280,6 +282,10 @@ $resultCount = $study->getResultCount();
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'admin/run/delete_run.php')?' class="active"':''?>>
 				<a class="hastooltip" title="Go to deletion dialog, does not delete yet" href="<?=WEBROOT?>admin/run/<?=$run->name?>/delete_run">
 					<i class="fa-li fa fa-trash-o"></i> Delete run</a>
+			</li>
+			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'admin/run/empty_run.php')?' class="active"':''?>>
+				<a class="hastooltip" title="Here you can clean the run of all data." href="<?=WEBROOT?>admin/run/<?=$run->name?>/empty_run">
+					<i class="fa-li fa fa-eraser"></i> Empty run</a>
 			</li>
 			
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'admin/run/rename_run.php')?' class="active"':''?>>

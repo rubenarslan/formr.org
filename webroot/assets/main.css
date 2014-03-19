@@ -80,7 +80,7 @@ label
 }
 
 
-.run_header
+.run_header, .survey_header
 {
     height:330px;
     background-image: linear-gradient(rgba(255,255,255,0),rgba(255,255,255,1)), url("img/boombox_innards.jpg");
@@ -92,6 +92,12 @@ label
     left:0;
     top:0;
     z-index:-10;
+}
+.survey_header
+{
+    height:100%;
+    max-height:716px;
+    background-image: linear-gradient(rgba(255,255,255,0),rgba(255,255,255,1)), url("img/boombox_dials.jpg");
 }
 .run_header + div div h1
 {
@@ -591,10 +597,18 @@ form.form-horizontal img {
     max-width: 100%;
     height: auto;
 }
+.badge-success {
+  background-color: #468847;
+}
+.run_unit_position .badge:empty {
+  visibility:hidden;
+  display:inline;
+}
 /* CLASSES THAT COULD BE ADDED BY USER */
 form.form-horizontal div.form-group.float_image_right img {
   float:right;
 }
+
 form.form-horizontal div.form-group.float_image_left img {
   float:left;
 }

@@ -179,15 +179,27 @@ class RunUnit {
 			return false;
 		endif;
 	}
-	private function howManyReachedIt()
+	protected function howManyReachedItNumbers()
 	{
 		$reached_unit = $this->dbh->prepare("SELECT SUM(`survey_unit_sessions`.ended IS NULL) AS begun, SUM(`survey_unit_sessions`.ended IS NOT NULL) AS finished FROM `survey_unit_sessions` 
+			left join `survey_run_sessions`
+		on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 			WHERE 
-			`survey_unit_sessions`.`unit_id` = :unit_id;");
+			`survey_unit_sessions`.`unit_id` = :unit_id AND
+		`survey_run_sessions`.run_id = :run_id ;");
 		$reached_unit->bindParam(":unit_id", $this->id);
+		$reached_unit->bindParam(':run_id',$this->run_id);
+		
 		$reached_unit->execute() or die(print_r($reached_unit->errorInfo(), true));
 		$reached = $reached_unit->fetch(PDO::FETCH_ASSOC);
-		return "<span class='hastooltip badge' title='Number of unfinished sessions'>".(int)$reached['begun']."</span> <span class='hastooltip badge badge-success' title='Number of finished sessions'>".(int)$reached['finished']."</span>";
+		return $reached;
+	}
+	protected function howManyReachedIt()
+	{
+		$reached = $this->howManyReachedItNumbers();
+		if($reached['begun']==="0") $reached['begun'] = "";
+		if($reached['finished']==="0") $reached['finished'] = "";
+		return "<span class='hastooltip badge' title='Number of unfinished sessions'>".$reached['begun']."</span> <span class='hastooltip badge badge-success' title='Number of finished sessions'>".$reached['finished']."</span>";
 	}
 	public function runDialog($dialog)
 	{
