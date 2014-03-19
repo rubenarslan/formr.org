@@ -675,13 +675,13 @@ class Survey extends RunUnit {
 		$this->changeSettings(array
 			(
 //				"logo" => "hu.gif",
-				"title" => "Survey",
-				"description" => "",
-				"problem_text" => 'If you run into problems, please contact <strong><a href="mailto:%s">%s</a></strong>.',
-				"problem_email" => "problems@example.com",
+//				"title" => "Survey",
+//				"description" => "",
+//				"problem_text" => 'If you run into problems, please contact <strong><a href="mailto:%s">%s</a></strong>.',
+//				"problem_email" => "problems@example.com",
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
-				"submit_button_text" => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!',
+//				"submit_button_text" => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!',
 				"form_classes" => '', // unspaced_rows
 //				"fileuploadmaxsize" => "100000",
 //				"closed_user_pool" => 0,
