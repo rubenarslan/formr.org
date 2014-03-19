@@ -152,6 +152,8 @@
 </nav>
 
 <?php if(isset($study)): ?>
+<div class="survey_header">&nbsp;
+</div>	
 
 <?php
 $resultCount = $study->getResultCount();
