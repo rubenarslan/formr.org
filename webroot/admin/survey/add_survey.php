@@ -37,6 +37,10 @@ unset($study);
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
+</div>
+<div class="survey_header">&nbsp;
+</div>	
+	<div class="col-lg-10 col-md-10 col-sm-9 main_body">
 
 <div class="row">
 	<div class="col-md-8 col-lg-offset-1 well">

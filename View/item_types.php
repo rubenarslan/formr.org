@@ -186,7 +186,7 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 
 
 <h4><i class="fa fa-fw fa-eye-slash"></i> Hidden family</h4>
-These items don't require the user to do anything, so including them simply means that the relevant value will be stored. If you have exclusively hidden items in a form, things will wrap up immediately and move to the next element in the run. This can be useful for hooking up with other software which sends data over the query string i.e. https://formr.org/run_name?param1=10&user_id=29
+These items don't require the user to do anything, so including them simply means that the relevant value will be stored. If you have exclusively hidden items in a form, things will wrap up immediately and move to the next element in the run. This can be useful for hooking up with other software which sends data over the query string i.e. https://formr.org/run_name?param1=10&amp;user_id=29
 <dl class="dl-horizontal dl-wider">
 	<dt>
 		calculate
