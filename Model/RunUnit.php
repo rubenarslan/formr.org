@@ -179,6 +179,30 @@ class RunUnit {
 			return false;
 		endif;
 	}
+	protected function getSampleSessions()
+	{
+		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
+
+		WHERE 
+			`survey_run_sessions`.run_id = :run_id
+
+		ORDER BY `survey_run_sessions`.position DESC,RAND()
+
+		LIMIT 20";
+		$get_sessions = $this->dbh->prepare($q); // should use readonly
+		$get_sessions->bindParam(':run_id',$this->run_id);
+
+		$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
+		if($get_sessions->rowCount()>=1):
+			$results = array();
+			while($temp = $get_sessions->fetch())
+				$results[] = $temp;
+		else:
+			echo 'No data to compare to yet.';
+			return false;
+		endif;
+		return $results;
+	}
 	protected function howManyReachedItNumbers()
 	{
 		$reached_unit = $this->dbh->prepare("SELECT SUM(`survey_unit_sessions`.ended IS NULL) AS begun, SUM(`survey_unit_sessions`.ended IS NOT NULL) AS finished FROM `survey_unit_sessions` 
