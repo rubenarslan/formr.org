@@ -179,7 +179,7 @@ class RunUnit {
 			return false;
 		endif;
 	}
-	private function howManyReachedIt()
+	protected function howManyReachedItNumbers()
 	{
 		$reached_unit = $this->dbh->prepare("SELECT SUM(`survey_unit_sessions`.ended IS NULL) AS begun, SUM(`survey_unit_sessions`.ended IS NOT NULL) AS finished FROM `survey_unit_sessions` 
 			left join `survey_run_sessions`
@@ -192,6 +192,11 @@ class RunUnit {
 		
 		$reached_unit->execute() or die(print_r($reached_unit->errorInfo(), true));
 		$reached = $reached_unit->fetch(PDO::FETCH_ASSOC);
+		return $reached;
+	}
+	protected function howManyReachedIt()
+	{
+		$reached = $this->howManyReachedItNumbers();
 		if($reached['begun']==="0") $reached['begun'] = "";
 		if($reached['finished']==="0") $reached['finished'] = "";
 		return "<span class='hastooltip badge' title='Number of unfinished sessions'>".$reached['begun']."</span> <span class='hastooltip badge badge-success' title='Number of finished sessions'>".$reached['finished']."</span>";
