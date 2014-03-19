@@ -25,8 +25,13 @@ if( !empty($_POST) ) {
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
+</div>
+<div class="run_header">&nbsp;
+</div>	
+	<div class="col-lg-10 col-md-10 col-sm-9 main_body">
+
 <div class="row">
-	<div class="col-lg-4 col-md-5 col-sm-6 col-lg-offset-1 well">
+	<div class="col-lg-6 col-md-7 col-sm-8 col-lg-offset-1 well">
 
 	<h2><i class="fa fa-rocket"></i> Create a new run</h2>
 	<ul class="fa-ul fa-ul-more-padding">
