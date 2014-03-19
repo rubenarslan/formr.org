@@ -591,10 +591,18 @@ form.form-horizontal img {
     max-width: 100%;
     height: auto;
 }
+.badge-success {
+  background-color: #468847;
+}
+.run_unit_position .badge:empty {
+  visibility:hidden;
+  display:inline;
+}
 /* CLASSES THAT COULD BE ADDED BY USER */
 form.form-horizontal div.form-group.float_image_right img {
   float:right;
 }
+
 form.form-horizontal div.form-group.float_image_left img {
   float:left;
 }
