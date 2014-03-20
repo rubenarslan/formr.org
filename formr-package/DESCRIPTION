@@ -6,7 +6,7 @@ Description: The formr R package provides a few convenience functions
     Some of the functions are for conveniently generating individ
     feedback graphics, some are just shorthands to make certain common
     operations in formr more palatable to R novices.
-Version: 0.1
+Version: 0.1.0
 Authors@R: c(
     person("Ruben", "Arslan",
     email = "rubenarslan@gmail.com",
@@ -19,6 +19,9 @@ Imports:
     scales,
     stringr,
     lubridate,
-    plyr
+    plyr,
+    httr,
+    jsonlite,
+    psych
 License: BSD_2_clause + file LICENSE
 LazyData: true

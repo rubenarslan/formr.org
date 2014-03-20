@@ -8,12 +8,14 @@
 #' @param host defaults to https://formr.org
 #' @export
 #' @examples
+#' \dontrun{
 #' formr_connect(email = "you@@example.net", password = "zebrafinch" )
+#' }
 
 formr_connect = function(email, password, host = "https://formr.org") {
  	resp = httr::POST( paste0(host,"/public/login"),body=  list(email = email, password = password) )
  	text = httr::content(resp,encoding="utf8",as="text")
- 	if(grepl("Success!",text,fixed = T)) TRUE
+ 	if(resp$status_code == 200 && grepl("Success!",text,fixed = T)) TRUE
  	else if(grepl("Error.",text,fixed = T)) stop("Incorrect credentials.")
  	else warning("Already logged in.")
 }
@@ -26,14 +28,22 @@ formr_connect = function(email, password, host = "https://formr.org") {
 #' you can download data using this command.
 #'
 #' @param survey_name case-sensitive name of a survey your account owns
+#' @param host defaults to https://formr.org
 #' @export
 #' @examples
-#' formr_import(survey_name = "training_diary" )
+#' \dontrun{
+#' formr_raw_results(survey_name = "training_diary" )
+#' }
 
-formr_import = function(survey_name, host = "https://formr.org") {
-	resp = httr::GET( paste0(host,"/admin/survey/",survey_name,"/export_tsv"))
-	if(resp$status_code == 200) read.delim(textConnection(httr::content(resp,encoding="utf8",as="text")))
-	else stop("This survey does not exist.")
+formr_raw_results = function(survey_name, host = "https://formr.org") {
+	resp = httr::GET( paste0(host,"/admin/survey/",survey_name,"/export_results?format=json"))
+# 	if(resp$status_code == 200) as.data.frame(
+# 		httr::content(resp,encoding="utf8",as="parsed",type="application/json")
+# 	)
+	if(resp$status_code == 200) jsonlite::fromJSON(
+		httr::content(resp,encoding="utf8",as="text")
+	)
+	else stop("This survey does not exist or isn't yours.")
 }
 
 #' Download items from formr
@@ -52,9 +62,7 @@ formr_import = function(survey_name, host = "https://formr.org") {
 
 formr_items = function(survey_name, host = "https://formr.org") {
 	resp = httr::GET( paste0(host,"/admin/survey/",survey_name,"/export_item_table?format=json"))
-	if(resp$status_code == 200) jsonlite::fromJSON(
-			httr::content(resp,encoding="utf8",as="text")
-		,simplifyDataFrame = F)
+	if(resp$status_code == 200) httr::content(resp,as="parsed",type="application/json")
 	else stop("This survey does not exist.")
 }
 
@@ -75,10 +83,9 @@ formr_items = function(survey_name, host = "https://formr.org") {
 
 formr_item_displays = function(survey_name, host = "https://formr.org") {
 	resp = httr::GET( paste0(host,"/admin/survey/",survey_name,"/export_itemdisplay?format=json"))
-	if(resp$status_code == 200) as.data.frame(
-		jsonlite::fromJSON(
+	if(resp$status_code == 200)	jsonlite::fromJSON(
 			httr::content(resp,encoding="utf8",as="text")
-		))
+		)
 	else stop("This survey does not exist.")
 }
 
@@ -100,9 +107,8 @@ formr_item_displays = function(survey_name, host = "https://formr.org") {
 formr_shuffled = function(run_name, host = "https://formr.org") {
 	resp = httr::GET( paste0(host,"/admin/run/",run_name,"/random_groups_export?format=json"))
 	if(resp$status_code == 200) as.data.frame(
-		jsonlite::fromJSON(
-			httr::content(resp,encoding="utf8",as="text")
-		))
+		httr::content(resp,encoding="utf8",as="parsed",type="application/json")
+	)
 	else stop("This run does not exist.")
 }
 
@@ -144,7 +150,7 @@ random_date_in_range <- function(N, lower="2012/01/01", upper="2012/12/31") {
 
 formr_recognise = function (survey_name, 
 								item_list = formr_items(survey_name, host = host),
-								results = formr_import(survey_name, host = host),
+								results = formr_raw_results(survey_name, host = host),
 								host = "https://formr.org")
 {
 	results$session = as.character(results$session)
@@ -156,9 +162,16 @@ formr_recognise = function (survey_name,
 		item = item_list[[i]]
 		if(item$type %in% c("note","mc_heading")) next;
 		if( length( item$choices) )  { # choice-based items
-			choices_type = type.convert( names(item$choices), as.is = F)
-			if(is.character(choices_type)) results[, item$name ] = as.factor(results[, item$name ])
-			else if(is.numeric(choices_type)) results[, item$name ] = as.numeric(results[, item$name ])
+			results[, item$name ] = type.convert( as.character(results[, item$name ]) , as.is = T)
+			if(is.character(results[, item$name ])) { # numeric choices should be typed correctly by default
+				# save the factor with all possible levels
+				if(all(
+					unique(results[, item$name ]) %in%  c(NA,names(item$choices))
+					)
+					)# e.g. mc, select
+					results[, item$name ] = factor(results[, item$name ], levels = names(item$choices) )
+				# e.g. select_or_add_one stay character
+			}
 		} else if(item$type %in% c("text","textarea","email","letters")) {
 			results[, item$name ] = as.character(results[, item$name ])
 		} else if(item$type %in% c("datetime")) {
@@ -167,6 +180,8 @@ formr_recognise = function (survey_name,
 			results[, item$name ] = as.Date(results[, item$name ],format='%Y-%m-%d')
 		} else if(item$type %in% c("time")) {
 #			results[, item$name ] = (results[, item$name ])
+		} else if(item$type %in% c("number","range","range_list")) {
+			results[, item$name ] = as.numeric(results[, item$name ])
 		}
 	}
 	results
@@ -204,7 +219,7 @@ formr_simulate_from_items = function (item_list, n = 300)
 			sample_from = type.convert( names(item$choices), as.is = F)
 			
 			sim[, item$name] = sample(sample_from,size=n,replace=T)
-		} else if(stringr::str_detect(item$type_options, "^[0-9.,]+$")) {
+		} else if(length(item$type_options) && stringr::str_detect(item$type_options, "^[0-9.,]+$")) {
 			limits = as.numeric(
 				stringr::str_split(item$type_options,pattern=stringr::fixed(","))[[1]]
 			)
@@ -248,7 +263,7 @@ formr_simulate_from_items = function (item_list, n = 300)
 
 formr_aggregate = function (survey_name, 
 														item_list = formr_items(survey_name, host = host),
-														results = formr_import(survey_name, host = host),
+														results = formr_raw_results(survey_name, host = host),
 														host = "https://formr.org",
 														fallback_max = 5)
 {
@@ -265,9 +280,12 @@ formr_aggregate = function (survey_name,
 			item = item_list[[i]]
 			if( length( item$choices) )  { # choice-based items
 				if(stringr::str_detect(item$name, "^[a-zA-Z0-9_]+?[0-9]+R$")) {# with a number and an "R" at the end
-					possible_replies = names(item$choices)
-					# save as item name with the R truncated
-					results[, stringr::str_sub(item$name, 1, -2) ] = max(possible_replies) + 1 - results[, item$name ] # reverse
+					possible_replies = type.convert(names(item$choices))
+					if(! is.numeric(possible_replies)) {
+						warning(item$name, " is not numeric and cannot be reversed.")
+					} else {
+						results[, stringr::str_sub(item$name, 1, -2) ] = max(possible_replies) + 1 - as.numeric(results[, item$name ]) # reverse	# save as item name with the R truncated
+					}
 				}
 			}
 			names[i] = item$name
@@ -296,13 +314,51 @@ formr_aggregate = function (survey_name,
 				scale_item_names)) {
 				warning("Some items were missing. ", paste(setdiff(scale_item_names, names(results)), collapse = " "))
 			} else {
-				results[, save_scale] = rowMeans( results[, scale_item_names ] )
-				cat(paste0("\n\n",save_scale))
-				print(
-					psych::alpha(results[, scale_item_names ], check.keys = F)
-				)
+				if(! all(sapply(results[, scale_item_names ],is.numeric))) {
+					warning("One of the items in the scale ", save_scale, " is not numeric. The scale was not aggregated.")
+				} else {
+					results[, save_scale] = rowMeans( results[, scale_item_names ] )
+					cat(paste0("\n\n",save_scale))
+					print(
+						psych::alpha(results[, scale_item_names ], check.keys = F)
+					)
+				}
 			}
 		}
 	}
 	results
 }
+
+#' Download processed, aggregated results from formr
+#'
+#' After connecting to formr using \code{\link{formr_connect}}
+#' you can download data, it basically just does \code{\link{formr_raw_results}} ,
+#' \code{\link{formr_recognise}} and \code{\link{formr_aggregate}} in sequence.
+#'
+#' @param survey_name case-sensitive name of a survey your account owns
+#' @param host defaults to https://formr.org
+#' @export
+#' @examples
+#' \dontrun{
+#' formr_results(survey_name = "training_diary" )
+#' }
+
+formr_results = function(survey_name, host = "https://formr.org") {
+	results = formr_raw_results(survey_name, host)
+	item_list = formr_items(survey_name, host)
+	results = formr_recognise(item_list = item_list, results = results)
+	formr_aggregate(item_list = item_list, results = results)
+}
+
+## testing with credentials
+# formr_connect("", "")
+# vorab = formr_raw_results("Vorab_Fragebogen1")
+# vorab_items = formr_items("Vorab_Fragebogen1")
+# vorab_item_displays = formr_item_displays("Vorab_Fragebogen1")
+# vorab_processed = formr_recognise(item_list=vorab_items, results=vorab)
+# vorab_sim = formr_simulate_from_items(item_list=vorab_items)
+# vorab_sim_agg = formr_aggregate(item_list=vorab_items, results=vorab_sim)
+# vorab_proc_agg = formr_aggregate(item_list=vorab_items, results=vorab_processed)
+# vorab_raw_agg = formr_aggregate(item_list=vorab_items, results=vorab)
+# vorab = formr_results("Vorab_Fragebogen1")
+# # options(warn=2)
