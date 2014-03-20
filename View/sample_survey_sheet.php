@@ -9,6 +9,7 @@
 	<li>
 		Make text <strong>bold</strong> through  <code>__bold__</code>, make it <em>italic</em> through <code>*italic*</code>.
 	</li>
+</ul>
 <table class='table table-striped'>
 	<thead>
 		<tr>

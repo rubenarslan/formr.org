@@ -1131,7 +1131,8 @@ class Survey extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		if($this->id):
-			$resultCount = $this->getResultCount();
+			$resultCount = $this->howManyReachedItNumbers();
+
 			$time = $this->getAverageTimeItTakes();
 			
 			$dialog = "<h3>
