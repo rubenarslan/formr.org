@@ -37,21 +37,25 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 					Run modules:
 				</h4>
 				<div class="row">
-					<div class="btn-group">
-						<a class="reorder_units btn btn-lg hastooltip" title="Save new positions" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_reorder">
-							<i class="fa fa-exchange fa-rotate-90 fa-larger"></i>
-							Reorder
-						</a>
-						<a id="export_run_units" class="export_run_units hastooltip btn btn-lg" title="Export these run units as JSON (currently there is no way to re-import)">
-							<i class="fa fa-suitcase"></i> Export
-						</a>
+					<div class="col-md-10">
+						<div class="btn-group">
+							<a class="reorder_units btn btn-lg hastooltip" title="Save new positions" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_reorder">
+								<i class="fa fa-exchange fa-rotate-90 fa-larger"></i>
+								Reorder
+							</a>
+							<a id="export_run_units" class="export_run_units hastooltip btn btn-lg" title="Export these run units as JSON (currently there is no way to re-import)">
+								<i class="fa fa-suitcase"></i> Export
+							</a>
+						</div>
+						<br>&nbsp;
+						
 					</div>
 				</div>
 				
 				</div>
 			</div>
 			<div class="row" id="run_dialog_choices">
-			  	<div class="form-group span7">
+			  	<div class="form-group col-lg-12">
 					<div class="btn-group">
 						<a class="add_survey add_run_unit btn btn-lg hastooltip" title="Add survey" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_create_run_unit?type=Survey">
 							<i class="fa fa-pencil-square fa-2x"></i>
