@@ -3,10 +3,10 @@ Title: formr survey framework
 Description: The formr R package provides a few convenience functions
     that may be useful to the users of formr (formr.org), an online
     survey framework which heavily relies on R via openCPU.
-    Some of the functions are for conveniently generating individual
+    Some of the functions are for conveniently generating individ
     feedback graphics, some are just shorthands to make certain common
     operations in formr more palatable to R novices.
-Version: 0.1
+Version: 0.1.0
 Authors@R: c(
     person("Ruben", "Arslan",
     email = "rubenarslan@gmail.com",
@@ -16,6 +16,7 @@ Depends:
     R (>= 3.0.2)
 Imports:
     ggplot2,
+    scales,
     stringr,
     lubridate,
     plyr,
