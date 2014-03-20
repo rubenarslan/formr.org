@@ -111,7 +111,7 @@ qplot_on_bar = function(normed_data, ylab = "Your value", xlab = "Trait", title 
 #' @import ggplot2
 #' @examples
 #' weekdays = c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")
-#' normed_data = data.frame(variable = factor(weekdays, weekdays), value = c(0,1,0.2,0.5,1.5,2,2)) # standardise value
+#' normed_data = data.frame(variable = factor(weekdays, weekdays), value = c(0,1,0.2,0.5,1.5,2,1)) # standardise value
 #' qplot_on_polar(normed_data, title = "Your alcohol consumption across the week")
 #' normed_data = data.frame(variable = factor(1:24,1:24), value = 3+rnorm(24), se = rep(0.2,24)) # standardise value
 #' qplot_on_polar(normed_data, title = "Your mood around the clock")
