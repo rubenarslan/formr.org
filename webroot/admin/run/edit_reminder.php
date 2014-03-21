@@ -14,7 +14,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 	
 	<div class="col-lg-8 col-md-10 col-sm-11 col-lg-offset-1 single_unit_display">
 		<form class="form-horizontal" enctype="multipart/form-data"  id="edit_run" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>" data-units='<?php
-			echo json_encode(array(array("unit_id" => $reminder_email_id) ) );
+			echo json_encode(array(array("run_unit_id" => $reminder_email_id) ) );
 			?>'>
 	<h2><i class="fa fa-bullhorn"></i> Edit email reminder</h2>
 	<p class="lead">

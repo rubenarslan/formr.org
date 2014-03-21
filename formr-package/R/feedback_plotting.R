@@ -75,7 +75,7 @@ feedback_chunk = function(normed_value,  chunks)
 
 qplot_on_bar = function(normed_data, ylab = "Your value", xlab = "Trait", title = '', y_ticks = c('--','-','0','+','++'))
 {
-	if(! c("value","variable") %in% names(normed_data)) stop("Malformed file, check help.")
+	if(! all(c("value","variable") %in% names(normed_data))) stop("Malformed file, check help.")
 	if(exists("se",where = normed_data))
 	{
 		normed_data$ymin = normed_data$value - normed_data$se
@@ -118,7 +118,7 @@ qplot_on_bar = function(normed_data, ylab = "Your value", xlab = "Trait", title 
 
 qplot_on_polar = function(normed_data, ylab = "Your value", title = '')
 {
-	if(! c("value","variable") %in% names(normed_data)) stop("Malformed file, check help.")
+	if(! all(c("value","variable") %in% names(normed_data)) ) stop("Malformed file, check help.")
 
 	if(exists("se",where = normed_data))
 	{
