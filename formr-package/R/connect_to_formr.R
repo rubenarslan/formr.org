@@ -12,7 +12,9 @@
 #' formr_connect(email = "you@@example.net", password = "zebrafinch" )
 #' }
 
-formr_connect = function(email, password, host = "https://formr.org") {
+formr_connect = function(email, password = NULL, host = "https://formr.org") {
+	if(missing(email) || is.null(email)) email = readline("Enter your email")
+	if(missing(password) || is.null(password)) password = readline("Enter your password")
  	resp = httr::POST( paste0(host,"/public/login"),body=  list(email = email, password = password) )
  	text = httr::content(resp,encoding="utf8",as="text")
  	if(resp$status_code == 200 && grepl("Success!",text,fixed = T)) TRUE
@@ -153,10 +155,16 @@ formr_recognise = function (survey_name,
 								results = formr_raw_results(survey_name, host = host),
 								host = "https://formr.org")
 {
-	results$session = as.character(results$session)
-	results$created = as.POSIXct(results$created)
-	results$modified = as.POSIXct(results$modified)
-	results$ended = as.POSIXct(results$ended)
+	tryCatch({
+	# results fields that appear in all formr_results but aren't custom items
+	if(exists("session", where = results))
+		results$session = as.character(results$session)
+	if(exists("created", where = results))
+		results$created = as.POSIXct(results$created)
+	if(exists("modified", where = results))
+		results$modified = as.POSIXct(results$modified)
+	if(exists("ended", where = results))
+		results$ended = as.POSIXct(results$ended)
 
 	for(i in seq_along(item_list)) {
 		item = item_list[[i]]
@@ -184,6 +192,16 @@ formr_recognise = function (survey_name,
 			results[, item$name ] = as.numeric(results[, item$name ])
 		}
 	}
+	}, error = function(e) {
+		warning(e)
+		tryCatch({
+		results = plyr::colwise(function(x) { 
+			type.convert(as.character(x),as.is=TRUE)
+		})(results)
+		}, error = function(e) {
+			warning(e)
+		})
+	})
 	results
 }
 #' Simulate data based on item table
@@ -245,7 +263,7 @@ formr_simulate_from_items = function (item_list, n = 300)
 #' @param item_list an item_list, will be auto-retrieved based on survey_name if omitted
 #' @param results survey results, will be auto-retrieved based on survey_name if omitted
 #' @param host defaults to https://formr.org
-#' @param fallback_max defaults to 5 - if the item_list is set to null, we will use this to reverse items instead
+#' @param fallback_max defaults to 5 - if the item_list is set to null, we will use this to reverse #' @param ... passed to  \code{\link[psych:alpha]{alpha}}
 #' @export
 #' @examples
 #' \dontrun{
@@ -265,19 +283,30 @@ formr_aggregate = function (survey_name,
 														item_list = formr_items(survey_name, host = host),
 														results = formr_raw_results(survey_name, host = host),
 														host = "https://formr.org",
-														fallback_max = 5)
+														compute_alphas = FALSE,
+														fallback_max = 5, ...)
 {
 
+	dont_use = c()
 	# reverse items
-	if(is.null(item_list)) { # if we're playing dumb and don't have the item table to base our aggregation on?
-		names = names(results) # we use the item names of all items, including notes and text, hoping that there is no false positive
+	# first we're playing dumb and don't have the item table to base our aggregation on?
+	names = names(results) # we use the item names of all items, including notes and text, hoping that there is no false positive
+
+	if(is.null(item_list)) {
+		results = plyr::colwise(function(x) { 
+				type.convert(as.character(x),as.is=TRUE)
+			})(results)
 		reversed_items = stringr::str_detect(names, "^[a-zA-Z0-9_]+?[0-9]+R$") # get reversed items
 		results[,  stringr::str_sub(reversed_items, 1, -2) ] = # reverse these items
 			fallback_max + 1 - results[, reversed_items]				 # based on fallback_max
 	} else {
-		names = character(length(item_list))
 		for(i in seq_along(item_list)) {
 			item = item_list[[i]]
+			if(item$type %in% c('note','mc_heading','submit')) {
+				dont_use = c(dont_use,
+					stringr::str_match(item$name, "^([a-zA-Z0-9_]+?)[0-9]+R?$")[,2]
+				)
+			}
 			if( length( item$choices) )  { # choice-based items
 				if(stringr::str_detect(item$name, "^[a-zA-Z0-9_]+?[0-9]+R$")) {# with a number and an "R" at the end
 					possible_replies = type.convert(names(item$choices))
@@ -288,12 +317,13 @@ formr_aggregate = function (survey_name,
 					}
 				}
 			}
-			names[i] = item$name
 		}
 	}
-		
+	names = names(results) # update after reversing
+	
 	scale_stubs = stringr::str_match(names, "^([a-zA-Z0-9_]+?)[0-9]+$")[,2] # fit the pattern
 	scales = unique(na.omit(scale_stubs[duplicated(scale_stubs)])) # only those which occur more than once
+	scales = setdiff(scales, dont_use) # but not notes etc.
 	# todo: should check whether they all share the same reply options (choices, type_options)
 	for(i in seq_along(scales)) {
 		scale = scales[i]
@@ -309,19 +339,42 @@ formr_aggregate = function (survey_name,
 			warning(paste("Would have generated scale",save_scale,"but a variable of that name existed already."))
 		} else {
 			scale_item_names = names[which(scale_stubs == scale)]
+			numbers = as.numeric(stringr::str_match(scale_item_names, "^[a-zA-Z0-9_]+?([0-9]+)$")[,2])
+						
 			if(! setequal(
 				intersect(scale_item_names, names(results)),
 				scale_item_names)) {
 				warning("Some items were missing. ", paste(setdiff(scale_item_names, names(results)), collapse = " "))
-			} else {
+			}
+			else if ( length(scale_item_names) == 1) {
+				warning(save_scale, " seems to consist of only a single item.")
+			}
+			else if (! setequal( min(numbers):max(numbers), numbers) ){
+					warning("Some items from ",save_scale," might be missing, the lowest item number was ", min(numbers), " the highest was ", max(numbers), " but we didn't see ", paste(setdiff(min(numbers):max(numbers), numbers), collapse = " "))
+				} else {
 				if(! all(sapply(results[, scale_item_names ],is.numeric))) {
 					warning("One of the items in the scale ", save_scale, " is not numeric. The scale was not aggregated.")
 				} else {
 					results[, save_scale] = rowMeans( results[, scale_item_names ] )
-					cat(paste0("\n\n",save_scale))
-					print(
-						psych::alpha(results[, scale_item_names ], check.keys = F)
-					)
+					if(compute_alphas) {
+						cat(paste0("\n\n",save_scale))
+						if(length(numbers) > 2) {
+							rows_with_missings = nrow(results[, scale_item_names ]) - nrow(na.omit(results[, scale_item_names ]))
+							if(rows_with_missings > 0) {
+								warning("There were ", rows_with_missings ," rows with missings in ", save_scale)
+							}
+							tryCatch({
+							print(
+								psych::alpha(na.omit( results[, scale_item_names ] ), check.keys = F, ...)
+							)
+							}, error = function(e) { 
+								warning("There were problems with ", save_scale, " or its items ", paste(scale_item_names, collapse = " "), " while trying to compute internal consistencies. ", e)
+							})
+						} else {
+							message("Just two items in scale ", save_scale, " so we only calculated a correlation.")
+							print(cor(results[, scale_item_names[1] ], results[, scale_item_names[2] ], use = "na.or.complete"))
+						}
+					}
 				}
 			}
 		}
@@ -350,7 +403,8 @@ formr_results = function(survey_name, host = "https://formr.org") {
 	formr_aggregate(item_list = item_list, results = results)
 }
 
-## testing with credentials
+# 
+# # # # # ## testing with credentials
 # formr_connect("", "")
 # vorab = formr_raw_results("Vorab_Fragebogen1")
 # vorab_items = formr_items("Vorab_Fragebogen1")
@@ -358,7 +412,8 @@ formr_results = function(survey_name, host = "https://formr.org") {
 # vorab_processed = formr_recognise(item_list=vorab_items, results=vorab)
 # vorab_sim = formr_simulate_from_items(item_list=vorab_items)
 # vorab_sim_agg = formr_aggregate(item_list=vorab_items, results=vorab_sim)
-# vorab_proc_agg = formr_aggregate(item_list=vorab_items, results=vorab_processed)
-# vorab_raw_agg = formr_aggregate(item_list=vorab_items, results=vorab)
-# vorab = formr_results("Vorab_Fragebogen1")
-# # options(warn=2)
+# vorab_proc_agg = formr_aggregate(item_list=vorab_items, results=vorab_processed,compute_alphas=T)
+# vorab_raw_agg = formr_aggregate(item_list=vorab_items, results=vorab,compute_alphas=T)
+# vorab_raw_agg = formr_aggregate(item_list=NULL, results=vorab,compute_alphas=T)
+# vorab_comp = formr_results("Vorab_Fragebogen1")
+# options(warn=2)

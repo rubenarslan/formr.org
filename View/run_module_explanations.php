@@ -45,24 +45,14 @@
 					<li>
 						<i class="fa-li fa fa-bar-chart-o"></i>
 						You can also plot someone's extraversion on the standard normal distribution.
-	<pre><code class="r">extra_norm_mean = 3.2
-extra_norm_sd = 2.1 
-big5$extraversion = (
-rowMeans(
-subset(big5, select = extra1:extra10)
-)
-- extra_norm_mean ) / extra_norm_sd
+	<pre><code class="r">library(formr)
+# build scales automatically
+big5 = formr_aggregate(results = big5)
+# standardise
+big5$extraversion = scale(big5$extraversion, center = 3.2, scale = 2.1)
 
-z = rnorm(1000)
-
-library(ggplot2)
-
-qplot(z, geom = "blank") +
-stat_function(fun=dnorm, aes(x = z)) + 
-geom_vline(xintercept=big5$extraversion, colour="blue") +
-xlab("Extraversion") +
-ylab("Normal distribution") + 
-theme_minimal()
+# plot
+qplot_on_normal(big$extraversion, xlab = "Extraversion")
 </code></pre><br>
 yields<br>
 <img src="<?=WEBROOT?>assets/img/examples/example_fb_plot.png" width="330" height="313">
