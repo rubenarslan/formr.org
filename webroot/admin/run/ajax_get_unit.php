@@ -14,6 +14,9 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 		$unit = $unit_factory->make($fdb,null,$unit_info);
 		
 		echo $unit->displayForRun();
+	else:
+		echo "Missing unit";
+		exit;
 	endif;
 endif;
 
