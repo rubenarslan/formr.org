@@ -64,7 +64,9 @@ formr_raw_results = function(survey_name, host = "https://formr.org") {
 
 formr_items = function(survey_name, host = "https://formr.org") {
 	resp = httr::GET( paste0(host,"/admin/survey/",survey_name,"/export_item_table?format=json"))
-	if(resp$status_code == 200) httr::content(resp,as="parsed",type="application/json")
+	if(resp$status_code == 200) jsonlite::fromJSON(simplifyDataFrame=FALSE,
+		httr::content(resp,encoding="utf8",as="text")
+	)
 	else stop("This survey does not exist.")
 }
 
@@ -155,17 +157,8 @@ formr_recognise = function (survey_name,
 								results = formr_raw_results(survey_name, host = host),
 								host = "https://formr.org")
 {
-	tryCatch({
-	# results fields that appear in all formr_results but aren't custom items
-	if(exists("session", where = results))
-		results$session = as.character(results$session)
-	if(exists("created", where = results))
-		results$created = as.POSIXct(results$created)
-	if(exists("modified", where = results))
-		results$modified = as.POSIXct(results$modified)
-	if(exists("ended", where = results))
-		results$ended = as.POSIXct(results$ended)
-
+	results = tryCatch({
+	if(is.null(item_list)) stop("No item list provided, using type.convert as a fallback.")
 	for(i in seq_along(item_list)) {
 		item = item_list[[i]]
 		if(item$type %in% c("note","mc_heading")) next;
@@ -192,16 +185,23 @@ formr_recognise = function (survey_name,
 			results[, item$name ] = as.numeric(results[, item$name ])
 		}
 	}
+		return(results)
 	}, error = function(e) {
 		warning(e)
-		tryCatch({
-		results = plyr::colwise(function(x) { 
-			type.convert(as.character(x),as.is=TRUE)
-		})(results)
-		}, error = function(e) {
-			warning(e)
-		})
+		char_vars = sapply(results,is.character)
+		results[,char_vars] = plyr::colwise(function(x) { 
+			type.convert(x,as.is=TRUE)
+		})(results[,char_vars,drop = F])
+		return(results)
 	})
+	# results fields that appear in all formr_results but aren't custom items
+	if(exists("created", where = results))
+		results$created = as.POSIXct(results$created)
+	if(exists("modified", where = results))
+		results$modified = as.POSIXct(results$modified)
+	if(exists("ended", where = results))
+		results$ended = as.POSIXct(results$ended)
+
 	results
 }
 #' Simulate data based on item table
@@ -293,10 +293,11 @@ formr_aggregate = function (survey_name,
 	names = names(results) # we use the item names of all items, including notes and text, hoping that there is no false positive
 
 	if(is.null(item_list)) {
-		results = plyr::colwise(function(x) { 
-				type.convert(as.character(x),as.is=TRUE)
-			})(results)
-		reversed_items = stringr::str_detect(names, "^[a-zA-Z0-9_]+?[0-9]+R$") # get reversed items
+		char_vars = sapply(results,is.character)
+		results[,char_vars] = plyr::colwise(function(x) { 
+				type.convert(x,as.is=TRUE)
+			})(results[,char_vars,drop = F])
+		reversed_items = names[stringr::str_detect(names, "^[a-zA-Z0-9_]+?[0-9]+R$")] # get reversed items
 		results[,  stringr::str_sub(reversed_items, 1, -2) ] = # reverse these items
 			fallback_max + 1 - results[, reversed_items]				 # based on fallback_max
 	} else {
