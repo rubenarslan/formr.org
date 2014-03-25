@@ -285,7 +285,7 @@ class RunUnit {
 						left join `survey_run_sessions`
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 						left join `survey_run_units`
-						on `survey_run_units`.id = `survey_unit_sessions`.unit_id
+						on `survey_run_units`.run_id = `survey_run_sessions`.run_id AND `survey_run_units`.unit_id = `survey_unit_sessions`.unit_id
 					";
 				
 				elseif($survey_name == 'survey_unit_sessions'):
@@ -302,7 +302,7 @@ class RunUnit {
 				";
 			
 				$q = $q1 . $q2 . $q3;
-			
+				
 				$get_results = $this->dbh->prepare($q);
 				if($this->run_session_id === NULL):
 					$get_results->bindValue(':session_id', $this->session_id);
