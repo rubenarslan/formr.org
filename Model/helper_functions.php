@@ -51,6 +51,9 @@ function bad_request() {
 	require_once INCLUDE_ROOT."webroot/public/not_found.php";
 	exit;
 }
+function bad_request_header() {
+    header('HTTP/1.0 400 Bad Request');
+}
 
 function h($text) {
 	return htmlspecialchars($text);
@@ -314,6 +317,7 @@ if (!function_exists('http_parse_headers'))
  * @return  string
  */
 function timetostr($timestamp) {
+	if($timestamp === false) return "";
     $age = time() - $timestamp;
 
     $future = ($age <= 0);
