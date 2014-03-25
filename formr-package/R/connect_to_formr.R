@@ -13,8 +13,8 @@
 #' }
 
 formr_connect = function(email, password = NULL, host = "https://formr.org") {
-	if(missing(email) || is.null(email)) email = readline("Enter your email")
-	if(missing(password) || is.null(password)) password = readline("Enter your password")
+	if(missing(email) || is.null(email)) email = readline("Enter your email: ")
+	if(missing(password) || is.null(password)) password = readline("Enter your password: ")
  	resp = httr::POST( paste0(host,"/public/login"),body=  list(email = email, password = password) )
  	text = httr::content(resp,encoding="utf8",as="text")
  	if(resp$status_code == 200 && grepl("Success!",text,fixed = T)) TRUE
@@ -227,7 +227,7 @@ formr_simulate_from_items = function (item_list, n = 300)
 {
 	sim = data.frame(id = 1:n)
 	sim$created = random_date_in_range(n, Sys.time() - 10000000, Sys.time())
-	sim$ended = sim$created + lubridate::seconds(
+	sim$modified = sim$ended = sim$created + lubridate::seconds(
 		rpois( n, lambda = length(item_list) * 20) # assume 20 seconds per item
 	)
 	for(i in seq_along(item_list)) {
@@ -298,8 +298,9 @@ formr_aggregate = function (survey_name,
 				type.convert(x,as.is=TRUE)
 			})(results[,char_vars,drop = F])
 		reversed_items = names[stringr::str_detect(names, "^[a-zA-Z0-9_]+?[0-9]+R$")] # get reversed items
-		results[,  stringr::str_sub(reversed_items, 1, -2) ] = # reverse these items
-			fallback_max + 1 - results[, reversed_items]				 # based on fallback_max
+		if(length(reversed_items))
+			results[,  stringr::str_sub(reversed_items, 1, -2) ] = # reverse these items
+				(fallback_max + 1) - results[, reversed_items]				 # based on fallback_max
 	} else {
 		for(i in seq_along(item_list)) {
 			item = item_list[[i]]
