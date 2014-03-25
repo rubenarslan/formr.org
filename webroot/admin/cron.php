@@ -57,10 +57,10 @@ foreach($runs AS $run_data):
 	$alerts = $site->renderAlerts();
 	$alerts = str_replace('<button type="button" class="close" data-dismiss="alert">&times;</button>', '', $alerts);
 	
-	$msg = date( 'Y-m-d H:i:s' ) . ' ' . "$i sessions in the run ".$run->name." were processed. {$done['Email']} emails were sent. {$done['SkipForward']} SkipForwards, {$done['SkipBackward']} SkipBackwards, {$done['Shuffle']} shuffles, and {$done['Pause']} pauses were evaluated.<br>" . "\n";
+	$msg = date( 'Y-m-d H:i:s' ) . ' ' . "$i sessions in the run ".$run->name." were processed. {$done['Email']} emails were sent. {$done['SkipForward']} SkipForwards, {$done['SkipBackward']} SkipBackwards, {$done['Shuffle']} shuffles, and {$done['Pause']} pauses ended.<br>" . "\n";
 	$msg .= $alerts;
-
-	
+	unset($done["Page"]);
+if(array_sum($done) > 0 OR array_sum($alert_types) > 0):	
 	$log = $fdb->prepare("INSERT INTO `survey_cron_log` (run_id, created, ended, sessions, skipforwards, skipbackwards, pauses, emails, shuffles, errors, warnings, notices, message)
 												VALUES (:run_id, :created, NOW(), :sessions, :skipforwards, :skipbackwards, :pauses, :emails, :shuffles, :errors, :warnings, :notices, :message)");
 	$log->bindParam(':run_id', $run->id);
@@ -76,7 +76,7 @@ foreach($runs AS $run_data):
 	$log->bindParam(':notices', $alert_types['alert-info']);
 	$log->bindParam(':message', $alerts);
 	$log->execute();
-
+endif;
 
 	echo $msg."<br>";
 endforeach;
