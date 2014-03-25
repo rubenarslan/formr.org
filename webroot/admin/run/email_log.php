@@ -10,13 +10,18 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 $g_emails = $fdb->prepare("SELECT 
 	`survey_email_accounts`.from_name, 
 	`survey_email_accounts`.`from`, 
+	`survey_email_log`.recipient AS `to`,
 	`survey_emails`.subject,
 	`survey_emails`.body,
-	`survey_email_log`.created,
-	`survey_email_log`.recipient FROM `survey_email_log`
+	`survey_email_log`.created AS sent,
+	`survey_run_units`.position AS position_in_run
 	
-	LEFT JOIN `survey_emails`
+	FROM `survey_email_log`
+	
+LEFT JOIN `survey_emails`
 ON `survey_email_log`.email_id = `survey_emails`.id
+LEFT JOIN `survey_run_units`
+ON `survey_emails`.id = `survey_run_units`.unit_id
 LEFT JOIN `survey_email_accounts`
 ON `survey_emails`.account_id = `survey_email_accounts`.id
 LEFT JOIN `survey_unit_sessions`
@@ -32,8 +37,12 @@ while($email = $g_emails->fetch(PDO::FETCH_ASSOC))
 {
 	$email['from'] = "{$email['from_name']}<br><small>{$email['from']}</small>";
 	unset($email['from_name']);
-	$email['body'] = "<small title=\"{$email['body']}\">". substr($email['body'],0,50). "…</small>";
-	
+	$email['to'] = $email['to']."<br><small>at run position ".$email['position_in_run']."</small>";
+	$email['mail'] = $email['subject']."<br><small>". substr($email['body'],0,100). "…</small>";
+	$email['sent'] = '<abbr title="'.$email['sent'].'">'.timetostr(strtotime($email['sent	'])).'</abbr>';
+	unset($email['position_in_run']);
+	unset($email['subject']);
+	unset($email['body']);
 	$emails[] = $email;
 }
 if(!empty($emails)) {
