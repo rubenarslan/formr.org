@@ -23,6 +23,15 @@ function redirect_to($location) {
 		exit;
 }
 
+function access_denied() {
+	global $site,$user;
+	$_SESSION['site'] = $site;
+	$_SESSION['user'] = serialize($user);
+
+    header('HTTP/1.0 403 Forbidden');
+	require_once INCLUDE_ROOT."webroot/public/not_found.php";
+	exit;
+}
 function not_found() {
 	global $site,$user;
 	$_SESSION['site'] = $site;
@@ -31,6 +40,19 @@ function not_found() {
     header('HTTP/1.0 404 Not Found');
 	require_once INCLUDE_ROOT."webroot/public/not_found.php";
 	exit;
+}
+
+function bad_request() {
+	global $site,$user;
+	$_SESSION['site'] = $site;
+	$_SESSION['user'] = serialize($user);
+
+    header('HTTP/1.0 400 Bad Request');
+	require_once INCLUDE_ROOT."webroot/public/not_found.php";
+	exit;
+}
+function bad_request_header() {
+    header('HTTP/1.0 400 Bad Request');
 }
 
 function h($text) {
@@ -295,6 +317,7 @@ if (!function_exists('http_parse_headers'))
  * @return  string
  */
 function timetostr($timestamp) {
+	if($timestamp === false) return "";
     $age = time() - $timestamp;
 
     $future = ($age <= 0);
