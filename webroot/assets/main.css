@@ -26,10 +26,6 @@ label
     background-color:rgba(22,22,22,0.15);
     border:0;
 }
-.navbar-formr .navbar-nav li.active > a
-{
-    background-color:white;
-}
 .main_body>.row> .run_dialog
 {
     background-color:rgba(255,255,255,0.15);
@@ -594,7 +590,7 @@ div.btn-check button.btn {
     margin-left: -1px;
 }
 
-form.form-horizontal img {
+form.form-horizontal img, div.modal-content img,img {
     max-width: 100%;
     height: auto;
 }

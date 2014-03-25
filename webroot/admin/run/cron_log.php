@@ -1,5 +1,5 @@
 <?php
-require_once '../../define_root.php';
+require_once '../../../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
@@ -25,21 +25,13 @@ $g_cron = $fdb->prepare("SELECT
 	`survey_cron_log`.errors, 
 	`survey_cron_log`.warnings, 
 	`survey_cron_log`.notices, 
-	`survey_cron_log`.message,
-
-	`survey_runs`.name AS run_name
-	
+	`survey_cron_log`.message
 	
 FROM `survey_cron_log`
 
-LEFT JOIN `survey_runs`
-ON `survey_cron_log`.run_id = `survey_runs`.id
-LEFT JOIN `survey_users`
-ON `survey_users`.id = `survey_runs`.user_id
-
-WHERE `survey_users`.id = :user_id
+WHERE `survey_cron_log`.run_id = :run_id
 ORDER BY `survey_cron_log`.id DESC;");
-$g_cron->bindParam(':user_id',$user->id);
+$g_cron->bindValue(':run_id',$run->id);
 $g_cron->execute() or die(print_r($g_cron->errorInfo(), true));
 
 $cronlogs = array();
@@ -61,9 +53,7 @@ while($cronlog = $g_cron->fetch(PDO::FETCH_ASSOC))
 	$cronlog['Modules'] .=	'</small>';
 	$cronlog['took'] = '<small>'.round($cronlog['time_in_seconds']/60, 2). 'm</small>';
 	$cronlog['time'] = '<small title="'.$cronlog['created'].'">'.timetostr(strtotime($cronlog['created'])). '</small>';
-	$cronlog['Run name'] = $cronlog['run_name'];
     $cronlog = array_reverse($cronlog, true);
-	unset($cronlog['run_name']);
 	unset($cronlog['created']);
 	unset($cronlog['time_in_seconds']);
 	unset($cronlog['skipforwards']);
@@ -117,10 +107,15 @@ if(!empty($cronlogs)) {
 
 		    echo "</tr>\n";
 		endforeach;
-	}
 		?>
 
 	</tbody></table>
+	<?php
+}
+else {
+	echo "No cron jobs yet. Maybe you need to press the 'Play' button <a href='".WEBROOT."admin/run/".$run->name."'>here</a>.";
+}		
+	?>
 	</div>
 </div>
 	

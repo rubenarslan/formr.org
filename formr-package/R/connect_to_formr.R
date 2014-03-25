@@ -17,7 +17,7 @@ formr_connect = function(email, password = NULL, host = "https://formr.org") {
 	if(missing(password) || is.null(password)) password = readline("Enter your password: ")
  	resp = httr::POST( paste0(host,"/public/login"),body=  list(email = email, password = password) )
  	text = httr::content(resp,encoding="utf8",as="text")
- 	if(resp$status_code == 200 && grepl("Success!",text,fixed = T)) TRUE
+ 	if(resp$status_code == 200 && grepl("Success!",text,fixed = T)) invisible(TRUE)
  	else if(grepl("Error.",text,fixed = T)) stop("Incorrect credentials.")
  	else warning("Already logged in.")
 }
@@ -232,10 +232,12 @@ formr_simulate_from_items = function (item_list, n = 300)
 	)
 	for(i in seq_along(item_list)) {
 		item = item_list[[i]]
-		if(item$type %in% c("note","mc_heading")) next;
-		if( length( item$choices) )  { # choice-based items
+		if(item$type %in% c("note","mc_heading")) { next;
+		} else if(item$type == "rating_button") { # bit of a special case
+			sample_from = 1:as.numeric(item$type_options)
+			sim[, item$name] = sample(sample_from,size=n,replace=T)
+		}	else if( length( item$choices) )  { # choice-based items
 			sample_from = type.convert( names(item$choices), as.is = F)
-			
 			sim[, item$name] = sample(sample_from,size=n,replace=T)
 		} else if(length(item$type_options) && stringr::str_detect(item$type_options, "^[0-9.,]+$")) {
 			limits = as.numeric(

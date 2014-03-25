@@ -122,6 +122,18 @@ class Site
 		session_set_cookie_params ( $settings['session_cookie_lifetime'], "/" , null,  SSL , true );
 		session_start();
 	}
+	public function makeTitle()
+	{
+		global $title;
+		preg_match("@webroot/([/a-zA-Z0-9_-]+)\.php$@",$_SERVER['SCRIPT_NAME'],$matches);
+		if(isset($matches[1])): 
+			$title_addon = " - " . $matches[1];
+			$title_addon = str_replace(array('_','/'),array(' ',' / '), $title_addon);
+		else:
+			$title_addon = "";
+		endif;
+		return isset($title) ? $title : ('formr'.$title_addon);
+	}
 }
 
 $site = new Site();

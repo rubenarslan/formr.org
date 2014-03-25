@@ -76,6 +76,13 @@ function ajaxErrorHandling (e, x, settings, exception)
 		message="The request was aborted by the server.";
 	else
 		message= (typeof e.statusText !== 'undefined' && e.statusText !== 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
+        
+    if(e.responseText)
+    {
+        var resp = $(e.responseText);
+        resp = resp.find(".alert").addBack().filter(".alert").html();
+        message = message + "<br>" + resp;
+    }
 
 	bootstrap_alert(message, 'Error.','.main_body');
 }
