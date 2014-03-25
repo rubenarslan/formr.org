@@ -82,9 +82,35 @@ class Survey extends RunUnit {
 	public function render() {
 		global $js;
 		$js = (isset($js)?$js:'') . '<script src="'.WEBROOT.'assets/survey.js"></script>';
-		$ret = $this->render_form_header().
-		$this->render_items().
-		$this->render_form_footer();
+		'
+
+    '.
+
+	 $ret = (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
+	 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</p>":'') .
+	 '
+	<div class="row">
+		<div class="col-md-12">
+
+	';
+	 $ret .= $this->render_form_header().
+	 $this->render_items().
+	 $this->render_form_footer();
+	 $ret .=	 '
+		</div> <!-- end of col-md-12 div -->
+	</div> <!-- end of row div -->
+	'.
+	(isset($this->settings['problem_email'])?
+	'
+	<div class="row">
+		<div class="col-md-12">'.
+		(isset($this->settings['problem_text'])?
+			str_replace("%s",$this->settings['problem_email'],$this->settings['problem_text']) :
+			('<a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>')
+		).
+		'</div>
+	</div>
+	':'');
 		$this->dbh = NULL;
 		return $ret;
 	}
@@ -523,36 +549,7 @@ class Survey extends RunUnit {
 		
 		
 		return array('title' => (isset($this->settings['title'])?$this->settings['title']: null),
-		'body' => 
-			'
-	
-        '.
-
-		 (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
-		 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</p>":'') .
-		 '
-		<div class="row">
-			<div class="col-md-12">
-
-		'.
-		 $this->render().
-		 '
-			</div> <!-- end of col-md-12 div -->
-		</div> <!-- end of row div -->
-		'.
-		(isset($this->settings['problem_email'])?
-		'
-		<div class="row">
-			<div class="col-md-12">'.
-			(isset($this->settings['problem_text'])?
-				str_replace("%s",$this->settings['problem_email'],$this->settings['problem_text']) :
-				('<a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>')
-			).
-			'</div>
-		</div>
-		':'')
-		);
-
+		'body' => $this->render());
 	}
 // this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
 
