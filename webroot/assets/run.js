@@ -67,7 +67,6 @@ RunUnit.prototype.init = function(content)
         this.textarea2 = $(textareas[1]);
         this.session2 = this.hookAceToTextarea(this.textarea2);
     }
-    this.serialize();
 };
 RunUnit.prototype.position_changes = function (e) 
 {
@@ -118,7 +117,10 @@ RunUnit.prototype.test = function(e)
 //              event.stopPropagation()
 //            });
 		},this))
-		.fail(ajaxErrorHandling);
+        .fail($.proxy(function(e, x, settings, exception) {
+        	this.test_button.attr('disabled',false).html(old_text);
+            ajaxErrorHandling(e, x, settings, exception);
+        },this));
 	return false;
 };
 
@@ -140,25 +142,18 @@ RunUnit.prototype.save = function(e)
 			url: $run_url + "/" + this.save_button.attr('href'),
 			dataType: 'html',
 			data: this.save_inputs.serialize(),
-			method: 'POST'
+			method: 'POST',
 		})
 		.done($.proxy(function(data)
 		{
-			
-			if(data.indexOf('error') < 0) 
-			{
-				$.proxy( this.init(data),this);
-			}
-			else
-			{				
-				var $alert = $(data);
-				$('#edit_run').prepend( $alert);
-				$alert[0].scrollIntoView(false);
-			}
-//        	this.save_button.html(old_text).removeAttr('disabled');
-            
-		},this))
-		.fail(ajaxErrorHandling);
+			$.proxy( this.init(data),this);
+//        	this.save_button.html(old_text).removeAttr('disabled'); // not necessary because it's reloaded. should I be more economic about all this DOM and HTTP jazz? there's basically 2 situations where a reload makes things easier: emails where the accounts have been updated, surveys which went from "open" to "chose one". One day...
+},this))
+        .fail($.proxy(function(e, x, settings, exception) {
+        	this.save_button.attr('disabled',false).html(old_text);
+            ajaxErrorHandling(e, x, settings, exception);
+        },this));
+        
 	return false;
 };
 
@@ -202,6 +197,7 @@ RunUnit.prototype.removeFromRun = function(e)
 	e.preventDefault();
     $(".tooltip").hide();
 	var $unit = this.block;
+    $unit.hide();
 	$.ajax(
 		{
 			url: $run_url + "/" + this.remove_button.attr('href'),
@@ -211,19 +207,14 @@ RunUnit.prototype.removeFromRun = function(e)
 		})
 		.done(function(data)
 		{
-			if(data.indexOf('error') < 0) 
-			{
-				$unit.html(data);
-                $run_units = $run_units.splice(this.order, 1); // remove from the run unit list
-			}
-			else
-			{				
-				var $alert = $(data);
-				$('#edit_run').prepend( $alert);
-				$alert[0].scrollIntoView(false);
-			}
+			$unit.html(data);
+            $unit.show();
+            $run_units = $run_units.splice(this.order, 1); // remove from the run unit list
 		})
-		.fail(ajaxErrorHandling);
+		.fail(function(e, x, settings, exception) {
+            $unit.show();
+            ajaxErrorHandling(e, x, settings, exception);
+        });
 	
 	return false;
 };
@@ -327,10 +318,7 @@ $(document).ready(function () {
 		})
 		.done(function(data)
 		{
-			if(data.indexOf('error') < 0) 
-			{
-				self.toggleClass('btn-checked',on);
-			}
+			self.toggleClass('btn-checked',on);
 		})
 		.fail(ajaxErrorHandling);
 		return false;
@@ -357,17 +345,8 @@ $(document).ready(function () {
 		})
 		.done(function(data)
 		{
-			if(data.indexOf('error') < 0) 
-			{
-				$run_units.push(new RunUnit(data));
-				loadNextUnit(units);
-			}			
-			else
-			{				
-				var $alert = $(data);
-				$('#edit_run').prepend( $alert);
-				$alert[0].scrollIntoView(false);
-			}
+			$run_units.push(new RunUnit(data));
+			loadNextUnit(units);
 		})
 		.fail(ajaxErrorHandling);
 		return false;
@@ -422,32 +401,23 @@ $(document).ready(function () {
     			})
     			.done(function(data)
     			{
-    				if(data.indexOf('error') < 0) 
-    				{
-    					$($run_units).each(function(i,elm) {
-    						elm.position_changed = false;
-    					});
-    					$reorderer.removeClass('btn-info').attr('disabled', 'disabled');
-    					var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
-    					var new_positions = old_positions;
-    					old_positions = old_positions.join(','); // for some reason I have to join to compare contents, otherwise annoying behavior with clones etc
-    					new_positions.sort(function(x,y){ return x-y; }).join(',');
-					
-                        $reorderer.removeClass('btn-info').attr('disabled', 'disabled');
-    					if(old_positions != new_positions)
-    					{
-    						location.reload();
-    					} else
-    					{
-    						$('.pos_changed').removeClass('pos_changed');
-    					}
-    				}		
-    				else
-    				{				
-    					var $alert = $(data);
-    					$('#edit_run').prepend( $alert);
-    					$alert[0].scrollIntoView(false);
-    				}
+					$($run_units).each(function(i,elm) {
+						elm.position_changed = false;
+					});
+					$reorderer.removeClass('btn-info').attr('disabled', 'disabled');
+					var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
+					var new_positions = old_positions;
+					old_positions = old_positions.join(','); // for some reason I have to join to compare contents, otherwise annoying behavior with clones etc
+					new_positions.sort(function(x,y){ return x-y; }).join(',');
+				
+                    $reorderer.removeClass('btn-info').attr('disabled', 'disabled');
+					if(old_positions != new_positions)
+					{
+						location.reload();
+					} else
+					{
+						$('.pos_changed').removeClass('pos_changed');
+					}
     			})
     			.fail(ajaxErrorHandling);
     			return false;
