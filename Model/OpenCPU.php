@@ -203,7 +203,9 @@ $this->user_data .
 			 );
 		else:
 			$header_parsed = http_parse_headers($result['header']);
-			$session = '/ocpu/tmp/'. $header_parsed['X-ocpu-session'] . '/';
+			if(isset($header_parsed['X-ocpu-session']))
+				$session = '/ocpu/tmp/'. $header_parsed['X-ocpu-session'] . '/';
+			else return "Error";
 		
 			$available = explode("\n",$result['body']);
 		
