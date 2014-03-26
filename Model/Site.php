@@ -125,14 +125,24 @@ class Site
 	public function makeTitle()
 	{
 		global $title;
-		preg_match("@webroot/([/a-zA-Z0-9_-]+)\.php$@",$_SERVER['SCRIPT_NAME'],$matches);
-		if(isset($matches[1])): 
-			$title_addon = " - " . $matches[1];
-			$title_addon = str_replace(array('_','/'),array(' ',' / '), $title_addon);
-		else:
-			$title_addon = "";
+		$path = '';
+		if(isset($_SERVER['REDIRECT_URL'])) $path = $_SERVER['REDIRECT_URL'];
+		else if (isset($_SERVER['SCRIPT_FILENAME'])) $path = $_SERVER['SCRIPT_FILENAME'];
+		else if (isset($_SERVER['SCRIPT_NAME'])) $path = $_SERVER['SCRIPT_NAME'];
+
+		$path = preg_replace(array(
+			"@webroot/@",
+			"@\.php$@",
+			"@index$@",
+			"@^/@",
+			"@/$@",
+		),"",$path);
+
+		if($path != '' AND $path != 'formr'): 
+			$title = $path;
+			$title = str_replace(array('_','/'),array(' ',' / '), $title);
 		endif;
-		return isset($title) ? $title : ('formr'.$title_addon);
+		return isset($title) ? $title : 'formr survey framework';
 	}
 }
 
