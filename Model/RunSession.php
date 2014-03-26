@@ -143,11 +143,11 @@ class RunSession
 				
 				$unit = $unit_factory->make($this->dbh, $this->session, $unit);
 				$output = $unit->exec();
-				if(!$output):
-					if(isset($done[ $unit['type'] ]))
-						$done[ $unit['type'] ]++;
+				if(!$output AND is_object($unit)):
+					if(isset($done[ $unit->type ]))
+						$done[ $unit->type ]++;
 					else
-						$done[ $unit['type'] ] = 1;
+						$done[$unit->type ] = 1;
 				endif;
 				
 				
