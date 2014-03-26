@@ -13,7 +13,7 @@ $g_emails = $fdb->prepare("SELECT
 	`survey_email_log`.recipient AS `to`,
 	`survey_emails`.subject,
 	`survey_emails`.body,
-	`survey_email_log`.created AS sent,
+	`survey_email_log`.created AS `sent`,
 	`survey_run_units`.position AS position_in_run
 	
 	FROM `survey_email_log`
@@ -39,7 +39,7 @@ while($email = $g_emails->fetch(PDO::FETCH_ASSOC))
 	unset($email['from_name']);
 	$email['to'] = $email['to']."<br><small>at run position ".$email['position_in_run']."</small>";
 	$email['mail'] = $email['subject']."<br><small>". substr($email['body'],0,100). "…</small>";
-	$email['sent'] = '<abbr title="'.$email['sent'].'">'.timetostr(strtotime($email['sent	'])).'</abbr>';
+	$email['sent'] = '<abbr title="'.$email['sent'].'">'.timetostr(strtotime($email['sent'])).'</abbr>';
 	unset($email['position_in_run']);
 	unset($email['subject']);
 	unset($email['body']);
