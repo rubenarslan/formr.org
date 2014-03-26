@@ -105,12 +105,6 @@
 						<b class="caret"></b>
 					</a>
 					<ul class="dropdown-menu">
-						<li <?=endsWith($_SERVER['SCRIPT_NAME'],'cron_log.php')?' class="active"':''?>>
-							<a href="<?=WEBROOT?>admin/cron_log">
-								<i class="fa fa-cog"></i>
-								cron job log
-							</a>
-						</li>
 						<li>
 							<a href="https://github.com/rubenarslan/formr">
 								<i class="fa fa-github-alt fa-fw"></i>
