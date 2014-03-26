@@ -3,10 +3,24 @@ require_once '../../../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
+require_once INCLUDE_ROOT . "Model/Pagination.php";
 ?>	
 <h2>email log <small>sent during runs</small></h2>
 
 <?php
+
+$email_nr = $fdb->prepare("SELECT COUNT(`survey_email_log`.id) AS count
+FROM `survey_email_log`
+LEFT JOIN `survey_unit_sessions`
+ON `survey_unit_sessions`.id = `survey_email_log`.session_id
+LEFT JOIN `survey_run_sessions`
+ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
+WHERE `survey_run_sessions`.run_id = :run_id");
+$email_nr->bindValue(':run_id',$run->id);
+
+$pagination = new Pagination($email_nr,50);
+$limits = $pagination->getLimits();
+
 $g_emails = $fdb->prepare("SELECT 
 	`survey_email_accounts`.from_name, 
 	`survey_email_accounts`.`from`, 
@@ -29,6 +43,7 @@ ON `survey_unit_sessions`.id = `survey_email_log`.session_id
 LEFT JOIN `survey_run_sessions`
 ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
 WHERE `survey_run_sessions`.run_id = :run_id
+LIMIT $limits
 ;");
 $g_emails->bindValue(":run_id",$run->id);
 $g_emails->execute();
@@ -72,6 +87,8 @@ if(!empty($emails)) {
 		?>
 	</tbody></table>
 <?php
+$pagination->render("admin/run/".$run->name."/email_log");
+
 } else {
 	echo "No emails sent yet.";
 }

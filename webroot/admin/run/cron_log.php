@@ -3,6 +3,7 @@ require_once '../../../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
+require_once INCLUDE_ROOT . "Model/Pagination.php";
 ?>	
 <h2>cron log</h2>
 <p>
@@ -11,6 +12,14 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 
 
 <?php
+
+$cron_entries = $fdb->prepare("SELECT COUNT(`survey_cron_log`.id) AS count
+FROM `survey_cron_log`
+WHERE `survey_cron_log`.run_id = :run_id");
+$cron_entries->bindValue(':run_id',$run->id);
+
+$pagination = new Pagination($cron_entries);
+$limits = $pagination->getLimits();
 $g_cron = $fdb->prepare("SELECT 
 	`survey_cron_log`.id,
 	`survey_cron_log`.run_id,
@@ -30,7 +39,7 @@ $g_cron = $fdb->prepare("SELECT
 FROM `survey_cron_log`
 
 WHERE `survey_cron_log`.run_id = :run_id
-ORDER BY `survey_cron_log`.id DESC;");
+ORDER BY `survey_cron_log`.id DESC LIMIT $limits;");
 $g_cron->bindValue(':run_id',$run->id);
 $g_cron->execute() or die(print_r($g_cron->errorInfo(), true));
 
@@ -111,10 +120,12 @@ if(!empty($cronlogs)) {
 
 	</tbody></table>
 	<?php
+	$pagination->render("admin/run/".$run->name."/cron_log");
 }
 else {
 	echo "No cron jobs yet. Maybe you need to press the 'Play' button <a href='".WEBROOT."admin/run/".$run->name."'>here</a>.";
-}		
+}	
+	
 	?>
 	</div>
 </div>
