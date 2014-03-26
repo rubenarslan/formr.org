@@ -131,6 +131,7 @@ class Site
 
 		$path = preg_replace(array(
 			"@var/www/@",
+			"@formr/@",
 			"@webroot/@",
 			"@\.php$@",
 			"@index$@",
@@ -138,8 +139,8 @@ class Site
 			"@/$@",
 		),"",$path);
 
-		if($path != '' AND $path != 'formr'): 
-			$title = $path;
+		if($path != ''): 
+			$title = "formr /". $path;
 			$title = str_replace(array('_','/'),array(' ',' / '), $title);
 		endif;
 		return isset($title) ? $title : 'formr survey framework';
