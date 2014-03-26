@@ -158,7 +158,7 @@ formr_recognise = function (survey_name,
 								host = "https://formr.org")
 {
 	results = tryCatch({
-	if(is.null(item_list)) stop("No item list provided, using type.convert as a fallback.")
+	if(is.null(item_list)) warning("No item list provided, using type.convert as a fallback.")
 	for(i in seq_along(item_list)) {
 		item = item_list[[i]]
 		if(item$type %in% c("note","mc_heading")) next;

@@ -127,10 +127,10 @@ class Site
 		global $title;
 		$path = '';
 		if(isset($_SERVER['REDIRECT_URL'])) $path = $_SERVER['REDIRECT_URL'];
-		else if (isset($_SERVER['SCRIPT_FILENAME'])) $path = $_SERVER['SCRIPT_FILENAME'];
 		else if (isset($_SERVER['SCRIPT_NAME'])) $path = $_SERVER['SCRIPT_NAME'];
 
 		$path = preg_replace(array(
+			"@var/www/@",
 			"@webroot/@",
 			"@\.php$@",
 			"@index$@",
