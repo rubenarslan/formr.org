@@ -135,13 +135,13 @@ class RunSession
 					return false;
 				endif;
 			}
-			$unit = $this->getCurrentUnit(); // get first unit in line
-			if($unit):								 // if there is one, spin that shit
+			$unit_info = $this->getCurrentUnit(); // get first unit in line
+			if($unit_info):								 // if there is one, spin that shit
 				if($this->cron):
-					$unit['cron'] = true;
+					$unit_info['cron'] = true;
 				endif;
 				
-				$unit = $unit_factory->make($this->dbh, $this->session, $unit);
+				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info);
 				$output = $unit->exec();
 				if(!$output AND is_object($unit)):
 					if(isset($done[ $unit->type ]))

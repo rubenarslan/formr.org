@@ -10,7 +10,9 @@ class ItemFactory
 		$this->choice_lists = $choice_lists;
 	}
 	public function make($item) {
-		$type = $item['type'];
+		if(isset($item['type']))
+			$type = $item['type'];
+		else $type = "";
 
 		if(isset($item['choice_list']) AND $item['choice_list']): // if it has choices
 			if(isset($this->choice_lists[ $item['choice_list'] ])): // if this choice_list exists
