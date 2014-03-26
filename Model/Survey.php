@@ -32,6 +32,8 @@ class Survey extends RunUnit {
 	public $icon = "fa-pencil-square-o";
 	public $type = "Survey";
 	
+	private $confirmed_deletion = false;
+	
 	public function __construct($fdb, $session, $unit)
 	{
 		if(isset($unit['name']) AND !isset($unit['unit_id'])): // when called via URL
@@ -574,8 +576,18 @@ class Survey extends RunUnit {
 		
 		$this->getSettings();
 	}
-	public function uploadItemTable($file)
-	{
+	public function uploadItemTable($file, $confirmed_deletion)
+	{	
+		if(trim($confirmed_deletion) == ''):
+			$this->confirmed_deletion = false;
+		elseif($confirmed_deletion === $this->name):
+			$this->confirmed_deletion = true;
+		else:
+			alert("<strong>Error:</strong> You confirmed the deletion of the study's results but your input did not match the study's name. Update aborted.");
+			$this->confirmed_deletion = false;
+			return false;
+		endif;
+			
 		umask(0002);
 		ini_set('memory_limit', '256M');
 		$target = $_FILES['uploaded']['tmp_name'];
@@ -822,6 +834,14 @@ class Survey extends RunUnit {
 	
 		$new_syntax = $this->getResultsTableSyntax($result_columns);
 		
+		if($new_syntax !== $old_syntax)
+		{
+			if(! $this->confirmed_deletion)
+			{
+				$this->errors[] = "The results table would have to be deleted, but you did not confirm deletion of results.";
+			}
+		}
+		
 		if(!empty($this->errors))
 		{
 			$this->dbh->rollBack();
@@ -834,12 +854,12 @@ class Survey extends RunUnit {
 			
 			if($new_syntax !== $old_syntax)
 			{
-				$this->messages[] = "A new results table was created.";
+				$this->warnings[] = "A new results table had to be created.";
 				return $this->createResultsTable($new_syntax);
 			}
 			else
 			{
-				$this->messages[] = "The old results table was kept.";
+				$this->messages[] = "<strong>The old results table was kept.</strong>";
 				return true;
 			}
 		}
@@ -1083,7 +1103,7 @@ class Survey extends RunUnit {
 		elseif($resC == array('finished' => 0, 'begun' => 0)):
 			return true;		
 		else:
-			$this->messages[] = __("%s results rows were deleted.",array_sum($resC));
+			$this->warnings[] = __("%s results rows were deleted.",array_sum($resC));
 		endif;
 		
 		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
@@ -1097,7 +1117,9 @@ class Survey extends RunUnit {
 	}
 	public function backupResults()
 	{
-        $filename = INCLUDE_ROOT ."tmp/backups/results/".$this->name . date('YmdHis') . ".tab";
+		$filename = $this->name . date('YmdHis') . ".tab";
+		if(isset($this->user_id)) $filename = "user" . $this->user_id . $filename;
+        $filename = INCLUDE_ROOT ."tmp/backups/results/". $filename;
 		require_once INCLUDE_ROOT . 'Model/SpreadsheetReader.php';
 
 		$SPR = new SpreadsheetReader();
@@ -1126,9 +1148,11 @@ class Survey extends RunUnit {
 	}
 	public function delete()
 	{
-		$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
-		
-		return parent::delete();
+		if($this->deleteResults()): // always back up
+			$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
+			return parent::delete();
+		endif;
+		return false;
 	}
 	public function displayForRun($prepend = '')
 	{
