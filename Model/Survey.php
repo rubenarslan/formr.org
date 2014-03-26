@@ -961,6 +961,8 @@ class Survey extends RunUnit {
 			$item = $item_factory->make($row);
 			if(!$item)
 			{
+				if(isset($row['type'])) $type = $row['type'];
+				else $type = "<em>missing</em>";
 				alert("While trying to recreate old results table: Item type ".h($row['type']) . " not found.", 'alert-danger');
 				return false;
 			}

@@ -3,6 +3,7 @@ require_once '../../../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
+require_once INCLUDE_ROOT . "Model/Pagination.php";
 ?>
 <div class="row">
 	<div class="col-md-12">
@@ -11,6 +12,16 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 			If you're not happy with their progress, you can send manual reminders, <a href="<?=WEBROOT.'admin/run/'.$run->name.'/edit_reminder'?>">customisable here</a>. <br>You can also shove them to a different position in a run if they veer off-track. </p>
 			<p>Participants who have been stuck at the same survey, external link or email for 2 days or more are highlighted in yellow at the top. Being stuck at an email address usually means that the user somehow ended up there without a valid email address, so that the email cannot be sent. Being stuck at a survey or external link usually means that the user interrupted the survey/external part before completion, you probably want to remind them manually.</p>
 	<?php
+	
+
+	$user_nr = $fdb->prepare("SELECT COUNT(`survey_run_sessions`.id) AS count
+		FROM `survey_run_sessions`
+		WHERE `survey_run_sessions`.run_id = :run_id;");
+	$user_nr->bindValue(':run_id',$run->id);
+
+	$pagination = new Pagination($user_nr, 200, true);
+	$limits = $pagination->getLimits();
+	
 	$g_users = $fdb->prepare("SELECT 
 		`survey_run_sessions`.id AS run_session_id,
 		`survey_run_sessions`.session,
@@ -34,10 +45,11 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 	LEFT JOIN `survey_units`
 	ON `survey_run_units`.unit_id = `survey_units`.id
 
-	WHERE `survey_runs`.name = :run_name
+	WHERE `survey_run_sessions`.run_id = :run_id
 
-	ORDER BY hang DESC, `survey_run_sessions`.last_access DESC;");
-	$g_users->bindParam(':run_name',$run->name);
+	ORDER BY hang DESC, `survey_run_sessions`.last_access DESC
+	LIMIT $limits;");
+	$g_users->bindParam(':run_id',$run->id);
 	$g_users->execute();
 
 	$users = array();
@@ -106,6 +118,8 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 			?>
 		</tbody></table>
 	<?php
+	$pagination->render("admin/run/".$run->name."/user_overview");
+	
 	endif;
 	?>
 	</div>
