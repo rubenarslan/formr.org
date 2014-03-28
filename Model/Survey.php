@@ -407,7 +407,6 @@ class Survey extends RunUnit {
 			<div class="control-label">'.implode("<br>",array_unique($this->errors)).'
 			</div></div>';	
 		return $ret;
-
 	}
 
 	protected function render_items() 
@@ -415,12 +414,14 @@ class Survey extends RunUnit {
 		$ret = '';
 		$items = $this->unanswered_batch;
 		
+		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
+		
 		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
 											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
 		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
 		$view_update = $this->dbh->prepare($view_query);
 
-		$view_update->bindParam(":session_id", $this->session_id);
+		$view_update->bindValue(":session_id", $this->session_id);
 	
 		$itemsDisplayed = $i = 0;
 		$need_submit = true;
@@ -499,6 +500,9 @@ class Survey extends RunUnit {
 	            break;
 	        }
 	    } //end of for loop
+		
+		$this->dbh->commit() or die(print_r($this->dbh->errorInfo(), true));
+		
 		
 		if($need_submit) // only if no submit was part of the form
 		{
