@@ -33,7 +33,8 @@ CREATE  TABLE IF NOT EXISTS `survey_units` (
   `type` VARCHAR(20) NULL ,
   `created` DATETIME NULL ,
   `modified` DATETIME NULL ,
-  PRIMARY KEY (`id`) )
+  PRIMARY KEY (`id`) ,
+  INDEX `type` (`type` ASC) )
 ENGINE = InnoDB;
 
 
@@ -50,6 +51,7 @@ CREATE  TABLE IF NOT EXISTS `survey_studies` (
   INDEX `fk_survey_studies_survey_users_idx` (`user_id` ASC) ,
   INDEX `fk_survey_studies_run_items1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
+  UNIQUE INDEX `name` (`name` ASC) ,
   CONSTRAINT `fk_survey_studies_survey_users`
     FOREIGN KEY (`user_id` )
     REFERENCES `survey_users` (`id` )
@@ -113,6 +115,7 @@ CREATE  TABLE IF NOT EXISTS `survey_run_units` (
   PRIMARY KEY (`id`, `run_id`) ,
   INDEX `fk_survey_run_data_survey_runs1_idx` (`run_id` ASC) ,
   INDEX `fk_survey_run_data_survey_run_items1_idx` (`unit_id` ASC) ,
+  INDEX `position_run` (`run_id` ASC, `position` ASC) ,
   CONSTRAINT `fk_suru`
     FOREIGN KEY (`run_id` )
     REFERENCES `survey_runs` (`id` )
@@ -148,6 +151,7 @@ CREATE  TABLE IF NOT EXISTS `survey_items` (
   PRIMARY KEY (`id`) ,
   UNIQUE INDEX `study_item` (`study_id` ASC, `name` ASC) ,
   INDEX `fk_survey_items_survey_studies1_idx` (`study_id` ASC) ,
+  INDEX `type` (`study_id` ASC, `type` ASC) ,
   CONSTRAINT `fk_survey_items_survey_studies1`
     FOREIGN KEY (`study_id` )
     REFERENCES `survey_studies` (`id` )
@@ -173,6 +177,7 @@ CREATE  TABLE IF NOT EXISTS `survey_items_display` (
   PRIMARY KEY (`id`) ,
   INDEX `id_idx` (`item_id` ASC) ,
   UNIQUE INDEX `session_item_views` (`session_id` ASC, `item_id` ASC) ,
+  INDEX `answered` (`session_id` ASC, `answered` ASC) ,
   CONSTRAINT `itemid`
     FOREIGN KEY (`item_id` )
     REFERENCES `survey_items` (`id` )
@@ -202,6 +207,7 @@ CREATE  TABLE IF NOT EXISTS `survey_run_sessions` (
   UNIQUE INDEX `run_user` (`user_id` ASC, `run_id` ASC) ,
   UNIQUE INDEX `run_session` (`session` ASC, `run_id` ASC) ,
   INDEX `fk_survey_run_sessions_survey_units1_idx` (`current_unit_id` ASC) ,
+  INDEX `position` (`position` ASC) ,
   CONSTRAINT `fk_survey_run_sessions_survey_runs1`
     FOREIGN KEY (`run_id` )
     REFERENCES `survey_runs` (`id` )
@@ -235,6 +241,7 @@ CREATE  TABLE IF NOT EXISTS `survey_unit_sessions` (
   INDEX `session_uq` (`created` ASC, `run_session_id` ASC, `unit_id` ASC) ,
   INDEX `fk_survey_sessions_survey_units1_idx` (`unit_id` ASC) ,
   INDEX `fk_survey_unit_sessions_survey_run_sessions1_idx` (`run_session_id` ASC) ,
+  INDEX `ended` (`ended` DESC) ,
   CONSTRAINT `fk_survey_sessions_survey_units1`
     FOREIGN KEY (`unit_id` )
     REFERENCES `survey_units` (`id` )
@@ -448,6 +455,7 @@ CREATE  TABLE IF NOT EXISTS `survey_results` (
   INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
   INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
   PRIMARY KEY (`session_id`) ,
+  INDEX `ending` (`session_id` DESC, `study_id` ASC, `ended` ASC) ,
   CONSTRAINT `fk_survey_results_survey_unit_sessions1`
     FOREIGN KEY (`session_id` )
     REFERENCES `survey_unit_sessions` (`id` )
