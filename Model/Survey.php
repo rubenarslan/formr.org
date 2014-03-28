@@ -357,10 +357,12 @@ class Survey extends RunUnit {
 			}
 			
 			
-			// determine value if there is a dynamic one, but don't do so for skipped hidden items
-			if($this->unanswered_batch[$name]->no_user_input_required
-				AND $show AND
-				$this->unanswered_batch[$name]->needsDynamicValue()) // if there is a sticky value to be had and it's not numeric
+			
+			if(
+				$this->unanswered_batch[$name]->needsDynamicValue() AND
+				($this->unanswered_batch[$name]->no_user_input_required
+				OR $show) // determine value if there is a dynamic one, but don't do so for skipped hidden items
+) // if there is a sticky value to be had and it's not numeric
 			{
 				
 				$openCPU = $this->makeOpenCPU();
