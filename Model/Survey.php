@@ -834,7 +834,9 @@ class Survey extends RunUnit {
 	
 		$new_syntax = $this->getResultsTableSyntax($result_columns);
 		
-		if($new_syntax !== $old_syntax)
+		$resultCount = $this->getResultCount();
+		
+		if($new_syntax !== $old_syntax AND $resultCount['finished'] > 0) // if the results table would be recreated and there are results
 		{
 			if(! $this->confirmed_deletion)
 			{
@@ -854,7 +856,7 @@ class Survey extends RunUnit {
 			
 			if($new_syntax !== $old_syntax)
 			{
-				$this->warnings[] = "A new results table had to be created.";
+				$this->warnings[] = "A new results table was created.";
 				return $this->createResultsTable($new_syntax);
 			}
 			else
