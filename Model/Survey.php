@@ -357,10 +357,12 @@ class Survey extends RunUnit {
 			}
 			
 			
-			// determine value if there is a dynamic one, but don't do so for skipped hidden items
-			if($this->unanswered_batch[$name]->no_user_input_required
-				AND $show AND
-				$this->unanswered_batch[$name]->needsDynamicValue()) // if there is a sticky value to be had and it's not numeric
+			
+			if(
+				$this->unanswered_batch[$name]->needsDynamicValue() AND
+				($this->unanswered_batch[$name]->no_user_input_required
+				OR $show) // determine value if there is a dynamic one, but don't do so for skipped hidden items
+) // if there is a sticky value to be had and it's not numeric
 			{
 				
 				$openCPU = $this->makeOpenCPU();
@@ -834,7 +836,9 @@ class Survey extends RunUnit {
 	
 		$new_syntax = $this->getResultsTableSyntax($result_columns);
 		
-		if($new_syntax !== $old_syntax)
+		$resultCount = $this->getResultCount();
+		
+		if($new_syntax !== $old_syntax AND $resultCount['finished'] > 0) // if the results table would be recreated and there are results
 		{
 			if(! $this->confirmed_deletion)
 			{
@@ -854,7 +858,7 @@ class Survey extends RunUnit {
 			
 			if($new_syntax !== $old_syntax)
 			{
-				$this->warnings[] = "A new results table had to be created.";
+				$this->warnings[] = "A new results table was created.";
 				return $this->createResultsTable($new_syntax);
 			}
 			else
@@ -948,6 +952,7 @@ class Survey extends RunUnit {
 		  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
 		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
 		  PRIMARY KEY (`session_id`) ,
+		  INDEX `ending` (`session_id` DESC, `study_id` ASC, `ended` ASC) ,
 		  CONSTRAINT `fk_{$this->name}_survey_unit_sessions1`
 		    FOREIGN KEY (`session_id` )
 		    REFERENCES `survey_unit_sessions` (`id` )
