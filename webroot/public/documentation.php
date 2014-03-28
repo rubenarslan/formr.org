@@ -146,3 +146,6 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 		</div>
 	</div>
 </div>
+
+<?php
+require_once INCLUDE_ROOT . "View/footer.php";
