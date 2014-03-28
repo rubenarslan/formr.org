@@ -952,6 +952,7 @@ class Survey extends RunUnit {
 		  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
 		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
 		  PRIMARY KEY (`session_id`) ,
+		  INDEX `ending` (`session_id` DESC, `study_id` ASC, `ended` ASC) ,
 		  CONSTRAINT `fk_{$this->name}_survey_unit_sessions1`
 		    FOREIGN KEY (`session_id` )
 		    REFERENCES `survey_unit_sessions` (`id` )
