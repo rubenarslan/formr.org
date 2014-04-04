@@ -403,9 +403,11 @@ class Survey extends RunUnit {
 	    $ret .= '<div class="progress">
 				  <div data-starting-percentage="'.$prog.'" data-number-of-items="'.$this->not_answered.'" class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
 			</div>';
-		$ret .= '<div class="form-group error form-message">
-			<div class="control-label">'.implode("<br>",array_unique($this->errors)).'
-			</div></div>';	
+		
+		if(!empty($this->errors))
+			$ret .= '<div class="form-group has-error form-message">
+				<div class="control-label"><i class="fa fa-exclamation-triangle pull-left fa-2x"></i>'.implode("<br>",array_unique($this->errors)).'
+				</div></div>';	
 		return $ret;
 	}
 

@@ -113,7 +113,8 @@ endforeach;
 
 			  <div class="list-group-item">
 			    <h4 class="list-group-item-heading"><a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_item_table?format=json"><i class="fa fa-floppy-o fa-fw"></i> JSON</a></h4>
-			    <p class="list-group-item-text">not particularly human-readable, but machines love it. This is probably the fastest way to get your data into R, just use <pre><code class="r hljs">data = as.data.frame(jsonlite::fromJSON("/path/to/exported_file.json"))</code></pre></p>
+			    <p class="list-group-item-text">not particularly human-readable, but machines love it. This is probably the fastest way to get your data into R, just use </p>
+				<pre><code class="r hljs">data = as.data.frame(jsonlite::fromJSON("/path/to/exported_file.json"))</code></pre>
 			  </div>
 			</div>
 		</div>

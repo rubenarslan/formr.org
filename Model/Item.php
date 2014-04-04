@@ -129,14 +129,14 @@ class Item extends HTML_element
 		if(isset($options['error']) AND $options['error'])
 		{
 			$this->error = $options['error'];
-			$this->classes_wrapper[] = "error";
+			$this->classes_wrapper[] = "has-error";
 		}
 		
 		if(isset($options['displaycount']) AND $options['displaycount']>0)
 		{
 			$this->displaycount = $options['displaycount'];
 			if(!$this->error)
-				$this->classes_wrapper[] = "warning";
+				$this->classes_wrapper[] = "has-warning";
 		}
 		
 		$this->input_attributes['name'] = $this->name;
@@ -260,12 +260,12 @@ class Item extends HTML_element
 	}
 	
 	protected function setMoreOptions() 
-	{	
+	{
 	}
 	protected function render_label() 
 	{
 		return '<label class="'. implode(" ",$this->classes_label) .'" for="item' . $this->id . '">'.
-		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="fa fa-warning-sign"></i></span> ' : '').
+		($this->error ? '<span class="label label-danger hastooltip" title="'.$this->error.'"><i class="fa fa-exclamation-triangle"></i></span> ' : '').
 			 	$this->label_parsed . '</label>';
 	}
 	protected function render_prepended () 
@@ -300,6 +300,9 @@ class Item extends HTML_element
 	}
 	public function render() 
 	{
+		if($this->error) 
+			$this->classes_wrapper[] = "has-error";
+
 		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->showif) .'"' : '').'>' .
 			$this->render_inner().
 		 '</div>';
@@ -346,6 +349,8 @@ class Item_text extends Item
 {
 	public $type = 'text';
 	public $input_attributes = array('type' => 'text');
+	public $mysql_field =  'TEXT DEFAULT NULL';
+	
 	protected function setMoreOptions() 
 	{	
 		if(is_array($this->type_options_array) AND count($this->type_options_array) == 1)
@@ -371,6 +376,8 @@ class Item_text extends Item
 class Item_textarea extends Item 
 {
 	public $type = 'textarea';
+	public $mysql_field =  'TEXT DEFAULT NULL'; // change to mediumtext to get 64KiB to 16MiB?
+	
 	protected function setMoreOptions() 
 	{	
 		$this->classes_input[] = 'form-control';
@@ -390,6 +397,7 @@ class Item_letters extends Item_text
 {
 	public $type = 'letters';
 	public $input_attributes = array('type' => 'text');
+	public $mysql_field =  'TEXT DEFAULT NULL';
 	
 	protected function setMoreOptions()
 	{
@@ -415,63 +423,80 @@ class Item_number extends Item
 				$this->type_options_array = explode(",",current($this->type_options_array));
 
 			$min = trim(reset($this->type_options_array));
-			if(is_numeric($min)) $this->input_attributes['min'] = $min;
+			if(is_numeric($min) OR $min==='any') $this->input_attributes['min'] = $min;
 		
 			$max = trim(next($this->type_options_array));
-			if(is_numeric($max)) $this->input_attributes['max'] = $max;
+			if(is_numeric($max) OR $max==='any') $this->input_attributes['max'] = $max;
 			
 			$step = trim(next($this->type_options_array));
 			if(is_numeric($step) OR $step==='any') $this->input_attributes['step'] = $step;	
 		}
 		
 		$multiply = 2;
-		if(isset($this->input_attributes['min']) AND $this->input_attributes['min']<0)
-		{
+		if($this->input_attributes['min']<0):
 			$this->mysql_field = str_replace($this->mysql_field,"UNSIGNED", "");
 			$multiply = 1;
-		}
-		if(
-			(isset($this->input_attributes['min']) AND abs($this->input_attributes['min'])>32767) OR 			
-			(isset($this->input_attributes['max']) AND abs($this->input_attributes['max'])> ($multiply*32767) )
-		)
-			$this->mysql_field = str_replace($this->mysql_field,"INT", "MEDIUMINT");
-		elseif(
-			(isset($this->input_attributes['min']) AND abs($this->input_attributes['min'])>126) OR 			
-			(isset($this->input_attributes['max']) AND abs($this->input_attributes['max'])> ($multiply*126) )
-		)
-			$this->mysql_field = str_replace($this->mysql_field,"INT", "SMALLINT");
+		endif;
+		
+		if($this->input_attributes['step']==='any' OR $this->input_attributes['min']==='any' OR $this->input_attributes['max']==='any'): // is any any
+			$this->mysql_field = str_replace(array("INT"), "FLOAT",$this->mysql_field); // use FLOATing point accuracy
+		else:
+			if(
+				(abs($this->input_attributes['min']) < ($multiply*127) ) OR 			
+				(abs($this->input_attributes['max']) < ($multiply*127) )
+			):
+				$this->mysql_field = str_replace($this->mysql_field,"INT", "TINYINT");
+			elseif(
+				(abs($this->input_attributes['min']) < ($multiply*32767) ) OR 			
+				(abs($this->input_attributes['max']) < ($multiply*32767) )
+			):
+				$this->mysql_field = str_replace($this->mysql_field,"INT", "SMALLINT");
+			elseif(
+				(abs($this->input_attributes['min']) < ($multiply*8388608) ) OR 		
+				(abs($this->input_attributes['max']) < ($multiply*8388608) )
+			):
+				$this->mysql_field = str_replace($this->mysql_field,"INT", "MEDIUMINT");
+			elseif(
+				(abs($this->input_attributes['min']) < ($multiply*2147483648) ) OR 		
+				(abs($this->input_attributes['max']) < ($multiply*2147483648) )
+			):
+				$this->mysql_field = str_replace($this->mysql_field,"INT", "INT");
+			elseif(
+				(abs($this->input_attributes['min']) < ($multiply*9223372036854775808) ) OR 		
+				(abs($this->input_attributes['max']) < ($multiply*9223372036854775808) )
+			):
+				$this->mysql_field = str_replace($this->mysql_field,"INT", "BIGINT");
+			endif;
 			
-		if(isset($this->input_attributes['step']) AND 
-		(string)(int)$this->input_attributes['step'] != $this->input_attributes['step']):
-			if($this->input_attributes['step']==='any'):
-				$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT","INT"), "FLOAT",$this->mysql_field);
-			else:
-				$before_point = max(strlen((int)$this->input_attributes['min']), strlen((int)$this->input_attributes['max']));
+			if((string)(int)$this->input_attributes['step'] != $this->input_attributes['step']): // step is integer?
+				$before_point = max(strlen((int)$this->input_attributes['min']), strlen((int)$this->input_attributes['max'])); // use decimal with this many digits
 				$after_point = strlen($this->input_attributes['step']) - 2;
 				$d = $before_point + $after_point;
-				
-				$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT","INT"), "DECIMAL($d, $after_point)",$this->mysql_field);
+			
+				$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT","INT","BIGINT"), "DECIMAL($d, $after_point)",$this->mysql_field);
 			endif;
 		endif;
 	}
-	public function validateInput($reply)
+	public function validateInput($reply) // fixme: input is not re-displayed after this
 	{
-		if(isset($this->input_attributes['min']) AND $reply < $this->input_attributes['min']) // lower number than allowed
+		$reply = str_replace(",",".",$reply);
+		
+		if($this->input_attributes['min'] !== 'any' AND $reply < $this->input_attributes['min']) // lower number than allowed
 		{
-			$this->error = __("The minimum is %d",$this->input_attributes['min']);
+			$this->error = __("The minimum is %d.",$this->input_attributes['min']);
 		}
-		elseif(isset($this->input_attributes['max']) AND $reply > $this->input_attributes['max']) // larger number than allowed
+		elseif($this->input_attributes['max'] !== 'any' AND $reply > $this->input_attributes['max']) // larger number than allowed
 		{
-			$this->error = __("The maximum is %d",$this->input_attributes['max']);
+			$this->error = __("The maximum is %d.",$this->input_attributes['max']);
 		}
-		elseif(isset($this->input_attributes['step']) AND $this->input_attributes['step'] !== 'any' AND 
+		elseif($this->input_attributes['step'] !== 'any' AND 
 			abs( 
 		 			(round($reply / $this->input_attributes['step']) * $this->input_attributes['step'])  // divide, round and multiply by step
 					- $reply // should be equal to reply
 			) > 0.000000001 // with floats I have to leave a small margin of error
 		)
 		{
-			$this->error = __("The minimum is %d",$this->input_attributes['min']);
+			$this->error = __("Numbers have to be in steps of at least %d.",$this->input_attributes['step']);
 		}
 
 		return parent::validateInput($reply);
@@ -840,7 +865,7 @@ class Item_mc extends Item
 	{
 		return '
 					<div class="'. implode(" ",$this->classes_label) .'">' .
-		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="fa fa-warning-sign"></i></span> ' : '').
+		($this->error ? '<span class="label label-danger hastooltip" title="'.$this->error.'"><i class="fa fa-exclamation-triangle"></i></span> ' : '').
 		 $this->label_parsed . '</div>
 		';
 	}
@@ -957,7 +982,7 @@ class Item_check extends Item_mc_multiple
 	protected function render_label() 
 	{
 		return '<label  for="item' . $this->id . '_1" class="'. implode(" ",$this->classes_label) .'">' .
-		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="fa fa-warning-sign"></i></span> ' : '').
+		($this->error ? '<span class="label label-danger hastooltip" title="'.$this->error.'"><i class="fa fa-exclamation-triangle"></i></span> ' : '').
 		 $this->label_parsed . '</label>
 		';
 	}
@@ -1566,7 +1591,7 @@ class Item_mc_heading extends Item_mc
 	{
 		return '
 					<div class="'. implode(" ",$this->classes_label) .'">' .
-		($this->error ? '<span class="label label-important hastooltip" title="'.$this->error.'"><i class="fa fa-warning-sign"></i></span> ' : '').
+		($this->error ? '<span class="label label-danger hastooltip" title="'.$this->error.'"><i class="fa fa-exclamation-triangle"></i></span> ' : '').
 		 $this->label . '</div>
 		';
 	}
