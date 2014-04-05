@@ -198,7 +198,6 @@ class Survey extends RunUnit {
 					WHERE 
 					`survey_items`.study_id = :study_id AND
 			        `survey_items`.type NOT IN (
-							'note',
 							'mc_heading',
 							'submit'
 						)
@@ -221,19 +220,35 @@ class Survey extends RunUnit {
 		$this->not_answered = array_filter($this->unanswered_batch, function ($item)
 		{
 			if(
+				$item->hidden OR  // item was skipped
 				in_array($item->type, array('submit','mc_heading')) 		 // these items require no user interaction and thus don't count against progress
 				OR ($item->type == 'note' AND $item->displaycount > 0) 		 // item is a note and has already been viewed
-				OR $item->hidden											 // item was skipped
 			)
 				return false;
 			else 
 				return true;
 		}
 );
-#		pr($this->not_answered);
+// todo: in the medium term it may be more intuitive to treat notes as item that are answered by viewing but that can linger in a special case, might require less extra logic. but they shouldn't go in the results table.. so maybe not.
+		$seen_notes = array_filter($this->unanswered_batch, function ($item)
+				{ // notes stay in the unanswered batch
+					if(
+						! $item->hidden											 // item wasn't skipped
+						AND ($item->type == 'note' AND $item->displaycount > 0) 		 // item is a note and has already been viewed
+					)
+						return true;
+					else 
+						return false;
+				}
+		);
+		$this->already_answered += count($seen_notes); 
+
 		$this->not_answered = count( $this->not_answered );
+#		pr($this->not_answered);
+#		pr($this->already_answered);
 
 		$all_items = $this->already_answered + $this->not_answered;
+		
 		
 		#pr(array_filter($this->unanswered_batch,'proper_type'));
 		if($all_items !== 0) {
@@ -591,7 +606,7 @@ class Survey extends RunUnit {
 		elseif($confirmed_deletion === $this->name):
 			$this->confirmed_deletion = true;
 		else:
-			alert("<strong>Error:</strong> You confirmed the deletion of the study's results but your input did not match the study's name. Update aborted.");
+			alert("<strong>Error:</strong> You confirmed the deletion of the study's results but your input did not match the study's name. Update aborted.", 'alert-danger');
 			$this->confirmed_deletion = false;
 			return false;
 		endif;
@@ -640,6 +655,14 @@ class Survey extends RunUnit {
 			return true;
 		
 		$reserved = $this->dbh->query("SHOW TABLES LIKE '$name';");
+		if($reserved->rowCount())
+			return true;
+
+		return false;
+	}
+	protected function hasResultsTable()
+	{
+		$reserved = $this->dbh->query("SHOW TABLES LIKE '$this->results_table';");
 		if($reserved->rowCount())
 			return true;
 
@@ -842,13 +865,16 @@ class Survey extends RunUnit {
 	
 		$new_syntax = $this->getResultsTableSyntax($result_columns);
 		
-		$resultCount = $this->getResultCount();
-		
-		if($new_syntax !== $old_syntax AND $resultCount['finished'] > 0) // if the results table would be recreated and there are results
+		if($this->hasResultsTable())
 		{
-			if(! $this->confirmed_deletion)
+			$resultCount = $this->getResultCount();
+		
+			if($new_syntax !== $old_syntax AND $resultCount['finished'] > 0) // if the results table would be recreated and there are results
 			{
-				$this->errors[] = "The results table would have to be deleted, but you did not confirm deletion of results.";
+				if(! $this->confirmed_deletion)
+				{
+					$this->errors[] = "The results table would have to be deleted, but you did not confirm deletion of results.";
+				}
 			}
 		}
 		
@@ -941,10 +967,11 @@ class Survey extends RunUnit {
 	private function getResultsTableSyntax($columns)
 	{
 		$columns = array_filter($columns); // remove NULL, false, '' values (note, fork, submit, ...)
-		if(empty($columns))
-			return null;
 		
-		$columns = implode(",\n", $columns);
+		if(empty($columns))
+			$columns_string = ''; # create a results tabel with only the access times
+		else
+			$columns_string = implode(",\n", $columns).",";
 		
 		$create = "CREATE TABLE `{$this->name}` (
 		  `session_id` INT UNSIGNED NOT NULL ,
@@ -953,7 +980,7 @@ class Survey extends RunUnit {
 		  `created` DATETIME NULL DEFAULT NULL ,
 		  `ended` DATETIME NULL DEFAULT NULL ,
 	
-		  $columns,
+		  $columns_string
 		  
 		  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
 		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
