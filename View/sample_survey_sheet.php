@@ -271,4 +271,17 @@
 	 <dd>
 		 This makes the labels for rating_button items have fixed widths. This can be useful to align rating_buttons buttons with each other even though the end points are labelled differently. A more flexible solution would be to horizontally center the choices using answer_align_center.
 	 </dd>
+	 
+	 <dt>
+		 space_bottom_10 <br>(10, 20, … , 60)
+	 </dt>
+	 <dd>
+		 Controls the space after an item. Default value is 15.
+	 </dd>
+	 <dt>
+		 space_label_answer_vertical_10 <br>(10, 20, … , 60)
+	 </dt>
+	 <dd>
+		 Controls the vertical space between label and choices, if you've set answer_below_label. Default value is 15.
+	 </dd>
  </dl>
