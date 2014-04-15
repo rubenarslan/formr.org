@@ -53,17 +53,7 @@ class OpenCPU {
 		
 		$parsed = json_decode($result['body'], true);
 
-		if($parsed===null):
-			alert($result,'alert-danger');
-			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-danger');
-			return null;
-		elseif(empty($parsed) OR $parsed[0]===NULL):
-			alert($result['body'],'alert-danger',true);
-			alert("This expression led to a null result. <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
-			return null;
-		else:
-			return $parsed[0];
-		endif;
+		return $this->returnParsed($parsed,$result,$post, "evaluate");
 	}
 	public function evaluateWith($results_table, $source,$return = '/json')
 	{
@@ -86,19 +76,29 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 #		echo $this->debugCall($result);
 # pr($post);
 		$parsed = json_decode($result['body'], true);
+		
+		return $this->returnParsed($parsed,$result,$post, "evaluateWith");
+	}
+	private function returnParsed($parsed,$result,$post, $in = '') {
 		if($parsed===null):
 			global $user;
 			if($user->isAdmin()):
 				alert($result['body'],'alert-danger',true);
 				alert("There was an R error. This may happen if you do not test as part of a proper run. <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
 			endif;
+			opencpu_log( "R error in $in:
+".print_r($post, true)."
+".print_r($result, true)."\n");
 			return null;
 		elseif(empty($parsed) OR $parsed[0]===NULL):
 			global $user;
 			if($user->isAdmin()):
-				alert($result['body'],'alert-danger',true);
-				alert("This expression led to a null result. <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
+				alert($result['body'],'alert-warning',true);
+				alert("This expression led to a null result (may be intentional, but often isn't). <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
 			endif;
+			opencpu_log_warning( "R warning (null result) in $in:
+".print_r($post, true)."
+".print_r($result, true)."\n");
 			return null;
 		else:
 			return $parsed[0];
@@ -205,7 +205,7 @@ $this->user_data .
 			$header_parsed = http_parse_headers($result['header']);
 			if(isset($header_parsed['X-ocpu-session']))
 				$session = '/ocpu/tmp/'. $header_parsed['X-ocpu-session'] . '/';
-			else return "Error";
+			else return "Error, no session header.";
 		
 			$available = explode("\n",$result['body']);
 		
