@@ -20,7 +20,7 @@ elseif(isset($_FILES['uploaded']))
 	));
 	if($study->createIndependently())
 	{	
-		if($study->uploadItemTable($_FILES['uploaded']))
+		if($study->uploadItemTable($_FILES['uploaded'], $survey_name))
 		{
 			alert('<strong>Success!</strong> New survey created!','alert-success');
 			redirect_to("admin/survey/{$study->name}/show_item_table");
