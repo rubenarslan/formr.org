@@ -217,8 +217,6 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	}
 	public function sendMail($who = NULL)
 	{
-		
-		
 		if($who===null):
 			$this->recipient = $this->getRecipientField();
 		else:
@@ -226,8 +224,16 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		endif;
 		require_once INCLUDE_ROOT. 'Model/EmailAccount.php';
 		
+		if($this->recipient == null):
+			formr_log("Email recipient could not be determined from this field definition ". $this->recipient_field);
+			alert("We could not find an email recipient.", 'alert-danger');
+			$this->mail_sent = false;
+		endif;
+
+		if($this->account_id === null):
+			die("The study administrator (you?) did not set up an email account. <a href='".WEBROOT."/admin/mail/'>Do it now</a> and then select the account in the email dropdown.");
+		endif;
 		
-		if($this->account_id === null) die("The study administrator (you?) did not set up an email account. <a href='".WEBROOT."/admin/mail/'>Do it now</a> and then select the account in the email dropdown.");
 		$acc = new EmailAccount($this->dbh, $this->account_id, null);
 		$mail = $acc->makeMailer();
 		
@@ -250,6 +256,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	            'base64',
 	            'image/png'
 	        )) {
+				$this->mail_sent = false;
 	            alert('Email with the subject ' . $this->subject . ' was not sent to '. $this->recipient. ':<br>' .$mail->ErrorInfo,'alert-danger');
 	        }
 		endforeach;
