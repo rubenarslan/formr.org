@@ -613,11 +613,13 @@ form.form-horizontal div.form-group.float_image_left img {
 form.form-horizontal div.answer_below_label .control-label {
   width:99%;
   text-align:left;
+  margin-bottom:15px;
 }
 form.form-horizontal div.answer_below_label .controls {
   width:99%;
   margin-left:5px;
   clear: left;
+  margin-left:0;
 }
 
 
@@ -1080,6 +1082,52 @@ form.form-horizontal div.form-row.form-group.rating_button_label_width200 div.co
 form.form-horizontal div.form-row.form-group.hidden {
 	display:none;
 }
+.form-horizontal div.form-row.form-group.space_bottom_10
+{
+	margin-bottom:10px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_20
+{
+	margin-bottom:20px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_30
+{
+	margin-bottom:30px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_50
+{
+	margin-bottom:40px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_60
+{
+	margin-bottom:60px;
+}
+
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_10 .control-label
+{
+	margin-bottom:10px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_20 .control-label
+{
+	margin-bottom:20px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_30 .control-label
+{
+	margin-bottom:30px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_40 .control-label
+{
+	margin-bottom:40px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_50 .control-label
+{
+	margin-bottom:50px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_60 .control-label
+{
+	margin-bottom:60px;
+}
+
 
 
 .btn {
