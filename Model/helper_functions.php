@@ -2,6 +2,16 @@
 /*
 HELPER FUNCTIONS
 */
+function formr_log($msg) {// shorthand
+	error_log(  date( 'Y-m-d H:i:s' ).' ' . $msg. "\n", 3, INCLUDE_ROOT ."tmp/logs/formr_error.log");
+}
+function opencpu_log_warning($msg) {// shorthand
+	error_log(  date( 'Y-m-d H:i:s' ).' ' . $msg. "\n", 3, INCLUDE_ROOT ."tmp/logs/opencpu_warning.log");
+}
+function opencpu_log($msg) {// shorthand
+	error_log(  date( 'Y-m-d H:i:s' ).' ' . $msg. "\n", 3, INCLUDE_ROOT ."tmp/logs/opencpu_error.log");
+}
+
 function alert($msg, $class = 'alert-warning', $dismissable = true) // shorthand
 {
 	global $site;
