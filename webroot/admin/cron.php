@@ -9,7 +9,7 @@ if(file_exists($lockfilepath)) {
 }
 file_put_contents($lockfilepath,'');
 register_shutdown_function(create_function('', "unlink('{$lockfilepath}');")); 
-set_time_limit(1); # defaults to 30
+set_time_limit(300); # defaults to 30
 
 ob_start();
 require_once INCLUDE_ROOT . "Model/Site.php";
