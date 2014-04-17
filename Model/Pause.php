@@ -175,15 +175,15 @@ class Pause extends RunUnit {
 				$conditions['relative_to'] = ":relative_to <= NOW()";
 				$bind_relative_to = true;
 			else:
-				alert("Relative to yields neither true nor false, nor a date, nor a time.", 'alert-warning');
+				alert("Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. ". print_r($relative_to,true), 'alert-warning');
 				return false;
 			endif;
-		elseif($this->wait_minutes_true): 		// if a wait minutes was defined by user, we need to add it's condition
+		elseif($this->wait_minutes_true): 		// if a wait minutes was defined by user, we need to add its condition
 			if(strtotime($relative_to)):
 				$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
 				$bind_relative_to = true;
 			else:
-				alert("Relative to yields neither true nor false, nor a date, nor a time.", 'alert-warning');
+				alert("Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. ". print_r($relative_to,true), 'alert-warning');
 				return false;
 			endif;
 		endif;
