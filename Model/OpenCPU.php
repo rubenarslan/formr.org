@@ -82,7 +82,7 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 	private function returnParsed($parsed,$result,$post, $in = '') {
 		if($parsed===null):
 			global $user;
-			if($user->isAdmin()):
+			if($user->isCron() OR $user->isAdmin()):
 				alert($result['body'],'alert-danger',true);
 				alert("There was an R error. This may happen if you do not test as part of a proper run. <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
 			endif;
@@ -92,7 +92,7 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 			return null;
 		elseif(empty($parsed) OR $parsed[0]===NULL):
 			global $user;
-			if($user->isAdmin()):
+			if($user->isCron() OR $user->isAdmin()):
 				alert($result['body'],'alert-warning',true);
 				alert("This expression led to a null result (may be intentional, but often isn't). <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
 			endif;
