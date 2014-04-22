@@ -128,8 +128,8 @@ class RunSession
 			$i++;
 			if($i > 80) {
 				global $user;
-				if($user->isAdmin())
-					 pr($unit);
+				if($user->isCron() OR $user->isAdmin())
+					 alert(print_r($unit,true),'alert-danger');
 				if($i > 90):
 					alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?','alert-danger');
 					return false;
