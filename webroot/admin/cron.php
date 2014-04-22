@@ -18,8 +18,10 @@ require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 
 
+$user->cron = true;
+
 /// GET ALL RUNS
-$g_runs = $fdb->query("SELECT * FROM `survey_runs` WHERE cron_active = 1");
+$g_runs = $fdb->query("SELECT * FROM `survey_runs` WHERE cron_active = 1 ORDER BY RAND();");
 $runs = array();
 while($tmp = $g_runs->fetch())
 {
@@ -93,6 +95,7 @@ endforeach;
 
 
 // error_log( $msg, 3, INCLUDE_ROOT ."tmp/logs/cron.log");
+$user->cron = false;
 
 require_once INCLUDE_ROOT . "View/footer.php";
 

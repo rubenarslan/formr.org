@@ -4,7 +4,7 @@
 <p>Some helpful tips:</p>
 <ul>
 	<li>
-		You may want to make linebreaks in Excel to format your text. In Microsoft Excel on Macs, you need to press <kbd>Command ⌘</kbd>+<kbd>Option ⌥</kbd>+<kbd>Enter ↩</kbd>, on Windows it is <kbd>ctrl</kbd>+<kbd>Enter ↩</kbd>. We suggest you start working from the provided sample sheet, because it is already properly formatting for lines wrapping within cells.
+		You may want to make linebreaks in Excel to format your text. In Microsoft Excel on Macs, you need to press <kbd>Command ⌘</kbd>+<kbd>Option ⌥</kbd>+<kbd>Enter ↩</kbd>, on Windows it is <kbd>ctrl</kbd>+<kbd>Enter ↩</kbd>. We suggest you start working from the provided sample sheet, because it already has the proper formatting and settings.
 	</li>
 	<li>
 		Make text <strong>bold</strong> through  <code>__bold__</code>, make it <em>italic</em> through <code>*italic*</code>.
@@ -123,7 +123,7 @@
 		type
 	</dt>
 	<dd>
-		set the item type (see item types tab)
+		set the item type (<a href="<?=WEBROOT?>public/documentation#available_items">see item types tab</a>)
 	 </dd>
  	<dt>
  		name
