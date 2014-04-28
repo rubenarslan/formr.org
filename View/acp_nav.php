@@ -106,9 +106,15 @@
 					</a>
 					<ul class="dropdown-menu">
 						<li>
-							<a href="https://github.com/rubenarslan/formr">
+							<a href="https://github.com/rubenarslan/formr.org">
 								<i class="fa fa-github-alt fa-fw"></i>
 								Github repository
+							</a>
+						</li>
+						<li>
+							<a href="https://github.com/rubenarslan/formr.org">
+								<i class="fa fa-github-alt fa-fw"></i>
+								R package on Github
 							</a>
 						</li>
 						<?php if($user->isSuperAdmin()): ?>
