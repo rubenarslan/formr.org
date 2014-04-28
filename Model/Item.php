@@ -1710,6 +1710,24 @@ class Item_image extends Item_file
 	protected $max_size = 16777219;
 }
 
+class Item_blank extends Item_text
+{
+	public $type = 'blank';
+	public $mysql_field = 'TEXT DEFAULT NULL';
+	public function render() 
+	{
+		if($this->error) 
+			$this->classes_wrapper[] = "has-error";
+
+		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->showif) .'"' : '').'>' .
+			$this->label_parsed.
+		 '</div>';
+	}
+	public function validateInput($reply) {
+		return $reply;
+	}
+}
+
 class HTML_element
 {
 	
