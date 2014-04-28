@@ -7,7 +7,7 @@ This is a framework that allows you to create simple and complex studies using s
 If you want the R package (it can connect to formr and fetch the data in a nice format for you, it may also come handy to generate feedback plots) run:
 
     install.packages("devtools")
-	devtools::install_github("rubenarslan/formr/formr-package")
+	devtools::install_github("rubenarslan/formr")
 
 ## Runs and their modules
 
