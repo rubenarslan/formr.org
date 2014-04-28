@@ -10,12 +10,12 @@ if(file_exists($lockfilepath)) {
 file_put_contents($lockfilepath,'');
 register_shutdown_function(create_function('', "unlink('{$lockfilepath}');")); 
 set_time_limit(360); # defaults to 30
-session_over($site, $user);
 ob_start();
 require_once INCLUDE_ROOT . "Model/Site.php";
 require_once INCLUDE_ROOT . 'Model/Run.php';
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
+session_over($site, $user);
 
 $user->cron = true;
 
@@ -63,7 +63,10 @@ foreach($runs AS $run_data):
 			endif;
 		endforeach;
 		
-		if(time() - $start_cron_time > 60*6) break;
+		if(microtime() - $start_cron_time > 60*6):
+			echo "within-Cronjob interrupted after running ". (microtime() - $start_cron_time) . " seconds";
+			break;
+		endif;
 	endforeach;
 
 	$alert_types = $site->alert_types;
