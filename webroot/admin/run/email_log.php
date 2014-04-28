@@ -18,7 +18,7 @@ ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
 WHERE `survey_run_sessions`.run_id = :run_id");
 $email_nr->bindValue(':run_id',$run->id);
 
-$pagination = new Pagination($email_nr,50);
+$pagination = new Pagination($email_nr,50,true);
 $limits = $pagination->getLimits();
 
 $g_emails = $fdb->prepare("SELECT 
@@ -43,6 +43,8 @@ ON `survey_unit_sessions`.id = `survey_email_log`.session_id
 LEFT JOIN `survey_run_sessions`
 ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
 WHERE `survey_run_sessions`.run_id = :run_id
+
+ORDER BY `survey_email_log`.id DESC
 LIMIT $limits
 ;");
 $g_emails->bindValue(":run_id",$run->id);
@@ -60,6 +62,8 @@ while($email = $g_emails->fetch(PDO::FETCH_ASSOC))
 	unset($email['body']);
 	$emails[] = $email;
 }
+session_over($site, $user);
+
 if(!empty($emails)) {
 	?>
 	<table class='table table-striped'>

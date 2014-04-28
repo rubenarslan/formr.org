@@ -73,6 +73,8 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 	
 	$users[] = $userx;
 }
+session_over($site, $user);
+
 if(!empty($users)):
 	?>
 	<table class='table'>

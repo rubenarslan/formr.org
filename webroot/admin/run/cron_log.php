@@ -75,6 +75,8 @@ while($cronlog = $g_cron->fetch(PDO::FETCH_ASSOC))
 	
 	$cronlogs[] = $cronlog;
 }
+session_over($site, $user);
+
 if(!empty($cronlogs)) {
 	?>
 	<table class='table table-striped table-bordered'>

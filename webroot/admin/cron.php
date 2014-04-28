@@ -10,7 +10,7 @@ if(file_exists($lockfilepath)) {
 file_put_contents($lockfilepath,'');
 register_shutdown_function(create_function('', "unlink('{$lockfilepath}');")); 
 set_time_limit(360); # defaults to 30
-
+session_over($site, $user);
 ob_start();
 require_once INCLUDE_ROOT . "Model/Site.php";
 require_once INCLUDE_ROOT . 'Model/Run.php';

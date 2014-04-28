@@ -43,7 +43,7 @@
 								<i class="fa-fw fa fa-stop"></i>
 							</span>
 						</li>
-						<li>use different pathways for different users using branches:
+						<li>use different pathways for different users:
 							<span class="">
 								<i class="fa-fw fa fa-pencil-square"></i>
 								<i class="fa-fw fa fa-forward"></i>

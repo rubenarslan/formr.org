@@ -32,6 +32,18 @@ function redirect_to($location) {
 	    header("Location: $location");
 		exit;
 }
+function session_over($site, $user)
+{
+	static $closed;
+	if($closed) return false;
+	
+	$_SESSION['site'] = $site;
+	$_SESSION['user'] = serialize($user);
+
+	session_write_close();
+	$closed = true;
+	return true;
+}
 
 function access_denied() {
 	global $site,$user;
