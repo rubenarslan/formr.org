@@ -1,8 +1,13 @@
 <?php
 require_once '../../../define_root.php';
 require_once INCLUDE_ROOT.'View/admin_header.php';
+session_over($site, $user);
 
 $results = $study->getItemDisplayResults();
+if(!count($results))
+{
+	die( "Nothing to export");
+}
 
 require_once INCLUDE_ROOT.'Model/SpreadsheetReader.php';
 

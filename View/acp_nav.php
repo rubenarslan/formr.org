@@ -118,6 +118,14 @@
 							</a>
 						</li>
 						<?php if($user->isSuperAdmin()): ?>
+
+						<li>
+						    <a href="<?=WEBROOT?>superadmin/cron_log">
+								<i class="fa fa-cog fa-fw"></i>
+								<?php echo _("cron log"); ?>
+							</a>
+						</li>
+
 						<li>
 						    <a href="<?=WEBROOT?>superadmin/user_management">
 								<i class="fa fa-users fa-fw"></i>

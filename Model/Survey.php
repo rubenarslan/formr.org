@@ -1089,8 +1089,10 @@ class Survey extends RunUnit {
 		ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id";
 		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
 		$results = array();
-		while($row = $get->fetch(PDO::FETCH_ASSOC))
+		while($row = $get->fetch(PDO::FETCH_ASSOC)):
+			unset($row['study_id']);
 			$results[] = $row;
+		endwhile;
 		
 		return $results;
 	}

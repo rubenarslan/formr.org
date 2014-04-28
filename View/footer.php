@@ -1,9 +1,5 @@
 <?php
-	$_SESSION['site'] = $site;
-	$_SESSION['user'] = serialize($user);
-
-	session_write_close();
-#	pr($_SESSION);
+session_over($site, $user);
 ?>
 		</div> <!-- end of main body -->
 	</div> <!-- end of sidenav container -->
