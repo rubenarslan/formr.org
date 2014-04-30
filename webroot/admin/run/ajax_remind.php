@@ -6,10 +6,14 @@ require_once INCLUDE_ROOT . "Model/Email.php";
 
 // find the last email unit
 $email = $run->getReminder($_GET['session'],$_GET['run_session_id']);
-if($email->exec()===false):
-	alert(('<strong>Reminder sent</strong> in run '.$run->name . ".") , 'alert-info');
-	redirect_to("admin/run/".$run->name."/user_overview");
+if($email->exec()!==false):
+	alert('<strong>Something went wrong with the reminder.</strong> in run '.$_GET['run_name'], 'alert-danger');
+	bad_request_header();
 endif;
 
-alert('<strong>Something went wrong with the reminder.</strong> in run '.$_GET['run_name'], 'alert-danger');
-redirect_to("admin/run/".$run->name."/user_overview");
+if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
+	echo $site->renderAlerts();
+	exit;
+else:
+	redirect_to("admin/run/".$run->name."/user_overview");
+endif;

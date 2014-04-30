@@ -6,13 +6,17 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 require_once INCLUDE_ROOT . "Model/Pagination.php";
 
 $search = '';
+$position_lt = '=';
 if(isset($_GET['session']) OR isset($_GET['position'])):
 	if(isset($_GET['session']) AND trim($_GET['session'])!=''):
+		$_GET['session'] = str_replace("…","",$_GET['session']);
 		$search .= 'AND `survey_run_sessions`.session LIKE :session ';
 		$search_session = $_GET['session'] . "%";
 	endif;
 	if(isset($_GET['position']) AND trim($_GET['position'])!=''):
-		$search .= 'AND `survey_run_sessions`.position LIKE :position ';
+		if(isset($_GET['position']) AND in_array($_GET['position_lt'], array('=','>','<'))) $position_lt = $_GET['position_lt'];
+
+		$search .= 'AND `survey_run_sessions`.position '.$position_lt.' :position ';
 		$search_position = $_GET['position'];
 	endif;
 endif;
@@ -77,7 +81,7 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 	$userx['Created'] = "<small>{$userx['created']}</small>";
 	$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>".timetostr(strtotime($userx['last_access']))."</small>";
 	$userx['Action'] = "
-		<form class='form-inline' action='".WEBROOT."admin/run/{$userx['run_name']}/send_to_position?session={$userx['session']}' method='post'>
+		<form class='form-inline form-ajax' action='".WEBROOT."admin/run/{$userx['run_name']}/ajax_send_to_position?session={$userx['session']}' method='post'>
 		<span class='input-group' style='width:160px'>
 			<span class='input-group-btn'>
 				<button type='submit' class='btn hastooltip'
@@ -85,7 +89,7 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 			</span>
 			<input type='number' name='new_position' value='{$userx['position']}' class='form-control'>
 			<span class='input-group-btn'>
-				<a class='btn hastooltip' href='".WEBROOT."admin/run/{$userx['run_name']}/remind?run_session_id={$userx['run_session_id']}&amp;session={$userx['session']}' 
+				<a class='btn hastooltip link-ajax' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_remind?run_session_id={$userx['run_session_id']}&amp;session={$userx['session']}' 
 				title='Remind this user'><i class='fa fa-bullhorn'></i></a>
 			</span>
 		</span>
@@ -113,25 +117,36 @@ session_over($site, $user);
 		<p class="lead">Here you can see users' progress (on which station they currently are).
 			If you're not happy with their progress, you can send manual reminders, <a href="<?=WEBROOT.'admin/run/'.$run->name.'/edit_reminder'?>">customisable here</a>. <br>You can also shove them to a different position in a run if they veer off-track. </p>
 			<p>Participants who have been stuck at the same survey, external link or email for 2 days or more are highlighted in yellow at the top. Being stuck at an email module usually means that the user somehow ended up there without a valid email address, so that the email cannot be sent. Being stuck at a survey or external link usually means that the user interrupted the survey/external part before completion, you probably want to remind them manually (if you have the means to do so).</p>
-			<div class="row col-md-10">
+			<div class="row col-md-12">
 				<form action="<?=WEBROOT.'admin/run/'.$run->name.'/user_overview'?>" method="get" accept-charset="utf-8">
 				
 				<div class="row">
-				  <div class="col-lg-4">
+				  <div class="col-lg-3">
 				    <div class="input-group">
 					  <span class="input-group-addon"><i class="fa fa-user"></i></span>
 					  <input type="search" placeholder="Session key" name="session" class="form-control" value="<?=isset($_GET['session'])?h($_GET['session']):'';?>">
 				
 				    </div><!-- /input-group -->
 				  </div><!-- /.col-lg-6 -->
-				  <div class="col-lg-4">
+				  <div class="col-lg-3">
 				    <div class="input-group">
-						<span class="input-group-addon"><i class="fa fa-flag-checkered"></i></span>
+					  <span class="input-group-addon"><i class="fa fa-flag-checkered"></i></span>
 						<input type="number" placeholder="Position" name="position" class="form-control round_right" value="<?=isset($_GET['position'])?h($_GET['position']):'';?>">
 						
 				    </div><!-- /input-group -->
 				  </div><!-- /.col-lg-6 -->
-				  <div class="col-lg-2">
+				  
+				  <div style="width:65px; float:left">
+					<select class="form-control" name="position_lt">
+						<option value="=" <?=($position_lt=='=')?'selected':'';?>>=</option>
+						<option value="&lt;" <?=($position_lt=='<')?'selected':'';?>>&lt;</option>
+						<option value="&gt;" <?=($position_lt=='>')?'selected':'';?>>&gt;</option>
+					</select>
+					  
+				  </div>
+				  
+				  
+				  <div class="col-lg-1">
 				    <div class="input-group">
 						<input type="submit" value="Search" class="btn">
 						
