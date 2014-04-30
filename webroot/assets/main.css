@@ -1144,7 +1144,10 @@ form.form-horizontal div.form-row.form-group.hidden {
     display:none;
 }
 
-
+.form-control.round_right {
+  border-top-right-radius: 4px !important;
+  border-bottom-right-radius: 4px !important;
+}
 /*responsive layouts for mobile */
 @media (max-width: 768px) { 
 	form.form-horizontal div.form-row.form-group .controls {
