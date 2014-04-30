@@ -188,7 +188,6 @@ class RunSession
 		endif;
 		
 		if($this->runTo($position)):
-			alert(__('<strong>Success.</strong> User moved to position %s', $position), 'alert-success');
 			return true;
 		endif;
 		return false;

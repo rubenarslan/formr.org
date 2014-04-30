@@ -3,7 +3,7 @@ class Pagination
 {
 	private $start = 0;
 	private $per_page = 100;
-	private $maximum = 0;
+	public $maximum = 0;
 	private $page = 0;
 	private $enable_show_all = false;
 	

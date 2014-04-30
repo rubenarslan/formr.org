@@ -118,7 +118,6 @@
 							</a>
 						</li>
 						<?php if($user->isSuperAdmin()): ?>
-
 						<li>
 						    <a href="<?=WEBROOT?>superadmin/cron_log">
 								<i class="fa fa-cog fa-fw"></i>
@@ -258,10 +257,10 @@ $resultCount = $study->getResultCount();
 			</li>
 
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/user_overview.php')?' class="active"':''?> title="Here you can monitor users' progress, send them to a different position and send them manual reminders.">
-				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><i class="fa-li fa fa-users"></i> <?php echo _("User Overview"); ?></a>
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><i class="fa-li fa fa-users"></i> <?php echo _("User overview"); ?></a>
 			</li>
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/user_detail.php')?' class="active"':''?> title="Here you'll see users' entire history of participation, i.e. when they left which position etc.">
-				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="fa-li fa fa-search"></i> <?php echo _("User Detail"); ?></a>
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="fa-li fa fa-search"></i> <?php echo _("User detail"); ?></a>
 			</li>
 			
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/random_groups.php')?' class="active"':''?> title="This is simply your overview of how users have been randomised.">
