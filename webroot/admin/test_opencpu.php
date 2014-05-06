@@ -21,6 +21,8 @@ knit2html(text = "' . addslashes("__Hello__ World `r 1`
 library(ggplot2)  
 qplot(rnorm(100))
 qplot(rnorm(1000), rnorm(1000))
+library(formr)
+'blabla' %contains% 'bla'
 ```
 ") . '",
 fragment.only = T, options=c("base64_images","smartypants")
