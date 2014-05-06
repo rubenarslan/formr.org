@@ -1,6 +1,6 @@
 <?php
-$settings['opencpu_instance'] = 'https://www.opencpu.org/';
-$settings['alternative_opencpu_instance'] = 'https://www.opencpu.org/'; # used in admin/test_opencpu
+$settings['opencpu_instance'] = 'https://public.opencpu.org/';
+$settings['alternative_opencpu_instance'] = 'https://public.opencpu.org/'; # used in admin/test_opencpu
 
 
 $settings['email']['host'] = ''; # smtp server that you want to use, you can prefix a protocol like ssl://
