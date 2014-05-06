@@ -384,7 +384,7 @@ class RunUnit {
 			LIMIT 1";
 			$get_sessions = $this->dbh->prepare($q); // should use readonly
 			$get_sessions->bindParam(':run_id',$this->run_id);
-			$get_sessions->bindValue(':run_id',$current_position);
+			$get_sessions->bindValue(':current_position',$current_position);
 		
 			$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
 		
