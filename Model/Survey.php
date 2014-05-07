@@ -1179,10 +1179,26 @@ class Survey extends RunUnit {
 	}
 	public function getAverageTimeItTakes()
 	{
-		$get = "SELECT AVG( ended - created) FROM `{$this->name}`";
+		$get = "SELECT AVG(middle_values) AS 'median' FROM (
+		  SELECT took AS 'middle_values' FROM
+		    (
+		      SELECT @row:=@row+1 as `row`, (x.ended - x.created) AS took
+		      FROM `{$this->name}` AS x, (SELECT @row:=0) AS r
+		      WHERE 1
+		      -- put some where clause here
+		      ORDER BY took
+		    ) AS t1,
+		    (
+		      SELECT COUNT(*) as 'count'
+		      FROM `{$this->name}` x
+		      WHERE 1
+		      -- put same where clause here
+		    ) AS t2
+		    -- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
+		    WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
 		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
 		$time = $get->fetch(PDO::FETCH_NUM);
-		$time = round($time[0] / 60, 2); # seconds to minutes
+		$time = round($time[0] / 60, 3); # seconds to minutes
 		
 		return $time;
 	}
@@ -1205,7 +1221,7 @@ class Survey extends RunUnit {
 				<strong>Survey:</strong> <a href='".WEBROOT."admin/survey/{$this->name}/index'>{$this->name}</a><br>
 			<small>".(int)$resultCount['finished']." complete results,
 		".(int)$resultCount['begun']." begun</small><br>
-			<small>Takes on average $time minutes</small>
+			<small title='Median duration that it takes to complete the survey, only completers accounted for'>Median duration: $time minutes</small>
 			</h3>
 			<p>
 			<p class='btn-group'>
