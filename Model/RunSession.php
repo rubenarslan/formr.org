@@ -3,10 +3,10 @@
 class RunSession
 {
 	public $session = null;
-	public $id, $run_id, $ended, $position;
+	public $id, $run_id, $ended, $position, $current_unit_type;
 	private $dbh;
 	private $cron = false;
-	
+
 	public function __construct($fdb, $run_id, $user_id, $session)
 	{
 		$this->dbh = $fdb;
@@ -142,6 +142,7 @@ class RunSession
 				endif;
 				
 				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info);
+				$this->current_unit_type = $unit->type;
 				$output = $unit->exec();
 				if(!$output AND is_object($unit)):
 					if(isset($done[ $unit->type ]))

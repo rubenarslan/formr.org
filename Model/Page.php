@@ -122,7 +122,7 @@ class Page extends RunUnit {
 	public function exec()
 	{
 		if($this->called_by_cron):
-			$this->getParsedBody($this->body);
+			$this->getParsedBody($this->body); // make report before showing it to the user, so they don't have to wait
 			return true; // never show to the cronjob
 		endif;
 		

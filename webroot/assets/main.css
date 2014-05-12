@@ -369,6 +369,12 @@ div.all-alerts + div
     margin-right:300px;
 }
 
+.run_content
+{
+    margin-top:20px;
+    margin-bottom:20px;
+}
+
 .btn {
     background-color: white;
     background-image: none;
