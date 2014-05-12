@@ -81,7 +81,6 @@ else:
 				- no access
 			*/
 			$run_session = new RunSession($fdb, $run->id, $user->id, $user->user_code); // does this user have a session?
-			
 			if(
 				$run_session->id // would be NULL if no session
 				OR // only if user has no session do other stuff
@@ -126,7 +125,8 @@ if($output):
 	endif;
 	?>
 <div class="row">
-	<div class="col-lg-12">
+	<div class="col-lg-12 run_position_<?=$run_session->position?> run_unit_type_<?=$run_session->current_unit_type?> run_content">
+		<header class="run_content_header"></header>
 <?php
 	echo $output['body'];
 ?>
