@@ -17,7 +17,7 @@ elseif(isset($_FILES['uploaded']))
 	}
 	else
 	{
-		if($study->uploadItemTable($_FILES['uploaded']))
+		if($study->uploadItemTable($_FILES['uploaded'], $_POST['delete_confirm']))
 		{
 			redirect_to("admin/survey/{$study->name}/show_item_table");
 		}
@@ -39,7 +39,10 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 			<li>
 				<i class="fa-li fa fa-exclamation-triangle"></i> Existing results <em>should</em> be preserved if you did not add, reorder, rename, <abbr title="that is to say you change their item type to something else, e.g. from number to select">re-type</abbr> or remove items <i class="fa fa-meh-o" title="The boring technical way to say this: if the new item table leads to the same results table structure as the old one."></i>.<br>
 				Changes to labels and choice labels should be okay. <br>
-				<strong>Don't rely on it</strong>, always back up the data.</li>
+				If you keep the confirmation box below empty, the changes will only happen, if the results can be preserved.<br>
+				To overwrite results by uploading a new item table, you will have to enter the study's name into the box.<br>
+				<strong>Always back up your data, before uploading a breaking item table.</strong>
+			</li>
 				<li>
 					<i class="fa-li fa fa-lock"></i> The name you chose for this survey is now locked.
 					<ul class="fa-ul">
@@ -66,14 +69,34 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 					<input name="uploaded" type="file" id="file_upload">
 				</div>
 			</div>
+			<?php
+			$results = $resultCount['finished'];
+				if($results > 0): 
+			?>
+			<div class="form-group">
+			
+				<label class="control-label" for="delete_confirm" title="this is required to avoid accidental deletions">Do you want to delete the results, if the item table changes were too major?<br><strong>Leave this field empty</strong> if you're fixing typos in a live study.</label>
+				<div class="controls">
+					<div class="input-group">
+					  <span class="input-group-addon"><i class="fa fa-pencil-square"></i></span>
+			  			<input class="form-control" name="delete_confirm" id="delete_confirm" type="text" placeholder="survey name (see up left)"></label>
+					</div>
+				</div>
+			</div>
+			<?php
+				else:
+					?>
+	  			<input name="delete_confirm" type="hidden" value="">
+					<?php
+				endif;
+			?>
 			<div class="form-group">
 				<div class="controls">
 					<?php
-						$res = ($resultCount['begun']+$resultCount['finished']);
-						if($res>10): 
+						if($results > 10): 
 							$btnclass = 'btn-danger';
 							$icon = 'fa-bolt';
-						elseif($res>0):
+						elseif($results > 0):
 							$btnclass = 'btn-warning';
 							$icon = 'fa-exclamation-triangle';
 						else:
@@ -81,7 +104,7 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 							$icon = 'fa-pencil-square';
 						endif;
 					?>
-						<button class="btn btn-default <?=$btnclass?> btn-lg" type="submit"><i class="fa-fw fa <?=$icon?>"></i> <?php echo __("Upload new items, possibly overwrite %d existing results.", $res); ?></button>
+						<button class="btn btn-default <?=$btnclass?> btn-lg" type="submit"><i class="fa-fw fa <?=$icon?>"></i> <?php echo __("Upload new items, possibly overwrite %d existing results.", $results); ?></button>
 				
 				</div>
 			</div>

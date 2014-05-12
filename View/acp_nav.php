@@ -82,11 +82,6 @@
 						<?php echo _("list & add accounts"); ?>
 					</a>
 				</li>
-		  		<li <?=endsWith($_SERVER['SCRIPT_NAME'],'mail/log.php')?' class="active"':''?>>
-					<a href="<?=WEBROOT?>admin/mail/log">
-						<?php echo _("email log"); ?>
-					</a>
-				</li>
 				<?php
 				$accs = $user->getEmailAccounts();
 				if($accs) {
@@ -110,19 +105,26 @@
 						<b class="caret"></b>
 					</a>
 					<ul class="dropdown-menu">
-						<li <?=endsWith($_SERVER['SCRIPT_NAME'],'cron_log.php')?' class="active"':''?>>
-							<a href="<?=WEBROOT?>admin/cron_log">
-								<i class="fa fa-cog"></i>
-								cron job log
-							</a>
-						</li>
 						<li>
-							<a href="https://github.com/rubenarslan/formr">
+							<a href="https://github.com/rubenarslan/formr.org">
 								<i class="fa fa-github-alt fa-fw"></i>
 								Github repository
 							</a>
 						</li>
+						<li>
+							<a href="https://github.com/rubenarslan/formr.org">
+								<i class="fa fa-github-alt fa-fw"></i>
+								R package on Github
+							</a>
+						</li>
 						<?php if($user->isSuperAdmin()): ?>
+						<li>
+						    <a href="<?=WEBROOT?>superadmin/cron_log">
+								<i class="fa fa-cog fa-fw"></i>
+								<?php echo _("cron log"); ?>
+							</a>
+						</li>
+
 						<li>
 						    <a href="<?=WEBROOT?>superadmin/user_management">
 								<i class="fa fa-users fa-fw"></i>
@@ -255,10 +257,10 @@ $resultCount = $study->getResultCount();
 			</li>
 
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/user_overview.php')?' class="active"':''?> title="Here you can monitor users' progress, send them to a different position and send them manual reminders.">
-				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><i class="fa-li fa fa-users"></i> <?php echo _("User Overview"); ?></a>
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><i class="fa-li fa fa-users"></i> <?php echo _("User overview"); ?></a>
 			</li>
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/user_detail.php')?' class="active"':''?> title="Here you'll see users' entire history of participation, i.e. when they left which position etc.">
-				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="fa-li fa fa-search"></i> <?php echo _("User Detail"); ?></a>
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="fa-li fa fa-search"></i> <?php echo _("User detail"); ?></a>
 			</li>
 			
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/random_groups.php')?' class="active"':''?> title="This is simply your overview of how users have been randomised.">
@@ -275,6 +277,16 @@ $resultCount = $study->getResultCount();
 			
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/edit_reminder.php')?' class="active"':''?> title="Edit the manual reminder.">
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/edit_reminder"><i class="fa-li fa fa-bullhorn"></i> <?php echo _("Reminder"); ?></a>
+			</li>
+	  		<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/email_log.php')?' class="active"':''?>>
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/email_log" title="The log of every email sent from this run.">
+					<i class="fa-li fa fa-envelope"></i> <?php echo _("email log"); ?>
+				</a>
+			</li>
+	  		<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/cron_log.php')?' class="active"':''?>>
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/cron_log" title="The log of everything that happen automatically, i.e. when you click 'Play', like sending email reminders and checking whether pauses are over.">
+					<i class="fa-li fa fa-cog"></i> <?php echo _("cron log"); ?>
+				</a>
 			</li>
 
 			<li class="nav-header"><i class="fa-li fa fa-bolt"></i> Danger Zone</li>

@@ -128,27 +128,27 @@ class RunSession
 			$i++;
 			if($i > 80) {
 				global $user;
-				if($user->isAdmin())
-					 pr($unit);
+				if($user->isCron() OR $user->isAdmin())
+					 alert(print_r($unit,true),'alert-danger');
 				if($i > 90):
 					alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?','alert-danger');
 					return false;
 				endif;
 			}
-			$unit = $this->getCurrentUnit(); // get first unit in line
-			if($unit):								 // if there is one, spin that shit
+			$unit_info = $this->getCurrentUnit(); // get first unit in line
+			if($unit_info):								 // if there is one, spin that shit
 				if($this->cron):
-					$unit['cron'] = true;
+					$unit_info['cron'] = true;
 				endif;
 				
-				if(isset($done[ $unit['type'] ]))
-					$done[ $unit['type'] ]++;
-				else
-					$done[ $unit['type'] ] = 1;
-				
-				
-				$unit = $unit_factory->make($this->dbh, $this->session, $unit);
+				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info);
 				$output = $unit->exec();
+				if(!$output AND is_object($unit)):
+					if(isset($done[ $unit->type ]))
+						$done[ $unit->type ]++;
+					else
+						$done[$unit->type ] = 1;
+				endif;
 				
 				
 			else:
@@ -188,7 +188,6 @@ class RunSession
 		endif;
 		
 		if($this->runTo($position)):
-			alert(__('<strong>Success.</strong> User moved to position %s', $position), 'alert-success');
 			return true;
 		endif;
 		return false;

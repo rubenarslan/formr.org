@@ -217,8 +217,6 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	}
 	public function sendMail($who = NULL)
 	{
-		
-		
 		if($who===null):
 			$this->recipient = $this->getRecipientField();
 		else:
@@ -226,8 +224,34 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		endif;
 		require_once INCLUDE_ROOT. 'Model/EmailAccount.php';
 		
+		if($this->recipient == null):
+			formr_log("Email recipient could not be determined from this field definition ". $this->recipient_field);
+			alert("We could not find an email recipient.", 'alert-danger');
+			$this->mail_sent = false;
+		endif;
+
+		if($this->account_id === null):
+			die("The study administrator (you?) did not set up an email account. <a href='".WEBROOT."/admin/mail/'>Do it now</a> and then select the account in the email dropdown.");
+		endif;
 		
-		if($this->account_id === null) die("The study administrator (you?) did not set up an email account. <a href='".WEBROOT."/admin/mail/'>Do it now</a> and then select the account in the email dropdown.");
+		$mails_sent = $this->numberOfEmailsSent();
+		if($mails_sent['in_last_1m'] > 0):
+			alert(sprintf("We already sent %d mail to this recipient in the last minute. No email was sent.",$mails_sent['in_last_1m']), 'alert-warning');
+			return false;
+		elseif($mails_sent['in_last_10m'] > 0):
+			alert(sprintf("We already sent %d mail to this recipient in the last 10 minutes. No email was sent.",$mails_sent['in_last_10m']), 'alert-warning');
+			return false;
+		elseif($mails_sent['in_last_1h'] > 2):
+			alert(sprintf("We already sent %d mails to this recipient in the last hour. No email was sent.",$mails_sent['in_last_1h']), 'alert-warning');
+			return false;
+		elseif($mails_sent['in_last_1d'] > 5):
+			alert(sprintf("We already sent %d mails to this recipient in the last day. No email was sent.",$mails_sent['in_last_1d']), 'alert-warning');
+			return false;
+		elseif($mails_sent['in_last_1w'] > 20):
+			alert(sprintf("We already sent %d mails to this recipient in the last week. No email was sent.",$mails_sent['in_last_1w']), 'alert-warning');
+			return false;
+		endif;
+		
 		$acc = new EmailAccount($this->dbh, $this->account_id, null);
 		$mail = $acc->makeMailer();
 		
@@ -250,6 +274,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	            'base64',
 	            'image/png'
 	        )) {
+				$this->mail_sent = false;
 	            alert('Email with the subject ' . $this->subject . ' was not sent to '. $this->recipient. ':<br>' .$mail->ErrorInfo,'alert-danger');
 	        }
 		endforeach;
@@ -264,6 +289,24 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$this->mail_sent = true;
 	    	$this->logMail();
 		}
+	}
+	private function numberOfEmailsSent()
+	{
+		$log = $this->dbh->prepare("SELECT
+			SUM(created > DATE_SUB(NOW(), INTERVAL 1 MINUTE)) AS in_last_1m,
+			SUM(created > DATE_SUB(NOW(), INTERVAL 10 MINUTE)) AS in_last_10m,
+			SUM(created > DATE_SUB(NOW(), INTERVAL 1 HOUR)) AS in_last_1h,
+			SUM(created > DATE_SUB(NOW(), INTERVAL 1 DAY)) AS in_last_1d,
+			SUM(1) AS in_last_1w
+		
+			
+			 FROM `survey_email_log`
+				
+				WHERE recipient = :recipient
+				AND created > DATE_SUB(NOW(), INTERVAL 7 DAY)");
+		$log->bindParam(':recipient', $this->recipient);
+		$log->execute();
+		return $log->fetch(PDO::FETCH_ASSOC);
 	}
 	private function logMail()
 	{

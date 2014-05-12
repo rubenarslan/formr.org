@@ -13,6 +13,7 @@ class User
 	public $settings = array();
 	public $errors = array();
 	public $messages = array();
+	public $cron = false;
 	private $dbh;
 
 
@@ -51,6 +52,10 @@ class User
 	public function loggedIn()
 	{
 		return $this->logged_in;
+	}
+	public function isCron()
+	{
+		return $this->cron;
 	}
 	public function isAdmin()
 	{

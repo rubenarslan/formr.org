@@ -3,6 +3,7 @@ require_once '../../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
+require_once INCLUDE_ROOT . "Model/Pagination.php";
 ?>	
 <h2>cron log</h2>
 <p>
@@ -11,6 +12,13 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 
 
 <?php
+
+$cron_entries = $fdb->prepare("SELECT COUNT(`survey_cron_log`.id) AS count
+FROM `survey_cron_log`");
+
+$pagination = new Pagination($cron_entries);
+$limits = $pagination->getLimits();
+
 $g_cron = $fdb->prepare("SELECT 
 	`survey_cron_log`.id,
 	`survey_users`.email,
@@ -38,7 +46,8 @@ ON `survey_cron_log`.run_id = `survey_runs`.id
 LEFT JOIN `survey_users`
 ON `survey_users`.id = `survey_runs`.user_id
 
-ORDER BY `survey_cron_log`.id DESC;");
+ORDER BY `survey_cron_log`.id DESC 
+LIMIT $limits;");
 $g_cron->bindParam(':user_id',$user->id);
 $g_cron->execute() or die(print_r($g_cron->errorInfo(), true));
 
@@ -125,6 +134,9 @@ if(!empty($cronlogs)) {
 
 	</tbody></table>
 	</div>
+	<?php
+	$pagination->render("superadmin/cron_log");
+	?>
 </div>
 	
 <?php

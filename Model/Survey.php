@@ -32,6 +32,8 @@ class Survey extends RunUnit {
 	public $icon = "fa-pencil-square-o";
 	public $type = "Survey";
 	
+	private $confirmed_deletion = false;
+	
 	public function __construct($fdb, $session, $unit)
 	{
 		if(isset($unit['name']) AND !isset($unit['unit_id'])): // when called via URL
@@ -82,9 +84,35 @@ class Survey extends RunUnit {
 	public function render() {
 		global $js;
 		$js = (isset($js)?$js:'') . '<script src="'.WEBROOT.'assets/survey.js"></script>';
-		$ret = $this->render_form_header().
-		$this->render_items().
-		$this->render_form_footer();
+		'
+
+    '.
+
+	 $ret = (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
+	 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</p>":'') .
+	 '
+	<div class="row">
+		<div class="col-md-12">
+
+	';
+	 $ret .= $this->render_form_header().
+	 $this->render_items().
+	 $this->render_form_footer();
+	 $ret .=	 '
+		</div> <!-- end of col-md-12 div -->
+	</div> <!-- end of row div -->
+	'.
+	(isset($this->settings['problem_email'])?
+	'
+	<div class="row">
+		<div class="col-md-12">'.
+		(isset($this->settings['problem_text'])?
+			str_replace("%s",$this->settings['problem_email'],$this->settings['problem_text']) :
+			('<a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>')
+		).
+		'</div>
+	</div>
+	':'');
 		$this->dbh = NULL;
 		return $ret;
 	}
@@ -170,7 +198,6 @@ class Survey extends RunUnit {
 					WHERE 
 					`survey_items`.study_id = :study_id AND
 			        `survey_items`.type NOT IN (
-							'note',
 							'mc_heading',
 							'submit'
 						)
@@ -193,19 +220,35 @@ class Survey extends RunUnit {
 		$this->not_answered = array_filter($this->unanswered_batch, function ($item)
 		{
 			if(
+				$item->hidden OR  // item was skipped
 				in_array($item->type, array('submit','mc_heading')) 		 // these items require no user interaction and thus don't count against progress
 				OR ($item->type == 'note' AND $item->displaycount > 0) 		 // item is a note and has already been viewed
-				OR $item->hidden											 // item was skipped
 			)
 				return false;
 			else 
 				return true;
 		}
 );
-#		pr($this->not_answered);
+// todo: in the medium term it may be more intuitive to treat notes as item that are answered by viewing but that can linger in a special case, might require less extra logic. but they shouldn't go in the results table.. so maybe not.
+		$seen_notes = array_filter($this->unanswered_batch, function ($item)
+				{ // notes stay in the unanswered batch
+					if(
+						! $item->hidden											 // item wasn't skipped
+						AND ($item->type == 'note' AND $item->displaycount > 0) 		 // item is a note and has already been viewed
+					)
+						return true;
+					else 
+						return false;
+				}
+		);
+		$this->already_answered += count($seen_notes); 
+
 		$this->not_answered = count( $this->not_answered );
+#		pr($this->not_answered);
+#		pr($this->already_answered);
 
 		$all_items = $this->already_answered + $this->not_answered;
+		
 		
 		#pr(array_filter($this->unanswered_batch,'proper_type'));
 		if($all_items !== 0) {
@@ -329,10 +372,12 @@ class Survey extends RunUnit {
 			}
 			
 			
-			// determine value if there is a dynamic one, but don't do so for skipped hidden items
-			if($this->unanswered_batch[$name]->no_user_input_required
-				AND $show AND
-				$this->unanswered_batch[$name]->needsDynamicValue()) // if there is a sticky value to be had and it's not numeric
+			
+			if(
+				$this->unanswered_batch[$name]->needsDynamicValue() AND
+				($this->unanswered_batch[$name]->no_user_input_required
+				OR $show) // determine value if there is a dynamic one, but don't do so for skipped hidden items
+) // if there is a sticky value to be had and it's not numeric
 			{
 				
 				$openCPU = $this->makeOpenCPU();
@@ -373,11 +418,12 @@ class Survey extends RunUnit {
 	    $ret .= '<div class="progress">
 				  <div data-starting-percentage="'.$prog.'" data-number-of-items="'.$this->not_answered.'" class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
 			</div>';
-		$ret .= '<div class="form-group error form-message">
-			<div class="control-label">'.implode("<br>",array_unique($this->errors)).'
-			</div></div>';	
+		
+		if(!empty($this->errors))
+			$ret .= '<div class="form-group has-error form-message">
+				<div class="control-label"><i class="fa fa-exclamation-triangle pull-left fa-2x"></i>'.implode("<br>",array_unique($this->errors)).'
+				</div></div>';	
 		return $ret;
-
 	}
 
 	protected function render_items() 
@@ -385,12 +431,14 @@ class Survey extends RunUnit {
 		$ret = '';
 		$items = $this->unanswered_batch;
 		
+		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
+		
 		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
 											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
 		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
 		$view_update = $this->dbh->prepare($view_query);
 
-		$view_update->bindParam(":session_id", $this->session_id);
+		$view_update->bindValue(":session_id", $this->session_id);
 	
 		$itemsDisplayed = $i = 0;
 		$need_submit = true;
@@ -470,6 +518,9 @@ class Survey extends RunUnit {
 	        }
 	    } //end of for loop
 		
+		$this->dbh->commit() or die(print_r($this->dbh->errorInfo(), true));
+		
+		
 		if($need_submit) // only if no submit was part of the form
 		{
 			if(isset($this->settings["submit_button_text"])):
@@ -523,36 +574,7 @@ class Survey extends RunUnit {
 		
 		
 		return array('title' => (isset($this->settings['title'])?$this->settings['title']: null),
-		'body' => 
-			'
-	
-        '.
-
-		 (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
-		 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</p>":'') .
-		 '
-		<div class="row">
-			<div class="col-md-12">
-
-		'.
-		 $this->render().
-		 '
-			</div> <!-- end of col-md-12 div -->
-		</div> <!-- end of row div -->
-		'.
-		(isset($this->settings['problem_email'])?
-		'
-		<div class="row">
-			<div class="col-md-12">'.
-			(isset($this->settings['problem_text'])?
-				str_replace("%s",$this->settings['problem_email'],$this->settings['problem_text']) :
-				('<a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>')
-			).
-			'</div>
-		</div>
-		':'')
-		);
-
+		'body' => $this->render());
 	}
 // this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
 
@@ -577,8 +599,18 @@ class Survey extends RunUnit {
 		
 		$this->getSettings();
 	}
-	public function uploadItemTable($file)
-	{
+	public function uploadItemTable($file, $confirmed_deletion)
+	{	
+		if(trim($confirmed_deletion) == ''):
+			$this->confirmed_deletion = false;
+		elseif($confirmed_deletion === $this->name):
+			$this->confirmed_deletion = true;
+		else:
+			alert("<strong>Error:</strong> You confirmed the deletion of the study's results but your input did not match the study's name. Update aborted.", 'alert-danger');
+			$this->confirmed_deletion = false;
+			return false;
+		endif;
+			
 		umask(0002);
 		ini_set('memory_limit', '256M');
 		$target = $_FILES['uploaded']['tmp_name'];
@@ -623,6 +655,14 @@ class Survey extends RunUnit {
 			return true;
 		
 		$reserved = $this->dbh->query("SHOW TABLES LIKE '$name';");
+		if($reserved->rowCount())
+			return true;
+
+		return false;
+	}
+	protected function hasResultsTable()
+	{
+		$reserved = $this->dbh->query("SHOW TABLES LIKE '$this->results_table';");
 		if($reserved->rowCount())
 			return true;
 
@@ -825,6 +865,19 @@ class Survey extends RunUnit {
 	
 		$new_syntax = $this->getResultsTableSyntax($result_columns);
 		
+		if($this->hasResultsTable())
+		{
+			$resultCount = $this->getResultCount();
+		
+			if($new_syntax !== $old_syntax AND $resultCount['finished'] > 0) // if the results table would be recreated and there are results
+			{
+				if(! $this->confirmed_deletion)
+				{
+					$this->errors[] = "The results table would have to be deleted, but you did not confirm deletion of results.";
+				}
+			}
+		}
+		
 		if(!empty($this->errors))
 		{
 			$this->dbh->rollBack();
@@ -837,12 +890,12 @@ class Survey extends RunUnit {
 			
 			if($new_syntax !== $old_syntax)
 			{
-				$this->messages[] = "A new results table was created.";
+				$this->warnings[] = "A new results table was created.";
 				return $this->createResultsTable($new_syntax);
 			}
 			else
 			{
-				$this->messages[] = "The old results table was kept.";
+				$this->messages[] = "<strong>The old results table was kept.</strong>";
 				return true;
 			}
 		}
@@ -914,10 +967,11 @@ class Survey extends RunUnit {
 	private function getResultsTableSyntax($columns)
 	{
 		$columns = array_filter($columns); // remove NULL, false, '' values (note, fork, submit, ...)
-		if(empty($columns))
-			return null;
 		
-		$columns = implode(",\n", $columns);
+		if(empty($columns))
+			$columns_string = ''; # create a results tabel with only the access times
+		else
+			$columns_string = implode(",\n", $columns).",";
 		
 		$create = "CREATE TABLE `{$this->name}` (
 		  `session_id` INT UNSIGNED NOT NULL ,
@@ -926,11 +980,12 @@ class Survey extends RunUnit {
 		  `created` DATETIME NULL DEFAULT NULL ,
 		  `ended` DATETIME NULL DEFAULT NULL ,
 	
-		  $columns,
+		  $columns_string
 		  
 		  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
 		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
 		  PRIMARY KEY (`session_id`) ,
+		  INDEX `ending` (`session_id` DESC, `study_id` ASC, `ended` ASC) ,
 		  CONSTRAINT `fk_{$this->name}_survey_unit_sessions1`
 		    FOREIGN KEY (`session_id` )
 		    REFERENCES `survey_unit_sessions` (`id` )
@@ -964,6 +1019,8 @@ class Survey extends RunUnit {
 			$item = $item_factory->make($row);
 			if(!$item)
 			{
+				if(isset($row['type'])) $type = $row['type'];
+				else $type = "<em>missing</em>";
 				alert("While trying to recreate old results table: Item type ".h($row['type']) . " not found.", 'alert-danger');
 				return false;
 			}
@@ -1032,8 +1089,10 @@ class Survey extends RunUnit {
 		ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id";
 		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
 		$results = array();
-		while($row = $get->fetch(PDO::FETCH_ASSOC))
+		while($row = $get->fetch(PDO::FETCH_ASSOC)):
+			unset($row['study_id']);
 			$results[] = $row;
+		endwhile;
 		
 		return $results;
 	}
@@ -1084,7 +1143,7 @@ class Survey extends RunUnit {
 		elseif($resC == array('finished' => 0, 'begun' => 0)):
 			return true;		
 		else:
-			$this->messages[] = __("%s results rows were deleted.",array_sum($resC));
+			$this->warnings[] = __("%s results rows were deleted.",array_sum($resC));
 		endif;
 		
 		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
@@ -1098,7 +1157,9 @@ class Survey extends RunUnit {
 	}
 	public function backupResults()
 	{
-        $filename = INCLUDE_ROOT ."tmp/backups/results/".$this->name . date('YmdHis') . ".tab";
+		$filename = $this->name . date('YmdHis') . ".tab";
+		if(isset($this->user_id)) $filename = "user" . $this->user_id . $filename;
+        $filename = INCLUDE_ROOT ."tmp/backups/results/". $filename;
 		require_once INCLUDE_ROOT . 'Model/SpreadsheetReader.php';
 
 		$SPR = new SpreadsheetReader();
@@ -1118,18 +1179,36 @@ class Survey extends RunUnit {
 	}
 	public function getAverageTimeItTakes()
 	{
-		$get = "SELECT AVG( ended - created) FROM `{$this->name}`";
+		$get = "SELECT AVG(middle_values) AS 'median' FROM (
+		  SELECT took AS 'middle_values' FROM
+		    (
+		      SELECT @row:=@row+1 as `row`, (x.ended - x.created) AS took
+		      FROM `{$this->name}` AS x, (SELECT @row:=0) AS r
+		      WHERE 1
+		      -- put some where clause here
+		      ORDER BY took
+		    ) AS t1,
+		    (
+		      SELECT COUNT(*) as 'count'
+		      FROM `{$this->name}` x
+		      WHERE 1
+		      -- put same where clause here
+		    ) AS t2
+		    -- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
+		    WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
 		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
 		$time = $get->fetch(PDO::FETCH_NUM);
-		$time = round($time[0] / 60, 2); # seconds to minutes
+		$time = round($time[0] / 60, 3); # seconds to minutes
 		
 		return $time;
 	}
 	public function delete()
 	{
-		$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
-		
-		return parent::delete();
+		if($this->deleteResults()): // always back up
+			$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
+			return parent::delete();
+		endif;
+		return false;
 	}
 	public function displayForRun($prepend = '')
 	{
@@ -1142,7 +1221,7 @@ class Survey extends RunUnit {
 				<strong>Survey:</strong> <a href='".WEBROOT."admin/survey/{$this->name}/index'>{$this->name}</a><br>
 			<small>".(int)$resultCount['finished']." complete results,
 		".(int)$resultCount['begun']." begun</small><br>
-			<small>Takes on average $time minutes</small>
+			<small title='Median duration that it takes to complete the survey, only completers accounted for'>Median duration: $time minutes</small>
 			</h3>
 			<p>
 			<p class='btn-group'>

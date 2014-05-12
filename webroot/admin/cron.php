@@ -1,15 +1,26 @@
 <?php
 require_once '../../define_root.php';
+$start_cron_time = microtime();
+// even though the cronjobs are supposed to run only 6 min and are spaced 7 min, there seem to be problems due to overlapping CJs
+// the lockfile is supposed to fix this
+$lockfilepath = INCLUDE_ROOT.'/tmp/cron.lock';
+if(file_exists($lockfilepath)) {
+  die("Cronjob still running.");
+}
+file_put_contents($lockfilepath,'');
+register_shutdown_function(create_function('', "unlink('{$lockfilepath}');")); 
+set_time_limit(360); # defaults to 30
 ob_start();
 require_once INCLUDE_ROOT . "Model/Site.php";
 require_once INCLUDE_ROOT . 'Model/Run.php';
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
+session_over($site, $user);
 
-set_time_limit(300); # defaults to 30
+$user->cron = true;
 
 /// GET ALL RUNS
-$g_runs = $fdb->query("SELECT * FROM `survey_runs` WHERE cron_active = 1");
+$g_runs = $fdb->query("SELECT * FROM `survey_runs` WHERE cron_active = 1 ORDER BY RAND();");
 $runs = array();
 while($tmp = $g_runs->fetch())
 {
@@ -51,16 +62,21 @@ foreach($runs AS $run_data):
 				$done[$type] = $nr;
 			endif;
 		endforeach;
+		
+		if(microtime() - $start_cron_time > 60*6):
+			echo "within-Cronjob interrupted after running ". (microtime() - $start_cron_time) . " seconds";
+			break;
+		endif;
 	endforeach;
 
 	$alert_types = $site->alert_types;
 	$alerts = $site->renderAlerts();
 	$alerts = str_replace('<button type="button" class="close" data-dismiss="alert">&times;</button>', '', $alerts);
 	
-	$msg = date( 'Y-m-d H:i:s' ) . ' ' . "$i sessions in the run ".$run->name." were processed. {$done['Email']} emails were sent. {$done['SkipForward']} SkipForwards, {$done['SkipBackward']} SkipBackwards, {$done['Shuffle']} shuffles, and {$done['Pause']} pauses were evaluated.<br>" . "\n";
+	$msg = date( 'Y-m-d H:i:s' ) . ' ' . "$i sessions in the run ".$run->name." were processed. {$done['Email']} emails were sent. {$done['SkipForward']} SkipForwards, {$done['SkipBackward']} SkipBackwards, {$done['Shuffle']} shuffles, and {$done['Pause']} pauses ended.<br>" . "\n";
 	$msg .= $alerts;
-
-	
+	unset($done["Page"]);
+if(array_sum($done) > 0 OR array_sum($alert_types) > 0):	
 	$log = $fdb->prepare("INSERT INTO `survey_cron_log` (run_id, created, ended, sessions, skipforwards, skipbackwards, pauses, emails, shuffles, errors, warnings, notices, message)
 												VALUES (:run_id, :created, NOW(), :sessions, :skipforwards, :skipbackwards, :pauses, :emails, :shuffles, :errors, :warnings, :notices, :message)");
 	$log->bindParam(':run_id', $run->id);
@@ -76,14 +92,21 @@ foreach($runs AS $run_data):
 	$log->bindParam(':notices', $alert_types['alert-info']);
 	$log->bindParam(':message', $alerts);
 	$log->execute();
-
+	
+endif;
 
 	echo $msg."<br>";
+	if(microtime() - $start_cron_time > 60 * 6):
+		echo "Cronjob interrupted after running ". (microtime() - $start_cron_time) . " seconds";
+		break;
+	endif;
 endforeach;
 
 
 // error_log( $msg, 3, INCLUDE_ROOT ."tmp/logs/cron.log");
+$user->cron = false;
 
 require_once INCLUDE_ROOT . "View/footer.php";
 
 ob_flush();
+// execute code

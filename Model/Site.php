@@ -108,8 +108,7 @@ class Site
 			alert("You were logged out automatically, because you were last active ". timetostr($_SESSION['last_activity']) .'.', 'alert-info');
 		    session_unset();     // unset $_SESSION variable for the run-time 
 		    session_destroy();   // destroy session data in storage
-			session_name("formr_session");
-			session_start();	 // get a new session
+			$this->start_session();
 			return true;
 		}
 		else
@@ -121,6 +120,29 @@ class Site
 		session_name("formr_session");
 		session_set_cookie_params ( $settings['session_cookie_lifetime'], "/" , null,  SSL , true );
 		session_start();
+	}
+	public function makeTitle()
+	{
+		global $title;
+		$path = '';
+		if(isset($_SERVER['REDIRECT_URL'])) $path = $_SERVER['REDIRECT_URL'];
+		else if (isset($_SERVER['SCRIPT_NAME'])) $path = $_SERVER['SCRIPT_NAME'];
+
+		$path = preg_replace(array(
+			"@var/www/@",
+			"@formr/@",
+			"@webroot/@",
+			"@\.php$@",
+			"@index$@",
+			"@^/@",
+			"@/$@",
+		),"",$path);
+
+		if($path != ''): 
+			$title = "formr /". $path;
+			$title = str_replace(array('_','/'),array(' ',' / '), $title);
+		endif;
+		return isset($title) ? $title : 'formr survey framework';
 	}
 }
 

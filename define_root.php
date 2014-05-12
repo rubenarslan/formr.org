@@ -8,14 +8,14 @@ function define_webroot() {
 	if(isset($_SERVER['SERVER_NAME'])){
 		switch($_SERVER['SERVER_NAME']){
 			case 'localhost':
-				$doc_root = "localhost:8888/formr/";
+				$doc_root = "localhost:8888/formr.org/";
 				$server_root = __DIR__ . '/';
 				$online = false;
 				$testing = false;
 
 				break;
 			case 'rubenair.local':
-				$doc_root = "rubenair.local:8888/formr/";
+				$doc_root = "rubenair.local:8888/formr.org/";
 				$server_root = __DIR__ . '/';
 				$online = false;
 				$testing = false;
