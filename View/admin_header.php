@@ -3,11 +3,11 @@ require_once INCLUDE_ROOT . "Model/Site.php";
 
 if(!$user->isAdmin()) {
 	alert("<strong>Sorry:</strong> Only admins have access.",'alert-info');
-	redirect_to("index");
+	access_denied();
 }
 if(strpos($_SERVER['SCRIPT_NAME'],'/superadmin/')!==FALSE AND !$user->isSuperAdmin()) {
 	alert("<strong>Sorry:</strong> Only superadmins have access.",'alert-info');
-	redirect_to("index");
+	access_denied();
 }
 
 if(strpos($_SERVER['SCRIPT_NAME'],'/survey/')!==FALSE AND strpos($_SERVER['SCRIPT_NAME'],'/survey/add_survey.php')===FALSE):
@@ -22,7 +22,7 @@ if(strpos($_SERVER['SCRIPT_NAME'],'/survey/')!==FALSE AND strpos($_SERVER['SCRIP
 			not_found();
 		elseif(!$user->created($study)):
 			alert("<strong>Error:</strong> Not your survey.",'alert-danger');
-			redirect_to("/index");
+			access_denied();
 		endif;
 	else:
 		alert("<strong>Error:</strong> No survey specified.",'alert-danger');
@@ -38,7 +38,7 @@ elseif(strpos($_SERVER['SCRIPT_NAME'],'/run/')!==FALSE AND strpos($_SERVER['SCRI
 			not_found();
 		elseif(!$user->created($run)):
 			alert("<strong>Error:</strong> Not your run.",'alert-danger');
-			redirect_to("/index");
+			access_denied();
 		endif;
 	else:
 		alert("<strong>Error:</strong> No run specified.",'alert-danger');

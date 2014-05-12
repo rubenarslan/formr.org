@@ -2,6 +2,16 @@
 /*
 HELPER FUNCTIONS
 */
+function formr_log($msg) {// shorthand
+	error_log(  date( 'Y-m-d H:i:s' ).' ' . $msg. "\n", 3, INCLUDE_ROOT ."tmp/logs/formr_error.log");
+}
+function opencpu_log_warning($msg) {// shorthand
+	error_log(  date( 'Y-m-d H:i:s' ).' ' . $msg. "\n", 3, INCLUDE_ROOT ."tmp/logs/opencpu_warning.log");
+}
+function opencpu_log($msg) {// shorthand
+	error_log(  date( 'Y-m-d H:i:s' ).' ' . $msg. "\n", 3, INCLUDE_ROOT ."tmp/logs/opencpu_error.log");
+}
+
 function alert($msg, $class = 'alert-warning', $dismissable = true) // shorthand
 {
 	global $site;
@@ -22,7 +32,28 @@ function redirect_to($location) {
 	    header("Location: $location");
 		exit;
 }
+function session_over($site, $user)
+{
+	static $closed;
+	if($closed) return false;
+	
+	$_SESSION['site'] = $site;
+	$_SESSION['user'] = serialize($user);
 
+	session_write_close();
+	$closed = true;
+	return true;
+}
+
+function access_denied() {
+	global $site,$user;
+	$_SESSION['site'] = $site;
+	$_SESSION['user'] = serialize($user);
+
+    header('HTTP/1.0 403 Forbidden');
+	require_once INCLUDE_ROOT."webroot/public/not_found.php";
+	exit;
+}
 function not_found() {
 	global $site,$user;
 	$_SESSION['site'] = $site;
@@ -31,6 +62,19 @@ function not_found() {
     header('HTTP/1.0 404 Not Found');
 	require_once INCLUDE_ROOT."webroot/public/not_found.php";
 	exit;
+}
+
+function bad_request() {
+	global $site,$user;
+	$_SESSION['site'] = $site;
+	$_SESSION['user'] = serialize($user);
+
+    header('HTTP/1.0 400 Bad Request');
+	require_once INCLUDE_ROOT."webroot/public/not_found.php";
+	exit;
+}
+function bad_request_header() {
+    header('HTTP/1.0 400 Bad Request');
 }
 
 function h($text) {
@@ -295,6 +339,7 @@ if (!function_exists('http_parse_headers'))
  * @return  string
  */
 function timetostr($timestamp) {
+	if($timestamp === false) return "";
     $age = time() - $timestamp;
 
     $future = ($age <= 0);
@@ -342,4 +387,29 @@ function human_filesize($bytes, $decimals = 2) {
 function cr2nl ($string)
 {
 	return str_replace("\r\n","\n",$string);
+}
+
+function time_point($line, $file) {
+	static $times, $points;
+	if(empty($times))
+	{
+		$times = array($_SERVER["REQUEST_TIME_FLOAT"]);
+		$points = array("REQUEST TIME ". round($_SERVER["REQUEST_TIME_FLOAT"]/60,6));		
+	}
+	$took = $times[count($times)-1];
+	$times[] = microtime(true);
+	$took = round(($times[count($times)-1] - $took)/60, 6);
+	$points[] = "took $took minutes to get to line ".$line." in file: ". $file;
+	return $points;
+}
+
+function echo_time_points($points)
+{
+//	echo "<!---";
+	for($i=0;$i<count($points); $i++):
+		echo $points[$i]."<br>
+";
+	endfor;
+	echo "took ".round((microtime(true)-$_SERVER["REQUEST_TIME_FLOAT"])/60,6). " minutes to the end";	
+//	echo "--->";
 }

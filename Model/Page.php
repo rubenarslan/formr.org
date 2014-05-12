@@ -113,7 +113,7 @@ class Page extends RunUnit {
 #		if($this->can_be_ended)
 #		{
 #			$ret = '<form method="post" accept-charset="utf-8">';
-#			$ret = '<input type="button" class="btn btn-default btn-success" value="Weiter!" name="page_submit">';
+#			$ret = '<input type="button" class="btn btn-default btn-success" value="Continue!" name="page_submit">';
 #			$ret .= '</form>';
 #			echo $ret;
 #		}
@@ -133,7 +133,7 @@ class Page extends RunUnit {
 		if($this->can_be_ended):
 			$action = WEBROOT."{$this->run_name}";
 			$ret = '<form action="'.$action.'" method="post" accept-charset="utf-8">';
-			$ret .= '<input type="submit" class="btn btn-default btn-success" value="Weiter!" name="page_submit">';
+			$ret .= '<input type="submit" class="btn btn-default btn-success" value="Continue!" name="page_submit">';
 			$ret .= '</form>';
 			$this->body_parsed .= $ret;
 		endif;

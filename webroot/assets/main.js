@@ -38,10 +38,69 @@ $(document).ready(function() {
         $(this).text($(this).data("full-session"));
         $(this).off('click');
     });
+    
+	$('.form-ajax').each(ajaxifyForm);
+	$('.link-ajax').each(ajaxifyLink);
+    
     hljs.initHighlighting();
+    $('.nav-tabs').stickyTabs();
 });
 
 
+function ajaxifyLink(i,elm) {
+    $(elm).click(function(e)
+    {
+    	e.preventDefault();
+        $this = $(this);
+        var old_href = $this.attr('href');
+        if(old_href === '') return false;
+        $this.attr('href','');
+
+    	$.ajax(
+    		{
+                type: "GET",
+                url: old_href,
+    			dataType: 'html',
+    		})
+    		.done($.proxy(function(data)
+    		{
+                $(this).attr('href',old_href);
+                $(this).css('color','green');
+    		},this))
+            .fail($.proxy(function(e, x, settings, exception) {
+                $(this).attr('href',old_href);
+                ajaxErrorHandling(e, x, settings, exception);
+            },this));
+    	return false;
+    });
+}
+function ajaxifyForm(i,elm) {
+    $(elm).submit(function(e)
+    {
+    	e.preventDefault();
+        $this = $(this);
+        $submit = $this.find('button.btn');
+        $submit.attr('disabled',true);
+
+    	$.ajax(
+		{
+            type: $this.attr('method'),
+            url: $this.attr('action'),
+            data: $this.serialize(),
+			dataType: 'html',
+		})
+		.done($.proxy(function(data)
+		{
+            $submit.attr('disabled',false);
+            $submit.css('color','green');
+		},this))
+        .fail($.proxy(function(e, x, settings, exception) {
+            $submit.attr('disabled',false);
+            ajaxErrorHandling(e, x, settings, exception);
+        },this));
+    	return false;
+    });
+}
 function bootstrap_alert(message,bold,where) 
 {
 	var $alert = $('<div class="row"><div class="col-md-6 col-sm-6 all-alerts"><div class="alert alert-danger"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold:'Problem' ) + '</strong> ' + message + '</div></div></div>');
@@ -75,6 +134,45 @@ function ajaxErrorHandling (e, x, settings, exception)
 		message="The request was aborted by the server.";
 	else
 		message= (typeof e.statusText !== 'undefined' && e.statusText !== 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
+        
+    if(e.responseText)
+    {
+        var resp = $(e.responseText);
+        resp = resp.find(".alert").addBack().filter(".alert").html();
+        message = message + "<br>" + resp;
+    }
 
 	bootstrap_alert(message, 'Error.','.main_body');
 }
+
+/**
+ * jQuery Plugin: Sticky Tabs
+ *
+ * @author Aidan Lister <aidan@php.net>
+ * @version 1.0.0
+ */
+(function ( $ ) {
+    $.fn.stickyTabs = function() {
+        context = this
+ 
+        // Show the tab corresponding with the hash in the URL, or the first tab.
+        var showTabFromHash = function() {
+          var hash = window.location.hash;
+          var selector = hash ? 'a[href="' + hash + '"]' : 'li:first-child a';
+          $(selector, context).tab('show');
+        }
+ 
+        // Set the correct tab when the page loads
+        showTabFromHash(context)
+ 
+        // Set the correct tab when a user uses their back/forward button
+        window.addEventListener('hashchange', showTabFromHash, false);
+ 
+        // Change the URL when tabs are clicked
+        $('a', context).on('click', function(e) {
+          history.pushState(null, null, this.href);
+        });
+ 
+        return this;
+    };
+}( jQuery ));

@@ -4,7 +4,7 @@
 <p>Some helpful tips:</p>
 <ul>
 	<li>
-		You may want to make linebreaks in Excel to format your text. In Microsoft Excel on Macs, you need to press <kbd>Command ⌘</kbd>+<kbd>Option ⌥</kbd>+<kbd>Enter ↩</kbd>, on Windows it is <kbd>ctrl</kbd>+<kbd>Enter ↩</kbd>. We suggest you start working from the provided sample sheet, because it is already properly formatting for lines wrapping within cells.
+		You may want to make linebreaks in Excel to format your text. In Microsoft Excel on Macs, you need to press <kbd>Command ⌘</kbd>+<kbd>Option ⌥</kbd>+<kbd>Enter ↩</kbd>, on Windows it is <kbd>ctrl</kbd>+<kbd>Enter ↩</kbd>. We suggest you start working from the provided sample sheet, because it already has the proper formatting and settings.
 	</li>
 	<li>
 		Make text <strong>bold</strong> through  <code>__bold__</code>, make it <em>italic</em> through <code>*italic*</code>.
@@ -123,7 +123,7 @@
 		type
 	</dt>
 	<dd>
-		set the item type (see item types tab)
+		set the item type (<a href="<?=WEBROOT?>public/documentation#available_items">see item types tab</a>)
 	 </dd>
  	<dt>
  		name
@@ -270,5 +270,18 @@
 	 </dt>
 	 <dd>
 		 This makes the labels for rating_button items have fixed widths. This can be useful to align rating_buttons buttons with each other even though the end points are labelled differently. A more flexible solution would be to horizontally center the choices using answer_align_center.
+	 </dd>
+	 
+	 <dt>
+		 space_bottom_10 <br>(10, 20, … , 60)
+	 </dt>
+	 <dd>
+		 Controls the space after an item. Default value is 15.
+	 </dd>
+	 <dt>
+		 space_label_answer_vertical_10 <br>(10, 20, … , 60)
+	 </dt>
+	 <dd>
+		 Controls the vertical space between label and choices, if you've set answer_below_label. Default value is 15.
 	 </dd>
  </dl>

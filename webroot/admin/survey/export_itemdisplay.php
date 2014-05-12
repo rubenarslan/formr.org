@@ -1,14 +1,22 @@
 <?php
 require_once '../../../define_root.php';
 require_once INCLUDE_ROOT.'View/admin_header.php';
+session_over($site, $user);
 
 $results = $study->getItemDisplayResults();
+if(!count($results))
+{
+	die( "Nothing to export");
+}
 
 require_once INCLUDE_ROOT.'Model/SpreadsheetReader.php';
 
 $SPR = new SpreadsheetReader();
 
-if(isset($_GET['format']) AND !in_array($_GET['format'], $SPR->exportFormats)) die("invalid format");
+if(!isset($_GET['format']) OR !in_array($_GET['format'], $SPR->exportFormats)):
+	alert("Invalid format requested.","alert-danger");
+	bad_request();
+endif;
 $format = $_GET['format'];
 
 if($format == 'xlsx')

@@ -63,8 +63,9 @@
 	   <?php endif;	?>
 	</div>
 </nav>
+<div class="row">
 
-<div class="main_body container">
+<div class="col-md-12 main_body container">
 <?php 
 $alerts = $site->renderAlerts();
 if(!empty($alerts)):

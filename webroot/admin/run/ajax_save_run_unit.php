@@ -19,10 +19,13 @@ if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 					alert('<strong>Success.</strong> '.ucfirst($unit->type).' unit was updated.','alert-success');
 				endif;
 				echo $unit->displayForRun($site->renderAlerts());
-		else:
-			alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-danger');
+				exit;
 		endif;
 	endif;
 endif;
+bad_request_header();
+$alert_msg = "<strong>Sorry.</strong> Something went wrong while saving. Please contact formr devs, if this problem persists.";
+if(isset($unit)) $alert_msg .= implode($unit->errors);
+alert($alert_msg,'alert-danger');
 
 echo $site->renderAlerts();

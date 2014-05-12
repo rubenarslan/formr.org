@@ -285,7 +285,7 @@ class RunUnit {
 						left join `survey_run_sessions`
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 						left join `survey_run_units`
-						on `survey_run_units`.id = `survey_unit_sessions`.unit_id
+						on `survey_run_units`.run_id = `survey_run_sessions`.run_id AND `survey_run_units`.unit_id = `survey_unit_sessions`.unit_id
 					";
 				
 				elseif($survey_name == 'survey_unit_sessions'):
@@ -302,7 +302,7 @@ class RunUnit {
 				";
 			
 				$q = $q1 . $q2 . $q3;
-			
+				
 				$get_results = $this->dbh->prepare($q);
 				if($this->run_session_id === NULL):
 					$get_results->bindValue(':session_id', $this->session_id);
@@ -371,17 +371,20 @@ class RunUnit {
 	}
 	public function getParsedBodyAdmin($source,$email_embed = false)
 	{
+		$current_position = $this->unit['position'];
 		if($this->knittingNeeded($source)):
 			$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
 			WHERE 
-				`survey_run_sessions`.run_id = :run_id
+				`survey_run_sessions`.run_id = :run_id AND
+				`survey_run_sessions`.position >= :current_position
 
-			ORDER BY `survey_run_sessions`.position DESC,RAND()
+			ORDER BY `survey_run_sessions`.position ASC,RAND()
 
 			LIMIT 1";
 			$get_sessions = $this->dbh->prepare($q); // should use readonly
 			$get_sessions->bindParam(':run_id',$this->run_id);
+			$get_sessions->bindValue(':current_position',$current_position);
 		
 			$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
 		

@@ -26,14 +26,11 @@ label
     background-color:rgba(22,22,22,0.15);
     border:0;
 }
-.navbar-formr .navbar-nav li.active > a
-{
-    background-color:white;
-}
 .main_body>.row> .run_dialog
 {
     background-color:rgba(255,255,255,0.15);
 }
+
 
 .broken_tape
 {
@@ -593,7 +590,7 @@ div.btn-check button.btn {
     margin-left: -1px;
 }
 
-form.form-horizontal img {
+form.form-horizontal img, div.modal-content img,img {
     max-width: 100%;
     height: auto;
 }
@@ -616,11 +613,13 @@ form.form-horizontal div.form-group.float_image_left img {
 form.form-horizontal div.answer_below_label .control-label {
   width:99%;
   text-align:left;
+  margin-bottom:15px;
 }
 form.form-horizontal div.answer_below_label .controls {
   width:99%;
   margin-left:5px;
   clear: left;
+  margin-left:0;
 }
 
 
@@ -892,28 +891,28 @@ form.form-horizontal div.answer_below_label .controls {
 }
 
 
-form.form-horizontal div.label_align_left label.control-label {
+form.form-horizontal div.label_align_left .control-label {
   text-align:left;
   padding-left:5px;
 }
-form.form-horizontal div.label_align_center label.control-label {
+form.form-horizontal div.label_align_center .control-label {
   text-align:center;
   padding-left:5px;
 }
-form.form-horizontal div.label_align_right label.control-label {
+form.form-horizontal div.label_align_right .control-label {
   text-align: right; /* default */
   padding-left:5px;
 }
 
-form.form-horizontal div.answer_align_left div.controls {
+form.form-horizontal div.answer_align_left .controls {
   text-align: left ;  /* default */
   padding-right:5px;
 }
-form.form-horizontal div.answer_align_center div.controls {
+form.form-horizontal div.answer_align_center .controls {
   text-align: center;
   padding-right:5px;
 }
-form.form-horizontal div.answer_align_right div.controls {
+form.form-horizontal div.answer_align_right .controls {
   text-align:right;
   padding-right:5px;
 }
@@ -1083,6 +1082,52 @@ form.form-horizontal div.form-row.form-group.rating_button_label_width200 div.co
 form.form-horizontal div.form-row.form-group.hidden {
 	display:none;
 }
+.form-horizontal div.form-row.form-group.space_bottom_10
+{
+	margin-bottom:10px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_20
+{
+	margin-bottom:20px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_30
+{
+	margin-bottom:30px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_50
+{
+	margin-bottom:40px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_60
+{
+	margin-bottom:60px;
+}
+
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_10 .control-label
+{
+	margin-bottom:10px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_20 .control-label
+{
+	margin-bottom:20px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_30 .control-label
+{
+	margin-bottom:30px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_40 .control-label
+{
+	margin-bottom:40px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_50 .control-label
+{
+	margin-bottom:50px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_60 .control-label
+{
+	margin-bottom:60px;
+}
+
 
 
 .btn {
@@ -1099,7 +1144,10 @@ form.form-horizontal div.form-row.form-group.hidden {
     display:none;
 }
 
-
+.form-control.round_right {
+  border-top-right-radius: 4px !important;
+  border-bottom-right-radius: 4px !important;
+}
 /*responsive layouts for mobile */
 @media (max-width: 768px) { 
 	form.form-horizontal div.form-row.form-group .controls {
