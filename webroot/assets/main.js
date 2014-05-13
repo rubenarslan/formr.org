@@ -41,7 +41,6 @@ $(document).ready(function() {
     
     hljs.initHighlighting();
     $('.nav-tabs').stickyTabs();
-    $('.tab-pane').stickyTabs();
 });
 
 

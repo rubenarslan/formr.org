@@ -27,6 +27,7 @@ class Run
 	public $cron_active = false;
 	private $api_secret_hash = null;
 	public $being_serviced = false;
+	public $locked = false;
 	public $settings = array();
 	public $errors = array();
 	public $messages = array();
@@ -38,7 +39,7 @@ class Run
 		
 		if($name !== null OR ($name = $this->create($options))):
 			$this->name = $name;
-			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active,display_service_message FROM `survey_runs` WHERE name = :run_name LIMIT 1");
+			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active,display_service_message,locked FROM `survey_runs` WHERE name = :run_name LIMIT 1");
 			$run_data->bindParam(":run_name",$this->name);
 			$run_data->execute() or die(print_r($run_data->errorInfo(), true));
 			$vars = $run_data->fetch(PDO::FETCH_ASSOC);
@@ -50,6 +51,7 @@ class Run
 				$this->public = $vars['public'];
 				$this->cron_active = $vars['cron_active'];
 				$this->being_serviced = $vars['display_service_message'];
+				$this->locked = $vars['locked'];
 			
 				$this->valid = true;
 			endif;
@@ -142,6 +144,15 @@ class Run
 		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET public = :public WHERE id = :id;");
 		$toggle->bindParam(':id',$this->id);
 		$toggle->bindParam(':public', $on );
+		$success = $toggle->execute() or die(print_r($toggle->errorInfo(), true));
+		return $success;
+	}
+	public function toggleLocked($on)
+	{
+		$on = (int)$on;
+		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET locked = :locked WHERE id = :id;");
+		$toggle->bindParam(':id',$this->id);
+		$toggle->bindParam(':locked', $on );
 		$success = $toggle->execute() or die(print_r($toggle->errorInfo(), true));
 		return $success;
 	}
