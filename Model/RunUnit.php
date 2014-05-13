@@ -279,13 +279,10 @@ class RunUnit {
 				endif;
 			
 				if(!in_array($survey_name,array('survey_users','survey_unit_sessions'))):
-					$q1 .= ', `survey_run_units`.position AS position_in_run';
 					$q2 = "left join `survey_unit_sessions`
 						on `$survey_name`.session_id = `survey_unit_sessions`.id
 						left join `survey_run_sessions`
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-						left join `survey_run_units`
-						on `survey_run_units`.run_id = `survey_run_sessions`.run_id AND `survey_run_units`.unit_id = `survey_unit_sessions`.unit_id
 					";
 				
 				elseif($survey_name == 'survey_unit_sessions'):
