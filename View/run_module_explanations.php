@@ -16,9 +16,10 @@
 					You can format text/feedback everywhere (i.e. item labels, choice labels, the feedback	 shown in Pause, on Stop, in emails) in a natural fashion using <a href="http://daringfireball.net/projects/markdown/syntax" title="Go to this link for a more exhaustive guide">Github-flavoured Markdown</a>.<br>
 					The philosophy is that you should simply write like you would in a plain-text email and Markdown turns it nice.
 				</p>
-				<p>
 <pre>* list item 1
-* list item 2</pre> will turn into a nice bulleted list. <code># </code> at the beginning of a line turns it into a large headline, <code>## </code> up to <code>###### </code> turn it into smaller ones.
+* list item 2</pre>
+				<p>
+					will turn into a nice bulleted list. <code># </code> at the beginning of a line turns it into a large headline, <code>## </code> up to <code>###### </code> turn it into smaller ones.
 					 <code>*<em>italics</em>* and __<strong>bold</strong>__</code> are also easy to do, as are 
 					 <code>[<a href="http://yihui.name/knitr/">links</a>](http://yihui.name/knitr/)</code> and embedded images <code>![image description](http://imgur.com/imagelink)</code>. You can quote something by placing a &gt; at the beginning of the line. If you you want to use the literal character (for e.g. saying &gt; (greater than) 18), you'll need to escape it like this <code>\&gt;</code>
 		 		</p>
@@ -53,11 +54,10 @@ big5$extraversion = scale(big5$extraversion, center = 3.2, scale = 2.1)
 
 # plot
 qplot_on_normal(big$extraversion, xlab = "Extraversion")
-</code></pre><br>
-yields<br>
-<img src="<?=WEBROOT?>assets/img/examples/example_fb_plot.png" width="330" height="313">
+</code></pre> yields<br>
+<img src="<?=WEBROOT?>assets/img/examples/example_fb_plot.png" width="330" height="313" alt="Graph of extraversion bell curve feedback">
 					</li>
-		   		</p>
+				</ul>
 
 			</div>
 		</div>
@@ -126,26 +126,27 @@ yields<br>
 		 			 <h5><i class="fa fa-envelope"></i> Example 1: <small>email to participants or their friend</small></h5>
 		 			 <p>
 						 A simple one-shot survey with feedback. Let's say your run contains 
-						 <ul class="fa-ul">
-							 <li><i class="fa-li fa fa-pencil-square"></i> Pos. 1. a survey called <strong>big5</strong> which assesses the big 5 personality traits and asks for the users email address (the field is called <code>email_address</code>).</li>
-							 <li><i class="fa-li fa fa-envelope"></i> Pos. 2. an email with a feedback plot of the participant's big 5 scores. The recipient field contains <code>big5$email_address</code>.</li>
-							 <li><i class="fa-li fa fa-stop"></i> Pos. 3. Displays the same feedback as in the email to the participants.</li>
-						 </ul>
 					 </p>
+					 <ul class="fa-ul">
+						 <li><i class="fa-li fa fa-pencil-square"></i> Pos. 1. a survey called <strong>big5</strong> which assesses the big 5 personality traits and asks for the users email address (the field is called <code>email_address</code>).</li>
+						 <li><i class="fa-li fa fa-envelope"></i> Pos. 2. an email with a feedback plot of the participant's big 5 scores. The recipient field contains <code>big5$email_address</code>.</li>
+						 <li><i class="fa-li fa fa-stop"></i> Pos. 3. Displays the same feedback as in the email to the participants.</li>
+					 </ul>
+				 
 					 <h5>What would happen?</h5>
 					 <p>A user fills out your survey. After completing it, they see the feedback page, which contains a bar chart of their individual big 5 scores. Before they see the page marked by the stop point, an email containing the very same feedback test (simply copy-pasted from below) is sent off to their email address - this way they get a take-home copy as well.</p>
 				 
 		 			 <h5><i class="fa fa-envelope"></i> Example 2: <small>email to yourself</small></h5>
 		 			 <p>
 						 A simple one-shot survey with feedback. Let's say your run contains 
+					 </p>
 						 <ul class="fa-ul">
 							 <li><i class="fa-li fa fa-pencil-square"></i> Pos. 1. a survey called <strong>big5</strong> as above.</li>
 							 <li><i class="fa-li fa fa-envelope"></i> Pos. 2. an email with a feedback plot of the participant's big 5 scores. The recipient field contains <code>'youremailaddress@example.org'</code>. Note the single quotes, they mean that this is a constant.</li>
 							 <li><i class="fa-li fa fa-stop"></i> Pos. 3. Display a thank you note.</li>
 						 </ul>
-					 </p>
 					 <h5>What would happen?</h5>
-					 <p>A user fills out your survey. After completing it, they see the thank you note at pos. 3. Before they see the page marked by the stop point, an email is sent off to <em>youremailaddress@example.org</em> - this way you could would an email notification for every notification. This might be helpful in longitudinal surveys where experimenter intervention is required to e.g. set up a phone interview.</p>
+					 <p>A user fills out your survey. After completing it, they see the thank you note at pos. 3. Before they see the page marked by the stop point, an email is sent off to <em>youremailaddress@example.org</em> - this way you (or whoever's email address you use here) would get an email notification for every notification. This might be helpful in longitudinal surveys where experimenter intervention is required to e.g. set up a phone interview.</p>
 					  <p>
 						  See the <a href="#knitr" data-toggle="tab">Knitr &amp; Markdown</a> section to find out how to generate personalised email, which contain feedback, including plots.
 					  </p>
