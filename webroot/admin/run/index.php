@@ -27,7 +27,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 						<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_service_message_toggle" class="btn btn-default run-toggle hastooltip <?=($run->being_serviced)?'btn-checked':''?>" title="Show a service message while you fix the already public run">
 							<i class="fa fa-eject"></i> Interrupt
 						</a>
-						<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_service_message_toggle" class="btn btn-default run-toggle hastooltip <?=($run->being_serviced)?'btn-checked':''?>" title="Lock the controls on this page, so you cannot accidentally change anything.">
+						<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_locked_toggle" class="btn btn-default run-toggle lock-toggle hastooltip <?=($run->locked)?'btn-checked':''?>" title="Lock the controls on this page, so you cannot accidentally change anything.">
 							<i class="fa fa-unlock"></i> Lock
 						</a>
 					</span>

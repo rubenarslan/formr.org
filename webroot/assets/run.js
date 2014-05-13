@@ -3,6 +3,7 @@ function RunUnit(content)
 	this.block = $('<div class="run_unit row"></div>');
 	this.init(content);
 	this.block.insertBefore($('#run_dialog_choices'));
+    runLock();
 }
 RunUnit.prototype.init = function(content)
 {
@@ -285,6 +286,96 @@ function exportUnits()
         }
     });
 }
+
+function reorderUnits (e) 
+{
+	e.preventDefault();
+	if(typeof $(this).attr('disabled') === 'undefined')
+	{
+		var positions = {};
+        var are_positions_unique = [];
+        var pos;
+        var dupes = false;
+		$($run_units).each(function(i,elm) {
+            
+            pos = +elm.position.val();
+            
+            if($.inArray(pos,are_positions_unique)>-1)
+            {
+            	bootstrap_alert("You used the position "+pos+" more than once, therefore the new order could not be saved. <a href='#unit_"+elm.unit_id+"'>Click here to scroll to the duplicated position.</a>", 'Error.','.main_body');
+                dupes = true;
+//                    return;
+            }
+            else
+            {
+				positions[elm.run_unit_id] = pos;                    
+                are_positions_unique.push(pos);
+            }
+		});
+        if(!dupes)
+        {
+			$.ajax( 
+			{
+				url: $(this).attr('href'),
+				dataType:"html",
+				method: 'POST',
+				data: {
+					position: positions
+				}
+			})
+			.done(function(data)
+			{
+				$($run_units).each(function(i,elm) {
+					elm.position_changed = false;
+				});
+				$reorderer.removeClass('btn-info').attr('disabled', 'disabled');
+				var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
+				var new_positions = old_positions;
+				old_positions = old_positions.join(','); // for some reason I have to join to compare contents, otherwise annoying behavior with clones etc
+				new_positions.sort(function(x,y){ return x-y; }).join(',');
+			
+				if(old_positions != new_positions)
+				{
+					location.reload();
+				} else
+				{
+					$('.pos_changed').removeClass('pos_changed');
+				}
+			})
+			.fail(ajaxErrorHandling);
+			return false;
+        }
+	}
+}
+function runLock()
+{
+    var on = !!$("#edit_run").find('.lock-toggle').hasClass("btn-checked");
+    $("#edit_run").find('.position, .remove_unit_from_run, .reorder_units, .unit_save, .form-control, select').each(function (i, elm)
+    {
+        if(on)
+        {
+            
+            if(elm.onclick)
+            {
+                elm.onclick_disabled = elm.onclick;
+                elm.onclick = function(e) { e.preventDefault(); return false; };
+            }
+            $(elm).attr('data-old_disabled', $(elm).attr('disabled') );
+            $(elm).attr('disabled','disabled');
+        } else // if enabled, set back to default
+        {
+            if(elm.onclick_disabled) // if there was a default
+                elm.onclick = elm.onclick_disabled;
+            if($(elm).attr('data-old-disabled') && $(elm).attr('data-old-disabled') != '')
+                $(elm).attr('disabled', $(elm).attr('data-old-disabled'));
+            else
+                $(elm).removeAttr('disabled');
+        }
+        console.log(elm);
+        
+    });
+}
+
 $(document).ready(function () {
 	if(typeof autosaveglobal === 'undefined') {
 		lastSave = $.now(); // only set when loading the first time
@@ -303,26 +394,19 @@ $(document).ready(function () {
 	loadNextUnit(units);
 	
 	$('#edit_run').find('a.run-toggle')
-	.click(function () 
+	.click(function (e) 
 	{
-		var on = (! $(this).hasClass('btn-checked') ) ? 1 : 0;
-		var self = $(this);
- 		$.ajax( 
-		{
-			url: self.attr('href'),
-			dataType:"html",
-			method: 'POST',
-			data: {
-				on: on
-			}
-		})
-		.done(function(data)
-		{
-			self.toggleClass('btn-checked',on);
-		})
-		.fail(ajaxErrorHandling);
-		return false;
+		e.preventDefault();
+        $this = $(this);
+        ajaxifyToggle(e);
 	});
+	$('#edit_run').find('a.run-toggle.lock-toggle').off('click').click(function (e)
+    {
+        e.preventDefault();
+        $this = $(this);
+        ajaxifyToggle(e);
+       runLock(); 
+    });
 	
 	
 	$('#edit_run').find('a.add_run_unit')
@@ -353,79 +437,20 @@ $(document).ready(function () {
 	});
 	
 	$exporter = $('#edit_run').find('a.export_run_units');
-    
     $exporter.click(function(e)
     {
 		e.preventDefault();
-        exportUnits();
+        exportUnits(e);
     });
 	
     $reorderer = $('#edit_run').find('a.reorder_units');
-	
 	$reorderer
-	.click(function (e) 
-	{
+    .attr('disabled', 'disabled')
+    .click(function(e)
+    {
 		e.preventDefault();
-		if(typeof $(this).attr('disabled') === 'undefined')
-		{
-			var positions = {};
-            var are_positions_unique = [];
-            var pos;
-            var dupes = false;
-			$($run_units).each(function(i,elm) {
-                
-                pos = +elm.position.val();
-                
-                if($.inArray(pos,are_positions_unique)>-1)
-                {
-                	bootstrap_alert("You used the position "+pos+" more than once, therefore the new order could not be saved. <a href='#unit_"+elm.unit_id+"'>Click here to scroll to the duplicated position.</a>", 'Error.','.main_body');
-                    dupes = true;
-//                    return;
-                }
-                else
-                {
-    				positions[elm.run_unit_id] = pos;                    
-                    are_positions_unique.push(pos);
-                }
-			});
-            if(!dupes)
-            {
-    			$.ajax( 
-    			{
-    				url: $(this).attr('href'),
-    				dataType:"html",
-    				method: 'POST',
-    				data: {
-    					position: positions
-    				}
-    			})
-    			.done(function(data)
-    			{
-					$($run_units).each(function(i,elm) {
-						elm.position_changed = false;
-					});
-					$reorderer.removeClass('btn-info').attr('disabled', 'disabled');
-					var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
-					var new_positions = old_positions;
-					old_positions = old_positions.join(','); // for some reason I have to join to compare contents, otherwise annoying behavior with clones etc
-					new_positions.sort(function(x,y){ return x-y; }).join(',');
-				
-                    $reorderer.removeClass('btn-info').attr('disabled', 'disabled');
-					if(old_positions != new_positions)
-					{
-						location.reload();
-					} else
-					{
-						$('.pos_changed').removeClass('pos_changed');
-					}
-    			})
-    			.fail(ajaxErrorHandling);
-    			return false;
-            }
-		}
-	});
-	
-	
+        reorderUnits(e);
+    });
 	
 	window.onbeforeunload = function() {
 		var message = false;
@@ -444,10 +469,29 @@ $(document).ready(function () {
 		
 });
 
+// js for the non-main run edit view
+
 $(document).ready(function () {
 	$('.form-ajax').each(ajaxifyForm);
 	$('.link-ajax').each(ajaxifyLink);
 });
+
+function ajaxifyToggle(e)
+{
+	var on = (! $this.hasClass('btn-checked') ) ? 1 : 0;
+	$this.toggleClass('btn-checked',on);
+	$.ajax( 
+	{
+		url: $this.attr('href'),
+		dataType:"html",
+		method: 'POST',
+		data: {
+			on: on
+		}
+	})
+	.fail(ajaxErrorHandling);
+	return false;
+}
 
 function ajaxifyLink(i,elm) {
     $(elm).click(function(e)
