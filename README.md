@@ -1,13 +1,12 @@
 # formr survey framework
 
-#### chain simple forms & surveys into long runs, use the power of R to generate pretty feedback and complex designs**
+#### chain simple forms & surveys into long runs, use the power of R to generate pretty feedback and complex designs
 
-This is a framework that allows you to create simple and complex studies using spreadsheets with items for the surveys and "runs" for chaining together various modules. 
+This is a framework that allows you to create simple and complex studies using items spreadsheets for the surveys and "runs" for chaining together various modules. 
 
 The creator and most users of this software work in personality and developmental psychology, but the framework can also be used for sociological panels, simple experiments or as part of an integrated set of tools.
 
 There are three main components: surveys, runs and the R package.
-
 
 ## Surveys
 #### ask questions, get data
