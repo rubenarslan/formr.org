@@ -68,16 +68,16 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 	<h4><i class="fa fa-fw fa-calendar"></i> Datetime family</h4>
 	<dl class="dl-horizontal dl-wider">
 		<dt>
-			date
+			date <i>min,max</i>
 		</dt>
 		<dd>
-			for dates
+			for dates (displays a date picker). Input can be constrained using the min,max parameters. Allowed values would e.g. be <code>2013-01-01,2014-01-01</code> or <code>-2years,now</code>.
 		</dd>
 		<dt>
-			time
+			time <i>min,max</i>
 		</dt>
 		<dd>
-			for times
+			for times (displays an input with hours and minutes). Input can also be constrained using min,max, e.g. <code>12:00,17:00</code>
 		</dd>
 	</dl>
 	<h4><i class="fa fa-fw fa-magic"></i> Fancy family</h4>
@@ -96,7 +96,7 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 		</dd>
 	</dl>
 	<h4><i class="fa fa-fw fa-check-square"></i> Multiple choice family</h4>
-	<p>The, by far, biggest family of items. Please note, that there is some variability in how the answers are stored. You need to know about this, if you (a) intend to analyse the data in a certain way, for example you will want to store numbers for Likert scale, but text for timezones or cities (b) if you plan to use conditions in the run or in showif or somewhere else where R is executed. (b) is especially important, because you might not notice if demographics$sex == 'male' never turns true because sex is stored as 0/1.</p>
+	<p>The, by far, biggest family of items. Please note, that there is some variability in how the answers are stored. You need to know about this, if you <strong>(a)</strong> intend to analyse the data in a certain way, for example you will want to store numbers for Likert scale choices, but text for timezones and cities <strong>(b)</strong> if you plan to use conditions in the run or in showif or somewhere else where R is executed. <strong>(b)</strong> is especially important, because you might not notice if <code>demographics$sex == 'male'</code> never turns true because sex is stored as 0/1 and you're testing as female.</p>
 	<dl class="dl-horizontal dl-wider">
 		<dt>
 			mc <i>choice_list</i>
@@ -105,7 +105,7 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 			multipe choice (radio buttons), you can choose only one.
 		</dd>
 		<dt>
-			mc_button <i>choices</i>
+			mc_button <i>choice_list</i>
 		</dt>
 		<dd>
 			like <code>mc</code> but instead of the text appearing next to a small button, a big button contains each choice label
