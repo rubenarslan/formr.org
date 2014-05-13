@@ -185,16 +185,18 @@ class SpreadsheetReader
 		$objPHPExcel->getDefaultStyle()->getFont()->setSize(16);
 		$objPHPExcel->getDefaultStyle()->getAlignment()->setWrapText(true);
 		
-		$objPHPExcel->createSheet();
-		array_unshift($choices, array_keys(current($choices)));
-		$objPHPExcel->getSheet(1)->getDefaultColumnDimension()->setWidth(20);
-		$objPHPExcel->getSheet(1)->getColumnDimension('A')->setWidth(20); # list_name
-		$objPHPExcel->getSheet(1)->getColumnDimension('B')->setWidth(20); # name
-		$objPHPExcel->getSheet(1)->getColumnDimension('C')->setWidth(30); # label
+		if(count($choices) > 0):
+			$objPHPExcel->createSheet();
+			array_unshift($choices, array_keys(current($choices)));
+			$objPHPExcel->getSheet(1)->getDefaultColumnDimension()->setWidth(20);
+			$objPHPExcel->getSheet(1)->getColumnDimension('A')->setWidth(20); # list_name
+			$objPHPExcel->getSheet(1)->getColumnDimension('B')->setWidth(20); # name
+			$objPHPExcel->getSheet(1)->getColumnDimension('C')->setWidth(30); # label
 		
-		$objPHPExcel->getSheet(1)->fromArray($choices);
-		$objPHPExcel->getSheet(1)->setTitle('choices');
-		$objPHPExcel->getSheet(1)->getStyle('A1:C1')->applyFromArray(array('font' => array('bold' => true)));
+			$objPHPExcel->getSheet(1)->fromArray($choices);
+			$objPHPExcel->getSheet(1)->setTitle('choices');
+			$objPHPExcel->getSheet(1)->getStyle('A1:C1')->applyFromArray(array('font' => array('bold' => true)));
+		endif;
 		
 		array_unshift($items, array_keys(current($items)));
 		$objPHPExcel->getSheet(0)->getColumnDimension('A')->setWidth(20); # type
