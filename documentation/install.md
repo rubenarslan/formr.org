@@ -23,7 +23,7 @@ Duplicate (don't rename) the folder `config_default`, name it `config` and custo
 you want to change).
 
 #### 3. Set permissions
-The following folder (and its sub-folders) has to be writable: `/tmp`.
+The followings folders (and their sub-folders) have to be writable: `/tmp` and `/webroot/assets/tmp`.
 
 #### 4. Work out paths
 Depending on your configuration, you might have to tweak `define_root.php` and the various `.htaccess` files. 

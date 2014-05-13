@@ -9,10 +9,10 @@ require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
 <div class="row">
-	<div class="col-md-7 run_dialog">
 		<form class="form-horizontal" enctype="multipart/form-data"  id="edit_run" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>" data-units='<?php
 			echo json_encode($run->getAllUnitIds());	
 			?>'>
+	<div class="col-md-7 run_dialog">
 			<div class="row">
 				<div class="col-md-12 run_dialog">
 					<h2>

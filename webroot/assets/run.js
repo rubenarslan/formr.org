@@ -14,7 +14,6 @@ RunUnit.prototype.init = function(content)
 	this.position.change($.proxy(this.position_changes,this));
 		
 	this.dialog_inputs = this.block.find('div.run_unit_dialog input,div.run_unit_dialog select, div.run_unit_dialog button, div.run_unit_dialog textarea');
-//	console.log(this.dialog_inputs);
 	this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
 	this.run_unit_id = this.dialog_inputs.filter('input[name=run_unit_id]').val();
     this.block.attr('id',"unit_"+this.run_unit_id);
@@ -255,6 +254,7 @@ function loadNextUnit(units)
 				loadNextUnit(units);
 			}
 		});
+        
 	}
 }
 function exportUnits()
@@ -272,7 +272,7 @@ function exportUnits()
 	    $modal.remove();
 	});
     var code_block = $modal.find('pre code');
-    console.log(code_block);
+
     hljs.highlightBlock(code_block.get(0));
     code_block.on('click', function(e){
         if (document.selection) {
@@ -371,7 +371,7 @@ function runLock()
             else
                 $(elm).removeAttr('disabled');
         }
-        console.log(elm);
+
         
     });
 }
@@ -381,7 +381,10 @@ $(document).ready(function () {
 		lastSave = $.now(); // only set when loading the first time
 		autosaveglobal = false;
 	}
+    
 	$run_name = $('#run_name').val();
+    if($('#edit_run').length)
+    {
 	$run_url = $('#edit_run').prop('action');
     $('#edit_run').submit(function(){ return false; });
 	$run_units = [];
@@ -389,10 +392,10 @@ $(document).ready(function () {
 		container: 'body'
 	});
 	$('#edit_run').find('.select2').select2();
-		
+	
 	var units = $.parseJSON($('#edit_run').attr('data-units'));
 	loadNextUnit(units);
-	
+
 	$('#edit_run').find('a.run-toggle')
 	.click(function (e) 
 	{
@@ -407,8 +410,7 @@ $(document).ready(function () {
         ajaxifyToggle(e);
        runLock(); 
     });
-	
-	
+
 	$('#edit_run').find('a.add_run_unit')
 	.click(function () 
 	{
@@ -435,14 +437,15 @@ $(document).ready(function () {
 		.fail(ajaxErrorHandling);
 		return false;
 	});
-	
+    
+
 	$exporter = $('#edit_run').find('a.export_run_units');
     $exporter.click(function(e)
     {
 		e.preventDefault();
         exportUnits(e);
     });
-	
+
     $reorderer = $('#edit_run').find('a.reorder_units');
 	$reorderer
     .attr('disabled', 'disabled')
@@ -451,7 +454,7 @@ $(document).ready(function () {
 		e.preventDefault();
         reorderUnits(e);
     });
-	
+
 	window.onbeforeunload = function() {
 		var message = false;
 		$($run_units).each(function(i, elm)
@@ -466,15 +469,44 @@ $(document).ready(function () {
 			return 'You have unsaved changes.'
 		}
 	};
-		
+    }
 });
 
 // js for the non-main run edit view
 
-$(document).ready(function () {
+$(function(){
+    $('textarea.big_ace_editor').each(function(i, elm)
+    {
+       var textarea = $(elm);
+       var mode = textarea.data('editor');
+
+       var editDiv = $('<div>', {
+           position: 'absolute',
+           width: "100%",
+           height: textarea.height(),
+           'class': textarea.attr('class')
+       }).insertBefore(textarea);
+
+       textarea.css('display', 'none');
+
+       var editor = ace.edit(editDiv[0]);
+       editor.setOptions({
+           minLines: textarea.attr('rows') ? textarea.attr('rows') : 3,
+           maxLines: 200
+       });
+       editor.setTheme("ace/theme/textmate");
+       var session = editor.getSession();
+       session.setValue(textarea.val());
+   
+       session.setUseWrapMode(true);
+       session.setMode("ace/mode/" + mode);
+    });
+    
 	$('.form-ajax').each(ajaxifyForm);
 	$('.link-ajax').each(ajaxifyLink);
+    
 });
+
 
 function ajaxifyToggle(e)
 {
@@ -492,7 +524,6 @@ function ajaxifyToggle(e)
 	.fail(ajaxErrorHandling);
 	return false;
 }
-
 function ajaxifyLink(i,elm) {
     $(elm).click(function(e)
     {

@@ -255,6 +255,10 @@ $resultCount = $study->getResultCount();
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/index.php')?' class="active"':''?>>
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><i class="fa-li fa fa-pencil"></i> <?php echo _("Edit run"); ?></a>
 			</li>
+			
+			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/settings.php')?' class="active"':''?>>
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/settings"><i class="fa-li fa fa-cogs"></i> <?php echo _("Settings"); ?></a>
+			</li>
 
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/user_overview.php')?' class="active"':''?> title="Here you can monitor users' progress, send them to a different position and send them manual reminders.">
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><i class="fa-li fa fa-users"></i> <?php echo _("User overview"); ?></a>
