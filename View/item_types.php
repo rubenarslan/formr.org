@@ -162,7 +162,7 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 			a list in which, you can choose several options
 		</dd>
 		<dt>
-			select_or_add <br><i>choice_list, maxType</i>
+			select_or_add_one <br><i>choice_list, maxType</i>
 		</dt>
 		<dd>
 			like select_one, but it allows users to choose an option not given. Uses <a href="http://ivaynberg.github.io/select2/">Select2</a>. <i>maxType</i> can be used to set an upper limit on the length of the user-added option. Defaults to 255.
