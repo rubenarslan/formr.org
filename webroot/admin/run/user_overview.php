@@ -1,7 +1,7 @@
 <?php
 require_once '../../../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
-$js = '<script src="'.WEBROOT.'assets/run.js"></script>';
+$js = '<script src="'.WEBROOT.'assets/run_users.js"></script>';
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 require_once INCLUDE_ROOT . "Model/Pagination.php";

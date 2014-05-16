@@ -1,9 +1,8 @@
-function RunUnit(content)
+function RunUnit( order )
 {
+    this.order = order;
 	this.block = $('<div class="run_unit row"></div>');
-	this.init(content);
 	this.block.insertBefore($('#run_dialog_choices'));
-    runLock();
 }
 RunUnit.prototype.init = function(content)
 {
@@ -73,7 +72,7 @@ RunUnit.prototype.position_changes = function (e)
 	if(!this.position_changed)
     {
         this.position_changed = true;
-    	$reorderer.addClass('btn-info').removeAttr('disabled');
+    	$run.reorder_button.addClass('btn-info').removeAttr('disabled');
     }
 	this.position.parent().addClass('pos_changed');
 };
@@ -95,7 +94,7 @@ RunUnit.prototype.test = function(e)
 	var $unit = this.block;
 	$.ajax(
 		{
-			url: $run_url + "/" + this.test_button.attr('href'),
+			url: $run.url + "/" + this.test_button.attr('href'),
 			dataType: 'html',
 			data: { "run_unit_id" : this.run_unit_id },
 			method: 'GET'
@@ -139,7 +138,7 @@ RunUnit.prototype.save = function(e)
 	var $unit = this.block;
 	$.ajax(
 		{
-			url: $run_url + "/" + this.save_button.attr('href'),
+			url: $run.url + "/" + this.save_button.attr('href'),
 			dataType: 'html',
 			data: this.save_inputs.serialize(),
 			method: 'POST',
@@ -200,7 +199,7 @@ RunUnit.prototype.removeFromRun = function(e)
     $unit.hide();
 	$.ajax(
 		{
-			url: $run_url + "/" + this.remove_button.attr('href'),
+			url: $run.url + "/" + this.remove_button.attr('href'),
 			dataType: 'html',
 			data: { "run_unit_id" : this.run_unit_id },
 			method: 'POST'
@@ -209,7 +208,7 @@ RunUnit.prototype.removeFromRun = function(e)
 		{
 			$unit.html(data);
             $unit.show();
-            $run_units = $run_units.splice(this.order, 1); // remove from the run unit list
+            $run.units = $run.units.splice(this.order, 1); // remove from the run unit list
 		})
 		.fail(function(e, x, settings, exception) {
             $unit.show();
@@ -235,34 +234,106 @@ RunUnit.prototype.serialize = function()
     return myself;
 }
 
-
-function loadNextUnit(units)
+function Run()
 {
-	var data = units.shift();
-	if(typeof data !== 'undefined')
-	{
-		$.ajax( 
+	if(typeof autosaveglobal === 'undefined') {
+		lastSave = $.now(); // only set when loading the first time
+		autosaveglobal = false;
+	}
+    
+    var $this = $('#edit_run');
+    $this.submit(function(){ return false; });
+
+	this.name = $('#run_name').val();
+	this.url = $this.prop('action');
+    
+	this.units = [];
+	var json_units = $.parseJSON($this.attr('data-units'));
+
+    for(var i = 0; i < json_units.length; i++)
+    {
+        this.units[ i ] = new RunUnit( i );
+        this.loadUnit(json_units[i], i);
+    }
+
+	$this.find('a.add_run_unit').click(this.addUnit);
+	$this.find('a.run-toggle').click(this.ajaxifyToggle);
+    
+	this.exporter_button = $this.find('a.export_run_units');
+    this.exporter_button.click($.proxy(this.exportUnits, this));
+
+    this.reorder_button = $this.find('a.reorder_units');
+	this.reorder_button
+    .attr('disabled', 'disabled')
+    .click($.proxy(this.reorderUnits, this));
+
+	window.onbeforeunload = function() {
+		var message = false;
+		$($run.units).each(function(i, elm)
 		{
-			url: $run_url + '/ajax_get_unit',
-			data: data,
-			dataType:"html", 
-			success:function (data, textStatus) 
+			if(elm.position_changed || elm.unsavedChanges)
 			{
-                var new_order = $run_units.length;
-                $run_units[new_order] = new RunUnit(data);
-                $run_units[new_order].order = new_order;
-				loadNextUnit(units);
+				message = true;
+				return false;
 			}
 		});
-        
-	}
+		if (message ) {
+			return 'You have unsaved changes.'
+		}
+	};
+
 }
-function exportUnits()
+Run.prototype.loadUnit = function(json_data, order)
+{
+	$.ajax( 
+	{
+		url: this.url + '/ajax_get_unit',
+		data: json_data,
+		dataType:"html", 
+		success: $.proxy(function (data, textStatus) 
+		{
+            this.units[ order ].init(data);
+		},this)
+	});
+}
+
+Run.prototype.addUnit  = function(e) 
+{
+    e.preventDefault();
+	var positions = $('.run_unit_position input:visible').map(function() { 
+		return +$(this).val();
+	}); // :visible in case of webshims. 
+	var positions = $.makeArray(positions);
+	var max = positions.slice().sort(function(x,y){ return x-y; }).pop(); // get maximum by sorting and popping the last elm. slice to copy (and later reuse) array
+
+    var new_unit_order = $run.units.length;
+    $run.units.push(new RunUnit(new_unit_order));
+    
+	$.ajax( 
+	{
+		url: $(this).attr('href'),
+		dataType:"html",
+		method: 'POST',
+		data: 
+		{
+			position: max + 1
+		}
+	})
+	.done(function(data)
+	{
+		$run.units[ new_unit_order ].init(data);
+	})
+	.fail(ajaxErrorHandling);
+    return false;
+}
+
+
+Run.prototype.exportUnits = function()
 {
     var units = {};
-    for(var i = 0; i < $run_units.length; i++)
+    for(var i = 0; i < this.units.length; i++)
     {
-        var unit = $run_units[i].serialize();
+        var unit = this.units[i].serialize();
         units[unit.position] = unit;
     }
     var json = JSON.stringify(units, null, "\t");
@@ -287,16 +358,16 @@ function exportUnits()
     });
 }
 
-function reorderUnits (e) 
+Run.prototype.reorderUnits  = function(e) 
 {
 	e.preventDefault();
-	if(typeof $(this).attr('disabled') === 'undefined')
+	if(typeof this.reorder_button.attr('disabled') === 'undefined')
 	{
 		var positions = {};
         var are_positions_unique = [];
         var pos;
         var dupes = false;
-		$($run_units).each(function(i,elm) {
+		$(this.units).each(function(i,elm) {
             
             pos = +elm.position.val();
             
@@ -316,7 +387,7 @@ function reorderUnits (e)
         {
 			$.ajax( 
 			{
-				url: $(this).attr('href'),
+				url: this.reorder_button.attr('href'),
 				dataType:"html",
 				method: 'POST',
 				data: {
@@ -325,10 +396,10 @@ function reorderUnits (e)
 			})
 			.done(function(data)
 			{
-				$($run_units).each(function(i,elm) {
+				$(this.units).each(function(i,elm) {
 					elm.position_changed = false;
 				});
-				$reorderer.removeClass('btn-info').attr('disabled', 'disabled');
+				this.reorder_button.removeClass('btn-info').attr('disabled', 'disabled');
 				var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
 				var new_positions = old_positions;
 				old_positions = old_positions.join(','); // for some reason I have to join to compare contents, otherwise annoying behavior with clones etc
@@ -347,7 +418,7 @@ function reorderUnits (e)
         }
 	}
 }
-function runLock()
+Run.prototype.lock = function()
 {
     var on = !!$("#edit_run").find('.lock-toggle').hasClass("btn-checked");
     $("#edit_run").find('.position, .remove_unit_from_run, .reorder_units, .unit_save, .form-control, select').each(function (i, elm)
@@ -376,140 +447,10 @@ function runLock()
     });
 }
 
-$(document).ready(function () {
-	if(typeof autosaveglobal === 'undefined') {
-		lastSave = $.now(); // only set when loading the first time
-		autosaveglobal = false;
-	}
-    
-	$run_name = $('#run_name').val();
-    if($('#edit_run').length)
-    {
-	$run_url = $('#edit_run').prop('action');
-    $('#edit_run').submit(function(){ return false; });
-	$run_units = [];
-	$('#edit_run').find('.hastooltip').tooltip({
-		container: 'body'
-	});
-	$('#edit_run').find('.select2').select2();
-	
-	var units = $.parseJSON($('#edit_run').attr('data-units'));
-	loadNextUnit(units);
 
-	$('#edit_run').find('a.run-toggle')
-	.click(function (e) 
-	{
-		e.preventDefault();
-        $this = $(this);
-        ajaxifyToggle(e);
-	});
-	$('#edit_run').find('a.run-toggle.lock-toggle').off('click').click(function (e)
-    {
-        e.preventDefault();
-        $this = $(this);
-        ajaxifyToggle(e);
-       runLock(); 
-    });
-
-	$('#edit_run').find('a.add_run_unit')
-	.click(function () 
-	{
-		var positions = $('.run_unit_position input:visible').map(function() { 
-			return +$(this).val(); 
-		}); // :visible in case of webshims. 
-		var positions = $.makeArray(positions);
-		var max = positions.slice().sort(function(x,y){ return x-y; }).pop(); // get maximum by sorting and popping the last elm. slice to copy (and later reuse) array
-		$.ajax( 
-		{
-			url: $(this).attr('href'),
-			dataType:"html",
-			method: 'POST',
-			data: 
-			{
-				position: max + 1
-			}
-		})
-		.done(function(data)
-		{
-			$run_units.push(new RunUnit(data));
-			loadNextUnit(units);
-		})
-		.fail(ajaxErrorHandling);
-		return false;
-	});
-    
-
-	$exporter = $('#edit_run').find('a.export_run_units');
-    $exporter.click(function(e)
-    {
-		e.preventDefault();
-        exportUnits(e);
-    });
-
-    $reorderer = $('#edit_run').find('a.reorder_units');
-	$reorderer
-    .attr('disabled', 'disabled')
-    .click(function(e)
-    {
-		e.preventDefault();
-        reorderUnits(e);
-    });
-
-	window.onbeforeunload = function() {
-		var message = false;
-		$($run_units).each(function(i, elm)
-		{
-			if(elm.position_changed || elm.unsavedChanges)
-			{
-				message = true;
-				return false;
-			}
-		});
-		if (message ) {
-			return 'You have unsaved changes.'
-		}
-	};
-    }
-});
-
-// js for the non-main run edit view
-
-$(function(){
-    $('textarea.big_ace_editor').each(function(i, elm)
-    {
-       var textarea = $(elm);
-       var mode = textarea.data('editor');
-
-       var editDiv = $('<div>', {
-           position: 'absolute',
-           width: "100%",
-           height: textarea.height(),
-           'class': textarea.attr('class')
-       }).insertBefore(textarea);
-
-       textarea.css('display', 'none');
-
-       var editor = ace.edit(editDiv[0]);
-       editor.setOptions({
-           minLines: textarea.attr('rows') ? textarea.attr('rows') : 3,
-           maxLines: 200
-       });
-       editor.setTheme("ace/theme/textmate");
-       var session = editor.getSession();
-       session.setValue(textarea.val());
-   
-       session.setUseWrapMode(true);
-       session.setMode("ace/mode/" + mode);
-    });
-    
-	$('.form-ajax').each(ajaxifyForm);
-	$('.link-ajax').each(ajaxifyLink);
-    
-});
-
-
-function ajaxifyToggle(e)
+Run.prototype.ajaxifyToggle = function(e)
 {
+    var $this = $(this);
 	var on = (! $this.hasClass('btn-checked') ) ? 1 : 0;
 	$this.toggleClass('btn-checked',on);
 	$.ajax( 
@@ -523,58 +464,9 @@ function ajaxifyToggle(e)
 	})
 	.fail(ajaxErrorHandling);
 	return false;
+    
 }
-function ajaxifyLink(i,elm) {
-    $(elm).click(function(e)
-    {
-    	e.preventDefault();
-        $this = $(this);
-        var old_href = $this.attr('href');
-        if(old_href === '') return false;
-        $this.attr('href','');
 
-    	$.ajax(
-    		{
-                type: "GET",
-                url: old_href,
-    			dataType: 'html',
-    		})
-    		.done($.proxy(function(data)
-    		{
-                $(this).attr('href',old_href);
-                $(this).css('color','green');
-    		},this))
-            .fail($.proxy(function(e, x, settings, exception) {
-                $(this).attr('href',old_href);
-                ajaxErrorHandling(e, x, settings, exception);
-            },this));
-    	return false;
-    });
-}
-function ajaxifyForm(i,elm) {
-    $(elm).submit(function(e)
-    {
-    	e.preventDefault();
-        $this = $(this);
-        $submit = $this.find('button.btn');
-        $submit.attr('disabled',true);
-
-    	$.ajax(
-		{
-            type: $this.attr('method'),
-            url: $this.attr('action'),
-            data: $this.serialize(),
-			dataType: 'html',
-		})
-		.done($.proxy(function(data)
-		{
-            $submit.attr('disabled',false);
-            $submit.css('color','green');
-		},this))
-        .fail($.proxy(function(e, x, settings, exception) {
-            $submit.attr('disabled',false);
-            ajaxErrorHandling(e, x, settings, exception);
-        },this));
-    	return false;
-    });
-}
+$(document).ready(function () {
+    $run = new Run();
+});
