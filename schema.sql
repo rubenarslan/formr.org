@@ -82,7 +82,7 @@ CREATE  TABLE IF NOT EXISTS `survey_runs` (
   `locked` TINYINT(1) NULL DEFAULT 0 ,
   `reminder_email` INT UNSIGNED NULL ,
   `service_message` INT UNSIGNED NULL ,
-  `run_overview_script` INT UNSIGNED NULL ,
+  `overview_script` INT UNSIGNED NULL ,
   `display_service_message` TINYINT(1) NULL ,
   `title` VARCHAR(255) NULL ,
   `description` VARCHAR(1000) NULL ,
@@ -95,7 +95,7 @@ CREATE  TABLE IF NOT EXISTS `survey_runs` (
   INDEX `fk_runs_survey_users1_idx` (`user_id` ASC) ,
   INDEX `fk_survey_runs_survey_units1_idx` (`reminder_email` ASC) ,
   INDEX `fk_survey_runs_survey_units2_idx` (`service_message` ASC) ,
-  INDEX `fk_survey_runs_survey_units3_idx` (`run_overview_script` ASC) ,
+  INDEX `fk_survey_runs_survey_units3_idx` (`overview_script` ASC) ,
   CONSTRAINT `fk_runs_survey_users1`
     FOREIGN KEY (`user_id` )
     REFERENCES `survey_users` (`id` )
@@ -112,7 +112,7 @@ CREATE  TABLE IF NOT EXISTS `survey_runs` (
     ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_runs_survey_units3`
-    FOREIGN KEY (`run_overview_script` )
+    FOREIGN KEY (`overview_script` )
     REFERENCES `survey_units` (`id` )
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)

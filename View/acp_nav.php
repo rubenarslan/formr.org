@@ -282,14 +282,16 @@ $resultCount = $study->getResultCount();
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/edit_reminder.php')?' class="active"':''?> title="Edit the manual reminder.">
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/edit_reminder"><i class="fa-li fa fa-bullhorn"></i> <?php echo _("Reminder"); ?></a>
 			</li>
+			<li class="nav-header"><i class="fa-li fa fa-file"></i> logs</li>
+			
 	  		<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/email_log.php')?' class="active"':''?>>
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/email_log" title="The log of every email sent from this run.">
-					<i class="fa-li fa fa-envelope"></i> <?php echo _("email log"); ?>
+					<i class="fa-li fa fa-envelope"></i> <?php echo _("Emails sent"); ?>
 				</a>
 			</li>
 	  		<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/cron_log.php')?' class="active"':''?>>
-				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/cron_log" title="The log of everything that happen automatically, i.e. when you click 'Play', like sending email reminders and checking whether pauses are over.">
-					<i class="fa-li fa fa-cog"></i> <?php echo _("cron log"); ?>
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/cron_log" title="The log of everything that happened without user interaction, i.e. when you click 'Play', like sending email reminders and checking whether pauses are over.">
+					<i class="fa-li fa fa-cog"></i> <?php echo _("Cron"); ?>
 				</a>
 			</li>
 

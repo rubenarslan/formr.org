@@ -326,7 +326,60 @@ class Run
 		
 		return $units;
 	}
-	
+	public function getOverviewScript()
+	{
+		$id = $this->getOverviewScriptId();
+		require_once INCLUDE_ROOT."Model/RunUnit.php";
+		$unit_factory = new RunUnitFactory();
+		$unit = $unit_factory->make($this->dbh,null,array('type' => "Page", "unit_id" => $id));
+		return $unit;
+	}
+	public function getOverviewScriptId()
+	{
+		$g_unit = $this->dbh->prepare(
+		"SELECT `survey_runs`.overview_script
+			
+			 FROM `survey_runs` 
+		WHERE 
+			`survey_runs`.id = :run_id;");
+		$g_unit->bindParam(':run_id',$this->id);
+		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$overview_script = $g_unit->fetch(PDO::FETCH_ASSOC);
+		$id = $overview_script['overview_script'];
+		if($id ==  NULL)
+		{
+			$id = $this->addOverviewScript();
+		}
+		return $id;
+	}
+	protected function addOverviewScript()
+	{
+		require_once INCLUDE_ROOT."Model/RunUnit.php";
+		$unit_factory = new RunUnitFactory();
+		$unit = $unit_factory->make($this->dbh,null,array('type' => "Page"));
+		$unit->create(array(
+			"title" => "Overview script",
+			"body" =>
+"# Intersperse Markdown with R
+```{r}
+plot(cars)
+```"));
+		if($unit->valid):
+			$add_overview_script = $this->dbh->prepare(
+			"UPDATE `survey_runs`
+				SET overview_script = :overview_script
+			WHERE 
+				`survey_runs`.id = :run_id;");
+			$add_overview_script->bindParam(':run_id',$this->id);
+			$add_overview_script->bindParam(':overview_script',$unit->id);
+			$add_overview_script->execute() or die(print_r($add_overview_script->errorInfo(), true));
+			alert('A service message was auto-created.','alert-info');
+			return $unit->id;
+		else:
+			alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-danger');
+		endif;
+		
+	}
 	
 	public function getServiceMessage()
 	{
@@ -494,6 +547,8 @@ This study is currently being serviced. Please return at a later time."));
 
 		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
 		
+		
+		// fixme: embarrassing code
 		if($unit === false) // unit not found in run_units? maybe we're looking for a service message
 		{
 			$g_unit = $this->dbh->prepare(
@@ -548,6 +603,40 @@ This study is currently being serviced. Please return at a later time."));
 			WHERE 
 				`survey_runs`.id = :run_id AND
 				`survey_runs`.`reminder_email` = :unit_id
+			LIMIT 1
+			;");
+			$g_unit->bindParam(':run_id',$this->id);
+			$g_unit->bindParam(':unit_id',$id);
+			
+			$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+
+			$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+			
+			if($unit["unit_id"])
+				return $unit;
+			else
+				$unit = false;
+		}
+		if($unit === false) // or maybe an overview script
+		{
+			$g_unit = $this->dbh->prepare(
+			"SELECT 
+				`survey_runs`.`overview_script` AS unit_id,
+				`survey_runs`.id AS run_id,
+			
+				`survey_units`.id,
+				`survey_units`.type,
+				`survey_units`.created,
+				`survey_units`.modified
+			
+				 FROM `survey_runs` 
+			 
+			LEFT JOIN `survey_units`
+			ON `survey_units`.id = `survey_runs`.`overview_script`
+		
+			WHERE 
+				`survey_runs`.id = :run_id AND
+				`survey_runs`.`overview_script` = :unit_id
 			LIMIT 1
 			;");
 			$g_unit->bindParam(':run_id',$this->id);
