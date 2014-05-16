@@ -80,6 +80,7 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 		return $this->returnParsed($parsed,$result,$post, "evaluateWith");
 	}
 	private function returnParsed($parsed,$result,$post, $in = '') {
+		
 		if($parsed===null):
 			global $user;
 			if($user->isCron() OR $user->isAdmin()):
@@ -90,11 +91,11 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 ".print_r($post, true)."
 ".print_r($result, true)."\n");
 			return null;
-		elseif(empty($parsed) OR $parsed[0]===NULL):
+		elseif(empty($parsed)):
 			global $user;
 			if($user->isCron() OR $user->isAdmin()):
 				alert($result['body'],'alert-warning',true);
-				alert("This expression led to a null result (may be intentional, but often isn't). <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
+				alert("This expression led to a null result (may be intentional, but most often isn't). <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
 			endif;
 			opencpu_log_warning( "R warning (null result) in $in:
 ".print_r($post, true)."
