@@ -56,10 +56,10 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 			<li>
 				<i class="fa-li fa fa-exclamation-triangle"></i> The survey shorthand will be derived from the filename. 
 				<ul class="fa-ul">
-					<li><i class="fa-li fa fa-check"></i> If your spreadsheet was named <code>survey_1-v2.xlsx</code> it would be <code>survey_1</code>.</li> 
+					<li><i class="fa-li fa fa-check"></i> If your spreadsheet was named <code>survey_1-v2.xlsx</code> the name would be <code>survey_1</code>.</li> 
 					<li><i class="fa-li fa fa-check"></i> The name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 64 characters long. You can't use spaces, periods or dashes in the name.<li>
 					<li><i class="fa-li fa fa-check"></i> It needs to start with a letter.</li>
-					<li><i class="fa-li fa fa-check"></i> As shown above, you can add version numbers, they will be ignored.</li>
+					<li><i class="fa-li fa fa-check"></i> As shown above, you can add version numbers (or anything) after a dash, they will be ignored.</li>
 				</ul>
 			</li>
 			<li>
