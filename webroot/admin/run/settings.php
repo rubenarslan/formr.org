@@ -3,7 +3,7 @@ require_once '../../../define_root.php';
 require_once INCLUDE_ROOT . "View/admin_header.php";
 require_once INCLUDE_ROOT . "Model/Run.php";
 
-$js = '<script src="'.WEBROOT.'assets/run.js"></script>';
+$js = '<script src="'.WEBROOT.'assets/run_settings.js"></script>';
 
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";

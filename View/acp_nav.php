@@ -248,9 +248,21 @@ $resultCount = $study->getResultCount();
 	<nav class="col-lg-2 col-md-2 col-sm-3">
 		<ul class="fa-ul  fa-ul-more-padding">
 			<li>
-				<a href="<?=WEBROOT?><?php echo $run->name; ?>" title="It is best to test the run in a new private/incognito window, this is possible in Chrome &amp; Firefox. That way, you'll start fresh. You need to publish the run, so that this works. If you test using your account, remember that the run saves your progress, so you might have to reset yourself using the user overview.">
+				<a href="<?=WEBROOT?><?php echo $run->name; ?>" title="To play as a new user, test the run in a new private/incognito window (right-click in Chrome or Firefox). To play as yourself, simply click the link (remember that the run saves your position and progress)!">
 					<i class="fa-li fa fa-play"></i> <?php echo _("Test run"); ?></a>
 			</li>
+			
+
+			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/user_overview.php')?' class="active"':''?> title="Here you can monitor users' progress, send them to a different position and send them manual reminders.">
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><i class="fa-li fa fa-users"></i> <?php echo _("Users"); ?></a>
+			</li>
+			
+			
+			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/custom_overview.php')?' class="active"':''?> title="Here you can monitor your custom progress indicators, do preliminary data analysis and so on.">
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/overview"><i class="fa-li fa fa-eye"></i> <?php echo _("Overview"); ?></a>
+			</li>
+			
+			<li class="nav-header"><i class="fa-li fa fa-cogs"></i> Configuration</li>
 			
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/index.php')?' class="active"':''?>>
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/"><i class="fa-li fa fa-pencil"></i> <?php echo _("Edit run"); ?></a>
@@ -258,17 +270,6 @@ $resultCount = $study->getResultCount();
 			
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/settings.php')?' class="active"':''?>>
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/settings"><i class="fa-li fa fa-cogs"></i> <?php echo _("Settings"); ?></a>
-			</li>
-
-			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/user_overview.php')?' class="active"':''?> title="Here you can monitor users' progress, send them to a different position and send them manual reminders.">
-				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_overview"><i class="fa-li fa fa-users"></i> <?php echo _("User overview"); ?></a>
-			</li>
-			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/user_detail.php')?' class="active"':''?> title="Here you'll see users' entire history of participation, i.e. when they left which position etc.">
-				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="fa-li fa fa-search"></i> <?php echo _("User detail"); ?></a>
-			</li>
-			
-			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/random_groups.php')?' class="active"':''?> title="This is simply your overview of how users have been randomised.">
-				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/random_groups"><i class="fa-li fa fa-random"></i> <?php echo _("Random groups"); ?></a>
 			</li>
 			
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/upload_files.php')?' class="active"':''?> title="Upload images, videos, sounds and the like.">
@@ -283,6 +284,13 @@ $resultCount = $study->getResultCount();
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/edit_reminder"><i class="fa-li fa fa-bullhorn"></i> <?php echo _("Reminder"); ?></a>
 			</li>
 			<li class="nav-header"><i class="fa-li fa fa-file"></i> logs</li>
+			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/user_detail.php')?' class="active"':''?> title="Here you'll see users' entire history of participation, i.e. when they left which position etc.">
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="fa-li fa fa-search"></i> <?php echo _("User detail"); ?></a>
+			</li>
+			
+			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/random_groups.php')?' class="active"':''?> title="This is simply your log of how users have been randomised.">
+				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/random_groups"><i class="fa-li fa fa-random"></i> <?php echo _("Random groups"); ?></a>
+			</li>
 			
 	  		<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/email_log.php')?' class="active"':''?>>
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/email_log" title="The log of every email sent from this run.">
