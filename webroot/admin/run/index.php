@@ -9,53 +9,54 @@ require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
 <div class="row">
-		<form class="form-horizontal" enctype="multipart/form-data"  id="edit_run" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>" data-units='<?php
+		<form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>" data-units='<?php
 			echo json_encode($run->getAllUnitIds());	
 			?>'>
 	<div class="col-md-7 run_dialog">
 			<div class="row">
 				<div class="col-md-12 run_dialog">
 					<h2>
-						<input type="hidden" value="<?=$run->name?>" name="old_run_name" id="run_name">
+						<input type="hidden" value="<?=$run->name?>" name="old_run_name" class="run_name">
 						<span class="btn-group">
-						<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_cron_toggle" class="btn btn-default run-toggle hastooltip <?=($run->cron_active)?'btn-checked':''?>" title="Turn the run on. If this is not checked, you won't be able to receive email reminders etc. Only turn off for testing.">
-							<i class="fa fa-play"></i> Play
-						</a>
-						<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_public_toggle" class="btn btn-default run-toggle hastooltip <?=($run->public)?'btn-checked':''?>" title="Make publicly visible and accessible on the front page">
-							<i class="fa fa-volume-up"></i> Public
-						</a>
-						<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_service_message_toggle" class="btn btn-default run-toggle hastooltip <?=($run->being_serviced)?'btn-checked':''?>" title="Show a service message while you fix the already public run">
-							<i class="fa fa-eject"></i> Interrupt
-						</a>
-						<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_locked_toggle" class="btn btn-default run-toggle lock-toggle hastooltip <?=($run->locked)?'btn-checked':''?>" title="Lock the controls on this page, so you cannot accidentally change anything.">
-							<i class="fa fa-unlock"></i> Lock
-						</a>
-					</span>
+							<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_cron_toggle" class="btn btn-default run-toggle hastooltip <?=($run->cron_active)?'btn-checked':''?>" title="Turn the run on. If this is not checked, you won't be able to receive email reminders etc. Only turn off for testing.">
+								<i class="fa fa-play"></i> Play
+							</a>
+							<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_public_toggle" class="btn btn-default run-toggle hastooltip <?=($run->public)?'btn-checked':''?>" title="Make publicly visible and accessible on the front page">
+								<i class="fa fa-volume-up"></i> Public
+							</a>
+							<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_service_message_toggle" class="btn btn-default run-toggle hastooltip <?=($run->being_serviced)?'btn-checked':''?>" title="Show a service message while you fix the already public run">
+								<i class="fa fa-eject"></i> Interrupt
+							</a>
+							<a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_run_locked_toggle" class="btn btn-default run-toggle lock-toggle hastooltip <?=($run->locked)?'btn-checked':''?>" title="Lock the controls on this page, so you cannot accidentally change anything.">
+								<i class="fa fa-unlock"></i> Lock
+							</a>
+						</span>
 		
-				</h2>
-				<h4>
-					Api-Secret: <small><?= $run->getApiSecret($user); ?></small>
-				</h4>
-				<h4>
-					Run modules:
-				</h4>
-				<div class="row">
-					<div class="col-md-10">
-						<div class="btn-group">
-							<a class="reorder_units btn btn-lg hastooltip" title="Save new positions" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_reorder">
-								<i class="fa fa-exchange fa-rotate-90 fa-larger"></i>
-								Reorder
-							</a>
-							<a id="export_run_units" class="export_run_units hastooltip btn btn-lg" title="Export these run units as JSON (currently there is no way to re-import)">
-								<i class="fa fa-suitcase"></i> Export
-							</a>
-						</div>
-						<br>&nbsp;
+					</h2>
+					<h4>
+						Api-Secret: <small><?= $run->getApiSecret($user); ?></small>
+					</h4>
+					<h4>
+						Run modules:
+					</h4>
+					<div class="row">
+						<div class="col-md-10">
+							<div class="btn-group">
+								<a class="reorder_units btn btn-lg hastooltip" title="Save new positions" href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_reorder">
+									<i class="fa fa-exchange fa-rotate-90 fa-larger"></i>
+									Reorder
+								</a>
+								<a id="export_run_units" class="export_run_units hastooltip btn btn-lg" title="Export these run units as JSON (currently there is no way to re-import)">
+									<i class="fa fa-suitcase"></i> Export
+								</a>
+							</div>
+							<br>&nbsp;
 						
+						</div>
 					</div>
 				</div>
-				
-				</div>
+			</div>
+			<div class="run_units">
 			</div>
 			<div class="row" id="run_dialog_choices">
 			  	<div class="form-group col-lg-12">
