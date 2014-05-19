@@ -498,5 +498,7 @@ Run.prototype.ajaxifyToggle = function(e)
 }
 
 $(document).ready(function () {
-    $run = new Run($('.edit_run'));
+    $('.edit_run').each(function(i,elm) {
+        new Run($(elm));
+    })
 });
