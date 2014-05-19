@@ -276,13 +276,6 @@ $resultCount = $study->getResultCount();
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/upload_files"><i class="fa-li fa fa-upload"></i> <?php echo _("Upload files"); ?></a>
 			</li>
 
-			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/edit_service_message.php')?' class="active"':''?> title="Edit the service message, which is shown when the run is interrupted/serviced/ended.">
-				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/edit_service_message"><i class="fa-li fa fa-eject"></i> <?php echo _("Service message"); ?></a>
-			</li>
-			
-			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/edit_reminder.php')?' class="active"':''?> title="Edit the manual reminder.">
-				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/edit_reminder"><i class="fa-li fa fa-bullhorn"></i> <?php echo _("Reminder"); ?></a>
-			</li>
 			<li class="nav-header"><i class="fa-li fa fa-file"></i> logs</li>
 			<li <?=endsWith($_SERVER['SCRIPT_NAME'],'run/user_detail.php')?' class="active"':''?> title="Here you'll see users' entire history of participation, i.e. when they left which position etc.">
 				<a href="<?=WEBROOT?>admin/run/<?php echo $run->name; ?>/user_detail"><i class="fa-li fa fa-search"></i> <?php echo _("User detail"); ?></a>

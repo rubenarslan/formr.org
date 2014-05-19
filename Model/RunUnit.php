@@ -368,7 +368,9 @@ class RunUnit {
 	}
 	public function getParsedBodyAdmin($source,$email_embed = false)
 	{
-		$current_position = $this->unit['position'];
+		if(isset($this->unit['position']))
+			$current_position = $this->unit['position'];
+		else $current_position = -9999999;
 		if($this->knittingNeeded($source)):
 			$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 

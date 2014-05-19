@@ -34,9 +34,6 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 		
 					</h2>
 					<h4>
-						Api-Secret: <small><?= $run->getApiSecret($user); ?></small>
-					</h4>
-					<h4>
 						Run modules:
 					</h4>
 					<div class="row">
