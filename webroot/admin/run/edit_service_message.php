@@ -13,7 +13,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 
 	
 	<div class="col-lg-8 col-md-10 col-sm-11 col-lg-offset-1 single_unit_display">
-		<form class="form-horizontal" enctype="multipart/form-data"  id="edit_run" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>" data-units='<?php
+		<form class="form-horizontal edit_run" enctype="multipart/form-data"  name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>" data-units='<?php
 			echo json_encode(array(array("service_message" => true,"run_unit_id" => $service_message_id) ) );
 			?>'>
 	<h2><i class="fa fa-eject"></i> Edit service message</h2>
