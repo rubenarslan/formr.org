@@ -41,7 +41,6 @@ $(document).ready(function() {
     
     hljs.initHighlighting();
     $('.nav-tabs').stickyTabs();
-
 });
 
 
@@ -108,7 +107,7 @@ function ajaxErrorHandling (e, x, settings, exception)
         }
  
         // Set the correct tab when the page loads
-        showTabFromHash(context)
+        showTabFromHash(context);
  
         // Set the correct tab when a user uses their back/forward button
         window.addEventListener('hashchange', showTabFromHash, false);
