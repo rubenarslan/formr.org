@@ -78,7 +78,7 @@ class SpreadsheetReader
 
 		try
 		{
-		    echo json_encode($array,JSON_PRETTY_PRINT);
+		    echo json_encode($array,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE);
 		    exit;
 		}
 		catch (Exception $e)
