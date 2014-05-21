@@ -35,7 +35,7 @@ class SpreadsheetReader
 	protected function objectFromArray($array)
 	{
 		set_time_limit(300); # defaults to 30
-		ini_set('memory_limit', '256M');
+		ini_set('memory_limit', '1024M');
 		
 		// Include PHPExcel_IOFactory
 #		require_once INCLUDE_ROOT.'vendor/phpoffice/phpexcel/phpexcel/Classes/PHPExcel/IOFactory.php';
@@ -69,6 +69,9 @@ class SpreadsheetReader
 	}
 	public function exportJSON($array,$filename)
 	{
+		set_time_limit(300); # defaults to 30
+		ini_set('memory_limit', '1024M');
+		
 	    header('Content-Disposition: attachment;filename="'.$filename.'.json"');
 	    header('Cache-Control: max-age=0');
 		header('Content-type: application/json');
@@ -178,7 +181,7 @@ class SpreadsheetReader
 	private function twoSheetsFromArrays($items,$choices)
 	{
 		set_time_limit(300); # defaults to 30
-		ini_set('memory_limit', '256M');
+		ini_set('memory_limit', '1024M');
 		
 	    $objPHPExcel = new PHPExcel();
 		$objPHPExcel->getDefaultStyle()->getFont()->setName('Helvetica');
