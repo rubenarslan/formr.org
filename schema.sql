@@ -165,6 +165,7 @@ CREATE  TABLE IF NOT EXISTS `survey_items` (
   `showif` TEXT NULL DEFAULT NULL ,
   `value` TEXT NULL DEFAULT NULL ,
   `order` VARCHAR(4) NULL ,
+  `post_process` TEXT NULL ,
   PRIMARY KEY (`id`) ,
   UNIQUE INDEX `study_item` (`study_id` ASC, `name` ASC) ,
   INDEX `fk_survey_items_survey_studies1_idx` (`study_id` ASC) ,
