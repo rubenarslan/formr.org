@@ -18,7 +18,8 @@ if(isset($_GET['run_name']) AND isset($_GET['code']) AND strlen($_GET['code'])==
 		// a special case are admins. if they are not already logged in, verified through password, they should not be able to obtain access so easily. but because we only create a mock user account, this is no problem. the admin flags are only set/privileges are only given if they legitimately log in
 	endif;
 	
-elseif(!isset($_GET['run_name']) OR !isset($user->user_code)):
+elseif(isset($_GET['run_name']) AND isset($user->user_code)):
+else:
 	alert("<strong>Sorry.</strong> Something went wrong when you tried to access.",'alert-danger');
 	redirect_to("index");
 endif;
@@ -44,7 +45,6 @@ if($_GET['run_name'] == 'fake_test_run' AND $user->isAdmin()): // for testing pu
 	endif;
 	
 else:
-
 	if(isset($_GET['run_name'])):
 		require_once INCLUDE_ROOT . "Model/Run.php";
 		$run = new Run($fdb, $_GET['run_name']);
@@ -54,6 +54,9 @@ else:
 			redirect_to("/index");
 		elseif($run->being_serviced AND !$user->created($run)):
 			$output = $run->getServiceMessage()->exec();
+			$run_session = (object) "dummy";
+			$run_session->position = "service_message";
+			$run_session->current_unit_type = "Page";
 		else:
 			if($user->loggedIn() AND isset($_SESSION['UnitSession']) AND $user->user_code !== unserialize($_SESSION['UnitSession'])->session):
 				alert('<strong>Error.</strong> You seem to have switched sessions.','alert-danger');
@@ -61,7 +64,6 @@ else:
 			endif;
 			
 			require_once INCLUDE_ROOT . 'Model/RunSession.php';
-			
 			/* ways to get here
 			1. test run link in admin area
 				- check permission (ie did user create study)
