@@ -39,9 +39,23 @@ class ItemFactory
 				array_keys($this->used_choice_lists)
 		);
 	}
-	public function showif($results_table, $openCPU, $showif)
+	public function showif($survey, $showif)
 	{
-		$this->showifs[$showif] = $openCPU->evaluateWith($results_table, $showif);
+		if(array_key_exists($showif, $this->showifs))
+			return $this->showifs[$showif];
+		
+		$openCPU = $survey->makeOpenCPU();
+
+		$dataNeeded = $survey->dataNeeded($survey->dbh, $showif );
+		$dataNeeded[] = $survey->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
+		$dataNeeded = array_unique($dataNeeded); // no need to add it twice
+		
+		$openCPU->addUserData($survey->getUserDataInRun(
+			$dataNeeded
+		));
+
+		$this->showifs[$showif] = $openCPU->evaluateWith($survey->results_table, $showif);
+		
 		return $this->showifs[$showif];
 	}
 }
@@ -178,9 +192,6 @@ class Item extends HTML_element
 		
 		$this->input_attributes['id'] = "item{$this->id}";
 		
-		if(!empty($this->choices)):
-			$this->chooseResultFieldBasedOnChoices();
-		endif;
 	}
 	protected function chooseResultFieldBasedOnChoices()
 	{
@@ -213,6 +224,10 @@ class Item extends HTML_element
 	}
 	public function getResultField()
 	{
+		if(!empty($this->choices)):
+			$this->chooseResultFieldBasedOnChoices();
+		endif;
+		
 		if($this->mysql_field!==null):
 			return "`{$this->name}` {$this->mysql_field}";
 		else:
@@ -325,7 +340,7 @@ class Item extends HTML_element
 	}
 	public function needsDynamicValue()
 	{
-		if($this->value !== null): // if there is a sticky value to be had
+		if(trim($this->value) != null): // if there is a sticky value to be had
 			if(is_numeric($this->value)):
 				$this->input_attributes['value'] = $this->value;
 			else:
@@ -336,11 +351,18 @@ class Item extends HTML_element
 		endif;
 		return false;
 	}
-	public function determineDynamicValue($openCPU, $results_table)
+	public function determineDynamicValue($survey, $results_table)
 	{
-		
 		if($this->value=="sticky") $this->value = "tail(na.omit({$results_table}\${$this->name}),1)";
+		
+		$openCPU = $survey->makeOpenCPU();
+
+		$dataNeeded = $survey->dataNeeded($survey->dbh, $this->value );
+		$dataNeeded[] = $survey->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
+		$dataNeeded = array_unique($dataNeeded); // no need to add it twice
 	
+		$openCPU->addUserData($survey->getUserDataInRun( $dataNeeded ));
+		
 		$this->input_attributes['value'] = $openCPU->evaluateWith($results_table, $this->value);
 	}
 }
