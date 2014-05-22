@@ -8,14 +8,14 @@ $js = '<script src="'.WEBROOT.'assets/run_settings.js"></script>
 $service_message_id = $run->getServiceMessageId();
 $reminder_email_id = $run->getReminderId();
 //$overview_script_id = $run->getOverviewScriptId();
-$overview_script_id = $run->getServiceMessageId();
+$overview_script_id = $run->getOverviewScriptId();
 
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 ?>
 <div class="row">
 	
-	<div class="col-md-7 run_dialog">
+	<div class="col-md-10 run_dialog">
 	
 		<ul class="nav nav-tabs">
 		  <li class="active"><a href="#settings" data-toggle="tab">Settings</a></li>
@@ -31,7 +31,13 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 				<form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>/settings">
 					
 				<div class="row">
-					<h3 class="col-lg-12"><i class="fa fa-cogs"></i> Settings</h3>
+					<p class="pull-right" style="padding-top:10px;margin-bottom:0;margin-right:15px">
+						<input type="submit" name="submit_settings" value="Save" class="btn btn-lg">
+					</p>
+					<h3 class="col-lg-7"><i class="fa fa-cogs"></i> Settings</h3>
+					<p class="col-lg-10">
+						Here you can set a couple of simple general settings for your study. Make sure that you provide an email address to contact you somewhere (usually in the footer).
+					</p>
 				
 					<h4 class="col-lg-12">
 						Api-Secret: <small><?= $run->getApiSecret($user); ?></small>
@@ -56,17 +62,36 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 					<label class="col-lg-12"> <span title="This will be the description of your study shown on the public page">Public blurb</span>:
 					<textarea data-editor="markdown" placeholder="Blurb" name="public_blurb" rows="10" cols="80" class="big_ace_editor form-control"></textarea>
 					</label>
+
 				</div>
 				</form>
 				
 			</div>
 			<div class="tab-pane fade" id="css">
-				<h3><i class="fa fa-css3"></i> Cascading style sheets</h3>
-				<textarea data-editor="css" placeholder="Enter your custom CSS here" name="custom_css" rows="40" cols="80" class="big_ace_editor form-control"></textarea>
+				<div class="row">
+					<p class="pull-right" style="padding-top:10px;margin-bottom:0;margin-right:15px">
+						<input type="submit" name="submit_settings" value="Save" class="btn btn-lg">
+					</p>
+					<h3 class="col-lg-7"><i class="fa fa-css3"></i> Cascading style sheets</h3>
+					<p class="col-lg-12">
+						CSS allows you to apply custom styles to every page of your study. If you want to limit styles to
+						certain pages, you can use CSS classes referring to either position in the run (e.g. <code class="css">.run_position_10 {}</code>) or module type (e.g. <code class="css">.run_unit_type_Survey {}</code>). Learn about <a href="http://docs.webplatform.org/wiki/guides/getting_started_with_css">CSS at Webplatform.org</a>.
+					</p>
+					
+					<textarea data-editor="css" placeholder="Enter your custom CSS here" name="custom_css" rows="40" cols="80" class="big_ace_editor form-control"></textarea>
+				</div>
 			</div>
 			<div class="tab-pane fade" id="js">
-				<h3>Javascript</h3>
-				<textarea data-editor="javascript" placeholder="Enter your custom JS here" name="custom_js" rows="40" cols="80" class="big_ace_editor form-control"></textarea>
+				<div class="row">
+					<p class="pull-right" style="padding-top:10px;margin-bottom:0;margin-right:15px">
+						<input type="submit" name="submit_settings" value="Save" class="btn btn-lg">
+					</p>
+					<h3 class="col-lg-7">Javascript</h3>
+					<p class="col-lg-12">
+						Javascript allows you to apply custom scripts to every page of your study. This is a fully-fledged programming language. You can use it to make things move, give dynamic hints to the user and so on. Learn about <a href="http://www.codecademy.com/tracks/javascript">JS at Codecademy.com</a>.
+					</p>
+					<textarea data-editor="javascript" placeholder="Enter your custom JS here" name="custom_js" rows="40" cols="80" class="big_ace_editor form-control"></textarea>
+				</div>
 			</div>
 			<div class="tab-pane fade" id="service_message">
 				<div class="row">
@@ -117,6 +142,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 								<li><i class="fa-li fa fa-code"></i> In here, you can use Markdown and R interspersed to make a custom overview for your study.</li>
 								<li><i class="fa-li fa fa-lg fa-thumb-tack"></i> Useful commands to start might be <pre><code class="r">nrow(survey_name) # get the number of entries
 table(is.na(survey_name$ended)) # get finished/unfinished entries
+table(is.na(survey_name$modified)) # get entries where any data was entered vs not
 library(ggplot2)
 qplot(survey_name$created) # plot entries by startdate</code></pre></li>
 							</ul>
@@ -129,12 +155,6 @@ qplot(survey_name$created) # plot entries by startdate</code></pre></li>
 		</div>
 	</div>
 
-
-	<div class="col-md-5 pull-right well transparent_well">
-<?php
-require INCLUDE_ROOT.'View/run_settings_help.php';	
-?>
-	</div>
 
 
 	<div class="clearfix"></div>

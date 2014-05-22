@@ -433,8 +433,8 @@ ENGINE = InnoDB;
 CREATE  TABLE IF NOT EXISTS `formr`.`survey_results` (
   `session_id` INT UNSIGNED NOT NULL ,
   `study_id` INT UNSIGNED NOT NULL ,
-  `modified` DATETIME NULL DEFAULT NULL ,
   `created` DATETIME NULL DEFAULT NULL ,
+  `modified` DATETIME NULL DEFAULT NULL ,
   `ended` DATETIME NULL DEFAULT NULL ,
   INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
   INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,

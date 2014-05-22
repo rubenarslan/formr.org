@@ -516,7 +516,10 @@ This study is currently being serviced. Please return at a later time."));
 		endif;
 		
 	}
-	
+	public function saveSettings($posted)
+	{
+		
+	}
 	public function getUnitAdmin($id)
 	{
 		$g_unit = $this->dbh->prepare(

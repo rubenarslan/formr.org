@@ -84,13 +84,8 @@ class Survey extends RunUnit {
 	public function render() {
 		global $js;
 		$js = (isset($js)?$js:'') . '<script src="'.WEBROOT.'assets/survey.js"></script>';
-		'
 
-    '.
-
-	 $ret = (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
-	 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</p>":'') .
-	 '
+	 $ret = '
 	<div class="row">
 		<div class="col-md-12">
 
@@ -101,26 +96,15 @@ class Survey extends RunUnit {
 	 $ret .=	 '
 		</div> <!-- end of col-md-12 div -->
 	</div> <!-- end of row div -->
-	'.
-	(isset($this->settings['problem_email'])?
-	'
-	<div class="row">
-		<div class="col-md-12">'.
-		(isset($this->settings['problem_text'])?
-			str_replace("%s",$this->settings['problem_email'],$this->settings['problem_text']) :
-			('<a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>')
-		).
-		'</div>
-	</div>
-	':'');
+	';
 		$this->dbh = NULL;
 		return $ret;
 	}
 	protected function startEntry()
 	{
 		
-		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`)
-																  VALUES(:session_id, :study_id, NOW(),	    NOW()) 
+		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`)
+																  VALUES(:session_id, :study_id, NOW()) 
 		ON DUPLICATE KEY UPDATE modified = NOW();");
 		$start_entry->bindParam(":session_id", $this->session_id);
 		$start_entry->bindParam(":study_id", $this->id);
@@ -347,7 +331,7 @@ class Survey extends RunUnit {
 			$showif = $this->unanswered_batch[$name]->showif;
 			if($showif !== null AND $showif !== '' AND $showif !== "TRUE" AND trim($showif) !== '')
 			{
-				if(isset($item_factory->showifs[ $showif ]))
+				if(array_key_exists($showif, $item_factory->showifs))
 				{
 					$show = $item_factory->showifs[ $showif ]; // take the cached one
 				}
@@ -402,9 +386,8 @@ class Survey extends RunUnit {
 	protected function render_form_header() {
 		$action = WEBROOT."{$this->run_name}";
 
-		if(!isset($this->settings['form_classes'])) $this->settings['form_classes'] = '';
 		$enctype = ' enctype="multipart/form-data"'; # maybe make this conditional application/x-www-form-urlencoded
-		$ret = '<form action="'.$action.'" method="post" class="form-horizontal '.$this->settings['form_classes'].'" accept-charset="utf-8"'.$enctype.'>';
+		$ret = '<form action="'.$action.'" method="post" class="form-horizontal" accept-charset="utf-8"'.$enctype.'>';
 		
 	    /* pass on hidden values */
 	    $ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
@@ -523,13 +506,7 @@ class Survey extends RunUnit {
 		
 		if($need_submit) // only if no submit was part of the form
 		{
-			if(isset($this->settings["submit_button_text"])):
-				$sub_sets = array(
-								'label_parsed' => $this->settings["submit_button_text"]
-				);
-			else:
-				$sub_sets = array('label_parsed' => 'Weiter', 'class_input' => 'btn-info');
-			endif;
+			$sub_sets = array('label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!', 'class_input' => 'btn-info');
 			$item = new Item_submit($sub_sets);
 			$ret .= $item->render();
 		}
@@ -573,7 +550,7 @@ class Survey extends RunUnit {
 		}
 		
 		
-		return array('title' => (isset($this->settings['title'])?$this->settings['title']: null),
+		return array('title' => null,
 		'body' => $this->render());
 	}
 // this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
@@ -714,22 +691,8 @@ class Survey extends RunUnit {
 		
 		$this->changeSettings(array
 			(
-//				"logo" => "hu.gif",
-//				"title" => "Survey",
-//				"description" => "",
-//				"problem_text" => 'If you run into problems, please contact <strong><a href="mailto:%s">%s</a></strong>.',
-//				"problem_email" => "problems@example.com",
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
-//				"submit_button_text" => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!',
-				"form_classes" => '', // unspaced_rows
-//				"fileuploadmaxsize" => "100000",
-//				"closed_user_pool" => 0,
-//				"timezone" => "Europe/Berlin",
-//				"debug" => 0,
-//				"primary_color" => "#ff0000",
-//				"secondary_color" => "#00ff00",
-//				'custom_styles' => ''
 			)
 		);
 		
@@ -976,8 +939,8 @@ class Survey extends RunUnit {
 		$create = "CREATE TABLE `{$this->name}` (
 		  `session_id` INT UNSIGNED NOT NULL ,
 		  `study_id` INT UNSIGNED NOT NULL ,
-		  `modified` DATETIME NULL DEFAULT NULL ,
 		  `created` DATETIME NULL DEFAULT NULL ,
+		  `modified` DATETIME NULL DEFAULT NULL ,
 		  `ended` DATETIME NULL DEFAULT NULL ,
 	
 		  $columns_string
