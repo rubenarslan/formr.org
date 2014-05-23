@@ -1154,6 +1154,46 @@ form.form-horizontal div.form-row.form-group.hidden {
   border-top-right-radius: 4px !important;
   border-bottom-right-radius: 4px !important;
 }
+
+
+.people_list .select2-container
+{
+    min-height:200px;
+}
+.people_list .select2-container .select2-choices
+{
+    min-height:200px;
+}
+.people_list .select2-container-multi .select2-choices
+{
+    background:none;
+}
+.people_list .select2-container-multi .select2-choices .select2-search-choice
+{
+    background:none;
+    border:none;
+    border-radius:0;
+    box-shadow:none;
+    width:100%;
+}
+.select2-results li.people_list_results
+{
+    display:none;
+}
+.people_list .select2-search-field input.select2-input
+{
+    margin-left:18px;
+}
+.people_list .select2-plus
+{
+    margin-right:-17px;
+    font-weight:bold;
+    color:gray;
+    width:18px;
+    margin-left:9px;
+}
+
+
 /*responsive layouts for mobile */
 @media (max-width: 768px) { 
 	form.form-horizontal div.form-row.form-group .controls {
