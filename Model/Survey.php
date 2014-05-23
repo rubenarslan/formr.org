@@ -20,7 +20,7 @@ class Survey extends RunUnit {
 	public $results_table = null;
 	public $run_session_id = null;
 	public $settings = array();
-	protected $dbh;
+	public $dbh;
 	
 	public $valid = false;
 	public $public = false;
@@ -33,6 +33,7 @@ class Survey extends RunUnit {
 	public $type = "Survey";
 	
 	private $confirmed_deletion = false;
+	private $item_factory = null;
 	
 	public function __construct($fdb, $session, $unit)
 	{
@@ -152,8 +153,8 @@ class Survey extends RunUnit {
 					}
 					catch(Exception $e)
 					{
-						if(strlen($value)>10000) $value = '(too big)';
-						trigger_error(date("Y-m-d H:i:s")." Could not save in survey ".$this->results_table. ", probably because " . $name . "'s field was misconfigured as " . $this->unanswered_batch[$name]->mysql_field .
+						if(strlen($value)>10000) $value = '(too big to show here)';
+						trigger_error(date("Y-m-d H:i:s")." Could not save in survey ".$this->results_table. ", probably because " . $name . "'s field was misconfigured as " . $this->unanswered_batch[$name]->getResultField() .
 							" and the value was " . $value . PHP_EOL."<br><pre>" . print_r($e, true) . "</pre>", E_USER_WARNING);
 					}
 					unset($this->unanswered_batch[$name]);
@@ -187,7 +188,6 @@ class Survey extends RunUnit {
 						)
 					GROUP BY `survey_items_display`.answered;";
 
-		//fixme: progress can become smaller when questions enabling a lot of showifs turn on
 		$progress = $this->dbh->prepare($query);
 		$progress->bindParam(":session_id", $this->session_id);
 		$progress->bindParam(":study_id", $this->id);
@@ -199,7 +199,6 @@ class Survey extends RunUnit {
 		{	
 			if($item['answered']!=null) $this->already_answered += $item['count'];
 		}
-#		pr(array_keys($this->unanswered_batch));
 		
 		$this->not_answered = array_filter($this->unanswered_batch, function ($item)
 		{
@@ -261,6 +260,7 @@ class Survey extends RunUnit {
 				$choice_lists[ $row['list_name'] ] = array();
 			endif;
 			
+			// fixme: because were not using this much yet, I haven't really made any effort to efficiently only calculate this when necessary
 			if($row['label_parsed'] === null):
 				$openCPU = $this->makeOpenCPU();
 		
@@ -310,7 +310,6 @@ class Survey extends RunUnit {
 		`survey_items_display`.answered IS NULL
 		ORDER BY `survey_items`.id ASC;";
 		
-#		if($this->maximum_number_displayed) $item_query .= " LIMIT {$this->maximum_number_displayed}";
 		$get_items = $this->dbh->prepare($item_query) or die(print_r($this->dbh->errorInfo(), true));
 		
 		$get_items->bindParam(":session_id",$this->session_id);
@@ -319,62 +318,22 @@ class Survey extends RunUnit {
 		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
 		
 		$choice_lists = $this->getAndRenderChoices();
-		$item_factory = new ItemFactory($choice_lists);
+		$this->item_factory = new ItemFactory($choice_lists);
 		
 		
 		while($item = $get_items->fetch(PDO::FETCH_ASSOC) )
 		{
 			$name = $item['name'];
-			$this->unanswered_batch[$name] = $item_factory->make($item);
-//			pr($this->unanswered_batch[$name]);
-			$show = true;
-			$showif = $this->unanswered_batch[$name]->showif;
-			if($showif !== null AND $showif !== '' AND $showif !== "TRUE" AND trim($showif) !== '')
-			{
-				if(array_key_exists($showif, $item_factory->showifs))
-				{
-					$show = $item_factory->showifs[ $showif ]; // take the cached one
-				}
-				else
-				{
-					$openCPU = $this->makeOpenCPU();
+			$this->unanswered_batch[$name] = $this->item_factory->make($item);
 
-					$dataNeeded = $this->dataNeeded($this->dbh, $showif );
-					$dataNeeded[] = $this->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
-					$dataNeeded = array_unique($dataNeeded); // no need to add it twice
-					
-					$openCPU->addUserData($this->getUserDataInRun(
-						$dataNeeded
-					));
-					
-					$show = $item_factory->showif($this->results_table, $openCPU, $showif);
-				}
-			}
-			if(!$show)
-			{
-				$this->unanswered_batch[$name]->hide();
-			}
-			
-			
-			
 			if(
 				$this->unanswered_batch[$name]->needsDynamicValue() AND
-				($this->unanswered_batch[$name]->no_user_input_required
-				OR $show) // determine value if there is a dynamic one, but don't do so for skipped hidden items
-) // if there is a sticky value to be had and it's not numeric
+				$this->unanswered_batch[$name]->no_user_input_required
+			) // determine value if there is a dynamic one and no user input is required
 			{
-				
-				$openCPU = $this->makeOpenCPU();
-				$dataNeeded = $this->dataNeeded($this->dbh, $this->unanswered_batch[$name]->value );
-				$dataNeeded[] = $this->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
-				$dataNeeded = array_unique($dataNeeded); // no need to add it twice
-			
-				$openCPU->addUserData($this->getUserDataInRun(
-					$dataNeeded
-				));
-				
-				$this->unanswered_batch[$name]->determineDynamicValue($openCPU, $this->results_table);
+				$this->unanswered_batch[$name]->determineDynamicValue($this);
 			}
+
 			// some items do not require user interaction at all
 			if($this->unanswered_batch[$name]->no_user_input_required)
 			{
@@ -411,8 +370,10 @@ class Survey extends RunUnit {
 
 	protected function render_items() 
 	{
+		if(!isset($this->settings["maximum_number_displayed"]))
+			$this->settings["maximum_number_displayed"] = null;
+		
 		$ret = '';
-		$items = $this->unanswered_batch;
 		
 		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
 		
@@ -425,11 +386,10 @@ class Survey extends RunUnit {
 	
 		$itemsDisplayed = $i = 0;
 		$need_submit = true;
-	    foreach($items AS &$item) 
+	    foreach($this->unanswered_batch AS &$item) 
 		{
 			$i++;
 
-	        // fork-items sind relevant, werden aber nur behandelt, wenn sie auch an erster Stelle sind, also alles vor ihnen schon behandelt wurde
 			if ($item->type === 'submit')
 			{
 				if($itemsDisplayed === 0):
@@ -438,7 +398,7 @@ class Survey extends RunUnit {
 			}
 			else if ($item->type === "note")
 			{
-				$next = current($items);
+				$next = current($this->unanswered_batch);
 				if(
 					$item->displaycount AND 											 // if this was displayed before
 					(
@@ -453,7 +413,7 @@ class Survey extends RunUnit {
 			}
 			else if ($item->type === "mc_heading")
 			{
-				$next = current($items);
+				$next = current($this->unanswered_batch);
 				if(
 					(
 						$next === false OR 								    				 // this is the end of the survey
@@ -466,6 +426,22 @@ class Survey extends RunUnit {
 				}
 			}
 			
+			if(
+				$item->needsDynamicValue()
+			) // determine value if there is a dynamic one and user input is required
+			{
+				$item->determineDynamicValue($this);
+			}
+			
+			if(trim($item->showif) != null)
+			{
+				$show = $this->item_factory->showif($this, $item->showif);
+
+				if(!$show)
+				{
+					$item->hide();
+				}
+			}
 			
 			if(! $item->hidden):
 				$item->viewedBy($view_update);
@@ -691,6 +667,7 @@ class Survey extends RunUnit {
 		
 		$this->changeSettings(array
 			(
+				"maximum_number_displayed" => "",
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
 			)
@@ -780,11 +757,11 @@ class Survey extends RunUnit {
 		$add_items->bindParam(":study_id", $this->id);
 		
 		$choice_lists = $this->getChoices();
-		$item_factory = new ItemFactory($choice_lists);
+		$this->item_factory = new ItemFactory($choice_lists);
 		
 		foreach($this->SPR->survey as $row_number => $row) 
 		{
-			$item = $item_factory->make($row);
+			$item = $this->item_factory->make($row);
 			
 			if(!$item):
 				$this->errors[] = __("Row %s: Type %s is invalid.",$row_number,$this->SPR->survey[$row_number]['type']);
@@ -821,7 +798,7 @@ class Survey extends RunUnit {
 			$add_items->execute() or die(print_r($add_items->errorInfo(), true));
 		}
 		
-		$unused = $item_factory->unusedChoiceLists();
+		$unused = $this->item_factory->unusedChoiceLists();
 		if(! empty( $unused ) ):
 			$this->warnings[] = __("These choice lists were not used: '%s'", implode("', '",$unused));
 		endif;
@@ -867,7 +844,7 @@ class Survey extends RunUnit {
 	public function getItemsWithChoices()
 	{
 		$choice_lists = $this->getChoices();
-		$item_factory = new ItemFactory($choice_lists);
+		$this->item_factory = new ItemFactory($choice_lists);
 		
 		$raw_items = $this->getItems();
 		
@@ -875,7 +852,7 @@ class Survey extends RunUnit {
 		$items = array();
 		foreach($raw_items as $row) 
 		{
-			$item = $item_factory->make($row);
+			$item = $this->item_factory->make($row);
 			$items[$item->name] = $item;
 		}
 		return $items;
@@ -974,12 +951,12 @@ class Survey extends RunUnit {
 		require_once INCLUDE_ROOT."Model/Item.php";
 		
 		$choice_lists = $this->getChoices();
-		$item_factory = new ItemFactory($choice_lists);
+		$this->item_factory = new ItemFactory($choice_lists);
 		
 		$old_result_columns = array();
 		foreach($old_items AS $row)
 		{
-			$item = $item_factory->make($row);
+			$item = $this->item_factory->make($row);
 			if(!$item)
 			{
 				if(isset($row['type'])) $type = $row['type'];
