@@ -52,6 +52,9 @@ class Pagination
 		if($this->maximum_page === 0):
 			return '';	
 		else:
+			if(mb_substr($url,-1) != "&" AND mb_substr($url,-1) != "?")
+				$url.="?";
+			
 			$pages = range(0, $this->maximum_page); // all pages
 			if($this->maximum_page > 15) $pagination_size = ' pagination-sm';
 			elseif($this->maximum_page < 5) $pagination_size = ' pagination-lg';
@@ -65,13 +68,13 @@ class Pagination
 				else $active = '';
 				$page++;
 				$link_text = $page;
-				echo "<li$active><a href='".WEBROOT."$url?page=$page'>$link_text</a></li>";
+				echo "<li$active><a href='".WEBROOT."{$url}page=$page'>$link_text</a></li>";
 			  endforeach;
 			  
 		  if($this->enable_show_all):
 				if($this->page === -1) $active = ' class="active"';
 				else $active = '';
-				echo "<li$active><a href='".WEBROOT."$url?page=0'>Show all</a></li>";
+				echo "<li$active><a href='".WEBROOT."{$url}page=0'>Show all</a></li>";
 			endif;
 		  echo '
 				</ul>
