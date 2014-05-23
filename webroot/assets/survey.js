@@ -146,49 +146,14 @@ $(document).ready(function() {
         slct.select2();
         $.webshims.addShadowDom(slct, slct.select2("container"));
     });
-	$("input.select2add").each(function(i,elm)
-	{
-		var slct = $(elm); 
-		var slctdata = $.parseJSON(slct.attr('data-select2add'));
-		slct.select2({
-			createSearchChoice:function(term, data)
-			{ 
-				if ($(data).filter(function() { 
-					return this.text.localeCompare(term)==0; 
-				}).length===0) 
-				{
-					return {id:term, text:term};
-				}
-			},
-			initSelection:function(element, callback)
-			{
-				var data = {id: element.val(), text: element.val()};
-				$.each(slctdata, function(k, v) {
-					if(v.id ==	element.val()) {
-						data = v;
-						return false;
-					} 
-				});
-				callback(data);
-			},
-			maximumSelectionSize: slct.attr('data-select2maximumSelectionSize'),
-			maximumInputLength: slct.attr('data-select2maximumInputLength'),
-			data: slctdata, 
-			multiple: !!slct.prop('multiple'), 
-			allowClear: true,
-            escapeMarkup: function (m) { return m; }
-		});
-        $.webshims.addShadowDom(slct, slct.select2("container"));
-        
-	});
 	$(".select2pills select").each(function(i,elm)
 	{
 		var slct = $(elm); 
 		slct.select2({
             width: "element",
             dropdownCssClass: "bigdrop", // apply css that makes the dropdown taller
-			maximumSelectionSize: slct.attr('data-select2maximumSelectionSize'),
-			maximumInputLength: slct.attr('data-select2maximumInputLength'),
+			maximumSelectionSize: slct.data('select2maximumSelectionSize'),
+			maximumInputLength: slct.data('select2maximumInputLength'),
             formatResult: function(pill) {
                 if(pill.id != '')
                 {
@@ -206,7 +171,92 @@ $(document).ready(function() {
         });
         $.webshims.addShadowDom(slct, slct.select2("container"));
 	});
-	
+    
+	$(".people_list input.select2add").each(function(i,elm)
+	{
+		var slct = $(elm); 
+		var slctdata = $.parseJSON(slct.attr('data-select2add'));
+		slct.select2({
+            width: "element",
+            height: "2000px",
+            formatNoMatches: function(term)
+            {
+                if(term != '') return "Füge '" + term + "' hinzu!";
+                else return "Weitere Personen hinzufügen.";
+            },
+			createSearchChoice:function(term, data)
+			{ 
+				if ($(data).filter(function() { 
+					return this.text.localeCompare(term)==0; 
+				}).length===0) 
+				{
+                    term = term.replace(',',';');
+					return {id:term, text:term};
+				}
+			},
+			initSelection:function(element, callback)
+			{
+                var elements = element.val().split(",");
+                var data = [];
+                for(var i = 0; i < elements.length; i++)
+                {
+    				data.push( {id: elements[i], text: elements[i]});
+                }
+				callback(data);
+			},
+			maximumSelectionSize: slct.data('select2maximumSelectionSize'),
+			maximumInputLength: slct.data('select2maximumInputLength'),
+            formatResultCssClass: function(obj) { return "people_list_results"; },
+			data: slctdata, 
+			multiple: !!slct.data('select2multiple'), 
+			allowClear: true,
+            escapeMarkup: function (m) { return m; }
+		});
+        console.log(slct.select2("container").find('.select2-search-field input'));
+        var plus = $("<span class='select2-plus'>+</span>");
+        plus.insertBefore(slct.select2("container").find('.select2-search-field input'));
+        $.webshims.addShadowDom(slct, slct.select2("container"));
+	});
+	$("input.select2add").each(function(i,elm)
+	{
+		var slct = $(elm); 
+        if(slct.select2("container").hasClass("select2-container")) // is already select2
+            return;
+		var slctdata = $.parseJSON(slct.attr('data-select2add'));
+		slct.select2({
+			createSearchChoice:function(term, data)
+			{ 
+				if ($(data).filter(function() { 
+					return this.text.localeCompare(term)==0; 
+				}).length===0) 
+				{
+                    term = term.replace(',',';');
+					return {id:term, text:term};
+				}
+			},
+			initSelection:function(element, callback)
+			{
+				var data = {id: element.val(), text: element.val()};
+				$.each(slctdata, function(k, v) {
+					if(v.id ==	element.val()) {
+						data = v;
+						return false;
+					} 
+				});
+				callback(data);
+			},
+			maximumSelectionSize: slct.data('select2maximumSelectionSize'),
+			maximumInputLength: slct.data('select2maximumInputLength'),
+			data: slctdata, 
+			multiple: !!slct.data('select2multiple'), 
+			allowClear: true,
+            escapeMarkup: function (m) { return m; }
+		});
+        
+        $.webshims.addShadowDom(slct, slct.select2("container"));
+        
+	});
+    
     $('form').on('change', getProgress);
     getProgress();
     showIf();

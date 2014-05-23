@@ -238,7 +238,7 @@ class Item extends HTML_element
 	{
 		if(!$this->hasChoices AND $this->choice_list!=null):
 			$this->val_errors[] = "'{$this->name}' You defined choices for this item, even though this type doesn't have choices.";
-		elseif($this->hasChoices AND $this->choice_list==null):
+		elseif($this->hasChoices AND $this->choice_list==null AND $this->type !== "select_or_add_multiple"):
 				$this->val_errors[] = "'{$this->name}' You forgot to define choices for this item.";
 		endif;
 		if( !preg_match('/^[A-Za-z][A-Za-z0-9_]+$/',$this->name) ): 
@@ -1144,13 +1144,13 @@ class Item_select_or_add_multiple extends Item_select_or_add_one
 {
 	public $type = 'select_or_add_multiple';
 	public $mysql_field = 'TEXT DEFAULT NULL';
-	public $input_attributes = array('type' => 'select');
+	public $input_attributes = array('type' => 'text');
 	
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
 		$this->text_choices = true;
-		$this->input_attributes['multiple'] = true;
+		$this->input_attributes['data-select2multiple'] = 1;
 	}
 	public function validateInput($reply)
 	{
@@ -1167,7 +1167,7 @@ class Item_select_or_add_multiple extends Item_select_or_add_one
 		else:
 			$maxUserAdded = ($this->input_attributes['data-select2maximumInputLength']+2) * $this->input_attributes['data-select2maximumSelectionSize'];
 			$maxlen = strlen($max) + $maxUserAdded;
-	#		$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
+	#		$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL'; // oh why be so stingy, may miscalculate after all with all that utf8 stuff
 			$this->mysql_field = 'TEXT DEFAULT NULL';
 		endif;
 	}
