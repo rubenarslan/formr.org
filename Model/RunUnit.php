@@ -260,7 +260,7 @@ class RunUnit {
 		return parent::runDialog($prepend,'<i class="fa fa-puzzle-piece"></i>');
 	}
 	protected $survey_results = array();
-	protected function getUserDataInRun($surveys)
+	public function getUserDataInRun($surveys)
 	{
 		$this->survey_results = array();
 		foreach($surveys AS $survey_name): // fixme: shouldnt be using wildcard operator here.
@@ -324,7 +324,7 @@ class RunUnit {
 
 		return $this->survey_results;
 	}
-	protected function makeOpenCPU()
+	public function makeOpenCPU()
 	{
 		require_once INCLUDE_ROOT . "Model/OpenCPU.php";
 
@@ -340,7 +340,7 @@ class RunUnit {
 		 else
 			return false;
 	}
-	protected function dataNeeded($fdb,$q)
+	public function dataNeeded($fdb,$q)
 	{
 		$matches = $tables = array();
 		$result_tables = $fdb->query("SELECT name FROM `survey_studies`");
