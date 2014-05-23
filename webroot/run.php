@@ -35,6 +35,9 @@ if($_GET['run_name'] == 'fake_test_run' AND $user->isAdmin()): // for testing pu
 	
 	$unit = new Survey($fdb, $_SESSION['session'], $to_test);
 	$output = $unit->exec();
+	$run_session = (object) "dummy";
+	$run_session->position = "test_run";
+	$run_session->current_unit_type = "Survey";
 
 	if(!$output):
 		$output['title'] = 'Finish';
