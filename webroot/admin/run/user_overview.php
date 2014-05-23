@@ -6,18 +6,22 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 require_once INCLUDE_ROOT . "Model/Pagination.php";
 
 $search = '';
+$querystring = array();
 $position_lt = '=';
 if(isset($_GET['session']) OR isset($_GET['position'])):
 	if(isset($_GET['session']) AND trim($_GET['session'])!=''):
 		$_GET['session'] = str_replace("…","",$_GET['session']);
 		$search .= 'AND `survey_run_sessions`.session LIKE :session ';
 		$search_session = $_GET['session'] . "%";
+		$querystring['session'] = $_GET['session'];
 	endif;
 	if(isset($_GET['position']) AND trim($_GET['position'])!=''):
 		if(isset($_GET['position']) AND in_array($_GET['position_lt'], array('=','>','<'))) $position_lt = $_GET['position_lt'];
 
 		$search .= 'AND `survey_run_sessions`.position '.$position_lt.' :position ';
 		$search_position = $_GET['position'];
+		$querystring['position_lt'] = $position_lt;
+		$querystring['position'] = $_GET['position'];
 	endif;
 endif;
 
@@ -190,7 +194,9 @@ session_over($site, $user);
 			?>
 		</tbody></table>
 	<?php
-	$pagination->render("admin/run/".$run->name."/user_overview");
+	if(!empty($querystring)) $append = "?".http_build_query($querystring)."&";
+	else $append = '';
+	$pagination->render("admin/run/".$run->name."/user_overview".$append);
 	
 	endif;
 	?>
