@@ -32,6 +32,7 @@ class OpenCPU {
 
 		$header = mb_substr($result, 0, $this->header_size);
 		$body = mb_substr($result, $this->header_size);
+		$body = str_replace("/usr/local/lib/R/site-library/", "https://opencpu.psych.bio.uni-goettingen.de/ocpu/library/", $body);
 		##		list($header, $body) = explode("\r\n\r\n", $results, 2); # does not work with 100 Continue
 		
 		return compact('header','body','post');
