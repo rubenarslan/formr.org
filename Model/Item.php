@@ -351,7 +351,7 @@ class Item extends HTML_element
 		endif;
 		return false;
 	}
-	public function determineDynamicValue($survey, $results_table)
+	public function determineDynamicValue($survey)
 	{
 		if($this->value=="sticky") $this->value = "tail(na.omit({$results_table}\${$this->name}),1)";
 		
@@ -363,7 +363,7 @@ class Item extends HTML_element
 	
 		$openCPU->addUserData($survey->getUserDataInRun( $dataNeeded ));
 		
-		$this->input_attributes['value'] = $openCPU->evaluateWith($results_table, $this->value);
+		$this->input_attributes['value'] = $openCPU->evaluateWith($survey->results_table, $this->value);
 	}
 }
 
