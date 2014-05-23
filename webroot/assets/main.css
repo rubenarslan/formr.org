@@ -1127,7 +1127,9 @@ form.form-horizontal div.form-row.form-group.hidden {
 {
 	margin-bottom:60px;
 }
-
+.item-text.form-group.form-row .form-control, .item-email.form-group.form-row .form-control {
+    width:300px;
+}
 
 
 .btn {
