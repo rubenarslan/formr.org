@@ -7,6 +7,8 @@ class DB extends PDO
 	{
 		require_once INCLUDE_ROOT. "config/database.php";
 		
+        try 
+        { 
 		
 		$db = new DATABASE_CONFIG();
 		$db->default['port'] = isset($db->default['port'])?$db->default['port']:'';
@@ -20,7 +22,13 @@ class DB extends PDO
 
 		parent::exec("SET time_zone='$offset';");
 		parent::exec("SET SESSION sql_mode='STRICT_ALL_TABLES';");
-
+        }
+        catch (PDOException $e) 
+        {
+			die("DB connection failed");
+#            die($e->getMessage());
+        }
+		
         try 
         { 
 			$this->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
@@ -28,7 +36,8 @@ class DB extends PDO
         }
         catch (PDOException $e) 
         {
-            die($e->getMessage());
+			die("DB connection failed");
+#            die($e->getMessage());
         }
     }
     #get the number of rows in a result
