@@ -8,9 +8,9 @@ class Page extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $body = '';
+	protected $body = '';
 	protected $body_parsed = '';
-	private $title = '';
+	public $title = '';
 	private $can_be_ended = 0;
 	public $ended = false;
 	public $type = 'Endpage';
@@ -108,7 +108,6 @@ class Page extends RunUnit {
 	}
 	public function test()
 	{
-		
 		echo $this->getParsedBodyAdmin($this->body);
 #		if($this->can_be_ended)
 #		{

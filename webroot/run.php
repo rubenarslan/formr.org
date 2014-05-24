@@ -117,6 +117,13 @@ if($output):
 	endif;
 	
 	$survey_view = true;
+	if(isset($run)):
+		if($run->custom_css_path)
+			$css = '<link rel="stylesheet" href="'.WEBROOT.$run->custom_css_path.'" type="text/css" media="screen">';
+		if($run->custom_js_path)
+			$js .= '<script src="'.WEBROOT.$run->custom_js_path.'"></script>';
+	endif;
+	
 	require_once INCLUDE_ROOT . 'View/header.php';
 
 	$alerts = $site->renderAlerts();
