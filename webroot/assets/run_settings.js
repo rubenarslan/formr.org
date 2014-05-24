@@ -24,5 +24,48 @@ $(function(){
    
        session.setUseWrapMode(true);
        session.setMode("ace/mode/" + mode);
+       
+       var form =$(this).parents('form');
+       editor.on('change',function() { form.trigger("change") });
+       form.on('ajax_submission',function()
+       {
+           textarea.val(session.getValue());
+       });
+       
+//       $.webshims.addShadowDom(textarea, editor);
+       
+    });
+    $(".save_settings").each(function(i, elm)
+    {
+        $(elm).prop("disabled",true);
+        var form =$(this).parents('form');
+        form
+        .change(function()
+        {
+            $(elm).prop("disabled",false);
+        })
+        .submit(function() { return false; });
+       $(elm).click(function(e){
+           form.trigger("ajax_submission");
+           e.preventDefault();
+           	$.ajax(
+           		{
+           			url: form.attr('action'),
+           			dataType: 'html',
+           			data: form.serialize(),
+           			method: 'POST',
+           		})
+           		.done(function(data)
+           		{
+                    if(data != '')
+                        $(data).insertBefore(form);
+                    $(elm).prop("disabled",true);
+                })
+               .fail(function(e, x, settings, exception) {
+                   ajaxErrorHandling(e, x, settings, exception);
+               });
+           
+           return false;
+       });
     });
 });

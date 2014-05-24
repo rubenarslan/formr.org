@@ -28,10 +28,12 @@ class Run
 	private $api_secret_hash = null;
 	public $being_serviced = false;
 	public $locked = false;
-	public $settings = array();
 	public $errors = array();
 	public $messages = array();
+	private $run_settings = array("header_image_path", "title", "description", "footer_text", "public_blurb", "custom_css", "custom_js");
 	private $dbh;
+	public $custom_css_path = null;
+	public $custom_js_path = null;
 	
 	public function __construct($fdb, $name, $options = null) 
 	{
@@ -39,7 +41,7 @@ class Run
 		
 		if($name !== null OR ($name = $this->create($options))):
 			$this->name = $name;
-			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active,display_service_message,locked FROM `survey_runs` WHERE name = :run_name LIMIT 1");
+			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active,display_service_message,locked, header_image_path,title,description,footer_text,public_blurb,custom_css_path,custom_js_path FROM `survey_runs` WHERE name = :run_name LIMIT 1");
 			$run_data->bindParam(":run_name",$this->name);
 			$run_data->execute() or die(print_r($run_data->errorInfo(), true));
 			$vars = $run_data->fetch(PDO::FETCH_ASSOC);
@@ -52,6 +54,13 @@ class Run
 				$this->cron_active = $vars['cron_active'];
 				$this->being_serviced = $vars['display_service_message'];
 				$this->locked = $vars['locked'];
+				$this->header_image_path = $vars['header_image_path'];
+				$this->title = $vars['title'];
+				$this->description = $vars['description'];
+				$this->footer_text = $vars['footer_text'];
+				$this->public_blurb = $vars['public_blurb'];
+				$this->custom_css_path = $vars['custom_css_path'];
+				$this->custom_js_path = $vars['custom_js_path'];
 			
 				$this->valid = true;
 			endif;
@@ -247,28 +256,33 @@ class Run
 				}
 				else
 				{
-					$new_file_name = bin2hex(openssl_random_pseudo_bytes(100)) . $this->file_endings[ $mime ];
+					$original_file_name = $files['name'][$i];
+					if(isset($files_by_names[ $original_file_name ]))
+						$new_file_path = $files_by_names[ $original_file_name ];
+					else
+						$new_file_path = 'assets/tmp/admin/'. bin2hex(openssl_random_pseudo_bytes(100)) . $this->file_endings[ $mime ];
 				
-					if(move_uploaded_file($files['tmp_name'][$i],INCLUDE_ROOT .'webroot/assets/tmp/admin/'.$new_file_name))
+					if($err = move_uploaded_file($files['tmp_name'][$i],INCLUDE_ROOT ."webroot/".$new_file_path))
 					{
-						$original_file_name = $files['name'][$i];
-						$new_file_path = 'assets/tmp/admin/'.$new_file_name;
 						$upload = $this->dbh->prepare("INSERT INTO `survey_uploaded_files` (run_id, created, original_file_name, new_file_path) VALUES (:run_id, NOW(), :original_file_name, :new_file_path)
-						ON DUPLICATE KEY UPDATE modified = NOW(),new_file_path = :new_file_path2;");
+						ON DUPLICATE KEY UPDATE modified = NOW();");
 						$upload->bindParam(':run_id',$this->id);
 						$upload->bindParam(':original_file_name',$original_file_name);
 						$upload->bindParam(':new_file_path',$new_file_path);
-						$upload->bindParam(':new_file_path2',$new_file_path);
 						$upload->execute() or die(print_r($upload->errorInfo(), true));
 						
 						// cleaning up old files afterwards
-						if(isset($files_by_names[ $original_file_name ]))
+						// not necessary anymore
+/*						if(isset($files_by_names[ $original_file_name ]))
 						{
 							if( unlink(INCLUDE_ROOT .'webroot/' . $files_by_names[ $original_file_name ]))
 							{
 								$this->messages[] = __("'%s' was overwritten.<br>",$original_file_name);
 							}
 						}
+*/					}
+					else{
+						$this->errors[] = $err;
 					}
 				}
 			}
@@ -373,7 +387,7 @@ plot(cars)
 			$add_overview_script->bindParam(':run_id',$this->id);
 			$add_overview_script->bindParam(':overview_script',$unit->id);
 			$add_overview_script->execute() or die(print_r($add_overview_script->errorInfo(), true));
-			alert('A service message was auto-created.','alert-info');
+			alert('An overview script was auto-created.','alert-info');
 			return $unit->id;
 		else:
 			alert('<strong>Sorry.</strong> '.implode($unit->errors),'alert-danger');
@@ -516,47 +530,136 @@ This study is currently being serviced. Please return at a later time."));
 		endif;
 		
 	}
+	public function getCustomCSS()
+	{
+		
+		if($this->custom_css_path != null)
+			return $this->getFileContent($this->custom_css_path);
+		else
+			return "";
+	}
+	public function getCustomJS()
+	{
+		if($this->custom_js_path != null)
+			return $this->getFileContent($this->custom_js_path);
+		else
+			return "";
+	}
+	private function getFileContent($path)
+	{
+		$path = new SplFileInfo(INCLUDE_ROOT . "webroot/". $path);
+		$exists = file_exists($path->getPathname());
+		if($exists):
+			$file = $path->openFile('c+');
+			$data = '';
+			$file->next();
+			while ($file->valid()) {
+				$data .= $file->current();
+				$file->next();
+			}
+			return $data;
+
+//			$data = trim($data);
+		endif;
+		return '';
+	}
 	public function saveSettings($posted)
 	{
-		
+		$successes = array();
+		foreach($posted AS $name => $value):
+			if(in_array($name, $this->run_settings)):
+				
+				if($name == "custom_js" OR $name == "custom_css"):
+					if($name == "custom_js"):
+						$old_path = $this->custom_js_path;
+						$file_ending = '.js';
+					else:
+						$old_path = $this->custom_css_path;
+						$file_ending = '.css';
+					endif;
+					if($value == null AND $old_path != null):
+						$path = new SplFileInfo(INCLUDE_ROOT . "webroot/". $old_path);
+						$exists = file_exists($path->getPathname());
+						if($exists):
+							// remove any existing file
+							try {
+								unlink(INCLUDE_ROOT . "webroot/". $old_path);
+							} catch (Exception $e) {
+								alert("Could not delete old file.", 'alert-warning');
+							}
+						endif;
+					else:
+						if($old_path == null)
+							$old_path = 'assets/tmp/admin/'. bin2hex(openssl_random_pseudo_bytes(100)).$file_ending;
+						$path = new SplFileInfo(INCLUDE_ROOT . "webroot/". $old_path);
+						$exists = file_exists($path->getPathname());
+						if($exists):
+							$file = $path->openFile('c+');
+							$file->rewind();
+							$file->ftruncate(0);
+							// truncate any existing file
+						else:
+							$file = $path->openFile('c+');
+						endif;
+						$file->fwrite($value);
+						$file->fflush();
+						
+						$value = $old_path;
+					endif;
+					$name = $name . "_path";
+				endif;
+				
+				$save_setting = $this->dbh->prepare(
+				"UPDATE `survey_runs`
+					SET `$name` = :$name
+				WHERE 
+					`survey_runs`.id = :run_id;");
+				$save_setting->bindParam(':run_id',$this->id);
+				$save_setting->bindParam(":$name",$value);
+				$success = $save_setting->execute() or die(print_r($save_setting->errorInfo(), true));
+			else:
+				$run->errors[] = "Invalid setting " . h($name);
+			endif;
+		endforeach;
+		if(! in_array(false, $successes))
+			return true;
+		return false;
 	}
-	public function getUnitAdmin($id)
+	public function getUnitAdmin($id, $special = false)
 	{
-		$g_unit = $this->dbh->prepare(
-		"SELECT 
-			`survey_run_units`.id,
-			`survey_run_units`.run_id,
-			`survey_run_units`.unit_id,
-			`survey_run_units`.position,
-			
-			`survey_units`.type,
-			`survey_units`.created,
-			`survey_units`.modified
-			
-			 FROM `survey_run_units` 
-			 
-		LEFT JOIN `survey_units`
-		ON `survey_units`.id = `survey_run_units`.unit_id
-		
-		WHERE 
-			`survey_run_units`.run_id = :run_id AND
-			`survey_run_units`.id = :id
-		LIMIT 1
-		;");
-		$g_unit->bindParam(':id',$id);
-		$g_unit->bindParam(':run_id',$this->id);
-		
-		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
-
-		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
-		
-		
-		// fixme: embarrassing code
-		if($unit === false) // unit not found in run_units? maybe we're looking for a service message
-		{
+		if(!$special):
 			$g_unit = $this->dbh->prepare(
 			"SELECT 
-				`survey_runs`.`service_message` AS unit_id,
+				`survey_run_units`.id,
+				`survey_run_units`.run_id,
+				`survey_run_units`.unit_id,
+				`survey_run_units`.position,
+			
+				`survey_units`.type,
+				`survey_units`.created,
+				`survey_units`.modified
+			
+				 FROM `survey_run_units` 
+			 
+			LEFT JOIN `survey_units`
+			ON `survey_units`.id = `survey_run_units`.unit_id
+		
+			WHERE 
+				`survey_run_units`.run_id = :run_id AND
+				`survey_run_units`.id = :id
+			LIMIT 1
+			;");
+			$g_unit->bindParam(':id',$id);
+			$g_unit->bindParam(':run_id',$this->id);
+		
+			$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+
+			$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
+		else:
+			if(!in_array($special, array("service_message","overview_script","reminder_email"))) die("Special unit not allowed");
+			$g_unit = $this->dbh->prepare(
+			"SELECT 
+				`survey_runs`.`$special` AS unit_id,
 				`survey_runs`.id AS run_id,
 			
 				`survey_units`.id,
@@ -567,11 +670,11 @@ This study is currently being serviced. Please return at a later time."));
 				 FROM `survey_runs` 
 			 
 			LEFT JOIN `survey_units`
-			ON `survey_units`.id = `survey_runs`.`service_message`
+			ON `survey_units`.id = `survey_runs`.`$special`
 		
 			WHERE 
 				`survey_runs`.id = :run_id AND
-				`survey_runs`.`service_message` = :unit_id
+				`survey_runs`.`$special` = :unit_id
 			LIMIT 1
 			;");
 			$g_unit->bindParam(':run_id',$this->id);
@@ -580,81 +683,9 @@ This study is currently being serviced. Please return at a later time."));
 			$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
 
 			$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
-			if($unit["unit_id"])
-				return $unit;
-			else
-				$unit = false;
-		}
-		
-		if($unit === false) // or maybe a reminder email
-		{
-			$g_unit = $this->dbh->prepare(
-			"SELECT 
-				`survey_runs`.`reminder_email` AS unit_id,
-				`survey_runs`.id AS run_id,
-			
-				`survey_units`.id,
-				`survey_units`.type,
-				`survey_units`.created,
-				`survey_units`.modified
-			
-				 FROM `survey_runs` 
-			 
-			LEFT JOIN `survey_units`
-			ON `survey_units`.id = `survey_runs`.`reminder_email`
-		
-			WHERE 
-				`survey_runs`.id = :run_id AND
-				`survey_runs`.`reminder_email` = :unit_id
-			LIMIT 1
-			;");
-			$g_unit->bindParam(':run_id',$this->id);
-			$g_unit->bindParam(':unit_id',$id);
-			
-			$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
-
-			$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
-			
-			if($unit["unit_id"])
-				return $unit;
-			else
-				$unit = false;
-		}
-		if($unit === false) // or maybe an overview script
-		{
-			$g_unit = $this->dbh->prepare(
-			"SELECT 
-				`survey_runs`.`overview_script` AS unit_id,
-				`survey_runs`.id AS run_id,
-			
-				`survey_units`.id,
-				`survey_units`.type,
-				`survey_units`.created,
-				`survey_units`.modified
-			
-				 FROM `survey_runs` 
-			 
-			LEFT JOIN `survey_units`
-			ON `survey_units`.id = `survey_runs`.`overview_script`
-		
-			WHERE 
-				`survey_runs`.id = :run_id AND
-				`survey_runs`.`overview_script` = :unit_id
-			LIMIT 1
-			;");
-			$g_unit->bindParam(':run_id',$this->id);
-			$g_unit->bindParam(':unit_id',$id);
-			
-			$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
-
-			$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
-			
-			if($unit["unit_id"])
-				return $unit;
-			else
-				$unit = false;
-		}
-		
+			$unit["special"] = $special;
+		endif;
+				
 		if($unit === false) // or maybe we've got a problem
 		{
 			alert("Missing unit! $id", 'alert-danger');

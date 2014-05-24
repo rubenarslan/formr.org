@@ -15,6 +15,7 @@ RunUnit.prototype.init = function(content)
 	this.dialog_inputs = this.block.find('div.run_unit_dialog input,div.run_unit_dialog select, div.run_unit_dialog button, div.run_unit_dialog textarea');
 	this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
 	this.run_unit_id = this.dialog_inputs.filter('input[name=run_unit_id]').val();
+	this.special = this.dialog_inputs.filter('input[name=special]').val();
     this.block.attr('id',"unit_"+this.run_unit_id);
 	this.dialog_inputs.on('input change',$.proxy(this.changes,this));
 	this.save_inputs = this.dialog_inputs.add(this.position);
@@ -99,7 +100,7 @@ RunUnit.prototype.test = function(e)
 		{
 			url: this.run.url + "/" + this.test_button.attr('href'),
 			dataType: 'html',
-			data: { "run_unit_id" : this.run_unit_id },
+			data: { "run_unit_id" : this.run_unit_id, "special": this.special },
 			method: 'GET'
 		})
 		.done($.proxy(function(data)

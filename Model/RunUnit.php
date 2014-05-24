@@ -29,6 +29,7 @@ class RunUnit {
 	public $run_session_id = null;
 	public $type = '';
 	public $icon = 'fa-wrench';
+	public $special = false;
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -58,6 +59,9 @@ class RunUnit {
 		
 		if(isset($this->unit['position'])) 
 			$this->position = (int)$this->unit['position'];
+
+		if(isset($this->unit['special'])) 
+			$this->special = $this->unit['special'];
 		
 		
 		if(isset($this->unit['cron'])) 
@@ -251,7 +255,8 @@ class RunUnit {
 				</div>
 			<div class="col-xs-9 run_unit_dialog">
 				<input type="hidden" value="'.$this->run_unit_id.'" name="run_unit_id">
-				<input type="hidden" value="'.$this->id.'" name="unit_id">'.$dialog.'
+				<input type="hidden" value="'.$this->id.'" name="unit_id">
+				<input type="hidden" value="'.$this->special.'" name="special">'.$dialog.'
 			</div>
 		</div>';
 	}
@@ -365,6 +370,12 @@ class RunUnit {
 		endforeach;
 	
 		return $matches;
+	}
+	public function parseBodySpecial()
+	{
+		$openCPU = $this->makeOpenCPU();
+		
+		return $openCPU->knitForAdminDebug($this->body);
 	}
 	public function getParsedBodyAdmin($source,$email_embed = false)
 	{
