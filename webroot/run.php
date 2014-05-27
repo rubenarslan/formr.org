@@ -116,7 +116,6 @@ if($output):
 		$title = $run->name;
 	endif;
 	
-	$survey_view = true;
 	if(isset($run)):
 		if($run->custom_css_path)
 			$css = '<link rel="stylesheet" href="'.WEBROOT.$run->custom_css_path.'" type="text/css" media="screen">';
