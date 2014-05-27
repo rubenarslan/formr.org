@@ -404,6 +404,7 @@ This study is currently being serviced. Please return at a later time."));
 			'type' => "Email", 
 			"unit_id" => $id, 
 			"run_name" => $this->name,
+			"run_id" => $this->id,
 			"run_session_id" => $run_session_id)
 		);
 		return $unit;
