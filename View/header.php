@@ -92,11 +92,7 @@ header ('Content-type: text/html; charset=utf-8');
 		<?php echo isset($js)?$js:'' ?>
 </head>
 <body>
-	<?php if(isset($survey_view)): ?>
 	<div class="container">
-	<?php else: ?>
-	<div class="container">
-	<?php endif; ?>
 		
     <!--[if lt IE 7]>
         <p class="alert chromeframe">
