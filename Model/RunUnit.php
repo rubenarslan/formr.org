@@ -343,10 +343,17 @@ class RunUnit {
 	public function dataNeeded($fdb,$q)
 	{
 		$matches = $tables = array();
-		$result_tables = $fdb->query("SELECT name FROM `survey_studies`");
+		$result_tables = $fdb->prepare("SELECT `survey_studies`.name FROM `survey_studies` 
+			LEFT JOIN `survey_runs`
+		ON `survey_runs`.user_id = `survey_studies`.user_id 
+		WHERE `survey_runs`.id = :run_id");
+		$result_tables->bindParam(':run_id',$this->run_id);
+		$result_tables->execute();
+		
 		while($res = $result_tables->fetch(PDO::FETCH_ASSOC)):
 			$tables[] = $res['name'];
 		endwhile;
+
 		$tables[] = 'survey_users';
 		$tables[] = 'survey_unit_sessions';
 		$tables[] = 'survey_items_display';
