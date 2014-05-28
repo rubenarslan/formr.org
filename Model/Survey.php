@@ -326,6 +326,16 @@ class Survey extends RunUnit {
 			$name = $item['name'];
 			$this->unanswered_batch[$name] = $this->item_factory->make($item);
 
+			if(trim($this->unanswered_batch[$name]->showif) != null)
+			{
+				$show = $this->item_factory->showif($this, $this->unanswered_batch[$name]->showif);
+
+				if(!$show)
+				{
+					$this->unanswered_batch[$name]->hide();
+				}
+			}
+			
 			if(
 				$this->unanswered_batch[$name]->needsDynamicValue() AND
 				$this->unanswered_batch[$name]->no_user_input_required
@@ -431,16 +441,6 @@ class Survey extends RunUnit {
 			) // determine value if there is a dynamic one and user input is required
 			{
 				$item->determineDynamicValue($this);
-			}
-			
-			if(trim($item->showif) != null)
-			{
-				$show = $this->item_factory->showif($this, $item->showif);
-
-				if(!$show)
-				{
-					$item->hide();
-				}
 			}
 			
 			if(! $item->hidden):
