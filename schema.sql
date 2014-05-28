@@ -11,6 +11,8 @@ USE `formr` ;
 CREATE  TABLE IF NOT EXISTS `formr`.`survey_users` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `user_code` CHAR(64) BINARY NOT NULL ,
+  `created` DATETIME NULL ,
+  `modified` DATETIME NULL ,
   `admin` TINYINT(1) NULL DEFAULT 0 ,
   `email` VARCHAR(255) NULL ,
   `password` VARCHAR(255) NULL ,
@@ -28,10 +30,9 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 CREATE  TABLE IF NOT EXISTS `formr`.`survey_units` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
-  `type` VARCHAR(20) NULL ,
-  `description` VARCHAR(500) NULL ,
   `created` DATETIME NULL ,
   `modified` DATETIME NULL ,
+  `type` VARCHAR(20) NULL ,
   PRIMARY KEY (`id`) ,
   INDEX `type` (`type` ASC) )
 ENGINE = InnoDB;
@@ -43,8 +44,10 @@ ENGINE = InnoDB;
 CREATE  TABLE IF NOT EXISTS `formr`.`survey_studies` (
   `id` INT UNSIGNED NOT NULL ,
   `user_id` INT UNSIGNED NOT NULL ,
+  `created` DATETIME NULL ,
+  `modified` DATETIME NULL ,
   `name` VARCHAR(255) NULL ,
-  `logo_name` VARCHAR(255) NULL ,
+  `valid` TINYINT(1) NULL ,
   INDEX `fk_survey_studies_survey_users_idx` (`user_id` ASC) ,
   INDEX `fk_survey_studies_run_items1_idx` (`id` ASC) ,
   PRIMARY KEY (`id`) ,
@@ -68,6 +71,8 @@ ENGINE = InnoDB;
 CREATE  TABLE IF NOT EXISTS `formr`.`survey_runs` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `user_id` INT UNSIGNED NOT NULL ,
+  `created` DATETIME NULL ,
+  `modified` DATETIME NULL ,
   `name` VARCHAR(45) NULL ,
   `api_secret_hash` VARCHAR(255) BINARY NULL ,
   `cron_active` TINYINT(1) NULL DEFAULT 0 ,
@@ -121,6 +126,7 @@ CREATE  TABLE IF NOT EXISTS `formr`.`survey_run_units` (
   `run_id` INT UNSIGNED NOT NULL ,
   `unit_id` INT UNSIGNED NULL ,
   `position` SMALLINT NOT NULL ,
+  `description` VARCHAR(500) NULL ,
   PRIMARY KEY (`id`, `run_id`) ,
   INDEX `fk_survey_run_data_survey_runs1_idx` (`run_id` ASC) ,
   INDEX `fk_survey_run_data_survey_run_items1_idx` (`unit_id` ASC) ,
@@ -282,6 +288,8 @@ ENGINE = InnoDB;
 CREATE  TABLE IF NOT EXISTS `formr`.`survey_email_accounts` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT ,
   `user_id` INT UNSIGNED NOT NULL ,
+  `created` DATETIME NULL ,
+  `modified` DATETIME NULL ,
   `from` VARCHAR(255) NULL ,
   `from_name` VARCHAR(255) NULL ,
   `host` VARCHAR(255) NULL ,
