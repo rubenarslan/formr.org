@@ -80,9 +80,11 @@ label
     position:fixed;
     top:0px;
     z-index:99;
+    height:20px;
 }
 .progress-container .progress 
 {
+    margin-left:-15px;
     border-radius:0 0 4px 4px;
 }
 .run_header, .survey_header
@@ -503,6 +505,10 @@ li.nav-header
 .form-horizontal.form-horizontal-small-left .controls
 {
     margin-left:120px;
+}
+.run_unit_type_Survey
+{
+    margin-top:30px;
 }
 
 .muted
@@ -1209,7 +1215,6 @@ form.form-horizontal div.form-row.form-group.hidden {
     .progress-container
     {
         width:100%;
-        left:0px;
         padding:0;
     }
 	form.form-horizontal div.form-row.form-group .controls {

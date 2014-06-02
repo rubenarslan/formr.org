@@ -338,6 +338,35 @@ class Item extends HTML_element
 		$this->input_attributes['disabled'] = true; ## so it isn't submitted or validated
 		$this->hidden = true; ## so it isn't submitted or validated
 	}
+	public function needsDynamicLabel()
+	{
+		if($this->label_parsed === null): // if there is a sticky value to be had
+				return true;
+		else:
+			return false;
+		endif;
+	}
+	public function determineDynamicLabel($survey)
+	{
+		$openCPU = $survey->makeOpenCPU();
+
+		$dataNeeded = $survey->dataNeeded($survey->dbh, $this->label );
+		$dataNeeded[] = $survey->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
+		$dataNeeded = array_unique($dataNeeded); // no need to add it twice
+	
+		$openCPU->addUserData($survey->getUserDataInRun( $dataNeeded ));
+		
+		$markdown = $openCPU->knitForUserDisplay($item->label);
+	
+		if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)) // simple wraps are eliminated
+		{
+			$item->label_parsed = $matches[1];
+		}
+		else
+		{
+			$item->label_parsed = $markdown;
+		}
+	}
 	public function needsDynamicValue()
 	{
 		if(trim($this->value) != null): // if there is a sticky value to be had
@@ -548,7 +577,7 @@ class Item_range extends Item_number
 	}
 	protected function render_input() 
 	{
-		return (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' ': '') . 		
+		return (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' </label>': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
 			(isset($this->choices[2]) ? ' <label class="pad-left">'. $this->choices[2] . ' </label>': '') ;
 	}
