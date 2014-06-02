@@ -75,8 +75,16 @@ label
 {
     cursor:pointer !important;
 }
-
-
+.progress-container
+{
+    position:fixed;
+    top:0px;
+    z-index:99;
+}
+.progress-container .progress 
+{
+    border-radius:0 0 4px 4px;
+}
 .run_header, .survey_header
 {
     height:330px;
@@ -1198,6 +1206,12 @@ form.form-horizontal div.form-row.form-group.hidden {
 
 /*responsive layouts for mobile */
 @media (max-width: 768px) { 
+    .progress-container
+    {
+        width:100%;
+        left:0px;
+        padding:0;
+    }
 	form.form-horizontal div.form-row.form-group .controls {
 		clear:both;
 		margin-left:0;

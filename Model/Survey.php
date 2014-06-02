@@ -367,8 +367,10 @@ class Survey extends RunUnit {
 		if(isset($this->settings["add_percentage_points"]))
 			$prog += $this->settings["add_percentage_points"];
 		
-	    $ret .= '<div class="progress">
+	    $ret .= '<div class="container progress-container">
+			<div class="progress">
 				  <div data-starting-percentage="'.$prog.'" data-number-of-items="'.$this->not_answered.'" class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
+			</div>
 			</div>';
 		
 		if(!empty($this->errors))
@@ -376,6 +378,7 @@ class Survey extends RunUnit {
 				<div class="control-label"><i class="fa fa-exclamation-triangle pull-left fa-2x"></i>'.implode("<br>",array_unique($this->errors)).'
 				</div></div>';	
 		return $ret;
+	
 	}
 
 	protected function render_items() 
@@ -514,9 +517,11 @@ class Survey extends RunUnit {
 		if($this->called_by_cron)
 			return true; // never show to the cronjob
 		
+		
 		$this->startEntry();
 		
 		$this->getNextItems();
+		// todo: this has to become smarter and the moment there's a weird mix!
 		$this->post(array_merge($_POST,$_FILES));
 		
 		if($this->getProgress()===1)
