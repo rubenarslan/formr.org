@@ -172,31 +172,33 @@ $(document).ready(function() {
         $.webshims.addShadowDom(slct, slct.select2("container"));
 	});
     
-	$(".people_list input.select2add").each(function(i,elm)
+	$(".people_list textarea").each(function(i,elm)
 	{
 		var slct = $(elm); 
-		var slctdata = $.parseJSON(slct.attr('data-select2add'));
 		slct.select2({
             width: "element",
             height: "2000px",
+            data: [],
             formatNoMatches: function(term)
             {
                 if(term != '') return "Füge '" + term + "' hinzu!";
                 else return "Weitere Personen hinzufügen.";
             },
+            tokenSeparators: ["\n"],
+            separator: '\n',
 			createSearchChoice:function(term, data)
 			{ 
 				if ($(data).filter(function() { 
 					return this.text.localeCompare(term)==0; 
 				}).length===0) 
 				{
-                    term = term.replace(',',';');
+                    term = term.replace("\n",'; ');
 					return {id:term, text:term};
 				}
 			},
 			initSelection:function(element, callback)
 			{
-                var elements = element.val().split(",");
+                var elements = element.val().split("\n");
                 var data = [];
                 for(var i = 0; i < elements.length; i++)
                 {
@@ -204,15 +206,13 @@ $(document).ready(function() {
                 }
 				callback(data);
 			},
-			maximumSelectionSize: slct.data('select2maximumSelectionSize'),
-			maximumInputLength: slct.data('select2maximumInputLength'),
+			maximumSelectionSize: 15,
+			maximumInputLength: 50,
             formatResultCssClass: function(obj) { return "people_list_results"; },
-			data: slctdata, 
-			multiple: !!slct.data('select2multiple'), 
+			multiple: true, 
 			allowClear: true,
             escapeMarkup: function (m) { return m; }
-		});
-        console.log(slct.select2("container").find('.select2-search-field input'));
+		}).removeClass("form-control");
         var plus = $("<span class='select2-plus'>+</span>");
         plus.insertBefore(slct.select2("container").find('.select2-search-field input'));
         $.webshims.addShadowDom(slct, slct.select2("container"));
