@@ -1,17 +1,19 @@
 webshims.register('form-validation', function($, webshims, window, document, undefined, options){
 	"use strict";
-	
+
 	var isWebkit = 'webkitURL' in window;
 	var hasNative = Modernizr.formvalidation && !webshims.bugs.bustedValidity;
 	var chromeBugs = isWebkit && hasNative;
-	var webkitVersion = chromeBugs && parseFloat((navigator.userAgent.match(/Safari\/([\d\.]+)/) || ['', '999999'])[1], 10);
+	var ua = navigator.userAgent;
+	var webkitVersion = chromeBugs && parseFloat((ua.match(/Safari\/([\d\.]+)/) || ['', '999999'])[1], 10);
 	
 	var iVal = options.iVal;
+
 	if(!iVal.fieldWrapper){
-		iVal.fieldWrapper = ':not(span), :not(label), :not(em), :not(strong), :not(p)'; 
+		iVal.fieldWrapper = ':not(span):not(label):not(em):not(strong):not(p):not(.ws-custom-file)';
 	}
 	var invalidClass = iVal.errorClass || (iVal.errorClass = 'user-error');
-	var validClass = iVal.successClass || 'user-success';
+	var validClass = iVal.successClass || (iVal.successClass = 'user-success');
 	
 	var invalidWrapperClass = iVal.errorWrapperClass || (iVal.errorWrapperClass = 'ws-invalid');
 	var successWrapperClass = iVal.successWrapperClass || (iVal.successWrapperClass = 'ws-success');
@@ -24,13 +26,11 @@ webshims.register('form-validation', function($, webshims, window, document, und
 	var addModule = loader.addModule;
 	
 	var emptyJ = $([]);
-	var isValid = function(elem){
-		return ($.prop(elem, 'validity') || {valid: 1}).valid;
-	};
 	
 	var nonFormFilter = function(){
 		return !$.prop(this, 'form');
 	};
+	//TODO: cache + perftest
 	var getGroupElements = function(elem){
 		elem = $(elem);
 		var name;
@@ -92,6 +92,11 @@ webshims.register('form-validation', function($, webshims, window, document, und
 		week: 1,
 		'datetime-local': 1
 	};
+	var updateValidationEvents = {
+		refreshvalidityui: 1,
+		updatevalidation: 1
+	};
+	var iValClasses = '.'+ iVal.errorClass +', .'+iVal.successClass;
 	var switchValidityClass = function(e){
 		if(!iVal.sel){return;}
 		var elem, timer, shadowElem, shadowType;
@@ -110,11 +115,9 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				){
 					return;
 			}
-			if(webshims.refreshCustomValidityRules){
-				if(webshims.refreshCustomValidityRules(elem) == 'async'){
-					$(elem).one('refreshvalidityui', switchValidityClass);
-					return;
-				}
+			if(webshims.refreshCustomValidityRules && webshims.refreshCustomValidityRules(elem) == 'async'){
+				$(elem).one('updatevalidation.webshims', switchValidityClass);
+				return;
 			}
 			
 			var validity = $.prop(elem, 'validity');
@@ -157,12 +160,12 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				//jQuery 1.6.1 IE9 bug (doubble trigger bug)
 				setTimeout(function(){
 					$(elem).trigger(trigger);
-				}, 0);
+				});
 			}
 			if(generaltrigger){
 				setTimeout(function(){
 					$(elem).trigger(generaltrigger);
-				}, 0);
+				});
 			}
 			
 			$.removeData(elem, 'webshimsswitchvalidityclass');
@@ -171,32 +174,65 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			if(timer){
 				clearTimeout(timer);
 			}
-			if(e.type == 'refreshvalidityui'){
+			if(updateValidationEvents[e.type]){
+				if(e.type == 'refreshvalidityui'){
+					webshims.error('refreshvalidityui was renamed to updatevalidation');
+				}
 				switchClass();
 			} else {
-				$.data(elem, 'webshimsswitchvalidityclass', setTimeout(switchClass, 9));
+				$.data(elem, 'webshimsswitchvalidityclass', setTimeout(switchClass));
 			}
 		}
 	};
-	
+	var eachReset = function(){
+		webshims.errorbox.reset(this);
+	};
+
+	if('validityUIEvents' in options){
+		webshims.warn('validityUIEvents was renamed to iVal.events');
+		iVal.events = options.validityUIEvents;
+	}
+	if('events' in iVal){
+		iVal.events = iVal.events || '';
+	} else {
+		iVal.events = 'focusout change';
+	}
+
+	if(iVal.events){
+		iVal.events += ' ';
+	}
+
 	$(document.body || 'html')
-		.on(options.validityUIEvents || 'focusout change refreshvalidityui invalid', switchValidityClass)
-		.on('reset resetvalui', function(e){
+		.on(iVal.events+'refreshvalidityui updatevalidation.webshims invalid', switchValidityClass)
+		.on('reset resetvalidation.webshims resetvalui', function(e){
+			var noIValTrigger;
 			var elems = $(e.target);
+			if(e.type == 'resetvalui'){
+				webshims.warn('resetvalui was renamed to resetvalidation');
+			}
 			if(elems.is('form, fieldset')){
+				if(elems[0].nodeName.toLowerCase() == 'form'){
+					noIValTrigger = !elems.is(iVal.sel);
+				}
 				elems = elems.jProp('elements');
 			}
-			elems
-				.filter('.user-error, .user-success')
+			elems = elems
+				.filter(iValClasses)
 				.removeAttr('aria-invalid')
-				.removeClass('user-error')
-				.removeClass('user-success')
+				.removeClass(iVal.errorClass +' '+ iVal.successClass)
 				.getNativeElement()
 				.each(function(){
 					$.removeData(this, 'webshimsinvalidcause');
 				})
-				.trigger('resetvalidityui')
 			;
+
+			if(!noIValTrigger){
+				if(noIValTrigger === false){
+					elems.each(eachReset);
+				} else {
+					elems.trigger('resetvalidityui.webshims');
+				}
+			}
 		})
 	;
 	
@@ -220,6 +256,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 	var rtlReplace = function(ret){
 		return ret == 'left' ? 'right' : 'left';
 	};
+
 	webshims.getRelOffset = function(posElem, relElem, opts){
 		var offset, bodyOffset, dirs;
 		posElem = $(posElem);
@@ -296,9 +333,20 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			this.element.trigger(e);
 			if(e.isDefaultPrevented()){return;}
 			this.isVisible = true;
+
+			if(!this._shadowAdded && webshims.shadowClass){
+				this.element.addClass(webshims.shadowClass);
+				this._shadowAdded = true;
+			}
+
 			element = $(element || this.options.prepareFor).getNativeElement() ;
 			
 			var that = this;
+			var closeOnOutSide = function(e){
+				if(that.options.hideOnBlur && !that.stopBlur && !that.isInElement([that.lastElement[0], element[0], that.element[0]], e.target)){
+					that.hide();
+				}
+			};
 			var visual = $(element).getShadowElement();
 			var delayedRepos = function(e){
 				clearTimeout(that.timers.repos);
@@ -319,12 +367,13 @@ webshims.register('form-validation', function($, webshims, window, document, und
 					that.element.addClass('ws-po-visible').trigger('wspopovershow');
 				}, 14);
 			}, 4);
-			
-			$(document.body || document).on('focusin'+this.eventns+' mousedown'+this.eventns, function(e){
-				if(that.options.hideOnBlur && !that.stopBlur && !that.isInElement([that.lastElement[0], element[0], that.element[0]], e.target)){
-					that.hide();
-				}
-			});
+
+			$(document.body)
+				.on('focusin'+this.eventns+' mousedown'+this.eventns, closeOnOutSide)
+				//http://www.quirksmode.org/m/tests/eventdelegation2.html
+				.children(':not(script), :not(iframe), :not(noscript)')
+				.on('mousedown'+this.eventns, closeOnOutSide)
+			;
 			
 			this.element.off('pospopover').on('pospopover', delayedRepos);
 			$(window).on('resize'+this.eventns + ' pospopover'+this.eventns, delayedRepos);
@@ -398,7 +447,11 @@ webshims.register('form-validation', function($, webshims, window, document, und
 		clear: function(){
 			$(window).off(this.eventns);
 			$(document).off(this.eventns);
-			$(document.body).off(this.eventns);
+			$(document.body)
+				.off(this.eventns)
+				.children(':not(script), :not(iframe), :not(noscript)')
+				.off(this.eventns)
+			;
 			this.element.off('transitionend'+this.eventns);
 			this.stopBlur = false;
 			this.lastOpts = false;
@@ -446,9 +499,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			collision: 'none'
 		}, options.messagePopover.position || {});
 			
-		var focusTimer = false;
-		
-		var api = webshims.objectCreate(webshims.wsPopover, {}, options.messagePopover);
+		var api = webshims.objectCreate(webshims.wsPopover, undefined, options.messagePopover);
 		var boundHide = api.hide.bind(api);
 		
 		api.element.addClass('validity-alert').attr({role: 'alert'});
@@ -482,7 +533,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 						focusElem[0].focus();
 					} catch(e){}
 					if(!focusElem[0].offsetWidth && !focusElem[0].offsetHeight){
-						webshims.warn('invalid element seems to be hidden. Make element either visible or use disabled/readonly to bar elements from validation. With fieldset[disabled] a group of elements can be ignored.');
+						webshims.warn('invalid element seems to be hidden. Make element either visible or use disabled/readonly to bar elements from validation. With fieldset[disabled] a group of elements can be ignored! In case of select replacement see shims/form-combat.js to fix issue.');
 					}
 					api.element.triggerHandler('pospopover');
 				};
@@ -663,23 +714,28 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			check();
 		},
 		hideError: function(elem, reset){
-			var invalid, errorBox;
+			var invalid, errorBox, afterHide;
 			var fieldWrapper = this.getFieldWrapper(elem);
 
 			if(fieldWrapper.hasClass(invalidWrapperClass)){
 				$(elem).filter('input').off('.recheckinvalid');
 				if(!reset && (invalid = $('input:invalid, select:invalid, textarea:invalid', fieldWrapper)[0])){
-					$(invalid).trigger('refreshvalidityui');
+					$(invalid).trigger('updatevalidation.webshims');
 				} else {
 					errorBox = this.get(elem, fieldWrapper);
 					fieldWrapper.removeClass(invalidWrapperClass);
 					errorBox.message = '';
-					errorBox[fx[iVal.fx].hide](function(){
+					afterHide = function(){
 						if(this.id == elem.getAttribute('aria-describedby')){
 							elem.removeAttribute('aria-describedby');
 						}
 						$(this).attr({hidden: 'hidden'});
-					});
+					};
+					if(iVal.fx != 'no'){
+						errorBox[fx[iVal.fx].hide](afterHide);
+					} else {
+						errorBox[fx[iVal.fx].hide]().each(afterHide);
+					}
 				}
 				
 			}
@@ -759,7 +815,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 					}
 				}
 			},
-			resetvalidityui: function(e){
+			'resetvalidityui.webshims': function(e){
 				if (iVal.sel) {
 					var form = $(e.target).jProp('form');
 					if (form.is(iVal.sel)) {
@@ -779,7 +835,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				}
 			},
 			submit: function(e){
-				if(iVal.sel && iVal.submitCheck &&$(e.target).is(iVal.sel) && $.prop(e.target, 'noValidate') && !$(e.target).checkValidity()){
+				if(iVal.sel && iVal.submitCheck && $(e.target).is(iVal.sel) && $.prop(e.target, 'noValidate') && !$(e.target).checkValidity()){
 					e.stopImmediatePropagation();
 					return false;
 				}
@@ -821,7 +877,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			if(!firstEvent){
 				//trigger firstinvalid
 				firstEvent = $.Event('firstinvalid');
-				jElm.trigger(firstEvent);
+				jElm.addClass('first-invalid').trigger(firstEvent);
 			}
 
 			//if firstinvalid was prevented all invalids will be also prevented
@@ -834,10 +890,11 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			stopSubmitTimer = setTimeout(function(){
 				var lastEvent = {type: 'lastinvalid', cancelable: false, invalidlist: $(invalids)};
 				//reset firstinvalid
-				firstEvent = false;
 				invalids = [];
 				stop = true;
 				$(e.target).trigger(lastEvent, [lastEvent]);
+				$(firstEvent.target).removeClass('first-invalid');
+				firstEvent = false;
 				/*
 				if(hasNative && !$.nodeName(e.target, 'form')){
 					$(e.target).jProp('form').triggerHandler('invalid');
@@ -848,154 +905,102 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			jElm = null;
 		});
 	})();
-	
-	
-	if(!$.event.special.change && !$.event.special.input && Modernizr.inputtypes && options.fixRangeChange){
-		var rangeChange = {
-			
-			trigger: function(e){
-				if(rangeChange.blockElement){
-					rangeChange.blockElement = false;
-					setTimeout(function(){
-						if(rangeChange.requestedChange && rangeChange.value != rangeChange.requestedChange.value){
-							$(rangeChange.requestedChange).trigger('change');
-						}
-						rangeChange.value = false;
-					}, 9);
+
+	if(!options.noInputmodeFix && document.addEventListener && Modernizr.inputtypes && Modernizr.inputtypes.tel && ua.indexOf('Mobile') != -1 && !('inputMode' in document.createElement('input') && !('inputmode' in document.createElement('input'))) ){
+		var removeListener = function(elem){
+			elem.removeEventListener('blur', switchBack, true);
+		};
+		var needsPattern = (/iphone|ipod/i).test(ua);
+		var regPattern = /^[\\d\*|\[0\-9\]]*[\+|\{\d*\,\d*\}|*]*$/;
+		var stopPatterns = needsPattern || (/ipad|ios/i).test(ua) ?
+			{
+				'[0-9]*': 1,
+				'\\d*': 1
+			} :
+			false
+		;
+		var switchBack = function(e){
+			removeListener(e.target);
+			e.target.type = 'text';
+		};
+		var removeDocListener = function(){
+			document.removeEventListener('focus', addFix, true);
+			document.removeEventListener('touchstart', addFix, true);
+		};
+		var allowSwitchByPattern = function(elem){
+			var pattern;
+			var switchAllowed = true;
+
+			if(stopPatterns){
+				pattern = elem.getAttribute('pattern') || '';
+				if(stopPatterns[pattern] || (needsPattern && (!pattern || !regPattern.test(pattern)))){
+					switchAllowed = false;
 				}
-				
-			},
-			lastValue: false,
-			updateInputValue: function(e){
-				rangeChange.lastValue = e.target.value;
-			},
-			triggerInput: function(e){
-				if(rangeChange.lastValue !== false && rangeChange.lastValue != e.target.value){
-					$(e.target).trigger('input');
-				}
-			},
-			inputTeardown: function(e){
-				$(e.target)
-					.off('input', rangeChange.updateInputValue)
-					.off('blur', rangeChange.inputTeardown)
-				;
-				rangeChange.lastValue = false;
-			},
-			inputSetup: function(e){
-				
-				if(e.target.type == 'range'){
-					rangeChange.inputTeardown(e);
-					rangeChange.lastValue = e.target.value;
-					$(e.target)
-						.on('input', rangeChange.updateInputValue)
-						.on('blur', rangeChange.inputTeardown)
-					;
+			}
+
+			return switchAllowed;
+		};
+
+		var addFix = function(e){
+			if(e.target.type == 'text' && e.target.getAttribute('inputmode') == 'numeric' && allowSwitchByPattern(e.target)){
+				try{
+					removeListener(e.target);
+					e.target.addEventListener('blur', switchBack, true);
+					e.target.type = 'tel';
+				} catch (er){
+					removeDocListener();
 				}
 			}
 		};
-		
-		
-		$.each([{name: 'key', evt: 'keyup'}, {name: 'mouse', evt: 'mouseup'}, {name: 'touch', evt: 'touchend'}], function(i, obj){
-			var setup = obj.name + 'Setup';
-			var commit = obj.name + 'Commit';
-			rangeChange[obj.name+'Block'] = function(e){
-				
-				if(!rangeChange.blockElement && e.target.type == 'range'){
-					
-					rangeChange.blockElement = e.target;
-					rangeChange.value = e.target.value;
-					$(rangeChange.blockElement)
-						.off('blur', rangeChange.trigger)
-						.on('blur', rangeChange.trigger)
-					;
-					
-					$(document.body)
-						.off(obj.evt, rangeChange[commit])
-						.on(obj.evt, rangeChange[commit])
-					;
-				}
-			};
-			
-			rangeChange[commit] = function(e){
-				$(document.body).off(obj.evt, rangeChange[commit]);
-				rangeChange.trigger();
-			};
-			
-		});
-		
-		$(document.body || 'html').on({
-			mousedown: rangeChange.mouseBlock,
-			'keydown kepress': function(e){
-				if(e.keyCode < 45 && e.keyCode > 30){
-					rangeChange.keyBlock(e);
-				}
-			},
-			'touchstart': rangeChange.touchBlock,
-			focusin: rangeChange.inputSetup
-		});
-		
-		$.extend(true, $.event.special, {
-			change: {
-				handle: function(e){
-					
-					if(!e.isTrigger && rangeChange.blockElement == e.target){
-						rangeChange.requestedChange = e.target;
-						rangeChange.triggerInput(e);
-						return false;
-					} else if(rangeChange.requestedChange == e.target){
-						rangeChange.requestedChange = false;
-					}
-					e.handleObj.handler.apply(this, arguments);
-				}
-			},
-			input: {
-				handle: (function(){
-					var lastValue, lastElement;
-					
-					var remove = function(){
-						if(lastElement){
-							$(lastElement).off('change', remove);
-						}
-						lastValue = false;
-						lastElement = false;
-					};
-					
-					var setup = function(e){
-						remove(e);
-						lastElement = e.target;
-						lastValue = e.target.value;
-						$(e.target).on('change', remove);
-					};
-					
-					return function(e){
-						var value;
-						if(!e.isTrigger && e.target.type == 'range'){
-							
-							if(lastElement != e.target){
-								setup(e);
-							} else if(lastElement == e.target){
-								if(lastValue == (value = e.target.value)){
-									return false;
-								}
-								lastValue = e.target.value;
-							}
-						}
-						e.handleObj.handler.apply(this, arguments);
-					};
-				})()
+
+		document.addEventListener('focus', addFix, true);
+		document.addEventListener('touchstart', addFix, true);
+	}
+
+	function getFileNames(file){
+		return file.name;
+	}
+
+
+
+	function customFile(){
+		if($.data(this, 'wsCustomFile')){return;}
+		var map = Array.prototype.map;
+		var $module = $(this);
+		var $file = $('input[type="file"]', $module);
+		var $valueDisplay = $('.ws-file-value', $module);
+		var emptyHtml = $.trim($valueDisplay.html()) || '&#160;';
+
+		var showSelected = function(){
+			var files = $file.prop('files') || [];
+			var names = map.call(files, getFileNames).join(', ') || $file.val();
+			if(names){
+				$valueDisplay.text(names);
+			} else {
+				$valueDisplay.html(emptyHtml);
 			}
+		};
+
+		$.data(this, 'wsCustomFile', {showSelected: showSelected});
+		$('button', $module).attr('tabindex', '-1');
+
+		$file.on('change.webshim', showSelected).each(showSelected);
+		$file.jProp('form').on('reset', function(){
+			setTimeout(showSelected);
 		});
 	}
-	if(webshims.cfg.debug !== false && iVal.sel != '.ws-instantvalidation'){
-		$(function(){
-			if($('form.ws-instantvalidation').length){
-				webshims.error('.ws-instantvalidation was renamed to .ws-validate');
-			}
-		});
-	}
+
+	webshims.addReady(function(context, contextElem){
+		$(context.querySelectorAll('.ws-custom-file')).add($(contextElem).filter('.ws-custom-file')).each(customFile);
+	});
+
+	addModule('form-fixrangechange', {
+		test: !(!$.event.special.change && !$.event.special.input && Modernizr.inputtypes && Modernizr.inputtypes.range && options.fixRangeChange)
+	});
+
 	addModule('form-combat', {
 		d: ['dom-support'],
-		test: !(($.mobile && ($.mobile.selectmenu || $.mobile.checkboxradio)) || $.fn.select2 || $.fn.chosen || $.fn.selectpicker || $.fn.selectBoxIt)
+		test: !(($.mobile && ($.mobile.selectmenu || $.mobile.checkboxradio)) || ($.ui && $.ui.selectmenu) || $.fn.select2 || $.fn.chosen || $.fn.selectpicker || $.fn.selectBoxIt)
 	});
 	
 	addModule('position', {
@@ -1003,5 +1008,5 @@ webshims.register('form-validation', function($, webshims, window, document, und
 		test: !!($.position && $.position.getScrollInfo)
 	});
 	
-	loader.loadList(['form-combat', 'position']);
+	loader.loadList(['form-combat', 'position', 'form-fixrangechange']);
 });

@@ -1,6 +1,5 @@
 (function(Modernizr, webshims){
 	"use strict";
-	var $ = webshims.$;
 	var hasNative = Modernizr.audio && Modernizr.video;
 	var supportsLoop = false;
 	var bugs = webshims.bugs;
@@ -13,93 +12,53 @@
 			}
 		});
 	};
+
 	var wsCfg = webshims.cfg;
 	var options = wsCfg.mediaelement;
-	var hasFullTrackSupport;
 	var hasSwf;
 	if(!options){
 		webshims.error("mediaelement wasn't implemented but loaded");
 		return;
 	}
+
 	if(hasNative){
 		var videoElem = document.createElement('video');
 		Modernizr.videoBuffered = ('buffered' in videoElem);
 		Modernizr.mediaDefaultMuted = ('defaultMuted' in videoElem);
 		supportsLoop = ('loop' in videoElem);
-		
+		Modernizr.mediaLoop = supportsLoop;
+
 		webshims.capturingEvents(['play', 'playing', 'waiting', 'paused', 'ended', 'durationchange', 'loadedmetadata', 'canplay', 'volumechange']);
 		
-		if(!Modernizr.videoBuffered ){
+		if( !Modernizr.videoBuffered || !supportsLoop || (!Modernizr.mediaDefaultMuted && navigator.userAgent.indexOf('MSIE') != -1 && 'ActiveXObject' in window) ){
 			webshims.addPolyfill('mediaelement-native-fix', {
 				d: ['dom-support']
 			});
 			webshims.loader.loadList(['mediaelement-native-fix']);
 		}
-		
-		if(!options.preferFlash){
-			var noSwitch = {
-				1: 1
-			};
-			var switchOptions = function(e){
-				var media, error, parent;
-				if(!options.preferFlash && 
-				($(e.target).is('audio, video') || ((parent = e.target.parentNode) && $('source', parent).last()[0] == e.target)) && 
-				(media = $(e.target).closest('audio, video')) && (error = media.prop('error')) && !noSwitch[error.code]
-				){
-					
-					$(function(){
-						if(hasSwf && !options.preferFlash){
-							loadSwf();
-							webshims.ready('WINDOWLOAD '+swfType, function(){
-								setTimeout(function(){
-									if(!options.preferFlash && webshims.mediaelement.createSWF && !media.is('.nonnative-api-active')){
-										options.preferFlash = true;
-										document.removeEventListener('error', switchOptions, true);
-										$('audio, video').each(function(){
-											webshims.mediaelement.selectSource(this);
-										});
-										webshims.error("switching mediaelements option to 'preferFlash', due to an error with native player: "+e.target.src+" Mediaerror: "+ media.prop('error')+ 'first error: '+ error);
-									}
-								}, 9);
-							});
-						} else{
-							document.removeEventListener('error', switchOptions, true);
-						}
-					});
-				}
-			};
-			document.addEventListener('error', switchOptions, true);
-			$('audio, video').each(function(){
-				var error = $.prop(this, 'error');
-				if(error && !noSwitch[error]){
-					switchOptions({target: this});
-					return false;
-				}
-			});
-		}
 	}
 	
 	if(Modernizr.track && !bugs.track){
 		(function(){
-			
 			if(!bugs.track){
-				bugs.track = typeof $('<track />')[0].readyState != 'number';
-			}
-			
-			if(!bugs.track){
+
+				if(window.VTTCue && !window.TextTrackCue){
+					window.TextTrackCue = window.VTTCue;
+				} else if(!window.VTTCue){
+					window.VTTCue = window.TextTrackCue;
+				}
+
 				try {
-					new TextTrackCue(2, 3, '');
+					new VTTCue(2, 3, '');
 				} catch(e){
 					bugs.track = true;
 				}
 			}
 		})();
 	}
-	hasFullTrackSupport = Modernizr.track && !bugs.track;
 
 webshims.register('mediaelement-core', function($, webshims, window, document, undefined, options){
 	hasSwf = swfmini.hasFlashPlayerVersion('10.0.3');
-	$('html').addClass(hasSwf ? 'swf' : 'no-swf');
 	var mediaelement = webshims.mediaelement;
 	
 	mediaelement.parseRtmp = function(data){
@@ -124,6 +83,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		}
 		data.streamId = data.streamId.join('/');
 	};
+
 	var getSrcObj = function(elem, nodeName){
 		elem = $(elem);
 		var src = {src: elem.attr('src') || '', elem: elem, srcProp: elem.prop('src')};
@@ -193,14 +153,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			});
 		}
 	};
-//	var loadMediaGroup = function(){
-//		if(!loadMediaGroup.loaded){
-//			loadMediaGroup.loaded = true;
-//			webshims.ready(window.MediaController ? 'WINDOWLOAD' : 'DOM', function(){
-//				webshims.loader.loadList(['mediagroup']);
-//			});
-//		}
-//	};
+
 	var loadYt = (function(){
 		var loaded;
 		return function(){
@@ -225,10 +178,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		d: ['dom-support']
 	});
 	
-	
-//	webshims.addModule('mediagroup', {
-//		d: ['mediaelement', 'dom-support']
-//	});
+
 	
 	mediaelement.mimeTypes = {
 		audio: {
@@ -262,7 +212,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 	
 	mediaelement.mimeTypes.source =  $.extend({}, mediaelement.mimeTypes.audio, mediaelement.mimeTypes.video);
 	
-	mediaelement.getTypeForSrc = function(src, nodeName, data){
+	mediaelement.getTypeForSrc = function(src, nodeName){
 		if(src.indexOf('youtube.com/watch?') != -1 || src.indexOf('youtube.com/v/') != -1){
 			return 'video/youtube';
 		}
@@ -300,32 +250,13 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			}
 			return srces;
 		} else {
-			mediaElem.removeAttr('src').removeAttr('type').find('source').remove();
-			if(!$.isArray(srces)){
-				srces = [srces]; 
-			}
-			srces.forEach(function(src){
-				if(typeof src == 'string'){
-					src = {src: src};
-				} 
-				mediaElem.append($(document.createElement('source')).attr(src));
-			});
-			
+			webshims.error('setting sources was removed.');
 		}
 	};
 	
 	
-	$.fn.loadMediaSrc = function(srces, poster){
-		return this.each(function(){
-			if(poster !== undefined){
-				$(this).removeAttr('poster');
-				if(poster){
-					$.attr(this, 'poster', poster);
-				}
-			}
-			mediaelement.srces(this, srces);
-			$(this).mediaLoad();
-		});
+	$.fn.loadMediaSrc = function(){
+		webshims.error('loadMediaSrc was removed.');
 	};
 	
 	mediaelement.swfMimeTypes = ['video/3gpp', 'video/x-msvideo', 'video/quicktime', 'video/x-m4v', 'video/mp4', 'video/m4p', 'video/x-flv', 'video/flv', 'audio/mpeg', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/mp3', 'audio/x-fla', 'audio/fla', 'youtube/flv', 'video/jarisplayer', 'jarisplayer/jarisplayer', 'video/youtube', 'video/rtmp', 'audio/rtmp'];
@@ -401,8 +332,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		var readyType = hasSwf ? swfType : 'mediaelement-yt';
 		return function( mediaElem, ret, data ){
 			//readd to ready
-			
-			
+
 			webshims.ready(readyType, function(){
 				if(mediaelement.createSWF && $(mediaElem).parent()[0]){
 					mediaelement.createSWF( mediaElem, ret, data );
@@ -478,57 +408,13 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		
 	});
 	
-	var handleMedia = false;	
+	var handleMedia = false;
 	var initMediaElements = function(){
 		var testFixMedia = function(){
 			if(webshims.implement(this, 'mediaelement')){
 				selectSource(this);
 				if(!Modernizr.mediaDefaultMuted && $.attr(this, 'muted') != null){
 					$.prop(this, 'muted', true);
-				}
-				//fixes for FF 12 and IE9/10 || does not hurt, if run in other browsers
-				if(hasNative && (!supportsLoop || ('ActiveXObject' in window))){
-					var bufferTimer;
-					var lastBuffered;
-					var elem = this;
-					var getBufferedString = function(){
-						var buffered = $.prop(elem, 'buffered');
-						if(!buffered){return;}
-						var bufferString = "";
-						for(var i = 0, len = buffered.length; i < len;i++){
-							bufferString += buffered.end(i);
-						}
-						return bufferString;
-					};
-					var testBuffer = function(){
-						var buffered = getBufferedString();
-						if(buffered != lastBuffered){
-							lastBuffered = buffered;
-							webshims.info('needed to trigger progress manually');
-							$(elem).triggerHandler('progress');
-						}
-					};
-					
-					$(this)
-						.on({
-							'play loadstart progress': function(e){
-								if(e.type == 'progress'){
-									lastBuffered = getBufferedString();
-								}
-								clearTimeout(bufferTimer);
-								bufferTimer = setTimeout(testBuffer, 400);
-							},
-							'emptied stalled mediaerror abort suspend': function(e){
-								if(e.type == 'emptied'){
-									lastBuffered = false;
-								}
-								clearTimeout(bufferTimer);
-							}
-						})
-					;
-					if('ActiveXObject' in window && $.prop(this, 'paused') && !$.prop(this, 'readyState') && $(this).is('audio[preload="none"][controls]:not([autoplay],.nonnative-api-active)')){
-						$(this).prop('preload', 'metadata').mediaLoad(); 
-					}
 				}
 			}
 			
@@ -542,7 +428,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			}
 			
 			['audio', 'video'].forEach(function(nodeName){
-				var supLoad, supController;
+				var supLoad;
 				supLoad = webshims.defineNodeNameProperty(nodeName, 'load',  {
 					prop: {
 						value: function(){
@@ -550,6 +436,9 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 							selectSource(this, data);
 							if(hasNative && (!data || data.isActive == 'html5') && supLoad.prop._supvalue){
 								supLoad.prop._supvalue.apply(this, arguments);
+							}
+							if(!loadTrackUi.loaded && $('track', this).length){
+								loadTrackUi();
 							}
 							$(this).triggerHandler('wsmediareload');
 						}
@@ -575,58 +464,8 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 						}
 					}
 				});
-				
-//				supController = webshims.defineNodeNameProperty(nodeName, 'controller',  {
-//					prop: {
-//						get: function(type){
-//							if(!loadMediaGroup.loaded){
-//								loadMediaGroup();
-//							}
-//							if(mediaelement.controller){
-//								return mediaelement.controller[nodeName].get.apply(this, arguments);
-//							}
-//							return supController.prop._supget && supController.prop._supget.apply(this, arguments);
-//						},
-//						set: function(){
-//							var that = this;
-//							var args = arguments;
-//							if(!loadMediaGroup.loaded){
-//								loadMediaGroup();
-//							}
-//							if(mediaelement.controller){
-//								return mediaelement.controller[nodeName].set.apply(that, args);
-//							} else {
-//								webshims.ready('mediagroup', function(){
-//									mediaelement.controller[nodeName].set.apply(that, args);
-//								});
-//							}
-//							return supController.prop._supset && supController.prop._supset.apply(this, arguments);
-//						}
-//					}
-//				});
-				
-//				webshims.ready('mediagroup', function(){
-//					mediaelement.controller[nodeName].sup = supController;
-//				});
 			});
-			
-//			webshims.onNodeNamesPropertyModify(['audio', 'video'], ['mediaGroup'], {
-//				set: function(){
-//					var that = this;
-//					var args = arguments;
-//					if(!loadMediaGroup.loaded){
-//						loadMediaGroup();
-//					}
-//					if(mediaelement.mediagroup){
-//						mediaelement.mediagroup.set.apply(that, args);
-//					} else {
-//						webshims.ready('mediagroup', function(){
-//							mediaelement.mediagroup.set.apply(that, args);
-//						});
-//					}
-//				},
-//				initAttr: true
-//			});
+
 			
 			webshims.onNodeNamesPropertyModify(['audio', 'video'], ['src', 'poster'], {
 				set: function(){
@@ -649,9 +488,6 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				if(!loadTrackUi.loaded && $('track', media).length){
 					loadTrackUi();
 				}
-//				if(!loadMediaGroup.loaded && this.getAttribute('mediagroup')){
-//					loadMediaGroup();
-//				}
 				media = null;
 			});
 		});
@@ -674,13 +510,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		}
 	};
 	
-	if(hasFullTrackSupport){
-		webshims.defineProperty(TextTrack.prototype, 'shimActiveCues', {
-			get: function(){
-				return this._shimActiveCues || this.activeCues;
-			}
-		});
-	}
+
 	//set native implementation ready, before swf api is retested
 	if(hasNative){
 		webshims.isReady('mediaelement-core', true);
@@ -691,17 +521,14 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 	}
 	webshims.ready('track', loadTrackUi);
 });
+
 })(Modernizr, webshims);
 ;webshims.register('track', function($, webshims, window, document, undefined){
 	"use strict";
 	var mediaelement = webshims.mediaelement;
 	var id = new Date().getTime();
-	var ADDBACK = $.fn.addBack ? 'addBack' : 'andSelf';
 	//descriptions are not really shown, but they are inserted into the dom
 	var showTracks = {subtitles: 1, captions: 1, descriptions: 1};
-	var notImplemented = function(){
-		webshims.error('not implemented yet');
-	};
 	var dummyTrack = $('<track />');
 	var supportTrackMod = Modernizr.ES5 && Modernizr.objectAccessor;
 	var createEventTarget = function(obj){
@@ -803,9 +630,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 	};
 	var copyProps = ['kind', 'label', 'srclang'];
 	var copyName = {srclang: 'language'};
-	
-	var owns = Function.prototype.call.bind(Object.prototype.hasOwnProperty);
-	
+
 	var updateMediaTrackList = function(baseData, trackList){
 		var removed = [];
 		var added = [];
@@ -908,66 +733,53 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		};
 	})();
 	var emptyDiv = $('<div />')[0];
-	var TextTrackCue = function(startTime, endTime, text){
+
+	function VTTCue(startTime, endTime, text){
 		if(arguments.length != 3){
-			webshims.error("wrong arguments.length for TextTrackCue.constructor");
+			webshims.error("wrong arguments.length for VTTCue.constructor");
 		}
-		
+
 		this.startTime = startTime;
 		this.endTime = endTime;
 		this.text = text;
-		
-		
-		createEventTarget(this);
-	};
-	
-	TextTrackCue.prototype = {
-		
-		onenter: null,
-		onexit: null,
-		pauseOnExit: false,
-		getCueAsHTML: function(){
+		this.onenter = null;
+		this.onexit = null;
+		this.pauseOnExit = false;
+		this.track = null;
+		this.id = null;
+		this.getCueAsHTML = (function(){
 			var lastText = "";
 			var parsedText = "";
-			var fragment = document.createDocumentFragment();
-			var fn;
-			if(!owns(this, 'getCueAsHTML')){
-				fn = this.getCueAsHTML = function(){
-					var i, len;
-					if(lastText != this.text){
-						lastText = this.text;
-						parsedText = mediaelement.parseCueTextToHTML(lastText);
-						emptyDiv.innerHTML = parsedText;
-						
-						for(i = 0, len = emptyDiv.childNodes.length; i < len; i++){
-							fragment.appendChild(emptyDiv.childNodes[i].cloneNode(true));
-						}
+			var fragment;
+
+			return function(){
+				var i, len;
+				if(!fragment){
+					fragment = document.createDocumentFragment();
+				}
+				if(lastText != this.text){
+					lastText = this.text;
+					parsedText = mediaelement.parseCueTextToHTML(lastText);
+					emptyDiv.innerHTML = parsedText;
+
+					for(i = 0, len = emptyDiv.childNodes.length; i < len; i++){
+						fragment.appendChild(emptyDiv.childNodes[i].cloneNode(true));
 					}
-					return fragment.cloneNode(true);
-				};
-				
-			}
-			return fn ? fn.apply(this, arguments) : fragment.cloneNode(true);
-		},
-		track: null,
-		
-		
-		id: ''
-		//todo-->
-//			,
-//			snapToLines: true,
-//			line: 'auto',
-//			size: 100,
-//			position: 50,
-//			vertical: '',
-//			align: 'middle'
+				}
+				return fragment.cloneNode(true);
+			};
+
+		})();
+	}
+	
+	window.VTTCue = VTTCue;
+	window.TextTrackCue = function(){
+		webshims.error("Use VTTCue constructor instead of abstract TextTrackCue constructor.");
+		VTTCue.apply(this, arguments);
 	};
-	
-	window.TextTrackCue = TextTrackCue;
-	
-	
-	
-	
+
+	window.TextTrackCue.prototype = VTTCue.prototype;
+
 	mediaelement.createCueList = function(){
 		return $.extend([], cueListProto);
 	};
@@ -1009,12 +821,15 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 	})();
 	
 	mediaelement.loadTextTrack = function(mediaelem, track, trackData, _default){
-		var loadEvents = 'play playing updatetrackdisplay';
+		var loadEvents = 'play playing';
 		var obj = trackData.track;
 		var load = function(){
-			var error, ajax, src, createAjax;
-			if(obj.mode != 'disabled' && $.attr(track, 'src') && (src = $.prop(track, 'src'))){
-				$(mediaelem).off(loadEvents, load);
+			var error, ajax, createAjax;
+			var src = obj.mode != 'disabled' && ($.attr(track, 'src') && $.prop(track, 'src'));
+
+			if(src){
+				$(mediaelem).off(loadEvents, load).off('updatetrackdisplay', load);
+
 				if(!trackData.readyState){
 					error = function(){
 						trackData.readyState = 3;
@@ -1048,11 +863,11 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 								error: error
 							});
 						};
-						if($.ajax){
+						if($.ajax && $.ajaxSettings.xhr){
 							createAjax();
 						} else {
-							webshims.ready('$ajax', createAjax);
-							webshims.loader.loadList(['$ajax']);
+							webshims.ready('jajax', createAjax);
+							webshims.loader.loadList(['jajax']);
 						}
 					} catch(er){
 						error();
@@ -1066,11 +881,15 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		obj._shimActiveCues = null;
 		obj.activeCues = null;
 		obj.cues = null;
-		$(mediaelem).off(loadEvents, load);
+
 		$(mediaelem).on(loadEvents, load);
 		if(_default){
 			obj.mode = showTracks[obj.kind] ? 'showing' : 'hidden';
-			load();
+			webshims.ready('WINDOWLOAD', load);
+		} else {
+			webshims.ready('WINDOWLOAD', function(){
+				$(mediaelem).on('updatetrackdisplay', load);
+			});
 		}
 	};
 	
@@ -1099,7 +918,6 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			
 			
 			if(track.nodeName){
-				
 				if(supportTrackMod){
 					copyProps.forEach(function(copyProp){
 						webshims.defineProperty(obj, copyName[copyProp] || copyProp, {
@@ -1134,8 +952,8 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		
 		return obj;
 	};
-	
-	
+
+
 /*
 taken from:
 Captionator 0.5.1 [CaptionCrunch]
@@ -1149,19 +967,17 @@ modified for webshims
 	mediaelement.parseCaptionChunk = (function(){
 		// Set up timestamp parsers
 		var WebVTTTimestampParser			= /^(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s+\-\-\>\s+(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s*(.*)/;
-		var GoogleTimestampParser		= /^([\d\.]+)\s+\+([\d\.]+)\s*(.*)/;
 		var WebVTTDEFAULTSCueParser		= /^(DEFAULTS|DEFAULT)\s+\-\-\>\s+(.*)/g;
 		var WebVTTSTYLECueParser		= /^(STYLE|STYLES)\s+\-\-\>\s*\n([\s\S]*)/g;
 		var WebVTTCOMMENTCueParser		= /^(COMMENT|COMMENTS)\s+\-\-\>\s+(.*)/g;
-		
+
 		return function(subtitleElement,objectCount){
-			var cueDefaults = [];
-		
-			var subtitleParts, timeIn, timeOut, html, timeData, subtitlePartIndex, cueSettings = "", id, specialCueData;
+
+			var subtitleParts, timeIn, timeOut, html, timeData, subtitlePartIndex, id, specialCueData;
 			var timestampMatch, tmpCue;
 
 			// WebVTT Special Cue Logic
-			if ((specialCueData = WebVTTDEFAULTSCueParser.exec(subtitleElement))) {
+			if (WebVTTDEFAULTSCueParser.exec(subtitleElement)) {
 //				cueDefaults = specialCueData.slice(2).join("");
 //				cueDefaults = cueDefaults.split(/\s+/g).filter(function(def) { return def && !!def.length; });
 				return null;
@@ -1170,33 +986,33 @@ modified for webshims
 			} else if ((specialCueData = WebVTTCOMMENTCueParser.exec(subtitleElement))) {
 				return null; // At this stage, we don't want to do anything with these.
 			}
-			
+
 			subtitleParts = subtitleElement.split(/\n/g);
-		
+
 			// Trim off any blank lines (logically, should only be max. one, but loop to be sure)
 			while (!subtitleParts[0].replace(/\s+/ig,"").length && subtitleParts.length > 0) {
 				subtitleParts.shift();
 			}
-		
+
 			if (subtitleParts[0].match(/^\s*[a-z0-9-\_]+\s*$/ig)) {
 				// The identifier becomes the cue ID (when *we* load the cues from file. Programatically created cues can have an ID of whatever.)
 				id = String(subtitleParts.shift().replace(/\s*/ig,""));
 			}
-		
+
 			for (subtitlePartIndex = 0; subtitlePartIndex < subtitleParts.length; subtitlePartIndex ++) {
 				var timestamp = subtitleParts[subtitlePartIndex];
-				
+
 				if ((timestampMatch = WebVTTTimestampParser.exec(timestamp))) {
-					
+
 					// WebVTT
-					
+
 					timeData = timestampMatch.slice(1);
-					
+
 					timeIn =	parseInt((timeData[0]||0) * 60 * 60,10) +	// Hours
 								parseInt((timeData[1]||0) * 60,10) +		// Minutes
 								parseInt((timeData[2]||0),10) +				// Seconds
 								parseFloat("0." + (timeData[3]||0));		// MS
-					
+
 					timeOut =	parseInt((timeData[4]||0) * 60 * 60,10) +	// Hours
 								parseInt((timeData[5]||0) * 60,10) +		// Minutes
 								parseInt((timeData[6]||0),10) +				// Seconds
@@ -1207,7 +1023,7 @@ modified for webshims
 					}
 */
 				}
-				
+
 				// We've got the timestamp - return all the other unmatched lines as the raw subtitle data
 				subtitleParts = subtitleParts.slice(0,subtitlePartIndex).concat(subtitleParts.slice(subtitlePartIndex+1));
 				break;
@@ -1226,7 +1042,7 @@ modified for webshims
 						previous[current.split(":")[0]] = current.split(":")[1];
 						return previous;
 					},{});
-			
+
 			// Loop through cue settings, replace defaults with cue specific settings if they exist
 			compositeCueSettings =
 				cueSettings
@@ -1237,8 +1053,8 @@ modified for webshims
 						previous[current.split(":")[0]] = current.split(":")[1];
 						return previous;
 					},compositeCueSettings);
-			
-			// Turn back into string like the TextTrackCue constructor expects
+
+			// Turn back into string like the VTTCue constructor expects
 			cueSettings = "";
 			for (var key in compositeCueSettings) {
 				if (compositeCueSettings.hasOwnProperty(key)) {
@@ -1249,25 +1065,25 @@ modified for webshims
 */
 			// The remaining lines are the subtitle payload itself (after removing an ID if present, and the time);
 			html = subtitleParts.join("\n");
-			tmpCue = new TextTrackCue(timeIn, timeOut, html);
+			tmpCue = new VTTCue(timeIn, timeOut, html);
 			if(id){
 				tmpCue.id = id;
 			}
 			return tmpCue;
 		};
 	})();
-	
+
 	mediaelement.parseCaptions = function(captionData, track, complete) {
-		var subtitles = mediaelement.createCueList();
-		var cue, lazyProcess, regWevVTT;
-		var startDate;
-		var isWEBVTT;
+
+		var cue, lazyProcess, regWevVTT, startDate, isWEBVTT;
+
+		mediaelement.createCueList();
 		if (captionData) {
-			
+
 			regWevVTT = /^WEBVTT(\s*FILE)?/ig;
-			
+
 			lazyProcess = function(i, len){
-				
+
 				for(; i < len; i++){
 					cue = captionData[i];
 					if(regWevVTT.test(cue)){
@@ -1289,7 +1105,7 @@ modified for webshims
 							startDate = new Date().getTime();
 							lazyProcess(i, len);
 						}, 90);
-						
+
 						break;
 					}
 				}
@@ -1300,9 +1116,9 @@ modified for webshims
 					complete(track.cues);
 				}
 			};
-			
+
 			captionData = captionData.replace(/\r\n/g,"\n");
-			
+
 			setTimeout(function(){
 				captionData = captionData.replace(/\r/g,"\n");
 				setTimeout(function(){
@@ -1311,12 +1127,12 @@ modified for webshims
 					lazyProcess(0, captionData.length);
 				}, 9);
 			}, 9);
-			
+
 		} else {
 			webshims.error("Required parameter captionData not supplied.");
 		}
 	};
-	
+
 	
 	mediaelement.createTrackList = function(mediaelem, baseData){
 		baseData = baseData || webshims.data(mediaelem, 'mediaelementBase') || webshims.data(mediaelem, 'mediaelementBase', {});
@@ -1441,7 +1257,6 @@ modified for webshims
 		},
 		readyState: {
 			get: function(){
-				
 				return (webshims.data(this, 'trackData') || {readyState: 0}).readyState;
 			},
 			writeable: false
@@ -1506,29 +1321,27 @@ modified for webshims
 			e.stopImmediatePropagation();
 		}
 	};
-	var startTrackImplementation = function(){
+	var hideNativeTracks = function(){
 		if(webshims.implement(this, 'track')){
-			var shimedTrack = $.prop(this, 'track');
-			var origTrack = this.track;
 			var kind;
-			var readyState;
+			var origTrack = this.track;
 			if(origTrack){
-				kind = $.prop(this, 'kind');
-				readyState = getNativeReadyState(this, origTrack);
-				if (origTrack.mode || readyState) {
-					shimedTrack.mode = numericModes[origTrack.mode] || origTrack.mode;
+
+				if (!webshims.bugs.track && (origTrack.mode || getNativeReadyState(this, origTrack))) {
+					$.prop(this, 'track').mode = numericModes[origTrack.mode] || origTrack.mode;
 				}
 				//disable track from showing + remove UI
-				if(kind != 'descriptions'){
-					origTrack.mode = (typeof origTrack.mode == 'string') ? 'disabled' : 0;
-					this.kind = 'metadata';
-					$(this).attr({kind: kind});
-				}
+				kind = $.prop(this, 'kind');
+				origTrack.mode = (typeof origTrack.mode == 'string') ? 'disabled' : 0;
+				this.kind = 'metadata';
+
+				$(this).attr({kind: kind});
 				
 			}
 			$(this).on('load error', stopOriginalEvent);
 		}
 	};
+
 	webshims.addReady(function(context, insertedElement){
 		var insertedMedia = insertedElement.filter('video, audio, track').closest('audio, video');
 		$('video, audio', context)
@@ -1541,14 +1354,16 @@ modified for webshims
 				if(Modernizr.track){
 					var shimedTextTracks = $.prop(this, 'textTracks');
 					var origTextTracks = this.textTracks;
+
 					if(shimedTextTracks.length != origTextTracks.length){
-						webshims.error("textTracks couldn't be copied");
+						webshims.warn("textTracks couldn't be copied");
 					}
 					
-					$('track', this).each(startTrackImplementation);
+					$('track', this).each(hideNativeTracks);
 				}
 			})
 		;
+
 		insertedMedia.each(function(){
 			var media = this;
 			var baseData = webshims.data(media, 'mediaelementBase');
