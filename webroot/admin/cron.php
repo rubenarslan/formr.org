@@ -1,6 +1,6 @@
 <?php
 require_once '../../define_root.php';
-$start_cron_time = microtime();
+$start_cron_time = microtime(true);
 // even though the cronjobs are supposed to run only 6 min and are spaced 7 min, there seem to be problems due to overlapping CJs
 // the lockfile is supposed to fix this
 $lockfilepath = INCLUDE_ROOT.'/tmp/cron.lock';
@@ -63,8 +63,8 @@ foreach($runs AS $run_data):
 			endif;
 		endforeach;
 		
-		if(microtime() - $start_cron_time > 60*6):
-			echo "within-Cronjob interrupted after running ". (microtime() - $start_cron_time) . " seconds";
+		if(microtime(true) - $start_cron_time > 60*6):
+			echo "within-Cronjob interrupted after running ". (microtime(true) - $start_cron_time) . " seconds<br>";
 			break;
 		endif;
 	endforeach;
@@ -96,8 +96,8 @@ if(array_sum($done) > 0 OR array_sum($alert_types) > 0):
 endif;
 
 	echo $msg."<br>";
-	if(microtime() - $start_cron_time > 60 * 6):
-		echo "Cronjob interrupted after running ". (microtime() - $start_cron_time) . " seconds";
+	if(microtime(true) - $start_cron_time > 60 * 6):
+		echo "Cronjob interrupted after running ". (microtime(true) - $start_cron_time) . " seconds";
 		break;
 	endif;
 endforeach;
