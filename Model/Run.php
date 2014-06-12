@@ -34,18 +34,32 @@ class Run
 	private $dbh;
 	public $custom_css_path = null;
 	public $custom_js_path = null;
+	private $header_image_path = null;
+	private $title = null;
+	private $description = null;
+	private $footer_text = null;
+	private $public_blurb = null;
+	
 	
 	public function __construct($fdb, $name, $options = null) 
 	{
 		$this->dbh = $fdb;
 		
+		if($name == "fake_test_run"):
+			$this->name = $name;
+			$this->valid = true;
+			
+			return true;
+		endif;
+		
 		if($name !== null OR ($name = $this->create($options))):
 			$this->name = $name;
+			
 			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active,display_service_message,locked, header_image_path,title,description,footer_text,public_blurb,custom_css_path,custom_js_path FROM `survey_runs` WHERE name = :run_name LIMIT 1");
 			$run_data->bindParam(":run_name",$this->name);
 			$run_data->execute() or die(print_r($run_data->errorInfo(), true));
 			$vars = $run_data->fetch(PDO::FETCH_ASSOC);
-			
+
 			if($vars):
 				$this->id = $vars['id'];
 				$this->user_id = (int)$vars['user_id'];
@@ -178,16 +192,17 @@ class Run
 		$success = $toggle->execute() or die(print_r($toggle->errorInfo(), true));
 		return $success;
 	}
+
 	public function create($options)
 	{
 	    $name = trim($options['run_name']);
-	    if($name == ""):
+	    if($name == "" ):
 			$this->errors[] = _("You have to specify a run name.");
 			return false;
-		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,255}/",$name)):
+		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,255}/",$name) ):
 			$this->errors[] = _("The run's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
 			return false;
-		elseif($this->existsByName($name)):
+		elseif($this->existsByName($name) OR $name == "fake_test_run"):
 			$this->errors[] = __("The run's name '%s' is already taken.",h($name));
 			return false;
 		endif;
@@ -730,5 +745,139 @@ This study is currently being serviced. Please return at a later time."));
 		$g_users->bindParam(':run_id',$this->id);
 		$g_users->execute();
 		return $g_users;
+	}
+	private function fakeTestRun()
+	{
+		require_once INCLUDE_ROOT . "Model/Survey.php";
+	
+		if(isset($_SESSION['dummy_survey_session'])):
+			$unit = new Survey($this->dbh, null, $_SESSION['dummy_survey_session']);
+			$output = $unit->exec();
+			$run_session = $this->makeDummyRunSession("fake_test_run","Survey");
+
+			if(!$output):
+				$output['title'] = 'Finish';
+				$output['body'] = "
+					<h1>Finish</h1>
+					<p>
+					You're finished with testing this survey.</p><a href='".WEBROOT."admin/survey/".$_SESSION['dummy_survey_session']['survey_name']."/index'>Back to the admin control panel.</a>";
+			
+				unset($_SESSION['dummy_survey_session']);
+			endif;
+			return compact("output","run_session");
+		else:
+			alert("<strong>Error:</strong> Nothing to test-drive.",'alert-danger');
+			redirect_to("/index");
+			return false;
+		endif;
+	}
+	private function makeDummyRunSession($position, $current_unit_type)
+	{
+		$run_session = (object) "dummy";
+		$run_session->position = $position;
+		$run_session->current_unit_type = $current_unit_type;
+		return $run_session;
+	}
+	public function exec($user)
+	{
+		if(!$this->valid):
+			alert(__("<strong>Error:</strong> Run %s is broken or does not exist.",$this->name),'alert-danger');
+			redirect_to("/index");
+			return false;
+		elseif($this->name == "fake_test_run"):
+			extract($this->fakeTestRun());
+		elseif($this->being_serviced AND !$user->created($this)):
+			$output = $this->getServiceMessage()->exec();
+			$run_session = $this->makeDummyRunSession("service_message","Page");
+		else:
+			if($user->loggedIn() AND isset($_SESSION['UnitSession']) AND $user->user_code !== unserialize($_SESSION['UnitSession'])->session):
+				alert('<strong>Error.</strong> You seem to have switched sessions.','alert-danger');
+				redirect_to('index');
+			endif;
+			
+			require_once INCLUDE_ROOT . 'Model/RunSession.php';
+			/* ways to get here
+			1. test run link in admin area
+				- check permission (ie did user create study)
+			2. public run link
+				- check whether run is public
+			3. private run link (e.g. email reminder but run not publicly accessible)
+				- check whether session exists
+			
+			turning this downside up
+			1. has session
+				- gets access
+			2. elseif has created study but no session
+				- gets access, create token
+			3. elseif has clicked public link but no session
+				- gets access, create token
+			4. else run not public, no session, no admin
+				- no access
+			*/
+			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code); // does this user have a session?
+			if(
+				$run_session->id // would be NULL if no session
+				OR // only if user has no session do other stuff
+				(
+					($user->created($this) // if the user created the study, give access
+						OR
+					 $this->public)		    // or if the run is public
+				AND
+				$run_session->create($user->user_code) // give access. phrased as condition, but should always return true
+				) 
+			):
+				$output = $run_session->getUnit();
+			else:
+				alert("<strong>Error:</strong> You don't have access to this run.",'alert-danger');
+				redirect_to("/index");
+			endif;
+		endif;
+		
+		if($output):
+			global $site, $title, $css, $js;
+			
+			if(isset($output['title'])):
+				$title = $output['title'];
+			else:
+				$title = $this->title? $this->title : $this->name;
+			endif;
+	
+			if($this->custom_css_path)
+				$css = '<link rel="stylesheet" href="'.WEBROOT.$this->custom_css_path.'" type="text/css" media="screen">';
+			if($this->custom_js_path)
+				$js .= '<script src="'.WEBROOT.$this->custom_js_path.'"></script>';
+	
+			require_once INCLUDE_ROOT . 'View/header.php';
+
+			?>
+		<div class="row">
+			<div class="col-lg-12 run_position_<?=$run_session->position?> run_unit_type_<?=$run_session->current_unit_type?> run_content">
+				<header class="run_content_header"><?=$this->header_image_path? '<img src="'.$this->header_image_path.'" alt="'.$this->name.' header image">':''; ?></header>
+		<?php
+			$alerts = $site->renderAlerts();
+			if(!empty($alerts)):
+				echo '
+					<div class="row">
+						<div class="col-md-6 col-sm-6 all-alerts">';
+							echo $alerts;
+					echo '</div>
+					</div>';
+			endif;
+			if(trim($this->description)):
+				echo $markdown = Parsedown::instance()
+							    ->set_breaks_enabled(true)
+							    ->parse($this->description);
+			endif;
+		
+			echo $output['body'];
+
+			if(trim($this->footer_text)):
+				echo $markdown = Parsedown::instance()
+							    ->set_breaks_enabled(true)
+							    ->parse($this->footer_text);
+			endif;
+		
+			require_once INCLUDE_ROOT . 'View/footer.php';
+		endif;
 	}
 }
