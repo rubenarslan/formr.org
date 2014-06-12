@@ -392,7 +392,7 @@ class Survey extends RunUnit {
 						)
 					)
 					{
-						continue; // skip this mc_heading							
+						continue; // skip this mc_heading
 					}
 				}
 				
