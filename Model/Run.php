@@ -37,8 +37,12 @@ class Run
 	private $header_image_path = null;
 	private $title = null;
 	private $description = null;
+	private $description_parsed = null;
 	private $footer_text = null;
+	private $footer_text_parsed = null;
 	private $public_blurb = null;
+	private $public_blurb_parsed = null;
+	
 	
 	
 	public function __construct($fdb, $name, $options = null) 
@@ -55,7 +59,7 @@ class Run
 		if($name !== null OR ($name = $this->create($options))):
 			$this->name = $name;
 			
-			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active,display_service_message,locked, header_image_path,title,description,footer_text,public_blurb,custom_css_path,custom_js_path FROM `survey_runs` WHERE name = :run_name LIMIT 1");
+			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active,display_service_message,locked, header_image_path,title,description,description_parsed,footer_text,footer_text_parsed,public_blurb,public_blurb_parsed,custom_css_path,custom_js_path FROM `survey_runs` WHERE name = :run_name LIMIT 1");
 			$run_data->bindParam(":run_name",$this->name);
 			$run_data->execute() or die(print_r($run_data->errorInfo(), true));
 			$vars = $run_data->fetch(PDO::FETCH_ASSOC);
@@ -71,8 +75,11 @@ class Run
 				$this->header_image_path = $vars['header_image_path'];
 				$this->title = $vars['title'];
 				$this->description = $vars['description'];
+				$this->description_parsed = $vars['description_parsed'];
 				$this->footer_text = $vars['footer_text'];
+				$this->footer_text_parsed = $vars['footer_text_parsed'];
 				$this->public_blurb = $vars['public_blurb'];
+				$this->public_blurb_parsed = $vars['public_blurb_parsed'];
 				$this->custom_css_path = $vars['custom_css_path'];
 				$this->custom_js_path = $vars['custom_js_path'];
 			
@@ -582,6 +589,25 @@ This study is currently being serviced. Please return at a later time."));
 	public function saveSettings($posted)
 	{
 		$successes = array();
+		if(isset($posted['description'])):
+			$posted['description_parsed'] = Parsedown::instance()
+							    ->set_breaks_enabled(true)
+							    ->parse($posted['description']);
+			$this->run_settings[] = 'description_parsed';
+		endif;
+		if(isset($posted['public_blurb'])):
+			$posted['public_blurb_parsed'] = Parsedown::instance()
+							    ->set_breaks_enabled(true)
+							    ->parse($posted['public_blurb']);
+			$this->run_settings[] = 'public_blurb_parsed';
+		endif;
+		if(isset($posted['footer_text'])):
+			$posted['footer_text_parsed'] = Parsedown::instance()
+							    ->set_breaks_enabled(true)
+							    ->parse($posted['footer_text']);
+			$this->run_settings[] = 'footer_text_parsed';
+		endif;
+		
 		foreach($posted AS $name => $value):
 			if(in_array($name, $this->run_settings)):
 				
@@ -863,18 +889,14 @@ This study is currently being serviced. Please return at a later time."));
 					echo '</div>
 					</div>';
 			endif;
-			if(trim($this->description)):
-				echo $markdown = Parsedown::instance()
-							    ->set_breaks_enabled(true)
-							    ->parse($this->description);
+			if(trim($this->description_parsed)):
+				echo $this->description_parsed;
 			endif;
 		
 			echo $output['body'];
 
-			if(trim($this->footer_text)):
-				echo $markdown = Parsedown::instance()
-							    ->set_breaks_enabled(true)
-							    ->parse($this->footer_text);
+			if(trim($this->footer_text_parsed)):
+				echo $this->footer_text_parsed;
 			endif;
 		
 			require_once INCLUDE_ROOT . 'View/footer.php';
