@@ -19,7 +19,8 @@ class Email extends RunUnit {
 	private $html = 1;
 	public $icon = "fa-envelope";
 	public $type = "Email";
-	
+	private $subject_parsed = null;
+ 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
 		parent::__construct($fdb,$session,$unit);
@@ -106,6 +107,21 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		$this->valid = true;
 		
 		return true;
+	}
+	private function getSubject()
+	{
+		if($this->subject_parsed === NULL):
+			if($this->knittingNeeded($this->subject)):
+				if($this->session_id):
+					$this->subject_parsed = $this->getParsedText($this->subject);
+				else:
+					$this->subject_parsed = $this->getParsedTextAdmin($this->subject);
+				endif;
+			else:
+				return $this->subject;
+			endif;
+		endif;
+		return $this->subject_parsed;
 	}
 	private function getBody($embed_email = true)
 	{
@@ -259,7 +275,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$mail->IsHTML(true);  
 		
 		$mail->AddAddress($this->recipient);
-		$mail->Subject = $this->subject;
+		$mail->Subject = $this->getSubject();
 		$mail->Body = $this->getBody();
 		
 		foreach($this->images AS $image_id => $image):
@@ -324,8 +340,8 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		
 		$this->sendMail($receiver);
 		$link = "{$RandReceiv}.mailinator.com";
-		
-		echo "<h4>{$this->subject}</h4>";
+
+		echo "<h4>".$this->getSubject()."</h4>";
 		echo "<p><a href='http://$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
 		
 		echo $this->getBody(false);

@@ -122,8 +122,15 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 		
 		return $this->debugCall($result);
 	}
+	public function knit($source,$return = '/json')
+	{
+		$post = array(	'text' 			=> "'".addslashes($source)."'");
+		$resp = $this->r_function('knitr/R/knit'.$return, $post);
+		$resp = current(json_decode($resp['body'], true));
+		return $resp;
+	}
 	
-	public function knit($source,$return = '/json',$options = '"base64_images","smartypants","highlight_code","mathjax"')
+	public function knit2html($source,$return = '/json',$options = '"base64_images","smartypants","highlight_code","mathjax"')
 	{
 		
 		$post = array(	'text' 			=> "'".addslashes($source)."'",
@@ -155,7 +162,7 @@ $this->user_data .
 '.
 		$source;
 		
-		$result = $this->knit($source,'/json');
+		$result = $this->knit2html($source,'/json');
 		$html = json_decode($result['body'], true);
 		
 		if(!$html):
@@ -177,7 +184,7 @@ $this->user_data .
 '.
 		$source;
 		$this->knitr_source = $source;
-		$result = $this->knit($source,'');
+		$result = $this->knit2html($source,'');
 		return $this->debugCall($result);
 
 	}
@@ -200,7 +207,7 @@ $this->user_data .
 '.
 		$source;
 		
-		$result = $this->knit($source,'','"smartypants","highlight_code","mathjax"');
+		$result = $this->knit2html($source,'','"smartypants","highlight_code","mathjax"');
 
 		if($this->http_status > 302):
 			 $response = array(
