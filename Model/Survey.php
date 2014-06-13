@@ -9,7 +9,6 @@ class Survey extends RunUnit {
 	public $id = null;
 	public $name = null;
 	public $run_name = null;
-	public $logo_name = null;
 	public $items = array();
 	public $maximum_number_displayed = null;
 	public $unanswered = array();
@@ -62,7 +61,6 @@ class Survey extends RunUnit {
 		if($vars):
 			$this->id = $vars['id'];
 			$this->name = $vars['name'];
-			$this->logo_name = $vars['logo_name'];
 			$this->user_id = (int)$vars['user_id'];
 			$this->results_table = $this->name;
 		
