@@ -208,9 +208,6 @@ form.form-horizontal div.form-group.form-message div.control-label {
 	text-align:left;
 	width:100%;
 }
-form.form-horizontal div.form-row:nth-child(odd) {
-  background-color: #f9f9f9;
-}
 /*form.form-horizontal div.form-row.form-group.optional .control-label::after {
 	content:'*';
 }*/
