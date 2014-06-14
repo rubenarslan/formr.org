@@ -28,6 +28,10 @@ class User
 		else:
 			$this->user_code = bin2hex(openssl_random_pseudo_bytes(32)); // a new arrival
 		endif;
+		
+		if($this->user_code === NULL):
+			$this->user_code = bin2hex(openssl_random_pseudo_bytes(32)); // a new arrival
+		endif;
 	}
 	public function __sleep()
 	{
