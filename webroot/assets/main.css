@@ -131,7 +131,10 @@ label
 {
     border-top-style:dashed;
 }
-
+iframe.rCharts
+{
+    border:0;
+}
 kbd {
     background: none repeat scroll 0 0 #FAFAFA;
     border-color: #CCCCCC #CCCCCC #FFFFFF;
