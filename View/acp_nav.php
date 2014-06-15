@@ -319,7 +319,7 @@ $resultCount = $study->getResultCount();
 <?php endif; ?>
 
 <?php if(!isset($study) AND !isset($run)): ?>
-	<div class="col-md-12">
+	<div class="col-md-12 main_body">
 <?php else: ?>
 	<div class="col-lg-10 col-md-10 col-sm-9 main_body">
 <?php endif; ?>
