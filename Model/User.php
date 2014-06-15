@@ -181,6 +181,26 @@ formr robots";
 		$this->errors[]=_("<strong>Error.</strong> Your login credentials were incorrect.");
 		return false;
 	}
+	public function setAdminLevelTo($level)
+	{
+		global $user;
+		if(! $user->isSuperAdmin()) die ("sth wrong");
+		
+		$level = (int)$level;
+		if($level !== 0 AND $level !== 1):
+			if($level > 1)
+				$level = 1;
+			else
+				$level = 0;
+		endif;
+		
+		$set_level = $this->dbh->prepare("UPDATE `survey_users` SET `admin` = :admin
+		 WHERE `id` = :id AND `admin` < 100 LIMIT 1"); // cannot de-elevate superadmins here
+		
+		$set_level->bindParam(':id',$this->id);
+		$set_level->bindParam(':admin',$level);
+		return $set_level->execute() or die('db');
+	}
 	public function forgot_password($email)
 	{
 		$exists = $this->dbh->prepare("SELECT email FROM `survey_users` WHERE email = :email LIMIT 1");
