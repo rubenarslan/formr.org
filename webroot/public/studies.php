@@ -11,17 +11,18 @@ require_once INCLUDE_ROOT."View/public_nav.php";
 if($runs) {
 ?>
 <div class="row">
-	<div class="col-lg-4 col-lg-offset-1 col-sm-5 col-sm-offset-1 col-xs-12 well">
-		<h3><?=_("Current studies:")?></h3>
-		<ul class='span4 nav nav-pills nav-stacked'>
-
+	<div class="col-lg-6 col-lg-offset-1 col-sm-5 col-sm-offset-1 col-xs-12">
+		<h2><?=_("Current studies:")?></h2>
 <?php
   foreach($runs as $run) {
-    echo "<li>
-		<a href='".WEBROOT."{$run['name']}'>".$run['name']."</a>
-	</li>";
+    echo '
+<div class="row">
+	<div class="col-lg-12 well">
+		<h4><a href="'.WEBROOT.$run['name']. '">'. ($run['title']?$run['title']:$run['name']).'</a></h4>
+		'.$run['public_blurb_parsed'].'
+	</div>
+</div>';
   }
-  echo "</ul>";
 }
 ?>
 

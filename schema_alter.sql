@@ -4,7 +4,10 @@ SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='TRADITIONAL';
 
 ALTER TABLE `formr`.`survey_users` 
 ADD COLUMN `created` DATETIME NULL DEFAULT NULL AFTER `user_code`,
-ADD COLUMN `modified` DATETIME NULL DEFAULT NULL AFTER `created`;
+ADD COLUMN `modified` DATETIME NULL DEFAULT NULL AFTER `created`,
+ADD COLUMN `mobile_number` VARCHAR(30) NULL DEFAULT NULL AFTER `reset_token_expiry`,
+ADD COLUMN `mobile_verification_hash` VARCHAR(255) NULL DEFAULT NULL AFTER `mobile_number`,
+ADD COLUMN `mobile_verified` TINYINT(1) NULL DEFAULT 0 AFTER `mobile_verification_hash`;
 
 ALTER TABLE `formr`.`survey_studies` 
 DROP COLUMN `logo_name`,
@@ -16,13 +19,14 @@ ADD COLUMN `displayed_percentage_maximum` TINYINT(3) UNSIGNED NULL DEFAULT NULL 
 ADD COLUMN `add_percentage_points` TINYINT(4) NULL DEFAULT NULL AFTER `displayed_percentage_maximum`;
 
 ALTER TABLE `formr`.`survey_runs` 
+DROP COLUMN `display_service_message`,
+CHANGE COLUMN `public` `public` TINYINT(4) NULL DEFAULT 0 ,
 ADD COLUMN `created` DATETIME NULL DEFAULT NULL AFTER `user_id`,
 ADD COLUMN `modified` DATETIME NULL DEFAULT NULL AFTER `created`,
-ADD COLUMN `live` TINYINT(1) NULL DEFAULT 1 AFTER `public`,
-ADD COLUMN `locked` TINYINT(1) NULL DEFAULT 0 AFTER `live`,
+ADD COLUMN `locked` TINYINT(1) NULL DEFAULT 0 AFTER `public`,
 ADD COLUMN `overview_script` INT(10) UNSIGNED NULL DEFAULT NULL AFTER `service_message`,
 ADD COLUMN `deactivated_page` INT(10) UNSIGNED NULL DEFAULT NULL AFTER `overview_script`,
-ADD COLUMN `title` VARCHAR(255) NULL DEFAULT NULL AFTER `display_service_message`,
+ADD COLUMN `title` VARCHAR(255) NULL DEFAULT NULL AFTER `deactivated_page`,
 ADD COLUMN `description` VARCHAR(1000) NULL DEFAULT NULL AFTER `title`,
 ADD COLUMN `description_parsed` TEXT NULL DEFAULT NULL AFTER `description`,
 ADD COLUMN `public_blurb` TEXT NULL DEFAULT NULL AFTER `description_parsed`,

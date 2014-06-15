@@ -41,7 +41,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 					<h4 class="col-lg-12">
 						Api-Secret: <small><?= $run->getApiSecret($user); ?></small>
 					</h3>
-			
+
 					<label class="col-lg-12"> <span title="Will be shown on every page of the run">Title</span>:
 					<input type="text" maxlength="1000" placeholder="Title" name="title" class="form-control" value="<?=h($run->title);?>">
 					</label>
@@ -61,6 +61,12 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 					<label class="col-lg-12"> <span title="This will be the description of your study shown on the public page">Public blurb</span>:
 					<textarea data-editor="markdown" placeholder="Blurb" name="public_blurb" rows="10" cols="80" class="big_ace_editor form-control"><?=h($run->public_blurb);?></textarea>
 					</label>
+					
+			
+					<label class="col-lg-12"> <span title="">Cron Job</span>:<br>
+						Enable automatic sending of email invitations etc. You would want to turn this off only in case of unforeseen problems (e.g. you're spamming the users by accident). <input type="hidden" name="cron_active" value="0"><input type="checkbox" name="cron_active" <?=($run->cron_active)?'checked':''?> value="1">
+					</label>
+					
 
 				</div>
 				</form>
