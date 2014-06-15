@@ -24,23 +24,24 @@ class Run
 	public $name = null;
 	public $valid = false;
 	public $public = false;
-	public $cron_active = false;
+	public $cron_active = true;
+	public $live = false;
 	private $api_secret_hash = null;
 	public $being_serviced = false;
 	public $locked = false;
 	public $errors = array();
 	public $messages = array();
-	private $run_settings = array("header_image_path", "title", "description", "footer_text", "public_blurb", "custom_css", "custom_js");
+	private $run_settings = array("header_image_path", "title", "description", "footer_text", "public_blurb", "custom_css", "custom_js","cron_active");
 	private $dbh;
 	public $custom_css_path = null;
 	public $custom_js_path = null;
-	private $header_image_path = null;
-	private $title = null;
-	private $description = null;
+	public $header_image_path = null;
+	public $title = null;
+	public $description = null;
 	private $description_parsed = null;
-	private $footer_text = null;
+	public $footer_text = null;
 	private $footer_text_parsed = null;
-	private $public_blurb = null;
+	public $public_blurb = null;
 	private $public_blurb_parsed = null;
 	
 	
@@ -159,21 +160,13 @@ class Run
 			alert(__('Could not delete run %s. This is probably because there are still run units present. For safety\'s sake you\'ll first need to delete each unit individually.', $this->name), 'alert-danger');
 		}
 	}
-	public function toggleCron($on)
+
+	public function togglePublic($public)
 	{
-		$on = (int)$on;
-		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET cron_active = :cron_active WHERE id = :id;");
-		$toggle->bindParam(':id',$this->id);
-		$toggle->bindParam(':cron_active', $on );
-		$success = $toggle->execute() or die(print_r($toggle->errorInfo(), true));
-		return $success;
-	}
-	public function togglePublic($on)
-	{
-		$on = (int)$on;
+		if(!in_array($public,range(0,3))) die("not possible");
 		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET public = :public WHERE id = :id;");
 		$toggle->bindParam(':id',$this->id);
-		$toggle->bindParam(':public', $on );
+		$toggle->bindParam(':public', $public );
 		$success = $toggle->execute() or die(print_r($toggle->errorInfo(), true));
 		return $success;
 	}
@@ -215,13 +208,16 @@ class Run
 		endif;
 
 		$this->dbh->beginTransaction();
-		$create = $this->dbh->prepare("INSERT INTO `survey_runs` (user_id, name, api_secret_hash) VALUES (:user_id, :name, :api_secret_hash);");
+		$create = $this->dbh->prepare("INSERT INTO `survey_runs` (user_id, name, title, api_secret_hash, cron_active, public) VALUES (:user_id, :name, :title, :api_secret_hash, 1, 0);");
 		$create->bindParam(':user_id',$options['user_id']);
 		$create->bindParam(':name',$name);
+		$create->bindParam(':title',$name);
 		$new_secret = bin2hex(openssl_random_pseudo_bytes(32));
 		$create->bindParam(':api_secret_hash',$new_secret);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
+		
+		$this->getServiceMessageId();
 
 		return $name;
 	}
@@ -812,9 +808,6 @@ This study is currently being serviced. Please return at a later time."));
 			return false;
 		elseif($this->name == "fake_test_run"):
 			extract($this->fakeTestRun());
-		elseif($this->being_serviced AND !$user->created($this)):
-			$output = $this->getServiceMessage()->exec();
-			$run_session = $this->makeDummyRunSession("service_message","Page");
 		else:
 			if($user->loggedIn() AND isset($_SESSION['UnitSession']) AND $user->user_code !== unserialize($_SESSION['UnitSession'])->session):
 				alert('<strong>Error.</strong> You seem to have switched sessions.','alert-danger');
@@ -822,40 +815,18 @@ This study is currently being serviced. Please return at a later time."));
 			endif;
 			
 			require_once INCLUDE_ROOT . 'Model/RunSession.php';
-			/* ways to get here
-			1. test run link in admin area
-				- check permission (ie did user create study)
-			2. public run link
-				- check whether run is public
-			3. private run link (e.g. email reminder but run not publicly accessible)
-				- check whether session exists
-			
-			turning this downside up
-			1. has session
-				- gets access
-			2. elseif has created study but no session
-				- gets access, create token
-			3. elseif has clicked public link but no session
-				- gets access, create token
-			4. else run not public, no session, no admin
-				- no access
-			*/
 			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code); // does this user have a session?
+			
 			if(
-				$run_session->id // would be NULL if no session
-				OR // only if user has no session do other stuff
-				(
-					($user->created($this) // if the user created the study, give access
-						OR
-					 $this->public)		    // or if the run is public
-				AND
-				$run_session->create($user->user_code) // give access. phrased as condition, but should always return true
-				) 
+				$user->created($this) OR // owner always has access
+				($this->public >= 1 AND $run_session->id) OR // already enrolled
+				($this->public >= 2 AND $run_session->create($user->user_code) ) // anyone with link can access // access code generating phrased as condition, should always return true
 			):
 				$output = $run_session->getUnit();
 			else:
-				alert("<strong>Error:</strong> You don't have access to this run.",'alert-danger');
-				redirect_to("/index");
+				$output = $this->getServiceMessage()->exec();
+				$run_session = $this->makeDummyRunSession("service_message","Page");
+				alert("<strong>Sorry:</strong> You cannot currently access this run.",'alert-warning');
 			endif;
 		endif;
 		

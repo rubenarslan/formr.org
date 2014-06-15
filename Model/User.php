@@ -373,7 +373,7 @@ formr robots";
 
 	function getAvailableRuns()
 	{
-		$runs = $this->dbh->query("SELECT name FROM `survey_runs` WHERE public = 1");
+		$runs = $this->dbh->query("SELECT name,title, public_blurb_parsed FROM `survey_runs` WHERE public > 2");
 		$results = array();
 		while($run = $runs->fetch())
 		{

@@ -29,8 +29,6 @@ RunUnit.prototype.init = function(content)
 	
 	this.unsavedChanges = false;
 	this.save_button = this.block.find('a.unit_save');
-	this.save_button.removeClass('btn-info').attr('disabled', 'disabled').text('Saved')
-	.click($.proxy(this.save,this));
 	
 	this.block.find('button.from_days')
 	.click(function(e)
@@ -40,7 +38,6 @@ RunUnit.prototype.init = function(content)
 		var days = numberinput.val();
 		numberinput.val( days * 60 * 24).change();
 	});
-	
 	
 	this.test_button = this.block.find('a.unit_test');
 	this.test_button
@@ -69,6 +66,9 @@ RunUnit.prototype.init = function(content)
     }
     
     this.run.lock(this.run.lock_toggle.hasClass("btn-checked"), this.block);
+	this.save_button.attr('disabled', true).removeClass('btn-info').text('Saved')
+	.click($.proxy(this.save,this));
+    
     
 };
 RunUnit.prototype.position_changes = function (e) 
@@ -132,7 +132,7 @@ RunUnit.prototype.save = function(e)
 	e.preventDefault();
     
     var old_text = this.save_button.text();
-	this.save_button.attr('disabled',true).html(old_text + ' <i class="fa fa-spinner fa-spin"></i>');
+	this.save_button.attr('disabled',"disabled").html(old_text + ' <i class="fa fa-spinner fa-spin"></i>');
 
     if(this.session)
         this.textarea.val(this.session.getValue());
@@ -153,7 +153,7 @@ RunUnit.prototype.save = function(e)
 //        	this.save_button.html(old_text).removeAttr('disabled'); // not necessary because it's reloaded. should I be more economic about all this DOM and HTTP jazz? there's basically 2 situations where a reload makes things easier: emails where the accounts have been updated, surveys which went from "open" to "chose one". One day...
 },this))
         .fail($.proxy(function(e, x, settings, exception) {
-        	this.save_button.attr('disabled',false).html(old_text);
+        	this.save_button.removeAttr('disabled').html(old_text);
             ajaxErrorHandling(e, x, settings, exception);
         },this));
         
@@ -270,7 +270,7 @@ function Run(run_form)
         return false;
     });
 
-	this.form.find('a.run-toggle').click(this.ajaxifyToggle);
+	this.form.find('a.public-toggle').click(this.publicToggle);
     
 	this.exporter_button = this.form.find('a.export_run_units');
     this.exporter_button.click($.proxy(this.exportUnits, this));
@@ -285,8 +285,21 @@ function Run(run_form)
     this.lock_toggle.click(function(e)
     {
         e.preventDefault();
-        var on = $(this).hasClass("btn-checked");
-        run.lock(on, run.form);
+        var $this = $(this);
+    	var on = (! $this.hasClass('btn-checked') ) ? 1 : 0;
+    	$this.toggleClass('btn-checked',on);
+        run.lock(on ? true : false, run.form);
+        
+    	$.ajax( 
+    	{
+    		url: $this.attr('href'),
+    		dataType:"html",
+    		method: 'POST',
+    		data: {
+    			on: on
+    		}
+    	})
+    	.fail(ajaxErrorHandling);
         return false;
     });
 
@@ -479,19 +492,16 @@ Run.prototype.lock = function(on, context)
 }
 
 
-Run.prototype.ajaxifyToggle = function(e)
+Run.prototype.publicToggle = function(e)
 {
     var $this = $(this);
-	var on = (! $this.hasClass('btn-checked') ) ? 1 : 0;
-	$this.toggleClass('btn-checked',on);
+    $this.parents(".btn-group").find(".btn-checked").removeClass("btn-checked");
+	$this.toggleClass('btn-checked',1);
 	$.ajax( 
 	{
 		url: $this.attr('href'),
 		dataType:"html",
 		method: 'POST',
-		data: {
-			on: on
-		}
 	})
 	.fail(ajaxErrorHandling);
 	return false;

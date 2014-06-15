@@ -5,8 +5,8 @@ require_once INCLUDE_ROOT . "Model/Site.php";
 require_once INCLUDE_ROOT . "Model/RunUnit.php";
 
 if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
-	if(isset($_POST['on'])):
-		if(!$run->togglePublic((bool)$_POST['on']))
+	if(isset($_GET['public'])):
+		if(!$run->togglePublic((int)$_GET['public']))
 			echo 'Error!';
 	endif;
 endif;
