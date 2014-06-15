@@ -17,6 +17,14 @@ require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 session_over($site, $user);
 
+function check_time_against_mysql($dbh,$time)
+{
+	$time = $dbh->prepare("SELECT NOW() - :created AS time_in_seconds");
+	$time->bindValue(":created",$time);
+	$time->execute() or die("fail time");
+	$time->fetch(PDO::FETCH_ASSOC);
+	return $time['time_in_seconds'];
+}
 $user->cron = true;
 
 /// GET ALL RUNS
@@ -63,8 +71,9 @@ foreach($runs AS $run_data):
 			endif;
 		endforeach;
 		
-		if(microtime(true) - $start_cron_time > 60*6):
-			echo "within-Cronjob interrupted after running ". (microtime(true) - $start_cron_time) . " seconds<br>";
+		$time_passed = check_time_against_mysql($fdb,$start_cron_time);
+		if($time_passed > 60*6):
+			echo "within-Cronjob interrupted after running ". ($time_passed) . " seconds<br>";
 			break;
 		endif;
 	endforeach;
@@ -96,8 +105,8 @@ if(array_sum($done) > 0 OR array_sum($alert_types) > 0):
 endif;
 
 	echo $msg."<br>";
-	if(microtime(true) - $start_cron_time > 60 * 6):
-		echo "Cronjob interrupted after running ". (microtime(true) - $start_cron_time) . " seconds";
+	if($time_passed > 60 * 6):
+		echo "Cronjob interrupted after running ". ($time_passed) . " seconds";
 		break;
 	endif;
 endforeach;
