@@ -4,7 +4,7 @@
 
 This is a framework that allows you to create simple and complex studies using items spreadsheets for the surveys and "runs" for chaining together various modules. 
 
-The creator and most users of this software work in personality and developmental psychology, but the framework can also be used for sociological panels, simple experiments or as part of an integrated set of tools.
+The creator and most users of this software work in personality and developmental psychology, but the framework can also be used for sociological panels, simple experiments or as part of an integrated toolkit.
 
 There are three main components: surveys, runs and the R package.
 
