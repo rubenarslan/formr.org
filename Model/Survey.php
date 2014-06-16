@@ -526,7 +526,7 @@ class Survey extends RunUnit {
 			`maximum_number_displayed` = :maximum_number_displayed, 
 			`displayed_percentage_maximum` = :displayed_percentage_maximum,
 			`add_percentage_points` = :add_percentage_points
-			WHERE study_id = :study_id");
+			WHERE `id` = :study_id");
 		
 	    $post_form->bindParam(":study_id", $this->id);
 		foreach($key_value_pairs AS $key => $value)

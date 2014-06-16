@@ -17,7 +17,8 @@ ADD COLUMN `results_table` VARCHAR(64) NULL DEFAULT NULL AFTER `name`,
 ADD COLUMN `valid` TINYINT(1) NULL DEFAULT NULL AFTER `results_table`,
 ADD COLUMN `maximum_number_displayed` SMALLINT(5) UNSIGNED NULL DEFAULT NULL AFTER `valid`,
 ADD COLUMN `displayed_percentage_maximum` TINYINT(3) UNSIGNED NULL DEFAULT NULL AFTER `maximum_number_displayed`,
-ADD COLUMN `add_percentage_points` TINYINT(4) NULL DEFAULT NULL AFTER `displayed_percentage_maximum`;
+ADD COLUMN `add_percentage_points` TINYINT(4) NULL DEFAULT NULL AFTER `displayed_percentage_maximum`,
+ADD UNIQUE INDEX `results_table_UNIQUE` (`results_table` ASC);
 
 ALTER TABLE `formr`.`survey_runs` 
 DROP COLUMN `display_service_message`,
