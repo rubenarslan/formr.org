@@ -25,6 +25,13 @@
 			} else {
 				$('track').each(changeApi);
 			}
+			if(!trackBugs && !trackOptions.override){
+				webshims.defineProperty(TextTrack.prototype, 'shimActiveCues', {
+					get: function(){
+						return this._shimActiveCues || this.activeCues;
+					}
+				});
+			}
 		};
 		if(!trackOptions.override){
 			$(detectTrackError);
@@ -51,7 +58,7 @@ webshims.register('track-ui', function($, webshims, window, document, undefined)
 				if(!compareArray(baseData.displayedActiveCues, baseData.activeCues)){
 					baseData.displayedActiveCues = baseData.activeCues;
 					if(!baseData.trackDisplay){
-						baseData.trackDisplay = $('<div class="cue-display"><span class="description-cues" aria-live="assertive" /></div>').insertAfter(media);
+						baseData.trackDisplay = $('<div class="cue-display '+webshims.shadowClass+'"><span class="description-cues" aria-live="assertive" /></div>').insertAfter(media);
 						this.addEvents(baseData, media);
 						webshims.docObserve();
 					}
@@ -86,11 +93,9 @@ webshims.register('track-ui', function($, webshims, window, document, undefined)
 					if(baseData.displayedActiveCues.length || _force === true){
 						baseData.trackDisplay.css({display: 'none'});
 						var uiElement = media.getShadowElement();
-						var offsetElement = uiElement.offsetParent();
 						var uiHeight = uiElement.innerHeight();
 						var uiWidth = uiElement.innerWidth();
 						var position = uiElement.position();
-						var displaySize = uiHeight * uiWidth;
 						baseData.trackDisplay.css({
 							left: position.left,
 							width: uiWidth,
@@ -252,7 +257,7 @@ webshims.register('track-ui', function($, webshims, window, document, undefined)
 			});
 		})();
 		$.propHooks.activeCues = {
-			get: function(obj, value){
+			get: function(obj){
 				return obj._shimActiveCues || obj.activeCues;
 			}
 		};

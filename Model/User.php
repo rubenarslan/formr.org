@@ -28,6 +28,10 @@ class User
 		else:
 			$this->user_code = bin2hex(openssl_random_pseudo_bytes(32)); // a new arrival
 		endif;
+		
+		if($this->user_code === NULL):
+			$this->user_code = bin2hex(openssl_random_pseudo_bytes(32)); // a new arrival
+		endif;
 	}
 	public function __sleep()
 	{
@@ -79,28 +83,50 @@ class User
 			$hash = password_hash($password, PASSWORD_DEFAULT);
 
 			if($hash):
-				$token = bin2hex(openssl_random_pseudo_bytes(32));
-				$token_hash = password_hash($token, PASSWORD_DEFAULT);
-				
 				$add = $this->dbh->prepare('INSERT INTO `survey_users` SET 
 						email = :email,
+						created = NOW(),
 						password = :password,
-						user_code = :user_code,
-						email_verification_hash = :token_hash,
-						email_verified = 0');
+						user_code = :user_code');
 				$add->bindParam(':email',$email);
 				$add->bindParam(':password',$hash);
-				$add->bindParam(':token_hash',$token_hash);
 				$add->bindParam(':user_code',$this->user_code);
-				$add->execute() or die('probl');
-			
-				$verify_link = WEBROOT."public/verify_email/?email=".rawurlencode($email)."&verification_token=".$token;
+				$add->execute() or die('Couldnt add user');
 				
-				global $site;
-				$mail = $site->makeAdminMailer();
-				$mail->AddAddress($email);
-				$mail->Subject = 'formr: confirm your email address';
-				$mail->Body = "Dear user,
+				$login = $this->login($email, $password);
+				$this->needToVerifyMail();
+				return true;
+				
+			else:
+				alert('<strong>Error!</strong> Hash error.','alert-danger');
+				return false;
+			endif;
+		} else
+		{
+			$this->errors[] = 'User exists already.';
+		}
+		return false;
+	}
+	public function needToVerifyMail()
+	{
+		$token = bin2hex(openssl_random_pseudo_bytes(32));
+		$token_hash = password_hash($token, PASSWORD_DEFAULT);
+	
+		$add = $this->dbh->prepare('UPDATE `survey_users` SET 
+				email_verification_hash = :token_hash,
+				email_verified = 0
+				WHERE id = :id');
+		$add->bindParam(':id',$this->id);
+		$add->bindParam(':token_hash',$token_hash);
+		$add->execute() or die('Could not set up email verification');
+
+		$verify_link = WEBROOT."public/verify_email/?email=".rawurlencode($this->email)."&verification_token=".$token;
+	
+		global $site;
+		$mail = $site->makeAdminMailer();
+		$mail->AddAddress($this->email);
+		$mail->Subject = 'formr: confirm your email address';
+		$mail->Body = "Dear user,
 
 you, or someone else created an account on ".WEBROOT.".
 For some studies, you will need a verified email address.
@@ -113,23 +139,12 @@ suspend the account.
 Best regards,
 
 formr robots";
-		
-				if(!$mail->Send()):
-					alert($mail->ErrorInfo,'alert-danger');
-				else:
-					alert("You were sent an email to verify your address.",'alert-info');
-				endif;
-			
-				return $this->login($email,$password);
-			else:
-				alert('<strong>Error!</strong> Hash error.','alert-danger');
-				return false;
-			endif;
-		} else
-		{
-			$this->errors[] = 'User exists already.';
-		}
-		return false;
+
+		if(!$mail->Send()):
+			alert($mail->ErrorInfo,'alert-danger');
+		else:
+			alert("You were sent an email to verify your address.",'alert-info');
+		endif;
 	}
 	public function login($email,$password) 
 	{
@@ -165,6 +180,26 @@ formr robots";
 		}
 		$this->errors[]=_("<strong>Error.</strong> Your login credentials were incorrect.");
 		return false;
+	}
+	public function setAdminLevelTo($level)
+	{
+		global $user;
+		if(! $user->isSuperAdmin()) die ("sth wrong");
+		
+		$level = (int)$level;
+		if($level !== 0 AND $level !== 1):
+			if($level > 1)
+				$level = 1;
+			else
+				$level = 0;
+		endif;
+		
+		$set_level = $this->dbh->prepare("UPDATE `survey_users` SET `admin` = :admin
+		 WHERE `id` = :id AND `admin` < 100 LIMIT 1"); // cannot de-elevate superadmins here
+		
+		$set_level->bindParam(':id',$this->id);
+		$set_level->bindParam(':admin',$level);
+		return $set_level->execute() or die('db');
 	}
 	public function forgot_password($email)
 	{
@@ -240,6 +275,22 @@ formr robots";
 				alert('<strong>Error!</strong> Hash error.','alert-danger');
 				return false;
 			endif;
+		endif;
+		return false;
+	}
+	public function changeEmail($password, $email) 
+	{
+		if($this->login($this->email,$password)):
+			
+        	$add = $this->dbh->prepare('UPDATE `survey_users` SET 
+					email_verified = 0,
+					email = :email WHERE id = :id');
+			$add->bindParam(':id',$this->id);
+			$add->bindParam(':email',$email);
+			$add->execute() or die('probl');
+			$this->email = $email;
+			$this->needToVerifyMail();
+			return true;
 		endif;
 		return false;
 	}
@@ -342,7 +393,7 @@ formr robots";
 
 	function getAvailableRuns()
 	{
-		$runs = $this->dbh->query("SELECT name FROM `survey_runs` WHERE public = 1");
+		$runs = $this->dbh->query("SELECT name,title, public_blurb_parsed FROM `survey_runs` WHERE public > 2");
 		$results = array();
 		while($run = $runs->fetch())
 		{

@@ -83,14 +83,14 @@ class Branch extends RunUnit {
 	{
 		$dialog = '<div class="padding-below">
 			<label>if… <br>
-				<textarea style="width:388px;"  data-editor="r" class="form-control col-md-5" name="condition" rows="4" placeholder="Condition: You can use R here: survey1$item2 == 2">'.$this->condition.'</textarea>
+				<textarea style="width:388px;"  data-editor="r" class="form-control col-md-5" name="condition" rows="4" placeholder="Condition: You can use R here: survey1$item2 == 2">'.h($this->condition).'</textarea>
 			</label><br>
 			<select style="width:120px" name="automatically_jump">
 			<option value="1" '.($this->automatically_jump?'selected':'').'>automatically</option>
 			<option value="0" '.($this->automatically_jump?'':'selected').'>if user reacts</option>
 			</select>
 			<label>skip forward to
-			<input type="number" class="form-control" style="width:70px" name="if_true" max="32000" min="'.($this->position+2).'" step="1" value="'.$this->if_true.'">
+			<input type="number" class="form-control" style="width:70px" name="if_true" max="32000" min="'.($this->position+2).'" step="1" value="'.h($this->if_true).'">
 			</label><br>
 			<strong>else</strong>
 			<select style="width:120px" name="automatically_go_on">

@@ -64,7 +64,7 @@ class External extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p><label>Address: <br>
-			<textarea style="width:388px;"  data-editor="r" class="form-control full_width" rows="2" type="text" name="address">'.$this->address.'</textarea></label></p>
+			<textarea style="width:388px;"  data-editor="r" class="form-control full_width" rows="2" type="text" name="address">'.h($this->address).'</textarea></label></p>
 		<p><input type="hidden" name="api_end" value="0"><label><input type="checkbox" name="api_end" value="1"'.($this->api_end ?' checked ':'').'> end using <abbr class="initialism" title="Application programming interface. Better not check this if you don\'t know what it means">API</abbr></label></p>
 		<p>Enter a URL like <code>http://example.org?code={{login_code}}</code> and the user will be sent to that URL, replacing <code>{{login_code}}</code> with that user\'s code. Enter R-code to e.g. send more data along: <code>paste0(\'http:example.org?code={{login_link}}&<br>age=\', demographics$sex)</code>.</p>
 		';

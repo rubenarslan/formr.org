@@ -121,9 +121,37 @@ class Site
 		session_set_cookie_params ( $settings['session_cookie_lifetime'], "/" , null,  SSL , true );
 		session_start();
 	}
+	public function loginUser($user)
+	{
+		if(isset($_GET['run_name']) AND isset($_GET['code']) AND strlen($_GET['code'])==64): // came here with a login link
+			$login_code = $_GET['code'];
+
+			if($user->user_code !== $login_code): // this user came here with a session code that he wasn't using before. this will always be true if the user is (a) new (auto-assigned code by site) (b) already logged in with a different account
+
+				if($user->loggedIn()): // if the user is new and has an auto-assigned code, there's no need to talk about the behind-the-scenes change
+					// but if he's logged in we should alert them
+					alert("You switched sessions, because you came here with a login link and were already logged in as someone else.", 'alert-info');
+				endif;
+
+				$user->logout();
+				$user = new User($fdb, null, $login_code);
+
+				// a special case are admins. if they are not already logged in, verified through password, they should not be able to obtain access so easily. but because we only create a mock user account, this is no problem. the admin flags are only set/privileges are only given if they legitimately log in
+			endif;
+	
+		elseif(isset($_GET['run_name']) AND isset($user->user_code)):
+			// all good
+		else:
+			alert("<strong>Sorry.</strong> Something went wrong when you tried to access.",'alert-danger');
+			redirect_to("index");
+		endif;
+		
+		return $user;
+	}
 	public function makeTitle()
 	{
 		global $title;
+		if(trim($title)) return $title;
 		$path = '';
 		if(isset($_SERVER['REDIRECT_URL'])) $path = $_SERVER['REDIRECT_URL'];
 		else if (isset($_SERVER['SCRIPT_NAME'])) $path = $_SERVER['SCRIPT_NAME'];

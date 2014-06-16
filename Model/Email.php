@@ -19,7 +19,8 @@ class Email extends RunUnit {
 	private $html = 1;
 	public $icon = "fa-envelope";
 	public $type = "Email";
-	
+	private $subject_parsed = null;
+ 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
 		parent::__construct($fdb,$session,$unit);
@@ -107,6 +108,21 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		
 		return true;
 	}
+	private function getSubject()
+	{
+		if($this->subject_parsed === NULL):
+			if($this->knittingNeeded($this->subject)):
+				if($this->session_id):
+					$this->subject_parsed = $this->getParsedText($this->subject);
+				else:
+					$this->subject_parsed = $this->getParsedTextAdmin($this->subject);
+				endif;
+			else:
+				return $this->subject;
+			endif;
+		endif;
+		return $this->subject_parsed;
+	}
 	private function getBody($embed_email = true)
 	{
 		
@@ -187,13 +203,13 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$dialog = "<h5>No email accounts. <a href='". WEBROOT."admin/mail/". "'>Add some here.</a></h5>";
 		endif;
 		$dialog .= '<p><label>Subject: <br>
-			<input class="form-control full_width" type="text" placeholder="Email subject" name="subject" value="'.$this->subject.'">
+			<input class="form-control full_width" type="text" placeholder="Email subject" name="subject" value="'.h($this->subject).'">
 		</label></p>
 		<p><label>Recipient-Field: <br>
-					<input class="form-control full_width" type="text" placeholder="survey_users$email" name="recipient_field" value="'.$this->recipient_field.'">
+					<input class="form-control full_width" type="text" placeholder="survey_users$email" name="recipient_field" value="'.h($this->recipient_field).'">
 				</label></p>
 		<p><label>Body: <br>
-			<textarea style="width:388px;"  data-editor="markdown" placeholder="You can use Markdown" name="body" rows="7" cols="60" class="form-control col-md-5">'.$this->body.'</textarea></label><br>
+			<textarea style="width:388px;"  data-editor="markdown" placeholder="You can use Markdown" name="body" rows="7" cols="60" class="form-control col-md-5">'.h($this->body).'</textarea></label><br>
 			<code>{{login_link}}</code> will be replaced by a personalised link to this run, <code>{{login_code}}</code> will be replaced with this user\'s session code.</p>';
 //		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
 		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Email">Save.</a>
@@ -259,7 +275,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$mail->IsHTML(true);  
 		
 		$mail->AddAddress($this->recipient);
-		$mail->Subject = $this->subject;
+		$mail->Subject = $this->getSubject();
 		$mail->Body = $this->getBody();
 		
 		foreach($this->images AS $image_id => $image):
@@ -324,8 +340,8 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		
 		$this->sendMail($receiver);
 		$link = "{$RandReceiv}.mailinator.com";
-		
-		echo "<h4>{$this->subject}</h4>";
+
+		echo "<h4>".$this->getSubject()."</h4>";
 		echo "<p><a href='http://$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
 		
 		echo $this->getBody(false);
