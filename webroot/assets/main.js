@@ -1,20 +1,23 @@
-$.webshims.setOptions("extendNative", false); 
-$.webshims.setOptions('forms', {
-	customDatalist: true,
-	addValidators: true,
-	waitReady: false,
-    replaceValidationUI: true
+webshim.setOptions(
+    {
+        extendNative: false,
+        forms : {
+        	customDatalist: true,
+        	addValidators: true,
+        	waitReady: false,
+            replaceValidationUI: true
+        },
+        geolocation: {
+        	confirmText: '{location} wants to know your position. You will have to enter one manually if you decline.'
+        },
+        'forms-ext': {
+        		types: 'range date time number month color',
+                customDatalist: true,
+         	   replaceUI: {range: true}
+        }
 });
-$.webshims.setOptions('geolocation', {
-	confirmText: '{location} wants to know your position. You will have to enter one manually if you decline.'
-});
-$.webshims.setOptions('forms-ext', {
-		types: 'range date time number month color',
-        customDatalist: true,
- 	   replaceUI: {range: true}
-});
-$.webshims.polyfill('es5 forms forms-ext geolocation json-storage');
-$.webshims.activeLang('de');
+webshim.polyfill('es5 forms forms-ext geolocation json-storage');
+webshim.activeLang('de');
 
 
 $(document).ready(function() {

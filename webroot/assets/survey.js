@@ -3,69 +3,40 @@ $(document).ready(function() {
     // initialising special items
     // --------------------------
 
-    
-	if($('input[type=range]').css('display')!='none')
-		$('input[type=range]').css('width',0);
-    $('.range_ticks_output').each(function () {
-		var thumb = $('.ws-range-thumb', this);
-        var output = $('output', this);
-	
-        var changeSlider = function () {
-            output.text($(this).prop('value') || '');
-			output.css('left', thumb.css('left'));
-        };
 
-        $('.ws-range-rail', this).append(output);
-		output.addClass('ws-range-tick-output');
+    webshim.ready('geolocation',function() {
+    	$('.geolocator').click(function()
+    	{
+    		var real_loc = $(this).closest('.controls').find('input[type=hidden]');
+    		var enter_loc = $(this).closest('.controls').find('input[type=text]');
 
-        $('input[type="range"]', this)
-            .on('input', changeSlider)
-            .each(changeSlider);
-    });
-
-    
-    
-	$('.geolocator').click(function()
-	{
-		var real_loc = $(this).closest('.controls').find('input[type=hidden]');
-		var enter_loc = $(this).closest('.controls').find('input[type=text]');
-
-		enter_loc.attr('placeholder','You can also enter your location manually');
-		enter_loc.prop('readonly',false);
+    		enter_loc.attr('placeholder','You can also enter your location manually');
+    		enter_loc.prop('readonly',false);
 		
-		navigator.geolocation.getCurrentPosition(
-			function(pos) {
-				real_loc.val(flatStringifyGeo(pos) );
-				enter_loc.val("lat:"+ pos.coords.latitude +"/long:" + pos.coords.longitude );
-				enter_loc.prop('readonly',true); // fixme: for some reason, if there is user entered text, FF doesn't show new JS-set text
-			},
-			function(err)
-			{
-				// error handling - this isn't called in firefox, when the user clicks "Not now".
-			}
-			/*
-			todo: would be a nice options thing for geoloc
- interface PositionOptions {
-	attribute boolean enableHighAccuracy;
-	attribute long timeout;
-	attribute long maximumAge;
-	};*/
-		);
-		return false;
-	}).each(function()
-	{
-		$(this).closest('.input-group-btn.hidden').removeClass('hidden');
-	});
-	$('.range_ticks_output').each(function () {
-		var output = $('output', this);
-//		console.log(output);	
-		var change = function () {
-			output.text($(this).prop('value') || '');
-		};
-		$('input[type="range"]', this)
-			.on('input', change)
-			.each(change);
-	});
+    		navigator.geolocation.getCurrentPosition(
+    			function(pos) {
+    				real_loc.val(flatStringifyGeo(pos) );
+    				enter_loc.val("lat:"+ pos.coords.latitude +"/long:" + pos.coords.longitude );
+    				enter_loc.prop('readonly',true); // fixme: for some reason, if there is user entered text, FF doesn't show new JS-set text
+    			},
+    			function(err)
+    			{
+    				// error handling - this isn't called in firefox, when the user clicks "Not now".
+    			}
+    			/*
+    			todo: would be a nice options thing for geoloc
+     interface PositionOptions {
+    	attribute boolean enableHighAccuracy;
+    	attribute long timeout;
+    	attribute long maximumAge;
+    	};*/
+    		);
+    		return false;
+    	}).each(function()
+    	{
+    		$(this).closest('.input-group-btn.hidden').removeClass('hidden');
+    	});
+    });
 	// fixme: FOUCs for rating_buttons etc in IE8
     
 	$('div.btn-radio button.btn').off('click').click(function(event){
@@ -217,6 +188,7 @@ $(document).ready(function() {
         plus.insertBefore(slct.select2("container").find('.select2-search-field input'));
         $.webshims.addShadowDom(slct, slct.select2("container"));
 	});
+    
 	$("input.select2add").each(function(i,elm)
 	{
 		var slct = $(elm); 
@@ -289,36 +261,26 @@ function getProgress() {
         if(typeof change_events_set == 'undefined')
         {
             $(elm_non_hidden).parents(".form-group").change(function(){
-//                console.log(12);
+
                $(this).data('ever-changed', true);
               $(this).off('change'); 
             });
         }
         var elm_non_hidden = elm_non_hidden[0];
-//        $(elm_non_hidden).parents(".controls").append($('<i class="fa fa-cloud"></i>'));
 
         if(elm_non_hidden)
         {
             page_items++;
-/*            if(!$(elm_non_hidden).data('ever-changed'))
-            {
-                console.log(elm_non_hidden);
-                $(elm_non_hidden).data('ever-changed', false); 
-            }
+
             
-*/    		if(value.length > 0) // if it's not empty, you get  //  || parseFloat(elm.value)
+    		if(value.length > 0) // if it's not empty, you get  //  || parseFloat(elm.value)
             {
-//                $(elm_non_hidden).parents(".controls").append($('<i class="fa fa-cloud"></i>'));
-                
-//                console.log(elm.value);
                 if($(elm_non_hidden).parents(".form-group").data('ever-changed')) //elm.value == elm_non_hidden.defaultValue) 
                {
            			items_answered_on_page += 0.5; // half a point for changing the default value
-//                    $(elm_non_hidden).parents(".controls").append($('<i class="fa fa-circle"></i>'));
                     
                     if(elm_non_hidden.validity.valid) { // if it is valid like this, it gets half a point
             			items_answered_on_page += 0.5;
-//                        $(elm_non_hidden).parents(".controls").append($('<i class="fa fa-check"></i>'));
                     }
                 }
                 // cases: 
@@ -329,7 +291,6 @@ function getProgress() {
             }
         }
 	});
-//    console.log(items_answered_on_page)
 
 	var prog_on_remainder = items_answered_on_page / remaining_items;
 	if(prog_on_remainder > 1) prog_on_remainder = 1;
@@ -350,7 +311,6 @@ function showIf()
         var subdata = {};
         $.each(badArray, function(i, obj)
         {
-//            if(+obj.value == obj.value) obj.value = +obj.value; // cast as numeric
             if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
             if(!subdata[ obj.name ]) subdata[obj.name] = obj.value;
             else subdata[obj.name] += ", " + obj.value;
@@ -386,18 +346,7 @@ function showIf()
             {
                 return;
             }
-/*            var parts = showif.match(/(\w+)(==|!=|>=|<=|<|>|%contains%)(\d+|'\w+')/)
-            if(parts) // this is one of the simple showifs that we can read with JS
-            {
-                var item = parts[0];
-                var comparator = parts[1];
-                var compare_to = parts[2];
-                if(subdata[item]) // does this item exist
-                {
-                    subdata[item] 
-                }
-            }
-            */
+
         })
     }).change();
 }
@@ -416,66 +365,3 @@ function flatStringifyGeo(geo) {
 	result.coords = coords;
 	return JSON.stringify(result);
 }
-
-$.webshims.ready('form-validators', function(){
-	//$.webshims.addCustomValidityRule(name of constraint, test-function, default error message); 
-	var groupTimer = {};
-	
-	$.webshims.addCustomValidityRule('choose2days', function(elem, val){
-		var name = elem.name;
-		if(!name || elem.type !== 'checkbox' || !$(elem).hasClass('choose2days')){return;}
-		var checkboxes = $( (elem.form && elem.form[name]) || document.getElementsByName(name));
-		var isValid = checkboxes.filter(':checked:enabled');
-		if(groupTimer[name]){
-			clearTimeout(groupTimer[name]);
-		}
-		groupTimer[name] = setTimeout(function(){
-			checkboxes
-				.addClass('choose2days')
-				.unbind('click.choose2days')
-				.bind('click.choose2days', function(){
-					checkboxes.filter('.choose2days').each(function(){
-						$.webshims.refreshCustomValidityRules(this);
-					});
-				})
-			;
-		}, 9);
-		
-		if(isValid.length !== 2)
-		{
-			return true;
-		} else
-		{
-			// [1,2] F
-			// [1,7] F
-			// [3,2] F
-			// [1,3] T
-			// [1,6] T
-			var chosen = isValid.map( function() {
-				return +$(this).val();
-			}).get();
-			
-			
-			var forbidden_wrong = $([chosen[0] - 2, chosen[0] - 1, chosen[0], chosen[0] + 1, chosen[0] + 2]);
-			var forbidden = forbidden_wrong.map( function() {
-				if(this < 1) return 7 + this;
-				if(this > 7) return this - 7;
-				return +this;
-			});
-			if($.inArray(chosen[1],forbidden)!==-1)
-			{
-				return true;
-			}
-			else
-			{
-				return false;
-			}
-		}
-	}, 'Du musst zwei Wochentage auswählen, die mehr als zwei Tage auseinander liegen.');
-	
-	
-	//changing default message
-	$.webshims.customErrorMessages.choose2days[''] = 'Du musst zwei Wochentage auswählen, die mehr als zwei Tage auseinander liegen.';
-	//adding new languages
-	$.webshims.customErrorMessages.choose2days['de'] = 'Du musst zwei Wochentage auswählen, die mehr als zwei Tage auseinander liegen.';
-});
