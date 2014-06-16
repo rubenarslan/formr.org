@@ -10,7 +10,6 @@ class Survey extends RunUnit {
 	public $name = null;
 	public $run_name = null;
 	public $items = array();
-	public $maximum_number_displayed = null;
 	public $unanswered = array();
 	public $already_answered = 0;
 	public $not_answered = 0;
@@ -61,24 +60,18 @@ class Survey extends RunUnit {
 		if($vars):
 			$this->id = $vars['id'];
 			$this->name = $vars['name'];
-			$this->user_id = (int)$vars['user_id'];
-			$this->results_table = $this->name;
-		
-		
-			$this->getSettings();
+ 			$this->user_id = (int)$vars['user_id'];
+			if(!isset($vars['results_table']) OR $vars['results_table'] == null)
+				$this->results_table = $this->name;
+			else
+				$this->results_table = $vars['results_table'];
+			
+			$this->settings['maximum_number_displayed'] = (int)$vars['maximum_number_displayed'];
+			$this->settings['displayed_percentage_maximum'] = (int)$vars['displayed_percentage_maximum'];
+			$this->settings['add_percentage_points'] = (int)$vars['add_percentage_points'];
 		
 			$this->valid = true;
 		endif;
-	}
-	protected function getSettings()
-	{
-		$study_settings = $this->dbh->prepare("SELECT `key`, `value` FROM `survey_settings` WHERE study_id = :study_id");
-		$study_settings->bindParam(":study_id",$this->id);
-		$study_settings->execute() or die(print_r($study_settings->errorInfo(), true));
-		while($setting = $study_settings->fetch(PDO::FETCH_ASSOC))
-			$this->settings[$setting['key']] = $setting['value'];
-
-		return $this->settings;
 	}
 	public function render() {
 		global $js;
@@ -349,8 +342,8 @@ class Survey extends RunUnit {
 		$this->rendered_items = array();
 		foreach($this->unanswered AS &$item)
 		{	
-			if($this->maximum_number_displayed !== null AND
-				$itemsDisplayed >= $this->maximum_number_displayed)
+			if($this->settings['maximum_number_displayed'] != null AND
+				$itemsDisplayed >= $this->settings['maximum_number_displayed'])
 			{
 				$item_will_be_rendered = false;
 			}
@@ -529,22 +522,20 @@ class Survey extends RunUnit {
 	public function changeSettings($key_value_pairs)
 	{
 		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
-		$post_form = $this->dbh->prepare("INSERT INTO `survey_settings` (`study_id`, `key`, `value`)
-																		  VALUES(:study_id, :key, :value) 
-				ON DUPLICATE KEY UPDATE `value` = :value2;");
+		$post_form = $this->dbh->prepare("UPDATE `survey_studies` SET
+			`maximum_number_displayed` = :maximum_number_displayed, 
+			`displayed_percentage_maximum` = :displayed_percentage_maximum,
+			`add_percentage_points` = :add_percentage_points
+			WHERE study_id = :study_id");
 		
 	    $post_form->bindParam(":study_id", $this->id);
 		foreach($key_value_pairs AS $key => $value)
 		{
-		    $post_form->bindParam(":key", $key);
-		    $post_form->bindParam(":value", $value);
-		    $post_form->bindParam(":value2", $value);
-			$post_form->execute() or die(print_r($post_form->errorInfo(), true));
+		    $post_form->bindParam(":$key", $value);
 		}
+		$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 
 		$this->dbh->commit() or die(print_r($answered->errorInfo(), true));
-		
-		$this->getSettings();
 	}
 	public function uploadItemTable($file, $confirmed_deletion)
 	{	
