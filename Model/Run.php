@@ -806,8 +806,12 @@ This study is currently being serviced. Please return at a later time."));
 			if(
 				$user->created($this) OR // owner always has access
 				($this->public >= 1 AND $run_session->id) OR // already enrolled
-				($this->public >= 2 AND $run_session->create($user->user_code) ) // anyone with link can access // access code generating phrased as condition, should always return true
+				($this->public >= 2) // anyone with link can access
 			):
+				if( $run_session->id===NULL ):
+					$run_session->create($user->user_code);  // generating access code for those who don't have it but need it
+				endif;
+				
 				$output = $run_session->getUnit();
 			else:
 				$output = $this->getServiceMessage()->exec();
