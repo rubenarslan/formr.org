@@ -7,13 +7,14 @@ ADD COLUMN `created` DATETIME NULL DEFAULT NULL AFTER `user_code`,
 ADD COLUMN `modified` DATETIME NULL DEFAULT NULL AFTER `created`,
 ADD COLUMN `mobile_number` VARCHAR(30) NULL DEFAULT NULL AFTER `reset_token_expiry`,
 ADD COLUMN `mobile_verification_hash` VARCHAR(255) NULL DEFAULT NULL AFTER `mobile_number`,
-ADD COLUMN `mobile_verified` TINYINT(1) NULL DEFAULT 0 AFTER `mobile_verification_hash`;
+ADD COLUMN `mobile_verified` TINYINT(1) NULL DEFAULT NULL AFTER `mobile_verification_hash`;
 
 ALTER TABLE `formr`.`survey_studies` 
 DROP COLUMN `logo_name`,
 ADD COLUMN `created` DATETIME NULL DEFAULT NULL AFTER `user_id`,
 ADD COLUMN `modified` DATETIME NULL DEFAULT NULL AFTER `created`,
-ADD COLUMN `valid` TINYINT(1) NULL DEFAULT NULL AFTER `name`,
+ADD COLUMN `results_table` VARCHAR(64) NULL DEFAULT NULL AFTER `name`,
+ADD COLUMN `valid` TINYINT(1) NULL DEFAULT NULL AFTER `results_table`,
 ADD COLUMN `maximum_number_displayed` SMALLINT(5) UNSIGNED NULL DEFAULT NULL AFTER `valid`,
 ADD COLUMN `displayed_percentage_maximum` TINYINT(3) UNSIGNED NULL DEFAULT NULL AFTER `maximum_number_displayed`,
 ADD COLUMN `add_percentage_points` TINYINT(4) NULL DEFAULT NULL AFTER `displayed_percentage_maximum`;
@@ -58,6 +59,28 @@ CHANGE COLUMN `created` `created` DATETIME NULL DEFAULT NULL AFTER `study_id`;
 ALTER TABLE `formr`.`survey_run_sessions` 
 ADD COLUMN `deactivated` TINYINT(1) NULL DEFAULT 0 AFTER `current_unit_id`,
 ADD COLUMN `no_email` TINYINT(1) NULL DEFAULT 0 AFTER `deactivated`;
+
+CREATE TABLE IF NOT EXISTS `formr`.`survey_text_messages` (
+  `id` INT(10) UNSIGNED NOT NULL,
+  `account_id` INT(10) UNSIGNED NULL DEFAULT NULL,
+  `recipient_field` VARCHAR(255) NULL DEFAULT NULL,
+  `body` MEDIUMTEXT NULL DEFAULT NULL,
+  INDEX `fk_survey_emails_survey_units1_idx` (`id` ASC),
+  PRIMARY KEY (`id`),
+  INDEX `fk_survey_emails_survey_email_accounts1_idx` (`account_id` ASC),
+  CONSTRAINT `fk_email_unit0`
+    FOREIGN KEY (`id`)
+    REFERENCES `formr`.`survey_units` (`id`)
+    ON DELETE CASCADE
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_email_acc0`
+    FOREIGN KEY (`account_id`)
+    REFERENCES `formr`.`survey_email_accounts` (`id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8
+COLLATE = utf8_general_ci;
 
 DROP TABLE IF EXISTS `formr`.`survey_settings` ;
 
