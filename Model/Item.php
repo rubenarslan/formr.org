@@ -595,7 +595,7 @@ class Item_range_ticks extends Item_number
 		$this->input_attributes['min'] = 0;
 		$this->input_attributes['max'] = 100;
 		$this->input_attributes['list'] = 'dlist'.$this->id;
-		$this->input_attributes['data-range'] = "{'animate': true}";
+		$this->input_attributes['data-range'] = '{"animate": true, "classes": "show-activevaluetooltip"}';
 		$this->classes_input[] = "range-list";
 		
 		$this->classes_wrapper[] = 'range_ticks_output';
@@ -607,7 +607,6 @@ class Item_range_ticks extends Item_number
 	{
 		$ret = (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' </label> ': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>';
-		$ret .= '<output id="output'.$this->id.'" class=""></output>';
 		$ret .= '<datalist id="dlist'.$this->id.'">
         <select class="">';
 		for($i = $this->input_attributes['min']; $i <= $this->input_attributes['max']; $i = $i + $this->input_attributes['step']):

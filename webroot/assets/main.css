@@ -320,22 +320,6 @@ output.output {
 {
     min-height:50px;
 }
-.ws-range-tick-output
-{
-	position:absolute;
-	top:25px;
-	width:18px;
-	height: 18px;
-    padding:1px 1px;
-    border-radius:4px;
-    text-align:center;
-    vertical-align:middle;
-	margin-left:-9px;
-	background-color: transparent;
-	font-size: 12px;
-    border:1px solid gray;
-    color:gray;
-}
 
 .item-geopoint .input-group-addon, .input-group-btn 
 {
@@ -1150,7 +1134,7 @@ form.form-horizontal div.form-row.form-group.hidden {
 {
 	margin-bottom:60px;
 }
-.item-text.form-group.form-row .form-control, .item-email.form-group.form-row .form-control {
+.item-text.form-group.form-row .form-control, .item-email.form-group.form-row .form-control, .item-color.form-group.form-row .form-control {
     width:300px;
 }
 
