@@ -1,3 +1,10 @@
+.ws-custom-file {
+  zoom: 1; }
+  .ws-custom-file:before, .ws-custom-file:after {
+    display: table;
+    clear: both;
+    content: ' '; }
+
 .ws-popover {
   -moz-box-sizing: content-box;
   box-sizing: content-box; }
@@ -12,6 +19,28 @@
   visibility: hidden !important;
   position: absolute;
   top: -999999px; }
+
+.ws-po-box button, .ws-custom-file > button {
+  display: inline-block;
+  overflow: visible;
+  position: relative;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  font-family: inherit;
+  background: transparent;
+  cursor: pointer;
+  font-size: inherit;
+  line-height: inherit;
+  touch-action: none; }
+  .ws-po-box button::-moz-focus-inner, .ws-custom-file > button::-moz-focus-inner {
+    border: 0;
+    padding: 0; }
+  .ws-po-box button[disabled], .ws-custom-file > button[disabled] {
+    cursor: default;
+    color: #888; }
 
 [hidden] {
   display: none; }
@@ -29,11 +58,13 @@ video {
   overflow: hidden; }
 
 video,
-audio[controls],
-audio.webshims-controls {
+audio[controls] {
   display: inline-block;
   min-height: 45px;
   min-width: 40px; }
+
+audio[controls] {
+  width: 300px; }
 
 video > *,
 audio > * {
@@ -67,7 +98,10 @@ audio > * {
   font-family: sans-serif;
   font-size: 12px;
   white-space: pre-wrap;
-  overflow: hidden; }
+  cursor: default;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none; }
   .cue-display b {
     font-weight: bold; }
   .cue-display i {
@@ -85,7 +119,8 @@ audio > * {
     width: 100%;
     font-size: 160%;
     color: #fff;
-    visibility: visible !important; }
+    visibility: visible !important;
+    pointer-events: none; }
   .cue-display .cue-line {
     display: block; }
   .cue-display span.cue {
@@ -236,25 +271,6 @@ output {
   padding: 0.38462em 0.38462em 0.23077em;
   border-radius: 0.23077em;
   box-shadow: 0 0.07692em 0.38462em rgba(0, 0, 0, 0.25); }
-  .ws-po-box button {
-    display: inline-block;
-    overflow: visible;
-    position: relative;
-    margin: 0;
-    border: 0;
-    padding: 0;
-    -webkit-appearance: none;
-    appearance: none;
-    font-family: inherit;
-    background: transparent;
-    cursor: pointer;
-    touch-action: none; }
-    .ws-po-box button::-moz-focus-inner {
-      border: 0;
-      padding: 0; }
-    .ws-po-box button[disabled] {
-      cursor: default;
-      color: #888; }
 
 .ws-po-arrow {
   position: absolute;
@@ -393,6 +409,8 @@ input[data-wslist]::-webkit-calendar-picker-indicator {
 .validity-alert {
   display: inline-block;
   z-index: 1000000000; }
+  .validity-alert .ws-titlevalue {
+    display: block; }
 
 .ws-errorbox {
   display: none;
@@ -423,24 +441,24 @@ progress {
     -moz-appearance: none;
     appearance: none;
     border: 0;
-    border: 1px solid #dddddd;
+    border: 1px solid #ddd;
     background: #f0f0f0;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) inset;
     border-radius: 4px; }
     progress[data-position]::-webkit-progress-bar, progress.ws-style::-webkit-progress-bar {
-      border: 1px solid #dddddd;
+      border: 1px solid #ddd;
       background: #f0f0f0;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) inset;
       border-radius: 4px;
       border: 0 none; }
     progress[data-position]::-moz-progress-bar, progress.ws-style::-moz-progress-bar {
-      border: 1px solid #dddddd;
+      border: 1px solid #ddd;
       background: #f0f0f0;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) inset;
       border-radius: 4px; }
     progress[data-position]::-ms-fill, progress.ws-style::-ms-fill {
       animation-name: none;
-      border: 1px solid #dddddd;
+      border: 1px solid #ddd;
       background: #f0f0f0;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) inset;
       border-radius: 4px; }
@@ -513,12 +531,74 @@ summary {
   height: 0px;
   border-style: solid;
   border-width: 0.76923em 0.38462em 0 0.38462em;
-  border-color: black transparent transparent transparent;
+  border-color: #000 transparent transparent transparent;
   vertical-align: middle; }
   .closed-details-summary .details-open-indicator {
     border-width: 0.38462em 0 0.38462em 0.76923em;
-    border-color: transparent transparent transparent black; }
+    border-color: transparent transparent transparent #000; }
 
 summary.summary-has-focus {
-  outline: 1px dotted #aaaaaa;
+  outline: 1px dotted #aaa;
   outline-offset: -1px; }
+
+.ws-custom-file {
+  position: relative;
+  zoom: 1; }
+  .ws-custom-file > button,
+  .ws-custom-file > input {
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    cursor: pointer; }
+  .ws-custom-file > button,
+  .ws-custom-file > .ws-file-value {
+    position: relative;
+    z-index: 0;
+    display: inline-block;
+    padding: 5px;
+    border: 1px solid #ccc;
+    background: #eee;
+    color: #333;
+    transition: 400ms all; }
+  .ws-custom-file > button {
+    margin-right: 0.4em;
+    float: left; }
+  .ws-custom-file .ws-file-value {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis; }
+  .ws-custom-file:hover > button, .ws-custom-file.ws-mouseenter > button,
+  .ws-custom-file > input[type="file"]:focus ~ button {
+    background: #fff;
+    border-color: #999;
+    background: #eeeeee linear-gradient(transparent, rgba(0, 0, 0, 0.05) 40%, rgba(0, 0, 0, 0.1)); }
+  .ws-custom-file:hover > .ws-file-value, .ws-custom-file.ws-mouseenter > .ws-file-value,
+  .ws-custom-file > input[type="file"]:focus ~ .ws-file-value {
+    border-color: #999; }
+  .ws-custom-file.ws-active > button,
+  .ws-custom-file > input[type="file"]:active ~ button {
+    border-color: #000; }
+  .ws-custom-file.ws-active > .ws-file-value,
+  .ws-custom-file > input[type="file"]:active ~ .ws-file-value {
+    border-color: #000; }
+  .ws-custom-file > input[type="file"][disabled] ~ .ws-file-value,
+  .ws-custom-file > input[type="file"][disabled] ~ button {
+    border-color: #bbb;
+    background: #eee;
+    color: #999; }
+  .ws-custom-file > input[type="file"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    height: 100%;
+    width: 100%;
+    filter: alpha(opacity=0);
+    opacity: 0.00001;
+    z-index: 9; }
+    .ws-custom-file > input[type="file"][disabled] {
+      cursor: default;
+      cursor: not-allowed; }
+  .ws-custom-file > .moxie-shim {
+    z-index: 20; }

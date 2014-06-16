@@ -75,8 +75,18 @@ label
 {
     cursor:pointer !important;
 }
-
-
+.progress-container
+{
+    position:fixed;
+    top:0px;
+    z-index:99;
+    height:20px;
+}
+.progress-container .progress 
+{
+    margin-left:-15px;
+    border-radius:0 0 4px 4px;
+}
 .run_header, .survey_header
 {
     height:330px;
@@ -121,7 +131,10 @@ label
 {
     border-top-style:dashed;
 }
-
+iframe.rCharts
+{
+    border:0;
+}
 kbd {
     background: none repeat scroll 0 0 #FAFAFA;
     border-color: #CCCCCC #CCCCCC #FFFFFF;
@@ -197,9 +210,6 @@ form.form-horizontal div.form-group.form-message div.control-label {
     margin-left:0;
 	text-align:left;
 	width:100%;
-}
-form.form-horizontal div.form-row:nth-child(odd) {
-  background-color: #f9f9f9;
 }
 /*form.form-horizontal div.form-row.form-group.optional .control-label::after {
 	content:'*';
@@ -369,6 +379,12 @@ div.all-alerts + div
     margin-right:300px;
 }
 
+.run_content
+{
+    margin-top:20px;
+    margin-bottom:20px;
+}
+
 .btn {
     background-color: white;
     background-image: none;
@@ -484,13 +500,20 @@ li.nav-header
 }
 .form-horizontal.form-horizontal-small-left .control-label
 {
-    width:100px;
+    width:150px;
 }
 .form-horizontal.form-horizontal-small-left .controls
 {
-    margin-left:120px;
+    margin-left:170px;
 }
-
+.run_unit_type_Survey
+{
+    margin-top:30px;
+}
+.center
+{
+    text-align:center;
+}
 .muted
 {
     color:#DDD;
@@ -1191,6 +1214,11 @@ form.form-horizontal div.form-row.form-group.hidden {
 
 /*responsive layouts for mobile */
 @media (max-width: 768px) { 
+    .progress-container
+    {
+        width:100%;
+        padding:0;
+    }
 	form.form-horizontal div.form-row.form-group .controls {
 		clear:both;
 		margin-left:0;

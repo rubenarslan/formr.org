@@ -4,6 +4,7 @@ class OpenCPU {
 	private $user_data = '';
 	private $curl_c;
 	public $http_status = null;
+	private $knitr_source = null;
 	public function __construct($instance)
 	{
 		$this->instance = $instance;
@@ -21,7 +22,7 @@ class OpenCPU {
 			curl_setopt($this->curl_c, CURLOPT_POSTFIELDS, http_build_query($post));
 		endif;
 		curl_setopt($this->curl_c, CURLINFO_HEADER_OUT, true); // enable tracking
-
+		curl_setopt($this->curl_c, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4 );
 		curl_setopt($this->curl_c, CURLOPT_HEADER, 1);
 		
 		$result = curl_exec($this->curl_c);
@@ -40,6 +41,10 @@ class OpenCPU {
 	public function identity($post, $return = '/json')
 	{
 		return $this->r_function('base/R/identity'.$return, $post);
+	}
+	public function speed()
+	{
+		return curl_getinfo($this->curl_c);
 	}
 	
 	public function evaluate($source,$return = '/json')
@@ -117,21 +122,27 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 		
 		return $this->debugCall($result);
 	}
-	
-	public function knit($source,$return = '/json',$options = '"base64_images","smartypants","highlight_code","mathjax"')
+	public function knit($source,$return = '/json')
 	{
-		$post = array('x' => '{
-library(knitr)
-	knit2html(text = "' . addslashes($source) . '",
-    fragment.only = T, options=c('.$options.')
-)
-}');
-		$result = $this->identity($post,$return);
-		return $result;
+		$post = array(	'text' 			=> "'".addslashes($source)."'");
+		$resp = $this->r_function('knitr/R/knit'.$return, $post);
+		$resp = current(json_decode($resp['body'], true));
+		return $resp;
+	}
+	
+	public function knit2html($source,$return = '/json',$options = '"base64_images","smartypants","highlight_code","mathjax"')
+	{
+		
+		$post = array(	'text' 			=> "'".addslashes($source)."'",
+    					'fragment.only' => true, 
+						'options' 		=> 'c('.$options.')'
+				);
+		return $this->r_function('knitr/R/knit2html'.$return, $post);
 	}
 	public function clearUserData()
 	{
 		$this->user_data = '';
+		$this->knitr_source = null;
 	}
 	public function addUserData($datasets)
 	{
@@ -151,7 +162,7 @@ $this->user_data .
 '.
 		$source;
 		
-		$result = $this->knit($source,'/json');
+		$result = $this->knit2html($source,'/json');
 		$html = json_decode($result['body'], true);
 		
 		if(!$html):
@@ -172,8 +183,8 @@ $this->user_data .
 '```
 '.
 		$source;
-		
-		$result = $this->knit($source,'');
+		$this->knitr_source = $source;
+		$result = $this->knit2html($source,'');
 		return $this->debugCall($result);
 
 	}
@@ -196,7 +207,7 @@ $this->user_data .
 '.
 		$source;
 		
-		$result = $this->knit($source,'','"smartypants","highlight_code","mathjax"');
+		$result = $this->knit2html($source,'','"smartypants","highlight_code","mathjax"');
 
 		if($this->http_status > 302):
 			 $response = array(
@@ -256,7 +267,8 @@ $this->user_data .
 					$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/print')). '</pre>';
 				endif;
 				
-  			 	$response['Call'] = '<pre>'. htmlspecialchars(current($result['post'])). '</pre>';
+				if($this->knitr_source !== null)
+	  			 	$response['Call'] = '<pre>'. htmlspecialchars(current($result['post'])). '</pre>';
 			
 				$response['HTTP headers'] = '<pre>'. htmlspecialchars($result['header']). '</pre>';
 			 	$response['Headers sent'] = '<pre>'. htmlspecialchars(curl_getinfo($this->curl_c, CURLINFO_HEADER_OUT )) . '</pre>';
@@ -280,6 +292,8 @@ $this->user_data .
 	   		 );
 		endif;
 		
+		if($this->knitr_source !== NULL) $response['Knitr doc'] =  '<pre>'. htmlspecialchars($this->knitr_source). '</pre>';
+		 
 		return $this->ArrayToAccordion($response);
 	}
 	private function ArrayToAccordion($array)

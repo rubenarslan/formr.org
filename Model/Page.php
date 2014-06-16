@@ -8,9 +8,9 @@ class Page extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $body = '';
+	protected $body = '';
 	protected $body_parsed = '';
-	private $title = '';
+	public $title = '';
 	private $can_be_ended = 0;
 	public $ended = false;
 	public $type = 'Endpage';
@@ -90,9 +90,9 @@ class Page extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p><label>Title: <br>
-			<input class="form-control col-md-5" type="text" placeholder="Headline" name="title" value="'.$this->title.'"></label></p>
+			<input class="form-control col-md-5" type="text" placeholder="Headline" name="title" value="'.h($this->title).'"></label></p>
 		<p><label>Text: <br>
-			<textarea data-editor="markdown" style="width:388px;" placeholder="You can use Markdown" name="body" rows="10" cols="60" class="form-control col-md-5">'.$this->body.'</textarea></label></p>';
+			<textarea data-editor="markdown" style="width:388px;" placeholder="You can use Markdown" name="body" rows="10" cols="60" class="form-control col-md-5">'.h($this->body).'</textarea></label></p>';
 #			'<p><input type="hidden" name="end" value="0"><label><input type="checkbox" name="end" value="1"'.($this->can_be_ended ?' checked ':'').'> allow user to continue after viewing page</label></p>';
 		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Page">Save.</a>
 		<a class="btn btn-default unit_test" href="ajax_test_unit?type=Page">Preview</a></p>';
@@ -108,7 +108,6 @@ class Page extends RunUnit {
 	}
 	public function test()
 	{
-		
 		echo $this->getParsedBodyAdmin($this->body);
 #		if($this->can_be_ended)
 #		{
@@ -122,7 +121,7 @@ class Page extends RunUnit {
 	public function exec()
 	{
 		if($this->called_by_cron):
-			$this->getParsedBody($this->body);
+			$this->getParsedBody($this->body); // make report before showing it to the user, so they don't have to wait
 			return true; // never show to the cronjob
 		endif;
 		

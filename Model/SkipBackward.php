@@ -10,12 +10,12 @@ class SkipBackward extends Branch {
 	{
 		$dialog = '<p>
 			<label>if… <br>
-				<textarea style="width:388px;" data-editor="r" class="form-control col-md-5" name="condition" rows="4" placeholder="Condition: You can use R here: survey1$item2 == 2">'.$this->condition.'</textarea>
+				<textarea style="width:388px;" data-editor="r" class="form-control col-md-5" name="condition" rows="4" placeholder="Condition: You can use R here: survey1$item2 == 2">'.h($this->condition).'</textarea>
 			</label>
 		</p>
 		<div class="row col-md-12">
 			<label>…skip backward to
-			<input type="number" class="form-control" style="width:100px" name="if_true" max="'.($this->position-1).'" min="-32000" step="1" value="'.$this->if_true.'">
+			<input type="number" class="form-control" style="width:100px" name="if_true" max="'.($this->position-1).'" min="-32000" step="1" value="'.h($this->if_true).'">
 			</label>
 			
 		</div>';

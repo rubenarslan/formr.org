@@ -1,389 +1,468 @@
-webshims.register('filereader', function( $, webshims ){
+webshim.register('filereader', function($, webshim, window, document, undefined, featureOptions){
 	"use strict";
-	/**
-	 * Code is based on https://github.com/Jahdrien/FileReader
-	 * 
-	 */
-	(function(){
-		var swfobject = window.swfmini || window.swfobject;
-	
-		var readyCallbacks = $.Callbacks('once unique memory'),
-		inputsCount = 0,
-		currentTarget = null;
-	
-		// if native FileReader support, then dont add the polyfill and make the plugin do nothing
-		if (window.FileReader) {
-			$.fn.fileReader = function () { return this; }
-			return ;
-		}
-		
-		/**
-		* JQuery Plugin
-		*/
-		$.fn.fileReader = function( options ) {  
-			if(this.length){
-				options = $.extend($.fn.fileReader.defaults, options);
-				
-				var self = this;
-				readyCallbacks.add(function() {
-					return main(self, options);
-				});
-				if ($.isFunction(options.callback)) readyCallbacks.add(options.callback);
-				
-				if (!FileAPIProxy.ready) {
-					FileAPIProxy.init(options);
-				}
-			}
-			return this;
-		};
-		
-		/**
-		* Default options
-		*  	allows user set default options
-		*/
-		$.fn.fileReader.defaults = {
-			id              : 'fileReaderSWFObject', // ID for the created swf object container,
-			multiple        : null,
-			accept          : null,
-			label           : null,
-			extensions      : null,
-			filereader      : 'files/filereader.swf', // The path to the filereader swf file
-			expressInstall  : null, // The path to the express install swf file
-			debugMode       : false,
-			callback        : false // Callback function when Filereader is ready
-		};
-		
-		/**
-		* Plugin callback
-		*     adds an input to registry
-		*/
-		var main = function(el, options) {
-			return el.each(function(i, input) {
-				input = $(input);
-				var id = input.attr('id');
-				var multiple, accept, label;
-				if (!id) {
-					id = 'flashFileInput' + inputsCount;
-					input.attr('id', id);
-					inputsCount++;
-				}
-				multiple = input.prop('multiple');
-				accept = input.data('swfaccept') || input.prop('accept') ||  options.accept;
-				label = input.jProp('labels')
-					.map(function(){
-						return $(this).text();
-					}).get().join(' ') ||
-					input.data('swflabel') || 
-					options.label;
+	var mOxie, moxie, hasXDomain;
+	var FormData = $.noop;
+	var sel = 'input[type="file"].ws-filereader';
+	var loadMoxie = function (){
+		webshim.loader.loadList(['moxie']);
+	};
+	var _createFilePicker = function(){
+		var $input, picker, $parent, onReset;
+		var input = this;
 
-				FileAPIProxy.inputs[id] = input;
-				FileAPIProxy.swfObject.add(id, multiple, accept, label, options.extensions);
-				
-				input.css('z-index', 0)
-					.mouseover(function (e) {
-						if (id !== currentTarget) {
-							e = e || window.event;
-							currentTarget = id;
-							FileAPIProxy.swfObject.mouseover(id);
-							FileAPIProxy.container
-								.height(input.outerHeight())
-								.width(input.outerWidth())
-								.css(input.offset());
-						}
-					})
-					.click(function(e) {
-						e.preventDefault();
-						e.stopPropagation();
-						e.stopImmediatePropagation();
-						return false;
-					});
-			});
-		};
-		
-		/**
-		* Flash FileReader Proxy
-		*/
-		window.FileAPIProxy = {
-			ready: false,
-			_inititalized: false,
-			init: function(o) {
-				var self = this;
-				this.debugMode = o.debugMode;
-				
-				if(!this.container){
-					this.container = $('<div>').attr('id', o.id)
-						.wrap('<div>')
-						.parent()
-						.css({
-							position:'fixed',
-							// top:'0px',
-							width:'1px',
-							height:'1px',
-							display:'inline-block',
-							background:'transparent',
-							'z-index':99999
-						})
-						// Hands over mouse events to original input for css styles
-						.on('mouseover mouseout mousedown mouseup', function(evt) {
-							if(currentTarget){
-								$('#' + currentTarget).trigger(evt.type);
-							}
-						})
-						.appendTo('body');
-					
-					swfobject.embedSWF(o.filereader, o.id, '100%', '100%', '10', o.expressInstall, {debugMode: o.debugMode ? true : ''}, {'wmode':'transparent','allowScriptAccess':'sameDomain'}, {}, function(e) {
-						self.swfObject = e.ref;
-						$(self.swfObject)
-							.css({
-								display: 'block',
-								outline: 0
-							})
-							.attr('tabindex', 0);
-							
-						self.ready = e.success && typeof e.ref.add === "function";
-						
-						if (self.ready) {
-							readyCallbacks.fire();
-						}
-					});
+		if(webshim.implement(input, 'filepicker')){
+
+			input = this;
+			$input = $(this);
+			$parent = $input.parent();
+			onReset = function(){
+				if(!input.value){
+					$input.prop('value', '');
 				}
-			},
-			swfObject: null,
-			container: null,
-			// Inputs Registry
-			inputs: {},
-			// Readers Registry
-			readers: {},
-			// Receives FileInput events
-			onFileInputEvent: function(evt) {
-				if (this.debugMode) console.info('FileInput Event ', evt.type, evt);
-				if (evt.target in this.inputs) {
-					var el = this.inputs[evt.target];
-					evt.target = el[0];
-					if( evt.type === 'change') {
-						webshims.data(evt.target, 'fileList', new FileList(evt.files));
-					}
-					el.trigger(evt);
-				}
-				window.focus();
-			},
-			// Receives FileReader ProgressEvents
-			onFileReaderEvent: function(evt) {
-				if (this.debugMode) console.info('FileReader Event ', evt.type, evt, evt.target in this.readers);
-				if (evt.target in this.readers) {
-					var reader = this.readers[evt.target];
-					evt.target = reader;
-					reader._handleFlashEvent.call(reader, evt);
-				}
-			},
-			// Receives flash FileReader Error Events
-			onFileReaderError: function(error) {
-				if (this.debugMode) console.log(error);
-			},
-			onSWFReady: function() {
-				this.container.css({position: 'absolute'});
-				this.ready = typeof this.swfObject.add === "function";
-				if (this.ready) {
-					readyCallbacks.fire();
-				}
-				
-				return true;
-			}
-		};
-		
-		
-		/**
-		* Add FileReader to the window object
-		*/
-		window.FileReader = function () {
-			// states
-			this.EMPTY = 0;
-			this.LOADING = 1;
-			this.DONE = 2;
-	
-			this.readyState = 0;
-	
-			// File or Blob data
-			this.result = null;
-	
-			this.error = null;
-	
-			// event handler attributes
-			this.onloadstart = null;
-			this.onprogress = null;
-			this.onload = null;
-			this.onabort = null;
-			this.onerror = null;
-			this.onloadend = null;
-			
-			// Event Listeners handling using JQuery Callbacks
-			this._callbacks = {
-				loadstart : $.Callbacks( "unique" ),
-				progress  : $.Callbacks( "unique" ),
-				abort     : $.Callbacks( "unique" ),
-				error     : $.Callbacks( "unique" ),
-				load      : $.Callbacks( "unique" ),
-				loadend   : $.Callbacks( "unique" )
 			};
-			
-			// Custom properties
-			this._id = null;
-		};
-		
-		window.FileReader.prototype = {
-			// async read methods
-			readAsBinaryString: function (file) {
-				this._start(file);
-				FileAPIProxy.swfObject.read(file.input, file.name, 'readAsBinaryString');
-			},
-			readAsText: function (file, encoding) {
-				this._start(file);
-				FileAPIProxy.swfObject.read(file.input, file.name, 'readAsText');
-			},
-			readAsDataURL: function (file) {
-				this._start(file);
-				FileAPIProxy.swfObject.read(file.input, file.name, 'readAsDataURL');
-			},
-			readAsArrayBuffer: function(file){
-				throw("Whoops FileReader.readAsArrayBuffer is unimplemented");
-			},
-			
-			abort: function () {
-				this.result = null;
-				if (this.readyState === this.EMPTY || this.readyState === this.DONE) return;
-				FileAPIProxy.swfObject.abort(this._id);
-			},
-			
-			// Event Target interface
-			addEventListener: function (type, listener) {
-				if (type in this._callbacks) this._callbacks[type].add(listener);
-			},
-			removeEventListener: function (type, listener) {
-				if (type in this._callbacks) this._callbacks[type].remove(listener);
-			},
-			dispatchEvent: function (event) {
-				event.target = this;
-				if (event.type in this._callbacks) {
-					var fn = this['on' + event.type];
-					if ($.isFunction(fn)) fn(event);
-					this._callbacks[event.type].fire(event);
+
+			$input.attr('tabindex', '-1').on('mousedown.filereaderwaiting click.filereaderwaiting', false);
+			$parent.addClass('ws-loading');
+			picker = new mOxie.FileInput({
+				browse_button: this,
+				accept: $.prop(this, 'accept'),
+				multiple: $.prop(this, 'multiple')
+			});
+
+			$input.jProp('form').on('reset', function(){
+				setTimeout(onReset);
+			});
+			picker.onready = function(){
+				$input.off('.fileraderwaiting');
+				$parent.removeClass('ws-waiting');
+			};
+
+			picker.onchange = function(e){
+				webshim.data(input, 'fileList', e.target.files);
+				$input.trigger('change');
+			};
+			picker.onmouseenter = function(){
+				$input.trigger('mouseover');
+				$parent.addClass('ws-mouseenter');
+			};
+			picker.onmouseleave = function(){
+				$input.trigger('mouseout');
+				$parent.removeClass('ws-mouseenter');
+			};
+			picker.onmousedown = function(){
+				$input.trigger('mousedown');
+				$parent.addClass('ws-active');
+			};
+			picker.onmouseup = function(){
+				$input.trigger('mouseup');
+				$parent.removeClass('ws-active');
+			};
+
+			webshim.data(input, 'filePicker', picker);
+
+			webshim.ready('WINDOWLOAD', function(){
+				var lastWidth;
+				$input.onWSOff('updateshadowdom', function(){
+					var curWitdth = input.offsetWidth;
+					if(curWitdth && lastWidth != curWitdth){
+						lastWidth = curWitdth;
+						picker.refresh();
+					}
+				});
+			});
+
+			webshim.addShadowDom();
+
+			picker.init();
+			if(input.disabled){
+				picker.disable(true);
+			}
+		}
+	};
+	var getFileNames = function(file){
+		return file.name;
+	};
+	var createFilePicker = function(){
+		var elem = this;
+		loadMoxie();
+		$(elem)
+			.on('mousedown.filereaderwaiting click.filereaderwaiting', false)
+			.parent()
+			.addClass('ws-loading')
+		;
+		webshim.ready('moxie', function(){
+			createFilePicker.call(elem);
+		});
+	};
+	var noxhr = /^(?:script|jsonp)$/i;
+	var notReadyYet = function(){
+		loadMoxie();
+		webshim.error('filereader/formdata not ready yet. please wait for moxie to load `webshim.ready("moxie", callbackFn);`` or wait for the first change event on input[type="file"].ws-filereader.')
+	};
+	var inputValueDesc = webshim.defineNodeNameProperty('input', 'value', {
+			prop: {
+				get: function(){
+					var fileList = webshim.data(this, 'fileList');
+
+					if(fileList && fileList.map){
+						return fileList.map(getFileNames).join(', ');
+					}
+
+					return inputValueDesc.prop._supget.call(this);
+				},
+				set: function(val){
+					if(val === '' && this.type == 'file' && $(this).hasClass('ws-filereader')){
+						webshim.data(this, 'fileList', []);
+					}
+					inputValueDesc.prop._supset.call(this);
 				}
-				return true;
-			},
-			
-			// Custom private methods
-			
-			// Registers FileReader instance for flash callbacks
-			_register: function(file) {
-				this._id = file.input + '.' + file.name;
-				FileAPIProxy.readers[this._id] = this;
-			},
-			_start: function(file) {
-				this._register(file);
-				if (this.readyState === this.LOADING) throw {type: 'InvalidStateError', code: 11, message: 'The object is in an invalid state.'};
-			},
-			_handleFlashEvent: function(evt) {
-				switch (evt.type) {
-					case 'loadstart':
-						this.readyState = this.LOADING;
-						break;
-					case 'loadend':
-						this.readyState = this.DONE;
-						break;
-					case 'load':
-						this.readyState = this.DONE;
-						this.result = FileAPIProxy.swfObject.result(this._id);
-						break;
-					case 'error':
-						this.result = null;
-						this.error = {
-							name: 'NotReadableError',
-							message: 'The File cannot be read!'
+			}
+		}
+	);
+	var shimMoxiePath = webshim.cfg.basePath+'moxie/';
+	var crossXMLMessage = 'You nedd a crossdomain.xml to get all "filereader" / "XHR2" / "CORS" features to work. Or host moxie.swf/moxie.xap on your server an configure filereader options: "swfpath"/"xappath"';
+	var testMoxie = function(options){
+		return (options.wsType == 'moxie' || (options.data && options.data instanceof mOxie.FormData) || (options.crossDomain && $.support.cors !== false && hasXDomain != 'no' && !noxhr.test(options.dataType || '')));
+	};
+	var createMoxieTransport = function (options){
+
+		if(testMoxie(options)){
+			var ajax;
+			webshim.info('moxie transfer used for $.ajax');
+			if(hasXDomain == 'no'){
+				webshim.error(crossXMLMessage);
+			}
+			return {
+				send: function( headers, completeCallback ) {
+
+					var proressEvent = function(obj, name){
+						if(options[name]){
+							var called = false;
+							ajax.addEventListener('load', function(e){
+								if(!called){
+									options[name]({type: 'progress', lengthComputable: true, total: 1, loaded: 1});
+								} else if(called.lengthComputable && called.total > called.loaded){
+									options[name]({type: 'progress', lengthComputable: true, total: called.total, loaded: called.total});
+								}
+							});
+							obj.addEventListener('progress', function(e){
+								called = e;
+								options[name](e);
+							});
+						}
+					};
+					ajax = new moxie.xhr.XMLHttpRequest();
+
+					ajax.open(options.type, options.url, options.async, options.username, options.password);
+
+					proressEvent(ajax.upload, featureOptions.uploadprogress);
+					proressEvent(ajax.upload, featureOptions.progress);
+
+					ajax.addEventListener('load', function(e){
+						var responses = {
+							text: ajax.responseText,
+							xml: ajax.responseXML
 						};
+						completeCallback(ajax.status, ajax.statusText, responses, ajax.getAllResponseHeaders());
+					});
+
+					if(options.xhrFields && options.xhrFields.withCredentials){
+						ajax.withCredentials = true;
+					}
+
+					if(options.timeout){
+						ajax.timeout = options.timeout;
+					}
+
+					$.each(headers, function(name, value){
+						ajax.setRequestHeader(name, value);
+					});
+
+
+					ajax.send(options.data);
+
+				},
+				abort: function() {
+					if(ajax){
+						ajax.abort();
+					}
 				}
-				this.dispatchEvent(new FileReaderEvent(evt));
-			}
-		};
-		
-		/**
-		* FileReader ProgressEvent implenting Event interface
-		*/
-		window.FileReaderEvent = function (e) {
-			this.initEvent(e);
-		};
-	
-		window.FileReaderEvent.prototype = {
-			initEvent: function (event) {
-				$.extend(this, {
-					type: null,
-					target: null,
-					currentTarget: null,
-				
-					eventPhase: 2,
-	
-					bubbles: false,
-					cancelable: false,
-			 
-					defaultPrevented: false,
-	
-					isTrusted: false,
-					timeStamp: new Date().getTime()
-				}, event);
-			},
-			stopPropagation: function (){
-			},
-			stopImmediatePropagation: function (){
-			},
-			preventDefault: function (){
-			}
-		};
-		
-		/**
-		* FileList interface (Object with item function)
-		*/
-		window.FileList = function(array) {
-			if (array) {
-				for (var i = 0; i < array.length; i++) {
-					this[i] = array[i];
+			};
+		}
+	};
+	var transports = {
+		//based on script: https://github.com/MoonScript/jQuery-ajaxTransport-XDomainRequest
+		xdomain: (function(){
+			var httpRegEx = /^https?:\/\//i;
+			var getOrPostRegEx = /^get|post$/i;
+			var sameSchemeRegEx = new RegExp('^'+location.protocol, 'i');
+			return function(options, userOptions, jqXHR) {
+
+				// Only continue if the request is: asynchronous, uses GET or POST method, has HTTP or HTTPS protocol, and has the same scheme as the calling page
+				if (!options.crossDomain || options.username || (options.xhrFields && options.xhrFields.withCredentials) || !options.async || !getOrPostRegEx.test(options.type) || !httpRegEx.test(options.url) || !sameSchemeRegEx.test(options.url) || (options.data && options.data instanceof mOxie.FormData) || noxhr.test(options.dataType || '')) {
+					return;
 				}
-				this.length = array.length;
-			} else {
-				this.length = 0;
+
+				var xdr = null;
+				webshim.info('xdomain transport used.');
+
+				return {
+					send: function(headers, complete) {
+						var postData = '';
+						var userType = (userOptions.dataType || '').toLowerCase();
+
+						xdr = new XDomainRequest();
+						if (/^\d+$/.test(userOptions.timeout)) {
+							xdr.timeout = userOptions.timeout;
+						}
+
+						xdr.ontimeout = function() {
+							complete(500, 'timeout');
+						};
+
+						xdr.onload = function() {
+							var allResponseHeaders = 'Content-Length: ' + xdr.responseText.length + '\r\nContent-Type: ' + xdr.contentType;
+							var status = {
+								code: xdr.status || 200,
+								message: xdr.statusText || 'OK'
+							};
+							var responses = {
+								text: xdr.responseText,
+								xml: xdr.responseXML
+							};
+							try {
+								if (userType === 'html' || /text\/html/i.test(xdr.contentType)) {
+									responses.html = xdr.responseText;
+								} else if (userType === 'json' || (userType !== 'text' && /\/json/i.test(xdr.contentType))) {
+									try {
+										responses.json = $.parseJSON(xdr.responseText);
+									} catch(e) {
+
+									}
+								} else if (userType === 'xml' && !xdr.responseXML) {
+									var doc;
+									try {
+										doc = new ActiveXObject('Microsoft.XMLDOM');
+										doc.async = false;
+										doc.loadXML(xdr.responseText);
+									} catch(e) {
+
+									}
+
+									responses.xml = doc;
+								}
+							} catch(parseMessage) {}
+							complete(status.code, status.message, responses, allResponseHeaders);
+						};
+
+						// set an empty handler for 'onprogress' so requests don't get aborted
+						xdr.onprogress = function(){};
+						xdr.onerror = function() {
+							complete(500, 'error', {
+								text: xdr.responseText
+							});
+						};
+
+						if (userOptions.data) {
+							postData = ($.type(userOptions.data) === 'string') ? userOptions.data : $.param(userOptions.data);
+						}
+						xdr.open(options.type, options.url);
+						xdr.send(postData);
+					},
+					abort: function() {
+						if (xdr) {
+							xdr.abort();
+						}
+					}
+				};
+			};
+		})(),
+		moxie: function (options, originalOptions, jqXHR){
+			if(testMoxie(options)){
+				loadMoxie(options);
+				var ajax;
+
+				var tmpTransport = {
+					send: function( headers, completeCallback ) {
+						ajax = true;
+						webshim.ready('moxie', function(){
+							if(ajax){
+								ajax = createMoxieTransport(options, originalOptions, jqXHR);
+								tmpTransport.send = ajax.send;
+								tmpTransport.abort = ajax.abort;
+								ajax.send(headers, completeCallback);
+							}
+						});
+					},
+					abort: function() {
+						ajax = false;
+					}
+				};
+				return tmpTransport;
 			}
-		};
-		
-		window.FileList.prototype = {
-			item: function(index) {
-				return (index in this) ? this[index] : null;
+		}
+	};
+
+	if(!featureOptions.progress){
+		featureOptions.progress = 'onprogress';
+	}
+
+	if(!featureOptions.uploadprogress){
+		featureOptions.uploadprogress = 'onuploadprogress';
+	}
+
+	if(!featureOptions.swfpath){
+		featureOptions.swfpath = shimMoxiePath+'flash/Moxie.cdn.swf';
+	}
+	if(!featureOptions.xappath){
+		featureOptions.xappath = shimMoxiePath+'silverlight/Moxie.cdn.xap';
+	}
+
+	if($.support.cors !== false || !window.XDomainRequest){
+		delete transports.xdomain;
+	}
+
+
+	$.ajaxTransport("+*", function( options, originalOptions, jqXHR ) {
+		var ajax, type;
+
+		if(options.wsType || transports[transports]){
+			ajax = transports[transports](options, originalOptions, jqXHR);
+		}
+		if(!ajax){
+			for(type in transports){
+				ajax = transports[type](options, originalOptions, jqXHR);
+				if(ajax){break;}
 			}
-		};
-	})();
-	
-	webshims.defineNodeNameProperty('input', 'files', {
+		}
+		return ajax;
+	});
+
+	webshim.defineNodeNameProperty('input', 'files', {
 			prop: {
 				writeable: false,
 				get: function(){
 					if(this.type != 'file'){return null;}
 					if(!$(this).is('.ws-filereader')){
-						webshims.error("please add the 'ws-filereader' class to your input[type='file'] to implement files-property");
+						webshim.info("please add the 'ws-filereader' class to your input[type='file'] to implement files-property");
 					}
-					return webshims.data(this, 'fileList') || webshims.data(this, 'fileList', new FileList());
+					return webshim.data(this, 'fileList') || [];
 				}
 			}
 		}
 	);
-	
-	webshims.defineNodeNamesBooleanProperty('input', 'multiple');
 
-	//webshims
-	$.fn.fileReader.defaults.filereader = webshims.cfg.basePath +'swf/filereader.swf';
-	var wait = ['DOM'];
-	if(webshims.modules["form-core"].loaded){
-		wait.push('forms');
+	webshim.reflectProperties(['input'], ['accept']);
+
+	if($('<input />').prop('multiple') == null){
+		webshim.defineNodeNamesBooleanProperty(['input'], ['multiple']);
 	}
-	webshims.ready(wait, function(){
-		webshims.addReady(function(context, contextElem){
-			$('input[type="file"].ws-filereader', context).fileReader();
-		});
+
+	webshim.onNodeNamesPropertyModify('input', 'disabled', function(value, boolVal, type){
+		var picker = webshim.data(this, 'filePicker');
+		if(picker){
+			picker.disable(boolVal);
+		}
 	});
+
+	window.FileReader = notReadyYet;
+	window.FormData = notReadyYet;
+	webshim.ready('moxie', function(){
+		var wsMimes = 'application/xml,xml';
+		moxie = window.moxie;
+		mOxie = window.mOxie;
+
+		mOxie.Env.swf_url = featureOptions.swfpath;
+		mOxie.Env.xap_url = featureOptions.xappath;
+
+		window.FileReader = mOxie.FileReader;
+
+		window.FormData = function(form){
+			var appendData, i, len, files, fileI, fileLen, inputName;
+			var moxieData = new mOxie.FormData();
+			if(form && $.nodeName(form, 'form')){
+				appendData = $(form).serializeArray();
+				for(i = 0; i < appendData.length; i++){
+					if(Array.isArray(appendData[i].value)){
+						appendData[i].value.forEach(function(val){
+							moxieData.append(appendData[i].name, val);
+						});
+					} else {
+						moxieData.append(appendData[i].name, appendData[i].value);
+					}
+				}
+
+				appendData = form.querySelectorAll('input[type="file"][name]');
+
+				for(i = 0, len = appendData.length; i < appendData.length; i++){
+					inputName = appendData[i].name;
+					if(inputName && !$(appendData[i]).is(':disabled')){
+						files = $.prop(appendData[i], 'files') || [];
+						if(files.length){
+							if(files.length > 1){
+								webshim.error('FormData shim can only handle one file per ajax. Use multiple ajax request. One per file.');
+							}
+							for(fileI = 0, fileLen = files.length; fileI < fileLen; fileI++){
+								moxieData.append(inputName, files[fileI]);
+							}
+						}
+					}
+				}
+			}
+
+			return moxieData;
+		};
+		FormData = window.FormData;
+
+		createFilePicker = _createFilePicker;
+		transports.moxie = createMoxieTransport;
+
+		featureOptions.mimeTypes = (featureOptions.mimeTypes) ? wsMimes+','+featureOptions.mimeTypes : wsMimes;
+		try {
+			mOxie.Mime.addMimeType(featureOptions.mimeTypes);
+		} catch(e){
+			webshim.warn('mimetype to moxie error: '+e);
+		}
+
+	});
+
+	webshim.addReady(function(context, contextElem){
+		$(context.querySelectorAll(sel)).add(contextElem.filter(sel)).each(createFilePicker);
+	});
+	webshim.ready('WINDOWLOAD', loadMoxie);
+
+	if(webshim.cfg.debug !== false && featureOptions.swfpath.indexOf((location.protocol+'//'+location.hostname)) && featureOptions.swfpath.indexOf(('https://'+location.hostname))){
+		webshim.ready('WINDOWLOAD', function(){
+
+			var printMessage = function(){
+				if(hasXDomain == 'no'){
+					webshim.error(crossXMLMessage);
+				}
+			};
+
+			try {
+				hasXDomain = sessionStorage.getItem('wsXdomain.xml');
+			} catch(e){}
+			printMessage();
+			if(hasXDomain == null){
+				$.ajax({
+					url: 'crossdomain.xml',
+					type: 'HEAD',
+					dataType: 'xml',
+					success: function(){
+						hasXDomain = 'yes';
+					},
+					error: function(){
+						hasXDomain = 'no';
+					},
+					complete: function(){
+						try {
+							sessionStorage.setItem('wsXdomain.xml', hasXDomain);
+						} catch(e){}
+						printMessage();
+					}
+				});
+			}
+		});
+	}
 });

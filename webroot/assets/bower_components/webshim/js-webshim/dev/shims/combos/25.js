@@ -1,1901 +1,62 @@
-/*!	SWFMini - a SWFObject 2.2 cut down version for webshims
- * 
- * based on SWFObject v2.2 <http://code.google.com/p/swfobject/> 
-	is released under the MIT License <http://www.opensource.org/licenses/mit-license.php> 
-*/
 
-var swfmini = function() {
-	
-	var UNDEF = "undefined",
-		OBJECT = "object",
-		webshims = window.webshims,
-		SHOCKWAVE_FLASH = "Shockwave Flash",
-		SHOCKWAVE_FLASH_AX = "ShockwaveFlash.ShockwaveFlash",
-		FLASH_MIME_TYPE = "application/x-shockwave-flash",
-		
-		win = window,
-		doc = document,
-		nav = navigator,
-		
-		plugin = false,
-		domLoadFnArr = [main],
-		objIdArr = [],
-		listenersArr = [],
-		storedAltContent,
-		storedAltContentId,
-		storedCallbackFn,
-		storedCallbackObj,
-		isDomLoaded = false,
-		dynamicStylesheet,
-		dynamicStylesheetMedia,
-		autoHideShow = true,
-	
-	/* Centralized function for browser feature detection
-		- User agent string detection is only used when no good alternative is possible
-		- Is executed directly for optimal performance
-	*/	
-	ua = function() {
-		var w3cdom = typeof doc.getElementById != UNDEF && typeof doc.getElementsByTagName != UNDEF && typeof doc.createElement != UNDEF,
-			u = nav.userAgent.toLowerCase(),
-			p = nav.platform.toLowerCase(),
-			windows = p ? /win/.test(p) : /win/.test(u),
-			mac = p ? /mac/.test(p) : /mac/.test(u),
-			webkit = /webkit/.test(u) ? parseFloat(u.replace(/^.*webkit\/(\d+(\.\d+)?).*$/, "$1")) : false, // returns either the webkit version or false if not webkit
-			ie = !+"\v1", // feature detection based on Andrea Giammarchi's solution: http://webreflection.blogspot.com/2009/01/32-bytes-to-know-if-your-browser-is-ie.html
-			playerVersion = [0,0,0],
-			d = null;
-		if (typeof nav.plugins != UNDEF && typeof nav.plugins[SHOCKWAVE_FLASH] == OBJECT) {
-			d = nav.plugins[SHOCKWAVE_FLASH].description;
-			if (d && !(typeof nav.mimeTypes != UNDEF && nav.mimeTypes[FLASH_MIME_TYPE] && !nav.mimeTypes[FLASH_MIME_TYPE].enabledPlugin)) { // navigator.mimeTypes["application/x-shockwave-flash"].enabledPlugin indicates whether plug-ins are enabled or disabled in Safari 3+
-				plugin = true;
-				ie = false; // cascaded feature detection for Internet Explorer
-				d = d.replace(/^.*\s+(\S+\s+\S+$)/, "$1");
-				playerVersion[0] = parseInt(d.replace(/^(.*)\..*$/, "$1"), 10);
-				playerVersion[1] = parseInt(d.replace(/^.*\.(.*)\s.*$/, "$1"), 10);
-				playerVersion[2] = /[a-zA-Z]/.test(d) ? parseInt(d.replace(/^.*[a-zA-Z]+(.*)$/, "$1"), 10) : 0;
-			}
-		}
-		else if (typeof win.ActiveXObject != UNDEF) {
-			try {
-				var a = new ActiveXObject(SHOCKWAVE_FLASH_AX);
-				if (a) { // a will return null when ActiveX is disabled
-					d = a.GetVariable("$version");
-					if (d) {
-						ie = true; // cascaded feature detection for Internet Explorer
-						d = d.split(" ")[1].split(",");
-						playerVersion = [parseInt(d[0], 10), parseInt(d[1], 10), parseInt(d[2], 10)];
-					}
-				}
-			}
-			catch(e) {}
-		}
-		return { w3:w3cdom, pv:playerVersion, wk:webkit, ie:ie, win:windows, mac:mac };
-	}();
-	
-	
-	function callDomLoadFunctions() {
-		if (isDomLoaded) { return; }
-		try { // test if we can really add/remove elements to/from the DOM; we don't want to fire it too early
-			var t = doc.getElementsByTagName("body")[0].appendChild(createElement("span"));
-			t.parentNode.removeChild(t);
-		}
-		catch (e) { return; }
-		isDomLoaded = true;
-		var dl = domLoadFnArr.length;
-		for (var i = 0; i < dl; i++) {
-			domLoadFnArr[i]();
-		}
-	}
-	
-	function addDomLoadEvent(fn) {
-		if (isDomLoaded) {
-			fn();
-		}
-		else { 
-			domLoadFnArr[domLoadFnArr.length] = fn; // Array.push() is only available in IE5.5+
-		}
-	}
-	
-	/* Cross-browser onload
-		- Based on James Edwards' solution: http://brothercake.com/site/resources/scripts/onload/
-		- Will fire an event as soon as a web page including all of its assets are loaded 
-	 */
-	function addLoadEvent(fn) {
-		
-	}
-	
-	/* Main function
-		- Will preferably execute onDomLoad, otherwise onload (as a fallback)
-	*/
-	function main() { 
-		if (plugin) {
-			testPlayerVersion();
-		}
-	}
-	
-	/* Detect the Flash Player version for non-Internet Explorer browsers
-		- Detecting the plug-in version via the object element is more precise than using the plugins collection item's description:
-		  a. Both release and build numbers can be detected
-		  b. Avoid wrong descriptions by corrupt installers provided by Adobe
-		  c. Avoid wrong descriptions by multiple Flash Player entries in the plugin Array, caused by incorrect browser imports
-		- Disadvantage of this method is that it depends on the availability of the DOM, while the plugins collection is immediately available
-	*/
-	function testPlayerVersion() {
-		var b = doc.getElementsByTagName("body")[0];
-		var o = createElement(OBJECT);
-		o.setAttribute("type", FLASH_MIME_TYPE);
-		var t = b.appendChild(o);
-		if (t) {
-			var counter = 0;
-			(function(){
-				if (typeof t.GetVariable != UNDEF) {
-					var d = t.GetVariable("$version");
-					if (d) {
-						d = d.split(" ")[1].split(",");
-						ua.pv = [parseInt(d[0], 10), parseInt(d[1], 10), parseInt(d[2], 10)];
-					}
-				}
-				else if (counter < 10) {
-					counter++;
-					setTimeout(arguments.callee, 10);
-					return;
-				}
-				b.removeChild(o);
-				t = null;
-			})();
-		}
-	}
-	
-	
-	function getObjectById(objectIdStr) {
-		var r = null;
-		var o = getElementById(objectIdStr);
-		if (o && o.nodeName == "OBJECT") {
-			if (typeof o.SetVariable != UNDEF) {
-				r = o;
-			}
-			else {
-				var n = o.getElementsByTagName(OBJECT)[0];
-				if (n) {
-					r = n;
-				}
-			}
-		}
-		return r;
-	}
-	
-	
-	/* Cross-browser dynamic SWF creation
-	*/
-	function createSWF(attObj, parObj, id) {
-		var r, el = getElementById(id);
-		if (ua.wk && ua.wk < 312) { return r; }
-		if (el) {
-			if (typeof attObj.id == UNDEF) { // if no 'id' is defined for the object element, it will inherit the 'id' from the alternative content
-				attObj.id = id;
-			}
-			if (ua.ie && ua.win) { // Internet Explorer + the HTML object element + W3C DOM methods do not combine: fall back to outerHTML
-				var att = "";
-				for (var i in attObj) {
-					if (attObj[i] != Object.prototype[i]) { // filter out prototype additions from other potential libraries
-						if (i.toLowerCase() == "data") {
-							parObj.movie = attObj[i];
-						}
-						else if (i.toLowerCase() == "styleclass") { // 'class' is an ECMA4 reserved keyword
-							att += ' class="' + attObj[i] + '"';
-						}
-						else if (i.toLowerCase() != "classid") {
-							att += ' ' + i + '="' + attObj[i] + '"';
-						}
-					}
-				}
-				var par = "";
-				for (var j in parObj) {
-					if (parObj[j] != Object.prototype[j]) { // filter out prototype additions from other potential libraries
-						par += '<param name="' + j + '" value="' + parObj[j] + '" />';
-					}
-				}
-				el.outerHTML = '<object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"' + att + '>' + par + '</object>';
-				objIdArr[objIdArr.length] = attObj.id; // stored to fix object 'leaks' on unload (dynamic publishing only)
-				r = getElementById(attObj.id);	
-			}
-			else { // well-behaving browsers
-				var o = createElement(OBJECT);
-				o.setAttribute("type", FLASH_MIME_TYPE);
-				for (var m in attObj) {
-					if (attObj[m] != Object.prototype[m]) { // filter out prototype additions from other potential libraries
-						if (m.toLowerCase() == "styleclass") { // 'class' is an ECMA4 reserved keyword
-							o.setAttribute("class", attObj[m]);
-						}
-						else if (m.toLowerCase() != "classid") { // filter out IE specific attribute
-							o.setAttribute(m, attObj[m]);
-						}
-					}
-				}
-				for (var n in parObj) {
-					if (parObj[n] != Object.prototype[n] && n.toLowerCase() != "movie") { // filter out prototype additions from other potential libraries and IE specific param element
-						createObjParam(o, n, parObj[n]);
-					}
-				}
-				el.parentNode.replaceChild(o, el);
-				r = o;
-			}
-		}
-		return r;
-	}
-	
-	function createObjParam(el, pName, pValue) {
-		var p = createElement("param");
-		p.setAttribute("name", pName);	
-		p.setAttribute("value", pValue);
-		el.appendChild(p);
-	}
-	
-	/* Cross-browser SWF removal
-		- Especially needed to safely and completely remove a SWF in Internet Explorer
-	*/
-	function removeSWF(id) {
-		var obj = getElementById(id);
-		if (obj && obj.nodeName == "OBJECT") {
-			if (ua.ie && ua.win) {
-				obj.style.display = "none";
-				(function(){
-					if (obj.readyState == 4) {
-						removeObjectInIE(id);
-					}
-					else {
-						setTimeout(arguments.callee, 10);
-					}
-				})();
-			}
-			else {
-				obj.parentNode.removeChild(obj);
-			}
-		}
-	}
-	
-	function removeObjectInIE(id) {
-		var obj = getElementById(id);
-		if (obj) {
-			for (var i in obj) {
-				if (typeof obj[i] == "function") {
-					obj[i] = null;
-				}
-			}
-			obj.parentNode.removeChild(obj);
-		}
-	}
-	
-	/* Functions to optimize JavaScript compression
-	*/
-	function getElementById(id) {
-		var el = null;
-		try {
-			el = doc.getElementById(id);
-		}
-		catch (e) {}
-		return el;
-	}
-	
-	function createElement(el) {
-		return doc.createElement(el);
-	}
-	
-	/* Updated attachEvent function for Internet Explorer
-		- Stores attachEvent information in an Array, so on unload the detachEvent functions can be called to avoid memory leaks
-	*/	
-	function addListener(target, eventType, fn) {
-		target.attachEvent(eventType, fn);
-		listenersArr[listenersArr.length] = [target, eventType, fn];
-	}
-	
-	/* Flash Player and SWF content version matching
-	*/
-	function hasPlayerVersion(rv) {
-		var pv = ua.pv, v = rv.split(".");
-		v[0] = parseInt(v[0], 10);
-		v[1] = parseInt(v[1], 10) || 0; // supports short notation, e.g. "9" instead of "9.0.0"
-		v[2] = parseInt(v[2], 10) || 0;
-		return (pv[0] > v[0] || (pv[0] == v[0] && pv[1] > v[1]) || (pv[0] == v[0] && pv[1] == v[1] && pv[2] >= v[2])) ? true : false;
-	}
-	
-	
-	
-	function setVisibility(id, isVisible) {
-		if (!autoHideShow) { return; }
-		var elem;
-		var v = isVisible ? "visible" : "hidden";
-		if (isDomLoaded && (elem && getElementById(id))) {
-			getElementById(id).style.visibility = v;
-		}
-	}
-
-	/* Release memory to avoid memory leaks caused by closures, fix hanging audio/video threads and force open sockets/NetConnections to disconnect (Internet Explorer only)
-	*/
-	var cleanup = function() {
-		if (ua.ie && ua.win && window.attachEvent) {
-			window.attachEvent("onunload", function() {
-				// remove listeners to avoid memory leaks
-				var ll = listenersArr.length;
-				for (var i = 0; i < ll; i++) {
-					listenersArr[i][0].detachEvent(listenersArr[i][1], listenersArr[i][2]);
-				}
-				// cleanup dynamically embedded objects to fix audio/video threads and force open sockets and NetConnections to disconnect
-				var il = objIdArr.length;
-				for (var j = 0; j < il; j++) {
-					removeSWF(objIdArr[j]);
-				}
-				// cleanup library's main closures to avoid memory leaks
-				for (var k in ua) {
-					ua[k] = null;
-				}
-				ua = null;
-				for (var l in swfmini) {
-					swfmini[l] = null;
-				}
-				swfmini = null;
-			});
-		}
-	}();
-	
-	webshims.ready('DOM', callDomLoadFunctions);
-	
-	return {
-		/* Public API
-			- Reference: http://code.google.com/p/swfobject/wiki/documentation
-		*/ 
-		registerObject: function() {
-			
-		},
-		
-		getObjectById: function(objectIdStr) {
-			if (ua.w3) {
-				return getObjectById(objectIdStr);
-			}
-		},
-		
-		embedSWF: function(swfUrlStr, replaceElemIdStr, widthStr, heightStr, swfVersionStr, xiSwfUrlStr, flashvarsObj, parObj, attObj, callbackFn) {
-			var callbackObj = {success:false, id:replaceElemIdStr};
-			if (ua.w3 && !(ua.wk && ua.wk < 312) && swfUrlStr && replaceElemIdStr && widthStr && heightStr && swfVersionStr) {
-				setVisibility(replaceElemIdStr, false);
-				addDomLoadEvent(function() {
-					widthStr += ""; // auto-convert to string
-					heightStr += "";
-					var att = {};
-					if (attObj && typeof attObj === OBJECT) {
-						for (var i in attObj) { // copy object to avoid the use of references, because web authors often reuse attObj for multiple SWFs
-							att[i] = attObj[i];
-						}
-					}
-					att.data = swfUrlStr;
-					att.width = widthStr;
-					att.height = heightStr;
-					var par = {}; 
-					if (parObj && typeof parObj === OBJECT) {
-						for (var j in parObj) { // copy object to avoid the use of references, because web authors often reuse parObj for multiple SWFs
-							par[j] = parObj[j];
-						}
-					}
-					if (flashvarsObj && typeof flashvarsObj === OBJECT) {
-						for (var k in flashvarsObj) { // copy object to avoid the use of references, because web authors often reuse flashvarsObj for multiple SWFs
-							if (typeof par.flashvars != UNDEF) {
-								par.flashvars += "&" + k + "=" + flashvarsObj[k];
-							}
-							else {
-								par.flashvars = k + "=" + flashvarsObj[k];
-							}
-						}
-					}
-					if (hasPlayerVersion(swfVersionStr)) { // create SWF
-						var obj = createSWF(att, par, replaceElemIdStr);
-						if (att.id == replaceElemIdStr) {
-							setVisibility(replaceElemIdStr, true);
-						}
-						callbackObj.success = true;
-						callbackObj.ref = obj;
-					}
-					else { // show alternative content
-						setVisibility(replaceElemIdStr, true);
-					}
-					if (callbackFn) { callbackFn(callbackObj); }
-				});
-			}
-			else if (callbackFn) { callbackFn(callbackObj);	}
-		},
-		
-		switchOffAutoHideShow: function() {
-			autoHideShow = false;
-		},
-		
-		ua: ua,
-		
-		getFlashPlayerVersion: function() {
-			return { major:ua.pv[0], minor:ua.pv[1], release:ua.pv[2] };
-		},
-		
-		hasFlashPlayerVersion: hasPlayerVersion,
-		
-		createSWF: function(attObj, parObj, replaceElemIdStr) {
-			if (ua.w3) {
-				return createSWF(attObj, parObj, replaceElemIdStr);
-			}
-			else {
-				return undefined;
-			}
-		},
-		
-		showExpressInstall: function() {
-			
-		},
-		
-		removeSWF: function(objElemIdStr) {
-			if (ua.w3) {
-				removeSWF(objElemIdStr);
-			}
-		},
-		
-		createCSS: function() {
-			
-		},
-		
-		addDomLoadEvent: addDomLoadEvent,
-		
-		addLoadEvent: addLoadEvent,
-		
-		
-		// For internal usage only
-		expressInstallCallback: function() {
-			
-		}
-	};
-}();
-;// Copyright 2009-2012 by contributors, MIT License
-// vim: ts=4 sts=4 sw=4 expandtab
-
-(function () {
-
-/**
- * Brings an environment as close to ECMAScript 5 compliance
- * as is possible with the facilities of erstwhile engines.
- *
- * Annotated ES5: http://es5.github.com/ (specific links below)
- * ES5 Spec: http://www.ecma-international.org/publications/files/ECMA-ST/Ecma-262.pdf
- * Required reading: http://javascriptweblog.wordpress.com/2011/12/05/extending-javascript-natives/
- */
-
-//
-// Function
-// ========
-//
-
-// ES-5 15.3.4.5
-// http://es5.github.com/#x15.3.4.5
-
-function Empty() {}
-
-if (!Function.prototype.bind) {
-    Function.prototype.bind = function bind(that) { // .length is 1
-        // 1. Let Target be the this value.
-        var target = this;
-        // 2. If IsCallable(Target) is false, throw a TypeError exception.
-        if (typeof target != "function") {
-            throw new TypeError("Function.prototype.bind called on incompatible " + target);
-        }
-        // 3. Let A be a new (possibly empty) internal list of all of the
-        //   argument values provided after thisArg (arg1, arg2 etc), in order.
-        // XXX slicedArgs will stand in for "A" if used
-        var args = _Array_slice_.call(arguments, 1); // for normal call
-        // 4. Let F be a new native ECMAScript object.
-        // 11. Set the [[Prototype]] internal property of F to the standard
-        //   built-in Function prototype object as specified in 15.3.3.1.
-        // 12. Set the [[Call]] internal property of F as described in
-        //   15.3.4.5.1.
-        // 13. Set the [[Construct]] internal property of F as described in
-        //   15.3.4.5.2.
-        // 14. Set the [[HasInstance]] internal property of F as described in
-        //   15.3.4.5.3.
-        var bound = function () {
-
-            if (this instanceof bound) {
-                // 15.3.4.5.2 [[Construct]]
-                // When the [[Construct]] internal method of a function object,
-                // F that was created using the bind function is called with a
-                // list of arguments ExtraArgs, the following steps are taken:
-                // 1. Let target be the value of F's [[TargetFunction]]
-                //   internal property.
-                // 2. If target has no [[Construct]] internal method, a
-                //   TypeError exception is thrown.
-                // 3. Let boundArgs be the value of F's [[BoundArgs]] internal
-                //   property.
-                // 4. Let args be a new list containing the same values as the
-                //   list boundArgs in the same order followed by the same
-                //   values as the list ExtraArgs in the same order.
-                // 5. Return the result of calling the [[Construct]] internal
-                //   method of target providing args as the arguments.
-
-                var result = target.apply(
-                    this,
-                    args.concat(_Array_slice_.call(arguments))
-                );
-                if (Object(result) === result) {
-                    return result;
-                }
-                return this;
-
-            } else {
-                // 15.3.4.5.1 [[Call]]
-                // When the [[Call]] internal method of a function object, F,
-                // which was created using the bind function is called with a
-                // this value and a list of arguments ExtraArgs, the following
-                // steps are taken:
-                // 1. Let boundArgs be the value of F's [[BoundArgs]] internal
-                //   property.
-                // 2. Let boundThis be the value of F's [[BoundThis]] internal
-                //   property.
-                // 3. Let target be the value of F's [[TargetFunction]] internal
-                //   property.
-                // 4. Let args be a new list containing the same values as the
-                //   list boundArgs in the same order followed by the same
-                //   values as the list ExtraArgs in the same order.
-                // 5. Return the result of calling the [[Call]] internal method
-                //   of target providing boundThis as the this value and
-                //   providing args as the arguments.
-
-                // equiv: target.call(this, ...boundArgs, ...args)
-                return target.apply(
-                    that,
-                    args.concat(_Array_slice_.call(arguments))
-                );
-
-            }
-
-        };
-        if(target.prototype) {
-            Empty.prototype = target.prototype;
-            bound.prototype = new Empty();
-            // Clean up dangling references.
-            Empty.prototype = null;
-        }
-        // XXX bound.length is never writable, so don't even try
-        //
-        // 15. If the [[Class]] internal property of Target is "Function", then
-        //     a. Let L be the length property of Target minus the length of A.
-        //     b. Set the length own property of F to either 0 or L, whichever is
-        //       larger.
-        // 16. Else set the length own property of F to 0.
-        // 17. Set the attributes of the length own property of F to the values
-        //   specified in 15.3.5.1.
-
-        // TODO
-        // 18. Set the [[Extensible]] internal property of F to true.
-
-        // TODO
-        // 19. Let thrower be the [[ThrowTypeError]] function Object (13.2.3).
-        // 20. Call the [[DefineOwnProperty]] internal method of F with
-        //   arguments "caller", PropertyDescriptor {[[Get]]: thrower, [[Set]]:
-        //   thrower, [[Enumerable]]: false, [[Configurable]]: false}, and
-        //   false.
-        // 21. Call the [[DefineOwnProperty]] internal method of F with
-        //   arguments "arguments", PropertyDescriptor {[[Get]]: thrower,
-        //   [[Set]]: thrower, [[Enumerable]]: false, [[Configurable]]: false},
-        //   and false.
-
-        // TODO
-        // NOTE Function objects created using Function.prototype.bind do not
-        // have a prototype property or the [[Code]], [[FormalParameters]], and
-        // [[Scope]] internal properties.
-        // XXX can't delete prototype in pure-js.
-
-        // 22. Return F.
-        return bound;
-    };
-}
-
-// Shortcut to an often accessed properties, in order to avoid multiple
-// dereference that costs universally.
-// _Please note: Shortcuts are defined after `Function.prototype.bind` as we
-// us it in defining shortcuts.
-var call = Function.prototype.call;
-var prototypeOfArray = Array.prototype;
-var prototypeOfObject = Object.prototype;
-var _Array_slice_ = prototypeOfArray.slice;
-// Having a toString local variable name breaks in Opera so use _toString.
-var _toString = call.bind(prototypeOfObject.toString);
-var owns = call.bind(prototypeOfObject.hasOwnProperty);
-
-// If JS engine supports accessors creating shortcuts.
-var defineGetter;
-var defineSetter;
-var lookupGetter;
-var lookupSetter;
-var supportsAccessors;
-if ((supportsAccessors = owns(prototypeOfObject, "__defineGetter__"))) {
-    defineGetter = call.bind(prototypeOfObject.__defineGetter__);
-    defineSetter = call.bind(prototypeOfObject.__defineSetter__);
-    lookupGetter = call.bind(prototypeOfObject.__lookupGetter__);
-    lookupSetter = call.bind(prototypeOfObject.__lookupSetter__);
-}
-
-//
-// Array
-// =====
-//
-
-// ES5 15.4.4.12
-// http://es5.github.com/#x15.4.4.12
-// Default value for second param
-// [bugfix, ielt9, old browsers]
-// IE < 9 bug: [1,2].splice(0).join("") == "" but should be "12"
-if ([1,2].splice(0).length != 2) {
-    var array_splice = Array.prototype.splice;
-
-    if(function() { // test IE < 9 to splice bug - see issue #138
-        function makeArray(l) {
-            var a = [];
-            while (l--) {
-                a.unshift(l)
-            }
-            return a
-        }
-
-        var array = []
-            , lengthBefore
-        ;
-
-        array.splice.bind(array, 0, 0).apply(null, makeArray(20));
-        array.splice.bind(array, 0, 0).apply(null, makeArray(26));
-
-        lengthBefore = array.length; //20
-        array.splice(5, 0, "XXX"); // add one element
-
-        if(lengthBefore + 1 == array.length) {
-            return true;// has right splice implementation without bugs
-        }
-        // else {
-        //    IE8 bug
-        // }
-    }()) {//IE 6/7
-        Array.prototype.splice = function(start, deleteCount) {
-            if (!arguments.length) {
-                return [];
-            } else {
-                return array_splice.apply(this, [
-                    start === void 0 ? 0 : start,
-                    deleteCount === void 0 ? (this.length - start) : deleteCount
-                ].concat(_Array_slice_.call(arguments, 2)))
-            }
-        };
-    }
-    else {//IE8
-        Array.prototype.splice = function(start, deleteCount) {
-            var result
-                , args = _Array_slice_.call(arguments, 2)
-                , addElementsCount = args.length
-            ;
-
-            if(!arguments.length) {
-                return [];
-            }
-
-            if(start === void 0) { // default
-                start = 0;
-            }
-            if(deleteCount === void 0) { // default
-                deleteCount = this.length - start;
-            }
-
-            if(addElementsCount > 0) {
-                if(deleteCount <= 0) {
-                    if(start == this.length) { // tiny optimisation #1
-                        this.push.apply(this, args);
-                        return [];
-                    }
-
-                    if(start == 0) { // tiny optimisation #2
-                        this.unshift.apply(this, args);
-                        return [];
-                    }
-                }
-
-                // Array.prototype.splice implementation
-                result = _Array_slice_.call(this, start, start + deleteCount);// delete part
-                args.push.apply(args, _Array_slice_.call(this, start + deleteCount, this.length));// right part
-                args.unshift.apply(args, _Array_slice_.call(this, 0, start));// left part
-
-                // delete all items from this array and replace it to 'left part' + _Array_slice_.call(arguments, 2) + 'right part'
-                args.unshift(0, this.length);
-
-                array_splice.apply(this, args);
-
-                return result;
-            }
-
-            return array_splice.call(this, start, deleteCount);
-        }
-
-    }
-}
-
-// ES5 15.4.4.12
-// http://es5.github.com/#x15.4.4.13
-// Return len+argCount.
-// [bugfix, ielt8]
-// IE < 8 bug: [].unshift(0) == undefined but should be "1"
-if ([].unshift(0) != 1) {
-    var array_unshift = Array.prototype.unshift;
-    Array.prototype.unshift = function() {
-        array_unshift.apply(this, arguments);
-        return this.length;
-    };
-}
-
-// ES5 15.4.3.2
-// http://es5.github.com/#x15.4.3.2
-// https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/isArray
-if (!Array.isArray) {
-    Array.isArray = function isArray(obj) {
-        return _toString(obj) == "[object Array]";
-    };
-}
-
-// The IsCallable() check in the Array functions
-// has been replaced with a strict check on the
-// internal class of the object to trap cases where
-// the provided function was actually a regular
-// expression literal, which in V8 and
-// JavaScriptCore is a typeof "function".  Only in
-// V8 are regular expression literals permitted as
-// reduce parameters, so it is desirable in the
-// general case for the shim to match the more
-// strict and common behavior of rejecting regular
-// expressions.
-
-// ES5 15.4.4.18
-// http://es5.github.com/#x15.4.4.18
-// https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/array/forEach
-
-// Check failure of by-index access of string characters (IE < 9)
-// and failure of `0 in boxedString` (Rhino)
-var boxedString = Object("a"),
-    splitString = boxedString[0] != "a" || !(0 in boxedString);
-
-if (!Array.prototype.forEach) {
-    Array.prototype.forEach = function forEach(fun /*, thisp*/) {
-        var object = toObject(this),
-            self = splitString && _toString(this) == "[object String]" ?
-                this.split("") :
-                object,
-            thisp = arguments[1],
-            i = -1,
-            length = self.length >>> 0;
-
-        // If no callback function or if callback is not a callable function
-        if (_toString(fun) != "[object Function]") {
-            throw new TypeError(); // TODO message
-        }
-
-        while (++i < length) {
-            if (i in self) {
-                // Invoke the callback function with call, passing arguments:
-                // context, property value, property key, thisArg object
-                // context
-                fun.call(thisp, self[i], i, object);
-            }
-        }
-    };
-}
-
-// ES5 15.4.4.19
-// http://es5.github.com/#x15.4.4.19
-// https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Objects/Array/map
-if (!Array.prototype.map) {
-    Array.prototype.map = function map(fun /*, thisp*/) {
-        var object = toObject(this),
-            self = splitString && _toString(this) == "[object String]" ?
-                this.split("") :
-                object,
-            length = self.length >>> 0,
-            result = Array(length),
-            thisp = arguments[1];
-
-        // If no callback function or if callback is not a callable function
-        if (_toString(fun) != "[object Function]") {
-            throw new TypeError(fun + " is not a function");
-        }
-
-        for (var i = 0; i < length; i++) {
-            if (i in self)
-                result[i] = fun.call(thisp, self[i], i, object);
-        }
-        return result;
-    };
-}
-
-// ES5 15.4.4.20
-// http://es5.github.com/#x15.4.4.20
-// https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Objects/Array/filter
-if (!Array.prototype.filter) {
-    Array.prototype.filter = function filter(fun /*, thisp */) {
-        var object = toObject(this),
-            self = splitString && _toString(this) == "[object String]" ?
-                this.split("") :
-                    object,
-            length = self.length >>> 0,
-            result = [],
-            value,
-            thisp = arguments[1];
-
-        // If no callback function or if callback is not a callable function
-        if (_toString(fun) != "[object Function]") {
-            throw new TypeError(fun + " is not a function");
-        }
-
-        for (var i = 0; i < length; i++) {
-            if (i in self) {
-                value = self[i];
-                if (fun.call(thisp, value, i, object)) {
-                    result.push(value);
-                }
-            }
-        }
-        return result;
-    };
-}
-
-// ES5 15.4.4.16
-// http://es5.github.com/#x15.4.4.16
-// https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/every
-if (!Array.prototype.every) {
-    Array.prototype.every = function every(fun /*, thisp */) {
-        var object = toObject(this),
-            self = splitString && _toString(this) == "[object String]" ?
-                this.split("") :
-                object,
-            length = self.length >>> 0,
-            thisp = arguments[1];
-
-        // If no callback function or if callback is not a callable function
-        if (_toString(fun) != "[object Function]") {
-            throw new TypeError(fun + " is not a function");
-        }
-
-        for (var i = 0; i < length; i++) {
-            if (i in self && !fun.call(thisp, self[i], i, object)) {
-                return false;
-            }
-        }
-        return true;
-    };
-}
-
-// ES5 15.4.4.17
-// http://es5.github.com/#x15.4.4.17
-// https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/some
-if (!Array.prototype.some) {
-    Array.prototype.some = function some(fun /*, thisp */) {
-        var object = toObject(this),
-            self = splitString && _toString(this) == "[object String]" ?
-                this.split("") :
-                object,
-            length = self.length >>> 0,
-            thisp = arguments[1];
-
-        // If no callback function or if callback is not a callable function
-        if (_toString(fun) != "[object Function]") {
-            throw new TypeError(fun + " is not a function");
-        }
-
-        for (var i = 0; i < length; i++) {
-            if (i in self && fun.call(thisp, self[i], i, object)) {
-                return true;
-            }
-        }
-        return false;
-    };
-}
-
-// ES5 15.4.4.21
-// http://es5.github.com/#x15.4.4.21
-// https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Objects/Array/reduce
-if (!Array.prototype.reduce) {
-    Array.prototype.reduce = function reduce(fun /*, initial*/) {
-        var object = toObject(this),
-            self = splitString && _toString(this) == "[object String]" ?
-                this.split("") :
-                object,
-            length = self.length >>> 0;
-
-        // If no callback function or if callback is not a callable function
-        if (_toString(fun) != "[object Function]") {
-            throw new TypeError(fun + " is not a function");
-        }
-
-        // no value to return if no initial value and an empty array
-        if (!length && arguments.length == 1) {
-            throw new TypeError("reduce of empty array with no initial value");
-        }
-
-        var i = 0;
-        var result;
-        if (arguments.length >= 2) {
-            result = arguments[1];
-        } else {
-            do {
-                if (i in self) {
-                    result = self[i++];
-                    break;
-                }
-
-                // if array contains no values, no initial value to return
-                if (++i >= length) {
-                    throw new TypeError("reduce of empty array with no initial value");
-                }
-            } while (true);
-        }
-
-        for (; i < length; i++) {
-            if (i in self) {
-                result = fun.call(void 0, result, self[i], i, object);
-            }
-        }
-
-        return result;
-    };
-}
-
-// ES5 15.4.4.22
-// http://es5.github.com/#x15.4.4.22
-// https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Objects/Array/reduceRight
-if (!Array.prototype.reduceRight) {
-    Array.prototype.reduceRight = function reduceRight(fun /*, initial*/) {
-        var object = toObject(this),
-            self = splitString && _toString(this) == "[object String]" ?
-                this.split("") :
-                object,
-            length = self.length >>> 0;
-
-        // If no callback function or if callback is not a callable function
-        if (_toString(fun) != "[object Function]") {
-            throw new TypeError(fun + " is not a function");
-        }
-
-        // no value to return if no initial value, empty array
-        if (!length && arguments.length == 1) {
-            throw new TypeError("reduceRight of empty array with no initial value");
-        }
-
-        var result, i = length - 1;
-        if (arguments.length >= 2) {
-            result = arguments[1];
-        } else {
-            do {
-                if (i in self) {
-                    result = self[i--];
-                    break;
-                }
-
-                // if array contains no values, no initial value to return
-                if (--i < 0) {
-                    throw new TypeError("reduceRight of empty array with no initial value");
-                }
-            } while (true);
-        }
-
-        if (i < 0) {
-            return result;
-        }
-
-        do {
-            if (i in this) {
-                result = fun.call(void 0, result, self[i], i, object);
-            }
-        } while (i--);
-
-        return result;
-    };
-}
-
-// ES5 15.4.4.14
-// http://es5.github.com/#x15.4.4.14
-// https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/indexOf
-if (!Array.prototype.indexOf || ([0, 1].indexOf(1, 2) != -1)) {
-    Array.prototype.indexOf = function indexOf(sought /*, fromIndex */ ) {
-        var self = splitString && _toString(this) == "[object String]" ?
-                this.split("") :
-                toObject(this),
-            length = self.length >>> 0;
-
-        if (!length) {
-            return -1;
-        }
-
-        var i = 0;
-        if (arguments.length > 1) {
-            i = toInteger(arguments[1]);
-        }
-
-        // handle negative indices
-        i = i >= 0 ? i : Math.max(0, length + i);
-        for (; i < length; i++) {
-            if (i in self && self[i] === sought) {
-                return i;
-            }
-        }
-        return -1;
-    };
-}
-
-// ES5 15.4.4.15
-// http://es5.github.com/#x15.4.4.15
-// https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/lastIndexOf
-if (!Array.prototype.lastIndexOf || ([0, 1].lastIndexOf(0, -3) != -1)) {
-    Array.prototype.lastIndexOf = function lastIndexOf(sought /*, fromIndex */) {
-        var self = splitString && _toString(this) == "[object String]" ?
-                this.split("") :
-                toObject(this),
-            length = self.length >>> 0;
-
-        if (!length) {
-            return -1;
-        }
-        var i = length - 1;
-        if (arguments.length > 1) {
-            i = Math.min(i, toInteger(arguments[1]));
-        }
-        // handle negative indices
-        i = i >= 0 ? i : length - Math.abs(i);
-        for (; i >= 0; i--) {
-            if (i in self && sought === self[i]) {
-                return i;
-            }
-        }
-        return -1;
-    };
-}
-
-//
-// Object
-// ======
-//
-
-// ES5 15.2.3.14
-// http://es5.github.com/#x15.2.3.14
-if (!Object.keys) {
-    // http://whattheheadsaid.com/2010/10/a-safer-object-keys-compatibility-implementation
-    var hasDontEnumBug = true,
-        dontEnums = [
-            "toString",
-            "toLocaleString",
-            "valueOf",
-            "hasOwnProperty",
-            "isPrototypeOf",
-            "propertyIsEnumerable",
-            "constructor"
-        ],
-        dontEnumsLength = dontEnums.length;
-
-    for (var key in {"toString": null}) {
-        hasDontEnumBug = false;
-    }
-
-    Object.keys = function keys(object) {
-
-        if (
-            (typeof object != "object" && typeof object != "function") ||
-            object === null
-        ) {
-            throw new TypeError("Object.keys called on a non-object");
-        }
-
-        var keys = [];
-        for (var name in object) {
-            if (owns(object, name)) {
-                keys.push(name);
-            }
-        }
-
-        if (hasDontEnumBug) {
-            for (var i = 0, ii = dontEnumsLength; i < ii; i++) {
-                var dontEnum = dontEnums[i];
-                if (owns(object, dontEnum)) {
-                    keys.push(dontEnum);
-                }
-            }
-        }
-        return keys;
-    };
-
-}
-
-//
-// Date
-// ====
-//
-
-// ES5 15.9.5.43
-// http://es5.github.com/#x15.9.5.43
-// This function returns a String value represent the instance in time
-// represented by this Date object. The format of the String is the Date Time
-// string format defined in 15.9.1.15. All fields are present in the String.
-// The time zone is always UTC, denoted by the suffix Z. If the time value of
-// this object is not a finite Number a RangeError exception is thrown.
-var negativeDate = -62198755200000,
-    negativeYearString = "-000001";
-if (
-    !Date.prototype.toISOString ||
-    (new Date(negativeDate).toISOString().indexOf(negativeYearString) === -1)
-) {
-    Date.prototype.toISOString = function toISOString() {
-        var result, length, value, year, month;
-        if (!isFinite(this)) {
-            throw new RangeError("Date.prototype.toISOString called on non-finite value.");
-        }
-
-        year = this.getUTCFullYear();
-
-        month = this.getUTCMonth();
-        // see https://github.com/kriskowal/es5-shim/issues/111
-        year += Math.floor(month / 12);
-        month = (month % 12 + 12) % 12;
-
-        // the date time string format is specified in 15.9.1.15.
-        result = [month + 1, this.getUTCDate(),
-            this.getUTCHours(), this.getUTCMinutes(), this.getUTCSeconds()];
-        year = (
-            (year < 0 ? "-" : (year > 9999 ? "+" : "")) +
-            ("00000" + Math.abs(year))
-            .slice(0 <= year && year <= 9999 ? -4 : -6)
-        );
-
-        length = result.length;
-        while (length--) {
-            value = result[length];
-            // pad months, days, hours, minutes, and seconds to have two
-            // digits.
-            if (value < 10) {
-                result[length] = "0" + value;
-            }
-        }
-        // pad milliseconds to have three digits.
-        return (
-            year + "-" + result.slice(0, 2).join("-") +
-            "T" + result.slice(2).join(":") + "." +
-            ("000" + this.getUTCMilliseconds()).slice(-3) + "Z"
-        );
-    };
-}
-
-
-// ES5 15.9.5.44
-// http://es5.github.com/#x15.9.5.44
-// This function provides a String representation of a Date object for use by
-// JSON.stringify (15.12.3).
-var dateToJSONIsSupported = false;
-try {
-    dateToJSONIsSupported = (
-        Date.prototype.toJSON &&
-        new Date(NaN).toJSON() === null &&
-        new Date(negativeDate).toJSON().indexOf(negativeYearString) !== -1 &&
-        Date.prototype.toJSON.call({ // generic
-            toISOString: function () {
-                return true;
-            }
-        })
-    );
-} catch (e) {
-}
-if (!dateToJSONIsSupported) {
-    Date.prototype.toJSON = function toJSON(key) {
-        // When the toJSON method is called with argument key, the following
-        // steps are taken:
-
-        // 1.  Let O be the result of calling ToObject, giving it the this
-        // value as its argument.
-        // 2. Let tv be toPrimitive(O, hint Number).
-        var o = Object(this),
-            tv = toPrimitive(o),
-            toISO;
-        // 3. If tv is a Number and is not finite, return null.
-        if (typeof tv === "number" && !isFinite(tv)) {
-            return null;
-        }
-        // 4. Let toISO be the result of calling the [[Get]] internal method of
-        // O with argument "toISOString".
-        toISO = o.toISOString;
-        // 5. If IsCallable(toISO) is false, throw a TypeError exception.
-        if (typeof toISO != "function") {
-            throw new TypeError("toISOString property is not callable");
-        }
-        // 6. Return the result of calling the [[Call]] internal method of
-        //  toISO with O as the this value and an empty argument list.
-        return toISO.call(o);
-
-        // NOTE 1 The argument is ignored.
-
-        // NOTE 2 The toJSON function is intentionally generic; it does not
-        // require that its this value be a Date object. Therefore, it can be
-        // transferred to other kinds of objects for use as a method. However,
-        // it does require that any such object have a toISOString method. An
-        // object is free to use the argument key to filter its
-        // stringification.
-    };
-}
-
-// ES5 15.9.4.2
-// http://es5.github.com/#x15.9.4.2
-// based on work shared by Daniel Friesen (dantman)
-// http://gist.github.com/303249
-if (!Date.parse || "Date.parse is buggy") {
-    // XXX global assignment won't work in embeddings that use
-    // an alternate object for the context.
-    Date = (function(NativeDate) {
-
-        // Date.length === 7
-        function Date(Y, M, D, h, m, s, ms) {
-            var length = arguments.length;
-            if (this instanceof NativeDate) {
-                var date = length == 1 && String(Y) === Y ? // isString(Y)
-                    // We explicitly pass it through parse:
-                    new NativeDate(Date.parse(Y)) :
-                    // We have to manually make calls depending on argument
-                    // length here
-                    length >= 7 ? new NativeDate(Y, M, D, h, m, s, ms) :
-                    length >= 6 ? new NativeDate(Y, M, D, h, m, s) :
-                    length >= 5 ? new NativeDate(Y, M, D, h, m) :
-                    length >= 4 ? new NativeDate(Y, M, D, h) :
-                    length >= 3 ? new NativeDate(Y, M, D) :
-                    length >= 2 ? new NativeDate(Y, M) :
-                    length >= 1 ? new NativeDate(Y) :
-                                  new NativeDate();
-                // Prevent mixups with unfixed Date object
-                date.constructor = Date;
-                return date;
-            }
-            return NativeDate.apply(this, arguments);
-        };
-
-        // 15.9.1.15 Date Time String Format.
-        var isoDateExpression = new RegExp("^" +
-            "(\\d{4}|[\+\-]\\d{6})" + // four-digit year capture or sign +
-                                      // 6-digit extended year
-            "(?:-(\\d{2})" + // optional month capture
-            "(?:-(\\d{2})" + // optional day capture
-            "(?:" + // capture hours:minutes:seconds.milliseconds
-                "T(\\d{2})" + // hours capture
-                ":(\\d{2})" + // minutes capture
-                "(?:" + // optional :seconds.milliseconds
-                    ":(\\d{2})" + // seconds capture
-                    "(?:(\\.\\d{1,}))?" + // milliseconds capture
-                ")?" +
-            "(" + // capture UTC offset component
-                "Z|" + // UTC capture
-                "(?:" + // offset specifier +/-hours:minutes
-                    "([-+])" + // sign capture
-                    "(\\d{2})" + // hours offset capture
-                    ":(\\d{2})" + // minutes offset capture
-                ")" +
-            ")?)?)?)?" +
-        "$");
-
-        var months = [
-            0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
-        ];
-
-        function dayFromMonth(year, month) {
-            var t = month > 1 ? 1 : 0;
-            return (
-                months[month] +
-                Math.floor((year - 1969 + t) / 4) -
-                Math.floor((year - 1901 + t) / 100) +
-                Math.floor((year - 1601 + t) / 400) +
-                365 * (year - 1970)
-            );
-        }
-
-        // Copy any custom methods a 3rd party library may have added
-        for (var key in NativeDate) {
-            Date[key] = NativeDate[key];
-        }
-
-        // Copy "native" methods explicitly; they may be non-enumerable
-        Date.now = NativeDate.now;
-        Date.UTC = NativeDate.UTC;
-        Date.prototype = NativeDate.prototype;
-        Date.prototype.constructor = Date;
-
-        // Upgrade Date.parse to handle simplified ISO 8601 strings
-        Date.parse = function parse(string) {
-            var match = isoDateExpression.exec(string);
-            if (match) {
-                // parse months, days, hours, minutes, seconds, and milliseconds
-                // provide default values if necessary
-                // parse the UTC offset component
-                var year = Number(match[1]),
-                    month = Number(match[2] || 1) - 1,
-                    day = Number(match[3] || 1) - 1,
-                    hour = Number(match[4] || 0),
-                    minute = Number(match[5] || 0),
-                    second = Number(match[6] || 0),
-                    millisecond = Math.floor(Number(match[7] || 0) * 1000),
-                    // When time zone is missed, local offset should be used
-                    // (ES 5.1 bug)
-                    // see https://bugs.ecmascript.org/show_bug.cgi?id=112
-                    offset = !match[4] || match[8] ?
-                        0 : Number(new NativeDate(1970, 0)),
-                    signOffset = match[9] === "-" ? 1 : -1,
-                    hourOffset = Number(match[10] || 0),
-                    minuteOffset = Number(match[11] || 0),
-                    result;
-                if (
-                    hour < (
-                        minute > 0 || second > 0 || millisecond > 0 ?
-                        24 : 25
-                    ) &&
-                    minute < 60 && second < 60 && millisecond < 1000 &&
-                    month > -1 && month < 12 && hourOffset < 24 &&
-                    minuteOffset < 60 && // detect invalid offsets
-                    day > -1 &&
-                    day < (
-                        dayFromMonth(year, month + 1) -
-                        dayFromMonth(year, month)
-                    )
-                ) {
-                    result = (
-                        (dayFromMonth(year, month) + day) * 24 +
-                        hour +
-                        hourOffset * signOffset
-                    ) * 60;
-                    result = (
-                        (result + minute + minuteOffset * signOffset) * 60 +
-                        second
-                    ) * 1000 + millisecond + offset;
-                    if (-8.64e15 <= result && result <= 8.64e15) {
-                        return result;
-                    }
-                }
-                return NaN;
-            }
-            return NativeDate.parse.apply(this, arguments);
-        };
-
-        return Date;
-    })(Date);
-}
-
-// ES5 15.9.4.4
-// http://es5.github.com/#x15.9.4.4
-if (!Date.now) {
-    Date.now = function now() {
-        return new Date().getTime();
-    };
-}
-
-
-//
-// Number
-// ======
-//
-
-// ES5.1 15.7.4.5
-// http://es5.github.com/#x15.7.4.5
-if (!Number.prototype.toFixed || (0.00008).toFixed(3) !== '0.000' || (0.9).toFixed(0) === '0' || (1.255).toFixed(2) !== '1.25' || (1000000000000000128).toFixed(0) !== "1000000000000000128") {
-    // Hide these variables and functions
-    (function () {
-        var base, size, data, i;
-
-        base = 1e7;
-        size = 6;
-        data = [0, 0, 0, 0, 0, 0];
-
-        function multiply(n, c) {
-            var i = -1;
-            while (++i < size) {
-                c += n * data[i];
-                data[i] = c % base;
-                c = Math.floor(c / base);
-            }
-        }
-
-        function divide(n) {
-            var i = size, c = 0;
-            while (--i >= 0) {
-                c += data[i];
-                data[i] = Math.floor(c / n);
-                c = (c % n) * base;
-            }
-        }
-
-        function toString() {
-            var i = size;
-            var s = '';
-            while (--i >= 0) {
-                if (s !== '' || i === 0 || data[i] !== 0) {
-                    var t = String(data[i]);
-                    if (s === '') {
-                        s = t;
-                    } else {
-                        s += '0000000'.slice(0, 7 - t.length) + t;
-                    }
-                }
-            }
-            return s;
-        }
-
-        function pow(x, n, acc) {
-            return (n === 0 ? acc : (n % 2 === 1 ? pow(x, n - 1, acc * x) : pow(x * x, n / 2, acc)));
-        }
-
-        function log(x) {
-            var n = 0;
-            while (x >= 4096) {
-                n += 12;
-                x /= 4096;
-            }
-            while (x >= 2) {
-                n += 1;
-                x /= 2;
-            }
-            return n;
-        }
-
-        Number.prototype.toFixed = function (fractionDigits) {
-            var f, x, s, m, e, z, j, k;
-
-            // Test for NaN and round fractionDigits down
-            f = Number(fractionDigits);
-            f = f !== f ? 0 : Math.floor(f);
-
-            if (f < 0 || f > 20) {
-                throw new RangeError("Number.toFixed called with invalid number of decimals");
-            }
-
-            x = Number(this);
-
-            // Test for NaN
-            if (x !== x) {
-                return "NaN";
-            }
-
-            // If it is too big or small, return the string value of the number
-            if (x <= -1e21 || x >= 1e21) {
-                return String(x);
-            }
-
-            s = "";
-
-            if (x < 0) {
-                s = "-";
-                x = -x;
-            }
-
-            m = "0";
-
-            if (x > 1e-21) {
-                // 1e-21 < x < 1e21
-                // -70 < log2(x) < 70
-                e = log(x * pow(2, 69, 1)) - 69;
-                z = (e < 0 ? x * pow(2, -e, 1) : x / pow(2, e, 1));
-                z *= 0x10000000000000; // Math.pow(2, 52);
-                e = 52 - e;
-
-                // -18 < e < 122
-                // x = z / 2 ^ e
-                if (e > 0) {
-                    multiply(0, z);
-                    j = f;
-
-                    while (j >= 7) {
-                        multiply(1e7, 0);
-                        j -= 7;
-                    }
-
-                    multiply(pow(10, j, 1), 0);
-                    j = e - 1;
-
-                    while (j >= 23) {
-                        divide(1 << 23);
-                        j -= 23;
-                    }
-
-                    divide(1 << j);
-                    multiply(1, 1);
-                    divide(2);
-                    m = toString();
-                } else {
-                    multiply(0, z);
-                    multiply(1 << (-e), 0);
-                    m = toString() + '0.00000000000000000000'.slice(2, 2 + f);
-                }
-            }
-
-            if (f > 0) {
-                k = m.length;
-
-                if (k <= f) {
-                    m = s + '0.0000000000000000000'.slice(0, f - k + 2) + m;
-                } else {
-                    m = s + m.slice(0, k - f) + '.' + m.slice(k - f);
-                }
-            } else {
-                m = s + m;
-            }
-
-            return m;
-        }
-    }());
-}
-
-
-//
-// String
-// ======
-//
-
-
-// ES5 15.5.4.14
-// http://es5.github.com/#x15.5.4.14
-
-// [bugfix, IE lt 9, firefox 4, Konqueror, Opera, obscure browsers]
-// Many browsers do not split properly with regular expressions or they
-// do not perform the split correctly under obscure conditions.
-// See http://blog.stevenlevithan.com/archives/cross-browser-split
-// I've tested in many browsers and this seems to cover the deviant ones:
-//    'ab'.split(/(?:ab)*/) should be ["", ""], not [""]
-//    '.'.split(/(.?)(.?)/) should be ["", ".", "", ""], not ["", ""]
-//    'tesst'.split(/(s)*/) should be ["t", undefined, "e", "s", "t"], not
-//       [undefined, "t", undefined, "e", ...]
-//    ''.split(/.?/) should be [], not [""]
-//    '.'.split(/()()/) should be ["."], not ["", "", "."]
-
-var string_split = String.prototype.split;
-if (
-    'ab'.split(/(?:ab)*/).length !== 2 ||
-    '.'.split(/(.?)(.?)/).length !== 4 ||
-    'tesst'.split(/(s)*/)[1] === "t" ||
-    ''.split(/.?/).length === 0 ||
-    '.'.split(/()()/).length > 1
-) {
-    (function () {
-        var compliantExecNpcg = /()??/.exec("")[1] === void 0; // NPCG: nonparticipating capturing group
-
-        String.prototype.split = function (separator, limit) {
-            var string = this;
-            if (separator === void 0 && limit === 0)
-                return [];
-
-            // If `separator` is not a regex, use native split
-            if (Object.prototype.toString.call(separator) !== "[object RegExp]") {
-                return string_split.apply(this, arguments);
-            }
-
-            var output = [],
-                flags = (separator.ignoreCase ? "i" : "") +
-                        (separator.multiline  ? "m" : "") +
-                        (separator.extended   ? "x" : "") + // Proposed for ES6
-                        (separator.sticky     ? "y" : ""), // Firefox 3+
-                lastLastIndex = 0,
-                // Make `global` and avoid `lastIndex` issues by working with a copy
-                separator = new RegExp(separator.source, flags + "g"),
-                separator2, match, lastIndex, lastLength;
-            string += ""; // Type-convert
-            if (!compliantExecNpcg) {
-                // Doesn't need flags gy, but they don't hurt
-                separator2 = new RegExp("^" + separator.source + "$(?!\\s)", flags);
-            }
-            /* Values for `limit`, per the spec:
-             * If undefined: 4294967295 // Math.pow(2, 32) - 1
-             * If 0, Infinity, or NaN: 0
-             * If positive number: limit = Math.floor(limit); if (limit > 4294967295) limit -= 4294967296;
-             * If negative number: 4294967296 - Math.floor(Math.abs(limit))
-             * If other: Type-convert, then use the above rules
-             */
-            limit = limit === void 0 ?
-                -1 >>> 0 : // Math.pow(2, 32) - 1
-                limit >>> 0; // ToUint32(limit)
-            while (match = separator.exec(string)) {
-                // `separator.lastIndex` is not reliable cross-browser
-                lastIndex = match.index + match[0].length;
-                if (lastIndex > lastLastIndex) {
-                    output.push(string.slice(lastLastIndex, match.index));
-                    // Fix browsers whose `exec` methods don't consistently return `undefined` for
-                    // nonparticipating capturing groups
-                    if (!compliantExecNpcg && match.length > 1) {
-                        match[0].replace(separator2, function () {
-                            for (var i = 1; i < arguments.length - 2; i++) {
-                                if (arguments[i] === void 0) {
-                                    match[i] = void 0;
-                                }
-                            }
-                        });
-                    }
-                    if (match.length > 1 && match.index < string.length) {
-                        Array.prototype.push.apply(output, match.slice(1));
-                    }
-                    lastLength = match[0].length;
-                    lastLastIndex = lastIndex;
-                    if (output.length >= limit) {
-                        break;
-                    }
-                }
-                if (separator.lastIndex === match.index) {
-                    separator.lastIndex++; // Avoid an infinite loop
-                }
-            }
-            if (lastLastIndex === string.length) {
-                if (lastLength || !separator.test("")) {
-                    output.push("");
-                }
-            } else {
-                output.push(string.slice(lastLastIndex));
-            }
-            return output.length > limit ? output.slice(0, limit) : output;
-        };
-    }());
-
-// [bugfix, chrome]
-// If separator is undefined, then the result array contains just one String,
-// which is the this value (converted to a String). If limit is not undefined,
-// then the output array is truncated so that it contains no more than limit
-// elements.
-// "0".split(undefined, 0) -> []
-} else if ("0".split(void 0, 0).length) {
-    String.prototype.split = function(separator, limit) {
-        if (separator === void 0 && limit === 0) return [];
-        return string_split.apply(this, arguments);
-    }
-}
-
-
-// ECMA-262, 3rd B.2.3
-// Note an ECMAScript standart, although ECMAScript 3rd Edition has a
-// non-normative section suggesting uniform semantics and it should be
-// normalized across all browsers
-// [bugfix, IE lt 9] IE < 9 substr() with negative value not working in IE
-if("".substr && "0b".substr(-1) !== "b") {
-    var string_substr = String.prototype.substr;
-    /**
-     *  Get the substring of a string
-     *  @param  {integer}  start   where to start the substring
-     *  @param  {integer}  length  how many characters to return
-     *  @return {string}
-     */
-    String.prototype.substr = function(start, length) {
-        return string_substr.call(
-            this,
-            start < 0 ? ((start = this.length + start) < 0 ? 0 : start) : start,
-            length
-        );
-    }
-}
-
-// ES5 15.5.4.20
-// http://es5.github.com/#x15.5.4.20
-var ws = "\x09\x0A\x0B\x0C\x0D\x20\xA0\u1680\u180E\u2000\u2001\u2002\u2003" +
-    "\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000\u2028" +
-    "\u2029\uFEFF";
-if (!String.prototype.trim || ws.trim()) {
-    // http://blog.stevenlevithan.com/archives/faster-trim-javascript
-    // http://perfectionkills.com/whitespace-deviations/
-    ws = "[" + ws + "]";
-    var trimBeginRegexp = new RegExp("^" + ws + ws + "*"),
-        trimEndRegexp = new RegExp(ws + ws + "*$");
-    String.prototype.trim = function trim() {
-        if (this === void 0 || this === null) {
-            throw new TypeError("can't convert "+this+" to object");
-        }
-        return String(this)
-            .replace(trimBeginRegexp, "")
-            .replace(trimEndRegexp, "");
-    };
-}
-
-//
-// Util
-// ======
-//
-
-// ES5 9.4
-// http://es5.github.com/#x9.4
-// http://jsperf.com/to-integer
-
-function toInteger(n) {
-    n = +n;
-    if (n !== n) { // isNaN
-        n = 0;
-    } else if (n !== 0 && n !== (1/0) && n !== -(1/0)) {
-        n = (n > 0 || -1) * Math.floor(Math.abs(n));
-    }
-    return n;
-}
-
-function isPrimitive(input) {
-    var type = typeof input;
-    return (
-        input === null ||
-        type === "undefined" ||
-        type === "boolean" ||
-        type === "number" ||
-        type === "string"
-    );
-}
-
-function toPrimitive(input) {
-    var val, valueOf, toString;
-    if (isPrimitive(input)) {
-        return input;
-    }
-    valueOf = input.valueOf;
-    if (typeof valueOf === "function") {
-        val = valueOf.call(input);
-        if (isPrimitive(val)) {
-            return val;
-        }
-    }
-    toString = input.toString;
-    if (typeof toString === "function") {
-        val = toString.call(input);
-        if (isPrimitive(val)) {
-            return val;
-        }
-    }
-    throw new TypeError();
-}
-
-// ES5 9.9
-// http://es5.github.com/#x9.9
-var toObject = function (o) {
-    if (o == null) { // this matches both null and undefined
-        throw new TypeError("can't convert "+o+" to object");
-    }
-    return Object(o);
-};
-
-})();
-
-
-
-
-(function($, shims){
+//this might was already extended by ES5 shim feature
+(function($){
+	"use strict";
+	var webshims = window.webshims;
+	if(webshims.defineProperties){return;}
 	var defineProperty = 'defineProperty';
-	var advancedObjectProperties = !!(Object.create && Object.defineProperties && Object.getOwnPropertyDescriptor);
-	//safari5 has defineProperty-interface, but it can't be used on dom-object
-	//only do this test in non-IE browsers, because this hurts dhtml-behavior in some IE8 versions
-	if (advancedObjectProperties && Object[defineProperty] && Object.prototype.__defineGetter__) {
-		(function(){
-			try {
-				var foo = document.createElement('foo');
-				Object[defineProperty](foo, 'bar', {
-					get: function(){
-						return true;
-					}
-				});
-				advancedObjectProperties = !!foo.bar;
-			} 
-			catch (e) {
-				advancedObjectProperties = false;
-			}
-			foo = null;
-		})();
-	}
-	
-	Modernizr.objectAccessor = !!((advancedObjectProperties || (Object.prototype.__defineGetter__ && Object.prototype.__lookupSetter__)));
-	Modernizr.advancedObjectProperties = advancedObjectProperties;
-	
-if((!advancedObjectProperties || !Object.create || !Object.defineProperties || !Object.getOwnPropertyDescriptor  || !Object.defineProperty)){
-	var call = Function.prototype.call;
-	var prototypeOfObject = Object.prototype;
-	var owns = call.bind(prototypeOfObject.hasOwnProperty);
-	
-	shims.objectCreate = function(proto, props, opts, no__proto__){
-		var o;
-		var f = function(){};
-		
-		f.prototype = proto;
-		o = new f();
-		
-		if(!no__proto__ && !('__proto__' in o) && !Modernizr.objectAccessor){
-			o.__proto__ = proto;
-		}
-		
-		if(props){
-			shims.defineProperties(o, props);
-		}
-		
-		if(opts){
-			o.options = $.extend(true, {}, o.options || {}, opts);
-			opts = o.options;
-		}
-		
-		if(o._create && $.isFunction(o._create)){
-			o._create(opts);
-		}
-		return o;
-	};
-	
-	shims.defineProperties = function(object, props){
-		for (var name in props) {
-			if (owns(props, name)) {
-				shims.defineProperty(object, name, props[name]);
-			}
-		}
-		return object;
-	};
-	
+	var has = Object.prototype.hasOwnProperty;
 	var descProps = ['configurable', 'enumerable', 'writable'];
-	shims.defineProperty = function(proto, property, descriptor){
-		if(typeof descriptor != "object" || descriptor === null){return proto;}
-		
-		if(owns(descriptor, "value")){
-			proto[property] = descriptor.value;
-			return proto;
+	var extendUndefined = function(prop){
+		for(var i = 0; i < 3; i++){
+			if(prop[descProps[i]] === undefined && (descProps[i] !== 'writable' || prop.value !== undefined)){
+				prop[descProps[i]] = true;
+			}
 		}
-		
-		if(proto.__defineGetter__){
-            if (typeof descriptor.get == "function") {
-				proto.__defineGetter__(property, descriptor.get);
-			}
-            if (typeof descriptor.set == "function"){
-                proto.__defineSetter__(property, descriptor.set);
-			}
-        }
-		return proto;
 	};
-	
-	shims.getPrototypeOf = function (object) {
-        return Object.getPrototypeOf && Object.getPrototypeOf(object) || object.__proto__ || object.constructor && object.constructor.prototype;
-    };
-	
-	//based on http://www.refactory.org/s/object_getownpropertydescriptor/view/latest 
-	shims.getOwnPropertyDescriptor = function(obj, prop){
-		if (typeof obj !== "object" && typeof obj !== "function" || obj === null){
-            throw new TypeError("Object.getOwnPropertyDescriptor called on a non-object");
-		}
-		var descriptor;
-		if(Object.defineProperty && Object.getOwnPropertyDescriptor){
-			try{
-				descriptor = Object.getOwnPropertyDescriptor(obj, prop);
-				return descriptor;
-			} catch(e){}
-		}
-        descriptor = {
-            configurable: true,
-            enumerable: true,
-            writable: true,
-            value: undefined
-        };
-		var getter = obj.__lookupGetter__ && obj.__lookupGetter__(prop), 
-			setter = obj.__lookupSetter__ && obj.__lookupSetter__(prop)
-		;
-        
-        if (!getter && !setter) { // not an accessor so return prop
-        	if(!owns(obj, prop)){
-				return;
+
+	var extendProps = function(props){
+		if(props){
+			for(var i in props){
+				if(has.call(props, i)){
+					extendUndefined(props[i]);
+				}
 			}
-            descriptor.value = obj[prop];
-            return descriptor;
-        }
-        
-        // there is an accessor, remove descriptor.writable; populate descriptor.get and descriptor.set
-        delete descriptor.writable;
-        delete descriptor.value;
-        descriptor.get = descriptor.set = undefined;
-        
-        if(getter){
-			descriptor.get = getter;
 		}
-        
-        if(setter){
-            descriptor.set = setter;
-		}
-        
-        return descriptor;
-    };
+	};
 
-}
-})(webshims.$, webshims);
+	if(Object.create){
+		webshims.objectCreate = function(proto, props, opts){
+			extendProps(props);
+			var o = Object.create(proto, props);
+			if(opts){
+				o.options = $.extend(true, {}, o.options  || {}, opts);
+				opts = o.options;
+			}
+			if(o._create && $.isFunction(o._create)){
+				o._create(opts);
+			}
+			return o;
+		};
+	}
 
+	if(Object[defineProperty]){
+		webshims[defineProperty] = function(obj, prop, desc){
+			extendUndefined(desc);
+			return Object[defineProperty](obj, prop, desc);
+		};
+	}
+	if(Object.defineProperties){
+		webshims.defineProperties = function(obj, props){
+			extendProps(props);
+			return Object.defineProperties(obj, props);
+		};
+	}
+	webshims.getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
 
-;//DOM-Extension helper
+	webshims.getPrototypeOf = Object.getPrototypeOf;
+})(window.webshims.$);
+//DOM-Extension helper
 webshims.register('dom-extend', function($, webshims, window, document, undefined){
 	"use strict";
 	var supportHrefNormalized = !('hrefNormalized' in $.support) || $.support.hrefNormalized;
@@ -2018,8 +179,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		});
 		return this;
 	};
-	
-	var dataID = '_webshimsLib'+ (Math.round(Math.random() * 1000));
+	var idCount = 0;
+	var dataID = '_webshims'+ (Math.round(Math.random() * 1000));
 	var elementData = function(elem, key, val){
 		elem = elem.jquery ? elem[0] : elem;
 		if(!elem){return val || {};}
@@ -2050,6 +211,35 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			return this.pushStack(elems);
 		};
 	});
+
+	function clone(elem, dataAndEvents, uniqueIds){
+		var cloned = $.clone( elem, dataAndEvents, false );
+		$(cloned.querySelectorAll('.'+webshims.shadowClass)).detach();
+		if(uniqueIds){
+			idCount++;
+			$(cloned.querySelectorAll('[id]')).prop('id', function(i, id){
+				return id +idCount;
+			});
+		} else {
+			$(cloned.querySelectorAll('audio[id^="ID-"], video[id^="ID-"], label[id^="ID-"]')).removeAttr('id');
+		}
+		return cloned;
+	}
+
+	$.fn.clonePolyfill = function(dataAndEvents, uniqueIds){
+		dataAndEvents = dataAndEvents || false;
+		return this
+			.map(function() {
+				var cloned = clone( this, dataAndEvents, uniqueIds );
+				setTimeout(function(){
+					if($.contains(document.body, cloned)){
+						$(cloned).updatePolyfill();
+					}
+				});
+				return cloned;
+			})
+		;
+	};
 	
 	//add support for $('video').trigger('play') in case extendNative is set to false
 	if(!webshims.cfg.extendNative && !webshims.cfg.noTriggerOverride){
@@ -2361,6 +551,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return id;
 			};
 		})(),
+		shadowClass: 'wsshadow-'+(Date.now()),
 		implement: function(elem, type){
 			var data = elementData(elem, 'implemented') || elementData(elem, 'implemented', {});
 			if(data[type]){
@@ -2513,7 +704,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					$.each({ Height: "getHeight", Width: "getWidth" }, function(name, type){
 						var body = document.body;
 						var doc = document.documentElement;
-						docObserve[type] = function(){
+						docObserve[type] = function (){
 							return Math.max(
 								body[ "scroll" + name ], doc[ "scroll" + name ],
 								body[ "offset" + name ], doc[ "offset" + name ],
@@ -2528,24 +719,18 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 						this._create();
 						this.height = docObserve.getHeight();
 						this.width = docObserve.getWidth();
-						setInterval(this.test, 600);
+						setInterval(this.test, 999);
 						$(this.test);
+						if($.support.boxSizing == null){
+							$(function(){
+								if($.support.boxSizing){
+									docObserve.handler({type: 'boxsizing'});
+								}
+							});
+						}
 						webshims.ready('WINDOWLOAD', this.test);
 						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel', this.handler);
 						$(window).on('resize', this.handler);
-						(function(){
-							var oldAnimate = $.fn.animate;
-							var animationTimer;
-							
-							$.fn.animate = function(){
-								clearTimeout(animationTimer);
-								animationTimer = setTimeout(function(){
-									docObserve.test();
-								}, 99);
-								
-								return oldAnimate.apply(this, arguments);
-							};
-						})();
 					}
 				}
 			};
@@ -2554,13 +739,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			webshims.docObserve = function(){
 				webshims.ready('DOM', function(){
 					docObserve.start();
-					if($.support.boxSizing == null){
-						$(function(){
-							if($.support.boxSizing){
-								docObserve.handler({type: 'boxsizing'});
-							}
-						});
-					}
+
 				});
 			};
 			return function(nativeElem, shadowElem, opts){
@@ -3040,1089 +1219,474 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	
 })();
 });
-;webshims.register('filereader', function( $, webshims ){
+;webshim.register('filereader', function($, webshim, window, document, undefined, featureOptions){
 	"use strict";
-	/**
-	 * Code is based on https://github.com/Jahdrien/FileReader
-	 * 
-	 */
-	(function(){
-		var swfobject = window.swfmini || window.swfobject;
-	
-		var readyCallbacks = $.Callbacks('once unique memory'),
-		inputsCount = 0,
-		currentTarget = null;
-	
-		// if native FileReader support, then dont add the polyfill and make the plugin do nothing
-		if (window.FileReader) {
-			$.fn.fileReader = function () { return this; }
-			return ;
-		}
-		
-		/**
-		* JQuery Plugin
-		*/
-		$.fn.fileReader = function( options ) {  
-			if(this.length){
-				options = $.extend($.fn.fileReader.defaults, options);
-				
-				var self = this;
-				readyCallbacks.add(function() {
-					return main(self, options);
-				});
-				if ($.isFunction(options.callback)) readyCallbacks.add(options.callback);
-				
-				if (!FileAPIProxy.ready) {
-					FileAPIProxy.init(options);
-				}
-			}
-			return this;
-		};
-		
-		/**
-		* Default options
-		*  	allows user set default options
-		*/
-		$.fn.fileReader.defaults = {
-			id              : 'fileReaderSWFObject', // ID for the created swf object container,
-			multiple        : null,
-			accept          : null,
-			label           : null,
-			extensions      : null,
-			filereader      : 'files/filereader.swf', // The path to the filereader swf file
-			expressInstall  : null, // The path to the express install swf file
-			debugMode       : false,
-			callback        : false // Callback function when Filereader is ready
-		};
-		
-		/**
-		* Plugin callback
-		*     adds an input to registry
-		*/
-		var main = function(el, options) {
-			return el.each(function(i, input) {
-				input = $(input);
-				var id = input.attr('id');
-				var multiple, accept, label;
-				if (!id) {
-					id = 'flashFileInput' + inputsCount;
-					input.attr('id', id);
-					inputsCount++;
-				}
-				multiple = input.prop('multiple');
-				accept = input.data('swfaccept') || input.prop('accept') ||  options.accept;
-				label = input.jProp('labels')
-					.map(function(){
-						return $(this).text();
-					}).get().join(' ') ||
-					input.data('swflabel') || 
-					options.label;
+	var mOxie, moxie, hasXDomain;
+	var FormData = $.noop;
+	var sel = 'input[type="file"].ws-filereader';
+	var loadMoxie = function (){
+		webshim.loader.loadList(['moxie']);
+	};
+	var _createFilePicker = function(){
+		var $input, picker, $parent, onReset;
+		var input = this;
 
-				FileAPIProxy.inputs[id] = input;
-				FileAPIProxy.swfObject.add(id, multiple, accept, label, options.extensions);
-				
-				input.css('z-index', 0)
-					.mouseover(function (e) {
-						if (id !== currentTarget) {
-							e = e || window.event;
-							currentTarget = id;
-							FileAPIProxy.swfObject.mouseover(id);
-							FileAPIProxy.container
-								.height(input.outerHeight())
-								.width(input.outerWidth())
-								.css(input.offset());
-						}
-					})
-					.click(function(e) {
-						e.preventDefault();
-						e.stopPropagation();
-						e.stopImmediatePropagation();
-						return false;
-					});
-			});
-		};
-		
-		/**
-		* Flash FileReader Proxy
-		*/
-		window.FileAPIProxy = {
-			ready: false,
-			_inititalized: false,
-			init: function(o) {
-				var self = this;
-				this.debugMode = o.debugMode;
-				
-				if(!this.container){
-					this.container = $('<div>').attr('id', o.id)
-						.wrap('<div>')
-						.parent()
-						.css({
-							position:'fixed',
-							// top:'0px',
-							width:'1px',
-							height:'1px',
-							display:'inline-block',
-							background:'transparent',
-							'z-index':99999
-						})
-						// Hands over mouse events to original input for css styles
-						.on('mouseover mouseout mousedown mouseup', function(evt) {
-							if(currentTarget){
-								$('#' + currentTarget).trigger(evt.type);
-							}
-						})
-						.appendTo('body');
-					
-					swfobject.embedSWF(o.filereader, o.id, '100%', '100%', '10', o.expressInstall, {debugMode: o.debugMode ? true : ''}, {'wmode':'transparent','allowScriptAccess':'sameDomain'}, {}, function(e) {
-						self.swfObject = e.ref;
-						$(self.swfObject)
-							.css({
-								display: 'block',
-								outline: 0
-							})
-							.attr('tabindex', 0);
-							
-						self.ready = e.success && typeof e.ref.add === "function";
-						
-						if (self.ready) {
-							readyCallbacks.fire();
-						}
-					});
+		if(webshim.implement(input, 'filepicker')){
+
+			input = this;
+			$input = $(this);
+			$parent = $input.parent();
+			onReset = function(){
+				if(!input.value){
+					$input.prop('value', '');
 				}
-			},
-			swfObject: null,
-			container: null,
-			// Inputs Registry
-			inputs: {},
-			// Readers Registry
-			readers: {},
-			// Receives FileInput events
-			onFileInputEvent: function(evt) {
-				if (this.debugMode) console.info('FileInput Event ', evt.type, evt);
-				if (evt.target in this.inputs) {
-					var el = this.inputs[evt.target];
-					evt.target = el[0];
-					if( evt.type === 'change') {
-						webshims.data(evt.target, 'fileList', new FileList(evt.files));
-					}
-					el.trigger(evt);
-				}
-				window.focus();
-			},
-			// Receives FileReader ProgressEvents
-			onFileReaderEvent: function(evt) {
-				if (this.debugMode) console.info('FileReader Event ', evt.type, evt, evt.target in this.readers);
-				if (evt.target in this.readers) {
-					var reader = this.readers[evt.target];
-					evt.target = reader;
-					reader._handleFlashEvent.call(reader, evt);
-				}
-			},
-			// Receives flash FileReader Error Events
-			onFileReaderError: function(error) {
-				if (this.debugMode) console.log(error);
-			},
-			onSWFReady: function() {
-				this.container.css({position: 'absolute'});
-				this.ready = typeof this.swfObject.add === "function";
-				if (this.ready) {
-					readyCallbacks.fire();
-				}
-				
-				return true;
-			}
-		};
-		
-		
-		/**
-		* Add FileReader to the window object
-		*/
-		window.FileReader = function () {
-			// states
-			this.EMPTY = 0;
-			this.LOADING = 1;
-			this.DONE = 2;
-	
-			this.readyState = 0;
-	
-			// File or Blob data
-			this.result = null;
-	
-			this.error = null;
-	
-			// event handler attributes
-			this.onloadstart = null;
-			this.onprogress = null;
-			this.onload = null;
-			this.onabort = null;
-			this.onerror = null;
-			this.onloadend = null;
-			
-			// Event Listeners handling using JQuery Callbacks
-			this._callbacks = {
-				loadstart : $.Callbacks( "unique" ),
-				progress  : $.Callbacks( "unique" ),
-				abort     : $.Callbacks( "unique" ),
-				error     : $.Callbacks( "unique" ),
-				load      : $.Callbacks( "unique" ),
-				loadend   : $.Callbacks( "unique" )
 			};
-			
-			// Custom properties
-			this._id = null;
-		};
-		
-		window.FileReader.prototype = {
-			// async read methods
-			readAsBinaryString: function (file) {
-				this._start(file);
-				FileAPIProxy.swfObject.read(file.input, file.name, 'readAsBinaryString');
-			},
-			readAsText: function (file, encoding) {
-				this._start(file);
-				FileAPIProxy.swfObject.read(file.input, file.name, 'readAsText');
-			},
-			readAsDataURL: function (file) {
-				this._start(file);
-				FileAPIProxy.swfObject.read(file.input, file.name, 'readAsDataURL');
-			},
-			readAsArrayBuffer: function(file){
-				throw("Whoops FileReader.readAsArrayBuffer is unimplemented");
-			},
-			
-			abort: function () {
-				this.result = null;
-				if (this.readyState === this.EMPTY || this.readyState === this.DONE) return;
-				FileAPIProxy.swfObject.abort(this._id);
-			},
-			
-			// Event Target interface
-			addEventListener: function (type, listener) {
-				if (type in this._callbacks) this._callbacks[type].add(listener);
-			},
-			removeEventListener: function (type, listener) {
-				if (type in this._callbacks) this._callbacks[type].remove(listener);
-			},
-			dispatchEvent: function (event) {
-				event.target = this;
-				if (event.type in this._callbacks) {
-					var fn = this['on' + event.type];
-					if ($.isFunction(fn)) fn(event);
-					this._callbacks[event.type].fire(event);
+
+			$input.attr('tabindex', '-1').on('mousedown.filereaderwaiting click.filereaderwaiting', false);
+			$parent.addClass('ws-loading');
+			picker = new mOxie.FileInput({
+				browse_button: this,
+				accept: $.prop(this, 'accept'),
+				multiple: $.prop(this, 'multiple')
+			});
+
+			$input.jProp('form').on('reset', function(){
+				setTimeout(onReset);
+			});
+			picker.onready = function(){
+				$input.off('.fileraderwaiting');
+				$parent.removeClass('ws-waiting');
+			};
+
+			picker.onchange = function(e){
+				webshim.data(input, 'fileList', e.target.files);
+				$input.trigger('change');
+			};
+			picker.onmouseenter = function(){
+				$input.trigger('mouseover');
+				$parent.addClass('ws-mouseenter');
+			};
+			picker.onmouseleave = function(){
+				$input.trigger('mouseout');
+				$parent.removeClass('ws-mouseenter');
+			};
+			picker.onmousedown = function(){
+				$input.trigger('mousedown');
+				$parent.addClass('ws-active');
+			};
+			picker.onmouseup = function(){
+				$input.trigger('mouseup');
+				$parent.removeClass('ws-active');
+			};
+
+			webshim.data(input, 'filePicker', picker);
+
+			webshim.ready('WINDOWLOAD', function(){
+				var lastWidth;
+				$input.onWSOff('updateshadowdom', function(){
+					var curWitdth = input.offsetWidth;
+					if(curWitdth && lastWidth != curWitdth){
+						lastWidth = curWitdth;
+						picker.refresh();
+					}
+				});
+			});
+
+			webshim.addShadowDom();
+
+			picker.init();
+			if(input.disabled){
+				picker.disable(true);
+			}
+		}
+	};
+	var getFileNames = function(file){
+		return file.name;
+	};
+	var createFilePicker = function(){
+		var elem = this;
+		loadMoxie();
+		$(elem)
+			.on('mousedown.filereaderwaiting click.filereaderwaiting', false)
+			.parent()
+			.addClass('ws-loading')
+		;
+		webshim.ready('moxie', function(){
+			createFilePicker.call(elem);
+		});
+	};
+	var noxhr = /^(?:script|jsonp)$/i;
+	var notReadyYet = function(){
+		loadMoxie();
+		webshim.error('filereader/formdata not ready yet. please wait for moxie to load `webshim.ready("moxie", callbackFn);`` or wait for the first change event on input[type="file"].ws-filereader.')
+	};
+	var inputValueDesc = webshim.defineNodeNameProperty('input', 'value', {
+			prop: {
+				get: function(){
+					var fileList = webshim.data(this, 'fileList');
+
+					if(fileList && fileList.map){
+						return fileList.map(getFileNames).join(', ');
+					}
+
+					return inputValueDesc.prop._supget.call(this);
+				},
+				set: function(val){
+					if(val === '' && this.type == 'file' && $(this).hasClass('ws-filereader')){
+						webshim.data(this, 'fileList', []);
+					}
+					inputValueDesc.prop._supset.call(this);
 				}
-				return true;
-			},
-			
-			// Custom private methods
-			
-			// Registers FileReader instance for flash callbacks
-			_register: function(file) {
-				this._id = file.input + '.' + file.name;
-				FileAPIProxy.readers[this._id] = this;
-			},
-			_start: function(file) {
-				this._register(file);
-				if (this.readyState === this.LOADING) throw {type: 'InvalidStateError', code: 11, message: 'The object is in an invalid state.'};
-			},
-			_handleFlashEvent: function(evt) {
-				switch (evt.type) {
-					case 'loadstart':
-						this.readyState = this.LOADING;
-						break;
-					case 'loadend':
-						this.readyState = this.DONE;
-						break;
-					case 'load':
-						this.readyState = this.DONE;
-						this.result = FileAPIProxy.swfObject.result(this._id);
-						break;
-					case 'error':
-						this.result = null;
-						this.error = {
-							name: 'NotReadableError',
-							message: 'The File cannot be read!'
+			}
+		}
+	);
+	var shimMoxiePath = webshim.cfg.basePath+'moxie/';
+	var crossXMLMessage = 'You nedd a crossdomain.xml to get all "filereader" / "XHR2" / "CORS" features to work. Or host moxie.swf/moxie.xap on your server an configure filereader options: "swfpath"/"xappath"';
+	var testMoxie = function(options){
+		return (options.wsType == 'moxie' || (options.data && options.data instanceof mOxie.FormData) || (options.crossDomain && $.support.cors !== false && hasXDomain != 'no' && !noxhr.test(options.dataType || '')));
+	};
+	var createMoxieTransport = function (options){
+
+		if(testMoxie(options)){
+			var ajax;
+			webshim.info('moxie transfer used for $.ajax');
+			if(hasXDomain == 'no'){
+				webshim.error(crossXMLMessage);
+			}
+			return {
+				send: function( headers, completeCallback ) {
+
+					var proressEvent = function(obj, name){
+						if(options[name]){
+							var called = false;
+							ajax.addEventListener('load', function(e){
+								if(!called){
+									options[name]({type: 'progress', lengthComputable: true, total: 1, loaded: 1});
+								} else if(called.lengthComputable && called.total > called.loaded){
+									options[name]({type: 'progress', lengthComputable: true, total: called.total, loaded: called.total});
+								}
+							});
+							obj.addEventListener('progress', function(e){
+								called = e;
+								options[name](e);
+							});
+						}
+					};
+					ajax = new moxie.xhr.XMLHttpRequest();
+
+					ajax.open(options.type, options.url, options.async, options.username, options.password);
+
+					proressEvent(ajax.upload, featureOptions.uploadprogress);
+					proressEvent(ajax.upload, featureOptions.progress);
+
+					ajax.addEventListener('load', function(e){
+						var responses = {
+							text: ajax.responseText,
+							xml: ajax.responseXML
 						};
+						completeCallback(ajax.status, ajax.statusText, responses, ajax.getAllResponseHeaders());
+					});
+
+					if(options.xhrFields && options.xhrFields.withCredentials){
+						ajax.withCredentials = true;
+					}
+
+					if(options.timeout){
+						ajax.timeout = options.timeout;
+					}
+
+					$.each(headers, function(name, value){
+						ajax.setRequestHeader(name, value);
+					});
+
+
+					ajax.send(options.data);
+
+				},
+				abort: function() {
+					if(ajax){
+						ajax.abort();
+					}
 				}
-				this.dispatchEvent(new FileReaderEvent(evt));
-			}
-		};
-		
-		/**
-		* FileReader ProgressEvent implenting Event interface
-		*/
-		window.FileReaderEvent = function (e) {
-			this.initEvent(e);
-		};
-	
-		window.FileReaderEvent.prototype = {
-			initEvent: function (event) {
-				$.extend(this, {
-					type: null,
-					target: null,
-					currentTarget: null,
-				
-					eventPhase: 2,
-	
-					bubbles: false,
-					cancelable: false,
-			 
-					defaultPrevented: false,
-	
-					isTrusted: false,
-					timeStamp: new Date().getTime()
-				}, event);
-			},
-			stopPropagation: function (){
-			},
-			stopImmediatePropagation: function (){
-			},
-			preventDefault: function (){
-			}
-		};
-		
-		/**
-		* FileList interface (Object with item function)
-		*/
-		window.FileList = function(array) {
-			if (array) {
-				for (var i = 0; i < array.length; i++) {
-					this[i] = array[i];
+			};
+		}
+	};
+	var transports = {
+		//based on script: https://github.com/MoonScript/jQuery-ajaxTransport-XDomainRequest
+		xdomain: (function(){
+			var httpRegEx = /^https?:\/\//i;
+			var getOrPostRegEx = /^get|post$/i;
+			var sameSchemeRegEx = new RegExp('^'+location.protocol, 'i');
+			return function(options, userOptions, jqXHR) {
+
+				// Only continue if the request is: asynchronous, uses GET or POST method, has HTTP or HTTPS protocol, and has the same scheme as the calling page
+				if (!options.crossDomain || options.username || (options.xhrFields && options.xhrFields.withCredentials) || !options.async || !getOrPostRegEx.test(options.type) || !httpRegEx.test(options.url) || !sameSchemeRegEx.test(options.url) || (options.data && options.data instanceof mOxie.FormData) || noxhr.test(options.dataType || '')) {
+					return;
 				}
-				this.length = array.length;
-			} else {
-				this.length = 0;
+
+				var xdr = null;
+				webshim.info('xdomain transport used.');
+
+				return {
+					send: function(headers, complete) {
+						var postData = '';
+						var userType = (userOptions.dataType || '').toLowerCase();
+
+						xdr = new XDomainRequest();
+						if (/^\d+$/.test(userOptions.timeout)) {
+							xdr.timeout = userOptions.timeout;
+						}
+
+						xdr.ontimeout = function() {
+							complete(500, 'timeout');
+						};
+
+						xdr.onload = function() {
+							var allResponseHeaders = 'Content-Length: ' + xdr.responseText.length + '\r\nContent-Type: ' + xdr.contentType;
+							var status = {
+								code: xdr.status || 200,
+								message: xdr.statusText || 'OK'
+							};
+							var responses = {
+								text: xdr.responseText,
+								xml: xdr.responseXML
+							};
+							try {
+								if (userType === 'html' || /text\/html/i.test(xdr.contentType)) {
+									responses.html = xdr.responseText;
+								} else if (userType === 'json' || (userType !== 'text' && /\/json/i.test(xdr.contentType))) {
+									try {
+										responses.json = $.parseJSON(xdr.responseText);
+									} catch(e) {
+
+									}
+								} else if (userType === 'xml' && !xdr.responseXML) {
+									var doc;
+									try {
+										doc = new ActiveXObject('Microsoft.XMLDOM');
+										doc.async = false;
+										doc.loadXML(xdr.responseText);
+									} catch(e) {
+
+									}
+
+									responses.xml = doc;
+								}
+							} catch(parseMessage) {}
+							complete(status.code, status.message, responses, allResponseHeaders);
+						};
+
+						// set an empty handler for 'onprogress' so requests don't get aborted
+						xdr.onprogress = function(){};
+						xdr.onerror = function() {
+							complete(500, 'error', {
+								text: xdr.responseText
+							});
+						};
+
+						if (userOptions.data) {
+							postData = ($.type(userOptions.data) === 'string') ? userOptions.data : $.param(userOptions.data);
+						}
+						xdr.open(options.type, options.url);
+						xdr.send(postData);
+					},
+					abort: function() {
+						if (xdr) {
+							xdr.abort();
+						}
+					}
+				};
+			};
+		})(),
+		moxie: function (options, originalOptions, jqXHR){
+			if(testMoxie(options)){
+				loadMoxie(options);
+				var ajax;
+
+				var tmpTransport = {
+					send: function( headers, completeCallback ) {
+						ajax = true;
+						webshim.ready('moxie', function(){
+							if(ajax){
+								ajax = createMoxieTransport(options, originalOptions, jqXHR);
+								tmpTransport.send = ajax.send;
+								tmpTransport.abort = ajax.abort;
+								ajax.send(headers, completeCallback);
+							}
+						});
+					},
+					abort: function() {
+						ajax = false;
+					}
+				};
+				return tmpTransport;
 			}
-		};
-		
-		window.FileList.prototype = {
-			item: function(index) {
-				return (index in this) ? this[index] : null;
+		}
+	};
+
+	if(!featureOptions.progress){
+		featureOptions.progress = 'onprogress';
+	}
+
+	if(!featureOptions.uploadprogress){
+		featureOptions.uploadprogress = 'onuploadprogress';
+	}
+
+	if(!featureOptions.swfpath){
+		featureOptions.swfpath = shimMoxiePath+'flash/Moxie.cdn.swf';
+	}
+	if(!featureOptions.xappath){
+		featureOptions.xappath = shimMoxiePath+'silverlight/Moxie.cdn.xap';
+	}
+
+	if($.support.cors !== false || !window.XDomainRequest){
+		delete transports.xdomain;
+	}
+
+
+	$.ajaxTransport("+*", function( options, originalOptions, jqXHR ) {
+		var ajax, type;
+
+		if(options.wsType || transports[transports]){
+			ajax = transports[transports](options, originalOptions, jqXHR);
+		}
+		if(!ajax){
+			for(type in transports){
+				ajax = transports[type](options, originalOptions, jqXHR);
+				if(ajax){break;}
 			}
-		};
-	})();
-	
-	webshims.defineNodeNameProperty('input', 'files', {
+		}
+		return ajax;
+	});
+
+	webshim.defineNodeNameProperty('input', 'files', {
 			prop: {
 				writeable: false,
 				get: function(){
 					if(this.type != 'file'){return null;}
 					if(!$(this).is('.ws-filereader')){
-						webshims.error("please add the 'ws-filereader' class to your input[type='file'] to implement files-property");
+						webshim.info("please add the 'ws-filereader' class to your input[type='file'] to implement files-property");
 					}
-					return webshims.data(this, 'fileList') || webshims.data(this, 'fileList', new FileList());
+					return webshim.data(this, 'fileList') || [];
 				}
 			}
 		}
 	);
-	
-	webshims.defineNodeNamesBooleanProperty('input', 'multiple');
 
-	//webshims
-	$.fn.fileReader.defaults.filereader = webshims.cfg.basePath +'swf/filereader.swf';
-	var wait = ['DOM'];
-	if(webshims.modules["form-core"].loaded){
-		wait.push('forms');
+	webshim.reflectProperties(['input'], ['accept']);
+
+	if($('<input />').prop('multiple') == null){
+		webshim.defineNodeNamesBooleanProperty(['input'], ['multiple']);
 	}
-	webshims.ready(wait, function(){
-		webshims.addReady(function(context, contextElem){
-			$('input[type="file"].ws-filereader', context).fileReader();
-		});
-	});
-});
-;(function(Modernizr, webshims){
-	"use strict";
-	var $ = webshims.$;
-	var hasNative = Modernizr.audio && Modernizr.video;
-	var supportsLoop = false;
-	var bugs = webshims.bugs;
-	var swfType = 'mediaelement-jaris';
-	var loadSwf = function(){
-		webshims.ready(swfType, function(){
-			if(!webshims.mediaelement.createSWF){
-				webshims.mediaelement.loadSwf = true;
-				webshims.reTest([swfType], hasNative);
-			}
-		});
-	};
-	var wsCfg = webshims.cfg;
-	var options = wsCfg.mediaelement;
-	var hasFullTrackSupport;
-	var hasSwf;
-	if(!options){
-		webshims.error("mediaelement wasn't implemented but loaded");
-		return;
-	}
-	if(hasNative){
-		var videoElem = document.createElement('video');
-		Modernizr.videoBuffered = ('buffered' in videoElem);
-		Modernizr.mediaDefaultMuted = ('defaultMuted' in videoElem);
-		supportsLoop = ('loop' in videoElem);
-		
-		webshims.capturingEvents(['play', 'playing', 'waiting', 'paused', 'ended', 'durationchange', 'loadedmetadata', 'canplay', 'volumechange']);
-		
-		if(!Modernizr.videoBuffered ){
-			webshims.addPolyfill('mediaelement-native-fix', {
-				d: ['dom-support']
-			});
-			webshims.loader.loadList(['mediaelement-native-fix']);
+
+	webshim.onNodeNamesPropertyModify('input', 'disabled', function(value, boolVal, type){
+		var picker = webshim.data(this, 'filePicker');
+		if(picker){
+			picker.disable(boolVal);
 		}
-		
-		if(!options.preferFlash){
-			var noSwitch = {
-				1: 1
-			};
-			var switchOptions = function(e){
-				var media, error, parent;
-				if(!options.preferFlash && 
-				($(e.target).is('audio, video') || ((parent = e.target.parentNode) && $('source', parent).last()[0] == e.target)) && 
-				(media = $(e.target).closest('audio, video')) && (error = media.prop('error')) && !noSwitch[error.code]
-				){
-					
-					$(function(){
-						if(hasSwf && !options.preferFlash){
-							loadSwf();
-							webshims.ready('WINDOWLOAD '+swfType, function(){
-								setTimeout(function(){
-									if(!options.preferFlash && webshims.mediaelement.createSWF && !media.is('.nonnative-api-active')){
-										options.preferFlash = true;
-										document.removeEventListener('error', switchOptions, true);
-										$('audio, video').each(function(){
-											webshims.mediaelement.selectSource(this);
-										});
-										webshims.error("switching mediaelements option to 'preferFlash', due to an error with native player: "+e.target.src+" Mediaerror: "+ media.prop('error')+ 'first error: '+ error);
-									}
-								}, 9);
-							});
-						} else{
-							document.removeEventListener('error', switchOptions, true);
+	});
+
+	window.FileReader = notReadyYet;
+	window.FormData = notReadyYet;
+	webshim.ready('moxie', function(){
+		var wsMimes = 'application/xml,xml';
+		moxie = window.moxie;
+		mOxie = window.mOxie;
+
+		mOxie.Env.swf_url = featureOptions.swfpath;
+		mOxie.Env.xap_url = featureOptions.xappath;
+
+		window.FileReader = mOxie.FileReader;
+
+		window.FormData = function(form){
+			var appendData, i, len, files, fileI, fileLen, inputName;
+			var moxieData = new mOxie.FormData();
+			if(form && $.nodeName(form, 'form')){
+				appendData = $(form).serializeArray();
+				for(i = 0; i < appendData.length; i++){
+					if(Array.isArray(appendData[i].value)){
+						appendData[i].value.forEach(function(val){
+							moxieData.append(appendData[i].name, val);
+						});
+					} else {
+						moxieData.append(appendData[i].name, appendData[i].value);
+					}
+				}
+
+				appendData = form.querySelectorAll('input[type="file"][name]');
+
+				for(i = 0, len = appendData.length; i < appendData.length; i++){
+					inputName = appendData[i].name;
+					if(inputName && !$(appendData[i]).is(':disabled')){
+						files = $.prop(appendData[i], 'files') || [];
+						if(files.length){
+							if(files.length > 1){
+								webshim.error('FormData shim can only handle one file per ajax. Use multiple ajax request. One per file.');
+							}
+							for(fileI = 0, fileLen = files.length; fileI < fileLen; fileI++){
+								moxieData.append(inputName, files[fileI]);
+							}
 						}
-					});
+					}
+				}
+			}
+
+			return moxieData;
+		};
+		FormData = window.FormData;
+
+		createFilePicker = _createFilePicker;
+		transports.moxie = createMoxieTransport;
+
+		featureOptions.mimeTypes = (featureOptions.mimeTypes) ? wsMimes+','+featureOptions.mimeTypes : wsMimes;
+		try {
+			mOxie.Mime.addMimeType(featureOptions.mimeTypes);
+		} catch(e){
+			webshim.warn('mimetype to moxie error: '+e);
+		}
+
+	});
+
+	webshim.addReady(function(context, contextElem){
+		$(context.querySelectorAll(sel)).add(contextElem.filter(sel)).each(createFilePicker);
+	});
+	webshim.ready('WINDOWLOAD', loadMoxie);
+
+	if(webshim.cfg.debug !== false && featureOptions.swfpath.indexOf((location.protocol+'//'+location.hostname)) && featureOptions.swfpath.indexOf(('https://'+location.hostname))){
+		webshim.ready('WINDOWLOAD', function(){
+
+			var printMessage = function(){
+				if(hasXDomain == 'no'){
+					webshim.error(crossXMLMessage);
 				}
 			};
-			document.addEventListener('error', switchOptions, true);
-			$('audio, video').each(function(){
-				var error = $.prop(this, 'error');
-				if(error && !noSwitch[error]){
-					switchOptions({target: this});
-					return false;
-				}
-			});
-		}
-	}
-	
-	if(Modernizr.track && !bugs.track){
-		(function(){
-			
-			if(!bugs.track){
-				bugs.track = typeof $('<track />')[0].readyState != 'number';
-			}
-			
-			if(!bugs.track){
-				try {
-					new TextTrackCue(2, 3, '');
-				} catch(e){
-					bugs.track = true;
-				}
-			}
-		})();
-	}
-	hasFullTrackSupport = Modernizr.track && !bugs.track;
 
-webshims.register('mediaelement-core', function($, webshims, window, document, undefined, options){
-	hasSwf = swfmini.hasFlashPlayerVersion('10.0.3');
-	$('html').addClass(hasSwf ? 'swf' : 'no-swf');
-	var mediaelement = webshims.mediaelement;
-	
-	mediaelement.parseRtmp = function(data){
-		var src = data.src.split('://');
-		var paths = src[1].split('/');
-		var i, len, found;
-		data.server = src[0]+'://'+paths[0]+'/';
-		data.streamId = [];
-		for(i = 1, len = paths.length; i < len; i++){
-			if(!found && paths[i].indexOf(':') !== -1){
-				paths[i] = paths[i].split(':')[1];
-				found = true;
-			}
-			if(!found){
-				data.server += paths[i]+'/';
-			} else {
-				data.streamId.push(paths[i]);
-			}
-		}
-		if(!data.streamId.length){
-			webshims.error('Could not parse rtmp url');
-		}
-		data.streamId = data.streamId.join('/');
-	};
-	var getSrcObj = function(elem, nodeName){
-		elem = $(elem);
-		var src = {src: elem.attr('src') || '', elem: elem, srcProp: elem.prop('src')};
-		var tmp;
-		
-		if(!src.src){return src;}
-		
-		tmp = elem.attr('data-server');
-		if(tmp != null){
-			src.server = tmp;
-		}
-		
-		tmp = elem.attr('type') || elem.attr('data-type');
-		if(tmp){
-			src.type = tmp;
-			src.container = $.trim(tmp.split(';')[0]);
-		} else {
-			if(!nodeName){
-				nodeName = elem[0].nodeName.toLowerCase();
-				if(nodeName == 'source'){
-					nodeName = (elem.closest('video, audio')[0] || {nodeName: 'video'}).nodeName.toLowerCase();
-				}
-			}
-			if(src.server){
-				src.type = nodeName+'/rtmp';
-				src.container = nodeName+'/rtmp';
-			} else {
-				
-				tmp = mediaelement.getTypeForSrc( src.src, nodeName, src );
-				
-				if(tmp){
-					src.type = tmp;
-					src.container = tmp;
-				}
-			}
-		}
-		
-		if(!src.container){
-			$(elem).attr('data-wsrecheckmimetype', '');
-		}
-		
-		tmp = elem.attr('media');
-		if(tmp){
-			src.media = tmp;
-		}
-		if(src.type == 'audio/rtmp' || src.type == 'video/rtmp'){
-			if(src.server){
-				src.streamId = src.src;
-			} else {
-				mediaelement.parseRtmp(src);
-			}
-		}
-		return src;
-	};
-	
-	
-	
-	var hasYt = !hasSwf && ('postMessage' in window) && hasNative;
-	
-	var loadTrackUi = function(){
-		if(loadTrackUi.loaded){return;}
-		loadTrackUi.loaded = true;
-		if(!options.noAutoTrack){
-			webshims.ready('WINDOWLOAD', function(){
-				loadThird();
-				webshims.loader.loadList(['track-ui']);
-			});
-		}
-	};
-//	var loadMediaGroup = function(){
-//		if(!loadMediaGroup.loaded){
-//			loadMediaGroup.loaded = true;
-//			webshims.ready(window.MediaController ? 'WINDOWLOAD' : 'DOM', function(){
-//				webshims.loader.loadList(['mediagroup']);
-//			});
-//		}
-//	};
-	var loadYt = (function(){
-		var loaded;
-		return function(){
-			if(loaded || !hasYt){return;}
-			loaded = true;
-			webshims.loader.loadScript("https://www.youtube.com/player_api");
-			$(function(){
-				webshims._polyfill(["mediaelement-yt"]);
-			});
-		};
-	})();
-	var loadThird = function(){
-		if(hasSwf){
-			loadSwf();
-		} else {
-			loadYt();
-		}
-	};
-	
-	webshims.addPolyfill('mediaelement-yt', {
-		test: !hasYt,
-		d: ['dom-support']
-	});
-	
-	
-//	webshims.addModule('mediagroup', {
-//		d: ['mediaelement', 'dom-support']
-//	});
-	
-	mediaelement.mimeTypes = {
-		audio: {
-				//ogm shouldn´t be used!
-				'audio/ogg': ['ogg','oga', 'ogm'],
-				'audio/ogg;codecs="opus"': 'opus',
-				'audio/mpeg': ['mp2','mp3','mpga','mpega'],
-				'audio/mp4': ['mp4','mpg4', 'm4r', 'm4a', 'm4p', 'm4b', 'aac'],
-				'audio/wav': ['wav'],
-				'audio/3gpp': ['3gp','3gpp'],
-				'audio/webm': ['webm'],
-				'audio/fla': ['flv', 'f4a', 'fla'],
-				'application/x-mpegURL': ['m3u8', 'm3u']
-			},
-			video: {
-				//ogm shouldn´t be used!
-				'video/ogg': ['ogg','ogv', 'ogm'],
-				'video/mpeg': ['mpg','mpeg','mpe'],
-				'video/mp4': ['mp4','mpg4', 'm4v'],
-				'video/quicktime': ['mov','qt'],
-				'video/x-msvideo': ['avi'],
-				'video/x-ms-asf': ['asf', 'asx'],
-				'video/flv': ['flv', 'f4v'],
-				'video/3gpp': ['3gp','3gpp'],
-				'video/webm': ['webm'],
-				'application/x-mpegURL': ['m3u8', 'm3u'],
-				'video/MP2T': ['ts']
-			}
-		}
-	;
-	
-	mediaelement.mimeTypes.source =  $.extend({}, mediaelement.mimeTypes.audio, mediaelement.mimeTypes.video);
-	
-	mediaelement.getTypeForSrc = function(src, nodeName, data){
-		if(src.indexOf('youtube.com/watch?') != -1 || src.indexOf('youtube.com/v/') != -1){
-			return 'video/youtube';
-		}
-		if(src.indexOf('rtmp') === 0){
-			return nodeName+'/rtmp';
-		}
-		src = src.split('?')[0].split('#')[0].split('.');
-		src = src[src.length - 1];
-		var mt;
-		
-		$.each(mediaelement.mimeTypes[nodeName], function(mimeType, exts){
-			if(exts.indexOf(src) !== -1){
-				mt = mimeType;
-				return false;
-			}
-		});
-		return mt;
-	};
-	
-	
-	mediaelement.srces = function(mediaElem, srces){
-		mediaElem = $(mediaElem);
-		if(!srces){
-			srces = [];
-			var nodeName = mediaElem[0].nodeName.toLowerCase();
-			var src = getSrcObj(mediaElem, nodeName);
-			
-			if(!src.src){
-				$('source', mediaElem).each(function(){
-					src = getSrcObj(this, nodeName);
-					if(src.src){srces.push(src);}
-				});
-			} else {
-				srces.push(src);
-			}
-			return srces;
-		} else {
-			mediaElem.removeAttr('src').removeAttr('type').find('source').remove();
-			if(!$.isArray(srces)){
-				srces = [srces]; 
-			}
-			srces.forEach(function(src){
-				if(typeof src == 'string'){
-					src = {src: src};
-				} 
-				mediaElem.append($(document.createElement('source')).attr(src));
-			});
-			
-		}
-	};
-	
-	
-	$.fn.loadMediaSrc = function(srces, poster){
-		return this.each(function(){
-			if(poster !== undefined){
-				$(this).removeAttr('poster');
-				if(poster){
-					$.attr(this, 'poster', poster);
-				}
-			}
-			mediaelement.srces(this, srces);
-			$(this).mediaLoad();
-		});
-	};
-	
-	mediaelement.swfMimeTypes = ['video/3gpp', 'video/x-msvideo', 'video/quicktime', 'video/x-m4v', 'video/mp4', 'video/m4p', 'video/x-flv', 'video/flv', 'audio/mpeg', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/mp3', 'audio/x-fla', 'audio/fla', 'youtube/flv', 'video/jarisplayer', 'jarisplayer/jarisplayer', 'video/youtube', 'video/rtmp', 'audio/rtmp'];
-	
-	mediaelement.canThirdPlaySrces = function(mediaElem, srces){
-		var ret = '';
-		if(hasSwf || hasYt){
-			mediaElem = $(mediaElem);
-			srces = srces || mediaelement.srces(mediaElem);
-			$.each(srces, function(i, src){
-				if(src.container && src.src && ((hasSwf && mediaelement.swfMimeTypes.indexOf(src.container) != -1) || (hasYt && src.container == 'video/youtube'))){
-					ret = src;
-					return false;
-				}
-			});
-			
-		}
-		
-		return ret;
-	};
-	
-	var nativeCanPlayType = {};
-	mediaelement.canNativePlaySrces = function(mediaElem, srces){
-		var ret = '';
-		if(hasNative){
-			mediaElem = $(mediaElem);
-			var nodeName = (mediaElem[0].nodeName || '').toLowerCase();
-			var nativeCanPlay = (nativeCanPlayType[nodeName] || {prop: {_supvalue: false}}).prop._supvalue || mediaElem[0].canPlayType;
-			if(!nativeCanPlay){return ret;}
-			srces = srces || mediaelement.srces(mediaElem);
-			
-			$.each(srces, function(i, src){
-				if(src.type && nativeCanPlay.call(mediaElem[0], src.type) ){
-					ret = src;
-					return false;
-				}
-			});
-		}
-		return ret;
-	};
-	var emptyType = (/^\s*application\/octet\-stream\s*$/i);
-	var getRemoveEmptyType = function(){
-		var ret = emptyType.test($.attr(this, 'type') || '');
-		if(ret){
-			$(this).removeAttr('type');
-		}
-		return ret;
-	};
-	mediaelement.setError = function(elem, message){
-		if($('source', elem).filter(getRemoveEmptyType).length){
-			webshims.error('"application/octet-stream" is a useless mimetype for audio/video. Please change this attribute.');
 			try {
-				$(elem).mediaLoad();
-			} catch(er){}
-		} else {
-			if(!message){
-				message = "can't play sources";
-			}
-			$(elem).pause().data('mediaerror', message);
-			webshims.error('mediaelementError: '+ message);
-			setTimeout(function(){
-				if($(elem).data('mediaerror')){
-					$(elem).addClass('media-error').trigger('mediaerror');
-				}
-			}, 1);
-		}
-		
-		
-	};
-	
-	var handleThird = (function(){
-		var requested;
-		var readyType = hasSwf ? swfType : 'mediaelement-yt';
-		return function( mediaElem, ret, data ){
-			//readd to ready
-			
-			
-			webshims.ready(readyType, function(){
-				if(mediaelement.createSWF && $(mediaElem).parent()[0]){
-					mediaelement.createSWF( mediaElem, ret, data );
-				} else if(!requested) {
-					requested = true;
-					loadThird();
-					
-					handleThird( mediaElem, ret, data );
-				}
-			});
-			if(!requested && hasYt && !mediaelement.createSWF){
-				loadYt();
-			}
-		};
-	})();
-	
-	var stepSources = function(elem, data, useSwf, _srces, _noLoop){
-		var ret;
-		if(useSwf || (useSwf !== false && data && data.isActive == 'third')){
-			ret = mediaelement.canThirdPlaySrces(elem, _srces);
-			if(!ret){
-				if(_noLoop){
-					mediaelement.setError(elem, false);
-				} else {
-					stepSources(elem, data, false, _srces, true);
-				}
-			} else {
-				handleThird(elem, ret, data);
-			}
-		} else {
-			ret = mediaelement.canNativePlaySrces(elem, _srces);
-			if(!ret){
-				if(_noLoop){
-					mediaelement.setError(elem, false);
-					if(data && data.isActive == 'third') {
-						mediaelement.setActive(elem, 'html5', data);
-					}
-				} else {
-					stepSources(elem, data, true, _srces, true);
-				}
-			} else if(data && data.isActive == 'third') {
-				mediaelement.setActive(elem, 'html5', data);
-			}
-		}
-	};
-	var stopParent = /^(?:embed|object|datalist)$/i;
-	var selectSource = function(elem, data){
-		var baseData = webshims.data(elem, 'mediaelementBase') || webshims.data(elem, 'mediaelementBase', {});
-		var _srces = mediaelement.srces(elem);
-		var parent = elem.parentNode;
-		
-		clearTimeout(baseData.loadTimer);
-		$(elem).removeClass('media-error');
-		$.data(elem, 'mediaerror', false);
-		
-		if(!_srces.length || !parent || parent.nodeType != 1 || stopParent.test(parent.nodeName || '')){return;}
-		data = data || webshims.data(elem, 'mediaelement');
-		if(mediaelement.sortMedia){
-			_srces.sort(mediaelement.sortMedia);
-		}
-		stepSources(elem, data, options.preferFlash || undefined, _srces);
-	};
-	mediaelement.selectSource = selectSource;
-	
-	
-	$(document).on('ended', function(e){
-		var data = webshims.data(e.target, 'mediaelement');
-		if( supportsLoop && (!data || data.isActive == 'html5') && !$.prop(e.target, 'loop')){return;}
-		setTimeout(function(){
-			if( $.prop(e.target, 'paused') || !$.prop(e.target, 'loop') ){return;}
-			$(e.target).prop('currentTime', 0).play();
-		}, 1);
-		
-	});
-	
-	var handleMedia = false;	
-	var initMediaElements = function(){
-		var testFixMedia = function(){
-			if(webshims.implement(this, 'mediaelement')){
-				selectSource(this);
-				if(!Modernizr.mediaDefaultMuted && $.attr(this, 'muted') != null){
-					$.prop(this, 'muted', true);
-				}
-				//fixes for FF 12 and IE9/10 || does not hurt, if run in other browsers
-				if(hasNative && (!supportsLoop || ('ActiveXObject' in window))){
-					var bufferTimer;
-					var lastBuffered;
-					var elem = this;
-					var getBufferedString = function(){
-						var buffered = $.prop(elem, 'buffered');
-						if(!buffered){return;}
-						var bufferString = "";
-						for(var i = 0, len = buffered.length; i < len;i++){
-							bufferString += buffered.end(i);
-						}
-						return bufferString;
-					};
-					var testBuffer = function(){
-						var buffered = getBufferedString();
-						if(buffered != lastBuffered){
-							lastBuffered = buffered;
-							webshims.info('needed to trigger progress manually');
-							$(elem).triggerHandler('progress');
-						}
-					};
-					
-					$(this)
-						.on({
-							'play loadstart progress': function(e){
-								if(e.type == 'progress'){
-									lastBuffered = getBufferedString();
-								}
-								clearTimeout(bufferTimer);
-								bufferTimer = setTimeout(testBuffer, 400);
-							},
-							'emptied stalled mediaerror abort suspend': function(e){
-								if(e.type == 'emptied'){
-									lastBuffered = false;
-								}
-								clearTimeout(bufferTimer);
-							}
-						})
-					;
-					if('ActiveXObject' in window && $.prop(this, 'paused') && !$.prop(this, 'readyState') && $(this).is('audio[preload="none"][controls]:not([autoplay],.nonnative-api-active)')){
-						$(this).prop('preload', 'metadata').mediaLoad(); 
-					}
-				}
-			}
-			
-		};
-		
-		webshims.ready('dom-support', function(){
-			handleMedia = true;
-			
-			if(!supportsLoop){
-				webshims.defineNodeNamesBooleanProperty(['audio', 'video'], 'loop');
-			}
-			
-			['audio', 'video'].forEach(function(nodeName){
-				var supLoad, supController;
-				supLoad = webshims.defineNodeNameProperty(nodeName, 'load',  {
-					prop: {
-						value: function(){
-							var data = webshims.data(this, 'mediaelement');
-							selectSource(this, data);
-							if(hasNative && (!data || data.isActive == 'html5') && supLoad.prop._supvalue){
-								supLoad.prop._supvalue.apply(this, arguments);
-							}
-							$(this).triggerHandler('wsmediareload');
-						}
+				hasXDomain = sessionStorage.getItem('wsXdomain.xml');
+			} catch(e){}
+			printMessage();
+			if(hasXDomain == null){
+				$.ajax({
+					url: 'crossdomain.xml',
+					type: 'HEAD',
+					dataType: 'xml',
+					success: function(){
+						hasXDomain = 'yes';
+					},
+					error: function(){
+						hasXDomain = 'no';
+					},
+					complete: function(){
+						try {
+							sessionStorage.setItem('wsXdomain.xml', hasXDomain);
+						} catch(e){}
+						printMessage();
 					}
 				});
-				nativeCanPlayType[nodeName] = webshims.defineNodeNameProperty(nodeName, 'canPlayType',  {
-					prop: {
-						value: function(type){
-							var ret = '';
-							if(hasNative && nativeCanPlayType[nodeName].prop._supvalue){
-								ret = nativeCanPlayType[nodeName].prop._supvalue.call(this, type);
-								if(ret == 'no'){
-									ret = '';
-								}
-							}
-							if(!ret && hasSwf){
-								type = $.trim((type || '').split(';')[0]);
-								if(mediaelement.swfMimeTypes.indexOf(type) != -1){
-									ret = 'maybe';
-								}
-							}
-							return ret;
-						}
-					}
-				});
-				
-//				supController = webshims.defineNodeNameProperty(nodeName, 'controller',  {
-//					prop: {
-//						get: function(type){
-//							if(!loadMediaGroup.loaded){
-//								loadMediaGroup();
-//							}
-//							if(mediaelement.controller){
-//								return mediaelement.controller[nodeName].get.apply(this, arguments);
-//							}
-//							return supController.prop._supget && supController.prop._supget.apply(this, arguments);
-//						},
-//						set: function(){
-//							var that = this;
-//							var args = arguments;
-//							if(!loadMediaGroup.loaded){
-//								loadMediaGroup();
-//							}
-//							if(mediaelement.controller){
-//								return mediaelement.controller[nodeName].set.apply(that, args);
-//							} else {
-//								webshims.ready('mediagroup', function(){
-//									mediaelement.controller[nodeName].set.apply(that, args);
-//								});
-//							}
-//							return supController.prop._supset && supController.prop._supset.apply(this, arguments);
-//						}
-//					}
-//				});
-				
-//				webshims.ready('mediagroup', function(){
-//					mediaelement.controller[nodeName].sup = supController;
-//				});
-			});
-			
-//			webshims.onNodeNamesPropertyModify(['audio', 'video'], ['mediaGroup'], {
-//				set: function(){
-//					var that = this;
-//					var args = arguments;
-//					if(!loadMediaGroup.loaded){
-//						loadMediaGroup();
-//					}
-//					if(mediaelement.mediagroup){
-//						mediaelement.mediagroup.set.apply(that, args);
-//					} else {
-//						webshims.ready('mediagroup', function(){
-//							mediaelement.mediagroup.set.apply(that, args);
-//						});
-//					}
-//				},
-//				initAttr: true
-//			});
-			
-			webshims.onNodeNamesPropertyModify(['audio', 'video'], ['src', 'poster'], {
-				set: function(){
-					var elem = this;
-					var baseData = webshims.data(elem, 'mediaelementBase') || webshims.data(elem, 'mediaelementBase', {});
-					clearTimeout(baseData.loadTimer);
-					baseData.loadTimer = setTimeout(function(){
-						selectSource(elem);
-						elem = null;
-					}, 9);
-				}
-			});
-			
-			
-			webshims.addReady(function(context, insertedElement){
-				var media = $('video, audio', context)
-					.add(insertedElement.filter('video, audio'))
-					.each(testFixMedia)
-				;
-				if(!loadTrackUi.loaded && $('track', media).length){
-					loadTrackUi();
-				}
-//				if(!loadMediaGroup.loaded && this.getAttribute('mediagroup')){
-//					loadMediaGroup();
-//				}
-				media = null;
-			});
-		});
-		
-		if(hasNative && !handleMedia){
-			webshims.addReady(function(context, insertedElement){
-				if(!handleMedia){
-					$('video, audio', context)
-						.add(insertedElement.filter('video, audio'))
-						.each(function(){
-							if(!mediaelement.canNativePlaySrces(this)){
-								loadThird();
-								handleMedia = true;
-								return false;
-							}
-						})
-					;
-				}
-			});
-		}
-	};
-	
-	if(hasFullTrackSupport){
-		webshims.defineProperty(TextTrack.prototype, 'shimActiveCues', {
-			get: function(){
-				return this._shimActiveCues || this.activeCues;
 			}
 		});
 	}
-	//set native implementation ready, before swf api is retested
-	if(hasNative){
-		webshims.isReady('mediaelement-core', true);
-		initMediaElements();
-		webshims.ready('WINDOWLOAD mediaelement', loadThird);
-	} else {
-		webshims.ready(swfType, initMediaElements);
-	}
-	webshims.ready('track', loadTrackUi);
 });
-})(Modernizr, webshims);
 ;webshims.register('mediaelement-jaris', function($, webshims, window, document, undefined, options){
 	"use strict";
 	
@@ -4826,7 +2390,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			resetSwfProps(data);
 		} else {
 			$(document.getElementById('wrapper-'+ elemId )).remove();
-			box = $('<div class="polyfill-'+ (elemNodeName) +' polyfill-mediaelement" id="wrapper-'+ elemId +'"><div id="'+ elemId +'"></div>')
+			box = $('<div class="polyfill-'+ (elemNodeName) +' polyfill-mediaelement '+ webshims.shadowClass +'" id="wrapper-'+ elemId +'"><div id="'+ elemId +'"></div>')
 				.css({
 					position: 'relative',
 					overflow: 'hidden'
@@ -4880,7 +2444,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			box.insertBefore(elem);
 			
 			if(hasNative){
-				$.extend(data, {volume: $.prop(elem, 'volume'), muted: $.prop(elem, 'muted')});
+				$.extend(data, {volume: $.prop(elem, 'volume'), muted: $.prop(elem, 'muted'), paused: $.prop(elem, 'paused')});
 			}
 			
 			webshims.addShadowDom(elem, box);
@@ -4918,6 +2482,9 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				if(jaris.type == 'ready'){
 					var onReady = function(){
 						if(data.api){
+							if(!data.paused){
+								data.api.api_play();
+							}
 							if(bufferSrc(elem)){
 								data.api.api_preload();
 							}
@@ -5209,6 +2776,13 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 						loadedSwf--;
 						try {
 							elems[i].api_pause();
+							if(elems[i].readyState == 4){
+								for (prop in elems[i]) {
+									if (typeof elems[i][prop] == "function") {
+										elems[i][prop] = null;
+									}
+								}
+							}
 						} catch(er){}
 					}
 				}
@@ -5272,6 +2846,17 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			}
 					
 		}, 'prop');
+
+
+		if(hasFlash){
+			webshims.ready('WINDOWLOAD', function(){
+				setTimeout(function(){
+					if(!loadedSwf){
+						document.createElement('img').src = playerSwfPath;
+					}
+				}, 9);
+			});
+		}
 	} else if(!('media' in document.createElement('source'))){
 		webshims.reflectProperties('source', ['media']);
 	}
@@ -5330,5 +2915,44 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			});
 		})();
 	}
-	
+
+
+	if(hasNative && hasFlash && !options.preferFlash){
+		var switchErrors = {
+			3: 1,
+			4: 1
+		};
+		var switchOptions = function(e){
+			var media, error, parent;
+			if(!options.preferFlash &&
+				($(e.target).is('audio, video') || ((parent = e.target.parentNode) && $('source', parent).last()[0] == e.target)) &&
+				(media = $(e.target).closest('audio, video')) && (error = media.prop('error')) && switchErrors[error.code]
+				){
+
+				if(!options.preferFlash){
+					if(!media.is('.nonnative-api-active')){
+						options.preferFlash = true;
+						document.removeEventListener('error', switchOptions, true);
+						$('audio, video').each(function(){
+							webshims.mediaelement.selectSource(this);
+						});
+						webshims.error("switching mediaelements option to 'preferFlash', due to an error with native player: "+e.target.src+" Mediaerror: "+ media.prop('error')+ 'first error: '+ error);
+					}
+				} else{
+					document.removeEventListener('error', switchOptions, true);
+				}
+			}
+		};
+		setTimeout(function(){
+			document.addEventListener('error', switchOptions, true);
+			$('audio, video').each(function(){
+				var error = $.prop(this, 'error');
+				if(error && switchErrors[error]){
+					switchOptions({target: this});
+					return false;
+				}
+			});
+		}, 9);
+	}
+
 });

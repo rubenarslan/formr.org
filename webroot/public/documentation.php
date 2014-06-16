@@ -18,7 +18,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 		</p>
 		<p>
 			Most documentation is inside formr – you can just get going and it will be waiting for you where you need it. <br>
-			If something just doesn't make sense or if you run into errors, <a href="https://github.com/rubenarslan/formr/issues" title="This link takes you to our Github issue tracker. Please give as much detail as you can.">please let us know</a>.
+			If something just doesn't make sense or if you run into errors, <a href="https://github.com/rubenarslan/formr.org/issues" title="This link takes you to our Github issue tracker. Please give as much detail as you can.">please let us know</a>.
 		</p>
 	</div>
 </div>
@@ -128,7 +128,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 						dedicated formr R package which handles not only some necessary shortcuts for the run-environment and easy feedback graphs, but also some data munging stuff (such as a data takeout for all surveys in a run, building scales from items automatically, etc.)
 					</li>
 					<li>
-						more <a href="https://github.com/rubenarslan/formr/issues?labels=enhancement&page=1&state=open">planned enhancements on Github</a>
+						more <a href="https://github.com/rubenarslan/formr.org/issues?labels=enhancement&page=1&state=open">planned enhancements on Github</a>
 					</li>
 				</ul>
 				<h4>

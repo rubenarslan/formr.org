@@ -29,6 +29,7 @@ class RunUnit {
 	public $run_session_id = null;
 	public $type = '';
 	public $icon = 'fa-wrench';
+	public $special = false;
 	
 	public function __construct($fdb, $session = null, $unit = null) 
 	{
@@ -58,6 +59,9 @@ class RunUnit {
 		
 		if(isset($this->unit['position'])) 
 			$this->position = (int)$this->unit['position'];
+
+		if(isset($this->unit['special'])) 
+			$this->special = $this->unit['special'];
 		
 		
 		if(isset($this->unit['cron'])) 
@@ -251,7 +255,8 @@ class RunUnit {
 				</div>
 			<div class="col-xs-9 run_unit_dialog">
 				<input type="hidden" value="'.$this->run_unit_id.'" name="run_unit_id">
-				<input type="hidden" value="'.$this->id.'" name="unit_id">'.$dialog.'
+				<input type="hidden" value="'.$this->id.'" name="unit_id">
+				<input type="hidden" value="'.$this->special.'" name="special">'.$dialog.'
 			</div>
 		</div>';
 	}
@@ -372,13 +377,34 @@ class RunUnit {
 	
 		return $matches;
 	}
-	public function getParsedBodyAdmin($source,$email_embed = false)
+	public function parseBodySpecial()
 	{
-		if(isset($this->unit['position']))
-			$current_position = $this->unit['position'];
-		else $current_position = "";
+		$openCPU = $this->makeOpenCPU();
 		
-		if($this->knittingNeeded($source)):
+		return $openCPU->knitForAdminDebug($this->body);
+	}
+	public function getParsedText($source)
+	{
+		$openCPU = $this->makeOpenCPU();
+		$openCPU->addUserData($this->getUserDataInRun(
+			$this->dataNeeded($this->dbh,$source)
+		));
+		
+		return $openCPU->knit($source);
+	}
+	public function getParsedTextAdmin($source)
+	{
+		if(! $this->grabRandomSession())
+			return false;
+		return $this->getParsedText($source);
+	}
+	private function grabRandomSession()
+	{
+		if($this->run_session_id === NULL):
+			if(isset($this->unit['position']))
+				$current_position = $this->unit['position'];
+			else $current_position = -9999999;
+		
 			$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
 			WHERE 
@@ -391,9 +417,9 @@ class RunUnit {
 			$get_sessions = $this->dbh->prepare($q); // should use readonly
 			$get_sessions->bindParam(':run_id',$this->run_id);
 			$get_sessions->bindValue(':current_position',$current_position);
-		
+	
 			$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
-		
+	
 			if($get_sessions->rowCount()>=1):
 				$temp_user = $get_sessions->fetch(PDO::FETCH_ASSOC);
 				$this->run_session_id = $temp_user['id'];
@@ -401,7 +427,14 @@ class RunUnit {
 				echo 'No data to compare to yet.';
 				return false;
 			endif;
-			
+		endif;
+		return $this->run_session_id;
+	}
+	public function getParsedBodyAdmin($source,$email_embed = false)
+	{
+		if($this->knittingNeeded($source)):
+			if(!$this->grabRandomSession())
+				return false;
 			
 			$openCPU = $this->makeOpenCPU();
 			

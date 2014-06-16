@@ -9,10 +9,9 @@ class Survey extends RunUnit {
 	public $id = null;
 	public $name = null;
 	public $run_name = null;
-	public $logo_name = null;
 	public $items = array();
 	public $maximum_number_displayed = null;
-	public $unanswered_batch = array();
+	public $unanswered = array();
 	public $already_answered = 0;
 	public $not_answered = 0;
 	public $progress = 0;
@@ -62,7 +61,6 @@ class Survey extends RunUnit {
 		if($vars):
 			$this->id = $vars['id'];
 			$this->name = $vars['name'];
-			$this->logo_name = $vars['logo_name'];
 			$this->user_id = (int)$vars['user_id'];
 			$this->results_table = $this->name;
 		
@@ -85,13 +83,8 @@ class Survey extends RunUnit {
 	public function render() {
 		global $js;
 		$js = (isset($js)?$js:'') . '<script src="'.WEBROOT.'assets/survey.js"></script>';
-		'
 
-    '.
-
-	 $ret = (isset($this->settings['title'])?"<h1>{$this->settings['title']}</h1>":'') . 
-	 (isset($this->settings['description'])?"<p class='lead'>{$this->settings['description']}</p>":'') .
-	 '
+	 $ret = '
 	<div class="row">
 		<div class="col-md-12">
 
@@ -102,26 +95,15 @@ class Survey extends RunUnit {
 	 $ret .=	 '
 		</div> <!-- end of col-md-12 div -->
 	</div> <!-- end of row div -->
-	'.
-	(isset($this->settings['problem_email'])?
-	'
-	<div class="row">
-		<div class="col-md-12">'.
-		(isset($this->settings['problem_text'])?
-			str_replace("%s",$this->settings['problem_email'],$this->settings['problem_text']) :
-			('<a href="mailto:'.$this->settings['problem_email'].'">'.$this->settings['problem_email'].'</a>')
-		).
-		'</div>
-	</div>
-	':'');
+	';
 		$this->dbh = NULL;
 		return $ret;
 	}
 	protected function startEntry()
 	{
 		
-		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`, `modified`)
-																  VALUES(:session_id, :study_id, NOW(),	    NOW()) 
+		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`)
+																  VALUES(:session_id, :study_id, NOW()) 
 		ON DUPLICATE KEY UPDATE modified = NOW();");
 		$start_entry->bindParam(":session_id", $this->session_id);
 		$start_entry->bindParam(":study_id", $this->id);
@@ -145,15 +127,15 @@ class Survey extends RunUnit {
 		
 		foreach($posted AS $name => $value)
 		{
-	        if (isset($this->unanswered_batch[$name])) {
+	        if (isset($this->unanswered[$name])) {
 				
-				$value = $this->unanswered_batch[$name]->validateInput($value);
-				if( ! $this->unanswered_batch[$name]->error )
+				$value = $this->unanswered[$name]->validateInput($value);
+				if( ! $this->unanswered[$name]->error )
 				{
 					try
 					{
 						$this->dbh->beginTransaction() or die(print_r($answered->errorInfo(), true));
-						$answered->bindParam(":item_id", $this->unanswered_batch[$name]->id);
+						$answered->bindParam(":item_id", $this->unanswered[$name]->id);
 				   	   	$answered->execute() or die(print_r($answered->errorInfo(), true));
 					
 						$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}`
@@ -170,12 +152,12 @@ class Survey extends RunUnit {
 					catch(Exception $e)
 					{
 						if(strlen($value)>10000) $value = '(too big to show here)';
-						trigger_error(date("Y-m-d H:i:s")." Could not save in survey ".$this->results_table. ", probably because " . $name . "'s field was misconfigured as " . $this->unanswered_batch[$name]->getResultField() .
+						trigger_error(date("Y-m-d H:i:s")." Could not save in survey ".$this->results_table. ", probably because " . $name . "'s field was misconfigured as " . $this->unanswered[$name]->getResultField() .
 							" and the value was " . $value . PHP_EOL."<br><pre>" . print_r($e, true) . "</pre>", E_USER_WARNING);
 					}
-					unset($this->unanswered_batch[$name]);
+					unset($this->unanswered[$name]);
 				} else {
-					$this->errors[$name] = $this->unanswered_batch[$name]->error;
+					$this->errors[$name] = $this->unanswered[$name]->error;
 				}
 			}
 		} //endforeach
@@ -183,40 +165,33 @@ class Survey extends RunUnit {
 		if(empty($this->errors) AND !empty($posted))
 		{ // PRG
 			redirect_to(WEBROOT."{$this->run_name}");
-		} else
-		{
-			$this->getProgress();
 		}
 		
 	}
 	protected function getProgress() {
-		
-	    $query = "SELECT `survey_items_display`.answered, COUNT(1) AS count
+		$query = "SELECT SUM(`survey_items_display`.answered) AS count, study_id, session_id
 					FROM 
-						`survey_items` LEFT JOIN `survey_items_display`
+						`survey_items` 
+					LEFT JOIN `survey_items_display`
 					ON `survey_items_display`.session_id = :session_id
 					AND `survey_items`.id = `survey_items_display`.item_id
+					
 					WHERE 
+					`survey_items_display`.session_id IS NOT NULL AND
 					`survey_items`.study_id = :study_id AND
 			        `survey_items`.type NOT IN (
 							'mc_heading',
 							'submit'
-						)
-					GROUP BY `survey_items_display`.answered;";
-
+						)";
 		$progress = $this->dbh->prepare($query);
 		$progress->bindParam(":session_id", $this->session_id);
 		$progress->bindParam(":study_id", $this->id);
-		
 		$progress->execute() or die(print_r($progress->errorInfo(), true));
 
-		$this->already_answered = 0;
-		while($item = $progress->fetch(PDO::FETCH_ASSOC) )
-		{	
-			if($item['answered']!=null) $this->already_answered += $item['count'];
-		}
-		
-		$this->not_answered = array_filter($this->unanswered_batch, function ($item)
+		$answered = $progress->fetch(PDO::FETCH_ASSOC);
+		$this->already_answered = $answered['count'];
+
+		$this->not_answered = array_filter($this->unanswered, function ($item)
 		{
 			if(
 				$item->hidden OR  // item was skipped
@@ -229,7 +204,7 @@ class Survey extends RunUnit {
 		}
 );
 // todo: in the medium term it may be more intuitive to treat notes as item that are answered by viewing but that can linger in a special case, might require less extra logic. but they shouldn't go in the results table.. so maybe not.
-		$seen_notes = array_filter($this->unanswered_batch, function ($item)
+		$seen_notes = array_filter($this->unanswered, function ($item)
 				{ // notes stay in the unanswered batch
 					if(
 						! $item->hidden											 // item wasn't skipped
@@ -248,8 +223,7 @@ class Survey extends RunUnit {
 
 		$all_items = $this->already_answered + $this->not_answered;
 		
-		
-		#pr(array_filter($this->unanswered_batch,'proper_type'));
+		#pr(array_filter($this->unanswered,'proper_type'));
 		if($all_items !== 0) {
 			$this->progress = $this->already_answered / $all_items ;
 
@@ -296,8 +270,18 @@ class Survey extends RunUnit {
 		endwhile;
 		return $choice_lists;	
 	}
+	
+	/*
+	* this function first restricts the number of items to walk through by only requesting those from the DB
+		which have not yet been answered
+		- first caveat: items like mc_heading, note and submit are special and don't just get eliminated when "answered"
+	*  the function proceeds to get all choices and render them – there is room to economise here, but I considered this premature
+		for now. to be clear: getting the choices has little cost, rendering them has high costs if they're dynamic (need openCPU), but we do that rarely if ever now.
+	* 
+	*/
 	protected function getNextItems() {
-		$this->unanswered_batch = array();
+		if(!isset($this->settings["maximum_number_displayed"]) OR trim($this->settings["maximum_number_displayed"])=="" OR !is_numeric($this->settings["maximum_number_displayed"]))
+			$this->settings["maximum_number_displayed"] = null;
 		
 		$item_query = "SELECT 
 				`survey_items`.id,
@@ -325,55 +309,124 @@ class Survey extends RunUnit {
 		`survey_items`.study_id = :study_id AND
 		`survey_items_display`.answered IS NULL
 		ORDER BY `survey_items`.id ASC;";
-		
 		$get_items = $this->dbh->prepare($item_query) or die(print_r($this->dbh->errorInfo(), true));
-		
 		$get_items->bindParam(":session_id",$this->session_id);
 		$get_items->bindParam(":study_id", $this->id);
-
 		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
 		
 		$choice_lists = $this->getAndRenderChoices();
+		
 		$this->item_factory = new ItemFactory($choice_lists);
 		
+		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
 		
-		while($item = $get_items->fetch(PDO::FETCH_ASSOC) )
-		{
-			$name = $item['name'];
-			$this->unanswered_batch[$name] = $this->item_factory->make($item);
+		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
+											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
+		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
+		$view_update = $this->dbh->prepare($view_query);
+		$view_update->bindValue(":session_id", $this->session_id);
 
-			if(trim($this->unanswered_batch[$name]->showif) != null)
+		$itemsDisplayed = 0;
+		$item_will_be_rendered = true;
+		
+		while($item_array = $get_items->fetch(PDO::FETCH_ASSOC) )
+		{
+			$name = $item_array['name'];
+			$item = $this->item_factory->make($item_array);
+			
+			if(trim($item->showif) != null)
 			{
-				$show = $this->item_factory->showif($this, $this->unanswered_batch[$name]->showif);
+				$show = $this->item_factory->showif($this, $item->showif);
 
 				if(!$show)
 				{
-					$this->unanswered_batch[$name]->hide();
+					$item->hide();
 				}
 			}
-			
-			if(
-				$this->unanswered_batch[$name]->needsDynamicValue() AND
-				$this->unanswered_batch[$name]->no_user_input_required
-			) // determine value if there is a dynamic one and no user input is required
+			$this->unanswered[$name] = $item;
+		}
+		
+		$this->rendered_items = array();
+		foreach($this->unanswered AS &$item)
+		{	
+			if($this->maximum_number_displayed !== null AND
+				$itemsDisplayed >= $this->maximum_number_displayed)
 			{
-				$this->unanswered_batch[$name]->determineDynamicValue($this);
+				$item_will_be_rendered = false;
 			}
-
-			// some items do not require user interaction at all
-			if($this->unanswered_batch[$name]->no_user_input_required)
+			if($item_will_be_rendered)
 			{
-				$_POST[ $this->unanswered_batch[$name]->name ] = $this->unanswered_batch[$name]->input_attributes['value'];
+				if ($item->type === 'submit')
+				{
+					if($itemsDisplayed === 0):
+						continue; // skip submit buttons once everything before them was dealt with	
+					else:
+						$item_will_be_rendered = false;
+					endif;
+				}
+				elseif ($item->type === "note")
+				{
+					$next = current($this->unanswered);
+					if(
+						$item->displaycount AND 											 // if this was displayed before
+						(
+							$next === false OR 								    				 // this is the end of the survey
+							$next->hidden === true OR 								    				 // the next item is hidden // todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
+							in_array( $next->type , array('note','submit','mc_heading'))  		 // the next item isn't a normal item
+						)
+					)
+					{
+						continue; // skip this note							
+					}
+				}
+				else if ($item->type === "mc_heading")
+				{
+					$next = current($this->unanswered);
+					if(
+						(
+							$next === false OR 								    				 // this is the end of the survey
+							$next->hidden === true OR 								    				 // the next item is hidden // todo: same as above
+							!in_array( $next->type , array('mc','mc_multiple','mc_button','mc_multiple_button'))  		 // the next item isn't a mc item
+						)
+					)
+					{
+						continue; // skip this mc_heading
+					}
+				}
+				
+				if(
+					$item->no_user_input_required AND
+					$item->needsDynamicValue()
+				) // determine value if there is a dynamic one and no user input is required
+				{
+					$item->determineDynamicValue($this);
+				}
+
+				if(! $item->hidden)
+				{
+					// some items do not require user interaction at all, but they can still be optional (i.e. agree to let us save your IP address)
+					if($item->no_user_input_required)
+					{
+						$_POST[ $item->name ] = $item->input_attributes['value'];
+					}
+			
+					$item->viewedBy($view_update);
+					$itemsDisplayed++;
+				}
+				
+			
+				$this->rendered_items[] = $item;
 			}
 		}
-		return $this->unanswered_batch;
+		$this->dbh->commit() or die(print_r($this->dbh->errorInfo(), true));
+
+		return $this->unanswered;
 	}
 	protected function render_form_header() {
 		$action = WEBROOT."{$this->run_name}";
 
-		if(!isset($this->settings['form_classes'])) $this->settings['form_classes'] = '';
 		$enctype = ' enctype="multipart/form-data"'; # maybe make this conditional application/x-www-form-urlencoded
-		$ret = '<form action="'.$action.'" method="post" class="form-horizontal '.$this->settings['form_classes'].'" accept-charset="utf-8"'.$enctype.'>';
+		$ret = '<form action="'.$action.'" method="post" class="form-horizontal" accept-charset="utf-8"'.$enctype.'>';
 		
 	    /* pass on hidden values */
 	    $ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
@@ -384,8 +437,10 @@ class Survey extends RunUnit {
 		if(isset($this->settings["add_percentage_points"]))
 			$prog += $this->settings["add_percentage_points"];
 		
-	    $ret .= '<div class="progress">
+	    $ret .= '<div class="container progress-container">
+			<div class="progress">
 				  <div data-starting-percentage="'.$prog.'" data-number-of-items="'.$this->not_answered.'" class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
+			</div>
 			</div>';
 		
 		if(!empty($this->errors))
@@ -393,119 +448,33 @@ class Survey extends RunUnit {
 				<div class="control-label"><i class="fa fa-exclamation-triangle pull-left fa-2x"></i>'.implode("<br>",array_unique($this->errors)).'
 				</div></div>';	
 		return $ret;
+	
 	}
 
 	protected function render_items() 
 	{
-		if(!isset($this->settings["maximum_number_displayed"]))
-			$this->settings["maximum_number_displayed"] = null;
-		
 		$ret = '';
-		
-		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
-		
-		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
-											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
-		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
-		$view_update = $this->dbh->prepare($view_query);
 
-		$view_update->bindValue(":session_id", $this->session_id);
-	
-		$itemsDisplayed = $i = 0;
-		$need_submit = true;
-	    foreach($this->unanswered_batch AS &$item) 
+	    foreach($this->rendered_items AS $item) 
 		{
-			$i++;
-
-			if ($item->type === 'submit')
-			{
-				if($itemsDisplayed === 0):
-					continue; // skip submit buttons once everything before them was dealt with	
-				endif;			
-			}
-			else if ($item->type === "note")
-			{
-				$next = current($this->unanswered_batch);
-				if(
-					$item->displaycount AND 											 // if this was displayed before
-					(
-						$next === false OR 								    				 // this is the end of the survey
-						$next->hidden === true OR 								    				 // the next item is hidden // todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
-						in_array( $next->type , array('note','submit','mc_heading'))  		 // the next item isn't a normal item
-					)
-				)
-				{
-					continue; // skip this note							
-				}
-			}
-			else if ($item->type === "mc_heading")
-			{
-				$next = current($this->unanswered_batch);
-				if(
-					(
-						$next === false OR 								    				 // this is the end of the survey
-						$next->hidden === true OR 								    				 // the next item is hidden // todo: same as above
-						!in_array( $next->type , array('mc','mc_multiple','mc_button','mc_multiple_button'))  		 // the next item isn't a mc item
-					)
-				)
-				{
-					continue; // skip this note							
-				}
-			}
-			
 			if(
+				!$item->no_user_input_required AND
 				$item->needsDynamicValue()
-			) // determine value if there is a dynamic one and user input is required
+			) // determine value if there is a dynamic one and no user input is required
 			{
 				$item->determineDynamicValue($this);
 			}
-			
-			if(! $item->hidden):
-				$item->viewedBy($view_update);
-				$itemsDisplayed++;
-			endif;
-			
-			if($item->label_parsed === null): // item label has to be dynamically generated with user data
-				$openCPU = $this->makeOpenCPU();
-		
-				$openCPU->addUserData($this->getUserDataInRun(
-					$this->dataNeeded($this->dbh,$item->label)
-				));
-				$markdown = $openCPU->knitForUserDisplay($item->label);
-				
-				if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)): // simple wraps are eliminated
-					$item->label_parsed = $matches[1];
-				else:
-					$item->label_parsed = $markdown;
-				endif;
-			endif;
-						
-			$ret .= $item->render();
-
-	        // when the maximum number of items to display is reached, stop
-	        if (
-				($this->maximum_number_displayed != null AND
-				$itemsDisplayed >= $this->maximum_number_displayed) OR 
-				$item->type === 'submit' 
-			)
+			if($item->needsDynamicLabel() )  // item label has to be dynamically generated with user data
 			{
-				$need_submit = ($item->type !== 'submit');
-	            break;
-	        }
-	    } //end of for loop
-		
-		$this->dbh->commit() or die(print_r($this->dbh->errorInfo(), true));
+				$item->determineDynamicLabel($this);
+			}
+			$ret .= $item->render();
+	    }
 		
 		
-		if($need_submit) // only if no submit was part of the form
+		if(isset($item) AND $item->type !== "submit") // if the last item was not a submit button, add a default one
 		{
-			if(isset($this->settings["submit_button_text"])):
-				$sub_sets = array(
-								'label_parsed' => $this->settings["submit_button_text"]
-				);
-			else:
-				$sub_sets = array('label_parsed' => 'Weiter', 'class_input' => 'btn-info');
-			endif;
+			$sub_sets = array('label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!', 'class_input' => 'btn-info');
 			$item = new Item_submit($sub_sets);
 			$ret .= $item->render();
 		}
@@ -537,9 +506,11 @@ class Survey extends RunUnit {
 		if($this->called_by_cron)
 			return true; // never show to the cronjob
 		
+		
 		$this->startEntry();
 		
 		$this->getNextItems();
+
 		$this->post(array_merge($_POST,$_FILES));
 		
 		if($this->getProgress()===1)
@@ -549,7 +520,7 @@ class Survey extends RunUnit {
 		}
 		
 		
-		return array('title' => (isset($this->settings['title'])?$this->settings['title']: null),
+		return array('title' => null,
 		'body' => $this->render());
 	}
 // this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
@@ -690,22 +661,9 @@ class Survey extends RunUnit {
 		
 		$this->changeSettings(array
 			(
-//				"logo" => "hu.gif",
-				"title" => "Survey",
-				"description" => "",
-				"problem_text" => 'If you run into problems, please contact <strong><a href="mailto:%s">%s</a></strong>.',
-				"problem_email" => "problems@example.com",
+				"maximum_number_displayed" => "",
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
-				"submit_button_text" => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!',
-				"form_classes" => '', // unspaced_rows
-//				"fileuploadmaxsize" => "100000",
-//				"closed_user_pool" => 0,
-//				"timezone" => "Europe/Berlin",
-//				"debug" => 0,
-//				"primary_color" => "#ff0000",
-//				"secondary_color" => "#00ff00",
-//				'custom_styles' => ''
 			)
 		);
 		
@@ -952,8 +910,8 @@ class Survey extends RunUnit {
 		$create = "CREATE TABLE `{$this->name}` (
 		  `session_id` INT UNSIGNED NOT NULL ,
 		  `study_id` INT UNSIGNED NOT NULL ,
-		  `modified` DATETIME NULL DEFAULT NULL ,
 		  `created` DATETIME NULL DEFAULT NULL ,
+		  `modified` DATETIME NULL DEFAULT NULL ,
 		  `ended` DATETIME NULL DEFAULT NULL ,
 	
 		  $columns_string

@@ -2,6 +2,11 @@
 #require_once INCLUDE_ROOT ."vendor/phpmailer/phpmailer/class.phpmailer.php";
 class EmailAccount
 {
+	public $id = null;
+	public $user_id = null;
+	public $valid = null;
+	private $dbh;
+	
 	public function __construct($fdb, $id, $user_id) 
 	{
 		$this->dbh = $fdb;

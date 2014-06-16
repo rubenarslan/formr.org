@@ -56,6 +56,7 @@ doh.registerUrl("depEmpty", "../depEmpty.html");
 doh.registerUrl("depoverlap", "../depoverlap.html");
 doh.registerUrl("urlfetch", "../urlfetch/urlfetch.html");
 doh.registerUrl("uniques", "../uniques/uniques.html");
+doh.registerUrl("dotTrim", "../dotTrim/dotTrim.html");
 doh.registerUrl("multiversion", "../multiversion.html", 10000);
 
 doh.registerUrl("isBrowser", "../isBrowser/isBrowser.html");
@@ -137,6 +138,7 @@ doh.registerUrl("pluginMap", "../plugins/pluginMap/pluginMap.html");
 doh.registerUrl("pluginMapSameName", "../plugins/pluginMapSameName/pluginMapSameName.html");
 doh.registerUrl("pluginMapDynamic", "../plugins/pluginMap/dynamic/pluginMapDynamic.html");
 doh.registerUrl("pluginComplexNormalize", "../plugins/complexNormalize/complexNormalize.html");
+doh.registerUrl("pluginNormalize", "../plugins/pluginNormalize/pluginNormalize.html");
 
 doh.registerUrl("requirePluginLoad", "../requirePluginLoad/requirePluginLoad.html");
 
@@ -193,4 +195,5 @@ doh.registerUrl("pluginErrorContinueLocal", "../error/pluginErrorContinueLocal.h
 doh.registerUrl("defineErrorLocal", "../error/defineErrorLocal.html");
 
 doh.registerUrl("pathArray", "../pathArray/pathArray.html", 8000);
+doh.registerUrl("pathArrayWithMap", "../pathArray/withMap/withMap.html", 8000);
 doh.registerUrl("pathArrayFail", "../pathArray/pathArrayFail.html", 10000);

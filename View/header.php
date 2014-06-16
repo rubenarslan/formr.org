@@ -13,9 +13,9 @@ header ('Content-type: text/html; charset=utf-8');
 	<?php 
 	if(ONLINE):
 	?>
-		<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css" rel="stylesheet">
-		<link href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css" rel="stylesheet">
-		<link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/select2/3.4.5/select2.css">
+		<link href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet">
+		<link href="//netdna.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
+		<link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/select2/3.4.8/select2.css">
 		
 	<?php
 	else:
@@ -35,13 +35,13 @@ header ('Content-type: text/html; charset=utf-8');
 		<?php 
 		if(ONLINE):
 		?>
-			<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
+			<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
 			<script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
 			<script src="<?=WEBROOT?>assets/modernizr-2.6.2-respond-1.1.0.min.js"></script>
 			<script src="//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.0/fastclick.min.js"></script>
 			<script src="<?=WEBROOT?>assets/bower_components/webshim/js-webshim/minified/polyfiller.js"></script>
 <?php //			<script src="//cdn.jsdelivr.net/webshim/1.11.3/polyfiller.js"></script>
-?>			<script type="text/javascript" src="//cdn.jsdelivr.net/select2/3.4.5/select2.min.js"></script>
+?>			<script type="text/javascript" src="//cdn.jsdelivr.net/select2/3.4.8/select2.min.js"></script>
 			<script>
 			  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
 			  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
@@ -66,7 +66,7 @@ header ('Content-type: text/html; charset=utf-8');
 		<?php
 		else:
 		?>
-			<script src="<?=WEBROOT?>assets/bower_components/jquery/jquery.js"></script>
+			<script src="<?=WEBROOT?>assets/bower_components/jquery/dist/jquery.js"></script>
 			<script src="<?=WEBROOT?>assets/bower_components/bootstrap/dist/js/bootstrap.js"></script>
 			<script src="<?=WEBROOT?>assets/modernizr-2.6.2-respond-1.1.0.min.js"></script>
 			<script src="<?=WEBROOT?>assets/bower_components/fastclick/lib/fastclick.js"></script> 
@@ -92,11 +92,7 @@ header ('Content-type: text/html; charset=utf-8');
 		<?php echo isset($js)?$js:'' ?>
 </head>
 <body>
-	<?php if(isset($survey_view)): ?>
 	<div class="container">
-	<?php else: ?>
-	<div class="container">
-	<?php endif; ?>
 		
     <!--[if lt IE 7]>
         <p class="alert chromeframe">

@@ -26,6 +26,11 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 	var lReg = /</g;
 	var gReg = />/g;
 	var splitReg = /\s*,\s*/g;
+
+	webshims.getDataListVal = function(element){
+		var datalist = $.data(element, 'datalistWidget');
+		return (datalist) ? datalist.getPartialValue() : $.prop(element, 'value');
+	};
 	
 	$.extend(options.shadowListProto, {
 		_lazyCreate: function(opts){
@@ -105,13 +110,19 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 						} 
 						if(keyCode == 13 || keyCode == 27){
 							if (keyCode == 13){
+								activeItem = $('li.active-item:not(.hidden-item)', that.shadowList);
 								if(that.isCompleted){
 									$.prop(opts.input, 'selectionStart', $.prop(opts.input, 'value').length);
+									if(that.lastCompletedValue && !activeItem[0]){
+										that.lastCompletedValue = "";
+										that.isCompleted = false;
+									}
 								}
-								activeItem = $('li.active-item:not(.hidden-item)', that.shadowList);
+
 								if($(opts.input).getNativeElement().triggerHandler('beforeselect', [activeItem.find('.option-value').text()]) === false){
 									return;
 								}
+
 								that.changeValue( activeItem );
 							}
 							that.hideList();
@@ -213,8 +224,7 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 			this.needsUpdate = false;
 			clearTimeout(this.updateTimer);
 			this.updateTimer = false;
-			
-			this.lastCompletedValue = "";
+
 			
 			var list = [];
 			
@@ -260,7 +270,15 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 			$(this.input).removeAttr('aria-activedescendant').triggerHandler('datalistcreated', [{instance: this}]);
 			
 			if(_forceShow || this.popover.isVisible){
+				if(this.options.valueCompletion && this.lastCompletedValue && !$.prop(this.input, 'value').indexOf(this.lastCompletedValue)){
+					$.prop(this.input, 'value', this.lastCompletedValue);
+					$(this.input).triggerHandler('updateInput');
+				}
+				this.lastCompletedValue = "";
 				this.showHideOptions();
+			} else {
+				this.lastCompletedValue = "";
+				this.isCompleted = false;
 			}
 		},
 		getOptionContent: function(item){
@@ -309,6 +327,17 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 				this.isCompleted = true;
 			}
 		},
+		getPartialValue: function(){
+			var value = $.prop(this.input, 'value');
+			if(this.options.valueCompletion && this.lastCompletedValue && !$.prop(this.input, 'value').indexOf(this.lastCompletedValue)){
+				value = this.lastCompletedValue;
+			}
+			if(this.options.multiple){
+				value = value.split(splitReg);
+				value = value[value.length - 1] || '';
+			}
+			return value;
+		},
 		showHideOptions: function(_fromShowList){
 			var lis, firstFoundValue;
 			var inputValue = $.prop(this.input, 'value');
@@ -321,7 +350,7 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 			if(value === this.lastUpdatedValue){
 				return;
 			}
-			
+
 			if(this.options.multiple){
 				value = value.split(splitReg);
 				value = value[value.length - 1] || '';
@@ -485,7 +514,12 @@ webshims.register('form-datalist-lazy', function($, webshims, window, document, 
 				
 				newValue = tmpValue.join(', ');
 			}
-			
+
+			if(this.options.valueCompletion && this.lastCompletedValue && !oldValue.indexOf(this.lastCompletedValue)){
+				oldValue = this.lastCompletedValue;
+				this.lastCompletedValue = "";
+			}
+
 			if(newValue != oldValue){
 				
 				$(this.input)
