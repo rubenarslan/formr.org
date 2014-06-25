@@ -356,15 +356,15 @@ class Item extends HTML_element
 	
 		$openCPU->addUserData($survey->getUserDataInRun( $dataNeeded ));
 		
-		$markdown = $openCPU->knitForUserDisplay($item->label);
+		$markdown = $openCPU->knitForUserDisplay($this->label);
 	
 		if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)) // simple wraps are eliminated
 		{
-			$item->label_parsed = $matches[1];
+			$this->label_parsed = $matches[1];
 		}
 		else
 		{
-			$item->label_parsed = $markdown;
+			$this->label_parsed = $markdown;
 		}
 	}
 	public function needsDynamicValue()
