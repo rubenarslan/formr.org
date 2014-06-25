@@ -141,7 +141,7 @@ class RunSession
 					$unit_info['cron'] = true;
 				endif;
 				
-				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info);
+				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this);
 				$this->current_unit_type = $unit->type;
 				$output = $unit->exec();
 				if(!$output AND is_object($unit)):
@@ -184,7 +184,7 @@ class RunSession
 		if($unit):
 			require_once INCLUDE_ROOT."Model/RunUnit.php";
 			$unit_factory = new RunUnitFactory();
-			$unit = $unit_factory->make($this->dbh,null,$unit);
+			$unit = $unit_factory->make($this->dbh,null,$unit, $this);
 			$unit->end(); 				// cancel it
 		endif;
 		

@@ -33,7 +33,7 @@ class Survey extends RunUnit {
 	private $confirmed_deletion = false;
 	private $item_factory = null;
 	
-	public function __construct($fdb, $session, $unit)
+	public function __construct($fdb, $session, $unit, $run_session = NULL)
 	{
 		if(isset($unit['name']) AND !isset($unit['unit_id'])): // when called via URL
 			$study_data = $fdb->prepare("SELECT id FROM `survey_studies` WHERE name = :name LIMIT 1");
@@ -44,7 +44,7 @@ class Survey extends RunUnit {
 			$this->id = $unit['unit_id'];
 		endif;
 		
-		parent::__construct($fdb,$session,$unit);
+		parent::__construct($fdb,$session,$unit, $run_session);
 		
 		if($this->id):
 			$this->load();
