@@ -17,9 +17,9 @@ class Page extends RunUnit {
 	public $icon = "fa-stop";
 	
 	
-	public function __construct($fdb, $session = null, $unit = null) 
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) 
 	{
-		parent::__construct($fdb,$session,$unit);
+		parent::__construct($fdb,$session,$unit, $run_session);
 
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT title,body,body_parsed FROM `survey_pages` WHERE id = :id LIMIT 1");

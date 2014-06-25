@@ -13,9 +13,9 @@ class Branch extends RunUnit {
 	public $type = 'Branch';
 	public $icon = 'fa-code-fork fa-flip-vertical';
 	
-	public function __construct($fdb, $session = null, $unit = null) 
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) 
 	{
-		parent::__construct($fdb,$session,$unit);
+		parent::__construct($fdb,$session,$unit, $run_session);
 
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT `id`, `condition`, `if_true`, `automatically_jump`, `automatically_go_on` FROM `survey_branches` WHERE id = :id LIMIT 1");
@@ -176,10 +176,9 @@ class Branch extends RunUnit {
 				
 		 // if condition is true and we're set to jump automatically, or if the user reacted
 		if($result AND ($this->automatically_jump OR !$this->called_by_cron)):
-			global $run_session;
-			if($run_session->session):
+			if($this->run_session->session):
 				$this->end();
-				$run_session->runTo($this->if_true);
+				$this->run_session->runTo($this->if_true);
 			endif;
 		elseif(!$result AND ($this->automatically_go_on OR !$this->called_by_cron)): // the condition is false and it goes on
 			$this->end();

@@ -3,7 +3,7 @@ require_once INCLUDE_ROOT."Model/DB.php";
 
 class RunUnitFactory
 {
-	public function make($dbh, $session, $unit)
+	public function make($dbh, $session, $unit, $run_session = NULL)
 	{
 		$type = $unit['type'];
 		if($type == '') $type = 'Survey';
@@ -11,7 +11,7 @@ class RunUnitFactory
 			die('The unit type is not allowed!');
 	
 		require_once INCLUDE_ROOT . "Model/$type.php";
-		return new $type($dbh, $session, $unit);
+		return new $type($dbh, $session, $unit, $run_session);
 	}
 }
 class RunUnit {
@@ -31,11 +31,12 @@ class RunUnit {
 	public $icon = 'fa-wrench';
 	public $special = false;
 	
-	public function __construct($fdb, $session = null, $unit = null) 
+	public function __construct($fdb, $session = null, $unit = null, $run_session) 
 	{
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->unit = $unit;
+		$this->run_session = $run_session;
 		
 		if(isset($unit['run_id']))
 			$this->run_id = $unit['run_id'];

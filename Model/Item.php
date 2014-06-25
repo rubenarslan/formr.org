@@ -382,7 +382,7 @@ class Item extends HTML_element
 	}
 	public function determineDynamicValue($survey)
 	{
-		if($this->value=="sticky") $this->value = "tail(na.omit({$results_table}\${$this->name}),1)";
+		if($this->value=="sticky") $this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
 		
 		$openCPU = $survey->makeOpenCPU();
 
@@ -1689,7 +1689,7 @@ class Item_file extends Item
 {
 	public $type = 'file';
 	public $input_attributes = array('type' => 'file','accept'=> "image/*,video/*,audio/*,text/*;capture=camera");
-	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(1000) DEFAULT NULL';
 	protected $file_endings = array(
 		'image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif',
 		'video/mpeg' => '.mpg', 'video/quicktime' => '.mov', 'video/x-flv' => '.flv', 'video/x-f4v' => '.f4v', 'video/x-msvideo' => '.avi',
@@ -1754,7 +1754,7 @@ class Item_image extends Item_file
 {
 	public $type = 'image';
 	public $input_attributes = array('type' => 'file','accept'=>"image/*;capture=camera");
-	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(1000) DEFAULT NULL';
 	protected $file_endings = array('image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif');
 	protected $embed_html = '<img src="%s">';
 	protected $max_size = 16777219;
