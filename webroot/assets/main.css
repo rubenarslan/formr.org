@@ -337,13 +337,31 @@ body .select2-offscreen, body .select2-offscreen:focus {
 }
 body .select2-container
 {
-	min-width:250px;
+	min-width:100px;
 }
 .bigdrop.select2-container .select2-results {
     max-height: 500px;
 }
 .bigdrop .select2-results {
     max-height: 500px;
+}
+.form-control.select2-container {
+    border:none;
+    box-shadow:none;
+    padding:0;
+}
+.form-control.select2-container .select2-choice
+{
+    padding-top: 4px;
+    height:34px;
+}
+.form-control.select2-container .select2-choice .select2-arrow
+{
+    padding-top:4px;
+}
+.form-control.select2-container .select2-choice abbr
+{
+    top:12px;
 }
 .select2pills
 {
@@ -550,7 +568,6 @@ dl.dl-wider dd
     padding-left:7px;
 }
 
-
 .alert .fa
 {
     display:none;
@@ -629,6 +646,9 @@ form.form-horizontal div.answer_below_label .controls {
   margin-left:0;
 }
 
+.item-check {
+    clear:both;
+}
 
 .form-horizontal div.form-group.left0 .control-label {
   width: 0px;
@@ -861,39 +881,57 @@ form.form-horizontal div.answer_below_label .controls {
   padding-left: 900px;
 }
 
-
-.form-horizontal div.form-group.right100 .controls {
+.form-horizontal div.form-group.right20 .controls, .form-horizontal div.form-group.right20 .controls .form-control {
+  max-width: 20px;
+}
+.form-horizontal div.form-group.right30 .controls, .form-horizontal div.form-group.right30 .controls .form-control {
+  max-width: 30px;
+}
+.form-horizontal div.form-group.right50 .controls, .form-horizontal div.form-group.right50 .controls .form-control {
+  max-width: 50px;
+}
+.form-horizontal div.form-group.right70 .controls, .form-horizontal div.form-group.right70 .controls .form-control {
+  max-width: 70px;
+}
+.form-horizontal div.form-group.right80 .controls, .form-horizontal div.form-group.right80 .controls .form-control {
+  max-width: 80px;
+}
+.form-horizontal div.form-group.right100 .controls, .form-horizontal div.form-group.right100 .controls .form-control, .form-horizontal div.form-group.right100 .controls .select2-container {
   max-width: 100px;
 }
+.form-horizontal div.form-group.right150 .controls, .form-horizontal div.form-group.right150 .controls .form-control, .form-horizontal div.form-group.right150 .controls .select2-container {
+  max-width: 150px;
+  width: 150px;
+}
 
-.form-horizontal div.form-group.right200 .controls {
+.form-horizontal div.form-group.right200 .controls, .form-horizontal div.form-group.right200 .controls .form-control {
   max-width: 200px;
 }
-.form-horizontal div.form-group.right300 .controls {
+.form-horizontal div.form-group.right300 .controls, .form-horizontal div.form-group.right300 .controls .form-control {
   max-width: 300px;
 }
 
-.form-horizontal div.form-group.right400 .controls {
+.form-horizontal div.form-group.right400 .controls, .form-horizontal div.form-group.right400 .controls .form-control {
   max-width: 400px;
 }
 
-.form-horizontal div.form-group.right500 .controls {
+.form-horizontal div.form-group.right500 .controls, .form-horizontal div.form-group.right500 .controls .form-control {
   max-width: 500px;
 }
 
-.form-horizontal div.form-group.right600 .controls {
+.form-horizontal div.form-group.right600 .controls, .form-horizontal div.form-group.right600 .controls .form-control {
   max-width: 600px;
 }
 
-.form-horizontal div.form-group.right700 .controls {
+.form-horizontal div.form-group.right700 .controls, .form-horizontal div.form-group.right700 .controls .form-control {
   max-width: 700px;
 }
 
-.form-horizontal div.form-group.right800 .controls {
+.form-horizontal div.form-group.right800 .controls, .form-horizontal div.form-group.right800 .controls .form-control {
   max-width: 800px;
 }
 
-.form-horizontal div.form-group.right900 .controls {
+.form-horizontal div.form-group.right900 .controls, .form-horizontal div.form-group.right900 .controls .form-control {
   max-width: 900px;
 }
 
@@ -1086,6 +1124,7 @@ form.form-horizontal div.form-row.form-group.rating_button_label_width200 div.co
 {
 	width:200px;
 }
+
 form.form-horizontal div.form-row.form-group.hidden {
 	display:none;
 }
@@ -1195,6 +1234,32 @@ form.form-horizontal div.form-row.form-group.hidden {
     margin-left:9px;
 }
 
+@media (min-width: 768px) {
+    .form-horizontal div.form-group.row_height_40 
+    {
+        height:40px;
+    }
+     
+    .form-horizontal div.form-group.clear, .form-horizontal div.form-group.align_horizontally + div.form-group:not(.align_horizontally)
+    {
+        clear:both;
+    }
+    .form-horizontal div.form-group.align_horizontally
+    {
+        width:auto;
+        float:left;
+        margin-right:20px;
+    }
+    .form-horizontal div.form-group.align_horizontally .control-label {
+        width: 0px;
+        max-width: 0px;
+        overflow:hidden;
+    }
+    .form-horizontal div.form-group.align_horizontally .controls {
+      	margin-left: 0px;
+    }
+    
+}
 
 /*responsive layouts for mobile */
 @media (max-width: 768px) { 

@@ -179,7 +179,7 @@ class Item extends HTML_element
 		}
 		
 		if(isset($options['class']) AND $options['class']):
-			$this->classes_wrapper[] = $options['class'];
+			$this->classes_wrapper = array_merge( $this->classes_wrapper, explode(" ",$options['class']) );
 			$this->class = $options['class'];
 		endif;
 		
@@ -191,7 +191,9 @@ class Item extends HTML_element
 		$this->input_attributes['class'] = implode(" ",$this->classes_input);
 		
 		$this->input_attributes['id'] = "item{$this->id}";
-		
+
+		if(in_array( "label_as_placeholder", $this->classes_wrapper) )
+			$this->input_attributes['placeholder'] = $this->label;
 	}
 	protected function chooseResultFieldBasedOnChoices()
 	{
@@ -1068,7 +1070,10 @@ class Item_select_one extends Item
 	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	public $input_attributes = array('type' => 'select');
 	protected $hasChoices = true;
-	
+	protected function setMoreOptions() 
+	{
+		$this->classes_input[] = "form-control";
+	}
 	protected function render_input() 
 	{
 		$this->splitValues();
@@ -1151,6 +1156,7 @@ class Item_select_or_add_one extends Item
 		}
 		
 		$this->classes_input[] = 'select2add';
+		$this->classes_input[] = 'form-control';
 		$for_select2 = array();
 		foreach($this->choices AS $option)
 			$for_select2[] = array('id' => $option, 'text' => $option);

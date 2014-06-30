@@ -39,6 +39,35 @@ $(document).ready(function() {
     });
 	// fixme: FOUCs for rating_buttons etc in IE8
     
+	$('.item-number.counter input').each(function() {
+        var $input = $(this); 
+        $input.hide();
+        var btns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></button></div>')
+        btns.insertAfter($input);
+        btns.find(".btn-down").click(function()
+        {
+            if( $input.attr('min') < $input.attr('value') ) 
+            {
+                $input.attr('value', +$input.attr('value') - 1 );   
+                $input.change();
+            }
+            return false;
+        });
+        btns.find(".btn-up").click(function()
+        {
+            if( $input.attr('max') > $input.attr('value') ) 
+            {
+                $input.attr('value', +$input.attr('value') + 1 );   
+                $input.change();
+            }
+            return false;
+        });
+        new FastClick(btns.find(".btn-down"));
+        new FastClick(btns.find(".btn-up"));
+		
+       $.webshims.addShadowDom($input, btns);
+	});
+	
 	$('div.btn-radio button.btn').off('click').click(function(event){
 		var $btn = $(this);
 		$('#'+$btn.attr('data-for')).prop('checked',true); // couple with its radio button
@@ -111,7 +140,7 @@ $(document).ready(function() {
         $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 	});
 	
-	$("select.select2zone").each(function(i,elm)
+	$("select.select2zone, .form-group.select2 select").each(function(i,elm)
     {
 		var slct = $(elm); 
         slct.select2();
