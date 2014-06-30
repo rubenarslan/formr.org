@@ -44,6 +44,7 @@ alert("1. Request took " . round(microtime() - $before / 1000 / 60,4) . " minute
 
 $openCPU = new OpenCPU($settings['alternative_opencpu_instance']);
 $source = '{
+library(formr)
 rnorm(10)
 }';
 $before = microtime();
@@ -57,9 +58,7 @@ alert("2. Request took " . round(microtime() - $before / 1000 / 60,4) . " minute
 
 
 $openCPU = new OpenCPU($settings['alternative_opencpu_instance']);
-$source = '{
-rnorm(10)
-}';
+
 
 $source = '{ 
 (function() {
