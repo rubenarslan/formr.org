@@ -5,6 +5,7 @@ class OpenCPU {
 	private $curl_c;
 	public $http_status = null;
 	private $knitr_source = null;
+	public $admin_usage = false;
 	public function __construct($instance)
 	{
 		$this->instance = $instance;
@@ -27,7 +28,7 @@ class OpenCPU {
 		
 		$result = curl_exec($this->curl_c);
 		$this->http_status = curl_getinfo($this->curl_c,CURLINFO_HTTP_CODE);
-		if($this->http_status < 303) {
+		if($this->http_status > 302 AND ! $this->admin_usage) {
 			alert("There were problems with openCPU. Please try again later.", 'alert-danger');
 			bad_request();
 		}
@@ -116,6 +117,7 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 	}
 	public function evaluateAdmin($source,$return = '')
 	{
+		$this->admin_usage = true;
 		$post = array('x' => '{ 
 (function() {
 '.$this->user_data.'
@@ -178,6 +180,8 @@ $this->user_data .
 	}
 	public function knitForAdminDebug($source)
 	{
+		$this->admin_usage = true;
+		
 		$source =
 '```{r settings,message=FALSE,warning=F,echo=F}
 opts_chunk$set(warning=T,message=T,echo=T)
