@@ -173,7 +173,11 @@ class Branch extends RunUnit {
 			$this->dataNeeded($this->dbh,$this->condition)
 		));
 		$result = (bool)$openCPU->evaluate($this->condition);
-				
+		
+//		if($openCPU->http_status < 303) {
+//			alert("There were problems with openCPU. Please try again later.", 'alert-danger');
+//			bad_request();
+//		}
 		 // if condition is true and we're set to jump automatically, or if the user reacted
 		if($result AND ($this->automatically_jump OR !$this->called_by_cron)):
 			if($this->run_session->session):
