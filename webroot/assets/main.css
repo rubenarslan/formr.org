@@ -649,6 +649,32 @@ form.form-horizontal div.answer_below_label .controls {
 .item-check {
     clear:both;
 }
+@media (min-width: 768px) {
+    .form-horizontal div.form-group.row_height_40 
+    {
+        height:40px;
+    }
+     
+    .form-horizontal div.form-group.clear, .form-horizontal div.form-group.align_horizontally + div.form-group:not(.align_horizontally)
+    {
+        clear:both;
+    }
+    .form-horizontal div.form-group.align_horizontally
+    {
+        width:auto;
+        float:left;
+        margin-right:20px;
+    }
+    .form-horizontal div.form-group.align_horizontally .control-label {
+        width: 0px;
+        max-width: 0px;
+        overflow:hidden;
+    }
+    .form-horizontal div.form-group.align_horizontally .controls {
+      	margin-left: 0px;
+    }
+    
+}
 
 .form-horizontal div.form-group.left0 .control-label {
   width: 0px;
@@ -1232,33 +1258,6 @@ form.form-horizontal div.form-row.form-group.hidden {
     color:gray;
     width:18px;
     margin-left:9px;
-}
-
-@media (min-width: 768px) {
-    .form-horizontal div.form-group.row_height_40 
-    {
-        height:40px;
-    }
-     
-    .form-horizontal div.form-group.clear, .form-horizontal div.form-group.align_horizontally + div.form-group:not(.align_horizontally)
-    {
-        clear:both;
-    }
-    .form-horizontal div.form-group.align_horizontally
-    {
-        width:auto;
-        float:left;
-        margin-right:20px;
-    }
-    .form-horizontal div.form-group.align_horizontally .control-label {
-        width: 0px;
-        max-width: 0px;
-        overflow:hidden;
-    }
-    .form-horizontal div.form-group.align_horizontally .controls {
-      	margin-left: 0px;
-    }
-    
 }
 
 /*responsive layouts for mobile */

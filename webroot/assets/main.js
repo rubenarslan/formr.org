@@ -16,7 +16,7 @@ webshim.setOptions(
          	   replaceUI: {range: true}
         }
 });
-webshim.polyfill('es5 forms forms-ext geolocation json-storage');
+webshim.polyfill('es5 forms forms-ext geolocation');
 webshim.activeLang('de');
 
 

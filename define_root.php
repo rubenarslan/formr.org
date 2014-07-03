@@ -37,7 +37,6 @@ function define_webroot() {
 		$online = false;
 		$testing = true;
 	}
-	$online = true;
 	define('WEBROOT',$protocol . $doc_root);
 	define('INCLUDE_ROOT',$server_root);
 	define('ONLINE',$online);
