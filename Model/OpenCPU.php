@@ -27,7 +27,10 @@ class OpenCPU {
 		
 		$result = curl_exec($this->curl_c);
 		$this->http_status = curl_getinfo($this->curl_c,CURLINFO_HTTP_CODE);
-
+		if($this->http_status < 303) {
+			alert("There were problems with openCPU. Please try again later.", 'alert-danger');
+			bad_request();
+		}
 		$this->header_size = curl_getinfo($this->curl_c, CURLINFO_HEADER_SIZE);
 	#	curl_close($this->curl_c);
 
