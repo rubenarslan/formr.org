@@ -39,6 +39,7 @@
 		}
 		.mediaplayer {
 			width: 100%;
+			max-width: 100%;
 		}
 
 
@@ -84,21 +85,31 @@
 		}
 		
 		.media-left {
-			max-width: 480px;
 			min-width: 280px;
 			width: 50%;
 			float: left;
 			margin: 0 10px 5px 0;
 		}
+
+		.theme-wrapper {
+			display: none;
+		}
+		.theme-wrapper select {
+			display: block;
+		}
 	</style>
+
+	<link rel="alternate stylesheet" href="../themes/metro/metro.css" title="metro" />
+	<link rel="alternate stylesheet" href="../themes/rounded-shadow/rounded-shadow.css" title="rounded shadow" />
 	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 	<script src="../../../js-webshim/minified/extras/modernizr-custom.js"></script>
 	<script src="../../../js-webshim/minified/polyfiller.js"></script>
 
 	<script>
-		webshims.setOptions('track', {override: 'auto'});
-		webshims.setOptions('mediaelement', {replaceUI: 'auto'});
-		webshims.polyfill('mediaelement');
+		webshim.setOptions('debug', 'noCombo')
+		webshim.setOptions('track', {override: 'auto'});
+		webshim.setOptions('mediaelement', {replaceUI: 'auto'});
+		webshim.polyfill('mediaelement');
 	</script>
 	<script>
 		if('ontouchstart' in window){
@@ -113,7 +124,7 @@
 				$('button.load-swf')
 					.prop('disabled', false)
 					.one('click', function(){
-						webshims.setOptions('mediaelement', {
+						webshim.setOptions('mediaelement', {
 							preferFlash: true
 						});
 						$('video').mediaLoad();
@@ -124,13 +135,14 @@
 				$('button.load-swf').remove();
 			}
 			$('button.load-jme').prop('disabled', false).one('click', function(){
-				webshims.loader.loadList(['mediacontrols']);
+				webshim.loader.loadList(['mediacontrols']);
 				$(this).prop('disabled', true);
 			});
 		});
 
-		webshims.ready('mediacontrols', function(){
+		webshim.ready('mediacontrols', function(){
 			$('button.load-jme').remove();
+			$('.theme-wrapper').css('display', 'inline-block');
 		});
 	</script>
 </head>
@@ -142,19 +154,29 @@
 		<button class="load-swf" disabled="">test flash fallback</button>
 
 		<button class="load-jme">test JME / customizable Controls</button>
+
+		<label class="theme-wrapper" for="theme">
+			Style-/Themeswitcher
+
+			<select class="theme-switcher" id="theme"></select>
+		</label>
 	</div>
 
-	<h2>width: 100%; height: auto;</h2>
-	<p>Webshims supports setting width/height of a video in all units including the keyword auto (The auto keyword needs to be set inline to work with Flash Fallback).</p>
-	<div class="mediaplayer videoplayer">
-		<video controls preload="none" poster="http://corrupt-system.de/assets/media/sintel/sintel-trailer.jpg" style="height: auto;">
-			<source src="http://corrupt-system.de/assets/media/sintel/sintel-trailer.m4v" type="video/mp4" />
-			<source src="http://corrupt-system.de/assets/media/sintel/sintel-trailer.webm" type="video/webm" />
-			<track src="subtitle.vtt" srclang="en" label="some description" kind="subtitles" default />
+
+
+	<h2>intrinsic ratio responsive/fluid video</h2>
+	<p>based on  http://www.alistapart.com/articles/creating-intrinsic-ratios-for-video/</p>
+
+	<div class="mediaplayer videoplayer ratio-16-9">
+		<video controls preload="none" poster="http://corrupt-system.de/assets/media/caminandes/caminandes.jpg" style="height: 100%;">
+			<source src="http://corrupt-system.de/assets/media/caminandes/caminandes.m4v" type="video/mp4" />
+			<source src="http://corrupt-system.de/assets/media/caminandes/caminandes.webm" type="video/webm" />
+
 			<p>You need a modern Browser or install the Flash Plugin or simply download the video (<a href="http://corrupt-system.de/assets/media/sintel/sintel-trailer.m4v">mp4</a>, <a href="http://corrupt-system.de/assets/media/sintel/sintel-trailer.webm">webm</a>)</p>
 		</video>
 	</div>
-	<p><small>In case you are using a poster you need to ensure, that the poster has the same aspect ration than the video.</small></p>
+
+
 	<hr />
 
 	<h2>intrinsic ratio responsive/fluid video + multiple subtitles</h2>
@@ -193,7 +215,22 @@
 		<p>Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.</p>
 		<p> Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.</p>
 	</div>
+	<hr />
+	<h2>width: 100%; height: auto;</h2>
+	<p>Webshims supports setting width/height of a video in all units including the keyword auto (The auto keyword needs to be set inline to work with Flash Fallback).</p>
+	<div class="mediaplayer videoplayer">
+		<video controls preload="none" poster="http://corrupt-system.de/assets/media/sintel/sintel-trailer.jpg" style="height: auto;">
+			<source src="http://corrupt-system.de/assets/media/sintel/sintel-trailer.m4v" type="video/mp4" />
+			<source src="http://corrupt-system.de/assets/media/sintel/sintel-trailer.webm" type="video/webm" />
+			<track src="subtitle.vtt" srclang="en" label="some description" kind="subtitles" default />
+			<p>You need a modern Browser or install the Flash Plugin or simply download the video (<a href="http://corrupt-system.de/assets/media/sintel/sintel-trailer.m4v">mp4</a>, <a href="http://corrupt-system.de/assets/media/sintel/sintel-trailer.webm">webm</a>)</p>
+		</video>
+	</div>
+	<p><small>In case you are using a poster you need to ensure, that the poster has the same aspect ration than the video.</small></p>
+
 </div>
+
+
 
 <script type="text/javascript">
 	//http://blog.jsdelivr.com/2013/06/jsdelivr-weekly-news.html
@@ -207,5 +244,8 @@
 	}
 </script>
 
+<script>
+	webshim.loader.loadScript("../cfgs/assets/cfg.js", false, false, true);
+</script>
 </body>
 </html>   

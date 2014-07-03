@@ -32,7 +32,7 @@ $(function(){
            textarea.val(session.getValue());
        });
        
-//       $.webshims.addShadowDom(textarea, editor);
+       webshim.addShadowDom(textarea, editor);
        
     });
     $(".save_settings").each(function(i, elm)

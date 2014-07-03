@@ -491,8 +491,8 @@
 				data.seeking = false;
 			}, 300);
 		},
-		onConnectionFailed: function(){
-			webshims.error('media error');
+		onConnectionFailed: function(jaris, data){
+			mediaelement.setError(data._elem, 'flash connection error');
 		},
 		onNotBuffering: function(jaris, data){
 			setReadyState(3, data);
@@ -1408,6 +1408,13 @@
 	
 	if(hasFlash && $.cleanData){
 		var oldClean = $.cleanData;
+		var objElem = document.createElement('object');
+		var noRemove = {
+			SetVariable: 1,
+			GetVariable: 1,
+			SetReturnValue: 1,
+			GetReturnValue: 1
+		};
 		var flashNames = {
 			object: 1,
 			OBJECT: 1
@@ -1415,6 +1422,7 @@
 		
 		$.cleanData = function(elems){
 			var i, len, prop;
+			var ret = oldClean.apply(this, arguments);
 			if(elems && (len = elems.length) && loadedSwf){
 				
 				for(i = 0; i < len; i++){
@@ -1424,7 +1432,7 @@
 							elems[i].api_pause();
 							if(elems[i].readyState == 4){
 								for (prop in elems[i]) {
-									if (typeof elems[i][prop] == "function") {
+									if (!noRemove[prop] && !objElem[prop] && typeof elems[i][prop] == "function") {
 										elems[i][prop] = null;
 									}
 								}
@@ -1434,7 +1442,7 @@
 				}
 				
 			}
-			return oldClean.apply(this, arguments);
+			return ret;
 		};
 	}
 
@@ -1506,62 +1514,6 @@
 	} else if(!('media' in document.createElement('source'))){
 		webshims.reflectProperties('source', ['media']);
 	}
-	if(options.experimentallyMimetypeCheck){
-		(function(){
-			var ADDBACK = $.fn.addBack ? 'addBack' : 'andSelf';
-			var getMimeType = function(){
-				var done;
-				var unknown = 'media/unknown please provide mime type';
-				var media = $(this);
-				var xhrs = [];
-				media
-					.not('.ws-after-check')
-					.find('source')
-					[ADDBACK]()
-					.filter('[data-wsrecheckmimetype]:not([type])')
-					.each(function(){
-						var source = $(this).removeAttr('data-wsrecheckmimetype');
-						var error = function(){
-							source.attr('data-type', unknown);
-						};
-						try {
-							xhrs.push(
-								$.ajax({
-									type: 'head',
-									url: $.attr(this, 'src'),
-									success: function(content, status, xhr){
-										var mime = xhr.getResponseHeader('Content-Type');
-										if(mime){
-											done = true;
-										}
-										source.attr('data-type', mime || unknown);
-									},
-									error: error
-								})
-							)
-							;
-						} catch(er){
-							error();
-						}
-					})
-				;
-				if(xhrs.length){
-					media.addClass('ws-after-check');
-					$.when.apply($, xhrs).always(function(){
-						media.mediaLoad();
-						setTimeout(function(){
-							media.removeClass('ws-after-check');
-						}, 9);
-					});
-				}
-			};
-			$('audio.media-error, video.media-error').each(getMimeType);
-			$(document).on('mediaerror', function(e){
-				getMimeType.call(e.target);
-			});
-		})();
-	}
-
 
 	if(hasNative && hasFlash && !options.preferFlash){
 		var switchErrors = {
@@ -1570,35 +1522,38 @@
 		};
 		var switchOptions = function(e){
 			var media, error, parent;
-			if(!options.preferFlash &&
+			if(
 				($(e.target).is('audio, video') || ((parent = e.target.parentNode) && $('source', parent).last()[0] == e.target)) &&
-				(media = $(e.target).closest('audio, video')) && (error = media.prop('error')) && switchErrors[error.code]
+				(media = $(e.target).closest('audio, video')) && !media.is('.nonnative-api-active')
 				){
-
-				if(!options.preferFlash){
+				error = media.prop('error');
+				setTimeout(function(){
 					if(!media.is('.nonnative-api-active')){
-						options.preferFlash = true;
-						document.removeEventListener('error', switchOptions, true);
-						$('audio, video').each(function(){
-							webshims.mediaelement.selectSource(this);
-						});
-						webshims.error("switching mediaelements option to 'preferFlash', due to an error with native player: "+e.target.src+" Mediaerror: "+ media.prop('error')+ 'first error: '+ error);
+						if(error && switchErrors[error.code]){
+							options.preferFlash = true;
+							document.removeEventListener('error', switchOptions, true);
+							$('audio, video').each(function(){
+								webshims.mediaelement.selectSource(this);
+							});
+							webshims.error("switching mediaelements option to 'preferFlash', due to an error with native player: "+e.target.currentSrc+" Mediaerror: "+ media.prop('error')+ ' error.code: '+ error.code);
+						}
+						webshims.warn('There was a mediaelement error. Run the following line in your console to get more info: webshim.mediaelement.loadDebugger();')
 					}
-				} else{
-					document.removeEventListener('error', switchOptions, true);
-				}
+				});
+
+
 			}
 		};
+
+		document.addEventListener('error', switchOptions, true);
 		setTimeout(function(){
-			document.addEventListener('error', switchOptions, true);
 			$('audio, video').each(function(){
 				var error = $.prop(this, 'error');
 				if(error && switchErrors[error]){
 					switchOptions({target: this});
-					return false;
 				}
 			});
-		}, 9);
+		});
 	}
 
 });
@@ -1898,6 +1853,26 @@
 			return cueText.replace(tagSplits, replacer);
 		};
 	})();
+	var mapTtmlToVtt = function(i){
+		var content = i+'';
+		var begin = this.getAttribute('begin') || '';
+		var end = this.getAttribute('end') || '';
+		var text = $.trim($.text(this));
+		if(!/\./.test(begin)){
+			begin += '.000';
+		}
+		if(!/\./.test(end)){
+			end += '.000';
+		}
+		content += '\n';
+		content += begin +' --> '+end+'\n';
+		content += text;
+		return content;
+	};
+	var ttmlTextToVTT = function(ttml){
+		ttml = $.parseXML(ttml) || [];
+		return $(ttml).find('[begin][end]').map(mapTtmlToVtt).get().join('\n\n') || '';
+	};
 	
 	mediaelement.loadTextTrack = function(mediaelem, track, trackData, _default){
 		var loadEvents = 'play playing';
@@ -1925,7 +1900,11 @@
 								dataType: 'text',
 								url: src,
 								success: function(text){
-									if(ajax.getResponseHeader('content-type') != 'text/vtt'){
+									var contentType = ajax.getResponseHeader('content-type');
+
+									if(!contentType.indexOf('application/xml')){
+										text = ttmlTextToVTT(text);
+									} else if(contentType.indexOf('text/vtt')){
 										webshims.error('set the mime-type of your WebVTT files to text/vtt. see: http://dev.w3.org/html5/webvtt/#text/vtt');
 									}
 									mediaelement.parseCaptions(text, obj, function(cues){
@@ -2045,25 +2024,20 @@ modified for webshims
 */
 	mediaelement.parseCaptionChunk = (function(){
 		// Set up timestamp parsers
-		var WebVTTTimestampParser			= /^(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s+\-\-\>\s+(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s*(.*)/;
+		var WebVTTTimestampParser		= /^(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s+\-\-\>\s+(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s*(.*)/;
 		var WebVTTDEFAULTSCueParser		= /^(DEFAULTS|DEFAULT)\s+\-\-\>\s+(.*)/g;
 		var WebVTTSTYLECueParser		= /^(STYLE|STYLES)\s+\-\-\>\s*\n([\s\S]*)/g;
 		var WebVTTCOMMENTCueParser		= /^(COMMENT|COMMENTS)\s+\-\-\>\s+(.*)/g;
+		var SRTTimestampParser			= /^(\d{2})?:?(\d{2}):(\d{2})[\.\,](\d+)\s+\-\-\>\s+(\d{2})?:?(\d{2}):(\d{2})[\.\,](\d+)\s*(.*)/;
 
 		return function(subtitleElement,objectCount){
 
-			var subtitleParts, timeIn, timeOut, html, timeData, subtitlePartIndex, id, specialCueData;
+			var subtitleParts, timeIn, timeOut, html, timeData, subtitlePartIndex, id;
 			var timestampMatch, tmpCue;
 
 			// WebVTT Special Cue Logic
-			if (WebVTTDEFAULTSCueParser.exec(subtitleElement)) {
-//				cueDefaults = specialCueData.slice(2).join("");
-//				cueDefaults = cueDefaults.split(/\s+/g).filter(function(def) { return def && !!def.length; });
+			if (WebVTTDEFAULTSCueParser.exec(subtitleElement) || WebVTTCOMMENTCueParser.exec(subtitleElement) || WebVTTSTYLECueParser.exec(subtitleElement)) {
 				return null;
-			} else if ((specialCueData = WebVTTSTYLECueParser.exec(subtitleElement))) {
-				return null;
-			} else if ((specialCueData = WebVTTCOMMENTCueParser.exec(subtitleElement))) {
-				return null; // At this stage, we don't want to do anything with these.
 			}
 
 			subtitleParts = subtitleElement.split(/\n/g);
@@ -2081,7 +2055,7 @@ modified for webshims
 			for (subtitlePartIndex = 0; subtitlePartIndex < subtitleParts.length; subtitlePartIndex ++) {
 				var timestamp = subtitleParts[subtitlePartIndex];
 
-				if ((timestampMatch = WebVTTTimestampParser.exec(timestamp))) {
+				if ((timestampMatch = WebVTTTimestampParser.exec(timestamp)) || (timestampMatch = SRTTimestampParser.exec(timestamp))) {
 
 					// WebVTT
 
@@ -2168,11 +2142,6 @@ modified for webshims
 					if(regWevVTT.test(cue)){
 						isWEBVTT = true;
 					} else if(cue.replace(/\s*/ig,"").length){
-						if(!isWEBVTT){
-							webshims.error('please use WebVTT format. This is the standard');
-							complete(null);
-							break;
-						}
 						cue = mediaelement.parseCaptionChunk(cue, i);
 						if(cue){
 							track.addCue(cue);

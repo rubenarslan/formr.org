@@ -15,7 +15,7 @@
 
 	var wsCfg = webshims.cfg;
 	var options = wsCfg.mediaelement;
-	var hasSwf;
+	var isIE = navigator.userAgent.indexOf('MSIE') != -1;
 	if(!options){
 		webshims.error("mediaelement wasn't implemented but loaded");
 		return;
@@ -30,7 +30,7 @@
 
 		webshims.capturingEvents(['play', 'playing', 'waiting', 'paused', 'ended', 'durationchange', 'loadedmetadata', 'canplay', 'volumechange']);
 		
-		if( !Modernizr.videoBuffered || !supportsLoop || (!Modernizr.mediaDefaultMuted && navigator.userAgent.indexOf('MSIE') != -1 && 'ActiveXObject' in window) ){
+		if( !Modernizr.videoBuffered || !supportsLoop || (!Modernizr.mediaDefaultMuted && isIE && 'ActiveXObject' in window) ){
 			webshims.addPolyfill('mediaelement-native-fix', {
 				d: ['dom-support']
 			});
@@ -58,7 +58,7 @@
 	}
 
 webshims.register('mediaelement-core', function($, webshims, window, document, undefined, options){
-	hasSwf = swfmini.hasFlashPlayerVersion('10.0.3');
+	var hasSwf = swfmini.hasFlashPlayerVersion('10.0.3');
 	var mediaelement = webshims.mediaelement;
 	
 	mediaelement.parseRtmp = function(data){
@@ -120,11 +120,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				}
 			}
 		}
-		
-		if(!src.container){
-			$(elem).attr('data-wsrecheckmimetype', '');
-		}
-		
+
 		tmp = elem.attr('media');
 		if(tmp){
 			src.media = tmp;
@@ -254,11 +250,6 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		}
 	};
 	
-	
-	$.fn.loadMediaSrc = function(){
-		webshims.error('loadMediaSrc was removed.');
-	};
-	
 	mediaelement.swfMimeTypes = ['video/3gpp', 'video/x-msvideo', 'video/quicktime', 'video/x-m4v', 'video/mp4', 'video/m4p', 'video/x-flv', 'video/flv', 'audio/mpeg', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/mp3', 'audio/x-fla', 'audio/fla', 'youtube/flv', 'video/jarisplayer', 'jarisplayer/jarisplayer', 'video/youtube', 'video/rtmp', 'audio/rtmp'];
 	
 	mediaelement.canThirdPlaySrces = function(mediaElem, srces){
@@ -316,7 +307,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				message = "can't play sources";
 			}
 			$(elem).pause().data('mediaerror', message);
-			webshims.error('mediaelementError: '+ message);
+			webshims.error('mediaelementError: '+ message +'. Run the following line in your console to get more info: webshim.mediaelement.loadDebugger();');
 			setTimeout(function(){
 				if($(elem).data('mediaerror')){
 					$(elem).addClass('media-error').trigger('mediaerror');
@@ -348,33 +339,46 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			}
 		};
 	})();
-	
-	var stepSources = function(elem, data, useSwf, _srces, _noLoop){
-		var ret;
-		if(useSwf || (useSwf !== false && data && data.isActive == 'third')){
-			ret = mediaelement.canThirdPlaySrces(elem, _srces);
-			if(!ret){
-				if(_noLoop){
-					mediaelement.setError(elem, false);
-				} else {
-					stepSources(elem, data, false, _srces, true);
-				}
-			} else {
-				handleThird(elem, ret, data);
-			}
-		} else {
-			ret = mediaelement.canNativePlaySrces(elem, _srces);
-			if(!ret){
-				if(_noLoop){
-					mediaelement.setError(elem, false);
-					if(data && data.isActive == 'third') {
-						mediaelement.setActive(elem, 'html5', data);
-					}
-				} else {
-					stepSources(elem, data, true, _srces, true);
-				}
-			} else if(data && data.isActive == 'third') {
+
+	var activate = {
+		native: function(elem, src, data){
+			if(data && data.isActive == 'third') {
 				mediaelement.setActive(elem, 'html5', data);
+			}
+		},
+		third: handleThird
+	};
+
+	var stepSources = function(elem, data, srces){
+		var i, src;
+		var testOrder = [{test: 'canNativePlaySrces', activate: 'native'}, {test: 'canThirdPlaySrces', activate: 'third'}];
+		if(options.preferFlash || (data && data.isActive == 'third') ){
+			testOrder.reverse();
+		}
+		for(i = 0; i < 2; i++){
+			src = mediaelement[testOrder[i].test](elem, srces);
+			if(src){
+				activate[testOrder[i].activate](elem, src, data);
+				break;
+			}
+		}
+
+		if(!src){
+			mediaelement.setError(elem, false);
+			if(data && data.isActive == 'third') {
+				mediaelement.setActive(elem, 'html5', data);
+			}
+		}
+	};
+	var allowedPreload = {'metadata': 1, 'auto': 1, '': 1};
+	var fixPreload = function(elem){
+		var preload, img;
+		if(elem.getAttribute('preload') == 'none'){
+			if(allowedPreload[(preload = $.attr(elem, 'data-preload'))]){
+				$.attr(elem, 'preload', preload);
+			} else if(hasNative && (preload = elem.getAttribute('poster'))){
+				img = document.createElement('img');
+				img.src = preload;
 			}
 		}
 	};
@@ -393,7 +397,9 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		if(mediaelement.sortMedia){
 			_srces.sort(mediaelement.sortMedia);
 		}
-		stepSources(elem, data, options.preferFlash || undefined, _srces);
+		fixPreload(elem);
+		stepSources(elem, data, _srces);
+
 	};
 	mediaelement.selectSource = selectSource;
 	
@@ -404,20 +410,22 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		setTimeout(function(){
 			if( $.prop(e.target, 'paused') || !$.prop(e.target, 'loop') ){return;}
 			$(e.target).prop('currentTime', 0).play();
-		}, 1);
+		});
 		
 	});
 	
 	var handleMedia = false;
+
 	var initMediaElements = function(){
 		var testFixMedia = function(){
+
 			if(webshims.implement(this, 'mediaelement')){
 				selectSource(this);
 				if(!Modernizr.mediaDefaultMuted && $.attr(this, 'muted') != null){
 					$.prop(this, 'muted', true);
 				}
+
 			}
-			
 		};
 		
 		webshims.ready('dom-support', function(){
@@ -433,6 +441,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 					prop: {
 						value: function(){
 							var data = webshims.data(this, 'mediaelement');
+
 							selectSource(this, data);
 							if(hasNative && (!data || data.isActive == 'html5') && supLoad.prop._supvalue){
 								supLoad.prop._supvalue.apply(this, arguments);
@@ -444,6 +453,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 						}
 					}
 				});
+
 				nativeCanPlayType[nodeName] = webshims.defineNodeNameProperty(nodeName, 'canPlayType',  {
 					prop: {
 						value: function(type){
@@ -459,6 +469,9 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 								if(mediaelement.swfMimeTypes.indexOf(type) != -1){
 									ret = 'maybe';
 								}
+							}
+							if(!ret && hasYt && type == 'video/youtube'){
+								ret = 'maybe';
 							}
 							return ret;
 						}
@@ -509,8 +522,18 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			});
 		}
 	};
-	
 
+	mediaelement.loadDebugger = function(){
+		webshims.ready('dom-support', function(){
+			webshims.loader.loadScript('mediaelement-debug');
+		});
+	};
+
+	if(({noCombo: 1, media: 1})[webshims.cfg.debug]){
+		$(document).on('mediaerror', function(e){
+			mediaelement.loadDebugger();
+		});
+	}
 	//set native implementation ready, before swf api is retested
 	if(hasNative){
 		webshims.isReady('mediaelement-core', true);
@@ -819,6 +842,26 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			return cueText.replace(tagSplits, replacer);
 		};
 	})();
+	var mapTtmlToVtt = function(i){
+		var content = i+'';
+		var begin = this.getAttribute('begin') || '';
+		var end = this.getAttribute('end') || '';
+		var text = $.trim($.text(this));
+		if(!/\./.test(begin)){
+			begin += '.000';
+		}
+		if(!/\./.test(end)){
+			end += '.000';
+		}
+		content += '\n';
+		content += begin +' --> '+end+'\n';
+		content += text;
+		return content;
+	};
+	var ttmlTextToVTT = function(ttml){
+		ttml = $.parseXML(ttml) || [];
+		return $(ttml).find('[begin][end]').map(mapTtmlToVtt).get().join('\n\n') || '';
+	};
 	
 	mediaelement.loadTextTrack = function(mediaelem, track, trackData, _default){
 		var loadEvents = 'play playing';
@@ -846,7 +889,11 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 								dataType: 'text',
 								url: src,
 								success: function(text){
-									if(ajax.getResponseHeader('content-type') != 'text/vtt'){
+									var contentType = ajax.getResponseHeader('content-type');
+
+									if(!contentType.indexOf('application/xml')){
+										text = ttmlTextToVTT(text);
+									} else if(contentType.indexOf('text/vtt')){
 										webshims.error('set the mime-type of your WebVTT files to text/vtt. see: http://dev.w3.org/html5/webvtt/#text/vtt');
 									}
 									mediaelement.parseCaptions(text, obj, function(cues){
@@ -966,25 +1013,20 @@ modified for webshims
 */
 	mediaelement.parseCaptionChunk = (function(){
 		// Set up timestamp parsers
-		var WebVTTTimestampParser			= /^(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s+\-\-\>\s+(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s*(.*)/;
+		var WebVTTTimestampParser		= /^(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s+\-\-\>\s+(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s*(.*)/;
 		var WebVTTDEFAULTSCueParser		= /^(DEFAULTS|DEFAULT)\s+\-\-\>\s+(.*)/g;
 		var WebVTTSTYLECueParser		= /^(STYLE|STYLES)\s+\-\-\>\s*\n([\s\S]*)/g;
 		var WebVTTCOMMENTCueParser		= /^(COMMENT|COMMENTS)\s+\-\-\>\s+(.*)/g;
+		var SRTTimestampParser			= /^(\d{2})?:?(\d{2}):(\d{2})[\.\,](\d+)\s+\-\-\>\s+(\d{2})?:?(\d{2}):(\d{2})[\.\,](\d+)\s*(.*)/;
 
 		return function(subtitleElement,objectCount){
 
-			var subtitleParts, timeIn, timeOut, html, timeData, subtitlePartIndex, id, specialCueData;
+			var subtitleParts, timeIn, timeOut, html, timeData, subtitlePartIndex, id;
 			var timestampMatch, tmpCue;
 
 			// WebVTT Special Cue Logic
-			if (WebVTTDEFAULTSCueParser.exec(subtitleElement)) {
-//				cueDefaults = specialCueData.slice(2).join("");
-//				cueDefaults = cueDefaults.split(/\s+/g).filter(function(def) { return def && !!def.length; });
+			if (WebVTTDEFAULTSCueParser.exec(subtitleElement) || WebVTTCOMMENTCueParser.exec(subtitleElement) || WebVTTSTYLECueParser.exec(subtitleElement)) {
 				return null;
-			} else if ((specialCueData = WebVTTSTYLECueParser.exec(subtitleElement))) {
-				return null;
-			} else if ((specialCueData = WebVTTCOMMENTCueParser.exec(subtitleElement))) {
-				return null; // At this stage, we don't want to do anything with these.
 			}
 
 			subtitleParts = subtitleElement.split(/\n/g);
@@ -1002,7 +1044,7 @@ modified for webshims
 			for (subtitlePartIndex = 0; subtitlePartIndex < subtitleParts.length; subtitlePartIndex ++) {
 				var timestamp = subtitleParts[subtitlePartIndex];
 
-				if ((timestampMatch = WebVTTTimestampParser.exec(timestamp))) {
+				if ((timestampMatch = WebVTTTimestampParser.exec(timestamp)) || (timestampMatch = SRTTimestampParser.exec(timestamp))) {
 
 					// WebVTT
 
@@ -1089,11 +1131,6 @@ modified for webshims
 					if(regWevVTT.test(cue)){
 						isWEBVTT = true;
 					} else if(cue.replace(/\s*/ig,"").length){
-						if(!isWEBVTT){
-							webshims.error('please use WebVTT format. This is the standard');
-							complete(null);
-							break;
-						}
 						cue = mediaelement.parseCaptionChunk(cue, i);
 						if(cue){
 							track.addCue(cue);

@@ -12,13 +12,12 @@
     "!downloads",
     "!downloads/**/*"
   ],
-  "_release": "54062558d1",
+  "_release": "ddffdfd3d7",
   "_resolution": {
     "type": "branch",
     "branch": "master",
-    "commit": "54062558d124e8b228462be2bf7af2b916f0312b"
+    "commit": "ddffdfd3d7ac851f333a65711eebcfd2e2faf6d5"
   },
   "_source": "git://github.com/enyo/dropzone.git",
-  "_target": "master",
-  "_originalSource": "dropzone"
+  "_target": "master"
 }

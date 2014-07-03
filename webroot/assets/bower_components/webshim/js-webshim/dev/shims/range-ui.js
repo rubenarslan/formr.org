@@ -11,6 +11,23 @@
 		return val * 1;
 	};
 	var createOpts = ['step', 'min', 'max', 'readonly', 'title', 'disabled', 'tabindex'];
+	var normalizeTouch = (function(){
+		var types = {
+			touchstart: 1,
+			touchend: 1,
+			touchmove: 1
+		};
+		var normalize = ['pageX', 'pageY'];
+		return function(e){
+			if(types[e.type] && e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length){
+				for(var i = 0; i < normalize.length; i++){
+					e[normalize[i]] = e.originalEvent.touches[0][normalize[i]];
+				}
+
+			}
+			return e;
+		};
+	})();
 	var rangeProto = {
 		_create: function(){
 			var i;
@@ -329,23 +346,7 @@
 					}
 				};
 			})();
-			var normalizeTouch = (function(){
-				var types = {
-					touchstart: 1,
-					touchend: 1,
-					touchmove: 1
-				};
-				var normalize = ['pageX', 'pageY'];
-				return function(e){
-					if(types[e.type] && e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length){
-						for(var i = 0; i < normalize.length; i++){
-							e[normalize[i]] = e.originalEvent.touches[0][normalize[i]];
-						}
-						
-					}
-					return e;
-				};
-			})();
+
 			var updateValue = function(val, animate){
 				if(val != o.value){
 					that.value(val, false, animate);
@@ -365,7 +366,7 @@
 				}
 			};
 			var remove = function(e){
-				if(e && e.type == 'mouseup'){
+				if(e && (e.type == 'mouseup' || e.type == 'touchend')){
 					eventTimer.call('input', o.value);
 					eventTimer.call('change', o.value);
 				}
@@ -386,6 +387,8 @@
 				$(document).off('mousemove touchmove', setValueFromPos).off('mouseup touchend', remove);
 				$(window).off('blur', removeWin);
 				if(!o.readonly && !o.disabled){
+					eventTimer.init('input', o.value);
+					eventTimer.init('change', o.value);
 					normalizeTouch(e);
 					that.element.trigger('focus');
 					that.addRemoveClass('ws-active', true);
@@ -421,8 +424,10 @@
 				'touchstart mousedown': add,
 				focus: function(e){
 					if(!o.disabled && !hasFocus){
-						eventTimer.init('input', o.value);
-						eventTimer.init('change', o.value);
+						if(!isActive){
+							eventTimer.init('input', o.value);
+							eventTimer.init('change', o.value);
+						}
 						that.addRemoveClass('ws-focus', true);
 						that.updateMetrics();
 					}
@@ -608,6 +613,7 @@
 			obj._create.call(obj);
 		});
 	};
+	$.fn.rangeUI.normalizeTouch = normalizeTouch;
 	if(window.webshims && webshims.isReady){
 		webshims.isReady('range-ui', true);
 	}

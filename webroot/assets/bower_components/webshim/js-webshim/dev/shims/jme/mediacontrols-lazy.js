@@ -24,7 +24,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				var className = (track.kind == 'caption') ? 'caption-type' : 'subtitle-type';
 				var lang = track.language;
 				lang = (lang) ? ' <span class="track-lang">'+ lang +'</span>' : '';
-				return '<li class="'+ className +'" role="presentation"><button role="menuitemcheckbox">'+ track.label + lang +'</button></li>';
+				return '<li class="'+ className +'" role="presentation"><button role="menuitemcheckbox" type="button">'+ track.label + lang +'</button></li>';
 			})
 			;
 		return '<div><ul>' + items.join('') +'</ul></div>';
@@ -49,7 +49,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 					}
 
 					touch = changedTouches[0];
-					if(Math.abs(touchData.x - touch.pageX) > 40 || Math.abs(touchData.y - touch.pageY) > 40 || Date.now() - touchData.now > 600){
+					if(Math.abs(touchData.x - touch.pageX) > 40 || Math.abs(touchData.y - touch.pageY) > 40 || Date.now() - touchData.now > 300){
 						return;
 					}
 					e.preventDefault();
@@ -207,6 +207,49 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 
 			}
 		},
+		'jme-media-overlay': {
+			_create: function(control, media, base){
+				var stopFocus, focusTimer, markedFocus;
+				var specialUnStop = {
+					touchend: 1,
+					click: 1
+				};
+				var unStop = function(){
+					stopFocus = false;
+				};
+				control.wsTouchClick(function(e){
+					if(media.jmeProp('isPlaying') && base.attr('data-useractivity') != 'false'){
+						media.pause();
+					} else {
+						media.play();
+					}
+				});
+
+				base.on({
+					'touchstart touchend mousedown click mouseover': function(e){
+						var delay = 500;
+						stopFocus = true;
+						clearTimeout(focusTimer);
+						if(markedFocus && specialUnStop[e.type] && e.target.className.indexOf('ws-a11y-focus') != -1){
+							delay = 0;
+						}
+						focusTimer = setTimeout(unStop, delay);
+					},
+					focusin: function(e){
+						if(!stopFocus && e.originalEvent){
+							markedFocus = true;
+							$(e.target).addClass('ws-a11y-focus');
+						}
+					},
+					focusout: function(e){
+						if(markedFocus){
+							markedFocus = false;
+							$(e.target).removeClass('ws-a11y-focus');
+						}
+					}
+				});
+			}
+		},
 		'volume-slider': {
 			_create: function(control, media){
 
@@ -256,7 +299,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				var module = this;
 
 				var createFn = function(){
-					var time, durationChange, api, timeShow, wasPaused;
+					var time, durationChange, api, timeShow, wasPaused, hideTime;
 					var hasDuration = 'has-duration';
 					var duration = media.prop('duration');
 
@@ -312,7 +355,15 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 							base.addClass(module[pseudoClasses].no);
 						}
 					};
-
+					hideTime = function(){
+						setTimeout(function(){
+							timeShow.removeClass('show-time-select');
+							control.off('.jmetimeselect');
+							if(document.removeEventListener){
+								document.removeEventListener('touchend', hideTime, true);
+							}
+						});
+					};
 					api = control
 						.rangeUI({
 							min: 0,
@@ -332,8 +383,9 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 
 					control
 						.on({
-							'mouseenter': function(e){
-								if(hasDuration){
+							'mouseenter touchstart': function(e){
+								if(hasDuration && e.type != 'touchstart' || (e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length == 1)){
+
 									var widgetLeft = (control.offset() || {left: 0}).left;
 									var widgetWidth = control.innerWidth();
 									var posLeft = function(x){
@@ -344,24 +396,24 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 										;
 									};
 
+									$.fn.rangeUI.normalizeTouch(e);
 									setTimeout(function(){
 										posLeft(e.pageX);
 										timeShow.addClass('show-time-select');
 									});
+									if(document.addEventListener){
+										document.addEventListener('touchend', hideTime, true);
+									}
 									control
 										.off('.jmetimeselect')
-										.on('mousemove.jmetimeselect', function(e){
+										.on('mousemove.jmetimeselect touchmove.jmetimeselect', function(e){
+											$.fn.rangeUI.normalizeTouch(e);
 											posLeft(e.pageX);
 										})
 									;
 								}
 							},
-							mouseleave: function(){
-								setTimeout(function(){
-									timeShow.removeClass('show-time-select');
-									control.off('.jmetimeselect');
-								});
-							}
+							'mouseleave touchend': hideTime
 						})
 					;
 
@@ -1086,7 +1138,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				if(!data.bound){
 					jElm
 						.on('mouseleave.jmeuseractivity', setInactive)
-						.on('mousemove.jmeuseractivity focusin.jmeuseractivity mouseenter.jmeuseractivity keydown.jmeuseractivity keyup.jmeuseractivity mousedown.jmeuseractivity', setActive)
+						.on('touchend.jmeuseractivity setuseractive.jmeuseractivity mousemove.jmeuseractivity focusin.jmeuseractivity mouseenter.jmeuseractivity keydown.jmeuseractivity keyup.jmeuseractivity mousedown.jmeuseractivity', setActive)
 					;
 					data.bound = true;
 				}

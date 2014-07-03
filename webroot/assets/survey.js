@@ -2,8 +2,6 @@ $(document).ready(function() {
 
     // initialising special items
     // --------------------------
-
-
     webshim.ready('geolocation',function() {
     	$('.geolocator').click(function()
     	{
@@ -39,224 +37,227 @@ $(document).ready(function() {
     });
 	// fixme: FOUCs for rating_buttons etc in IE8
     
-	$('.item-number.counter input').each(function() {
-        var $input = $(this); 
-        $input.hide();
-        var btns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></button></div>')
-        btns.insertAfter($input);
-        btns.find(".btn-down").click(function()
-        {
-            if( $input.attr('min') < $input.attr('value') ) 
+    webshim.ready('forms-ext dom-extend',function() {
+        $('.item-number.counter input').each(function() {
+            var $input = $(this); 
+            $input.hide();
+            var btns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></button></div>')
+            btns.insertAfter($input);
+            btns.find(".btn-down").click(function()
             {
-                $input.attr('value', +$input.attr('value') - 1 );   
-                $input.change();
-            }
-            return false;
-        });
-        btns.find(".btn-up").click(function()
-        {
-            if( $input.attr('max') > $input.attr('value') ) 
-            {
-                $input.attr('value', +$input.attr('value') + 1 );   
-                $input.change();
-            }
-            return false;
-        });
-        new FastClick(btns.find(".btn-down"));
-        new FastClick(btns.find(".btn-up"));
-		
-       $.webshims.addShadowDom($input, btns);
-	});
-	
-	$('div.btn-radio button.btn').off('click').click(function(event){
-		var $btn = $(this);
-		$('#'+$btn.attr('data-for')).prop('checked',true); // couple with its radio button
-		var all_buttons = $btn.closest('div.btn-group').find('button.btn'); // find all buttons
-		all_buttons.removeClass('btn-checked'); // uncheck all
-		$btn.addClass('btn-checked'); // check this one
-        $btn.change();
-		return false;
-	}).each(function() {
-		var $btn = $(this);
-		var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
-		$btn.toggleClass('btn-checked', is_checked_already);
-        
-		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-		$btn.closest('.controls').find('label[class!=keep-label]').addClass('hidden'); // hide normal radio buttons
-        
-        new FastClick(this);
-		
-        $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
-	});
-	
-	$('div.btn-checkbox button.btn').off('click').click(function(event){
-		var $btn = $(this);
-		var checked = $('#'+$btn.attr('data-for')).prop('checked');
-		$('#'+$btn.attr('data-for')).prop('checked',!checked); // couple with its radio button
-		$btn.toggleClass('btn-checked',!checked); // check this one
-        $('#'+$btn.attr('data-for')).change();
-        
-		return false;
-	}).each(function() {
-		var $btn = $(this);
-		var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
-		$btn.toggleClass('btn-checked', is_checked_already);
-        
-		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
-
-        new FastClick(this);
-
-        $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
-	});
-	
-	$('div.btn-check button.btn').off('click').click(function(event){
-        var $btn = $(this);
-        $('#'+$btn.attr('data-for')).trigger("togglecheck"); // toggle the button
-		return false;
-	}).each(function() {
-		var $btn = $(this);
-        var $original_box = $('#'+$btn.attr('data-for'));
-        
-        $original_box.change(function()
-        {
-    		var checked = !!$(this).prop('checked');
-            var $btn = $('button.btn[data-for="'+ this.id +'"]');
-    		$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
-        })
-        .change()
-        .on('togglecheck',function()
-        {
-    		var checked = !!$(this).prop('checked');
-    		$(this).prop('checked',!checked); // toggle check
-            $(this).change(); // trigger change event to sync up
-        });
-        
-		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-		$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
-        
-        new FastClick(this);
-        
-        $.webshims.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
-	});
-	
-	$("select.select2zone, .form-group.select2 select").each(function(i,elm)
-    {
-		var slct = $(elm); 
-        slct.select2();
-        $.webshims.addShadowDom(slct, slct.select2("container"));
-    });
-	$(".select2pills select").each(function(i,elm)
-	{
-		var slct = $(elm); 
-		slct.select2({
-            width: "element",
-            dropdownCssClass: "bigdrop", // apply css that makes the dropdown taller
-			maximumSelectionSize: slct.data('select2maximumSelectionSize'),
-			maximumInputLength: slct.data('select2maximumInputLength'),
-            formatResult: function(pill) {
-                if(pill.id != '')
+                if( $input.attr('min') < $input.attr('value') ) 
                 {
-                    var markup = "<strong>" + pill.text + "</strong><br><img width='200px' alt='"+pill.text+"' src='assets/img/pills/" + pill.id + ".jpg'/>";
-                    return markup;
-                } else
-                return '';
-            },
-            formatSelection: function (pill) {
-                return pill.text;
-            },
-            escapeMarkup: function (m) { return m; }
-		}).on("change select2-open", function(e) {
-            document.activeElement.blur();
-        });
-        $.webshims.addShadowDom(slct, slct.select2("container"));
-	});
-    
-	$(".people_list textarea").each(function(i,elm)
-	{
-		var slct = $(elm); 
-		slct.select2({
-            width: "element",
-            height: "2000px",
-            data: [],
-            formatNoMatches: function(term)
-            {
-                if(term != '') return "Füge '" + term + "' hinzu!";
-                else return "Weitere Personen hinzufügen.";
-            },
-            tokenSeparators: ["\n"],
-            separator: '\n',
-			createSearchChoice:function(term, data)
-			{ 
-				if ($(data).filter(function() { 
-					return this.text.localeCompare(term)==0; 
-				}).length===0) 
-				{
-                    term = term.replace("\n",'; ');
-					return {id:term, text:term};
-				}
-			},
-			initSelection:function(element, callback)
-			{
-                var elements = element.val().split("\n");
-                var data = [];
-                for(var i = 0; i < elements.length; i++)
-                {
-    				data.push( {id: elements[i], text: elements[i]});
+                    $input.attr('value', +$input.attr('value') - 1 );   
+                    $input.change();
                 }
-				callback(data);
-			},
-			maximumSelectionSize: 15,
-			maximumInputLength: 50,
-            formatResultCssClass: function(obj) { return "people_list_results"; },
-			multiple: true, 
-			allowClear: true,
-            escapeMarkup: function (m) { return m; }
-		}).removeClass("form-control");
-        var plus = $("<span class='select2-plus'>+</span>");
-        plus.insertBefore(slct.select2("container").find('.select2-search-field input'));
-        $.webshims.addShadowDom(slct, slct.select2("container"));
-	});
+                return false;
+            });
+            btns.find(".btn-up").click(function()
+            {
+                if( $input.attr('max') > $input.attr('value') ) 
+                {
+                    $input.attr('value', +$input.attr('value') + 1 );   
+                    $input.change();
+                }
+                return false;
+            });
+            new FastClick(btns.find(".btn-down"));
+            new FastClick(btns.find(".btn-up"));
+           webshim.addShadowDom($input[0], btns[0]);
+    	});
+	
+    	$('div.btn-radio button.btn').off('click').click(function(event){
+    		var $btn = $(this);
+    		$('#'+$btn.attr('data-for')).prop('checked',true); // couple with its radio button
+    		var all_buttons = $btn.closest('div.btn-group').find('button.btn'); // find all buttons
+    		all_buttons.removeClass('btn-checked'); // uncheck all
+    		$btn.addClass('btn-checked'); // check this one
+            $btn.change();
+    		return false;
+    	}).each(function() {
+        	var $btn = $(this);
+    		var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
+    		$btn.toggleClass('btn-checked', is_checked_already);
+        
+    		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
+    		$btn.closest('.controls').find('label[class!=keep-label]').addClass('hidden'); // hide normal radio buttons
+        
+            new FastClick(this);
+		
+            webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
+    	});
+        
+    	$('div.btn-checkbox button.btn').off('click').click(function(event){
+    		var $btn = $(this);
+    		var checked = $('#'+$btn.attr('data-for')).prop('checked');
+    		$('#'+$btn.attr('data-for')).prop('checked',!checked); // couple with its radio button
+    		$btn.toggleClass('btn-checked',!checked); // check this one
+            $('#'+$btn.attr('data-for')).change();
+        
+    		return false;
+    	}).each(function() {
+    		var $btn = $(this);
+    		var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
+    		$btn.toggleClass('btn-checked', is_checked_already);
+        
+    		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
+    		$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
+
+            new FastClick(this);
+
+            webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
+    	});
+        
+	
+    	$('div.btn-check button.btn').off('click').click(function(event){
+            var $btn = $(this);
+            $('#'+$btn.attr('data-for')).trigger("togglecheck"); // toggle the button
+    		return false;
+    	}).each(function() {
+    		var $btn = $(this);
+            var $original_box = $('#'+$btn.attr('data-for'));
+        
+            $original_box.change(function()
+            {
+        		var checked = !!$(this).prop('checked');
+                var $btn = $('button.btn[data-for="'+ this.id +'"]');
+        		$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
+            })
+            .change()
+            .on('togglecheck',function()
+            {
+        		var checked = !!$(this).prop('checked');
+        		$(this).prop('checked',!checked); // toggle check
+                $(this).change(); // trigger change event to sync up
+            });
+        
+    		$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
+    		$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
+        
+            new FastClick(this);
+        
+            webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
+    	});
+	
+    	$("select.select2zone, .form-group.select2 select").each(function(i,elm)
+        {
+            
+    		var slct = $(elm); 
+            slct.select2();
+            webshim.addShadowDom(slct, slct.select2("container"));
+        });
+    	$(".select2pills select").each(function(i,elm)
+    	{
+    		var slct = $(elm); 
+    		slct.select2({
+                width: "element",
+                dropdownCssClass: "bigdrop", // apply css that makes the dropdown taller
+    			maximumSelectionSize: slct.data('select2maximumSelectionSize'),
+    			maximumInputLength: slct.data('select2maximumInputLength'),
+                formatResult: function(pill) {
+                    if(pill.id != '')
+                    {
+                        var markup = "<strong>" + pill.text + "</strong><br><img width='200px' alt='"+pill.text+"' src='assets/img/pills/" + pill.id + ".jpg'/>";
+                        return markup;
+                    } else
+                    return '';
+                },
+                formatSelection: function (pill) {
+                    return pill.text;
+                },
+                escapeMarkup: function (m) { return m; }
+    		}).on("change select2-open", function(e) {
+                document.activeElement.blur();
+            });
+            webshim.addShadowDom(slct, slct.select2("container"));
+    	});
     
-	$("input.select2add").each(function(i,elm)
-	{
-		var slct = $(elm); 
-        if(slct.select2("container").hasClass("select2-container")) // is already select2
-            return;
-		var slctdata = $.parseJSON(slct.attr('data-select2add'));
-		slct.select2({
-			createSearchChoice:function(term, data)
-			{ 
-				if ($(data).filter(function() { 
-					return this.text.localeCompare(term)==0; 
-				}).length===0) 
-				{
-                    term = term.replace(',',';');
-					return {id:term, text:term};
-				}
-			},
-			initSelection:function(element, callback)
-			{
-				var data = {id: element.val(), text: element.val()};
-				$.each(slctdata, function(k, v) {
-					if(v.id ==	element.val()) {
-						data = v;
-						return false;
-					} 
-				});
-				callback(data);
-			},
-			maximumSelectionSize: slct.data('select2maximumSelectionSize'),
-			maximumInputLength: slct.data('select2maximumInputLength'),
-			data: slctdata, 
-			multiple: !!slct.data('select2multiple'), 
-			allowClear: true,
-            escapeMarkup: function (m) { return m; }
-		});
+    	$(".people_list textarea").each(function(i,elm)
+    	{
+    		var slct = $(elm); 
+    		slct.select2({
+                width: "element",
+                height: "2000px",
+                data: [],
+                formatNoMatches: function(term)
+                {
+                    if(term != '') return "Füge '" + term + "' hinzu!";
+                    else return "Weitere Personen hinzufügen.";
+                },
+                tokenSeparators: ["\n"],
+                separator: '\n',
+    			createSearchChoice:function(term, data)
+    			{ 
+    				if ($(data).filter(function() { 
+    					return this.text.localeCompare(term)==0; 
+    				}).length===0) 
+    				{
+                        term = term.replace("\n",'; ');
+    					return {id:term, text:term};
+    				}
+    			},
+    			initSelection:function(element, callback)
+    			{
+                    var elements = element.val().split("\n");
+                    var data = [];
+                    for(var i = 0; i < elements.length; i++)
+                    {
+        				data.push( {id: elements[i], text: elements[i]});
+                    }
+    				callback(data);
+    			},
+    			maximumSelectionSize: 15,
+    			maximumInputLength: 50,
+                formatResultCssClass: function(obj) { return "people_list_results"; },
+    			multiple: true, 
+    			allowClear: true,
+                escapeMarkup: function (m) { return m; }
+    		}).removeClass("form-control");
+            var plus = $("<span class='select2-plus'>+</span>");
+            plus.insertBefore(slct.select2("container").find('.select2-search-field input'));
+            webshim.addShadowDom(slct, slct.select2("container"));
+    	});
+    
+    	$("input.select2add").each(function(i,elm)
+    	{
+    		var slct = $(elm); 
+            if(slct.select2("container").hasClass("select2-container")) // is already select2
+                return;
+    		var slctdata = $.parseJSON(slct.attr('data-select2add'));
+    		slct.select2({
+    			createSearchChoice:function(term, data)
+    			{ 
+    				if ($(data).filter(function() { 
+    					return this.text.localeCompare(term)==0; 
+    				}).length===0) 
+    				{
+                        term = term.replace(',',';');
+    					return {id:term, text:term};
+    				}
+    			},
+    			initSelection:function(element, callback)
+    			{
+    				var data = {id: element.val(), text: element.val()};
+    				$.each(slctdata, function(k, v) {
+    					if(v.id ==	element.val()) {
+    						data = v;
+    						return false;
+    					} 
+    				});
+    				callback(data);
+    			},
+    			maximumSelectionSize: slct.data('select2maximumSelectionSize'),
+    			maximumInputLength: slct.data('select2maximumInputLength'),
+    			data: slctdata, 
+    			multiple: !!slct.data('select2multiple'), 
+    			allowClear: true,
+                escapeMarkup: function (m) { return m; }
+    		});
         
-        $.webshims.addShadowDom(slct, slct.select2("container"));
+            webshim.addShadowDom(slct, slct.select2("container"));
         
-	});
+    	});
+    });
     
     $('form').on('change', getProgress);
     getProgress();

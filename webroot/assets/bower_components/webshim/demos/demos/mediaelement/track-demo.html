@@ -35,18 +35,18 @@
 			;
 		});
 
-		webshims.setOptions('forms', {
+		webshim.setOptions('forms', {
 			customDatalist: stateMatches[enhanceState]
 		});
 
-		webshims.setOptions('mediaelement', {
+		webshim.setOptions('mediaelement', {
 			replaceUI: stateMatches[enhanceState]
 		});
-		webshims.setOptions('track', {
+		webshim.setOptions('track', {
 			override: stateMatches[enhanceState]
 		});
 		if(enhanceState != 'nopolyfill'){
-			webshims.polyfill('mediaelement track forms');
+			webshim.polyfill('mediaelement track forms');
 		}
 	})();
 
@@ -78,6 +78,9 @@
 <script src="assets/jquery.colorbox.js"></script>
 
 <link type="text/css" href="assets/track.css" rel="stylesheet" />
+
+	<link rel="alternate stylesheet" href="../themes/metro/metro.css" title="metro" data-defaultstyle />
+	<link rel="alternate stylesheet" href="../themes/rounded-shadow/rounded-shadow.css" title="rounded shadow" />
 <script src="assets/track.js"></script>
 
 

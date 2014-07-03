@@ -20,6 +20,7 @@ Features
 * HTML5 audio/video/track implementation
 * interactive elements: summary/details
 * filereader (including, XHR2/AJAX CORS and FormData handling)
+* promise
 * geolocation
 * ECMAScript 5 / JavaScript 1.8.5 features 
 
@@ -27,7 +28,7 @@ Features
 Installation and Usage
 ------------------
 
-1 - [Download the Webshim Lib](http://corrupt-system.de/webshims-stable.zip) and put the `js-webshim-folder` in your project.
+1 - [Download the Webshim Lib](https://github.com/aFarkas/webshim/releases/latest) and put the `js-webshim-folder` in your project.
 
 2 - Include the JavaScript:
 

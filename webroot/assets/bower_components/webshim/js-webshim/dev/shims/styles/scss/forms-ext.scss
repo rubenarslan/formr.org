@@ -43,6 +43,20 @@
 	}
 }
 
+.ws-range,
+.ws-range-rail,
+.ws-range span > span,
+.input-buttons,
+.step-controls,
+.ws-popover-opener,
+.step-control {
+	margin: 0;
+	padding: 0;
+	border: none;
+	width: auto;
+	background: transparent none;
+}
+
 /* spinner control for time, number (usable for date, datetime-local) */
 .has-input-buttons,
 html > body input.ws-inputreplace.has-input-buttons,
@@ -88,7 +102,6 @@ span.has-input-buttons {
 	overflow: visible;
 	margin: 0 0 0 2px;
 	width: 19px;
-	border-radius: 3px;
 	cursor: pointer;
 	background: #ccc;
 	font-size: 13px;
@@ -109,7 +122,8 @@ span.has-input-buttons {
 		margin: 0 2px 0 0;
 	}
 	
-	span {
+	> span,
+	.ws-color-indicator {
 		display: block;
 		position: absolute;
 		top: 50%;
@@ -157,9 +171,13 @@ input[type="color"] {
 	&.ws-disabled {
 		opacity: 0.95;
 	}
-	&.ws-disabled *,
-	&.ws-readonly * {
-		cursor: default;
+
+	&.ws-disabled,
+	&.ws-readonly {
+		.ws-popover-opener,
+		.step-control {
+			cursor: default;
+		}
 	}
 }
 
@@ -203,76 +221,78 @@ input[type="color"] {
 
 .step-controls {
 	transition: all 300ms;
-	span {
+
+}
+
+span.step-control {
+	position: absolute;
+	left: 0;
+	display: inline-block;
+	overflow: hidden;
+	margin: 0 !important;
+	padding: 0 !important;
+	width: 15px;
+	height: 9px;
+	cursor: pointer;
+	font-size: 0;
+	line-height: 0;
+	text-align: center;
+	transition: border-color 300ms, background-color 300ms;
+
+
+	&.step-down {
+		bottom: 0;
+	}
+
+	&:before {
 		position: absolute;
-		left: 0;
+		top: 50%;
+		left:  50%;
+		content: "";
 		display: inline-block;
-		overflow: hidden;
-		margin: 0 !important;
-		padding: 0 !important;
-		width: 15px;
-		height: 9px;
-		cursor: pointer;
-		font-size: 0;
-		line-height: 0;
-		text-align: center;
+		width: 0px;
+		height: 0px;
+		border-style: solid;
+		margin: -2px 0 0 -4px;
 		transition: border-color 300ms, background-color 300ms;
+	}
 
-
-		&.step-down {
-			bottom: 0;
-		}
+	&.step-up {
 
 		&:before {
-			position: absolute;
-			top: 50%;
-			left:  50%;
-			content: "";
-			display: inline-block;
-			width: 0px;
-			height: 0px;
-			border-style: solid;
-			margin: -2px 0 0 -4px;
-			transition: border-color 300ms, background-color 300ms;
+			border-width: 0 4px 4px;
+			border-color: transparent transparent #999 transparent;
 		}
 
-		&.step-up {
-
-			&:before {
-				border-width: 0 4px 4px;
-				border-color: transparent transparent #999 transparent;
-			}
-
-			&:hover:before {
-				border-color: transparent transparent #666 transparent;
-			}
-			&.mousepress-ui:before {
-				border-color: transparent transparent #000 transparent;
-			}
-
-			.ws-disabled &:before {
-				border-color: transparent transparent #aaa transparent;
-			}
+		&:hover:before {
+			border-color: transparent transparent #666 transparent;
+		}
+		&.mousepress-ui:before {
+			border-color: transparent transparent #000 transparent;
 		}
 
-		&.step-down {
-			&:before {
-				border-width: 4px 4px 0;
-				border-color: #999 transparent transparent transparent;
-			}
-
-			&:hover:before {
-				border-color: #666 transparent transparent transparent;
-			}
-			&.mousepress-ui:before {
-				border-color: #000 transparent transparent transparent;
-			}
-			.ws-disabled &:before {
-				border-color: #aaa transparent transparent transparent;
-			}
+		.ws-disabled &:before {
+			border-color: transparent transparent #aaa transparent;
 		}
-
 	}
+
+	&.step-down {
+		&:before {
+			border-width: 4px 4px 0;
+			border-color: #999 transparent transparent transparent;
+		}
+
+		&:hover:before {
+			border-color: #666 transparent transparent transparent;
+		}
+		&.mousepress-ui:before {
+			border-color: #000 transparent transparent transparent;
+		}
+		.ws-disabled &:before {
+			border-color: #aaa transparent transparent transparent;
+		}
+	}
+
 }
 
 /* helper classes to hide show/hide specific btn features features */
@@ -288,15 +308,18 @@ input[type="color"] {
 
 
 
-	> * {
+	> select,
+	> input,
+	> .ws-input-seperator {
 		text-align: center;
 		letter-spacing: normal;
 		word-spacing: normal;
-		
-		> option {
-			text-align: left;
-		}
 	}
+
+	option {
+		text-align: left;
+	}
+
 	.ws-input-seperator {
 		vertical-align: middle;
 		width: 2%;
@@ -367,30 +390,27 @@ span.ws-input {
 	border: none;
 	height: em(8);
 	width: 155px;
-	border-radius: em(5);
 	background: #ddd;
 	cursor: pointer;
 	font-size: 13px;
 	outline: none;
 	transition: background-color 400ms, border-color 400ms;
 	background-color: #ddd;
-	box-shadow: 0 em(-1) em(1.5) rgba(0, 0, 0, 0.2) inset;
+	letter-spacing: normal;
+	word-spacing: normal;
 	
 	[list] + & {
 		margin: em(2.5) 0 em(12.5);
 	}
 	
 	.ws-range-thumb {
-		@extend %contentbox;
-		$dim: 20;
 		top: 0;
 		position: absolute;
 		display: block;
 		z-index: 4;
-		margin: em(($dim - 8) / -2) 0 0 em($dim / -2);
-		height: em($dim);
-		width: em($dim);
-		border-radius: 50%;
+		margin: em((18 - 8) / -2) 0 0 em(30 / -2);
+		height: em(18);
+		width: em(30);
 		background: #ccc;
 		border: em(1) solid #aaa;
 		cursor: pointer;
@@ -402,13 +422,13 @@ span.ws-input {
 			padding: 0;
 			border: 0;
 			left: 50%;
-			bottom: em($dim + 1);
+			bottom: em(18 + 1);
 			visibility: hidden;
 			width: 180px;
 			text-align: center;
 			background: none;
 
-			span {
+			> span {
 				visibility: visible;
 				&:after,
 				&:before {
@@ -417,7 +437,6 @@ span.ws-input {
 					text-align: center;
 					background: #fff;
 					border: em(1) solid #ccc;
-					border-radius: em(4);
 					visibility: visible;
 				}
 			}
@@ -431,7 +450,8 @@ span.ws-input {
 	}
 	
 	&.ws-active .ws-range-thumb {
-		box-shadow: 0 0 em(9) rgba(0, 75, 100, 0.2);
+		background: #efefef;
+		border-color: #666;
 	}
 	
 	&[aria-disabled="true"],
@@ -467,14 +487,11 @@ span.ws-input {
 		margin: 0;
 		padding: 0;
 		top: 0;
-		border-radius: em(5);
 		height: 100%;
 		left: 0;
 		z-index: 1;
 		overflow: hidden;
 		background: #09c;
-		box-shadow: 0 em(1.5) em(3.5) rgba(255, 255, 255, 0.2) inset;
-		-moz-box-sizing: content-box;
 		box-sizing: content-box;
 	}
 
@@ -559,8 +576,9 @@ span.ws-input {
 .ws-range-thumb {
 	> span {
 		&,
-		span:after,
-		span:before {
+		/* todo: improve selector performance */
+		> span:after,
+		> span:before {
 			display: none;
 		}
 	}
@@ -575,8 +593,9 @@ span.ws-input {
 }
 
 .ws-inline-picker,
-div.ws-inline-picker {
-	@extend %contentbox;
+div.ws-inline-picker,
+.ws-popinline,
+div.ws-popinline {
 	position: relative;
 	max-width: 100%;
 	z-index: 99;

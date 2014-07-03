@@ -63,15 +63,6 @@ audio[controls] {
 	width: 300px;
 }
 
-video > *,
-audio > * {
-	visibility: hidden;
-
-	.no-swf & {
-		visibility: inherit;
-	}
-}
-
 .polyfill-mediaelement > iframe {
 	border: 0;
 	padding: 0;
@@ -139,7 +130,7 @@ audio > * {
 		display: inline-block;
 		padding: 3px 5px;
 		background: #000;
-		background: rgba(0, 0, 0, 0.8);
+		background: rgba(0, 0, 0, 0.7);
 		color: #fff;
 	}
 
@@ -162,14 +153,9 @@ mark {
 }
 
 /* reset */
-.ws-range,
-.ws-range *,
 .placeholder-box,
 .placeholder-text,
-.input-buttons,
-.input-buttons *,
 .details-open-indicator,
-.ws-input-seperator,
 progress span.progress-value {
 	margin: 0;
 	padding: 0;
@@ -191,9 +177,6 @@ output {
 	overflow: hidden !important;
 }
 
-.webshims-visual-hide * {
-	visibility: hidden !important;
-}
 
 /* placeholder */
 .placeholder-box {
@@ -246,8 +229,6 @@ output {
  * popovers
  */
 .ws-popover {
-	@extend %contentbox;
-	
 	font-size: 13px;
 	display: block;
 	visibility: hidden;
@@ -270,7 +251,10 @@ output {
 	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 	direction: ltr;
 	-webkit-tap-highlight-color: transparent;
-	
+
+	&.ws-popover-constrained-width {
+		box-sizing: content-box;
+	}
 	&.ws-is-rtl {
 		direction: rtl;
 		margin: 0 0 0 em(12);
@@ -284,6 +268,12 @@ output {
 		visibility: visible;
 		display: block;
 	}
+}
+
+.ws-popinline {
+	position: relative;
+	visibility: visible;
+	display: none;
 }
 
 .ws-po-outerbox {
@@ -318,9 +308,8 @@ output {
 .ws-po-box {
 	border: em(1) solid #ccc;
 	background: #fff;
+	color: #000;
 	padding: em(5) em(5) em(3);
-	border-radius: em(3);
-	box-shadow: 0 em(1) em(5) rgba(0, 0, 0, 0.25);
 	
 	
 	button {
@@ -418,7 +407,7 @@ input[data-wslist]::-webkit-calendar-picker-indicator {
 }
 
 .datalist-polyfill {
-	position: absolute !important;
+	position: absolute;
 	
 	.ws-po-box {
 		padding: em(5) 0;
@@ -562,19 +551,12 @@ progress {
 	-moz-box-sizing: border-box;
 	box-sizing: border-box;
 	vertical-align: -0.2em;
-	
-	> * {
-		display: none !important;
-	}
-	
-	&[data-position],
+
 	&.ws-style {
 	
 		@include progress {
 			border: 1px solid #ddd;
 			background: #f0f0f0;
-			box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) inset;
-			border-radius: 4px;
 		}
 		
 		> span.progress-value {
@@ -591,7 +573,6 @@ progress {
 			top: 0;
 			bottom: 0;
 			height: 100%;
-			box-shadow: 0 -1px 1px rgba(0, 0, 0, 0.15) inset;
 			background: #0063a6 url(progress.png);
 			border: 0;
 		}
@@ -645,7 +626,6 @@ summary.summary-has-focus {
 
 	> button,
 	> input {
-		-moz-box-sizing: border-box;
 		box-sizing: border-box;
 		cursor: pointer;
 	}

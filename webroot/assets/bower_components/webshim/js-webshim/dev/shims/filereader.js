@@ -109,12 +109,6 @@ webshim.register('filereader', function($, webshim, window, document, undefined,
 					}
 
 					return inputValueDesc.prop._supget.call(this);
-				},
-				set: function(val){
-					if(val === '' && this.type == 'file' && $(this).hasClass('ws-filereader')){
-						webshim.data(this, 'fileList', []);
-					}
-					inputValueDesc.prop._supset.call(this);
 				}
 			}
 		}
@@ -312,10 +306,10 @@ webshim.register('filereader', function($, webshim, window, document, undefined,
 	}
 
 	if(!featureOptions.swfpath){
-		featureOptions.swfpath = shimMoxiePath+'flash/Moxie.cdn.swf';
+		featureOptions.swfpath = shimMoxiePath+'flash/Moxie.min.swf';
 	}
 	if(!featureOptions.xappath){
-		featureOptions.xappath = shimMoxiePath+'silverlight/Moxie.cdn.xap';
+		featureOptions.xappath = shimMoxiePath+'silverlight/Moxie.min.xap';
 	}
 
 	if($.support.cors !== false || !window.XDomainRequest){
@@ -365,6 +359,13 @@ webshim.register('filereader', function($, webshim, window, document, undefined,
 		}
 	});
 
+	webshim.onNodeNamesPropertyModify('input', 'value', function(value, boolVal, type){
+		if(value === '' && this.type == 'file' && $(this).hasClass('ws-filereader')){
+			webshim.data(this, 'fileList', []);
+		}
+	});
+
+
 	window.FileReader = notReadyYet;
 	window.FormData = notReadyYet;
 	webshim.ready('moxie', function(){
@@ -399,7 +400,7 @@ webshim.register('filereader', function($, webshim, window, document, undefined,
 					if(inputName && !$(appendData[i]).is(':disabled')){
 						files = $.prop(appendData[i], 'files') || [];
 						if(files.length){
-							if(files.length > 1){
+							if(files.length > 1 || (moxieData.hasBlob && moxieData.hasBlob())){
 								webshim.error('FormData shim can only handle one file per ajax. Use multiple ajax request. One per file.');
 							}
 							for(fileI = 0, fileLen = files.length; fileI < fileLen; fileI++){

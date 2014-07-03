@@ -583,6 +583,7 @@ webshims.register('form-shim-extend2', function($, webshims, window, document, u
 					} else {
 						webshims.info("you should use label elements for your prgogress elements");
 					}
+					$(this).addClass('ws-style');
 					if($(this).css('direction') == 'rtl'){
 						$(this).addClass('ws-is-rtl');
 					}
@@ -1200,7 +1201,7 @@ webshims.register('form-shim-extend2', function($, webshims, window, document, u
 
 
 				}
-			;
+				;
 			var observe = function(newInput){
 				unbind();
 
@@ -1339,12 +1340,6 @@ webshims.register('form-shim-extend2', function($, webshims, window, document, u
 					}
 
 					return inputValueDesc.prop._supget.call(this);
-				},
-				set: function(val){
-					if(val === '' && this.type == 'file' && $(this).hasClass('ws-filereader')){
-						webshim.data(this, 'fileList', []);
-					}
-					inputValueDesc.prop._supset.call(this);
 				}
 			}
 		}
@@ -1542,10 +1537,10 @@ webshims.register('form-shim-extend2', function($, webshims, window, document, u
 	}
 
 	if(!featureOptions.swfpath){
-		featureOptions.swfpath = shimMoxiePath+'flash/Moxie.cdn.swf';
+		featureOptions.swfpath = shimMoxiePath+'flash/Moxie.min.swf';
 	}
 	if(!featureOptions.xappath){
-		featureOptions.xappath = shimMoxiePath+'silverlight/Moxie.cdn.xap';
+		featureOptions.xappath = shimMoxiePath+'silverlight/Moxie.min.xap';
 	}
 
 	if($.support.cors !== false || !window.XDomainRequest){
@@ -1595,6 +1590,13 @@ webshims.register('form-shim-extend2', function($, webshims, window, document, u
 		}
 	});
 
+	webshim.onNodeNamesPropertyModify('input', 'value', function(value, boolVal, type){
+		if(value === '' && this.type == 'file' && $(this).hasClass('ws-filereader')){
+			webshim.data(this, 'fileList', []);
+		}
+	});
+
+
 	window.FileReader = notReadyYet;
 	window.FormData = notReadyYet;
 	webshim.ready('moxie', function(){
@@ -1629,7 +1631,7 @@ webshims.register('form-shim-extend2', function($, webshims, window, document, u
 					if(inputName && !$(appendData[i]).is(':disabled')){
 						files = $.prop(appendData[i], 'files') || [];
 						if(files.length){
-							if(files.length > 1){
+							if(files.length > 1 || (moxieData.hasBlob && moxieData.hasBlob())){
 								webshim.error('FormData shim can only handle one file per ajax. Use multiple ajax request. One per file.');
 							}
 							for(fileI = 0, fileLen = files.length; fileI < fileLen; fileI++){
