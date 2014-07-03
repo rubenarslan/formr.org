@@ -273,5 +273,31 @@ $(function($){
 			enable();
 		});
 	})();
+
+	$('.theme-switcher').each(function(){
+		var $options = [$('<option>none</option>')[0]];
+		var changeStyleshett = function(){
+			var styleSheet = $.data(this, 'stylesheet');
+			if(styleSheet){
+				styleSheet.disabled = !$.prop(this, 'selected');
+			}
+		};
+		var update = function(){
+			$options.each(changeStyleshett);
+			$(document).trigger('updatelayout');
+		};
+		$('link[rel*="alternate"][title]').each(function(){
+			var $option = $('<option>'+ this.title +'</option>').data('stylesheet', this);
+			if($(this).data('defaultstyle') != null){
+				$option.attr('selected', 'selected');
+			}
+			this.disabled = true;
+			$options.push($option[0]);
+		});
+		$options = $($options);
+		setTimeout(update);
+		webshims.ready('WINDOWLOAD', update);
+		$(this).append($options).on('change', update);
+	});
 });
 });

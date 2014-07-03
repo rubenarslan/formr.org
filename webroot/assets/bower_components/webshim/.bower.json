@@ -1,14 +1,13 @@
 {
   "name": "webshim",
   "homepage": "https://github.com/aFarkas/webshim",
-  "version": "1.14.1",
-  "_release": "1.14.1",
+  "version": "1.14.3",
+  "_release": "1.14.3",
   "_resolution": {
     "type": "version",
-    "tag": "1.14.1",
-    "commit": "4ee8bdddcf5cbf6769f6c9fb6a148ad7348e4313"
+    "tag": "1.14.3",
+    "commit": "689fc816d6d40b12f43ffc4867cbeda28ab4e74c"
   },
   "_source": "git://github.com/aFarkas/webshim.git",
-  "_target": "1.*",
-  "_originalSource": "git://github.com/aFarkas/webshim.git"
+  "_target": "1.*"
 }

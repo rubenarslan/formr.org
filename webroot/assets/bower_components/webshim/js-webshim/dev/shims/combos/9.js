@@ -1232,6 +1232,23 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		return val * 1;
 	};
 	var createOpts = ['step', 'min', 'max', 'readonly', 'title', 'disabled', 'tabindex'];
+	var normalizeTouch = (function(){
+		var types = {
+			touchstart: 1,
+			touchend: 1,
+			touchmove: 1
+		};
+		var normalize = ['pageX', 'pageY'];
+		return function(e){
+			if(types[e.type] && e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length){
+				for(var i = 0; i < normalize.length; i++){
+					e[normalize[i]] = e.originalEvent.touches[0][normalize[i]];
+				}
+
+			}
+			return e;
+		};
+	})();
 	var rangeProto = {
 		_create: function(){
 			var i;
@@ -1550,23 +1567,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 				};
 			})();
-			var normalizeTouch = (function(){
-				var types = {
-					touchstart: 1,
-					touchend: 1,
-					touchmove: 1
-				};
-				var normalize = ['pageX', 'pageY'];
-				return function(e){
-					if(types[e.type] && e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length){
-						for(var i = 0; i < normalize.length; i++){
-							e[normalize[i]] = e.originalEvent.touches[0][normalize[i]];
-						}
-						
-					}
-					return e;
-				};
-			})();
+
 			var updateValue = function(val, animate){
 				if(val != o.value){
 					that.value(val, false, animate);
@@ -1586,7 +1587,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 			};
 			var remove = function(e){
-				if(e && e.type == 'mouseup'){
+				if(e && (e.type == 'mouseup' || e.type == 'touchend')){
 					eventTimer.call('input', o.value);
 					eventTimer.call('change', o.value);
 				}
@@ -1607,6 +1608,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				$(document).off('mousemove touchmove', setValueFromPos).off('mouseup touchend', remove);
 				$(window).off('blur', removeWin);
 				if(!o.readonly && !o.disabled){
+					eventTimer.init('input', o.value);
+					eventTimer.init('change', o.value);
 					normalizeTouch(e);
 					that.element.trigger('focus');
 					that.addRemoveClass('ws-active', true);
@@ -1642,8 +1645,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				'touchstart mousedown': add,
 				focus: function(e){
 					if(!o.disabled && !hasFocus){
-						eventTimer.init('input', o.value);
-						eventTimer.init('change', o.value);
+						if(!isActive){
+							eventTimer.init('input', o.value);
+							eventTimer.init('change', o.value);
+						}
 						that.addRemoveClass('ws-focus', true);
 						that.updateMetrics();
 					}
@@ -1829,6 +1834,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			obj._create.call(obj);
 		});
 	};
+	$.fn.rangeUI.normalizeTouch = normalizeTouch;
 	if(window.webshims && webshims.isReady){
 		webshims.isReady('range-ui', true);
 	}
@@ -2536,11 +2542,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				if( steps[this.type] && typeof steps[this.type].start == 'object'){
 					steps[this.type].start = this.asNumber(steps[this.type].start);
 				}
-				
-				if(!webshims.picker[this.type]){
-					o.buttonOnly = false;
-				}
-				
+
 				for(i = 0; i < createOpts.length; i++){
 					if(o[createOpts[i]] != null){
 						this[createOpts[i]](o[createOpts[i]], o[createOpts[i]]);
@@ -2770,7 +2772,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				wsWidgetProto._create.apply(this, arguments);
 				this._init = false;
 				
-				this.buttonWrapper.html('<span unselectable="on" class="step-controls"><span class="step-up"></span><span class="step-down"></span></span>');
+				this.buttonWrapper.html('<span unselectable="on" class="step-controls"><span class="step-up step-control"></span><span class="step-down step-control"></span></span>');
 				
 				if(this.type == 'number'){
 					this.inputElements.attr('inputmode', 'numeric');
@@ -2953,7 +2955,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 
 					touch = changedTouches[0];
-					if(Math.abs(touchData.x - touch.pageX) > 40 || Math.abs(touchData.y - touch.pageY) > 40 || Date.now() - touchData.now > 600){
+					if(Math.abs(touchData.x - touch.pageX) > 40 || Math.abs(touchData.y - touch.pageY) > 40 || Date.now() - touchData.now > 300){
 						return;
 					}
 					e.preventDefault();
@@ -3151,7 +3153,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 				};
 				return function(prop){
-					if(prop == 'value' && !data.options.inlinePicker){return;}
+					if(prop == 'value' && (!data.options.inlinePicker || data._handledValue )){return;}
 					popover.isDirty = true;
 					
 					if(popover.isVisible){
@@ -3210,6 +3212,13 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 				show();
 			};
+			var toogle = function(){
+				if(popover.openedByFocus || !popover.isVisible){
+					open();
+				} else {
+					popover.hide();
+				}
+			}
 			
 			
 			options.containerElements.push(popover.element[0]);
@@ -3250,7 +3259,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}
 			
 			
-			opener.wsTouchClick(open);
+			opener.wsTouchClick(toogle);
 			
 			if(options.inlinePicker){
 				popover.openedByFocus = true;
@@ -3602,9 +3611,9 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 				
 				data.shim.element.on('change input', stopPropagation).addClass(cNames+' '+webshims.shadowClass);
-				
+
 				if(data.shim.buttonWrapper){
-					
+
 					data.shim.buttonWrapper.addClass('input-button-size-'+(data.shim.buttonWrapper.children().filter(isVisible).length)+' '+webshims.shadowClass);
 					
 					if(data.shim.buttonWrapper.filter(isVisible).length){
@@ -3761,6 +3770,32 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				;
 			});
 		};
+
+
+		if($('<input />').prop('labels') == null){
+			webshims.defineNodeNamesProperty('button, input, keygen, meter, output, progress, select, textarea', 'labels', {
+				prop: {
+					get: function(){
+						if(this.type == 'hidden'){return null;}
+						var id = this.id;
+						var labels = $(this)
+								.closest('label')
+								.filter(function(){
+									var hFor = (this.attributes['for'] || {});
+									return (!hFor.specified || hFor.value == id);
+								})
+							;
+
+						if(id) {
+							labels = labels.add('label[for="'+ id +'"]');
+						}
+						return labels.get();
+					},
+					writeable: false
+				}
+			});
+		}
+
 		if(formcfg._isLoading){
 			$(formcfg).one('change', init);
 		} else {

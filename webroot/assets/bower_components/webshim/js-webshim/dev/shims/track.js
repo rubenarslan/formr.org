@@ -294,6 +294,26 @@ webshims.register('track', function($, webshims, window, document, undefined){
 			return cueText.replace(tagSplits, replacer);
 		};
 	})();
+	var mapTtmlToVtt = function(i){
+		var content = i+'';
+		var begin = this.getAttribute('begin') || '';
+		var end = this.getAttribute('end') || '';
+		var text = $.trim($.text(this));
+		if(!/\./.test(begin)){
+			begin += '.000';
+		}
+		if(!/\./.test(end)){
+			end += '.000';
+		}
+		content += '\n';
+		content += begin +' --> '+end+'\n';
+		content += text;
+		return content;
+	};
+	var ttmlTextToVTT = function(ttml){
+		ttml = $.parseXML(ttml) || [];
+		return $(ttml).find('[begin][end]').map(mapTtmlToVtt).get().join('\n\n') || '';
+	};
 	
 	mediaelement.loadTextTrack = function(mediaelem, track, trackData, _default){
 		var loadEvents = 'play playing';
@@ -321,7 +341,11 @@ webshims.register('track', function($, webshims, window, document, undefined){
 								dataType: 'text',
 								url: src,
 								success: function(text){
-									if(ajax.getResponseHeader('content-type') != 'text/vtt'){
+									var contentType = ajax.getResponseHeader('content-type');
+
+									if(!contentType.indexOf('application/xml')){
+										text = ttmlTextToVTT(text);
+									} else if(contentType.indexOf('text/vtt')){
 										webshims.error('set the mime-type of your WebVTT files to text/vtt. see: http://dev.w3.org/html5/webvtt/#text/vtt');
 									}
 									mediaelement.parseCaptions(text, obj, function(cues){
@@ -441,25 +465,20 @@ modified for webshims
 */
 	mediaelement.parseCaptionChunk = (function(){
 		// Set up timestamp parsers
-		var WebVTTTimestampParser			= /^(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s+\-\-\>\s+(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s*(.*)/;
+		var WebVTTTimestampParser		= /^(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s+\-\-\>\s+(\d{2})?:?(\d{2}):(\d{2})\.(\d+)\s*(.*)/;
 		var WebVTTDEFAULTSCueParser		= /^(DEFAULTS|DEFAULT)\s+\-\-\>\s+(.*)/g;
 		var WebVTTSTYLECueParser		= /^(STYLE|STYLES)\s+\-\-\>\s*\n([\s\S]*)/g;
 		var WebVTTCOMMENTCueParser		= /^(COMMENT|COMMENTS)\s+\-\-\>\s+(.*)/g;
+		var SRTTimestampParser			= /^(\d{2})?:?(\d{2}):(\d{2})[\.\,](\d+)\s+\-\-\>\s+(\d{2})?:?(\d{2}):(\d{2})[\.\,](\d+)\s*(.*)/;
 
 		return function(subtitleElement,objectCount){
 
-			var subtitleParts, timeIn, timeOut, html, timeData, subtitlePartIndex, id, specialCueData;
+			var subtitleParts, timeIn, timeOut, html, timeData, subtitlePartIndex, id;
 			var timestampMatch, tmpCue;
 
 			// WebVTT Special Cue Logic
-			if (WebVTTDEFAULTSCueParser.exec(subtitleElement)) {
-//				cueDefaults = specialCueData.slice(2).join("");
-//				cueDefaults = cueDefaults.split(/\s+/g).filter(function(def) { return def && !!def.length; });
+			if (WebVTTDEFAULTSCueParser.exec(subtitleElement) || WebVTTCOMMENTCueParser.exec(subtitleElement) || WebVTTSTYLECueParser.exec(subtitleElement)) {
 				return null;
-			} else if ((specialCueData = WebVTTSTYLECueParser.exec(subtitleElement))) {
-				return null;
-			} else if ((specialCueData = WebVTTCOMMENTCueParser.exec(subtitleElement))) {
-				return null; // At this stage, we don't want to do anything with these.
 			}
 
 			subtitleParts = subtitleElement.split(/\n/g);
@@ -477,7 +496,7 @@ modified for webshims
 			for (subtitlePartIndex = 0; subtitlePartIndex < subtitleParts.length; subtitlePartIndex ++) {
 				var timestamp = subtitleParts[subtitlePartIndex];
 
-				if ((timestampMatch = WebVTTTimestampParser.exec(timestamp))) {
+				if ((timestampMatch = WebVTTTimestampParser.exec(timestamp)) || (timestampMatch = SRTTimestampParser.exec(timestamp))) {
 
 					// WebVTT
 
@@ -564,11 +583,6 @@ modified for webshims
 					if(regWevVTT.test(cue)){
 						isWEBVTT = true;
 					} else if(cue.replace(/\s*/ig,"").length){
-						if(!isWEBVTT){
-							webshims.error('please use WebVTT format. This is the standard');
-							complete(null);
-							break;
-						}
 						cue = mediaelement.parseCaptionChunk(cue, i);
 						if(cue){
 							track.addCue(cue);

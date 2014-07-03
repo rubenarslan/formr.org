@@ -17,7 +17,7 @@
 		<script src="../js-webshim/minified/polyfiller.js"></script>
 
 		<script>
-			webshims.polyfill();
+			webshim.polyfill();
 			// load all available polyfills
 		</script>
 
@@ -29,7 +29,7 @@
 
 		<div id="sidebar" class="interface">
 
-			<a class="toc_title"> Webshim <span class="version">(<span class="ws-version">1.14.1</span>)</span></a>
+			<a class="toc_title"> Webshim <span class="version">(<span class="ws-version">1.14.3</span>)</span></a>
 			<ul class="toc_section">
 				<li>
 					&raquo; <a href="https://github.com/aFarkas/webshim">GitHub Repository</a>
@@ -138,13 +138,9 @@
 
 			<h3 id="downloads">Downloads &amp; Dependencies</h3>
 			<span style="padding-left: 7px; font-size:11px; font-weight: normal;" class="interface">(Right-click, and use "Save As")</span>
-
-			<table>
-				<tr>
-					<td><a href="https://github.com/aFarkas/webshim/archive/1.14.0.zip" class="download-button"> <strong><i>Version <span class="ws-version">1.14.1</span></i></strong> </a></td>
-					<td class="text"></td>
-				</tr>
-			</table>
+			<p>
+				<a href="https://github.com/aFarkas/webshim/archive/1.14.3.zip" class="download-button"> <strong><i>Download</i></strong> </a>
+			</p>
 
 			<p>
 				Webshim depends on <a href="http://jquery.com/">jQuery</a> and <a href="http://www.modernizr.com/">Modernizr</a>.
@@ -177,10 +173,10 @@
 &lt;script src="js-webshim/minified/polyfiller.js"&gt;&lt;/script&gt;
   
 &lt;script&gt;
-  //webshims.setOptions('basePath', '/js-webshim/minified/shims/');
+  //webshim.setOptions('basePath', '/js-webshim/minified/shims/');
 
   //request the features you need:
-  webshims.polyfill('es5 mediaelement forms');
+  webshim.polyfill('es5 mediaelement forms');
   
   $(function(){
     // use all implemented API-features on DOM-ready
@@ -192,7 +188,7 @@
 			<p>
 				The polyfill method accepts an optional whitespace-separated feature list. Call it as soon as possible (before DOM ready.)
 				<code class="i">
-					webshims.polyfill( "canvas geolocation" );
+					webshim.polyfill( "canvas geolocation" );
 				</code>
 			</p>
 				<strong>Available Features</strong>
@@ -248,7 +244,7 @@
 
 			<p>
 				The available options for <code class="i">
-					webshims.setOptions</code>
+					webshim.setOptions</code>
 				:
 			</p>
 			<ul>
@@ -262,7 +258,7 @@
 					<strong>basePath</strong> The path to your shims folder. This is computed dynamically. <a href="#Requirejs-setup">More information</a>. Example:
 					<br>
 					<code class="i">
-						webshims.setOptions('basePath', '/yourFolderTo/shims/');
+						webshim.setOptions('basePath', '/yourFolderTo/shims/');
 					</code>
 					<br>
 					<em>default: computed path to shims folder</em>
@@ -270,7 +266,7 @@
 				<li>
 					<strong>waitReady</strong> Setting this to true delays jQuery's ready-event until all polyfilled features are ready. This option should be set to false, if webshims lib polyfiller.js is loaded asynchronously. This option can also be set to false, if a website is using only HTML5 markup APIs (pure HTML or $.attr) and
 					doesn't use any DOM-/JS-APIs on DOM-ready. If this feature is set to false, scripted access to polyfilled APIs have to be added inside of a <code class="i"><a href="#Guide-fire-when-ready">
-						webshims.ready</a></code>
+						webshim.ready</a></code>
 					callback.
 					<br>
 					<em>default: true</em>
@@ -294,9 +290,9 @@
 			</ul>
 <pre><code class="language-javascript">
 // enhanceAuto will be false for devices smaller than 720px (i.e. Smartphones or for devices smaller than 1024px and with touchevents (i.e.: Tablets)
-webshims.setOptions('enhanceAuto', !(matchMedia('(max-device-width: 720px)').matches || matchMedia('(max-device-width: 1024px)').matches && Modernizr.touchevents) );
+webshim.setOptions('enhanceAuto', !(matchMedia('(max-device-width: 720px)').matches || matchMedia('(max-device-width: 1024px)').matches && Modernizr.touchevents) );
 
-webshims.setOptions({
+webshim.setOptions({
 	'forms-ext': {
 		replaceUI: 'auto'
 	},
@@ -307,7 +303,7 @@ webshims.setOptions({
 
 //webshims will implement those features in all browsers/devices
 // but will only enhance capable browsers on desktop with custom styleable mediaelement controls and form widgets
-webshims.polyfill('forms forms-ext mediaelement');
+webshim.polyfill('forms forms-ext mediaelement');
 </code></pre>
 
 			<p>
@@ -316,7 +312,7 @@ webshims.polyfill('forms forms-ext mediaelement');
 				can also take a single options parameter:
 			</p>
 			<pre><code class="language-javascript">
-webshims.setOptions({
+webshim.setOptions({
   extendNative: true
 });
 </code></pre>
@@ -324,7 +320,7 @@ webshims.setOptions({
 				Feature specific options are nested options with the feature name as their key.
 			</p>
 			<pre><code class="language-javascript">
-webshims.setOptions({
+webshim.setOptions({
   // configure generally option
   extendNative: true,
 
@@ -368,11 +364,11 @@ $(document).ready(function(){
 				option to <code class="i">
 					false</code>
 				, you can use <code class="i">
-					webshims.ready</code>
+					webshim.ready</code>
 				and pass the feature name(s) and a callback function:
 			</p>
 			<pre><code class="language-javascript">
-webshims.ready('geolocation es5', function(){
+webshim.ready('geolocation es5', function(){
   // work with geolocation and es5
 });
 </code></pre>
@@ -380,7 +376,7 @@ webshims.ready('geolocation es5', function(){
 				Note that this callback function may be called before the DOM is ready. If you want to use a feature after DOM-Ready, simply pass the string 'DOM':
 			</p>
 			<pre><code class="language-javascript">
-webshims.ready('DOM canvas', function(){
+webshim.ready('DOM canvas', function(){
   // work with canvas in the document
 });
 </code></pre>
@@ -456,8 +452,8 @@ $('video').callProp('addTextTrack', ['subtitles', 'just a test', 'en']);
 						.
 					</p>
 					<pre><code class="language-javascript">
-webshims.setOptions('extendNative', true);
-webshims.polyfill('forms');
+webshim.setOptions('extendNative', true);
+webshim.polyfill('forms');
 // ...
 this.checkValidity()  // or use $(this).callProp('checkValidity')
 
@@ -660,9 +656,9 @@ $('#my-dynamic-container').load('ajax/test.html', function(){
 				<h4>jQuery mobile example</h4>
 				<pre><code class="language-javascript">
 //set waitReady to false
-webshims.setOptions('waitReady', false);
-// call webshims.polyfill() before domready
-webshims.polyfill();
+webshim.setOptions('waitReady', false);
+// call webshim.polyfill() before domready
+webshim.polyfill();
 
 // bind to the pageinit event after domready...
 $(document).on('pageinit', function(e){
@@ -712,7 +708,7 @@ $(document).on('pageinit', function(e){
 				Note: All methods added to the prototype object are visible inside of a for in loop, while native implementations aren't enumerable. (use hasOwnProperty)
 			</p>
 			<pre><code class="language-javascript">
-webshims.ready('es5', function(){
+webshim.ready('es5', function(){
     [1, 2, 3].forEach(function(){
         // do stuff
     });
@@ -721,23 +717,23 @@ webshims.ready('es5', function(){
 			<h3>Abstractions</h3>
 			<p>
 				Webshims Lib adds the following methods: <code class="i">
-					webshims.objectCreate</code>
+					webshim.objectCreate</code>
 				, <code class="i">
-					webshims.defineProperty</code>
+					webshim.defineProperty</code>
 				, <code class="i">
-					webshims.defineProperties</code>
+					webshim.defineProperties</code>
 				, <code class="i">
-					webshims.getOwnPropertyDescriptor</code>
+					webshim.getOwnPropertyDescriptor</code>
 				and corresponding support flags: <code class="i">
 					Modernizr.objectAccessor</code>
 				(true in all modern Browsers including IE9, getters and setters can be used on all objects) and <code class="i">
 					Modernizr.advancedObjectProperties</code>
 				(true in FF4, IE9, Chrome 10..., the full ES5 specification of defineProperty is implemented (including writeable, enumerable and configurable).
 			</p>
-			<h4>webshims.objectCreate(proto [, propertiesObject, options ])</h4>
+			<h4>webshim.objectCreate(proto [, propertiesObject, options ])</h4>
 			<p>
 				<code class="i">
-					webshims.objectCreate</code>
+					webshim.objectCreate</code>
 				works very similar to <a href="https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Object/create">Object.create</a>
 			</p>
 			<p>
@@ -755,7 +751,7 @@ webshims.ready('es5', function(){
 				-Method on the <code class="i">
 					proto</code>
 				-object and then calls <code class="i">
-					webshims.defineProperties</code>
+					webshim.defineProperties</code>
 				with the returned object and the <code class="i">
 					propertiesObject</code>
 				.
@@ -828,10 +824,10 @@ var myCar = Object.create(carProto, {
     isDriving: true
 }
 </code></pre>
-			<h4>webshims.defineProperties (object, props)</h4>
+			<h4>webshim.defineProperties (object, props)</h4>
 			<p>
 				<code class="i">
-					webshims.defineProperties</code>
+					webshim.defineProperties</code>
 				works similar to <a href="https://developer.mozilla.org/en/JavaScript/Reference/global_objects/object/defineproperties">Object.defineProperties</a>
 			</p>
 			<p>
@@ -912,17 +908,20 @@ var myCar = Object.create(carProto, {
 					forms</code> Options</h3>
 			<p>A typical configuration would look like this:</p>
 <pre><code class="language-javascript">
-webshims.setOptions("forms", {
+webshim.setOptions("forms", {
 	lazyCustomMessages: true,
 	replaceValidationUI: true,
 	customDatalist: "auto",
 	list: {
 		"filter": "^"
 	}
-});</code></pre>
+});
+
+webshim.polyfill('forms');
+</code></pre>
 			<ul>
 				<li>
-					<strong><a href="demos/forms.html#Locale-customMessages">customMessages</a></strong> <em>boolean</em> If set to true, Webshims will implement a DOM-Property called customValidationMessage, which can be changed through the webshims.validityMessages-Array.
+					<strong><a href="demos/forms.html#Locale-customMessages">customMessages</a></strong> <em>boolean</em> If set to true, Webshims will implement a DOM-Property called customValidationMessage, which can be changed through the webshim.validityMessages-Array.
 					<br>
 					<em>default: false</em>
 				</li>
@@ -943,7 +942,7 @@ webshims.setOptions("forms", {
 					<br>
 					<em>default: </em>
 <pre><code class="language-javascript">
-webshims.setOptions("forms", {
+webshim.setOptions("forms", {
 	iVal: {
 		"sel": ".ws-validate",
 		"handleBubble": "hide",
@@ -975,7 +974,7 @@ webshims.setOptions("forms", {
 					<br>
 					<em>default:</em>
 <pre><code class="language-javascript">
-webshims.setOptions("forms", {
+webshim.setOptions("forms", {
 	list: {
 		"filter": "*",
 		"multiple": false,
@@ -1009,9 +1008,9 @@ webshims.setOptions("forms", {
 					<em>default: date time range number</em>
 				</li>
 				<li>
-					<strong>widgets</strong> <em>object</em> widgets is a general options object for all input widgets. <a href="http://jsfiddle.net/trixta/VNuct/">example with different form widgets</a>
+					<strong>widgets</strong> <em>object</em> widgets is a general options object for all input widgets. <a href="http://afarkas.github.io/webshim/demos/demos/themes/themes.html">example widgets with different themes</a>, <a href="http://jsfiddle.net/trixta/VNuct/">example widgets with different configurations</a>
 <pre><code class="language-javascript">
-webshims.setOptions("forms-ext", {
+webshim.setOptions("forms-ext", {
 	"widgets": {
 		"startView": 0,
 		"minView": 0,
@@ -1058,7 +1057,38 @@ webshims.setOptions("forms-ext", {
 					<strong>datetime-local</strong> <em>object</em> Overrides widgets option object, can be also configured through data-color attribute (<a href="demos/cfgs/input-datetime-local.html">datetimepicker Configurator</a>)
 				</li>
 			</ul>
+			<p>A typical configuration would look like this:</p>
+<pre><code class="language-javascript">
+//configure forms features
+webshim.setOptions("forms", {
+	lazyCustomMessages: true,
+	replaceValidationUI: true,
+	customDatalist: "auto",
+	list: {
+		"filter": "^"
+	}
+});
 
+//configure forms-ext features
+webshim.setOptions("forms-ext", {
+	replaceUI: "auto",
+	types: "date range number",
+	date: {
+		startView: 2,
+		openOnFocus: true,
+		classes: "show-week"
+	},
+	number: {
+		calculateWidth: false
+	},
+	range: {
+		classes: "show-activevaluetooltip"
+	}
+});
+
+//load forms and forms-ext features
+webshim.polyfill('forms forms-ext');
+</code></pre>
 			<h3 id="Forms-extensions">Extensions</h3>
 			<ul>
 				<li>
@@ -1102,8 +1132,8 @@ webshims.setOptions("forms-ext", {
 					<strong>attribute: data-errormessage or -x-moz-errormessage</strong>: Attribute with text, which is used be custom validityAlert/customValidationMessage to show a custom error message for the field.
 				</li>
 				<li>
-					<strong>helper method: webshims.validityAlert.showFor</strong>: takes a DOM-Object/Selector/jQuery-Object and shows the invalid message for this element. (simply look into the prototype i.e. <code class="i">
-						console.log(webshims.validityAlert)</code>
+					<strong>helper method: webshim.validityAlert.showFor</strong>: takes a DOM-Object/Selector/jQuery-Object and shows the invalid message for this element. (simply look into the prototype i.e. <code class="i">
+						console.log(webshim.validityAlert)</code>
 					to make changes)
 				</li>
 			</ul>
@@ -1130,13 +1160,16 @@ ctx.fillRect(30, 30, 55, 50);
 				Webshim Lib can implement <a href="http://code.google.com/p/explorercanvas/">excanvas</a> or <a href="http://flashcanvas.net/">FlashCanvas (default)/FlashCanvas Pro</a>:
 			</p>
 			<pre><code class="language-javascript">
-// always run configuration before calling webshims.polyfill();
+// always run configuration before calling webshim.polyfill();
 window.FlashCanvasOptions = {
 	disableContextMenu: true
 };
-webshims.setOptions('canvas', {
+webshim.setOptions('canvas', {
 	type: 'flashpro' // excanvas | flash | flashpro
 });
+
+//start polyfilling forms
+webshim.polyfill('forms');
 </code></pre>
 			<h3>Options for the <code class="i">
 				canvas</code> feature</h3>
@@ -1257,8 +1290,8 @@ webshims.setOptions('canvas', {
 &lt;/style&gt;
 
 &lt;script&gt;
-	webshims.setOptions('mediaelement', {replaceUI: 'auto'});
-	webshims.polyfill('mediaelement');
+	webshim.setOptions('mediaelement', {replaceUI: 'auto'});
+	webshim.polyfill('mediaelement');
 &lt;/script&gt;
 
 &lt;div class="mediaplayer"&gt;
@@ -1266,6 +1299,7 @@ webshims.setOptions('canvas', {
 	&lt;/video&gt;
 &lt;/div&gt;
 </code></pre>
+			<p>Here you can find more informations about <a href="demos/mediaelement.html">customizing controls and extending the mediaplayer's behavior</a>.</p>
 			<h4>Examples/Demos</h4>
 			<ul>
 				<li><a href="http://fiddle.jshell.net/trixta/VvmmC/show/light/">Player with some custom controls using input[type="range"]</a></li>
@@ -1360,7 +1394,7 @@ webshims.setOptions('canvas', {
 				</li>
 			</ul>
 			<pre><code class="language-javascript">
-webshims.setOptions('geolocation', {
+webshim.setOptions('geolocation', {
     confirmText: '{location} wants to know your position. It is Ok to press Ok.'
 });
 </code></pre>
@@ -1418,7 +1452,7 @@ $('details:first').prop('open', !$('details').prop('open') );
 				</li>
 			</ul>
 			<pre class="runnable"><code class="language-javascript">
-webshims.setOptions('details', {animate: true});
+webshim.setOptions('details', {animate: true});
 </code></pre>
 			
 
@@ -1451,7 +1485,7 @@ webshims.setOptions('details', {animate: true});
 			</ul>
 			<ul>
 				<li><small>1. [accept], [multiple] and the .files property is only polyfilled on input elements with the additional class 'ws-filereader'</small></li>
-				<li><small>2. For most of the features Flash or Silverliegt has to be installed. But webshim trys to fallback to other technologies (i.e.: iframe solution), if those aren't installed. Therefore for full CORS support a crossdomain.xml has to be on the server!</small></li>
+				<li><small>2. For full support of all features Flash or Silverliegt should be installed. But webshim falls back to other technologies (i.e.: iframe solutions), if those aren't installed. Therefore for full CORS support a crossdomain.xml has to be on the server!</small></li>
 				<li><small>3. FormData shim can currently only handle one file per AJAX request!</small></li>
 			</ul>
 			<p>An example of how to read a file as a base64 string from a form control:</p>
@@ -1461,7 +1495,7 @@ webshims.setOptions('details', {animate: true});
 </code></pre>
 			<pre><code class="language-javascript">
 //load the filereader
-webshims.polyfill('filereader');
+webshim.polyfill('filereader');
 
 //on DOM ready filereader is shimmed
 $(function(){
@@ -1504,12 +1538,28 @@ $('form[data-action].ajax-form').on('submit', function(){
 });
 </code></pre>
 			<p>For the code above to fully work it is important, that everything is either in the same origin or a crossdomain.xml is on the server. A featured example including php code can be found in the <a href="demos/filereader/">filereader directory</a>.</p>
-
-			<p>The <code class="i">filereader</code> is also lazy loaded by webhsim's <code class="i">form</code> feature as soon as an element matching the <code>input.ws-filereader</code> selector is used. Additionally the forms features enables custom styleable [type=file] elements if it find a wrapper with the class <code class="i">ws-custom-file</code>:</p>
+			<p>In case webshim is not served from the same domain (for exmaple using a <a href="http://www.jsdelivr.com/#!webshim">CDN</a>) a crossdomain.xml like the following should be reachable on your server root:</p>
+<pre><code class="language-markup">
+&lt;?xml version="1.0"?&gt;
+&lt;!DOCTYPE cross-domain-policy SYSTEM
+"http://www.macromedia.com/xml/dtds/cross-domain-policy.dtd"&gt;
+&lt;cross-domain-policy&gt;
+	&lt;allow-access-from domain="*" secure="false" /&gt;
+&lt;/cross-domain-policy&gt;
+</code>
+</pre>
+			<p>In case you don't have full access to your server's root to do so, you can host Moxie.min.swf (Flash) and Moxie.min.xap (Silverlight) on your server and tell webshim to load them from there:</p>
+<pre><code class="language-javascript">
+webshim.setOptions('filereader', {
+	swfpath: '/assests/Moxie.min.swf',
+	xappath: '/assets/Moxie.min.xap'
+});
+</code></pre>
+			<p>The <code class="i">filereader</code> feature is also lazy loaded by webhsim's <code class="i">form</code> feature as soon as an element matching the <code>input.ws-filereader</code> selector is used. Additionally the forms features enables custom styleable [type=file] elements if it finds a wrapper with the class <code class="i">ws-custom-file</code>:</p>
 <pre><code class="language-markup">
 &lt;script&gt;
 	//filereader is lazyLoaded no need to call feature
-	webshims.polyfill('forms');
+	webshim.polyfill('forms');
 &lt;/script&gt;
 &lt;div class="ws-custom-file"&gt;
 	&lt;!-- add ws-filereader class to all shimable type="file" inputs --&gt;
@@ -1529,7 +1579,7 @@ $('form[data-action].ajax-form').on('submit', function(){
 
 			<h2 id="Promise">Promise</h2>
 			<p>
-				A polyfill of
+				The <code class="i">promise</code> feature is a polyfill of
 				<a href="http://people.mozilla.org/~jorendorff/es6-draft.html#sec-promise-objects" target="_external">ES6
 				Promises</a>.  For instructions on using promises and details of the API, read
 				<a href="http://www.html5rocks.com/en/tutorials/es6/promises/" target="_external">JavaScript
@@ -1550,6 +1600,9 @@ $('form[data-action].ajax-form').on('submit', function(){
 					element draft specification</a> from the Responsive Images Community Group, including
 					the <code>srcset</code> and <code>sizes</code> attributes.
 			</p>
+<pre><code class="language-javascript">
+webshim.polyfill('picture'):
+</code></pre>
 			<p>
 				<em>This feature is based on code from
 				<a href="http://scottjehl.github.io/picturefill/" target="_external">http://scottjehl.github.io/picturefill/</a>.</em>
@@ -1604,9 +1657,9 @@ $('form[data-action].ajax-form').on('submit', function(){
 			<p>The code inside of the polyfiller.js automatically detects the path to the script it is run from and assumes, that the <code class="i">shims</code> folder is in the same directory. This means, you have to make sure, that either the shims folder is placed parallel to the code of the polyfiller.js or to configure the path using the <code class="i">basePath</code> option.</p>
 			<h3>Configuring the path manually</h3>
 <pre><code class="language-javascript">//configure path manually
-webshims.setOptions('basePath', '/yourFolderTo/shims/');
+webshim.setOptions('basePath', '/yourFolderTo/shims/');
 //polyfill
-webshims.polyfill('forms mediaelement');
+webshim.polyfill('forms mediaelement');
 </code></pre>
 			<h3>Optimizing into the same folder</h3>
 
@@ -1673,7 +1726,7 @@ webshims.polyfill('forms mediaelement');
 				on the window object that we want to polyfill if the browser doesn't provide it. An implementation would look like this:
 			</p>
 			<pre><code class="language-javascript">
-webshims.addPolyfill('magicMethod', {
+webshim.addPolyfill('magicMethod', {
   test: function(){
     return ('magicMethod' in window); 
   }
@@ -1692,7 +1745,7 @@ window.magicMethod = function(){
 				If your implementation has dependencies on other polyfills/modules, you can add a dependencies property to make sure they're loaded too:
 			</p>
 			<pre><code class="language-javascript">
-webshims.addPolyfill('magicMethod', {
+webshim.addPolyfill('magicMethod', {
   test: function(){
     return ('magicMethod' in window); 
   },
@@ -1703,11 +1756,11 @@ webshims.addPolyfill('magicMethod', {
 
 			<p>
 				If your shim has dependencies, you have to register your implementation code with <code class="i">
-					webshims.register</code>
+					webshim.register</code>
 				:
 			</p>
 			<pre><code class="language-javascript">
-webshims.register('magicMethod', function($, webshims, window, document, undefined, options){
+webshim.register('magicMethod', function($, webshims, window, document, undefined, options){
   // now you can use es5-feature feature  
   window.magicMethod = function(){
     // your polyfill implementation
@@ -1718,7 +1771,7 @@ webshims.register('magicMethod', function($, webshims, window, document, undefin
 				In case of a DOM extension, webshims lib comes with some useful extension-methods.
 			</p>
 			<pre><code class="language-javascript">
-webshims.addPolyfill('mediaelement', {
+webshim.addPolyfill('mediaelement', {
   test: function(){
     return ('canPlayType' in document.createElement('video'));  
   },
@@ -1731,7 +1784,7 @@ webshims.addPolyfill('mediaelement', {
 
 // listen to 'play' events in the capturing phase
 // can use event delegation with jQuery's bind method
-webshims.capturingEvents(['play']);
+webshim.capturingEvents(['play']);
 </code></pre>			
 
 
@@ -1743,22 +1796,22 @@ webshims.capturingEvents(['play']);
 			<ul>
 				<li>
 					<code class="i">
-						webshims.defineNodeNamesProperty</code>
+						webshim.defineNodeNamesProperty</code>
 					(nodeNames, property, descriptor)
 				</li>
 				<li>
 					<code class="i">
-						webshims.defineNodeNamesBooleanProperty</code>
+						webshim.defineNodeNamesBooleanProperty</code>
 					(nodeNames, property, descriptor)
 				</li>
 			</ul>
 			<pre><code class="language-javascript">
 // wait till the DOM-Extension feature is loaded
-webshims.register('mediaelement', function($, webshims, window, document, undefined, options){
+webshim.register('mediaelement', function($, webshims, window, document, undefined, options){
   // webshims refers to jQuery.webshims in this function
   
   // Implements a new IDL property on audio, video called currentTime
-  webshims.defineNodeNamesProperty('audio, video', 'currentTime', {
+  webshim.defineNodeNamesProperty('audio, video', 'currentTime', {
     prop: {
       get: function(){
         // your getter implementation ("this" refers to the element)
@@ -1770,14 +1823,14 @@ webshims.register('mediaelement', function($, webshims, window, document, undefi
   });
   
   // Implements a new constant property called HAVE_CURRENT_DATA on audio, video
-  webshims.defineNodenamesProperty('audio video', 'HAVE_CURRENT_DATA', {
+  webshim.defineNodenamesProperty('audio video', 'HAVE_CURRENT_DATA', {
     prop: {
       value: 2
     }
   });
   
   // Implements a new method called play on audio, video
-  webshims.defineNodeNamesProperty('audio video', 'play', {
+  webshim.defineNodeNamesProperty('audio video', 'play', {
     prop: {
       value: function(){
         // your play method implementation
@@ -1788,7 +1841,7 @@ webshims.register('mediaelement', function($, webshims, window, document, undefi
   
   // Implements a new boolean IDL property called controls on audio, video
   // which is reflected by a content attribute
-  webshims.defineNodeNamesBooleanProperty('audio video', 'controls', {
+  webshim.defineNodeNamesBooleanProperty('audio video', 'controls', {
     // set works more like an onSet:
     // you don't have to set the value anymore on the DOM node, only handle true/false values
     set: function(value){

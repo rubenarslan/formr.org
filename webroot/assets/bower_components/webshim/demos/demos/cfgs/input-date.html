@@ -11,6 +11,8 @@
 		<link rel="stylesheet" href="assets/config.css" />
 		<link rel="stylesheet" href="../../css/prism.css" />
 
+		<link rel="alternate stylesheet" href="../themes/rounded-shadow/rounded-shadow.css" title="rounded shadow" data-defaultstyle />
+		<link rel="alternate stylesheet" href="../themes/metro/metro.css" title="metro" />
 
 
 		<script src="../../../js-webshim/minified/extras/modernizr-custom.js"></script>
@@ -18,25 +20,47 @@
 		<script src="../../../js-webshim/minified/polyfiller.js"></script>
 
 		<script>
-			webshims.setOptions('forms', {
+			webshim.setOptions('forms', {
 				lazyCustomMessages: true,
 				replaceValidationUI: true,
-				addValidators: true,
-				customDatalist: true
-			});
-			
-			webshims.setOptions('forms-ext', {
-				replaceUI: true
+				addValidators: true
 			});
 
+			(function(){
+				var stateMatches = {
+					'true': true,
+					'false': false,
+					'auto': 'auto'
+				};
+				var enhanceState = (location.search.match(/enhancelist\=([true|auto|false|nopolyfill]+)/) || ['', 'auto'])[1];
+
+				webshim.ready('jquery', function(){
+					$(function () {
+						$('.polyfill-type select')
+								.val(enhanceState)
+								.on('change', function () {
+									location.search = 'enhancelist=' + $(this).val();
+								})
+						;
+					});
+				});
+				webshim.setOptions('forms', {
+					customDatalist: stateMatches[enhanceState]
+				});
+				webshim.setOptions('forms-ext', {
+					replaceUI: stateMatches[enhanceState]
+				});
+			})();
+
+
 			// load the forms polyfill
-			webshims.polyfill('forms forms-ext');
+			webshim.polyfill('forms forms-ext');
 			
 		</script>
 		<script>
-			webshims.ready('jquery', function(){
-				webshims.loader.loadScript("../../demo-js/demo.js", false, false, true);
-				webshims.loader.loadScript("assets/cfg.js", false, false, true);
+			webshim.ready('jquery', function(){
+				webshim.loader.loadScript("../../demo-js/demo.js", false, false, true);
+				webshim.loader.loadScript("assets/cfg.js", false, false, true);
 			});
 		</script>
 	</head>
@@ -85,6 +109,8 @@
 										<a href="http://jsfiddle.net/trixta/zRGd9/embedded/result,html,js,css/" class="list-group-item">disable specific dates in datepicker</a>
 										<a href="http://jsfiddle.net/trixta/fLBes/embedded/result,html,js,css/" class="list-group-item">Using datepicker for a birthdate</a>
 										<a href="http://jsfiddle.net/trixta/h7YdJ/embedded/result,html,js,css/" class="list-group-item">Dynamically setting min or max attribute to today's value</a>
+										<a href="http://jsfiddle.net/trixta/cc7Rt/embedded/result,html,js,css/" class="list-group-item">Creating inline calendars</a>
+										<a href="http://jsfiddle.net/trixta/sy2sM/embedded/result,html,js,css/" class="list-group-item">Using date + time input to create datetime-local input</a>
 									</div>
 								</div>
 							</div>
@@ -271,7 +297,7 @@
 											<fieldset>
 												<legend>popover</legend>
 												<div class="form-group">
-													<div class="col-sm-6">
+													<div class="col-sm-4">
 														<label for="position" class="form-label">popover.position</label>
 														<select name="popover" id="position" class="form-control">
 															<option value=''>"my": "left top", "at": "left bottom"</option>
@@ -279,12 +305,21 @@
 															<option value='{"position": {"my": "left middle", "at": "right middle"}}'>"my": "left middle", "at": "right middle"</option>
 														</select>
 													</div>
-													<div class="col-sm-6">
+													<div class="col-sm-4">
 														<label for="appendTo" class="form-label">popover.appendTo</label>
 														<select name="popover" id="appendTo" class="form-control">
 															<option value=''>auto (mostly = element)</option>
 															<option value='{"appendTo": "element"}'>element</option>
 															<option value='{"appendTo": "body"}'>body</option>
+														</select>
+													</div>
+													<div class="col-sm-4">
+														<label for="inline" class="form-label">popover.inline</label>
+														<select name="popover" id="inline" class="form-control">
+															<option value=''>false</option>
+															<option value='{"inline": true}'>true (same as "slide")</option>
+															<option value='{"inline": "fade"}'>"fade"</option>
+															<option value='{"inline": "no"}'>"no"</option>
 														</select>
 													</div>
 												</div>
@@ -361,6 +396,20 @@
 								</div>
 							</div>
 							<div class="panel panel-default">
+								<div class="panel-heading">Style/Theme</div>
+								<div class="panel-body">
+									<div class="row form-group">
+										<div class="col-md-12">
+											<label class="form-label" for="theme">
+												Style-/Themeswitcher
+											</label>
+											<select class="theme-switcher form-control" id="theme"></select>
+										</div>
+									</div>
+
+								</div>
+							</div>
+							<div class="panel panel-default">
 								<div class="panel-heading">general document/browser enviroment</div>
 								<div class="panel-body">
 									<div class="row form-group">
@@ -376,7 +425,7 @@
 										</div>
 										<div class="col-md-6">
 											<label class="form-label" for="lang">
-												webshims.activeLang();
+												webshim.activeLang();
 											</label>
 											<select class="active-lang form-control" id="lang"></select>
 										</div>
@@ -409,7 +458,14 @@
 		<option value="2013-11-11" label="labeled Option (2013-11-11)"></option>
 	</select>
 </datalist>
-
+		<label class="polyfill-type">
+			Polyfill/enhance strategy
+			<select>
+				<option value="auto" selected="">"auto" enhance non-mobile</option>
+				<option value="false">false: only polyfill</option>
+				<option value="true">true: enhance all</option>
+			</select>
+		</label>
 		<script type="text/javascript">
 			//http://blog.jsdelivr.com/2013/06/jsdelivr-weekly-news.html
 			if(location.hostname == 'afarkas.github.io'){

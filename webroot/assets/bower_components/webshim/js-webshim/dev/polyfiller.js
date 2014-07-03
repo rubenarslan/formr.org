@@ -116,7 +116,7 @@
 	path = path.split('?')[0].slice(0, path.lastIndexOf("/") + 1) + 'shims/';
 
 	$.extend(webshims, {
-		version: '1.14.1',
+		version: '1.14.3',
 		cfg: {
 			enhanceAuto: window.Audio && (!window.matchMedia || matchMedia('(min-device-width: 721px)').matches),
 			//addCacheBuster: false,
@@ -935,7 +935,7 @@
 
 	document.createElement('picture');
 	addPolyfill('picture', {
-		test: !!window.HTMLPictureElement
+		test: ('picturefill' in window) || !!window.HTMLPictureElement
 	});
 
 
@@ -1032,7 +1032,7 @@
 		
 		webshims.validationMessages = webshims.validityMessages = {
 			langSrc: 'i18n/formcfg-', 
-			availableLangs: "ar cs el es fr he hi hu it ja lt nl pl pt pt-BR pt-PT ru sv zh-CN".split(' ')
+			availableLangs: "ar cs el es fa fr he hi hu it ja lt nl pl pt pt-BR pt-PT ru sv zh-CN zh-TW".split(' ')
 		};
 		webshims.formcfg = $.extend({}, webshims.validationMessages);
 		
@@ -1220,11 +1220,6 @@
 		addPolyfill('mediaelement-core', {
 			f: 'mediaelement',
 			noAutoCallback: true,
-			loadInit: function(){
-				//
-				var o = this.options;
-
-			},
 			options: {
 				//replaceUI: false,
 				jme: {},

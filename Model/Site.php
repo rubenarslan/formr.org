@@ -67,6 +67,22 @@ class Site
 		$logo = '<i class="fa fa-'.$class_logo.'"></i>';
 		$this->alerts[] = "<div class='alert $class'>".$logo.'<button type="button" class="close" data-dismiss="alert">&times;</button>'."$msg</div>";
 	}
+	public function inSuperAdminArea()
+	{
+		return strpos($_SERVER['SCRIPT_NAME'],'/superadmin/')!==FALSE;
+	}
+	public function inAdminArea()
+	{
+		return strpos($_SERVER['SCRIPT_NAME'],'/admin/')!==FALSE;		
+	}
+	public function inAdminRunArea()
+	{
+		return strpos($_SERVER['SCRIPT_NAME'],'/admin/run/')!==FALSE;
+	}
+	public function inAdminSurveyArea()
+	{
+		return strpos($_SERVER['SCRIPT_NAME'],'/admin/survey/')!==FALSE;
+	}
 	public function lastOutsideReferrer()
 	{
 		$ref = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
