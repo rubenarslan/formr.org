@@ -45,25 +45,31 @@ $(document).ready(function() {
             btns.insertAfter($input);
             btns.find(".btn-down").click(function()
             {
-                if( $input.attr('min') < $input.attr('value') ) 
+                var val = 1;
+                if($input.attr('value')) val = +$input.attr('value');
+                if( $input.attr('min') < val ) 
                 {
-                    $input.attr('value', +$input.attr('value') - 1 );   
+                    $input.attr('value', val - 1 );   
                     $input.change();
                 }
                 return false;
             });
             btns.find(".btn-up").click(function()
             {
-                if( $input.attr('max') > $input.attr('value') ) 
+                var val = 1;
+                if($input.attr('value')) val = +$input.attr('value');
+                if( $input.attr('max') > val ) 
                 {
-                    $input.attr('value', +$input.attr('value') + 1 );   
+                    $input.attr('value', val + 1 );   
                     $input.change();
                 }
                 return false;
             });
+            
             new FastClick(btns.find(".btn-down"));
             new FastClick(btns.find(".btn-up"));
-           webshim.addShadowDom($input[0], btns[0]);
+           webshim.addShadowDom($input, btns);
+           console.log(1);
     	});
 	
     	$('div.btn-radio button.btn').off('click').click(function(event){
@@ -258,7 +264,6 @@ $(document).ready(function() {
         
     	});
     });
-    
     $('form').on('change', getProgress);
     getProgress();
     showIf();
