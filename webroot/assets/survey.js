@@ -37,7 +37,15 @@ $(document).ready(function() {
     });
 	// fixme: FOUCs for rating_buttons etc in IE8
     
-    webshim.ready('forms-ext dom-extend',function() {
+    webshim.ready('forms forms-ext dom-extend form-validators',function() {
+        webshim.addCustomValidityRule('always_invalid', function(elem, val){
+            console.log(elem);
+            console.log($(elem).hasClass('always_invalid'));
+    		if(!$(elem).hasClass('always_invalid')){return;}
+            return true;
+    	}, 'Cannot submit while there are problems with openCPU.');
+		webshim.refreshCustomValidityRules();
+	
         $('.item-number.counter input').each(function() {
             var $input = $(this); 
             $input.hide();

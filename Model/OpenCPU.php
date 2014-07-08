@@ -22,25 +22,32 @@ class OpenCPU {
 			$post = array_map("cr2nl", $post); # get rid of windows new lines, not that there should be any, but this causes such annoying-to-debug errors
 			curl_setopt($this->curl_c, CURLOPT_POSTFIELDS, http_build_query($post));
 		endif;
+		
 		curl_setopt($this->curl_c, CURLINFO_HEADER_OUT, true); // enable tracking
 		curl_setopt($this->curl_c, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4 );
 		curl_setopt($this->curl_c, CURLOPT_HEADER, 1);
 		
 		$result = curl_exec($this->curl_c);
 		$this->http_status = curl_getinfo($this->curl_c,CURLINFO_HTTP_CODE);
-		if($this->http_status > 302 AND ! $this->admin_usage) {
-			alert("There were problems with openCPU. Please try again later.", 'alert-danger');
-			bad_request();
+
+		if($this->anyErrors() AND ! $this->admin_usage) {
+			alert(date("Y-m-d H:i:s") . " There were problems with openCPU. Please try again later.", 'alert-danger');
+//			bad_request();	
 		}
 		$this->header_size = curl_getinfo($this->curl_c, CURLINFO_HEADER_SIZE);
 	#	curl_close($this->curl_c);
 
 		$header = mb_substr($result, 0, $this->header_size);
 		$body = mb_substr($result, $this->header_size);
-		$body = str_replace("/usr/local/lib/R/site-library/", "https://opencpu.psych.bio.uni-goettingen.de/ocpu/library/", $body);
+		$body = str_replace("/usr/local/lib/R/site-library/", $this->instance.'/ocpu/library/' , $body);
 		##		list($header, $body) = explode("\r\n\r\n", $results, 2); # does not work with 100 Continue
 		
 		return compact('header','body','post');
+	}
+	public function anyErrors()
+	{
+		if($this->http_status < 200 OR $this->http_status > 302) return true;
+		else return false;
 	}
 	public function identity($post, $return = '/json')
 	{
@@ -89,27 +96,25 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 		
 		return $this->returnParsed($parsed,$result,$post, "evaluateWith");
 	}
+	private function handleErrors($message, $result, $post, $in, $level = "alert-danger")
+	{
+		if($this->admin_usage):
+			$error_msg = $result['body'];
+			if(! trim($error_msg)) $error_msg = "OpenCPU appears to be down";
+			alert($message . " <blockquote>".h($error_msg)."</blockquote><pre style='background-color:transparent;border:0'>".h($post)."</pre>",$level,true);
+		endif;
+		opencpu_log( "R error in $in:
+".print_r($post, true)."
+".print_r($result, true)."\n");
+		
+	}
 	private function returnParsed($parsed,$result,$post, $in = '') {
 		
 		if($parsed===null):
-			global $user;
-			if($user->isCron() OR $user->isAdmin()):
-				alert($result['body'],'alert-danger',true);
-				alert("There was an R error. This may happen if you do not test as part of a proper run. <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
-			endif;
-			opencpu_log( "R error in $in:
-".print_r($post, true)."
-".print_r($result, true)."\n");
+			$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post['x'], $in);
 			return null;
 		elseif(empty($parsed)):
-			global $user;
-			if($user->isCron() OR $user->isAdmin()):
-				alert($result['body'],'alert-warning',true);
-				alert("This expression led to a null result (may be intentional, but most often isn't). <pre style='background-color:transparent;border:0'>".$post["x"]."</pre>",'alert-danger',true);
-			endif;
-			opencpu_log_warning( "R warning (null result) in $in:
-".print_r($post, true)."
-".print_r($result, true)."\n");
+			$this->handleErrors("This expression led to a null result (may be intentional, but most often isn't)", $result, $post['x'], $in, 'alert-warning');
 			return null;
 		else:
 			return $parsed[0];
@@ -148,6 +153,8 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 	{
 		$this->user_data = '';
 		$this->knitr_source = null;
+		$this->admin_usage = false;
+		$this->http_status = null;
 	}
 	public function addUserData($datasets)
 	{
@@ -171,8 +178,7 @@ $this->user_data .
 		$html = json_decode($result['body'], true);
 		
 		if(!$html):
-			alert($result['body'],'alert-danger');
-			alert("<pre style='background-color:transparent;border:0'>".$source."</pre>",'alert-danger');
+			$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $source, "knitForUserDisplay");
 			return false;
 		endif;
 		

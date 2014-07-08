@@ -33,7 +33,8 @@ class RunSession
 			`survey_run_sessions`.created, 
 			`survey_run_sessions`.ended, 
 			`survey_run_sessions`.position, 
-			`survey_runs`.name AS run_name
+			`survey_runs`.name AS run_name,
+			`survey_runs`.user_id AS run_owner_id
 			  FROM  `survey_run_sessions`
 		
 		LEFT JOIN `survey_runs`
@@ -61,6 +62,7 @@ class RunSession
 			$this->ended = $sess_array['ended'];
 			$this->position = $sess_array['position'];
 			$this->run_name = $sess_array['run_name'];
+			$this->run_owner_id = $sess_array['run_owner_id'];
 			
 			if(!$this->cron):
 				$last_access_q = "UPDATE `survey_run_sessions`

@@ -28,27 +28,4 @@ class SkipBackward extends Branch {
 		
 		return parent::runDialog($dialog);
 	}
-	public function exec()
-	{
-		$openCPU = $this->makeOpenCPU();
-
-		$openCPU->addUserData($this->getUserDataInRun(
-			$this->dataNeeded($this->dbh,$this->condition)
-		));
-		$result = (bool)$openCPU->evaluate($this->condition);
-	
-		if($result AND $this->if_true >= $this->position): // the condition is true and it skips forward
-			global $run_session;
-			if($run_session->session):
-				$this->end();
-				$run_session->runTo($this->if_true);
-			endif;
-		elseif(!$result AND $this->if_true === $this->position): // the condition is true and it stays here, waits for the user
-			return true;
-		else: // the condition is false
-			$this->end();
-		endif;
-		
-		return false;
-	}
 }

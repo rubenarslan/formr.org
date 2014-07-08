@@ -5,6 +5,7 @@ class ItemFactory
 	private $choice_lists = array();
 	private $used_choice_lists = array();
 	public $showifs = array();
+	public $openCPU_errors = array();
 	function __construct($choice_lists)
 	{
 		$this->choice_lists = $choice_lists;
@@ -45,6 +46,7 @@ class ItemFactory
 			return $this->showifs[$showif];
 		
 		$openCPU = $survey->makeOpenCPU();
+		$openCPU->admin_usage = $survey->admin_usage;
 
 		$dataNeeded = $survey->dataNeeded($survey->dbh, $showif );
 		$dataNeeded[] = $survey->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
@@ -53,8 +55,16 @@ class ItemFactory
 		$openCPU->addUserData($survey->getUserDataInRun(
 			$dataNeeded
 		));
+		
+		$result = $openCPU->evaluateWith($survey->results_table, $showif);
 
-		$this->showifs[$showif] = $openCPU->evaluateWith($survey->results_table, $showif);
+		if($openCPU->anyErrors()):
+			$result = true;
+			$this->openCPU_errors[$showif] =  _('There were problems with openCPU.');
+		endif;
+		
+		
+		$this->showifs[$showif] = $result;
 		
 		return $this->showifs[$showif];
 	}
@@ -81,6 +91,7 @@ class Item extends HTML_element
 	
 	public $displaycount = 0;
 	public $error = null;
+	public $dont_validate = null;
 	public $val_errors = array();
 	
 	public $mysql_field =  'TEXT DEFAULT NULL';
@@ -319,7 +330,7 @@ class Item extends HTML_element
 	{
 		if($this->error) 
 			$this->classes_wrapper[] = "has-error";
-
+		
 		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->showif) .'"' : '').'>' .
 			$this->render_inner().
 		 '</div>';
@@ -348,9 +359,17 @@ class Item extends HTML_element
 			return false;
 		endif;
 	}
+	public function alwaysInvalid()
+	{
+		$this->error =  _('There were problems with openCPU.');
+		if(!isset($this->input_attributes['class'])) $this->input_attributes['class'] = '';
+		$this->input_attributes['class'] .= " always_invalid";
+	}
 	public function determineDynamicLabel($survey)
 	{
 		$openCPU = $survey->makeOpenCPU();
+		
+		$openCPU->admin_usage = $survey->admin_usage;
 
 		$dataNeeded = $survey->dataNeeded($survey->dbh, $this->label );
 		$dataNeeded[] = $survey->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
@@ -360,6 +379,10 @@ class Item extends HTML_element
 		
 		$markdown = $openCPU->knitForUserDisplay($this->label);
 	
+		if($openCPU->anyErrors()):
+			$this->alwaysInvalid();
+		endif;
+		
 		if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)) // simple wraps are eliminated
 		{
 			$this->label_parsed = $matches[1];
@@ -387,6 +410,7 @@ class Item extends HTML_element
 		if($this->value=="sticky") $this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
 		
 		$openCPU = $survey->makeOpenCPU();
+		$openCPU->admin_usage = $survey->admin_usage;
 
 		$dataNeeded = $survey->dataNeeded($survey->dbh, $this->value );
 		$dataNeeded[] = $survey->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
@@ -395,6 +419,11 @@ class Item extends HTML_element
 		$openCPU->addUserData($survey->getUserDataInRun( $dataNeeded ));
 		
 		$this->input_attributes['value'] = $openCPU->evaluateWith($survey->results_table, $this->value);
+		
+		if($openCPU->anyErrors()):
+			$this->alwaysInvalid();
+		endif;
+		
 	}
 }
 

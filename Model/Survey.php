@@ -29,6 +29,8 @@ class Survey extends RunUnit {
 	private $SPR;
 	public $icon = "fa-pencil-square-o";
 	public $type = "Survey";
+	public $admin_usage = false;
+	
 	
 	private $confirmed_deletion = false;
 	private $item_factory = null;
@@ -49,6 +51,8 @@ class Survey extends RunUnit {
 		if($this->id):
 			$this->load();
 		endif;
+		
+		if($this->beingTestedByOwner()) $this->admin_usage = true;
 	}
 	private function load()
 	{
@@ -246,6 +250,7 @@ class Survey extends RunUnit {
 			// fixme: because were not using this much yet, I haven't really made any effort to efficiently only calculate this when necessary
 			if($row['label_parsed'] === null):
 				$openCPU = $this->makeOpenCPU();
+				$openCPU->admin_usage = $this->admin_usage;
 		
 				$openCPU->addUserData($this->getUserDataInRun(
 					$this->dataNeeded($this->dbh, $row['label'])
@@ -335,6 +340,12 @@ class Survey extends RunUnit {
 				{
 					$item->hide();
 				}
+				elseif(isset( $this->item_factory->openCPU_errors[$item->showif] ))
+				{
+					$item->alwaysInvalid();
+					$item->error = $this->item_factory->openCPU_errors[$item->showif];
+				}
+
 			}
 			$this->unanswered[$name] = $item;
 		}

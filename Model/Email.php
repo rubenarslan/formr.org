@@ -20,6 +20,7 @@ class Email extends RunUnit {
 	public $icon = "fa-envelope";
 	public $type = "Email";
 	private $subject_parsed = null;
+	private $admin_usage = false;
  	
 	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) 
 	{
@@ -222,6 +223,8 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	{
 		$openCPU = $this->makeOpenCPU();
 
+		$openCPU->admin_usage = $this->admin_usage;
+
 		if($this->recipient_field === null OR trim($this->recipient_field)=='')
 			$this->recipient_field = 'survey_users$email';
 		
@@ -229,7 +232,10 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$this->dataNeeded($this->dbh,$this->recipient_field)
 		));
 
-		return $openCPU->evaluate($this->recipient_field);
+		$result = $openCPU->evaluate($this->recipient_field);
+		if($openCPU->anyErrors()) return null; // don't go anywhere, wait for the error to be fixed!
+
+		return $result;
 	}
 	public function sendMail($who = NULL)
 	{
@@ -244,10 +250,13 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			formr_log("Email recipient could not be determined from this field definition ". $this->recipient_field);
 			alert("We could not find an email recipient.", 'alert-danger');
 			$this->mail_sent = false;
+			return false;
 		endif;
 
 		if($this->account_id === null):
-			die("The study administrator (you?) did not set up an email account. <a href='".WEBROOT."/admin/mail/'>Do it now</a> and then select the account in the email dropdown.");
+			alert("The study administrator (you?) did not set up an email account. <a href='".WEBROOT."/admin/mail/'>Do it now</a> and then select the account in the email dropdown.",'alert-danger');
+			$this->mail_sent = false;
+			return false;
 		endif;
 		
 		$mails_sent = $this->numberOfEmailsSent();
@@ -335,6 +344,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	}
 	public function test()
 	{
+		$this->admin_usage = true;
 		$RandReceiv = bin2hex(openssl_random_pseudo_bytes(5));
 		$receiver = $RandReceiv . '@mailinator.com';
 		
@@ -380,6 +390,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$openCPU = $this->makeOpenCPU();
 			$this->run_session_id = $row['id'];
 
+			$openCPU->admin_usage = $this->admin_usage;
 			$openCPU->addUserData($this->getUserDataInRun(
 				$this->dataNeeded($this->dbh,$this->recipient_field)
 			));
@@ -395,6 +406,8 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	}
 	public function exec()
 	{
+		if($this->beingTestedByOwner()) $this->admin_usage = true;
+		
 		$err = $this->sendMail();
 		if($this->mail_sent):
 			$this->end();

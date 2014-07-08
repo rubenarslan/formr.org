@@ -3,14 +3,7 @@ require_once '../../../define_root.php';
 require_once INCLUDE_ROOT.'View/admin_header.php';
 require_once INCLUDE_ROOT . "Model/UnitSession.php";
 
-
-$has_access = false;
 if($user->created($study)):
-	$has_access = true;
-endif;
-
-
-if($has_access):
 	$session = new UnitSession($fdb, null, $study->id);
 	$session->create();
 	

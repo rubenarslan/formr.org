@@ -95,6 +95,11 @@ class RunUnit {
 		
 		return $success;
 	}
+	protected function beingTestedByOwner()
+	{
+		if($this->run_session === null OR $this->run_session->user_id == $this->run_session->run_owner_id ) return true;
+		else return false;
+	}
 	public function linkToRun()
 	{
 		$d_run_unit = $this->dbh->prepare("UPDATE `survey_run_units` SET 
@@ -387,6 +392,8 @@ class RunUnit {
 	public function getParsedText($source)
 	{
 		$openCPU = $this->makeOpenCPU();
+		if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
+		
 		$openCPU->addUserData($this->getUserDataInRun(
 			$this->dataNeeded($this->dbh,$source)
 		));
@@ -438,6 +445,7 @@ class RunUnit {
 				return false;
 			
 			$openCPU = $this->makeOpenCPU();
+			if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
 			
 			$openCPU->addUserData($this->getUserDataInRun(
 				$this->dataNeeded($this->dbh,$source)
@@ -488,6 +496,8 @@ class RunUnit {
 			}
 			
 			$openCPU = $this->makeOpenCPU();
+			if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
+			
 			$openCPU->addUserData($this->getUserDataInRun(
 				$this->dataNeeded($this->dbh,$source)
 			));
@@ -498,6 +508,9 @@ class RunUnit {
 			else:
 				$report = $openCPU->knitForUserDisplay($source);
 			endif;
+			
+			if($openCPU->anyErrors())
+				return false;
 			
 			if($report):
 				try

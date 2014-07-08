@@ -31,10 +31,7 @@ $(function(){
        {
            textarea.val(session.getValue());
        });
-       webshim.ready('forms-ext dom-extend',function() {
-           webshim.addShadowDom(textarea, editor);
-       });
-       
+
     });
     $(".save_settings").each(function(i, elm)
     {
