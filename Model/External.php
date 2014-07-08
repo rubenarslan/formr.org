@@ -119,8 +119,6 @@ class External extends RunUnit {
 		if($this->called_by_cron)
 			return true; // never show to the cronjob
 		
-		if(!$this->api_end) 
-			$this->end();
 		
 		if($this->isR())
 		{
@@ -130,7 +128,13 @@ class External extends RunUnit {
 				$this->dataNeeded($this->dbh,$this->address)
 			));
 			$this->address = $openCPU->evaluate($this->address);
+
+			if($openCPU->anyErrors())
+				return true; // wait for openCPU to be fixed!
 		}
+		
+		if(!$this->api_end) 
+			$this->end();
 		
 		$this->address = $this->makeAddress($this->address);
 		

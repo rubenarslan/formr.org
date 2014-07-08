@@ -1,6 +1,5 @@
 <?php
 require_once INCLUDE_ROOT . "Model/Site.php";
-
 if(!$user->isAdmin()) {
 	alert("<strong>Sorry:</strong> Only admins have access.",'alert-info');
 	access_denied();
@@ -15,7 +14,6 @@ if($site->inAdminSurveyArea() AND strpos($_SERVER['SCRIPT_NAME'],'/survey/add_su
 		require_once INCLUDE_ROOT . "Model/Survey.php";
 
 		$study = new Survey($fdb,null,array('name' => $_GET['study_name']));
-
 
 		if(!$study->valid):
 			alert("<strong>Error:</strong> Survey does not exist.",'alert-danger');

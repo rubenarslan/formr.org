@@ -53,6 +53,7 @@ class Run
 		if($name == "fake_test_run"):
 			$this->name = $name;
 			$this->valid = true;
+			$this->user_id = 0;
 			
 			return true;
 		endif;
@@ -759,9 +760,9 @@ This study is currently being serviced. Please return at a later time."));
 		require_once INCLUDE_ROOT . "Model/Survey.php";
 	
 		if(isset($_SESSION['dummy_survey_session'])):
-			$unit = new Survey($this->dbh, null, $_SESSION['dummy_survey_session']);
-			$output = $unit->exec();
 			$run_session = $this->makeDummyRunSession("fake_test_run","Survey");
+			$unit = new Survey($this->dbh, null, $_SESSION['dummy_survey_session'], $run_session);
+			$output = $unit->exec();
 
 			if(!$output):
 				$output['title'] = 'Finish';
@@ -784,6 +785,8 @@ This study is currently being serviced. Please return at a later time."));
 		$run_session = (object) "dummy";
 		$run_session->position = $position;
 		$run_session->current_unit_type = $current_unit_type;
+		$run_session->run_owner_id = $this->user_id;
+		$run_session->user_id = $this->user_id;
 		return $run_session;
 	}
 	public function exec($user)
@@ -854,7 +857,8 @@ This study is currently being serviced. Please return at a later time."));
 				echo $this->description_parsed;
 			endif;
 		
-			echo $output['body'];
+			if(isset($output['body']))
+				echo $output['body'];
 
 			if(trim($this->footer_text_parsed)):
 				echo $this->footer_text_parsed;

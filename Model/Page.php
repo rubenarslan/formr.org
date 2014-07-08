@@ -124,19 +124,12 @@ class Page extends RunUnit {
 			$this->getParsedBody($this->body); // make report before showing it to the user, so they don't have to wait
 			return true; // never show to the cronjob
 		endif;
-		
-#		if($this->can_be_ended AND $this->ended) return false;
-		
+
 		$this->body_parsed = $this->getParsedBody($this->body);
 		
-		if($this->can_be_ended):
-			$action = WEBROOT."{$this->run_name}";
-			$ret = '<form action="'.$action.'" method="post" accept-charset="utf-8">';
-			$ret .= '<input type="submit" class="btn btn-default btn-success" value="Continue!" name="page_submit">';
-			$ret .= '</form>';
-			$this->body_parsed .= $ret;
-		endif;
-		
+		if($this->body_parsed === false)
+			return true; // wait for openCPU to be fixed!
+			
 		return array(
 			'title' => $this->title,
 			'body' => $this->body_parsed

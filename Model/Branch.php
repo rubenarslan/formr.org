@@ -168,11 +168,14 @@ class Branch extends RunUnit {
 	public function exec()
 	{
 		$openCPU = $this->makeOpenCPU();
+		if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
 
 		$openCPU->addUserData($this->getUserDataInRun(
 			$this->dataNeeded($this->dbh,$this->condition)
 		));
 		$result = (bool)$openCPU->evaluate($this->condition);
+		
+		if($openCPU->anyErrors()) return true; // don't go anywhere, wait for the error to be fixed!
 		
 		 // if condition is true and we're set to jump automatically, or if the user reacted
 		if($result AND ($this->automatically_jump OR !$this->called_by_cron)):

@@ -154,14 +154,17 @@ class Pause extends RunUnit {
 	
 		if($this->relative_to_true): // if a relative_to has been defined by user or automatically, we need to retrieve its value
 			$openCPU = $this->makeOpenCPU();
-			
 			$openCPU->clearUserData();
+			if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
 
 			$openCPU->addUserData($this->getUserDataInRun(
 				$this->dataNeeded($this->dbh,$this->relative_to)
 			));
 	
 			$this->relative_to_result = $relative_to = $openCPU->evaluate($this->relative_to);
+			
+			if($openCPU->anyErrors())
+				return false;
 		endif;
 	
 		$bind_relative_to = false;
@@ -267,6 +270,8 @@ class Pause extends RunUnit {
 			$this->run_session_id = current($results)['id'];
 			echo "<h3>Pause relative to</h3>";
 	
+			if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
+	
 			$openCPU->addUserData($this->getUserDataInRun(
 				$this->dataNeeded($this->dbh,$this->relative_to)
 			));
@@ -309,9 +314,11 @@ class Pause extends RunUnit {
 		}
 		else
 		{
+			$body = $this->getParsedBody($this->body);
+			if($body === false) return true; // openCPU errors
 			return array(
 				'title' => 'Pause',
-				'body' => $this->getParsedBody($this->body)
+				'body' => $body
 			);
 		}	
 	}
