@@ -7,7 +7,7 @@ require_once INCLUDE_ROOT . "Model/helper_functions.php";
 
 
 error_reporting(-1);
-define('DEBUG', ONLINE ? 1 : $settings['display_errors_when_live']);
+define('DEBUG', ONLINE ? $settings['display_errors_when_live'] : 1);
 if(DEBUG > -1)
 	ini_set('display_errors',1);
 ini_set("log_errors",1);
