@@ -116,8 +116,8 @@ class Survey extends RunUnit {
 		unset($posted['modified']); // cant overwrite
 		unset($posted['ended']); // cant overwrite
 
-		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (item_id, session_id, answered, answered_time, modified)
-																  VALUES(	:item_id,  :session_id, 1, 		NOW(),	NOW()	) 
+		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (item_id, session_id, answered, answered_time, modified, displaycount)
+																  VALUES(	:item_id,  :session_id, 1, 		NOW(),	NOW()	, 1) 
 		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
 		
 		$answered->bindParam(":session_id", $this->session_id);
@@ -135,15 +135,18 @@ class Survey extends RunUnit {
 						$answered->bindParam(":item_id", $this->unanswered[$name]->id);
 				   	   	$answered->execute() or die(print_r($answered->errorInfo(), true));
 					
-						$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}`
-						SET 
-						`$name` = :$name
-						WHERE session_id = :session_id AND study_id = :study_id;");
-					    $post_form->bindValue(":$name", $value);
-						$post_form->bindValue(":session_id", $this->session_id);
-						$post_form->bindValue(":study_id", $this->id);
+						if($this->unanswered[$name]->save_in_results_table)
+						{
+							$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}`
+							SET 
+							`$name` = :$name
+							WHERE session_id = :session_id AND study_id = :study_id;");
+						    $post_form->bindValue(":$name", $value);
+							$post_form->bindValue(":session_id", $this->session_id);
+							$post_form->bindValue(":study_id", $this->id);
 						
-						$post_form->execute();
+							$post_form->execute();
+						}
 						$this->dbh->commit();
 					}
 					catch(Exception $e)
@@ -193,26 +196,13 @@ class Survey extends RunUnit {
 			if(
 				$item->hidden OR  // item was skipped
 				in_array($item->type, array('submit','mc_heading')) 		 // these items require no user interaction and thus don't count against progress
-				OR ($item->type == 'note' AND $item->displaycount > 0) 		 // item is a note and has already been viewed
 			)
 				return false;
 			else 
 				return true;
 		}
 );
-// todo: in the medium term it may be more intuitive to treat notes as item that are answered by viewing but that can linger in a special case, might require less extra logic. but they shouldn't go in the results table.. so maybe not.
-		$seen_notes = array_filter($this->unanswered, function ($item)
-				{ // notes stay in the unanswered batch
-					if(
-						! $item->hidden											 // item wasn't skipped
-						AND ($item->type == 'note' AND $item->displaycount > 0) 		 // item is a note and has already been viewed
-					)
-						return true;
-					else 
-						return false;
-				}
-		);
-		$this->already_answered += count($seen_notes); 
+// it seems more intuitive to treat notes as item that are answered by viewing but that can linger in a special case, might require less extra logic. but they shouldn't go in the results table.. so maybe not.
 
 		$this->not_answered = count( $this->not_answered );
 #		pr($this->not_answered);
@@ -372,7 +362,7 @@ class Survey extends RunUnit {
 				{
 					$next = current($this->unanswered);
 					if(
-						$item->displaycount AND 											 // if this was displayed before
+						$item->displaycount > 0 AND 											 // if this was displayed before
 						(
 							$next === false OR 								    				 // this is the end of the survey
 							$next->hidden === true OR 								    				 // the next item is hidden // todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
