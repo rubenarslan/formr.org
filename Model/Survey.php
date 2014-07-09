@@ -164,7 +164,7 @@ class Survey extends RunUnit {
 
 		if(empty($this->errors) AND !empty($posted))
 		{ // PRG
-			redirect_to(WEBROOT."{$this->run_name}");
+			redirect_to($this->run_name);
 		}
 		
 	}
@@ -196,17 +196,28 @@ class Survey extends RunUnit {
 			if(
 				$item->hidden OR  // item was skipped
 				in_array($item->type, array('submit','mc_heading')) 		 // these items require no user interaction and thus don't count against progress
+				OR ($item->type == 'note' AND $item->displaycount > 0) 		 // item is a note and has already been viewed
 			)
 				return false;
 			else 
 				return true;
 		}
 );
-// it seems more intuitive to treat notes as item that are answered by viewing but that can linger in a special case, might require less extra logic. but they shouldn't go in the results table.. so maybe not.
+// todo: in the medium term it may be more intuitive to treat notes as item that are answered by viewing but that can linger in a special case, might require less extra logic. but they shouldn't go in the results table.. so maybe not.
+		$seen_notes = array_filter($this->unanswered, function ($item)
+				{ // notes stay in the unanswered batch
+					if(
+						! $item->hidden											 // item wasn't skipped
+						AND ($item->type == 'note' AND $item->displaycount > 0) 		 // item is a note and has already been viewed
+					)
+						return true;
+					else 
+						return false;
+				}
+		);
+		$this->already_answered += count($seen_notes); 
 
 		$this->not_answered = count( $this->not_answered );
-#		pr($this->not_answered);
-#		pr($this->already_answered);
 
 		$all_items = $this->already_answered + $this->not_answered;
 		
@@ -287,7 +298,8 @@ class Survey extends RunUnit {
 				`survey_items`.`order`,
 				
 		`survey_items_display`.displaycount, 
-		`survey_items_display`.session_id
+		`survey_items_display`.session_id,
+		`survey_items_display`.answered
 		
 					FROM 
 			`survey_items` LEFT JOIN `survey_items_display`
@@ -295,7 +307,7 @@ class Survey extends RunUnit {
 		AND `survey_items`.id = `survey_items_display`.item_id
 		WHERE 
 		`survey_items`.study_id = :study_id AND
-		`survey_items_display`.answered IS NULL
+		(`survey_items_display`.answered IS NULL OR `survey_items`.type = 'note')
 		ORDER BY `survey_items`.id ASC;";
 		$get_items = $this->dbh->prepare($item_query) or die(print_r($this->dbh->errorInfo(), true));
 		$get_items->bindParam(":session_id",$this->session_id);
@@ -305,17 +317,6 @@ class Survey extends RunUnit {
 		$choice_lists = $this->getAndRenderChoices();
 		
 		$this->item_factory = new ItemFactory($choice_lists);
-		
-		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
-		
-		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
-											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
-		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
-		$view_update = $this->dbh->prepare($view_query);
-		$view_update->bindValue(":session_id", $this->session_id);
-
-		$itemsDisplayed = 0;
-		$item_will_be_rendered = true;
 		
 		while($item_array = $get_items->fetch(PDO::FETCH_ASSOC) )
 		{
@@ -339,6 +340,20 @@ class Survey extends RunUnit {
 			}
 			$this->unanswered[$name] = $item;
 		}
+		
+	}
+	protected function renderNextItems() {
+	
+		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
+		
+		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
+											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
+		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
+		$view_update = $this->dbh->prepare($view_query);
+		$view_update->bindValue(":session_id", $this->session_id);
+	
+		$itemsDisplayed = 0;
+		$item_will_be_rendered = true;
 		
 		$this->rendered_items = array();
 		foreach($this->unanswered AS &$item)
@@ -413,8 +428,6 @@ class Survey extends RunUnit {
 			}
 		}
 		$this->dbh->commit() or die(print_r($this->dbh->errorInfo(), true));
-
-		return $this->unanswered;
 	}
 	protected function render_form_header() {
 		$action = WEBROOT."{$this->run_name}";
@@ -506,12 +519,14 @@ class Survey extends RunUnit {
 		$this->getNextItems();
 
 		$this->post(array_merge($_POST,$_FILES));
-		
+
 		if($this->getProgress()===1)
 		{
 			$this->end();
 			return false;
 		}
+
+		$this->renderNextItems();
 		
 		
 		return array('title' => null,
