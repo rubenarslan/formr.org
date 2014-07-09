@@ -39,14 +39,12 @@ $(document).ready(function() {
     
     webshim.ready('forms forms-ext dom-extend form-validators',function() {
         webshim.addCustomValidityRule('always_invalid', function(elem, val){
-            console.log(elem);
-            console.log($(elem).hasClass('always_invalid'));
     		if(!$(elem).hasClass('always_invalid')){return;}
             return true;
     	}, 'Cannot submit while there are problems with openCPU.');
 		webshim.refreshCustomValidityRules();
 	
-        $('.item-number.counter input').each(function() {
+        $('.item-number.counter input[type=number]').each(function() {
             var $input = $(this); 
             $input.hide();
             var btns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></button></div>')
@@ -77,7 +75,6 @@ $(document).ready(function() {
             new FastClick(btns.find(".btn-down"));
             new FastClick(btns.find(".btn-up"));
            webshim.addShadowDom($input, btns);
-           console.log(1);
     	});
 	
     	$('div.btn-radio button.btn').off('click').click(function(event){
@@ -293,8 +290,7 @@ function getProgress() {
     
     var remaining_items = $progressbar.data('number-of-items');
     var remaining_percentage = 1 - $progressbar.data('starting-percentage')/100;
-//    console.log(remaining_items, remaining_percentage);
-	var items_answered_on_page = 0;
+    var items_answered_on_page = 0;
     var page_items = 0;
     
 	$.each(successful_controls,function(name,value){
