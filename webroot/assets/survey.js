@@ -37,16 +37,12 @@ $(document).ready(function() {
     });
 	// fixme: FOUCs for rating_buttons etc in IE8
     
-    webshim.ready('forms forms-ext dom-extend form-validators',function() {
-        webshim.addCustomValidityRule('always_invalid', function(elem, val){
-    		if(!$(elem).hasClass('always_invalid')){return;}
-            return true;
-    	}, 'Cannot submit while there are problems with openCPU.');
-		webshim.refreshCustomValidityRules();
-	
+    webshim.ready('dom-extend',function() {
+    
         $('.item-number.counter input[type=number]').each(function() {
             var $input = $(this); 
             $input.hide();
+            $input.getShadowElement().hide();
             var btns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></button></div>')
             btns.insertAfter($input);
             btns.find(".btn-down").click(function()
@@ -71,11 +67,20 @@ $(document).ready(function() {
                 }
                 return false;
             });
-            
+        
             new FastClick(btns.find(".btn-down"));
             new FastClick(btns.find(".btn-up"));
            webshim.addShadowDom($input, btns);
     	});
+    });
+    
+    webshim.ready('forms forms-ext dom-extend form-validators',function() {
+        webshim.addCustomValidityRule('always_invalid', function(elem, val){
+    		if(!$(elem).hasClass('always_invalid')){return;}
+            return true;
+    	}, 'Cannot submit while there are problems with openCPU.');
+		webshim.refreshCustomValidityRules();
+
 	
     	$('div.btn-radio button.btn').off('click').click(function(event){
     		var $btn = $(this);
