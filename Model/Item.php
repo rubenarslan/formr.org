@@ -331,9 +331,9 @@ class Item extends HTML_element
 		if($this->error) 
 			$this->classes_wrapper[] = "has-error";
 		
-		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->showif) .'"' : '').'>' .
+		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->showif) .'"' : '').'><span>' .
 			$this->render_inner().
-		 '</div>';
+		 '</span></div>';
 	}
 	protected function splitValues()
 	{

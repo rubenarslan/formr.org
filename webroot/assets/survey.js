@@ -45,11 +45,10 @@ $(document).ready(function() {
 		webshim.refreshCustomValidityRules();
 
         $('.item-number.counter input[type=number]').each(function() {
-            var $input = $(this); 
-            $input.hide();
-            $input.getShadowElement().hide();
-            var btns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></button></div>')
-            btns.insertAfter($input);
+            var $input = $(this)
+            $input.parents("span").hide();
+            var btns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></div>')
+            btns.insertAfter($input.parents("span"));
             btns.find(".btn-down").click(function()
             {
                 var val = 1;
@@ -72,10 +71,12 @@ $(document).ready(function() {
                 }
                 return false;
             });
-        
+            webshim.ready("dom-extend", function(){
+                webshim.addShadowDom($input, btns);
+            });
+                    
             new FastClick(btns.find(".btn-down"));
             new FastClick(btns.find(".btn-up"));
-           webshim.addShadowDom($input, btns);
     	});
 	
     	$('div.btn-radio button.btn').off('click').click(function(event){
