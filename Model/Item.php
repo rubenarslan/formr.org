@@ -1190,7 +1190,7 @@ class Item_select_or_add_one extends Item
 		foreach($this->choices AS $option)
 			$for_select2[] = array('id' => $option, 'text' => $option);
 
-		$this->input_attributes['data-select2add'] = json_encode($for_select2, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE);
+		$this->input_attributes['data-select2add'] = json_encode($for_select2, JSON_UNESCAPED_UNICODE);
 		$this->input_attributes['data-select2maximumSelectionSize'] = (int)$maxSelect;
 		$this->input_attributes['data-select2maximumInputLength'] = (int)$maxType;
 	}
