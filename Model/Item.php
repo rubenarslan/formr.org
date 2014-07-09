@@ -103,6 +103,7 @@ class Item extends HTML_element
 	protected $data_showif = false;
 	public $hidden = false;
 	public $no_user_input_required = false;
+	public $save_in_results_table = true;
 
 	
 	public $input_attributes = array(); // so that the pre-set value can be set externally
@@ -305,7 +306,7 @@ class Item extends HTML_element
 	protected function render_input() 
 	{
 		return 		
-			'<input '.self::_parseAttributes($this->input_attributes).'>';
+			'<span><input '.self::_parseAttributes($this->input_attributes).'></span>';
 	}
 	protected function render_appended () 
 	{
@@ -331,9 +332,9 @@ class Item extends HTML_element
 		if($this->error) 
 			$this->classes_wrapper[] = "has-error";
 		
-		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->showif) .'"' : '').'><span>' .
+		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->showif) .'"' : '').'>' .
 			$this->render_inner().
-		 '</span></div>';
+		 '</div>';
 	}
 	protected function splitValues()
 	{
@@ -872,13 +873,24 @@ class Item_note extends Item
 {
 	public $type = 'note';
 	public $mysql_field = null;
-	
+	public $input_attributes = array('type' => 'hidden', "value" => 1);
+	public $save_in_results_table = false;
+	public function setMoreOptions()
+	{
+	}
+	protected function render_label() 
+	{
+		return '<div class="'. implode(" ",$this->classes_label) .'">'.
+		($this->error ? '<span class="label label-danger hastooltip" title="'.$this->error.'"><i class="fa fa-exclamation-triangle"></i></span> ' : '').
+			 	$this->label_parsed . '</div>';
+	}
 	public function validateInput($reply)
 	{
-		$this->error = _("You cannot answer notes.");
+		if($reply != 1)
+			$this->error = _("You can only answer notes by viewing them.");
 		return $reply;
 	}
-	protected function render_inner() 
+/*	protected function render_inner() 
 	{
 		return '
 					<div class="'. implode(" ",$this->classes_label) .'">'.
@@ -886,6 +898,7 @@ class Item_note extends Item
 					'</div>
 		';
 	}
+	*/
 }
 
 class Item_submit extends Item 

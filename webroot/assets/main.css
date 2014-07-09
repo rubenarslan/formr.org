@@ -210,6 +210,11 @@ form.form-horizontal div.form-group.form-message div.control-label {
     margin-left:0;
 	text-align:left;
 	width:100%;
+	max-width:100%;
+}
+form.form-horizontal div.form-group.form-row.item-note div.controls
+{
+    display:none;
 }
 /*form.form-horizontal div.form-row.form-group.optional .control-label::after {
 	content:'*';
