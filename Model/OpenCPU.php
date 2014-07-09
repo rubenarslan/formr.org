@@ -61,11 +61,12 @@ class OpenCPU {
 	public function evaluate($source,$return = '/json')
 	{
 		$post = array('x' => '{ 
-			(function() {
-		'.$this->user_data.'
-			'.$source.'
-			})() }');
-			
+(function() {
+library(formr)
+'.$this->user_data.'
+'.$source.'
+})() }');
+
 		$result = $this->identity($post,$return);
 		
 		$parsed = json_decode($result['body'], true);
@@ -76,13 +77,7 @@ class OpenCPU {
 	{
 		$post = array('x' => '{ 
 (function() {
-"%contains%" = function(haystack, needle) {
-    stringr::str_detect(haystack, stringr::fixed(as.character(needle)) )
-}
-current = function(x) {
-    tail(x, 1)
-}
-
+library(formr)
 '.$this->user_data.'
 with(tail('.$results_table.',1), { ## by default evaluated in the most recent results row
 '.$source.'
@@ -90,8 +85,7 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 })() }');
 			
 		$result = $this->identity($post,$return);
-#		echo $this->debugCall($result);
-# pr($post);
+
 		$parsed = json_decode($result['body'], true);
 		
 		return $this->returnParsed($parsed,$result,$post, "evaluateWith");
@@ -159,7 +153,7 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 	public function addUserData($datasets)
 	{
 		foreach($datasets AS $df_name => $data):
-			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(json_encode($data, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK)).'"), stringsAsFactors=F)
+			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(json_encode($data, JSON_UNESCAPED_UNICODE)).'"), stringsAsFactors=F)
 '; ### loop through the given datasets and import them to R via JSON
 		endforeach;
 	}
