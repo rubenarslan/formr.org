@@ -154,7 +154,7 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 	public function addUserData($datasets)
 	{
 		foreach($datasets AS $df_name => $data):
-			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK)).'"), stringsAsFactors=F)
+			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(json_encode($data, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)).'"), stringsAsFactors=F)
 '; ### loop through the given datasets and import them to R via JSON
 		endforeach;
 	}
