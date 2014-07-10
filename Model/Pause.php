@@ -61,9 +61,9 @@ class Pause extends RunUnit {
 			$this->relative_to = $options['relative_to'];
 		}
 		
-		$this->body_parsed = Parsedown::instance()
-    ->set_breaks_enabled(true)
-    ->parse($this->body); // transform upon insertion into db instead of at runtime
+		$parsedown = new ParsedownExtra();
+		$parsedown->setBreaksEnabled(true);
+		$this->body_parsed = $parsedown->text($this->body); // transform upon insertion into db instead of at runtime
 		
 		$create = $this->dbh->prepare("INSERT INTO `survey_pauses` (`id`, `body`, `body_parsed`, `wait_until_time`, `wait_until_date` , `wait_minutes`, `relative_to`)
 			VALUES (:id, :body, :body_parsed, :wait_until_time, :wait_until_date, :wait_minutes, :relative_to)

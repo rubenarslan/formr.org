@@ -2,8 +2,6 @@
 require_once INCLUDE_ROOT."Model/DB.php";
 require_once INCLUDE_ROOT."Model/Item.php";
 require_once INCLUDE_ROOT."Model/RunUnit.php";
-require_once INCLUDE_ROOT . "vendor/erusev/parsedown/Parsedown.php";
-
 
 class Survey extends RunUnit {
 	public $id = null;
@@ -717,6 +715,8 @@ class Survey extends RunUnit {
 		$this->dbh->beginTransaction();
 		
 		$old_syntax = $this->getOldSyntax();
+		$this->parsedown = new ParsedownExtra();
+		$this->parsedown->setBreaksEnabled(true);
 		
 		$this->addChoices();
 		
@@ -777,9 +777,7 @@ class Survey extends RunUnit {
 					continue;
 				else:
 					if(!$this->knittingNeeded($item->label)): // if the parsed label is constant
-						$markdown = Parsedown::instance()
-						    ->set_breaks_enabled(true)
-						    ->parse($item->label); // transform upon insertion into db instead of at runtime
+						$markdown = $this->parsedown->text($item->label);
 
 						if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
 							$item->label_parsed = $matches[1];
@@ -864,7 +862,6 @@ class Survey extends RunUnit {
 		$delete_old_choices->bindParam(":study_id", $this->id); // delete cascades to item display
 		$delete_old_choices->execute() or die(print_r($delete_old_choices->errorInfo(), true));
 	
-
 		$add_choices = $this->dbh->prepare('INSERT INTO `survey_item_choices` (
 			study_id,
 	        list_name,
@@ -883,9 +880,7 @@ class Survey extends RunUnit {
 		foreach($this->SPR->choices AS $choice)
 		{
 			if(!$this->knittingNeeded( $choice['label'] )): // if the parsed label is constant
-				$markdown = Parsedown::instance()
-    ->set_breaks_enabled(true)
-    ->parse($choice['label']); // transform upon insertion into db instead of at runtime
+				$markdown = $this->parsedown->text($choice['label']); // transform upon insertion into db instead of at runtime
 
 				if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
 					$choice['label_parsed'] = $matches[1];

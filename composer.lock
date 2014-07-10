@@ -1,22 +1,23 @@
 {
     "_readme": [
         "This file locks the dependencies of your project to a known state",
-        "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file"
+        "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "This file is @generated automatically"
     ],
-    "hash": "c9bb34c9a3cdd17dc4fb8d46ac7fa40b",
+    "hash": "d21fdda03f82774e510767fb853f1240",
     "packages": [
         {
             "name": "erusev/parsedown",
-            "version": "0.8.3",
+            "version": "1.0.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/erusev/parsedown.git",
-                "reference": "4e83d79d76bcbcd554f02576e78744dd218b2687"
+                "reference": "d24439ada0704948deef0d3eda2ea20fd8db1747"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/erusev/parsedown/zipball/4e83d79d76bcbcd554f02576e78744dd218b2687",
-                "reference": "4e83d79d76bcbcd554f02576e78744dd218b2687",
+                "url": "https://api.github.com/repos/erusev/parsedown/zipball/d24439ada0704948deef0d3eda2ea20fd8db1747",
+                "reference": "d24439ada0704948deef0d3eda2ea20fd8db1747",
                 "shasum": ""
             },
             "type": "library",
@@ -42,7 +43,51 @@
                 "markdown",
                 "parser"
             ],
-            "time": "2014-01-20 07:26:25"
+            "time": "2014-05-21 20:20:46"
+        },
+        {
+            "name": "erusev/parsedown-extra",
+            "version": "0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/erusev/parsedown-extra.git",
+                "reference": "bcd3930f7f10915e40513e1951a253f061d75463"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/erusev/parsedown-extra/zipball/bcd3930f7f10915e40513e1951a253f061d75463",
+                "reference": "bcd3930f7f10915e40513e1951a253f061d75463",
+                "shasum": ""
+            },
+            "require": {
+                "erusev/parsedown": "~1.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-0": {
+                    "ParsedownExtra": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Emanuil Rusev",
+                    "email": "hello@erusev.com",
+                    "homepage": "http://erusev.com"
+                }
+            ],
+            "description": "An extension of Parsedown that adds support for Markdown Extra.",
+            "homepage": "https://github.com/erusev/parsedown-extra",
+            "keywords": [
+                "markdown",
+                "markdown extra",
+                "parsedown",
+                "parser"
+            ],
+            "time": "2014-06-18 23:58:16"
         },
         {
             "name": "ircmaxell/password-compat",
@@ -85,16 +130,16 @@
         },
         {
             "name": "phpmailer/phpmailer",
-            "version": "v5.2.7",
+            "version": "v5.2.8",
             "source": {
                 "type": "git",
                 "url": "https://github.com/PHPMailer/PHPMailer.git",
-                "reference": "8717a79565b2c0ed67f851d70e1949febdf3b226"
+                "reference": "d3802c597bff8f6c2ccfa3eab2a511aa01b8d68f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/PHPMailer/PHPMailer/zipball/8717a79565b2c0ed67f851d70e1949febdf3b226",
-                "reference": "8717a79565b2c0ed67f851d70e1949febdf3b226",
+                "url": "https://api.github.com/repos/PHPMailer/PHPMailer/zipball/d3802c597bff8f6c2ccfa3eab2a511aa01b8d68f",
+                "reference": "d3802c597bff8f6c2ccfa3eab2a511aa01b8d68f",
                 "shasum": ""
             },
             "require": {
@@ -102,7 +147,7 @@
             },
             "require-dev": {
                 "phpdocumentor/phpdocumentor": "*",
-                "phpunit/phpunit": "*"
+                "phpunit/phpunit": "4.0.*"
             },
             "type": "library",
             "autoload": {
@@ -134,24 +179,25 @@
                 }
             ],
             "description": "PHPMailer is a full-featured email creation and transfer class for PHP",
-            "time": "2013-09-12 07:52:38"
+            "time": "2014-05-14 07:04:18"
         },
         {
             "name": "phpoffice/phpexcel",
-            "version": "1.7.9",
+            "version": "1.8.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/PHPOffice/PHPExcel.git",
-                "reference": "1.7.9"
+                "reference": "e69a5e4d0ffa7fb6f171859e0a04346e580df30b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/PHPOffice/PHPExcel/zipball/1.7.9",
-                "reference": "1.7.9",
+                "url": "https://api.github.com/repos/PHPOffice/PHPExcel/zipball/e69a5e4d0ffa7fb6f171859e0a04346e580df30b",
+                "reference": "e69a5e4d0ffa7fb6f171859e0a04346e580df30b",
                 "shasum": ""
             },
             "require": {
                 "ext-xml": "*",
+                "ext-xmlwriter": "*",
                 "php": ">=5.2.0"
             },
             "type": "library",
@@ -190,22 +236,22 @@
                 "xls",
                 "xlsx"
             ],
-            "time": "2013-05-24 11:57:42"
+            "time": "2014-03-02 15:22:49"
         }
     ],
     "packages-dev": [
         {
             "name": "phpunit/php-code-coverage",
-            "version": "1.2.16",
+            "version": "1.2.17",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/php-code-coverage.git",
-                "reference": "69e55e68481cf708a6db43aff0b504e31402fe27"
+                "reference": "6ef2bf3a1c47eca07ea95f0d8a902a6340390b34"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/php-code-coverage/zipball/69e55e68481cf708a6db43aff0b504e31402fe27",
-                "reference": "69e55e68481cf708a6db43aff0b504e31402fe27",
+                "url": "https://api.github.com/repos/sebastianbergmann/php-code-coverage/zipball/6ef2bf3a1c47eca07ea95f0d8a902a6340390b34",
+                "reference": "6ef2bf3a1c47eca07ea95f0d8a902a6340390b34",
                 "shasum": ""
             },
             "require": {
@@ -253,7 +299,7 @@
                 "testing",
                 "xunit"
             ],
-            "time": "2014-02-25 03:34:05"
+            "time": "2014-03-28 10:53:45"
         },
         {
             "name": "phpunit/php-file-iterator",
@@ -440,39 +486,38 @@
         },
         {
             "name": "phpunit/phpunit",
-            "version": "3.7.32",
+            "version": "3.7.37",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "2752cbb9ea5bd84c2811b34b6953f76965ec7a2f"
+                "reference": "ae6cefd7cc84586a5ef27e04bae11ee940ec63dc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/2752cbb9ea5bd84c2811b34b6953f76965ec7a2f",
-                "reference": "2752cbb9ea5bd84c2811b34b6953f76965ec7a2f",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/ae6cefd7cc84586a5ef27e04bae11ee940ec63dc",
+                "reference": "ae6cefd7cc84586a5ef27e04bae11ee940ec63dc",
                 "shasum": ""
             },
             "require": {
+                "ext-ctype": "*",
                 "ext-dom": "*",
+                "ext-json": "*",
                 "ext-pcre": "*",
                 "ext-reflection": "*",
                 "ext-spl": "*",
                 "php": ">=5.3.3",
-                "phpunit/php-code-coverage": "~1.2.1",
-                "phpunit/php-file-iterator": ">=1.3.1",
-                "phpunit/php-text-template": ">=1.1.1",
-                "phpunit/php-timer": ">=1.0.4",
-                "phpunit/phpunit-mock-objects": "~1.2.0",
+                "phpunit/php-code-coverage": "~1.2",
+                "phpunit/php-file-iterator": "~1.3",
+                "phpunit/php-text-template": "~1.1",
+                "phpunit/php-timer": "~1.0",
+                "phpunit/phpunit-mock-objects": "~1.2",
                 "symfony/yaml": "~2.0"
             },
             "require-dev": {
                 "pear-pear.php.net/pear": "1.9.4"
             },
             "suggest": {
-                "ext-json": "*",
-                "ext-simplexml": "*",
-                "ext-tokenizer": "*",
-                "phpunit/php-invoker": ">=1.1.0,<1.2.0"
+                "phpunit/php-invoker": "~1.1"
             },
             "bin": [
                 "composer/bin/phpunit"
@@ -510,7 +555,7 @@
                 "testing",
                 "xunit"
             ],
-            "time": "2014-02-25 03:47:29"
+            "time": "2014-04-30 12:24:19"
         },
         {
             "name": "phpunit/phpunit-mock-objects",
@@ -563,17 +608,17 @@
         },
         {
             "name": "symfony/yaml",
-            "version": "v2.4.2",
+            "version": "v2.5.1",
             "target-dir": "Symfony/Component/Yaml",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/Yaml.git",
-                "reference": "bb6ddaf8956139d1b8c360b4b713ed0138e876b3"
+                "reference": "1057e87364c0b38b50f5695fc9df9dd189036bec"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/Yaml/zipball/bb6ddaf8956139d1b8c360b4b713ed0138e876b3",
-                "reference": "bb6ddaf8956139d1b8c360b4b713ed0138e876b3",
+                "url": "https://api.github.com/repos/symfony/Yaml/zipball/1057e87364c0b38b50f5695fc9df9dd189036bec",
+                "reference": "1057e87364c0b38b50f5695fc9df9dd189036bec",
                 "shasum": ""
             },
             "require": {
@@ -582,7 +627,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-master": "2.4-dev"
+                    "dev-master": "2.5-dev"
                 }
             },
             "autoload": {
@@ -608,7 +653,7 @@
             ],
             "description": "Symfony Yaml Component",
             "homepage": "http://symfony.com",
-            "time": "2014-01-07 13:28:54"
+            "time": "2014-07-08 12:21:33"
         }
     ],
     "aliases": [
