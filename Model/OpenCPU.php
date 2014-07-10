@@ -15,6 +15,7 @@ class OpenCPU {
 
 	public function r_function($function,$post)
 	{
+//		debug($post['x']);
 		curl_setopt($this->curl_c, CURLOPT_URL, $this->instance.'/ocpu/library/'.$function);
 		
 		if($post !== null):
@@ -153,7 +154,7 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 	public function addUserData($datasets)
 	{
 		foreach($datasets AS $df_name => $data):
-			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(json_encode($data, JSON_UNESCAPED_UNICODE)).'"), stringsAsFactors=F)
+			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_NUMERIC_CHECK)).'"), stringsAsFactors=F)
 '; ### loop through the given datasets and import them to R via JSON
 		endforeach;
 	}

@@ -53,6 +53,7 @@ class Email extends RunUnit {
 		else
 			$this->modify($this->id);
 		
+		$parsedown = new ParsedownExtra();
 		if(isset($options['body']))
 		{
 			$this->recipient_field = $options['recipient_field'];
@@ -71,9 +72,7 @@ class Email extends RunUnit {
 		endif;
 		
 
-		$this->body_parsed = Parsedown::instance()
-    ->set_breaks_enabled(true)
-    ->parse($this->body); // transform upon insertion into db instead of at runtime
+		$this->body_parsed = $parsedown->text($this->body);
 		
 		$create = $this->dbh->prepare("
 		INSERT INTO `survey_emails` 

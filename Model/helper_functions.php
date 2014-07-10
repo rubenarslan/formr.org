@@ -84,7 +84,7 @@ function h($text) {
 function debug($string) {
     if( DEBUG ) {
 		echo "<pre>";
-        var_dump($string);
+        print_r($string);
 		echo "</pre>";
     }
 }

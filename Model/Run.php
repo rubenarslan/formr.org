@@ -571,23 +571,19 @@ This study is currently being serviced. Please return at a later time."));
 	}
 	public function saveSettings($posted)
 	{
+		$parsedown = new ParsedownExtra();
+		$parsedown->setBreaksEnabled(true);
 		$successes = array();
 		if(isset($posted['description'])):
-			$posted['description_parsed'] = Parsedown::instance()
-							    ->set_breaks_enabled(true)
-							    ->parse($posted['description']);
+			$posted['description_parsed'] = $parsedown->text($posted['description']);
 			$this->run_settings[] = 'description_parsed';
 		endif;
 		if(isset($posted['public_blurb'])):
-			$posted['public_blurb_parsed'] = Parsedown::instance()
-							    ->set_breaks_enabled(true)
-							    ->parse($posted['public_blurb']);
+			$posted['public_blurb_parsed'] = $parsedown->text($posted['public_blurb']);
 			$this->run_settings[] = 'public_blurb_parsed';
 		endif;
 		if(isset($posted['footer_text'])):
-			$posted['footer_text_parsed'] = Parsedown::instance()
-							    ->set_breaks_enabled(true)
-							    ->parse($posted['footer_text']);
+			$posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']);
 			$this->run_settings[] = 'footer_text_parsed';
 		endif;
 		

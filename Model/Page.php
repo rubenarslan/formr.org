@@ -60,9 +60,10 @@ class Page extends RunUnit {
 			$this->can_be_ended = 0;
 		}
 		
-		$this->body_parsed = Parsedown::instance()
-    ->set_breaks_enabled(true)
-    ->parse($this->body); // transform upon insertion into db instead of at runtime
+		$parsedown = new ParsedownExtra();
+		$this->body_parsed = $parsedown
+		    ->setBreaksEnabled(true)
+		    ->text($this->body); // transform upon insertion into db instead of at runtime
 		
 		$create = $this->dbh->prepare("INSERT INTO `survey_pages` (`id`, `body`, `body_parsed`, `title`, `end`)
 			VALUES (:id, :body, :body_parsed, :title, :end)
