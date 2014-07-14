@@ -102,6 +102,36 @@ if (!function_exists('_')) {
 		return $text;
 	}
 }
+function used_opencpu($echo = false)
+{
+	static $used;
+	if($echo):
+		pr($used);
+		return;
+	endif;
+	if(isset($used)) $used++;
+	else $used = 1;
+}
+function used_cache($echo = false)
+{
+	static $used;
+	if($echo):
+		pr($used);
+		return;
+	endif;
+	if(isset($used)) $used++;
+	else $used = 1;
+}
+function used_nginx_cache($echo = false)
+{
+	static $used;
+	if($echo):
+		pr($used);
+		return;
+	endif;
+	if(isset($used)) $used++;
+	else $used = 1;
+}
 
 
 if (!function_exists('__')) {

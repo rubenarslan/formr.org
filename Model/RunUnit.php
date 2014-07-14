@@ -271,12 +271,22 @@ class RunUnit {
 		return parent::runDialog($prepend,'<i class="fa fa-puzzle-piece"></i>');
 	}
 	protected $survey_results = array();
-	public function getUserDataInRun($surveys)
+	public function getUserDataInRun($needed)
 	{
+		$surveys = $needed['matches'];
+		$matches_variable_names = $needed['matches_variable_names'];
 		$this->survey_results = array();
-		foreach($surveys AS $survey_name): // fixme: shouldnt be using wildcard operator here.
+		foreach($surveys AS $survey_name):
 			if(!isset($this->survey_results[$survey_name])):
-				$q1 = "SELECT `survey_run_sessions`.session,`$survey_name`.*";
+				
+				if(empty($matches_variable_names[ $survey_name ])):
+					continue;
+				endif;
+				
+				
+				$variables = "`$survey_name`.`" . implode("`,`$survey_name`." ,$matches_variable_names[ $survey_name ]) . '`';
+				
+				$q1 = "SELECT $variables";
 				
 
 				if($this->run_session_id === NULL):
@@ -301,7 +311,6 @@ class RunUnit {
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					";
 				elseif($survey_name == 'survey_users'):
-					$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.email,`$survey_name`.user_code,`$survey_name`.email_verified";
 					$q2 = "left join `survey_run_sessions`
 						on `survey_users`.id = `survey_run_sessions`.user_id
 					";
@@ -332,6 +341,10 @@ class RunUnit {
 				endwhile;
 			endif;
 		endforeach;
+		
+		if($needed['token_add'] !== null AND ! isset($this->survey_results[ $needed['token_add'] ])):
+			$this->survey_results[ $needed['token_add'] ] = array();
+		endif;
 
 		return $this->survey_results;
 	}
@@ -351,37 +364,82 @@ class RunUnit {
 		 else
 			return false;
 	}
-	public function dataNeeded($fdb,$q)
+	public function dataNeeded($fdb,$q, $token_add = NULL)
 	{
-		$matches = $tables = array();
-		$result_tables = $fdb->prepare("SELECT `survey_studies`.name FROM `survey_studies` 
+		$matches_variable_names = $variable_names_in_table = $matches = $tables = array();
+		$result_tables = $fdb->prepare("SELECT `survey_studies`.name,`survey_studies`.id FROM `survey_studies` 
 			LEFT JOIN `survey_runs`
 		ON `survey_runs`.user_id = `survey_studies`.user_id 
 		WHERE `survey_runs`.id = :run_id");
 		$result_tables->bindParam(':run_id',$this->run_id);
 		$result_tables->execute();
 		
+		$non_user_tables = array('survey_users', 'survey_unit_sessions', 'survey_items_display', 'survey_email_log', 'shuffle');
+		$tables = $non_user_tables;
 		while($res = $result_tables->fetch(PDO::FETCH_ASSOC)):
-			$tables[] = $res['name'];
+			$tables[$res['id']] = $res['name'];
 		endwhile;
-		$tables[] = 'survey_users';
-		$tables[] = 'survey_unit_sessions';
-		$tables[] = 'survey_items_display';
-		$tables[] = 'survey_email_log';
-		$tables[] = 'shuffle';
 		
-		foreach($tables AS $result):
-			if(preg_match("/\b$result\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
-				$matches[] = $result;
-// todo: need to think on this some more.
-//				$matches[$result] = array();
-//				if(preg_match_all("/\b$result\$([a-zA-Z0-9_]+)\b/",$q, $variable_matches)): 
-//					$matches[$result] = $variable_matches;
-				
+		if($token_add !== null AND !in_array($token_add, $tables)):
+			$get_token_id = $fdb->prepare("SELECT `id` FROM `survey_studies` WHERE `name` = :token_add");
+			$get_token_id->bindValue(':token_add',$token_add);
+			$get_token_id->execute() or die(print_r($get_token_id->errorInfo(), true));
+			$token_id = $get_token_id->fetch();
+			$tables[ $token_id['id'] ] = $token_add;
+		endif;
+		
+		foreach($tables AS $study_id => $table_name):
+			// always send along the table which is currently active if any
+			
+			if($table_name == $token_add OR preg_match("/\b$table_name\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
+				$matches[ $study_id ] = $table_name;
 			endif;
 		endforeach;
 	
-		return $matches;
+		foreach($matches AS $study_id => $table_name):
+			if(in_array($table_name, $non_user_tables)):
+				if($table_name == 'survey_users'):
+					$variable_names_in_table[ $table_name ] = array("created","modified","user_code","email","email_verified","mobile_number","mobile_verified");
+				elseif($table_name == 'survey_unit_sessions'):
+					$variable_names_in_table[ $table_name ] = array("created","ended","unit_id");
+				elseif($table_name == 'survey_items_display'):
+					$variable_names_in_table[ $table_name ] = array("created","answered_time","answered","displaycount","item_id");
+				elseif($table_name == 'survey_email_log'):
+					$variable_names_in_table[ $table_name ] = array("email_id","created","recipient");
+				elseif($table_name == 'shuffle'):
+					$variable_names_in_table[ $table_name ] = array("unit_id","created","group");
+				endif;
+			else:
+				
+				$variable_names = $fdb->prepare("SELECT `name` FROM `survey_items` 
+				WHERE `study_id` = :study_id");
+				$variable_names->bindValue(':study_id',$study_id);
+				$variable_names->execute() or die(print_r($variable_names->errorInfo(), true));
+				
+				$variable_names_in_table[ $table_name ] = array("created","modified","ended"); // should avoid modified, sucks for caching
+				while($res = $variable_names->fetch(PDO::FETCH_ASSOC)):
+					$variable_names_in_table[ $table_name ][] = $res['name'];
+				endwhile;
+			endif;
+			
+			$matches_variable_names[ $table_name ] = array();
+			foreach($variable_names_in_table[ $table_name ] AS $variable_name):
+				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);  // try to match scales too
+				if(strlen($variable_name_base) < 3) $variable_name_base = $variable_name;
+				if(preg_match("/\b$variable_name\b/",$q) OR preg_match("/\b$variable_name_base\b/",$q)): // item name appears as word, matches survey$item, survey[, "item"], but not item_2 for item-scale unfortunately
+					$matches_variable_names[ $table_name ][] = $variable_name;
+				endif;
+			endforeach;
+			
+			if(empty($matches_variable_names[ $table_name ])):
+				unset($matches_variable_names[ $table_name ]);
+				unset($variable_names_in_table[ $table_name ]);
+				unset($matches[ $study_id ]);
+			endif;
+		endforeach;
+		
+		return compact("matches", "matches_variable_names", "token_add");
+//		return $matches;
 	}
 	public function parseBodySpecial()
 	{

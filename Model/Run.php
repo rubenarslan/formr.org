@@ -821,6 +821,7 @@ This study is currently being serviced. Please return at a later time."));
 		
 		if($output):
 			global $site, $title, $css, $js;
+			session_over($site, $user);
 			
 			if(isset($output['title'])):
 				$title = $output['title'];
