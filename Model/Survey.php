@@ -25,6 +25,7 @@ class Survey extends RunUnit {
 	public $warnings = array();
 	public $position;
 	private $SPR;
+	public $openCPU = null;
 	public $icon = "fa-pencil-square-o";
 	public $type = "Survey";
 	public $admin_usage = false;
@@ -321,13 +322,18 @@ class Survey extends RunUnit {
 			$name = $item_array['name'];
 			$item = $this->item_factory->make($item_array);
 			
+			
 			if(trim($item->showif) != null)
 			{
 				$show = $this->item_factory->showif($this, $item->showif);
-
-				if(!$show)
+			
+				if( $show === null) // we don't know what happens yet, maybe JS, maybe not
 				{
 					$item->hide();
+				}
+				elseif( ! $show) // do not force this to be false, could be "0", 0, false
+				{
+					continue; // do not render, we know the result of this check, it's false!
 				}
 				elseif(isset( $this->item_factory->openCPU_errors[$item->showif] ))
 				{

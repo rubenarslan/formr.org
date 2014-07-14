@@ -45,20 +45,22 @@ class ItemFactory
 		if(array_key_exists($showif, $this->showifs))
 			return $this->showifs[$showif];
 		
-		$openCPU = $survey->makeOpenCPU();
-		$openCPU->admin_usage = $survey->admin_usage;
+		if($survey->openCPU === NULL):
+			$survey->openCPU = $survey->makeOpenCPU();
+		else:
+			$survey->openCPU->clearUserData();
+		endif;
 
-		$dataNeeded = $survey->dataNeeded($survey->dbh, $showif );
-		$dataNeeded[] = $survey->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
-		$dataNeeded = array_unique($dataNeeded); // no need to add it twice
+		$survey->openCPU->admin_usage = $survey->admin_usage;
+
 		
-		$openCPU->addUserData($survey->getUserDataInRun(
-			$dataNeeded
+		$survey->openCPU->addUserData($survey->getUserDataInRun(
+			$survey->dataNeeded($survey->dbh, $showif, $survey->results_table )
 		));
 		
-		$result = $openCPU->evaluateWith($survey->results_table, $showif);
+		$result = $survey->openCPU->evaluateWith($survey->results_table, $showif);
 
-		if($openCPU->anyErrors()):
+		if($survey->openCPU->anyErrors()):
 			$result = true;
 			$this->openCPU_errors[$showif] =  _('There were problems with openCPU.');
 		endif;
@@ -368,19 +370,19 @@ class Item extends HTML_element
 	}
 	public function determineDynamicLabel($survey)
 	{
-		$openCPU = $survey->makeOpenCPU();
+		if($survey->openCPU === NULL):
+			$survey->openCPU = $survey->makeOpenCPU();
+		else:
+			$survey->openCPU->clearUserData();
+		endif;
 		
-		$openCPU->admin_usage = $survey->admin_usage;
-
-		$dataNeeded = $survey->dataNeeded($survey->dbh, $this->label );
-		$dataNeeded[] = $survey->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
-		$dataNeeded = array_unique($dataNeeded); // no need to add it twice
+		$survey->openCPU->admin_usage = $survey->admin_usage;
 	
-		$openCPU->addUserData($survey->getUserDataInRun( $dataNeeded ));
+		$survey->openCPU->addUserData($survey->getUserDataInRun( $survey->dataNeeded($survey->dbh, $this->label, $survey->results_table ) ));
 		
-		$markdown = $openCPU->knitForUserDisplay($this->label);
+		$markdown = $survey->openCPU->knitForUserDisplay($this->label);
 	
-		if($openCPU->anyErrors()):
+		if($survey->openCPU->anyErrors()):
 			$this->alwaysInvalid();
 		endif;
 		
@@ -410,18 +412,19 @@ class Item extends HTML_element
 	{
 		if($this->value=="sticky") $this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
 		
-		$openCPU = $survey->makeOpenCPU();
-		$openCPU->admin_usage = $survey->admin_usage;
+		if($survey->openCPU === NULL):
+			$survey->openCPU = $survey->makeOpenCPU();
+		else:
+			$survey->openCPU->clearUserData();
+		endif;
 
-		$dataNeeded = $survey->dataNeeded($survey->dbh, $this->value );
-		$dataNeeded[] = $survey->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
-		$dataNeeded = array_unique($dataNeeded); // no need to add it twice
-	
-		$openCPU->addUserData($survey->getUserDataInRun( $dataNeeded ));
+		$survey->openCPU->admin_usage = $survey->admin_usage;
+
+		$survey->openCPU->addUserData($survey->getUserDataInRun( $survey->dataNeeded($survey->dbh, $this->value, $survey->results_table ) ));
 		
-		$this->input_attributes['value'] = $openCPU->evaluateWith($survey->results_table, $this->value);
+		$this->input_attributes['value'] = $survey->openCPU->evaluateWith($survey->results_table, $this->value);
 		
-		if($openCPU->anyErrors()):
+		if($survey->openCPU->anyErrors()):
 			$this->alwaysInvalid();
 		endif;
 		

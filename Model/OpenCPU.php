@@ -5,17 +5,93 @@ class OpenCPU {
 	private $curl_c;
 	public $http_status = null;
 	private $knitr_source = null;
+
 	public $admin_usage = false;
-	public function __construct($instance)
+	private $hashes = array();
+	private $dbh = null;
+	private $hash_of_call = null;
+	
+	public function __construct($instance, $fdb = null)
 	{
+		$this->dbh = $fdb;
 		$this->instance = $instance;
 		$this->curl_c = curl_init();
 		curl_setopt($this->curl_c, CURLOPT_RETURNTRANSFER, 1); // Returns the curl_exec string, rather than just Logical value
 	}
+	public function clearUserData() // reset to init state, more or less (keep cache)
+	{
+		$this->user_data = '';
+		$this->knitr_source = null;
+		$this->admin_usage = false;
+		$this->http_status = null;
+		$this->hash_of_call = null;
+	}
+	public function addUserData($datasets)
+	{
+		// could I check here whether the dataset contains only null and not even send it to R? but that would break for e.g. is.na(email). hm.
+		foreach($datasets AS $df_name => $data):
+			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(json_encode($data, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)).'"), stringsAsFactors=F)
+'; ### loop through the given datasets and import them to R via JSON
+		endforeach;
+	}
+	public function anyErrors()
+	{
+		if($this->http_status !== NULL AND ($this->http_status < 100 OR $this->http_status > 302)) return true;
+		else return false;
+	}
+	public function speed()
+	{
+		return curl_getinfo($this->curl_c);
+	}
+	
+	private function handleErrors($message, $result, $post, $in, $level = "alert-danger")
+	{
+		if($this->admin_usage):
+			$error_msg = $result['body'];
+			if(! trim($error_msg)) $error_msg = "OpenCPU appears to be down";
+			if(is_array($error_msg)) $error_msg = current($error_msg);
+			
+			if(is_array($post)) $post = current($post);
 
+			alert($message . " <blockquote>".h($error_msg)."</blockquote><pre style='background-color:transparent;border:0'>".h($post)."</pre>",$level,true);
+		endif;
+		opencpu_log( "R error in $in:
+".print_r($post, true)."
+".print_r($result, true)."\n");
+	}
+	
+	private function returnParsed($result, $in = '') 
+	{
+		$post = $result['post'];
+		$parsed = json_decode($result['body'], true);
+				
+		if($parsed === null):
+			$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post, $in);
+			return null;
+		elseif(empty($parsed)):
+			$this->handleErrors("This expression led to a null result (may be intentional, but most often isn't)", $result, $post, $in, 'alert-warning');
+			return null;
+		else:
+			if( is_string( $parsed[0]) ) // dont change type by accident!
+				$parsed = str_replace("/usr/local/lib/R/site-library/", $this->instance.'/ocpu/library/' , $parsed[0]);
+			else $parsed = $parsed[0];
+			$this->cache_query($result);
+			return $parsed;
+		endif;
+		
+		pr($result);
+		pr($parsed);
+	}
+	
 	public function r_function($function,$post)
 	{
-//		debug($post['x']);
+		
+		used_opencpu();
+
+		if($was_cached = $this->query_cache($function, $post)):
+			return $was_cached;
+		endif;
+
 		curl_setopt($this->curl_c, CURLOPT_URL, $this->instance.'/ocpu/library/'.$function);
 		
 		if($post !== null):
@@ -40,23 +116,81 @@ class OpenCPU {
 
 		$header = mb_substr($result, 0, $this->header_size);
 		$body = mb_substr($result, $this->header_size);
-		$body = str_replace("/usr/local/lib/R/site-library/", $this->instance.'/ocpu/library/' , $body);
-		##		list($header, $body) = explode("\r\n\r\n", $results, 2); # does not work with 100 Continue
+	##	list($header, $body) = explode("\r\n\r\n", $results, 2); # does not work with 100 Continue
 		
-		return compact('header','body','post');
+		$result = compact('header','body','post');
+		
+		return $result;
 	}
-	public function anyErrors()
-	{
-		if($this->http_status < 200 OR $this->http_status > 302) return true;
-		else return false;
-	}
+	
 	public function identity($post, $return = '/json')
 	{
 		return $this->r_function('base/R/identity'.$return, $post);
 	}
-	public function speed()
+	
+	private function query_cache($function, $post)
 	{
-		return curl_getinfo($this->curl_c);
+		$this->hash_of_call = hash("md5", $function . json_encode($post) );
+		
+		if(isset($this->hashes[ $this->hash_of_call ])): // caching at the lowest level for where I forgot it elsewhere
+			used_cache();
+			return $this->hashes[ $this->hash_of_call ];
+		else:
+			if($this->dbh !== null):
+				$cache = $this->dbh->prepare("SELECT result_short FROM `survey_opencpu_query_cache` WHERE hash = :hash LIMIT 1;");
+				$cache->bindValue(':hash', $this->hash_of_call);
+				$cache->execute();
+				$result = $cache->fetch();
+				if($result):
+					$result['post'] = $post;
+					$result['body'] = array();
+					if( $result['result_short'] != 9):
+						$result['body'][0] = $result['result_short'];
+					else:
+						$cache = $this->dbh->prepare("SELECT result_long FROM `survey_opencpu_query_cache` WHERE hash = :hash LIMIT 1;");
+						$cache->bindValue(':hash', $this->hash_of_call);
+						$cache->execute();
+						$result = $cache->fetch();
+						$result['body'][0] = $result['result_long'];
+					endif;
+					return $result;
+				endif;
+			endif;
+		endif;
+		return false;
+	}
+	
+	private function cache_query($result)
+	{
+		$header_parsed = http_parse_headers($result['header']);
+
+		if(isset($header_parsed['x-ocpu-cache']) AND $header_parsed['x-ocpu-cache'] == "HIT") used_nginx_cache();
+		if(!isset($header_parsed['Cache-Control'])) return false;
+		if(isset($header_parsed['X-ocpu-session'])): # won't be there if openCPU is down
+			
+			$this->hashes[ $this->hash_of_call ] = $result;
+			
+			if($this->dbh !== null):
+			
+				$location = $header_parsed['Location'];
+				if(isset($header_parsed['Content-Type']) AND $header_parsed['Content-Type'] == 'application/json'):
+					$location .= "R/.val/json";
+				endif;
+				$cache = $this->dbh->prepare("INSERT INTO `survey_opencpu_query_cache` (created, hash, result_short, result_long) VALUES(NOW(), :hash, :result_short, :result_long);");
+				$cache->bindValue(':hash', $this->hash_of_call);
+				if($result['body'] == true OR $result['body'] == false):
+					$cache->bindValue(':result_short', $result['body']);
+				else:
+					$cache->bindValue(':result_short', 9);
+				endif;
+				$cache->bindValue(':result_long', $location);
+				$cache->execute();
+			endif;
+
+			return true;
+		else:
+			return false; // don't cache buggy requests
+		endif;
 	}
 	
 	public function evaluate($source,$return = '/json')
@@ -69,11 +203,10 @@ library(formr)
 })() }');
 
 		$result = $this->identity($post,$return);
-		
-		$parsed = json_decode($result['body'], true);
 
-		return $this->returnParsed($parsed,$result,$post, "evaluate");
+		return $this->returnParsed($result, "evaluate");
 	}
+	
 	public function evaluateWith($results_table, $source,$return = '/json')
 	{
 		$post = array('x' => '{ 
@@ -87,39 +220,15 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 			
 		$result = $this->identity($post,$return);
 
-		$parsed = json_decode($result['body'], true);
-		
-		return $this->returnParsed($parsed,$result,$post, "evaluateWith");
+		return $this->returnParsed($result, "evaluateWith");
 	}
-	private function handleErrors($message, $result, $post, $in, $level = "alert-danger")
-	{
-		if($this->admin_usage):
-			$error_msg = $result['body'];
-			if(! trim($error_msg)) $error_msg = "OpenCPU appears to be down";
-			alert($message . " <blockquote>".h($error_msg)."</blockquote><pre style='background-color:transparent;border:0'>".h($post)."</pre>",$level,true);
-		endif;
-		opencpu_log( "R error in $in:
-".print_r($post, true)."
-".print_r($result, true)."\n");
-		
-	}
-	private function returnParsed($parsed,$result,$post, $in = '') {
-		
-		if($parsed===null):
-			$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post['x'], $in);
-			return null;
-		elseif(empty($parsed)):
-			$this->handleErrors("This expression led to a null result (may be intentional, but most often isn't)", $result, $post['x'], $in, 'alert-warning');
-			return null;
-		else:
-			return $parsed[0];
-		endif;
-	}
+
 	public function evaluateAdmin($source,$return = '')
 	{
 		$this->admin_usage = true;
 		$post = array('x' => '{ 
 (function() {
+library(formr)
 '.$this->user_data.'
 '.$source.'
 })() }');
@@ -127,12 +236,13 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 		
 		return $this->debugCall($result);
 	}
+	
 	public function knit($source,$return = '/json')
 	{
 		$post = array(	'text' 			=> "'".addslashes($source)."'");
-		$resp = $this->r_function('knitr/R/knit'.$return, $post);
-		$resp = current(json_decode($resp['body'], true));
-		return $resp;
+		$result = $this->r_function('knitr/R/knit'.$return, $post);
+		
+		return $this->returnParsed($result, "knit");
 	}
 	
 	public function knit2html($source,$return = '/json',$options = '"base64_images","smartypants","highlight_code","mathjax"')
@@ -143,20 +253,6 @@ with(tail('.$results_table.',1), { ## by default evaluated in the most recent re
 						'options' 		=> 'c('.$options.')'
 				);
 		return $this->r_function('knitr/R/knit2html'.$return, $post);
-	}
-	public function clearUserData()
-	{
-		$this->user_data = '';
-		$this->knitr_source = null;
-		$this->admin_usage = false;
-		$this->http_status = null;
-	}
-	public function addUserData($datasets)
-	{
-		foreach($datasets AS $df_name => $data):
-			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(json_encode($data, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)).'"), stringsAsFactors=F)
-'; ### loop through the given datasets and import them to R via JSON
-		endforeach;
 	}
 	public function knitForUserDisplay($source)
 	{
@@ -170,34 +266,9 @@ $this->user_data .
 		$source;
 		
 		$result = $this->knit2html($source,'/json');
-		$html = json_decode($result['body'], true);
 		
-		if(!$html):
-			$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $source, "knitForUserDisplay");
-			return false;
-		endif;
-		
-		return $html[0];
+		return $this->returnParsed($result, "knit");
 	}
-	public function knitForAdminDebug($source)
-	{
-		$this->admin_usage = true;
-		
-		$source =
-'```{r settings,message=FALSE,warning=F,echo=F}
-opts_chunk$set(warning=T,message=T,echo=T)
-'.
-$this->user_data .
-'```
-'.
-		$source;
-		$this->knitr_source = $source;
-		$result = $this->knit2html($source,'');
-		return $this->debugCall($result);
-
-	}
-
-
 
 	public function knitEmail($source)
 	{
@@ -217,7 +288,7 @@ $this->user_data .
 		
 		$result = $this->knit2html($source,'','"smartypants","highlight_code","mathjax"');
 
-		if($this->http_status > 302):
+		if($this->anyErrors()):
 			 $response = array(
 				 'Response' => '<pre>'. htmlspecialchars($result['body']). '</pre>',
 				 'HTTP headers' => '<pre>'. htmlspecialchars($result['header']). '</pre>',
@@ -244,15 +315,44 @@ $this->user_data .
 			// info/text stdout/text console/text R/.val/text
 		
 			if(in_array($session . 'R/.val',$available)):
-				$response['body'] = current( json_decode(file_get_contents($this->instance. $session . 'R/.val/json'), true) );
+				$response['body'] = $this->returnParsed(
+					array(
+					"post" => $result['post'],
+					"header" => $result['header'],
+					"body" => file_get_contents($this->instance. $session . 'R/.val/json'),
+					)
+				);
 			endif;
 		endif;
-		
 		return $response;
 	}
+	
+	public function knitForAdminDebug($source)
+	{
+		$this->admin_usage = true;
+		
+		$source =
+'```{r settings,message=FALSE,warning=F,echo=F}
+opts_chunk$set(warning=T,message=T,echo=T)
+'.
+$this->user_data .
+'```
+'.
+		$source;
+		$this->knitr_source = $source;
+		$result = $this->knit2html($source,'');
+		return $this->debugCall($result);
+
+	}
+
+
 	public function debugCall($result)
 	{
-		if($this->http_status < 303):
+		if($this->http_status === 0):
+			 $response = array(
+				 'Response' => 'OpenCPU at '.$this->instance.' is down.'
+			 );
+		elseif($this->http_status < 303):
 			$header_parsed = http_parse_headers($result['header']);
 			$available = explode("\n",$result['body']);
 			
@@ -306,7 +406,7 @@ $this->user_data .
 	}
 	private function ArrayToAccordion($array)
 	{
-		$rand = mt_rand(0,1000);
+		$rand = mt_rand(0,10000);
 		$acc = '<div class="panel-group opencpu_accordion" id="opencpu_accordion'.$rand.'">';
 		$first = ' in';
 		foreach($array AS $title => $content):
