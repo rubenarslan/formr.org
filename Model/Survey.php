@@ -442,15 +442,25 @@ class Survey extends RunUnit {
 	    /* pass on hidden values */
 	    $ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
 	
-		if(!isset($this->settings["displayed_percentage_maximum"]))
-			$this->settings["displayed_percentage_maximum"] = 90;
-		$prog = round($this->progress,2) * $this->settings["displayed_percentage_maximum"];
-		if(isset($this->settings["add_percentage_points"]))
+		if(!isset($this->settings["displayed_percentage_maximum"]) OR $this->settings["displayed_percentage_maximum"] == 0)
+			$this->settings["displayed_percentage_maximum"] = 100;
+		
+		$prog = $this->progress *  // the fraction of this survey that was completed
+			($this->settings["displayed_percentage_maximum"] - // is multiplied with the stretch of percentage that it was accorded
+				$this->settings["add_percentage_points"]);
+		
+		if(isset($this->settings["add_percentage_points"])):
 			$prog += $this->settings["add_percentage_points"];
+		endif;
+		if($prog > $this->settings["displayed_percentage_maximum"]):
+			$prog = $this->settings["displayed_percentage_maximum"];
+		endif;
+		
+		$prog = round($prog);
 		
 	    $ret .= '<div class="container progress-container">
 			<div class="progress">
-				  <div data-starting-percentage="'.$prog.'" data-number-of-items="'.$this->not_answered.'" class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
+				  <div data-percentage-minimum="'.$this->settings["add_percentage_points"].'" data-percentage-maximum="'.$this->settings["displayed_percentage_maximum"].'" data-already-answered="'.$this->already_answered.'"  data-number-of-items="'.$this->not_answered.'" class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
 			</div>
 			</div>';
 		
@@ -536,7 +546,6 @@ class Survey extends RunUnit {
 		return array('title' => null,
 		'body' => $this->render());
 	}
-// this is actually just the admin side of the survey thing, but because they have different DB layers, it may make sense to keep thems separated
 
 	
 	public function changeSettings($key_value_pairs)
@@ -551,7 +560,7 @@ class Survey extends RunUnit {
 	    $post_form->bindParam(":study_id", $this->id);
 		foreach($key_value_pairs AS $key => $value)
 		{
-		    $post_form->bindParam(":$key", $value);
+		    $post_form->bindValue(":$key", $value);
 		}
 		$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 
