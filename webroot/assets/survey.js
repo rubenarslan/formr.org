@@ -290,11 +290,12 @@ function getProgress() {
         else successful_controls[obj.name] += ", " + obj.value;
     });
     
+    var already_answered = $progressbar.data('already-answered');
     var remaining_items = $progressbar.data('number-of-items');
-    var remaining_percentage = 1 - $progressbar.data('starting-percentage')/100;
+    var percentage_minimum = $progressbar.data('percentage-minimum');
+    var percentage_maximum = $progressbar.data('percentage-maximum');
     var items_answered_on_page = 0;
     var page_items = 0;
-    
 	$.each(successful_controls,function(name,value){
 
         var elm_non_hidden = $(document.getElementsByName(name).length ? document.getElementsByName(name) : document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])");
@@ -332,15 +333,17 @@ function getProgress() {
             }
         }
 	});
-
-	var prog_on_remainder = items_answered_on_page / remaining_items;
-	if(prog_on_remainder > 1) prog_on_remainder = 1;
+	var prog_here = (items_answered_on_page+already_answered) / (remaining_items+already_answered);
     
-    var prog = ((1 - remaining_percentage) + (remaining_percentage * prog_on_remainder)) * 100;
-            
+    var prog = prog_here * (percentage_maximum - percentage_minimum);  // the fraction of this survey that was completed is multiplied with the stretch of percentage that it was accorded
+    prog = prog + percentage_minimum;
+
+    if(prog > percentage_maximum) prog = percentage_maximum;
+    
 	$progressbar.css('width',Math.round(prog)+'%');
 	$progressbar.text(Math.round(prog)+'%');
     change_events_set = true;
+    return prog;
 }
 
 

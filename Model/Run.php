@@ -819,9 +819,9 @@ This study is currently being serviced. Please return at a later time."));
 			endif;
 		endif;
 		
+		
 		if($output):
 			global $site, $title, $css, $js;
-			session_over($site, $user);
 			
 			if(isset($output['title'])):
 				$title = $output['title'];
@@ -836,12 +836,15 @@ This study is currently being serviced. Please return at a later time."));
 	
 			require_once INCLUDE_ROOT . 'View/header.php';
 
+
 			?>
 		<div class="row">
 			<div class="col-lg-12 run_position_<?=$run_session->position?> run_unit_type_<?=$run_session->current_unit_type?> run_content">
 				<header class="run_content_header"><?=$this->header_image_path? '<img src="'.$this->header_image_path.'" alt="'.$this->name.' header image">':''; ?></header>
 		<?php
 			$alerts = $site->renderAlerts();
+			session_over($site, $user);
+			
 			if(!empty($alerts)):
 				echo '
 					<div class="row">
