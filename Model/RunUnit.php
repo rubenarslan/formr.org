@@ -30,6 +30,9 @@ class RunUnit {
 	public $type = '';
 	public $icon = 'fa-wrench';
 	public $special = false;
+	protected $non_user_tables = array('survey_users', 'survey_run_sessions','survey_unit_sessions', 'survey_items_display', 'survey_email_log', 'shuffle');
+	protected $non_session_tables = array('survey_users', 'survey_run_sessions','survey_unit_sessions');
+	
 	
 	public function __construct($fdb, $session = null, $unit = null, $run_session) 
 	{
@@ -289,7 +292,7 @@ class RunUnit {
 				$q1 = "SELECT $variables";
 				
 
-				if($this->run_session_id === NULL):
+				if($this->run_session_id === NULL AND !in_array($survey_name, $this->non_session_tables)): // todo: what to do with session_id tables in faketestrun
 					$q3
 						 = "
 					WHERE `$survey_name`.session_id = :session_id;"; // just for testing surveys
@@ -299,16 +302,18 @@ class RunUnit {
 					WHERE  `survey_run_sessions`.id = :run_session_id;";
 				endif;
 			
-				if(!in_array($survey_name,array('survey_users','survey_unit_sessions'))):
+				if(!in_array($survey_name, $this->non_session_tables )):
 					$q2 = "left join `survey_unit_sessions`
 						on `$survey_name`.session_id = `survey_unit_sessions`.id
 						left join `survey_run_sessions`
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					";
-				
 				elseif($survey_name == 'survey_unit_sessions'):
 					$q2 = "left join `survey_run_sessions`
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+					";
+				elseif($survey_name == 'survey_run_sessions'):
+					$q2 = "
 					";
 				elseif($survey_name == 'survey_users'):
 					$q2 = "left join `survey_run_sessions`
@@ -328,7 +333,6 @@ class RunUnit {
 				endif;
 				$get_results->execute();
 				$this->survey_results[$survey_name] = array();
-			
 				while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
 					foreach($res AS $var => $val):
 
@@ -374,8 +378,7 @@ class RunUnit {
 		$result_tables->bindParam(':run_id',$this->run_id);
 		$result_tables->execute();
 		
-		$non_user_tables = array('survey_users', 'survey_unit_sessions', 'survey_items_display', 'survey_email_log', 'shuffle');
-		$tables = $non_user_tables;
+		$tables = $this->non_user_tables;
 		while($res = $result_tables->fetch(PDO::FETCH_ASSOC)):
 			$tables[$res['id']] = $res['name'];
 		endwhile;
@@ -397,9 +400,11 @@ class RunUnit {
 		endforeach;
 	
 		foreach($matches AS $study_id => $table_name):
-			if(in_array($table_name, $non_user_tables)):
+			if(in_array($table_name, $this->non_user_tables)):
 				if($table_name == 'survey_users'):
-					$variable_names_in_table[ $table_name ] = array("created","modified","user_code","email","email_verified","mobile_number","mobile_verified");
+					$variable_names_in_table[ $table_name ] = array("created","modified", "user_code","email","email_verified","mobile_number", "mobile_verified");
+				elseif($table_name == 'survey_run_sessions'):
+						$variable_names_in_table[ $table_name ] = array("session","created","last_access","position","current_unit_id", "deactivated","no_email");
 				elseif($table_name == 'survey_unit_sessions'):
 					$variable_names_in_table[ $table_name ] = array("created","ended","unit_id");
 				elseif($table_name == 'survey_items_display'):
@@ -411,8 +416,13 @@ class RunUnit {
 				endif;
 			else:
 				
-				$variable_names = $fdb->prepare("SELECT `name` FROM `survey_items` 
-				WHERE `study_id` = :study_id");
+				$variable_names = $fdb->prepare("SELECT `survey_items`.`name` FROM `survey_items` 
+				WHERE `survey_items`.`study_id` = :study_id
+				AND `survey_items`.type NOT IN (
+					'mc_heading',
+					'note',
+					'submit'
+				)");
 				$variable_names->bindValue(':study_id',$study_id);
 				$variable_names->execute() or die(print_r($variable_names->errorInfo(), true));
 				
