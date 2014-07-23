@@ -284,7 +284,7 @@ class RunUnit {
 				endif;
 				
 				
-				$variables = "`$survey_name`.`" . implode("`,`$survey_name`." ,$matches_variable_names[ $survey_name ]) . '`';
+				$variables = "`$survey_name`.`" . implode("`,`$survey_name`.`" ,$matches_variable_names[ $survey_name ]) . '`';
 				
 				$q1 = "SELECT $variables";
 				
