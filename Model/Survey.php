@@ -168,7 +168,7 @@ class Survey extends RunUnit {
 		
 	}
 	protected function getProgress() {
-		$query = "SELECT SUM(`survey_items_display`.answered) AS count, study_id, session_id
+		$query = "SELECT COUNT(`survey_items_display`.answered) AS count, study_id, session_id
 					FROM 
 						`survey_items` 
 					LEFT JOIN `survey_items_display`
@@ -188,6 +188,7 @@ class Survey extends RunUnit {
 		$progress->execute() or die(print_r($progress->errorInfo(), true));
 
 		$answered = $progress->fetch(PDO::FETCH_ASSOC);
+		
 		$this->already_answered = $answered['count'];
 
 		$this->not_answered = array_filter($this->unanswered, function ($item)
@@ -201,9 +202,11 @@ class Survey extends RunUnit {
 			else 
 				return true;
 		}
-);
+		);
+		$this->not_answered = count( $this->not_answered );
+		
 // todo: in the medium term it may be more intuitive to treat notes as item that are answered by viewing but that can linger in a special case, might require less extra logic. but they shouldn't go in the results table.. so maybe not.
-		$seen_notes = array_filter($this->unanswered, function ($item)
+/*		$seen_notes = array_filter($this->unanswered, function ($item)
 				{ // notes stay in the unanswered batch
 					if(
 						! $item->hidden											 // item wasn't skipped
@@ -215,8 +218,7 @@ class Survey extends RunUnit {
 				}
 		);
 		$this->already_answered += count($seen_notes); 
-
-		$this->not_answered = count( $this->not_answered );
+*/		
 
 		$all_items = $this->already_answered + $this->not_answered;
 		
@@ -432,6 +434,19 @@ class Survey extends RunUnit {
 			}
 		}
 		$this->dbh->commit() or die(print_r($this->dbh->errorInfo(), true));
+		$this->not_answered_on_current_page = array_filter($this->rendered_items, function ($item)
+		{
+			if(
+				$item->hidden OR  // item was skipped
+				in_array($item->type, array('submit','mc_heading')) 		 // these items require no user interaction and thus don't count against progress
+				OR ($item->type == 'note' AND $item->displaycount > 0) 		 // item is a note and has already been viewed
+			)
+				return false;
+			else 
+				return true;
+		}
+		);
+		$this->not_answered_on_current_page = count( $this->not_answered_on_current_page );
 	}
 	protected function render_form_header() {
 		$action = WEBROOT."{$this->run_name}";
@@ -460,7 +475,7 @@ class Survey extends RunUnit {
 		
 	    $ret .= '<div class="container progress-container">
 			<div class="progress">
-				  <div data-percentage-minimum="'.$this->settings["add_percentage_points"].'" data-percentage-maximum="'.$this->settings["displayed_percentage_maximum"].'" data-already-answered="'.$this->already_answered.'"  data-number-of-items="'.$this->not_answered.'" class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
+				  <div data-percentage-minimum="'.$this->settings["add_percentage_points"].'" data-percentage-maximum="'.$this->settings["displayed_percentage_maximum"].'" data-already-answered="'.$this->already_answered.'"  data-items-left="'.($this->not_answered - $this->not_answered_on_current_page).'" class="progress-bar" style="width: '.$prog.'%;">'.$prog.'%</div>
 			</div>
 			</div>';
 		
@@ -681,7 +696,7 @@ class Survey extends RunUnit {
 		
 		$this->changeSettings(array
 			(
-				"maximum_number_displayed" => "",
+				"maximum_number_displayed" => 0,
 				"displayed_percentage_maximum" => 100,
 				"add_percentage_points" => 0,
 			)

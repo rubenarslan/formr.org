@@ -271,12 +271,13 @@ $(document).ready(function() {
         
     	});
     });
+    $('form').on('change', showIf);
     $('form').on('change', getProgress);
-    getProgress();
-    showIf();
+    $('form').change();
 });
 
-function getProgress() {
+function getProgress() 
+{
     $progressbar = $('.progress .progress-bar');
 
 //    var successful_controls = $('form').serializeArray(); 
@@ -291,39 +292,47 @@ function getProgress() {
     });
     
     var already_answered = $progressbar.data('already-answered');
-    var remaining_items = $progressbar.data('number-of-items');
+    var remaining_items = $progressbar.data('items-left');
     var percentage_minimum = $progressbar.data('percentage-minimum');
     var percentage_maximum = $progressbar.data('percentage-maximum');
     var items_answered_on_page = 0;
-    var page_items = 0;
+    var unanswered_page_items = 0;
+    
 	$.each(successful_controls,function(name,value){
 
-        var elm_non_hidden = $(document.getElementsByName(name).length ? document.getElementsByName(name) : document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])");
+        var elm_non_hidden = $(document.getElementsByName(name).length ? document.getElementsByName(name) : $(document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])") );
         
-        if(typeof change_events_set == 'undefined')
+        console.log($(elm_non_hidden).parents(".form-group").data('ever-changed'));
+        if(typeof $(elm_non_hidden).parents(".form-group").data('ever-changed') == "undefined")
         {
+            $(elm_non_hidden).parents(".form-group").data('ever-changed', false);
             $(elm_non_hidden).parents(".form-group").change(function(){
 
                $(this).data('ever-changed', true);
               $(this).off('change'); 
             });
         }
-        var elm_non_hidden = elm_non_hidden[0];
-
-        if(elm_non_hidden)
+        
+        var elm = elm_non_hidden[0];
+        if(name != "session_id" && elm)
         {
-            page_items++;
-
-            
     		if(value.length > 0) // if it's not empty, you get  //  || parseFloat(elm.value)
             {
-                if($(elm_non_hidden).parents(".form-group").data('ever-changed')) //elm.value == elm_non_hidden.defaultValue) 
+                if($(elm).parents(".form-group").data('ever-changed') || elm_non_hidden.attr('type') == "hidden") //elm.value == elm_non_hidden.defaultValue) 
                {
            			items_answered_on_page += 0.5; // half a point for changing the default value
                     
-                    if(elm_non_hidden.validity.valid) { // if it is valid like this, it gets half a point
+                    if(elm.validity.valid) { // if it is valid like this, it gets half a point
             			items_answered_on_page += 0.5;
                     }
+                    else
+                    {
+                        unanswered_page_items += 0.5;
+                    }
+                }
+                else
+                {
+                    unanswered_page_items += 1;
                 }
                 // cases: 
                 // range, default: 0 + 0.5 = 0.05
@@ -331,9 +340,15 @@ function getProgress() {
                 // text, "": 0 + 0
                 // text, "xx": 0.5 + 0.5 = 1
             }
+            else
+            {
+                unanswered_page_items += 1;
+            }
+            
         }
 	});
-	var prog_here = (items_answered_on_page+already_answered) / (remaining_items+already_answered);
+//    console.log(already_answered, items_answered_on_page, unanswered_page_items, remaining_items);
+	var prog_here = (items_answered_on_page + already_answered) / (remaining_items + unanswered_page_items + items_answered_on_page + already_answered);
     
     var prog = prog_here * (percentage_maximum - percentage_minimum);  // the fraction of this survey that was completed is multiplied with the stretch of percentage that it was accorded
     prog = prog + percentage_minimum;
@@ -349,50 +364,46 @@ function getProgress() {
 
 function showIf()
 {
-    $('form').change(function()
+    var badArray = $('form').serializeArray();
+    var subdata = {};
+    $.each(badArray, function(i, obj)
     {
-        var badArray = $('form').serializeArray();
-        var subdata = {};
-        $.each(badArray, function(i, obj)
+        if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
+        if(!subdata[ obj.name ]) subdata[obj.name] = obj.value;
+        else subdata[obj.name] += ", " + obj.value;
+    });
+    $(".form-group[data-showif]").each(function(i,elm)
+    {
+        var showif = $(elm).data('showif');
+        // primitive R to JS translation
+        showif = showif.replace(/current\(\s*(\w+)\s*\)/g, "$1"); // remove current function
+        showif = showif.replace(/tail\(\s*(\w+)\s*, 1\)/g, "$1"); // remove current function, JS evaluation is always in session
+        // all other R functions may break
+        showif = showif.replace(/"/g, "'"); // double quotes to single quotes
+        showif = showif.replace(/(^|[^&])(\&)([^&]|$)/g, "$1&$3"); // & operators, only single ones need to be doubled
+        showif = showif.replace(/(^|[^|])(\|)([^|]|$)g/, "$1&$3"); // | operators, only single ones need to be doubled
+        showif = showif.replace(/FALSE/g, "false"); // uppercase, R, FALSE, to lowercase, JS, false
+        showif = showif.replace(/TRUE/g, "true"); // uppercase, R, TRUE, to lowercase, JS, true
+        showif = showif.replace(/\s*\%contains\%\s*([a-zA-Z0-9_'"]+)/g,".indexOf($1) > -1");
+        try
         {
-            if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
-            if(!subdata[ obj.name ]) subdata[obj.name] = obj.value;
-            else subdata[obj.name] += ", " + obj.value;
-        });
-        $(".form-group[data-showif]").each(function(i,elm)
+            with(subdata)
+            {
+                var hide = ! eval(showif);
+                $(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
+                $(elm).find('input,select,textarea').prop('disabled', hide); // enable/disable depending on evaluation
+                $(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
+            }
+        }
+        catch(e)
         {
-            var showif = $(elm).data('showif');
-            // primitive R to JS translation
-            showif = showif.replace(/current\(\s*(\w+)\s*\)/g, "$1"); // remove current function
-            showif = showif.replace(/tail\(\s*(\w+)\s*, 1\)/g, "$1"); // remove current function, JS evaluation is always in session
-            // all other R functions may break
-            showif = showif.replace(/"/g, "'"); // double quotes to single quotes
-            showif = showif.replace(/(^|[^&])(\&)([^&]|$)/g, "$1&$3"); // & operators, only single ones need to be doubled
-            showif = showif.replace(/(^|[^|])(\|)([^|]|$)g/, "$1&$3"); // | operators, only single ones need to be doubled
-            showif = showif.replace(/FALSE/g, "false"); // uppercase, R, FALSE, to lowercase, JS, false
-            showif = showif.replace(/TRUE/g, "true"); // uppercase, R, TRUE, to lowercase, JS, true
-            showif = showif.replace(/\s*\%contains\%\s*([a-zA-Z0-9_'"]+)/g,".indexOf($1) > -1");
-            try
-            {
-                with(subdata)
-                {
-                    var hide = ! eval(showif);
-                    $(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
-                    $(elm).find('input,select,textarea').prop('disabled', hide); // enable/disable depending on evaluation
-                    $(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
-                }
-            }
-            catch(e)
-            {
-                if(window.console) console.log("JS showif failed",showif, e,  $(elm).find('input').attr('name'));
-            }
-            finally
-            {
-                return;
-            }
-
-        })
-    }).change();
+            if(window.console) console.log("JS showif failed",showif, e,  $(elm).find('input').attr('name'));
+        }
+        finally
+        {
+            return;
+        }
+    });
 }
 
 function flatStringifyGeo(geo) {
