@@ -385,6 +385,7 @@ function showIf()
         showif = showif.replace(/FALSE/g, "false"); // uppercase, R, FALSE, to lowercase, JS, false
         showif = showif.replace(/TRUE/g, "true"); // uppercase, R, TRUE, to lowercase, JS, true
         showif = showif.replace(/\s*\%contains\%\s*([a-zA-Z0-9_'"]+)/g,".indexOf($1) > -1");
+        showif = showif.replace(/\s*stringr::str_length\(([a-zA-Z0-9_'"]+)\)/g,"$1.length");
         try
         {
             with(subdata)
