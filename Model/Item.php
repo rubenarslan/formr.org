@@ -45,26 +45,31 @@ class ItemFactory
 		if(array_key_exists($showif, $this->showifs))
 			return $this->showifs[$showif];
 		
-		if($survey->openCPU === NULL):
-			$survey->openCPU = $survey->makeOpenCPU();
+		if(strstr($showif, "//js_only")):
+			$result = null;
 		else:
-			$survey->openCPU->clearUserData();
+		
+			if($survey->openCPU === NULL):
+				$survey->openCPU = $survey->makeOpenCPU();
+			else:
+				$survey->openCPU->clearUserData();
+			endif;
+
+			$survey->openCPU->admin_usage = $survey->admin_usage;
+
+		
+			$survey->openCPU->addUserData($survey->getUserDataInRun(
+				$survey->dataNeeded($survey->dbh, $showif, $survey->results_table )
+			));
+		
+			$result = $survey->openCPU->evaluateWith($survey->results_table, $showif);
+
+			if($survey->openCPU->anyErrors()):
+				$result = true;
+				$this->openCPU_errors[$showif] =  _('There were problems with openCPU.');
+			endif;
+
 		endif;
-
-		$survey->openCPU->admin_usage = $survey->admin_usage;
-
-		
-		$survey->openCPU->addUserData($survey->getUserDataInRun(
-			$survey->dataNeeded($survey->dbh, $showif, $survey->results_table )
-		));
-		
-		$result = $survey->openCPU->evaluateWith($survey->results_table, $showif);
-
-		if($survey->openCPU->anyErrors()):
-			$result = true;
-			$this->openCPU_errors[$showif] =  _('There were problems with openCPU.');
-		endif;
-		
 		
 		$this->showifs[$showif] = $result;
 		
