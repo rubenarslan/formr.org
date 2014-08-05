@@ -17,13 +17,13 @@ require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/acp_nav.php";
 session_over($site, $user);
 
-function check_time_against_mysql($dbh,$time)
+function check_time_against_mysql($dbh,$time_comp)
 {
-	$time = $dbh->prepare("SELECT NOW() - :created AS time_in_seconds");
-	$time->bindValue(":created",$time);
+	$time = $dbh->prepare("SELECT UNIX_TIMESTAMP() - :created AS time_in_seconds");
+	$time->bindValue(":created",$time_comp);
 	$time->execute() or die("fail time");
-	$time->fetch(PDO::FETCH_ASSOC);
-	return $time['time_in_seconds'];
+	$time_passed = $time->fetch(PDO::FETCH_ASSOC);
+	return floatval($time_passed['time_in_seconds']);
 }
 $user->cron = true;
 
