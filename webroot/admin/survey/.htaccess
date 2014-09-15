@@ -1,4 +1,5 @@
 <IfModule mod_rewrite.c>
+DirectoryIndex disabled
 RewriteEngine On
 RewriteRule ^/?$ add_survey.php [QSA,L]
 RewriteCond %{REQUEST_FILENAME} !-d
