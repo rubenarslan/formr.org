@@ -10,13 +10,13 @@ There are three main components: surveys, runs and the R package.
 
 ## Surveys
 #### ask questions, get data
-are simple or complicated forms and surveys used to gather information in a single session.
+Surveys are simple or complicated forms and surveys used to gather information in a single session.
 
 There is a wide variety of items to choose from: text and number inputs, Likert scales, sliders, geolocation, date pickers, dropdowns and many more. They are geared towards power users, so instead of dragging and dropping elements till your fingers bleed, you upload item spreadsheets that can easily be re-used, combined and shared.
 
 ## Runs
 #### control your study like a boombox
-enable you to link surveys and chain them together. Using a number of boombox-themed control elements to control the participant's way through your study, you can design studies of limitless complexity. You can
+Runs enable you to link surveys and chain them together. Using a number of boombox-themed control elements to control the participant's way through your study, you can design studies of limitless complexity. You can
 
 - manage access to and eligibility for a study:
 - use different pathways for different users:
@@ -67,6 +67,8 @@ Combined with norm data etc. you can tailor feedback to the user's input, e.g. s
 ## Installation
 
 If you want to test formr, you can simply clone this repository and follow the [instructions](https://github.com/rubenarslan/formr.org/blob/master/documentation/install.md).
+
+If you need help, consult our [mailing list](https://groups.google.com/forum/#!forum/formr).
 
 #### Credit
 See [formr.org/public/team](https://formr.org/public/team) for funding and contact info.
