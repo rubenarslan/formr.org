@@ -11,6 +11,9 @@ require_once INCLUDE_ROOT."View/public_nav.php";
 	<div class="col-lg-5 col-lg-offset-1 col-sm-7 col-sm-offset-1 col-xs-12">
 		<h3><i class="fa fa-fw fa-coffee"></i> Team</h3>
 		<p>
+			The most recent addition to our team is <a href="http://cyriltata.blogspot.de/">Cyril Tata</a>.
+		</p>
+		<p>
 			formr was mostly made by <a href="https://www.psych.uni-goettingen.de/en/biopers/team/arslan">Ruben C. Arslan</a>. <br>The current incarnation of the survey framework draws on prior work by Linus Neumann, prior funding by Jaap J. A. Denissen, ideas, testing, and feedback by Sarah J. Lennartz and Isabelle Habedank.
 		</p>
 		
