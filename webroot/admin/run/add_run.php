@@ -19,6 +19,7 @@ if( !empty($_POST) ) {
 		}
 		else
 			alert('<strong>Sorry.</strong> '.implode($run->errors),'alert-danger');
+			redirect_to("admin/run/");	
 	}
 }
 

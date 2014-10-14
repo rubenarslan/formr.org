@@ -5,6 +5,7 @@ class ItemFactory
 	private $choice_lists = array();
 	private $used_choice_lists = array();
 	public $showifs = array();
+	public $openCPU_errors = array();
 	function __construct($choice_lists)
 	{
 		$this->choice_lists = $choice_lists;
@@ -44,17 +45,33 @@ class ItemFactory
 		if(array_key_exists($showif, $this->showifs))
 			return $this->showifs[$showif];
 		
-		$openCPU = $survey->makeOpenCPU();
-
-		$dataNeeded = $survey->dataNeeded($survey->dbh, $showif );
-		$dataNeeded[] = $survey->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
-		$dataNeeded = array_unique($dataNeeded); // no need to add it twice
+		if(strstr($showif, "//js_only")):
+			$result = null;
+		else:
 		
-		$openCPU->addUserData($survey->getUserDataInRun(
-			$dataNeeded
-		));
+			if($survey->openCPU === NULL):
+				$survey->openCPU = $survey->makeOpenCPU();
+			else:
+				$survey->openCPU->clearUserData();
+			endif;
 
-		$this->showifs[$showif] = $openCPU->evaluateWith($survey->results_table, $showif);
+			$survey->openCPU->admin_usage = $survey->admin_usage;
+
+		
+			$survey->openCPU->addUserData($survey->getUserDataInRun(
+				$survey->dataNeeded($survey->dbh, $showif, $survey->results_table )
+			));
+		
+			$result = $survey->openCPU->evaluateWith($survey->results_table, $showif);
+
+			if($survey->openCPU->anyErrors()):
+				$result = true;
+				$this->openCPU_errors[$showif] =  _('There were problems with openCPU.');
+			endif;
+
+		endif;
+		
+		$this->showifs[$showif] = $result;
 		
 		return $this->showifs[$showif];
 	}
@@ -81,6 +98,7 @@ class Item extends HTML_element
 	
 	public $displaycount = 0;
 	public $error = null;
+	public $dont_validate = null;
 	public $val_errors = array();
 	
 	public $mysql_field =  'TEXT DEFAULT NULL';
@@ -92,6 +110,7 @@ class Item extends HTML_element
 	protected $data_showif = false;
 	public $hidden = false;
 	public $no_user_input_required = false;
+	public $save_in_results_table = true;
 
 	
 	public $input_attributes = array(); // so that the pre-set value can be set externally
@@ -179,7 +198,7 @@ class Item extends HTML_element
 		}
 		
 		if(isset($options['class']) AND $options['class']):
-			$this->classes_wrapper[] = $options['class'];
+			$this->classes_wrapper = array_merge( $this->classes_wrapper, explode(" ",$options['class']) );
 			$this->class = $options['class'];
 		endif;
 		
@@ -191,7 +210,9 @@ class Item extends HTML_element
 		$this->input_attributes['class'] = implode(" ",$this->classes_input);
 		
 		$this->input_attributes['id'] = "item{$this->id}";
-		
+
+		if(in_array( "label_as_placeholder", $this->classes_wrapper) )
+			$this->input_attributes['placeholder'] = $this->label;
 	}
 	protected function chooseResultFieldBasedOnChoices()
 	{
@@ -238,7 +259,7 @@ class Item extends HTML_element
 	{
 		if(!$this->hasChoices AND $this->choice_list!=null):
 			$this->val_errors[] = "'{$this->name}' You defined choices for this item, even though this type doesn't have choices.";
-		elseif($this->hasChoices AND $this->choice_list==null):
+		elseif($this->hasChoices AND $this->choice_list==null AND $this->type !== "select_or_add_multiple"):
 				$this->val_errors[] = "'{$this->name}' You forgot to define choices for this item.";
 		endif;
 		if( !preg_match('/^[A-Za-z][A-Za-z0-9_]+$/',$this->name) ): 
@@ -292,7 +313,7 @@ class Item extends HTML_element
 	protected function render_input() 
 	{
 		return 		
-			'<input '.self::_parseAttributes($this->input_attributes).'>';
+			'<span><input '.self::_parseAttributes($this->input_attributes).'></span>';
 	}
 	protected function render_appended () 
 	{
@@ -317,7 +338,7 @@ class Item extends HTML_element
 	{
 		if($this->error) 
 			$this->classes_wrapper[] = "has-error";
-
+		
 		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->showif) .'"' : '').'>' .
 			$this->render_inner().
 		 '</div>';
@@ -338,6 +359,47 @@ class Item extends HTML_element
 		$this->input_attributes['disabled'] = true; ## so it isn't submitted or validated
 		$this->hidden = true; ## so it isn't submitted or validated
 	}
+	public function needsDynamicLabel()
+	{
+		if($this->label_parsed === null): // if there is a sticky value to be had
+				return true;
+		else:
+			return false;
+		endif;
+	}
+	public function alwaysInvalid()
+	{
+		$this->error =  _('There were problems with openCPU.');
+		if(!isset($this->input_attributes['class'])) $this->input_attributes['class'] = '';
+		$this->input_attributes['class'] .= " always_invalid";
+	}
+	public function determineDynamicLabel($survey)
+	{
+		if($survey->openCPU === NULL):
+			$survey->openCPU = $survey->makeOpenCPU();
+		else:
+			$survey->openCPU->clearUserData();
+		endif;
+		
+		$survey->openCPU->admin_usage = $survey->admin_usage;
+	
+		$survey->openCPU->addUserData($survey->getUserDataInRun( $survey->dataNeeded($survey->dbh, $this->label, $survey->results_table ) ));
+		
+		$markdown = $survey->openCPU->knitForUserDisplay($this->label);
+	
+		if($survey->openCPU->anyErrors()):
+			$this->alwaysInvalid();
+		endif;
+		
+		if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)) // simple wraps are eliminated
+		{
+			$this->label_parsed = $matches[1];
+		}
+		else
+		{
+			$this->label_parsed = $markdown;
+		}
+	}
 	public function needsDynamicValue()
 	{
 		if(trim($this->value) != null): // if there is a sticky value to be had
@@ -353,17 +415,24 @@ class Item extends HTML_element
 	}
 	public function determineDynamicValue($survey)
 	{
-		if($this->value=="sticky") $this->value = "tail(na.omit({$results_table}\${$this->name}),1)";
+		if($this->value=="sticky") $this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
 		
-		$openCPU = $survey->makeOpenCPU();
+		if($survey->openCPU === NULL):
+			$survey->openCPU = $survey->makeOpenCPU();
+		else:
+			$survey->openCPU->clearUserData();
+		endif;
 
-		$dataNeeded = $survey->dataNeeded($survey->dbh, $this->value );
-		$dataNeeded[] = $survey->results_table; // currently we stupidly add the current results table to every request, because it would be bothersome to parse the statement to understand whether it is not needed
-		$dataNeeded = array_unique($dataNeeded); // no need to add it twice
-	
-		$openCPU->addUserData($survey->getUserDataInRun( $dataNeeded ));
+		$survey->openCPU->admin_usage = $survey->admin_usage;
+
+		$survey->openCPU->addUserData($survey->getUserDataInRun( $survey->dataNeeded($survey->dbh, $this->value, $survey->results_table ) ));
 		
-		$this->input_attributes['value'] = $openCPU->evaluateWith($survey->results_table, $this->value);
+		$this->input_attributes['value'] = $survey->openCPU->evaluateWith($survey->results_table, $this->value);
+		
+		if($survey->openCPU->anyErrors()):
+			$this->alwaysInvalid();
+		endif;
+		
 	}
 }
 
@@ -548,7 +617,7 @@ class Item_range extends Item_number
 	}
 	protected function render_input() 
 	{
-		return (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' ': '') . 		
+		return (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' </label>': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>'.
 			(isset($this->choices[2]) ? ' <label class="pad-left">'. $this->choices[2] . ' </label>': '') ;
 	}
@@ -566,7 +635,7 @@ class Item_range_ticks extends Item_number
 		$this->input_attributes['min'] = 0;
 		$this->input_attributes['max'] = 100;
 		$this->input_attributes['list'] = 'dlist'.$this->id;
-		$this->input_attributes['data-range'] = "{'animate': true}";
+		$this->input_attributes['data-range'] = '{"animate": true, "classes": "show-activevaluetooltip"}';
 		$this->classes_input[] = "range-list";
 		
 		$this->classes_wrapper[] = 'range_ticks_output';
@@ -578,7 +647,6 @@ class Item_range_ticks extends Item_number
 	{
 		$ret = (isset($this->choices[1]) ? '<label class="pad-right">'. $this->choices[1] . ' </label> ': '') . 		
 			'<input '.self::_parseAttributes($this->input_attributes, array('required')).'>';
-		$ret .= '<output id="output'.$this->id.'" class=""></output>';
 		$ret .= '<datalist id="dlist'.$this->id.'">
         <select class="">';
 		for($i = $this->input_attributes['min']; $i <= $this->input_attributes['max']; $i = $i + $this->input_attributes['step']):
@@ -813,13 +881,24 @@ class Item_note extends Item
 {
 	public $type = 'note';
 	public $mysql_field = null;
-	
+	public $input_attributes = array('type' => 'hidden', "value" => 1);
+	public $save_in_results_table = false;
+	public function setMoreOptions()
+	{
+	}
+	protected function render_label() 
+	{
+		return '<div class="'. implode(" ",$this->classes_label) .'">'.
+		($this->error ? '<span class="label label-danger hastooltip" title="'.$this->error.'"><i class="fa fa-exclamation-triangle"></i></span> ' : '').
+			 	$this->label_parsed . '</div>';
+	}
 	public function validateInput($reply)
 	{
-		$this->error = _("You cannot answer notes.");
+		if($reply != 1)
+			$this->error = _("You can only answer notes by viewing them.");
 		return $reply;
 	}
-	protected function render_inner() 
+/*	protected function render_inner() 
 	{
 		return '
 					<div class="'. implode(" ",$this->classes_label) .'">'.
@@ -827,6 +906,7 @@ class Item_note extends Item
 					'</div>
 		';
 	}
+	*/
 }
 
 class Item_submit extends Item 
@@ -1040,7 +1120,10 @@ class Item_select_one extends Item
 	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	public $input_attributes = array('type' => 'select');
 	protected $hasChoices = true;
-	
+	protected function setMoreOptions() 
+	{
+		$this->classes_input[] = "form-control";
+	}
 	protected function render_input() 
 	{
 		$this->splitValues();
@@ -1123,11 +1206,12 @@ class Item_select_or_add_one extends Item
 		}
 		
 		$this->classes_input[] = 'select2add';
+		$this->classes_input[] = 'form-control';
 		$for_select2 = array();
 		foreach($this->choices AS $option)
 			$for_select2[] = array('id' => $option, 'text' => $option);
 
-		$this->input_attributes['data-select2add'] = json_encode($for_select2, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE);
+		$this->input_attributes['data-select2add'] = json_encode($for_select2, JSON_UNESCAPED_UNICODE);
 		$this->input_attributes['data-select2maximumSelectionSize'] = (int)$maxSelect;
 		$this->input_attributes['data-select2maximumInputLength'] = (int)$maxType;
 	}
@@ -1144,13 +1228,13 @@ class Item_select_or_add_multiple extends Item_select_or_add_one
 {
 	public $type = 'select_or_add_multiple';
 	public $mysql_field = 'TEXT DEFAULT NULL';
-	public $input_attributes = array('type' => 'select');
+	public $input_attributes = array('type' => 'text');
 	
 	protected function setMoreOptions() 
 	{
 		parent::setMoreOptions();
 		$this->text_choices = true;
-		$this->input_attributes['multiple'] = true;
+		$this->input_attributes['data-select2multiple'] = 1;
 	}
 	public function validateInput($reply)
 	{
@@ -1167,7 +1251,7 @@ class Item_select_or_add_multiple extends Item_select_or_add_one
 		else:
 			$maxUserAdded = ($this->input_attributes['data-select2maximumInputLength']+2) * $this->input_attributes['data-select2maximumSelectionSize'];
 			$maxlen = strlen($max) + $maxUserAdded;
-	#		$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
+	#		$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL'; // oh why be so stingy, may miscalculate after all with all that utf8 stuff
 			$this->mysql_field = 'TEXT DEFAULT NULL';
 		endif;
 	}
@@ -1661,7 +1745,7 @@ class Item_file extends Item
 {
 	public $type = 'file';
 	public $input_attributes = array('type' => 'file','accept'=> "image/*,video/*,audio/*,text/*;capture=camera");
-	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(1000) DEFAULT NULL';
 	protected $file_endings = array(
 		'image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif',
 		'video/mpeg' => '.mpg', 'video/quicktime' => '.mov', 'video/x-flv' => '.flv', 'video/x-f4v' => '.f4v', 'video/x-msvideo' => '.avi',
@@ -1726,7 +1810,7 @@ class Item_image extends Item_file
 {
 	public $type = 'image';
 	public $input_attributes = array('type' => 'file','accept'=>"image/*;capture=camera");
-	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(1000) DEFAULT NULL';
 	protected $file_endings = array('image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif');
 	protected $embed_html = '<img src="%s">';
 	protected $max_size = 16777219;

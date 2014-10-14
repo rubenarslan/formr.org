@@ -19,9 +19,9 @@ class Pause extends RunUnit {
 	public $type = "Pause";
 	public $icon = "fa-pause";
 	
-	public function __construct($fdb, $session = null, $unit = null) 
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) 
 	{
-		parent::__construct($fdb,$session,$unit);
+		parent::__construct($fdb,$session,$unit, $run_session);
 
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT id, body, body_parsed, wait_until_time, wait_minutes ,wait_until_date, relative_to FROM `survey_pauses` WHERE id = :id LIMIT 1");
@@ -61,9 +61,9 @@ class Pause extends RunUnit {
 			$this->relative_to = $options['relative_to'];
 		}
 		
-		$this->body_parsed = Parsedown::instance()
-    ->set_breaks_enabled(true)
-    ->parse($this->body); // transform upon insertion into db instead of at runtime
+		$parsedown = new ParsedownExtra();
+		$parsedown->setBreaksEnabled(true);
+		$this->body_parsed = $parsedown->text($this->body); // transform upon insertion into db instead of at runtime
 		
 		$create = $this->dbh->prepare("INSERT INTO `survey_pauses` (`id`, `body`, `body_parsed`, `wait_until_time`, `wait_until_date` , `wait_minutes`, `relative_to`)
 			VALUES (:id, :body, :body_parsed, :wait_until_time, :wait_until_date, :wait_minutes, :relative_to)
@@ -99,30 +99,30 @@ class Pause extends RunUnit {
 		$dialog = '<p>
 				
 				<label class="inline hastooltip" title="Leave empty so that this does not apply">wait until time: 
-				<input style="width:200px" class="form-control" type="time" placeholder="e.g. 12:00" name="wait_until_time" value="'.$this->wait_until_time.'">
+				<input style="width:200px" class="form-control" type="time" placeholder="e.g. 12:00" name="wait_until_time" value="'.h($this->wait_until_time).'">
 				</label> <strong>and</strong>
 				
 				</p>
 				<p>
 				<label class="inline hastooltip" title="Leave empty so that this does not apply">wait until date: 
-				<input style="width:200px" class="form-control" type="date" placeholder="e.g. 01.01.2000" name="wait_until_date" value="'.$this->wait_until_date.'">
+				<input style="width:200px" class="form-control" type="date" placeholder="e.g. 01.01.2000" name="wait_until_date" value="'.h($this->wait_until_date).'">
 				</label> <strong>and</strong>
 				
 				</p>
 				<p class="well well-sm">
 					<span class="input-group">
-						<input class="form-control" type="number" style="width:230px" placeholder="wait this many minutes" name="wait_minutes" value="'.$this->wait_minutes.'">
+						<input class="form-control" type="number" style="width:230px" placeholder="wait this many minutes" name="wait_minutes" value="'.h($this->wait_minutes).'">
 				        <span class="input-group-btn">
 							<button class="btn btn-default from_days hastooltip" title="Enter a number of days and press this button to convert them to minutes (*60*24)"><small>convert days</small></button>
 						</span>
 					</span>
 					
 				 <label class="inline">relative to 
-					<textarea data-editor="r" style="width:368px;" rows="2" class="form-control" placeholder="arriving at this pause" name="relative_to">'.$this->relative_to.'</textarea>
+					<textarea data-editor="r" style="width:368px;" rows="2" class="form-control" placeholder="arriving at this pause" name="relative_to">'.h($this->relative_to).'</textarea>
 					</label
 				</p> 
 		<p><label>Text to show while waiting: <br>
-			<textarea style="width:388px;"  data-editor="markdown" class="form-control col-md-5" placeholder="You can use Markdown" name="body" rows="10">'.$this->body.'</textarea>
+			<textarea style="width:388px;"  data-editor="markdown" class="form-control col-md-5" placeholder="You can use Markdown" name="body" rows="10">'.h($this->body).'</textarea>
 		</label></p>
 			';
 		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
@@ -154,14 +154,17 @@ class Pause extends RunUnit {
 	
 		if($this->relative_to_true): // if a relative_to has been defined by user or automatically, we need to retrieve its value
 			$openCPU = $this->makeOpenCPU();
-			
 			$openCPU->clearUserData();
+			if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
 
 			$openCPU->addUserData($this->getUserDataInRun(
 				$this->dataNeeded($this->dbh,$this->relative_to)
 			));
 	
 			$this->relative_to_result = $relative_to = $openCPU->evaluate($this->relative_to);
+			
+			if($openCPU->anyErrors())
+				return false;
 		endif;
 	
 		$bind_relative_to = false;
@@ -267,6 +270,8 @@ class Pause extends RunUnit {
 			$this->run_session_id = current($results)['id'];
 			echo "<h3>Pause relative to</h3>";
 	
+			if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
+	
 			$openCPU->addUserData($this->getUserDataInRun(
 				$this->dataNeeded($this->dbh,$this->relative_to)
 			));
@@ -309,9 +314,11 @@ class Pause extends RunUnit {
 		}
 		else
 		{
+			$body = $this->getParsedBody($this->body);
+			if($body === false) return true; // openCPU errors
 			return array(
 				'title' => 'Pause',
-				'body' => $this->getParsedBody($this->body)
+				'body' => $body
 			);
 		}	
 	}

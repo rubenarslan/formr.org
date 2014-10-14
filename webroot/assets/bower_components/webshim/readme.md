@@ -19,7 +19,8 @@ Features
 * HTML5 form features including: constraint validation and form widgets (input[type="range"], input[type="date"], input[type="number"], input[type="time"], input[type="month"], output, progress, input[list]/datalist)
 * HTML5 audio/video/track implementation
 * interactive elements: summary/details
-* filereader
+* filereader (including, XHR2/AJAX CORS and FormData handling)
+* promise
 * geolocation
 * ECMAScript 5 / JavaScript 1.8.5 features 
 
@@ -27,7 +28,7 @@ Features
 Installation and Usage
 ------------------
 
-1 - [Download the Webshim Lib](http://corrupt-system.de/webshims-stable.zip) and put the `js-webshim-folder` in your project.
+1 - [Download the Webshim Lib](https://github.com/aFarkas/webshim/releases/latest) and put the `js-webshim-folder` in your project.
 
 2 - Include the JavaScript:
 
@@ -56,7 +57,7 @@ Installation and Usage
 	$(function(){
 		// work with the HTML5 API
 		$('input:invalid').each(function(){
-		    $(this).after( $.prop(this, 'validationMessage');
+		    $(this).after( $.prop(this, 'validationMessage') );
 		});
 		// ...
 	});
@@ -80,12 +81,13 @@ Webshims Lib uses many great third party scripts:
 | flashcanvaspro  | closed                                       | http://flashcanvas.net                                                        |
 | Jaris FLV       | GPL 3.0                                      | http://jarisflvplayer.org                                                     |
 | excanvas        | Apache License 2.0                           | http://excanvas.sourceforge.net                                               |
-| filereader      | MIT                                          | https://github.com/Jahdrien/FileReader                                        |
+| moxie           | GPL 3.0                                      | https://github.com/moxiecode/moxie                                            |
 | es5             | MIT                                          | https://github.com/280north/narwhal                                           |
 | swfmini         | MIT                                          | https://code.google.com/p/swfobject                                           |
 | track           | BSD 2 clause                                 | https://github.com/cgiffard/Captionator                                       |
 | color-picker    | MIT                                          | http://johndyer.name/post/2007/09/PhotoShop-like-JavaScript-Color-Picker.aspx |
 | forms-picker    | MIT                                          | https://github.com/brandonaaron/jquery-mousewheel                             |
+| jme.woff        | GPL / CC BY 3.0                              | http://icomoon.io/#preview-free                                               |
 
 
 

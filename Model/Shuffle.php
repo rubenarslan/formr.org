@@ -12,9 +12,9 @@ class Shuffle extends RunUnit {
 	public $icon = "fa-random";
 	
 	
-	public function __construct($fdb, $session = null, $unit = null) 
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) 
 	{
-		parent::__construct($fdb,$session,$unit);
+		parent::__construct($fdb,$session,$unit, $run_session);
 
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT groups FROM `survey_shuffles` WHERE id = :id LIMIT 1");

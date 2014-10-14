@@ -14,7 +14,7 @@ require_once INCLUDE_ROOT."View/public_nav.php";
 				<span class="formr-brand">formr <small>survey framework</small></span>
 			</h1>
 			<p>
-					chain simple forms &amp; surveys into long runs, use the power of <abbr title="A statistics environment. It makes nice plots!">R</abbr> to generate pretty feedback and complex designs
+					chain simple forms &amp; surveys into long runs, use the power of <abbr title="A statistics environment. Nice plots abound!">R</abbr> to generate pretty feedback and complex designs
 			</p>
 			<p>
 				<a class="btn btn-primary btn-lg" role="button" href="<?=WEBROOT?>public/register">Sign up (it's free!)</a>
@@ -44,14 +44,17 @@ require_once INCLUDE_ROOT."View/public_nav.php";
 								<li><i class="fa fa-li fa-envelope"></i> 
 									you can <a title="Just send us an email. You'll get a test account, if you're human or feline or cetacean." class="schmail" href="mailto:IMNOTSENDINGSPAMTOruben.arslan@that-big-googly-eyed-email-provider.com?subject=<?=rawurlencode("formr private beta");?>&amp;body=<?=rawurlencode("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above.
 
-		Hi!
-		I'd like an admin account on formr. 
-		I already have registered with the email address from which I'm sending this request. 
-		I'm affiliated with institution xxxx.
-		");?>">request an admin account</a> or 
+Hi!
+I'd like an admin account on formr. 
+I already have registered with the email address from which I'm sending this request. 
+I'm affiliated with institution xxxx.
+");?>">request an admin account</a> or 
 								</li>
 								<li><i class="fa fa-li fa-github-alt"></i> 
 									you can <a href="https://github.com/rubenarslan/formr" title="If you don't know what a Github repository is yet, this is probably not the option for you, but for your local techie type. ">check out the Github repo</a>. It's open source and free-to-use.
+								</li>
+								<li><i class="fa fa-li fa-google"></i> 
+									you can <a href="https://groups.google.com/forum/#!forum/formr" title="you can ask and answer other admin users' questions here">join or browse our community help mailing list</a>.
 								</li>
 							</ul>
 						</li>

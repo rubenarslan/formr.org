@@ -24,7 +24,7 @@ webshims.register('form-combat', function($,webshims){
 			if(('container' in widgetData) && $.isFunction(widgetData.opened)){
 				var onValidate = function(e){
 					if (!webshims.wsPopover.isInElement([elem, shadow, shadowFocus, $(widgetData.container)], e.target)) {
-						$(elem).trigger('refreshvalidityui');
+						$(elem).trigger('updatevalidation.webshims');
 					}
 				};
 				
@@ -51,7 +51,7 @@ webshims.register('form-combat', function($,webshims){
 			if(('$menu' in widgetData)){
 				var onValidate = function(e){
 					if (!webshims.wsPopover.isInElement([elem, shadow, shadowFocus, $(widgetData.$menu)], e.target)) {
-						$(elem).trigger('refreshvalidityui');
+						$(elem).trigger('updatevalidation.webshims');
 					}
 				};
 				
@@ -75,20 +75,27 @@ webshims.register('form-combat', function($,webshims){
 		shadow: 'label',
 		shadowFocus: 'element'
 	});
-	
-	addReplacement('selectmenu', 'mobileSelectmenu', {
+
+	var uiSelect = {
 		shadow: 'button',
-		shadowFocus: function(data, elem){
+		shadowFocus: function(data){
 			return data.options.nativeMenu ? data.element : data.button;
 		},
 		_create: function(elem, shadow, shadowFocus, widgetData){
-			if(('listbox' in widgetData)){
+			var menuName;
+			if(('menu' in widgetData)){
+				menuName = 'menuName';
+			} else if(('listbox' in widgetData)){
+				menuName = 'listbox';
+			}
+			if(menuName){
+
 				var onValidate = function(e){
-					if (!webshims.wsPopover.isInElement([elem, shadow, shadowFocus, $(widgetData.listbox).parent()], e.target)) {
-						$(elem).trigger('refreshvalidityui');
+					if (!webshims.wsPopover.isInElement([elem, shadow, shadowFocus, $(widgetData[menuName]).parent()], e.target)) {
+						$(elem).trigger('updatevalidation.webshims');
 					}
 				};
-				
+
 				$(shadow).on('wsallowinstantvalidation', function(e, data){
 					if(data.type == 'focusout' && data.target != elem && widgetData.isOpen){
 						setTimeout(function(){
@@ -99,7 +106,12 @@ webshims.register('form-combat', function($,webshims){
 				});
 			}
 		}
-	});
+	};
+
+	addReplacement('selectmenu', 'mobileSelectmenu', uiSelect);
+
+	addReplacement('selectmenu', 'uiSelectmenu', uiSelect);
+
 
 	function find(context){
 		$('select:not(.ui-select-nativeonly), input[type="radio"], input[type="checkbox"]', context).each(find.detectReplacement);

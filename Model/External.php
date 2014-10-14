@@ -12,9 +12,9 @@ class External extends RunUnit {
 	public $type = "External";
 	
 	
-	public function __construct($fdb, $session = null, $unit = null) 
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) 
 	{
-		parent::__construct($fdb,$session,$unit);
+		parent::__construct($fdb,$session,$unit, $run_session);
 
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT id,address,api_end FROM `survey_externals` WHERE id = :id LIMIT 1");
@@ -64,7 +64,7 @@ class External extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p><label>Address: <br>
-			<textarea style="width:388px;"  data-editor="r" class="form-control full_width" rows="2" type="text" name="address">'.$this->address.'</textarea></label></p>
+			<textarea style="width:388px;"  data-editor="r" class="form-control full_width" rows="2" type="text" name="address">'.h($this->address).'</textarea></label></p>
 		<p><input type="hidden" name="api_end" value="0"><label><input type="checkbox" name="api_end" value="1"'.($this->api_end ?' checked ':'').'> end using <abbr class="initialism" title="Application programming interface. Better not check this if you don\'t know what it means">API</abbr></label></p>
 		<p>Enter a URL like <code>http://example.org?code={{login_code}}</code> and the user will be sent to that URL, replacing <code>{{login_code}}</code> with that user\'s code. Enter R-code to e.g. send more data along: <code>paste0(\'http:example.org?code={{login_link}}&<br>age=\', demographics$sex)</code>.</p>
 		';
@@ -119,8 +119,6 @@ class External extends RunUnit {
 		if($this->called_by_cron)
 			return true; // never show to the cronjob
 		
-		if(!$this->api_end) 
-			$this->end();
 		
 		if($this->isR())
 		{
@@ -130,7 +128,13 @@ class External extends RunUnit {
 				$this->dataNeeded($this->dbh,$this->address)
 			));
 			$this->address = $openCPU->evaluate($this->address);
+
+			if($openCPU->anyErrors())
+				return true; // wait for openCPU to be fixed!
 		}
+		
+		if(!$this->api_end) 
+			$this->end();
 		
 		$this->address = $this->makeAddress($this->address);
 		

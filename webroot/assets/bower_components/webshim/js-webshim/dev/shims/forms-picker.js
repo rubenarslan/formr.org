@@ -346,7 +346,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		});
 		return str.join('');
 	};
-	
+	var setJump = ('inputMode' in document.createElement('input')) || !((/ipad|iphone/i).test(navigator.userAgent));
 	var widgetProtos = {
 		_addBindings: function(){
 			var isFocused;
@@ -372,9 +372,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 						if (events[name] && events[name].val != val) {
 							clearTimeout(events[name].timer);
 							events[name].val = val;
-							events[name].timer = setTimeout(function(){
-								events[name].fn(val, that);
-							}, 9);
+							events[name].fn(val, that);
 						}
 					}
 				};
@@ -394,7 +392,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 					return true;
 				}
 			};
-			var callSplitChange = (function(){
+			(function(){
 				var timer;
 				
 				var call = function(e){
@@ -411,13 +409,14 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 					}
 				};
 				
-				var onFocus = function(){
+				var onFocus = function(e){
 					clearTimeout(timer);
+					$(e.target).trigger('wswidgetfocusin');
 				};
 				var onBlur = function(e){
 					clearTimeout(timer);
 					timer = setTimeout(call, 0);
-					
+					$(e.target).trigger('wswidgetfocusout');
 					if (e.type == 'ws__change') {
 						stopPropagation(e);
 						if (!o.splitInput) {
@@ -478,23 +477,26 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 						e.preventDefault();
 					}
 				},
-				ws__input: (this.type == 'color' && this.isValid) ? $.noop : (function(){
+				ws__input: (this.type == 'color' || !this.isValid) ? $.noop : (function(){
 					var timer;
+					var delay = that.type == 'number' && !o.nogrouping ? 99 : 199;
 					var check = function(){
 						var val = that.parseValue(true);
 						if (val && that.isValid(val)) {
-							that.setInput(val);
+							that.setInput(val, true);
 						}
 						
 					};
+
 					return function(){
 						clearTimeout(timer);
-						timer = setTimeout(check, 200);
+						timer = setTimeout(check, delay);
 					};
 				})(),
 				'ws__input keydown keypress': (function(){
 					var timer;
 					var isStopped = false;
+
 					var releaseTab = function(){
 						if (isStopped === true) {
 							isStopped = 'semi';
@@ -560,14 +562,14 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 				};
 			})();
 			
-			if(o.splitInput && o.jumpInputs == null){
+			if(o.splitInput && setJump && o.jumpInputs == null){
 				o.jumpInputs = true;
 			}
 			
 			this.buttonWrapper.on('mousedown', mouseDownInit);
 			
-			this.setInput = function(value){
-				that.value(value);
+			this.setInput = function(value, isLive){
+				that.value(value, false, isLive);
 				eventTimer.call('input', value);
 			};
 			this.setChange = function(value){
@@ -594,15 +596,21 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 							if(o.stepfactor){
 								factor *= o.stepfactor;
 							}
-							try {
-								that.elemHelper[name](factor);
-								
-								ret = that.elemHelper.prop('value');
-								
-							} 
-							catch (er) {
-								if (!o.value && that.maxAsNumber >= that.minAsNumber) {
-									ret = o.defValue;
+
+							if(factor > 0 && !isNaN(that.minAsNumber) && (isNaN(that.valueAsNumber) || that.valueAsNumber < that.minAsNumber) && that.elemHelper.prop('valueAsNumber') <= that.minAsNumber){
+								ret = that.asValue(that.minAsNumber);
+							} else if(factor < 0 && !isNaN(that.maxAsNumber) && (isNaN(that.valueAsNumber) || that.valueAsNumber > that.minAsNumber) && that.elemHelper.prop('valueAsNumber') <= that.maxAsNumber){
+								ret = that.asValue(that.maxAsNumber);
+							}
+
+							if(ret === false){
+								try {
+									that.elemHelper[name](factor);
+									ret = that.elemHelper.prop('value');
+								} catch (er) {
+									if (!o.value && that.maxAsNumber >= that.minAsNumber) {
+										ret = o.defValue;
+									}
 								}
 							}
 							if (ret !== false && o.value != ret) {
@@ -644,17 +652,33 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 						}
 					};
 					
-					spinElement.attr({
-						'autocomplete': 'off',
-						role: 'spinbutton'
-					}).on(spinEvents);
+					spinElement.on(spinEvents);
 				}
-				$(this.buttonWrapper).on('mousepressstart mousepressend', '.step-up, .step-down', mousePress).on('mousedown mousepress', '.step-up', function(e){
-					step.stepUp();
-				}).on('mousedown mousepress', '.step-down', function(e){
-					step.stepDown();
-				});
+				$(this.buttonWrapper)
+					.on('mousepressstart mousepressend', '.step-up, .step-down', mousePress)
+					.on('mousedown mousepress', '.step-up', function(e){
+						step.stepUp();
+					})
+					.on('mousedown mousepress', '.step-down', function(e){
+						step.stepDown();
+					})
+				;
 				initChangeEvents();
+			}
+		},
+		_getSelectionEnd: function(val){
+			var oldVal, selectionEnd;
+			if((oldVal = this.element[0].value) && this.element.is(':focus') && (selectionEnd = this.element.prop('selectionEnd')) < oldVal.length){
+				if(this.type == 'number'){
+					oldVal = oldVal.substr(0, selectionEnd).split(curCfg.numberFormat[',']);
+					val = val.substr(0, selectionEnd).split(curCfg.numberFormat[',']);
+					if(oldVal.length < val.length){
+						selectionEnd++;
+					} else if(oldVal.length > val.length){
+						selectionEnd--;
+					}
+				}
+				return selectionEnd;
 			}
 		},
 		initDataList: function(){
@@ -932,6 +956,15 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		var enabled = 0;
 		var str = '';
 		var rowNum = 0;
+		var triggerValueValidation = (data.orig && ('validatevalue' in $.data(data.orig)));
+
+		if(!data.options.useDecadeBase){
+			if(!max[0] && min[0]){
+				data.options.useDecadeBase = 'min';
+			} else if(max[0] && !min[0]){
+				data.options.useDecadeBase = 'max';
+			}
+		}
 		
 		if(data.options.useDecadeBase == 'max' && max[0]){
 			xthCorrect = 11 - (max[0] % 12);
@@ -956,7 +989,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 			for(i = 0; i < 12; i++){
 				val = start + i ;
 				classArray = [];
-				if( !picker.isInRange([val], max, min) ){
+				if( !picker.isInRange([val], max, min) || (triggerValueValidation && $(data.orig).triggerHandler('validatevalue', [{value: val, valueAsDate: null, isPartial: [val]}]))){
 					disabled = ' disabled=""';
 				} else {
 					disabled = '';
@@ -1007,6 +1040,9 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		var enabled = 0;
 		var rowNum = 0;
 		var str = '';
+		var action = data.type == 'month' ? 'changeInput' : 'setDayList' ;
+		var triggerValueValidation = (data.orig && ('validatevalue' in $.data(data.orig)));
+		var isPartial = action != 'changeInput';
 		
 		value = value[0] - Math.floor((size - 1) / 2);
 		for(j = 0; j < size; j++){
@@ -1040,7 +1076,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 				val = curCfg.date.monthkeys[i+1];
 				name = getMonthNameHTML(i);
 				classArray = [];
-				if(!picker.isInRange([value, val], max, min) ){
+				if(!picker.isInRange([value, val], max, min) || (triggerValueValidation  && $(data.orig).triggerHandler('validatevalue', [{value: value+'-'+val, valueAsDate: data.asDate(value+'-'+val), isPartial: isPartial && [value, val]}]))){
 					disabled = ' disabled=""';
 				} else {
 					disabled = '';
@@ -1061,7 +1097,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 					lis.push('</tr><tr class="ws-row-'+ rowNum +'">');
 				}
 
-				lis.push('<td class="ws-item-'+ i +'" role="presentation"><button data-id="month-'+ i +'" type="button"'+ disabled + classStr +' data-action="'+ (data.type == 'month' ? 'changeInput' : 'setDayList' ) +'" value="'+value+'-'+val+'" tabindex="-1" role="gridcell" aria-label="'+ curCfg.date.monthNames[i] +'">'+name+'</button></td>');
+				lis.push('<td class="ws-item-'+ i +'" role="presentation"><button data-id="month-'+ i +'" type="button"'+ disabled + classStr +' data-action="'+ action +'" value="'+value+'-'+val+'" tabindex="-1" role="gridcell" aria-label="'+ curCfg.date.monthNames[i] +'">'+name+'</button></td>');
 				
 			}
 			
@@ -1081,9 +1117,9 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 	
 	picker.getDayList = function(value, data){
 		
-		var j, i, k, day, nDay, name, val, disabled, lis,  prevDisabled, nextDisabled, yearNext, yearPrev, addTr, week, rowNum;
+		var j, i, k, day, nDay, disabled, prevDisabled, nextDisabled, yearNext, yearPrev, addTr, week, rowNum;
 		
-		var lastMonth, curMonth, otherMonth, dateArray, monthName, fullMonthName, monthDigit, buttonStr, date2, classArray;
+		var lastMonth, curMonth, otherMonth, dateArray, monthName, fullMonthName, buttonStr, date2, classArray;
 		
 		var o = data.options;
 		var size = o.size;
@@ -1091,10 +1127,11 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		var min = o.minS;
 		var currentValue = o.value.split('T')[0].split('-');
 		var dateCfg = curCfg.date;
-		var enabled = 0;
 		var str = [];
 		var date = new Date(value[0], value[1] - 1, 1);
 		var action = (data.type == 'datetime-local') ? 'setTimeList' : 'changeInput';
+		var triggerValueValidation = (data.orig && ('validatevalue' in $.data(data.orig)));
+		var isPartial = action != 'changeInput';
 		
 		date.setMonth(date.getMonth()  - Math.floor((size - 1) / 2));
 		
@@ -1210,7 +1247,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 					buttonStr += ' class="'+ classArray.join(' ') +'"';
 				}
 				
-				if(!picker.isInRange(dateArray, max, min)){
+				if(!picker.isInRange(dateArray, max, min) || (triggerValueValidation && $(data.orig).triggerHandler('validatevalue', [{value: dateArray.join('-'), valueAsDate: date, isPartial: isPartial && dateArray}]))){
 					buttonStr += ' disabled=""';
 				}
 				
@@ -1247,12 +1284,13 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		var i = 0;
 		var rowNum = 0;
 		var len = 23;
+
 		var attrs = {
 			min: $.prop(data.orig, 'min'),
 			max: $.prop(data.orig, 'max'),
 			step: $.prop(data.orig, 'step')
 		};
-		var o = data.options;
+		var triggerValueValidation = (data.orig && ('validatevalue' in $.data(data.orig)));
 		var gridLabel = '';
 		
 		if(data.type == 'time'){
@@ -1285,13 +1323,14 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 			}
 			str += '<td role="presentation"><button role="gridcell" data-action="changeInput" value="'+ hVal +'" type="button" tabindex="-1"';
 			
-			if(!data.isValid(hVal, attrs)){
+			if(!data.isValid(hVal, attrs) || (triggerValueValidation && $(data.orig).triggerHandler('validatevalue', [{value: hVal, valueAsDate: data.asDate(hVal), partial: false}]))){
 				str += ' disabled=""';
 			}
 			if(value == iVal){
 				str += ' class="checked-value"';
 			}
-			str += '>'+ data.formatValue(iVal) +'</button></td>';
+
+			str += '>'+ webshims._format.time(iVal) +'</button></td>';
 		}
 		
 		
@@ -1523,15 +1562,13 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 							text = (formcfg[''][[data.type]] || {}).currentText || (curCfg.date || {}).currentText || 'current';
 							webshims.warn("could not get currentText from form cfg for "+data.type);
 						}
+
 						if(today[data.type] && data.type != 'time'){
-							$.prop(this, 'disabled', !picker.isInRange(today[data.type].split('-'), o.maxS, o.minS));
+							$.prop(this, 'disabled', (!picker.isInRange(today[data.type].split('-'), o.maxS, o.minS) || !!$(data.orig).triggerHandler('validatevalue', [{value: today[data.type], valueAsDate: new Date(), isPartial: false}])));
 						}
 					}
 					if(text){
 						$(this).text(text).attr({'aria-label': text});
-						if(webshims.assumeARIA){
-							$.attr(this, 'aria-label', text);
-						}
 					}
 					
 				});
@@ -1580,8 +1617,28 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		
 		
 		popover.actionFn = function(obj){
+			var changeChangeBehavior;
 			if(actions[obj['data-action']]){
+				if(obj['data-action'] == 'changeInput' && o.inlinePicker && o.updateOnInput){
+					data._handledValue = true;
+					if(o.size > 1){
+						changeChangeBehavior = $('button[value="'+obj.value+'"]', popover.bodyElement);
+						if(changeChangeBehavior.filter(':not(.othermonth)').length){
+							$('button.checked-value', popover.bodyElement).removeClass('checked-value');
+							changeChangeBehavior.addClass('checked-value').trigger('focus');
+							o.updateOnInput = false;
+						} else {
+							changeChangeBehavior = false;
+						}
+					}
+				}
 				actions[obj['data-action']](obj.value, popover, data, 0);
+				if(data._handledValue){
+					delete data._handledValue;
+					if(changeChangeBehavior){
+						o.updateOnInput = true;
+					}
+				}
 			} else {
 				webshims.warn('no action for '+ obj['data-action']);
 			}
@@ -1597,9 +1654,9 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		popover.bodyElement = $('div.ws-picker-body', popover.contentElement);
 		popover.buttonRow = $('div.ws-button-row', popover.contentElement);
 		popover.element.on('updatepickercontent', updateContent);
-		
+
 		popover.contentElement
-			.on('click', 'button[data-action]', actionfn)
+			.wsTouchClick('button[data-action]', actionfn)
 			.on('change', 'select[data-action]', actionfn)
 		;
 		

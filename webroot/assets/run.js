@@ -1,8 +1,8 @@
-function RunUnit(content)
+function RunUnit( run )
 {
+    this.run = run;
 	this.block = $('<div class="run_unit row"></div>');
-	this.init(content);
-	this.block.insertBefore($('#run_dialog_choices'));
+	run.form.find('.run_units').append(this.block);
 }
 RunUnit.prototype.init = function(content)
 {
@@ -13,9 +13,9 @@ RunUnit.prototype.init = function(content)
 	this.position.change($.proxy(this.position_changes,this));
 		
 	this.dialog_inputs = this.block.find('div.run_unit_dialog input,div.run_unit_dialog select, div.run_unit_dialog button, div.run_unit_dialog textarea');
-//	console.log(this.dialog_inputs);
 	this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
 	this.run_unit_id = this.dialog_inputs.filter('input[name=run_unit_id]').val();
+	this.special = this.dialog_inputs.filter('input[name=special]').val();
     this.block.attr('id',"unit_"+this.run_unit_id);
 	this.dialog_inputs.on('input change',$.proxy(this.changes,this));
 	this.save_inputs = this.dialog_inputs.add(this.position);
@@ -29,8 +29,6 @@ RunUnit.prototype.init = function(content)
 	
 	this.unsavedChanges = false;
 	this.save_button = this.block.find('a.unit_save');
-	this.save_button.removeClass('btn-info').attr('disabled', 'disabled').text('Saved')
-	.click($.proxy(this.save,this));
 	
 	this.block.find('button.from_days')
 	.click(function(e)
@@ -40,7 +38,6 @@ RunUnit.prototype.init = function(content)
 		var days = numberinput.val();
 		numberinput.val( days * 60 * 24).change();
 	});
-	
 	
 	this.test_button = this.block.find('a.unit_test');
 	this.test_button
@@ -67,13 +64,19 @@ RunUnit.prototype.init = function(content)
         this.textarea2 = $(textareas[1]);
         this.session2 = this.hookAceToTextarea(this.textarea2);
     }
+    
+    this.run.lock(this.run.lock_toggle.hasClass("btn-checked"), this.block);
+	this.save_button.attr('disabled', true).removeClass('btn-info').text('Saved')
+	.click($.proxy(this.save,this));
+    
+    
 };
 RunUnit.prototype.position_changes = function (e) 
 {
 	if(!this.position_changed)
     {
         this.position_changed = true;
-    	$reorderer.addClass('btn-info').removeAttr('disabled');
+    	this.run.reorder_button.addClass('btn-info').removeAttr('disabled');
     }
 	this.position.parent().addClass('pos_changed');
 };
@@ -95,9 +98,9 @@ RunUnit.prototype.test = function(e)
 	var $unit = this.block;
 	$.ajax(
 		{
-			url: $run_url + "/" + this.test_button.attr('href'),
+			url: this.run.url + "/" + this.test_button.attr('href'),
 			dataType: 'html',
-			data: { "run_unit_id" : this.run_unit_id },
+			data: { "run_unit_id" : this.run_unit_id, "special": this.special },
 			method: 'GET'
 		})
 		.done($.proxy(function(data)
@@ -129,7 +132,7 @@ RunUnit.prototype.save = function(e)
 	e.preventDefault();
     
     var old_text = this.save_button.text();
-	this.save_button.attr('disabled',true).html(old_text + ' <i class="fa fa-spinner fa-spin"></i>');
+	this.save_button.attr('disabled',"disabled").html(old_text + ' <i class="fa fa-spinner fa-spin"></i>');
 
     if(this.session)
         this.textarea.val(this.session.getValue());
@@ -139,7 +142,7 @@ RunUnit.prototype.save = function(e)
 	var $unit = this.block;
 	$.ajax(
 		{
-			url: $run_url + "/" + this.save_button.attr('href'),
+			url: this.run.url + "/" + this.save_button.attr('href'),
 			dataType: 'html',
 			data: this.save_inputs.serialize(),
 			method: 'POST',
@@ -150,7 +153,7 @@ RunUnit.prototype.save = function(e)
 //        	this.save_button.html(old_text).removeAttr('disabled'); // not necessary because it's reloaded. should I be more economic about all this DOM and HTTP jazz? there's basically 2 situations where a reload makes things easier: emails where the accounts have been updated, surveys which went from "open" to "chose one". One day...
 },this))
         .fail($.proxy(function(e, x, settings, exception) {
-        	this.save_button.attr('disabled',false).html(old_text);
+        	this.save_button.removeAttr('disabled').html(old_text);
             ajaxErrorHandling(e, x, settings, exception);
         },this));
         
@@ -200,17 +203,19 @@ RunUnit.prototype.removeFromRun = function(e)
     $unit.hide();
 	$.ajax(
 		{
-			url: $run_url + "/" + this.remove_button.attr('href'),
+			url: this.run.url + "/" + this.remove_button.attr('href'),
 			dataType: 'html',
 			data: { "run_unit_id" : this.run_unit_id },
 			method: 'POST'
 		})
-		.done(function(data)
+		.done($.proxy(function(data)
 		{
 			$unit.html(data);
             $unit.show();
-            $run_units = $run_units.splice(this.order, 1); // remove from the run unit list
-		})
+            var whereitat = this.run.units.indexOf(this)
+            if(whereitat > -1)
+                this.run.units.splice(whereitat, 1); // remove from the run unit list
+		},this))
 		.fail(function(e, x, settings, exception) {
             $unit.show();
             ajaxErrorHandling(e, x, settings, exception);
@@ -235,33 +240,142 @@ RunUnit.prototype.serialize = function()
     return myself;
 }
 
-
-function loadNextUnit(units)
+function Run(run_form)
 {
-	var data = units.shift();
-	if(typeof data !== 'undefined')
-	{
-		$.ajax( 
+	if(typeof this.autosaved === 'undefined') {
+		this.lastSave = $.now(); // only set when loading the first time
+		this.autosaved = false;
+	}
+    
+    this.form = run_form;
+    this.form.submit(function(){ return false; });
+
+	this.name = this.form.find('.run_name').val();
+	this.url = this.form.prop('action');
+    
+	this.units = [];
+	var json_units = $.parseJSON(this.form.attr('data-units'));
+
+    for(var i = 0; i < json_units.length; i++)
+    {
+        this.units[ i ] = new RunUnit( this );
+        this.loadUnit(json_units[i], this.units[ i ]);
+    }
+
+    var run = this;
+    this.form.find('a.add_run_unit').click(function (e) {
+        e.preventDefault();
+        var href = $(this).attr('href');
+        run.addUnit(href);
+        return false;
+    });
+
+	this.form.find('a.public-toggle').click(this.publicToggle);
+    
+	this.exporter_button = this.form.find('a.export_run_units');
+    this.exporter_button.click($.proxy(this.exportUnits, this));
+
+    this.reorder_button = this.form.find('a.reorder_units');
+	this.reorder_button
+    .attr('disabled', 'disabled')
+    .click($.proxy(this.reorderUnits, this));
+
+	this.lock_toggle = this.form.find('a.lock-toggle');
+    this.lock(this.lock_toggle.hasClass("btn-checked"), this.form);
+    this.lock_toggle.click(function(e)
+    {
+        e.preventDefault();
+        var $this = $(this);
+    	var on = (! $this.hasClass('btn-checked') ) ? 1 : 0;
+    	$this.toggleClass('btn-checked',on);
+        run.lock(on ? true : false, run.form);
+        
+    	$.ajax( 
+    	{
+    		url: $this.attr('href'),
+    		dataType:"html",
+    		method: 'POST',
+    		data: {
+    			on: on
+    		}
+    	})
+    	.fail(ajaxErrorHandling);
+        return false;
+    });
+
+	window.onbeforeunload = $.proxy(function() {
+		var message = false;
+		$(this.units).each(function(i, elm)
 		{
-			url: $run_url + '/ajax_get_unit',
-			data: data,
-			dataType:"html", 
-			success:function (data, textStatus) 
+			if(elm.position_changed || elm.unsavedChanges)
 			{
-                var new_order = $run_units.length;
-                $run_units[new_order] = new RunUnit(data);
-                $run_units[new_order].order = new_order;
-				loadNextUnit(units);
+				message = true;
+				return false;
 			}
 		});
-	}
+		if (message ) {
+			return 'You have unsaved changes.'
+		}
+	},this);
+
 }
-function exportUnits()
+
+Run.prototype.getMaxPosition = function()
+{
+    var max = null;
+	$(this.units).each(function(i,elm) { 
+        var pos = +elm.position.val();
+        if(max === null) max = pos;
+        else if( pos > max) max = pos;
+	});
+    return max;
+}
+
+Run.prototype.loadUnit = function(json_data, unit)
+{
+	$.ajax( 
+	{
+		url: this.url + '/ajax_get_unit',
+		data: json_data,
+		dataType:"html", 
+		success: $.proxy(function (data, textStatus) 
+		{
+            unit.init(data);
+		},this)
+	});
+}
+
+Run.prototype.addUnit  = function(href) 
+{
+    var max = this.getMaxPosition();
+
+    var unit = new RunUnit( this )
+    this.units.push(unit);
+
+	$.ajax( 
+	{
+		url: href,
+		dataType:"html",
+		method: 'POST',
+		data: 
+		{
+			position: max + 1
+		}
+	})
+	.done($.proxy(function(data)
+	{
+		unit.init(data);
+	},this))
+	.fail(ajaxErrorHandling);
+}
+
+
+Run.prototype.exportUnits = function()
 {
     var units = {};
-    for(var i = 0; i < $run_units.length; i++)
+    for(var i = 0; i < this.units.length; i++)
     {
-        var unit = $run_units[i].serialize();
+        var unit = this.units[i].serialize();
         units[unit.position] = unit;
     }
     var json = JSON.stringify(units, null, "\t");
@@ -271,7 +385,7 @@ function exportUnits()
 	    $modal.remove();
 	});
     var code_block = $modal.find('pre code');
-    console.log(code_block);
+
     hljs.highlightBlock(code_block.get(0));
     code_block.on('click', function(e){
         if (document.selection) {
@@ -285,161 +399,117 @@ function exportUnits()
         }
     });
 }
-$(document).ready(function () {
-	if(typeof autosaveglobal === 'undefined') {
-		lastSave = $.now(); // only set when loading the first time
-		autosaveglobal = false;
-	}
-	$run_name = $('#run_name').val();
-	$run_url = $('#edit_run').prop('action');
-    $('#edit_run').submit(function(){ return false; });
-	$run_units = [];
-	$('#edit_run').find('.hastooltip').tooltip({
-		container: 'body'
-	});
-	$('#edit_run').find('.select2').select2();
-		
-	var units = $.parseJSON($('#edit_run').attr('data-units'));
-	loadNextUnit(units);
-	
-	$('#edit_run').find('a.run-toggle')
-	.click(function () 
+
+Run.prototype.reorderUnits  = function(e) 
+{
+	e.preventDefault();
+
+	if(typeof this.reorder_button.attr('disabled') === 'undefined')
 	{
-		var on = (! $(this).hasClass('btn-checked') ) ? 1 : 0;
-		var self = $(this);
- 		$.ajax( 
-		{
-			url: self.attr('href'),
-			dataType:"html",
-			method: 'POST',
-			data: {
-				on: on
-			}
-		})
-		.done(function(data)
-		{
-			self.toggleClass('btn-checked',on);
-		})
-		.fail(ajaxErrorHandling);
-		return false;
-	});
-	
-	
-	$('#edit_run').find('a.add_run_unit')
-	.click(function () 
-	{
-		var positions = $('.run_unit_position input:visible').map(function() { 
-			return +$(this).val(); 
-		}); // :visible in case of webshims. 
-		var positions = $.makeArray(positions);
-		var max = positions.slice().sort(function(x,y){ return x-y; }).pop(); // get maximum by sorting and popping the last elm. slice to copy (and later reuse) array
-		$.ajax( 
-		{
-			url: $(this).attr('href'),
-			dataType:"html",
-			method: 'POST',
-			data: 
-			{
-				position: max + 1
-			}
-		})
-		.done(function(data)
-		{
-			$run_units.push(new RunUnit(data));
-			loadNextUnit(units);
-		})
-		.fail(ajaxErrorHandling);
-		return false;
-	});
-	
-	$exporter = $('#edit_run').find('a.export_run_units');
-    
-    $exporter.click(function(e)
-    {
-		e.preventDefault();
-        exportUnits();
-    });
-	
-    $reorderer = $('#edit_run').find('a.reorder_units');
-	
-	$reorderer
-	.click(function (e) 
-	{
-		e.preventDefault();
-		if(typeof $(this).attr('disabled') === 'undefined')
-		{
-			var positions = {};
-            var are_positions_unique = [];
-            var pos;
-            var dupes = false;
-			$($run_units).each(function(i,elm) {
-                
-                pos = +elm.position.val();
-                
-                if($.inArray(pos,are_positions_unique)>-1)
-                {
-                	bootstrap_alert("You used the position "+pos+" more than once, therefore the new order could not be saved. <a href='#unit_"+elm.unit_id+"'>Click here to scroll to the duplicated position.</a>", 'Error.','.main_body');
-                    dupes = true;
-//                    return;
-                }
-                else
-                {
-    				positions[elm.run_unit_id] = pos;                    
-                    are_positions_unique.push(pos);
-                }
-			});
-            if(!dupes)
+		var positions = {};
+        var are_positions_unique = [];
+        var pos;
+        var dupes = false;
+		$(this.units).each(function(i,elm) {
+            
+            pos = +elm.position.val();
+            
+            if($.inArray(pos,are_positions_unique)>-1)
             {
-    			$.ajax( 
-    			{
-    				url: $(this).attr('href'),
-    				dataType:"html",
-    				method: 'POST',
-    				data: {
-    					position: positions
-    				}
-    			})
-    			.done(function(data)
-    			{
-					$($run_units).each(function(i,elm) {
-						elm.position_changed = false;
-					});
-					$reorderer.removeClass('btn-info').attr('disabled', 'disabled');
-					var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
-					var new_positions = old_positions;
-					old_positions = old_positions.join(','); // for some reason I have to join to compare contents, otherwise annoying behavior with clones etc
-					new_positions.sort(function(x,y){ return x-y; }).join(',');
-				
-                    $reorderer.removeClass('btn-info').attr('disabled', 'disabled');
-					if(old_positions != new_positions)
-					{
-						location.reload();
-					} else
-					{
-						$('.pos_changed').removeClass('pos_changed');
-					}
-    			})
-    			.fail(ajaxErrorHandling);
-    			return false;
+            	bootstrap_alert("You used the position "+pos+" more than once, therefore the new order could not be saved. <a href='#unit_"+elm.unit_id+"'>Click here to scroll to the duplicated position.</a>", 'Error.','.main_body');
+                dupes = true;
+//                    return;
             }
-		}
-	});
-	
-	
-	
-	window.onbeforeunload = function() {
-		var message = false;
-		$($run_units).each(function(i, elm)
-		{
-			if(elm.position_changed || elm.unsavedChanges)
-			{
-				message = true;
-				return false;
-			}
+            else
+            {
+				positions[elm.run_unit_id] = pos;                    
+                are_positions_unique.push(pos);
+            }
 		});
-		if (message ) {
-			return 'You have unsaved changes.'
-		}
-	};
-		
+        if(!dupes)
+        {
+			$.ajax( 
+			{
+				url: this.reorder_button.attr('href'),
+				dataType:"html",
+				method: 'POST',
+				data: {
+					position: positions
+				}
+			})
+			.done($.proxy(function(data)
+			{
+				$(this.units).each(function(i,elm) {
+					elm.position_changed = false;
+				});
+				this.reorder_button.removeClass('btn-info').attr('disabled', 'disabled');
+//				var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
+                var old_order = are_positions_unique.join(','); // for some reason I have to join to compare content order, otherwise annoying behavior with clones etc, slice doesn't help
+				var new_order = are_positions_unique.sort(function(x,y){ return x-y; }).join(',');
+			
+            	this.form.find('.pos_changed').removeClass('pos_changed');
+				if(old_order != new_order)
+				{
+                    var form = this.form;
+                    $(this.units.sort(function(a, b) {
+                        return +a.position.val() - +b.position.val();
+                    }))
+                    .each(function(i, elm) {
+                    	form.find('.run_units').append(elm.block);
+                    });
+				}
+			},this))
+			.fail(ajaxErrorHandling);
+			return false;
+        }
+	}
+}
+Run.prototype.lock = function(on, context)
+{
+    context.find('.position, .remove_unit_from_run, .reorder_units, .unit_save, .form-control, select, .from_days, .add_run_unit').each(function (i, elm)
+    {
+        if(on)
+        {
+            
+            if(elm.onclick)
+            {
+                elm.onclick_disabled = elm.onclick;
+                elm.onclick = function(e) { e.preventDefault(); return false; };
+            }
+            $(elm).attr('data-old_disabled', $(elm).attr('disabled') );
+            $(elm).attr('disabled','disabled');
+        } else // if enabled, set back to default
+        {
+            if(elm.onclick_disabled) // if there was a default
+                elm.onclick = elm.onclick_disabled;
+            if($(elm).attr('data-old-disabled') && $(elm).attr('data-old-disabled') != '')
+                $(elm).attr('disabled', $(elm).attr('data-old-disabled'));
+            else
+                $(elm).removeAttr('disabled');
+        }
+
+    });
+}
+
+
+Run.prototype.publicToggle = function(e)
+{
+    var $this = $(this);
+    $this.parents(".btn-group").find(".btn-checked").removeClass("btn-checked");
+	$this.toggleClass('btn-checked',1);
+	$.ajax( 
+	{
+		url: $this.attr('href'),
+		dataType:"html",
+		method: 'POST',
+	})
+	.fail(ajaxErrorHandling);
+	return false;
+    
+}
+
+$(document).ready(function () {
+    $('.edit_run').each(function(i,elm) {
+        new Run($(elm));
+    })
 });
