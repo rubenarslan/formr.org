@@ -5,7 +5,7 @@
 */
 
 var swfmini = function() {
-	
+	var wasRemoved = function(){webshims.error('This method was removed from swfmini');};
 	var UNDEF = "undefined",
 		OBJECT = "object",
 		webshims = window.webshims,
@@ -19,15 +19,8 @@ var swfmini = function() {
 		
 		plugin = false,
 		domLoadFnArr = [main],
-		objIdArr = [],
-		listenersArr = [],
-		storedAltContent,
-		storedAltContentId,
-		storedCallbackFn,
-		storedCallbackObj,
+
 		isDomLoaded = false,
-		dynamicStylesheet,
-		dynamicStylesheetMedia,
 		autoHideShow = true,
 	
 	/* Centralized function for browser feature detection
@@ -75,11 +68,6 @@ var swfmini = function() {
 	
 	function callDomLoadFunctions() {
 		if (isDomLoaded) { return; }
-		try { // test if we can really add/remove elements to/from the DOM; we don't want to fire it too early
-			var t = doc.getElementsByTagName("body")[0].appendChild(createElement("span"));
-			t.parentNode.removeChild(t);
-		}
-		catch (e) { return; }
 		isDomLoaded = true;
 		var dl = domLoadFnArr.length;
 		for (var i = 0; i < dl; i++) {
@@ -95,14 +83,7 @@ var swfmini = function() {
 			domLoadFnArr[domLoadFnArr.length] = fn; // Array.push() is only available in IE5.5+
 		}
 	}
-	
-	/* Cross-browser onload
-		- Based on James Edwards' solution: http://brothercake.com/site/resources/scripts/onload/
-		- Will fire an event as soon as a web page including all of its assets are loaded 
-	 */
-	function addLoadEvent(fn) {
-		
-	}
+
 	
 	/* Main function
 		- Will preferably execute onDomLoad, otherwise onload (as a fallback)
@@ -145,150 +126,13 @@ var swfmini = function() {
 			})();
 		}
 	}
-	
-	
-	function getObjectById(objectIdStr) {
-		var r = null;
-		var o = getElementById(objectIdStr);
-		if (o && o.nodeName == "OBJECT") {
-			if (typeof o.SetVariable != UNDEF) {
-				r = o;
-			}
-			else {
-				var n = o.getElementsByTagName(OBJECT)[0];
-				if (n) {
-					r = n;
-				}
-			}
-		}
-		return r;
-	}
-	
-	
-	/* Cross-browser dynamic SWF creation
-	*/
-	function createSWF(attObj, parObj, id) {
-		var r, el = getElementById(id);
-		if (ua.wk && ua.wk < 312) { return r; }
-		if (el) {
-			if (typeof attObj.id == UNDEF) { // if no 'id' is defined for the object element, it will inherit the 'id' from the alternative content
-				attObj.id = id;
-			}
-			if (ua.ie && ua.win) { // Internet Explorer + the HTML object element + W3C DOM methods do not combine: fall back to outerHTML
-				var att = "";
-				for (var i in attObj) {
-					if (attObj[i] != Object.prototype[i]) { // filter out prototype additions from other potential libraries
-						if (i.toLowerCase() == "data") {
-							parObj.movie = attObj[i];
-						}
-						else if (i.toLowerCase() == "styleclass") { // 'class' is an ECMA4 reserved keyword
-							att += ' class="' + attObj[i] + '"';
-						}
-						else if (i.toLowerCase() != "classid") {
-							att += ' ' + i + '="' + attObj[i] + '"';
-						}
-					}
-				}
-				var par = "";
-				for (var j in parObj) {
-					if (parObj[j] != Object.prototype[j]) { // filter out prototype additions from other potential libraries
-						par += '<param name="' + j + '" value="' + parObj[j] + '" />';
-					}
-				}
-				el.outerHTML = '<object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"' + att + '>' + par + '</object>';
-				objIdArr[objIdArr.length] = attObj.id; // stored to fix object 'leaks' on unload (dynamic publishing only)
-				r = getElementById(attObj.id);	
-			}
-			else { // well-behaving browsers
-				var o = createElement(OBJECT);
-				o.setAttribute("type", FLASH_MIME_TYPE);
-				for (var m in attObj) {
-					if (attObj[m] != Object.prototype[m]) { // filter out prototype additions from other potential libraries
-						if (m.toLowerCase() == "styleclass") { // 'class' is an ECMA4 reserved keyword
-							o.setAttribute("class", attObj[m]);
-						}
-						else if (m.toLowerCase() != "classid") { // filter out IE specific attribute
-							o.setAttribute(m, attObj[m]);
-						}
-					}
-				}
-				for (var n in parObj) {
-					if (parObj[n] != Object.prototype[n] && n.toLowerCase() != "movie") { // filter out prototype additions from other potential libraries and IE specific param element
-						createObjParam(o, n, parObj[n]);
-					}
-				}
-				el.parentNode.replaceChild(o, el);
-				r = o;
-			}
-		}
-		return r;
-	}
-	
-	function createObjParam(el, pName, pValue) {
-		var p = createElement("param");
-		p.setAttribute("name", pName);	
-		p.setAttribute("value", pValue);
-		el.appendChild(p);
-	}
-	
-	/* Cross-browser SWF removal
-		- Especially needed to safely and completely remove a SWF in Internet Explorer
-	*/
-	function removeSWF(id) {
-		var obj = getElementById(id);
-		if (obj && obj.nodeName == "OBJECT") {
-			if (ua.ie && ua.win) {
-				obj.style.display = "none";
-				(function(){
-					if (obj.readyState == 4) {
-						removeObjectInIE(id);
-					}
-					else {
-						setTimeout(arguments.callee, 10);
-					}
-				})();
-			}
-			else {
-				obj.parentNode.removeChild(obj);
-			}
-		}
-	}
-	
-	function removeObjectInIE(id) {
-		var obj = getElementById(id);
-		if (obj) {
-			for (var i in obj) {
-				if (typeof obj[i] == "function") {
-					obj[i] = null;
-				}
-			}
-			obj.parentNode.removeChild(obj);
-		}
-	}
-	
-	/* Functions to optimize JavaScript compression
-	*/
-	function getElementById(id) {
-		var el = null;
-		try {
-			el = doc.getElementById(id);
-		}
-		catch (e) {}
-		return el;
-	}
+
 	
 	function createElement(el) {
 		return doc.createElement(el);
 	}
 	
-	/* Updated attachEvent function for Internet Explorer
-		- Stores attachEvent information in an Array, so on unload the detachEvent functions can be called to avoid memory leaks
-	*/	
-	function addListener(target, eventType, fn) {
-		target.attachEvent(eventType, fn);
-		listenersArr[listenersArr.length] = [target, eventType, fn];
-	}
-	
+
 	/* Flash Player and SWF content version matching
 	*/
 	function hasPlayerVersion(rv) {
@@ -300,107 +144,43 @@ var swfmini = function() {
 	}
 	
 	
-	
-	function setVisibility(id, isVisible) {
-		if (!autoHideShow) { return; }
-		var elem;
-		var v = isVisible ? "visible" : "hidden";
-		if (isDomLoaded && (elem && getElementById(id))) {
-			getElementById(id).style.visibility = v;
-		}
+
+
+
+	webshims.ready('DOM', callDomLoadFunctions);
+
+	webshims.loader.addModule('swfmini-embed', {d: ['swfmini']});
+	var loadEmbed = hasPlayerVersion('9.0.0') ?
+		function(){
+			webshims.loader.loadList(['swfmini-embed']);
+			return true;
+		} :
+		webshims.$.noop
+	;
+
+	if(!Modernizr.video){
+		loadEmbed();
+	} else {
+		webshims.ready('WINDOWLOAD', loadEmbed);
 	}
 
-	/* Release memory to avoid memory leaks caused by closures, fix hanging audio/video threads and force open sockets/NetConnections to disconnect (Internet Explorer only)
-	*/
-	var cleanup = function() {
-		if (ua.ie && ua.win && window.attachEvent) {
-			window.attachEvent("onunload", function() {
-				// remove listeners to avoid memory leaks
-				var ll = listenersArr.length;
-				for (var i = 0; i < ll; i++) {
-					listenersArr[i][0].detachEvent(listenersArr[i][1], listenersArr[i][2]);
-				}
-				// cleanup dynamically embedded objects to fix audio/video threads and force open sockets and NetConnections to disconnect
-				var il = objIdArr.length;
-				for (var j = 0; j < il; j++) {
-					removeSWF(objIdArr[j]);
-				}
-				// cleanup library's main closures to avoid memory leaks
-				for (var k in ua) {
-					ua[k] = null;
-				}
-				ua = null;
-				for (var l in swfmini) {
-					swfmini[l] = null;
-				}
-				swfmini = null;
-			});
-		}
-	}();
-	
-	webshims.ready('DOM', callDomLoadFunctions);
-	
 	return {
 		/* Public API
 			- Reference: http://code.google.com/p/swfobject/wiki/documentation
 		*/ 
-		registerObject: function() {
-			
-		},
+		registerObject: wasRemoved,
 		
-		getObjectById: function(objectIdStr) {
-			if (ua.w3) {
-				return getObjectById(objectIdStr);
-			}
-		},
+		getObjectById: wasRemoved,
 		
 		embedSWF: function(swfUrlStr, replaceElemIdStr, widthStr, heightStr, swfVersionStr, xiSwfUrlStr, flashvarsObj, parObj, attObj, callbackFn) {
-			var callbackObj = {success:false, id:replaceElemIdStr};
-			if (ua.w3 && !(ua.wk && ua.wk < 312) && swfUrlStr && replaceElemIdStr && widthStr && heightStr && swfVersionStr) {
-				setVisibility(replaceElemIdStr, false);
-				addDomLoadEvent(function() {
-					widthStr += ""; // auto-convert to string
-					heightStr += "";
-					var att = {};
-					if (attObj && typeof attObj === OBJECT) {
-						for (var i in attObj) { // copy object to avoid the use of references, because web authors often reuse attObj for multiple SWFs
-							att[i] = attObj[i];
-						}
-					}
-					att.data = swfUrlStr;
-					att.width = widthStr;
-					att.height = heightStr;
-					var par = {}; 
-					if (parObj && typeof parObj === OBJECT) {
-						for (var j in parObj) { // copy object to avoid the use of references, because web authors often reuse parObj for multiple SWFs
-							par[j] = parObj[j];
-						}
-					}
-					if (flashvarsObj && typeof flashvarsObj === OBJECT) {
-						for (var k in flashvarsObj) { // copy object to avoid the use of references, because web authors often reuse flashvarsObj for multiple SWFs
-							if (typeof par.flashvars != UNDEF) {
-								par.flashvars += "&" + k + "=" + flashvarsObj[k];
-							}
-							else {
-								par.flashvars = k + "=" + flashvarsObj[k];
-							}
-						}
-					}
-					if (hasPlayerVersion(swfVersionStr)) { // create SWF
-						var obj = createSWF(att, par, replaceElemIdStr);
-						if (att.id == replaceElemIdStr) {
-							setVisibility(replaceElemIdStr, true);
-						}
-						callbackObj.success = true;
-						callbackObj.ref = obj;
-					}
-					else { // show alternative content
-						setVisibility(replaceElemIdStr, true);
-					}
-					if (callbackFn) { callbackFn(callbackObj); }
+			var args = arguments;
+			if(loadEmbed()){
+				webshims.ready('swfmini-embed', function(){
+					swfmini.embedSWF.apply(swfmini, args);
 				});
+			} else if(callbackFn) {
+				callbackFn({success:false, id:replaceElemIdStr});
 			}
-			else if (callbackFn) { callbackFn(callbackObj);	}
 		},
 		
 		switchOffAutoHideShow: function() {
@@ -424,32 +204,82 @@ var swfmini = function() {
 			}
 		},
 		
-		showExpressInstall: function() {
-			
-		},
+		showExpressInstall: wasRemoved,
 		
-		removeSWF: function(objElemIdStr) {
-			if (ua.w3) {
-				removeSWF(objElemIdStr);
-			}
-		},
+		removeSWF: wasRemoved,
 		
-		createCSS: function() {
-			
-		},
+		createCSS: wasRemoved,
 		
 		addDomLoadEvent: addDomLoadEvent,
 		
-		addLoadEvent: addLoadEvent,
+		addLoadEvent: wasRemoved,
 		
 		
 		// For internal usage only
-		expressInstallCallback: function() {
-			
-		}
+		expressInstallCallback: wasRemoved
 	};
 }();
-;//DOM-Extension helper
+
+webshims.isReady('swfmini', true);
+;
+//this might was already extended by ES5 shim feature
+(function($){
+	"use strict";
+	var webshims = window.webshims;
+	if(webshims.defineProperties){return;}
+	var defineProperty = 'defineProperty';
+	var has = Object.prototype.hasOwnProperty;
+	var descProps = ['configurable', 'enumerable', 'writable'];
+	var extendUndefined = function(prop){
+		for(var i = 0; i < 3; i++){
+			if(prop[descProps[i]] === undefined && (descProps[i] !== 'writable' || prop.value !== undefined)){
+				prop[descProps[i]] = true;
+			}
+		}
+	};
+
+	var extendProps = function(props){
+		if(props){
+			for(var i in props){
+				if(has.call(props, i)){
+					extendUndefined(props[i]);
+				}
+			}
+		}
+	};
+
+	if(Object.create){
+		webshims.objectCreate = function(proto, props, opts){
+			extendProps(props);
+			var o = Object.create(proto, props);
+			if(opts){
+				o.options = $.extend(true, {}, o.options  || {}, opts);
+				opts = o.options;
+			}
+			if(o._create && $.isFunction(o._create)){
+				o._create(opts);
+			}
+			return o;
+		};
+	}
+
+	if(Object[defineProperty]){
+		webshims[defineProperty] = function(obj, prop, desc){
+			extendUndefined(desc);
+			return Object[defineProperty](obj, prop, desc);
+		};
+	}
+	if(Object.defineProperties){
+		webshims.defineProperties = function(obj, props){
+			extendProps(props);
+			return Object.defineProperties(obj, props);
+		};
+	}
+	webshims.getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+
+	webshims.getPrototypeOf = Object.getPrototypeOf;
+})(window.webshims.$);
+//DOM-Extension helper
 webshims.register('dom-extend', function($, webshims, window, document, undefined){
 	"use strict";
 	var supportHrefNormalized = !('hrefNormalized' in $.support) || $.support.hrefNormalized;
@@ -572,8 +402,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		});
 		return this;
 	};
-	
-	var dataID = '_webshimsLib'+ (Math.round(Math.random() * 1000));
+	var idCount = 0;
+	var dataID = '_webshims'+ (Math.round(Math.random() * 1000));
 	var elementData = function(elem, key, val){
 		elem = elem.jquery ? elem[0] : elem;
 		if(!elem){return val || {};}
@@ -604,6 +434,35 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			return this.pushStack(elems);
 		};
 	});
+
+	function clone(elem, dataAndEvents, uniqueIds){
+		var cloned = $.clone( elem, dataAndEvents, false );
+		$(cloned.querySelectorAll('.'+webshims.shadowClass)).detach();
+		if(uniqueIds){
+			idCount++;
+			$(cloned.querySelectorAll('[id]')).prop('id', function(i, id){
+				return id +idCount;
+			});
+		} else {
+			$(cloned.querySelectorAll('audio[id^="ID-"], video[id^="ID-"], label[id^="ID-"]')).removeAttr('id');
+		}
+		return cloned;
+	}
+
+	$.fn.clonePolyfill = function(dataAndEvents, uniqueIds){
+		dataAndEvents = dataAndEvents || false;
+		return this
+			.map(function() {
+				var cloned = clone( this, dataAndEvents, uniqueIds );
+				setTimeout(function(){
+					if($.contains(document.body, cloned)){
+						$(cloned).updatePolyfill();
+					}
+				});
+				return cloned;
+			})
+		;
+	};
 	
 	//add support for $('video').trigger('play') in case extendNative is set to false
 	if(!webshims.cfg.extendNative && !webshims.cfg.noTriggerOverride){
@@ -915,6 +774,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return id;
 			};
 		})(),
+		shadowClass: 'wsshadow-'+(Date.now()),
 		implement: function(elem, type){
 			var data = elementData(elem, 'implemented') || elementData(elem, 'implemented', {});
 			if(data[type]){
@@ -1067,7 +927,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					$.each({ Height: "getHeight", Width: "getWidth" }, function(name, type){
 						var body = document.body;
 						var doc = document.documentElement;
-						docObserve[type] = function(){
+						docObserve[type] = function (){
 							return Math.max(
 								body[ "scroll" + name ], doc[ "scroll" + name ],
 								body[ "offset" + name ], doc[ "offset" + name ],
@@ -1082,24 +942,18 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 						this._create();
 						this.height = docObserve.getHeight();
 						this.width = docObserve.getWidth();
-						setInterval(this.test, 600);
+						setInterval(this.test, 999);
 						$(this.test);
+						if($.support.boxSizing == null){
+							$(function(){
+								if($.support.boxSizing){
+									docObserve.handler({type: 'boxsizing'});
+								}
+							});
+						}
 						webshims.ready('WINDOWLOAD', this.test);
 						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel', this.handler);
 						$(window).on('resize', this.handler);
-						(function(){
-							var oldAnimate = $.fn.animate;
-							var animationTimer;
-							
-							$.fn.animate = function(){
-								clearTimeout(animationTimer);
-								animationTimer = setTimeout(function(){
-									docObserve.test();
-								}, 99);
-								
-								return oldAnimate.apply(this, arguments);
-							};
-						})();
 					}
 				}
 			};
@@ -1108,13 +962,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			webshims.docObserve = function(){
 				webshims.ready('DOM', function(){
 					docObserve.start();
-					if($.support.boxSizing == null){
-						$(function(){
-							if($.support.boxSizing){
-								docObserve.handler({type: 'boxsizing'});
-							}
-						});
-					}
+
 				});
 			};
 			return function(nativeElem, shadowElem, opts){
@@ -1594,8 +1442,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	
 })();
 });
-;
-webshims.register('form-core', function($, webshims, window, document, undefined, options){
+;webshims.register('form-core', function($, webshims, window, document, undefined, options){
 	"use strict";
 
 	webshims.capturingEventPrevented = function(e){
@@ -1621,6 +1468,7 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 		webshims.capturingEvents(['invalid'], true);
 	}
 
+	var modules = webshims.modules;
 	var isValid = function(elem){
 		return ($.prop(elem, 'validity') || {valid: 1}).valid;
 	};
@@ -1630,10 +1478,12 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 			options.customMessages = true;
 			toLoad.push('form-message');
 		}
-		if(options.customDatalist){
+
+		if(webshims._getAutoEnhance(options.customDatalist)){
 			options.fD = true;
 			toLoad.push('form-datalist');
 		}
+
 		if(options.addValidators){
 			toLoad.push('form-validators');
 		}
@@ -1643,27 +1493,27 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 	/*
 	 * Selectors for all browsers
 	 */
-	var rElementsGroup = /^(?:form|fieldset)$/i;
-	var hasInvalid = function(elem){
-		var ret = false;
-		$(elem).jProp('elements').each(function(){
-			if(!rElementsGroup.test(elem.nodeName || '')){
-				ret = $(this).is(':invalid');
-				if(ret){
-					return false;
-				}
-			}
-			
-		});
-		return ret;
-	};
 	
 	var extendSels = function(){
 		var matches, matchesOverride;
 		var exp = $.expr[":"];
+		var rElementsGroup = /^(?:form|fieldset)$/i;
+		var hasInvalid = function(elem){
+			var ret = false;
+			$(elem).jProp('elements').each(function(){
+				if(!rElementsGroup.test(this.nodeName || '')){
+					ret = exp.invalid(this);
+					if(ret){
+						return false;
+					}
+				}
+
+			});
+			return ret;
+		};
 		$.extend(exp, {
 			"valid-element": function(elem){
-				return rElementsGroup.test(elem.nodeName || '') ? !hasInvalid(elem) :!!($.prop(elem, 'willValidate') && isValid(elem));
+				return rElementsGroup.test(elem.nodeName || '') ? !hasInvalid(elem) : !!($.prop(elem, 'willValidate') && isValid(elem));
 			},
 			"invalid-element": function(elem){
 				return rElementsGroup.test(elem.nodeName || '') ? hasInvalid(elem) : !!($.prop(elem, 'willValidate') && !isValid(elem));
@@ -1718,27 +1568,38 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 			};
 		}
 	};
-	
-	if($.expr.filters){
-		extendSels();
-	} else {
-		webshims.ready('sizzle', extendSels);
-	}
-	
-	
-	webshims.triggerInlineForm = function(elem, event){
-		$(elem).trigger(event);
+	var formExtras = {
+		noAutoCallback: true,
+		options: options
 	};
-	
+	var addModule = webshims.loader.addModule;
 	var lazyLoadProxy = function(obj, fn, args){
 		lazyLoad();
 		webshims.ready('form-validation', function(){
 			obj[fn].apply(obj, args);
 		});
 	};
-	
+
 	var transClass = ('transitionDelay' in document.documentElement.style) ?  '' : ' no-transition';
 	var poCFG = webshims.cfg.wspopover;
+
+	addModule('form-validation', $.extend({d: ['form-message']}, formExtras));
+
+	addModule('form-validators', $.extend({}, formExtras));
+
+
+	
+	if($.expr.filters){
+		extendSels();
+	} else {
+		webshims.ready('sizzle', extendSels);
+	}
+
+	webshims.triggerInlineForm = function(elem, event){
+		$(elem).trigger(event);
+	};
+	
+
 	if(!poCFG.position && poCFG.position !== false){
 		poCFG.position = {
 			at: 'left bottom',
@@ -1793,6 +1654,7 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 	
 	
 	webshims.getContentValidationMessage = function(elem, validity, key){
+		var customRule;
 		if(webshims.errorbox && webshims.errorbox.initIvalContentMessage){
 			webshims.errorbox.initIvalContentMessage(elem);
 		}
@@ -1807,7 +1669,9 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 		}
 		if(typeof message == 'object'){
 			validity = validity || $.prop(elem, 'validity') || {valid: 1};
-			if(!validity.valid){
+			if(validity.customError && (customRule = $.data(elem, 'customMismatchedRule')) && message[customRule] && typeof message[customRule] == 'string'){
+				message = message[customRule];
+			} else if(!validity.valid){
 				$.each(validity, function(name, prop){
 					if(prop && name != 'valid' && message[name]){
 						message = message[name];
@@ -1842,14 +1706,56 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 		}
 		return message;
 	};
-	
+
+	$.event.special.valuevalidation = {
+		setup: function(){
+			webshims.error('valuevalidation was renamed to validatevalue!');
+		}
+	};
+
+
+	$.event.special.validatevalue = {
+		setup: function(){
+			var data = $(this).data() || $.data(this, {});
+			if(!('validatevalue' in data)){
+				data.validatevalue = true;
+			}
+		}
+	};
+
+
 	
 	$(document).on('focusin.lazyloadvalidation', function(e){
 		if('form' in e.target){
 			lazyLoad();
 		}
 	});
+
 	webshims.ready('WINDOWLOAD', lazyLoad);
+
+	if(modules['form-number-date-ui'].loaded && !options.customMessages && (modules['form-number-date-api'].test() || (Modernizr.inputtypes.range && Modernizr.inputtypes.color))){
+		webshims.isReady('form-number-date-ui', true);
+	}
+
+	webshims.ready('DOM', function(){
+		if(document.querySelector('.ws-custom-file')){
+			webshims.reTest(['form-validation']);
+		}
+	});
+
+	$(function(){
+		var fileReaderReady = ('FileReader' in window && 'FormData' in window);
+		if(!fileReaderReady){
+			webshims.addReady(function(context){
+				if(!fileReaderReady && !modules.filereader.loaded && !modules.moxie.loaded){
+					if(context.querySelector('input.ws-filereader')){
+						webshims.reTest(['filereader', 'moxie']);
+						fileReaderReady = true;
+					}
+				}
+			});
+		}
+	});
 });
 ;webshims.register('form-message', function($, webshims, window, document, undefined, options){
 	"use strict";
@@ -1978,24 +1884,103 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 		min: 1,
 		max: 1
 	};
+	var toLocale = (function(){
+		var monthFormatter;
+		var transforms = {
+			number: function(val){
+				var num = val * 1;
+				if(num.toLocaleString && !isNaN(num)){
+					val = num.toLocaleString() || val;
+				}
+				return val;
+			}
+		};
+		var _toLocale = function(val, elem, attr){
+			var type, widget;
+			if(valueVals[attr]){
+				type = $.prop(elem, 'type');
+				widget = $(elem).getShadowElement().data('wsWidget'+ type );
+				if(widget && widget.formatValue){
+					val = widget.formatValue(val, false);
+				} else if(transforms[type]){
+					val = transforms[type](val);
+				}
+			}
+			return val;
+		};
+
+		[{n: 'date', f: 'toLocaleDateString'}, {n: 'time', f: 'toLocaleTimeString'}, {n: 'datetime-local', f: 'toLocaleString'}].forEach(function(desc){
+			transforms[desc.n] = function(val){
+				var date = new Date(val);
+				if(date && date[desc.f]){
+					val = date[desc.f]() || val;
+				}
+				return val;
+			};
+		});
+
+		if(window.Intl && Intl.DateTimeFormat){
+			monthFormatter = new Intl.DateTimeFormat(navigator.browserLanguage || navigator.language, {year: "numeric", month: "2-digit"}).format(new Date());
+			if(monthFormatter && monthFormatter.format){
+				transforms.month = function(val){
+					var date = new Date(val);
+					if(date){
+						val = monthFormatter.format(date) || val;
+					}
+					return val;
+				};
+			}
+		}
+
+		webshims.format =  {};
+
+		['date', 'number', 'month', 'time', 'datetime-local'].forEach(function(name){
+			webshims.format[name] = function(val, opts){
+				if(opts && opts.nodeType){
+					return _toLocale(val, opts, name);
+				}
+				if(name == 'number' && opts && opts.toFixed ){
+					val = (val * 1);
+					if(!opts.fixOnlyFloat || val % 1){
+						val = val.toFixed(opts.toFixed);
+					}
+				}
+				if(webshims._format && webshims._format[name]){
+					return webshims._format[name](val, opts);
+				}
+				return transforms[name](val);
+			};
+		});
+
+		return _toLocale;
+	})();
 
 	webshims.replaceValidationplaceholder = function(elem, message, name){
-		var type, widget;
+		var val = $.prop(elem, 'title');
+		if(message){
+			if(name == 'patternMismatch' && !val){
+				webshims.error('no title for patternMismatch provided. Always add a title attribute.');
+			}
+			if(val){
+				val = '<span class="ws-titlevalue">'+ val.replace(lReg, '&lt;').replace(gReg, '&gt;') +'</span>';
+			}
+
+			if(message.indexOf('{%title}') != -1){
+				message = message.replace('{%title}', val);
+			} else if(val) {
+				message = message+' '+val;
+			}
+		}
+
 		if(message && message.indexOf('{%') != -1){
-			['value', 'min', 'max', 'title', 'maxlength', 'minlength', 'label'].forEach(function(attr){
+			['value', 'min', 'max', 'maxlength', 'minlength', 'label'].forEach(function(attr){
 				if(message.indexOf('{%'+attr) === -1){return;}
-				var val = ((attr == 'label') ? $.trim($('label[for="'+ elem.id +'"]', elem.form).text()).replace(/\*$|:$/, '') : $.prop(elem, attr)) || '';
-				if(name == 'patternMismatch' && attr == 'title' && !val){
-					webshims.error('no title for patternMismatch provided. Always add a title attribute.');
-				}
-				if(valueVals[attr]){
-					if(!widget){
-						widget = $(elem).getShadowElement().data('wsWidget'+ (type = $.prop(elem, 'type')));
-					}
-					if(widget && widget.formatValue){
-						val = widget.formatValue(val, false);
-					}
-				}
+				var val = ((attr == 'label') ? $.trim($('label[for="'+ elem.id +'"]', elem.form).text()).replace(/\*$|:$/, '') : $.prop(elem, attr) || $.attr(elem, attr) || '') || '';
+				val = ''+val;
+
+
+				val = toLocale(val, elem, attr);
+
 				message = message.replace('{%'+ attr +'}', val.replace(lReg, '&lt;').replace(gReg, '&gt;'));
 				if('value' == attr){
 					message = message.replace('{%valueLen}', val.length);
@@ -2017,7 +2002,9 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 		}
 		if(!message){
 			message = getMessageFromObj(validityMessages[''][name], elem) || $.prop(elem, 'validationMessage');
-			webshims.info('could not find errormessage for: '+ name +' / '+ $.prop(elem, 'type') +'. in language: '+webshims.activeLang());
+			if(name != 'customError'){
+				webshims.info('could not find errormessage for: '+ name +' / '+ $.prop(elem, 'type') +'. in language: '+webshims.activeLang());
+			}
 		}
 		message = webshims.replaceValidationplaceholder(elem, message, name);
 		
@@ -2084,7 +2071,6 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 });
 ;webshims.register('form-datalist', function($, webshims, window, document, undefined, options){
 	"use strict";
-	var doc = document;
 	var lazyLoad = function(name){
 		if(!name || typeof name != 'string'){
 			name = 'DOM';
@@ -2379,9 +2365,9 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 		initializeDatalist();
 	})();
 	
-});;(function(Modernizr, webshims){
+});
+;(function(Modernizr, webshims){
 	"use strict";
-	var $ = webshims.$;
 	var hasNative = Modernizr.audio && Modernizr.video;
 	var supportsLoop = false;
 	var bugs = webshims.bugs;
@@ -2394,93 +2380,53 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 			}
 		});
 	};
+
 	var wsCfg = webshims.cfg;
 	var options = wsCfg.mediaelement;
-	var hasFullTrackSupport;
-	var hasSwf;
+	var isIE = navigator.userAgent.indexOf('MSIE') != -1;
 	if(!options){
 		webshims.error("mediaelement wasn't implemented but loaded");
 		return;
 	}
+
 	if(hasNative){
 		var videoElem = document.createElement('video');
 		Modernizr.videoBuffered = ('buffered' in videoElem);
 		Modernizr.mediaDefaultMuted = ('defaultMuted' in videoElem);
 		supportsLoop = ('loop' in videoElem);
-		
+		Modernizr.mediaLoop = supportsLoop;
+
 		webshims.capturingEvents(['play', 'playing', 'waiting', 'paused', 'ended', 'durationchange', 'loadedmetadata', 'canplay', 'volumechange']);
 		
-		if(!Modernizr.videoBuffered ){
+		if( !Modernizr.videoBuffered || !supportsLoop || (!Modernizr.mediaDefaultMuted && isIE && 'ActiveXObject' in window) ){
 			webshims.addPolyfill('mediaelement-native-fix', {
 				d: ['dom-support']
 			});
 			webshims.loader.loadList(['mediaelement-native-fix']);
 		}
-		
-		if(!options.preferFlash){
-			var noSwitch = {
-				1: 1
-			};
-			var switchOptions = function(e){
-				var media, error, parent;
-				if(!options.preferFlash && 
-				($(e.target).is('audio, video') || ((parent = e.target.parentNode) && $('source', parent).last()[0] == e.target)) && 
-				(media = $(e.target).closest('audio, video')) && (error = media.prop('error')) && !noSwitch[error.code]
-				){
-					
-					$(function(){
-						if(hasSwf && !options.preferFlash){
-							loadSwf();
-							webshims.ready('WINDOWLOAD '+swfType, function(){
-								setTimeout(function(){
-									if(!options.preferFlash && webshims.mediaelement.createSWF && !media.is('.nonnative-api-active')){
-										options.preferFlash = true;
-										document.removeEventListener('error', switchOptions, true);
-										$('audio, video').each(function(){
-											webshims.mediaelement.selectSource(this);
-										});
-										webshims.error("switching mediaelements option to 'preferFlash', due to an error with native player: "+e.target.src+" Mediaerror: "+ media.prop('error')+ 'first error: '+ error);
-									}
-								}, 9);
-							});
-						} else{
-							document.removeEventListener('error', switchOptions, true);
-						}
-					});
-				}
-			};
-			document.addEventListener('error', switchOptions, true);
-			$('audio, video').each(function(){
-				var error = $.prop(this, 'error');
-				if(error && !noSwitch[error]){
-					switchOptions({target: this});
-					return false;
-				}
-			});
-		}
 	}
 	
 	if(Modernizr.track && !bugs.track){
 		(function(){
-			
 			if(!bugs.track){
-				bugs.track = typeof $('<track />')[0].readyState != 'number';
-			}
-			
-			if(!bugs.track){
+
+				if(window.VTTCue && !window.TextTrackCue){
+					window.TextTrackCue = window.VTTCue;
+				} else if(!window.VTTCue){
+					window.VTTCue = window.TextTrackCue;
+				}
+
 				try {
-					new TextTrackCue(2, 3, '');
+					new VTTCue(2, 3, '');
 				} catch(e){
 					bugs.track = true;
 				}
 			}
 		})();
 	}
-	hasFullTrackSupport = Modernizr.track && !bugs.track;
 
 webshims.register('mediaelement-core', function($, webshims, window, document, undefined, options){
-	hasSwf = swfmini.hasFlashPlayerVersion('10.0.3');
-	$('html').addClass(hasSwf ? 'swf' : 'no-swf');
+	var hasSwf = swfmini.hasFlashPlayerVersion('10.0.3');
 	var mediaelement = webshims.mediaelement;
 	
 	mediaelement.parseRtmp = function(data){
@@ -2505,6 +2451,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		}
 		data.streamId = data.streamId.join('/');
 	};
+
 	var getSrcObj = function(elem, nodeName){
 		elem = $(elem);
 		var src = {src: elem.attr('src') || '', elem: elem, srcProp: elem.prop('src')};
@@ -2541,11 +2488,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				}
 			}
 		}
-		
-		if(!src.container){
-			$(elem).attr('data-wsrecheckmimetype', '');
-		}
-		
+
 		tmp = elem.attr('media');
 		if(tmp){
 			src.media = tmp;
@@ -2574,14 +2517,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			});
 		}
 	};
-//	var loadMediaGroup = function(){
-//		if(!loadMediaGroup.loaded){
-//			loadMediaGroup.loaded = true;
-//			webshims.ready(window.MediaController ? 'WINDOWLOAD' : 'DOM', function(){
-//				webshims.loader.loadList(['mediagroup']);
-//			});
-//		}
-//	};
+
 	var loadYt = (function(){
 		var loaded;
 		return function(){
@@ -2606,10 +2542,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		d: ['dom-support']
 	});
 	
-	
-//	webshims.addModule('mediagroup', {
-//		d: ['mediaelement', 'dom-support']
-//	});
+
 	
 	mediaelement.mimeTypes = {
 		audio: {
@@ -2643,7 +2576,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 	
 	mediaelement.mimeTypes.source =  $.extend({}, mediaelement.mimeTypes.audio, mediaelement.mimeTypes.video);
 	
-	mediaelement.getTypeForSrc = function(src, nodeName, data){
+	mediaelement.getTypeForSrc = function(src, nodeName){
 		if(src.indexOf('youtube.com/watch?') != -1 || src.indexOf('youtube.com/v/') != -1){
 			return 'video/youtube';
 		}
@@ -2681,32 +2614,8 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			}
 			return srces;
 		} else {
-			mediaElem.removeAttr('src').removeAttr('type').find('source').remove();
-			if(!$.isArray(srces)){
-				srces = [srces]; 
-			}
-			srces.forEach(function(src){
-				if(typeof src == 'string'){
-					src = {src: src};
-				} 
-				mediaElem.append($(document.createElement('source')).attr(src));
-			});
-			
+			webshims.error('setting sources was removed.');
 		}
-	};
-	
-	
-	$.fn.loadMediaSrc = function(srces, poster){
-		return this.each(function(){
-			if(poster !== undefined){
-				$(this).removeAttr('poster');
-				if(poster){
-					$.attr(this, 'poster', poster);
-				}
-			}
-			mediaelement.srces(this, srces);
-			$(this).mediaLoad();
-		});
 	};
 	
 	mediaelement.swfMimeTypes = ['video/3gpp', 'video/x-msvideo', 'video/quicktime', 'video/x-m4v', 'video/mp4', 'video/m4p', 'video/x-flv', 'video/flv', 'audio/mpeg', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/mp3', 'audio/x-fla', 'audio/fla', 'youtube/flv', 'video/jarisplayer', 'jarisplayer/jarisplayer', 'video/youtube', 'video/rtmp', 'audio/rtmp'];
@@ -2766,7 +2675,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				message = "can't play sources";
 			}
 			$(elem).pause().data('mediaerror', message);
-			webshims.error('mediaelementError: '+ message);
+			webshims.error('mediaelementError: '+ message +'. Run the following line in your console to get more info: webshim.mediaelement.loadDebugger();');
 			setTimeout(function(){
 				if($(elem).data('mediaerror')){
 					$(elem).addClass('media-error').trigger('mediaerror');
@@ -2782,8 +2691,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		var readyType = hasSwf ? swfType : 'mediaelement-yt';
 		return function( mediaElem, ret, data ){
 			//readd to ready
-			
-			
+
 			webshims.ready(readyType, function(){
 				if(mediaelement.createSWF && $(mediaElem).parent()[0]){
 					mediaelement.createSWF( mediaElem, ret, data );
@@ -2799,33 +2707,46 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			}
 		};
 	})();
-	
-	var stepSources = function(elem, data, useSwf, _srces, _noLoop){
-		var ret;
-		if(useSwf || (useSwf !== false && data && data.isActive == 'third')){
-			ret = mediaelement.canThirdPlaySrces(elem, _srces);
-			if(!ret){
-				if(_noLoop){
-					mediaelement.setError(elem, false);
-				} else {
-					stepSources(elem, data, false, _srces, true);
-				}
-			} else {
-				handleThird(elem, ret, data);
-			}
-		} else {
-			ret = mediaelement.canNativePlaySrces(elem, _srces);
-			if(!ret){
-				if(_noLoop){
-					mediaelement.setError(elem, false);
-					if(data && data.isActive == 'third') {
-						mediaelement.setActive(elem, 'html5', data);
-					}
-				} else {
-					stepSources(elem, data, true, _srces, true);
-				}
-			} else if(data && data.isActive == 'third') {
+
+	var activate = {
+		native: function(elem, src, data){
+			if(data && data.isActive == 'third') {
 				mediaelement.setActive(elem, 'html5', data);
+			}
+		},
+		third: handleThird
+	};
+
+	var stepSources = function(elem, data, srces){
+		var i, src;
+		var testOrder = [{test: 'canNativePlaySrces', activate: 'native'}, {test: 'canThirdPlaySrces', activate: 'third'}];
+		if(options.preferFlash || (data && data.isActive == 'third') ){
+			testOrder.reverse();
+		}
+		for(i = 0; i < 2; i++){
+			src = mediaelement[testOrder[i].test](elem, srces);
+			if(src){
+				activate[testOrder[i].activate](elem, src, data);
+				break;
+			}
+		}
+
+		if(!src){
+			mediaelement.setError(elem, false);
+			if(data && data.isActive == 'third') {
+				mediaelement.setActive(elem, 'html5', data);
+			}
+		}
+	};
+	var allowedPreload = {'metadata': 1, 'auto': 1, '': 1};
+	var fixPreload = function(elem){
+		var preload, img;
+		if(elem.getAttribute('preload') == 'none'){
+			if(allowedPreload[(preload = $.attr(elem, 'data-preload'))]){
+				$.attr(elem, 'preload', preload);
+			} else if(hasNative && (preload = elem.getAttribute('poster'))){
+				img = document.createElement('img');
+				img.src = preload;
 			}
 		}
 	};
@@ -2844,7 +2765,9 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		if(mediaelement.sortMedia){
 			_srces.sort(mediaelement.sortMedia);
 		}
-		stepSources(elem, data, options.preferFlash || undefined, _srces);
+		fixPreload(elem);
+		stepSources(elem, data, _srces);
+
 	};
 	mediaelement.selectSource = selectSource;
 	
@@ -2855,64 +2778,22 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		setTimeout(function(){
 			if( $.prop(e.target, 'paused') || !$.prop(e.target, 'loop') ){return;}
 			$(e.target).prop('currentTime', 0).play();
-		}, 1);
+		});
 		
 	});
 	
-	var handleMedia = false;	
+	var handleMedia = false;
+
 	var initMediaElements = function(){
 		var testFixMedia = function(){
+
 			if(webshims.implement(this, 'mediaelement')){
 				selectSource(this);
 				if(!Modernizr.mediaDefaultMuted && $.attr(this, 'muted') != null){
 					$.prop(this, 'muted', true);
 				}
-				//fixes for FF 12 and IE9/10 || does not hurt, if run in other browsers
-				if(hasNative && (!supportsLoop || ('ActiveXObject' in window))){
-					var bufferTimer;
-					var lastBuffered;
-					var elem = this;
-					var getBufferedString = function(){
-						var buffered = $.prop(elem, 'buffered');
-						if(!buffered){return;}
-						var bufferString = "";
-						for(var i = 0, len = buffered.length; i < len;i++){
-							bufferString += buffered.end(i);
-						}
-						return bufferString;
-					};
-					var testBuffer = function(){
-						var buffered = getBufferedString();
-						if(buffered != lastBuffered){
-							lastBuffered = buffered;
-							webshims.info('needed to trigger progress manually');
-							$(elem).triggerHandler('progress');
-						}
-					};
-					
-					$(this)
-						.on({
-							'play loadstart progress': function(e){
-								if(e.type == 'progress'){
-									lastBuffered = getBufferedString();
-								}
-								clearTimeout(bufferTimer);
-								bufferTimer = setTimeout(testBuffer, 400);
-							},
-							'emptied stalled mediaerror abort suspend': function(e){
-								if(e.type == 'emptied'){
-									lastBuffered = false;
-								}
-								clearTimeout(bufferTimer);
-							}
-						})
-					;
-					if('ActiveXObject' in window && $.prop(this, 'paused') && !$.prop(this, 'readyState') && $(this).is('audio[preload="none"][controls]:not([autoplay],.nonnative-api-active)')){
-						$(this).prop('preload', 'metadata').mediaLoad(); 
-					}
-				}
+
 			}
-			
 		};
 		
 		webshims.ready('dom-support', function(){
@@ -2923,19 +2804,24 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			}
 			
 			['audio', 'video'].forEach(function(nodeName){
-				var supLoad, supController;
+				var supLoad;
 				supLoad = webshims.defineNodeNameProperty(nodeName, 'load',  {
 					prop: {
 						value: function(){
 							var data = webshims.data(this, 'mediaelement');
+
 							selectSource(this, data);
 							if(hasNative && (!data || data.isActive == 'html5') && supLoad.prop._supvalue){
 								supLoad.prop._supvalue.apply(this, arguments);
+							}
+							if(!loadTrackUi.loaded && $('track', this).length){
+								loadTrackUi();
 							}
 							$(this).triggerHandler('wsmediareload');
 						}
 					}
 				});
+
 				nativeCanPlayType[nodeName] = webshims.defineNodeNameProperty(nodeName, 'canPlayType',  {
 					prop: {
 						value: function(type){
@@ -2952,62 +2838,15 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 									ret = 'maybe';
 								}
 							}
+							if(!ret && hasYt && type == 'video/youtube'){
+								ret = 'maybe';
+							}
 							return ret;
 						}
 					}
 				});
-				
-//				supController = webshims.defineNodeNameProperty(nodeName, 'controller',  {
-//					prop: {
-//						get: function(type){
-//							if(!loadMediaGroup.loaded){
-//								loadMediaGroup();
-//							}
-//							if(mediaelement.controller){
-//								return mediaelement.controller[nodeName].get.apply(this, arguments);
-//							}
-//							return supController.prop._supget && supController.prop._supget.apply(this, arguments);
-//						},
-//						set: function(){
-//							var that = this;
-//							var args = arguments;
-//							if(!loadMediaGroup.loaded){
-//								loadMediaGroup();
-//							}
-//							if(mediaelement.controller){
-//								return mediaelement.controller[nodeName].set.apply(that, args);
-//							} else {
-//								webshims.ready('mediagroup', function(){
-//									mediaelement.controller[nodeName].set.apply(that, args);
-//								});
-//							}
-//							return supController.prop._supset && supController.prop._supset.apply(this, arguments);
-//						}
-//					}
-//				});
-				
-//				webshims.ready('mediagroup', function(){
-//					mediaelement.controller[nodeName].sup = supController;
-//				});
 			});
-			
-//			webshims.onNodeNamesPropertyModify(['audio', 'video'], ['mediaGroup'], {
-//				set: function(){
-//					var that = this;
-//					var args = arguments;
-//					if(!loadMediaGroup.loaded){
-//						loadMediaGroup();
-//					}
-//					if(mediaelement.mediagroup){
-//						mediaelement.mediagroup.set.apply(that, args);
-//					} else {
-//						webshims.ready('mediagroup', function(){
-//							mediaelement.mediagroup.set.apply(that, args);
-//						});
-//					}
-//				},
-//				initAttr: true
-//			});
+
 			
 			webshims.onNodeNamesPropertyModify(['audio', 'video'], ['src', 'poster'], {
 				set: function(){
@@ -3030,9 +2869,6 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				if(!loadTrackUi.loaded && $('track', media).length){
 					loadTrackUi();
 				}
-//				if(!loadMediaGroup.loaded && this.getAttribute('mediagroup')){
-//					loadMediaGroup();
-//				}
 				media = null;
 			});
 		});
@@ -3054,12 +2890,16 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			});
 		}
 	};
-	
-	if(hasFullTrackSupport){
-		webshims.defineProperty(TextTrack.prototype, 'shimActiveCues', {
-			get: function(){
-				return this._shimActiveCues || this.activeCues;
-			}
+
+	mediaelement.loadDebugger = function(){
+		webshims.ready('dom-support', function(){
+			webshims.loader.loadScript('mediaelement-debug');
+		});
+	};
+
+	if(({noCombo: 1, media: 1})[webshims.cfg.debug]){
+		$(document).on('mediaerror', function(e){
+			mediaelement.loadDebugger();
 		});
 	}
 	//set native implementation ready, before swf api is retested
@@ -3072,4 +2912,5 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 	}
 	webshims.ready('track', loadTrackUi);
 });
+
 })(Modernizr, webshims);

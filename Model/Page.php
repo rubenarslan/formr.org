@@ -8,18 +8,18 @@ class Page extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $body = '';
+	protected $body = '';
 	protected $body_parsed = '';
-	private $title = '';
+	public $title = '';
 	private $can_be_ended = 0;
 	public $ended = false;
 	public $type = 'Endpage';
 	public $icon = "fa-stop";
 	
 	
-	public function __construct($fdb, $session = null, $unit = null) 
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) 
 	{
-		parent::__construct($fdb,$session,$unit);
+		parent::__construct($fdb,$session,$unit, $run_session);
 
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT title,body,body_parsed FROM `survey_pages` WHERE id = :id LIMIT 1");
@@ -60,9 +60,10 @@ class Page extends RunUnit {
 			$this->can_be_ended = 0;
 		}
 		
-		$this->body_parsed = Parsedown::instance()
-    ->set_breaks_enabled(true)
-    ->parse($this->body); // transform upon insertion into db instead of at runtime
+		$parsedown = new ParsedownExtra();
+		$this->body_parsed = $parsedown
+		    ->setBreaksEnabled(true)
+		    ->text($this->body); // transform upon insertion into db instead of at runtime
 		
 		$create = $this->dbh->prepare("INSERT INTO `survey_pages` (`id`, `body`, `body_parsed`, `title`, `end`)
 			VALUES (:id, :body, :body_parsed, :title, :end)
@@ -90,9 +91,9 @@ class Page extends RunUnit {
 	public function displayForRun($prepend = '')
 	{
 		$dialog = '<p><label>Title: <br>
-			<input class="form-control col-md-5" type="text" placeholder="Headline" name="title" value="'.$this->title.'"></label></p>
+			<input class="form-control col-md-5" type="text" placeholder="Headline" name="title" value="'.h($this->title).'"></label></p>
 		<p><label>Text: <br>
-			<textarea data-editor="markdown" style="width:388px;" placeholder="You can use Markdown" name="body" rows="10" cols="60" class="form-control col-md-5">'.$this->body.'</textarea></label></p>';
+			<textarea data-editor="markdown" style="width:388px;" placeholder="You can use Markdown" name="body" rows="10" cols="60" class="form-control col-md-5">'.h($this->body).'</textarea></label></p>';
 #			'<p><input type="hidden" name="end" value="0"><label><input type="checkbox" name="end" value="1"'.($this->can_be_ended ?' checked ':'').'> allow user to continue after viewing page</label></p>';
 		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Page">Save.</a>
 		<a class="btn btn-default unit_test" href="ajax_test_unit?type=Page">Preview</a></p>';
@@ -108,7 +109,6 @@ class Page extends RunUnit {
 	}
 	public function test()
 	{
-		
 		echo $this->getParsedBodyAdmin($this->body);
 #		if($this->can_be_ended)
 #		{
@@ -122,22 +122,15 @@ class Page extends RunUnit {
 	public function exec()
 	{
 		if($this->called_by_cron):
-			$this->getParsedBody($this->body);
+			$this->getParsedBody($this->body); // make report before showing it to the user, so they don't have to wait
 			return true; // never show to the cronjob
 		endif;
-		
-#		if($this->can_be_ended AND $this->ended) return false;
-		
+
 		$this->body_parsed = $this->getParsedBody($this->body);
 		
-		if($this->can_be_ended):
-			$action = WEBROOT."{$this->run_name}";
-			$ret = '<form action="'.$action.'" method="post" accept-charset="utf-8">';
-			$ret .= '<input type="submit" class="btn btn-default btn-success" value="Continue!" name="page_submit">';
-			$ret .= '</form>';
-			$this->body_parsed .= $ret;
-		endif;
-		
+		if($this->body_parsed === false)
+			return true; // wait for openCPU to be fixed!
+			
 		return array(
 			'title' => $this->title,
 			'body' => $this->body_parsed

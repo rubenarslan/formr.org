@@ -3,7 +3,7 @@ require_once INCLUDE_ROOT."Model/DB.php";
 
 class RunUnitFactory
 {
-	public function make($dbh, $session, $unit)
+	public function make($dbh, $session, $unit, $run_session = NULL)
 	{
 		$type = $unit['type'];
 		if($type == '') $type = 'Survey';
@@ -11,7 +11,7 @@ class RunUnitFactory
 			die('The unit type is not allowed!');
 	
 		require_once INCLUDE_ROOT . "Model/$type.php";
-		return new $type($dbh, $session, $unit);
+		return new $type($dbh, $session, $unit, $run_session);
 	}
 }
 class RunUnit {
@@ -29,12 +29,17 @@ class RunUnit {
 	public $run_session_id = null;
 	public $type = '';
 	public $icon = 'fa-wrench';
+	public $special = false;
+	protected $non_user_tables = array('survey_users', 'survey_run_sessions','survey_unit_sessions', 'survey_items_display', 'survey_email_log', 'shuffle');
+	protected $non_session_tables = array('survey_users', 'survey_run_sessions','survey_unit_sessions');
 	
-	public function __construct($fdb, $session = null, $unit = null) 
+	
+	public function __construct($fdb, $session = null, $unit = null, $run_session) 
 	{
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->unit = $unit;
+		$this->run_session = $run_session;
 		
 		if(isset($unit['run_id']))
 			$this->run_id = $unit['run_id'];
@@ -58,6 +63,9 @@ class RunUnit {
 		
 		if(isset($this->unit['position'])) 
 			$this->position = (int)$this->unit['position'];
+
+		if(isset($this->unit['special'])) 
+			$this->special = $this->unit['special'];
 		
 		
 		if(isset($this->unit['cron'])) 
@@ -89,6 +97,11 @@ class RunUnit {
 		$success = $c_unit->execute() or die(print_r($c_unit->errorInfo(), true));
 		
 		return $success;
+	}
+	protected function beingTestedByOwner()
+	{
+		if($this->run_session === null OR $this->run_session->user_id == $this->run_session->run_owner_id ) return true;
+		else return false;
 	}
 	public function linkToRun()
 	{
@@ -251,7 +264,8 @@ class RunUnit {
 				</div>
 			<div class="col-xs-9 run_unit_dialog">
 				<input type="hidden" value="'.$this->run_unit_id.'" name="run_unit_id">
-				<input type="hidden" value="'.$this->id.'" name="unit_id">'.$dialog.'
+				<input type="hidden" value="'.$this->id.'" name="unit_id">
+				<input type="hidden" value="'.$this->special.'" name="special">'.$dialog.'
 			</div>
 		</div>';
 	}
@@ -260,15 +274,25 @@ class RunUnit {
 		return parent::runDialog($prepend,'<i class="fa fa-puzzle-piece"></i>');
 	}
 	protected $survey_results = array();
-	public function getUserDataInRun($surveys)
+	public function getUserDataInRun($needed)
 	{
+		$surveys = $needed['matches'];
+		$matches_variable_names = $needed['matches_variable_names'];
 		$this->survey_results = array();
-		foreach($surveys AS $survey_name): // fixme: shouldnt be using wildcard operator here.
+		foreach($surveys AS $survey_name):
 			if(!isset($this->survey_results[$survey_name])):
-				$q1 = "SELECT `survey_run_sessions`.session,`$survey_name`.*";
+				
+				if(empty($matches_variable_names[ $survey_name ])):
+					continue;
+				endif;
+				
+				
+				$variables = "`$survey_name`.`" . implode("`,`$survey_name`.`" ,$matches_variable_names[ $survey_name ]) . '`';
+				
+				$q1 = "SELECT $variables";
 				
 
-				if($this->run_session_id === NULL):
+				if($this->run_session_id === NULL AND !in_array($survey_name, $this->non_session_tables)): // todo: what to do with session_id tables in faketestrun
 					$q3
 						 = "
 					WHERE `$survey_name`.session_id = :session_id;"; // just for testing surveys
@@ -278,19 +302,20 @@ class RunUnit {
 					WHERE  `survey_run_sessions`.id = :run_session_id;";
 				endif;
 			
-				if(!in_array($survey_name,array('survey_users','survey_unit_sessions'))):
+				if(!in_array($survey_name, $this->non_session_tables )):
 					$q2 = "left join `survey_unit_sessions`
 						on `$survey_name`.session_id = `survey_unit_sessions`.id
 						left join `survey_run_sessions`
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					";
-				
 				elseif($survey_name == 'survey_unit_sessions'):
 					$q2 = "left join `survey_run_sessions`
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					";
+				elseif($survey_name == 'survey_run_sessions'):
+					$q2 = "
+					";
 				elseif($survey_name == 'survey_users'):
-					$q1 = "SELECT `survey_run_sessions`.session, `$survey_name`.email,`$survey_name`.user_code,`$survey_name`.email_verified";
 					$q2 = "left join `survey_run_sessions`
 						on `survey_users`.id = `survey_run_sessions`.user_id
 					";
@@ -308,7 +333,6 @@ class RunUnit {
 				endif;
 				$get_results->execute();
 				$this->survey_results[$survey_name] = array();
-			
 				while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
 					foreach($res AS $var => $val):
 
@@ -321,6 +345,10 @@ class RunUnit {
 				endwhile;
 			endif;
 		endforeach;
+		
+		if($needed['token_add'] !== null AND ! isset($this->survey_results[ $needed['token_add'] ])):
+			$this->survey_results[ $needed['token_add'] ] = array();
+		endif;
 
 		return $this->survey_results;
 	}
@@ -340,45 +368,119 @@ class RunUnit {
 		 else
 			return false;
 	}
-	public function dataNeeded($fdb,$q)
+	public function dataNeeded($fdb,$q, $token_add = NULL)
 	{
-		$matches = $tables = array();
-		$result_tables = $fdb->prepare("SELECT `survey_studies`.name FROM `survey_studies` 
+		$matches_variable_names = $variable_names_in_table = $matches = $tables = array();
+		$result_tables = $fdb->prepare("SELECT `survey_studies`.name,`survey_studies`.id FROM `survey_studies` 
 			LEFT JOIN `survey_runs`
 		ON `survey_runs`.user_id = `survey_studies`.user_id 
 		WHERE `survey_runs`.id = :run_id");
 		$result_tables->bindParam(':run_id',$this->run_id);
 		$result_tables->execute();
 		
+		$tables = $this->non_user_tables;
 		while($res = $result_tables->fetch(PDO::FETCH_ASSOC)):
-			$tables[] = $res['name'];
+			$tables[$res['id']] = $res['name'];
 		endwhile;
-		$tables[] = 'survey_users';
-		$tables[] = 'survey_unit_sessions';
-		$tables[] = 'survey_items_display';
-		$tables[] = 'survey_email_log';
-		$tables[] = 'shuffle';
 		
-		foreach($tables AS $result):
-			if(preg_match("/\b$result\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
-				$matches[] = $result;
-// todo: need to think on this some more.
-//				$matches[$result] = array();
-//				if(preg_match_all("/\b$result\$([a-zA-Z0-9_]+)\b/",$q, $variable_matches)): 
-//					$matches[$result] = $variable_matches;
-				
+		if($token_add !== null AND !in_array($token_add, $tables)):
+			$get_token_id = $fdb->prepare("SELECT `id` FROM `survey_studies` WHERE `name` = :token_add");
+			$get_token_id->bindValue(':token_add',$token_add);
+			$get_token_id->execute() or die(print_r($get_token_id->errorInfo(), true));
+			$token_id = $get_token_id->fetch();
+			$tables[ $token_id['id'] ] = $token_add;
+		endif;
+		
+		foreach($tables AS $study_id => $table_name):
+			// always send along the table which is currently active if any
+			
+			if($table_name == $token_add OR preg_match("/\b$table_name\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
+				$matches[ $study_id ] = $table_name;
 			endif;
 		endforeach;
 	
-		return $matches;
-	}
-	public function getParsedBodyAdmin($source,$email_embed = false)
-	{
-		if(isset($this->unit['position']))
-			$current_position = $this->unit['position'];
-		else $current_position = "";
+		foreach($matches AS $study_id => $table_name):
+			if(in_array($table_name, $this->non_user_tables)):
+				if($table_name == 'survey_users'):
+					$variable_names_in_table[ $table_name ] = array("created","modified", "user_code","email","email_verified","mobile_number", "mobile_verified");
+				elseif($table_name == 'survey_run_sessions'):
+						$variable_names_in_table[ $table_name ] = array("session","created","last_access","position","current_unit_id", "deactivated","no_email");
+				elseif($table_name == 'survey_unit_sessions'):
+					$variable_names_in_table[ $table_name ] = array("created","ended","unit_id");
+				elseif($table_name == 'survey_items_display'):
+					$variable_names_in_table[ $table_name ] = array("created","answered_time","answered","displaycount","item_id");
+				elseif($table_name == 'survey_email_log'):
+					$variable_names_in_table[ $table_name ] = array("email_id","created","recipient");
+				elseif($table_name == 'shuffle'):
+					$variable_names_in_table[ $table_name ] = array("unit_id","created","group");
+				endif;
+			else:
+				
+				$variable_names = $fdb->prepare("SELECT `survey_items`.`name` FROM `survey_items` 
+				WHERE `survey_items`.`study_id` = :study_id
+				AND `survey_items`.type NOT IN (
+					'mc_heading',
+					'note',
+					'submit'
+				)");
+				$variable_names->bindValue(':study_id',$study_id);
+				$variable_names->execute() or die(print_r($variable_names->errorInfo(), true));
+				
+				$variable_names_in_table[ $table_name ] = array("created","modified","ended"); // should avoid modified, sucks for caching
+				while($res = $variable_names->fetch(PDO::FETCH_ASSOC)):
+					$variable_names_in_table[ $table_name ][] = $res['name'];
+				endwhile;
+			endif;
+			
+			$matches_variable_names[ $table_name ] = array();
+			foreach($variable_names_in_table[ $table_name ] AS $variable_name):
+				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);  // try to match scales too
+				if(strlen($variable_name_base) < 3) $variable_name_base = $variable_name;
+				if(preg_match("/\b$variable_name\b/",$q) OR preg_match("/\b$variable_name_base\b/",$q)): // item name appears as word, matches survey$item, survey[, "item"], but not item_2 for item-scale unfortunately
+					$matches_variable_names[ $table_name ][] = $variable_name;
+				endif;
+			endforeach;
+			
+			if(empty($matches_variable_names[ $table_name ])):
+				unset($matches_variable_names[ $table_name ]);
+				unset($variable_names_in_table[ $table_name ]);
+				unset($matches[ $study_id ]);
+			endif;
+		endforeach;
 		
-		if($this->knittingNeeded($source)):
+		return compact("matches", "matches_variable_names", "token_add");
+//		return $matches;
+	}
+	public function parseBodySpecial()
+	{
+		$openCPU = $this->makeOpenCPU();
+		
+		return $openCPU->knitForAdminDebug($this->body);
+	}
+	public function getParsedText($source)
+	{
+		$openCPU = $this->makeOpenCPU();
+		if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
+		
+		$openCPU->addUserData($this->getUserDataInRun(
+			$this->dataNeeded($this->dbh,$source)
+		));
+		
+		return $openCPU->knit($source);
+	}
+	public function getParsedTextAdmin($source)
+	{
+		if(! $this->grabRandomSession())
+			return false;
+		return $this->getParsedText($source);
+	}
+	private function grabRandomSession()
+	{
+		if($this->run_session_id === NULL):
+			if(isset($this->unit['position']))
+				$current_position = $this->unit['position'];
+			else $current_position = -9999999;
+		
 			$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
 			WHERE 
@@ -391,9 +493,9 @@ class RunUnit {
 			$get_sessions = $this->dbh->prepare($q); // should use readonly
 			$get_sessions->bindParam(':run_id',$this->run_id);
 			$get_sessions->bindValue(':current_position',$current_position);
-		
+	
 			$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
-		
+	
 			if($get_sessions->rowCount()>=1):
 				$temp_user = $get_sessions->fetch(PDO::FETCH_ASSOC);
 				$this->run_session_id = $temp_user['id'];
@@ -401,9 +503,17 @@ class RunUnit {
 				echo 'No data to compare to yet.';
 				return false;
 			endif;
-			
+		endif;
+		return $this->run_session_id;
+	}
+	public function getParsedBodyAdmin($source,$email_embed = false)
+	{
+		if($this->knittingNeeded($source)):
+			if(!$this->grabRandomSession())
+				return false;
 			
 			$openCPU = $this->makeOpenCPU();
+			if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
 			
 			$openCPU->addUserData($this->getUserDataInRun(
 				$this->dataNeeded($this->dbh,$source)
@@ -454,6 +564,8 @@ class RunUnit {
 			}
 			
 			$openCPU = $this->makeOpenCPU();
+			if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
+			
 			$openCPU->addUserData($this->getUserDataInRun(
 				$this->dataNeeded($this->dbh,$source)
 			));
@@ -464,6 +576,9 @@ class RunUnit {
 			else:
 				$report = $openCPU->knitForUserDisplay($source);
 			endif;
+			
+			if($openCPU->anyErrors())
+				return false;
 			
 			if($report):
 				try

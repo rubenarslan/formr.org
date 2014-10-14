@@ -15,12 +15,6 @@ Options -Indexes
 
 # Insert filter
 SetOutputFilter DEFLATE
-# Netscape 4.x has some problems...
-BrowserMatch ^Mozilla/4 gzip-only-text/html
-# Netscape 4.06-4.08 have some more problems
-BrowserMatch ^Mozilla/4\.0[678] no-gzip
-# MSIE masquerades as Netscape, but it is fine
-BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
 # Don't compress images
 SetEnvIfNoCase Request_URI \
 \.(?:gif|jpe?g|png)$ no-gzip dont-vary
@@ -33,3 +27,14 @@ AddDefaultCharset UTF-8
 
 # add MIME types
 AddType image/x-icon .ico
+
+# 1 YEAR
+<FilesMatch "\.(ico|pdf|flv|jpg|jpeg|png|gif|swf|xml)$">
+Header set Cache-Control "max-age=29030400, public"
+</FilesMatch>
+
+# 10 weeks
+<FilesMatch "\.(xml|txt|css|js)$">
+Header set Cache-Control "max-age=6048000, public"
+</FilesMatch>
+

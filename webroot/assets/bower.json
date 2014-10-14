@@ -1,6 +1,6 @@
 {
   "name": "formr",
-  "version": "0.4.14",
+  "version": "0.5.0",
   "main": "main.js",
   "ignore": [
     "**/.*",

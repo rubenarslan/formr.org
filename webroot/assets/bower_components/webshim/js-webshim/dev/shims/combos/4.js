@@ -1,3 +1,61 @@
+
+//this might was already extended by ES5 shim feature
+(function($){
+	"use strict";
+	var webshims = window.webshims;
+	if(webshims.defineProperties){return;}
+	var defineProperty = 'defineProperty';
+	var has = Object.prototype.hasOwnProperty;
+	var descProps = ['configurable', 'enumerable', 'writable'];
+	var extendUndefined = function(prop){
+		for(var i = 0; i < 3; i++){
+			if(prop[descProps[i]] === undefined && (descProps[i] !== 'writable' || prop.value !== undefined)){
+				prop[descProps[i]] = true;
+			}
+		}
+	};
+
+	var extendProps = function(props){
+		if(props){
+			for(var i in props){
+				if(has.call(props, i)){
+					extendUndefined(props[i]);
+				}
+			}
+		}
+	};
+
+	if(Object.create){
+		webshims.objectCreate = function(proto, props, opts){
+			extendProps(props);
+			var o = Object.create(proto, props);
+			if(opts){
+				o.options = $.extend(true, {}, o.options  || {}, opts);
+				opts = o.options;
+			}
+			if(o._create && $.isFunction(o._create)){
+				o._create(opts);
+			}
+			return o;
+		};
+	}
+
+	if(Object[defineProperty]){
+		webshims[defineProperty] = function(obj, prop, desc){
+			extendUndefined(desc);
+			return Object[defineProperty](obj, prop, desc);
+		};
+	}
+	if(Object.defineProperties){
+		webshims.defineProperties = function(obj, props){
+			extendProps(props);
+			return Object.defineProperties(obj, props);
+		};
+	}
+	webshims.getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+
+	webshims.getPrototypeOf = Object.getPrototypeOf;
+})(window.webshims.$);
 //DOM-Extension helper
 webshims.register('dom-extend', function($, webshims, window, document, undefined){
 	"use strict";
@@ -121,8 +179,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		});
 		return this;
 	};
-	
-	var dataID = '_webshimsLib'+ (Math.round(Math.random() * 1000));
+	var idCount = 0;
+	var dataID = '_webshims'+ (Math.round(Math.random() * 1000));
 	var elementData = function(elem, key, val){
 		elem = elem.jquery ? elem[0] : elem;
 		if(!elem){return val || {};}
@@ -153,6 +211,35 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			return this.pushStack(elems);
 		};
 	});
+
+	function clone(elem, dataAndEvents, uniqueIds){
+		var cloned = $.clone( elem, dataAndEvents, false );
+		$(cloned.querySelectorAll('.'+webshims.shadowClass)).detach();
+		if(uniqueIds){
+			idCount++;
+			$(cloned.querySelectorAll('[id]')).prop('id', function(i, id){
+				return id +idCount;
+			});
+		} else {
+			$(cloned.querySelectorAll('audio[id^="ID-"], video[id^="ID-"], label[id^="ID-"]')).removeAttr('id');
+		}
+		return cloned;
+	}
+
+	$.fn.clonePolyfill = function(dataAndEvents, uniqueIds){
+		dataAndEvents = dataAndEvents || false;
+		return this
+			.map(function() {
+				var cloned = clone( this, dataAndEvents, uniqueIds );
+				setTimeout(function(){
+					if($.contains(document.body, cloned)){
+						$(cloned).updatePolyfill();
+					}
+				});
+				return cloned;
+			})
+		;
+	};
 	
 	//add support for $('video').trigger('play') in case extendNative is set to false
 	if(!webshims.cfg.extendNative && !webshims.cfg.noTriggerOverride){
@@ -464,6 +551,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return id;
 			};
 		})(),
+		shadowClass: 'wsshadow-'+(Date.now()),
 		implement: function(elem, type){
 			var data = elementData(elem, 'implemented') || elementData(elem, 'implemented', {});
 			if(data[type]){
@@ -616,7 +704,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					$.each({ Height: "getHeight", Width: "getWidth" }, function(name, type){
 						var body = document.body;
 						var doc = document.documentElement;
-						docObserve[type] = function(){
+						docObserve[type] = function (){
 							return Math.max(
 								body[ "scroll" + name ], doc[ "scroll" + name ],
 								body[ "offset" + name ], doc[ "offset" + name ],
@@ -631,24 +719,18 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 						this._create();
 						this.height = docObserve.getHeight();
 						this.width = docObserve.getWidth();
-						setInterval(this.test, 600);
+						setInterval(this.test, 999);
 						$(this.test);
+						if($.support.boxSizing == null){
+							$(function(){
+								if($.support.boxSizing){
+									docObserve.handler({type: 'boxsizing'});
+								}
+							});
+						}
 						webshims.ready('WINDOWLOAD', this.test);
 						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel', this.handler);
 						$(window).on('resize', this.handler);
-						(function(){
-							var oldAnimate = $.fn.animate;
-							var animationTimer;
-							
-							$.fn.animate = function(){
-								clearTimeout(animationTimer);
-								animationTimer = setTimeout(function(){
-									docObserve.test();
-								}, 99);
-								
-								return oldAnimate.apply(this, arguments);
-							};
-						})();
 					}
 				}
 			};
@@ -657,13 +739,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			webshims.docObserve = function(){
 				webshims.ready('DOM', function(){
 					docObserve.start();
-					if($.support.boxSizing == null){
-						$(function(){
-							if($.support.boxSizing){
-								docObserve.handler({type: 'boxsizing'});
-							}
-						});
-					}
+
 				});
 			};
 			return function(nativeElem, shadowElem, opts){
@@ -1270,24 +1346,103 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		min: 1,
 		max: 1
 	};
+	var toLocale = (function(){
+		var monthFormatter;
+		var transforms = {
+			number: function(val){
+				var num = val * 1;
+				if(num.toLocaleString && !isNaN(num)){
+					val = num.toLocaleString() || val;
+				}
+				return val;
+			}
+		};
+		var _toLocale = function(val, elem, attr){
+			var type, widget;
+			if(valueVals[attr]){
+				type = $.prop(elem, 'type');
+				widget = $(elem).getShadowElement().data('wsWidget'+ type );
+				if(widget && widget.formatValue){
+					val = widget.formatValue(val, false);
+				} else if(transforms[type]){
+					val = transforms[type](val);
+				}
+			}
+			return val;
+		};
+
+		[{n: 'date', f: 'toLocaleDateString'}, {n: 'time', f: 'toLocaleTimeString'}, {n: 'datetime-local', f: 'toLocaleString'}].forEach(function(desc){
+			transforms[desc.n] = function(val){
+				var date = new Date(val);
+				if(date && date[desc.f]){
+					val = date[desc.f]() || val;
+				}
+				return val;
+			};
+		});
+
+		if(window.Intl && Intl.DateTimeFormat){
+			monthFormatter = new Intl.DateTimeFormat(navigator.browserLanguage || navigator.language, {year: "numeric", month: "2-digit"}).format(new Date());
+			if(monthFormatter && monthFormatter.format){
+				transforms.month = function(val){
+					var date = new Date(val);
+					if(date){
+						val = monthFormatter.format(date) || val;
+					}
+					return val;
+				};
+			}
+		}
+
+		webshims.format =  {};
+
+		['date', 'number', 'month', 'time', 'datetime-local'].forEach(function(name){
+			webshims.format[name] = function(val, opts){
+				if(opts && opts.nodeType){
+					return _toLocale(val, opts, name);
+				}
+				if(name == 'number' && opts && opts.toFixed ){
+					val = (val * 1);
+					if(!opts.fixOnlyFloat || val % 1){
+						val = val.toFixed(opts.toFixed);
+					}
+				}
+				if(webshims._format && webshims._format[name]){
+					return webshims._format[name](val, opts);
+				}
+				return transforms[name](val);
+			};
+		});
+
+		return _toLocale;
+	})();
 
 	webshims.replaceValidationplaceholder = function(elem, message, name){
-		var type, widget;
+		var val = $.prop(elem, 'title');
+		if(message){
+			if(name == 'patternMismatch' && !val){
+				webshims.error('no title for patternMismatch provided. Always add a title attribute.');
+			}
+			if(val){
+				val = '<span class="ws-titlevalue">'+ val.replace(lReg, '&lt;').replace(gReg, '&gt;') +'</span>';
+			}
+
+			if(message.indexOf('{%title}') != -1){
+				message = message.replace('{%title}', val);
+			} else if(val) {
+				message = message+' '+val;
+			}
+		}
+
 		if(message && message.indexOf('{%') != -1){
-			['value', 'min', 'max', 'title', 'maxlength', 'minlength', 'label'].forEach(function(attr){
+			['value', 'min', 'max', 'maxlength', 'minlength', 'label'].forEach(function(attr){
 				if(message.indexOf('{%'+attr) === -1){return;}
-				var val = ((attr == 'label') ? $.trim($('label[for="'+ elem.id +'"]', elem.form).text()).replace(/\*$|:$/, '') : $.prop(elem, attr)) || '';
-				if(name == 'patternMismatch' && attr == 'title' && !val){
-					webshims.error('no title for patternMismatch provided. Always add a title attribute.');
-				}
-				if(valueVals[attr]){
-					if(!widget){
-						widget = $(elem).getShadowElement().data('wsWidget'+ (type = $.prop(elem, 'type')));
-					}
-					if(widget && widget.formatValue){
-						val = widget.formatValue(val, false);
-					}
-				}
+				var val = ((attr == 'label') ? $.trim($('label[for="'+ elem.id +'"]', elem.form).text()).replace(/\*$|:$/, '') : $.prop(elem, attr) || $.attr(elem, attr) || '') || '';
+				val = ''+val;
+
+
+				val = toLocale(val, elem, attr);
+
 				message = message.replace('{%'+ attr +'}', val.replace(lReg, '&lt;').replace(gReg, '&gt;'));
 				if('value' == attr){
 					message = message.replace('{%valueLen}', val.length);
@@ -1309,7 +1464,9 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		}
 		if(!message){
 			message = getMessageFromObj(validityMessages[''][name], elem) || $.prop(elem, 'validationMessage');
-			webshims.info('could not find errormessage for: '+ name +' / '+ $.prop(elem, 'type') +'. in language: '+webshims.activeLang());
+			if(name != 'customError'){
+				webshims.info('could not find errormessage for: '+ name +' / '+ $.prop(elem, 'type') +'. in language: '+webshims.activeLang());
+			}
 		}
 		message = webshims.replaceValidationplaceholder(elem, message, name);
 		

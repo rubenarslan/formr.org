@@ -1,6 +1,6 @@
 <?php
-$settings['opencpu_instance'] = 'https://public.opencpu.org/';
-$settings['alternative_opencpu_instance'] = 'https://public.opencpu.org/'; # used in admin/test_opencpu
+$settings['opencpu_instance'] = 'https://public.opencpu.org';
+$settings['alternative_opencpu_instance'] = 'https://public.opencpu.org'; # used in admin/test_opencpu
 
 
 $settings['email']['host'] = ''; # smtp server that you want to use, you can prefix a protocol like ssl://
@@ -15,9 +15,9 @@ $settings['display_errors_when_live'] = 0; // should PHP and MySQL errors be dis
 
 $settings['timezone'] = 'Europe/Berlin';
 
-$settings['expire_unregistered_session'] = 365 * 24 * 30 * 60; # for unregistered users. in seconds (defaults to a year)
-$settings['expire_registered_session'] = 7 * 24 * 30 * 60; # for registered users. in seconds (defaults to a week)
-$settings['expire_admin_session'] = 7 * 24 * 30 * 60; # for admins. in seconds (defaults to a week). has to be lower than the expiry for registered users.
+$settings['expire_unregistered_session'] = 365 * 24 * 60 * 60; # for unregistered users. in seconds (defaults to a year)
+$settings['expire_registered_session'] = 7 * 24 * 60 * 60; # for registered users. in seconds (defaults to a week)
+$settings['expire_admin_session'] = 7 * 24 * 60 * 60; # for admins. in seconds (defaults to a week). has to be lower than the expiry for registered users.
 $settings['session_cookie_lifetime'] = max($settings['expire_unregistered_session'], $settings['expire_registered_session'], $settings['expire_admin_session']); # upper limit for all values above (defaults to their max)
 
 

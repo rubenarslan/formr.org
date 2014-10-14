@@ -78,7 +78,7 @@ class SpreadsheetReader
 
 		try
 		{
-		    echo json_encode($array,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE);
+		    echo json_encode($array,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
 		    exit;
 		}
 		catch (Exception $e)
@@ -274,7 +274,7 @@ class SpreadsheetReader
 
 		try
 		{
-		    echo json_encode($items,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE);
+		    echo json_encode($items,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE  + JSON_NUMERIC_CHECK);
 		    exit;
 		}
 		catch (Exception $e)

@@ -3,10 +3,10 @@
 class RunSession
 {
 	public $session = null;
-	public $id, $run_id, $ended, $position;
+	public $id, $run_id, $ended, $position, $current_unit_type;
 	private $dbh;
 	private $cron = false;
-	
+
 	public function __construct($fdb, $run_id, $user_id, $session)
 	{
 		$this->dbh = $fdb;
@@ -33,7 +33,8 @@ class RunSession
 			`survey_run_sessions`.created, 
 			`survey_run_sessions`.ended, 
 			`survey_run_sessions`.position, 
-			`survey_runs`.name AS run_name
+			`survey_runs`.name AS run_name,
+			`survey_runs`.user_id AS run_owner_id
 			  FROM  `survey_run_sessions`
 		
 		LEFT JOIN `survey_runs`
@@ -61,6 +62,7 @@ class RunSession
 			$this->ended = $sess_array['ended'];
 			$this->position = $sess_array['position'];
 			$this->run_name = $sess_array['run_name'];
+			$this->run_owner_id = $sess_array['run_owner_id'];
 			
 			if(!$this->cron):
 				$last_access_q = "UPDATE `survey_run_sessions`
@@ -141,7 +143,8 @@ class RunSession
 					$unit_info['cron'] = true;
 				endif;
 				
-				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info);
+				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this);
+				$this->current_unit_type = $unit->type;
 				$output = $unit->exec();
 				if(!$output AND is_object($unit)):
 					if(isset($done[ $unit->type ]))
@@ -183,7 +186,7 @@ class RunSession
 		if($unit):
 			require_once INCLUDE_ROOT."Model/RunUnit.php";
 			$unit_factory = new RunUnitFactory();
-			$unit = $unit_factory->make($this->dbh,null,$unit);
+			$unit = $unit_factory->make($this->dbh,null,$unit, $this);
 			$unit->end(); 				// cancel it
 		endif;
 		

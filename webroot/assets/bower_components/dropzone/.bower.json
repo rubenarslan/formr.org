@@ -8,16 +8,16 @@
     "downloads/dropzone.min.js"
   ],
   "ignore": [
-    "/*",
-    "!downloads/*"
+    "*",
+    "!downloads",
+    "!downloads/**/*"
   ],
-  "_release": "201ab35d72",
+  "_release": "ddffdfd3d7",
   "_resolution": {
     "type": "branch",
     "branch": "master",
-    "commit": "201ab35d7251edd7adbc3e2d00b16776b03b3aa1"
+    "commit": "ddffdfd3d7ac851f333a65711eebcfd2e2faf6d5"
   },
   "_source": "git://github.com/enyo/dropzone.git",
-  "_target": "master",
-  "_originalSource": "dropzone"
+  "_target": "master"
 }

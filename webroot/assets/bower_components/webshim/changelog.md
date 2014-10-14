@@ -1,10 +1,85 @@
+Release 1.14.3
+----------
+- added new language files (zh-TW and fa)
+- removed box-shadows and border-radius and added new metro theme ([demo](http://afarkas.github.io/webshim/demos/demos/themes/themes.html))
+- improved styles for custom styleable mediaelement controls
+- added popinline feature for form widgets (don't confuse with inlinePicker feature ([demo](http://jsfiddle.net/trixta/cc7Rt/embedded/result,html,js,css/)), which is also great.)
+- added mediaelement debugger (just lunch with ``webshim.mediaelement.loadDebugger();``)
+- improved selector performance
+- added srt and ttml subtitle support (but you really should still use vtt!)
+- improved touch support
+- fixed a change event bug in input[type="range"] polyfill
+
+
+Release 1.14.1/Release 1.14.2
+----------
+- Bugfixes for new FileReader feature (including better errorhandling in case of mis-configuration)
+
+
+Release 1.14.0
+----------
+- implement ``inputmode="numeric"`` for Smartphones ([see demo](http://fiddle.jshell.net/trixta/7NEBb/show/))
+- re-implemented FileReader
+- implemented XHR2 and FormData (i.e. Sending FileData and Cross-Domain-Requests)
+- fixed ``data-groupriequired``
+- improved a11y for popovers in conjunction with ``openOnFocus``
+- added minlength attribute to custom validators (only if minlength isn't implemented already)
+- added new alias ``$.webshim`` (Only for completeness and compatibility. Use the ``webshim`` namespace! For example: ``webshim.polyfill('mediaelement');``)
+- **renamed** ``valuevalidation`` to ``validatevalue``
+- **renamed** ``refreshCustomValidityRules`` event to ``updatecustomvalidity`` event (``webshim.refreshCustomValidityRules`` method is untouched)
+
+
+Release 1.13.1
+----------
+- added clonePolyfill + htmlPolyfill can be used as getter
+- implemented pattern check for [type="email"][multiple]
+- fixed datalist bug for Android
+- fix wrong icon font path for IE8
+- added support for jQuery UI selectmenu
+- handle autocomplete/passwordmanager autofill with custom validation rules
+
+
+Release 1.13.0
+----------
+- added picture / img[srcset] element polyfill
+- added promise polyfill
+- implemented input event for textarea
+- fixed ajax custom validation
+- improved stepUp/stepDown methods
+
+
+Release 1.12.6/1.12.7
+----------
+- added thousand separator to input[type="number"]
+- several runtime performance improvements
+- improved responsive default mediaplayer theme
+- improved touch support / added fastclick / tab to mediaplayer controls and UI form widgets
+- added playlist plugin feature to mediaelement
+
+
+Release 1.12.5
+----------
+- added custom styleable controls to mediaelement feature `webshims.setOptions('mediaelement', {replaceUI: true});`
+- runtime performance improvements for several input widgets
+- added enhancement/mobile strategy flag
+- improved datalist/list widget
+
+
+Release 1.12.4
+----------
+- new documentation (thx to @mreinstein)
+- several small bugfixes
+- improve track stlyes
+
+
 Release 1.12.3
 ----------
 
 - fixed removeAttr 'disabled' for fieldset[disabled] elements (fix by @outdooricon)
 - Enable attribute placeholders for custom error elements in Instant Form Validation
 - fix CSS bugs for IE8 in datepicker and range
-- compile Jarisplayer as Flash 10.x (fixe youtube advertisement bug https://code.google.com/p/gdata-issues/issues/detail?id=5911)
+- compile Jarisplayer as Flash 10.x (fix youtube advertisement bug https://code.google.com/p/gdata-issues/issues/detail?id=5911)
+
 
 Release 1.12.2
 ----------

@@ -84,7 +84,7 @@ function h($text) {
 function debug($string) {
     if( DEBUG ) {
 		echo "<pre>";
-        var_dump($string);
+        print_r($string);
 		echo "</pre>";
     }
 }
@@ -101,6 +101,36 @@ if (!function_exists('_')) {
 	function _($text) {
 		return $text;
 	}
+}
+function used_opencpu($echo = false)
+{
+	static $used;
+	if($echo):
+		pr($used);
+		return;
+	endif;
+	if(isset($used)) $used++;
+	else $used = 1;
+}
+function used_cache($echo = false)
+{
+	static $used;
+	if($echo):
+		pr($used);
+		return;
+	endif;
+	if(isset($used)) $used++;
+	else $used = 1;
+}
+function used_nginx_cache($echo = false)
+{
+	static $used;
+	if($echo):
+		pr($used);
+		return;
+	endif;
+	if(isset($used)) $used++;
+	else $used = 1;
 }
 
 

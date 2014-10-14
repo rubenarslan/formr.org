@@ -13,9 +13,9 @@ class Branch extends RunUnit {
 	public $type = 'Branch';
 	public $icon = 'fa-code-fork fa-flip-vertical';
 	
-	public function __construct($fdb, $session = null, $unit = null) 
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) 
 	{
-		parent::__construct($fdb,$session,$unit);
+		parent::__construct($fdb,$session,$unit, $run_session);
 
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT `id`, `condition`, `if_true`, `automatically_jump`, `automatically_go_on` FROM `survey_branches` WHERE id = :id LIMIT 1");
@@ -83,14 +83,14 @@ class Branch extends RunUnit {
 	{
 		$dialog = '<div class="padding-below">
 			<label>if… <br>
-				<textarea style="width:388px;"  data-editor="r" class="form-control col-md-5" name="condition" rows="4" placeholder="Condition: You can use R here: survey1$item2 == 2">'.$this->condition.'</textarea>
+				<textarea style="width:388px;"  data-editor="r" class="form-control col-md-5" name="condition" rows="4" placeholder="Condition: You can use R here: survey1$item2 == 2">'.h($this->condition).'</textarea>
 			</label><br>
 			<select style="width:120px" name="automatically_jump">
 			<option value="1" '.($this->automatically_jump?'selected':'').'>automatically</option>
 			<option value="0" '.($this->automatically_jump?'':'selected').'>if user reacts</option>
 			</select>
 			<label>skip forward to
-			<input type="number" class="form-control" style="width:70px" name="if_true" max="32000" min="'.($this->position+2).'" step="1" value="'.$this->if_true.'">
+			<input type="number" class="form-control" style="width:70px" name="if_true" max="32000" min="'.($this->position+2).'" step="1" value="'.h($this->if_true).'">
 			</label><br>
 			<strong>else</strong>
 			<select style="width:120px" name="automatically_go_on">
@@ -152,7 +152,7 @@ class Branch extends RunUnit {
 		foreach($results AS $row):
 			$openCPU = $this->makeOpenCPU();
 			$this->run_session_id = $row['id'];
-
+			$openCPU->admin_usage = true;
 			$openCPU->addUserData($this->getUserDataInRun(
 				$this->dataNeeded($this->dbh,$this->condition)
 			));
@@ -168,18 +168,20 @@ class Branch extends RunUnit {
 	public function exec()
 	{
 		$openCPU = $this->makeOpenCPU();
+		if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
 
 		$openCPU->addUserData($this->getUserDataInRun(
 			$this->dataNeeded($this->dbh,$this->condition)
 		));
 		$result = (bool)$openCPU->evaluate($this->condition);
-				
+		
+		if($openCPU->anyErrors()) return true; // don't go anywhere, wait for the error to be fixed!
+		
 		 // if condition is true and we're set to jump automatically, or if the user reacted
 		if($result AND ($this->automatically_jump OR !$this->called_by_cron)):
-			global $run_session;
-			if($run_session->session):
+			if($this->run_session->session):
 				$this->end();
-				$run_session->runTo($this->if_true);
+				$this->run_session->runTo($this->if_true);
 			endif;
 		elseif(!$result AND ($this->automatically_go_on OR !$this->called_by_cron)): // the condition is false and it goes on
 			$this->end();

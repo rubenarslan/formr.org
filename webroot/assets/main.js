@@ -1,20 +1,23 @@
-$.webshims.setOptions("extendNative", false); 
-$.webshims.setOptions('forms', {
-	customDatalist: true,
-	addValidators: true,
-	waitReady: false,
-    replaceValidationUI: true
+webshim.setOptions(
+    {
+        extendNative: false,
+        forms : {
+        	customDatalist: true,
+        	addValidators: true,
+        	waitReady: false,
+            replaceValidationUI: true
+        },
+        geolocation: {
+        	confirmText: '{location} wants to know your position. You will have to enter one manually if you decline.'
+        },
+        'forms-ext': {
+        		types: 'range date time number month color',
+                customDatalist: true,
+         	   replaceUI: {range: true}
+        }
 });
-$.webshims.setOptions('geolocation', {
-	confirmText: '{location} wants to know your position. You will have to enter one manually if you decline.'
-});
-$.webshims.setOptions('forms-ext', {
-		types: 'range date time number month color',
-        customDatalist: true,
- 	   replaceUI: {range: true}
-});
-$.webshims.polyfill('es5 forms forms-ext geolocation json-storage');
-$.webshims.activeLang('de');
+webshim.polyfill('es5 forms forms-ext geolocation');
+webshim.activeLang('de');
 
 
 $(document).ready(function() {
@@ -39,68 +42,12 @@ $(document).ready(function() {
         $(this).off('click');
     });
     
-	$('.form-ajax').each(ajaxifyForm);
-	$('.link-ajax').each(ajaxifyLink);
-    
     hljs.initHighlighting();
     $('.nav-tabs').stickyTabs();
 });
 
 
-function ajaxifyLink(i,elm) {
-    $(elm).click(function(e)
-    {
-    	e.preventDefault();
-        $this = $(this);
-        var old_href = $this.attr('href');
-        if(old_href === '') return false;
-        $this.attr('href','');
 
-    	$.ajax(
-    		{
-                type: "GET",
-                url: old_href,
-    			dataType: 'html',
-    		})
-    		.done($.proxy(function(data)
-    		{
-                $(this).attr('href',old_href);
-                $(this).css('color','green');
-    		},this))
-            .fail($.proxy(function(e, x, settings, exception) {
-                $(this).attr('href',old_href);
-                ajaxErrorHandling(e, x, settings, exception);
-            },this));
-    	return false;
-    });
-}
-function ajaxifyForm(i,elm) {
-    $(elm).submit(function(e)
-    {
-    	e.preventDefault();
-        $this = $(this);
-        $submit = $this.find('button.btn');
-        $submit.attr('disabled',true);
-
-    	$.ajax(
-		{
-            type: $this.attr('method'),
-            url: $this.attr('action'),
-            data: $this.serialize(),
-			dataType: 'html',
-		})
-		.done($.proxy(function(data)
-		{
-            $submit.attr('disabled',false);
-            $submit.css('color','green');
-		},this))
-        .fail($.proxy(function(e, x, settings, exception) {
-            $submit.attr('disabled',false);
-            ajaxErrorHandling(e, x, settings, exception);
-        },this));
-    	return false;
-    });
-}
 function bootstrap_alert(message,bold,where) 
 {
 	var $alert = $('<div class="row"><div class="col-md-6 col-sm-6 all-alerts"><div class="alert alert-danger"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold:'Problem' ) + '</strong> ' + message + '</div></div></div>');
@@ -163,7 +110,7 @@ function ajaxErrorHandling (e, x, settings, exception)
         }
  
         // Set the correct tab when the page loads
-        showTabFromHash(context)
+        showTabFromHash(context);
  
         // Set the correct tab when a user uses their back/forward button
         window.addEventListener('hashchange', showTabFromHash, false);

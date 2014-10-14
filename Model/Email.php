@@ -19,10 +19,12 @@ class Email extends RunUnit {
 	private $html = 1;
 	public $icon = "fa-envelope";
 	public $type = "Email";
-	
-	public function __construct($fdb, $session = null, $unit = null) 
+	private $subject_parsed = null;
+	private $admin_usage = false;
+ 	
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) 
 	{
-		parent::__construct($fdb,$session,$unit);
+		parent::__construct($fdb,$session,$unit, $run_session);
 
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT * FROM `survey_emails` WHERE id = :id LIMIT 1");
@@ -51,6 +53,7 @@ class Email extends RunUnit {
 		else
 			$this->modify($this->id);
 		
+		$parsedown = new ParsedownExtra();
 		if(isset($options['body']))
 		{
 			$this->recipient_field = $options['recipient_field'];
@@ -69,9 +72,7 @@ class Email extends RunUnit {
 		endif;
 		
 
-		$this->body_parsed = Parsedown::instance()
-    ->set_breaks_enabled(true)
-    ->parse($this->body); // transform upon insertion into db instead of at runtime
+		$this->body_parsed = $parsedown->text($this->body);
 		
 		$create = $this->dbh->prepare("
 		INSERT INTO `survey_emails` 
@@ -106,6 +107,21 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		$this->valid = true;
 		
 		return true;
+	}
+	private function getSubject()
+	{
+		if($this->subject_parsed === NULL):
+			if($this->knittingNeeded($this->subject)):
+				if($this->session_id):
+					$this->subject_parsed = $this->getParsedText($this->subject);
+				else:
+					$this->subject_parsed = $this->getParsedTextAdmin($this->subject);
+				endif;
+			else:
+				return $this->subject;
+			endif;
+		endif;
+		return $this->subject_parsed;
 	}
 	private function getBody($embed_email = true)
 	{
@@ -187,13 +203,13 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$dialog = "<h5>No email accounts. <a href='". WEBROOT."admin/mail/". "'>Add some here.</a></h5>";
 		endif;
 		$dialog .= '<p><label>Subject: <br>
-			<input class="form-control full_width" type="text" placeholder="Email subject" name="subject" value="'.$this->subject.'">
+			<input class="form-control full_width" type="text" placeholder="Email subject" name="subject" value="'.h($this->subject).'">
 		</label></p>
 		<p><label>Recipient-Field: <br>
-					<input class="form-control full_width" type="text" placeholder="survey_users$email" name="recipient_field" value="'.$this->recipient_field.'">
+					<input class="form-control full_width" type="text" placeholder="survey_users$email" name="recipient_field" value="'.h($this->recipient_field).'">
 				</label></p>
 		<p><label>Body: <br>
-			<textarea style="width:388px;"  data-editor="markdown" placeholder="You can use Markdown" name="body" rows="7" cols="60" class="form-control col-md-5">'.$this->body.'</textarea></label><br>
+			<textarea style="width:388px;"  data-editor="markdown" placeholder="You can use Markdown" name="body" rows="7" cols="60" class="form-control col-md-5">'.h($this->body).'</textarea></label><br>
 			<code>{{login_link}}</code> will be replaced by a personalised link to this run, <code>{{login_code}}</code> will be replaced with this user\'s session code.</p>';
 //		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
 		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Email">Save.</a>
@@ -206,6 +222,8 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	{
 		$openCPU = $this->makeOpenCPU();
 
+		$openCPU->admin_usage = $this->admin_usage;
+
 		if($this->recipient_field === null OR trim($this->recipient_field)=='')
 			$this->recipient_field = 'survey_users$email';
 		
@@ -213,7 +231,10 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$this->dataNeeded($this->dbh,$this->recipient_field)
 		));
 
-		return $openCPU->evaluate($this->recipient_field);
+		$result = $openCPU->evaluate($this->recipient_field);
+		if($openCPU->anyErrors()) return null; // don't go anywhere, wait for the error to be fixed!
+
+		return $result;
 	}
 	public function sendMail($who = NULL)
 	{
@@ -228,10 +249,13 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			formr_log("Email recipient could not be determined from this field definition ". $this->recipient_field);
 			alert("We could not find an email recipient.", 'alert-danger');
 			$this->mail_sent = false;
+			return false;
 		endif;
 
 		if($this->account_id === null):
-			die("The study administrator (you?) did not set up an email account. <a href='".WEBROOT."/admin/mail/'>Do it now</a> and then select the account in the email dropdown.");
+			alert("The study administrator (you?) did not set up an email account. <a href='".WEBROOT."/admin/mail/'>Do it now</a> and then select the account in the email dropdown.",'alert-danger');
+			$this->mail_sent = false;
+			return false;
 		endif;
 		
 		$mails_sent = $this->numberOfEmailsSent();
@@ -259,7 +283,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$mail->IsHTML(true);  
 		
 		$mail->AddAddress($this->recipient);
-		$mail->Subject = $this->subject;
+		$mail->Subject = $this->getSubject();
 		$mail->Body = $this->getBody();
 		
 		foreach($this->images AS $image_id => $image):
@@ -319,13 +343,14 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	}
 	public function test()
 	{
+		$this->admin_usage = true;
 		$RandReceiv = bin2hex(openssl_random_pseudo_bytes(5));
 		$receiver = $RandReceiv . '@mailinator.com';
 		
 		$this->sendMail($receiver);
 		$link = "{$RandReceiv}.mailinator.com";
-		
-		echo "<h4>{$this->subject}</h4>";
+
+		echo "<h4>".$this->getSubject()."</h4>";
 		echo "<p><a href='http://$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
 		
 		echo $this->getBody(false);
@@ -364,6 +389,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 			$openCPU = $this->makeOpenCPU();
 			$this->run_session_id = $row['id'];
 
+			$openCPU->admin_usage = $this->admin_usage;
 			$openCPU->addUserData($this->getUserDataInRun(
 				$this->dataNeeded($this->dbh,$this->recipient_field)
 			));
@@ -379,6 +405,8 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	}
 	public function exec()
 	{
+		if($this->beingTestedByOwner()) $this->admin_usage = true;
+		
 		$err = $this->sendMail();
 		if($this->mail_sent):
 			$this->end();

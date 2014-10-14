@@ -1,3 +1,61 @@
+
+//this might was already extended by ES5 shim feature
+(function($){
+	"use strict";
+	var webshims = window.webshims;
+	if(webshims.defineProperties){return;}
+	var defineProperty = 'defineProperty';
+	var has = Object.prototype.hasOwnProperty;
+	var descProps = ['configurable', 'enumerable', 'writable'];
+	var extendUndefined = function(prop){
+		for(var i = 0; i < 3; i++){
+			if(prop[descProps[i]] === undefined && (descProps[i] !== 'writable' || prop.value !== undefined)){
+				prop[descProps[i]] = true;
+			}
+		}
+	};
+
+	var extendProps = function(props){
+		if(props){
+			for(var i in props){
+				if(has.call(props, i)){
+					extendUndefined(props[i]);
+				}
+			}
+		}
+	};
+
+	if(Object.create){
+		webshims.objectCreate = function(proto, props, opts){
+			extendProps(props);
+			var o = Object.create(proto, props);
+			if(opts){
+				o.options = $.extend(true, {}, o.options  || {}, opts);
+				opts = o.options;
+			}
+			if(o._create && $.isFunction(o._create)){
+				o._create(opts);
+			}
+			return o;
+		};
+	}
+
+	if(Object[defineProperty]){
+		webshims[defineProperty] = function(obj, prop, desc){
+			extendUndefined(desc);
+			return Object[defineProperty](obj, prop, desc);
+		};
+	}
+	if(Object.defineProperties){
+		webshims.defineProperties = function(obj, props){
+			extendProps(props);
+			return Object.defineProperties(obj, props);
+		};
+	}
+	webshims.getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+
+	webshims.getPrototypeOf = Object.getPrototypeOf;
+})(window.webshims.$);
 //DOM-Extension helper
 webshims.register('dom-extend', function($, webshims, window, document, undefined){
 	"use strict";
@@ -121,8 +179,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		});
 		return this;
 	};
-	
-	var dataID = '_webshimsLib'+ (Math.round(Math.random() * 1000));
+	var idCount = 0;
+	var dataID = '_webshims'+ (Math.round(Math.random() * 1000));
 	var elementData = function(elem, key, val){
 		elem = elem.jquery ? elem[0] : elem;
 		if(!elem){return val || {};}
@@ -153,6 +211,35 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			return this.pushStack(elems);
 		};
 	});
+
+	function clone(elem, dataAndEvents, uniqueIds){
+		var cloned = $.clone( elem, dataAndEvents, false );
+		$(cloned.querySelectorAll('.'+webshims.shadowClass)).detach();
+		if(uniqueIds){
+			idCount++;
+			$(cloned.querySelectorAll('[id]')).prop('id', function(i, id){
+				return id +idCount;
+			});
+		} else {
+			$(cloned.querySelectorAll('audio[id^="ID-"], video[id^="ID-"], label[id^="ID-"]')).removeAttr('id');
+		}
+		return cloned;
+	}
+
+	$.fn.clonePolyfill = function(dataAndEvents, uniqueIds){
+		dataAndEvents = dataAndEvents || false;
+		return this
+			.map(function() {
+				var cloned = clone( this, dataAndEvents, uniqueIds );
+				setTimeout(function(){
+					if($.contains(document.body, cloned)){
+						$(cloned).updatePolyfill();
+					}
+				});
+				return cloned;
+			})
+		;
+	};
 	
 	//add support for $('video').trigger('play') in case extendNative is set to false
 	if(!webshims.cfg.extendNative && !webshims.cfg.noTriggerOverride){
@@ -464,6 +551,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return id;
 			};
 		})(),
+		shadowClass: 'wsshadow-'+(Date.now()),
 		implement: function(elem, type){
 			var data = elementData(elem, 'implemented') || elementData(elem, 'implemented', {});
 			if(data[type]){
@@ -616,7 +704,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					$.each({ Height: "getHeight", Width: "getWidth" }, function(name, type){
 						var body = document.body;
 						var doc = document.documentElement;
-						docObserve[type] = function(){
+						docObserve[type] = function (){
 							return Math.max(
 								body[ "scroll" + name ], doc[ "scroll" + name ],
 								body[ "offset" + name ], doc[ "offset" + name ],
@@ -631,24 +719,18 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 						this._create();
 						this.height = docObserve.getHeight();
 						this.width = docObserve.getWidth();
-						setInterval(this.test, 600);
+						setInterval(this.test, 999);
 						$(this.test);
+						if($.support.boxSizing == null){
+							$(function(){
+								if($.support.boxSizing){
+									docObserve.handler({type: 'boxsizing'});
+								}
+							});
+						}
 						webshims.ready('WINDOWLOAD', this.test);
 						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel', this.handler);
 						$(window).on('resize', this.handler);
-						(function(){
-							var oldAnimate = $.fn.animate;
-							var animationTimer;
-							
-							$.fn.animate = function(){
-								clearTimeout(animationTimer);
-								animationTimer = setTimeout(function(){
-									docObserve.test();
-								}, 99);
-								
-								return oldAnimate.apply(this, arguments);
-							};
-						})();
 					}
 				}
 			};
@@ -657,13 +739,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			webshims.docObserve = function(){
 				webshims.ready('DOM', function(){
 					docObserve.start();
-					if($.support.boxSizing == null){
-						$(function(){
-							if($.support.boxSizing){
-								docObserve.handler({type: 'boxsizing'});
-							}
-						});
-					}
+
 				});
 			};
 			return function(nativeElem, shadowElem, opts){
@@ -1144,8 +1220,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 })();
 });
 ;(function($){
-	
-	var id = 0;
+	"use strict";
+
 	var isNumber = function(string){
 		return (typeof string == 'number' || (string && string == string * 1));
 	};
@@ -1156,14 +1232,32 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		return val * 1;
 	};
 	var createOpts = ['step', 'min', 'max', 'readonly', 'title', 'disabled', 'tabindex'];
+	var normalizeTouch = (function(){
+		var types = {
+			touchstart: 1,
+			touchend: 1,
+			touchmove: 1
+		};
+		var normalize = ['pageX', 'pageY'];
+		return function(e){
+			if(types[e.type] && e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length){
+				for(var i = 0; i < normalize.length; i++){
+					e[normalize[i]] = e.originalEvent.touches[0][normalize[i]];
+				}
+
+			}
+			return e;
+		};
+	})();
 	var rangeProto = {
 		_create: function(){
 			var i;
 			
-			this.element.addClass('ws-range').attr({role: 'slider'}).append('<span class="ws-range-min ws-range-progress" /><span class="ws-range-rail ws-range-track"><span class="ws-range-thumb"><span><span data-value="" data-valuetext="" /></span></span></span>');
+			this.element.addClass(this.options.baseClass || 'ws-range ws-input').attr({role: 'slider'}).append('<span class="ws-range-rail ws-range-track"><span class="ws-range-min ws-range-progress" /><span class="ws-range-thumb"><span><span data-value="" data-valuetext="" /></span></span></span>');
 			this.trail = $('.ws-range-track', this.element);
 			this.range = $('.ws-range-progress', this.element);
 			this.thumb = $('.ws-range-thumb', this.trail);
+			this.thumbValue = $('span[data-value]', this.thumb);
 			
 			this.updateMetrics();
 			
@@ -1214,8 +1308,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			
 			
 			if(!animate || !$.fn.animate){
-				this.thumb.css(thumbStyle);
-				this.range.css(rangeStyle);
+				this.thumb[0].style[this.dirs.left] = thumbStyle[this.dirs.left];
+				this.range[0].style[this.dirs.width] = rangeStyle[this.dirs.width];
 			} else {
 				if(typeof animate != 'object'){
 					animate = {};
@@ -1238,20 +1332,19 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		_setValueMarkup: function(){
 			var o = this.options;
 			var textValue = o.textValue ? o.textValue(this.options.value) : o.options[o.value] || o.value;
-			this.element.attr({
-				'aria-valuenow': this.options.value,
-				'aria-valuetext': textValue
-			});
-			$('span[data-value]', this.thumb).attr({
-				'data-value': this.options.value,
-				'data-valuetext': textValue
-			});
+
+			this.element[0].setAttribute('aria-valuenow', this.options.value);
+			this.element[0].setAttribute('aria-valuetext', textValue);
+
+			this.thumbValue[0].setAttribute('data-value', this.options.value);
+			this.thumbValue[0].setAttribute('data-valuetext', textValue);
+
 			if(o.selectedOption){
 				$(o.selectedOption).removeClass('ws-selected-option');
 				o.selectedOption = null;
 			}
 			if(o.value in o.options){
-				o.selectedOption = $('[data-value="'+o.value+'"].ws-range-ticks').addClass('ws-selected-option');
+				o.selectedOption = $('[data-value="'+o.value+'"].ws-range-ticks', this.trail).addClass('ws-selected-option');
 			}
 		},
 		initDataList: function(){
@@ -1345,10 +1438,12 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		},
 		min: function(val){
 			this.options.min = retDefault(val, 0);
+			this.element.attr('aria-valuemin', this.options.min);
 			this.value(this.options.value, true);
 		},
 		max: function(val){
 			this.options.max = retDefault(val, 100);
+			this.element.attr('aria-valuemax', this.options.max);
 			this.value(this.options.value, true);
 		},
 		step: function(val){
@@ -1472,23 +1567,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 				};
 			})();
-			var normalizeTouch = (function(){
-				var types = {
-					touchstart: 1,
-					touchend: 1,
-					touchmove: 1
-				};
-				var normalize = ['pageX', 'pageY'];
-				return function(e){
-					if(types[e.type] && e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length){
-						for(var i = 0; i < normalize.length; i++){
-							e[normalize[i]] = e.originalEvent.touches[0][normalize[i]];
-						}
-						
-					}
-					return e;
-				};
-			})();
+
 			var updateValue = function(val, animate){
 				if(val != o.value){
 					that.value(val, false, animate);
@@ -1508,7 +1587,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 			};
 			var remove = function(e){
-				if(e && e.type == 'mouseup'){
+				if(e && (e.type == 'mouseup' || e.type == 'touchend')){
 					eventTimer.call('input', o.value);
 					eventTimer.call('change', o.value);
 				}
@@ -1521,8 +1600,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				if(e.target == window){remove();}
 			};
 			var add = function(e){
-				var outerWidth;
-				
 				if(isActive || (e.type == 'touchstart' && (!e.originalEvent || !e.originalEvent.touches || e.originalEvent.touches.length != 1))){
 					return;
 				}
@@ -1531,13 +1608,14 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				$(document).off('mousemove touchmove', setValueFromPos).off('mouseup touchend', remove);
 				$(window).off('blur', removeWin);
 				if(!o.readonly && !o.disabled){
+					eventTimer.init('input', o.value);
+					eventTimer.init('change', o.value);
 					normalizeTouch(e);
 					that.element.trigger('focus');
 					that.addRemoveClass('ws-active', true);
 					leftOffset = that.element.offset();
 					widgetUnits = that.element[that.dirs.innerWidth]();
 					if(!widgetUnits || !leftOffset){return;}
-					outerWidth = that.thumb[that.dirs.outerWidth]();
 					leftOffset = leftOffset[that.dirs.pos];
 					widgetUnits = 100 / widgetUnits;
 
@@ -1567,8 +1645,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				'touchstart mousedown': add,
 				focus: function(e){
 					if(!o.disabled && !hasFocus){
-						eventTimer.init('input', o.value);
-						eventTimer.init('change', o.value);
+						if(!isActive){
+							eventTimer.init('input', o.value);
+							eventTimer.init('change', o.value);
+						}
 						that.addRemoveClass('ws-focus', true);
 						that.updateMetrics();
 					}
@@ -1654,8 +1734,13 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				webshims.ready('WINDOWLOAD', function(){
 					webshims.ready('dom-support', function(){
 						if ($.fn.onWSOff) {
-							that.element.onWSOff('updateshadowdom', function(){
+							var timer;
+							var update = function(){
 								that.updateMetrics();
+							};
+							that.element.onWSOff('updateshadowdom', function(){
+								clearTimeout(timer);
+								timer = setTimeout(update, 100);
 							});
 						}
 					});
@@ -1666,26 +1751,33 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}
 		},
 		posCenter: function(elem, outerWidth){
-			var temp;
+			var temp, eS;
+
 			if(this.options.calcCenter && (!this._init || this.element[0].offsetWidth)){
 				if(!elem){
 					elem = this.thumb;
 				}
+				eS = elem[0].style;
 				if(!outerWidth){
 					outerWidth = elem[this.dirs.outerWidth]();
 				}
 				outerWidth = outerWidth / -2;
-				elem.css(this.dirs.marginLeft, outerWidth);
-				
+				eS[this.dirs.marginLeft] = outerWidth +'px';
+
 				if(this.options.calcTrail && elem[0] == this.thumb[0]){
 					temp = this.element[this.dirs.innerHeight]();
-					elem.css(this.dirs.marginTop, (elem[this.dirs.outerHeight]() - temp) / -2);
-					this.range.css(this.dirs.marginTop, (this.range[this.dirs.outerHeight]() - temp) / -2 );
+					eS[this.dirs.marginTop] = ((elem[this.dirs.outerHeight]() - temp) / -2) + 'px';
+					this.range[0].style[this.dirs.marginTop] = ((this.range[this.dirs.outerHeight]() - temp) / -2 ) +'px';
+
+					this.range[0].style[this.dirs.posLeft] = outerWidth +'px';
+
 					outerWidth *= -1;
-					this.trail
-						.css(this.dirs.left, outerWidth)
-						.css(this.dirs.right, outerWidth)
-					;
+
+					this.range[0].style[this.dirs.paddingRight] = outerWidth +'px';
+					this.trail[0].style[this.dirs.left] = outerWidth +'px';
+					this.trail[0].style[this.dirs.right] = outerWidth +'px';
+
+
 				}
 			}
 		},
@@ -1694,14 +1786,15 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			this.vertical = (width && this.element.innerHeight() - width  > 10);
 			
 			this.dirs = this.vertical ? 
-				{mouse: 'pageY', pos: 'top', min: 'max', max: 'min', left: 'top', right: 'bottom', width: 'height', innerWidth: 'innerHeight', innerHeight: 'innerWidth', outerWidth: 'outerHeight', outerHeight: 'outerWidth', marginTop: 'marginLeft', marginLeft: 'marginTop'} :
-				{mouse: 'pageX', pos: 'left', min: 'min', max: 'max', left: 'left', right: 'right', width: 'width', innerWidth: 'innerWidth', innerHeight: 'innerHeight', outerWidth: 'outerWidth', outerHeight: 'outerHeight', marginTop: 'marginTop', marginLeft: 'marginLeft'}
+				{mouse: 'pageY', pos: 'top', posLeft: 'bottom', paddingRight: 'paddingTop', min: 'max', max: 'min', left: 'top', right: 'bottom', width: 'height', innerWidth: 'innerHeight', innerHeight: 'innerWidth', outerWidth: 'outerHeight', outerHeight: 'outerWidth', marginTop: 'marginLeft', marginLeft: 'marginTop'} :
+				{mouse: 'pageX', pos: 'left', posLeft: 'left', paddingRight: 'paddingRight', min: 'min', max: 'max', left: 'left', right: 'right', width: 'width', innerWidth: 'innerWidth', innerHeight: 'innerHeight', outerWidth: 'outerWidth', outerHeight: 'outerHeight', marginTop: 'marginTop', marginLeft: 'marginLeft'}
 			;
 			if(!this.vertical && this.element.css('direction') == 'rtl'){
 				this.isRtl = true;
 				this.dirs.left = 'right';
 				this.dirs.right = 'left';
 				this.dirs.marginLeft = 'marginRight';
+				this.dirs.posLeft = 'right';
 			}
 			this.element
 				[this.vertical ? 'addClass' : 'removeClass']('vertical-range')
@@ -1729,7 +1822,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			value: 50, 
 			input: $.noop, 
 			change: $.noop, 
-			_change: $.noop, 
+			_change: $.noop,
 			showLabels: true, 
 			options: {},
 			calcCenter: true,
@@ -1741,6 +1834,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			obj._create.call(obj);
 		});
 	};
+	$.fn.rangeUI.normalizeTouch = normalizeTouch;
 	if(window.webshims && webshims.isReady){
 		webshims.isReady('range-ui', true);
 	}
@@ -1759,7 +1853,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		if(!curCfg[selectName]){
 			var labels = curCfg.date[opts.monthNames] || monthDigits;
 			curCfg[selectName] = ('<option value=""></option>')+$.map(monthDigits, function(val, i){
-				return '<option value="'+val+'"]>'+labels[i]+'</option>';
+				return '<option value="'+val+'">'+labels[i]+'</option>';
 			}).join('');
 		}
 		return curCfg[selectName];
@@ -1802,6 +1896,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			;
 		}
 	};
+	var numericType = Modernizr.inputtypes.tel && navigator.userAgent.indexOf('Mobile') != -1 && !('inputMode' in document.createElement('input') && !('inputmode' in document.createElement('input'))) ?
+		'tel' : 'text';
 	var splitInputs = {
 		date: {
 			_create: function(opts){
@@ -1812,18 +1908,18 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				if(opts.yearSelect){
 					obj.splits.push($('<select class="yy"></select>')[0]);
 				} else {
-					obj.splits.push($('<input type="text" class="yy" size="4" inputmode="numeric" maxlength="4" />')[0]);
+					obj.splits.push($('<input type="'+ numericType +'" class="yy" size="4" inputmode="numeric" maxlength="4" />')[0]);
 				}
 				
 				if(opts.monthSelect){
 					obj.splits.push($('<select class="mm">'+getMonthOptions(opts)+'</select>')[0]);
 				} else {
-					obj.splits.push($('<input type="text" class="mm" inputmode="numeric" maxlength="2" size="2" />')[0]);
+					obj.splits.push($('<input type="'+ numericType +'" class="mm" inputmode="numeric" maxlength="2" size="2" />')[0]);
 				}
 				if(opts.daySelect){
 					obj.splits.push($(daySelect)[0]);
 				} else {
-					obj.splits.push($('<input type="text" class="dd ws-spin" inputmode="numeric" maxlength="2" size="2" />')[0]);
+					obj.splits.push($('<input type="'+ numericType +'" class="dd ws-spin" inputmode="numeric" maxlength="2" size="2" />')[0]);
 				}
 				
 				obj.elements = [obj.splits[0], $('<span class="ws-input-seperator" />')[0], obj.splits[1], $('<span class="ws-input-seperator" />')[0], obj.splits[2]];
@@ -1858,7 +1954,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				if(opts.yearSelect){
 					obj.splits.push($('<select class="yy"></select>')[0]);
 				} else {
-					obj.splits.push($('<input type="text" class="yy" size="4" inputmode="numeric" maxlength="4" />')[0]);
+					obj.splits.push($('<input type="'+ numericType +'" class="yy" size="4" inputmode="numeric" maxlength="4" />')[0]);
 				}
 				
 				if(opts.monthSelect){
@@ -1866,7 +1962,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				} else {
 					obj.splits.push($('<input type="text" class="mm ws-spin" />')[0]);
 					if(opts.onlyMonthDigits){
-						$(obj.splits[1]).attr({inputmode: 'numeric', size: 2, maxlength: 2});
+						$().attr({inputmode: 'numeric', size: 2, maxlength: 2});
+						try {
+							obj.splits[1].setAttribute('type', numericType);
+						} catch(e){}
 					}
 				}
 				
@@ -1889,7 +1988,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}
 		}
 	};
-	
+
 	var nowDate = new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60 * 1000 ));
 	var nowYear = nowDate.getFullYear();
 	nowDate = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), nowDate.getHours()).getTime();
@@ -1954,6 +2053,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	options.addZero = addZero;
 	webshims.loader.addModule('forms-picker', {
 		noAutoCallback: true,
+		css: 'styles/forms-picker.css',
 		options: options
 	});
 	webshims.loader.addModule('color-picker', {
@@ -2126,8 +2226,40 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		
 		
 		var formatVal = {
-			number: function(val, o){
-				return (val+'').replace(/\,/g, '').replace(/\./, curCfg.numberFormat['.']);
+			number: function(val, o, noCorrect){
+				var parts, len, i, isNegative;
+				if(o && o.nogrouping){
+					return (val+'').replace(/\,/g, '').replace(/\./, curCfg.numberFormat['.']);
+				}
+
+				val += '';
+
+				if(val.charAt(0) == '-'){
+					isNegative = true;
+					val = val.replace('-', '');
+				}
+				parts = val.split('.');
+				len = parts[0].length;
+				i = len - 1;
+
+				val = "";
+				while(i >= 0) {
+					val = parts[0].charAt(i) + val;
+					if (i > 0 && (len - i) % 3 === 0) {
+						val = curCfg.numberFormat[','] + val;
+					}
+					--i;
+				}
+				if(parts[1] != null){
+					if(!noCorrect){
+						parts[1] = parts[1].replace(/\-/g, '0');
+					}
+					val += curCfg.numberFormat['.'] + parts[1];
+				}
+				if(isNegative){
+					val = '-'+val;
+				}
+				return val;
 			},
 			time: function(val){
 				var fVal;
@@ -2163,8 +2295,12 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				var names;
 				var p = val.split('-');
 				if(p[0] && p[1]){
-					names = curCfg.date[options.monthNames] || curCfg.date.monthNames;
-					p[1] = names[(p[1] * 1) - 1];
+
+					if(!options || !options.monthSelect){
+						names = curCfg.date[options.monthNames] || curCfg.date.monthNames;
+						p[1] = names[(p[1] * 1) - 1];
+					}
+
 					if(options && options.splitInput){
 						val = [p[0] || '', p[1] || ''];
 					} else if(p[1]){
@@ -2202,10 +2338,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return ret;
 			}
 		};
-		
+
 		var parseVal = {
 			number: function(val){
-				return (val+'').replace(curCfg.numberFormat[','], '').replace(curCfg.numberFormat['.'], '.');
+				return (val+'').split(curCfg.numberFormat[',']).join('').replace(curCfg.numberFormat['.'], '.');
 			},
 //			week: function(val){
 //				return val;
@@ -2274,7 +2410,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					val = val.split(curCfg.dFormat);
 				}
 				if(val.length == 3 && val[0] && val[1] && val[2] && (!noCorrect || (val[obj.yy].length > 3 && val[obj.mm].length == 2 && val[obj.dd].length == 2))){
-					if(val[obj.mm] > 12 && val[obj.dd] < 13){
+					if(!opts.noDayMonthSwitch && val[obj.mm] > 12 && val[obj.dd] < 13){
 						tmp = val[obj.dd];
 						val[obj.dd] = val[obj.mm];
 						val[obj.mm] = tmp;
@@ -2357,6 +2493,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 							var type = (typeof val == 'object') ? 'valueAsDate' : 'valueAsNumber';
 							return input.prop(type, val).prop('value');
 						},
+						asDate: function(val){
+							var type = (typeof val == 'number') ? 'valueAsNumber' : 'value';
+							return input.prop(type, val).prop('valueAsDate');
+						},
 						isValid: function(val, attrs){
 							if(attrs && (attrs.nodeName || attrs.jquery)){
 								attrs = {
@@ -2402,11 +2542,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				if( steps[this.type] && typeof steps[this.type].start == 'object'){
 					steps[this.type].start = this.asNumber(steps[this.type].start);
 				}
-				
-				if(!webshims.picker[this.type]){
-					o.buttonOnly = false;
-				}
-				
+
 				for(i = 0; i < createOpts.length; i++){
 					if(o[createOpts[i]] != null){
 						this[createOpts[i]](o[createOpts[i]], o[createOpts[i]]);
@@ -2630,12 +2766,13 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				this.asNumber = helper.asNumber;
 				this.asValue = helper.asValue;
 				this.isValid = helper.isValid;
+				this.asDate = helper.asDate;
 				
 				
 				wsWidgetProto._create.apply(this, arguments);
 				this._init = false;
 				
-				this.buttonWrapper.html('<span unselectable="on" class="step-controls"><span class="step-up"></span><span class="step-down"></span></span>');
+				this.buttonWrapper.html('<span unselectable="on" class="step-controls"><span class="step-up step-control"></span><span class="step-down step-control"></span></span>');
 				
 				if(this.type == 'number'){
 					this.inputElements.attr('inputmode', 'numeric');
@@ -2667,9 +2804,12 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				} else if(!isNaN(this.maxAsNumber) && start > this.maxAsNumber){
 					start = this.maxAsNumber;
 				}
-				this.elemHelper.prop('valueAsNumber', start);
+				try {
+					this.elemHelper.prop('valueAsNumber', start);
+				} catch(e){
+					webshims.warn('valueAsNumber set: '+e);
+				}
 				this.options.defValue = this.elemHelper.prop('value');
-				
 			},
 			reorderInputs: function(){
 				if(splitInputs[this.type]){
@@ -2692,7 +2832,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			_beforeValue: function(val){
 				this.valueAsNumber = this.asNumber(val);
 				this.options.value = val;
-				
+
 				if(isNaN(this.valueAsNumber) || (!isNaN(this.minAsNumber) && this.valueAsNumber < this.minAsNumber) || (!isNaN(this.maxAsNumber) && this.valueAsNumber > this.maxAsNumber)){
 					this._setStartInRange();
 				} else {
@@ -2702,7 +2842,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			},
 			toFixed: function(val, force){
 				var o = this.options;
-				if(o.toFixed && o.type == 'number' && val && this.valueAsNumber && (force || !this.element.is(':focus')) && (!o.fixOnlyFloat || (this.valueAsNumber % 1)) && !$(this.orig).is(':invalid')){
+				if(o.toFixed && o.type == 'number' && val && !isNaN(this.valueAsNumber) && (force || !this.element.is(':focus')) && (!o.fixOnlyFloat || (this.valueAsNumber % 1))){
 					val = formatVal[this.type](this.valueAsNumber.toFixed(o.toFixed), this.options);
 				}
 				return val;
@@ -2711,7 +2851,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		
 		['defaultValue', 'value'].forEach(function(name){
 			var isValue = name == 'value';
-			spinBtnProto[name] = function(val, force){
+			spinBtnProto[name] = function(val, force, isLive){
+				var selectionEnd;
 				if(!this._init || force || this.options[name] !== val){
 					if(isValue){
 						this._beforeValue(val);
@@ -2730,7 +2871,14 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 							}
 						});
 					} else {
-						this.element.prop(name, this.toFixed(val));
+						val = this.toFixed(val);
+						if(isLive && this._getSelectionEnd){
+							selectionEnd = this._getSelectionEnd(val);
+						}
+						this.element.prop(name, val);
+						if(selectionEnd != null){
+							this.element.prop('selectionEnd', selectionEnd);
+						}
 					}
 					this._propertyChange(name);
 					this.mirrorValidity();
@@ -2743,6 +2891,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			spinBtnProto[name] = function(val){
 				this.elemHelper.prop(name, val);
 				this[numName] = this.asNumber(val);
+
 				if(this.valueAsNumber != null && (isNaN(this.valueAsNumber) || (!isNaN(this[numName]) && (this.valueAsNumber * factor) < (this[numName] * factor)))){
 					this._setStartInRange();
 				}
@@ -2758,7 +2907,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		$.fn.wsBaseWidget = function(opts){
 			opts = $.extend({}, opts);
 			return this.each(function(){
-				$.webshims.objectCreate(wsWidgetProto, {
+				webshims.objectCreate(wsWidgetProto, {
 					element: {
 						value: $(this)
 					}
@@ -2773,7 +2922,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				monthNames: 'monthNamesShort'
 			}, opts);
 			return this.each(function(){
-				$.webshims.objectCreate(spinBtnProto, {
+				webshims.objectCreate(spinBtnProto, {
 					element: {
 						value: $(this)
 					}
@@ -2782,12 +2931,80 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		};
 		
 		$.fn.spinbtnUI.wsProto = spinBtnProto;
+
+		webshims._format = formatVal;
 		
 	})();
-	
+
+
+	$.fn.wsTouchClick = (function(){
+		var supportsTouchaction = ('touchAction' in document.documentElement.style);
+		var addTouch = !supportsTouchaction && ('ontouchstart' in window) && document.addEventListener;
+		return function(target, handler){
+			var touchData, touchEnd, touchStart;
+
+			if(addTouch){
+
+				touchEnd = function(e){
+					var ret, touch;
+					e = e.originalEvent || {};
+					$(this).off('touchend touchcancel', touchEnd);
+					var changedTouches = e.changedTouches || e.touches;
+					if(e.type == 'touchcancel' || !touchData || !changedTouches || changedTouches.length != 1){
+						return;
+					}
+
+					touch = changedTouches[0];
+					if(Math.abs(touchData.x - touch.pageX) > 40 || Math.abs(touchData.y - touch.pageY) > 40 || Date.now() - touchData.now > 300){
+						return;
+					}
+					e.preventDefault();
+					ret = handler.apply(this, arguments);
+
+					return ret;
+				};
+
+				touchStart = function(e){
+					var touch, elemTarget;
+
+
+					if((!e || e.touches.length != 1)){
+						return;
+					}
+					touch = e.touches[0];
+					elemTarget = target ? $(touch.target).closest(target) : $(this);
+					if(!elemTarget.length){
+						return;
+					}
+					touchData = {
+						x: touch.pageX,
+						y: touch.pageY,
+						now: Date.now()
+					};
+					elemTarget.on('touchend touchcancel', touchEnd);
+				};
+
+				this.each(function(){
+					this.addEventListener('touchstart', touchStart, true);
+				});
+			} else if(supportsTouchaction){
+				this.css('touch-action', 'manipulation');
+			}
+
+			if($.isFunction(target)){
+				handler = target;
+				target = false;
+				this.on('click', handler);
+			} else {
+				this.on('click', target, handler);
+			}
+			return this;
+		};
+	})();
+
 	(function(){
 		var picker = {};
-
+		var assumeVirtualKeyBoard = Modernizr.touchevents || Modernizr.touch || (/android|iphone|ipad|ipod|blackberry|iemobile/i.test(navigator.userAgent.toLowerCase()));
 		webshims.inlinePopover = {
 			_create: function(){
 				this.element = $('<div class="ws-inline-picker"><div class="ws-po-box" /></div>').data('wspopover', this);
@@ -2878,7 +3095,11 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			cancel: function(val, popover, data){
 				if(!data.options.inlinePicker){
 					popover.stopOpen = true;
-					data.element.getShadowFocusElement().trigger('focus');
+					if(!popover.openedByFocus && assumeVirtualKeyBoard){
+						$('button', data.buttonWrapper).trigger('focus');
+					} else {
+						data.element.getShadowFocusElement().trigger('focus');
+					}
 					setTimeout(function(){
 						popover.stopOpen = false;
 					}, 9);
@@ -2932,7 +3153,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 				};
 				return function(prop){
-					if(prop == 'value' && !data.options.inlinePicker){return;}
+					if(prop == 'value' && (!data.options.inlinePicker || data._handledValue )){return;}
 					popover.isDirty = true;
 					
 					if(popover.isVisible){
@@ -2969,17 +3190,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		
 		
 		picker._common = function(data){
+			if(data.options.nopicker){return;}
 			var options = data.options;
 			var popover = webshims.objectCreate(options.inlinePicker ? webshims.inlinePopover : webshims.wsPopover, {}, $.extend(options.popover || {}, {prepareFor: options.inlinePicker ? data.buttonWrapper : data.element}));
 			var opener = $('<button type="button" class="ws-popover-opener"><span /></button>').appendTo(data.buttonWrapper);
-			
-			if(options.widgetPosition){
-				webshims.error('options.widgetPosition was removed use options.popover.position instead');
-			}
-			
-			if(options.openOnFocus && popover.options && (popover.options.appendTo == 'auto' || popover.options.appendTo == 'element')){
-				webshims.error('openOnFocus and popover.appendTo "auto/element" can prduce a11y problems try to change appendTo to body or similiar or use openOnMouseFocus instead');
-			}
 			
 			var showPickerContent = function(){
 				(picker[data.type].showPickerContent || picker.showPickerContent)(data, popover);
@@ -2998,6 +3212,13 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 				show();
 			};
+			var toogle = function(){
+				if(popover.openedByFocus || !popover.isVisible){
+					open();
+				} else {
+					popover.hide();
+				}
+			}
 			
 			
 			options.containerElements.push(popover.element[0]);
@@ -3038,7 +3259,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}
 			
 			
-			opener.on({click: open});
+			opener.wsTouchClick(toogle);
 			
 			if(options.inlinePicker){
 				popover.openedByFocus = true;
@@ -3049,9 +3270,28 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 							stopPropagation.apply(this, arguments);
 							popover.preventBlur();
 						},
-						focus: function(){
-							popover.preventBlur();
-						}
+						keydown: function(e){
+							if(e.keyCode == 40 && e.altKey){
+								open();
+							}
+						},
+						'focus mousedown': (function(){
+							var allowClose = true;
+							var reset = function(){
+								allowClose = true;
+							};
+							return function(e){
+								if(e.type  == 'mousedown'){
+									allowClose = false;
+									setTimeout(reset);
+								}
+								if(e.type == 'focus' && allowClose && options.openOnFocus && popover.openedByFocus && (popover.options.appendTo == 'auto' || popover.options.appendTo == 'element')){
+									popover.hide();
+								} else {
+									popover.preventBlur();
+								}
+							};
+						})()
 					})
 				;
 				
@@ -3228,54 +3468,77 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			return $.css(this, 'display') != 'none';
 		};
 		var sizeInput = function(data){
-			var init;
+			var init, parent, lastWidth, left, right, isRtl, hasButtons;
+			var oriStyleO = data.orig.style;
+			var styleO = data.element[0].style;
+			if($.support.boxSizing == null){
+				$(function(){
+					parent = data.orig.parentNode;
+				});
+			} else {
+				parent = data.orig.parentNode;
+			}
 			var updateStyles = function(){
-				$(data.orig).removeClass('ws-important-hide');
-				$.style( data.orig, 'display', '' );
-				var hasButtons, marginR, marginL, left, right, isRtl;
+				var curWidth, marginR, marginL, assignWidth;
 				var correctWidth = 0.8;
-				if(!init || data.orig.offsetWidth){
-					hasButtons = data.buttonWrapper && data.buttonWrapper.filter(isVisible).length;
-					
-					isRtl = hasButtons && data.buttonWrapper.css('direction') == 'rtl';
-					if(isRtl){
-						left = 'Right';
-						right = 'Left';
-					} else {
-						left = 'Left';
-						right = 'Right';
+
+				if(parent){
+					curWidth = parent.offsetWidth;
+				}
+
+				if(!init || (curWidth && curWidth != lastWidth)){
+					lastWidth = curWidth;
+					oriStyleO.display = '';
+					styleO.display = 'none';
+
+					if(!init){
+						hasButtons = data.buttonWrapper && data.buttonWrapper.filter(isVisible).length;
+						isRtl = hasButtons && data.buttonWrapper.css('direction') == 'rtl';
+						if(isRtl){
+							left = 'Right';
+							right = 'Left';
+						} else {
+							left = 'Left';
+							right = 'Right';
+						}
+						if(hasButtons){
+							data.buttonWrapper[isRtl ? 'addClass' : 'removeClass']('ws-is-rtl');
+						}
 					}
-					
+
 					marginR = $.css( data.orig, 'margin'+right);
-					
-					data.element
-						.css('margin'+left, $.css( data.orig, 'margin'+left))
-						.css('margin'+right, hasButtons ? 0 : marginR)
-					;
+
+					styleO['margin'+left] = $.css( data.orig, 'margin'+left);
+					styleO['margin'+right] = hasButtons ? '0px' : marginR;
+
 					
 					if(hasButtons){
-						data.buttonWrapper[isRtl ? 'addClass' : 'removeClass']('ws-is-rtl');
+
 						marginL = (parseInt(data.buttonWrapper.css('margin'+left), 10) || 0);
-						data.element.css('padding'+right, '');
-						
+						styleO['padding'+right] = '';
+
 						if(marginL < 0){
 							marginR = (parseInt(marginR, 10) || 0) + ((data.buttonWrapper.outerWidth() + marginL) * -1);
-							data.buttonWrapper.css('margin'+right, marginR);
-							data.element
-								.css('padding'+right, '')
-								.css('padding'+right, (parseInt( data.element.css('padding'+right), 10) || 0) + data.buttonWrapper.outerWidth())
-							;
+							data.buttonWrapper[0].style['margin'+right] = marginR+'px';
+
+							styleO['padding'+right] = ((parseInt( data.element.css('padding'+right), 10) || 0) + data.buttonWrapper.outerWidth()) +'px';
+
 						} else {
-							data.buttonWrapper.css('margin'+right, marginR);
+							data.buttonWrapper[0].style['margin'+right] = marginR;
 							correctWidth = data.buttonWrapper.outerWidth(true) + correctWidth;
 						}
 					}
-					
-					data.element.outerWidth( $(data.orig).outerWidth() - correctWidth );
+
+					assignWidth = $(data.orig).outerWidth() - correctWidth;
+
+					styleO.display = '';
+					data.element.outerWidth(assignWidth);
+					oriStyleO.display = 'none';
+					init = true;
 				}
-				init = true;
-				$(data.orig).addClass('ws-important-hide');
+
 			};
+			oriStyleO.webkitAppearance = 'none';
 			data.element.onWSOff('updateshadowdom', updateStyles, true);
 		};
 		
@@ -3283,13 +3546,14 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		var implementType = function(){
 			
 			var type = $.prop(this, 'type');
-			
-			var i, opts, data, optsName, labels, cNames;
-			if(inputTypes[type] && webshims.implement(this, 'inputwidgets')){
+			var i, opts, data, optsName, labels, cNames, hasInitialFocus;
+
+			if(inputTypes[type] && webshims.implement(this, 'inputwidgets') && (!modernizrInputTypes[type] || !$(this).hasClass('ws-noreplace'))){
 				data = {};
 				optsName = type;
-				
+				hasInitialFocus = $(this).is(':focus');
 				labels = $(this).jProp('labels');
+
 				opts = $.extend(webshims.getOptions(this, type, [options.widgets, options[type], $($.prop(this, 'form')).data(type)]), {
 					orig: this,
 					type: type,
@@ -3322,6 +3586,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 						opts[optsName] = $.attr(this, copyAttrs[i]) || opts[optsName];
 					}
 				}
+
 				if(opts.formatMonthNames){
 					webshims.error('formatMonthNames was renamded to monthNames');
 				}
@@ -3338,17 +3603,18 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				cNames = $.prop(this, 'className');
 				if(opts.classes){
 					cNames += ' '+opts.classes;
+					$(this).addClass(opts.classes);
 				}
 				
 				if(opts.splitInput || type == 'range'){
 					cNames = cNames.replace('form-control', '');
 				}
 				
-				data.shim.element.on('change input', stopPropagation).addClass(cNames);
-				
+				data.shim.element.on('change input', stopPropagation).addClass(cNames+' '+webshims.shadowClass);
+
 				if(data.shim.buttonWrapper){
-					
-					data.shim.buttonWrapper.addClass('input-button-size-'+(data.shim.buttonWrapper.children().filter(isVisible).length));
+
+					data.shim.buttonWrapper.addClass('input-button-size-'+(data.shim.buttonWrapper.children().filter(isVisible).length)+' '+webshims.shadowClass);
 					
 					if(data.shim.buttonWrapper.filter(isVisible).length){
 						data.shim.element.addClass('has-input-buttons');
@@ -3410,7 +3676,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				if(opts.calculateWidth){
 					sizeInput(data.shim);
 				} else {
-					$(this).addClass('ws-important-hide');
+					$(this).css('display', 'none');
+				}
+				if(hasInitialFocus){
+					$(this).getShadowFocusElement().trigger('focus');
 				}
 			}
 			
@@ -3501,6 +3770,32 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				;
 			});
 		};
+
+
+		if($('<input />').prop('labels') == null){
+			webshims.defineNodeNamesProperty('button, input, keygen, meter, output, progress, select, textarea', 'labels', {
+				prop: {
+					get: function(){
+						if(this.type == 'hidden'){return null;}
+						var id = this.id;
+						var labels = $(this)
+								.closest('label')
+								.filter(function(){
+									var hFor = (this.attributes['for'] || {});
+									return (!hFor.specified || hFor.value == id);
+								})
+							;
+
+						if(id) {
+							labels = labels.add('label[for="'+ id +'"]');
+						}
+						return labels.get();
+					},
+					writeable: false
+				}
+			});
+		}
+
 		if(formcfg._isLoading){
 			$(formcfg).one('change', init);
 		} else {
@@ -3512,7 +3807,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 
 ;webshims.register('form-datalist', function($, webshims, window, document, undefined, options){
 	"use strict";
-	var doc = document;
 	var lazyLoad = function(name){
 		if(!name || typeof name != 'string'){
 			name = 'DOM';

@@ -8,6 +8,33 @@
 	top: -999999px;
 }
 
+%wsbuttonReset {
+	display: inline-block;
+	overflow: visible;
+	position: relative;
+	margin: 0;
+	border: 0;
+	padding: 0;
+	-webkit-appearance: none;
+	appearance: none;
+	font-family: inherit;
+	background: transparent;
+	cursor: pointer;
+	font-size: inherit;
+	line-height: inherit;
+	touch-action: none;
+
+	&::-moz-focus-inner {
+		border: 0;
+		padding: 0;
+	}
+
+	&[disabled] {
+		cursor: default;
+		color: #888;
+	}
+}
+
 [hidden]{display: none;}
 article, aside, canvas, details, figcaption, figure, footer, header, hgroup, main, nav, section, summary {
 	display: block;
@@ -25,20 +52,15 @@ video {
 }
 
 video,
-audio[controls],
-audio.webshims-controls {
+audio[controls] {
 	display: inline-block;
 	min-height: 45px;
 	min-width: 40px;
+
 }
 
-video > *,
-audio > * {
-	visibility: hidden;
-
-	.no-swf & {
-		visibility: inherit;
-	}
+audio[controls] {
+	width: 300px;
 }
 
 .polyfill-mediaelement > iframe {
@@ -68,7 +90,10 @@ audio > * {
 	font-family: sans-serif;
 	font-size: 12px;
 	white-space: pre-wrap;
-	overflow: hidden;
+	cursor: default;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	user-select: none;
 
 	b {
 		font-weight: bold;
@@ -94,6 +119,7 @@ audio > * {
 		font-size: 160%;
 		color: #fff;
 		visibility: visible !important;
+		pointer-events: none;
 	}
 
 	.cue-line {
@@ -104,7 +130,7 @@ audio > * {
 		display: inline-block;
 		padding: 3px 5px;
 		background: #000;
-		background: rgba(0, 0, 0, 0.8);
+		background: rgba(0, 0, 0, 0.7);
 		color: #fff;
 	}
 
@@ -127,14 +153,9 @@ mark {
 }
 
 /* reset */
-.ws-range,
-.ws-range *,
 .placeholder-box,
 .placeholder-text,
-.input-buttons,
-.input-buttons *,
 .details-open-indicator,
-.ws-input-seperator,
 progress span.progress-value {
 	margin: 0;
 	padding: 0;
@@ -156,9 +177,6 @@ output {
 	overflow: hidden !important;
 }
 
-.webshims-visual-hide * {
-	visibility: hidden !important;
-}
 
 /* placeholder */
 .placeholder-box {
@@ -211,8 +229,6 @@ output {
  * popovers
  */
 .ws-popover {
-	@extend %contentbox;
-	
 	font-size: 13px;
 	display: block;
 	visibility: hidden;
@@ -235,7 +251,10 @@ output {
 	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 	direction: ltr;
 	-webkit-tap-highlight-color: transparent;
-	
+
+	&.ws-popover-constrained-width {
+		box-sizing: content-box;
+	}
 	&.ws-is-rtl {
 		direction: rtl;
 		margin: 0 0 0 em(12);
@@ -249,6 +268,12 @@ output {
 		visibility: visible;
 		display: block;
 	}
+}
+
+.ws-popinline {
+	position: relative;
+	visibility: visible;
+	display: none;
 }
 
 .ws-po-outerbox {
@@ -283,34 +308,12 @@ output {
 .ws-po-box {
 	border: em(1) solid #ccc;
 	background: #fff;
+	color: #000;
 	padding: em(5) em(5) em(3);
-	border-radius: em(3);
-	box-shadow: 0 em(1) em(5) rgba(0, 0, 0, 0.25);
 	
 	
 	button {
-		display: inline-block;
-		overflow: visible;
-		position: relative;
-		margin: 0;
-		border: 0;
-		padding: 0;
-		-webkit-appearance: none;
-		appearance: none;
-		font-family: inherit;
-		background: transparent;
-		cursor: pointer;
-		touch-action: none;
-
-		&::-moz-focus-inner {
-			border: 0;
-			padding: 0;
-		}
-
-		&[disabled] {
-			cursor: default;
-			color: #888;
-		}
+		@extend %wsbuttonReset
 	}
 }
 
@@ -404,7 +407,7 @@ input[data-wslist]::-webkit-calendar-picker-indicator {
 }
 
 .datalist-polyfill {
-	position: absolute !important;
+	position: absolute;
 	
 	.ws-po-box {
 		padding: em(5) 0;
@@ -516,6 +519,10 @@ input[data-wslist]::-webkit-calendar-picker-indicator {
 .validity-alert {
 	display: inline-block;
 	z-index: 1000000000;
+
+	.ws-titlevalue {
+		display: block;
+	}
 }
 
 .ws-errorbox {
@@ -544,19 +551,12 @@ progress {
 	-moz-box-sizing: border-box;
 	box-sizing: border-box;
 	vertical-align: -0.2em;
-	
-	> * {
-		display: none !important;
-	}
-	
-	&[data-position],
+
 	&.ws-style {
 	
 		@include progress {
 			border: 1px solid #ddd;
 			background: #f0f0f0;
-			box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) inset;
-			border-radius: 4px;
 		}
 		
 		> span.progress-value {
@@ -573,7 +573,6 @@ progress {
 			top: 0;
 			bottom: 0;
 			height: 100%;
-			box-shadow: 0 -1px 1px rgba(0, 0, 0, 0.15) inset;
 			background: #0063a6 url(progress.png);
 			border: 0;
 		}
@@ -618,4 +617,100 @@ summary {
 summary.summary-has-focus {
 	outline: 1px dotted #aaa;
 	outline-offset: -1px;
+}
+
+.ws-custom-file {
+	@extend %clearfix;
+	position: relative;
+	zoom: 1;
+
+	> button,
+	> input {
+		box-sizing: border-box;
+		cursor: pointer;
+	}
+
+	> button {
+		@extend %wsbuttonReset;
+	}
+
+	> button,
+	> .ws-file-value {
+		position: relative;
+		z-index: 0;
+		display: inline-block;
+		padding: 5px;
+		border: 1px solid #ccc;
+		background: #eee;
+		color: #333;
+		transition: 400ms all;
+	}
+
+	> button {
+		margin-right: 0.4em;
+		float: left;
+	}
+
+	.ws-file-value {
+		display: block;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	&:hover > button,
+	&.ws-mouseenter > button,
+	> input[type="file"]:focus ~ button {
+		background: #fff;
+		border-color: #999;
+		background: #eee linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.05) 40%, rgba(0, 0, 0, 0.1));
+	}
+
+
+	&:hover > .ws-file-value,
+	&.ws-mouseenter > .ws-file-value,
+	> input[type="file"]:focus ~ .ws-file-value {
+		border-color: #999;
+	}
+
+	&.ws-active > button,
+	> input[type="file"]:active ~ button {
+		border-color: #000;
+	}
+
+
+	&.ws-active > .ws-file-value,
+	> input[type="file"]:active ~ .ws-file-value {
+		border-color: #000;
+	}
+
+	> input[type="file"][disabled] ~ .ws-file-value,
+	> input[type="file"][disabled] ~ button {
+		border-color: #bbb;
+		background: #eee;
+		color: #999;
+	}
+
+
+	> input[type="file"] {
+		position: absolute;
+		top: 0;
+		left: 0;
+		bottom: 0;
+		right: 0;
+		height: 100%;
+		width: 100%;
+		filter: alpha(opacity=0);
+		opacity: 0.00001;
+		z-index: 9;
+
+		&[disabled] {
+			cursor: default;
+			cursor: not-allowed;
+		}
+	}
+
+	> .moxie-shim {
+		z-index: 20;
+	}
 }

@@ -1,5 +1,5 @@
 <IfModule mod_rewrite.c>
-
+DirectoryIndex disabled
 RewriteEngine On
 RewriteRule ^/?$ add_run.php [QSA,L]
 RewriteCond %{REQUEST_FILENAME} !-d
