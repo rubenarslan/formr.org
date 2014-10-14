@@ -295,6 +295,7 @@ function getProgress()
     var remaining_items = $progressbar.data('items-left');
     var percentage_minimum = $progressbar.data('percentage-minimum');
     var percentage_maximum = $progressbar.data('percentage-maximum');
+
     var items_answered_on_page = 0;
     var unanswered_page_items = 0;
     
@@ -364,17 +365,19 @@ function getProgress()
 
 function showIf()
 {
-    var badArray = $('form').serializeArray();
+    var badArray = $('form').serializeArray(); // get data live for current form
     var subdata = {};
     $.each(badArray, function(i, obj)
     {
-        if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
+        if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2); // special treatment for multiple multiple choice
         if(!subdata[ obj.name ]) subdata[obj.name] = obj.value;
-        else subdata[obj.name] += ", " + obj.value;
+        else subdata[obj.name] += ", " + obj.value; // mmcs are concatenated by comma
     });
-    $(".form-group[data-showif]").each(function(i,elm)
+
+    $(".form-group[data-showif]").each(function(i,elm) // walk through all form elements that are dynamically shown/hidden
     {
-        var showif = $(elm).data('showif');
+        var showif = $(elm).data('showif'); // get specific condition
+
         // primitive R to JS translation
         showif = showif.replace(/current\(\s*(\w+)\s*\)/g, "$1"); // remove current function
         showif = showif.replace(/tail\(\s*(\w+)\s*, 1\)/g, "$1"); // remove current function, JS evaluation is always in session
@@ -386,11 +389,12 @@ function showIf()
         showif = showif.replace(/TRUE/g, "true"); // uppercase, R, TRUE, to lowercase, JS, true
         showif = showif.replace(/\s*\%contains\%\s*([a-zA-Z0-9_'"]+)/g,".indexOf($1) > -1");
         showif = showif.replace(/\s*stringr::str_length\(([a-zA-Z0-9_'"]+)\)/g,"$1.length");
+        
         try
         {
-            with(subdata)
+            with(subdata) // using the form data as the environment
             {
-                var hide = ! eval(showif);
+                var hide = ! eval(showif); // evaluate the condition
                 $(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
                 $(elm).find('input,select,textarea').prop('disabled', hide); // enable/disable depending on evaluation
                 $(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
