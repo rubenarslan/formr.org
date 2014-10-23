@@ -331,7 +331,7 @@ class RunSession
 	}
 	
 
-	public function end() // todo: not being used atm
+	public function end()
 	{
 		$finish_run = $this->dbh->prepare("UPDATE `survey_run_sessions` 
 			SET `ended` = NOW()

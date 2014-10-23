@@ -466,6 +466,22 @@ This study is currently being serviced. Please return at a later time."));
 		$g_users->execute();
 		return $g_users->fetch(PDO::FETCH_ASSOC);
 	}
+	public function getUserCounts()
+	{
+		$g_users = $this->dbh->prepare("SELECT 
+			COUNT(`id`) 							AS users_total,
+			SUM(`ended` IS NOT NULL) 					AS users_finished,
+			SUM(`ended` IS NULL AND `last_access` >= DATE_SUB(NOW(), INTERVAL 1 DAY) ) 	AS users_active_today,
+			SUM(`ended` IS NULL AND `last_access` >= DATE_SUB(NOW(), INTERVAL 7 DAY) ) 	AS users_active,
+			SUM(`ended` IS NULL AND `last_access` < DATE_SUB(NOW(), INTERVAL 7 DAY) ) 	AS users_waiting
+			
+		FROM `survey_run_sessions`
+
+		WHERE `survey_run_sessions`.run_id = :run_id;");
+		$g_users->bindParam(':run_id',$this->id);
+		$g_users->execute();
+		return $g_users->fetch(PDO::FETCH_ASSOC);
+	}
 	public function emptySelf()
 	{
 		$empty_run = $this->dbh->prepare("DELETE FROM 

@@ -1,5 +1,4 @@
 <?php
-// todo: should check email log so that it never sends more than three emails to the same user in a short amount of time.
 require_once INCLUDE_ROOT."Model/RunUnit.php";
 #require_once INCLUDE_ROOT. 'vendor/michelf/php-markdown/Markdown.php';
 require_once INCLUDE_ROOT . "vendor/erusev/parsedown/Parsedown.php";
