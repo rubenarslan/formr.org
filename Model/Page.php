@@ -126,6 +126,8 @@ class Page extends RunUnit {
 			return true; // never show to the cronjob
 		endif;
 
+		$this->run_session->end();
+
 		$this->body_parsed = $this->getParsedBody($this->body);
 		
 		if($this->body_parsed === false)
