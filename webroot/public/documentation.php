@@ -97,6 +97,15 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 					<li>
 						a nice editor, <a href="https://github.com/ajaxorg/ace">Ace</a>, for editing Markdown &amp; R in runs.
 					</li>
+					<li>
+						file, image, video, sound uploads for users (as survey items) and admins (to supply study materials)
+					</li>
+					<li>
+						complex conditional items
+					</li>
+					<li>
+						a dedicated <a href="https://github.com/rubenarslan/formr/">formr R package</a>: makes pretty feedback graphs and complex run  logic even simpler. Simplifies data munging stuff (importing, aggregating, simulating data from surveys).
+					</li>
 					
 				</ul>
 				<h4>
@@ -104,7 +113,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 				</h4>
 				<ul class="fa-ul-more-padding">
 					<li>
-						send text messages (you can already do this using R and httr)
+						send text messages (will only get simpler, you can already do this using R and httr)
 					</li>
 					<li>
 						work offline on mobile phones and other devices with intermittent internet access (in the meantime <a href="https://enketo.org/">enketo</a> is pretty good and free too, but geared towards humanitarian aid)
@@ -116,16 +125,7 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 						a better API (some basics are there)
 					</li>
 					<li>
-						file, image, video, sound uploads for users and admins (admins can simply use existing services in the meantime, everything can be embedded from elsewhere)
-					</li>
-					<li>
-						offline condition evaluation - at the moment you need to submit a form to see conditional items, there is no Javascript evaluation (again, enketo is more self-contained and does a better job at doing these things offline)
-					</li>
-					<li>
 						social networks, round robin studies - at the moment they are a bit bothersome to implement, but possible. There is a dedicated module already which might also get released as open source if there's time. 
-					</li>
-					<li>
-						dedicated formr R package which handles not only some necessary shortcuts for the run-environment and easy feedback graphs, but also some data munging stuff (such as a data takeout for all surveys in a run, building scales from items automatically, etc.)
 					</li>
 					<li>
 						more <a href="https://github.com/rubenarslan/formr.org/issues?labels=enhancement&page=1&state=open">planned enhancements on Github</a>
