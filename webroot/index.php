@@ -67,35 +67,5 @@ if ($file && file_exists($file)) {
     require_once $file;
 } else {
     // throw 404 here
-    die("$file does not exist");
 }
-
-
-/*
-$module = $site->request->str('module');
-$controller = $site->request->str('controller');
-
-
-$path = $site->request->str('path');
-$run_name = $site->request->str('run_name');
-$study_name = $site->request->str('study_name');
-$site->setPath($path);
- 
-
-// Load specific resource
-if (!$path && !$run_name) {
-    Template::load('home');
-} elseif ($run_name && !$path) {
-    require 'run.php';
-} else {
-    $file = Template::parsePath($path);
-    if (file_exists($file)) {
-        require $file;
-    } else {
-        // throw 404 here
-        die("$file does not exist");
-    }
-}
- * 
- */
 
