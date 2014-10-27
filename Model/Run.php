@@ -824,8 +824,8 @@ This study is currently being serviced. Please return at a later time."));
 				$css = '<link rel="stylesheet" href="'.WEBROOT.$this->custom_css_path.'" type="text/css" media="screen">';
 			if($this->custom_js_path)
 				$js .= '<script src="'.WEBROOT.$this->custom_js_path.'"></script>';
-	
-			Template::load('header');
+
+			Template::load('header', array('title' => $title, 'css' => $css, 'js' => $js));
 
 
 			?>
