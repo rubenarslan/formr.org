@@ -1,6 +1,6 @@
 <?php
-require_once '../../define_root.php';
-require_once INCLUDE_ROOT."Model/Site.php";
+/* @var $user User */
+/* @var $site Site */
 
 if($user->loggedIn()) {
 	redirect_to("index");
@@ -12,12 +12,11 @@ if((!isset($_GET['reset_token']) OR !isset($_GET['email']) ) AND !isset($_POST['
 endif;
 
 if(!empty($_POST) AND isset($_POST['email'])  AND isset($_POST['new_password'])  AND isset($_POST['reset_token'])) {
-	$user->reset_password($_POST['email'],$_POST['reset_token'],$_POST['new_password']);
+	$user->reset_password($_POST['email'], $_POST['reset_token'], $_POST['new_password']);
 }
-
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/public_nav.php";
 ?>
+
+<?php Template::load('header_nav'); ?>
 <div class="row">
 	<div class="col-lg-4 col-lg-offset-1 col-sm-5 col-sm-offset-1 col-xs-12 well">
 	<h2>Reset password</h2>
@@ -44,5 +43,4 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 		</form>
 	</div>
 </div>
-<?php
-require_once INCLUDE_ROOT . "View/footer.php";
+<?php Template::load('footer'); ?>

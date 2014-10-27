@@ -1,7 +1,4 @@
 <?php
-require_once INCLUDE_ROOT."Model/DB.php";
-require_once INCLUDE_ROOT."Model/Item.php";
-require_once INCLUDE_ROOT."Model/RunUnit.php";
 
 class Survey extends RunUnit {
 	public $id = null;
@@ -580,6 +577,7 @@ class Survey extends RunUnit {
 		$post_form->execute() or die(print_r($post_form->errorInfo(), true));
 
 		$this->dbh->commit() or die(print_r($answered->errorInfo(), true));
+        alert('Survey settings updated', 'alert-success', true);
 	}
 	public function uploadItemTable($file, $confirmed_deletion)
 	{	
@@ -600,8 +598,6 @@ class Survey extends RunUnit {
 
 		$this->messages[] = "File <b>$filename</b> was uploaded.";
 		$this->messages[] = "Survey name was determined to be <b>{$this->name}</b>.";
-		
-		require_once INCLUDE_ROOT.'Model/SpreadsheetReader.php';
 
 		$SPR = new SpreadsheetReader();
 		$SPR->readItemTableFile($target);
@@ -974,7 +970,6 @@ class Survey extends RunUnit {
 		endif;
 		
 		$old_items = $this->getItems();
-		require_once INCLUDE_ROOT."Model/Item.php";
 		
 		$choice_lists = $this->getChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
@@ -1126,7 +1121,6 @@ class Survey extends RunUnit {
 		$filename = $this->name . date('YmdHis') . ".tab";
 		if(isset($this->user_id)) $filename = "user" . $this->user_id . $filename;
         $filename = INCLUDE_ROOT ."tmp/backups/results/". $filename;
-		require_once INCLUDE_ROOT . 'Model/SpreadsheetReader.php';
 
 		$SPR = new SpreadsheetReader();
 		return $SPR->backupTSV( $this->getResults() , $filename);

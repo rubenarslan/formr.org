@@ -1,7 +1,4 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-require_once INCLUDE_ROOT . "Model/Run.php";
 
 if( !empty($_POST) ) {
 	if(isset($_POST['new_name']))
@@ -18,8 +15,8 @@ if( !empty($_POST) ) {
 	}
 }
 
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
+Template::load('header');
+Template::load('acp_nav');
 ?>
 <div class="row">
 	<div class="col-lg-4 col-md-5 col-sm-6 col-lg-offset-1 well">
@@ -49,5 +46,4 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 	</div>
 </div>
 
-<?php
-require_once INCLUDE_ROOT . "View/footer.php";
+<?php Template::load('footer');

@@ -1,5 +1,4 @@
 <?php
-require_once INCLUDE_ROOT . "Model/DB.php";
 /*
 ## types of run units
 	* branches 
@@ -348,7 +347,6 @@ class Run
 	public function getOverviewScript()
 	{
 		$id = $this->getOverviewScriptId();
-		require_once INCLUDE_ROOT."Model/RunUnit.php";
 		$unit_factory = new RunUnitFactory();
 		$unit = $unit_factory->make($this->dbh,null,array('type' => "Page", "unit_id" => $id));
 		return $unit;
@@ -373,7 +371,6 @@ class Run
 	}
 	protected function addOverviewScript()
 	{
-		require_once INCLUDE_ROOT."Model/RunUnit.php";
 		$unit_factory = new RunUnitFactory();
 		$unit = $unit_factory->make($this->dbh,null,array('type' => "Page"));
 		$unit->create(array(
@@ -403,7 +400,6 @@ plot(cars)
 	public function getServiceMessage()
 	{
 		$id = $this->getServiceMessageId();
-		require_once INCLUDE_ROOT."Model/RunUnit.php";
 		$unit_factory = new RunUnitFactory();
 		$unit = $unit_factory->make($this->dbh,null,array('type' => "Page", "unit_id" => $id));
 		return $unit;
@@ -428,7 +424,6 @@ plot(cars)
 	}
 	protected function addServiceMessage()
 	{
-		require_once INCLUDE_ROOT."Model/RunUnit.php";
 		$unit_factory = new RunUnitFactory();
 		$unit = $unit_factory->make($this->dbh,null,array('type' => "Page"));
 		$unit->create(array(
@@ -481,7 +476,6 @@ This study is currently being serviced. Please return at a later time."));
 	public function getReminder($session,$run_session_id)
 	{
 		$id = $this->getReminderId();
-		require_once INCLUDE_ROOT."Model/RunUnit.php";
 		$unit_factory = new RunUnitFactory();
 		$unit = $unit_factory->make($this->dbh, $session ,array(
 			'type' => "Email", 
@@ -512,7 +506,6 @@ This study is currently being serviced. Please return at a later time."));
 	}
 	protected function addReminder()
 	{
-		require_once INCLUDE_ROOT."Model/RunUnit.php";
 		$unit_factory = new RunUnitFactory();
 		$unit = $unit_factory->make($this->dbh,null,array('type' => "Email"));
 		$unit->create(array(
@@ -753,7 +746,6 @@ This study is currently being serviced. Please return at a later time."));
 	}
 	private function fakeTestRun()
 	{
-		require_once INCLUDE_ROOT . "Model/Survey.php";
 	
 		if(isset($_SESSION['dummy_survey_session'])):
 			$run_session = $this->makeDummyRunSession("fake_test_run","Survey");
@@ -799,7 +791,6 @@ This study is currently being serviced. Please return at a later time."));
 				redirect_to('index');
 			endif;
 			
-			require_once INCLUDE_ROOT . 'Model/RunSession.php';
 			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code); // does this user have a session?
 			
 			if(
@@ -834,7 +825,7 @@ This study is currently being serviced. Please return at a later time."));
 			if($this->custom_js_path)
 				$js .= '<script src="'.WEBROOT.$this->custom_js_path.'"></script>';
 	
-			require_once INCLUDE_ROOT . 'View/header.php';
+			Template::load('header');
 
 
 			?>
@@ -864,7 +855,7 @@ This study is currently being serviced. Please return at a later time."));
 				echo $this->footer_text_parsed;
 			endif;
 		
-			require_once INCLUDE_ROOT . 'View/footer.php';
+			Template::load('footer');
 		endif;
 	}
 }

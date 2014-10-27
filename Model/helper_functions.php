@@ -19,9 +19,12 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) // shorthand
 }
 
 function redirect_to($location) {
-	global $site,$user;
+	global $site, $user;
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
+    if (strpos($location, 'index') !== false) {
+        $location = '';
+    }
 
 	if(mb_substr($location,0,4)!= 'http'){
 		$base = WEBROOT;

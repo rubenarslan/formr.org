@@ -1,8 +1,4 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT.'View/admin_header.php';
-require_once INCLUDE_ROOT . "Model/UnitSession.php";
-
 if($user->created($study)):
 	$session = new UnitSession($fdb, null, $study->id);
 	$session->create();

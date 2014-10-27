@@ -1,9 +1,4 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-
-require_once INCLUDE_ROOT . "Model/EmailAccount.php";
-
 if(!empty($_POST) AND isset($_POST['create'])) {
 	$acc = new EmailAccount($fdb, null, $user->id);
 	if( 
@@ -18,8 +13,8 @@ if(!empty($_POST) AND isset($_POST['create'])) {
 	}
 }
 
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
+Template::load('header');
+Template::load('acp_nav');
 
 ?>
 <form id="list_email_accounts" name="list_email_accounts" method="post" action="<?=WEBROOT?>admin/mail/">
@@ -43,5 +38,4 @@ if($accs) {
 </div>
 </form>
 
-<?php
-require_once INCLUDE_ROOT . "View/footer.php";
+<?php Template::load('footer');

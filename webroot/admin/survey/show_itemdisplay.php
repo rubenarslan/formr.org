@@ -1,12 +1,10 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT.'View/admin_header.php';
 
 $resultCount = $study->getResultCount();
 $results = $study->getItemDisplayResults();
-require_once INCLUDE_ROOT.'View/header.php';
 
-require_once INCLUDE_ROOT.'View/acp_nav.php';
+Template::load('header');
+Template::load('acp_nav');
 ?>
 <div class="row">
 <div class="col-md-4">
@@ -92,4 +90,5 @@ endforeach;
 
 <?php
 endif;
-require_once INCLUDE_ROOT.'View/footer.php';
+
+Template::load('footer');

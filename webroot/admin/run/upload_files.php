@@ -1,7 +1,4 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-require_once INCLUDE_ROOT . "Model/Run.php";
 
 if( !empty($_FILES) ) {
 	if(isset($_FILES['uploaded_files']))
@@ -26,8 +23,8 @@ $js = '<script type="text/javascript">
 //};
 </script>';
 
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
+Template::load('header', array('js' => $js));
+Template::load('acp_nav');
 ?>
 <div class="row">
 	<div class="col-lg-6 col-md-8 col-sm-9 col-lg-offset-1 well">
@@ -100,5 +97,4 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 </div>
 </div>
 
-<?php
-require_once INCLUDE_ROOT . "View/footer.php";
+<?php Template::load('footer');

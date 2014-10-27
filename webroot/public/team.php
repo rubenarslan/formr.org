@@ -1,11 +1,6 @@
 <?php
-require_once '../../define_root.php';
-
-require_once INCLUDE_ROOT."Model/Site.php";
-require_once INCLUDE_ROOT."View/header.php";
-
-require_once INCLUDE_ROOT."View/public_nav.php";
-
+    Template::load('header');
+    Template::load('public_nav');
 ?>
 <div class="row">
 	<div class="col-lg-5 col-lg-offset-1 col-sm-7 col-sm-offset-1 col-xs-12">
@@ -41,4 +36,5 @@ require_once INCLUDE_ROOT."View/public_nav.php";
 	</div>
 </div>
 <?php
-require_once INCLUDE_ROOT."View/footer.php";
+    Template::load('footer');
+?>
