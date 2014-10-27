@@ -1,7 +1,4 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT.'View/admin_header.php';
-
 if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name)
 {
 	if($study->deleteResults()):
@@ -17,9 +14,8 @@ elseif(isset($_POST['delete']))
 $resultCount = $study->getResultCount();
 
 
-require_once INCLUDE_ROOT.'View/header.php';
-
-require_once INCLUDE_ROOT.'View/acp_nav.php';
+Template::load('header');
+Template::load('acp_nav');
 ?>
 <div class="row">
 	<div class="col-lg-5 col-md-6 col-sm-8 well">
@@ -60,4 +56,4 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 </div>
 
 <?php
-require_once INCLUDE_ROOT.'View/footer.php';
+Template::load('footer');

@@ -1,6 +1,5 @@
 <?php
-require_once '../../define_root.php';
-require_once INCLUDE_ROOT . "View/api_header.php";
+Template::load('api_header');
 $i= 0;
 $run_session = new RunSession($fdb, $run->id, null, null);
 if(isset($_POST['code'])):

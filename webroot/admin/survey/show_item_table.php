@@ -1,11 +1,8 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT.'View/admin_header.php';
 
 $results = $study->getItemsWithChoices();
-require_once INCLUDE_ROOT.'View/header.php';
-
-require_once INCLUDE_ROOT.'View/acp_nav.php';
+Template::load('header');
+Template::load('acp_nav');
 ?>
 <div class="row">
 	<div class="col-md-12">
@@ -125,5 +122,4 @@ endif;
 </div>
 
 
-<?php
-require_once INCLUDE_ROOT.'View/footer.php';
+<?php Template::load('footer');

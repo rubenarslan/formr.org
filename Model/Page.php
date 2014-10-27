@@ -1,8 +1,4 @@
 <?php
-require_once INCLUDE_ROOT."Model/RunUnit.php";
-#require_once INCLUDE_ROOT. 'vendor/michelf/php-markdown/Michelf/Markdown.php';
-require_once INCLUDE_ROOT . "vendor/erusev/parsedown/Parsedown.php";
-
 class Page extends RunUnit {
 	public $errors = array();
 	public $id = null;

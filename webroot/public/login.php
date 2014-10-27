@@ -1,26 +1,21 @@
 <?php
-require_once '../../define_root.php';
-require_once INCLUDE_ROOT."Model/Site.php";
+/* @var $user User */
+/* @var $site Site */
 
 if($user->loggedIn()) {
 	redirect_to("index");
 }
 
-if(!empty($_POST) AND isset($_POST['email'])  AND isset($_POST['password'])) {
-	if( 
-		$user->login($_POST['email'],$_POST['password'])
-	)
-	{
+if($site->request->str('email') && $site->request->str('password')) {
+	if($user->login($site->request->str('email'), $site->request->str('password'))){
 		alert('<strong>Success!</strong> You were logged in!', 'alert-success');
 		redirect_to('index');
-	}
-	else {
-		alert(implode($user->errors),'alert-danger');
+	} else {
+		alert(implode($user->errors), 'alert-danger');
 	}
 }
 
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/public_nav.php";
+Template::load('header_nav');
 ?>
 <div class="row">
 	<div class="col-lg-4 col-lg-offset-1 col-sm-5 col-sm-offset-1 col-xs-12 well">

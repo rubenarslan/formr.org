@@ -1,7 +1,4 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-require_once INCLUDE_ROOT . "Model/Run.php";
 
 $js = '<script src="'.WEBROOT.'assets/run_settings.js"></script>
 <script src="'.WEBROOT.'assets/run.js"></script>';
@@ -9,8 +6,8 @@ $service_message_id = $run->getServiceMessageId();
 $reminder_email_id = $run->getReminderId();
 $overview_script_id = $run->getOverviewScriptId();
 
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
+Template::load('header', array('js' => $js));
+Template::load('acp_nav');
 ?>
 <div class="row">
 	
@@ -170,5 +167,4 @@ qplot(survey_name$created) # plot entries by startdate</code></pre></li>
 
 	<div class="clearfix"></div>
 </div>
-<?php
-  require_once INCLUDE_ROOT . "View/footer.php";
+<?php Template::load('footer');
