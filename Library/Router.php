@@ -42,10 +42,13 @@ class Router {
         $this->params = $this->site->request->str('params');
         $this->webroot = FORMRORG_ROOT . '/webroot';
 
-        $this->site->setPath($this->path($this->module, $this->submodule, $this->controller));
-        $direct_file = $this->path($this->webroot, $this->module, $this->submodule, $this->controller, $this->params .'.php');
-        $this->directPathParts = explode('/', $this->path($this->webroot, $this->module, $this->submodule, $this->controller, $this->params));
+        if ($this->module == 'index')  {
+            $this->module = 'public';
+        }
 
+        $this->site->setPath($this->path($this->module, $this->submodule, $this->controller));
+        $this->directPathParts = explode('/', $this->path($this->webroot, $this->module, $this->submodule, $this->controller, $this->params));
+        $direct_file = $this->path($this->webroot, $this->module, $this->submodule, $this->controller, $this->params .'.php');
         if (file_exists($direct_file)) {
             $this->file = $direct_file;
             $this->hackRequestParams();
@@ -114,7 +117,8 @@ class Router {
     private function path() {
         $paths = func_get_args();
         $path = implode('/', $paths);
-        $path = str_replace('//', '/', $path);
+        $path = preg_replace('/\/+/', '/', $path);
+        $path = preg_replace('/\/\./', '.', $path);
         return $path;
     }
 

@@ -12,7 +12,7 @@ if($user->created($study)):
 	);
 	
 	alert("<strong>Go ahead.</strong> You can test the study ".$study->name." now.",'alert-info');
-	redirect_to("fake_test_run");
+	redirect_to(RUNROOT . "fake_test_run");
 else:
 	alert("<strong>Sorry.</strong> You don't have access to this study",'alert-danger');
 	redirect_to("index");	
