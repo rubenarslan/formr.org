@@ -71,6 +71,10 @@ class Router {
             } else {
                 $this->file = $module_dir . '/index.php';
             }
+        } else {
+            // assume this is a run
+            $this->file = $this->path($this->webroot, 'run.php');
+            $this->site->request->run_name = $this->module;
         }
 
         $this->hackRequestParams();
@@ -83,11 +87,6 @@ class Router {
 
     private function hackRequestParams() {
         $fileFromParams = $this->path($this->module, $this->submodule, $this->params . '.php');
-        // Hack for front end run route
-        if ($this->site->isFrontEndStudyArea()) {
-            $this->file = $this->path($this->webroot, 'run.php');
-            $this->site->request->run_name = $this->controller;
-        }
         // Hack for admin survey area
         if ($this->site->inAdminSurveyArea() && !file_exists($this->file)) {
             if ($this->params && file_exists($fileFromParams)) {

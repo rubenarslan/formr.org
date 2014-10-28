@@ -446,7 +446,7 @@ class Survey extends RunUnit {
 		$this->not_answered_on_current_page = count( $this->not_answered_on_current_page );
 	}
 	protected function render_form_header() {
-		$action = WEBROOT."{$this->run_name}";
+		$action = RUNROOT."{$this->run_name}";
 
 		$enctype = ' enctype="multipart/form-data"'; # maybe make this conditional application/x-www-form-urlencoded
 		$ret = '<form action="'.$action.'" method="post" class="form-horizontal" accept-charset="utf-8"'.$enctype.'>';

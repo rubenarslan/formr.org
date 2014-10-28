@@ -60,7 +60,6 @@ class Request {
 	 *
 	 * @param array|mixed|string $value
 	 * @return array|mixed|string
-	 * @since 1.3
 	 */
 	public function stripControlChars($value) {
 		if (is_array($value)) {
