@@ -8,5 +8,5 @@ formr.Rcheck
 formr-package/man
 /nbproject/private/
 /webroot/readclassmap.php
-/tmp/logs/errors.log
+/tmp/logs/*
 /nbproject
