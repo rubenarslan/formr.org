@@ -41,7 +41,7 @@ function define_webroot($settings = array()) {
 	define('ONLINE', $online);
 	define('TESTING', $testing);
 	define('SSL', $protocol === "https://");
-    define('RUNROOT', WEBROOT . 'study/');
+    define('RUNROOT', WEBROOT);
 }
 define_webroot($settings);
 

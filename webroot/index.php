@@ -66,6 +66,7 @@ if ($file && file_exists($file)) {
     }
     require_once $file;
 } else {
-    // throw 404 here
+    not_found();
 }
 
+exit(0);
