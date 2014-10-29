@@ -369,7 +369,6 @@ class RunUnit {
 	}
 	public function makeOpenCPU()
 	{
-		require_once INCLUDE_ROOT . "Model/OpenCPU.php";
 
 		global $settings;
 		$openCPU = new OpenCPU($settings['opencpu_instance']);

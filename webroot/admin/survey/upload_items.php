@@ -16,6 +16,7 @@ if (!empty($_POST) AND !isset($_FILES['uploaded'])) {
 
 Template::load('header');
 Template::load('acp_nav');
+$resultCount = $study->getResultCount();
 ?>
 
 <div class="row">

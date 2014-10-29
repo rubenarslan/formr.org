@@ -55,4 +55,4 @@ Template::load('header_nav');
 	</div>
 </div>
 <?php
-require_once INCLUDE_ROOT . "View/footer.php";
+Template::load('footer');

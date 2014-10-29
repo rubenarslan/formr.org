@@ -1,5 +1,4 @@
 <?php
-
 $js = '<script src="'.WEBROOT.'assets/run_settings.js"></script>
 <script src="'.WEBROOT.'assets/run.js"></script>';
 $service_message_id = $run->getServiceMessageId();

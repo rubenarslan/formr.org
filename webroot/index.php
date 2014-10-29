@@ -3,7 +3,6 @@
 require_once '../define_root.php';
 
 error_reporting(-1);
-define('DEBUG', ONLINE ? Config::get('display_errors_when_live') : 1);
 if (DEBUG > -1) {
     ini_set('display_errors', 1);
 }

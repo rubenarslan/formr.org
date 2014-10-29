@@ -38,9 +38,7 @@ if(!empty($_POST)) {
 		redirect_to('index');
     }
 }
-?>
-
-<?php Template::load('header_nav'); ?>
+Template::load('header_nav'); ?>
 
 <div class="col-lg-5 col-md-6 col-sm-7 col-md-offset-1 well">
 <h2>Edit settings</h2>
@@ -84,4 +82,4 @@ if(!empty($_POST)) {
 
 
 <?php
-require_once INCLUDE_ROOT . "View/footer.php";
+Template::load('footer');

@@ -15,7 +15,6 @@ while($userx = $g_users->fetch(PDO::FETCH_ASSOC))
 	
 	$users[] = $userx;
 }
-require_once INCLUDE_ROOT.'Model/SpreadsheetReader.php';
 
 $SPR = new SpreadsheetReader();
 
