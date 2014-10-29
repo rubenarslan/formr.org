@@ -26,12 +26,17 @@ class OpenCPU {
 		$this->http_status = null;
 		$this->hash_of_call = null;
 	}
-	public function addUserData($datasets)
+	public function addUserData($data)
 	{
 		// could I check here whether the dataset contains only null and not even send it to R? but that would break for e.g. is.na(email). hm.
-		foreach($datasets AS $df_name => $data):
-			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(json_encode($data, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)).'"), stringsAsFactors=F)
+		foreach($data['datasets'] AS $df_name => $content):
+			$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("'.addslashes(json_encode($content, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)).'"), stringsAsFactors=F)
 '; ### loop through the given datasets and import them to R via JSON
+		endforeach;
+		unset($data['datasets']);
+		foreach($data AS $variable => $value):
+			$this->user_data .= $variable . ' = ' . $value.'
+';
 		endforeach;
 	}
 	public function anyErrors()
@@ -78,9 +83,6 @@ class OpenCPU {
 			$this->cache_query($result);
 			return $parsed;
 		endif;
-		
-		pr($result);
-		pr($parsed);
 	}
 	
 	public function r_function($function,$post)
@@ -92,7 +94,7 @@ class OpenCPU {
 			return $was_cached;
 		endif;
 
-		curl_setopt($this->curl_c, CURLOPT_URL, $this->instance.'/ocpu/library/'.$function);
+		curl_setopt($this->curl_c, CURLOPT_URL, $this->instance.'/ocpu/'.$function);
 		
 		if($post !== null):
 			curl_setopt($this->curl_c, CURLOPT_POST, 1); // Method is "POST"
@@ -125,7 +127,7 @@ class OpenCPU {
 	
 	public function identity($post, $return = '/json')
 	{
-		return $this->r_function('base/R/identity'.$return, $post);
+		return $this->r_function('library/base/R/identity'.$return, $post);
 	}
 	
 	private function query_cache($function, $post)
@@ -240,7 +242,7 @@ library(formr)
 	public function knit($source,$return = '/json')
 	{
 		$post = array(	'text' 			=> "'".addslashes($source)."'");
-		$result = $this->r_function('knitr/R/knit'.$return, $post);
+		$result = $this->r_function('library/knitr/R/knit'.$return, $post);
 		
 		return $this->returnParsed($result, "knit");
 	}
@@ -248,38 +250,33 @@ library(formr)
 	public function knit2html($source,$return = '/json',$options = '"base64_images","smartypants","highlight_code","mathjax"')
 	{
 		
-		$post = array(	'text' 			=> "'".addslashes($source)."'",
-    					'fragment.only' => true, 
-						'options' 		=> 'c('.$options.')'
-				);
-		return $this->r_function('knitr/R/knit2html'.$return, $post);
+		$post = array(	'text' => "'".addslashes($source)."'");
+		return $this->r_function('library/formr/R/formr_render'.$return, $post);
 	}
 	public function knitForUserDisplay($source)
 	{
 		$source =
 '```{r settings,message=FALSE,warning=F,echo=F}
+library(knitr); library(formr)
 opts_chunk$set(warning=F,message=F,echo=F)
 '.
 $this->user_data .
 '```
 '.
-		$source;
+$source;
 		
 		$result = $this->knit2html($source,'/json');
 		
 		return $this->returnParsed($result, "knit");
 	}
-
+	//FIXME: something wrong! probably because I did not turn off base64_images!
 	public function knitEmail($source)
 	{
 		$source =
 '```{r settings,message=FALSE,warning=F,echo=F}
-email_image = function(x) {
-	cid = gsub("[^a-zA-Z0-9]", "", substring(x,8))
-	structure(paste0("cid:",cid,".png"), link = x)
-}
+library(knitr); library(formr)
 opts_chunk$set(warning=F,message=F,echo=F)
-opts_knit$set(upload.fun=email_image)
+opts_knit$set(upload.fun=formr::email_image)
 '.
 $this->user_data .
 '```
@@ -333,6 +330,7 @@ $this->user_data .
 		
 		$source =
 '```{r settings,message=FALSE,warning=F,echo=F}
+library(knitr); library(formr)
 opts_chunk$set(warning=T,message=T,echo=T)
 '.
 $this->user_data .
@@ -375,8 +373,8 @@ $this->user_data .
 					$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/print')). '</pre>';
 				endif;
 				
-				if($this->knitr_source !== null)
-	  			 	$response['Call'] = '<pre>'. htmlspecialchars(current($result['post'])). '</pre>';
+	  			if($this->knitr_source === NULL) $response['Call'] = '<pre>'. htmlspecialchars(current($result['post'])). '</pre>';
+				else $response['Knitr doc'] =  '<pre>'. htmlspecialchars($this->knitr_source). '</pre>';
 			
 				$response['HTTP headers'] = '<pre>'. htmlspecialchars($result['header']). '</pre>';
 			 	$response['Headers sent'] = '<pre>'. htmlspecialchars(curl_getinfo($this->curl_c, CURLINFO_HEADER_OUT )) . '</pre>';
@@ -396,11 +394,9 @@ $this->user_data .
 	   			 'Response' => '<pre>'. htmlspecialchars($result['body']). '</pre>',
 	   			 'HTTP headers' => '<pre>'. htmlspecialchars($result['header']). '</pre>',
 	   			 'Call' => '<pre>'. htmlspecialchars(current($result['post'])). '</pre>',
-				 'Headers sent' => '<pre>'. htmlspecialchars(curl_getinfo($this->curl_c, CURLINFO_HEADER_OUT )) . '</pre>',
+				 'Headers sent' => '<pre><code class="r hljs">'. htmlspecialchars(curl_getinfo($this->curl_c, CURLINFO_HEADER_OUT )) . '</code></pre>',
 	   		 );
 		endif;
-		
-		if($this->knitr_source !== NULL) $response['Knitr doc'] =  '<pre>'. htmlspecialchars($this->knitr_source). '</pre>';
 		 
 		return $this->ArrayToAccordion($response);
 	}
