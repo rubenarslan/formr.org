@@ -1,21 +1,15 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT.'View/admin_header.php';
 
-if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $run->name)
-{
+if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $run->name) {
 	$run->delete();
-}
-elseif(isset($_POST['delete']))
-{
+} elseif(isset($_POST['delete'])) {
 	alert("<b>Error:</b> You must type the run's name '{$run->name}' to delete it.",'alert-danger');
 }
 
 $users = $run->getNumberOfSessionsInRun();
 
-require_once INCLUDE_ROOT.'View/header.php';
-
-require_once INCLUDE_ROOT.'View/acp_nav.php';
+Template::load('header');
+Template::load('acp_nav');
 ?>
 <div class="row">
 	<div class="col-lg-5 col-md-6 col-sm-8 well">
@@ -44,5 +38,4 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 	</div>
 </div>
 
-<?php
-require_once INCLUDE_ROOT.'View/footer.php';
+<?php Template::load('footer');

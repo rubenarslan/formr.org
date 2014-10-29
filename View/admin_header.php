@@ -1,5 +1,4 @@
 <?php
-require_once INCLUDE_ROOT . "Model/Site.php";
 if(!$user->isAdmin()) {
 	alert("<strong>Sorry:</strong> Only admins have access.",'alert-info');
 	access_denied();
@@ -9,12 +8,9 @@ if($site->inSuperAdminArea() AND !$user->isSuperAdmin()) {
 	access_denied();
 }
 
-if($site->inAdminSurveyArea() AND strpos($_SERVER['SCRIPT_NAME'],'/survey/add_survey.php')===FALSE):
-	if(isset($_GET['study_name'])):
-		require_once INCLUDE_ROOT . "Model/Survey.php";
-
-		$study = new Survey($fdb,null,array('name' => $_GET['study_name']));
-
+if($site->inAdminSurveyArea() AND strpos($site->getPath(), '/survey/add_survey') === FALSE):
+    if($site->request->str('study_name')):
+		$study = new Survey($fdb, null, array('name' => $site->request->str('study_name')));
 		if(!$study->valid):
 			alert("<strong>Error:</strong> Survey does not exist.",'alert-danger');
 			not_found();
@@ -23,13 +19,11 @@ if($site->inAdminSurveyArea() AND strpos($_SERVER['SCRIPT_NAME'],'/survey/add_su
 			access_denied();
 		endif;
 	else:
-		alert("<strong>Error:</strong> No survey specified.",'alert-danger');
-		not_found();
+		redirect_to(WEBROOT . 'admin/survey/add_survey');
 	endif;
-elseif($site->inAdminRunArea() AND strpos($_SERVER['SCRIPT_NAME'],'/run/add_run.php')===FALSE):
-	if(isset($_GET['run_name'])):
-		require_once INCLUDE_ROOT . "Model/Run.php";
-		$run = new Run($fdb, $_GET['run_name']);
+elseif($site->inAdminRunArea() AND strpos($site->getPath(), '/run/add_run') === FALSE):
+	if($site->request->str('run_name')):
+		$run = new Run($fdb, $site->request->str('run_name'));
 	
 		if(!$run->valid):
 			alert("<strong>Error:</strong> Run does not exist.",'alert-danger');
@@ -39,8 +33,7 @@ elseif($site->inAdminRunArea() AND strpos($_SERVER['SCRIPT_NAME'],'/run/add_run.
 			access_denied();
 		endif;
 	else:
-		alert("<strong>Error:</strong> No run specified.",'alert-danger');
-		not_found();
+		redirect_to(WEBROOT . 'admin/run/add_run');
 	endif;
 endif;
 

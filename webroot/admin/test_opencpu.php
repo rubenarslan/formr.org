@@ -1,14 +1,8 @@
 <?php
-require_once '../../define_root.php';
+Template::load('header');
+Template::load('acp_nav');
 
-require_once INCLUDE_ROOT.'View/admin_header.php';
-
-
-require_once INCLUDE_ROOT . "Model/OpenCPU.php";
 $openCPU = new OpenCPU($settings['alternative_opencpu_instance']);
-
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
 
 echo "<h2>OpenCPU test</h2>";
 echo '<h5>testing '.$settings['alternative_opencpu_instance'].'</h5>';
@@ -138,3 +132,5 @@ echo $accordion3;
 echo "<h4>test long call without final comment</h4>";
 
 echo $accordion4;
+
+Template::load('footer');

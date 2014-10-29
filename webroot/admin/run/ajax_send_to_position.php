@@ -1,8 +1,5 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-require_once INCLUDE_ROOT . "Model/Email.php";
-require_once INCLUDE_ROOT . 'Model/RunSession.php';
+
 $run_session = new RunSession($fdb, $run->id, null, $_GET['session']);
 
 $new_position = $_POST['new_position'];
