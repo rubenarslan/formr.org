@@ -1,75 +1,72 @@
 <?php
+
 require_once '../define_root.php';
 
-require_once INCLUDE_ROOT."Model/Site.php";
-require_once INCLUDE_ROOT."View/header.php";
+error_reporting(-1);
+define('DEBUG', ONLINE ? Config::get('display_errors_when_live') : 1);
+if (DEBUG > -1) {
+    ini_set('display_errors', 1);
+}
+ini_set("log_errors", 1);
+ini_set("error_log", INCLUDE_ROOT . "tmp/logs/errors.log");
 
-require_once INCLUDE_ROOT."View/public_nav.php";
+ini_set('session.gc_maxlifetime', Config::get('session_cookie_lifetime'));
+ini_set('session.cookie_lifetime', Config::get('session_cookie_lifetime'));
+ini_set('session.hash_function', 1);
+ini_set('session.hash_bits_per_character', 5);
+ini_set('session.gc_divisor', 100);
+ini_set('session.gc_probability', 1);
 
-?>
-<div class="row">
-	<div class="col-lg-8 col-lg-offset-1 col-sm-9 col-sm-offset-1 col-xs-12">
-		<div class="jumbotron">
-			<h1>
-				<span class="formr-brand">formr <small>survey framework</small></span>
-			</h1>
-			<p>
-					chain simple forms &amp; surveys into long runs, use the power of <abbr title="A statistics environment. Nice plots abound!">R</abbr> to generate pretty feedback and complex designs
-			</p>
-			<p>
-				<a class="btn btn-primary btn-lg" role="button" href="<?=WEBROOT?>public/register">Sign up (it's free!)</a>
-			</p>
-		</div>
-		<div class="">
-			<ul class="nav nav-tabs">
-			  <li class="active"><a href="#options" data-toggle="tab">What can I do here?</a></li>
-			  <li><a href="#features" data-toggle="tab">What can formr do?</a></li>
-			</ul>
-			<div class="tab-content">
-				<div class="well tab-pane fade in active" id="options">
-					<ul class="fa-ul lead">
-						<li>
-							<i class="fa fa-li fa-pencil"></i> You can <a href="<?=WEBROOT?>public/register">register</a> for free to let us know you're interested.
-						</li>
-						<li>
-							<i class="fa fa-li fa-pencil-square"></i> You can <a href="<?=WEBROOT?>public/studies">take some of the published studies for a test run</a>.
-						</li>
-						<li>
-							<i class="fa fa-li fa-file"></i> 
-							You can read the <a href="<?=WEBROOT?>public/documentation" title="hopefully you'll get some idea of what formr can do for you">super exciting docs</a>.
-						</li>
-						<li>
-							<i class="fa fa-li fa-rocket"></i> If you want to use formr to run your own studies,
-							<ul class="fa-ul">
-								<li><i class="fa fa-li fa-envelope"></i> 
-									you can <a title="Just send us an email. You'll get a test account, if you're human or feline or cetacean." class="schmail" href="mailto:IMNOTSENDINGSPAMTOruben.arslan@that-big-googly-eyed-email-provider.com?subject=<?=rawurlencode("formr private beta");?>&amp;body=<?=rawurlencode("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above.
+date_default_timezone_set(Config::get('timezone'));
+mb_internal_encoding('UTF-8');
 
-Hi!
-I'd like an admin account on formr. 
-I already have registered with the email address from which I'm sending this request. 
-I'm affiliated with institution xxxx.
-");?>">request an admin account</a> or 
-								</li>
-								<li><i class="fa fa-li fa-github-alt"></i> 
-									you can <a href="https://github.com/rubenarslan/formr" title="If you don't know what a Github repository is yet, this is probably not the option for you, but for your local techie type. ">check out the Github repo</a>. It's open source and free-to-use.
-								</li>
-								<li><i class="fa fa-li fa-google"></i> 
-									you can <a href="https://groups.google.com/forum/#!forum/formr" title="you can ask and answer other admin users' questions here">join or browse our community help mailing list</a>.
-								</li>
-							</ul>
-						</li>
-					</ul>
-				</div>
-				<div class="well tab-pane fade" id="features">
-					<?php
-					require INCLUDE_ROOT.'View/features.php';	
-					?>
-				</div>
-			</div>
-			
-		</div>
-	</div>
-	
-</div>
-<?php
-require_once INCLUDE_ROOT."View/footer.php";
+$site = Site::getInstance();
+$fdb = new DB();
+
+$site->start_session();
+if (isset($_SESSION['site']) AND is_object($_SESSION['site'])): // first we see what's in that session
+    $site = $_SESSION['site']; // if we already have a site object, possibly with alerts and referrers, we use that instead
+    $site->updateRequestObject();
+endif;
+
+if (isset($_SESSION['user'])):
+    $sess_user = unserialize($_SESSION['user']);
+
+    // this segment basically checks whether the user-specific expiry time was met
+    if (isset($sess_user->id)): // logged in user
+        if (!$site->expire_session(Config::get('expire_registered_session'))): // if not expired: recreate user object
+            $user = new User($fdb, $sess_user->id, $sess_user->user_code);
+
+            if ($user->isAdmin()):
+                if ($site->expire_session(Config::get('expire_admin_session'))): // admins have a different expiry, can only be lower
+                    unset($user);
+                endif;
+            endif;
+        endif;
+    elseif (isset($sess_user->user_code)):
+        if (!$site->expire_session(Config::get('expire_unregistered_session'))):
+            $user = new User($fdb, null, $sess_user->user_code);
+        endif;
+    endif;
+endif;
+
+$_SESSION['last_activity'] = time(); // update last activity time stamp
+
+$site->refresh();
+
+if (!isset($user)):
+    $user = new User($fdb, null, null);
+endif;
+
+$router = Router::getInstance()->route();
+$file = $router->getFile();
+if ($file && file_exists($file)) {
+    if ($site->inAdminArea() || $site->inSuperAdminArea()) {
+        require_once FORMRORG_ROOT . '/View/admin_header.php';
+    }
+    require_once $file;
+} else {
+    not_found();
+}
+
+exit(0);

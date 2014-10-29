@@ -1,12 +1,6 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-require_once INCLUDE_ROOT . "Model/Run.php";
-
-$js = '<script src="'.WEBROOT.'assets/run.js"></script>';
-
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
+Template::load('header', array('js' => '<script src="'.WEBROOT.'assets/run.js"></script>'));
+Template::load('acp_nav');
 ?>
 <div class="row">
 		<form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>" data-units='<?php
@@ -92,9 +86,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 
 
 <div class="col-md-5 pull-right well transparent_well">
-<?php
-require INCLUDE_ROOT.'View/run_module_explanations.php';	
-?>
+<?php Template::load('run_module_explanations'); ?>
 </div>
 
 
@@ -102,5 +94,4 @@ require INCLUDE_ROOT.'View/run_module_explanations.php';
 
   </form>
 </div>
-  <?php
-  require_once INCLUDE_ROOT . "View/footer.php";
+  <?php Template::load('footer');

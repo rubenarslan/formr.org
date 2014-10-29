@@ -1,18 +1,17 @@
 <?php
-require_once '../../define_root.php';
-require_once INCLUDE_ROOT."Model/Site.php";
+/* @var $user User */
+/* @var $site Site */
 
 if($user->loggedIn()) {
 	redirect_to("index");
 }
 
-if(!empty($_POST) AND isset($_POST['email'])) {
-	$user->forgot_password($_POST['email']);
+if($site->request->str('email')) {
+	$user->forgot_password($site->request->str('email'));
 }
-
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/public_nav.php";
 ?>
+
+<?php Template::load('header_nav'); ?>
 <div class="row">
 	<div class="col-lg-4 col-lg-offset-1 col-sm-5 col-sm-offset-1 col-xs-12 well">
 	<h2>Forgot password</h2>
@@ -36,5 +35,4 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 		</form>
 	</div>
 </div>
-<?php
-require_once INCLUDE_ROOT . "View/footer.php";
+<?php Template::load('footer');

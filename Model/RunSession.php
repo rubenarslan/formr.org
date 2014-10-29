@@ -122,7 +122,6 @@ class RunSession
 #		pr($this->id);
 		$i = 0;
 		$done = array();
-		require_once INCLUDE_ROOT."Model/RunUnit.php";
 		$unit_factory = new RunUnitFactory();
 		
 		$output = false;
@@ -184,7 +183,6 @@ class RunSession
 	{
 		$unit = $this->getCurrentUnit(); // get first unit in line
 		if($unit):
-			require_once INCLUDE_ROOT."Model/RunUnit.php";
 			$unit_factory = new RunUnitFactory();
 			$unit = $unit_factory->make($this->dbh,null,$unit, $this);
 			$unit->end(); 				// cancel it
@@ -200,7 +198,6 @@ class RunSession
 		if($unit_id === null) $unit_id = $this->getUnitIdAtPosition($position);
 			
 		if($unit_id):
-			require_once INCLUDE_ROOT . 'Model/UnitSession.php';
 			
 			$unit_session = new UnitSession($this->dbh, $this->id, $unit_id);
 			if(!$unit_session->id) $unit_session->create();

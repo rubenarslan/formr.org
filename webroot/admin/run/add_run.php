@@ -1,19 +1,12 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-require_once INCLUDE_ROOT . "Model/Run.php";
 
 if( !empty($_POST) ) {
-	if(isset($_POST['run_name']) AND !preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/",$_POST['run_name']))
-	{
+	if(isset($_POST['run_name']) AND !preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/", $_POST['run_name'])) {
 		alert('<strong>Error:</strong> The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore (at least 2 characters, at most 255). It needs to start with a letter.','alert-danger');
 		redirect_to("admin/run/");	
-	}
-	else
-	{
+	} else {
 		$run = new Run($fdb, null, array('run_name' => $_POST['run_name'], 'user_id' => $user->id));
-		if($run->valid)
-		{
+		if($run->valid) {
 			alert('<strong>Success.</strong> Run "'.$run->name . '" was created.','alert-success');
 			redirect_to("admin/run/{$run->name}");
 		}
@@ -23,8 +16,8 @@ if( !empty($_POST) ) {
 	}
 }
 
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
+Template::load('header');
+Template::load('acp_nav');
 ?>
 </div>
 <div class="run_header">&nbsp;
@@ -41,7 +34,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 		<li><i class="fa-li fa fa-lightbulb-o"></i> Ideally, it should be the memorable name of your study.</li>
 	</ul>
 
-	<form class="" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>admin/run/">
+	<form class="" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>admin/run/add_run">
 	  	<div class="form-group">
 	  		<label class="control-label" for="kurzname">
 	  			<?php echo _("Run shorthand:"); ?>
@@ -60,4 +53,4 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 </div>
 
 <?php
-require_once INCLUDE_ROOT . "View/footer.php";
+Template::load('footer');

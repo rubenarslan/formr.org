@@ -1,17 +1,11 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-
-if (!empty($_POST) AND !isset($_FILES['uploaded'])) 
-{
+if (!empty($_POST) AND !isset($_FILES['uploaded'])) {
 	alert('<strong>Error:</strong> You have to select an item table file here.','alert-danger');
-}
-elseif(isset($_FILES['uploaded']))
-{
+} elseif(isset($_FILES['uploaded'])) {
 	unset($_SESSION['study_id']);
 	unset($_GET['study_name']);
-	require_once INCLUDE_ROOT . "Model/Survey.php";
-	$filename = basename( $_FILES['uploaded']['name']);
+
+	$filename = basename($_FILES['uploaded']['name']);
 	$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/","$1",$filename); // take only the first part, before the dash if present or the dot
 
 	$study = new Survey($fdb, null, array(
@@ -34,8 +28,8 @@ elseif(isset($_FILES['uploaded']))
 }
 unset($study);
 
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
+Template::load('header');
+Template::load('acp_nav');
 ?>
 </div>
 <div class="survey_header">&nbsp;
@@ -67,7 +61,7 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 				<strong>Make it meaningful.</strong>
 			</li>
 		</ul>
-		<form class="" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?=WEBROOT?>admin/survey/">
+		<form class="" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="">
 			<input type="hidden" name="new_study" value="1">
 			<div class="form-group">
 				<h3><label class="control-label" for="file_upload">
@@ -98,24 +92,17 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 	
 		<div class="tab-content">
 			<div class="tab-pane fade" id="sample_survey_sheet">
-				<?php
-				require INCLUDE_ROOT.'View/sample_survey_sheet.php';
-				?>
+				<?php Template::load('sample_survey_sheet');?>
 			</div>
 			<div class="tab-pane fade" id="sample_choices_sheet">
-				<?php
-				require INCLUDE_ROOT.'View/sample_choices_sheet.php';
-				?>
+				<?php Template::load('sample_choices_sheet');?>
 			</div>
 			<div class="tab-pane fade in active" id="available_items">
-				<?php
-				require INCLUDE_ROOT.'View/item_types.php';
-				?>
+				<?php Template::load('item_types');?>
 			</div>
 		</div>
 	</div>
 </div>
 
 
-<?php
-require_once INCLUDE_ROOT . "View/footer.php";
+<?php Template::load('footer');
