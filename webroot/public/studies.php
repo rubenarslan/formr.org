@@ -14,7 +14,7 @@
                 <h4><a href="<?php echo RUNROOT . $run['name']; ?>"><?php echo ($run['title'] ? $run['title'] : $run['name']); ?></a></h4>
                 <?php echo $run['public_blurb_parsed']; ?>
             </div>
-        </div>';
+        </div>
          <?php endforeach; ?>
 
 	</div>

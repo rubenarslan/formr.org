@@ -1,7 +1,4 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT.'View/admin_header.php';
-
 if(isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name)
 {
 	$study->delete();

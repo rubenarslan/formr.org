@@ -37,9 +37,6 @@ class SpreadsheetReader
 		set_time_limit(300); # defaults to 30
 		ini_set('memory_limit', '1024M');
 		
-		// Include PHPExcel_IOFactory
-#		require_once INCLUDE_ROOT.'vendor/phpoffice/phpexcel/phpexcel/Classes/PHPExcel/IOFactory.php';
-
 	    $objPHPExcel = new PHPExcel();
 		array_unshift($array, array_keys(current($array)));
 		$objPHPExcel->getSheet(0)->fromArray($array);
@@ -366,9 +363,6 @@ class SpreadsheetReader
 	{
 		$this->errors = $this->messages = array();
 		
-		// Include PHPExcel_IOFactory
-#		require_once INCLUDE_ROOT.'vendor/phpoffice/phpexcel/Classes/PHPExcel/IOFactory.php';
-
 		define('EOL',(PHP_SAPI == 'cli') ? PHP_EOL : '<br />');
 
 		if (!file_exists($inputFileName)):

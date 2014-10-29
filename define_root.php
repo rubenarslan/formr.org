@@ -1,5 +1,4 @@
 <?php
-
 define('FORMRORG_ROOT', dirname(__FILE__));
 
 // Load composer Autoloader
@@ -10,14 +9,16 @@ require_once FORMRORG_ROOT . "/vendor/autoload.php";
 require_once FORMRORG_ROOT . "/config_default/settings.php";
 require_once FORMRORG_ROOT . "/config/settings.php";
 
+
 // Overwrite application settings with dev settings if defined
 if (($devenv = getenv('DEV_ENV'))) {
-    $devsettings = FORMRORG_ROOT . "/config/env/{$devenv}.php";
-    if (is_file($devsettings)) {
-        require_once $devsettings;
-    }
+	if(preg_match("/[a-zA-Z0-9]+/",$devenv)):
+	    $devsettings = FORMRORG_ROOT . "/config/env/{$devenv}.php";
+	    if (is_file($devsettings)):
+	        require_once $devsettings;
+		endif;
+	endif;
 }
-
 // Include helper functions
 require_once FORMRORG_ROOT . "/Model/helper_functions.php";
 
@@ -31,7 +32,7 @@ function define_webroot($settings = array()) {
 	$online = true;
 	$testing = false;
 
-    // Maybe dev env contains $settings['define_root'] so use these
+   // Maybe dev env contains $settings['define_root'] so use these
     if (isset($settings['define_root'])) {
         extract($settings['define_root']);
     }
@@ -42,6 +43,7 @@ function define_webroot($settings = array()) {
 	define('TESTING', $testing);
 	define('SSL', $protocol === "https://");
     define('RUNROOT', WEBROOT);
+	define('DEBUG', ONLINE ? Config::get('display_errors_when_live') : 1);
 }
 define_webroot($settings);
 

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Vanilla Router for formr.org
  * Heavily relies on defined .htaccess
@@ -59,6 +58,7 @@ class Router {
         if (is_dir($module_dir)) {
             if ($this->submodule && is_dir($this->path($module_dir, $this->submodule))) {
                 $sub_module_dir = $this->path($module_dir, $this->submodule);
+
                 if ($this->controller && is_dir($this->path($sub_module_dir, $this->controller))) {
                     $this->file = $this->path($sub_module_dir, $this->controller, 'index.php');
                 } elseif ($this->controller) {
@@ -91,7 +91,8 @@ class Router {
         if ($this->site->inAdminSurveyArea() && !file_exists($this->file)) {
             if ($this->params && file_exists($fileFromParams)) {
                 $this->file = $fileFromParams;
-                $this->site->request->study_name = !empty($this->directPathParts[4]) ? $this->directPathParts[4] : '';
+				$second_to_last = count($this->directPathParts)-2;
+                $this->site->request->study_name = !empty($this->directPathParts[$second_to_last]) ? $this->directPathParts[$second_to_last] : '';
             } else {
                 $survey_name = pathinfo($this->file, PATHINFO_FILENAME);
                 $this->file = dirname($this->file) . '/index.php';
@@ -102,7 +103,8 @@ class Router {
         if ($this->site->inAdminRunArea() && !file_exists($this->file)) {
             if ($this->params && file_exists($fileFromParams)) {
                 $this->file = $fileFromParams;
-                $this->site->request->run_name = !empty($this->directPathParts[4]) ? $this->directPathParts[4] : '';
+				$second_to_last = count($this->directPathParts)-2;
+                $this->site->request->run_name = !empty($this->directPathParts[$second_to_last]) ? $this->directPathParts[$second_to_last] : '';
             } else {
                 $run_name = pathinfo($this->file, PATHINFO_FILENAME);
                 $this->file = dirname($this->file) . '/index.php';

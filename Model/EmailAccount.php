@@ -1,5 +1,4 @@
 <?php
-#require_once INCLUDE_ROOT ."vendor/phpmailer/phpmailer/class.phpmailer.php";
 class EmailAccount
 {
 	public $id = null;
