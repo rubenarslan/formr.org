@@ -1,5 +1,4 @@
 <?php
-require_once INCLUDE_ROOT . "Model/DB.php";
 #require_once INCLUDE_ROOT . 'vendor/ircmaxell/password-compat/lib/password.php';
 
 class User
@@ -389,10 +388,7 @@ formr robots";
 		return false;
 	}
 
-
-
-	function getAvailableRuns()
-	{
+	function getAvailableRuns() {
 		$runs = $this->dbh->query("SELECT name,title, public_blurb_parsed FROM `survey_runs` WHERE public > 2");
 		$results = array();
 		while($run = $runs->fetch())

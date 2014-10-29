@@ -1,6 +1,4 @@
 <?php
-require_once INCLUDE_ROOT."Model/RunUnit.php";
-
 class Shuffle extends RunUnit {
 	public $errors = array();
 	public $id = null;

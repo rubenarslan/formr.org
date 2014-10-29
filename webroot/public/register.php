@@ -1,29 +1,23 @@
 <?php
-require_once '../../define_root.php';
-require_once INCLUDE_ROOT.'Model/Site.php';
+/* @var $user User */
+/* @var $site Site */
 
 //fixme: cookie problems lead to fatal error with missing user code
 if($user->loggedIn()) {
-	alert('You were already logged in. Please logout before you can register.','alert-info');
+	alert('You were already logged in. Please logout before you can register.', 'alert-info');
 	redirect_to("index");
 }
 
-if(!empty($_POST)) {
-	if( 
-		$user->register($_POST['email'],$_POST['password'])
-	)
-	{
+if($site->request->str('email')) {
+	if($user->register($site->request->str('email'), $site->request->str('password'))) {
 		alert('<strong>Success!</strong> You were registered and logged in!','alert-success');
 		redirect_to('index');
-	}
-	else {
+	} else {
 		alert(implode($user->errors),'alert-danger');
 	}
 }
-
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/public_nav.php";
 ?>
+<?php Template::load('header_nav'); ?>
 <div class="row">
 	<div class="col-lg-4 col-lg-offset-1 col-sm-5 col-sm-offset-1 col-xs-12 well">
 		<h2>Sign up</h2>
@@ -59,5 +53,4 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 		</form>
 	</div>
 </div>
-<?php
-require_once INCLUDE_ROOT . "View/footer.php";
+<?php Template::load('footer');

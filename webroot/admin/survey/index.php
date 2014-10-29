@@ -1,23 +1,23 @@
-<?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT.'View/admin_header.php';
-
-
+<?php 
 if( !empty($_POST) ) {
 	$study->changeSettings($_POST);
-	redirect_to(WEBROOT."admin/survey/{$study->name}/index");
+	redirect_to(WEBROOT . "admin/survey/{$study->name}");
 }
 
-require_once INCLUDE_ROOT.'View/header.php';
+if (empty($study)) {
+    redirect_to(WEBROOT . 'admin/survey/add_survey');
+}
 
-require_once INCLUDE_ROOT.'View/acp_nav.php';
+Template::load('header');
+Template::load('acp_nav');
+
 ?>
 
 <div class="row">
 	<div class="col-lg-7">
 		<h2><?=_('Survey settings'); ?></h2>
 	
-		<form method="POST" action="<?=WEBROOT?>admin/survey/<?=$study->name?>/index">
+		<form method="POST" action="<?=WEBROOT?>admin/survey/<?=$study->name?>">
 			<table class="table table-striped editstudies">
 				<thead>
 					<tr>
@@ -43,5 +43,4 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 		</form>
 	</div>
 </div>
-<?php
-require_once INCLUDE_ROOT.'View/footer.php';
+<?php Template::load('footer');

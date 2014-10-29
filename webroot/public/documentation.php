@@ -1,14 +1,4 @@
-<?php
-require_once '../../define_root.php';
-require_once INCLUDE_ROOT."Model/Site.php";
-
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/public_nav.php";
-
-
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/public_nav.php";
-?>
+<?php Template::load('header_nav'); ?>
 <div class="row">
 	<div class="col-md-8">
 		<h2>formr documentation</h2>
@@ -35,25 +25,16 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 	
 		<div class="tab-content">
 			<div class="tab-pane fade" id="run_module_explanations">
-					<?php
-					require INCLUDE_ROOT.'View/run_module_explanations.php';	
-					?>
+				<?php Template::load('run_module_explanations'); ?>
 			</div>
 			<div class="tab-pane fade" id="sample_survey_sheet">
-				<?php
-				require INCLUDE_ROOT.'View/sample_survey_sheet.php';	
-				?>
+                <?php Template::load('sample_survey_sheet'); ?>
 			</div>
 			<div class="tab-pane fade" id="sample_choices_sheet">
-				<?php
-				require INCLUDE_ROOT.'View/sample_choices_sheet.php';	
-				?>
+                <?php Template::load('sample_choices_sheet'); ?>
 			</div>
 			<div class="tab-pane fade" id="available_items">
-				<?php
-				require INCLUDE_ROOT.'View/item_types.php';	
-				?>
-
+                <?php Template::load('item_types'); ?>
 			</div>
 			<div class="tab-pane fade in active" id="features">
 				<h4>
@@ -147,5 +128,4 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 	</div>
 </div>
 
-<?php
-require_once INCLUDE_ROOT . "View/footer.php";
+<?php Template::load('footer');

@@ -1,9 +1,4 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-
-require_once INCLUDE_ROOT . "Model/EmailAccount.php";
-
 $acc = new EmailAccount($fdb, $_GET['account_id'], $user->id);
 
 if(! $user->created($acc)):
@@ -21,8 +16,8 @@ elseif(!empty($_POST))
 	alert('<strong>Success!</strong> Your email account settings were changed!','alert-success');
 	redirect_to("/admin/mail/edit?account_id=".$_GET['account_id']);
 }
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
+Template::load('header');
+Template::load('acp_nav');
 ?>
 <div class="col-md-6 col-lg-5 col-sm-7 col-md-offset-1 well">
 	<h2>edit email account</h2>
@@ -100,4 +95,4 @@ require_once INCLUDE_ROOT . "View/acp_nav.php";
 </form>
 </div>
 <?php
-require_once INCLUDE_ROOT . "View/footer.php";
+Template::load('footer');
