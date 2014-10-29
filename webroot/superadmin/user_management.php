@@ -1,15 +1,10 @@
 <?php
-require_once '../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-$js = '<script src="'.WEBROOT.'assets/run_users.js"></script>';
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
-require_once INCLUDE_ROOT . "Model/Pagination.php";
+    Template::load('header', array('js' => '<script src="'.WEBROOT.'assets/run_users.js"></script>'));
+    Template::load('acp_nav');
 ?>	
 <h2>formr users</h2>
 <?php
-$user_count= $fdb->prepare("SELECT COUNT(id) AS count
-FROM `survey_users`");
+$user_count= $fdb->prepare("SELECT COUNT(id) AS count FROM `survey_users`");
 
 $pagination = new Pagination($user_count, 200, true);
 $limits = $pagination->getLimits();

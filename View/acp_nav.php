@@ -248,7 +248,7 @@ $resultCount = $study->getResultCount();
 	<nav class="col-lg-2 col-md-2 col-sm-3">
 		<ul class="fa-ul  fa-ul-more-padding">
 			<li>
-				<a href="<?=WEBROOT?><?php echo $run->name; ?>" title="To play as a new user, test the run in a new private/incognito window (right-click in Chrome or Firefox). To play as yourself, simply click the link (remember that the run saves your position and progress)!">
+				<a href="<?=RUNROOT?><?php echo $run->name; ?>" title="To play as a new user, test the run in a new private/incognito window (right-click in Chrome or Firefox). To play as yourself, simply click the link (remember that the run saves your position and progress)!">
 					<i class="fa-li fa fa-play"></i> <?php echo _("Test run"); ?></a>
 			</li>
 			

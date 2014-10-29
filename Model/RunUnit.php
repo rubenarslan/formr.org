@@ -1,6 +1,4 @@
 <?php
-require_once INCLUDE_ROOT."Model/DB.php";
-
 class RunUnitFactory
 {
 	public function make($dbh, $session, $unit, $run_session = NULL)
@@ -10,7 +8,6 @@ class RunUnitFactory
 		if(!in_array($type, array('Survey','Pause','Email','External','Page','SkipBackward','SkipForward','Shuffle')))
 			die('The unit type is not allowed!');
 	
-		require_once INCLUDE_ROOT . "Model/$type.php";
 		return new $type($dbh, $session, $unit, $run_session);
 	}
 }

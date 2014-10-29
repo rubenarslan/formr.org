@@ -1,31 +1,21 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT.'View/admin_header.php';
-
-if (!empty($_POST) AND !isset($_FILES['uploaded'])) 
-{
+if (!empty($_POST) AND !isset($_FILES['uploaded'])) {
 	alert('<strong>Error:</strong> You have to select an item table file here.','alert-danger');
-}
-elseif(isset($_FILES['uploaded']))
-{
+} elseif(isset($_FILES['uploaded'])) {
 	$filename = basename( $_FILES['uploaded']['name']);
 	$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/","$1",$filename); // take only the first part, before the dash if present or the dot if present
 	
-	if($study->name !== $survey_name)
-	{
+	if($study->name !== $survey_name) {
 		alert('<strong>Error:</strong> The uploaded file name <code>'.htmlspecialchars($survey_name).'</code> did not match the study name <code>'.$study->name.'</code>.','alert-danger');
-	}
-	else
-	{
-		if($study->uploadItemTable($_FILES['uploaded'], $_POST['delete_confirm']))
-		{
+	} else {
+		if($study->uploadItemTable($_FILES['uploaded'], $_POST['delete_confirm'])) {
 			redirect_to("admin/survey/{$study->name}/show_item_table");
 		}
 	}
 }
 
-require_once INCLUDE_ROOT.'View/header.php';
-require_once INCLUDE_ROOT.'View/acp_nav.php';
+Template::load('header');
+Template::load('acp_nav');
 ?>
 
 <div class="row">
@@ -123,19 +113,13 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 	
 		<div class="tab-content">
 			<div class="tab-pane fade" id="sample_survey_sheet">
-				<?php
-				require INCLUDE_ROOT.'View/sample_survey_sheet.php';	
-				?>
+				<?php Template::load('sample_survey_sheet'); ?>
 			</div>
 			<div class="tab-pane fade" id="sample_choices_sheet">
-				<?php
-				require INCLUDE_ROOT.'View/sample_choices_sheet.php';	
-				?>
+				<?php Template::load('sample_choices_sheet');?>
 			</div>
 			<div class="tab-pane fade in active" id="available_items">
-				<?php
-				require INCLUDE_ROOT.'View/item_types.php';	
-				?>
+				<?php Template::load('item_types');?>
 
 			</div>
 		</div>
@@ -143,6 +127,4 @@ require_once INCLUDE_ROOT.'View/acp_nav.php';
 </div>
 
 
-<?php
-
-require_once INCLUDE_ROOT.'View/footer.php';
+<?php Template::load('footer');

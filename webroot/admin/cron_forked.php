@@ -1,6 +1,5 @@
 <?php
 declare(ticks=1);
-require_once '../../define_root.php';
 $lockfilepath = INCLUDE_ROOT.'/tmp/cron.lock';
 if(file_exists($lockfilepath)) {
   die("Cronjob still running.");
@@ -20,11 +19,9 @@ if ($pid == 0) {
 	
 	set_time_limit(360); # defaults to 30
 	ob_start();
-	
-	require_once INCLUDE_ROOT . "Model/Site.php";
-	require_once INCLUDE_ROOT . 'Model/Run.php';
-	require_once INCLUDE_ROOT . "View/header.php";
-	require_once INCLUDE_ROOT . "View/acp_nav.php";
+
+	Template::load('header');
+	Template::load('acp_nav');
 	session_over($site, $user);
 	if($noPCNTL)
 		echo 'PCNTL functions not available on this PHP installation, cronjobs might overlap. PCNTL is not available when running as webserver, have to run from command line.<br>';
@@ -56,8 +53,6 @@ if ($pid == 0) {
 		$dues = $run->getCronDues();
 	
 		foreach($dues AS $session):
-			require_once INCLUDE_ROOT . "Model/RunSession.php";
-		
 			$run_session = new RunSession($fdb, $run->id, 'cron', $session);
 		
 			$types = $run_session->getUnit(); // start looping thru their units.
@@ -118,7 +113,7 @@ if ($pid == 0) {
 	// error_log( $msg, 3, INCLUDE_ROOT ."tmp/logs/cron.log");
 	$user->cron = false;
 
-	require_once INCLUDE_ROOT . "View/footer.php";
+	Template::load('footer');
 
 	ob_flush();
 	// execute code

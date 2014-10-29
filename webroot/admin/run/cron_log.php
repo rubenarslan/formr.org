@@ -1,9 +1,6 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
-require_once INCLUDE_ROOT . "Model/Pagination.php";
+    Template::load('header');
+    Template::load('acp_nav');
 ?>	
 <h2>cron log</h2>
 <p>
@@ -132,5 +129,4 @@ else {
 	</div>
 </div>
 	
-<?php
-require_once INCLUDE_ROOT . "View/footer.php";
+<?php Template::load('footer');

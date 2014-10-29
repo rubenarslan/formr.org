@@ -28,7 +28,7 @@ class ItemFactory
 		$type = str_replace("-","_",$type);
 		$class = "Item_".$type;
 	
-		if(!class_exists($class,false)) // false to combat false positives using the spl_autoloader 
+		if(!class_exists($class, true))
 			return false;
 	
 		return new $class($item);

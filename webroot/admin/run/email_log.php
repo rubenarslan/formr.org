@@ -1,10 +1,8 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT . "View/admin_header.php";
-require_once INCLUDE_ROOT . "View/header.php";
-require_once INCLUDE_ROOT . "View/acp_nav.php";
-require_once INCLUDE_ROOT . "Model/Pagination.php";
-?>	
+Template::load('header');
+Template::load('acp_nav');
+?>
+
 <h2>email log <small>sent during runs</small></h2>
 
 <?php
@@ -98,5 +96,4 @@ $pagination->render("admin/run/".$run->name."/email_log");
 }
 	?>
 
-<?php
-require_once INCLUDE_ROOT . "View/footer.php";
+<?php Template::load('footer');

@@ -1,10 +1,8 @@
 <?php
-require_once '../../../define_root.php';
-require_once INCLUDE_ROOT.'View/admin_header.php';
+Template::load('header');
+Template::load('acp_nav');
 
 $users = $run->getNumberOfSessionsInRun();
-require_once INCLUDE_ROOT.'View/header.php';
-require_once INCLUDE_ROOT.'View/acp_nav.php';
 $overview_script = $run->getOverviewScript();
 $user_overview = $run->getUserCounts();
 
@@ -23,5 +21,4 @@ session_over($site, $user);
 	</div>
 </div>
 
-<?php
-require_once INCLUDE_ROOT.'View/footer.php';
+<?php Template::load('footer');
