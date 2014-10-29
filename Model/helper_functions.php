@@ -443,3 +443,13 @@ function echo_time_points($points)
 	echo "took ".round((microtime(true)-$_SERVER["REQUEST_TIME_FLOAT"])/60,6). " minutes to the end";	
 //	echo "--->";
 }
+
+function crypto_token($length)
+{
+	$base64 = base64_encode(openssl_random_pseudo_bytes($length, $crypto_strong));
+	if(!$crypto_strong):
+		alert("Generated cryptographic tokens are not strong.", 'alert-error');
+		bad_request();
+	endif;
+	return $base64;
+}
