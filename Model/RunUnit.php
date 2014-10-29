@@ -273,14 +273,14 @@ class RunUnit {
 	{
 		return parent::runDialog($prepend,'<i class="fa fa-puzzle-piece"></i>');
 	}
-	protected $survey_results = array();
+	protected $survey_results;
 	public function getUserDataInRun($needed)
 	{
 		$surveys = $needed['matches'];
 		$matches_variable_names = $needed['matches_variable_names'];
-		$this->survey_results = array();
+		$this->survey_results = array('datasets' => array());
 		foreach($surveys AS $survey_name):
-			if(!isset($this->survey_results[$survey_name])):
+			if(!isset($this->survey_results['datasets'][$survey_name])):
 				
 				if(empty($matches_variable_names[ $survey_name ])):
 					continue;
@@ -332,24 +332,42 @@ class RunUnit {
 					$get_results->bindValue(':run_session_id', $this->run_session_id);
 				endif;
 				$get_results->execute();
-				$this->survey_results[$survey_name] = array();
+				$this->survey_results['datasets'][$survey_name] = array();
 				while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
 					foreach($res AS $var => $val):
 
-						if(!isset($this->survey_results[$survey_name][$var]))
-							$this->survey_results[$survey_name][$var] = array();
+						if(!isset($this->survey_results['datasets'][$survey_name][$var]))
+							$this->survey_results['datasets'][$survey_name][$var] = array();
 					
-						$this->survey_results[$survey_name][$var][] = $val;
+						$this->survey_results['datasets'][$survey_name][$var][] = $val;
 					
 					endforeach;
 				endwhile;
 			endif;
 		endforeach;
-		
-		if($needed['token_add'] !== null AND ! isset($this->survey_results[ $needed['token_add'] ])):
-			$this->survey_results[ $needed['token_add'] ] = array();
-		endif;
 
+		if($needed['formr_last_action_date'] OR $needed['formr_last_action_time']):
+			$last_action = $this->dbh->prepare("SELECT `created` FROM `survey_unit_sessions` 
+				WHERE 
+				`id` = :session_id AND 
+				`unit_id` = :unit_id AND 
+				`ended` IS NULL
+			LIMIT 1;");
+			$last_action->bindParam(":session_id", $this->session_id);
+			$last_action->bindParam(":unit_id", $this->id);
+			$last_action->execute();
+			$last_action_time = strtotime($last_action->fetch()['created']);
+			if($needed['formr_last_action_date']):
+				$this->survey_results['.formr$last_action_date'] = "as.Date('".date("Y-m-d",$last_action_time)."')";
+			endif;
+			if($needed['formr_last_action_time']):
+				$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T",$last_action_time)."')";
+			endif;
+		endif;
+		
+		if($needed['token_add'] !== null AND ! isset($this->survey_results['datasets'][ $needed['token_add'] ])):
+			$this->survey_results['datasets'][ $needed['token_add'] ] = array();
+		endif;
 		return $this->survey_results;
 	}
 	public function makeOpenCPU()
@@ -448,7 +466,12 @@ class RunUnit {
 			endif;
 		endforeach;
 		
-		return compact("matches", "matches_variable_names", "token_add");
+		$formr_last_action_time = false;
+		$formr_last_action_date = false;
+		if(preg_match("/\btime_passed\b/",$q)) $formr_last_action_time = true;
+		if(preg_match("/\bnext_day\b/",$q)) $formr_last_action_date = true;
+		
+		return compact("matches", "matches_variable_names", "token_add", "formr_last_action_date", "formr_last_action_time");
 //		return $matches;
 	}
 	public function parseBodySpecial()
