@@ -1,6 +1,4 @@
 <?php
-#require_once INCLUDE_ROOT . 'vendor/ircmaxell/password-compat/lib/password.php';
-
 class User
 {
 	public $id = null;
