@@ -29,8 +29,6 @@ class FirstTest extends PHPUnit_Framework_TestCase
 # so basically because I rely on a global singleton-ish thing testing is difficult
 #	public function testUploadOfAllWidgetsTable()
 #	{
-#		require_once INCLUDE_ROOT . "Model/Site.php";
-#		require_once INCLUDE_ROOT . "Model/Survey.php";
 #		
 #		$study = new Survey($fdb, null, array(
 #			'name' => 'all_widgets',
