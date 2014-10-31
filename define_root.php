@@ -10,7 +10,7 @@ require_once INCLUDE_ROOT . "config_default/settings.php";
 require_once INCLUDE_ROOT . "config/settings.php";
 
 // Overwrite application settings with DEV_ENV if defined
-if (isset(getenv('DEV_ENV'))):
+if (getenv('DEV_ENV')):
 	$devenv = getenv('DEV_ENV');
 else:
 	$devenv = "default";
