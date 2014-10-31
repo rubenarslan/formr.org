@@ -15,7 +15,7 @@ class Template {
     public static function load($template, $vars = array()) {
         global $site, $user, $fdb, $study, $run;
         //$vars['site'] = $site;
-        $file = FORMRORG_ROOT . '/View/' . $template . '.php';
+        $file = INCLUDE_ROOT . 'View/' . $template . '.php';
         if (file_exists($file)) {
             extract($vars);
             include $file;
