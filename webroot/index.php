@@ -1,7 +1,5 @@
 <?php
-
 require_once '../define_root.php';
-
 error_reporting(-1);
 if (DEBUG > -1) {
     ini_set('display_errors', 1);
@@ -60,10 +58,12 @@ endif;
 $router = Router::getInstance()->route();
 $file = $router->getFile();
 if ($file && file_exists($file)) {
+	
     if ($site->inAdminArea() || $site->inSuperAdminArea()) {
-        require_once FORMRORG_ROOT . '/View/admin_header.php';
+        require_once INCLUDE_ROOT . 'View/admin_header.php';
     }
     require_once $file;
+	
 } else {
     not_found();
 }

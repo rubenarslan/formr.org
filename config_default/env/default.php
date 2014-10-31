@@ -7,7 +7,6 @@
 $settings['define_root'] = array(
     'protocol' => 'http://',
     'doc_root' => 'localhost/formr.org/',
-    'server_root' => FORMRORG_ROOT . '/',
     'online' => false,
     'testing' => true
 );

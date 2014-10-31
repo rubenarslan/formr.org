@@ -99,7 +99,6 @@ function pr($string) {
 		echo "</pre>";
     }
 }
-
 if (!function_exists('_')) {
 	function _($text) {
 		return $text;
