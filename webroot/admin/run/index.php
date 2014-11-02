@@ -120,7 +120,7 @@ Template::load('acp_nav');
             <div class="modal-content">                              
                 <div class="modal-header">                                 
                     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>                                 
-                    <h3>Test result</h3>                             
+                    <h3>%{header}</h3>                             
                 </div>                             
                 <div class="modal-body">%{body}</div>
                 <div class="modal-footer">                             

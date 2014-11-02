@@ -1,11 +1,9 @@
-function RunUnit(run)
-{
+function RunUnit(run) {
     this.run = run;
     this.block = $('<div class="run_unit row"></div>');
     run.form.find('.run_units').append(this.block);
 }
-RunUnit.prototype.init = function (content)
-{
+RunUnit.prototype.init = function (content) {
     this.block.htmlPolyfill($($.parseHTML(content))); // .html annoying but necessary, somewhere in here a clone where there should be none, appears
     this.position = this.block.find('.run_unit_position input.position');
 
@@ -40,8 +38,7 @@ RunUnit.prototype.init = function (content)
             });
 
     this.test_button = this.block.find('a.unit_test');
-    this.test_button
-            .click($.proxy(this.test, this));
+    this.test_button.click($.proxy(this.test, this));
 
     this.remove_button = this.block.find('button.remove_unit_from_run');
     this.remove_button
@@ -102,8 +99,7 @@ RunUnit.prototype.test = function (e) {
         data: {"run_unit_id": this.run_unit_id, "special": this.special},
         method: 'GET'
     }).done($.proxy(function (data) {
-        //var $modal = $($.parseHTML('<div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">                     <div class="modal-dialog">                         <div class="modal-content">                              <div class="modal-header">                                 <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>                                 <h3>Test result</h3>                             </div>                             <div class="modal-body">' + data + '  </div>                             <div class="modal-footer">                             <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>                         </div>                     </div>                 </div>'));
-        var $modal = $($.parseHTML(getHTMLTemplate('tpl-test-modal', {'body': data})));
+        var $modal = $($.parseHTML(getHTMLTemplate('tpl-test-modal', {'body': data, 'header': 'Test Results'})));
         $modal.modal('show').on('hidden.bs.modal', function () {
             $modal.remove();
         });
@@ -252,8 +248,7 @@ function Run(run_form) {
     this.units = [];
     var json_units = $.parseJSON(this.form.attr('data-units'));
 
-    for (var i = 0; i < json_units.length; i++)
-    {
+    for (var i = 0; i < json_units.length; i++) {
         this.units[ i ] = new RunUnit(this);
         this.loadUnit(json_units[i], this.units[ i ]);
     }
@@ -368,11 +363,21 @@ Run.prototype.addUnit = function (href)
 Run.prototype.exportUnits = function () {
     var units = {};
     var runUrl = this.url;
+	var unsavedChanges = false;
 
     for (var i = 0; i < this.units.length; i++) {
         var unit = this.units[i].serialize();
+		unsavedChanges = unsavedChanges || this.units[i].unsavedChanges;
         units[unit.position] = unit;
     }
+
+	if (unsavedChanges) {
+		var $modal = $($.parseHTML(getHTMLTemplate('tpl-test-modal', {'body': 'Please save all changes before export.', 'header': 'Unsaved Changes'})));
+		$modal.modal('show').on('hidden.bs.modal', function () {
+			$modal.remove();
+		});
+		return;
+	}
 
     var json = JSON.stringify(units, null, "\t");
     var $modal = $($.parseHTML(getHTMLTemplate('tpl-export-units', {'json': json})));
@@ -482,7 +487,7 @@ Run.prototype.reorderUnits = function (e)
 Run.prototype.lock = function (on, context)
 {
     context.find('.position, .remove_unit_from_run, .reorder_units, .unit_save, .form-control, select, .from_days, .add_run_unit').each(function (i, elm)
-    {
+	{
         if (on)
         {
 
@@ -509,25 +514,20 @@ Run.prototype.lock = function (on, context)
     });
 }
 
-
-Run.prototype.publicToggle = function (e)
-{
+Run.prototype.publicToggle = function (e) {
     var $this = $(this);
     $this.parents(".btn-group").find(".btn-checked").removeClass("btn-checked");
     $this.toggleClass('btn-checked', 1);
-    $.ajax(
-            {
-                url: $this.attr('href'),
-                dataType: "html",
-                method: 'POST',
-            })
-            .fail(ajaxErrorHandling);
+    $.ajax({
+		url: $this.attr('href'),
+		dataType: "html",
+		method: 'POST',
+	}).fail(ajaxErrorHandling);
     return false;
-
-}
+};
 
 $(document).ready(function () {
     $('.edit_run').each(function (i, elm) {
         new Run($(elm));
-    })
+    });
 });
