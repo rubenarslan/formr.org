@@ -4,7 +4,7 @@
  */
 
 webshim.setOptions(
-        {
+		{
             extendNative: false,
             forms: {
                 customDatalist: true,
@@ -103,6 +103,10 @@ function getHTMLTemplate(id, params) {
    var $tpl = jQuery('#'+id);
    if (!$tpl.length) return;
    return stringTemplate($.trim($tpl.html()), params);
+}
+
+function toggleElement(id) {
+	$('#'+id).toggleClass('hidden');
 }
 
 /**

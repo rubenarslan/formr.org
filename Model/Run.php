@@ -51,11 +51,10 @@ class Run {
             $this->name = $name;
             $this->valid = true;
             $this->user_id = 0;
-
             return true;
         endif;
 
-        if ($name !== null OR ( $name = $this->create($options))):
+        if ($name !== null OR ($name = $this->create($options))):
             $this->name = $name;
 
             $run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active,locked, header_image_path,title,description,description_parsed,footer_text,footer_text_parsed,public_blurb,public_blurb_parsed,custom_css_path,custom_js_path FROM `survey_runs` WHERE name = :run_name LIMIT 1");
@@ -80,6 +79,9 @@ class Run {
                 $this->public_blurb_parsed = $vars['public_blurb_parsed'];
                 $this->custom_css_path = $vars['custom_css_path'];
                 $this->custom_js_path = $vars['custom_js_path'];
+				if (!empty($options['run_units_json']) && ($json = @json_decode($options['run_units_json']))) {
+					$this->addRunUnits((array) $json, true);
+				}
 
                 $this->valid = true;
             endif;
@@ -182,7 +184,7 @@ class Run {
         elseif (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,255}/", $name)):
             $this->errors[] = _("The run's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
             return false;
-        elseif ($this->existsByName($name) OR $name == "fake_test_run"):
+        elseif ($this->existsByName($name) OR $name == "fake_test_run" OR Router::isWebRootDir($name)):
             $this->errors[] = __("The run's name '%s' is already taken.", h($name));
             return false;
         endif;
@@ -201,6 +203,38 @@ class Run {
 
         return $name;
     }
+
+	/**
+	 * Add a set of run units to current run.
+	 * Input is an array of stdClass objects to be converted to RunUnits
+	 * Foreach item in $units check at least for 'type' and 'position' attributes
+	 *
+	 * @param array $units An array of stdClass objects to be converted to units
+	 * @param boolean $creatng Is run being created or not. If so Surveys will be mocked
+	 * @return Run;
+	 */
+	public function addRunUnits($units, $creating = false) {
+		$ruFactory = new RunUnitFactory();
+		foreach ($units as $unit) {
+			if (!empty($unit->position) && !empty($unit->type)) {
+				// for some reason Endpage replaces Page
+				if (strpos($unit->type, 'page') !== false) {
+					$unit->type = 'Page';
+				}
+
+				if (strpos($unit->type, 'Survey') !== false && $creating) {
+					$unit->mock = true;
+				}
+
+				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit);
+				$unitObj->create((array) $unit);
+				if($unitObj->valid) {
+					$unitObj->addToRun($this->id, $unit->position);
+				}
+			}
+		}
+		return $this;
+	}
 
     public function getUploadedFiles() {
         $get_files = $this->dbh->prepare("SELECT 
@@ -390,12 +424,7 @@ plot(cars)
     }
 
     public function getServiceMessageId() {
-        $g_unit = $this->dbh->prepare(
-                "SELECT `survey_runs`.service_message
-			
-			 FROM `survey_runs` 
-		WHERE 
-			`survey_runs`.id = :run_id;");
+        $g_unit = $this->dbh->prepare("SELECT `survey_runs`.service_message FROM `survey_runs` WHERE `survey_runs`.id = :run_id;");
         $g_unit->bindParam(':run_id', $this->id);
         $g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
         $service_message = $g_unit->fetch(PDO::FETCH_ASSOC);
@@ -416,10 +445,8 @@ plot(cars)
 This study is currently being serviced. Please return at a later time."));
         if ($unit->valid):
             $add_service_message = $this->dbh->prepare(
-                    "UPDATE `survey_runs`
-				SET service_message = :service_message
-			WHERE 
-				`survey_runs`.id = :run_id;");
+				"UPDATE `survey_runs` SET service_message = :service_message WHERE `survey_runs`.id = :run_id;"
+			);
             $add_service_message->bindParam(':run_id', $this->id);
             $add_service_message->bindParam(':service_message', $unit->id);
             $add_service_message->execute() or die(print_r($add_service_message->errorInfo(), true));
@@ -853,10 +880,28 @@ This study is currently being serviced. Please return at a later time."));
     }
 
     public function exportUnits($units) {
-        // validate $units and compare with run's units
-		// alert("<strong>Error</strong> export function not implemented for '{$this->name}'.", 'alert-danger');
-		//$unit_ids = $this->getAllUnitIds();
-		//print_r($unit_ids); die();
+		$export_dir = Config::get('run_exports_dir');
+		if (!$export_dir) {
+			alert("<strong>Error</strong> Export directory is not configured in 'run_exports_dir'", 'alert-danger');
+			return false;
+		}
+
+		if (!is_dir($export_dir) && !mkdir($export_dir, 0644, true)) {
+			alert("<strong>Error</strong> Configured run export directory does not exist and could not be created", 'alert-danger');
+			return false;
+		}
+
+		$json = @json_encode($units, JSON_PRETTY_PRINT);
+		if (!$json) {
+			alert("<strong>Error</strong> Export data could not be created", 'alert-danger');
+			return false;
+		}
+
+		$filename = $export_dir . '/' . $this->name . '.' . microtime(true) . '.json';
+		if (!file_put_contents($filename, $json)) {
+			alert("<strong>Error</strong> Unable to create json file to save data", 'alert-danger');
+			return false;
+		}
 		return true;
     }
 

@@ -3,7 +3,6 @@
 if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
 
 	$unit_factory = new RunUnitFactory();
-
 	$unit = $unit_factory->make($fdb, null, array('type' => $_GET['type'], 'position' => $_POST['position']));
 	$unit->create($_POST);
 

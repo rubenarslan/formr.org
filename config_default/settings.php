@@ -1,4 +1,5 @@
 <?php
+
 $settings['opencpu_instance'] = 'https://public.opencpu.org';
 $settings['alternative_opencpu_instance'] = 'https://public.opencpu.org'; # used in admin/test_opencpu
 
@@ -20,5 +21,6 @@ $settings['expire_registered_session'] = 7 * 24 * 60 * 60; # for registered user
 $settings['expire_admin_session'] = 7 * 24 * 60 * 60; # for admins. in seconds (defaults to a week). has to be lower than the expiry for registered users.
 $settings['session_cookie_lifetime'] = max($settings['expire_unregistered_session'], $settings['expire_registered_session'], $settings['expire_admin_session']); # upper limit for all values above (defaults to their max)
 
-
 $settings['admin_maximum_size_of_uploaded_files'] = 50; # in MB
+
+$settings['run_exports_dir'] = INCLUDE_ROOT . 'exports/runs';
