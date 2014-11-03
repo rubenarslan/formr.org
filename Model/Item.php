@@ -57,12 +57,11 @@ class ItemFactory
 
 			$survey->openCPU->admin_usage = $survey->admin_usage;
 
-		
 			$survey->openCPU->addUserData($survey->getUserDataInRun(
-				$survey->dataNeeded($survey->dbh, $showif, $survey->results_table )
+				$survey->dataNeeded($survey->dbh, $showif, $survey->name )
 			));
 		
-			$result = $survey->openCPU->evaluateWith($survey->results_table, $showif);
+			$result = $survey->openCPU->evaluateWith($survey->name, $showif);
 
 			if($survey->openCPU->anyErrors()):
 				$result = true;
@@ -383,7 +382,7 @@ class Item extends HTML_element
 		
 		$survey->openCPU->admin_usage = $survey->admin_usage;
 	
-		$survey->openCPU->addUserData($survey->getUserDataInRun( $survey->dataNeeded($survey->dbh, $this->label, $survey->results_table ) ));
+		$survey->openCPU->addUserData($survey->getUserDataInRun( $survey->dataNeeded($survey->dbh, $this->label, $survey->name ) ));
 		
 		$markdown = $survey->openCPU->knitForUserDisplay($this->label);
 	
@@ -415,7 +414,7 @@ class Item extends HTML_element
 	}
 	public function determineDynamicValue($survey)
 	{
-		if($this->value=="sticky") $this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
+		if($this->value=="sticky") $this->value = "{$this->name}";
 		
 		if($survey->openCPU === NULL):
 			$survey->openCPU = $survey->makeOpenCPU();
@@ -425,9 +424,9 @@ class Item extends HTML_element
 
 		$survey->openCPU->admin_usage = $survey->admin_usage;
 
-		$survey->openCPU->addUserData($survey->getUserDataInRun( $survey->dataNeeded($survey->dbh, $this->value, $survey->results_table ) ));
+		$survey->openCPU->addUserData($survey->getUserDataInRun( $survey->dataNeeded($survey->dbh, $this->value, $survey->name ) ));
 		
-		$this->input_attributes['value'] = $survey->openCPU->evaluateWith($survey->results_table, $this->value);
+		$this->input_attributes['value'] = $survey->openCPU->evaluateWith($survey->name, $this->value);
 		
 		if($survey->openCPU->anyErrors()):
 			$this->alwaysInvalid();
@@ -979,8 +978,6 @@ class Item_mc extends Item
 		$ret = '<div class="mc-table">
 			<input '.self::_parseAttributes($this->input_attributes,array('type','id','required')).' type="hidden" value="" id="item' . $this->id . '_">
 		';
-		
-#		pr($this->choices);
 		
 		$opt_values = array_count_values($this->choices);
 		if(

@@ -34,8 +34,10 @@ class Survey extends RunUnit {
 	public function __construct($fdb, $session, $unit, $run_session = NULL)
 	{
 		if(isset($unit['name']) AND !isset($unit['unit_id'])): // when called via URL
-			$study_data = $fdb->prepare("SELECT id FROM `survey_studies` WHERE name = :name LIMIT 1");
+			$study_data = $fdb->prepare("SELECT id FROM `survey_studies` WHERE user_id = :user_id AND name = :name LIMIT 1");
 			$study_data->bindValue(":name",$unit['name']);
+			global $user;
+			$study_data->bindValue(':user_id',$user->id);
 			$study_data->execute() or die(print_r($study_data->errorInfo(), true));
 			$vars = $study_data->fetch(PDO::FETCH_ASSOC);
 			$unit['unit_id'] = $vars['id']; // parent::__construct needs this
@@ -219,7 +221,6 @@ class Survey extends RunUnit {
 
 		$all_items = $this->already_answered + $this->not_answered;
 		
-		#pr(array_filter($this->unanswered,'proper_type'));
 		if($all_items !== 0) {
 			$this->progress = $this->already_answered / $all_items ;
 
@@ -622,17 +623,19 @@ class Survey extends RunUnit {
 			return false;
 		endif;
 	}
-	protected function existsByName($name)
+	protected function existsByName($name, $results_table)
 	{
 		if(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/",$name)) return;
+		if(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/",$results_table)) return;
 		
-		$exists = $this->dbh->prepare("SELECT name FROM `survey_studies` WHERE name = :name LIMIT 1");
+		$exists = $this->dbh->prepare("SELECT `name` FROM `survey_studies` WHERE name = :name AND  user_id = :user_id LIMIT 1");
 		$exists->bindParam(':name',$name);
+		$exists->bindParam(':user_id',$this->unit['user_id']);
 		$exists->execute() or die(print_r($create->errorInfo(), true));
 		if($exists->rowCount())
 			return true;
 		
-		$reserved = $this->dbh->query("SHOW TABLES LIKE '$name';");
+		$reserved = $this->dbh->query("SHOW TABLES LIKE '$results_table';");
 		if($reserved->rowCount())
 			return true;
 
@@ -668,27 +671,30 @@ class Survey extends RunUnit {
 	public function createIndependently()
 	{
 	    $name = trim($this->unit['name']);
+		$results_table = "formr_".$this->unit['user_id'].'_'.$name;
 	    if($name == ""):
 			alert(_("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored."), 'alert-danger');
 			return false;
 		elseif(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/",$name)):
 			alert('<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from a to Z, 0 to 9 and the underscore. It needs to start with a letter. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>.','alert-danger');
 			return false;
-		elseif($this->existsByName($name)):
+		elseif($this->existsByName($name, $results_table)):
 			alert(__("<strong>Error:</strong> The survey name %s is already taken.",h($name)), 'alert-danger');
 			return false;
 		endif;
 
 		$this->dbh->beginTransaction();
 		$this->id = parent::create('Survey');
-		$create = $this->dbh->prepare("INSERT INTO `survey_studies` (id, user_id,name) VALUES (:run_item_id, :user_id,:name);");
+		$this->name = $name;
+		$this->results_table = $results_table;
+		
+		$create = $this->dbh->prepare("INSERT INTO `survey_studies` (id, created,modified, user_id,name, results_table) VALUES (:run_item_id, NOW(), NOW(), :user_id,:name, :results_table );");
 		$create->bindParam(':run_item_id',$this->id);
 		$create->bindParam(':user_id',$this->unit['user_id']);
 		$create->bindParam(':name',$name);
+		$create->bindParam(':results_table',$this->results_table);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
-		
-		$this->name = $name;
 		
 		$this->changeSettings(array
 			(
@@ -935,7 +941,7 @@ class Survey extends RunUnit {
 		else
 			$columns_string = implode(",\n", $columns).",";
 		
-		$create = "CREATE TABLE `{$this->name}` (
+		$create = "CREATE TABLE `{$this->results_table}` (
 		  `session_id` INT UNSIGNED NOT NULL ,
 		  `study_id` INT UNSIGNED NOT NULL ,
 		  `created` DATETIME NULL DEFAULT NULL ,
@@ -948,12 +954,12 @@ class Survey extends RunUnit {
 		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
 		  PRIMARY KEY (`session_id`) ,
 		  INDEX `ending` (`session_id` DESC, `study_id` ASC, `ended` ASC) ,
-		  CONSTRAINT `fk_{$this->name}_survey_unit_sessions1`
+		  CONSTRAINT `fk_{$this->results_table}_survey_unit_sessions1`
 		    FOREIGN KEY (`session_id` )
 		    REFERENCES `survey_unit_sessions` (`id` )
 		    ON DELETE CASCADE
 		    ON UPDATE NO ACTION,
-		  CONSTRAINT `fk_{$this->name}_survey_studies1`
+		  CONSTRAINT `fk_{$this->results_table}_survey_studies1`
 		    FOREIGN KEY (`study_id` )
 		    REFERENCES `survey_studies` (`id` )
 		    ON DELETE NO ACTION
@@ -993,7 +999,7 @@ class Survey extends RunUnit {
 	private function createResultsTable($syntax)
 	{
 		if($this->deleteResults()):
-			$drop = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}` ;");
+			$drop = $this->dbh->query("DROP TABLE IF EXISTS `{$this->results_table}` ;");
 			$drop->execute();
 		else:
 			return false;
@@ -1034,7 +1040,7 @@ class Survey extends RunUnit {
 	}
 	public function countResults()
 	{
-		$get = "SELECT COUNT(*) AS count FROM `{$this->name}`";
+		$get = "SELECT COUNT(*) AS count FROM `{$this->results_table}`";
 		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
 		$results = array();
 		$row = $get->fetch(PDO::FETCH_ASSOC);
@@ -1043,9 +1049,9 @@ class Survey extends RunUnit {
 	}
 	public function getResults()
 	{ // fixme: shouldnt be using wildcard operator here.
-		$get = "SELECT `survey_run_sessions`.session, `{$this->name}`.* FROM `{$this->name}`
+		$get = "SELECT `survey_run_sessions`.session, `{$this->results_table}`.* FROM `{$this->results_table}`
 		LEFT JOIN `survey_unit_sessions`
-		ON  `{$this->name}`.session_id = `survey_unit_sessions`.id
+		ON  `{$this->results_table}`.session_id = `survey_unit_sessions`.id
 		LEFT JOIN `survey_run_sessions`
 		ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id";
 		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
@@ -1107,7 +1113,7 @@ class Survey extends RunUnit {
 			$this->warnings[] = __("%s results rows were deleted.",array_sum($resC));
 		endif;
 		
-		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
+		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->results_table}`") or die(print_r($this->dbh->errorInfo(), true));
 		
 		$delete_sessions = $this->dbh->prepare ( "DELETE FROM `survey_unit_sessions` 
 		WHERE `unit_id` = :study_id" ) or die(print_r($this->dbh->errorInfo(), true));
@@ -1118,7 +1124,7 @@ class Survey extends RunUnit {
 	}
 	public function backupResults()
 	{
-		$filename = $this->name . date('YmdHis') . ".tab";
+		$filename = $this->results_table . date('YmdHis') . ".tab";
 		if(isset($this->user_id)) $filename = "user" . $this->user_id . $filename;
         $filename = INCLUDE_ROOT ."tmp/backups/results/". $filename;
 
@@ -1127,10 +1133,10 @@ class Survey extends RunUnit {
 	}
 	public function getResultCount()
 	{
-		if($this->dbh->table_exists($this->name)):
-			$get = "SELECT SUM(`{$this->name}`.ended IS NULL) AS begun, SUM(`{$this->name}`.ended IS NOT NULL) AS finished FROM `{$this->name}` 
+		if($this->dbh->table_exists($this->results_table)):
+			$get = "SELECT SUM(`{$this->results_table}`.ended IS NULL) AS begun, SUM(`{$this->results_table}`.ended IS NOT NULL) AS finished FROM `{$this->results_table}` 
 			LEFT JOIN `survey_unit_sessions`
-			ON `survey_unit_sessions`.id = `{$this->name}`.session_id";
+			ON `survey_unit_sessions`.id = `{$this->results_table}`.session_id";
 			$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
 			return $get->fetch(PDO::FETCH_ASSOC);
 		else:
@@ -1143,14 +1149,14 @@ class Survey extends RunUnit {
 		  SELECT took AS 'middle_values' FROM
 		    (
 		      SELECT @row:=@row+1 as `row`, (x.ended - x.created) AS took
-		      FROM `{$this->name}` AS x, (SELECT @row:=0) AS r
+		      FROM `{$this->results_table}` AS x, (SELECT @row:=0) AS r
 		      WHERE 1
 		      -- put some where clause here
 		      ORDER BY took
 		    ) AS t1,
 		    (
 		      SELECT COUNT(*) as 'count'
-		      FROM `{$this->name}` x
+		      FROM `{$this->results_table}` x
 		      WHERE 1
 		      -- put same where clause here
 		    ) AS t2
@@ -1165,7 +1171,7 @@ class Survey extends RunUnit {
 	public function delete()
 	{
 		if($this->deleteResults()): // always back up
-			$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
+			$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->results_table}`") or die(print_r($this->dbh->errorInfo(), true));
 			return parent::delete();
 		endif;
 		return false;
@@ -1210,7 +1216,7 @@ class Survey extends RunUnit {
 				$dialog .= "</select>";
 				$dialog .= '<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Add to this run.</a></div>';
 			else:
-				$dialog .= "<h5>No studies. Add some first</h5>";
+				$dialog .= "<h5>No studies. <a href='".WEBROOT."admin/survey/'>Add some first</a></h5>";
 			endif;
 		endif;
 		$dialog = $prepend . $dialog;

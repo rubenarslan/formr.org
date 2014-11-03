@@ -19,6 +19,8 @@ if(preg_match("/[a-zA-Z0-9]+/",$devenv)):
     $devsettings = INCLUDE_ROOT . "config/env/{$devenv}.php";
     if (is_file($devsettings)):
         require_once $devsettings;
+	else:
+		require_once "config/env/default.php";
 	endif;
 endif;
 
