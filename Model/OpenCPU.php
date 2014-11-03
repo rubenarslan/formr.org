@@ -25,6 +25,7 @@ class OpenCPU {
 		$this->admin_usage = false;
 		$this->http_status = null;
 		$this->hash_of_call = null;
+		$this->called_function = null;
 	}
 	public function addUserData($data)
 	{
@@ -53,7 +54,12 @@ class OpenCPU {
 	{
 		if($this->admin_usage):
 			$error_msg = $result['body'];
-			if(! trim($error_msg)) $error_msg = "OpenCPU appears to be down";
+			if(! trim($error_msg)):
+				$error_msg = "OpenCPU appears to be down.";
+				if(mb_substr($this->instance,0,5)=='https'):
+					$error_msg .= " Maybe check your server's certificates to use encrypted connection to openCPU.";
+				endif;
+			endif;
 			if(is_array($error_msg)) $error_msg = current($error_msg);
 			
 			if(is_array($post)) $post = current($post);
@@ -93,8 +99,10 @@ class OpenCPU {
 		if($was_cached = $this->query_cache($function, $post)):
 			return $was_cached;
 		endif;
+		
+		$this->called_function = $this->instance.'/ocpu/'.$function;
 
-		curl_setopt($this->curl_c, CURLOPT_URL, $this->instance.'/ocpu/'.$function);
+		curl_setopt($this->curl_c, CURLOPT_URL, $this->called_function );
 		
 		if($post !== null):
 			curl_setopt($this->curl_c, CURLOPT_POST, 1); // Method is "POST"
@@ -209,13 +217,13 @@ library(formr)
 		return $this->returnParsed($result, "evaluate");
 	}
 	
-	public function evaluateWith($results_table, $source,$return = '/json')
+	public function evaluateWith($name, $source,$return = '/json')
 	{
 		$post = array('x' => '{ 
 (function() {
 library(formr)
 '.$this->user_data.'
-with(tail('.$results_table.',1), { ## by default evaluated in the most recent results row
+with(tail('.$name.',1), { ## by default evaluated in the most recent results row
 '.$source.'
 })
 })() }');
@@ -350,6 +358,9 @@ $this->user_data .
 			 $response = array(
 				 'Response' => 'OpenCPU at '.$this->instance.' is down.'
 			 );
+			if(mb_substr($this->instance,0,5)=='https'):
+				$response["Response"] .= " Maybe check your server's certificates to use encrypted connection to openCPU.";
+			endif;
 		elseif($this->http_status < 303):
 			$header_parsed = http_parse_headers($result['header']);
 			$available = explode("\n",$result['body']);
@@ -387,6 +398,9 @@ $this->user_data .
 		   		 $response = array(
 		   			 'Response' => 'OpenCPU at '.$this->instance.' is down.'
 		   		 );
+ 				if(mb_substr($this->instance,0,5)=='https'):
+ 					$response['Response'] .= " Maybe check your server's certificates to use encrypted connection to openCPU.";
+ 				endif;
 			endif;
 		else:
 			

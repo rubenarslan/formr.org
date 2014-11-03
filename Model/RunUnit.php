@@ -274,25 +274,27 @@ class RunUnit {
 	public function getUserDataInRun($needed)
 	{
 		$surveys = $needed['matches'];
+		$results_tables = $needed['matches_results_tables'];
 		$matches_variable_names = $needed['matches_variable_names'];
 		$this->survey_results = array('datasets' => array());
-		foreach($surveys AS $survey_name):
+		
+		foreach($surveys AS $study_id => $survey_name):
 			if(!isset($this->survey_results['datasets'][$survey_name])):
 				
+				$results_table = $results_tables[ $survey_name ];
+
 				if(empty($matches_variable_names[ $survey_name ])):
-					continue;
+					$variables = "NULL AS formr_dummy";
+				else:
+					$variables = "`$results_table`.`" . implode("`,`$results_table`.`" ,$matches_variable_names[ $survey_name ]) . '`';
 				endif;
 				
-				
-				$variables = "`$survey_name`.`" . implode("`,`$survey_name`.`" ,$matches_variable_names[ $survey_name ]) . '`';
-				
 				$q1 = "SELECT $variables";
-				
 
 				if($this->run_session_id === NULL AND !in_array($survey_name, $this->non_session_tables)): // todo: what to do with session_id tables in faketestrun
 					$q3
 						 = "
-					WHERE `$survey_name`.session_id = :session_id;"; // just for testing surveys
+					WHERE `$results_table`.session_id = :session_id;"; // just for testing surveys
 				else:
 					$q3
 						 = "
@@ -301,7 +303,7 @@ class RunUnit {
 			
 				if(!in_array($survey_name, $this->non_session_tables )):
 					$q2 = "left join `survey_unit_sessions`
-						on `$survey_name`.session_id = `survey_unit_sessions`.id
+						on `$results_table`.session_id = `survey_unit_sessions`.id
 						left join `survey_run_sessions`
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					";
@@ -317,10 +319,11 @@ class RunUnit {
 						on `survey_users`.id = `survey_run_sessions`.user_id
 					";
 				endif;
-				$q1 .= " FROM `$survey_name` 
+				$q1 .= " FROM `$results_table` 
 				";
 			
 				$q = $q1 . $q2 . $q3;
+				
 				
 				$get_results = $this->dbh->prepare($q);
 				if($this->run_session_id === NULL):
@@ -361,7 +364,6 @@ class RunUnit {
 				$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T",$last_action_time)."')";
 			endif;
 		endif;
-		
 		if($needed['token_add'] !== null AND ! isset($this->survey_results['datasets'][ $needed['token_add'] ])):
 			$this->survey_results['datasets'][ $needed['token_add'] ] = array();
 		endif;
@@ -369,7 +371,6 @@ class RunUnit {
 	}
 	public function makeOpenCPU()
 	{
-
 		global $settings;
 		$openCPU = new OpenCPU($settings['opencpu_instance']);
 		$openCPU->clearUserData();
@@ -384,32 +385,31 @@ class RunUnit {
 	}
 	public function dataNeeded($fdb,$q, $token_add = NULL)
 	{
-		$matches_variable_names = $variable_names_in_table = $matches = $tables = array();
-		$result_tables = $fdb->prepare("SELECT `survey_studies`.name,`survey_studies`.id FROM `survey_studies` 
+		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables= $tables = array();
+		$table_names = $fdb->prepare("SELECT COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`) AS results_table,`survey_studies`.`name`,`survey_studies`.id FROM `survey_studies` 
 			LEFT JOIN `survey_runs`
 		ON `survey_runs`.user_id = `survey_studies`.user_id 
 		WHERE `survey_runs`.id = :run_id");
-		$result_tables->bindParam(':run_id',$this->run_id);
-		$result_tables->execute();
+		$table_names->bindParam(':run_id',$this->run_id);
+		$table_names->execute();
 		
 		$tables = $this->non_user_tables;
-		while($res = $result_tables->fetch(PDO::FETCH_ASSOC)):
+		$results_tables = array_combine($this->non_user_tables,$this->non_user_tables);
+		while($res = $table_names->fetch(PDO::FETCH_ASSOC)):
 			$tables[$res['id']] = $res['name'];
+			$results_tables[$res['name']] = $res['results_table'];
 		endwhile;
 		
-		if($token_add !== null AND !in_array($token_add, $tables)):
-			$get_token_id = $fdb->prepare("SELECT `id` FROM `survey_studies` WHERE `name` = :token_add");
-			$get_token_id->bindValue(':token_add',$token_add);
-			$get_token_id->execute() or die(print_r($get_token_id->errorInfo(), true));
-			$token_id = $get_token_id->fetch();
-			$tables[ $token_id['id'] ] = $token_add;
+		if($token_add !== null AND !in_array($this->name, $tables)):	 // send along this table if necessary
+			$tables[$this->id] = $this->name;
+			$results_tables[ $this->name ] = $this->results_table;
 		endif;
 		
 		foreach($tables AS $study_id => $table_name):
-			// always send along the table which is currently active if any
 			
 			if($table_name == $token_add OR preg_match("/\b$table_name\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
 				$matches[ $study_id ] = $table_name;
+				$matches_results_tables[ $table_name ] = $results_tables[ $table_name ];
 			endif;
 		endforeach;
 	
@@ -418,7 +418,7 @@ class RunUnit {
 				if($table_name == 'survey_users'):
 					$variable_names_in_table[ $table_name ] = array("created","modified", "user_code","email","email_verified","mobile_number", "mobile_verified");
 				elseif($table_name == 'survey_run_sessions'):
-						$variable_names_in_table[ $table_name ] = array("session","created","last_access","position","current_unit_id", "deactivated","no_email");
+					$variable_names_in_table[ $table_name ] = array("session","created","last_access","position","current_unit_id", "deactivated","no_email");
 				elseif($table_name == 'survey_unit_sessions'):
 					$variable_names_in_table[ $table_name ] = array("created","ended","unit_id");
 				elseif($table_name == 'survey_items_display'):
@@ -455,11 +455,11 @@ class RunUnit {
 				endif;
 			endforeach;
 			
-			if(empty($matches_variable_names[ $table_name ])):
-				unset($matches_variable_names[ $table_name ]);
-				unset($variable_names_in_table[ $table_name ]);
-				unset($matches[ $study_id ]);
-			endif;
+//			if(empty($matches_variable_names[ $table_name ])):
+//				unset($matches_variable_names[ $table_name ]);
+//				unset($variable_names_in_table[ $table_name ]);
+//				unset($matches[ $study_id ]);
+//			endif;
 		endforeach;
 		
 		$formr_last_action_time = false;
@@ -467,7 +467,7 @@ class RunUnit {
 		if(preg_match("/\btime_passed\b/",$q)) $formr_last_action_time = true;
 		if(preg_match("/\bnext_day\b/",$q)) $formr_last_action_date = true;
 		
-		return compact("matches", "matches_variable_names", "token_add", "formr_last_action_date", "formr_last_action_time");
+		return compact("matches","matches_results_tables", "matches_variable_names", "token_add", "formr_last_action_date", "formr_last_action_time");
 //		return $matches;
 	}
 	public function parseBodySpecial()
