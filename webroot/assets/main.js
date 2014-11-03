@@ -1,3 +1,4 @@
+"use strict";
 webshim.setOptions(
     {
         extendNative: false,
@@ -101,7 +102,7 @@ function ajaxErrorHandling (e, x, settings, exception)
  */
 (function ( $ ) {
     $.fn.stickyTabs = function() {
-        context = this
+        var context = this
  
         // Show the tab corresponding with the hash in the URL, or the first tab.
         var showTabFromHash = function() {
@@ -131,7 +132,7 @@ function ajaxErrorHandling (e, x, settings, exception)
  */
 (function ( $ ) {
     $.fn.stickyCollapsible = function() {
-        context = this
+        var context = this
 
         // Show the tab corresponding with the hash in the URL, or the first tab.
         var showCollapsibleFromHash = function() {

@@ -1,3 +1,4 @@
+"use strict";
 function RunUnit( run )
 {
     this.run = run;
