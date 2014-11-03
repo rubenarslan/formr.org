@@ -23,11 +23,11 @@ class User
 		elseif($user_code !== NULL):
 			$this->user_code = $user_code; // if there is someone who has been browsing the site
 		else:
-			$this->user_code = bin2hex(openssl_random_pseudo_bytes(32)); // a new arrival
+			$this->user_code = crypto_token(48); // a new arrival
 		endif;
 		
 		if($this->user_code === NULL):
-			$this->user_code = bin2hex(openssl_random_pseudo_bytes(32)); // a new arrival
+			$this->user_code = crypto_token(48); // a new arrival
 		endif;
 	}
 	public function __sleep()
@@ -106,7 +106,7 @@ class User
 	}
 	public function needToVerifyMail()
 	{
-		$token = bin2hex(openssl_random_pseudo_bytes(32));
+		$token = crypto_token(48);
 		$token_hash = password_hash($token, PASSWORD_DEFAULT);
 	
 		$add = $this->dbh->prepare('UPDATE `survey_users` SET 
@@ -207,7 +207,7 @@ formr robots";
 			alert("This email address is not registered here.","alert-danger");
 			return false;
 		else:
-			$token = bin2hex(openssl_random_pseudo_bytes(32));
+			$token = crypto_token(48);
 			$update_token = $this->dbh->prepare("UPDATE `survey_users` SET `reset_token_hash` = :reset_token_hash,
 			`reset_token_expiry` = NOW() + INTERVAL 2 DAY 
 			 WHERE email = :email LIMIT 1");

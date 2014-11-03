@@ -62,7 +62,7 @@ class EmailAccount
 	}
 	public function test()
 	{
-		$RandReceiv = bin2hex(openssl_random_pseudo_bytes(5));
+		$RandReceiv = crypto_token(9);
 		$receiver = $RandReceiv . '@mailinator.com';
 		$link = "http://{$RandReceiv}.mailinator.com";
 	
