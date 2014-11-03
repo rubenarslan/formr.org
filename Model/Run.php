@@ -198,7 +198,7 @@ class Run
 		$create->bindParam(':user_id',$options['user_id']);
 		$create->bindParam(':name',$name);
 		$create->bindParam(':title',$name);
-		$new_secret = bin2hex(openssl_random_pseudo_bytes(32));
+		$new_secret = crypto_token(66);
 		$create->bindParam(':api_secret_hash',$new_secret);
 		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
@@ -264,7 +264,7 @@ class Run
 					if(isset($files_by_names[ $original_file_name ]))
 						$new_file_path = $files_by_names[ $original_file_name ];
 					else
-						$new_file_path = 'assets/tmp/admin/'. bin2hex(openssl_random_pseudo_bytes(100)) . $this->file_endings[ $mime ];
+						$new_file_path = 'assets/tmp/admin/'. crypto_token(66) . $this->file_endings[ $mime ];
 				
 					if($err = move_uploaded_file($files['tmp_name'][$i],INCLUDE_ROOT ."webroot/".$new_file_path))
 					{
@@ -620,7 +620,7 @@ This study is currently being serviced. Please return at a later time."));
 						endif;
 					else:
 						if($old_path == null)
-							$old_path = 'assets/tmp/admin/'. bin2hex(openssl_random_pseudo_bytes(100)).$file_ending;
+							$old_path = 'assets/tmp/admin/'. crypto_token(66).$file_ending;
 						$path = new SplFileInfo(INCLUDE_ROOT . "webroot/". $old_path);
 						$exists = file_exists($path->getPathname());
 						if($exists):

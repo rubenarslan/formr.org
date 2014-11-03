@@ -338,7 +338,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 	public function test()
 	{
 		$this->admin_usage = true;
-		$RandReceiv = bin2hex(openssl_random_pseudo_bytes(5));
+		$RandReceiv = crypto_token(9);
 		$receiver = $RandReceiv . '@mailinator.com';
 		
 		$this->sendMail($receiver);

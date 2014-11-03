@@ -1778,7 +1778,7 @@ class Item_file extends Item
 				}
 				else
 				{
-					$new_file_name = bin2hex(openssl_random_pseudo_bytes(100)) . $this->file_endings[ $mime ];
+					$new_file_name = crypto_token(66). $this->file_endings[ $mime ];
 					
 					if(move_uploaded_file($reply['tmp_name'],INCLUDE_ROOT .'webroot/assets/tmp/'.$new_file_name))
 					{

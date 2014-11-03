@@ -94,7 +94,7 @@ class RunSession
 		}
 		else
 		{
-			$session = bin2hex(openssl_random_pseudo_bytes(32));
+			$session = crypto_token(48);
 		}
 		
 		$session_q = "INSERT IGNORE INTO  `survey_run_sessions`
