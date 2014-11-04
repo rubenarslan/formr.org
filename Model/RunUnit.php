@@ -346,7 +346,7 @@ class RunUnit {
 			endif;
 		endforeach;
 
-		if($needed['formr_last_action_date'] OR $needed['formr_last_action_time']):
+		if(in_array('formr_last_action_date',$needed['variables']) OR in_array('formr_last_action_time',$needed['variables'])):
 			$last_action = $this->dbh->prepare("SELECT `created` FROM `survey_unit_sessions` 
 				WHERE 
 				`id` = :session_id AND 
@@ -357,11 +357,17 @@ class RunUnit {
 			$last_action->bindParam(":unit_id", $this->id);
 			$last_action->execute();
 			$last_action_time = strtotime($last_action->fetch()['created']);
-			if($needed['formr_last_action_date']):
+			if(in_array('formr_last_action_date',$needed['variables'])):
 				$this->survey_results['.formr$last_action_date'] = "as.Date('".date("Y-m-d",$last_action_time)."')";
 			endif;
-			if($needed['formr_last_action_time']):
+			if(in_array('formr_last_action_time',$needed['variables']) ):
 				$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T",$last_action_time)."')";
+			endif;
+			if(in_array('formr_login_link',$needed['variables']) ):
+				$this->survey_results['.formr$login_link'] = WEBROOT."{$this->run_name}?code={$this->session}";
+			endif;
+			if(in_array('formr_login_code',$needed['variables']) ):
+				$this->survey_results['.formr$login_code'] = $this->session;
 			endif;
 		endif;
 		if($needed['token_add'] !== null AND ! isset($this->survey_results['datasets'][ $needed['token_add'] ])):
@@ -462,12 +468,13 @@ class RunUnit {
 //			endif;
 		endforeach;
 		
-		$formr_last_action_time = false;
-		$formr_last_action_date = false;
-		if(preg_match("/\btime_passed\b/",$q)) $formr_last_action_time = true;
-		if(preg_match("/\bnext_day\b/",$q)) $formr_last_action_date = true;
+		$variables = array();
+		if(preg_match("/\btime_passed\b/",$q)) $variables[] = 'formr_last_action_time';
+		if(preg_match("/\bnext_day\b/",$q)) $variables[] = 'formr_last_action_date';
+		if(preg_match('/\b.formr\$login_code\b/',$q)) $variables[] = 'formr_login_code';
+		if(preg_match('/\b.formr\$login_link\b/',$q)) $variables[] = 'formr_login_link';
 		
-		return compact("matches","matches_results_tables", "matches_variable_names", "token_add", "formr_last_action_date", "formr_last_action_time");
+		return compact("matches","matches_results_tables", "matches_variable_names", "token_add", "variables");
 //		return $matches;
 	}
 	public function parseBodySpecial()
