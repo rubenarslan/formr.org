@@ -282,77 +282,79 @@ class RunUnit {
 	}
 
 	protected $survey_results;
-
-	public function getUserDataInRun($needed) {
+	public function getUserDataInRun($needed)
+	{
 		$surveys = $needed['matches'];
+		$results_tables = $needed['matches_results_tables'];
 		$matches_variable_names = $needed['matches_variable_names'];
 		$this->survey_results = array('datasets' => array());
-		foreach ($surveys AS $survey_name):
-			if (!isset($this->survey_results['datasets'][$survey_name])):
-
-				if (empty($matches_variable_names[$survey_name])):
-					continue;
-				endif;
-
-
-				$variables = "`$survey_name`.`" . implode("`,`$survey_name`.`", $matches_variable_names[$survey_name]) . '`';
-
-				$q1 = "SELECT $variables";
-
-
-				if ($this->run_session_id === NULL AND ! in_array($survey_name, $this->non_session_tables)): // todo: what to do with session_id tables in faketestrun
-					$q3 = "
-					WHERE `$survey_name`.session_id = :session_id;"; // just for testing surveys
+		
+		foreach($surveys AS $study_id => $survey_name):
+			if(!isset($this->survey_results['datasets'][$survey_name])):
+				
+				$results_table = $results_tables[ $survey_name ];
+				if(empty($matches_variable_names[ $survey_name ])):
+					$variables = "NULL AS formr_dummy";
 				else:
-					$q3 = "
+					$variables = "`$results_table`.`" . implode("`,`$results_table`.`" ,$matches_variable_names[ $survey_name ]) . '`';
+				endif;
+				
+				$q1 = "SELECT $variables";
+				if($this->run_session_id === NULL AND !in_array($survey_name, $this->non_session_tables)): // todo: what to do with session_id tables in faketestrun
+					$q3
+						 = "
+					WHERE `$results_table`.session_id = :session_id;"; // just for testing surveys
+				else:
+					$q3
+						 = "
 					WHERE  `survey_run_sessions`.id = :run_session_id;";
 				endif;
-
-				if (!in_array($survey_name, $this->non_session_tables)):
+			
+				if(!in_array($survey_name, $this->non_session_tables )):
 					$q2 = "left join `survey_unit_sessions`
-						on `$survey_name`.session_id = `survey_unit_sessions`.id
+						on `$results_table`.session_id = `survey_unit_sessions`.id
 						left join `survey_run_sessions`
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					";
-				elseif ($survey_name == 'survey_unit_sessions'):
+				elseif($survey_name == 'survey_unit_sessions'):
 					$q2 = "left join `survey_run_sessions`
 						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					";
-				elseif ($survey_name == 'survey_run_sessions'):
+				elseif($survey_name == 'survey_run_sessions'):
 					$q2 = "
 					";
-				elseif ($survey_name == 'survey_users'):
+				elseif($survey_name == 'survey_users'):
 					$q2 = "left join `survey_run_sessions`
 						on `survey_users`.id = `survey_run_sessions`.user_id
 					";
 				endif;
-				$q1 .= " FROM `$survey_name` 
+				$q1 .= " FROM `$results_table` 
 				";
-
+			
 				$q = $q1 . $q2 . $q3;
-
+				
+				
 				$get_results = $this->dbh->prepare($q);
-				if ($this->run_session_id === NULL):
+				if($this->run_session_id === NULL):
 					$get_results->bindValue(':session_id', $this->session_id);
 				else:
 					$get_results->bindValue(':run_session_id', $this->run_session_id);
 				endif;
 				$get_results->execute();
 				$this->survey_results['datasets'][$survey_name] = array();
-				while ($res = $get_results->fetch(PDO::FETCH_ASSOC)):
-					foreach ($res AS $var => $val):
-
-						if (!isset($this->survey_results['datasets'][$survey_name][$var]))
+				while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
+					foreach($res AS $var => $val):
+						if(!isset($this->survey_results['datasets'][$survey_name][$var]))
 							$this->survey_results['datasets'][$survey_name][$var] = array();
-
+					
 						$this->survey_results['datasets'][$survey_name][$var][] = $val;
-
+					
 					endforeach;
 				endwhile;
 			endif;
 		endforeach;
 
-		if ($needed['formr_last_action_date'] OR $needed['formr_last_action_time']):
+		if(in_array('formr_last_action_date',$needed['variables']) OR in_array('formr_last_action_time',$needed['variables'])):
 			$last_action = $this->dbh->prepare("SELECT `created` FROM `survey_unit_sessions` 
 				WHERE 
 				`id` = :session_id AND 
@@ -363,11 +365,17 @@ class RunUnit {
 			$last_action->bindParam(":unit_id", $this->id);
 			$last_action->execute();
 			$last_action_time = strtotime($last_action->fetch()['created']);
-			if ($needed['formr_last_action_date']):
-				$this->survey_results['.formr$last_action_date'] = "as.Date('" . date("Y-m-d", $last_action_time) . "')";
+			if(in_array('formr_last_action_date',$needed['variables'])):
+				$this->survey_results['.formr$last_action_date'] = "as.Date('".date("Y-m-d",$last_action_time)."')";
 			endif;
-			if ($needed['formr_last_action_time']):
-				$this->survey_results['.formr$last_action_time'] = "as.POSIXct('" . date("Y-m-d H:i:s T", $last_action_time) . "')";
+			if(in_array('formr_last_action_time',$needed['variables']) ):
+				$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T",$last_action_time)."')";
+			endif;
+			if(in_array('formr_login_link',$needed['variables']) ):
+				$this->survey_results['.formr$login_link'] = WEBROOT."{$this->run_name}?code={$this->session}";
+			endif;
+			if(in_array('formr_login_code',$needed['variables']) ):
+				$this->survey_results['.formr$login_code'] = $this->session;
 			endif;
 		endif;
 
@@ -391,53 +399,53 @@ class RunUnit {
 			return false;
 	}
 
-	public function dataNeeded($fdb, $q, $token_add = NULL) {
-		$matches_variable_names = $variable_names_in_table = $matches = $tables = array();
-		$result_tables = $fdb->prepare("SELECT `survey_studies`.name,`survey_studies`.id FROM `survey_studies` 
+	public function dataNeeded($fdb,$q, $token_add = NULL)
+	{
+		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables= $tables = array();
+		$table_names = $fdb->prepare("SELECT COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`) AS results_table,`survey_studies`.`name`,`survey_studies`.id FROM `survey_studies` 
 			LEFT JOIN `survey_runs`
 		ON `survey_runs`.user_id = `survey_studies`.user_id 
 		WHERE `survey_runs`.id = :run_id");
-		$result_tables->bindParam(':run_id', $this->run_id);
-		$result_tables->execute();
-
+		$table_names->bindParam(':run_id',$this->run_id);
+		$table_names->execute();
+	
 		$tables = $this->non_user_tables;
-		while ($res = $result_tables->fetch(PDO::FETCH_ASSOC)):
+		$results_tables = array_combine($this->non_user_tables,$this->non_user_tables);
+		while($res = $table_names->fetch(PDO::FETCH_ASSOC)):
 			$tables[$res['id']] = $res['name'];
+			$results_tables[$res['name']] = $res['results_table'];
 		endwhile;
-
-		if ($token_add !== null AND ! in_array($token_add, $tables)):
-			$get_token_id = $fdb->prepare("SELECT `id` FROM `survey_studies` WHERE `name` = :token_add");
-			$get_token_id->bindValue(':token_add', $token_add);
-			$get_token_id->execute() or die(print_r($get_token_id->errorInfo(), true));
-			$token_id = $get_token_id->fetch();
-			$tables[$token_id['id']] = $token_add;
+	
+		if($token_add !== null AND !in_array($this->name, $tables)):	 // send along this table if necessary
+			$tables[$this->id] = $this->name;
+			$results_tables[ $this->name ] = $this->results_table;
 		endif;
-
-		foreach ($tables AS $study_id => $table_name):
-			// always send along the table which is currently active if any
-
-			if ($table_name == $token_add OR preg_match("/\b$table_name\b/", $q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
-				$matches[$study_id] = $table_name;
+	
+		foreach($tables AS $study_id => $table_name):
+		
+			if($table_name == $token_add OR preg_match("/\b$table_name\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
+				$matches[ $study_id ] = $table_name;
+				$matches_results_tables[ $table_name ] = $results_tables[ $table_name ];
 			endif;
 		endforeach;
 
-		foreach ($matches AS $study_id => $table_name):
-			if (in_array($table_name, $this->non_user_tables)):
-				if ($table_name == 'survey_users'):
-					$variable_names_in_table[$table_name] = array("created", "modified", "user_code", "email", "email_verified", "mobile_number", "mobile_verified");
-				elseif ($table_name == 'survey_run_sessions'):
-					$variable_names_in_table[$table_name] = array("session", "created", "last_access", "position", "current_unit_id", "deactivated", "no_email");
-				elseif ($table_name == 'survey_unit_sessions'):
-					$variable_names_in_table[$table_name] = array("created", "ended", "unit_id");
-				elseif ($table_name == 'survey_items_display'):
-					$variable_names_in_table[$table_name] = array("created", "answered_time", "answered", "displaycount", "item_id");
-				elseif ($table_name == 'survey_email_log'):
-					$variable_names_in_table[$table_name] = array("email_id", "created", "recipient");
-				elseif ($table_name == 'shuffle'):
-					$variable_names_in_table[$table_name] = array("unit_id", "created", "group");
+		foreach($matches AS $study_id => $table_name):
+			if(in_array($table_name, $this->non_user_tables)):
+				if($table_name == 'survey_users'):
+					$variable_names_in_table[ $table_name ] = array("created","modified", "user_code","email","email_verified","mobile_number", "mobile_verified");
+				elseif($table_name == 'survey_run_sessions'):
+					$variable_names_in_table[ $table_name ] = array("session","created","last_access","position","current_unit_id", "deactivated","no_email");
+				elseif($table_name == 'survey_unit_sessions'):
+					$variable_names_in_table[ $table_name ] = array("created","ended","unit_id");
+				elseif($table_name == 'survey_items_display'):
+					$variable_names_in_table[ $table_name ] = array("created","answered_time","answered","displaycount","item_id");
+				elseif($table_name == 'survey_email_log'):
+					$variable_names_in_table[ $table_name ] = array("email_id","created","recipient");
+				elseif($table_name == 'shuffle'):
+					$variable_names_in_table[ $table_name ] = array("unit_id","created","group");
 				endif;
 			else:
-
+			
 				$variable_names = $fdb->prepare("SELECT `survey_items`.`name` FROM `survey_items` 
 				WHERE `survey_items`.`study_id` = :study_id
 				AND `survey_items`.type NOT IN (
@@ -445,40 +453,38 @@ class RunUnit {
 					'note',
 					'submit'
 				)");
-				$variable_names->bindValue(':study_id', $study_id);
+				$variable_names->bindValue(':study_id',$study_id);
 				$variable_names->execute() or die(print_r($variable_names->errorInfo(), true));
-
-				$variable_names_in_table[$table_name] = array("created", "modified", "ended"); // should avoid modified, sucks for caching
-				while ($res = $variable_names->fetch(PDO::FETCH_ASSOC)):
-					$variable_names_in_table[$table_name][] = $res['name'];
+			
+				$variable_names_in_table[ $table_name ] = array("created","modified","ended"); // should avoid modified, sucks for caching
+				while($res = $variable_names->fetch(PDO::FETCH_ASSOC)):
+					$variable_names_in_table[ $table_name ][] = $res['name'];
 				endwhile;
 			endif;
-
-			$matches_variable_names[$table_name] = array();
-			foreach ($variable_names_in_table[$table_name] AS $variable_name):
-				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/", "", $variable_name);  // try to match scales too
-				if (strlen($variable_name_base) < 3)
-					$variable_name_base = $variable_name;
-				if (preg_match("/\b$variable_name\b/", $q) OR preg_match("/\b$variable_name_base\b/", $q)): // item name appears as word, matches survey$item, survey[, "item"], but not item_2 for item-scale unfortunately
-					$matches_variable_names[$table_name][] = $variable_name;
+		
+			$matches_variable_names[ $table_name ] = array();
+			foreach($variable_names_in_table[ $table_name ] AS $variable_name):
+				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);  // try to match scales too
+				if(strlen($variable_name_base) < 3) $variable_name_base = $variable_name;
+				if(preg_match("/\b$variable_name\b/",$q) OR preg_match("/\b$variable_name_base\b/",$q)): // item name appears as word, matches survey$item, survey[, "item"], but not item_2 for item-scale unfortunately
+					$matches_variable_names[ $table_name ][] = $variable_name;
 				endif;
 			endforeach;
-
-			if (empty($matches_variable_names[$table_name])):
-				unset($matches_variable_names[$table_name]);
-				unset($variable_names_in_table[$table_name]);
-				unset($matches[$study_id]);
-			endif;
+		
+//			if(empty($matches_variable_names[ $table_name ])):
+//				unset($matches_variable_names[ $table_name ]);
+//				unset($variable_names_in_table[ $table_name ]);
+//				unset($matches[ $study_id ]);
+//			endif;
 		endforeach;
-
-		$formr_last_action_time = false;
-		$formr_last_action_date = false;
-		if (preg_match("/\btime_passed\b/", $q))
-			$formr_last_action_time = true;
-		if (preg_match("/\bnext_day\b/", $q))
-			$formr_last_action_date = true;
-
-		return compact("matches", "matches_variable_names", "token_add", "formr_last_action_date", "formr_last_action_time");
+	
+		$variables = array();
+		if(preg_match("/\btime_passed\b/",$q)) $variables[] = 'formr_last_action_time';
+		if(preg_match("/\bnext_day\b/",$q)) $variables[] = 'formr_last_action_date';
+		if(preg_match('/\b.formr\$login_code\b/',$q)) $variables[] = 'formr_login_code';
+		if(preg_match('/\b.formr\$login_link\b/',$q)) $variables[] = 'formr_login_link';
+	
+		return compact("matches","matches_results_tables", "matches_variable_names", "token_add", "variables");
 //		return $matches;
 	}
 
