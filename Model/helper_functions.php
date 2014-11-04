@@ -80,6 +80,10 @@ function bad_request_header() {
     header('HTTP/1.0 400 Bad Request');
 }
 
+function is_ajax_request() {
+    return strtolower(env('HTTP_X_REQUESTED_WITH')) === 'xmlhttprequest';
+}
+
 function h($text) {
 	return htmlspecialchars($text);
 }
