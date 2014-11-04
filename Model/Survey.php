@@ -660,7 +660,7 @@ class Survey extends RunUnit {
 		// and to then choose one.
 		
 		// thus, we "mock" a survey at first
-		if(count($options)===1):
+		if(count($options) === 1 || isset($options['mock'])):
 			$this->valid = true;
 		else: // and link it to the run only later
 			$this->id = $options['unit_id'];

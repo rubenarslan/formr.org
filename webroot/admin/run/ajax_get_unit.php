@@ -1,15 +1,15 @@
 <?php
-if( env('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest' ):
+/* @var $run Run */
 
+if(is_ajax_request()) :
 	if(isset($_GET['run_unit_id'])):
 		if(isset($_GET['special']))
 			$special = $_GET['special'];
 		else $special = false;
 		
 		$unit_info = $run->getUnitAdmin($_GET['run_unit_id'], $special);
-
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($fdb,null,$unit_info);
+		$unit = $unit_factory->make($fdb, null, $unit_info);
 		
 		echo $unit->displayForRun();
 		exit;

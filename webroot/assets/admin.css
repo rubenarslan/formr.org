@@ -1,3 +1,7 @@
 header.study-header {
 	display:none;
 }
+#import-run-units textarea {
+	font-family: courier;
+	font-size: 11px;
+}
