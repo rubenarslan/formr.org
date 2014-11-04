@@ -3,6 +3,7 @@ $(document).ready(function() {
     // initialising special items
     // --------------------------
     webshim.ready('geolocation',function() {
+        "use strict";
     	$('.geolocator').click(function()
     	{
     		var real_loc = $(this).closest('.controls').find('input[type=hidden]');
@@ -123,10 +124,12 @@ $(document).ready(function() {
         
 	
     	$('div.btn-check button.btn').off('click').click(function(event){
+            "use strict";
             var $btn = $(this);
             $('#'+$btn.attr('data-for')).trigger("togglecheck"); // toggle the button
     		return false;
     	}).each(function() {
+            "use strict";
     		var $btn = $(this);
             var $original_box = $('#'+$btn.attr('data-for'));
         
@@ -154,13 +157,14 @@ $(document).ready(function() {
 	
     	$("select.select2zone, .form-group.select2 select").each(function(i,elm)
         {
-            
+            "use strict";
     		var slct = $(elm); 
             slct.select2();
             webshim.addShadowDom(slct, slct.select2("container"));
         });
     	$(".select2pills select").each(function(i,elm)
     	{
+            "use strict";
     		var slct = $(elm); 
     		slct.select2({
                 width: "element",
@@ -187,6 +191,8 @@ $(document).ready(function() {
     
     	$(".people_list textarea").each(function(i,elm)
     	{
+            "use strict";
+            
     		var slct = $(elm); 
     		slct.select2({
                 width: "element",
@@ -276,8 +282,10 @@ $(document).ready(function() {
     $('form').change();
 });
 
+var $progressbar,change_events_set;
 function getProgress() 
 {
+    "use strict";
     $progressbar = $('.progress .progress-bar');
 
 //    var successful_controls = $('form').serializeArray(); 
@@ -412,6 +420,7 @@ function showIf()
 }
 
 function flatStringifyGeo(geo) {
+    "use strict";
 	var result = {};
 	result.timestamp = geo.timestamp;
 	var coords = {};
