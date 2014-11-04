@@ -15,7 +15,7 @@ if (getenv('DEV_ENV')):
 else:
 	$devenv = "default";
 endif;
-if(preg_match("/[a-zA-Z0-9]+/",$devenv)):
+if(preg_match("/[a-zA-Z0-9]+/", $devenv)):
     $devsettings = INCLUDE_ROOT . "config/env/{$devenv}.php";
     if (is_file($devsettings)):
         require_once $devsettings;
