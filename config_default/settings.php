@@ -23,4 +23,4 @@ $settings['session_cookie_lifetime'] = max($settings['expire_unregistered_sessio
 
 $settings['admin_maximum_size_of_uploaded_files'] = 50; # in MB
 
-$settings['run_exports_dir'] = INCLUDE_ROOT . 'exports/runs';
+$settings['run_exports_dir'] = INCLUDE_ROOT . 'documentation/run_components';

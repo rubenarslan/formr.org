@@ -1,6 +1,5 @@
 /config/*
 /vendor/*
-/exports/*
 *.*~
 .DS_Store
 ~*
