@@ -115,11 +115,7 @@ class RunUnit {
 	}
 
 	public function linkToRun() {
-		$d_run_unit = $this->dbh->prepare("UPDATE `survey_run_units` SET 
-			unit_id = :unit_id
-		WHERE 
-		id = :id
-	;");
+		$d_run_unit = $this->dbh->prepare("UPDATE `survey_run_units` SET unit_id = :unit_id WHERE id = :id ;");
 
 		$d_run_unit->bindParam(':unit_id', $this->id);
 		$d_run_unit->bindParam(':id', $this->run_unit_id);
@@ -128,8 +124,9 @@ class RunUnit {
 	}
 
 	public function addToRun($run_id, $position = 1) {
-		if ($position == 'NaN')
+		if (!is_numeric($position)) {
 			$position = 1;
+		}
 		$this->position = (int) $position;
 		/*
 		  $s_run_unit = $this->dbh->prepare("SELECT id FROM `survey_run_units` WHERE unit_id = :id AND run_id = :run_id;");

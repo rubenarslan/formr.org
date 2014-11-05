@@ -4,13 +4,12 @@
 
 if( !empty($_POST) ) {
 	$run_name = $site->request->str('run_name');
-	$run_units_json = $site->request->str('run_units_json');
 
 	if($run_name AND !preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/", $run_name)) {
 		alert('<strong>Error:</strong> The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore (at least 2 characters, at most 255). It needs to start with a letter.','alert-danger');
 		redirect_to("admin/run/");	
 	} else {
-		$run = new Run($fdb, null, array('run_name' => $run_name, 'user_id' => $user->id, 'run_units_json' => $run_units_json));
+		$run = new Run($fdb, null, array('run_name' => $run_name, 'user_id' => $user->id));
 		if($run->valid) {
 			alert('<strong>Success.</strong> Run "'.$run->name . '" was created.', 'alert-success');
 			redirect_to("admin/run/{$run->name}");
@@ -46,15 +45,6 @@ Template::load('acp_nav');
 	  		</label>
 	  		<div class="controls">
 	  			<input class="form-control" required type="text" placeholder="Name (a to Z, 0 to 9 and _)" name="run_name" id="kurzname">
-	  		</div>
-			
-			<label class="control-label" for="import">
-				<br />
-				<button class="btn btn-default btn-primary btn-small" type="button" onclick="toggleElement('import-run-units')"><i class="fa-fw fa fa-upload"></i> Import Run Units</button>
-	  		</label>
-			<div class="controls hidden" id="import-run-units">
-				<textarea class="form-control" data-editor="markdown" name="run_units_json" placeholder="Paste JSON string of run units here.."></textarea>
-				<p>&nbsp;</p>
 	  		</div>
 	  	</div>
 	  	<div class="form-group">
