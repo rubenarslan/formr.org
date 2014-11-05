@@ -95,7 +95,12 @@ $resultCount = $study->getResultCount();
 							$icon = 'fa-pencil-square';
 						endif;
 					?>
-						<button class="btn btn-default <?=$btnclass?> btn-lg" type="submit"><i class="fa-fw fa <?=$icon?>"></i> <?php echo __("Upload new items, possibly overwrite %d existing results.", $results); ?></button>
+						<button class="btn btn-default <?=$btnclass?> btn-lg" type="submit"><i class="fa-fw fa <?=$icon?>"></i> <?php 
+							if($results): 
+								echo __("Upload new items, possibly overwrite %d existing results.", $results);
+							else:
+								echo _("Upload new items.");
+							endif; ?></button>
 				
 				</div>
 			</div>
