@@ -414,7 +414,7 @@ class Item extends HTML_element
 	}
 	public function determineDynamicValue($survey)
 	{
-		if($this->value=="sticky") $this->value = "{$this->name}";
+		if($this->value=="sticky") $this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
 		
 		if($survey->openCPU === NULL):
 			$survey->openCPU = $survey->makeOpenCPU();
