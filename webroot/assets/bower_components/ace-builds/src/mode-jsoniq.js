@@ -91,7 +91,7 @@ module.exports = (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=ty
   this.parse_start = function()
   {
     eventHandler.startNonterminal("start", e0);
-    lookahead1W(14);                // ModuleDecl | Annotation | OptionDecl | Operator | Variable | Tag | AttrTest |
+    lookahead1W(14);                // ModuleDecl | Annotation | OptionDecl | Operator | Variable | Tag | AttrTest |
     switch (l1)
     {
     case 58:                        // '<![CDATA['
@@ -523,7 +523,7 @@ module.exports = (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=ty
   this.parse_Prefix = function()
   {
     eventHandler.startNonterminal("Prefix", e0);
-    lookahead1W(13);                // NCName^Token | S^WS | 'after' | 'allowing' | 'ancestor' | 'ancestor-or-self' |
+    lookahead1W(13);                // NCName^Token | S^WS | 'after' | 'allowing' | 'ancestor' | 'ancestor-or-self' |
     whitespace();
     parse_NCName();
     eventHandler.endNonterminal("Prefix", e0);
@@ -532,7 +532,7 @@ module.exports = (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=ty
   this.parse__EQName = function()
   {
     eventHandler.startNonterminal("_EQName", e0);
-    lookahead1W(12);                // EQName^Token | S^WS | 'after' | 'allowing' | 'ancestor' | 'ancestor-or-self' |
+    lookahead1W(12);                // EQName^Token | S^WS | 'after' | 'allowing' | 'ancestor' | 'ancestor-or-self' |
     whitespace();
     parse_EQName();
     eventHandler.endNonterminal("_EQName", e0);
