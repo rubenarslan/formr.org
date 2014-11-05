@@ -91,7 +91,7 @@ RunUnit.prototype.changes = function (e) {
 RunUnit.prototype.test = function (e) {
 	e.preventDefault();
 	var old_text = this.test_button.text();
-	this.test_button.attr('disabled', true).html(old_text + ' <i class="fa fa-spinner fa-spin"></i>');
+	this.test_button.attr('disabled', true).html(old_text + bootstrap_spinner());
 
 	var $unit = this.block;
 	$.ajax({
@@ -100,10 +100,7 @@ RunUnit.prototype.test = function (e) {
 		data: {"run_unit_id": this.run_unit_id, "special": this.special},
 		method: 'GET'
 	}).done($.proxy(function (data) {
-		var $modal = $($.parseHTML(getHTMLTemplate('tpl-test-modal', {'body': data, 'header': 'Test Results'})));
-		$modal.modal('show').on('hidden.bs.modal', function () {
-			$modal.remove();
-		});
+		bootstrap_modal(data, 'Test Results');
 		$(".opencpu_accordion").collapse({toggle: true});
 
 		this.test_button.html(old_text).removeAttr('disabled');
@@ -124,7 +121,7 @@ RunUnit.prototype.save = function (e) {
 	e.preventDefault();
 
 	var old_text = this.save_button.text();
-	this.save_button.attr('disabled', "disabled").html(old_text + ' <i class="fa fa-spinner fa-spin"></i>');
+	this.save_button.attr('disabled', "disabled").html(old_text + bootstrap_spinner());
 
 	if (this.session)
 		this.textarea.val(this.session.getValue());
@@ -267,6 +264,9 @@ function Run(run_form) {
 	this.exporter_button = this.form.find('a.export_run_units');
 	this.exporter_button.click($.proxy(this.exportUnits, this));
 
+	this.importer_button = this.form.find('a.import_run_units');
+	this.importer_button.click($.proxy(this.importUnits, this));
+
 	this.reorder_button = this.form.find('a.reorder_units');
 	this.reorder_button
 			.attr('disabled', 'disabled')
@@ -322,6 +322,10 @@ Run.prototype.getMaxPosition = function ()
 		else if (pos > max)
 			max = pos;
 	});
+	// if no units are on page then return 0;
+	if (max === null) {
+		max = 0;
+	}
 	return max;
 }
 
@@ -365,34 +369,58 @@ Run.prototype.exportUnits = function () {
 	var units = {};
 	var runUrl = this.url;
 	var unsavedChanges = false;
+	var exportDialog = $('<div />');
 
 	for (var i = 0; i < this.units.length; i++) {
 		var unit = this.units[i].serialize();
 		unsavedChanges = unsavedChanges || this.units[i].unsavedChanges;
 		units[unit.position] = unit;
+		exportDialog.append($($.parseHTML(getHTMLTemplate('tpl-export-unit-block', {unit_pos: unit.position, unit_json: JSON.stringify(unit, null, "\t")}))));
 	}
 
 	if (unsavedChanges) {
-		var $modal = $($.parseHTML(getHTMLTemplate('tpl-test-modal', {'body': 'Please save all changes before export.', 'header': 'Unsaved Changes'})));
-		$modal.modal('show').on('hidden.bs.modal', function () {
-			$modal.remove();
-		});
+		bootstrap_modal('Please save all changes before export.', 'Unsaved Changes');
 		return;
 	}
 
-	var json = JSON.stringify(units, null, "\t");
-	var $modal = $($.parseHTML(getHTMLTemplate('tpl-export-units', {'json': json})));
+	var export_html = exportDialog.html();//JSON.stringify(units, null, "\t");
+	var $modal = $($.parseHTML(getHTMLTemplate('tpl-export-units', {'export_html': export_html})));
 	$modal.on('shown.bs.modal', function () {
 		$modal.find('.confirm-export').click(function (e) {
-			// @todo check if there are any unsaved changes in units and alert
+			var name = $.trim($modal.find('input[name=export_name]').val());
+			// If the export name is not valid, no need
+			var pattern = /^[a-z0-9_\s]+$/i;
+			if (!name || !pattern.test(name)) {
+				$modal.modal('hide');
+				bootstrap_modal("Enter a valied export name", "Export Name Error");
+				return;
+			}
+			// Get all selected units. If you can't find any you can't export any
+			var selectedUnits = {};
+			var $units = $modal.find('.run-export-unit-block');
+			$units.each(function(){
+				var $unit = $(this).find('.select');
+				var selected = parseInt($unit.data('selected'), 10),
+					unit_pos = parseInt($unit.data('position'), 10);
+				if (selected && unit_pos && !isNaN(selected) && !isNaN(unit_pos)) {
+					selectedUnits[unit_pos] = units[unit_pos];
+				}
+			});
+			if ($.isEmptyObject(selectedUnits)) {
+				return;
+			}
+
+			$(this).html(bootstrap_spinner());
 			$.ajax({
 				url: runUrl + '/ajax_run_export',
 				dataType: 'html',
 				method: 'post',
-				data: {units: units},
+				data: {units: selectedUnits, name: name},
 				success: $.proxy(function (data, textStatus) {
 					bootstrap_alert('Export completed', 'Success', '.main_body', 'alert-success');
 					$modal.find('.cancel-export').trigger('click');
+					// maybe reload page so that stuff can be imported immediately
+					setTimeout(location.reload, 2000);
 				}, this),
 				error: function (e, x, settings, exception) {
 					$modal.find('.cancel-export').trigger('click');
@@ -404,23 +432,74 @@ Run.prototype.exportUnits = function () {
 		$modal.remove();
 	}).modal('show');
 
-	var code_block = $modal.find('pre code');
-	hljs.highlightBlock(code_block.get(0));
-	code_block.on('click', function (e) {
-		if (document.selection) {
-			var range = document.body.createTextRange();
-			range.moveToElementText(this);
-			range.select();
-		} else if (window.getSelection) {
-			var range = document.createRange();
-			range.selectNode(this);
-			window.getSelection().addRange(range);
-		}
+	var $codeblocks = $modal.find('pre code');
+	$codeblocks.each(function(){
+		var code_block = $(this);
+		hljs.highlightBlock(code_block.get(0));
+		code_block.parents('.run-export-unit-block').find('.select').on('click', function() {
+			var $s = $(this);
+			var selected = parseInt($s.data('selected'), 10);
+			if (selected) {
+				$s.data('selected', 0);
+				$s.find('i').removeClass('fa-check');
+			} else {
+				$s.data('selected', 1);
+				$s.find('i').addClass('fa-check');
+			}
+		});
 	});
-}
+	
+};
 
-Run.prototype.reorderUnits = function (e)
-{
+Run.prototype.importUnits = function () {
+	var module = this;
+	var $modal = $('#run-import-modal-dialog');
+	if ($modal.length) {
+		return $modal.modal('show');
+	}
+
+	$.get(this.url+'/ajax_run_import', {'dialog': true}, function(data) {
+		$modal = $($.parseHTML(getHTMLTemplate('tpl-import-units', {'content': data}))).attr('id', 'run-import-modal-dialog');
+		$modal.find('select').bind('change', function(){
+			var val = parseInt($(this).val(), 10);
+			if (isNaN(val)) return;
+			var eid = 'selected-run-export-' + val;
+			var json_string = getHTMLTemplate(eid);
+			$modal.find('textarea').val(JSON.stringify($.parseJSON(json_string), null, "\t"));
+		});
+
+		$modal.on('shown.bs.modal', function () {
+			$modal.find('.confirm-import').click(function (e) {
+				var json_string = $.trim($modal.find('textarea').val());
+				if (!json_string) return;
+				$(this).html(bootstrap_spinner());
+				$.ajax({
+					url: module.url + '/ajax_run_import',
+					dataType: 'json',
+					method: 'post',
+					data: {string: json_string, position: module.getMaxPosition() + 1},
+					success: $.proxy(function (data, textStatus) {
+						bootstrap_alert('Import completed', 'Success', '.main_body', 'alert-success');
+						$modal.find('.cancel-export').trigger('click');
+						$.each(data, function(position, html) {
+							var unit = new RunUnit(module);
+							module.units.push(unit);
+							unit.init(html);
+						});
+					}, this),
+					error: function (e, x, settings, exception) {
+						$modal.find('.cancel-export').trigger('click');
+						ajaxErrorHandling(e, x, settings, exception);
+					}
+				});
+			});
+		}).on('hidden.bs.modal', function () {
+			$modal.remove();
+		}).modal('show');
+	});
+};
+
+Run.prototype.reorderUnits = function (e) {
 	e.preventDefault();
 
 	if (typeof this.reorder_button.attr('disabled') === 'undefined')
