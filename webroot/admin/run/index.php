@@ -1,5 +1,8 @@
 <?php
-Template::load('header', array('js' => '<script src="' . WEBROOT . 'assets/run.js"></script>'));
+Template::load('header', array(
+	'js' => '<script src="' . WEBROOT . 'assets/run.js"></script>',
+	'css' => '<link rel="stylesheet" href="'.WEBROOT.'assets/admin.css" type="text/css" media="screen">',
+));
 Template::load('acp_nav');
 ?>
 <div class="row">
@@ -40,8 +43,11 @@ Template::load('acp_nav');
                             <a href="<?= WEBROOT ?>admin/run/<?= $run->name; ?>/ajax_run_locked_toggle" class="btn btn-default lock-toggle hastooltip <?= ($run->locked) ? 'btn-checked' : '' ?>" title="Lock the controls on this page, so you cannot accidentally change anything.">
                                 <i class="fa fa-unlock"></i> Lock
                             </a>
-                            <a id="export_run_units" class="export_run_units hastooltip btn" title="Export these run units as JSON (currently there is no way to re-import)">
+                            <a id="export_run_units" class="export_run_units hastooltip btn" title="Export these run units as JSON">
                                 <i class="fa fa-suitcase"></i> Export
+                            </a>
+							<a id="import_run_units" class="import_run_units hastooltip btn" title="Import run units into current run">
+                                <i class="fa fa-upload"></i> Import
                             </a>
                         </div>
                         the run modules.
@@ -104,11 +110,16 @@ Template::load('acp_nav');
                     <h3>JSON export of modules</h3>
                 </div>
                 <div class="modal-body">
-                    <h4>Data</h4>
-                    <pre><code class="hljs json">%{json}</code></pre>
+                    <h5>Select run units to export and give your export a name (<span class="red">Important for referencing the export later</span>)</h5>
+                    <div>%{export_html}</div>
+					<div class="col-md-12">
+						<br />
+						<input class="form-control" placeholder="Name Export (a to Z, 0 to 9, _ and spaces)" name="export_name" value="" />
+					</div>
+					<div class="clearfix"></div>
                 </div>
             <div class="modal-footer">
-                <button class="btn btn-success confirm-export" aria-hidden="true">Confirm</button>
+                <button class="btn btn-success confirm-export" aria-hidden="true">Export</button>
                 <button class="btn cancel-export" data-dismiss="modal" aria-hidden="true">Close</button>
             </div>
         </div>
@@ -130,5 +141,36 @@ Template::load('acp_nav');
         </div>
     </div>
 </script>
+<script id="tpl-export-unit-block" type="text/formr">
+<div class="form-group run-export-unit-block">
+	<div class="select btn" data-position="%{unit_pos}" data-selected="1">
+		<i class="fa fa-check fa-2x"></i>
+	</div>
+	<div class="col-sm-12">
+		<pre><code class="hljs json">%{unit_json}</code></pre>
+	</div>
+	<div class="clearfix"></fix>
+</div>
+</script>
+<script id="tpl-import-units" type="text/formr">
+    <div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="ImportUnits" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                    <h3>JSON import of modules</h3>
+                </div>
+                <div class="modal-body">
+                    <div>%{content}</div>
+					<div class="clearfix"></div>
+                </div>
+            <div class="modal-footer">
+                <button class="btn btn-success confirm-import" aria-hidden="true">Import</button>
+                <button class="btn cancel-export" data-dismiss="modal" aria-hidden="true">Close</button>
+            </div>
+        </div>
+    </div>
+</script>
+
 <?php
 Template::load('footer');

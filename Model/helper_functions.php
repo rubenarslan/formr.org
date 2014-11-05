@@ -76,8 +76,13 @@ function bad_request() {
 	require_once INCLUDE_ROOT."webroot/public/not_found.php";
 	exit;
 }
+
 function bad_request_header() {
     header('HTTP/1.0 400 Bad Request');
+}
+
+function json_header() {
+    header('Content-Type: application/json');
 }
 
 function is_ajax_request() {
@@ -458,4 +463,68 @@ function crypto_token($length)
 		bad_request();
 	endif;
 	return $base64;
+}
+
+/**
+ * Create URL Title
+ *
+ * Takes a "title" string as input and creates a
+ * human-friendly URL string with a "separator" string 
+ * as the word separator.
+ *
+ * @param string the string
+ * @param string the separator
+ * @param strin $lowercase Should string be returned in lowecase letters
+ * @return	string
+ */
+function url_title($str, $separator = '-', $lowercase = false) {
+	if ($separator == 'dash') {
+		$separator = '-';
+	} else if ($separator == 'underscore') {
+		$separator = '_';
+	}
+	$q_separator = preg_quote($separator);
+	$trans = array(
+		'&.+?;' => '',
+		'[^a-z0-9 _-]' => '',
+		'\s+' => $separator,
+		'('.$q_separator.')+' => $separator
+	);
+	$str = strip_tags($str);
+	foreach ($trans as $key => $val) {
+		$str = preg_replace("#".$key."#i", $val, $str);
+	}
+
+	if ($lowercase === true) {
+		$str = strtolower($str);
+	}
+
+	return trim($str, $separator);
+}
+
+/**
+ * Return an array of contents in the run export directory
+ *
+ * @param string $dir Absolute path to readable directory
+ * @return mixed Returns an array if all is well or FALSE otherwise
+ */
+function get_run_dir_contents($dir) {
+	if (!$dir || !is_dir($dir) || !is_readable($dir)) {
+		return false;
+	}
+
+	$files = glob($dir . '/run_*.json');
+	if (!$files) {
+		return false;
+	}
+
+	$contents = array();
+	foreach ($files as $file) {
+		$file_contents = file_get_contents($file);
+		$json = json_decode($file_contents);
+		if ($json) {
+			$contents[] = $json;
+		}
+	}
+	return $contents;
 }

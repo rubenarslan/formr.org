@@ -58,6 +58,17 @@ function bootstrap_alert(message, bold, where, cls) {
 	$alert[0].scrollIntoView(false);
 }
 
+function bootstrap_modal(header, body) {
+	var $modal = $($.parseHTML(getHTMLTemplate('tpl-test-modal', {'body': body, 'header': header})));
+	$modal.modal('show').on('hidden.bs.modal', function () {
+		$modal.remove();
+	});
+}
+
+function bootstrap_spinner() {
+	return ' <i class="fa fa-spinner fa-spin"></i>';
+}
+
 function ajaxErrorHandling(e, x, settings, exception) {
 	var message;
 	var statusErrorMap = {
