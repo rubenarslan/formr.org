@@ -513,7 +513,7 @@ function get_run_dir_contents($dir) {
 		return false;
 	}
 
-	$files = glob($dir . '/run_*.json');
+	$files = glob($dir . '/*.json');
 	if (!$files) {
 		return false;
 	}

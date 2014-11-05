@@ -896,8 +896,12 @@ This study is currently being serviced. Please return at a later time."));
 	 * @param int $start_position Start position to be assigned to units. Defaults to 1.
 	 * @return array Returns an array on rendered units indexed by position
 	 */
-	public function importUnits($json_string, $start_position = 1) {
-		$start_position = (int) $start_position;
+	public function importUnits($json_string, $start_position = 0) {
+		if (!$start_position) {
+			$start_position = 0;
+		} else {
+			$start_position = (int) $start_position - 1;
+		}
 		$json = json_decode($json_string);
 
 		if (empty($json->units)) {
@@ -905,16 +909,12 @@ This study is currently being serviced. Please return at a later time."));
 			return false;
 		}
 
-		if (!$start_position) {
-			$start_position = 1;
-		}
-
 		$units = (array) $json->units;
 		$createdUnits = array();
 		$ruFactory = new RunUnitFactory();
 		foreach ($units as $unit) {
-			$unit->position = $start_position++;
 			if (!empty($unit->position) && !empty($unit->type)) {
+				$unit->position = $start_position + $unit->position;
 				// for some reason Endpage replaces Page
 				if (strpos($unit->type, 'page') !== false) {
 					$unit->type = 'Page';
@@ -922,6 +922,9 @@ This study is currently being serviced. Please return at a later time."));
 
 				if (strpos($unit->type, 'Survey') !== false) {
 					$unit->mock = true;
+				}
+				if (strpos($unit->type, 'Skip') !== false) {
+					$unit->if_true = $unit->if_true + $start_position;
 				}
 
 				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit);

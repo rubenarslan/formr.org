@@ -1,0 +1,21 @@
+{
+    "name": "filter",
+    "units": [
+        {
+        	"type": "SkipForward",
+        	"position": "10",
+        	"special": "",
+        	"condition": "# filter_is_true",
+        	"automatically_jump": "1",
+        	"if_true": "30",
+        	"automatically_go_on": "1"
+        },
+        {
+        	"type": "Endpage",
+        	"position": "20",
+        	"special": "",
+        	"title": "Filtered",
+        	"body": "You can't take part."
+        }
+    ]
+}
