@@ -79,10 +79,6 @@ class Run {
 				$this->public_blurb_parsed = $vars['public_blurb_parsed'];
 				$this->custom_css_path = $vars['custom_css_path'];
 				$this->custom_js_path = $vars['custom_js_path'];
-				if (!empty($options['run_units_json']) && ($json = @json_decode($options['run_units_json']))) {
-					$this->addRunUnits((array) $json, true);
-				}
-			
 				$this->valid = true;
 			endif;
 		endif;
@@ -202,38 +198,6 @@ class Run {
 		$this->getServiceMessageId();
 
 		return $name;
-	}
-
-	/**
-	 * Add a set of run units to current run.
-	 * Input is an array of stdClass objects to be converted to RunUnits
-	 * Foreach item in $units check at least for 'type' and 'position' attributes
-	 *
-	 * @param array $units An array of stdClass objects to be converted to units
-	 * @param boolean $creatng Is run being created or not. If so Surveys will be mocked
-	 * @return Run;
-	 */
-	public function addRunUnits($units, $creating = false) {
-		$ruFactory = new RunUnitFactory();
-		foreach ($units as $unit) {
-			if (!empty($unit->position) && !empty($unit->type)) {
-				// for some reason Endpage replaces Page
-				if (strpos($unit->type, 'page') !== false) {
-					$unit->type = 'Page';
-				}
-
-				if (strpos($unit->type, 'Survey') !== false && $creating) {
-					$unit->mock = true;
-				}
-
-				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit);
-				$unitObj->create((array) $unit);
-				if($unitObj->valid) {
-					$unitObj->addToRun($this->id, $unit->position);
-				}
-			}
-		}
-		return $this;
 	}
 
     public function getUploadedFiles() {
@@ -879,7 +843,14 @@ This study is currently being serviced. Please return at a later time."));
 		endif;
 	}
 
-    public function exportUnits($units) {
+	/**
+	 * Export RUN units
+	 *
+	 * @param array $units
+	 * @param string $name The name that will be assigned to export
+	 * @return boolean Returns TRUE on success and FALSE otherwise
+	 */
+    public function exportUnits(array $units, $name) {
 		$export_dir = Config::get('run_exports_dir');
 		if (!$export_dir) {
 			alert("<strong>Error</strong> Export directory is not configured in 'run_exports_dir'", 'alert-danger');
@@ -891,18 +862,80 @@ This study is currently being serviced. Please return at a later time."));
 			return false;
 		}
 
-		$json = @json_encode($units, JSON_PRETTY_PRINT);
-		if (!$json) {
+		$export = array (
+			'name' => $name,
+			'units' => array_values($units),
+		);
+		$json = @json_encode($export, JSON_PRETTY_PRINT);
+		if (empty($export['units']) || !$json) {
 			alert("<strong>Error</strong> Export data could not be created", 'alert-danger');
 			return false;
 		}
 
-		$filename = $export_dir . '/' . $this->name . '.' . microtime(true) . '.json';
+		$name = url_title($name, 'underscore', true);
+		// use a prefix for all filenames for easy 'globbing' later during import
+		$filename = $export_dir . '/run_' . $name . '.json';
+		if (file_exists($filename)) {
+			alert("<strong>Error</strong> Sorry, '$name' is already taken.", 'alert-danger');
+			return false;
+		}
+
 		if (!file_put_contents($filename, $json)) {
 			alert("<strong>Error</strong> Unable to create json file to save data", 'alert-danger');
 			return false;
 		}
 		return true;
     }
+
+	/**
+	 * Import a set of run units into current run by parsing a valid json string.
+	 * Existing exported run units are read from configured dir $settings[run_exports_dir]
+	 * Foreach unit item there is a check for at least for 'type' and 'position' attributes
+	 *
+	 * @param string $json_string JSON string of run units
+	 * @param int $start_position Start position to be assigned to units. Defaults to 1.
+	 * @return array Returns an array on rendered units indexed by position
+	 */
+	public function importUnits($json_string, $start_position = 1) {
+		$start_position = (int) $start_position;
+		$json = json_decode($json_string);
+
+		if (empty($json->units)) {
+			alert("<strong>Error</strong> Invalid json string provided.", 'alert-danger');
+			return false;
+		}
+
+		if (!$start_position) {
+			$start_position = 1;
+		}
+
+		$units = (array) $json->units;
+		$createdUnits = array();
+		$ruFactory = new RunUnitFactory();
+		foreach ($units as $unit) {
+			$unit->position = $start_position++;
+			if (!empty($unit->position) && !empty($unit->type)) {
+				// for some reason Endpage replaces Page
+				if (strpos($unit->type, 'page') !== false) {
+					$unit->type = 'Page';
+				}
+
+				if (strpos($unit->type, 'Survey') !== false) {
+					$unit->mock = true;
+				}
+
+				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit);
+				$unitObj->create((array) $unit);
+				if($unitObj->valid) {
+					$unitObj->addToRun($this->id, $unitObj->position);
+					// @todo check how to manage this because they are echoed only on next page load
+					//alert('<strong>Success.</strong> '.ucfirst($unitObj->type).' unit was created.','alert-success');
+					$createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
+				}
+			}
+		}
+
+		return $createdUnits;
+	}
 
 }
