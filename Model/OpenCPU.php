@@ -255,10 +255,11 @@ library(formr)
 		return $this->returnParsed($result, "knit");
 	}
 	
-	public function knit2html($source,$return = '/json',$options = '"base64_images","smartypants","highlight_code","mathjax"')
+	public function knit2html($source,$return = '/json',$self_contained = 1)
 	{
 		
-		$post = array(	'text' => "'".addslashes($source)."'");
+		
+		$post = array(	'text' => "'".addslashes($source)."'", 'self_contained' => $self_contained);
 		return $this->r_function('library/formr/R/formr_render'.$return, $post);
 	}
 	public function knitForUserDisplay($source)
@@ -291,7 +292,7 @@ $this->user_data .
 '.
 		$source;
 		
-		$result = $this->knit2html($source,'','"smartypants","highlight_code","mathjax"');
+		$result = $this->knit2html($source,'',0);
 
 		if($this->anyErrors()):
 			 $response = array(
