@@ -27,7 +27,7 @@ endif;
 // Load application autoloader
 $autoloader = require_once INCLUDE_ROOT . "Library/Autoloader.php";
 // Include helper functions
-require_once INCLUDE_ROOT . "Model/helper_functions.php";
+require_once INCLUDE_ROOT . "Library/Functions.php";
 // Initialize Config
 Config::initialize($settings);
 
