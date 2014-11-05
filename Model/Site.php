@@ -165,6 +165,7 @@ class Site {
                 endif;
 
                 $user->logout();
+				global $fdb;
                 $user = new User($fdb, null, $login_code);
 
             // a special case are admins. if they are not already logged in, verified through password, they should not be able to obtain access so easily. but because we only create a mock user account, this is no problem. the admin flags are only set/privileges are only given if they legitimately log in
