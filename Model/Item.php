@@ -428,6 +428,10 @@ class Item extends HTML_element
 		
 		$this->input_attributes['value'] = $survey->openCPU->evaluateWith($survey->name, $this->value);
 		
+		if($this->type == 'opencpu_session'):
+			$this->input_attributes['value'] = $survey->openCPU->session_location;
+		endif;
+
 		if($survey->openCPU->anyErrors()):
 			$this->alwaysInvalid();
 		endif;
@@ -1487,6 +1491,17 @@ class Item_calculate extends Item {
 	public $no_user_input_required = true;
 	
 	public $mysql_field =  'TEXT DEFAULT NULL';
+	public function render() {
+		return $this->render_input();
+	}
+}
+
+class Item_opencpu_session extends Item {
+	public $type = 'opencpu_session';
+	public $input_attributes = array('type' => 'hidden');
+	public $no_user_input_required = true;
+	
+	public $mysql_field =  'VARCHAR (255) DEFAULT NULL';
 	public function render() {
 		return $this->render_input();
 	}

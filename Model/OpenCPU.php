@@ -10,6 +10,9 @@ class OpenCPU {
 	private $hashes = array();
 	private $dbh = null;
 	private $hash_of_call = null;
+	private $called_function = null;
+	public $session_location = null;
+	public $session_token = null;
 	
 	public function __construct($instance, $fdb = null)
 	{
@@ -26,6 +29,9 @@ class OpenCPU {
 		$this->http_status = null;
 		$this->hash_of_call = null;
 		$this->called_function = null;
+		$this->session_location = null;
+		$this->session_token = null;
+		$this->replace_var = null;
 	}
 	public function addUserData($data)
 	{
@@ -73,15 +79,21 @@ class OpenCPU {
 	
 	private function returnParsed($result, $in = '') 
 	{
+		$header_parsed = http_parse_headers($result['header']);
+		if(isset($header_parsed['Location'])): # won't be there if openCPU is down
+			$this->session_location = $header_parsed['Location'];
+			$this->session_token = $header_parsed['X-ocpu-session'];
+		endif;
+		
 		$post = $result['post'];
 		$parsed = json_decode($result['body'], true);
 				
 		if($parsed === null):
 			$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post, $in);
 			return null;
-		elseif(empty($parsed)):
-			$this->handleErrors("This expression led to a null result (may be intentional, but most often isn't)", $result, $post, $in, 'alert-warning');
-			return null;
+//		elseif(empty($parsed)):
+//			$this->handleErrors("This expression led to a null result (may be intentional, but most often isn't)", $result, $post, $in, 'alert-warning');
+//			return null;
 		else:
 			if( is_string( $parsed[0]) ) // dont change type by accident!
 				$parsed = str_replace("/usr/local/lib/R/site-library/", $this->instance.'/ocpu/library/' , $parsed[0]);
