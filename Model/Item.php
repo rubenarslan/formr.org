@@ -227,15 +227,15 @@ class Item extends HTML_element
 			$max = max($choices);
 			
 			if($min < 0 ):
-				$this->mysql_field = str_replace($this->mysql_field,"UNSIGNED ", "");
+				$this->mysql_field = str_replace("UNSIGNED ", "",$this->mysql_field);
 			endif;
 			
 			if( abs($min)>32767 OR abs($max)>32767 ):
-				$this->mysql_field = str_replace($this->mysql_field,"TINYINT", "MEDIUMINT");
+				$this->mysql_field = str_replace("TINYINT", "MEDIUMINT", $this->mysql_field);
 			elseif( abs($min)>126 OR abs($min)>126 ):
-				$this->mysql_field = str_replace($this->mysql_field,"TINYINT", "SMALLINT");
+				$this->mysql_field = str_replace("TINYINT", "SMALLINT", $this->mysql_field);
 			elseif( count(array_filter($choices, "is_float")) ):
-				$this->mysql_field = str_replace($this->mysql_field,"TINYINT", "FLOAT");
+				$this->mysql_field = str_replace("TINYINT", "FLOAT", $this->mysql_field);
 			endif;
 		else:
 			$lengths = array_map("strlen",$choices);
@@ -505,8 +505,7 @@ class Item_number extends Item
 	public $input_attributes = array('type' => 'number', 'min' => 0, 'max' => 10000000, 'step' => 1);
 	public $mysql_field = 'INT UNSIGNED DEFAULT NULL';
 	
-	protected function setMoreOptions() 
-	{
+	protected function setMoreOptions() {
 		$this->classes_input[] = 'form-control';
 		if(isset($this->type_options_array) AND is_array($this->type_options_array))
 		{
@@ -524,47 +523,47 @@ class Item_number extends Item
 		}
 		
 		$multiply = 2;
-		if($this->input_attributes['min']<0):
-			$this->mysql_field = str_replace($this->mysql_field,"UNSIGNED", "");
+                if($this->input_attributes['min'] < 0 ) :
+			$this->mysql_field = str_replace("UNSIGNED", "", $this->mysql_field);
 			$multiply = 1;
 		endif;
 		
-		if($this->input_attributes['step']==='any' OR $this->input_attributes['min']==='any' OR $this->input_attributes['max']==='any'): // is any any
-			$this->mysql_field = str_replace(array("INT"), "FLOAT",$this->mysql_field); // use FLOATing point accuracy
+		if($this->input_attributes['step']==='any' OR $this->input_attributes['min'] === 'any' OR $this->input_attributes['max'] === 'any'): // is any any
+			$this->mysql_field = str_replace(array("INT"), "FLOAT", $this->mysql_field); // use FLOATing point accuracy
 		else:
 			if(
-				(abs($this->input_attributes['min']) < ($multiply*127) ) OR 			
+				(abs($this->input_attributes['min']) < ($multiply*127) ) AND 			
 				(abs($this->input_attributes['max']) < ($multiply*127) )
 			):
-				$this->mysql_field = str_replace($this->mysql_field,"INT", "TINYINT");
+				$this->mysql_field = str_replace("INT", "TINYINT", $this->mysql_field);
 			elseif(
-				(abs($this->input_attributes['min']) < ($multiply*32767) ) OR 			
+				(abs($this->input_attributes['min']) < ($multiply*32767) ) AND			
 				(abs($this->input_attributes['max']) < ($multiply*32767) )
 			):
-				$this->mysql_field = str_replace($this->mysql_field,"INT", "SMALLINT");
+				$this->mysql_field = str_replace("INT", "SMALLINT", $this->mysql_field);
 			elseif(
-				(abs($this->input_attributes['min']) < ($multiply*8388608) ) OR 		
+				(abs($this->input_attributes['min']) < ($multiply*8388608) ) AND 		
 				(abs($this->input_attributes['max']) < ($multiply*8388608) )
 			):
-				$this->mysql_field = str_replace($this->mysql_field,"INT", "MEDIUMINT");
+				$this->mysql_field = str_replace("INT", "MEDIUMINT", $this->mysql_field);
 			elseif(
-				(abs($this->input_attributes['min']) < ($multiply*2147483648) ) OR 		
+				(abs($this->input_attributes['min']) < ($multiply*2147483648) ) AND 		
 				(abs($this->input_attributes['max']) < ($multiply*2147483648) )
 			):
-				$this->mysql_field = str_replace($this->mysql_field,"INT", "INT");
+				$this->mysql_field = str_replace("INT", "INT", $this->mysql_field);
 			elseif(
-				(abs($this->input_attributes['min']) < ($multiply*9223372036854775808) ) OR 		
+				(abs($this->input_attributes['min']) < ($multiply*9223372036854775808) ) AND		
 				(abs($this->input_attributes['max']) < ($multiply*9223372036854775808) )
 			):
-				$this->mysql_field = str_replace($this->mysql_field,"INT", "BIGINT");
+				$this->mysql_field = str_replace("INT", "BIGINT", $this->mysql_field);
 			endif;
-			
+
 			if((string)(int)$this->input_attributes['step'] != $this->input_attributes['step']): // step is integer?
 				$before_point = max(strlen((int)$this->input_attributes['min']), strlen((int)$this->input_attributes['max'])); // use decimal with this many digits
 				$after_point = strlen($this->input_attributes['step']) - 2;
 				$d = $before_point + $after_point;
 			
-				$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT","INT","BIGINT"), "DECIMAL($d, $after_point)",$this->mysql_field);
+				$this->mysql_field = str_replace(array("TINYINT","SMALLINT","MEDIUMINT","INT","BIGINT"), "DECIMAL($d, $after_point)", $this->mysql_field);
 			endif;
 		endif;
 	}
