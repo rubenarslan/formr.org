@@ -10,6 +10,9 @@ class OpenCPU {
 	private $hashes = array();
 	private $dbh = null;
 	private $hash_of_call = null;
+	private $called_function = null;
+	public $session_location = null;
+	public $session_token = null;
 	
 	public function __construct($instance, $fdb = null)
 	{
@@ -25,6 +28,10 @@ class OpenCPU {
 		$this->admin_usage = false;
 		$this->http_status = null;
 		$this->hash_of_call = null;
+		$this->called_function = null;
+		$this->session_location = null;
+		$this->session_token = null;
+		$this->replace_var = null;
 	}
 	public function addUserData($datasets)
 	{
@@ -62,6 +69,12 @@ class OpenCPU {
 	
 	private function returnParsed($result, $in = '') 
 	{
+		$header_parsed = http_parse_headers($result['header']);
+		if(isset($header_parsed['Location'])): # won't be there if openCPU is down
+			$this->session_location = $header_parsed['Location'];
+			$this->session_token = $header_parsed['X-ocpu-session'];
+		endif;
+		
 		$post = $result['post'];
 		$parsed = json_decode($result['body'], true);
 				
@@ -78,9 +91,6 @@ class OpenCPU {
 			$this->cache_query($result);
 			return $parsed;
 		endif;
-		
-		pr($result);
-		pr($parsed);
 	}
 	
 	public function r_function($function,$post)
@@ -91,9 +101,10 @@ class OpenCPU {
 		if($was_cached = $this->query_cache($function, $post)):
 			return $was_cached;
 		endif;
-
-		curl_setopt($this->curl_c, CURLOPT_URL, $this->instance.'/ocpu/library/'.$function);
 		
+		$this->called_function = $this->instance.'/ocpu/library/'.$function;
+		curl_setopt($this->curl_c, CURLOPT_URL, $this->called_function);
+
 		if($post !== null):
 			curl_setopt($this->curl_c, CURLOPT_POST, 1); // Method is "POST"
 			$post = array_map("cr2nl", $post); # get rid of windows new lines, not that there should be any, but this causes such annoying-to-debug errors
@@ -263,7 +274,7 @@ opts_chunk$set(warning=F,message=F,echo=F)
 $this->user_data .
 '```
 '.
-		$source;
+$source;
 		
 		$result = $this->knit2html($source,'/json');
 		
@@ -389,7 +400,7 @@ $this->user_data .
 		   		 $response = array(
 		   			 'Response' => 'OpenCPU at '.$this->instance.' is down.'
 		   		 );
-			endif;
+ 				endif;
 		else:
 			
 	   		 $response = array(
@@ -399,7 +410,7 @@ $this->user_data .
 				 'Headers sent' => '<pre>'. htmlspecialchars(curl_getinfo($this->curl_c, CURLINFO_HEADER_OUT )) . '</pre>',
 	   		 );
 		endif;
-		
+		 
 		if($this->knitr_source !== NULL) $response['Knitr doc'] =  '<pre>'. htmlspecialchars($this->knitr_source). '</pre>';
 		 
 		return $this->ArrayToAccordion($response);
