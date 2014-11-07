@@ -346,32 +346,8 @@ class RunUnit {
 			endif;
 		endforeach;
 
-		if(!empty($needed['variables'])):
-			if(in_array('formr_last_action_date',$needed['variables']) OR in_array('formr_last_action_time',$needed['variables'])):
-				$last_action = $this->dbh->prepare("SELECT `created` FROM `survey_unit_sessions` 
-					WHERE 
-					`id` = :session_id AND 
-					`unit_id` = :unit_id AND 
-					`ended` IS NULL
-				LIMIT 1;");
-				$last_action->bindParam(":session_id", $this->session_id);
-				$last_action->bindParam(":unit_id", $this->id);
-				$last_action->execute();
-				$last_action_time = strtotime($last_action->fetch()['created']);
-				if(in_array('formr_last_action_date',$needed['variables'])):
-					$this->survey_results['.formr$last_action_date'] = "as.Date('".date("Y-m-d",$last_action_time)."')";
-				endif;
-				if(in_array('formr_last_action_time',$needed['variables']) ):
-					$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T",$last_action_time)."')";
-				endif;
-			endif;
-			
-			if(in_array('formr_login_link',$needed['variables']) ):
-				$this->survey_results['.formr$login_link'] = WEBROOT."{$this->run_name}?code={$this->session}";
-			endif;
-			if(in_array('formr_login_code',$needed['variables']) ):
-				$this->survey_results['.formr$login_code'] = $this->session;
-			endif;
+		if($needed['token_add'] !== null AND ! isset($this->survey_results[ $needed['token_add'] ])):
+			$this->survey_results[ $needed['token_add'] ] = array();
 		endif;
 
 		return $this->survey_results;
