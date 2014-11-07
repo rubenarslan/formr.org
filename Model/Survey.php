@@ -105,7 +105,7 @@ class Survey extends RunUnit {
 		$start_entry->bindParam(":study_id", $this->id);
 		$start_entry->execute() or die(print_r($start_entry->errorInfo(), true));
 	}
-	public function post($posted) {
+	public function post($posted, $redirect = true) {
 
 		unset($posted['id']); // cant overwrite your session
 		unset($posted['session']); // cant overwrite your session
@@ -150,7 +150,7 @@ class Survey extends RunUnit {
 					}
 					catch(Exception $e)
 					{
-						if(strlen($value)>10000) $value = '(too big to show here)';
+						if(strlen($value)>10000) $value = substr($value,0,100).'(too big to show here)';
 						trigger_error(date("Y-m-d H:i:s")." Could not save in survey ".$this->results_table. ", probably because " . $name . "'s field was misconfigured as " . $this->unanswered[$name]->getResultField() .
 							" and the value was " . $value . PHP_EOL."<br><pre>" . print_r($e, true) . "</pre>", E_USER_WARNING);
 					}
@@ -161,7 +161,7 @@ class Survey extends RunUnit {
 			}
 		} //endforeach
 
-		if(empty($this->errors) AND !empty($posted))
+		if(empty($this->errors) AND !empty($posted) AND $redirect)
 		{ // PRG
 			redirect_to($this->run_name);
 		}
@@ -343,8 +343,21 @@ class Survey extends RunUnit {
 					$item->error = $this->item_factory->openCPU_errors[$item->showif];
 				}
 
+
+			}
+			if(
+				$item->no_user_input_required AND
+				$item->needsDynamicValue()
+			) // determine value if there is a dynamic one and no user input is required
+			{
+				$item->determineDynamicValue($this);
 			}
 			$this->unanswered[$name] = $item;
+
+			if(! $item->hidden AND $item->no_user_input_required):
+				$this->post( array($item->name => $item->input_attributes['value']), false); # add this data but don't reload
+			endif;
+			
 		}
 		
 	}
@@ -409,21 +422,8 @@ class Survey extends RunUnit {
 					}
 				}
 				
-				if(
-					$item->no_user_input_required AND
-					$item->needsDynamicValue()
-				) // determine value if there is a dynamic one and no user input is required
-				{
-					$item->determineDynamicValue($this);
-				}
-
 				if(! $item->hidden)
 				{
-					// some items do not require user interaction at all, but they can still be optional (i.e. agree to let us save your IP address)
-					if($item->no_user_input_required)
-					{
-						$_POST[ $item->name ] = $item->input_attributes['value'];
-					}
 			
 					$item->viewedBy($view_update);
 					$itemsDisplayed++;
