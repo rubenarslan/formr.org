@@ -16,8 +16,15 @@ class Autoload {
         }
 
         return array(
+			'AdminAjaxController' => INCLUDE_ROOT . 'Controller/AdminAjaxController.php',
+			'AdminController' => INCLUDE_ROOT . 'Controller/AdminController.php',
+			'AdminMailController' => INCLUDE_ROOT . 'Controller/AdminMailController.php',
+			'AdminRunController' => INCLUDE_ROOT . 'Controller/AdminRunController.php',
+			'AdminSurveyController' => INCLUDE_ROOT . 'Controller/AdminSurveyController.php',
+			'ApiController' => INCLUDE_ROOT . 'Controller/ApiController.php',
             'Branch' => INCLUDE_ROOT . 'Model/Branch.php',
             'Config' => INCLUDE_ROOT . 'Library/Config.php',
+			'Controller' => INCLUDE_ROOT . 'Controller/Controller.php',
             'DB' => INCLUDE_ROOT . 'Model/DB.php',
             'Email' => INCLUDE_ROOT . 'Model/Email.php',
             'EmailAccount' => INCLUDE_ROOT . 'Model/EmailAccount.php',
@@ -75,6 +82,7 @@ class Autoload {
             'Page' => INCLUDE_ROOT . 'Model/Page.php',
             'Pagination' => INCLUDE_ROOT . 'Model/Pagination.php',
             'Pause' => INCLUDE_ROOT . 'Model/Pause.php',
+			'PublicController' => INCLUDE_ROOT . 'Controller/PublicController.php',
             'Request' => INCLUDE_ROOT . 'Library/Request.php',
             'Router' => INCLUDE_ROOT . 'Library/Router.php',
             'Run' => INCLUDE_ROOT . 'Model/Run.php',
@@ -86,6 +94,7 @@ class Autoload {
             'SkipBackward' => INCLUDE_ROOT . 'Model/SkipBackward.php',
             'SkipForward' => INCLUDE_ROOT . 'Model/SkipForward.php',
             'SpreadsheetReader' => INCLUDE_ROOT . 'Model/SpreadsheetReader.php',
+			'SuperadminController' => INCLUDE_ROOT . 'Controller/SuperadminController.php',
             'Survey' => INCLUDE_ROOT . 'Model/Survey.php',
             'Template' => INCLUDE_ROOT . 'Library/Template.php',
             'UnitSession' => INCLUDE_ROOT . 'Model/UnitSession.php',

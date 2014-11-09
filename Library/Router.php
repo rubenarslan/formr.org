@@ -8,9 +8,7 @@ class Router {
 
     protected static $instance = null;
 
-    protected $module;
-
-    protected $submodule;
+    protected $action;
 
     protected $controller;
 
@@ -18,110 +16,101 @@ class Router {
 
     protected $params;
 
-    protected $file;
-
-    protected $directPathParts = array();
-
     /**
      * @var Site
      */
     protected $site;
 
+	protected $routes;
+
     public function __construct(&$site) {
         $this->site = $site;
+		$this->routes = Config::get('routes');
     }
 
     /**
      * @return Router
      */
     public function route() {
-        $this->module = $this->site->request->str('module', 'public');
-        $this->submodule = $this->site->request->str('submodule');
-        $this->controller = str_replace('.php', '', $this->site->request->str('controller'));
-        $this->params = $this->site->request->str('params');
-        $this->webroot = Config::get('web_dir');
+		$route = $this->site->request->str('route');
 
-        if ($this->module == 'index')  {
-            $this->module = 'public';
-        }
+		// First try to get controller path from the route which is one of those configured routes
+		foreach ($this->routes as $r) {
+			if (strpos($route, $r) !== false) {
+				$controllerPath = $r;
+			}
+		}
+		// If none is found in configured routes then default to public
+		if (empty($controllerPath)) {
+			$controllerPath = 'public';
+		}
 
-        $this->site->setPath($this->path($this->module, $this->submodule, $this->controller));
-        $this->directPathParts = explode('/', $this->path($this->webroot, $this->module, $this->submodule, $this->controller, $this->params));
-        $direct_file = $this->path($this->webroot, $this->module, $this->submodule, $this->controller, $this->params .'.php');
-        if (file_exists($direct_file)) {
-            $this->file = $direct_file;
-            $this->hackRequestParams();
-            return $this;
-        }
+		// get action
+		$params = (array)array_filter(explode('/', str_replace($controllerPath, '', $route)));
+		$action = array_shift($params);
+		if (!$action) {
+			$action = 'index';
+		}
 
-        $module_dir = $this->path($this->webroot, $this->module);
-        if (is_dir($module_dir)) {
-            if ($this->submodule && is_dir($this->path($module_dir, $this->submodule))) {
-                $sub_module_dir = $this->path($module_dir, $this->submodule);
+		// Check if action exists in controller and if it doesn't assume we are looking at a run
+		// @todo validate runs not to have controller action names (especially PublicController)
+		$controllerName = $this->getControllerName($controllerPath);
+		$actionName = $this->getActionName($action);
+		if (!class_exists($controllerName, true)) {
+			throw new Exception ("Controller $controllerName does not exist");
+		}
+		if (!method_exists($controllerName, $actionName)) {
+			$actionName = $this->shiftAction($controllerName);
+			// push back the $action as an action parameter
+			array_unshift($params, $action);
+		}
 
-                if ($this->controller && is_dir($this->path($sub_module_dir, $this->controller))) {
-                    $this->file = $this->path($sub_module_dir, $this->controller, 'index.php');
-                } elseif ($this->controller) {
-                    $this->file = $this->path($sub_module_dir, $this->controller.'.php');
-                }
-            } elseif (!$this->submodule && $this->controller && is_dir($this->path($module_dir, $this->controller))) {
-                $this->file = $this->path($module_dir, $this->controller, 'index.php');
-            } elseif (!$this->submodule && $this->controller && !is_dir($this->path($module_dir, $this->controller))) {
-                $this->file = $this->path($module_dir, $this->controller.'.php');
-            } else {
-                $this->file = $module_dir . '/index.php';
-            }
-        } else {
-            // assume this is a run
-            $this->file = $this->path($this->webroot, 'run.php');
-            $this->site->request->run_name = $this->module;
-        }
-
-        $this->hackRequestParams();
-        return $this;
+		$this->controller = $controllerName;
+		$this->action = $actionName;
+		$this->params = $params;
+		$this->site->setPath($route);
+		return $this;
     }
 
-    public function getFile() {
-        return $this->file;
-    }
+	private function getControllerName($controllerPath) {
+		$parts = array_filter(explode('/', $controllerPath));
+		$parts = array_map('ucwords', array_map('strtolower', $parts));
+		return implode('', $parts) . 'Controller';
+	}
 
-    private function hackRequestParams() {
-        $fileFromParams = $this->path($this->module, $this->submodule, $this->params . '.php');
-        // Hack for admin survey area
-        if ($this->site->inAdminSurveyArea() && !file_exists($this->file)) {
-            if ($this->params && file_exists($fileFromParams)) {
-                $this->file = $fileFromParams;
-				$second_to_last = count($this->directPathParts)-2;
-                $this->site->request->study_name = !empty($this->directPathParts[$second_to_last]) ? $this->directPathParts[$second_to_last] : '';
-            } else {
-                $survey_name = pathinfo($this->file, PATHINFO_FILENAME);
-                $this->file = dirname($this->file) . '/index.php';
-                $this->site->request->study_name = $survey_name;
-            }
-        }
-        // Hack for run admin area
-        if ($this->site->inAdminRunArea() && !file_exists($this->file)) {
-            if ($this->params && file_exists($fileFromParams)) {
-                $this->file = $fileFromParams;
-				$second_to_last = count($this->directPathParts)-2;
-                $this->site->request->run_name = !empty($this->directPathParts[$second_to_last]) ? $this->directPathParts[$second_to_last] : '';
-            } else {
-                $run_name = pathinfo($this->file, PATHINFO_FILENAME);
-                $this->file = dirname($this->file) . '/index.php';
-                $this->site->request->run_name = $run_name;
-            }
-        }
-        // WTF hack because global array is accessed in almost all of code
-        $_GET['run_name'] = $this->site->request->run_name;
-        $_GET['study_name'] = $this->site->request->study_name;
-    }
-    private function path() {
-        $paths = func_get_args();
-        $path = implode('/', $paths);
-        $path = preg_replace('/\/+/', '/', $path);
-        $path = preg_replace('/\/\./', '.', $path);
-        return $path;
-    }
+	private function getActionName($action) {
+		$parts = array_filter(explode('_', $action));
+		$action = array_shift($parts);
+		foreach ($parts as $part) {
+			$action .= ucwords(strtolower($part));
+		}
+		return $action . 'Action';
+	}
+
+	/**
+	 * Some hack method to shift blame when we can't find action in controller
+	 *
+	 * @param type $controller
+	 * @return string
+	 */
+	private function shiftAction($controller) {
+		if ($controller === 'PublicController') {
+			return 'runAction';
+		}
+		return 'indexAction';
+	}
+
+	public function execute() {
+		$controller_ = $this->controller;
+		$action = $this->action;
+
+		$controller = new $controller_($this->site);
+		if (!method_exists($controller, $action)) {
+			throw new Exception("Action $action not found in $controller_");
+		}
+
+		return call_user_func_array(array($controller, $action), $this->params);
+	}
 
     /**
      * @return Router
