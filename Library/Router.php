@@ -39,7 +39,7 @@ class Router {
         $this->submodule = $this->site->request->str('submodule');
         $this->controller = str_replace('.php', '', $this->site->request->str('controller'));
         $this->params = $this->site->request->str('params');
-        $this->webroot = INCLUDE_ROOT . 'webroot';
+        $this->webroot = Config::get('web_dir');
 
         if ($this->module == 'index')  {
             $this->module = 'public';
@@ -135,7 +135,7 @@ class Router {
     }
 
     public static function getWebRoot() {
-        return INCLUDE_ROOT . 'webroot';
+        return Config::get('web_dir');
     }
 
     public static function isWebRootDir($name) {
