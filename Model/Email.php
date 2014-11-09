@@ -144,9 +144,8 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 					$this->images = $response['images'];
 				endif;
 			else:
-				$response = $this->getParsedBodyAdmin($this->body,$embed_email);
-				
 				if($embed_email):
+					$response = $this->getParsedBody($this->body,$embed_email);
 					if(isset($response['body'])):
 						$this->body_parsed = $response['body'];
 					endif;
@@ -154,7 +153,8 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 						$this->images = $response['images'];
 					endif;
 				else:
-					$this->body_parsed = $response;
+					$response = $this->getParsedBodyAdmin($this->body,$embed_email);
+					return $response;
 				endif;
 			endif;
 			
