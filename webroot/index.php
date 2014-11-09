@@ -59,8 +59,7 @@ try {
 	$router = Router::getInstance()->route();
 	$router->execute();
 } catch (Exception $e) {
-	// log exception
-	pr($e); exit;
+	log_exception($e);
 	not_found();
 }
 
