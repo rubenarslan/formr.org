@@ -22,7 +22,7 @@ $fdb = new DB();
 
 $site->start_session();
 if (isset($_SESSION['site']) AND is_object($_SESSION['site'])): // first we see what's in that session
-    $site = $_SESSION['site']; // if we already have a site object, possibly with alerts and referrers, we use that instead
+	$site = $_SESSION['site']; // if we already have a site object, possibly with alerts and referrers, we use that instead
     $site->updateRequestObject();
 endif;
 
@@ -55,17 +55,13 @@ if (!isset($user)):
     $user = new User($fdb, null, null);
 endif;
 
-$router = Router::getInstance()->route();
-$file = $router->getFile();
-if ($file && file_exists($file)) {
-	
-    if ($site->inAdminArea() || $site->inSuperAdminArea()) {
-        require_once INCLUDE_ROOT . 'View/admin_header.php';
-    }
-    require_once $file;
-	
-} else {
-    not_found();
+try {
+	$router = Router::getInstance()->route();
+	$router->execute();
+} catch (Exception $e) {
+	// log exception
+	pr($e); exit;
+	not_found();
 }
 
 exit(0);

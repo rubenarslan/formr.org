@@ -49,21 +49,21 @@ function session_over($site, $user)
 }
 
 function access_denied() {
-	global $site,$user;
+	global $site, $user;
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 
     header('HTTP/1.0 403 Forbidden');
-	require_once INCLUDE_ROOT."webroot/public/not_found.php";
+	require_once INCLUDE_ROOT . "View/public/not_found.php";
 	exit;
 }
 function not_found() {
-	global $site,$user;
+	global $site, $user;
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 
     header('HTTP/1.0 404 Not Found');
-	require_once INCLUDE_ROOT."webroot/public/not_found.php";
+	require_once INCLUDE_ROOT . "View/public/not_found.php";
 	exit;
 }
 
@@ -73,7 +73,7 @@ function bad_request() {
 	$_SESSION['user'] = serialize($user);
 
     header('HTTP/1.0 400 Bad Request');
-	require_once INCLUDE_ROOT."webroot/public/not_found.php";
+	require_once INCLUDE_ROOT . "View/public/not_found.php";
 	exit;
 }
 
@@ -496,6 +496,21 @@ function url_title($str, $separator = '-', $lowercase = false) {
 	}
 
 	return trim($str, $separator);
+}
+
+function empty_column($col, $arr) {
+	$empty = true;
+	$last = null;
+	foreach($arr AS $row):
+		if(!(empty($row->$col)) OR // not empty column? (also treats 0 and empty strings as empty)
+		$last != $row->$col OR // any variation in this column?
+		!(!is_array($row->$col) AND trim($row->$col)=='')):
+			$empty = false;
+			break;
+		endif;
+		$last = $row->$col;
+	endforeach;
+	return $empty;
 }
 
 /**
