@@ -6,3 +6,4 @@ vendor/*
 .Rproj.user
 formr.Rcheck
 formr-package/man
+nbproject
