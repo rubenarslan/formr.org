@@ -13,6 +13,7 @@ class OpenCPU {
 	private $called_function = null;
 	public $session_location = null;
 	public $session_token = null;
+	private $posted = null;
 	
 	public function __construct($instance, $fdb = null)
 	{
@@ -32,6 +33,7 @@ class OpenCPU {
 		$this->session_location = null;
 		$this->session_token = null;
 		$this->replace_var = null;
+		$this->posted = null;
 	}
 	public function addUserData($data)
 	{
@@ -119,6 +121,7 @@ class OpenCPU {
 		if($post !== null):
 			curl_setopt($this->curl_c, CURLOPT_POST, 1); // Method is "POST"
 			$post = array_map("cr2nl", $post); # get rid of windows new lines, not that there should be any, but this causes such annoying-to-debug errors
+			$this->posted = $post;
 			curl_setopt($this->curl_c, CURLOPT_POSTFIELDS, http_build_query($post));
 		endif;
 		
@@ -322,10 +325,12 @@ $this->user_data .
 			$response = array();
 			$response['images'] = array();
 		
+			$rmarkdown_fig_path = '/files/file';
 			foreach($available AS $part):
-				$upto = mb_strpos($part,'/files/figure/');
-				if($upto!==false):
-					$image_id = preg_replace("/[^a-zA-Z0-9]/",'',mb_substr($part,$upto+14)) . '.png';
+				$upto = mb_strpos($part,$rmarkdown_fig_path);
+				$is_figure = mb_strpos($part,"/figure-html/");
+				if($is_figure!==false):
+					$image_id = preg_replace("/[^a-zA-Z0-9]/",'',mb_substr($part,$upto+1+strlen($rmarkdown_fig_path))). '.png'; // 
 					$response['images'][ $image_id ] =  $this->instance. $part;
 				endif;
 			endforeach;
@@ -344,7 +349,25 @@ $this->user_data .
 		endif;
 		return $response;
 	}
-	
+	public function knitEmailForAdminDebug($source)
+	{
+		$this->admin_usage = true;
+		
+		$source =
+'```{r settings,message=FALSE,warning=F,echo=F}
+library(knitr); library(formr)
+opts_chunk$set(warning=F,message=F,echo=F)
+#opts_knit$set(upload.fun=formr::email_image)
+'.
+$this->user_data .
+'```
+'.
+		$source;
+		$this->knitr_source = $source;
+		$result = $this->knit2html($source,'',0);
+		return $this->debugCall($result);
+
+	}
 	public function knitForAdminDebug($source)
 	{
 		$this->admin_usage = true;
@@ -389,13 +412,17 @@ $this->user_data .
 				if(in_array($session . 'R/.val',$available)):
 					$response['Result'] = file_get_contents($this->instance. $session . 'R/.val/text');
 				endif;
+				
+				$locations = '';
+				foreach($available AS $segment):
+					$href = $this->instance.$segment;
+					$path = substr($segment, strlen("/ocpu/tmp/".$header_parsed['X-ocpu-session']."/"));
+					$locations .= "<a href='$href'>$path</a><br>";
+				endforeach;
+				$response['Locations'] = $locations;
+				$response['Function called'] = substr($this->called_function, strlen($this->instance));
+				$response['Posted data'] = '<pre>'. print_r($this->posted, true). '</pre>';
 
-				if(in_array($session . 'console',$available)):
-					$response['Console'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'console/print')).'</pre>';
-				endif;
-				if(in_array($session . 'stdout',$available)):
-					$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/print')). '</pre>';
-				endif;
 				
 	  			if($this->knitr_source === NULL) $response['Call'] = '<pre>'. htmlspecialchars(current($result['post'])). '</pre>';
 				else $response['Knitr doc'] =  '<pre>'. htmlspecialchars($this->knitr_source). '</pre>';
@@ -405,6 +432,13 @@ $this->user_data .
 			
 				if(in_array($session . 'info',$available)):
 					$response['Session info'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'info/print')). '</pre>';
+				endif;
+				
+				if(in_array($session . 'console',$available)):
+					$response['Console'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'console/print')).'</pre>';
+				endif;
+				if(in_array($session . 'stdout',$available)):
+					$response['Stdout'] = '<pre>'. htmlspecialchars(file_get_contents($this->instance. $session . 'stdout/print')). '</pre>';
 				endif;
 				
 			else:

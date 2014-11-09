@@ -559,7 +559,7 @@ class RunUnit {
 			));
 
 			if ($email_embed):
-				return $openCPU->knitEmail($source); # currently not caching email reports
+				return $openCPU->knitEmailForAdminDebug($source); # currently not caching email reports
 			else:
 				$report = $openCPU->knitForAdminDebug($source);
 			endif;
