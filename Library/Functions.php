@@ -325,10 +325,6 @@ function hardTrueFalse($x)
 	else return $x;
 }
 
-
-
-
-
 if (!function_exists('http_parse_headers'))
 {
     function http_parse_headers($raw_headers)
@@ -527,4 +523,52 @@ function get_run_dir_contents($dir) {
 		}
 	}
 	return $contents;
+}
+
+/**
+ * Get the mime type of a file given filename using FileInfo
+ * @see http://php.net/manual/en/book.fileinfo.php
+ *
+ * @param string $filename
+ * @return mixed Returns the mime type as a string or FALSE otherwise
+ */
+function get_file_mime($filename) {
+        $constant = defined('FILEINFO_MIME_TYPE') ? FILEINFO_MIME_TYPE : FILEINFO_MIME;
+		$finfo = finfo_open($constant);
+        $info = finfo_file($finfo, $filename);
+        finfo_close($finfo);
+        $mime = explode(';', $info);
+        if (!$mime) {
+            return false;
+        }
+
+        $mime_type = $mime[0];
+        return $mime_type;
+    }
+
+/**
+ * Send a file for download to client
+ *
+ * @param string $file Absolute path to file
+ * @param boolean $unlink
+ * @todo implement caching stuff
+ */
+function download_file($file, $unlink = false) {
+	$type = get_file_mime($file);
+	$filename = basename($file);
+	$filesize = filesize($file);
+	header('Content-Description: File Transfer');
+	header('Content-Type: ' . $type);
+	header('Content-Disposition: attachment; filename = "'. $filename. '"');
+	header('Content-Transfer-Encoding: binary');
+	header('Expires: 0');
+	header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+	if ($filesize) {
+		header('Content-Length: ' . $filesize);
+	}
+	readfile($file);
+	if ($unlink) {
+		unlink($file);
+	}
+	exit(0);
 }
