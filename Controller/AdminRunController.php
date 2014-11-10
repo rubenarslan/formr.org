@@ -293,6 +293,7 @@ class AdminRunController extends AdminController {
 	}
 
 	private function renameRunAction() {
+		$run = $this->run;
 		if( !empty($_POST) ) {
 			if(isset($_POST['new_name'])) {
 				if($run->rename($_POST['new_name'])) {

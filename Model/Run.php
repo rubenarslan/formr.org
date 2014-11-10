@@ -253,7 +253,7 @@ class Run {
 					if(isset($files_by_names[ $original_file_name ]))
 						$new_file_path = $files_by_names[ $original_file_name ];
 					else
-                        $new_file_path = 'assets/tmp/admin/' . bin2hex(openssl_random_pseudo_bytes(100)) . $this->file_endings[$mime];
+                        $new_file_path = 'assets/tmp/admin/' . crypto_token(33,true) . $this->file_endings[$mime];
 				
                     if ($err = move_uploaded_file($files['tmp_name'][$i], INCLUDE_ROOT . "webroot/" . $new_file_path)) {
 						$upload = $this->dbh->prepare("INSERT INTO `survey_uploaded_files` (run_id, created, original_file_name, new_file_path) VALUES (:run_id, NOW(), :original_file_name, :new_file_path)
