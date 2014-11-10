@@ -24,12 +24,12 @@ class AdminAjaxController {
 	 *
 	 * @var DB
 	 */
-	protected $fdb;
+	protected $dbh;
 
 	public function __construct(AdminController $controller) {
 		$this->controller = $controller;
 		$this->site = $controller->getSite();
-		$this->fdb = $this->controller->getDB();
+		$this->dbh = $this->controller->getDB();
 	}
 
 	public static function call($method, AdminController $controller) {
@@ -40,11 +40,11 @@ class AdminAjaxController {
 
 	private function ajaxCreateRunUnit() {
 		if (is_ajax_request()):
-			$fdb = $this->fdb;
+			$dbh = $this->dbh;
 			$run = $this->controller->run;
 
 			$unit_factory = new RunUnitFactory();
-			$unit = $unit_factory->make($fdb, null, array('type' => $_GET['type'], 'position' => $_POST['position']));
+			$unit = $unit_factory->make($dbh, null, array('type' => $_GET['type'], 'position' => $_POST['position']));
 			$unit->create($_POST);
 
 			if ($unit->valid):
@@ -66,7 +66,7 @@ class AdminAjaxController {
 
 	private function ajaxGetUnit() {
 		$run = $this->controller->run;
-		$fdb = $this->fdb;
+		$dbh = $this->dbh;
 
 		if (is_ajax_request()) :
 			if (isset($_GET['run_unit_id'])):
@@ -77,7 +77,7 @@ class AdminAjaxController {
 
 				$unit_info = $run->getUnitAdmin($_GET['run_unit_id'], $special);
 				$unit_factory = new RunUnitFactory();
-				$unit = $unit_factory->make($fdb, null, $unit_info);
+				$unit = $unit_factory->make($dbh, null, $unit_info);
 
 				echo $unit->displayForRun();
 				exit;
@@ -116,7 +116,7 @@ class AdminAjaxController {
 
 	private function ajaxRemoveRunUnitFromRun() {
 		$run = $this->controller->run;
-		$fdb = $this->fdb;
+		$dbh = $this->dbh;
 
 		if (is_ajax_request()):
 			if (isset($_POST['run_unit_id'])):
@@ -128,7 +128,7 @@ class AdminAjaxController {
 				$unit_info = $run->getUnitAdmin($_POST['run_unit_id'], $special);
 
 				$unit_factory = new RunUnitFactory();
-				$unit = $unit_factory->make($fdb, null, $unit_info);
+				$unit = $unit_factory->make($dbh, null, $unit_info);
 
 				if ($unit->removeFromRun()):
 					alert('<strong>Success.</strong> Unit with ID ' . h($_POST['run_unit_id']) . ' was deleted.', 'alert-success');
@@ -256,7 +256,7 @@ class AdminAjaxController {
 
 	private function ajaxSaveRunUnit() {
 		$run = $this->controller->run;
-		$fdb = $this->fdb;
+		$dbh = $this->dbh;
 
 		if(is_ajax_request()):
 
@@ -268,7 +268,7 @@ class AdminAjaxController {
 
 				$unit_info = $run->getUnitAdmin($_POST['run_unit_id'], $special);
 
-				$unit = $unit_factory->make($fdb,null,$unit_info);
+				$unit = $unit_factory->make($dbh,null,$unit_info);
 
 				$unit->create($_POST);
 				if($unit->valid):
@@ -306,9 +306,9 @@ class AdminAjaxController {
 
 	private function ajaxSendToPosition() {
 		$run = $this->controller->run;
-		$fdb = $this->fdb;
+		$dbh = $this->dbh;
 
-		$run_session = new RunSession($fdb, $run->id, null, $_GET['session']);
+		$run_session = new RunSession($dbh, $run->id, null, $_GET['session']);
 		$new_position = $_POST['new_position'];
 		$_POST = array();
 
@@ -326,7 +326,7 @@ class AdminAjaxController {
 	}
 
 	private function ajaxTestUnit() {
-		$run = new Run($this->fdb, $this->controller->run->name);
+		$run = new Run($this->dbh, $this->controller->run->name);
 
 		if(is_ajax_request()):
 			if(isset($_GET['run_unit_id'])):
@@ -336,7 +336,7 @@ class AdminAjaxController {
 
 				$unit = $run->getUnitAdmin($_GET['run_unit_id'], $special);
 				$unit_factory = new RunUnitFactory();
-				$unit = $unit_factory->make($this->db, null, $unit);
+				$unit = $unit_factory->make($this->dbh, null, $unit);
 
 				$unit->test();
 				echo $this->site->renderAlerts();

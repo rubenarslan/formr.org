@@ -63,6 +63,7 @@ function bootstrap_modal(header, body) {
 	$modal.modal('show').on('hidden.bs.modal', function () {
 		$modal.remove();
 	});
+    return $modal;
 }
 
 function bootstrap_spinner() {
