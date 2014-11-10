@@ -408,6 +408,7 @@ input[data-wslist]::-webkit-calendar-picker-indicator {
 
 .datalist-polyfill {
 	position: absolute;
+	text-align: left;
 	
 	.ws-po-box {
 		padding: em(5) 0;
@@ -437,7 +438,7 @@ input[data-wslist]::-webkit-calendar-picker-indicator {
 		
 		li {
 			margin: em(1) 0;
-			padding: em(2) em(10);
+			padding: em(4) em(10);
 			overflow: hidden;
 			white-space: nowrap;
 			cursor: default;
@@ -455,31 +456,26 @@ input[data-wslist]::-webkit-calendar-picker-indicator {
 		}
 
 		.option-value {
-			display: inline-block;
+			display: block;
 			text-overflow: ellipsis;
 			max-width: 100%;
 			color: #000;
-			float: left;
 			transition: color 400ms;
 		}
 		
 		.option-label {
 			display: none;
-			max-width: 100%;
-			float: right;
+
 			font-size: 90%;
 			color: #666;
 			text-overflow: ellipsis;
-			vertical-align: bottom;
-			margin-top: 0.15em;
-			margin-left: em(10);
-			text-align: right;
+			margin-top: 0.1em;
 			transition: color 400ms;
 		}
 		
 		.has-option-label  {
 			.option-label {
-				display: inline-block;
+				display: block;
 			}
 		}
 	
@@ -497,20 +493,6 @@ input[data-wslist]::-webkit-calendar-picker-indicator {
 			.option-label {
 				color: #eee;
 			}
-		}
-	}
-	
-	&.ws-is-rtl {
-		
-		.option-value {
-			float: right;
-		}
-		
-		.option-label {
-			float: left;
-			margin-right: em(10);
-			margin-left: 0;
-			text-align: left;
 		}
 	}
 }
@@ -533,6 +515,7 @@ input[data-wslist]::-webkit-calendar-picker-indicator {
 	overflow: hidden;
 	position: relative;
 	clear: both;
+	font-family: sans-serif;
 	
 	p {
 		margin: 2px 0 3px;
@@ -604,8 +587,7 @@ summary {
 	border-style: solid;
 	border-width: em(10) em(5) 0 em(5);
 	border-color: #000 transparent transparent transparent;
-	
-	
+
 	vertical-align: middle;
 
 	.closed-details-summary & {
@@ -619,10 +601,10 @@ summary.summary-has-focus {
 	outline-offset: -1px;
 }
 
-.ws-custom-file {
-	@extend %clearfix;
+.ws-custom-file,
+.ws-capture-file {
 	position: relative;
-	zoom: 1;
+	overflow: hidden;
 
 	> button,
 	> input {
@@ -639,7 +621,7 @@ summary.summary-has-focus {
 		position: relative;
 		z-index: 0;
 		display: inline-block;
-		padding: 5px;
+		padding: em(5);
 		border: 1px solid #ccc;
 		background: #eee;
 		color: #333;
@@ -650,12 +632,64 @@ summary.summary-has-focus {
 		margin-right: 0.4em;
 		float: left;
 	}
+}
 
+.ws-capture-file > button {
+	padding-bottom: em(4);
+	padding-top: em(4);
+}
+
+.ws-custom-file {
 	.ws-file-value {
 		display: block;
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
+	}
+
+	> input[type="file"],
+	.ws-coverfile {
+		position: absolute;
+		top: -1%;
+		left: -3%;
+		bottom: -1%;
+		right: -1%;
+		height: 102%;
+		width: 104%;
+		z-index: 9;
+		padding: 0;
+		margin: 0;
+		border: 0px none;
+		color: transparent;
+		background: transparent;
+	}
+
+	> input[type="file"] {
+		filter: alpha(opacity=0);
+		opacity: 0.00001;
+
+		&[disabled] {
+			cursor: default;
+			cursor: not-allowed;
+		}
+	}
+	.ws-coverfile {
+		background: url(transparent.png);
+		z-index: 10;
+		cursor: pointer;
+
+		[readonly] + & {
+			cursor: default;
+		}
+		[disabled] + & {
+			cursor: default;
+			cursor: not-allowed;
+		}
+	}
+
+
+	> .moxie-shim {
+		z-index: 20;
 	}
 
 	&:hover > button,
@@ -690,27 +724,39 @@ summary.summary-has-focus {
 		background: #eee;
 		color: #999;
 	}
+}
 
+.ws-sticky {
+	top: auto;
+	left: auto !important;
+	right: auto !important;
+	bottom: auto;
+	position: static;
+	position: -webkit-sticky;
+	position: -ms-sticky;
+	position: sticky;
+	float: none !important;
+	margin-left: 0;
+	margin-right: 0;
+}
 
-	> input[type="file"] {
-		position: absolute;
-		top: 0;
-		left: 0;
-		bottom: 0;
-		right: 0;
-		height: 100%;
-		width: 100%;
-		filter: alpha(opacity=0);
-		opacity: 0.00001;
-		z-index: 9;
+thead.ws-sticky,
+tbody.ws-sticky,
+tfoot.ws-sticky {
+	margin-left: -0.8px;
+	margin-right: -1px;
+}
 
-		&[disabled] {
-			cursor: default;
-			cursor: not-allowed;
-		}
-	}
+.ws-sticky.ws-sticky-on {
+	position: fixed !important;
+}
 
-	> .moxie-shim {
-		z-index: 20;
-	}
+.ws-fixedsticky-placeholder {
+	position: static !important;
+	visibility: hidden !important;
+	padding: 0;
+	border: none;
+	margin: 0;
+	left: -999px;
+	zoom: 1;
 }

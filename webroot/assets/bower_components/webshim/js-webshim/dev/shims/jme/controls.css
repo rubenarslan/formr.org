@@ -1,5 +1,5 @@
 /* thx to http://icomoon.io */
-.mediaplayer[data-state="waiting"] > .jme-media-overlay, .mediaplayer .fullscreen, .mediaplayer .fullscreen.state-exitfullscreen, .mediaplayer[data-state="idle"] > .jme-media-overlay, .mediaplayer button.play-pause, .mediaplayer button.play-pause.state-playing, .mediaplayer .mute-unmute, .mediaplayer[data-volume="medium"] .mute-unmute, .mediaplayer[data-volume="low"] .mute-unmute, .mediaplayer[data-volume="no"] .mute-unmute, .mediaplayer .state-unmute.mute-unmute, .mediaplayer .captions, .mediaplayer .subtitle-menu button[aria-checked="true"], .mediaplayer .subtitle-menu button, .mediaplayer .playlist-next, .mediaplayer .playlist-prev, .mediaplayer[data-state="ended"] > .jme-media-overlay {
+.mediaplayer[data-state="waiting"] > div.jme-media-overlay, .mediaplayer .fullscreen, .mediaplayer .fullscreen.state-exitfullscreen, .mediaplayer .mediaconfigmenu, .mediaplayer.initial-state > .jme-media-overlay, .mediaplayer button.play-pause, .mediaplayer button.play-pause.state-playing, .mediaplayer .mute-unmute, .mediaplayer[data-volume="medium"] .mute-unmute, .mediaplayer[data-volume="low"] .mute-unmute, .mediaplayer[data-volume="no"] .mute-unmute, .mediaplayer .state-unmute.mute-unmute, .mediaplayer .captions, .mediaplayer .subtitle-menu button[aria-checked="true"], .mediaplayer .subtitle-menu button, .mediaplayer .playlist-next, .mediaplayer .playlist-prev, .mediaplayer .chapters, .mediaplayer.ended-state > .jme-media-overlay {
   font-family: 'jme';
   speak: none;
   font-style: normal;
@@ -13,7 +13,7 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-.mediaplayer[data-state="waiting"] > .jme-media-overlay:before {
+.mediaplayer[data-state="waiting"] > div.jme-media-overlay:before {
   content: "\e612";
 }
 
@@ -25,7 +25,11 @@
   content: "\e605";
 }
 
-.mediaplayer[data-state="idle"] > .jme-media-overlay:before {
+.mediaplayer .mediaconfigmenu:before {
+  content: "\e606";
+}
+
+.mediaplayer.initial-state > .jme-media-overlay:before {
   content: "\e608";
 }
 
@@ -77,7 +81,11 @@
   content: "\e603";
 }
 
-.mediaplayer[data-state="ended"] > .jme-media-overlay:before {
+.mediaplayer .chapters:before {
+  content: "\e615";
+}
+
+.mediaplayer.ended-state > .jme-media-overlay:before {
   content: "\e601";
 }
 
@@ -91,12 +99,19 @@
   font-weight: normal;
   font-style: normal;
 }
+@-webkit-keyframes jmespin {
+  0% {
+    -webkit-transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+  }
+}
 @keyframes jmespin {
   0% {
     -webkit-transform: rotate(0deg);
     transform: rotate(0deg);
   }
-
   100% {
     -webkit-transform: rotate(360deg);
     transform: rotate(360deg);
@@ -168,6 +183,40 @@
   display: none;
 }
 
+.mediaplayer {
+  /*
+  	.mediachapter-bar {
+  		position: absolute;
+  		top: 0;
+  		left: 0;
+  		right: 0;
+  		bottom: 0;
+  		padding: 0;
+  		margin: 0;
+  		list-style: none;
+  
+  		ul, li {
+  			position: relative;
+  			padding: 0;
+  			margin: 0;
+  			height: 100%;
+  			float: left;
+  			list-style: none;
+  		}
+  		ul {
+  			width: 100%;
+  		}
+  		li {
+  			background: rgba(255, 255, 255, 0.2);
+  		}
+  
+  
+  		span {
+  			display: none;
+  		}
+  	}
+  */
+}
 .mediaplayer button {
   overflow: visible;
   -webkit-appearance: none;
@@ -190,8 +239,10 @@
   font-size: 400%;
   color: #f6f6f6;
   text-align: center;
+  background: url(../styles/transparent.png) \9;
 }
 .mediaplayer > .jme-media-overlay:before {
+  content: '\0020';
   position: absolute;
   display: block;
   width: 1em;
@@ -199,6 +250,7 @@
   top: 50%;
   left: 50%;
   margin: -0.5em 0 0 -0.5em;
+  background: url(../styles/transparent.png) \9;
   text-shadow: 0 0 0.5em rgba(0, 0, 0, 0.5);
 }
 .mediaplayer[data-playersize="x-large"] > .jme-media-overlay {
@@ -219,20 +271,46 @@
 .mediaplayer[data-state="idle"] {
   cursor: pointer;
 }
-.mediaplayer[data-state="idle"].has-ytposter > .jme-media-overlay:before {
-  content: "";
+.mediaplayer.initial-state > .jme-media-overlay {
+  background-position: 1px 1px;
 }
-.mediaplayer[data-state="ended"] {
+.mediaplayer.initial-state.has-ytposter.no-backgroundsize > .jme-media-overlay:before {
+  content: "";
+  background-position: 2px 2px;
+}
+.mediaplayer.ended-state {
   cursor: pointer;
+}
+.mediaplayer.ended-state > .jme-media-overlay {
+  background-position: 3px 3px;
+}
+.mediaplayer.yt-video.has-yt-bug.initial-state > .jme-media-overlay,
+.mediaplayer.yt-video.has-yt-bug.initial-state > .ws-poster,
+.mediaplayer.yt-video.has-yt-bug.initial-state > .jme-controlbar {
+  pointer-events: none;
+}
+.mediaplayer.yt-video.has-yt-bug.initial-state .fullscreen-container,
+.mediaplayer.yt-video.has-yt-bug.initial-state .playlist-container,
+.mediaplayer.yt-video.has-yt-bug.initial-state .subtitle-container,
+.mediaplayer.yt-video.has-yt-bug.initial-state .mediaconfig-container {
+  pointer-events: auto;
 }
 .mediaplayer[data-state="waiting"] {
   cursor: default;
 }
-.mediaplayer[data-state="waiting"] > .jme-media-overlay {
+.mediaplayer[data-state="waiting"] > div.jme-media-overlay {
+  background-position: 4px 4px;
+}
+.mediaplayer[data-state="waiting"] > div.jme-media-overlay:before {
+  -webkit-animation-name: jmespin;
+  -webkit-animation-iteration-count: infinite;
+  -webkit-animation-duration: 1100ms;
+  -webkit-animation-timing-function: linear;
   animation-name: jmespin;
   animation-iteration-count: infinite;
   animation-duration: 1100ms;
   animation-timing-function: linear;
+  background-position: 5px 5px;
 }
 .mediaplayer[data-state="playing"][data-useractivity="false"] .jme-controlbar {
   opacity: 0;
@@ -244,6 +322,22 @@
 }
 .mediaplayer[data-state="playing"][data-useractivity="false"] .cue-display span.cue-wrapper {
   bottom: -35px;
+}
+.mediaplayer .ws-poster {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000 no-repeat center;
+  background-size: contain;
+}
+.mediaplayer.initial-state .ws-poster, .mediaplayer.ended-state .ws-poster {
+  display: block;
+}
+.mediaplayer.no-poster .ws-poster, .mediaplayer.no-backgroundsize div.ws-poster {
+  display: none;
 }
 .mediaplayer > .jme-controlbar {
   position: absolute;
@@ -288,11 +382,9 @@
 .mediaplayer .playlist-container {
   display: none;
 }
-.mediaplayer.has-playlist .playlist-container {
+.mediaplayer .playlist-box,
+.mediaplayer .playlist-button-container, .mediaplayer.has-playlist .playlist-container {
   display: table-cell;
-}
-.mediaplayer .playlist-box {
-  width: 3.09em;
 }
 .mediaplayer .no-volume-api .volume-container,
 .mediaplayer .no-volume-api .mute-container {
@@ -301,6 +393,12 @@
 .mediaplayer .no-volume-api .mute-unmute,
 .mediaplayer .no-volume-api .volume-slider {
   display: none;
+}
+.mediaplayer .chapters-container {
+  display: none;
+}
+.mediaplayer.has-chapter-tracks .chapters-container {
+  display: table-cell;
 }
 .mediaplayer .captions[role="checkbox"] {
   color: #999;
@@ -318,65 +416,81 @@
 .mediaplayer[data-tracks="many"] .captions[role="checkbox"] {
   display: none;
 }
-.mediaplayer .subtitle-controls {
+.mediaplayer .mediamenu-wrapper {
   position: relative;
   zoom: 1;
 }
-.mediaplayer .subtitle-menu {
+.mediaplayer .mediamenu {
   position: absolute;
   bottom: 1.75em;
-  margin-bottom: 10px;
+  margin-bottom: 3px;
   width: 400px;
   right: -0.625em;
   visibility: hidden;
 }
-.mediaplayer .subtitle-menu ul, .mediaplayer .subtitle-menu li {
+.mediaplayer .mediamenu h5 {
+  font-size: 100%;
+  margin: 0.3125em 0;
+  padding: 0;
+}
+.mediaplayer .mediamenu ul, .mediaplayer .mediamenu li {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.mediaplayer .subtitle-menu button {
+.mediaplayer .mediamenu li > ul {
+  margin-left: 10px;
+}
+.mediaplayer .mediamenu button {
   position: relative;
+  display: block;
   zoom: 1;
-  width: auto;
+  width: 100%;
+  text-align: left;
   height: auto;
   padding: 2px;
   font-size: 81.3%;
+}
+.mediaplayer .mediamenu > div {
+  position: relative;
+  zoom: 1;
+  visibility: hidden;
+  float: right;
+  padding: 0.3125em;
+  background: #333;
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transform: translateY(-3%);
+  transition: all 200ms;
+}
+.mediaplayer .mediamenu > div > .media-submenu {
+  margin: 0.3125em 0;
+  padding: 0.3125em 0;
+  border-top: 0.0625em solid #eee;
+  border-top: 0.0625em solid rgba(255, 255, 255, 0.4);
+}
+.mediaplayer .mediamenu > div > .media-submenu:first-child {
+  margin-top: 0;
+  border-top: none;
+}
+.mediaplayer .mediamenu > div iframe {
+  visibility: inherit !important;
+}
+.mediaplayer .mediamenu.visible-menu > div {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
 }
 .mediaplayer .subtitle-menu button:before {
   display: inline-block;
   vertical-align: middle;
   padding: 0 5px 0 0;
 }
-.mediaplayer .subtitle-menu > div {
-  position: relative;
-  zoom: 1;
-  visibility: hidden;
-  float: right;
-  padding: 0.1875em 0.3125em 0.3125em;
-  background: #333;
-  background: rgba(0, 0, 0, 0.6);
-  opacity: 0;
-  transform: translateY(30%);
-  transition: all 200ms;
+.mediaplayer .mediaconfig-container {
+  display: none;
 }
-.mediaplayer .subtitle-menu > div:after {
-  content: " ";
-  position: absolute;
-  display: block;
-  bottom: -0.625em;
-  right: 0.8125em;
-  width: 0px;
-  height: 0px;
-  border-style: solid;
-  border-width: 0.625em 0.5em 0 0.5em;
-  border-color: #333 transparent transparent transparent;
-  border-color: rgba(0, 0, 0, 0.6) transparent transparent transparent;
-}
-.mediaplayer .subtitle-menu.visible-menu > div {
-  visibility: visible;
-  opacity: 1;
-  transform: translateY(0);
+.mediaplayer.has-config-menu .mediaconfig-container {
+  display: table-cell;
 }
 .mediaplayer .buffer-progress {
   position: absolute;
@@ -409,7 +523,6 @@
 }
 .mediaplayer .time-select {
   display: inline-block;
-  width: 0;
   overflow: hidden;
   text-align: center;
   visibility: hidden;
@@ -418,14 +531,14 @@
   background: #333;
   background: rgba(0, 0, 0, 0.6);
   color: #eee;
-}
-.mediaplayer .time-select.show-time-select {
-  margin: 0 0 4px -1.55em;
+  bottom: 1.25em;
+  margin: 0 0 4px 0;
   padding: 0.25em 0.125em 0.125em;
   min-width: 2.8em;
+}
+.mediaplayer .time-select.show-time-select {
   opacity: 1;
   visibility: visible;
-  bottom: 1.25em;
 }
 .mediaplayer .ws-range-track {
   top: 0;

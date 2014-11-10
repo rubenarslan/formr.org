@@ -30,7 +30,6 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 	}
 	
 	var nan = parseInt('NaN', 10),
-		doc = document,
 		typeModels = webshims.inputTypes,
 		isNumber = function(string){
 			return (typeof string == 'number' || (string && string == string * 1));
@@ -673,8 +672,8 @@ webshims.register('form-number-date-api', function($, webshims, window, document
 	 */
 	
 	(function(){
-		var formsCFG = $.webshims.cfg.forms;
-		var listSupport = Modernizr.input.list;
+		var formsCFG = webshims.cfg.forms;
+		var listSupport = webshims.support.datalist;
 		if(listSupport && !formsCFG.customDatalist){return;}
 		
 			var initializeDatalist =  function(){

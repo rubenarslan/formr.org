@@ -60,16 +60,11 @@
 webshims.register('dom-extend', function($, webshims, window, document, undefined){
 	"use strict";
 	var supportHrefNormalized = !('hrefNormalized' in $.support) || $.support.hrefNormalized;
-	var supportGetSetAttribute = !('getSetAttribute' in $.support) || $.support.getSetAttribute;
 	var has = Object.prototype.hasOwnProperty;
-	webshims.assumeARIA = supportGetSetAttribute || Modernizr.canvas || Modernizr.video || Modernizr.boxsizing;
+	webshims.assumeARIA = true;
 	
 	if($('<input type="email" />').attr('type') == 'text' || $('<form />').attr('novalidate') === "" || ('required' in $('<input />')[0].attributes)){
-		webshims.error("IE browser modes are busted in IE10+. Please test your HTML/CSS/JS with a real IE version or at least IETester or similiar tools");
-	}
-	
-	if('debug' in webshims){
-		webshims.error('Use webshims.setOptions("debug", true||false||"noCombo"); to debug flag');
+		webshims.error("IE browser modes are busted in IE10+. Make sure to run IE in edge mode (X-UA-Compatible). Please test your HTML/CSS/JS with a real IE version or at least IETester or similar tools. ");
 	}
 	
 	if (!webshims.cfg.no$Switch) {
@@ -81,15 +76,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 				window.jQuery = webshims.$;
 			}
-			if(webshims.M != Modernizr){
-				webshims.error("Modernizr was included more than once. Make sure to include it only once! Webshims and other scripts might not work properly.");
-				for(var i in Modernizr){
-					if(!(i in webshims.M)){
-						webshims.M[i] = Modernizr[i];
-					}
-				}
-				Modernizr = webshims.M;
-			}
 		};
 		switch$();
 		setTimeout(switch$, 90);
@@ -100,7 +86,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	}
 
 	//shortcus
-	var modules = webshims.modules;
 	var listReg = /\s*,\s*/;
 		
 	//proxying attribute
@@ -117,20 +102,25 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	};
 	
 	//jquery mobile and jquery ui
-	if(!$.widget){
+	if(!$.widget && (!$.pluginFactory || !$.pluginFactory.mixin)){
 		(function(){
 			var _cleanData = $.cleanData;
-			$.cleanData = function( elems ) {
-				if(!$.widget){
-					for ( var i = 0, elem; (elem = elems[i]) != null; i++ ) {
+			$.cleanData = (function( orig ) {
+				return function( elems ) {
+					var events, elem, i;
+					for ( i = 0; (elem = elems[i]) != null; i++ ) {
 						try {
-							$( elem ).triggerHandler( "remove" );
-						// http://bugs.jquery.com/ticket/8235
-						} catch( e ) {}
+							// Only trigger remove when necessary to save time
+							events = $._data( elem, "events" );
+							if ( events && events.remove ) {
+								$( elem ).triggerHandler( "remove" );
+							}
+							// http://bugs.jquery.com/ticket/8235
+						} catch ( e ) {}
 					}
-				}
-				_cleanData( elems );
-			};
+					orig( elems );
+				};
+			})( $.cleanData );
 		})();
 	}
 	
@@ -418,7 +408,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		var UNKNOWN = webshims.getPrototypeOf(document.createElement('foobar'));
 		
 		//see also: https://github.com/lojjic/PIE/issues/40 | https://prototype.lighthouseapp.com/projects/8886/tickets/1107-ie8-fatal-crash-when-prototypejs-is-loaded-with-rounded-cornershtc
-		var isExtendNativeSave = Modernizr.advancedObjectProperties && Modernizr.objectAccessor;
+		var isExtendNativeSave = webshims.support.advancedObjectProperties && webshims.support.objectAccessor;
 		return function(nodeName, prop, desc){
 			var elem , elemProto;
 			 if( isExtendNativeSave && (elem = document.createElement(nodeName)) && (elemProto = webshims.getPrototypeOf(elem)) && UNKNOWN !== elemProto && ( !elem[prop] || !has.call(elem, prop) ) ){
@@ -485,8 +475,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				(tempCache || $( document.getElementsByTagName(nodeName) )).each(fn);
 			}
 		};
-		
-		var elementExtends = {};
+
 		return {
 			createTmpCache: function(nodeName){
 				if($.isDOMReady){
@@ -538,6 +527,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	};
 	
 	$.extend(webshims, {
+		xProps: havePolyfill,
 		getID: (function(){
 			var ID = new Date().getTime();
 			return function(elem){
@@ -551,6 +541,26 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return id;
 			};
 		})(),
+		domPrefixes: ["webkit", "moz", "ms", "o", "ws"],
+
+		prefixed: function (prop, obj){
+			var i, testProp;
+			var ret = false;
+			if(obj[prop]){
+				ret = prop;
+			}
+			if(!ret){
+				prop = prop.charAt(0).toUpperCase() + prop.slice(1);
+				for(i = 0; i < webshims.domPrefixes.length; i++){
+					testProp = webshims.domPrefixes[i]+prop;
+					if(testProp in obj){
+						ret = testProp;
+						break;
+					}
+				}
+			}
+			return ret;
+		},
 		shadowClass: 'wsshadow-'+(Date.now()),
 		implement: function(elem, type){
 			var data = elementData(elem, 'implemented') || elementData(elem, 'implemented', {});
@@ -558,8 +568,9 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				webshims.warn(type +' already implemented for element #'+elem.id);
 				return false;
 			}
+
 			data[type] = true;
-			return true;
+			return !$(elem).hasClass('ws-nopolyfill');
 		},
 		extendUNDEFProp: function(obj, props){
 			$.each(props, function(name, prop){
@@ -671,33 +682,37 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 				},
 				handler: (function(){
+					var evt;
 					var trigger = function(){
-						$(document).triggerHandler('updateshadowdom');
+						$(document).triggerHandler('updateshadowdom', [evt]);
+					};
+					var timed = function(){
+						if(evt && evt.type == 'resize'){
+							var width = $window.width();
+							var height = $window.width();
+
+							if(height == lastHeight && width == lastWidth){
+								return;
+							}
+							lastHeight = height;
+							lastWidth = width;
+						}
+
+						if(evt && evt.type != 'docresize'){
+							docObserve.height = docObserve.getHeight();
+							docObserve.width = docObserve.getWidth();
+						}
+
+						if(window.requestAnimationFrame){
+							requestAnimationFrame(trigger);
+						} else {
+							setTimeout(trigger, 0);
+						}
 					};
 					return function(e){
 						clearTimeout(resizeTimer);
-						resizeTimer = setTimeout(function(){
-							if(e.type == 'resize'){
-								var width = $window.width();
-								var height = $window.width();
-
-								if(height == lastHeight && width == lastWidth){
-									return;
-								}
-								lastHeight = height;
-								lastWidth = width;
-								
-								docObserve.height = docObserve.getHeight();
-								docObserve.width = docObserve.getWidth();
-							}
-
-							if(window.requestAnimationFrame){
-								requestAnimationFrame(trigger);
-							} else {
-								setTimeout(trigger, 0);
-							}
-							
-						}, (e.type == 'resize' && !window.requestAnimationFrame) ? 50 : 9);
+						evt = e;
+						resizeTimer = setTimeout(timed, (e.type == 'resize' && !window.requestAnimationFrame) ? 50 : 9);
 					};
 				})(),
 				_create: function(){
@@ -729,7 +744,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 							});
 						}
 						webshims.ready('WINDOWLOAD', this.test);
-						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel', this.handler);
+						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel playerdimensionchange', this.handler);
 						$(window).on('resize', this.handler);
 					}
 				}
@@ -1219,11 +1234,11 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	
 })();
 });
-;webshim.register('filereader', function($, webshim, window, document, undefined, featureOptions){
+;webshim.register('filereader-xhr', function($, webshim, window, document, undefined, featureOptions){
 	"use strict";
 	var mOxie, moxie, hasXDomain;
-	var FormData = $.noop;
-	var sel = 'input[type="file"].ws-filereader';
+	var sel = 'input[type="file"].ws-filereader, input[type="file"].ws-capture';
+	var hasFlash = swfmini.hasFlashPlayerVersion('10.3');
 	var loadMoxie = function (){
 		webshim.loader.loadList(['moxie']);
 	};
@@ -1335,7 +1350,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		}
 	);
 	var shimMoxiePath = webshim.cfg.basePath+'moxie/';
-	var crossXMLMessage = 'You nedd a crossdomain.xml to get all "filereader" / "XHR2" / "CORS" features to work. Or host moxie.swf/moxie.xap on your server an configure filereader options: "swfpath"/"xappath"';
+	var crossXMLMessage = 'You nedd a crossdomain.xml to get all "filereader" / "XHR2" / "CORS" features to work. Or host moxie.swf on your server an configure filereader options: "swfpath"';
 	var testMoxie = function(options){
 		return (options.wsType == 'moxie' || (options.data && options.data instanceof mOxie.FormData) || (options.crossDomain && $.support.cors !== false && hasXDomain != 'no' && !noxhr.test(options.dataType || '')));
 	};
@@ -1518,6 +1533,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		}
 	};
 
+	webshim.loader.addModule('moxie', {
+		src: 'moxie/js/moxie-'+ (hasFlash ? 'swf' : 'html4')
+	});
+
 	if(!featureOptions.progress){
 		featureOptions.progress = 'onprogress';
 	}
@@ -1528,9 +1547,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 
 	if(!featureOptions.swfpath){
 		featureOptions.swfpath = shimMoxiePath+'flash/Moxie.min.swf';
-	}
-	if(!featureOptions.xappath){
-		featureOptions.xappath = shimMoxiePath+'silverlight/Moxie.min.xap';
 	}
 
 	if($.support.cors !== false || !window.XDomainRequest){
@@ -1558,8 +1574,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				writeable: false,
 				get: function(){
 					if(this.type != 'file'){return null;}
-					if(!$(this).is('.ws-filereader')){
-						webshim.info("please add the 'ws-filereader' class to your input[type='file'] to implement files-property");
+					if(!$(this).is('.ws-filereader, .ws-capture')){
+						webshim.info("please add the 'ws-filereader'/'ws-capture' class to your input[type='file'] to implement files-property");
 					}
 					return webshim.data(this, 'fileList') || [];
 				}
@@ -1581,11 +1597,63 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	});
 
 	webshim.onNodeNamesPropertyModify('input', 'value', function(value, boolVal, type){
-		if(value === '' && this.type == 'file' && $(this).hasClass('ws-filereader')){
+		if(value === '' && this.type == 'file' && $(this).is('.ws-filereader, .ws-capture')){
 			webshim.data(this, 'fileList', []);
 		}
 	});
 
+	if(!document.createElement('canvas').toBlob){
+
+		webshim.defineNodeNameProperty('canvas', 'toBlob', {
+			prop: {
+				value: function(cb, type, qualitiy){
+					var dataURL;
+					var $canvas = $(this);
+					if(!type){
+						type = 'image/jpeg';
+					}
+					if(type == 'image/jpeg' && !qualitiy){
+						qualitiy = 0.8;
+					}
+					loadMoxie();
+					webshim.ready('moxie', function(){
+						var img = new mOxie.Image();
+						dataURL = $canvas.callProp('getAsDataURL', [type, qualitiy]);
+						img.onload = function() {
+							var blob = img.getAsBlob();
+							webshim.defineProperty(blob, '_wsDataURL', {
+								value: dataURL,
+								enumerable: false
+							});
+							cb(blob);
+						};
+						img.load(dataURL);
+					});
+				}
+			}
+		});
+
+		webshim.ready('url', function(){
+			var _nativeCreateObjectURL = URL.createObjectURL;
+			var _nativeRevokeObjectURL = URL.revokeObjectURL;
+
+			URL.createObjectURL = function(obj){
+				var url = obj;
+				if(obj._wsimgDataURL) {
+					url = obj._wsimgDataURL;
+				} else if(_nativeCreateObjectURL){
+					return _nativeCreateObjectURL.apply(this, arguments);
+				}
+				return url;
+			};
+
+			URL.revokeObjectURL = function(url){
+				if (_nativeRevokeObjectURL){
+					return _nativeRevokeObjectURL.apply(this, arguments);
+				}
+			};
+		});
+	}
 
 	window.FileReader = notReadyYet;
 	window.FormData = notReadyYet;
@@ -1595,7 +1663,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		mOxie = window.mOxie;
 
 		mOxie.Env.swf_url = featureOptions.swfpath;
-		mOxie.Env.xap_url = featureOptions.xappath;
 
 		window.FileReader = mOxie.FileReader;
 
@@ -1634,7 +1701,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 
 			return moxieData;
 		};
-		FormData = window.FormData;
 
 		createFilePicker = _createFilePicker;
 		transports.moxie = createMoxieTransport;
@@ -1667,34 +1733,40 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			} catch(e){}
 			printMessage();
 			if(hasXDomain == null){
-				$.ajax({
-					url: 'crossdomain.xml',
-					type: 'HEAD',
-					dataType: 'xml',
-					success: function(){
-						hasXDomain = 'yes';
-					},
-					error: function(){
-						hasXDomain = 'no';
-					},
-					complete: function(){
-						try {
-							sessionStorage.setItem('wsXdomain.xml', hasXDomain);
-						} catch(e){}
-						printMessage();
-					}
-				});
+				try {
+					$.ajax({
+						url: 'crossdomain.xml',
+						type: 'HEAD',
+						dataType: 'xml',
+						success: function(){
+							hasXDomain = 'yes';
+						},
+						error: function(){
+							hasXDomain = 'no';
+						},
+						complete: function(){
+							try {
+								sessionStorage.setItem('wsXdomain.xml', hasXDomain);
+							} catch(e){}
+							printMessage();
+						}
+					});
+				} catch(e){}
 			}
 		});
+	}
+	if(document.readyState == 'complete'){
+		webshims.isReady('WINDOWLOAD', true);
 	}
 });
 ;webshims.register('mediaelement-jaris', function($, webshims, window, document, undefined, options){
 	"use strict";
-	
+
 	var mediaelement = webshims.mediaelement;
 	var swfmini = window.swfmini;
-	var hasNative = Modernizr.audio && Modernizr.video;
-	var hasFlash = swfmini.hasFlashPlayerVersion('9.0.115');
+	var support = webshims.support;
+	var hasNative = support.mediaelement;
+	var hasFlash = swfmini.hasFlashPlayerVersion('11.3');
 	var loadedSwf = 0;
 	var needsLoadPreload = 'ActiveXObject' in window && hasNative;
 	var getProps = {
@@ -1727,27 +1799,30 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		}
 	};
 	var getPropKeys = Object.keys(getProps);
-	
+
 	var getSetProps = {
 		currentTime: 0,
 		volume: 1,
 		muted: false
 	};
 	var getSetPropKeys = Object.keys(getSetProps);
-	
+
 	var playerStateObj = $.extend({
 		isActive: 'html5',
-		activating: 'html5',	
+		activating: 'html5',
 		wasSwfReady: false,
+		_usermedia: null,
 		_bufferedEnd: 0,
 		_bufferedStart: 0,
 		currentTime: 0,
+		lastCalledTime: -500,
 		_ppFlag: undefined,
 		_calledMeta: false,
-		lastDuration: 0
+		lastDuration: 0,
+		_timeDif: 0.3
 	}, getProps, getSetProps);
-	
-	
+
+
 	var getSwfDataFromElem = function(elem){
 		try {
 			(elem.nodeName);
@@ -1755,17 +1830,17 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			return null;
 		}
 		var data = webshims.data(elem, 'mediaelement');
-		return (data && data.isActive== 'third') ? data : null;
+		return (data && data.isActive == 'third') ? data : null;
 	};
-	
+
 	var trigger = function(elem, evt){
 		evt = $.Event(evt);
 		evt.preventDefault();
 		$.event.trigger(evt, undefined, elem);
 	};
-	
+
 	var playerSwfPath = options.playerPath || webshims.cfg.basePath + "swf/" + (options.playerName || 'JarisFLVPlayer.swf');
-	
+
 	webshims.extendUNDEFProp(options.params, {
 		allowscriptaccess: 'always',
 		allowfullscreen: 'true',
@@ -1779,7 +1854,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	webshims.extendUNDEFProp(options.attrs, {
 		bgcolor: '#000000'
 	});
-	
+	options.playerPath = playerSwfPath;
+
 	var setReadyState = function(readyState, data){
 		if(readyState < 3){
 			clearTimeout(data._canplaythroughTimer);
@@ -1807,13 +1883,15 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			$(data._elem).triggerHandler('seeked');
 		}
 	};
-	
-	
-	mediaelement.jarisEvent = {};
+
+
+	mediaelement.jarisEvent = mediaelement.jarisEvent || {};
 	var localConnectionTimer;
 	var onEvent = {
 		onPlayPause: function(jaris, data, override){
 			var playing, type;
+			var idled = data.paused || data.ended;
+
 			if(override == null){
 				try {
 					playing = data.api.api_get("isPlaying");
@@ -1821,23 +1899,26 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			} else {
 				playing = override;
 			}
-			if(playing == data.paused){
-				
+			if(playing == idled || playing == null){
+
 				data.paused = !playing;
 				type = data.paused ? 'pause' : 'play';
 				data._ppFlag = true;
 				trigger(data._elem, type);
+
+			}
+			if(!data.paused || playing == idled || playing == null){
 				if(data.readyState < 3){
 					setReadyState(3, data);
 				}
-				if(!data.paused){
-					trigger(data._elem, 'playing');
-				}
+			}
+			if(!data.paused){
+				trigger(data._elem, 'playing');
 			}
 		},
 		onSeek: function(jaris, data){
 			data._lastSeektime = jaris.seekTime;
-			
+
 			data.seeking = true;
 			$(data._elem).triggerHandler('seeking');
 			clearTimeout(data._seekedTimer);
@@ -1853,19 +1934,19 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			setReadyState(3, data);
 		},
 		onDataInitialized: function(jaris, data){
-			
+
 			var oldDur = data.duration;
 			var durDelta;
 			data.duration = jaris.duration;
 			if(oldDur == data.duration || isNaN(data.duration)){return;}
-			
+
 			if(data._calledMeta && ((durDelta = Math.abs(data.lastDuration - data.duration)) < 2)){return;}
-			
-			
-			
+
+
+
 			data.videoHeight = jaris.height;
 			data.videoWidth = jaris.width;
-			
+
 			if(!data.networkState){
 				data.networkState = 2;
 			}
@@ -1886,6 +1967,14 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				if(!data._calledMeta){
 					trigger(data._elem, 'loadedmetadata');
 				}
+
+				if(data.duration > 1 && data.duration < 140){
+					data._timeDif = 0.2;
+				} else if(data.duration < 600) {
+					data._timeDif = 0.25;
+				} else {
+					data._timeDif = 0.30;
+				}
 			}
 			data._calledMeta = true;
 		},
@@ -1897,6 +1986,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			trigger(data._elem, 'waiting');
 		},
 		onTimeUpdate: function(jaris, data){
+			var timeDif = data.currentTime - data.lastCalledTime;
 			if(data.ended){
 				data.ended = false;
 			}
@@ -1907,7 +1997,12 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			if(data.seeking){
 				callSeeked(data);
 			}
-			trigger(data._elem, 'timeupdate');
+
+			if(timeDif > data._timeDif || timeDif < -0.3){
+				data.lastCalledTime = data.currentTime;
+				$.event.trigger('timeupdate', undefined, data._elem, true);
+			}
+
 		},
 		onProgress: function(jaris, data){
 			if(data.ended){
@@ -1917,10 +2012,12 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return;
 			}
 			var percentage = jaris.loaded / jaris.total;
+
 			if(percentage > 0.02 && percentage < 0.2){
 				setReadyState(3, data);
 			} else if(percentage > 0.2){
-				if(percentage > 0.99){
+				if(percentage > 0.95){
+					percentage = 1;
 					data.networkState = 1;
 				}
 				setReadyState(4, data);
@@ -1928,10 +2025,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			if(data._bufferedEnd && (data._bufferedEnd > percentage)){
 				data._bufferedStart = data.currentTime || 0;
 			}
-			
+
 			data._bufferedEnd = percentage;
 			data.buffered.length = 1;
-			
+
 			$.event.trigger('progress', undefined, data._elem, true);
 		},
 		onPlaybackFinished: function(jaris, data){
@@ -1951,7 +2048,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		ready: (function(){
 			var testAPI = function(data){
 				var passed = true;
-				
+
 				try {
 					data.api.api_get('volume');
 				} catch(er){
@@ -1959,17 +2056,17 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 				return passed;
 			};
-			
+
 			return function(jaris, data){
 				var i = 0;
-				
+
 				var doneFn = function(){
 					if(i > 9){
 						data.tryedReframeing = 0;
 						return;
 					}
 					i++;
-					
+
 					data.tryedReframeing++;
 					if(testAPI(data)){
 						data.wasSwfReady = true;
@@ -1999,25 +2096,25 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				clearTimeout(localConnectionTimer);
 				clearTimeout(data.reframeTimer);
 				data.shadowElem.removeClass('flashblocker-assumed');
-				
+
 				if(!i){
 					doneFn();
 				} else {
 					data.reframeTimer = setTimeout(doneFn, 9);
 				}
-				
+
 			};
 		})()
 	};
-	
+
 	onEvent.onMute = onEvent.onVolumeChange;
-	
-	
+	mediaelement.onEvent = onEvent;
+
 	var workActionQueue = function(data){
 		var actionLen = data.actionQueue.length;
 		var i = 0;
 		var operation;
-		
+
 		if(actionLen && data.isActive == 'third'){
 			while(data.actionQueue.length && actionLen > i){
 				i++;
@@ -2038,7 +2135,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		if( (data._ppFlag === undefined && ($.prop(data._elem, 'autoplay')) || !data.paused)){
 			setTimeout(function(){
 				if(data.isActive == 'third' && (data._ppFlag === undefined || !data.paused)){
-					
+
 					try {
 						$(data._elem).play();
 						data._ppFlag = true;
@@ -2046,7 +2143,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 			}, 1);
 		}
-		
+
 		if(data.muted){
 			$.prop(data._elem, 'muted', true);
 		}
@@ -2054,26 +2151,26 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			$.prop(data._elem, 'volume', data.volume);
 		}
 	};
-	
-	
+
+
 	var addMediaToStopEvents = $.noop;
 	if(hasNative){
 		var stopEvents = {
 			play: 1,
 			playing: 1
 		};
-		var hideEvtArray = ['play', 'pause', 'playing', 'canplay', 'progress', 'waiting', 'ended', 'loadedmetadata', 'durationchange', 'emptied'];
+		var hideEvtArray = ['play', 'pause', 'playing', 'loadstart', 'canplay', 'progress', 'waiting', 'ended', 'loadedmetadata', 'durationchange', 'emptied'];
 		var hidevents = hideEvtArray.map(function(evt){
 			return evt +'.webshimspolyfill';
 		}).join(' ');
-		
+
 		var hidePlayerEvents = function(event){
 			var data = webshims.data(event.target, 'mediaelement');
 			if(!data){return;}
 			var isNativeHTML5 = ( event.originalEvent && event.originalEvent.type === event.type );
 			if( isNativeHTML5 == (data.activating == 'third') ){
 				event.stopImmediatePropagation();
-				
+
 				if(stopEvents[event.type]){
 					if(data.isActive != data.activating){
 						$(event.target).pause();
@@ -2083,7 +2180,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 			}
 		};
-		
+
 		addMediaToStopEvents = function(elem){
 			$(elem)
 				.off(hidevents)
@@ -2095,8 +2192,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		};
 		addMediaToStopEvents(document);
 	}
-	
-	
+
+
 	mediaelement.setActive = function(elem, type, data){
 		if(!data){
 			data = webshims.data(elem, 'mediaelement');
@@ -2118,14 +2215,14 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		}
 		$(elem).trigger('mediaelementapichange');
 	};
-	
-	
-	
+
+
+
 	var resetSwfProps = (function(){
-		var resetProtoProps = ['_calledMeta', 'lastDuration', '_bufferedEnd', '_bufferedStart', '_ppFlag', 'currentSrc', 'currentTime', 'duration', 'ended', 'networkState', 'paused', 'seeking', 'videoHeight', 'videoWidth'];
+		var resetProtoProps = ['_calledMeta', 'lastDuration', '_bufferedEnd', 'lastCalledTime', '_usermedia', '_bufferedStart', '_ppFlag', 'currentSrc', 'currentTime', 'duration', 'ended', 'networkState', 'paused', 'seeking', 'videoHeight', 'videoWidth'];
 		var len = resetProtoProps.length;
 		return function(data){
-			
+
 			if(!data){return;}
 			clearTimeout(data._seekedTimer);
 			var lenI = len;
@@ -2142,8 +2239,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}
 		};
 	})();
-	
-	
+
+
 	var getComputedDimension = (function(){
 		var dimCache = {};
 		var getVideoDims = function(data){
@@ -2165,7 +2262,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 							width: this.width,
 							height: this.height
 						};
-						
+
 						if(dimCache[poster].height && dimCache[poster].width){
 							setElementDimension(data, $.prop(data._elem, 'controls'));
 						} else {
@@ -2181,12 +2278,12 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}
 			return ret || {width: 300, height: data._elemNodeName == 'video' ? 150 : 50};
 		};
-		
+
 		var getCssStyle = function(elem, style){
 			return elem.style[style] || (elem.currentStyle && elem.currentStyle[style]) || (window.getComputedStyle && (window.getComputedStyle( elem, null ) || {} )[style]) || '';
 		};
 		var minMaxProps = ['minWidth', 'maxWidth', 'minHeight', 'maxHeight'];
-		
+
 		var addMinMax = function(elem, ret){
 			var i, prop;
 			var hasMinMax = false;
@@ -2200,7 +2297,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			return hasMinMax;
 		};
 		var retFn = function(data){
-			var videoDims, ratio, hasMinMax;
+			var videoDims, ratio;
 			var elem = data._elem;
 			var autos = {
 				width: getCssStyle(elem, 'width') == 'auto',
@@ -2210,11 +2307,11 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				width: !autos.width && $(elem).width(),
 				height: !autos.height && $(elem).height()
 			};
-			
+
 			if(autos.width || autos.height){
 				videoDims = getVideoDims(data);
 				ratio = videoDims.width / videoDims.height;
-				
+
 				if(autos.width && autos.height){
 					ret.width = videoDims.width;
 					ret.height = videoDims.height;
@@ -2223,12 +2320,12 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				} else if(autos.height){
 					ret.height = ret.width / ratio;
 				}
-				
+
 				if(addMinMax(elem, ret)){
 					data.shadowElem.css(ret);
 					if(autos.width){
 						ret.width = data.shadowElem.height() * ratio;
-					} 
+					}
 					if(autos.height){
 						ret.height = ((autos.width) ? ret.width :  data.shadowElem.width()) / ratio;
 					}
@@ -2236,13 +2333,13 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 						data.shadowElem.css(ret);
 						ret.height = data.shadowElem.width() / ratio;
 						ret.width = ret.height * ratio;
-						
+
 						data.shadowElem.css(ret);
 						ret.width = data.shadowElem.height() * ratio;
 						ret.height = ret.width / ratio;
-						
+
 					}
-					if(!Modernizr.video){
+					if(!webshims.support.mediaelement){
 						ret.width = data.shadowElem.width();
 						ret.height = data.shadowElem.height();
 					}
@@ -2250,13 +2347,13 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}
 			return ret;
 		};
-		
+
 		return retFn;
 	})();
-	
+
 	var setElementDimension = function(data, hasControls){
 		var dims;
-		
+
 		var box = data.shadowElem;
 		$(data._elem)[hasControls ? 'addClass' : 'removeClass']('webshims-controls');
 
@@ -2271,7 +2368,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}
 		}
 	};
-	
+
 	var bufferSrc = (function(){
 		var preloads = {
 			'': 1,
@@ -2286,17 +2383,17 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			return !!(preloads[preload] || (preload == 'metadata' && $(elem).is('.preload-in-doubt, video:not([poster])')));
 		};
 	})();
-	
+
 	var regs = {
-		A: /&amp;/g,
-		a: /&/g,
-		e: /\=/g,
-		q: /\?/g
-	},
-	replaceVar = function(val){
-		return (val.replace) ? val.replace(regs.A, '%26').replace(regs.a, '%26').replace(regs.e, '%3D').replace(regs.q, '%3F') : val;
-	};
-	
+			A: /&amp;/g,
+			a: /&/g,
+			e: /\=/g,
+			q: /\?/g
+		},
+		replaceVar = function(val){
+			return (val.replace) ? val.replace(regs.A, '%26').replace(regs.a, '%26').replace(regs.e, '%3D').replace(regs.q, '%3F') : val;
+		};
+
 	if('matchMedia' in window){
 		var allowMediaSorting = false;
 		try {
@@ -2310,14 +2407,15 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				} catch(er){
 					return 0;
 				}
-				return src1 == src2 ? 
+				return src1 == src2 ?
 					0 :
 					src1 ? -1
-					: 1;
+						: 1;
 			};
 		}
 	}
 
+	mediaelement.resetSwfProps = resetSwfProps;
 	mediaelement.createSWF = function( elem, canPlaySrc, data ){
 		if(!hasFlash){
 			setTimeout(function(){
@@ -2325,7 +2423,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}, 1);
 			return;
 		}
-		
+
 		var attrStyle = {};
 
 		if(loadedSwf < 1){
@@ -2336,59 +2434,46 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		if(!data){
 			data = webshims.data(elem, 'mediaelement');
 		}
-		
+
 		if((attrStyle.height = $.attr(elem, 'height') || '') || (attrStyle.width = $.attr(elem, 'width') || '')){
 			$(elem).css(attrStyle);
 			webshims.warn("width or height content attributes used. Webshims prefers the usage of CSS (computed styles or inline styles) to detect size of a video/audio. It's really more powerfull.");
 		}
-		
-		var isRtmp = canPlaySrc.type == 'audio/rtmp' || canPlaySrc.type == 'video/rtmp';
-		var vars = $.extend({}, options.vars, {
-				poster: replaceVar($.attr(elem, 'poster') && $.prop(elem, 'poster') || ''),
-				source: replaceVar(canPlaySrc.streamId || canPlaySrc.srcProp),
-				server: replaceVar(canPlaySrc.server || '')
-		});
-		var elemVars = $(elem).data('vars') || {};
-		
-		
-		
+		var box;
+		var streamRequest = canPlaySrc.streamrequest;
+		var isStream = canPlaySrc.type == 'jarisplayer/stream';
+
+
 		var hasControls = $.prop(elem, 'controls');
 		var elemId = 'jarisplayer-'+ webshims.getID(elem);
-		
-		var params = $.extend(
-			{},
-			options.params,
-			$(elem).data('params')
-		);
+
+
 		var elemNodeName = elem.nodeName.toLowerCase();
-		var attrs = $.extend(
-			{},
-			options.attrs,
-			{
-				name: elemId,
-				id: elemId
-			},
-			$(elem).data('attrs')
-		);
+
 		var setDimension = function(){
 			if(data.isActive == 'third'){
 				setElementDimension(data, $.prop(elem, 'controls'));
 			}
 		};
-		
-		var box;
-		
+
+		if(isStream && !streamRequest){
+			webshim.usermedia.attach(elem, canPlaySrc, data);
+			return;
+		}
+
 		if(data && data.swfCreated){
 			mediaelement.setActive(elem, 'third', data);
-			
-			data.currentSrc = canPlaySrc.srcProp;
-			
+
+			data.currentSrc = '';
+
 			data.shadowElem.html('<div id="'+ elemId +'">');
-			
+
 			data.api = false;
 			data.actionQueue = [];
 			box = data.shadowElem;
 			resetSwfProps(data);
+			data.currentSrc = canPlaySrc.srcProp;
+
 		} else {
 			$(document.getElementById('wrapper-'+ elemId )).remove();
 			box = $('<div class="polyfill-'+ (elemNodeName) +' polyfill-mediaelement '+ webshims.shadowClass +'" id="wrapper-'+ elemId +'"><div id="'+ elemId +'"></div>')
@@ -2411,7 +2496,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					value: elem
 				},
 				currentSrc: {
-					value: canPlaySrc.srcProp
+					value: streamRequest ? '' : canPlaySrc.srcProp
 				},
 				swfCreated: {
 					value: true
@@ -2439,26 +2524,27 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 				}
 			}));
-			
-			
-		
+
+
+
 			box.insertBefore(elem);
-			
+
 			if(hasNative){
 				$.extend(data, {volume: $.prop(elem, 'volume'), muted: $.prop(elem, 'muted'), paused: $.prop(elem, 'paused')});
 			}
-			
+
 			webshims.addShadowDom(elem, box);
 			if(!webshims.data(elem, 'mediaelement')){
 				webshims.data(elem, 'mediaelement', data);
 			}
 			addMediaToStopEvents(elem);
-			
+
 			mediaelement.setActive(elem, 'third', data);
-			
+
 			setElementDimension(data, hasControls);
-			
+
 			$(elem)
+
 				.on({
 					'updatemediaelementdimensions loadedmetadata emptied': setDimension,
 					'remove': function(e){
@@ -2472,14 +2558,13 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				.onWSOff('updateshadowdom', setDimension)
 			;
 		}
-		
+
 		if(mediaelement.jarisEvent[data.id] && mediaelement.jarisEvent[data.id].elem != elem){
 			webshims.error('something went wrong');
 			return;
 		} else if(!mediaelement.jarisEvent[data.id]){
-			
+
 			mediaelement.jarisEvent[data.id] = function(jaris){
-				
 				if(jaris.type == 'ready'){
 					var onReady = function(){
 						if(data.api){
@@ -2499,16 +2584,16 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 				} else {
 					data.currentTime = jaris.position;
-					
+
 					if(data.api){
 						if(!data._calledMeta && isNaN(jaris.duration) && data.duration != jaris.duration && isNaN(data.duration)){
 							onEvent.onDataInitialized(jaris, data);
 						}
-						
+
 						if(!data._ppFlag && jaris.type != 'onPlayPause'){
 							onEvent.onPlayPause(jaris, data);
 						}
-						
+
 						if(onEvent[jaris.type]){
 							onEvent[jaris.type](jaris, data);
 						}
@@ -2518,47 +2603,86 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			};
 			mediaelement.jarisEvent[data.id].elem = elem;
 		}
-		
-		$.extend(vars, 
+
+		createSwf(elem, canPlaySrc, data, elemId, hasControls, elemNodeName);
+
+		if(!streamRequest){
+			trigger(data._elem, 'loadstart');
+		}
+	};
+
+	var createSwf = function(elem, canPlaySrc, data, elemId, hasControls, elemNodeName){
+		var vars, elemVars, params, attrs;
+		var isRtmp = canPlaySrc.type == 'audio/rtmp' || canPlaySrc.type == 'video/rtmp';
+		var isUserStream = canPlaySrc.type == 'jarisplayer/stream';
+
+		vars = $.extend({}, options.vars, {
+			poster: replaceVar($.attr(elem, 'poster') && $.prop(elem, 'poster') || ''),
+			source: replaceVar(canPlaySrc.streamId || canPlaySrc.srcProp),
+			server: replaceVar(canPlaySrc.server || '')
+		});
+
+		elemVars = $(elem).data('vars') || {};
+
+		$.extend(vars,
 			{
 				id: elemId,
 				evtId: data.id,
-				controls: ''+hasControls,
+				controls: ''+(!isUserStream && hasControls),
 				autostart: 'false',
 				nodename: elemNodeName
 			},
 			elemVars
 		);
-		
+
 		if(isRtmp){
 			vars.streamtype = 'rtmp';
+		} else if(isUserStream){
+			vars.streamtype = 'usermedia';
 		} else if(canPlaySrc.type == 'audio/mpeg' || canPlaySrc.type == 'audio/mp3'){
 			vars.type = 'audio';
 			vars.streamtype = 'file';
 		} else if(canPlaySrc.type == 'video/youtube'){
 			vars.streamtype = 'youtube';
 		}
+
+		attrs = $.extend(
+			{},
+			options.attrs,
+			{
+				name: elemId,
+				id: elemId
+			},
+			$(elem).data('attrs')
+		);
+
+		params = $.extend(
+			{},
+			options.params,
+			$(elem).data('params')
+		);
+
 		options.changeSWF(vars, elem, canPlaySrc, data, 'embed');
 		clearTimeout(data.flashBlock);
-		
-		swfmini.embedSWF(playerSwfPath, elemId, "100%", "100%", "9.0.115", false, vars, params, attrs, function(swfData){
+
+		swfmini.embedSWF(playerSwfPath, elemId, "100%", "100%", "11.3", false, vars, params, attrs, function(swfData){
 			if(swfData.success){
 				var fBlocker = function(){
-					if((!swfData.ref.parentNode && box[0].parentNode) || swfData.ref.style.display == "none"){
-						box.addClass('flashblocker-assumed');
+					if((!swfData.ref.parentNode) || swfData.ref.style.display == "none"){
+
 						$(elem).trigger('flashblocker');
 						webshims.warn("flashblocker assumed");
 					}
 					$(swfData.ref).css({'minHeight': '2px', 'minWidth': '2px', display: 'block'});
 				};
 				data.api = swfData.ref;
-				
+
 				if(!hasControls){
 					$(swfData.ref).attr('tabindex', '-1').css('outline', 'none');
 				}
-				
+
 				data.flashBlock = setTimeout(fBlocker, 99);
-				
+
 				if(!localConnectionTimer){
 					clearTimeout(localConnectionTimer);
 					localConnectionTimer = setTimeout(function(){
@@ -2572,22 +2696,24 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 						flash = null;
 					}, 8000);
 				}
+				if(isUserStream){
+					webshim.usermedia.request(elem, canPlaySrc, data);
+				}
 			}
 		});
-		
 	};
-	
-	
+
+
 	var queueSwfMethod = function(elem, fn, args, data){
 		data = data || getSwfDataFromElem(elem);
-		
+
 		if(data){
 			if(data.api && data.api[fn]){
 				data.api[fn].apply(data.api, args || []);
 			} else {
 				//todo add to queue
 				data.actionQueue.push({fn: fn, args: args});
-				
+
 				if(data.actionQueue.length > 10){
 					setTimeout(function(){
 						if(data.actionQueue.length > 5){
@@ -2600,13 +2726,14 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		}
 		return false;
 	};
-	
+	mediaelement.queueSwfMethod = queueSwfMethod;
+
 	['audio', 'video'].forEach(function(nodeName){
 		var descs = {};
 		var mediaSup;
 		var createGetProp = function(key){
 			if(nodeName == 'audio' && (key == 'videoHeight' || key == 'videoWidth')){return;}
-			
+
 			descs[key] = {
 				get: function(){
 					var data = getSwfDataFromElem(this);
@@ -2626,33 +2753,33 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			delete descs[key].writeable;
 			descs[key].set = setFn;
 		};
-		
+
 		createGetSetProp('seeking');
-		
+
 		createGetSetProp('volume', function(v){
 			var data = getSwfDataFromElem(this);
 			if(data){
 				v *= 1;
 				if(!isNaN(v)){
-					
+
 					if(v < 0 || v > 1){
 						webshims.error('volume greater or less than allowed '+ (v / 100));
 					}
-					
+
 					queueSwfMethod(this, 'api_volume', [v], data);
-					
-					
+
+
 					if(data.volume != v){
 						data.volume = v;
 						trigger(data._elem, 'volumechange');
 					}
 					data = null;
-				} 
+				}
 			} else if(mediaSup.volume.prop._supset) {
 				return mediaSup.volume.prop._supset.apply(this, arguments);
 			}
 		});
-		
+
 		createGetSetProp('muted', function(m){
 			var data = getSwfDataFromElem(this);
 			if(data){
@@ -2667,8 +2794,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return mediaSup.muted.prop._supset.apply(this, arguments);
 			}
 		});
-		
-		
+
+
 		createGetSetProp('currentTime', function(t){
 			var data = getSwfDataFromElem(this);
 			if(data){
@@ -2676,23 +2803,23 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				if (!isNaN(t)) {
 					queueSwfMethod(this, 'api_seek', [t], data);
 				}
-				 
+
 			} else if(mediaSup.currentTime.prop._supset) {
 				return mediaSup.currentTime.prop._supset.apply(this, arguments);
 			}
 		});
-		
+
 		['play', 'pause'].forEach(function(fn){
 			descs[fn] = {
 				value: function(){
 					var data = getSwfDataFromElem(this);
-					
+
 					if(data){
 						if(data.stopPlayPause){
 							clearTimeout(data.stopPlayPause);
 						}
 						queueSwfMethod(this, fn == 'play' ? 'api_play' : 'api_pause', [], data);
-						
+
 						data._ppFlag = true;
 						if(data.paused != (fn != 'play')){
 							data.paused = fn != 'play';
@@ -2704,14 +2831,14 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 			};
 		});
-		
+
 		getPropKeys.forEach(createGetProp);
-		
+
 		webshims.onNodeNamesPropertyModify(nodeName, 'controls', function(val, boolProp){
 			var data = getSwfDataFromElem(this);
-			
+
 			$(this)[boolProp ? 'addClass' : 'removeClass']('webshims-controls');
-			
+
 			if(data){
 				if(nodeName == 'audio'){
 					setElementDimension(data, boolProp);
@@ -2719,12 +2846,12 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				queueSwfMethod(this, 'api_controls', [boolProp], data);
 			}
 		});
-		
-		
+
+
 		webshims.onNodeNamesPropertyModify(nodeName, 'preload', function(val){
 			var data, baseData, elem;
-			
-			
+
+
 			if(bufferSrc(this)){
 				data = getSwfDataFromElem(this);
 				if(data){
@@ -2739,10 +2866,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 			}
 		});
-		
+
 		mediaSup = webshims.defineNodeNameProperties(nodeName, descs, 'prop');
-		
-		if(!Modernizr.mediaDefaultMuted){
+
+		if(!support.mediaDefaultMuted){
 			webshims.defineNodeNameProperties(nodeName, {
 				defaultMuted: {
 					get: function(){
@@ -2759,8 +2886,125 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			}, 'prop');
 		}
 	});
-	
-	
+
+	var addCanvasBridge = function(){
+		if(!window.CanvasRenderingContext2D){
+			return false;
+		}
+		var _drawImage = CanvasRenderingContext2D.prototype.drawImage;
+		var slice = Array.prototype.slice;
+		var isVideo = {
+			video: 1,
+			VIDEO: 1
+		};
+		var tested = {};
+		var addToBlob = function(){
+			var desc = webshim.defineNodeNameProperty('canvas', 'toBlob', {
+				prop: {
+					value: function(){
+						var context = $(this).callProp('getContext', ['2d']);
+						var that = this;
+						var args = arguments;
+						var cb = function(){
+							return desc.prop._supvalue.apply(that, args);
+						};
+						if(context.wsImageComplete && context._wsIsLoading){
+							context.wsImageComplete(cb);
+						} else {
+							return cb();
+						}
+					}
+				}
+			});
+		};
+
+		if(!_drawImage){
+			webshim.error('canvas.drawImage feature is needed. In IE8 flashvanvas pro can be used');
+		}
+
+		CanvasRenderingContext2D.prototype.wsImageComplete = function(cb){
+			if(this._wsIsLoading){
+				if(!this._wsLoadingCbs){
+					this._wsLoadingCbs = [];
+				}
+				this._wsLoadingCbs.push(cb);
+			} else {
+				cb.call(this, this);
+			}
+		};
+
+		CanvasRenderingContext2D.prototype.drawImage = function(elem){
+			var data, img, args, imgData, hadCachedImg;
+			var context = this;
+
+			if(isVideo[elem.nodeName] && (data = webshims.data(elem, 'mediaelement')) && data.isActive == 'third' && data.api.api_image){
+
+				try {
+					imgData = data.api.api_image();
+				} catch (er){
+					webshims.error(er);
+				}
+				if(!tested[data.currentSrc]){
+					tested[data.currentSrc] = true;
+					if(imgData == null){
+						webshims.error('video has to be same origin or a crossdomain.xml has to be provided. Video has to be visible for flash API');
+					}
+				}
+
+				args = slice.call(arguments, 1);
+
+				if(options.canvasSync && data.canvasImg){
+					args.unshift(data.canvasImg);
+					_drawImage.apply(context, args);
+					args = slice.call(arguments, 1);
+					hadCachedImg = true;
+				}
+
+				img = document.createElement('img');
+
+				//todo find a performant sync way
+				img.onload = function(){
+					args.unshift(this);
+					img.onload = null;
+
+					if(options.canvasSync){
+						data.canvasImg = img;
+						if(hadCachedImg && options.noDoubbleDraw){
+							return;
+						}
+					}
+					_drawImage.apply(context, args);
+					context._wsIsLoading = false;
+					if(context._wsLoadingCbs && context._wsLoadingCbs.length){
+						while(context._wsLoadingCbs.length){
+							context._wsLoadingCbs.shift().call(context, context);
+						}
+					}
+				};
+
+				img.src = 'data:image/jpeg;base64,'+imgData;
+				this._wsIsLoading = true;
+				if(img.complete && img.onload){
+					img.onload();
+				}
+				return;
+			}
+			return _drawImage.apply(this, arguments);
+		};
+
+		if(!document.createElement('canvas').toBlob){
+			webshims.ready('filereader', addToBlob);
+		} else {
+			addToBlob();
+		}
+		return true;
+	};
+
+	if(!addCanvasBridge()){
+		webshims.ready('canvas', addCanvasBridge);
+	}
+
+
 	if(hasFlash && $.cleanData){
 		var oldClean = $.cleanData;
 		var objElem = document.createElement('object');
@@ -2774,17 +3018,17 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			object: 1,
 			OBJECT: 1
 		};
-		
+
 		$.cleanData = function(elems){
 			var i, len, prop;
 			var ret = oldClean.apply(this, arguments);
 			if(elems && (len = elems.length) && loadedSwf){
-				
+
 				for(i = 0; i < len; i++){
-					if(flashNames[elems[i].nodeName] && 'api_pause' in elems[i]){
+					if(flashNames[elems[i].nodeName] && 'api_destroy' in elems[i]){
 						loadedSwf--;
 						try {
-							elems[i].api_pause();
+							elems[i].api_destroy();
 							if(elems[i].readyState == 4){
 								for (prop in elems[i]) {
 									if (!noRemove[prop] && !objElem[prop] && typeof elems[i][prop] == "function") {
@@ -2792,17 +3036,17 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 									}
 								}
 							}
-						} catch(er){}
+						} catch(er){console.log(er);}
 					}
 				}
-				
+
 			}
 			return ret;
 		};
 	}
 
 	if(!hasNative){
-		
+
 		['poster', 'src'].forEach(function(prop){
 			webshims.defineNodeNamesProperty(prop == 'src' ? ['audio', 'video', 'source'] : ['video'], prop, {
 				//attr: {},
@@ -2810,21 +3054,21 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				propType: 'src'
 			});
 		});
-		
+
 		webshims.defineNodeNamesProperty(['audio', 'video'], 'preload', {
 			reflect: true,
 			propType: 'enumarated',
 			defaultValue: '',
 			limitedTo: ['', 'auto', 'metadata', 'none']
 		});
-		
+
 		webshims.reflectProperties('source', ['type', 'media']);
-		
-		
+
+
 		['autoplay', 'controls'].forEach(function(name){
 			webshims.defineNodeNamesBooleanProperty(['audio', 'video'], name);
 		});
-			
+
 		webshims.defineNodeNamesProperties(['audio', 'video'], {
 			HAVE_CURRENT_DATA: {
 				value: 2
@@ -2853,7 +3097,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			NETWORK_NO_SOURCE: {
 				value: 3
 			}
-					
+
 		}, 'prop');
 
 
@@ -2879,11 +3123,11 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			var media, error, parent;
 			if(
 				($(e.target).is('audio, video') || ((parent = e.target.parentNode) && $('source', parent).last()[0] == e.target)) &&
-				(media = $(e.target).closest('audio, video')) && !media.is('.nonnative-api-active')
+					(media = $(e.target).closest('audio, video')) && !media.hasClass('nonnative-api-active')
 				){
 				error = media.prop('error');
 				setTimeout(function(){
-					if(!media.is('.nonnative-api-active')){
+					if(!media.hasClass('nonnative-api-active')){
 						if(error && switchErrors[error.code]){
 							options.preferFlash = true;
 							document.removeEventListener('error', switchOptions, true);

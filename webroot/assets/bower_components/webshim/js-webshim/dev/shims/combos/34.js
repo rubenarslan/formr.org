@@ -60,16 +60,11 @@
 webshims.register('dom-extend', function($, webshims, window, document, undefined){
 	"use strict";
 	var supportHrefNormalized = !('hrefNormalized' in $.support) || $.support.hrefNormalized;
-	var supportGetSetAttribute = !('getSetAttribute' in $.support) || $.support.getSetAttribute;
 	var has = Object.prototype.hasOwnProperty;
-	webshims.assumeARIA = supportGetSetAttribute || Modernizr.canvas || Modernizr.video || Modernizr.boxsizing;
+	webshims.assumeARIA = true;
 	
 	if($('<input type="email" />').attr('type') == 'text' || $('<form />').attr('novalidate') === "" || ('required' in $('<input />')[0].attributes)){
-		webshims.error("IE browser modes are busted in IE10+. Please test your HTML/CSS/JS with a real IE version or at least IETester or similiar tools");
-	}
-	
-	if('debug' in webshims){
-		webshims.error('Use webshims.setOptions("debug", true||false||"noCombo"); to debug flag');
+		webshims.error("IE browser modes are busted in IE10+. Make sure to run IE in edge mode (X-UA-Compatible). Please test your HTML/CSS/JS with a real IE version or at least IETester or similar tools. ");
 	}
 	
 	if (!webshims.cfg.no$Switch) {
@@ -81,15 +76,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 				window.jQuery = webshims.$;
 			}
-			if(webshims.M != Modernizr){
-				webshims.error("Modernizr was included more than once. Make sure to include it only once! Webshims and other scripts might not work properly.");
-				for(var i in Modernizr){
-					if(!(i in webshims.M)){
-						webshims.M[i] = Modernizr[i];
-					}
-				}
-				Modernizr = webshims.M;
-			}
 		};
 		switch$();
 		setTimeout(switch$, 90);
@@ -100,7 +86,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	}
 
 	//shortcus
-	var modules = webshims.modules;
 	var listReg = /\s*,\s*/;
 		
 	//proxying attribute
@@ -117,20 +102,25 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	};
 	
 	//jquery mobile and jquery ui
-	if(!$.widget){
+	if(!$.widget && (!$.pluginFactory || !$.pluginFactory.mixin)){
 		(function(){
 			var _cleanData = $.cleanData;
-			$.cleanData = function( elems ) {
-				if(!$.widget){
-					for ( var i = 0, elem; (elem = elems[i]) != null; i++ ) {
+			$.cleanData = (function( orig ) {
+				return function( elems ) {
+					var events, elem, i;
+					for ( i = 0; (elem = elems[i]) != null; i++ ) {
 						try {
-							$( elem ).triggerHandler( "remove" );
-						// http://bugs.jquery.com/ticket/8235
-						} catch( e ) {}
+							// Only trigger remove when necessary to save time
+							events = $._data( elem, "events" );
+							if ( events && events.remove ) {
+								$( elem ).triggerHandler( "remove" );
+							}
+							// http://bugs.jquery.com/ticket/8235
+						} catch ( e ) {}
 					}
-				}
-				_cleanData( elems );
-			};
+					orig( elems );
+				};
+			})( $.cleanData );
 		})();
 	}
 	
@@ -418,7 +408,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		var UNKNOWN = webshims.getPrototypeOf(document.createElement('foobar'));
 		
 		//see also: https://github.com/lojjic/PIE/issues/40 | https://prototype.lighthouseapp.com/projects/8886/tickets/1107-ie8-fatal-crash-when-prototypejs-is-loaded-with-rounded-cornershtc
-		var isExtendNativeSave = Modernizr.advancedObjectProperties && Modernizr.objectAccessor;
+		var isExtendNativeSave = webshims.support.advancedObjectProperties && webshims.support.objectAccessor;
 		return function(nodeName, prop, desc){
 			var elem , elemProto;
 			 if( isExtendNativeSave && (elem = document.createElement(nodeName)) && (elemProto = webshims.getPrototypeOf(elem)) && UNKNOWN !== elemProto && ( !elem[prop] || !has.call(elem, prop) ) ){
@@ -485,8 +475,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				(tempCache || $( document.getElementsByTagName(nodeName) )).each(fn);
 			}
 		};
-		
-		var elementExtends = {};
+
 		return {
 			createTmpCache: function(nodeName){
 				if($.isDOMReady){
@@ -538,6 +527,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	};
 	
 	$.extend(webshims, {
+		xProps: havePolyfill,
 		getID: (function(){
 			var ID = new Date().getTime();
 			return function(elem){
@@ -551,6 +541,26 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return id;
 			};
 		})(),
+		domPrefixes: ["webkit", "moz", "ms", "o", "ws"],
+
+		prefixed: function (prop, obj){
+			var i, testProp;
+			var ret = false;
+			if(obj[prop]){
+				ret = prop;
+			}
+			if(!ret){
+				prop = prop.charAt(0).toUpperCase() + prop.slice(1);
+				for(i = 0; i < webshims.domPrefixes.length; i++){
+					testProp = webshims.domPrefixes[i]+prop;
+					if(testProp in obj){
+						ret = testProp;
+						break;
+					}
+				}
+			}
+			return ret;
+		},
 		shadowClass: 'wsshadow-'+(Date.now()),
 		implement: function(elem, type){
 			var data = elementData(elem, 'implemented') || elementData(elem, 'implemented', {});
@@ -558,8 +568,9 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				webshims.warn(type +' already implemented for element #'+elem.id);
 				return false;
 			}
+
 			data[type] = true;
-			return true;
+			return !$(elem).hasClass('ws-nopolyfill');
 		},
 		extendUNDEFProp: function(obj, props){
 			$.each(props, function(name, prop){
@@ -671,33 +682,37 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 				},
 				handler: (function(){
+					var evt;
 					var trigger = function(){
-						$(document).triggerHandler('updateshadowdom');
+						$(document).triggerHandler('updateshadowdom', [evt]);
+					};
+					var timed = function(){
+						if(evt && evt.type == 'resize'){
+							var width = $window.width();
+							var height = $window.width();
+
+							if(height == lastHeight && width == lastWidth){
+								return;
+							}
+							lastHeight = height;
+							lastWidth = width;
+						}
+
+						if(evt && evt.type != 'docresize'){
+							docObserve.height = docObserve.getHeight();
+							docObserve.width = docObserve.getWidth();
+						}
+
+						if(window.requestAnimationFrame){
+							requestAnimationFrame(trigger);
+						} else {
+							setTimeout(trigger, 0);
+						}
 					};
 					return function(e){
 						clearTimeout(resizeTimer);
-						resizeTimer = setTimeout(function(){
-							if(e.type == 'resize'){
-								var width = $window.width();
-								var height = $window.width();
-
-								if(height == lastHeight && width == lastWidth){
-									return;
-								}
-								lastHeight = height;
-								lastWidth = width;
-								
-								docObserve.height = docObserve.getHeight();
-								docObserve.width = docObserve.getWidth();
-							}
-
-							if(window.requestAnimationFrame){
-								requestAnimationFrame(trigger);
-							} else {
-								setTimeout(trigger, 0);
-							}
-							
-						}, (e.type == 'resize' && !window.requestAnimationFrame) ? 50 : 9);
+						evt = e;
+						resizeTimer = setTimeout(timed, (e.type == 'resize' && !window.requestAnimationFrame) ? 50 : 9);
 					};
 				})(),
 				_create: function(){
@@ -729,7 +744,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 							});
 						}
 						webshims.ready('WINDOWLOAD', this.test);
-						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel', this.handler);
+						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel playerdimensionchange', this.handler);
 						$(window).on('resize', this.handler);
 					}
 				}
@@ -1226,7 +1241,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	//descriptions are not really shown, but they are inserted into the dom
 	var showTracks = {subtitles: 1, captions: 1, descriptions: 1};
 	var dummyTrack = $('<track />');
-	var supportTrackMod = Modernizr.ES5 && Modernizr.objectAccessor;
+	var support = webshims.support;
+	var supportTrackMod = support.ES5 && support.objectAccessor;
 	var createEventTarget = function(obj){
 		var eventList = {};
 		obj.addEventListener = function(name, fn){
@@ -1286,7 +1302,11 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				var lastCue = this.cues[this.cues.length-1];
 				if(lastCue && lastCue.startTime > cue.startTime){
 					webshims.error("cue startTime higher than previous cue's startTime");
+					return;
 				}
+			}
+			if(cue.startTime >= cue.endTime ){
+				webshim.error('startTime >= endTime of cue: '+ cue.text);
 			}
 			if(cue.track && cue.track.removeCue){
 				cue.track.removeCue(cue);
@@ -1328,10 +1348,11 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	var copyName = {srclang: 'language'};
 
 	var updateMediaTrackList = function(baseData, trackList){
+		var i, len;
+		var callChange = false;
 		var removed = [];
 		var added = [];
 		var newTracks = [];
-		var i, len;
 		if(!baseData){
 			baseData =  webshims.data(this, 'mediaelementBase') || webshims.data(this, 'mediaelementBase', {});
 		}
@@ -1366,12 +1387,13 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				removed.push(trackList[i]);
 			}
 		}
-		
+
 		if(removed.length || added.length){
 			trackList.splice(0);
 			
 			for(i = 0, len = newTracks.length; i < len; i++){
 				trackList.push(newTracks[i]);
+
 			}
 			for(i = 0, len = removed.length; i < len; i++){
 				$([trackList]).triggerHandler($.Event({type: 'removetrack', track: removed[i]}));
@@ -1379,9 +1401,20 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			for(i = 0, len = added.length; i < len; i++){
 				$([trackList]).triggerHandler($.Event({type: 'addtrack', track: added[i]}));
 			}
+			//todo: remove
 			if(baseData.scriptedTextTracks || removed.length){
 				$(this).triggerHandler('updatetrackdisplay');
 			}
+		}
+
+		for(i = 0, len = trackList.length; i < len; i++){
+			if(trackList[i].__wsmode != trackList[i].mode){
+				trackList[i].__wsmode = trackList[i].mode;
+				callChange = true;
+			}
+		}
+		if(callChange){
+			$([trackList]).triggerHandler('change');
 		}
 	};
 	
@@ -1395,7 +1428,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			setTimeout(function(){
 				$(track).closest('audio, video').triggerHandler('updatetrackdisplay');
 				trackData.isTriggering = false;
-			}, 1);
+			}, 9);
 		}
 	};
 	var isDefaultTrack = (function(){
@@ -1535,19 +1568,23 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		ttml = $.parseXML(ttml) || [];
 		return $(ttml).find('[begin][end]').map(mapTtmlToVtt).get().join('\n\n') || '';
 	};
-	
+	var loadingTracks = 0;
+
 	mediaelement.loadTextTrack = function(mediaelem, track, trackData, _default){
-		var loadEvents = 'play playing';
+		var loadEvents = 'play playing loadedmetadata loadstart';
 		var obj = trackData.track;
 		var load = function(){
 			var error, ajax, createAjax;
-			var src = obj.mode != 'disabled' && ($.attr(track, 'src') && $.prop(track, 'src'));
+			var isDisabled = obj.mode == 'disabled';
+			var videoState = !!($.prop(mediaelem, 'readyState') > 0 || $.prop(mediaelem, 'networkState') == 2 || !$.prop(mediaelem, 'paused'));
+			var src = (!isDisabled || videoState) && ($.attr(track, 'src') && $.prop(track, 'src'));
 
 			if(src){
 				$(mediaelem).off(loadEvents, load).off('updatetrackdisplay', load);
 
 				if(!trackData.readyState){
 					error = function(){
+						loadingTracks--;
 						trackData.readyState = 3;
 						obj.cues = null;
 						obj.activeCues = obj.shimActiveCues = obj._shimActiveCues = null;
@@ -1557,12 +1594,14 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					try {
 						obj.cues = mediaelement.createCueList();
 						obj.activeCues = obj.shimActiveCues = obj._shimActiveCues = mediaelement.createCueList();
+						loadingTracks++;
 						createAjax = function(){
 							ajax = $.ajax({
 								dataType: 'text',
 								url: src,
 								success: function(text){
-									var contentType = ajax.getResponseHeader('content-type');
+									loadingTracks--;
+									var contentType = ajax.getResponseHeader('content-type') || '';
 
 									if(!contentType.indexOf('application/xml')){
 										text = ttmlTextToVTT(text);
@@ -1578,16 +1617,14 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 											error();
 										}
 									});
-									
 								},
 								error: error
 							});
 						};
-						if($.ajax && $.ajaxSettings.xhr){
-							createAjax();
+						if(isDisabled){
+							setTimeout(createAjax, loadingTracks * 2);
 						} else {
-							webshims.ready('jajax', createAjax);
-							webshims.loader.loadList(['jajax']);
+							createAjax();
 						}
 					} catch(er){
 						error();
@@ -1603,13 +1640,12 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		obj.cues = null;
 
 		$(mediaelem).on(loadEvents, load);
+
 		if(_default){
 			obj.mode = showTracks[obj.kind] ? 'showing' : 'hidden';
-			webshims.ready('WINDOWLOAD', load);
+			load();
 		} else {
-			webshims.ready('WINDOWLOAD', function(){
-				$(mediaelem).on('updatetrackdisplay', load);
-			});
+			$(mediaelem).on('updatetrackdisplay', load);
 		}
 	};
 	
@@ -1668,11 +1704,29 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				webshims.error('you must provide a language for track in subtitles state');
 			}
 			obj.__wsmode = obj.mode;
+
+			webshims.defineProperty(obj, '_wsUpdateMode', {
+				value: function(){
+					$(mediaelem).triggerHandler('updatetrackdisplay');
+				},
+				enumerable: false
+			});
 		}
 		
 		return obj;
 	};
 
+	if(!$.propHooks.mode){
+		$.propHooks.mode = {
+			set: function(obj, value){
+				obj.mode = value;
+				if(obj._wsUpdateMode && obj._wsUpdateMode.call){
+					obj._wsUpdateMode();
+				}
+				return obj.mode;
+			}
+		};
+	}
 
 /*
 taken from:
@@ -1881,7 +1935,7 @@ modified for webshims
 		return baseData.textTracks;
 	};
 	
-	if(!Modernizr.track){
+	if(!support.track){
 		webshims.defineNodeNamesBooleanProperty(['track'], 'default');
 		webshims.reflectProperties(['track'], ['srclang', 'label']);
 		
@@ -1896,7 +1950,7 @@ modified for webshims
 	
 	webshims.defineNodeNameProperties('track', {
 		kind: {
-			attr: Modernizr.track ? {
+			attr: support.track ? {
 				set: function(value){
 					var trackData = webshims.data(this, 'trackData');
 					this.setAttribute('data-kind', value);
@@ -1923,7 +1977,7 @@ modified for webshims
 		var name = copyName[copyProp] || copyProp;
 		webshims.onNodeNamesPropertyModify('track', copyProp, function(){
 			var trackData = webshims.data(this, 'trackData');
-			var track = this;
+
 			if(trackData){
 				if(copyProp == 'kind'){
 					refreshTrack(this, trackData);
@@ -1951,7 +2005,6 @@ modified for webshims
 	});
 	
 	//
-	
 	webshims.defineNodeNamesProperties(['track'], {
 		ERROR: {
 			value: 3
@@ -2061,7 +2114,7 @@ modified for webshims
 			})
 			.on('emptied updatetracklist wsmediareload', thUpdateList)
 			.each(function(){
-				if(Modernizr.track){
+				if(support.track){
 					var shimedTextTracks = $.prop(this, 'textTracks');
 					var origTextTracks = this.textTracks;
 
@@ -2086,7 +2139,7 @@ modified for webshims
 		});
 	});
 	
-	if(Modernizr.texttrackapi){
+	if(support.texttrackapi){
 		$('video, audio').trigger('trackapichange');
 	}
 });

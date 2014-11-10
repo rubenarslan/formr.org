@@ -158,7 +158,7 @@ var swfmini = function() {
 		webshims.$.noop
 	;
 
-	if(!Modernizr.video){
+	if(!webshims.support.mediaelement){
 		loadEmbed();
 	} else {
 		webshims.ready('WINDOWLOAD', loadEmbed);
@@ -221,9 +221,10 @@ var swfmini = function() {
 }();
 
 webshims.isReady('swfmini', true);
-;(function(Modernizr, webshims){
+;(function(webshims){
 	"use strict";
-	var hasNative = Modernizr.audio && Modernizr.video;
+	var support = webshims.support;
+	var hasNative = support.mediaelement;
 	var supportsLoop = false;
 	var bugs = webshims.bugs;
 	var swfType = 'mediaelement-jaris';
@@ -246,14 +247,14 @@ webshims.isReady('swfmini', true);
 
 	if(hasNative){
 		var videoElem = document.createElement('video');
-		Modernizr.videoBuffered = ('buffered' in videoElem);
-		Modernizr.mediaDefaultMuted = ('defaultMuted' in videoElem);
+		support.videoBuffered = ('buffered' in videoElem);
+		support.mediaDefaultMuted = ('defaultMuted' in videoElem);
 		supportsLoop = ('loop' in videoElem);
-		Modernizr.mediaLoop = supportsLoop;
+		support.mediaLoop = supportsLoop;
 
 		webshims.capturingEvents(['play', 'playing', 'waiting', 'paused', 'ended', 'durationchange', 'loadedmetadata', 'canplay', 'volumechange']);
 		
-		if( !Modernizr.videoBuffered || !supportsLoop || (!Modernizr.mediaDefaultMuted && isIE && 'ActiveXObject' in window) ){
+		if( !support.videoBuffered || !supportsLoop || (!support.mediaDefaultMuted && isIE && 'ActiveXObject' in window) ){
 			webshims.addPolyfill('mediaelement-native-fix', {
 				d: ['dom-support']
 			});
@@ -261,7 +262,7 @@ webshims.isReady('swfmini', true);
 		}
 	}
 	
-	if(Modernizr.track && !bugs.track){
+	if(support.track && !bugs.track){
 		(function(){
 			if(!bugs.track){
 
@@ -280,9 +281,16 @@ webshims.isReady('swfmini', true);
 		})();
 	}
 
+	if(window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype){
+		CanvasRenderingContext2D.prototype.wsImageComplete = function(cb){
+			cb.call(this, this);
+		};
+	}
+
 webshims.register('mediaelement-core', function($, webshims, window, document, undefined, options){
-	var hasSwf = swfmini.hasFlashPlayerVersion('10.0.3');
+	var hasSwf = swfmini.hasFlashPlayerVersion('11.3');
 	var mediaelement = webshims.mediaelement;
+	var allowYtLoading = false;
 	
 	mediaelement.parseRtmp = function(data){
 		var src = data.src.split('://');
@@ -378,7 +386,9 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		return function(){
 			if(loaded || !hasYt){return;}
 			loaded = true;
-			webshims.loader.loadScript("https://www.youtube.com/player_api");
+			if(allowYtLoading){
+				webshims.loader.loadScript("https://www.youtube.com/player_api");
+			}
 			$(function(){
 				webshims._polyfill(["mediaelement-yt"]);
 			});
@@ -391,6 +401,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			loadYt();
 		}
 	};
+
 	
 	webshims.addPolyfill('mediaelement-yt', {
 		test: !hasYt,
@@ -435,7 +446,16 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		if(src.indexOf('youtube.com/watch?') != -1 || src.indexOf('youtube.com/v/') != -1){
 			return 'video/youtube';
 		}
-		if(src.indexOf('rtmp') === 0){
+
+		if(!src.indexOf('mediastream:') || !src.indexOf('blob:http')){
+			return 'usermedia';
+		}
+
+		if(!src.indexOf('webshimstream')){
+			return 'jarisplayer/stream';
+		}
+
+		if(!src.indexOf('rtmp')){
 			return nodeName+'/rtmp';
 		}
 		src = src.split('?')[0].split('#')[0].split('.');
@@ -452,28 +472,24 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 	};
 	
 	
-	mediaelement.srces = function(mediaElem, srces){
+	mediaelement.srces = function(mediaElem){
+		var srces = [];
 		mediaElem = $(mediaElem);
-		if(!srces){
-			srces = [];
-			var nodeName = mediaElem[0].nodeName.toLowerCase();
-			var src = getSrcObj(mediaElem, nodeName);
-			
-			if(!src.src){
-				$('source', mediaElem).each(function(){
-					src = getSrcObj(this, nodeName);
-					if(src.src){srces.push(src);}
-				});
-			} else {
-				srces.push(src);
-			}
-			return srces;
+		var nodeName = mediaElem[0].nodeName.toLowerCase();
+		var src = getSrcObj(mediaElem, nodeName);
+
+		if(!src.src){
+			$('source', mediaElem).each(function(){
+				src = getSrcObj(this, nodeName);
+				if(src.src){srces.push(src);}
+			});
 		} else {
-			webshims.error('setting sources was removed.');
+			srces.push(src);
 		}
+		return srces;
 	};
 	
-	mediaelement.swfMimeTypes = ['video/3gpp', 'video/x-msvideo', 'video/quicktime', 'video/x-m4v', 'video/mp4', 'video/m4p', 'video/x-flv', 'video/flv', 'audio/mpeg', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/mp3', 'audio/x-fla', 'audio/fla', 'youtube/flv', 'video/jarisplayer', 'jarisplayer/jarisplayer', 'video/youtube', 'video/rtmp', 'audio/rtmp'];
+	mediaelement.swfMimeTypes = ['video/3gpp', 'video/x-msvideo', 'video/quicktime', 'video/x-m4v', 'video/mp4', 'video/m4p', 'video/x-flv', 'video/flv', 'audio/mpeg', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/mp3', 'audio/x-fla', 'audio/fla', 'youtube/flv', 'video/jarisplayer', 'jarisplayer/jarisplayer', 'jarisplayer/stream', 'video/youtube', 'video/rtmp', 'audio/rtmp'];
 	
 	mediaelement.canThirdPlaySrces = function(mediaElem, srces){
 		var ret = '';
@@ -503,7 +519,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			srces = srces || mediaelement.srces(mediaElem);
 			
 			$.each(srces, function(i, src){
-				if(src.type && nativeCanPlay.call(mediaElem[0], src.type) ){
+				if(src.type == 'usermedia' || (src.type && nativeCanPlay.call(mediaElem[0], src.type)) ){
 					ret = src;
 					return false;
 				}
@@ -558,6 +574,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				}
 			});
 			if(!requested && hasYt && !mediaelement.createSWF){
+				allowYtLoading = true;
 				loadYt();
 			}
 		};
@@ -593,19 +610,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			}
 		}
 	};
-	var allowedPreload = {'metadata': 1, 'auto': 1, '': 1};
-	var fixPreload = function(elem){
-		var preload, img;
-		if(elem.getAttribute('preload') == 'none'){
-			if(allowedPreload[(preload = $.attr(elem, 'data-preload'))]){
-				$.attr(elem, 'preload', preload);
-			} else if(hasNative && (preload = elem.getAttribute('poster'))){
-				img = document.createElement('img');
-				img.src = preload;
-			}
-		}
-	};
-	var stopParent = /^(?:embed|object|datalist)$/i;
+	var stopParent = /^(?:embed|object|datalist|picture)$/i;
 	var selectSource = function(elem, data){
 		var baseData = webshims.data(elem, 'mediaelementBase') || webshims.data(elem, 'mediaelementBase', {});
 		var _srces = mediaelement.srces(elem);
@@ -620,7 +625,6 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		if(mediaelement.sortMedia){
 			_srces.sort(mediaelement.sortMedia);
 		}
-		fixPreload(elem);
 		stepSources(elem, data, _srces);
 
 	};
@@ -644,7 +648,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 
 			if(webshims.implement(this, 'mediaelement')){
 				selectSource(this);
-				if(!Modernizr.mediaDefaultMuted && $.attr(this, 'muted') != null){
+				if(!support.mediaDefaultMuted && $.attr(this, 'muted') != null){
 					$.prop(this, 'muted', true);
 				}
 
@@ -669,7 +673,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 							if(hasNative && (!data || data.isActive == 'html5') && supLoad.prop._supvalue){
 								supLoad.prop._supvalue.apply(this, arguments);
 							}
-							if(!loadTrackUi.loaded && $('track', this).length){
+							if(!loadTrackUi.loaded && this.querySelector('track')){
 								loadTrackUi();
 							}
 							$(this).triggerHandler('wsmediareload');
@@ -735,6 +739,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 						.add(insertedElement.filter('video, audio'))
 						.each(function(){
 							if(!mediaelement.canNativePlaySrces(this)){
+								allowYtLoading = true;
 								loadThird();
 								handleMedia = true;
 								return false;
@@ -757,6 +762,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			mediaelement.loadDebugger();
 		});
 	}
+
 	//set native implementation ready, before swf api is retested
 	if(hasNative){
 		webshims.isReady('mediaelement-core', true);
@@ -766,9 +772,13 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		webshims.ready(swfType, initMediaElements);
 	}
 	webshims.ready('track', loadTrackUi);
+
+	if(document.readyState == 'complete'){
+		webshims.isReady('WINDOWLOAD', true);
+	}
 });
 
-})(Modernizr, webshims);
+})(webshims);
 ;webshims.register('track', function($, webshims, window, document, undefined){
 	"use strict";
 	var mediaelement = webshims.mediaelement;
@@ -776,7 +786,8 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 	//descriptions are not really shown, but they are inserted into the dom
 	var showTracks = {subtitles: 1, captions: 1, descriptions: 1};
 	var dummyTrack = $('<track />');
-	var supportTrackMod = Modernizr.ES5 && Modernizr.objectAccessor;
+	var support = webshims.support;
+	var supportTrackMod = support.ES5 && support.objectAccessor;
 	var createEventTarget = function(obj){
 		var eventList = {};
 		obj.addEventListener = function(name, fn){
@@ -836,7 +847,11 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				var lastCue = this.cues[this.cues.length-1];
 				if(lastCue && lastCue.startTime > cue.startTime){
 					webshims.error("cue startTime higher than previous cue's startTime");
+					return;
 				}
+			}
+			if(cue.startTime >= cue.endTime ){
+				webshim.error('startTime >= endTime of cue: '+ cue.text);
 			}
 			if(cue.track && cue.track.removeCue){
 				cue.track.removeCue(cue);
@@ -878,10 +893,11 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 	var copyName = {srclang: 'language'};
 
 	var updateMediaTrackList = function(baseData, trackList){
+		var i, len;
+		var callChange = false;
 		var removed = [];
 		var added = [];
 		var newTracks = [];
-		var i, len;
 		if(!baseData){
 			baseData =  webshims.data(this, 'mediaelementBase') || webshims.data(this, 'mediaelementBase', {});
 		}
@@ -916,12 +932,13 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				removed.push(trackList[i]);
 			}
 		}
-		
+
 		if(removed.length || added.length){
 			trackList.splice(0);
 			
 			for(i = 0, len = newTracks.length; i < len; i++){
 				trackList.push(newTracks[i]);
+
 			}
 			for(i = 0, len = removed.length; i < len; i++){
 				$([trackList]).triggerHandler($.Event({type: 'removetrack', track: removed[i]}));
@@ -929,9 +946,20 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			for(i = 0, len = added.length; i < len; i++){
 				$([trackList]).triggerHandler($.Event({type: 'addtrack', track: added[i]}));
 			}
+			//todo: remove
 			if(baseData.scriptedTextTracks || removed.length){
 				$(this).triggerHandler('updatetrackdisplay');
 			}
+		}
+
+		for(i = 0, len = trackList.length; i < len; i++){
+			if(trackList[i].__wsmode != trackList[i].mode){
+				trackList[i].__wsmode = trackList[i].mode;
+				callChange = true;
+			}
+		}
+		if(callChange){
+			$([trackList]).triggerHandler('change');
 		}
 	};
 	
@@ -945,7 +973,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			setTimeout(function(){
 				$(track).closest('audio, video').triggerHandler('updatetrackdisplay');
 				trackData.isTriggering = false;
-			}, 1);
+			}, 9);
 		}
 	};
 	var isDefaultTrack = (function(){
@@ -1085,19 +1113,23 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		ttml = $.parseXML(ttml) || [];
 		return $(ttml).find('[begin][end]').map(mapTtmlToVtt).get().join('\n\n') || '';
 	};
-	
+	var loadingTracks = 0;
+
 	mediaelement.loadTextTrack = function(mediaelem, track, trackData, _default){
-		var loadEvents = 'play playing';
+		var loadEvents = 'play playing loadedmetadata loadstart';
 		var obj = trackData.track;
 		var load = function(){
 			var error, ajax, createAjax;
-			var src = obj.mode != 'disabled' && ($.attr(track, 'src') && $.prop(track, 'src'));
+			var isDisabled = obj.mode == 'disabled';
+			var videoState = !!($.prop(mediaelem, 'readyState') > 0 || $.prop(mediaelem, 'networkState') == 2 || !$.prop(mediaelem, 'paused'));
+			var src = (!isDisabled || videoState) && ($.attr(track, 'src') && $.prop(track, 'src'));
 
 			if(src){
 				$(mediaelem).off(loadEvents, load).off('updatetrackdisplay', load);
 
 				if(!trackData.readyState){
 					error = function(){
+						loadingTracks--;
 						trackData.readyState = 3;
 						obj.cues = null;
 						obj.activeCues = obj.shimActiveCues = obj._shimActiveCues = null;
@@ -1107,12 +1139,14 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 					try {
 						obj.cues = mediaelement.createCueList();
 						obj.activeCues = obj.shimActiveCues = obj._shimActiveCues = mediaelement.createCueList();
+						loadingTracks++;
 						createAjax = function(){
 							ajax = $.ajax({
 								dataType: 'text',
 								url: src,
 								success: function(text){
-									var contentType = ajax.getResponseHeader('content-type');
+									loadingTracks--;
+									var contentType = ajax.getResponseHeader('content-type') || '';
 
 									if(!contentType.indexOf('application/xml')){
 										text = ttmlTextToVTT(text);
@@ -1128,16 +1162,14 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 											error();
 										}
 									});
-									
 								},
 								error: error
 							});
 						};
-						if($.ajax && $.ajaxSettings.xhr){
-							createAjax();
+						if(isDisabled){
+							setTimeout(createAjax, loadingTracks * 2);
 						} else {
-							webshims.ready('jajax', createAjax);
-							webshims.loader.loadList(['jajax']);
+							createAjax();
 						}
 					} catch(er){
 						error();
@@ -1153,13 +1185,12 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		obj.cues = null;
 
 		$(mediaelem).on(loadEvents, load);
+
 		if(_default){
 			obj.mode = showTracks[obj.kind] ? 'showing' : 'hidden';
-			webshims.ready('WINDOWLOAD', load);
+			load();
 		} else {
-			webshims.ready('WINDOWLOAD', function(){
-				$(mediaelem).on('updatetrackdisplay', load);
-			});
+			$(mediaelem).on('updatetrackdisplay', load);
 		}
 	};
 	
@@ -1218,11 +1249,29 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				webshims.error('you must provide a language for track in subtitles state');
 			}
 			obj.__wsmode = obj.mode;
+
+			webshims.defineProperty(obj, '_wsUpdateMode', {
+				value: function(){
+					$(mediaelem).triggerHandler('updatetrackdisplay');
+				},
+				enumerable: false
+			});
 		}
 		
 		return obj;
 	};
 
+	if(!$.propHooks.mode){
+		$.propHooks.mode = {
+			set: function(obj, value){
+				obj.mode = value;
+				if(obj._wsUpdateMode && obj._wsUpdateMode.call){
+					obj._wsUpdateMode();
+				}
+				return obj.mode;
+			}
+		};
+	}
 
 /*
 taken from:
@@ -1431,7 +1480,7 @@ modified for webshims
 		return baseData.textTracks;
 	};
 	
-	if(!Modernizr.track){
+	if(!support.track){
 		webshims.defineNodeNamesBooleanProperty(['track'], 'default');
 		webshims.reflectProperties(['track'], ['srclang', 'label']);
 		
@@ -1446,7 +1495,7 @@ modified for webshims
 	
 	webshims.defineNodeNameProperties('track', {
 		kind: {
-			attr: Modernizr.track ? {
+			attr: support.track ? {
 				set: function(value){
 					var trackData = webshims.data(this, 'trackData');
 					this.setAttribute('data-kind', value);
@@ -1473,7 +1522,7 @@ modified for webshims
 		var name = copyName[copyProp] || copyProp;
 		webshims.onNodeNamesPropertyModify('track', copyProp, function(){
 			var trackData = webshims.data(this, 'trackData');
-			var track = this;
+
 			if(trackData){
 				if(copyProp == 'kind'){
 					refreshTrack(this, trackData);
@@ -1501,7 +1550,6 @@ modified for webshims
 	});
 	
 	//
-	
 	webshims.defineNodeNamesProperties(['track'], {
 		ERROR: {
 			value: 3
@@ -1611,7 +1659,7 @@ modified for webshims
 			})
 			.on('emptied updatetracklist wsmediareload', thUpdateList)
 			.each(function(){
-				if(Modernizr.track){
+				if(support.track){
 					var shimedTextTracks = $.prop(this, 'textTracks');
 					var origTextTracks = this.textTracks;
 
@@ -1636,7 +1684,7 @@ modified for webshims
 		});
 	});
 	
-	if(Modernizr.texttrackapi){
+	if(support.texttrackapi){
 		$('video, audio').trigger('trackapichange');
 	}
 });
