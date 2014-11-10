@@ -419,8 +419,10 @@ Run.prototype.exportUnits = function () {
 				success: $.proxy(function (data, textStatus) {
 					bootstrap_alert('Export completed', 'Success', '.main_body', 'alert-success');
 					$modal.find('.cancel-export').trigger('click');
-					// maybe reload page so that stuff can be imported immediately
-					setTimeout(location.reload, 2000);
+					// Redirect to download file
+					if (data) {
+						window.location.href = runUrl + '/ajax_run_export?f=' + data;
+					}
 				}, this),
 				error: function (e, x, settings, exception) {
 					$modal.find('.cancel-export').trigger('click');

@@ -4,6 +4,18 @@ define('INCLUDE_ROOT', __DIR__. '/');
 // Load composer Autoloader
 require_once INCLUDE_ROOT . "vendor/autoload.php";
 
+// Initialize settings array and define routes
+$settings = array();
+$settings['routes'] = array (
+	'public',
+	'admin',
+	'admin/run',
+	'admin/survey',
+	'admin/mail',
+	'superadmin',
+	'api',
+);
+
 // Load application settings
 /* @var $settings array */
 require_once INCLUDE_ROOT . "config_default/settings.php";
