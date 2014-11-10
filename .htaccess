@@ -2,15 +2,11 @@
     RewriteEngine On
 
     # assets dir
-    RewriteRule ^assets/(.*)$ webroot/assets/$1
+    RewriteRule ^assets/(.*)$ webroot/assets/$1 [QSA,L]
 
     RewriteCond %{REQUEST_URI} !/?(webroot)
-    RewriteRule ^/?$ webroot/index.php
-    RewriteRule ^([A-Za-z0-9_]+)/?$ webroot/index.php?module=$1 [QSA,L]
-    RewriteRule ^([A-Za-z0-9_]+)/([A-Za-z0-9_]+)/?$ webroot/index.php?module=$1&controller=$2 [QSA,L]
-    RewriteRule ^([A-Za-z0-9_]+)/([A-Za-z0-9_]+)/([A-Za-z0-9_]+)/?$ webroot/index.php?module=$1&submodule=$2&controller=$3 [QSA,L]
-    RewriteRule ^([A-Za-z0-9_]+)/([A-Za-z0-9_]+)/([A-Za-z0-9_]+)/([A-Za-z0-9_]+)/?$ webroot/index.php?module=$1&submodule=$2&controller=$3&params=$4 [QSA,L]
-    
+    RewriteRule ^(.*)/?$ webroot/index.php?route=$1 [QSA,L]
+
 #   on HU subdomain
 #   RewriteBase /survey/
 </IfModule>

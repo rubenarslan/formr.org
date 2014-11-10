@@ -13,7 +13,7 @@ class Template {
      * @param array $vars As associative array representing variables to be passed to templates
      */
     public static function load($template, $vars = array()) {
-        global $site, $user, $fdb, $study, $run;
+		global $site, $user, $fdb, $study, $run;
         //$vars['site'] = $site;
         $file = INCLUDE_ROOT . 'View/' . $template . '.php';
         if (file_exists($file)) {
