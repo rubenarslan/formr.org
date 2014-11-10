@@ -14,8 +14,7 @@ class User
 	private $dbh;
 
 
-	public function __construct($fdb, $id, $user_code) 
-	{		
+	public function __construct($fdb, $id, $user_code)  {		
 		$this->dbh = $fdb;
 		if($id !== NULL): // if there is a registered, logged in user
 			$this->id = (int)$id;
@@ -30,12 +29,12 @@ class User
 			$this->user_code = crypto_token(48); // a new arrival
 		endif;
 	}
-	public function __sleep()
-	{
+
+	public function __sleep() {
 		return array('id','user_code');
 	}
-	private function load()
-	{
+
+	private function load() {
 		$load = $this->dbh->prepare("SELECT id, email, password, admin, user_code FROM `survey_users` WHERE id = :id LIMIT 1");
 		$load->bindParam(':id',$this->id);
 		$load->execute() or die('db');
@@ -50,33 +49,32 @@ class User
 		}
 		return false;
 	}
-	public function loggedIn()
-	{
+
+	public function loggedIn() {
 		return $this->logged_in;
 	}
-	public function isCron()
-	{
+
+	public function isCron() {
 		return $this->cron;
 	}
-	public function isAdmin()
-	{
+
+	public function isAdmin() {
 		return $this->admin >= 1;
 	}
-	public function isSuperAdmin()
-	{
+
+	public function isSuperAdmin() {
 		return $this->admin >= 10;
 	}
-	public function created($object)
-	{
+
+	public function created($object) {
 		return (int)$this->id === (int)$object->user_id; 
 	}
-	public function register($email, $password) 
-	{
+
+	public function register($email, $password)  {
 		$exists = $this->dbh->prepare("SELECT email FROM `survey_users` WHERE email = :email LIMIT 1");
 		$exists->bindParam(':email',$email);
 		$exists->execute() or die('db');
-		if($user = $exists->rowCount() === 0)
-		{
+		if($user = $exists->rowCount() === 0) {
 			$hash = password_hash($password, PASSWORD_DEFAULT);
 
 			if($hash):
@@ -98,14 +96,13 @@ class User
 				alert('<strong>Error!</strong> Hash error.','alert-danger');
 				return false;
 			endif;
-		} else
-		{
+		} else {
 			$this->errors[] = 'User exists already.';
 		}
 		return false;
 	}
-	public function needToVerifyMail()
-	{
+
+	public function needToVerifyMail() {
 		$token = crypto_token(48);
 		$token_hash = password_hash($token, PASSWORD_DEFAULT);
 	
@@ -143,8 +140,8 @@ formr robots";
 			alert("You were sent an email to verify your address.",'alert-info');
 		endif;
 	}
-	public function login($email,$password) 
-	{
+
+	public function login($email, $password) {
 		$login = $this->dbh->prepare("SELECT id, password, admin, user_code FROM `survey_users` WHERE email = :email LIMIT 1");
 		$login->bindParam(':email',$email);
 		$login->execute() or die('db');
@@ -178,8 +175,8 @@ formr robots";
 		$this->errors[]=_("<strong>Error.</strong> Your login credentials were incorrect.");
 		return false;
 	}
-	public function setAdminLevelTo($level)
-	{
+
+	public function setAdminLevelTo($level) {
 		global $user;
 		if(! $user->isSuperAdmin()) die ("sth wrong");
 		
@@ -198,8 +195,8 @@ formr robots";
 		$set_level->bindParam(':admin',$level);
 		return $set_level->execute() or die('db');
 	}
-	public function forgot_password($email)
-	{
+
+	public function forgot_password($email) {
 		$exists = $this->dbh->prepare("SELECT email FROM `survey_users` WHERE email = :email LIMIT 1");
 		$exists->bindParam(':email',$email);
 		$exists->execute() or die('db');
@@ -247,16 +244,16 @@ formr robots";
 		endif;
 		
 	}
-	function logout() 
-	{
+
+	function logout()  {
 		$this->logged_in = false;
-	    session_unset();     // unset $_SESSION variable for the run-time 
-	    session_destroy();   // destroy session data in storage
+	    $us = session_unset();     // unset $_SESSION variable for the run-time
+		session_destroy();   // destroy session data in storage
 		session_name("formr_session");
-		session_start();	 // get a new session
+		//session_start();	 // get a new session ?? I think if you don't redirect cookie remains
 	}
-	public function changePassword($password,$new_password) 
-	{
+
+	public function changePassword($password,$new_password) {
 		if($this->login($this->email,$password)):
 			
 	        $hash = password_hash($new_password, PASSWORD_DEFAULT);
@@ -275,8 +272,8 @@ formr robots";
 		endif;
 		return false;
 	}
-	public function changeEmail($password, $email) 
-	{
+
+	public function changeEmail($password, $email)  {
 		if($this->login($this->email,$password)):
 			
         	$add = $this->dbh->prepare('UPDATE `survey_users` SET 
@@ -291,8 +288,8 @@ formr robots";
 		endif;
 		return false;
 	}
-	public function reset_password($email, $token, $new_password)
-	{
+
+	public function reset_password($email, $token, $new_password) {
 		$proper = $this->dbh->prepare("SELECT reset_token_hash FROM `survey_users` WHERE email = :email LIMIT 1");
 		$proper->bindParam(':email',$email);
 		$proper->execute() or die('db');
@@ -314,8 +311,8 @@ formr robots";
 		alert("Incorrect token or email address.","alert-danger");
 		return false;
 	}
-	public function verify_email($email, $token)
-	{
+
+	public function verify_email($email, $token) {
 		$proper = $this->dbh->prepare("SELECT email_verification_hash FROM `survey_users` WHERE email = :email LIMIT 1");
 		$proper->bindParam(':email',$email);
 		$proper->execute() or die('db');
@@ -338,8 +335,8 @@ formr robots";
 		alert("Incorrect token or email address.","alert-danger");
 		return false;
 	}
-	public function getStudies() 
-	{
+
+	public function getStudies() {
 		if($this->isAdmin()):
 			$g_studies = $this->dbh->prepare("SELECT * FROM `survey_studies` WHERE user_id = :user_id");
 			$g_studies->bindParam(':user_id',$this->id);
@@ -354,6 +351,7 @@ formr robots";
 		endif;
 		return false;
 	}
+
 	public function getEmailAccounts() {
 		if($this->isAdmin()):
 			$accs = $this->dbh->prepare("SELECT `id`,`from` FROM `survey_email_accounts` WHERE user_id = :user_id");
@@ -370,6 +368,7 @@ formr robots";
 		
 		return false;
 	}
+
 	public function getRuns() {
 		if($this->isAdmin()):
 			$g_runs = $this->dbh->prepare("SELECT * FROM `survey_runs` WHERE user_id = :user_id");
