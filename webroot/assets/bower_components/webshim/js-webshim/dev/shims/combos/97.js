@@ -1,4 +1,4 @@
-webshims.register('jme', function($, webshims, window, doc, undefined){
+webshims.register('jmebase', function($, webshims, window, doc, undefined){
 	"use strict";
 	var props = {};
 	var fns = {};
@@ -9,8 +9,11 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 	
 	webshims.cfg.mediaelement.jme = options;
 
+	if(!$.jme){
+		$.jme = {};
+	}
 
-	$.jme = {
+	$.extend($.jme, {
 		pluginsClasses: [],
 		pluginsSel: '',
 		plugins: {},
@@ -56,6 +59,10 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			}
 			this.runPlugin('.'+plugin.className);
 		},
+		configmenuPlugins: {},
+		addToConfigmenu: function(name, create){
+			this.configmenuPlugins[name] = create;
+		},
 		defineMethod: function(name, fn){
 			fns[name] = fn;
 		},
@@ -95,7 +102,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				}
 			}
 		}
-	};
+	});
 
 	$.fn.jmeProp = function(name, value){
 		return $.access( this, $.jme.prop, name, value, arguments.length > 1 );
@@ -105,6 +112,10 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 		var args = slice.call( arguments, 1 );
 		var ret;
 		this.each(function(){
+			if(!$.jme.data(this).media){
+				$(this).closest(baseSelector).jmePlayer();
+				webshims.warn('jmeFn called to early or on wrong element!');
+			}
 			ret = (fns[fn] || $.prop(this, fn)).apply(this, args);
 			if(ret !== undefined){
 				return false;
@@ -182,11 +193,9 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 	$.fn.jmePlayer = function(opts){
 
 		return this.each(function(){
-			if(opts){
-				$.jme.data(this, $.extend(true, {}, opts));
-			}
 
-			var mediaUpdateFn, canPlay, removeCanPlay, canplayTimer, lastState, stopEmptiedEvent;
+
+			var mediaUpdateFn, canPlay, removeCanPlay, canplayTimer, lastState, stopEmptiedEvent, forceRender;
 			var media = $('audio, video', this).eq(0);
 			var base = $(this);
 
@@ -198,7 +207,9 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			mediaData.player = base;
 			mediaData.media = media;
 			if(!jmeData.media){
-
+				forceRender = function(){
+					base[0].className = base[0].className;
+				};
 				removeCanPlay = function(){
 					media.off('canplay', canPlay);
 					clearTimeout(canplayTimer);
@@ -257,6 +268,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 					if(state){
 						lastState = state;
 						base.attr('data-state', state);
+						setTimeout(forceRender);
 					}
 				};
 
@@ -264,30 +276,6 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				jmeData.media = media;
 				jmeData.player = base;
 				media
-					.on('ended emptied play', (function(){
-						var timer;
-						var releaseEmptied = function(){
-							stopEmptiedEvent = false;
-						};
-						var ended = function(){
-							removeCanPlay();
-							media.jmeFn('pause');
-							if(!options.noReload && media.prop('ended') && media.prop('paused') && !media.prop('autoplay') && !media.prop('loop') && !media.hasClass('no-reload')){
-								stopEmptiedEvent = true;
-								media.jmeFn('load');
-								base.attr('data-state', 'ended');
-								setTimeout(releaseEmptied);
-
-							}
-						};
-						return function(e){
-
-							clearTimeout(timer);
-							if(e.type == 'ended' && !options.noReload && !media.prop('autoplay') && !media.prop('loop') && !media.hasClass('no-reload')){
-								timer = setTimeout(ended);
-							}
-						};
-					})())
 					.on('emptied waiting canplay canplaythrough playing ended pause mediaerror', mediaUpdateFn)
 					.on('volumechange updateJMEState', function(){
 						var volume = $.prop(this, 'volume');
@@ -340,16 +328,16 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				return [{src: src}];
 			}
 			srces = $.map($('source', data.media).get(), function(source){
+				var i, len;
 				var src = {
 					src: $.prop(source, 'src')
 				};
-				var tmp = $.attr(source, 'media');
-				if(tmp){
-					src.media = tmp;
-				}
-				tmp = $.attr(source, 'type');
-				if(tmp){
-					src.type = tmp;
+				var attributes = source.attributes;
+
+				for(i = 0, len = attributes.length; i < len; i++){
+					if(!('specified' in attributes[i]) || attributes[i].specified){
+						src[attributes[i].nodeName] = attributes[i].nodeValue;
+					}
 				}
 				return src;
 			});
@@ -421,20 +409,19 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			data.player.triggerHandler('controlsadded');
 		}
 	});
-	webshims.isReady('jme', true);
-	webshims.addReady($.jme.initJME);
-	webshims._polyfill(['mediaelement']);
-	webshims.isReady('jme-base', true);
 
-	if(webshims.cfg.debug !== false){
-		$(function(){
-			if(document.getElementsByTagName('video').length && !document.querySelector(baseSelector)){
-				webshims.warn("found video element but video wasn't wrapped inside a ."+ baseSelector +" element. Will not add control UI");
-			}
-		});
-	}
+	webshims.ready('DOM mediaelement', function(){
+		webshims.isReady('jme', true);
+		webshims.addReady($.jme.initJME);
+		webshims.isReady('jme-base', true);
+
+		if(webshims.cfg.debug !== false && document.getElementsByTagName('video').length && !document.querySelector(baseSelector)){
+			webshims.warn("found video element but video wasn't wrapped inside a ."+ baseSelector +" element. Will not add control UI");
+		}
+	});
+
 });
-;webshims.ready('jme DOM', function(){
+;webshims.ready('jme-base DOM', function(){
 	"use strict";
 	var webshims = window.webshims;
 	var $ = webshims.$;
@@ -821,7 +808,9 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			$.each(item.tracks || [], function(i, track){
 				$('<track />').attr(track).appendTo(media);
 			});
-
+			if(!item.srces){
+				item.srces = item;
+			}
 			media.jmeProp('srces', item.srces);
 		},
 		_getItem: function(item){

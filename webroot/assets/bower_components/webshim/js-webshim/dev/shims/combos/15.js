@@ -60,16 +60,11 @@
 webshims.register('dom-extend', function($, webshims, window, document, undefined){
 	"use strict";
 	var supportHrefNormalized = !('hrefNormalized' in $.support) || $.support.hrefNormalized;
-	var supportGetSetAttribute = !('getSetAttribute' in $.support) || $.support.getSetAttribute;
 	var has = Object.prototype.hasOwnProperty;
-	webshims.assumeARIA = supportGetSetAttribute || Modernizr.canvas || Modernizr.video || Modernizr.boxsizing;
+	webshims.assumeARIA = true;
 	
 	if($('<input type="email" />').attr('type') == 'text' || $('<form />').attr('novalidate') === "" || ('required' in $('<input />')[0].attributes)){
-		webshims.error("IE browser modes are busted in IE10+. Please test your HTML/CSS/JS with a real IE version or at least IETester or similiar tools");
-	}
-	
-	if('debug' in webshims){
-		webshims.error('Use webshims.setOptions("debug", true||false||"noCombo"); to debug flag');
+		webshims.error("IE browser modes are busted in IE10+. Make sure to run IE in edge mode (X-UA-Compatible). Please test your HTML/CSS/JS with a real IE version or at least IETester or similar tools. ");
 	}
 	
 	if (!webshims.cfg.no$Switch) {
@@ -81,15 +76,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 				window.jQuery = webshims.$;
 			}
-			if(webshims.M != Modernizr){
-				webshims.error("Modernizr was included more than once. Make sure to include it only once! Webshims and other scripts might not work properly.");
-				for(var i in Modernizr){
-					if(!(i in webshims.M)){
-						webshims.M[i] = Modernizr[i];
-					}
-				}
-				Modernizr = webshims.M;
-			}
 		};
 		switch$();
 		setTimeout(switch$, 90);
@@ -100,7 +86,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	}
 
 	//shortcus
-	var modules = webshims.modules;
 	var listReg = /\s*,\s*/;
 		
 	//proxying attribute
@@ -117,20 +102,25 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	};
 	
 	//jquery mobile and jquery ui
-	if(!$.widget){
+	if(!$.widget && (!$.pluginFactory || !$.pluginFactory.mixin)){
 		(function(){
 			var _cleanData = $.cleanData;
-			$.cleanData = function( elems ) {
-				if(!$.widget){
-					for ( var i = 0, elem; (elem = elems[i]) != null; i++ ) {
+			$.cleanData = (function( orig ) {
+				return function( elems ) {
+					var events, elem, i;
+					for ( i = 0; (elem = elems[i]) != null; i++ ) {
 						try {
-							$( elem ).triggerHandler( "remove" );
-						// http://bugs.jquery.com/ticket/8235
-						} catch( e ) {}
+							// Only trigger remove when necessary to save time
+							events = $._data( elem, "events" );
+							if ( events && events.remove ) {
+								$( elem ).triggerHandler( "remove" );
+							}
+							// http://bugs.jquery.com/ticket/8235
+						} catch ( e ) {}
 					}
-				}
-				_cleanData( elems );
-			};
+					orig( elems );
+				};
+			})( $.cleanData );
 		})();
 	}
 	
@@ -418,7 +408,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		var UNKNOWN = webshims.getPrototypeOf(document.createElement('foobar'));
 		
 		//see also: https://github.com/lojjic/PIE/issues/40 | https://prototype.lighthouseapp.com/projects/8886/tickets/1107-ie8-fatal-crash-when-prototypejs-is-loaded-with-rounded-cornershtc
-		var isExtendNativeSave = Modernizr.advancedObjectProperties && Modernizr.objectAccessor;
+		var isExtendNativeSave = webshims.support.advancedObjectProperties && webshims.support.objectAccessor;
 		return function(nodeName, prop, desc){
 			var elem , elemProto;
 			 if( isExtendNativeSave && (elem = document.createElement(nodeName)) && (elemProto = webshims.getPrototypeOf(elem)) && UNKNOWN !== elemProto && ( !elem[prop] || !has.call(elem, prop) ) ){
@@ -485,8 +475,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				(tempCache || $( document.getElementsByTagName(nodeName) )).each(fn);
 			}
 		};
-		
-		var elementExtends = {};
+
 		return {
 			createTmpCache: function(nodeName){
 				if($.isDOMReady){
@@ -538,6 +527,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	};
 	
 	$.extend(webshims, {
+		xProps: havePolyfill,
 		getID: (function(){
 			var ID = new Date().getTime();
 			return function(elem){
@@ -551,6 +541,26 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return id;
 			};
 		})(),
+		domPrefixes: ["webkit", "moz", "ms", "o", "ws"],
+
+		prefixed: function (prop, obj){
+			var i, testProp;
+			var ret = false;
+			if(obj[prop]){
+				ret = prop;
+			}
+			if(!ret){
+				prop = prop.charAt(0).toUpperCase() + prop.slice(1);
+				for(i = 0; i < webshims.domPrefixes.length; i++){
+					testProp = webshims.domPrefixes[i]+prop;
+					if(testProp in obj){
+						ret = testProp;
+						break;
+					}
+				}
+			}
+			return ret;
+		},
 		shadowClass: 'wsshadow-'+(Date.now()),
 		implement: function(elem, type){
 			var data = elementData(elem, 'implemented') || elementData(elem, 'implemented', {});
@@ -558,8 +568,9 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				webshims.warn(type +' already implemented for element #'+elem.id);
 				return false;
 			}
+
 			data[type] = true;
-			return true;
+			return !$(elem).hasClass('ws-nopolyfill');
 		},
 		extendUNDEFProp: function(obj, props){
 			$.each(props, function(name, prop){
@@ -671,33 +682,37 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 				},
 				handler: (function(){
+					var evt;
 					var trigger = function(){
-						$(document).triggerHandler('updateshadowdom');
+						$(document).triggerHandler('updateshadowdom', [evt]);
+					};
+					var timed = function(){
+						if(evt && evt.type == 'resize'){
+							var width = $window.width();
+							var height = $window.width();
+
+							if(height == lastHeight && width == lastWidth){
+								return;
+							}
+							lastHeight = height;
+							lastWidth = width;
+						}
+
+						if(evt && evt.type != 'docresize'){
+							docObserve.height = docObserve.getHeight();
+							docObserve.width = docObserve.getWidth();
+						}
+
+						if(window.requestAnimationFrame){
+							requestAnimationFrame(trigger);
+						} else {
+							setTimeout(trigger, 0);
+						}
 					};
 					return function(e){
 						clearTimeout(resizeTimer);
-						resizeTimer = setTimeout(function(){
-							if(e.type == 'resize'){
-								var width = $window.width();
-								var height = $window.width();
-
-								if(height == lastHeight && width == lastWidth){
-									return;
-								}
-								lastHeight = height;
-								lastWidth = width;
-								
-								docObserve.height = docObserve.getHeight();
-								docObserve.width = docObserve.getWidth();
-							}
-
-							if(window.requestAnimationFrame){
-								requestAnimationFrame(trigger);
-							} else {
-								setTimeout(trigger, 0);
-							}
-							
-						}, (e.type == 'resize' && !window.requestAnimationFrame) ? 50 : 9);
+						evt = e;
+						resizeTimer = setTimeout(timed, (e.type == 'resize' && !window.requestAnimationFrame) ? 50 : 9);
 					};
 				})(),
 				_create: function(){
@@ -729,7 +744,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 							});
 						}
 						webshims.ready('WINDOWLOAD', this.test);
-						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel', this.handler);
+						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel playerdimensionchange', this.handler);
 						$(window).on('resize', this.handler);
 					}
 				}
@@ -1239,18 +1254,18 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			e._isPolyfilled = true;
 		}
 	};
-	
-	if(Modernizr.formvalidation && !webshims.bugs.bustedValidity){
-		//create delegatable events
-		webshims.capturingEvents(['invalid'], true);
-	}
+
 
 	var modules = webshims.modules;
+	var support = webshims.support;
 	var isValid = function(elem){
 		return ($.prop(elem, 'validity') || {valid: 1}).valid;
 	};
 	var lazyLoad = function(){
 		var toLoad = ['form-validation'];
+
+		$(document).off('.lazyloadvalidation');
+
 		if(options.lazyCustomMessages){
 			options.customMessages = true;
 			toLoad.push('form-message');
@@ -1265,7 +1280,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			toLoad.push('form-validators');
 		}
 		webshims.reTest(toLoad);
-		$(document).off('.lazyloadvalidation');
 	};
 	/*
 	 * Selectors for all browsers
@@ -1299,7 +1313,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return !!($.prop(elem, 'willValidate') && $.prop(elem, 'required'));
 			},
 			"user-error": function(elem){
-				return ($.prop(elem, 'willValidate') && $(elem).hasClass('user-error'));
+				return ($.prop(elem, 'willValidate') && $(elem).getShadowElement().hasClass((options.iVal.errorClass || 'user-error')));
 			},
 			"optional-element": function(elem){
 				return !!($.prop(elem, 'willValidate') && $.prop(elem, 'required') === false);
@@ -1311,7 +1325,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		});
 		
 		// sizzle/jQuery has a bug with :disabled/:enabled selectors
-		if(Modernizr.fieldsetdisabled && !$('<fieldset disabled=""><input /><input /></fieldset>').find(':disabled').filter(':disabled').is(':disabled')){
+		if(support.fieldsetdisabled && !$('<fieldset disabled=""><input /><input /></fieldset>').find(':disabled').filter(':disabled').is(':disabled')){
 			matches = $.find.matches;
 			matchesOverride = {':disabled': 1, ':enabled': 1};
 			$.find.matches = function(expr, elements){
@@ -1322,11 +1336,11 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			};
 			$.extend(exp, {
 				"enabled": function( elem ) {
-					return elem.disabled === false && !$(elem).is('fieldset[disabled] *');
+					return 'disabled' in elem && elem.disabled === false && !$.find.matchesSelector(elem, 'fieldset[disabled] *');
 				},
 		
 				"disabled": function( elem ) {
-					return elem.disabled === true || ('disabled' in elem && $(elem).is('fieldset[disabled] *'));
+					return elem.disabled === true || ('disabled' in elem && $.find.matchesSelector(elem, 'fieldset[disabled] *'));
 				}
 			});
 		}
@@ -1365,6 +1379,10 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	addModule('form-validators', $.extend({}, formExtras));
 
 
+	if(support.formvalidation && !webshims.bugs.bustedValidity){
+		//create delegatable events
+		webshims.capturingEvents(['invalid'], true);
+	}
 	
 	if($.expr.filters){
 		extendSels();
@@ -1474,6 +1492,8 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		}
 		return message || '';
 	};
+
+	webshims.refreshCustomValidityRules = $.noop;
 	
 	$.fn.getErrorMessage = function(key){
 		var message = '';
@@ -1501,8 +1521,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	};
 
 
-	
-	$(document).on('focusin.lazyloadvalidation', function(e){
+	$(document).on('focusin.lazyloadvalidation mousedown.lazyloadvalidation touchstart.lazyloadvalidation', function(e){
 		if('form' in e.target){
 			lazyLoad();
 		}
@@ -1510,7 +1529,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 
 	webshims.ready('WINDOWLOAD', lazyLoad);
 
-	if(modules['form-number-date-ui'].loaded && !options.customMessages && (modules['form-number-date-api'].test() || (Modernizr.inputtypes.range && Modernizr.inputtypes.color))){
+	if(modules['form-number-date-ui'].loaded && !options.customMessages && (modules['form-number-date-api'].test() || (support.inputtypes.range && support.inputtypes.color))){
 		webshims.isReady('form-number-date-ui', true);
 	}
 
@@ -1520,19 +1539,13 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		}
 	});
 
-	$(function(){
-		var fileReaderReady = ('FileReader' in window && 'FormData' in window);
-		if(!fileReaderReady){
-			webshims.addReady(function(context){
-				if(!fileReaderReady && !modules.filereader.loaded && !modules.moxie.loaded){
-					if(context.querySelector('input.ws-filereader')){
-						webshims.reTest(['filereader', 'moxie']);
-						fileReaderReady = true;
-					}
-				}
-			});
-		}
-	});
+	if(options.addValidators && options.fastValidators){
+		webshims.reTest(['form-validators', 'form-validation']);
+	}
+
+	if(document.readyState == 'complete'){
+		webshims.isReady('WINDOWLOAD', true);
+	}
 });
 ;webshims.register('form-shim-extend', function($, webshims, window, document, undefined, options){
 "use strict";
@@ -1591,12 +1604,11 @@ var typeModels = webshims.inputTypes,
 					}
 					return fn;
 				})();
-				if(!Modernizr.prefixed || Modernizr.prefixed("matchesSelector", document.documentElement)){
-					$.find.matchesSelector = function(node, expr){
-						expr = expr.replace(regExp, regFn);
-						return matchesSelector.call(this, node, expr);
-					};
-				}
+
+				$.find.matchesSelector = function(node, expr){
+					expr = expr.replace(regExp, regFn);
+					return matchesSelector.call(this, node, expr);
+				};
 				
 			})();
 		}
@@ -1634,7 +1646,6 @@ var isPlaceholderOptionSelected = function(select){
 };
 
 var emptyJ = $([]);
-//TODO: cache + perftest
 var getGroupElements = function(elem){
 	elem = $(elem);
 	var name, form;
@@ -1704,7 +1715,7 @@ var validityRules = {
 $.each({tooShort: ['minLength', -1], tooLong: ['maxLength', 1]}, function(name, props){
 	validityRules[name] = function(input, val, cache){
 		//defaultValue is not the same as dirty flag, but very similiar
-		if(cache.nodeName == 'select' || input.prop('defaultValue') == val){return false;}
+		if(!val || cache.nodeName == 'select' || input.prop('defaultValue') == val){return false;}
 
 		cacheType(cache, input[0]);
 
@@ -1929,7 +1940,7 @@ var rsubmittable = /^(?:select|textarea|input)/i;
 				;
 				return function(){
 					var elem = $(this).getNativeElement()[0];
-					return !!(!elem.readOnly && !types[elem.type] && !$(elem).is(':disabled') );
+					return !!(!elem.readOnly && !types[elem.type] && !$.find.matchesSelector(elem, ':disabled') );
 				};
 			})()
 		},
@@ -2051,7 +2062,7 @@ webshims.defineNodeNameProperty('form', 'noValidate', {
 	});
 });
 
-if(Modernizr.inputtypes.date && /webkit/i.test(navigator.userAgent)){
+if(webshims.support.inputtypes.date && /webkit/i.test(navigator.userAgent)){
 	(function(){
 		
 		var noInputTriggerEvts = {updateInput: 1, input: 1},
@@ -2145,25 +2156,28 @@ if(Modernizr.inputtypes.date && /webkit/i.test(navigator.userAgent)){
 
 webshims.addReady(function(context, contextElem){
 	//start constrain-validation
-	var focusElem;
+
 	$('form', context)
 		.add(contextElem.filter('form'))
 		.on('invalid', $.noop)
 	;
-	
-	try {
-		if(context == document && !('form' in (document.activeElement || {}))) {
-			focusElem = $(context.querySelector('input[autofocus], select[autofocus], textarea[autofocus]')).eq(0).getShadowFocusElement()[0];
-			if (focusElem && focusElem.offsetHeight && focusElem.offsetWidth) {
-				focusElem.focus();
+
+	setTimeout(function(){
+		var focusElem;
+		try {
+			if(!('form' in (document.activeElement || {}))) {
+				focusElem = $(context.querySelector('input[autofocus], select[autofocus], textarea[autofocus]')).eq(0).getShadowFocusElement()[0];
+				if (focusElem && (focusElem.offsetHeight || focusElem.offsetWidth)) {
+					focusElem.focus();
+				}
 			}
 		}
-	} 
-	catch (er) {}
-	
+		catch (er) {}
+	}, 9);
+
 });
 
-if(!Modernizr.input.list){
+if(!webshims.support.datalist){
 	webshims.defineNodeNameProperty('datalist', 'options', {
 		prop: {
 			writeable: false,
@@ -2597,7 +2611,7 @@ webshims.defineNodeNamesProperties(['input', 'button'], formSubmitterDescriptors
 	};
 	
 	
-	if(!Modernizr.formvalidation || webshims.bugs.bustedValidity){
+	if(!webshims.support.formvalidation || webshims.bugs.bustedValidity){
 		implementProperties.push('validationMessage');
 	}
 	
@@ -2633,7 +2647,7 @@ webshims.defineNodeNamesProperties(['input', 'button'], formSubmitterDescriptors
 						if(message){return message;}
 						
 						if(validity.customError && elem.nodeName){
-							message = (Modernizr.formvalidation && !webshims.bugs.bustedValidity && desc.prop._supget) ? desc.prop._supget.call(elem) : webshims.data(elem, 'customvalidationMessage');
+							message = (webshims.support.formvalidation && !webshims.bugs.bustedValidity && desc.prop._supget) ? desc.prop._supget.call(elem) : webshims.data(elem, 'customvalidationMessage');
 							if(message){return message;}
 						}
 						$.each(validity, function(name, prop){
@@ -2712,8 +2726,8 @@ webshims.defineNodeNamesProperties(['input', 'button'], formSubmitterDescriptors
 	 */
 	
 	(function(){
-		var formsCFG = $.webshims.cfg.forms;
-		var listSupport = Modernizr.input.list;
+		var formsCFG = webshims.cfg.forms;
+		var listSupport = webshims.support.datalist;
 		if(listSupport && !formsCFG.customDatalist){return;}
 		
 			var initializeDatalist =  function(){

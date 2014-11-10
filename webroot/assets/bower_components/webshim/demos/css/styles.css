@@ -37,7 +37,7 @@ div#sidebar {
 	ul.toc_section {
 		font-size: 11px;
 		line-height: 14px;
-		margin: 5px 0 0 0;
+		margin: 5px 0 15px;
 		padding-left: 0px;
 		list-style-type: none;
 		font-family: Lucida Grande;
@@ -84,6 +84,12 @@ a.download-button {
 	background: #00C6FF;
 	color: #fff;
 	font-family: Arial, serif;
+}
+
+.fiddle-example {
+    height: 200px;
+    width: 100%;
+    border: none;
 }
 
 

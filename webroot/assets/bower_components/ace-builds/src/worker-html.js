@@ -17,7 +17,13 @@ window.window = window;
 window.ace = window;
 
 window.onerror = function(message, file, line, col, err) {
-    console.error("Worker " + (err ? err.stack : message));
+    postMessage({type: "error", data: {
+        message: message,
+        file: file,
+        line: line, 
+        col: col,
+        stack: err.stack
+    }});
 };
 
 window.normalizeModule = function(parentId, moduleName) {
@@ -84,15 +90,20 @@ window.define = function(id, deps, factory) {
         deps = [];
         id = window.require.id;
     }
+    
+    if (typeof factory != "function") {
+        window.require.modules[id] = {
+            exports: factory,
+            initialized: true
+        };
+        return;
+    }
 
     if (!deps.length)
         // If there is no dependencies, we inject 'require', 'exports' and
         // 'module' as dependencies, to provide CommonJS compatibility.
         deps = ['require', 'exports', 'module'];
 
-    if (id.indexOf("text!") === 0) 
-        return;
-    
     var req = function(childId) {
         return window.require(id, childId);
     };
@@ -325,7 +336,6 @@ exports.getMatchOffsets = function(string, regExp) {
     return matches;
 };
 exports.deferredCall = function(fcn) {
-
     var timer = null;
     var callback = function() {
         timer = null;
@@ -1583,9 +1593,9 @@ EntityParser.consumeEntity = function(buffer, tokenizer, additionalAllowedCharac
 				tokenizer._parseError("invalid-numeric-entity-replaced");
 				code = replacement;
 			}
-			if (code > 0xFFFF && code <= 0x10FFFF) {
-		        code -= 0x10000;
-		        var first = ((0xffc00 & code) >> 10) + 0xD800;
+			if (code > 0xFFFF && code <= 0x10FFFF) {
+		        code -= 0x10000;
+		        var first = ((0xffc00 & code) >> 10) + 0xD800;
 		        var second = (0x3ff & code) + 0xDC00;
 				decodedCharacter = String.fromCharCode(first, second);
 			} else
@@ -3639,10 +3649,10 @@ function TreeBuilder() {
 			} else if (tree.openElements.length == 2 &&
 				tree.openElements.item(1).localName != 'body') {
 				tree.parseError('expected-closing-tag-but-got-eof');
-			} else if (tree.context && tree.openElements.length > 1) {
+			} else if (tree.context && tree.openElements.length > 1) {
 			}
 		},
-		processComment: function(data) {
+		processComment: function(data) {
 			tree.insertComment(data, tree.currentStackItem().node);
 		},
 		processDoctype: function(name, publicId, systemId, forceQuirks) {
@@ -3784,7 +3794,7 @@ function TreeBuilder() {
 				|| (publicId == "-//W3C//DTD HTML 4.01//EN" && (systemId == null || systemId == "http://www.w3.org/TR/html4/strict.dtd"))
 				|| (publicId == "-//W3C//DTD XHTML 1.0 Strict//EN" && (systemId == "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"))
 				|| (publicId == "-//W3C//DTD XHTML 1.1//EN" && (systemId == "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"))
-			) {
+			) {
 			} else if (!((systemId == null || systemId == "about:legacy-compat") && publicId == null)) {
 				tree.parseError("unknown-doctype");
 			}
@@ -3912,7 +3922,7 @@ function TreeBuilder() {
 		'-default': 'endTagOther'
 	};
 
-	modes.afterBody.processComment = function(data) {
+	modes.afterBody.processComment = function(data) {
 		tree.insertComment(data, tree.openElements.rootNode);
 	};
 
@@ -3934,7 +3944,7 @@ function TreeBuilder() {
 	modes.afterBody.endTagHtml = function(name) {
 		if (tree.context) {
 			tree.parseError('end-html-in-innerhtml');
-		} else {
+		} else {
 			tree.setInsertionMode('afterAfterBody');
 		}
 	};
@@ -4757,14 +4767,14 @@ function TreeBuilder() {
 		tree.reconstructActiveFormattingElements();
 		attributes = tree.adjustMathMLAttributes(attributes);
 		attributes = tree.adjustForeignAttributes(attributes);
-		tree.insertForeignElement(name, attributes, "http://www.w3.org/1998/Math/MathML", selfClosing);
+		tree.insertForeignElement(name, attributes, "http://www.w3.org/1998/Math/MathML", selfClosing);
 	};
 
 	modes.inBody.startTagSVG = function(name, attributes, selfClosing) {
 		tree.reconstructActiveFormattingElements();
 		attributes = tree.adjustSVGAttributes(attributes);
 		attributes = tree.adjustForeignAttributes(attributes);
-		tree.insertForeignElement(name, attributes, "http://www.w3.org/2000/svg", selfClosing);
+		tree.insertForeignElement(name, attributes, "http://www.w3.org/2000/svg", selfClosing);
 	};
 
 	modes.inBody.endTagP = function(name) {
@@ -4784,7 +4794,7 @@ function TreeBuilder() {
 		if (!tree.openElements.inScope('body')) {
 			tree.parseError('unexpected-end-tag', {name: name});
 			return;
-		}
+		}
 		if (tree.currentStackItem().localName != 'body') {
 			tree.parseError('expected-one-end-tag-but-got-another', {
 				expectedName: tree.currentStackItem().localName,
@@ -4798,7 +4808,7 @@ function TreeBuilder() {
 		if (!tree.openElements.inScope('body')) {
 			tree.parseError('unexpected-end-tag', {name: name});
 			return;
-		}
+		}
 		if (tree.currentStackItem().localName != 'body') {
 			tree.parseError('expected-one-end-tag-but-got-another', {
 				expectedName: tree.currentStackItem().localName,
@@ -5801,7 +5811,7 @@ function TreeBuilder() {
 
 	modes.inRow.endTagTable = function(name) {
 		var ignoreEndTag = this.ignoreEndTagTr();
-		this.endTagTr('tr');
+		this.endTagTr('tr');
 		if (!ignoreEndTag) tree.insertionMode.processEndTag(name);
 	};
 
@@ -5947,7 +5957,7 @@ TreeBuilder.prototype.adoptionAgencyEndTag = function(name) {
 
 		if (formattingElement != this.currentStackItem()) {
 			this.parseError('adoption-agency-1.3', {name: name});
-		}
+		}
 		var furthestBlock = this.openElements.furthestBlockForFormattingElement(formattingElement.node);
 
 		if (!furthestBlock) {
@@ -6215,7 +6225,7 @@ TreeBuilder.prototype.generateImpliedEndTags = function(exclude) {
 		this.generateImpliedEndTags(exclude);
 	}
 };
-TreeBuilder.prototype.reconstructActiveFormattingElements = function() {
+TreeBuilder.prototype.reconstructActiveFormattingElements = function() {
 	if (this.activeFormattingElements.length === 0)
 		return;
 	var i = this.activeFormattingElements.length - 1;
@@ -6275,7 +6285,7 @@ TreeBuilder.prototype.ensureNoahsArkCondition = function(item) {
 			return;
 		candidates = remainingCandidates;
 		remainingCandidates = [];
-	}
+	}
 	for (var i = kNoahsArkCapacity - 1; i < candidates.length; i++)
 		this.removeElementFromActiveFormattingElements(candidates[i]);
 };
@@ -6305,7 +6315,7 @@ TreeBuilder.prototype.clearActiveFormattingElements = function() {
 TreeBuilder.prototype.reparentChildren = function(oldParent, newParent) {
 	throw new Error("Not implemented");
 };
-TreeBuilder.prototype.setFragmentContext = function(context) {
+TreeBuilder.prototype.setFragmentContext = function(context) {
 	this.context = context;
 };
 TreeBuilder.prototype.parseError = function(code, args) {
@@ -6991,7 +7001,7 @@ Node.prototype.visit = function(treeParser) {
 };
 Node.prototype.revisit = function(treeParser) {
 	return;
-};
+};
 Node.prototype.detach = function() {
 	if (this.parentNode !== null) {
 		this.parentNode.removeChild(this);
@@ -7043,7 +7053,7 @@ ParentNode.prototype.insertBefore = function(child, sibling) {
 	return child;
 };
 
-ParentNode.prototype.insertBetween = function(child, prev, next) {
+ParentNode.prototype.insertBetween = function(child, prev, next) {
 	if (!next) {
 		return this.appendChild(child);
 	}
@@ -7234,7 +7244,7 @@ function SkippedEntity(name) {
 SkippedEntity.prototype = Object.create(Node.prototype);
 SkippedEntity.prototype.visit = function(treeParser) {
 	treeParser.skippedEntity(this.name, this);
-};
+};
 function ProcessingInstruction(target, data) {
 	Node.call(this);
 	this.target = target;

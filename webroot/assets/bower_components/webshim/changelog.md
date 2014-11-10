@@ -1,3 +1,73 @@
+Release 1.15.3
+----------
+- fix regression bug with filereader introduced with 1.15.1
+
+
+Release 1.15.2
+----------
+- fix regression bug in custom validators
+
+
+Release 1.15.1
+----------
+- added postion: ``sticky`` polyfill ([demo](http://fiddle.jshell.net/trixta/5kjrtLvw/show/light/))
+- added canvas.toBlob feature as part of the ``filereader`` feature
+- improved cuechange event in performance and precision
+
+
+Release 1.15.0
+----------
+
+- implemented ``getUserMedia`` feature ([demo](http://jsfiddle.net/trixta/yC2j3/embedded/result/))
+- fixed data-grouprequired bug
+- improved youtube iframe lazy loading
+- added ``canvas.toBlob`` in browsers without native FormData (to be used with FormData/FileReader shim)
+- improved loading of xhr2/filereader feature
+- update es6-shim
+- improved youtube play bug on iOS and Android browsers
+
+Release 1.14.6
+----------
+
+- added URL polyfill
+- added canvas <-> mediaelement bridge ([demo](http://jsfiddle.net/trixta/Wvaca/embedded/result/))
+- fixed custom controls in conjunction with youtube API and iOS/Android
+- fixed bug in conjunction with some AMD loading environments
+- improved type="number" detection
+- update picturefill polyfill
+- improve input type=time formatting
+- and one hidden/undocumented but awesome feature ([demo](http://jsfiddle.net/trixta/yC2j3/embedded/result/)) (still in alpha state)
+
+Release 1.14.5
+----------
+
+- force all browser to use new stepUp/stepDown algorithm
+- improve readyState complete detection
+- don't polyfill elements with the class 'ws-nopolyfill'
+- improve support for custom jQuery builds
+- recheck validilty of invalid textarea using input event
+- updated plugins (sizzle and ui.position)
+- improved performance for IE's
+- fixed several CSS issues for Android and iOS (especially input widgets sometimes not focusable on iOS5/6)
+- no restart of mediaelement after video ended
+- don't show main playbutton while in paused state (only on initial and ended state)
+
+
+Release 1.14.4
+----------
+
+- replaced promise  with [es6-shim](https://github.com/paulmillr/es6-shim) (currently most things aren't feature detected, so only promise can be used safely)
+- removed dependency to Modernizr (still needed html5shiv or Modernizr to use semantic elements like section/article/main etc.), but not needed for video/audio/form and so on
+- improved runtime and network performance for mediaelement flash fallback
+- added track[kind="chapters"] support to mediaelement UI
+- added alternate-media plugin for mediaelement implementation use as quality switch or other alternative media sources (switch video with or without sign language or switch videos with different audiotracks and so on.)
+- fixed IE issue with custom styleable filechooser
+- improved textTrack feature detection
+- load all track sources on loadstart (use preload="none" to optimize for performance)
+- add matchMedia polyfill including addListener and removeListener interface
+- in case picture feature was requested, ready event of jQuery was delayed
+- improved touch support
+
 Release 1.14.3
 ----------
 - added new language files (zh-TW and fa)
@@ -9,6 +79,7 @@ Release 1.14.3
 - added srt and ttml subtitle support (but you really should still use vtt!)
 - improved touch support
 - fixed a change event bug in input[type="range"] polyfill
+
 
 
 Release 1.14.1/Release 1.14.2
