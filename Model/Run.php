@@ -848,7 +848,7 @@ This study is currently being serviced. Please return at a later time."));
 	 *
 	 * @param array $units
 	 * @param string $name The name that will be assigned to export
-	 * @return boolean Returns TRUE on success and FALSE otherwise
+	 * @return mixed Returns the file path to which export was saved on success and FALSE otherwise
 	 */
     public function exportUnits(array $units, $name) {
 		$export_dir = Config::get('run_exports_dir');
@@ -884,7 +884,7 @@ This study is currently being serviced. Please return at a later time."));
 			alert("<strong>Error</strong> Unable to create json file to save data", 'alert-danger');
 			return false;
 		}
-		return true;
+		return $filename;
     }
 
 	/**
