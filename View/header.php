@@ -38,7 +38,6 @@ header ('Content-type: text/html; charset=utf-8');
 		?>
 			<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
 			<script src="//netdna.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
-			<script src="<?=WEBROOT?>assets/bower_components/webshim/js-webshim/minified/extras/modernizr-custom.js"></script>
 			<script src="//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.2/fastclick.min.js"></script>
 			<script src="<?=WEBROOT?>assets/bower_components/webshim/js-webshim/minified/polyfiller.js"></script>
 			<script type="text/javascript" src="<?=WEBROOT?>assets/bower_components/select2/select2.js"></script>
@@ -69,7 +68,6 @@ header ('Content-type: text/html; charset=utf-8');
 		else:
 		?>
 			<script src="<?=WEBROOT?>assets/bower_components/jquery/jquery.js"></script>
-			<script src="<?=WEBROOT?>assets/bower_components/webshim/js-webshim/dev/extras/modernizr-custom.js"></script>
 			<script src="<?=WEBROOT?>assets/bower_components/webshim/js-webshim/dev/polyfiller.js"></script>
 			<script src="<?=WEBROOT?>assets/bower_components/bootstrap/dist/js/bootstrap.js"></script>
 			<script src="<?=WEBROOT?>assets/bower_components/fastclick/lib/fastclick.js"></script> 
