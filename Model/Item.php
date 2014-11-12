@@ -278,7 +278,7 @@ class Item extends HTML_element
 	public function viewedBy($view_update) {		
 		$view_update->bindParam(":item_id", $this->id);
 		
-   	   	$view_update->execute() or die(print_r($view_update->errorInfo(), true));
+   	   	$view_update->execute() or formr_log(print_r($view_update->errorInfo(), true));
 	}
 	public function validateInput($reply) 
 	{

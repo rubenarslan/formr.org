@@ -89,7 +89,7 @@ function debug($string) {
     }
 }
 function pr($string) {
-    if( DEBUG > -1 ) {
+    if( DEBUG > 0) {
 		echo "<pre>";
         var_dump($string);
 #		print_r(	debug_backtrace());
