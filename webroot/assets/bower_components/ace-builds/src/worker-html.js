@@ -17,7 +17,13 @@ window.window = window;
 window.ace = window;
 
 window.onerror = function(message, file, line, col, err) {
-    console.error("Worker " + (err ? err.stack : message));
+    postMessage({type: "error", data: {
+        message: message,
+        file: file,
+        line: line, 
+        col: col,
+        stack: err.stack
+    }});
 };
 
 window.normalizeModule = function(parentId, moduleName) {
@@ -84,15 +90,20 @@ window.define = function(id, deps, factory) {
         deps = [];
         id = window.require.id;
     }
+    
+    if (typeof factory != "function") {
+        window.require.modules[id] = {
+            exports: factory,
+            initialized: true
+        };
+        return;
+    }
 
     if (!deps.length)
         // If there is no dependencies, we inject 'require', 'exports' and
         // 'module' as dependencies, to provide CommonJS compatibility.
         deps = ['require', 'exports', 'module'];
 
-    if (id.indexOf("text!") === 0) 
-        return;
-    
     var req = function(childId) {
         return window.require(id, childId);
     };
@@ -325,7 +336,6 @@ exports.getMatchOffsets = function(string, regExp) {
     return matches;
 };
 exports.deferredCall = function(fcn) {
-
     var timer = null;
     var callback = function() {
         timer = null;
@@ -3934,7 +3944,7 @@ function TreeBuilder() {
 	modes.afterBody.endTagHtml = function(name) {
 		if (tree.context) {
 			tree.parseError('end-html-in-innerhtml');
-		} else {
+		} else {
 			tree.setInsertionMode('afterAfterBody');
 		}
 	};
@@ -6215,7 +6225,7 @@ TreeBuilder.prototype.generateImpliedEndTags = function(exclude) {
 		this.generateImpliedEndTags(exclude);
 	}
 };
-TreeBuilder.prototype.reconstructActiveFormattingElements = function() {
+TreeBuilder.prototype.reconstructActiveFormattingElements = function() {
 	if (this.activeFormattingElements.length === 0)
 		return;
 	var i = this.activeFormattingElements.length - 1;
@@ -6275,7 +6285,7 @@ TreeBuilder.prototype.ensureNoahsArkCondition = function(item) {
 			return;
 		candidates = remainingCandidates;
 		remainingCandidates = [];
-	}
+	}
 	for (var i = kNoahsArkCapacity - 1; i < candidates.length; i++)
 		this.removeElementFromActiveFormattingElements(candidates[i]);
 };
@@ -6305,7 +6315,7 @@ TreeBuilder.prototype.clearActiveFormattingElements = function() {
 TreeBuilder.prototype.reparentChildren = function(oldParent, newParent) {
 	throw new Error("Not implemented");
 };
-TreeBuilder.prototype.setFragmentContext = function(context) {
+TreeBuilder.prototype.setFragmentContext = function(context) {
 	this.context = context;
 };
 TreeBuilder.prototype.parseError = function(code, args) {
@@ -6991,7 +7001,7 @@ Node.prototype.visit = function(treeParser) {
 };
 Node.prototype.revisit = function(treeParser) {
 	return;
-};
+};
 Node.prototype.detach = function() {
 	if (this.parentNode !== null) {
 		this.parentNode.removeChild(this);
@@ -7043,7 +7053,7 @@ ParentNode.prototype.insertBefore = function(child, sibling) {
 	return child;
 };
 
-ParentNode.prototype.insertBetween = function(child, prev, next) {
+ParentNode.prototype.insertBetween = function(child, prev, next) {
 	if (!next) {
 		return this.appendChild(child);
 	}
@@ -7234,7 +7244,7 @@ function SkippedEntity(name) {
 SkippedEntity.prototype = Object.create(Node.prototype);
 SkippedEntity.prototype.visit = function(treeParser) {
 	treeParser.skippedEntity(this.name, this);
-};
+};
 function ProcessingInstruction(target, data) {
 	Node.call(this);
 	this.target = target;

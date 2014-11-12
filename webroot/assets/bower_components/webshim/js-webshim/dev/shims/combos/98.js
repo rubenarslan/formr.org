@@ -1,4 +1,4 @@
-webshims.register('jme', function($, webshims, window, doc, undefined){
+webshims.register('jmebase', function($, webshims, window, doc, undefined){
 	"use strict";
 	var props = {};
 	var fns = {};
@@ -9,8 +9,11 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 	
 	webshims.cfg.mediaelement.jme = options;
 
+	if(!$.jme){
+		$.jme = {};
+	}
 
-	$.jme = {
+	$.extend($.jme, {
 		pluginsClasses: [],
 		pluginsSel: '',
 		plugins: {},
@@ -56,6 +59,10 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			}
 			this.runPlugin('.'+plugin.className);
 		},
+		configmenuPlugins: {},
+		addToConfigmenu: function(name, create){
+			this.configmenuPlugins[name] = create;
+		},
 		defineMethod: function(name, fn){
 			fns[name] = fn;
 		},
@@ -95,7 +102,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				}
 			}
 		}
-	};
+	});
 
 	$.fn.jmeProp = function(name, value){
 		return $.access( this, $.jme.prop, name, value, arguments.length > 1 );
@@ -105,6 +112,10 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 		var args = slice.call( arguments, 1 );
 		var ret;
 		this.each(function(){
+			if(!$.jme.data(this).media){
+				$(this).closest(baseSelector).jmePlayer();
+				webshims.warn('jmeFn called to early or on wrong element!');
+			}
 			ret = (fns[fn] || $.prop(this, fn)).apply(this, args);
 			if(ret !== undefined){
 				return false;
@@ -182,11 +193,9 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 	$.fn.jmePlayer = function(opts){
 
 		return this.each(function(){
-			if(opts){
-				$.jme.data(this, $.extend(true, {}, opts));
-			}
 
-			var mediaUpdateFn, canPlay, removeCanPlay, canplayTimer, lastState, stopEmptiedEvent;
+
+			var mediaUpdateFn, canPlay, removeCanPlay, canplayTimer, lastState, stopEmptiedEvent, forceRender;
 			var media = $('audio, video', this).eq(0);
 			var base = $(this);
 
@@ -198,7 +207,9 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			mediaData.player = base;
 			mediaData.media = media;
 			if(!jmeData.media){
-
+				forceRender = function(){
+					base[0].className = base[0].className;
+				};
 				removeCanPlay = function(){
 					media.off('canplay', canPlay);
 					clearTimeout(canplayTimer);
@@ -257,6 +268,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 					if(state){
 						lastState = state;
 						base.attr('data-state', state);
+						setTimeout(forceRender);
 					}
 				};
 
@@ -264,30 +276,6 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				jmeData.media = media;
 				jmeData.player = base;
 				media
-					.on('ended emptied play', (function(){
-						var timer;
-						var releaseEmptied = function(){
-							stopEmptiedEvent = false;
-						};
-						var ended = function(){
-							removeCanPlay();
-							media.jmeFn('pause');
-							if(!options.noReload && media.prop('ended') && media.prop('paused') && !media.prop('autoplay') && !media.prop('loop') && !media.hasClass('no-reload')){
-								stopEmptiedEvent = true;
-								media.jmeFn('load');
-								base.attr('data-state', 'ended');
-								setTimeout(releaseEmptied);
-
-							}
-						};
-						return function(e){
-
-							clearTimeout(timer);
-							if(e.type == 'ended' && !options.noReload && !media.prop('autoplay') && !media.prop('loop') && !media.hasClass('no-reload')){
-								timer = setTimeout(ended);
-							}
-						};
-					})())
 					.on('emptied waiting canplay canplaythrough playing ended pause mediaerror', mediaUpdateFn)
 					.on('volumechange updateJMEState', function(){
 						var volume = $.prop(this, 'volume');
@@ -340,16 +328,16 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				return [{src: src}];
 			}
 			srces = $.map($('source', data.media).get(), function(source){
+				var i, len;
 				var src = {
 					src: $.prop(source, 'src')
 				};
-				var tmp = $.attr(source, 'media');
-				if(tmp){
-					src.media = tmp;
-				}
-				tmp = $.attr(source, 'type');
-				if(tmp){
-					src.type = tmp;
+				var attributes = source.attributes;
+
+				for(i = 0, len = attributes.length; i < len; i++){
+					if(!('specified' in attributes[i]) || attributes[i].specified){
+						src[attributes[i].nodeName] = attributes[i].nodeValue;
+					}
 				}
 				return src;
 			});
@@ -421,18 +409,17 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			data.player.triggerHandler('controlsadded');
 		}
 	});
-	webshims.isReady('jme', true);
-	webshims.addReady($.jme.initJME);
-	webshims._polyfill(['mediaelement']);
-	webshims.isReady('jme-base', true);
 
-	if(webshims.cfg.debug !== false){
-		$(function(){
-			if(document.getElementsByTagName('video').length && !document.querySelector(baseSelector)){
-				webshims.warn("found video element but video wasn't wrapped inside a ."+ baseSelector +" element. Will not add control UI");
-			}
-		});
-	}
+	webshims.ready('DOM mediaelement', function(){
+		webshims.isReady('jme', true);
+		webshims.addReady($.jme.initJME);
+		webshims.isReady('jme-base', true);
+
+		if(webshims.cfg.debug !== false && document.getElementsByTagName('video').length && !document.querySelector(baseSelector)){
+			webshims.warn("found video element but video wasn't wrapped inside a ."+ baseSelector +" element. Will not add control UI");
+		}
+	});
+
 });
 ;webshims.register('mediacontrols', function($, webshims, window){
 	"use strict";
@@ -441,9 +428,9 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 	var options = webshims.cfg.mediaelement.jme;
 	var baseSelector = options.selector;
 	var jme = $.jme;
-	var unknowStructure = '<div class="{%class%}"></div>'
+	var unknownStructure = '<div class="{%class%}"></div>';
 	var btnStructure = '<button class="{%class%}" type="button" aria-label="{%text%}"></button>';
-	var slideStructure = '<div class="{%class%} media-range"></div>';
+	var slideStructure = '<div class="{%class%} media-range" aria-label="{%text%}"></div>';
 	var timeStructure = '<div  class="{%class%}">00:00</div>';
 
 	var noVolumeClass = (function(){
@@ -454,7 +441,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			try {
 				audio = new Audio();
 				audio.volume = 0.55;
-				ret = ﻿((Math.round(audio.volume * 100) / 100) == 0.55) ? '' : ' no-volume-api';
+				ret = ((Math.round(audio.volume * 100) / 100) == 0.55) ? '' : ' no-volume-api';
 			} catch(e){}
 
 		}
@@ -475,7 +462,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 					if(plugin){
 						if(!plugin.structure){
 							webshims.warn('no structure option provided for plugin: '+ matchName +'. Fallback to standard div');
-							plugin.structure = unknowStructure;
+							plugin.structure = unknownStructure;
 						}
 						return plugin.structure.replace('{%class%}', matchName).replace('{%text%}', plugin.text || '');
 					}
@@ -486,7 +473,10 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			return cache[template] || '';
 		};
 	})();
-	var ios6 = /iP(hone|od|ad)/i.test(navigator.platform) && parseInt(((navigator.appVersion).match(/OS (\d+)_\d+/) || ['','8'])[1], 10) < 7;
+	var ios = /iP(hone|od|ad)/i.test(navigator.platform);
+	var ios6 = ios && parseInt(((navigator.appVersion).match(/OS (\d+)_\d+/) || ['','8'])[1], 10) < 7;
+	var modern = window.Modernizr;
+	var hasYtBug = (!modern || !modern.videoautoplay) && (ios || /android/i.test(navigator.userAgent));
 	var loadLazy = function(){
 		if(!loadLazy.loaded){
 			loadLazy.loaded = true;
@@ -513,7 +503,8 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 	};
 
 	webshims.loader.addModule('mediacontrols-lazy', {
-		src: 'jme/mediacontrols-lazy'
+		src: 'jme/mediacontrols-lazy',
+		d: ['dom-support']
 	});
 
 	var userActivity = {
@@ -536,6 +527,11 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 						data.media.removeAttr('controls');
 						data.media.mediaLoad();
 					}
+
+					if(hasYtBug){
+						data.player.addClass('has-yt-bug');
+					}
+
 					data.media.prop('controls', false);
 					structure = getBarHtml();
 					data._controlbar = $( options.barStructure );
@@ -580,17 +576,85 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 							}
 						};
 					})();
+					var $poster = $('<div class="ws-poster" />').insertAfter(data.media);
 					var posterState = (function(){
-						var lastPosterState, lastYoutubeState;
+						var lastPosterState, lastYoutubeState, lastPoster, isYt;
 						var hasFlash = window.swfmini && swfmini.hasFlashPlayerVersion('10.0.3');
 						var regYt = /youtube\.com\/[watch\?|v\/]+/i;
+
+						var isInitial = data.media.prop('paused');
+						var isEnded = data.media.prop('ended');
+						if(isInitial){
+							data.player.addClass('initial-state');
+						}
+						if(isEnded){
+							data.player.addClass('ended-state');
+						}
+						if(!('backgroundSize' in $poster[0].style)){
+							data.player.addClass('no-backgroundsize');
+						}
+						data.media.on('play playing waiting seeked seeking', function(e){
+							if(!e){
+								e.type = 'playing';
+							}
+
+							if(isInitial && (!isYt || !hasYtBug || e.type == 'playing' || data.media.prop('readyState') || data.media.prop('networkState'))){
+								isInitial = false;
+								data.player.removeClass('initial-state');
+							}
+
+							if(isEnded){
+								isEnded = false;
+								data.player.removeClass('ended-state');
+							}
+						});
+						data.media.on('ended', function(){
+							if(!isEnded && !data.media.prop('loop') && data.media.prop('ended')){
+								isEnded = true;
+								data.player.addClass('ended-state');
+							}
+						});
+
 						return function(){
-							var hasPoster = !!data.media.attr('poster');
-							var hasYt = (hasFlash && hasPoster) ? false : regYt.test(data.media.prop('currentSrc') || '');
+							var hasYt;
+							var poster = data.media.attr('poster');
+							var hasPoster = !!poster;
+							var currentSrc = data.media.prop('currentSrc') || '';
+
+							isYt = regYt.test(currentSrc);
+
+							hasYt = (hasFlash && hasPoster) ? false : isYt;
+
+							if(!hasPoster && isYt){
+								poster =  currentSrc.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i) || '';
+								if(poster){
+									poster = 'https://img.youtube.com/vi/'+ poster[1] +'/0.jpg';
+									hasPoster = !!poster;
+								}
+							}
+
+							if(lastPoster !== poster){
+								lastPoster = poster;
+								$poster[0].style.backgroundImage = poster ? 'url('+poster+')' : '';
+							}
+
 							if(lastPosterState !== hasPoster){
 								lastPosterState = hasPoster;
 								data.player[hasPoster ? 'removeClass' : 'addClass']('no-poster');
 							}
+
+							if(data.media.prop('paused')){
+								data.player.addClass('initial-state');
+								isInitial = true;
+							}
+
+							if(isEnded){
+								isEnded = false;
+								data.player.removeClass('ended-state');
+							}
+
+							//https://code.google.com/p/gdata-issues/issues/detail?id=5415
+							data.player[isYt ? 'addClass' : 'removeClass']('yt-video');
 
 							if(lastYoutubeState !== hasYt){
 								lastYoutubeState = hasYt;
@@ -602,13 +666,15 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 
 					userActivity._create(data.player, data.media, data.player);
 
-					data.media.on('emptied', posterState);
+					data.media.on('emptied loadstart', function(){
+						setTimeout(posterState);
+					});
 
 					playerSize();
 					posterState();
 					webshims.ready('dom-support', function(){
 						data.player.onWSOff('updateshadowdom', playerSize);
-						controls.add(data._controlbar).addClass(webshims.shadowClass);
+						controls.add(data._controlbar).add($poster).addClass(webshims.shadowClass);
 						webshims.addShadowDom();
 					});
 				}
@@ -641,7 +707,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 
 	jme.registerPlugin('volume-slider', {
 		structure: slideStructure,
-
+		text: 'volume level',
 		_create: lazyLoadPlugin()
 	});
 
@@ -651,6 +717,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 		options: {
 			format: ['mm', 'ss']
 		},
+		text: 'time position',
 		_create: lazyLoadPlugin()
 	});
 
@@ -725,12 +792,18 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 		_create: lazyLoadPlugin()
 	});
 
+	jme.registerPlugin('mediaconfigmenu', {
+		structure: btnStructure,
+		text: 'configuration',
+		_create: lazyLoadPlugin()
+	});
+
 
 	jme.registerPlugin('captions', {
 		structure: btnStructure,
 		text: 'subtitles',
 		_create: function(control, media, base){
-			var trackElems = media.find('track');
+			var trackElems = media.find('track').filter(':not([kind]), [kind="subtitles"], [data-kind="subtitles"], [kind="captions"], [data-kind="captions"]');
 			control.wsclonedcheckbox = $(control).clone().attr({role: 'checkbox'}).insertBefore(control);
 			base.attr('data-tracks', trackElems.length > 1 ? 'many' : trackElems.length);
 			control.attr('aria-haspopup', 'true');
@@ -738,9 +811,26 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 		}
 	});
 
+
+	jme.registerPlugin('chapters', {
+		structure: btnStructure,
+		text: 'chapters',
+		_create: function(control, media, base){
+			var trackElems = media.find('track').filter('[kind="chapters"], [data-kind="chapters"]');
+			control.attr('aria-haspopup', 'true');
+			if(trackElems.length){
+				webshims._polyfill(['track']);
+				base.addClass('has-chapter-tracks');
+			}
+			lazyLoadPlugin().apply(this, arguments);
+		}
+	});
+
+
+
 	webshims.ready(webshims.cfg.mediaelement.plugins.concat(['mediaelement', 'jme-base']), function(){
 		if(!options.barTemplate){
-			options.barTemplate = '<div class="play-pause-container">{{play-pause}}</div><div class="playlist-container"><div class="playlist-box">{{playlist-prev}}{{playlist-next}}</div></div><div class="currenttime-container">{{currenttime-display}}</div><div class="progress-container">{{time-slider}}</div><div class="duration-container">{{duration-display}}</div><div class="mute-container">{{mute-unmute}}</div><div class="volume-container">{{volume-slider}}</div><div class="subtitle-container"><div class="subtitle-controls">{{captions}}</div></div><div class="fullscreen-container">{{fullscreen}}</div>';
+			options.barTemplate = '<div class="play-pause-container">{{play-pause}}</div><div class="playlist-container"><div class="playlist-box"><div class="playlist-button-container">{{playlist-prev}}</div><div class="playlist-button-container">{{playlist-next}}</div></div></div><div class="currenttime-container">{{currenttime-display}}</div><div class="progress-container">{{time-slider}}</div><div class="duration-container">{{duration-display}}</div><div class="mute-container">{{mute-unmute}}</div><div class="volume-container">{{volume-slider}}</div><div class="chapters-container"><div class="chapters-controls mediamenu-wrapper">{{chapters}}</div></div><div class="subtitle-container mediamenu-wrapper"><div class="subtitle-controls">{{captions}}</div></div><div class="mediaconfig-container"><div class="mediaconfig-controls mediamenu-wrapper">{{mediaconfigmenu}}</div></div><div class="fullscreen-container">{{fullscreen}}</div>';
 		}
 		if(!options.barStructure){
 			options.barStructure = '<div class="jme-media-overlay"></div><div class="jme-controlbar'+ noVolumeClass +'" tabindex="-1"><div class="jme-cb-box"></div></div>';
@@ -752,7 +842,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 	});
 	webshims.ready('WINDOWLOAD', loadLazy);
 });
-;webshims.ready('jme DOM', function(){
+;webshims.ready('jme-base DOM', function(){
 	"use strict";
 	var webshims = window.webshims;
 	var $ = webshims.$;
@@ -1139,7 +1229,9 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			$.each(item.tracks || [], function(i, track){
 				$('<track />').attr(track).appendTo(media);
 			});
-
+			if(!item.srces){
+				item.srces = item;
+			}
 			media.jmeProp('srces', item.srces);
 		},
 		_getItem: function(item){

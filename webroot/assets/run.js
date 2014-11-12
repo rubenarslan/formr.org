@@ -100,8 +100,8 @@ RunUnit.prototype.test = function (e) {
 		data: {"run_unit_id": this.run_unit_id, "special": this.special},
 		method: 'GET'
 	}).done($.proxy(function (data) {
-		bootstrap_modal(data, 'Test Results');
-		$(".opencpu_accordion").collapse({toggle: true});
+		var $modal = bootstrap_modal(data, 'Test Results')
+		$(".opencpu_accordion", $modal).collapse({toggle: true});
 
 		this.test_button.html(old_text).removeAttr('disabled');
 		var code_blocks = $modal.find('pre code');

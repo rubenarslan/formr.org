@@ -55,12 +55,11 @@ var typeModels = webshims.inputTypes,
 					}
 					return fn;
 				})();
-				if(!Modernizr.prefixed || Modernizr.prefixed("matchesSelector", document.documentElement)){
-					$.find.matchesSelector = function(node, expr){
-						expr = expr.replace(regExp, regFn);
-						return matchesSelector.call(this, node, expr);
-					};
-				}
+
+				$.find.matchesSelector = function(node, expr){
+					expr = expr.replace(regExp, regFn);
+					return matchesSelector.call(this, node, expr);
+				};
 				
 			})();
 		}
@@ -98,7 +97,6 @@ var isPlaceholderOptionSelected = function(select){
 };
 
 var emptyJ = $([]);
-//TODO: cache + perftest
 var getGroupElements = function(elem){
 	elem = $(elem);
 	var name, form;
@@ -168,7 +166,7 @@ var validityRules = {
 $.each({tooShort: ['minLength', -1], tooLong: ['maxLength', 1]}, function(name, props){
 	validityRules[name] = function(input, val, cache){
 		//defaultValue is not the same as dirty flag, but very similiar
-		if(cache.nodeName == 'select' || input.prop('defaultValue') == val){return false;}
+		if(!val || cache.nodeName == 'select' || input.prop('defaultValue') == val){return false;}
 
 		cacheType(cache, input[0]);
 
@@ -393,7 +391,7 @@ var rsubmittable = /^(?:select|textarea|input)/i;
 				;
 				return function(){
 					var elem = $(this).getNativeElement()[0];
-					return !!(!elem.readOnly && !types[elem.type] && !$(elem).is(':disabled') );
+					return !!(!elem.readOnly && !types[elem.type] && !$.find.matchesSelector(elem, ':disabled') );
 				};
 			})()
 		},
@@ -515,7 +513,7 @@ webshims.defineNodeNameProperty('form', 'noValidate', {
 	});
 });
 
-if(Modernizr.inputtypes.date && /webkit/i.test(navigator.userAgent)){
+if(webshims.support.inputtypes.date && /webkit/i.test(navigator.userAgent)){
 	(function(){
 		
 		var noInputTriggerEvts = {updateInput: 1, input: 1},
@@ -609,25 +607,28 @@ if(Modernizr.inputtypes.date && /webkit/i.test(navigator.userAgent)){
 
 webshims.addReady(function(context, contextElem){
 	//start constrain-validation
-	var focusElem;
+
 	$('form', context)
 		.add(contextElem.filter('form'))
 		.on('invalid', $.noop)
 	;
-	
-	try {
-		if(context == document && !('form' in (document.activeElement || {}))) {
-			focusElem = $(context.querySelector('input[autofocus], select[autofocus], textarea[autofocus]')).eq(0).getShadowFocusElement()[0];
-			if (focusElem && focusElem.offsetHeight && focusElem.offsetWidth) {
-				focusElem.focus();
+
+	setTimeout(function(){
+		var focusElem;
+		try {
+			if(!('form' in (document.activeElement || {}))) {
+				focusElem = $(context.querySelector('input[autofocus], select[autofocus], textarea[autofocus]')).eq(0).getShadowFocusElement()[0];
+				if (focusElem && (focusElem.offsetHeight || focusElem.offsetWidth)) {
+					focusElem.focus();
+				}
 			}
 		}
-	} 
-	catch (er) {}
-	
+		catch (er) {}
+	}, 9);
+
 });
 
-if(!Modernizr.input.list){
+if(!webshims.support.datalist){
 	webshims.defineNodeNameProperty('datalist', 'options', {
 		prop: {
 			writeable: false,
@@ -1061,7 +1062,7 @@ webshims.defineNodeNamesProperties(['input', 'button'], formSubmitterDescriptors
 	};
 	
 	
-	if(!Modernizr.formvalidation || webshims.bugs.bustedValidity){
+	if(!webshims.support.formvalidation || webshims.bugs.bustedValidity){
 		implementProperties.push('validationMessage');
 	}
 	
@@ -1097,7 +1098,7 @@ webshims.defineNodeNamesProperties(['input', 'button'], formSubmitterDescriptors
 						if(message){return message;}
 						
 						if(validity.customError && elem.nodeName){
-							message = (Modernizr.formvalidation && !webshims.bugs.bustedValidity && desc.prop._supget) ? desc.prop._supget.call(elem) : webshims.data(elem, 'customvalidationMessage');
+							message = (webshims.support.formvalidation && !webshims.bugs.bustedValidity && desc.prop._supget) ? desc.prop._supget.call(elem) : webshims.data(elem, 'customvalidationMessage');
 							if(message){return message;}
 						}
 						$.each(validity, function(name, prop){
@@ -1150,7 +1151,6 @@ webshims.defineNodeNamesProperties(['input', 'button'], formSubmitterDescriptors
 	}
 	
 	var nan = parseInt('NaN', 10),
-		doc = document,
 		typeModels = webshims.inputTypes,
 		isNumber = function(string){
 			return (typeof string == 'number' || (string && string == string * 1));
@@ -1793,8 +1793,8 @@ webshims.defineNodeNamesProperties(['input', 'button'], formSubmitterDescriptors
 	 */
 	
 	(function(){
-		var formsCFG = $.webshims.cfg.forms;
-		var listSupport = Modernizr.input.list;
+		var formsCFG = webshims.cfg.forms;
+		var listSupport = webshims.support.datalist;
 		if(listSupport && !formsCFG.customDatalist){return;}
 		
 			var initializeDatalist =  function(){

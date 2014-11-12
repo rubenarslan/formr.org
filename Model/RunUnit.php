@@ -262,7 +262,7 @@ class RunUnit {
 		<div class="col-xs-12 row run_unit_inner ' . $this->type . '" data-type="' . $this->type . '">
 				<div class="col-xs-3 run_unit_position">
 					<h1><i class="muted fa fa-2x ' . $this->icon . '"></i></h1>
-					' . $this->howManyReachedIt() . ' <button href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run" type="button"><i class="fa fa-times"></i></button>
+					' . $this->howManyReachedIt() . ' <button href="ajax_remove_run_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run" type="button"><i class="fa fa-times"></i></button>
 <br>
 					<input class="position" value="' . $position . '" type="number" name="position[' . $this->run_unit_id . ']" step="1" max="32000" min="-32000"><br>
 				</div>

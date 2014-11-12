@@ -1,4 +1,4 @@
-webshims.register('jme', function($, webshims, window, doc, undefined){
+webshims.register('mediacontrols-lazy', function($, webshims, window, doc, undefined){
 	"use strict";
 	var plugins = $.jme.plugins;
 	var pseudoClasses = 'pseudoClasses';
@@ -24,77 +24,91 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				var className = (track.kind == 'caption') ? 'caption-type' : 'subtitle-type';
 				var lang = track.language;
 				lang = (lang) ? ' <span class="track-lang">'+ lang +'</span>' : '';
-				return '<li class="'+ className +'" role="presentation"><button role="menuitemcheckbox" type="button">'+ track.label + lang +'</button></li>';
+				return '<li class="'+ className +'" role="presentation"><button role="menuitemcheckbox" type="button" tabindex="-1">'+ track.label + lang +'</button></li>';
 			})
 			;
-		return '<div><ul>' + items.join('') +'</ul></div>';
+		return '<div><ul role="presentation">' + items.join('') +'</ul></div>';
 	};
+	var domPrefixes = webshims.domPrefixes;
+	var prefixed = webshims.prefixed;
 
 
-	$.fn.wsTouchClick = (function(){
-		var supportsTouchaction = ('touchAction' in document.documentElement.style);
-		var addTouch = !supportsTouchaction && ('ontouchstart' in window) && document.addEventListener;
-		return function(target, handler){
-			var touchData, touchEnd, touchStart;
+	if(!$.fn.wsTouchClick){
 
-			if(addTouch){
-
-				touchEnd = function(e){
-					var ret, touch;
-					e = e.originalEvent || {};
-					$(this).off('touchend touchcancel', touchEnd);
-					var changedTouches = e.changedTouches || e.touches;
-					if(e.type == 'touchcancel' || !touchData || !changedTouches || changedTouches.length != 1){
-						return;
+		$.fn.wsTouchClick = (function(){
+			var supportsTouchaction = ('touchAction' in document.documentElement.style);
+			var addTouch = !supportsTouchaction && ('ontouchstart' in window) && document.addEventListener;
+			return function(target, handler){
+				var touchData, touchEnd, touchStart, stopClick, allowClick;
+				var runHandler = function(){
+					if(!stopClick){
+						return handler.apply(this, arguments);
 					}
-
-					touch = changedTouches[0];
-					if(Math.abs(touchData.x - touch.pageX) > 40 || Math.abs(touchData.y - touch.pageY) > 40 || Date.now() - touchData.now > 300){
-						return;
-					}
-					e.preventDefault();
-					ret = handler.apply(this, arguments);
-
-					return ret;
 				};
-
-				touchStart = function(e){
-					var touch, elemTarget;
-
-
-					if((!e || e.touches.length != 1)){
-						return;
-					}
-					touch = e.touches[0];
-					elemTarget = target ? $(touch.target).closest(target) : $(this);
-					if(!elemTarget.length){
-						return;
-					}
-					touchData = {
-						x: touch.pageX,
-						y: touch.pageY,
-						now: Date.now()
+				if($.isFunction(target)){
+					handler = target;
+					target = false;
+					this.on('click', runHandler);
+				} else {
+					this.on('click', target, runHandler);
+				}
+				if(addTouch){
+					allowClick = function(){
+						stopClick = false;
 					};
-					elemTarget.on('touchend touchcancel', touchEnd);
-				};
+					touchEnd = function(e){
+						var ret, touch;
+						e = e.originalEvent || {};
+						$(this).off('touchend touchcancel', touchEnd);
+						var changedTouches = e.changedTouches || e.touches;
+						if(e.type == 'touchcancel' || !touchData || !changedTouches || changedTouches.length != 1){
+							return;
+						}
 
-				this.each(function(){
-					this.addEventListener('touchstart', touchStart, true);
-				});
-			} else if(supportsTouchaction){
-				this.css('touch-action', 'manipulation');
-			}
+						touch = changedTouches[0];
+						if(Math.abs(touchData.x - touch.pageX) > 40 || Math.abs(touchData.y - touch.pageY) > 40 || Date.now() - touchData.now > 300){
+							return;
+						}
 
-			if($.isFunction(target)){
-				handler = target;
-				target = false;
-				this.on('click', handler);
-			} else {
-				this.on('click', target, handler);
-			}
-			return this;
-		};
-	})();
+						e.preventDefault();
+						stopClick = true;
+						setTimeout(allowClick, 400);
+
+						ret = handler.apply(this, arguments);
+
+						return ret;
+					};
+
+					touchStart = function(e){
+						var touch, elemTarget;
+						if((!e || e.touches.length != 1)){
+							return;
+						}
+						touch = e.touches[0];
+						elemTarget = target ? $(touch.target).closest(target) : $(this);
+						if(!elemTarget.length){
+							return;
+						}
+						touchData = {
+							x: touch.pageX,
+							y: touch.pageY,
+							now: Date.now()
+						};
+						elemTarget.on('touchend touchcancel', touchEnd);
+					};
+
+					this.each(function(){
+						this.addEventListener('touchstart', touchStart, true);
+					});
+				} else if(supportsTouchaction && !target){
+					this.css('touch-action', 'manipulation');
+				}
+
+
+				return this;
+			};
+		})();
+	}
 
 
 	function createGetSetHandler(fns){
@@ -231,14 +245,18 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 						stopFocus = true;
 						clearTimeout(focusTimer);
 						if(markedFocus && specialUnStop[e.type] && e.target.className.indexOf('ws-a11y-focus') != -1){
-							delay = 0;
+							delay = 1;
 						}
 						focusTimer = setTimeout(unStop, delay);
 					},
 					focusin: function(e){
-						if(!stopFocus && e.originalEvent){
-							markedFocus = true;
-							$(e.target).addClass('ws-a11y-focus');
+						if(!stopFocus && e.originalEvent && ($.prop(e.target, 'tabIndex') > -1 || $.attr(e.target, 'role'))){
+							setTimeout(function(){
+								if(!stopFocus){
+									markedFocus = true;
+									$(e.target).addClass('ws-a11y-focus');
+								}
+							}, 20);
 						}
 					},
 					focusout: function(e){
@@ -338,6 +356,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 								delete base._seekpause;
 							}
 							wasPaused = null;
+							media.triggerHandler('updateprogress');
 						}
 					});
 
@@ -389,17 +408,18 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 									var widgetLeft = (control.offset() || {left: 0}).left;
 									var widgetWidth = control.innerWidth();
 									var posLeft = function(x){
-										var perc = (x - widgetLeft) / widgetWidth * 100;
-										timeShow
-											.html(media.jmeFn('formatTime', duration * perc / 100))
-											.css({left: perc+'%'})
-										;
+										var perc = ((x - widgetLeft) / widgetWidth * 100);
+										var marginLeft =  -(timeShow.outerWidth() / 2);
+										timeShow[0].innerHTML = media.jmeFn('formatTime', duration * perc / 100);
+
+										timeShow[0].style.left = perc+'%';
+										timeShow[0].style.marginLeft = marginLeft+'px';
 									};
 
 									$.fn.rangeUI.normalizeTouch(e);
 									setTimeout(function(){
-										posLeft(e.pageX);
 										timeShow.addClass('show-time-select');
+										posLeft(e.pageX);
 									});
 									if(document.addEventListener){
 										document.addEventListener('touchend', hideTime, true);
@@ -528,6 +548,114 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				updateControl();
 			}
 		},
+		chapters: {
+			_create: function(control, media, base){
+				var plugin = this;
+				webshims.ready('track', function(){
+					var menuObj, wasPlayed, hasTrack, preloadTimer, $bar;
+					var timedPreload = function(){
+						clearTimeout(preloadTimer);
+						preloadTimer = setTimeout(setPreload, 999);
+					};
+					var setPreload = function(){
+						var preload;
+						if(hasTrack && !media.prop('readyState')){
+							preload = media.attr('preload');
+							if(preload != 'auto'){
+								preload = 'auto';
+								media.prop('preload', preload);
+							}
+						}
+					};
+					var createMenuButton = function(){
+						if(menuObj){return;}
+						menuObj = new $.jme.ButtonMenu(control, '<div class="mediamenu chapter-menu" />', function(e, button){
+							var paused = media.prop('paused');
+							var readyState = media.prop('readyState');
+							if(!wasPlayed || readyState < 2){
+								media.play();
+								if(paused){
+									media.pause();
+								}
+							}
+							if(readyState < 2){
+								setTimeout(function(){
+									media.prop('currentTime', $(button).data('starttime'));
+								}, 99);
+							}
+
+							if(readyState){
+								media.prop('currentTime', $(button).data('starttime'));
+							}
+
+						});
+					};
+
+					var buildMenu = function(currentTrack, chapterList){
+
+						if($bar){
+							$bar.remove();
+							$bar = null;
+						}
+
+						if(currentTrack && chapterList.length){
+							var chapters = chapterList.map(createChapterList, {
+								html: '<button type="button" data-starttime="{{startTime}}" data-endtime="{{endTime}}" role="menuitem" tabindex="-1">{{title}}</button>'
+							});
+							var text = currentTrack.label || plugin.text;
+
+							//$bar = chapterList.map(createChapterBar);
+
+							//$('.time-slider', base).append('<ul role="presentation" class="mediachapter-bar">'+ $bar.join('\n') + '</ul>');
+
+							hasTrack = true;
+							base.addClass('has-chapter-tracks');
+							createMenuButton();
+							control.attr('aria-label', text);
+							menuObj.addMenu('<div class="mediamenu chapter-menu" aria-label="'+ text +'"><div><h5>'+ text +'</h5><ul role="presentation">'+ chapters.join('\n') +'</div></ul></div>')
+						} else {
+							hasTrack = false;
+							control.attr('aria-label', plugin.text);
+							base.removeClass('has-chapter-tracks');
+						}
+
+					};
+
+					media.on({
+						play: function(){
+							wasPlayed = true;
+						},
+						'emptied loadstart': function(){
+							wasPlayed = false;
+							timedPreload();
+						}
+					});
+					webshims.ready('WINDOWLOAD', timedPreload);
+					base.jmeFn('getMediaChapters', buildMenu);
+
+				});
+			}
+		},
+		mediaconfigmenu: {
+			_create: function(control, media, base){
+				var timer;
+				var menu = new $.jme.ButtonMenu(control, '<div class="mediamenu" ><div /></div>');
+				var innerMenu = menu.menu.find('div');
+				var enableDisable = function(){
+					base[innerMenu[0].getElementsByTagName('*').length ? 'addClass' : 'removeClass']('has-config-menu');
+				};
+				var timedEnable = function(){
+					clearTimeout(timer);
+					timer = setTimeout(enableDisable);
+				};
+				$.each($.jme.configmenuPlugins, function(name, create){
+					create(innerMenu, media, base, menu);
+				});
+
+				enableDisable();
+				media.on('loadstart emptied loadedmetadata', timedEnable);
+			}
+		},
 		captions: {
 			pseudoClasses: {
 				menu: 'subtitle-menu'
@@ -593,7 +721,9 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 					}
 
 					function updateMode(){
+						if(!menuObj || !menuObj.menu || !menuObj.menu.length){return;}
 						$('button', menuObj.menu).each(function(i){
+							if(!tracks[i]){return false;}
 							var checked = (tracks[i].mode == 'showing') ? 'true' : 'false';
 							if(!i){
 								checkbox.attr('aria-checked', checked);
@@ -613,20 +743,16 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 						base.attr('data-tracks', tracks.length > 1 ? 'many' : tracks.length);
 
 						if(tracks.length){
-							createSubtitleMenu('<div class="'+that[pseudoClasses].menu +'" >'+ (getTrackMenu(tracks)) +'</div>');
+							createSubtitleMenu('<div class="mediamenu '+that[pseudoClasses].menu +'" >'+ (getTrackMenu(tracks)) +'</div>');
 
 							$('span.jme-text, label span.jme-text', checkbox).text((tracks[0].label || ' ') + (tracks[0].lang || ''));
 
 							if(!base.hasClass(that[pseudoClasses].hasTrack) || base.hasClass(that[pseudoClasses].noTrack)){
 								control.prop('disabled', false);
-								base.triggerHandler('controlschanged');
 							}
 
 						} else if(!base.hasClass(that[pseudoClasses].noTrack) || base.hasClass(that[pseudoClasses].hasTrack)){
 							control.prop('disabled', true);
-							base
-								.triggerHandler('controlschanged')
-							;
 						}
 					}
 
@@ -658,6 +784,204 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 		}
 	});
 
+	var trackFilters = {
+		chapters: function(track){
+			return track.kind == 'chapters';
+		},
+		notDisabled: function(track){
+			return track.mode != 'disabled';
+		},
+		activeLang: function(track){
+			return track.language == webshims.activeLang();
+		},
+		activePartialLang: function(track){
+			return track.language == webshims.activeLang().split('-')[0];
+		}
+	};
+
+	function getBestChapterTrack(tracks){
+		var ret = $.grep(tracks, trackFilters.chapters);
+		var last = ret;
+		if(ret.length > 1){
+			ret = $.grep(ret, trackFilters.chapters);
+		}
+
+		if(!ret.length){
+			ret = last;
+		} else if(ret.length > 1){
+			ret = $.grep(ret, trackFilters.notDisabled);
+		}
+
+		if(!ret.length){
+			ret = last;
+		} else if(ret.length > 1){
+			ret = $.grep(ret, trackFilters.activeLang);
+		}
+
+		if(!ret.length){
+			ret = last;
+		} else if(ret.length > 1){
+			ret = $.grep(ret, trackFilters.activePartialLang);
+		}
+
+		return ret[0] || last[0] || null;
+	}
+
+	var showMode = {
+		captions: 'showing',
+		subtitles: 'showing'
+	};
+
+	$.jme.defineMethod('activateTrack', function(track, success){
+		var data = $.jme.data(this);
+		if(!data.media){return;}
+		var textTrack, timer;
+		var callIndex = 0;
+		var checkTrackState = function(){
+			clearTimeout(timer);
+			if(textTrack && textTrack.cues && textTrack.cues.length){
+				success(textTrack);
+				success = $.noop;
+				data.media.find('track').off('load', checkTrackState);
+			} else if(callIndex < 9){
+				timer = setTimeout(checkTrackState, 100 * callIndex);
+				callIndex++;
+			}
+		};
+		if(track.jquery){
+			track = track[0];
+		}
+		if(track.nodeName){
+			textTrack = $.prop(track, 'track');
+		} else {
+			textTrack = track;
+		}
+
+		if($.prop(textTrack, 'mode') == 'disabled'){
+			$.prop(textTrack, 'mode', showMode[$.prop(textTrack, 'mode')] || 'hidden');
+		}
+		data.media.prop('textTracks');
+		data.media.find('track').on('load', checkTrackState);
+		setTimeout(checkTrackState);
+	});
+
+	$.jme.defineMethod('getMediaChapters', function(success){
+		var data = $.jme.data(this);
+		if(!data.media){return;}
+		var currentChapterTrack;
+		var textTracks = data.media.prop('textTracks');
+
+		var updateChapterTrack = (function(){
+			var timer;
+
+			var update = function(){
+				var oldChapterTrack;
+				var selectedChapterTrack = getBestChapterTrack(textTracks);
+				if(currentChapterTrack === selectedChapterTrack){return;}
+				oldChapterTrack = currentChapterTrack;
+				currentChapterTrack = selectedChapterTrack;
+				if(selectedChapterTrack){
+					data.media.jmeFn('activateTrack', currentChapterTrack, function(){
+						var chapterTree = getChapterTree(currentChapterTrack);
+						success(currentChapterTrack, chapterTree, oldChapterTrack);
+
+					});
+				} else {
+					success(currentChapterTrack, [], oldChapterTrack);
+				}
+
+			};
+			return function(){
+				clearTimeout(timer);
+				timer = setTimeout(update);
+			};
+		})();
+
+		updateChapterTrack();
+		$([textTracks]).on('addtrack removetrack change', updateChapterTrack);
+		data.player.on('updatesubtitlestate', updateChapterTrack);
+		data.media.on('updatetrackdisplay emptied', updateChapterTrack);
+	});
+
+	function createChapterList(chapter){
+		var item = '<li role="presentation">'+ (this.html.replace('{{startTime}}', chapter.startTime).replace('{{endTime}}', chapter.endTime).replace('{{title}}', chapter.title));
+		if(chapter.list && chapter.list.length){
+			item += '\n<ul role="presentation">'+ chapter.list.map(createChapterList, this).join('\n\t') +'</ul>\n';
+		}
+		item += '</li>';
+		return item;
+	}
+
+	function createChapterBar(chapter){
+		var item = '<li role="presentation" style="'+ chapter.style +'" data-start="'+chapter.startTime+'" data-end="'+chapter.endTime+'"><span>'+chapter.title+'</span>';
+		if(chapter.list && chapter.list.length){
+			item += '\n<ul role="presentation">'+ chapter.list.map(createChapterBar).join('\n\t') +'</ul>\n';
+		}
+		item += '</li>';
+		return item;
+	}
+
+	function addChapterRelatives(chapterList){
+		var i, start, end, multi;
+		if(chapterList.length){
+			start = chapterList[0].startTime;
+			end = chapterList[chapterList.length - 1].endTime;
+			multi =  100 / (end - start);
+			for(i = 0; i < chapterList.length; i++){
+				chapterList[i].rel = (chapterList[i].endTime - chapterList[i].startTime) * multi;
+				if(i == chapterList.length - 1){
+					chapterList[i].last = true;
+					chapterList[i].style = 'overflow: hidden;';
+				} else {
+					chapterList[i].style = 'float: left; width: '+chapterList[i].rel+'%;';
+				}
+				addChapterRelatives(chapterList[i].list);
+			}
+		}
+	}
+
+	function getChapterTree(track){
+		var name ='__chaptertree'+track.cues.length;
+		if(track[name]){return track[name];}
+		var cue, i, chapter, start, end;
+		var chapterList = [];
+		var currentChapter = null;
+		for(i = 0; i < track.cues.length; i++){
+			cue = track.cues[i];
+			if(currentChapter && currentChapter.startTime > cue.startTime){
+				continue;
+			}
+			if(currentChapter && cue.startTime >= currentChapter.endTime){
+				currentChapter = currentChapter.parent;
+			}
+
+			if(currentChapter && cue.endTime > currentChapter.endTime){
+				continue;
+			}
+			chapter = {
+				startTime: cue.startTime,
+				endTime: cue.endTime,
+				parent: currentChapter,
+				list: [],
+				title: cue.text,
+				cue: cue
+			};
+			if(currentChapter){
+				currentChapter.list.push(chapter);
+			} else {
+				currentChapter = chapter;
+				chapterList.push(chapter);
+			}
+		}
+
+		addChapterRelatives(chapterList);
+		track[name] = chapterList;
+		return chapterList;
+	}
+
+
+
+	$.jme.defineMethod('getChapterTree', getChapterTree);
 
 	$.jme.defineMethod('concerningRange', function(type, time){
 		var elem = this;
@@ -710,7 +1034,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			data = $.jme.data(this);
 			sec = $.prop(data.media, 'duration');
 		}
-		if(!sec){
+		if(!sec || !isFinite(sec)){
 			sec = 0;
 		}
 		var formated = [];
@@ -739,7 +1063,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 		var doc = document.documentElement;
 
 		var fullScreenApi = {
-			supportsFullScreen: Modernizr.prefixed('fullscreenEnabled', document, false) || Modernizr.prefixed('fullScreenEnabled', document, false),
+			supportsFullScreen: prefixed('fullscreenEnabled', document) || prefixed('fullScreenEnabled', document),
 			isFullScreen: function() { return false; },
 			requestFullScreen: function(elem){
 				var tmpData;
@@ -822,11 +1146,11 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 		// update methods to do something useful
 		if (fullScreenApi.supportsFullScreen) {
 			fullScreenApi.enabledName = fullScreenApi.supportsFullScreen;
-			fullScreenApi.exitName = Modernizr.prefixed("exitFullscreen", document, false) || Modernizr.prefixed("cancelFullScreen", document, false);
-			fullScreenApi.elementName = Modernizr.prefixed("fullscreenElement", document, false) || Modernizr.prefixed("fullScreenElement", document, false);
+			fullScreenApi.exitName = prefixed("exitFullscreen", document) || prefixed("cancelFullScreen", document);
+			fullScreenApi.elementName = prefixed("fullscreenElement", document) || prefixed("fullScreenElement", document);
 			fullScreenApi.supportsFullScreen = !!fullScreenApi.supportsFullScreen;
 			if(fullScreenApi.elementName != 'fullscreenElement' || fullScreenApi.exitName != 'exitFullscreen' || fullScreenApi.enabledName != 'fullscreenEnabled'){
-				$.each(Modernizr._domPrefixes, function(i, prefix){
+				$.each(domPrefixes, function(i, prefix){
 					var requestName = prefix+'RequestFullscreen';
 					if((requestName in doc) || ((requestName = prefix+'RequestFullScreen') && (requestName in doc))){
 						fullScreenApi.eventName = prefix + 'fullscreenchange';
@@ -977,10 +1301,11 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 
 	$.jme.registerPlugin('buffer-progress', {
 		_create: function(control, media, base, options){
+			var progressTimer;
 			var indicator = $('<div class="buffer-progress-indicator" />').appendTo(control);
 			var drawBufferProgress = function(){
 				var progress = media.jmeProp('progress');
-
+				clearTimeout(progressTimer);
 
 				if(options.progress !== progress){
 					options.progress = progress;
@@ -993,7 +1318,14 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 					indicator.css('width', 0);
 					options.progress = 0;
 				},
-				playing: drawBufferProgress
+				playing: drawBufferProgress,
+				'seeked seeking updateprogress': function(e){
+					clearTimeout(progressTimer);
+					if(e.type != 'seeking'){
+						progressTimer = setTimeout(drawBufferProgress, 100);
+					}
+				}
+
 			});
 			drawBufferProgress();
 		}
@@ -1002,7 +1334,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 
 
 	$.jme.ButtonMenu = function(button, menu, clickHandler){
-
+		var that = this;
 		this.button = $(button).attr({'aria-haspopup': 'true'});
 
 		this.clickHandler = clickHandler;
@@ -1014,7 +1346,16 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 
 		this.addMenu(menu);
 		this._closeFocusOut();
-		this.button.wsTouchClick(this.toggle);
+
+		this.button
+			.wsTouchClick(this.toggle)
+			.on('keydown', function(e){
+				if(!that.isVisible && (e.keyCode == 38 || e.keyCode == 40)){
+					that.show();
+					return false;
+				}
+			})
+		;
 	};
 
 	$.jme.ButtonMenu.prototype = {
@@ -1023,12 +1364,17 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 				this.menu.remove();
 			}
 			this.menu = $(menu);
-			this.buttons = $('button', this.menu);
+
 			this.menu.insertAfter(this.button);
-			this.menu
-				.on('keydown', this.keyIndex)
-				.wsTouchClick('button', this._buttonClick)
-			;
+			if(this.clickHandler){
+				this.buttons = $('button', this.menu);
+				this.menu
+					.attr('role', 'menu')
+					.on('keydown', this.keyIndex)
+					.wsTouchClick('button', this._buttonClick)
+				;
+
+			}
 		},
 		_closeFocusOut: function(){
 			var that  = this;
@@ -1041,33 +1387,38 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			};
 			this.menu
 				.parent()
-				.on('focusin', stopFocusOut)
-				.on('mousedown', stopFocusOut)
+				.on('focusin mousedown click touchend', stopFocusOut)
 				.on('focusout', function(e){
 					timer = setTimeout(function(){
+						that.activeElement = false;
 						that.hide();
 					}, 40);
 				})
 			;
 		},
 		_buttonClick: function(e){
-			this.clickHandler(this.buttons.index(e.currentTarget), e.currentTarget);
-			this.hide();
+			if(this.clickHandler){
+				this.clickHandler(this.buttons.index(e.currentTarget), e.currentTarget);
+				this.hide();
+			}
 		},
 		keyIndex: function(e){
 			var dir = (e.keyCode == 40) ? 1 : (e.keyCode == 38) ? -1 : 0;
+			if(e.keyCode == 27){
+				this.hide();
+			}
 			if(dir){
 				var buttons = this.buttons.not(':disabled');
 				var activeButton = buttons.filter(':focus');
 
-				activeButton = buttons[buttons.index(activeButton) + dir] || buttons.filter(dir > 0 ? ':first' : ':last');
-				activeButton.focus();
+				activeButton = (activeButton[0] && buttons[buttons.index(activeButton) + dir]) || buttons[dir > 0 ? 'first' : 'last']();
+				$(activeButton).trigger('focus');
 				e.preventDefault();
 			}
 		},
 		show: function(){
 			if(this.isVisible){return;}
-			var buttons = this.buttons.not(':disabled');
+			var buttons = $('button, select, input, textarea', this.menu).not(':disabled, [aria-diabled="true"]');
 			this.isVisible = true;
 			this.menu.addClass('visible-menu');
 			try {
@@ -1077,7 +1428,7 @@ webshims.register('jme', function($, webshims, window, doc, undefined){
 			}
 
 			setTimeout(function(){
-				$(buttons.filter('[aria-checked="true"]')[0] || buttons[0]).focus();
+				$(buttons.filter('[aria-checked="true"]').last()[0] || buttons[0]).trigger('focus');
 			}, 60);
 		},
 		toggle: function(){
