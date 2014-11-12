@@ -113,11 +113,10 @@ class Survey extends RunUnit {
 		unset($posted['created']); // cant overwrite
 		unset($posted['modified']); // cant overwrite
 		unset($posted['ended']); // cant overwrite
-
-		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (item_id, session_id, answered, answered_time, modified, displaycount)
-																  VALUES(	:item_id,  :session_id, 1, 		NOW(),	NOW()	, 1) 
-		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
 		
+		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (item_id, session_id, created, answered, answered_time, modified, displaycount)
+																  VALUES(	:item_id,  :session_id, NOW(), 1, NOW(),	NOW()	, 1) 
+		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
 		$answered->bindParam(":session_id", $this->session_id);
 		
 		foreach($posted AS $name => $value)
@@ -129,16 +128,15 @@ class Survey extends RunUnit {
 				{
 					try
 					{
-						$this->dbh->beginTransaction() or die(print_r($answered->errorInfo(), true));
+						$this->dbh->beginTransaction();
 						$answered->bindParam(":item_id", $this->unanswered[$name]->id);
-				   	   	$answered->execute() or die(print_r($answered->errorInfo(), true));
-					
+						$answered->execute();
 						if($this->unanswered[$name]->save_in_results_table)
 						{
 							$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}`
 							SET 
 							`$name` = :$name
-							WHERE session_id = :session_id AND study_id = :study_id;");
+							WHERE session_id = :session_id AND study_id = :study_id AND `$name` IS NULL;");
 						    $post_form->bindValue(":$name", $value);
 							$post_form->bindValue(":session_id", $this->session_id);
 							$post_form->bindValue(":study_id", $this->id);
@@ -368,7 +366,7 @@ class Survey extends RunUnit {
 		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
 		$view_update = $this->dbh->prepare($view_query);
 		$view_update->bindValue(":session_id", $this->session_id);
-	
+		
 		$itemsDisplayed = 0;
 		$item_will_be_rendered = true;
 		
