@@ -14,15 +14,19 @@ General Principles
 
 Features
 ------------------
-* HTML5 shiv and innerShiv solution including basic CSS-support
 * canvas
 * HTML5 form features including: constraint validation and form widgets (input[type="range"], input[type="date"], input[type="number"], input[type="time"], input[type="month"], output, progress, input[list]/datalist)
 * HTML5 audio/video/track implementation
+* matchMedia
 * interactive elements: summary/details
-* filereader (including, XHR2/AJAX CORS and FormData handling)
+* XHR2 / filereader (including, XHR2/AJAX CORS and FormData handling)
+* picture / img[srcset]
 * promise
 * geolocation
-* ECMAScript 5 / JavaScript 1.8.5 features 
+* ECMAScript 5 / JavaScript 1.8.5 features
+* window.URL
+* getUserMedia ('usermedia' currently only access to user's camera, not microphone)
+* sticky (position: sticky)
 
 
 Installation and Usage
@@ -34,9 +38,6 @@ Installation and Usage
 
 ```html
 <script src="js/jquery.js"></script>
-
-<!-- 'Use your own' variant -->
-<script src="js/Modernizr-custom.js"></script> 
 
 <script src="js-webshim/minified/polyfiller.js"></script> 
 
@@ -68,6 +69,12 @@ Installation and Usage
  [More information and demos](http://aFarkas.github.com/webshim/demos/index.html).
 
 
+ Download via bower
+ ------------------
+
+ ``bower install webshim --save-dev``
+
+
 License
 ---------------------------------------
 
@@ -88,6 +95,8 @@ Webshims Lib uses many great third party scripts:
 | color-picker    | MIT                                          | http://johndyer.name/post/2007/09/PhotoShop-like-JavaScript-Color-Picker.aspx |
 | forms-picker    | MIT                                          | https://github.com/brandonaaron/jquery-mousewheel                             |
 | jme.woff        | GPL / CC BY 3.0                              | http://icomoon.io/#preview-free                                               |
+| picture         | MIT                                          | https://github.com/scottjehl/picturefill                                      |
+| url             | any (OSI approved) Open Source licence       | https://github.com/inexorabletash/polyfill                                    |
 
 
 

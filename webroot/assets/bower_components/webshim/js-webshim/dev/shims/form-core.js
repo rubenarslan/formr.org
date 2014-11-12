@@ -18,18 +18,18 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 			e._isPolyfilled = true;
 		}
 	};
-	
-	if(Modernizr.formvalidation && !webshims.bugs.bustedValidity){
-		//create delegatable events
-		webshims.capturingEvents(['invalid'], true);
-	}
+
 
 	var modules = webshims.modules;
+	var support = webshims.support;
 	var isValid = function(elem){
 		return ($.prop(elem, 'validity') || {valid: 1}).valid;
 	};
 	var lazyLoad = function(){
 		var toLoad = ['form-validation'];
+
+		$(document).off('.lazyloadvalidation');
+
 		if(options.lazyCustomMessages){
 			options.customMessages = true;
 			toLoad.push('form-message');
@@ -44,7 +44,6 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 			toLoad.push('form-validators');
 		}
 		webshims.reTest(toLoad);
-		$(document).off('.lazyloadvalidation');
 	};
 	/*
 	 * Selectors for all browsers
@@ -78,7 +77,7 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 				return !!($.prop(elem, 'willValidate') && $.prop(elem, 'required'));
 			},
 			"user-error": function(elem){
-				return ($.prop(elem, 'willValidate') && $(elem).hasClass('user-error'));
+				return ($.prop(elem, 'willValidate') && $(elem).getShadowElement().hasClass((options.iVal.errorClass || 'user-error')));
 			},
 			"optional-element": function(elem){
 				return !!($.prop(elem, 'willValidate') && $.prop(elem, 'required') === false);
@@ -90,7 +89,7 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 		});
 		
 		// sizzle/jQuery has a bug with :disabled/:enabled selectors
-		if(Modernizr.fieldsetdisabled && !$('<fieldset disabled=""><input /><input /></fieldset>').find(':disabled').filter(':disabled').is(':disabled')){
+		if(support.fieldsetdisabled && !$('<fieldset disabled=""><input /><input /></fieldset>').find(':disabled').filter(':disabled').is(':disabled')){
 			matches = $.find.matches;
 			matchesOverride = {':disabled': 1, ':enabled': 1};
 			$.find.matches = function(expr, elements){
@@ -101,11 +100,11 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 			};
 			$.extend(exp, {
 				"enabled": function( elem ) {
-					return elem.disabled === false && !$(elem).is('fieldset[disabled] *');
+					return 'disabled' in elem && elem.disabled === false && !$.find.matchesSelector(elem, 'fieldset[disabled] *');
 				},
 		
 				"disabled": function( elem ) {
-					return elem.disabled === true || ('disabled' in elem && $(elem).is('fieldset[disabled] *'));
+					return elem.disabled === true || ('disabled' in elem && $.find.matchesSelector(elem, 'fieldset[disabled] *'));
 				}
 			});
 		}
@@ -144,6 +143,10 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 	addModule('form-validators', $.extend({}, formExtras));
 
 
+	if(support.formvalidation && !webshims.bugs.bustedValidity){
+		//create delegatable events
+		webshims.capturingEvents(['invalid'], true);
+	}
 	
 	if($.expr.filters){
 		extendSels();
@@ -253,6 +256,8 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 		}
 		return message || '';
 	};
+
+	webshims.refreshCustomValidityRules = $.noop;
 	
 	$.fn.getErrorMessage = function(key){
 		var message = '';
@@ -280,8 +285,7 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 	};
 
 
-	
-	$(document).on('focusin.lazyloadvalidation', function(e){
+	$(document).on('focusin.lazyloadvalidation mousedown.lazyloadvalidation touchstart.lazyloadvalidation', function(e){
 		if('form' in e.target){
 			lazyLoad();
 		}
@@ -289,7 +293,7 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 
 	webshims.ready('WINDOWLOAD', lazyLoad);
 
-	if(modules['form-number-date-ui'].loaded && !options.customMessages && (modules['form-number-date-api'].test() || (Modernizr.inputtypes.range && Modernizr.inputtypes.color))){
+	if(modules['form-number-date-ui'].loaded && !options.customMessages && (modules['form-number-date-api'].test() || (support.inputtypes.range && support.inputtypes.color))){
 		webshims.isReady('form-number-date-ui', true);
 	}
 
@@ -299,17 +303,11 @@ webshims.register('form-core', function($, webshims, window, document, undefined
 		}
 	});
 
-	$(function(){
-		var fileReaderReady = ('FileReader' in window && 'FormData' in window);
-		if(!fileReaderReady){
-			webshims.addReady(function(context){
-				if(!fileReaderReady && !modules.filereader.loaded && !modules.moxie.loaded){
-					if(context.querySelector('input.ws-filereader')){
-						webshims.reTest(['filereader', 'moxie']);
-						fileReaderReady = true;
-					}
-				}
-			});
-		}
-	});
+	if(options.addValidators && options.fastValidators){
+		webshims.reTest(['form-validators', 'form-validation']);
+	}
+
+	if(document.readyState == 'complete'){
+		webshims.isReady('WINDOWLOAD', true);
+	}
 });

@@ -2,8 +2,8 @@
 <html>
 
 	<head>
+		<meta http-equiv="x-ua-compatible" content="IE=edge" >
 		<meta http-equiv="content-type" content="text/html;charset=UTF-8" />
-		<meta http-equiv="X-UA-Compatible" content="chrome=1" />
 		<meta name="viewport" content="width=device-width" />
 		<title>Webshim</title>
 		
@@ -11,8 +11,7 @@
 		<link rel="stylesheet" href="css/prism.css" />
 
 		<!-- don't use async if you don't know how to deal with it!!! -->
-		<script src="//code.jquery.com/jquery-1.11.0.min.js" async=""></script>
-		<script src="../js-webshim/minified/extras/modernizr-custom.js"></script>
+		<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
 
 		<script src="../js-webshim/minified/polyfiller.js"></script>
 
@@ -29,7 +28,7 @@
 
 		<div id="sidebar" class="interface">
 
-			<a class="toc_title"> Webshim <span class="version">(<span class="ws-version">1.14.3</span>)</span></a>
+			<a class="toc_title"> Webshim <span class="version">(<span class="ws-version">1.15.4</span>)</span></a>
 			<ul class="toc_section">
 				<li>
 					&raquo; <a href="https://github.com/aFarkas/webshim">GitHub Repository</a>
@@ -87,7 +86,7 @@
 				</li>
 			</ul>
 
-			<a class="toc_title" href="#Media"> Media </a>
+			<a class="toc_title" href="#Media"> Mediaelements </a>
 			<ul class="toc_section">
 				<li>
 					- <a href="#Media-elements">Audio / Video</a>
@@ -97,18 +96,26 @@
 				</li>
 			</ul>
 
+			<a class="toc_title" href="#matchMedia"> matchMedia </a>
+
 			<a class="toc_title" href="#Promise"> Promise </a>
 
-			<a class="toc_title" href="#Picturefill"> Responsive Images (<code>picture</code>, <code>srcset</code>)</a>
+			<a class="toc_title" href="#url"> URL </a>
+			<a class="toc_title" href="#usermedia"> usermedia (getUserMedia)</a>
+
+			<a class="toc_title" href="#respimage"> Responsive Images (<code>picture</code>, <code>srcset</code>)</a>
+
+			<a class="toc_title" href="#sticky"> sticky (<code>position</code>: <code>sticky</code>)</a>
 
 			<a class="toc_title" href="#Enhancement-Strategy">Webshim's opinionated enhancement cross browser / device development strategy</a>
 
 			<a class="toc_title" href="#Requirejs-setup">Setup with r.js or other JS optimization tasks</a>
 
 			<a class="toc_title" href="#Customizing"> Customizing </a>
+
 			<ul class="toc_section">
 				<li>
-					- <a href="#Customizing-modernizr">Modernizr</a>
+					- <a href="#Changeing-UI">Customizing styles and UI</a>
 				</li>
 				<li>
 					- <a href="#Customizing-extending">Writing a New Polyfill</a>
@@ -139,11 +146,11 @@
 			<h3 id="downloads">Downloads &amp; Dependencies</h3>
 			<span style="padding-left: 7px; font-size:11px; font-weight: normal;" class="interface">(Right-click, and use "Save As")</span>
 			<p>
-				<a href="https://github.com/aFarkas/webshim/archive/1.14.3.zip" class="download-button"> <strong><i>Download</i></strong> </a>
+				<a href="https://github.com/aFarkas/webshim/archive/1.15.4.zip" class="download-button"> <strong><i>Download</i></strong> </a>
 			</p>
 
 			<p>
-				Webshim depends on <a href="http://jquery.com/">jQuery</a> and <a href="http://www.modernizr.com/">Modernizr</a>.
+				Webshim depends on <a href="http://jquery.com/">jQuery</a>.
 			</p>
 
 			<h2 id="introduction" class="header">Introduction</h2>
@@ -169,7 +176,6 @@
 			</p>
 <pre><code class="language-markup">
 &lt;script src="js/jquery.js"&gt;&lt;/script&gt;
-&lt;script src="js/modernizr-custom.js"&gt;&lt;/script&gt;
 &lt;script src="js-webshim/minified/polyfiller.js"&gt;&lt;/script&gt;
   
 &lt;script&gt;
@@ -216,6 +222,9 @@
 						geolocation
 					</li>
 					<li>
+						matchMedia (includes matchMedia and matchMedia.addListener polyfill)
+					</li>
+					<li>
 						mediaelement
 					</li>
 					<li>
@@ -224,7 +233,15 @@
 					<li>
 						promise
 					</li>
-
+					<li>
+						url (<a href="http://url.spec.whatwg.org">window.URL</a>)
+					</li>
+					<li>
+						usermedia (navigator.getUserMedia)
+					</li>
+					<li>
+						sticky (<code>position</code>: <code>sticky</code>)
+					</li>
 					<li>
 						track (subtitles, catptions and textTrack API)
 					</li>
@@ -272,15 +289,15 @@
 					<em>default: true</em>
 				</li>
 				<li>
-					<strong>loadStyles</strong> If <code>loadStyles</code> is set <code>false</code> webshims won't load any default styles. In this case a site has to provide all styles for the used widgets. A developer also can copy all used webshim styles into his stylesheet and minimize request/only use needed styles for used widgets.
+					<strong>loadStyles</strong> If <code>loadStyles</code> is set <code>false</code> webshims won't load any default styles. In this case a site has to provide all styles for the used widgets. A developer also can copy all used webshim styles into his own stylesheet and minimize requests/only use needed styles for used widgets. See also <a href="#Changeing-UI">Customizing styles and UI</a>
 					<br>
 					<em>default: true</em>
 				</li>
 
 				<li>
-					<strong>debug</strong> Setting to true enables debug info to be printed in the developer console. Note the polyfiller.js in the dev folder will has more debug information and pretty printed code.
+					<strong>debug</strong> Setting <code>debug</code> to true enables debug informations to be printed in the developer console. Note the polyfiller.js in the dev folder has more debug informations and pretty printed code.
 					<br>
-					<em>default: false</em>
+					<em>default: undefined</em>
 				</li>
 				<li>
 					<strong>enhanceAuto</strong> If set to <code>true</code> configuration values with the keyword '<code>auto</code>' are treated as true, if this is <code>false</code> the keyword '<code>auto</code>' is treated as <code>false</code>.
@@ -556,7 +573,7 @@ fieldset > div {
 &lt;/div&gt;
 </code></pre>
 					<p>This could be also fixed by adding those styles to the polyfilled component:</p>
-<pre><code class="  language-css">/* do not use */
+<pre><code class="language-css">/* do not use */
 video {
 	margin: 0 10px 5px 0;
 	float: left;
@@ -594,7 +611,7 @@ $(document).trigger('updateshadowdom');
 
 			<h2 id="Shiv">HTML5 shiv and innershiv</h2>
 			<p>
-				IE8- isn't capable of rendering HTML5 elements. Webshims lib in combination with Modernizr automatically fixes this issue and adds WAI-ARIA landmarks to enable accessibility of HTML5.
+				IE8- isn't capable of rendering HTML5 elements. Webshims lib in combination with Modernizr or HTML5shiv automatically fixes this issue and adds WAI-ARIA landmarks to enable accessibility of HTML5.
 			</p>
 
 			<h3 id="Shiv-dynamic-html5">Dynamically adding HTML5 markup</h3>
@@ -725,9 +742,9 @@ webshim.ready('es5', function(){
 				, <code class="i">
 					webshim.getOwnPropertyDescriptor</code>
 				and corresponding support flags: <code class="i">
-					Modernizr.objectAccessor</code>
+					webshim.support.objectAccessor</code>
 				(true in all modern Browsers including IE9, getters and setters can be used on all objects) and <code class="i">
-					Modernizr.advancedObjectProperties</code>
+				webshim.support.advancedObjectProperties</code>
 				(true in FF4, IE9, Chrome 10..., the full ES5 specification of defineProperty is implemented (including writeable, enumerable and configurable).
 			</p>
 			<h4>webshim.objectCreate(proto [, propertiesObject, options ])</h4>
@@ -852,7 +869,7 @@ var myCar = Object.create(carProto, {
 			</p>
 
 			<h3>Implemented/fixed in <code class="i">
-				form</code>:</h3>
+				forms</code>:</h3>
 			<ul>
 				
 				<li>
@@ -888,7 +905,7 @@ var myCar = Object.create(carProto, {
 			</ul>
 
 			<h3>Implemented/fixed in <code class="i">
-				form-ext</code>:</h3>
+				forms-ext</code>:</h3>
 			<ul>
 				<li>
 					<strong>types</strong>: <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/states-of-the-type-attribute.html#local-date-and-time-state">datetime-local</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/states-of-the-type-attribute.html#time-state-(type=time)">time</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/states-of-the-type-attribute.html#date-state-(type=date)">date</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/number-state.html#number-state-(type=number)">number</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/states-of-the-type-attribute.html#month-state-%28type=month%29">month</a>, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/number-state.html#range-state-(type=range)">range</a>
@@ -1157,7 +1174,7 @@ ctx.fillStyle = "rgba(0, 0, 200, 0.5)";
 ctx.fillRect(30, 30, 55, 50);
 </code></pre>
 			<p>
-				Webshim Lib can implement <a href="http://code.google.com/p/explorercanvas/">excanvas</a> or <a href="http://flashcanvas.net/">FlashCanvas (default)/FlashCanvas Pro</a>:
+				Webshim Lib can implement <a href="http://code.google.com/p/explorercanvas/">excanvas</a> or <a href="http://flashcanvas.net/">FlashCanvas/FlashCanvas Pro</a>:
 			</p>
 			<pre><code class="language-javascript">
 // always run configuration before calling webshim.polyfill();
@@ -1171,6 +1188,7 @@ webshim.setOptions('canvas', {
 //start polyfilling forms
 webshim.polyfill('forms');
 </code></pre>
+			<p>Webshim will implement a bridge between the native/polyfilled drawImage canvas API and the polyfilled mediaelement API. To get this work in IE8 the 'flashpro' option type for the <code>canvas</code> feature has to be used.</p>
 			<h3>Options for the <code class="i">
 				canvas</code> feature</h3>
 			<ul>
@@ -1299,7 +1317,58 @@ webshim.polyfill('forms');
 	&lt;/video&gt;
 &lt;/div&gt;
 </code></pre>
-			<p>Here you can find more informations about <a href="demos/mediaelement.html">customizing controls and extending the mediaplayer's behavior</a>.</p>
+
+			<p>Webshim will implement a bridge between the native/polyfilled <code>canvas.drawImage</code> API and the polyfilled mediaelement API (flash).</p>
+<pre><code class="language-markup">
+&lt;script&gt;
+	webshim.setOptions({
+		canvas: {
+			type: 'flashpro'
+		},
+		mediaelement: {
+			replaceUI: 'auto'
+		}
+	});
+
+	webshim.polyfill('mediaelement canvas');
+&lt;/script&gt;
+&lt;script&gt;
+	$(function(){
+		var context, $video;
+		function initCanvas() {
+			var $canvas = document.getElementsByTagName("canvas")[0];
+			$video = $("video");
+			context = $canvas.getContext("2d");
+			$video.on("timeupdate", paintFrame);
+		}
+
+		function paintFrame(e) {
+			context.drawImage($video[0], 0, 0);
+
+			//timeupdate is dispatched every 250ms, let's paint the frame more often,
+			//but only if a real timeupdate was dispatched
+			if(e){
+				setTimeout(paintFrame, 65);
+				setTimeout(paintFrame, 130);
+				setTimeout(paintFrame, 195);
+			}
+		}
+
+		initCanvas();
+	});
+&lt;/script&gt;
+
+&lt;div class="mediaplayer ratio-16-9"&gt;
+	&lt;video controls preload="none" poster="sintel-trailer.jpg">
+		&lt;source src="sintel-trailer.mp4" type="video/mp4" /&gt;
+	&lt;/video&gt;
+&lt;/div>
+&lt;canvas style="border: 1px solid black;" height="280" width="500"&gt;&lt;/canvas&gt;
+
+
+</code></pre>
+
+			<p>Here you can find more information about <a href="demos/mediaelement.html">customizing controls and extending the mediaplayer's behavior</a>.</p>
 			<h4>Examples/Demos</h4>
 			<ul>
 				<li><a href="http://fiddle.jshell.net/trixta/VvmmC/show/light/">Player with some custom controls using input[type="range"]</a></li>
@@ -1548,11 +1617,10 @@ $('form[data-action].ajax-form').on('submit', function(){
 &lt;/cross-domain-policy&gt;
 </code>
 </pre>
-			<p>In case you don't have full access to your server's root to do so, you can host Moxie.min.swf (Flash) and Moxie.min.xap (Silverlight) on your server and tell webshim to load them from there:</p>
+			<p>In case you don't have full access to your server's root to do so, you can host Moxie.min.swf (Flash) on your server and tell webshim to load them from there:</p>
 <pre><code class="language-javascript">
 webshim.setOptions('filereader', {
-	swfpath: '/assests/Moxie.min.swf',
-	xappath: '/assets/Moxie.min.xap'
+	swfpath: '/assests/Moxie.min.swf'
 });
 </code></pre>
 			<p>The <code class="i">filereader</code> feature is also lazy loaded by webhsim's <code class="i">form</code> feature as soon as an element matching the <code>input.ws-filereader</code> selector is used. Additionally the forms features enables custom styleable [type=file] elements if it finds a wrapper with the class <code class="i">ws-custom-file</code>:</p>
@@ -1572,31 +1640,93 @@ webshim.setOptions('filereader', {
 </code></pre>
 
 			<p>
-				<em>The <code class="i">filereader</code> feature is based on code from <a href="https://github.com/moxiecode/moxie" target="_external">https://github.com/moxiecode/moxie</a>. </em>
+				<em>The <code class="i">filereader</code> feature is based on code from <a href="https://github.com/moxiecode/moxie" target="external">https://github.com/moxiecode/moxie</a>. </em>
+			</p>
+
+			<h2 id="matchMedia">matchMedia</h2>
+			<p>
+				The <code class="i">matchMedia</code> feature is a polyfill of
+				<a href="https://developer.mozilla.org/en-US/docs/Web/API/Window.matchMedia" target="external">matchMedia</a>.  It includes also a polyfill for <code>matchMedia('(max-width: 480px').addListener</code>.
+			</p>
+			<p>
+				<em>This feature is based on code from
+					<a href="https://github.com/paulirish/matchMedia.js" target="external">https://github.com/paulirish/matchMedia.js</a>.</em>
 			</p>
 
 
+			<h2 id="usermedia">usermedia</h2>
+			<p>
+				The <code class="i">usermedia</code> feature is a polyfill of
+				<a href="https://developer.mozilla.org/en-US/docs/NavigatorUserMedia.getUserMedia" target="external">navigator.getUserMedia</a>.  It includes also a polyfill for <code>URL</code> and the <code>srcObj</code> property.
+			</p>
+			<p>
+				A demo with <a href="http://jsfiddle.net/trixta/yC2j3/embedded/result/" target="external">code example of getUserMedia polyfill</a>.
+			</p>
+
+			<h2 id="url">url</h2>
+			<p>
+				The <code class="i">url</code> feature is a polyfill of
+				<a href="http://url.spec.whatwg.org" target="external">WHATWG URL Spec</a>. It also includes the <code>searchParams</code> object.
+			</p>
+			<p>The <code>URL</code> object has the following properties:</p>
+			<ul>
+				<li><code>href</code></li>
+				<li><code>origin</code></li>
+				<li><code>protocol</code></li>
+				<li><code>username</code></li>
+				<li><code>password</code></li>
+				<li><code>host</code></li>
+				<li><code>hostname</code></li>
+				<li><code>port</code></li>
+				<li><code>pathname</code></li>
+				<li><code>search</code></li>
+				<li>
+					<code>searchParams</code>
+
+					<ul>
+						<li><code>append(name, value)</code></li>
+						<li><code>delete(name)</code></li>
+						<li><code>get(name)</code></li>
+						<li><code>getAll(name)</code></li>
+						<li><code>has(name)</code></li>
+						<li><code>set(name, value)</code></li>
+					</ul>
+				</li>
+				<li><code>hash</code></li>
+			</ul>
+			<p>Usage</p>
+<pre><code class="language-javascript">
+var link = new URL('http://afarkas.github.io/webshim/demos/index.html?param1=value1');
+link.protocol; // returns 'http:'
+link.searchParams.get('param1'); // returns 'value1'
+link.searchParams.append('param2', 'value2');
+link.href // returns 'http://afarkas.github.io/webshim/demos/index.html?param1=value1&amp;param2=value2'
+</code></pre>
+			<p>
+				<em>This feature is based on code from
+					<a href="https://github.com/inexorabletash/polyfill/blob/master/url.js" target="external">https://github.com/inexorabletash/polyfill/blob/master/url.js</a>.</em>
+			</p>
 
 			<h2 id="Promise">Promise</h2>
 			<p>
 				The <code class="i">promise</code> feature is a polyfill of
-				<a href="http://people.mozilla.org/~jorendorff/es6-draft.html#sec-promise-objects" target="_external">ES6
+				<a href="http://people.mozilla.org/~jorendorff/es6-draft.html#sec-promise-objects" target="external">ES6
 				Promises</a>.  For instructions on using promises and details of the API, read
-				<a href="http://www.html5rocks.com/en/tutorials/es6/promises/" target="_external">JavaScript
+				<a href="http://www.html5rocks.com/en/tutorials/es6/promises/" target="external">JavaScript
 					Promises at HTML5Rocks</a>.
 			</p>
 			<p>
 				<em>This feature is based on code from
-				<a href="https://github.com/jakearchibald/es6-promise" target="_external">https://github.com/jakearchibald/es6-promise</a>.</em>
+				<a href="https://github.com/paulmillr/es6-shim" target="external">https://github.com/paulmillr/es6-shim</a>.</em>
 			</p>
 
 
 
 
-			<h2 id="Picturefill">Responsive Images</h2>
+			<h2 id="respimage">Responsive Images</h2>
 			<p>
 				A strict polyfill of the
-					<a href="http://picture.responsiveimages.org/" target="_external"><code>picture</code>
+					<a href="http://picture.responsiveimages.org/" target="external"><code>picture</code>
 					element draft specification</a> from the Responsive Images Community Group, including
 					the <code>srcset</code> and <code>sizes</code> attributes.
 			</p>
@@ -1605,13 +1735,73 @@ webshim.polyfill('picture'):
 </code></pre>
 			<p>
 				<em>This feature is based on code from
-				<a href="http://scottjehl.github.io/picturefill/" target="_external">http://scottjehl.github.io/picturefill/</a>.</em>
+				<a href="https://github.com/aFarkas/respimage" target="external">https://github.com/aFarkas/respimage/</a>.</em>
 				Complete documentation is available there.
 			</p>
+			<h2 id="sticky">sticky (position: sticky)</h2>
+			<p>
+				The <code class="i">sticky</code> feature is a polyfill for the CSS <code>position</code> value <code>sticky</code> (<a href="http://fiddle.jshell.net/trixta/5kjrtLvw/show/light/" target="external">position sticky demo</a>).
+			</p>
+			<h3>Descriptive/Markup Usage</h3>
+			<p>Simply add the class <code>ws-sticky</code> to all elements, which should become sticky and define either a <code>top</code> or <code>bottom</code> value:</p>
+<pre><code class="language-markup">
+&lt;section&gt;
+	&lt;header class="ws-sticky"&gt;
+		&lt;!-- ... --&gt;
+	&lt;/header&gt;
+	&lt;!-- ... --&gt;
 
+	&lt;footer class="ws-sticky"&gt;
+		&lt;!-- ... --&gt;
+	&lt;/footer&gt;
+&lt;/section&gt;
+</code></pre>
+			<p>Sticky and responsive webdesign. The sticky position can be also used in conjunction with mediaqueries. Simply add a <code>data-stickymedia</code> attribute with your mediaquery to your element:</p>
 
+<pre><code class="language-markup">
+&lt;section&gt;
+	&lt;header class="ws-sticky" data-stickymedia="(max-width: 480px)"&gt;
+		&lt;!-- ... --&gt;
+	&lt;/header&gt;
+	&lt;!-- ... --&gt;
+&lt;/section&gt;
+</code></pre>
+			<h3>JS Usage</h3>
 
+			<p>Often you don't want to add the class 'ws-sticky' directly into your HTML, in this case you can use the JS-API. Simply trigger the event 'wssticky' on all elements, which should become sticky:</p>
+<pre><code class="language-javascript">
+$('table.long-table > thead')
+	.addClass('ws-sticky')
+	.trigger('wssticky')
+;
+</code></pre>
 
+			<p>Example with mediaqueries:</p>
+<pre><code class="language-javascript">
+$('table.long-table > thead')
+	.addClass('ws-sticky')
+	.data('stickymedia', '(max-width: 480px)')
+	.trigger('wssticky')
+;
+</code></pre>
+			<p>The stickyness of an element, can also be removed or updated with the JS API:</p>
+<pre><code class="language-javascript">
+//use destroysticky to remove sticky
+$('dl.list-view > dt')
+	.removeClass('ws-sticky')
+	.trigger('destroysticky')
+;
+
+//use updatesticky to remove sticky
+$('dl.list-view > dt').trigger('updatesticky');
+</code></pre>
+
+			<p>Webshim sticky implementation supports sticky in conjunction with either top or bottom properties and on most elements including table headers (thead) and table footer (tfoot). It also implements "local" sticky areas, where the parent element of the 'sticky element' has set the overflow value to 'auto/scroll'.</p>
+			<h3>Known restrictions:</h3>
+			<ul>
+				<li>Don't set the margin-left and margin-right value of the sticky element to 'auto'</li>
+				<li>The left and the right value of the sticky element has to be 'auto'.</li>
+			</ul>
 			<h2 id="Enhancement-Strategy">Webshim's opinionated enhancement cross browser development strategy</h2>
 			<p>Webshim has evolved form a general polyfill library to a sophisticated UI component / UI widget library which makes it easy to create scalable, responsive and highly adaptable websites and webapps.</p>
 			<p>While webshim polyfills older browsers and automatically fixes a lot of bugs, it enables the developer to also enhance even modern browsers with highly customizable widgets (datepicker, form validation, slider, autosuggest, custom stylable controls for video/audio).</p>
@@ -1671,7 +1861,6 @@ webshim.polyfill('forms mediaelement');
 	+-- scripts
 		+-- vendor
 			|-- jquery.js
-			|-- modernizr.custom.js
 		+-- shims
 		|-- main.js
 		|-- require.js
@@ -1694,7 +1883,6 @@ webshim.polyfill('forms mediaelement');
 			|-- minified
 	+-- scripts
 		+-- vendor
-			|-- modernizr.custom.js
 	|-- main.js (requires polyfiller.js from the **dev** folder)
 	|-- require.js
 	+-- optimized-scripts (folder with optimized scripts)
@@ -1704,15 +1892,34 @@ webshim.polyfill('forms mediaelement');
 
 
 			<h2 id="Customizing"> Customizing Webshim</h2>
+			<h3 id="Changeing-UI">Customizing styles and UI</h3>
 
-			<h3 id="Customizing-modernizr">Modernizr</h3>
-			<p>
-				Webshims lib does not need every Modernizr test and supports creating a <a href="http://modernizr.com/download/#-canvas-audio-video-input-inputtypes-geolocation-shiv-cssclasses-addtest-prefixed-testprop-testallprops-prefixes-domprefixes">custom Modernizr build</a>. <!-- (Webshims lib uses <a href="http://requirejs.org/">requireJS</a> or <a href="https://gist.github.com/aFarkas/936413">sssl</a> as a script loader, if this is included, if not it uses Modernizr.load/yepnope.)-->
-			</p>
+			<p>Webshim offers a lot of different config options to change the behavior of widgets and controls. The pre-defined styles loaded by webshim are just an offer. A developer is appealed to enhance/change those styles. Even all animation are done with CSS and can be changed.</p>
+			<p>Webshim pre-defined selectors are sometime overqualified to minimize conflicts with existing page styles.</p>
+			<p>There are two different main strategies to customize webshim widget's styles. In case you only want to make small changes, you can simply override the styles with your own modification. But in case you either want to have full control or need to make more changes, it is wise to set <code class="i">loadStyles</code> to <code>false</code> and write you own styles.</p>
+			<p>In case you are setting <code class="i">loadStyles</code> to <code>false</code> you can either start from scratch or grab/copy the default styles from webshim included in the <a href="../js-webshim/dev/">dev folder</a>.</p>
 
-			<p>
-				<small> <a href="http://modernizr.com/download/#-canvas-audio-video-input-inputtypes-geolocation-shiv-cssclasses-addtest-prefixed-testprop-testallprops-prefixes-domprefixes"> Modernizr detections used by webshim</a> </small>
-			</p>
+<pre><code class="language-javascript">
+webshim.setOptions('loadStyles', false);
+</code></pre>
+
+			<p>Some widget's also use inline styles to calculate the position or the dimension of the widget. This can be turned off depending on the widget settings. (Pro Tip: This can also improve performance, especially in old IE8 or some mobile browsers.):</p>
+
+<pre><code class="language-javascript">
+webshim.setOptions({
+	loadStyles: false,
+	'forms-ext': {
+		widgets: {
+			calculateWidth: false
+		}
+	},
+	track: {
+		positionDisplay: false
+	}
+});
+</code></pre>
+
+			<p>In case you have made some nice changes and want to share those with the community, feel free to add those to the <a href="demos/themes/themes.html">themes-directory</a> and do start a <abbr title="pull request">pr</abbr>.</p>
 
 			<h3 id="Customizing-extending">Writing a New Polyfill</h3>
 
