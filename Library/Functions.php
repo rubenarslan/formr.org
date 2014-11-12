@@ -106,6 +106,8 @@ function pr($string) {
         var_dump($string);
 #		print_r(	debug_backtrace());
 		echo "</pre>";
+    } else {
+    	formr_log($string);
     }
 }
 if (!function_exists('_')) {
