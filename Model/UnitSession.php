@@ -22,12 +22,12 @@ class UnitSession
 		run_session_id = :run_session_id,
 		created = NOW()
 		";
-		$add_session = $this->dbh->prepare($session_q);
+		$add_session = $this->dbh->prepare($session_q) or die(print_r($this->dbh->errorInfo(), true));
 	
 		$add_session->bindParam(":unit_id", $this->unit_id);
 		$add_session->bindParam(":run_session_id", $this->run_session_id);
 	
-		$add_session->execute();
+		$add_session->execute() or die(print_r($add_session->errorInfo(), true));
 		
 		if($add_session->rowCount()===1)
 		{
@@ -46,12 +46,12 @@ class UnitSession
 			LIMIT 1;
 			";
 		
-			$valid_session = $this->dbh->prepare($session_q));
+			$valid_session = $this->dbh->prepare($session_q) or die(print_r($dbh->errorInfo(), true));
 		
 			$valid_session->bindParam(":run_session_id",$this->run_session_id);
 			$valid_session->bindParam(":unit_id", $unit_id);
 		
-			$valid_session->execute();
+			$valid_session->execute() or die(print_r($valid_session->errorInfo(), true));
 			$valid = $valid_session->rowCount();
 			$sess_array = $valid_session->fetch(PDO::FETCH_ASSOC);
 			if($valid):

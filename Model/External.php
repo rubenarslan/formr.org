@@ -19,7 +19,7 @@ class External extends RunUnit {
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT id,address,api_end FROM `survey_externals` WHERE id = :id LIMIT 1");
 			$data->bindParam(":id",$this->id);
-			$data->execute();
+			$data->execute() or die(print_r($data->errorInfo(), true));
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
 			
 			if($vars):
@@ -55,7 +55,7 @@ class External extends RunUnit {
 		$create->bindParam(':api_end',$this->api_end);
 		$create->bindParam(':address2',$this->address);
 		$create->bindParam(':api_end2',$this->api_end);
-		$create->execute();
+		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
 		$this->valid = true;
 		

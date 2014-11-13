@@ -29,7 +29,7 @@ class Email extends RunUnit {
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT * FROM `survey_emails` WHERE id = :id LIMIT 1");
 			$data->bindParam(":id",$this->id);
-			$data->execute();
+			$data->execute() or die(print_r($data->errorInfo(), true));
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
 			
 			if($vars):
@@ -369,7 +369,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		$get_sessions = $this->dbh->prepare($q); // should use readonly
 		$get_sessions->bindParam(':run_id',$this->run_id);
 
-		$get_sessions->execute();
+		$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
 		if($get_sessions->rowCount()>=1):
 			$results = array();
 			while($temp = $get_sessions->fetch())

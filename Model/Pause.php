@@ -26,7 +26,7 @@ class Pause extends RunUnit {
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT id, body, body_parsed, wait_until_time, wait_minutes ,wait_until_date, relative_to FROM `survey_pauses` WHERE id = :id LIMIT 1");
 			$data->bindParam(":id",$this->id);
-			$data->execute();
+			$data->execute() or die(print_r($data->errorInfo(), true));
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
 			
 			if($vars):
@@ -88,7 +88,7 @@ class Pause extends RunUnit {
 		$create->bindParam(':wait_until_date2',$this->wait_until_date);
 		$create->bindParam(':wait_minutes2',$this->wait_minutes);
 		$create->bindParam(':relative_to2',$this->relative_to);
-		$create->execute();
+		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->dbh->commit();
 		$this->valid = true;
 		
@@ -218,7 +218,7 @@ class Pause extends RunUnit {
 				$evaluate->bindValue(':wait_time',$this->wait_until_time);
 			endif;
 		
-			$evaluate->execute();
+			$evaluate->execute() or die(print_r($evaluate->errorInfo(), true));
 			if($evaluate->rowCount()===1):
 				$temp = $evaluate->fetch();
 				$result = $temp['test'];
@@ -249,7 +249,7 @@ class Pause extends RunUnit {
 		$get_sessions = $this->dbh->prepare($q); // should use readonly
 		$get_sessions->bindParam(':run_id',$this->run_id);
 
-		$get_sessions->execute();
+		$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
 		if($get_sessions->rowCount() > 0):
 			$results = array();
 			while($temp = $get_sessions->fetch())
