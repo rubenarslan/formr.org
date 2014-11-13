@@ -24,7 +24,7 @@ class Page extends RunUnit {
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT title,body,body_parsed FROM `survey_pages` WHERE id = :id LIMIT 1");
 			$data->bindParam(":id",$this->id);
-			$data->execute() or die(print_r($data->errorInfo(), true));
+			$data->execute();
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
 			
 			if($vars):
@@ -82,7 +82,7 @@ class Page extends RunUnit {
 		$create->bindParam(':body_parsed2',$this->body_parsed);
 		$create->bindParam(':title2',$this->title);
 		$create->bindParam(':end2',$this->can_be_ended);
-		$create->execute() or die(print_r($create->errorInfo(), true));
+		$create->execute();
 		$this->dbh->commit();
 		$this->valid = true;
 		

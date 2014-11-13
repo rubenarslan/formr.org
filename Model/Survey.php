@@ -39,7 +39,7 @@ class Survey extends RunUnit {
 		if(isset($unit['name']) AND !isset($unit['unit_id'])): // when called via URL
 			$study_data = $fdb->prepare("SELECT id FROM `survey_studies` WHERE name = :name LIMIT 1");
 			$study_data->bindValue(":name",$unit['name']);
-			$study_data->execute() or die(print_r($study_data->errorInfo(), true));
+			$study_data->execute();
 			$vars = $study_data->fetch(PDO::FETCH_ASSOC);
 			$unit['unit_id'] = $vars['id']; // parent::__construct needs this
 			$this->id = $unit['unit_id'];
@@ -57,7 +57,7 @@ class Survey extends RunUnit {
 	{
 		$study_data = $this->dbh->prepare("SELECT * FROM `survey_studies` WHERE id = :id LIMIT 1");
 		$study_data->bindParam(":id",$this->id);
-		$study_data->execute() or die(print_r($study_data->errorInfo(), true));
+		$study_data->execute();
 		$vars = $study_data->fetch(PDO::FETCH_ASSOC);
 		
 		if($vars):
@@ -103,7 +103,7 @@ class Survey extends RunUnit {
 		ON DUPLICATE KEY UPDATE modified = NOW();");
 		$start_entry->bindParam(":session_id", $this->session_id);
 		$start_entry->bindParam(":study_id", $this->id);
-		$start_entry->execute() or die(print_r($start_entry->errorInfo(), true));
+		$start_entry->execute();
 	}
 	public function post($posted, $redirect = true) {
 
@@ -183,7 +183,7 @@ class Survey extends RunUnit {
 		$progress = $this->dbh->prepare($query);
 		$progress->bindParam(":session_id", $this->session_id);
 		$progress->bindParam(":study_id", $this->id);
-		$progress->execute() or die(print_r($progress->errorInfo(), true));
+		$progress->execute();
 
 		$answered = $progress->fetch(PDO::FETCH_ASSOC);
 		
@@ -239,8 +239,8 @@ class Survey extends RunUnit {
 		// todo: should only get & render choices for items on this page
 		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label, label_parsed FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
 		ORDER BY `survey_item_choices`.id ASC;");
-		$get_item_choices->bindParam(":study_id", $this->id); // delete cascades to item display
-		$get_item_choices->execute() or die(print_r($get_item_choices->errorInfo(), true));
+		$get_item_choices->bindParam(":study_id", $this->id);
+		$get_item_choices->execute();
 		$choice_lists = array();
 		while($row = $get_item_choices->fetch(PDO::FETCH_ASSOC)):
 			if(!isset($choice_lists[ $row['list_name'] ])):
@@ -308,10 +308,10 @@ class Survey extends RunUnit {
 		`survey_items`.study_id = :study_id AND
 		(`survey_items_display`.answered IS NULL OR `survey_items`.type = 'note')
 		ORDER BY `survey_items`.id ASC;";
-		$get_items = $this->dbh->prepare($item_query) or die(print_r($this->dbh->errorInfo(), true));
+		$get_items = $this->dbh->prepare($item_query);
 		$get_items->bindParam(":session_id",$this->session_id);
 		$get_items->bindParam(":study_id", $this->id);
-		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
+		$get_items->execute();
 		
 		$choice_lists = $this->getAndRenderChoices();
 		
@@ -361,7 +361,7 @@ class Survey extends RunUnit {
 	}
 	protected function renderNextItems() {
 	
-		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
+		$this->dbh->beginTransaction();
 		
 		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
 											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
@@ -431,7 +431,7 @@ class Survey extends RunUnit {
 				$this->rendered_items[] = $item;
 			}
 		}
-		$this->dbh->commit() or die(print_r($this->dbh->errorInfo(), true));
+		$this->dbh->commit();
 		$this->not_answered_on_current_page = array_filter($this->rendered_items, function ($item)
 		{
 			if(
@@ -531,7 +531,7 @@ class Survey extends RunUnit {
 		`ended` IS NULL;");
 		$post_form->bindParam(":session_id", $this->session_id);
 		$post_form->bindParam(":study_id", $this->id);
-		$post_form->execute() or die(print_r($post_form->errorInfo(), true));
+		$post_form->execute();
 		
 		return parent::end();
 	}
@@ -563,7 +563,7 @@ class Survey extends RunUnit {
 	
 	public function changeSettings($key_value_pairs)
 	{
-		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
+		$this->dbh->beginTransaction();
 		$post_form = $this->dbh->prepare("UPDATE `survey_studies` SET
 			`maximum_number_displayed` = :maximum_number_displayed, 
 			`displayed_percentage_maximum` = :displayed_percentage_maximum,
@@ -575,9 +575,9 @@ class Survey extends RunUnit {
 		{
 		    $post_form->bindValue(":$key", $value);
 		}
-		$post_form->execute() or die(print_r($post_form->errorInfo(), true));
+		$post_form->execute();
 
-		$this->dbh->commit() or die(print_r($answered->errorInfo(), true));
+		$this->dbh->commit());
 	}
 	public function uploadItemTable($file, $confirmed_deletion)
 	{	
@@ -630,7 +630,7 @@ class Survey extends RunUnit {
 		
 		$exists = $this->dbh->prepare("SELECT name FROM `survey_studies` WHERE name = :name LIMIT 1");
 		$exists->bindParam(':name',$name);
-		$exists->execute() or die(print_r($create->errorInfo(), true));
+		$exists->execute();
 		if($exists->rowCount())
 			return true;
 		
@@ -687,7 +687,7 @@ class Survey extends RunUnit {
 		$create->bindParam(':run_item_id',$this->id);
 		$create->bindParam(':user_id',$this->unit['user_id']);
 		$create->bindParam(':name',$name);
-		$create->execute() or die(print_r($create->errorInfo(), true));
+		$create->execute();
 		$this->dbh->commit();
 		
 		$this->name = $name;
@@ -712,8 +712,8 @@ class Survey extends RunUnit {
 	{
 		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
 		ORDER BY `survey_item_choices`.id ASC;");
-		$get_item_choices->bindParam(":study_id", $this->id); // delete cascades to item display
-		$get_item_choices->execute() or die(print_r($get_item_choices->errorInfo(), true));
+		$get_item_choices->bindParam(":study_id", $this->id);
+		$get_item_choices->execute();
 		$choice_lists = array();
 		while($row = $get_item_choices->fetch(PDO::FETCH_ASSOC)):
 			if(!isset($choice_lists[ $row['list_name'] ]))
@@ -727,8 +727,8 @@ class Survey extends RunUnit {
 	{
 		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
 		ORDER BY `survey_item_choices`.id ASC;");
-		$get_item_choices->bindParam(":study_id", $this->id); // delete cascades to item display
-		$get_item_choices->execute() or die(print_r($get_item_choices->errorInfo(), true));
+		$get_item_choices->bindParam(":study_id", $this->id);
+		$get_item_choices->execute();
 
 		$results = array();
 		while($row = $get_item_choices->fetch(PDO::FETCH_ASSOC))
@@ -749,8 +749,8 @@ class Survey extends RunUnit {
 		$this->addChoices();
 		
 		$delete_old_items = $this->dbh->prepare("DELETE FROM `survey_items` WHERE `survey_items`.study_id = :study_id");
-		$delete_old_items->bindParam(":study_id", $this->id); // delete cascades to item display
-		$delete_old_items->execute() or die(print_r($delete_old_items->errorInfo(), true));
+		$delete_old_items->bindParam(":study_id", $this->id); // DELETE cascades to item display, fixme
+		$delete_old_items->execute();
 		
 	
 		$add_items = $this->dbh->prepare('INSERT INTO `survey_items` (
@@ -822,7 +822,7 @@ class Survey extends RunUnit {
 			}
 			$result_columns[] = $item->getResultField();
 			
-			$add_items->execute() or die(print_r($add_items->errorInfo(), true));
+			$add_items->execute();
 		}
 		
 		$unused = $this->item_factory->unusedChoiceLists();
@@ -888,7 +888,7 @@ class Survey extends RunUnit {
 	{
 		$delete_old_choices = $this->dbh->prepare("DELETE FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id");
 		$delete_old_choices->bindParam(":study_id", $this->id); // delete cascades to item display
-		$delete_old_choices->execute() or die(print_r($delete_old_choices->errorInfo(), true));
+		$delete_old_choices->execute();
 	
 		$add_choices = $this->dbh->prepare('INSERT INTO `survey_item_choices` (
 			study_id,
@@ -921,7 +921,7 @@ class Survey extends RunUnit {
 			{
 				$add_choices->bindParam(":$param", $choice[ $param ]);
 			}
-			$add_choices->execute() or die(print_r($add_choices->errorInfo(), true));
+			$add_choices->execute();
 		}
 		$this->messages[] = $delete_old_choices->rowCount() . " old choices deleted.";
 		$this->messages[] = count($this->SPR->choices) . " choices were successfully loaded.";
@@ -1002,7 +1002,7 @@ class Survey extends RunUnit {
 			return false;
 		endif;
 		
-		$create_table = $this->dbh->query($syntax) or die(print_r($this->dbh->errorInfo(), true));
+		$create_table = $this->dbh->query($syntax);
 		if($create_table)
 			return true;
 		else return false;
@@ -1011,7 +1011,7 @@ class Survey extends RunUnit {
 	{
 		$get_items = $this->dbh->prepare("SELECT id,study_id,type,choice_list,type_options,name,label,label_parsed,optional,class,showif,value,`order` FROM `survey_items` WHERE `survey_items`.study_id = :study_id ORDER BY id ASC");
 		$get_items->bindParam(":study_id", $this->id);
-		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
+		$get_items->execute();
 
 		$results = array();
 		while($row = $get_items->fetch(PDO::FETCH_ASSOC))
@@ -1023,7 +1023,7 @@ class Survey extends RunUnit {
 	{
 		$get_items = $this->dbh->prepare("SELECT type,type_options,choice_list,name,label,optional,class,showif,value,`order` FROM `survey_items` WHERE `survey_items`.study_id = :study_id ORDER BY id ASC");
 		$get_items->bindParam(":study_id", $this->id);
-		$get_items->execute() or die(print_r($get_items->errorInfo(), true));
+		$get_items->execute();
 
 		$results = array();
 		while($row = $get_items->fetch(PDO::FETCH_ASSOC)):
@@ -1038,7 +1038,7 @@ class Survey extends RunUnit {
 	public function countResults()
 	{
 		$get = "SELECT COUNT(*) AS count FROM `{$this->name}`";
-		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
+		$get = $this->dbh->query($get);
 		$results = array();
 		$row = $get->fetch(PDO::FETCH_ASSOC);
 		$this->result_count = $row['count'];
@@ -1051,7 +1051,7 @@ class Survey extends RunUnit {
 		ON  `{$this->name}`.session_id = `survey_unit_sessions`.id
 		LEFT JOIN `survey_run_sessions`
 		ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id";
-		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
+		$get = $this->dbh->query($get);
 		$results = array();
 		while($row = $get->fetch(PDO::FETCH_ASSOC)):
 			unset($row['study_id']);
@@ -1085,9 +1085,9 @@ class Survey extends RunUnit {
 		
 		WHERE `survey_items`.study_id = :study_id
 		ORDER BY `survey_run_sessions`.session, `survey_run_sessions`.created, `survey_items_display`.item_id";
-		$get = $this->dbh->prepare($get) or die(print_r($this->dbh->errorInfo(), true));
+		$get = $this->dbh->prepare($get);
 		$get->bindParam(':study_id',$this->id);
-		$get->execute() or die(print_r($this->dbh->errorInfo(), true));
+		$get->execute();
 		$results = array();
 		while($row = $get->fetch(PDO::FETCH_ASSOC))
 			$results[] = $row;
@@ -1110,10 +1110,10 @@ class Survey extends RunUnit {
 			$this->warnings[] = __("%s results rows were deleted.",array_sum($resC));
 		endif;
 		
-		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
+		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->name}`");
 		
 		$delete_sessions = $this->dbh->prepare ( "DELETE FROM `survey_unit_sessions` 
-		WHERE `unit_id` = :study_id" ) or die(print_r($this->dbh->errorInfo(), true));
+		WHERE `unit_id` = :study_id" );
 		$delete_sessions->bindParam(':study_id',$this->id);
 		$delete_sessions->execute();
 		
@@ -1135,7 +1135,7 @@ class Survey extends RunUnit {
 			$get = "SELECT SUM(`{$this->name}`.ended IS NULL) AS begun, SUM(`{$this->name}`.ended IS NOT NULL) AS finished FROM `{$this->name}` 
 			LEFT JOIN `survey_unit_sessions`
 			ON `survey_unit_sessions`.id = `{$this->name}`.session_id";
-			$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
+			$get = $this->dbh->query($get);
 			return $get->fetch(PDO::FETCH_ASSOC);
 		else:
 			return array('finished' => 0, 'begun' => 0);
@@ -1160,7 +1160,7 @@ class Survey extends RunUnit {
 		    ) AS t2
 		    -- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
 		    WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
-		$get = $this->dbh->query($get) or die(print_r($this->dbh->errorInfo(), true));
+		$get = $this->dbh->query($get);
 		$time = $get->fetch(PDO::FETCH_NUM);
 		$time = round($time[0] / 60, 3); # seconds to minutes
 		
@@ -1169,7 +1169,7 @@ class Survey extends RunUnit {
 	public function delete()
 	{
 		if($this->deleteResults()): // always back up
-			$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}`") or die(print_r($this->dbh->errorInfo(), true));
+			$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->name}`");
 			return parent::delete();
 		endif;
 		return false;
