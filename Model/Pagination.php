@@ -33,7 +33,7 @@ class Pagination
 	}
 	private function setMaximum($query)
 	{
-		$query->execute() or die(print_r($query->errorInfo(), true));
+		$query->execute();
 		$query_result = $query->fetch(PDO::FETCH_ASSOC);
 		
 		if($query_result):
