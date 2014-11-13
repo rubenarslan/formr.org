@@ -21,7 +21,7 @@ function check_time_against_mysql($dbh,$time_comp)
 {
 	$time = $dbh->prepare("SELECT UNIX_TIMESTAMP() - :created AS time_in_seconds");
 	$time->bindValue(":created",$time_comp);
-	$time->execute();
+	$time->execute() or die("fail time");
 	$time_passed = $time->fetch(PDO::FETCH_ASSOC);
 	return floatval($time_passed['time_in_seconds']);
 }
@@ -102,6 +102,7 @@ if(array_sum($done) > 0 OR array_sum($alert_types) > 0):
 	$log->bindParam(':notices', $alert_types['alert-info']);
 	$log->bindParam(':message', $alerts);
 	$log->execute();
+	
 endif;
 
 	echo $msg."<br>";

@@ -18,7 +18,7 @@ class EmailAccount
 			$acc = $this->dbh->prepare("SELECT * FROM `survey_email_accounts` WHERE id = :id LIMIT 1");
 			$acc->bindParam(":id",$this->id);
 
-			$acc->execute();
+			$acc->execute() or die(print_r($acc->errorInfo(), true));
 			$this->account = $acc->fetch(PDO::FETCH_ASSOC);
 			
 			if($this->account):
@@ -32,7 +32,7 @@ class EmailAccount
 	{
 		$create = $this->dbh->prepare("INSERT INTO `survey_email_accounts` (user_id) VALUES (:user_id);");
 		$create->bindParam(":user_id",$this->user_id);
-		$create->execute();
+		$create->execute() or die(print_r($create->errorInfo(), true));
 		$this->id = (int)$this->dbh->lastInsertId();
 		return $this->id;
 	}
@@ -58,7 +58,7 @@ class EmailAccount
 		$acc->bindParam(":username",$this->account['username']);
 		$acc->bindParam(":password",$this->account['password']);
 			
-		$acc->execute();
+		$acc->execute() or die(print_r($acc->errorInfo(), true));
 		return true;
 	}
 	public function test()
