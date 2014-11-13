@@ -12,7 +12,7 @@ if(isset($_POST['code'])):
 		$i += $run_session->create($_POST['code']);
 	endif;
 else:
-	$run_session->create() or die('Error when adding  when creating session');
+	$run_session->create();
 	$i++;
 endif;
 
