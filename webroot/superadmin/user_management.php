@@ -26,7 +26,7 @@ FROM `survey_users`
 
 ORDER BY `survey_users`.id ASC 
 LIMIT $limits;");
-$g_users->execute() or die(print_r($g_users->errorInfo(), true));
+$g_users->execute();
 
 $users = array();
 while($userx = $g_users->fetch(PDO::FETCH_ASSOC))

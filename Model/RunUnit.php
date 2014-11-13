@@ -81,7 +81,7 @@ class RunUnit {
 
 		$c_unit->bindParam(':type', $type);
 
-		$c_unit->execute() or die(print_r($c_unit->errorInfo(), true));
+		$c_unit->execute();
 
 		$this->unit_id = $this->dbh->lastInsertId();
 		return $this->unit_id;
@@ -94,7 +94,7 @@ class RunUnit {
 	 WHERE id = :id;");
 		$c_unit->bindParam(':id', $id);
 
-		$success = $c_unit->execute() or die(print_r($c_unit->errorInfo(), true));
+		$success = $c_unit->execute();
 
 		return $success;
 	}
@@ -183,7 +183,7 @@ class RunUnit {
 		LIMIT 1;");
 		$finish_unit->bindParam(":session_id", $this->session_id);
 		$finish_unit->bindParam(":unit_id", $this->id);
-		$finish_unit->execute() or die(print_r($finish_unit->errorInfo(), true));
+		$finish_unit->execute();
 
 		if ($finish_unit->rowCount() === 1):
 			$this->ended = true;
@@ -205,7 +205,7 @@ class RunUnit {
 		$get_sessions = $this->dbh->prepare($q); // should use readonly
 		$get_sessions->bindParam(':run_id', $this->run_id);
 
-		$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
+		$get_sessions->execute();
 		if ($get_sessions->rowCount() >= 1):
 			$results = array();
 			while ($temp = $get_sessions->fetch())
@@ -227,7 +227,7 @@ class RunUnit {
 		$reached_unit->bindParam(":unit_id", $this->id);
 		$reached_unit->bindParam(':run_id', $this->run_id);
 
-		$reached_unit->execute() or die(print_r($reached_unit->errorInfo(), true));
+		$reached_unit->execute();
 		$reached = $reached_unit->fetch(PDO::FETCH_ASSOC);
 		return $reached;
 	}
@@ -386,7 +386,7 @@ class RunUnit {
 		if($token_add !== null AND !in_array($token_add, $tables)):
 			$get_token_id = $fdb->prepare("SELECT `id` FROM `survey_studies` WHERE `name` = :token_add");
 			$get_token_id->bindValue(':token_add',$token_add);
-			$get_token_id->execute() or die(print_r($get_token_id->errorInfo(), true));
+			$get_token_id->execute();
 			$token_id = $get_token_id->fetch();
 			$tables[ $token_id['id'] ] = $token_add;
 		endif;
@@ -424,7 +424,7 @@ class RunUnit {
 					'submit'
 				)");
 				$variable_names->bindValue(':study_id',$study_id);
-				$variable_names->execute() or die(print_r($variable_names->errorInfo(), true));
+				$variable_names->execute();
 			
 				$variable_names_in_table[ $table_name ] = array("created","modified","ended"); // should avoid modified, sucks for caching
 				while($res = $variable_names->fetch(PDO::FETCH_ASSOC)):
@@ -494,7 +494,7 @@ class RunUnit {
 			$get_sessions->bindParam(':run_id', $this->run_id);
 			$get_sessions->bindValue(':current_position', $current_position);
 
-			$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
+			$get_sessions->execute();
 
 			if ($get_sessions->rowCount() >= 1):
 				$temp_user = $get_sessions->fetch(PDO::FETCH_ASSOC);
