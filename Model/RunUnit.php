@@ -113,23 +113,14 @@ class RunUnit {
 
 		$d_run_unit->bindParam(':unit_id', $this->id);
 		$d_run_unit->bindParam(':id', $this->run_unit_id);
-		$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
+		$d_run_unit->execute();
 		return $d_run_unit->rowCount();
 	}
 	public function addToRun($run_id, $position = 1)
 	{
 		if($position=='NaN') $position = 1;
 		$this->position = (int) $position;
-		/*
-		  $s_run_unit = $this->dbh->prepare("SELECT id FROM `survey_run_units` WHERE unit_id = :id AND run_id = :run_id;");
-		  $s_run_unit->bindParam(':id', $this->id);
-		  $s_run_unit->bindParam(':run_id', $run_id);
-		  $s_run_unit->execute() or ($this->errors = $s_run_unit->errorInfo());
-
-		  if($s_run_unit->rowCount()===0):
-		 */
-
-			$d_run_unit = $this->dbh->prepare("INSERT INTO `survey_run_units` SET 
+		$d_run_unit = $this->dbh->prepare("INSERT INTO `survey_run_units` SET 
 				unit_id = :id, 
 			run_id = :run_id,
 			position = :position
@@ -137,7 +128,7 @@ class RunUnit {
 		$d_run_unit->bindParam(':id', $this->id);
 		$d_run_unit->bindParam(':run_id', $run_id);
 		$d_run_unit->bindParam(':position', $this->position);
-		$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
+		$d_run_unit->execute();
 		$this->run_unit_id = $this->dbh->lastInsertId();
 		return $this->run_unit_id;
 		/*
@@ -150,7 +141,7 @@ class RunUnit {
 		$d_run_unit = $this->dbh->prepare("DELETE FROM `survey_run_units` WHERE 
 			id = :id;");
 		$d_run_unit->bindParam(':id', $this->run_unit_id);
-		$d_run_unit->execute() or ( $this->errors = $d_run_unit->errorInfo());
+		$d_run_unit->execute();
 
 		return $d_run_unit->rowCount();
 	}
@@ -159,13 +150,13 @@ class RunUnit {
 		$d_unit = $this->dbh->prepare("DELETE FROM `survey_units` WHERE id = :id;");
 		$d_unit->bindParam(':id', $this->id);
 
-		$d_unit->execute() or $this->errors = $d_unit->errorInfo();
+		$d_unit->execute();
 
 		$affected = $d_unit->rowCount();
 		if ($affected): // remove from all runs
 			$d_run_unit = $this->dbh->prepare("DELETE FROM `survey_run_units` WHERE unit_id = :id;");
 			$d_run_unit->bindParam(':id', $this->id);
-			$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
+			$d_run_unit->execute();
 
 			$affected += $d_run_unit->rowCount();
 		endif;

@@ -352,7 +352,7 @@ class Survey extends RunUnit {
 			}
 			$this->unanswered[$name] = $item;
 
-			if(! $item->hidden AND $item->no_user_input_required):
+			if(! $item->hidden AND $item->no_user_input_required AND isset($item->input_attributes['value'])):
 				$this->post( array($item->name => $item->input_attributes['value']), false); # add this data but don't reload
 			endif;
 			
@@ -563,6 +563,33 @@ class Survey extends RunUnit {
 	
 	public function changeSettings($key_value_pairs)
 	{
+		$errors = false;
+		if(isset($key_value_pairs['maximum_number_displayed']) 
+			AND $key_value_pairs['maximum_number_displayed'] = (int)$key_value_pairs['maximum_number_displayed'] 
+			AND $key_value_pairs['maximum_number_displayed'] > 3000
+			|| $key_value_pairs['maximum_number_displayed'] < 1
+			):
+			alert("Maximum number displayed has to be between 1 and 65535", 'alert-warning');
+			$errors = true;
+		endif;
+		if(isset($key_value_pairs['displayed_percentage_maximum']) 
+			AND $key_value_pairs['displayed_percentage_maximum'] = (int)$key_value_pairs['displayed_percentage_maximum'] 
+			AND $key_value_pairs['displayed_percentage_maximum'] > 100
+			|| $key_value_pairs['displayed_percentage_maximum'] < 1
+		):
+			alert("Percentage maximum has to be between 1 and 100.", 'alert-warning');
+			$errors = true;
+		endif;
+		if(isset($key_value_pairs['add_percentage_points']) 
+			AND $key_value_pairs['add_percentage_points'] = (int)$key_value_pairs['add_percentage_points'] 
+			AND $key_value_pairs['add_percentage_points'] > 100
+			|| $key_value_pairs['add_percentage_points'] < 0
+			):
+			alert("Percentage points added has to be between 0 and 100.", 'alert-warning');
+			$errors = true;
+		endif;
+		if($errors) return false;
+		
 		$this->dbh->beginTransaction();
 		$post_form = $this->dbh->prepare("UPDATE `survey_studies` SET
 			`maximum_number_displayed` = :maximum_number_displayed, 
