@@ -131,7 +131,7 @@ class Survey extends RunUnit {
 				}
 	
 				$value = $this->unanswered[$name]->validateInput($value);
-				if(!$this->unanswered[$name]->error) {
+				if($this->unanswered[$name]->error) {
 					$this->errors[$name] = $this->unanswered[$name]->error;
 					unset($this->unanswered[$name]);
 					continue;
@@ -156,7 +156,7 @@ class Survey extends RunUnit {
 				if (!$item_saved || !$item_answered) {
 					throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$this->results_table}' (FieldType: {$this->unanswered[$name]->getResultField()})");
 				}
-				$this->unanswered[$name];
+				unset($this->unanswered[$name]);
 			} //endforeach
 			$this->dbh->commit();
 		} catch (Exception $e) {
