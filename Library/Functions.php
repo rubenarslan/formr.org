@@ -598,6 +598,6 @@ function download_file($file, $unlink = false) {
 }
 
 function log_exception(Exception $e) {
-	error_log('formr: ' . $e->getMessage());
-	error_log('formr: ' . $e->getTraceAsString());
+	formr_log('Ex: ' . $e->getMessage());
+	formr_log('ExS: ' . $e->getTraceAsString());
 }
