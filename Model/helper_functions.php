@@ -445,3 +445,11 @@ function echo_time_points($points)
 	echo "took ".round((microtime(true)-$_SERVER["REQUEST_TIME_FLOAT"])/60,6). " minutes to the end";	
 //	echo "--->";
 }
+
+function get_duplicate_update_string ($columns) {
+	foreach ($columns as $i => $column) {
+		$column = trim($column, '`');
+		$columns[$i] = "`$column` = VALUES(`$column`)";
+	}
+	return $columns;
+}
