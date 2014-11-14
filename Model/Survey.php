@@ -133,7 +133,6 @@ class Survey extends RunUnit {
 				$value = $this->unanswered[$name]->validateInput($value);
 				if($this->unanswered[$name]->error) {
 					$this->errors[$name] = $this->unanswered[$name]->error;
-					unset($this->unanswered[$name]);
 					continue;
 				}
 
