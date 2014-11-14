@@ -16,6 +16,9 @@ class Survey extends RunUnit {
 	public $results_table = null;
 	public $run_session_id = null;
 	public $settings = array();
+	/**
+	 * @var PDO
+	 */
 	public $dbh;
 	
 	public $valid = false;
@@ -95,16 +98,15 @@ class Survey extends RunUnit {
 		$this->dbh = NULL;
 		return $ret;
 	}
-	protected function startEntry()
-	{
+
+	protected function startEntry() {
 		
-		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`)
-																  VALUES(:session_id, :study_id, NOW()) 
-		ON DUPLICATE KEY UPDATE modified = NOW();");
+		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`) VALUES(:session_id, :study_id, NOW()) ON DUPLICATE KEY UPDATE modified = NOW();");
 		$start_entry->bindParam(":session_id", $this->session_id);
 		$start_entry->bindParam(":study_id", $this->id);
 		$start_entry->execute();
 	}
+
 	public function post($posted, $redirect = true) {
 
 		unset($posted['id']); // cant overwrite your session
@@ -115,52 +117,56 @@ class Survey extends RunUnit {
 		unset($posted['modified']); // cant overwrite
 		unset($posted['ended']); // cant overwrite
 		
-		$answered = $this->dbh->prepare("INSERT INTO `survey_items_display` (item_id, session_id, created, answered, answered_time, modified, displaycount)
-																  VALUES(	:item_id,  :session_id, NOW(), 1, NOW(),	NOW()	, 1) 
-		ON DUPLICATE KEY UPDATE 											answered = 1,answered_time = NOW()");
+		$answered = $this->dbh->prepare("
+			INSERT INTO `survey_items_display` (item_id, session_id, created, answered, answered_time, modified, displaycount) 
+			VALUES(:item_id,  :session_id, NOW(), 1, NOW(), NOW(), 1) 
+			ON DUPLICATE KEY UPDATE answered = 1, answered_time = NOW()");
 		$answered->bindParam(":session_id", $this->session_id);
-		
-		foreach($posted AS $name => $value)
-		{
-	        if (isset($this->unanswered[$name])) {
-				
-				$value = $this->unanswered[$name]->validateInput($value);
-				if( ! $this->unanswered[$name]->error )
-				{
-					try
-					{
-						$this->dbh->beginTransaction();
-						$answered->bindParam(":item_id", $this->unanswered[$name]->id);
-						$answered->execute();
-						if($this->unanswered[$name]->save_in_results_table)
-						{
-							$post_form = $this->dbh->prepare("UPDATE `{$this->results_table}`
-							SET 
-							`$name` = :$name
-							WHERE session_id = :session_id AND study_id = :study_id AND `$name` IS NULL;");
-						    $post_form->bindValue(":$name", $value);
-							$post_form->bindValue(":session_id", $this->session_id);
-							$post_form->bindValue(":study_id", $this->id);
-						
-							$post_form->execute();
-						}
-						$this->dbh->commit();
-					}
-					catch(Exception $e)
-					{
-						if(strlen($value)>10000) $value = substr($value,0,100).'(too big to show here)';
-						trigger_error(date("Y-m-d H:i:s")." Could not save in survey ".$this->results_table. ", probably because " . $name . "'s field was misconfigured as " . $this->unanswered[$name]->getResultField() .
-							" and the value was " . $value . PHP_EOL."<br><pre>" . print_r($e, true) . "</pre>", E_USER_WARNING);
-					}
-					unset($this->unanswered[$name]);
-				} else {
-					$this->errors[$name] = $this->unanswered[$name]->error;
-				}
-			}
-		} //endforeach
 
-		if(empty($this->errors) AND !empty($posted) AND $redirect)
-		{ // PRG
+		try {
+			$this->dbh->beginTransaction();
+			foreach($posted AS $name => $value) {
+				if (!isset($this->unanswered[$name])) {
+					continue;
+				}
+	
+				$value = $this->unanswered[$name]->validateInput($value);
+				if(!$this->unanswered[$name]->error) {
+					$this->errors[$name] = $this->unanswered[$name]->error;
+					unset($this->unanswered[$name]);
+					continue;
+				}
+
+				$item_saved = true;
+				if($this->unanswered[$name]->save_in_results_table) {
+					$post_form = $this->dbh->prepare("
+						UPDATE `{$this->results_table}` SET `$name` = :$name 
+						WHERE session_id = :session_id AND study_id = :study_id AND `$name` IS NULL;
+					");
+
+					$post_form->bindValue(":$name", $value);
+					$post_form->bindValue(":session_id", $this->session_id);
+					$post_form->bindValue(":study_id", $this->id);
+					$item_saved = $post_form->execute();
+				}
+
+				$answered->bindParam(":item_id", $this->unanswered[$name]->id);
+				$item_answered = $answered->execute();
+
+				if (!$item_saved || !$item_answered) {
+					throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$this->results_table}' (FieldType: {$this->unanswered[$name]->getResultField()})");
+				}
+				$this->unanswered[$name];
+			} //endforeach
+			$this->dbh->commit();
+		} catch (Exception $e) {
+			$this->dbh->rollBack();
+			formr_log($e->getMessage());
+			formr_log($e->getTraceAsString());
+		}
+
+		if(empty($this->errors) AND !empty($posted) AND $redirect) {
+			// PRG
 			redirect_to($this->run_name);
 		}
 		
@@ -774,84 +780,56 @@ class Survey extends RunUnit {
 		$this->parsedown->setBreaksEnabled(true);
 		
 		$this->addChoices();
-		
+		/**
 		$delete_old_items = $this->dbh->prepare("DELETE FROM `survey_items` WHERE `survey_items`.study_id = :study_id");
 		$delete_old_items->bindParam(":study_id", $this->id); // delete cascades to item display
 		$delete_old_items->execute();
-		
-	
-		$add_items = $this->dbh->prepare('INSERT INTO `survey_items` (
-			study_id,
-	        name,
-	        label,
-			label_parsed,
-	        type,
-			type_options,
-			choice_list,
-	        optional,
-	        class,
-	        showif,
-	        value,
-			`order`
-		) VALUES (
-			:study_id,
-			:name,
-			:label,
-			:label_parsed,
-			:type,
-			:type_options,
-			:choice_list,
-			:optional,
-			:class,
-			:showif,
-			:value,
-			:order
-			)');
-	
+		 */
+
+		$UPDATES = implode(', ', get_duplicate_update_string($this->user_defined_columns));
+		$add_items = $this->dbh->prepare("
+			INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `order`) 
+			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :order
+		) ON DUPLICATE KEY UPDATE $UPDATES");
+
 		$result_columns = array();
-		
 		$add_items->bindParam(":study_id", $this->id);
-		
+
 		$choice_lists = $this->getChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
-		
-		foreach($this->SPR->survey as $row_number => $row) 
-		{
+
+		foreach($this->SPR->survey as $row_number => $row) {
 			$item = $this->item_factory->make($row);
-			
-			if(!$item):
+			if (!$item) {
 				$this->errors[] = __("Row %s: Type %s is invalid.",$row_number,$this->SPR->survey[$row_number]['type']);
 				unset($this->SPR->survey[$row_number]);
 				continue;
-			else:
-				$val_errors = $item->validate();
-		
-				if(!empty($val_errors)):
-					$this->errors = $this->errors + $val_errors;
-					unset($this->SPR->survey[$row_number]);
-					continue;
-				else:
-					if(!$this->knittingNeeded($item->label)): // if the parsed label is constant
-						$markdown = $this->parsedown->text($item->label);
+			}
 
-						if(mb_substr_count($markdown,"</p>")===1 AND preg_match("@^<p>(.+)</p>$@",trim($markdown),$matches)):
-							$item->label_parsed = $matches[1];
-						else:
-							$item->label_parsed = $markdown;
-						endif;
-					endif;
-				endif;
+			$val_errors = $item->validate();
+			if (!empty($val_errors)) {
+				$this->errors = $this->errors + $val_errors;
+				unset($this->SPR->survey[$row_number]);
+				continue;
+			}
+
+			if(!$this->knittingNeeded($item->label)): // if the parsed label is constant
+				$markdown = $this->parsedown->text($item->label);
+				$item->label_parsed = $markdown;
+				if(mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
+					$item->label_parsed = $matches[1];
+				}
 			endif;
 
-			foreach ($this->user_defined_columns as $param) 
-			{
+			foreach ($this->user_defined_columns as $param) {
 				$add_items->bindValue(":$param", $item->$param);
 			}
-			$result_columns[] = $item->getResultField();
-			
+
+			$result_columns[] = $item->getResultField();			
 			$add_items->execute();
+			formr_log($add_items->queryString);
 		}
-		
+
 		$unused = $this->item_factory->unusedChoiceLists();
 		if(! empty( $unused ) ):
 			$this->warnings[] = __("These choice lists were not used: '%s'", implode("', '",$unused));
@@ -859,44 +837,36 @@ class Survey extends RunUnit {
 	
 		$new_syntax = $this->getResultsTableSyntax($result_columns);
 		
-		if($this->hasResultsTable())
-		{
+		if($this->hasResultsTable()) {
 			$resultCount = $this->getResultCount();
 		
-			if($new_syntax !== $old_syntax AND $resultCount['finished'] > 0) // if the results table would be recreated and there are results
-			{
-				if(! $this->confirmed_deletion)
-				{
+			if($new_syntax !== $old_syntax AND $resultCount['finished'] > 0)  {
+			// if the results table would be recreated and there are results
+				if(! $this->confirmed_deletion) {
 					$this->errors[] = "The results table would have to be deleted, but you did not confirm deletion of results.";
 				}
 			}
 		}
 		
-		if(!empty($this->errors))
-		{
+		if(!empty($this->errors)) {
 			$this->dbh->rollBack();
 			$this->errors[] = "All changes were rolled back";
 			return false;
-		}
-		elseif ($this->dbh->commit()) 
-		{
-			$this->messages[] = $delete_old_items->rowCount() . " old items were replaced with " . count($this->SPR->survey) . " new items.";
+		} elseif ($this->dbh->commit()) {
+			//$this->messages[] = $delete_old_items->rowCount() . " old items were replaced with " . count($this->SPR->survey) . " new items.";
 			
-			if($new_syntax !== $old_syntax)
-			{
+			if($new_syntax !== $old_syntax) {
 				$this->warnings[] = "A new results table was created.";
 				return $this->createResultsTable($new_syntax);
-			}
-			else
-			{
+			} else {
 				$this->messages[] = "<strong>The old results table was kept.</strong>";
 				return true;
 			}
 		}
 		return false;
 	}
-	public function getItemsWithChoices()
-	{
+
+	public function getItemsWithChoices() {
 		$choice_lists = $this->getChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
 		
@@ -911,8 +881,8 @@ class Survey extends RunUnit {
 		}
 		return $items;
 	}
-	private function addChoices()
-	{
+
+	private function addChoices() {
 		$delete_old_choices = $this->dbh->prepare("DELETE FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id");
 		$delete_old_choices->bindParam(":study_id", $this->id); // delete cascades to item display
 		$delete_old_choices->execute();
