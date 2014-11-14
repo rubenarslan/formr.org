@@ -82,13 +82,17 @@ class DB {
 	 * @param string $query Query string with optional placeholders
 	 * @param array $params An array of parameters to bind to PDO statement
 	 * @param bool $fetchcol
+	 * @param bool $fetchrow
 	 * @return array Returns an associative array of results
 	 */
-	public function execute($query, $params = array(), $fetchcol = false) {
+	public function execute($query, $params = array(), $fetchcol = false, $fetchrow = false) {
 		$stmt = $this->PDO->prepare($query);
 		$stmt->execute($params);
 		if ($fetchcol) {
 			return $stmt->fetchColumn();
+		}
+		if ($fetchrow) {
+			return $stmt->fetch(PDO::FETCH_ASSOC);
 		}
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
 	}
@@ -676,10 +680,12 @@ class DB_Select {
 
 	private function parseColName($string) {
 		$string = trim($string);
-		$string = trim($string, '`');
+		// If it is some sql func
 		if (!preg_match('/[a-zA-Z0-9_]/i', $string, $matches)) {
 			return $string;
 		}
+
+		$string = trim($string, '`');
 
 		if (strpos($string, '.') !== false) {
 			$string = explode('.', $string, 2);
