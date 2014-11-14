@@ -27,12 +27,11 @@ class SuperadminController extends Controller {
 	}
 
 	public function cronLogAction() {
-		$cron_entries = $this->fdb->prepare("SELECT COUNT(`survey_cron_log`.id) AS count FROM `survey_cron_log`");
-
-		$pagination = new Pagination($cron_entries);
+		$cron_entries_count = $this->fdb->count('survey_cron_log');
+		$pagination = new Pagination($cron_entries_count);
 		$limits = $pagination->getLimits();
 
-		$g_cron = $this->fdb->prepare("SELECT 
+		$cron_entries_query = "SELECT 
 			`survey_cron_log`.id,
 			`survey_users`.email,
 			`survey_cron_log`.run_id,
@@ -49,20 +48,13 @@ class SuperadminController extends Controller {
 			`survey_cron_log`.notices, 
 			`survey_cron_log`.message,
 			`survey_runs`.name AS run_name
-		FROM `survey_cron_log`
-		LEFT JOIN `survey_runs`
-		ON `survey_cron_log`.run_id = `survey_runs`.id
-		LEFT JOIN `survey_users`
-		ON `survey_users`.id = `survey_runs`.user_id
+		FROM `survey_cron_log` LEFT JOIN `survey_runs` ON `survey_cron_log`.run_id = `survey_runs`.id
+		LEFT JOIN `survey_users` ON `survey_users`.id = `survey_runs`.user_id
+		ORDER BY `survey_cron_log`.id DESC LIMIT $limits;";
 
-		ORDER BY `survey_cron_log`.id DESC 
-		LIMIT $limits;");
-
-		$g_cron->bindParam(':user_id', $this->user->id);
-		$g_cron->execute() or die(print_r($g_cron->errorInfo(), true));
-
+		$g_cron = $this->fdb->execute($cron_entries_query, array('user_id', $this->user->id));
 		$cronlogs = array();
-		while ($cronlog = $g_cron->fetch(PDO::FETCH_ASSOC)) {
+		foreach ($g_cron as $cronlog) {
 			$cronlog = array_reverse($cronlog, true);
 			$cronlog['Modules'] = '<small>';
 
@@ -105,24 +97,22 @@ class SuperadminController extends Controller {
 	}
 
 	public function userManagementAction() {
-		$user_count= $this->fdb->prepare("SELECT COUNT(id) AS count FROM `survey_users`");
-
+		$user_count = $this->fdb->count('survey_users');
 		$pagination = new Pagination($user_count, 200, true);
 		$limits = $pagination->getLimits();
 
-		$g_users = $this->fdb->prepare("SELECT 
+		$users_query = "SELECT 
 			`survey_users`.id,
 			`survey_users`.created,
 			`survey_users`.modified,
 			`survey_users`.email,
 			`survey_users`.admin,
 			`survey_users`.email_verified
-
 		FROM `survey_users`
+		ORDER BY `survey_users`.id ASC  LIMIT $limits;";
 
-		ORDER BY `survey_users`.id ASC 
-		LIMIT $limits;");
-		$g_users->execute() or die(print_r($g_users->errorInfo(), true));
+		$g_users = $this->fdb->prepare($users_query);
+		$g_users->execute();
 
 		$users = array();
 		while($userx = $g_users->fetch(PDO::FETCH_ASSOC)) {
