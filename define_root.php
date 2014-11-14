@@ -8,7 +8,7 @@ function define_webroot() {
 	if(isset($_SERVER['SERVER_NAME'])){
 		switch($_SERVER['SERVER_NAME']){
 			case 'localhost':
-				$doc_root = "localhost:8888/formr.org/";
+				$doc_root = "localhost/formr.org/";
 				$server_root = __DIR__ . '/';
 				$online = false;
 				$testing = false;
