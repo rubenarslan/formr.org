@@ -826,7 +826,6 @@ class Survey extends RunUnit {
 
 			$result_columns[] = $item->getResultField();			
 			$add_items->execute();
-			formr_log($add_items->queryString);
 		}
 
 		$unused = $this->item_factory->unusedChoiceLists();
