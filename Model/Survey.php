@@ -1004,7 +1004,7 @@ class Survey extends RunUnit {
 	}
 	public function getItems()
 	{
-		$get_items = $this->dbh->prepare("SELECT id,study_id,type,choice_list,type_options,name,label,label_parsed,optional,class,showif,value,`order` FROM `survey_items` WHERE `survey_items`.study_id = :study_id ORDER BY id ASC");
+		$get_items = $this->dbh->prepare("SELECT id,study_id,type,choice_list,type_options,name,label,label_parsed,optional,class,showif,value,`order` FROM `survey_items` WHERE `survey_items`.study_id = :study_id ORDER BY `order` DESC, id ASC");
 		$get_items->bindParam(":study_id", $this->id);
 		$get_items->execute();
 
@@ -1016,7 +1016,7 @@ class Survey extends RunUnit {
 	}
 	public function getItemsForSheet()
 	{
-		$get_items = $this->dbh->prepare("SELECT type,type_options,choice_list,name,label,optional,class,showif,value,`order` FROM `survey_items` WHERE `survey_items`.study_id = :study_id ORDER BY id ASC");
+		$get_items = $this->dbh->prepare("SELECT type,type_options,choice_list,name,label,optional,class,showif,value,`order` FROM `survey_items` WHERE `survey_items`.study_id = :study_id ORDER BY `order` DESC, id ASC");
 		$get_items->bindParam(":study_id", $this->id);
 		$get_items->execute();
 
