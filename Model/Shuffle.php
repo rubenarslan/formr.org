@@ -17,7 +17,7 @@ class Shuffle extends RunUnit {
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT groups FROM `survey_shuffles` WHERE id = :id LIMIT 1");
 			$data->bindParam(":id",$this->id);
-			$data->execute() or die(print_r($data->errorInfo(), true));
+			$data->execute();
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
 			
 			if($vars):
@@ -48,7 +48,7 @@ class Shuffle extends RunUnit {
 		$create->bindParam(':id',$this->id);
 		$create->bindParam(':groups',$this->groups);
 		$create->bindParam(':groups2',$this->groups);
-		$create->execute() or die(print_r($create->errorInfo(), true));
+		$create->execute();
 		$this->dbh->commit();
 		$this->valid = true;
 		

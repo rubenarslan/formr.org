@@ -19,7 +19,7 @@ session_over($site, $user);
 function check_time_against_mysql($dbh,$time_comp) {
 	$time = $dbh->prepare("SELECT UNIX_TIMESTAMP() - :created AS time_in_seconds");
 	$time->bindValue(":created",$time_comp);
-	$time->execute() or die("fail time");
+	$time->execute();
 	$time_passed = $time->fetch(PDO::FETCH_ASSOC);
 	return floatval($time_passed['time_in_seconds']);
 }
