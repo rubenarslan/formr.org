@@ -37,7 +37,7 @@ class User
 	private function load() {
 		$load = $this->dbh->prepare("SELECT id, email, password, admin, user_code FROM `survey_users` WHERE id = :id LIMIT 1");
 		$load->bindParam(':id',$this->id);
-		$load->execute() or die('db');
+		$load->execute();
 		if($user = $load->fetch())
 		{
 			$this->logged_in = true;
@@ -73,8 +73,8 @@ class User
 	public function register($email, $password)  {
 		$exists = $this->dbh->prepare("SELECT email FROM `survey_users` WHERE email = :email LIMIT 1");
 		$exists->bindParam(':email',$email);
-		$exists->execute() or die('db');
-		if($user = $exists->rowCount() === 0) {
+		$exists->execute();
+		if($user = $exists->rowCount() === 0)	{
 			$hash = password_hash($password, PASSWORD_DEFAULT);
 
 			if($hash):
@@ -86,7 +86,7 @@ class User
 				$add->bindParam(':email',$email);
 				$add->bindParam(':password',$hash);
 				$add->bindParam(':user_code',$this->user_code);
-				$add->execute() or die('Couldnt add user');
+				$add->execute();
 				
 				$login = $this->login($email, $password);
 				$this->needToVerifyMail();
@@ -112,7 +112,7 @@ class User
 				WHERE id = :id');
 		$add->bindParam(':id',$this->id);
 		$add->bindParam(':token_hash',$token_hash);
-		$add->execute() or die('Could not set up email verification');
+		$add->execute();
 
 		$verify_link = WEBROOT."public/verify_email/?email=".rawurlencode($this->email)."&verification_token=".$token;
 	
@@ -144,7 +144,7 @@ formr robots";
 	public function login($email, $password) {
 		$login = $this->dbh->prepare("SELECT id, password, admin, user_code FROM `survey_users` WHERE email = :email LIMIT 1");
 		$login->bindParam(':email',$email);
-		$login->execute() or die('db');
+		$login->execute();
 		if($user = $login->fetch())
 		{
 			if(password_verify($password, $user['password']))
@@ -158,7 +158,7 @@ formr robots";
 								password = :password WHERE email = :email');
 						$add->bindParam(':email',$email);
 						$add->bindParam(':password',$hash);
-						$add->execute() or die('probl');
+						$add->execute();
 					else:
 						alert('<strong>Error!</strong> Hash error.','alert-danger');
 						return false;
@@ -193,13 +193,13 @@ formr robots";
 		
 		$set_level->bindParam(':id',$this->id);
 		$set_level->bindParam(':admin',$level);
-		return $set_level->execute() or die('db');
+		return $set_level->execute();
 	}
 
 	public function forgot_password($email) {
 		$exists = $this->dbh->prepare("SELECT email FROM `survey_users` WHERE email = :email LIMIT 1");
 		$exists->bindParam(':email',$email);
-		$exists->execute() or die('db');
+		$exists->execute();
 		if($user = $exists->rowCount() === 0):
 			alert("This email address is not registered here.","alert-danger");
 			return false;
@@ -212,7 +212,7 @@ formr robots";
 			$hash = password_hash($token, PASSWORD_DEFAULT);
 			$update_token->bindParam(':reset_token_hash',$hash);
 			$update_token->bindParam(':email',$email);
-			$update_token->execute() or die('db');
+			$update_token->execute();
 			
 			$reset_link = WEBROOT."public/reset_password?email=".rawurlencode($email)."&reset_token=".$token;
 
@@ -263,7 +263,7 @@ formr robots";
 						password = :password WHERE email = :email');
 				$add->bindParam(':email',$email);
 				$add->bindParam(':password',$hash);
-				$add->execute() or die('probl');
+				$add->execute();
 				return true;
 			else:
 				alert('<strong>Error!</strong> Hash error.','alert-danger');
@@ -281,7 +281,7 @@ formr robots";
 					email = :email WHERE id = :id');
 			$add->bindParam(':id',$this->id);
 			$add->bindParam(':email',$email);
-			$add->execute() or die('probl');
+			$add->execute();
 			$this->email = $email;
 			$this->needToVerifyMail();
 			return true;
@@ -292,7 +292,7 @@ formr robots";
 	public function reset_password($email, $token, $new_password) {
 		$proper = $this->dbh->prepare("SELECT reset_token_hash FROM `survey_users` WHERE email = :email LIMIT 1");
 		$proper->bindParam(':email',$email);
-		$proper->execute() or die('db');
+		$proper->execute();
 		if($user = $proper->fetch()):
 			if(password_verify($token, $user['reset_token_hash'])):
 				
@@ -302,7 +302,7 @@ formr robots";
 		        $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
 				$update->bindParam(':email',$email);
 				$update->bindParam(':password',$password_hash);
-				$update->execute() or die('probl');
+				$update->execute();
 				alert("Your password was successfully changed. You can now use it to login.","alert-success");
 				return true;
 			endif;
@@ -315,7 +315,7 @@ formr robots";
 	public function verify_email($email, $token) {
 		$proper = $this->dbh->prepare("SELECT email_verification_hash FROM `survey_users` WHERE email = :email LIMIT 1");
 		$proper->bindParam(':email',$email);
-		$proper->execute() or die('db');
+		$proper->execute();
 		if($user = $proper->fetch()):
 			if(password_verify($token, $user['email_verification_hash'])):
 				
@@ -323,7 +323,7 @@ formr robots";
 						email_verification_hash = NULL, email_verified = 1
 				WHERE email = :email LIMIT 1');
 				$update->bindParam(':email',$email);
-				$update->execute() or die('probl');
+				$update->execute();
 				alert("Your email was successfully verified!","alert-success");
 				return true;
 			else:
