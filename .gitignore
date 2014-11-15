@@ -6,3 +6,7 @@ vendor/*
 .Rproj.user
 formr.Rcheck
 formr-package/man
+
+createclassmap.php
+tmp/logs/*.log
+nbproject

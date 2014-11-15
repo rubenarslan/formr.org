@@ -594,7 +594,7 @@ class SpreadsheetReader
 	  		$cellIterator = $row->getCellIterator();
 	  		$cellIterator->setIterateOnlyExistingCells(false); // Loop all cells, even if it is not set
 		
-			$data[$row_number] = array();
+			$data[$row_number] = array('order' => $row_number + 1);
 		
 	 		foreach($cellIterator AS $cell):
 	  			if (!is_null($cell) ):

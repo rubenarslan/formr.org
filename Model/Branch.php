@@ -20,7 +20,7 @@ class Branch extends RunUnit {
 		if($this->id):
 			$data = $this->dbh->prepare("SELECT `id`, `condition`, `if_true`, `automatically_jump`, `automatically_go_on` FROM `survey_branches` WHERE id = :id LIMIT 1");
 			$data->bindParam(":id",$this->id);
-			$data->execute() or die(print_r($data->errorInfo(), true));
+			$data->execute();
 			$vars = $data->fetch(PDO::FETCH_ASSOC);
 			
 			if($vars):
@@ -73,7 +73,7 @@ class Branch extends RunUnit {
 		$create->bindParam(':automatically_jump2',$this->automatically_jump);
 		$create->bindParam(':automatically_go_on',$this->automatically_go_on);
 		$create->bindParam(':automatically_go_on2',$this->automatically_go_on);
-		$create->execute() or die(print_r($create->errorInfo(), true));
+		$create->execute();
 		$this->dbh->commit();
 		$this->valid = true;
 		
@@ -125,7 +125,7 @@ class Branch extends RunUnit {
 		$get_sessions = $this->dbh->prepare($q); // should use readonly
 		$get_sessions->bindParam(':run_id',$this->run_id);
 
-		$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
+		$get_sessions->execute();
 		if($get_sessions->rowCount()>=1):
 			$results = array();
 			while($temp = $get_sessions->fetch())
