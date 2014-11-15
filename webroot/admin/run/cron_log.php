@@ -41,7 +41,7 @@ FROM `survey_cron_log`
 WHERE `survey_cron_log`.run_id = :run_id
 ORDER BY `survey_cron_log`.id DESC LIMIT $limits;");
 $g_cron->bindValue(':run_id',$run->id);
-$g_cron->execute() or die(print_r($g_cron->errorInfo(), true));
+$g_cron->execute();
 
 $cronlogs = array();
 while($cronlog = $g_cron->fetch(PDO::FETCH_ASSOC))
