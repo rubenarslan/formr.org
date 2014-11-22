@@ -540,29 +540,31 @@ class Survey extends RunUnit {
 		
 		return parent::end();
 	}
-	public function exec()
-	{
-		if($this->called_by_cron)
+
+	public function exec() {
+		if($this->called_by_cron) {
 			return true; // never show to the cronjob
-		
-		
-		$this->startEntry();
-		
-		$this->getNextItems();
-
-		$this->post(array_merge($_POST,$_FILES));
-
-		if($this->getProgress()===1)
-		{
-			$this->end();
-			return false;
 		}
 
-		$this->renderNextItems();
-		
-		
-		return array('title' => null,
-		'body' => $this->render());
+		// execute survey unit in a try catch block
+		// @todo Do same for other run units
+		try {
+			$this->startEntry();
+			$this->getNextItems();
+			$this->post(array_merge($_POST, $_FILES));
+
+			if($this->getProgress() === 1) {
+				$this->end();
+				return false;
+			}
+
+			$this->renderNextItems();
+
+			return array('title' => null, 'body' => $this->render());
+		} catch (Exception $e) {
+			log_exception($e, __CLASS__);
+			return array('title' => null, 'body' => '');
+		}
 	}
 
 	
