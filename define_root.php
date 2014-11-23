@@ -14,6 +14,13 @@ function define_webroot() {
 				$testing = false;
 
 				break;
+			case 'projects':
+				$doc_root = "projects/formr.org/";
+				$server_root = __DIR__ . '/';
+				$online = false;
+				$testing = false;
+
+				break;
 			case 'rubenair.local':
 				$doc_root = "rubenair.local:8888/formr.org/";
 				$server_root = __DIR__ . '/';
