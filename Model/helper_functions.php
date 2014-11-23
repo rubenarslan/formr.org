@@ -21,7 +21,7 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) // shorthand
 function log_exception(Exception $e, $prefix = '') {
 	error_log($prefix . ' ' . $e->getMessage());
 	if (is_a($e, 'PDOException')) {
-		error_log(print_r($e->getTrace(), 1));
+		error_log($prefix . ' ' . print_r($e->getTrace(), 1));
 	} else {
 		error_log($prefix . ' ' . $e->getTraceAsString());
 	}

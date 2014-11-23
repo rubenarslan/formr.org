@@ -141,7 +141,7 @@ class Item extends HTML_element
 		
 		$this->label = isset($options['label'])?$options['label']:'';
 		$this->label_parsed = isset($options['label_parsed'])?$options['label_parsed']:null;
-				
+
 		if(isset($options['type_options'])):
 			$this->type_options = $options['type_options'];
 			$this->type_options_array = explode(" ",$options['type_options']);
@@ -173,8 +173,10 @@ class Item extends HTML_element
 		}
 		
 		$this->input_attributes['name'] = $this->name;
-		
-		$this->setMoreOptions();
+
+		if (empty($options['skip_more_options'])) {
+			$this->setMoreOptions();
+		}
 
 		// after the easily overriden setMoreOptions, some post-processing that is universal to all items.
 
@@ -238,7 +240,7 @@ class Item extends HTML_element
 				$this->mysql_field = str_replace("TINYINT", "FLOAT", $this->mysql_field);
 			endif;
 		else:
-			$lengths = array_map("strlen",$choices);
+			$lengths = array_map("strlen", $choices);
 			$maxlen = max($lengths);
 			$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
 		endif;
@@ -249,7 +251,7 @@ class Item extends HTML_element
 			$this->chooseResultFieldBasedOnChoices();
 		endif;
 		
-		if($this->mysql_field!==null):
+		if($this->mysql_field !== null):
 			return "`{$this->name}` {$this->mysql_field}";
 		else:
 			return null;
