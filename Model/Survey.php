@@ -826,8 +826,10 @@ class Survey extends RunUnit {
 
 			if ($this->hasResultsTable() && !$this->confirmed_deletion) {
 				// queries of the merge are included in opened transaction
-				if ($this->mergeItems($keptItems, $newItems, $oldItems)) {
-					$this->messages[] = "<strong>The old results table was kept.</strong>";
+				if ($this->backupResults() AND $this->mergeItems($keptItems, $newItems, $oldItems)) {
+					$this->messages[] = "<strong>The old results table was modified and backed up.</strong>";
+				} else {
+					$this->errors[] = "<strong>The back up or updating the item table failed.</strong>";
 				}
 			} else {
 				if ($this->confirmed_deletion) {
