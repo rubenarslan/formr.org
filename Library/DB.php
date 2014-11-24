@@ -77,7 +77,7 @@ class DB {
     }
 
 	/**
-	 * Execute any query with parameters
+	 * Execute any query with parameters and get results
 	 *
 	 * @param string $query Query string with optional placeholders
 	 * @param array $params An array of parameters to bind to PDO statement
@@ -86,6 +86,8 @@ class DB {
 	 * @return array Returns an associative array of results
 	 */
 	public function execute($query, $params = array(), $fetchcol = false, $fetchrow = false) {
+		$data = self::parseWhereBindParams($params);
+		$params = $data['params'];
 		$stmt = $this->PDO->prepare($query);
 		$stmt->execute($params);
 		if ($fetchcol) {
@@ -95,6 +97,34 @@ class DB {
 			return $stmt->fetch(PDO::FETCH_ASSOC);
 		}
 		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	/**
+	 * Used for INSERT, UPDATE and DELETE
+	 *
+	 * @param string $query
+	 * @param array $data Optional associative array of parameters that will be bound to the query
+	 * @return int Returns the number of affected rows of the query
+	 */
+	public function exec($query, $data = array()) {
+		if ($data) {
+			$data = self::parseWhereBindParams($data);
+			$params = $data['params'];
+			$sth = $this->PDO->prepare($query);
+			$sth->execute($params);
+			return $sth->rowCount();
+		}
+		return $this->PDO->exec($query);
+	}
+
+	/**
+	 * Used for SELECT
+	 *
+	 * @param string $query
+	 * @return PDOStatement
+	 */
+	public function query($query, $fetch_style = PDO::FETCH_ASSOC) {
+		return $this->PDO->query($query)->fetchAll($fetch_style);
 	}
 
     /**
@@ -197,7 +227,7 @@ class DB {
 	 * Count
 	 *
 	 * @param string $table_name
-	 * @param array $where
+	 * @param array|string $where If a string is given, it must be properly escaped
 	 * @return int
 	 */
 	public function count($table_name, $where = array()) {
@@ -205,8 +235,10 @@ class DB {
 		$params = array();
 		if ($where && is_array($where)) {
 			$wc = self::parseWhereBindParams($where);
-			$query .= " WHERE {$wc['clauses_and']}";
+			$query .= " WHERE {$wc['clauses_str']}";
 			$params = $wc['params'];
+		} elseif ($where && is_string($where)) {
+			$query .= " WHERE $where";
 		}
 
 		$stmt = $this->PDO->prepare($query);
@@ -214,8 +246,15 @@ class DB {
 		return $stmt->fetchColumn();
 	}
 
-	public function entry_exists ($table_name, array $where) {
-		return $this->count($table_name, $where) === 1;
+	/**
+	 * Assert the existence of rows in a table
+	 *
+	 * @param string $table_name
+	 * @param array|string $where If a string is given, it must be properly escaped
+	 * @return boolean
+	 */
+	public function entry_exists ($table_name, $where) {
+		return $this->count($table_name, $where) > 0;
 	}
 
 	/**
@@ -257,11 +296,12 @@ class DB {
 			throw new Exception("Array count for where clause and where clause data-types do not match");
 		}
 
-		// remove signs from where clauses
+		// remove signs from where clauses (<, >, <= , >=, != can be used in array keys of $where array. E.g $where['id >'] = 45)
 		$cols_where = array_keys($where);
 		$signs = array();
 		foreach ($cols_where as $i => $col_condition) {
 			$col_condition = trim($col_condition);
+			$col_condition = preg_replace('/s+/', ' ', $col_condition);
 			$parts = array_filter(explode(' ', $col_condition));
 			if (count($parts) === 1) {
 				$signs[$i] = '=';
@@ -322,26 +362,6 @@ class DB {
 	}
 
 	/**
-	 * Used for INSERT, UPDATE and DELETE
-	 *
-	 * @param string $query
-	 * @return int
-	 */
-	public function exec($query) {
-		return $this->PDO->exec($query);
-	}
-
-	/**
-	 * Used for SELECT
-	 *
-	 * @param string $query
-	 * @return PDOStatement
-	 */
-	public function query($query, $fetch_style = PDO::FETCH_ASSOC) {
-		return $this->PDO->query($query)->fetchAll($fetch_style);
-	}
-
-	/**
 	 * Quote a string for sql query
 	 *
 	 * @param string $string
@@ -396,13 +416,13 @@ class DB {
 
 	public static function pkey($key) {
 		$key = trim($key);
-		$key = trim($key, '`');
+		$key = trim($key, '`:');
 		return ':' . $key;
 	}
 
 	public static function pCol($col) {
 		$col = trim($col);
-		$col = trim($col, '`');
+		$col = trim($col, '`:');
 		$col = "`$col` = :$col";
 		return $col;
 	}
@@ -440,16 +460,16 @@ class DB {
 		$cols = array_keys($array);
 		$values = array_values($array);
 
-		$qcols = array_map(array(self, 'pCol'), $cols);
-		$binds = array();
+		$clauses = array_map(array(self, 'pCol'), $cols);
+		$params = array();
 
 		foreach ($cols as $i => $col) {
-			$binds[self::pkey($col)] = $values[$i];
+			$params[self::pkey($col)] = $values[$i];
 		}
 		return array(
-			'clauses' => $qcols,
-			'clauses_and' => implode(' AND ', $qcols),
-			'params' => $binds,
+			'clauses' => $clauses,
+			'clauses_str' => implode(' AND ', $clauses),
+			'params' => $params,
 		);
 	}
 
@@ -562,7 +582,12 @@ class DB_Select {
 		return $this;
 	}
 
-	public function order($by, $order) {
+	public function order($by, $order = null) {
+		if ($by === 'RAND') {
+			$this->order[] = 'RAND()';
+			return $this;
+		}
+
 		$order = strtoupper($order);
 		if (!in_array($order, array('ASC', 'DESC'))) {
 			throw new Exception("Invalid Order");
@@ -619,7 +644,14 @@ class DB_Select {
 	}
 
 	public function setParams(array $params) {
-		return $this->params = $params;
+		$this->params = $params;
+		return $this;
+	}
+
+	public function bindParams(array $params) {
+		$params = $this->parseWhere($params);
+		$this->params = array_merge($this->params, $params['params']);
+		return $this;
 	}
 
 	public function lastQuery() {
@@ -700,15 +732,31 @@ class DB_Select {
 		$cols = array_keys($array);
 		$values = array_values($array);
 
-		$qcols = array_map(array('DB', 'pCol'), $cols);
-		$binds = array();
+		$signs = array();
+		foreach ($cols as $i => $col_condition) {
+			$col_condition = preg_replace('/s+/', ' ', trim($col_condition));
+			$parts = array_filter(explode(' ', $col_condition));
+			if (count($parts) === 1) {
+				$signs[$i] = '=';
+			} else {
+				$signs[$i] = $parts[1];
+			}
+			$cols[$i] = $parts[0];
+		}
 
+		$clauses = array(); //array_map(array('DB', 'pCol'), $cols);
 		foreach ($cols as $i => $col) {
-			$binds[DB::pkey($col)] = $values[$i];
+			$sign = !empty($signs[$i]) ? $signs[$i] : '=';
+			$clauses[] = "`$col` $sign :$col";
+		}
+
+		$params = array();
+		foreach ($cols as $i => $col) {
+			$params[DB::pkey($col)] = $values[$i];
 		}
 		return array(
-			'clauses' => $qcols,
-			'params' => $binds,
+			'clauses' => $clauses,
+			'params' => $params,
 		);
 	}
 }

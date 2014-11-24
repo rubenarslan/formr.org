@@ -25,7 +25,7 @@ class Autoload {
 			'Branch' => INCLUDE_ROOT . 'Model/Branch.php',
 			'Config' => INCLUDE_ROOT . 'Library/Config.php',
 			'Controller' => INCLUDE_ROOT . 'Controller/Controller.php',
-			'DB' => INCLUDE_ROOT . 'Model/DB.php',
+			'DB' => INCLUDE_ROOT . 'Library/DB.php',
 			'DB_Select' => INCLUDE_ROOT . 'Model/DB.php',
 			'Email' => INCLUDE_ROOT . 'Model/Email.php',
 			'EmailAccount' => INCLUDE_ROOT . 'Model/EmailAccount.php',
