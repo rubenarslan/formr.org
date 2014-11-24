@@ -35,6 +35,7 @@ class Pagination {
 		return $this->start . "," . $this->per_page;
 	}
 
+
 	private function setMaximum($maximum) {
 		$maximum = (int)$maximum;
 		if (!$maximum) {

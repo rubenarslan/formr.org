@@ -59,7 +59,7 @@ class Run {
 			
 			$run_data = $this->dbh->prepare("SELECT id,user_id,name,api_secret_hash,public,cron_active,locked, header_image_path,title,description,description_parsed,footer_text,footer_text_parsed,public_blurb,public_blurb_parsed,custom_css_path,custom_js_path FROM `survey_runs` WHERE name = :run_name LIMIT 1");
 			$run_data->bindParam(":run_name",$this->name);
-			$run_data->execute() or die(print_r($run_data->errorInfo(), true));
+			$run_data->execute();
 			$vars = $run_data->fetch(PDO::FETCH_ASSOC);
 
 			if($vars):
@@ -96,7 +96,7 @@ class Run {
 		ORDER BY RAND() 
 		;"); // in the order they were added
 		$g_unit->bindParam(':run_id',$this->id);
-		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$g_unit->execute();
 		$dues = array();
 		while($run_session = $g_unit->fetch(PDO::FETCH_ASSOC))
 			$dues[] = $run_session['session'];
@@ -128,11 +128,11 @@ class Run {
 			return false;
 		endif;
 
-		$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
-		$rename_run = $this->dbh->prepare("UPDATE `survey_runs` SET `name` = :new_name WHERE id = :run_id") or die(print_r($this->dbh->errorInfo(), true));
+		$this->dbh->beginTransaction();
+		$rename_run = $this->dbh->prepare("UPDATE `survey_runs` SET `name` = :new_name WHERE id = :run_id");
 		$rename_run->bindParam(':run_id',$this->id);
 		$rename_run->bindParam(':new_name',$name);
-		$rename_run->execute() or die(print_r($rename_run->errorInfo(), true));
+		$rename_run->execute();
 		$this->dbh->commit();
 		
 		return true;
@@ -140,10 +140,10 @@ class Run {
 
     public function delete() {
 		try {
-			$this->dbh->beginTransaction() or die(print_r($this->dbh->errorInfo(), true));
-			$delete_run = $this->dbh->prepare("DELETE FROM `survey_runs` WHERE id = :run_id") or die(print_r($this->dbh->errorInfo(), true)); // Cascades
+			$this->dbh->beginTransaction();
+			$delete_run = $this->dbh->prepare("DELETE FROM `survey_runs` WHERE id = :run_id"); // Cascades
 			$delete_run->bindParam(':run_id',$this->id);
-			$delete_run->execute() or die(print_r($delete_run->errorInfo(), true));
+			$delete_run->execute();
 		
 			$this->dbh->commit();
 			alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.",'alert-success');
@@ -159,7 +159,7 @@ class Run {
 		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET public = :public WHERE id = :id;");
 		$toggle->bindParam(':id',$this->id);
 		$toggle->bindParam(':public', $public );
-		$success = $toggle->execute() or die(print_r($toggle->errorInfo(), true));
+		$success = $toggle->execute();
 		return $success;
 	}
 
@@ -168,7 +168,7 @@ class Run {
 		$toggle = $this->dbh->prepare("UPDATE `survey_runs` SET locked = :locked WHERE id = :id;");
 		$toggle->bindParam(':id',$this->id);
 		$toggle->bindParam(':locked', $on );
-		$success = $toggle->execute() or die(print_r($toggle->errorInfo(), true));
+		$success = $toggle->execute();
 		return $success;
 	}
 
@@ -192,7 +192,7 @@ class Run {
 		$create->bindParam(':title',$name);
 		$new_secret = crypto_token(66);
 		$create->bindParam(':api_secret_hash',$new_secret);
-		$create->execute() or die(print_r($create->errorInfo(), true));
+		$create->execute();
 		$this->dbh->commit();
 		
 		$this->getServiceMessageId();
@@ -215,7 +215,7 @@ class Run {
 		ORDER BY `survey_uploaded_files`.created ASC
 		;");
 		$get_files->bindParam(':run_id',$this->id);
-		$get_files->execute() or die(print_r($get_files->errorInfo(), true));
+		$get_files->execute();
 		$files = array();
 		while($file = $get_files->fetch(PDO::FETCH_ASSOC))
 			$files[] = $file;
@@ -261,7 +261,7 @@ class Run {
 						$upload->bindParam(':run_id',$this->id);
 						$upload->bindParam(':original_file_name',$original_file_name);
 						$upload->bindParam(':new_file_path',$new_file_path);
-						$upload->execute() or die(print_r($upload->errorInfo(), true));
+						$upload->execute();
 						
 						// cleaning up old files afterwards
 						// not necessary anymore
@@ -287,7 +287,7 @@ class Run {
     protected function existsByName($name) {
 		$exists = $this->dbh->prepare("SELECT name FROM `survey_runs` WHERE name = :name LIMIT 1");
 		$exists->bindParam(':name',$name);
-		$exists->execute() or die(print_r($create->errorInfo(), true));
+		$exists->execute();
 		if($exists->rowCount())
 			return true;
 		
@@ -303,7 +303,7 @@ class Run {
 		foreach($positions AS $run_unit_id => $pos):
 			$reorder->bindParam(':run_unit_id',$run_unit_id);
 			$reorder->bindParam(':position',$pos);
-			$reorder->execute() or die(print_r($reorder->errorInfo(), true));
+			$reorder->execute();
 		endforeach;
 		return true;
 	}
@@ -322,7 +322,7 @@ class Run {
 		ORDER BY `survey_run_units`.position ASC
 		;");
 		$g_unit->bindParam(':run_id',$this->id);
-		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$g_unit->execute();
 		$units = array();
 		while($unit = $g_unit->fetch(PDO::FETCH_ASSOC))
 			$units[] = $unit;
@@ -345,7 +345,7 @@ class Run {
 		WHERE 
 			`survey_runs`.id = :run_id;");
 		$g_unit->bindParam(':run_id',$this->id);
-		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$g_unit->execute();
 		$overview_script = $g_unit->fetch(PDO::FETCH_ASSOC);
 		$id = $overview_script['overview_script'];
         if ($id == NULL) {
@@ -372,7 +372,7 @@ plot(cars)
 				`survey_runs`.id = :run_id;");
 			$add_overview_script->bindParam(':run_id',$this->id);
 			$add_overview_script->bindParam(':overview_script',$unit->id);
-			$add_overview_script->execute() or die(print_r($add_overview_script->errorInfo(), true));
+			$add_overview_script->execute();
 			alert('An overview script was auto-created.','alert-info');
 			return $unit->id;
 		else:
@@ -390,7 +390,7 @@ plot(cars)
     public function getServiceMessageId() {
         $g_unit = $this->dbh->prepare("SELECT `survey_runs`.service_message FROM `survey_runs` WHERE `survey_runs`.id = :run_id;");
 		$g_unit->bindParam(':run_id',$this->id);
-		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$g_unit->execute();
 		$service_message = $g_unit->fetch(PDO::FETCH_ASSOC);
 		$id = $service_message['service_message'];
         if ($id == NULL) {
@@ -413,7 +413,7 @@ This study is currently being serviced. Please return at a later time."));
 			);
 			$add_service_message->bindParam(':run_id',$this->id);
 			$add_service_message->bindParam(':service_message',$unit->id);
-			$add_service_message->execute() or die(print_r($add_service_message->errorInfo(), true));
+			$add_service_message->execute();
 			alert('A service message was auto-created.','alert-info');
 			return $unit->id;
 		else:
@@ -483,7 +483,7 @@ This study is currently being serviced. Please return at a later time."));
 		WHERE 
 			`survey_runs`.id = :run_id;");
 		$g_unit->bindParam(':run_id',$this->id);
-		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$g_unit->execute();
 		$reminder_email = $g_unit->fetch(PDO::FETCH_ASSOC);
 		$id = $reminder_email['reminder_email'];
         if ($id == NULL) {
@@ -508,7 +508,7 @@ This study is currently being serviced. Please return at a later time."));
 				`survey_runs`.id = :run_id;");
 			$add_reminder_email->bindParam(':run_id',$this->id);
 			$add_reminder_email->bindParam(':reminder_email',$unit->id);
-			$add_reminder_email->execute() or die(print_r($add_reminder_email->errorInfo(), true));
+			$add_reminder_email->execute();
 			alert('A reminder email was auto-created.','alert-info');
 			return $unit->id;
 		else:
@@ -616,7 +616,7 @@ This study is currently being serviced. Please return at a later time."));
 					`survey_runs`.id = :run_id;");
 				$save_setting->bindParam(':run_id',$this->id);
 				$save_setting->bindParam(":$name",$value);
-				$success = $save_setting->execute() or die(print_r($save_setting->errorInfo(), true));
+				$success = $save_setting->execute();
 			else:
 				$run->errors[] = "Invalid setting " . h($name);
 			endif;
@@ -652,7 +652,7 @@ This study is currently being serviced. Please return at a later time."));
 			$g_unit->bindParam(':id',$id);
 			$g_unit->bindParam(':run_id',$this->id);
 		
-			$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+			$g_unit->execute();
 
 			$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
 		else:
@@ -681,7 +681,7 @@ This study is currently being serviced. Please return at a later time."));
 			$g_unit->bindParam(':run_id',$this->id);
 			$g_unit->bindParam(':unit_id',$id);
 			
-			$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+			$g_unit->execute();
 
 			$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
 			$unit["special"] = $special;
