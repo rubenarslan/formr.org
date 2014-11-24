@@ -548,16 +548,16 @@ class SpreadsheetReader
 		$this->choices = $data;
 	}
 	
-	private function readSurveySheet($worksheet)
-	{
+	private function readSurveySheet($worksheet) {
  		$callStartTime = microtime(true);
 		// non-allowed columns will be ignored, allows to specify auxiliary information if needed
 	
 		$columns = array();
 		$nr_of_columns = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestColumn());
-		for($i = 0; $i< $nr_of_columns;$i++):
-			$col_name = mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue() );
-			if(in_array($col_name,$this->survey_columns) ):
+
+		for($i = 0; $i < $nr_of_columns;$i++):
+			$col_name = mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue());
+			if(in_array($col_name, $this->survey_columns)):
 				$oldCol = $col_name;
 				$col_name = $this->translate_legacy_column($col_name);
 				
@@ -569,52 +569,55 @@ class SpreadsheetReader
 			else:
 				$skipped_columns[$i] = $col_name;
 			endif;
-			
-			if($col_name == 'choice1' AND !array_search('name',$columns)):
+
+			if($col_name == 'choice1' AND !array_search('name', $columns)):
 				$this->errors[] = 'The name and type column have to be placed to the left of all choice columns.';
 				return false;
 			endif;
 		endfor;
+
 		$survey_messages = $empty_rows = array();
 	  	$this->messages[] = 'Survey worksheet - ' . $worksheet->getTitle();
 		$survey_messages[] = 'These columns were <strong>used</strong>: '. implode($columns,", ");
-		if(!empty($skipped_columns))
+		if(!empty($skipped_columns)) {
 			$this->warnings[] = 'These survey sheet columns were <strong>skipped</strong>: '. implode($skipped_columns,", ");
-
+		}
 	#	var_dump($columns);
 
 		$variablennames = $data = array();
-	
-	  	foreach($worksheet->getRowIterator() AS $row):
+		$order = 1;
+
+	  	foreach($worksheet->getRowIterator() as $row):
 			$row_number = $row->getRowIndex();
 
-			if($row_number == 1): # skip table head
+			// skip table head
+			if($row_number == 1) {
 				continue;
-			endif;
+			}
+
 	  		$cellIterator = $row->getCellIterator();
 	  		$cellIterator->setIterateOnlyExistingCells(false); // Loop all cells, even if it is not set
 		
-			$data[$row_number] = array();
+			$data[$row_number] = array('order' => $order++);
 		
-	 		foreach($cellIterator AS $cell):
-	  			if (!is_null($cell) ):
-					$column_number = $cell->columnIndexFromString( $cell->getColumn() ) - 1;
+	 		foreach($cellIterator as $cell) :
+	  			if (!is_null($cell)):
+					$column_number = $cell->columnIndexFromString($cell->getColumn()) - 1;
 
-					if(!array_key_exists($column_number,$columns)) continue; // skip columns that aren't allowed
+					if(!array_key_exists($column_number, $columns)) continue; // skip columns that aren't allowed
 				
 					$col = $columns[$column_number];
 					$val = hardTrueFalse($cell->getValue());
-					
-				
+
 					if($col == 'name'):
-						if(trim($val)==''):
+						if(trim($val) == ''):
 							$empty_rows[] = $row_number;
 							if(isset($data[$row_number])):
 								unset($data[$row_number]);
 							endif;
 							continue 2; # skip this row
 								
-						elseif(!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{1,64}$/",$val)):
+						elseif(!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{1,64}$/", $val)):
 							$this->errors[] = __("The variable name '%s' is invalid. It has to be between 1 and 64 characters. It needs to start with a letter and can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.",$val);
 						endif;
 					
@@ -622,21 +625,21 @@ class SpreadsheetReader
 							$this->errors[] = "Row $row_number: variable name '$val' is not permitted.";
 						endif;
 
-						if(($previous = array_search(mb_strtolower($val),$variablennames)) === false):
+						if(($previous = array_search(mb_strtolower($val), $variablennames)) === false):
 							$variablennames[$row_number] = mb_strtolower($val);	
 						else:
 							$this->errors[] = "Row $row_number: variable name '$val' already appeared, last in row $previous.";
 						endif;
+
 					elseif($col == 'type'):
-						
-						if(mb_strpos($val," ")!==false):
-							$val = preg_replace("/ +/"," ",$val); // multiple spaces collapse into one
+						if(mb_strpos($val," ") !== false):
+							$val = preg_replace("/\s+/", " ", $val); // multiple spaces collapse into one
 							$type_options = explode(" ",$val); // get real type and options
 							$val = $type_options[0];
 							unset($type_options[0]); // remove real type from options
 							
 							//todo: find all items where the "you defined choices message" error might erroneously be triggered
-							if(!in_array($val, array('server','get','text', 'textarea', 'file', 'image', 'rating_button')) AND preg_match('/^[A-Za-z0-9_]{1,20}$/',trim($type_options[1]) ) ):
+							if(isset($type_options[1]) && !in_array($val, array('server','get','text', 'textarea', 'file', 'image', 'rating_button')) && preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($type_options[1]) ) ):
 								$data[$row_number]['choice_list'] = $type_options[1];
 								unset($type_options[1]);
 							endif;

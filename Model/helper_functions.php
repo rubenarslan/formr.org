@@ -18,6 +18,15 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) // shorthand
 	$site->alert($msg,$class, $dismissable);
 }
 
+function log_exception(Exception $e, $prefix = '') {
+	error_log($prefix . ' ' . $e->getMessage());
+	if (is_a($e, 'PDOException')) {
+		error_log($prefix . ' ' . print_r($e->getTrace(), 1));
+	} else {
+		error_log($prefix . ' ' . $e->getTraceAsString());
+	}
+}
+
 function redirect_to($location) {
 	global $site,$user;
 	$_SESSION['site'] = $site;
@@ -89,11 +98,13 @@ function debug($string) {
     }
 }
 function pr($string) {
-    if( DEBUG > -1 ) {
+    if( DEBUG > 0) {
 		echo "<pre>";
         var_dump($string);
 #		print_r(	debug_backtrace());
 		echo "</pre>";
+    } else {
+    	formr_log($string);
     }
 }
 
@@ -442,4 +453,12 @@ function echo_time_points($points)
 	endfor;
 	echo "took ".round((microtime(true)-$_SERVER["REQUEST_TIME_FLOAT"])/60,6). " minutes to the end";	
 //	echo "--->";
+}
+
+function get_duplicate_update_string ($columns) {
+	foreach ($columns as $i => $column) {
+		$column = trim($column, '`');
+		$columns[$i] = "`$column` = VALUES(`$column`)";
+	}
+	return $columns;
 }

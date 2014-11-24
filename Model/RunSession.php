@@ -45,12 +45,12 @@ class RunSession
 		session = :session
 		LIMIT 1;";
 	
-		$valid_session = $this->dbh->prepare($session_q) or die(print_r($dbh->errorInfo(), true));
+		$valid_session = $this->dbh->prepare($session_q);
 	
 		$valid_session->bindParam(":session",$this->session);
 		$valid_session->bindParam(":run_id", $this->run_id);
 	
-		$valid_session->execute() or die(print_r($valid_session->errorInfo(), true));
+		$valid_session->execute();
 		$valid = $valid_session->rowCount();
 		$sess_array = $valid_session->fetch(PDO::FETCH_ASSOC);
 		if($valid):
@@ -72,11 +72,11 @@ class RunSession
 				LIMIT 1;";
 				
 		
-				$last_access = $this->dbh->prepare($last_access_q) or die(print_r($dbh->errorInfo(), true));
+				$last_access = $this->dbh->prepare($last_access_q);
 	
 				$last_access->bindParam(":id",$this->id);
 	
-				$success = $last_access->execute() or die(print_r($last_access->errorInfo(), true));
+				$success = $last_access->execute();
 			endif;
 			return true;
 		endif;
@@ -103,13 +103,13 @@ class RunSession
 		user_id = :user_id,
 		created = NOW()
 		";
-		$add_session = $this->dbh->prepare($session_q) or die(print_r($this->dbh->errorInfo(), true));
+		$add_session = $this->dbh->prepare($session_q);
 	
 		$add_session->bindParam(":session",$session);
 		$add_session->bindParam(":run_id", $this->run_id);
 		$add_session->bindParam(":user_id", $this->user_id);
 	
-		$add_session->execute() or die(print_r($add_session->errorInfo(), true));
+		$add_session->execute();
 		
 
 		$this->session = $session;
@@ -174,7 +174,7 @@ class RunSession
 		LIMIT 1");
 		$data->bindParam(":run_id",$this->run_id);
 		$data->bindParam(":position",$position);
-		$data->execute() or die(print_r($data->errorInfo(), true));
+		$data->execute();
 		$vars = $data->fetch(PDO::FETCH_ASSOC);
 		if($vars)
 			return $vars['unit_id'];
@@ -213,12 +213,12 @@ class RunSession
 				id = :id
 				LIMIT 1;";
 		
-				$run_to_update = $this->dbh->prepare($run_to_q) or die(print_r($dbh->errorInfo(), true));
+				$run_to_update = $this->dbh->prepare($run_to_q);
 	
 				$run_to_update->bindParam(":id",$this->id);
 				$run_to_update->bindParam(":position",$position);
 	
-				$success = $run_to_update->execute() or die(print_r($run_to_update->errorInfo(), true));
+				$success = $run_to_update->execute();
 				if($success):
 					$this->position = (int)$position;
 					return true;
@@ -261,7 +261,7 @@ class RunSession
 		;"); // in the order they were added
 		$g_unit->bindParam(':run_session_id',$this->id);
 		$g_unit->bindValue(':unit_id',$this->getUnitIdAtPosition($this->position));
-		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$g_unit->execute();
 		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
 		if($unit):
 			// unit needs:
@@ -301,7 +301,7 @@ class RunSession
 		else
 			$g_unit->bindValue(':position',-1000000);
 		
-		$g_unit->execute() or die(print_r($g_unit->errorInfo(), true));
+		$g_unit->execute();
 		$next = $g_unit->fetch(PDO::FETCH_ASSOC);
 		
 		if(!$next)
@@ -322,11 +322,11 @@ class RunSession
 		`survey_units`.type = 'External' AND 
 		`survey_unit_sessions`.ended IS NULL;";
 	
-		$end_external = $this->dbh->prepare($end_q) or die(print_r($dbh->errorInfo(), true));
+		$end_external = $this->dbh->prepare($end_q);
 	
 		$end_external->bindParam(":id",$this->id);
 	
-		$success = $end_external->execute() or die(print_r($end_external->errorInfo(), true));
+		$success = $end_external->execute();
 		return $success;
 	}
 	
@@ -340,7 +340,7 @@ class RunSession
 			`ended` IS NULL
 		LIMIT 1;");
 		$finish_run->bindParam(":id", $this->id);
-		$finish_run->execute() or die(print_r($finish_run->errorInfo(), true));
+		$finish_run->execute();
 
 		if($finish_run->rowCount() === 1):
 			$this->ended = true;
