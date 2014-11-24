@@ -1,45 +1,59 @@
 <?php
+
 /*
-HELPER FUNCTIONS
-*/
+  HELPER FUNCTIONS
+ */
+
 function formr_log($msg) {// shorthand
-	error_log(  date( 'Y-m-d H:i:s' ).' ' . $msg. "\n", 3, INCLUDE_ROOT ."tmp/logs/formr_error.log");
-}
-function opencpu_log_warning($msg) {// shorthand
-	error_log(  date( 'Y-m-d H:i:s' ).' ' . $msg. "\n", 3, INCLUDE_ROOT ."tmp/logs/opencpu_warning.log");
-}
-function opencpu_log($msg) {// shorthand
-	error_log(  date( 'Y-m-d H:i:s' ).' ' . $msg. "\n", 3, INCLUDE_ROOT ."tmp/logs/opencpu_error.log");
+	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/formr_error.log");
 }
 
-function alert($msg, $class = 'alert-warning', $dismissable = true) // shorthand
-{
+function opencpu_log_warning($msg) {// shorthand
+	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/opencpu_warning.log");
+}
+
+function opencpu_log($msg) {// shorthand
+	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/opencpu_error.log");
+}
+
+function alert($msg, $class = 'alert-warning', $dismissable = true) { // shorthand
 	global $site;
-	$site->alert($msg,$class, $dismissable);
+	$site->alert($msg, $class, $dismissable);
+}
+
+function log_exception(Exception $e, $prefix = '') {
+	error_log($prefix . ' Exception: ' . $e->getMessage());
+	if (is_a($e, 'PDOException')) {
+		error_log($prefix . ' Exception: ' . print_r($e->getTrace(), 1));
+	} else {
+		error_log($prefix . ' Exception: ' . $e->getTraceAsString());
+	}
 }
 
 function redirect_to($location) {
 	global $site, $user;
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
-    if (strpos($location, 'index') !== false) {
-        $location = '';
-    }
-
-	if(mb_substr($location,0,4)!= 'http'){
-		$base = WEBROOT;
-		if(mb_substr($location,0,1)=='/')
-			$location = $base . mb_substr($location,1);
-		else $location = $base . $location;
+	if (strpos($location, 'index') !== false) {
+		$location = '';
 	}
-	    header("Location: $location");
-		exit;
+
+	if (mb_substr($location, 0, 4) != 'http') {
+		$base = WEBROOT;
+		if (mb_substr($location, 0, 1) == '/')
+			$location = $base . mb_substr($location, 1);
+		else
+			$location = $base . $location;
+	}
+	header("Location: $location");
+	exit;
 }
-function session_over($site, $user)
-{
+
+function session_over($site, $user) {
 	static $closed;
-	if($closed) return false;
-	
+	if ($closed)
+		return false;
+
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 
@@ -53,40 +67,41 @@ function access_denied() {
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 
-    header('HTTP/1.0 403 Forbidden');
+	header('HTTP/1.0 403 Forbidden');
 	require_once INCLUDE_ROOT . "View/public/not_found.php";
 	exit;
 }
+
 function not_found() {
 	global $site, $user;
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 
-    header('HTTP/1.0 404 Not Found');
+	header('HTTP/1.0 404 Not Found');
 	require_once INCLUDE_ROOT . "View/public/not_found.php";
 	exit;
 }
 
 function bad_request() {
-	global $site,$user;
+	global $site, $user;
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 
-    header('HTTP/1.0 400 Bad Request');
+	header('HTTP/1.0 400 Bad Request');
 	require_once INCLUDE_ROOT . "View/public/not_found.php";
 	exit;
 }
 
 function bad_request_header() {
-    header('HTTP/1.0 400 Bad Request');
+	header('HTTP/1.0 400 Bad Request');
 }
 
 function json_header() {
-    header('Content-Type: application/json');
+	header('Content-Type: application/json');
 }
 
 function is_ajax_request() {
-    return strtolower(env('HTTP_X_REQUESTED_WITH')) === 'xmlhttprequest';
+	return strtolower(env('HTTP_X_REQUESTED_WITH')) === 'xmlhttprequest';
 }
 
 function h($text) {
@@ -94,62 +109,73 @@ function h($text) {
 }
 
 function debug($string) {
-    if( DEBUG ) {
+	if (DEBUG) {
 		echo "<pre>";
-        print_r($string);
+		print_r($string);
 		echo "</pre>";
-    }
+	}
 }
+
 function pr($string) {
-    if( DEBUG > -1 ) {
+	if (DEBUG > 0) {
 		echo "<pre>";
-        var_dump($string);
+		var_dump($string);
 #		print_r(	debug_backtrace());
 		echo "</pre>";
-    }
+	} else {
+		formr_log($string);
+	}
 }
+
 if (!function_exists('_')) {
+
 	function _($text) {
 		return $text;
 	}
-}
-function used_opencpu($echo = false)
-{
-	static $used;
-	if($echo):
-		pr($used);
-		return;
-	endif;
-	if(isset($used)) $used++;
-	else $used = 1;
-}
-function used_cache($echo = false)
-{
-	static $used;
-	if($echo):
-		pr($used);
-		return;
-	endif;
-	if(isset($used)) $used++;
-	else $used = 1;
-}
-function used_nginx_cache($echo = false)
-{
-	static $used;
-	if($echo):
-		pr($used);
-		return;
-	endif;
-	if(isset($used)) $used++;
-	else $used = 1;
+
 }
 
+function used_opencpu($echo = false) {
+	static $used;
+	if ($echo):
+		pr($used);
+		return;
+	endif;
+	if (isset($used))
+		$used++;
+	else
+		$used = 1;
+}
+
+function used_cache($echo = false) {
+	static $used;
+	if ($echo):
+		pr($used);
+		return;
+	endif;
+	if (isset($used))
+		$used++;
+	else
+		$used = 1;
+}
+
+function used_nginx_cache($echo = false) {
+	static $used;
+	if ($echo):
+		pr($used);
+		return;
+	endif;
+	if (isset($used))
+		$used++;
+	else
+		$used = 1;
+}
 
 if (!function_exists('__')) {
 
-/**
-taken from cakePHP
- */
+	/**
+	  taken from cakePHP
+	 */
 	function __($singular, $args = null) {
 		if (!$singular) {
 			return;
@@ -163,13 +189,14 @@ taken from cakePHP
 		}
 		return vsprintf($translated, $args);
 	}
+
 }
 
 if (!function_exists('__n')) {
 
-/**
-taken from cakePHP
- */
+	/**
+	  taken from cakePHP
+	 */
 	function __n($singular, $plural, $count, $args = null) {
 		if (!$singular) {
 			return;
@@ -186,14 +213,13 @@ taken from cakePHP
 
 }
 
-function endsWith($haystack, $needle)
-{
-    $length = strlen($needle);
-    if ($length == 0) {
-        return true;
-    }
+function endsWith($haystack, $needle) {
+	$length = strlen($needle);
+	if ($length == 0) {
+		return true;
+	}
 
-    return (mb_substr($haystack, -$length) === $needle);
+	return (mb_substr($haystack, -$length) === $needle);
 }
 
 /**
@@ -305,69 +331,70 @@ function env($key) {
 	return null;
 }
 
-function emptyNull(&$x){
-	$x = ($x=='') ? null : $x;
+function emptyNull(&$x) {
+	$x = ($x == '') ? null : $x;
 }
-function stringBool($x)
-{
-	if($x===false) return 'false';
-	elseif($x===true) return 'true';
-	elseif($x===null)  return 'null';
-	elseif($x===0)  return '0';
-	else return $x;
+
+function stringBool($x) {
+	if ($x === false)
+		return 'false';
+	elseif ($x === true)
+		return 'true';
+	elseif ($x === null)
+		return 'null';
+	elseif ($x === 0)
+		return '0';
+	else
+		return $x;
 }
-function hardTrueFalse($x)
-{
-	if($x===false) return 'FALSE';
-	elseif($x===true) return 'TRUE';
+
+function hardTrueFalse($x) {
+	if ($x === false)
+		return 'FALSE';
+	elseif ($x === true)
+		return 'TRUE';
 #	elseif($x===null)  return 'NULL';
-	elseif($x===0)  return '0';
-	else return $x;
+	elseif ($x === 0)
+		return '0';
+	else
+		return $x;
 }
 
-if (!function_exists('http_parse_headers'))
-{
-    function http_parse_headers($raw_headers)
-    {
-        $headers = array();
-        $key = ''; // [+]
+if (!function_exists('http_parse_headers')) {
 
-        foreach(explode("\n", $raw_headers) as $i => $h)
-        {
-            $h = explode(':', $h, 2);
+	function http_parse_headers($raw_headers) {
+		$headers = array();
+		$key = ''; // [+]
 
-            if (isset($h[1]))
-            {
-                if (!isset($headers[$h[0]]))
-                    $headers[$h[0]] = trim($h[1]);
-                elseif (is_array($headers[$h[0]]))
-                {
-                    // $tmp = array_merge($headers[$h[0]], array(trim($h[1]))); // [-]
-                    // $headers[$h[0]] = $tmp; // [-]
-                    $headers[$h[0]] = array_merge($headers[$h[0]], array(trim($h[1]))); // [+]
-                }
-                else
-                {
-                    // $tmp = array_merge(array($headers[$h[0]]), array(trim($h[1]))); // [-]
-                    // $headers[$h[0]] = $tmp; // [-]
-                    $headers[$h[0]] = array_merge(array($headers[$h[0]]), array(trim($h[1]))); // [+]
-                }
+		foreach (explode("\n", $raw_headers) as $i => $h) {
+			$h = explode(':', $h, 2);
 
-                $key = $h[0]; // [+]
-            }
-            else // [+]
-            { // [+]
-                if (mb_substr($h[0], 0, 1) == "\t") // [+]
-                    $headers[$key] .= "\r\n\t".trim($h[0]); // [+]
-                elseif (!$key) // [+]
-                    $headers[0] = trim($h[0]); // [+]
-            } // [+]
-        }
+			if (isset($h[1])) {
+				if (!isset($headers[$h[0]]))
+					$headers[$h[0]] = trim($h[1]);
+				elseif (is_array($headers[$h[0]])) {
+					// $tmp = array_merge($headers[$h[0]], array(trim($h[1]))); // [-]
+					// $headers[$h[0]] = $tmp; // [-]
+					$headers[$h[0]] = array_merge($headers[$h[0]], array(trim($h[1]))); // [+]
+				} else {
+					// $tmp = array_merge(array($headers[$h[0]]), array(trim($h[1]))); // [-]
+					// $headers[$h[0]] = $tmp; // [-]
+					$headers[$h[0]] = array_merge(array($headers[$h[0]]), array(trim($h[1]))); // [+]
+				}
 
-        return $headers;
-    }
+				$key = $h[0]; // [+]
+			} else { // [+] // [+]
+				if (mb_substr($h[0], 0, 1) == "\t") // [+]
+					$headers[$key] .= "\r\n\t" . trim($h[0]); // [+]
+				elseif (!$key) // [+]
+					$headers[0] = trim($h[0]); // [+]
+			} // [+]
+		}
+
+		return $headers;
+	}
+
 }
-
 
 /**
  * Format a timestamp to display its age (5 days ago, in 3 days, etc.).
@@ -376,99 +403,92 @@ if (!function_exists('http_parse_headers'))
  * @return  string
  */
 function timetostr($timestamp) {
-	if($timestamp === false) return "";
-    $age = time() - $timestamp;
+	if ($timestamp === false)
+		return "";
+	$age = time() - $timestamp;
 
-    $future = ($age <= 0);
-    $age = abs($age);
+	$future = ($age <= 0);
+	$age = abs($age);
 
-    $age = (int)($age / 60);        // minutes ago
-    if ($age == 0) return $future ? "a moment" : "just now";
+	$age = (int) ($age / 60);		// minutes ago
+	if ($age == 0)
+		return $future ? "a moment" : "just now";
 
-    $scales = [
-        ["minute", "minutes", 60],
-        ["hour", "hours", 24],
-        ["day", "days", 7],
-        ["week", "weeks", 4.348214286],     // average with leap year every 4 years
-        ["month", "months", 12],
-        ["year", "years", 10],
-        ["decade", "decades", 10],
-        ["century", "centuries", 1000],
-        ["millenium", "millenia", PHP_INT_MAX]
-    ];
+	$scales = [
+		["minute", "minutes", 60],
+		["hour", "hours", 24],
+		["day", "days", 7],
+		["week", "weeks", 4.348214286], // average with leap year every 4 years
+		["month", "months", 12],
+		["year", "years", 10],
+		["decade", "decades", 10],
+		["century", "centuries", 1000],
+		["millenium", "millenia", PHP_INT_MAX]
+	];
 
-    foreach ($scales as $scale) {
-        list($singular, $plural, $factor) = $scale;
-        if ($age == 0)
-            return $future
-                ? "less than 1 $singular"
-                : "less than 1 $singular ago";
-        if ($age == 1)
-            return $future
-                ? "1 $singular"
-                : "1 $singular ago";
-        if ($age < $factor)
-            return $future
-                ? "$age $plural"
-                : "$age $plural ago";
-        $age = (int)($age / $factor);
-    }
+	foreach ($scales as $scale) {
+		list($singular, $plural, $factor) = $scale;
+		if ($age == 0)
+			return $future ? "less than 1 $singular" : "less than 1 $singular ago";
+		if ($age == 1)
+			return $future ? "1 $singular" : "1 $singular ago";
+		if ($age < $factor)
+			return $future ? "$age $plural" : "$age $plural ago";
+		$age = (int) ($age / $factor);
+	}
 }
+
 // from http://de1.php.net/manual/en/function.filesize.php
 function human_filesize($bytes, $decimals = 2) {
-  $sz = 'BKMGTP';
-  $factor = floor((strlen($bytes) - 1) / 3);
-  return sprintf("%.{$decimals}f", $bytes / pow(1024, $factor)) . @$sz[$factor];
+	$sz = 'BKMGTP';
+	$factor = floor((strlen($bytes) - 1) / 3);
+	return sprintf("%.{$decimals}f", $bytes / pow(1024, $factor)) . @$sz[$factor];
 }
 
-function cr2nl ($string)
-{
-	return str_replace("\r\n","\n",$string);
+function cr2nl($string) {
+	return str_replace("\r\n", "\n", $string);
 }
 
 function time_point($line, $file) {
 	static $times, $points;
-	if(empty($times))
-	{
+	if (empty($times)) {
 		$times = array($_SERVER["REQUEST_TIME_FLOAT"]);
-		$points = array("REQUEST TIME ". round($_SERVER["REQUEST_TIME_FLOAT"]/60,6));		
+		$points = array("REQUEST TIME " . round($_SERVER["REQUEST_TIME_FLOAT"] / 60, 6));
 	}
-	$took = $times[count($times)-1];
+	$took = $times[count($times) - 1];
 	$times[] = microtime(true);
-	$took = round(($times[count($times)-1] - $took)/60, 6);
-	$points[] = "took $took minutes to get to line ".$line." in file: ". $file;
+	$took = round(($times[count($times) - 1] - $took) / 60, 6);
+	$points[] = "took $took minutes to get to line " . $line . " in file: " . $file;
 	return $points;
 }
 
-function echo_time_points($points)
-{
+function echo_time_points($points) {
 //	echo "<!---";
-	for($i=0;$i<count($points); $i++):
-		echo $points[$i]."<br>
+	for ($i = 0; $i < count($points); $i++):
+		echo $points[$i] . "<br>
 ";
 	endfor;
-	echo "took ".round((microtime(true)-$_SERVER["REQUEST_TIME_FLOAT"])/60,6). " minutes to the end";	
+	echo "took " . round((microtime(true) - $_SERVER["REQUEST_TIME_FLOAT"]) / 60, 6) . " minutes to the end";
 //	echo "--->";
 }
 
-function crypto_token($length, $url = false)
-{
+function crypto_token($length, $url = false) {
 	$bytes = openssl_random_pseudo_bytes($length, $crypto_strong);
-	if($url):
+	if ($url):
 		$base64 = base64url_encode($bytes);
 	else:
 		$base64 = base64_encode($bytes);
 	endif;
-	if(!$crypto_strong):
+	if (!$crypto_strong):
 		alert("Generated cryptographic tokens are not strong.", 'alert-error');
 		bad_request();
 	endif;
 	return $base64;
 }
 
-function base64url_encode($data) { 
-  return rtrim(strtr(base64_encode($data), '+/', '-_'), '='); 
-} 
+function base64url_encode($data) {
+	return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
 
 /**
  * Create URL Title
@@ -493,11 +513,11 @@ function url_title($str, $separator = '-', $lowercase = false) {
 		'&.+?;' => '',
 		'[^a-z0-9 _-]' => '',
 		'\s+' => $separator,
-		'('.$q_separator.')+' => $separator
+		'(' . $q_separator . ')+' => $separator
 	);
 	$str = strip_tags($str);
 	foreach ($trans as $key => $val) {
-		$str = preg_replace("#".$key."#i", $val, $str);
+		$str = preg_replace("#" . $key . "#i", $val, $str);
 	}
 
 	if ($lowercase === true) {
@@ -510,10 +530,10 @@ function url_title($str, $separator = '-', $lowercase = false) {
 function empty_column($col, $arr) {
 	$empty = true;
 	$last = null;
-	foreach($arr AS $row):
-		if(!(empty($row->$col)) OR // not empty column? (also treats 0 and empty strings as empty)
-		$last != $row->$col OR // any variation in this column?
-		!(!is_array($row->$col) AND trim($row->$col)=='')):
+	foreach ($arr AS $row):
+		if (!(empty($row->$col)) OR // not empty column? (also treats 0 and empty strings as empty)
+				$last != $row->$col OR // any variation in this column?
+				! (!is_array($row->$col) AND trim($row->$col) == '')):
 			$empty = false;
 			break;
 		endif;
@@ -557,18 +577,18 @@ function get_run_dir_contents($dir) {
  * @return mixed Returns the mime type as a string or FALSE otherwise
  */
 function get_file_mime($filename) {
-        $constant = defined('FILEINFO_MIME_TYPE') ? FILEINFO_MIME_TYPE : FILEINFO_MIME;
-		$finfo = finfo_open($constant);
-        $info = finfo_file($finfo, $filename);
-        finfo_close($finfo);
-        $mime = explode(';', $info);
-        if (!$mime) {
-            return false;
-        }
+	$constant = defined('FILEINFO_MIME_TYPE') ? FILEINFO_MIME_TYPE : FILEINFO_MIME;
+	$finfo = finfo_open($constant);
+	$info = finfo_file($finfo, $filename);
+	finfo_close($finfo);
+	$mime = explode(';', $info);
+	if (!$mime) {
+		return false;
+	}
 
-        $mime_type = $mime[0];
-        return $mime_type;
-    }
+	$mime_type = $mime[0];
+	return $mime_type;
+}
 
 /**
  * Send a file for download to client
@@ -583,7 +603,7 @@ function download_file($file, $unlink = false) {
 	$filesize = filesize($file);
 	header('Content-Description: File Transfer');
 	header('Content-Type: ' . $type);
-	header('Content-Disposition: attachment; filename = "'. $filename. '"');
+	header('Content-Disposition: attachment; filename = "' . $filename . '"');
 	header('Content-Transfer-Encoding: binary');
 	header('Expires: 0');
 	header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
@@ -597,7 +617,10 @@ function download_file($file, $unlink = false) {
 	exit(0);
 }
 
-function log_exception(Exception $e) {
-	formr_log('Ex: ' . $e->getMessage());
-	formr_log('ExS: ' . $e->getTraceAsString());
+function get_duplicate_update_string($columns) {
+	foreach ($columns as $i => $column) {
+		$column = trim($column, '`');
+		$columns[$i] = "`$column` = VALUES(`$column`)";
+	}
+	return $columns;
 }

@@ -89,7 +89,7 @@ class RunUnit {
 
 		$c_unit->bindParam(':type', $type);
 
-		$c_unit->execute() or die(print_r($c_unit->errorInfo(), true));
+		$c_unit->execute();
 
 		$this->unit_id = $this->dbh->lastInsertId();
 		return $this->unit_id;
@@ -102,7 +102,7 @@ class RunUnit {
 	 WHERE id = :id;");
 		$c_unit->bindParam(':id', $id);
 
-		$success = $c_unit->execute() or die(print_r($c_unit->errorInfo(), true));
+		$success = $c_unit->execute();
 
 		return $success;
 	}
@@ -119,7 +119,7 @@ class RunUnit {
 
 		$d_run_unit->bindParam(':unit_id', $this->id);
 		$d_run_unit->bindParam(':id', $this->run_unit_id);
-		$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
+		$d_run_unit->execute();
 		return $d_run_unit->rowCount();
 	}
 
@@ -128,20 +128,11 @@ class RunUnit {
 			$position = 1;
 		}
 		$this->position = (int) $position;
-		/*
-		  $s_run_unit = $this->dbh->prepare("SELECT id FROM `survey_run_units` WHERE unit_id = :id AND run_id = :run_id;");
-		  $s_run_unit->bindParam(':id', $this->id);
-		  $s_run_unit->bindParam(':run_id', $run_id);
-		  $s_run_unit->execute() or ($this->errors = $s_run_unit->errorInfo());
-
-		  if($s_run_unit->rowCount()===0):
-		 */
-
 		$d_run_unit = $this->dbh->prepare("INSERT INTO `survey_run_units` SET  unit_id = :id, run_id = :run_id, position = :position;");
 		$d_run_unit->bindParam(':id', $this->id);
 		$d_run_unit->bindParam(':run_id', $run_id);
 		$d_run_unit->bindParam(':position', $this->position);
-		$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
+		$d_run_unit->execute();
 		$this->run_unit_id = $this->dbh->lastInsertId();
 		return $this->run_unit_id;
 		/*
@@ -153,7 +144,7 @@ class RunUnit {
 	public function removeFromRun() {
 		$d_run_unit = $this->dbh->prepare("DELETE FROM `survey_run_units` WHERE id = :id;");
 		$d_run_unit->bindParam(':id', $this->run_unit_id);
-		$d_run_unit->execute() or ( $this->errors = $d_run_unit->errorInfo());
+		$d_run_unit->execute();
 
 		return $d_run_unit->rowCount();
 	}
@@ -162,13 +153,13 @@ class RunUnit {
 		$d_unit = $this->dbh->prepare("DELETE FROM `survey_units` WHERE id = :id;");
 		$d_unit->bindParam(':id', $this->id);
 
-		$d_unit->execute() or $this->errors = $d_unit->errorInfo();
+		$d_unit->execute();
 
 		$affected = $d_unit->rowCount();
 		if ($affected): // remove from all runs
 			$d_run_unit = $this->dbh->prepare("DELETE FROM `survey_run_units` WHERE unit_id = :id;");
 			$d_run_unit->bindParam(':id', $this->id);
-			$d_run_unit->execute() or $this->errors = $d_run_unit->errorInfo();
+			$d_run_unit->execute();
 
 			$affected += $d_run_unit->rowCount();
 		endif;
@@ -186,7 +177,7 @@ class RunUnit {
 		LIMIT 1;");
 		$finish_unit->bindParam(":session_id", $this->session_id);
 		$finish_unit->bindParam(":unit_id", $this->id);
-		$finish_unit->execute() or die(print_r($finish_unit->errorInfo(), true));
+		$finish_unit->execute();
 
 		if ($finish_unit->rowCount() === 1):
 			$this->ended = true;
@@ -208,7 +199,7 @@ class RunUnit {
 		$get_sessions = $this->dbh->prepare($q); // should use readonly
 		$get_sessions->bindParam(':run_id', $this->run_id);
 
-		$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
+		$get_sessions->execute();
 		if ($get_sessions->rowCount() >= 1):
 			$results = array();
 			while ($temp = $get_sessions->fetch())
@@ -230,7 +221,7 @@ class RunUnit {
 		$reached_unit->bindParam(":unit_id", $this->id);
 		$reached_unit->bindParam(':run_id', $this->run_id);
 
-		$reached_unit->execute() or die(print_r($reached_unit->errorInfo(), true));
+		$reached_unit->execute();
 		$reached = $reached_unit->fetch(PDO::FETCH_ASSOC);
 		return $reached;
 	}
@@ -454,7 +445,7 @@ class RunUnit {
 					'submit'
 				)");
 				$variable_names->bindValue(':study_id',$study_id);
-				$variable_names->execute() or die(print_r($variable_names->errorInfo(), true));
+				$variable_names->execute();
 			
 				$variable_names_in_table[ $table_name ] = array("created","modified","ended"); // should avoid modified, sucks for caching
 				while($res = $variable_names->fetch(PDO::FETCH_ASSOC)):
@@ -532,7 +523,7 @@ class RunUnit {
 			$get_sessions->bindParam(':run_id', $this->run_id);
 			$get_sessions->bindValue(':current_position', $current_position);
 
-			$get_sessions->execute() or die(print_r($get_sessions->errorInfo(), true));
+			$get_sessions->execute();
 
 			if ($get_sessions->rowCount() >= 1):
 				$temp_user = $get_sessions->fetch(PDO::FETCH_ASSOC);

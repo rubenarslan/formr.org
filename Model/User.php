@@ -143,26 +143,24 @@ formr robots";
 				->where(array('email' => $email))
 				->limit(1)->fetch();
 
-		if ($user) {
-			if (password_verify($password, $user['password'])) {
-				if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
-					$hash = password_hash($password, PASSWORD_DEFAULT);
-					/* Store new hash in db */
-					if ($hash):
-						$this->dbh->update('survey_users', array('password' => $hash), array('email' => $email));
-					else:
-						alert('<strong>Error!</strong> Hash error.', 'alert-danger');
-						return false;
-					endif;
-				}
-
-				$this->logged_in = true;
-				$this->email = $email;
-				$this->id = $user['id'];
-				$this->user_code = $user['user_code'];
-				$this->admin = $user['admin'];
-				return true;
+		if ($user && password_verify($password, $user['password'])) {
+			if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
+				$hash = password_hash($password, PASSWORD_DEFAULT);
+				/* Store new hash in db */
+				if ($hash):
+					$this->dbh->update('survey_users', array('password' => $hash), array('email' => $email));
+				else:
+					alert('<strong>Error!</strong> Hash error.', 'alert-danger');
+					return false;
+				endif;
 			}
+
+			$this->logged_in = true;
+			$this->email = $email;
+			$this->id = $user['id'];
+			$this->user_code = $user['user_code'];
+			$this->admin = $user['admin'];
+			return true;
 		}
 
 		$this->errors[] = _("<strong>Error.</strong> Your login credentials were incorrect.");
@@ -171,15 +169,17 @@ formr robots";
 
 	public function setAdminLevelTo($level) {
 		global $user;
-		if (!$user->isSuperAdmin())
-			die("sth wrong");
+		if (!$user->isSuperAdmin()) {
+			throw new Exception("You need more admin rights to effect this change");
+		}
 
 		$level = (int) $level;
 		if ($level !== 0 AND $level !== 1):
-			if ($level > 1)
+			if ($level > 1) {
 				$level = 1;
-			else
+			} else {
 				$level = 0;
+			}
 		endif;
 
 		return $this->dbh->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 100));
@@ -194,10 +194,11 @@ formr robots";
 		else:
 			$token = crypto_token(48);
 			$hash = password_hash($token, PASSWORD_DEFAULT);
+
 			$this->dbh->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => 'NOW() + + INTERVAL 2 DAY'), array('email' => $email));
 
 			$reset_link = WEBROOT . "public/reset_password?email=" . rawurlencode($email) . "&reset_token=" . $token;
-
+			
 			global $site;
 			$mail = $site->makeAdminMailer();
 			$mail->AddAddress($email);
