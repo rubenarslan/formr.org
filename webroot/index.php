@@ -18,7 +18,7 @@ date_default_timezone_set(Config::get('timezone'));
 mb_internal_encoding('UTF-8');
 
 $site = Site::getInstance();
-$fdb = new DB();
+$fdb = DB::getInstance();
 
 $site->start_session();
 if (isset($_SESSION['site']) AND is_object($_SESSION['site'])): // first we see what's in that session

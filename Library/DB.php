@@ -5,7 +5,7 @@ class DB {
 	/**
 	 * @var DB
 	 */
-	public static $instance = null;
+	protected static $instance = null;
 
 	/**
 	 *
@@ -49,7 +49,7 @@ class DB {
 	 */
 	protected $PDO;
 
-	public function __construct() {
+	protected function __construct() {
         require_once INCLUDE_ROOT . "config/database.php";
 		$config = new DATABASE_CONFIG();
 		$params = (array) $config->default;
