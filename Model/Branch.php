@@ -55,11 +55,7 @@ class Branch extends RunUnit {
 		}
 		$this->condition = cr2nl($this->condition);
 
-		$columns = array('id', 'condition', 'if_true', 'automatically_jump', 'automatically_go_on');
-		$columns_str = implode(',', $columns);
-		$updates = get_duplicate_update_string($columns);
-		$query = "INSERT INTO survey_branches ($columns_str) VALUES (:id, :condition, :if_true, :automatically_jump, :automatically_go_on) ON DUPLICATE KEY UPDATE $updates";
-		$this->dbh->exec($query, array(
+		$this->dbh->insert_update('survey_branches', array(
 			'id' => $this->id,
 			'condition' => $this->condition,
 			'if_true' => $this->if_true,

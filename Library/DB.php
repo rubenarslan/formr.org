@@ -102,7 +102,7 @@ class DB {
 	/**
 	 * Used for INSERT, UPDATE and DELETE
 	 *
-	 * @param string $query
+	 * @param string $query MySQL query with placeholders
 	 * @param array $data Optional associative array of parameters that will be bound to the query
 	 * @return int Returns the number of affected rows of the query
 	 */
@@ -287,6 +287,30 @@ class DB {
 		return $this->lastInsertId();
 	}
 
+	/**
+	 * Insert data and update values on duplicate keys
+	 *
+	 * @param string $table Table name
+	 * @param array $data An associative array of key,value pairs representing data to insert
+	 * @param array $updates [optional] Optional column names representing what values to update
+	 * @return int Returns number of affected rows
+	 */
+	public function insert_update($table, array $data, array $updates = array()) {
+		$columns = array_map(array(self, 'quoteCol'), array_keys($data));
+		$values = array_map(array(self, 'pkey'), array_keys($data));
+		if (!$updates) {
+			$updates = array_keys($data);
+		}
+		$table = self::quoteCol($table);
+
+		$columns_str = implode(',', $columns);
+		$values_str = implode(',', $values);
+		$updates_str = $this->getDuplicateUpdateString($updates);
+
+		$query = "INSERT INTO $table ($columns_str) VALUES ($values_str) ON DUPLICATE KEY UPDATE $updates_str";
+		return $this->dbh->exec($query, $data);
+	}
+
 	public function update($table_name, array $data, array $where, array $data_types = array(), array $where_types = array()) {
 		if (!$this->checkTypeCount($data, $data_types)) {
 			throw new Exception("Array count for data and data-types do not match");
@@ -414,6 +438,14 @@ class DB {
 		return count($types) === count($data);
 	}
 
+	public function getDuplicateUpdateString($columns) {
+		foreach ($columns as $i => $column) {
+			$column = trim($column, '`');
+			$columns[$i] = "`$column` = VALUES(`$column`)";
+		}
+		return $columns;
+	}
+
 	public static function pkey($key) {
 		$key = trim($key);
 		$key = trim($key, '`:');
@@ -479,6 +511,31 @@ class DB {
 			$string = str_replace($key, $value, $string);
 		}
 		return $string;
+	}
+
+	/**
+	 * For transactions just use same calls
+	 */
+
+	/**
+	 * {inherit PDO doc}
+	 */
+	public function beginTransaction() {
+		$this->PDO->beginTransaction();
+	}
+
+	/**
+	 * {inherit PDO doc}
+	 */
+	public function commit() {
+		$this->PDO->commit();
+	}
+
+	/**
+	 * {inherit PDO doc}
+	 */
+	public function rollBack() {
+		$this->PDO->rollBack();
 	}
 }
 
