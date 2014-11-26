@@ -1,4 +1,5 @@
 <?php
+
 class Survey extends RunUnit {
 
 	public $id = null;
@@ -31,17 +32,13 @@ class Survey extends RunUnit {
 	public $admin_usage = false;
 	private $confirmed_deletion = false;
 	private $item_factory = null;
-	public function __construct($fdb, $session, $unit, $run_session = NULL)
-	{
-		if(isset($unit['name']) AND !isset($unit['unit_id'])): // when called via URL
-			$study_data = $fdb->prepare("SELECT id FROM `survey_studies` WHERE user_id = :user_id AND name = :name LIMIT 1");
-			$study_data->bindValue(":name",$unit['name']);
+
+	public function __construct($fdb, $session, $unit, $run_session = NULL) {
+		if (isset($unit['name']) AND ! isset($unit['unit_id'])): // when called via URL
 			global $user;
-			$study_data->bindValue(':user_id',$user->id);
-			$study_data->execute();
-			$vars = $study_data->fetch(PDO::FETCH_ASSOC);
-			$unit['unit_id'] = $vars['id']; // parent::__construct needs this
-			$this->id = $unit['unit_id'];
+			$id = $this->dbh->findValue('survey_studies', array('name' => $unit['name'], 'user_id' => $user->id), array('id'));
+			$this->id = $id;
+			$unit['unit_id'] = $this->id; // parent::__construct needs this
 		endif;
 
 		parent::__construct($fdb, $session, $unit, $run_session);
@@ -50,8 +47,9 @@ class Survey extends RunUnit {
 			$this->load();
 		endif;
 
-		if ($this->beingTestedByOwner())
+		if ($this->beingTestedByOwner()) {
 			$this->admin_usage = true;
+		}
 	}
 
 	private function load() {
@@ -195,8 +193,8 @@ class Survey extends RunUnit {
 		$this->not_answered = array_filter($this->unanswered, function ($item) {
 			if (
 					$item->hidden OR  // item was skipped
-					in_array($item->type, array('submit', 'mc_heading'))	// these items require no user interaction and thus don't count against progress
-					OR ( $item->type == 'note' AND $item->displaycount > 0)	// item is a note and has already been viewed
+					in_array($item->type, array('submit', 'mc_heading')) // these items require no user interaction and thus don't count against progress
+					OR ( $item->type == 'note' AND $item->displaycount > 0) // item is a note and has already been viewed
 			)
 				return false;
 			else
@@ -221,9 +219,9 @@ class Survey extends RunUnit {
 		 */
 
 		$all_items = $this->already_answered + $this->not_answered;
-		
-		if($all_items !== 0) {
-			$this->progress = $this->already_answered / $all_items ;
+
+		if ($all_items !== 0) {
+			$this->progress = $this->already_answered / $all_items;
 			return $this->progress;
 		} else {
 			$this->errors[] = _('Something went wrong, there are no items in this survey!');
@@ -377,11 +375,11 @@ class Survey extends RunUnit {
 				elseif ($item->type === "note") {
 					$next = current($this->unanswered);
 					if (
-							$item->displaycount > 0 AND			 // if this was displayed before
+							$item->displaycount > 0 AND	// if this was displayed before
 							(
-							$next === false OR				  // this is the end of the survey
-							$next->hidden === true OR				  // the next item is hidden // todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
-							in_array($next->type, array('note', 'submit', 'mc_heading'))	 // the next item isn't a normal item
+							$next === false OR	  // this is the end of the survey
+							$next->hidden === true OR	  // the next item is hidden // todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
+							in_array($next->type, array('note', 'submit', 'mc_heading'))  // the next item isn't a normal item
 							)
 					) {
 						continue; // skip this note							
@@ -390,9 +388,9 @@ class Survey extends RunUnit {
 					$next = current($this->unanswered);
 					if (
 							(
-							$next === false OR				  // this is the end of the survey
-							$next->hidden === true OR				  // the next item is hidden // todo: same as above
-							! in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button'))	 // the next item isn't a mc item
+							$next === false OR	  // this is the end of the survey
+							$next->hidden === true OR	  // the next item is hidden // todo: same as above
+							! in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button'))  // the next item isn't a mc item
 							)
 					) {
 						continue; // skip this mc_heading
@@ -413,8 +411,8 @@ class Survey extends RunUnit {
 		$this->not_answered_on_current_page = array_filter($this->rendered_items, function ($item) {
 			if (
 					$item->hidden OR  // item was skipped
-					in_array($item->type, array('submit', 'mc_heading'))	// these items require no user interaction and thus don't count against progress
-					OR ( $item->type == 'note' AND $item->displaycount > 0)	// item is a note and has already been viewed
+					in_array($item->type, array('submit', 'mc_heading')) // these items require no user interaction and thus don't count against progress
+					OR ( $item->type == 'note' AND $item->displaycount > 0) // item is a note and has already been viewed
 			)
 				return false;
 			else
@@ -425,7 +423,7 @@ class Survey extends RunUnit {
 	}
 
 	protected function render_form_header() {
-		$action = RUNROOT."{$this->run_name}";
+		$action = RUNROOT . "{$this->run_name}";
 
 		$enctype = ' enctype="multipart/form-data"'; # maybe make this conditional application/x-www-form-urlencoded
 		$ret = '<form action="' . $action . '" method="post" class="form-horizontal" accept-charset="utf-8"' . $enctype . '>';
@@ -572,7 +570,7 @@ class Survey extends RunUnit {
 		$post_form->execute();
 
 		$this->dbh->commit();
-        alert('Survey settings updated', 'alert-success', true);
+		alert('Survey settings updated', 'alert-success', true);
 	}
 
 	public function uploadItemTable($file, $confirmed_deletion) {
@@ -617,20 +615,22 @@ class Survey extends RunUnit {
 			return false;
 		endif;
 	}
-	protected function existsByName($name, $results_table)
-	{
-		if(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/",$name)) return;
-		if(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/",$results_table)) return;
-		
+
+	protected function existsByName($name, $results_table) {
+		if (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $name))
+			return;
+		if (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $results_table))
+			return;
+
 		$exists = $this->dbh->prepare("SELECT `name` FROM `survey_studies` WHERE name = :name AND  user_id = :user_id LIMIT 1");
-		$exists->bindParam(':name',$name);
-		$exists->bindParam(':user_id',$this->unit['user_id']);
+		$exists->bindParam(':name', $name);
+		$exists->bindParam(':user_id', $this->unit['user_id']);
 		$exists->execute();
 		if ($exists->rowCount())
 			return true;
-		
+
 		$reserved = $this->dbh->query("SHOW TABLES LIKE '$results_table';");
-		if($reserved->rowCount())
+		if ($reserved->rowCount())
 			return true;
 
 		return false;
@@ -653,7 +653,7 @@ class Survey extends RunUnit {
 		// so it is possible to add a survey, without specifying which one at first
 		// and to then choose one.
 		// thus, we "mock" a survey at first
-		if(count($options) === 1 || isset($options['mock'])):
+		if (count($options) === 1 || isset($options['mock'])):
 			$this->valid = true;
 		else: // and link it to the run only later
 			$this->id = $options['unit_id'];
@@ -661,18 +661,18 @@ class Survey extends RunUnit {
 				$this->load();
 		endif;
 	}
-	public function createIndependently()
-	{
-	    $name = trim($this->unit['name']);
-		$results_table = "formr_".$this->unit['user_id'].'_'.$name;
-	    if($name == ""):
+
+	public function createIndependently() {
+		$name = trim($this->unit['name']);
+		$results_table = "formr_" . $this->unit['user_id'] . '_' . $name;
+		if ($name == ""):
 			alert(_("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored."), 'alert-danger');
 			return false;
 		elseif (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $name)):
 			alert('<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from a to Z, 0 to 9 and the underscore. It needs to start with a letter. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>.', 'alert-danger');
 			return false;
-		elseif($this->existsByName($name, $results_table)):
-			alert(__("<strong>Error:</strong> The survey name %s is already taken.",h($name)), 'alert-danger');
+		elseif ($this->existsByName($name, $results_table)):
+			alert(__("<strong>Error:</strong> The survey name %s is already taken.", h($name)), 'alert-danger');
 			return false;
 		endif;
 
@@ -680,15 +680,15 @@ class Survey extends RunUnit {
 		$this->id = parent::create('Survey');
 		$this->name = $name;
 		$this->results_table = $results_table;
-		
+
 		$create = $this->dbh->prepare("INSERT INTO `survey_studies` (id, created,modified, user_id,name, results_table) VALUES (:run_item_id, NOW(), NOW(), :user_id,:name, :results_table );");
-		$create->bindParam(':run_item_id',$this->id);
-		$create->bindParam(':user_id',$this->unit['user_id']);
-		$create->bindParam(':name',$name);
-		$create->bindParam(':results_table',$this->results_table);
+		$create->bindParam(':run_item_id', $this->id);
+		$create->bindParam(':user_id', $this->unit['user_id']);
+		$create->bindParam(':name', $name);
+		$create->bindParam(':results_table', $this->results_table);
 		$create->execute();
 		$this->dbh->commit();
-		
+
 		$this->changeSettings(array
 			(
 			"maximum_number_displayed" => 0,
@@ -844,7 +844,6 @@ class Survey extends RunUnit {
 			log_exception($e, __CLASS__);
 			return false;
 		}
-
 	}
 
 	public function getItemsWithChoices() {
@@ -910,8 +909,8 @@ class Survey extends RunUnit {
 		if (empty($columns))
 			$columns_string = '';# create a results tabel with only the access times
 		else
-			$columns_string = implode(",\n", $columns).",";
-		
+			$columns_string = implode(",\n", $columns) . ",";
+
 		$create = "CREATE TABLE `{$this->results_table}` (
 		  `session_id` INT UNSIGNED NOT NULL ,
 		  `study_id` INT UNSIGNED NOT NULL ,
@@ -966,9 +965,9 @@ class Survey extends RunUnit {
 
 		return $this->getResultsTableSyntax($old_result_columns);
 	}
-	private function createResultsTable($syntax)
-	{
-		if($this->deleteResults()):
+
+	private function createResultsTable($syntax) {
+		if ($this->deleteResults()):
 			$drop = $this->dbh->query("DROP TABLE IF EXISTS `{$this->results_table}` ;");
 			$drop->execute();
 		else:
@@ -987,7 +986,7 @@ class Survey extends RunUnit {
 			$columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, value, `order`";
 		}
 		$get_items = $this->dbh->prepare(
-			"SELECT $columns FROM `survey_items` 
+				"SELECT $columns FROM `survey_items` 
 			WHERE `survey_items`.study_id = :study_id 
 			ORDER BY `order` ASC, id ASC"
 		);
@@ -1004,7 +1003,7 @@ class Survey extends RunUnit {
 
 	public function getItemsForSheet() {
 		$get_items = $this->dbh->prepare(
-			"SELECT type, type_options, choice_list, name, label, optional, class, showif, value, `order` 
+				"SELECT type, type_options, choice_list, name, label, optional, class, showif, value, `order` 
 			FROM `survey_items` 
 			WHERE `survey_items`.study_id = :study_id 
 			ORDER BY `order` ASC, id ASC"
@@ -1022,8 +1021,8 @@ class Survey extends RunUnit {
 
 		return $results;
 	}
-	public function countResults()
-	{
+
+	public function countResults() {
 		$get = "SELECT COUNT(*) AS count FROM `{$this->results_table}`";
 		$get = $this->dbh->query($get);
 		$results = array();
@@ -1031,8 +1030,8 @@ class Survey extends RunUnit {
 		$this->result_count = $row['count'];
 		return $row['count'];
 	}
-	public function getResults()
-	{ // fixme: shouldnt be using wildcard operator here.
+
+	public function getResults() { // fixme: shouldnt be using wildcard operator here.
 		$get = "SELECT `survey_run_sessions`.session, `{$this->results_table}`.* FROM `{$this->results_table}`
 		LEFT JOIN `survey_unit_sessions`
 		ON  `{$this->results_table}`.session_id = `survey_unit_sessions`.id
@@ -1096,30 +1095,30 @@ class Survey extends RunUnit {
 		else:
 			$this->warnings[] = __("%s results rows were deleted.", array_sum($resC));
 		endif;
-		
+
 		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->results_table}`");
-		
-		$delete_sessions = $this->dbh->prepare ( "DELETE FROM `survey_unit_sessions` 
-		WHERE `unit_id` = :study_id" );
-		$delete_sessions->bindParam(':study_id',$this->id);
+
+		$delete_sessions = $this->dbh->prepare("DELETE FROM `survey_unit_sessions` 
+		WHERE `unit_id` = :study_id");
+		$delete_sessions->bindParam(':study_id', $this->id);
 		$delete_sessions->execute();
 
 		return $delete;
 	}
-	public function backupResults()
-	{
+
+	public function backupResults() {
 		$filename = $this->results_table . date('YmdHis') . ".tab";
-		if(isset($this->user_id)) {
+		if (isset($this->user_id)) {
 			$filename = "user" . $this->user_id . $filename;
 		}
-        $filename = INCLUDE_ROOT ."tmp/backups/results/". $filename;
+		$filename = INCLUDE_ROOT . "tmp/backups/results/" . $filename;
 
 		$SPR = new SpreadsheetReader();
 		return $SPR->backupTSV($this->getResults(), $filename);
 	}
-	public function getResultCount()
-	{
-		if($this->dbh->table_exists($this->results_table)):
+
+	public function getResultCount() {
+		if ($this->dbh->table_exists($this->results_table)):
 			$get = "SELECT SUM(`{$this->results_table}`.ended IS NULL) AS begun, SUM(`{$this->results_table}`.ended IS NOT NULL) AS finished FROM `{$this->results_table}` 
 			LEFT JOIN `survey_unit_sessions`
 			ON `survey_unit_sessions`.id = `{$this->results_table}`.session_id";
@@ -1154,10 +1153,9 @@ class Survey extends RunUnit {
 
 		return $time;
 	}
-	
-	public function delete()
-	{
-		if($this->deleteResults()): // always back up
+
+	public function delete() {
+		if ($this->deleteResults()): // always back up
 			$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->results_table}`");
 			return parent::delete();
 		endif;
@@ -1203,7 +1201,7 @@ class Survey extends RunUnit {
 				$dialog .= "</select>";
 				$dialog .= '<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Add to this run.</a></div>';
 			else:
-				$dialog .= "<h5>No studies. <a href='".WEBROOT."admin/survey/'>Add some first</a></h5>";
+				$dialog .= "<h5>No studies. <a href='" . WEBROOT . "admin/survey/'>Add some first</a></h5>";
 			endif;
 		endif;
 		$dialog = $prepend . $dialog;
