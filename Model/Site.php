@@ -65,17 +65,19 @@ class Site {
         else:
             $this->alert_types[$class] = 1;
         endif;
-        if (is_array($msg))
+        if (is_array($msg)) {
             $msg = $msg['body'];
+		}
 
-        if ($class == 'alert-warning')
+        if ($class == 'alert-warning') {
             $class_logo = 'exclamation-triangle';
-        elseif ($class == 'alert-danger')
+		} elseif ($class == 'alert-danger') {
             $class_logo = 'bolt';
-        elseif ($class == 'alert-info')
+		} elseif ($class == 'alert-info') {
             $class_logo = 'info-circle';
-        else // if($class == 'alert-success')
+		} else { // if($class == 'alert-success')
             $class_logo = 'thumbs-up';
+		}
 
         $logo = '<i class="fa fa-' . $class_logo . '"></i>';
         $this->alerts[] = "<div class='alert $class'>" . $logo . '<button type="button" class="close" data-dismiss="alert">&times;</button>' . "$msg</div>";
@@ -117,10 +119,11 @@ class Site {
         $mail->Mailer = "smtp";
         $mail->Host = $settings['email']['host'];
         $mail->Port = $settings['email']['port'];
-        if ($settings['email']['tls'])
+        if ($settings['email']['tls']) {
             $mail->SMTPSecure = 'tls';
-        else
+		} else {
             $mail->SMTPSecure = 'ssl';
+		}
         $mail->SMTPAuth = true; // turn on SMTP authentication
         $mail->Username = $settings['email']['username']; // SMTP username
         $mail->Password = $settings['email']['password']; // SMTP password
@@ -142,8 +145,8 @@ class Site {
             session_destroy();   // destroy session data in storage
             $this->start_session();
             return true;
-        } else
-            return false;
+        }
+		return false;
     }
 
     public function start_session() {
@@ -183,13 +186,16 @@ class Site {
 
     public function makeTitle() {
         global $title;
-        if (trim($title))
+        if (trim($title)) {
             return $title;
+		}
+
         $path = '';
-        if (isset($_SERVER['REDIRECT_URL']))
+        if (isset($_SERVER['REDIRECT_URL'])) {
             $path = $_SERVER['REDIRECT_URL'];
-        else if (isset($_SERVER['SCRIPT_NAME']))
+		} else if (isset($_SERVER['SCRIPT_NAME'])) {
             $path = $_SERVER['SCRIPT_NAME'];
+		}
 
         $path = preg_replace(array(
             "@var/www/@",

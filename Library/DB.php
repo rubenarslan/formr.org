@@ -215,7 +215,7 @@ class DB {
 	}
 
 	public function findValue($table_name, $where = null, $cols = array()) {
-		return $this->select($cols)->from($table_name)->where($where)->fetchColumn();
+		return $this->select($cols)->from($table_name)->where($where)->limit(1)->fetchColumn();
 	}
 
 	public function select($cols = array()) {
@@ -613,7 +613,7 @@ class DB_Select {
 			$whereParsed = $this->parseWhere($where);
 			$this->where = array_merge($this->where, $whereParsed['clauses']);
 			$this->params = array_merge($this->params, $whereParsed['params']);
-		} else {
+		} elseif (is_string($where)) {
 			$this->where[] = $where;
 		}
 		return $this;
@@ -736,7 +736,7 @@ class DB_Select {
 		}
 
 		if ($this->order) {
-			$order = implode(', ', $order);
+			$order = implode(', ', $this->order);
 			$query .= " \nORDER BY " . $order;
 		}
 
