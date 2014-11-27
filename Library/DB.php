@@ -118,13 +118,18 @@ class DB {
 	}
 
 	/**
-	 * Used for SELECT
+	 * Used for SELECT or 'non-modify' queries
 	 *
-	 * @param string $query
-	 * @return PDOStatement
+	 * @param string $query SQL query to execute
+	 * @param bool $return_statemnt [optional] If set to true, PDOStatement is always returned
+	 * @return mixed Returns a PDOStatement if not selecting else returns selected results in an associative array
 	 */
-	public function query($query, $fetch_style = PDO::FETCH_ASSOC) {
-		return $this->PDO->query($query)->fetchAll($fetch_style);
+	public function query($query, $return_statemnt = false) {
+		$stmt = $this->PDO->query($query);
+		if (strpos(strtolower($query), 'select') !== false && $return_statemnt === false) {
+			return $stmt->fetchAll(PDO::FETCH_ASSOC);
+		}
+		return $stmt;
 	}
 
     /**
@@ -155,12 +160,7 @@ class DB {
     }
 
     public function table_exists($table) {
-        $num = $this->num_rows("SHOW TABLES LIKE '" . $table . "'");
-        if ($num === 1) {
-            return true;
-        } else {
-            return false;
-        }
+        return $this->num_rows("SHOW TABLES LIKE '" . $table . "'") > 0;
     }
 
 	public function __destruct() {
@@ -219,7 +219,9 @@ class DB {
 	}
 
 	public function select($cols = array()) {
-		if (is_string($cols)) $cols = explode(',', $cols);
+		if (is_string($cols)) {
+			$cols = explode(',', $cols);
+		}
 		return new DB_Select($this->PDO, $cols);
 	}
 
@@ -308,7 +310,7 @@ class DB {
 		$updates_str = $this->getDuplicateUpdateString($updates);
 
 		$query = "INSERT INTO $table ($columns_str) VALUES ($values_str) ON DUPLICATE KEY UPDATE $updates_str";
-		return $this->dbh->exec($query, $data);
+		return $this->exec($query, $data);
 	}
 
 	public function update($table_name, array $data, array $where, array $data_types = array(), array $where_types = array()) {
@@ -440,8 +442,14 @@ class DB {
 
 	public function getDuplicateUpdateString($columns) {
 		foreach ($columns as $i => $column) {
-			$column = trim($column, '`');
-			$columns[$i] = "`$column` = VALUES(`$column`)";
+			if (is_numeric($i)) {
+				$column = trim($column, '`');
+				$columns[$i] = "`$column` = VALUES(`$column`)";
+			} else {
+				$column = trim($i, '`');
+				$value = $this->PDO->quote($column);
+				$columns[$i] = "`$column` = $value";
+			}
 		}
 		return $columns;
 	}
@@ -464,18 +472,6 @@ class DB {
 		$col = trim($col, '`');
 		$col = "`$col`";
 		return $col;
-	}
-
-	public static function getSelectCols(array $cols) {
-		$select = array();
-		foreach ($cols as $key => $val) {
-			if (is_numeric($key)) {
-				$select[] = $this->parseColName($val);
-			} else {
-				$select[] = $this->parseColName($key) . ' AS ' . $this->parseColName($val);
-			}
-		}
-		return implode(', ', $select);
 	}
 
 	public static function parseColName($string) {
@@ -589,22 +585,22 @@ class DB_Select {
 
 	public function leftJoin($table, $condition) {
 		$table = DB::quoteCol($table);
-		$condition = $this->parseJoinCondition($condition);
-		$this->joins[] = " LEFT JOIN $table ON $condition";
+		$condition = $this->parseJoinConditions(func_get_args());
+		$this->joins[] = " LEFT JOIN $table ON ($condition)";
 		return $this;
 	}
 
 	public function rightJoin($table, $condition) {
 		$table = DB::quoteCol($table);
-		$condition = $this->parseJoinCondition($condition);
-		$this->joins[] = " RIGHT JOIN $table ON $condition";
+		$condition = $this->parseJoinConditions(func_get_args());
+		$this->joins[] = " RIGHT JOIN $table ON ($condition)";
 		return $this;
 	}
 
 	public function join($table, $condition) {
 		$table = DB::quoteCol($table);
-		$condition = $this->parseJoinCondition($condition);
-		$this->joins[] = " INNER JOIN $table ON $condition";
+		$condition = $this->parseJoinConditions(func_get_args());
+		$this->joins[] = " INNER JOIN $table ON ($condition)";
 		return $this;
 	}
 
@@ -639,7 +635,7 @@ class DB_Select {
 		return $this;
 	}
 
-	public function order($by, $order = null) {
+	public function order($by, $order = 'asc') {
 		if ($by === 'RAND') {
 			$this->order[] = 'RAND()';
 			return $this;
@@ -688,12 +684,21 @@ class DB_Select {
 	}
 
 	/**
+	 * Returns executed PDO statement of current query
+	 *
 	 * @return PDOStatement
 	 */
 	public function statement() {
 		$this->constructQuery();
 		$query = $this->trimQuery();
-		return $this->PDO->prepare($query);
+		$stmt = $this->PDO->prepare($query);
+		if ($this->params) {
+			foreach ($this->params as $key => $value) {
+				$stmt->bindValue($key, $value);
+			}
+		}
+		$stmt->execute();
+		return $stmt;
 	}
 
 	public function getParams() {
@@ -746,6 +751,15 @@ class DB_Select {
 		$this->query = $query;
 	}
 
+	private function parseJoinConditions($conditions) {
+		array_shift($conditions); // first arguement is the table name
+		$parsed = array();
+		foreach ($conditions as $condition) {
+			$parsed[] = $this->parseJoinCondition($condition);
+		}
+		return implode(' AND ', $parsed);
+	}
+
 	private function parseJoinCondition($condition) {
 		$conditions = explode('=', $condition, 2);
 		if (count($conditions) != 2) {
@@ -770,7 +784,7 @@ class DB_Select {
 	private function parseColName($string) {
 		$string = trim($string);
 		// If it is some sql func
-		if (!preg_match('/[a-zA-Z0-9_]/i', $string, $matches)) {
+		if (!preg_match('/[a-zA-Z0-9_\.]/i', $string, $matches)) {
 			return $string;
 		}
 
@@ -791,7 +805,7 @@ class DB_Select {
 
 		$signs = array();
 		foreach ($cols as $i => $col_condition) {
-			$col_condition = preg_replace('/s+/', ' ', trim($col_condition));
+			$col_condition = preg_replace('/\s+/', ' ', trim($col_condition));
 			$parts = array_filter(explode(' ', $col_condition));
 			if (count($parts) === 1) {
 				$signs[$i] = '=';

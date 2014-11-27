@@ -40,10 +40,11 @@ function redirect_to($location) {
 
 	if (mb_substr($location, 0, 4) != 'http') {
 		$base = WEBROOT;
-		if (mb_substr($location, 0, 1) == '/')
+		if (mb_substr($location, 0, 1) == '/') {
 			$location = $base . mb_substr($location, 1);
-		else
+		} else {
 			$location = $base . $location;
+		}
 	}
 	header("Location: $location");
 	exit;
@@ -51,8 +52,9 @@ function redirect_to($location) {
 
 function session_over($site, $user) {
 	static $closed;
-	if ($closed)
+	if ($closed) {
 		return false;
+	}
 
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
@@ -141,10 +143,11 @@ function used_opencpu($echo = false) {
 		pr($used);
 		return;
 	endif;
-	if (isset($used))
+	if (isset($used)) {
 		$used++;
-	else
+	} else {
 		$used = 1;
+	}
 }
 
 function used_cache($echo = false) {
@@ -153,10 +156,11 @@ function used_cache($echo = false) {
 		pr($used);
 		return;
 	endif;
-	if (isset($used))
+	if (isset($used)) {
 		$used++;
-	else
+	} else {
 		$used = 1;
+	}
 }
 
 function used_nginx_cache($echo = false) {
@@ -165,10 +169,11 @@ function used_nginx_cache($echo = false) {
 		pr($used);
 		return;
 	endif;
-	if (isset($used))
+	if (isset($used)) {
 		$used++;
-	else
+	} else {
 		$used = 1;
+	}
 }
 
 if (!function_exists('__')) {
@@ -280,13 +285,10 @@ function env($key) {
 				$offset = 4;
 			}
 			return mb_substr($filename, 0, -(strlen($name) + $offset));
-			break;
 		case 'PHP_SELF':
 			return str_replace(env('DOCUMENT_ROOT'), '', env('SCRIPT_FILENAME'));
-			break;
 		case 'CGI_MODE':
 			return (PHP_SAPI === 'cgi');
-			break;
 		case 'HTTP_BASE':
 			$host = env('HTTP_HOST');
 			$parts = explode('.', $host);
@@ -326,7 +328,6 @@ function env($key) {
 			}
 			array_shift($parts);
 			return '.' . implode('.', $parts);
-			break;
 	}
 	return null;
 }
@@ -336,28 +337,30 @@ function emptyNull(&$x) {
 }
 
 function stringBool($x) {
-	if ($x === false)
+	if ($x === false) {
 		return 'false';
-	elseif ($x === true)
+	} elseif ($x === true) {
 		return 'true';
-	elseif ($x === null)
+	} elseif ($x === null) {
 		return 'null';
-	elseif ($x === 0)
+	} elseif ($x === 0) {
 		return '0';
-	else
-		return $x;
+	}
+
+	return $x;
 }
 
 function hardTrueFalse($x) {
-	if ($x === false)
+	if ($x === false) {
 		return 'FALSE';
-	elseif ($x === true)
+	} elseif ($x === true) {
 		return 'TRUE';
 #	elseif($x===null)  return 'NULL';
-	elseif ($x === 0)
+	} elseif ($x === 0) {
 		return '0';
-	else
-		return $x;
+	}
+
+	return $x;
 }
 
 if (!function_exists('http_parse_headers')) {
@@ -370,9 +373,9 @@ if (!function_exists('http_parse_headers')) {
 			$h = explode(':', $h, 2);
 
 			if (isset($h[1])) {
-				if (!isset($headers[$h[0]]))
+				if (!isset($headers[$h[0]])) {
 					$headers[$h[0]] = trim($h[1]);
-				elseif (is_array($headers[$h[0]])) {
+				} elseif (is_array($headers[$h[0]])) {
 					// $tmp = array_merge($headers[$h[0]], array(trim($h[1]))); // [-]
 					// $headers[$h[0]] = $tmp; // [-]
 					$headers[$h[0]] = array_merge($headers[$h[0]], array(trim($h[1]))); // [+]
@@ -384,10 +387,11 @@ if (!function_exists('http_parse_headers')) {
 
 				$key = $h[0]; // [+]
 			} else { // [+] // [+]
-				if (mb_substr($h[0], 0, 1) == "\t") // [+]
+				if (mb_substr($h[0], 0, 1) == "\t") { // [+]
 					$headers[$key] .= "\r\n\t" . trim($h[0]); // [+]
-				elseif (!$key) // [+]
+				} elseif (!$key) { // [+]
 					$headers[0] = trim($h[0]); // [+]
+				}
 			} // [+]
 		}
 
@@ -403,16 +407,18 @@ if (!function_exists('http_parse_headers')) {
  * @return  string
  */
 function timetostr($timestamp) {
-	if ($timestamp === false)
+	if ($timestamp === false) {
 		return "";
+	}
 	$age = time() - $timestamp;
 
 	$future = ($age <= 0);
 	$age = abs($age);
 
 	$age = (int) ($age / 60);		// minutes ago
-	if ($age == 0)
+	if ($age == 0) {
 		return $future ? "a moment" : "just now";
+	}
 
 	$scales = [
 		["minute", "minutes", 60],
@@ -428,12 +434,16 @@ function timetostr($timestamp) {
 
 	foreach ($scales as $scale) {
 		list($singular, $plural, $factor) = $scale;
-		if ($age == 0)
+		if ($age == 0) {
 			return $future ? "less than 1 $singular" : "less than 1 $singular ago";
-		if ($age == 1)
+		}
+		if ($age == 1) {
 			return $future ? "1 $singular" : "1 $singular ago";
-		if ($age < $factor)
+		}
+		if ($age < $factor) {
 			return $future ? "$age $plural" : "$age $plural ago";
+		}
+
 		$age = (int) ($age / $factor);
 	}
 }
@@ -617,10 +627,48 @@ function download_file($file, $unlink = false) {
 	exit(0);
 }
 
+/**
+ * @deprecated
+ */
 function get_duplicate_update_string($columns) {
 	foreach ($columns as $i => $column) {
 		$column = trim($column, '`');
 		$columns[$i] = "`$column` = VALUES(`$column`)";
 	}
 	return $columns;
+}
+
+/**
+ * Returns a valid MySQL datetime string
+ *
+ * @param int $time [optional] Valid unix timestamp
+ * @return string
+ */
+function mysql_datetime($time = null) {
+	if ($time === null) {
+		$time = time();
+	}
+	return date('Y-m-d H:i:s', $time);
+}
+
+/**
+ * Returns a string equivalent to MySQL's NOW() function
+ *
+ * @return string
+ */
+function mysql_now() {
+	return mysql_datetime();
+}
+
+/**
+ * Returns formatted strings equivalent to expressions like NOW() + INTERVAL 2 DAY
+ *
+ * @param string A string defining an interval accepted by PHP's strtotime() function
+ * @return string
+ */
+function mysql_interval($interval) {
+	if (($time = strtotime($interval)) === false) {
+		throw new Exception ("Invalid time interval given to strtotime '$interval'");
+	}
+	return mysql_datetime($time);
 }

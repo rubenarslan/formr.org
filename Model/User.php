@@ -86,7 +86,7 @@ class User {
 		if ($hash) :
 			$inserted = $this->dbh->insert('survey_users', array(
 				'email' => $email,
-				'created' => 'NOW()',
+				'created' => mysql_now(),
 				'password' => $hash,
 				'user_code' => $this->user_code
 			));
@@ -195,7 +195,7 @@ formr robots";
 			$token = crypto_token(48);
 			$hash = password_hash($token, PASSWORD_DEFAULT);
 
-			$this->dbh->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => 'NOW() + + INTERVAL 2 DAY'), array('email' => $email));
+			$this->dbh->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
 
 			$reset_link = WEBROOT . "public/reset_password?email=" . rawurlencode($email) . "&reset_token=" . $token;
 			

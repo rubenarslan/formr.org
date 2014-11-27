@@ -282,7 +282,6 @@ class Item extends HTML_element {
 
 	public function viewedBy($view_update) {
 		$view_update->bindParam(":item_id", $this->id);
-
 		$view_update->execute();
 	}
 
