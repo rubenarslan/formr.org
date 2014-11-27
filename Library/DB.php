@@ -106,7 +106,7 @@ class DB {
 	 * @param array $data Optional associative array of parameters that will be bound to the query
 	 * @return int Returns the number of affected rows of the query
 	 */
-	public function exec($query, $data = array()) {
+	public function exec($query, array $data = array()) {
 		if ($data) {
 			$data = self::parseWhereBindParams($data);
 			$params = $data['params'];

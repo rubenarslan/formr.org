@@ -19,11 +19,11 @@ class UnitSession {
 	}
 
 	public function create() {
-		$insert = "INSERT INTO `survey_unit_sessions` SET unit_id = :unit_id, run_session_id = :run_session_id, created = NOW()";
-		$inserted = $this->dbh->exec($insert, array('unit_id' => $this->unit_id, 'run_session_id' => $this->run_session_id));
-		if ($inserted) {
-			$this->id = $this->dbh->lastInsertId();
-		}
+		$this->id = $this->dbh->insert('survey_unit_sessions', array(
+			'unit_id' => $this->unit_id,
+			'run_session_id' => $this->run_session_id,
+			'created' => mysql_now()
+		));
 	}
 
 	public function load() {
