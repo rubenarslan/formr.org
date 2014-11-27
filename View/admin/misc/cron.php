@@ -122,7 +122,7 @@ try {
 		$alerts = str_replace('<button type="button" class="close" data-dismiss="alert">&times;</button>', '', $alerts);
 
 		$executed_types = '[none]';
-		if ($types) {
+		if (!empty($types)) {
 			$executed_types = cron_parse_executed_types($types);
 		}
 
