@@ -83,13 +83,12 @@ class Shuffle extends RunUnit {
 
 	public function exec() {
 		$group = $this->randomise_into_group();
-		$query = "INSERT INTO `shuffle` (`session_id`, `unit_id`, `group`, `created`) VALUES  (:session_id, :unit_id, :group,  NOW())";
-		$this->dbh->exec($query, array(
+		$this->dbh->insert('survey_run_sessions', array(
+			'session_id' => $this->session_id,
 			'unit_id' => $this->unit,
 			'group' => $group,
-			'session_id' => $this->session_id,
+			'created' => mysql_now()
 		));
-
 		$this->end();
 		return false;
 	}

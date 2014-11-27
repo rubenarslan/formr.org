@@ -95,13 +95,17 @@ class RunUnit {
 	}
 
 	public function create($type) {
-		$this->dbh->exec("INSERT INTO `survey_units` SET type = :type, created = NOW(), modified = NOW()", array('type' => $type));
-		$this->unit_id = $this->dbh->lastInsertId();
+		$id = $this->dbh->insert('survey_units', array(
+			'type' => $type,
+			'created' => mysql_now(),
+			'modified' => mysql_now(),
+		));
+		$this->unit_id = $id;
 		return $this->unit_id;
 	}
 
 	public function modify($id) {
-		return $this->dbh->exec("UPDATE `survey_units` SET modified = NOW() WHERE id = :id", array('id' => $id));
+		return $this->db->update('survey_units', array('modified' => mysql_now()), array('id' => $id));
 	}
 
 	protected function beingTestedByOwner() {
@@ -529,10 +533,13 @@ class RunUnit {
 
 			if ($report):
 				try {
-					$this->dbh->exec("
-						INSERT INTO `survey_reports` (`session_id`, `unit_id`, `body_knit`, `created`, `last_viewed`) VALUES (:session_id, :unit_id, :body_knit,  NOW(), NOW())", 
-						array('session_id' => $this->session_id, 'unit_id' => $this->id, 'body_knit' => $report)
-					);
+					$this->dbh->insert('survey_reports', array(
+						'session_id' => $this->session_id, 
+						'unit_id' => $this->id, 
+						'body_knit' => $report,
+						'created' => mysql_now(),
+						'last_viewed' => mysql_now(),
+					));
 				} catch (Exception $e) {
 					log_exception($e, __CLASS__);
 					trigger_error("Couldn't save Knitr report, probably too large: " . human_filesize(strlen($report)), E_USER_WARNING);
