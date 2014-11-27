@@ -671,41 +671,30 @@ class Run {
 			if ($this->custom_js_path) {
 				$js .= '<script src="' . WEBROOT . $this->custom_js_path . '"></script>';
 			}
-			
-			$content_tpl = '
-				<div class="row"><div class="col-lg-12 run_position_%{position} run_unit_type_%{current_unit_type} run_content">
-				<header class="run_content_header">%{header_image}</header>
-			';
 
 			$alerts = $site->renderAlerts();
 			session_over($site, $user); // ? WHY ?
-			if ($alerts) {
-				$content_tpl .= '<div class="row"><div class="col-md-6 col-sm-6 all-alerts">%{alerts}</div></div>';
-			}
 
+			$run_content = '';
 			if (trim($this->description_parsed)) {
-				$content_tpl .= $this->description_parsed;
+				$run_content .= $this->description_parsed;
 			}
 
 			if (isset($output['body'])) {
-				$content_tpl .= $output['body'];
+				$run_content .= $output['body'];
 			}
 			if (trim($this->footer_text_parsed)) {
-				$content_tpl .= $this->footer_text_parsed;
+				$run_content .= $this->footer_text_parsed;
 			}
-
-			$content = DB::replace($content_tpl, array(
-				'position' => $run_session->position,
-				'current_unit_type' => $run_session->current_unit_type,
-				'header_image' => $this->header_image_path ? '<img src="' . $this->header_image_path . '" alt="' . $this->name . ' header image">' : '',
-				'alerts' => $alerts
-			));
 
 			Template::load('public/run', array(
 				'title' => $title,
 				'css' => $css,
 				'js' => $js,
-				'run_content' => $content,
+				'alerts' => $alerts,
+				'run_session' => $run_session,
+				'run_content' => $run_content,
+				'run' => $this,
 			));
 		endif;
 	}

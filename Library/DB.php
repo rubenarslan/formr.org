@@ -191,7 +191,7 @@ class DB {
 			$select->where($where);
 		}
 
-		if (!empty($params['order'] && !empty($params['order_by']))) {
+		if (!empty($params['order']) && !empty($params['order_by'])) {
 			$select->order($params['order_by'], $params['order']);
 		}
 
