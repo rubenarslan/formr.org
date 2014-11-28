@@ -138,7 +138,7 @@ formr robots";
 	}
 
 	public function login($email, $password) {
-		$user = $this->dbh->select('id, password, admin, user_code FROM `survey_users')
+		$user = $this->dbh->select('id, password, admin, user_code')
 				->from('survey_users')
 				->where(array('email' => $email))
 				->limit(1)->fetch();
@@ -306,8 +306,7 @@ formr robots";
 
 	public function getStudies() {
 		if ($this->isAdmin()):
-			$results = $this->dbh->find('survey_runs', array('user_id' => $this->id));
-			return $results;
+			return $this->dbh->find('survey_studies', array('user_id' => $this->id));
 		endif;
 		return false;
 	}
@@ -331,11 +330,7 @@ formr robots";
 
 	public function getRuns() {
 		if ($this->isAdmin()):
-			return  
-				$this->dbh->select()
-					->from('survey_runs')
-					->where(array('user_id' => $this->id))
-					->fetchAll();
+			return $this->dbh->find('survey_runs', array('user_id' => $this->id));
 		endif;
 		return false;
 	}

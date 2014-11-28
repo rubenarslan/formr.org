@@ -8,7 +8,10 @@ class AdminController extends Controller {
 	}
 
 	public function indexAction() {
-		$this->renderView('misc/index');
+		$this->renderView('misc/index', array(
+			'runs' => $this->user->getRuns(),
+			'studies' => $this->user->getStudies(),
+		));
 	}
 
 	public function infoAction() {

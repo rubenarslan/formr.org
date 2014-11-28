@@ -35,6 +35,7 @@ class Survey extends RunUnit {
 	public $dbh;
 
 	public function __construct($fdb, $session, $unit, $run_session = NULL) {
+		$this->dbh = $fdb;
 		if (isset($unit['name']) AND ! isset($unit['unit_id'])): // when called via URL
 			global $user;
 			$id = $this->dbh->findValue('survey_studies', array('name' => $unit['name'], 'user_id' => $user->id), array('id'));
