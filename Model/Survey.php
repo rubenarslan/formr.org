@@ -312,7 +312,7 @@ class Survey extends RunUnit {
 		WHERE 
 		`survey_items`.study_id = :study_id AND
 		(`survey_items_display`.answered IS NULL OR `survey_items`.type = 'note')
-		ORDER BY `survey_items`.id ASC;";
+		ORDER BY `survey_items`.`order` ASC, `survey_items`.id ASC;";
 		$get_items = $this->dbh->prepare($item_query);
 		$get_items->bindParam(":session_id",$this->session_id);
 		$get_items->bindParam(":study_id", $this->id);
