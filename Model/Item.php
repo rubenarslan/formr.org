@@ -1528,7 +1528,7 @@ class Item_referrer extends Item {
 
 	public $type = 'referrer';
 	public $input_attributes = array('type' => 'hidden');
-	public $mysql_field = 'VARCHAR (255) DEFAULT NULL';
+	public $mysql_field = 'TEXT DEFAULT NULL';
 	public $no_user_input_required = true;
 
 	protected function setMoreOptions() {
