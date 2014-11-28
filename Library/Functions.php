@@ -23,11 +23,7 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) { // shortha
 
 function log_exception(Exception $e, $prefix = '') {
 	error_log($prefix . ' Exception: ' . $e->getMessage());
-	if (is_a($e, 'PDOException')) {
-		error_log($prefix . ' Exception: ' . print_r($e->getTrace(), 1));
-	} else {
-		error_log($prefix . ' Exception: ' . $e->getTraceAsString());
-	}
+	error_log($prefix . ' Exception: ' . $e->getTraceAsString());
 }
 
 function redirect_to($location) {
@@ -671,4 +667,32 @@ function mysql_interval($interval) {
 		throw new Exception ("Invalid time interval given to strtotime '$interval'");
 	}
 	return mysql_datetime($time);
+}
+
+function admin_study_url($name, $action = '') {
+	if ($action) {
+		$name = $name . '/' . $action;
+	}
+	return WEBROOT . 'admin/survey/' . $name;
+}
+
+function admin_run_url($name, $action = '') {
+	if ($action) {
+		$name = $name . '/' . $action;
+	}
+	return WEBROOT . 'admin/run/' . $name;
+}
+
+function site_url($uri = '') {
+	if ($uri) {
+		return WEBROOT . '/' . $uri;
+	}
+	return WEBROOT;
+}
+
+function admin_url($uri = '') {
+	if ($uri) {
+		$uri = '/' . $uri;
+	}
+	return site_url('admin' . $uri);
 }

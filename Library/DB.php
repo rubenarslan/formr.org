@@ -185,7 +185,6 @@ class DB {
 		}
 		$select = $this->select($params['cols']);
 		$select->from($table_name);
-		$select->columns($params['cols']);
 
 		if ($where) {
 			$select->where($where);
@@ -273,8 +272,8 @@ class DB {
 			throw new Exception("Array count for data and data-types do not match");
 		}
 
-		$keys = array_map(array(self, 'pkey'), array_keys($data));
-		$cols = array_map(array(self, 'quoteCol'), array_keys($data));
+		$keys = array_map(array('DB', 'pkey'), array_keys($data));
+		$cols = array_map(array('DB', 'quoteCol'), array_keys($data));
 
 		$query = self::replace("INSERT INTO %{table_name} (%{cols}) VALUES (%{values})", array(
 			'cols' => implode(', ', $cols),
@@ -298,8 +297,8 @@ class DB {
 	 * @return int Returns number of affected rows
 	 */
 	public function insert_update($table, array $data, array $updates = array()) {
-		$columns = array_map(array(self, 'quoteCol'), array_keys($data));
-		$values = array_map(array(self, 'pkey'), array_keys($data));
+		$columns = array_map(array('DB', 'quoteCol'), array_keys($data));
+		$values = array_map(array('DB', 'pkey'), array_keys($data));
 		if (!$updates) {
 			$updates = array_keys($data);
 		}
@@ -337,8 +336,8 @@ class DB {
 			$cols_where[$i] = $parts[0];
 		}
 
-		$cols = array_map(array(self, 'quoteCol'), array_keys($data));
-		$cols_where = array_map(array(self, 'quoteCol'), $cols_where);
+		$cols = array_map(array('DB', 'quoteCol'), array_keys($data));
+		$cols_where = array_map(array('DB', 'quoteCol'), $cols_where);
 		$set_values = $where_values = array();
 
 		foreach ($cols as $col) {
@@ -365,7 +364,7 @@ class DB {
 	}
 
 	public function delete($table_name, array $data, array $types = array()) {
-		$cols = array_map(array(self, 'pCol'), array_keys($data));
+		$cols = array_map(array('DB', 'pCol'), array_keys($data));
 		$query = self::replace("DELETE FROM %{table_name} WHERE (%{values})", array(
 			'values' => implode(' AND ', $cols),
 			'table_name' => self::quoteCol($table_name),
@@ -488,7 +487,7 @@ class DB {
 		$cols = array_keys($array);
 		$values = array_values($array);
 
-		$clauses = array_map(array(self, 'pCol'), $cols);
+		$clauses = array_map(array('DB', 'pCol'), $cols);
 		$params = array();
 
 		foreach ($cols as $i => $col) {
@@ -717,6 +716,7 @@ class DB_Select {
 	}
 
 	public function lastQuery() {
+		$this->constructQuery();
 		return $this->query;
 	}
 
