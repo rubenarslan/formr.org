@@ -89,7 +89,7 @@ class OpenCPU {
 		
 		$post = $result['post'];
 		$parsed = json_decode($result['body'], true);
-				
+
 		if($parsed === null):
 			$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post, $in);
 			return null;
@@ -97,9 +97,11 @@ class OpenCPU {
 //			$this->handleErrors("This expression led to a null result (may be intentional, but most often isn't)", $result, $post, $in, 'alert-warning');
 //			return null;
 		else:
-			if( is_string( $parsed[0]) ) // dont change type by accident!
+			if( isset($parsed[0]) && is_string( $parsed[0]) ) { // dont change type by accident!
 				$parsed = str_replace("/usr/local/lib/R/site-library/", $this->instance.'/ocpu/library/' , $parsed[0]);
-			else $parsed = $parsed[0];
+			} elseif (isset($parsed[0])) {
+				$parsed = $parsed[0];
+			}
 			$this->cache_query($result);
 			return $parsed;
 		endif;

@@ -41,6 +41,7 @@ class RunUnit {
 	public $icon = 'fa-wrench';
 	public $special = false;
 	public $valid;
+	public $run_id;
 	protected $non_user_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions', 'survey_items_display', 'survey_email_log', 'shuffle');
 	protected $non_session_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions');
 
@@ -105,7 +106,7 @@ class RunUnit {
 	}
 
 	public function modify($id) {
-		return $this->db->update('survey_units', array('modified' => mysql_now()), array('id' => $id));
+		return $this->dbh->update('survey_units', array('modified' => mysql_now()), array('id' => $id));
 	}
 
 	protected function beingTestedByOwner() {
@@ -258,7 +259,7 @@ class RunUnit {
 						LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					";
 				} elseif($survey_name == 'survey_unit_sessions'){
-					$q2 = "LEFY JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id";
+					$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id";
 				} elseif($survey_name == 'survey_run_sessions') {
 					$q2 = "";
 				} elseif($survey_name == 'survey_users') {
@@ -268,8 +269,7 @@ class RunUnit {
 				$q1 .= " FROM `$results_table` ";
 
 				$q = $q1 . $q2 . $q3;
-				
-				
+
 				$get_results = $this->dbh->prepare($q);
 				if($this->run_session_id === NULL) {
 					$get_results->bindValue(':session_id', $this->session_id);

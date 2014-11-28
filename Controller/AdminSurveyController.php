@@ -66,12 +66,12 @@ class AdminSurveyController extends AdminController {
 				"session_id" => $session->id,
 				"unit_id" => $study->id,
 				"run_session_id" => $session->run_session_id,
-				"run_name" => "fake_test_run",
+				"run_name" => Run::TEST_RUN,
 				"survey_name" => $study->name
 			);
 
 			alert("<strong>Go ahead.</strong> You can test the study " . $study->name . " now.", 'alert-info');
-			redirect_to(RUNROOT . "fake_test_run");
+			redirect_to(run_url(Run::TEST_RUN));
 		else:
 			alert("<strong>Sorry.</strong> You don't have access to this study", 'alert-danger');
 			redirect_to("index");
@@ -90,7 +90,7 @@ class AdminSurveyController extends AdminController {
 				alert('<strong>Error:</strong> The uploaded file name <code>' . htmlspecialchars($survey_name) . '</code> did not match the study name <code>' . $study->name . '</code>.', 'alert-danger');
 			} else {
 				if ($study->uploadItemTable($_FILES['uploaded'], $_POST['delete_confirm'])) {
-					redirect_to("admin/survey/{$study->name}/show_item_table");
+					redirect_to(admin_study_url($study->name, 'show_item_table'));
 				}
 			}
 		}

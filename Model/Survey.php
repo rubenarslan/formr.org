@@ -81,7 +81,6 @@ class Survey extends RunUnit {
 		$ret = '
 		<div class="row">
 			<div class="col-md-12">
-
 		';
 		$ret .= $this->render_form_header() .
 				$this->render_items() .
@@ -99,7 +98,7 @@ class Survey extends RunUnit {
 			'session_id' => $this->session_id,
 			'study_id' => $this->id,
 			'created' => mysql_now()
-				), array(
+		), array(
 			'modified' => mysql_now(),
 		));
 	}
@@ -405,7 +404,7 @@ class Survey extends RunUnit {
 	}
 
 	protected function render_form_header() {
-		$action = RUNROOT . "{$this->run_name}";
+		$action = run_url($this->run_name);
 		$enctype = 'multipart/form-data'; # maybe make this conditional application/x-www-form-urlencoded
 
 		$ret = '<form action="' . $action . '" method="post" class="form-horizontal" accept-charset="utf-8" enctype="' . $enctype . '">';
@@ -653,7 +652,6 @@ class Survey extends RunUnit {
 			return false;
 		endif;
 
-		$this->dbh->beginTransaction();
 		$this->id = parent::create('Survey');
 		$this->name = $name;
 		$this->results_table = $results_table;
@@ -663,7 +661,7 @@ class Survey extends RunUnit {
 			'created' => mysql_now(),
 			'modified' => mysql_now(),
 			'user_id' => $this->unit['user_id'],
-			'name' => $name,
+			'name' => $this->name,
 			'results_table' => $this->results_table,
 		));
 
@@ -685,7 +683,7 @@ class Survey extends RunUnit {
 	);
 
 	public function getChoices() {
-		$get_item_choices = $this->dbh->select('list_name, name, label FROM `survey_item_choices')
+		$get_item_choices = $this->dbh->select('list_name, name, label')
 				->from('survey_item_choices')
 				->where(array('study_id' => $this->id))
 				->order('id', 'ASC')->statement();
@@ -1100,7 +1098,7 @@ class Survey extends RunUnit {
 		    -- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
 		    WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
 
-		$get = $this->dbh->query($get);
+		$get = $this->dbh->query($get, true);
 		$time = $get->fetch(PDO::FETCH_NUM);
 		$time = round($time[0] / 60, 3); # seconds to minutes
 
@@ -1128,13 +1126,13 @@ class Survey extends RunUnit {
 					<small title='Median duration that it takes to complete the survey, only completers accounted for'>Median duration: $time minutes</small>
 				</h3>
 				<p class='btn-group'>
-					<a class='btn' href='" . WEBROOT . "admin/survey/{$this->name}/show_results'>View results</a>
-					<a class='btn' href='" . WEBROOT . "admin/survey/{$this->name}/show_item_table'>View items</a>
-					<a class='btn' href='" . WEBROOT . "admin/survey/{$this->name}/access'>Test</a>
+					<a class='btn' href='" . admin_study_url($this->name, 'show_results') . "'>View results</a>
+					<a class='btn' href='" . admin_study_url($this->name, 'show_item_table') . "'>View items</a>
+					<a class='btn' href='" . admin_study_url($this->name, 'access') . "'>Test</a>
 				</p>";
 		else:
 			global $user;
-			$studies = $this->dbh->select('id, name')->where(array('user_id' => $user->id))->fetchAll();
+			$studies = $this->dbh->select('id, name')->from('survey_studies')->where(array('user_id' => $user->id))->fetchAll();
 
 			if ($studies):
 				$dialog = '<div class="form-group">';
@@ -1147,7 +1145,7 @@ class Survey extends RunUnit {
 				$dialog .= '<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Add to this run.</a>';
 				$dialog .= '</div>';
 			else:
-				$dialog = "<h5>No studies. <a href='" . WEBROOT . "admin/survey/'>Add some first</a></h5>";
+				$dialog = "<h5>No studies. <a href='" .  admin_study_url() . "'>Add some first</a></h5>";
 			endif;
 		endif;
 

@@ -445,12 +445,12 @@ class DB {
 				$column = trim($column, '`');
 				$columns[$i] = "`$column` = VALUES(`$column`)";
 			} else {
-				$column = trim($i, '`');
 				$value = $this->PDO->quote($column);
+				$column = trim($i, '`');
 				$columns[$i] = "`$column` = $value";
 			}
 		}
-		return $columns;
+		return implode(', ', $columns);
 	}
 
 	public static function pkey($key) {
@@ -516,14 +516,14 @@ class DB {
 	 * {inherit PDO doc}
 	 */
 	public function beginTransaction() {
-		$this->PDO->beginTransaction();
+		return $this->PDO->beginTransaction();
 	}
 
 	/**
 	 * {inherit PDO doc}
 	 */
 	public function commit() {
-		$this->PDO->commit();
+		return $this->PDO->commit();
 	}
 
 	/**
@@ -783,8 +783,8 @@ class DB_Select {
 
 	private function parseColName($string) {
 		$string = trim($string);
-		// If it is some sql func
-		if (!preg_match('/[a-zA-Z0-9_\.]/i', $string, $matches)) {
+		// If the column is not one of these then maybe some mysql func or so is called
+		if (preg_match('/[^a-zA-Z0-9_\.\`]/i', $string, $matches)) {
 			return $string;
 		}
 

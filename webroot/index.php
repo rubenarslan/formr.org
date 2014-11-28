@@ -60,7 +60,7 @@ try {
 	$router->execute();
 } catch (Exception $e) {
 	log_exception($e);
-	not_found();
+	bad_request();
 }
 
 exit(0);

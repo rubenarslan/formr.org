@@ -37,7 +37,6 @@ class Page extends RunUnit {
 	}
 
 	public function create($options) {
-		$this->dbh->beginTransaction();
 		if (!$this->id) {
 			$this->id = parent::create('Page');
 		} else {
@@ -61,9 +60,8 @@ class Page extends RunUnit {
 			'body' => $this->body,
 			'body_parsed' => $this->body_parsed,
 			'title' => $this->title,
-			'end' => $this->ended,
+			'end' => (int) $this->can_be_ended,
 		));
-		$this->dbh->commit();
 		$this->valid = true;
 
 		return true;

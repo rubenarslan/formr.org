@@ -669,23 +669,9 @@ function mysql_interval($interval) {
 	return mysql_datetime($time);
 }
 
-function admin_study_url($name, $action = '') {
-	if ($action) {
-		$name = $name . '/' . $action;
-	}
-	return WEBROOT . 'admin/survey/' . $name;
-}
-
-function admin_run_url($name, $action = '') {
-	if ($action) {
-		$name = $name . '/' . $action;
-	}
-	return WEBROOT . 'admin/run/' . $name;
-}
-
 function site_url($uri = '') {
 	if ($uri) {
-		return WEBROOT . '/' . $uri;
+		return WEBROOT . $uri;
 	}
 	return WEBROOT;
 }
@@ -696,3 +682,22 @@ function admin_url($uri = '') {
 	}
 	return site_url('admin' . $uri);
 }
+
+function run_url($name = '') {
+	return RUNROOT . $name;
+}
+
+function admin_study_url($name, $action = '') {
+	if ($action) {
+		$name = $name . '/' . $action;
+	}
+	return admin_url('survey/' . $name);
+}
+
+function admin_run_url($name, $action = '') {
+	if ($action) {
+		$name = $name . '/' . $action;
+	}
+	return admin_url('run/' . $name);
+}
+

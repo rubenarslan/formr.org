@@ -55,20 +55,22 @@ class Run {
 	 */
 	private $dbh;
 
+	const TEST_RUN = 'fake_test_run';
+
 	public function __construct($fdb, $name, $options = null) {
 		$this->dbh = $fdb;
 
-		if ($name == "fake_test_run"):
+		if ($name == self::TEST_RUN):
 			$this->name = $name;
 			$this->valid = true;
 			$this->user_id = 0;
 			return true;
 		endif;
 
-		if ($name !== null OR ( $name = $this->create($options))):
+		if ($name !== null OR ($name = $this->create($options))):
 			$this->name = $name;
 			$columns = "id,user_id,name,api_secret_hash,public,cron_active,locked, header_image_path,title,description,description_parsed,footer_text,footer_text_parsed,public_blurb,public_blurb_parsed,custom_css_path,custom_js_path";
-			$vars = $this->dbh->findRow('survey_runs', array('run_name' => $this->name), $columns);
+			$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
 
 			if ($vars):
 				$this->id = $vars['id'];
@@ -168,7 +170,7 @@ class Run {
 		elseif (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,255}/", $name)):
 			$this->errors[] = _("The run's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
 			return false;
-		elseif ($this->existsByName($name) OR $name == "fake_test_run" OR Router::isWebRootDir($name)):
+		elseif ($this->existsByName($name) OR $name == self::TEST_RUN OR Router::isWebRootDir($name)):
 			$this->errors[] = __("The run's name '%s' is already taken.", h($name));
 			return false;
 		endif;
@@ -233,7 +235,7 @@ class Run {
 							'created' => mysql_now(),
 							'original_file_name' => $original_file_name,
 							'new_file_path' => $new_file_path,
-								), array(
+						), array(
 							'modified' => mysql_now()
 						));
 					} else {
@@ -595,7 +597,7 @@ class Run {
 	private function fakeTestRun() {
 
 		if (isset($_SESSION['dummy_survey_session'])):
-			$run_session = $this->makeDummyRunSession("fake_test_run", "Survey");
+			$run_session = $this->makeDummyRunSession(self::TEST_RUN, "Survey");
 			$unit = new Survey($this->dbh, null, $_SESSION['dummy_survey_session'], $run_session);
 			$output = $unit->exec();
 
@@ -604,7 +606,7 @@ class Run {
 				$output['body'] = "
 					<h1>Finish</h1>
 					<p>You're finished with testing this survey.</p>
-					<a href='" . WEBROOT . "admin/survey/" . $_SESSION['dummy_survey_session']['survey_name'] . "/index'>Back to the admin control panel.</a>";
+					<a href='" . admin_study_url($_SESSION['dummy_survey_session']['survey_name'])  . "'>Back to the admin control panel.</a>";
 
 				unset($_SESSION['dummy_survey_session']);
 			endif;
@@ -617,7 +619,7 @@ class Run {
 	}
 
 	private function makeDummyRunSession($position, $current_unit_type) {
-		$run_session = (object) "dummy";
+		$run_session = new stdClass();
 		$run_session->position = $position;
 		$run_session->current_unit_type = $current_unit_type;
 		$run_session->run_owner_id = $this->user_id;
@@ -630,7 +632,7 @@ class Run {
 			alert(__("<strong>Error:</strong> Run %s is broken or does not exist.", $this->name), 'alert-danger');
 			redirect_to("/index");
 			return false;
-		elseif ($this->name == "fake_test_run"):
+		elseif ($this->name == self::TEST_RUN):
 			extract($this->fakeTestRun());
 		else:
 			if ($user->loggedIn() AND isset($_SESSION['UnitSession']) AND $user->user_code !== unserialize($_SESSION['UnitSession'])->session):

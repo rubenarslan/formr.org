@@ -20,7 +20,7 @@ class Pause extends RunUnit {
 		parent::__construct($fdb, $session, $unit, $run_session);
 
 		if ($this->id):
-			$vars = $this->dbh->select('id, body, body_parsed, wait_until_time, wait_minutes ,wait_until_date')
+			$vars = $this->dbh->select('id, body, body_parsed, wait_until_time, wait_minutes, wait_until_date, relative_to')
 							->from('survey_pauses')
 							->where(array('id' => $this->id))
 							->limit(1)->fetch();
@@ -60,7 +60,7 @@ class Pause extends RunUnit {
 		$parsedown->setBreaksEnabled(true);
 		$this->body_parsed = $parsedown->text($this->body); // transform upon insertion into db instead of at runtime
 
-		$this->dbh->insert_update('survey_pages', array(
+		$this->dbh->insert_update('survey_pauses', array(
 			'id' => $this->id,
 			'body' => $this->body,
 			'body_parsed' => $this->body_parsed,

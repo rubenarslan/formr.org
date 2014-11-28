@@ -12,6 +12,7 @@ class Email extends RunUnit {
 	private $account_id = null;
 	private $images = array();
 	private $subject = null;
+	private $recipient_field;
 	private $html = 1;
 	public $icon = "fa-envelope";
 	public $type = "Email";
