@@ -50,7 +50,7 @@ class DB {
 	protected $PDO;
 
 	protected function __construct() {
-        require_once INCLUDE_ROOT . "config/database.php";
+		require_once INCLUDE_ROOT . "config/database.php";
 		$config = new DATABASE_CONFIG();
 		$params = (array) $config->default;
 
@@ -70,11 +70,11 @@ class DB {
 		));
 
 		$dt = new DateTime();
-        $offset = $dt->format("P");
+		$offset = $dt->format("P");
 
 		$this->PDO->exec("SET time_zone='$offset';");
 		$this->PDO->exec("SET SESSION sql_mode='STRICT_ALL_TABLES';");
-    }
+	}
 
 	/**
 	 * Execute any query with parameters and get results
@@ -132,36 +132,35 @@ class DB {
 		return $stmt;
 	}
 
-    /**
-     * @param string $query
-     *
-     * @return PDOStatement
-     */
-    public function rquery($query){ //secured query with prepare and execute
-        $args = func_get_args();
-        array_shift($args); //first element is not an argument but the query itself, should removed
+	/**
+	 * @param string $query
+	 *
+	 * @return PDOStatement
+	 */
+	public function rquery($query) { //secured query with prepare and execute
+		$args = func_get_args();
+		array_shift($args); //first element is not an argument but the query itself, should removed
 
-        $stmt = $this->PDO->prepare($query);
-        $stmt->execute($args);
-        return $stmt;
+		$stmt = $this->PDO->prepare($query);
+		$stmt->execute($args);
+		return $stmt;
+	}
 
-    }
-
-    /**
+	/**
 	 * Get the number of rows in a result
 	 *
 	 * @param string $query
 	 * @return mixed
 	 */
-    public function num_rows($query) {
-        # create a prepared statement
-        $stmt = $this->PDO->prepare($query);
+	public function num_rows($query) {
+		# create a prepared statement
+		$stmt = $this->PDO->prepare($query);
 		return $stmt->rowCount();
-    }
+	}
 
-    public function table_exists($table) {
-        return $this->num_rows("SHOW TABLES LIKE '" . $table . "'") > 0;
-    }
+	public function table_exists($table) {
+		return $this->num_rows("SHOW TABLES LIKE '" . $table . "'") > 0;
+	}
 
 	public function __destruct() {
 		$this->PDO = null;
@@ -254,7 +253,7 @@ class DB {
 	 * @param array|string $where If a string is given, it must be properly escaped
 	 * @return boolean
 	 */
-	public function entry_exists ($table_name, $where) {
+	public function entry_exists($table_name, $where) {
 		return $this->count($table_name, $where) > 0;
 	}
 
@@ -276,9 +275,9 @@ class DB {
 		$cols = array_map(array('DB', 'quoteCol'), array_keys($data));
 
 		$query = self::replace("INSERT INTO %{table_name} (%{cols}) VALUES (%{values})", array(
-			'cols' => implode(', ', $cols),
-			'values' => implode(', ', $keys),
-			'table_name' => $table_name,
+					'cols' => implode(', ', $cols),
+					'values' => implode(', ', $keys),
+					'table_name' => $table_name,
 		));
 
 		/* @var $stmt PDOStatement */
@@ -350,9 +349,9 @@ class DB {
 		}
 
 		$query = self::replace("UPDATE %{table_name} SET %{set_values} WHERE (%{where_values})", array(
-			'where_values' => implode(' AND ', $where_values),
-			'set_values' => implode(', ', $set_values),
-			'table_name' => $table_name,
+					'where_values' => implode(' AND ', $where_values),
+					'set_values' => implode(', ', $set_values),
+					'table_name' => $table_name,
 		));
 
 		/* @var $stmt PDOStatement */
@@ -366,8 +365,8 @@ class DB {
 	public function delete($table_name, array $data, array $types = array()) {
 		$cols = array_map(array('DB', 'pCol'), array_keys($data));
 		$query = self::replace("DELETE FROM %{table_name} WHERE (%{values})", array(
-			'values' => implode(' AND ', $cols),
-			'table_name' => self::quoteCol($table_name),
+					'values' => implode(' AND ', $cols),
+					'table_name' => self::quoteCol($table_name),
 		));
 
 		/* @var $stmt PDOStatement */
@@ -532,6 +531,7 @@ class DB {
 	public function rollBack() {
 		$this->PDO->rollBack();
 	}
+
 }
 
 class DB_Select {
@@ -547,23 +547,14 @@ class DB_Select {
 	 * @var string
 	 */
 	protected $query;
-
 	protected $where = array();
-
 	protected $or_where = array();
-
 	protected $joins = array();
-
 	protected $columns = array('*');
-
 	protected $params = array();
-
 	protected $order = array();
-
 	protected $limit;
-
 	protected $offset;
-
 	protected $table;
 
 	public function __construct(PDO $pdo, array $cols = array()) {
@@ -732,11 +723,11 @@ class DB_Select {
 
 		$query = "SELECT $columns FROM {$this->table} \n";
 		if ($this->joins) {
-			$query .= implode(" \n", $this->joins); 
+			$query .= implode(" \n", $this->joins);
 		}
 
 		if ($this->where) {
-			$where = implode (' AND ', $this->where);
+			$where = implode(' AND ', $this->where);
 			$query .= " WHERE ($where)";
 		}
 
@@ -830,4 +821,5 @@ class DB_Select {
 			'params' => $params,
 		);
 	}
+
 }
