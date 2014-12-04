@@ -1533,7 +1533,7 @@ class Item_ip extends Item {
 class Item_referrer extends Item {
 	public $type = 'referrer';
 	public $input_attributes = array('type' => 'hidden');
-	public $mysql_field =  'VARCHAR (255) DEFAULT NULL';
+	public $mysql_field =  'TEXT DEFAULT NULL';
 	public $no_user_input_required = true;
 	
 	protected function setMoreOptions() 
@@ -1557,7 +1557,7 @@ class Item_server extends Item {
 	public $type = 'server';
 	public $input_attributes = array('type' => 'hidden');
 	private $get_var = 'HTTP_USER_AGENT';
-	public $mysql_field =  'VARCHAR (255) DEFAULT NULL';
+	public $mysql_field =  'TEXT DEFAULT NULL';
 	public $no_user_input_required = true;
 	
 	protected function setMoreOptions() 
