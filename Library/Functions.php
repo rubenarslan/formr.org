@@ -701,3 +701,34 @@ function admin_run_url($name, $action = '') {
 	return admin_url('run/' . $name);
 }
 
+function array_to_accordion($array) {
+	$rand = mt_rand(0,10000);
+	$acc = '<div class="panel-group opencpu_accordion" id="opencpu_accordion'.$rand.'">';
+	$first = ' in';
+
+	foreach($array as $title => $content):
+		if($content == null) {
+			$content = stringBool($content);
+		}
+		$id  = 'collapse' . str_replace(' ', '', $rand.$title);
+
+		$acc .= '
+			<div class="panel panel-default">
+				<div class="panel-heading">
+					<a class="accordion-toggle" data-toggle="collapse" data-parent="#opencpu_accordion'.$rand.'" href="#'.$id.'">
+						'.$title.'
+					</a>
+				</div>
+				<div id="'.$id.'" class="panel-collapse collapse'.$first.'">
+					<div class="panel-body">
+						'.$content.'
+					</div>
+				</div>
+			</div>';
+		$first = '';
+	endforeach;
+
+	$acc .= '</div>';
+	return $acc;
+}
+

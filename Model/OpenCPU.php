@@ -461,31 +461,7 @@ $this->user_data .
 	   		 );
 		endif;
 		 
-		return $this->ArrayToAccordion($response);
+		return array_to_accordion($response);
 	}
-	private function ArrayToAccordion($array)
-	{
-		$rand = mt_rand(0,10000);
-		$acc = '<div class="panel-group opencpu_accordion" id="opencpu_accordion'.$rand.'">';
-		$first = ' in';
-		foreach($array AS $title => $content):
-			if($content == null) $content = stringBool($content);
-			$acc .= '
-<div class="panel panel-default">
-	<div class="panel-heading">
-		<a class="accordion-toggle" data-toggle="collapse" data-parent="#opencpu_accordion'.$rand.'" href="#collapse'.str_replace(' ', '', $rand.$title).'">
-			'.$title.'
-		</a>
-	</div>
-	<div id="collapse'.str_replace(' ', '', $rand.$title).'" class="panel-collapse collapse'.$first.'">
-		<div class="panel-body">
-			'.$content.'
-		</div>
-	</div>
-</div>';
-			$first = '';
-		endforeach;
-		$acc .= '</div>';
-		return $acc;
-	}
+
 }
