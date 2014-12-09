@@ -119,7 +119,7 @@ class OpenCPU {
 
 		if (isset($header_parsed['Location']) && isset($header_parsed['X-ocpu-session'])): # won't be there if openCPU is down
 			$this->session_location = $header_parsed['Location'];
-			$this->session_token = $header_parsed['X-ocpu-session'];
+			$this->session_token = $header_parsed['X-Ocpu-Session'];
 		endif;
 
 		$post = $result['post'];
@@ -207,7 +207,7 @@ class OpenCPU {
 	private function cache_query($result) {
 		$header_parsed = $this->curl_info[CURL::RESPONSE_HEADERS];
 
-		if (isset($header_parsed['X-Ocpu-Cache']) AND $header_parsed['x-Ocpu-Cache'] == "HIT") {
+		if (isset($header_parsed['X-Ocpu-Cache']) AND $header_parsed['X-Ocpu-Cache'] == "HIT") {
 			used_nginx_cache();
 		}
 
@@ -216,7 +216,7 @@ class OpenCPU {
 		}
 
 		// Won't be there if openCPU is down i.e buggus request
-		if (!isset($header_parsed['X-ocpu-session'])) {
+		if (!isset($header_parsed['X-Ocpu-Session'])) {
 			return false;
 		}
 
