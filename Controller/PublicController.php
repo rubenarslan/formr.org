@@ -159,7 +159,10 @@ class PublicController extends Controller {
 
 		$user = $this->site->loginUser($this->user);
 		$run = new Run($this->fdb, $this->request->str('run_name'));
-		$run->exec($user);
+		$run_vars = $run->exec($user);
+		if ($run_vars) {
+			Template::load('public/run', $run_vars);
+		}
 	}
 }
 

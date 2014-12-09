@@ -689,7 +689,7 @@ class Run {
 				$run_content .= $this->footer_text_parsed;
 			}
 
-			Template::load('public/run', array(
+			return array(
 				'title' => $title,
 				'css' => $css,
 				'js' => $js,
@@ -697,7 +697,7 @@ class Run {
 				'run_session' => $run_session,
 				'run_content' => $run_content,
 				'run' => $this,
-			));
+			);
 		endif;
 	}
 
