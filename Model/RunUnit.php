@@ -321,9 +321,7 @@ class RunUnit {
 	}
 
 	public function makeOpenCPU() {
-		$openCPU = new OpenCPU(Config::get('opencpu_instance'));
-		$openCPU->clearUserData();
-		return $openCPU;
+		return new OpenCPU(Config::get('opencpu_instance'));
 	}
 
 	protected function knittingNeeded($source) {

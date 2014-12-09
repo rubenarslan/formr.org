@@ -119,7 +119,7 @@ class Branch extends RunUnit {
 		$this->run_session_id = current($results)['id'];
 
 		$openCPU->addUserData($this->getUserDataInRun(
-						$this->dataNeeded($this->dbh, $this->condition)
+			$this->dataNeeded($this->dbh, $this->condition)
 		));
 		echo $openCPU->evaluateAdmin($this->condition);
 
@@ -129,7 +129,7 @@ class Branch extends RunUnit {
 					<th>Test</th>
 				</tr></thead>
 				<tbody>"';
-		foreach ($results AS $row):
+		foreach ($results as $row):
 			$openCPU = $this->makeOpenCPU();
 			$this->run_session_id = $row['id'];
 			$openCPU->admin_usage = true;
