@@ -116,8 +116,7 @@ class OpenCPU {
 	private function returnParsed($result, $in = '') {
 		//$header_parsed = http_parse_headers($result['header']);
 		$header_parsed = $this->curl_info[CURL::RESPONSE_HEADERS];
-
-		if (isset($header_parsed['Location']) && isset($header_parsed['X-ocpu-session'])): # won't be there if openCPU is down
+		if (isset($header_parsed['Location']) && isset($header_parsed['X-Ocpu-Session'])): # won't be there if openCPU is down
 			$this->session_location = $header_parsed['Location'];
 			$this->session_token = $header_parsed['X-Ocpu-Session'];
 		endif;
