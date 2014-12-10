@@ -20,7 +20,7 @@ all: install
 
 install: init init_install install_files install_dependencies clean
 	@echo "formr.org has been installed successfully to $(INSTALL_DIR)."
-	@echo "\nConfigure database and other settings at $(CONFIG_DIR)/database.php and $(CONFIG_DIR)/settings.php and then activate cron at $(SYS_CRON_TAB)"
+	@echo "\nConfigure database and other settings at $(CONFIG_DIR)/settings.php and then activate cron at $(SYS_CRON_TAB)"
 
 install_files:
 	@echo "Installing files .....";
@@ -36,7 +36,7 @@ install_files:
 	[ -d $(CONFIG_DIR) ] && cp -R $(INSTALL_DIR)/config_default/* $(CONFIG_DIR)/
 	chmod -R 0644 $(CONFIG_DIR)
 
-	[ ! -f $(SYS_CRON_TAB) ] && mv $(CRON_TAB) $(SYS_CRON_TAB)
+	[ ! -f $(SYS_CRON_TAB) ] && cp $(CRON_TAB) $(SYS_CRON_TAB)
 
 	@echo "File installation.... Done."
 

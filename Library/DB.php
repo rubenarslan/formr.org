@@ -50,9 +50,7 @@ class DB {
 	protected $PDO;
 
 	protected function __construct() {
-		require_once INCLUDE_ROOT . "config/database.php";
-		$config = new DATABASE_CONFIG();
-		$params = (array) $config->default;
+		$params = (array) Config::get('database');
 
 		$options = array(
 			'host' => $params['host'],
