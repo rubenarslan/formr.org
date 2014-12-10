@@ -19,22 +19,22 @@ install: init init_install install_files install_dependencies clean
 	@echo "\nConfigure database and other settings at $(CONFIG_DIR)/database.php and $(CONFIG_DIR)/settings.php and then activate cron at $(SYS_CRON_TAB)"
 
 install_files:
-        @echo "Installing files .....";
+	@echo "Installing files .....";
 
-        @install -d -m 0744 $(INSTALL_DIR)
+	@install -d -m 0744 $(INSTALL_DIR)
 
-        $(GIT) init
-        $(GIT) remote add origin $(GIT_REPO)
-        $(GIT) pull origin $(GIT_BRANCH)
+	$(GIT) init
+	$(GIT) remote add origin $(GIT_REPO)
+	$(GIT) pull origin $(GIT_BRANCH)
 
-        install -d -m 0644 $(CONFIG_DIR)
-        chmod 0755 $(INSTALL_DIR)/bin/cron.php
-        [ -d $(CONFIG_DIR) ] && cp -R $(INSTALL_DIR)/config_default/* $(CONFIG_DIR)/
-        chmod -R 0644 $(CONFIG_DIR)
+	install -d -m 0644 $(CONFIG_DIR)
+	chmod 0755 $(INSTALL_DIR)/bin/cron.php
+	[ -d $(CONFIG_DIR) ] && cp -R $(INSTALL_DIR)/config_default/* $(CONFIG_DIR)/
+	chmod -R 0644 $(CONFIG_DIR)
 
-        [ ! -f $(SYS_CRON_TAB) ] && mv $(CRON_TAB) $(SYS_CRON_TAB)
+	[ ! -f $(SYS_CRON_TAB) ] && mv $(CRON_TAB) $(SYS_CRON_TAB)
 
-        @echo "File installation.... Done."
+	@echo "File installation.... Done."
 
 install_dependencies:
 	@echo "Installing dependencies ....."
@@ -60,11 +60,11 @@ update_files:
 	@chmod 0755 $(INSTALL_DIR)/bin/cron.php
 
 init:
-        @type git >/dev/null 2>&1 || { echo >&2 "'git' is required but it's not installed. Aborting..."; exit 1; }
-        @type composer >/dev/null 2>&1 || { echo >&2 "'composer' is required but it's not installed. Aborting..."; exit 1; }
+	@type git >/dev/null 2>&1 || { echo >&2 "'git' is required but it's not installed. Aborting..."; exit 1; }
+	@type composer >/dev/null 2>&1 || { echo >&2 "'composer' is required but it's not installed. Aborting..."; exit 1; }
 
 init_install:
-        @if [ -d $(INSTALL_DIR) ]; then echo "'formr.org' is already installed. Run 'make update' or 'make uninstall' instead. Aborting..."; exit 1; fi
+	@if [ -d $(INSTALL_DIR) ]; then echo "'formr.org' is already installed. Run 'make update' or 'make uninstall' instead. Aborting..."; exit 1; fi
 
 clean:
-        @echo "Installation completed..."
+	@echo "Installation completed..."
