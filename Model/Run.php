@@ -176,7 +176,7 @@ class Run {
 		endif;
 
 		$new_secret = crypto_token(66);
-		$this->db->insert('survey_runs', array(
+		$this->dbh->insert('survey_runs', array(
 			'user_id' => $options['user_id'],
 			'name' => $name,
 			'title' => $name,
@@ -681,7 +681,7 @@ class Run {
 			if (trim($this->description_parsed)) {
 				$run_content .= $this->description_parsed;
 			}
-
+			
 			if (isset($output['body'])) {
 				$run_content .= $output['body'];
 			}
