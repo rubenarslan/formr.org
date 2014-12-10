@@ -34,6 +34,11 @@ class Survey extends RunUnit {
 	 */
 	public $dbh;
 
+	/**
+	 * @var ParsedownExtra
+	 */
+	public $parsedown;
+
 	public function __construct($fdb, $session, $unit, $run_session = NULL) {
 		$this->dbh = $fdb;
 		if (isset($unit['name']) AND ! isset($unit['unit_id'])): // when called via URL
