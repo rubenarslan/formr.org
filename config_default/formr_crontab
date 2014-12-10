@@ -1,3 +1,1 @@
-MAILTO=cyril.tata@hotmail.com
-# Check for newsletters at 03:00 am every day
 #*/7 * * * * www-data /var/www/formr/bin/cron.php >/dev/null
