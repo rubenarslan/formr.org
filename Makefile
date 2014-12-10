@@ -1,7 +1,7 @@
 # [formr.org]
 
 ifeq ($(FORMR_DIR),)
-    FORMR_DIR=/var/www/formr
+	FORMR_DIR=/var/www/formr
 endif
 
 INSTALL_DIR=$(CTSR_ROOT)$(FORMR_DIR)
