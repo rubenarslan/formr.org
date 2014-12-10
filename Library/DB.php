@@ -529,7 +529,7 @@ class DB {
 	 * {inherit PDO doc}
 	 */
 	public function rollBack() {
-		$this->PDO->rollBack();
+		return $this->PDO->rollBack();
 	}
 
 }

@@ -649,12 +649,12 @@ class SpreadsheetReader {
 
 		endforeach; // row loop
 
-
 		$callEndTime = microtime(true);
 		$callTime = $callEndTime - $callStartTime;
 		$survey_messages[] = 'Call time to read survey sheet was ' . sprintf('%.4f', $callTime) . " seconds" . EOL . "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB";
-		if (!empty($empty_rows))
+		if (!empty($empty_rows)) {
 			$survey_messages[] = "Rows " . implode($empty_rows, ", ") . ": variable name empty. Rows skipped.";
+		}
 
 		$this->messages[] = '<ul><li>' . implode("</li><li>", $survey_messages) . '</li></ul>';
 
