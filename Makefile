@@ -6,9 +6,13 @@ CONFIG_DIR=$(INSTALL_DIR)/config
 CRON_TAB=$(INSTALL_DIR)/config/formr_crontab
 SYS_CRON_TAB=$(CTSR_ROOT)/etc/cron.d/formr_crontab
 SMI_CONFIG=/etc/smysqlin/formr.ini
+
 GIT_REPO?=https://github.com/rubenarslan/formr.org.git
 GIT=$(shell echo "git --git-dir=$(INSTALL_DIR)/.git --work-tree=$(INSTALL_DIR)")
 GIT_BRANCH?=master
+
+APACHE_USER?=www-data
+APACHE_GROUP?=www-data
 
 COMPOSER=composer
 
@@ -67,4 +71,5 @@ init_install:
 	@if [ -d $(INSTALL_DIR) ]; then echo "'formr.org' is already installed. Run 'make update' or 'make uninstall' instead. Aborting..."; exit 1; fi
 
 clean:
+	chown -R $(APACHE_USER):$(APACHE_GROUP) $(INSTALL_DIR)
 	@echo "Installation completed..."
