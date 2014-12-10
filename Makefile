@@ -74,7 +74,7 @@ init:
 	@type composer >/dev/null 2>&1 || { echo >&2 "'composer' is required but it's not installed. Aborting..."; exit 1; }
 
 init_install:
-	@[ -d $(INSTALL_DIR) ] && { echo >&2 "'formr.org' is already installed. Run 'make update' or 'make uninstall' instead. Aborting..."; exit 1; }
+	if [ -d $(INSTALL_DIR ]; then @echo "'formr.org' is already installed. Run 'make update' or 'make uninstall' instead. Aborting..."; exit 1; fi
 
 clean:
 	@echo "Installation completed..."
