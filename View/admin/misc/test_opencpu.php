@@ -23,7 +23,7 @@ fragment.only = T, options=c("base64_images","smartypants")
 )
 }';
 
-$before = microtime();
+$before = microtime(true);
 $results = $openCPU->identity(array('x' =>  $source),'', true);
 
 $alert_type = 'alert-success';
@@ -35,7 +35,7 @@ alert("1. HTTP status: ".$openCPU->http_status,$alert_type);
 
 $accordion = $openCPU->debugCall($results);
 
-alert("1. Request took " . round(microtime() - $before / 1000 / 60,4) . " minutes", 'alert-info');
+alert("1. Request took " . round((microtime(true) - $before) / 60, 4) . " minutes", 'alert-info');
 
 // ===============================================
 
@@ -44,7 +44,7 @@ $source = '{
 library(formr)
 rnorm(10)
 }';
-$before = microtime();
+$before = microtime(true);
 $results = $openCPU->identity(array('x' =>  $source),'', true);
 
 $alert_type = 'alert-success';
@@ -54,7 +54,7 @@ if($openCPU->http_status > 302 OR $openCPU->http_status === 0) {
 
 alert("2. HTTP status: ".$openCPU->http_status,$alert_type);
 $accordion2 = $openCPU->debugCall($results);
-alert("2. Request took " . round(microtime() - $before / 1000 / 60,4) . " minutes", 'alert-info');
+alert("2. Request took " . round((microtime(true) - $before) / 60, 4) . " minutes", 'alert-info');
 
 // ===============================================
 
@@ -84,7 +84,7 @@ nrow(Taeglicher_Fragebogen_1) < 20 ||
 ( as.Date(head(Taeglicher_Fragebogen_1$created, 1)) + days(35) ) < today();
 # wenn der taegliche fragebogen seltener als 20 mal und ueber einen kuerzeren zeitraum als 35 tage ausgefuellt wurde, muss er weiter ausgefuellt werden.
 })() }';
-$before = microtime();
+$before = microtime(true);
 $results = $openCPU->identity(array('x' =>  $source),'', true);
 
 $alert_type = 'alert-success';
@@ -94,7 +94,7 @@ if($openCPU->http_status > 302 OR $openCPU->http_status === 0) {
 
 alert("3. HTTP status: ".$openCPU->http_status,$alert_type);
 $accordion3 = $openCPU->debugCall($results);
-alert("3. Request took " . round(microtime() - $before / 1000 / 60,4) . " minutes and was ".human_filesize(strlen($source)), 'alert-info');
+alert("3. Request took " . round((microtime(true) - $before) / 60, 4) . " minutes and was ".human_filesize(strlen($source)), 'alert-info');
 
 
 // ===============================================
@@ -109,7 +109,7 @@ library(lubridate);
 nrow(Taeglicher_Fragebogen_1) < 20 || 
 ( as.Date(head(Taeglicher_Fragebogen_1$created, 1)) + days(35) ) < today()
 })() }';
-$before = microtime();
+$before = microtime(true);
 $results = $openCPU->identity(array('x' =>  $source),'', true);
 
 $alert_type = 'alert-success';
@@ -119,7 +119,7 @@ if($openCPU->http_status > 302 OR $openCPU->http_status === 0) {
 
 alert("4. HTTP status: ".$openCPU->http_status,$alert_type);
 $accordion4 = $openCPU->debugCall($results);
-alert("4. Request took " . round(microtime() - $before / 1000 / 60,4) . " minutes", 'alert-info');
+alert("4. Request took " . round((microtime(true) - $before) / 60, 4) . " minutes", 'alert-info');
 
 // ===== RESULTS ===== //
 
