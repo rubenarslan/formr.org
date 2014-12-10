@@ -1,31 +1,32 @@
 <?php
 
-class RunSession
-{
-	public $session = null;
-	public $id, $run_id, $ended, $position, $current_unit_type;
-	private $dbh;
-	private $cron = false;
+class RunSession {
 
-	public function __construct($fdb, $run_id, $user_id, $session)
-	{
+	public $session = null;
+	public $id, $run_id, $ended, $position, $current_unit_type, $user_id, $created, $run_name, $run_owner_id;
+	private $cron = false;
+	/**
+	 * @var DB
+	 */
+	private $dbh;
+
+	public function __construct($fdb, $run_id, $user_id, $session) {
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->run_id = $run_id;
-		if($user_id == 'cron'):
+		if ($user_id == 'cron'):
 			$this->cron = true;
 		else:
 			$this->user_id = $user_id;
 		endif;
-		
-		
-		if($this->session != null AND $this->run_id != null): // called with null in constructor if they have no session yet
+
+		if ($this->session != null AND $this->run_id != null): // called with null in constructor if they have no session yet
 			$this->load();
 		endif;
 	}
-	private function load()
-	{
-		$session_q = "SELECT 
+
+	private function load() {
+		$sess_array = $this->dbh->select(' 
 			`survey_run_sessions`.id, 
 			`survey_run_sessions`.session, 
 			`survey_run_sessions`.user_id, 
@@ -34,26 +35,13 @@ class RunSession
 			`survey_run_sessions`.ended, 
 			`survey_run_sessions`.position, 
 			`survey_runs`.name AS run_name,
-			`survey_runs`.user_id AS run_owner_id
-			  FROM  `survey_run_sessions`
-		
-		LEFT JOIN `survey_runs`
-		ON `survey_runs`.id = `survey_run_sessions`.run_id 
-		
-		WHERE 
-		run_id = :run_id AND
-		session = :session
-		LIMIT 1;";
-	
-		$valid_session = $this->dbh->prepare($session_q);
-	
-		$valid_session->bindParam(":session",$this->session);
-		$valid_session->bindParam(":run_id", $this->run_id);
-	
-		$valid_session->execute();
-		$valid = $valid_session->rowCount();
-		$sess_array = $valid_session->fetch(PDO::FETCH_ASSOC);
-		if($valid):
+			`survey_runs`.user_id AS run_owner_id')
+		->from('survey_run_sessions')
+		->leftJoin('survey_runs', 'survey_runs.id = survey_run_sessions.run_id')
+		->where(array('run_id' => $this->run_id, 'session' => $this->session))
+		->limit(1)->fetch();
+
+		if ($sess_array) {
 			$this->id = $sess_array['id'];
 			$this->session = $sess_array['session'];
 			$this->run_id = $sess_array['run_id'];
@@ -63,161 +51,127 @@ class RunSession
 			$this->position = $sess_array['position'];
 			$this->run_name = $sess_array['run_name'];
 			$this->run_owner_id = $sess_array['run_owner_id'];
-			
-			if(!$this->cron):
-				$last_access_q = "UPDATE `survey_run_sessions`
-					SET last_access = NOW()
-				WHERE 
-				id = :id
-				LIMIT 1;";
-				
-		
-				$last_access = $this->dbh->prepare($last_access_q);
-	
-				$last_access->bindParam(":id",$this->id);
-	
-				$success = $last_access->execute();
-			endif;
+
+			if (!$this->cron) {
+				$this->dbh->update('survey_run_sessions', array('last_access' => mysql_now()), array('id' => $this->id));
+			}
 			return true;
-		endif;
+		}
+
 		return false;
 	}
-	public function create($session = NULL)
-	{
-		if($session !== NULL)
-		{
-			if(strlen($session)!=64)
-			{
-				alert("<strong>Error.</strong> Session tokens need to be exactly 64 characters long.",'alert-danger');
+
+	public function create($session = NULL) {
+		if ($session !== NULL) {
+			if (strlen($session) != 64) {
+				alert("<strong>Error.</strong> Session tokens need to be exactly 64 characters long.", 'alert-danger');
 				return false;
 			}
-		}
-		else
-		{
+		} else {
 			$session = crypto_token(48);
 		}
-		
-		$session_q = "INSERT IGNORE INTO  `survey_run_sessions`
-		SET run_id = :run_id,
-		session = :session,
-		user_id = :user_id,
-		created = NOW()
-		";
-		$add_session = $this->dbh->prepare($session_q);
-	
-		$add_session->bindParam(":session",$session);
-		$add_session->bindParam(":run_id", $this->run_id);
-		$add_session->bindParam(":user_id", $this->user_id);
-	
-		$add_session->execute();
-		
 
+		$this->dbh->insert_update('survey_run_sessions', array(
+			'run_id' => $this->run_id,
+			'user_id' => $this->user_id,
+			'session' => $session,
+			'created' => mysql_now(),
+		), array('user_id'));
 		$this->session = $session;
 		return $this->load();
 	}
 
-	
-	public function getUnit()
-	{
-#		pr($this->id);
+	public function getUnit() {
 		$i = 0;
 		$done = array();
 		$unit_factory = new RunUnitFactory();
-		
+
 		$output = false;
-		while(! $output): // only when there is something to display, stop.
+		while (!$output): // only when there is something to display, stop.
 			$i++;
-			if($i > 80) {
+			if ($i > 80) {
 				global $user;
-				if($user->isCron() OR $user->isAdmin())
-					 alert(print_r($unit,true),'alert-danger');
-				if($i > 90):
-					alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?','alert-danger');
-					return false;
-				endif;
+				if ($user->isCron() OR $user->isAdmin()) {
+					alert(print_r($unit, true), 'alert-danger');
+				}
+				alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?', 'alert-danger');
+				return false;
 			}
+
 			$unit_info = $this->getCurrentUnit(); // get first unit in line
-			if($unit_info):								 // if there is one, spin that shit
-				if($this->cron):
+			if ($unit_info) {		 // if there is one, spin that shit
+				if ($this->cron) {
 					$unit_info['cron'] = true;
-				endif;
-				
+				}
+
 				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this);
 				$this->current_unit_type = $unit->type;
 				$output = $unit->exec();
-				if(!$output AND is_object($unit)):
-					if(isset($done[ $unit->type ]))
-						$done[ $unit->type ]++;
-					else
-						$done[$unit->type ] = 1;
-				endif;
-				
-				
-			else:
-				if(!$this->runToNextUnit()) 		// if there is nothing in line yet, add the next one in run order
-					return array('title'=>'Nothing here.', 'body' => "<div class='broken_tape'><h1><span>Oops. This study's creator forgot to give it a proper ending and now the tape's run out.</span></h1></div>"); // if that fails because the run is wrongly configured, return
-			endif;
+
+				if (!$output AND is_object($unit)) {
+					if (!isset($done[$unit->type])) {
+						$done[$unit->type] = 0;
+					}
+					$done[$unit->type]++;
+				}
+
+			} else {
+				if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
+					return array(
+						'title' => 'Nothing here.',
+						'body' => "<div class='broken_tape'><h1><span>Oops. This study's creator forgot to give it a proper ending and now the tape's run out.</span></h1></div>"
+					); // if that fails because the run is wrongly configured, return
+				}
+			}
 		endwhile;
-		
-		if($this->cron)
+
+		if ($this->cron) {
 			return $done;
+		}
 
 		return $output;
 	}
 
-	public function getUnitIdAtPosition($position)
-	{
-		$data = $this->dbh->prepare("SELECT unit_id FROM `survey_run_units` WHERE 
-			run_id = :run_id AND
-			position = :position 
-		LIMIT 1");
-		$data->bindParam(":run_id",$this->run_id);
-		$data->bindParam(":position",$position);
-		$data->execute();
-		$vars = $data->fetch(PDO::FETCH_ASSOC);
-		if($vars)
-			return $vars['unit_id'];
-		return false;
+	public function getUnitIdAtPosition($position) {
+		$unit_id = $this->dbh->findValue('survey_run_units', array('run_id' => $this->run_id, 'position' => $position), 'unit_id');
+		if (!$unit_id) {
+			return false;
+		}
+		return $unit_id;
 	}
-	public function forceTo($position)
-	{
+
+	public function forceTo($position) {
 		$unit = $this->getCurrentUnit(); // get first unit in line
-		if($unit):
+		if ($unit):
 			$unit_factory = new RunUnitFactory();
-			$unit = $unit_factory->make($this->dbh,null,$unit, $this);
-			$unit->end(); 				// cancel it
+			$unit = $unit_factory->make($this->dbh, null, $unit, $this);
+			$unit->end();	 // cancel it
 		endif;
-		
-		if($this->runTo($position)):
+
+		if ($this->runTo($position)):
 			return true;
 		endif;
 		return false;
 	}
-	public function runTo($position,$unit_id = null)
-	{
-		if($unit_id === null) $unit_id = $this->getUnitIdAtPosition($position);
-			
-		if($unit_id):
-			
+
+	public function runTo($position, $unit_id = null) {
+		if ($unit_id === null) {
+			$unit_id = $this->getUnitIdAtPosition($position);
+		}
+
+		if ($unit_id):
+
 			$unit_session = new UnitSession($this->dbh, $this->id, $unit_id);
-			if(!$unit_session->id) $unit_session->create();
+			if (!$unit_session->id) {
+				$unit_session->create();
+			}
 			$_SESSION['session'] = $this->session;
-		
-			if($unit_session->id):
-				$run_to_q = "UPDATE `survey_run_sessions`
-					SET position = :position 
-				WHERE 
-				id = :id
-				LIMIT 1;";
-		
-				$run_to_update = $this->dbh->prepare($run_to_q);
-	
-				$run_to_update->bindParam(":id",$this->id);
-				$run_to_update->bindParam(":position",$position);
-	
-				$success = $run_to_update->execute();
-				if($success):
-					$this->position = (int)$position;
+
+			if ($unit_session->id):
+				$updated = $this->dbh->update('survey_run_sessions', array('position' => $position), array('id' => $this->id));
+				$success = $updated !== false;
+				if ($success):
+					$this->position = (int) $position;
 					return true;
 				else:
 					alert(__('<strong>Error.</strong> Could not edit run session position for unit %s at pos. %s.', $unit_id, $position), 'alert-danger');
@@ -225,7 +179,7 @@ class RunSession
 			else:
 				alert(__('<strong>Error.</strong> Could not create unit session for unit %s at pos. %s.', $unit_id, $position), 'alert-danger');
 			endif;
-		elseif($unit_id !== null AND $position):
+		elseif ($unit_id !== null AND $position):
 			alert(__('<strong>Error.</strong> The run position %s does not exist.', $position), 'alert-danger');
 		else:
 			alert('<strong>Error.</strong> You tried to jump to a non-existing run position or forgot to specify one entirely.', 'alert-danger');
@@ -233,42 +187,29 @@ class RunSession
 		return false;
 	}
 
-
-	public function getCurrentUnit()
-	{
-		$g_unit = $this->dbh->prepare(
-		"SELECT 
+	public function getCurrentUnit() {
+		$unit = $this->dbh->select('
 			`survey_unit_sessions`.unit_id,
 			`survey_unit_sessions`.id AS session_id,
 			`survey_unit_sessions`.created,
-			`survey_units`.type
-
-		FROM `survey_unit_sessions`
-
- 		LEFT JOIN `survey_units`
-	 		ON `survey_unit_sessions`.unit_id = `survey_units`.id
-	
-		WHERE 
-			`survey_unit_sessions`.run_session_id = :run_session_id AND
-			`survey_unit_sessions`.unit_id = :unit_id AND
-			`survey_unit_sessions`.ended IS NULL -- so we know when to runToNextUnit
-		
-		ORDER BY `survey_unit_sessions`.id DESC 
-		LIMIT 1
-		;"); // in the order they were added
-		$g_unit->bindParam(':run_session_id',$this->id);
-		$g_unit->bindValue(':unit_id',$this->getUnitIdAtPosition($this->position));
-		$g_unit->execute();
-		$unit = $g_unit->fetch(PDO::FETCH_ASSOC);
-		if($unit):
+			`survey_units`.type')
+		->from('survey_unit_sessions')
+		->leftJoin('survey_units', 'survey_unit_sessions.unit_id = survey_units.id')
+		->where('survey_unit_sessions.run_session_id = :run_session_id')
+		->where('survey_unit_sessions.unit_id = :unit_id')
+		->where('survey_unit_sessions.ended IS NULL') //so we know when to runToNextUnit
+		->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
+		->order('survey_unit_sessions`.id', 'desc')
+		->limit(1)->fetch();
+		if ($unit):
 			// unit needs:
-				# run_id
-				# run_name
-				# unit_id
-				# session_id
-				# run_session_id
-				# type
-				# session? 
+			# run_id
+			# run_name
+			# unit_id
+			# session_id
+			# run_session_id
+			# type
+			# session? 
 			$unit['run_id'] = $this->run_id;
 			$unit['run_name'] = $this->run_name;
 			$unit['run_session_id'] = $this->id;
@@ -276,79 +217,53 @@ class RunSession
 		endif;
 		return false;
 	}
-	public function runToNextUnit()
-	{
-		$g_unit = $this->dbh->prepare(
-		"SELECT 
-			unit_id,
-			position
-			
-			 FROM `survey_run_units` 
-			 
-		WHERE 
-			run_id = :run_id AND
-			position > :position
-			
-		ORDER BY position ASC
-		LIMIT 1
-		;");
-		$g_unit->bindParam(':run_id',$this->run_id);
-		if($this->position !== NULL)
-			$g_unit->bindParam(':position',$this->position);
-		else
-			$g_unit->bindValue(':position',-1000000);
-		
-		$g_unit->execute();
-		$next = $g_unit->fetch(PDO::FETCH_ASSOC);
-		
-		if(!$next)
-		{
-			alert('Run '.$this->run_name.': Forgot a landing page','alert-danger');
+
+	public function runToNextUnit() {
+		$select = $this->dbh->select('unit_id, position')
+				->from('survey_run_units')
+				->where('run_id = :run_id')
+				->where('position > :position');
+
+		$position = -1000000;
+		if ($this->position !== null) {
+			$position = $this->position;
+		}
+
+		$select->bindParams(array('run_id' => $this->run_id, 'position' => $position));
+		$next = $select->fetch();
+		if (!$next) {
+			alert('Run ' . $this->run_name . ': Forgot a landing page', 'alert-danger');
 			return false;
 		}
-		return $this->runTo($next['position'],$next['unit_id']);
+		return $this->runTo($next['position'], $next['unit_id']);
 	}
-	public function endLastExternal()
-	{
-		$end_q = "UPDATE `survey_unit_sessions`
-			left join `survey_units`
-		on `survey_unit_sessions`.unit_id = `survey_units`.id
+
+	public function endLastExternal() {
+		$query = "
+			UPDATE `survey_unit_sessions`
+			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
 			SET `survey_unit_sessions`.`ended` = NOW()
-		WHERE 
-		`survey_unit_sessions`.run_session_id = :id AND
-		`survey_units`.type = 'External' AND 
-		`survey_unit_sessions`.ended IS NULL;";
-	
-		$end_external = $this->dbh->prepare($end_q);
-	
-		$end_external->bindParam(":id",$this->id);
-	
-		$success = $end_external->execute();
+			WHERE `survey_unit_sessions`.run_session_id = :id AND `survey_units`.type = 'External' AND  `survey_unit_sessions`.ended IS NULL;";
+
+		$updated = $this->dbh->exec($query, array('id' => $this->id));
+		$success = $updated !== false;
 		return $success;
 	}
-	
 
-	public function end()
-	{
-		$finish_run = $this->dbh->prepare("UPDATE `survey_run_sessions` 
-			SET `ended` = NOW()
-			WHERE 
-			`id` = :id AND
-			`ended` IS NULL
-		LIMIT 1;");
-		$finish_run->bindParam(":id", $this->id);
-		$finish_run->execute();
+	public function end() {
+		$query = "UPDATE `survey_run_sessions` SET `ended` = NOW() WHERE `id` = :id AND `ended` IS NULL";
+		$updated = $this->dbh->exec($query, array('id' => $this->id));
 
-		if($finish_run->rowCount() === 1):
+		if ($updated === 1) {
 			$this->ended = true;
 			return true;
-		else:
-			return false;
-		endif;
+		}
+
+		return false;
 	}
-	
-	public function __sleep()
-	{
+
+	public function __sleep() {
 		return array('id', 'session', 'run_id');
 	}
+
 }
