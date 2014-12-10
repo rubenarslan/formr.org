@@ -58,7 +58,7 @@ update: init update_files clean
 
 update_files:
 	$(GIT) reset --hard
-	$(GIT) pull origin master
+	$(GIT) pull origin $(GIT_BRANCH)
 
 	cd $(INSTALL_DIR) && $(COMPOSER) update
 	@chmod 0755 $(INSTALL_DIR)/bin/cron.php
