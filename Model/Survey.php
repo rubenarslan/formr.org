@@ -1,4 +1,5 @@
 <?php
+
 class Survey extends RunUnit {
 
 	public $id = null;
@@ -13,11 +14,6 @@ class Survey extends RunUnit {
 	public $results_table = null;
 	public $run_session_id = null;
 	public $settings = array();
-
-	/**
-	 * @var PDO
-	 */
-	public $dbh;
 	public $valid = false;
 	public $public = false;
 	public $errors = array();
@@ -29,19 +25,27 @@ class Survey extends RunUnit {
 	public $icon = "fa-pencil-square-o";
 	public $type = "Survey";
 	public $admin_usage = false;
+	public $result_count = 0;
 	private $confirmed_deletion = false;
 	private $item_factory = null;
-	public function __construct($fdb, $session, $unit, $run_session = NULL)
-	{
-		if(isset($unit['name']) AND !isset($unit['unit_id'])): // when called via URL
-			$study_data = $fdb->prepare("SELECT id FROM `survey_studies` WHERE user_id = :user_id AND name = :name LIMIT 1");
-			$study_data->bindValue(":name",$unit['name']);
+
+	/**
+	 * @var DB
+	 */
+	public $dbh;
+
+	/**
+	 * @var ParsedownExtra
+	 */
+	public $parsedown;
+
+	public function __construct($fdb, $session, $unit, $run_session = NULL) {
+		$this->dbh = $fdb;
+		if (isset($unit['name']) AND ! isset($unit['unit_id'])): // when called via URL
 			global $user;
-			$study_data->bindValue(':user_id',$user->id);
-			$study_data->execute();
-			$vars = $study_data->fetch(PDO::FETCH_ASSOC);
-			$unit['unit_id'] = $vars['id']; // parent::__construct needs this
-			$this->id = $unit['unit_id'];
+			$id = $this->dbh->findValue('survey_studies', array('name' => $unit['name'], 'user_id' => $user->id), array('id'));
+			$this->id = $id;
+			$unit['unit_id'] = $this->id; // parent::__construct needs this
 		endif;
 
 		parent::__construct($fdb, $session, $unit, $run_session);
@@ -50,24 +54,22 @@ class Survey extends RunUnit {
 			$this->load();
 		endif;
 
-		if ($this->beingTestedByOwner())
+		if ($this->beingTestedByOwner()) {
 			$this->admin_usage = true;
+		}
 	}
 
 	private function load() {
-		$study_data = $this->dbh->prepare("SELECT * FROM `survey_studies` WHERE id = :id LIMIT 1");
-		$study_data->bindParam(":id", $this->id);
-		$study_data->execute();
-		$vars = $study_data->fetch(PDO::FETCH_ASSOC);
-
+		$vars = $this->dbh->findRow('survey_studies', array('id' => $this->id));
 		if ($vars):
 			$this->id = $vars['id'];
 			$this->name = $vars['name'];
 			$this->user_id = (int) $vars['user_id'];
-			if (!isset($vars['results_table']) OR $vars['results_table'] == null)
+			if (!isset($vars['results_table']) OR $vars['results_table'] == null) {
 				$this->results_table = $this->name;
-			else
+			} else {
 				$this->results_table = $vars['results_table'];
+			}
 
 			$this->settings['maximum_number_displayed'] = (int) $vars['maximum_number_displayed'];
 			$this->settings['displayed_percentage_maximum'] = (int) $vars['displayed_percentage_maximum'];
@@ -82,27 +84,28 @@ class Survey extends RunUnit {
 		$js = (isset($js) ? $js : '') . '<script src="' . WEBROOT . 'assets/survey.js"></script>';
 
 		$ret = '
-	<div class="row">
-		<div class="col-md-12">
-
-	';
+		<div class="row">
+			<div class="col-md-12">
+		';
 		$ret .= $this->render_form_header() .
 				$this->render_items() .
 				$this->render_form_footer();
 		$ret .= '
-		</div> <!-- end of col-md-12 div -->
-	</div> <!-- end of row div -->
-	';
+			</div> <!-- end of col-md-12 div -->
+		</div> <!-- end of row div -->
+		';
 		$this->dbh = NULL;
 		return $ret;
 	}
 
 	protected function startEntry() {
-
-		$start_entry = $this->dbh->prepare("INSERT INTO `{$this->results_table}` (`session_id`, `study_id`, `created`) VALUES(:session_id, :study_id, NOW()) ON DUPLICATE KEY UPDATE modified = NOW();");
-		$start_entry->bindParam(":session_id", $this->session_id);
-		$start_entry->bindParam(":study_id", $this->id);
-		$start_entry->execute();
+		$this->dbh->insert_update($this->results_table, array(
+			'session_id' => $this->session_id,
+			'study_id' => $this->id,
+			'created' => mysql_now()
+		), array(
+			'modified' => mysql_now(),
+		));
 	}
 
 	public function post($posted, $redirect = true) {
@@ -150,7 +153,7 @@ class Survey extends RunUnit {
 				$answered->bindParam(":item_id", $this->unanswered[$name]->id);
 				$item_answered = $answered->execute();
 
-				if (!$item_saved || !$item_answered) {
+				if (!$item_saved && !$item_answered) {
 					throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$this->results_table}' (FieldType: {$this->unanswered[$name]->getResultField()})");
 				}
 				unset($this->unanswered[$name]);
@@ -169,43 +172,31 @@ class Survey extends RunUnit {
 	}
 
 	protected function getProgress() {
-		$query = "SELECT COUNT(`survey_items_display`.answered) AS count, study_id, session_id
-					FROM 
-						`survey_items` 
-					LEFT JOIN `survey_items_display`
-					ON `survey_items_display`.session_id = :session_id
-					AND `survey_items`.id = `survey_items_display`.item_id
-					
-					WHERE 
-					`survey_items_display`.session_id IS NOT NULL AND
-					`survey_items`.study_id = :study_id AND
-			        `survey_items`.type NOT IN (
-							'mc_heading',
-							'submit'
-						)";
-		$progress = $this->dbh->prepare($query);
-		$progress->bindParam(":session_id", $this->session_id);
-		$progress->bindParam(":study_id", $this->id);
-		$progress->execute();
-
-		$answered = $progress->fetch(PDO::FETCH_ASSOC);
+		$answered = $this->dbh->select(array('COUNT(`survey_items_display`.answered)' => 'count', 'study_id', 'session_id'))
+				->from('survey_items')
+				->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
+				->where('survey_items_display.session_id IS NOT NULL')
+				->where('survey_items.study_id = :study_id')
+				->where("survey_items.type NOT IN ('mc_heading', 'submit')")
+				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
+				->fetch();
 
 		$this->already_answered = $answered['count'];
 
 		$this->not_answered = array_filter($this->unanswered, function ($item) {
 			if (
 					$item->hidden OR  // item was skipped
-					in_array($item->type, array('submit', 'mc_heading'))	// these items require no user interaction and thus don't count against progress
-					OR ( $item->type == 'note' AND $item->displaycount > 0)	// item is a note and has already been viewed
-			)
+					in_array($item->type, array('submit', 'mc_heading')) OR // these items require no user interaction and thus don't count against progress
+					( $item->type == 'note' AND $item->displaycount > 0) // item is a note and has already been viewed
+			) {
 				return false;
-			else
-				return true;
-		}
-		);
+			}
+
+			return true;
+		});
 		$this->not_answered = count($this->not_answered);
 
-// todo: in the medium term it may be more intuitive to treat notes as item that are answered by viewing but that can linger in a special case, might require less extra logic. but they shouldn't go in the results table.. so maybe not.
+		// todo: in the medium term it may be more intuitive to treat notes as item that are answered by viewing but that can linger in a special case, might require less extra logic. but they shouldn't go in the results table.. so maybe not.
 		/* 		$seen_notes = array_filter($this->unanswered, function ($item)
 		  { // notes stay in the unanswered batch
 		  if(
@@ -221,9 +212,9 @@ class Survey extends RunUnit {
 		 */
 
 		$all_items = $this->already_answered + $this->not_answered;
-		
-		if($all_items !== 0) {
-			$this->progress = $this->already_answered / $all_items ;
+
+		if ($all_items !== 0) {
+			$this->progress = $this->already_answered / $all_items;
 			return $this->progress;
 		} else {
 			$this->errors[] = _('Something went wrong, there are no items in this survey!');
@@ -235,12 +226,13 @@ class Survey extends RunUnit {
 	protected function getAndRenderChoices() {
 		// get and render choices
 		// todo: should only get & render choices for items on this page
-		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label, label_parsed FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
-		ORDER BY `survey_item_choices`.id ASC;");
-		$get_item_choices->bindParam(":study_id", $this->id); // delete cascades to item display
-		$get_item_choices->execute();
+		$items = $this->dbh->select('list_name, name, label, label_parsed')
+						->from('survey_item_choices')
+						->where(array('study_id' => $this->id))
+						->order('id', 'ASC')->fetchAll();
+
 		$choice_lists = array();
-		while ($row = $get_item_choices->fetch(PDO::FETCH_ASSOC)):
+		foreach ($items as $row) {
 			if (!isset($choice_lists[$row['list_name']])):
 				$choice_lists[$row['list_name']] = array();
 			endif;
@@ -263,54 +255,47 @@ class Survey extends RunUnit {
 				endif;
 			endif;
 			$choice_lists[$row['list_name']][$row['name']] = $row['label_parsed'];
-		endwhile;
+		}
 		return $choice_lists;
 	}
 
-	/*
-	 * this function first restricts the number of items to walk through by only requesting those from the DB
-	  which have not yet been answered
-	  - first caveat: items like mc_heading, note and submit are special and don't just get eliminated when "answered"
-	 *  the function proceeds to get all choices and render them – there is room to economise here, but I considered this premature
-	  for now. to be clear: getting the choices has little cost, rendering them has high costs if they're dynamic (need openCPU), but we do that rarely if ever now.
+	/**
+	 * This function first restricts the number of items to walk through by only requesting those from the DB which have not yet been answered
+	 * - first caveat: items like mc_heading, note and submit are special and don't just get eliminated when "answered".
+	 * The function proceeds to get all choices and render them – there is room to economise here, but I considered this premature
+	 * for now. to be clear: getting the choices has little cost, rendering them has high costs if they're dynamic (need openCPU), but we do that rarely if ever now.
 	 * 
 	 */
-
 	protected function getNextItems() {
-		if (!isset($this->settings["maximum_number_displayed"]) OR trim($this->settings["maximum_number_displayed"]) == "" OR ! is_numeric($this->settings["maximum_number_displayed"]))
+		if (!isset($this->settings["maximum_number_displayed"]) OR trim($this->settings["maximum_number_displayed"]) == "" OR !is_numeric($this->settings["maximum_number_displayed"])) {
 			$this->settings["maximum_number_displayed"] = null;
+		}
 
-		$item_query = "SELECT 
-				`survey_items`.id,
-				`survey_items`.study_id,
-				`survey_items`.type,
-				`survey_items`.choice_list,
-				`survey_items`.type_options,
-				`survey_items`.name,
-				`survey_items`.label,
-				`survey_items`.label_parsed,
-				`survey_items`.optional,
-				`survey_items`.class,
-				`survey_items`.showif,
-				`survey_items`.value,
-				`survey_items`.`order`,
-				
-		`survey_items_display`.displaycount, 
-		`survey_items_display`.session_id,
-		`survey_items_display`.answered
-		
-					FROM 
-			`survey_items` LEFT JOIN `survey_items_display`
-		ON `survey_items_display`.session_id = :session_id
-		AND `survey_items`.id = `survey_items_display`.item_id
-		WHERE 
-		`survey_items`.study_id = :study_id AND
-		(`survey_items_display`.answered IS NULL OR `survey_items`.type = 'note')
-		ORDER BY `survey_items`.id ASC;";
-		$get_items = $this->dbh->prepare($item_query);
-		$get_items->bindParam(":session_id", $this->session_id);
-		$get_items->bindParam(":study_id", $this->id);
-		$get_items->execute();
+		$get_items = $this->dbh->select('
+			`survey_items`.id,
+			`survey_items`.study_id,
+			`survey_items`.type,
+			`survey_items`.choice_list,
+			`survey_items`.type_options,
+			`survey_items`.name,
+			`survey_items`.label,
+			`survey_items`.label_parsed,
+			`survey_items`.optional,
+			`survey_items`.class,
+			`survey_items`.showif,
+			`survey_items`.value,
+			`survey_items`.`order`,
+
+			`survey_items_display`.displaycount, 
+			`survey_items_display`.session_id,
+			`survey_items_display`.answered')
+		->from('survey_items')
+		->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
+		->where('survey_items.study_id = :study_id')
+		->where("survey_items_display.answered IS NULL OR survey_items.type = 'note'")
+		->order('survey_items.order', 'ASC')->order('survey_items.id', 'ASC')
+		->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
+		->statement();
 
 		$choice_lists = $this->getAndRenderChoices();
 
@@ -319,7 +304,6 @@ class Survey extends RunUnit {
 		while ($item_array = $get_items->fetch(PDO::FETCH_ASSOC)) {
 			$name = $item_array['name'];
 			$item = $this->item_factory->make($item_array);
-
 
 			if (trim($item->showif) != null) {
 				$show = $this->item_factory->showif($this, $item->showif);
@@ -333,10 +317,8 @@ class Survey extends RunUnit {
 					$item->error = $this->item_factory->openCPU_errors[$item->showif];
 				}
 			}
-			if (
-					$item->no_user_input_required AND
-					$item->needsDynamicValue()
-			) { // determine value if there is a dynamic one and no user input is required
+
+			if ($item->no_user_input_required AND $item->needsDynamicValue()) { // determine value if there is a dynamic one and no user input is required
 				$item->determineDynamicValue($this);
 			}
 			$this->unanswered[$name] = $item;
@@ -351,9 +333,10 @@ class Survey extends RunUnit {
 
 		$this->dbh->beginTransaction();
 
-		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
-											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
-		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
+		$view_query = "
+			INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
+			VALUES(:item_id, :session_id, 1, NOW(), NOW()) 
+			ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
 		$view_update = $this->dbh->prepare($view_query);
 		$view_update->bindValue(":session_id", $this->session_id);
 
@@ -361,104 +344,111 @@ class Survey extends RunUnit {
 		$item_will_be_rendered = true;
 
 		$this->rendered_items = array();
-		foreach ($this->unanswered AS &$item) {
-			if ($this->settings['maximum_number_displayed'] != null AND
-					$itemsDisplayed >= $this->settings['maximum_number_displayed']) {
-				$item_will_be_rendered = false;
-			}
-			if ($item_will_be_rendered) {
-				if ($item->type === 'submit') {
-					if ($itemsDisplayed === 0):
-						continue; // skip submit buttons once everything before them was dealt with	
-					else:
-						$item_will_be_rendered = false;
-					endif;
+		try {
+			foreach ($this->unanswered as &$item) {
+				if ($this->settings['maximum_number_displayed'] != null AND $itemsDisplayed >= $this->settings['maximum_number_displayed']) {
+					$item_will_be_rendered = false;
 				}
-				elseif ($item->type === "note") {
-					$next = current($this->unanswered);
-					if (
-							$item->displaycount > 0 AND			 // if this was displayed before
-							(
-							$next === false OR				  // this is the end of the survey
-							$next->hidden === true OR				  // the next item is hidden // todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
-							in_array($next->type, array('note', 'submit', 'mc_heading'))	 // the next item isn't a normal item
-							)
-					) {
-						continue; // skip this note							
+				if ($item_will_be_rendered) {
+					if ($item->type === 'submit') {
+						if ($itemsDisplayed === 0):
+							continue; // skip submit buttons once everything before them was dealt with	
+						else:
+							$item_will_be_rendered = false;
+						endif;
+					} elseif ($item->type === "note") {
+						$next = current($this->unanswered);
+						/**
+						 * if item was displayed before AND
+						 * this is the end of the survey OR the next item is hidden OR the next item isn't a normal item
+						 * @todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
+						 */
+						if ($item->displaycount > 0 AND ($next === false OR $next->hidden === true OR in_array($next->type, array('note', 'submit', 'mc_heading')))) {
+							continue; // skip this note							
+						}
+					} else if ($item->type === "mc_heading") {
+						$next = current($this->unanswered);
+						/**
+						 * If this is the end of the survey OR the next item is hidden OR the next item isn't a mc item
+						 * then skip mc_heading
+						 */
+						if ($next === false OR $next->hidden === true OR !in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button'))) {
+							continue; // skip this mc_heading
+						}
 					}
-				} else if ($item->type === "mc_heading") {
-					$next = current($this->unanswered);
-					if (
-							(
-							$next === false OR				  // this is the end of the survey
-							$next->hidden === true OR				  // the next item is hidden // todo: same as above
-							! in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button'))	 // the next item isn't a mc item
-							)
-					) {
-						continue; // skip this mc_heading
+
+					if (!$item->hidden) {
+						$item->viewedBy($view_update);
+						$itemsDisplayed++;
 					}
+
+					$this->rendered_items[] = $item;
 				}
-
-				if (!$item->hidden) {
-
-					$item->viewedBy($view_update);
-					$itemsDisplayed++;
-				}
-
-
-				$this->rendered_items[] = $item;
 			}
-		}
-		$this->dbh->commit();
-		$this->not_answered_on_current_page = array_filter($this->rendered_items, function ($item) {
-			if (
-					$item->hidden OR  // item was skipped
-					in_array($item->type, array('submit', 'mc_heading'))	// these items require no user interaction and thus don't count against progress
-					OR ( $item->type == 'note' AND $item->displaycount > 0)	// item is a note and has already been viewed
-			)
-				return false;
-			else
+			$this->dbh->commit();
+			$this->not_answered_on_current_page = array_filter($this->rendered_items, function ($item) {
+				/**
+				 * If item was skipped OR 
+				 * these items require no user interaction and thus don't count against progress OR
+				 * item is a note and has already been viewed
+				 * Then item is not answered on current page
+				 */
+				if ($item->hidden OR in_array($item->type, array('submit', 'mc_heading')) OR ($item->type == 'note' AND $item->displaycount > 0)) {
+					return false;
+				}
 				return true;
+			});
+
+			$this->not_answered_on_current_page = count($this->not_answered_on_current_page);
+		} catch (Exception $e) {
+			$this->dbh->rollBack();
+			log_exception($e, __CLASS__);
+			return false;
 		}
-		);
-		$this->not_answered_on_current_page = count($this->not_answered_on_current_page);
+		
 	}
 
 	protected function render_form_header() {
-		$action = RUNROOT."{$this->run_name}";
+		$action = run_url($this->run_name);
+		$enctype = 'multipart/form-data'; # maybe make this conditional application/x-www-form-urlencoded
 
-		$enctype = ' enctype="multipart/form-data"'; # maybe make this conditional application/x-www-form-urlencoded
-		$ret = '<form action="' . $action . '" method="post" class="form-horizontal" accept-charset="utf-8"' . $enctype . '>';
+		$ret = '<form action="' . $action . '" method="post" class="form-horizontal" accept-charset="utf-8" enctype="' . $enctype . '">';
 
 		/* pass on hidden values */
 		$ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
 
-		if (!isset($this->settings["displayed_percentage_maximum"]) OR $this->settings["displayed_percentage_maximum"] == 0)
+		if (!isset($this->settings["displayed_percentage_maximum"]) OR $this->settings["displayed_percentage_maximum"] == 0) {
 			$this->settings["displayed_percentage_maximum"] = 100;
+		}
 
 		$prog = $this->progress * // the fraction of this survey that was completed
 				($this->settings["displayed_percentage_maximum"] - // is multiplied with the stretch of percentage that it was accorded
 				$this->settings["add_percentage_points"]);
 
-		if (isset($this->settings["add_percentage_points"])):
+		if (isset($this->settings["add_percentage_points"])) {
 			$prog += $this->settings["add_percentage_points"];
-		endif;
-		if ($prog > $this->settings["displayed_percentage_maximum"]):
+		}
+
+		if ($prog > $this->settings["displayed_percentage_maximum"]) {
 			$prog = $this->settings["displayed_percentage_maximum"];
-		endif;
+		}
 
 		$prog = round($prog);
 
-		$ret .= '<div class="container progress-container">
-			<div class="progress">
-				  <div data-percentage-minimum="' . $this->settings["add_percentage_points"] . '" data-percentage-maximum="' . $this->settings["displayed_percentage_maximum"] . '" data-already-answered="' . $this->already_answered . '"  data-items-left="' . ($this->not_answered - $this->not_answered_on_current_page) . '" class="progress-bar" style="width: ' . $prog . '%;">' . $prog . '%</div>
-			</div>
+		$ret .= '
+			<div class="container progress-container">
+				<div class="progress">
+					  <div data-percentage-minimum="' . $this->settings["add_percentage_points"] . '" data-percentage-maximum="' . $this->settings["displayed_percentage_maximum"] . '" data-already-answered="' . $this->already_answered . '"  data-items-left="' . ($this->not_answered - $this->not_answered_on_current_page) . '" class="progress-bar" style="width: ' . $prog . '%;">' . $prog . '%</div>
+				</div>
 			</div>';
 
-		if (!empty($this->errors))
-			$ret .= '<div class="form-group has-error form-message">
-				<div class="control-label"><i class="fa fa-exclamation-triangle pull-left fa-2x"></i>' . implode("<br>", array_unique($this->errors)) . '
-				</div></div>';
+		if (!empty($this->errors)) {
+			$ret .= '
+			<div class="form-group has-error form-message">
+				<div class="control-label"><i class="fa fa-exclamation-triangle pull-left fa-2x"></i>' . implode("<br>", array_unique($this->errors)) . '</div>'.
+			'</div>';
+		}
+
 		return $ret;
 	}
 
@@ -466,20 +456,20 @@ class Survey extends RunUnit {
 		$ret = '';
 
 		foreach ($this->rendered_items AS $item) {
-			if (
-					!$item->no_user_input_required AND
-					$item->needsDynamicValue()
-			) { // determine value if there is a dynamic one and no user input is required
+			// determine value if there is a dynamic one and no user input is required
+			if (!$item->no_user_input_required AND $item->needsDynamicValue() ) {
 				$item->determineDynamicValue($this);
 			}
-			if ($item->needsDynamicLabel()) {  // item label has to be dynamically generated with user data
+
+			// item label has to be dynamically generated with user data
+			if ($item->needsDynamicLabel()) {
 				$item->determineDynamicLabel($this);
 			}
 			$ret .= $item->render();
 		}
 
-
-		if (isset($item) AND $item->type !== "submit") { // if the last item was not a submit button, add a default one
+		// if the last item was not a submit button, add a default one
+		if (isset($item) AND $item->type !== "submit") {
 			$sub_sets = array('label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!', 'class_input' => 'btn-info');
 			$item = new Item_submit($sub_sets);
 			$ret .= $item->render();
@@ -493,16 +483,10 @@ class Survey extends RunUnit {
 	}
 
 	public function end() {
-		$post_form = $this->dbh->prepare("UPDATE 
-					`{$this->results_table}` 
-			SET `ended` = NOW() 
-		WHERE `session_id` = :session_id AND 
-		`study_id` = :study_id AND 
-		`ended` IS NULL;");
-		$post_form->bindParam(":session_id", $this->session_id);
-		$post_form->bindParam(":study_id", $this->id);
-		$post_form->execute();
-
+		$ended = $this->dbh->exec(
+			"UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS NULL", 
+			array('session_id' => $this->session_id, 'study_id' => $this->id)
+		);
 		return parent::end();
 	}
 
@@ -537,42 +521,40 @@ class Survey extends RunUnit {
 		if (isset($key_value_pairs['maximum_number_displayed'])
 				AND $key_value_pairs['maximum_number_displayed'] = (int) $key_value_pairs['maximum_number_displayed']
 				AND $key_value_pairs['maximum_number_displayed'] > 3000 || $key_value_pairs['maximum_number_displayed'] < 1
-		):
+		) {
 			alert("Maximum number displayed has to be between 1 and 65535", 'alert-warning');
 			$errors = true;
-		endif;
+		}
+
 		if (isset($key_value_pairs['displayed_percentage_maximum'])
 				AND $key_value_pairs['displayed_percentage_maximum'] = (int) $key_value_pairs['displayed_percentage_maximum']
 				AND $key_value_pairs['displayed_percentage_maximum'] > 100 || $key_value_pairs['displayed_percentage_maximum'] < 1
-		):
+		) {
 			alert("Percentage maximum has to be between 1 and 100.", 'alert-warning');
 			$errors = true;
-		endif;
+		}
+
 		if (isset($key_value_pairs['add_percentage_points'])
 				AND $key_value_pairs['add_percentage_points'] = (int) $key_value_pairs['add_percentage_points']
 				AND $key_value_pairs['add_percentage_points'] > 100 || $key_value_pairs['add_percentage_points'] < 0
-		):
+		) {
 			alert("Percentage points added has to be between 0 and 100.", 'alert-warning');
 			$errors = true;
-		endif;
-		if ($errors)
-			return false;
-
-		$this->dbh->beginTransaction();
-		$post_form = $this->dbh->prepare("UPDATE `survey_studies` SET
-			`maximum_number_displayed` = :maximum_number_displayed, 
-			`displayed_percentage_maximum` = :displayed_percentage_maximum,
-			`add_percentage_points` = :add_percentage_points
-			WHERE `id` = :study_id");
-
-		$post_form->bindParam(":study_id", $this->id);
-		foreach ($key_value_pairs AS $key => $value) {
-			$post_form->bindValue(":$key", $value);
 		}
-		$post_form->execute();
 
-		$this->dbh->commit();
-        alert('Survey settings updated', 'alert-success', true);
+		if ($errors) {
+			return false;
+		}
+
+		$this->dbh->update('survey_studies', array(
+			'maximum_number_displayed' => $key_value_pairs['maximum_number_displayed'],
+			'displayed_percentage_maximum' => $key_value_pairs['displayed_percentage_maximum'],
+			'add_percentage_points' => $key_value_pairs['add_percentage_points'],
+		), array(
+			'id' => $this->id,
+		));
+
+		alert('Survey settings updated', 'alert-success', true);
 	}
 
 	public function uploadItemTable($file, $confirmed_deletion) {
@@ -605,11 +587,13 @@ class Survey extends RunUnit {
 		// if items are ok, make actual survey
 		if (empty($this->errors) AND $this->createSurvey($SPR)):
 
-			if (!empty($this->warnings))
+			if (!empty($this->warnings)) {
 				alert('<ul><li>' . implode("</li><li>", $this->warnings) . '</li></ul>', 'alert-warning');
+			}
 
-			if (!empty($this->messages))
+			if (!empty($this->messages)) {
 				alert('<ul><li>' . implode("</li><li>", $this->messages) . '</li></ul>', 'alert-info');
+			}
 
 			return true;
 		else:
@@ -617,31 +601,27 @@ class Survey extends RunUnit {
 			return false;
 		endif;
 	}
-	protected function existsByName($name, $results_table)
-	{
-		if(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/",$name)) return;
-		if(!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/",$results_table)) return;
-		
-		$exists = $this->dbh->prepare("SELECT `name` FROM `survey_studies` WHERE name = :name AND  user_id = :user_id LIMIT 1");
-		$exists->bindParam(':name',$name);
-		$exists->bindParam(':user_id',$this->unit['user_id']);
-		$exists->execute();
-		if ($exists->rowCount())
+
+	protected function existsByName($name, $results_table) {
+		if (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $name) || !preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $results_table)) {
+			return;
+		}
+
+		$study_exists = $this->dbh->entry_exists('survey_studies', array('name' => $this->name, 'user_id' => $this->unit['user_id']));
+		if ($study_exists) {
 			return true;
-		
-		$reserved = $this->dbh->query("SHOW TABLES LIKE '$results_table';");
-		if($reserved->rowCount())
+		}
+
+		$table_exists = $this->dbh->table_exists($results_table);
+		if ($table_exists) {
 			return true;
+		}
 
 		return false;
 	}
 
 	protected function hasResultsTable() {
-		$reserved = $this->dbh->query("SHOW TABLES LIKE '$this->results_table';");
-		if ($reserved->rowCount())
-			return true;
-
-		return false;
+		return $this->dbh->table_exists($this->results_table);
 	}
 
 	/* ADMIN functions */
@@ -653,49 +633,48 @@ class Survey extends RunUnit {
 		// so it is possible to add a survey, without specifying which one at first
 		// and to then choose one.
 		// thus, we "mock" a survey at first
-		if(count($options) === 1 || isset($options['mock'])):
+		if (count($options) === 1 || isset($options['mock'])) {
 			$this->valid = true;
-		else: // and link it to the run only later
+		} else { // and link it to the run only later
 			$this->id = $options['unit_id'];
-			if ($this->linkToRun())
+			if ($this->linkToRun()) {
 				$this->load();
-		endif;
+			}
+		}
 	}
-	public function createIndependently()
-	{
-	    $name = trim($this->unit['name']);
-		$results_table = "formr_".$this->unit['user_id'].'_'.$name;
-	    if($name == ""):
+
+	public function createIndependently() {
+		$name = trim($this->unit['name']);
+		$results_table = "formr_" . $this->unit['user_id'] . '_' . $name;
+		if ($name == ""):
 			alert(_("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored."), 'alert-danger');
 			return false;
 		elseif (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $name)):
 			alert('<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from a to Z, 0 to 9 and the underscore. It needs to start with a letter. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>.', 'alert-danger');
 			return false;
-		elseif($this->existsByName($name, $results_table)):
-			alert(__("<strong>Error:</strong> The survey name %s is already taken.",h($name)), 'alert-danger');
+		elseif ($this->existsByName($name, $results_table)):
+			alert(__("<strong>Error:</strong> The survey name %s is already taken.", h($name)), 'alert-danger');
 			return false;
 		endif;
 
-		$this->dbh->beginTransaction();
 		$this->id = parent::create('Survey');
 		$this->name = $name;
 		$this->results_table = $results_table;
-		
-		$create = $this->dbh->prepare("INSERT INTO `survey_studies` (id, created,modified, user_id,name, results_table) VALUES (:run_item_id, NOW(), NOW(), :user_id,:name, :results_table );");
-		$create->bindParam(':run_item_id',$this->id);
-		$create->bindParam(':user_id',$this->unit['user_id']);
-		$create->bindParam(':name',$name);
-		$create->bindParam(':results_table',$this->results_table);
-		$create->execute();
-		$this->dbh->commit();
-		
-		$this->changeSettings(array
-			(
+	
+		$this->dbh->insert('survey_studies', array(
+			'id' => $this->id,
+			'created' => mysql_now(),
+			'modified' => mysql_now(),
+			'user_id' => $this->unit['user_id'],
+			'name' => $this->name,
+			'results_table' => $this->results_table,
+		));
+
+		$this->changeSettings(array(
 			"maximum_number_displayed" => 0,
 			"displayed_percentage_maximum" => 100,
 			"add_percentage_points" => 0,
-				)
-		);
+		));
 
 		return true;
 	}
@@ -703,36 +682,33 @@ class Survey extends RunUnit {
 	protected $user_defined_columns = array(
 		'name', 'label', 'label_parsed', 'type', 'type_options', 'choice_list', 'optional', 'class', 'showif', 'value', 'order' // study_id is not among the user_defined columns
 	);
+
 	protected $choices_user_defined_columns = array(
 		'list_name', 'name', 'label', 'label_parsed' // study_id is not among the user_defined columns
 	);
 
 	public function getChoices() {
-		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
-		ORDER BY `survey_item_choices`.id ASC;");
-		$get_item_choices->bindParam(":study_id", $this->id); // delete cascades to item display
-		$get_item_choices->execute();
-		$choice_lists = array();
-		while ($row = $get_item_choices->fetch(PDO::FETCH_ASSOC)):
-			if (!isset($choice_lists[$row['list_name']]))
-				$choice_lists[$row['list_name']] = array();
+		$get_item_choices = $this->dbh->select('list_name, name, label')
+				->from('survey_item_choices')
+				->where(array('study_id' => $this->id))
+				->order('id', 'ASC')->statement();
 
+		$choice_lists = array();
+		while ($row = $get_item_choices->fetch(PDO::FETCH_ASSOC)) {
+			if (!isset($choice_lists[$row['list_name']])) {
+				$choice_lists[$row['list_name']] = array();
+			}
 			$choice_lists[$row['list_name']][$row['name']] = $row['label'];
-		endwhile;
+		}
+
 		return $choice_lists;
 	}
 
 	public function getChoicesForSheet() {
-		$get_item_choices = $this->dbh->prepare("SELECT list_name, name, label FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id 
-		ORDER BY `survey_item_choices`.id ASC;");
-		$get_item_choices->bindParam(":study_id", $this->id); // delete cascades to item display
-		$get_item_choices->execute();
-
-		$results = array();
-		while ($row = $get_item_choices->fetch(PDO::FETCH_ASSOC))
-			$results[] = $row;
-
-		return $results;
+		return $this->dbh->select('list_name, name, label')
+				->from('survey_item_choices')
+				->where(array('study_id' => $this->id))
+				->order('id', 'ASC')->fetchAll();
 	}
 
 	public function createSurvey($SPR) {
@@ -740,7 +716,6 @@ class Survey extends RunUnit {
 
 		$this->dbh->beginTransaction();
 
-		$old_syntax = $this->getOldSyntax();
 		$this->parsedown = new ParsedownExtra();
 		$this->parsedown->setBreaksEnabled(true);
 
@@ -844,7 +819,6 @@ class Survey extends RunUnit {
 			log_exception($e, __CLASS__);
 			return false;
 		}
-
 	}
 
 	public function getItemsWithChoices() {
@@ -852,7 +826,6 @@ class Survey extends RunUnit {
 		$this->item_factory = new ItemFactory($choice_lists);
 
 		$raw_items = $this->getItems();
-
 
 		$items = array();
 		foreach ($raw_items as $row) {
@@ -863,10 +836,8 @@ class Survey extends RunUnit {
 	}
 
 	private function addChoices() {
-		$delete_old_choices = $this->dbh->prepare("DELETE FROM `survey_item_choices` WHERE `survey_item_choices`.study_id = :study_id");
-		$delete_old_choices->bindParam(":study_id", $this->id); // delete cascades to item display
-		$delete_old_choices->execute();
-
+		// delete cascades to item display ?? FIXME so maybe not a good idea to delete then
+		$deleted = $this->dbh->delete('survey_item_choices', array('study_id' => $this->id));
 		$add_choices = $this->dbh->prepare('INSERT INTO `survey_item_choices` (
 			study_id,
 	        list_name,
@@ -898,7 +869,7 @@ class Survey extends RunUnit {
 			}
 			$add_choices->execute();
 		}
-		$this->messages[] = $delete_old_choices->rowCount() . " old choices deleted.";
+		$this->messages[] = $deleted . " old choices deleted.";
 		$this->messages[] = count($this->SPR->choices) . " choices were successfully loaded.";
 
 		return true;
@@ -907,12 +878,14 @@ class Survey extends RunUnit {
 	private function getResultsTableSyntax($columns) {
 		$columns = array_filter($columns); // remove NULL, false, '' values (note, fork, submit, ...)
 
-		if (empty($columns))
+		if (empty($columns)) {
 			$columns_string = '';# create a results tabel with only the access times
-		else
-			$columns_string = implode(",\n", $columns).",";
-		
-		$create = "CREATE TABLE `{$this->results_table}` (
+		} else {
+			$columns_string = implode(",\n", $columns) . ",";
+		}
+
+		$create = "
+		CREATE TABLE `{$this->results_table}` (
 		  `session_id` INT UNSIGNED NOT NULL ,
 		  `study_id` INT UNSIGNED NOT NULL ,
 		  `created` DATETIME NULL DEFAULT NULL ,
@@ -939,6 +912,9 @@ class Survey extends RunUnit {
 		return $create;
 	}
 
+	/**
+	 * @deprecated
+	 */
 	private function getOldSyntax() {
 		$resC = $this->getResultCount();
 		if ($resC == array('finished' => 0, 'begun' => 0)):
@@ -954,10 +930,11 @@ class Survey extends RunUnit {
 		foreach ($old_items AS $row) {
 			$item = $this->item_factory->make($row);
 			if (!$item) {
-				if (isset($row['type']))
+				if (isset($row['type'])) {
 					$type = $row['type'];
-				else
+				} else {
 					$type = "<em>missing</em>";
+				}
 				alert("While trying to recreate old results table: Item type " . h($row['type']) . " not found.", 'alert-danger');
 				return false;
 			}
@@ -966,51 +943,40 @@ class Survey extends RunUnit {
 
 		return $this->getResultsTableSyntax($old_result_columns);
 	}
-	private function createResultsTable($syntax)
-	{
-		if($this->deleteResults()):
+
+	private function createResultsTable($syntax) {
+		if ($this->deleteResults()) {
 			$drop = $this->dbh->query("DROP TABLE IF EXISTS `{$this->results_table}` ;");
 			$drop->execute();
-		else:
+		} else {
 			return false;
-		endif;
+		}
 
 		$create_table = $this->dbh->query($syntax);
-		if ($create_table)
+		if ($create_table) {
 			return true;
-		else
-			return false;
+		}
+		return false;
 	}
 
 	public function getItems($columns = null) {
 		if ($columns === null) {
 			$columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, value, `order`";
 		}
-		$get_items = $this->dbh->prepare(
-			"SELECT $columns FROM `survey_items` 
-			WHERE `survey_items`.study_id = :study_id 
-			ORDER BY `order` ASC, id ASC"
-		);
-		$get_items->bindParam(":study_id", $this->id);
-		$get_items->execute();
 
-		$results = array();
-		while ($row = $get_items->fetch(PDO::FETCH_ASSOC)) {
-			$results[] = $row;
-		}
-
-		return $results;
+		return $this->dbh->select($columns)
+				->from('survey_items')
+				->where(array('study_id' => $this->id))
+				->order('order', 'asc')->order('id', 'asc')
+				->fetchAll();
 	}
 
 	public function getItemsForSheet() {
-		$get_items = $this->dbh->prepare(
-			"SELECT type, type_options, choice_list, name, label, optional, class, showif, value, `order` 
-			FROM `survey_items` 
-			WHERE `survey_items`.study_id = :study_id 
-			ORDER BY `order` ASC, id ASC"
-		);
-		$get_items->bindParam(":study_id", $this->id);
-		$get_items->execute();
+		$get_items = $this->dbh->select('type, type_options, choice_list, name, label, optional, class, showif, value, order')
+				->from('survey_items')
+				->where(array('study_id' => $this->id))
+				->order('order', 'asc')->order('id', 'asc')
+				->statement();
 
 		$results = array();
 		while ($row = $get_items->fetch(PDO::FETCH_ASSOC)):
@@ -1022,64 +988,53 @@ class Survey extends RunUnit {
 
 		return $results;
 	}
-	public function countResults()
-	{
-		$get = "SELECT COUNT(*) AS count FROM `{$this->results_table}`";
-		$get = $this->dbh->query($get);
-		$results = array();
-		$row = $get->fetch(PDO::FETCH_ASSOC);
-		$this->result_count = $row['count'];
-		return $row['count'];
+
+	public function countResults() {
+		$query = "SELECT COUNT(*) AS count FROM `{$this->results_table}`";
+		$results = $this->dbh->query($query, true);
+		if ($row = $results->fetch(PDO::FETCH_ASSOC)) {
+			$this->result_count = $row['count'];
+		}
+		return $this->result_count;
 	}
-	public function getResults()
-	{ // fixme: shouldnt be using wildcard operator here.
-		$get = "SELECT `survey_run_sessions`.session, `{$this->results_table}`.* FROM `{$this->results_table}`
-		LEFT JOIN `survey_unit_sessions`
-		ON  `{$this->results_table}`.session_id = `survey_unit_sessions`.id
-		LEFT JOIN `survey_run_sessions`
-		ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id";
-		$get = $this->dbh->query($get);
+
+	public function getResults() { // fixme: shouldnt be using wildcard operator here.
+		$results_table = $this->results_table;
+		$select = $this->dbh->select("survey_run_sessions.session, {$results_table}.*")
+			->from($results_table)
+			->leftJoin('survey_unit_sessions', "{$results_table}.session_id = survey_unit_sessions.id")
+			->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id')
+			->statement();
+
 		$results = array();
-		while ($row = $get->fetch(PDO::FETCH_ASSOC)):
+		while ($row = $select->fetch(PDO::FETCH_ASSOC)) {
 			unset($row['study_id']);
 			$results[] = $row;
-		endwhile;
+		}
 
 		return $results;
 	}
 
 	public function getItemDisplayResults() {
-		$get = "SELECT `survey_run_sessions`.session,`survey_items`.name, 
-		`survey_items_display`.id,
-		`survey_items_display`.item_id,
-		`survey_items_display`.session_id,
-		`survey_items_display`.created,
-		`survey_items_display`.modified,
-		`survey_items_display`.answered_time,
-		`survey_items_display`.answered,
-		`survey_items_display`.displaycount
-		 
-		FROM `survey_items_display` 
-		
-		LEFT JOIN `survey_unit_sessions`
-		ON `survey_unit_sessions`.id = `survey_items_display`.session_id
-		
-		LEFT JOIN `survey_run_sessions`
-		ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-		
-		LEFT JOIN `survey_items`
-		ON `survey_items_display`.item_id = `survey_items`.id
-		
-		WHERE `survey_items`.study_id = :study_id
-		ORDER BY `survey_run_sessions`.session, `survey_run_sessions`.created, `survey_items_display`.item_id";
-		$get = $this->dbh->prepare($get);
-		$get->bindParam(':study_id', $this->id);
-		$get->execute();
-		$results = array();
-		while ($row = $get->fetch(PDO::FETCH_ASSOC))
-			$results[] = $row;
-
-		return $results;
+		return $this->dbh->select('
+			`survey_run_sessions`.session,
+			`survey_items`.name,
+			`survey_items_display`.id,
+			`survey_items_display`.item_id,
+			`survey_items_display`.session_id,
+			`survey_items_display`.created,
+			`survey_items_display`.modified,
+			`survey_items_display`.answered_time,
+			`survey_items_display`.answered,
+			`survey_items_display`.displaycount')
+		->from('survey_items_display')
+		->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
+		->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
+		->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
+		->where('survey_items.study_id = :study_id')
+		->order('survey_run_sessions.session')->order('survey_run_sessions.created')->order('survey_items_display.item_id')
+		->bindParams(array('study_id' => $this->id))
+		->fetchAll();
 	}
 
 	public function deleteResults() {
@@ -1096,35 +1051,34 @@ class Survey extends RunUnit {
 		else:
 			$this->warnings[] = __("%s results rows were deleted.", array_sum($resC));
 		endif;
-		
+
 		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->results_table}`");
-		
-		$delete_sessions = $this->dbh->prepare ( "DELETE FROM `survey_unit_sessions` 
-		WHERE `unit_id` = :study_id" );
-		$delete_sessions->bindParam(':study_id',$this->id);
-		$delete_sessions->execute();
+		$this->dbh->delete('survey_unit_sessions', array('unit_id' => $this->id));
 
 		return $delete;
 	}
-	public function backupResults()
-	{
+
+	public function backupResults() {
 		$filename = $this->results_table . date('YmdHis') . ".tab";
-		if(isset($this->user_id)) {
+		if (isset($this->user_id)) {
 			$filename = "user" . $this->user_id . $filename;
 		}
-        $filename = INCLUDE_ROOT ."tmp/backups/results/". $filename;
+		$filename = INCLUDE_ROOT . "tmp/backups/results/" . $filename;
 
 		$SPR = new SpreadsheetReader();
 		return $SPR->backupTSV($this->getResults(), $filename);
 	}
-	public function getResultCount()
-	{
-		if($this->dbh->table_exists($this->results_table)):
-			$get = "SELECT SUM(`{$this->results_table}`.ended IS NULL) AS begun, SUM(`{$this->results_table}`.ended IS NOT NULL) AS finished FROM `{$this->results_table}` 
-			LEFT JOIN `survey_unit_sessions`
-			ON `survey_unit_sessions`.id = `{$this->results_table}`.session_id";
-			$get = $this->dbh->query($get);
-			return $get->fetch(PDO::FETCH_ASSOC);
+
+	public function getResultCount() {
+		$results_table = $this->results_table;
+		if ($this->dbh->table_exists($results_table)):
+			$count = $this->dbh->select(array(
+				"SUM(`{$results_table}`.ended IS NULL)" => 'begun',
+				"SUM(`{$results_table}`.ended IS NOT NULL)" => 'finished'		
+			))->from($results_table)
+			  ->leftJoin('survey_unit_sessions', "survey_unit_sessions.id = {$results_table}.session_id")
+			  ->fetch();
+			return $count;
 		else:
 			return array('finished' => 0, 'begun' => 0);
 		endif;
@@ -1148,17 +1102,17 @@ class Survey extends RunUnit {
 		    ) AS t2
 		    -- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
 		    WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
-		$get = $this->dbh->query($get);
+
+		$get = $this->dbh->query($get, true);
 		$time = $get->fetch(PDO::FETCH_NUM);
 		$time = round($time[0] / 60, 3); # seconds to minutes
 
 		return $time;
 	}
-	
-	public function delete()
-	{
-		if($this->deleteResults()): // always back up
-			$delete_results = $this->dbh->query("DROP TABLE IF EXISTS `{$this->results_table}`");
+
+	public function delete() {
+		if ($this->deleteResults()): // always back up
+			$this->dbh->query("DROP TABLE IF EXISTS `{$this->results_table}`");
 			return parent::delete();
 		endif;
 		return false;
@@ -1170,42 +1124,36 @@ class Survey extends RunUnit {
 
 			$time = $this->getAverageTimeItTakes();
 
-			$dialog = "<h3>
-				<strong>Survey:</strong> <a href='" . WEBROOT . "admin/survey/{$this->name}/index'>{$this->name}</a><br>
-			<small>" . (int) $resultCount['finished'] . " complete results,
-		" . (int) $resultCount['begun'] . " begun</small><br>
-			<small title='Median duration that it takes to complete the survey, only completers accounted for'>Median duration: $time minutes</small>
-			</h3>
-			<p>
-			<p class='btn-group'>
-				<a class='btn' href='" . WEBROOT . "admin/survey/{$this->name}/show_results'>View results</a>
-				<a class='btn' href='" . WEBROOT . "admin/survey/{$this->name}/show_item_table'>View items</a>
-				<a class='btn' href='" . WEBROOT . "admin/survey/{$this->name}/access'>Test</a>
-			</p>";
+			$dialog = "
+				<h3>
+					<strong>Survey:</strong> <a href='" . WEBROOT . "admin/survey/{$this->name}/index'>{$this->name}</a><br>
+					<small>" . (int) $resultCount['finished'] . " complete results, " . (int) $resultCount['begun'] . " begun</small><br>
+					<small title='Median duration that it takes to complete the survey, only completers accounted for'>Median duration: $time minutes</small>
+				</h3>
+				<p class='btn-group'>
+					<a class='btn' href='" . admin_study_url($this->name, 'show_results') . "'>View results</a>
+					<a class='btn' href='" . admin_study_url($this->name, 'show_item_table') . "'>View items</a>
+					<a class='btn' href='" . admin_study_url($this->name, 'access') . "'>Test</a>
+				</p>";
 		else:
-			$dialog = '';
-			$g_studies = $this->dbh->prepare("SELECT * FROM `survey_studies` WHERE user_id = :user_id");
 			global $user;
-			$g_studies->bindValue(':user_id', $user->id);
-			$g_studies->execute();
+			$studies = $this->dbh->select('id, name')->from('survey_studies')->where(array('user_id' => $user->id))->fetchAll();
 
-
-			$studies = array();
-			while ($study = $g_studies->fetch())
-				$studies[] = $study;
 			if ($studies):
-				$dialog = '<div class="form-group">
-				<select class="select2" name="unit_id" style="width:300px">
-				<option value=""></option>';
+				$dialog = '<div class="form-group">';
+				$dialog .= '<select class="select2" name="unit_id" style="width:300px">';
+				$dialog .= '<option value=""></option>';
 				foreach ($studies as $study):
 					$dialog .= "<option value=\"{$study['id']}\">{$study['name']}</option>";
 				endforeach;
 				$dialog .= "</select>";
-				$dialog .= '<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Add to this run.</a></div>';
+				$dialog .= '<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Add to this run.</a>';
+				$dialog .= '</div>';
 			else:
-				$dialog .= "<h5>No studies. <a href='".WEBROOT."admin/survey/'>Add some first</a></h5>";
+				$dialog = "<h5>No studies. <a href='" .  admin_study_url() . "'>Add some first</a></h5>";
 			endif;
 		endif;
+
 		$dialog = $prepend . $dialog;
 		return parent::runDialog($dialog, 'fa-pencil-square');
 	}
@@ -1267,7 +1215,7 @@ class Survey extends RunUnit {
 		}
 
 		// Log this to observe
-		formr_log("Merge Survey {$this->name} \n ALTER: $altQ \n DELETE: $delQ");
+		formr_log("\nMerge Survey {$this->name} \n ALTER: $altQ \n DELETE: $delQ");
 		return true;
 	}
 

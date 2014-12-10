@@ -44,14 +44,15 @@ abstract class Controller {
 
 	public function __construct(Site &$site) {
 		/** @todo do these with dependency injection */
-		global $user, $run, $study, $fdb, $css, $js;
+		global $user, $run, $study, $css, $js;
 		$this->site = $site;
 		$this->user = &$user;
 		$this->study = $study;
 		$this->run = $run;
-		$this->fdb = $fdb;
 		$this->css = $css;
 		$this->js = $js;
+
+		$this->fdb = DB::getInstance();
 		$this->request = $site->request;
 	}
 

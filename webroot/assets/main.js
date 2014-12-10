@@ -49,6 +49,15 @@ $(document).ready(function () {
 	hljs.initHighlighting();
 	$('.nav-tabs').stickyTabs();
 	$('.tab-content').stickyCollapsible();
+
+	// Higlight current menu item
+	$('ul.menu-highlight a').each(function(){
+		var $a = $(this);
+		var href = $a.attr('href');
+		if (href == document.location.href) {
+			$a.parents('li').addClass('active');
+		}
+	});
 });
 
 function bootstrap_alert(message, bold, where, cls) {

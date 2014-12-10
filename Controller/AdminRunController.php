@@ -75,22 +75,20 @@ class AdminRunController extends AdminController {
 			endif;
 		endif;
 
-		$user_nr = $fdb->prepare("SELECT COUNT(`survey_run_sessions`.id) AS count
-			FROM `survey_run_sessions`
-			WHERE `survey_run_sessions`.run_id = :run_id
-			$search;");
-		$user_nr->bindValue(':run_id',$run->id);
-		if(isset($search_session)):
-			$user_nr->bindValue(':session',$search_session);
-		endif;
-		if(isset($search_position)):
-			$user_nr->bindValue(':position',$search_position);
-		endif;
+		$user_count_query = "SELECT COUNT(`survey_run_sessions`.id) AS count FROM `survey_run_sessions` WHERE `survey_run_sessions`.run_id = :run_id $search;";
+		$params = array(':run_id' => $run->id);
+		if (isset($search_session)) {
+			$params[':session'] = $search_session;
+		}
+		if (isset($search_position)) {
+			$params[':position'] = $search_position;
+		}
 
-		$pagination = new Pagination($user_nr, 200, true);
+		$user_count = $fdb->execute($user_count_query, $params, true);
+		$pagination = new Pagination($user_count, 200, true);
 		$limits = $pagination->getLimits();
 
-		$g_users = $fdb->prepare("SELECT 
+		$users_query = "SELECT 
 			`survey_run_sessions`.id AS run_session_id,
 			`survey_run_sessions`.session,
 			`survey_run_sessions`.position,
@@ -101,30 +99,17 @@ class AdminRunController extends AdminController {
 			`survey_run_sessions`.last_access,
 			(`survey_units`.type IN ('Survey','External','Email') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
 		FROM `survey_run_sessions`
-		LEFT JOIN `survey_runs`
-		ON `survey_run_sessions`.run_id = `survey_runs`.id
-		LEFT JOIN `survey_run_units`
-		ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
-		LEFT JOIN `survey_units`
-		ON `survey_run_units`.unit_id = `survey_units`.id
-
-		WHERE `survey_run_sessions`.run_id = :run_id
-		$search
+		LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
+		LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
+		LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
+		WHERE `survey_run_sessions`.run_id = :run_id $search
 		ORDER BY hang DESC, `survey_run_sessions`.last_access DESC
-		LIMIT $limits;");
+		LIMIT $limits;";
 
-		$g_users->bindParam(':run_id',$run->id);
-		if(isset($search_session)):
-			$g_users->bindValue(':session',$search_session);
-		endif;
-		if(isset($search_position)):
-			$g_users->bindValue(':position',$search_position);
-		endif;
-
-		$g_users->execute();
+		$g_users = $fdb->execute($users_query, $params);
 
 		$users = array();
-		while($userx = $g_users->fetch(PDO::FETCH_ASSOC)) {
+		foreach ($g_users as $userx) {
 			$userx['Run position'] = "<span class='hastooltip' title='Current position in run'>({$userx['position']}</span> – <small>{$userx['unit_type']})</small>";
 			$userx['Session'] = "<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],0,10)."…</abbr></small>";
 			$userx['Created'] = "<small>{$userx['created']}</small>";
@@ -188,27 +173,23 @@ class AdminRunController extends AdminController {
 		endif;
 
 
-		$user_nr = $fdb->prepare("SELECT COUNT(`survey_unit_sessions`.id) AS count
-			FROM `survey_unit_sessions`
+		$user_count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count 
+			FROM `survey_unit_sessions` LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id 
+			WHERE `survey_run_sessions`.run_id = :run_id $search";
 
-			LEFT JOIN `survey_run_sessions`
-			ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+		$params = array(':run_id' => $run->id);
+		if (isset($search_session)) {
+			$params[':session'] = $search_session;
+		}
+		if (isset($search_position)) {
+			$params[':position'] = $search_position;
+		}
 
-			WHERE `survey_run_sessions`.run_id = :run_id
-			$search
-		");
-		$user_nr->bindValue(':run_id',$run->id);
-		if(isset($search_session)):
-			$user_nr->bindValue(':session',$search_session);
-		endif;
-		if(isset($search_position)):
-			$user_nr->bindValue(':position',$search_position);
-		endif;
-
-		$pagination = new Pagination($user_nr, 400, true);
+		$user_count = $fdb->execute($user_count_query, $params, true);
+		$pagination = new Pagination($user_count, 400, true);
 		$limits = $pagination->getLimits();
 
-		$g_users = $fdb->prepare("SELECT 
+		$users_query = "SELECT 
 			`survey_run_sessions`.session,
 			`survey_unit_sessions`.id AS session_id,
 			`survey_runs`.name AS run_name,
@@ -216,34 +197,18 @@ class AdminRunController extends AdminController {
 			`survey_units`.type AS unit_type,
 			`survey_unit_sessions`.created,
 			`survey_unit_sessions`.ended
-
-
 		FROM `survey_unit_sessions`
+		LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+		LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
+		LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+		LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+		WHERE `survey_run_sessions`.run_id = :run_id $search
+		ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT $limits";
 
-		LEFT JOIN `survey_run_sessions`
-		ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-		LEFT JOIN `survey_units`
-		ON `survey_unit_sessions`.unit_id = `survey_units`.id
-		LEFT JOIN `survey_run_units`
-		ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-		LEFT JOIN `survey_runs`
-		ON `survey_runs`.id = `survey_run_units`.run_id
-		WHERE `survey_run_sessions`.run_id = :run_id
-		$search
-		ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC
-		LIMIT $limits;");
-		$g_users->bindParam(':run_id',$run->id);
-		if(isset($search_session)):
-			$g_users->bindValue(':session',$search_session);
-		endif;
-		if(isset($search_position)):
-			$g_users->bindValue(':position',$search_position);
-		endif;
-
-		$g_users->execute();
+		$g_users = $fdb->execute($users_query, $params);
 
 		$users = array();
-		while($userx = $g_users->fetch(PDO::FETCH_ASSOC)) {
+		foreach ($g_users as $userx) {
 			$userx['Unit in Run'] = $userx['unit_type']. " <span class='hastooltip' title='position in run {$userx['run_name']} '>({$userx['position']})</span>";
 			$userx['Session'] = "<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],0,10)."…</abbr></small>";
 			$userx['entered'] = "<small>{$userx['created']}</small>";
@@ -399,19 +364,17 @@ class AdminRunController extends AdminController {
 		$run = $this->run;
 		$fdb = $this->fdb;
 
-		$email_nr = $fdb->prepare("SELECT COUNT(`survey_email_log`.id) AS count
+		$email_count_query = "SELECT COUNT(`survey_email_log`.id) AS count
 		FROM `survey_email_log`
-		LEFT JOIN `survey_unit_sessions`
-		ON `survey_unit_sessions`.id = `survey_email_log`.session_id
-		LEFT JOIN `survey_run_sessions`
-		ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
-		WHERE `survey_run_sessions`.run_id = :run_id");
-		$email_nr->bindValue(':run_id', $run->id);
+		LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id
+		LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
+		WHERE `survey_run_sessions`.run_id = :run_id";
 
-		$pagination = new Pagination($email_nr, 50, true);
+		$email_count = $fdb->execute($email_count_query, array(':run_id' => $run->id), true);
+		$pagination = new Pagination($email_count, 50, true);
 		$limits = $pagination->getLimits();
 
-		$g_emails = $fdb->prepare("SELECT 
+		$emails_query = "SELECT 
 			`survey_email_accounts`.from_name, 
 			`survey_email_accounts`.`from`, 
 			`survey_email_log`.recipient AS `to`,
@@ -419,28 +382,18 @@ class AdminRunController extends AdminController {
 			`survey_emails`.body,
 			`survey_email_log`.created AS `sent`,
 			`survey_run_units`.position AS position_in_run
-
-			FROM `survey_email_log`
-
-		LEFT JOIN `survey_emails`
-		ON `survey_email_log`.email_id = `survey_emails`.id
-		LEFT JOIN `survey_run_units`
-		ON `survey_emails`.id = `survey_run_units`.unit_id
-		LEFT JOIN `survey_email_accounts`
-		ON `survey_emails`.account_id = `survey_email_accounts`.id
-		LEFT JOIN `survey_unit_sessions`
-		ON `survey_unit_sessions`.id = `survey_email_log`.session_id
-		LEFT JOIN `survey_run_sessions`
-		ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
+		FROM `survey_email_log`
+		LEFT JOIN `survey_emails` ON `survey_email_log`.email_id = `survey_emails`.id
+		LEFT JOIN `survey_run_units` ON `survey_emails`.id = `survey_run_units`.unit_id
+		LEFT JOIN `survey_email_accounts` ON `survey_emails`.account_id = `survey_email_accounts`.id
+		LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id
+		LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
 		WHERE `survey_run_sessions`.run_id = :run_id
+		ORDER BY `survey_email_log`.id DESC LIMIT $limits ;";
 
-		ORDER BY `survey_email_log`.id DESC
-		LIMIT $limits
-		;");
-		$g_emails->bindValue(":run_id",$run->id);
-		$g_emails->execute();
+		$g_emails = $fdb->execute($emails_query, array(':run_id' => $run->id));
 		$emails = array();
-		while($email = $g_emails->fetch(PDO::FETCH_ASSOC)) {
+		foreach ($g_emails as $email) {
 			$email['from'] = "{$email['from_name']}<br><small>{$email['from']}</small>";
 			unset($email['from_name']);
 			$email['to'] = $email['to']."<br><small>at run position ".$email['position_in_run']."</small>";
@@ -485,14 +438,13 @@ class AdminRunController extends AdminController {
 		$run = $this->run;
 		$fdb = $this->fdb;
 
-		$cron_entries = $fdb->prepare("SELECT COUNT(`survey_cron_log`.id) AS count
-		FROM `survey_cron_log`
-		WHERE `survey_cron_log`.run_id = :run_id");
-		$cron_entries->bindValue(':run_id',$run->id);
+		$fdb->count('survey_cron_log', array('run_id' => $run->id));
+		$cron_entries_count = $fdb->count('survey_cron_log', array('run_id' => $run->id));
 
-		$pagination = new Pagination($cron_entries);
+		$pagination = new Pagination($cron_entries_count);
 		$limits = $pagination->getLimits();
-		$g_cron = $fdb->prepare("SELECT 
+
+		$cron_query = "SELECT 
 			`survey_cron_log`.id,
 			`survey_cron_log`.run_id,
 			`survey_cron_log`.created,
@@ -507,16 +459,14 @@ class AdminRunController extends AdminController {
 			`survey_cron_log`.warnings, 
 			`survey_cron_log`.notices, 
 			`survey_cron_log`.message
-
 		FROM `survey_cron_log`
-
 		WHERE `survey_cron_log`.run_id = :run_id
-		ORDER BY `survey_cron_log`.id DESC LIMIT $limits;");
-		$g_cron->bindValue(':run_id',$run->id);
-		$g_cron->execute() or die(print_r($g_cron->errorInfo(), true));
+		ORDER BY `survey_cron_log`.id DESC LIMIT $limits;";
+
+		$g_cron = $fdb->execute($cron_query, array(':run_id' => $run->id));
 
 		$cronlogs = array();
-		while($cronlog = $g_cron->fetch(PDO::FETCH_ASSOC)) {
+		foreach ($g_cron as $cronlog) {
 			$cronlog = array_reverse($cronlog, true); 
 			$cronlog['Modules'] = '<small>';
 
