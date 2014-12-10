@@ -1,6 +1,7 @@
+#!/usr/bin/php
 <?php
 
-require_once '../../define_root.php';
+require_once dirname(__FILE__) . '/../define_root.php';
 
 // Set maximum execution time to 6 minutes as cron runs every 7 minutes. (There should be better way to do this)
 $start_time = microtime(true);
@@ -60,24 +61,19 @@ if (file_exists($lockfile)) {
 file_put_contents($lockfile, $start_date);
 register_shutdown_function('cron_cleanup');
 
-
 /** Do the Work */
 cron_log("Cron started .... {$start_date}", true);
-ob_start();
 
-// Require necessary modules (solved with autoloader in next releases)
-session_over($site, $user);
-
+// Global required variables
+$site = Site::getInstance();
+$fdb = DB::getInstance();
+$user = new User($fdb, null, null);
 $user->cron = true;
 
 // Wrap in a try catch just in case because we can't see shit
 try {
 	// Get all runs
-	$g_runs = $fdb->query("SELECT name FROM `survey_runs` WHERE cron_active = 1 ORDER BY RAND();");
-	$runs = array();
-	while ($tmp = $g_runs->fetch()) {
-		$runs[] = $tmp;
-	}
+	$runs = $fdb->select('name')->from('survey_runs')->where('cron_active = 1')->order('RAND')->fetchAll();
 
 	$r = 0;
 	foreach ($runs as $run_data):
@@ -126,7 +122,7 @@ try {
 			$executed_types = cron_parse_executed_types($types);
 		}
 
-		$msg = date('Y-m-d H:i:s') . ' ' . "$i sessions in the run " . $run->name . " were processed. {$executed_types} ended.<br>" . "\n";
+		$msg = date('Y-m-d H:i:s') . ' ' . "$i sessions in the run " . $run->name . " were processed. {$executed_types} ended.<br />" . "\n";
 		$msg .= $alerts;
 
 		// Save cron log (This should be moved to logging in file system to avoid clustering DB)
@@ -150,7 +146,8 @@ try {
 			$log->execute();
 		}
 
-		echo $msg . "<br>";
+		echo $msg . "<br />";
+		cron_log(str_replace('<br />', '', $msg), true);
 		if (microtime(true) - $start_time > $max_exec_time) {
 			throw new Exception("How in the hell did we get here? Max execution time exceeded");
 		}
@@ -159,14 +156,9 @@ try {
 	cron_log('Cron: ' . $e->getMessage());
 	cron_log('Cron: ' . $e->getTraceAsString());
 }
-// error_log( $msg, 3, INCLUDE_ROOT ."tmp/logs/cron.log");
+
 $user->cron = false;
 
-require_once INCLUDE_ROOT . "View/footer.php";
-
-ob_flush();
-ob_clean();
-// Q is buffering really needed?
 $minutes = round((microtime(true) - $start_time) / 60, 3);
 $end_date = date('r');
 cron_log("Cron ended .... {$end_date}. Took ~{$minutes} minutes", true);

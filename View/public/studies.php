@@ -8,7 +8,7 @@
         <?php foreach($runs as $run) : ?>
         <div class="row">
             <div class="col-lg-12 well">
-                <h4><a href="<?php echo RUNROOT . $run['name']; ?>"><?php echo ($run['title'] ? $run['title'] : $run['name']); ?></a></h4>
+                <h4><a href="<?php echo run_url($run['name']); ?>"><?php echo ($run['title'] ? $run['title'] : $run['name']); ?></a></h4>
                 <?php echo $run['public_blurb_parsed']; ?>
             </div>
         </div>
