@@ -1,8 +1,19 @@
 <?php
 
+$settings['database'] = array(
+	'datasource' => 'Database/Mysql',
+	'persistent' => false,
+	'host' => 'localhost',
+	'login' => 'user',
+	'password' => 'password',
+	'database' => 'database',
+	'prefix' => '',
+	'encoding' => 'utf8',
+	'unix_socket' => '/Applications/MAMP/tmp/mysql/mysql.sock',
+);
+
 $settings['opencpu_instance'] = 'https://public.opencpu.org';
 $settings['alternative_opencpu_instance'] = 'https://public.opencpu.org'; # used in admin/test_opencpu
-
 
 $settings['email']['host'] = ''; # smtp server that you want to use, you can prefix a protocol like ssl://
 $settings['email']['port'] = 587; # its port
