@@ -1,17 +1,14 @@
 # [formr.org]
 
-ifeq ($(FORMR_DIR),)
-	FORMR_DIR=/var/www/formr
-endif
-
+FORMR_DIR?=/var/www/formr
 INSTALL_DIR=$(CTSR_ROOT)$(FORMR_DIR)
 CONFIG_DIR=$(INSTALL_DIR)/config
 CRON_TAB=$(INSTALL_DIR)/config/formr_crontab
 SYS_CRON_TAB=$(CTSR_ROOT)/etc/cron.d/formr_crontab
 SMI_CONFIG=/etc/smysqlin/formr.ini
-GIT_REPO=https://github.com/rubenarslan/formr.org.git
+GIT_REPO?=https://github.com/rubenarslan/formr.org.git
 GIT=$(shell echo "git --git-dir=$(INSTALL_DIR)/.git --work-tree=$(INSTALL_DIR)")
-GIT_BRANCH=master
+GIT_BRANCH?=master
 
 COMPOSER=composer
 
