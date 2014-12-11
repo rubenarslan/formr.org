@@ -291,8 +291,7 @@ class Survey extends RunUnit {
 			`survey_items_display`.answered')
 		->from('survey_items')
 		->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-		->where('survey_items.study_id = :study_id')
-		->where("survey_items_display.answered IS NULL OR survey_items.type = 'note'")
+		->where("survey_items.study_id = :study_id AND (survey_items_display.answered IS NULL OR survey_items.type = 'note')")
 		->order('survey_items.order', 'ASC')->order('survey_items.id', 'ASC')
 		->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 		->statement();
