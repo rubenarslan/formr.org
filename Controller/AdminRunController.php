@@ -351,6 +351,7 @@ class AdminRunController extends AdminController {
 		$run = $this->run;
 		if(isset($_POST['empty']) AND trim($_POST['empty_confirm']) === $run->name) {
 			$run->emptySelf();
+			redirect_to(admin_run_url($run->name, "empty_run"));
 		} elseif(isset($_POST['empty'])) {
 			alert("<b>Error:</b> You must type the run's name '{$run->name}' to empty it.",'alert-danger');
 		}

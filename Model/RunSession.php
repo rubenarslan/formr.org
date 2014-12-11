@@ -188,7 +188,7 @@ class RunSession {
 	}
 
 	public function getCurrentUnit() {
-		$unit = $this->dbh->select('
+		$query = $this->dbh->select('
 			`survey_unit_sessions`.unit_id,
 			`survey_unit_sessions`.id AS session_id,
 			`survey_unit_sessions`.created,
@@ -200,7 +200,10 @@ class RunSession {
 		->where('survey_unit_sessions.ended IS NULL') //so we know when to runToNextUnit
 		->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
 		->order('survey_unit_sessions`.id', 'desc')
-		->limit(1)->fetch();
+		->limit(1);
+
+		$unit = $query->fetch();
+
 		if ($unit):
 			// unit needs:
 			# run_id
@@ -222,7 +225,9 @@ class RunSession {
 		$select = $this->dbh->select('unit_id, position')
 				->from('survey_run_units')
 				->where('run_id = :run_id')
-				->where('position > :position');
+				->where('position > :position')
+				->order('position', 'asc')
+				->limit(1);
 
 		$position = -1000000;
 		if ($this->position !== null) {
