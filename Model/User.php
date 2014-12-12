@@ -336,12 +336,10 @@ formr robots";
 	}
 
 	function getAvailableRuns() {
-		/** @var $select DB_Select */
-		$results = $this->dbh->select('name,title, public_blurb_parsed')
+		return $this->dbh->select('name,title, public_blurb_parsed')
 				->from('survey_runs')
 				->where('public > 2')
 				->fetchAll();
-		return $results;
 	}
 
 }
