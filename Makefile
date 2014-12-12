@@ -25,16 +25,15 @@ install: init init_install install_files install_dependencies clean
 install_files:
 	@echo "Installing files .....";
 
-	@install -d -m 0744 $(INSTALL_DIR)
+	@install -d -m 0755 $(INSTALL_DIR)
 
 	$(GIT) init
 	$(GIT) remote add origin $(GIT_REPO)
 	$(GIT) pull origin $(GIT_BRANCH)
 
-	install -d -m 0644 $(CONFIG_DIR)
+	install -d -m 0755 $(CONFIG_DIR)
 	chmod 0755 $(INSTALL_DIR)/bin/cron.php
 	[ -d $(CONFIG_DIR) ] && cp -R $(INSTALL_DIR)/config_default/* $(CONFIG_DIR)/
-	chmod -R 0644 $(CONFIG_DIR)
 
 	[ ! -f $(SYS_CRON_TAB) ] && cp $(CRON_TAB) $(SYS_CRON_TAB)
 

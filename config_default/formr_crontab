@@ -1,1 +1,2 @@
+# Run cron on run modules every x minutes
 #*/7 * * * * www-data /var/www/formr/bin/cron.php >/dev/null
