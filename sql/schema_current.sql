@@ -8,8 +8,8 @@ SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='TRADITIONAL,ALLOW_INVALID_DATES';
 -- -----------------------------------------------------
 -- Schema formr
 -- -----------------------------------------------------
-CREATE SCHEMA IF NOT EXISTS `formr` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci ;
-USE `formr` ;
+-- CREATE SCHEMA IF NOT EXISTS `formr` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci ;
+-- USE `formr` ;
 
 -- -----------------------------------------------------
 -- Table `survey_users`
