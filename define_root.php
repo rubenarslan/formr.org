@@ -22,19 +22,12 @@ require_once INCLUDE_ROOT . "config_default/settings.php";
 require_once INCLUDE_ROOT . "config/settings.php";
 
 // Overwrite application settings with DEV_ENV if defined
-if (getenv('DEV_ENV')):
-	$devenv = getenv('DEV_ENV');
-else:
-	$devenv = "default";
-endif;
-if(preg_match("/[a-zA-Z0-9]+/", $devenv)):
-    $devsettings = INCLUDE_ROOT . "config/env/{$devenv}.php";
-    if (is_file($devsettings)):
+if (($devenv = getenv('DEV_ENV'))) {
+	$devsettings = INCLUDE_ROOT . "config/env/{$devenv}.php";
+	if (is_file($devsettings)) {
         require_once $devsettings;
-	else:
-		require_once "config/env/default.php";
-	endif;
-endif;
+	}
+}
 
 // Load application autoloader
 $autoloader = require_once INCLUDE_ROOT . "Library/Autoloader.php";
