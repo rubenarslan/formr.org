@@ -82,6 +82,9 @@ class User {
 		}
 
 		$hash = password_hash($password, PASSWORD_DEFAULT);
+		if ($this->user_code === null) {
+			$this->user_code = crypto_token(48);
+		}
 
 		if ($hash) :
 			$inserted = $this->dbh->insert('survey_users', array(
