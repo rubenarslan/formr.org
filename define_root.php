@@ -21,14 +21,6 @@ $settings['routes'] = array (
 require_once INCLUDE_ROOT . "config_default/settings.php";
 require_once INCLUDE_ROOT . "config/settings.php";
 
-// Overwrite application settings with DEV_ENV if defined
-if (($devenv = getenv('DEV_ENV'))) {
-	$devsettings = INCLUDE_ROOT . "config/env/{$devenv}.php";
-	if (is_file($devsettings)) {
-        require_once $devsettings;
-	}
-}
-
 // Load application autoloader
 $autoloader = require_once INCLUDE_ROOT . "Library/Autoloader.php";
 // Include helper functions
@@ -46,7 +38,7 @@ function define_webroot($settings = array()) {
 	$testing = false;
 
    // Maybe dev env contains $settings['define_root'] so use these
-    if (isset($settings['define_root'])) {
+    if (!empty($settings['define_root'])) {
         extract($settings['define_root']);
     }
 	

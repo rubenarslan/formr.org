@@ -37,3 +37,11 @@ $settings['admin_maximum_size_of_uploaded_files'] = 50; # in MB
 $settings['run_exports_dir'] = INCLUDE_ROOT . 'documentation/run_components';
 
 $settings['web_dir'] = INCLUDE_ROOT . 'webroot';
+
+// Ovewrites vars in /define_root, uncomment config item and set appropriate value to enable it.
+$settings['define_root'] = array(
+    //'protocol' => 'http://',
+    //'doc_root' => 'projects/formr.org/',
+    //'online' => false,
+    //'testing' => true
+);

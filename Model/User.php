@@ -200,7 +200,7 @@ formr robots";
 
 			$this->dbh->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
 
-			$reset_link = WEBROOT . "public/reset_password?email=" . rawurlencode($email) . "&reset_token=" . rawurldecode($token);
+			$reset_link = WEBROOT . "public/reset_password?email=" . rawurlencode($email) . "&reset_token=" . rawurlencode($token);
 			
 			global $site;
 			$mail = $site->makeAdminMailer();
