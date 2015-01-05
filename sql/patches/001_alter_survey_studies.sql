@@ -2,10 +2,10 @@ SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;
 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='TRADITIONAL';
 
-ALTER TABLE `formr`.`survey_studies` 
+ALTER TABLE `survey_studies` 
 ADD UNIQUE INDEX `name_by_user` (`user_id` ASC, `name` ASC),
 DROP INDEX `name` ;
-UPDATE `formr`.`survey_studies` SET `results_table` = `name`;
+UPDATE `survey_studies` SET `results_table` = `name`;
 
 
 SET SQL_MODE=@OLD_SQL_MODE;

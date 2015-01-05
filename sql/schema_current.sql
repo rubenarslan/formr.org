@@ -8,13 +8,13 @@ SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='TRADITIONAL,ALLOW_INVALID_DATES';
 -- -----------------------------------------------------
 -- Schema formr
 -- -----------------------------------------------------
-CREATE SCHEMA IF NOT EXISTS `formr` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci ;
-USE `formr` ;
+-- CREATE SCHEMA IF NOT EXISTS `formr` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci ;
+-- USE `formr` ;
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_users`
+-- Table `survey_users`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_users` (
+CREATE TABLE IF NOT EXISTS `survey_users` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_code` CHAR(64) BINARY NOT NULL,
   `created` DATETIME NULL,
@@ -35,9 +35,9 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_units`
+-- Table `survey_units`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_units` (
+CREATE TABLE IF NOT EXISTS `survey_units` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `created` DATETIME NULL,
   `modified` DATETIME NULL,
@@ -48,9 +48,9 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_studies`
+-- Table `survey_studies`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_studies` (
+CREATE TABLE IF NOT EXISTS `survey_studies` (
   `id` INT UNSIGNED NOT NULL,
   `user_id` INT UNSIGNED NOT NULL,
   `created` DATETIME NULL,
@@ -68,21 +68,21 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_studies` (
   UNIQUE INDEX `results_table_UNIQUE` (`results_table` ASC),
   CONSTRAINT `fk_survey_studies_survey_users`
     FOREIGN KEY (`user_id`)
-    REFERENCES `formr`.`survey_users` (`id`)
+    REFERENCES `survey_users` (`id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_study_unit`
     FOREIGN KEY (`id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_runs`
+-- Table `survey_runs`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_runs` (
+CREATE TABLE IF NOT EXISTS `survey_runs` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` INT UNSIGNED NOT NULL,
   `created` DATETIME NULL,
@@ -114,36 +114,36 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_runs` (
   INDEX `fk_survey_runs_survey_units4_idx` (`deactivated_page` ASC),
   CONSTRAINT `fk_runs_survey_users1`
     FOREIGN KEY (`user_id`)
-    REFERENCES `formr`.`survey_users` (`id`)
+    REFERENCES `survey_users` (`id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_runs_survey_units1`
     FOREIGN KEY (`reminder_email`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_runs_survey_units2`
     FOREIGN KEY (`service_message`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_runs_survey_units3`
     FOREIGN KEY (`overview_script`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_runs_survey_units4`
     FOREIGN KEY (`deactivated_page`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_run_units`
+-- Table `survey_run_units`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_run_units` (
+CREATE TABLE IF NOT EXISTS `survey_run_units` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `run_id` INT UNSIGNED NOT NULL,
   `unit_id` INT UNSIGNED NULL,
@@ -155,21 +155,21 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_run_units` (
   INDEX `position_run` (`run_id` ASC, `position` ASC),
   CONSTRAINT `fk_suru`
     FOREIGN KEY (`run_id`)
-    REFERENCES `formr`.`survey_runs` (`id`)
+    REFERENCES `survey_runs` (`id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_suru_it`
     FOREIGN KEY (`unit_id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_items`
+-- Table `survey_items`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_items` (
+CREATE TABLE IF NOT EXISTS `survey_items` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
   `study_id` INT UNSIGNED NOT NULL,
   `type` VARCHAR(100) NOT NULL,
@@ -190,16 +190,16 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_items` (
   INDEX `type` (`study_id` ASC, `type` ASC),
   CONSTRAINT `fk_survey_items_survey_studies1`
     FOREIGN KEY (`study_id`)
-    REFERENCES `formr`.`survey_studies` (`id`)
+    REFERENCES `survey_studies` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_items_display`
+-- Table `survey_items_display`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_items_display` (
+CREATE TABLE IF NOT EXISTS `survey_items_display` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `item_id` INT UNSIGNED NOT NULL,
   `session_id` INT UNSIGNED NOT NULL,
@@ -214,16 +214,16 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_items_display` (
   INDEX `answered` (`session_id` ASC, `answered` ASC),
   CONSTRAINT `itemid`
     FOREIGN KEY (`item_id`)
-    REFERENCES `formr`.`survey_items` (`id`)
+    REFERENCES `survey_items` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_run_sessions`
+-- Table `survey_run_sessions`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_run_sessions` (
+CREATE TABLE IF NOT EXISTS `survey_run_sessions` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `run_id` INT UNSIGNED NOT NULL,
   `user_id` INT UNSIGNED NULL DEFAULT NULL,
@@ -244,26 +244,26 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_run_sessions` (
   INDEX `position` (`position` ASC),
   CONSTRAINT `fk_survey_run_sessions_survey_runs1`
     FOREIGN KEY (`run_id`)
-    REFERENCES `formr`.`survey_runs` (`id`)
+    REFERENCES `survey_runs` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_run_sessions_survey_users1`
     FOREIGN KEY (`user_id`)
-    REFERENCES `formr`.`survey_users` (`id`)
+    REFERENCES `survey_users` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_run_sessions_survey_units1`
     FOREIGN KEY (`current_unit_id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE SET NULL
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_unit_sessions`
+-- Table `survey_unit_sessions`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_unit_sessions` (
+CREATE TABLE IF NOT EXISTS `survey_unit_sessions` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `unit_id` INT UNSIGNED NOT NULL,
   `run_session_id` INT NULL,
@@ -276,21 +276,21 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_unit_sessions` (
   INDEX `ended` (`ended` DESC),
   CONSTRAINT `fk_survey_sessions_survey_units1`
     FOREIGN KEY (`unit_id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_unit_sessions_survey_run_sessions1`
     FOREIGN KEY (`run_session_id`)
-    REFERENCES `formr`.`survey_run_sessions` (`id`)
+    REFERENCES `survey_run_sessions` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_email_accounts`
+-- Table `survey_email_accounts`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_email_accounts` (
+CREATE TABLE IF NOT EXISTS `survey_email_accounts` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` INT UNSIGNED NOT NULL,
   `created` DATETIME NULL,
@@ -306,16 +306,16 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_email_accounts` (
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_email_user`
     FOREIGN KEY (`user_id`)
-    REFERENCES `formr`.`survey_users` (`id`)
+    REFERENCES `survey_users` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_externals`
+-- Table `survey_externals`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_externals` (
+CREATE TABLE IF NOT EXISTS `survey_externals` (
   `id` INT UNSIGNED NOT NULL,
   `address` VARCHAR(255) NULL,
   `api_end` TINYINT(1) NULL DEFAULT 0,
@@ -323,16 +323,16 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_externals` (
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_external_unit`
     FOREIGN KEY (`id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_pauses`
+-- Table `survey_pauses`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_pauses` (
+CREATE TABLE IF NOT EXISTS `survey_pauses` (
   `id` INT UNSIGNED NOT NULL,
   `wait_until_time` TIME NULL,
   `wait_until_date` DATE NULL,
@@ -344,16 +344,16 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_pauses` (
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_survey_breaks_survey_run_items1`
     FOREIGN KEY (`id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_branches`
+-- Table `survey_branches`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_branches` (
+CREATE TABLE IF NOT EXISTS `survey_branches` (
   `id` INT UNSIGNED NOT NULL,
   `condition` TEXT NULL,
   `if_true` SMALLINT NULL,
@@ -363,16 +363,16 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_branches` (
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_branch_unit`
     FOREIGN KEY (`id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_emails`
+-- Table `survey_emails`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_emails` (
+CREATE TABLE IF NOT EXISTS `survey_emails` (
   `id` INT UNSIGNED NOT NULL,
   `account_id` INT UNSIGNED NULL,
   `subject` VARCHAR(255) NULL,
@@ -385,21 +385,21 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_emails` (
   INDEX `fk_survey_emails_survey_email_accounts1_idx` (`account_id` ASC),
   CONSTRAINT `fk_email_unit`
     FOREIGN KEY (`id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_email_acc`
     FOREIGN KEY (`account_id`)
-    REFERENCES `formr`.`survey_email_accounts` (`id`)
+    REFERENCES `survey_email_accounts` (`id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_email_log`
+-- Table `survey_email_log`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_email_log` (
+CREATE TABLE IF NOT EXISTS `survey_email_log` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `session_id` INT UNSIGNED NULL,
   `email_id` INT UNSIGNED NULL,
@@ -410,21 +410,21 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_email_log` (
   INDEX `fk_survey_email_log_survey_unit_sessions1_idx` (`session_id` ASC),
   CONSTRAINT `fk_survey_email_log_survey_emails1`
     FOREIGN KEY (`email_id`)
-    REFERENCES `formr`.`survey_emails` (`id`)
+    REFERENCES `survey_emails` (`id`)
     ON DELETE SET NULL
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_email_log_survey_unit_sessions1`
     FOREIGN KEY (`session_id`)
-    REFERENCES `formr`.`survey_unit_sessions` (`id`)
+    REFERENCES `survey_unit_sessions` (`id`)
     ON DELETE SET NULL
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_pages`
+-- Table `survey_pages`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_pages` (
+CREATE TABLE IF NOT EXISTS `survey_pages` (
   `id` INT UNSIGNED NOT NULL,
   `body` MEDIUMTEXT NULL,
   `body_parsed` MEDIUMTEXT NULL,
@@ -434,16 +434,16 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_pages` (
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_page_unit`
     FOREIGN KEY (`id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_results`
+-- Table `survey_results`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_results` (
+CREATE TABLE IF NOT EXISTS `survey_results` (
   `session_id` INT UNSIGNED NOT NULL,
   `study_id` INT UNSIGNED NOT NULL,
   `created` DATETIME NULL DEFAULT NULL,
@@ -455,21 +455,21 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_results` (
   INDEX `ending` (`session_id` DESC, `study_id` ASC, `ended` ASC),
   CONSTRAINT `fk_survey_results_survey_unit_sessions1`
     FOREIGN KEY (`session_id`)
-    REFERENCES `formr`.`survey_unit_sessions` (`id`)
+    REFERENCES `survey_unit_sessions` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_results_survey_studies1`
     FOREIGN KEY (`study_id`)
-    REFERENCES `formr`.`survey_studies` (`id`)
+    REFERENCES `survey_studies` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_item_choices`
+-- Table `survey_item_choices`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_item_choices` (
+CREATE TABLE IF NOT EXISTS `survey_item_choices` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `study_id` INT UNSIGNED NOT NULL,
   `list_name` VARCHAR(255) NULL,
@@ -481,16 +481,16 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_item_choices` (
   INDEX `listname` (`list_name` ASC),
   CONSTRAINT `fk_survey_item_choices_survey_studies1`
     FOREIGN KEY (`study_id`)
-    REFERENCES `formr`.`survey_studies` (`id`)
+    REFERENCES `survey_studies` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_reports`
+-- Table `survey_reports`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_reports` (
+CREATE TABLE IF NOT EXISTS `survey_reports` (
   `session_id` INT UNSIGNED NOT NULL,
   `unit_id` INT UNSIGNED NOT NULL,
   `created` DATETIME NULL DEFAULT NULL,
@@ -501,37 +501,37 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_reports` (
   INDEX `fk_survey_reports_survey_units1_idx` (`unit_id` ASC),
   CONSTRAINT `fk_survey_results_survey_unit_sessions10`
     FOREIGN KEY (`session_id`)
-    REFERENCES `formr`.`survey_unit_sessions` (`id`)
+    REFERENCES `survey_unit_sessions` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_reports_survey_units1`
     FOREIGN KEY (`unit_id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_shuffles`
+-- Table `survey_shuffles`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_shuffles` (
+CREATE TABLE IF NOT EXISTS `survey_shuffles` (
   `id` INT UNSIGNED NOT NULL,
   `groups` SMALLINT UNSIGNED NULL,
   INDEX `fk_survey_branch_survey_units1_idx` (`id` ASC),
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_shuffle_unit`
     FOREIGN KEY (`id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`shuffle`
+-- Table `shuffle`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`shuffle` (
+CREATE TABLE IF NOT EXISTS `shuffle` (
   `session_id` INT UNSIGNED NOT NULL,
   `unit_id` INT UNSIGNED NOT NULL,
   `created` DATETIME NULL DEFAULT NULL,
@@ -541,21 +541,21 @@ CREATE TABLE IF NOT EXISTS `formr`.`shuffle` (
   INDEX `fk_survey_reports_survey_units1_idx` (`unit_id` ASC),
   CONSTRAINT `fk_unit_sessions_shuffle`
     FOREIGN KEY (`session_id`)
-    REFERENCES `formr`.`survey_unit_sessions` (`id`)
+    REFERENCES `survey_unit_sessions` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_unit_shuffle`
     FOREIGN KEY (`unit_id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_cron_log`
+-- Table `survey_cron_log`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_cron_log` (
+CREATE TABLE IF NOT EXISTS `survey_cron_log` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `run_id` INT UNSIGNED NOT NULL,
   `created` DATETIME NULL,
@@ -574,16 +574,16 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_cron_log` (
   INDEX `fk_survey_cron_log_survey_runs1_idx` (`run_id` ASC),
   CONSTRAINT `fk_survey_cron_log_survey_runs1`
     FOREIGN KEY (`run_id`)
-    REFERENCES `formr`.`survey_runs` (`id`)
+    REFERENCES `survey_runs` (`id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_uploaded_files`
+-- Table `survey_uploaded_files`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_uploaded_files` (
+CREATE TABLE IF NOT EXISTS `survey_uploaded_files` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `run_id` INT UNSIGNED NOT NULL,
   `created` DATETIME NULL,
@@ -595,16 +595,16 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_uploaded_files` (
   UNIQUE INDEX `unique` (`run_id` ASC, `original_file_name` ASC),
   CONSTRAINT `fk_survey_uploaded_files_survey_runs1`
     FOREIGN KEY (`run_id`)
-    REFERENCES `formr`.`survey_runs` (`id`)
+    REFERENCES `survey_runs` (`id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `formr`.`survey_text_messages`
+-- Table `survey_text_messages`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `formr`.`survey_text_messages` (
+CREATE TABLE IF NOT EXISTS `survey_text_messages` (
   `id` INT UNSIGNED NOT NULL,
   `account_id` INT UNSIGNED NULL,
   `recipient_field` VARCHAR(255) NULL,
@@ -614,12 +614,12 @@ CREATE TABLE IF NOT EXISTS `formr`.`survey_text_messages` (
   INDEX `fk_survey_emails_survey_email_accounts1_idx` (`account_id` ASC),
   CONSTRAINT `fk_email_unit0`
     FOREIGN KEY (`id`)
-    REFERENCES `formr`.`survey_units` (`id`)
+    REFERENCES `survey_units` (`id`)
     ON DELETE CASCADE
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_email_acc0`
     FOREIGN KEY (`account_id`)
-    REFERENCES `formr`.`survey_email_accounts` (`id`)
+    REFERENCES `survey_email_accounts` (`id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
