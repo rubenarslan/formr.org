@@ -1322,6 +1322,10 @@ class Item_rating_button extends Item_mc_button {
 
 		$this->lower_text = current($this->choices);
 		$this->upper_text = next($this->choices);
+		// force step to be a non-zero positive number less than or equal to upper limit
+		if ($step <= 0 || $step > $upper_limit) {
+			$step = $upper_limit;
+		}
 		$this->choices = array_combine(range($lower_limit, $upper_limit, $step), range($lower_limit, $upper_limit, $step));
 	}
 

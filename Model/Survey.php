@@ -815,7 +815,7 @@ class Survey extends RunUnit {
 		} catch (Exception $e) {
 			$this->dbh->rollBack();
 			$this->errors[] = "An Error occured and all changes were rolled back";
-			log_exception($e, __CLASS__);
+			log_exception($e, __CLASS__, $this->errors);
 			return false;
 		}
 	}

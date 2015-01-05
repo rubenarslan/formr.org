@@ -21,9 +21,12 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) { // shortha
 	$site->alert($msg, $class, $dismissable);
 }
 
-function log_exception(Exception $e, $prefix = '') {
+function log_exception(Exception $e, $prefix = '', $debug_data = null) {
 	error_log($prefix . ' Exception: ' . $e->getMessage());
 	error_log($prefix . ' Exception: ' . $e->getTraceAsString());
+	if ($debug_data !== null) {
+		error_log('Debug Data: ' . print_r($debug_data, 1));
+	}
 }
 
 function redirect_to($location) {

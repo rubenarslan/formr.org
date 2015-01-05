@@ -145,7 +145,11 @@ class PublicController extends Controller {
 		if(!empty($_POST) AND isset($_POST['email'])  AND isset($_POST['new_password'])  AND isset($_POST['reset_token'])) {
 			$user->reset_password($_POST['email'], $_POST['reset_token'], $_POST['new_password']);
 		}
-		$this->renderView('public/reset_password');
+
+		$this->renderView('public/reset_password', array(
+			'reset_data_email' => isset($_GET['email']) ? $_GET['email'] : '',
+			'reset_data_token' => isset($_GET['reset_token']) ? $_GET['reset_token'] : '',
+		));
 	}
 
 	public function notFoundAction() {

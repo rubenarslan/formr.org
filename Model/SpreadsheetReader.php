@@ -329,37 +329,40 @@ class SpreadsheetReader {
 			exit($inputFileName . " does not exist." . EOL);
 		endif;
 
-
-		//  Identify the type of $inputFileName 
-		$inputFileType = PHPExcel_IOFactory::identify($inputFileName);
-		//  Create a new Reader of the type that has been identified 
-		$objReader = PHPExcel_IOFactory::createReader($inputFileType);
-		//  Load $inputFileName to a PHPExcel Object 
-		///  Advise the Reader that we only want to load cell data 
-		$objReader->setReadDataOnly(true);
-
-
 		try {
+			//  Identify the type of $inputFileName 
+			$inputFileType = PHPExcel_IOFactory::identify($inputFileName);
+			//  Create a new Reader of the type that has been identified 
+			$objReader = PHPExcel_IOFactory::createReader($inputFileType);
+			//  Load $inputFileName to a PHPExcel Object 
+			///  Advise the Reader that we only want to load cell data 
+			$objReader->setReadDataOnly(true);
+
 			// Load $inputFileName to a PHPExcel Object
 			$objPHPExcel = PHPExcel_IOFactory::load($inputFileName);
-		} catch (PHPExcel_Reader_Exception $e) {
-			die('Error loading file: ' . $e->getMessage());
+		} catch (PHPExcel_Exception $e) {
+			$this->errors[] = "An error occured reading your excel file. Please check your file or report to admin";
+			$this->errors[] = $e->getMessage();
+			log_exception($e, __CLASS__, $inputFileName);
+			return;
 		}
 //		$this->messages[] = date('H:i:s') . " Iterate worksheets" . EOL;
 
-		if ($objPHPExcel->sheetNameExists('survey'))
+		if ($objPHPExcel->sheetNameExists('survey')) {
 			$survey_sheet = $objPHPExcel->getSheetByName('survey');
-		else
+		} else {
 			$survey_sheet = $objPHPExcel->getSheet(0);
+		}
 
-		if ($objPHPExcel->sheetNameExists('choices') AND $objPHPExcel->getSheetCount() > 1)
+		if ($objPHPExcel->sheetNameExists('choices') AND $objPHPExcel->getSheetCount() > 1) {
 			$choices_sheet = $objPHPExcel->getSheetByName('choices');
-		elseif ($objPHPExcel->getSheetCount() > 1)
+		} elseif ($objPHPExcel->getSheetCount() > 1) {
 			$choices_sheet = $objPHPExcel->getSheet(1);
+		}
 
-		if (isset($choices_sheet)):
+		if (isset($choices_sheet)) {
 			$this->readChoicesSheet($choices_sheet);
-		endif;
+		}
 
 		$this->readSurveySheet($survey_sheet);
 	}

@@ -6,8 +6,8 @@
 		<div class="form-group small-left">
 			<label class="control-label sr-only" for="new_password">
 				<?php echo _("New password"); ?>
-	  		  <input required type="hidden" name="email" id="email" value="<?=htmlspecialchars($_GET['email']);?>">
-	  		  <input required type="hidden" name="reset_token" id="reset_token" value="<?=htmlspecialchars($_GET['reset_token']);?>">
+	  		  <input required type="hidden" name="email" id="email" value="<?=htmlspecialchars($reset_data_email);?>">
+	  		  <input required type="hidden" name="reset_token" id="reset_token" value="<?=htmlspecialchars($reset_data_token);?>">
 				
 			</label>
 			<div class="controls">
