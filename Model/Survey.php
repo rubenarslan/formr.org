@@ -843,7 +843,7 @@ class Survey extends RunUnit {
 		} catch (Exception $e) {
 			$this->dbh->rollBack();
 			$this->errors[] = "An Error occured and all changes were rolled back";
-			log_exception($e, __CLASS__);
+			log_exception($e, __CLASS__, $this->errors);
 			return false;
 		}
 
@@ -1135,26 +1135,32 @@ class Survey extends RunUnit {
 	}
 
 	public function getAverageTimeItTakes() {
-		$get = "SELECT AVG(middle_values) AS 'median' FROM (
+		
+		$get_query = "SELECT AVG(middle_values) AS 'median' FROM (
 		  SELECT took AS 'middle_values' FROM
-		    (
-		      SELECT @row:=@row+1 as `row`, (x.ended - x.created) AS took
-		      FROM `{$this->name}` AS x, (SELECT @row:=0) AS r
-		      WHERE 1
-		      -- put some where clause here
-		      ORDER BY took
-		    ) AS t1,
-		    (
-		      SELECT COUNT(*) as 'count'
-		      FROM `{$this->name}` x
-		      WHERE 1
-		      -- put same where clause here
-		    ) AS t2
-		    -- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
-		    WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
-		$get = $this->dbh->query($get);
-		$time = $get->fetch(PDO::FETCH_NUM);
-		$time = round($time[0] / 60, 3); # seconds to minutes
+			(
+			  SELECT @row:=@row+1 as `row`, (x.ended - x.created) AS took
+			  FROM `{$this->name}` AS x, (SELECT @row:=0) AS r
+			  WHERE 1
+			  -- put some where clause here
+			  ORDER BY took
+			) AS t1,
+			(
+			  SELECT COUNT(*) as 'count'
+			  FROM `{$this->name}` x
+			  WHERE 1
+			  -- put same where clause here
+			) AS t2
+			-- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
+			WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
+		try {
+			$get = $this->dbh->query($get_query);
+			$time = $get->fetch(PDO::FETCH_NUM);
+			$time = round($time[0] / 60, 3); # seconds to minutes
+		} catch (Exception $e) {
+			log_exception($e, __CLASS__, $get_query);
+			$time = 0;
+		}
 
 		return $time;
 	}

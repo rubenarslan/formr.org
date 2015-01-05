@@ -246,7 +246,7 @@ VALUES (:id, :account_id,  :subject, :recipient_field, :body, :body_parsed, :htm
 		require_once INCLUDE_ROOT. 'Model/EmailAccount.php';
 		
 		if($this->recipient == null):
-			formr_log("Email recipient could not be determined from this field definition ". $this->recipient_field);
+			//formr_log("Email recipient could not be determined from this field definition ". $this->recipient_field);
 			alert("We could not find an email recipient.", 'alert-danger');
 			$this->mail_sent = false;
 			return false;

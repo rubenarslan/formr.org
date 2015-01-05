@@ -585,6 +585,7 @@ class RunUnit {
 				catch (Exception $e)
 				{
 					trigger_error("Couldn't save Knitr report, probably too large: " . human_filesize(strlen($report)), E_USER_WARNING);
+					log_exception($e);
 				}
 				return $report;
 			endif;

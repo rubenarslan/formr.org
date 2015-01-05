@@ -15,6 +15,9 @@ if(!empty($_POST) AND isset($_POST['email'])  AND isset($_POST['new_password']) 
 	$user->reset_password($_POST['email'],$_POST['reset_token'],$_POST['new_password']);
 }
 
+$user_reset_email = isset($_GET['email']) ? $_GET['email'] : '';
+$user_reset_token = isset($_GET['reset_token']) ? $_GET['reset_token'] : '';
+
 require_once INCLUDE_ROOT . "View/header.php";
 require_once INCLUDE_ROOT . "View/public_nav.php";
 ?>
@@ -25,8 +28,8 @@ require_once INCLUDE_ROOT . "View/public_nav.php";
 		<div class="form-group small-left">
 			<label class="control-label sr-only" for="new_password">
 				<?php echo _("New password"); ?>
-	  		  <input required type="hidden" name="email" id="email" value="<?=htmlspecialchars($_GET['email']);?>">
-	  		  <input required type="hidden" name="reset_token" id="reset_token" value="<?=htmlspecialchars($_GET['reset_token']);?>">
+	  		  <input required type="hidden" name="email" id="email" value="<?=htmlspecialchars($user_reset_email);?>">
+	  		  <input required type="hidden" name="reset_token" id="reset_token" value="<?=htmlspecialchars($user_reset_token);?>">
 				
 			</label>
 			<div class="controls">
