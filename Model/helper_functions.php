@@ -18,12 +18,11 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) // shorthand
 	$site->alert($msg,$class, $dismissable);
 }
 
-function log_exception(Exception $e, $prefix = '') {
+function log_exception(Exception $e, $prefix = '', $debug_data = null) {
 	error_log($prefix . ' ' . $e->getMessage());
-	if (is_a($e, 'PDOException')) {
-		error_log($prefix . ' ' . print_r($e->getTrace(), 1));
-	} else {
-		error_log($prefix . ' ' . $e->getTraceAsString());
+	error_log($prefix . ' ' . $e->getTraceAsString());
+	if ($debug_data !== null) {
+		error_log('Debug Data: ' . print_r($debug_data, 1));
 	}
 }
 
