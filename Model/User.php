@@ -82,6 +82,9 @@ class User {
 		}
 
 		$hash = password_hash($password, PASSWORD_DEFAULT);
+		if ($this->user_code === null) {
+			$this->user_code = crypto_token(48);
+		}
 
 		if ($hash) :
 			$inserted = $this->dbh->insert('survey_users', array(
@@ -110,7 +113,7 @@ class User {
 		$token_hash = password_hash($token, PASSWORD_DEFAULT);
 		$this->dbh->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
 
-		$verify_link = WEBROOT . "public/verify_email/?email=" . rawurlencode($this->email) . "&verification_token=" . $token;
+		$verify_link = WEBROOT . "public/verify_email/?email=" . rawurlencode($this->email) . "&verification_token=" . rawurlencode($token);
 
 		global $site;
 		$mail = $site->makeAdminMailer();
@@ -197,7 +200,7 @@ formr robots";
 
 			$this->dbh->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
 
-			$reset_link = WEBROOT . "public/reset_password?email=" . rawurlencode($email) . "&reset_token=" . $token;
+			$reset_link = WEBROOT . "public/reset_password?email=" . rawurlencode($email) . "&reset_token=" . rawurlencode($token);
 			
 			global $site;
 			$mail = $site->makeAdminMailer();
@@ -283,7 +286,7 @@ formr robots";
 
 	public function verify_email($email, $token) {
 		$email_verification_hash = $this->dbh->findValue('survey_users', array('email' => $email), array('email_verification_hash'));
-	
+
 		if ($email_verification_hash):
 			if (password_verify($token, $email_verification_hash)):
 
@@ -336,12 +339,10 @@ formr robots";
 	}
 
 	function getAvailableRuns() {
-		/** @var $select DB_Select */
-		$results = $this->dbh->select('name,title, public_blurb_parsed')
+		return $this->dbh->select('name,title, public_blurb_parsed')
 				->from('survey_runs')
 				->where('public > 2')
 				->fetchAll();
-		return $results;
 	}
 
 }
