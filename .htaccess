@@ -1,6 +1,5 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
-
     # assets dir
     RewriteRule ^assets/(.*)$ webroot/assets/$1 [QSA,L]
 

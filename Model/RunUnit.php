@@ -230,6 +230,7 @@ class RunUnit {
 
 	protected $survey_results;
 
+	// We have a set of study and variable names. Now we get the data.
 	public function getUserDataInRun($needed) {
 		$surveys = $needed['matches'];
 		$results_tables = $needed['matches_results_tables'];
@@ -332,7 +333,9 @@ class RunUnit {
 	}
 
 	public function dataNeeded($fdb, $q, $token_add = NULL) {
-		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
+		$table_ids = $matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
+		
+		// first, generate a master list of the search set (all the surveys that are part of the run)
 		$results = $fdb->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
 				->from('survey_studies')
 				->leftJoin('survey_runs', 'survey_runs.user_id = survey_studies.user_id')
@@ -340,19 +343,25 @@ class RunUnit {
 				->bindParams(array('run_id' => $this->run_id))
 				->fetchAll();
 
+		// also add some "global" formr tables
 		$tables = $this->non_user_tables;
+		$table_ids = $this->non_user_tables;
 		$results_tables = array_combine($this->non_user_tables, $this->non_user_tables);
+		// map table ID to the name that the user sees (because tables in the DB are prefixed with the user ID, so they're unique)
 		foreach ($results as $res) {
-			$tables[$res['id']] = $res['name'];
+			$table_ids[] = $res['id'];
+			$tables[] = $res['name']; // FIXME: ID can overwrite the non_user_tables
 			$results_tables[$res['name']] = $res['results_table'];
 		}
 
 		if($token_add !== null AND !in_array($this->name, $tables)):	 // send along this table if necessary
-			$tables[$this->id] = $this->name;
+			$table_ids[] = $this->id;
+			$tables[] = $this->name;
 			$results_tables[ $this->name ] = $this->results_table;
 		endif;
 	
-		foreach($tables AS $study_id => $table_name):
+		foreach($tables AS $index => $table_name):
+			$study_id = $table_ids[$index];
 		
 			if($table_name == $token_add OR preg_match("/\b$table_name\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
 				$matches[ $study_id ] = $table_name;
@@ -360,8 +369,10 @@ class RunUnit {
 			endif;
 		endforeach;
 
+		// loop through any studies that are mentioned in the command
 		foreach($matches AS $study_id => $table_name):
 
+			// generate a search set of variable names for each study
 			if(in_array($table_name, $this->non_user_tables)):
 				if($table_name == 'survey_users'):
 					$variable_names_in_table[ $table_name ] = array("created","modified", "user_code","email","email_verified","mobile_number", "mobile_verified");
@@ -384,14 +395,14 @@ class RunUnit {
 
 				$variable_names_in_table[ $table_name ] = array("created", "modified", "ended"); // should avoid modified, sucks for caching
 				foreach ($items as $res) {
-					$variable_names_in_table[ $table_name ][] = $res['name'];
+					$variable_names_in_table[ $table_name ][] = $res['name']; // search set for user defined tables
 				}
 			endif;
 
 			$matches_variable_names[ $table_name ] = array();
-			foreach($variable_names_in_table[ $table_name ] AS $variable_name) {
-				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);  // try to match scales too
-				if(strlen($variable_name_base) < 3) {
+			foreach($variable_names_in_table[ $table_name ] AS $variable_name) { // generate match list for variable names
+				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);  // try to match scales too, extraversion_1 + extraversion_2 - extraversion_3R = extraversion (script might mention the construct name, but not its item constituents)
+				if(strlen($variable_name_base) < 3) { // don't match very short variable name bases
 					$variable_name_base = $variable_name;
 				}
 				if(preg_match("/\b$variable_name\b/",$q) OR preg_match("/\b$variable_name_base\b/",$q)) { // item name appears as word, matches survey$item, survey[, "item"], but not item_2 for item-scale unfortunately
@@ -413,7 +424,6 @@ class RunUnit {
 		if(preg_match('/\b.formr\$login_link\b/',$q)) { $variables[] = 'formr_login_link'; }
 
 		return compact("matches","matches_results_tables", "matches_variable_names", "token_add", "variables");
-//		return $matches;
 	}
 
 	public function parseBodySpecial() {
