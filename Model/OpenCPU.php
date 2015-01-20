@@ -58,6 +58,7 @@ class OpenCPU {
 		$this->curl_info = array();
 	}
 
+	// receives the output from RunUnit->getUserDataInRun
 	public function addUserData($data) {
 		// loop through the given datasets and import them to R via JSON
 		// could I check here whether the dataset contains only null and not even send it to R? but that would break for e.g. is.na(email). hm.
