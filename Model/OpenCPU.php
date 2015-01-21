@@ -34,7 +34,8 @@ class OpenCPU {
 	private $curl_opts = array(
 		CURLINFO_HEADER_OUT => true,
 		CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-		CURLOPT_HEADER => true
+		CURLOPT_HEADER => true,
+		CURLOPT_ENCODING => ""
 	);
 
 	public function __construct($instance, $fdb = null) {
