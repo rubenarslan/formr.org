@@ -1794,8 +1794,7 @@ class Item_file extends Item {
 						$reply = __($this->embed_html, $public_path);
 					}
 				}
-			}
-			else {
+			} else {
 				$this->error = __("This file is too big the maximum is %d megabytes.", round($this->max_size / 1048576, 2));
 				$reply = null;
 			}

@@ -291,7 +291,7 @@ class RunUnit {
 		endforeach;
 
 		if(!empty($needed['variables'])):
-			if(in_array('formr_last_action_date',$needed['variables']) OR in_array('formr_last_action_time',$needed['variables'])):
+			if(in_array('formr_last_action_date', $needed['variables']) OR in_array('formr_last_action_time', $needed['variables'])):
 				$last_action = $this->dbh->execute(
 					"SELECT `created` FROM `survey_unit_sessions` WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
 					array('session_id' => $this->session_id, 'unit_id' => $this->id),
@@ -301,7 +301,7 @@ class RunUnit {
 				if(in_array('formr_last_action_date', $needed['variables'])):
 					$this->survey_results['.formr$last_action_date'] = "as.Date('".date("Y-m-d", $last_action_time)."')";
 				endif;
-				if(in_array('formr_last_action_time',$needed['variables']) ):
+				if(in_array('formr_last_action_time', $needed['variables']) ):
 					$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T", $last_action_time)."')";
 				endif;
 			endif;
@@ -331,7 +331,7 @@ class RunUnit {
 		return false;
 	}
 
-	public function dataNeeded($fdb, $q, $token_add = NULL) {
+	public function  dataNeeded($fdb, $q, $token_add = NULL) {
 		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
 		$results = $fdb->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
 				->from('survey_studies')

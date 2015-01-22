@@ -297,7 +297,6 @@ class Survey extends RunUnit {
 		->statement();
 
 		$choice_lists = $this->getAndRenderChoices();
-
 		$this->item_factory = new ItemFactory($choice_lists);
 
 		while ($item_array = $get_items->fetch(PDO::FETCH_ASSOC)) {
