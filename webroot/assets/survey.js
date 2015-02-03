@@ -311,7 +311,6 @@ function getProgress()
 
 		var elm_non_hidden = $(document.getElementsByName(name).length ? document.getElementsByName(name) : $(document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])") );
 		
-		console.log($(elm_non_hidden).parents(".form-group").data('ever-changed'));
 		if(typeof $(elm_non_hidden).parents(".form-group").data('ever-changed') == "undefined")
 		{
 			$(elm_non_hidden).parents(".form-group").data('ever-changed', false);

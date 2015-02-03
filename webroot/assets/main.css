@@ -1129,7 +1129,16 @@ form.form-horizontal div.form-group.mc-width200 div.controls button.btn {
 }
 
 /* rating_button_label_width */
-
+form.form-horizontal div.item-rating_button div.controls label.keep-label {
+    vertical-align: middle;
+    text-align: right;
+}
+form.form-horizontal div.item-rating_button div.controls .btn-group + label.keep-label {
+    text-align: left;
+}
+form.form-horizontal div.form-row.form-group.item-rating_button .btn-group {
+     vertical-align: middle;
+}
 form.form-horizontal div.form-row.form-group.rating_button_label_width50 div.controls label.keep-label
 {
 	width:50px;
@@ -1418,6 +1427,7 @@ form.form-horizontal div.form-row.form-group.hidden {
     }
     
     /* special logic for rating_button  */
+    form.form-horizontal div.form-group.item-rating_button div.controls .controls-inner label.keep-label,
     form.form-horizontal div.form-group.item-rating_button div.controls .controls-inner {
         text-align:center;
     }
