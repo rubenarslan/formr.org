@@ -6,7 +6,7 @@ Template::load('acp_nav');
 	<div class="col-md-12">
 		<div class="row">
 			<div class="col-md-8">
-				<h2>Results <small>
+				<h2 class="drop_shadow">Results <small>
 						<?=(int)$resultCount['finished']?> complete,
 						<?=(int)$resultCount['begun']?> begun
 				</small></h2>

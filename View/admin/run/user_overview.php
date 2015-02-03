@@ -6,7 +6,7 @@ Template::load('acp_nav');
 
 <div class="row">
 	<div class="col-md-12">
-		<h1>user overview <small><?=$pagination->maximum?> users</small></h1>
+		<h1 class="drop_shadow">user overview <small><?=$pagination->maximum?> users</small></h1>
 		<p class="lead">Here you can see users' progress (on which station they currently are).
 			If you're not happy with their progress, you can send manual reminders, <a href="<?=WEBROOT.'admin/run/'.$run->name.'/edit_reminder'?>">customisable here</a>. <br>You can also shove them to a different position in a run if they veer off-track. </p>
 			<p>Participants who have been stuck at the same survey, external link or email for 2 days or more are highlighted in yellow at the top. Being stuck at an email module usually means that the user somehow ended up there without a valid email address, so that the email cannot be sent. Being stuck at a survey or external link usually means that the user interrupted the survey/external part before completion, you probably want to remind them manually (if you have the means to do so).</p>

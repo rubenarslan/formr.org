@@ -5,7 +5,7 @@ Template::load('acp_nav');
 ?>
 <div class="row">
 	<div class="col-md-12">
-		<h2>Item table <small>currently active</small></h2>
+		<h2 class="drop_shadow">Item table <small>currently active</small></h2>
 
 
 <?php

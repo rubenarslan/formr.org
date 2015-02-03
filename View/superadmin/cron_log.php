@@ -2,7 +2,7 @@
     Template::load('header');
     Template::load('acp_nav');
 ?>	
-<h2>cron log</h2>
+<h2 class="drop_shadow">cron log</h2>
 <p>
 	The cron job runs every x minutes, to evaluate whether somebody needs to be sent a mail. This usually happens if a pause is over. It will then skip forward or backward, send emails and shuffle participants, but will stop at surveys and pages, because those should be viewed by the user.
 </p>

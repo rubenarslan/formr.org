@@ -3,7 +3,7 @@ Template::load('header');
 Template::load('acp_nav');
 ?>
 <div class="row">
-	<div class="col-lg-4 col-md-5 col-sm-6 col-lg-offset-1 well">
+	<div class="col-lg-5 col-md-6 col-sm-6 well">
 
 	<h2><i class="fa fa-unlock"></i> Rename run</h2>
 	<ul class="fa-ul fa-ul-more-padding">

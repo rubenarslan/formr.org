@@ -1,3 +1,4 @@
+<div class="row">
 <nav class="main_public_nav navbar navbar-default navbar-formr" role="navigation">
     <!-- Brand and toggle get grouped for better mobile display -->
      <div class="navbar-header">
@@ -48,6 +49,7 @@
 	   <?php endif;	?>
 	</div>
 </nav>
+</div>
 <div class="row">
 
 <div class="col-md-12 main_body container">
