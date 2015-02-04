@@ -607,6 +607,9 @@ class SpreadsheetReader
 					if(!array_key_exists($column_number, $columns)) continue; // skip columns that aren't allowed
 				
 					$col = $columns[$column_number];
+					if(isset($data[$row_number][$col])):
+						continue; // dont overwrite e.g. order column
+					endif;
 					$val = hardTrueFalse($cell->getValue());
 
 					if($col == 'name'):
