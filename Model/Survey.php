@@ -296,19 +296,6 @@ class Survey extends RunUnit {
 		->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 		->statement();
 		
-					FROM 
-			`survey_items` LEFT JOIN `survey_items_display`
-		ON `survey_items_display`.session_id = :session_id
-		AND `survey_items`.id = `survey_items_display`.item_id
-		WHERE 
-		`survey_items`.study_id = :study_id AND
-		(`survey_items_display`.answered IS NULL OR `survey_items`.type = 'note')
-		ORDER BY `survey_items`.`order` ASC, `survey_items`.id ASC;";
-		$get_items = $this->dbh->prepare($item_query);
-		$get_items->bindParam(":session_id", $this->session_id);
-		$get_items->bindParam(":study_id", $this->id);
-		$get_items->execute();
-
 		$choice_lists = $this->getAndRenderChoices();
 
 		$this->item_factory = new ItemFactory($choice_lists);
@@ -828,7 +815,7 @@ class Survey extends RunUnit {
 		} catch (Exception $e) {
 			$this->dbh->rollBack();
 			$this->errors[] = "An Error occured and all changes were rolled back";
-			log_exception($e, __CLASS__, $this->errors);
+			log_exception($e, __CLASS__);
 			return false;
 		}
 	}
@@ -1097,8 +1084,7 @@ class Survey extends RunUnit {
 	}
 
 	public function getAverageTimeItTakes() {
-		
-		$get_query = "SELECT AVG(middle_values) AS 'median' FROM (
+		$get = "SELECT AVG(middle_values) AS 'median' FROM (
 		  SELECT took AS 'middle_values' FROM
 			(
 			  SELECT @row:=@row+1 as `row`, (x.ended - x.created) AS took
@@ -1115,14 +1101,10 @@ class Survey extends RunUnit {
 			) AS t2
 			-- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
 			WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
-		try {
-			$get = $this->dbh->query($get_query);
+
+		$get = $this->dbh->query($get, true);
 			$time = $get->fetch(PDO::FETCH_NUM);
 			$time = round($time[0] / 60, 3); # seconds to minutes
-		} catch (Exception $e) {
-			log_exception($e, __CLASS__, $get_query);
-			$time = 0;
-		}
 
 		return $time;
 	}
