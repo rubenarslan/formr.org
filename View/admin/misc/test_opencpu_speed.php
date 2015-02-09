@@ -19,10 +19,10 @@ for($i = 0; $i < $max; $i++):
 		knit2html(text = "' . addslashes("__Hello__ World `r 1`
 		```{r}
 		library(ggplot2)  
-		#qplot(rnorm(100))
-		#qplot(rnorm(1000), rnorm(1000))
-		#library(formr)
-		#'blabla' %contains% 'bla'
+		qplot(rnorm(100))
+		qplot(rnorm(1000), rnorm(1000))
+		library(formr)
+		'blabla' %contains% 'bla'
 		```
 		") . '",
 		fragment.only = T, options=c("base64_images","smartypants")
@@ -58,21 +58,19 @@ for($i = 0; $i < $max; $i++):
 endfor;
 
 $datasets = array('times' => $times);
-
-$source = '```{r}
-	library(ggplot2)
-	library(stringr)
-	library(reshape2)
-	just_times = times[,str_detect(names(times), "time")]
-	times_m = melt(just_times)
-	qplot(value, data = times_m) + facet_wrap(~ variable)
-	just_speed = times[,str_detect(names(times), "speed")]
-	speed_m = melt(just_speed)
-	qplot(value, data = speed_m) + facet_wrap(~ variable)
-	just_size = times[,str_detect(names(times),"_size")]
-	size_m = melt(just_size)
-	qplot(value, data = size_m) + facet_wrap(~ variable)
-	summary(times)
+$source = '
+# plot times
+```{r}
+library(ggplot2)
+library(stringr)
+library(reshape2)
+just_times = times[,str_detect(names(times), "time")]
+times_m = melt(just_times)
+# qplot(value, data = times_m) + facet_wrap(~ variable)
+# just_size = times[,str_detect(names(times),"_size")]
+# size_m = melt(just_size)
+# qplot(value, data = size_m) + facet_wrap(~ variable)
+summary(times)
 ```';
 unset($times['certinfo']);
 
@@ -85,7 +83,6 @@ if($openCPU->http_status > 302 OR $openCPU->http_status === 0) {
 }
 alert('1. HTTP status: ' . $openCPU->http_status, $alert_type);
 
-echo '<h4>test knitr with plot</h4>';
 echo $accordion;
 
 $alerts = $site->renderAlerts();

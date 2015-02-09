@@ -21,6 +21,7 @@
 		  <li><a href="#sample_choices_sheet" data-toggle="tab">Choices spreadsheet</a></li>
 		  <li><a href="#available_items" data-toggle="tab">Item types</a></li>
 		  <li class="active"><a href="#features" data-toggle="tab">Features</a></li>
+		  <li><a href="#help" data-toggle="tab">Help</a></li>
 		</ul>
 	
 		<div class="tab-content">
@@ -52,7 +53,7 @@
 						does diary studies with automated reminders
 					</li>
 					<li>
-						generates pretty feedback "live", including ggplot2 &amp; lattice plots
+						generates pretty feedback live, including ggplot2, lattice and rCharts plots
 					</li>
 					<li>
 						looks nice on your phone
@@ -67,7 +68,10 @@
 						longitudinal studies
 					</li>
 					<li>
-						easily share, swap and combine surveys (they're simply spreadsheets with survey questions)
+						easily share, swap and combine surveys (they're simply spreadsheets with survey questions) and runs (so that you can share designs, e.g. "daily diary study" and higher-level components like filters and feedback)
+					</li>
+					<li>
+						send text messages (this will get simpler soon, you can <a href="https://github.com/rubenarslan/formr.org/blob/develop/documentation/sample_implementations_of_text_message_APIs.md">already do this using R</a>)
 					</li>
 					<li>
 						works on all somewhat modern devices and degrades gracefully where it doesn't
@@ -76,16 +80,16 @@
 						formats text using Github-flavoured Markdown (a.k.a. the easiest and least bothersome way to mark up text)
 					</li>
 					<li>
-						a nice editor, <a href="https://github.com/ajaxorg/ace">Ace</a>, for editing Markdown &amp; R in runs.
-					</li>
-					<li>
 						file, image, video, sound uploads for users (as survey items) and admins (to supply study materials)
 					</li>
 					<li>
 						complex conditional items
 					</li>
 					<li>
-						a dedicated <a href="https://github.com/rubenarslan/formr/">formr R package</a>: makes pretty feedback graphs and complex run  logic even simpler. Simplifies data munging stuff (importing, aggregating, simulating data from surveys).
+						a dedicated <a href="https://github.com/rubenarslan/formr/">formr R package</a>: makes pretty feedback graphs and complex run  logic even simpler. Simplifies data wrangling (importing, aggregating, simulating data from surveys).
+					</li>
+					<li>
+						a nice editor, <a href="https://github.com/ajaxorg/ace">Ace</a>, for editing Markdown &amp; R in runs.
 					</li>
 					
 				</ul>
@@ -94,14 +98,9 @@
 				</h4>
 				<ul class="fa-ul-more-padding">
 					<li>
-						send text messages (will only get simpler, you can already do this using R and httr)
-					</li>
-					<li>
 						work offline on mobile phones and other devices with intermittent internet access (in the meantime <a href="https://enketo.org/">enketo</a> is pretty good and free too, but geared towards humanitarian aid)
 					</li>
-					<li>
-						easily share, swap and combine runs (so that you can share designs, e.g. "daily diary study with one reminder", and add higher-level components like filters with one click)
-					</li>
+
 					<li>
 						a better API (some basics are there)
 					</li>
@@ -112,15 +111,26 @@
 						more <a href="https://github.com/rubenarslan/formr.org/issues?labels=enhancement&page=1&state=open">planned enhancements on Github</a>
 					</li>
 				</ul>
-				<h4>
-					Might be nice:
-				</h4>
+			</div>
+			<div class="tab-pane fade active" id="help">
+				<h4>Where to get help</h4>
+				<p>If you're a participant in one of the studies implemented in formr, please reach out to the person running the study.</p>
+				<p>If you're running a study yourself, there's several places to look.<p>
 				<ul class="fa-ul-more-padding">
 					<li>
-						use as app on Apple and Android devices to be able to use more OS functionality
+						this documentation is a good start, just click on any of the tabs above.
 					</li>
 					<li>
-						supporting Pushover's API (or something similar) to send push messages to a phone. You could already do this easily in an R call, so no hurry here.
+						There is a <a href="https://github.com/rubenarslan/formr.org/wiki">Wiki</a> on Github. You can find a number of HowTos there and contribute yourself.
+					</li>
+					<li>
+						You'll find answers to some <a href="https://github.com/rubenarslan/formr.org/wiki/FAQ---frequently-asked-questions">frequently asked questions</a> there too.
+					</li>
+					<li>
+						You can <a href="https://groups.google.com/forum/#!forum/formr" title="you can ask and answer other admin users' questions here">ask and answer questions on our mailing list</a>.
+					</li>
+					<li>
+						If you find a bug, <a href="https://github.com/rubenarslan/formr.org/issues">this is the place to describe it</a> (preferably in a way that allows us to reproduce it, but we're also accepting Yeti reports).
 					</li>
 				</ul>
 			</div>

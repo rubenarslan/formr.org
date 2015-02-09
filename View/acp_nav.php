@@ -1,3 +1,4 @@
+<div class="row">
 <nav class="main_admin_nav navbar navbar-default navbar-formr" role="navigation">
     <!-- Brand and toggle get grouped for better mobile display -->
 	<div class="navbar-header">
@@ -80,6 +81,7 @@
 		</ul>
 	</div>
 </nav>
+</div>
 
 <?php if (isset($study)): ?>
 	<div class="survey_header">&nbsp;</div>	
@@ -87,12 +89,12 @@
 	<?php $resultCount = $study->getResultCount(); ?>
 	<div class="row">
 		<div class="col-lg-12">
-			<h3><i class="fa fa-pencil-square"></i> <?php echo $study->name; ?> <small><?= ($resultCount['begun'] + $resultCount['finished']) ?> results</small></h3>
+			<h3 class="drop_shadow"><i class="fa fa-pencil-square"></i> <?php echo $study->name; ?> <small><?= ($resultCount['begun'] + $resultCount['finished']) ?> results</small></h3>
 		</div>
 	</div>
 
 	<div class="row">
-		<nav class="col-lg-2 col-md-2 col-sm-3">
+		<nav class="col-lg-2 col-md-2 col-sm-3 admin_sidebar">
 			<ul class="fa-ul fa-ul-more-padding menu-highlight">
 				<li>
 					<a href="<?php echo admin_study_url($study->name, 'access'); ?>"><i class="fa-li fa fa-play"></i> <?php echo _("Test study"); ?></a>
@@ -153,16 +155,16 @@
 
 			</ul>
 
-		</nav>
+	</nav>
 <?php elseif (isset($run)): ?>
 	<div class="run_header">&nbsp;</div>	
 	<div class="row">
 		<div class="col-lg-12">
-			<h1><i class="fa fa-rocket"></i> <?php echo $run->name; ?></h1>
+			<h1 class="drop_shadow"><i class="fa fa-rocket"></i> <?php echo $run->name; ?></h1>
 		</div>
 	</div>
 	<div class="row">
-		<nav class="col-lg-2 col-md-2 col-sm-3">
+		<nav class="col-lg-2 col-md-2 col-sm-3 admin_sidebar">
 			<ul class="fa-ul  fa-ul-more-padding menu-highlight">
 				<li>
 					<a href="<?php echo run_url($run->name); ?>" title="To play as a new user, test the run in a new private/incognito window (right-click in Chrome or Firefox). To play as yourself, simply click the link (remember that the run saves your position and progress)!">

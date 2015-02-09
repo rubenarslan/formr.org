@@ -34,7 +34,8 @@ class OpenCPU {
 	private $curl_opts = array(
 		CURLINFO_HEADER_OUT => true,
 		CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-		CURLOPT_HEADER => true
+		CURLOPT_HEADER => true,
+		CURLOPT_ENCODING => ""
 	);
 
 	public function __construct($instance, $fdb = null) {
@@ -58,6 +59,7 @@ class OpenCPU {
 		$this->curl_info = array();
 	}
 
+	// receives the output from RunUnit->getUserDataInRun
 	public function addUserData($data) {
 		// loop through the given datasets and import them to R via JSON
 		// could I check here whether the dataset contains only null and not even send it to R? but that would break for e.g. is.na(email). hm.

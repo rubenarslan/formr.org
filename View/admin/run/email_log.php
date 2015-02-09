@@ -3,7 +3,7 @@ Template::load('header');
 Template::load('acp_nav');
 ?>
 
-<h2>email log <small>sent during runs</small></h2>
+<h2 class="drop_shadow">email log <small>sent during runs</small></h2>
 
 <?php if(!empty($emails)) { ?>
 	<table class='table table-striped'>

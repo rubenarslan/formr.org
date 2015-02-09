@@ -22,9 +22,6 @@
 				<div class="well tab-pane fade in active" id="options">
 					<ul class="fa-ul lead">
 						<li>
-							<i class="fa fa-li fa-pencil"></i> You can <a href="<?=WEBROOT?>public/register">register</a> for free to let us know you're interested.
-						</li>
-						<li>
 							<i class="fa fa-li fa-pencil-square"></i> You can <a href="<?=WEBROOT?>public/studies">take some of the published studies for a test run</a>.
 						</li>
 						<li>
@@ -35,13 +32,14 @@
 							<i class="fa fa-li fa-rocket"></i> If you want to use formr to run your own studies,
 							<ul class="fa-ul">
 								<li><i class="fa fa-li fa-envelope"></i> 
-									you can <a title="Just send us an email. You'll get a test account, if you're human or feline or cetacean." class="schmail" href="mailto:IMNOTSENDINGSPAMTOruben.arslan@that-big-googly-eyed-email-provider.com?subject=<?=rawurlencode("formr private beta");?>&amp;body=<?=rawurlencode("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above.
+									you can <a href="<?=WEBROOT?>public/register">register</a> and then
+					<a title="Just send us an email. We're excited to have people try this out, so you'll get a test account, if you're human or at least cetacean." class="schmail" href="mailto:IMNOTSENDINGSPAMTOruben.arslan@that-big-googly-eyed-email-provider.com?subject=<?=rawurlencode("formr private beta");?>&amp;body=<?=rawurlencode("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above.
 
 Hi!
 I'd like an admin account on formr. 
 I already have registered with the email address from which I'm sending this request. 
 I'm affiliated with institution xxxx.
-");?>">request an admin account</a> or 
+");?>">request an admin account</a> or
 								</li>
 								<li><i class="fa fa-li fa-github-alt"></i> 
 									you can <a href="https://github.com/rubenarslan/formr" title="If you don't know what a Github repository is yet, this is probably not the option for you, but for your local techie type. ">check out the Github repo</a>. It's open source and free-to-use.
