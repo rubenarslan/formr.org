@@ -316,7 +316,7 @@ class Email extends RunUnit {
 		$results = $this->dbh->select('id, session, position')
 				->from('survey_run_sessions')
 				->where(array('run_id' => $this->run_id))
-				->order('postion', 'desc')->order('RAND')
+				->order('position', 'desc')->order('RAND')
 				->limit(20)
 				->fetchAll();
 
