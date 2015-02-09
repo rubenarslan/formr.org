@@ -89,6 +89,10 @@ class OpenCPU {
 	public function responseHeaders() {
 		return $this->curl_info;
 	}
+	
+	public function getLocation() {
+		return $this->session_location;
+	}
 
 	private function handleErrors($message, $result, $post, $in, $level = "alert-danger") {
 		if ($this->admin_usage):
@@ -141,6 +145,12 @@ class OpenCPU {
 		endif;
 	}
 
+	public function get($url) {
+		return CURL::HttpRequest($url, array(), CURL::HTTP_METHOD_GET, $this->curl_opts, $this->curl_info);
+	}
+	public function getOld($url) {
+		$this->get($url . 'R/.val/json');
+	}
 	public function r_function($function, array $post) {
 
 		used_opencpu();
@@ -247,11 +257,11 @@ class OpenCPU {
 
 	public function evaluate($source, $return = '/json') {
 		$post = array('x' => '{ 
-			(function() {
-				library(formr)
-				' . $this->user_data . '
-				' . $source . '
-			})() }');
+(function() {
+	library(formr)
+	' . $this->user_data . '
+	' . $source . '
+})() }');
 
 		$result = $this->identity($post, $return);
 
@@ -260,13 +270,13 @@ class OpenCPU {
 
 	public function evaluateWith($name, $source, $return = '/json') {
 		$post = array('x' => '{ 
-			(function() {
-				library(formr)
-				' . $this->user_data . '
-				with(tail(' . $name . ',1), { ## by default evaluated in the most recent results row
-				' . $source . '
-				})
-			})() }');
+(function() {
+	library(formr)
+	' . $this->user_data . '
+	with(tail(' . $name . ',1), { ## by default evaluated in the most recent results row
+	' . $source . '
+	})
+})() }');
 
 		$result = $this->identity($post, $return);
 
@@ -275,12 +285,12 @@ class OpenCPU {
 
 	public function evaluateAdmin($source, $return = '') {
 		$this->admin_usage = true;
-		$post = array('x' => '{ 
-			(function() {
-			library(formr)
-			' . $this->user_data . '
-			' . $source . '
-		})() }');
+		$post = array('x' => '{
+(function() {
+library(formr)
+' . $this->user_data . '
+' . $source . '
+})() }');
 
 		$result = $this->identity($post, $return);
 
@@ -300,14 +310,13 @@ class OpenCPU {
 	}
 
 	public function knitForUserDisplay($source = '') {
-		$source = '
-			```{r settings,message=FALSE,warning=F,echo=F}
-			library(knitr); library(formr)
-			opts_chunk$set(warning=F,message=F,echo=F)
-			' . $this->user_data . '
-			```
-			'.
-			$source;
+		$source = '```{r settings,message=FALSE,warning=F,echo=F}
+library(knitr); library(formr)
+opts_chunk$set(warning=F,message=F,echo=F)
+' . $this->user_data . '
+```
+'.
+$source;
 
 		$result = $this->knit2html($source, '/json');
 
@@ -316,15 +325,14 @@ class OpenCPU {
 
 	//FIXME: something wrong! probably because I did not turn off base64_images!
 	public function knitEmail($source) {
-		$source = '
-			```{r settings,message=FALSE,warning=F,echo=F}
-			library(knitr); library(formr)
-			opts_chunk$set(warning=F,message=F,echo=F)
-			opts_knit$set(upload.fun=formr::email_image)
-			' . $this->user_data . '
-			```
-			'.
-			$source;
+		$source = '```{r settings,message=FALSE,warning=F,echo=F}
+library(knitr); library(formr)
+opts_chunk$set(warning=F,message=F,echo=F)
+opts_knit$set(upload.fun=formr::email_image)
+' . $this->user_data . '
+```
+'.
+$source;
 
 		$result = $this->knit2html($source, '', 0);
 
@@ -363,7 +371,7 @@ class OpenCPU {
 				$response['body'] = $this->returnParsed( array(
 					"post" => $result['post'],
 					"header" => $result['header'],
-					"body" => file_get_contents($this->instance . $session . 'R/.val/json'),
+					"body" => $this->get($this->instance . $session . 'R/.val/json'),
 				));
 			endif;
 		endif;
@@ -374,15 +382,14 @@ class OpenCPU {
 	public function knitEmailForAdminDebug($source) {
 		$this->admin_usage = true;
 
-		$source = '
-			```{r settings,message=FALSE,warning=F,echo=F}
-			library(knitr); library(formr)
-			opts_chunk$set(warning=F,message=F,echo=F)
-			#opts_knit$set(upload.fun=formr::email_image)
-			' . $this->user_data . '
-			```
-			'.
-			$source;
+		$source = '```{r settings,message=FALSE,warning=F,echo=F}
+library(knitr); library(formr)
+opts_chunk$set(warning=F,message=F,echo=F)
+#opts_knit$set(upload.fun=formr::email_image)
+' . $this->user_data . '
+```
+'.
+$source;
 
 		$this->knitr_source = $source;
 		$result = $this->knit2html($source, '', 0);
@@ -392,14 +399,13 @@ class OpenCPU {
 	public function knitForAdminDebug($source) {
 		$this->admin_usage = true;
 
-		$source = '
-			```{r settings,message=FALSE,warning=F,echo=F}
-			library(knitr); library(formr)
-			opts_chunk$set(warning=T,message=T,echo=T)
-			' . $this->user_data . '
-			```
-			'.
-			$source;
+		$source = '```{r settings,message=FALSE,warning=F,echo=F}
+library(knitr); library(formr)
+opts_chunk$set(warning=T,message=T,echo=T)
+' . $this->user_data . '
+```
+'.
+$source;
 
 		$this->knitr_source = $source;
 		$result = $this->knit2html($source, '');
@@ -428,7 +434,7 @@ class OpenCPU {
 				// info/text stdout/text console/text R/.val/text
 
 				if (in_array($session . 'R/.val', $available)):
-					$response['Result'] = file_get_contents($this->instance . $session . 'R/.val/text');
+					$response['Result'] = $this->get($this->instance . $session . 'R/.val/text');
 				endif;
 
 				$locations = '';
@@ -452,14 +458,14 @@ class OpenCPU {
 				$response['Headers sent'] = '<pre>' . htmlspecialchars($this->curl_info['request_header']) . '</pre>';
 
 				if (in_array($session . 'info', $available)):
-					$response['Session info'] = '<pre>' . htmlspecialchars(file_get_contents($this->instance . $session . 'info/print')) . '</pre>';
+					$response['Session info'] = '<pre>' . htmlspecialchars($this->get($this->instance . $session . 'info/print')) . '</pre>';
 				endif;
 
 				if (in_array($session . 'console', $available)):
-					$response['Console'] = '<pre>' . htmlspecialchars(file_get_contents($this->instance . $session . 'console/print')) . '</pre>';
+					$response['Console'] = '<pre>' . htmlspecialchars($this->get($this->instance . $session . 'console/print')) . '</pre>';
 				endif;
 				if (in_array($session . 'stdout', $available)):
-					$response['Stdout'] = '<pre>' . htmlspecialchars(file_get_contents($this->instance . $session . 'stdout/print')) . '</pre>';
+					$response['Stdout'] = '<pre>' . htmlspecialchars($this->get($this->instance . $session . 'stdout/print')) . '</pre>';
 				endif;
 
 			else:
