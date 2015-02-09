@@ -65,8 +65,8 @@ class OpenCPU {
 		// could I check here whether the dataset contains only null and not even send it to R? but that would break for e.g. is.na(email). hm.
 		if (isset($data['datasets'])) {
 			foreach ($data['datasets'] as $df_name => $content) {
-				$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("' . addslashes(json_encode($content, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)) . '"), stringsAsFactors=F)'
-				. '';
+				$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("' . addslashes(json_encode($content, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)) . '"), stringsAsFactors=F)'. '
+';
 			}
 			unset($data['datasets']);
 		}
@@ -94,27 +94,29 @@ class OpenCPU {
 		return $this->session_location;
 	}
 
-	private function handleErrors($message, $result, $post, $in, $level = "alert-danger") {
-		if ($this->admin_usage):
-			$error_msg = $result['body'];
+	private function handleErrors($message, $result, $post, $in, $level = "alert-danger", $loud = true) {
+		$error_msg = $result;
 
-			if (!trim($error_msg)) {
-				$error_msg = "OpenCPU appears to be down.";
-				if (mb_substr($this->instance, 0, 5) == 'https') {
-					$error_msg .= " Maybe check your server's certificates to use encrypted connection to openCPU.";
-				}
+		if (!trim($error_msg)) {
+			$error_msg = "OpenCPU appears to be down.";
+			if (mb_substr($this->instance, 0, 5) == 'https') {
+				$error_msg .= " Maybe check your server's certificates to use encrypted connection to openCPU.";
 			}
+		}
 
-			if (is_array($error_msg)) {
-				$error_msg = current($error_msg);
-			}
+		if (is_array($error_msg) AND count($error_msg) == 1) {
+			$error_msg = current($error_msg);
+		} elseif (is_array($error_msg)) {
+			$error_msg = print_r($error_msg, true);
+		}
 
-			if (is_array($post)) {
-				$post = current($post);
-			}
+		if (is_array($post)) {
+			$post = current($post);
+		}
 
+		if($loud) {
 			alert($message . " <blockquote>" . h($error_msg) . "</blockquote><pre style='background-color:transparent;border:0'>" . h($post) . "</pre>", $level, true);
-		endif;
+		}
 
 		opencpu_log("R error in $in: " . print_r($post, true) . " " . print_r($result, true) . "\n");
 	}
@@ -130,12 +132,13 @@ class OpenCPU {
 		$post = $result['post'];
 		return $this->handleJSON($result['body'], $post, $in);
 	}
+	
 	private function handleJSON($body, $result = array(), $post = '', $in = '', $loud = true) {
 		$parsed = json_decode($body, true);
 
 		if ($parsed === null):
-			if($this->admin_usage AND $loud):
-				$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post, $in);
+			if($this->admin_usage):
+				$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post, $in, $loud);
 			endif;
 			return null;
 		else:
@@ -150,7 +153,7 @@ class OpenCPU {
 		endif;
 	}
 
-	public function get($url, $in) {
+	public function get($url, $in = 'get') {
 		$json = CURL::HttpRequest($url, array(), CURL::HTTP_METHOD_GET, $this->curl_opts, $this->curl_info);
 		return $this->handleJSON($json, array("body" => $json), '', $in, false);
 	}
@@ -180,8 +183,9 @@ class OpenCPU {
 		$this->http_status = $this->curl_info['http_code'];
 		$this->header_size = $this->curl_info['header_size'];
 
-		if ($this->anyErrors() && !$this->admin_usage) {
+		if ($this->anyErrors() AND !$this->admin_usage) {
 			alert(date('Y-m-d H:i:s') . ' There were problems with openCPU. Please try again later.', 'alert-danger');
+			opencpu_log("R error in ".$this->called_function.": " . print_r($post, true) . " " . print_r($result, true) . "\n");
 		}
 
 		$header = $this->curl_info['raw_header'];
