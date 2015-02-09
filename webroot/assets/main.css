@@ -1280,6 +1280,46 @@ form.form-horizontal div.form-row.form-group.hidden {
     width:18px;
     margin-left:9px;
 }
+.no-padding {
+	padding: 0px;
+}
+.clear-top {
+	margin-top: 0px;
+}
+.white {
+	color: #fff !important;
+}
+#admin-survey-items {}
+#admin-survey-items .table-content {
+	width: 99%;
+	margin-top: 2px;
+}
+#admin-survey-items .table-content .modal-body {
+	padding: 1px;
+	overflow: hidden;
+}
+#admin-survey-items .table-content td {
+	overflow: hidden;
+	max-width: 100%
+}
+
+#admin-survey-items .table-content .td-contents {
+	max-height: 100px;
+	overflow: hidden;
+	max-width: 100%;
+	text-overflow: ellipsis;
+	overflow-y: auto;
+}
+
+#admin-survey-items .table-content .field-name {
+	width: 200px;
+}
+#admin-survey-items .table-content .field-choices {
+	width: 300px;
+}
+#admin-survey-items .table-content .field-label_parsed{
+	width: 450px;
+}
 
 /*responsive layouts for mobile */
 @media (max-width: 768px) { 

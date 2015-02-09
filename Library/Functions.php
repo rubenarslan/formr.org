@@ -735,3 +735,14 @@ function array_to_accordion($array) {
 	return $acc;
 }
 
+function array_to_orderedlist($array, $olclass = null, $liclass = null) {
+	$ol = '<ol class="' . $olclass . '">';
+	foreach ($array as $title => $label) {
+		if ($label) {
+			$ol .= '<li title="' . $title . '" class="' . $liclass . '">' . $label . '</li>';
+		}
+	}
+	$ol .= '</ol>';
+	return $ol;
+}
+
