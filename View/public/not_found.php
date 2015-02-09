@@ -1,5 +1,7 @@
 <?php Template::load('header'); ?>
 
+<div>
+<div>
 <div class="broken_tape">
 	<h1><span><?php $alerts = $site->renderAlerts();
 		if($alerts) echo $alerts;
