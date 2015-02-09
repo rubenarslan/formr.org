@@ -347,20 +347,23 @@ class SpreadsheetReader {
 			return;
 		}
 
-		if($objPHPExcel->sheetNameExists('survey'))
-			$survey_sheet = $objPHPExcel->getSheetByName('survey');
-		else
-			$survey_sheet = $objPHPExcel->getSheet(0);
+		if ($objPHPExcel->sheetNameExists('survey')) {
 
-		if($objPHPExcel->sheetNameExists('choices') AND $objPHPExcel->getSheetCount() > 1)
+			$survey_sheet = $objPHPExcel->getSheetByName('survey');
+		} else {
+			$survey_sheet = $objPHPExcel->getSheet(0);
+		}
+
+		if ($objPHPExcel->sheetNameExists('choices') AND $objPHPExcel->getSheetCount() > 1) {
 			$choices_sheet = $objPHPExcel->getSheetByName('choices');
-		elseif($objPHPExcel->getSheetCount() > 1)
+		} elseif ($objPHPExcel->getSheetCount() > 1) {
 			$choices_sheet = $objPHPExcel->getSheet(1);
-		
-		if(isset($choices_sheet)):
+		}
+
+		if (isset($choices_sheet)) {
 			$this->readChoicesSheet($choices_sheet);
-		endif;
-		
+		}
+
 		$this->readSurveySheet($survey_sheet);
 	}
 

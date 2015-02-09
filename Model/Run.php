@@ -552,8 +552,8 @@ class Run {
 				`survey_units`.modified")
 			->from('survey_runs')
 			->leftJoin('survey_units', "survey_units.id = `survey_runs`.`$special`")
-			->where('`survey_runs.id` = :run_id')
-			->where("`survey_runs.`$special` = :unit_id")
+			->where('survey_runs.id = :run_id')
+			->where("`survey_runs`.`$special` = :unit_id")
 			->bindParams(array('run_id' => $this->id, 'unit_id' => $id))
 			->limit(1)->fetch();
 			$unit["special"] = $special;

@@ -4,10 +4,11 @@
 ?>
 
 <div class="row">
-	<div class="col-lg-7">
-		<h2 class="drop_shadow"><?=_('Survey settings'); ?></h2>
+	<div class="col-lg-12">
+		<div class="transparent_well col-md-12" style="padding-bottom: 20px;">
+		<h2 class="drop_shadow clear-top"><?=_('Survey settings'); ?></h2>
 	
-		<form method="POST" action="<?=WEBROOT?>admin/survey/<?=$study->name?>">
+		<form method="POST" action="<?php echo admin_study_url($study->name); ?>">
 			<table class="table table-striped editstudies">
 				<thead>
 					<tr>
@@ -31,6 +32,7 @@
 				<input type="submit" value="Save settings" class="btn">
 			</div>
 		</form>
+		</div>
 	</div>
 </div>
 <?php Template::load('footer');
