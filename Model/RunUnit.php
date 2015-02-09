@@ -80,6 +80,11 @@ class RunUnit {
 
 		if (isset($this->unit['unit_id'])) {
 			$this->id = $this->unit['unit_id'];
+			$vars = $this->dbh->findRow('survey_units', array('id' => $this->id), 'created, modified, type');
+			if ($vars):
+				$this->modified = $vars['modified'];
+				$this->created = $vars['created'];
+			endif;
 		}
 
 		if (isset($this->unit['position'])) {
@@ -515,17 +520,28 @@ class RunUnit {
 				return $this->body_parsed;
 			endif;
 		} else {
+			
+			$old_opencpu_url = false;
 			if (!$email_embed) {
-				$body_knit = $this->dbh->findValue('survey_reports', array('unit_id' => $this->id, 'session_id' => $this->session_id), array('body_knit'));
-				if ($body_knit) {
-					return $body_knit;
-				}
+				$old_opencpu_url = $this->dbh->findValue('survey_reports', array(
+					'unit_id' => $this->id, 
+					'session_id' => $this->session_id,
+					'created >=' => $this->modified // if the definition of the unit changed, don't use old reports
+				),
+				array('opencpu_url'));
 			}
 
 			$openCPU = $this->makeOpenCPU();
 			if ($this->beingTestedByOwner()) {
 				$openCPU->admin_usage = true;
 			}
+			
+			if($old_opencpu_url):
+				$report = $openCPU->getOld($old_opencpu_url);
+				if($report):
+					return $report; // if it has expired, so be it.
+				endif;
+			endif;
 
 			$openCPU->addUserData($this->getUserDataInRun($this->dataNeeded($this->dbh, $source)));
 
@@ -533,24 +549,26 @@ class RunUnit {
 				return $openCPU->knitEmail($source); # currently not caching email reports
 			else:
 				$report = $openCPU->knitForUserDisplay($source);
+				$opencpu_url = $openCPU->getLocation();
 			endif;
 
 			if ($openCPU->anyErrors()) {
 				return false;
 			}
 
-			if ($report):
+			if(isset($opencpu_url)):
 				try {
-					$this->dbh->insert('survey_reports', array(
-						'session_id' => $this->session_id, 
-						'unit_id' => $this->id, 
-						'body_knit' => $report,
-						'created' => mysql_now(),
-						'last_viewed' => mysql_now(),
-					));
+					$set_report = $this->dbh->prepare("INSERT INTO `survey_reports` 
+						(`session_id`, `unit_id`, `opencpu_url`, `created`,	`last_viewed`) 
+				VALUES  (:session_id, :unit_id, :opencpu_url,  NOW(), 	NOW() ) 
+				ON DUPLICATE KEY UPDATE opencpu_url = VALUES(opencpu_url), created = VALUES(created)");
+					$set_report->bindParam(":unit_id", $this->id);
+					$set_report->bindParam(":opencpu_url", $opencpu_url);
+					$set_report->bindParam(":session_id", $this->session_id);
+					$set_report->execute();
 				} catch (Exception $e) {
+					pr($e);
 					log_exception($e, __CLASS__);
-					trigger_error("Couldn't save Knitr report, probably too large: " . human_filesize(strlen($report)), E_USER_WARNING);
 				}
 				return $report;
 			endif;

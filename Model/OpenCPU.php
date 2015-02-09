@@ -128,10 +128,15 @@ class OpenCPU {
 		endif;
 
 		$post = $result['post'];
-		$parsed = json_decode($result['body'], true);
+		return $this->handleJSON($result['body'], $post, $in);
+	}
+	private function handleJSON($body, $result = array(), $post = '', $in = '', $loud = true) {
+		$parsed = json_decode($body, true);
 
 		if ($parsed === null):
-			$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post, $in);
+			if($this->admin_usage AND $loud):
+				$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post, $in);
+			endif;
 			return null;
 		else:
 			if (isset($parsed[0]) && is_string($parsed[0])) { // dont change type by accident!
@@ -145,11 +150,12 @@ class OpenCPU {
 		endif;
 	}
 
-	public function get($url) {
-		return CURL::HttpRequest($url, array(), CURL::HTTP_METHOD_GET, $this->curl_opts, $this->curl_info);
+	public function get($url, $in) {
+		$json = CURL::HttpRequest($url, array(), CURL::HTTP_METHOD_GET, $this->curl_opts, $this->curl_info);
+		return $this->handleJSON($json, array("body" => $json), '', $in, false);
 	}
 	public function getOld($url) {
-		$this->get($url . 'R/.val/json');
+		return $this->get($url . 'R/.val/json', "getOld");
 	}
 	public function r_function($function, array $post) {
 
