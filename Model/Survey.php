@@ -297,7 +297,6 @@ class Survey extends RunUnit {
 		->statement();
 		
 		$choice_lists = $this->getAndRenderChoices();
-
 		$this->item_factory = new ItemFactory($choice_lists);
 
 		while ($item_array = $get_items->fetch(PDO::FETCH_ASSOC)) {
@@ -815,7 +814,7 @@ class Survey extends RunUnit {
 		} catch (Exception $e) {
 			$this->dbh->rollBack();
 			$this->errors[] = "An Error occured and all changes were rolled back";
-			log_exception($e, __CLASS__);
+			log_exception($e, __CLASS__, $this->errors);
 			return false;
 		}
 	}

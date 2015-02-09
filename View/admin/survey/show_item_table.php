@@ -8,101 +8,68 @@ Template::load('acp_nav');
 		<h2 class="drop_shadow">Item table <small>currently active</small></h2>
 
 
-<?php
-if(count($results)>0):
-?>
-	<h4><a href="#download">Download item table</a></h4>
-<table class='table table-striped'>
-	<thead><tr>
-<?php
+		<h4>
+			<a href="#" data-toggle="modal" data-target="#download" class="btn btn-default"><i class="fa fa-download"></i> Download item table</a>
+			<a href="#" data-toggle="modal" data-target="#admin-survey-items" id="show-survey-items" class="btn btn-default"><i class="fa fa-list"></i> Show Items</a>
+		</h4>
 
-$use_columns = $empty_columns = array();
-$display_columns = array('type','name','label_parsed','optional','class','showif','choices','value','order');
-foreach(current($results) AS $field => $value):
-	
-	if(in_array($field,$display_columns) AND !empty_column($field,$results)):
-		array_push($use_columns,$field);
-	    echo "<th>{$field}</th>";
-	endif;
-		
-endforeach;
-?>
-	</tr></thead>
-<tbody>
-
-<?php
-// printing table rows
-$open = false;
-foreach($results AS $row):
-    echo "<tr>";
-
-    // $row is array... foreach( .. ) puts every element
-    // of $row to $cell variable
-	$row->type = implode(" ", array('<b>'.$row->type.'</b>', ($row->choice_list == $row->name)?'': $row->choice_list, '<i>'.$row->type_options . '</i>'));
-    foreach($use_columns AS $field):
-		$cell = $row->$field;
-		
-		if(strtolower($field) == 'choices'):
-
-			echo '<td>';
-			if($cell!=='' AND $cell!==NULL):
-				echo '<ol>';
-				$open = true;
-			endif;
-			
-			foreach($cell AS $name => $label):
-				if($label!=='' AND $label!==NULL):
-					
-			        echo "<li title='$name' class='hastooltip'>$label</li>";
-				endif;
-			endforeach;
-		
-			if($open):
-				echo '</ol>';
-				$open = false;
-			endif;
-			echo '</td>';
-		
-			continue;
-		
-		else:
-			if($field == 'label_parsed' AND $cell === null) $cell = $row->label;
-			if(($field == 'value' OR $field == 'showif') AND $cell != '') $cell = "<pre><code class='r'>$cell</code></pre>";
-	        echo "<td>$cell</td>";
-		endif;
-	endforeach;
-
-    echo "</tr>\n";
-endforeach;
-
-?>
-</tbody></table>
-		<div class="row" id="download">
-		
-			<div class="list-group col-md-7">
-				<h5>Export as</h5>
-			  <div class="list-group-item">
-			    <h4 class="list-group-item-heading"><a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_item_table?format=xls"><i class="fa fa-floppy-o fa-fw"></i> XLS</a></h4>
-			    <p class="list-group-item-text">old excel format, won't work with more than 16384 rows or 256 columns</p>
-			  </div>
-
-			  <div class="list-group-item">
-			    <h4 class="list-group-item-heading"><a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_item_table?format=xlsx"><i class="fa fa-floppy-o fa-fw"></i> XLSX</a></h4>
-			    <p class="list-group-item-text">new excel format, higher limits</p>
-			  </div>
-
-			  <div class="list-group-item">
-			    <h4 class="list-group-item-heading"><a href="<?=WEBROOT?>admin/survey/<?=$study->name?>/export_item_table?format=json"><i class="fa fa-floppy-o fa-fw"></i> JSON</a></h4>
-			    <p class="list-group-item-text">not particularly human-readable, but machines love it. This is probably the fastest way to get your data into R, just use </p>
-				<pre><code class="r hljs">data = as.data.frame(jsonlite::fromJSON("/path/to/exported_file.json"))</code></pre>
-			  </div>
+		<!-- dialog for items in items table -->
+		<div class="modal fade" id="admin-survey-items" tabindex="-1" role="dialog" aria-labelledby="ItemsTable" aria-hidden="true">
+			<div class="modal-dialog table-content">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title">Survey Items</h4>
+					</div>
+					<div class="modal-body">
+						<?php Template::load('admin/survey/show_item_table_table', array('results' => $results)); ?>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+					</div>
+				</div>
 			</div>
 		</div>
-<?php
-endif;
-?>
+
+		<!-- dialog for download formats -->
+		<div class="modal fade" id="download" tabindex="-1" role="dialog" aria-labelledby="downloadItemTable" aria-hidden="true">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title">Export as..</h4>
+					</div>
+					<div class="modal-body">
+						<div class="list-group-item">
+							<h4 class="list-group-item-heading"><a href="<?php echo admin_study_url($study->name, 'export_item_table?format=xls'); ?>"><i class="fa fa-floppy-o fa-fw"></i> XLS</a></h4>
+							<p class="list-group-item-text">old excel format, won't work with more than 16384 rows or 256 columns</p>
+						</div>
+
+						<div class="list-group-item">
+							<h4 class="list-group-item-heading"><a href="<?php echo admin_study_url($study->name, 'export_item_table?format=xlsx'); ?>"><i class="fa fa-floppy-o fa-fw"></i> XLSX</a></h4>
+							<p class="list-group-item-text">new excel format, higher limits</p>
+						</div>
+
+						<div class="list-group-item">
+							<h4 class="list-group-item-heading"><a href="<?php echo admin_study_url($study->name, 'export_item_table?format=json'); ?>"><i class="fa fa-floppy-o fa-fw"></i> JSON</a></h4>
+							<p class="list-group-item-text">not particularly human-readable, but machines love it. This is probably the fastest way to get your data into R, just use </p>
+							<pre><code class="r hljs">data = as.data.frame(jsonlite::fromJSON("/path/to/exported_file.json"))</code></pre>
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
 	</div>
 </div>
+<script type="text/javascript">
+jQuery(document).ready(function() {
+	$('#show-survey-items').trigger('click');
+});
+</script>
 
-
-<?php Template::load('footer');
+<?php
+Template::load('footer');

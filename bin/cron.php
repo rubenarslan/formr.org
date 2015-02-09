@@ -104,7 +104,6 @@ try {
 			endif;
 
 			foreach ($types as $type => $nr) {
-				cron_log(sprintf(" --- Executing Unit %s[%d] RunSession %s in Run %s", $type, $nr, $run_session->id, $run->name), true);
 				if (!isset($done[$type])) {
 					$done[$type] = 0;
 				}
@@ -146,8 +145,8 @@ try {
 			$log->execute();
 		}
 
-		echo $msg . "<br />";
-		cron_log(str_replace('<br />', '', $msg), true);
+		//echo $msg . "<br />";
+		cron_log(strip_tags($msg), true);
 		if (microtime(true) - $start_time > $max_exec_time) {
 			throw new Exception("How in the hell did we get here? Max execution time exceeded");
 		}
