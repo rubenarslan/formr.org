@@ -28,13 +28,14 @@ function cron_log($message, $cron_log = true) {
 function cron_cleanup() {
 	global $lockfile, $start_time, $max_exec_time;
 	$exec_time = microtime(true) - $start_time;
-	if ($exec_time >= $max_exec_time) {
+	if ($exec_time > $max_exec_time) {
 		$msg = "Cron exceeded or reached set maximum script execution time of $max_exec_time secs.";
 		cron_log($msg);
 	}
 
 	if (file_exists($lockfile)) {
 		unlink($lockfile);
+		cron_log("Cronfile cleanup complete");
 	}
 }
 
@@ -51,8 +52,7 @@ function cron_parse_executed_types($types) {
 if (file_exists($lockfile)) {
 	global $start_date;
 	$started = file_get_contents($lockfile);
-	cron_log("Cron overlapped. Started: $started, Overlapped: $start_date");
-	echo "Cron still running...";
+	cron_log("Cron overlapped [file_exists]. Started: $started, Overlapped: $start_date");
 	exit(0);
 }
 
