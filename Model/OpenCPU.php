@@ -132,8 +132,12 @@ class OpenCPU {
 			$this->session_token = $header_parsed['X-Ocpu-Session'];
 		endif;
 
-		$post = $result['post'];
-		return $this->handleJSON($result['body'], $post, $in);
+		if (empty($result['post']) && empty($result['body'])) {
+			formr_log("Count not find required info in '{$in}' to parse in results: CurlInfo: " . print_r($header_parsed, 1));
+			return null;
+		}
+
+		return $this->handleJSON($result['body'], $result['post'], $in);
 	}
 	
 	private function handleJSON($body, $result = array(), $post = '', $in = '') {
