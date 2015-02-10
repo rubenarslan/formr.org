@@ -340,6 +340,11 @@ class Email extends RunUnit {
 				$this->dataNeeded($this->dbh, $this->recipient_field)
 			));
 			$email = stringBool($openCPU->evaluate($this->recipient_field));
+			// OpenCPU evaluate method can return an array in some cases so this is some hack to get string
+			// @todo Fix this hack by checking openCPU::evaluate return data
+			$email = (array) $email;
+			$email = array_shift($email);
+
 			$good = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
 			echo "<tr>
 					<td style='word-wrap:break-word;max-width:150px'><small>" . $row['session'] . " ({$row['position']})</small></td>
