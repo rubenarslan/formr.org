@@ -149,9 +149,9 @@ class OpenCPU {
 			endif;
 			return null;
 		else:
-			if (isset($parsed[0]) && is_string($parsed[0])) { // dont change type by accident!
+			if (array_key_exists(0,$parsed) && is_string($parsed[0])) { // dont change type by accident!
 				$parsed = str_replace('/usr/local/lib/R/site-library/', $this->instance . '/ocpu/library/', $parsed[0]);
-			} elseif (isset($parsed[0])) {
+			} elseif (array_key_exists(0,$parsed)) {
 				$parsed = $parsed[0];
 			}
 
