@@ -1,0 +1,1 @@
+ALTER TABLE `survey_externals` MODIFY COLUMN `address` TEXT NULL;

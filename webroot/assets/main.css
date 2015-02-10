@@ -23,8 +23,9 @@ label
 }
 .navbar-formr 
 {
-    background-color:rgba(22,22,22,0.15);
+    background-color:rgba(255,255,255,0.7);
     border:0;
+    border-radius:0px;
 }
 .main_body>.row> .run_dialog
 {
@@ -110,11 +111,17 @@ label
 {
     padding-top:50px;
     margin-top:0;
-    text-shadow: 4px 4px 2px rgba(150, 150, 150, 1);
 }
-.transparent_well
+.drop_shadow
 {
-    background-color:rgba(255,255,255,0.2);
+    text-shadow: 2px 2px 2px rgba(200, 200, 200, 1);
+}
+.drop_shadow small {
+    color:black;
+}
+.admin_sidebar, .transparent_well
+{
+    background-color:rgba(255,255,255,0.4);
     border:0;
     box-shadow:none;
 }
@@ -1122,7 +1129,16 @@ form.form-horizontal div.form-group.mc-width200 div.controls button.btn {
 }
 
 /* rating_button_label_width */
-
+form.form-horizontal div.item-rating_button div.controls label.keep-label {
+    vertical-align: middle;
+    text-align: right;
+}
+form.form-horizontal div.item-rating_button div.controls .btn-group + label.keep-label {
+    text-align: left;
+}
+form.form-horizontal div.form-row.form-group.item-rating_button .btn-group {
+     vertical-align: middle;
+}
 form.form-horizontal div.form-row.form-group.rating_button_label_width50 div.controls label.keep-label
 {
 	width:50px;
@@ -1263,6 +1279,46 @@ form.form-horizontal div.form-row.form-group.hidden {
     color:gray;
     width:18px;
     margin-left:9px;
+}
+.no-padding {
+	padding: 0px;
+}
+.clear-top {
+	margin-top: 0px;
+}
+.white {
+	color: #fff !important;
+}
+#admin-survey-items {}
+#admin-survey-items .table-content {
+	width: 99%;
+	margin-top: 2px;
+}
+#admin-survey-items .table-content .modal-body {
+	padding: 1px;
+	overflow: hidden;
+}
+#admin-survey-items .table-content td {
+	overflow: hidden;
+	max-width: 100%
+}
+
+#admin-survey-items .table-content .td-contents {
+	max-height: 100px;
+	overflow: hidden;
+	max-width: 100%;
+	text-overflow: ellipsis;
+	overflow-y: auto;
+}
+
+#admin-survey-items .table-content .field-name {
+	width: 200px;
+}
+#admin-survey-items .table-content .field-choices {
+	width: 300px;
+}
+#admin-survey-items .table-content .field-label_parsed{
+	width: 450px;
 }
 
 /*responsive layouts for mobile */
@@ -1411,6 +1467,7 @@ form.form-horizontal div.form-row.form-group.hidden {
     }
     
     /* special logic for rating_button  */
+    form.form-horizontal div.form-group.item-rating_button div.controls .controls-inner label.keep-label,
     form.form-horizontal div.form-group.item-rating_button div.controls .controls-inner {
         text-align:center;
     }

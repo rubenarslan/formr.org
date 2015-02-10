@@ -1,53 +1,50 @@
 <?php
-require_once "vendor/autoload.php";
-function define_webroot() {
+define('INCLUDE_ROOT', __DIR__. '/');
+
+// Load composer Autoloader
+require_once INCLUDE_ROOT . "vendor/autoload.php";
+
+// Initialize settings array and define routes
+$settings = array();
+$settings['routes'] = array (
+	'public',
+	'admin',
+	'admin/run',
+	'admin/survey',
+	'admin/mail',
+	'superadmin',
+	'api',
+);
+
+// Load application settings
+/* @var $settings array */
+require_once INCLUDE_ROOT . "config_default/settings.php";
+require_once INCLUDE_ROOT . "config/settings.php";
+
+// Load application autoloader
+$autoloader = require_once INCLUDE_ROOT . "Library/Autoloader.php";
+// Include helper functions
+require_once INCLUDE_ROOT . "Library/Functions.php";
+// Initialize Config
+Config::initialize($settings);
+
+// Define global constants
+function define_webroot($settings = array()) {
 	if(defined('WEBROOT')) return;
-	
+
 	$protocol = (!isset($_SERVER['HTTPS']) OR $_SERVER['HTTPS'] == '') ? 'http://' : 'https://';
+    $doc_root = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'].'/' : '/';
+	$online = true;
 
-	if(isset($_SERVER['SERVER_NAME'])){
-		switch($_SERVER['SERVER_NAME']){
-			case 'localhost':
-				$doc_root = "localhost/formr.org/";
-				$server_root = __DIR__ . '/';
-				$online = false;
-				$testing = false;
-
-				break;
-			case 'projects':
-				$doc_root = "projects/formr.org/";
-				$server_root = __DIR__ . '/';
-				$online = false;
-				$testing = false;
-
-				break;
-			case 'rubenair.local':
-				$doc_root = "rubenair.local:8888/formr.org/";
-				$server_root = __DIR__ . '/';
-				$online = false;
-				$testing = false;
-
-				break;
-			default:
-				$doc_root = $_SERVER['SERVER_NAME'].'/';
-				$server_root = __DIR__ . '/';
-				$online = true;
-				$testing = false;
-				
-				break;
-		}
-	} 
-	else
-	{
-		$doc_root = "localhost:8888/formr/";
-		$server_root = __DIR__ . '/';
-		$online = false;
-		$testing = true;
-	}
-	define('WEBROOT',$protocol . $doc_root);
-	define('INCLUDE_ROOT',$server_root);
-	define('ONLINE',$online);
-	define('TESTING',$testing);
-	define('SSL',$protocol === "https://");
+   // Maybe dev env contains $settings['define_root'] so use these
+    if (!empty($settings['define_root'])) {
+        extract($settings['define_root']);
+    }
+	
+	define('WEBROOT', $protocol . $doc_root);
+	define('ONLINE', $online);
+	define('SSL', $protocol === "https://");
+    define('RUNROOT', WEBROOT);
+	define('DEBUG', Config::get('display_errors'));
 }
-define_webroot();
+define_webroot($settings);

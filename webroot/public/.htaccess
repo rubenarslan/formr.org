@@ -1,6 +1,0 @@
-<IfModule mod_rewrite.c>
-RewriteEngine On
-RewriteRule ^/?([A-Za-z0-9_]+)/?$ $1.php [QSA,L]
-	# on HU subdomain
-#	RewriteBase /survey/public/
-</IfModule>

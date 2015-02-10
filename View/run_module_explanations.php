@@ -3,7 +3,7 @@
 		
 		<div class="panel panel-default">
 			<div class="panel-heading">
-				<a class="accordion-toggle" data-toggle="collapse" data-parent="#explanation_accordion" href="#knitr">
+				<a class="accordion-toggle" data-toggle="collapse" href="#knitr">
 					<i class="fa-fw fa fa-bar-chart-o"></i> Markdown &amp; Knitr <br><small>formatting, personalising, plotting feedback</small>
 				</a>
 			</div>
@@ -67,7 +67,7 @@ qplot_on_normal(big$extraversion, xlab = "Extraversion")
 
 		<div class="panel panel-default">
 			<div class="panel-heading">
-				<a class="accordion-toggle" data-toggle="collapse" data-parent="#explanation_accordion" href="#survey">
+				<a class="accordion-toggle" data-toggle="collapse" href="#survey">
 					<i class="fa-fw fa fa-pencil-square"></i> Survey <br><small>ask questions, get data</small>
 				</a>
 			</div>
@@ -88,7 +88,7 @@ qplot_on_normal(big$extraversion, xlab = "Extraversion")
 	
 		<div class="panel panel-default">
 			<div class="panel-heading">
-				<a class="accordion-toggle" data-toggle="collapse" data-parent="#explanation_accordion" href="#external">
+				<a class="accordion-toggle" data-toggle="collapse" href="#external">
 					<i class="fa-fw fa fa-external-link-square"></i> External link <br><small>use modules outside formr</small>
 				</a>
 			</div>
@@ -112,7 +112,7 @@ qplot_on_normal(big$extraversion, xlab = "Extraversion")
 		</div>
 		<div class="panel panel-default">
 			<div class="panel-heading">
-				<a class="accordion-toggle" data-toggle="collapse" data-parent="#explanation_accordion" href="#email">
+				<a class="accordion-toggle" data-toggle="collapse" href="#email">
 					<i class="fa-fw fa fa-envelope"></i> Email <br><small>invite, remind, send feedback</small>
 				</a>
 			</div>
@@ -159,7 +159,7 @@ qplot_on_normal(big$extraversion, xlab = "Extraversion")
 	
 		<div class="panel panel-default">
 			<div class="panel-heading">
-				<a class="accordion-toggle" data-toggle="collapse" data-parent="#explanation_accordion" href="#skip_backward">
+				<a class="accordion-toggle" data-toggle="collapse" href="#skip_backward">
 					<i class="fa-fw fa fa-backward"></i> Skip Backward <br><small>create loops</small>
 				</a>
 			</div>
@@ -205,7 +205,7 @@ qplot_on_normal(big$extraversion, xlab = "Extraversion")
   
 	<div class="panel panel-default">
 		<div class="panel-heading">
-			<a class="accordion-toggle" data-toggle="collapse" data-parent="#explanation_accordion" href="#pause">
+			<a class="accordion-toggle" data-toggle="collapse" href="#pause">
 				<i class="fa-fw fa fa-pause"></i> Pause <br><small>delay continuation</small>
 			</a>
 		</div>
@@ -229,7 +229,7 @@ qplot_on_normal(big$extraversion, xlab = "Extraversion")
   
 		<div class="panel panel-default">
 			<div class="panel-heading">
-				<a class="accordion-toggle" data-toggle="collapse" data-parent="#explanation_accordion" href="#skip_forward">
+				<a class="accordion-toggle" data-toggle="collapse" href="#skip_forward">
 					<i class="fa-fw fa fa-forward"></i> Skip Forward <br><small>filters/screenings, paths, reminders, access windows</small>
 				</a>
 			</div>
@@ -294,7 +294,7 @@ qplot_on_normal(big$extraversion, xlab = "Extraversion")
 
 <div class="panel panel-default">
 	<div class="panel-heading">
-		<a class="accordion-toggle" data-toggle="collapse" data-parent="#explanation_accordion" href="#stop_point">
+		<a class="accordion-toggle" data-toggle="collapse" href="#stop_point">
 			<i class="fa-fw fa fa-stop"></i> Stop Point <br><small>you need at least one</small>
 		</a>
 	</div>
@@ -316,7 +316,7 @@ qplot_on_normal(big$extraversion, xlab = "Extraversion")
 	
 <div class="panel panel-default">
 	<div class="panel-heading">
-		<a class="accordion-toggle" data-toggle="collapse" data-parent="#explanation_accordion" href="#shuffle">
+		<a class="accordion-toggle" data-toggle="collapse" href="#shuffle">
 			<i class="fa-fw fa fa-random"></i> Shuffle <br><small>randomise participants</small>
 		</a>
 	</div>

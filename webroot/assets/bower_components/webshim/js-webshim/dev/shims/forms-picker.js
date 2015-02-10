@@ -324,10 +324,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		e.stopImmediatePropagation();
 	};
 	var steps = options.steps;
-	
-	var mousePress = function(e){
-		$(this)[e.type == 'mousepressstart' ? 'addClass' : 'removeClass']('mousepress-ui');
-	};
+
 	var getMonthNameHTML = function(index, year, prefix){
 		var dateCfg = curCfg.date;
 		var str = [];
@@ -441,7 +438,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 					}
 				}, 0);
 			})();
-			
+			var isDisabled = false;
 			var spinEvents = {};
 			var spinElement = o.splitInput ? this.inputElements.filter('.ws-spin') : this.inputElements.eq(0);
 			var elementEvts = {
@@ -655,12 +652,25 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 					spinElement.on(spinEvents);
 				}
 				$(this.buttonWrapper)
-					.on('mousepressstart mousepressend', '.step-up, .step-down', mousePress)
+					.on('mousepressstart mousepressend', '.step-up, .step-down', function(e){
+						var fn = 'removeClass';
+						if(e.type == 'mousepressstart' && !isDisabled){
+							fn = 'addClass';
+						}
+						$(this)[fn]('mousepress-ui');
+					})
 					.on('mousedown mousepress', '.step-up', function(e){
-						step.stepUp();
+						if(e.type == 'mousedown'){
+							isDisabled = (o.disabled || o.readOnly || $.find.matchesSelector(that.orig, ':disabled'));
+						}
+						if(!isDisabled){
+							step.stepUp();
+						}
 					})
 					.on('mousedown mousepress', '.step-down', function(e){
-						step.stepDown();
+						if(!isDisabled && !o.disabled && !o.readOnly){
+							step.stepDown();
+						}
 					})
 				;
 				initChangeEvents();
@@ -1178,12 +1188,12 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 			
 			str.push('<th class="week-header ws-week">'+ dateCfg.weekHeader +'</th>');
 			
-			for(k = dateCfg.firstDay; k < dateCfg.dayNamesShort.length; k++){
-				str.push('<th class="day-'+ k +'"><abbr title="'+ dateCfg.dayNames[k] +'">'+ dateCfg.dayNamesShort[k] +'</abbr></th>');
+			for(k = dateCfg.firstDay; k < dateCfg.dayNamesMin.length; k++){
+				str.push('<th class="day-'+ k +'"><abbr title="'+ dateCfg.dayNames[k] +'">'+ dateCfg.dayNamesMin[k] +'</abbr></th>');
 			}
 			k = dateCfg.firstDay;
 			while(k--){
-				str.push('<th class="day-'+ k +'"><abbr title="'+ dateCfg.dayNames[k] +'">'+ dateCfg.dayNamesShort[k] +'</abbr></th>');
+				str.push('<th class="day-'+ k +'"><abbr title="'+ dateCfg.dayNames[k] +'">'+ dateCfg.dayNamesMin[k] +'</abbr></th>');
 			}
 			str.push('</tr></thead><tbody><tr class="ws-row-0">');
 			
@@ -1495,7 +1505,7 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 		data._commonDateInit = true;
 		var o = data.options;
 		var actionfn = function(e){
-			if(!$(this).is('.othermonth') || $(this).css('cursor') == 'pointer'){
+			if(!$(this).hasClass('othermonth') || $(this).css('cursor') == 'pointer'){
 				popover.actionFn({
 					'data-action': $.attr(this, 'data-action'),
 					value: $(this).val() || $.attr(this, 'value')
@@ -1550,13 +1560,13 @@ webshims.register('forms-picker', function($, webshims, window, document, undefi
 				
 				$('button', popover.buttonRow).each(function(){
 					var text;
-					if($(this).is('.ws-empty')){
+					if($(this).hasClass('ws-empty')){
 						text = curCfg.date.clear;
 						if(!text){
 							text = formcfg[''].date.clear || 'clear';
 							webshims.warn("could not get clear text from form cfg");
 						}
-					} else if($(this).is('.ws-current')){
+					} else if($(this).hasClass('ws-current')){
 						text = (curCfg[data.type] || {}).currentText;
 						if(!text){
 							text = (formcfg[''][[data.type]] || {}).currentText || (curCfg.date || {}).currentText || 'current';

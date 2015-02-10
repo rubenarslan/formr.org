@@ -1,7 +1,19 @@
 <?php
+
+$settings['database'] = array(
+	'datasource' => 'Database/Mysql',
+	'persistent' => false,
+	'host' => 'localhost',
+	'login' => 'user',
+	'password' => 'password',
+	'database' => 'database',
+	'prefix' => '',
+	'encoding' => 'utf8',
+	'unix_socket' => '/Applications/MAMP/tmp/mysql/mysql.sock',
+);
+
 $settings['opencpu_instance'] = 'https://public.opencpu.org';
 $settings['alternative_opencpu_instance'] = 'https://public.opencpu.org'; # used in admin/test_opencpu
-
 
 $settings['email']['host'] = ''; # smtp server that you want to use, you can prefix a protocol like ssl://
 $settings['email']['port'] = 587; # its port
@@ -11,7 +23,7 @@ $settings['email']['from_name'] = ''; # the name to display as sender
 $settings['email']['username'] = ''; # the username
 $settings['email']['password'] = ''; # the password
 
-$settings['display_errors_when_live'] = 0; // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
+$settings['display_errors'] = 0; // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
 
 $settings['timezone'] = 'Europe/Berlin';
 
@@ -20,5 +32,15 @@ $settings['expire_registered_session'] = 7 * 24 * 60 * 60; # for registered user
 $settings['expire_admin_session'] = 7 * 24 * 60 * 60; # for admins. in seconds (defaults to a week). has to be lower than the expiry for registered users.
 $settings['session_cookie_lifetime'] = max($settings['expire_unregistered_session'], $settings['expire_registered_session'], $settings['expire_admin_session']); # upper limit for all values above (defaults to their max)
 
-
 $settings['admin_maximum_size_of_uploaded_files'] = 50; # in MB
+
+$settings['run_exports_dir'] = INCLUDE_ROOT . 'documentation/run_components';
+
+$settings['web_dir'] = INCLUDE_ROOT . 'webroot';
+
+// Ovewrites vars in /define_root, uncomment config item and set appropriate value to enable it.
+$settings['define_root'] = array(
+    //'protocol' => 'http://',
+    //'doc_root' => 'projects/formr.org/',
+    //'online' => false
+);

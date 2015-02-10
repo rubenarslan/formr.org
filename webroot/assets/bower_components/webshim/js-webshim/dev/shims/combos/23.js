@@ -158,7 +158,7 @@ var swfmini = function() {
 		webshims.$.noop
 	;
 
-	if(!Modernizr.video){
+	if(!webshims.support.mediaelement){
 		loadEmbed();
 	} else {
 		webshims.ready('WINDOWLOAD', loadEmbed);
@@ -221,9 +221,10 @@ var swfmini = function() {
 }();
 
 webshims.isReady('swfmini', true);
-;(function(Modernizr, webshims){
+;(function(webshims){
 	"use strict";
-	var hasNative = Modernizr.audio && Modernizr.video;
+	var support = webshims.support;
+	var hasNative = support.mediaelement;
 	var supportsLoop = false;
 	var bugs = webshims.bugs;
 	var swfType = 'mediaelement-jaris';
@@ -246,14 +247,14 @@ webshims.isReady('swfmini', true);
 
 	if(hasNative){
 		var videoElem = document.createElement('video');
-		Modernizr.videoBuffered = ('buffered' in videoElem);
-		Modernizr.mediaDefaultMuted = ('defaultMuted' in videoElem);
+		support.videoBuffered = ('buffered' in videoElem);
+		support.mediaDefaultMuted = ('defaultMuted' in videoElem);
 		supportsLoop = ('loop' in videoElem);
-		Modernizr.mediaLoop = supportsLoop;
+		support.mediaLoop = supportsLoop;
 
 		webshims.capturingEvents(['play', 'playing', 'waiting', 'paused', 'ended', 'durationchange', 'loadedmetadata', 'canplay', 'volumechange']);
 		
-		if( !Modernizr.videoBuffered || !supportsLoop || (!Modernizr.mediaDefaultMuted && isIE && 'ActiveXObject' in window) ){
+		if( !support.videoBuffered || !supportsLoop || (!support.mediaDefaultMuted && isIE && 'ActiveXObject' in window) ){
 			webshims.addPolyfill('mediaelement-native-fix', {
 				d: ['dom-support']
 			});
@@ -261,7 +262,7 @@ webshims.isReady('swfmini', true);
 		}
 	}
 	
-	if(Modernizr.track && !bugs.track){
+	if(support.track && !bugs.track){
 		(function(){
 			if(!bugs.track){
 
@@ -280,9 +281,16 @@ webshims.isReady('swfmini', true);
 		})();
 	}
 
+	if(window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype){
+		CanvasRenderingContext2D.prototype.wsImageComplete = function(cb){
+			cb.call(this, this);
+		};
+	}
+
 webshims.register('mediaelement-core', function($, webshims, window, document, undefined, options){
-	var hasSwf = swfmini.hasFlashPlayerVersion('10.0.3');
+	var hasSwf = swfmini.hasFlashPlayerVersion('11.3');
 	var mediaelement = webshims.mediaelement;
+	var allowYtLoading = false;
 	
 	mediaelement.parseRtmp = function(data){
 		var src = data.src.split('://');
@@ -378,7 +386,9 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		return function(){
 			if(loaded || !hasYt){return;}
 			loaded = true;
-			webshims.loader.loadScript("https://www.youtube.com/player_api");
+			if(allowYtLoading){
+				webshims.loader.loadScript("https://www.youtube.com/player_api");
+			}
 			$(function(){
 				webshims._polyfill(["mediaelement-yt"]);
 			});
@@ -391,6 +401,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			loadYt();
 		}
 	};
+
 	
 	webshims.addPolyfill('mediaelement-yt', {
 		test: !hasYt,
@@ -435,7 +446,16 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		if(src.indexOf('youtube.com/watch?') != -1 || src.indexOf('youtube.com/v/') != -1){
 			return 'video/youtube';
 		}
-		if(src.indexOf('rtmp') === 0){
+
+		if(!src.indexOf('mediastream:') || !src.indexOf('blob:http')){
+			return 'usermedia';
+		}
+
+		if(!src.indexOf('webshimstream')){
+			return 'jarisplayer/stream';
+		}
+
+		if(!src.indexOf('rtmp')){
 			return nodeName+'/rtmp';
 		}
 		src = src.split('?')[0].split('#')[0].split('.');
@@ -452,28 +472,24 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 	};
 	
 	
-	mediaelement.srces = function(mediaElem, srces){
+	mediaelement.srces = function(mediaElem){
+		var srces = [];
 		mediaElem = $(mediaElem);
-		if(!srces){
-			srces = [];
-			var nodeName = mediaElem[0].nodeName.toLowerCase();
-			var src = getSrcObj(mediaElem, nodeName);
-			
-			if(!src.src){
-				$('source', mediaElem).each(function(){
-					src = getSrcObj(this, nodeName);
-					if(src.src){srces.push(src);}
-				});
-			} else {
-				srces.push(src);
-			}
-			return srces;
+		var nodeName = mediaElem[0].nodeName.toLowerCase();
+		var src = getSrcObj(mediaElem, nodeName);
+
+		if(!src.src){
+			$('source', mediaElem).each(function(){
+				src = getSrcObj(this, nodeName);
+				if(src.src){srces.push(src);}
+			});
 		} else {
-			webshims.error('setting sources was removed.');
+			srces.push(src);
 		}
+		return srces;
 	};
 	
-	mediaelement.swfMimeTypes = ['video/3gpp', 'video/x-msvideo', 'video/quicktime', 'video/x-m4v', 'video/mp4', 'video/m4p', 'video/x-flv', 'video/flv', 'audio/mpeg', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/mp3', 'audio/x-fla', 'audio/fla', 'youtube/flv', 'video/jarisplayer', 'jarisplayer/jarisplayer', 'video/youtube', 'video/rtmp', 'audio/rtmp'];
+	mediaelement.swfMimeTypes = ['video/3gpp', 'video/x-msvideo', 'video/quicktime', 'video/x-m4v', 'video/mp4', 'video/m4p', 'video/x-flv', 'video/flv', 'audio/mpeg', 'audio/aac', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/mp3', 'audio/x-fla', 'audio/fla', 'youtube/flv', 'video/jarisplayer', 'jarisplayer/jarisplayer', 'jarisplayer/stream', 'video/youtube', 'video/rtmp', 'audio/rtmp'];
 	
 	mediaelement.canThirdPlaySrces = function(mediaElem, srces){
 		var ret = '';
@@ -503,7 +519,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			srces = srces || mediaelement.srces(mediaElem);
 			
 			$.each(srces, function(i, src){
-				if(src.type && nativeCanPlay.call(mediaElem[0], src.type) ){
+				if(src.type == 'usermedia' || (src.type && nativeCanPlay.call(mediaElem[0], src.type)) ){
 					ret = src;
 					return false;
 				}
@@ -558,6 +574,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 				}
 			});
 			if(!requested && hasYt && !mediaelement.createSWF){
+				allowYtLoading = true;
 				loadYt();
 			}
 		};
@@ -593,19 +610,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			}
 		}
 	};
-	var allowedPreload = {'metadata': 1, 'auto': 1, '': 1};
-	var fixPreload = function(elem){
-		var preload, img;
-		if(elem.getAttribute('preload') == 'none'){
-			if(allowedPreload[(preload = $.attr(elem, 'data-preload'))]){
-				$.attr(elem, 'preload', preload);
-			} else if(hasNative && (preload = elem.getAttribute('poster'))){
-				img = document.createElement('img');
-				img.src = preload;
-			}
-		}
-	};
-	var stopParent = /^(?:embed|object|datalist)$/i;
+	var stopParent = /^(?:embed|object|datalist|picture)$/i;
 	var selectSource = function(elem, data){
 		var baseData = webshims.data(elem, 'mediaelementBase') || webshims.data(elem, 'mediaelementBase', {});
 		var _srces = mediaelement.srces(elem);
@@ -620,7 +625,6 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		if(mediaelement.sortMedia){
 			_srces.sort(mediaelement.sortMedia);
 		}
-		fixPreload(elem);
 		stepSources(elem, data, _srces);
 
 	};
@@ -644,7 +648,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 
 			if(webshims.implement(this, 'mediaelement')){
 				selectSource(this);
-				if(!Modernizr.mediaDefaultMuted && $.attr(this, 'muted') != null){
+				if(!support.mediaDefaultMuted && $.attr(this, 'muted') != null){
 					$.prop(this, 'muted', true);
 				}
 
@@ -669,7 +673,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 							if(hasNative && (!data || data.isActive == 'html5') && supLoad.prop._supvalue){
 								supLoad.prop._supvalue.apply(this, arguments);
 							}
-							if(!loadTrackUi.loaded && $('track', this).length){
+							if(!loadTrackUi.loaded && this.querySelector('track')){
 								loadTrackUi();
 							}
 							$(this).triggerHandler('wsmediareload');
@@ -735,6 +739,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 						.add(insertedElement.filter('video, audio'))
 						.each(function(){
 							if(!mediaelement.canNativePlaySrces(this)){
+								allowYtLoading = true;
 								loadThird();
 								handleMedia = true;
 								return false;
@@ -757,6 +762,7 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 			mediaelement.loadDebugger();
 		});
 	}
+
 	//set native implementation ready, before swf api is retested
 	if(hasNative){
 		webshims.isReady('mediaelement-core', true);
@@ -766,6 +772,10 @@ webshims.register('mediaelement-core', function($, webshims, window, document, u
 		webshims.ready(swfType, initMediaElements);
 	}
 	webshims.ready('track', loadTrackUi);
+
+	if(document.readyState == 'complete'){
+		webshims.isReady('WINDOWLOAD', true);
+	}
 });
 
-})(Modernizr, webshims);
+})(webshims);

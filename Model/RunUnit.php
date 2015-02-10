@@ -1,20 +1,30 @@
 <?php
-require_once INCLUDE_ROOT."Model/DB.php";
 
-class RunUnitFactory
-{
-	public function make($dbh, $session, $unit, $run_session = NULL)
-	{
+class RunUnitFactory {
+
+	protected $supported = array('Survey', 'Pause', 'Email', 'External', 'Page', 'SkipBackward', 'SkipForward', 'Shuffle');
+
+	public function make($dbh, $session, $unit, $run_session = NULL) {
+		if (empty($unit['type'])) {
+			$unit['type'] = 'Survey';
+		}
 		$type = $unit['type'];
-		if($type == '') $type = 'Survey';
-		if(!in_array($type, array('Survey','Pause','Email','External','Page','SkipBackward','SkipForward','Shuffle')))
-			die('The unit type is not allowed!');
 
-		require_once INCLUDE_ROOT . "Model/$type.php";
+		if (!in_array($type, $this->supported)) {
+			throw new Exception("Unsupported unit type '$type'");
+		}
+
 		return new $type($dbh, $session, $unit, $run_session);
 	}
+
+	public function getSupportedUnits() {
+		return $this->supported;
 	}
+
+}
+
 class RunUnit {
+
 	public $errors = array();
 	public $id = null;
 	public $user_id = null;
@@ -30,227 +40,185 @@ class RunUnit {
 	public $type = '';
 	public $icon = 'fa-wrench';
 	public $special = false;
+	public $valid;
+	public $run_id;
 	protected $non_user_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions', 'survey_items_display', 'survey_email_log', 'shuffle');
 	protected $non_session_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions');
 
-	
-	public function __construct($fdb, $session = null, $unit = null, $run_session) 
-	{
+	/**
+	 * @var DB
+	 */
+	protected $dbh;
+
+	public function __construct($fdb, $session = null, $unit = null, $run_session = null) {
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->unit = $unit;
 		$this->run_session = $run_session;
 
-		if (isset($unit['run_id']))
+		if (isset($unit['run_id'])) {
 			$this->run_id = $unit['run_id'];
+		}
 
-		if (isset($unit['run_unit_id']))
+		if (isset($unit['run_unit_id'])) {
 			$this->run_unit_id = $unit['run_unit_id'];
-		elseif (isset($unit['id']))
+		} elseif (isset($unit['id'])) {
 			$this->run_unit_id = $unit['id'];
+		}
 
-		if (isset($unit['run_name']))
+		if (isset($unit['run_name'])) {
 			$this->run_name = $unit['run_name'];
+		}
 
-		if (isset($unit['session_id']))
+		if (isset($unit['session_id'])) {
 			$this->session_id = $unit['session_id'];
+		}
 
-		if (isset($unit['run_session_id']))
+		if (isset($unit['run_session_id'])) {
 			$this->run_session_id = $unit['run_session_id'];
+		}
 
-		if (isset($this->unit['unit_id']))
+		if (isset($this->unit['unit_id'])) {
 			$this->id = $this->unit['unit_id'];
+			$vars = $this->dbh->findRow('survey_units', array('id' => $this->id), 'created, modified, type');
+			if ($vars):
+				$this->modified = $vars['modified'];
+				$this->created = $vars['created'];
+			endif;
+		}
 
-		if (isset($this->unit['position']))
+		if (isset($this->unit['position'])) {
 			$this->position = (int) $this->unit['position'];
+		}
 
-		if (isset($this->unit['special']))
+		if (isset($this->unit['special'])) {
 			$this->special = $this->unit['special'];
+		}
 
-
-		if (isset($this->unit['cron']))
+		if (isset($this->unit['cron'])) {
 			$this->called_by_cron = true;
-
+		}
 	}
-	public function create($type)
-	{
-		$c_unit = $this->dbh->prepare("INSERT INTO `survey_units` 
-			SET type = :type,
-		 created = NOW(),
-	 	 modified = NOW();");
 
-		$c_unit->bindParam(':type', $type);
-
-		$c_unit->execute();
-
-		$this->unit_id = $this->dbh->lastInsertId();
+	public function create($type) {
+		$id = $this->dbh->insert('survey_units', array(
+			'type' => $type,
+			'created' => mysql_now(),
+			'modified' => mysql_now(),
+		));
+		$this->unit_id = $id;
 		return $this->unit_id;
 	}
-	public function modify($id)
-	{
-		$c_unit = $this->dbh->prepare("UPDATE `survey_units` 
-			SET 
-	 	 modified = NOW()
-	 WHERE id = :id;");
-		$c_unit->bindParam(':id', $id);
 
-		$success = $c_unit->execute();
+	public function modify($id) {
+		return $this->dbh->update('survey_units', array('modified' => mysql_now()), array('id' => $id));
+	}
 
-		return $success;
+	protected function beingTestedByOwner() {
+		if ($this->run_session === null OR $this->run_session->user_id == $this->run_session->run_owner_id) {
+			return true;
+		}
+		return false;
 	}
-	protected function beingTestedByOwner()
-	{
-		if($this->run_session === null OR $this->run_session->user_id == $this->run_session->run_owner_id ) return true;
-		else return false;
-	}
-	public function linkToRun()
-	{
-		$d_run_unit = $this->dbh->prepare("UPDATE `survey_run_units` SET 
-			unit_id = :unit_id
-		WHERE 
-		id = :id
-	;");
 
-		$d_run_unit->bindParam(':unit_id', $this->id);
-		$d_run_unit->bindParam(':id', $this->run_unit_id);
-		$d_run_unit->execute();
-		return $d_run_unit->rowCount();
+	public function linkToRun() {
+		return $this->dbh->update('survey_run_units', 
+				array('unit_id' => $this->id), 
+				array('id' => $this->run_unit_id), 
+				array('int'), array('int')
+		);
 	}
-	public function addToRun($run_id, $position = 1)
-	{
-		if($position=='NaN') $position = 1;
+
+	public function addToRun($run_id, $position = 1) {
+		if (!is_numeric($position)) {
+			$position = 1;
+		}
 		$this->position = (int) $position;
-		$d_run_unit = $this->dbh->prepare("INSERT INTO `survey_run_units` SET 
-				unit_id = :id, 
-			run_id = :run_id,
-			position = :position
-		;");
-		$d_run_unit->bindParam(':id', $this->id);
-		$d_run_unit->bindParam(':run_id', $run_id);
-		$d_run_unit->bindParam(':position', $this->position);
-		$d_run_unit->execute();
-		$this->run_unit_id = $this->dbh->lastInsertId();
+		$this->run_unit_id = $this->dbh->insert('survey_run_units', array(
+			'unit_id' => $this->id,
+			'run_id' => $run_id,
+			'position' => $position,
+		));
 		return $this->run_unit_id;
-		/*
-		  endif;
-		  return $s_run_unit->rowCount();
-		 */
 	}
-	public function removeFromRun()
-	{
-		$d_run_unit = $this->dbh->prepare("DELETE FROM `survey_run_units` WHERE 
-			id = :id;");
-		$d_run_unit->bindParam(':id', $this->run_unit_id);
-		$d_run_unit->execute();
 
-		return $d_run_unit->rowCount();
+	public function removeFromRun() {
+		return $this->dbh->delete('survey_run_units', array('id' => $this->run_unit_id));
 	}
-	public function delete()
-	{
-		$d_unit = $this->dbh->prepare("DELETE FROM `survey_units` WHERE id = :id;");
-		$d_unit->bindParam(':id', $this->id);
 
-		$d_unit->execute();
-
-		$affected = $d_unit->rowCount();
+	public function delete() {
+		$affected = $this->dbh->delete('survey_units', array('id' => $this->id));
 		if ($affected): // remove from all runs
-			$d_run_unit = $this->dbh->prepare("DELETE FROM `survey_run_units` WHERE unit_id = :id;");
-			$d_run_unit->bindParam(':id', $this->id);
-			$d_run_unit->execute();
-
-			$affected += $d_run_unit->rowCount();
+			$affected += $this->dbh->delete('survey_run_units', array('unit_id' => $this->id));
 		endif;
 
 		return $affected;
 	}
-	public function end() // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
-	{
-		$finish_unit = $this->dbh->prepare("UPDATE `survey_unit_sessions` 
-			SET `ended` = NOW()
-			WHERE 
-			`id` = :session_id AND 
-			`unit_id` = :unit_id AND 
-			`ended` IS NULL
-		LIMIT 1;");
-		$finish_unit->bindParam(":session_id", $this->session_id);
-		$finish_unit->bindParam(":unit_id", $this->id);
-		$finish_unit->execute();
 
-		if ($finish_unit->rowCount() === 1):
+	public function end() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
+		$ended = $this->dbh->exec(
+			"UPDATE `survey_unit_sessions` SET `ended` = NOW() WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+		);
+
+		if ($ended === 1) {
 			$this->ended = true;
 			return true;
-		else:
-			return false;
-		endif;
+		}
+
+		return false;
 	}
-	protected function getSampleSessions()
-	{
-		$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
 
-		WHERE 
-			`survey_run_sessions`.run_id = :run_id
-
-		ORDER BY `survey_run_sessions`.position DESC,RAND()
-
-		LIMIT 20";
-		$get_sessions = $this->dbh->prepare($q); // should use readonly
-		$get_sessions->bindParam(':run_id', $this->run_id);
-
-		$get_sessions->execute();
-		if ($get_sessions->rowCount() >= 1):
-			$results = array();
-			while ($temp = $get_sessions->fetch())
-				$results[] = $temp;
-		else:
-			echo 'No data to compare to yet.';
+	protected function getSampleSessions() {
+		$results = $this->dbh->select('session, id, position')
+						->from('survey_run_sessions')
+						->where(array('run_id' => $this->run_id))
+						->limit(20)->fetchAll();
+		if (!$results) {
+			echo 'No data to compare to yet.'; // FIXME echo to where?
 			return false;
-		endif;
-		return $results;
+		}
+		return false;
 	}
-	protected function howManyReachedItNumbers()
-	{
-		$reached_unit = $this->dbh->prepare("SELECT SUM(`survey_unit_sessions`.ended IS NULL) AS begun, SUM(`survey_unit_sessions`.ended IS NOT NULL) AS finished FROM `survey_unit_sessions` 
-			left join `survey_run_sessions`
-		on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-			WHERE 
-			`survey_unit_sessions`.`unit_id` = :unit_id AND
-		`survey_run_sessions`.run_id = :run_id ;");
-		$reached_unit->bindParam(":unit_id", $this->id);
-		$reached_unit->bindParam(':run_id', $this->run_id);
 
-		$reached_unit->execute();
-		$reached = $reached_unit->fetch(PDO::FETCH_ASSOC);
+	protected function howManyReachedItNumbers() {
+		$reached = $this->dbh->select(array('SUM(`survey_unit_sessions`.ended IS NULL)' => 'begun', 'SUM(`survey_unit_sessions`.ended IS NOT NULL)' => 'finished'))
+						->from('survey_unit_sessions')
+						->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
+						->where('survey_unit_sessions.unit_id = :unit_id')
+						->where('survey_run_sessions.run_id = :run_id')
+						->bindParams(array('unit_id' => $this->id, 'run_id' => $this->run_id))
+						->fetch();
+
 		return $reached;
 	}
-	protected function howManyReachedIt()
-	{
+
+	protected function howManyReachedIt() {
 		$reached = $this->howManyReachedItNumbers();
-		if($reached['begun']==="0") $reached['begun'] = "";
-		if($reached['finished']==="0") $reached['finished'] = "";
+		if ($reached['begun'] === "0") {
+			$reached['begun'] = "";
+		}
+		if ($reached['finished'] === "0") {
+			$reached['finished'] = "";
+		}
 		return "<span class='hastooltip badge' title='Number of unfinished sessions'>" . $reached['begun'] . "</span> <span class='hastooltip badge badge-success' title='Number of finished sessions'>" . $reached['finished'] . "</span>";
 	}
-	public function runDialog($dialog)
-	{
 
-		if (isset($this->position))
+	public function runDialog($dialog) {
+
+		if (isset($this->position)) {
 			$position = $this->position;
-		elseif (isset($this->unit) AND isset($this->unit['position']))
+		} elseif (isset($this->unit) && isset($this->unit['position'])) {
 			$position = $this->unit['position'];
-		else 
-		{
-			$pos = $this->dbh->prepare("SELECT position FROM survey_run_units WHERE id = :run_unit_id");
-			$pos->bindParam(":run_unit_id", $this->run_unit_id);
-			$pos->execute();
-			$position = $pos->fetch();
-			$position = $position[0];
+		} else {
+			$position = $this->dbh->findValue('survey_run_units', array('id' => $this->run_unit_id), array('position'));
 		}
 
 		return '
 		<div class="col-xs-12 row run_unit_inner ' . $this->type . '" data-type="' . $this->type . '">
 				<div class="col-xs-3 run_unit_position">
 					<h1><i class="muted fa fa-2x ' . $this->icon . '"></i></h1>
-					' . $this->howManyReachedIt() . ' <button href="ajax_remove_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run" type="button"><i class="fa fa-times"></i></button>
-<br>
+					' . $this->howManyReachedIt() . ' <button href="ajax_remove_run_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run" type="button"><i class="fa fa-times"></i></button><br>
 					<input class="position" value="' . $position . '" type="number" name="position[' . $this->run_unit_id . ']" step="1" max="32000" min="-32000"><br>
 				</div>
 			<div class="col-xs-9 run_unit_dialog">
@@ -260,137 +228,156 @@ class RunUnit {
 			</div>
 		</div>';
 	}
-	public function displayForRun($prepend = '')
-	{
-		return parent::runDialog($prepend, '<i class="fa fa-puzzle-piece"></i>');
+
+	public function displayForRun($prepend = '') {
+		return parent::runDialog($prepend, '<i class="fa fa-puzzle-piece"></i>'); // FIXME: This class has no parent
 	}
-	protected $survey_results = array();
-	public function getUserDataInRun($needed)
-	{
+
+	protected $survey_results;
+
+	// We have a set of study and variable names. Now we get the data.
+	public function getUserDataInRun($needed) {
 		$surveys = $needed['matches'];
+		$results_tables = $needed['matches_results_tables'];
 		$matches_variable_names = $needed['matches_variable_names'];
-		$this->survey_results = array();
-		foreach($surveys AS $survey_name):
-			if(!isset($this->survey_results[$survey_name])):
+		$this->survey_results = array('datasets' => array());
 		
-				if(empty($matches_variable_names[ $survey_name ])):
-					continue;
-				endif;
+		foreach($surveys AS $study_id => $survey_name) :
+			if(!isset($this->survey_results['datasets'][$survey_name])):
 				
-				
-				$variables = "`$survey_name`.`" . implode("`,`$survey_name`.`" ,$matches_variable_names[ $survey_name ]) . '`';
+				$results_table = $results_tables[$survey_name];
+				if(empty($matches_variable_names[ $survey_name ])) {
+					$variables = "NULL AS formr_dummy";
+				} else {
+					$variables = "`$results_table`.`" . implode("`,`$results_table`.`" ,$matches_variable_names[ $survey_name ]) . '`';
+				}
 				
 				$q1 = "SELECT $variables";
-				
+				if($this->run_session_id === NULL AND !in_array($survey_name, $this->non_session_tables)) { // todo: what to do with session_id tables in faketestrun
+					$q3 = " WHERE `$results_table`.session_id = :session_id;"; // just for testing surveys
+				} else {
+					$q3  = " WHERE  `survey_run_sessions`.id = :run_session_id;";
+				}
 
-				if($this->run_session_id === NULL AND !in_array($survey_name, $this->non_session_tables)): // todo: what to do with session_id tables in faketestrun
-					$q3
-						 = "
-					WHERE `$survey_name`.session_id = :session_id;"; // just for testing surveys
-				else:
-					$q3
-						 = "
-					WHERE  `survey_run_sessions`.id = :run_session_id;";
-				endif;
-			
-				if(!in_array($survey_name, $this->non_session_tables )):
-					$q2 = "left join `survey_unit_sessions`
-						on `$survey_name`.session_id = `survey_unit_sessions`.id
-						left join `survey_run_sessions`
-						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-					";
-				elseif($survey_name == 'survey_unit_sessions'):
-					$q2 = "left join `survey_run_sessions`
-						on `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-					";
-				elseif($survey_name == 'survey_run_sessions'):
+				if(!in_array($survey_name, $this->non_session_tables )) {
 					$q2 = "
+						LEFT JOIN `survey_unit_sessions` ON `$results_table`.session_id = `survey_unit_sessions`.id
+						LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					";
-				elseif($survey_name == 'survey_users'):
-					$q2 = "left join `survey_run_sessions`
-						on `survey_users`.id = `survey_run_sessions`.user_id
-					";
-				endif;
-				$q1 .= " FROM `$survey_name` 
-				";
-			
+				} elseif($survey_name == 'survey_unit_sessions'){
+					$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id";
+				} elseif($survey_name == 'survey_run_sessions') {
+					$q2 = "";
+				} elseif($survey_name == 'survey_users') {
+					$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_users`.id = `survey_run_sessions`.user_id";
+				}
+
+				$q1 .= " FROM `$results_table` ";
+
 				$q = $q1 . $q2 . $q3;
-				
+
 				$get_results = $this->dbh->prepare($q);
-				if($this->run_session_id === NULL):
+				if($this->run_session_id === NULL) {
 					$get_results->bindValue(':session_id', $this->session_id);
-				else:
+				} else {
 					$get_results->bindValue(':run_session_id', $this->run_session_id);
-				endif;
+				}
 				$get_results->execute();
-				$this->survey_results[$survey_name] = array();
+
+				$this->survey_results['datasets'][$survey_name] = array();
 				while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
 					foreach($res AS $var => $val):
-					
-						if(!isset($this->survey_results[$survey_name][$var]))
-							$this->survey_results[$survey_name][$var] = array();
-					
-						$this->survey_results[$survey_name][$var][] = $val;
-					
+						if(!isset($this->survey_results['datasets'][$survey_name][$var])) {
+							$this->survey_results['datasets'][$survey_name][$var] = array();
+						}
+						$this->survey_results['datasets'][$survey_name][$var][] = $val;
 					endforeach;
 				endwhile;
 			endif;
 		endforeach;
 
-		if($needed['token_add'] !== null AND ! isset($this->survey_results[ $needed['token_add'] ])):
-			$this->survey_results[ $needed['token_add'] ] = array();
+		if(!empty($needed['variables'])):
+			if(in_array('formr_last_action_date', $needed['variables']) OR in_array('formr_last_action_time', $needed['variables'])):
+				$last_action = $this->dbh->execute(
+					"SELECT `created` FROM `survey_unit_sessions` WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
+					array('session_id' => $this->session_id, 'unit_id' => $this->id),
+					true
+				);
+				$last_action_time = strtotime($last_action);
+				if(in_array('formr_last_action_date', $needed['variables'])):
+					$this->survey_results['.formr$last_action_date'] = "as.Date('".date("Y-m-d", $last_action_time)."')";
+				endif;
+				if(in_array('formr_last_action_time', $needed['variables']) ):
+					$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T", $last_action_time)."')";
+				endif;
+			endif;
+			
+			if(in_array('formr_login_link',$needed['variables']) ):
+				$this->survey_results['.formr$login_link'] = WEBROOT."{$this->run_name}?code={$this->session}";
+			endif;
+			if(in_array('formr_login_code',$needed['variables']) ):
+				$this->survey_results['.formr$login_code'] = $this->session;
+			endif;
 		endif;
 
+		if ($needed['token_add'] !== null AND ! isset($this->survey_results['datasets'][$needed['token_add']])):
+			$this->survey_results['datasets'][$needed['token_add']] = array();
+		endif;
 		return $this->survey_results;
 	}
-	public function makeOpenCPU()
-	{
-		require_once INCLUDE_ROOT . "Model/OpenCPU.php";
 
-		global $settings;
-		$openCPU = new OpenCPU($settings['opencpu_instance']);
-		$openCPU->clearUserData();
-		return $openCPU;
+	public function makeOpenCPU() {
+		return new OpenCPU(Config::get('opencpu_instance'));
 	}
-	protected function knittingNeeded($source)
-	{
-		if (mb_strpos($source, '`r ') !== false OR mb_strpos($source, '```{r') !== false)
+
+	protected function knittingNeeded($source) {
+		if (mb_strpos($source, '`r ') !== false OR mb_strpos($source, '```{r') !== false) {
 			return true;
-		else
-			return false;
+		}
+		return false;
 	}
-	public function dataNeeded($fdb,$q, $token_add = NULL)
-	{
-		$matches_variable_names = $variable_names_in_table = $matches = $tables = array();
-		$result_tables = $fdb->prepare("SELECT `survey_studies`.name,`survey_studies`.id FROM `survey_studies` 
-			LEFT JOIN `survey_runs`
-		ON `survey_runs`.user_id = `survey_studies`.user_id 
-		WHERE `survey_runs`.id = :run_id");
-		$result_tables->bindParam(':run_id',$this->run_id);
-		$result_tables->execute();
-	
+
+	public function dataNeeded($fdb, $q, $token_add = NULL) {
+		$table_ids = $matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
+		
+		// first, generate a master list of the search set (all the surveys that are part of the run)
+		$results = $fdb->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
+				->from('survey_studies')
+				->leftJoin('survey_runs', 'survey_runs.user_id = survey_studies.user_id')
+				->where('survey_runs.id = :run_id')
+				->bindParams(array('run_id' => $this->run_id))
+				->fetchAll();
+
+		// also add some "global" formr tables
 		$tables = $this->non_user_tables;
-		while($res = $result_tables->fetch(PDO::FETCH_ASSOC)):
-			$tables[$res['id']] = $res['name'];
-		endwhile;
-	
-		if($token_add !== null AND !in_array($token_add, $tables)):
-			$get_token_id = $fdb->prepare("SELECT `id` FROM `survey_studies` WHERE `name` = :token_add");
-			$get_token_id->bindValue(':token_add',$token_add);
-			$get_token_id->execute();
-			$token_id = $get_token_id->fetch();
-			$tables[ $token_id['id'] ] = $token_add;
+		$table_ids = $this->non_user_tables;
+		$results_tables = array_combine($this->non_user_tables, $this->non_user_tables);
+		// map table ID to the name that the user sees (because tables in the DB are prefixed with the user ID, so they're unique)
+		foreach ($results as $res) {
+			$table_ids[] = $res['id'];
+			$tables[] = $res['name']; // FIXME: ID can overwrite the non_user_tables
+			$results_tables[$res['name']] = $res['results_table'];
+		}
+
+		if($token_add !== null AND !in_array($this->name, $tables)):	 // send along this table if necessary
+			$table_ids[] = $this->id;
+			$tables[] = $this->name;
+			$results_tables[ $this->name ] = $this->results_table;
 		endif;
 	
-		foreach($tables AS $study_id => $table_name):
-			// always send along the table which is currently active if any
+		foreach($tables AS $index => $table_name):
+			$study_id = $table_ids[$index];
 		
 			if($table_name == $token_add OR preg_match("/\b$table_name\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
 				$matches[ $study_id ] = $table_name;
+				$matches_results_tables[ $table_name ] = $results_tables[ $table_name ];
 			endif;
 		endforeach;
 
+		// loop through any studies that are mentioned in the command
 		foreach($matches AS $study_id => $table_name):
+
+			// generate a search set of variable names for each study
 			if(in_array($table_name, $this->non_user_tables)):
 				if($table_name == 'survey_users'):
 					$variable_names_in_table[ $table_name ] = array("created","modified", "user_code","email","email_verified","mobile_number", "mobile_verified");
@@ -406,52 +393,54 @@ class RunUnit {
 					$variable_names_in_table[ $table_name ] = array("unit_id","created","group");
 				endif;
 			else:
-			
-				$variable_names = $fdb->prepare("SELECT `survey_items`.`name` FROM `survey_items` 
-				WHERE `survey_items`.`study_id` = :study_id
-				AND `survey_items`.type NOT IN (
-					'mc_heading',
-					'note',
-					'submit'
-				)");
-				$variable_names->bindValue(':study_id',$study_id);
-				$variable_names->execute();
-			
-				$variable_names_in_table[ $table_name ] = array("created","modified","ended"); // should avoid modified, sucks for caching
-				while($res = $variable_names->fetch(PDO::FETCH_ASSOC)):
-					$variable_names_in_table[ $table_name ][] = $res['name'];
-				endwhile;
+				$items = $fdb->select('name')->from('survey_items')
+					->where(array('study_id' => $study_id))
+					->where("type NOT IN ('mc_heading', 'note', 'submit')")
+					->fetchAll();
+
+				$variable_names_in_table[ $table_name ] = array("created", "modified", "ended"); // should avoid modified, sucks for caching
+				foreach ($items as $res) {
+					$variable_names_in_table[ $table_name ][] = $res['name']; // search set for user defined tables
+				}
 			endif;
-		
+
 			$matches_variable_names[ $table_name ] = array();
-			foreach($variable_names_in_table[ $table_name ] AS $variable_name):
-				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);  // try to match scales too
-				if(strlen($variable_name_base) < 3) $variable_name_base = $variable_name;
-				if(preg_match("/\b$variable_name\b/",$q) OR preg_match("/\b$variable_name_base\b/",$q)): // item name appears as word, matches survey$item, survey[, "item"], but not item_2 for item-scale unfortunately
+			foreach($variable_names_in_table[ $table_name ] AS $variable_name) { // generate match list for variable names
+				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);  // try to match scales too, extraversion_1 + extraversion_2 - extraversion_3R = extraversion (script might mention the construct name, but not its item constituents)
+				if(strlen($variable_name_base) < 3) { // don't match very short variable name bases
+					$variable_name_base = $variable_name;
+				}
+				if(preg_match("/\b$variable_name\b/",$q) OR preg_match("/\b$variable_name_base\b/",$q)) { // item name appears as word, matches survey$item, survey[, "item"], but not item_2 for item-scale unfortunately
 					$matches_variable_names[ $table_name ][] = $variable_name;
-				endif;
-			endforeach;
-		
-			if(empty($matches_variable_names[ $table_name ])):
-				unset($matches_variable_names[ $table_name ]);
-				unset($variable_names_in_table[ $table_name ]);
-				unset($matches[ $study_id ]);
-			endif;
+				}
+			}
+
+//			if(empty($matches_variable_names[ $table_name ])):
+//				unset($matches_variable_names[ $table_name ]);
+//				unset($variable_names_in_table[ $table_name ]);
+//				unset($matches[ $study_id ]);
+//			endif;
 		endforeach;
 	
-		return compact("matches", "matches_variable_names", "token_add");
-//		return $matches;
-	}
-	public function parseBodySpecial()
-	{
-		$openCPU = $this->makeOpenCPU();
+		$variables = array();
+		if(preg_match("/\btime_passed\b/",$q)) { $variables[] = 'formr_last_action_time'; }
+		if(preg_match("/\bnext_day\b/",$q)) { $variables[] = 'formr_last_action_date'; }
+		if(preg_match('/\b.formr\$login_code\b/',$q)) { $variables[] = 'formr_login_code'; }
+		if(preg_match('/\b.formr\$login_link\b/',$q)) { $variables[] = 'formr_login_link'; }
 
+		return compact("matches","matches_results_tables", "matches_variable_names", "token_add", "variables");
+	}
+
+	public function parseBodySpecial() {
+		$openCPU = $this->makeOpenCPU();
 		return $openCPU->knitForAdminDebug($this->body);
 	}
-	public function getParsedText($source)
-	{
+
+	public function getParsedText($source) {
 		$openCPU = $this->makeOpenCPU();
-		if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
+		if ($this->beingTestedByOwner()) {
+			$openCPU->admin_usage = true;
+		}
 
 		$openCPU->addUserData($this->getUserDataInRun(
 						$this->dataNeeded($this->dbh, $source)
@@ -459,59 +448,55 @@ class RunUnit {
 
 		return $openCPU->knit($source);
 	}
-	public function getParsedTextAdmin($source)
-	{
-		if (!$this->grabRandomSession())
+
+	public function getParsedTextAdmin($source) {
+		if (!$this->grabRandomSession()) {
 			return false;
+		}
 		return $this->getParsedText($source);
 	}
-	private function grabRandomSession()
-	{
-		if ($this->run_session_id === NULL):
-			if (isset($this->unit['position']))
+
+	private function grabRandomSession() {
+		if ($this->run_session_id === NULL) {
+			$current_position = -9999999;
+			if (isset($this->unit['position'])) {
 				$current_position = $this->unit['position'];
-			else $current_position = -9999999;
+			}
 
-			$q = "SELECT `survey_run_sessions`.session,`survey_run_sessions`.id,`survey_run_sessions`.position FROM `survey_run_sessions`
+			$temp_user = $this->dbh->select('session, id, position')
+				->from('survey_run_sessions')
+				->where(array('run_id' => $this->run_id, 'position >=' => $current_position))
+				->limit(1)
+				->fetch();
 
-			WHERE 
-				`survey_run_sessions`.run_id = :run_id AND
-				`survey_run_sessions`.position >= :current_position
-
-			ORDER BY `survey_run_sessions`.position ASC,RAND()
-
-			LIMIT 1";
-			$get_sessions = $this->dbh->prepare($q); // should use readonly
-			$get_sessions->bindParam(':run_id', $this->run_id);
-			$get_sessions->bindValue(':current_position', $current_position);
-
-			$get_sessions->execute();
-
-			if ($get_sessions->rowCount() >= 1):
-				$temp_user = $get_sessions->fetch(PDO::FETCH_ASSOC);
-				$this->run_session_id = $temp_user['id'];
-			else:
-				echo 'No data to compare to yet.';
+			if (!$temp_user) {
+				echo 'No data to compare yet'; // FIXME echo to where?
 				return false;
-			endif;
-		endif;
+			}
+
+			$this->run_session_id = $temp_user['id'];
+		}
+
 		return $this->run_session_id;
 	}
-	public function getParsedBodyAdmin($source,$email_embed = false)
-	{
+
+	public function getParsedBodyAdmin($source, $email_embed = false) {
 		if ($this->knittingNeeded($source)):
-			if (!$this->grabRandomSession())
+			if (!$this->grabRandomSession()) {
 				return false;
+			}
 
 			$openCPU = $this->makeOpenCPU();
-			if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
+			if ($this->beingTestedByOwner()) {
+				$openCPU->admin_usage = true;
+			}
 
 			$openCPU->addUserData($this->getUserDataInRun(
 							$this->dataNeeded($this->dbh, $source)
 			));
 
 			if ($email_embed):
-				return $openCPU->knitEmail($source); # currently not caching email reports
+				return $openCPU->knitEmailForAdminDebug($source); # currently not caching email reports
 			else:
 				$report = $openCPU->knitForAdminDebug($source);
 			endif;
@@ -526,70 +511,69 @@ class RunUnit {
 			endif;
 		endif;
 	}
-	public function getParsedBody($source,$email_embed = false)
-	{
-		if(!$this->knittingNeeded($source))
-		{ // knit if need be
+
+	public function getParsedBody($source, $email_embed = false) {
+		if (!$this->knittingNeeded($source)) { // knit if need be
 			if ($email_embed):
 				return array('body' => $this->body_parsed, 'images' => array());
 			else:
 				return $this->body_parsed;
 			endif;
-		}
-		else
-		{
-			if(!$email_embed)
-			{
-				$get_report = $this->dbh->prepare("SELECT `body_knit` FROM `survey_reports` WHERE 
-					`session_id` = :session_id AND 
-					`unit_id` = :unit_id");
-				$get_report->bindParam(":unit_id", $this->id);
-				$get_report->bindParam(":session_id", $this->session_id);
-				$get_report->execute();
-
-				if($get_report->rowCount() > 0) 
-				{
-					$report = $get_report->fetch(PDO::FETCH_ASSOC);
-					return $report['body_knit'];
-				}
+		} else {
+			
+			$old_opencpu_url = false;
+			if (!$email_embed) {
+				$old_opencpu_url = $this->dbh->findValue('survey_reports', array(
+					'unit_id' => $this->id, 
+					'session_id' => $this->session_id,
+					'created >=' => $this->modified // if the definition of the unit changed, don't use old reports
+				),
+				array('opencpu_url'));
 			}
 
 			$openCPU = $this->makeOpenCPU();
-			if($this->beingTestedByOwner()) $openCPU->admin_usage = true;
+			if ($this->beingTestedByOwner()) {
+				$openCPU->admin_usage = true;
+			}
+			
+			if($old_opencpu_url):
+				$report = $openCPU->getOld($old_opencpu_url);
+				if($report AND !$openCPU->anyErrors()):
+					return $report; // if it has expired, so be it.
+				endif;
+			endif;
 
-			$openCPU->addUserData($this->getUserDataInRun(
-							$this->dataNeeded($this->dbh, $source)
-			));
-
+			$openCPU->addUserData($this->getUserDataInRun($this->dataNeeded($this->dbh, $source)));
 
 			if ($email_embed):
 				return $openCPU->knitEmail($source); # currently not caching email reports
 			else:
 				$report = $openCPU->knitForUserDisplay($source);
+				$opencpu_url = $openCPU->getLocation();
 			endif;
 
-			if ($openCPU->anyErrors())
+			if ($openCPU->anyErrors()) {
 				return false;
+			}
 
-			if ($report):
-				try
-				{
+			if(isset($opencpu_url)):
+				try {
 					$set_report = $this->dbh->prepare("INSERT INTO `survey_reports` 
-						(`session_id`, `unit_id`, `body_knit`, `created`,	`last_viewed`) 
-				VALUES  (:session_id, :unit_id, :body_knit,  NOW(), 	NOW() ) ");
+						(`session_id`, `unit_id`, `opencpu_url`, `created`,	`last_viewed`) 
+				VALUES  (:session_id, :unit_id, :opencpu_url,  NOW(), 	NOW() ) 
+				ON DUPLICATE KEY UPDATE opencpu_url = VALUES(opencpu_url), created = VALUES(created)");
 					$set_report->bindParam(":unit_id", $this->id);
-					$set_report->bindParam(":body_knit", $report);
+					$set_report->bindParam(":opencpu_url", $opencpu_url);
 					$set_report->bindParam(":session_id", $this->session_id);
 					$set_report->execute();
-				}
-				catch (Exception $e)
-				{
-					trigger_error("Couldn't save Knitr report, probably too large: " . human_filesize(strlen($report)), E_USER_WARNING);
-					log_exception($e);
+				} catch (Exception $e) {
+					pr($e);
+					log_exception($e, __CLASS__);
 				}
 				return $report;
 			endif;
 		}
 	}
+
 	// when body is changed, delete all survey reports?
 }
