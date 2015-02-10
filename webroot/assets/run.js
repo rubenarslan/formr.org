@@ -375,7 +375,7 @@ Run.prototype.exportUnits = function () {
 		var unit = this.units[i].serialize();
 		unsavedChanges = unsavedChanges || this.units[i].unsavedChanges;
 		units[unit.position] = unit;
-		exportDialog.append($($.parseHTML(getHTMLTemplate('tpl-export-unit-block', {unit_pos: unit.position, unit_json: JSON.stringify(unit, null, "\t")}))));
+		exportDialog.append($($.parseHTML(getHTMLTemplate('tpl-export-unit-block', { unit_pos: unit.position, unit_json: JSON.stringify(unit, null, "\t")}))));
 	}
 
 	if (unsavedChanges) {
@@ -384,7 +384,9 @@ Run.prototype.exportUnits = function () {
 	}
 
 	var export_html = exportDialog.html();//JSON.stringify(units, null, "\t");
-	var $modal = $($.parseHTML(getHTMLTemplate('tpl-export-units', {'export_html': export_html})));
+	var $modal = $($.parseHTML(getHTMLTemplate('tpl-export-units', {run_name: this.name,'export_html': export_html})));
+	$modal.find('form#export_run_units').attr("action",runUrl + '/export');
+    
 	$modal.on('shown.bs.modal', function () {
 		$modal.find('.confirm-export').click(function (e) {
 			var name = $.trim($modal.find('input[name=export_name]').val());
@@ -392,7 +394,7 @@ Run.prototype.exportUnits = function () {
 			var pattern = /^[a-z0-9_\s]+$/i;
 			if (!name || !pattern.test(name)) {
 				$modal.modal('hide');
-				bootstrap_modal("Enter a valied export name", "Export Name Error");
+				bootstrap_modal("Enter a valid export name", "Export Name Error");
 				return;
 			}
 			// Get all selected units. If you can't find any you can't export any
@@ -409,26 +411,12 @@ Run.prototype.exportUnits = function () {
 			if ($.isEmptyObject(selectedUnits)) {
 				return;
 			}
-
-			$(this).html(bootstrap_spinner());
-			$.ajax({
-				url: runUrl + '/ajax_run_export',
-				dataType: 'html',
-				method: 'post',
-				data: {units: selectedUnits, name: name},
-				success: $.proxy(function (data, textStatus) {
-					bootstrap_alert('Export completed', 'Success', '.main_body', 'alert-success');
-					$modal.find('.cancel-export').trigger('click');
-					// Redirect to download file
-					if (data) {
-						window.location.href = runUrl + '/ajax_run_export?f=' + data;
-					}
-				}, this),
-				error: function (e, x, settings, exception) {
-					$modal.find('.cancel-export').trigger('click');
-					ajaxErrorHandling(e, x, settings, exception);
-				}
-			});
+            console.log(selectedUnits);
+			$modal.find('input[name=units]').val(JSON.stringify(selectedUnits));
+            window.setTimeout(function(){
+				$modal.find('.cancel-export').trigger('click')
+            }, 100);
+            return true;
 		});
 	}).on('hidden.bs.modal', function () {
 		$modal.remove();

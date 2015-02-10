@@ -244,21 +244,6 @@ class SpreadsheetReader {
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
-		$objPHPExcel = $this->twoSheetsFromArrays($items,$choices);
-		
-		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
-		
-	    header('Content-Disposition: attachment;filename="'.$filename.'.xls"');
-	    header('Cache-Control: max-age=0');
-	    header('Content-Type: application/vnd.ms-excel'); 
-
-		try {
-		    $objWriter->save('php://output');
-		    exit;
-		} catch (Exception $e) {
-			alert("Couldn't save file.",'alert-danger');
-			return false;
-		}
 	}
 	
 	private function translate_legacy_column($col) {

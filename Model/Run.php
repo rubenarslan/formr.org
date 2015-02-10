@@ -706,45 +706,15 @@ class Run {
 	 *
 	 * @param array $units
 	 * @param string $name The name that will be assigned to export
-	 * @return mixed Returns the file path to which export was saved on success and FALSE otherwise
+	 * @return mixed Returns an array of its two inputs.
 	*/
 	public function exportUnits(array $units, $name) {
-		$export_dir = Config::get('run_exports_dir');
-		if (!$export_dir) {
-			alert("<strong>Error</strong> Export directory is not configured in 'run_exports_dir'", 'alert-danger');
-			return false;
-		}
-
-		if (!is_dir($export_dir) && !mkdir($export_dir, 0644, true)) {
-			alert("<strong>Error</strong> Configured run export directory does not exist and could not be created", 'alert-danger');
-			return false;
-		}
-
 		$export = array(
 			'name' => $name,
 			'units' => array_values($units),
 		);
-		$json = json_encode($export, JSON_PRETTY_PRINT);
-		if (empty($export['units']) || !$json) {
-			alert("<strong>Error</strong> Export data could not be created", 'alert-danger');
-			return false;
-		}
-
-		$name = url_title($name, 'underscore', true);
-		// use a prefix for all filenames for easy 'globbing' later during import
-		$filename = $export_dir . '/run_' . $name . '.json';
-		if (file_exists($filename)) {
-			alert("<strong>Error</strong> Sorry, '$name' is already taken.", 'alert-danger');
-			return false;
-		}
-
-		if (!file_put_contents($filename, $json)) {
-			alert("<strong>Error</strong> Unable to create json file to save data", 'alert-danger');
-			return false;
-		}
-		return $filename;
+		return $export;
 	}
-
 	/**
 	 * Import a set of run units into current run by parsing a valid json string.
 	 * Existing exported run units are read from configured dir $settings[run_exports_dir]

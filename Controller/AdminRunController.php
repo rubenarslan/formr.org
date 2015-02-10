@@ -518,5 +518,22 @@ class AdminRunController extends AdminController {
 		endif;
 		$this->run = $run;
 	}
+	private function exportAction() {
+		$run = $this->run;
+		$site = $this->site;
+		
+		if (($units = (array)json_decode($site->request->str('units'))) && ($name = $site->request->str('export_name')) && preg_match('/^[a-z0-9_\s]+$/i', $name)) {
+			
+			if (!($export = $run->exportUnits($units, $name))) {
+				bad_request_header();
+				echo $site->renderAlerts();
+			} else {
+				$SPR = new SpreadsheetReader();
+				$SPR->exportJSON($export, $name);
+			}
+		} else {
+			redirect_to("admin/run/{$run->name}");
+		}
+	}
 
 }
