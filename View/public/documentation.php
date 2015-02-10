@@ -53,7 +53,7 @@
 						does diary studies with automated reminders
 					</li>
 					<li>
-						generates pretty feedback live, including ggplot2, lattice and rCharts plots
+						generates pretty feedback live, including <a href="http://ggplot2.org/">ggplot2</a>, <a href="http://cran.r-project.org/web/packages/lattice/">lattice</a> and <a href="http://rcharts.io/">rCharts</a> plots
 					</li>
 					<li>
 						looks nice on your phone
@@ -71,13 +71,13 @@
 						easily share, swap and combine surveys (they're simply spreadsheets with survey questions) and runs (so that you can share designs, e.g. "daily diary study" and higher-level components like filters and feedback)
 					</li>
 					<li>
-						send text messages (this will get simpler soon, you can <a href="https://github.com/rubenarslan/formr.org/blob/develop/documentation/sample_implementations_of_text_message_APIs.md">already do this using R</a>)
+						send text messages (this will get simpler soon, you can <a href="https://github.com/rubenarslan/formr.org/wiki/How-to-send-text-messages-(SMS)">already do this using R</a>)
 					</li>
 					<li>
 						works on all somewhat modern devices and degrades gracefully where it doesn't
 					</li>
 					<li>
-						formats text using Github-flavoured Markdown (a.k.a. the easiest and least bothersome way to mark up text)
+						formats text using <a href="https://help.github.com/articles/github-flavored-markdown/">Github-flavoured</a>  <a href="https://help.github.com/articles/markdown-basics/">Markdown</a> (a.k.a. the easiest and least bothersome way to mark up text)
 					</li>
 					<li>
 						file, image, video, sound uploads for users (as survey items) and admins (to supply study materials)

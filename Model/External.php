@@ -110,6 +110,9 @@ class External extends RunUnit {
 
 		if ($this->isR()) {
 			$openCPU = $this->makeOpenCPU();
+			if ($this->beingTestedByOwner()) {
+				$openCPU->admin_usage = true;
+			}
 
 			$openCPU->addUserData($this->getUserDataInRun(
 							$this->dataNeeded($this->dbh, $this->address)
@@ -123,6 +126,9 @@ class External extends RunUnit {
 
 		if (!$this->api_end) {
 			$this->end();
+		}
+		if($this->isR() AND $this->address === FALSE) {
+			return false;
 		}
 
 		$this->address = $this->makeAddress($this->address);
