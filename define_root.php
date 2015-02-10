@@ -28,14 +28,13 @@ require_once INCLUDE_ROOT . "Library/Functions.php";
 // Initialize Config
 Config::initialize($settings);
 
-// Define glboal constants
+// Define global constants
 function define_webroot($settings = array()) {
 	if(defined('WEBROOT')) return;
 
 	$protocol = (!isset($_SERVER['HTTPS']) OR $_SERVER['HTTPS'] == '') ? 'http://' : 'https://';
     $doc_root = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'].'/' : '/';
 	$online = true;
-	$testing = false;
 
    // Maybe dev env contains $settings['define_root'] so use these
     if (!empty($settings['define_root'])) {
@@ -44,9 +43,8 @@ function define_webroot($settings = array()) {
 	
 	define('WEBROOT', $protocol . $doc_root);
 	define('ONLINE', $online);
-	define('TESTING', $testing);
 	define('SSL', $protocol === "https://");
     define('RUNROOT', WEBROOT);
-	define('DEBUG', ONLINE ? Config::get('display_errors_when_live') : 1);
+	define('DEBUG', Config::get('display_errors'));
 }
 define_webroot($settings);

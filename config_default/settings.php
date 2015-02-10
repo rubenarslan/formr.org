@@ -23,7 +23,7 @@ $settings['email']['from_name'] = ''; # the name to display as sender
 $settings['email']['username'] = ''; # the username
 $settings['email']['password'] = ''; # the password
 
-$settings['display_errors_when_live'] = 0; // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
+$settings['display_errors'] = 0; // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
 
 $settings['timezone'] = 'Europe/Berlin';
 
@@ -42,6 +42,5 @@ $settings['web_dir'] = INCLUDE_ROOT . 'webroot';
 $settings['define_root'] = array(
     //'protocol' => 'http://',
     //'doc_root' => 'projects/formr.org/',
-    //'online' => false,
-    //'testing' => true
+    //'online' => false
 );

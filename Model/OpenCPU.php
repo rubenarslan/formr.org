@@ -96,14 +96,13 @@ class OpenCPU {
 
 	private function handleErrors($message, $result, $post, $in, $level = "alert-danger", $loud = true) {
 		$error_msg = $result;
-
-		if (!trim($error_msg)) {
+		$date = date('Y-m-d H:i:s');
+		if (empty($error_msg) OR (is_string($error_msg) AND !trim($error_msg))) {
 			$error_msg = "OpenCPU appears to be down.";
 			if (mb_substr($this->instance, 0, 5) == 'https') {
 				$error_msg .= " Maybe check your server's certificates to use encrypted connection to openCPU.";
 			}
 		}
-
 		if (is_array($error_msg) AND count($error_msg) == 1) {
 			$error_msg = current($error_msg);
 		} elseif (is_array($error_msg)) {
@@ -115,10 +114,14 @@ class OpenCPU {
 		}
 
 		if($loud) {
-			alert($message . " <blockquote>" . h($error_msg) . "</blockquote><pre style='background-color:transparent;border:0'>" . h($post) . "</pre>", $level, true);
+			if($this->admin_usage) {
+				alert($date . " <pre style='background-color:transparent;border:0'>" . h($error_msg) . "</pre>", $level, true);
+			} else {
+				alert($date . ' ' . $message, $level, true);
+			}
 		}
 
-		opencpu_log("R error in $in: " . print_r($post, true) . " " . print_r($result, true) . "\n");
+		opencpu_log($date . " R error in $in: " . print_r($post, true) . " " . $error_msg . "\n");
 	}
 
 	private function returnParsed($result, $in = '') {
@@ -133,12 +136,12 @@ class OpenCPU {
 		return $this->handleJSON($result['body'], $post, $in);
 	}
 	
-	private function handleJSON($body, $result = array(), $post = '', $in = '', $loud = true) {
+	private function handleJSON($body, $result = array(), $post = '', $in = '') {
 		$parsed = json_decode($body, true);
 
 		if ($parsed === null):
 			if($this->admin_usage):
-				$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post, $in, $loud);
+//				$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post, $in, "alert-danger", $loud);
 			endif;
 			return null;
 		else:
@@ -154,8 +157,12 @@ class OpenCPU {
 	}
 
 	public function get($url, $in = 'get') {
-		$json = CURL::HttpRequest($url, array(), CURL::HTTP_METHOD_GET, $this->curl_opts, $this->curl_info);
-		return $this->handleJSON($json, array("body" => $json), '', $in, false);
+		$result = CURL::HttpRequest($url, array(), CURL::HTTP_METHOD_GET, $this->curl_opts, $this->curl_info);
+		if(endsWith($url, "/json")) {
+			return $this->handleJSON($result, array(), '', $in);
+		} else {
+			return $result;
+		}
 	}
 	public function getOld($url) {
 		return $this->get($url . 'R/.val/json', "getOld");
@@ -183,9 +190,8 @@ class OpenCPU {
 		$this->http_status = $this->curl_info['http_code'];
 		$this->header_size = $this->curl_info['header_size'];
 
-		if ($this->anyErrors() AND !$this->admin_usage) {
-			alert(date('Y-m-d H:i:s') . ' There were problems with openCPU. Please try again later.', 'alert-danger');
-			opencpu_log("R error in ".$this->called_function.": " . print_r($post, true) . " " . print_r($result, true) . "\n");
+		if ($this->anyErrors()) {
+			$this->handleErrors("There were problems with openCPU. Please try again later.", $result, $post, $function, "alert-danger", true);
 		}
 
 		$header = $this->curl_info['raw_header'];
@@ -333,7 +339,6 @@ $source;
 		return $this->returnParsed($result, "knit");
 	}
 
-	//FIXME: something wrong! probably because I did not turn off base64_images!
 	public function knitEmail($source) {
 		$source = '```{r settings,message=FALSE,warning=F,echo=F}
 library(knitr); library(formr)
@@ -444,7 +449,7 @@ $source;
 				// info/text stdout/text console/text R/.val/text
 
 				if (in_array($session . 'R/.val', $available)):
-					$response['Result'] = $this->get($this->instance . $session . 'R/.val/text');
+					$response['Result'] = $this->get($this->instance . $session . 'R/.val/json');
 				endif;
 
 				$locations = '';

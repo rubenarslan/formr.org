@@ -1,7 +1,7 @@
 <?php
 require_once '../define_root.php';
 error_reporting(-1);
-if (DEBUG > -1) {
+if (DEBUG > 0) {
     ini_set('display_errors', 1);
 }
 ini_set("log_errors", 1);
@@ -60,6 +60,12 @@ try {
 	$router->execute();
 } catch (Exception $e) {
 	log_exception($e);
+	if(DEBUG) {
+		alert("<pre style='background-color:transparent;border:0'>". 'Exception: ' . $e->getMessage() . "\n". $e->getTraceAsString()."</pre>", "alert-danger");
+	} else {
+		$date = date('Y-m-d H:i:s');
+		alert("<small>".$date. " There was a fatal error. Please let the administrators and know what you were trying to do and provide this message's date & time.</small>", "alert-danger");
+	}
 	bad_request();
 }
 
