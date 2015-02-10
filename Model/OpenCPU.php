@@ -160,16 +160,11 @@ class OpenCPU {
 		endif;
 	}
 
-	public function get($url, $in = 'get') {
-		$result = CURL::HttpRequest($url, array(), CURL::HTTP_METHOD_GET, $this->curl_opts, $this->curl_info);
-		if(endsWith($url, "/json")) {
-			return $this->handleJSON($result, array(), '', $in);
-		} else {
-			return $result;
-		}
+	public function get($url) {
+		return CURL::HttpRequest($url, array(), CURL::HTTP_METHOD_GET, $this->curl_opts, $this->curl_info);
 	}
 	public function getOld($url) {
-		return $this->get($url . 'R/.val/json', "getOld");
+		return $this->handleJSON($this->get($url . 'R/.val/json'), array(), '', $in);
 	}
 	public function r_function($function, array $post) {
 
@@ -354,7 +349,6 @@ opts_knit$set(upload.fun=formr::email_image)
 $source;
 
 		$result = $this->knit2html($source, '', 0);
-
 		if ($this->anyErrors()):
 			$response = array(
 				'Response' => '<pre>' . htmlspecialchars($result['body']) . '</pre>',
@@ -362,7 +356,6 @@ $source;
 			);
 		else:
 			$header_parsed = $this->curl_info[CURL::RESPONSE_HEADERS];
-
 			if (isset($header_parsed['X-Ocpu-Session'])) {
 				$session = '/ocpu/tmp/' . $header_parsed['X-Ocpu-Session'] . '/';
 			} else {
@@ -453,7 +446,7 @@ $source;
 				// info/text stdout/text console/text R/.val/text
 
 				if (in_array($session . 'R/.val', $available)):
-					$response['Result'] = $this->get($this->instance . $session . 'R/.val/json');
+					$response['Result'] = $this->get($this->instance . $session . 'R/.val/text');
 				endif;
 
 				$locations = '';
