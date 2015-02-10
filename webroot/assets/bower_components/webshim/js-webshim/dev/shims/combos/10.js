@@ -60,16 +60,11 @@
 webshims.register('dom-extend', function($, webshims, window, document, undefined){
 	"use strict";
 	var supportHrefNormalized = !('hrefNormalized' in $.support) || $.support.hrefNormalized;
-	var supportGetSetAttribute = !('getSetAttribute' in $.support) || $.support.getSetAttribute;
 	var has = Object.prototype.hasOwnProperty;
-	webshims.assumeARIA = supportGetSetAttribute || Modernizr.canvas || Modernizr.video || Modernizr.boxsizing;
+	webshims.assumeARIA = true;
 	
 	if($('<input type="email" />').attr('type') == 'text' || $('<form />').attr('novalidate') === "" || ('required' in $('<input />')[0].attributes)){
-		webshims.error("IE browser modes are busted in IE10+. Please test your HTML/CSS/JS with a real IE version or at least IETester or similiar tools");
-	}
-	
-	if('debug' in webshims){
-		webshims.error('Use webshims.setOptions("debug", true||false||"noCombo"); to debug flag');
+		webshims.error("IE browser modes are busted in IE10+. Make sure to run IE in edge mode (X-UA-Compatible). Please test your HTML/CSS/JS with a real IE version or at least IETester or similar tools. ");
 	}
 	
 	if (!webshims.cfg.no$Switch) {
@@ -81,15 +76,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 				window.jQuery = webshims.$;
 			}
-			if(webshims.M != Modernizr){
-				webshims.error("Modernizr was included more than once. Make sure to include it only once! Webshims and other scripts might not work properly.");
-				for(var i in Modernizr){
-					if(!(i in webshims.M)){
-						webshims.M[i] = Modernizr[i];
-					}
-				}
-				Modernizr = webshims.M;
-			}
 		};
 		switch$();
 		setTimeout(switch$, 90);
@@ -100,7 +86,6 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	}
 
 	//shortcus
-	var modules = webshims.modules;
 	var listReg = /\s*,\s*/;
 		
 	//proxying attribute
@@ -117,20 +102,25 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	};
 	
 	//jquery mobile and jquery ui
-	if(!$.widget){
+	if(!$.widget && (!$.pluginFactory || !$.pluginFactory.mixin)){
 		(function(){
 			var _cleanData = $.cleanData;
-			$.cleanData = function( elems ) {
-				if(!$.widget){
-					for ( var i = 0, elem; (elem = elems[i]) != null; i++ ) {
+			$.cleanData = (function( orig ) {
+				return function( elems ) {
+					var events, elem, i;
+					for ( i = 0; (elem = elems[i]) != null; i++ ) {
 						try {
-							$( elem ).triggerHandler( "remove" );
-						// http://bugs.jquery.com/ticket/8235
-						} catch( e ) {}
+							// Only trigger remove when necessary to save time
+							events = $._data( elem, "events" );
+							if ( events && events.remove ) {
+								$( elem ).triggerHandler( "remove" );
+							}
+							// http://bugs.jquery.com/ticket/8235
+						} catch ( e ) {}
 					}
-				}
-				_cleanData( elems );
-			};
+					orig( elems );
+				};
+			})( $.cleanData );
 		})();
 	}
 	
@@ -418,7 +408,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		var UNKNOWN = webshims.getPrototypeOf(document.createElement('foobar'));
 		
 		//see also: https://github.com/lojjic/PIE/issues/40 | https://prototype.lighthouseapp.com/projects/8886/tickets/1107-ie8-fatal-crash-when-prototypejs-is-loaded-with-rounded-cornershtc
-		var isExtendNativeSave = Modernizr.advancedObjectProperties && Modernizr.objectAccessor;
+		var isExtendNativeSave = webshims.support.advancedObjectProperties && webshims.support.objectAccessor;
 		return function(nodeName, prop, desc){
 			var elem , elemProto;
 			 if( isExtendNativeSave && (elem = document.createElement(nodeName)) && (elemProto = webshims.getPrototypeOf(elem)) && UNKNOWN !== elemProto && ( !elem[prop] || !has.call(elem, prop) ) ){
@@ -485,8 +475,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				(tempCache || $( document.getElementsByTagName(nodeName) )).each(fn);
 			}
 		};
-		
-		var elementExtends = {};
+
 		return {
 			createTmpCache: function(nodeName){
 				if($.isDOMReady){
@@ -538,6 +527,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	};
 	
 	$.extend(webshims, {
+		xProps: havePolyfill,
 		getID: (function(){
 			var ID = new Date().getTime();
 			return function(elem){
@@ -551,6 +541,26 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				return id;
 			};
 		})(),
+		domPrefixes: ["webkit", "moz", "ms", "o", "ws"],
+
+		prefixed: function (prop, obj){
+			var i, testProp;
+			var ret = false;
+			if(obj[prop]){
+				ret = prop;
+			}
+			if(!ret){
+				prop = prop.charAt(0).toUpperCase() + prop.slice(1);
+				for(i = 0; i < webshims.domPrefixes.length; i++){
+					testProp = webshims.domPrefixes[i]+prop;
+					if(testProp in obj){
+						ret = testProp;
+						break;
+					}
+				}
+			}
+			return ret;
+		},
 		shadowClass: 'wsshadow-'+(Date.now()),
 		implement: function(elem, type){
 			var data = elementData(elem, 'implemented') || elementData(elem, 'implemented', {});
@@ -558,8 +568,9 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				webshims.warn(type +' already implemented for element #'+elem.id);
 				return false;
 			}
+
 			data[type] = true;
-			return true;
+			return !$(elem).hasClass('ws-nopolyfill');
 		},
 		extendUNDEFProp: function(obj, props){
 			$.each(props, function(name, prop){
@@ -671,33 +682,37 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 				},
 				handler: (function(){
+					var evt;
 					var trigger = function(){
-						$(document).triggerHandler('updateshadowdom');
+						$(document).triggerHandler('updateshadowdom', [evt]);
+					};
+					var timed = function(){
+						if(evt && evt.type == 'resize'){
+							var width = $window.width();
+							var height = $window.width();
+
+							if(height == lastHeight && width == lastWidth){
+								return;
+							}
+							lastHeight = height;
+							lastWidth = width;
+						}
+
+						if(evt && evt.type != 'docresize'){
+							docObserve.height = docObserve.getHeight();
+							docObserve.width = docObserve.getWidth();
+						}
+
+						if(window.requestAnimationFrame){
+							requestAnimationFrame(trigger);
+						} else {
+							setTimeout(trigger, 0);
+						}
 					};
 					return function(e){
 						clearTimeout(resizeTimer);
-						resizeTimer = setTimeout(function(){
-							if(e.type == 'resize'){
-								var width = $window.width();
-								var height = $window.width();
-
-								if(height == lastHeight && width == lastWidth){
-									return;
-								}
-								lastHeight = height;
-								lastWidth = width;
-								
-								docObserve.height = docObserve.getHeight();
-								docObserve.width = docObserve.getWidth();
-							}
-
-							if(window.requestAnimationFrame){
-								requestAnimationFrame(trigger);
-							} else {
-								setTimeout(trigger, 0);
-							}
-							
-						}, (e.type == 'resize' && !window.requestAnimationFrame) ? 50 : 9);
+						evt = e;
+						resizeTimer = setTimeout(timed, (e.type == 'resize' && !window.requestAnimationFrame) ? 50 : 9);
 					};
 				})(),
 				_create: function(){
@@ -729,7 +744,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 							});
 						}
 						webshims.ready('WINDOWLOAD', this.test);
-						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel', this.handler);
+						$(document).on('updatelayout.webshim pageinit popupafteropen panelbeforeopen tabsactivate collapsibleexpand shown.bs.modal shown.bs.collapse slid.bs.carousel playerdimensionchange', this.handler);
 						$(window).on('resize', this.handler);
 					}
 				}
@@ -1843,7 +1858,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	"use strict";
 	var curCfg;
 	var formcfg = webshims.formcfg;
-	var hasFormValidation = Modernizr.formvalidation && !webshims.bugs.bustedValidity;
+	var hasFormValidation = webshims.support.formvalidation && !webshims.bugs.bustedValidity;
 	var monthDigits = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
 	var stopPropagation = function(e){
 		e.stopImmediatePropagation();
@@ -1896,7 +1911,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			;
 		}
 	};
-	var numericType = Modernizr.inputtypes.tel && navigator.userAgent.indexOf('Mobile') != -1 && !('inputMode' in document.createElement('input') && !('inputmode' in document.createElement('input'))) ?
+	var numericType = webshims.support.inputtypes.tel && navigator.userAgent.indexOf('Mobile') != -1 && !('inputMode' in document.createElement('input') && !('inputmode' in document.createElement('input'))) ?
 		'tel' : 'text';
 	var splitInputs = {
 		date: {
@@ -2024,9 +2039,11 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			$(element).attr({'aria-labelledby': labels.map(getId).get().join(' ')});
 			if(!noFocus){
 				labels.on('click', function(e){
-					element.getShadowFocusElement().focus();
-					e.preventDefault();
-					return false;
+					if(!e.isDefaultPrevented()){
+						element.getShadowFocusElement().focus();
+						e.preventDefault();
+						return false;
+					}
 				});
 			}
 		};
@@ -2261,22 +2278,40 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				}
 				return val;
 			},
-			time: function(val){
-				var fVal;
-				if(val && curCfg.meridian){
+			time: function(val, o, noCorrect){
+				var fVal, i;
+
+				if(val){
+
 					val = val.split(':');
-					fVal = (val[0] * 1);
-					if(fVal && fVal >= 12){
-						val[0] = addZero(fVal - 12+'');
-						fVal = 1;
-						
-					} else {
-						fVal = 0;
+					if(val.length != 2 || isNaN(parseInt(val[0] || '', 10)) || isNaN(parseInt(val[1] || '', 10))){
+						return val.join(':');
 					}
-					if(val[0] === '00'){ 
-						val[0] = '12';
+					if(curCfg.meridian){
+						fVal = (val[0] * 1);
+						if(fVal && fVal >= 12){
+							val[0] = addZero(fVal - 12+'');
+							fVal = 1;
+						} else {
+							fVal = 0;
+						}
+						if(val[0] === '00'){
+							val[0] = '12';
+						}
 					}
-					val = $.trim(val.join(':')) + ' '+ curCfg.meridian[fVal];
+					if(!noCorrect){
+						for(i = 0; i < val.length; i++){
+							val[i] = addZero(val[i]);
+						}
+
+						if(!val[1]){
+							val[1] = '00';
+						}
+					}
+					val = $.trim(val.join(':'));
+					if(fVal != null && curCfg.meridian){
+						val += ' '+curCfg.meridian[fVal];
+					}
 				}
 				return val;
 			},
@@ -2365,12 +2400,15 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				var fVal;
 				if(val && curCfg.meridian){
 					val = val.toUpperCase();
-					if(val.substr(0,2) === "12"){ 
+					if(val.substr(0,2) === "12"){
 						val = "00" + val.substr(2);
 					}
+
 					if(val.indexOf(curCfg.meridian[1]) != -1){
+
 						val = val.split(':');
-						fVal = (val[0] * 1);
+						fVal = (val[0].replace(curCfg.meridian[1], '') * 1);
+
 						if(!isNaN(fVal)){
 							val[0] = fVal + 12;
 						}
@@ -2403,6 +2441,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 				createFormat('d');
 				var tmp, obj;
 				var ret = '';
+
 				if(opts.splitInput){
 					obj = {yy: 0, mm: 1, dd: 2};
 				} else {
@@ -2424,8 +2463,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 					}
 					ret = ([addZero(val[obj.yy]), addZero(val[obj.mm]), addZero(val[obj.dd])]).join('-');
 				}
-				return ret
-				;
+				return ret;
 			},
 			color: function(val, opts){
 				var ret = '#000000';
@@ -2727,9 +2765,11 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		};
 		
 		['defaultValue', 'value'].forEach(function(name){
+			var formatName = 'format'+name;
 			wsWidgetProto[name] = function(val, force){
-				if(!this._init || force || val !== this.options[name]){
-					this.element.prop(name, this.formatValue(val));
+				if(!this._init || force || val !== this.options[name] || this.options[formatName] != this.element.prop(name)){
+					this.options[formatName] = this.formatValue(val);
+					this.element.prop(name, this.options[formatName]);
 					this.options[name] = val;
 					this._propertyChange(name);
 					this.mirrorValidity();
@@ -2853,36 +2893,34 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			var isValue = name == 'value';
 			spinBtnProto[name] = function(val, force, isLive){
 				var selectionEnd;
-				if(!this._init || force || this.options[name] !== val){
-					if(isValue){
-						this._beforeValue(val);
-					} else {
-						this.elemHelper.prop(name, val);
-					}
-
-					val = formatVal[this.type](val, this.options);
-					if(this.options.splitInput){
-						$.each(this.splits, function(i, elem){
-							var setOption;
-							if(!(name in elem) && !isValue && $.nodeName(elem, 'select')){
-								$('option[value="'+ val[i] +'"]', elem).prop('defaultSelected', true);
-							} else {
-								$.prop(elem, name, val[i]);
-							}
-						});
-					} else {
-						val = this.toFixed(val);
-						if(isLive && this._getSelectionEnd){
-							selectionEnd = this._getSelectionEnd(val);
-						}
-						this.element.prop(name, val);
-						if(selectionEnd != null){
-							this.element.prop('selectionEnd', selectionEnd);
-						}
-					}
-					this._propertyChange(name);
-					this.mirrorValidity();
+				if(isValue){
+					this._beforeValue(val);
+				} else {
+					this.elemHelper.prop(name, val);
 				}
+
+				val = formatVal[this.type](val, this.options);
+				if(this.options.splitInput){
+					$.each(this.splits, function(i, elem){
+						var setOption;
+						if(!(name in elem) && !isValue && $.nodeName(elem, 'select')){
+							$('option[value="'+ val[i] +'"]', elem).prop('defaultSelected', true);
+						} else {
+							$.prop(elem, name, val[i]);
+						}
+					});
+				} else {
+					val = this.toFixed(val);
+					if(isLive && this._getSelectionEnd){
+						selectionEnd = this._getSelectionEnd(val);
+					}
+					this.element.prop(name, val);
+					if(selectionEnd != null){
+						this.element.prop('selectionEnd', selectionEnd);
+					}
+				}
+				this._propertyChange(name);
+				this.mirrorValidity();
 			};
 		});
 		
@@ -2937,74 +2975,88 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	})();
 
 
-	$.fn.wsTouchClick = (function(){
-		var supportsTouchaction = ('touchAction' in document.documentElement.style);
-		var addTouch = !supportsTouchaction && ('ontouchstart' in window) && document.addEventListener;
-		return function(target, handler){
-			var touchData, touchEnd, touchStart;
 
-			if(addTouch){
+	if(!$.fn.wsTouchClick){
 
-				touchEnd = function(e){
-					var ret, touch;
-					e = e.originalEvent || {};
-					$(this).off('touchend touchcancel', touchEnd);
-					var changedTouches = e.changedTouches || e.touches;
-					if(e.type == 'touchcancel' || !touchData || !changedTouches || changedTouches.length != 1){
-						return;
+		$.fn.wsTouchClick = (function(){
+			var supportsTouchaction = ('touchAction' in document.documentElement.style);
+			var addTouch = !supportsTouchaction && ('ontouchstart' in window) && document.addEventListener;
+			return function(target, handler){
+				var touchData, touchEnd, touchStart, stopClick, allowClick;
+				var runHandler = function(){
+					if(!stopClick){
+						return handler.apply(this, arguments);
 					}
-
-					touch = changedTouches[0];
-					if(Math.abs(touchData.x - touch.pageX) > 40 || Math.abs(touchData.y - touch.pageY) > 40 || Date.now() - touchData.now > 300){
-						return;
-					}
-					e.preventDefault();
-					ret = handler.apply(this, arguments);
-
-					return ret;
 				};
-
-				touchStart = function(e){
-					var touch, elemTarget;
-
-
-					if((!e || e.touches.length != 1)){
-						return;
-					}
-					touch = e.touches[0];
-					elemTarget = target ? $(touch.target).closest(target) : $(this);
-					if(!elemTarget.length){
-						return;
-					}
-					touchData = {
-						x: touch.pageX,
-						y: touch.pageY,
-						now: Date.now()
+				if($.isFunction(target)){
+					handler = target;
+					target = false;
+					this.on('click', runHandler);
+				} else {
+					this.on('click', target, runHandler);
+				}
+				if(addTouch){
+					allowClick = function(){
+						stopClick = false;
 					};
-					elemTarget.on('touchend touchcancel', touchEnd);
-				};
+					touchEnd = function(e){
+						var ret, touch;
+						e = e.originalEvent || {};
+						$(this).off('touchend touchcancel', touchEnd);
+						var changedTouches = e.changedTouches || e.touches;
+						if(e.type == 'touchcancel' || !touchData || !changedTouches || changedTouches.length != 1){
+							return;
+						}
 
-				this.each(function(){
-					this.addEventListener('touchstart', touchStart, true);
-				});
-			} else if(supportsTouchaction){
-				this.css('touch-action', 'manipulation');
-			}
+						touch = changedTouches[0];
+						if(Math.abs(touchData.x - touch.pageX) > 40 || Math.abs(touchData.y - touch.pageY) > 40 || Date.now() - touchData.now > 300){
+							return;
+						}
 
-			if($.isFunction(target)){
-				handler = target;
-				target = false;
-				this.on('click', handler);
-			} else {
-				this.on('click', target, handler);
-			}
-			return this;
-		};
-	})();
+						e.preventDefault();
+						stopClick = true;
+						setTimeout(allowClick, 400);
+
+						ret = handler.apply(this, arguments);
+
+						return ret;
+					};
+
+					touchStart = function(e){
+						var touch, elemTarget;
+						if((!e || e.touches.length != 1)){
+							return;
+						}
+						touch = e.touches[0];
+						elemTarget = target ? $(touch.target).closest(target) : $(this);
+						if(!elemTarget.length){
+							return;
+						}
+						touchData = {
+							x: touch.pageX,
+							y: touch.pageY,
+							now: Date.now()
+						};
+						elemTarget.on('touchend touchcancel', touchEnd);
+					};
+
+					this.each(function(){
+						this.addEventListener('touchstart', touchStart, true);
+					});
+				} else if(supportsTouchaction && !target){
+					this.css('touch-action', 'manipulation');
+				}
+
+
+				return this;
+			};
+		})();
+	}
 
 	(function(){
 		var picker = {};
-		var assumeVirtualKeyBoard = Modernizr.touchevents || Modernizr.touch || (/android|iphone|ipad|ipod|blackberry|iemobile/i.test(navigator.userAgent.toLowerCase()));
+		var modern = window.Modernizr;
+		var assumeVirtualKeyBoard = (modern && (modern.touchevents || modern.touch)) || (/android|iphone|ipad|ipod|blackberry|iemobile/i.test(navigator.userAgent.toLowerCase()));
 		webshims.inlinePopover = {
 			_create: function(){
 				this.element = $('<div class="ws-inline-picker"><div class="ws-po-box" /></div>').data('wspopover', this);
@@ -3394,7 +3446,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		
 		var stopCircular, isCheckValidity;
 		
-		var modernizrInputTypes = Modernizr.inputtypes;
+		var supportInputTypes = webshims.support.inputtypes;
 		var inputTypes = {
 			
 		};
@@ -3548,7 +3600,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 			var type = $.prop(this, 'type');
 			var i, opts, data, optsName, labels, cNames, hasInitialFocus;
 
-			if(inputTypes[type] && webshims.implement(this, 'inputwidgets') && (!modernizrInputTypes[type] || !$(this).hasClass('ws-noreplace'))){
+			if(inputTypes[type] && webshims.implement(this, 'inputwidgets') && (!supportInputTypes[type] || !$(this).hasClass('ws-noreplace'))){
 				data = {};
 				optsName = type;
 				hasInitialFocus = $(this).is(':focus');
@@ -3672,7 +3724,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 						});
 					});
 				}
-				
+
 				if(opts.calculateWidth){
 					sizeInput(data.shim);
 				} else {
@@ -3702,28 +3754,28 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		}
 		
 		var replace = {};
-		
-		
+
 		if(options.replaceUI){
-			if( $.isPlainObject(options.replaceUI) ){
-				$.extend(replace, options.replaceUI);
-			} else {
-				$.extend(replace, {
-					'range': 1,
-					'number': 1,
-					'time': 1, 
-					'month': 1, 
-					'date': 1, 
-					'color': 1, 
-					'datetime-local': 1
-				});
-			}
+			$.each($.extend(replace, $.isPlainObject(options.replaceUI) ? options.replaceUI : {
+				'range': 1,
+				'number': 1,
+				'time': 1,
+				'month': 1,
+				'date': 1,
+				'color': 1,
+				'datetime-local': 1
+			}), function(name, val){
+				if(supportInputTypes[name] && val == 'auto'){
+					replace[name] = webshims._getAutoEnhance(val);
+				}
+			});
 		}
-		if(modernizrInputTypes.number && navigator.userAgent.indexOf('Touch') == -1 && ((/MSIE 1[0|1]\.\d/.test(navigator.userAgent)) || (/Trident\/7\.0/.test(navigator.userAgent)))){
+
+		if(supportInputTypes.number && navigator.userAgent.indexOf('Touch') == -1 && ((/MSIE 1[0|1]\.\d/.test(navigator.userAgent)) || (/Trident\/7\.0/.test(navigator.userAgent)))){
 			replace.number = 1;
 		}
 		
-		if(!modernizrInputTypes.range || replace.range){
+		if(replace.range !== false && (!supportInputTypes.range || replace.range)){
 			extendType('range', {
 				_create: function(opts, set){
 					var data = $('<span />').insertAfter(opts.orig).rangeUI(opts).data('rangeUi');
@@ -3734,12 +3786,13 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 		
 		
 		['number', 'time', 'month', 'date', 'color', 'datetime-local'].forEach(function(name){
-			if(!modernizrInputTypes[name] || replace[name]){
+			if(replace[name] !== false && (!supportInputTypes[name] || replace[name])){
 				extendType(name, {
 					_create: function(opts, set){
 						if(opts.monthSelect || opts.daySelect || opts.yearSelect){
 							opts.splitInput = true;
 						}
+
 						if(opts.splitInput && !splitInputs[name]){
 							webshims.warn('splitInput not supported for '+ name);
 							opts.splitInput = false;

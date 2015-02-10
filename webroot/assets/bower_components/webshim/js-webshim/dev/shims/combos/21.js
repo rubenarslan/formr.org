@@ -92,52 +92,46 @@
 						}
 						return;
 					}
-					createAjax = function(){
-						$.ajax({
-							url: 'http://freegeoip.net/json/',
-							dataType: 'jsonp',
-							cache: true,
-							jsonp: 'callback',
-							success: function(data){
-								locationAPIs--;
-								if(!data){return;}
-								pos = pos || {
-									coords: {
-										latitude: data.latitude,
-										longitude: data.longitude,
-										altitude: null,
-										accuracy: 43000,
-										altitudeAccuracy: null,
-										heading: parseInt('NaN', 10),
-										velocity: null
-									},
-									//extension similiar to FF implementation
-									address: {
-										city: data.city,
-										country: data.country_name,
-										countryCode: data.country_code,
-										county: "",
-										postalCode: data.zipcode,
-										premises: "",
-										region: data.region_name,
-										street: "",
-										streetNumber: ""
-									}
-								};
-								endCallback();
-							},
-							error: function(){
-								locationAPIs--;
-								endCallback();
-							}
-						});
-					};
-					if($.ajax){
-						createAjax();
-					} else {
-						webshims.ready('jajax', createAjax);
-						webshims.loader.loadList(['jajax']);
-					}
+
+					$.ajax({
+						url: 'http://freegeoip.net/json/',
+						dataType: 'jsonp',
+						cache: true,
+						jsonp: 'callback',
+						success: function(data){
+							locationAPIs--;
+							if(!data){return;}
+							pos = pos || {
+								coords: {
+									latitude: data.latitude,
+									longitude: data.longitude,
+									altitude: null,
+									accuracy: 43000,
+									altitudeAccuracy: null,
+									heading: parseInt('NaN', 10),
+									velocity: null
+								},
+								//extension similiar to FF implementation
+								address: {
+									city: data.city,
+									country: data.country_name,
+									countryCode: data.country_code,
+									county: "",
+									postalCode: data.zipcode,
+									premises: "",
+									region: data.region_name,
+									street: "",
+									streetNumber: ""
+								}
+							};
+							endCallback();
+						},
+						error: function(){
+							locationAPIs--;
+							endCallback();
+						}
+					});
+
 					clearTimeout(googleTimer);
 					if (!window.google || !window.google.loader) {
 						googleTimer = setTimeout(function(){
@@ -179,10 +173,7 @@
 		};
 		return api;
 	})());
-	
-	webshims.ready('WINDOWLOAD', function(){
-		webshims.loader.loadList(['jajax']);
-	});
+
 	webshims.isReady('geolocation', true);
 })(webshims.$);
 ;webshims.register('details', function($, webshims, window, doc, undefined, options){
@@ -335,11 +326,12 @@
 });
 ;webshims.register('mediaelement-jaris', function($, webshims, window, document, undefined, options){
 	"use strict";
-	
+
 	var mediaelement = webshims.mediaelement;
 	var swfmini = window.swfmini;
-	var hasNative = Modernizr.audio && Modernizr.video;
-	var hasFlash = swfmini.hasFlashPlayerVersion('9.0.115');
+	var support = webshims.support;
+	var hasNative = support.mediaelement;
+	var hasFlash = swfmini.hasFlashPlayerVersion('11.3');
 	var loadedSwf = 0;
 	var needsLoadPreload = 'ActiveXObject' in window && hasNative;
 	var getProps = {
@@ -372,27 +364,30 @@
 		}
 	};
 	var getPropKeys = Object.keys(getProps);
-	
+
 	var getSetProps = {
 		currentTime: 0,
 		volume: 1,
 		muted: false
 	};
 	var getSetPropKeys = Object.keys(getSetProps);
-	
+
 	var playerStateObj = $.extend({
 		isActive: 'html5',
-		activating: 'html5',	
+		activating: 'html5',
 		wasSwfReady: false,
+		_usermedia: null,
 		_bufferedEnd: 0,
 		_bufferedStart: 0,
 		currentTime: 0,
+		lastCalledTime: -500,
 		_ppFlag: undefined,
 		_calledMeta: false,
-		lastDuration: 0
+		lastDuration: 0,
+		_timeDif: 0.3
 	}, getProps, getSetProps);
-	
-	
+
+
 	var getSwfDataFromElem = function(elem){
 		try {
 			(elem.nodeName);
@@ -400,17 +395,17 @@
 			return null;
 		}
 		var data = webshims.data(elem, 'mediaelement');
-		return (data && data.isActive== 'third') ? data : null;
+		return (data && data.isActive == 'third') ? data : null;
 	};
-	
+
 	var trigger = function(elem, evt){
 		evt = $.Event(evt);
 		evt.preventDefault();
 		$.event.trigger(evt, undefined, elem);
 	};
-	
+
 	var playerSwfPath = options.playerPath || webshims.cfg.basePath + "swf/" + (options.playerName || 'JarisFLVPlayer.swf');
-	
+
 	webshims.extendUNDEFProp(options.params, {
 		allowscriptaccess: 'always',
 		allowfullscreen: 'true',
@@ -424,7 +419,8 @@
 	webshims.extendUNDEFProp(options.attrs, {
 		bgcolor: '#000000'
 	});
-	
+	options.playerPath = playerSwfPath;
+
 	var setReadyState = function(readyState, data){
 		if(readyState < 3){
 			clearTimeout(data._canplaythroughTimer);
@@ -452,13 +448,15 @@
 			$(data._elem).triggerHandler('seeked');
 		}
 	};
-	
-	
-	mediaelement.jarisEvent = {};
+
+
+	mediaelement.jarisEvent = mediaelement.jarisEvent || {};
 	var localConnectionTimer;
 	var onEvent = {
 		onPlayPause: function(jaris, data, override){
 			var playing, type;
+			var idled = data.paused || data.ended;
+
 			if(override == null){
 				try {
 					playing = data.api.api_get("isPlaying");
@@ -466,23 +464,26 @@
 			} else {
 				playing = override;
 			}
-			if(playing == data.paused){
-				
+			if(playing == idled || playing == null){
+
 				data.paused = !playing;
 				type = data.paused ? 'pause' : 'play';
 				data._ppFlag = true;
 				trigger(data._elem, type);
+
+			}
+			if(!data.paused || playing == idled || playing == null){
 				if(data.readyState < 3){
 					setReadyState(3, data);
 				}
-				if(!data.paused){
-					trigger(data._elem, 'playing');
-				}
+			}
+			if(!data.paused){
+				trigger(data._elem, 'playing');
 			}
 		},
 		onSeek: function(jaris, data){
 			data._lastSeektime = jaris.seekTime;
-			
+
 			data.seeking = true;
 			$(data._elem).triggerHandler('seeking');
 			clearTimeout(data._seekedTimer);
@@ -498,19 +499,19 @@
 			setReadyState(3, data);
 		},
 		onDataInitialized: function(jaris, data){
-			
+
 			var oldDur = data.duration;
 			var durDelta;
 			data.duration = jaris.duration;
 			if(oldDur == data.duration || isNaN(data.duration)){return;}
-			
+
 			if(data._calledMeta && ((durDelta = Math.abs(data.lastDuration - data.duration)) < 2)){return;}
-			
-			
-			
+
+
+
 			data.videoHeight = jaris.height;
 			data.videoWidth = jaris.width;
-			
+
 			if(!data.networkState){
 				data.networkState = 2;
 			}
@@ -531,6 +532,14 @@
 				if(!data._calledMeta){
 					trigger(data._elem, 'loadedmetadata');
 				}
+
+				if(data.duration > 1 && data.duration < 140){
+					data._timeDif = 0.2;
+				} else if(data.duration < 600) {
+					data._timeDif = 0.25;
+				} else {
+					data._timeDif = 0.30;
+				}
 			}
 			data._calledMeta = true;
 		},
@@ -542,6 +551,7 @@
 			trigger(data._elem, 'waiting');
 		},
 		onTimeUpdate: function(jaris, data){
+			var timeDif = data.currentTime - data.lastCalledTime;
 			if(data.ended){
 				data.ended = false;
 			}
@@ -552,7 +562,12 @@
 			if(data.seeking){
 				callSeeked(data);
 			}
-			trigger(data._elem, 'timeupdate');
+
+			if(timeDif > data._timeDif || timeDif < -0.3){
+				data.lastCalledTime = data.currentTime;
+				$.event.trigger('timeupdate', undefined, data._elem, true);
+			}
+
 		},
 		onProgress: function(jaris, data){
 			if(data.ended){
@@ -562,10 +577,12 @@
 				return;
 			}
 			var percentage = jaris.loaded / jaris.total;
+
 			if(percentage > 0.02 && percentage < 0.2){
 				setReadyState(3, data);
 			} else if(percentage > 0.2){
-				if(percentage > 0.99){
+				if(percentage > 0.95){
+					percentage = 1;
 					data.networkState = 1;
 				}
 				setReadyState(4, data);
@@ -573,10 +590,10 @@
 			if(data._bufferedEnd && (data._bufferedEnd > percentage)){
 				data._bufferedStart = data.currentTime || 0;
 			}
-			
+
 			data._bufferedEnd = percentage;
 			data.buffered.length = 1;
-			
+
 			$.event.trigger('progress', undefined, data._elem, true);
 		},
 		onPlaybackFinished: function(jaris, data){
@@ -596,7 +613,7 @@
 		ready: (function(){
 			var testAPI = function(data){
 				var passed = true;
-				
+
 				try {
 					data.api.api_get('volume');
 				} catch(er){
@@ -604,17 +621,17 @@
 				}
 				return passed;
 			};
-			
+
 			return function(jaris, data){
 				var i = 0;
-				
+
 				var doneFn = function(){
 					if(i > 9){
 						data.tryedReframeing = 0;
 						return;
 					}
 					i++;
-					
+
 					data.tryedReframeing++;
 					if(testAPI(data)){
 						data.wasSwfReady = true;
@@ -644,25 +661,25 @@
 				clearTimeout(localConnectionTimer);
 				clearTimeout(data.reframeTimer);
 				data.shadowElem.removeClass('flashblocker-assumed');
-				
+
 				if(!i){
 					doneFn();
 				} else {
 					data.reframeTimer = setTimeout(doneFn, 9);
 				}
-				
+
 			};
 		})()
 	};
-	
+
 	onEvent.onMute = onEvent.onVolumeChange;
-	
-	
+	mediaelement.onEvent = onEvent;
+
 	var workActionQueue = function(data){
 		var actionLen = data.actionQueue.length;
 		var i = 0;
 		var operation;
-		
+
 		if(actionLen && data.isActive == 'third'){
 			while(data.actionQueue.length && actionLen > i){
 				i++;
@@ -683,7 +700,7 @@
 		if( (data._ppFlag === undefined && ($.prop(data._elem, 'autoplay')) || !data.paused)){
 			setTimeout(function(){
 				if(data.isActive == 'third' && (data._ppFlag === undefined || !data.paused)){
-					
+
 					try {
 						$(data._elem).play();
 						data._ppFlag = true;
@@ -691,7 +708,7 @@
 				}
 			}, 1);
 		}
-		
+
 		if(data.muted){
 			$.prop(data._elem, 'muted', true);
 		}
@@ -699,26 +716,26 @@
 			$.prop(data._elem, 'volume', data.volume);
 		}
 	};
-	
-	
+
+
 	var addMediaToStopEvents = $.noop;
 	if(hasNative){
 		var stopEvents = {
 			play: 1,
 			playing: 1
 		};
-		var hideEvtArray = ['play', 'pause', 'playing', 'canplay', 'progress', 'waiting', 'ended', 'loadedmetadata', 'durationchange', 'emptied'];
+		var hideEvtArray = ['play', 'pause', 'playing', 'loadstart', 'canplay', 'progress', 'waiting', 'ended', 'loadedmetadata', 'durationchange', 'emptied'];
 		var hidevents = hideEvtArray.map(function(evt){
 			return evt +'.webshimspolyfill';
 		}).join(' ');
-		
+
 		var hidePlayerEvents = function(event){
 			var data = webshims.data(event.target, 'mediaelement');
 			if(!data){return;}
 			var isNativeHTML5 = ( event.originalEvent && event.originalEvent.type === event.type );
 			if( isNativeHTML5 == (data.activating == 'third') ){
 				event.stopImmediatePropagation();
-				
+
 				if(stopEvents[event.type]){
 					if(data.isActive != data.activating){
 						$(event.target).pause();
@@ -728,7 +745,7 @@
 				}
 			}
 		};
-		
+
 		addMediaToStopEvents = function(elem){
 			$(elem)
 				.off(hidevents)
@@ -740,8 +757,8 @@
 		};
 		addMediaToStopEvents(document);
 	}
-	
-	
+
+
 	mediaelement.setActive = function(elem, type, data){
 		if(!data){
 			data = webshims.data(elem, 'mediaelement');
@@ -763,14 +780,14 @@
 		}
 		$(elem).trigger('mediaelementapichange');
 	};
-	
-	
-	
+
+
+
 	var resetSwfProps = (function(){
-		var resetProtoProps = ['_calledMeta', 'lastDuration', '_bufferedEnd', '_bufferedStart', '_ppFlag', 'currentSrc', 'currentTime', 'duration', 'ended', 'networkState', 'paused', 'seeking', 'videoHeight', 'videoWidth'];
+		var resetProtoProps = ['_calledMeta', 'lastDuration', '_bufferedEnd', 'lastCalledTime', '_usermedia', '_bufferedStart', '_ppFlag', 'currentSrc', 'currentTime', 'duration', 'ended', 'networkState', 'paused', 'seeking', 'videoHeight', 'videoWidth'];
 		var len = resetProtoProps.length;
 		return function(data){
-			
+
 			if(!data){return;}
 			clearTimeout(data._seekedTimer);
 			var lenI = len;
@@ -787,8 +804,8 @@
 			}
 		};
 	})();
-	
-	
+
+
 	var getComputedDimension = (function(){
 		var dimCache = {};
 		var getVideoDims = function(data){
@@ -810,7 +827,7 @@
 							width: this.width,
 							height: this.height
 						};
-						
+
 						if(dimCache[poster].height && dimCache[poster].width){
 							setElementDimension(data, $.prop(data._elem, 'controls'));
 						} else {
@@ -826,12 +843,12 @@
 			}
 			return ret || {width: 300, height: data._elemNodeName == 'video' ? 150 : 50};
 		};
-		
+
 		var getCssStyle = function(elem, style){
 			return elem.style[style] || (elem.currentStyle && elem.currentStyle[style]) || (window.getComputedStyle && (window.getComputedStyle( elem, null ) || {} )[style]) || '';
 		};
 		var minMaxProps = ['minWidth', 'maxWidth', 'minHeight', 'maxHeight'];
-		
+
 		var addMinMax = function(elem, ret){
 			var i, prop;
 			var hasMinMax = false;
@@ -845,7 +862,7 @@
 			return hasMinMax;
 		};
 		var retFn = function(data){
-			var videoDims, ratio, hasMinMax;
+			var videoDims, ratio;
 			var elem = data._elem;
 			var autos = {
 				width: getCssStyle(elem, 'width') == 'auto',
@@ -855,11 +872,11 @@
 				width: !autos.width && $(elem).width(),
 				height: !autos.height && $(elem).height()
 			};
-			
+
 			if(autos.width || autos.height){
 				videoDims = getVideoDims(data);
 				ratio = videoDims.width / videoDims.height;
-				
+
 				if(autos.width && autos.height){
 					ret.width = videoDims.width;
 					ret.height = videoDims.height;
@@ -868,12 +885,12 @@
 				} else if(autos.height){
 					ret.height = ret.width / ratio;
 				}
-				
+
 				if(addMinMax(elem, ret)){
 					data.shadowElem.css(ret);
 					if(autos.width){
 						ret.width = data.shadowElem.height() * ratio;
-					} 
+					}
 					if(autos.height){
 						ret.height = ((autos.width) ? ret.width :  data.shadowElem.width()) / ratio;
 					}
@@ -881,13 +898,13 @@
 						data.shadowElem.css(ret);
 						ret.height = data.shadowElem.width() / ratio;
 						ret.width = ret.height * ratio;
-						
+
 						data.shadowElem.css(ret);
 						ret.width = data.shadowElem.height() * ratio;
 						ret.height = ret.width / ratio;
-						
+
 					}
-					if(!Modernizr.video){
+					if(!webshims.support.mediaelement){
 						ret.width = data.shadowElem.width();
 						ret.height = data.shadowElem.height();
 					}
@@ -895,13 +912,13 @@
 			}
 			return ret;
 		};
-		
+
 		return retFn;
 	})();
-	
+
 	var setElementDimension = function(data, hasControls){
 		var dims;
-		
+
 		var box = data.shadowElem;
 		$(data._elem)[hasControls ? 'addClass' : 'removeClass']('webshims-controls');
 
@@ -916,7 +933,7 @@
 			}
 		}
 	};
-	
+
 	var bufferSrc = (function(){
 		var preloads = {
 			'': 1,
@@ -931,17 +948,17 @@
 			return !!(preloads[preload] || (preload == 'metadata' && $(elem).is('.preload-in-doubt, video:not([poster])')));
 		};
 	})();
-	
+
 	var regs = {
-		A: /&amp;/g,
-		a: /&/g,
-		e: /\=/g,
-		q: /\?/g
-	},
-	replaceVar = function(val){
-		return (val.replace) ? val.replace(regs.A, '%26').replace(regs.a, '%26').replace(regs.e, '%3D').replace(regs.q, '%3F') : val;
-	};
-	
+			A: /&amp;/g,
+			a: /&/g,
+			e: /\=/g,
+			q: /\?/g
+		},
+		replaceVar = function(val){
+			return (val.replace) ? val.replace(regs.A, '%26').replace(regs.a, '%26').replace(regs.e, '%3D').replace(regs.q, '%3F') : val;
+		};
+
 	if('matchMedia' in window){
 		var allowMediaSorting = false;
 		try {
@@ -955,14 +972,15 @@
 				} catch(er){
 					return 0;
 				}
-				return src1 == src2 ? 
+				return src1 == src2 ?
 					0 :
 					src1 ? -1
-					: 1;
+						: 1;
 			};
 		}
 	}
 
+	mediaelement.resetSwfProps = resetSwfProps;
 	mediaelement.createSWF = function( elem, canPlaySrc, data ){
 		if(!hasFlash){
 			setTimeout(function(){
@@ -970,7 +988,7 @@
 			}, 1);
 			return;
 		}
-		
+
 		var attrStyle = {};
 
 		if(loadedSwf < 1){
@@ -981,59 +999,46 @@
 		if(!data){
 			data = webshims.data(elem, 'mediaelement');
 		}
-		
+
 		if((attrStyle.height = $.attr(elem, 'height') || '') || (attrStyle.width = $.attr(elem, 'width') || '')){
 			$(elem).css(attrStyle);
 			webshims.warn("width or height content attributes used. Webshims prefers the usage of CSS (computed styles or inline styles) to detect size of a video/audio. It's really more powerfull.");
 		}
-		
-		var isRtmp = canPlaySrc.type == 'audio/rtmp' || canPlaySrc.type == 'video/rtmp';
-		var vars = $.extend({}, options.vars, {
-				poster: replaceVar($.attr(elem, 'poster') && $.prop(elem, 'poster') || ''),
-				source: replaceVar(canPlaySrc.streamId || canPlaySrc.srcProp),
-				server: replaceVar(canPlaySrc.server || '')
-		});
-		var elemVars = $(elem).data('vars') || {};
-		
-		
-		
+		var box;
+		var streamRequest = canPlaySrc.streamrequest;
+		var isStream = canPlaySrc.type == 'jarisplayer/stream';
+
+
 		var hasControls = $.prop(elem, 'controls');
 		var elemId = 'jarisplayer-'+ webshims.getID(elem);
-		
-		var params = $.extend(
-			{},
-			options.params,
-			$(elem).data('params')
-		);
+
+
 		var elemNodeName = elem.nodeName.toLowerCase();
-		var attrs = $.extend(
-			{},
-			options.attrs,
-			{
-				name: elemId,
-				id: elemId
-			},
-			$(elem).data('attrs')
-		);
+
 		var setDimension = function(){
 			if(data.isActive == 'third'){
 				setElementDimension(data, $.prop(elem, 'controls'));
 			}
 		};
-		
-		var box;
-		
+
+		if(isStream && !streamRequest){
+			webshim.usermedia.attach(elem, canPlaySrc, data);
+			return;
+		}
+
 		if(data && data.swfCreated){
 			mediaelement.setActive(elem, 'third', data);
-			
-			data.currentSrc = canPlaySrc.srcProp;
-			
+
+			data.currentSrc = '';
+
 			data.shadowElem.html('<div id="'+ elemId +'">');
-			
+
 			data.api = false;
 			data.actionQueue = [];
 			box = data.shadowElem;
 			resetSwfProps(data);
+			data.currentSrc = canPlaySrc.srcProp;
+
 		} else {
 			$(document.getElementById('wrapper-'+ elemId )).remove();
 			box = $('<div class="polyfill-'+ (elemNodeName) +' polyfill-mediaelement '+ webshims.shadowClass +'" id="wrapper-'+ elemId +'"><div id="'+ elemId +'"></div>')
@@ -1056,7 +1061,7 @@
 					value: elem
 				},
 				currentSrc: {
-					value: canPlaySrc.srcProp
+					value: streamRequest ? '' : canPlaySrc.srcProp
 				},
 				swfCreated: {
 					value: true
@@ -1084,26 +1089,27 @@
 					}
 				}
 			}));
-			
-			
-		
+
+
+
 			box.insertBefore(elem);
-			
+
 			if(hasNative){
 				$.extend(data, {volume: $.prop(elem, 'volume'), muted: $.prop(elem, 'muted'), paused: $.prop(elem, 'paused')});
 			}
-			
+
 			webshims.addShadowDom(elem, box);
 			if(!webshims.data(elem, 'mediaelement')){
 				webshims.data(elem, 'mediaelement', data);
 			}
 			addMediaToStopEvents(elem);
-			
+
 			mediaelement.setActive(elem, 'third', data);
-			
+
 			setElementDimension(data, hasControls);
-			
+
 			$(elem)
+
 				.on({
 					'updatemediaelementdimensions loadedmetadata emptied': setDimension,
 					'remove': function(e){
@@ -1117,14 +1123,13 @@
 				.onWSOff('updateshadowdom', setDimension)
 			;
 		}
-		
+
 		if(mediaelement.jarisEvent[data.id] && mediaelement.jarisEvent[data.id].elem != elem){
 			webshims.error('something went wrong');
 			return;
 		} else if(!mediaelement.jarisEvent[data.id]){
-			
+
 			mediaelement.jarisEvent[data.id] = function(jaris){
-				
 				if(jaris.type == 'ready'){
 					var onReady = function(){
 						if(data.api){
@@ -1144,16 +1149,16 @@
 					}
 				} else {
 					data.currentTime = jaris.position;
-					
+
 					if(data.api){
 						if(!data._calledMeta && isNaN(jaris.duration) && data.duration != jaris.duration && isNaN(data.duration)){
 							onEvent.onDataInitialized(jaris, data);
 						}
-						
+
 						if(!data._ppFlag && jaris.type != 'onPlayPause'){
 							onEvent.onPlayPause(jaris, data);
 						}
-						
+
 						if(onEvent[jaris.type]){
 							onEvent[jaris.type](jaris, data);
 						}
@@ -1163,47 +1168,86 @@
 			};
 			mediaelement.jarisEvent[data.id].elem = elem;
 		}
-		
-		$.extend(vars, 
+
+		createSwf(elem, canPlaySrc, data, elemId, hasControls, elemNodeName);
+
+		if(!streamRequest){
+			trigger(data._elem, 'loadstart');
+		}
+	};
+
+	var createSwf = function(elem, canPlaySrc, data, elemId, hasControls, elemNodeName){
+		var vars, elemVars, params, attrs;
+		var isRtmp = canPlaySrc.type == 'audio/rtmp' || canPlaySrc.type == 'video/rtmp';
+		var isUserStream = canPlaySrc.type == 'jarisplayer/stream';
+
+		vars = $.extend({}, options.vars, {
+			poster: replaceVar($.attr(elem, 'poster') && $.prop(elem, 'poster') || ''),
+			source: replaceVar(canPlaySrc.streamId || canPlaySrc.srcProp),
+			server: replaceVar(canPlaySrc.server || '')
+		});
+
+		elemVars = $(elem).data('vars') || {};
+
+		$.extend(vars,
 			{
 				id: elemId,
 				evtId: data.id,
-				controls: ''+hasControls,
+				controls: ''+(!isUserStream && hasControls),
 				autostart: 'false',
 				nodename: elemNodeName
 			},
 			elemVars
 		);
-		
+
 		if(isRtmp){
 			vars.streamtype = 'rtmp';
+		} else if(isUserStream){
+			vars.streamtype = 'usermedia';
 		} else if(canPlaySrc.type == 'audio/mpeg' || canPlaySrc.type == 'audio/mp3'){
 			vars.type = 'audio';
 			vars.streamtype = 'file';
 		} else if(canPlaySrc.type == 'video/youtube'){
 			vars.streamtype = 'youtube';
 		}
+
+		attrs = $.extend(
+			{},
+			options.attrs,
+			{
+				name: elemId,
+				id: elemId
+			},
+			$(elem).data('attrs')
+		);
+
+		params = $.extend(
+			{},
+			options.params,
+			$(elem).data('params')
+		);
+
 		options.changeSWF(vars, elem, canPlaySrc, data, 'embed');
 		clearTimeout(data.flashBlock);
-		
-		swfmini.embedSWF(playerSwfPath, elemId, "100%", "100%", "9.0.115", false, vars, params, attrs, function(swfData){
+
+		swfmini.embedSWF(playerSwfPath, elemId, "100%", "100%", "11.3", false, vars, params, attrs, function(swfData){
 			if(swfData.success){
 				var fBlocker = function(){
-					if((!swfData.ref.parentNode && box[0].parentNode) || swfData.ref.style.display == "none"){
-						box.addClass('flashblocker-assumed');
+					if((!swfData.ref.parentNode) || swfData.ref.style.display == "none"){
+
 						$(elem).trigger('flashblocker');
 						webshims.warn("flashblocker assumed");
 					}
 					$(swfData.ref).css({'minHeight': '2px', 'minWidth': '2px', display: 'block'});
 				};
 				data.api = swfData.ref;
-				
+
 				if(!hasControls){
 					$(swfData.ref).attr('tabindex', '-1').css('outline', 'none');
 				}
-				
+
 				data.flashBlock = setTimeout(fBlocker, 99);
-				
+
 				if(!localConnectionTimer){
 					clearTimeout(localConnectionTimer);
 					localConnectionTimer = setTimeout(function(){
@@ -1217,22 +1261,24 @@
 						flash = null;
 					}, 8000);
 				}
+				if(isUserStream){
+					webshim.usermedia.request(elem, canPlaySrc, data);
+				}
 			}
 		});
-		
 	};
-	
-	
+
+
 	var queueSwfMethod = function(elem, fn, args, data){
 		data = data || getSwfDataFromElem(elem);
-		
+
 		if(data){
 			if(data.api && data.api[fn]){
 				data.api[fn].apply(data.api, args || []);
 			} else {
 				//todo add to queue
 				data.actionQueue.push({fn: fn, args: args});
-				
+
 				if(data.actionQueue.length > 10){
 					setTimeout(function(){
 						if(data.actionQueue.length > 5){
@@ -1245,13 +1291,14 @@
 		}
 		return false;
 	};
-	
+	mediaelement.queueSwfMethod = queueSwfMethod;
+
 	['audio', 'video'].forEach(function(nodeName){
 		var descs = {};
 		var mediaSup;
 		var createGetProp = function(key){
 			if(nodeName == 'audio' && (key == 'videoHeight' || key == 'videoWidth')){return;}
-			
+
 			descs[key] = {
 				get: function(){
 					var data = getSwfDataFromElem(this);
@@ -1271,33 +1318,33 @@
 			delete descs[key].writeable;
 			descs[key].set = setFn;
 		};
-		
+
 		createGetSetProp('seeking');
-		
+
 		createGetSetProp('volume', function(v){
 			var data = getSwfDataFromElem(this);
 			if(data){
 				v *= 1;
 				if(!isNaN(v)){
-					
+
 					if(v < 0 || v > 1){
 						webshims.error('volume greater or less than allowed '+ (v / 100));
 					}
-					
+
 					queueSwfMethod(this, 'api_volume', [v], data);
-					
-					
+
+
 					if(data.volume != v){
 						data.volume = v;
 						trigger(data._elem, 'volumechange');
 					}
 					data = null;
-				} 
+				}
 			} else if(mediaSup.volume.prop._supset) {
 				return mediaSup.volume.prop._supset.apply(this, arguments);
 			}
 		});
-		
+
 		createGetSetProp('muted', function(m){
 			var data = getSwfDataFromElem(this);
 			if(data){
@@ -1312,8 +1359,8 @@
 				return mediaSup.muted.prop._supset.apply(this, arguments);
 			}
 		});
-		
-		
+
+
 		createGetSetProp('currentTime', function(t){
 			var data = getSwfDataFromElem(this);
 			if(data){
@@ -1321,23 +1368,23 @@
 				if (!isNaN(t)) {
 					queueSwfMethod(this, 'api_seek', [t], data);
 				}
-				 
+
 			} else if(mediaSup.currentTime.prop._supset) {
 				return mediaSup.currentTime.prop._supset.apply(this, arguments);
 			}
 		});
-		
+
 		['play', 'pause'].forEach(function(fn){
 			descs[fn] = {
 				value: function(){
 					var data = getSwfDataFromElem(this);
-					
+
 					if(data){
 						if(data.stopPlayPause){
 							clearTimeout(data.stopPlayPause);
 						}
 						queueSwfMethod(this, fn == 'play' ? 'api_play' : 'api_pause', [], data);
-						
+
 						data._ppFlag = true;
 						if(data.paused != (fn != 'play')){
 							data.paused = fn != 'play';
@@ -1349,14 +1396,14 @@
 				}
 			};
 		});
-		
+
 		getPropKeys.forEach(createGetProp);
-		
+
 		webshims.onNodeNamesPropertyModify(nodeName, 'controls', function(val, boolProp){
 			var data = getSwfDataFromElem(this);
-			
+
 			$(this)[boolProp ? 'addClass' : 'removeClass']('webshims-controls');
-			
+
 			if(data){
 				if(nodeName == 'audio'){
 					setElementDimension(data, boolProp);
@@ -1364,12 +1411,12 @@
 				queueSwfMethod(this, 'api_controls', [boolProp], data);
 			}
 		});
-		
-		
+
+
 		webshims.onNodeNamesPropertyModify(nodeName, 'preload', function(val){
 			var data, baseData, elem;
-			
-			
+
+
 			if(bufferSrc(this)){
 				data = getSwfDataFromElem(this);
 				if(data){
@@ -1384,10 +1431,10 @@
 				}
 			}
 		});
-		
+
 		mediaSup = webshims.defineNodeNameProperties(nodeName, descs, 'prop');
-		
-		if(!Modernizr.mediaDefaultMuted){
+
+		if(!support.mediaDefaultMuted){
 			webshims.defineNodeNameProperties(nodeName, {
 				defaultMuted: {
 					get: function(){
@@ -1404,8 +1451,125 @@
 			}, 'prop');
 		}
 	});
-	
-	
+
+	var addCanvasBridge = function(){
+		if(!window.CanvasRenderingContext2D){
+			return false;
+		}
+		var _drawImage = CanvasRenderingContext2D.prototype.drawImage;
+		var slice = Array.prototype.slice;
+		var isVideo = {
+			video: 1,
+			VIDEO: 1
+		};
+		var tested = {};
+		var addToBlob = function(){
+			var desc = webshim.defineNodeNameProperty('canvas', 'toBlob', {
+				prop: {
+					value: function(){
+						var context = $(this).callProp('getContext', ['2d']);
+						var that = this;
+						var args = arguments;
+						var cb = function(){
+							return desc.prop._supvalue.apply(that, args);
+						};
+						if(context.wsImageComplete && context._wsIsLoading){
+							context.wsImageComplete(cb);
+						} else {
+							return cb();
+						}
+					}
+				}
+			});
+		};
+
+		if(!_drawImage){
+			webshim.error('canvas.drawImage feature is needed. In IE8 flashvanvas pro can be used');
+		}
+
+		CanvasRenderingContext2D.prototype.wsImageComplete = function(cb){
+			if(this._wsIsLoading){
+				if(!this._wsLoadingCbs){
+					this._wsLoadingCbs = [];
+				}
+				this._wsLoadingCbs.push(cb);
+			} else {
+				cb.call(this, this);
+			}
+		};
+
+		CanvasRenderingContext2D.prototype.drawImage = function(elem){
+			var data, img, args, imgData, hadCachedImg;
+			var context = this;
+
+			if(isVideo[elem.nodeName] && (data = webshims.data(elem, 'mediaelement')) && data.isActive == 'third' && data.api.api_image){
+
+				try {
+					imgData = data.api.api_image();
+				} catch (er){
+					webshims.error(er);
+				}
+				if(!tested[data.currentSrc]){
+					tested[data.currentSrc] = true;
+					if(imgData == null){
+						webshims.error('video has to be same origin or a crossdomain.xml has to be provided. Video has to be visible for flash API');
+					}
+				}
+
+				args = slice.call(arguments, 1);
+
+				if(options.canvasSync && data.canvasImg){
+					args.unshift(data.canvasImg);
+					_drawImage.apply(context, args);
+					args = slice.call(arguments, 1);
+					hadCachedImg = true;
+				}
+
+				img = document.createElement('img');
+
+				//todo find a performant sync way
+				img.onload = function(){
+					args.unshift(this);
+					img.onload = null;
+
+					if(options.canvasSync){
+						data.canvasImg = img;
+						if(hadCachedImg && options.noDoubbleDraw){
+							return;
+						}
+					}
+					_drawImage.apply(context, args);
+					context._wsIsLoading = false;
+					if(context._wsLoadingCbs && context._wsLoadingCbs.length){
+						while(context._wsLoadingCbs.length){
+							context._wsLoadingCbs.shift().call(context, context);
+						}
+					}
+				};
+
+				img.src = 'data:image/jpeg;base64,'+imgData;
+				this._wsIsLoading = true;
+				if(img.complete && img.onload){
+					img.onload();
+				}
+				return;
+			}
+			return _drawImage.apply(this, arguments);
+		};
+
+		if(!document.createElement('canvas').toBlob){
+			webshims.ready('filereader', addToBlob);
+		} else {
+			addToBlob();
+		}
+		return true;
+	};
+
+	if(!addCanvasBridge()){
+		webshims.ready('canvas', addCanvasBridge);
+	}
+
+
 	if(hasFlash && $.cleanData){
 		var oldClean = $.cleanData;
 		var objElem = document.createElement('object');
@@ -1419,17 +1583,17 @@
 			object: 1,
 			OBJECT: 1
 		};
-		
+
 		$.cleanData = function(elems){
 			var i, len, prop;
 			var ret = oldClean.apply(this, arguments);
 			if(elems && (len = elems.length) && loadedSwf){
-				
+
 				for(i = 0; i < len; i++){
-					if(flashNames[elems[i].nodeName] && 'api_pause' in elems[i]){
+					if(flashNames[elems[i].nodeName] && 'api_destroy' in elems[i]){
 						loadedSwf--;
 						try {
-							elems[i].api_pause();
+							elems[i].api_destroy();
 							if(elems[i].readyState == 4){
 								for (prop in elems[i]) {
 									if (!noRemove[prop] && !objElem[prop] && typeof elems[i][prop] == "function") {
@@ -1437,17 +1601,17 @@
 									}
 								}
 							}
-						} catch(er){}
+						} catch(er){console.log(er);}
 					}
 				}
-				
+
 			}
 			return ret;
 		};
 	}
 
 	if(!hasNative){
-		
+
 		['poster', 'src'].forEach(function(prop){
 			webshims.defineNodeNamesProperty(prop == 'src' ? ['audio', 'video', 'source'] : ['video'], prop, {
 				//attr: {},
@@ -1455,21 +1619,21 @@
 				propType: 'src'
 			});
 		});
-		
+
 		webshims.defineNodeNamesProperty(['audio', 'video'], 'preload', {
 			reflect: true,
 			propType: 'enumarated',
 			defaultValue: '',
 			limitedTo: ['', 'auto', 'metadata', 'none']
 		});
-		
+
 		webshims.reflectProperties('source', ['type', 'media']);
-		
-		
+
+
 		['autoplay', 'controls'].forEach(function(name){
 			webshims.defineNodeNamesBooleanProperty(['audio', 'video'], name);
 		});
-			
+
 		webshims.defineNodeNamesProperties(['audio', 'video'], {
 			HAVE_CURRENT_DATA: {
 				value: 2
@@ -1498,7 +1662,7 @@
 			NETWORK_NO_SOURCE: {
 				value: 3
 			}
-					
+
 		}, 'prop');
 
 
@@ -1524,11 +1688,11 @@
 			var media, error, parent;
 			if(
 				($(e.target).is('audio, video') || ((parent = e.target.parentNode) && $('source', parent).last()[0] == e.target)) &&
-				(media = $(e.target).closest('audio, video')) && !media.is('.nonnative-api-active')
+					(media = $(e.target).closest('audio, video')) && !media.hasClass('nonnative-api-active')
 				){
 				error = media.prop('error');
 				setTimeout(function(){
-					if(!media.is('.nonnative-api-active')){
+					if(!media.hasClass('nonnative-api-active')){
 						if(error && switchErrors[error.code]){
 							options.preferFlash = true;
 							document.removeEventListener('error', switchOptions, true);
@@ -1564,7 +1728,8 @@
 	//descriptions are not really shown, but they are inserted into the dom
 	var showTracks = {subtitles: 1, captions: 1, descriptions: 1};
 	var dummyTrack = $('<track />');
-	var supportTrackMod = Modernizr.ES5 && Modernizr.objectAccessor;
+	var support = webshims.support;
+	var supportTrackMod = support.ES5 && support.objectAccessor;
 	var createEventTarget = function(obj){
 		var eventList = {};
 		obj.addEventListener = function(name, fn){
@@ -1624,7 +1789,11 @@
 				var lastCue = this.cues[this.cues.length-1];
 				if(lastCue && lastCue.startTime > cue.startTime){
 					webshims.error("cue startTime higher than previous cue's startTime");
+					return;
 				}
+			}
+			if(cue.startTime >= cue.endTime ){
+				webshim.error('startTime >= endTime of cue: '+ cue.text);
 			}
 			if(cue.track && cue.track.removeCue){
 				cue.track.removeCue(cue);
@@ -1666,10 +1835,11 @@
 	var copyName = {srclang: 'language'};
 
 	var updateMediaTrackList = function(baseData, trackList){
+		var i, len;
+		var callChange = false;
 		var removed = [];
 		var added = [];
 		var newTracks = [];
-		var i, len;
 		if(!baseData){
 			baseData =  webshims.data(this, 'mediaelementBase') || webshims.data(this, 'mediaelementBase', {});
 		}
@@ -1704,12 +1874,13 @@
 				removed.push(trackList[i]);
 			}
 		}
-		
+
 		if(removed.length || added.length){
 			trackList.splice(0);
 			
 			for(i = 0, len = newTracks.length; i < len; i++){
 				trackList.push(newTracks[i]);
+
 			}
 			for(i = 0, len = removed.length; i < len; i++){
 				$([trackList]).triggerHandler($.Event({type: 'removetrack', track: removed[i]}));
@@ -1717,9 +1888,20 @@
 			for(i = 0, len = added.length; i < len; i++){
 				$([trackList]).triggerHandler($.Event({type: 'addtrack', track: added[i]}));
 			}
+			//todo: remove
 			if(baseData.scriptedTextTracks || removed.length){
 				$(this).triggerHandler('updatetrackdisplay');
 			}
+		}
+
+		for(i = 0, len = trackList.length; i < len; i++){
+			if(trackList[i].__wsmode != trackList[i].mode){
+				trackList[i].__wsmode = trackList[i].mode;
+				callChange = true;
+			}
+		}
+		if(callChange){
+			$([trackList]).triggerHandler('change');
 		}
 	};
 	
@@ -1733,7 +1915,7 @@
 			setTimeout(function(){
 				$(track).closest('audio, video').triggerHandler('updatetrackdisplay');
 				trackData.isTriggering = false;
-			}, 1);
+			}, 9);
 		}
 	};
 	var isDefaultTrack = (function(){
@@ -1873,19 +2055,23 @@
 		ttml = $.parseXML(ttml) || [];
 		return $(ttml).find('[begin][end]').map(mapTtmlToVtt).get().join('\n\n') || '';
 	};
-	
+	var loadingTracks = 0;
+
 	mediaelement.loadTextTrack = function(mediaelem, track, trackData, _default){
-		var loadEvents = 'play playing';
+		var loadEvents = 'play playing loadedmetadata loadstart';
 		var obj = trackData.track;
 		var load = function(){
 			var error, ajax, createAjax;
-			var src = obj.mode != 'disabled' && ($.attr(track, 'src') && $.prop(track, 'src'));
+			var isDisabled = obj.mode == 'disabled';
+			var videoState = !!($.prop(mediaelem, 'readyState') > 0 || $.prop(mediaelem, 'networkState') == 2 || !$.prop(mediaelem, 'paused'));
+			var src = (!isDisabled || videoState) && ($.attr(track, 'src') && $.prop(track, 'src'));
 
 			if(src){
 				$(mediaelem).off(loadEvents, load).off('updatetrackdisplay', load);
 
 				if(!trackData.readyState){
 					error = function(){
+						loadingTracks--;
 						trackData.readyState = 3;
 						obj.cues = null;
 						obj.activeCues = obj.shimActiveCues = obj._shimActiveCues = null;
@@ -1895,12 +2081,14 @@
 					try {
 						obj.cues = mediaelement.createCueList();
 						obj.activeCues = obj.shimActiveCues = obj._shimActiveCues = mediaelement.createCueList();
+						loadingTracks++;
 						createAjax = function(){
 							ajax = $.ajax({
 								dataType: 'text',
 								url: src,
 								success: function(text){
-									var contentType = ajax.getResponseHeader('content-type');
+									loadingTracks--;
+									var contentType = ajax.getResponseHeader('content-type') || '';
 
 									if(!contentType.indexOf('application/xml')){
 										text = ttmlTextToVTT(text);
@@ -1916,16 +2104,14 @@
 											error();
 										}
 									});
-									
 								},
 								error: error
 							});
 						};
-						if($.ajax && $.ajaxSettings.xhr){
-							createAjax();
+						if(isDisabled){
+							setTimeout(createAjax, loadingTracks * 2);
 						} else {
-							webshims.ready('jajax', createAjax);
-							webshims.loader.loadList(['jajax']);
+							createAjax();
 						}
 					} catch(er){
 						error();
@@ -1941,13 +2127,12 @@
 		obj.cues = null;
 
 		$(mediaelem).on(loadEvents, load);
+
 		if(_default){
 			obj.mode = showTracks[obj.kind] ? 'showing' : 'hidden';
-			webshims.ready('WINDOWLOAD', load);
+			load();
 		} else {
-			webshims.ready('WINDOWLOAD', function(){
-				$(mediaelem).on('updatetrackdisplay', load);
-			});
+			$(mediaelem).on('updatetrackdisplay', load);
 		}
 	};
 	
@@ -2006,11 +2191,29 @@
 				webshims.error('you must provide a language for track in subtitles state');
 			}
 			obj.__wsmode = obj.mode;
+
+			webshims.defineProperty(obj, '_wsUpdateMode', {
+				value: function(){
+					$(mediaelem).triggerHandler('updatetrackdisplay');
+				},
+				enumerable: false
+			});
 		}
 		
 		return obj;
 	};
 
+	if(!$.propHooks.mode){
+		$.propHooks.mode = {
+			set: function(obj, value){
+				obj.mode = value;
+				if(obj._wsUpdateMode && obj._wsUpdateMode.call){
+					obj._wsUpdateMode();
+				}
+				return obj.mode;
+			}
+		};
+	}
 
 /*
 taken from:
@@ -2219,7 +2422,7 @@ modified for webshims
 		return baseData.textTracks;
 	};
 	
-	if(!Modernizr.track){
+	if(!support.track){
 		webshims.defineNodeNamesBooleanProperty(['track'], 'default');
 		webshims.reflectProperties(['track'], ['srclang', 'label']);
 		
@@ -2234,7 +2437,7 @@ modified for webshims
 	
 	webshims.defineNodeNameProperties('track', {
 		kind: {
-			attr: Modernizr.track ? {
+			attr: support.track ? {
 				set: function(value){
 					var trackData = webshims.data(this, 'trackData');
 					this.setAttribute('data-kind', value);
@@ -2261,7 +2464,7 @@ modified for webshims
 		var name = copyName[copyProp] || copyProp;
 		webshims.onNodeNamesPropertyModify('track', copyProp, function(){
 			var trackData = webshims.data(this, 'trackData');
-			var track = this;
+
 			if(trackData){
 				if(copyProp == 'kind'){
 					refreshTrack(this, trackData);
@@ -2289,7 +2492,6 @@ modified for webshims
 	});
 	
 	//
-	
 	webshims.defineNodeNamesProperties(['track'], {
 		ERROR: {
 			value: 3
@@ -2399,7 +2601,7 @@ modified for webshims
 			})
 			.on('emptied updatetracklist wsmediareload', thUpdateList)
 			.each(function(){
-				if(Modernizr.track){
+				if(support.track){
 					var shimedTextTracks = $.prop(this, 'textTracks');
 					var origTextTracks = this.textTracks;
 
@@ -2424,7 +2626,7 @@ modified for webshims
 		});
 	});
 	
-	if(Modernizr.texttrackapi){
+	if(support.texttrackapi){
 		$('video, audio').trigger('trackapichange');
 	}
 });

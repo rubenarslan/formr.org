@@ -1,53 +1,46 @@
 <?php
-class SpreadsheetReader
-{
+
+class SpreadsheetReader {
+
 	private $choices_columns = array('list_name','name','label');
 	private $survey_columns = array('name', 'type', 'label', 'optional', 'class' ,'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'order',
 	# legacy
 		'variablenname', 'wortlaut', 'typ', 'ratinguntererpol', 'ratingobererpol', 	'mcalt1', 'mcalt2', 'mcalt3', 'mcalt4', 'mcalt5', 'mcalt6', 'mcalt7', 'mcalt8', 'mcalt9', 'mcalt10', 'mcalt11', 'mcalt12', 'mcalt13', 'mcalt14',);
-
 	public $messages = array();
 	public $errors = array();
 	public $warnings = array();
 	public $survey = array();
 	public $choices = array();
-
 	public $exportFormats = array('csv','csv_german','tsv','xlsx','xls','json');
-	public function backupTSV($array,$filename)
-	{
+
+	public function backupTSV($array, $filename) {
 		$objPHPExcel = $this->objectFromArray($array);
 		
 		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
 		$objWriter->setDelimiter("\t");
 		$objWriter->setEnclosure("");
 		
-		try
-		{
+		try {
 			$objWriter->save($filename);
 		    return true;
-		}
-		catch (Exception $e)
-		{
+		} catch (Exception $e) {
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
 	}
-	protected function objectFromArray($array)
-	{
+
+	protected function objectFromArray($array) {
 		set_time_limit(300); # defaults to 30
 		ini_set('memory_limit', '1024M');
 		
-		// Include PHPExcel_IOFactory
-#		require_once INCLUDE_ROOT.'vendor/phpoffice/phpexcel/phpexcel/Classes/PHPExcel/IOFactory.php';
-
 	    $objPHPExcel = new PHPExcel();
 		array_unshift($array, array_keys(current($array)));
 		$objPHPExcel->getSheet(0)->fromArray($array);
 		
 		return $objPHPExcel;
 	}
-	public function exportCSV($array,$filename)
-	{
+
+	public function exportCSV($array, $filename) {
 		$objPHPExcel = $this->objectFromArray($array);
 		
 		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
@@ -56,19 +49,16 @@ class SpreadsheetReader
 	    header('Cache-Control: max-age=0');
 		header('Content-type: text/csv');
 
-		try
-		{
+		try {
 		    $objWriter->save('php://output');
 		    exit;
-		}
-		catch (Exception $e)
-		{
+		} catch (Exception $e) {
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
 	}
-	public function exportJSON($array,$filename)
-	{
+
+	public function exportJSON($array, $filename) {
 		set_time_limit(300); # defaults to 30
 		ini_set('memory_limit', '1024M');
 		
@@ -76,19 +66,16 @@ class SpreadsheetReader
 	    header('Cache-Control: max-age=0');
 		header('Content-type: application/json');
 
-		try
-		{
+		try {
 		    echo json_encode($array,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
 		    exit;
-		}
-		catch (Exception $e)
-		{
+		} catch (Exception $e) {
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
 	}
-	public function exportTSV($array,$filename)
-	{
+
+	public function exportTSV($array, $filename) {
 		$objPHPExcel = $this->objectFromArray($array);
 		
 		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
@@ -99,19 +86,16 @@ class SpreadsheetReader
 	    header('Cache-Control: max-age=0');
 		header('Content-type: text/csv'); // or maybe text/tab-separated-values?
 
-		try
-		{
+		try {
 		    $objWriter->save('php://output');
 		    exit;
-		}
-		catch (Exception $e)
-		{
+		} catch (Exception $e) {
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
 	}
-	public function exportCSV_german($array,$filename)
-	{
+
+	public function exportCSV_german($array, $filename) {
 		$objPHPExcel = $this->objectFromArray($array);
 		
 		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
@@ -122,20 +106,16 @@ class SpreadsheetReader
 	    header('Cache-Control: max-age=0');
 		header('Content-type: text/csv');
 
-		try
-		{
+		try {
 		    $objWriter->save('php://output');
 		    exit;
-		}
-		catch (Exception $e)
-		{
+		} catch (Exception $e) {
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
-	    
 	}
-	public function exportXLS($array,$filename)
-	{
+
+	public function exportXLS($array, $filename) {
 		$objPHPExcel = $this->objectFromArray($array);
 		
 		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
@@ -144,20 +124,16 @@ class SpreadsheetReader
 	    header('Cache-Control: max-age=0');
 	    header('Content-Type: application/vnd.ms-excel'); 
 
-		try
-		{
+		try {
 		    $objWriter->save('php://output');
 		    exit;
-		}
-		catch (Exception $e)
-		{
+		} catch (Exception $e) {
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
-	    
 	}
-	public function exportXLSX($array,$filename)
-	{
+
+	public function exportXLSX($array, $filename) {
 		$objPHPExcel = $this->objectFromArray($array);
 		
 		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
@@ -166,20 +142,16 @@ class SpreadsheetReader
 	    header('Cache-Control: max-age=0');
 		header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
-		try
-		{
+		try {
 		    $objWriter->save('php://output');
 		    exit;
-		}
-		catch (Exception $e)
-		{
+		} catch (Exception $e) {
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
-	    
 	}
-	private function twoSheetsFromArrays($items,$choices)
-	{
+
+	private function twoSheetsFromArrays($items, $choices) {
 		set_time_limit(300); # defaults to 30
 		ini_set('memory_limit', '1024M');
 		
@@ -215,8 +187,8 @@ class SpreadsheetReader
 		
 		return $objPHPExcel;
 	}
-	public function exportItemTableXLSX($items,$choices,$filename)
-	{
+
+	public function exportItemTableXLSX($items, $choices, $filename) {
 		$objPHPExcel = $this->twoSheetsFromArrays($items,$choices);
 		
 		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
@@ -225,19 +197,16 @@ class SpreadsheetReader
 	    header('Cache-Control: max-age=0');
 		header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
-		try
-		{
+		try {
 		    $objWriter->save('php://output');
 		    exit;
-		}
-		catch (Exception $e)
-		{
+		} catch (Exception $e) {
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
 	}
-	public function exportItemTableXLS($items,$choices,$filename)
-	{
+
+	public function exportItemTableXLS($items, $choices, $filename) {
 		$objPHPExcel = $this->twoSheetsFromArrays($items,$choices);
 		
 		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
@@ -246,20 +215,16 @@ class SpreadsheetReader
 	    header('Cache-Control: max-age=0');
 	    header('Content-Type: application/vnd.ms-excel'); 
 
-		try
-		{
+		try {
 		    $objWriter->save('php://output');
 		    exit;
-		}
-		catch (Exception $e)
-		{
+		} catch (Exception $e) {
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
-	    
 	}
-	public function exportItemTableJSON($items,$choices,$filename)
-	{
+
+	public function exportItemTableJSON($items, $choices, $filename) {
 		foreach($items AS $i => $val):
 			
 			if(isset($val["choice_list"]) AND isset($choices[$val["choice_list"]])):
@@ -272,39 +237,16 @@ class SpreadsheetReader
 	    header('Cache-Control: max-age=0');
 		header('Content-type: application/json');
 
-		try
-		{
+		try {
 		    echo json_encode($items,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE  + JSON_NUMERIC_CHECK);
 		    exit;
-		}
-		catch (Exception $e)
-		{
+		} catch (Exception $e) {
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
-		$objPHPExcel = $this->twoSheetsFromArrays($items,$choices);
-		
-		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
-		
-	    header('Content-Disposition: attachment;filename="'.$filename.'.xls"');
-	    header('Cache-Control: max-age=0');
-	    header('Content-Type: application/vnd.ms-excel'); 
-
-		try
-		{
-		    $objWriter->save('php://output');
-		    exit;
-		}
-		catch (Exception $e)
-		{
-			alert("Couldn't save file.",'alert-danger');
-			return false;
-		}
-	    
 	}
 	
-	private function translate_legacy_column($col)
-	{
+	private function translate_legacy_column($col) {
 		$col = trim(mb_strtolower($col));
 		if($col=='variablenname')
 			$col = 'name';
@@ -321,8 +263,8 @@ class SpreadsheetReader
 		
 		return $col;
 	}
-	private function translate_legacy_type($type)
-	{
+
+	private function translate_legacy_type($type) {
 		$type = trim(mb_strtolower($type));
 		
 		if($type=='offen')
@@ -362,59 +304,57 @@ class SpreadsheetReader
 		
 		return $type;
 	}
-	public function readItemTableFile($inputFileName)
-	{
+
+	public function readItemTableFile($inputFileName) {
 		$this->errors = $this->messages = array();
 		
-		// Include PHPExcel_IOFactory
-#		require_once INCLUDE_ROOT.'vendor/phpoffice/phpexcel/Classes/PHPExcel/IOFactory.php';
-
 		define('EOL',(PHP_SAPI == 'cli') ? PHP_EOL : '<br />');
 
 		if (!file_exists($inputFileName)):
 			exit($inputFileName. " does not exist." . EOL);
 		endif;
 
-		
-		//  Identify the type of $inputFileName 
-		$inputFileType = PHPExcel_IOFactory::identify($inputFileName);
-		//  Create a new Reader of the type that has been identified 
-		$objReader = PHPExcel_IOFactory::createReader($inputFileType);
-		//  Load $inputFileName to a PHPExcel Object 
-
-		///  Advise the Reader that we only want to load cell data 
-		$objReader->setReadDataOnly(true);
-
-
 		try {
-		  // Load $inputFileName to a PHPExcel Object
-		  $objPHPExcel = PHPExcel_IOFactory::load($inputFileName);
-		} catch(PHPExcel_Reader_Exception $e) {
-		  die('Error loading file: '.$e->getMessage());
+			//  Identify the type of $inputFileName 
+			$inputFileType = PHPExcel_IOFactory::identify($inputFileName);
+			//  Create a new Reader of the type that has been identified 
+			$objReader = PHPExcel_IOFactory::createReader($inputFileType);
+			//  Load $inputFileName to a PHPExcel Object 
+			///  Advise the Reader that we only want to load cell data 
+			$objReader->setReadDataOnly(true);
+
+			// Load $inputFileName to a PHPExcel Object
+			$objPHPExcel = PHPExcel_IOFactory::load($inputFileName);
+		} catch (PHPExcel_Exception $e) {
+			$this->errors[] = "An error occured reading your excel file. Please check your file or report to admin";
+			$this->errors[] = $e->getMessage();
+			log_exception($e, __CLASS__, $inputFileName);
+			return;
 		}
-//		$this->messages[] = date('H:i:s') . " Iterate worksheets" . EOL;
 
-		if($objPHPExcel->sheetNameExists('survey'))
+		if ($objPHPExcel->sheetNameExists('survey')) {
+
 			$survey_sheet = $objPHPExcel->getSheetByName('survey');
-		else
+		} else {
 			$survey_sheet = $objPHPExcel->getSheet(0);
+		}
 
-		if($objPHPExcel->sheetNameExists('choices') AND $objPHPExcel->getSheetCount() > 1)
+		if ($objPHPExcel->sheetNameExists('choices') AND $objPHPExcel->getSheetCount() > 1) {
 			$choices_sheet = $objPHPExcel->getSheetByName('choices');
-		elseif($objPHPExcel->getSheetCount() > 1)
+		} elseif ($objPHPExcel->getSheetCount() > 1) {
 			$choices_sheet = $objPHPExcel->getSheet(1);
-		
-		if(isset($choices_sheet)):
+		}
+
+		if (isset($choices_sheet)) {
 			$this->readChoicesSheet($choices_sheet);
-		endif;
-		
+		}
+
 		$this->readSurveySheet($survey_sheet);
-		
 	}
+
 	private $existing_choice_lists = array();
 	
-	private function readChoicesSheet($worksheet)
-	{
+	private function readChoicesSheet($worksheet) {
 		$callStartTime = microtime(true);
 		
 		 //  Get worksheet dimensions
@@ -472,7 +412,8 @@ class SpreadsheetReader
 	  			if (!is_null($cell) ):
 					$column_number = $cell->columnIndexFromString( $cell->getColumn() ) - 1;
 
-					if(!array_key_exists($column_number,$columns)) continue; // skip columns that aren't allowed
+					if (!array_key_exists($column_number, $columns))
+						continue; // skip columns that aren't allowed
 				
 					$col = $columns[$column_number];
 					$val = hardTrueFalse($cell->getValue());
@@ -604,9 +545,13 @@ class SpreadsheetReader
 	  			if (!is_null($cell)):
 					$column_number = $cell->columnIndexFromString($cell->getColumn()) - 1;
 
-					if(!array_key_exists($column_number, $columns)) continue; // skip columns that aren't allowed
+					if (!array_key_exists($column_number, $columns))
+						continue; // skip columns that aren't allowed
 				
 					$col = $columns[$column_number];
+					if(isset($data[$row_number][$col])):
+						continue; // dont overwrite e.g. order column
+					endif;
 					$val = hardTrueFalse($cell->getValue());
 
 					if($col == 'name'):
@@ -637,7 +582,6 @@ class SpreadsheetReader
 							$type_options = explode(" ",$val); // get real type and options
 							$val = $type_options[0];
 							unset($type_options[0]); // remove real type from options
-							
 							//todo: find all items where the "you defined choices message" error might erroneously be triggered
 							if(isset($type_options[1]) && !in_array($val, array('server','get','text', 'textarea', 'file', 'image', 'rating_button')) && preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($type_options[1]) ) ):
 								$data[$row_number]['choice_list'] = $type_options[1];
@@ -658,9 +602,12 @@ class SpreadsheetReader
 					elseif($col == 'label'):
 						$val = trim($val);
 					elseif($col == 'optional'):
-						if($val==='*') $val = 1;
-						elseif($val==='!') $val = 0;
-						else $val = null;
+						if ($val === '*')
+							$val = 1;
+						elseif ($val === '!')
+							$val = 0;
+						else
+							$val = null;
 					elseif( mb_strpos($col,"choice") === 0 AND ($val!==null AND $val!=='')):
 
 						$nr = mb_substr($col, 6);
@@ -688,21 +635,21 @@ class SpreadsheetReader
 				$data[$row_number][ $col ] = $val;
 			
 			endforeach; // cell loop
-		
 			// row has been put into array
 #			if(!isset($data[$row_number]['id'])) $data[$row_number]['id'] = $row_number;
 
 		endforeach; // row loop
 
-
 		$callEndTime = microtime(true);
 		$callTime = $callEndTime - $callStartTime;
 		$survey_messages[] = 'Call time to read survey sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
-		if(!empty($empty_rows))
+		if (!empty($empty_rows)) {
 			$survey_messages[] = "Rows ".implode($empty_rows,", ").": variable name empty. Rows skipped.";
+		}
 
 		$this->messages[] = '<ul><li>'.implode("</li><li>",$survey_messages).'</li></ul>';
 
 		$this->survey = $data;
 	}
+
 }

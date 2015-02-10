@@ -1,3 +1,39 @@
 header.study-header {
 	display:none;
 }
+#import-run-units textarea {
+	font-family: courier;
+	font-size: 11px;
+}
+.run-export-unit-block {
+    position: relative;
+    margin-bottom: 2px;
+}
+.run-export-unit-block pre {
+    margin: 0px;
+}
+.run-export-unit-block .select {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    right: 30px;
+    top: 15px;
+    background: #fff;
+    z-index: 20000;
+    cursor: pointer;
+    padding: 0px !important;
+}
+.red {
+    color: red;
+}
+.green {
+    color: green;
+}
+.code-txt {
+    font-family: courier;
+    font-size: 12px;
+}
+.import-run-dialog .form-group {
+    margin-bottom: 5px;
+    font-size: 13px;
+}

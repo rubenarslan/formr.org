@@ -164,7 +164,7 @@
  </dl>
 
 <h3>Optional classes for visual styling</h3>
-<p>You might want to tinker with the look of certain form items. To do so you can use a variety of pre-set CSS classes. This is a fancy way of saying that if you make a new column in your survet sheet, call it "class" and add space-separated magic words, stuff will look different.</p>
+<p>You might want to tinker with the look of certain form items. To do so you can use a variety of pre-set CSS classes. This is a fancy way of saying that if you make a new column in your survey sheet, call it "class" and add space-separated magic words, stuff will look different.</p>
 <p>These are the available styling classes:</p>
 <dl class="dl-horizontal dl-wider">
 	<dt>

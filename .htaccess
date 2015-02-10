@@ -1,9 +1,11 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^(.*)$ webroot/$1 [QSA,L]
-	# on HU subdomain
-#	RewriteBase /survey/
-</IfModule>
+    # assets dir
+    RewriteRule ^assets/(.*)$ webroot/assets/$1 [QSA,L]
+
+    RewriteCond %{REQUEST_URI} !/?(webroot)
+    RewriteRule ^(.*)/?$ webroot/index.php?route=$1 [QSA,L]
+    </IfModule>
 
 <IfModule mod_php5.c>
    php_value upload_max_filesize 50M
@@ -29,12 +31,12 @@ AddDefaultCharset UTF-8
 AddType image/x-icon .ico
 
 # 1 YEAR
-<FilesMatch "\.(ico|pdf|flv|jpg|jpeg|png|gif|swf|xml)$">
+<FilesMatch "\.(eot|ico|pdf|flv|jpg|jpeg|png|gif|svg|xml|swf|ttf|woff)$">
 Header set Cache-Control "max-age=29030400, public"
 </FilesMatch>
 
 # 10 weeks
-<FilesMatch "\.(xml|txt|css|js)$">
+<FilesMatch "\.(txt|css|js)$">
 Header set Cache-Control "max-age=6048000, public"
 </FilesMatch>
 

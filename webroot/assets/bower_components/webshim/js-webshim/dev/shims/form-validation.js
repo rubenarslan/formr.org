@@ -2,32 +2,38 @@ webshims.register('form-validation', function($, webshims, window, document, und
 	"use strict";
 
 	var isWebkit = 'webkitURL' in window;
-	var hasNative = Modernizr.formvalidation && !webshims.bugs.bustedValidity;
+	var support = webshims.support;
+	var hasNative = support.formvalidation && !webshims.bugs.bustedValidity;
 	var chromeBugs = isWebkit && hasNative;
 	var ua = navigator.userAgent;
+	var isIE = ua.indexOf('MSIE') != -1;
 	var webkitVersion = chromeBugs && parseFloat((ua.match(/Safari\/([\d\.]+)/) || ['', '999999'])[1], 10);
-	
+
 	var iVal = options.iVal;
 
 	var invalidClass = iVal.errorClass || (iVal.errorClass = 'user-error');
 	var validClass = iVal.successClass || (iVal.successClass = 'user-success');
-	
+	var markedClases = '.'+validClass+', .'+invalidClass;
+
 	var invalidWrapperClass = iVal.errorWrapperClass || (iVal.errorWrapperClass = 'ws-invalid');
 	var successWrapperClass = iVal.successWrapperClass || (iVal.successWrapperClass = 'ws-success');
 	var errorBoxClass = iVal.errorBoxClass || (iVal.errorBoxClass = 'ws-errorbox');
 	var errorMessageClass = iVal.errorMessageClass || (iVal.errorMessageClass = 'ws-errormessage');
-	
+	var errorBoxWrapper = iVal.errorBoxWrapper || (iVal.errorBoxWrapper = 'div');
+	var errorMessageWrapper = iVal.errorMessageWrapper || (iVal.errorMessageWrapper = 'p');
+
 	var checkTypes = {checkbox: 1, radio: 1};
-	
+
 	var loader = webshims.loader;
 	var addModule = loader.addModule;
-	
+
 	var emptyJ = $([]);
-	
+
 	var nonFormFilter = function(){
 		return !$.prop(this, 'form');
 	};
-	var getGroupElements = webshims.modules["form-core"].getGroupElements || function(elem){
+	var modules = webshims.modules;
+	var getGroupElements = modules["form-core"].getGroupElements || function(elem){
 		elem = $(elem);
 		var name;
 		var form;
@@ -46,8 +52,8 @@ webshims.register('form-validation', function($, webshims, window, document, und
 		}
 		return ret;
 	};
-	
-	
+
+
 	var returnValidityCause = function(validity, elem){
 		var ret;
 		$.each(validity, function(name, value){
@@ -58,7 +64,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 		});
 		return ret;
 	};
-	
+
 	var isInGroup = function(name){
 		var ret;
 		try {
@@ -106,22 +112,22 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				shadowType = shadowElem.prop('type');
 			}
 			if(
-				(chromeBugs && (e.type == 'change' || webkitVersion < 537.36) && noFocusWidgets[shadowType] && $(e.target).is(':focus')) ||
+				(chromeBugs && (e.type == 'change' || webkitVersion < 537.36) && noFocusWidgets[shadowType] && $.find.matchesSelector(e.target, ':focus')) ||
 				(e.type == 'focusout' && elem.type == 'radio' && isInGroup(elem.name))
 				){
 					return;
 			}
-			if(webshims.refreshCustomValidityRules && webshims.refreshCustomValidityRules(elem) == 'async'){
+			if(webshims.refreshCustomValidityRules(elem) == 'async'){
 				$(elem).one('updatevalidation.webshims', switchValidityClass);
 				return;
 			}
-			
+
 			var validity = $.prop(elem, 'validity');
-			
+
 			var addClass, removeClass, trigger, generaltrigger, validityCause;
-			
-			
-			
+
+
+
 			if(validity.valid){
 				if(!shadowElem.hasClass(validClass)){
 					addClass = validClass;
@@ -150,7 +156,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 					trigger = 'changedinvalid';
 				}
 			}
-			
+
 			if(addClass){
 				shadowElem.addClass(addClass).removeClass(removeClass);
 				//jQuery 1.6.1 IE9 bug (doubble trigger bug)
@@ -163,7 +169,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 					$(elem).trigger(generaltrigger);
 				});
 			}
-			
+
 			$.removeData(elem, 'webshimsswitchvalidityclass');
 		};
 		if(shadowElem.triggerHandler('wsallowinstantvalidation', [e]) !== false){
@@ -185,7 +191,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 	};
 
 	if('validityUIEvents' in options){
-		webshims.warn('validityUIEvents was renamed to iVal.events');
+		webshims.error('validityUIEvents was renamed to iVal.events');
 		iVal.events = options.validityUIEvents;
 	}
 	if('events' in iVal){
@@ -202,17 +208,22 @@ webshims.register('form-validation', function($, webshims, window, document, und
 		iVal.fieldWrapper = ':not(span):not(label):not(em):not(strong):not(p):not(.ws-custom-file)';
 	}
 
-	if(!webshims.modules["form-core"].getGroupElements){
-		webshims.modules["form-core"].getGroupElements = getGroupElements;
+	if(!modules["form-core"].getGroupElements){
+		modules["form-core"].getGroupElements = getGroupElements;
 	}
 
 	$(document.body || 'html')
 		.on(iVal.events+'refreshvalidityui updatevalidation.webshims invalid', switchValidityClass)
+		.on('refreshvalidationui.webshims', function(e){
+			if($(e.target).getShadowElement().is(markedClases)){
+				switchValidityClass({type: 'updatevalidation', target: e.target});
+			}
+		})
 		.on('reset resetvalidation.webshims resetvalui', function(e){
 			var noIValTrigger;
 			var elems = $(e.target);
 			if(e.type == 'resetvalui'){
-				webshims.warn('resetvalui was renamed to resetvalidation');
+				webshims.error('resetvalui was renamed to resetvalidation');
 			}
 			if(elems.is('form, fieldset')){
 				if(elems[0].nodeName.toLowerCase() == 'form'){
@@ -239,10 +250,10 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			}
 		})
 	;
-	
+
 	var setRoot = function(){
 		webshims.scrollRoot = (isWebkit || document.compatMode == 'BackCompat') ?
-			$(document.body) : 
+			$(document.body) :
 			$(document.documentElement)
 		;
 	};
@@ -265,7 +276,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 
 	setRoot();
 	webshims.ready('DOM', setRoot);
-	
+
 	var rtlReg = /right|left/g;
 	var rtlReplace = function(ret){
 		return ret == 'left' ? 'right' : 'left';
@@ -280,7 +291,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				if(!opts.of){
 					opts.of = relElem;
 				}
-				
+
 				isRtl = $(opts.of).css('direction') == 'rtl';
 				if(!opts.isRtl){
 					opts.isRtl = false;
@@ -290,39 +301,39 @@ webshims.register('form-validation', function($, webshims, window, document, und
 					opts.at = (opts.at || 'center').replace(rtlReg, rtlReplace);
 					opts.isRtl = isRtl;
 				}
-				
+
 				posElem[opts.isRtl ? 'addClass' : 'removeClass']('ws-is-rtl');
-				
+
 				opts.using = function(calced, data){
 					posElem.attr({'data-horizontal': data.horizontal, 'data-vertical': data.vertical});
 					offset = calced;
 				};
-				
+
 				posElem.attr({
-					'data-horizontal': '', 
+					'data-horizontal': '',
 					'data-vertical': '',
 					'data-my': opts.my,
 					'data-at': opts.at
 				});
 				posElem.position(opts);
-				
+
 			} else {
 				offset = $(relElem).offset();
 				bodyOffset = posElem.offset();
 				offset.top -= bodyOffset.top;
 				offset.left -= bodyOffset.left;
-				
+
 				offset.top += relElem.outerHeight();
 			}
-			
+
 		});
-		
+
 		return offset;
 	};
-	
+
 	$.extend(webshims.wsPopover, {
-		
-		
+
+
 		isInElement: function(containers, contained){
 			if(!$.isArray(containers)){
 				containers = [containers];
@@ -354,8 +365,8 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				this._shadowAdded = true;
 			}
 
-			element = $(element || this.options.prepareFor).getNativeElement() ;
-			
+			element = $(element || this.options.prepareFor).getNativeElement();
+
 			var that = this;
 			var closeOnOutSide = function(e){
 				if(that.options.hideOnBlur && !that.stopBlur && !that.isInElement([that.lastElement[0], element[0], that.element[0]], e.target)){
@@ -372,9 +383,9 @@ webshims.register('form-validation', function($, webshims, window, document, und
 
 			this.clear();
 			this.element.css('display', 'none');
-			
+
 			this.prepareFor(element, visual);
-			
+
 			this.position(visual);
 
 			if(this.options.inline){
@@ -397,22 +408,22 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				.children(':not(script), :not(iframe), :not(noscript)')
 				.on('mousedown'+this.eventns, closeOnOutSide)
 			;
-			
+
 			this.element.off('pospopover').on('pospopover', delayedRepos);
 			$(window).on('resize'+this.eventns + ' pospopover'+this.eventns, delayedRepos);
 		},
 		_getAutoAppendElement: (function(){
 			var invalidParent = /^(?:span|i|label|b|p|tr|thead|tbody|table|strong|em|ul|ol|dl|html)$/i;
 			return function(element){
-			
+
 				var appendElement;
 				var parent = element[0];
 				var body = document.body;
 				while((parent = parent[appendElement ? 'offsetParent' : 'parentNode']) && parent.nodeType == 1  && parent != body){
 					if(!appendElement && !invalidParent.test(parent.nodeName)){
 						appendElement = parent;
-					} 
-					if(appendElement && $.css(parent, 'overflow') == 'hidden' && $.css(parent, 'position') != 'static'){
+					}
+					if(appendElement && $.css(parent, 'overflow') != 'visible' && $.css(parent, 'position') != 'static'){
 						appendElement = false;
 					}
 				}
@@ -428,9 +439,9 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			this.lastElement = $(element).getShadowFocusElement();
 			if(!this.prepared || !this.options.prepareFor){
 				if(opts.appendTo == 'element' || (opts.inline && opts.appendTo == 'auto')){
-					parentElem = element.parent();
+					parentElem = visual.parent();
 				} else if(opts.appendTo == 'auto'){
-					parentElem = this._getAutoAppendElement(element);
+					parentElem = this._getAutoAppendElement(visual);
 				} else {
 					parentElem = $(opts.appendTo);
 				}
@@ -438,7 +449,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 					this.element.appendTo(parentElem);
 				}
 			}
-			
+
 			this.element.attr({
 				'data-class': element.prop('className'),
 				'data-id': element.prop('id')
@@ -468,13 +479,13 @@ webshims.register('form-validation', function($, webshims, window, document, und
 						that.hide();
 					}
 				};
-				
+
 				that.timers.bindBlur = setTimeout(function(){
 					that.lastElement.off(that.eventns).on('focusout'+that.eventns + ' blur'+that.eventns, onBlur);
 					that.lastElement.getNativeElement().off(that.eventns);
 				}, 10);
 			}
-			
+
 			this.prepared = true;
 		},
 		clear: function(){
@@ -533,39 +544,39 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			}
 		}
 	});
-	
-	
-	
+
+
+
 	/* some extra validation UI */
 	webshims.validityAlert = (function(){
-		
+
 		options.messagePopover.position = $.extend({}, {
 			at: 'left bottom',
 			my: 'left top',
 			collision: 'none'
 		}, options.messagePopover.position || {});
-			
+
 		var api = webshims.objectCreate(webshims.wsPopover, undefined, options.messagePopover);
 		var boundHide = api.hide.bind(api);
-		
+
 		api.element.addClass('validity-alert').attr({role: 'alert'});
 		$.extend(api, {
 			hideDelay: 5000,
 			showFor: function(elem, message, noFocusElem, noBubble){
-				
+
 				elem = $(elem).getNativeElement();
 				this.clear();
 				this.hide();
 				if(!noBubble){
 					this.getMessage(elem, message);
-					
+
 					this.show(elem);
 					if(this.hideDelay){
 						this.timers.delayedHide = setTimeout(boundHide, this.hideDelay);
 					}
-					
+
 				}
-				
+
 				if(!noFocusElem){
 					this.setFocus(elem);
 				}
@@ -583,21 +594,21 @@ webshims.register('form-validation', function($, webshims, window, document, und
 					}
 					api.element.triggerHandler('pospopover');
 				};
-				
+
 				if(scrollTop > elemTop){
 					webshims.scrollRoot.animate(
-						{scrollTop: elemTop - 5 - (options.viewportOffset || 0)}, 
+						{scrollTop: elemTop - 5 - (options.viewportOffset || 0)},
 						{
-							queue: false, 
+							queue: false,
 							duration: Math.max( Math.min( 600, (scrollTop - elemTop) * 1.5 ), 80 ),
 							complete: focus
 						}
 					);
-					
+
 				} else {
 					focus();
 				}
-				
+
 			},
 			getMessage: function(elem, message){
 				if (!message) {
@@ -610,16 +621,16 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				}
 			}
 		});
-		
-		
+
+
 		return api;
 	})();
-	
+
 
 	if(!iVal.fx || !fx[iVal.fx]){
 		iVal.fx = 'slide';
 	}
-	
+
 	if(!$.fn[fx[iVal.fx].show]){
 		iVal.fx = 'no';
 	}
@@ -629,10 +640,10 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			if(!fieldWrapper){
 				fieldWrapper = this.getFieldWrapper(elem);
 			}
-			var errorBox = $('div.'+errorBoxClass, fieldWrapper);
-			
+			var errorBox = $('.'+errorBoxClass, fieldWrapper);
+
 			if(!errorBox.length){
-				errorBox = $('<div class="'+ errorBoxClass +'" hidden="hidden" style="display: none;">');
+				errorBox = $('<'+errorBoxWrapper+' class="'+ errorBoxClass +'" hidden="hidden" style="display: none;">');
 				fieldWrapper.append(errorBox);
 			}
 			if(!errorBox.prop('id')){
@@ -669,7 +680,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				var ret = $(elem).data('errortype');
 				if(!ret){
 					$.each(fields, function(errorName, cNames){
-						if($(elem).is(cNames)){
+						if($.find.matchesSelector(elem, cNames)){
 							ret = errorName;
 							return false;
 						}
@@ -714,7 +725,8 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			};
 		})(),
 		initIvalContentMessage: function(elem){
-			if($(elem).jProp('form').is(iVal.sel)){
+			var form;
+			if(iVal.sel && (form = $.prop(elem, 'form')) && $.find.matchesSelector(form, iVal.sel)){
 				this.get(elem);
 			}
 		},
@@ -742,7 +754,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				fieldWrapper[hasVal ? 'addClass' : 'removeClass'](successWrapperClass);
 			};
 			var evt = changeTypes[type] ? 'change' : 'blur';
-			
+
 			$(elem).off('.recheckvalid').on(evt+'.recheckinvalid', check);
 			check();
 		},
@@ -770,7 +782,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 						errorBox[fx[iVal.fx].hide]().each(afterHide);
 					}
 				}
-				
+
 			}
 			if(!reset && !invalid){
 				this.addSuccess(elem, fieldWrapper);
@@ -784,11 +796,11 @@ webshims.register('form-validation', function($, webshims, window, document, und
 					switchValidityClass({type: 'input', target: input});
 				};
 				$(input)
-					.filter('input:not([type="checkbox"]):not([type="radio"])')
+					.filter('input:not([type="checkbox"]):not([type="radio"]), textarea')
 					.off('.recheckinvalid')
 					.on('input.recheckinvalid', function(){
 						clearTimeout(timer);
-						timer = setTimeout(throttle, iVal.recheckDelay); 
+						timer = setTimeout(throttle, iVal.recheckDelay);
 					})
 					.on('focusout.recheckinvalid', function(){
 						clearTimeout(timer);
@@ -805,7 +817,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				if(box.stop){
 					box.stop(true, true);
 				}
-				box.html('<p class="'+ errorMessageClass +'">'+ message +'</p>');
+				box.html('<'+ errorMessageWrapper +' class="'+ errorMessageClass +'">'+ message +'</'+ errorMessageWrapper +'>');
 				box.message = message;
 				fieldWrapper.addClass(invalidWrapperClass).removeClass(successWrapperClass);
 				this.recheckInvalidInput(elem);
@@ -818,82 +830,78 @@ webshims.register('form-validation', function($, webshims, window, document, und
 						.removeAttr('hidden')
 						[fx[iVal.fx].show]()
 					;
-					
+
 				}
 			}
 			fieldWrapper.removeClass(successWrapperClass);
 			$(elem).off('.recheckvalid');
-			
+
 			return fieldWrapper;
 		},
 		reset: function(elem){
 			this.hideError(elem, true).removeClass(successWrapperClass);
 		},
 		toggle: function(elem){
-			if($(elem).is(':invalid')){
+			if($.find.matchesSelector(elem, ':invalid')){
 				this.showError(elem);
 			} else {
 				this.hideError(elem);
 			}
 		}
 	};
-	
+
 	$(document.body)
 		.on({
 			'changedvaliditystate': function(e){
-				if(iVal.sel){
-					var form = $(e.target).jProp('form');
-					if(form.is(iVal.sel)){
-						webshims.errorbox.toggle(e.target);
-					}
+				var form;
+				if(iVal.sel && (form = $.prop(e.target, 'form')) && $.find.matchesSelector(form, iVal.sel)){
+					webshims.errorbox.toggle(e.target);
 				}
 			},
 			'resetvalidityui.webshims': function(e){
-				if (iVal.sel) {
-					var form = $(e.target).jProp('form');
-					if (form.is(iVal.sel)) {
-						webshims.errorbox.reset(e.target);
-					}
+				var form;
+				if(iVal.sel && (form = $.prop(e.target, 'form')) && $.find.matchesSelector(form, iVal.sel)){
+					webshims.errorbox.reset(e.target);
 				}
 			},
 			firstinvalid: function(e){
+				var form;
 				if(iVal.sel && iVal.handleBubble){
-					var form = $(e.target).jProp('form');
-					if(form.is(iVal.sel)){
+					if(iVal.sel && (form = $.prop(e.target, 'form')) && $.find.matchesSelector(form, iVal.sel)){
 						e.preventDefault();
 						if(iVal.handleBubble != 'none'){
-							webshims.validityAlert.showFor( e.target, false, false, iVal.handleBubble == 'hide' ); 
+							webshims.validityAlert.showFor( e.target, false, false, iVal.handleBubble == 'hide' );
 						}
 					}
 				}
 			},
 			submit: function(e){
-				if(iVal.sel && iVal.submitCheck && $(e.target).is(iVal.sel) && $.prop(e.target, 'noValidate') && !$(e.target).checkValidity()){
+				if(iVal.sel && iVal.submitCheck && $.find.matchesSelector(e.target, iVal.sel) && $.prop(e.target, 'noValidate') && !$(e.target).checkValidity()){
 					e.stopImmediatePropagation();
 					return false;
 				}
 			}
 		})
 	;
-	
 
-	
+
+
 	if(/[\s\:\>\~\+]/.test(iVal.sel || '')){
 		webshims.error('please use a simple selector for iVal.sel: for example .validate');
 	}
-	
+
 	if(options.replaceValidationUI){
 		$(document).on('firstinvalid', function(e){
 			if(!e.isDefaultPrevented()){
 				e.preventDefault();
-				
+
 				setTimeout(function(){
-					webshims.validityAlert.showFor( e.target ); 
+					webshims.validityAlert.showFor( e.target );
 				}, 4);
 			}
 		});
 	}
-	
+
 	/* extension, but also used to fix native implementation workaround/bugfixes */
 	(function(){
 		var firstEvent,
@@ -901,12 +909,12 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			stopSubmitTimer,
 			stop
 		;
-		
+
 		$(document).on('invalid', function(e){
 			if(e.wrongWebkitInvalid || stop){return;}
 			var jElm = $(e.target);
-			
-			
+
+
 			if(!firstEvent){
 				//trigger firstinvalid
 				firstEvent = $.Event('firstinvalid');
@@ -918,7 +926,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 				e.preventDefault();
 			}
 			invalids.push(e.target);
-			e.extraData = 'fix'; 
+			e.extraData = 'fix';
 			clearTimeout(stopSubmitTimer);
 			stopSubmitTimer = setTimeout(function(){
 				var lastEvent = {type: 'lastinvalid', cancelable: false, invalidlist: $(invalids)};
@@ -939,65 +947,13 @@ webshims.register('form-validation', function($, webshims, window, document, und
 		});
 	})();
 
-	if(!options.noInputmodeFix && document.addEventListener && Modernizr.inputtypes && Modernizr.inputtypes.tel && ua.indexOf('Mobile') != -1 && !('inputMode' in document.createElement('input') && !('inputmode' in document.createElement('input'))) ){
-		var removeListener = function(elem){
-			elem.removeEventListener('blur', switchBack, true);
-		};
-		var needsPattern = (/iphone|ipod/i).test(ua);
-		var regPattern = /^[\\d\*|\[0\-9\]]*[\+|\{\d*\,\d*\}|*]*$/;
-		var stopPatterns = needsPattern || (/ipad|ios/i).test(ua) ?
-			{
-				'[0-9]*': 1,
-				'\\d*': 1
-			} :
-			false
-		;
-		var switchBack = function(e){
-			removeListener(e.target);
-			e.target.type = 'text';
-		};
-		var removeDocListener = function(){
-			document.removeEventListener('focus', addFix, true);
-			document.removeEventListener('touchstart', addFix, true);
-		};
-		var allowSwitchByPattern = function(elem){
-			var pattern;
-			var switchAllowed = true;
-
-			if(stopPatterns){
-				pattern = elem.getAttribute('pattern') || '';
-				if(stopPatterns[pattern] || (needsPattern && (!pattern || !regPattern.test(pattern)))){
-					switchAllowed = false;
-				}
-			}
-
-			return switchAllowed;
-		};
-
-		var addFix = function(e){
-			if(e.target.type == 'text' && e.target.getAttribute('inputmode') == 'numeric' && allowSwitchByPattern(e.target)){
-				try{
-					removeListener(e.target);
-					e.target.addEventListener('blur', switchBack, true);
-					e.target.type = 'tel';
-				} catch (er){
-					removeDocListener();
-				}
-			}
-		};
-
-		document.addEventListener('focus', addFix, true);
-		document.addEventListener('touchstart', addFix, true);
-	}
-
 	function getFileNames(file){
 		return file.name;
 	}
 
-
-
 	function customFile(){
 		if($.data(this, 'wsCustomFile')){return;}
+
 		var map = Array.prototype.map;
 		var $module = $(this);
 		var $file = $('input[type="file"]', $module);
@@ -1014,32 +970,63 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			}
 		};
 
-		$.data(this, 'wsCustomFile', {showSelected: showSelected});
-		$('button', $module).attr('tabindex', '-1');
 
-		$file.on('change.webshim', showSelected).each(showSelected);
-		$file.jProp('form').on('reset', function(){
-			setTimeout(showSelected);
-		});
+		$.data(this, 'wsCustomFile', {showSelected: showSelected});
+		$('button:not(.ws-capture-button)', $module).attr('tabindex', '-1');
+
+		$file
+			.on('change.webshim', showSelected)
+			.each(showSelected)
+			.jProp('form')
+			.on('reset', function(){
+				setTimeout(showSelected);
+			})
+		;
+		if(isIE){
+			$('<div class="ws-coverfile" />')
+				.insertAfter($file)
+				.on('click.webshim', function(e){
+					e.stopImmediatePropagation();
+					$file.trigger('click');
+				})
+			;
+		}
+
 	}
+
+	$(function(){
+		var fileReaderReady = ('FileReader' in window && 'FormData' in window);
+		if(!fileReaderReady){
+			webshims.addReady(function(context){
+				if(!fileReaderReady && modules['filereader-xhr'] && !modules['filereader-xhr'].loaded && context.querySelector('input.ws-filereader')){
+					webshims.reTest(['filereader']);
+					fileReaderReady = true;
+				}
+			});
+		}
+	});
 
 	webshims.addReady(function(context, contextElem){
 		$(context.querySelectorAll('.ws-custom-file')).add($(contextElem).filter('.ws-custom-file')).each(customFile);
 	});
 
 	addModule('form-fixrangechange', {
-		test: !(!$.event.special.change && !$.event.special.input && Modernizr.inputtypes && Modernizr.inputtypes.range && options.fixRangeChange)
+		test: !(!$.event.special.change && !$.event.special.input && support.inputtypes.range && options.fixRangeChange)
+	});
+
+	addModule('form-inputmode', {
+		test: !(!options.noInputmodeFix && document.addEventListener && support.inputtypes.number && ua.indexOf('Mobile') != -1 && !('inputMode' in document.createElement('input') && !('inputmode' in document.createElement('input'))) )
 	});
 
 	addModule('form-combat', {
 		d: ['dom-support'],
 		test: !(($.mobile && ($.mobile.selectmenu || $.mobile.checkboxradio)) || ($.ui && $.ui.selectmenu) || $.fn.select2 || $.fn.chosen || $.fn.selectpicker || $.fn.selectBoxIt)
 	});
-	
+
 	addModule('position', {
 		src: 'plugins/jquery.ui.position.js',
 		test: !!($.position && $.position.getScrollInfo)
 	});
-	
-	loader.loadList(['form-combat', 'position', 'form-fixrangechange']);
+
+	loader.loadList(['form-combat', 'position', 'form-fixrangechange', 'form-inputmode']);
 });
