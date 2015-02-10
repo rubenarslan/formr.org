@@ -1,0 +1,19 @@
+{
+    "name": "Access_window",
+    "units": [
+        {
+            "type": "SkipForward",
+            "position": 10,
+            "special": "",
+            "condition": "time_passed(hours = 7) # if users hasn't reacted in 7 hours, skip over the following survey",
+            "automatically_jump": 1,
+            "if_true": 30,
+            "automatically_go_on": 0
+        },
+        {
+            "type": "Survey",
+            "position": 20,
+            "special": ""
+        }
+    ]
+}
