@@ -14,7 +14,7 @@ $lockfile = INCLUDE_ROOT . 'tmp/cron.lock';
 
 /**  Define cron specific functions */
 // log to formr log file
-function cron_log($message, $cron_log = false) {
+function cron_log($message, $cron_log = true) {
 	$cron_logfile = INCLUDE_ROOT . 'tmp/logs/cron.log';
 	$logfile = INCLUDE_ROOT . 'tmp/logs/formr_error.log';
 	$message = date('Y-m-d H:i:s') . ' ' . $message . "\n";
@@ -28,14 +28,14 @@ function cron_log($message, $cron_log = false) {
 function cron_cleanup() {
 	global $lockfile, $start_time, $max_exec_time;
 	$exec_time = microtime(true) - $start_time;
-	if ($exec_time >= $max_exec_time) {
+	if ($exec_time > $max_exec_time) {
 		$msg = "Cron exceeded or reached set maximum script execution time of $max_exec_time secs.";
 		cron_log($msg);
-		cron_log($msg, true);
 	}
 
 	if (file_exists($lockfile)) {
 		unlink($lockfile);
+		cron_log("Cronfile cleanup complete");
 	}
 }
 
@@ -52,8 +52,7 @@ function cron_parse_executed_types($types) {
 if (file_exists($lockfile)) {
 	global $start_date;
 	$started = file_get_contents($lockfile);
-	cron_log("Cron overlapped. Started: $started, Overlapped: $start_date");
-	echo "Cron still running...";
+	cron_log("Cron overlapped [file_exists]. Started: $started, Overlapped: $start_date");
 	exit(0);
 }
 
@@ -148,12 +147,12 @@ try {
 		//echo $msg . "<br />";
 		cron_log(strip_tags($msg), true);
 		if (microtime(true) - $start_time > $max_exec_time) {
-			throw new Exception("How in the hell did we get here? Max execution time exceeded");
+			throw new Exception("Cron Intercepted! Started at: $start_date, Intercepted at: " . date('r'));
 		}
 	endforeach;
 } catch (Exception $e) {
-	cron_log('Cron: ' . $e->getMessage());
-	cron_log('Cron: ' . $e->getTraceAsString());
+	cron_log('Cron [Exception]: ' . $e->getMessage());
+	cron_log('Cron [Exception]: ' . $e->getTraceAsString());
 }
 
 $user->cron = false;
