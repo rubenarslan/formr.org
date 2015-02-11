@@ -1185,7 +1185,7 @@ class Survey extends RunUnit {
 
 		if ($alterQuery) {
 			// prepend the alter table clause
-			$alterQuery[0] = "ALTER TABLE `{$this->name}` {$alterQuery[0]}";
+			$alterQuery[0] = "ALTER TABLE `{$this->results_table}` {$alterQuery[0]}";
 			$altQ = implode(',', $alterQuery);
 			$this->dbh->query($altQ);
 		}
