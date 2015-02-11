@@ -225,6 +225,7 @@ class Item extends HTML_element {
 				$this->hide();
 				$probably_render = true;
 			} elseif (!$probably_render) { // do not force this to be false, could be "0", 0, false, but not NULL!
+				$this->hide();
 				$probably_render = false;
 			} elseif (isset($survey->item_factory->openCPU_errors[$this->showif])) {
 				$this->alwaysInvalid();
@@ -232,6 +233,10 @@ class Item extends HTML_element {
 			}
 		}
 		return $probably_render;
+	}
+	public function willbeShown($survey) {
+		$this->mightBeShown($survey);
+		return !$this->hidden;
 	}
 
 	protected function chooseResultFieldBasedOnChoices() {

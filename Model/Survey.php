@@ -190,7 +190,7 @@ class Survey extends RunUnit {
 					( $item->type == 'note' AND $item->displaycount > 0) // item is a note and has already been viewed
 			) {
 				return false;
-		}
+			}
 
 			return true;
 		});
@@ -347,7 +347,7 @@ class Survey extends RunUnit {
 						 * this is the end of the survey OR the next item is hidden OR the next item isn't a normal item
 						 * @todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
 						 */
-						if ($item->displaycount > 0 AND ($next === false OR !$next->mightBeShown($this) OR in_array($next->type, array('note', 'submit', 'mc_heading')))) {
+						if ($item->displaycount > 0 AND ($next === false OR in_array($next->type, array('note', 'submit', 'mc_heading')) OR !$next->willBeShown($this))) {
 						continue; // skip this note							
 					}
 				} else if ($item->type === "mc_heading") {
@@ -356,7 +356,7 @@ class Survey extends RunUnit {
 						 * If this is the end of the survey OR the next item is hidden OR the next item isn't a mc item
 						 * then skip mc_heading
 						 */
-						if ($next === false OR !$next->mightBeShown($this) OR !in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button'))) {
+						if ($next === false OR !in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button')) OR !$next->willBeShown($this)) {
 						continue; // skip this mc_heading
 					}
 				}
