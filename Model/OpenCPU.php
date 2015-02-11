@@ -137,15 +137,15 @@ class OpenCPU {
 			return null;
 		}
 
-		return $this->handleJSON($result['body'], $result['post'], $in);
+		return $this->handleJSON($result['body']);
 	}
 	
-	private function handleJSON($body, $result = array(), $post = '', $in = '') {
+	private function handleJSON($body) {
 		$parsed = json_decode($body, true);
 
 		if ($parsed === null):
 			if($this->admin_usage):
-//				$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post, $in, "alert-danger", $loud);
+//				$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.");
 			endif;
 			return null;
 		else:
@@ -154,8 +154,6 @@ class OpenCPU {
 			} elseif (array_key_exists(0,$parsed)) {
 				$parsed = $parsed[0];
 			}
-
-			$this->cache_query($result);
 			return $parsed;
 		endif;
 	}
@@ -164,7 +162,7 @@ class OpenCPU {
 		return CURL::HttpRequest($url, array(), CURL::HTTP_METHOD_GET, $this->curl_opts, $this->curl_info);
 	}
 	public function getOld($url) {
-		return $this->handleJSON($this->get($url . 'R/.val/json'), array(), '', $in);
+		return $this->handleJSON($this->get($url . 'R/.val/json'));
 	}
 	public function r_function($function, array $post) {
 
