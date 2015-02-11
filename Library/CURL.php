@@ -45,7 +45,7 @@ class CURL {
 		CURLOPT_TIMEOUT => 30,
 		// TRUE to return the transfer as a string of the return value of
 		// curl_exec() instead of outputting it out directly.
-		CURLOPT_RETURNTRANSFER => true,
+		CURLOPT_RETURNTRANSFER => 1,
 		// TRUE to follow any "Location: " header that the server sends as part
 		// of the HTTP header (note this is recursive, PHP will follow as many
 		// "Location: " headers that it is sent, unless CURLOPT_MAXREDIRS is
@@ -56,10 +56,10 @@ class CURL {
 		// CURLOPT_CAINFO option or a certificate directory can be specified
 		// with the CURLOPT_CAPATH option. CURLOPT_SSL_VERIFYHOST may also need
 		// to be TRUE or FALSE if CURLOPT_SSL_VERIFYPEER is disabled (it defaults to 2)
-		CURLOPT_SSL_VERIFYPEER => false,
+		CURLOPT_SSL_VERIFYPEER => true,
 		// 1 to check the existence of a common name in the SSL peer certificate.
 		// 2 to check the existence of a common name and also verify that it matches the hostname provided.
-		CURLOPT_SSL_VERIFYHOST => false,
+		CURLOPT_SSL_VERIFYHOST => 2,
 		// The contents of the "User-Agent: " header to be used in a HTTP request.
 		CURLOPT_USERAGENT => self::USERAGENT,
 	);
@@ -128,7 +128,7 @@ class CURL {
 		}
 		$options[CURLOPT_URL] = $url;
 		curl_setopt_array($curl, $options);
-
+//		curl_setopt($curl, CURLOPT_HTTPHEADER,array("Expect:"));
 		$res = curl_exec($curl);
 		$info = curl_getinfo($curl);
 

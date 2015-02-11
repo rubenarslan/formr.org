@@ -19,7 +19,7 @@ class SuperadminController extends Controller {
 					bad_request_header();
 				endif;
 			endif;
-			echo $site->renderAlerts();
+			echo $this->site->renderAlerts();
 			exit;
 		else:
 			redirect_to("/");

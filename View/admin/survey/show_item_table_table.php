@@ -3,7 +3,7 @@
 		<tr>
 			<?php
 			$use_columns = $empty_columns = array();
-			$display_columns = array('type', 'name', 'label_parsed', 'optional', 'class', 'showif', 'choices', 'value', 'order');
+			$display_columns = array('type', 'name', 'label_parsed', 'class', 'showif', 'choices', 'value');
 			foreach (current($results) AS $field => $value):
 				if (in_array($field, $display_columns) AND ! empty_column($field, $results)):
 					array_push($use_columns, $field);
@@ -22,6 +22,7 @@
 				// $row is array... foreach( .. ) puts every element
 				// of $row to $cell variable
 				$row->type = implode(" ", array('<b>' . $row->type . '</b>', ($row->choice_list == $row->name) ? '' : $row->choice_list, '<i>' . $row->type_options . '</i>'));
+				$row->name = $row->name . ($row->optional ? "<sup title='optional'>*</sup>" : "<sup title='mandatory'>†</sup>");
 				foreach ($use_columns AS $field):
 					echo '<td class=""><div class="td-contents field-'.$field.'">';
 					$cell = $row->$field;
