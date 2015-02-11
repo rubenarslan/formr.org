@@ -27,7 +27,7 @@ class Survey extends RunUnit {
 	public $admin_usage = false;
 	public $result_count = 0;
 	private $confirmed_deletion = false;
-	private $item_factory = null;
+	public $item_factory = null;
 
 	/**
 	 * @var DB
@@ -299,32 +299,18 @@ class Survey extends RunUnit {
 		$choice_lists = $this->getAndRenderChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
 
-		while ($item_array = $get_items->fetch(PDO::FETCH_ASSOC)) {
+		while ($item_array = $get_items->fetch(PDO::FETCH_ASSOC)):
 			$name = $item_array['name'];
 			$item = $this->item_factory->make($item_array);
 
-			if (trim($item->showif) != null) {
-				$show = $this->item_factory->showif($this, $item->showif);
-
-				if ($show === null) { // we don't know what happens yet, maybe JS, maybe not
-					$item->hide();
-				} elseif (!$show) { // do not force this to be false, could be "0", 0, false
-					continue; // do not render, we know the result of this check, it's false!
-				} elseif (isset($this->item_factory->openCPU_errors[$item->showif])) {
-					$item->alwaysInvalid();
-					$item->error = $this->item_factory->openCPU_errors[$item->showif];
-				}
-			}
-
-			if ($item->no_user_input_required AND $item->needsDynamicValue()) { // determine value if there is a dynamic one and no user input is required
+			if ($item->no_user_input_required AND $item->needsDynamicValue() AND $item->mightBeShown($this)) { // determine value if there is a dynamic one and no user input is required
 				$item->determineDynamicValue($this);
 			}
 			$this->unanswered[$name] = $item;
-
-			if (!$item->hidden AND $item->no_user_input_required AND isset($item->input_attributes['value'])):
+			if ($item->no_user_input_required AND isset($item->input_attributes['value']) AND $item->mightBeShown($this)):
 				$this->post(array($item->name => $item->input_attributes['value']), false); # add this data but don't reload
 			endif;
-		}
+		endwhile;
 	}
 
 	protected function renderNextItems() {
@@ -346,8 +332,8 @@ class Survey extends RunUnit {
 			foreach ($this->unanswered as &$item) {
 				if ($this->settings['maximum_number_displayed'] != null AND $itemsDisplayed >= $this->settings['maximum_number_displayed']) {
 				$item_will_be_rendered = false;
-			}
-			if ($item_will_be_rendered) {
+				}
+			if ($item_will_be_rendered AND $item->mightBeShown($this)) {
 				if ($item->type === 'submit') {
 					if ($itemsDisplayed === 0):
 						continue; // skip submit buttons once everything before them was dealt with	
@@ -361,7 +347,7 @@ class Survey extends RunUnit {
 						 * this is the end of the survey OR the next item is hidden OR the next item isn't a normal item
 						 * @todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
 						 */
-						if ($item->displaycount > 0 AND ($next === false OR $next->hidden === true OR in_array($next->type, array('note', 'submit', 'mc_heading')))) {
+						if ($item->displaycount > 0 AND ($next === false OR !$next->mightBeShown($this) OR in_array($next->type, array('note', 'submit', 'mc_heading')))) {
 						continue; // skip this note							
 					}
 				} else if ($item->type === "mc_heading") {
@@ -370,7 +356,7 @@ class Survey extends RunUnit {
 						 * If this is the end of the survey OR the next item is hidden OR the next item isn't a mc item
 						 * then skip mc_heading
 						 */
-						if ($next === false OR $next->hidden === true OR !in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button'))) {
+						if ($next === false OR !$next->mightBeShown($this) OR !in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button'))) {
 						continue; // skip this mc_heading
 					}
 				}

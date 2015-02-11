@@ -15,11 +15,6 @@ class OpenCPU {
 	private $hash_of_call = null;
 	private $called_function = null;
 	private $posted = null;
-	/**
-	 *
-	 * @var DB
-	 */
-	private $dbh = null;
 
 	/**
 	 * This will store header information returned by curl
@@ -163,6 +158,7 @@ class OpenCPU {
 	public function r_function($function, array $post) {
 
 		used_opencpu();
+//		pr($function . "<br>" . current($post));
 		$hash_of_call = hash("md5", $function . json_encode($post));
 		if (($ret = $this->inCache($hash_of_call))) {
 			return $ret;

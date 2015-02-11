@@ -542,6 +542,7 @@ class RunUnit {
 					return $report; // if it has expired, so be it.
 				endif;
 			endif;
+			$openCPU->clearUserData();
 
 			$openCPU->addUserData($this->getUserDataInRun($this->dataNeeded($this->dbh, $source)));
 

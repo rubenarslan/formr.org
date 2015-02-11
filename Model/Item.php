@@ -42,7 +42,6 @@ class ItemFactory {
 			array_keys($this->choice_lists), array_keys($this->used_choice_lists)
 		);
 	}
-
 	public function showif($survey, $showif) {
 		if (array_key_exists($showif, $this->showifs)) {
 			return $this->showifs[$showif];
@@ -216,6 +215,23 @@ class Item extends HTML_element {
 		if (in_array("label_as_placeholder", $this->classes_wrapper)) {
 			$this->input_attributes['placeholder'] = $this->label;
 	}
+	}
+	public function mightBeShown($survey) {
+		$probably_render = true;
+		if (trim($this->showif) != null) {
+			$probably_render = $survey->item_factory->showif($survey, $this->showif);
+
+			if ($probably_render === null) { // we don't know what happens yet, maybe JS, maybe not
+				$this->hide();
+				$probably_render = true;
+			} elseif (!$probably_render) { // do not force this to be false, could be "0", 0, false, but not NULL!
+				$probably_render = false;
+			} elseif (isset($survey->item_factory->openCPU_errors[$this->showif])) {
+				$this->alwaysInvalid();
+				$this->error = $survey->openCPU_errors[$this->showif];
+			}
+		}
+		return $probably_render;
 	}
 
 	protected function chooseResultFieldBasedOnChoices() {
