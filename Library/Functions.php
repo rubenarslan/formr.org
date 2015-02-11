@@ -139,40 +139,43 @@ if (!function_exists('_')) {
 function used_opencpu($echo = false) {
 	static $used;
 	if ($echo):
-		pr($used);
-		return;
+		pr("Requests: ".$used);
+		return $used;
 	endif;
 	if (isset($used)) {
 		$used++;
 	} else {
 		$used = 1;
 	}
+	return $used;
 }
 
 function used_cache($echo = false) {
 	static $used;
 	if ($echo):
-		pr($used);
-		return;
+		pr("Hashcache: ".$used);
+		return $used;
 	endif;
 	if (isset($used)) {
 		$used++;
 	} else {
 		$used = 1;
 	}
+	return $used;
 }
 
 function used_nginx_cache($echo = false) {
 	static $used;
 	if ($echo):
-		pr($used);
-		return;
+		pr("Nginx: ".$used);
+		return $used;
 	endif;
 	if (isset($used)) {
 		$used++;
 	} else {
 		$used = 1;
 	}
+	return $used;
 }
 
 if (!function_exists('__')) {
