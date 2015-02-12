@@ -170,15 +170,46 @@ class RunUnit {
 	}
 
 	protected function getSampleSessions() {
+		$current_position = -9999999;
+		if (isset($this->unit['position'])) {
+			$current_position = $this->unit['position'];
+		}
 		$results = $this->dbh->select('session, id, position')
-						->from('survey_run_sessions')
-						->where(array('run_id' => $this->run_id))
-						->limit(20)->fetchAll();
+			->from('survey_run_sessions')
+			->order('position', 'desc')->order('RAND')
+			->where(array('run_id' => $this->run_id, 'position >=' => $current_position))
+			->limit(20)->fetchAll();
+		
 		if (!$results) {
-			echo 'No data to compare to yet.'; // FIXME echo to where?
+			echo 'No data to compare to yet.';
 			return false;
 		}
-		return false;
+		return $results;
+	}
+
+	protected function grabRandomSession() {
+		if ($this->run_session_id === NULL) {
+			$current_position = -9999999;
+			if (isset($this->unit['position'])) {
+				$current_position = $this->unit['position'];
+			}
+
+			$temp_user = $this->dbh->select('session, id, position')
+				->from('survey_run_sessions')
+				->order('position', 'desc')->order('RAND')
+				->where(array('run_id' => $this->run_id, 'position >=' => $current_position))
+				->limit(1)
+				->fetch();
+
+			if (!$temp_user) {
+				echo 'No data to compare yet';
+				return false;
+			}
+
+			$this->run_session_id = $temp_user['id'];
+		}
+
+		return $this->run_session_id;
 	}
 
 	protected function howManyReachedItNumbers() {
@@ -456,30 +487,6 @@ class RunUnit {
 		return $this->getParsedText($source);
 	}
 
-	private function grabRandomSession() {
-		if ($this->run_session_id === NULL) {
-			$current_position = -9999999;
-			if (isset($this->unit['position'])) {
-				$current_position = $this->unit['position'];
-			}
-
-			$temp_user = $this->dbh->select('session, id, position')
-				->from('survey_run_sessions')
-				->where(array('run_id' => $this->run_id, 'position >=' => $current_position))
-				->limit(1)
-				->fetch();
-
-			if (!$temp_user) {
-				echo 'No data to compare yet'; // FIXME echo to where?
-				return false;
-			}
-
-			$this->run_session_id = $temp_user['id'];
-		}
-
-		return $this->run_session_id;
-	}
-
 	public function getParsedBodyAdmin($source, $email_embed = false) {
 		if ($this->knittingNeeded($source)):
 			if (!$this->grabRandomSession()) {
@@ -492,7 +499,7 @@ class RunUnit {
 			}
 
 			$openCPU->addUserData($this->getUserDataInRun(
-							$this->dataNeeded($this->dbh, $source)
+				$this->dataNeeded($this->dbh, $source)
 			));
 
 			if ($email_embed):
@@ -542,6 +549,7 @@ class RunUnit {
 					return $report; // if it has expired, so be it.
 				endif;
 			endif;
+			$openCPU->clearUserData();
 
 			$openCPU->addUserData($this->getUserDataInRun($this->dataNeeded($this->dbh, $source)));
 

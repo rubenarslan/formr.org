@@ -219,11 +219,7 @@ class Pause extends RunUnit {
 			echo $this->getParsedBodyAdmin($this->body);
 		}
 
-		$results = $this->dbh->select('session, id, position')
-						->from('survey_run_sessions')
-						->where(array('run_id' => $this->run_id))
-						->order('position', 'desc')->order('RAND')
-						->limit(20)->fetchAll();
+		$results = $this->getSampleSessions();
 		if (!$results) {
 			echo 'No data to compare to yet.';
 			return false;
