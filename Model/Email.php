@@ -298,7 +298,7 @@ class Email extends RunUnit {
 
 	public function test() {
 		$this->admin_usage = true;
-		$RandReceiv = crypto_token(9);
+		$RandReceiv = crypto_token(9, true);
 		$receiver = $RandReceiv . '@mailinator.com';
 
 		$this->sendMail($receiver);
