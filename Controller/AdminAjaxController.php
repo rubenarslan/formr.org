@@ -130,7 +130,7 @@ class AdminAjaxController {
 	}
 	private function ajaxDeleteUser() {
 		$run = $this->controller->run;
-		$deleted = $this->dbh->delete('survey_run_sessions', array('id' => $_GET['run_session_id']))->limit(1);
+		$deleted = $this->dbh->delete('survey_run_sessions', array('id' => $_GET['run_session_id']));
 		if($deleted):
 			alert('User with session ' . h($_GET['session']) . ' was deleted.', 'alert-info');
 		else: 
