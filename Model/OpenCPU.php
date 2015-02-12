@@ -171,10 +171,13 @@ class OpenCPU {
 		if ($post !== null) {
 			$method = CURL::HTTP_METHOD_POST;
 			$this->posted = $post;
-			$params = $this->posted;
+			$params = http_build_query(array_map('cr2nl', $this->posted));
+			$curl_opts = $this->curl_opts + array(CURLOPT_HTTPHEADER => array(
+				'Content-Length: ' . strlen($params),
+			));
 		}
 
-		$result = CURL::HttpRequest($this->called_function, $params, $method, $this->curl_opts, $this->curl_info);
+		$result = CURL::HttpRequest($this->called_function, $params, $method, $curl_opts, $this->curl_info);
 
 		$this->http_status = $this->curl_info['http_code'];
 		$this->header_size = $this->curl_info['header_size'];

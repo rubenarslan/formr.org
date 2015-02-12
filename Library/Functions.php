@@ -749,3 +749,70 @@ function array_to_orderedlist($array, $olclass = null, $liclass = null) {
 	return $ol;
 }
 
+/*** These functions should not be here */
+
+/**
+ * Execute a piece of code against OpenCPU
+ *
+ * @param string $code Each code line should be separated by a newline characted
+ * @param string $return_format String like 'json'
+ * @param string $context If this paramter is set, $code will be evaluated with a context
+ * @return mixed Returns response from open CPU
+*/
+function evaluateR($code, $openCPUParams = array(), $return_format = 'json', $context = null) {
+	$ocpu = OpenCPU::getInstance();
+	$variables = $ocpu->parseSessionVariables($openCPUParams);
+
+	if ($context !== null) {
+		$code = 'with(tail(' . $context . ', 1), { '
+. $code . '
+})';
+	}
+
+	$params = array('x' => '{ 
+(function() {
+	library(formr)
+	' . $variables . '
+	' . $code . '
+})() }');
+
+	$uri = '/base/R/identity/' . $return_format;
+	return $ocpu->post($uri, $params);
+}
+
+/**
+ * Call knit() function from the knitr R package
+ *
+ * @param string $code
+ * @param string $return_format
+ * @return mixed
+*/
+function knit($code, $return_format = 'json') {
+	$params = array('text' => "'" . addslashes($code) . "'");
+	$uri = '/knitr/R/knit/' . $return_format;
+	return OpenCPU::getInstance()->post($uri, $params);
+}
+
+function knit2HTML($source, $return_format = 'json', $self_contained = 1) {
+	$params = array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained);
+	$uri = '/formr/R/formr_render/' . $return_format;
+	return OpenCPU::getInstance()->post($uri, $params);
+}
+
+function knitEmail($source, array $openCPUParams = array(), $return_format = 'json') {
+	$ocpu = OpenCPU::getInstance();
+	$variables = $ocpu->parseSessionVariables($openCPUParams);
+	$source = '```{r settings,message=FALSE,warning=F,echo=F}
+library(knitr); library(formr)
+opts_chunk$set(warning=F,message=F,echo=F)
+opts_knit$set(upload.fun=formr::email_image)
+' . $variables . '
+```
+'.
+$source;
+
+	$params = array('text' => "'" . addslashes($source) . "'");
+	$uri = '/knitr/R/knit/' . $return_format;
+	return $ocpu->post($uri, $params);
+}
+
