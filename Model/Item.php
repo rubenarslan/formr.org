@@ -229,7 +229,7 @@ class Item extends HTML_element {
 				$probably_render = false;
 			} elseif (isset($survey->item_factory->openCPU_errors[$this->showif])) {
 				$this->alwaysInvalid();
-				$this->error = $survey->openCPU_errors[$this->showif];
+				$this->error = $survey->item_factory->openCPU_errors[$this->showif];
 			}
 		}
 		return $probably_render;
