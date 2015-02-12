@@ -182,12 +182,11 @@ class Survey extends RunUnit {
 				->fetch();
 					
 		$this->already_answered = $answered['count'];
-
 		$this->not_answered = array_filter($this->unanswered, function ($item) {
 			if (
-					$item->hidden OR  // item was skipped
 					in_array($item->type, array('submit', 'mc_heading')) OR // these items require no user interaction and thus don't count against progress
-					( $item->type == 'note' AND $item->displaycount > 0) // item is a note and has already been viewed
+					( $item->type == 'note' AND $item->displaycount > 0) OR // item is a note and has already been viewed
+					!$item->willBeShown($this) // item was skipped
 			) {
 				return false;
 			}
@@ -377,7 +376,7 @@ class Survey extends RunUnit {
 				 * item is a note and has already been viewed
 				 * Then item is not answered on current page
 				 */
-				if ($item->hidden OR in_array($item->type, array('submit', 'mc_heading')) OR ($item->type == 'note' AND $item->displaycount > 0)) {
+				if (in_array($item->type, array('submit', 'mc_heading')) OR ($item->type == 'note' AND $item->displaycount > 0) OR !$item->willBeShown($this)) {
 				return false;
 		}
 				return true;
