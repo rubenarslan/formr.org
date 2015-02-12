@@ -301,7 +301,7 @@ $source;
 		$source = '```{r settings,message=FALSE,warning=F,echo=F}
 library(knitr); library(formr)
 opts_chunk$set(warning=F,message=F,echo=F)
-opts_knit$set(upload.fun=formr::email_image)
+opts_knit$set(upload.fun=function(x) { paste0("cid:", basename(x)) })
 ' . $this->user_data . '
 ```
 '.
@@ -331,7 +331,7 @@ $source;
 				$upto = mb_strpos($part, $rmarkdown_fig_path);
 				$is_figure = mb_strpos($part, "/figure-html/");
 				if ($is_figure !== false):
-					$image_id = preg_replace("/[^a-zA-Z0-9]/", '', mb_substr($part, $upto + 1 + strlen($rmarkdown_fig_path))) . '.png'; // 
+					$image_id = basename($part);
 					$response['images'][$image_id] = $this->instance . $part;
 				endif;
 			endforeach;
