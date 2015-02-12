@@ -489,7 +489,7 @@ class Run {
 					}
 				} else {
 					if ($old_path == null) {
-						$old_path = 'assets/tmp/admin/' . crypto_token(66) . $file_ending;
+						$old_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
 					}
 					$path = new SplFileInfo(INCLUDE_ROOT . "webroot/" . $old_path);
 					$exists = file_exists($path->getPathname());
