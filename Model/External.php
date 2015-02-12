@@ -85,6 +85,11 @@ class External extends RunUnit {
 	public function test() {
 		if ($this->isR()) {
 			if ($results = $this->getSampleSessions()) {
+				if (!$results) {
+					echo 'No data to compare to yet.';
+					return false;
+				}
+				
 				$openCPU = $this->makeOpenCPU();
 				$this->run_session_id = current($results)['id'];
 

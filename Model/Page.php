@@ -88,13 +88,6 @@ class Page extends RunUnit {
 
 	public function test() {
 		echo $this->getParsedBodyAdmin($this->body);
-#		if($this->can_be_ended)
-#		{
-#			$ret = '<form method="post" accept-charset="utf-8">';
-#			$ret = '<input type="button" class="btn btn-default btn-success" value="Continue!" name="page_submit">';
-#			$ret .= '</form>';
-#			echo $ret;
-#		}
 	}
 
 	public function exec() {

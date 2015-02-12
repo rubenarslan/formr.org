@@ -99,9 +99,8 @@ class Email extends RunUnit {
 	private function getBody($embed_email = true) {
 
 		if (isset($this->run_name)) {
-#			if(!$this->session)
-#				alert("Generated a login link, but no user session was specified", 'alert-info');
-			$login_link = WEBROOT . "{$this->run_name}?code={$this->session}";
+			$sess = isset($this->session) ? $this->session : "TESTCODE";
+			$login_link = WEBROOT . "{$this->run_name}?code=$sess";
 		} else {
 			$login_link = WEBROOT;
 			alert("Generated a login link, but no run was specified", 'alert-danger');
@@ -117,8 +116,11 @@ class Email extends RunUnit {
 				if (isset($response['images'])):
 					$this->images = $response['images'];
 				endif;
-			else:
+			else: // admin stuff
 				if ($embed_email):
+					if (!$this->grabRandomSession()) {
+						return false;
+					}
 					$response = $this->getParsedBody($this->body, $embed_email);
 					if (isset($response['body'])):
 						$this->body_parsed = $response['body'];
@@ -252,7 +254,6 @@ class Email extends RunUnit {
 		$mail->AddAddress($this->recipient);
 		$mail->Subject = $this->getSubject();
 		$mail->Body = $this->getBody();
-
 		foreach ($this->images AS $image_id => $image):
 			$local_image = INCLUDE_ROOT . 'tmp/' . uniqid() . $image_id;
 			copy($image, $local_image);
@@ -298,6 +299,12 @@ class Email extends RunUnit {
 
 	public function test() {
 		$this->admin_usage = true;
+		$results = $this->getSampleSessions();
+		if (!$results) {
+			echo 'No data to compare to yet.';
+			return false;
+		}
+		
 		$RandReceiv = crypto_token(9, true);
 		$receiver = $RandReceiv . '@mailinator.com';
 
@@ -313,17 +320,7 @@ class Email extends RunUnit {
 			$this->recipient_field = 'survey_users$email';
 		}
 
-		$results = $this->dbh->select('id, session, position')
-				->from('survey_run_sessions')
-				->where(array('run_id' => $this->run_id))
-				->order('position', 'desc')->order('RAND')
-				->limit(20)
-				->fetchAll();
 
-		if (!$results) {
-			echo 'No data to compare to yet.';
-			return false;
-		}
 
 		echo '<table class="table table-striped">
 				<thead><tr>

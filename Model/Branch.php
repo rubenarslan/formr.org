@@ -103,12 +103,7 @@ class Branch extends RunUnit {
 	}
 
 	public function test() {
-		$results = $this->dbh->select('id, session, position')
-				->from('survey_run_sessions')
-				->where(array('run_id' => $this->run_id))
-				->order('position', 'desc')->order('RAND')
-				->limit(20)
-				->fetchAll();
+		$results = $this->getSampleSessions();
 
 		if (!$results) {
 			echo 'No data to compare to yet.';
