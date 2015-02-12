@@ -12,8 +12,8 @@ class SuperadminController extends Controller {
 
 	public function ajaxAdminAction() {
 		if (is_ajax_request()):
-			if (isset($_POST['admin_level']) AND isset($_GET['user_id'])):
-				$user_to_edit = new User($this->fdb, $_GET['user_id'], null);
+			if (isset($_POST['admin_level']) AND isset($_POST['user_id'])):
+				$user_to_edit = new User($this->fdb, $_POST['user_id'], null);
 				if (!$user_to_edit->setAdminLevelTo($_POST['admin_level'])):
 					alert('<strong>Something went wrong with the admin level change.</strong>', 'alert-danger');
 					bad_request_header();
@@ -120,12 +120,13 @@ class SuperadminController extends Controller {
 			$userx['Created'] = "<small class='hastooltip' title='{$userx['created']}'>".timetostr(strtotime($userx['created']))."</small>";
 			$userx['Modified'] = "<small class='hastooltip' title='{$userx['modified']}'>".timetostr(strtotime($userx['modified']))."</small>";
 			$userx['Admin'] = "
-				<form class='form-inline form-ajax' action='".WEBROOT."superadmin/ajax_admin?user_id={$userx['id']}' method='post'>
+				<form class='form-inline form-ajax' action='".WEBROOT."superadmin/ajax_admin' method='post'>
 				<span class='input-group' style='width:160px'>
 					<span class='input-group-btn'>
 						<button type='submit' class='btn hastooltip'
 						title='Give this level to this user'><i class='fa fa-hand-o-right'></i></button>
 					</span>
+					<input type='hidden' name='user_id' value='{$userx['id']}'>
 					<input type='number' name='admin_level' max='100' min='-1' value='".h($userx['admin'])."' class='form-control'>
 				</span>
 			</form>";

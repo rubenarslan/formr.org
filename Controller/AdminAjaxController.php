@@ -93,16 +93,48 @@ class AdminAjaxController {
 	}
 
 	private function ajaxRemind() {
-		// @todo: 
-		// because sending an out-of-order reminder email means all kinds of problems for logging etc, 
-		// I probably need to rethink run_session ordering - atm by most recent unit, but this does not allow for a quick out-of-order email like this one. should probably be using a current_unit field in the run_session 
-		// (ordering by highest position is not possible because of loops)
-
 		$run = $this->controller->run;
 		// find the last email unit
 		$email = $run->getReminder($_GET['session'], $_GET['run_session_id']);
 		if ($email->exec() !== false):
 			alert('<strong>Something went wrong with the reminder.</strong> in run ' . $run->name, 'alert-danger');
+			bad_request_header();
+		endif;
+
+		if (is_ajax_request()):
+			echo $this->site->renderAlerts();
+			exit;
+		else:
+			redirect_to("admin/run/" . $run->name . "/user_overview");
+		endif;
+	}
+	private function ajaxSendToPosition() {
+		$run = $this->controller->run;
+		$dbh = $this->dbh;
+
+		$run_session = new RunSession($dbh, $run->id, null, $_POST['session']);
+		$new_position = $_POST['new_position'];
+		$_POST = array();
+
+		if(!$run_session->forceTo($new_position)):
+			alert('<strong>Something went wrong with the position change.</strong> in run '.$run->name, 'alert-danger');
+			bad_request_header();
+		endif;
+
+		if(is_ajax_request()):
+			echo $this->site->renderAlerts();
+			exit;
+		else:
+			redirect_to("admin/run/".$run->name."/user_overview");
+		endif;
+	}
+	private function ajaxDeleteUser() {
+		$run = $this->controller->run;
+		$deleted = $this->dbh->delete('survey_run_sessions', array('id' => $_GET['run_session_id']))->limit(1);
+		if($deleted):
+			alert('User with session ' . h($_GET['session']) . ' was deleted.', 'alert-info');
+		else: 
+			alert('User with session ' . h($_GET['session']) . ' could not be deleted.', 'alert-warning');
 			bad_request_header();
 		endif;
 
@@ -283,27 +315,6 @@ class AdminAjaxController {
 				alert('<strong>Error.</strong> '.implode($run->errors,"<br>"),'alert-danger');
 				echo $this->site->renderAlerts();
 			endif;
-		endif;
-	}
-
-	private function ajaxSendToPosition() {
-		$run = $this->controller->run;
-		$dbh = $this->dbh;
-
-		$run_session = new RunSession($dbh, $run->id, null, $_GET['session']);
-		$new_position = $_POST['new_position'];
-		$_POST = array();
-
-		if(!$run_session->forceTo($new_position)):
-			alert('<strong>Something went wrong with the position change.</strong> in run '.$run->name, 'alert-danger');
-			bad_request_header();
-		endif;
-
-		if(is_ajax_request()):
-			echo $this->site->renderAlerts();
-			exit;
-		else:
-			redirect_to("admin/run/".$run->name."/user_overview");
 		endif;
 	}
 
