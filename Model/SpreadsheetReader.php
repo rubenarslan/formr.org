@@ -38,7 +38,7 @@ class SpreadsheetReader {
 		if (!$current) {
 			return $objPHPExcel;
 		}
-		array_unshift($array, array_keys());
+		array_unshift($array, array_keys($current));
 		$objPHPExcel->getSheet(0)->fromArray($array);
 		
 		return $objPHPExcel;
