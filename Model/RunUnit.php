@@ -344,7 +344,7 @@ class RunUnit {
 			endif;
 			
 			if(in_array('formr_login_link',$needed['variables']) ):
-				$this->survey_results['.formr$login_link'] = WEBROOT."{$this->run_name}?code={$this->session}";
+				$this->survey_results['.formr$login_link'] = WEBROOT."{$this->run_name}?code=".urlencode($this->session);
 			endif;
 			if(in_array('formr_login_code',$needed['variables']) ):
 				$this->survey_results['.formr$login_code'] = $this->session;

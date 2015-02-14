@@ -127,6 +127,21 @@ function pr($string) {
 		formr_log($string);
 	}
 }
+function prb($string = null) {
+	static $output = "";
+	if($string === null) {
+		if (DEBUG > 0) {
+			echo "<pre>";
+			var_dump($string);
+	#		print_r(	debug_backtrace());
+			echo "</pre>";
+		} else {
+			formr_log($string);
+		}
+	} else {
+		$output .= "<br>". $string;
+	}
+}
 
 if (!function_exists('_')) {
 
