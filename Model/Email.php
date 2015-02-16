@@ -42,7 +42,7 @@ class Email extends RunUnit {
 		if (!$this->id) {
 			$this->id = parent::create('Email');
 		} else {
-			$this->modify($this->id);
+			$this->modify($options);
 		}
 
 		$parsedown = new ParsedownExtra();

@@ -278,8 +278,6 @@ $(document).ready(function() {
 			return true;
 		}, 'Cannot submit while there are problems with openCPU.');
 		webshim.refreshCustomValidityRules();
-
-	
 	});
     
     var pageload_time = mysql_datetime();
