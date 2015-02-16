@@ -378,10 +378,12 @@ class Item extends HTML_element {
 	}
 
 	public function hide() {
-		$this->classes_wrapper[] = "hidden";
-		$this->data_showif = true;
-		$this->input_attributes['disabled'] = true; ## so it isn't submitted or validated
-		$this->hidden = true; ## so it isn't submitted or validated
+		if(!$this->hidden):
+			$this->classes_wrapper[] = "hidden";
+			$this->data_showif = true;
+			$this->input_attributes['disabled'] = true; ## so it isn't submitted or validated
+			$this->hidden = true; ## so it isn't submitted or validated
+		endif;
 	}
 
 	public function needsDynamicLabel() {
