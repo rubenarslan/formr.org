@@ -5,7 +5,9 @@
  */
 
 function formr_log($msg) {// shorthand
-	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/formr_error.log");
+	$msg = date('Y-m-d H:i:s') . ' ' . $msg;
+	if(DEBUG) alert("<pre>".$msg."</pre>", "alert-danger");
+	error_log($msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/formr_error.log");
 }
 
 function opencpu_log_warning($msg) {// shorthand
@@ -22,8 +24,11 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) { // shortha
 }
 
 function log_exception(Exception $e, $prefix = '', $debug_data = null) {
-	error_log($prefix . ' Exception: ' . $e->getMessage());
-	error_log($prefix . ' Exception: ' . $e->getTraceAsString());
+	$msg = $prefix . ' Exception: ' . $e->getMessage(). "\n" .
+		 $e->getTraceAsString();
+	if(DEBUG) alert("<pre>".$msg."</pre>", "alert-danger");
+
+	error_log($msg);
 	if ($debug_data !== null) {
 		error_log('Debug Data: ' . print_r($debug_data, 1));
 	}
