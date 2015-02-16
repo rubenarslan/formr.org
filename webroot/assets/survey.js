@@ -284,6 +284,7 @@ $(document).ready(function() {
     
     var pageload_time = mysql_datetime();
     var relative_time = performance.now();
+    $('form').find("input.item_shown, input.item_shown_relative, input.item_answered, input.item_answered_relative").change(function(e) { e.stopPropagation(); });
 	$(".form-group:not([data-showif])").each(function(i,elm) // walk through all form elements that are automatically shown
 	{
         $(elm).find("input.item_shown").val(pageload_time);
