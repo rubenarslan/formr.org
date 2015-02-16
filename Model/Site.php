@@ -167,7 +167,6 @@ class Site {
                     alert("You switched sessions, because you came here with a login link and were already logged in as someone else.", 'alert-info');
                 endif;
 
-                $user->logout();
 				global $fdb;
                 $user = new User($fdb, null, $login_code);
 
