@@ -1,5 +1,4 @@
 <?php
-
 class Survey extends RunUnit {
 
 	public $id = null;
@@ -117,12 +116,25 @@ class Survey extends RunUnit {
 		unset($posted['created']); // cant overwrite
 		unset($posted['modified']); // cant overwrite
 		unset($posted['ended']); // cant overwrite
+		
+		if(isset($posted["_item_views"]["shown"])):
+			$posted["_item_views"]["shown"] = array_filter($posted["_item_views"]["shown"]);
+			$posted["_item_views"]["shown_relative"] = array_filter($posted["_item_views"]["shown_relative"]);
+			$posted["_item_views"]["answered"] = array_filter($posted["_item_views"]["answered"]);
+			$posted["_item_views"]["answered_relative"] = array_filter($posted["_item_views"]["answered_relative"]);
+		endif;
 
-		$answered = $this->dbh->prepare("
-			INSERT INTO `survey_items_display` (item_id, session_id, created, answered, answered_time, modified, displaycount) 
-			VALUES(:item_id,  :session_id, NOW(), 1, NOW(), NOW(), 1) 
-			ON DUPLICATE KEY UPDATE answered = 1, answered_time = NOW()");
-		$answered->bindParam(":session_id", $this->session_id);
+		$answered_q = $this->dbh->prepare(
+			"UPDATE `survey_items_display` SET 
+				answer = :answer, 
+				saved = :saved,
+				shown = :shown,
+				shown_relative = :shown_relative,
+				answered = :answered,
+				answered_relative = :answered_relative,
+				displaycount = displaycount+1
+			WHERE session_id = :session_id AND item_id = :item_id");
+		$answered_q->bindParam(":session_id", $this->session_id);
 
 		try {
 			$this->dbh->beginTransaction();
@@ -131,16 +143,16 @@ class Survey extends RunUnit {
 					continue;
 				}
 
-				$value = $this->unanswered[$name]->validateInput($value);
-				if ($this->unanswered[$name]->error) {
-					$this->errors[$name] = $this->unanswered[$name]->error;
-					continue;
-				}
-
 				$item_saved = true;
 				if ($this->unanswered[$name]->save_in_results_table) {
-					$post_form = $this->dbh->prepare("
-						UPDATE `{$this->results_table}` SET `$name` = :$name 
+					$value = $this->unanswered[$name]->validateInput($value);
+					if ($this->unanswered[$name]->error) {
+						$this->errors[$name] = $this->unanswered[$name]->error;
+						continue;
+					}
+
+					$post_form = $this->dbh->prepare(
+						"UPDATE `{$this->results_table}` SET `$name` = :$name 
 						WHERE session_id = :session_id AND study_id = :study_id AND `$name` IS NULL;
 					");
 
@@ -149,11 +161,34 @@ class Survey extends RunUnit {
 					$post_form->bindValue(":study_id", $this->id);
 					$item_saved = $post_form->execute();
 				}
+				// update item display table
+				$answered_q->bindParam(":item_id", $this->unanswered[$name]->id);
+				$answered_q->bindParam(":answer", $value);
 
-				$answered->bindParam(":item_id", $this->unanswered[$name]->id);
-				$item_answered = $answered->execute();
+				if(isset($posted["_item_views"]["shown"][$this->unanswered[$name]->id],
+						 $posted["_item_views"]["shown_relative"][$this->unanswered[$name]->id])):
+	 				$shown = $posted["_item_views"]["shown"][$this->unanswered[$name]->id];	 
+	 				$shown_relative = $posted["_item_views"]["shown_relative"][$this->unanswered[$name]->id];	 
+				else:
+					$shown = mysql_now();
+					$shown_relative = null; // and where this is null, performance.now wasn't available
+				endif;
+				if(isset($posted["_item_views"]["answered"][$this->unanswered[$name]->id], // separately to "shown" because of items like "note"
+					 	 $posted["_item_views"]["answered_relative"][$this->unanswered[$name]->id])):
+					$answered = $posted["_item_views"]["answered"][$this->unanswered[$name]->id];
+					$answered_relative = $posted["_item_views"]["answered_relative"][$this->unanswered[$name]->id];
+				else:
+					$answered = $shown; // this way we can identify items where JS time failed because answered and show time are exactly identical
+					$answered_relative = null;
+				endif;
+				$answered_q->bindValue(":saved", mysql_now());
+				$answered_q->bindParam(":shown", $shown);
+				$answered_q->bindParam(":shown_relative", $shown_relative);
+				$answered_q->bindParam(":answered", $answered);
+				$answered_q->bindParam(":answered_relative", $answered_relative);
+				$item_answered = $answered_q->execute();
 
-				if (!$item_saved && !$item_answered) {
+				if (!$item_saved OR !$item_answered) {
 					throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$this->results_table}' (FieldType: {$this->unanswered[$name]->getResultField()})");
 				}
 				unset($this->unanswered[$name]);
@@ -172,20 +207,20 @@ class Survey extends RunUnit {
 	}
 
 	protected function getProgress() {
-		$answered = $this->dbh->select(array('COUNT(`survey_items_display`.answered)' => 'count', 'study_id', 'session_id'))
-				->from('survey_items')
-				->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-				->where('survey_items_display.session_id IS NOT NULL')
-				->where('survey_items.study_id = :study_id')
-				->where("survey_items.type NOT IN ('mc_heading', 'submit')")
-				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
-				->fetch();
+		$answered = $this->dbh->select(array('COUNT(`survey_items_display`.saved IS NOT NULL)' => 'count', 'study_id', 'session_id'))
+			->from('survey_items')
+			->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
+			->where('survey_items_display.session_id IS NOT NULL')
+			->where('survey_items.study_id = :study_id')
+			->where("survey_items.type NOT IN ('mc_heading', 'submit')")
+			->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
+			->fetch();
 					
 		$this->already_answered = $answered['count'];
 		$this->not_answered = array_filter($this->unanswered, function ($item) {
 			if (
 					in_array($item->type, array('submit', 'mc_heading')) OR // these items require no user interaction and thus don't count against progress
-					( $item->type == 'note' AND $item->displaycount > 0) OR // item is a note and has already been viewed
+					( $item->type == 'note' AND $item->hasBeenRendered()) OR // item is a note and has already been viewed
 					!$item->willBeShown($this) // item was skipped
 			) {
 				return false;
@@ -290,7 +325,7 @@ class Survey extends RunUnit {
 			`survey_items_display`.answered')
 		->from('survey_items')
 		->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-		->where("survey_items.study_id = :study_id AND (survey_items_display.answered IS NULL OR survey_items.type = 'note')")
+		->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS NULL OR survey_items.type = 'note')")
 		->order('survey_items.order', 'ASC')->order('survey_items.id', 'ASC')
 		->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 		->statement();
@@ -316,10 +351,9 @@ class Survey extends RunUnit {
 
 		$this->dbh->beginTransaction();
 
-		$view_query = "
-			INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
-											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
-		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
+		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created)
+			VALUES(:item_id, :session_id, 0, NOW() ) 
+		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1";
 		$view_update = $this->dbh->prepare($view_query);
 		$view_update->bindValue(":session_id", $this->session_id);
 
@@ -346,7 +380,7 @@ class Survey extends RunUnit {
 						 * this is the end of the survey OR the next item is hidden OR the next item isn't a normal item
 						 * @todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
 						 */
-						if ($item->displaycount > 0 AND ($next === false OR in_array($next->type, array('note', 'submit', 'mc_heading')) OR !$next->willBeShown($this))) {
+						if ($item->hasBeenRendered() AND ($next === false OR in_array($next->type, array('note', 'submit', 'mc_heading')) OR !$next->willBeShown($this))) {
 						continue; // skip this note							
 					}
 				} else if ($item->type === "mc_heading") {
@@ -359,9 +393,11 @@ class Survey extends RunUnit {
 						continue; // skip this mc_heading
 					}
 				}
-
+				
+				$view_update->bindParam(":item_id", $item->id);
+				$view_update->execute(); // if it's rendered, we send it along here.
+				
 				if (!$item->hidden) {
-					$item->viewedBy($view_update);
 					$itemsDisplayed++;
 				}
 
@@ -376,7 +412,7 @@ class Survey extends RunUnit {
 				 * item is a note and has already been viewed
 				 * Then item is not answered on current page
 				 */
-				if (in_array($item->type, array('submit', 'mc_heading')) OR ($item->type == 'note' AND $item->displaycount > 0) OR !$item->willBeShown($this)) {
+				if (in_array($item->type, array('submit', 'mc_heading')) OR ($item->type == 'note' AND $item->hasBeenRendered()) OR !$item->willBeShown($this)) {
 				return false;
 		}
 				return true;
@@ -1002,20 +1038,20 @@ class Survey extends RunUnit {
 		return $this->dbh->select('
 			`survey_run_sessions`.session,
 			`survey_items`.name,
-		`survey_items_display`.id,
-		`survey_items_display`.item_id,
-		`survey_items_display`.session_id,
+		`survey_items_display`.answer,
 		`survey_items_display`.created,
-		`survey_items_display`.modified,
-		`survey_items_display`.answered_time,
+		`survey_items_display`.saved,
+		`survey_items_display`.shown,
+		`survey_items_display`.shown_relative,
 		`survey_items_display`.answered,
-			`survey_items_display`.displaycount')
+		`survey_items_display`.answered_relative,
+		`survey_items_display`.displaycount')
 		->from('survey_items_display')
 		->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
 		->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
 		->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
 		->where('survey_items.study_id = :study_id')
-		->order('survey_run_sessions.session')->order('survey_run_sessions.created')->order('survey_items_display.item_id')
+		->order('survey_run_sessions.session')->order('survey_run_sessions.created')->order('survey_unit_sessions.created')->order('survey_items_display.item_id')
 		->bindParams(array('study_id' => $this->id))
 		->fetchAll();
 	}

@@ -1,0 +1,28 @@
+SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;
+SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
+SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='TRADITIONAL';
+
+ALTER TABLE `survey_items_display` ADD COLUMN `saved` DATETIME NULL;
+UPDATE `survey_items_display` SET `saved` = `answered_time`;
+ALTER TABLE `default_schema`.`survey_items_display` 
+DROP COLUMN `answered_time`,
+DROP COLUMN `modified`,
+CHANGE COLUMN `answered` `answered` DATETIME NULL DEFAULT NULL ,
+ADD COLUMN `answer` TEXT NULL DEFAULT NULL AFTER `session_id`,
+ADD COLUMN `shown` DATETIME NULL DEFAULT NULL AFTER `saved`,
+ADD COLUMN `shown_relative` DOUBLE NULL DEFAULT NULL AFTER `shown`,
+ADD COLUMN `answered_relative` DOUBLE NULL DEFAULT NULL AFTER `answered`,
+DROP INDEX `answered` ,
+ADD INDEX `answered` (`session_id` ASC, `saved` ASC);
+
+ALTER TABLE `survey_items_display` 
+ADD CONSTRAINT `sessionidx`
+FOREIGN KEY (`session_id`)
+REFERENCES `survey_unit_sessions` (`id`)
+ON DELETE CASCADE
+ON UPDATE NO ACTION;
+
+
+SET SQL_MODE=@OLD_SQL_MODE;
+SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
+SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;

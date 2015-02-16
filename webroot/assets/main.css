@@ -612,6 +612,9 @@ pre code.hljs
 {
     background-color:#F8F8F8;
 }
+.alert pre {
+    background-color:inherit;
+}
 
 tt, code, pre {
    font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
