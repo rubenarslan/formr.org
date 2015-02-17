@@ -15,5 +15,31 @@
     "jquery": "git://github.com/components/jquery.git#2.*",
     "select2": "git://github.com/ivaynberg/select2.git#3.*",
     "webshim": "git://github.com/aFarkas/webshim.git#1.*"
-  }
+  },
+  "preen": {
+      "jquery": [
+        "jquery.js",
+        "jquery.min.js"
+      ],
+      "bootstrap": [
+          "dist/js/bootstrap.js",
+          "dist/js/bootstrap.min.js",
+          "dist/css/bootstrap.css",
+          "dist/css/bootstrap.min.css"
+      ],
+      "ace-builds": [
+          "src-noconflict/**",
+          "src-min-noconflict/**"
+      ],
+      "fastclick": [
+          "lib/*"
+      ],
+      "font-awesome": [
+          "css/*",
+          "fonts/*"
+      ],
+      "webshim": [
+          "js-webshim/**"
+      ]
+   }
 }
