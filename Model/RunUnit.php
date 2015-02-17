@@ -138,7 +138,7 @@ class RunUnit {
 		);
 	}
 
-	public function addToRun($run_id, $position = 1, $options = array("description")) {
+	public function addToRun($run_id, $position = 1, $options = array("description" => '')) {
 		if (!is_numeric($position)) {
 			$position = 1;
 		}
@@ -577,7 +577,6 @@ class RunUnit {
 					$set_report->bindParam(":session_id", $this->session_id);
 					$set_report->execute();
 				} catch (Exception $e) {
-					pr($e);
 					log_exception($e, __CLASS__);
 				}
 				return $report;

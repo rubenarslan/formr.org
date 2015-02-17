@@ -5,6 +5,7 @@
  */
 
 function formr_log($msg) {// shorthand
+	if(!is_string($msg)) $msg = print_r($msg, true);
 	$msg = date('Y-m-d H:i:s') . ' ' . $msg;
 	if(DEBUG) alert("<pre>".$msg."</pre>", "alert-danger");
 	error_log($msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/formr_error.log");
@@ -713,14 +714,14 @@ function run_url($name = '') {
 	return RUNROOT . $name;
 }
 
-function admin_study_url($name, $action = '') {
+function admin_study_url($name = '', $action = '') {
 	if ($action) {
 		$name = $name . '/' . $action;
 	}
 	return admin_url('survey/' . $name);
 }
 
-function admin_run_url($name, $action = '') {
+function admin_run_url($name = '', $action = '') {
 	if ($action) {
 		$name = $name . '/' . $action;
 	}

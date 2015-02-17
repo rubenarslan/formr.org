@@ -77,6 +77,27 @@ class Survey extends RunUnit {
 			$this->valid = true;
 		endif;
 	}
+	public function create($options) {
+		// this unit type is a bit special
+		// all other unit types are created only within runs
+		// but surveys are semi-independent of runs
+		// so it is possible to add a survey, without specifying which one at first
+		// and to then choose one.
+		// thus, we "mock" a survey at first
+		if (count($options) === 1 || isset($options['mock'])) {
+			$this->valid = true;
+		} else { // and link it to the run only later
+			if(isset($options['unit_id']) AND $options['unit_id']!='') {
+				$this->id = $options['unit_id'];
+				if ($this->linkToRun()) {
+					$this->load();
+				}
+			}
+			$this->modify($options);
+			$this->valid = true;
+			
+		}
+	}
 
 	public function render() {
 		global $js;
@@ -645,22 +666,6 @@ class Survey extends RunUnit {
 
 	/* ADMIN functions */
 
-	public function create($options) {
-		// this unit type is a bit special
-		// all other unit types are created only within runs
-		// but surveys are semi-independent of runs
-		// so it is possible to add a survey, without specifying which one at first
-		// and to then choose one.
-		// thus, we "mock" a survey at first
-		if (count($options) === 1 || isset($options['mock'])) {
-			$this->valid = true;
-		} else { // and link it to the run only later
-			$this->id = $options['unit_id'];
-			if ($this->linkToRun()) {
-				$this->load();
-	}
-		}
-	}
 
 	public function createIndependently() {
 		$name = trim($this->unit['name']);
@@ -1138,39 +1143,48 @@ class Survey extends RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
+		
+		global $user;
+		$studies = $this->dbh->select('id, name')->from('survey_studies')->where(array('user_id' => $user->id))->fetchAll();
+
+		if ($studies):
+			$dialog = '<div class="form-group">';
+			$dialog .= '<select class="select2" name="unit_id" style="width:300px">';
+			
+			if($this->id === null)
+				$dialog .= '<option value=""></option>';
+			foreach ($studies as $study):
+				$selected = "";
+				if($this->id === $study['id']) $selected = "selected";
+				$dialog .= "<option value=\"{$study['id']}\" $selected>{$study['name']}</option>";
+			endforeach;
+			$dialog .= "</select>";
+			$dialog .= '</div>';
+		else:
+			$dialog = "<h5>No studies. <a href='" .  admin_study_url() . "'>Add some first</a></h5>";
+		endif;
+		
 		if ($this->id):
 			$resultCount = $this->howManyReachedItNumbers();
 
 			$time = $this->getAverageTimeItTakes();
 
-			$dialog = "
-				<h3>
-				<strong>Survey:</strong> <a href='" . WEBROOT . "admin/survey/{$this->name}/index'>{$this->name}</a><br>
-					<small>" . (int) $resultCount['finished'] . " complete results, " . (int) $resultCount['begun'] . " begun</small><br>
-			<small title='Median duration that it takes to complete the survey, only completers accounted for'>Median duration: $time minutes</small>
-			</h3>
+			$dialog .= "
+			<p>" . (int) $resultCount['finished'] . " complete <a href='" . admin_study_url($this->name, 'show_results') . "'>results</a>, " . (int) $resultCount['begun'] . " begun <abbr class='hastooltip' title='Median duration participants needed to complete the survey'>(in ~{$time}m)</abbr>
+			</p>
 			<p class='btn-group'>
-					<a class='btn' href='" . admin_study_url($this->name, 'show_results') . "'>View results</a>
 					<a class='btn' href='" . admin_study_url($this->name, 'show_item_table') . "'>View items</a>
-					<a class='btn' href='" . admin_study_url($this->name, 'access') . "'>Test</a>
+					<a class='btn' href='" . admin_study_url($this->name, 'upload_items') . "'>Upload items</a>
 			</p>";
-		else:
-			global $user;
-			$studies = $this->dbh->select('id, name')->from('survey_studies')->where(array('user_id' => $user->id))->fetchAll();
-
-			if ($studies):
-				$dialog = '<div class="form-group">';
-				$dialog .= '<select class="select2" name="unit_id" style="width:300px">';
-				$dialog .= '<option value=""></option>';
-				foreach ($studies as $study):
-					$dialog .= "<option value=\"{$study['id']}\">{$study['name']}</option>";
-				endforeach;
-				$dialog .= "</select>";
-				$dialog .= '<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Add to this run.</a>';
-				$dialog .= '</div>';
-			else:
-				$dialog = "<h5>No studies. <a href='" .  admin_study_url() . "'>Add some first</a></h5>";
-			endif;
+			$dialog .= '<br><p class="btn-group">
+				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
+				<a class="btn btn-default unit_test" href="' . admin_study_url($this->name, 'access') . '">Test</a>
+				</p>';
+//		elseif($studies):
+else:
+			$dialog .= '<br><p class="btn-group">
+				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
+			</p>';
 		endif;
 
 		$dialog = $prepend . $dialog;
