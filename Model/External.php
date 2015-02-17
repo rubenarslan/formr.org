@@ -29,7 +29,7 @@ class External extends RunUnit {
 		if (!$this->id) {
 			$this->id = parent::create('External');
 		} else {
-			$this->modify($this->id);
+			$this->modify($options);
 		}
 
 		if (isset($options['address'])) {
