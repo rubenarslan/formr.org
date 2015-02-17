@@ -448,6 +448,6 @@ function flatStringifyGeo(geo) {
 	result.coords = coords;
 	return JSON.stringify(result);
 }
-function mysql_datetime(date = new Date()) {
-    return date.toISOString().slice(0, 19).replace('T', ' ');
+function mysql_datetime() {
+    return (new Date()).toISOString().slice(0, 19).replace('T', ' ');
 }
