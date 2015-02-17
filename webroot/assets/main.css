@@ -129,9 +129,14 @@ label
 {
     background-color:rgba(255,255,255,0.2);
 }
-.jumbotron
+.formr-jumbo
 {
- background-color:#F3F9FF;
+ background-image: linear-gradient(rgba(255,255,255,0.7),rgba(255,255,255,0.7)), url("img/boombox_innards.jpg");
+ background-position:-60px -20px; 
+ height:310px;
+}
+.formr-jumbo small {
+    color:black;
 }
 
 .table > tbody > tr.immediately_continued > td
