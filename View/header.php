@@ -18,7 +18,6 @@
 	        <link rel="stylesheet" href="<?= WEBROOT ?>assets/bower_components/font-awesome/css/font-awesome.css">
 			<link rel="stylesheet" type="text/css" href="<?= WEBROOT ?>assets/bower_components/select2/select2.css">
 		<?php endif; ?>
-		<link rel="stylesheet" href="<?= WEBROOT ?>assets/highlight/styles/idea.css" type="text/css" media="screen">
 		<link rel="stylesheet" href="<?= WEBROOT ?>assets/main.css" type="text/css" media="screen">
 		<?php echo isset($css) ? $css : '' ?>
 
