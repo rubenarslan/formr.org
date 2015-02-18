@@ -151,7 +151,7 @@ class OpenCPU {
 		}
 
 		$headers = $this->getResponseHeaders();
-		if (!$headers || empty($headers['Location'] || empty($headers['X-Ocpu-Session']))) {
+		if (!$headers || empty($headers['Location']) || empty($headers['X-Ocpu-Session'])) {
 			$request = sprintf('[uri %s] %s', $uri, print_r($params, 1));
 			throw new OpenCPU_Exception("Response headers not gotten from request $request");
 		}
