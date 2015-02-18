@@ -36,5 +36,3 @@ elseif($site->inAdminRunArea() AND strpos($site->getPath(), '/run/add_run') === 
 		redirect_to(WEBROOT . 'admin/run/add_run');
 	endif;
 endif;
-
-$css = (isset($css)?$css:'') . '<link rel="stylesheet" href="'.WEBROOT.'assets/admin.css" type="text/css" media="screen">';

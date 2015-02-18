@@ -46,9 +46,7 @@ class AdminRunController extends AdminController {
 			}
 		}
 
-		$this->renderView('run/add_run', array(
-			'css' => '<link rel="stylesheet" href="' . WEBROOT . 'assets/admin.css" type="text/css" media="screen">',
-		));
+		$this->renderView('run/add_run');
 	}
 
 	private function userOverviewAction() {

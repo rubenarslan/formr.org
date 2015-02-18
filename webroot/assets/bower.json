@@ -1,7 +1,7 @@
 {
   "name": "formr",
-  "version": "0.5.0",
-  "main": "main.js",
+  "version": "0.6.8",
+  "main": ["main.js", "main.css"],
   "ignore": [
     "**/.*",
     "node_modules",
@@ -18,27 +18,33 @@
   },
   "preen": {
       "jquery": [
+        "bower.json",
         "jquery.js",
         "jquery.min.js"
       ],
       "bootstrap": [
+          "bower.json",
           "dist/js/bootstrap.js",
           "dist/js/bootstrap.min.js",
           "dist/css/bootstrap.css",
           "dist/css/bootstrap.min.css"
       ],
       "ace-builds": [
+          "bower.json",
           "src-noconflict/**",
           "src-min-noconflict/**"
       ],
       "fastclick": [
+          "bower.json",
           "lib/*"
       ],
       "font-awesome": [
+          "bower.json",
           "css/*",
           "fonts/*"
       ],
       "webshim": [
+          "bower.json",
           "js-webshim/**"
       ]
    }

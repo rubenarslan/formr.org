@@ -1,0 +1,1652 @@
+/*
+@media (max-width: 970px) { 
+	header.study-header, .maincontent, .container, .navbar-static-top .container, .navbar-fixed-top .container, .navbar-fixed-bottom .container
+	{
+		margin-left:10px;
+	}
+}
+@media (max-width: 940px) { 
+	header.study-header {
+		background-image: none;
+		height:auto;
+	}
+}
+*/
+.formr-brand, h1, h2, h3, h4
+{
+/*    font-family:"Malayalam MN";
+*/    font-family:"FPL Neu","Palatino";
+}
+label
+{
+    font-weight:normal;
+}
+.navbar-formr 
+{
+    background-color:rgba(255,255,255,0.7);
+    border:0;
+    border-radius:0px;
+}
+.main_body>.row> .run_dialog
+{
+    background-color:rgba(255,255,255,0.15);
+}
+
+
+.broken_tape
+{
+    background-image: url("../img/broken_tape.jpg");
+    background-repeat: no-repeat;
+    background-position: 0 0;
+    background-size:cover;
+    position:fixed;
+    left:0;
+    top:0;
+    min-height:100%;
+    min-width:100%;
+}
+
+.broken_tape h1
+{
+    margin-right:auto;
+    margin-left:auto;
+    margin-top:10%;
+    width:35%;
+    height:130px;
+}
+.broken_tape h1 span
+{
+    display:block;
+    margin-left:-11%;
+    background-color:#FEFEFE;
+    height:100px;
+}
+@media (max-width: 1440px) { 
+    .broken_tape h1
+    {
+        margin-left:32%;
+    }
+    .broken_tape h1 span
+    {
+        font-size:0.5em;
+        height:4em;
+    }
+}
+.abbreviated_session
+{
+    cursor:pointer !important;
+}
+.progress-container
+{
+    position:fixed;
+    top:0px;
+    z-index:99;
+    height:20px;
+}
+.progress-container .progress 
+{
+    margin-left:-15px;
+    border-radius:0 0 4px 4px;
+}
+.run_header, .survey_header
+{
+    height:330px;
+    background-image: linear-gradient(rgba(255,255,255,0),rgba(255,255,255,1)), url("../img/boombox_innards.jpg");
+    background-repeat: no-repeat;
+    background-size:cover;
+    background-position: 0 0;
+    width:100%;
+    position:absolute;
+    left:0;
+    top:0;
+    z-index:-10;
+}
+.survey_header
+{
+    height:100%;
+    max-height:716px;
+    background-image: linear-gradient(rgba(255,255,255,0),rgba(255,255,255,1)), url("../img/boombox_dials.jpg");
+}
+.run_header + div div h1
+{
+    padding-top:50px;
+    margin-top:0;
+}
+.drop_shadow
+{
+    text-shadow: 2px 2px 2px rgba(200, 200, 200, 1);
+}
+.drop_shadow small {
+    color:black;
+}
+.admin_sidebar, .transparent_well
+{
+    background-color:rgba(255,255,255,0.4);
+    border:0;
+    box-shadow:none;
+}
+.transparent_well .panel-heading, .well .panel-default
+{
+    background-color:rgba(255,255,255,0.2);
+}
+.formr-jumbo
+{
+ background-image: linear-gradient(rgba(255,255,255,0.7),rgba(255,255,255,0.7)), url("../img/boombox_innards.jpg");
+ background-position:-60px -20px; 
+ height:310px;
+}
+.formr-jumbo small {
+    color:black;
+}
+
+.table > tbody > tr.immediately_continued > td
+{
+    border-top-style:dashed;
+}
+iframe.rChart
+{
+    border:0;
+}
+kbd {
+    background: none repeat scroll 0 0 #FAFAFA;
+    border-color: #CCCCCC #CCCCCC #FFFFFF;
+    border-radius: 4px;
+    border-style: solid solid none;
+    border-width: 1px 1px medium;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2), 0 0 0 1px #FFFFFF inset;
+    color: #444444;
+    display: inline-block;
+    font-family: 'Helvetica Neue',Helvetica,Arial,Sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    padding: 2px 6px;
+    white-space: nowrap;
+}
+
+button.btn.btn-checked,
+label.btn.btn-checked,
+a.btn.btn-checked {
+  background-color: #e6e6e6;
+  background-color: #d9d9d9 \9;
+  background-image: none;
+  z-index:2;
+  border:1px black solid;
+  outline: 1px;
+  -webkit-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+     -moz-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.hidden {
+    display: none !important;
+    visibility: hidden !important;
+}
+.form-group.warning .controls button.btn, 
+.form-group.warning .controls label
+{
+    color: #c09853;
+    border-color: #c09853;
+}
+
+.form-group.controls-checkbox input[type=checkbox] {
+	margin-top:-3px;
+	margin-left: -30px;
+	margin-right: 17px;
+}
+.form-group.controls-checkbox label,
+label.inline {
+	display:inline;
+	width:330px;
+}
+.single_unit_display .run_unit_position
+{
+    display:none;
+}
+div.form-group div.date div.controls select[name*=day] {
+	width:60px;
+}
+div.form-group div.date div.controls select[name*=month] {
+	width:120px;
+}
+div.form-group div.date div.controls select[name*=year] {
+	width:80px;
+}
+form.form-horizontal div.form-group div.controls label {
+    display:inline-block;
+}
+form.form-horizontal div.form-group div.controls input[type=radio],form.form-horizontal div.form-group div.controls input[type=checkbox] {
+    vertical-align:top;
+}
+form.form-horizontal div.form-group.form-row.item-note div.control-label,
+form.form-horizontal div.form-group.form-message div.control-label {
+    margin-left:0;
+	text-align:left;
+	width:100%;
+	max-width:100%;
+}
+form.form-horizontal div.form-group.form-row.item-note div.controls
+{
+    display:none;
+}
+/*form.form-horizontal div.form-row.form-group.optional .control-label::after {
+	content:'*';
+}*/
+div.mc-table {
+/*  display: table;
+*/}
+div.controls-inner {
+    display:inline-block;
+}
+form.form-horizontal div.form-row div.controls div.mc-table label {
+  display:inline-block;
+  padding-left:2px;
+  padding-right:2px;
+  padding-left:18px;
+  padding-right:5px;
+  padding-top:5px;
+  text-indent:-18px;
+}
+.form-horizontal.unspaced_rows .form-group
+{
+	margin-bottom:0px;
+}
+form.form-horizontal div.form-row div.controls label.keep-label {
+	margin-right:5px;
+}
+form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label {
+	margin-right:0px;
+	margin-left:5px;
+}
+.form-horizontal .control-label {
+  float: left;
+  width: 300px;
+  padding-top: 5px;
+  text-align: right;
+  white-space:normal;
+}
+.form-horizontal .controls {
+  	margin-left: 320px;
+}
+
+.input-group input.has-input-buttons:focus,
+.input-group input.has-input-buttons:focus,
+.input-group select.has-input-buttons:focus,
+.input-group select.has-input-buttons:focus,
+.input-group .has-input-buttons.uneditable-input:focus,
+.input-group .has-input-buttons.uneditable-input:focus {
+  z-index: auto;
+}
+
+
+.run_unit_position
+{
+    width:145px;
+}
+.run_unit_dialog
+{
+    width:390px;
+}
+.run_unit_dialog textarea.form-control {
+    width:388px;
+}
+.run_unit_dialog input.full_width {
+    width:362px;
+}
+.run_unit_inner .run_unit_description, .run_unit_position input
+{
+	border:0;
+	box-shadow:none;
+	font-weight:bold;
+	font-size:45px;
+	height:65px;
+	width:100px;
+	text-align:left;
+    background-color:transparent;
+}
+.run_unit_inner .run_unit_description {
+    font-size:20px;
+    width:100%;
+    height:25px;
+    background-color:rgba(255,255,255,0.7);
+}
+div.run_unit {
+	padding-bottom:20px;
+}
+
+.fa-1-5x
+{
+	font-size:1.7em;
+}
+.fa-huge
+{
+	font-size:4.5em;
+}
+output.output {
+    
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 3px;
+    margin: 0 0 0 10px;
+}
+
+.form-group.form-row .form-control
+{
+    max-width:300px;
+}
+.form-group.form-row.range-list .form-control, .form-group.form-row.range .form-control
+
+{
+    max-width:inherit;
+}
+.range_ticks_output .controls-inner
+{
+    min-height:50px;
+}
+
+.item-geopoint .input-group-addon, .input-group-btn 
+{
+    width:auto; /*fixes chrome display bug*/
+}
+
+
+
+.table tbody > tr.alternate > td
+{
+	background-color:#F9F9F9;
+}
+body .select2-offscreen, body .select2-offscreen:focus {
+	position:absolute;
+}
+body .select2-container
+{
+	min-width:100px;
+}
+.bigdrop.select2-container .select2-results {
+    max-height: 500px;
+}
+.bigdrop .select2-results {
+    max-height: 500px;
+}
+.form-control.select2-container {
+    border:none;
+    box-shadow:none;
+    padding:0;
+}
+.form-control.select2-container .select2-choice
+{
+    padding-top: 4px;
+    height:34px;
+}
+.form-control.select2-container .select2-choice .select2-arrow
+{
+    padding-top:4px;
+}
+.form-control.select2-container .select2-choice abbr
+{
+    top:12px;
+}
+.select2pills
+{
+    width:250px;
+}
+
+div.pos_changed input {
+	color:#49afcd;
+}
+
+.all-alerts
+{
+/*	clear:both; */
+}
+div.all-alerts + div
+{
+    margin-right:300px;
+}
+
+.run_content
+{
+    margin-top:20px;
+    margin-bottom:20px;
+}
+
+.btn {
+    background-color: white;
+    background-image: none;
+    border: #000 solid 1px;
+    color: #000;
+    text-shadow: none;
+}
+.btn:hover,.btn:active,.btn:focus {
+    background-color: #F0F0F0;
+    color: #000;
+}
+.btn-info {
+    background-color: transparent;
+    background-image: none;
+    border: #5BC0DE solid 1px;
+    color: #5BC0DE;
+    text-shadow: none;
+}
+.btn-info:hover,.btn-info:active,.btn-info:focus {
+    background-color: #DCF7FB;
+    color: #5BC0DE;
+}
+.btn-success {
+    background-color: transparent;
+    background-image: none;
+    border: #62c462 solid 1px;
+    color: #62c462;
+    text-shadow: none;
+}
+.btn-success:hover,.btn-success:active,.btn-success:focus {
+    background-color: #CFEACC;
+    color: #62c462;
+}
+.btn-danger {
+    background-color: transparent;
+    background-image: none;
+    border: #ee5f5b solid 1px;
+    color: #ee5f5b;
+    text-shadow: none;
+}
+.btn-danger:hover,.btn-danger:active,.btn-danger:focus {
+    background-color: #FFBBB6;
+    color: #ee5f5b;
+}
+.btn-warning {
+    background-color: transparent;
+    background-image: none;
+    border: #fbb450 solid 1px;
+    color: #fbb450;
+    text-shadow: none;
+}
+.btn-warning:hover,.btn-warning:active,.btn-warning:focus {
+    background-color: #FDEFD9;
+    color: #fbb450;
+}
+.form-horizontal .item-submit
+{
+    padding-top:10px;
+    text-align:center;
+    padding-bottom:10px;
+}
+
+
+.add_run_unit span {
+    font-size:0.6em;
+    display:block;
+    margin-top:-10px;
+}
+
+.run_unit_inner.Endpage
+{
+    border-bottom:3px solid black;
+}
+.run_unit_inner.branch
+{
+    border-bottom:3px solid dashed;
+}
+
+.tiny-tabs {
+    font-size:11px;
+    margin-bottom:10px;
+}
+.tiny-tabs.nav > li > a {
+    padding:2px 2px;
+}
+
+.col-md-no-left-pad {
+    padding-left:0;
+}
+.fa-ul-more-padding li
+{
+    margin-top:5px;
+}
+li.nav-header
+{
+    cursor: default;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    color:#444;
+    margin-top:10px;
+}
+.nav-header i {
+    font-size:12px;
+}
+.main_admin_nav
+{
+    margin-bottom:20px;
+}
+.main_public_nav
+{
+    margin-bottom:20px;
+}
+.form-horizontal.form-horizontal-small-left .control-label
+{
+    width:150px;
+}
+.form-horizontal.form-horizontal-small-left .controls
+{
+    margin-left:170px;
+}
+.run_unit_type_Survey
+{
+    margin-top:30px;
+}
+.center
+{
+    text-align:center;
+}
+.muted
+{
+    color:#DDD;
+}
+
+.fa-ul li.active a
+{
+    color:black;
+    font-weight:bold;
+}
+
+
+
+.padding-below
+{
+    margin-bottom:10px;
+}
+div.tiny-panel div.panel-group  div.panel.panel-default
+{
+    margin-top:0;
+    border:0;
+}
+div.tiny-panel div.panel-group  div.panel.panel-default  div.panel-heading
+{
+    padding:5px 7px;
+    border-bottom:1px #EFEFEF solid;
+    background-color:#F7F7F7;
+}
+
+.form-horizontal .form-group {
+    margin-left:0;
+}
+
+dl.dl-wider dt
+{
+    width:200px;
+    margin-bottom:7px;
+}
+dl.dl-wider dd
+{
+    margin-left:220px;
+    margin-bottom:7px;
+}
+.pad-right
+{
+    padding-right:7px;
+}
+.pad-left
+{
+    padding-left:7px;
+}
+
+.alert .fa
+{
+    display:none;
+    color: #000000;
+    float: right;
+    font-size: 21px;
+    font-weight: bold;
+    line-height: 1;
+    opacity: 0.2;
+    text-shadow: 0 1px 0 #FFFFFF;
+}
+.table .alert .fa
+{
+    display:block;
+}
+
+code, pre
+{
+    color:#2D2D2D;
+    background-color:#F8F8F8;
+}
+pre
+{
+    background-color:#FFFFFF;
+    margin:14px 0px;
+    padding:0;
+    border:0;
+}
+pre code.hljs
+{
+    background-color:#F8F8F8;
+}
+.alert pre {
+    background-color:inherit;
+}
+
+tt, code, pre {
+   font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+div.btn-check button.btn {
+    border-radius:2px;
+    height:52px;
+    width:52px;
+}
+
+.mc-table label + label {
+    margin-left: -1px;
+}
+
+form.form-horizontal img, div.modal-content img,img {
+    max-width: 100%;
+    height: auto;
+}
+.badge-success {
+  background-color: #468847;
+}
+.run_unit_position .badge:empty {
+  visibility:hidden;
+  display:inline;
+}
+/* CLASSES THAT COULD BE ADDED BY USER */
+form.form-horizontal div.form-group.float_image_right img {
+  float:right;
+}
+
+form.form-horizontal div.form-group.float_image_left img {
+  float:left;
+}
+/* answer_below_label */
+form.form-horizontal div.answer_below_label .control-label {
+  width:99%;
+  text-align:left;
+  margin-bottom:15px;
+}
+form.form-horizontal div.answer_below_label .controls {
+  width:99%;
+  margin-left:5px;
+  clear: left;
+  margin-left:0;
+}
+
+.item-check {
+    clear:both;
+}
+@media (min-width: 768px) {
+    .form-horizontal div.form-group.row_height_40 
+    {
+        height:40px;
+    }
+     
+    .form-horizontal div.form-group.clear, .form-horizontal div.form-group.align_horizontally + div.form-group:not(.align_horizontally)
+    {
+        clear:both;
+    }
+    .form-horizontal div.form-group.align_horizontally
+    {
+        width:auto;
+        float:left;
+        margin-right:20px;
+    }
+    .form-horizontal div.form-group.align_horizontally .control-label {
+        width: 0px;
+        max-width: 0px;
+        overflow:hidden;
+    }
+    .form-horizontal div.form-group.align_horizontally .controls {
+      	margin-left: 0px;
+    }
+    
+}
+
+.form-horizontal div.form-group.left0 .control-label {
+  width: 0px;
+  max-width: 0px;
+  overflow:hidden;
+}
+.form-horizontal div.form-group.left0 .controls {
+  	margin-left: 0px;
+}
+
+.form-horizontal div.form-group.left100 .control-label {
+  width: 100px;
+  max-width: 100px;
+}
+.form-horizontal div.form-group.left100 .controls {
+  	margin-left: 120px;
+}
+
+.form-horizontal div.form-group.left200 .control-label {
+  width: 200px;
+  max-width: 200px;
+}
+.form-horizontal div.form-group.left200 .controls {
+  	margin-left: 220px;
+}
+
+.form-horizontal div.form-group.left300 .control-label {
+  width: 300px;
+  max-width: 300px;
+}
+.form-horizontal div.form-group.left300 .controls {
+  	margin-left: 320px;
+}
+
+.form-horizontal div.form-group.left400 .control-label {
+  width: 400px;
+  max-width: 400px;
+}
+.form-horizontal div.form-group.left400 .controls {
+  	margin-left: 420px;
+}
+
+.form-horizontal div.form-group.left500 .control-label {
+  width: 500px;
+  max-width: 500px;
+}
+.form-horizontal div.form-group.left500 .controls {
+  	margin-left: 520px;
+}
+
+.form-horizontal div.form-group.left600 .control-label {
+  width: 600px;
+  max-width: 600px;
+}
+.form-horizontal div.form-group.left600 .controls {
+  	margin-left: 620px;
+}
+
+.form-horizontal div.form-group.left700 .control-label {
+    width: 700px;
+    max-width: 700px;
+}
+.form-horizontal div.form-group.left700 .controls {
+  	margin-left: 720px;
+}
+
+.form-horizontal div.form-group.left800 .control-label {
+  width: 800px;
+  max-width: 800px;
+}
+.form-horizontal div.form-group.left800 .controls {
+  	margin-left: 820px;
+}
+
+.form-horizontal div.form-group.left900 .control-label {
+  width: 900px;
+  max-width: 900px;
+}
+.form-horizontal div.form-group.left900 .controls {
+  	margin-left: 920px;
+}
+
+/* OFFSET classes */
+.form-horizontal div.form-group.right_offset0 .controls {
+  margin-left: 5px;
+}
+.form-horizontal div.form-group.right_offset100 .controls {
+  margin-left: 120px;
+}
+
+.form-horizontal div.form-group.right_offset200 .controls {
+  margin-left: 220px;
+}
+
+.form-horizontal div.form-group.right_offset300 .controls {
+  margin-left: 320px;
+}
+
+.form-horizontal div.form-group.right_offset400 .controls {
+  margin-left: 420px;
+}
+
+
+.form-horizontal div.form-group.right_offset500 .controls {
+  margin-left: 520px;
+}
+
+.form-horizontal div.form-group.right_offset600 .controls {
+  margin-left: 620px;
+}
+
+.form-horizontal div.form-group.right_offset700 .controls {
+  margin-left: 720px;
+}
+
+.form-horizontal div.form-group.right_offset800 .controls {
+  margin-left: 820px;
+}
+
+.form-horizontal div.form-group.right_offset900 .controls {
+  margin-left: 920px;
+}
+
+
+/* OFFSET classes */
+.form-horizontal div.form-group.left_offset0 .controls {
+  margin-left: 5px;
+}
+.form-horizontal div.form-group.left_offset100 .controls {
+  margin-left: 100px;
+}
+
+.form-horizontal div.form-group.left_offset200 .controls {
+  margin-left: 200px;
+}
+
+.form-horizontal div.form-group.left_offset300 .controls {
+  margin-left: 300px;
+}
+
+.form-horizontal div.form-group.left_offset400 .controls {
+  margin-left: 400px;
+}
+
+
+.form-horizontal div.form-group.left_offset500 .controls {
+  margin-left: 500px;
+}
+
+.form-horizontal div.form-group.left_offset600 .controls {
+  margin-left: 600px;
+}
+
+.form-horizontal div.form-group.left_offset700 .controls {
+  margin-left: 700px;
+}
+
+.form-horizontal div.form-group.left_offset800 .controls {
+  margin-left: 800px;
+}
+
+.form-horizontal div.form-group.left_offset900 .controls {
+  margin-left: 900px;
+}
+
+/* PADDING classes */
+.form-horizontal div.form-group.padding100 .control-label {
+  padding-left: 100px;
+}
+.form-horizontal div.form-group.padding100 .controls {
+  padding-left: 100px;
+}
+
+.form-horizontal div.form-group.padding200 .control-label {
+  padding-left: 200px;
+}
+.form-horizontal div.form-group.padding200 .controls {
+  padding-left: 200px;
+}
+
+
+.form-horizontal div.form-group.padding300 .control-label {
+  padding-left: 300px;
+}
+.form-horizontal div.form-group.padding300 .controls {
+  padding-left: 300px;
+}
+
+.form-horizontal div.form-group.padding400 .control-label {
+  padding-left: 400px;
+}
+.form-horizontal div.form-group.padding400 .controls {
+  padding-left: 400px;
+}
+
+
+.form-horizontal div.form-group.padding500 .control-label {
+  padding-left: 500px;
+}
+.form-horizontal div.form-group.padding500 .controls {
+  padding-left: 500px;
+}
+
+.form-horizontal div.form-group.padding600 .control-label {
+  padding-left: 600px;
+}
+.form-horizontal div.form-group.padding600 .controls {
+  padding-left: 600px;
+}
+
+.form-horizontal div.form-group.padding700 .control-label {
+  padding-left: 700px;
+}
+.form-horizontal div.form-group.padding700 .controls {
+  padding-left: 700px;
+}
+
+.form-horizontal div.form-group.padding800 .control-label {
+  padding-left: 800px;
+}
+.form-horizontal div.form-group.padding800 .controls {
+  padding-left: 800px;
+}
+
+
+.form-horizontal div.form-group.padding900 .control-label {
+  padding-left: 900px;
+}
+.form-horizontal div.form-group.padding900 .controls {
+  padding-left: 900px;
+}
+
+.form-horizontal div.form-group.right20 .controls, .form-horizontal div.form-group.right20 .controls .form-control {
+  max-width: 20px;
+}
+.form-horizontal div.form-group.right30 .controls, .form-horizontal div.form-group.right30 .controls .form-control {
+  max-width: 30px;
+}
+.form-horizontal div.form-group.right50 .controls, .form-horizontal div.form-group.right50 .controls .form-control {
+  max-width: 50px;
+}
+.form-horizontal div.form-group.right70 .controls, .form-horizontal div.form-group.right70 .controls .form-control {
+  max-width: 70px;
+}
+.form-horizontal div.form-group.right80 .controls, .form-horizontal div.form-group.right80 .controls .form-control {
+  max-width: 80px;
+}
+.form-horizontal div.form-group.right100 .controls, .form-horizontal div.form-group.right100 .controls .form-control, .form-horizontal div.form-group.right100 .controls .select2-container {
+  max-width: 100px;
+}
+.form-horizontal div.form-group.right150 .controls, .form-horizontal div.form-group.right150 .controls .form-control, .form-horizontal div.form-group.right150 .controls .select2-container {
+  max-width: 150px;
+  width: 150px;
+}
+
+.form-horizontal div.form-group.right200 .controls, .form-horizontal div.form-group.right200 .controls .form-control {
+  max-width: 200px;
+}
+.form-horizontal div.form-group.right300 .controls, .form-horizontal div.form-group.right300 .controls .form-control {
+  max-width: 300px;
+}
+
+.form-horizontal div.form-group.right400 .controls, .form-horizontal div.form-group.right400 .controls .form-control {
+  max-width: 400px;
+}
+
+.form-horizontal div.form-group.right500 .controls, .form-horizontal div.form-group.right500 .controls .form-control {
+  max-width: 500px;
+}
+
+.form-horizontal div.form-group.right600 .controls, .form-horizontal div.form-group.right600 .controls .form-control {
+  max-width: 600px;
+}
+
+.form-horizontal div.form-group.right700 .controls, .form-horizontal div.form-group.right700 .controls .form-control {
+  max-width: 700px;
+}
+
+.form-horizontal div.form-group.right800 .controls, .form-horizontal div.form-group.right800 .controls .form-control {
+  max-width: 800px;
+}
+
+.form-horizontal div.form-group.right900 .controls, .form-horizontal div.form-group.right900 .controls .form-control {
+  max-width: 900px;
+}
+
+
+form.form-horizontal div.label_align_left .control-label {
+  text-align:left;
+  padding-left:5px;
+}
+form.form-horizontal div.label_align_center .control-label {
+  text-align:center;
+  padding-left:5px;
+}
+form.form-horizontal div.label_align_right .control-label {
+  text-align: right; /* default */
+  padding-left:5px;
+}
+
+form.form-horizontal div.answer_align_left .controls {
+  text-align: left ;  /* default */
+  padding-right:5px;
+}
+form.form-horizontal div.answer_align_center .controls {
+  text-align: center;
+  padding-right:5px;
+}
+form.form-horizontal div.answer_align_right .controls {
+  text-align:right;
+  padding-right:5px;
+}
+
+
+
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls label {
+  border-left:1px solid #EEE;
+  border-right:1px solid #EEE;
+  margin:0;
+}
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls label:first-of-type {
+  border-left:0px;
+}
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls label:last-of-type {
+  border-right:0px;
+}
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls {
+  border-collapse:collapse;
+}
+div.item-textarea textarea {
+    width:500px;
+    height:200px;
+}
+div.item-geopoint input[type=text] {
+    width:250px;
+}
+form.form-horizontal div.form-row.item-mc_heading.form-group div.controls label {
+	text-align:center;
+	text-indent:0;
+}
+form.form-horizontal div.form-row.item-mc_heading.form-group div.controls label input {
+	display:none;
+}
+form.form-horizontal div.form-row.form-group.hide_label div.controls label {
+	text-align:center;
+	text-indent:0;
+	height:25px;
+	overflow:hidden;
+	line-height:0;
+	min-height:25px;
+}
+form.form-horizontal div.form-row.form-group.hide_label div.controls label span {
+	line-height:0;
+	font-size:0px;
+    visibility:hidden;
+}
+form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
+    visibility:visible;
+}
+form.form-horizontal div.form-row.form-group.rotate-label div.controls label {
+	-webkit-transform: rotate(-45deg);
+	-moz-transform: rotate(-45deg);   
+	-o-transform: rotate(-45deg);
+	transform: rotate(-45deg);
+}
+form.form-horizontal div.form-row.form-group.rotate-label45 div.controls label {
+	-webkit-transform: rotate(-45deg);
+	-moz-transform: rotate(-45deg);   
+	-o-transform: rotate(-45deg);
+	transform: rotate(-45deg);
+}
+form.form-horizontal div.form-row.form-group.rotate-label30 div.controls label {
+	-webkit-transform: rotate(-30deg);
+	-moz-transform: rotate(-30deg);   
+	-o-transform: rotate(-30deg);
+	transform: rotate(-30deg);
+}
+form.form-horizontal div.form-row.form-group.rotate-label90 div.controls label {
+	-webkit-transform: rotate(-90deg);
+	-moz-transform: rotate(-90deg);   
+	-o-transform: rotate(-90deg);
+	transform: rotate(-90deg);
+}
+
+form.form-horizontal div.form-row.form-group.mc_block div.controls label input {
+  display:block;
+}
+
+form.form-horizontal div.form-row.form-group.mc_vertical div.controls {
+  display:block;
+}
+form.form-horizontal div.form-row.form-group.mc_vertical div.controls label {
+  display:block;
+  padding-left:18px;
+  padding-right:5px;
+  padding-top:5px;
+  text-indent:-18px;
+}
+
+/* choice widths */
+
+form.form-horizontal div.form-group.mc-equal-widths div.controls {
+/*  width:100%;*/
+  table-layout:fixed;
+}
+form.form-horizontal div.form-group.mc-equal-widths div.controls label {
+	width:2%;
+}
+form.form-horizontal div.form-group.mc-width50 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width50 div.controls button.btn {
+	width:50px;
+}
+form.form-horizontal div.form-group.mc-width60 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width60 div.controls button.btn {
+	width:60px;
+}
+form.form-horizontal div.form-group.mc-width70 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width70 div.controls button.btn {
+	width:70px;
+}
+form.form-horizontal div.form-group.mc-width80 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width80 div.controls button.btn {
+	width:80px;
+}
+form.form-horizontal div.form-group.mc-width80 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width80 div.controls button.btn {
+	width:90px;
+}
+form.form-horizontal div.form-group.mc-width100 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width100 div.controls button.btn {
+	width:100px;
+}
+form.form-horizontal div.form-group.mc-width150 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width150 div.controls button.btn {
+	width:150px;
+}
+form.form-horizontal div.form-group.mc-width200 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc-width200 div.controls button.btn {
+	width:200px;
+}
+
+/* rating_button_label_width */
+form.form-horizontal div.item-rating_button div.controls label.keep-label {
+    vertical-align: middle;
+    text-align: right;
+}
+form.form-horizontal div.item-rating_button div.controls .btn-group + label.keep-label {
+    text-align: left;
+}
+form.form-horizontal div.form-row.form-group.item-rating_button .btn-group {
+     vertical-align: middle;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width50 div.controls label.keep-label
+{
+	width:50px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width60 div.controls label.keep-label
+{
+	width:60px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width70 div.controls label.keep-label
+{
+	width:70px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width80 div.controls label.keep-label
+{
+	width:80px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width80 div.controls label.keep-label
+{
+	width:90px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width100 div.controls label.keep-label
+{
+	width:100px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width150 div.controls label.keep-label
+{
+	width:150px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width200 div.controls label.keep-label
+{
+	width:200px;
+}
+
+form.form-horizontal div.form-row.form-group.hidden {
+	display:none;
+}
+.form-horizontal div.form-row.form-group.space_bottom_10
+{
+	margin-bottom:10px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_20
+{
+	margin-bottom:20px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_30
+{
+	margin-bottom:30px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_50
+{
+	margin-bottom:40px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_60
+{
+	margin-bottom:60px;
+}
+
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_10 .control-label
+{
+	margin-bottom:10px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_20 .control-label
+{
+	margin-bottom:20px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_30 .control-label
+{
+	margin-bottom:30px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_40 .control-label
+{
+	margin-bottom:40px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_50 .control-label
+{
+	margin-bottom:50px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_60 .control-label
+{
+	margin-bottom:60px;
+}
+.item-text.form-group.form-row .form-control, .item-email.form-group.form-row .form-control, .item-color.form-group.form-row .form-control {
+    width:300px;
+}
+
+
+.btn {
+    white-space: normal;
+}
+.btn .btn_value {
+    display:none;
+}
+
+.show_value_instead_of_label .btn .btn_value {
+    display:inline;
+}
+.show_value_instead_of_label .btn .btn_label {
+    display:none;
+}
+
+.form-control.round_right {
+  border-top-right-radius: 4px !important;
+  border-bottom-right-radius: 4px !important;
+}
+
+.people_list .select2-container
+{
+    min-height:200px;
+}
+.people_list .select2-container .select2-choices
+{
+    min-height:200px;
+}
+.people_list .select2-container-multi .select2-choices
+{
+    background:none;
+}
+.people_list .select2-container-multi .select2-choices .select2-search-choice
+{
+    background:none;
+    border:none;
+    border-radius:0;
+    box-shadow:none;
+    width:100%;
+}
+.select2-results li.people_list_results
+{
+    display:none;
+}
+.people_list .select2-search-field input.select2-input
+{
+    margin-left:18px;
+}
+.people_list .select2-plus
+{
+    margin-right:-17px;
+    font-weight:bold;
+    color:gray;
+    width:18px;
+    margin-left:9px;
+}
+.no-padding {
+	padding: 0px;
+}
+.clear-top {
+	margin-top: 0px;
+}
+.white {
+	color: #fff !important;
+}
+#admin-survey-items {}
+#admin-survey-items .table-content {
+	width: 99%;
+	margin-top: 2px;
+}
+#admin-survey-items .table-content .modal-body {
+	padding: 1px;
+	overflow: hidden;
+}
+#admin-survey-items .table-content td {
+	overflow: hidden;
+	max-width: 100%
+}
+
+#admin-survey-items .table-content .td-contents {
+	max-height: 100px;
+	overflow: hidden;
+	max-width: 100%;
+	text-overflow: ellipsis;
+	overflow-y: auto;
+}
+
+#admin-survey-items .table-content .field-name {
+	width: 200px;
+}
+#admin-survey-items .table-content .field-choices {
+	width: 300px;
+}
+#admin-survey-items .table-content .field-label_parsed{
+	width: 450px;
+}
+
+/*responsive layouts for mobile */
+@media (max-width: 768px) { 
+    .progress-container
+    {
+        width:100%;
+        padding:0;
+    }
+	form.form-horizontal div.form-row.form-group .controls {
+		clear:both;
+		margin-left:0;
+		width:100%;
+	}
+	form.form-horizontal div.form-row.form-group .control-label {
+		text-align:left;
+		width:100%;
+	}
+    /* always make mcs vertical on small screens */
+
+    form.form-horizontal div.form-row.form-group.item-mc  div.controls, 
+    form.form-horizontal div.form-row.form-group.item-mc_multiple div.controls,
+    form.form-horizontal div.form-row.form-group.item-mc_button div.controls,
+    form.form-horizontal div.form-row.form-group.item-mc_multiple_button div.controls {
+      display:block;
+    }
+    form.form-horizontal div.form-row.form-group.item-mc  div.controls label, 
+    form.form-horizontal div.form-row.form-group.item-mc_multiple div.controls label,
+    form.form-horizontal div.form-row.form-group.item-mc_button div.controls label,
+    form.form-horizontal div.form-row.form-group.item-mc_multiple_button div.controls label {
+      display:block;
+      padding-left:18px;
+      padding-right:5px;
+      padding-top:5px;
+      text-indent:-18px;
+    }
+    
+    
+    /* display mc_heading style displays on mobile, when question and choices stack, aren't side-by-side */
+    form.form-horizontal div.form-row.item-mc_heading.form-group  {
+        display:none;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label {
+    	text-align:inherit;
+    	text-indent:inherit;
+    	height:inherit;
+    	overflow:inherit;
+    	line-height:inherit;
+    	min-height:inherit;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label span {
+    	line-height:inherit;
+    	font-size:inherit;
+        visibility:visible;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
+        visibility:visible;
+    }
+    
+    form.form-horizontal div.form-row.form-group div.controls label:not(.keep-label),
+    form.form-horizontal div.form-row.form-group div.controls button.btn
+    {
+        width:100%;
+    }
+    
+    
+    /* make buttons show labels when they're shown vertically  */
+    
+    .show_value_instead_of_label.form-row .btn .btn_value {
+        display:none;
+    }
+    .show_value_instead_of_label.form-row .btn .btn_label {
+        display:inline;
+    }
+
+    /* make buttons go vertical on small screens  */
+    div.form-row.form-group .btn-group > .btn,
+    div.form-row.form-group .btn-group > .btn-group {
+      display: block;
+      float: none;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:before,
+    div.form-row.form-group .btn-group > .btn-group:after {
+      display: table;
+      content: " ";
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:after {
+      clear: both;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:before,
+    div.form-row.form-group .btn-group > .btn-group:after {
+      display: table;
+      content: " ";
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:after {
+      clear: both;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group > .btn {
+      float: none;
+    }
+
+    div.form-row.form-group .btn-group > .btn + .btn,
+    div.form-row.form-group .btn-group > .btn + .btn-group,
+    div.form-row.form-group .btn-group > .btn-group + .btn,
+    div.form-row.form-group .btn-group > .btn-group + .btn-group {
+      margin-top: -1px;
+      margin-left: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn:not(:first-child):not(:last-child) {
+      border-radius: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn:first-child:not(:last-child) {
+      border-top-right-radius: 4px;
+      border-bottom-right-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn:last-child:not(:first-child) {
+      border-top-right-radius: 0;
+      border-bottom-left-radius: 4px;
+      border-top-left-radius: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:not(:first-child):not(:last-child) > .btn {
+      border-radius: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:first-child > .btn:last-child,
+    div.form-row.form-group .btn-group > .btn-group:first-child > .dropdown-toggle {
+      border-bottom-right-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    div.form-row.form-group .btn-group > .btn-group:last-child > .btn:first-child {
+      border-top-right-radius: 0;
+      border-top-left-radius: 0;
+    }
+    
+    /* special logic for rating_button  */
+    form.form-horizontal div.form-group.item-rating_button div.controls .controls-inner label.keep-label,
+    form.form-horizontal div.form-group.item-rating_button div.controls .controls-inner {
+        text-align:center;
+    }
+    form.form-horizontal div.form-group.item-rating_button div.controls  label.keep-label {
+        display:block;
+    }
+}
+
+/*
+
+Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
+
+*/
+
+.hljs {
+  display: block; padding: 0.5em;
+  color: #000;
+  background: #fff;
+}
+
+.hljs-subst,
+.hljs-title {
+  font-weight: normal;
+  color: #000;
+}
+
+.hljs-comment,
+.hljs-template_comment,
+.hljs-javadoc,
+.diff .hljs-header {
+  color: #808080;
+  font-style: italic;
+}
+
+.hljs-annotation,
+.hljs-decorator,
+.hljs-preprocessor,
+.hljs-pragma,
+.hljs-doctype,
+.hljs-pi,
+.hljs-chunk,
+.hljs-shebang,
+.apache .hljs-cbracket,
+.hljs-prompt,
+.http .hljs-title {
+  color: #808000;
+}
+
+.hljs-tag,
+.hljs-pi {
+  background: #efefef;
+}
+
+.hljs-tag .hljs-title,
+.hljs-id,
+.hljs-attr_selector,
+.hljs-pseudo,
+.hljs-literal,
+.hljs-keyword,
+.hljs-hexcolor,
+.css .hljs-function,
+.ini .hljs-title,
+.css .hljs-class,
+.hljs-list .hljs-title,
+.clojure .hljs-title,
+.nginx .hljs-title,
+.tex .hljs-command,
+.hljs-request,
+.hljs-status {
+  font-weight: bold;
+  color: #000080;
+}
+
+.hljs-attribute,
+.hljs-rules .hljs-keyword,
+.hljs-number,
+.hljs-date,
+.hljs-regexp,
+.tex .hljs-special {
+  font-weight: bold;
+  color: #0000ff;
+}
+
+.hljs-number,
+.hljs-regexp {
+  font-weight: normal;
+}
+
+.hljs-string,
+.hljs-value,
+.hljs-filter .hljs-argument,
+.css .hljs-function .hljs-params,
+.apache .hljs-tag {
+  color: #008000;
+  font-weight: bold;
+}
+
+.hljs-symbol,
+.ruby .hljs-symbol .hljs-string,
+.hljs-char,
+.tex .hljs-formula {
+  color: #000;
+  background: #d0eded;
+  font-style: italic;
+}
+
+.hljs-phpdoc,
+.hljs-yardoctag,
+.hljs-javadoctag {
+  text-decoration: underline;
+}
+
+.hljs-variable,
+.hljs-envvar,
+.apache .hljs-sqbracket,
+.nginx .hljs-built_in {
+  color: #660e7a;
+}
+
+.hljs-addition {
+  background: #baeeba;
+}
+
+.hljs-deletion {
+  background: #ffc8bd;
+}
+
+.diff .hljs-change {
+  background: #bccff9;
+}
+
+/* admin stuff */
+#import-run-units textarea {
+	font-family: courier;
+	font-size: 11px;
+}
+.run-export-unit-block {
+    position: relative;
+    margin-bottom: 2px;
+}
+.run-export-unit-block pre {
+    margin: 0px;
+}
+.run-export-unit-block .select {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    right: 30px;
+    top: 15px;
+    background: #fff;
+    z-index: 20000;
+    cursor: pointer;
+    padding: 0px !important;
+}
+.red {
+    color: red;
+}
+.green {
+    color: green;
+}
+.code-txt {
+    font-family: courier;
+    font-size: 12px;
+}
+.import-run-dialog .form-group {
+    margin-bottom: 5px;
+    font-size: 13px;
+}
