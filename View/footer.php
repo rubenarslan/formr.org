@@ -7,13 +7,8 @@ session_over($site, $user);
 		</div> <!-- end of main body -->
 	</div> <!-- end of sidenav container -->
 </div> <!-- end of main content div -->
-		<?php 
-		$min = "";
-		if (DEBUG < 1) $min = ".min";
-		 ?>
-
 		<?php if ($site->inAdminArea()): ?>
-		<script type="text/javascript" src="<?= WEBROOT ?>assets/lib/ace-builds/src-noconflict/ace.js"></script>	
+		<script type="text/javascript" src="<?= WEBROOT ?>assets/<?=DEBUG?"lib":"minified"?>/ace/ace.js"></script>	
 		<?php endif; ?>
 
 </body>

@@ -1,7 +1,7 @@
 {
   "name": "formr",
   "version": "0.6.8",
-  "main": ["main.js", "main.css"],
+  "main": "js/main.js,css/main.css",
   "ignore": [
     "**/.*",
     "node_modules",
@@ -10,42 +10,19 @@
     "tests"
   ],
   "dependencies": {
-    "bootstrap": "git://github.com/twbs/bootstrap",
-    "font-awesome": "git://github.com/FortAwesome/Font-Awesome",
-    "jquery": "git://github.com/components/jquery.git#2.*",
-    "select2": "git://github.com/ivaynberg/select2.git#3.*",
-    "webshim": "git://github.com/aFarkas/webshim.git#1.*"
+	"bootstrap": "git://github.com/twbs/bootstrap",
+	"font-awesome": "git://github.com/FortAwesome/Font-Awesome",
+	"jquery": "git://github.com/components/jquery.git#2.*",
+	"select2": "git://github.com/ivaynberg/select2.git#3.*",
+	"webshim": "git://github.com/aFarkas/webshim.git#1.*",
+	"highlightjs": "git://github.com/components/highlightjs#8.*",
+	"ace-builds": "git://github.com/ajaxorg/ace-builds#1.*",
+	"fastclick": "~1.0.6"
   },
-  "preen": {
-      "jquery": [
-        "bower.json",
-        "jquery.js",
-        "jquery.min.js"
-      ],
-      "bootstrap": [
-          "bower.json",
-          "dist/js/bootstrap.js",
-          "dist/js/bootstrap.min.js",
-          "dist/css/bootstrap.css",
-          "dist/css/bootstrap.min.css"
-      ],
-      "ace-builds": [
-          "bower.json",
-          "src-noconflict/**",
-          "src-min-noconflict/**"
-      ],
-      "fastclick": [
-          "bower.json",
-          "lib/*"
-      ],
-      "font-awesome": [
-          "bower.json",
-          "css/*",
-          "fonts/*"
-      ],
-      "webshim": [
-          "bower.json",
-          "js-webshim/**"
-      ]
-   }
+  "homepage": "https://github.com/rubenarslan/formr.org",
+  "authors": [
+    "Ruben C. Arslan <rubenarslan@gmail.com>"
+  ],
+  "license": "MIT",
+  "private": true
 }

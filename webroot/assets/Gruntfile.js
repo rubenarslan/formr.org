@@ -3,20 +3,54 @@ module.exports = function(grunt) {
 // Project configuration.
 grunt.initConfig({
 	pkg: grunt.file.readJSON('package.json'),
+	bower: {
+		install: {
+			options: {
+				targetDir: "bower_components/",
+				copy: false
+			}
+		}
+	},
 	copy: {
-		dist: {
+		webshim_min: {
+			files: [{
+				expand: true,
+				cwd: 'bower_components/webshim/js-webshim/minified/shims/',
+				dest: 'minified/shims/',
+				src: [
+				  '**',
+				]
+			}]
+		},
+		webshim: {
+			files: [{
+				expand: true,
+				cwd: 'bower_components/webshim/js-webshim/dev/shims/',
+				dest: 'lib/shims/',
+				src: [
+				  '**',
+				]
+			}]
+		},
+		ace_min: {
 			files: [{
 				expand: true,
 				dot: true,
-				cwd: 'bower_components/',
-				dest: 'lib/',
-//	  nonull: true,
+				cwd: 'bower_components/ace-builds/src-min-noconflict/',
+				dest: 'minified/ace/',
 				src: [
-				  'webshim/js-webshim/dev/*',
-				  'webshim/js-webshim/dev/shims/**',
-				  'webshim/js-webshim/minified/*',
-				  'webshim/js-webshim/minified/shims/**',
-				  'ace-builds/**'
+				  '**'
+				]
+			}]
+		},
+		ace: {
+			files: [{
+				expand: true,
+				dot: true,
+				cwd: 'bower_components/ace-builds/src-noconflict/',
+				dest: 'lib/ace/',
+				src: [
+				  '**'
 				]
 			}]
 		},
@@ -50,8 +84,8 @@ grunt.initConfig({
 		dest: 'lib/bower.js',
 		cssDest: 'lib/bower.css',
 		exclude: [
-			'webshim',
-			'ace'
+			'ace-builds',
+			'webshim'
 		],
 		bowerOptions: {
 		  relative: true
@@ -63,7 +97,7 @@ grunt.initConfig({
 		  separator: ';',
 		},
 		js: {
-		  src: ['lib/bower.js', 'js/main.js'],
+		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','lib/bower.js', 'js/main.js'],
 		  dest: 'lib/bower.js',
 		},
 		css: {
@@ -73,9 +107,9 @@ grunt.initConfig({
 	  },
 	cssmin: {
 		options: {
-		shorthandCompacting: false,
-		roundingPrecision: -1,
-		rebase: false
+			shorthandCompacting: false,
+			roundingPrecision: -1,
+			rebase: false
 		},
 		target: {
 			files: {
@@ -86,12 +120,13 @@ grunt.initConfig({
 	uglify: {
 		build: {
 			src: 'lib/bower.js',
-			dest: 'lib/bower.min.js'
+			dest: 'minified/bower.js'
 		}
 	}
 });
 
   // Load the plugin that provides the "uglify" task.
+  grunt.loadNpmTasks('grunt-bower-task');
   grunt.loadNpmTasks('grunt-contrib-copy');
   grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-cssmin');
@@ -99,7 +134,7 @@ grunt.initConfig({
   grunt.loadNpmTasks('grunt-bower-concat');
 
   // Default task(s).
-  grunt.registerTask('default', ['copy','bower_concat','concat','uglify','cssmin']);
+  grunt.registerTask('default', ['bower','copy','bower_concat','concat','uglify','cssmin']);
 //	grunt.registerTask('bowerinstall', ['bower']);
 };
 

@@ -7,22 +7,11 @@
         <meta charset="utf-8"> 
 		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 
-		<?php 
-		$min = "";
-		if (DEBUG < 1) $min = ".min";
-		 ?>
-		 
-		<link rel="stylesheet" type="text/css" href="<?= WEBROOT ?>assets/lib/bower<?=$min?>.css" />
+		<link rel="stylesheet" type="text/css" href="<?= WEBROOT ?>assets/lib/bower<?=DEBUG?"":".min"?>.css" />
 		
 		<?php echo isset($css) ? $css : '' ?>
 		
-		<?php if(DEBUG<1): ?>
-		<script src="<?= WEBROOT ?>assets/lib/webshim/js-webshim/minified/polyfiller.js"></script>
-		<?php else: ?>
-		<script src="<?= WEBROOT ?>assets/lib/webshim/js-webshim/dev/polyfiller.js"></script>
-		<?php endif; ?>
-
-		<script type="text/javascript" src="<?= WEBROOT ?>assets/lib/bower<?=$min?>.js"></script>	
+		<script type="text/javascript" src="<?= WEBROOT ?>assets/<?=DEBUG?"lib":"minified"?>/bower.js"></script>	
 		<?php echo isset($js) ? $js : '' ?>
 		<script type="text/javascript">
 
