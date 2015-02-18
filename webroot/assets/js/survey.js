@@ -288,61 +288,60 @@ $(document).ready(function() {
         $(elm).find("input.item_shown").val(pageload_time);
         $(elm).find("input.item_shown_relative").val(relative_time);
     });
-    
 	$('form').on('change', showIf);
-	$('form').on('change', getProgress);
+	var progress = new Progress();
+	$('form').on('change', function() { progress.get(); });
 	$('form').change();
 });
 
-var $progressbar,change_events_set;
-function getProgress() 
-{
-	"use strict";
-	$progressbar = $('.progress .progress-bar');
-
-//	var successful_controls = $('form').serializeArray(); 
-
+function Progress() {
+	this.$progressbar = $('.progress .progress-bar');
+	this.already_answered = this.$progressbar.data('already-answered');
+	this.remaining_items = this.$progressbar.data('items-left');
+	this.percentage_minimum = this.$progressbar.data('percentage-minimum');
+	this.percentage_maximum = this.$progressbar.data('percentage-maximum');
+	this.form_inputs = {};
+}
+Progress.prototype.get = function (e) {
 	var badArray = $('form').serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
 	var successful_controls = {};
 	$.each(badArray, function(i, obj)
 	{
-		if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
-		if(!successful_controls[ obj.name ]) successful_controls[obj.name] = obj.value;
-		else successful_controls[obj.name] += ", " + obj.value;
+		if(obj.name.indexOf('_') != 0 && obj.name != "session_id") { // skip hidden items beginning with underscore (e.g _item_view)
+			if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
+			if(!successful_controls[ obj.name ]) successful_controls[obj.name] = obj.value;
+			else successful_controls[obj.name] += ", " + obj.value;
+		}
 	});
-	
-	var already_answered = $progressbar.data('already-answered');
-	var remaining_items = $progressbar.data('items-left');
-	var percentage_minimum = $progressbar.data('percentage-minimum');
-	var percentage_maximum = $progressbar.data('percentage-maximum');
-
 	var items_answered_on_page = 0;
 	var unanswered_page_items = 0;
 	
+	var progress = this;
 	$.each(successful_controls,function(name,value){
+		if( ! progress.form_inputs[name] ) {
+			progress.form_inputs[name] = $(document.getElementsByName(name).length ? document.getElementsByName(name) : $(document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])") );
+		}
 
-		var elm_non_hidden = $(document.getElementsByName(name).length ? document.getElementsByName(name) : $(document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])") );
+		var elm_non_hidden = progress.form_inputs[name];
 		
-		if(typeof $(elm_non_hidden).parents(".form-group").data('ever-changed') == "undefined")
-		{
-			$(elm_non_hidden).parents(".form-group").data('ever-changed', false);
-			$(elm_non_hidden).parents(".form-group").change(function(){
+		if(typeof elm_non_hidden.parents(".form-group").data('ever-changed') == "undefined") {
+			elm_non_hidden.parents(".form-group").data('ever-changed', false);
+			elm_non_hidden.parents(".form-group").change(function(){
 			   $(this).data('ever-changed', true);
                $(this).find("input.item_answered").val(mysql_datetime());
                $(this).find("input.item_answered_relative").val(performance.now());
 			});
 		}
 		
-		var elm = elm_non_hidden[0];
-		if(name != "session_id" && elm)
+		if(elm_non_hidden[0])
 		{
 			if(value.length > 0) // if it's not empty, you get  //  || parseFloat(elm.value)
 			{
-				if($(elm).parents(".form-group").data('ever-changed') || elm_non_hidden.attr('type') == "hidden") //elm.value == elm_non_hidden.defaultValue) 
+				if(elm_non_hidden.parents(".form-group").data('ever-changed') || elm_non_hidden.attr('type') == "hidden") //elm.value == elm_non_hidden.defaultValue) 
 			   {
 		   			items_answered_on_page += 0.5; // half a point for changing the default value
 					
-					if(elm.validity.valid) { // if it is valid like this, it gets half a point
+					if(elm_non_hidden[0].validity.valid) { // if it is valid like this, it gets half a point
 						items_answered_on_page += 0.5;
 					}
 					else
@@ -364,23 +363,21 @@ function getProgress()
 			{
 				unanswered_page_items += 1;
 			}
-			
 		}
 	});
 //	console.log(already_answered, items_answered_on_page, unanswered_page_items, remaining_items);
-	var prog_here = (items_answered_on_page + already_answered) / (remaining_items + unanswered_page_items + items_answered_on_page + already_answered);
+	var prog_here = (items_answered_on_page + this.already_answered) / (this.remaining_items + unanswered_page_items + items_answered_on_page + this.already_answered);
 	
-	var prog = prog_here * (percentage_maximum - percentage_minimum);  // the fraction of this survey that was completed is multiplied with the stretch of percentage that it was accorded
-	prog = prog + percentage_minimum;
+	var prog = prog_here * (this.percentage_maximum - this.percentage_minimum);  // the fraction of this survey that was completed is multiplied with the stretch of percentage that it was accorded
+	prog = prog + this.percentage_minimum;
 
-	if(prog > percentage_maximum) prog = percentage_maximum;
+	if(prog > this.percentage_maximum) prog = this.percentage_maximum;
 	
-	$progressbar.css('width',Math.round(prog)+'%');
-	$progressbar.text(Math.round(prog)+'%');
-	change_events_set = true;
+	this.$progressbar.css('width',Math.round(prog)+'%');
+	this.$progressbar.text(Math.round(prog)+'%');
+	this.change_events_set = true;
 	return prog;
 }
-
 
 function showIf(e)
 {
