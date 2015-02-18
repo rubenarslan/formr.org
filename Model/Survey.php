@@ -228,12 +228,13 @@ class Survey extends RunUnit {
 	}
 
 	protected function getProgress() {
-		$answered = $this->dbh->select(array('COUNT(`survey_items_display`.saved IS NOT NULL)' => 'count', 'study_id', 'session_id'))
+		$answered = $this->dbh->select(array('COUNT(`survey_items_display`.saved)' => 'count', 'study_id', 'session_id'))
 			->from('survey_items')
 			->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
 			->where('survey_items_display.session_id IS NOT NULL')
 			->where('survey_items.study_id = :study_id')
 			->where("survey_items.type NOT IN ('mc_heading', 'submit')")
+			->where("`survey_items_display`.saved IS NOT NULL")
 			->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 			->fetch();
 					
