@@ -234,8 +234,6 @@ formr robots";
 		$this->logged_in = false;
 		session_unset();	 // unset $_SESSION variable for the run-time
 		session_destroy();   // destroy session data in storage
-		session_name("formr_session");
-		//session_start();	 // get a new session ?? I think if you don't redirect cookie remains
 	}
 
 	public function changePassword($password, $new_password) {

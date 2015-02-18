@@ -5,7 +5,10 @@
  */
 
 function formr_log($msg) {// shorthand
-	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/formr_error.log");
+	if(!is_string($msg)) $msg = print_r($msg, true);
+	$msg = date('Y-m-d H:i:s') . ' ' . $msg;
+	if(DEBUG) alert("<pre>".$msg."</pre>", "alert-danger");
+	error_log($msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/formr_error.log");
 }
 
 function opencpu_log_warning($msg) {// shorthand
@@ -22,8 +25,11 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) { // shortha
 }
 
 function log_exception(Exception $e, $prefix = '', $debug_data = null) {
-	error_log($prefix . ' Exception: ' . $e->getMessage());
-	error_log($prefix . ' Exception: ' . $e->getTraceAsString());
+	$msg = $prefix . ' Exception: ' . $e->getMessage(). "\n" .
+		 $e->getTraceAsString();
+	if(DEBUG) alert("<pre>".$msg."</pre>", "alert-danger");
+
+	error_log($msg);
 	if ($debug_data !== null) {
 		error_log('Debug Data: ' . print_r($debug_data, 1));
 	}
@@ -125,6 +131,21 @@ function pr($string) {
 		echo "</pre>";
 	} else {
 		formr_log($string);
+	}
+}
+function prb($string = null) {
+	static $output = "";
+	if($string === null) {
+		if (DEBUG > 0) {
+			echo "<pre>";
+			var_dump($string);
+	#		print_r(	debug_backtrace());
+			echo "</pre>";
+		} else {
+			formr_log($string);
+		}
+	} else {
+		$output .= "<br>". $string;
 	}
 }
 
@@ -693,14 +714,14 @@ function run_url($name = '') {
 	return RUNROOT . $name;
 }
 
-function admin_study_url($name, $action = '') {
+function admin_study_url($name = '', $action = '') {
 	if ($action) {
 		$name = $name . '/' . $action;
 	}
 	return admin_url('survey/' . $name);
 }
 
-function admin_run_url($name, $action = '') {
+function admin_run_url($name = '', $action = '') {
 	if ($action) {
 		$name = $name . '/' . $action;
 	}

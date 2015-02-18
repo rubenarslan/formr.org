@@ -3,6 +3,7 @@
     "units": [
         {
         	"type": "SkipForward",
+        	"description": "Filter condition, those with true can go on",
         	"position": "10",
         	"special": "",
         	"condition": "# filter_is_true",
@@ -12,6 +13,7 @@
         },
         {
         	"type": "Endpage",
+            "description": "Filtered people end here.",
         	"position": "20",
         	"special": "",
         	"title": "Filtered",

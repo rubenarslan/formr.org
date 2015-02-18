@@ -2,7 +2,7 @@
 
 <div class="row">
 	<div class="col-lg-8 col-lg-offset-1 col-sm-9 col-sm-offset-1 col-xs-12">
-		<div class="jumbotron">
+		<div class="jumbotron formr-jumbo">
 			<h1>
 				<span class="formr-brand">formr <small>survey framework</small></span>
 			</h1>

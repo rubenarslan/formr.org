@@ -42,6 +42,7 @@ class RunUnit {
 	public $special = false;
 	public $valid;
 	public $run_id;
+	public $description = "";
 	protected $non_user_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions', 'survey_items_display', 'survey_email_log', 'shuffle');
 	protected $non_session_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions');
 
@@ -90,6 +91,9 @@ class RunUnit {
 		if (isset($this->unit['position'])) {
 			$this->position = (int) $this->unit['position'];
 		}
+		if (isset($this->unit['description'])) {
+			$this->description = $this->unit['description'];
+		}
 
 		if (isset($this->unit['special'])) {
 			$this->special = $this->unit['special'];
@@ -110,8 +114,13 @@ class RunUnit {
 		return $this->unit_id;
 	}
 
-	public function modify($id) {
-		return $this->dbh->update('survey_units', array('modified' => mysql_now()), array('id' => $id));
+	public function modify($options = array()) {
+		$change = array('modified' => mysql_now());
+		if($this->run_unit_id AND isset($options['description'])):
+			$update_desc = $this->dbh->update('survey_run_units', array("description" => $options['description']), array('id' => $this->run_unit_id ));
+			$this->description = $options['description'];
+		endif;
+		return $this->dbh->update('survey_units', $change, array('id' => $this->id));
 	}
 
 	protected function beingTestedByOwner() {
@@ -129,15 +138,17 @@ class RunUnit {
 		);
 	}
 
-	public function addToRun($run_id, $position = 1) {
+	public function addToRun($run_id, $position = 1, $options = array("description" => '')) {
 		if (!is_numeric($position)) {
 			$position = 1;
 		}
 		$this->position = (int) $position;
+		if(!isset($options['description'])) $options['description'] = '';
 		$this->run_unit_id = $this->dbh->insert('survey_run_units', array(
 			'unit_id' => $this->id,
 			'run_id' => $run_id,
 			'position' => $position,
+			'description' => $options['description']
 		));
 		return $this->run_unit_id;
 	}
@@ -236,21 +247,13 @@ class RunUnit {
 	}
 
 	public function runDialog($dialog) {
-
-		if (isset($this->position)) {
-			$position = $this->position;
-		} elseif (isset($this->unit) && isset($this->unit['position'])) {
-			$position = $this->unit['position'];
-		} else {
-			$position = $this->dbh->findValue('survey_run_units', array('id' => $this->run_unit_id), array('position'));
-		}
-
 		return '
 		<div class="col-xs-12 row run_unit_inner ' . $this->type . '" data-type="' . $this->type . '">
+		<div class="row"><h4><input type="text" value="'.$this->description.'" placeholder="Description (click to edit)" class="run_unit_description" name="description"></h4></div>
 				<div class="col-xs-3 run_unit_position">
 					<h1><i class="muted fa fa-2x ' . $this->icon . '"></i></h1>
 					' . $this->howManyReachedIt() . ' <button href="ajax_remove_run_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run" type="button"><i class="fa fa-times"></i></button><br>
-					<input class="position" value="' . $position . '" type="number" name="position[' . $this->run_unit_id . ']" step="1" max="32000" min="-32000"><br>
+					<input class="position" value="' . $this->position . '" type="number" name="position[' . $this->run_unit_id . ']" step="1" max="32000" min="-32000"><br>
 				</div>
 			<div class="col-xs-9 run_unit_dialog">
 				<input type="hidden" value="' . $this->run_unit_id . '" name="run_unit_id">
@@ -261,7 +264,7 @@ class RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
-		return parent::runDialog($prepend, '<i class="fa fa-puzzle-piece"></i>'); // FIXME: This class has no parent
+		return $this->runDialog($prepend, '<i class="fa fa-puzzle-piece"></i>'); // FIXME: This class has no parent
 	}
 
 	protected $survey_results;
@@ -344,7 +347,7 @@ class RunUnit {
 			endif;
 			
 			if(in_array('formr_login_link',$needed['variables']) ):
-				$this->survey_results['.formr$login_link'] = WEBROOT."{$this->run_name}?code={$this->session}";
+				$this->survey_results['.formr$login_link'] = WEBROOT."{$this->run_name}?code=".urlencode($this->session);
 			endif;
 			if(in_array('formr_login_code',$needed['variables']) ):
 				$this->survey_results['.formr$login_code'] = $this->session;
@@ -575,13 +578,10 @@ class RunUnit {
 					$set_report->bindParam(":session_id", $this->session_id);
 					$set_report->execute();
 				} catch (Exception $e) {
-					pr($e);
 					log_exception($e, __CLASS__);
 				}
 				return $report;
 			endif;
 		}
 	}
-
-	// when body is changed, delete all survey reports?
 }

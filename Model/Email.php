@@ -42,7 +42,7 @@ class Email extends RunUnit {
 		if (!$this->id) {
 			$this->id = parent::create('Email');
 		} else {
-			$this->modify($this->id);
+			$this->modify($options);
 		}
 
 		$parsedown = new ParsedownExtra();
@@ -100,7 +100,7 @@ class Email extends RunUnit {
 
 		if (isset($this->run_name)) {
 			$sess = isset($this->session) ? $this->session : "TESTCODE";
-			$login_link = WEBROOT . "{$this->run_name}?code=$sess";
+			$login_link = WEBROOT . "{$this->run_name}?code=".urlencode($sess);
 		} else {
 			$login_link = WEBROOT;
 			alert("Generated a login link, but no run was specified", 'alert-danger');

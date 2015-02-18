@@ -2,6 +2,7 @@
     "name": "Access_window",
     "units": [
         {
+            "description": "if condition is true before the user arrives, skip survey",
             "type": "SkipForward",
             "position": 10,
             "special": "",
@@ -11,6 +12,7 @@
             "automatically_go_on": 0
         },
         {
+            "description": "this survey is only accessible for 7 hours",
             "type": "Survey",
             "position": 20,
             "special": ""

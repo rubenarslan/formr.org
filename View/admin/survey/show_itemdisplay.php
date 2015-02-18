@@ -66,7 +66,9 @@ endforeach;
 // printing table rows
 foreach($results AS $row):
 	$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
-	$row['modified'] = '<abbr title="'.$row['modified'].'">'.timetostr(strtotime($row['modified'])).'</abbr>';
+	$row['shown'] = '<abbr title="'.$row['shown'].'">'.timetostr(strtotime($row['shown'])).'</abbr>';
+	$row['saved'] = '<abbr title="'.$row['saved'].'">'.timetostr(strtotime($row['saved'])).'</abbr>';
+	$row['answered'] = '<abbr title="'.$row['answered'].'">'.timetostr(strtotime($row['answered'])).'</abbr>';
 	
     echo "<tr>";
 

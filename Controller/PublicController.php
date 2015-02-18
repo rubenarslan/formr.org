@@ -161,9 +161,9 @@ class PublicController extends Controller {
 		$_GET['run_name'] = $run_name;
 		$this->site->request->run_name = $run_name;
 
-		$user = $this->site->loginUser($this->user);
+		$this->user = $this->site->loginUser($this->user);
 		$run = new Run($this->fdb, $this->request->str('run_name'));
-		$run_vars = $run->exec($user);
+		$run_vars = $run->exec($this->user);
 		if ($run_vars) {
 			Template::load('public/run', $run_vars);
 		}

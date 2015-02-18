@@ -44,7 +44,7 @@ class Pause extends RunUnit {
 		if (!$this->id) {
 			$this->id = parent::create($this->type);
 		} else {
-			$this->modify($this->id);
+			$this->modify($options);
 		}
 
 		if (isset($options['body'])) {

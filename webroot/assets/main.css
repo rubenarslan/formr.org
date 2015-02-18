@@ -129,9 +129,14 @@ label
 {
     background-color:rgba(255,255,255,0.2);
 }
-.jumbotron
+.formr-jumbo
 {
- background-color:#F3F9FF;
+ background-image: linear-gradient(rgba(255,255,255,0.7),rgba(255,255,255,0.7)), url("img/boombox_innards.jpg");
+ background-position:-60px -20px; 
+ height:310px;
+}
+.formr-jumbo small {
+    color:black;
 }
 
 .table > tbody > tr.immediately_continued > td
@@ -287,7 +292,7 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
 .run_unit_dialog input.full_width {
     width:362px;
 }
-.run_unit_position input
+.run_unit_inner .run_unit_description, .run_unit_position input
 {
 	border:0;
 	box-shadow:none;
@@ -297,6 +302,12 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
 	width:100px;
 	text-align:left;
     background-color:transparent;
+}
+.run_unit_inner .run_unit_description {
+    font-size:20px;
+    width:100%;
+    height:25px;
+    background-color:rgba(255,255,255,0.7);
 }
 div.run_unit {
 	padding-bottom:20px;
@@ -611,6 +622,9 @@ pre
 pre code.hljs
 {
     background-color:#F8F8F8;
+}
+.alert pre {
+    background-color:inherit;
 }
 
 tt, code, pre {
@@ -1474,4 +1488,127 @@ form.form-horizontal div.form-row.form-group.hidden {
     form.form-horizontal div.form-group.item-rating_button div.controls  label.keep-label {
         display:block;
     }
+}
+
+/*
+
+Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
+
+*/
+
+.hljs {
+  display: block; padding: 0.5em;
+  color: #000;
+  background: #fff;
+}
+
+.hljs-subst,
+.hljs-title {
+  font-weight: normal;
+  color: #000;
+}
+
+.hljs-comment,
+.hljs-template_comment,
+.hljs-javadoc,
+.diff .hljs-header {
+  color: #808080;
+  font-style: italic;
+}
+
+.hljs-annotation,
+.hljs-decorator,
+.hljs-preprocessor,
+.hljs-pragma,
+.hljs-doctype,
+.hljs-pi,
+.hljs-chunk,
+.hljs-shebang,
+.apache .hljs-cbracket,
+.hljs-prompt,
+.http .hljs-title {
+  color: #808000;
+}
+
+.hljs-tag,
+.hljs-pi {
+  background: #efefef;
+}
+
+.hljs-tag .hljs-title,
+.hljs-id,
+.hljs-attr_selector,
+.hljs-pseudo,
+.hljs-literal,
+.hljs-keyword,
+.hljs-hexcolor,
+.css .hljs-function,
+.ini .hljs-title,
+.css .hljs-class,
+.hljs-list .hljs-title,
+.clojure .hljs-title,
+.nginx .hljs-title,
+.tex .hljs-command,
+.hljs-request,
+.hljs-status {
+  font-weight: bold;
+  color: #000080;
+}
+
+.hljs-attribute,
+.hljs-rules .hljs-keyword,
+.hljs-number,
+.hljs-date,
+.hljs-regexp,
+.tex .hljs-special {
+  font-weight: bold;
+  color: #0000ff;
+}
+
+.hljs-number,
+.hljs-regexp {
+  font-weight: normal;
+}
+
+.hljs-string,
+.hljs-value,
+.hljs-filter .hljs-argument,
+.css .hljs-function .hljs-params,
+.apache .hljs-tag {
+  color: #008000;
+  font-weight: bold;
+}
+
+.hljs-symbol,
+.ruby .hljs-symbol .hljs-string,
+.hljs-char,
+.tex .hljs-formula {
+  color: #000;
+  background: #d0eded;
+  font-style: italic;
+}
+
+.hljs-phpdoc,
+.hljs-yardoctag,
+.hljs-javadoctag {
+  text-decoration: underline;
+}
+
+.hljs-variable,
+.hljs-envvar,
+.apache .hljs-sqbracket,
+.nginx .hljs-built_in {
+  color: #660e7a;
+}
+
+.hljs-addition {
+  background: #baeeba;
+}
+
+.hljs-deletion {
+  background: #ffc8bd;
+}
+
+.diff .hljs-change {
+  background: #bccff9;
 }
