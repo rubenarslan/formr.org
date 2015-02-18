@@ -11,3 +11,4 @@ formr-package/man
 /tmp/logs/*
 /nbproject
 /webroot/assets/node_modules/*
+/webroot/assets/bower_components/*
