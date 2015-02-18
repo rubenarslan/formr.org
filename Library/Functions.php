@@ -505,22 +505,21 @@ function echo_time_points($points) {
 //	echo "--->";
 }
 
-function crypto_token($length, $url = false) {
+function crypto_token($length, $url = true) {
 	$bytes = openssl_random_pseudo_bytes($length, $crypto_strong);
-	if ($url):
-		$base64 = base64url_encode($bytes);
-	else:
-		$base64 = base64_encode($bytes);
-	endif;
-	if (!$crypto_strong):
+	$base64 = base64_url_encode($bytes);
+		if (!$crypto_strong):
 		alert("Generated cryptographic tokens are not strong.", 'alert-error');
 		bad_request();
 	endif;
 	return $base64;
 }
 
-function base64url_encode($data) {
-	return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+function base64_url_encode($data) {
+	return strtr(base64_encode($data), '+/=', '-_~');
+}
+function base64_url_decode($data) {
+	return base64_decode(strtr($data,  '-_~', '+/='));
 }
 
 /**
