@@ -1,5 +1,17 @@
 $(document).ready(function() {
+	var survey = new Survey();
+	$('form').on('change', function() { survey.update() });
+	$('form').change();
+});
 
+function Survey() {
+	this.$progressbar = $('.progress .progress-bar');
+	this.already_answered = this.$progressbar.data('already-answered');
+	this.remaining_items = this.$progressbar.data('items-left');
+	this.percentage_minimum = this.$progressbar.data('percentage-minimum');
+	this.percentage_maximum = this.$progressbar.data('percentage-maximum');
+	this.form_inputs = {};
+	
 	// initialising special items
 	// --------------------------
 	webshim.ready('geolocation',function() {
@@ -288,36 +300,31 @@ $(document).ready(function() {
         $(elm).find("input.item_shown").val(pageload_time);
         $(elm).find("input.item_shown_relative").val(relative_time);
     });
-	$('form').on('change', showIf);
-	var progress = new Progress();
-	$('form').on('change', function() { progress.get(); });
-	$('form').change();
-});
-
-function Progress() {
-	this.$progressbar = $('.progress .progress-bar');
-	this.already_answered = this.$progressbar.data('already-answered');
-	this.remaining_items = this.$progressbar.data('items-left');
-	this.percentage_minimum = this.$progressbar.data('percentage-minimum');
-	this.percentage_maximum = this.$progressbar.data('percentage-maximum');
-	this.form_inputs = {};
 }
-Progress.prototype.get = function (e) {
+Survey.prototype.update = function (e) {
+	this.getData();
+	this.showIf();
+	this.getProgress();
+}
+Survey.prototype.getData = function () {
 	var badArray = $('form').serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
-	var successful_controls = {};
+	this.data = {};
+	var survey = this;
 	$.each(badArray, function(i, obj)
 	{
 		if(obj.name.indexOf('_') != 0 && obj.name != "session_id") { // skip hidden items beginning with underscore (e.g _item_view)
 			if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
-			if(!successful_controls[ obj.name ]) successful_controls[obj.name] = obj.value;
-			else successful_controls[obj.name] += ", " + obj.value;
+			if(!survey.data[ obj.name ]) survey.data[obj.name] = obj.value;
+			else survey.data[obj.name] += ", " + obj.value;
 		}
 	});
+}
+Survey.prototype.getProgress = function () {
 	var items_answered_on_page = 0;
 	var unanswered_page_items = 0;
 	
 	var progress = this;
-	$.each(successful_controls,function(name,value){
+	$.each(this.data,function(name,value){
 		if( ! progress.form_inputs[name] ) {
 			progress.form_inputs[name] = $(document.getElementsByName(name).length ? document.getElementsByName(name) : $(document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])") );
 		}
@@ -333,6 +340,8 @@ Progress.prototype.get = function (e) {
 			});
 		}
 		
+		console.log(name, value, elm_non_hidden[0].validity.valid);
+		
 		if(elm_non_hidden[0])
 		{
 			if(value.length > 0) // if it's not empty, you get  //  || parseFloat(elm.value)
@@ -340,7 +349,7 @@ Progress.prototype.get = function (e) {
 				if(elm_non_hidden.parents(".form-group").data('ever-changed') || elm_non_hidden.attr('type') == "hidden") //elm.value == elm_non_hidden.defaultValue) 
 			   {
 		   			items_answered_on_page += 0.5; // half a point for changing the default value
-					
+
 					if(elm_non_hidden[0].validity.valid) { // if it is valid like this, it gets half a point
 						items_answered_on_page += 0.5;
 					}
@@ -379,35 +388,16 @@ Progress.prototype.get = function (e) {
 	return prog;
 }
 
-function showIf(e)
+Survey.prototype.showIf = function(e)
 {
-	var badArray = $('form').serializeArray(); // get data live for current form
-	var subdata = {};
-	$.each(badArray, function(i, obj)
-	{
-		if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2); // special treatment for multiple multiple choice
-		if(!subdata[ obj.name ]) subdata[obj.name] = obj.value;
-		else subdata[obj.name] += ", " + obj.value; // mmcs are concatenated by comma
-	});
+	var survey = this;
 	$(".form-group[data-showif]").each(function(i,elm) // walk through all form elements that are dynamically shown/hidden
 	{
 		var showif = $(elm).data('showif'); // get specific condition
 
-		// primitive R to JS translation
-		showif = showif.replace(/current\(\s*(\w+)\s*\)/g, "$1"); // remove current function
-		showif = showif.replace(/tail\(\s*(\w+)\s*, 1\)/g, "$1"); // remove current function, JS evaluation is always in session
-		// all other R functions may break
-		showif = showif.replace(/"/g, "'"); // double quotes to single quotes
-		showif = showif.replace(/(^|[^&])(\&)([^&]|$)/g, "$1&$3"); // & operators, only single ones need to be doubled
-		showif = showif.replace(/(^|[^|])(\|)([^|]|$)g/, "$1&$3"); // | operators, only single ones need to be doubled
-		showif = showif.replace(/FALSE/g, "false"); // uppercase, R, FALSE, to lowercase, JS, false
-		showif = showif.replace(/TRUE/g, "true"); // uppercase, R, TRUE, to lowercase, JS, true
-		showif = showif.replace(/\s*\%contains\%\s*([a-zA-Z0-9_'"]+)/g,".indexOf($1) > -1");
-		showif = showif.replace(/\s*stringr::str_length\(([a-zA-Z0-9_'"]+)\)/g,"$1.length");
-		
 		try
 		{
-			with(subdata) // using the form data as the environment
+			with(survey.data) // using the form data as the environment
 			{
 				var hide = ! eval(showif); // evaluate the condition
 				$(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
