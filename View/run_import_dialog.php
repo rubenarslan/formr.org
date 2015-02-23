@@ -1,7 +1,7 @@
 <div class="import-run-dialog">
 	
 	<div class="form-group">
-		<label class="form-label">Select from existing exports</label>
+		<label class="form-label">Choose an existing complex building block</label>
 		<div class="control-group">
 			<select class="form-control">
 				<option>Select</option>
@@ -14,9 +14,9 @@
 	
 	<div class="form-group">
 		<div class="control-group">
-			<label class="form-label">Enter JSON import</label>
+			<label class="form-label">or use your own or a colleague's exported JSON here and import any run</label>
 			<div class="control-group">
-				<textarea name="json" class="form-control col-md-12 code-txt" placeholder="Paste valid run JSON here.." style="min-height: 150px;"></textarea>
+				<textarea name="json" class="form-control col-md-12 code-txt" placeholder="paste run JSON here.." style="min-height: 150px;"></textarea>
 			</div>
 		</div>
 	</div>

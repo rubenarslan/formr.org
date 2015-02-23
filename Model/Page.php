@@ -40,7 +40,7 @@ class Page extends RunUnit {
 		if (!$this->id) {
 			$this->id = parent::create('Page');
 		} else {
-			$this->modify($this->id);
+			$this->modify($options);
 		}
 
 		if (isset($options['body'])) {
@@ -68,8 +68,7 @@ class Page extends RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
-		$dialog = '<p><label>Title: <br>
-			<input class="form-control col-md-5" type="text" placeholder="Headline" name="title" value="' . h($this->title) . '"></label></p>
+		$dialog = '<p><input class="form-control col-md-5" type="text" placeholder="Page title" name="title" value="' . h($this->title) . '" placeholder="Title"></p>
 		<p><label>Text: <br>
 			<textarea data-editor="markdown" style="width:388px;" placeholder="You can use Markdown" name="body" rows="10" cols="60" class="form-control col-md-5">' . h($this->body) . '</textarea></label></p>';
 #			'<p><input type="hidden" name="end" value="0"><label><input type="checkbox" name="end" value="1"'.($this->can_be_ended ?' checked ':'').'> allow user to continue after viewing page</label></p>';
@@ -88,13 +87,6 @@ class Page extends RunUnit {
 
 	public function test() {
 		echo $this->getParsedBodyAdmin($this->body);
-#		if($this->can_be_ended)
-#		{
-#			$ret = '<form method="post" accept-charset="utf-8">';
-#			$ret = '<input type="button" class="btn btn-default btn-success" value="Continue!" name="page_submit">';
-#			$ret .= '</form>';
-#			echo $ret;
-#		}
 	}
 
 	public function exec() {

@@ -1,5 +1,4 @@
 <?php
-
 class Survey extends RunUnit {
 
 	public $id = null;
@@ -27,7 +26,7 @@ class Survey extends RunUnit {
 	public $admin_usage = false;
 	public $result_count = 0;
 	private $confirmed_deletion = false;
-	private $item_factory = null;
+	public $item_factory = null;
 
 	/**
 	 * @var DB
@@ -78,6 +77,27 @@ class Survey extends RunUnit {
 			$this->valid = true;
 		endif;
 	}
+	public function create($options) {
+		// this unit type is a bit special
+		// all other unit types are created only within runs
+		// but surveys are semi-independent of runs
+		// so it is possible to add a survey, without specifying which one at first
+		// and to then choose one.
+		// thus, we "mock" a survey at first
+		if (count($options) === 1 || isset($options['mock'])) {
+			$this->valid = true;
+		} else { // and link it to the run only later
+			if(isset($options['unit_id']) AND $options['unit_id']!='') {
+				$this->id = $options['unit_id'];
+				if ($this->linkToRun()) {
+					$this->load();
+				}
+			}
+			$this->modify($options);
+			$this->valid = true;
+			
+		}
+	}
 
 	public function render() {
 		global $js;
@@ -117,12 +137,25 @@ class Survey extends RunUnit {
 		unset($posted['created']); // cant overwrite
 		unset($posted['modified']); // cant overwrite
 		unset($posted['ended']); // cant overwrite
+		
+		if(isset($posted["_item_views"]["shown"])):
+			$posted["_item_views"]["shown"] = array_filter($posted["_item_views"]["shown"]);
+			$posted["_item_views"]["shown_relative"] = array_filter($posted["_item_views"]["shown_relative"]);
+			$posted["_item_views"]["answered"] = array_filter($posted["_item_views"]["answered"]);
+			$posted["_item_views"]["answered_relative"] = array_filter($posted["_item_views"]["answered_relative"]);
+		endif;
 
-		$answered = $this->dbh->prepare("
-			INSERT INTO `survey_items_display` (item_id, session_id, created, answered, answered_time, modified, displaycount) 
-			VALUES(:item_id,  :session_id, NOW(), 1, NOW(), NOW(), 1) 
-			ON DUPLICATE KEY UPDATE answered = 1, answered_time = NOW()");
-		$answered->bindParam(":session_id", $this->session_id);
+		$answered_q = $this->dbh->prepare(
+			"UPDATE `survey_items_display` SET 
+				answer = :answer, 
+				saved = :saved,
+				shown = :shown,
+				shown_relative = :shown_relative,
+				answered = :answered,
+				answered_relative = :answered_relative,
+				displaycount = displaycount+1
+			WHERE session_id = :session_id AND item_id = :item_id");
+		$answered_q->bindParam(":session_id", $this->session_id);
 
 		try {
 			$this->dbh->beginTransaction();
@@ -131,16 +164,16 @@ class Survey extends RunUnit {
 					continue;
 				}
 
-				$value = $this->unanswered[$name]->validateInput($value);
-				if ($this->unanswered[$name]->error) {
-					$this->errors[$name] = $this->unanswered[$name]->error;
-					continue;
-				}
-
 				$item_saved = true;
 				if ($this->unanswered[$name]->save_in_results_table) {
-					$post_form = $this->dbh->prepare("
-						UPDATE `{$this->results_table}` SET `$name` = :$name 
+					$value = $this->unanswered[$name]->validateInput($value);
+					if ($this->unanswered[$name]->error) {
+						$this->errors[$name] = $this->unanswered[$name]->error;
+						continue;
+					}
+
+					$post_form = $this->dbh->prepare(
+						"UPDATE `{$this->results_table}` SET `$name` = :$name 
 						WHERE session_id = :session_id AND study_id = :study_id AND `$name` IS NULL;
 					");
 
@@ -149,11 +182,34 @@ class Survey extends RunUnit {
 					$post_form->bindValue(":study_id", $this->id);
 					$item_saved = $post_form->execute();
 				}
+				// update item display table
+				$answered_q->bindParam(":item_id", $this->unanswered[$name]->id);
+				$answered_q->bindParam(":answer", $value);
 
-				$answered->bindParam(":item_id", $this->unanswered[$name]->id);
-				$item_answered = $answered->execute();
+				if(isset($posted["_item_views"]["shown"][$this->unanswered[$name]->id],
+						 $posted["_item_views"]["shown_relative"][$this->unanswered[$name]->id])):
+	 				$shown = $posted["_item_views"]["shown"][$this->unanswered[$name]->id];	 
+	 				$shown_relative = $posted["_item_views"]["shown_relative"][$this->unanswered[$name]->id];	 
+				else:
+					$shown = mysql_now();
+					$shown_relative = null; // and where this is null, performance.now wasn't available
+				endif;
+				if(isset($posted["_item_views"]["answered"][$this->unanswered[$name]->id], // separately to "shown" because of items like "note"
+					 	 $posted["_item_views"]["answered_relative"][$this->unanswered[$name]->id])):
+					$answered = $posted["_item_views"]["answered"][$this->unanswered[$name]->id];
+					$answered_relative = $posted["_item_views"]["answered_relative"][$this->unanswered[$name]->id];
+				else:
+					$answered = $shown; // this way we can identify items where JS time failed because answered and show time are exactly identical
+					$answered_relative = null;
+				endif;
+				$answered_q->bindValue(":saved", mysql_now());
+				$answered_q->bindParam(":shown", $shown);
+				$answered_q->bindParam(":shown_relative", $shown_relative);
+				$answered_q->bindParam(":answered", $answered);
+				$answered_q->bindParam(":answered_relative", $answered_relative);
+				$item_answered = $answered_q->execute();
 
-				if (!$item_saved && !$item_answered) {
+				if (!$item_saved OR !$item_answered) {
 					throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$this->results_table}' (FieldType: {$this->unanswered[$name]->getResultField()})");
 				}
 				unset($this->unanswered[$name]);
@@ -172,25 +228,24 @@ class Survey extends RunUnit {
 	}
 
 	protected function getProgress() {
-		$answered = $this->dbh->select(array('COUNT(`survey_items_display`.answered)' => 'count', 'study_id', 'session_id'))
-				->from('survey_items')
-				->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-				->where('survey_items_display.session_id IS NOT NULL')
-				->where('survey_items.study_id = :study_id')
-				->where("survey_items.type NOT IN ('mc_heading', 'submit')")
-				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
-				->fetch();
+		$answered = $this->dbh->select(array('COUNT(`survey_items_display`.saved IS NOT NULL)' => 'count', 'study_id', 'session_id'))
+			->from('survey_items')
+			->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
+			->where('survey_items_display.session_id IS NOT NULL')
+			->where('survey_items.study_id = :study_id')
+			->where("survey_items.type NOT IN ('mc_heading', 'submit')")
+			->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
+			->fetch();
 					
 		$this->already_answered = $answered['count'];
-
 		$this->not_answered = array_filter($this->unanswered, function ($item) {
 			if (
-					$item->hidden OR  // item was skipped
 					in_array($item->type, array('submit', 'mc_heading')) OR // these items require no user interaction and thus don't count against progress
-					( $item->type == 'note' AND $item->displaycount > 0) // item is a note and has already been viewed
+					( $item->type == 'note' AND $item->hasBeenRendered()) OR // item is a note and has already been viewed
+					!$item->willBeShown($this) // item was skipped
 			) {
 				return false;
-		}
+			}
 
 			return true;
 		});
@@ -291,7 +346,7 @@ class Survey extends RunUnit {
 			`survey_items_display`.answered')
 		->from('survey_items')
 		->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-		->where("survey_items.study_id = :study_id AND (survey_items_display.answered IS NULL OR survey_items.type = 'note')")
+		->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS NULL OR survey_items.type = 'note')")
 		->order('survey_items.order', 'ASC')->order('survey_items.id', 'ASC')
 		->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 		->statement();
@@ -299,42 +354,27 @@ class Survey extends RunUnit {
 		$choice_lists = $this->getAndRenderChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
 
-		while ($item_array = $get_items->fetch(PDO::FETCH_ASSOC)) {
+		while ($item_array = $get_items->fetch(PDO::FETCH_ASSOC)):
 			$name = $item_array['name'];
 			$item = $this->item_factory->make($item_array);
 
-			if (trim($item->showif) != null) {
-				$show = $this->item_factory->showif($this, $item->showif);
-
-				if ($show === null) { // we don't know what happens yet, maybe JS, maybe not
-					$item->hide();
-				} elseif (!$show) { // do not force this to be false, could be "0", 0, false
-					continue; // do not render, we know the result of this check, it's false!
-				} elseif (isset($this->item_factory->openCPU_errors[$item->showif])) {
-					$item->alwaysInvalid();
-					$item->error = $this->item_factory->openCPU_errors[$item->showif];
-				}
-			}
-
-			if ($item->no_user_input_required AND $item->needsDynamicValue()) { // determine value if there is a dynamic one and no user input is required
+			if ($item->no_user_input_required AND $item->needsDynamicValue() AND $item->mightBeShown($this)) { // determine value if there is a dynamic one and no user input is required
 				$item->determineDynamicValue($this);
 			}
 			$this->unanswered[$name] = $item;
-
-			if (!$item->hidden AND $item->no_user_input_required AND isset($item->input_attributes['value'])):
+			if ($item->no_user_input_required AND isset($item->input_attributes['value']) AND $item->mightBeShown($this)):
 				$this->post(array($item->name => $item->input_attributes['value']), false); # add this data but don't reload
 			endif;
-		}
+		endwhile;
 	}
 
 	protected function renderNextItems() {
 
 		$this->dbh->beginTransaction();
 
-		$view_query = "
-			INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created, modified)
-											     VALUES(:item_id, :session_id, 1,				 NOW(), NOW()	) 
-		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1, modified = NOW()";
+		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created)
+			VALUES(:item_id, :session_id, 0, NOW() ) 
+		ON DUPLICATE KEY UPDATE displaycount = displaycount + 1";
 		$view_update = $this->dbh->prepare($view_query);
 		$view_update->bindValue(":session_id", $this->session_id);
 
@@ -346,8 +386,8 @@ class Survey extends RunUnit {
 			foreach ($this->unanswered as &$item) {
 				if ($this->settings['maximum_number_displayed'] != null AND $itemsDisplayed >= $this->settings['maximum_number_displayed']) {
 				$item_will_be_rendered = false;
-			}
-			if ($item_will_be_rendered) {
+				}
+			if ($item_will_be_rendered AND $item->mightBeShown($this)) {
 				if ($item->type === 'submit') {
 					if ($itemsDisplayed === 0):
 						continue; // skip submit buttons once everything before them was dealt with	
@@ -361,7 +401,7 @@ class Survey extends RunUnit {
 						 * this is the end of the survey OR the next item is hidden OR the next item isn't a normal item
 						 * @todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
 						 */
-						if ($item->displaycount > 0 AND ($next === false OR $next->hidden === true OR in_array($next->type, array('note', 'submit', 'mc_heading')))) {
+						if ($item->hasBeenRendered() AND ($next === false OR in_array($next->type, array('note', 'submit', 'mc_heading')) OR !$next->willBeShown($this))) {
 						continue; // skip this note							
 					}
 				} else if ($item->type === "mc_heading") {
@@ -370,13 +410,15 @@ class Survey extends RunUnit {
 						 * If this is the end of the survey OR the next item is hidden OR the next item isn't a mc item
 						 * then skip mc_heading
 						 */
-						if ($next === false OR $next->hidden === true OR !in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button'))) {
+						if ($next === false OR !in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button')) OR !$next->willBeShown($this)) {
 						continue; // skip this mc_heading
 					}
 				}
-
+				
+				$view_update->bindParam(":item_id", $item->id);
+				$view_update->execute(); // if it's rendered, we send it along here.
+				
 				if (!$item->hidden) {
-					$item->viewedBy($view_update);
 					$itemsDisplayed++;
 				}
 
@@ -391,7 +433,7 @@ class Survey extends RunUnit {
 				 * item is a note and has already been viewed
 				 * Then item is not answered on current page
 				 */
-				if ($item->hidden OR in_array($item->type, array('submit', 'mc_heading')) OR ($item->type == 'note' AND $item->displaycount > 0)) {
+				if (in_array($item->type, array('submit', 'mc_heading')) OR ($item->type == 'note' AND $item->hasBeenRendered()) OR !$item->willBeShown($this)) {
 				return false;
 		}
 				return true;
@@ -624,22 +666,6 @@ class Survey extends RunUnit {
 
 	/* ADMIN functions */
 
-	public function create($options) {
-		// this unit type is a bit special
-		// all other unit types are created only within runs
-		// but surveys are semi-independent of runs
-		// so it is possible to add a survey, without specifying which one at first
-		// and to then choose one.
-		// thus, we "mock" a survey at first
-		if (count($options) === 1 || isset($options['mock'])) {
-			$this->valid = true;
-		} else { // and link it to the run only later
-			$this->id = $options['unit_id'];
-			if ($this->linkToRun()) {
-				$this->load();
-	}
-		}
-	}
 
 	public function createIndependently() {
 		$name = trim($this->unit['name']);
@@ -1017,20 +1043,20 @@ class Survey extends RunUnit {
 		return $this->dbh->select('
 			`survey_run_sessions`.session,
 			`survey_items`.name,
-		`survey_items_display`.id,
-		`survey_items_display`.item_id,
-		`survey_items_display`.session_id,
+		`survey_items_display`.answer,
 		`survey_items_display`.created,
-		`survey_items_display`.modified,
-		`survey_items_display`.answered_time,
+		`survey_items_display`.saved,
+		`survey_items_display`.shown,
+		`survey_items_display`.shown_relative,
 		`survey_items_display`.answered,
-			`survey_items_display`.displaycount')
+		`survey_items_display`.answered_relative,
+		`survey_items_display`.displaycount')
 		->from('survey_items_display')
 		->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
 		->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
 		->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
 		->where('survey_items.study_id = :study_id')
-		->order('survey_run_sessions.session')->order('survey_run_sessions.created')->order('survey_items_display.item_id')
+		->order('survey_run_sessions.session')->order('survey_run_sessions.created')->order('survey_unit_sessions.created')->order('survey_items_display.item_id')
 		->bindParams(array('study_id' => $this->id))
 		->fetchAll();
 	}
@@ -1117,39 +1143,48 @@ class Survey extends RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
+		
+		global $user;
+		$studies = $this->dbh->select('id, name')->from('survey_studies')->where(array('user_id' => $user->id))->fetchAll();
+
+		if ($studies):
+			$dialog = '<div class="form-group">';
+			$dialog .= '<select class="select2" name="unit_id" style="width:300px">';
+			
+			if($this->id === null)
+				$dialog .= '<option value=""></option>';
+			foreach ($studies as $study):
+				$selected = "";
+				if($this->id === $study['id']) $selected = "selected";
+				$dialog .= "<option value=\"{$study['id']}\" $selected>{$study['name']}</option>";
+			endforeach;
+			$dialog .= "</select>";
+			$dialog .= '</div>';
+		else:
+			$dialog = "<h5>No studies. <a href='" .  admin_study_url() . "'>Add some first</a></h5>";
+		endif;
+		
 		if ($this->id):
 			$resultCount = $this->howManyReachedItNumbers();
 
 			$time = $this->getAverageTimeItTakes();
 
-			$dialog = "
-				<h3>
-				<strong>Survey:</strong> <a href='" . WEBROOT . "admin/survey/{$this->name}/index'>{$this->name}</a><br>
-					<small>" . (int) $resultCount['finished'] . " complete results, " . (int) $resultCount['begun'] . " begun</small><br>
-			<small title='Median duration that it takes to complete the survey, only completers accounted for'>Median duration: $time minutes</small>
-			</h3>
+			$dialog .= "
+			<p>" . (int) $resultCount['finished'] . " complete <a href='" . admin_study_url($this->name, 'show_results') . "'>results</a>, " . (int) $resultCount['begun'] . " begun <abbr class='hastooltip' title='Median duration participants needed to complete the survey'>(in ~{$time}m)</abbr>
+			</p>
 			<p class='btn-group'>
-					<a class='btn' href='" . admin_study_url($this->name, 'show_results') . "'>View results</a>
 					<a class='btn' href='" . admin_study_url($this->name, 'show_item_table') . "'>View items</a>
-					<a class='btn' href='" . admin_study_url($this->name, 'access') . "'>Test</a>
+					<a class='btn' href='" . admin_study_url($this->name, 'upload_items') . "'>Upload items</a>
 			</p>";
-		else:
-			global $user;
-			$studies = $this->dbh->select('id, name')->from('survey_studies')->where(array('user_id' => $user->id))->fetchAll();
-
-			if ($studies):
-				$dialog = '<div class="form-group">';
-				$dialog .= '<select class="select2" name="unit_id" style="width:300px">';
-				$dialog .= '<option value=""></option>';
-				foreach ($studies as $study):
-					$dialog .= "<option value=\"{$study['id']}\">{$study['name']}</option>";
-				endforeach;
-				$dialog .= "</select>";
-				$dialog .= '<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Add to this run.</a>';
-				$dialog .= '</div>';
-			else:
-				$dialog = "<h5>No studies. <a href='" .  admin_study_url() . "'>Add some first</a></h5>";
-			endif;
+			$dialog .= '<br><p class="btn-group">
+				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
+				<a class="btn btn-default unit_test" href="' . admin_study_url($this->name, 'access') . '">Test</a>
+				</p>';
+//		elseif($studies):
+else:
+			$dialog .= '<br><p class="btn-group">
+				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
+			</p>';
 		endif;
 
 		$dialog = $prepend . $dialog;
@@ -1199,7 +1234,7 @@ class Survey extends RunUnit {
 
 		if ($alterQuery) {
 			// prepend the alter table clause
-			$alterQuery[0] = "ALTER TABLE `{$this->name}` {$alterQuery[0]}";
+			$alterQuery[0] = "ALTER TABLE `{$this->results_table}` {$alterQuery[0]}";
 			$altQ = implode(',', $alterQuery);
 			$this->dbh->query($altQ);
 		}

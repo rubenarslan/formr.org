@@ -169,7 +169,7 @@ class RunSession {
 
 			if ($unit_session->id):
 				$updated = $this->dbh->update('survey_run_sessions', array('position' => $position), array('id' => $this->id));
-				$success = $updated !== false;
+				$success = $updated != 0;
 				if ($success):
 					$this->position = (int) $position;
 					return true;

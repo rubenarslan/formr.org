@@ -28,7 +28,7 @@ class Shuffle extends RunUnit {
 		if (!$this->id) {
 			$this->id = parent::create('Shuffle');
 		} else {
-			$this->modify($this->id);
+			$this->modify($options);
 		}
 
 		if (isset($options['groups'])) {
@@ -83,9 +83,9 @@ class Shuffle extends RunUnit {
 
 	public function exec() {
 		$group = $this->randomise_into_group();
-		$this->dbh->insert('survey_run_sessions', array(
+		$this->dbh->insert('shuffle', array(
 			'session_id' => $this->session_id,
-			'unit_id' => $this->unit,
+			'unit_id' => $this->id,
 			'group' => $group,
 			'created' => mysql_now()
 		));

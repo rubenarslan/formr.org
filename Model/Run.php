@@ -489,7 +489,7 @@ class Run {
 					}
 				} else {
 					if ($old_path == null) {
-						$old_path = 'assets/tmp/admin/' . crypto_token(66) . $file_ending;
+						$old_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
 					}
 					$path = new SplFileInfo(INCLUDE_ROOT . "webroot/" . $old_path);
 					$exists = file_exists($path->getPathname());
@@ -529,6 +529,7 @@ class Run {
 				`survey_run_units`.run_id,
 				`survey_run_units`.unit_id,
 				`survey_run_units`.position,
+				`survey_run_units`.description,
 				`survey_units`.type,
 				`survey_units`.created,
 				`survey_units`.modified')
@@ -760,7 +761,7 @@ class Run {
 				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit);
 				$unitObj->create((array) $unit);
 				if ($unitObj->valid) {
-					$unitObj->addToRun($this->id, $unitObj->position);
+					$unitObj->addToRun($this->id, $unitObj->position, (array) $unit );
 					// @todo check how to manage this because they are echoed only on next page load
 					//alert('<strong>Success.</strong> '.ucfirst($unitObj->type).' unit was created.','alert-success');
 					$createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());

@@ -153,6 +153,7 @@ class DB {
 	public function num_rows($query) {
 		# create a prepared statement
 		$stmt = $this->PDO->prepare($query);
+		$stmt->execute();
 		return $stmt->rowCount();
 	}
 

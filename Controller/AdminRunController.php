@@ -88,6 +88,8 @@ class AdminRunController extends AdminController {
 		$pagination = new Pagination($user_count, 200, true);
 		$limits = $pagination->getLimits();
 
+		$params[':admin_code'] = $this->user->user_code;
+
 		$users_query = "SELECT 
 			`survey_run_sessions`.id AS run_session_id,
 			`survey_run_sessions`.session,
@@ -103,7 +105,7 @@ class AdminRunController extends AdminController {
 		LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
 		LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
 		WHERE `survey_run_sessions`.run_id = :run_id $search
-		ORDER BY hang DESC, `survey_run_sessions`.last_access DESC
+		ORDER BY `survey_run_sessions`.session != :admin_code, hang DESC, `survey_run_sessions`.last_access DESC
 		LIMIT $limits;";
 
 		$g_users = $fdb->execute($users_query, $params);
@@ -111,20 +113,29 @@ class AdminRunController extends AdminController {
 		$users = array();
 		foreach ($g_users as $userx) {
 			$userx['Run position'] = "<span class='hastooltip' title='Current position in run'>({$userx['position']}</span> – <small>{$userx['unit_type']})</small>";
-			$userx['Session'] = "<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],0,10)."…</abbr></small>";
+			$itsyou = '';
+			if($userx['session'] == $this->user->user_code) $itsyou = '<i class="fa fa-user-md" title="This is you"></i> ';
+			$userx['Session'] = $itsyou."<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],0,10)."…</abbr></small>";
 			$userx['Created'] = "<small>{$userx['created']}</small>";
 			$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>".timetostr(strtotime($userx['last_access']))."</small>";
 			$userx['Action'] = "
-				<form class='form-inline form-ajax' action='".WEBROOT."admin/run/{$userx['run_name']}/ajax_send_to_position?session={$userx['session']}' method='post'>
-				<span class='input-group' style='width:160px'>
+				<form class='form-inline form-ajax' action='".WEBROOT."admin/run/{$userx['run_name']}/ajax_send_to_position' method='post'>
+				<span class='input-group' style='width:220px'>
 					<span class='input-group-btn'>
+					<a class='btn hastooltip' href='".WEBROOT."{$userx['run_name']}/?code=".urlencode($userx['session'])."' 
+					title='Pretend you are this user (you will really manipulate their data!'><i class='fa fa-user'></i></a>
+					
+					<a class='btn hastooltip link-ajax' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_remind?run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
+					title='Remind this user'><i class='fa fa-bullhorn'></i></a>
+					
 						<button type='submit' class='btn hastooltip'
 						title='Send this user to that position'><i class='fa fa-hand-o-right'></i></button>
 					</span>
+					<input type='hidden' name='session' value='{$userx['session']}'>
 					<input type='number' name='new_position' value='{$userx['position']}' class='form-control'>
-					<span class='input-group-btn'>
-						<a class='btn hastooltip link-ajax' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_remind?run_session_id={$userx['run_session_id']}&amp;session={$userx['session']}' 
-						title='Remind this user'><i class='fa fa-bullhorn'></i></a>
+					<span class='input-group-btn link-ajax-modal'>
+						<a class='btn hastooltip' data-toggle='modal' data-target='#confirm-delete' href='#' data-href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_deleteUser?run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
+						title='Delete this user and all their data (you'll have to confirm)'><i class='fa fa-trash-o'></i></a>
 					</span>
 				</span>
 			</form>";

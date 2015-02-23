@@ -1,9 +1,22 @@
 $(function(){
+    var $current_target;
 	$('.form-ajax').each(ajaxifyForm);
 	$('.link-ajax').each(ajaxifyLink);
-    
+    $('#confirm-delete').on('show.bs.modal', function(e) {
+        $current_target = $(e.relatedTarget);
+        var $modal = $(this);
+        $current_target.parents("tr").css("background-color","#ee5f5b");
+        $(this).find('.danger').attr('href', $current_target.data('href'));
+        ajaxifyLink(1,$(this).find('.danger'));
+        $(this).find('.danger').click(function(e) {
+            $current_target.css("color","#ee5f5b");
+            $modal.modal("hide");
+        });
+    }).on("hide.bs.modal", function(e) {
+        $current_target.parents("tr").css("background-color","transparent");
+//        $current_target = null;
+    });
 });
-
 function ajaxifyLink(i,elm) {
     $(elm).click(function(e)
     {
@@ -22,7 +35,8 @@ function ajaxifyLink(i,elm) {
     		.done($.proxy(function(data)
     		{
                 $(this).attr('href',old_href);
-                $(this).css('color','green');
+                if(!$(this).hasClass("danger"))
+                    $(this).css('color','green');
     		},this))
             .fail($.proxy(function(e, x, settings, exception) {
                 $(this).attr('href',old_href);

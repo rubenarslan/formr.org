@@ -34,7 +34,11 @@ class SpreadsheetReader {
 		ini_set('memory_limit', '1024M');
 		
 	    $objPHPExcel = new PHPExcel();
-		array_unshift($array, array_keys(current($array)));
+		$current = current($array);
+		if (!$current) {
+			return $objPHPExcel;
+		}
+		array_unshift($array, array_keys($current));
 		$objPHPExcel->getSheet(0)->fromArray($array);
 		
 		return $objPHPExcel;

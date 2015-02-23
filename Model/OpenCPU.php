@@ -15,11 +15,6 @@ class OpenCPU {
 	private $hash_of_call = null;
 	private $called_function = null;
 	private $posted = null;
-	/**
-	 *
-	 * @var DB
-	 */
-	private $dbh = null;
 
 	/**
 	 * This will store header information returned by curl
@@ -49,7 +44,6 @@ class OpenCPU {
 		$this->knitr_source = null;
 		$this->admin_usage = false;
 		$this->http_status = null;
-		$this->hash_of_call = null;
 		$this->called_function = null;
 		$this->session_location = null;
 		$this->session_token = null;
@@ -65,7 +59,7 @@ class OpenCPU {
 		// could I check here whether the dataset contains only null and not even send it to R? but that would break for e.g. is.na(email). hm.
 		if (isset($data['datasets'])) {
 			foreach ($data['datasets'] as $df_name => $content) {
-				$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("' . addslashes(json_encode($content, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)) . '"), stringsAsFactors=F)'. '
+				$this->user_data .= $df_name . ' = as.data.frame(jsonlite::fromJSON("' . addslashes(json_encode($content, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)) . '"), stringsAsFactors=F)
 ';
 			}
 			unset($data['datasets']);
@@ -73,7 +67,8 @@ class OpenCPU {
 
 		// add other variables in dataset
 		foreach ($data as $variable => $value) {
-			$this->user_data .= $variable . ' = ' . $value . '';
+			$this->user_data .= $variable . ' = ' . $value . '
+';
 		}
 	}
 
@@ -125,54 +120,48 @@ class OpenCPU {
 	}
 
 	private function returnParsed($result, $in = '') {
-		//$header_parsed = http_parse_headers($result['header']);
-		$header_parsed = $this->curl_info[CURL::RESPONSE_HEADERS];
-		if (isset($header_parsed['Location']) && isset($header_parsed['X-Ocpu-Session'])): # won't be there if openCPU is down
-			$this->session_location = $header_parsed['Location'];
-			$this->session_token = $header_parsed['X-Ocpu-Session'];
+
+		if(isset($this->curl_info[CURL::RESPONSE_HEADERS])): // won't be set if fed from cache
+			$header_parsed = $this->curl_info[CURL::RESPONSE_HEADERS];
+			if (isset($header_parsed['Location']) && isset($header_parsed['X-Ocpu-Session'])): # won't be there if openCPU is down
+				$this->session_location = $header_parsed['Location'];
+				$this->session_token = $header_parsed['X-Ocpu-Session'];
+			endif;
+
+			if (empty($result['post']) && empty($result['body'])):
+				formr_log("Count not find required info in '{$in}' to parse in results: CurlInfo: " . print_r($header_parsed, 1));
+				return null;
+			endif;
 		endif;
 
-		$post = $result['post'];
-		return $this->handleJSON($result['body'], $post, $in);
+		return $this->handleJSON($result['body']);
 	}
 	
-	private function handleJSON($body, $result = array(), $post = '', $in = '') {
+	private function handleJSON($body) {
 		$parsed = json_decode($body, true);
 
 		if ($parsed === null):
-			if($this->admin_usage):
-//				$this->handleErrors("There was an R error. If you don't find a problem, sometimes this may happen, if you do not test as part of a proper run, especially when referring to other surveys.", $result, $post, $in, "alert-danger", $loud);
-			endif;
-			return null;
-		else:
-			if (isset($parsed[0]) && is_string($parsed[0])) { // dont change type by accident!
-				$parsed = str_replace('/usr/local/lib/R/site-library/', $this->instance . '/ocpu/library/', $parsed[0]);
-			} elseif (isset($parsed[0])) {
+		elseif (array_key_exists(0,$parsed) && is_string($parsed[0])): // dont change type by accident!
+			$parsed = str_replace('/usr/local/lib/R/site-library/', $this->instance . '/ocpu/library/', $parsed[0]);
+		elseif (array_key_exists(0,$parsed)):
 				$parsed = $parsed[0];
-			}
-
-			$this->cache_query($result);
-			return $parsed;
 		endif;
+		return $parsed;
 	}
 
-	public function get($url, $in = 'get') {
-		$result = CURL::HttpRequest($url, array(), CURL::HTTP_METHOD_GET, $this->curl_opts, $this->curl_info);
-		if(endsWith($url, "/json")) {
-			return $this->handleJSON($result, array(), '', $in);
-		} else {
-			return $result;
-		}
+	public function get($url) {
+		return CURL::HttpRequest($url, array(), CURL::HTTP_METHOD_GET, $this->curl_opts, $this->curl_info);
 	}
 	public function getOld($url) {
-		return $this->get($url . 'R/.val/json', "getOld");
+		return $this->handleJSON($this->get($url . 'R/.val/json'));
 	}
 	public function r_function($function, array $post) {
 
 		used_opencpu();
-
-		if (($result = $this->query_cache($function, $post))) {
-			return $result;
+//		pr($function . "<br>" . current($post));
+		$hash_of_call = hash("md5", $function . json_encode($post));
+		if (($ret = $this->inCache($hash_of_call))) {
+			return $ret;
 		}
 
 		$this->called_function = $this->instance . '/ocpu/' . $function;
@@ -182,10 +171,13 @@ class OpenCPU {
 		if ($post !== null) {
 			$method = CURL::HTTP_METHOD_POST;
 			$this->posted = $post;
-			$params = $this->posted;
+			$params = http_build_query(array_map('cr2nl', $this->posted));
+			$curl_opts = $this->curl_opts + array(CURLOPT_HTTPHEADER => array(
+				'Content-Length: ' . strlen($params),
+			));
 		}
 
-		$result = CURL::HttpRequest($this->called_function, $params, $method, $this->curl_opts, $this->curl_info);
+		$result = CURL::HttpRequest($this->called_function, $params, $method, $curl_opts, $this->curl_info);
 
 		$this->http_status = $this->curl_info['http_code'];
 		$this->header_size = $this->curl_info['header_size'];
@@ -198,6 +190,8 @@ class OpenCPU {
 		$body = $result;
 
 		$ret = compact('header', 'body', 'post');
+		
+		$this->addToCache($hash_of_call, $ret);
 		return $ret;
 	}
 
@@ -205,33 +199,16 @@ class OpenCPU {
 		return $this->r_function('library/base/R/identity' . $return, $post);
 	}
 
-	private function query_cache($function, $post) {
-		$this->hash_of_call = hash("md5", $function . json_encode($post));
-
-		if (isset($this->hashes[$this->hash_of_call])) { // caching at the lowest level for where I forgot it elsewhere
+	private function inCache($hash_of_call) {
+		if (array_key_exists($hash_of_call, $this->hashes)) { // caching at the lowest level for where I forgot it elsewhere
 			used_cache();
-			return $this->hashes[$this->hash_of_call];
-		} elseif ($this->dbh !== null) {
-			$result = $this->dbh->findRow('survey_opencpu_query_cache', array('hash' => $this->hash_of_call), array('result_short'));
-			if ($result){
-				$result['post'] = $post;
-				$result['body'] = array();
-
-				if ($result['result_short'] != 9) {
-					$result['body'][0] = $result['result_short'];
-				} else {
-					$result = $this->dbh->findRow('survey_opencpu_query_cache', array('hash' => $this->hash_of_call), array('result_long'));
-					$result['body'][0] = $result['result_long'];
-				}
-
-				return $result;
-			}
+			return $this->hashes[$hash_of_call];
 		}
 
 		return false;
 	}
 
-	private function cache_query($result) {
+	private function addToCache($hash_of_call, $result) {
 		$header_parsed = $this->curl_info[CURL::RESPONSE_HEADERS];
 
 		if (isset($header_parsed['X-Ocpu-Cache']) AND $header_parsed['X-Ocpu-Cache'] == "HIT") {
@@ -248,26 +225,7 @@ class OpenCPU {
 		}
 
 		// If we are here then we can cache
-		$this->hashes[$this->hash_of_call] = $result;
-		if ($this->dbh !== null) {
-			$location = $header_parsed['Location'];
-			if (isset($header_parsed['Content-Type']) && $header_parsed['Content-Type'] == 'application/json') {
-				$location .= 'R/.val/json';
-			}
-
-			$result_short = 9;
-			if ($result['body'] == true || $result['body'] == false) {
-				$result_short = $result['body'];
-			}
-
-			$this->dbh->insert('survey_opencpu_query_cache', array(
-				'created' => mysql_now(),
-				'hash' => $this->hash_of_call,
-				'result_short' => $result_short,
-				'result_long' => $location,
-			));
-		}
-
+		$this->hashes[$hash_of_call] = $result;
 		return true;
 	}
 
@@ -343,14 +301,13 @@ $source;
 		$source = '```{r settings,message=FALSE,warning=F,echo=F}
 library(knitr); library(formr)
 opts_chunk$set(warning=F,message=F,echo=F)
-opts_knit$set(upload.fun=formr::email_image)
+opts_knit$set(upload.fun=function(x) { paste0("cid:", basename(x)) })
 ' . $this->user_data . '
 ```
 '.
 $source;
 
 		$result = $this->knit2html($source, '', 0);
-
 		if ($this->anyErrors()):
 			$response = array(
 				'Response' => '<pre>' . htmlspecialchars($result['body']) . '</pre>',
@@ -358,7 +315,6 @@ $source;
 			);
 		else:
 			$header_parsed = $this->curl_info[CURL::RESPONSE_HEADERS];
-
 			if (isset($header_parsed['X-Ocpu-Session'])) {
 				$session = '/ocpu/tmp/' . $header_parsed['X-Ocpu-Session'] . '/';
 			} else {
@@ -375,7 +331,7 @@ $source;
 				$upto = mb_strpos($part, $rmarkdown_fig_path);
 				$is_figure = mb_strpos($part, "/figure-html/");
 				if ($is_figure !== false):
-					$image_id = preg_replace("/[^a-zA-Z0-9]/", '', mb_substr($part, $upto + 1 + strlen($rmarkdown_fig_path))) . '.png'; // 
+					$image_id = basename($part);
 					$response['images'][$image_id] = $this->instance . $part;
 				endif;
 			endforeach;
@@ -449,7 +405,7 @@ $source;
 				// info/text stdout/text console/text R/.val/text
 
 				if (in_array($session . 'R/.val', $available)):
-					$response['Result'] = $this->get($this->instance . $session . 'R/.val/json');
+					$response['Result'] = $this->get($this->instance . $session . 'R/.val/text');
 				endif;
 
 				$locations = '';

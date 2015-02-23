@@ -42,7 +42,6 @@ class ItemFactory {
 			array_keys($this->choice_lists), array_keys($this->used_choice_lists)
 		);
 	}
-
 	public function showif($survey, $showif) {
 		if (array_key_exists($showif, $this->showifs)) {
 			return $this->showifs[$showif];
@@ -98,7 +97,7 @@ class Item extends HTML_element {
 	public $showif = null;
 	public $value = null; // syntax for sticky value
 	public $order = null;
-	public $displaycount = 0;
+	public $displaycount = null;
 	public $error = null;
 	public $dont_validate = null;
 	public $val_errors = array();
@@ -169,7 +168,7 @@ class Item extends HTML_element {
 			$this->classes_wrapper[] = "has-error";
 		}
 		
-		if (isset($options['displaycount']) AND $options['displaycount'] > 0) {
+		if (isset($options['displaycount']) AND $options['displaycount'] !==null) {
 			$this->displaycount = $options['displaycount'];
 			if (!$this->error) {
 				$this->classes_wrapper[] = "has-warning";
@@ -215,7 +214,35 @@ class Item extends HTML_element {
 
 		if (in_array("label_as_placeholder", $this->classes_wrapper)) {
 			$this->input_attributes['placeholder'] = $this->label;
+		}
 	}
+	public function hasBeenRendered() {
+		return $this->displaycount !== null;
+	}
+	public function hasBeenViewed() {
+		return $this->displaycount > 0;
+	}
+	public function mightBeShown($survey) {
+		$probably_render = true;
+		if (trim($this->showif) != null) {
+			$probably_render = $survey->item_factory->showif($survey, $this->showif);
+
+			if ($probably_render === null) { // we don't know what happens yet, maybe JS, maybe not
+				$this->hide();
+				$probably_render = true;
+			} elseif (!$probably_render) { // do not force this to be false, could be "0", 0, false, but not NULL!
+				$this->hide();
+				$probably_render = false;
+			} elseif (isset($survey->item_factory->openCPU_errors[$this->showif])) {
+				$this->alwaysInvalid();
+				$this->error = $survey->item_factory->openCPU_errors[$this->showif];
+			}
+		}
+		return $probably_render;
+	}
+	public function willbeShown($survey) {
+		$this->mightBeShown($survey);
+		return !$this->hidden;
 	}
 
 	protected function chooseResultFieldBasedOnChoices() {
@@ -280,11 +307,6 @@ class Item extends HTML_element {
 		return $this->val_errors;
 	}
 	
-	public function viewedBy($view_update) {		
-		$view_update->bindParam(":item_id", $this->id);
-   	   	$view_update->execute();
-	}
-
 	public function validateInput($reply) {
 		$this->reply = $reply;
 
@@ -338,13 +360,15 @@ class Item extends HTML_element {
 					'</div></div>
 		';
 	}
-
+	protected function render_item_view_input() {
+		return '<input class="item_shown" type="hidden" name="_item_views[shown]['.$this->id.']"><input class="item_shown_relative" type="hidden" name="_item_views[shown_relative]['.$this->id.']"><input class="item_answered" type="hidden" name="_item_views[answered]['.$this->id.']"><input class="item_answered_relative" type="hidden" name="_item_views[answered_relative]['.$this->id.']">';
+	}
 	public function render() {
 		if ($this->error) {
 			$this->classes_wrapper[] = "has-error";
 		}
 		
-		return '<div class="' . implode(" ", $this->classes_wrapper) . '"' . ($this->data_showif ? ' data-showif="' . h($this->showif) . '"' : '') . '>' . $this->render_inner() . '</div>';
+		return '<div class="' . implode(" ", $this->classes_wrapper) . '"' . ($this->data_showif ? ' data-showif="' . h($this->showif) . '"' : '') . '>' . $this->render_inner() . $this->render_item_view_input() .'</div>';
 	}
 
 	protected function splitValues() {
@@ -357,10 +381,12 @@ class Item extends HTML_element {
 	}
 
 	public function hide() {
-		$this->classes_wrapper[] = "hidden";
-		$this->data_showif = true;
-		$this->input_attributes['disabled'] = true; ## so it isn't submitted or validated
-		$this->hidden = true; ## so it isn't submitted or validated
+		if(!$this->hidden):
+			$this->classes_wrapper[] = "hidden";
+			$this->data_showif = true;
+			$this->input_attributes['disabled'] = true; ## so it isn't submitted or validated
+			$this->hidden = true; ## so it isn't submitted or validated
+		endif;
 	}
 
 	public function needsDynamicLabel() {
@@ -901,15 +927,6 @@ class Item_note extends Item {
 		return $reply;
 	}
 
-/*	protected function render_inner() 
-	{
-		return '
-					<div class="'. implode(" ",$this->classes_label) .'">'.
-					$this->label_parsed.
-					'</div>
-		';
-	}
-	*/
 }
 
 class Item_submit extends Item {
@@ -917,6 +934,7 @@ class Item_submit extends Item {
 	public $type = 'submit';
 	public $input_attributes = array('type' => 'submit');
 	public $mysql_field = null;
+	public $save_in_results_table = false;
 	
 	protected function setMoreOptions() {
 		$this->classes_wrapper = array('form-group');
@@ -925,13 +943,8 @@ class Item_submit extends Item {
 		$this->classes_input[] = 'btn-info';
 	}
 
-	public function validateInput($reply) {
-		$this->error = _("You cannot answer buttons.");
-		return $reply;
-	}
-
 	protected function render_inner() {
-		return '<button ' . self::_parseAttributes($this->input_attributes, array('required', 'name', 'value')) . '>' . $this->label_parsed . '</button>';
+		return '<button ' . self::_parseAttributes($this->input_attributes, array('required', 'value')) . '>' . $this->label_parsed . '</button>';
 	}
 
 }
@@ -1693,20 +1706,16 @@ class Item_mc_heading extends Item_mc {
 
 	public $type = 'mc_heading';
 	public $mysql_field = null;
+	public $save_in_results_table = false;
 	
 	protected function setMoreOptions() {
 		$this->input_attributes['disabled'] = 'disabled';
 	}
 
-	public function validateInput($reply) {
-		$this->error = _("You cannot answer headings.");
-		return $reply;
-	}
-
 	protected function render_label() {
 		return '<div class="' . implode(" ", $this->classes_label) . '">' .
 					($this->error ? '<span class="label label-danger hastooltip" title="' . $this->error . '"><i class="fa fa-exclamation-triangle"></i></span> ' : '') . $this->label . 
-				'</div>
+				'<input type="hidden" name="'.$this->name.'" value="1"></div>
 		';
 	}
 

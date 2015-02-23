@@ -5,7 +5,10 @@
  */
 
 function formr_log($msg) {// shorthand
-	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/formr_error.log");
+	if(!is_string($msg)) $msg = print_r($msg, true);
+	$msg = date('Y-m-d H:i:s') . ' ' . $msg;
+	if(DEBUG) alert("<pre>".$msg."</pre>", "alert-danger");
+	error_log($msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/formr_error.log");
 }
 
 function opencpu_log_warning($msg) {// shorthand
@@ -22,8 +25,11 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) { // shortha
 }
 
 function log_exception(Exception $e, $prefix = '', $debug_data = null) {
-	error_log($prefix . ' Exception: ' . $e->getMessage());
-	error_log($prefix . ' Exception: ' . $e->getTraceAsString());
+	$msg = $prefix . ' Exception: ' . $e->getMessage(). "\n" .
+		 $e->getTraceAsString();
+	if(DEBUG) alert("<pre>".$msg."</pre>", "alert-danger");
+
+	error_log($msg);
 	if ($debug_data !== null) {
 		error_log('Debug Data: ' . print_r($debug_data, 1));
 	}
@@ -127,6 +133,21 @@ function pr($string) {
 		formr_log($string);
 	}
 }
+function prb($string = null) {
+	static $output = "";
+	if($string === null) {
+		if (DEBUG > 0) {
+			echo "<pre>";
+			var_dump($string);
+	#		print_r(	debug_backtrace());
+			echo "</pre>";
+		} else {
+			formr_log($string);
+		}
+	} else {
+		$output .= "<br>". $string;
+	}
+}
 
 if (!function_exists('_')) {
 
@@ -139,40 +160,43 @@ if (!function_exists('_')) {
 function used_opencpu($echo = false) {
 	static $used;
 	if ($echo):
-		pr($used);
-		return;
+		pr("Requests: ".$used);
+		return $used;
 	endif;
 	if (isset($used)) {
 		$used++;
 	} else {
 		$used = 1;
 	}
+	return $used;
 }
 
 function used_cache($echo = false) {
 	static $used;
 	if ($echo):
-		pr($used);
-		return;
+		pr("Hashcache: ".$used);
+		return $used;
 	endif;
 	if (isset($used)) {
 		$used++;
 	} else {
 		$used = 1;
 	}
+	return $used;
 }
 
 function used_nginx_cache($echo = false) {
 	static $used;
 	if ($echo):
-		pr($used);
-		return;
+		pr("Nginx: ".$used);
+		return $used;
 	endif;
 	if (isset($used)) {
 		$used++;
 	} else {
 		$used = 1;
 	}
+	return $used;
 }
 
 if (!function_exists('__')) {
@@ -481,22 +505,21 @@ function echo_time_points($points) {
 //	echo "--->";
 }
 
-function crypto_token($length, $url = false) {
+function crypto_token($length, $url = true) {
 	$bytes = openssl_random_pseudo_bytes($length, $crypto_strong);
-	if ($url):
-		$base64 = base64url_encode($bytes);
-	else:
-		$base64 = base64_encode($bytes);
-	endif;
-	if (!$crypto_strong):
+	$base64 = base64_url_encode($bytes);
+		if (!$crypto_strong):
 		alert("Generated cryptographic tokens are not strong.", 'alert-error');
 		bad_request();
 	endif;
 	return $base64;
 }
 
-function base64url_encode($data) {
-	return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+function base64_url_encode($data) {
+	return strtr(base64_encode($data), '+/=', '-_~');
+}
+function base64_url_decode($data) {
+	return base64_decode(strtr($data,  '-_~', '+/='));
 }
 
 /**
@@ -690,14 +713,14 @@ function run_url($name = '') {
 	return RUNROOT . $name;
 }
 
-function admin_study_url($name, $action = '') {
+function admin_study_url($name = '', $action = '') {
 	if ($action) {
 		$name = $name . '/' . $action;
 	}
 	return admin_url('survey/' . $name);
 }
 
-function admin_run_url($name, $action = '') {
+function admin_run_url($name = '', $action = '') {
 	if ($action) {
 		$name = $name . '/' . $action;
 	}
@@ -744,5 +767,72 @@ function array_to_orderedlist($array, $olclass = null, $liclass = null) {
 	}
 	$ol .= '</ol>';
 	return $ol;
+}
+
+/*** These functions should not be here */
+
+/**
+ * Execute a piece of code against OpenCPU
+ *
+ * @param string $code Each code line should be separated by a newline characted
+ * @param string $return_format String like 'json'
+ * @param string $context If this paramter is set, $code will be evaluated with a context
+ * @return mixed Returns response from open CPU
+*/
+function evaluateR($code, $openCPUParams = array(), $return_format = 'json', $context = null) {
+	$ocpu = OpenCPU::getInstance();
+	$variables = $ocpu->parseSessionVariables($openCPUParams);
+
+	if ($context !== null) {
+		$code = 'with(tail(' . $context . ', 1), { '
+. $code . '
+})';
+	}
+
+	$params = array('x' => '{ 
+(function() {
+	library(formr)
+	' . $variables . '
+	' . $code . '
+})() }');
+
+	$uri = '/base/R/identity/' . $return_format;
+	return $ocpu->post($uri, $params);
+}
+
+/**
+ * Call knit() function from the knitr R package
+ *
+ * @param string $code
+ * @param string $return_format
+ * @return mixed
+*/
+function knit($code, $return_format = 'json') {
+	$params = array('text' => "'" . addslashes($code) . "'");
+	$uri = '/knitr/R/knit/' . $return_format;
+	return OpenCPU::getInstance()->post($uri, $params);
+}
+
+function knit2HTML($source, $return_format = 'json', $self_contained = 1) {
+	$params = array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained);
+	$uri = '/formr/R/formr_render/' . $return_format;
+	return OpenCPU::getInstance()->post($uri, $params);
+}
+
+function knitEmail($source, array $openCPUParams = array(), $return_format = 'json') {
+	$ocpu = OpenCPU::getInstance();
+	$variables = $ocpu->parseSessionVariables($openCPUParams);
+	$source = '```{r settings,message=FALSE,warning=F,echo=F}
+library(knitr); library(formr)
+opts_chunk$set(warning=F,message=F,echo=F)
+opts_knit$set(upload.fun=formr::email_image)
+' . $variables . '
+```
+'.
+$source;
+
+	$params = array('text' => "'" . addslashes($source) . "'");
+	$uri = '/knitr/R/knit/' . $return_format;
+	return $ocpu->post($uri, $params);
 }
 

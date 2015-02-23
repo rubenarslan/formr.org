@@ -29,7 +29,7 @@ class External extends RunUnit {
 		if (!$this->id) {
 			$this->id = parent::create('External');
 		} else {
-			$this->modify($this->id);
+			$this->modify($options);
 		}
 
 		if (isset($options['address'])) {
@@ -76,7 +76,7 @@ class External extends RunUnit {
 	}
 
 	private function makeAddress($address) {
-		$login_link = WEBROOT . "{$this->run_name}?code={$this->session}";
+		$login_link = WEBROOT . "{$this->run_name}?code=". urlencode($this->session);
 		$address = str_replace("{{login_link}}", $login_link, $address);
 		$address = str_replace("{{login_code}}", $this->session, $address);
 		return $address;
@@ -85,6 +85,11 @@ class External extends RunUnit {
 	public function test() {
 		if ($this->isR()) {
 			if ($results = $this->getSampleSessions()) {
+				if (!$results) {
+					echo 'No data to compare to yet.';
+					return false;
+				}
+				
 				$openCPU = $this->makeOpenCPU();
 				$this->run_session_id = current($results)['id'];
 
