@@ -1,6 +1,6 @@
 <?php Template::load('header_nav'); ?>
 <div class="row">
-	<div class="col-md-8">
+	<div class="col-md-offset-1  col-md-8">
 		<h2>formr documentation</h2>
 		<p class="lead">
 			chain simple forms into longer runs,
@@ -13,7 +13,7 @@
 	</div>
 </div>
 <div class="row">
-	<div class="col-md-8">
+	<div class="col-md-offset-1 col-md-8">
 	
 		<ul class="nav nav-tabs">
 		  <li><a href="#run_module_explanations" data-toggle="tab">Run modules</a></li>

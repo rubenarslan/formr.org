@@ -101,7 +101,7 @@ class Survey extends RunUnit {
 
 	public function render() {
 		global $js;
-		$js = (isset($js) ? $js : '') . '<script src="' . WEBROOT . 'assets/survey.js"></script>';
+		$js = (isset($js) ? $js : '') . '<script src="' . WEBROOT . 'assets/js/survey.js"></script>';
 
 		$ret = '
 	<div class="row">
@@ -1179,7 +1179,7 @@ class Survey extends RunUnit {
 			</p>";
 			$dialog .= '<br><p class="btn-group">
 				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
-				<a class="btn btn-default unit_test" href="' . admin_study_url($this->name, 'access') . '">Test</a>
+				<a class="btn btn-default hastooltip" title="You should probably open this link in a new tab." href="' . admin_study_url($this->name, 'access') . '">Test</a>
 				</p>';
 //		elseif($studies):
 else:

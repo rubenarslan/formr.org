@@ -12,3 +12,5 @@ formr-package/man
 /nbproject
 /tmp/backups/results/*.*
 /webroot/assets/tmp/admin/*.*
+/webroot/assets/node_modules/*
+/webroot/assets/bower_components/*

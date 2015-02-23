@@ -36,7 +36,7 @@
 					<a title="Just send us an email. We're excited to have people try this out, so you'll get a test account, if you're human or at least cetacean." class="schmail" href="mailto:IMNOTSENDINGSPAMTOruben.arslan@that-big-googly-eyed-email-provider.com?subject=<?=rawurlencode("formr private beta");?>&amp;body=<?=rawurlencode("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above.
 
 Hi!
-I'd like an admin account on formr. 
+I'd like an admin account on formr. I'm totally not a robot.
 I already have registered with the email address from which I'm sending this request. 
 I'm affiliated with institution xxxx.
 ");?>">request an admin account</a> or
