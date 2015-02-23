@@ -10,3 +10,5 @@ formr-package/man
 /createclassmap.php
 /tmp/logs/*
 /nbproject
+/tmp/backups/results/*.*
+/webroot/assets/tmp/admin/*.*

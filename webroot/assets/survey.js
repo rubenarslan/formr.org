@@ -281,7 +281,7 @@ $(document).ready(function() {
 	});
     
     var pageload_time = mysql_datetime();
-    var relative_time = performance.now();
+    var relative_time = window.performance ? performance.now() : 0;
     $('form').find("input.item_shown, input.item_shown_relative, input.item_answered, input.item_answered_relative").change(function(e) { e.stopPropagation(); });
 	$(".form-group:not([data-showif])").each(function(i,elm) // walk through all form elements that are automatically shown
 	{
@@ -329,7 +329,7 @@ function getProgress()
 			$(elm_non_hidden).parents(".form-group").change(function(){
 			   $(this).data('ever-changed', true);
                $(this).find("input.item_answered").val(mysql_datetime());
-               $(this).find("input.item_answered_relative").val(performance.now());
+               $(this).find("input.item_answered_relative").val(window.performance ? performance.now() : 0);
 			});
 		}
 		
@@ -388,7 +388,7 @@ function showIf(e)
 	var subdata = {};
 	$.each(badArray, function(i, obj)
 	{
-		if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2); // special treatment for multiple multiple choice
+		if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0, obj.name.length - 2); // special treatment for multiple multiple choice
 		if(!subdata[ obj.name ]) subdata[obj.name] = obj.value;
 		else subdata[obj.name] += ", " + obj.value; // mmcs are concatenated by comma
 	});
@@ -418,7 +418,7 @@ function showIf(e)
 				$(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
                 if(! hide) {
                     $(elm).find("input.item_shown").val(mysql_datetime());
-                    $(elm).find("input.item_shown_relative").val(performance.now());
+                    $(elm).find("input.item_shown_relative").val(window.performance ? performance.now() : 0);
                 }
 			}
 		}
