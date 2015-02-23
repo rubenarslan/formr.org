@@ -604,7 +604,7 @@ class Item_number extends Item {
 
 	public function validateInput($reply) { // fixme: input is not re-displayed after this
 		$reply = trim(str_replace(",", ".", $reply));
-		if(!$reply AND (int)$reply !== 0 AND $this->optional) {
+		if(!$reply AND $reply !== 0 AND $this->optional) {
 			return null;
 		}
 
