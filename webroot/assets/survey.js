@@ -36,15 +36,86 @@ $(document).ready(function() {
 			$(this).closest('.input-group-btn.hidden').removeClass('hidden');
 		});
 	});
-	// fixme: FOUCs for rating_buttons etc in IE8
-	
-	webshim.ready('forms forms-ext dom-extend form-validators',function() {
-		webshim.addCustomValidityRule('always_invalid', function(elem, val){
-			if(!$(elem).hasClass('always_invalid')){return;}
-			return true;
-		}, 'Cannot submit while there are problems with openCPU.');
-		webshim.refreshCustomValidityRules();
+	webshim.ready('forms forms-ext dom-extend', function()
+    {
+        var radios = $('div.btn-radio button.btn');
+        radios.closest('div.btn-group').removeClass('hidden');
+        radios.closest('.controls').find('label[class!=keep-label]').addClass('hidden');
+		radios.off('click').each(function() {
+			var $btn = $(this);
+          
+			var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
+			$btn.toggleClass('btn-checked', is_checked_already);
+		
+			new FastClick(this);
+		
+			webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
+		}).click(function(event){
+			var $btn = $(this);
+			$('#'+$btn.attr('data-for')).prop('checked',true); // couple with its radio button
+			var all_buttons = $btn.closest('div.btn-group').find('button.btn'); // find all buttons
+			all_buttons.removeClass('btn-checked'); // uncheck all
+			$btn.addClass('btn-checked'); // check this one
+			$btn.change();
+			return false;
+		});
 
+
+		$('div.btn-checkbox button.btn').off('click').click(function(event){
+			var $btn = $(this);
+			var checked = $('#'+$btn.attr('data-for')).prop('checked');
+			$('#'+$btn.attr('data-for')).prop('checked',!checked); // couple with its radio button
+			$btn.toggleClass('btn-checked',!checked); // check this one
+			$('#'+$btn.attr('data-for')).change();
+		
+			return false;
+		}).each(function() {
+			var $btn = $(this);
+			var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
+			$btn.toggleClass('btn-checked', is_checked_already);
+		
+			$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
+			$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
+
+			new FastClick(this);
+
+			webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
+		});
+        
+		$('div.btn-check button.btn').off('click').click(function(event){
+			"use strict";
+			var $btn = $(this);
+			$('#'+$btn.attr('data-for')).trigger("togglecheck"); // toggle the button
+			return false;
+		}).each(function() {
+			"use strict";
+			var $btn = $(this);
+			var $original_box = $('#'+$btn.attr('data-for'));
+		
+			$original_box.change(function()
+			{
+				var checked = !!$(this).prop('checked');
+				var $btn = $('button.btn[data-for="'+ this.id +'"]');
+				$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
+			})
+			.change()
+			.on('togglecheck',function()
+			{
+				var checked = !!$(this).prop('checked');
+				$(this).prop('checked',!checked); // toggle check
+				$(this).change(); // trigger change event to sync up
+			});
+		
+			$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
+			$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
+		
+			new FastClick(this);
+		
+			webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
+		});
+        
+	
+		
 		$('.item-number.counter input[type=number]').each(function() {
 			var $input = $(this)
 			$input.parents("span").hide();
@@ -79,82 +150,6 @@ $(document).ready(function() {
 			new FastClick(btns.find(".btn-down"));
 			new FastClick(btns.find(".btn-up"));
 		});
-	
-		$('div.btn-radio button.btn').off('click').click(function(event){
-			var $btn = $(this);
-			$('#'+$btn.attr('data-for')).prop('checked',true); // couple with its radio button
-			var all_buttons = $btn.closest('div.btn-group').find('button.btn'); // find all buttons
-			all_buttons.removeClass('btn-checked'); // uncheck all
-			$btn.addClass('btn-checked'); // check this one
-			$btn.change();
-			return false;
-		}).each(function() {
-			var $btn = $(this);
-			var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
-			$btn.toggleClass('btn-checked', is_checked_already);
-		
-			$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-			$btn.closest('.controls').find('label[class!=keep-label]').addClass('hidden'); // hide normal radio buttons
-		
-			new FastClick(this);
-		
-			webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
-		});
-		
-		$('div.btn-checkbox button.btn').off('click').click(function(event){
-			var $btn = $(this);
-			var checked = $('#'+$btn.attr('data-for')).prop('checked');
-			$('#'+$btn.attr('data-for')).prop('checked',!checked); // couple with its radio button
-			$btn.toggleClass('btn-checked',!checked); // check this one
-			$('#'+$btn.attr('data-for')).change();
-		
-			return false;
-		}).each(function() {
-			var $btn = $(this);
-			var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
-			$btn.toggleClass('btn-checked', is_checked_already);
-		
-			$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-			$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
-
-			new FastClick(this);
-
-			webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
-		});
-		
-	
-		$('div.btn-check button.btn').off('click').click(function(event){
-			"use strict";
-			var $btn = $(this);
-			$('#'+$btn.attr('data-for')).trigger("togglecheck"); // toggle the button
-			return false;
-		}).each(function() {
-			"use strict";
-			var $btn = $(this);
-			var $original_box = $('#'+$btn.attr('data-for'));
-		
-			$original_box.change(function()
-			{
-				var checked = !!$(this).prop('checked');
-				var $btn = $('button.btn[data-for="'+ this.id +'"]');
-				$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
-			})
-			.change()
-			.on('togglecheck',function()
-			{
-				var checked = !!$(this).prop('checked');
-				$(this).prop('checked',!checked); // toggle check
-				$(this).change(); // trigger change event to sync up
-			});
-		
-			$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-			$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
-		
-			new FastClick(this);
-		
-			webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
-		});
-	
 		$("select.select2zone, .form-group.select2 select").each(function(i,elm)
 		{
 			"use strict";
@@ -276,7 +271,24 @@ $(document).ready(function() {
 			webshim.addShadowDom(slct, slct.select2("container"));
 		
 		});
+    });
+	webshim.ready('forms forms-ext dom-extend form-validators',function() {
+		webshim.addCustomValidityRule('always_invalid', function(elem, val){
+			if(!$(elem).hasClass('always_invalid')){return;}
+			return true;
+		}, 'Cannot submit while there are problems with openCPU.');
+		webshim.refreshCustomValidityRules();
 	});
+    
+    var pageload_time = mysql_datetime();
+    var relative_time = window.performance ? performance.now() : 0;
+    $('form').find("input.item_shown, input.item_shown_relative, input.item_answered, input.item_answered_relative").change(function(e) { e.stopPropagation(); });
+	$(".form-group:not([data-showif])").each(function(i,elm) // walk through all form elements that are automatically shown
+	{
+        $(elm).find("input.item_shown").val(pageload_time);
+        $(elm).find("input.item_shown_relative").val(relative_time);
+    });
+    
 	$('form').on('change', showIf);
 	$('form').on('change', getProgress);
 	$('form').change();
@@ -315,9 +327,9 @@ function getProgress()
 		{
 			$(elm_non_hidden).parents(".form-group").data('ever-changed', false);
 			$(elm_non_hidden).parents(".form-group").change(function(){
-
 			   $(this).data('ever-changed', true);
-			  $(this).off('change'); 
+               $(this).find("input.item_answered").val(mysql_datetime());
+               $(this).find("input.item_answered_relative").val(window.performance ? performance.now() : 0);
 			});
 		}
 		
@@ -370,17 +382,16 @@ function getProgress()
 }
 
 
-function showIf()
+function showIf(e)
 {
 	var badArray = $('form').serializeArray(); // get data live for current form
 	var subdata = {};
 	$.each(badArray, function(i, obj)
 	{
-		if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2); // special treatment for multiple multiple choice
+		if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0, obj.name.length - 2); // special treatment for multiple multiple choice
 		if(!subdata[ obj.name ]) subdata[obj.name] = obj.value;
 		else subdata[obj.name] += ", " + obj.value; // mmcs are concatenated by comma
 	});
-
 	$(".form-group[data-showif]").each(function(i,elm) // walk through all form elements that are dynamically shown/hidden
 	{
 		var showif = $(elm).data('showif'); // get specific condition
@@ -405,6 +416,10 @@ function showIf()
 				$(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
 				$(elm).find('input,select,textarea').prop('disabled', hide); // enable/disable depending on evaluation
 				$(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
+                if(! hide) {
+                    $(elm).find("input.item_shown").val(mysql_datetime());
+                    $(elm).find("input.item_shown_relative").val(window.performance ? performance.now() : 0);
+                }
 			}
 		}
 		catch(e)
@@ -432,4 +447,7 @@ function flatStringifyGeo(geo) {
 	coords.speed = geo.coords.speed;
 	result.coords = coords;
 	return JSON.stringify(result);
+}
+function mysql_datetime() {
+    return (new Date()).toISOString().slice(0, 19).replace('T', ' ');
 }

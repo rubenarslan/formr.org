@@ -120,8 +120,11 @@ class AdminRunController extends AdminController {
 			$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>".timetostr(strtotime($userx['last_access']))."</small>";
 			$userx['Action'] = "
 				<form class='form-inline form-ajax' action='".WEBROOT."admin/run/{$userx['run_name']}/ajax_send_to_position' method='post'>
-				<span class='input-group' style='width:180px'>
+				<span class='input-group' style='width:220px'>
 					<span class='input-group-btn'>
+					<a class='btn hastooltip' href='".WEBROOT."{$userx['run_name']}/?code=".urlencode($userx['session'])."' 
+					title='Pretend you are this user (you will really manipulate their data!'><i class='fa fa-user'></i></a>
+					
 					<a class='btn hastooltip link-ajax' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_remind?run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
 					title='Remind this user'><i class='fa fa-bullhorn'></i></a>
 					

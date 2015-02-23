@@ -28,7 +28,7 @@ class Shuffle extends RunUnit {
 		if (!$this->id) {
 			$this->id = parent::create('Shuffle');
 		} else {
-			$this->modify($this->id);
+			$this->modify($options);
 		}
 
 		if (isset($options['groups'])) {
