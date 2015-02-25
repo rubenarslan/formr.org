@@ -26,9 +26,10 @@ $(function(){
        session.setMode("ace/mode/" + mode);
        
        var form =$(this).parents('form');
-       editor.on('change',function() { form.trigger("change") });
-       form.on('ajax_submission',function()
-       {
+       editor.on('change',function() { 
+		   form.trigger("change"); 
+	   });
+       form.on('ajax_submission',function() {
            textarea.val(session.getValue());
        });
 
@@ -55,7 +56,7 @@ $(function(){
            		})
            		.done(function(data)
            		{
-                    if(data != '')
+                    if(data !== '')
                         $(data).insertBefore(form);
                     $(elm).prop("disabled",true);
                 })

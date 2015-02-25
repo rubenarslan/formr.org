@@ -118,9 +118,41 @@ grunt.initConfig({
 		}
 	},
 	uglify: {
-		build: {
+		main: {
 			src: 'lib/bower.js',
 			dest: 'minified/bower.js'
+		},
+		run: {
+			src: 'js/run.js',
+			dest: 'minified/run.js'
+		},
+		run_users: {
+			src: 'js/run_users.js',
+			dest: 'minified/run_users.js'
+		},
+		run_settings: {
+			src: 'js/run_settings.js',
+			dest: 'minified/run_settings.js'
+		},
+		survey: {
+			src: 'js/survey.js',
+			dest: 'minified/survey.js'
+		}
+	},
+	jshint: {
+//		beforeconcat:  ['bower_components/webshim/js-webshim/dev/polyfiller.js','lib/bower.js', 'js/main.js'],
+//		afterconcat: ['lib/bower.js'],
+		files:  ['js/main.js','js/survey.js','js/run.js','js/run_settings.js','js/run_users.js'],
+		options: {
+			globals: {
+				"$": false,
+				jQuery: false,
+				webshim: false,
+				hljs: false
+			},
+			"-W085": true,
+			evil: true,
+			browser: true
 		}
 	}
 });
@@ -131,10 +163,11 @@ grunt.initConfig({
   grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-cssmin');
   grunt.loadNpmTasks('grunt-contrib-concat');
+  grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-bower-concat');
 
   // Default task(s).
-  grunt.registerTask('default', ['bower','copy','bower_concat','concat','uglify','cssmin']);
+  grunt.registerTask('default', ['bower','copy','jshint','bower_concat','concat','uglify','cssmin']);
 //	grunt.registerTask('bowerinstall', ['bower']);
 };
 
