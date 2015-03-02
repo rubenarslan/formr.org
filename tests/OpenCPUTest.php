@@ -37,7 +37,7 @@ class OpenCPUTest extends PHPUnit_Framework_TestCase {
 		$this->write("Stdout");
 		$this->write($session->getStdout());
 		$this->write("Object");
-		$this->write($session->getJSONObject());
+		$this->write($session->getObject());
     }
 
 	private function write($object) {

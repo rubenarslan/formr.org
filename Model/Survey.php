@@ -289,27 +289,24 @@ class Survey extends RunUnit {
 
 		$choice_lists = array();
 		foreach ($items as $row) {
-			if (!isset($choice_lists[$row['list_name']])):
+			if (!isset($choice_lists[$row['list_name']])) {
 				$choice_lists[$row['list_name']] = array();
-			endif;
+			}
 
-			// fixme: because were not using this much yet, I haven't really made any effort to efficiently only calculate this when necessary
-			if ($row['label_parsed'] === null):
-				$openCPU = $this->makeOpenCPU();
-				$openCPU->admin_usage = $this->admin_usage;
-
-				$openCPU->addUserData($this->getUserDataInRun(
-								$this->dataNeeded($this->dbh, $row['label'])
-				));
-
-				$markdown = $openCPU->knitForUserDisplay($row['label']);
+			// FixMe:
+			// - Because were not using this much yet, I haven't really made any effort to efficiently only calculate this when necessary
+			// - Maybe gather all labels and send in a 'box' and opencpu returns parsed labels in same box
+			if ($row['label_parsed'] === null) {
+				$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $row['label']));
+				$markdown = opencpu_knitdisplay($row['label'], $opencpu_vars);
 
 				if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)): // simple wraps are eliminated
 					$row['label_parsed'] = $matches[1];
 				else:
 					$row['label_parsed'] = $markdown;
 				endif;
-			endif;
+			}
+
 			$choice_lists[$row['list_name']][$row['name']] = $row['label_parsed'];
 		}
 		return $choice_lists;

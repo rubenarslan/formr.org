@@ -5,7 +5,6 @@ class OpenCPU {
 	protected $baseUrl = 'https://public.opencpu.org';
 	protected $libUri = '/ocpu/library';
 	protected $last_message = null;
-	protected $session_variables = '';
 
 	/**
 	 * @var OpenCPU[]
@@ -58,35 +57,6 @@ class OpenCPU {
 		}
 	}
 
-	/**
-	 * Set variables to be used in the next openCPU request. Note that previously set variables are cleared once you call this function
-	 * The array parameter if it contains an entry called 'datasets', then these will be passed as R dataframes and other key/value pairs will be passed as R variables
-	 *
-	 * @param array $data
-	 * @return string Returns the session variables how they will be read in R
-	 */
-	public function defineSessionVariables(array $data) {
-		$this->session_variables = '';
-		// Set datasets
-		if (isset($data['datasets']) && is_array($data['datasets'])) {
-			foreach ($data['datasets'] as $data_frame => $content) {
-				$this->session_variables .= $data_frame . ' = as.data.frame(jsonlite::fromJSON("' . addslashes(json_encode($content, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)) . '"), stringsAsFactors=F)
-';
-			}
-		}
-		unset($data['datasets']);
-		// set other variables
-		foreach ($data as $var_name => $var_value) {
-			$this->session_variables .= $var_name . ' = ' .  $var_value . '
-';
-		}
-		return $this->session_variables;
-	}
-
-	public function getSessionVariables() {
-		return $this->session_variables;
-	}
-
 	public function getBaseUrl() {
 		return $this->baseUrl;
 	}
@@ -123,9 +93,14 @@ class OpenCPU {
 		}
 
 		if ($uri) {
-			$uri = "/" . ltrim($uri, "/"); // just to be fucking sure
+			$uri = "/" . ltrim($uri, "/");
 		}
-		$url = $this->baseUrl . $this->libUri . $uri;
+
+		if (strstr($uri, $this->baseUrl) === false) {
+			$url = $this->baseUrl . $this->libUri . $uri;
+		} else {
+			$url = $uri;
+		}
 
 		// Hack to HIT gnix cache
 		if ($method === CURL::HTTP_METHOD_POST) {
@@ -244,19 +219,20 @@ class OpenCPU_Session {
 	/**
 	 * Get an array of files present in current session
 	 *
-	 * @param string $result Output from post() or get() methods
+	 * @param string $match You can match only files with some slug in the path name
 	 * @return array
 	 */
-	public function getFiles() {
+	public function getFiles($match = '/files/') {
 		$files = array();
 		$result = explode("\n", $this->raw_result);
 
 		foreach ($result as $path) {
-			if (!$path || strpos($path, '/files/') === false) {
+			if (!$path || strpos($path, $match) === false) {
 				continue;
 			}
 
-			$files[] = $this->getResponsePath($path);
+			$id = basename($path);
+			$files[$id] = $this->getResponsePath($path);
 		}
 		return $files;
 	}
@@ -269,11 +245,8 @@ class OpenCPU_Session {
 		return $this->getResponsePath('/files/' . $path);
 	}
 
-	public function getJSONObject($name = null, $params = array()) {
-		if ($name === null) {
-			$name = '.val';
-		}
-		$url = $this->getLocation() . 'R/' . $name . '/json';
+	public function getObject($name = 'json', $params = array()) {
+		$url = $this->getLocation() . 'R/.val/' . $name;
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, $params, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
@@ -290,8 +263,15 @@ class OpenCPU_Session {
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
 
+	/**
+	 * @return OpenCPU
+	 */
+	public function caller() {
+		return $this->ocpu;
+	}
+
 	protected function getResponsePath($path) {
-		return $this->ocpu->getBaseUrl() . $path;
+		return $this->caller()->getBaseUrl() . $path;
 	}
 }
 

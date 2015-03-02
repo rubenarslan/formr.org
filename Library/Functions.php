@@ -769,19 +769,51 @@ function array_to_orderedlist($array, $olclass = null, $liclass = null) {
 	return $ol;
 }
 
-/*** These functions should not be here */
+
+/**
+ * Convert an array of data into variables for OpenCPU request
+ * The array parameter if it contains an entry called 'datasets', then these will be passed as R dataframes and other key/value pairs will be passed as R variables
+ *
+ * @param array $data
+ * @return string Returns R variables
+ */
+function opencpu_define_vars(array $data) {
+	$vars = '';
+	if (!$data) {
+		return $vars;
+	}
+
+	// Set datasets
+	if (isset($data['datasets']) && is_array($data['datasets'])) {
+		foreach ($data['datasets'] as $data_frame => $content) {
+			$vars .= $data_frame . ' = as.data.frame(jsonlite::fromJSON("' . addslashes(json_encode($content, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)) . '"), stringsAsFactors=F)
+';
+		}
+	}
+	unset($data['datasets']);
+
+	// set other variables
+	foreach ($data as $var_name => $var_value) {
+		$vars .= $var_name . ' = ' .  $var_value . '
+';
+	}
+	return $vars;
+}
 
 /**
  * Execute a piece of code against OpenCPU
  *
  * @param string $code Each code line should be separated by a newline characted
+ * @param string|array An array or string (separated by newline) of variables to be used in OpenCPU request
  * @param string $return_format String like 'json'
- * @param string $context If this paramter is set, $code will be evaluated with a context
- * @return mixed Returns response from open CPU
+ * @param mixed $context If this paramter is set, $code will be evaluated with a context
+ * @param bool $return_session Should OpenCPU_Session object be returned
+ * @return string|OpenCPU_Session|null Returns null of an error occured so check the return value using the equivalence operator (===)
 */
-function evaluateR($code, $openCPUParams = array(), $return_format = 'json', $context = null) {
-	$ocpu = OpenCPU::getInstance();
-	$variables = $ocpu->parseSessionVariables($openCPUParams);
+function opencpu_evaluate($code, $variables = null, $return_format = 'json', $context = null, $return_session = false) {
+	if (!is_string($variables)) {
+		$variables = opencpu_define_vars($variables);
+	}
 
 	if ($context !== null) {
 		$code = 'with(tail(' . $context . ', 1), { '
@@ -797,42 +829,121 @@ function evaluateR($code, $openCPUParams = array(), $return_format = 'json', $co
 })() }');
 
 	$uri = '/base/R/identity/' . $return_format;
-	return $ocpu->post($uri, $params);
+	try {
+		$session = OpenCPU::getInstance()->post($uri, $params);
+		if ($return_session === true) {
+			return $session;
+		}
+
+		return $session->getObject($return_format);
+	} catch (OpenCPU_Exception $e) {
+		log_exception($e, 'OpenCPU');
+		return null;
+	}
 }
+
 
 /**
  * Call knit() function from the knitr R package
  *
  * @param string $code
  * @param string $return_format
- * @return mixed
+ * @param bool $return_session Should OpenCPU_Session object be returned
+ * @return string|null
 */
-function knit($code, $return_format = 'json') {
+function opencpu_knit($code, $return_format = 'json', $return_session = false) {
 	$params = array('text' => "'" . addslashes($code) . "'");
 	$uri = '/knitr/R/knit/' . $return_format;
-	return OpenCPU::getInstance()->post($uri, $params);
+	try {
+		$session = OpenCPU::getInstance()->post($uri, $params);
+		if ($return_session === true) {
+			return $session;
+		}
+
+		return $session->getObject($return_format);
+	} catch (OpenCPU_Exception $e) {
+		log_exception($e, 'OpenCPU');
+		return null;
+	}
 }
 
-function knit2HTML($source, $return_format = 'json', $self_contained = 1) {
+/**
+ * knit R markdown to html
+ *
+ * @param string $source
+ * @param string $return_format
+ * @param int $self_contained
+ * @param bool $return_session Should OpenCPU_Session object be returned
+ * @return string|null
+*/
+function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1, $return_session = false) {
 	$params = array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained);
 	$uri = '/formr/R/formr_render/' . $return_format;
-	return OpenCPU::getInstance()->post($uri, $params);
+	try {
+		$session = OpenCPU::getInstance()->post($uri, $params);
+		if ($return_session === true) {
+			return $session;
+		}
+
+		return $session->getObject($return_format);
+	} catch (OpenCPU_Exception $e) {
+		log_exception($e, 'OpenCPU');
+		return null;
+	}
 }
 
-function knitEmail($source, array $openCPUParams = array(), $return_format = 'json') {
-	$ocpu = OpenCPU::getInstance();
-	$variables = $ocpu->parseSessionVariables($openCPUParams);
+function opencpu_knitdisplay($source, $variables = null, $return_session = false) {
+	if (!is_string($variables)) {
+		$variables = opencpu_define_vars($variables);
+	}
+
 	$source = '```{r settings,message=FALSE,warning=F,echo=F}
 library(knitr); library(formr)
 opts_chunk$set(warning=F,message=F,echo=F)
-opts_knit$set(upload.fun=formr::email_image)
 ' . $variables . '
 ```
 '.
 $source;
 
-	$params = array('text' => "'" . addslashes($source) . "'");
-	$uri = '/knitr/R/knit/' . $return_format;
-	return $ocpu->post($uri, $params);
+	return opencpu_knit2html($source, 'text', 1, $return_session);
+}
+
+function opencpu_knitadmin($source, $variables = null, $return_session = false) {
+	if (!is_string($variables)) {
+		$variables = opencpu_define_vars($variables);
+	}
+
+	$source = '```{r settings,message=FALSE,warning=F,echo=F}
+library(knitr); library(formr)
+opts_chunk$set(warning=T,message=T,echo=T)
+' . $variables . '
+```
+'.
+$source;
+
+	return opencpu_knit2html($source, 'text', 1, $return_session);
+}
+
+
+function opencpu_knitemail($source, array $variables = null, $return_format = 'json', $return_session = false) {
+	if (!is_string($variables)) {
+		$variables = opencpu_define_vars($variables);
+	}
+
+	$source = '```{r settings,message=FALSE,warning=F,echo=F}
+library(knitr); library(formr)
+opts_chunk$set(warning=F,message=F,echo=F)
+opts_knit$set(upload.fun=function(x) { paste0("cid:", basename(x)) })
+' . $variables . '
+```
+'.
+$source;
+
+	return opencpu_knit2html($source, $return_format, 0, $return_session);
+}
+
+function opencpu_debug_session(OpenCPU_Session $session) {
+	// FIXME! Copy this from old class
+	return print_r($session, 1);
 }
 

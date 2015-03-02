@@ -42,38 +42,24 @@ class ItemFactory {
 			array_keys($this->choice_lists), array_keys($this->used_choice_lists)
 		);
 	}
-	public function showif($survey, $showif) {
+
+	public function showif(Survey $survey, $showif) {
 		if (array_key_exists($showif, $this->showifs)) {
 			return $this->showifs[$showif];
 		}
-		
-		if(strstr($showif, "//js_only")):
-			$result = null;
-		else:
-		
-			if($survey->openCPU === NULL):
-				$survey->openCPU = $survey->makeOpenCPU();
-			else:
-				$survey->openCPU->clearUserData();
-			endif;
 
-			$survey->openCPU->admin_usage = $survey->admin_usage;
+		$result = null;
+		if (strstr($showif, "//js_only") === false) {
+			$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $showif, $survey->name));
+			$result = opencpu_evaluate($showif, $opencpu_vars, 'text', $survey->name);
 
-			$survey->openCPU->addUserData($survey->getUserDataInRun(
-				$survey->dataNeeded($survey->dbh, $showif, $survey->name)
-			));
-		
-			$result = $survey->openCPU->evaluateWith($survey->name, $showif);
-
-			if($survey->openCPU->anyErrors()):
+			if ($result === null) {
 				$result = true;
 				$this->openCPU_errors[$showif] =  _('There were problems with openCPU.');
-			endif;
+			}
+		}
 
-		endif;
-		
-		$this->showifs[$showif] = $result;
-		
+		$this->showifs[$showif] = $result;		
 		return $this->showifs[$showif];
 	}
 
@@ -405,23 +391,14 @@ class Item extends HTML_element {
 		$this->input_attributes['class'] .= " always_invalid";
 	}
 
-	public function determineDynamicLabel($survey) {
-		if($survey->openCPU === NULL):
-			$survey->openCPU = $survey->makeOpenCPU();
-		else:
-			$survey->openCPU->clearUserData();
-		endif;
-		
-		$survey->openCPU->admin_usage = $survey->admin_usage;
-	
-		$survey->openCPU->addUserData($survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->label, $survey->name)));
-		
-		$markdown = $survey->openCPU->knitForUserDisplay($this->label);
-	
-		if($survey->openCPU->anyErrors()):
+	public function determineDynamicLabel(Survey $survey) {
+		$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->label, $survey->name));
+		$markdown = opencpu_knitdisplay($this->label, $opencpu_vars);
+
+		if($markdown === null) {
 			$this->alwaysInvalid();
-		endif;
-		
+		}
+
 		if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) { // simple wraps are eliminated
 			$this->label_parsed = $matches[1];
 		} else {
@@ -442,33 +419,25 @@ class Item extends HTML_element {
 		return false;
 	}
 		
-	public function determineDynamicValue($survey) {
+	public function determineDynamicValue(Survey $survey) {
 		if ($this->value == "sticky") {
 			$this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
 		}
 
-		if($survey->openCPU === NULL):
-			$survey->openCPU = $survey->makeOpenCPU();
-		else:
-			$survey->openCPU->clearUserData();
-		endif;
+		$ocpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->value, $survey->name));
+		$ocpu_session = opencpu_evaluate($this->value, $ocpu_vars, 'json', $survey->name, true);
+		$this->input_attributes['value'] = $ocpu_session->getObject('text');
 
-		$survey->openCPU->admin_usage = $survey->admin_usage;
-
-		$survey->openCPU->addUserData($survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->value, $survey->name)));
-		
-		$this->input_attributes['value'] = $survey->openCPU->evaluateWith($survey->name, $this->value);
-		
 		if($this->type == 'opencpu_session'):
-			$this->input_attributes['value'] = $survey->openCPU->session_location;
+			$this->input_attributes['value'] = $ocpu_session->getLocation();
 		endif;
 
-		if($survey->openCPU->anyErrors()):
+		if($this->input_attributes['value'] === null):
 			$this->alwaysInvalid();
 		endif;
 	}
 		
-	}
+}
 
 class Item_text extends Item {
 
