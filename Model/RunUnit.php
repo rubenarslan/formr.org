@@ -143,7 +143,10 @@ class RunUnit {
 			$position = 1;
 		}
 		$this->position = (int) $position;
-		if(!isset($options['description'])) $options['description'] = '';
+		if(!isset($options['description'])) {
+			$options['description'] = '';
+		}
+
 		$this->run_unit_id = $this->dbh->insert('survey_run_units', array(
 			'unit_id' => $this->id,
 			'run_id' => $run_id,
@@ -374,7 +377,7 @@ class RunUnit {
 	}
 
 	public function dataNeeded($fdb, $q, $token_add = NULL) {
-		$table_ids = $matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
+		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
 		
 		// first, generate a master list of the search set (all the surveys that are part of the run)
 		$results = $fdb->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
