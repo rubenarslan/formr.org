@@ -531,6 +531,20 @@ class DB {
 		return $this->PDO->rollBack();
 	}
 
+	public function getTableDefinition($table, $property = null) {
+		$query = "SHOW COLUMNS FROM `$table`";
+		$stmt = $this->PDO->query($query);
+		$cols = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		if ($property === null) {
+			return $cols;
+		}
+		$filtered = array();
+		foreach ($cols as $col) {
+			$filtered[$col[$property]] = $col;
+		}
+		return $filtered;
+	}
+
 }
 
 class DB_Select {
