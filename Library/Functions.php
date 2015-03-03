@@ -942,8 +942,46 @@ $source;
 	return opencpu_knit2html($source, $return_format, 0, $return_session);
 }
 
-function opencpu_debug_session(OpenCPU_Session $session) {
-	// FIXME! Copy this from old class
-	return print_r($session, 1);
+function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
+	$debug = array();
+	if (empty($session)) {
+		$debug['Response'] = 'No OpenCPU_Session found. Server maybe down.';
+		if ($ocpu !== null) {
+			$debug['Request'] = (string)$ocpu->getRequest();
+			$reponse_info  = $ocpu->getRequestInfo();
+			$debug['Request Headers'] = pre_htmlescape(print_r($reponse_info['request_header'], 1));
+		}
+	} else {
+
+		try {
+			$debug['Request'] = pre_htmlescape((string)$session->getRequest());
+			$debug['Response'] = pre_htmlescape($session->getResponse());
+			$urls = $session->getResponsePaths();
+			$locations = '';
+			foreach ($urls as $url) {
+				$path = str_replace($session->getBaseUrl(), '', $url);
+				$locations .= "<a href='$url'>$path</a><br />";
+			}
+			$debug['Locations'] = $locations;
+
+			$reponse_headers = $session->getResponseHeaders();
+			$debug['Response Headers'] = pre_htmlescape(print_r($reponse_headers, 1));
+
+			$reponse_info  = $session->caller()->getRequestInfo();
+			$debug['Request Headers'] = pre_htmlescape(print_r($reponse_info['request_header'], 1));
+
+			$debug['Session Info'] = pre_htmlescape($session->getInfo());
+			$debug['Session Console'] = pre_htmlescape($session->getConsole());
+			$debug['Session Stdout'] = pre_htmlescape($session->getStdout());
+		} catch (Exception $e) {
+			$debug['Response'] = 'An error occured: ' . $e->getMessage();
+		}
+	}
+
+	return array_to_accordion($debug);
+}
+
+function pre_htmlescape($str) {
+	return '<pre>' . nl2br(htmlspecialchars($str)) . '</pre>';
 }
 

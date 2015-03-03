@@ -472,7 +472,7 @@ class RunUnit {
 
 	public function parseBodySpecial() {
 		$session = opencpu_knitadmin($this->body, null, true);
-		return opencpu_debug_session($session);
+		return opencpu_debug($session);
 	}
 
 	public function getParsedText($source) {

@@ -229,7 +229,7 @@ class Pause extends RunUnit {
 			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->relative_to));
 			$session = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json', null, true);
 
-			echo opencpu_debug_session($session);
+			echo opencpu_debug($session);
 		}
 
 		if (!empty($results)) {

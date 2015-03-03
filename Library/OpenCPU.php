@@ -30,6 +30,11 @@ class OpenCPU {
 	private $curl_info = array();
 
 	/**
+	 * @var OpenCPU_Request
+	 */
+	protected $request;
+
+	/**
 	 * Get an instance of OpenCPU class
 	 *
 	 * @param string $instance Config item name that holds opencpu base URL
@@ -75,6 +80,13 @@ class OpenCPU {
 	}
 
 	/**
+	 * @return OpenCPU_Request
+	 */
+	public function getRequest() {
+		return $this->request;
+	}
+
+	/**
 	 * Get Response headers of opencpu request
 	 *
 	 * @return null|array
@@ -84,6 +96,10 @@ class OpenCPU {
 			return $this->curl_info[CURL::RESPONSE_HEADERS];
 		}
 		return null;
+	}
+
+	public function getRequestInfo() {
+		return $this->curl_info;
 	}
 
 	private function call($uri = '', $params = array(), $method = CURL::HTTP_METHOD_GET) {
@@ -102,7 +118,11 @@ class OpenCPU {
 			$url = $uri;
 		}
 
-		// Hack to HIT gnix cache
+		// set global props
+		$this->curl_info = array();
+		$this->request = new OpenCPU_Request($url, $method, $params);
+
+		// encode request
 		if ($method === CURL::HTTP_METHOD_POST) {
 			$params = array_map(array($this, 'cr2nl'), $params);
 			$params = http_build_query($params);
@@ -208,7 +228,32 @@ class OpenCPU_Session {
 		$this->ocpu = $ocpu;
 	}
 
+	/**
+	 * Returns the list of returned paths as a string separated by newline char
+	 *
+	 * @return string
+	 */
 	public function getRawResult() {
+		return $this->raw_result;
+	}
+
+	/**
+	 * @return OpenCPU_Request
+	 */
+	public function getRequest() {
+		return $this->ocpu->getRequest();
+	}
+
+	/**
+	 * Returns the list of returned paths as a string separated by newline char
+	 *
+	 * @param bool $as_array If TRUE, paths will be returned in an array
+	 * @return string|array
+	 */
+	public function getResponse($as_array = false) {
+		if ($as_array === true) {
+			return explode("\n", $this->raw_result);
+		}
 		return $this->raw_result;
 	}
 
@@ -232,6 +277,21 @@ class OpenCPU_Session {
 			}
 
 			$id = basename($path);
+			$files[$id] = $this->getResponsePath($path);
+		}
+		return $files;
+	}
+
+	/**
+	 * Get absolute URLs of all resources in the response
+	 *
+	 * @return array
+	 */
+	public function getResponsePaths() {
+		$result = explode("\n", $this->raw_result);
+		$files = array();
+		foreach ($result as $path) {
+			$id = md5($path);
 			$files[$id] = $this->getResponsePath($path);
 		}
 		return $files;
@@ -263,6 +323,12 @@ class OpenCPU_Session {
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
 
+	public function getInfo() {
+		$url = $this->getLocation() . 'info/text';
+		$info = array(); // just in case needed in the furture to get curl info
+		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
+	}
+
 	/**
 	 * @return OpenCPU
 	 */
@@ -270,8 +336,66 @@ class OpenCPU_Session {
 		return $this->ocpu;
 	}
 
+	public function getResponseHeaders() {
+		return $this->caller()->getResponseHeaders();
+	}
+
+	public function getBaseUrl() {
+		return $this->caller()->getBaseUrl();
+	}
+
 	protected function getResponsePath($path) {
 		return $this->caller()->getBaseUrl() . $path;
+	}
+}
+
+class OpenCPU_Request {
+
+	protected $url;
+
+	protected $params;
+
+	protected $method;
+
+	public function __construct($url, $method, $params = null) {
+		$this->url = $url;
+		$this->method = $method;
+		$this->params = $params;
+	}
+
+	public function getUrl() {
+		return $this->url;
+	}
+
+	public function getMethod() {
+		return $this->method;
+	}
+
+	public function getParams() {
+		return $this->params;
+	}
+
+	public function __toString() {
+		$request = array("METHOD: {$this->method}", "URL: {$this->url}", "PARAMS: " . $this->stringify($this->params));
+		return implode("\n", $request);
+	}
+
+	protected function stringify($object) {
+		if (is_string($object)) {
+			return $object;
+		}
+
+		$string = "\n";
+		if (is_array($object)) {
+			foreach ($object as $key => $value) {
+				$value = $this->stringify($value);
+				$string .= "{$key} = {$value} \n"; 
+			}
+		} else {
+			$string .= (string) $object;
+		}
+
+		return $string;
 	}
 }
 
