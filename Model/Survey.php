@@ -1208,6 +1208,7 @@ else:
 
 		$toDelete = $alterQuery = array();
 		$altQ = $delQ = null;
+		$existingColumns = $this->dbh->getTableDefinition($this->results_table, 'Field');
 
 		/* @var $item Item */
 		// Create query to modify items in an existing results table
@@ -1218,7 +1219,7 @@ else:
 		}
 		// Create query to drop items in existing table
 		foreach ($deleteItems as $item) {
-			if (($field_definition = $item->getResultField()) !== null) {
+			if (($field_definition = $item->getResultField()) !== null && isset($existingColumns[$item->name])) {
 				$alterQuery[] = " DROP `{$item->name}`";
 			}
 			$toDelete[] = $item->name;
@@ -1234,6 +1235,7 @@ else:
 			// prepend the alter table clause
 			$alterQuery[0] = "ALTER TABLE `{$this->results_table}` {$alterQuery[0]}";
 			$altQ = implode(',', $alterQuery);
+			formr_log("\nMerge Survey {$this->name} \n ALTER: $altQ");
 			$this->dbh->query($altQ);
 		}
 
@@ -1242,11 +1244,10 @@ else:
 			$toDelete = implode(',', array_map(array($this->dbh, 'quote'), $toDelete));
 			$studyId = (int) $this->id;
 			$delQ = "DELETE FROM survey_items WHERE `name` IN ($toDelete) AND study_id = $studyId";
+			formr_log("\nMerge Survey {$this->name} \n DELETE: $delQ");
 			$this->dbh->query($delQ);
 		}
 
-		// Log this to observe
-		formr_log("\nMerge Survey {$this->name} \n ALTER: $altQ \n DELETE: $delQ");
 		return true;
 	}
 
