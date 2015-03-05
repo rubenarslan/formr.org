@@ -145,6 +145,7 @@ class OpenCPU {
 
 		if ($this->curl_info['http_code'] == 400) {
 			$results = "R Error: $results";
+			return new OpenCPU_Session(null, null, $results, $this);
 		} elseif ($this->curl_info['http_code'] < 200 || $this->curl_info['http_code'] > 300) {
 			if (!$results) {
 				$results = "OpenCPU server '{$this->baseUrl}' could not be contacted";
@@ -275,6 +276,10 @@ class OpenCPU_Session {
 	 * @return array
 	 */
 	public function getFiles($match = '/files/') {
+		if (!$this->key) {
+			return null;
+		}
+
 		$files = array();
 		$result = explode("\n", $this->raw_result);
 		foreach ($result as $path) {
@@ -294,6 +299,10 @@ class OpenCPU_Session {
 	 * @return array
 	 */
 	public function getResponsePaths() {
+		if (!$this->key) {
+			return null;
+		}
+
 		$result = explode("\n", $this->raw_result);
 		$files = array();
 		foreach ($result as $path) {
@@ -312,6 +321,10 @@ class OpenCPU_Session {
 	}
 
 	public function getObject($name = 'json', $params = array()) {
+		if (!$this->key) {
+			return null;
+		}
+
 		$url = $this->getLocation() . 'R/.val/' . $name;
 		$info = array(); // just in case needed in the furture to get curl info
 		$object = CURL::HttpRequest($url, $params, $method = CURL::HTTP_METHOD_GET, array(), $info);
@@ -326,7 +339,7 @@ class OpenCPU_Session {
 			$string = $this->raw_result;
 		}
 		$json = json_decode($string);
-		$a = (array)$json;
+		$a = (array)$json;;
 		if (is_array($a) && count($a) === 1 && isset($a[0]) && is_string($a[0])) {
 			return $a[0];
 		}
@@ -334,25 +347,37 @@ class OpenCPU_Session {
 	}
 
 	public function getStdout() {
+		if (!$this->key) {
+			return null;
+		}
+
 		$url = $this->getLocation() . 'stdout/text';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
 
 	public function getConsole() {
+		if (!$this->key) {
+			return null;
+		}
+
 		$url = $this->getLocation() . 'console/text';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
 
 	public function getInfo() {
+		if (!$this->key) {
+			return null;
+		}
+
 		$url = $this->getLocation() . 'info/text';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
 
 	public function hasError() {
-		$this->ocpu->getRequestInfo('http_code') >=  400;
+		return $this->ocpu->getRequestInfo('http_code') >=  400;
 	}
 
 	public function getError() {

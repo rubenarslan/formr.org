@@ -982,6 +982,6 @@ function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
 }
 
 function pre_htmlescape($str) {
-	return '<pre>' . nl2br(htmlspecialchars($str)) . '</pre>';
+	return '<pre>' . htmlspecialchars($str) . '</pre>';
 }
 
