@@ -98,7 +98,12 @@ class OpenCPU {
 		return null;
 	}
 
-	public function getRequestInfo() {
+	public function getRequestInfo($item = null) {
+		if ($item && isset($this->curl_info[$item])) {
+			return $this->curl_info[$item];
+		} elseif ($item) {
+			return null;
+		}
 		return $this->curl_info;
 	}
 
@@ -138,7 +143,9 @@ class OpenCPU {
 			throw new OpenCPU_Exception($e->getMessage(), -1, $e);
 		}
 
-		if ($this->curl_info['http_code'] < 200 || $this->curl_info['http_code'] > 300) {
+		if ($this->curl_info['http_code'] == 400) {
+			$results = "R Error: $results";
+		} elseif ($this->curl_info['http_code'] < 200 || $this->curl_info['http_code'] > 300) {
 			if (!$results) {
 				$results = "OpenCPU server '{$this->baseUrl}' could not be contacted";
 			}
@@ -307,7 +314,23 @@ class OpenCPU_Session {
 	public function getObject($name = 'json', $params = array()) {
 		$url = $this->getLocation() . 'R/.val/' . $name;
 		$info = array(); // just in case needed in the furture to get curl info
-		return CURL::HttpRequest($url, $params, $method = CURL::HTTP_METHOD_GET, array(), $info);
+		$object = CURL::HttpRequest($url, $params, $method = CURL::HTTP_METHOD_GET, array(), $info);
+		if ($name === 'json') {
+			$object = $this->getJSONObject($object);
+		}
+		return $object;
+	}
+
+	public function getJSONObject($string = null) {
+		if ($string === null) {
+			$string = $this->raw_result;
+		}
+		$json = json_decode($string);
+		$a = (array)$json;
+		if (is_array($a) && count($a) === 1 && isset($a[0]) && is_string($a[0])) {
+			return $a[0];
+		}
+		return $json;
 	}
 
 	public function getStdout() {
@@ -326,6 +349,17 @@ class OpenCPU_Session {
 		$url = $this->getLocation() . 'info/text';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
+	}
+
+	public function hasError() {
+		$this->ocpu->getRequestInfo('http_code') >=  400;
+	}
+
+	public function getError() {
+		if (!$this->hasError()) {
+			return null;
+		}
+		return $this->raw_result;
 	}
 
 	/**

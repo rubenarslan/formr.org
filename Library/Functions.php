@@ -835,7 +835,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 			return $session;
 		}
 
-		return $session->getObject($return_format);
+		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		log_exception($e, 'OpenCPU');
 		return null;
@@ -860,7 +860,7 @@ function opencpu_knit($code, $return_format = 'json', $return_session = false) {
 			return $session;
 		}
 
-		return $session->getObject($return_format);
+		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		log_exception($e, 'OpenCPU');
 		return null;
@@ -885,7 +885,7 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 			return $session;
 		}
 
-		return $session->getObject($return_format);
+		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		log_exception($e, 'OpenCPU');
 		return null;
@@ -905,7 +905,7 @@ opts_chunk$set(warning=F,message=F,echo=F)
 '.
 $source;
 
-	return opencpu_knit2html($source, 'text', 1, $return_session);
+	return opencpu_knit2html($source, 'json', 1, $return_session);
 }
 
 function opencpu_knitadmin($source, $variables = null, $return_session = false) {
@@ -921,7 +921,7 @@ opts_chunk$set(warning=T,message=T,echo=T)
 '.
 $source;
 
-	return opencpu_knit2html($source, 'text', 1, $return_session);
+	return opencpu_knit2html($source, 'json', 1, $return_session);
 }
 
 
