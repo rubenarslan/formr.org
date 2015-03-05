@@ -270,7 +270,6 @@ class OpenCPU_Session {
 	public function getFiles($match = '/files/') {
 		$files = array();
 		$result = explode("\n", $this->raw_result);
-
 		foreach ($result as $path) {
 			if (!$path || strpos($path, $match) === false) {
 				continue;

@@ -542,7 +542,7 @@ class RunUnit {
 		$ocpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
 		/* @var $session OpenCPU_Session */
 		if ($email_embed) {
-			$session = opencpu_knitemail($source, $ocpu_vars, 'json', true);
+			$session = opencpu_knitemail($source, $ocpu_vars, null, true);
 			if ($session === null) {
 				return false;
 			}
