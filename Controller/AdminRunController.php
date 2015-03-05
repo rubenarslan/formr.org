@@ -112,7 +112,7 @@ class AdminRunController extends AdminController {
 		foreach ($g_users as $userx) {
 			$userx['Run position'] = "<span class='hastooltip' title='Current position in run'>({$userx['position']}</span> – <small>{$userx['unit_type']})</small>";
 			$itsyou = '';
-			if($userx['session'] == $this->user->user_code) $itsyou = '<i class="fa fa-user-md" title="This is you"></i> ';
+			if($userx['session'] == $this->user->user_code) $itsyou = '<i class="fa fa-user-md" class="hastooltip" title="This is you"></i> ';
 			$userx['Session'] = $itsyou."<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],0,10)."…</abbr></small>";
 			$userx['Created'] = "<small>{$userx['created']}</small>";
 			$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>".timetostr(strtotime($userx['last_access']))."</small>";

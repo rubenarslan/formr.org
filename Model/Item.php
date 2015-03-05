@@ -81,6 +81,7 @@ class Item extends HTML_element {
 	public $optional = 0;
 	public $class = null;
 	public $showif = null;
+	public $js_showif = null;
 	public $value = null; // syntax for sticky value
 	public $order = null;
 	public $displaycount = null;
@@ -201,6 +202,20 @@ class Item extends HTML_element {
 		if (in_array("label_as_placeholder", $this->classes_wrapper)) {
 			$this->input_attributes['placeholder'] = $this->label;
 		}
+		
+		if($this->showif):
+			// primitive R to JS translation
+			$this->js_showif = preg_replace("/current\(\s*(\w+)\s*\)/", "$1", $this->showif); // remove current function
+			$this->js_showif = preg_replace("/tail\(\s*(\w+)\s*, 1\)/", "$1", $this->js_showif); // remove current function, JS evaluation is always in session			
+			// all other R functions may break
+			$this->js_showif = preg_replace("/\"/", "'", $this->js_showif); // double quotes to single quotes
+			$this->js_showif = preg_replace("/(^|[^&])(\&)([^&]|$)/", "$1&$3", $this->js_showif); // & operators, only single ones need to be doubled
+			$this->js_showif = preg_replace("/(^|[^|])(\|)([^|]|$)/", "$1&$3", $this->js_showif); // | operators, only single ones need to be doubled
+			$this->js_showif = preg_replace("/FALSE/", "false", $this->js_showif); // uppercase, R, FALSE, to lowercase, JS, false
+			$this->js_showif = preg_replace("/TRUE/", "true", $this->js_showif); // uppercase, R, TRUE, to lowercase, JS, true
+			$this->js_showif = preg_replace("/\s*\%contains\%\s*([a-zA-Z0-9_'\"]+)/",".indexOf($1) > -1", $this->js_showif);
+			$this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/","$1.length", $this->js_showif);
+		endif; 
 	}
 	public function hasBeenRendered() {
 		return $this->displaycount !== null;
@@ -354,7 +369,7 @@ class Item extends HTML_element {
 			$this->classes_wrapper[] = "has-error";
 		}
 		
-		return '<div class="' . implode(" ", $this->classes_wrapper) . '"' . ($this->data_showif ? ' data-showif="' . h($this->showif) . '"' : '') . '>' . $this->render_inner() . $this->render_item_view_input() .'</div>';
+		return '<div class="' . implode(" ", $this->classes_wrapper) . '"' . ($this->data_showif ? ' data-showif="' . h($this->js_showif) . '"' : '') . '>' . $this->render_inner() . $this->render_item_view_input() .'</div>';
 	}
 
 	protected function splitValues() {
@@ -1113,8 +1128,8 @@ class Item_select_one extends Item {
 
 	protected function render_input() {
 		$this->splitValues();
-		
-		$ret = '<select '.self::_parseAttributes($this->input_attributes, array('type')).'>'; 
+		$ret = '<input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required')) . '>';
+		$ret .= '<select '.self::_parseAttributes($this->input_attributes, array('type')).'>'; 
 		
 		if (!isset($this->input_attributes['multiple'])) {
 			$ret .= '<option value=""> </option>';
@@ -1809,7 +1824,7 @@ class Item_blank extends Item_text {
 			$this->classes_wrapper[] = "has-error";
 		}
 
-		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->showif) .'"' : '').'>' .
+		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->js_showif) .'"' : '').'>' .
 			$this->label_parsed.
 		 '</div>';
 	}
