@@ -192,7 +192,7 @@ class Email extends RunUnit {
 		}
 
 		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
-		$result = opencpu_evaluate($this->recipient_field, $opencpu_vars);
+		$result = opencpu_evaluate($this->recipient_field, $opencpu_vars, 'text');
 
 		return $result;
 	}
