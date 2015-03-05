@@ -618,11 +618,11 @@ class Item_number extends Item {
 	}
 
 	public function validateInput($reply) { // fixme: input is not re-displayed after this
-		$reply = str_replace(",",".",$reply);
-		
-		if($reply == '' AND $reply !== 0) {
-			return $this->optional;
+		$reply = trim(str_replace(",", ".", $reply));
+		if(!$reply AND $reply !== 0 AND $this->optional) {
+			return null;
 		}
+
 		if ($this->input_attributes['min'] !== 'any' AND $reply < $this->input_attributes['min']) { // lower number than allowed
 			$this->error = __("The minimum is %d.",$this->input_attributes['min']);
 		} elseif ($this->input_attributes['max'] !== 'any' AND $reply > $this->input_attributes['max']) { // larger number than allowed
