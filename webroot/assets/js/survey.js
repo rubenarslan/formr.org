@@ -1,4 +1,14 @@
 (function() {
+	// polyfill window.performance.now
+	window.performance = window.performance || {};
+	performance.now = (function() {
+	  return performance.now       ||
+	         performance.mozNow    ||
+	         performance.msNow     ||
+	         performance.oNow      ||
+	         performance.webkitNow
+	})();
+	
 	$(document).ready(function() {
 		var survey = new Survey();
 		$('form').on('change', function() { 
@@ -294,7 +304,7 @@
 		});
     
 	    var pageload_time = mysql_datetime();
-	    var relative_time = performance.now();
+	    var relative_time = window.performance.now ? performance.now() : null;
 	    $('form').find("input.item_shown, input.item_shown_relative, input.item_answered, input.item_answered_relative").change(function(e) { e.stopPropagation(); });
 		$(".form-group:not([data-showif])").each(function(i,elm) // walk through all form elements that are automatically shown
 		{
@@ -337,7 +347,7 @@
 				elm_non_hidden.parents(".form-group").change(function(){
 				   $(this).data('ever-changed', true);
 	               $(this).find("input.item_answered").val(mysql_datetime());
-	               $(this).find("input.item_answered_relative").val(performance.now());
+	               $(this).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
 				});
 			}
 		
@@ -405,7 +415,7 @@
 					$(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
 	                if(! hide) {
 	                    $(elm).find("input.item_shown").val(mysql_datetime());
-	                    $(elm).find("input.item_shown_relative").val(performance.now());
+	                    $(elm).find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
 	                }
 				}
 			}
