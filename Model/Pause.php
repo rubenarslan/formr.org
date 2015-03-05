@@ -132,23 +132,15 @@ class Pause extends RunUnit {
 	private function checkWhetherPauseIsOver() {
 		$conditions = array();
 
-		if ($this->relative_to_true): // if a relative_to has been defined by user or automatically, we need to retrieve its value
-			$openCPU = $this->makeOpenCPU();
-			$openCPU->clearUserData();
-			if ($this->beingTestedByOwner()) {
-				$openCPU->admin_usage = true;
-			}
-
-			$openCPU->addUserData($this->getUserDataInRun(
-			$this->dataNeeded($this->dbh, $this->relative_to)
-			));
-
-			$this->relative_to_result = $relative_to = $openCPU->evaluate($this->relative_to);
-
-			if ($openCPU->anyErrors()) {
+		// if a relative_to has been defined by user or automatically, we need to retrieve its value
+		if ($this->relative_to_true) {
+			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->relative_to));
+			$result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'text');
+			if ($result === null) {
 				return false;
 			}
-		endif;
+			$this->relative_to_result = $relative_to = $result;
+		}
 
 		$bind_relative_to = false;
 
@@ -233,16 +225,11 @@ class Pause extends RunUnit {
 			// take the first sample session
 			$this->run_session_id = current($results)['id'];
 			echo "<h3>Pause relative to</h3>";
-			$openCPU = $this->makeOpenCPU();
-			if ($this->beingTestedByOwner()) {
-				$openCPU->admin_usage = true;
-			}
 
-			$openCPU->addUserData($this->getUserDataInRun(
-				$this->dataNeeded($this->dbh, $this->relative_to)
-			));
+			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->relative_to));
+			$session = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json', null, true);
 
-			echo $openCPU->evaluateAdmin($this->relative_to);
+			echo opencpu_debug($session);
 		}
 
 		if (!empty($results)) {

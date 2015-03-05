@@ -187,22 +187,12 @@ class Email extends RunUnit {
 	}
 
 	public function getRecipientField() {
-		$openCPU = $this->makeOpenCPU();
-
-		$openCPU->admin_usage = $this->admin_usage;
-
-		if ($this->recipient_field === null OR trim($this->recipient_field) == '') {
+		if (empty($this->recipient_field)) {
 			$this->recipient_field = 'survey_users$email';
 		}
 
-		$openCPU->addUserData($this->getUserDataInRun(
-			$this->dataNeeded($this->dbh, $this->recipient_field)
-		));
-
-		$result = $openCPU->evaluate($this->recipient_field);
-		if ($openCPU->anyErrors()) {
-			return null; // don't go anywhere, wait for the error to be fixed!
-		}
+		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
+		$result = opencpu_evaluate($this->recipient_field, $opencpu_vars);
 
 		return $result;
 	}
@@ -320,35 +310,33 @@ class Email extends RunUnit {
 			$this->recipient_field = 'survey_users$email';
 		}
 
+		$output = '
+			<table class="table table-striped">
+				<thead>
+					<tr>
+						<th>Code (Position)</th>
+						<th>Test</th>
+					</tr>
+				</thead>
+				<tbody>%s</tbody>
+			</table>';
 
-
-		echo '<table class="table table-striped">
-				<thead><tr>
-					<th>Code (Position)</th>
-					<th>Test</th>
-				</tr></thead>
-				<tbody>"';
+		$rows = '';
 		foreach ($results AS $row):
-			$openCPU = $this->makeOpenCPU();
 			$this->run_session_id = $row['id'];
 
-			$openCPU->admin_usage = $this->admin_usage;
-			$openCPU->addUserData($this->getUserDataInRun(
-				$this->dataNeeded($this->dbh, $this->recipient_field)
-			));
-			$email = stringBool($openCPU->evaluate($this->recipient_field));
-			// OpenCPU evaluate method can return an array in some cases so this is some hack to get string
-			// @todo Fix this hack by checking openCPU::evaluate return data
-			$email = (array) $email;
-			$email = array_shift($email);
+			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
+			$email = stringBool(opencpu_evaluate($this->recipient_field, $opencpu_vars, 'text'));
 
 			$good = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
-			echo "<tr>
+			$rows .= "
+				<tr>
 					<td style='word-wrap:break-word;max-width:150px'><small>" . $row['session'] . " ({$row['position']})</small></td>
 					<td class='$good'>" . $email . "</td>
 				</tr>";
 		endforeach;
-		echo '</tbody></table>';
+
+		echo sprintf($output, $rows);
 		$this->run_session_id = null;
 	}
 
