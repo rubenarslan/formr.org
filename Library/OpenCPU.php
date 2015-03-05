@@ -136,7 +136,7 @@ class OpenCPU {
 			));
 		}
 
-		// Maybe something bad happen in CURL class just throw it with OpenCPU_Exception
+		// Maybe something bad happen in CURL request just throw it with OpenCPU_Exception with message returned from CURL
 		try {
 			$results = CURL::HttpRequest($url, $params, $method, $curl_opts, $this->curl_info);
 		} catch (Exception $e) {
