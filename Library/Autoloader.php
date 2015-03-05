@@ -80,7 +80,7 @@ class Autoload {
 			'Item_week' => INCLUDE_ROOT . 'Model/Item.php',
 			'Item_year' => INCLUDE_ROOT . 'Model/Item.php',
 			'Item_yearmonth' => INCLUDE_ROOT . 'Model/Item.php',
-			'OpenCPU' => INCLUDE_ROOT . 'Model/OpenCPU.php',
+			'OpenCPU' => INCLUDE_ROOT . 'Library/OpenCPU.php',
 			'Page' => INCLUDE_ROOT . 'Model/Page.php',
 			'Pagination' => INCLUDE_ROOT . 'Model/Pagination.php',
 			'Pause' => INCLUDE_ROOT . 'Model/Pause.php',
