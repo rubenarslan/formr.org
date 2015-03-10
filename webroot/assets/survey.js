@@ -1,11 +1,34 @@
+// Polyfill window.performance
+(function(){
+
+	if ("performance" in window == false) {
+		window.performance = {};
+	}
+	// Polyfill Date.now for IE8
+	Date.now = (Date.now || function () {
+		return new Date().getTime();
+	});
+
+	if ("now" in window.performance == false) {
+		var nowOffset = Date.now();
+		if (performance.timing && performance.timing.navigationStart){
+			nowOffset = performance.timing.navigationStart;
+		}
+
+		window.performance.now = function now(){
+			return Date.now() - nowOffset;
+		};
+	}
+
+})();
+
 $(document).ready(function() {
 
 	// initialising special items
 	// --------------------------
 	webshim.ready('geolocation',function() {
 		"use strict";
-		$('.geolocator').click(function()
-		{
+		$('.geolocator').click(function() {
 			var real_loc = $(this).closest('.controls').find('input[type=hidden]');
 			var enter_loc = $(this).closest('.controls').find('input[type=text]');
 
@@ -31,13 +54,11 @@ $(document).ready(function() {
 		};*/
 			);
 			return false;
-		}).each(function()
-		{
+		}).each(function() {
 			$(this).closest('.input-group-btn.hidden').removeClass('hidden');
 		});
 	});
-	webshim.ready('forms forms-ext dom-extend', function()
-    {
+	webshim.ready('forms forms-ext dom-extend', function() {
         var radios = $('div.btn-radio button.btn');
         radios.closest('div.btn-group').removeClass('hidden');
         radios.closest('.controls').find('label[class!=keep-label]').addClass('hidden');
@@ -50,7 +71,7 @@ $(document).ready(function() {
 			new FastClick(this);
 		
 			webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
-		}).click(function(event){
+		}).click(function(event) {
 			var $btn = $(this);
 			$('#'+$btn.attr('data-for')).prop('checked',true); // couple with its radio button
 			var all_buttons = $btn.closest('div.btn-group').find('button.btn'); // find all buttons
@@ -60,8 +81,7 @@ $(document).ready(function() {
 			return false;
 		});
 
-
-		$('div.btn-checkbox button.btn').off('click').click(function(event){
+		$('div.btn-checkbox button.btn').off('click').click(function(event) {
 			var $btn = $(this);
 			var checked = $('#'+$btn.attr('data-for')).prop('checked');
 			$('#'+$btn.attr('data-for')).prop('checked',!checked); // couple with its radio button
@@ -91,16 +111,14 @@ $(document).ready(function() {
 			"use strict";
 			var $btn = $(this);
 			var $original_box = $('#'+$btn.attr('data-for'));
-		
-			$original_box.change(function()
-			{
+
+			$original_box.change(function() {
 				var checked = !!$(this).prop('checked');
 				var $btn = $('button.btn[data-for="'+ this.id +'"]');
 				$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
 			})
 			.change()
-			.on('togglecheck',function()
-			{
+			.on('togglecheck', function() {
 				var checked = !!$(this).prop('checked');
 				$(this).prop('checked',!checked); // toggle check
 				$(this).change(); // trigger change event to sync up
@@ -108,21 +126,17 @@ $(document).ready(function() {
 		
 			$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 			$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
-		
+
 			new FastClick(this);
-		
 			webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 		});
-        
-	
-		
+
 		$('.item-number.counter input[type=number]').each(function() {
 			var $input = $(this)
 			$input.parents("span").hide();
 			var btns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></div>')
 			btns.insertAfter($input.parents("span"));
-			btns.find(".btn-down").click(function()
-			{
+			btns.find(".btn-down").click(function() {
 				var val = 1;
 				if($input.attr('value')) val = +$input.attr('value');
 				if( $input.attr('min') < val ) 
@@ -132,8 +146,7 @@ $(document).ready(function() {
 				}
 				return false;
 			});
-			btns.find(".btn-up").click(function()
-			{
+			btns.find(".btn-up").click(function() {
 				var val = 1;
 				if($input.attr('value')) val = +$input.attr('value');
 				if( $input.attr('max') > val ) 
@@ -146,19 +159,19 @@ $(document).ready(function() {
 			webshim.ready("dom-extend", function(){
 				webshim.addShadowDom($input, btns);
 			});
-					
+
 			new FastClick(btns.find(".btn-down"));
 			new FastClick(btns.find(".btn-up"));
 		});
-		$("select.select2zone, .form-group.select2 select").each(function(i,elm)
-		{
+
+		$("select.select2zone, .form-group.select2 select").each(function(i,elm) {
 			"use strict";
 			var slct = $(elm); 
 			slct.select2();
 			webshim.addShadowDom(slct, slct.select2("container"));
 		});
-		$(".select2pills select").each(function(i,elm)
-		{
+
+		$(".select2pills select").each(function(i,elm) {
 			"use strict";
 			var slct = $(elm); 
 			slct.select2({
@@ -167,11 +180,11 @@ $(document).ready(function() {
 				maximumSelectionSize: slct.data('select2maximumSelectionSize'),
 				maximumInputLength: slct.data('select2maximumInputLength'),
 				formatResult: function(pill) {
-					if(pill.id != '')
-					{
+					if(pill.id != '') {
 						var markup = "<strong>" + pill.text + "</strong><br><img width='200px' alt='"+pill.text+"' src='assets/img/pills/" + pill.id + ".jpg'/>";
 						return markup;
-					} else
+					}
+
 					return '';
 				},
 				formatSelection: function (pill) {
@@ -183,9 +196,8 @@ $(document).ready(function() {
 			});
 			webshim.addShadowDom(slct, slct.select2("container"));
 		});
-	
-		$(".people_list textarea").each(function(i,elm)
-		{
+
+		$(".people_list textarea").each(function(i,elm) {
 			"use strict";
 			
 			var slct = $(elm); 
@@ -281,7 +293,7 @@ $(document).ready(function() {
 	});
     
     var pageload_time = mysql_datetime();
-    var relative_time = window.performance ? performance.now() : 0;
+    var relative_time = window.performance.now();
     $('form').find("input.item_shown, input.item_shown_relative, input.item_answered, input.item_answered_relative").change(function(e) { e.stopPropagation(); });
 	$(".form-group:not([data-showif])").each(function(i,elm) // walk through all form elements that are automatically shown
 	{
@@ -329,7 +341,7 @@ function getProgress()
 			$(elm_non_hidden).parents(".form-group").change(function(){
 			   $(this).data('ever-changed', true);
                $(this).find("input.item_answered").val(mysql_datetime());
-               $(this).find("input.item_answered_relative").val(window.performance ? performance.now() : 0);
+               $(this).find("input.item_answered_relative").val(window.performance.now());
 			});
 		}
 		
@@ -418,7 +430,7 @@ function showIf(e)
 				$(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
                 if(! hide) {
                     $(elm).find("input.item_shown").val(mysql_datetime());
-                    $(elm).find("input.item_shown_relative").val(window.performance ? performance.now() : 0);
+                    $(elm).find("input.item_shown_relative").val(window.performance.now());
                 }
 			}
 		}
