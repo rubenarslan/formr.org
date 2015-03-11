@@ -51,7 +51,7 @@ class ItemFactory {
 		$result = null;
 		if (strstr($showif, "//js_only") === false) {
 			$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $showif, $survey->name));
-			$result = opencpu_evaluate($showif, $opencpu_vars, 'text', $survey->name);
+			$result = opencpu_evaluate($showif, $opencpu_vars, 'json', $survey->name);
 
 			if ($result === null) {
 				$result = true;
@@ -441,7 +441,7 @@ class Item extends HTML_element {
 
 		$ocpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->value, $survey->name));
 		$ocpu_session = opencpu_evaluate($this->value, $ocpu_vars, 'json', $survey->name, true);
-		$this->input_attributes['value'] = $ocpu_session->getObject('text');
+		$this->input_attributes['value'] = $ocpu_session->getJSONObject();
 
 		if($this->type == 'opencpu_session'):
 			$this->input_attributes['value'] = $ocpu_session->getLocation();

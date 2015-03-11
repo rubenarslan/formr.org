@@ -334,14 +334,13 @@ class OpenCPU_Session {
 		return $object;
 	}
 
-	public function getJSONObject($string = null) {
+	public function getJSONObject($string = null, $as_assoc = true) {
 		if ($string === null) {
 			$string = $this->raw_result;
 		}
-		$json = json_decode($string);
-		$a = (array)$json;;
-		if (is_array($a) && count($a) === 1 && isset($a[0]) && is_string($a[0])) {
-			return $a[0];
+		$json = json_decode($string, $as_assoc);
+		if (is_array($json) && array_key_exists(0, $json)) {
+			return $json[0];
 		}
 		return $json;
 	}

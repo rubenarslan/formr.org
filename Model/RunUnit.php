@@ -476,7 +476,7 @@ class RunUnit {
 	}
 
 	public function getParsedText($source) {
-		return opencpu_knit($source, 'text');
+		return opencpu_knit($source, 'json');
 	}
 
 	public function getParsedTextAdmin($source) {
