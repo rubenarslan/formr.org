@@ -4,19 +4,30 @@
   HELPER FUNCTIONS
  */
 
-function formr_log($msg) {// shorthand
-	if(!is_string($msg)) $msg = print_r($msg, true);
+function formr_log($msg, $type = '') {// shorthand
+	$msg = print_r($msg, true);
 	$msg = date('Y-m-d H:i:s') . ' ' . $msg;
-	if(DEBUG) alert("<pre>".$msg."</pre>", "alert-danger");
-	error_log($msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/formr_error.log");
+	if ($type) {
+		$msg = "[$type] $msg";
+	}
+
+	if(DEBUG) {
+		alert('<pre>'.$msg.'</pre>', 'alert-danger');
+	}
+
+	error_log($msg . "\n", 3, get_log_file('formr_error.log'));
 }
 
 function opencpu_log_warning($msg) {// shorthand
-	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/opencpu_warning.log");
+	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, get_log_file('opencpu_warning.log'));
 }
 
 function opencpu_log($msg) {// shorthand
-	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, INCLUDE_ROOT . "tmp/logs/opencpu_error.log");
+	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, get_log_file('opencpu_error.log'));
+}
+
+function get_log_file($filename) {
+	return INCLUDE_ROOT . "tmp/logs/$filename";
 }
 
 function alert($msg, $class = 'alert-warning', $dismissable = true) { // shorthand
@@ -25,9 +36,10 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) { // shortha
 }
 
 function log_exception(Exception $e, $prefix = '', $debug_data = null) {
-	$msg = $prefix . ' Exception: ' . $e->getMessage(). "\n" .
-		 $e->getTraceAsString();
-	if(DEBUG) alert("<pre>".$msg."</pre>", "alert-danger");
+	$msg = $prefix . ' Exception: ' . $e->getMessage(). "\n" . $e->getTraceAsString();
+	if(DEBUG) {
+		alert('<pre>'.$msg.'</pre>', 'alert-danger');
+	}
 
 	error_log($msg);
 	if ($debug_data !== null) {
@@ -835,6 +847,9 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 			return $session;
 		}
 
+		if ($session->hasError()) {
+			throw new OpenCPU_Exception($session->getError());
+		}
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		log_exception($e, 'OpenCPU');
@@ -860,6 +875,9 @@ function opencpu_knit($code, $return_format = 'json', $return_session = false) {
 			return $session;
 		}
 
+		if ($session->hasError()) {
+			throw new OpenCPU_Exception($session->getError());
+		}
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		log_exception($e, 'OpenCPU');
@@ -885,6 +903,9 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 			return $session;
 		}
 
+		if ($session->hasError()) {
+			throw new OpenCPU_Exception($session->getError());
+		}
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		log_exception($e, 'OpenCPU');

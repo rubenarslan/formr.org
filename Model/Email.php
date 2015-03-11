@@ -13,6 +13,7 @@ class Email extends RunUnit {
 	private $images = array();
 	private $subject = null;
 	private $recipient_field;
+	private $recipient;
 	private $html = 1;
 	public $icon = "fa-envelope";
 	public $type = "Email";
@@ -327,7 +328,6 @@ class Email extends RunUnit {
 
 			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
 			$email = stringBool(opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json'));
-
 			$good = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
 			$rows .= "
 				<tr>

@@ -544,7 +544,9 @@ class RunUnit {
 		/* @var $session OpenCPU_Session */
 		if ($email_embed) {
 			$session = opencpu_knitemail($source, $ocpu_vars, null, true);
-			if ($session === null) {
+			if ($session->hasError()) {
+				formr_log($session->getError());
+				alert('There was a problem with opencpu', 'alert-danger');
 				return false;
 			}
 			$report = array(
@@ -553,7 +555,9 @@ class RunUnit {
 			);
 		} else {
 			$session = opencpu_knitdisplay($source, $ocpu_vars, true);
-			if ($session === null) {
+			if ($session->hasError()) {
+				formr_log($session->getError());
+				alert('There was a problem with opencpu', 'alert-danger');
 				return false;
 			}
 			$report = $session->getObject('text');

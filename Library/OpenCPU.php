@@ -335,6 +335,10 @@ class OpenCPU_Session {
 	}
 
 	public function getJSONObject($string = null, $as_assoc = true) {
+		if (!$this->key) {
+			return null;
+		}
+
 		if ($string === null) {
 			$string = $this->raw_result;
 		}
