@@ -52,8 +52,14 @@ class ItemFactory {
 		if (strstr($showif, "//js_only") === false) {
 			$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $showif, $survey->name));
 			$result = opencpu_evaluate($showif, $opencpu_vars, 'json', $survey->name);
-
-			if ($result === null) {
+			/**
+			 * opencpu_evaluate called with the indicated parameters returns:
+			 * - NULL if the variable in $showif is Not Avaliable,
+			 * - TRUE if it avaliable and true,
+			 * - FALSE if it avaliable and not true
+			 * - An empty array if a problem occured with opencpu
+			 */
+			if ($result === array()) {
 				$result = true;
 				$this->openCPU_errors[$showif] =  _('There were problems with openCPU.');
 			}
