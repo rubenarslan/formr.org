@@ -100,12 +100,13 @@ class Email extends RunUnit {
 
 		if (isset($this->run_name)) {
 			$sess = isset($this->session) ? $this->session : "TESTCODE";
-			$login_link = WEBROOT . "{$this->run_name}?code=".urlencode($sess);
+			$login_link = site_url("{$this->run_name}?code=".urlencode($sess));
 		} else {
-			$login_link = WEBROOT;
+			$login_link = site_url();
 			alert("Generated a login link, but no run was specified", 'alert-danger');
 		}
-		if ($this->html):
+
+		if ($this->html) {
 			$login_link = "<a href='$login_link'>Login link</a>";
 
 			if ($this->session_id):
@@ -137,11 +138,11 @@ class Email extends RunUnit {
 			$this->body_parsed = str_replace("{{login_link}}", $login_link, $this->body_parsed);
 			$this->body_parsed = str_replace("{{login_code}}", $this->session, $this->body_parsed);
 			return $this->body_parsed;
-		else:
+		} else {
 			$this->body = str_replace("{{login_link}}", $login_link, $this->body);
 			$this->body = str_replace("{{login_code}}", $this->session, $this->body);
 			return $this->body;
-		endif;
+		}
 	}
 
 	private function getEmailAccounts() {
