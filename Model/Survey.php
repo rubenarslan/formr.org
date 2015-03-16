@@ -1178,8 +1178,8 @@ class Survey extends RunUnit {
 					<a class='btn' href='" . admin_study_url($this->name, 'upload_items') . "'>Upload items</a>
 			</p>";
 			$dialog .= '<br><p class="btn-group">
-				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
-				<a class="btn btn-default unit_test" href="' . admin_study_url($this->name, 'access') . '">Test</a>
+				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Save.</a>
+				<a class="btn btn-default" href="' . admin_study_url($this->name, 'access') . '">Test</a>
 				</p>';
 //		elseif($studies):
 else:
