@@ -101,9 +101,9 @@ class Email extends RunUnit {
 
 		if (isset($this->run_name)) {
 			$sess = isset($this->session) ? $this->session : "TESTCODE";
-			$login_link = WEBROOT . "{$this->run_name}?code=".urlencode($sess);
+			$login_link = site_url("{$this->run_name}?code=".urlencode($sess));
 		} else {
-			$login_link = WEBROOT;
+			$login_link = site_url();
 			alert("Generated a login link, but no run was specified", 'alert-danger');
 		}
 		if ($this->html):
