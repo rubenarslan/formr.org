@@ -1162,7 +1162,7 @@ class Survey extends RunUnit {
 			$dialog = "<h5>No studies. <a href='" .  admin_study_url() . "'>Add some first</a></h5>";
 		endif;
 		
-		if ($this->id):
+		if ($this->id) {
 			$resultCount = $this->howManyReachedItNumbers();
 
 			$time = $this->getAverageTimeItTakes();
@@ -1179,11 +1179,11 @@ class Survey extends RunUnit {
 				<a class="btn btn-default hastooltip" title="You should probably open this link in a new tab." href="' . admin_study_url($this->name, 'access') . '">Test</a>
 				</p>';
 //		elseif($studies):
-else:
+		} else {
 			$dialog .= '<br><p class="btn-group">
 				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
 			</p>';
-		endif;
+		}
 
 		$dialog = $prepend . $dialog;
 		return parent::runDialog($dialog, 'fa-pencil-square');

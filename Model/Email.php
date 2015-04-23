@@ -13,6 +13,7 @@ class Email extends RunUnit {
 	private $images = array();
 	private $subject = null;
 	private $recipient_field;
+	private $recipient;
 	private $html = 1;
 	public $icon = "fa-envelope";
 	public $type = "Email";
@@ -100,9 +101,9 @@ class Email extends RunUnit {
 
 		if (isset($this->run_name)) {
 			$sess = isset($this->session) ? $this->session : "TESTCODE";
-			$login_link = WEBROOT . "{$this->run_name}?code=".urlencode($sess);
+			$login_link = site_url("{$this->run_name}?code=".urlencode($sess));
 		} else {
-			$login_link = WEBROOT;
+			$login_link = site_url();
 			alert("Generated a login link, but no run was specified", 'alert-danger');
 		}
 		if ($this->html):
@@ -192,7 +193,7 @@ class Email extends RunUnit {
 		}
 
 		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
-		$result = opencpu_evaluate($this->recipient_field, $opencpu_vars, 'text');
+		$result = opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json');
 
 		return $result;
 	}
@@ -326,8 +327,7 @@ class Email extends RunUnit {
 			$this->run_session_id = $row['id'];
 
 			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
-			$email = stringBool(opencpu_evaluate($this->recipient_field, $opencpu_vars, 'text'));
-
+			$email = stringBool(opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json'));
 			$good = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
 			$rows .= "
 				<tr>

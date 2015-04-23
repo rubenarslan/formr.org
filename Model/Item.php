@@ -51,9 +51,15 @@ class ItemFactory {
 		$result = null;
 		if (strstr($showif, "//js_only") === false) {
 			$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $showif, $survey->name));
-			$result = opencpu_evaluate($showif, $opencpu_vars, 'text', $survey->name);
-
-			if ($result === null) {
+			$result = opencpu_evaluate($showif, $opencpu_vars, 'json', $survey->name);
+			/**
+			 * opencpu_evaluate called with the indicated parameters returns:
+			 * - NULL if the variable in $showif is Not Avaliable,
+			 * - TRUE if it avaliable and true,
+			 * - FALSE if it avaliable and not true
+			 * - An empty array if a problem occured with opencpu
+			 */
+			if ($result === array()) {
 				$result = true;
 				$this->openCPU_errors[$showif] =  _('There were problems with openCPU.');
 			}
@@ -441,7 +447,7 @@ class Item extends HTML_element {
 
 		$ocpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->value, $survey->name));
 		$ocpu_session = opencpu_evaluate($this->value, $ocpu_vars, 'json', $survey->name, true);
-		$this->input_attributes['value'] = $ocpu_session->getObject('text');
+		$this->input_attributes['value'] = $ocpu_session->getJSONObject();
 
 		if($this->type == 'opencpu_session'):
 			$this->input_attributes['value'] = $ocpu_session->getLocation();

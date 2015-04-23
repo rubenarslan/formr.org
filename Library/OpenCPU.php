@@ -98,7 +98,12 @@ class OpenCPU {
 		return null;
 	}
 
-	public function getRequestInfo() {
+	public function getRequestInfo($item = null) {
+		if ($item && isset($this->curl_info[$item])) {
+			return $this->curl_info[$item];
+		} elseif ($item) {
+			return null;
+		}
 		return $this->curl_info;
 	}
 
@@ -131,14 +136,17 @@ class OpenCPU {
 			));
 		}
 
-		// Maybe something bad happen in CURL class just throw it with OpenCPU_Exception
+		// Maybe something bad happen in CURL request just throw it with OpenCPU_Exception with message returned from CURL
 		try {
 			$results = CURL::HttpRequest($url, $params, $method, $curl_opts, $this->curl_info);
 		} catch (Exception $e) {
 			throw new OpenCPU_Exception($e->getMessage(), -1, $e);
 		}
 
-		if ($this->curl_info['http_code'] < 200 || $this->curl_info['http_code'] > 300) {
+		if ($this->curl_info['http_code'] == 400) {
+			$results = "R Error: $results";
+			return new OpenCPU_Session(null, null, $results, $this);
+		} elseif ($this->curl_info['http_code'] < 200 || $this->curl_info['http_code'] > 300) {
 			if (!$results) {
 				$results = "OpenCPU server '{$this->baseUrl}' could not be contacted";
 			}
@@ -268,6 +276,10 @@ class OpenCPU_Session {
 	 * @return array
 	 */
 	public function getFiles($match = '/files/') {
+		if (!$this->key) {
+			return null;
+		}
+
 		$files = array();
 		$result = explode("\n", $this->raw_result);
 		foreach ($result as $path) {
@@ -287,6 +299,10 @@ class OpenCPU_Session {
 	 * @return array
 	 */
 	public function getResponsePaths() {
+		if (!$this->key) {
+			return null;
+		}
+
 		$result = explode("\n", $this->raw_result);
 		$files = array();
 		foreach ($result as $path) {
@@ -305,27 +321,73 @@ class OpenCPU_Session {
 	}
 
 	public function getObject($name = 'json', $params = array()) {
+		if (!$this->key) {
+			return null;
+		}
+
 		$url = $this->getLocation() . 'R/.val/' . $name;
 		$info = array(); // just in case needed in the furture to get curl info
-		return CURL::HttpRequest($url, $params, $method = CURL::HTTP_METHOD_GET, array(), $info);
+		$object = CURL::HttpRequest($url, $params, $method = CURL::HTTP_METHOD_GET, array(), $info);
+		if ($name === 'json') {
+			$object = $this->getJSONObject($object);
+		}
+		return $object;
+	}
+
+	public function getJSONObject($string = null, $as_assoc = true) {
+		if (!$this->key) {
+			return null;
+		}
+
+		if ($string === null) {
+			$string = $this->raw_result;
+		}
+		$json = json_decode($string, $as_assoc);
+		if (is_array($json) && array_key_exists(0, $json)) {
+			return $json[0];
+		}
+		return $json;
 	}
 
 	public function getStdout() {
+		if (!$this->key) {
+			return null;
+		}
+
 		$url = $this->getLocation() . 'stdout/text';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
 
 	public function getConsole() {
+		if (!$this->key) {
+			return null;
+		}
+
 		$url = $this->getLocation() . 'console/text';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
 
 	public function getInfo() {
+		if (!$this->key) {
+			return null;
+		}
+
 		$url = $this->getLocation() . 'info/text';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
+	}
+
+	public function hasError() {
+		return $this->ocpu->getRequestInfo('http_code') >=  400;
+	}
+
+	public function getError() {
+		if (!$this->hasError()) {
+			return null;
+		}
+		return $this->raw_result;
 	}
 
 	/**

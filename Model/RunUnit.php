@@ -471,12 +471,12 @@ class RunUnit {
 	}
 
 	public function parseBodySpecial() {
-		$session = opencpu_knitadmin($this->body, null, true);
+		$session = opencpu_knitadmin($this->body, array(), true);
 		return opencpu_debug($session);
 	}
 
 	public function getParsedText($source) {
-		return opencpu_knit($source, 'text');
+		return opencpu_knit($source, 'json');
 	}
 
 	public function getParsedTextAdmin($source) {
@@ -492,14 +492,15 @@ class RunUnit {
 				return false;
 			}
 
-			// Q: What is the role of $email_embed ?
 			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
-			$knitted = opencpu_knitadmin($source, $opencpu_vars);
+			/* @var $session OpenCPU_Session */
+			$session = opencpu_knitadmin($source, $opencpu_vars, true);
+			$body = $session->hasError() ? $session->getError() : $session->getJSONObject();
 
 			if ($email_embed) {
-				$report = array('body' => $knitted, 'images' => array());
+				$report = array('body' => $body, 'images' => array());
 			} else {
-				$report = $knitted;
+				$report = $body;
 			}
 
 			return $report;
@@ -543,7 +544,9 @@ class RunUnit {
 		/* @var $session OpenCPU_Session */
 		if ($email_embed) {
 			$session = opencpu_knitemail($source, $ocpu_vars, null, true);
-			if ($session === null) {
+			if ($session->hasError()) {
+				formr_log($session->getError());
+				alert('There was a problem with opencpu', 'alert-danger');
 				return false;
 			}
 			$report = array(
@@ -552,7 +555,9 @@ class RunUnit {
 			);
 		} else {
 			$session = opencpu_knitdisplay($source, $ocpu_vars, true);
-			if ($session === null) {
+			if ($session->hasError()) {
+				formr_log($session->getError());
+				alert('There was a problem with opencpu', 'alert-danger');
 				return false;
 			}
 			$report = $session->getObject('text');

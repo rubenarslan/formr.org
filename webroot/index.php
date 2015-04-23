@@ -5,7 +5,7 @@ if (DEBUG > 0) {
     ini_set('display_errors', 1);
 }
 ini_set("log_errors", 1);
-ini_set("error_log", INCLUDE_ROOT . "tmp/logs/errors.log");
+ini_set("error_log", get_log_file('errors.log'));
 
 ini_set('session.gc_maxlifetime', Config::get('session_cookie_lifetime'));
 ini_set('session.cookie_lifetime', Config::get('session_cookie_lifetime'));
