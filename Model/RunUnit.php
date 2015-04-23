@@ -471,7 +471,7 @@ class RunUnit {
 	}
 
 	public function parseBodySpecial() {
-		$session = opencpu_knitadmin($this->body, null, true);
+		$session = opencpu_knitadmin($this->body, array(), true);
 		return opencpu_debug($session);
 	}
 

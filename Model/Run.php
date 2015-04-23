@@ -758,6 +758,10 @@ class Run {
 					$unit->if_true = $unit->if_true + $start_position;
 				}
 
+				if (strpos($unit->type, 'Email') !== false) {
+					unset($unit->account_id);
+				}
+
 				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit);
 				$unitObj->create((array) $unit);
 				if ($unitObj->valid) {

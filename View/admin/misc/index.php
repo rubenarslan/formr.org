@@ -25,7 +25,7 @@
 			
 			<?php if ($runs): ?>
 			<div class="col-sm-6">
-				<h3>Surveys</h3>
+				<h3>Runs</h3>
 				<ul class="fa-ul">
 					<?php foreach ($runs as $menu_run) : ?>
 						<li><a href="<?php echo admin_run_url($menu_run['name']); ?>"> <i class='fa fa-pencil-square fa-fw'></i> <?php echo $menu_run['name']; ?></a></li>
