@@ -38,3 +38,6 @@
 	?>
 	</div>
 </div>
+
+<?php
+Template::load('footer');

@@ -59,7 +59,7 @@ $(function(){
 	    $(elm).submit(function(e)
 	    {
 	    	e.preventDefault();
-	        $this = $(this);
+	        var $this = $(this);
 	        $submit = $this.find('button.btn');
 	        $submit.attr('disabled',true);
 
