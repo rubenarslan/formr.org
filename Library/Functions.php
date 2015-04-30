@@ -721,6 +721,13 @@ function admin_url($uri = '') {
 	return site_url('admin' . $uri);
 }
 
+function assets_url($uri = '') {
+	if ($uri) {
+		$uri = '/' . $uri;
+	}
+	return site_url('assets' . $uri);
+}
+
 function run_url($name = '') {
 	return RUNROOT . $name;
 }
