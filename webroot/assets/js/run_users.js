@@ -31,7 +31,7 @@ $(function(){
 	    $(elm).click(function(e)
 	    {
 	    	e.preventDefault();
-	        $this = $(this);
+	        var $this = $(this);
 	        var old_href = $this.attr('href');
 	        if(old_href === '') return false;
 	        $this.attr('href','');
@@ -60,7 +60,7 @@ $(function(){
 	    {
 	    	e.preventDefault();
 	        var $this = $(this);
-	        $submit = $this.find('button.btn');
+	        var $submit = $this.find('button.btn');
 	        $submit.attr('disabled',true);
 
 	    	$.ajax(
