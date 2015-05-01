@@ -74,6 +74,7 @@ $(function(){
 			{
 	            $submit.attr('disabled',false);
 	            $submit.css('color','green');
+				general_alert(data, '.main_body');
 			},this))
 	        .fail($.proxy(function(e, x, settings, exception) {
 	            $submit.attr('disabled',false);
