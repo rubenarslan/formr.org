@@ -25,7 +25,7 @@
 	webshim.activeLang('de');
 
 
-	$(document).ready(function () {
+	$(document).ready(function() {
 		if ($(".schmail").length == 1) {
 			var schmail = $(".schmail").attr('href');
 			schmail = schmail.replace("IMNOTSENDINGSPAMTO", "").
@@ -56,75 +56,80 @@
 	});
 }());
 
-	function bootstrap_alert(message, bold, where, cls) {
-		cls = cls || 'alert-danger';
-		var $alert = $('<div class="row"><div class="col-md-6 col-sm-6 all-alerts"><div class="alert '+cls+'"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold : 'Problem') + '</strong> ' + message + '</div></div></div>');
-		$alert.prependTo($(where));
-		$alert[0].scrollIntoView(false);
-	}
+function general_alert(message, place) {
+	$(place).append(message);
+}
 
-	function bootstrap_modal(header, body) {
-		var $modal = $($.parseHTML(getHTMLTemplate('tpl-test-modal', {'body': body, 'header': header})));
-		$modal.modal('show').on('hidden.bs.modal', function () {
-			$modal.remove();
-		});
-	    return $modal;
-	}
+function bootstrap_alert(message, bold, where, cls) {
+	cls = cls || 'alert-danger';
+	var $alert = $('<div class="row"><div class="col-md-6 col-sm-6 all-alerts"><div class="alert ' + cls + '"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold : 'Problem') + '</strong> ' + message + '</div></div></div>');
+	$alert.prependTo($(where));
+	$alert[0].scrollIntoView(false);
+}
 
-	function bootstrap_spinner() {
-		return ' <i class="fa fa-spinner fa-spin"></i>';
-	}
+function bootstrap_modal(header, body) {
+	var $modal = $($.parseHTML(getHTMLTemplate('tpl-test-modal', {'body': body, 'header': header})));
+	$modal.modal('show').on('hidden.bs.modal', function() {
+		$modal.remove();
+	});
+	return $modal;
+}
 
-	function ajaxErrorHandling(e, x, settings, exception) {
-		var message;
-		var statusErrorMap = {
-			'400': "Server understood the request but request content was invalid.",
-					'401': "You don't have access.",
-					'403': "You were logged out while coding, please open a new tab and login again. This way no data will be lost.",
-					'404': "Page not found.",
-					'500': "Internal Server Error.",
-					'503': "Server can't be reached."
-				};
-		if (e.status) {
-			message = statusErrorMap[e.status];
-			if (!message)
-				message = (typeof e.statusText !== 'undefined' && e.statusText !== 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
-		}
-		else if (e.statusText === 'parsererror')
-			message = "Parsing JSON Request failed.";
-		else if (e.statusText === 'timeout')
-			message = "The attempt to save timed out. Are you connected to the internet?";
-		else if (e.statusText === 'abort')
-			message = "The request was aborted by the server.";
-		else
+function bootstrap_spinner() {
+	return ' <i class="fa fa-spinner fa-spin"></i>';
+}
+
+function ajaxErrorHandling(e, x, settings, exception) {
+	var message;
+	var statusErrorMap = {
+		'400': "Server understood the request but request content was invalid.",
+		'401': "You don't have access.",
+		'403': "You were logged out while coding, please open a new tab and login again. This way no data will be lost.",
+		'404': "Page not found.",
+		'500': "Internal Server Error.",
+		'503': "Server can't be reached."
+	};
+	if (e.status) {
+		message = statusErrorMap[e.status];
+		if (!message)
 			message = (typeof e.statusText !== 'undefined' && e.statusText !== 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
+	}
+	else if (e.statusText === 'parsererror')
+		message = "Parsing JSON Request failed.";
+	else if (e.statusText === 'timeout')
+		message = "The attempt to save timed out. Are you connected to the internet?";
+	else if (e.statusText === 'abort')
+		message = "The request was aborted by the server.";
+	else
+		message = (typeof e.statusText !== 'undefined' && e.statusText !== 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
 
-		if (e.responseText) {
-			var resp = $(e.responseText);
-			resp = resp.find(".alert").addBack().filter(".alert").html();
-			message = message + "<br>" + resp;
-		}
-
-		bootstrap_alert(message, 'Error.', '.main_body');
+	if (e.responseText) {
+		var resp = $(e.responseText);
+		resp = resp.find(".alert").addBack().filter(".alert").html();
+		message = message + "<br>" + resp;
 	}
 
-	function stringTemplate(string, params) {
-		for (var i in params) {
-			var t = "%?\{"+i+"\}";
-			string = string.replace((new RegExp(t, 'g')), params[i]);
-		}
-		return string;
-	}
+	bootstrap_alert(message, 'Error.', '.main_body');
+}
 
-	function getHTMLTemplate(id, params) {
-	   var $tpl = jQuery('#'+id);
-	   if (!$tpl.length) return;
-	   return stringTemplate($.trim($tpl.html()), params);
+function stringTemplate(string, params) {
+	for (var i in params) {
+		var t = "%?\{" + i + "\}";
+		string = string.replace((new RegExp(t, 'g')), params[i]);
 	}
+	return string;
+}
 
-	function toggleElement(id) {
-		$('#'+id).toggleClass('hidden');
-	}
+function getHTMLTemplate(id, params) {
+	var $tpl = jQuery('#' + id);
+	if (!$tpl.length)
+		return;
+	return stringTemplate($.trim($tpl.html()), params);
+}
+
+function toggleElement(id) {
+	$('#' + id).toggleClass('hidden');
+}
 
 /**
  * jQuery Plugin: Sticky Tabs
@@ -132,12 +137,12 @@
  * @author Aidan Lister <aidan@php.net>
  * @version 1.0.0
  */
-(function ($) {
+(function($) {
 	"use strict";
-	$.fn.stickyTabs = function () {
+	$.fn.stickyTabs = function() {
 		var context = this;
 		// Show the tab corresponding with the hash in the URL, or the first tab.
-		var showTabFromHash = function () {
+		var showTabFromHash = function() {
 			var hash = window.location.hash;
 			var selector = hash ? 'a[href="' + hash + '"]' : 'li.active > a';
 			$(selector, context).tab('show');
@@ -150,7 +155,7 @@
 		window.addEventListener('hashchange', showTabFromHash, false);
 
 		// Change the URL when tabs are clicked
-		$('a', context).on('click', function (e) {
+		$('a', context).on('click', function(e) {
 			history.pushState(null, null, this.href);
 		});
 
@@ -162,13 +167,13 @@
  * jQuery Plugin: Sticky Accordion
  *
  */
-(function ($) {
+(function($) {
 	"use strict";
-	$.fn.stickyCollapsible = function () {
+	$.fn.stickyCollapsible = function() {
 		var context = this;
 
 		// Show the tab corresponding with the hash in the URL, or the first tab.
-		var showCollapsibleFromHash = function () {
+		var showCollapsibleFromHash = function() {
 			var hash = window.location.hash;
 			if (hash) {
 				var tab = hash;
@@ -198,7 +203,7 @@
 		window.addEventListener('hashchange', showCollapsibleFromHash, false);
 
 		// Change the URL when tabs are clicked
-		$('a', context).on('click', function (e) {
+		$('a', context).on('click', function(e) {
 			history.pushState(null, null, this.href);
 		});
 

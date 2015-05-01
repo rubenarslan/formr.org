@@ -16,7 +16,7 @@ class SuperadminController extends Controller {
 		}
 
 		if (isset($_POST['admin_level']) AND isset($_POST['user_id'])) {
-			$this->setAdminLevel($_POST['admin_level'],  $_POST['user_id']);
+			$this->setAdminLevel($_POST['user_id'], $_POST['admin_level']);
 		}
 
 		echo $this->site->renderAlerts();
@@ -28,7 +28,7 @@ class SuperadminController extends Controller {
 		$allowed_levels = array(0, 1, 100);
 		$user = new User($this->fdb, $user_id, null);
 
-		if (!in_array($level, $allowed_levels) || !$user->user_code) {
+		if (!in_array($level, $allowed_levels) || !$user->email) {
 			alert('<strong>Level not supported or could not be assigned to user</strong>', 'alert-danger');
 		} elseif ($level == $user->getAdminLevel()) {
 			alert('<strong>User already has requested admin rights</strong>', 'alert-warning');
