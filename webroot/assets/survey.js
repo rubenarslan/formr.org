@@ -318,9 +318,12 @@ function getProgress()
 	var successful_controls = {};
 	$.each(badArray, function(i, obj)
 	{
-		if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
-		if(!successful_controls[ obj.name ]) successful_controls[obj.name] = obj.value;
-		else successful_controls[obj.name] += ", " + obj.value;
+		if(obj.name.indexOf('_') !== 0 && obj.name != "session_id") { // skip hidden items beginning with underscore (e.g _item_view)
+			if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
+				
+			if(!successful_controls[ obj.name ]) successful_controls[obj.name] = obj.value;
+			else successful_controls[obj.name] += ", " + obj.value;
+		}
 	});
 	
 	var already_answered = $progressbar.data('already-answered');
@@ -333,7 +336,10 @@ function getProgress()
 	
 	$.each(successful_controls,function(name,value){
 
-		var elm_non_hidden = $(document.getElementsByName(name).length ? document.getElementsByName(name) : $(document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])") );
+		var elm_non_hidden = document.getElementsByName(name).length ? 
+		  $(document.getElementsByName(name)) : 
+		$(document.getElementsByName(name+"[]"));
+		elm_non_hidden = elm_non_hidden.filter(":not(input[type=hidden])");
 		
 		if(typeof $(elm_non_hidden).parents(".form-group").data('ever-changed') == "undefined")
 		{
@@ -346,8 +352,9 @@ function getProgress()
 		}
 		
 		var elm = elm_non_hidden[0];
-		if(name != "session_id" && elm)
+		if(elm)
 		{
+//			var pre = items_answered_on_page;
 			if(value.length > 0) // if it's not empty, you get  //  || parseFloat(elm.value)
 			{
 				if($(elm).parents(".form-group").data('ever-changed') || elm_non_hidden.attr('type') == "hidden") //elm.value == elm_non_hidden.defaultValue) 
@@ -376,6 +383,7 @@ function getProgress()
 			{
 				unanswered_page_items += 1;
 			}
+//			console.log(name, value, (items_answered_on_page - pre));
 			
 		}
 	});
@@ -400,10 +408,18 @@ function showIf(e)
 	var subdata = {};
 	$.each(badArray, function(i, obj)
 	{
-		if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0, obj.name.length - 2); // special treatment for multiple multiple choice
-		if(!subdata[ obj.name ]) subdata[obj.name] = obj.value;
-		else subdata[obj.name] += ", " + obj.value; // mmcs are concatenated by comma
+		if(obj.name.indexOf('_') !== 0 && obj.name != "session_id") { // skip hidden items beginning with underscore (e.g _item_view)
+			if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
+		
+			if(obj.value === "" && $("input[type=hidden][name='" + obj.name + "']").length === 1 && obj.value === $("input[type=hidden][name='" + obj.name + "']").attr("value")) {
+				return true; // do not count the default values, that we just put in hidden inputs to make PHP understand that a radio or checkbox was submitted 
+			}
+		
+			if(!subdata[ obj.name ]) subdata[obj.name] = obj.value;
+			else subdata[obj.name] += ", " + obj.value;
+		}
 	});
+	
 	$(".form-group[data-showif]").each(function(i,elm) // walk through all form elements that are dynamically shown/hidden
 	{
 		var showif = $(elm).data('showif'); // get specific condition
