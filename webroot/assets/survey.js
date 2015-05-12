@@ -160,8 +160,8 @@ $(document).ready(function() {
 				webshim.addShadowDom($input, btns);
 			});
 
-			new FastClick(btns.find(".btn-down"));
-			new FastClick(btns.find(".btn-up"));
+			//			new FastClick(btns.find(".btn-down")); // broken
+//			new FastClick(btns.find(".btn-up"));
 		});
 
 		$("select.select2zone, .form-group.select2 select").each(function(i,elm) {
