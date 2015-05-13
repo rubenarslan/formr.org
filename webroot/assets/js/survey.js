@@ -170,8 +170,8 @@
 					webshim.addShadowDom($input, btns);
 				});
 					
-				var fcd = new FastClick(btns.find(".btn-down"));
-				var fcu = new FastClick(btns.find(".btn-up"));
+//				var fcd = new FastClick(btns.find(".btn-down")); //broken
+//				var fcu = new FastClick(btns.find(".btn-up"));
 			});
 			$("select.select2zone, .form-group.select2 select").each(function(i,elm)
 			{
@@ -321,18 +321,26 @@
 		var badArray = $('form').serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
 		this.data = {};
 		var survey = this;
+		survey.unanswered_page_items = 0;
+		
 		$.each(badArray, function(i, obj)
 		{
 			if(obj.name.indexOf('_') !== 0 && obj.name != "session_id") { // skip hidden items beginning with underscore (e.g _item_view)
 				if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
+		
+				if(obj.value === "" && $("input[type=hidden][name='" + obj.name + "']").length === 1 && obj.value === $("input[type=hidden][name='" + obj.name + "']").attr("value")) {
+					survey.unanswered_page_items += 1; // do not put the default values into the data array, that we just put in hidden inputs to make PHP understand that a radio or checkbox was submitted 
+					return true;
+				}
+		
 				if(!survey.data[ obj.name ]) survey.data[obj.name] = obj.value;
 				else survey.data[obj.name] += ", " + obj.value;
 			}
 		});
+	
 	};
 	Survey.prototype.getProgress = function () {
-		var items_answered_on_page = 0;
-		var unanswered_page_items = 0;
+		this.items_answered_on_page = 0;
 	
 		var progress = this;
 		$.each(this.data,function(name,value){
@@ -365,12 +373,12 @@
 						}
 						else
 						{
-							unanswered_page_items += 0.5;
+							this.unanswered_page_items += 0.5;
 						}
 					}
 					else
 					{
-						unanswered_page_items += 1;
+						this.unanswered_page_items += 1;
 					}
 					// cases: 
 					// range, default: 0 + 0.5 = 0.05
@@ -380,12 +388,12 @@
 				}
 				else
 				{
-					unanswered_page_items += 1;
+					this.unanswered_page_items += 1;
 				}
 			}
 		});
-	//	console.log(already_answered, items_answered_on_page, unanswered_page_items, remaining_items);
-		var prog_here = (items_answered_on_page + this.already_answered) / (this.remaining_items + unanswered_page_items + items_answered_on_page + this.already_answered);
+	//	console.log(already_answered, items_answered_on_page, this.unanswered_page_items, remaining_items);
+		var prog_here = (items_answered_on_page + this.already_answered) / (this.remaining_items + this.unanswered_page_items + items_answered_on_page + this.already_answered);
 	
 		var prog = prog_here * (this.percentage_maximum - this.percentage_minimum);  // the fraction of this survey that was completed is multiplied with the stretch of percentage that it was accorded
 		prog = prog + this.percentage_minimum;

@@ -393,13 +393,14 @@ class Survey extends RunUnit {
 						$item_will_be_rendered = false;
 					endif;
 					} elseif ($item->type === "note") {
-					$next = current($this->unanswered);
+						
+						$next = current($this->unanswered);
 						/**
 						 * if item was displayed before AND
 						 * this is the end of the survey OR the next item is hidden OR the next item isn't a normal item
 						 * @todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
 						 */
-						if ($item->hasBeenRendered() AND ($next === false OR in_array($next->type, array('note', 'submit', 'mc_heading')) OR !$next->willBeShown($this))) {
+						if ($item->hasBeenRendered() AND ($next === false OR in_array($next->type, array('note', 'submit', 'mc_heading')) OR !$next->willBeShown($this, $item->showif))) {
 						continue; // skip this note							
 					}
 				} else if ($item->type === "mc_heading") {
@@ -408,7 +409,7 @@ class Survey extends RunUnit {
 						 * If this is the end of the survey OR the next item is hidden OR the next item isn't a mc item
 						 * then skip mc_heading
 						 */
-						if ($next === false OR !in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button')) OR !$next->willBeShown($this)) {
+						if ($next === false OR !in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button')) OR !$next->willBeShown($this, $item->showif)) {
 						continue; // skip this mc_heading
 					}
 				}
@@ -1175,9 +1176,9 @@ class Survey extends RunUnit {
 					<a class='btn' href='" . admin_study_url($this->name, 'upload_items') . "'>Upload items</a>
 			</p>";
 			$dialog .= '<br><p class="btn-group">
-				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
-				<a class="btn btn-default hastooltip" title="You should probably open this link in a new tab." href="' . admin_study_url($this->name, 'access') . '">Test</a>
-				</p>';
+				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Save.</a>
+				<a class="btn btn-default" href="' . admin_study_url($this->name, 'access') . '">Test</a>
+			</p>';
 //		elseif($studies):
 		} else {
 			$dialog .= '<br><p class="btn-group">

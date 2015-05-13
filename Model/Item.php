@@ -247,8 +247,11 @@ class Item extends HTML_element {
 		}
 		return $probably_render;
 	}
-	public function willbeShown($survey) {
-		$this->mightBeShown($survey);
+	public function willbeShown($survey,$showif = null) {
+		$might = $this->mightBeShown($survey);
+		if (trim($this->showif) != null AND $showif === $this->showif) {
+			return $might;
+		}
 		return !$this->hidden;
 	}
 
