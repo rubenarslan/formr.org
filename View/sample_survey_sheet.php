@@ -207,13 +207,6 @@
 	 </dd>
 	 
 	 <dt>
-		 answer_below_label
-	 </dt>
-	 <dd>
-		 This leads to answers stacking below labels, instead of them being side-by-side (the default). Can be combined with a larger offset.
-	 </dd>
-	 
-	 <dt>
 		 hide_label
 	 </dt>
 	 <dd>
