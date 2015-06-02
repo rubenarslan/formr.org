@@ -6,10 +6,10 @@
 	 */
 	webshim.setOptions({
 		extendNative: false,
+		waitReady: false,
 		forms: {
 			customDatalist: true,
 			addValidators: true,
-			waitReady: false,
 			replaceValidationUI: true
 		},
 		geolocation: {

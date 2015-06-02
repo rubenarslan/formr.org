@@ -6,7 +6,7 @@
 	         performance.mozNow    ||
 	         performance.msNow     ||
 	         performance.oNow      ||
-	         performance.webkitNow
+			performance.webkitNow;
 	})();
 	
 	$(document).ready(function() {
