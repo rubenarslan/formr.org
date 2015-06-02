@@ -301,10 +301,10 @@ class Email extends RunUnit {
 		$receiver = $RandReceiv . '@mailinator.com';
 
 		$this->sendMail($receiver);
-		$link = "{$RandReceiv}.mailinator.com";
+		$link = "https://mailinator.com/inbox.jsp?to=".$receiver;
 
 		echo "<h4>" . $this->getSubject() . "</h4>";
-		echo "<p><a href='http://$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
+		echo "<p><a href='$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
 
 		echo $this->getBody(false);
 

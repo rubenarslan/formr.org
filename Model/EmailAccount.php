@@ -54,7 +54,7 @@ class EmailAccount {
 	public function test() {
 		$RandReceiv = crypto_token(9, true);
 		$receiver = $RandReceiv . '@mailinator.com';
-		$link = "http://{$RandReceiv}.mailinator.com";
+		$link = "https://mailinator.com/inbox.jsp?to=".$receiver;
 
 		$mail = $this->makeMailer();
 
