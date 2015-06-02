@@ -339,6 +339,13 @@ output.output {
 {
     max-width:inherit;
 }
+input[type="range"] {
+  display: inline-block;
+  width: 60%;
+}
+.form-group.form-row.range-list .controls-inner label, .form-group.form-row.range .controls-inner label {
+	width:20%;
+}
 .range_ticks_output .controls-inner
 {
     min-height:50px;
