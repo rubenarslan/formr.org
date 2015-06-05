@@ -443,7 +443,7 @@ class Survey extends RunUnit {
 			$this->dbh->rollBack();
 			log_exception($e, __CLASS__);
 			return false;
-	}
+		}
 
 	}
 
@@ -1214,7 +1214,7 @@ class Survey extends RunUnit {
 		/* @var $item Item */
 		// Create query to modify items in an existing results table
 		foreach ($keptItems as $item) {
-			if (($field_definition = $item->getResultField()) !== null) {
+			if (($field_definition = $item->getResultField()) !== null && isset($existingColumns[$item->name])) {
 				$alterQuery[] = " MODIFY $field_definition";
 			}
 		}
@@ -1236,7 +1236,7 @@ class Survey extends RunUnit {
 			// prepend the alter table clause
 			$alterQuery[0] = "ALTER TABLE `{$this->results_table}` {$alterQuery[0]}";
 			$altQ = implode(',', $alterQuery);
-			formr_log("\nMerge Survey {$this->name} \n ALTER: $altQ");
+			//formr_log("\nMerge Survey {$this->name} \n ALTER: $altQ");
 			$this->dbh->query($altQ);
 		}
 
@@ -1245,7 +1245,7 @@ class Survey extends RunUnit {
 			$toDelete = implode(',', array_map(array($this->dbh, 'quote'), $toDelete));
 			$studyId = (int) $this->id;
 			$delQ = "DELETE FROM survey_items WHERE `name` IN ($toDelete) AND study_id = $studyId";
-			formr_log("\nMerge Survey {$this->name} \n DELETE: $delQ");
+			//formr_log("\nMerge Survey {$this->name} \n DELETE: $delQ");
 			$this->dbh->query($delQ);
 		}
 
