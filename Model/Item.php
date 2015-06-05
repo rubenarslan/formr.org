@@ -61,7 +61,8 @@ class ItemFactory {
 			 */
 			if ($result === array()) {
 				$result = true;
-				$this->openCPU_errors[$showif] =  _('There were problems with openCPU.');
+				notify_user_error("You made a mistake, writing a showif <code class='r hljs'>". $showif . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist. Valid return values for a showif are TRUE, FALSE and NULL.", " There are programming problems in this survey.");
+				$this->openCPU_errors[$showif] =  _('Incorrectly defined showif.');
 			}
 		}
 
@@ -110,6 +111,7 @@ class Item extends HTML_element {
 	protected $classes_input = array();
 	protected $classes_label = array('control-label');
 	protected $presetValues = array();
+	protected $probably_render = null;
 		
 	public function __construct($options = array()) {
 		
@@ -230,22 +232,24 @@ class Item extends HTML_element {
 		return $this->displaycount > 0;
 	}
 	public function mightBeShown($survey) {
-		$probably_render = true;
-		if (trim($this->showif) != null) {
-			$probably_render = $survey->item_factory->showif($survey, $this->showif);
+		if($this->probably_render === null) {
+			$this->probably_render = true;
+			if (trim($this->showif) != null) {
+				$this->probably_render = $survey->item_factory->showif($survey, $this->showif);
 
-			if ($probably_render === null) { // we don't know what happens yet, maybe JS, maybe not
-				$this->hide();
-				$probably_render = true;
-			} elseif (!$probably_render) { // do not force this to be false, could be "0", 0, false, but not NULL!
-				$this->hide();
-				$probably_render = false;
-			} elseif (isset($survey->item_factory->openCPU_errors[$this->showif])) {
-				$this->alwaysInvalid();
-				$this->error = $survey->item_factory->openCPU_errors[$this->showif];
+				if ($this->probably_render === null) { // we don't know what happens yet, maybe JS, maybe not
+					$this->hide();
+					$this->probably_render = true;
+				} elseif (!$this->probably_render) { // do not force this to be false, could be "0", 0, false, but not NULL!
+					$this->hide();
+					$this->probably_render = false;
+				} elseif (isset($survey->item_factory->openCPU_errors[$this->showif])) {
+					$this->alwaysInvalid();
+					$this->error = $survey->item_factory->openCPU_errors[$this->showif];
+				}
 			}
 		}
-		return $probably_render;
+		return $this->probably_render;
 	}
 	public function willbeShown($survey,$showif = null) {
 		$might = $this->mightBeShown($survey);
@@ -447,20 +451,33 @@ class Item extends HTML_element {
 		if ($this->value == "sticky") {
 			$this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
 		}
-
 		$ocpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->value, $survey->name));
 		$ocpu_session = opencpu_evaluate($this->value, $ocpu_vars, 'json', $survey->name, true);
-		$this->input_attributes['value'] = $ocpu_session->getJSONObject();
-
-		if($this->type == 'opencpu_session'):
-			$this->input_attributes['value'] = $ocpu_session->getLocation();
-		endif;
-
-		if($this->input_attributes['value'] === null):
+		
+		$result = $ocpu_session->getJSONObject();
+		if ($result === array()):
+			$result = null;
+			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>". h($this->value) . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist, e.g. misspell an item. Valid values need to have a length of one.", " There are programming problems related to zero-length dynamic values in this survey.");
+			$this->openCPU_errors[$this->value] =  _('Incorrectly defined value (zero length).');
 			$this->alwaysInvalid();
+		elseif($result === null):
+			$result = null;
+			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>". h($this->value) . "</code> that returns NA (missing). The most common reason for this is to e.g. refer to data that is not yet set, i.e. referring to questions that haven't been answered yet. To circumvent this, add a showif to your item, checking whether the item is answered yet using is.na(). Valid values need to have a length of one.", " There are programming problems related to null dynamic values in this survey.");
+			$this->openCPU_errors[$this->value] =  _('Incorrectly defined value (null).');
+			$this->alwaysInvalid();
+		elseif ($ocpu_session->getObjectLength() !== 1):
+			$result = null;
+			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>". h($this->value) . "</code> that returns an element with a length greater than 1. The most common reason for this is to e.g. refer to repeated assessments, but failing to specify whether you want the last, the first or all answers concatenated. Sometimes this can also occur if you do your testing repeatedly. The easiest solution is to reset your session in the run administration. Valid values need to have a length of one.", " There are programming problems related to multiple dynamic values in this survey.");
+			$this->openCPU_errors[$this->value] =  _('Incorrectly defined value (multiple).');
+			$this->alwaysInvalid();
+		else:
+			if($this->type == 'opencpu_session'):
+				$this->input_attributes['value'] = $ocpu_session->getLocation();
+			else:
+				$this->input_attributes['value'] = $result;
+			endif;
 		endif;
 	}
-		
 }
 
 class Item_text extends Item {

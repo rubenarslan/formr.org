@@ -37,14 +37,29 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) { // shortha
 
 function log_exception(Exception $e, $prefix = '', $debug_data = null) {
 	$msg = $prefix . ' Exception: ' . $e->getMessage(). "\n" . $e->getTraceAsString();
-	if(DEBUG) {
-		alert('<pre>'.$msg.'</pre>', 'alert-danger');
-	}
-
+	
 	error_log($msg);
+	
 	if ($debug_data !== null) {
 		error_log('Debug Data: ' . print_r($debug_data, 1));
 	}
+}
+
+function notify_user_error($error, $public_message = '') {
+	global $user;
+	$date = date('Y-m-d H:i:s');
+	
+	$message = $date . ': ' .$public_message ."<br>";
+	
+	if (DEBUG OR $user->isAdmin()) {
+		if ($error instanceof Exception) {
+			$message .= '<pre>'.$error->getMessage()."</pre>";
+		} else {
+			$message .= $error;
+		}
+	}
+	
+	alert($message, 'alert-danger');
 }
 
 function redirect_to($location) {
@@ -859,6 +874,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 		}
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
+		notify_user_error($e, "There was a problem dynamically evaluating a value using openCPU.");
 		log_exception($e, 'OpenCPU');
 		return null;
 	}
@@ -887,6 +903,7 @@ function opencpu_knit($code, $return_format = 'json', $return_session = false) {
 		}
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
+		notify_user_error($e, "There was a problem dynamically knitting something using openCPU.");
 		log_exception($e, 'OpenCPU');
 		return null;
 	}
@@ -915,6 +932,7 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 		}
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
+		notify_user_error($e, "There was a problem dynamically knitting something to HTML using openCPU.");
 		log_exception($e, 'OpenCPU');
 		return null;
 	}

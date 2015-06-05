@@ -228,6 +228,11 @@ class OpenCPU_Session {
 	 * @var OpenCPU
 	 */
 	private $ocpu;
+	
+	/**
+	 * @var integer
+	 */
+	private $object_length = null;
 
 	public function __construct($location, $key, $raw_result, OpenCPU $ocpu = null) {
 		$this->raw_result = $raw_result;
@@ -343,10 +348,15 @@ class OpenCPU_Session {
 			$string = $this->raw_result;
 		}
 		$json = json_decode($string, $as_assoc);
-		if (is_array($json) && array_key_exists(0, $json)) {
+		$this->object_length = count($json);
+		if (is_array($json) && array_key_exists(0, $json)) { # if it's an array, return the first element
 			return $json[0];
 		}
-		return $json;
+		return $json;	
+	}
+	
+	public function getObjectLength() {
+		return $this->object_length;
 	}
 
 	public function getStdout() {
