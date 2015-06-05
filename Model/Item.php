@@ -474,9 +474,9 @@ class Item_text extends Item {
 			$val = trim(current($this->type_options_array));
 			if (is_numeric($val)) {
 				$this->input_attributes['maxlength'] = (int)$val;
-			} else {
+			} else if (trim(current($this->type_options_array))) {
 				$this->input_attributes['pattern'] = trim(current($this->type_options_array));	
-		}
+			}
 		}
 		$this->classes_input[] = 'form-control';
 	}
