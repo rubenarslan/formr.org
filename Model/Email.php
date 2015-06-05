@@ -106,7 +106,8 @@ class Email extends RunUnit {
 			$login_link = site_url();
 			alert("Generated a login link, but no run was specified", 'alert-danger');
 		}
-		if ($this->html):
+
+		if ($this->html) {
 			$login_link = "<a href='$login_link'>Login link</a>";
 
 			if ($this->session_id):
@@ -138,11 +139,11 @@ class Email extends RunUnit {
 			$this->body_parsed = str_replace("{{login_link}}", $login_link, $this->body_parsed);
 			$this->body_parsed = str_replace("{{login_code}}", $this->session, $this->body_parsed);
 			return $this->body_parsed;
-		else:
+		} else {
 			$this->body = str_replace("{{login_link}}", $login_link, $this->body);
 			$this->body = str_replace("{{login_code}}", $this->session, $this->body);
 			return $this->body;
-		endif;
+		}
 	}
 
 	private function getEmailAccounts() {
@@ -300,10 +301,10 @@ class Email extends RunUnit {
 		$receiver = $RandReceiv . '@mailinator.com';
 
 		$this->sendMail($receiver);
-		$link = "{$RandReceiv}.mailinator.com";
+		$link = "https://mailinator.com/inbox.jsp?to=".$RandReceiv;
 
 		echo "<h4>" . $this->getSubject() . "</h4>";
-		echo "<p><a href='http://$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
+		echo "<p><a href='$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
 
 		echo $this->getBody(false);
 

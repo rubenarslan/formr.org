@@ -235,7 +235,7 @@ div.mc-table {
 /*  display: table;
 */}
 div.controls-inner {
-    display:inline-block;
+    display:block;
 }
 form.form-horizontal div.form-row div.controls div.mc-table label {
   display:inline-block;
@@ -338,6 +338,13 @@ output.output {
 
 {
     max-width:inherit;
+}
+input[type="range"] {
+  display: inline-block;
+  width: 60%;
+}
+.form-group.form-row.range-list .controls-inner label, .form-group.form-row.range .controls-inner label {
+	width:20%;
 }
 .range_ticks_output .controls-inner
 {
@@ -1294,6 +1301,22 @@ form.form-horizontal div.form-row.form-group.hidden {
     width:18px;
     margin-left:9px;
 }
+
+
+form.form-horizontal div.form-group.vertical_range div.controls div.controls-inner label {
+	display:block;
+	padding:0;
+}
+.vertical_range .ws-range,
+.vertical_range input[type="range"] {
+    width: 0.61538em;
+    height: 140px;
+}
+.vertical_range .ws-range
+ .ws-range-thumb {
+	 margin-left:-4.5px !important;
+}
+
 .no-padding {
 	padding: 0px;
 }
@@ -1334,6 +1357,8 @@ form.form-horizontal div.form-row.form-group.hidden {
 #admin-survey-items .table-content .field-label_parsed{
 	width: 450px;
 }
+
+
 
 /*responsive layouts for mobile */
 @media (max-width: 768px) { 
@@ -1488,6 +1513,10 @@ form.form-horizontal div.form-row.form-group.hidden {
     form.form-horizontal div.form-group.item-rating_button div.controls  label.keep-label {
         display:block;
     }
+	form.form-horizontal div.form-group.vertical_range .control-label {
+		padding-top:0px;
+	}
+	
 }
 
 /*

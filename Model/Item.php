@@ -247,8 +247,11 @@ class Item extends HTML_element {
 		}
 		return $probably_render;
 	}
-	public function willbeShown($survey) {
-		$this->mightBeShown($survey);
+	public function willbeShown($survey,$showif = null) {
+		$might = $this->mightBeShown($survey);
+		if (trim($this->showif) != null AND $showif === $this->showif) {
+			return $might;
+		}
 		return !$this->hidden;
 	}
 
@@ -471,9 +474,9 @@ class Item_text extends Item {
 			$val = trim(current($this->type_options_array));
 			if (is_numeric($val)) {
 				$this->input_attributes['maxlength'] = (int)$val;
-			} else {
+			} else if (trim(current($this->type_options_array))) {
 				$this->input_attributes['pattern'] = trim(current($this->type_options_array));	
-		}
+			}
 		}
 		$this->classes_input[] = 'form-control';
 	}

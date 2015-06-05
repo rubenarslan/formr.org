@@ -11,19 +11,35 @@ class SuperadminController extends Controller {
 	}
 
 	public function ajaxAdminAction() {
-		if (is_ajax_request()):
-			if (isset($_POST['admin_level']) AND isset($_POST['user_id'])):
-				$user_to_edit = new User($this->fdb, $_POST['user_id'], null);
-				if (!$user_to_edit->setAdminLevelTo($_POST['admin_level'])):
-					alert('<strong>Something went wrong with the admin level change.</strong>', 'alert-danger');
-					bad_request_header();
-				endif;
+		if (!is_ajax_request()) {
+			return redirect_to('/');
+		}
+
+		if (isset($_POST['admin_level']) AND isset($_POST['user_id'])) {
+			$this->setAdminLevel($_POST['user_id'], $_POST['admin_level']);
+		}
+
+		echo $this->site->renderAlerts();
+		exit;
+	}
+
+	private function setAdminLevel($user_id, $level) {
+		$level = (int) $level;
+		$allowed_levels = array(0, 1, 100);
+		$user = new User($this->fdb, $user_id, null);
+
+		if (!in_array($level, $allowed_levels) || !$user->email) {
+			alert('<strong>Level not supported or could not be assigned to user</strong>', 'alert-danger');
+		} elseif ($level == $user->getAdminLevel()) {
+			alert('<strong>User already has requested admin rights</strong>', 'alert-warning');
+		} else {
+			if (!$user->setAdminLevelTo($level)) :
+				alert('<strong>Something went wrong with the admin level change.</strong>', 'alert-danger');
+				bad_request_header();
+			else:
+				alert('<strong>Level assigned to user.</strong>', 'alert-success');
 			endif;
-			echo $this->site->renderAlerts();
-			exit;
-		else:
-			redirect_to("/");
-		endif;
+		}
 	}
 
 	public function cronLogAction() {

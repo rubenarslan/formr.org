@@ -70,6 +70,10 @@ class User {
 		return $this->admin >= 10;
 	}
 
+	public function getAdminLevel() {
+		return $this->admin;
+	}
+
 	public function created($object) {
 		return (int) $this->id === (int) $object->user_id;
 	}
