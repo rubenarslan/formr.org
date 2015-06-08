@@ -73,6 +73,9 @@ class User {
 	public function getAdminLevel() {
 		return $this->admin;
 	}
+	public function getEmail() {
+		return $this->email;
+	}
 
 	public function created($object) {
 		return (int) $this->id === (int) $object->user_id;
