@@ -495,7 +495,8 @@ class RunUnit {
 			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
 			/* @var $session OpenCPU_Session */
 			$session = opencpu_knitadmin($source, $opencpu_vars, true);
-			$body = $session->hasError() ? $session->getError() : $session->getJSONObject();
+			$body = opencpu_debug($session);
+//			$body = $session->hasError() ? $session->getError() : $session->getJSONObject();
 
 			if ($email_embed) {
 				$report = array('body' => $body, 'images' => array());

@@ -310,9 +310,20 @@ class OpenCPU_Session {
 
 		$result = explode("\n", $this->raw_result);
 		$files = array();
-		foreach ($result as $path) {
-			$id = md5($path);
+		foreach ($result as $id => $path) {
 			$files[$id] = $this->getResponsePath($path);
+		}
+		return $files;
+	}
+	public function getResponsePathsAsLinks() {
+		if (!$this->key) {
+			return null;
+		}
+
+		$result = explode("\n", $this->raw_result);
+		$files = array();
+		foreach ($result as $path) {
+			$files[$path] = $this->getResponsePath($path);
 		}
 		return $files;
 	}
@@ -350,8 +361,12 @@ class OpenCPU_Session {
 		$json = json_decode($string, $as_assoc);
 		$this->object_length = count($json);
 		if (is_array($json) && array_key_exists(0, $json)) { # if it's an array, return the first element
+			if(is_string($json[0])) {
+				return str_replace('/usr/local/lib/R/site-library/', $this->getBaseUrl . '/ocpu/library/', $json[0]);
+			}
 			return $json[0];
 		}
+		
 		return $json;	
 	}
 	
