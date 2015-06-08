@@ -1003,12 +1003,18 @@ function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
 			$debug['Request'] = pre_htmlescape((string)$session->getRequest());
 			$debug['Response'] = pre_htmlescape($session->getResponse());
 			$urls = $session->getResponsePaths();
-			$locations = '';
-			foreach ($urls as $url) {
-				$path = str_replace($session->getBaseUrl(), '', $url);
-				$locations .= "<a href='$url'>$path</a><br />";
+			if(!empty($urls)) {
+				$locations = '';
+				foreach ($urls as $url) {
+					$path = str_replace($session->getBaseUrl(), '', $url);
+					$locations .= "<a href='$url'>$path</a><br />";
+				}
+				$debug['Locations'] = $locations;
+				$debug['Session Info'] = pre_htmlescape($session->getInfo());
+				$debug['Session Console'] = pre_htmlescape($session->getConsole());
+				$debug['Session Stdout'] = pre_htmlescape($session->getStdout());
+				
 			}
-			$debug['Locations'] = $locations;
 
 			$reponse_headers = $session->getResponseHeaders();
 			$debug['Response Headers'] = pre_htmlescape(print_r($reponse_headers, 1));
@@ -1016,9 +1022,6 @@ function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
 			$reponse_info  = $session->caller()->getRequestInfo();
 			$debug['Request Headers'] = pre_htmlescape(print_r($reponse_info['request_header'], 1));
 
-			$debug['Session Info'] = pre_htmlescape($session->getInfo());
-			$debug['Session Console'] = pre_htmlescape($session->getConsole());
-			$debug['Session Stdout'] = pre_htmlescape($session->getStdout());
 		} catch (Exception $e) {
 			$debug['Response'] = 'An error occured: ' . $e->getMessage();
 		}
