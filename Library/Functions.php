@@ -829,6 +829,31 @@ function opencpu_define_vars(array $data) {
 /**
  * Execute a piece of code against OpenCPU
  *
+ * @param string $location A previous openCPU session location
+ * @param string $return_format String like 'json'
+ * @param mixed $context If this paramter is set, $code will be evaluated with a context
+ * @param bool $return_session Should OpenCPU_Session object be returned
+ * @return string|OpenCPU_Session|null Returns null of an error occured so check the return value using the equivalence operator (===)
+*/
+function opencpu_get($location, $return_format = 'json', $context = null, $return_session = false) {
+	$uri = $location . $return_format;
+	try {
+		$session = OpenCPU::getInstance()->get($uri);
+		if ($return_session === true) {
+			return $session;
+		}
+
+		if ($session->hasError()) {
+			throw new OpenCPU_Exception($session->getError());
+		}
+		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
+	} catch (OpenCPU_Exception $e) {
+		return null;
+	}
+}
+/**
+ * Execute a piece of code against OpenCPU
+ *
  * @param string $code Each code line should be separated by a newline characted
  * @param string|array An array or string (separated by newline) of variables to be used in OpenCPU request
  * @param string $return_format String like 'json'
