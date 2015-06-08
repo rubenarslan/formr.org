@@ -384,7 +384,7 @@ class OpenCPU_Session {
 			return null;
 		}
 
-		$url = $this->getLocation() . 'info/text';
+		$url = $this->getLocation() . 'info/print';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
