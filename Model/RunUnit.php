@@ -532,13 +532,12 @@ class RunUnit {
 		}
 
 		if($old_opencpu_url) {
-			$old_opencpu_url .= 'R/.val/text';
-			$session_obj = array();
-			$report = CURL::HttpRequest($old_opencpu_url, null, CURL::HTTP_METHOD_GET, array(CURLOPT_HEADER => true), $session_obj);
-			if ($session_obj['http_code'] == 200 AND $report) {
-				// if it has expired, so be it
-				return $report;
-			}
+			$old_opencpu_url .= 'R/.val/';
+			$session = opencpu_get($old_opencpu_url);
+			
+			if($session) {
+				return $session;
+			}			
 		}
 
 		$ocpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
@@ -546,22 +545,30 @@ class RunUnit {
 		if ($email_embed) {
 			$session = opencpu_knitemail($source, $ocpu_vars, null, true);
 			if ($session->hasError()) {
-				formr_log($session->getError());
-				alert('There was a problem with opencpu', 'alert-danger');
+				$where = '';
+				if(isset($this->run_name)):
+					$where = "Run: ". $this->run_name. " (".$this->position."-". $this->type.")";
+				endif;
+				formr_log($where. $session->getError());
+				alert('There was a problem with OpenCPU.', 'alert-danger');
 				return false;
 			}
 			$report = array(
-				'body' => $session->getObject('text'),
+				'body' => $session->getJSONObject(),
 				'images' => $session->getFiles('/figure-html/'),
 			);
 		} else {
 			$session = opencpu_knitdisplay($source, $ocpu_vars, true);
 			if ($session->hasError()) {
-				formr_log($session->getError());
-				alert('There was a problem with opencpu', 'alert-danger');
+				$where = '';
+				if(isset($this->run_name)):
+					$where = "Run: ". $this->run_name. " (".$this->position."-". $this->type.")";
+				endif;
+				formr_log($where. $session->getError());
+				alert('There was a problem with OpenCPU.', 'alert-danger');
 				return false;
 			}
-			$report = $session->getObject('text');
+			$report = $session->getJSONObject();
 			$opencpu_url = $session->getLocation();
 		}
 

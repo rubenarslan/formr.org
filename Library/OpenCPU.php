@@ -94,6 +94,8 @@ class OpenCPU {
 	public function getResponseHeaders() {
 		if (isset($this->curl_info[CURL::RESPONSE_HEADERS])) {
 			return $this->curl_info[CURL::RESPONSE_HEADERS];
+		} elseif(isset($this->curl_info['raw_header'])) {
+			return http_parse_headers($this->curl_info['raw_header']);
 		}
 		return null;
 	}
@@ -113,11 +115,12 @@ class OpenCPU {
 			return $this->cache[$cachekey];
 		}
 
-		if ($uri) {
-			$uri = "/" . ltrim($uri, "/");
-		}
 
 		if (strstr($uri, $this->baseUrl) === false) {
+			if ($uri) {
+				$uri = "/" . ltrim($uri, "/");
+			}
+			
 			$url = $this->baseUrl . $this->libUri . $uri;
 		} else {
 			$url = $uri;
@@ -127,6 +130,7 @@ class OpenCPU {
 		$this->curl_info = array();
 		$this->request = new OpenCPU_Request($url, $method, $params);
 
+		$curl_opts = $this->curl_opts;
 		// encode request
 		if ($method === CURL::HTTP_METHOD_POST) {
 			$params = array_map(array($this, 'cr2nl'), $params);
@@ -154,6 +158,12 @@ class OpenCPU {
 		}
 
 		$headers = $this->getResponseHeaders();
+		if ($method === CURL::HTTP_METHOD_GET) {
+			$headers['Location'] = $url;
+			if(preg_match("@/(x0[a-z0-9-_~]+)/@",$url, $matches)):
+				$headers['X-Ocpu-Session'] = $matches[1];
+			endif;
+		}
 		if (!$headers || empty($headers['Location']) || empty($headers['X-Ocpu-Session'])) {
 			$request = sprintf('[uri %s] %s', $uri, print_r($params, 1));
 			throw new OpenCPU_Exception("Response headers not gotten from request $request");
