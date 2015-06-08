@@ -13,6 +13,7 @@ class Email extends RunUnit {
 	private $images = array();
 	private $subject = null;
 	private $recipient_field;
+	private $recipient;
 	private $html = 1;
 	public $icon = "fa-envelope";
 	public $type = "Email";
@@ -188,22 +189,12 @@ class Email extends RunUnit {
 	}
 
 	public function getRecipientField() {
-		$openCPU = $this->makeOpenCPU();
-
-		$openCPU->admin_usage = $this->admin_usage;
-
-		if ($this->recipient_field === null OR trim($this->recipient_field) == '') {
+		if (empty($this->recipient_field)) {
 			$this->recipient_field = 'survey_users$email';
 		}
 
-		$openCPU->addUserData($this->getUserDataInRun(
-			$this->dataNeeded($this->dbh, $this->recipient_field)
-		));
-
-		$result = $openCPU->evaluate($this->recipient_field);
-		if ($openCPU->anyErrors()) {
-			return null; // don't go anywhere, wait for the error to be fixed!
-		}
+		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
+		$result = opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json');
 
 		return $result;
 	}
@@ -228,23 +219,27 @@ class Email extends RunUnit {
 			return false;
 		endif;
 
-		$mails_sent = $this->numberOfEmailsSent();
-		if ($mails_sent['in_last_1m'] > 0):
-			alert(sprintf("We already sent %d mail to this recipient in the last minute. No email was sent.", $mails_sent['in_last_1m']), 'alert-warning');
-			return false;
-		elseif ($mails_sent['in_last_10m'] > 0):
-			alert(sprintf("We already sent %d mail to this recipient in the last 10 minutes. No email was sent.", $mails_sent['in_last_10m']), 'alert-warning');
-			return false;
-		elseif ($mails_sent['in_last_1h'] > 2):
-			alert(sprintf("We already sent %d mails to this recipient in the last hour. No email was sent.", $mails_sent['in_last_1h']), 'alert-warning');
-			return false;
-		elseif ($mails_sent['in_last_1d'] > 5):
-			alert(sprintf("We already sent %d mails to this recipient in the last day. No email was sent.", $mails_sent['in_last_1d']), 'alert-warning');
-			return false;
-		elseif ($mails_sent['in_last_1w'] > 20):
-			alert(sprintf("We already sent %d mails to this recipient in the last week. No email was sent.", $mails_sent['in_last_1w']), 'alert-warning');
-			return false;
-		endif;
+		global $user;
+		if($user->getEmail() !== $this->recipient) {
+
+			$mails_sent = $this->numberOfEmailsSent();
+			if ($mails_sent['in_last_1m'] > 0):
+				alert(sprintf("We already sent %d mail to this recipient in the last minute. No email was sent.", $mails_sent['in_last_1m']), 'alert-warning');
+				return false;
+			elseif ($mails_sent['in_last_10m'] > 0):
+				alert(sprintf("We already sent %d mail to this recipient in the last 10 minutes. No email was sent.", $mails_sent['in_last_10m']), 'alert-warning');
+				return false;
+			elseif ($mails_sent['in_last_1h'] > 2):
+				alert(sprintf("We already sent %d mails to this recipient in the last hour. No email was sent.", $mails_sent['in_last_1h']), 'alert-warning');
+				return false;
+			elseif ($mails_sent['in_last_1d'] > 5):
+				alert(sprintf("We already sent %d mails to this recipient in the last day. No email was sent.", $mails_sent['in_last_1d']), 'alert-warning');
+				return false;
+			elseif ($mails_sent['in_last_1w'] > 20):
+				alert(sprintf("We already sent %d mails to this recipient in the last week. No email was sent.", $mails_sent['in_last_1w']), 'alert-warning');
+				return false;
+			endif;
+		}
 
 		$acc = new EmailAccount($this->dbh, $this->account_id, null);
 		$mail = $acc->makeMailer();
@@ -310,10 +305,10 @@ class Email extends RunUnit {
 		$receiver = $RandReceiv . '@mailinator.com';
 
 		$this->sendMail($receiver);
-		$link = "{$RandReceiv}.mailinator.com";
+		$link = "https://mailinator.com/inbox.jsp?to=".$RandReceiv;
 
 		echo "<h4>" . $this->getSubject() . "</h4>";
-		echo "<p><a href='http://$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
+		echo "<p><a href='$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
 
 		echo $this->getBody(false);
 
@@ -321,35 +316,32 @@ class Email extends RunUnit {
 			$this->recipient_field = 'survey_users$email';
 		}
 
+		$output = '
+			<table class="table table-striped">
+				<thead>
+					<tr>
+						<th>Code (Position)</th>
+						<th>Test</th>
+					</tr>
+				</thead>
+				<tbody>%s</tbody>
+			</table>';
 
-
-		echo '<table class="table table-striped">
-				<thead><tr>
-					<th>Code (Position)</th>
-					<th>Test</th>
-				</tr></thead>
-				<tbody>"';
+		$rows = '';
 		foreach ($results AS $row):
-			$openCPU = $this->makeOpenCPU();
 			$this->run_session_id = $row['id'];
 
-			$openCPU->admin_usage = $this->admin_usage;
-			$openCPU->addUserData($this->getUserDataInRun(
-				$this->dataNeeded($this->dbh, $this->recipient_field)
-			));
-			$email = stringBool($openCPU->evaluate($this->recipient_field));
-			// OpenCPU evaluate method can return an array in some cases so this is some hack to get string
-			// @todo Fix this hack by checking openCPU::evaluate return data
-			$email = (array) $email;
-			$email = array_shift($email);
-
+			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
+			$email = stringBool(opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json'));
 			$good = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
-			echo "<tr>
+			$rows .= "
+				<tr>
 					<td style='word-wrap:break-word;max-width:150px'><small>" . $row['session'] . " ({$row['position']})</small></td>
 					<td class='$good'>" . $email . "</td>
 				</tr>";
 		endforeach;
-		echo '</tbody></table>';
+
+		echo sprintf($output, $rows);
 		$this->run_session_id = null;
 	}
 

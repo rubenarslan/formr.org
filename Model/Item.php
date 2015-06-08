@@ -42,38 +42,31 @@ class ItemFactory {
 			array_keys($this->choice_lists), array_keys($this->used_choice_lists)
 		);
 	}
-	public function showif($survey, $showif) {
+
+	public function showif(Survey $survey, $showif) {
 		if (array_key_exists($showif, $this->showifs)) {
 			return $this->showifs[$showif];
 		}
-		
-		if(strstr($showif, "//js_only")):
-			$result = null;
-		else:
-		
-			if($survey->openCPU === NULL):
-				$survey->openCPU = $survey->makeOpenCPU();
-			else:
-				$survey->openCPU->clearUserData();
-			endif;
 
-			$survey->openCPU->admin_usage = $survey->admin_usage;
-
-			$survey->openCPU->addUserData($survey->getUserDataInRun(
-				$survey->dataNeeded($survey->dbh, $showif, $survey->name)
-			));
-		
-			$result = $survey->openCPU->evaluateWith($survey->name, $showif);
-
-			if($survey->openCPU->anyErrors()):
+		$result = null;
+		if (strstr($showif, "//js_only") === false) {
+			$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $showif, $survey->name));
+			$result = opencpu_evaluate($showif, $opencpu_vars, 'json', $survey->name);
+			/**
+			 * opencpu_evaluate called with the indicated parameters returns:
+			 * - NULL if the variable in $showif is Not Avaliable,
+			 * - TRUE if it avaliable and true,
+			 * - FALSE if it avaliable and not true
+			 * - An empty array if a problem occured with opencpu
+			 */
+			if ($result === array()) {
 				$result = true;
-				$this->openCPU_errors[$showif] =  _('There were problems with openCPU.');
-			endif;
+				notify_user_error("You made a mistake, writing a showif <code class='r hljs'>". $showif . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist. Valid return values for a showif are TRUE, FALSE and NULL.", " There are programming problems in this survey.");
+				$this->openCPU_errors[$showif] =  _('Incorrectly defined showif.');
+			}
+		}
 
-		endif;
-		
-		$this->showifs[$showif] = $result;
-		
+		$this->showifs[$showif] = $result;		
 		return $this->showifs[$showif];
 	}
 
@@ -95,6 +88,7 @@ class Item extends HTML_element {
 	public $optional = 0;
 	public $class = null;
 	public $showif = null;
+	public $js_showif = null;
 	public $value = null; // syntax for sticky value
 	public $order = null;
 	public $displaycount = null;
@@ -117,6 +111,7 @@ class Item extends HTML_element {
 	protected $classes_input = array();
 	protected $classes_label = array('control-label');
 	protected $presetValues = array();
+	protected $probably_render = null;
 		
 	public function __construct($options = array()) {
 		
@@ -215,6 +210,20 @@ class Item extends HTML_element {
 		if (in_array("label_as_placeholder", $this->classes_wrapper)) {
 			$this->input_attributes['placeholder'] = $this->label;
 		}
+		
+		if($this->showif):
+			// primitive R to JS translation
+			$this->js_showif = preg_replace("/current\(\s*(\w+)\s*\)/", "$1", $this->showif); // remove current function
+			$this->js_showif = preg_replace("/tail\(\s*(\w+)\s*, 1\)/", "$1", $this->js_showif); // remove current function, JS evaluation is always in session			
+			// all other R functions may break
+			$this->js_showif = preg_replace("/\"/", "'", $this->js_showif); // double quotes to single quotes
+			$this->js_showif = preg_replace("/(^|[^&])(\&)([^&]|$)/", "$1&$3", $this->js_showif); // & operators, only single ones need to be doubled
+			$this->js_showif = preg_replace("/(^|[^|])(\|)([^|]|$)/", "$1&$3", $this->js_showif); // | operators, only single ones need to be doubled
+			$this->js_showif = preg_replace("/FALSE/", "false", $this->js_showif); // uppercase, R, FALSE, to lowercase, JS, false
+			$this->js_showif = preg_replace("/TRUE/", "true", $this->js_showif); // uppercase, R, TRUE, to lowercase, JS, true
+			$this->js_showif = preg_replace("/\s*\%contains\%\s*([a-zA-Z0-9_'\"]+)/",".indexOf($1) > -1", $this->js_showif);
+			$this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/","$1.length", $this->js_showif);
+		endif; 
 	}
 	public function hasBeenRendered() {
 		return $this->displaycount !== null;
@@ -223,22 +232,24 @@ class Item extends HTML_element {
 		return $this->displaycount > 0;
 	}
 	public function mightBeShown($survey) {
-		$probably_render = true;
-		if (trim($this->showif) != null) {
-			$probably_render = $survey->item_factory->showif($survey, $this->showif);
+		if($this->probably_render === null) {
+			$this->probably_render = true;
+			if (trim($this->showif) != null) {
+				$this->probably_render = $survey->item_factory->showif($survey, $this->showif);
 
-			if ($probably_render === null) { // we don't know what happens yet, maybe JS, maybe not
-				$this->hide();
-				$probably_render = true;
-			} elseif (!$probably_render) { // do not force this to be false, could be "0", 0, false, but not NULL!
-				$this->hide();
-				$probably_render = false;
-			} elseif (isset($survey->item_factory->openCPU_errors[$this->showif])) {
-				$this->alwaysInvalid();
-				$this->error = $survey->item_factory->openCPU_errors[$this->showif];
+				if ($this->probably_render === null) { // we don't know what happens yet, maybe JS, maybe not
+					$this->hide();
+					$this->probably_render = true;
+				} elseif (!$this->probably_render) { // do not force this to be false, could be "0", 0, false, but not NULL!
+					$this->hide();
+					$this->probably_render = false;
+				} elseif (isset($survey->item_factory->openCPU_errors[$this->showif])) {
+					$this->alwaysInvalid();
+					$this->error = $survey->item_factory->openCPU_errors[$this->showif];
+				}
 			}
 		}
-		return $probably_render;
+		return $this->probably_render;
 	}
 	public function willbeShown($survey,$showif = null) {
 		$might = $this->mightBeShown($survey);
@@ -371,7 +382,7 @@ class Item extends HTML_element {
 			$this->classes_wrapper[] = "has-error";
 		}
 		
-		return '<div class="' . implode(" ", $this->classes_wrapper) . '"' . ($this->data_showif ? ' data-showif="' . h($this->showif) . '"' : '') . '>' . $this->render_inner() . $this->render_item_view_input() .'</div>';
+		return '<div class="' . implode(" ", $this->classes_wrapper) . '"' . ($this->data_showif ? ' data-showif="' . h($this->js_showif) . '"' : '') . '>' . $this->render_inner() . $this->render_item_view_input() .'</div>';
 	}
 
 	protected function splitValues() {
@@ -408,23 +419,14 @@ class Item extends HTML_element {
 		$this->input_attributes['class'] .= " always_invalid";
 	}
 
-	public function determineDynamicLabel($survey) {
-		if($survey->openCPU === NULL):
-			$survey->openCPU = $survey->makeOpenCPU();
-		else:
-			$survey->openCPU->clearUserData();
-		endif;
-		
-		$survey->openCPU->admin_usage = $survey->admin_usage;
-	
-		$survey->openCPU->addUserData($survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->label, $survey->name)));
-		
-		$markdown = $survey->openCPU->knitForUserDisplay($this->label);
-	
-		if($survey->openCPU->anyErrors()):
+	public function determineDynamicLabel(Survey $survey) {
+		$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->label, $survey->name));
+		$markdown = opencpu_knitdisplay($this->label, $opencpu_vars);
+
+		if($markdown === null) {
 			$this->alwaysInvalid();
-		endif;
-		
+		}
+
 		if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) { // simple wraps are eliminated
 			$this->label_parsed = $matches[1];
 		} else {
@@ -445,33 +447,38 @@ class Item extends HTML_element {
 		return false;
 	}
 		
-	public function determineDynamicValue($survey) {
+	public function determineDynamicValue(Survey $survey) {
 		if ($this->value == "sticky") {
 			$this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
 		}
-
-		if($survey->openCPU === NULL):
-			$survey->openCPU = $survey->makeOpenCPU();
-		else:
-			$survey->openCPU->clearUserData();
-		endif;
-
-		$survey->openCPU->admin_usage = $survey->admin_usage;
-
-		$survey->openCPU->addUserData($survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->value, $survey->name)));
+		$ocpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->value, $survey->name));
+		$ocpu_session = opencpu_evaluate($this->value, $ocpu_vars, 'json', $survey->name, true);
 		
-		$this->input_attributes['value'] = $survey->openCPU->evaluateWith($survey->name, $this->value);
-		
-		if($this->type == 'opencpu_session'):
-			$this->input_attributes['value'] = $survey->openCPU->session_location;
-		endif;
-
-		if($survey->openCPU->anyErrors()):
+		$result = $ocpu_session->getJSONObject();
+		if ($result === array()):
+			$result = null;
+			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>". h($this->value) . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist, e.g. misspell an item. Valid values need to have a length of one.", " There are programming problems related to zero-length dynamic values in this survey.");
+			$this->openCPU_errors[$this->value] =  _('Incorrectly defined value (zero length).');
 			$this->alwaysInvalid();
+		elseif($result === null):
+			$result = null;
+			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>". h($this->value) . "</code> that returns NA (missing). The most common reason for this is to e.g. refer to data that is not yet set, i.e. referring to questions that haven't been answered yet. To circumvent this, add a showif to your item, checking whether the item is answered yet using is.na(). Valid values need to have a length of one.", " There are programming problems related to null dynamic values in this survey.");
+			$this->openCPU_errors[$this->value] =  _('Incorrectly defined value (null).');
+			$this->alwaysInvalid();
+		elseif ($ocpu_session->getObjectLength() !== 1):
+			$result = null;
+			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>". h($this->value) . "</code> that returns an element with a length greater than 1. The most common reason for this is to e.g. refer to repeated assessments, but failing to specify whether you want the last, the first or all answers concatenated. Sometimes this can also occur if you do your testing repeatedly. The easiest solution is to reset your session in the run administration. Valid values need to have a length of one.", " There are programming problems related to multiple dynamic values in this survey.");
+			$this->openCPU_errors[$this->value] =  _('Incorrectly defined value (multiple).');
+			$this->alwaysInvalid();
+		else:
+			if($this->type == 'opencpu_session'):
+				$this->input_attributes['value'] = $ocpu_session->getLocation();
+			else:
+				$this->input_attributes['value'] = $result;
+			endif;
 		endif;
 	}
-		
-	}
+}
 
 class Item_text extends Item {
 
@@ -484,9 +491,9 @@ class Item_text extends Item {
 			$val = trim(current($this->type_options_array));
 			if (is_numeric($val)) {
 				$this->input_attributes['maxlength'] = (int)$val;
-			} else {
+			} else if (trim(current($this->type_options_array))) {
 				$this->input_attributes['pattern'] = trim(current($this->type_options_array));	
-		}
+			}
 		}
 		$this->classes_input[] = 'form-control';
 	}
@@ -1147,8 +1154,8 @@ class Item_select_one extends Item {
 
 	protected function render_input() {
 		$this->splitValues();
-		
-		$ret = '<select '.self::_parseAttributes($this->input_attributes, array('type')).'>'; 
+		$ret = '<input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required')) . '>';
+		$ret .= '<select '.self::_parseAttributes($this->input_attributes, array('type')).'>'; 
 		
 		if (!isset($this->input_attributes['multiple'])) {
 			$ret .= '<option value=""> </option>';
@@ -1843,7 +1850,7 @@ class Item_blank extends Item_text {
 			$this->classes_wrapper[] = "has-error";
 		}
 
-		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->showif) .'"' : '').'>' .
+		return '<div class="'. implode(" ",$this->classes_wrapper) .'"'.($this->data_showif? ' data-showif="' . h($this->js_showif) .'"' : '').'>' .
 			$this->label_parsed.
 		 '</div>';
 	}

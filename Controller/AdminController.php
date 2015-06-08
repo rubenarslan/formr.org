@@ -49,8 +49,6 @@ class AdminController extends Controller {
 			alert("<strong>Sorry:</strong> Only superadmins have access.", 'alert-info');
 			access_denied();
 		}
-
-		$this->css = $this->css . '<link rel="stylesheet" href="' . WEBROOT . 'assets/admin.css" type="text/css" media="screen">';
 	}
 
 }

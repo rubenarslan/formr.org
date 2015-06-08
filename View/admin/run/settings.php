@@ -1,6 +1,6 @@
 <?php
-$js = '<script src="'.WEBROOT.'assets/run_settings.js"></script>
-<script src="'.WEBROOT.'assets/run.js"></script>';
+$js = '<script src="'.WEBROOT.'assets/'. (DEBUG?'js':'minified'). '/run_settings.js"></script>
+<script src="'.WEBROOT.'assets/'. (DEBUG?'js':'minified'). '/run.js"></script>';
 $service_message_id = $run->getServiceMessageId();
 $reminder_email_id = $run->getReminderId();
 $overview_script_id = $run->getOverviewScriptId();

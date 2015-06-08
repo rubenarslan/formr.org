@@ -1,5 +1,5 @@
 <?php
-    Template::load('header', array('js' => '<script src="'.WEBROOT.'assets/run_users.js"></script>'));
+    Template::load('header', array('js' => '<script src="'.  assets_url('js/run_users.js').'"></script>'));
     Template::load('acp_nav');
 ?>	
 <h2>formr users</h2>
@@ -38,3 +38,6 @@
 	?>
 	</div>
 </div>
+
+<?php
+Template::load('footer');

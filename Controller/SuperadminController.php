@@ -11,19 +11,35 @@ class SuperadminController extends Controller {
 	}
 
 	public function ajaxAdminAction() {
-		if (is_ajax_request()):
-			if (isset($_POST['admin_level']) AND isset($_POST['user_id'])):
-				$user_to_edit = new User($this->fdb, $_POST['user_id'], null);
-				if (!$user_to_edit->setAdminLevelTo($_POST['admin_level'])):
-					alert('<strong>Something went wrong with the admin level change.</strong>', 'alert-danger');
-					bad_request_header();
-				endif;
+		if (!is_ajax_request()) {
+			return redirect_to('/');
+		}
+
+		if (isset($_POST['admin_level']) AND isset($_POST['user_id'])) {
+			$this->setAdminLevel($_POST['user_id'], $_POST['admin_level']);
+		}
+
+		echo $this->site->renderAlerts();
+		exit;
+	}
+
+	private function setAdminLevel($user_id, $level) {
+		$level = (int) $level;
+		$allowed_levels = array(0, 1, 100);
+		$user = new User($this->fdb, $user_id, null);
+
+		if (!in_array($level, $allowed_levels) || !$user->email) {
+			alert('<strong>Level not supported or could not be assigned to user</strong>', 'alert-danger');
+		} elseif ($level == $user->getAdminLevel()) {
+			alert('<strong>User already has requested admin rights</strong>', 'alert-warning');
+		} else {
+			if (!$user->setAdminLevelTo($level)) :
+				alert('<strong>Something went wrong with the admin level change.</strong>', 'alert-danger');
+				bad_request_header();
+			else:
+				alert('<strong>Level assigned to user.</strong>', 'alert-success');
 			endif;
-			echo $this->site->renderAlerts();
-			exit;
-		else:
-			redirect_to("/");
-		endif;
+		}
 	}
 
 	public function cronLogAction() {
@@ -116,7 +132,7 @@ class SuperadminController extends Controller {
 
 		$users = array();
 		while($userx = $g_users->fetch(PDO::FETCH_ASSOC)) {
-			$userx['Email'] = '<a href="'.h($userx['email']).'">'.h($userx['email']).'</a>' . ($userx['email_verified'] ? " <i class='fa fa-check-circle-o'></i>":" <i class='fa fa-envelope-o'></i>");
+			$userx['Email'] = '<a href="mailto:'.h($userx['email']).'">'.h($userx['email']).'</a>' . ($userx['email_verified'] ? " <i class='fa fa-check-circle-o'></i>":" <i class='fa fa-envelope-o'></i>");
 			$userx['Created'] = "<small class='hastooltip' title='{$userx['created']}'>".timetostr(strtotime($userx['created']))."</small>";
 			$userx['Modified'] = "<small class='hastooltip' title='{$userx['modified']}'>".timetostr(strtotime($userx['modified']))."</small>";
 			$userx['Admin'] = "
@@ -144,6 +160,82 @@ class SuperadminController extends Controller {
 		}
 
 		$this->renderView('superadmin/user_management', array(
+			'users' => $users,
+			'pagination' => $pagination,
+		));
+	}
+	
+	public function activeUsersAction() {
+		$user_count = $this->fdb->count('survey_users');
+		$pagination = new Pagination($user_count, 200, true);
+		$limits = $pagination->getLimits();
+
+		$users_query = "SELECT 
+			`survey_users`.id,
+			`survey_users`.created,
+			`survey_users`.modified,
+			`survey_users`.email,
+			`survey_users`.admin,
+			`survey_users`.email_verified,
+			`survey_runs`.name AS run_name,
+			`survey_runs`.cron_active,
+			`survey_runs`.public,
+			COUNT(`survey_run_sessions`.id) AS number_of_users_in_run,
+			MAX(`survey_run_sessions`.last_access) AS last_edit
+		FROM `survey_users`
+		LEFT JOIN `survey_runs` ON `survey_runs`.user_id = `survey_users`.id
+		LEFT JOIN `survey_run_sessions` ON `survey_runs`.id = `survey_run_sessions`.run_id
+		WHERE `survey_users`.admin > 0
+		GROUP BY `survey_runs`.id
+		ORDER BY `survey_users`.id ASC, last_edit DESC LIMIT $limits;";
+
+		$g_users = $this->fdb->prepare($users_query);
+		$g_users->execute();
+
+		$users = array();
+		$last_user = "";
+		while($userx = $g_users->fetch(PDO::FETCH_ASSOC)) {
+			$public_status = $userx['public'];
+			if($public_status===0):
+				$public_logo = "fa-eject";
+			elseif($public_status === 1):
+				$public_logo = "fa-volume-off";
+			elseif($public_status === 2):
+					$public_logo = "fa-volume-down";
+			elseif($public_status === 3):
+					$public_logo = "fa-volume-up";
+			endif;
+			if($last_user !== $userx['id']):
+				$userx['Email'] = '<a href="mailto:'.h($userx['email']).'">'.h($userx['email']).'</a>' . ($userx['email_verified'] ? " <i class='fa fa-check-circle-o'></i>":" <i class='fa fa-envelope-o'></i>");
+				$last_user = $userx['id'];
+			else:
+				$userx['Email'] = '';
+			endif;
+			$userx['Created'] = "<small class='hastooltip' title='{$userx['created']}'>".timetostr(strtotime($userx['created']))."</small>";
+			$userx['Modified'] = "<small class='hastooltip' title='{$userx['modified']}'>".timetostr(strtotime($userx['modified']))."</small>";
+			$userx['Run'] = h($userx['run_name'])." ".
+				($userx['cron_active']? "<i class='fa fa-cog'></i>":"").' ' . 
+				"<i class='fa $public_logo'></i>";
+			$userx['Users'] = $userx['number_of_users_in_run'];
+			$userx['Last active'] = "<small class='hastooltip' title='{$userx['last_edit']}'>".timetostr(strtotime($userx['last_edit']))."</small>";
+
+			unset($userx['email']);
+			unset($userx['created']);
+			unset($userx['modified']);
+			unset($userx['admin']);
+			unset($userx['number_of_users_in_run']);
+			unset($userx['public']);
+			unset($userx['cron_active']);
+			unset($userx['run_name']);
+			unset($userx['id']);
+			unset($userx['last_edit']);
+			unset($userx['email_verified']);
+		#	$user['body'] = "<small title=\"{$user['body']}\">". substr($user['body'],0,50). "…</small>";
+
+			$users[] = $userx;
+		}
+
+		$this->renderView('superadmin/active_users', array(
 			'users' => $users,
 			'pagination' => $pagination,
 		));

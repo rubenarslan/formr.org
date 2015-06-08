@@ -57,7 +57,7 @@
 						<a href="https://github.com/rubenarslan/formr.org"><i class="fa fa-github-alt fa-fw"></i> Github repository </a>
 					</li>
 					<li>
-						<a href="https://github.com/rubenarslan/formr.org"><i class="fa fa-github-alt fa-fw"></i> R package on Github </a>
+						<a href="https://github.com/rubenarslan/formr"><i class="fa fa-github-alt fa-fw"></i> R package on Github </a>
 					</li>
 					<?php if ($user->isSuperAdmin()): ?>
 						<li>
@@ -65,6 +65,9 @@
 						</li>
 						<li>
 							<a href="<?php echo site_url('superadmin/user_management'); ?>"><i class="fa fa-users fa-fw"></i> <?php echo _("manage users"); ?></a>
+						</li>
+						<li>
+							<a href="<?php echo site_url('superadmin/active_users'); ?>"><i class="fa fa-users fa-fw"></i> <?php echo _("active users"); ?></a>
 						</li>
 					<?php endif; ?>
 				</ul>

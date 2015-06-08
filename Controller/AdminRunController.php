@@ -46,9 +46,7 @@ class AdminRunController extends AdminController {
 			}
 		}
 
-		$this->renderView('run/add_run', array(
-			'css' => '<link rel="stylesheet" href="' . WEBROOT . 'assets/admin.css" type="text/css" media="screen">',
-		));
+		$this->renderView('run/add_run');
 	}
 
 	private function userOverviewAction() {
@@ -114,7 +112,7 @@ class AdminRunController extends AdminController {
 		foreach ($g_users as $userx) {
 			$userx['Run position'] = "<span class='hastooltip' title='Current position in run'>({$userx['position']}</span> – <small>{$userx['unit_type']})</small>";
 			$itsyou = '';
-			if($userx['session'] == $this->user->user_code) $itsyou = '<i class="fa fa-user-md" title="This is you"></i> ';
+			if($userx['session'] == $this->user->user_code) $itsyou = '<i class="fa fa-user-md" class="hastooltip" title="This is you"></i> ';
 			$userx['Session'] = $itsyou."<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],0,10)."…</abbr></small>";
 			$userx['Created'] = "<small>{$userx['created']}</small>";
 			$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>".timetostr(strtotime($userx['last_access']))."</small>";
@@ -123,7 +121,7 @@ class AdminRunController extends AdminController {
 				<span class='input-group' style='width:220px'>
 					<span class='input-group-btn'>
 					<a class='btn hastooltip' href='".WEBROOT."{$userx['run_name']}/?code=".urlencode($userx['session'])."' 
-					title='Pretend you are this user (you will really manipulate their data!'><i class='fa fa-user'></i></a>
+					title='Pretend you are this user (you will really manipulate their data!'><i class='fa fa-user-secret'></i></a>
 					
 					<a class='btn hastooltip link-ajax' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_remind?run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
 					title='Remind this user'><i class='fa fa-bullhorn'></i></a>
@@ -135,7 +133,7 @@ class AdminRunController extends AdminController {
 					<input type='number' name='new_position' value='{$userx['position']}' class='form-control'>
 					<span class='input-group-btn link-ajax-modal'>
 						<a class='btn hastooltip' data-toggle='modal' data-target='#confirm-delete' href='#' data-href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_deleteUser?run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
-						title='Delete this user and all their data (you'll have to confirm)'><i class='fa fa-trash-o'></i></a>
+						title='Delete this user and all their data (you\'ll have to confirm)'><i class='fa fa-trash-o'></i></a>
 					</span>
 				</span>
 			</form>";

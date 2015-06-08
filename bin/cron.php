@@ -25,11 +25,11 @@ function cron_log($message, $cron_log = true) {
 }
 
 // clean up on shutdown
-function cron_cleanup() {
+function cron_cleanup($interrupt = null) {
 	global $lockfile, $start_time, $max_exec_time;
 	$exec_time = microtime(true) - $start_time;
 	if ($exec_time > $max_exec_time) {
-		$msg = "Cron exceeded or reached set maximum script execution time of $max_exec_time secs.";
+		$msg = "[$interrupt] Cron exceeded or reached set maximum script execution time of $max_exec_time secs.";
 		cron_log($msg);
 	}
 
@@ -47,12 +47,41 @@ function cron_parse_executed_types($types) {
 	return $str;
 }
 
+function cron_interrupt($signo) {
+	switch ($signo) {
+		// Set terminated flag to be able to terminate program securely
+		// to prevent from terminating in the middle of the process
+		// Use Ctrl+C to send interruption signal to a running program
+		case SIGINT:
+		case SIGTERM:
+			cron_cleanup('SIGINT|SIGTERM');
+		break;
+		// @example: $ kill -s SIGUSR1 <pid>
+		case SIGUSR1:
+			cron_cleanup('SIGUSR1');
+		break;
+	}
+}
+
+// Register signal handlers that should be able to kill the cron in case some other weird shit happens apart from cron exiting cleanly
+if (extension_loaded('pcntl')) {
+	pcntl_signal(SIGINT, 'cron_interrupt');
+	pcntl_signal(SIGTERM, 'cron_interrupt');
+	pcntl_signal(SIGUSR1, 'cron_interrupt');
+}
+
 // even though the cronjobs are supposed to run only 6 min and are spaced 7 min, there seem to be problems due to overlapping CJs
 // the lockfile is supposed to fix this
 if (file_exists($lockfile)) {
 	global $start_date;
 	$started = file_get_contents($lockfile);
-	cron_log("Cron overlapped [file_exists]. Started: $started, Overlapped: $start_date");
+	cron_log("Cron overlapped. Started: $started, Overlapped: $start_date");
+
+	// hack to delete $lockfile if cron hangs for more that 30 mins
+	if ((strtotime($started) + (30 * 60)) < time()) {
+		cron_log("Forced delte of $lockfile");
+		unlink($lockfile);
+	}
 	exit(0);
 }
 

@@ -101,7 +101,7 @@ class Survey extends RunUnit {
 
 	public function render() {
 		global $js;
-		$js = (isset($js) ? $js : '') . '<script src="' . WEBROOT . 'assets/survey.js"></script>';
+		$js = (isset($js) ? $js : '') . '<script src="' . WEBROOT . 'assets/'. (DEBUG?'js':'minified'). '/survey.js"></script>';
 
 		$ret = '
 	<div class="row">
@@ -289,27 +289,24 @@ class Survey extends RunUnit {
 
 		$choice_lists = array();
 		foreach ($items as $row) {
-			if (!isset($choice_lists[$row['list_name']])):
+			if (!isset($choice_lists[$row['list_name']])) {
 				$choice_lists[$row['list_name']] = array();
-			endif;
+			}
 
-			// fixme: because were not using this much yet, I haven't really made any effort to efficiently only calculate this when necessary
-			if ($row['label_parsed'] === null):
-				$openCPU = $this->makeOpenCPU();
-				$openCPU->admin_usage = $this->admin_usage;
-
-				$openCPU->addUserData($this->getUserDataInRun(
-								$this->dataNeeded($this->dbh, $row['label'])
-				));
-
-				$markdown = $openCPU->knitForUserDisplay($row['label']);
+			// FixMe:
+			// - Because were not using this much yet, I haven't really made any effort to efficiently only calculate this when necessary
+			// - Maybe gather all labels and send in a 'box' and opencpu returns parsed labels in same box
+			if ($row['label_parsed'] === null) {
+				$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $row['label']));
+				$markdown = opencpu_knitdisplay($row['label'], $opencpu_vars);
 
 				if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)): // simple wraps are eliminated
 					$row['label_parsed'] = $matches[1];
 				else:
 					$row['label_parsed'] = $markdown;
 				endif;
-			endif;
+			}
+
 			$choice_lists[$row['list_name']][$row['name']] = $row['label_parsed'];
 		}
 		return $choice_lists;
@@ -446,7 +443,7 @@ class Survey extends RunUnit {
 			$this->dbh->rollBack();
 			log_exception($e, __CLASS__);
 			return false;
-	}
+		}
 
 	}
 
@@ -1166,7 +1163,7 @@ class Survey extends RunUnit {
 			$dialog = "<h5>No studies. <a href='" .  admin_study_url() . "'>Add some first</a></h5>";
 		endif;
 		
-		if ($this->id):
+		if ($this->id) {
 			$resultCount = $this->howManyReachedItNumbers();
 
 			$time = $this->getAverageTimeItTakes();
@@ -1181,13 +1178,13 @@ class Survey extends RunUnit {
 			$dialog .= '<br><p class="btn-group">
 				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Save.</a>
 				<a class="btn btn-default" href="' . admin_study_url($this->name, 'access') . '">Test</a>
-				</p>';
+			</p>';
 //		elseif($studies):
-else:
+		} else {
 			$dialog .= '<br><p class="btn-group">
 				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
 			</p>';
-		endif;
+		}
 
 		$dialog = $prepend . $dialog;
 		return parent::runDialog($dialog, 'fa-pencil-square');
@@ -1217,7 +1214,7 @@ else:
 		/* @var $item Item */
 		// Create query to modify items in an existing results table
 		foreach ($keptItems as $item) {
-			if (($field_definition = $item->getResultField()) !== null) {
+			if (($field_definition = $item->getResultField()) !== null && isset($existingColumns[$item->name])) {
 				$alterQuery[] = " MODIFY $field_definition";
 			}
 		}
@@ -1239,7 +1236,7 @@ else:
 			// prepend the alter table clause
 			$alterQuery[0] = "ALTER TABLE `{$this->results_table}` {$alterQuery[0]}";
 			$altQ = implode(',', $alterQuery);
-			formr_log("\nMerge Survey {$this->name} \n ALTER: $altQ");
+			//formr_log("\nMerge Survey {$this->name} \n ALTER: $altQ");
 			$this->dbh->query($altQ);
 		}
 
@@ -1248,7 +1245,7 @@ else:
 			$toDelete = implode(',', array_map(array($this->dbh, 'quote'), $toDelete));
 			$studyId = (int) $this->id;
 			$delQ = "DELETE FROM survey_items WHERE `name` IN ($toDelete) AND study_id = $studyId";
-			formr_log("\nMerge Survey {$this->name} \n DELETE: $delQ");
+			//formr_log("\nMerge Survey {$this->name} \n DELETE: $delQ");
 			$this->dbh->query($delQ);
 		}
 

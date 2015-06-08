@@ -110,13 +110,10 @@ class Branch extends RunUnit {
 			return false;
 		}
 
-		$openCPU = $this->makeOpenCPU();
 		$this->run_session_id = current($results)['id'];
-
-		$openCPU->addUserData($this->getUserDataInRun(
-			$this->dataNeeded($this->dbh, $this->condition)
-		));
-		echo $openCPU->evaluateAdmin($this->condition);
+		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->condition));
+		$ocpu_session = opencpu_evaluate($this->condition, $opencpu_vars, 'json', null, true);
+		echo opencpu_debug($ocpu_session);
 
 		echo '<table class="table table-striped">
 				<thead><tr>
@@ -124,38 +121,32 @@ class Branch extends RunUnit {
 					<th>Test</th>
 				</tr></thead>
 				<tbody>"';
-		foreach ($results as $row):
-			$openCPU = $this->makeOpenCPU();
+
+		// Maybe there is a way that we prevent 'calling opencpu' in a loop by gathering what is needed to be evaluated
+		// at opencpu in some 'box' and sending one request (also create new func in formr R package to open this box, evaluate what is inside and return the box)
+		foreach ($results as $row) {
 			$this->run_session_id = $row['id'];
-			$openCPU->admin_usage = true;
-			$openCPU->addUserData($this->getUserDataInRun(
-							$this->dataNeeded($this->dbh, $this->condition)
-			));
+			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->condition));
+			$eval = opencpu_evaluate($this->condition, $opencpu_vars);
 
 			echo "<tr>
 					<td style='word-wrap:break-word;max-width:150px'><small>" . $row['session'] . " ({$row['position']})</small></td>
-					<td>" . stringBool($openCPU->evaluate($this->condition)) . "</td>
+					<td>" . stringBool($eval) . "</td>
 				</tr>";
-		endforeach;
+		}
+
 		echo '</tbody></table>';
 		$this->run_session_id = null;
 	}
 
 	public function exec() {
-		$openCPU = $this->makeOpenCPU();
-		if ($this->beingTestedByOwner()) {
-			$openCPU->admin_usage = true;
-		}
-
-		$openCPU->addUserData($this->getUserDataInRun(
-			$this->dataNeeded($this->dbh, $this->condition)
-		));
-		$result = (bool) $openCPU->evaluate($this->condition);
-
-		if ($openCPU->anyErrors()) {
+		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->condition));
+		$eval = opencpu_evaluate($this->condition, $opencpu_vars);
+		if ($eval === null) {
 			return true; // don't go anywhere, wait for the error to be fixed!
 		}
-			
+
+		$result = (bool)$eval;
 		// if condition is true and we're set to jump automatically, or if the user reacted
 		if ($result AND ( $this->automatically_jump OR ! $this->called_by_cron)):
 			if ($this->run_session->session):

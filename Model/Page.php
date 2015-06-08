@@ -100,7 +100,6 @@ class Page extends RunUnit {
 		}
 
 		$this->body_parsed = $this->getParsedBody($this->body);
-
 		if ($this->body_parsed === false)  {
 			return true; // wait for openCPU to be fixed!
 		}
