@@ -43,6 +43,7 @@ class RunUnit {
 	public $valid;
 	public $run_id;
 	public $description = "";
+	protected $body_parsed = null;
 	protected $non_user_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions', 'survey_items_display', 'survey_email_log', 'shuffle');
 	protected $non_session_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions');
 
@@ -496,7 +497,6 @@ class RunUnit {
 			/* @var $session OpenCPU_Session */
 			$session = opencpu_knitadmin($source, $opencpu_vars, true);
 			$body = opencpu_debug($session);
-//			$body = $session->hasError() ? $session->getError() : $session->getJSONObject();
 
 			if ($email_embed) {
 				$report = array('body' => $body, 'images' => array());
@@ -507,7 +507,6 @@ class RunUnit {
 			return $report;
 
 		} else {
-			// FIXME: This class doesn't have this property
 			$report = $this->body_parsed;
 			if ($email_embed) {
 				$report = array('body' => $this->body_parsed, 'images' => array());

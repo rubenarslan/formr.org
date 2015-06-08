@@ -362,7 +362,7 @@ class OpenCPU_Session {
 		$this->object_length = count($json);
 		if (is_array($json) && array_key_exists(0, $json)) { # if it's an array, return the first element
 			if(is_string($json[0])) {
-				return str_replace('/usr/local/lib/R/site-library/', $this->getBaseUrl . '/ocpu/library/', $json[0]);
+				return str_replace('/usr/local/lib/R/site-library/', $this->getBaseUrl() . '/ocpu/library/', $json[0]);
 			}
 			return $json[0];
 		}
