@@ -959,7 +959,7 @@ opts_chunk$set(warning=T,message=T,echo=T)
 '.
 $source;
 
-	return opencpu_knit2html($source, 'json', 1, $return_session);
+	return opencpu_knit2html($source, '', 1, $return_session);
 }
 
 
@@ -992,20 +992,24 @@ function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
 	} else {
 
 		try {
+			$debug['Response'] = stringBool($session->getObject());
 			$debug['Request'] = pre_htmlescape((string)$session->getRequest());
-			$debug['Response'] = pre_htmlescape($session->getResponse());
-			$urls = $session->getResponsePaths();
+			$urls = $session->getResponsePathsAsLinks();
 			if(!empty($urls)) {
+//				pr($urls); die;
 				$locations = '';
-				foreach ($urls as $url) {
-					$path = str_replace($session->getBaseUrl(), '', $url);
-					$locations .= "<a href='$url'>$path</a><br />";
+//				foreach ($urls as $url) {
+//					$path = str_replace($session->getLocation(), '', $url);
+//					$locations .= "<a href='$url/print'>$path</a><br />";
+//				}
+				foreach($urls AS $path => $link) {
+					$path = str_replace('/ocpu/tmp/'.$session->getKey(), '', $path);
+					$locations .= "<a href='$link/print'>$path</a><br />";
 				}
 				$debug['Locations'] = $locations;
 				$debug['Session Info'] = pre_htmlescape($session->getInfo());
 				$debug['Session Console'] = pre_htmlescape($session->getConsole());
 				$debug['Session Stdout'] = pre_htmlescape($session->getStdout());
-				
 			}
 
 			$reponse_headers = $session->getResponseHeaders();
