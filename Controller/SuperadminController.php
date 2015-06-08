@@ -195,15 +195,16 @@ class SuperadminController extends Controller {
 		$users = array();
 		$last_user = "";
 		while($userx = $g_users->fetch(PDO::FETCH_ASSOC)) {
-			$public_status = $userx['public'];
+			$public_status = (int)$userx['public'];
+			$public_logo = '';
 			if($public_status===0):
 				$public_logo = "fa-eject";
 			elseif($public_status === 1):
 				$public_logo = "fa-volume-off";
 			elseif($public_status === 2):
-					$public_logo = "fa-volume-down";
+				$public_logo = "fa-volume-down";
 			elseif($public_status === 3):
-					$public_logo = "fa-volume-up";
+				$public_logo = "fa-volume-up";
 			endif;
 			if($last_user !== $userx['id']):
 				$userx['Email'] = '<a href="mailto:'.h($userx['email']).'">'.h($userx['email']).'</a>' . ($userx['email_verified'] ? " <i class='fa fa-check-circle-o'></i>":" <i class='fa fa-envelope-o'></i>");

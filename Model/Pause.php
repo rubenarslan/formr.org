@@ -149,7 +149,7 @@ class Pause extends RunUnit {
 				$conditions['relative_to'] = "1=1";
 			elseif ($relative_to === false):
 				$conditions['relative_to'] = "0=1";
-			elseif (strtotime($relative_to)):
+			elseif (!is_array($relative_to) AND strtotime($relative_to)):
 				$conditions['relative_to'] = ":relative_to <= NOW()";
 				$bind_relative_to = true;
 			else:
