@@ -465,16 +465,18 @@ class Item extends HTML_element {
 			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>". h($this->value) . "</code> that returns NA (missing). The most common reason for this is to e.g. refer to data that is not yet set, i.e. referring to questions that haven't been answered yet. To circumvent this, add a showif to your item, checking whether the item is answered yet using is.na(). Valid values need to have a length of one.", " There are programming problems related to null dynamic values in this survey.");
 			$this->openCPU_errors[$this->value] =  _('Incorrectly defined value (null).');
 			$this->alwaysInvalid();
-		elseif ($ocpu_session->getObjectLength() !== 1):
-			$result = null;
-			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>". h($this->value) . "</code> that returns an element with a length greater than 1. The most common reason for this is to e.g. refer to repeated assessments, but failing to specify whether you want the last, the first or all answers concatenated. Sometimes this can also occur if you do your testing repeatedly. The easiest solution is to reset your session in the run administration. Valid values need to have a length of one.", " There are programming problems related to multiple dynamic values in this survey.");
-			$this->openCPU_errors[$this->value] =  _('Incorrectly defined value (multiple).');
-			$this->alwaysInvalid();
 		else:
 			if($this->type == 'opencpu_session'):
 				$this->input_attributes['value'] = $ocpu_session->getLocation();
 			else:
-				$this->input_attributes['value'] = $result;
+				if($ocpu_session->getObjectLength() !== 1): // this is only a problem if we're expecting the value to be stored
+					$result = null;
+					notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>". h($this->value) . "</code> that returns an element with a length greater than 1. The most common reason for this is to e.g. refer to repeated assessments, but failing to specify whether you want the last, the first or all answers concatenated. Sometimes this can also occur if you do your testing repeatedly. The easiest solution is to reset your session in the run administration. Valid values need to have a length of one.", " There are programming problems related to multiple dynamic values in this survey.");
+					$this->openCPU_errors[$this->value] =  _('Incorrectly defined value (multiple).');
+					$this->alwaysInvalid();
+				else:
+					$this->input_attributes['value'] = $result;
+				endif;
 			endif;
 		endif;
 	}
