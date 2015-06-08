@@ -1,7 +1,4 @@
 <?php
-
-require_once '../../define_root.php';
-
 // Set maximum execution time to 6 minutes as cron runs every 7 minutes. (There should be better way to do this)
 $start_time = microtime(true);
 $max_exec_time = 6 * 60;
@@ -73,11 +70,7 @@ $user->cron = true;
 // Wrap in a try catch just in case because we can't see shit
 try {
 	// Get all runs
-	$g_runs = $fdb->query("SELECT name FROM `survey_runs` WHERE cron_active = 1 ORDER BY RAND();");
-	$runs = array();
-	while ($tmp = $g_runs->fetch()) {
-		$runs[] = $tmp;
-	}
+	$runs = $fdb->query("SELECT name FROM `survey_runs` WHERE cron_active = 1 ORDER BY RAND();");
 
 	$r = 0;
 	foreach ($runs as $run_data):
