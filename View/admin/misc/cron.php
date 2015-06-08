@@ -1,7 +1,4 @@
 <?php
-
-require_once '../../define_root.php';
-
 // Set maximum execution time to 6 minutes as cron runs every 7 minutes. (There should be better way to do this)
 $start_time = microtime(true);
 $max_exec_time = 6 * 60;
@@ -15,7 +12,7 @@ $lockfile = INCLUDE_ROOT . 'tmp/cron.lock';
 // log to formr log file
 function cron_log($message, $cron_log = false) {
 	$cron_logfile = INCLUDE_ROOT . 'tmp/logs/cron.log';
-	$logfile = INCLUDE_ROOT . 'tmp/logs/formr_error.log';
+	$logfile = INCLUDE_ROOT . 'tmp/logs/errors.log';
 	$message = date('Y-m-d H:i:s') . ' ' . $message . "\n";
 	if ($cron_log) {
 		return error_log($message, 3, $cron_logfile);
@@ -73,11 +70,7 @@ $user->cron = true;
 // Wrap in a try catch just in case because we can't see shit
 try {
 	// Get all runs
-	$g_runs = $fdb->query("SELECT name FROM `survey_runs` WHERE cron_active = 1 ORDER BY RAND();");
-	$runs = array();
-	while ($tmp = $g_runs->fetch()) {
-		$runs[] = $tmp;
-	}
+	$runs = $fdb->query("SELECT name FROM `survey_runs` WHERE cron_active = 1 ORDER BY RAND();");
 
 	$r = 0;
 	foreach ($runs as $run_data):
