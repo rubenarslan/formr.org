@@ -16,7 +16,7 @@ $lockfile = INCLUDE_ROOT . 'tmp/cron.lock';
 // log to formr log file
 function cron_log($message, $cron_log = true) {
 	$cron_logfile = INCLUDE_ROOT . 'tmp/logs/cron.log';
-	$logfile = INCLUDE_ROOT . 'tmp/logs/formr_error.log';
+	$logfile = INCLUDE_ROOT . 'tmp/logs/errors.log';
 	$message = date('Y-m-d H:i:s') . ' ' . $message . "\n";
 	if ($cron_log) {
 		return error_log($message, 3, $cron_logfile);

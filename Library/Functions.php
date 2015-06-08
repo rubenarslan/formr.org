@@ -15,7 +15,7 @@ function formr_log($msg, $type = '') {// shorthand
 		alert('<pre>'.$msg.'</pre>', 'alert-danger');
 	}
 
-	error_log($msg . "\n", 3, get_log_file('formr_error.log'));
+	error_log($msg . "\n", 3, get_log_file('errors.log'));
 }
 
 function get_log_file($filename) {
