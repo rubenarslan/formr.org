@@ -66,6 +66,9 @@
 						<li>
 							<a href="<?php echo site_url('superadmin/user_management'); ?>"><i class="fa fa-users fa-fw"></i> <?php echo _("manage users"); ?></a>
 						</li>
+						<li>
+							<a href="<?php echo site_url('superadmin/active_users'); ?>"><i class="fa fa-users fa-fw"></i> <?php echo _("active users"); ?></a>
+						</li>
 					<?php endif; ?>
 				</ul>
 			</li>
