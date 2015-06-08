@@ -983,7 +983,7 @@ $source;
 function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
 	$debug = array();
 	if (empty($session)) {
-		$debug['Response'] = 'No OpenCPU_Session found. Server maybe down.';
+		$debug['Response'] = 'No OpenCPU_Session found. Server may be down.';
 		if ($ocpu !== null) {
 			$debug['Request'] = (string)$ocpu->getRequest();
 			$reponse_info  = $ocpu->getRequestInfo();
@@ -992,16 +992,15 @@ function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
 	} else {
 
 		try {
-			$debug['Response'] = stringBool($session->getObject());
+			if($session->hasError()):
+				$debug['Response'] = h($session->getError());
+			else:
+				$debug['Response'] = stringBool($session->getObject());
+			endif;
 			$debug['Request'] = pre_htmlescape((string)$session->getRequest());
 			$urls = $session->getResponsePathsAsLinks();
-			if(!empty($urls)) {
-//				pr($urls); die;
+			if(!$session->hasError() AND !empty($urls)) {
 				$locations = '';
-//				foreach ($urls as $url) {
-//					$path = str_replace($session->getLocation(), '', $url);
-//					$locations .= "<a href='$url/print'>$path</a><br />";
-//				}
 				foreach($urls AS $path => $link) {
 					$path = str_replace('/ocpu/tmp/'.$session->getKey(), '', $path);
 					$locations .= "<a href='$link/print'>$path</a><br />";
