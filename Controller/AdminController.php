@@ -19,7 +19,7 @@ class AdminController extends Controller {
 	}
 
 	public function cronAction() {
-		$this->renderView('misc/cron');
+		$this->renderView('misc/cron', array("fdb"=> $this->fdb));
 	}
 
 	public function cronForkedAction() {

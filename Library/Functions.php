@@ -15,15 +15,7 @@ function formr_log($msg, $type = '') {// shorthand
 		alert('<pre>'.$msg.'</pre>', 'alert-danger');
 	}
 
-	error_log($msg . "\n", 3, get_log_file('formr_error.log'));
-}
-
-function opencpu_log_warning($msg) {// shorthand
-	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, get_log_file('opencpu_warning.log'));
-}
-
-function opencpu_log($msg) {// shorthand
-	error_log(date('Y-m-d H:i:s') . ' ' . $msg . "\n", 3, get_log_file('opencpu_error.log'));
+	error_log($msg . "\n", 3, get_log_file('errors.log'));
 }
 
 function get_log_file($filename) {
