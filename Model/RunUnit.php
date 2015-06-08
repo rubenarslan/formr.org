@@ -533,8 +533,9 @@ class RunUnit {
 
 		if($old_opencpu_url) {
 			$old_opencpu_url .= 'R/.val/text';
-			$report = CURL::HttpRequest($old_opencpu_url, null, CURL::HTTP_METHOD_GET, array(CURLOPT_HEADER => true));
-			if ($report) {
+			$session_obj = array();
+			$report = CURL::HttpRequest($old_opencpu_url, null, CURL::HTTP_METHOD_GET, array(CURLOPT_HEADER => true), $session_obj);
+			if ($session_obj['http_code'] == 200 AND $report) {
 				// if it has expired, so be it
 				return $report;
 			}
