@@ -18,7 +18,6 @@ class Email extends RunUnit {
 	public $icon = "fa-envelope";
 	public $type = "Email";
 	private $subject_parsed = null;
-	private $admin_usage = false;
 
 	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) {
 		parent::__construct($fdb, $session, $unit, $run_session);
@@ -294,7 +293,6 @@ class Email extends RunUnit {
 	}
 
 	public function test() {
-		$this->admin_usage = true;
 		$results = $this->getSampleSessions();
 		if (!$results) {
 			echo 'No data to compare to yet.';
@@ -346,10 +344,6 @@ class Email extends RunUnit {
 	}
 
 	public function exec() {
-		if ($this->beingTestedByOwner()) {
-			$this->admin_usage = true;
-		}
-
 		$err = $this->sendMail();
 		if ($this->mail_sent):
 			$this->end();

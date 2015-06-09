@@ -23,7 +23,6 @@ class Survey extends RunUnit {
 	public $openCPU = null;
 	public $icon = "fa-pencil-square-o";
 	public $type = "Survey";
-	public $admin_usage = false;
 	public $result_count = 0;
 	private $confirmed_deletion = false;
 	public $item_factory = null;
@@ -52,10 +51,6 @@ class Survey extends RunUnit {
 		if ($this->id):
 			$this->load();
 		endif;
-
-		if ($this->beingTestedByOwner()) {
-			$this->admin_usage = true;
-	}
 	}
 
 	private function load() {
