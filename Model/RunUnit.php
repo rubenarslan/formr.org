@@ -536,7 +536,7 @@ class RunUnit {
 			$session = opencpu_get($old_opencpu_url, $email_embed ? "" : "json", null, true);
 		}
 
-		if(!$old_opencpu_url OR !$session->hasError()) {
+		if(!$old_opencpu_url OR (!$session OR !$session->hasError())) {
 			$ocpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
 			/* @var $session OpenCPU_Session */
 			if ($email_embed) {
