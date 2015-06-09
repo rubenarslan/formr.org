@@ -532,8 +532,8 @@ class RunUnit {
 		),  array('opencpu_url'));
 
 		if($old_opencpu_url) {
-			$old_opencpu_url .= $emaiL_embed ? '' : 'R/.val/';
-			$session = opencpu_get($old_opencpu_url, $emaiL_embed ? "" : "json", null, true);
+			$old_opencpu_url .= $email_embed ? '' : 'R/.val/';
+			$session = opencpu_get($old_opencpu_url, $email_embed ? "" : "json", null, true);
 		}
 
 		if(!$old_opencpu_url OR !$session->hasError()) {
