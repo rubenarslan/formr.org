@@ -90,18 +90,16 @@ class External extends RunUnit {
 					return false;
 				}
 				
-				$openCPU = $this->makeOpenCPU();
 				$this->run_session_id = current($results)['id'];
 
-				$openCPU->addUserData($this->getUserDataInRun(
-								$this->dataNeeded($this->dbh, $this->address)
-				));
-				$output = $openCPU->evaluateAdmin($this->address);
+				$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->address));
+				$ocpu_session = opencpu_evaluate($this->address, $opencpu_vars, '', null, true);
+				$output = opencpu_debug($ocpu_session);
 			} else {
 				$output = '';
 			}
 		} else {
-			$output = $this->address;
+			$output = '<a href="'.$this->address.'">'.$this->address."</a>";
 		}
 
 		$this->session = "TESTCODE";
@@ -114,29 +112,20 @@ class External extends RunUnit {
 		}
 
 		if ($this->isR()) {
-			$openCPU = $this->makeOpenCPU();
-			if ($this->beingTestedByOwner()) {
-				$openCPU->admin_usage = true;
-			}
 
-			$openCPU->addUserData($this->getUserDataInRun(
-							$this->dataNeeded($this->dbh, $this->address)
-			));
-			$this->address = $openCPU->evaluate($this->address);
-
-			if ($openCPU->anyErrors()) {
-				return true; // wait for openCPU to be fixed!
+			if ($this->address=== null) {
+				return true; // don't go anywhere, wait for the error to be fixed!
 			}
 		}
 
-		if (!$this->api_end) {
-			$this->end();
-		}
 		if($this->isR() AND $this->address === FALSE) {
 			return false;
 		}
 
 		$this->address = $this->makeAddress($this->address);
+		if (!$this->api_end) {
+			$this->end();
+		}
 
 		redirect_to($this->address);
 		return false;

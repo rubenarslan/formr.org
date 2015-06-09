@@ -518,32 +518,32 @@ class RunUnit {
 
 	public function getParsedBody($source, $email_embed = false) {
 		if (!$this->knittingNeeded($source)) { // knit if need be
-			return !$email_embed ? $this->body_parsed : array('body' => $this->body_parsed, 'images' => array());
+			if($email_embed) {
+				return array('body' => $this->body_parsed, 'images' => array());
+			} else {
+				return $this->body_parsed;
+			}
 		}
 
-		$old_opencpu_url = false;
-		if (!$email_embed) {
-			$old_opencpu_url = $this->dbh->findValue('survey_reports', array(
-				'unit_id' => $this->id, 
-				'session_id' => $this->session_id,
-				'created >=' => $this->modified // if the definition of the unit changed, don't use old reports
-			),
-			array('opencpu_url'));
-		}
+		$old_opencpu_url = $this->dbh->findValue('survey_reports', array(
+			'unit_id' => $this->id, 
+			'session_id' => $this->session_id,
+			'created >=' => $this->modified // if the definition of the unit changed, don't use old reports
+		),  array('opencpu_url'));
 
 		if($old_opencpu_url) {
-			$old_opencpu_url .= 'R/.val/';
-			$session = opencpu_get($old_opencpu_url);
-			
-			if($session) {
-				return $session;
-			}			
+			$old_opencpu_url .= $emaiL_embed ? '' : 'R/.val/';
+			$session = opencpu_get($old_opencpu_url, $emaiL_embed ? "" : "json", null, true);
 		}
 
-		$ocpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
-		/* @var $session OpenCPU_Session */
-		if ($email_embed) {
-			$session = opencpu_knitemail($source, $ocpu_vars, null, true);
+		if(!$old_opencpu_url OR !$session->hasError()) {
+			$ocpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
+			/* @var $session OpenCPU_Session */
+			if ($email_embed) {
+				$session = opencpu_knitemail($source, $ocpu_vars, '', true);
+			} else {
+				$session = opencpu_knitdisplay($source, $ocpu_vars, true);
+			}
 			if ($session->hasError()) {
 				$where = '';
 				if(isset($this->run_name)):
@@ -553,25 +553,18 @@ class RunUnit {
 				alert('There was a problem with OpenCPU.', 'alert-danger');
 				return false;
 			}
+			$opencpu_url = $session->getLocation();
+		}
+		
+		if($email_embed) {
 			$report = array(
-				'body' => $session->getJSONObject(),
+				'body' => $session->getObject(),
 				'images' => $session->getFiles('/figure-html/'),
 			);
 		} else {
-			$session = opencpu_knitdisplay($source, $ocpu_vars, true);
-			if ($session->hasError()) {
-				$where = '';
-				if(isset($this->run_name)):
-					$where = "Run: ". $this->run_name. " (".$this->position."-". $this->type.")";
-				endif;
-				formr_log($where. $session->getError());
-				alert('There was a problem with OpenCPU.', 'alert-danger');
-				return false;
-			}
 			$report = $session->getJSONObject();
-			$opencpu_url = $session->getLocation();
 		}
-
+		
 		if(isset($opencpu_url)) {
 			try {
 				$set_report = $this->dbh->prepare("
