@@ -1018,7 +1018,7 @@ function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
 
 		try {
 			if($session->hasError()):
-				$debug['Response'] = h($session->getError());
+				$debug['Response'] = pre_htmlescape($session->getError());
 			else:
 				$debug['Response'] = stringBool($session->getObject());
 			endif;
