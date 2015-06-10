@@ -517,6 +517,8 @@ class RunUnit {
 	}
 
 	public function getParsedBody($source, $email_embed = false) {
+		/* @var $session OpenCPU_Session */
+
 		if (!$this->knittingNeeded($source)) { // knit if need be
 			if($email_embed) {
 				return array('body' => $this->body_parsed, 'images' => array());
@@ -525,37 +527,37 @@ class RunUnit {
 			}
 		}
 
-		$old_opencpu_url = $this->dbh->findValue('survey_reports', array(
+		$opencpu_url = $this->dbh->findValue('survey_reports', array(
 			'unit_id' => $this->id, 
 			'session_id' => $this->session_id,
 			'created >=' => $this->modified // if the definition of the unit changed, don't use old reports
 		),  array('opencpu_url'));
 
-		if($old_opencpu_url) {
-			$old_opencpu_url .= $email_embed ? '' : 'R/.val/';
-			$session = opencpu_get($old_opencpu_url, $email_embed ? "" : "json", null, true);
+		// If there is a cache of opencpu, check if it still exists
+		if($opencpu_url) {
+			$opencpu_url .= $email_embed ? '' : 'R/.val/';
+			$session = opencpu_get($opencpu_url, $email_embed ? "" : "json", null, true);
 		}
 
-		if(!$old_opencpu_url OR (!$session OR !$session->hasError())) {
+		// If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
+		if (empty($session) || $session->hasError()) {
 			$ocpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
-			/* @var $session OpenCPU_Session */
-			if ($email_embed) {
-				$session = opencpu_knitemail($source, $ocpu_vars, '', true);
-			} else {
-				$session = opencpu_knitdisplay($source, $ocpu_vars, true);
+			$session = $email_embed ? opencpu_knitemail($source, $ocpu_vars, '', true) : opencpu_knitdisplay($source, $ocpu_vars, true);
+		}
+
+		// At this stage we are sure to have an OpenCPU_Session in $session. If there is an error in the session return FALSE
+		if ($session->hasError()) {
+			$where = '';
+			if(isset($this->run_name)) {
+				$where = "Run: ". $this->run_name. " (".$this->position."-". $this->type.") ";
 			}
-			if ($session->hasError()) {
-				$where = '';
-				if(isset($this->run_name)):
-					$where = "Run: ". $this->run_name. " (".$this->position."-". $this->type.")";
-				endif;
-				formr_log($where. $session->getError());
-				alert('There was a problem with OpenCPU.', 'alert-danger');
-				return false;
-			}
+			formr_log($where. $session->getError());
+			alert('There was a problem with OpenCPU.', 'alert-danger');
+			return false;
+		} else {
 			$opencpu_url = $session->getLocation();
 		}
-		
+
 		if($email_embed) {
 			$report = array(
 				'body' => $session->getObject(),
@@ -564,8 +566,8 @@ class RunUnit {
 		} else {
 			$report = $session->getJSONObject();
 		}
-		
-		if(isset($opencpu_url)) {
+
+		if($this->session_id) {
 			try {
 				$set_report = $this->dbh->prepare("
 					INSERT INTO `survey_reports` (`session_id`, `unit_id`, `opencpu_url`, `created`, `last_viewed`) 

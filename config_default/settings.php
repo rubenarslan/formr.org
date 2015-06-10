@@ -1,5 +1,9 @@
 <?php
+/**
+ * Formr.org configuration
+ */
 
+// Database Settings
 $settings['database'] = array(
 	'datasource' => 'Database/Mysql',
 	'persistent' => false,
@@ -12,35 +16,58 @@ $settings['database'] = array(
 	'unix_socket' => '/Applications/MAMP/tmp/mysql/mysql.sock',
 );
 
-$settings['opencpu_instance'] = 'https://public.opencpu.org';
-$settings['alternative_opencpu_instance'] = 'https://public.opencpu.org'; # used in admin/test_opencpu
+// OpenCPU instance settings
+$settings['opencpu_instance'] = array(
+	'base_url' => 'https://public.opencpu.org',
+	'r_lib_path' => '/usr/local/lib/R/site-library'
+);
+// (used in admin/test_opencpu)
+$settings['alternative_opencpu_instance'] = array(
+	'base_url' => 'https://public.opencpu.org',
+	'r_lib_path' => '/usr/local/lib/R/site-library'
+);
 
-$settings['email']['host'] = ''; # smtp server that you want to use, you can prefix a protocol like ssl://
-$settings['email']['port'] = 587; # its port
-$settings['email']['tls'] = true; # whether to use TLS
-$settings['email']['from'] = ''; # the email address from which to send mail
-$settings['email']['from_name'] = ''; # the name to display as sender
-$settings['email']['username'] = ''; # the username
-$settings['email']['password'] = ''; # the password
+// email SMTP configuration
+$settings['email'] = array(
+	'host' => 'smtp.example.com',
+	'port' => 587,
+	'tls' => true,
+	'from' => 'email@example.com',
+	'from_name' => 'Formr',
+	'username' => 'email@example.com',
+	'password' => 'password',
+);
 
-$settings['display_errors'] = 0; // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
+// should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
+$settings['display_errors_when_live'] = 0;
 
+// Timezone
 $settings['timezone'] = 'Europe/Berlin';
 
-$settings['expire_unregistered_session'] = 365 * 24 * 60 * 60; # for unregistered users. in seconds (defaults to a year)
-$settings['expire_registered_session'] = 7 * 24 * 60 * 60; # for registered users. in seconds (defaults to a week)
-$settings['expire_admin_session'] = 7 * 24 * 60 * 60; # for admins. in seconds (defaults to a week). has to be lower than the expiry for registered users.
-$settings['session_cookie_lifetime'] = max($settings['expire_unregistered_session'], $settings['expire_registered_session'], $settings['expire_admin_session']); # upper limit for all values above (defaults to their max)
+// Session expiration related settings
+// (for unregistered users. in seconds (defaults to a year))
+$settings['expire_unregistered_session'] = 365 * 24 * 60 * 60;
+// (for registered users. in seconds (defaults to a week))
+$settings['expire_registered_session'] = 7 * 24 * 30 * 60;
+// (for admins. in seconds (defaults to a week). has to be lower than the expiry for registered users)
+$settings['expire_admin_session'] = 7 * 24 * 30 * 60;
+// upper limit for all values above (defaults to their max)
+$settings['session_cookie_lifetime'] = max($settings['expire_unregistered_session'], $settings['expire_registered_session'], $settings['expire_admin_session']);
 
-$settings['admin_maximum_size_of_uploaded_files'] = 50; # in MB
+// Maximum size allowed for uploaded files in MB
+$settings['admin_maximum_size_of_uploaded_files'] = 50;
 
+// Directory for exported runs
 $settings['run_exports_dir'] = INCLUDE_ROOT . 'documentation/run_components';
 
+// application webroot
 $settings['web_dir'] = INCLUDE_ROOT . 'webroot';
 
-// Ovewrites vars in /define_root, uncomment config item and set appropriate value to enable it.
+// Setup settings for application that can overwrite defaults in /define_root.php
 $settings['define_root'] = array(
     //'protocol' => 'http://',
-    //'doc_root' => 'projects/formr.org/',
-    //'online' => false
+    //'doc_root' => 'localhost/formr.org/',
+    //'server_root' => INCLUDE_ROOT . '/',
+    //'online' => false,
+    //'testing' => true
 );
