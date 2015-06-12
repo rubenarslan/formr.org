@@ -124,7 +124,7 @@ class DB {
 	 */
 	public function query($query, $return_statemnt = false) {
 		$stmt = $this->PDO->query($query);
-		if (strpos(strtolower($query), 'select') !== false && $return_statemnt === false) {
+		if (preg_match('/^select/', strtolower($query)) && $return_statemnt === false) {
 			return $stmt->fetchAll(PDO::FETCH_ASSOC);
 		}
 		return $stmt;

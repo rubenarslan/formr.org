@@ -833,7 +833,7 @@ function opencpu_define_vars(array $data) {
  * @param string $return_format String like 'json'
  * @param mixed $context If this paramter is set, $code will be evaluated with a context
  * @param bool $return_session Should OpenCPU_Session object be returned
- * @return string|OpenCPU_Session|null Returns null of an error occured so check the return value using the equivalence operator (===)
+ * @return string|OpenCPU_Session|null Returns null if an error occured so check the return value using the equivalence operator (===)
 */
 function opencpu_get($location, $return_format = 'json', $context = null, $return_session = false) {
 	$uri = $location . $return_format;
@@ -848,6 +848,7 @@ function opencpu_get($location, $return_format = 'json', $context = null, $retur
 		}
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
+		log_exception($e);
 		return null;
 	}
 }
@@ -859,7 +860,7 @@ function opencpu_get($location, $return_format = 'json', $context = null, $retur
  * @param string $return_format String like 'json'
  * @param mixed $context If this paramter is set, $code will be evaluated with a context
  * @param bool $return_session Should OpenCPU_Session object be returned
- * @return string|OpenCPU_Session|null Returns null of an error occured so check the return value using the equivalence operator (===)
+ * @return string|OpenCPU_Session|null Returns null if an error occured so check the return value using the equivalence operator (===)
 */
 function opencpu_evaluate($code, $variables = null, $return_format = 'json', $context = null, $return_session = false) {
 	if (!is_string($variables)) {
@@ -1005,7 +1006,7 @@ $source;
 	return opencpu_knit2html($source, $return_format, 0, $return_session);
 }
 
-function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
+function opencpu_debug($session, OpenCPU $ocpu = null) {
 	$debug = array();
 	if (empty($session)) {
 		$debug['Response'] = 'No OpenCPU_Session found. Server may be down.';
@@ -1028,7 +1029,7 @@ function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
 				$locations = '';
 				foreach($urls AS $path => $link) {
 					$path = str_replace('/ocpu/tmp/'.$session->getKey(), '', $path);
-					$locations .= "<a href='$link/print'>$path</a><br />";
+					$locations .= "<a href='$link'>$path</a><br />";
 				}
 				$debug['Locations'] = $locations;
 				$debug['Session Info'] = pre_htmlescape($session->getInfo());

@@ -5,6 +5,7 @@ class OpenCPU {
 	protected $baseUrl = 'https://public.opencpu.org';
 	protected $libUri = '/ocpu/library';
 	protected $last_message = null;
+	protected $rLibPath = '/usr/local/lib/R/site-library';
 
 	/**
 	 * @var OpenCPU[]
@@ -48,8 +49,13 @@ class OpenCPU {
 	}
 
 	protected function __construct($instance) {
-		$baseUrl = Config::get($instance);
-		$this->setBaseUrl($baseUrl);
+		$config = (array) Config::get($instance);
+		foreach ($config as $key => $value) {
+			$property = lcfirst(preg_replace('/\s+/', '', ucwords(str_replace('_', ' ', $key))));
+			if (property_exists($this, $property)) {
+				$this->{$property} = $value;
+			}
+		}
 	}
 
 	/**
@@ -66,12 +72,16 @@ class OpenCPU {
 		return $this->baseUrl;
 	}
 
+	public function getRLibPath() {
+		return $this->rLibPath;
+	}
+
 	public function setLibUrl($libUri) {
 		$libUri = trim($libUri, "/");
 		$this->libUri = '/' . $libUri;
 	}
 
-	public function getLibUrl() {
+	public function getLibUri() {
 		return $this->libUri;
 	}
 
@@ -116,11 +126,8 @@ class OpenCPU {
 		}
 
 
-		if (strstr($uri, $this->baseUrl) === false) {
-			if ($uri) {
-				$uri = "/" . ltrim($uri, "/");
-			}
-			
+		if ($uri && strstr($uri, $this->baseUrl) === false) {
+			$uri = "/" . ltrim($uri, "/");
 			$url = $this->baseUrl . $this->libUri . $uri;
 		} else {
 			$url = $uri;
@@ -370,9 +377,10 @@ class OpenCPU_Session {
 		}
 		$json = json_decode($string, $as_assoc);
 		$this->object_length = count($json);
-		if (is_array($json) && array_key_exists(0, $json)) { # if it's an array, return the first element
+		// if decoded object is a non-empty array, get it's first element
+		if (is_array($json) && array_key_exists(0, $json)) {
 			if(is_string($json[0])) {
-				return str_replace('/usr/local/lib/R/site-library/', $this->getBaseUrl() . '/ocpu/library/', $json[0]);
+				return str_replace($this->ocpu->getRLibPath(), $this->getBaseUrl() . $this->ocpu->getLibUri(), $json[0]);
 			}
 			return $json[0];
 		}
@@ -389,7 +397,7 @@ class OpenCPU_Session {
 			return null;
 		}
 
-		$url = $this->getLocation() . 'stdout/text';
+		$url = $this->getLocation() . 'stdout';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
@@ -399,7 +407,7 @@ class OpenCPU_Session {
 			return null;
 		}
 
-		$url = $this->getLocation() . 'console/text';
+		$url = $this->getLocation() . 'console';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
@@ -409,7 +417,7 @@ class OpenCPU_Session {
 			return null;
 		}
 
-		$url = $this->getLocation() . 'info/print';
+		$url = $this->getLocation() . 'info';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
