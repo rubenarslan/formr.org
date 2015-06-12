@@ -1006,7 +1006,7 @@ $source;
 	return opencpu_knit2html($source, $return_format, 0, $return_session);
 }
 
-function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
+function opencpu_debug($session, OpenCPU $ocpu = null) {
 	$debug = array();
 	if (empty($session)) {
 		$debug['Response'] = 'No OpenCPU_Session found. Server may be down.';
@@ -1029,9 +1029,6 @@ function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
 				$locations = '';
 				foreach($urls AS $path => $link) {
 					$path = str_replace('/ocpu/tmp/'.$session->getKey(), '', $path);
-					if (strstr($link, '.') === false) {
-						$link .= '/print';
-					}
 					$locations .= "<a href='$link'>$path</a><br />";
 				}
 				$debug['Locations'] = $locations;
