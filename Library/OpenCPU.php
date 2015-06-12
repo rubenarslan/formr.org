@@ -397,7 +397,7 @@ class OpenCPU_Session {
 			return null;
 		}
 
-		$url = $this->getLocation() . 'stdout/text';
+		$url = $this->getLocation() . 'stdout';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
@@ -407,7 +407,7 @@ class OpenCPU_Session {
 			return null;
 		}
 
-		$url = $this->getLocation() . 'console/text';
+		$url = $this->getLocation() . 'console';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}
@@ -417,7 +417,7 @@ class OpenCPU_Session {
 			return null;
 		}
 
-		$url = $this->getLocation() . 'info/print';
+		$url = $this->getLocation() . 'info';
 		$info = array(); // just in case needed in the furture to get curl info
 		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
 	}

@@ -1029,9 +1029,6 @@ function opencpu_debug(OpenCPU_Session $session, OpenCPU $ocpu = null) {
 				$locations = '';
 				foreach($urls AS $path => $link) {
 					$path = str_replace('/ocpu/tmp/'.$session->getKey(), '', $path);
-					if (strstr($link, '.') === false) {
-						$link .= '/print';
-					}
 					$locations .= "<a href='$link'>$path</a><br />";
 				}
 				$debug['Locations'] = $locations;
