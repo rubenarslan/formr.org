@@ -68,6 +68,8 @@ class Survey extends RunUnit {
 			$this->settings['maximum_number_displayed'] = (int) $vars['maximum_number_displayed'];
 			$this->settings['displayed_percentage_maximum'] = (int) $vars['displayed_percentage_maximum'];
 			$this->settings['add_percentage_points'] = (int) $vars['add_percentage_points'];
+			$this->settings['enable_instant_validation'] = (int) $vars['enable_instant_validation'];
+			$this->settings['expire_after'] = (int) $vars['expire_after'];
 
 			$this->valid = true;
 		endif;
@@ -446,7 +448,9 @@ class Survey extends RunUnit {
 		$action = run_url($this->run_name);
 		$enctype = 'multipart/form-data'; # maybe make this conditional application/x-www-form-urlencoded
 
-		$ret = '<form action="' . $action . '" method="post" class="form-horizontal" accept-charset="utf-8" enctype="' . $enctype . '">';
+		$ret = '<form action="' . $action . '" method="post" class="form-horizontal'.
+			($this->settings['enable_instant_validation'] ? ' ws-validate' : '')
+			.'" accept-charset="utf-8" enctype="' . $enctype . '">';
 
 		/* pass on hidden values */
 		$ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
@@ -576,15 +580,32 @@ class Survey extends RunUnit {
 			$errors = true;
 		}
 
+		if (isset($key_value_pairs['enable_instant_validation'])
+				AND $key_value_pairs['enable_instant_validation'] = (int) $key_value_pairs['enable_instant_validation']
+				AND !($key_value_pairs['enable_instant_validation'] === 0 || $key_value_pairs['enable_instant_validation'] === 1)
+		) {
+			alert("Instant validation has to be set to either 0 (off) or 1 (on).", 'alert-warning');
+			$errors = true;
+		}
+		
+		if (isset($key_value_pairs['expire_after'])
+				AND $key_value_pairs['expire_after'] = (int) $key_value_pairs['expire_after']
+				AND $key_value_pairs['expire_after'] > 3153600
+		) {
+			alert("Survey expiry time (in minutes) has to be below 3153600.", 'alert-warning');
+			$errors = true;
+		}
+		
+		if(count(array_intersect(array_keys($key_value_pairs),array_keys($this->settings))) !== count($this->settings)) { // any settings that aren't in the settings array?
+			alert("Invalid settings.", 'alert-danger');
+			$errors = true;
+		}
+
 		if ($errors) {
 			return false;
 		}
 
-		$this->dbh->update('survey_studies', array(
-			'maximum_number_displayed' => $key_value_pairs['maximum_number_displayed'],
-			'displayed_percentage_maximum' => $key_value_pairs['displayed_percentage_maximum'],
-			'add_percentage_points' => $key_value_pairs['add_percentage_points'],
-		), array(
+		$this->dbh->update('survey_studies', $key_value_pairs, array(
 			'id' => $this->id,
 		));
 

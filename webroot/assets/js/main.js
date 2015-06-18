@@ -8,8 +8,23 @@
 		extendNative: false,
 		waitReady: false,
 		forms: {
-			customDatalist: true,
 			addValidators: true,
+	        iVal: {
+	            //add config to find right wrapper
+	            fieldWrapper: '.form-group',
+				//wether an invalid input should be re-checked while user types
+				recheckDelay: 600,
+	            //add bootstrap specific classes
+	            errorMessageClass: 'help-block',
+		    	errorMessageWrapper: "span",
+	            successWrapperClass: '',
+	            errorWrapperClass: 'has-error',
+            
+	            //general iVal cfg
+	            sel: '.ws-validate',
+	            handleBubble: 'hide' // hide error bubble
+	        },
+			customDatalist: true,
 			replaceValidationUI: true
 		},
 		geolocation: {

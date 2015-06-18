@@ -166,7 +166,7 @@ class Item extends HTML_element {
 		if (isset($options['displaycount']) AND $options['displaycount'] !==null) {
 			$this->displaycount = $options['displaycount'];
 			if (!$this->error) {
-				$this->classes_wrapper[] = "has-warning";
+//				$this->classes_wrapper[] = "has-warning";
 		}
 		}
 		
@@ -765,7 +765,7 @@ class Item_tel extends Item_text {
 class Item_cc extends Item_text {
 
 	public $type = 'cc';
-	public $input_attributes = array('type' => 'cc');
+	public $input_attributes = array('type' => 'cc', "data-luhn" => "");
 	protected $prepend = 'fa-credit-card';
 	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';	
 
@@ -1067,15 +1067,15 @@ class Item_mc_multiple extends Item_mc {
 	}
 		
 	protected function render_input() {
-		if (!$this->optional) {
-			$this->input_attributes['class'] .= ' group-required';
+		if(!$this->optional) {
+			$this->input_attributes['data-grouprequired'] = "";
 		}
 		$this->splitValues();
 		
-#		$this->classes_wrapper = array_diff($this->classes_wrapper, array('required'));
-		unset($this->input_attributes['required']);
-		
-		$ret = '<div class="mc-table"><input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required')) . '>';
+		$ret = '<div class="mc-table"><input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required','data-grouprequired')) . '>';
+		if(!$this->optional) {
+			$ret .= '<input class="hidden" value="" id="item' . $this->id . '__" ' . self::_parseAttributes($this->input_attributes, array('id', 'required', 'class')) . '>'; // this is a kludge, but if I don't add this, checkboxes are always circled red
+		}
 		foreach($this->choices AS $value => $option) {
 			// determine whether options needs to be checked
 			if (in_array($value, $this->presetValues)) {
@@ -1085,7 +1085,7 @@ class Item_mc_multiple extends Item_mc {
 			}
 			
 			$ret .= '<label for="item' . $this->id . '_' . $value . '">' . 
-						'<input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '" /> ' . $option . 
+						'<input ' . self::_parseAttributes($this->input_attributes, array('id','data-grouprequired','required')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '" /> ' . $option . 
 					'</label> ';
 		}
 		$ret .= '</div>';
