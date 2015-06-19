@@ -101,7 +101,7 @@ grunt.initConfig({
 		  dest: 'lib/bower.js',
 		},
 		css: {
-		  src: ['lib/bower.css', 'css/main.css'],
+		  src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower.css', 'css/main.css'],
 		  dest: 'lib/bower.css',
 		},
 	  },
@@ -159,6 +159,8 @@ grunt.initConfig({
 
   // Load the plugin that provides the "uglify" task.
   grunt.loadNpmTasks('grunt-bower-task');
+//  grunt.loadNpmTasks('grunt-contrib-watch');
+//  grunt.loadNpmTasks('grunt-contrib-less');
   grunt.loadNpmTasks('grunt-contrib-copy');
   grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-cssmin');

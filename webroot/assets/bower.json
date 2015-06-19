@@ -1,7 +1,10 @@
 {
   "name": "formr",
-  "version": "0.6.8",
-  "main": "js/main.js,css/main.css",
+  "version": "0.6.10",
+  "main": [
+    "css/main.css",
+    "js/main.js"
+  ],
   "ignore": [
     "**/.*",
     "node_modules",
