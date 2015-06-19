@@ -3,7 +3,7 @@
 class RunSession {
 
 	public $session = null;
-	public $id, $run_id, $ended, $position, $current_unit_type, $user_id, $created, $run_name, $run_owner_id, $run;
+	public $id, $run_id, $ended, $position, $current_unit_type, $user_id, $created, $run_name, $run_owner_id, $run,$unit_session;
 	private $cron = false;
 	/**
 	 * @var DB
@@ -61,7 +61,11 @@ class RunSession {
 
 		return false;
 	}
-
+	public function getLastAccess() {
+		return $this->dbh->select('last_access')
+			->from('survey_run_sessions')
+			->where(array('id' => $this->id));
+	}
 	public function create($session = NULL) {
 		if ($session !== NULL) {
 			if (strlen($session) != 64) {
@@ -151,7 +155,8 @@ class RunSession {
 		if ($unit):
 			$unit_factory = new RunUnitFactory();
 			$unit = $unit_factory->make($this->dbh, null, $unit, $this, $this->run);
-			$unit->end();	 // cancel it
+			if($unit->type == "Survey") $unit->expire();
+			else $unit->end();	 // cancel it
 		endif;
 
 		if ($this->runTo($position)):
@@ -167,13 +172,13 @@ class RunSession {
 
 		if ($unit_id):
 
-			$unit_session = new UnitSession($this->dbh, $this->id, $unit_id);
-			if (!$unit_session->id) {
-				$unit_session->create();
+			$this->unit_session = new UnitSession($this->dbh, $this->id, $unit_id);
+			if (!$this->unit_session->id) {
+				$this->unit_session->create();
 			}
 			$_SESSION['session'] = $this->session;
 
-			if ($unit_session->id):
+			if ($this->unit_session->id):
 				$updated = $this->dbh->update('survey_run_sessions', array('position' => $position), array('id' => $this->id));
 				$success = $updated != 0;
 				if ($success):
@@ -222,7 +227,8 @@ class RunSession {
 			$unit['run_id'] = $this->run_id;
 			$unit['run_name'] = $this->run_name;
 			$unit['run_session_id'] = $this->id;
-			return $unit;
+			$this->unit_session = new UnitSession($this->dbh, $this->id, $unit['unit_id'], $unit['session_id']);
+				return $unit;
 		endif;
 		return false;
 	}

@@ -520,17 +520,61 @@ class Survey extends RunUnit {
 		return "</form>"; /* close form */
 	}
 
+	public function expire() {
+		return parent::end($expired);
+	}
 	public function end() {
 		$ended = $this->dbh->exec(
 			"UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS NULL", 
 			array('session_id' => $this->session_id, 'study_id' => $this->id)
 		);
-		return parent::end();
+		return parent::end($expired);
+	}
+	protected function getTimeWhenLastViewedItem() {
+		// use created (item render time) if viewed time is lacking
+		$arr = $this->dbh->select(array('COALESCE(`survey_items_display`.shown,`survey_items_display`.created)' => 'last_viewed'))
+			->from('survey_items_display')
+			->leftJoin('survey_items', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
+			->where('survey_items_display.session_id IS NOT NULL')
+			->where('survey_items.study_id = :study_id')
+			->order('survey_items_display.shown', 'desc')
+			->order('survey_items_display.created', 'desc')
+			->limit(1)
+			->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
+			->fetch();
+			
+		return $arr['last_viewed'];
+	}
+	private function hasExpired() {
+		
+		$expire = (int)$this->settings['expire_after'];
+		if($expire === 0) {
+			return false;
+		} else {
+			if(! ($last = $this->getTimeWhenLastViewedItem())) {
+				$last = $this->run_session->unit_session->created;
+			}
+			if(!$last) {
+				return false;
+			}
+			$expired = $this->dbh
+				->select(array(":last <= DATE_SUB(NOW(), INTERVAL :expire_after MINUTE)" => "no_longer_active"))
+				->from('survey_items_display')
+				->bindParams(array("last" => $last, "expire_after" => $expire))
+				->fetch();
+				
+			return (bool)$expired['no_longer_active'];
+		}
 	}
 
 	public function exec() {
 		if ($this->called_by_cron) {
-			return true; // never show to the cronjob
+			if($this->hasExpired()) {
+				$this->expire();
+				return false;
+			} else {
+				return true; // never show to the cronjob
+			}
 		}
 
 		// execute survey unit in a try catch block
@@ -539,6 +583,7 @@ class Survey extends RunUnit {
 			$this->startEntry();
 			$this->getNextItems();
 			$this->post(array_merge($_POST, $_FILES));
+
 
 			if ($this->getProgress() === 1) {
 				$this->end();

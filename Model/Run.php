@@ -645,10 +645,11 @@ This study is currently being serviced. Please return at a later time."
 		elseif ($this->name == self::TEST_RUN):
 			extract($this->fakeTestRun());
 		else:
-			if ($user->loggedIn() AND isset($_SESSION['UnitSession']) AND $user->user_code !== unserialize($_SESSION['UnitSession'])->session):
-				alert('<strong>Error.</strong> You seem to have switched sessions.', 'alert-danger');
-				redirect_to('index');
-			endif;
+/// fixme: legacy? UnitSession is never saved in _SESSION
+//			if ($user->loggedIn() AND isset($_SESSION['UnitSession']) AND $user->user_code !== unserialize($_SESSION['UnitSession'])->session):
+//				alert('<strong>Error.</strong> You seem to have switched sessions.', 'alert-danger');
+//				redirect_to('index');
+//			endif;
 
 			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
