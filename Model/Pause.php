@@ -16,8 +16,8 @@ class Pause extends RunUnit {
 	public $type = "Pause";
 	public $icon = "fa-pause";
 
-	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) {
-		parent::__construct($fdb, $session, $unit, $run_session);
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
+		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
 		if ($this->id):
 			$vars = $this->dbh->select('id, body, body_parsed, wait_until_time, wait_minutes, wait_until_date, relative_to')

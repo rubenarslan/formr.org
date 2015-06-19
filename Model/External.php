@@ -11,8 +11,8 @@ class External extends RunUnit {
 	public $icon = "fa-external-link-square";
 	public $type = "External";
 
-	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) {
-		parent::__construct($fdb, $session, $unit, $run_session);
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
+		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
 		if ($this->id):
 			$vars = $this->dbh->findRow('survey_externals', array('id' => $this->id), 'id, address, api_end');

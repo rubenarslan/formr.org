@@ -277,7 +277,7 @@ class Run {
 	public function getOverviewScript() {
 		$id = $this->getOverviewScriptId();
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id));
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id), null, $this);
 		return $unit;
 	}
 
@@ -291,7 +291,7 @@ class Run {
 
 	protected function addOverviewScript() {
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"));
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"), null, $run);
 		$unit->create(array(
 			"title" => "Overview script",
 			"body" =>
@@ -313,7 +313,7 @@ plot(cars)
 	public function getServiceMessage() {
 		$id = $this->getServiceMessageId();
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id));
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id), null, $run);
 		return $unit;
 	}
 
@@ -327,7 +327,7 @@ plot(cars)
 
 	protected function addServiceMessage() {
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"));
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"), null, $run);
 		$unit->create(array(
 			"title" => "Service message",
 			"body" =>
@@ -384,7 +384,7 @@ This study is currently being serviced. Please return at a later time."
 			"run_name" => $this->name,
 			"run_id" => $this->id,
 			"run_session_id" => $run_session_id
-		));
+		), null, $run);
 		return $unit;
 	}
 
@@ -398,7 +398,7 @@ This study is currently being serviced. Please return at a later time."
 
 	protected function addReminder() {
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Email"));
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Email"), null, $run);
 		$unit->create(array(
 			"subject" => "Reminder",
 			"recipient_field" => 'survey_users$email',
@@ -569,7 +569,16 @@ This study is currently being serviced. Please return at a later time."
 		$unit['run_name'] = $this->name;
 		return $unit;
 	}
-
+	public function getAllSurveys() {
+		// first, generate a master list of the search set (all the surveys that are part of the run)
+		return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
+				->from('survey_studies')
+				->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
+				->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
+				->where('survey_runs.id = :run_id')
+				->bindParams(array('run_id' => $this->id))
+				->fetchAll();
+	}
 	public function getRandomGroups() {
 		$g_users = $this->dbh->prepare("SELECT 
 			`survey_run_sessions`.session,
@@ -641,7 +650,7 @@ This study is currently being serviced. Please return at a later time."
 				redirect_to('index');
 			endif;
 
-			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code); // does this user have a session?
+			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
 			if ($user->created($this) OR // owner always has access
 				($this->public >= 1 AND $run_session->id) OR // already enrolled
@@ -763,7 +772,7 @@ This study is currently being serviced. Please return at a later time."
 					unset($unit->account_id);
 				}
 
-				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit);
+				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit, null, $run);
 				$unitObj->create((array) $unit);
 				if ($unitObj->valid) {
 					$unitObj->addToRun($this->id, $unitObj->position, (array) $unit );

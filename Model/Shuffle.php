@@ -11,8 +11,8 @@ class Shuffle extends RunUnit {
 	public $type = 'Shuffle';
 	public $icon = "fa-random";
 
-	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) {
-		parent::__construct($fdb, $session, $unit, $run_session);
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
+		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
 		if ($this->id):
 			$groups = $this->dbh->findValue('survey_shuffles', array('id' => $this->id), array('groups'));

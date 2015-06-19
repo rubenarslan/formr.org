@@ -3,17 +3,18 @@
 class RunSession {
 
 	public $session = null;
-	public $id, $run_id, $ended, $position, $current_unit_type, $user_id, $created, $run_name, $run_owner_id;
+	public $id, $run_id, $ended, $position, $current_unit_type, $user_id, $created, $run_name, $run_owner_id, $run;
 	private $cron = false;
 	/**
 	 * @var DB
 	 */
 	private $dbh;
 
-	public function __construct($fdb, $run_id, $user_id, $session) {
+	public function __construct($fdb, $run_id, $user_id, $session, $run = NULL) {
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->run_id = $run_id;
+		$this->run = $run;
 		if ($user_id == 'cron'):
 			$this->cron = true;
 		else:
@@ -104,7 +105,7 @@ class RunSession {
 					$unit_info['cron'] = true;
 				}
 
-				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this);
+				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this, $this->run);
 				$this->current_unit_type = $unit->type;
 				$output = $unit->exec();
 
@@ -149,7 +150,7 @@ class RunSession {
 		$unit = $this->getCurrentUnit(); // get first unit in line
 		if ($unit):
 			$unit_factory = new RunUnitFactory();
-			$unit = $unit_factory->make($this->dbh, null, $unit, $this);
+			$unit = $unit_factory->make($this->dbh, null, $unit, $this, $this->run);
 			$unit->end();	 // cancel it
 		endif;
 

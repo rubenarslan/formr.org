@@ -121,7 +121,7 @@ try {
 
 		// Foreach session, execute all units
 		foreach ($dues as $session) {
-			$run_session = new RunSession($fdb, $run->id, 'cron', $session);
+			$run_session = new RunSession($fdb, $run->id, 'cron', $session, $run);
 			// Q. How will this go through all units of a session?
 			$types = $run_session->getUnit(); // start looping thru their units.
 			$i++;

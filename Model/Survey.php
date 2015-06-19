@@ -37,7 +37,7 @@ class Survey extends RunUnit {
 	 */
 	public $parsedown;
 
-	public function __construct($fdb, $session, $unit, $run_session = NULL) {
+	public function __construct($fdb, $session, $unit, $run_session = NULL, $run = NULL) {
 		$this->dbh = $fdb;
 		if (isset($unit['name']) AND ! isset($unit['unit_id'])): // when called via URL
 			global $user;
@@ -46,7 +46,7 @@ class Survey extends RunUnit {
 			$unit['unit_id'] = $this->id; // parent::__construct needs this
 		endif;
 
-		parent::__construct($fdb, $session, $unit, $run_session);
+		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
 		if ($this->id):
 			$this->load();

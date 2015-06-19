@@ -19,8 +19,8 @@ class Email extends RunUnit {
 	public $type = "Email";
 	private $subject_parsed = null;
 
-	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) {
-		parent::__construct($fdb, $session, $unit, $run_session);
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
+		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
 		if ($this->id):
 			$vars = $this->dbh->findRow('survey_emails', array('id' => $this->id));

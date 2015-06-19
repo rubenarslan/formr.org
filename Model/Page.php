@@ -14,8 +14,8 @@ class Page extends RunUnit {
 	public $type = 'Endpage';
 	public $icon = "fa-stop";
 
-	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) {
-		parent::__construct($fdb, $session, $unit, $run_session);
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
+		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
 		if ($this->id):
 			$vars = $this->dbh->findRow('survey_pages', array('id' => $this->id), 'title, body, body_parsed');

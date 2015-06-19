@@ -13,8 +13,8 @@ class Branch extends RunUnit {
 	public $type = 'Branch';
 	public $icon = 'fa-code-fork fa-flip-vertical';
 
-	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) {
-		parent::__construct($fdb, $session, $unit, $run_session);
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
+		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
 		if ($this->id):
 			$vars = $this->dbh->select('id, condition, if_true, automatically_jump, automatically_go_on')

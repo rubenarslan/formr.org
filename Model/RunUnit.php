@@ -4,7 +4,7 @@ class RunUnitFactory {
 
 	protected $supported = array('Survey', 'Pause', 'Email', 'External', 'Page', 'SkipBackward', 'SkipForward', 'Shuffle');
 
-	public function make($dbh, $session, $unit, $run_session = NULL) {
+	public function make($dbh, $session, $unit, $run_session = NULL, $run = NULL) {
 		if (empty($unit['type'])) {
 			$unit['type'] = 'Survey';
 		}
@@ -14,7 +14,7 @@ class RunUnitFactory {
 			throw new Exception("Unsupported unit type '$type'");
 		}
 
-		return new $type($dbh, $session, $unit, $run_session);
+		return new $type($dbh, $session, $unit, $run_session, $run);
 	}
 
 	public function getSupportedUnits() {
@@ -52,11 +52,12 @@ class RunUnit {
 	 */
 	protected $dbh;
 
-	public function __construct($fdb, $session = null, $unit = null, $run_session = null) {
+	public function __construct($fdb, $session = null, $unit = null, $run_session = null, $run = NULL) {
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->unit = $unit;
 		$this->run_session = $run_session;
+		$this->run = $run;
 
 		if (isset($unit['run_id'])) {
 			$this->run_id = $unit['run_id'];
@@ -376,20 +377,10 @@ class RunUnit {
 		}
 		return false;
 	}
-	public function getSurveysInRun() {
-		// first, generate a master list of the search set (all the surveys that are part of the run)
-		return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
-				->from('survey_studies')
-				->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
-				->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
-				->where('survey_runs.id = :run_id')
-				->bindParams(array('run_id' => $this->run_id))
-				->fetchAll();
-	}
 	public function dataNeeded($fdb, $q, $token_add = NULL) {
 		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
 		
-		$results = $this->getSurveysInRun();
+		$results = $this->run->getAllSurveys();
 
 		// also add some "global" formr tables
 		$tables = $this->non_user_tables;
