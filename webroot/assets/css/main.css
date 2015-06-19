@@ -170,8 +170,7 @@ kbd {
 button.btn.btn-checked,
 label.btn.btn-checked,
 a.btn.btn-checked {
-  background-color: #e6e6e6;
-  background-image: none;
+  background-color: #c3c3c3;
   z-index:2;
   border:1px black solid;
   outline: 1px;
