@@ -138,8 +138,8 @@ class Item extends HTML_element {
 		$this->label_parsed = isset($options['label_parsed'])?$options['label_parsed']:null;
 
 		if(isset($options['type_options'])):
-			$this->type_options = $options['type_options'];
-			$this->type_options_array = explode(" ",$options['type_options']);
+			$this->type_options = trim($options['type_options']);
+			$this->type_options_array = array($options['type_options']);
 		endif;
 		
 		if (isset($options['choice_list'])) {
@@ -552,10 +552,8 @@ class Item_number extends Item {
 	
 	protected function setMoreOptions() {
 		$this->classes_input[] = 'form-control';
-		if (isset($this->type_options_array) AND is_array($this->type_options_array)) {
-			if (count($this->type_options_array) == 1) {
-				$this->type_options_array = explode(",",current($this->type_options_array));
-			}
+		if (isset($this->type_options) AND trim($this->type_options)!="") {
+			$this->type_options_array = explode(",",$this->type_options,3);
 
 			$min = trim(reset($this->type_options_array));
 			if (is_numeric($min) OR $min === 'any') {
@@ -812,10 +810,9 @@ class Item_datetime extends Item {
 #		$this->input_attributes['step'] = 'any';
 		$this->classes_input[] = 'form-control';
 		
-		if (isset($this->type_options_array) AND is_array($this->type_options_array)) {
-			if (count($this->type_options_array) == 1) {
-				$this->type_options_array = explode(",",current($this->type_options_array));
-			}
+		if (isset($this->type_options) AND trim($this->type_options)!="") {
+			$this->type_options_array = explode(",",$this->type_options,3);
+
 			$min = trim(reset($this->type_options_array));
 			if (strtotime($min)) {
 				$this->input_attributes['min'] = date($this->html5_date_format, strtotime($min));
@@ -825,9 +822,6 @@ class Item_datetime extends Item {
 			if (strtotime($max)) {
 				$this->input_attributes['max'] = date($this->html5_date_format, strtotime($max));
 			}
-		
-#			$step = trim(next($this->type_options_array));
-#			if(strtotime($step) OR $step==='any') $this->input_attributes['step'] = $step;	
 		}
 	}
 				
@@ -1219,11 +1213,8 @@ class Item_select_or_add_one extends Item {
 	
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
-		if (isset($this->type_options_array) AND is_array($this->type_options_array)) {
-			if (count($this->type_options_array) == 1) {
-				$this->type_options_array = explode(",",current($this->type_options_array));
-			}
-
+		if (isset($this->type_options) AND trim($this->type_options)!="") {
+			$this->type_options_array = explode(",",$this->type_options,3);
 		
 			$maxType = trim(reset($this->type_options_array));
 			if (!is_numeric($maxType)) {

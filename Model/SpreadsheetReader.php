@@ -424,8 +424,9 @@ class SpreadsheetReader {
 				
 
 					if($col == 'list_name'):
+						$val = trim($val);
 						
-						if(trim($val)==''):
+						if($val==''):
 							
 							if(isset($lastListName)):
 								$choices_messages[] = __("Row $row_number: list name empty. The previous list name %s was used.",$lastListName);
@@ -453,7 +454,8 @@ class SpreadsheetReader {
 						$lastListName = $val;
 						
 					elseif($col == 'name'):
-						if(trim($val)==''):
+						$val = trim($val);
+						if($val==''):
 							$choices_messages[] = "Row $row_number: choice name empty. Row skipped.";
 							if(isset($data[$row_number])):
 								unset($data[$row_number]);
@@ -559,7 +561,8 @@ class SpreadsheetReader {
 					$val = hardTrueFalse(Normalizer::normalize( $cell->getValue(),  Normalizer::FORM_C));
 
 					if($col == 'name'):
-						if(trim($val) == ''):
+						$val = trim($val);
+						if($val == ''):
 							$empty_rows[] = $row_number;
 							if(isset($data[$row_number])):
 								unset($data[$row_number]);
@@ -582,8 +585,7 @@ class SpreadsheetReader {
 
 					elseif($col == 'type'):
 						if(mb_strpos($val," ") !== false):
-							$val = preg_replace("/\s+/", " ", $val); // multiple spaces collapse into one
-							$type_options = explode(" ",$val); // get real type and options
+							$type_options = explode(" ",trim($val), 2); // get real type and options
 							$val = $type_options[0];
 							unset($type_options[0]); // remove real type from options
 							//todo: find all items where the "you defined choices message" error might erroneously be triggered
@@ -604,7 +606,7 @@ class SpreadsheetReader {
 						
 						
 					elseif($col == 'label'):
-						$val = trim($val);
+						$val = $val;
 					elseif($col == 'optional'):
 						if ($val === '*')
 							$val = 1;
