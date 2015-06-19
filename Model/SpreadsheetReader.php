@@ -420,7 +420,7 @@ class SpreadsheetReader {
 						continue; // skip columns that aren't allowed
 				
 					$col = $columns[$column_number];
-					$val = hardTrueFalse($cell->getValue());
+					$val = hardTrueFalse(Normalizer::normalize( $cell->getValue(),  Normalizer::FORM_C));
 				
 
 					if($col == 'list_name'):
@@ -556,7 +556,7 @@ class SpreadsheetReader {
 					if(isset($data[$row_number][$col])):
 						continue; // dont overwrite e.g. order column
 					endif;
-					$val = hardTrueFalse($cell->getValue());
+					$val = hardTrueFalse(Normalizer::normalize( $cell->getValue(),  Normalizer::FORM_C));
 
 					if($col == 'name'):
 						if(trim($val) == ''):
