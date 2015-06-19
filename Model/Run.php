@@ -370,6 +370,15 @@ This study is currently being serviced. Please return at a later time."
 	}
 
 	public function emptySelf() {
+		$surveys = $this->getAllSurveys();
+		$unit_factory = new RunUnitFactory();
+		foreach($surveys AS $survey) {
+			$unit = $unit_factory->make($this->dbh, null, $survey, null, $this);
+			if(!$unit->deleteResults(true)) {
+				alert('Could not delete results of survey ' . $unit->name, 'alert-danger');
+				return false;
+			}
+		}
 		$rows = $this->dbh->delete('survey_run_sessions', array('run_id' => $this->id));
 		alert('Run was emptied. ' . $rows . ' were deleted.', 'alert-info');
 		return $rows;

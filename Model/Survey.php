@@ -521,14 +521,14 @@ class Survey extends RunUnit {
 	}
 
 	public function expire() {
-		return parent::end($expired);
+		return parent::end();
 	}
 	public function end() {
 		$ended = $this->dbh->exec(
 			"UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS NULL", 
 			array('session_id' => $this->session_id, 'study_id' => $this->id)
 		);
-		return parent::end($expired);
+		return parent::end();
 	}
 	protected function getTimeWhenLastViewedItem() {
 		// use created (item render time) if viewed time is lacking
@@ -1121,7 +1121,7 @@ class Survey extends RunUnit {
 		->fetchAll();
 	}
 
-	public function deleteResults() {
+	public function deleteResults($dry_run = false) {
 		$resC = $this->getResultCount();
 		if ($resC['finished'] > 10):
 			if ($this->backupResults()):
@@ -1136,9 +1136,12 @@ class Survey extends RunUnit {
 			$this->warnings[] = __("%s results rows were deleted.", array_sum($resC));
 		endif;
 
-		$delete = $this->dbh->query("TRUNCATE TABLE `{$this->results_table}`");
-		$this->dbh->delete('survey_unit_sessions', array('unit_id' => $this->id));
-
+		if(!$dry_run) {
+			$delete = $this->dbh->query("TRUNCATE TABLE `{$this->results_table}`");
+			$this->dbh->delete('survey_unit_sessions', array('unit_id' => $this->id));
+		} else {
+			$delete = true;
+		}
 		return $delete;
 	}
 
@@ -1155,7 +1158,7 @@ class Survey extends RunUnit {
 
 	public function getResultCount() {
 		$results_table = $this->results_table;
-		if ($this->dbh->table_exists($results_table)):
+		if ($this->hasResultsTable()):
 			$count = $this->dbh->select(array(
 				"SUM(`{$results_table}`.ended IS NULL)" => 'begun',
 				"SUM(`{$results_table}`.ended IS NOT NULL)" => 'finished'		
