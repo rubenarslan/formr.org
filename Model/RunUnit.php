@@ -376,17 +376,20 @@ class RunUnit {
 		}
 		return false;
 	}
-
-	public function dataNeeded($fdb, $q, $token_add = NULL) {
-		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
-		
+	public function getSurveysInRun() {
 		// first, generate a master list of the search set (all the surveys that are part of the run)
-		$results = $fdb->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
+		return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
 				->from('survey_studies')
-				->leftJoin('survey_runs', 'survey_runs.user_id = survey_studies.user_id')
+				->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
+				->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
 				->where('survey_runs.id = :run_id')
 				->bindParams(array('run_id' => $this->run_id))
 				->fetchAll();
+	}
+	public function dataNeeded($fdb, $q, $token_add = NULL) {
+		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
+		
+		$results = $this->getSurveysInRun();
 
 		// also add some "global" formr tables
 		$tables = $this->non_user_tables;

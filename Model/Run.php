@@ -296,9 +296,9 @@ class Run {
 			"title" => "Overview script",
 			"body" =>
 			"# Intersperse Markdown with R
-			```{r}
-			plot(cars)
-			```"
+```{r}
+plot(cars)
+```"
 		));
 
 		if ($unit->valid):
@@ -332,8 +332,8 @@ class Run {
 			"title" => "Service message",
 			"body" =>
 			"# Service message
-			This study is currently being serviced. Please return at a later time."
-		));
+This study is currently being serviced. Please return at a later time."
+));
 		if ($unit->valid):
 			$this->dbh->update('survey_runs', array('service_message' => $unit->id), array('id' => $this->id));
 			alert('A service message was auto-created.', 'alert-info');
@@ -650,6 +650,8 @@ class Run {
 				if ($run_session->id === NULL):
 					$run_session->create($user->user_code);  // generating access code for those who don't have it but need it
 				endif;
+				global $site;
+				session_over($site, $user);
 
 				$output = $run_session->getUnit();
 			} else {
@@ -676,7 +678,6 @@ class Run {
 			}
 
 			$alerts = $site->renderAlerts();
-			session_over($site, $user); // ? WHY ?
 
 			$run_content = '';
 			if (trim($this->description_parsed)) {
