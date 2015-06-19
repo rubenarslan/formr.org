@@ -163,7 +163,7 @@
 	<div class="run_header">&nbsp;</div>	
 	<div class="row">
 		<div class="col-lg-12">
-			<h1 class="drop_shadow"><i class="fa fa-rocket"></i> <?php echo $run->name; ?></h1>
+			<h1 class="drop_shadow run_header_name"><i class="fa fa-rocket"></i> <?php echo $run->name; ?></h1>
 		</div>
 	</div>
 	<div class="row">

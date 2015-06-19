@@ -119,8 +119,13 @@ class RunSession {
 				if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
 					return array(
 						'title' => 'Nothing here.',
-						'body' => "<div class='broken_tape'><h1><span>Oops. This study's creator forgot to give it a proper ending and now the tape's run out.</span></h1></div>"
-					); // if that fails because the run is wrongly configured, return
+						'body' => '<div class="broken_tape">
+							<div class="tape_label_box">
+								<div class="tape_label">
+										Oops. This study\'s creator forgot to give it a proper ending and now the tape\'s run out.
+									</div>
+								</div>
+							</div>'); // if that fails because the run is wrongly configured, return
 				}
 			}
 		endwhile;

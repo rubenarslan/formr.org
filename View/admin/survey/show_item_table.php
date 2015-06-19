@@ -14,7 +14,7 @@ Template::load('acp_nav');
 		</h4>
 
 		<!-- dialog for items in items table -->
-		<div class="modal fade" id="admin-survey-items" tabindex="-1" role="dialog" aria-labelledby="ItemsTable" aria-hidden="true">
+		<div class="modal fade admin-survey-items" id="admin-survey-items" tabindex="-1" role="dialog" aria-labelledby="ItemsTable" aria-hidden="true">
 			<div class="modal-dialog table-content">
 				<div class="modal-content">
 					<div class="modal-header">

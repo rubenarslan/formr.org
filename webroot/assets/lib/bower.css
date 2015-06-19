@@ -6797,7 +6797,6 @@ button.close {
     display: none !important;
   }
 }
-/*# sourceMappingURL=bootstrap.css.map */
 ;/*!
  *  Font Awesome 4.3.0 by @davegandy - http://fontawesome.io - @fontawesome
  *  License - http://fontawesome.io/license (Font: SIL OFL 1.1, CSS: MIT License)
@@ -6818,7 +6817,10 @@ button.close {
   text-rendering: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transform: translate(0, 0);
+  -webkit-transform: translate(0, 0);
+      -ms-transform: translate(0, 0);
+       -o-transform: translate(0, 0);
+          transform: translate(0, 0);
 }
 /* makes the font 33% larger relative to the icon container */
 .fa-lg {
@@ -6879,11 +6881,13 @@ button.close {
 }
 .fa-spin {
   -webkit-animation: fa-spin 2s infinite linear;
-  animation: fa-spin 2s infinite linear;
+  -o-animation: fa-spin 2s infinite linear;
+     animation: fa-spin 2s infinite linear;
 }
 .fa-pulse {
   -webkit-animation: fa-spin 1s infinite steps(8);
-  animation: fa-spin 1s infinite steps(8);
+  -o-animation: fa-spin 1s infinite steps(8);
+     animation: fa-spin 1s infinite steps(8);
 }
 @-webkit-keyframes fa-spin {
   0% {
@@ -6895,52 +6899,72 @@ button.close {
     transform: rotate(359deg);
   }
 }
-@keyframes fa-spin {
+@-o-keyframes fa-spin {
   0% {
     -webkit-transform: rotate(0deg);
-    transform: rotate(0deg);
+    -o-transform: rotate(0deg);
+       transform: rotate(0deg);
   }
   100% {
     -webkit-transform: rotate(359deg);
-    transform: rotate(359deg);
+    -o-transform: rotate(359deg);
+       transform: rotate(359deg);
+  }
+}
+@keyframes fa-spin {
+  0% {
+    -webkit-transform: rotate(0deg);
+    -o-transform: rotate(0deg);
+       transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(359deg);
+    -o-transform: rotate(359deg);
+       transform: rotate(359deg);
   }
 }
 .fa-rotate-90 {
   filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=1);
   -webkit-transform: rotate(90deg);
   -ms-transform: rotate(90deg);
-  transform: rotate(90deg);
+  -o-transform: rotate(90deg);
+     transform: rotate(90deg);
 }
 .fa-rotate-180 {
   filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=2);
   -webkit-transform: rotate(180deg);
   -ms-transform: rotate(180deg);
-  transform: rotate(180deg);
+  -o-transform: rotate(180deg);
+     transform: rotate(180deg);
 }
 .fa-rotate-270 {
   filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=3);
   -webkit-transform: rotate(270deg);
   -ms-transform: rotate(270deg);
-  transform: rotate(270deg);
+  -o-transform: rotate(270deg);
+     transform: rotate(270deg);
 }
 .fa-flip-horizontal {
   filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=0, mirror=1);
   -webkit-transform: scale(-1, 1);
   -ms-transform: scale(-1, 1);
-  transform: scale(-1, 1);
+  -o-transform: scale(-1, 1);
+     transform: scale(-1, 1);
 }
 .fa-flip-vertical {
   filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=2, mirror=1);
   -webkit-transform: scale(1, -1);
   -ms-transform: scale(1, -1);
-  transform: scale(1, -1);
+  -o-transform: scale(1, -1);
+     transform: scale(1, -1);
 }
 :root .fa-rotate-90,
 :root .fa-rotate-180,
 :root .fa-rotate-270,
 :root .fa-flip-horizontal,
 :root .fa-flip-vertical {
-  filter: none;
+  -webkit-filter: none;
+          filter: none;
 }
 .fa-stack {
   position: relative;
@@ -8795,7 +8819,9 @@ Version: 3.5.2 Timestamp: Sat Nov  1 14:43:36 EDT 2014
 
     border-radius: 4px;
 
-    background-clip: padding-box;
+    -webkit-background-clip: padding-box;
+
+            background-clip: padding-box;
 
     -webkit-touch-callout: none;
       -webkit-user-select: none;
@@ -8808,6 +8834,9 @@ Version: 3.5.2 Timestamp: Sat Nov  1 14:43:36 EDT 2014
     background-image: -webkit-linear-gradient(center bottom, #eee 0%, #fff 50%);
     background-image: -moz-linear-gradient(center bottom, #eee 0%, #fff 50%);
     filter: progid:DXImageTransform.Microsoft.gradient(startColorstr = '#ffffff', endColorstr = '#eeeeee', GradientType = 0);
+    background-image: -webkit-gradient(linear, left bottom, left top, from(#eee), color-stop(50%, #fff));
+    background-image: -webkit-linear-gradient(bottom, #eee 0%, #fff 50%);
+    background-image: -o-linear-gradient(bottom, #eee 0%, #fff 50%);
     background-image: linear-gradient(to top, #eee 0%, #fff 50%);
 }
 
@@ -8824,6 +8853,9 @@ html[dir="rtl"] .select2-container .select2-choice {
     background-image: -webkit-linear-gradient(center bottom, #eee 0%, #fff 90%);
     background-image: -moz-linear-gradient(center bottom, #eee 0%, #fff 90%);
     filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffffff', endColorstr='#eeeeee', GradientType=0);
+    background-image: -webkit-gradient(linear, left top, left bottom, from(#eee), color-stop(90%, #fff));
+    background-image: -webkit-linear-gradient(top, #eee 0%, #fff 90%);
+    background-image: -o-linear-gradient(top, #eee 0%, #fff 90%);
     background-image: linear-gradient(to bottom, #eee 0%, #fff 90%);
 }
 
@@ -8950,13 +8982,18 @@ html[dir="rtl"] .select2-container .select2-choice > .select2-chosen {
     border-left: 1px solid #aaa;
     border-radius: 0 4px 4px 0;
 
-    background-clip: padding-box;
+    -webkit-background-clip: padding-box;
+
+            background-clip: padding-box;
 
     background: #ccc;
     background-image: -webkit-gradient(linear, left bottom, left top, color-stop(0, #ccc), color-stop(0.6, #eee));
     background-image: -webkit-linear-gradient(center bottom, #ccc 0%, #eee 60%);
     background-image: -moz-linear-gradient(center bottom, #ccc 0%, #eee 60%);
     filter: progid:DXImageTransform.Microsoft.gradient(startColorstr = '#eeeeee', endColorstr = '#cccccc', GradientType = 0);
+    background-image: -webkit-gradient(linear, left bottom, left top, from(#ccc), color-stop(60%, #eee));
+    background-image: -webkit-linear-gradient(bottom, #ccc 0%, #eee 60%);
+    background-image: -o-linear-gradient(bottom, #ccc 0%, #eee 60%);
     background-image: linear-gradient(to top, #ccc 0%, #eee 60%);
 }
 
@@ -9014,7 +9051,9 @@ html[dir="rtl"] .select2-container .select2-choice .select2-arrow b {
     background: #fff url('select2.png') no-repeat 100% -22px;
     background: url('select2.png') no-repeat 100% -22px, -webkit-gradient(linear, left bottom, left top, color-stop(0.85, #fff), color-stop(0.99, #eee));
     background: url('select2.png') no-repeat 100% -22px, -webkit-linear-gradient(center bottom, #fff 85%, #eee 99%);
-    background: url('select2.png') no-repeat 100% -22px, -moz-linear-gradient(center bottom, #fff 85%, #eee 99%);
+    background: url('select2.png') no-repeat 100% -22px, -webkit-gradient(linear, left top, left bottom, color-stop(85%, #fff), color-stop(99%, #eee)) 0 0;
+    background: url('select2.png') no-repeat 100% -22px, -webkit-linear-gradient(top, #fff 85%, #eee 99%) 0 0;
+    background: url('select2.png') no-repeat 100% -22px, -o-linear-gradient(top, #fff 85%, #eee 99%) 0 0;
     background: url('select2.png') no-repeat 100% -22px, linear-gradient(to bottom, #fff 85%, #eee 99%) 0 0;
 }
 
@@ -9024,7 +9063,9 @@ html[dir="rtl"] .select2-search input {
     background: #fff url('select2.png') no-repeat -37px -22px;
     background: url('select2.png') no-repeat -37px -22px, -webkit-gradient(linear, left bottom, left top, color-stop(0.85, #fff), color-stop(0.99, #eee));
     background: url('select2.png') no-repeat -37px -22px, -webkit-linear-gradient(center bottom, #fff 85%, #eee 99%);
-    background: url('select2.png') no-repeat -37px -22px, -moz-linear-gradient(center bottom, #fff 85%, #eee 99%);
+    background: url('select2.png') no-repeat -37px -22px, -webkit-gradient(linear, left top, left bottom, color-stop(85%, #fff), color-stop(99%, #eee)) 0 0;
+    background: url('select2.png') no-repeat -37px -22px, -webkit-linear-gradient(top, #fff 85%, #eee 99%) 0 0;
+    background: url('select2.png') no-repeat -37px -22px, -o-linear-gradient(top, #fff 85%, #eee 99%) 0 0;
     background: url('select2.png') no-repeat -37px -22px, linear-gradient(to bottom, #fff 85%, #eee 99%) 0 0;
 }
 
@@ -9036,7 +9077,9 @@ html[dir="rtl"] .select2-search input {
     background: #fff url('select2-spinner.gif') no-repeat 100%;
     background: url('select2-spinner.gif') no-repeat 100%, -webkit-gradient(linear, left bottom, left top, color-stop(0.85, #fff), color-stop(0.99, #eee));
     background: url('select2-spinner.gif') no-repeat 100%, -webkit-linear-gradient(center bottom, #fff 85%, #eee 99%);
-    background: url('select2-spinner.gif') no-repeat 100%, -moz-linear-gradient(center bottom, #fff 85%, #eee 99%);
+    background: url('select2-spinner.gif') no-repeat 100%, -webkit-gradient(linear, left top, left bottom, color-stop(85%, #fff), color-stop(99%, #eee)) 0 0;
+    background: url('select2-spinner.gif') no-repeat 100%, -webkit-linear-gradient(top, #fff 85%, #eee 99%) 0 0;
+    background: url('select2-spinner.gif') no-repeat 100%, -o-linear-gradient(top, #fff 85%, #eee 99%) 0 0;
     background: url('select2-spinner.gif') no-repeat 100%, linear-gradient(to bottom, #fff 85%, #eee 99%) 0 0;
 }
 
@@ -9062,6 +9105,9 @@ html[dir="rtl"] .select2-search input {
     background-image: -webkit-linear-gradient(center bottom, #fff 0%, #eee 50%);
     background-image: -moz-linear-gradient(center bottom, #fff 0%, #eee 50%);
     filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#eeeeee', endColorstr='#ffffff', GradientType=0);
+    background-image: -webkit-gradient(linear, left bottom, left top, from(#fff), color-stop(50%, #eee));
+    background-image: -webkit-linear-gradient(bottom, #fff 0%, #eee 50%);
+    background-image: -o-linear-gradient(bottom, #fff 0%, #eee 50%);
     background-image: linear-gradient(to top, #fff 0%, #eee 50%);
 }
 
@@ -9074,13 +9120,17 @@ html[dir="rtl"] .select2-search input {
     background-image: -webkit-linear-gradient(center top, #fff 0%, #eee 50%);
     background-image: -moz-linear-gradient(center top, #fff 0%, #eee 50%);
     filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#eeeeee', endColorstr='#ffffff', GradientType=0);
+    background-image: -webkit-gradient(linear, left top, left bottom, from(#fff), color-stop(50%, #eee));
+    background-image: -webkit-linear-gradient(top, #fff 0%, #eee 50%);
+    background-image: -o-linear-gradient(top, #fff 0%, #eee 50%);
     background-image: linear-gradient(to bottom, #fff 0%, #eee 50%);
 }
 
 .select2-dropdown-open .select2-choice .select2-arrow {
     background: transparent;
     border-left: none;
-    filter: none;
+    -webkit-filter: none;
+            filter: none;
 }
 html[dir="rtl"] .select2-dropdown-open .select2-choice .select2-arrow {
     border-right: none;
@@ -9254,7 +9304,8 @@ disabled look for disabled choices in the results dropdown
     background-color: #fff;
     background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, color-stop(1%, #eee), color-stop(15%, #fff));
     background-image: -webkit-linear-gradient(top, #eee 1%, #fff 15%);
-    background-image: -moz-linear-gradient(top, #eee 1%, #fff 15%);
+    background-image: -webkit-gradient(linear, left top, left bottom, color-stop(1%, #eee), color-stop(15%, #fff));
+    background-image: -o-linear-gradient(top, #eee 1%, #fff 15%);
     background-image: linear-gradient(to bottom, #eee 1%, #fff 15%);
 }
 
@@ -9328,7 +9379,9 @@ html[dir="rtl"] .select2-container-multi .select2-choices li
     -webkit-box-shadow: 0 0 2px #fff inset, 0 1px 0 rgba(0, 0, 0, 0.05);
             box-shadow: 0 0 2px #fff inset, 0 1px 0 rgba(0, 0, 0, 0.05);
 
-    background-clip: padding-box;
+    -webkit-background-clip: padding-box;
+
+            background-clip: padding-box;
 
     -webkit-touch-callout: none;
       -webkit-user-select: none;
@@ -9340,7 +9393,8 @@ html[dir="rtl"] .select2-container-multi .select2-choices li
     filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#eeeeee', endColorstr='#f4f4f4', GradientType=0);
     background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, color-stop(20%, #f4f4f4), color-stop(50%, #f0f0f0), color-stop(52%, #e8e8e8), color-stop(100%, #eee));
     background-image: -webkit-linear-gradient(top, #f4f4f4 20%, #f0f0f0 50%, #e8e8e8 52%, #eee 100%);
-    background-image: -moz-linear-gradient(top, #f4f4f4 20%, #f0f0f0 50%, #e8e8e8 52%, #eee 100%);
+    background-image: -webkit-gradient(linear, left top, left bottom, color-stop(20%, #f4f4f4), color-stop(50%, #f0f0f0), color-stop(52%, #e8e8e8), to(#eee));
+    background-image: -o-linear-gradient(top, #f4f4f4 20%, #f0f0f0 50%, #e8e8e8 52%, #eee 100%);
     background-image: linear-gradient(to bottom, #f4f4f4 20%, #f0f0f0 50%, #e8e8e8 52%, #eee 100%);
 }
 html[dir="rtl"] .select2-container-multi .select2-choices .select2-search-choice
@@ -9443,14 +9497,15 @@ html[dir="rtl"] .select2-container-multi .select2-search-choice-close {
 
 /* Retina-ize icons */
 
-@media only screen and (-webkit-min-device-pixel-ratio: 1.5), only screen and (min-resolution: 2dppx)  {
+@media only screen and (-webkit-min-device-pixel-ratio: 1.5), only screen and (-webkit-min-device-pixel-ratio: 2), only screen and (-o-min-device-pixel-ratio: 2/1), only screen and (min-resolution: 2dppx)  {
     .select2-search input,
     .select2-search-choice-close,
     .select2-container .select2-choice abbr,
     .select2-container .select2-choice .select2-arrow b {
         background-image: url('select2x2.png') !important;
         background-repeat: no-repeat !important;
-        background-size: 60px 40px !important;
+        -webkit-background-size: 60px 40px !important;
+                background-size: 60px 40px !important;
     }
 
     .select2-search input {
@@ -9482,13 +9537,15 @@ label
 }
 .navbar-formr 
 {
-    background-color:rgba(255,255,255,0.7);
+    background-color: white;
+	background-color:rgba(255,255,255,0.7);
     border:0;
-    border-radius:0px;
+    border-radius:0;
 }
 .main_body>.row> .run_dialog
 {
-    background-color:rgba(255,255,255,0.15);
+    background-color: white;
+	background-color:rgba(255,255,255,0.7);
 }
 
 
@@ -9497,15 +9554,15 @@ label
     background-image: url("../img/broken_tape.jpg");
     background-repeat: no-repeat;
     background-position: 0 0;
-    background-size:cover;
+    -webkit-background-size:cover;
+            background-size:cover;
     position:fixed;
     left:0;
     top:0;
     min-height:100%;
     min-width:100%;
 }
-
-.broken_tape h1
+.broken_tape .tape_label_box
 {
     margin-right:auto;
     margin-left:auto;
@@ -9513,7 +9570,11 @@ label
     width:35%;
     height:130px;
 }
-.broken_tape h1 span
+.tape_go_back {
+	background-color:white;
+	background-color:rgba(255,255,255,0.7);
+}
+.broken_tape .tape_label_box .tape_label
 {
     display:block;
     margin-left:-11%;
@@ -9521,24 +9582,23 @@ label
     height:100px;
 }
 @media (max-width: 1440px) { 
-    .broken_tape h1
+    .broken_tape .tape_label_box
     {
         margin-left:32%;
     }
-    .broken_tape h1 span
+    .broken_tape .tape_label_box .tape_label
     {
-        font-size:0.5em;
         height:4em;
     }
 }
 .abbreviated_session
 {
-    cursor:pointer !important;
+    cursor:pointer;
 }
 .progress-container
 {
     position:fixed;
-    top:0px;
+    top:0;
     z-index:99;
     height:20px;
 }
@@ -9550,9 +9610,13 @@ label
 .run_header, .survey_header
 {
     height:330px;
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,0)), to(rgba(255,255,255,1))), url("../img/boombox_innards.jpg");
+    background-image: -webkit-linear-gradient(rgba(255,255,255,0), rgba(255,255,255,1)), url("../img/boombox_innards.jpg");
+    background-image: -o-linear-gradient(rgba(255,255,255,0), rgba(255,255,255,1)), url("../img/boombox_innards.jpg");
     background-image: linear-gradient(rgba(255,255,255,0),rgba(255,255,255,1)), url("../img/boombox_innards.jpg");
     background-repeat: no-repeat;
-    background-size:cover;
+    -webkit-background-size:cover;
+            background-size:cover;
     background-position: 0 0;
     width:100%;
     position:absolute;
@@ -9564,32 +9628,36 @@ label
 {
     height:100%;
     max-height:716px;
-    background-image: linear-gradient(rgba(255,255,255,0),rgba(255,255,255,1)), url("../img/boombox_dials.jpg");
-}
-.run_header + div div h1
-{
-    padding-top:50px;
-    margin-top:0;
 }
 .drop_shadow
 {
     text-shadow: 2px 2px 2px rgba(200, 200, 200, 1);
+}
+.run_header_name {
+    padding-top:50px;
+    margin-top:0;	
 }
 .drop_shadow small {
     color:black;
 }
 .admin_sidebar, .transparent_well
 {
+    background-color:white;
     background-color:rgba(255,255,255,0.4);
     border:0;
-    box-shadow:none;
+    -webkit-box-shadow:none;
+            box-shadow:none;
 }
 .transparent_well .panel-heading, .well .panel-default
 {
+    background-color:white;
     background-color:rgba(255,255,255,0.2);
 }
 .formr-jumbo
 {
+ background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,0.7)), to(rgba(255,255,255,0.7))), url("../img/boombox_innards.jpg");
+ background-image: -webkit-linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7)), url("../img/boombox_innards.jpg");
+ background-image: -o-linear-gradient(rgba(255,255,255,0.7), rgba(255,255,255,0.7)), url("../img/boombox_innards.jpg");
  background-image: linear-gradient(rgba(255,255,255,0.7),rgba(255,255,255,0.7)), url("../img/boombox_innards.jpg");
  background-position:-60px -20px; 
  height:310px;
@@ -9612,11 +9680,11 @@ kbd {
     border-radius: 4px;
     border-style: solid solid none;
     border-width: 1px 1px medium;
-    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2), 0 0 0 1px #FFFFFF inset;
+    -webkit-box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2), 0 0 0 1px #FFFFFF inset;
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2), 0 0 0 1px #FFFFFF inset;
     color: #444444;
     display: inline-block;
     font-family: 'Helvetica Neue',Helvetica,Arial,Sans-serif;
-    font-size: 11px;
     font-weight: bold;
     margin-bottom: 5px;
     padding: 2px 6px;
@@ -9627,13 +9695,11 @@ button.btn.btn-checked,
 label.btn.btn-checked,
 a.btn.btn-checked {
   background-color: #e6e6e6;
-  background-color: #d9d9d9 \9;
   background-image: none;
   z-index:2;
   border:1px black solid;
   outline: 1px;
   -webkit-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
-     -moz-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
           box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 .hidden {
@@ -9654,21 +9720,12 @@ a.btn.btn-checked {
 }
 .form-group.controls-checkbox label,
 label.inline {
-	display:inline;
+	display:inline-block;
 	width:330px;
 }
 .single_unit_display .run_unit_position
 {
     display:none;
-}
-div.form-group div.date div.controls select[name*=day] {
-	width:60px;
-}
-div.form-group div.date div.controls select[name*=month] {
-	width:120px;
-}
-div.form-group div.date div.controls select[name*=year] {
-	width:80px;
 }
 form.form-horizontal div.form-group div.controls label {
     display:inline-block;
@@ -9687,19 +9744,11 @@ form.form-horizontal div.form-group.form-row.item-note div.controls
 {
     display:none;
 }
-/*form.form-horizontal div.form-row.form-group.optional .control-label::after {
-	content:'*';
-}*/
-div.mc-table {
-/*  display: table;
-*/}
 div.controls-inner {
     display:block;
 }
 form.form-horizontal div.form-row div.controls div.mc-table label {
   display:inline-block;
-  padding-left:2px;
-  padding-right:2px;
   padding-left:18px;
   padding-right:5px;
   padding-top:5px;
@@ -9707,13 +9756,13 @@ form.form-horizontal div.form-row div.controls div.mc-table label {
 }
 .form-horizontal.unspaced_rows .form-group
 {
-	margin-bottom:0px;
+	margin-bottom:0;
 }
 form.form-horizontal div.form-row div.controls label.keep-label {
 	margin-right:5px;
 }
 form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label {
-	margin-right:0px;
+	margin-right:0;
 	margin-left:5px;
 }
 .form-horizontal .control-label {
@@ -9754,7 +9803,8 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
 .run_unit_inner .run_unit_description, .run_unit_position input
 {
 	border:0;
-	box-shadow:none;
+	-webkit-box-shadow:none;
+	        box-shadow:none;
 	font-weight:bold;
 	font-size:45px;
 	height:65px;
@@ -9766,6 +9816,7 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
     font-size:20px;
     width:100%;
     height:25px;
+    background-color:white;
     background-color:rgba(255,255,255,0.7);
 }
 div.run_unit {
@@ -9836,7 +9887,8 @@ body .select2-container
 }
 .form-control.select2-container {
     border:none;
-    box-shadow:none;
+    -webkit-box-shadow:none;
+            box-shadow:none;
     padding:0;
 }
 .form-control.select2-container .select2-choice
@@ -9861,10 +9913,6 @@ div.pos_changed input {
 	color:#49afcd;
 }
 
-.all-alerts
-{
-/*	clear:both; */
-}
 div.all-alerts + div
 {
     margin-right:300px;
@@ -9937,29 +9985,9 @@ div.all-alerts + div
     text-align:center;
     padding-bottom:10px;
 }
-
-
-.add_run_unit span {
-    font-size:0.6em;
-    display:block;
-    margin-top:-10px;
-}
-
-.run_unit_inner.Endpage
+.run_unit_inner.Endpage,.run_unit_inner.branch
 {
     border-bottom:3px solid black;
-}
-.run_unit_inner.branch
-{
-    border-bottom:3px solid dashed;
-}
-
-.tiny-tabs {
-    font-size:11px;
-    margin-bottom:10px;
-}
-.tiny-tabs.nav > li > a {
-    padding:2px 2px;
 }
 
 .col-md-no-left-pad {
@@ -9969,17 +9997,14 @@ div.all-alerts + div
 {
     margin-top:5px;
 }
-li.nav-header
+.nav-header
 {
     cursor: default;
-    font-size: 11px;
+    font-size: 0.8em;
     font-weight: bold;
     text-transform: uppercase;
     color:#444;
     margin-top:10px;
-}
-.nav-header i {
-    font-size:12px;
 }
 .main_admin_nav
 {
@@ -10081,7 +10106,7 @@ code, pre
 pre
 {
     background-color:#FFFFFF;
-    margin:14px 0px;
+    margin:14px 0;
     padding:0;
     border:0;
 }
@@ -10133,9 +10158,8 @@ form.form-horizontal div.answer_below_label .control-label {
 }
 form.form-horizontal div.answer_below_label .controls {
   width:99%;
-  margin-left:5px;
-  clear: left;
   margin-left:0;
+  clear: left;
 }
 
 .item-check {
@@ -10158,23 +10182,23 @@ form.form-horizontal div.answer_below_label .controls {
         margin-right:20px;
     }
     .form-horizontal div.form-group.align_horizontally .control-label {
-        width: 0px;
-        max-width: 0px;
+        width: 0;
+        max-width: 0;
         overflow:hidden;
     }
     .form-horizontal div.form-group.align_horizontally .controls {
-      	margin-left: 0px;
+      	margin-left: 0;
     }
     
 }
 
 .form-horizontal div.form-group.left0 .control-label {
-  width: 0px;
-  max-width: 0px;
+  width: 0;
+  max-width: 0;
   overflow:hidden;
 }
 .form-horizontal div.form-group.left0 .controls {
-  	margin-left: 0px;
+  	margin-left: 0;
 }
 
 .form-horizontal div.form-group.left100 .control-label {
@@ -10488,10 +10512,10 @@ form.form-horizontal div.form-row.form-group.mc_boxed div.controls label {
   margin:0;
 }
 form.form-horizontal div.form-row.form-group.mc_boxed div.controls label:first-of-type {
-  border-left:0px;
+  border-left:0;
 }
 form.form-horizontal div.form-row.form-group.mc_boxed div.controls label:last-of-type {
-  border-right:0px;
+  border-right:0;
 }
 form.form-horizontal div.form-row.form-group.mc_boxed div.controls {
   border-collapse:collapse;
@@ -10520,7 +10544,6 @@ form.form-horizontal div.form-row.form-group.hide_label div.controls label {
 }
 form.form-horizontal div.form-row.form-group.hide_label div.controls label span {
 	line-height:0;
-	font-size:0px;
     visibility:hidden;
 }
 form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
@@ -10528,27 +10551,27 @@ form.form-horizontal div.form-row.form-group.hide_label div.controls label input
 }
 form.form-horizontal div.form-row.form-group.rotate-label div.controls label {
 	-webkit-transform: rotate(-45deg);
-	-moz-transform: rotate(-45deg);   
-	-o-transform: rotate(-45deg);
-	transform: rotate(-45deg);
+	    -ms-transform: rotate(-45deg);
+	     -o-transform: rotate(-45deg);
+	        transform: rotate(-45deg);
 }
 form.form-horizontal div.form-row.form-group.rotate-label45 div.controls label {
 	-webkit-transform: rotate(-45deg);
-	-moz-transform: rotate(-45deg);   
-	-o-transform: rotate(-45deg);
-	transform: rotate(-45deg);
+	    -ms-transform: rotate(-45deg);
+	     -o-transform: rotate(-45deg);
+	        transform: rotate(-45deg);
 }
 form.form-horizontal div.form-row.form-group.rotate-label30 div.controls label {
 	-webkit-transform: rotate(-30deg);
-	-moz-transform: rotate(-30deg);   
-	-o-transform: rotate(-30deg);
-	transform: rotate(-30deg);
+	    -ms-transform: rotate(-30deg);
+	     -o-transform: rotate(-30deg);
+	        transform: rotate(-30deg);
 }
 form.form-horizontal div.form-row.form-group.rotate-label90 div.controls label {
 	-webkit-transform: rotate(-90deg);
-	-moz-transform: rotate(-90deg);   
-	-o-transform: rotate(-90deg);
-	transform: rotate(-90deg);
+	    -ms-transform: rotate(-90deg);
+	     -o-transform: rotate(-90deg);
+	        transform: rotate(-90deg);
 }
 
 form.form-horizontal div.form-row.form-group.mc_block div.controls label input {
@@ -10741,7 +10764,8 @@ form.form-horizontal div.form-row.form-group.hidden {
     background:none;
     border:none;
     border-radius:0;
-    box-shadow:none;
+    -webkit-box-shadow:none;
+            box-shadow:none;
     width:100%;
 }
 .select2-results li.people_list_results
@@ -10777,29 +10801,28 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
 }
 
 .no-padding {
-	padding: 0px;
+	padding: 0;
 }
 .clear-top {
-	margin-top: 0px;
+	margin-top: 0;
 }
 .white {
 	color: #fff !important;
 }
-#admin-survey-items {}
-#admin-survey-items .table-content {
+.admin-survey-items .table-content {
 	width: 99%;
 	margin-top: 2px;
 }
-#admin-survey-items .table-content .modal-body {
+.admin-survey-items .table-content .modal-body {
 	padding: 1px;
 	overflow: hidden;
 }
-#admin-survey-items .table-content td {
+.admin-survey-items .table-content td {
 	overflow: hidden;
 	max-width: 100%
 }
 
-#admin-survey-items .table-content .td-contents {
+.admin-survey-items .table-content .td-contents {
 	max-height: 100px;
 	overflow: hidden;
 	max-width: 100%;
@@ -10807,13 +10830,13 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
 	overflow-y: auto;
 }
 
-#admin-survey-items .table-content .field-name {
+.admin-survey-items .table-content .field-name {
 	width: 200px;
 }
-#admin-survey-items .table-content .field-choices {
+.admin-survey-items .table-content .field-choices {
 	width: 300px;
 }
-#admin-survey-items .table-content .field-label_parsed{
+.admin-survey-items .table-content .field-label_parsed{
 	width: 450px;
 }
 
@@ -10869,7 +10892,6 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
     }
     form.form-horizontal div.form-row.form-group.hide_label div.controls label span {
     	line-height:inherit;
-    	font-size:inherit;
         visibility:visible;
     }
     form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
@@ -10973,7 +10995,7 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
         display:block;
     }
 	form.form-horizontal div.form-group.vertical_range .control-label {
-		padding-top:0px;
+		padding-top:0;
 	}
 	
 }
@@ -11102,16 +11124,12 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 }
 
 /* admin stuff */
-#import-run-units textarea {
-	font-family: courier;
-	font-size: 11px;
-}
 .run-export-unit-block {
     position: relative;
     margin-bottom: 2px;
 }
 .run-export-unit-block pre {
-    margin: 0px;
+    margin: 0;
 }
 .run-export-unit-block .select {
     position: absolute;
@@ -11122,7 +11140,7 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
     background: #fff;
     z-index: 20000;
     cursor: pointer;
-    padding: 0px !important;
+    padding: 0 !important;
 }
 .red {
     color: red;
@@ -11130,11 +11148,6 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 .green {
     color: green;
 }
-.code-txt {
-    font-family: courier;
-    font-size: 12px;
-}
 .import-run-dialog .form-group {
     margin-bottom: 5px;
-    font-size: 13px;
 }
