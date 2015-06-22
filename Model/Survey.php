@@ -65,11 +65,11 @@ class Survey extends RunUnit {
 				$this->results_table = $vars['results_table'];
 			}
 
-			$this->settings['maximum_number_displayed'] = (int) $vars['maximum_number_displayed'];
-			$this->settings['displayed_percentage_maximum'] = (int) $vars['displayed_percentage_maximum'];
-			$this->settings['add_percentage_points'] = (int) $vars['add_percentage_points'];
-			$this->settings['enable_instant_validation'] = (int) $vars['enable_instant_validation'];
-			$this->settings['expire_after'] = (int) $vars['expire_after'];
+			$this->settings['maximum_number_displayed'] = (int) array_val($vars, 'maximum_number_displayed');
+			$this->settings['displayed_percentage_maximum'] = (int) array_val($vars, 'displayed_percentage_maximum');
+			$this->settings['add_percentage_points'] = (int) array_val($vars, 'add_percentage_points');
+			$this->settings['enable_instant_validation'] = (int) array_val($vars, 'enable_instant_validation');
+			$this->settings['expire_after'] = (int) array_val($vars, 'expire_after');
 
 			$this->valid = true;
 		endif;
@@ -335,17 +335,17 @@ class Survey extends RunUnit {
 				`survey_items`.showif,
 				`survey_items`.value,
 				`survey_items`.`order`,
-				
+
 		`survey_items_display`.displaycount, 
 		`survey_items_display`.session_id,
 			`survey_items_display`.answered')
 		->from('survey_items')
 		->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-		->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS NULL OR survey_items.type = 'note')")
+		->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS NULL)")
 		->order('survey_items.order', 'ASC')->order('survey_items.id', 'ASC')
 		->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 		->statement();
-		
+
 		$choice_lists = $this->getAndRenderChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
 
@@ -523,6 +523,7 @@ class Survey extends RunUnit {
 	public function expire() {
 		return parent::end();
 	}
+
 	public function end() {
 		$ended = $this->dbh->exec(
 			"UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS NULL", 
@@ -530,6 +531,7 @@ class Survey extends RunUnit {
 		);
 		return parent::end();
 	}
+
 	protected function getTimeWhenLastViewedItem() {
 		// use created (item render time) if viewed time is lacking
 		$arr = $this->dbh->select(array('COALESCE(`survey_items_display`.shown,`survey_items_display`.created)' => 'last_viewed'))
@@ -545,8 +547,8 @@ class Survey extends RunUnit {
 			
 		return $arr['last_viewed'];
 	}
+
 	private function hasExpired() {
-		
 		$expire = (int)$this->settings['expire_after'];
 		if($expire === 0) {
 			return false;

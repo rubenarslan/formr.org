@@ -1055,3 +1055,9 @@ function pre_htmlescape($str) {
 	return '<pre>' . htmlspecialchars($str) . '</pre>';
 }
 
+function array_val($array, $key, $default = '') {
+	if (isset($array[$key])) {
+		$default = $array[$key];
+	}
+	return $default;
+}
