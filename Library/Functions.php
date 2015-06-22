@@ -50,7 +50,6 @@ function notify_user_error($error, $public_message = '') {
 			$message .= $error;
 		}
 	}
-	
 	alert($message, 'alert-danger');
 }
 
@@ -1006,6 +1005,10 @@ $source;
 	return opencpu_knit2html($source, $return_format, 0, $return_session);
 }
 
+function opencpu_string_key($string) {
+	return ':{' . md5($string) . '}';
+}
+
 function opencpu_debug($session, OpenCPU $ocpu = null) {
 	$debug = array();
 	if (empty($session)) {
@@ -1057,7 +1060,7 @@ function pre_htmlescape($str) {
 
 function array_val($array, $key, $default = '') {
 	if (isset($array[$key])) {
-		$default = $array[$key];
+		$default = trim($array[$key]);
 	}
 	return $default;
 }

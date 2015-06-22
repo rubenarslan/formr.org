@@ -44,8 +44,34 @@ class RunUnit {
 	public $run_id;
 	public $description = "";
 	protected $body_parsed = null;
-	protected $non_user_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions', 'survey_items_display', 'survey_email_log', 'shuffle');
+
+	/**
+	 * Array of tables that contain user/study data to be used when parsing variables
+	 * indexed by table names with values being an array of columns of interest
+	 *
+	 * @var array
+	 */
+	protected $non_user_tables = array(
+		'survey_users' => array("created","modified", "user_code","email","email_verified","mobile_number", "mobile_verified"),
+		'survey_run_sessions' => array("session","created","last_access","position","current_unit_id", "deactivated","no_email"),
+		'survey_unit_sessions' => array("created","ended","unit_id"),
+		'survey_items_display' => array("created","answered_time","answered","displaycount","item_id"),
+		'survey_email_log' => array("email_id","created","recipient"),
+		'shuffle' => array("unit_id","created","group"),
+	);
+
+	/**
+	 * Array of tables that contain system session data to be used when parsing variables
+	 *
+	 * @var array
+	 */
 	protected $non_session_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions');
+
+	/**
+	 * collects strings to parse on opencpu before rendering the unit
+	 * @var array
+	 */
+	protected $strings_to_parse = array();
 
 	/**
 	 * @var DB
@@ -377,15 +403,18 @@ class RunUnit {
 		}
 		return false;
 	}
+
 	public function dataNeeded($fdb, $q, $token_add = NULL) {
 		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
 		
 		$results = $this->run->getAllSurveys();
 
 		// also add some "global" formr tables
-		$tables = $this->non_user_tables;
-		$table_ids = $this->non_user_tables;
-		$results_tables = array_combine($this->non_user_tables, $this->non_user_tables);
+		$non_user_tables = array_keys($this->non_user_tables);
+		$tables = $non_user_tables;
+		$table_ids = $non_user_tables;
+		$results_tables = array_combine($non_user_tables, $non_user_tables);
+
 		// map table ID to the name that the user sees (because tables in the DB are prefixed with the user ID, so they're unique)
 		foreach ($results as $res) {
 			$table_ids[] = $res['id'];
@@ -401,32 +430,22 @@ class RunUnit {
 	
 		foreach($tables AS $index => $table_name):
 			$study_id = $table_ids[$index];
-		
-			if($table_name == $token_add OR preg_match("/\b$table_name\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
+
+			// For preg_match, study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
+			if($table_name == $token_add OR preg_match("/\b$table_name\b/", $q)) {
 				$matches[ $study_id ] = $table_name;
-				$matches_results_tables[ $table_name ] = $results_tables[ $table_name ];
-			endif;
+				$matches_results_tables[ $table_name ] = $results_tables[ $table_name ];	
+			}
+
 		endforeach;
 
 		// loop through any studies that are mentioned in the command
 		foreach($matches AS $study_id => $table_name):
 
 			// generate a search set of variable names for each study
-			if(in_array($table_name, $this->non_user_tables)):
-				if($table_name == 'survey_users'):
-					$variable_names_in_table[ $table_name ] = array("created","modified", "user_code","email","email_verified","mobile_number", "mobile_verified");
-				elseif($table_name == 'survey_run_sessions'):
-					$variable_names_in_table[ $table_name ] = array("session","created","last_access","position","current_unit_id", "deactivated","no_email");
-				elseif($table_name == 'survey_unit_sessions'):
-					$variable_names_in_table[ $table_name ] = array("created","ended","unit_id");
-				elseif($table_name == 'survey_items_display'):
-					$variable_names_in_table[ $table_name ] = array("created","answered_time","answered","displaycount","item_id");
-				elseif($table_name == 'survey_email_log'):
-					$variable_names_in_table[ $table_name ] = array("email_id","created","recipient");
-				elseif($table_name == 'shuffle'):
-					$variable_names_in_table[ $table_name ] = array("unit_id","created","group");
-				endif;
-			else:
+			if(in_array($table_name, $this->non_user_tables)) {
+				$variable_names_in_table[$table_name] = $this->non_user_tables[$table_name];
+			} else {
 				$items = $fdb->select('name')->from('survey_items')
 					->where(array('study_id' => $study_id))
 					->where("type NOT IN ('mc_heading', 'note', 'submit')")
@@ -436,7 +455,7 @@ class RunUnit {
 				foreach ($items as $res) {
 					$variable_names_in_table[ $table_name ][] = $res['name']; // search set for user defined tables
 				}
-			endif;
+			}
 
 			$matches_variable_names[ $table_name ] = array();
 			foreach($variable_names_in_table[ $table_name ] AS $variable_name) { // generate match list for variable names

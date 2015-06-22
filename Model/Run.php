@@ -617,7 +617,7 @@ This study is currently being serviced. Please return at a later time."
 
 		if (isset($_SESSION['dummy_survey_session'])):
 			$run_session = $this->makeDummyRunSession(self::TEST_RUN, "Survey");
-			$unit = new Survey($this->dbh, null, $_SESSION['dummy_survey_session'], $run_session);
+			$unit = new Survey($this->dbh, null, $_SESSION['dummy_survey_session'], $run_session, $this);
 			$output = $unit->exec();
 
 			if (!$output):

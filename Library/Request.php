@@ -159,6 +159,14 @@ class Request {
 		return (float)$this->data[$name];
 	}
 
+	public static function isHTTPPostRequest() {
+		return strtolower($_SERVER['REQUEST_METHOD']) === 'post';
+	}
+
+	public static function isHTTPGetRequest() {
+		return strtolower($_SERVER['REQUEST_METHOD']) === 'get';
+	}
+
 	private static function stripslashes($value) {
 		// skip objects (object.toString() results in wrong output)
 		if (!is_object($value) && !is_array($value)) {

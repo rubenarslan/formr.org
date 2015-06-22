@@ -18,7 +18,7 @@ class ItemFactory {
 			$type = $item['type'];
 		}
 
-		if(isset($item['choice_list']) AND $item['choice_list']): // if it has choices
+		if(!empty($item['choice_list'])): // if it has choices
 			if(isset($this->choice_lists[ $item['choice_list'] ])): // if this choice_list exists
 				$item['choices'] = $this->choice_lists[ $item['choice_list'] ]; // take it
 				$this->used_choice_lists[ $item['choice_list'] ] = true; // check it as used
@@ -26,7 +26,7 @@ class ItemFactory {
 				$item['val_errors'] = array(__("Choice list %s does not exist, but is specified for item %s", $item['choice_list'], $item['name']));
 			endif;
 		endif;
-		
+
 		$type = str_replace("-","_",$type);
 		$class = "Item_".$type;
 	
@@ -1213,6 +1213,8 @@ class Item_select_or_add_one extends Item {
 	
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
+
+		$maxType = $maxSelect = 0;
 		if (isset($this->type_options) AND trim($this->type_options)!="") {
 			$this->type_options_array = explode(",",$this->type_options,3);
 		
@@ -1321,31 +1323,43 @@ class Item_rating_button extends Item_mc_button {
 		$step = 1;
 		$lower_limit = 1;
 		$upper_limit = 5;
-		
+
 		if (isset($this->type_options_array) AND is_array($this->type_options_array)) {
 			if (count($this->type_options_array) == 1) {
-				$this->type_options_array = explode(",",current($this->type_options_array));
+				$this->type_options_array = explode(",", current($this->type_options_array));
 			}
 
 			if (count($this->type_options_array) == 1) {
-				$upper_limit = (int)trim(current($this->type_options_array));
+				$upper_limit = (int)trim($this->type_options_array[0]);
 			} elseif (count($this->type_options_array) == 2) {
-				$lower_limit = (int)trim(current($this->type_options_array));
-				$upper_limit = (int)trim(next($this->type_options_array));
+				$lower_limit = (int)trim($this->type_options_array[0]);
+				$upper_limit = (int)trim($this->type_options_array[1]);
 			} elseif (count($this->type_options_array) == 3) {
-				$lower_limit = (int)trim(current($this->type_options_array));
-				$upper_limit = (int)trim(next($this->type_options_array));
-				$step = (int)trim(next($this->type_options_array));
+				$lower_limit = (int)trim($this->type_options_array[0]);
+				$upper_limit = (int)trim($this->type_options_array[1]);
+				$step = (int)trim($this->type_options_array[2]);
 			}
 		}
-		
+
+		/**
+		 * For obvious reason $this->choices can still be empty at this point (if user doesn't have choice1, choice2 columns but used a choice_list instead)
+		 * So get labels from choice list which should be gotten from last item in options array
+		 */
+		if (!$this->choices) {
+			$lc = explode(' ', trim(end($this->type_options_array)));
+			$choice_list = end($lc);
+			$this->choice_list = $choice_list;
+		}
+
 		$this->lower_text = current($this->choices);
 		$this->upper_text = next($this->choices);
 		// force step to be a non-zero positive number less than or equal to upper limit
 		if ($step <= 0 || $step > $upper_limit) {
 			$step = $upper_limit;
 		}
-		$this->choices = array_combine(range($lower_limit, $upper_limit, $step), range($lower_limit, $upper_limit, $step));
+
+		$choices = range($lower_limit, $upper_limit, $step);
+		$this->choices = array_combine($choices, $choices);
 	}
 
 	protected function render_input() {
