@@ -291,7 +291,7 @@ class Run {
 
 	protected function addOverviewScript() {
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"), null, $run);
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"), null, $this);
 		$unit->create(array(
 			"title" => "Overview script",
 			"body" =>
@@ -313,7 +313,7 @@ plot(cars)
 	public function getServiceMessage() {
 		$id = $this->getServiceMessageId();
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id), null, $run);
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id), null, $this);
 		return $unit;
 	}
 
@@ -327,7 +327,7 @@ plot(cars)
 
 	protected function addServiceMessage() {
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"), null, $run);
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"), null, $this);
 		$unit->create(array(
 			"title" => "Service message",
 			"body" =>
@@ -393,7 +393,7 @@ This study is currently being serviced. Please return at a later time."
 			"run_name" => $this->name,
 			"run_id" => $this->id,
 			"run_session_id" => $run_session_id
-		), null, $run);
+		), null, $this);
 		return $unit;
 	}
 
@@ -407,7 +407,7 @@ This study is currently being serviced. Please return at a later time."
 
 	protected function addReminder() {
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Email"), null, $run);
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Email"), null, $this);
 		$unit->create(array(
 			"subject" => "Reminder",
 			"recipient_field" => 'survey_users$email',
