@@ -29,9 +29,9 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) { // shortha
 
 function log_exception(Exception $e, $prefix = '', $debug_data = null) {
 	$msg = $prefix . ' Exception: ' . $e->getMessage(). "\n" . $e->getTraceAsString();
-	
+
 	error_log($msg);
-	
+
 	if ($debug_data !== null) {
 		error_log('Debug Data: ' . print_r($debug_data, 1));
 	}
