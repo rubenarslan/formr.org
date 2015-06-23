@@ -16,6 +16,7 @@ ini_set('session.gc_probability', 1);
 
 date_default_timezone_set(Config::get('timezone'));
 mb_internal_encoding('UTF-8');
+register_shutdown_function('shutdown_formr_org');
 
 $site = Site::getInstance();
 $fdb = DB::getInstance();
