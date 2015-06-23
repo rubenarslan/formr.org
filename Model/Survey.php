@@ -102,16 +102,16 @@ class Survey extends RunUnit {
 		$js = (isset($js) ? $js : '') . '<script src="' . WEBROOT . 'assets/' . (DEBUG ? 'js' : 'minified') . '/survey.js"></script>';
 
 		$ret = '
-	<div class="row">
-		<div class="col-md-12">
-	';
-		$ret .= $this->render_form_header() .
-				$this->render_items() .
-				$this->render_form_footer();
-		$ret .= '
-		</div> <!-- end of col-md-12 div -->
-	</div> <!-- end of row div -->
-	';
+		<div class="row">
+			<div class="col-md-12">
+		';
+			$ret .= $this->render_form_header() .
+					$this->render_items() .
+					$this->render_form_footer();
+			$ret .= '
+			</div> <!-- end of col-md-12 div -->
+		</div> <!-- end of row div -->
+		';
 		$this->dbh = NULL;
 		return $ret;
 	}
@@ -145,19 +145,21 @@ class Survey extends RunUnit {
 		 */
 
 		// Validate items and if any fails return user to same page with all unansered items and error messages
+		// This loop also accumulates potential update data
+		$update_data = array();
 		foreach ($posted as $item_name => $item_value) {
 			if (isset($this->unanswered[$item_name]) && $this->unanswered[$item_name]->save_in_results_table) {
 				$value = $this->unanswered[$item_name]->validateInput($item_value);
 				if ($this->unanswered[$item_name]->error) {
-					$this->errors[$item_name] = $this->unanswered[$item_name]->error;
+					$this->unanswered[$item_name]->value_validated = $value;
 				} else {
 					// save validated input
-					$posted[$item_name] = $value;
+					$update_data[$item_name] = $value;
 				}
 			}
 		}
 
-		if (!empty($this->errors)) {
+		if (!empty($this->errors) || !$update_data) {
 			return false;
 		}
 
@@ -174,24 +176,16 @@ class Survey extends RunUnit {
 
 		try {
 			$this->dbh->beginTransaction();
+			// Update results table in one query
+			$update_where = array(
+				'study_id' => $this->id,
+				'session_id' => $this->session_id,
+			);
+
+			$this->dbh->update($this->results_table, $update_data, $update_where);
+
+			// update item display table for each item
 			foreach ($posted AS $name => $value) {
-				if (!isset($this->unanswered[$name])) {
-					continue;
-				}
-
-				$item_saved = true;
-				// update results table
-				if ($this->unanswered[$name]->save_in_results_table) {
-					$update_data = array($name => $value);
-					$update_where = array(
-						'study_id' => $this->id,
-						'session_id' => $this->session_id,
-					);
-
-					$this->dbh->update($this->results_table, $update_data, $update_where);
-				}
-
-				// update item display table
 				$survey_items_display->bindParam(":item_id", $this->unanswered[$name]->id);
 				$survey_items_display->bindParam(":answer", $value);
 
@@ -219,7 +213,7 @@ class Survey extends RunUnit {
 				$survey_items_display->bindParam(":answered_relative", $answered_relative);
 				$item_answered = $survey_items_display->execute();
 
-				if (!$item_saved || !$item_answered) {
+				if (!$item_answered) {
 					throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$this->results_table}' (FieldType: {$this->unanswered[$name]->getResultField()})");
 				}
 				unset($this->unanswered[$name]);
@@ -261,21 +255,6 @@ class Survey extends RunUnit {
 			return true;
 		});
 		$this->not_answered = count($this->not_answered);
-
-// todo: in the medium term it may be more intuitive to treat notes as item that are answered by viewing but that can linger in a special case, might require less extra logic. but they shouldn't go in the results table.. so maybe not.
-		/* 		$seen_notes = array_filter($this->unanswered, function ($item)
-		  { // notes stay in the unanswered batch
-		  if(
-		  ! $item->hidden											 // item wasn't skipped
-		  AND ($item->type == 'note' AND $item->displaycount > 0) 		 // item is a note and has already been viewed
-		  )
-		  return true;
-		  else
-		  return false;
-		  }
-		  );
-		  $this->already_answered += count($seen_notes);
-		 */
 
 		$all_items = $this->already_answered + $this->not_answered;
 
@@ -419,27 +398,7 @@ class Survey extends RunUnit {
 							continue;
 						}
 						$item_will_be_rendered = false;
-					}/* elseif ($item->type === "note") {
-
-						$next = current($this->unanswered);
-						/**
-						 * if item was displayed before AND
-						 * this is the end of the survey OR the next item is hidden OR the next item isn't a normal item
-						 * @todo: should actually be checking if all following items up to the next note are hidden, but at least it's displayed once like this and doesn't block progress
-						 */
-						/*if ($item->hasBeenRendered() AND ( $next === false OR in_array($next->type, array('note', 'submit', 'mc_heading')) OR ! $next->willBeShown($this, $item->showif))) {
-							continue; // skip this note							
-						}
-					} else if ($item->type === "mc_heading") {
-						$next = current($this->unanswered);
-						/**
-						 * If this is the end of the survey OR the next item is hidden OR the next item isn't a mc item
-						 * then skip mc_heading
-						 */
-						/*if ($next === false OR ! in_array($next->type, array('mc', 'mc_multiple', 'mc_button', 'mc_multiple_button')) OR ! $next->willBeShown($this, $item->showif)) {
-							continue; // skip this mc_heading
-						}
-					}*/
+					}
 
 					$view_update->bindParam(":item_id", $item->id);
 					$view_update->execute(); // if it's rendered, we send it along here.
