@@ -1265,11 +1265,17 @@ class Item_select_or_add_one extends Item {
 	}
 
 	protected function chooseResultFieldBasedOnChoices() {
-		$choices = array_keys($this->choices);
-		$lengths = array_map("strlen",$choices);
-		$lengths[] = $this->input_attributes['data-select2maximumInputLength'];
-		$maxlen = max($lengths);
-		$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
+		/*
+		 * This function is commented out because this should NOT be done here.
+		 * If you are giving the opportunity for the user to enter something you are not sure the length of the thing
+		 * so you can't be changing the length of the data type. Stick with the above default.
+		 *
+		 * $choices = array_keys($this->choices);
+		 * $lengths = array_map("strlen",$choices);
+		 * $lengths[] = $this->input_attributes['data-select2maximumInputLength'];
+		 * $maxlen = max($lengths);
+		 * $this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
+		 */
 	}
 
 }

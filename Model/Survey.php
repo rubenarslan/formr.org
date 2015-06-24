@@ -151,41 +151,49 @@ class Survey extends RunUnit {
 			if (isset($this->unanswered[$item_name]) && $this->unanswered[$item_name]->save_in_results_table) {
 				$value = $this->unanswered[$item_name]->validateInput($item_value);
 				if ($this->unanswered[$item_name]->error) {
-					$this->unanswered[$item_name]->value_validated = $value;
+					$this->errors[$item_name] = $this->unanswered[$item_name]->error;
 				} else {
 					// save validated input
+					$this->unanswered[$item_name]->value_validated = $value;
 					$update_data[$item_name] = $value;
 				}
 			}
 		}
 
-		if (!empty($this->errors) || !$update_data) {
+		if (!empty($this->errors)) {
 			return false;
 		}
 
 		$survey_items_display = $this->dbh->prepare(
-				"UPDATE `survey_items_display` SET
+			"UPDATE `survey_items_display` SET
 				answer = :answer, 
 				saved = :saved,
 				shown = :shown,
 				shown_relative = :shown_relative,
 				answered = :answered,
-				answered_relative = :answered_relative
+				answered_relative = :answered_relative,
+				displaycount = displaycount + 1
 			WHERE session_id = :session_id AND item_id = :item_id");
 		$survey_items_display->bindParam(":session_id", $this->session_id);
 
 		try {
 			$this->dbh->beginTransaction();
+
 			// Update results table in one query
-			$update_where = array(
-				'study_id' => $this->id,
-				'session_id' => $this->session_id,
-			);
+			if ($update_data) {
+				$update_where = array(
+					'study_id' => $this->id,
+					'session_id' => $this->session_id,
+				);
+				$this->dbh->update($this->results_table, $update_data, $update_where);
+			}
 
-			$this->dbh->update($this->results_table, $update_data, $update_where);
-
-			// update item display table for each item
+			// update item_display table for each posted item using prepared statement
 			foreach ($posted AS $name => $value) {
+				if (!isset($this->unanswered[$name])) {
+					continue;
+				}
+
 				$survey_items_display->bindParam(":item_id", $this->unanswered[$name]->id);
 				$survey_items_display->bindParam(":answer", $value);
 
@@ -224,6 +232,7 @@ class Survey extends RunUnit {
 			notify_user_error($e, 'An error saving your survey data. Please notify the author of this survey with this date and time');
 			formr_log($e->getMessage());
 			formr_log($e->getTraceAsString());
+			$redirect = false;
 		}
 
 		if ($redirect) {
