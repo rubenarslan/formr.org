@@ -490,8 +490,8 @@ class SpreadsheetReader {
 		$callEndTime = microtime(true);
 		$callTime = $callEndTime - $callStartTime;
 		$choices_messages[] = 'Call time to read choices sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
-		
-		$this->messages[] = '<ul><li>'.implode("</li><li>",$choices_messages).'</li></ul>';
+
+		$this->messages[] = '<ul><li>'.implode("</li><li>", $choices_messages).'</li></ul>';
 		$this->choices = $data;
 	}
 	

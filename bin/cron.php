@@ -79,7 +79,7 @@ if (file_exists($lockfile)) {
 
 	// hack to delete $lockfile if cron hangs for more that 30 mins
 	if ((strtotime($started) + (30 * 60)) < time()) {
-		cron_log("Forced delte of $lockfile");
+		cron_log("Forced delete of $lockfile");
 		unlink($lockfile);
 	}
 	exit(0);
