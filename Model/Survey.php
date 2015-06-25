@@ -246,7 +246,7 @@ class Survey extends RunUnit {
 				->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
 				->where('survey_items_display.session_id IS NOT NULL')
 				->where('survey_items.study_id = :study_id')
-				->where("survey_items.type NOT IN ('mc_heading', 'submit')")
+				->where("survey_items.type NOT IN ('submit')")
 				->where("`survey_items_display`.saved IS NOT NULL")
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->fetch();
@@ -255,7 +255,6 @@ class Survey extends RunUnit {
 		$this->not_answered = array_filter($this->unanswered, function ($item) {
 			if (
 					in_array($item->type, array('submit', 'mc_heading')) OR // these items require no user interaction and thus don't count against progress
-					( $item->type == 'note' AND $item->hasBeenRendered()) OR // item is a note and has already been viewed
 					! $item->willBeShown($this) // item was skipped
 			) {
 				return false;
