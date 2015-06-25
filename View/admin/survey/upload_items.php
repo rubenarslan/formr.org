@@ -5,19 +5,20 @@ $resultCount = $study->getResultCount();
 ?>
 
 <div class="row">
-	<div class="col-lg-7 col-md-8">
-		<div class="well">
+	<div class="col-lg-8 col-sm-7 col-md-8">
+		<div class="transparent_well col-md-12" style="padding-bottom: 20px;">
+			<h2>Upload item table</h2>
 			<p>Please keep this in mind when uploading item tables:</p>
 			<ul class="fa-ul fa-ul-more-padding">
 				<li>
 					<i class="fa-li fa fa-table"></i> The format must be one of <abbr title='Old-style Excel spreadsheets'>.xls</abbr>, <abbr title='New-style Excel spreadsheets, Office Open XML'>.xlsx</abbr>, <abbr title='OpenOffice spreadsheets / Open document format for Office Applications'>.ods</abbr>, <abbr title='extensible markup language'>.xml</abbr>, <abbr title='text files'>.txt</abbr>, or <abbr title='.csv-files (comma-separated value) have to use the comma as a separator, "" as escape characters and UTF-8 as the charset. Because there are inconsistencies when creating CSV files using various spreadsheet programs (e.g. German excel), you should probably steer clear of this.'>.csv</abbr>.
 				</li>
 				<li>
-					<i class="fa-li fa fa-exclamation-triangle"></i> Existing results <em>should</em> be preserved if you did not add, reorder, rename, <abbr title="that is to say you change their item type to something else, e.g. from number to select">re-type</abbr> or remove items <i class="fa fa-meh-o" title="The boring technical way to say this: if the new item table leads to the same results table structure as the old one."></i>.<br>
-					Changes to labels and choice labels should be okay. <br>
-					If you keep the confirmation box below empty, the changes will only happen, if the results can be preserved.<br>
-					To overwrite results by uploading a new item table, you will have to enter the study's name into the box.<br>
-					<strong>Always back up your data, before uploading a breaking item table.</strong>
+					<i class="fa-li fa fa-exclamation-triangle"></i> Existing results <em>should</em> be preserved if you did not remove, rename or <abbr title="that is to say you change their item type to something else, e.g. from number to select">re-type</abbr> items <i class="fa fa-meh-o" title="And this might happen to you by accident too. So be careful and back up your data."></i>.<br>
+					Changes to labels and choice labels are okay (fixing typos etc.). <br>
+					If you <strong>keep the confirmation box below empty</strong>, the changes will only happen, if the results can be preserved.<br>
+					To possibly <strong>overwrite</strong> results by uploading a new item table, you will have to enter the study's name into the box.<br>
+					<strong>Always back up your data, before doing the latter.</strong>
 				</li>
 				<li>
 					<i class="fa-li fa fa-lock"></i> The name you chose for this survey is now locked.

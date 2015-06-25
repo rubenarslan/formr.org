@@ -54,7 +54,7 @@
 	<?php
 		$pagination->render("admin/run/".$run->name."/cron_log");
 	} else {
-		echo "No cron jobs yet. Maybe you need to press the 'Play' button <a href='".WEBROOT."admin/run/".$run->name."'>here</a>.";
+		echo "No cron jobs yet. Maybe you disabled them in the <a href='".WEBROOT."admin/run/".$run->name."/settings'>settings</a>.";
 	}	
 	?>
 	</div>

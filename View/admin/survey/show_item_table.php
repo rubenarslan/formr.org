@@ -4,14 +4,27 @@ Template::load('header');
 Template::load('acp_nav');
 ?>
 <div class="row">
-	<div class="col-md-12">
-		<h2 class="drop_shadow">Item table <small>currently active</small></h2>
+	<div class="col-lg-6 col-sm-7 col-md-8">
+		
+		<div class="transparent_well col-md-12" style="padding-bottom: 20px;">
+
+		<h2>Item table <small>currently active</small></h2>
 
 
 		<h4>
 			<a href="#" data-toggle="modal" data-target="#download" class="btn btn-default"><i class="fa fa-download"></i> Download item table</a>
 			<a href="#" data-toggle="modal" data-target="#admin-survey-items" id="show-survey-items" class="btn btn-default"><i class="fa fa-list"></i> Show Items</a>
 		</h4>
+		
+				<p>
+					Click the "Show Items" button to show an overview table of your items. To leave the overview, press <kbd>Esc</kbd> or click the close button in the top or bottom right.
+				</p>
+				<p>
+					You can download your item table in different formats (.xls, .xlsx, .json), but take care: The downloaded table
+					may not exactly match the uploaded table (most importantly, choice labels are always relegated to a second sheet).
+				</p>
+				<p>oneline</p>
+		</div>
 
 		<!-- dialog for items in items table -->
 		<div class="modal fade admin-survey-items" id="admin-survey-items" tabindex="-1" role="dialog" aria-labelledby="ItemsTable" aria-hidden="true">

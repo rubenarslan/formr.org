@@ -10,7 +10,8 @@ Template::load('acp_nav');
 ?>
 <div class="row">
 	
-	<div class="col-md-10 run_dialog">
+	<div class="col-md-10 transparent_well" style="padding-bottom: 20px;">
+		<h2><i class="fa fa-cogs"></i> Settings</h3>
 	
 		<ul class="nav nav-tabs">
 		  <li class="active"><a href="#settings" data-toggle="tab">Settings</a></li>
@@ -26,10 +27,11 @@ Template::load('acp_nav');
 				<form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_settings">
 					
 				<div class="row">
+					<h3 class="col-lg-12">general settings</h3>
+					
 					<p class="pull-right" style="padding-top:10px;margin-bottom:0;margin-right:15px">
 						<input type="submit" name="submit_settings" value="Save" class="btn btn-lg save_settings">
 					</p>
-					<h3 class="col-lg-7"><i class="fa fa-cogs"></i> Settings</h3>
 					<p class="col-lg-10">
 						Here you can set a couple of simple general settings for your study. Make sure that you provide an email address to contact you somewhere (usually in the footer).
 					</p>
@@ -46,6 +48,11 @@ Template::load('acp_nav');
 					<input type="text" maxlength="255" placeholder="URL" name="header_image_path" class="form-control" value="<?=h($run->header_image_path);?>">
 					</label>
 
+			
+					<label class="col-lg-12"> <span title="">Cron Job</span>:<br>
+						Enable automatic sending of email invitations etc. You would want to turn this off only in case of unforeseen problems (e.g. you're spamming the users by accident). <input type="hidden" name="cron_active" value="0"><input type="checkbox" name="cron_active" <?=($run->cron_active)?'checked':''?> value="1">
+					</label>
+					
 					<label class="col-lg-12"> <span title="Will be shown on every page of the run">Description</span>:
 					<textarea data-editor="markdown" placeholder="Description" name="description" rows="10" cols="80" class="big_ace_editor form-control"><?=h($run->description);?></textarea>
 					</label>
@@ -58,10 +65,7 @@ Template::load('acp_nav');
 					<textarea data-editor="markdown" placeholder="Blurb" name="public_blurb" rows="10" cols="80" class="big_ace_editor form-control"><?=h($run->public_blurb);?></textarea>
 					</label>
 					
-			
-					<label class="col-lg-12"> <span title="">Cron Job</span>:<br>
-						Enable automatic sending of email invitations etc. You would want to turn this off only in case of unforeseen problems (e.g. you're spamming the users by accident). <input type="hidden" name="cron_active" value="0"><input type="checkbox" name="cron_active" <?=($run->cron_active)?'checked':''?> value="1">
-					</label>
+
 					
 
 				</div>

@@ -100,7 +100,7 @@
 		<nav class="col-lg-2 col-md-2 col-sm-3 admin_sidebar">
 			<ul class="fa-ul fa-ul-more-padding menu-highlight">
 				<li>
-					<a href="<?php echo admin_study_url($study->name, 'access'); ?>"><i class="fa-li fa fa-play"></i> <?php echo _("Test study"); ?></a>
+					<a href="<?php echo admin_study_url($study->name, 'access'); ?>" title="Simply click this link to test this survey. But remember that it's not in the broader context of a run, so if you refer to other surveys, that will cause problems." class="hastooltip"><i class="fa-li fa fa-play"></i> <?php echo _("Test study"); ?></a>
 				</li>
 
 				<li>

@@ -3,9 +3,11 @@ Template::load('header');
 Template::load('acp_nav');
 ?>
 <div class="row">
-	<div class="col-md-12">
+	<div class="col-lg-10 col-sm-12 col-md-10">
+		
+		<div class="transparent_well col-md-12" style="padding-bottom: 20px;">
 		<div class="row">
-			<div class="col-md-8">
+			<div class="col-md-12">
 				<h2 class="drop_shadow">Results <small>
 						<?=(int)$resultCount['finished']?> complete,
 						<?=(int)$resultCount['begun']?> begun
@@ -15,7 +17,7 @@ Template::load('acp_nav');
 		</div>
 		<div class="row">
 			<div class="col-md-12">
-			<div class="list-group col-md-7">
+			<div class="list-group col-md-11">
 				<h5>Export as</h5>
 			  <div class="list-group-item">
 			    <h4 class="list-group-item-heading"><a href="<?php echo admin_study_url($study->name, 'export_results?format=csv'); ?>"><i class="fa fa-floppy-o fa-fw"></i> CSV</a></h4>
