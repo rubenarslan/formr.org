@@ -804,7 +804,7 @@ class Survey extends RunUnit {
 		$this->dbh->beginTransaction();
 
 		$this->parsedown = new ParsedownExtra();
-		$this->parsedown->setBreaksEnabled(true);
+		$this->parsedown = $this->parsedown->setBreaksEnabled(true)->setUrlsLinked(true);
 
 		$this->addChoices();
 		$choice_lists = $this->getChoices();
