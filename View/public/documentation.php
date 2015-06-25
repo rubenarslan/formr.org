@@ -71,7 +71,7 @@
 						easily share, swap and combine surveys (they're simply spreadsheets with survey questions) and runs (so that you can share designs, e.g. "daily diary study" and higher-level components like filters and feedback)
 					</li>
 					<li>
-						send text messages (this will get simpler soon, you can <a href="https://github.com/rubenarslan/formr.org/wiki/How-to-send-text-messages-(SMS)">already do this using R</a>)
+						send text messages (see the <a href="https://github.com/rubenarslan/formr.org/wiki/How-to-send-text-messages-(SMS)">HowTo</a>)
 					</li>
 					<li>
 						works on all somewhat modern devices and degrades gracefully where it doesn't
