@@ -375,7 +375,7 @@ class RunUnit {
 				);
 				$last_action_time = strtotime($last_action);
 				if(in_array('formr_last_action_date', $needed['variables'])):
-					$this->survey_results['.formr$last_action_date'] = "as.Date('".date("Y-m-d", $last_action_time)."')";
+					$this->survey_results['.formr$last_action_date'] = "as.POSIXct('".date("Y-m-d", $last_action_time)."')";
 				endif;
 				if(in_array('formr_last_action_time', $needed['variables']) ):
 					$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T", $last_action_time)."')";
