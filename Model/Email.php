@@ -234,8 +234,8 @@ class Email extends RunUnit {
 		$mail->AddAddress($this->recipient);
 		$mail->Subject = $this->getSubject();
 		$mail->Body = $this->getBody();
-		
-		if($mail->Body !== false AND $mail->Subject !== false):
+
+		if(filter_var($this->recipient, FILTER_VALIDATE_EMAIL) AND $mail->Body !== false AND $mail->Subject !== false):
 			foreach ($this->images AS $image_id => $image):
 				$local_image = INCLUDE_ROOT . 'tmp/' . uniqid() . $image_id;
 				copy($image, $local_image);
@@ -253,6 +253,9 @@ class Email extends RunUnit {
 				$this->logMail();
 			endif;
 		else:
+			if(!filter_var($this->recipient, FILTER_VALIDATE_EMAIL)):
+				alert('Intended recipient was not a valid email address: '. $this->recipient, 'alert-danger');
+			endif;
 			if($mail->Body === false):
 				alert('Email body empty or could not be dynamically generated.', 'alert-danger');
 			endif;
