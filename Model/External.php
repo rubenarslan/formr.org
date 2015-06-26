@@ -86,7 +86,6 @@ class External extends RunUnit {
 		if ($this->isR()) {
 			if ($results = $this->getSampleSessions()) {
 				if (!$results) {
-					echo 'No data to compare to yet.';
 					return false;
 				}
 				

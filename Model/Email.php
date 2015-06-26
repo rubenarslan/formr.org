@@ -87,7 +87,7 @@ class Email extends RunUnit {
 				if ($this->session_id):
 					$this->subject_parsed = $this->getParsedText($this->subject);
 				else:
-					$this->subject_parsed = $this->getParsedTextAdmin($this->subject);
+					return false;
 				endif;
 			else:
 				return $this->subject;
@@ -97,7 +97,6 @@ class Email extends RunUnit {
 	}
 
 	private function getBody($embed_email = true) {
-
 		if (isset($this->run_name)) {
 			$sess = isset($this->session) ? $this->session : "TESTCODE";
 			$login_link = site_url("{$this->run_name}?code=".urlencode($sess));
@@ -106,43 +105,29 @@ class Email extends RunUnit {
 			alert("Generated a login link, but no run was specified", 'alert-danger');
 		}
 
-		if ($this->html) {
-			$login_link = "<a href='$login_link'>Login link</a>";
+		$login_link_html = "<a href='$login_link'>Login link</a>";
 
-			if ($this->session_id):
-				$response = $this->getParsedBody($this->body, true);
+		if ($this->run_session_id):
+			$response = $this->getParsedBody($this->body, true);
+			if($response === false):
+				return false;
+			else:
 				if (isset($response['body'])):
 					$this->body_parsed = $response['body'];
 				endif;
 				if (isset($response['images'])):
 					$this->images = $response['images'];
 				endif;
-			else: // admin stuff
-				if ($embed_email):
-					if (!$this->grabRandomSession()) {
-						return false;
-					}
-					$response = $this->getParsedBody($this->body, $embed_email);
-					if (isset($response['body'])):
-						$this->body_parsed = $response['body'];
-					endif;
-					if (isset($response['images'])):
-						$this->images = $response['images'];
-					endif;
-				else:
-					$response = $this->getParsedBodyAdmin($this->body, $embed_email);
-					return $response;
-				endif;
 			endif;
 
-			$this->body_parsed = str_replace("{{login_link}}", $login_link, $this->body_parsed);
+			$this->body_parsed = str_replace("{{login_link}}", $login_link_html, $this->body_parsed);
+			$this->body_parsed = str_replace("{{login_url}}", $login_link, $this->body_parsed);
 			$this->body_parsed = str_replace("{{login_code}}", $this->session, $this->body_parsed);
 			return $this->body_parsed;
-		} else {
-			$this->body = str_replace("{{login_link}}", $login_link, $this->body);
-			$this->body = str_replace("{{login_code}}", $this->session, $this->body);
-			return $this->body;
-		}
+		else:
+			alert("Session ID for email recipient is missing.", "alert-danger");
+			return false;
+		endif;
 	}
 
 	private function getEmailAccounts() {
@@ -187,18 +172,20 @@ class Email extends RunUnit {
 		return parent::runDialog($dialog, 'fa-envelope');
 	}
 
-	public function getRecipientField() {
+	public function getRecipientField($return_format = 'json', $return_session = false) {
 		if (empty($this->recipient_field)) {
 			$this->recipient_field = 'survey_users$email';
 		}
 
 		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
-		$result = opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json');
+		$result = opencpu_evaluate($this->recipient_field, $opencpu_vars, $return_format, null, $return_session);
 
 		return $result;
 	}
 
 	public function sendMail($who = NULL) {
+		$this->mail_sent = false;
+		
 		if ($who === null):
 			$this->recipient = $this->getRecipientField();
 		else:
@@ -208,13 +195,11 @@ class Email extends RunUnit {
 		if ($this->recipient == null):
 			//formr_log("Email recipient could not be determined from this field definition " . $this->recipient_field);
 			alert("We could not find an email recipient.", 'alert-danger');
-			$this->mail_sent = false;
 			return false;
 		endif;
 
 		if ($this->account_id === null):
 			alert("The study administrator (you?) did not set up an email account. <a href='" . WEBROOT . "/admin/mail/'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
-			$this->mail_sent = false;
 			return false;
 		endif;
 
@@ -249,24 +234,33 @@ class Email extends RunUnit {
 		$mail->AddAddress($this->recipient);
 		$mail->Subject = $this->getSubject();
 		$mail->Body = $this->getBody();
-		foreach ($this->images AS $image_id => $image):
-			$local_image = INCLUDE_ROOT . 'tmp/' . uniqid() . $image_id;
-			copy($image, $local_image);
-			register_shutdown_function(create_function('', "unlink('{$local_image}');"));
+		
+		if($mail->Body !== false AND $mail->Subject !== false):
+			foreach ($this->images AS $image_id => $image):
+				$local_image = INCLUDE_ROOT . 'tmp/' . uniqid() . $image_id;
+				copy($image, $local_image);
+				register_shutdown_function(create_function('', "unlink('{$local_image}');"));
 
-			if (!$mail->AddEmbeddedImage($local_image, $image_id, $image_id, 'base64', 'image/png' )) {
-				$this->mail_sent = false;
+				if (!$mail->AddEmbeddedImage($local_image, $image_id, $image_id, 'base64', 'image/png' )):
+					alert('Email with the subject ' . $this->subject . ' was not sent to ' . $this->recipient . ':<br>' . $mail->ErrorInfo, 'alert-danger');
+				endif;
+			endforeach;
+
+			if (!$mail->Send()):
 				alert('Email with the subject ' . $this->subject . ' was not sent to ' . $this->recipient . ':<br>' . $mail->ErrorInfo, 'alert-danger');
-			}
-		endforeach;
-
-		if (!$mail->Send()) {
-			$this->mail_sent = false;
-			alert('Email with the subject ' . $this->subject . ' was not sent to ' . $this->recipient . ':<br>' . $mail->ErrorInfo, 'alert-danger');
-		} else {
-			$this->mail_sent = true;
-			$this->logMail();
-		}
+			else:
+				$this->mail_sent = true;
+				$this->logMail();
+			endif;
+		else:
+			if($mail->Body === false):
+				alert('Email body empty or could not be dynamically generated.', 'alert-danger');
+			endif;
+			if($mail->Subject === false):
+				alert('Email subject empty could not be dynamically generated.', 'alert-danger');
+			endif;
+		endif;
+		return $this->mail_sent;
 	}
 
 	private function numberOfEmailsSent() {
@@ -293,53 +287,68 @@ class Email extends RunUnit {
 	}
 
 	public function test() {
-		$results = $this->getSampleSessions();
-		if (!$results) {
-			echo 'No data to compare to yet.';
+		if (!$this->grabRandomSession()) {
 			return false;
 		}
-		
 		$RandReceiv = crypto_token(9, true);
 		$receiver = $RandReceiv . '@mailinator.com';
 
-		$this->sendMail($receiver);
 		$link = "https://mailinator.com/inbox.jsp?to=".$RandReceiv;
+		echo "<h4>Recipient</h4>";
+		echo opencpu_debug($this->getRecipientField('',true));
+		echo "<h4>Subject</h4>";
+		if($this->knittingNeeded($this->subject)):
+			echo $this->getParsedTextAdmin($this->subject);
+		else:
+			echo $this->getSubject();
+		endif;
+		echo "<h4>Body</h4>";
 
-		echo "<h4>" . $this->getSubject() . "</h4>";
-		echo "<p><a href='$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
+		echo $this->getParsedBodyAdmin($this->body);
 
-		echo $this->getBody(false);
+		echo "<h4>Attempt to send email</h4>";
 
-		if ($this->recipient_field === null OR trim($this->recipient_field) == '') {
-			$this->recipient_field = 'survey_users$email';
-		}
+		if($this->sendMail($receiver)):
+			echo "<p><a href='$link'>Check whether the email arrived properly at a random email address on Mailinator.com</a></p>";
+		else:
+			echo "<p>No email sent.</p>";
+		endif;
 
-		$output = '
-			<table class="table table-striped">
-				<thead>
+
+		$results = $this->getSampleSessions();
+		if ($results) {
+
+			if ($this->recipient_field === null OR trim($this->recipient_field) == '') {
+				$this->recipient_field = 'survey_users$email';
+			}
+
+			$output = '
+				<table class="table table-striped">
+					<thead>
+						<tr>
+							<th>Code (Position)</th>
+							<th>Test</th>
+						</tr>
+					</thead>
+					<tbody>%s</tbody>
+				</table>';
+
+			$rows = '';
+			foreach ($results AS $row):
+				$this->run_session_id = $row['id'];
+
+				$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
+				$email = stringBool(opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json'));
+				$good = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
+				$rows .= "
 					<tr>
-						<th>Code (Position)</th>
-						<th>Test</th>
-					</tr>
-				</thead>
-				<tbody>%s</tbody>
-			</table>';
+						<td style='word-wrap:break-word;max-width:150px'><small>" . $row['session'] . " ({$row['position']})</small></td>
+						<td class='$good'>" . $email . "</td>
+					</tr>";
+			endforeach;
 
-		$rows = '';
-		foreach ($results AS $row):
-			$this->run_session_id = $row['id'];
-
-			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
-			$email = stringBool(opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json'));
-			$good = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
-			$rows .= "
-				<tr>
-					<td style='word-wrap:break-word;max-width:150px'><small>" . $row['session'] . " ({$row['position']})</small></td>
-					<td class='$good'>" . $email . "</td>
-				</tr>";
-		endforeach;
-
-		echo sprintf($output, $rows);
+			echo sprintf($output, $rows);
+		}
 		$this->run_session_id = null;
 	}
 
