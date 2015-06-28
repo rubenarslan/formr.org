@@ -223,7 +223,7 @@ class RunUnit {
 			->limit(20)->fetchAll();
 		
 		if (!$results) {
-			echo 'No data to compare to yet.';
+			alert('No data to compare to yet.','alert-info');
 			return false;
 		}
 		return $results;
@@ -244,7 +244,7 @@ class RunUnit {
 				->fetch();
 
 			if (!$temp_user) {
-				echo 'No data to compare yet';
+				alert('No data to compare to yet','alert-info');
 				return false;
 			}
 
@@ -280,7 +280,7 @@ class RunUnit {
 	public function runDialog($dialog) {
 		return '
 		<div class="col-xs-12 row run_unit_inner ' . $this->type . '" data-type="' . $this->type . '">
-		<div class="row"><h4><input type="text" value="'.$this->description.'" placeholder="Description (click to edit)" class="run_unit_description" name="description"></h4></div>
+		<div class="col-xs-12"><h4><input type="text" value="'.$this->description.'" placeholder="Description (click to edit)" class="run_unit_description" name="description"></h4></div>
 				<div class="col-xs-3 run_unit_position">
 					<h1><i class="muted fa fa-2x ' . $this->icon . '"></i></h1>
 					' . $this->howManyReachedIt() . ' <button href="ajax_remove_run_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run" type="button"><i class="fa fa-times"></i></button><br>
@@ -375,7 +375,7 @@ class RunUnit {
 				);
 				$last_action_time = strtotime($last_action);
 				if(in_array('formr_last_action_date', $needed['variables'])):
-					$this->survey_results['.formr$last_action_date'] = "as.Date('".date("Y-m-d", $last_action_time)."')";
+					$this->survey_results['.formr$last_action_date'] = "as.POSIXct('".date("Y-m-d", $last_action_time)."')";
 				endif;
 				if(in_array('formr_last_action_time', $needed['variables']) ):
 					$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T", $last_action_time)."')";
@@ -497,7 +497,7 @@ class RunUnit {
 		if (!$this->grabRandomSession()) {
 			return false;
 		}
-		return $this->getParsedText($source);
+		return opencpu_debug(opencpu_knit($source));
 	}
 
 	public function getParsedBodyAdmin($source, $email_embed = false) {
@@ -553,13 +553,15 @@ class RunUnit {
 		}
 
 		// If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
-		if (empty($session) || $session->hasError()) {
+		if (!isset($session) || empty($session) || $session->hasError()) {
 			$ocpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
 			$session = $email_embed ? opencpu_knitemail($source, $ocpu_vars, '', true) : opencpu_knitdisplay($source, $ocpu_vars, true);
 		}
-
 		// At this stage we are sure to have an OpenCPU_Session in $session. If there is an error in the session return FALSE
-		if ($session->hasError()) {
+		if(empty($session)) {
+			alert('OpenCPU is probably down or inaccessible.', 'alert-danger');
+			return false;
+		} elseif ($session->hasError()) {
 			$where = '';
 			if(isset($this->run_name)) {
 				$where = "Run: ". $this->run_name. " (".$this->position."-". $this->type.") ";
@@ -568,22 +570,21 @@ class RunUnit {
 			alert('There was a problem with OpenCPU.', 'alert-danger');
 			return false;
 		} else {
+			
 			$opencpu_url = $session->getLocation();
-		}
 
-		if($email_embed) {
-			$report = array(
-				'body' => $session->getObject(),
-				'images' => $session->getFiles('/figure-html/'),
-			);
-		} else {
-			$report = $session->getJSONObject();
-		}
+			if($email_embed) {
+				$report = array(
+					'body' => $session->getObject(),
+					'images' => $session->getFiles('/figure-html/'),
+				);
+			} else {
+				$report = $session->getJSONObject();
+			}
 
-		if($this->session_id) {
-			try {
-				$set_report = $this->dbh->prepare("
-					INSERT INTO `survey_reports` (`session_id`, `unit_id`, `opencpu_url`, `created`, `last_viewed`) 
+			if($this->session_id) {
+				$set_report = $this->dbh->prepare(
+				"INSERT INTO `survey_reports` (`session_id`, `unit_id`, `opencpu_url`, `created`, `last_viewed`) 
 					VALUES  (:session_id, :unit_id, :opencpu_url,  NOW(), 	NOW() ) 
 					ON DUPLICATE KEY UPDATE opencpu_url = VALUES(opencpu_url), created = VALUES(created)");
 
@@ -591,12 +592,10 @@ class RunUnit {
 					$set_report->bindParam(":opencpu_url", $opencpu_url);
 					$set_report->bindParam(":session_id", $this->session_id);
 					$set_report->execute();
-			} catch (Exception $e) {
-				log_exception($e, __CLASS__);
 			}
-		}
 
-		return $report;
+			return $report;
+		}
 	}
 
 }

@@ -274,7 +274,16 @@
 					},
 					initSelection:function(element, callback)
 					{
-						var data = {id: element.val(), text: element.val()};
+						var data;
+						if(!!slct.data('select2multiple')) {
+							var intermed = element.val().split(",");
+							data = [];
+							for(var e = 0; e < intermed.length; e++) {
+								data.push( {id: intermed[e], text: intermed[e] } );
+							}
+						} else {
+							data = {id: element.val(), text: element.val()};
+						}
 						$.each(slctdata, function(k, v) {
 							if(v.id === element.val()) {
 								data = v;

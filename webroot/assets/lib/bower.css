@@ -6797,7 +6797,7 @@ button.close {
     display: none !important;
   }
 }
-;/*!
+/*!
  *  Font Awesome 4.3.0 by @davegandy - http://fontawesome.io - @fontawesome
  *  License - http://fontawesome.io/license (Font: SIL OFL 1.1, CSS: MIT License)
  */
@@ -9512,7 +9512,7 @@ html[dir="rtl"] .select2-container-multi .select2-search-choice-close {
         background-position: 100% -21px !important;
     }
 }
-;/*
+/*
 @media (max-width: 970px) { 
 	header.study-header, .maincontent, .container, .navbar-static-top .container, .navbar-fixed-top .container, .navbar-fixed-bottom .container
 	{
@@ -9542,12 +9542,6 @@ label
     border:0;
     border-radius:0;
 }
-.main_body>.row> .run_dialog
-{
-    background-color: white;
-	background-color:rgba(255,255,255,0.7);
-}
-
 
 .broken_tape
 {
@@ -9628,6 +9622,10 @@ label
 {
     height:100%;
     max-height:716px;
+    background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,0)), to(rgba(255,255,255,1))), url("../img/boombox_dials.jpg");
+    background-image: -webkit-linear-gradient(rgba(255,255,255,0), rgba(255,255,255,1)), url("../img/boombox_dials.jpg");
+    background-image: -o-linear-gradient(rgba(255,255,255,0), rgba(255,255,255,1)), url("../img/boombox_dials.jpg");
+    background-image: linear-gradient(rgba(255,255,255,0),rgba(255,255,255,1)), url("../img/boombox_dials.jpg");
 }
 .drop_shadow
 {
@@ -9640,19 +9638,27 @@ label
 .drop_shadow small {
     color:black;
 }
-.admin_sidebar, .transparent_well
+
+.admin_sidebar
 {
     background-color:white;
     background-color:rgba(255,255,255,0.4);
-    border:0;
-    -webkit-box-shadow:none;
-            box-shadow:none;
+}
+.transparent_well
+{
+    background-color:white;
+    background-color:rgba(255,255,255,0.6);
 }
 .transparent_well .panel-heading, .well .panel-default
 {
     background-color:white;
     background-color:rgba(255,255,255,0.2);
 }
+.transparent_well small
+{
+	color:black;
+}
+
 .formr-jumbo
 {
  background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255,0.7)), to(rgba(255,255,255,0.7))), url("../img/boombox_innards.jpg");
@@ -9683,10 +9689,9 @@ kbd {
     -webkit-box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2), 0 0 0 1px #FFFFFF inset;
             box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2), 0 0 0 1px #FFFFFF inset;
     color: #444444;
-    display: inline-block;
     font-family: 'Helvetica Neue',Helvetica,Arial,Sans-serif;
     font-weight: bold;
-    margin-bottom: 5px;
+	font-size: 11px;
     padding: 2px 6px;
     white-space: nowrap;
 }

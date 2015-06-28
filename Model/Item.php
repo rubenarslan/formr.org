@@ -1765,7 +1765,7 @@ class Item_mc_heading extends Item_mc {
 
 	protected function render_label() {
 		return '<div class="' . implode(" ", $this->classes_label) . '">' .
-					($this->error ? '<span class="label label-danger hastooltip" title="' . $this->error . '"><i class="fa fa-exclamation-triangle"></i></span> ' : '') . $this->label . 
+					($this->error ? '<span class="label label-danger hastooltip" title="' . $this->error . '"><i class="fa fa-exclamation-triangle"></i></span> ' : '') . $this->label_parsed . 
 				'<input type="hidden" name="'.$this->name.'" value="1"></div>
 		';
 	}

@@ -387,6 +387,8 @@ function stringBool($x) {
 		return 'null';
 	} elseif ($x === 0) {
 		return '0';
+	} elseif(is_array($x) AND empty($x)) {
+		return "NA";
 	}
 
 	return $x;
@@ -891,6 +893,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 		if ($session->hasError()) {
 			throw new OpenCPU_Exception($session->getError());
 		}
+		
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		notify_user_error($e, "There was a problem dynamically evaluating a value using openCPU.");
@@ -1024,7 +1027,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null) {
 			if ($session->hasError()):
 				$debug['Response'] = pre_htmlescape($session->getError());
 			else:
-				$debug['Response'] = stringBool($session->getObject());
+				$debug['Response'] = stringBool($session->getObject('text'));
 			endif;
 			$debug['Request'] = pre_htmlescape((string) $session->getRequest());
 			$urls = $session->getResponsePathsAsLinks();

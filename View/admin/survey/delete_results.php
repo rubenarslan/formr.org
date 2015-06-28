@@ -3,40 +3,43 @@
 	Template::load('acp_nav');
 ?>
 <div class="row">
-	<div class="col-lg-5 col-md-6 col-sm-8 well">
+	<div class="col-lg-6 col-md-6 col-sm-8 ">
+		
+		<div class="transparent_well col-md-12" style="padding-bottom: 20px;">
 
-	<h2>Results <small>
-			<?=(int)$resultCount['finished']?> complete,
-			<?=(int)$resultCount['begun']?> begun
-	</small></h2>
-	<?php
-	if(isset($msg)) echo '<div class="alert '.$alertclass.' span6">'.$msg.'</div>';
+			<h2>Results <small>
+					<?=(int)$resultCount['finished']?> complete,
+					<?=(int)$resultCount['begun']?> begun
+			</small></h2>
+			<?php
+			if(isset($msg)) echo '<div class="alert '.$alertclass.' span6">'.$msg.'</div>';
 
-	if((int)$resultCount['finished'] > 10)
-		echo '<div class="alert alert-warning span6">
-			<h3>Warning!</h3>
-	Please <a href="'.WEBROOT.'survey/'.$study->name.'/show_results">review the existing results</a> before deleting them.</div>';
-	?>
-	<form method="post" action="<?=WEBROOT?>admin/survey/<?=$study->name?>/delete_results">
-		<div class="form-group">
-			<label class="control-label" for="delete_confirm" title="this is required to avoid accidental deletions">Type the study's name to confirm deletion of results:</label>
-			<div class="controls">
-				<div class="input-group">
-				  <span class="input-group-addon"><i class="fa fa-pencil-square"></i></span>
-		  			<input class="form-control" required name="delete_confirm" id="delete_confirm" type="text" placeholder="survey name (see up left)"></label>
+			if((int)$resultCount['finished'] > 10)
+				echo '<div class="alert alert-warning span6">
+					<h3>Warning!</h3>
+			Please <a href="'.WEBROOT.'survey/'.$study->name.'/show_results">review the existing results</a> before deleting them.</div>';
+			?>
+			<form method="post" action="<?=WEBROOT?>admin/survey/<?=$study->name?>/delete_results">
+				<div class="form-group">
+					<label class="control-label" for="delete_confirm" title="this is required to avoid accidental deletions">Type the study's name to confirm deletion of results:</label>
+					<div class="controls">
+						<div class="input-group">
+						  <span class="input-group-addon"><i class="fa fa-pencil-square"></i></span>
+				  			<input class="form-control" required name="delete_confirm" id="delete_confirm" type="text" placeholder="survey name (see up left)"></label>
+						</div>
+					</div>
 				</div>
-			</div>
-		</div>
 	
-		<div class="form-group small-left">
-			<div class="controls">
-				<button name="delete" class="btn btn-default btn-danger hastooltip" title="Delete all results permanently" type="submit"><i class="fa fa-eraser fa-fw"></i> Delete <?= ($resultCount['begun']+$resultCount['finished'])?> results</button>
-			</div>
-		</div>
+				<div class="form-group small-left">
+					<div class="controls">
+						<button name="delete" class="btn btn-default btn-danger hastooltip" title="Delete all results permanently" type="submit"><i class="fa fa-eraser fa-fw"></i> Delete <?= ($resultCount['begun']+$resultCount['finished'])?> results</button>
+					</div>
+				</div>
 	
 	
-	</form>
+			</form>
 
+		</div>
 	</div>
 </div>
 

@@ -28,12 +28,6 @@ label
     border:0;
     border-radius:0;
 }
-.main_body>.row> .run_dialog
-{
-    background-color: white;
-	background-color:rgba(255,255,255,0.7);
-}
-
 
 .broken_tape
 {
@@ -109,6 +103,7 @@ label
 {
     height:100%;
     max-height:716px;
+    background-image: linear-gradient(rgba(255,255,255,0),rgba(255,255,255,1)), url("../img/boombox_dials.jpg");
 }
 .drop_shadow
 {
@@ -121,18 +116,27 @@ label
 .drop_shadow small {
     color:black;
 }
-.admin_sidebar, .transparent_well
+
+.admin_sidebar
 {
     background-color:white;
     background-color:rgba(255,255,255,0.4);
-    border:0;
-    box-shadow:none;
+}
+.transparent_well
+{
+    background-color:white;
+    background-color:rgba(255,255,255,0.6);
 }
 .transparent_well .panel-heading, .well .panel-default
 {
     background-color:white;
     background-color:rgba(255,255,255,0.2);
 }
+.transparent_well small
+{
+	color:black;
+}
+
 .formr-jumbo
 {
  background-image: linear-gradient(rgba(255,255,255,0.7),rgba(255,255,255,0.7)), url("../img/boombox_innards.jpg");
@@ -159,10 +163,9 @@ kbd {
     border-width: 1px 1px medium;
     box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2), 0 0 0 1px #FFFFFF inset;
     color: #444444;
-    display: inline-block;
     font-family: 'Helvetica Neue',Helvetica,Arial,Sans-serif;
     font-weight: bold;
-    margin-bottom: 5px;
+	font-size: 11px;
     padding: 2px 6px;
     white-space: nowrap;
 }

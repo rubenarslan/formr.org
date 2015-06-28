@@ -11,7 +11,9 @@ Template::load('header', array('js' => $js));
 Template::load('acp_nav');
 ?>
 <div class="row">
-	<div class="col-lg-6 col-md-8 col-sm-9 col-lg-offset-1 well">
+	<div class="col-lg-7 col-sm-8 col-md-9">
+		
+		<div class="transparent_well col-md-12" style="padding-bottom: 20px;">
 		<form class="dropzone" enctype="multipart/form-data"  id="upload_files" name="upload_files" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name;?>/upload_files">
 
 	<h2><i class="fa fa-file"></i> Upload files</h2>
