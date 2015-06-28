@@ -494,6 +494,17 @@ class Item extends HTML_element {
 		endif;
 	}
 
+	protected function setChoiceListFromOptions() {
+		if (!$this->type_options_array) {
+			return;
+		}
+
+		$lc = explode(' ', trim(end($this->type_options_array)));
+		$choice_list = count($lc) > 1 ? end($lc) : null;
+		$this->choice_list = $choice_list;
+		return $this->choice_list;
+	}
+
 }
 
 class Item_text extends Item {
@@ -571,6 +582,7 @@ class Item_number extends Item {
 		$this->classes_input[] = 'form-control';
 		if (isset($this->type_options) AND trim($this->type_options) != "") {
 			$this->type_options_array = explode(",", $this->type_options, 3);
+			$this->setChoiceListFromOptions();
 
 			$min = trim(reset($this->type_options_array));
 			if (is_numeric($min) OR $min === 'any') {
@@ -619,6 +631,7 @@ class Item_number extends Item {
 				$this->mysql_field = str_replace("INT", "BIGINT", $this->mysql_field);
 			endif;
 
+			// FIXME: why not use is_int()? why casting to int before strlen?
 			if ((string) (int) $this->input_attributes['step'] != $this->input_attributes['step']): // step is integer?
 				$before_point = max(strlen((int) $this->input_attributes['min']), strlen((int) $this->input_attributes['max'])); // use decimal with this many digits
 				$after_point = strlen($this->input_attributes['step']) - 2;
@@ -666,9 +679,7 @@ class Item_range extends Item_number {
 		$this->upper_text = next($this->choices);
 		parent::setMoreOptions();
 
-		$this->classes_input = array_diff(
-				$this->classes_input, array('form-control')
-		);
+		$this->classes_input = array_diff($this->classes_input, array('form-control'));
 	}
 
 	protected function render_input() {
@@ -687,7 +698,7 @@ class Item_range extends Item_number {
 class Item_range_ticks extends Item_number {
 
 	public $type = 'range_ticks';
-	public $input_attributes = array('type' => 'range');
+	public $input_attributes = array('type' => 'range', 'step' => 1);
 	protected $hasChoices = true;
 
 	protected function setMoreOptions() {
@@ -1380,9 +1391,7 @@ class Item_rating_button extends Item_mc_button {
 		 * So get labels from choice list which should be gotten from last item in options array
 		 */
 		if (!$this->choices) {
-			$lc = explode(' ', trim(end($this->type_options_array)));
-			$choice_list = end($lc);
-			$this->choice_list = $choice_list;
+			$this->choice_list = $this->setChoiceListFromOptions();
 		}
 
 		$this->lower_text = current($this->choices);

@@ -141,14 +141,13 @@ function debug($string) {
 	}
 }
 
-function pr($string) {
-	if (DEBUG > 0) {
+function pr($string, $log = false) {
+	if (DEBUG > 0 && !$log) {
 		echo "<pre>";
 		var_dump($string);
-#		print_r(	debug_backtrace());
 		echo "</pre>";
 	} else {
-		formr_log($string);
+		formr_log(print_r($string, true));
 	}
 }
 
