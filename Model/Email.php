@@ -84,7 +84,7 @@ class Email extends RunUnit {
 	private function getSubject() {
 		if ($this->subject_parsed === NULL):
 			if ($this->knittingNeeded($this->subject)):
-				if ($this->session_id):
+				if ($this->run_session_id):
 					$this->subject_parsed = $this->getParsedText($this->subject);
 				else:
 					return false;
@@ -247,7 +247,7 @@ class Email extends RunUnit {
 			endforeach;
 
 			if (!$mail->Send()):
-				alert('Email with the subject ' . $this->subject . ' was not sent to ' . $this->recipient . ':<br>' . $mail->ErrorInfo, 'alert-danger');
+				alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
 			else:
 				$this->mail_sent = true;
 				$this->logMail();
@@ -260,7 +260,7 @@ class Email extends RunUnit {
 				alert('Email body empty or could not be dynamically generated.', 'alert-danger');
 			endif;
 			if($mail->Subject === false):
-				alert('Email subject empty could not be dynamically generated.', 'alert-danger');
+				alert('Email subject empty or could not be dynamically generated.', 'alert-danger');
 			endif;
 		endif;
 		return $this->mail_sent;

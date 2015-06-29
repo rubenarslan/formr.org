@@ -32,22 +32,29 @@ class EmailAccount {
 	}
 
 	public function changeSettings($posted) {
+		$change_pw = "";
 		$this->account = $posted;
-		$query = "
-			UPDATE `survey_email_accounts` 
-			SET `from` = :fromm, `from_name` = :from_name, `host` = :host, `port` = :port, `tls` = :tls, `username` = :username, `password` = :password
-			WHERE id = :id LIMIT 1";
-
-		$this->dbh->exec($query, array(
+		
+		$params = array(
 			'id' => $this->id,
 			'fromm' => $this->account['from'],
 			'from_name' => $this->account['from_name'],
 			'host' => $this->account['host'],
 			'port' => $this->account['port'],
 			'tls' => $this->account['tls'],
-			'username' => $this->account['username'],
-			'password' => $this->account['password'],
-		));
+			'username' => $this->account['username']
+		);
+		
+		if(trim($posted['password']) != "") {
+			$change_pw = ", `password` = :password";
+			$params['password'] = $this->account['password'];
+		}
+		$query = 
+			"UPDATE `survey_email_accounts` 
+			SET `from` = :fromm, `from_name` = :from_name, `host` = :host, `port` = :port, `tls` = :tls, `username` = :username $change_pw
+			WHERE id = :id LIMIT 1";
+
+		$this->dbh->exec($query, $params);
 		return true;
 	}
 

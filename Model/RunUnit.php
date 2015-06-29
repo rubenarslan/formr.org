@@ -497,7 +497,7 @@ class RunUnit {
 		if (!$this->grabRandomSession()) {
 			return false;
 		}
-		return opencpu_debug(opencpu_knit($source));
+		return opencpu_debug(opencpu_knit($source, 'json', true));
 	}
 
 	public function getParsedBodyAdmin($source, $email_embed = false) {
