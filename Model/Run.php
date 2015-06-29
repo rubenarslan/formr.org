@@ -183,6 +183,8 @@ class Run {
 			'api_secret_hash' => $new_secret,
 			'cron_active' => 1,
 			'public' => 0,
+			'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
+			'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
 		));
 		$this->getServiceMessageId();
 
