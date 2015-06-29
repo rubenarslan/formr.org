@@ -45,7 +45,7 @@ class Page extends RunUnit {
 
 		if (isset($options['body'])) {
 			$this->body = $options['body'];
-			$this->title = $options['title'];
+//			$this->title = $options['title'];
 //			$this->can_be_ended = $options['end'] ? 1:0;
 			$this->can_be_ended = 0;
 		}
@@ -68,8 +68,9 @@ class Page extends RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
-		$dialog = '<p><input class="form-control col-md-5" type="text" placeholder="Page title" name="title" value="' . h($this->title) . '" placeholder="Title"></p>
-		<p><label>Text: <br>
+		$dialog = 
+		//	'<p><input class="form-control col-md-5" type="text" placeholder="Page title" name="title" value="' . h($this->title) . '" placeholder="Title"></p>'.
+		'<p><label>Feedback text: <br>
 			<textarea data-editor="markdown" style="width:388px;" placeholder="You can use Markdown" name="body" rows="10" cols="60" class="form-control col-md-5">' . h($this->body) . '</textarea></label></p>';
 #			'<p><input type="hidden" name="end" value="0"><label><input type="checkbox" name="end" value="1"'.($this->can_be_ended ?' checked ':'').'> allow user to continue after viewing page</label></p>';
 		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Page">Save.</a>
@@ -105,7 +106,7 @@ class Page extends RunUnit {
 		}
 
 		return array(
-			'title' => $this->title,
+//			'title' => $this->title,
 			'body' => $this->body_parsed
 		);
 	}

@@ -271,7 +271,6 @@ class Pause extends RunUnit {
 				return true; // openCPU errors
 			}
 			return array(
-				'title' => 'Pause',
 				'body' => $body
 			);
 		}

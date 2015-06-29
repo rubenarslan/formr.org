@@ -97,7 +97,8 @@ class RunSession {
 			if ($i > 80) {
 				global $user;
 				if ($user->isCron() OR $user->isAdmin()) {
-					alert(print_r($unit, true), 'alert-danger');
+					if(isset($unit))
+						alert(print_r($unit, true), 'alert-danger');
 				}
 				alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?', 'alert-danger');
 				return false;
@@ -122,15 +123,7 @@ class RunSession {
 
 			} else {
 				if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
-					return array(
-						'title' => 'Nothing here.',
-						'body' => '<div class="broken_tape">
-							<div class="tape_label_box">
-								<div class="tape_label">
-										Oops. This study\'s creator forgot to give it a proper ending and now the tape\'s run out.
-									</div>
-								</div>
-							</div>'); // if that fails because the run is wrongly configured, return
+					return array('body' => ''); // if that fails because the run is wrongly configured, return nothing
 				}
 			}
 		endwhile;
@@ -249,7 +242,7 @@ class RunSession {
 		$select->bindParams(array('run_id' => $this->run_id, 'position' => $position));
 		$next = $select->fetch();
 		if (!$next) {
-			alert('Run ' . $this->run_name . ': Forgot a landing page', 'alert-danger');
+			alert('Run ' . $this->run_name . ': Oops, this study\'s creator forgot to give it a proper ending.', 'alert-danger');
 			return false;
 		}
 		return $this->runTo($next['position'], $next['unit_id']);

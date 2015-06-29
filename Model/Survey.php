@@ -596,10 +596,10 @@ class Survey extends RunUnit {
 
 			$this->renderNextItems();
 
-			return array('title' => null, 'body' => $this->render());
+			return array('body' => $this->render());
 		} catch (Exception $e) {
 			log_exception($e, __CLASS__);
-			return array('title' => null, 'body' => '');
+			return array( 'body' => '');
 		}
 	}
 
