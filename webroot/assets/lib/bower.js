@@ -17439,8 +17439,7 @@ the specific language governing permissions and limitations under the Apache Lic
 		});
 
 		hljs.initHighlighting();
-		$('.nav-tabs').stickyTabs();
-		$('.tab-content').stickyCollapsible();
+		$('.nav-tabs, .tab-content').stickyStuff();
 
 		// Higlight current menu item
 		$('ul.menu-highlight a').each(function() {
@@ -17529,79 +17528,42 @@ function toggleElement(id) {
 }
 
 /**
- * jQuery Plugin: Sticky Tabs
+ * jQuery Plugin: Sticky Accordion and Tabs
  *
- * @author Aidan Lister <aidan@php.net>
- * @version 1.0.0
  */
 (function($) {
 	"use strict";
-	$.fn.stickyTabs = function() {
+	$.fn.stickyStuff = function() {
 		var context = this;
-		// Show the tab corresponding with the hash in the URL, or the first tab.
-		var showTabFromHash = function() {
+		// Show the tab/collapsible corresponding with the hash in the URL, or the first tab (if the collapsible is inside a tab, show that too).
+		var showStuffFromHash = function() {
 			var hash = window.location.hash;
 			var selector = hash ? 'a[href="' + hash + '"]' : 'li.active > a';
-			$(selector, context).tab('show');
-		};
-
-		// Set the correct tab when the page loads
-		showTabFromHash(context);
-
-		// Set the correct tab when a user uses their back/forward button
-		window.addEventListener('hashchange', showTabFromHash, false);
-
-		// Change the URL when tabs are clicked
-		$('a', context).on('click', function(e) {
-			history.pushState(null, null, this.href);
-		});
-
-		return this;
-	};
-}(jQuery));
-
-/**
- * jQuery Plugin: Sticky Accordion
- *
- */
-(function($) {
-	"use strict";
-	$.fn.stickyCollapsible = function() {
-		var context = this;
-
-		// Show the tab corresponding with the hash in the URL, or the first tab.
-		var showCollapsibleFromHash = function() {
-			var hash = window.location.hash;
-			if (hash) {
-				var tab = hash;
-				/*				$(context).on('shown.bs.collapse', function(e) {
-				 var offset = $('.panel.panel-default > .panel-collapse.in', context).offset();
-				 if (offset) {
-				 console.log(offset);
-				 $('html').animate({
-				 scrollTop: offset + 66
-				 }, 500);
-				 }
-				 });
-				 */
-				var parent_tab = $(tab, context).parents('.tab-pane');
+			if($(selector, context).data('toggle') === "tab") {
+				$(selector, context).tab('show');
+			} else if($(selector, context).data('toggle') === "collapse") {
+				var collapsible = hash;
+				$(collapsible, context).collapse("show");
+				var parent_tab = $(collapsible, context).parents('.tab-pane');
 				if (parent_tab && !parent_tab.hasClass("active")) {
 					$('a[href=#' + parent_tab.attr('id') + ']').tab('show');
 				}
-				if (!$(tab, context).hasClass('active'))
-					$(tab, context).collapse("show");
 			}
 		};
+		
 
 		// Set the correct tab when the page loads
-		showCollapsibleFromHash(context);
+		showStuffFromHash(context);
 
 		// Set the correct tab when a user uses their back/forward button
-		window.addEventListener('hashchange', showCollapsibleFromHash, false);
+		$(window).on('hashchange', function() {
+			showStuffFromHash(context);
+		});
 
 		// Change the URL when tabs are clicked
 		$('a', context).on('click', function(e) {
 			history.pushState(null, null, this.href);
+			showStuffFromHash(context);
 		});
 
 		return this;
