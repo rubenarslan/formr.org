@@ -443,7 +443,7 @@ class RunUnit {
 		foreach($matches AS $study_id => $table_name):
 
 			// generate a search set of variable names for each study
-			if(in_array($table_name, $this->non_user_tables)) {
+			if(array_key_exists($table_name, $this->non_user_tables)) {
 				$variable_names_in_table[$table_name] = $this->non_user_tables[$table_name];
 			} else {
 				$items = $fdb->select('name')->from('survey_items')
