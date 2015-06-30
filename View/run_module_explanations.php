@@ -126,7 +126,7 @@
 					Example 2: <small>email to yourself</small>
 				</h5>
 				<p>
-					A simple one-shot survey with feedback. Let's say your run contains
+					A simple one-shot survey after which you receive a notification.
 				</p>
 				<ul class="fa-ul">
 					<li>
@@ -143,7 +143,7 @@
 					What would happen?
 				</h5>
 				<p>
-					A participant fills out your survey. After completing it, they see the thank you note at pos. 3. Before they see the page marked by the stop point, an email is sent off to <em>youremailaddress@example.org</em> - this way you (or whoever's email address you use here) would get an email notification for every notification. This might be helpful in longitudinal surveys where experimenter intervention is required to e.g. set up a phone interview.
+					A participant fills out your survey. After completing it, they see the thank you note at pos. 30. Before they see the page marked by the stop point, an email is sent off to <em>youremailaddress@example.org</em> - this way you (or whoever's email address you use here) would get an email notification for every notification. This might be helpful in longitudinal surveys where experimenter intervention is required to e.g. set up a phone interview or in a clinical study where you want to do a structured interview after a screening task.
 				</p>
 				<p>
 					See the  <a href="<?=site_url("public/documentation#knitr_markdown") ?>">Knitr &amp; Markdown</a> section to find out how to generate personalised emails, which contain feedback, including plots. In the <a href="<?=site_url("public/documentation#skip_backward") ?>">next section</a>, you'll learn how to use the email module for invitations in a diary study.
@@ -167,7 +167,7 @@
 					This way, you can create a <strong>loop</strong>. Loops, especially in combination with reminder emails are useful for <strong>diary</strong>, <strong>training</strong>, and <strong>experience sampling</strong> studies.<br>
 				</p>
 				<p>
-					The condition is specified in R and all necessary survey data is automatically available. The simplest condition would be <code>TRUE</code> – always skip back, no matter what. A slightly more complex one is <code>nrow(diary) &lt; 14</code>, this means that the diary must have been filled out at least fourteen times. Even more complex: <code>nrow(diary) &lt; 14</code> | !time_passed(days = 20, time = first(diary$created)), this means that at least 20 days must have passed since the first diary was done and that at least 14 diaries must have been filled out. But any complexity is possible, as shown in Example 2.
+					The condition is specified in R and all necessary survey data is automatically available. The simplest condition would be <code>TRUE</code> – always skip back, no matter what. A slightly more complex one is <code>nrow(diary) &lt; 14</code>, this means that the diary must have been filled out at least fourteen times. Even more complex: <code>nrow(diary) &lt; 14 | !time_passed(days = 20, time = first(diary$created))</code>, this means that at least 20 days must have passed since the first diary was done and that at least 14 diaries must have been filled out. But any complexity is possible, as shown in Example 2.
 				</p>
 				<h5>
 					Example 1:

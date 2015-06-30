@@ -1,6 +1,6 @@
 <h3>Item types</h3>
 There are a lot of item types, in the beginning you will probably only need a few though. To see them in action,
-try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.xlsx">downloadable Excel file</a>. It contains example uses of nearly every item there is.
+try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.xlsx">downloadable Excel file</a> or <a href="<?=site_url('widgets')?>">fill it out yourself</a>. It contains example uses of nearly every item there is.
 	<h4><i class="fa fa-fw fa-info"></i> Plain display types</h4>
 	<dl class="dl-horizontal dl-wider">
 		<dt>

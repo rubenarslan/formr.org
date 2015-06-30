@@ -8,7 +8,7 @@
 	<div class="col-lg-10 col-md-10 col-sm-9 main_body">
 
 <div class="row">
-	<div class="col-md-8 col-lg-offset-1 well">
+	<div class="col-md-8 col-lg-offset-1 transparent_well">
 
 		<h2><i class="fa fa-pencil-square"></i> Create new survey &amp; upload item table</h2>
 		<p>Please keep this in mind when uploading surveys</p>
