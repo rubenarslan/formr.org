@@ -7,6 +7,8 @@ class OpenCPU {
 	protected $last_message = null;
 	protected $rLibPath = '/usr/local/lib/R/site-library';
 
+	const STRING_DELIMITER = " ========== formr_opencpu_string_delimiter ========== ";
+
 	/**
 	 * @var OpenCPU[]
 	 */

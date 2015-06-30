@@ -141,14 +141,13 @@ function debug($string) {
 	}
 }
 
-function pr($string) {
-	if (DEBUG > 0) {
+function pr($string, $log = false) {
+	if (DEBUG > 0 && !$log) {
 		echo "<pre>";
 		var_dump($string);
-#		print_r(	debug_backtrace());
 		echo "</pre>";
 	} else {
-		formr_log($string);
+		formr_log(print_r($string, true));
 	}
 }
 
@@ -1008,8 +1007,51 @@ $source;
 	return opencpu_knit2html($source, $return_format, 0, $return_session);
 }
 
-function opencpu_string_key($string) {
-	return ':{' . md5($string) . '}';
+function opencpu_string_key($index) {
+	return 'formr-ocpu-label-' . $index;
+}
+
+function opencpu_string_key_parsing($strings) {
+	$ret = array();
+	foreach ($strings as $index => $string) {
+		$ret['formr-ocpu-label-' . $index] = $string;
+	}
+	return $ret;
+}
+
+/**
+ * Parse a bulk of strings in ocpu
+ *
+ * @param array $string_templates An array of strings to be parsed
+ * @param array $string_variables An array containing variable definitions needed to parse strings
+ * @return array Returns an array of parsed labels indexed by the label-key to be substituted
+ */
+function opencpu_multistring_parse(array $string_templates, array $string_variables = null) {
+	$markdown = '';
+	if ($string_variables) {
+		$markdown .= implode("\n", array_filter($string_variables)) . "\n";
+	}
+	$markdown .= implode(OpenCPU::STRING_DELIMITER, $string_templates);
+	$parsed_strings = opencpu_knitdisplay($markdown, '');
+	$strings = explode(OpenCPU::STRING_DELIMITER, remove_tag_wrapper($parsed_strings));
+	return opencpu_string_key_parsing($strings);
+}
+
+/**
+ * Substitute parsed strings in the collection of items that were sent for parsing
+ * This function does not return anything as the collection of items is passed by reference
+ *
+ * @param array $array An array of data contaning label templates
+ * @param array $parsed_strings An array of parsed labels
+ */
+function opencpu_substitute_parsed_strings (array &$array, array $parsed_strings) {
+	foreach ($array as $key => $value) {
+		if (is_array($array[$key])) {
+			opencpu_substitute_parsed_strings($array[$key], $parsed_strings);
+		} elseif (isset($parsed_strings[$value])) {
+			$array[$key] = $parsed_strings[$value];
+		}
+	}
 }
 
 function opencpu_debug($session, OpenCPU $ocpu = null) {
@@ -1083,4 +1125,11 @@ function shutdown_formr_org() {
 		Template::load('public/not_found');
 		exit(0);
 	}
+}
+
+function remove_tag_wrapper($text, $tag = 'p') {
+	if (preg_match("@^<{$tag}>(.+)</{$tag}>$@", trim($text), $matches)) {
+		$text = isset($matches[1]) ? $matches[1] : $text;
+	}
+	return $text;
 }

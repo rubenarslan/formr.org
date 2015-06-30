@@ -307,6 +307,11 @@ class RunUnit {
 	 * @return array
 	 */
 	public function getUserDataInRun($needed) {
+		$cache_key = Cache::makeKey($needed, $this->session_id, $this->run_session_id);
+		if (($data = Cache::get($cache_key))) {
+			return $data;
+		}
+
 		$surveys = $needed['matches'];
 		$results_tables = $needed['matches_results_tables'];
 		$matches_variable_names = $needed['matches_variable_names'];
@@ -394,6 +399,7 @@ class RunUnit {
 			$this->survey_results['datasets'][$needed['token_add']] = array();
 		endif;
 
+		Cache::set($cache_key, $this->survey_results);
 		return $this->survey_results;
 	}
 
@@ -405,8 +411,13 @@ class RunUnit {
 	}
 
 	public function dataNeeded($fdb, $q, $token_add = NULL) {
+		$cache_key = Cache::makeKey($q, $token_add);
+		if (($data = Cache::get($cache_key))) {
+			return $data;
+		}
+
 		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
-		
+
 		$results = $this->run->getAllSurveys();
 
 		// also add some "global" formr tables
@@ -481,7 +492,9 @@ class RunUnit {
 		if(preg_match('/\b.formr\$login_code\b/',$q)) { $variables[] = 'formr_login_code'; }
 		if(preg_match('/\b.formr\$login_link\b/',$q)) { $variables[] = 'formr_login_link'; }
 
-		return compact("matches","matches_results_tables", "matches_variable_names", "token_add", "variables");
+		$data = compact("matches","matches_results_tables", "matches_variable_names", "token_add", "variables");
+		Cache::set($cache_key, $data);
+		return $data;
 	}
 
 	public function parseBodySpecial() {

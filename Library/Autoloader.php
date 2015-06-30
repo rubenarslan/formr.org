@@ -23,6 +23,7 @@ class Autoload {
 			'AdminSurveyController' => INCLUDE_ROOT . 'Controller/AdminSurveyController.php',
 			'ApiController' => INCLUDE_ROOT . 'Controller/ApiController.php',
 			'Branch' => INCLUDE_ROOT . 'Model/Branch.php',
+			'Cache' => INCLUDE_ROOT . 'Library/Cache.php',
 			'Config' => INCLUDE_ROOT . 'Library/Config.php',
 			'Controller' => INCLUDE_ROOT . 'Controller/Controller.php',
 			'CURL' => INCLUDE_ROOT . 'Library/CURL.php',
