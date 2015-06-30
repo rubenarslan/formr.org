@@ -72,3 +72,5 @@ $settings['define_root'] = array(
     //'online' => false,
     //'testing' => true
 );
+
+$settings['referrer_codes'] = array();

@@ -98,7 +98,7 @@ class PublicController extends Controller {
 		}
 
 		if($site->request->str('email')) {
-			if($user->register($site->request->str('email'), $site->request->str('password'))) {
+			if($user->register($site->request->str('email'), $site->request->str('password'), $site->request->str('referrer_code'))) {
 				alert('<strong>Success!</strong> You were registered and logged in!','alert-success');
 				redirect_to('index');
 			} else {
