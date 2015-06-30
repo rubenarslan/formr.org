@@ -285,44 +285,31 @@ class Survey extends RunUnit {
 						->order('id', 'ASC')->fetchAll();
 
 		$choice_lists = array();
+		$strings_to_parse = $strings_to_parse_vars = array();
 		foreach ($items as $row) {
 			if (!isset($choice_lists[$row['list_name']])) {
 				$choice_lists[$row['list_name']] = array();
 			}
 
-			// FixMe:
-			// - Because were not using this much yet, I haven't really made any effort to efficiently only calculate this when necessary
-			// - Maybe gather all labels and send in a 'box' and opencpu returns parsed labels in same box
+			// Gather and save labels that need parsing along side neccessary variables for ocpu
 			if ($row['label_parsed'] === null) {
 				$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $row['label']));
-				/*
-				 * @todo group strings to parse and send in one request. Labels should be replaced with keys
-				 * $opencpu_key = opencpu_string_key($row['label']);
-				 * $this->strings_to_parse[$opencpu_key] = array('key' => $opencpu_key, 'string' => $row['label'], 'data' => $opencpu_vars);
-				 */
-				$markdown = opencpu_knitdisplay($row['label'], $opencpu_vars);
 
-				if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)): // simple wraps are eliminated
-					$row['label_parsed'] = $matches[1];
-				else:
-					$row['label_parsed'] = $markdown;
-				endif;
+				$row['label_parsed'] = opencpu_string_key(count($strings_to_parse));
+				$strings_to_parse_vars[] = opencpu_define_vars($opencpu_vars);
+				$strings_to_parse[] = $row['label'];
 			}
 
 			$choice_lists[$row['list_name']][$row['name']] = $row['label_parsed'];
 		}
 
-		/*
-		 * @todo process string bulk sent in one request. Show an error if parsing label fails on opencpu side and just indicate here
-		 * $parsed_labels = (array) opencpu_parse_labels($this->strings_to_parse);
-		 * foreach ($choice_lists as $list_name => $list_items) {
-		 * 	foreach ($list_items as $name => $label) {
-		 * 		if (isset($parsed_labels[$label])) {
-		 * 			$choice_lists[$list_name][$name] = $parsed_labels[$label];
-		 * 		}
-		 * 	}
-		 * }
-		*/
+		// If there are string that need parsing, send them to opencpu and subsitute for each item in the list
+		if ($strings_to_parse) {
+			$parsed_strings = opencpu_multistring_parse($strings_to_parse, $strings_to_parse_vars);
+			// if strings are parsed successfully then replace them in the $choice_list array
+			opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
+		}
+
 		return $choice_lists;
 	}
 
