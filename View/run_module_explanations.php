@@ -365,9 +365,9 @@
 					How is this done? It's just a little tricky:<br>
 					The condition at pos. 30 says "if two weeks have passed". This is false directly after we sent the email.<br>
 					Therefore we set the second dropdown to "if user reacts" (usually it's set to "automatically").<br>
-					Now <a href="https://www.youtube.com/watch?v=rzgpu84nSoA#t=2m0s">if he doesn't answer</a> for two weeks, the condition will become true and the run will automatically jump to position 50, which is our email reminder (tentatively titled "Oh lover boy..."). We hope the participant clicks on the link in our invitation email before then though.<br>
+					Now <a href="https://www.youtube.com/watch?v=JVHVZksFRZg#t=0m39s">if he doesn't answer</a> for two weeks, the condition will become true and the run will automatically jump to position 50, which is our email reminder (tentatively titled "Oh lover boy..."). We hope the participant clicks on the link in our invitation email before then though.<br>
 					If he does, he will jump to the survey.<br>
-					<a href="https://www.youtube.com/watch?v=rzgpu84nSoA#t=2m3s">If he still doesn't answer</a>, we will patiently wait for another eight weeks. Again, if the condition is false (eight weeks have not passed) and the user reacts, he goes on to the survey. If the condition turns true, we <em>automatically</em> jump to position 70, which stands for waiting for the second wave, i.e. we gave up on getting a reaction in the first wave (but we still have "Baby, oh baby, My sweet baby, you're the one" up our sleeve).
+					<a href="https://www.youtube.com/watch?v=JVHVZksFRZg#t=0m43s">If he still doesn't answer</a>, we will patiently wait for another eight weeks. Again, if the condition is false (eight weeks have not passed) and the user reacts, he goes on to the survey. If the condition turns true, we <em>automatically</em> jump to position 70, which stands for waiting for the second wave, i.e. we gave up on getting a reaction in the first wave (but we still have "Baby, oh baby, My sweet baby, you're the one" up our sleeve).
 				</p>
 			</div>
 		</div>
