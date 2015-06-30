@@ -1026,15 +1026,20 @@ function opencpu_string_key_parsing($strings) {
  * @param array $string_variables An array containing variable definitions needed to parse strings
  * @return array Returns an array of parsed labels indexed by the label-key to be substituted
  */
-function opencpu_multistring_parse(array $string_templates, array $string_variables = null) {
-	$markdown = '';
-	if ($string_variables) {
-		$markdown .= implode("\n", array_filter($string_variables)) . "\n";
+function opencpu_multistring_parse(array $string_templates, Survey $survey) {
+	$markdown = implode(OpenCPU::STRING_DELIMITER, $string_templates);
+	$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $markdown, $survey->name));
+	$session = opencpu_knitdisplay($markdown, $opencpu_vars, true);
+	if($session AND !$session->hasError()) {
+		$parsed_strings = $session->getJSONObject();
+		$strings = explode(trim(OpenCPU::STRING_DELIMITER_PARSED), $parsed_strings);
+		$strings = array_map("remove_tag_wrapper", $strings);
+		return opencpu_string_key_parsing($strings);
+	} else
+	{
+		alert(opencpu_debug($session));
+		return array();
 	}
-	$markdown .= implode(OpenCPU::STRING_DELIMITER, $string_templates);
-	$parsed_strings = opencpu_knitdisplay($markdown, '');
-	$strings = explode(OpenCPU::STRING_DELIMITER, remove_tag_wrapper($parsed_strings));
-	return opencpu_string_key_parsing($strings);
 }
 
 /**

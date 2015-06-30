@@ -293,10 +293,7 @@ class Survey extends RunUnit {
 
 			// Gather and save labels that need parsing along side neccessary variables for ocpu
 			if ($row['label_parsed'] === null) {
-				$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $row['label']));
-
 				$row['label_parsed'] = opencpu_string_key(count($strings_to_parse));
-				$strings_to_parse_vars[] = opencpu_define_vars($opencpu_vars);
 				$strings_to_parse[] = $row['label'];
 			}
 
@@ -305,7 +302,7 @@ class Survey extends RunUnit {
 
 		// If there are string that need parsing, send them to opencpu and subsitute for each item in the list
 		if ($strings_to_parse) {
-			$parsed_strings = opencpu_multistring_parse($strings_to_parse, $strings_to_parse_vars);
+			$parsed_strings = opencpu_multistring_parse($strings_to_parse, $this);
 			// if strings are parsed successfully then replace them in the $choice_list array
 			opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
 		}
