@@ -27,6 +27,7 @@ class Survey extends RunUnit {
 	public $result_count = 0;
 	private $confirmed_deletion = false;
 	public $item_factory = null;
+	protected $strings_to_parse = array();
 
 	/**
 	 * @var DB
@@ -285,7 +286,6 @@ class Survey extends RunUnit {
 						->order('id', 'ASC')->fetchAll();
 
 		$choice_lists = array();
-		$strings_to_parse = $strings_to_parse_vars = array();
 		foreach ($items as $row) {
 			if (!isset($choice_lists[$row['list_name']])) {
 				$choice_lists[$row['list_name']] = array();
@@ -293,18 +293,11 @@ class Survey extends RunUnit {
 
 			// Gather and save labels that need parsing along side neccessary variables for ocpu
 			if ($row['label_parsed'] === null) {
-				$row['label_parsed'] = opencpu_string_key(count($strings_to_parse));
-				$strings_to_parse[] = $row['label'];
+				$row['label_parsed'] = opencpu_string_key(count($this->strings_to_parse));
+				$this->strings_to_parse[] = $row['label'];
 			}
 
 			$choice_lists[$row['list_name']][$row['name']] = $row['label_parsed'];
-		}
-
-		// If there are string that need parsing, send them to opencpu and subsitute for each item in the list
-		if ($strings_to_parse) {
-			$parsed_strings = opencpu_multistring_parse($strings_to_parse, $this);
-			// if strings are parsed successfully then replace them in the $choice_list array
-			opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
 		}
 
 		return $choice_lists;
@@ -344,6 +337,13 @@ class Survey extends RunUnit {
 				->statement();
 
 		$choice_lists = $this->getAndRenderChoices();
+		// If there are string that need parsing, send them to opencpu and subsitute for each item in the list
+		if (!empty($this->strings_to_parse)) {
+			$parsed_strings = opencpu_multistring_parse($this->strings_to_parse, $this);
+			// if strings are parsed successfully then replace them in the $choice_list array
+			opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
+		}
+		
 		$this->item_factory = new ItemFactory($choice_lists);
 
 		while ($item_array = $get_items->fetch(PDO::FETCH_ASSOC)):
@@ -365,8 +365,8 @@ class Survey extends RunUnit {
 
 		$this->dbh->beginTransaction();
 
-		$view_query = "
-			INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created)
+		$view_query = 
+			"INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created)
 			VALUES(:item_id, :session_id, 0, NOW() ) 
 			ON DUPLICATE KEY UPDATE displaycount = displaycount + 1";
 		$view_update = $this->dbh->prepare($view_query);

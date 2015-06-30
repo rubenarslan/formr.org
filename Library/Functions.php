@@ -1037,7 +1037,7 @@ function opencpu_multistring_parse(array $string_templates, Survey $survey) {
 		return opencpu_string_key_parsing($strings);
 	} else
 	{
-		alert(opencpu_debug($session));
+		notify_user_error(opencpu_debug($session), "There was a problem dynamically knitting something to HTML using openCPU.");
 		return array();
 	}
 }
