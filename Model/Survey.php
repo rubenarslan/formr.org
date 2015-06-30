@@ -342,7 +342,7 @@ class Survey extends RunUnit {
 				->from('survey_items')
 				->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
 				->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS NULL)")
-				->order('survey_items.order', 'ASC')->order('survey_items.id', 'ASC')
+				->order('CAST(survey_items.`order` AS UNSIGNED)', 'asc')->order('survey_items.id', 'ASC')
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->statement();
 
@@ -810,8 +810,8 @@ class Survey extends RunUnit {
 		}
 
 		$UPDATES = implode(', ', get_duplicate_update_string($this->user_defined_columns));
-		$add_items = $this->dbh->prepare("
-			INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `order`) 
+		$add_items = $this->dbh->prepare(
+			"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `order`) 
 			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :order
 		) ON DUPLICATE KEY UPDATE $UPDATES");
 
@@ -1010,7 +1010,7 @@ class Survey extends RunUnit {
 		return $this->dbh->select($columns)
 						->from('survey_items')
 						->where(array('study_id' => $this->id))
-						->order('order', 'asc')->order('id', 'asc')
+						->order('CAST(`order` AS UNSIGNED)', 'asc')->order('id', 'asc')
 						->fetchAll();
 	}
 
@@ -1018,7 +1018,7 @@ class Survey extends RunUnit {
 		$get_items = $this->dbh->select('type, type_options, choice_list, name, label, optional, class, showif, value, order')
 				->from('survey_items')
 				->where(array('study_id' => $this->id))
-				->order('order', 'asc')->order('id', 'asc')
+				->order('CAST(`order` AS UNSIGNED)', 'asc')->order('id', 'asc')
 				->statement();
 
 		$results = array();
