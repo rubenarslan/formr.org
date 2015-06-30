@@ -11,6 +11,9 @@
 		<p>
 			<strong>Runs</strong> allow you to chain simple surveys, together with other modules: emails, branches, pauses, etc. You can make simple one-shot surveys with a pretty R-generated feedback plot at the end. You could use them for looped surveys: training studies, diaries or experience sampling. You can use them to permit access only to users who fulfill certain criteria.
 		</p>
+		<p>
+			<strong>Need help?</strong> You have <a href="<?=site_url('public/documentation#help')?>">several options</a>.
+		</p>
 		<div class="row">
 			<?php if ($studies): ?>
 			<div class="col-sm-6">

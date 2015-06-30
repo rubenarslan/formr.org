@@ -9512,6 +9512,9 @@ html[dir="rtl"] .select2-container-multi .select2-search-choice-close {
         background-position: 100% -21px !important;
     }
 }
+body {
+	margin-bottom:50px;
+}
 /*
 @media (max-width: 970px) { 
 	header.study-header, .maincontent, .container, .navbar-static-top .container, .navbar-fixed-top .container, .navbar-fixed-bottom .container
