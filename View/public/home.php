@@ -15,11 +15,15 @@
 		</div>
 		<div class="">
 			<ul class="nav nav-tabs">
-			  <li class="active"><a href="#options" data-toggle="tab">What can I do here?</a></li>
-			  <li><a href="#features" data-toggle="tab">What can formr do?</a></li>
+			  <li class="active"><a href="#features" data-toggle="tab">What can formr do?</a></li>
+			  <li><a href="#options" data-toggle="tab">What can I do here?</a></li>
 			</ul>
 			<div class="tab-content">
-				<div class="well tab-pane fade in active" id="options">
+				<div class="well tab-pane fade in active" id="features">
+					<?php Template::load('features'); ?>
+				</div>
+				
+				<div class="well tab-pane fade" id="options">
 					<ul class="fa-ul lead">
 						<li>
 							<i class="fa fa-li fa-pencil-square"></i> You can <a href="<?=WEBROOT?>public/studies">take some of the published studies for a test run</a>.
@@ -50,9 +54,6 @@ I'm affiliated with institution xxxx.
 							</ul>
 						</li>
 					</ul>
-				</div>
-				<div class="well tab-pane fade" id="features">
-					<?php Template::load('features'); ?>
 				</div>
 			</div>
 			

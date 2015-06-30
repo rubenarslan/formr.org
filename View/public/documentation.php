@@ -1,6 +1,6 @@
 <?php Template::load('header_nav'); ?>
 <div class="row">
-	<div class="col-md-offset-1  col-md-8">
+	<div class="col-lg-12">
 		<h2>formr documentation</h2>
 		<p class="lead">
 			chain simple forms into longer runs,
@@ -13,9 +13,10 @@
 	</div>
 </div>
 <div class="row">
-	<div class="col-md-offset-1 col-md-8">
+	<div class="col-lg-12">
 	
 		<ul class="nav nav-tabs">
+		  <li><a href="#knitr_markdown" data-toggle="tab">Knitr &amp; Markdown</a></li>
 		  <li><a href="#run_module_explanations" data-toggle="tab">Run modules</a></li>
 		  <li><a href="#sample_survey_sheet" data-toggle="tab">Survey spreadsheet</a></li>
 		  <li><a href="#sample_choices_sheet" data-toggle="tab">Choices spreadsheet</a></li>
@@ -25,8 +26,13 @@
 		</ul>
 	
 		<div class="tab-content">
+			<div class="tab-pane fade" id="knitr_markdown">
+				<?php Template::load('knitr_markdown'); ?>
+			</div>
 			<div class="tab-pane fade" id="run_module_explanations">
-				<?php Template::load('run_module_explanations'); ?>
+				<div class="col-lg-8 col-md-9">
+					<?php Template::load('run_module_explanations'); ?>
+				</div>
 			</div>
 			<div class="tab-pane fade" id="sample_survey_sheet">
                 <?php Template::load('sample_survey_sheet'); ?>
