@@ -6,7 +6,7 @@
         	"description": "Filter condition, those with true can go on",
         	"position": "10",
         	"special": "",
-        	"condition": "# filter_is_true",
+        	"condition": "survey1$variable == 1",
         	"automatically_jump": "1",
         	"if_true": "30",
         	"automatically_go_on": "1"
