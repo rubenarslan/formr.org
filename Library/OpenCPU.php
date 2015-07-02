@@ -387,7 +387,7 @@ class OpenCPU_Session {
 			}
 			return $json[0];
 		}
-		
+
 		return $json;	
 	}
 	
