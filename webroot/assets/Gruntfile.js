@@ -207,6 +207,7 @@ grunt.initConfig({
   // Default task(s).
   grunt.registerTask('default', ['bower','copy','jshint','bower_concat','concat','concat_css','uglify','csslint',"autoprefixer",'cssmin']);
   grunt.registerTask('build', ['copy','jshint','bower_concat','concat','concat_css','uglify','csslint',"autoprefixer",'cssmin']);
+  grunt.registerTask('quick', ['bower_concat','concat','concat_css','uglify',"autoprefixer",'cssmin']);
 //	grunt.registerTask('bowerinstall', ['bower']);
 };
 

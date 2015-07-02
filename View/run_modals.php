@@ -66,7 +66,7 @@
                 </div>
             <div class="modal-footer">
                 <button class="btn btn-success confirm-import" aria-hidden="true">Import</button>
-                <button class="btn cancel-export" data-dismiss="modal" aria-hidden="true">Close</button>
+                <button class="btn cancel-import" data-dismiss="modal" aria-hidden="true">Close</button>
             </div>
         </div>
     </div>

@@ -751,7 +751,7 @@ This study is currently being serviced. Please return at a later time."
 		if (!$start_position) {
 			$start_position = 0;
 		} else {
-			$start_position = (int) $start_position - 1;
+			$start_position = (int) $start_position - 10;
 		}
 		$json = json_decode($json_string);
 
@@ -784,7 +784,7 @@ This study is currently being serviced. Please return at a later time."
 					unset($unit->account_id);
 				}
 
-				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit, null, $run);
+				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit, null, $this);
 				$unitObj->create((array) $unit);
 				if ($unitObj->valid) {
 					$unitObj->addToRun($this->id, $unitObj->position, (array) $unit );
