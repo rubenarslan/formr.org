@@ -1316,8 +1316,10 @@ class Survey extends RunUnit {
 			</p>';
 //		elseif($studies):
 		} else {
-			$dialog .= '<br><p class="btn-group">
+			$dialog .= '<p>
+				<div class="btn-group">
 				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
+				</div>
 			</p>';
 		}
 

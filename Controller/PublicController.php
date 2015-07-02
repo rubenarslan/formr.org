@@ -69,7 +69,11 @@ class PublicController extends Controller {
 		if($this->request->str('email') && $this->request->str('password')) {
 			if($this->user->login($this->request->str('email'), $this->request->str('password'))){
 				alert('<strong>Success!</strong> You were logged in!', 'alert-success');
-				redirect_to('index');
+				if($this->user->isAdmin()) {
+					redirect_to('admin');
+				} else {
+					redirect_to('index');
+				}
 			} else {
 				alert(implode($this->user->errors), 'alert-danger');
 			}

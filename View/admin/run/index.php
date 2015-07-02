@@ -6,7 +6,7 @@ Template::load('acp_nav');
 ?>
 <div class="row">
 	<div class="col-lg-12">
-    <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?= WEBROOT ?>admin/run/<?= $run->name; ?>" data-units='<?php echo json_encode($run->getAllUnitIds()); ?>'>
+    <form class="form-horizontal edit_run form-inline" enctype="multipart/form-data" name="edit_run" method="post" action="<?= WEBROOT ?>admin/run/<?= $run->name; ?>" data-units='<?php echo json_encode($run->getAllUnitIds()); ?>'>
         <div class="col-md-8 transparent_well">
             <div class="row">
                 <div class="col-md-12">

@@ -357,7 +357,7 @@
 					method: 'POST',
 					data:
 							{
-								position: max + 1
+								position: max + 10
 							}
 				})
 				.done($.proxy(function (data)
@@ -470,10 +470,10 @@
 						url: module.url + '/ajax_run_import',
 						dataType: 'json',
 						method: 'post',
-						data: {string: json_string, position: module.getMaxPosition() + 1},
+						data: {string: json_string, position: module.getMaxPosition() + 10},
 						success: $.proxy(function (data, textStatus) {
 							bootstrap_alert('Import completed', 'Success', '.main_body', 'alert-success');
-							$modal.find('.cancel-export').trigger('click');
+							$modal.find('.cancel-import').trigger('click');
 							$.each(data, function(position, html) {
 								var unit = new RunUnit(module);
 								module.units.push(unit);
@@ -481,7 +481,7 @@
 							});
 						}, this),
 						error: function (e, x, settings, exception) {
-							$modal.find('.cancel-export').trigger('click');
+							$modal.find('.cancel-import').trigger('click');
 							ajaxErrorHandling(e, x, settings, exception);
 						}
 					});

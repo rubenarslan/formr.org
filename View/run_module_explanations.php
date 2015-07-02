@@ -13,10 +13,10 @@
 					Inside a run, participants' data can be connected, so you can track how many times a participant filled out her diary or whether her social network grew in size since the first measurement timepoint.
 				</p>
 				<p>
-					Because data are supplied on-the-fly to the statistics programming language R, you can dynamically generate feedback graphics for your participants with minimal programming knowledge. With more programming knowledge, nothing keeps you from making full use of the R programming language. You could for example conduct complex sentiment analyses on participants' tweets and invite them to follow-up surveys only if they express anger.	
+					So, why "run"? In formr, runs consist of simple modules that are chained together linearly. Because most modules are boombox-themed, it may help to think of a tape running. Using controls such as the skip backward button, the pause button and the stop button, you control the participant's progression along the run. Surveys can be thought of as the record button: whenever you place a survey in your run, the participant can input data.
 				</p>
 				<p>
-					So, why "run"? In formr, runs consist of simple modules that are chained together linearly. Because most modules are boombox-themed, it may help to think of a tape running. Using controls such as the skip backward button, the pause button and the stop button, you control the participant's progression along the run. Surveys can be thought of as the record button: whenever you place a survey in your run, the participant can input data.
+					Because data are supplied on-the-fly to the statistics programming language R, you can dynamically generate feedback graphics for your participants with minimal programming knowledge. With more programming knowledge, nothing keeps you from making full use of R. You could for example conduct complex sentiment analyses on participants' tweets and invite them to follow-up surveys only if they express anger.	
 				</p>
 				<p>
 					Since runs contain your study's complete design, it makes sense that runs' administration side is where every user management-related action takes place. There is an overview of users, where you can see at which position in the run each participant is and when they were last active. Here, you can send people custom reminders (if they are running late), shove them to a different position in the run (if they get lost somewhere due to an unforeseen complication) or see what the study looks like for them (if they report problems).

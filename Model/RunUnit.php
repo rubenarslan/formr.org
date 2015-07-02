@@ -166,9 +166,9 @@ class RunUnit {
 		);
 	}
 
-	public function addToRun($run_id, $position = 1, $options = array("description" => '')) {
+	public function addToRun($run_id, $position = 10, $options = array("description" => '')) {
 		if (!is_numeric($position)) {
-			$position = 1;
+			$position = 10;
 		}
 		$this->position = (int) $position;
 		if(!isset($options['description'])) {

@@ -1,0 +1,63 @@
+{
+    "name": "Basic_Diary",
+    "units": [
+        {
+            "type": "Survey",
+            "description": "demographics and contact info",
+            "position": 10,
+            "special": ""
+        },
+        {
+            "type": "Pause",
+            "description": "diary beginning: a pause until the diary is accessible",
+            "position": 20,
+            "special": "",
+            "wait_until_time": "17:00:00",
+            "wait_until_date": "",
+            "wait_minutes": "",
+            "relative_to": "next_day()",
+            "body": "## Thank you for your participation\r\n\r\nWe will invite you to participate again tomorrow around 5pm."
+        },
+        {
+            "type": "Email",
+            "description": "diary invitation: sent after the pause above expires",
+            "position": 30,
+            "special": "",
+            "account_id": 1,
+            "subject": "Diary invitation",
+            "recipient_field": "demographics$email",
+            "body": "Dear participant,\r\n\r\nplease fill out your diary now, you have until midnight to start.\r\n\r\n{{login_link}}\r\n\r\nBest wishes,\r\n\r\nthe study robot"
+        },
+        {
+            "type": "SkipForward",
+            "description": "access window: if user does'nt react within 7 hours, skip day",
+            "position": 40,
+            "special": "",
+            "condition": "time_passed(hours = 7)",
+            "automatically_jump": 1,
+            "if_true": 60,
+            "automatically_go_on": 0
+        },
+        {
+            "type": "Survey",
+            "description": "diary: main diary survey (this one is repeated)",
+            "position": 50,
+            "special": ""
+        },
+        {
+            "type": "SkipBackward",
+            "description": "end of diary loop",
+            "position": 60,
+            "special": "",
+            "condition": "nrow(diary) < 20 # diary has been filled out at least 20 times",
+            "if_true": 20
+        },
+        {
+            "type": "Endpage",
+            "description": "end of study",
+            "position": 70,
+            "special": "",
+            "body": "## It's over\r\n\r\nThanks for participating in our diary study."
+        }
+    ]
+}
