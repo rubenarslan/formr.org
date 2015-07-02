@@ -235,6 +235,9 @@ class Item extends HTML_element {
 		return $this->displaycount > 0;
 	}
 
+	/**
+	 * @deprecated
+	 */
 	public function mightBeShown($survey) {
 		if ($this->probably_render === null) {
 			$this->probably_render = true;
@@ -256,6 +259,9 @@ class Item extends HTML_element {
 		return $this->probably_render;
 	}
 
+	/**
+	 * @deprecated
+	 */
 	public function willbeShown($survey, $showif = null) {
 		$might = $this->mightBeShown($survey);
 		if (trim($this->showif) != null AND $showif === $this->showif) {
@@ -414,14 +420,6 @@ class Item extends HTML_element {
 		endif;
 	}
 
-	public function needsDynamicLabel() {
-		if ($this->label_parsed === null): // if there is a sticky value to be had
-			return true;
-		else:
-			return false;
-		endif;
-	}
-
 	public function alwaysInvalid() {
 		$this->error = _('There were problems with openCPU.');
 		if (!isset($this->input_attributes['class'])) {
@@ -430,6 +428,13 @@ class Item extends HTML_element {
 		$this->input_attributes['class'] .= " always_invalid";
 	}
 
+	public function needsDynamicLabel() {
+		return $this->label_parsed === null;
+	}
+
+	/**
+	 * @param deprecated
+	 */
 	public function determineDynamicLabel(Survey $survey) {
 		$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->label, $survey->name));
 		$markdown = opencpu_knitdisplay($this->label, $opencpu_vars);
@@ -438,45 +443,47 @@ class Item extends HTML_element {
 			$this->alwaysInvalid();
 		}
 
-		if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) { // simple wraps are eliminated
-			$this->label_parsed = $matches[1];
+		// simple wrap are eliminated
+		if (mb_substr_count($markdown, "</p>") === 1) {
+			$this->label_parsed = remove_tag_wrapper($markdown, 'p');
 		} else {
 			$this->label_parsed = $markdown;
 		}
 	}
 
 	public function needsDynamicValue() {
-		// if there is a sticky value to be had
-		if (trim($this->value) != null):
-			// FIXME: Why only for numeric?
-			if (is_numeric($this->value)):
-				$this->input_attributes['value'] = $this->value;
-			else:
-				return true;
-			endif;
-		else:
-			$this->presetValue = null;
-		endif;
-		return false;
+		$this->value = trim($this->value);
+		if (!$this->value) {
+			$this->presetValue = null; // FIXME: property not defined
+			return false;
+		}
+
+		if (is_numeric($this->value)) {
+			$this->input_attributes['value'] = $this->value;
+			return false;
+		}
+
+		return true;
 	}
 
+	/**
+	 * @deprecated
+	 */
 	public function determineDynamicValue(Survey $survey) {
-		if ($this->value == "sticky") {
-			$this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
-		}
-		$ocpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->value, $survey->name));
-		$ocpu_session = opencpu_evaluate($this->value, $ocpu_vars, 'json', $survey->name, true);
+		$value = $this->getValue($survey);
+		$ocpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $value, $survey->name));
+		$ocpu_session = opencpu_evaluate($value, $ocpu_vars, 'json', $survey->name, true);
 
 		$result = $ocpu_session->getJSONObject();
 		if ($result === array()):
 			$result = null;
-			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($this->value) . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist, e.g. misspell an item. Valid values need to have a length of one.", " There are programming problems related to zero-length dynamic values in this survey.");
-			$this->openCPU_errors[$this->value] = _('Incorrectly defined value (zero length).');
+			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($value) . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist, e.g. misspell an item. Valid values need to have a length of one.", " There are programming problems related to zero-length dynamic values in this survey.");
+			$this->openCPU_errors[$value] = _('Incorrectly defined value (zero length).');
 			$this->alwaysInvalid();
 		elseif ($result === null):
 			$result = null;
-			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($this->value) . "</code> that returns NA (missing). The most common reason for this is to e.g. refer to data that is not yet set, i.e. referring to questions that haven't been answered yet. To circumvent this, add a showif to your item, checking whether the item is answered yet using is.na(). Valid values need to have a length of one.", " There are programming problems related to null dynamic values in this survey.");
-			$this->openCPU_errors[$this->value] = _('Incorrectly defined value (null).');
+			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($value) . "</code> that returns NA (missing). The most common reason for this is to e.g. refer to data that is not yet set, i.e. referring to questions that haven't been answered yet. To circumvent this, add a showif to your item, checking whether the item is answered yet using is.na(). Valid values need to have a length of one.", " There are programming problems related to null dynamic values in this survey.");
+			$this->openCPU_errors[$value] = _('Incorrectly defined value (null).');
 			$this->alwaysInvalid();
 		else:
 			if ($this->type == 'opencpu_session'):
@@ -484,14 +491,92 @@ class Item extends HTML_element {
 			else:
 				if ($ocpu_session->getObjectLength() !== 1): // this is only a problem if we're expecting the value to be stored
 					$result = null;
-					notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($this->value) . "</code> that returns an element with a length greater than 1. The most common reason for this is to e.g. refer to repeated assessments, but failing to specify whether you want the last, the first or all answers concatenated. Sometimes this can also occur if you do your testing repeatedly. The easiest solution is to reset your session in the run administration. Valid values need to have a length of one.", " There are programming problems related to multiple dynamic values in this survey.");
-					$this->openCPU_errors[$this->value] = _('Incorrectly defined value (multiple).');
+					notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($value) . "</code> that returns an element with a length greater than 1. The most common reason for this is to e.g. refer to repeated assessments, but failing to specify whether you want the last, the first or all answers concatenated. Sometimes this can also occur if you do your testing repeatedly. The easiest solution is to reset your session in the run administration. Valid values need to have a length of one.", " There are programming problems related to multiple dynamic values in this survey.");
+					$this->openCPU_errors[$value] = _('Incorrectly defined value (multiple).');
 					$this->alwaysInvalid();
-				else:
+				else:   
 					$this->input_attributes['value'] = $result;
 				endif;
 			endif;
 		endif;
+	}
+
+	public function getValue(Survey $survey = null) {
+		if ($survey && $this->value === 'sticky') {
+			$this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
+		}
+		return trim($this->value);
+	}
+
+	/**
+	 * Set the visibility of an item based on show-if results returned from opencpu
+	 * $showif_result Can be an array or an interger value returned by ocpu. If a non-empty array then $showif_result[0] can have the following values
+	 * - NULL if the variable in $showif is Not Avaliable,
+	 * - TRUE if it avaliable and true,
+	 * - FALSE if it avaliable and not true
+	 * - An empty array if a problem occured with opencpu
+	 *
+	 * @param array|int $showif_result
+	 * @return null
+	 */
+	public function setVisibility($showif_result) {
+		if (!$showif_result) {
+			return;
+		}
+
+		$result = true;
+		if (is_array($showif_result) && array_key_exists(0, $showif_result)) {
+			$result = $showif_result[0];
+		} elseif ($showif_result === array()) {
+			notify_user_error("You made a mistake, writing a showif <code class='r hljs'>" . $this->showif . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist. Valid return values for a showif are TRUE, FALSE and NULL.", " There are programming problems in this survey.");
+			$this->alwaysInvalid();
+			$this->error = _('Incorrectly defined showif.');
+		}
+
+		if (!$result) {
+			$this->hide();
+			$this->probably_render = false;
+		}
+		// null means we can't determine clearly if item should be visible or not
+		if ($this->probably_render === null || $result === null) {
+			$this->probably_render = true;
+		}
+	}
+
+	/**
+	 * Set the dynamic value computed on opencpu
+	 *
+	 * @param mixed $value Value
+	 * @param OpenCPU_Session $ocpu_session OpenCPU session
+	 * @return null
+	 */
+	public function setDynamicValue($value, OpenCPU_Session $ocpu_session) {
+		if (!$value) {
+			return;
+		}
+
+		$currentValue = $this->getValue();
+		if ($value === array()) {
+			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($currentValue) . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist, e.g. misspell an item. Valid values need to have a length of one.", " There are programming problems related to zero-length dynamic values in this survey.");
+			$this->openCPU_errors[$value] = _('Incorrectly defined value (zero length).');
+			$this->alwaysInvalid();
+			$value = null;
+		} elseif ($value === null) {
+			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($value) . "</code> that returns NA (missing). The most common reason for this is to e.g. refer to data that is not yet set, i.e. referring to questions that haven't been answered yet. To circumvent this, add a showif to your item, checking whether the item is answered yet using is.na(). Valid values need to have a length of one.", " There are programming problems related to null dynamic values in this survey.");
+			$this->openCPU_errors[$value] = _('Incorrectly defined value (null).');
+			$this->alwaysInvalid();
+		} elseif (is_array($value) && array_key_exists(0, $value)) {
+			$value = $value[0];
+		} elseif ($this->type == 'opencpu_session') {
+			$value = $ocpu_session->getLocation();
+		}
+
+		$this->value = $value;
+		$this->input_attributes['value'] = $value;
+	}
+
+	public function isVisible() {
+		return !$this->hidden || $this->probably_render;
 	}
 
 	protected function setChoiceListFromOptions() {

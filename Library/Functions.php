@@ -858,7 +858,7 @@ function opencpu_get($location, $return_format = 'json', $context = null, $retur
  * Execute a piece of code against OpenCPU
  *
  * @param string $code Each code line should be separated by a newline characted
- * @param string|array An array or string (separated by newline) of variables to be used in OpenCPU request
+ * @param string|array $variables An array or string (separated by newline) of variables to be used in OpenCPU request
  * @param string $return_format String like 'json'
  * @param mixed $context If this paramter is set, $code will be evaluated with a context
  * @param bool $return_session Should OpenCPU_Session object be returned
@@ -1022,21 +1022,21 @@ function opencpu_string_key_parsing($strings) {
 /**
  * Parse a bulk of strings in ocpu
  *
+ * @param Survey $survey Current survey containing strings that are beigin parsed
  * @param array $string_templates An array of strings to be parsed
- * @param array $string_variables An array containing variable definitions needed to parse strings
  * @return array Returns an array of parsed labels indexed by the label-key to be substituted
  */
-function opencpu_multistring_parse(array $string_templates, Survey $survey) {
+function opencpu_multistring_parse(Survey $survey, array $string_templates) {
 	$markdown = implode(OpenCPU::STRING_DELIMITER, $string_templates);
 	$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $markdown, $survey->name));
 	$session = opencpu_knitdisplay($markdown, $opencpu_vars, true);
+
 	if($session AND !$session->hasError()) {
 		$parsed_strings = $session->getJSONObject();
-		$strings = explode(trim(OpenCPU::STRING_DELIMITER_PARSED), $parsed_strings);
+		$strings = explode(OpenCPU::STRING_DELIMITER_PARSED, $parsed_strings);
 		$strings = array_map("remove_tag_wrapper", $strings);
 		return opencpu_string_key_parsing($strings);
-	} else
-	{
+	} else {
 		notify_user_error(opencpu_debug($session), "There was a problem dynamically knitting something to HTML using openCPU.");
 		return array();
 	}
@@ -1109,7 +1109,7 @@ function pre_htmlescape($str) {
 
 function array_val($array, $key, $default = '') {
 	if (isset($array[$key])) {
-		$default = trim($array[$key]);
+		$default = $array[$key];
 	}
 	return $default;
 }

@@ -618,6 +618,12 @@ class DB_Select {
 		return $this;
 	}
 
+	public function whereIn($field, array $values) {
+		$field = DB::quoteCol($field);
+		$values = array_map(array($this->PDO, 'quote'), $values);
+		$this->where[] = "{$field} IN (" . implode(',', $values) . ")";
+	}
+
 	public function like($colname, $value, $pad = 'both') {
 		$colname = $this->parseColName($colname);
 		if ($pad === 'right') {

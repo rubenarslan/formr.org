@@ -27,7 +27,6 @@ class Survey extends RunUnit {
 	public $result_count = 0;
 	private $confirmed_deletion = false;
 	public $item_factory = null;
-	protected $strings_to_parse = array();
 
 	/**
 	 * @var DB
@@ -103,13 +102,13 @@ class Survey extends RunUnit {
 		$js = (isset($js) ? $js : '') . '<script src="' . WEBROOT . 'assets/' . (DEBUG ? 'js' : 'minified') . '/survey.js"></script>';
 
 		$ret = '
-		<div class="row">
+		<div class="row study-' . $this->id . '">
 			<div class="col-md-12">
 		';
-			$ret .= $this->render_form_header() .
-					$this->render_items() .
-					$this->render_form_footer();
-			$ret .= '
+		$ret .= $this->render_form_header() .
+				$this->render_items() .
+				$this->render_form_footer();
+		$ret .= '
 			</div> <!-- end of col-md-12 div -->
 		</div> <!-- end of row div -->
 		';
@@ -144,7 +143,6 @@ class Survey extends RunUnit {
 		 * ALL data on current page must valid before any database operation or saves are made
 		 * This should help avoid inconsistencies or having notes and headings spread across pages
 		 */
-
 		// Validate items and if any fails return user to same page with all unansered items and error messages
 		// This loop also accumulates potential update data
 		$update_data = array();
@@ -166,7 +164,7 @@ class Survey extends RunUnit {
 		}
 
 		$survey_items_display = $this->dbh->prepare(
-			"UPDATE `survey_items_display` SET
+				"UPDATE `survey_items_display` SET
 				answer = :answer, 
 				saved = :saved,
 				shown = :shown,
@@ -236,8 +234,14 @@ class Survey extends RunUnit {
 			$redirect = false;
 		}
 
+		// If all was well and we are re-directing then do so
 		if ($redirect) {
 			redirect_to($this->run_name);
+		}
+
+		// If we did not redirect (meaning an error occured or $redirect == FALSE) and post was not internal, then you need to refresh items
+		if (empty($posted['__INTERNAL__'])) {
+			$this->getNextItems();
 		}
 	}
 
@@ -254,13 +258,10 @@ class Survey extends RunUnit {
 
 		$this->already_answered = $answered['count'];
 		$this->not_answered = array_filter($this->unanswered, function ($item) {
-			if (
-					in_array($item->type, array('submit', 'mc_heading')) OR // these items require no user interaction and thus don't count against progress
-					! $item->willBeShown($this) // item was skipped
-			) {
+			// If items require no user interaction and thus don't count against progress OR items are skipped, then don't count. FIXME: Not clear
+			if (in_array($item->type, array('submit', 'mc_heading')) || !$item->isVisible($this)) {
 				return false;
 			}
-
 			return true;
 		});
 		$this->not_answered = count($this->not_answered);
@@ -277,7 +278,10 @@ class Survey extends RunUnit {
 		}
 	}
 
-	protected function getAndRenderChoices() {
+	/**
+	 * @deprecated
+	 */
+	protected function getAndRenderChoices($lists = array()) {
 		// get and render choices
 		// todo: should only get & render choices for items on this page
 		$items = $this->dbh->select('list_name, name, label, label_parsed')
@@ -302,15 +306,75 @@ class Survey extends RunUnit {
 
 		return $choice_lists;
 	}
+	
+	/**
+	 * Process show-ifs and dynamic values for a given set of items in survey
+	 *
+	 * @param Item[] $items
+	 * @param array $show_ifs
+	 * @param array $dynamic_values
+	 * @return array
+	 */
+	protected function parseShowIfsAndDynamicValues(&$items) {
+		// In this loop we gather all show-ifs and dynamic-values that need processing and all values.
+		$show_ifs = $dynamic_values = array();
+		/* @var Item $item */
+		foreach ($items as $name => $item) {
+			if ($item->showif) {
+				$show_ifs[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->showif} \n} ) })()";
+			}
+			if ($item->needsDynamicValue()) {
+				$dynamic_values[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->getValue()} \n} ) })()";
+			}
+		}
+
+		if ($show_ifs) {
+			$code = "list(\n" . implode(",\n", $show_ifs) . "\n)";
+			$variables = $this->getUserDataInRun($this->dataNeeded($this->dbh, $code, $this->name));
+			$results = opencpu_evaluate($code, $variables, 'json');
+			// Fit show-ifs
+			foreach ($items as &$item) {
+				$item->setVisibility(array_val($results, $item->name));
+			}
+		}
+
+		if ($dynamic_values) {
+			$code = "list(\n" . implode(",\n", $dynamic_values) . "\n)";
+			$variables = $this->getUserDataInRun($this->dataNeeded($this->dbh, $code, $this->name));
+			$ocpu_session = opencpu_evaluate($code, $variables, 'json', null, true);
+			$results = $ocpu_session->getJSONObject();
+
+			// Fit dynamic values in properly reder
+			$post = array();
+			foreach ($items as &$item) {
+				$item->setDynamicValue(array_val($results, $item->name), $ocpu_session);
+				if ($item->no_user_input_required && isset($item->input_attributes['value']) && $item->isVisible()) {
+					$post[$item->name] = $item->input_attributes['value'];
+				}
+			}
+		}
+
+		// save any data that does not require user imput
+		if (!empty($post)) {
+			// flag not to reprocess items if posting failed
+			$post['__INTERNAL__'] = true;
+			$this->post($post, false);
+		}
+	}
 
 	/**
-	 * This function first restricts the number of items to walk through by only requesting those from the DB which have not yet been answered
-	 * - first caveat: items like mc_heading, note and submit are special and don't just get eliminated when "answered".
-	 * The function proceeds to get all choices and render them – there is room to economise here, but I considered this premature
-	 * for now. to be clear: getting the choices has little cost, rendering them has high costs if they're dynamic (need openCPU), but we do that rarely if ever now.
-	 * 
+	 * Get the next items to be displayed in the survey
+	 * This function first restricts the number of items to walk through by only requesting those from the DB which have not yet been answered.
+	 * - Only items of the current page are gotten. Truncation is done when a 'submit' item is encountered
+	 * - Choices for fetched items are filtered out and fetched from DB.
+	 * - Item and choice labels that require parsing are bundled together and sent to opencpu. Some 'placeholder' logic is used here
+	 *
+	 * @param boolean $process Should dynamic values and showifs be processed?
+	 * @return Item[] Returns an array of items that should be shown next
+	 * @todo delegate the work load in this method
 	 */
-	protected function getNextItems() {
+	protected function getNextItems($process = true) {
+		$this->unanswered = array();
 		$get_items = $this->dbh->select('
 				`survey_items`.id,
 				`survey_items`.study_id,
@@ -336,37 +400,78 @@ class Survey extends RunUnit {
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->statement();
 
-		$choice_lists = $this->getAndRenderChoices();
-		// If there are string that need parsing, send them to opencpu and subsitute for each item in the list
-		if (!empty($this->strings_to_parse)) {
-			$parsed_strings = opencpu_multistring_parse($this->strings_to_parse, $this);
-			// if strings are parsed successfully then replace them in the $choice_list array
-			opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
+		$strings_to_parse = array();
+
+		// gather needed choice lists to fetch and save item labels that need parsing
+		$items = $get_items->fetchAll(PDO::FETCH_ASSOC);
+		if (!$items) {
+			return array();
 		}
-		
-		$this->item_factory = new ItemFactory($choice_lists);
 
-		while ($item_array = $get_items->fetch(PDO::FETCH_ASSOC)):
-			$name = $item_array['name'];
-			$item = $this->item_factory->make($item_array);
-
-			// determine value if there is a dynamic one and no user input is required
-			if ($item->no_user_input_required AND $item->needsDynamicValue() AND $item->mightBeShown($this)) {
-				$item->determineDynamicValue($this);
-			}
+		$lists_to_fetch = array();
+		$fetched = 0;
+		foreach ($items as $i => $item) {
+			$name = $item['name'];
 			$this->unanswered[$name] = $item;
-			if ($item->no_user_input_required AND isset($item->input_attributes['value']) AND $item->mightBeShown($this)):
-				$this->post(array($item->name => $item->input_attributes['value']), false); # add this data but don't reload
-			endif;
-		endwhile;
+
+			if ($item['choice_list']) {
+				$lists_to_fetch[] = $item['choice_list'];
+			}
+
+			if (!$item['label_parsed']) {
+				$this->unanswered[$name]['label_parsed'] = opencpu_string_key(count($strings_to_parse));
+				$strings_to_parse[] = $item['label'];
+			}
+
+			// Break here to get only items for current page (assumes pages are separated by submit item)
+			if ($item['type'] === 'submit' && $fetched > 0) {
+				break;
+			}
+			$fetched++;
+		}
+
+		// gather and format choice_lists and save all choice labels that need parsing
+		$choices = $this->getChoices($lists_to_fetch, null);
+		$choice_lists = array();
+		foreach ($choices as $i => $choice) {
+			if (!$choice['label_parsed']) {
+				$choices[$i]['label_parsed'] = opencpu_string_key(count($strings_to_parse));
+				$strings_to_parse[] = $choice['label'];
+			}
+
+			if (!isset($choice_lists[$choice['list_name']])) {
+				$choice_lists[$choice['list_name']] = array();
+			}
+			$choice_lists[$choice['list_name']][$choice['name']] = $choices[$i]['label_parsed'];
+		}
+
+		// @todo end business here if we are not processing
+		// Now that we have the items and the choices, If there was anything left to parse, we do so here!
+		if ($strings_to_parse) {
+			$parsed_strings = opencpu_multistring_parse($this, $strings_to_parse);
+			// Replace parsed strings in $choice_list array
+			opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
+			// Replace parsed strings in unanswered items array
+			opencpu_substitute_parsed_strings($this->unanswered, $parsed_strings);
+		}
+
+		$this->item_factory = new ItemFactory($choice_lists);
+		foreach ($this->unanswered as $name => $item) {
+			$this->unanswered[$name] = $this->item_factory->make($item);
+		}
+
+		if ($process) {
+			$this->parseShowIfsAndDynamicValues($this->unanswered);
+		}
+
+		return $this->unanswered;
 	}
 
 	protected function renderNextItems() {
 
 		$this->dbh->beginTransaction();
 
-		$view_query = 
-			"INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created)
+		$view_query = "INSERT INTO `survey_items_display` (item_id,  session_id, displaycount, created)
 			VALUES(:item_id, :session_id, 0, NOW() ) 
 			ON DUPLICATE KEY UPDATE displaycount = displaycount + 1";
 		$view_update = $this->dbh->prepare($view_query);
@@ -378,12 +483,11 @@ class Survey extends RunUnit {
 		$this->rendered_items = array();
 		try {
 			foreach ($this->unanswered as &$item) {
-				$next = current($this->unanswered);
-				if ($this->settings['maximum_number_displayed'] != null AND $itemsDisplayed >= $this->settings['maximum_number_displayed']) {
+				if ($this->settings['maximum_number_displayed'] && $this->settings['maximum_number_displayed'] <= $itemsDisplayed) {
 					$item_will_be_rendered = false;
 				}
 
-				if ($item_will_be_rendered AND $item->mightBeShown($this)) {
+				if ($item_will_be_rendered && $item->isVisible()) {
 					if ($item->type === 'submit') {
 						// skip submit buttons once everything before them was dealt with	
 						if ($itemsDisplayed === 0) {
@@ -392,8 +496,9 @@ class Survey extends RunUnit {
 						$item_will_be_rendered = false;
 					}
 
+					// if it's rendered, we send it along here or update display count
 					$view_update->bindParam(":item_id", $item->id);
-					$view_update->execute(); // if it's rendered, we send it along here.
+					$view_update->execute();
 
 					if (!$item->hidden) {
 						$itemsDisplayed++;
@@ -404,6 +509,8 @@ class Survey extends RunUnit {
 			}
 
 			$this->dbh->commit();
+
+			// FIXME: This property is not defined and what is this business?
 			$this->not_answered_on_current_page = array_filter($this->rendered_items, function ($item) {
 				/**
 				 * If item was skipped OR 
@@ -411,7 +518,7 @@ class Survey extends RunUnit {
 				 * item is a note and has already been viewed
 				 * Then item is not answered on current page
 				 */
-				if (in_array($item->type, array('submit', 'mc_heading')) OR ( $item->type == 'note' AND $item->hasBeenRendered()) OR ! $item->willBeShown($this)) {
+				if (in_array($item->type, array('submit', 'mc_heading')) OR ($item->type == 'note' AND $item->hasBeenRendered()) OR !$item->isVisible()) {
 					return false;
 				}
 				return true;
@@ -475,15 +582,6 @@ class Survey extends RunUnit {
 		$ret = '';
 
 		foreach ($this->rendered_items AS $item) {
-			// determine value if there is a dynamic one and no user input is required
-			if (!$item->no_user_input_required AND $item->needsDynamicValue()) {
-				$item->determineDynamicValue($this);
-			}
-
-			// item label has to be dynamically generated with user data
-			if ($item->needsDynamicLabel()) {
-				$item->determineDynamicLabel($this);
-			}
 			$ret .= $item->render();
 		}
 
@@ -550,27 +648,27 @@ class Survey extends RunUnit {
 	}
 
 	public function exec() {
+		// never show to the cronjob
 		if ($this->called_by_cron) {
 			if ($this->hasExpired()) {
 				$this->expire();
 				return false;
-			} else {
-				return true; // never show to the cronjob
 			}
+			return true;
 		}
 
 		// execute survey unit in a try catch block
 		// @todo Do same for other run units
 		try {
 			$request = new Request($_POST);
-			//  populate $this->unanswered items
-			$this->getNextItems();
+			$this->startEntry();
 
 			// POST items only if request is a post request
-			if (Request::isHTTPGetRequest()) {
-				$this->startEntry();
-			} elseif (Request::isHTTPPostRequest()) {
+			if (Request::isHTTPPostRequest()) {
+				$items = $this->getNextItems(false);
 				$this->post(array_merge($request->getParams(), $_FILES));
+			} else {
+				$items = $this->getNextItems();
 			}
 
 			if ($this->getProgress() === 1) {
@@ -583,7 +681,7 @@ class Survey extends RunUnit {
 			return array('body' => $this->render());
 		} catch (Exception $e) {
 			log_exception($e, __CLASS__);
-			return array( 'body' => '');
+			return array('body' => '');
 		}
 	}
 
@@ -758,21 +856,37 @@ class Survey extends RunUnit {
 		'list_name', 'name', 'label', 'label_parsed' // study_id is not among the user_defined columns
 	);
 
-	public function getChoices() {
-		$get_item_choices = $this->dbh->select('list_name, name, label')
-						->from('survey_item_choices')
-						->where(array('study_id' => $this->id))
-						->order('id', 'ASC')->statement();
+	/**
+	 * Get All choice lists in this survey with associated items
+	 *
+	 * @param array $specific An array if list_names which if defined, only lists specified in the array will be returned
+	 * @return $array Returns an array indexed by list name;
+	 */
+	public function getChoices($specific = null, $label = 'label') {
+		$select = $this->dbh->select('list_name, name, label, label_parsed');
+		$select->from('survey_item_choices');
+		$select->where(array('study_id' => $this->id));
+		if ($specific) {
+			$select->whereIn('list_name', $specific);
+		}
+		$select->order('id', 'ASC');
 
-		$choice_lists = array();
-		while ($row = $get_item_choices->fetch(PDO::FETCH_ASSOC)) {
-			if (!isset($choice_lists[$row['list_name']])) {
-				$choice_lists[$row['list_name']] = array();
-			}
-			$choice_lists[$row['list_name']][$row['name']] = $row['label'];
+		$lists = array();
+		$stmt = $select->statement();
+
+		// If we are not hunting for a particular field name return list as is
+		if (!$label) {
+			return $stmt->fetchAll(PDO::FETCH_ASSOC);
 		}
 
-		return $choice_lists;
+		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+			if (!isset($lists[$row['list_name']])) {
+				$lists[$row['list_name']] = array();
+			}
+			$lists[$row['list_name']][$row['name']] = $row[$label];
+		}
+
+		return $lists;
 	}
 
 	public function getChoicesForSheet() {
@@ -808,7 +922,7 @@ class Survey extends RunUnit {
 
 		$UPDATES = implode(', ', get_duplicate_update_string($this->user_defined_columns));
 		$add_items = $this->dbh->prepare(
-			"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `order`) 
+				"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `order`) 
 			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :order
 		) ON DUPLICATE KEY UPDATE $UPDATES");
 
