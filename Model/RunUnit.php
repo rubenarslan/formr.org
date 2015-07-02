@@ -427,19 +427,21 @@ class RunUnit {
 		$table_ids = $non_user_tables;
 		$results_tables = array_combine($non_user_tables, $non_user_tables);
 
-		// map table ID to the name that the user sees (because tables in the DB are prefixed with the user ID, so they're unique)
-		foreach ($results as $res) {
-			$table_ids[] = $res['id'];
-			$tables[] = $res['name']; // FIXME: ID can overwrite the non_user_tables
-			$results_tables[$res['name']] = $res['results_table'];
-		}
-
-		if($token_add !== null AND !in_array($this->name, $tables)):	 // send along this table if necessary
+		if($token_add !== null):	 // send along this table if necessary, always as the first one, since we attach it
 			$table_ids[] = $this->id;
 			$tables[] = $this->name;
 			$results_tables[ $this->name ] = $this->results_table;
 		endif;
-	
+
+		// map table ID to the name that the user sees (because tables in the DB are prefixed with the user ID, so they're unique)
+		foreach ($results as $res) {
+			if($res['name'] !== $token_add):
+				$table_ids[] = $res['id'];
+				$tables[] = $res['name']; // FIXME: ID can overwrite the non_user_tables
+				$results_tables[$res['name']] = $res['results_table'];
+			endif;
+		}
+
 		foreach($tables AS $index => $table_name):
 			$study_id = $table_ids[$index];
 

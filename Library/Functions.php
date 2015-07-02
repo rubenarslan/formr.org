@@ -804,7 +804,7 @@ function array_to_orderedlist($array, $olclass = null, $liclass = null) {
  * @param array $data
  * @return string Returns R variables
  */
-function opencpu_define_vars(array $data) {
+function opencpu_define_vars(array $data, $context = NULL) {
 	$vars = '';
 	if (!$data) {
 		return $vars;
@@ -815,6 +815,10 @@ function opencpu_define_vars(array $data) {
 		foreach ($data['datasets'] as $data_frame => $content) {
 			$vars .= $data_frame . ' = as.data.frame(jsonlite::fromJSON("' . addslashes(json_encode($content, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)) . '"), stringsAsFactors=F)
 ';
+			if($context === $data_frame) {
+				$vars .= 'attach(tail(' . $context . ', 1))
+';
+			}
 		}
 	}
 	unset($data['datasets']);
@@ -866,13 +870,7 @@ function opencpu_get($location, $return_format = 'json', $context = null, $retur
  */
 function opencpu_evaluate($code, $variables = null, $return_format = 'json', $context = null, $return_session = false) {
 	if (!is_string($variables)) {
-		$variables = opencpu_define_vars($variables);
-	}
-
-	if ($context !== null) {
-		$code = 'with(tail(' . $context . ', 1), { '
-. $code . '
-})';
+		$variables = opencpu_define_vars($variables, $context);
 	}
 
 	$params = array('x' => '{ 
@@ -958,9 +956,9 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 	}
 }
 
-function opencpu_knitdisplay($source, $variables = null, $return_session = false) {
+function opencpu_knitdisplay($source, $variables = null, $return_session = false, $context = NULL) {
 	if (!is_string($variables)) {
-		$variables = opencpu_define_vars($variables);
+		$variables = opencpu_define_vars($variables, $context);
 	}
 
 	$source = '```{r settings,message=FALSE,warning=F,echo=F}
@@ -1029,7 +1027,7 @@ function opencpu_string_key_parsing($strings) {
 function opencpu_multistring_parse(Survey $survey, array $string_templates) {
 	$markdown = implode(OpenCPU::STRING_DELIMITER, $string_templates);
 	$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $markdown, $survey->name));
-	$session = opencpu_knitdisplay($markdown, $opencpu_vars, true);
+	$session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $survey->name);
 
 	if($session AND !$session->hasError()) {
 		$parsed_strings = $session->getJSONObject();
