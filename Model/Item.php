@@ -70,6 +70,10 @@ class ItemFactory {
 		return $this->showifs[$showif];
 	}
 
+	public function setChoiceLists(array $lists) {
+		$this->choice_lists = $lists;
+	}
+
 }
 
 // the default item is a text input, as many browser render any input type they don't understand as 'text'.
@@ -115,13 +119,17 @@ class Item extends HTML_element {
 	protected $probably_render = null;
 
 	public function __construct($options = array()) {
+		// If you are just refreshing the item maybe due to change in choices then no need for long processing
+		if (!empty($options['refresh'])) {
+			return $this->refresh($options);
+		}
 
 		// simply load the array into the object, with some sensible defaults
 		$this->id = isset($options['id']) ? $options['id'] : 0;
 
-		if (isset($options['type'])):
+		if (isset($options['type'])) {
 			$this->type = $options['type'];
-		endif;
+		}
 
 		if (isset($options['name'])) {
 			$this->name = $options['name'];
@@ -225,6 +233,19 @@ class Item extends HTML_element {
 			$this->js_showif = preg_replace("/\s*\%contains\%\s*([a-zA-Z0-9_'\"]+)/", ".indexOf($1) > -1", $this->js_showif);
 			$this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $this->js_showif);
 		endif;
+	}
+
+	protected function refresh($options) {
+		foreach ($options as $property => $value) {
+			if (property_exists($this, $property)) {
+				$this->{$property} = $value;
+			}
+		}
+
+		if (empty($options['skip_more_options'])) {
+			$this->setMoreOptions();
+		}
+		return true;
 	}
 
 	public function hasBeenRendered() {
@@ -577,6 +598,10 @@ class Item extends HTML_element {
 
 	public function isVisible() {
 		return !$this->hidden || $this->probably_render;
+	}
+
+	public function setChoices($choices) {
+		$this->choices = $choices;
 	}
 
 	protected function setChoiceListFromOptions() {
@@ -1336,7 +1361,7 @@ class Item_select_or_add_one extends Item {
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
 
-		$maxType = $maxSelect = 0;
+		$maxType = 255; $maxSelect = 0;
 		if (isset($this->type_options) AND trim($this->type_options) != "") {
 			$this->type_options_array = explode(",", $this->type_options, 3);
 
