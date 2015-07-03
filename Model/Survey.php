@@ -432,7 +432,7 @@ class Survey extends RunUnit {
 				$lists_to_fetch[] = $item->choice_list;
 			}
 
-			if (true || !$item->label_parsed) {
+			if (!$item->label_parsed) {
 				$this->unanswered[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
 				$strings_to_parse[] = $item->label;
 			}
@@ -444,6 +444,7 @@ class Survey extends RunUnit {
 				break;
 			}
 		}
+
 		// Use only visible items
 		// FIXME: Truncating the unanswered items array here will break progress so use $visibleItems array to process labels and merge back
 		// $this->unanswered = $visibleItems;
