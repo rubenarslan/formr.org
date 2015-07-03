@@ -332,6 +332,7 @@ class Survey extends RunUnit {
 			$code = "list(\n" . implode(",\n", $show_ifs) . "\n)";
 			$variables = $this->getUserDataInRun($this->dataNeeded($this->dbh, $code, $this->name));
 			$results = opencpu_evaluate($code, $variables, 'json');
+
 			// Fit show-ifs
 			foreach ($items as &$item) {
 				$item->setVisibility(array_val($results, $item->name));
@@ -365,7 +366,6 @@ class Survey extends RunUnit {
 	/**
 	 * Get the next items to be displayed in the survey
 	 * This function first restricts the number of items to walk through by only requesting those from the DB which have not yet been answered.
-	 * - Only items of the current page are gotten. Truncation is done when a 'submit' item is encountered
 	 * - Choices for fetched items are filtered out and fetched from DB.
 	 * - Item and choice labels that require parsing are bundled together and sent to opencpu. Some 'placeholder' logic is used here
 	 *
@@ -400,35 +400,53 @@ class Survey extends RunUnit {
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->statement();
 
-		$strings_to_parse = array();
+		// We initialise item factory with no choice list because we don't know which choices will be used yet.
+		// This assumes choices are not required for show-ifs and dynamic values (hope so)
+		$itemFactory = new ItemFactory(array());
+		while ($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
+			$this->unanswered[$item['name']] = $itemFactory->make($item);
+		}
 
-		// gather needed choice lists to fetch and save item labels that need parsing
-		$items = $get_items->fetchAll(PDO::FETCH_ASSOC);
-		if (!$items) {
+		if (!$this->unanswered) {
 			return array();
 		}
 
+		// Process show-ifs to determine which items need to be shown
+		// FIXME: Maybe there is a way to process only page-necessary show-ifs. At the moment all are processed
+		if ($process) {
+			$this->parseShowIfsAndDynamicValues($this->unanswered);
+		}
+
+		// Gather labels and choice_lists to be parsed only for items that will potentially be visibile
+		$strings_to_parse = array();
 		$lists_to_fetch = array();
-		$fetched = 0;
-		foreach ($items as $i => $item) {
-			$name = $item['name'];
-			$this->unanswered[$name] = $item;
+		$visibleItems = array();
 
-			if ($item['choice_list']) {
-				$lists_to_fetch[] = $item['choice_list'];
+		/** @var Item $item */
+		foreach ($this->unanswered as $name => $item) {
+			if (!$item->isVisible()) {
+				continue;
 			}
 
-			if (!$item['label_parsed']) {
-				$this->unanswered[$name]['label_parsed'] = opencpu_string_key(count($strings_to_parse));
-				$strings_to_parse[] = $item['label'];
+			if ($item->choice_list) {
+				$lists_to_fetch[] = $item->choice_list;
 			}
 
-			// Break here to get only items for current page (assumes pages are separated by submit item)
-			if ($item['type'] === 'submit' && $fetched > 0) {
+			if (true || !$item->label_parsed) {
+				$this->unanswered[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
+				$strings_to_parse[] = $item->label;
+			}
+
+			$visibleItems[$name] = (array) $this->unanswered[$name];
+			// Since as we are skipping all non-vsisible items, we can safely truncate here on a submit button
+			// This will help process fewer item labels and choice labels (maybe it is more optimal)
+			if ($item->type === 'submit' && count($visibleItems) > 0) {
 				break;
 			}
-			$fetched++;
 		}
+		// Use only visible items
+		// FIXME: Truncating the unanswered items array here will break progress so use $visibleItems array to process labels and merge back
+		// $this->unanswered = $visibleItems;
 
 		// gather and format choice_lists and save all choice labels that need parsing
 		$choices = $this->getChoices($lists_to_fetch, null);
@@ -445,25 +463,25 @@ class Survey extends RunUnit {
 			$choice_lists[$choice['list_name']][$choice['name']] = $choices[$i]['label_parsed'];
 		}
 
-		// @todo end business here if we are not processing
 		// Now that we have the items and the choices, If there was anything left to parse, we do so here!
 		if ($strings_to_parse) {
 			$parsed_strings = opencpu_multistring_parse($this, $strings_to_parse);
 			// Replace parsed strings in $choice_list array
 			opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
 			// Replace parsed strings in unanswered items array
-			opencpu_substitute_parsed_strings($this->unanswered, $parsed_strings);
+			opencpu_substitute_parsed_strings($visibleItems, $parsed_strings);
 		}
 
-		$this->item_factory = new ItemFactory($choice_lists);
-		foreach ($this->unanswered as $name => $item) {
-			$this->unanswered[$name] = $this->item_factory->make($item);
+		// Merge processed visible items into the unanswered array
+		// and set choices for various items with processed choice_lists
+		$itemFactory->setChoiceLists($choice_lists);
+		foreach ($visibleItems as $name => $item) {
+			$choice_list = $item['choice_list'];
+			if (isset($choice_lists[$choice_list])) {
+				$this->unanswered[$name]->setChoices($choice_lists[$choice_list]);
+			}
+			$this->unanswered[$name]->refresh($item, array('label_parsed'));
 		}
-
-		if ($process) {
-			$this->parseShowIfsAndDynamicValues($this->unanswered);
-		}
-
 		return $this->unanswered;
 	}
 
@@ -866,7 +884,10 @@ class Survey extends RunUnit {
 		$select = $this->dbh->select('list_name, name, label, label_parsed');
 		$select->from('survey_item_choices');
 		$select->where(array('study_id' => $this->id));
-		if ($specific) {
+
+		if (!$specific && $specific !== null) {
+			return array();
+		} elseif ($specific !== null) {
 			$select->whereIn('list_name', $specific);
 		}
 		$select->order('id', 'ASC');
