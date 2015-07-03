@@ -476,8 +476,11 @@ class Survey extends RunUnit {
 		// and set choices for various items with processed choice_lists
 		$itemFactory->setChoiceLists($choice_lists);
 		foreach ($visibleItems as $name => $item) {
-			$item['refresh'] = true;
-			$this->unanswered[$name] = $itemFactory->make($item);
+			$choice_list = $item['choice_list'];
+			if (isset($choice_lists[$choice_list])) {
+				$this->unanswered[$name]->setChoices($choice_lists[$choice_list]);
+			}
+			$this->unanswered[$name]->refresh($item, array('label_parsed'));
 		}
 		return $this->unanswered;
 	}
@@ -881,7 +884,10 @@ class Survey extends RunUnit {
 		$select = $this->dbh->select('list_name, name, label, label_parsed');
 		$select->from('survey_item_choices');
 		$select->where(array('study_id' => $this->id));
-		if ($specific !== null) {
+
+		if (!$specific && $specific !== null) {
+			return array();
+		} elseif ($specific !== null) {
 			$select->whereIn('list_name', $specific);
 		}
 		$select->order('id', 'ASC');

@@ -119,11 +119,6 @@ class Item extends HTML_element {
 	protected $probably_render = null;
 
 	public function __construct($options = array()) {
-		// If you are just refreshing the item maybe due to change in choices then no need for long processing
-		if (!empty($options['refresh'])) {
-			return $this->refresh($options);
-		}
-
 		// simply load the array into the object, with some sensible defaults
 		$this->id = isset($options['id']) ? $options['id'] : 0;
 
@@ -235,17 +230,16 @@ class Item extends HTML_element {
 		endif;
 	}
 
-	protected function refresh($options) {
-		foreach ($options as $property => $value) {
-			if (property_exists($this, $property)) {
-				$this->{$property} = $value;
+	public function refresh($options = array(), $properties = array()) {
+		foreach ($properties as $property) {
+			if (property_exists($this, $property) && isset($options[$property])) {
+				$this->{$property} = $options[$property];
 			}
 		}
 
-		if (empty($options['skip_more_options'])) {
-			$this->setMoreOptions();
-		}
-		return true;
+		$this->setMoreOptions();
+		$this->classes_wrapper = array_merge($this->classes_wrapper, array('item-'.$this->type));
+		return $this;
 	}
 
 	public function hasBeenRendered() {
