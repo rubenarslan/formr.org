@@ -599,12 +599,12 @@ class Item extends HTML_element {
 	}
 
 	protected function setChoiceListFromOptions() {
-		if (!$this->type_options_array) {
-			return;
+		if (!$this->type_options_array || $this->choice_list) {
+			return $this->choice_list;
 		}
 
 		$lc = explode(' ', trim(end($this->type_options_array)));
-		$choice_list = count($lc) > 1 ? end($lc) : null;
+		$choice_list = count($lc) > 1 ? end($lc) : $this->choice_list;
 		$this->choice_list = $choice_list;
 		return $this->choice_list;
 	}
