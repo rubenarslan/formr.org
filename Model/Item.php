@@ -543,7 +543,7 @@ class Item extends HTML_element {
 		if (is_array($showif_result) && array_key_exists(0, $showif_result)) {
 			$result = $showif_result[0];
 		} elseif ($showif_result === array()) {
-			notify_user_error("You made a mistake, writing a showif <code class='r hljs'>" . $this->showif . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist. Valid return values for a showif are TRUE, FALSE and NULL.", " There are programming problems in this survey.");
+			notify_user_error("You made a mistake, writing a showif <code class='r hljs'>" . $this->showif . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist. Valid return values for a showif are TRUE, FALSE and NULL/NA.", " There are programming problems in this survey.");
 			$this->alwaysInvalid();
 			$this->error = _('Incorrectly defined showif.');
 		}
