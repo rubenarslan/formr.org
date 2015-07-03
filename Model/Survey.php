@@ -420,9 +420,9 @@ class Survey extends RunUnit {
 		// Gather labels and choice_lists to be parsed only for items that will potentially be visibile
 		$strings_to_parse = array();
 		$lists_to_fetch = array();
+		$visibleItems = array();
 
 		/** @var Item $item */
-		$visibleItems = array();
 		foreach ($this->unanswered as $name => $item) {
 			if (!$item->isVisible()) {
 				continue;
@@ -434,10 +434,10 @@ class Survey extends RunUnit {
 
 			if (true || !$item->label_parsed) {
 				$this->unanswered[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
-				$strings_to_parse[] = $item['label'];
+				$strings_to_parse[] = $item->label;
 			}
 
-			$visibleItems[$name] = $this->unanswered[$name];
+			$visibleItems[$name] = (array) $this->unanswered[$name];
 			// Since as we are skipping all non-vsisible items, we can safely truncate here on a submit button
 			// This will help process fewer item labels and choice labels (maybe it is more optimal)
 			if ($item->type === 'submit' && count($visibleItems) > 0) {
@@ -476,12 +476,8 @@ class Survey extends RunUnit {
 		// and set choices for various items with processed choice_lists
 		$itemFactory->setChoiceLists($choice_lists);
 		foreach ($visibleItems as $name => $item) {
-			$this->unanswered[$name] = $visibleItems[$name];
-			if (isset($choice_lists[$item->choice_list])) {
-				$item = (array)$item;
-				$item['refresh'] = true;
-				$this->unanswered[$name] = $itemFactory->make($item);
-			}
+			$item['refresh'] = true;
+			$this->unanswered[$name] = $itemFactory->make($item);
 		}
 		return $this->unanswered;
 	}
