@@ -270,6 +270,13 @@ class Survey extends RunUnit {
 			}
 			return false;
 		}));
+		$this->hidden_but_rendered_on_current_page = count(array_filter($this->to_render, function ($item) {
+			// here: count those items that were hidden but rendered (ie. those relying on missing data for their showif)
+			if ($item->isHiddenButRendered($this)) {
+				return true;
+			}
+			return false;
+		}));
 		$this->not_answered_on_current_page = $this->not_answered - count(array_filter($this->to_render, function ($item) {
 			// count only rendered items, not skipped ones
 			if ($item->isVisible($this)) {
@@ -578,7 +585,7 @@ class Survey extends RunUnit {
 		$ret .= '
 			<div class="container progress-container">
 			<div class="progress">
-				  <div data-percentage-minimum="' . $this->settings["add_percentage_points"] . '" data-percentage-maximum="' . $this->settings["displayed_percentage_maximum"] . '" data-already-answered="' . $this->already_answered . '" data-items-left="' . $this->not_answered_on_current_page . '" data-items-on-page="' . ($this->not_answered - $this->not_answered_on_current_page) . '" data-hidden-but-rendered="' . $this->hidden_but_rendered . '" class="progress-bar" style="width: ' . $prog . '%;">' . $prog . '%</div>
+				  <div data-percentage-minimum="' . $this->settings["add_percentage_points"] . '" data-percentage-maximum="' . $this->settings["displayed_percentage_maximum"] . '" data-already-answered="' . $this->already_answered . '" data-items-left="' . $this->not_answered_on_current_page . '" data-items-on-page="' . ($this->not_answered - $this->not_answered_on_current_page) . '" data-hidden-but-rendered="' . $this->hidden_but_rendered_on_current_page . '" class="progress-bar" style="width: ' . $prog . '%;">' . $prog . '%</div>
 			</div>
 			</div>';
 
@@ -601,7 +608,7 @@ class Survey extends RunUnit {
 
 		// if the last item was not a submit button, add a default one
 		if (isset($item) AND $item->type !== "submit") {
-			$sub_sets = array('label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!', 'class_input' => 'btn-info');
+			$sub_sets = array('label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!', 'class_input' => 'btn-info .default_formr_button');
 			$item = new Item_submit($sub_sets);
 			$ret .= $item->render();
 		}
