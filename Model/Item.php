@@ -117,7 +117,8 @@ class Item extends HTML_element {
 	protected $classes_label = array('control-label');
 	protected $presetValues = array();
 	protected $probably_render = null;
-
+	public $presetValue = null;
+	
 	public function __construct($options = array()) {
 		// simply load the array into the object, with some sensible defaults
 		$this->id = isset($options['id']) ? $options['id'] : 0;
@@ -474,7 +475,7 @@ class Item extends HTML_element {
 	public function needsDynamicValue() {
 		$this->value = trim($this->value);
 		if (!$this->value) {
-			$this->presetValue = null; // FIXME: property not defined
+			$this->presetValue = null;
 			return false;
 		}
 

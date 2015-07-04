@@ -564,6 +564,10 @@ class RunUnit {
 
 		// If there is a cache of opencpu, check if it still exists
 		if($opencpu_url) {
+			if ($this->called_by_cron) {
+				return false; // don't regenerate once we once had a report for this feedback, if it's only the cronjob
+			}
+			
 			$opencpu_url .= $email_embed ? '' : 'R/.val/';
 			$session = opencpu_get($opencpu_url, $email_embed ? "" : "json", null, true);
 		}
