@@ -342,8 +342,8 @@ class Survey extends RunUnit {
 		$show_ifs = $dynamic_values = array();
 		/* @var Item $item */
 		foreach ($items as $name => $item) {
-			if ($item->showif) {
-				$show_ifs[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->showif} \n} ) })()";
+			if ($item->getShowIf()) {
+				$show_ifs[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->getShowIf()} \n} ) })()";
 			}
 			if ($item->needsDynamicValue()) {
 				$dynamic_values[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->getValue()} \n} ) })()";
@@ -353,7 +353,11 @@ class Survey extends RunUnit {
 		if ($show_ifs) {
 			$code = "list(\n" . implode(",\n", $show_ifs) . "\n)";
 			$variables = $this->getUserDataInRun($this->dataNeeded($this->dbh, $code, $this->name));
-			$results = opencpu_evaluate($code, $variables, 'json');
+			$ocpu_session = opencpu_evaluate($code, $variables, 'json', null, true);
+			$results = $ocpu_session->getJSONObject();
+			if(!$ocpu_session OR $ocpu_session->hasError()) {
+				notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
+			}
 
 			// Fit show-ifs
 			foreach ($items as &$item) {
@@ -366,7 +370,9 @@ class Survey extends RunUnit {
 			$variables = $this->getUserDataInRun($this->dataNeeded($this->dbh, $code, $this->name));
 			$ocpu_session = opencpu_evaluate($code, $variables, 'json', null, true);
 			$results = $ocpu_session->getJSONObject();
-
+			if(!$ocpu_session OR $ocpu_session->hasError()) {
+				notify_user_error(opencpu_debug($ocpu_session), "There was a problem getting dynamic values using openCPU.");
+			}
 			// Fit dynamic values in properly reder
 			$post = array();
 			foreach ($items as &$item) {

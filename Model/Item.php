@@ -465,6 +465,11 @@ class Item extends HTML_element {
 			$this->label_parsed = $markdown;
 		}
 	}
+	public function getShowIf() {
+		if (strstr($this->showif, "//js_only") === false) {
+			return $this->showif;
+		}
+	}
 
 	public function needsDynamicValue() {
 		$this->value = trim($this->value);
@@ -1830,7 +1835,7 @@ class Item_choose_two_weekdays extends Item_mc_multiple {
 
 class Item_timezone extends Item_select_one {
 
-	public $mysql_field = 'FLOAT DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(255)';
 	public $choice_list = '*';
 
 	protected function chooseResultFieldBasedOnChoices() {
@@ -1863,7 +1868,7 @@ class Item_timezone extends Item_select_one {
 
 		foreach ($this->choices AS $value => $option):
 			$selected = array('selected' => $this->isSelectedOptionValue($value, $this->value_validated));
-			$ret .= '<option value="' . $this->offsets[$value] . '" ' . self::_parseAttributes($selected, array('type')) . '>' . $option . '</option>';
+			$ret .= '<option value="' . $option . '" ' . self::_parseAttributes($selected, array('type')) . '>' . $option . '</option>';
 		endforeach;
 
 		$ret .= '</select>';
