@@ -20,7 +20,10 @@
 	function Survey() {
 		this.$progressbar = $('.progress .progress-bar');
 		this.already_answered = this.$progressbar.data('already-answered');
-		this.remaining_items = this.$progressbar.data('items-left');
+		this.items_left = this.$progressbar.data('items-left');
+		this.items_on_page = this.$progressbar.data('items-on-page');
+		this.hidden_but_rendered = this.$progressbar.data('hidden-but-rendered');
+		this.items_visible_on_page = this.items_on_page - this.hidden_but_rendered;
 		this.percentage_minimum = this.$progressbar.data('percentage-minimum');
 		this.percentage_maximum = this.$progressbar.data('percentage-maximum');
 		this.form_inputs = {};
@@ -323,14 +326,14 @@
 	}
 	Survey.prototype.update = function (e) {
 		this.getData();
-		this.showIf();
+		if(this.showIf()) // if the showif changes the available inputs, refresh data
+			this.getData();
 		this.getProgress();
 	};
 	Survey.prototype.getData = function () {
 		var badArray = $('form').serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
 		this.data = {};
 		var survey = this;
-		survey.unanswered_page_items = 0;
 		
 		$.each(badArray, function(i, obj)
 		{
@@ -338,7 +341,6 @@
 				if(obj.name.indexOf('[]', obj.name.length - 2) > -1) obj.name = obj.name.substring(0,obj.name.length - 2);
 		
 				if(obj.value === "" && $("input[type=hidden][name='" + obj.name + "']").length === 1 && obj.value === $("input[type=hidden][name='" + obj.name + "']").attr("value")) {
-					survey.unanswered_page_items += 1; // do not put the default values into the data array, that we just put in hidden inputs to make PHP understand that a radio or checkbox was submitted 
 					return true;
 				}
 		
@@ -354,14 +356,16 @@
 	
 		$.each(this.data,function(name,value){
 			if( ! survey.form_inputs[name] ) {
-				survey.form_inputs[name] = $(document.getElementsByName(name).length ? document.getElementsByName(name) : $(document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])") );
+				survey.form_inputs[name] = document.getElementsByName(name).length ? 
+					$(document.getElementsByName(name)) : 
+					$(document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])");
 			}
 
-			var elm_non_hidden = survey.form_inputs[name];
+			var visible_elm = survey.form_inputs[name];
 		
-			if(typeof elm_non_hidden.parents(".form-group").data('ever-changed') == "undefined") {
-				elm_non_hidden.parents(".form-group").data('ever-changed', false);
-				elm_non_hidden.parents(".form-group").change(function(){
+			if(typeof visible_elm.parents(".form-group").data('ever-changed') == "undefined") {
+				visible_elm.parents(".form-group").data('ever-changed', false);
+				visible_elm.parents(".form-group").change(function(){
 				   $(this).data('ever-changed', true);
 	               $(this).find("input.item_answered").val(mysql_datetime());
 	               $(this).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
@@ -369,39 +373,18 @@
 			}
 		
 		
-			if(elm_non_hidden[0])
+			if(visible_elm[0])
 			{
-				if(value.length > 0) // if it's not empty, you get  //  || parseFloat(elm.value)
-				{
-					if(elm_non_hidden.parents(".form-group").data('ever-changed') || elm_non_hidden.attr('type') == "hidden") //elm.value == elm_non_hidden.defaultValue) 
-				   {
-			   			survey.items_answered_on_page += 0.5; // half a point for changing the default value
-
-						if(elm_non_hidden[0].validity.valid) { // if it is valid like this, it gets half a point
-							survey.items_answered_on_page += 0.5;
-						}
-						else
-						{
-							survey.unanswered_page_items += 0.5;
-						}
-					}
-					else
-					{
-						survey.unanswered_page_items += 1;
-					}
-					// cases: 
-					// range, default: 0 + 0.5 = 0.05
-					// email, "text": 0.5 + 0 = 0.5
-					// text, "": 0 + 0
-					// text, "xx": 0.5 + 0.5 = 1
-				}
-				else
-				{
-					survey.unanswered_page_items += 1;
+				if(value.length > 0 && (visible_elm.parents(".form-group").data('ever-changed') || visible_elm.attr('type') == "hidden") && visible_elm[0].validity.valid) { // if it is valid like this, it gets half a point
+							survey.items_answered_on_page += 1;
 				}
 			}
 		});
-		var prog_here = (survey.items_answered_on_page + survey.already_answered) / (survey.remaining_items + survey.unanswered_page_items + survey.items_answered_on_page + survey.already_answered);
+		console.log(survey.items_answered_on_page, survey.already_answered);
+		console.log(survey.items_left, survey.items_visible_on_page);
+		console.log(survey.items_visible_on_page - survey.items_answered_on_page);
+		
+		var prog_here = (survey.items_answered_on_page + survey.already_answered) / (survey.items_left + survey.items_visible_on_page - survey.items_answered_on_page + survey.already_answered);
 	
 		var prog = prog_here * (survey.percentage_maximum - survey.percentage_minimum);  // the fraction of this survey that was completed is multiplied with the stretch of percentage that it was accorded
 		prog = prog + survey.percentage_minimum;
@@ -417,6 +400,7 @@
 	Survey.prototype.showIf = function(e)
 	{
 		var survey = this;
+		var any_change = false;
 		$(".form-group[data-showif]").each(function(i,elm) // walk through all form elements that are dynamically shown/hidden
 		{
 			var showif = $(elm).data('showif'); // get specific condition
@@ -426,13 +410,19 @@
 				with(survey.data) // using the form data as the environment
 				{
 					var hide = ! eval(showif); // evaluate the condition
-					$(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
-					$(elm).find('input,select,textarea').prop('disabled', hide); // enable/disable depending on evaluation
-					$(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
-	                if(! hide) {
-	                    $(elm).find("input.item_shown").val(mysql_datetime());
-	                    $(elm).find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
-	                }
+					if($(elm).hasClass('hidden') != hide) {
+						any_change = true;
+						$(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
+						$(elm).find('input,select,textarea').prop('disabled', hide); // enable/disable depending on evaluation
+						$(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
+		                if(! hide) {
+		                    $(elm).find("input.item_shown").val(mysql_datetime());
+		                    $(elm).find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
+							survey.items_visible_on_page++;
+						} else {
+							survey.items_visible_on_page--;
+						}
+					}
 				}
 			}
 			catch(e)
@@ -444,6 +434,7 @@
 				return;
 			}
 		});
+		return any_change;
 	};
 
 	function flatStringifyGeo(geo) {

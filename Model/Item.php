@@ -553,7 +553,7 @@ class Item extends HTML_element {
 			$this->probably_render = false;
 		}
 		// null means we can't determine clearly if item should be visible or not
-		if ($this->probably_render === null || $result === null) {
+		if ($result === null) {
 			$this->probably_render = true;
 		}
 	}
@@ -577,7 +577,7 @@ class Item extends HTML_element {
 			$this->alwaysInvalid();
 			$value = null;
 		} elseif ($value === null) {
-			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($value) . "</code> that returns NA (missing). The most common reason for this is to e.g. refer to data that is not yet set, i.e. referring to questions that haven't been answered yet. To circumvent this, add a showif to your item, checking whether the item is answered yet using is.na(). Valid values need to have a length of one.", " There are programming problems related to null dynamic values in this survey.");
+			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($currentValue) . "</code> that returns NA (missing). The most common reason for this is to e.g. refer to data that is not yet set, i.e. referring to questions that haven't been answered yet. To circumvent this, add a showif to your item, checking whether the item is answered yet using is.na(). Valid values need to have a length of one.", " There are programming problems related to null dynamic values in this survey.");
 			$this->openCPU_errors[$value] = _('Incorrectly defined value (null).');
 			$this->alwaysInvalid();
 		} elseif (is_array($value) && array_key_exists(0, $value)) {
@@ -594,6 +594,13 @@ class Item extends HTML_element {
 		if(!$this->hidden):					// if it's not hidden, it's visible
 			return true;
 		elseif($this->probably_render):		// if it is hidden, but the state is null, it might become visible via JS
+			return true;
+		endif;
+		
+		return false;
+	}
+	public function isHiddenButRendered() {
+		if($this->hidden AND $this->probably_render):
 			return true;
 		endif;
 		
@@ -1096,7 +1103,7 @@ class Item_note extends Item {
 class Item_submit extends Item {
 
 	public $type = 'submit';
-	public $input_attributes = array('type' => 'submit');
+	public $input_attributes = array('type' => 'submit', 'value' => 1);
 	public $mysql_field = null;
 	public $save_in_results_table = false;
 
@@ -1108,7 +1115,7 @@ class Item_submit extends Item {
 	}
 
 	protected function render_inner() {
-		return '<button ' . self::_parseAttributes($this->input_attributes, array('required', 'value')) . '>' . $this->label_parsed . '</button>';
+		return '<button ' . self::_parseAttributes($this->input_attributes, array('required')) . '>' . $this->label_parsed . '</button>';
 	}
 
 }

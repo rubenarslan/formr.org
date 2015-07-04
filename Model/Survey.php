@@ -6,7 +6,6 @@ class Survey extends RunUnit {
 	public $name = null;
 	public $run_name = null;
 	public $items = array();
-	public $unanswered = array();
 	public $already_answered = 0;
 	public $not_answered = 0;
 	public $progress = 0;
@@ -257,25 +256,41 @@ class Survey extends RunUnit {
 				->fetch();
 
 		$this->already_answered = $answered['count'];
-		$this->not_answered = array_filter($this->unanswered, function ($item) {
-			// If items require no user interaction and thus don't count against progress OR items are skipped, then don't count. FIXME: Not clear
-			if (in_array($item->type, array('submit', 'mc_heading')) || !$item->isVisible($this)) {
-				return false;
+		$this->not_answered = count(array_filter($this->unanswered, function ($item) {
+			// count only rendered items, not skipped ones
+			if ($item->isVisible($this)) {
+				return true;
 			}
-			return true;
-		});
-		$this->not_answered = count($this->not_answered);
+			return false;
+		}));
+		$this->hidden_but_rendered = count(array_filter($this->unanswered, function ($item) {
+			// here: count those items that were hidden but rendered (ie. those relying on missing data for their showif)
+			if ($item->isHiddenButRendered($this)) {
+				return true;
+			}
+			return false;
+		}));
+		$this->not_answered_on_current_page = $this->not_answered - count(array_filter($this->to_render, function ($item) {
+			// count only rendered items, not skipped ones
+			if ($item->isVisible($this)) {
+				return true;
+			}
+			return false;
+		}));
 
 		$all_items = $this->already_answered + $this->not_answered;
 
 		if ($all_items !== 0) {
 			$this->progress = $this->already_answered / $all_items;
-			return $this->progress;
 		} else {
 			$this->errors[] = _('Something went wrong, there are no items in this survey!');
 			$this->progress = 0;
-			return 0;
 		}
+
+		if($this->not_answered === $this->hidden_but_rendered) { // if there only hidden items, that have no way of becoming visible (no other items)
+			$this->progress = 1;
+		}
+		return $this->progress;
 	}
 
 	/**
@@ -362,6 +377,8 @@ class Survey extends RunUnit {
 			$this->post($post, false);
 		}
 	}
+	public $unanswered = array();
+	public $to_render = array();
 
 	/**
 	 * Get the next items to be displayed in the survey
@@ -420,7 +437,7 @@ class Survey extends RunUnit {
 		// Gather labels and choice_lists to be parsed only for items that will potentially be visibile
 		$strings_to_parse = array();
 		$lists_to_fetch = array();
-		$visibleItems = array();
+		$this->to_render = array();
 
 		/** @var Item $item */
 		foreach ($this->unanswered as $name => $item) {
@@ -437,17 +454,17 @@ class Survey extends RunUnit {
 				$strings_to_parse[] = $item->label;
 			}
 
-			$visibleItems[$name] = (array) $this->unanswered[$name];
+			$this->to_render[$name] = (array) $this->unanswered[$name];
 			// Since as we are skipping all non-vsisible items, we can safely truncate here on a submit button
 			// This will help process fewer item labels and choice labels (maybe it is more optimal)
-			if ($item->type === 'submit' && count($visibleItems) > 0) {
+			if ($item->type === 'submit' && count($this->to_render) > 0) {
 				break;
 			}
 		}
 
 		// Use only visible items
-		// FIXME: Truncating the unanswered items array here will break progress so use $visibleItems array to process labels and merge back
-		// $this->unanswered = $visibleItems;
+		// FIXME: Truncating the unanswered items array here will break progress so use $this->to_render array to process labels and merge back
+		// $this->unanswered = $this->to_render;
 
 		// gather and format choice_lists and save all choice labels that need parsing
 		$choices = $this->getChoices($lists_to_fetch, null);
@@ -470,18 +487,19 @@ class Survey extends RunUnit {
 			// Replace parsed strings in $choice_list array
 			opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
 			// Replace parsed strings in unanswered items array
-			opencpu_substitute_parsed_strings($visibleItems, $parsed_strings);
+			opencpu_substitute_parsed_strings($this->to_render, $parsed_strings);
 		}
 
 		// Merge processed visible items into the unanswered array
 		// and set choices for various items with processed choice_lists
 		$itemFactory->setChoiceLists($choice_lists);
-		foreach ($visibleItems as $name => $item) {
+		foreach ($this->to_render as $name => $item) {
 			$choice_list = $item['choice_list'];
 			if (isset($choice_lists[$choice_list])) {
 				$this->unanswered[$name]->setChoices($choice_lists[$choice_list]);
 			}
 			$this->unanswered[$name]->refresh($item, array('label_parsed'));
+			$this->to_render[$name] = $this->unanswered[$name];
 		}
 		return $this->unanswered;
 	}
@@ -497,24 +515,13 @@ class Survey extends RunUnit {
 		$view_update->bindValue(":session_id", $this->session_id);
 
 		$itemsDisplayed = 0;
-		$item_will_be_rendered = true;
 
 		$this->rendered_items = array();
 		try {
-			foreach ($this->unanswered as &$item) {
-				if ($this->settings['maximum_number_displayed'] && $this->settings['maximum_number_displayed'] <= $itemsDisplayed) {
-					$item_will_be_rendered = false;
-				}
-
-				if ($item_will_be_rendered && $item->isVisible()) {
-					if ($item->type === 'submit') {
-						// skip submit buttons once everything before them was dealt with	
-						if ($itemsDisplayed === 0) {
-							continue;
-						}
-						$item_will_be_rendered = false;
-					}
-
+			foreach ($this->to_render as &$item) {
+				if ($this->settings['maximum_number_displayed'] && $this->settings['maximum_number_displayed'] === $itemsDisplayed) {
+					break;
+				} else if ($item->isVisible()) {
 					// if it's rendered, we send it along here or update display count
 					$view_update->bindParam(":item_id", $item->id);
 					$view_update->execute();
@@ -524,26 +531,14 @@ class Survey extends RunUnit {
 					}
 
 					$this->rendered_items[] = $item;
+					if ($item->type === 'submit') {
+						break;
+					}
 				}
 			}
 
 			$this->dbh->commit();
 
-			// FIXME: This property is not defined and what is this business?
-			$this->not_answered_on_current_page = array_filter($this->rendered_items, function ($item) {
-				/**
-				 * If item was skipped OR 
-				 * these items require no user interaction and thus don't count against progress OR
-				 * item is a note and has already been viewed
-				 * Then item is not answered on current page
-				 */
-				if (in_array($item->type, array('submit', 'mc_heading')) OR ($item->type == 'note' AND $item->hasBeenRendered()) OR !$item->isVisible()) {
-					return false;
-				}
-				return true;
-			});
-
-			$this->not_answered_on_current_page = count($this->not_answered_on_current_page);
 		} catch (Exception $e) {
 			$this->dbh->rollBack();
 			log_exception($e, __CLASS__);
@@ -583,7 +578,7 @@ class Survey extends RunUnit {
 		$ret .= '
 			<div class="container progress-container">
 			<div class="progress">
-				  <div data-percentage-minimum="' . $this->settings["add_percentage_points"] . '" data-percentage-maximum="' . $this->settings["displayed_percentage_maximum"] . '" data-already-answered="' . $this->already_answered . '"  data-items-left="' . ($this->not_answered - $this->not_answered_on_current_page) . '" class="progress-bar" style="width: ' . $prog . '%;">' . $prog . '%</div>
+				  <div data-percentage-minimum="' . $this->settings["add_percentage_points"] . '" data-percentage-maximum="' . $this->settings["displayed_percentage_maximum"] . '" data-already-answered="' . $this->already_answered . '" data-items-left="' . $this->not_answered_on_current_page . '" data-items-on-page="' . ($this->not_answered - $this->not_answered_on_current_page) . '" data-hidden-but-rendered="' . $this->hidden_but_rendered . '" class="progress-bar" style="width: ' . $prog . '%;">' . $prog . '%</div>
 			</div>
 			</div>';
 
