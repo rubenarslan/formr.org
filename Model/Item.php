@@ -591,7 +591,13 @@ class Item extends HTML_element {
 	}
 
 	public function isVisible() {
-		return !$this->hidden || $this->probably_render;
+		if(!$this->hidden):					// if it's not hidden, it's visible
+			return true;
+		elseif($this->probably_render):		// if it is hidden, but the state is null, it might become visible via JS
+			return true;
+		endif;
+		
+		return false;
 	}
 
 	public function setChoices($choices) {
@@ -607,6 +613,9 @@ class Item extends HTML_element {
 		$choice_list = count($lc) > 1 ? end($lc) : $this->choice_list;
 		$this->choice_list = $choice_list;
 		return $this->choice_list;
+	}
+	public function getReply($reply) {
+		return $reply;
 	}
 
 }
@@ -766,6 +775,13 @@ class Item_number extends Item {
 		}
 
 		return parent::validateInput($reply);
+	}
+	public function getReply($reply) {
+		$reply = trim(str_replace(",", ".", $reply));
+		if (!$reply AND $reply !== 0 AND $this->optional) {
+			return null;
+		}
+		return $reply;
 	}
 
 }
@@ -974,9 +990,12 @@ class Item_datetime extends Item {
 			} elseif (isset($this->input_attributes['max']) AND $time_reply > strtotime($this->input_attributes['max'])) { // larger number than allowed
 				$this->error = __("The maximum is %d", $this->input_attributes['max']);
 			}
-			$reply = date($this->html5_date_format, $time_reply);
 		}
 		return parent::validateInput($reply);
+	}
+	public function getReply($reply) {
+		$time_reply = strtotime($reply);
+		return date($this->html5_date_format, $time_reply);
 	}
 
 }
@@ -1225,14 +1244,12 @@ class Item_mc_multiple extends Item_mc {
 		return $ret;
 	}
 
-	public function validateInput($reply) {
-		$reply = parent::validateInput($reply);
+	public function getReply($reply) {
 		if (is_array($reply)) {
 			$reply = implode(", ", array_filter($reply));
 		}
 		return $reply;
 	}
-
 }
 
 // multiple multiple choice, also checkboxes
@@ -1257,6 +1274,9 @@ class Item_check extends Item_mc_multiple {
 			$this->error = __("You chose an option '%s' that is not permitted.", h($reply));
 		}
 		$reply = parent::validateInput($reply);
+		return $reply ? 1 : 0;
+	}
+	public function getReply($reply) {
 		return $reply ? 1 : 0;
 	}
 
@@ -1333,22 +1353,19 @@ class Item_select_multiple extends Item_select_one {
 		$this->input_attributes['multiple'] = true;
 		$this->input_attributes['name'] = $this->name . '[]';
 	}
-
-	public function validateInput($reply) {
-		$reply = parent::validateInput($reply);
+	public function getReply($reply) {
 		if (is_array($reply)) {
 			$reply = implode(", ", array_filter($reply));
 		}
 		return $reply;
 	}
-
 }
 
 // dropdown select, choose one
 class Item_select_or_add_one extends Item {
 
 	public $type = 'select_or_add_one';
-	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
+	public $mysql_field = 'TEXT DEFAULT NULL';
 	public $input_attributes = array('type' => 'text');
 	protected $hasChoices = true;
 
@@ -1383,19 +1400,7 @@ class Item_select_or_add_one extends Item {
 		$this->input_attributes['data-select2maximumSelectionSize'] = (int) $maxSelect;
 		$this->input_attributes['data-select2maximumInputLength'] = (int) $maxType;
 	}
-
-	protected function chooseResultFieldBasedOnChoices() {
-		/*
-		 * This function is commented out because this should NOT be done here.
-		 * If you are giving the opportunity for the user to enter something you are not sure the length of the thing
-		 * so you can't be changing the length of the data type. Stick with the above default.
-		 *
-		 * $choices = array_keys($this->choices);
-		 * $lengths = array_map("strlen",$choices);
-		 * $lengths[] = $this->input_attributes['data-select2maximumInputLength'];
-		 * $maxlen = max($lengths);
-		 * $this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL';
-		 */
+	protected function chooseResultFieldBasedOnChoices() { // override parent
 	}
 
 }
@@ -1412,27 +1417,14 @@ class Item_select_or_add_multiple extends Item_select_or_add_one {
 		$this->input_attributes['data-select2multiple'] = 1;
 	}
 
-	public function validateInput($reply) {
-		$reply = parent::validateInput($reply);
+	public function getReply($reply) {
 		if (is_array($reply)) {
 			$reply = implode("\n", array_filter($reply));
 		}
 		return $reply;
 	}
-
-	protected function chooseResultFieldBasedOnChoices() {
-		$choices = array_keys($this->choices);
-		$max = implode(", ", array_filter($choices));
-		if (!$this->input_attributes['data-select2maximumSelectionSize']):
-			$this->mysql_field = 'TEXT DEFAULT NULL';
-		else:
-			$maxUserAdded = ($this->input_attributes['data-select2maximumInputLength'] + 2) * $this->input_attributes['data-select2maximumSelectionSize'];
-			$maxlen = strlen($max) + $maxUserAdded;
-			#		$this->mysql_field = 'VARCHAR ('.$maxlen.') DEFAULT NULL'; // oh why be so stingy, may miscalculate after all with all that utf8 stuff
-			$this->mysql_field = 'TEXT DEFAULT NULL';
-		endif;
+	protected function chooseResultFieldBasedOnChoices() { // override parent
 	}
-
 }
 
 // dropdown select, choose multiple
@@ -1609,8 +1601,7 @@ class Item_geopoint extends Item {
 		$this->classes_input[] = "form-control";
 	}
 
-	public function validateInput($reply) {
-		$reply = parent::validateInput($reply);
+	public function getReply($reply) {
 		if (is_array($reply)):
 			$reply = array_filter($reply);
 			$reply = end($reply);
@@ -1699,7 +1690,7 @@ class Item_ip extends Item {
 		$this->input_attributes['value'] = $_SERVER["REMOTE_ADDR"];
 	}
 
-	public function validateInput($reply) {
+	public function getReply($reply) {
 		return $_SERVER["REMOTE_ADDR"];
 	}
 
@@ -1722,7 +1713,11 @@ class Item_referrer extends Item {
 		$this->input_attributes['value'] = $site->last_outside_referrer;
 	}
 
-	public function validateInput($reply) {
+	public function validateInput($reply)
+	{
+		return $reply;
+	}
+	public function getReply($reply) {
 		global $site;
 		return $site->last_outside_referrer;
 	}
@@ -1750,7 +1745,7 @@ class Item_server extends Item {
 		}
 	}
 
-	public function validateInput($reply) {
+	public function getReply($reply) {
 		return $_SERVER[$this->get_var];
 	}
 
@@ -1909,7 +1904,7 @@ class Item_mc_heading extends Item_mc {
 		foreach ($this->choices AS $value => $option):
 			$this->input_attributes['selected'] = $this->isSelectedOptionValue($value, $this->value_validated);
 			$ret .= '<label for="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? $option . '&nbsp;' : '') .
-					'<input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? "&nbsp;" : ' ' . $option) .
+					'<input ' . self::_parseAttributes($this->input_attributes, array('id','required')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? "&nbsp;" : ' ' . $option) .
 					'</label>';
 
 			if ($this->label_first) {
@@ -1963,13 +1958,6 @@ class Item_file extends Item {
 				$mime = $finfo->file($reply['tmp_name']);
 				if (!in_array($mime, array_keys($this->file_endings))) {
 					$this->error = 'Files of type' . $mime . ' are not allowed to be uploaded.';
-				} else {
-					$new_file_name = crypto_token(66) . $this->file_endings[$mime];
-					$reply = null;
-					if (move_uploaded_file($reply['tmp_name'], INCLUDE_ROOT . 'webroot/assets/tmp/' . $new_file_name)) {
-						$public_path = WEBROOT . 'assets/tmp/' . $new_file_name;
-						$reply = __($this->embed_html, $public_path);
-					}
 				}
 			} else {
 				$this->error = __("This file is too big the maximum is %d megabytes.", round($this->max_size / 1048576, 2));
@@ -1981,7 +1969,14 @@ class Item_file extends Item {
 		}
 		return parent::validateInput($reply);
 	}
-
+	public function getReply($reply) {
+		$new_file_name = crypto_token(66) . $this->file_endings[$mime];
+		$reply = null;
+		if (move_uploaded_file($reply['tmp_name'], INCLUDE_ROOT . 'webroot/assets/tmp/' . $new_file_name)) {
+			$public_path = WEBROOT . 'assets/tmp/' . $new_file_name;
+			$reply = __($this->embed_html, $public_path);
+		}
+	}
 }
 
 class Item_image extends Item_file {
@@ -2007,11 +2002,6 @@ class Item_blank extends Item_text {
 
 		return '<div class="' . implode(" ", $this->classes_wrapper) . '"' . ($this->data_showif ? ' data-showif="' . h($this->js_showif) . '"' : '') . '>' . $this->label_parsed . '</div>';
 	}
-
-	public function validateInput($reply) {
-		return $reply;
-	}
-
 }
 
 class HTML_element {

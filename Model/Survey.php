@@ -154,7 +154,7 @@ class Survey extends RunUnit {
 				} else {
 					// save validated input
 					$this->unanswered[$item_name]->value_validated = $value;
-					$update_data[$item_name] = $value;
+					$update_data[$item_name] = $this->unanswered[$item_name]->getReply($value);
 				}
 			}
 		}
@@ -193,8 +193,8 @@ class Survey extends RunUnit {
 					continue;
 				}
 
-				$survey_items_display->bindParam(":item_id", $this->unanswered[$name]->id);
-				$survey_items_display->bindParam(":answer", $value);
+				$survey_items_display->bindValue(":item_id", $this->unanswered[$name]->id);
+				$survey_items_display->bindValue(":answer", $this->unanswered[$name]->getReply($value));
 
 				if (isset($posted["_item_views"]["shown"][$this->unanswered[$name]->id], $posted["_item_views"]["shown_relative"][$this->unanswered[$name]->id])):
 					$shown = $posted["_item_views"]["shown"][$this->unanswered[$name]->id];
