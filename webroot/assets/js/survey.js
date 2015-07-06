@@ -361,8 +361,8 @@
 	};
 	Survey.prototype.getProgress = function () {
 		var survey = this;
-		survey.items_answered_on_page = $(".formr_answered").length;
-		survey.items_visible_on_page = $(".form-group:not(.hidden)");
+		survey.items_answered_on_page = $(".formr_answered").length+0;
+		survey.items_visible_on_page = $(".form-group:not(.hidden)").length+0;
 
 		var prog_here = (survey.items_answered_on_page + survey.already_answered) / ( survey.items_visible_on_page + survey.items_left + survey.already_answered);
 	
