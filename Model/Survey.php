@@ -722,10 +722,12 @@ class Survey extends RunUnit {
 			} else {
 				$request = new Request($_GET);
 				$added_via_get = array_diff(array_keys($request->getParams()), array("route","code","run_name") );
-				if(count( $added_via_get ) > 0) { // if information was transmitted via GET
+
+				// if information was transmitted via GET
+				if(count( $added_via_get ) > 0) {
 					$write = array();
 					foreach($added_via_get AS $name) {
-						$write[$name] = $request->getParams()[$name];
+						$write[$name] = $request->getParam($name);
 					}
 					$items = $this->getNextItems(false);
 					$this->post($write);
