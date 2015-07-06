@@ -265,7 +265,21 @@
 				var slct = $(elm); 
 				if(slct.select2("container").hasClass("select2-container")) // is already select2
 					return;
-				var slctdata = $.parseJSON(slct.attr('data-select2add'));
+			    var slctdata0 = slct.attr('data-select2add');
+			    if (typeof slctdata0 != 'object') {
+			        slctdata0 = $.parseJSON(slctdata0);
+			    }
+			    var slctdata_arr;
+			    var slctdata = [];
+				for(var u = 0; u < slctdata0.length; u++) {
+					slctdata_arr = slctdata0[u].id.split(",");
+				    for(var j = 0; j < slctdata_arr.length; j++) {
+						if(slctdata_arr[j].trim().length > 0) {
+					       slctdata.push({ "id": slctdata_arr[j], "text" : slctdata_arr[j] });
+					   }
+				    }
+				}
+				
 				slct.select2({
 					createSearchChoice:function(term, data)
 					{ 
@@ -282,9 +296,9 @@
 						var data;
 						if(!!slct.data('select2multiple')) {
 							var intermed = element.val().split(",");
-							data = [];
+							data = new Array(intermed.length);
 							for(var e = 0; e < intermed.length; e++) {
-								data.push( {id: intermed[e], text: intermed[e] } );
+								data[e] = {id: intermed[e], text: intermed[e] };
 							}
 						} else {
 							data = {id: element.val(), text: element.val()};
@@ -393,7 +407,7 @@
 					if($(elm).hasClass('hidden') != hide) {
 						any_change = true;
 						$(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
-						$(elm).find('input,select,textarea').prop('disabled', hide); // enable/disable depending on evaluation
+						$(elm).find('input,select,textarea,button').prop('disabled', hide); // enable/disable depending on evaluation
 						$(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
 		                if(! hide) {
 		                    $(elm).find("input.item_shown").val(mysql_datetime());
