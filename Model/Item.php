@@ -43,33 +43,6 @@ class ItemFactory {
 		);
 	}
 
-	public function showif(Survey $survey, $showif) {
-		if (array_key_exists($showif, $this->showifs)) {
-			return $this->showifs[$showif];
-		}
-
-		$result = null;
-		if (strstr($showif, "//js_only") === false) {
-			$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $showif, $survey->name));
-			$result = opencpu_evaluate($showif, $opencpu_vars, 'json', $survey->name);
-			/**
-			 * opencpu_evaluate called with the indicated parameters returns:
-			 * - NULL if the variable in $showif is Not Avaliable,
-			 * - TRUE if it avaliable and true,
-			 * - FALSE if it avaliable and not true
-			 * - An empty array if a problem occured with opencpu
-			 */
-			if ($result === array()) {
-				$result = true;
-				notify_user_error("You made a mistake, writing a showif <code class='r hljs'>" . $showif . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist. Valid return values for a showif are TRUE, FALSE and NULL.", " There are programming problems in this survey.");
-				$this->openCPU_errors[$showif] = _('Incorrectly defined showif.');
-			}
-		}
-
-		$this->showifs[$showif] = $result;
-		return $this->showifs[$showif];
-	}
-
 	public function setChoiceLists(array $lists) {
 		$this->choice_lists = $lists;
 	}
@@ -255,41 +228,6 @@ class Item extends HTML_element {
 		return $this->displaycount > 0;
 	}
 
-	/**
-	 * @deprecated
-	 */
-	public function mightBeShown($survey) {
-		if ($this->probably_render === null) {
-			$this->probably_render = true;
-			if (trim($this->showif) != null) {
-				$this->probably_render = $survey->item_factory->showif($survey, $this->showif);
-
-				if ($this->probably_render === null) { // we don't know what happens yet, maybe JS, maybe not
-					$this->hide();
-					$this->probably_render = true;
-				} elseif (!$this->probably_render) { // do not force this to be false, could be "0", 0, false, but not NULL!
-					$this->hide();
-					$this->probably_render = false;
-				} elseif (isset($survey->item_factory->openCPU_errors[$this->showif])) {
-					$this->alwaysInvalid();
-					$this->error = $survey->item_factory->openCPU_errors[$this->showif];
-				}
-			}
-		}
-		return $this->probably_render;
-	}
-
-	/**
-	 * @deprecated
-	 */
-	public function willbeShown($survey, $showif = null) {
-		$might = $this->mightBeShown($survey);
-		if (trim($this->showif) != null AND $showif === $this->showif) {
-			return $might;
-		}
-		return !$this->hidden;
-	}
-
 	protected function chooseResultFieldBasedOnChoices() {
 		if ($this->mysql_field == null) {
 			return;
@@ -453,30 +391,10 @@ class Item extends HTML_element {
 		return $this->label_parsed === null;
 	}
 
-	/**
-	 * @param deprecated
-	 */
-	public function determineDynamicLabel(Survey $survey) {
-		$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $this->label, $survey->name));
-		$markdown = opencpu_knitdisplay($this->label, $opencpu_vars);
-
-		if ($markdown === null) {
-			$this->alwaysInvalid();
-		}
-
-		// simple wrap are eliminated
-		if (mb_substr_count($markdown, "</p>") === 1) {
-			$this->label_parsed = remove_tag_wrapper($markdown, 'p');
-		} else {
-			$this->label_parsed = $markdown;
-		}
-	}
 
 	public function getShowIf() {
 		if (strstr($this->showif, "//js_only") === false) {
 			return $this->showif;
-		} else { // For js_only specific show-ifs elements might be rendered but should be hidden
-			$this->setVisibility(null);
 		}
 		return false;
 	}
@@ -494,41 +412,6 @@ class Item extends HTML_element {
 		}
 
 		return true;
-	}
-
-	/**
-	 * @deprecated
-	 */
-	public function determineDynamicValue(Survey $survey) {
-		$value = $this->getValue($survey);
-		$ocpu_vars = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $value, $survey->name));
-		$ocpu_session = opencpu_evaluate($value, $ocpu_vars, 'json', $survey->name, true);
-
-		$result = $ocpu_session->getJSONObject();
-		if ($result === array()):
-			$result = null;
-			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($value) . "</code> that returns an element of length 0. The most common reason for this is to e.g. refer to data that does not exist, e.g. misspell an item. Valid values need to have a length of one.", " There are programming problems related to zero-length dynamic values in this survey.");
-			$this->openCPU_errors[$value] = _('Incorrectly defined value (zero length).');
-			$this->alwaysInvalid();
-		elseif ($result === null):
-			$result = null;
-			notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($value) . "</code> that returns NA (missing). The most common reason for this is to e.g. refer to data that is not yet set, i.e. referring to questions that haven't been answered yet. To circumvent this, add a showif to your item, checking whether the item is answered yet using is.na(). Valid values need to have a length of one.", " There are programming problems related to null dynamic values in this survey.");
-			$this->openCPU_errors[$value] = _('Incorrectly defined value (null).');
-			$this->alwaysInvalid();
-		else:
-			if ($this->type == 'opencpu_session'):
-				$this->input_attributes['value'] = $ocpu_session->getLocation();
-			else:
-				if ($ocpu_session->getObjectLength() !== 1): // this is only a problem if we're expecting the value to be stored
-					$result = null;
-					notify_user_error("You made a mistake, writing a dynamic value <code class='r hljs'>" . h($value) . "</code> that returns an element with a length greater than 1. The most common reason for this is to e.g. refer to repeated assessments, but failing to specify whether you want the last, the first or all answers concatenated. Sometimes this can also occur if you do your testing repeatedly. The easiest solution is to reset your session in the run administration. Valid values need to have a length of one.", " There are programming problems related to multiple dynamic values in this survey.");
-					$this->openCPU_errors[$value] = _('Incorrectly defined value (multiple).');
-					$this->alwaysInvalid();
-				else:   
-					$this->input_attributes['value'] = $result;
-				endif;
-			endif;
-		endif;
 	}
 
 	public function getValue(Survey $survey = null) {

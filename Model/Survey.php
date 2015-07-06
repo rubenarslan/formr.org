@@ -320,34 +320,6 @@ class Survey extends RunUnit {
 		return $this->progress;
 	}
 
-	/**
-	 * @deprecated
-	 */
-	protected function getAndRenderChoices($lists = array()) {
-		// get and render choices
-		// todo: should only get & render choices for items on this page
-		$items = $this->dbh->select('list_name, name, label, label_parsed')
-						->from('survey_item_choices')
-						->where(array('study_id' => $this->id))
-						->order('id', 'ASC')->fetchAll();
-
-		$choice_lists = array();
-		foreach ($items as $row) {
-			if (!isset($choice_lists[$row['list_name']])) {
-				$choice_lists[$row['list_name']] = array();
-			}
-
-			// Gather and save labels that need parsing along side neccessary variables for ocpu
-			if ($row['label_parsed'] === null) {
-				$row['label_parsed'] = opencpu_string_key(count($this->strings_to_parse));
-				$this->strings_to_parse[] = $row['label'];
-			}
-
-			$choice_lists[$row['list_name']][$row['name']] = $row['label_parsed'];
-		}
-
-		return $choice_lists;
-	}
 
 	/**
 	 * Process show-ifs and dynamic values for a given set of items in survey
