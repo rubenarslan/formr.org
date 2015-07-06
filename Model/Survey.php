@@ -171,18 +171,17 @@ class Survey extends RunUnit {
 		if (!empty($this->errors)) {
 			return false;
 		}
-
 		$survey_items_display = $this->dbh->prepare(
 				"INSERT INTO `survey_items_display` 
 				(item_id, session_id, displaycount, created, answer, saved, shown, shown_relative, answered, answered_relative)
-		VALUES (:item_id, :session_id, NULL, 		NOW(),  :answer2, :saved2, :shown2, :shown_relative2, :answered2, :answered_relative2)
+		VALUES (:item_id, :session_id, NULL, 		NOW(),  :answer, :saved, :shown, :shown_relative, :answered, :answered_relative)
 				ON DUPLICATE KEY UPDATE 
-				answer = :answer, 
-				saved = :saved,
-				shown = :shown,
-				shown_relative = :shown_relative,
-				answered = :answered,
-				answered_relative = :answered_relative,
+				answer = VALUES(answer), 
+				saved = VALUES(saved),
+				shown = VALUES(shown),
+				shown_relative = VALUES(shown_relative),
+				answered = VALUES(answered),
+				answered_relative = VALUES(answered_relative),
 				displaycount = displaycount + 1");
 		$survey_items_display->bindParam(":session_id", $this->session_id);
 
@@ -206,7 +205,6 @@ class Survey extends RunUnit {
 
 				$survey_items_display->bindValue(":item_id", $this->unanswered[$name]->id);
 				$survey_items_display->bindValue(":answer", $this->unanswered[$name]->getReply($value));
-				$survey_items_display->bindValue(":answer2", $this->unanswered[$name]->getReply($value));
 
 				if (isset($posted["_item_views"]["shown"][$this->unanswered[$name]->id], $posted["_item_views"]["shown_relative"][$this->unanswered[$name]->id])):
 					$shown = $posted["_item_views"]["shown"][$this->unanswered[$name]->id];
@@ -226,15 +224,10 @@ class Survey extends RunUnit {
 				endif;
 
 				$survey_items_display->bindValue(":saved", mysql_now());
-				$survey_items_display->bindValue(":saved2", mysql_now());
 				$survey_items_display->bindParam(":shown", $shown);
-				$survey_items_display->bindParam(":shown2", $shown);
 				$survey_items_display->bindParam(":shown_relative", $shown_relative);
-				$survey_items_display->bindParam(":shown_relative2", $shown_relative);
 				$survey_items_display->bindParam(":answered", $answered);
-				$survey_items_display->bindParam(":answered2", $answered);
 				$survey_items_display->bindParam(":answered_relative", $answered_relative);
-				$survey_items_display->bindParam(":answered_relative2", $answered_relative);
 				$item_answered = $survey_items_display->execute();
 
 				if (!$item_answered) {
@@ -318,7 +311,6 @@ class Survey extends RunUnit {
 			$this->errors[] = _('Something went wrong, there are no items in this survey!');
 			$this->progress = 0;
 		}
-
 		// if there only hidden items, that have no way of becoming visible (no other items)
 		if($this->not_answered === $this->hidden_but_rendered) {
 			$this->progress = 1;
@@ -394,7 +386,6 @@ class Survey extends RunUnit {
 				$dynamic_values[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->getValue()} \n} ) })()";
 			}
 		}
-
 		if ($dynamic_values) {
 			$code = "list(\n" . implode(",\n", $dynamic_values) . "\n)";
 			$variables = $this->getUserDataInRun($this->dataNeeded($this->dbh, $code, $this->name));
