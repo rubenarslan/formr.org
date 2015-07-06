@@ -383,7 +383,7 @@ class Survey extends RunUnit {
 		}
 
 		// Compute dynamic values only if items are certainly visisble
-		foreach ($items as $name => $item) {
+		foreach ($items as $name => &$item) {
 			if ($item->needsDynamicValue() && $item->isVisible()) {
 				$dynamic_values[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->getValue()} \n} ) })()";
 			}
