@@ -202,10 +202,8 @@ class Item extends HTML_element {
 			$this->js_showif = preg_replace("/\s*\%contains\%\s*([a-zA-Z0-9_'\"]+)/", ".indexOf($1) > -1", $this->js_showif);
 			$this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $this->js_showif);
 
-			// For js_only specific show-ifs elements might be rendered but should be hidden
-			if (strpos($this->showif, '//js_only') !== false) {
-				$this->hidden = true;
-				$this->probably_render = true;
+			if (strstr($this->showif, "//js_only") !== false) {
+				$this->setVisibility(array(null));
 			}
 		endif;
 	}
@@ -394,9 +392,10 @@ class Item extends HTML_element {
 	}
 
 	public function getShowIf() {
-		if (strstr($this->showif, "//js_only") === false) {
+		if (trim($this->showif)!= "" AND strstr($this->showif, "//js_only") === false) {
 			return $this->showif;
 		}
+		return false;
 	}
 
 	public function needsDynamicValue() {
