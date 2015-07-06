@@ -228,6 +228,12 @@ class Item extends HTML_element {
 			$this->js_showif = preg_replace("/TRUE/", "true", $this->js_showif); // uppercase, R, TRUE, to lowercase, JS, true
 			$this->js_showif = preg_replace("/\s*\%contains\%\s*([a-zA-Z0-9_'\"]+)/", ".indexOf($1) > -1", $this->js_showif);
 			$this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $this->js_showif);
+
+			// For js_only specific show-ifs elements might be rendered but should be hidden
+			if (strpos($this->showif, '//js_only') !== false) {
+				$this->hidden = true;
+				$this->probably_render = true;
+			}
 		endif;
 	}
 
@@ -598,22 +604,24 @@ class Item extends HTML_element {
 		$this->input_attributes['value'] = $value;
 	}
 
+	/**
+	 * Says if an item is visible or not. An item is visible if:
+	 * - It's hidden property is FALSE OR
+	 * - It's state cannot be determined at time of rendering
+	 *
+	 * @return boolean
+	 */
 	public function isVisible() {
-		if(!$this->hidden):					// if it's not hidden, it's visible
-			return true;
-		elseif($this->probably_render):		// if it is hidden, but the state is null, it might become visible via JS
-			return true;
-		endif;
-		
-		return false;
+		return !$this->hidden || $this->probably_render;
 	}
 
+	/**
+	 * Is an element hidden in DOM but rendered?
+	 *
+	 * @return boolean
+	 */
 	public function isHiddenButRendered() {
-		if($this->hidden AND $this->probably_render):
-			return true;
-		endif;
-		
-		return false;
+		return $this->hidden && $this->probably_render;
 	}
 
 	public function setChoices($choices) {

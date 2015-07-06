@@ -56,6 +56,16 @@ class Request {
 	}
 
 	/**
+	 * Get parameter
+	 *
+	 * @param string $name
+	 * @return mixed
+	 */
+	public function getParam($name) {
+		return $this->__get($name);
+	}
+
+	/**
 	 * Recursively input clean control characters (low bits in ASCII table)
 	 *
 	 * @param array|mixed|string $value
