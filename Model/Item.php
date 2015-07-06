@@ -203,7 +203,7 @@ class Item extends HTML_element {
 			$this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $this->js_showif);
 
 			if (strstr($this->showif, "//js_only") !== false) {
-				$this->setVisibility(null);
+				$this->setVisibility(array(null));
 			}
 		endif;
 	}
@@ -393,7 +393,7 @@ class Item extends HTML_element {
 
 
 	public function getShowIf() {
-		if (strstr($this->showif, "//js_only") === false) {
+		if (trim($this->showif)!= "" AND strstr($this->showif, "//js_only") === false) {
 			return $this->showif;
 		}
 		return false;
