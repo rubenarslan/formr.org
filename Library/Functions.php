@@ -938,7 +938,7 @@ function opencpu_knit($code, $return_format = 'json', $return_session = false) {
  */
 function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1, $return_session = false) {
 	$params = array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained);
-	$uri = '/formr/R/formr_render/' . $return_format;
+	$uri = '/formr/R/formr_inline_render/' . $return_format;
 	try {
 		$session = OpenCPU::getInstance()->post($uri, $params);
 		if ($return_session === true) {
