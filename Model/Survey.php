@@ -712,15 +712,26 @@ class Survey extends RunUnit {
 		// execute survey unit in a try catch block
 		// @todo Do same for other run units
 		try {
-			$request = new Request($_POST);
 			$this->startEntry();
 
 			// POST items only if request is a post request
 			if (Request::isHTTPPostRequest()) {
+				$request = new Request($_POST);
 				$items = $this->getNextItems(false);
 				$this->post(array_merge($request->getParams(), $_FILES));
 			} else {
-				$items = $this->getNextItems();
+				$request = new Request($_GET);
+				$added_via_get = array_diff(array_keys($request->getParams()), array("route","code","run_name") );
+				if(count( $added_via_get ) > 0) { // if information was transmitted via GET
+					$write = array();
+					foreach($added_via_get AS $name) {
+						$write[$name] = $request->getParams()[$name];
+					}
+					$items = $this->getNextItems(false);
+					$this->post($write);
+				} else {
+					$items = $this->getNextItems();
+				}
 			}
 
 			if ($this->getProgress() === 1) {
