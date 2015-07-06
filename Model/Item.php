@@ -466,6 +466,7 @@ class Item extends HTML_element {
 			$this->label_parsed = $markdown;
 		}
 	}
+
 	public function getShowIf() {
 		if (strstr($this->showif, "//js_only") === false) {
 			return $this->showif;
@@ -605,6 +606,7 @@ class Item extends HTML_element {
 		
 		return false;
 	}
+
 	public function isHiddenButRendered() {
 		if($this->hidden AND $this->probably_render):
 			return true;
@@ -742,11 +744,11 @@ class Item_number extends Item {
 			elseif (
 					(abs($this->input_attributes['min']) < ($multiply * 32767) ) AND ( abs($this->input_attributes['max']) < ($multiply * 32767) )
 			):
-				$this->mysql_field = preg_replace("/^INT\s/", "SMALLINT", $this->mysql_field);
+				$this->mysql_field = preg_replace("/^INT\s/", "SMALLINT ", $this->mysql_field);
 			elseif (
 					(abs($this->input_attributes['min']) < ($multiply * 8388608) ) AND ( abs($this->input_attributes['max']) < ($multiply * 8388608) )
 			):
-				$this->mysql_field = preg_replace("/^INT\s/", "MEDIUMINT", $this->mysql_field);
+				$this->mysql_field = preg_replace("/^INT\s/", "MEDIUMINT ", $this->mysql_field);
 			elseif (
 					(abs($this->input_attributes['min']) < ($multiply * 2147483648) ) AND ( abs($this->input_attributes['max']) < ($multiply * 2147483648) )
 			):
@@ -754,7 +756,7 @@ class Item_number extends Item {
 			elseif (
 					(abs($this->input_attributes['min']) < ($multiply * 9223372036854775808) ) AND ( abs($this->input_attributes['max']) < ($multiply * 9223372036854775808) )
 			):
-				$this->mysql_field = preg_replace("/^INT\s/", "BIGINT", $this->mysql_field);
+				$this->mysql_field = preg_replace("/^INT\s/", "BIGINT ", $this->mysql_field);
 			endif;
 
 			// FIXME: why not use is_int()? why casting to int before strlen?
@@ -789,6 +791,7 @@ class Item_number extends Item {
 
 		return parent::validateInput($reply);
 	}
+
 	public function getReply($reply) {
 		$reply = trim(str_replace(",", ".", $reply));
 		if (!$reply AND $reply !== 0 AND $this->optional) {
