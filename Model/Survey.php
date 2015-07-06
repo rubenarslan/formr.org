@@ -6,9 +6,6 @@ class Survey extends RunUnit {
 	public $name = null;
 	public $run_name = null;
 	public $items = array();
-	public $already_answered = 0;
-	public $not_answered = 0;
-	public $progress = 0;
 	public $session = null;
 	public $results_table = null;
 	public $run_session_id = null;
@@ -26,6 +23,19 @@ class Survey extends RunUnit {
 	public $result_count = 0;
 	private $confirmed_deletion = false;
 	public $item_factory = null;
+	public $unanswered = array();
+	public $to_render = array();
+
+	/**
+	 * Counts for progress computation
+	 * @var int {collection}
+	 */
+	public $progress = 0;
+	public $already_answered = 0;
+	public $not_answered = 0;
+	public $hidden_but_rendered = 0;
+	public $hidden_but_rendered_on_current_page = 0;
+	public $not_answered_on_current_page = 0;
 
 	/**
 	 * @var DB
@@ -255,35 +265,42 @@ class Survey extends RunUnit {
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->fetch();
 
-		$this->already_answered = $answered['count'];
-		$this->not_answered = count(array_filter($this->unanswered, function ($item) {
+		$counts = array(
+			'already_answered' => $answered['count'],
+			'not_answered' => 0,
+			'hidden_but_rendered' => 0,
+			'visible_on_current_page' => 0,
+			'hidden_but_rendered_on_current_page' => 0,
+		);
+
+		/** @var Item $item */
+		foreach ($this->unanswered as $item) {
 			// count only rendered items, not skipped ones
 			if ($item->isVisible($this)) {
-				return true;
+				$counts['not_answered']++;
 			}
-			return false;
-		}));
-		$this->hidden_but_rendered = count(array_filter($this->unanswered, function ($item) {
-			// here: count those items that were hidden but rendered (ie. those relying on missing data for their showif)
+			// count those items that were hidden but rendered (ie. those relying on missing data for their showif)
 			if ($item->isHiddenButRendered($this)) {
-				return true;
+				$counts['hidden_but_rendered']++;
 			}
-			return false;
-		}));
-		$this->hidden_but_rendered_on_current_page = count(array_filter($this->to_render, function ($item) {
-			// here: count those items that were hidden but rendered (ie. those relying on missing data for their showif)
-			if ($item->isHiddenButRendered($this)) {
-				return true;
-			}
-			return false;
-		}));
-		$this->not_answered_on_current_page = $this->not_answered - count(array_filter($this->to_render, function ($item) {
-			// count only rendered items, not skipped ones
+		}
+		/** @var Item $item */
+		foreach ($this->to_render as $item) {
+			// On current page, count only rendered items, not skipped ones
 			if ($item->isVisible($this)) {
-				return true;
+				$counts['visible_on_current_page']++;
 			}
-			return false;
-		}));
+			// On current page, count those items that were hidden but rendered (ie. those relying on missing data for their showif)
+			if ($item->isHiddenButRendered($this)) {
+				$counts['hidden_but_rendered_on_current_page']++;
+			}
+		}
+
+		$this->already_answered = $counts['already_answered'];
+		$this->not_answered = $counts['not_answered'];
+		$this->hidden_but_rendered = $counts['hidden_but_rendered'];
+		$this->hidden_but_rendered_on_current_page = $counts['hidden_but_rendered_on_current_page'];
+		$this->not_answered_on_current_page = $this->not_answered - $counts['visible_on_current_page'];
 
 		$all_items = $this->already_answered + $this->not_answered;
 
@@ -294,7 +311,8 @@ class Survey extends RunUnit {
 			$this->progress = 0;
 		}
 
-		if($this->not_answered === $this->hidden_but_rendered) { // if there only hidden items, that have no way of becoming visible (no other items)
+		// if there only hidden items, that have no way of becoming visible (no other items)
+		if($this->not_answered === $this->hidden_but_rendered) {
 			$this->progress = 1;
 		}
 		return $this->progress;
@@ -328,7 +346,7 @@ class Survey extends RunUnit {
 
 		return $choice_lists;
 	}
-	
+
 	/**
 	 * Process show-ifs and dynamic values for a given set of items in survey
 	 *
@@ -390,8 +408,6 @@ class Survey extends RunUnit {
 			$this->post($post, false);
 		}
 	}
-	public $unanswered = array();
-	public $to_render = array();
 
 	/**
 	 * Get the next items to be displayed in the survey

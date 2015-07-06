@@ -466,6 +466,7 @@ class Item extends HTML_element {
 			$this->label_parsed = $markdown;
 		}
 	}
+
 	public function getShowIf() {
 		if (strstr($this->showif, "//js_only") === false) {
 			return $this->showif;
@@ -605,6 +606,7 @@ class Item extends HTML_element {
 		
 		return false;
 	}
+
 	public function isHiddenButRendered() {
 		if($this->hidden AND $this->probably_render):
 			return true;
@@ -789,6 +791,7 @@ class Item_number extends Item {
 
 		return parent::validateInput($reply);
 	}
+
 	public function getReply($reply) {
 		$reply = trim(str_replace(",", ".", $reply));
 		if (!$reply AND $reply !== 0 AND $this->optional) {
