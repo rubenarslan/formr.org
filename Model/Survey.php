@@ -363,9 +363,6 @@ class Survey extends RunUnit {
 			if ($item->getShowIf()) {
 				$show_ifs[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->getShowIf()} \n} ) })()";
 			}
-			if ($item->needsDynamicValue()) {
-				$dynamic_values[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->getValue()} \n} ) })()";
-			}
 		}
 
 		if ($show_ifs) {
@@ -380,6 +377,13 @@ class Survey extends RunUnit {
 			// Fit show-ifs
 			foreach ($items as &$item) {
 				$item->setVisibility(array_val($results, $item->name));
+			}
+		}
+
+		// Compute dynamic values only if items are certainly visisble
+		foreach ($items as $item) {
+			if ($item->needsDynamicValue() && !$item->hidden) {
+				$dynamic_values[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->getValue()} \n} ) })()";
 			}
 		}
 
