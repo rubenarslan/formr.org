@@ -14,7 +14,7 @@
 		$('form').on('change', function() { 
 			survey.update();
 		});
-		$('form').change();
+		survey.update();
 	});
 
 	function Survey() {
@@ -26,7 +26,6 @@
 //		console.log("this.items_on_page",this.items_on_page);
 		this.hidden_but_rendered = this.$progressbar.data('hidden-but-rendered');
 //		console.log("this.hidden_but_rendered",this.hidden_but_rendered);
-		this.items_visible_on_page = this.items_on_page - this.hidden_but_rendered;
 		this.percentage_minimum = this.$progressbar.data('percentage-minimum');
 		this.percentage_maximum = this.$progressbar.data('percentage-maximum');
 		this.form_inputs = {};
@@ -328,20 +327,16 @@
 	    });
 		
 		$(".form-group").each(function(i, elm) { // initialise ever changed tracker
-			if(typeof $(elm).data('ever-changed') == "undefined") {
-				$(elm).data('ever-changed', false);
-				$(elm).change(function(){
-				   $(this).data('ever-changed', true);
-	               $(this).find("input.item_answered").val(mysql_datetime());
-	               $(this).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
-				});
-			}
+			$(elm).change(function(){
+			   $(this).addClass('formr_answered');
+               $(this).find("input.item_answered").val(mysql_datetime());
+               $(this).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
+			});
 		});
 	}
 	Survey.prototype.update = function (e) {
 		this.getData();
-		if(this.showIf()) // if the showif changes the available inputs, refresh data
-			this.getData();
+		this.showIf(); // if the showif changes the available inputs, refresh data
 		this.getProgress();
 	};
 	Survey.prototype.getData = function () {
@@ -366,32 +361,9 @@
 	};
 	Survey.prototype.getProgress = function () {
 		var survey = this;
-		survey.items_answered_on_page = 0;
-	
-		$.each(this.data,function(name,value){
-			if( ! survey.form_inputs[name] && !survey.form_inputs[name + "[]"] ) {
-				survey.form_inputs[name] = document.getElementsByName(name).length ? 
-					$(document.getElementsByName(name)) : 
-					$(document.getElementsByName(name+"[]")).filter(":not(input[type=hidden])");
-			}
+		survey.items_answered_on_page = $(".formr_answered").length;
+		survey.items_visible_on_page = $(".form-group:not(.hidden)");
 
-			var visible_elm = survey.form_inputs[name];
-		
-//			console.log(visible_elm[0]);
-//			console.log(visible_elm.parents(".form-group").data('ever-changed'));
-		
-			if(visible_elm[0] && value.length > 0 && visible_elm.parents(".form-group").data('ever-changed') && visible_elm[0].validity.valid) { // if it is valid like this, it gets half a point
-							survey.items_answered_on_page += 1;
-			}
-		});
-/*		console.log(survey.form_inputs);
-		
-		console.log("survey.already_answered",survey.already_answered);
-		console.log('survey.items_answered_on_page',survey.items_answered_on_page);
-		console.log('survey.items_visible_on_page',survey.items_visible_on_page);
-		console.log('survey.items_visible_on_page',survey.items_visible_on_page);
-		console.log('survey.items_left, ',survey.items_left);
-*/		
 		var prog_here = (survey.items_answered_on_page + survey.already_answered) / ( survey.items_visible_on_page + survey.items_left + survey.already_answered);
 	
 		var prog = prog_here * (survey.percentage_maximum - survey.percentage_minimum);  // the fraction of this survey that was completed is multiplied with the stretch of percentage that it was accorded
@@ -426,9 +398,6 @@
 		                if(! hide) {
 		                    $(elm).find("input.item_shown").val(mysql_datetime());
 		                    $(elm).find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
-							survey.items_visible_on_page++;
-						} else {
-							survey.items_visible_on_page--;
 						}
 					}
 				}
