@@ -133,7 +133,7 @@ class AdminRunController extends AdminController {
 					<input type='number' name='new_position' value='{$userx['position']}' class='form-control'>
 					<span class='input-group-btn link-ajax-modal'>
 						<a class='btn hastooltip' data-toggle='modal' data-target='#confirm-delete' href='#' data-href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_deleteUser?run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
-						title='Delete this user and all their data (you\'ll have to confirm)'><i class='fa fa-trash-o'></i></a>
+						title=\"Delete this user and all their data (you'll have to confirm)\"><i class='fa fa-trash-o'></i></a>
 					</span>
 				</span>
 			</form>";
