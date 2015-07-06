@@ -1292,6 +1292,7 @@ class Item_check extends Item_mc_multiple {
 		$reply = parent::validateInput($reply);
 		return $reply ? 1 : 0;
 	}
+
 	public function getReply($reply) {
 		return $reply ? 1 : 0;
 	}
