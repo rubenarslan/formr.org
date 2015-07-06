@@ -111,7 +111,7 @@ class Survey extends RunUnit {
 		$js = (isset($js) ? $js : '') . '<script src="' . WEBROOT . 'assets/' . (DEBUG ? 'js' : 'minified') . '/survey.js"></script>';
 
 		$ret = '
-		<div class="row study-' . $this->id . '">
+		<div class="row study-' . $this->id . ' study-name-'. $this->name .'">
 			<div class="col-md-12">
 		';
 		$ret .= $this->render_form_header() .
@@ -172,10 +172,10 @@ class Survey extends RunUnit {
 			return false;
 		}
 		$survey_items_display = $this->dbh->prepare(
-				"INSERT INTO `survey_items_display` 
+			"INSERT INTO `survey_items_display` 
 				(item_id, session_id, displaycount, created, answer, saved, shown, shown_relative, answered, answered_relative)
-		VALUES (:item_id, :session_id, NULL, 		NOW(),  :answer, :saved, :shown, :shown_relative, :answered, :answered_relative)
-				ON DUPLICATE KEY UPDATE 
+			VALUES (:item_id, :session_id, NULL, NOW(), :answer, :saved, :shown, :shown_relative, :answered, :answered_relative)
+			ON DUPLICATE KEY UPDATE 
 				answer = VALUES(answer), 
 				saved = VALUES(saved),
 				shown = VALUES(shown),
@@ -248,11 +248,13 @@ class Survey extends RunUnit {
 		if ($redirect) {
 			redirect_to($this->run_name);
 		}
-
+/*
+		FIXME: Remove this till further notice
 		// If we did not redirect (meaning an error occured or $redirect == FALSE) and post was not internal, then you need to refresh items
 		if (empty($posted['__INTERNAL__'])) {
 			$this->getNextItems();
 		}
+ */
 	}
 
 	protected function getProgress() {
@@ -407,11 +409,10 @@ class Survey extends RunUnit {
 		// save any data that does not require user imput
 		if (!empty($post)) {
 			// flag not to reprocess items if posting failed
-			$post['__INTERNAL__'] = true;
+			// FIXME: $post['__INTERNAL__'] = true;
 			$this->post($post, false);
 			return false;
 		}
-		
 		return true;
 	}
 
@@ -466,10 +467,10 @@ class Survey extends RunUnit {
 		// Process show-ifs to determine which items need to be shown
 		// FIXME: Maybe there is a way to process only page-necessary show-ifs. At the moment all are processed
 		if ($process) {
-			if(! $this->parseShowIfsAndDynamicValues($this->unanswered) )
+			if(!$this->parseShowIfsAndDynamicValues($this->unanswered)) {
 				return $this->getNextItems(true);
+			}
 		}
-		
 
 		// Gather labels and choice_lists to be parsed only for items that will potentially be visibile
 		$strings_to_parse = array();
