@@ -154,7 +154,7 @@ class Item extends HTML_element {
 			$this->setMoreOptions();
 		}
 
-		// after the easily overriden setMoreOptions, some post-processing that is universal to all items.
+		// after the easily overridden setMoreOptions, some post-processing that is universal to all items.
 
 		if (isset($options['optional']) AND $options['optional']) {
 			$this->optional = 1;
@@ -495,7 +495,7 @@ class Item extends HTML_element {
 	 *
 	 * @return boolean
 	 */
-	public function isVisible() {
+	public function isRendered() {
 		return !$this->hidden || $this->probably_render;
 	}
 
@@ -1010,7 +1010,6 @@ class Item_submit extends Item {
 	public $save_in_results_table = false;
 
 	protected function setMoreOptions() {
-		$this->classes_wrapper = array('form-group');
 		$this->classes_input[] = 'btn';
 		$this->classes_input[] = 'btn-lg';
 		$this->classes_input[] = 'btn-info';

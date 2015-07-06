@@ -273,13 +273,13 @@ class Survey extends RunUnit {
 			'not_answered' => 0,
 			'hidden_but_rendered' => 0,
 			'visible_on_current_page' => 0,
-			'hidden_but_rendered_on_current_page' => 0,
+			'hidden_but_rendered_on_current_page' => 0
 		);
 
 		/** @var Item $item */
 		foreach ($this->unanswered as $item) {
 			// count only rendered items, not skipped ones
-			if ($item->isVisible($this)) {
+			if ($item->isRendered($this)) {
 				$counts['not_answered']++;
 			}
 			// count those items that were hidden but rendered (ie. those relying on missing data for their showif)
@@ -290,7 +290,7 @@ class Survey extends RunUnit {
 		/** @var Item $item */
 		foreach ($this->to_render as $item) {
 			// On current page, count only rendered items, not skipped ones
-			if ($item->isVisible($this)) {
+			if ($item->isRendered($this)) {
 				$counts['visible_on_current_page']++;
 			}
 			// On current page, count those items that were hidden but rendered (ie. those relying on missing data for their showif)
@@ -313,6 +313,7 @@ class Survey extends RunUnit {
 			$this->errors[] = _('Something went wrong, there are no items in this survey!');
 			$this->progress = 0;
 		}
+
 		// if there only hidden items, that have no way of becoming visible (no other items)
 		if($this->not_answered === $this->hidden_but_rendered) {
 			$this->progress = 1;
@@ -354,9 +355,10 @@ class Survey extends RunUnit {
 			}
 		}
 
+
 		// Compute dynamic values only if items are certainly visisble
 		foreach ($items as $name => &$item) {
-			if ($item->needsDynamicValue() && $item->isVisible()) {
+			if ($item->needsDynamicValue() && $item->isRendered()) {
 				$dynamic_values[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->getValue()} \n} ) })()";
 			}
 		}
@@ -372,7 +374,7 @@ class Survey extends RunUnit {
 			$post = array();
 			foreach ($items as &$item) {
 				$item->setDynamicValue(array_val($results, $item->name), $ocpu_session);
-				if ($item->no_user_input_required && isset($item->input_attributes['value']) && $item->isVisible()) {
+				if ($item->no_user_input_required && isset($item->input_attributes['value']) && $item->isRendered()) {
 					$post[$item->name] = $item->input_attributes['value'];
 				}
 			}
@@ -450,9 +452,13 @@ class Survey extends RunUnit {
 		$this->to_render = array();
 
 		/** @var Item $item */
+		$visibleItems = 0;
 		foreach ($this->unanswered as $name => $item) {
-			if (!$item->isVisible()) {
+			if (!$item->isRendered()) {
 				continue;
+			}
+			if(!$item->hidden) {
+				$visibleItems++;
 			}
 
 			if ($item->choice_list) {
@@ -467,7 +473,7 @@ class Survey extends RunUnit {
 			$this->to_render[$name] = (array) $this->unanswered[$name];
 			// Since as we are skipping all non-vsisible items, we can safely truncate here on a submit button
 			// This will help process fewer item labels and choice labels (maybe it is more optimal)
-			if ($item->type === 'submit' && count($this->to_render) > 0) {
+			if ($item->type === 'submit' && $visibleItems > 0 && count($this->to_render) > 0) {
 				break;
 			}
 		}
@@ -490,7 +496,6 @@ class Survey extends RunUnit {
 			}
 			$choice_lists[$choice['list_name']][$choice['name']] = $choices[$i]['label_parsed'];
 		}
-
 		// Now that we have the items and the choices, If there was anything left to parse, we do so here!
 		if ($strings_to_parse) {
 			$parsed_strings = opencpu_multistring_parse($this, $strings_to_parse);
@@ -531,7 +536,7 @@ class Survey extends RunUnit {
 			foreach ($this->to_render as &$item) {
 				if ($this->settings['maximum_number_displayed'] && $this->settings['maximum_number_displayed'] === $itemsDisplayed) {
 					break;
-				} else if ($item->isVisible()) {
+				} else if ($item->isRendered()) {
 					// if it's rendered, we send it along here or update display count
 					$view_update->bindParam(":item_id", $item->id);
 					$view_update->execute();
@@ -541,9 +546,6 @@ class Survey extends RunUnit {
 					}
 
 					$this->rendered_items[] = $item;
-					if ($item->type === 'submit') {
-						break;
-					}
 				}
 			}
 
