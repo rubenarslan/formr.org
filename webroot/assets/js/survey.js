@@ -318,9 +318,10 @@
 					allowClear: true,
 					escapeMarkup: function (m) { return m; }
 				});
-		
-				webshim.addShadowDom(slct, slct.select2("container"));
-		
+				webshim.ready('forms forms-ext dom-extend form-validators', function() {
+					webshim.addShadowDom(slct, slct.select2("container"));
+				});
+				
 			});
 	    });
 		webshim.ready('forms forms-ext dom-extend form-validators',function() {
