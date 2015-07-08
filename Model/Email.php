@@ -177,7 +177,7 @@ class Email extends RunUnit {
 			$this->recipient_field = 'survey_users$email';
 		}
 
-		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
+		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->recipient_field));
 		$result = opencpu_evaluate($this->recipient_field, $opencpu_vars, $return_format, null, $return_session);
 
 		return $result;
@@ -340,7 +340,7 @@ class Email extends RunUnit {
 			foreach ($results AS $row):
 				$this->run_session_id = $row['id'];
 
-				$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->recipient_field));
+				$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->recipient_field));
 				$email = stringBool(opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json'));
 				$good = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
 				$rows .= "

@@ -134,7 +134,7 @@ class Pause extends RunUnit {
 
 		// if a relative_to has been defined by user or automatically, we need to retrieve its value
 		if ($this->relative_to_true) {
-			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->relative_to));
+			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->relative_to));
 			$result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
 			if ($result === null) {
 				return false;
@@ -225,7 +225,7 @@ class Pause extends RunUnit {
 			$this->run_session_id = current($results)['id'];
 			echo "<h3>Pause relative to</h3>";
 
-			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->relative_to));
+			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->relative_to));
 			$session = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json', null, true);
 
 			echo opencpu_debug($session);
