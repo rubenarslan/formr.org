@@ -301,17 +301,19 @@ class RunUnit {
 	protected $survey_results;
 
 	/**
-	 * We have a set of study and variable names. Now we get the data.
+	 * Get user data needed to execute a query/request (mainly used in opencpu requests)
 	 *
-	 * @param array $needed
+	 * @param string $q
+	 * @param string $required
 	 * @return array
 	 */
-	public function getUserDataInRun($needed) {
-		$cache_key = Cache::makeKey($needed, $this->session_id, $this->run_session_id);
+	public function getUserDataInRun($q, $required = null) {
+		$cache_key = Cache::makeKey($q, $required, $this->session_id, $this->run_session_id);
 		if (($data = Cache::get($cache_key))) {
 			return $data;
 		}
 
+		$needed = $this->dataNeeded($q, $required);
 		$surveys = $needed['matches'];
 		$results_tables = $needed['matches_results_tables'];
 		$matches_variable_names = $needed['matches_variable_names'];
@@ -411,7 +413,7 @@ class RunUnit {
 		return false;
 	}
 
-	public function dataNeeded($fdb, $q, $token_add = NULL) {
+	protected function dataNeeded($q, $token_add = null) {
 		$cache_key = Cache::makeKey($q, $token_add);
 		if (($data = Cache::get($cache_key))) {
 			return $data;
@@ -460,7 +462,7 @@ class RunUnit {
 			if(array_key_exists($table_name, $this->non_user_tables)) {
 				$variable_names_in_table[$table_name] = $this->non_user_tables[$table_name];
 			} else {
-				$items = $fdb->select('name')->from('survey_items')
+				$items = $this->dbh->select('name')->from('survey_items')
 					->where(array('study_id' => $study_id))
 					->where("type NOT IN ('mc_heading', 'note', 'submit')")
 					->fetchAll();
@@ -472,12 +474,16 @@ class RunUnit {
 			}
 
 			$matches_variable_names[ $table_name ] = array();
-			foreach($variable_names_in_table[ $table_name ] AS $variable_name) { // generate match list for variable names
-				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);  // try to match scales too, extraversion_1 + extraversion_2 - extraversion_3R = extraversion (script might mention the construct name, but not its item constituents)
-				if(strlen($variable_name_base) < 3) { // don't match very short variable name bases
+			// generate match list for variable names
+			foreach($variable_names_in_table[ $table_name ] AS $variable_name) {
+				// try to match scales too, extraversion_1 + extraversion_2 - extraversion_3R = extraversion (script might mention the construct name, but not its item constituents)
+				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);
+				// don't match very short variable name bases
+				if(strlen($variable_name_base) < 3) {
 					$variable_name_base = $variable_name;
 				}
-				if(preg_match("/\b$variable_name\b/",$q) OR preg_match("/\b$variable_name_base\b/",$q)) { // item name appears as word, matches survey$item, survey[, "item"], but not item_2 for item-scale unfortunately
+				// item name appears as word, matches survey$item, survey[, "item"], but not item_2 for item-scale unfortunately
+				if(preg_match("/\b$variable_name\b/",$q) OR preg_match("/\b$variable_name_base\b/",$q)) {
 					$matches_variable_names[ $table_name ][] = $variable_name;
 				}
 			}
@@ -522,7 +528,7 @@ class RunUnit {
 				return false;
 			}
 
-			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
+			$opencpu_vars = $this->getUserDataInRun($source);
 			/* @var $session OpenCPU_Session */
 			$session = opencpu_knitadmin($source, $opencpu_vars, true);
 			$body = opencpu_debug($session);
@@ -575,7 +581,7 @@ class RunUnit {
 		
 		// If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
 		if (!isset($session) || empty($session) || $session->hasError()) {
-			$ocpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
+			$ocpu_vars = $this->getUserDataInRun($source);
 			$session = $email_embed ? opencpu_knitemail($source, $ocpu_vars, '', true) : opencpu_knitdisplay($source, $ocpu_vars, true);
 		}
 		

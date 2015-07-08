@@ -174,7 +174,7 @@ class Survey extends RunUnit {
 		}
 
 		if (!empty($this->errors)) {
-			formr_log($this->errors);
+			formr_log($this->errors, $this->name);
 			return false;
 		}
 		$survey_items_display = $this->dbh->prepare(
@@ -253,13 +253,12 @@ class Survey extends RunUnit {
 		if ($redirect) {
 			redirect_to($this->run_name);
 		}
-/*
-		FIXME: Remove this till further notice
-		// If we did not redirect (meaning an error occured or $redirect == FALSE) and post was not internal, then you need to refresh items
-		if (empty($posted['__INTERNAL__'])) {
+
+		// If we did not redirect (meaning an error occured or $redirect == FALSE) and POSTing was internal,
+		// then you need to refresh items
+		if (!empty($posted['__INTERNAL__'])) {
 			$this->getNextItems();
 		}
- */
 	}
 
 	protected function getProgress() {
@@ -330,9 +329,8 @@ class Survey extends RunUnit {
 		$showifs_cache = array();
 		/* @var Item $item */
 		foreach ($items as $name => $item) {
-			if ($item->getShowIf()) {
+			if (($showif = $item->getShowIf())) {
 				$name =  "si.{$name}";
-				$showif = $item->getShowIf();
 				$cache_key = md5($showif);
 				if (isset($showifs_cache[$cache_key])) {
 					$showif = "{$name} = {$showifs_cache[$cache_key]}";
@@ -345,16 +343,7 @@ class Survey extends RunUnit {
 		}
 
 		if ($show_ifs) {
-#			$code = "list(\n" . implode(",\n", $show_ifs) . "\n)";
-			$code = "(function() {with(tail({$this->name}, 1), {\n";
-			$code .= "formr.showifs  = list();\n";
-			$code .= "within(formr.showifs,  { \n";
-			$code .= implode("\n", $show_ifs) . "\n";
-			$code .= "})\n";
-			$code .= "}) })()\n";
-
-			$variables = $this->getUserDataInRun($this->dataNeeded($this->dbh, $code, $this->name));
-			$ocpu_session = opencpu_evaluate($code, $variables, 'json', null, true);
+			$ocpu_session = opencpu_multiparse_showif($this, $show_ifs, true);
 			if(!$ocpu_session OR $ocpu_session->hasError()) {
 				notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
 			}
@@ -365,21 +354,19 @@ class Survey extends RunUnit {
 			}
 		}
 
-
 		// Compute dynamic values only if items are certainly visisble
 		foreach ($items as $name => &$item) {
 			if ($item->needsDynamicValue() && $item->isRendered()) {
-				$dynamic_values[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->getValue()} \n} ) })()";
+				$dynamic_values[] = "{$name} = {$item->getValue()}";
 			}
 		}
+
 		if ($dynamic_values) {
-			$code = "list(\n" . implode(",\n", $dynamic_values) . "\n)";
-			$variables = $this->getUserDataInRun($this->dataNeeded($this->dbh, $code, $this->name));
-			$ocpu_session = opencpu_evaluate($code, $variables, 'json', null, true);
-			$results = $ocpu_session->getJSONObject();
+			$ocpu_session = opencpu_multiparse_values($this, $dynamic_values, true);
 			if(!$ocpu_session OR $ocpu_session->hasError()) {
 				notify_user_error(opencpu_debug($ocpu_session), "There was a problem getting dynamic values using openCPU.");
 			}
+			$results = $ocpu_session->getJSONObject();
 			// Fit dynamic values in properly reder
 			$post = array();
 			foreach ($items as &$item) {
@@ -392,10 +379,8 @@ class Survey extends RunUnit {
 
 		// save any data that does not require user imput
 		if (!empty($post)) {
-			// flag not to reprocess items if posting failed
-			// FIXME: $post['__INTERNAL__'] = true;
+			$post['__INTERNAL__'] = true;
 			$this->post($post, false);
-			return false;
 		}
 		return true;
 	}
@@ -451,9 +436,7 @@ class Survey extends RunUnit {
 		// Process show-ifs to determine which items need to be shown
 		// FIXME: Maybe there is a way to process only page-necessary show-ifs. At the moment all are processed
 		if ($process) {
-			if(!$this->parseShowIfsAndDynamicValues($this->unanswered)) {
-				return $this->getNextItems(true);
-			}
+			$this->parseShowIfsAndDynamicValues($this->unanswered);
 		}
 
 		// Gather labels and choice_lists to be parsed only for items that will potentially be visibile
@@ -471,7 +454,7 @@ class Survey extends RunUnit {
 				$visibleItems++;
 			} else if ($visibleItems === 0) {
 				// if this item was not preceded by any visible items
-				$this->unanswered[$name]->setVisibility( array( false ) );
+				$this->unanswered[$name]->setVisibility(array(false));
 				continue;
 			}
 
@@ -485,9 +468,9 @@ class Survey extends RunUnit {
 			}
 
 			$this->to_render[$name] = (array) $this->unanswered[$name];
-			// Since as we are skipping all non-vsisible items, we can safely truncate here on a submit button
+			// Since as we are skipping all non-rendered items, we can safely truncate here on a submit button
 			// This will help process fewer item labels and choice labels (maybe it is more optimal)
-			if ($item->type === 'submit' && $visibleItems > 0 && count($this->to_render) > 0) {
+			if ($item->type === 'submit' && $visibleItems > 0 && $this->to_render) {
 				break;
 			}
 		}
@@ -710,12 +693,12 @@ class Survey extends RunUnit {
 				$this->post(array_merge($request->getParams(), $_FILES));
 			} else {
 				$request = new Request($_GET);
-				$added_via_get = array_diff(array_keys($request->getParams()), array("route","code","run_name") );
+				$added_via_get = array_diff(array_keys($request->getParams()), array("route", "code", "run_name"));
 
 				// if information was transmitted via GET
-				if(count( $added_via_get ) > 0) {
+				if($added_via_get) {
 					$write = array();
-					foreach($added_via_get AS $name) {
+					foreach($added_via_get as $name) {
 						$write[$name] = $request->getParam($name);
 					}
 					$items = $this->getNextItems(false);
