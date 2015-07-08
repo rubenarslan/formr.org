@@ -693,7 +693,6 @@ class Survey extends RunUnit {
 				$request = new Request($_POST);
 				$items = $this->getNextItems(false);
 				$this->post(array_merge($request->getParams(), $_FILES));
-				return false;
 			} else {
 				$request = new Request($_GET);
 				$added_via_get = array_diff(array_keys($request->getParams()), array("route","code","run_name") );
@@ -706,7 +705,6 @@ class Survey extends RunUnit {
 					}
 					$items = $this->getNextItems(false);
 					$this->post($write);
-					return false;
 				} else {
 					$items = $this->getNextItems();
 				}
