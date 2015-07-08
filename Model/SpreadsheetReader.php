@@ -24,6 +24,7 @@ class SpreadsheetReader {
 			$objWriter->save($filename);
 		    return true;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -57,6 +58,7 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -74,6 +76,7 @@ class SpreadsheetReader {
 		    echo json_encode($array,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -94,6 +97,7 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -132,6 +136,8 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
+			
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -150,6 +156,7 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -205,6 +212,7 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -223,6 +231,7 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -245,6 +254,7 @@ class SpreadsheetReader {
 		    echo json_encode($items,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE  + JSON_NUMERIC_CHECK);
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}

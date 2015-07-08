@@ -238,9 +238,8 @@ class Survey extends RunUnit {
 			$this->dbh->commit();
 		} catch (Exception $e) {
 			$this->dbh->rollBack();
-			notify_user_error($e, 'An error saving your survey data. Please notify the author of this survey with this date and time');
-			formr_log($e->getMessage());
-			formr_log($e->getTraceAsString());
+			notify_user_error($e, 'An error occurred while trying to save your survey data. Please notify the author of this survey with this date and time');
+			formr_log_exception($e, __CLASS__);
 			$redirect = false;
 		}
 
@@ -553,7 +552,7 @@ class Survey extends RunUnit {
 
 		} catch (Exception $e) {
 			$this->dbh->rollBack();
-			log_exception($e, __CLASS__);
+			formr_log_exception($e, __CLASS__);
 			return false;
 		}
 	}
@@ -719,7 +718,7 @@ class Survey extends RunUnit {
 
 			return array('body' => $this->render());
 		} catch (Exception $e) {
-			log_exception($e, __CLASS__);
+			formr_log_exception($e, __CLASS__);
 			return array('body' => '');
 		}
 	}
@@ -1044,7 +1043,7 @@ class Survey extends RunUnit {
 		} catch (Exception $e) {
 			$this->dbh->rollBack();
 			$this->errors[] = "An Error occured and all changes were rolled back";
-			log_exception($e, __CLASS__, $this->errors);
+			formr_log_exception($e, __CLASS__, $this->errors);
 			return false;
 		}
 	}

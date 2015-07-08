@@ -4,7 +4,7 @@
   HELPER FUNCTIONS
  */
 
-function formr_log($msg, $type = '') {// shorthand
+function formr_log($msg) {// shorthand
 	$msg = print_r($msg, true);
 	$msg = date('Y-m-d H:i:s') . ' ' . $msg;
 	if ($type) {
@@ -16,6 +16,17 @@ function formr_log($msg, $type = '') {// shorthand
 	}
 
 	error_log($msg . "\n", 3, get_log_file('errors.log'));
+}
+function formr_log_exception(Exception $e, $prefix = '', $debug_data = null) {
+	$msg = $prefix . ' Exception: ' . $e->getMessage() . "\n" . $e->getTraceAsString();
+
+	log_exception($e, __CLASS__,$debug_data);
+	formr_log($msg);
+	
+
+	if ($debug_data !== null) {
+		formr_log('Debug Data: ' . print_r($debug_data, 1));
+	}
 }
 
 function get_log_file($filename) {

@@ -547,7 +547,6 @@ class RunUnit {
 
 	public function getParsedBody($source, $email_embed = false) {
 		/* @var $session OpenCPU_Session */
-
 		if (!$this->knittingNeeded($source)) { // knit if need be
 			if($email_embed) {
 				return array('body' => $this->body_parsed, 'images' => array());
@@ -568,15 +567,18 @@ class RunUnit {
 				return false; // don't regenerate once we once had a report for this feedback, if it's only the cronjob
 			}
 			
-			$opencpu_url .= $email_embed ? '' : 'R/.val/';
-			$session = opencpu_get($opencpu_url, $email_embed ? "" : "json", null, true);
+			$opencpu_url = rtrim($opencpu_url,"/") . $email_embed ? '' : '/R/.val/';
+			$format = ($email_embed ? "" : "json");
+			$session = opencpu_get($opencpu_url, $format , null, true);
 		}
-
+		
+		
 		// If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
 		if (!isset($session) || empty($session) || $session->hasError()) {
 			$ocpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
 			$session = $email_embed ? opencpu_knitemail($source, $ocpu_vars, '', true) : opencpu_knitdisplay($source, $ocpu_vars, true);
 		}
+		
 		// At this stage we are sure to have an OpenCPU_Session in $session. If there is an error in the session return FALSE
 		if(empty($session)) {
 			alert('OpenCPU is probably down or inaccessible.', 'alert-danger');
