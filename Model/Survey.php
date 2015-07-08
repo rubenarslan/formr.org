@@ -612,7 +612,7 @@ class Survey extends RunUnit {
 		}
 
 		// if the last item was not a submit button, add a default one
-		if (isset($item) AND $item->type !== "submit") {
+		if (isset($item) AND ($item->type !== "submit" OR $item->hidden)) {
 			$sub_sets = array('label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!', 'class_input' => 'btn-info .default_formr_button');
 			$item = new Item_submit($sub_sets);
 			$ret .= $item->render();
