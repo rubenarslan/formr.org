@@ -391,7 +391,6 @@ class Item extends HTML_element {
 		return $this->label_parsed === null;
 	}
 
-
 	public function getShowIf() {
 		if (trim($this->showif)!= "" AND strstr($this->showif, "//js_only") === false) {
 			return $this->showif;
@@ -1343,6 +1342,7 @@ class Item_mc_button extends Item_mc {
 
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
+		$this->setChoiceListFromOptions();
 		$this->classes_wrapper[] = 'btn-radio';
 	}
 
