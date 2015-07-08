@@ -458,6 +458,8 @@ class Survey extends RunUnit {
 			}
 			if(!$item->hidden) {
 				$visibleItems++;
+			} else if ($visibleItems === 0) {
+				continue;
 			}
 
 			if ($item->choice_list) {
