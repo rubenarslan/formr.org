@@ -584,8 +584,9 @@ class SpreadsheetReader {
 						endif;
 
 					elseif($col == 'type'):
-						if(mb_strpos($val," ") !== false):
-							$type_options = explode(" ",trim($val), 2); // get real type and options
+						if(mb_strpos($val, ' ') !== false):
+							$val= preg_replace('/\s+/', ' ', $val);
+							$type_options = explode(' ', trim($val), 2); // get real type and options
 							$val = $type_options[0];
 							unset($type_options[0]); // remove real type from options
 							//todo: find all items where the "you defined choices message" error might erroneously be triggered

@@ -1343,6 +1343,7 @@ class Item_mc_button extends Item_mc {
 
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
+		$this->setChoiceListFromOptions();
 		$this->classes_wrapper[] = 'btn-radio';
 	}
 
