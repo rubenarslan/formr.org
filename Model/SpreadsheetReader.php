@@ -342,7 +342,7 @@ class SpreadsheetReader {
 		} catch (PHPExcel_Exception $e) {
 			$this->errors[] = "An error occured reading your excel file. Please check your file or report to admin";
 			$this->errors[] = $e->getMessage();
-			log_exception($e, __CLASS__, $inputFileName);
+			formr_log_exception($e, __CLASS__, $inputFileName);
 			return;
 		}
 

@@ -17,13 +17,10 @@ function formr_log($msg, $type = '') {// shorthand
 
 	error_log($msg . "\n", 3, get_log_file('errors.log'));
 }
+
 function formr_log_exception(Exception $e, $prefix = '', $debug_data = null) {
 	$msg = $prefix . ' Exception: ' . $e->getMessage() . "\n" . $e->getTraceAsString();
-
-	log_exception($e, __CLASS__,$debug_data);
 	formr_log($msg);
-	
-
 	if ($debug_data !== null) {
 		formr_log('Debug Data: ' . print_r($debug_data, 1));
 	}
@@ -36,16 +33,6 @@ function get_log_file($filename) {
 function alert($msg, $class = 'alert-warning', $dismissable = true) { // shorthand
 	global $site;
 	$site->alert($msg, $class, $dismissable);
-}
-
-function log_exception(Exception $e, $prefix = '', $debug_data = null) {
-	$msg = $prefix . ' Exception: ' . $e->getMessage() . "\n" . $e->getTraceAsString();
-
-	error_log($msg);
-
-	if ($debug_data !== null) {
-		error_log('Debug Data: ' . print_r($debug_data, 1));
-	}
 }
 
 function notify_user_error($error, $public_message = '') {
@@ -864,7 +851,7 @@ function opencpu_get($location, $return_format = 'json', $context = null, $retur
 		}
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
-		log_exception($e);
+		formr_log_exception($e);
 		return null;
 	}
 }
@@ -905,7 +892,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		notify_user_error($e, "There was a problem dynamically evaluating a value using openCPU.");
-		log_exception($e, 'OpenCPU');
+		formr_log_exception($e, 'OpenCPU');
 		return null;
 	}
 }
@@ -933,7 +920,7 @@ function opencpu_knit($code, $return_format = 'json', $return_session = false) {
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		notify_user_error($e, "There was a problem dynamically knitting something using openCPU.");
-		log_exception($e, 'OpenCPU');
+		formr_log_exception($e, 'OpenCPU');
 		return null;
 	}
 }
@@ -962,7 +949,7 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		notify_user_error($e, "There was a problem dynamically knitting something to HTML using openCPU.");
-		log_exception($e, 'OpenCPU');
+		formr_log_exception($e, 'OpenCPU');
 		return null;
 	}
 }
@@ -1066,6 +1053,27 @@ function opencpu_substitute_parsed_strings (array &$array, array $parsed_strings
 			$array[$key] = $parsed_strings[$value];
 		}
 	}
+}
+
+function opencpu_multiparse_showif(Survey $survey, array $showifs, $return_session = false) {
+	$code = "(function() {with(tail({$survey->name}, 1), {\n";
+	$code .=	"formr.showifs = list();\n";
+	$code .=	"within(formr.showifs,  { \n";
+	$code .=		implode("\n", $showifs) . "\n";
+	$code .=	"})\n";
+	$code .= "})})()\n";
+
+	$variables = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $code, $survey->name));
+	return opencpu_evaluate($code, $variables, 'json', null, $return_session);
+}
+
+function opencpu_multiparse_values(Survey $survey, array $values, $return_session = false) {
+	$code = "(function() {with(tail({$survey->name}, 1), {\n";
+	$code .=	"list(\n" . implode(",\n", $values) . "\n)";
+	$code .= "})})()\n";
+
+	$variables = $survey->getUserDataInRun($survey->dataNeeded($survey->dbh, $code, $survey->name));
+	return opencpu_evaluate($code, $variables, 'json', null, $return_session);
 }
 
 function opencpu_debug($session, OpenCPU $ocpu = null) {
