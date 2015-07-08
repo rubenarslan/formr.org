@@ -31,11 +31,16 @@ class Survey extends RunUnit {
 	 * @var int {collection}
 	 */
 	public $progress = 0;
-	public $already_answered = 0;
-	public $not_answered = 0;
-	public $hidden_but_rendered = 0;
-	public $hidden_but_rendered_on_current_page = 0;
-	public $not_answered_on_current_page = 0;
+	public $progress_counts = array(
+		'already_answered' => 0,
+		'not_answered' => 0,
+		'hidden_but_rendered' => 0,
+		'not_rendered' => 0,
+		'visible_on_current_page' => 0,
+		'hidden_but_rendered_on_current_page' => 0,
+		'not_answered_on_current_page' => 0
+	);
+	
 
 	/**
 	 * @var DB
@@ -267,54 +272,44 @@ class Survey extends RunUnit {
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->fetch();
 
-		$counts = array(
-			'already_answered' => $answered['count'],
-			'not_answered' => 0,
-			'hidden_but_rendered' => 0,
-			'visible_on_current_page' => 0,
-			'hidden_but_rendered_on_current_page' => 0
-		);
+		$this->progress_counts['already_answered'] = $answered['count'];
 
 		/** @var Item $item */
 		foreach ($this->unanswered as $item) {
 			// count only rendered items, not skipped ones
 			if ($item->isRendered($this)) {
-				$counts['not_answered']++;
+				$this->progress_counts['not_answered']++;
 			}
 			// count those items that were hidden but rendered (ie. those relying on missing data for their showif)
 			if ($item->isHiddenButRendered($this)) {
-				$counts['hidden_but_rendered']++;
+				$this->progress_counts['hidden_but_rendered']++;
 			}
 		}
 		/** @var Item $item */
 		foreach ($this->to_render as $item) {
 			// On current page, count only rendered items, not skipped ones
 			if ($item->isRendered($this)) {
-				$counts['visible_on_current_page']++;
+				$this->progress_counts['visible_on_current_page']++;
 			}
 			// On current page, count those items that were hidden but rendered (ie. those relying on missing data for their showif)
 			if ($item->isHiddenButRendered($this)) {
-				$counts['hidden_but_rendered_on_current_page']++;
+				$this->progress_counts['hidden_but_rendered_on_current_page']++;
 			}
 		}
 
-		$this->already_answered = $counts['already_answered'];
-		$this->not_answered = $counts['not_answered'];
-		$this->hidden_but_rendered = $counts['hidden_but_rendered'];
-		$this->hidden_but_rendered_on_current_page = $counts['hidden_but_rendered_on_current_page'];
-		$this->not_answered_on_current_page = $this->not_answered - $counts['visible_on_current_page'];
+		$this->progress_counts['not_answered_on_current_page'] = $this->progress_counts['not_answered'] - $this->progress_counts['visible_on_current_page'];
 
-		$all_items = $this->already_answered + $this->not_answered;
+		$all_items = $this->progress_counts['already_answered'] + $this->progress_counts['not_answered'];
 
 		if ($all_items !== 0) {
-			$this->progress = $this->already_answered / $all_items;
+			$this->progress = $this->progress_counts['already_answered'] / $all_items;
 		} else {
 			$this->errors[] = _('Something went wrong, there are no items in this survey!');
 			$this->progress = 0;
 		}
 
 		// if there only hidden items, that have no way of becoming visible (no other items)
-		if($this->not_answered === $this->hidden_but_rendered) {
+		if($this->progress_counts['not_answered'] === $this->progress_counts['hidden_but_rendered']) {
 			$this->progress = 1;
 		}
 		return $this->progress;
@@ -459,6 +454,8 @@ class Survey extends RunUnit {
 			if(!$item->hidden) {
 				$visibleItems++;
 			} else if ($visibleItems === 0) {
+				// if this item was not preceded by any visible items
+				$this->unanswered[$name]->setVisibility( array( false ) );
 				continue;
 			}
 
@@ -497,6 +494,7 @@ class Survey extends RunUnit {
 			}
 			$choice_lists[$choice['list_name']][$choice['name']] = $choices[$i]['label_parsed'];
 		}
+		
 		// Now that we have the items and the choices, If there was anything left to parse, we do so here!
 		if ($strings_to_parse) {
 			$parsed_strings = opencpu_multistring_parse($this, $strings_to_parse);
@@ -591,7 +589,7 @@ class Survey extends RunUnit {
 		$ret .= '
 			<div class="container progress-container">
 			<div class="progress">
-				  <div data-percentage-minimum="' . $this->settings["add_percentage_points"] . '" data-percentage-maximum="' . $this->settings["displayed_percentage_maximum"] . '" data-already-answered="' . $this->already_answered . '" data-items-left="' . $this->not_answered_on_current_page . '" data-items-on-page="' . ($this->not_answered - $this->not_answered_on_current_page) . '" data-hidden-but-rendered="' . $this->hidden_but_rendered_on_current_page . '" class="progress-bar" style="width: ' . $prog . '%;">' . $prog . '%</div>
+				  <div data-percentage-minimum="' . $this->settings["add_percentage_points"] . '" data-percentage-maximum="' . $this->settings["displayed_percentage_maximum"] . '" data-already-answered="' . $this->progress_counts['already_answered'] . '" data-items-left="' . $this->progress_counts['not_answered_on_current_page'] . '" data-items-on-page="' . ($this->progress_counts['not_answered'] - $this->progress_counts['not_answered_on_current_page']) . '" data-hidden-but-rendered="' . $this->progress_counts['hidden_but_rendered_on_current_page'] . '" class="progress-bar" style="width: ' . $prog . '%;">' . $prog . '%</div>
 			</div>
 			</div>';
 
