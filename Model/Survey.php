@@ -330,9 +330,8 @@ class Survey extends RunUnit {
 		$showifs_cache = array();
 		/* @var Item $item */
 		foreach ($items as $name => $item) {
-			if ($item->getShowIf()) {
+			if (($showif = $item->getShowIf())) {
 				$name =  "si.{$name}";
-				$showif = $item->getShowIf();
 				$cache_key = md5($showif);
 				if (isset($showifs_cache[$cache_key])) {
 					$showif = "{$name} = {$showifs_cache[$cache_key]}";
