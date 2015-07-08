@@ -4,7 +4,7 @@
   HELPER FUNCTIONS
  */
 
-function formr_log($msg) {// shorthand
+function formr_log($msg, $type = '') {// shorthand
 	$msg = print_r($msg, true);
 	$msg = date('Y-m-d H:i:s') . ' ' . $msg;
 	if ($type) {
