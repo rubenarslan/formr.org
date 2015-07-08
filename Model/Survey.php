@@ -130,7 +130,7 @@ class Survey extends RunUnit {
 		return $ret;
 	}
 
-	protected function startEntry() {
+        protected function startEntry() {
 		$this->dbh->insert_update($this->results_table, array(
 			'session_id' => $this->session_id,
 			'study_id' => $this->id,
@@ -316,7 +316,6 @@ class Survey extends RunUnit {
 		return $this->progress;
 	}
 
-
 	/**
 	 * Process show-ifs and dynamic values for a given set of items in survey
 	 *
@@ -339,11 +338,10 @@ class Survey extends RunUnit {
 			$code = "list(\n" . implode(",\n", $show_ifs) . "\n)";
 			$variables = $this->getUserDataInRun($this->dataNeeded($this->dbh, $code, $this->name));
 			$ocpu_session = opencpu_evaluate($code, $variables, 'json', null, true);
-			$results = $ocpu_session->getJSONObject();
 			if(!$ocpu_session OR $ocpu_session->hasError()) {
 				notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
 			}
-
+			$results = $ocpu_session->getJSONObject();
 			// Fit show-ifs
 			foreach ($items as &$item) {
 				$item->setVisibility(array_val($results, $item->name));
@@ -414,7 +412,7 @@ class Survey extends RunUnit {
 
 		`survey_items_display`.displaycount, 
 		`survey_items_display`.session_id,
-			`survey_items_display`.answered')
+		`survey_items_display`.answered')
 				->from('survey_items')
 				->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
 				->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS NULL)")
