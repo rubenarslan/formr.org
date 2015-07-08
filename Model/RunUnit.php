@@ -596,7 +596,7 @@ class RunUnit {
 			if($email_embed) {
 				$report = array(
 					'body' => $session->getObject(),
-					'images' => $session->getFiles('/figure-html/'),
+					'images' => $session->getFiles('/figure-html'),
 				);
 			} else {
 				$report = $session->getJSONObject();
