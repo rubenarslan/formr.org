@@ -327,15 +327,32 @@ class Survey extends RunUnit {
 	protected function parseShowIfsAndDynamicValues(&$items) {
 		// In this loop we gather all show-ifs and dynamic-values that need processing and all values.
 		$show_ifs = $dynamic_values = array();
+		$showifs_cache = array();
 		/* @var Item $item */
 		foreach ($items as $name => $item) {
 			if ($item->getShowIf()) {
-				$show_ifs[] = "{$name} = (function() { with(tail({$this->name}, 1), {\n {$item->getShowIf()} \n} ) })()";
+				$name =  "si.{$name}";
+				$showif = $item->getShowIf();
+				$cache_key = md5($showif);
+				if (isset($showifs_cache[$cache_key])) {
+					$showif = "{$name} = {$showifs_cache[$cache_key]}";
+				} else {
+					$showifs_cache[$cache_key] = $name;
+					$showif = "{$name} = {$showif}";
+				}
+				$show_ifs[] = $showif;
 			}
 		}
 
 		if ($show_ifs) {
-			$code = "list(\n" . implode(",\n", $show_ifs) . "\n)";
+#			$code = "list(\n" . implode(",\n", $show_ifs) . "\n)";
+			$code = "(function() {with(tail({$this->name}, 1), {\n";
+			$code .= "formr.showifs  = list();\n";
+			$code .= "within(formr.showifs,  { \n";
+			$code .= implode("\n", $show_ifs) . "\n";
+			$code .= "})\n";
+			$code .= "}) })()\n";
+
 			$variables = $this->getUserDataInRun($this->dataNeeded($this->dbh, $code, $this->name));
 			$ocpu_session = opencpu_evaluate($code, $variables, 'json', null, true);
 			if(!$ocpu_session OR $ocpu_session->hasError()) {
@@ -344,7 +361,7 @@ class Survey extends RunUnit {
 			$results = $ocpu_session->getJSONObject();
 			// Fit show-ifs
 			foreach ($items as &$item) {
-				$item->setVisibility(array_val($results, $item->name));
+				$item->setVisibility(array_val($results, "si.{$item->name}" ));
 			}
 		}
 
