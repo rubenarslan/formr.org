@@ -91,7 +91,7 @@ class External extends RunUnit {
 				
 				$this->run_session_id = current($results)['id'];
 
-				$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->address));
+				$opencpu_vars = $this->getUserDataInRun($this->address);
 				$ocpu_session = opencpu_evaluate($this->address, $opencpu_vars, '', null, true);
 				$output = opencpu_debug($ocpu_session);
 			} else {

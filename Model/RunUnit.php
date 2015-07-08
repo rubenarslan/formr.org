@@ -301,17 +301,19 @@ class RunUnit {
 	protected $survey_results;
 
 	/**
-	 * We have a set of study and variable names. Now we get the data.
+	 * Get user data needed to execute a query/request (mainly used in opencpu requests)
 	 *
-	 * @param array $needed
+	 * @param string $q
+	 * @param string $required
 	 * @return array
 	 */
-	public function getUserDataInRun($needed) {
-		$cache_key = Cache::makeKey($needed, $this->session_id, $this->run_session_id);
+	public function getUserDataInRun($q, $required = null) {
+		$cache_key = Cache::makeKey($q, $required, $this->session_id, $this->run_session_id);
 		if (($data = Cache::get($cache_key))) {
 			return $data;
 		}
 
+		$needed = $this->dataNeeded($q, $required);
 		$surveys = $needed['matches'];
 		$results_tables = $needed['matches_results_tables'];
 		$matches_variable_names = $needed['matches_variable_names'];
@@ -411,7 +413,7 @@ class RunUnit {
 		return false;
 	}
 
-	public function dataNeeded($q, $token_add = NULL) {
+	protected function dataNeeded($q, $token_add = null) {
 		$cache_key = Cache::makeKey($q, $token_add);
 		if (($data = Cache::get($cache_key))) {
 			return $data;
@@ -526,7 +528,7 @@ class RunUnit {
 				return false;
 			}
 
-			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($source));
+			$opencpu_vars = $this->getUserDataInRun($source);
 			/* @var $session OpenCPU_Session */
 			$session = opencpu_knitadmin($source, $opencpu_vars, true);
 			$body = opencpu_debug($session);
@@ -579,7 +581,7 @@ class RunUnit {
 		
 		// If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
 		if (!isset($session) || empty($session) || $session->hasError()) {
-			$ocpu_vars = $this->getUserDataInRun($this->dataNeeded($source));
+			$ocpu_vars = $this->getUserDataInRun($source);
 			$session = $email_embed ? opencpu_knitemail($source, $ocpu_vars, '', true) : opencpu_knitdisplay($source, $ocpu_vars, true);
 		}
 		

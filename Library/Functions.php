@@ -1024,7 +1024,7 @@ function opencpu_string_key_parsing($strings) {
  */
 function opencpu_multistring_parse(Survey $survey, array $string_templates) {
 	$markdown = implode(OpenCPU::STRING_DELIMITER, $string_templates);
-	$opencpu_vars = $survey->getUserDataInRun($survey->dataNeeded($markdown, $survey->name));
+	$opencpu_vars = $survey->getUserDataInRun($markdown, $survey->name);
 	$session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $survey->name);
 
 	if($session AND !$session->hasError()) {
@@ -1063,7 +1063,7 @@ function opencpu_multiparse_showif(Survey $survey, array $showifs, $return_sessi
 	$code .=	"})\n";
 	$code .= "})})()\n";
 
-	$variables = $survey->getUserDataInRun($survey->dataNeeded($code, $survey->name));
+	$variables = $survey->getUserDataInRun($code, $survey->name);
 	return opencpu_evaluate($code, $variables, 'json', null, $return_session);
 }
 
@@ -1072,7 +1072,7 @@ function opencpu_multiparse_values(Survey $survey, array $values, $return_sessio
 	$code .=	"list(\n" . implode(",\n", $values) . "\n)";
 	$code .= "})})()\n";
 
-	$variables = $survey->getUserDataInRun($survey->dataNeeded($code, $survey->name));
+	$variables = $survey->getUserDataInRun($code, $survey->name);
 	return opencpu_evaluate($code, $variables, 'json', null, $return_session);
 }
 

@@ -110,7 +110,7 @@ class Branch extends RunUnit {
 		}
 
 		$this->run_session_id = current($results)['id'];
-		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->condition));
+		$opencpu_vars = $this->getUserDataInRun($this->condition);
 		$ocpu_session = opencpu_evaluate($this->condition, $opencpu_vars, '', null, true);
 		echo opencpu_debug($ocpu_session);
 
@@ -125,7 +125,7 @@ class Branch extends RunUnit {
 		// at opencpu in some 'box' and sending one request (also create new func in formr R package to open this box, evaluate what is inside and return the box)
 		foreach ($results as $row) {
 			$this->run_session_id = $row['id'];
-			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->condition));
+			$opencpu_vars = $this->getUserDataInRun($this->condition);
 			$eval = opencpu_evaluate($this->condition, $opencpu_vars);
 
 			echo "<tr>
@@ -139,7 +139,7 @@ class Branch extends RunUnit {
 	}
 
 	public function exec() {
-		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->condition));
+		$opencpu_vars = $this->getUserDataInRun($this->condition);
 		$eval = opencpu_evaluate($this->condition, $opencpu_vars);
 		if ($eval === null) {
 			return true; // don't go anywhere, wait for the error to be fixed!
