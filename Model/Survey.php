@@ -436,7 +436,9 @@ class Survey extends RunUnit {
 		// Process show-ifs to determine which items need to be shown
 		// FIXME: Maybe there is a way to process only page-necessary show-ifs. At the moment all are processed
 		if ($process) {
-			$this->parseShowIfsAndDynamicValues($this->unanswered);
+			if(!$this->parseShowIfsAndDynamicValues($this->unanswered)) {
+				return $this->getNextItems(true);
+			}
 		}
 
 		// Gather labels and choice_lists to be parsed only for items that will potentially be visibile
