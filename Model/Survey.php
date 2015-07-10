@@ -253,12 +253,6 @@ class Survey extends RunUnit {
 		if ($redirect) {
 			redirect_to($this->run_name);
 		}
-
-		// If we did not redirect (meaning an error occured or $redirect == FALSE) and POSTing was internal,
-		// then you need to refresh items
-		if (!empty($posted['__INTERNAL__'])) {
-			$this->getNextItems();
-		}
 	}
 
 	protected function getProgress() {
@@ -379,8 +373,8 @@ class Survey extends RunUnit {
 
 		// save any data that does not require user imput
 		if (!empty($post)) {
-			$post['__INTERNAL__'] = true;
 			$this->post($post, false);
+			return false;
 		}
 		return true;
 	}
@@ -437,7 +431,7 @@ class Survey extends RunUnit {
 		// FIXME: Maybe there is a way to process only page-necessary show-ifs. At the moment all are processed
 		if ($process) {
 			if(!$this->parseShowIfsAndDynamicValues($this->unanswered)) {
-				return $this->getNextItems(true);
+				return $this->getNextItems(true); // restart this function
 			}
 		}
 
@@ -705,10 +699,10 @@ class Survey extends RunUnit {
 					}
 					$items = $this->getNextItems(false);
 					$this->post($write);
-				} else {
-					$items = $this->getNextItems();
 				}
 			}
+			// we only arrive here if neither of the posts above led to a redirect (either because it's a fake post request or because there was an error)
+			$items = $this->getNextItems();
 
 			if ($this->getProgress() === 1) {
 				$this->end();
