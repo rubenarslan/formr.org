@@ -1701,8 +1701,10 @@ class Item_get extends Item {
 		}
 
 		$this->input_attributes['value'] = '';
-		if (isset($_GET[$this->get_var])) {
-			$this->input_attributes['value'] = $_GET[$this->get_var];
+		$request = new Request($_GET);
+		if (($value = $request->getParam($this->get_var)) !== null) {
+			$this->input_attributes['value'] = $value;
+			$this->value = $value;
 		}
 	}
 
