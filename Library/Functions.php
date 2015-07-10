@@ -787,12 +787,17 @@ function array_to_accordion($array) {
 function array_to_orderedlist($array, $olclass = null, $liclass = null) {
 	$ol = '<ol class="' . $olclass . '">';
 	foreach ($array as $title => $label) {
-		if ($label) {
+		if (is_formr_truthy($label)) {
 			$ol .= '<li title="' . $title . '" class="' . $liclass . '">' . $label . '</li>';
 		}
 	}
 	$ol .= '</ol>';
 	return $ol;
+}
+
+function is_formr_truthy($value) {
+	$value = (string) $value;
+	return $value || $value === '0';
 }
 
 /**
