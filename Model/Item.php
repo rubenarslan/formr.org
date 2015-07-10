@@ -400,7 +400,7 @@ class Item extends HTML_element {
 
 	public function needsDynamicValue() {
 		$this->value = trim($this->value);
-		if (!$this->value) {
+		if (!(is_formr_truthy($this->value)) {
 			$this->presetValue = null;
 			return false;
 		}
