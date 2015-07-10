@@ -1081,20 +1081,22 @@ class Survey extends RunUnit {
 		$add_choices->bindParam(":study_id", $this->id);
 
 		foreach ($this->SPR->choices AS $choice) {
-			if (!$this->knittingNeeded($choice['label'])): // if the parsed label is constant
-				$markdown = $this->parsedown->text($choice['label']); // transform upon insertion into db instead of at runtime
+			if(isset($choice['list_name']) AND isset($choice['name']) AND isset($choice['label'])):
+				if (!$this->knittingNeeded($choice['label'])): // if the parsed label is constant
+					$markdown = $this->parsedown->text($choice['label']); // transform upon insertion into db instead of at runtime
 
-				if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)):
-					$choice['label_parsed'] = $matches[1];
-				else:
-					$choice['label_parsed'] = $markdown;
+					if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)):
+						$choice['label_parsed'] = $matches[1];
+					else:
+						$choice['label_parsed'] = $markdown;
+					endif;
 				endif;
-			endif;
 
-			foreach ($this->choices_user_defined_columns as $param) {
-				$add_choices->bindParam(":$param", $choice[$param]);
-			}
-			$add_choices->execute();
+				foreach ($this->choices_user_defined_columns as $param) {
+					$add_choices->bindParam(":$param", $choice[$param]);
+				}
+				$add_choices->execute();
+			endif;
 		}
 		$this->messages[] = $deleted . " old choices deleted.";
 		$this->messages[] = count($this->SPR->choices) . " choices were successfully loaded.";
