@@ -349,7 +349,12 @@ class Survey extends RunUnit {
 		// Compute dynamic values only if items are certainly visisble
 		foreach ($items as $name => &$item) {
 			if ($item->needsDynamicValue() && $item->isRendered()) {
-				$dynamic_values[] = "{$name} = {$item->getValue()}";
+				// for items of type 'opencpu_session', compute thier values immediately and not send in bulk request
+				if ($item->type === 'opencpu_session') {
+					$item->evaluateDynamicValue($this);
+					continue;
+				}
+				$dynamic_values[] = "{$name} = (function(){{$item->getValue()}})()";
 			}
 		}
 
@@ -361,7 +366,7 @@ class Survey extends RunUnit {
 			$results = $ocpu_session->getJSONObject();
 			// Fit dynamic values in properly reder
 			foreach ($items as &$item) {
-				$item->setDynamicValue(array_val($results, $item->name), $ocpu_session);
+				$item->setDynamicValue(array_val($results, $item->name));
 			}
 		}
 

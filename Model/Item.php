@@ -413,6 +413,8 @@ class Item extends HTML_element {
 		return true;
 	}
 
+	public function evaluateDynamicValue(Survey $survey) {}
+
 	public function getValue(Survey $survey = null) {
 		if ($survey && $this->value === 'sticky') {
 			$this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
@@ -459,10 +461,9 @@ class Item extends HTML_element {
 	 * Set the dynamic value computed on opencpu
 	 *
 	 * @param mixed $value Value
-	 * @param OpenCPU_Session $ocpu_session OpenCPU session
 	 * @return null
 	 */
-	public function setDynamicValue($value, OpenCPU_Session $ocpu_session) {
+	public function setDynamicValue($value) {
 		if (!$value) {
 			return;
 		}
@@ -479,8 +480,6 @@ class Item extends HTML_element {
 			$this->alwaysInvalid();
 		} elseif (is_array($value) && array_key_exists(0, $value)) {
 			$value = $value[0];
-		} elseif ($this->type == 'opencpu_session') {
-			$value = $ocpu_session->getLocation();
 		}
 
 		$this->value = $value;
@@ -1584,6 +1583,19 @@ class Item_opencpu_session extends Item {
 
 	public function render() {
 		return $this->render_input();
+	}
+
+	public function evaluateDynamicValue(Survey $survey) {
+		$value = $this->getValue();
+		$variables = $survey->getUserDataInRun($value, $survey->name);
+		$ocpu_session = opencpu_evaluate($value, $variables, 'json', $survey->name, true);
+		if ($ocpu_session && !$ocpu_session->hasError()) {
+			$this->value = $ocpu_session->getLocation();
+			$this->input_attributes['value'] = $this->value;
+			return $this->value;
+		}
+		// @todo Add error reporting if $ocpu_session has an error
+		return null;
 	}
 
 }
