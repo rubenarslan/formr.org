@@ -174,7 +174,6 @@ class Survey extends RunUnit {
 		}
 
 		if (!empty($this->errors)) {
-			formr_log($this->errors, $this->name);
 			return false;
 		}
 		$survey_items_display = $this->dbh->prepare(
