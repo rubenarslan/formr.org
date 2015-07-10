@@ -1688,10 +1688,12 @@ class Item_get extends Item {
 
 	public $type = 'get';
 	public $input_attributes = array('type' => 'hidden');
-	private $get_var = 'referred_by';
-	protected $hasChoices = false;
 	public $no_user_input_required = true;
+	public $probably_render = true;
 	public $mysql_field = 'TEXT DEFAULT NULL';
+	protected $hasChoices = false;
+	private $get_var = 'referred_by';
+	
 
 	protected function setMoreOptions() {
 		if (isset($this->type_options_array) AND is_array($this->type_options_array)) {
