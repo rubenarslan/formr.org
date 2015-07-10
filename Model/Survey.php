@@ -361,21 +361,11 @@ class Survey extends RunUnit {
 			}
 			$results = $ocpu_session->getJSONObject();
 			// Fit dynamic values in properly reder
-			$post = array();
 			foreach ($items as &$item) {
 				$item->setDynamicValue(array_val($results, $item->name), $ocpu_session);
-				if ($item->no_user_input_required && isset($item->input_attributes['value']) && $item->isRendered()) {
-					$post[$item->name] = $item->input_attributes['value'];
-				}
 			}
 		}
 
-		// save any data that does not require user imput
-		if (!empty($post)) {
-			$this->post($post, false);
-			return false;
-		}
-		return true;
 	}
 
 	/**
@@ -429,9 +419,20 @@ class Survey extends RunUnit {
 		// Process show-ifs to determine which items need to be shown
 		// FIXME: Maybe there is a way to process only page-necessary show-ifs. At the moment all are processed
 		if ($process) {
-			if(!$this->parseShowIfsAndDynamicValues($this->unanswered)) {
-				return $this->getNextItems(true); // restart this function
+			$this->parseShowIfsAndDynamicValues($this->unanswered);
+		}
+
+		// At this point all show-ifs have been processed and all possible dynamic values have been set
+		// Save values for all items that do not require user input, have values set and will be rendered
+		// If there are any of such values, the we post and redirect
+		$post = array();
+		foreach ($this->unanswered as $name => $item) {
+			if ($item->no_user_input_required && isset($item->input_attributes['value']) && $item->isRendered()) {
+				$post[$item->name] = $item->input_attributes['value'];
 			}
+		}
+		if ($post) {
+			$this->post($post, true);
 		}
 
 		// Gather labels and choice_lists to be parsed only for items that will potentially be visibile
@@ -686,20 +687,8 @@ class Survey extends RunUnit {
 				$request = new Request($_POST);
 				$items = $this->getNextItems(false);
 				$this->post(array_merge($request->getParams(), $_FILES));
-			} else {
-				$request = new Request($_GET);
-				$added_via_get = array_diff(array_keys($request->getParams()), array("route", "code", "run_name"));
-
-				// if information was transmitted via GET
-				if($added_via_get) {
-					$write = array();
-					foreach($added_via_get as $name) {
-						$write[$name] = $request->getParam($name);
-					}
-					$items = $this->getNextItems(false);
-					$this->post($write);
-				}
 			}
+
 			// we only arrive here if neither of the posts above led to a redirect (either because it's a fake post request or because there was an error)
 			$items = $this->getNextItems();
 
