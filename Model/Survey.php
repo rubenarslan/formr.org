@@ -787,6 +787,12 @@ class Survey extends RunUnit {
 			return false;
 		endif;
 
+		$allowed_size = Config::get('admin_maximum_size_of_uploaded_files');
+		if ($allowed_size && $file['size'] > $allowed_size*1024*1024):
+			alert("File exceeds allowed size of {$allowed_size} MB", 'alert-danger');
+			return false;
+		endif;
+		
 		umask(0002);
 		ini_set('memory_limit', '256M');
 		$target = $_FILES['uploaded']['tmp_name'];

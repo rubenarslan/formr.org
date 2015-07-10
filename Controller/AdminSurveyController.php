@@ -86,10 +86,7 @@ class AdminSurveyController extends AdminController {
 			$filename = basename($_FILES['uploaded']['name']);
 			$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", $filename); // take only the first part, before the dash if present or the dot if present
 
-			$allowed_size = (int)Config::get('admin_maximum_size_of_uploaded_files');
-			if ($allowed_size && $_FILES['uploaded']['size'] > $allowed_size*1024) {
-				alert("File exceeds allowed size of {$allowed_size} MB", 'alert-danger');
-			} else if ($study->name !== $survey_name) {
+			if ($study->name !== $survey_name) {
 				alert('<strong>Error:</strong> The uploaded file name <code>' . htmlspecialchars($survey_name) . '</code> did not match the study name <code>' . $study->name . '</code>.', 'alert-danger');
 			} else {
 				if ($study->uploadItemTable($_FILES['uploaded'], $_POST['delete_confirm'])) {
