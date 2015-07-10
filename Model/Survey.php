@@ -141,7 +141,6 @@ class Survey extends RunUnit {
 	}
 
 	public function post($posted, $redirect = true) {
-
 		// remove variables user is not allowed to overrite (they should not be sent to user in the first place if not used in request)
 		unset($posted['id'], $posted['session'], $posted['session_id'], $posted['study_id'], $posted['created'], $posted['modified'], $posted['ended']);
 
@@ -432,6 +431,7 @@ class Survey extends RunUnit {
 			}
 		}
 		if ($post) {
+			// save survey data and redirect.
 			$this->post($post, true);
 		}
 
