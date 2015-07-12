@@ -125,7 +125,7 @@ class Run {
 		if ($name == ""):
 			$this->errors[] = _("You have to specify a run name.");
 			return false;
-		elseif (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,255}/", $name)):
+		elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/", $name)):
 			$this->errors[] = _("The run's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
 			return false;
 		elseif ($this->existsByName($name)):
@@ -143,6 +143,7 @@ class Run {
 			alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
 			redirect_to(WEBROOT . "admin/index");
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert(__('Could not delete run %s. This is probably because there are still run units present. For safety\'s sake you\'ll first need to delete each unit individually.', $this->name), 'alert-danger');
 		}
 	}
@@ -167,7 +168,7 @@ class Run {
 		if ($name == ""):
 			$this->errors[] = _("You have to specify a run name.");
 			return false;
-		elseif (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,255}/", $name)):
+		elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/", $name)):
 			$this->errors[] = _("The run's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
 			return false;
 		elseif ($this->existsByName($name) OR $name == self::TEST_RUN OR Router::isWebRootDir($name)):
@@ -183,6 +184,8 @@ class Run {
 			'api_secret_hash' => $new_secret,
 			'cron_active' => 1,
 			'public' => 0,
+			'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
+			'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
 		));
 		$this->getServiceMessageId();
 
@@ -277,7 +280,7 @@ class Run {
 	public function getOverviewScript() {
 		$id = $this->getOverviewScriptId();
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id));
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id), null, $this);
 		return $unit;
 	}
 
@@ -291,14 +294,14 @@ class Run {
 
 	protected function addOverviewScript() {
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"));
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"), null, $this);
 		$unit->create(array(
 			"title" => "Overview script",
 			"body" =>
 			"# Intersperse Markdown with R
-			```{r}
-			plot(cars)
-			```"
+```{r}
+plot(cars)
+```"
 		));
 
 		if ($unit->valid):
@@ -313,7 +316,7 @@ class Run {
 	public function getServiceMessage() {
 		$id = $this->getServiceMessageId();
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id));
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id), null, $this);
 		return $unit;
 	}
 
@@ -327,13 +330,13 @@ class Run {
 
 	protected function addServiceMessage() {
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"));
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"), null, $this);
 		$unit->create(array(
 			"title" => "Service message",
 			"body" =>
 			"# Service message
-			This study is currently being serviced. Please return at a later time."
-		));
+This study is currently being serviced. Please return at a later time."
+));
 		if ($unit->valid):
 			$this->dbh->update('survey_runs', array('service_message' => $unit->id), array('id' => $this->id));
 			alert('A service message was auto-created.', 'alert-info');
@@ -370,6 +373,15 @@ class Run {
 	}
 
 	public function emptySelf() {
+		$surveys = $this->getAllSurveys();
+		$unit_factory = new RunUnitFactory();
+		foreach($surveys AS $survey) {
+			$unit = $unit_factory->make($this->dbh, null, $survey, null, $this);
+			if(!$unit->deleteResults(true)) {
+				alert('Could not delete results of survey ' . $unit->name, 'alert-danger');
+				return false;
+			}
+		}
 		$rows = $this->dbh->delete('survey_run_sessions', array('run_id' => $this->id));
 		alert('Run was emptied. ' . $rows . ' were deleted.', 'alert-info');
 		return $rows;
@@ -384,7 +396,7 @@ class Run {
 			"run_name" => $this->name,
 			"run_id" => $this->id,
 			"run_session_id" => $run_session_id
-		));
+		), null, $this);
 		return $unit;
 	}
 
@@ -398,7 +410,7 @@ class Run {
 
 	protected function addReminder() {
 		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Email"));
+		$unit = $unit_factory->make($this->dbh, null, array('type' => "Email"), null, $this);
 		$unit->create(array(
 			"subject" => "Reminder",
 			"recipient_field" => 'survey_users$email',
@@ -569,7 +581,16 @@ class Run {
 		$unit['run_name'] = $this->name;
 		return $unit;
 	}
-
+	public function getAllSurveys() {
+		// first, generate a master list of the search set (all the surveys that are part of the run)
+		return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
+				->from('survey_studies')
+				->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
+				->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
+				->where('survey_runs.id = :run_id')
+				->bindParams(array('run_id' => $this->id))
+				->fetchAll();
+	}
 	public function getRandomGroups() {
 		$g_users = $this->dbh->prepare("SELECT 
 			`survey_run_sessions`.session,
@@ -599,7 +620,7 @@ class Run {
 
 		if (isset($_SESSION['dummy_survey_session'])):
 			$run_session = $this->makeDummyRunSession(self::TEST_RUN, "Survey");
-			$unit = new Survey($this->dbh, null, $_SESSION['dummy_survey_session'], $run_session);
+			$unit = new Survey($this->dbh, null, $_SESSION['dummy_survey_session'], $run_session, $this);
 			$output = $unit->exec();
 
 			if (!$output):
@@ -636,12 +657,13 @@ class Run {
 		elseif ($this->name == self::TEST_RUN):
 			extract($this->fakeTestRun());
 		else:
-			if ($user->loggedIn() AND isset($_SESSION['UnitSession']) AND $user->user_code !== unserialize($_SESSION['UnitSession'])->session):
-				alert('<strong>Error.</strong> You seem to have switched sessions.', 'alert-danger');
-				redirect_to('index');
-			endif;
+/// fixme: legacy? UnitSession is never saved in _SESSION
+//			if ($user->loggedIn() AND isset($_SESSION['UnitSession']) AND $user->user_code !== unserialize($_SESSION['UnitSession'])->session):
+//				alert('<strong>Error.</strong> You seem to have switched sessions.', 'alert-danger');
+//				redirect_to('index');
+//			endif;
 
-			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code); // does this user have a session?
+			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
 			if ($user->created($this) OR // owner always has access
 				($this->public >= 1 AND $run_session->id) OR // already enrolled
@@ -650,6 +672,8 @@ class Run {
 				if ($run_session->id === NULL):
 					$run_session->create($user->user_code);  // generating access code for those who don't have it but need it
 				endif;
+				global $site;
+				session_over($site, $user);
 
 				$output = $run_session->getUnit();
 			} else {
@@ -676,7 +700,6 @@ class Run {
 			}
 
 			$alerts = $site->renderAlerts();
-			session_over($site, $user); // ? WHY ?
 
 			$run_content = '';
 			if (trim($this->description_parsed)) {
@@ -729,7 +752,7 @@ class Run {
 		if (!$start_position) {
 			$start_position = 0;
 		} else {
-			$start_position = (int) $start_position - 1;
+			$start_position = (int) $start_position - 10;
 		}
 		$json = json_decode($json_string);
 
@@ -762,7 +785,7 @@ class Run {
 					unset($unit->account_id);
 				}
 
-				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit);
+				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit, null, $this);
 				$unitObj->create((array) $unit);
 				if ($unitObj->valid) {
 					$unitObj->addToRun($this->id, $unitObj->position, (array) $unit );

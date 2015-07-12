@@ -56,6 +56,16 @@ class Request {
 	}
 
 	/**
+	 * Get parameter
+	 *
+	 * @param string $name
+	 * @return mixed
+	 */
+	public function getParam($name) {
+		return $this->__get($name);
+	}
+
+	/**
 	 * Recursively input clean control characters (low bits in ASCII table)
 	 *
 	 * @param array|mixed|string $value
@@ -157,6 +167,14 @@ class Request {
 		if ($nonempty && empty($this->data[$name])) return $default;
 
 		return (float)$this->data[$name];
+	}
+
+	public static function isHTTPPostRequest() {
+		return strtolower($_SERVER['REQUEST_METHOD']) === 'post';
+	}
+
+	public static function isHTTPGetRequest() {
+		return strtolower($_SERVER['REQUEST_METHOD']) === 'get';
 	}
 
 	private static function stripslashes($value) {

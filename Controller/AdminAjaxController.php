@@ -44,7 +44,7 @@ class AdminAjaxController {
 			$run = $this->controller->run;
 
 			$unit_factory = new RunUnitFactory();
-			$unit = $unit_factory->make($dbh, null, array('type' => $_GET['type'], 'position' => $_POST['position']));
+			$unit = $unit_factory->make($dbh, null, array('type' => $_GET['type'], 'position' => $_POST['position']), null, $run);
 			$unit->create($_POST);
 
 			if ($unit->valid):
@@ -77,7 +77,7 @@ class AdminAjaxController {
 
 				$unit_info = $run->getUnitAdmin($_GET['run_unit_id'], $special);
 				$unit_factory = new RunUnitFactory();
-				$unit = $unit_factory->make($dbh, null, $unit_info);
+				$unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
 
 				echo $unit->displayForRun();
 				exit;
@@ -112,7 +112,7 @@ class AdminAjaxController {
 		$run = $this->controller->run;
 		$dbh = $this->dbh;
 
-		$run_session = new RunSession($dbh, $run->id, null, $_POST['session']);
+		$run_session = new RunSession($dbh, $run->id, null, $_POST['session'], $run);
 		$new_position = $_POST['new_position'];
 		$_POST = array();
 
@@ -160,7 +160,7 @@ class AdminAjaxController {
 				$unit_info = $run->getUnitAdmin($_POST['run_unit_id'], $special);
 
 				$unit_factory = new RunUnitFactory();
-				$unit = $unit_factory->make($dbh, null, $unit_info);
+				$unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
 
 				if ($unit->removeFromRun()):
 					alert('<strong>Success.</strong> Unit with ID ' . h($_POST['run_unit_id']) . ' was deleted.', 'alert-success');
@@ -282,7 +282,7 @@ class AdminAjaxController {
 
 				$unit_info = $run->getUnitAdmin($_POST['run_unit_id'], $special);
 
-				$unit = $unit_factory->make($dbh,null,$unit_info);
+				$unit = $unit_factory->make($dbh,null,$unit_info, null, $run);
 
 				$unit->create($_POST);
 				if($unit->valid):
@@ -329,7 +329,7 @@ class AdminAjaxController {
 
 				$unit = $run->getUnitAdmin($_GET['run_unit_id'], $special);
 				$unit_factory = new RunUnitFactory();
-				$unit = $unit_factory->make($this->dbh, null, $unit);
+				$unit = $unit_factory->make($this->dbh, null, $unit, null, $run);
 
 				$unit->test();
 				echo $this->site->renderAlerts();

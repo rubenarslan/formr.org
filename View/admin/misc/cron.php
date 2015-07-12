@@ -76,7 +76,7 @@ try {
 	foreach ($runs as $run_data):
 		$i = 0;
 		$r++;
-		$done = array('Pause' => 0, 'Email' => 0, 'SkipForward' => 0, 'SkipBackward' => 0, 'Shuffle' => 0);
+		$done = array('Pause' => 0, 'Email' => 0, 'SkipForward' => 0, 'SkipBackward' => 0, 'Shuffle' => 0, 'Survey' => 0);
 		$created = date('Y-m-d H:i:s');
 
 		$run = new Run($fdb, $run_data['name']);
@@ -90,7 +90,7 @@ try {
 
 		// Foreach session, execute all units
 		foreach ($dues as $session) {
-			$run_session = new RunSession($fdb, $run->id, 'cron', $session);
+			$run_session = new RunSession($fdb, $run->id, 'cron', $session, $run);
 			// Q. How will this go through all units of a session?
 			$types = $run_session->getUnit(); // start looping thru their units.
 			$i++;

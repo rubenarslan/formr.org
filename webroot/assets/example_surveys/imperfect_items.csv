@@ -1,0 +1,3 @@
+type,name,label
+note, nfc ,Note with broken label
+"number  1, 10, 2",odd_number,Number with spaces in type

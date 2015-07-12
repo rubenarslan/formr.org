@@ -1,5 +1,19 @@
 module.exports = function(grunt) {
 
+// Load the plugin that provides the "uglify" task.
+grunt.loadNpmTasks('grunt-bower-task');
+//  grunt.loadNpmTasks('grunt-contrib-watch');
+//  grunt.loadNpmTasks('grunt-contrib-less');
+grunt.loadNpmTasks('grunt-contrib-csslint');
+grunt.loadNpmTasks('grunt-autoprefixer');
+grunt.loadNpmTasks('grunt-contrib-copy');
+grunt.loadNpmTasks('grunt-contrib-uglify');
+grunt.loadNpmTasks('grunt-contrib-cssmin');
+grunt.loadNpmTasks('grunt-contrib-concat');
+grunt.loadNpmTasks('grunt-concat-css');
+grunt.loadNpmTasks('grunt-contrib-jshint');
+grunt.loadNpmTasks('grunt-bower-concat');
+
 // Project configuration.
 grunt.initConfig({
 	pkg: grunt.file.readJSON('package.json'),
@@ -92,6 +106,18 @@ grunt.initConfig({
 		}
 	  }
 	},
+	csslint: {
+	  lax: {
+		  options: {
+			  "adjoining-classes": false,
+			  "overqualified-elements": false,
+			  "important": false,
+			  "duplicate-background-images": false,
+			  "box-model": false,
+		  },
+	    src: ['css/main.css']
+	  },
+	},
 	concat: {
 		options: {
 		  separator: ';',
@@ -99,12 +125,33 @@ grunt.initConfig({
 		js: {
 		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','lib/bower.js', 'js/main.js'],
 		  dest: 'lib/bower.js',
+		}
+	},
+	concat_css: {
+		all: {
+			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower.css', 'css/main.css'],
+			dest: 'lib/bower.css'
 		},
-		css: {
-		  src: ['lib/bower.css', 'css/main.css'],
-		  dest: 'lib/bower.css',
+	},
+	autoprefixer: {
+		options: {
+			browsers: [
+				"Android 2.3",
+				"Android >= 4",
+				"Chrome >= 20",
+				"Firefox >= 24",
+				"Explorer >= 8",
+				"iOS >= 6",
+				"Opera >= 12",
+				"Safari >= 6"
+				],
+			// Task-specific options go here.
 		},
-	  },
+		your_target: {
+			src: 'lib/bower.css'
+			// Target-specific file lists and/or options go here.
+		},
+	},
 	cssmin: {
 		options: {
 			shorthandCompacting: false,
@@ -157,17 +204,10 @@ grunt.initConfig({
 	}
 });
 
-  // Load the plugin that provides the "uglify" task.
-  grunt.loadNpmTasks('grunt-bower-task');
-  grunt.loadNpmTasks('grunt-contrib-copy');
-  grunt.loadNpmTasks('grunt-contrib-uglify');
-  grunt.loadNpmTasks('grunt-contrib-cssmin');
-  grunt.loadNpmTasks('grunt-contrib-concat');
-  grunt.loadNpmTasks('grunt-contrib-jshint');
-  grunt.loadNpmTasks('grunt-bower-concat');
-
   // Default task(s).
-  grunt.registerTask('default', ['bower','copy','jshint','bower_concat','concat','uglify','cssmin']);
+  grunt.registerTask('default', ['bower','copy','jshint','bower_concat','concat','concat_css','uglify','csslint',"autoprefixer",'cssmin']);
+  grunt.registerTask('build', ['copy','jshint','bower_concat','concat','concat_css','uglify','csslint',"autoprefixer",'cssmin']);
+  grunt.registerTask('quick', ['bower_concat','concat','concat_css','uglify',"autoprefixer",'cssmin']);
 //	grunt.registerTask('bowerinstall', ['bower']);
 };
 

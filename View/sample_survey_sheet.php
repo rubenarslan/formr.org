@@ -141,13 +141,13 @@
 		 showif
 	 </dt>
 	 <dd>
-		 If you leave this empty, the item will always be shown. If it contains a condition, such as <code>sex == 1</code>, it will only be shown if that condition is true. Conditions are written in R and can be arbitrarily complex. You should always test them well. It is also possible to refer to data in other surveys using e.g. <code>other_survey$item_name != 2</code>.
+		 If you leave this empty, the item will always be shown. If it contains a condition, such as <code>sex == 1</code>, it will only be shown if that condition is true. Conditions are written in R and can be arbitrarily complex. You should always test them well. It is also possible to refer to data in other surveys using e.g. <code>other_survey$item_name != 2</code>. If you refer to data on the same page, items will also be shown dynamically using Javascript.
 	 </dd>
 	 <dt>
 		 optional
 	 </dt>
 	 <dd>
-		 Nearly all items are mandatory by default. By using <code>*</code> in this column, you can turns items optional instead. Using <code>!</code> forces a response to items optional by default.
+		 Nearly all items are mandatory by default. By using <code>*</code> in this column, you can turns items optional instead. Using <code>!</code> requires a response to items that are optional by default (check, check_button).
 	 </dd>
 	 <dt>
 		 value

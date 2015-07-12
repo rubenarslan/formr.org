@@ -11,8 +11,8 @@ class External extends RunUnit {
 	public $icon = "fa-external-link-square";
 	public $type = "External";
 
-	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) {
-		parent::__construct($fdb, $session, $unit, $run_session);
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
+		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
 		if ($this->id):
 			$vars = $this->dbh->findRow('survey_externals', array('id' => $this->id), 'id, address, api_end');
@@ -86,13 +86,12 @@ class External extends RunUnit {
 		if ($this->isR()) {
 			if ($results = $this->getSampleSessions()) {
 				if (!$results) {
-					echo 'No data to compare to yet.';
 					return false;
 				}
 				
 				$this->run_session_id = current($results)['id'];
 
-				$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->address));
+				$opencpu_vars = $this->getUserDataInRun($this->address);
 				$ocpu_session = opencpu_evaluate($this->address, $opencpu_vars, '', null, true);
 				$output = opencpu_debug($ocpu_session);
 			} else {

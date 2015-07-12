@@ -53,7 +53,7 @@ if ($pid == 0) {
 		$dues = $run->getCronDues();
 	
 		foreach($dues AS $session):
-			$run_session = new RunSession($fdb, $run->id, 'cron', $session);
+			$run_session = new RunSession($fdb, $run->id, 'cron', $session, $run);
 		
 			$types = $run_session->getUnit(); // start looping thru their units.
 			$i++;

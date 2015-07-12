@@ -13,8 +13,8 @@ class Branch extends RunUnit {
 	public $type = 'Branch';
 	public $icon = 'fa-code-fork fa-flip-vertical';
 
-	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) {
-		parent::__construct($fdb, $session, $unit, $run_session);
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
+		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
 		if ($this->id):
 			$vars = $this->dbh->select('id, condition, if_true, automatically_jump, automatically_go_on')
@@ -106,12 +106,11 @@ class Branch extends RunUnit {
 		$results = $this->getSampleSessions();
 
 		if (!$results) {
-			echo 'No data to compare to yet.';
 			return false;
 		}
 
 		$this->run_session_id = current($results)['id'];
-		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->condition));
+		$opencpu_vars = $this->getUserDataInRun($this->condition);
 		$ocpu_session = opencpu_evaluate($this->condition, $opencpu_vars, '', null, true);
 		echo opencpu_debug($ocpu_session);
 
@@ -126,7 +125,7 @@ class Branch extends RunUnit {
 		// at opencpu in some 'box' and sending one request (also create new func in formr R package to open this box, evaluate what is inside and return the box)
 		foreach ($results as $row) {
 			$this->run_session_id = $row['id'];
-			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->condition));
+			$opencpu_vars = $this->getUserDataInRun($this->condition);
 			$eval = opencpu_evaluate($this->condition, $opencpu_vars);
 
 			echo "<tr>
@@ -140,7 +139,7 @@ class Branch extends RunUnit {
 	}
 
 	public function exec() {
-		$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->condition));
+		$opencpu_vars = $this->getUserDataInRun($this->condition);
 		$eval = opencpu_evaluate($this->condition, $opencpu_vars);
 		if ($eval === null) {
 			return true; // don't go anywhere, wait for the error to be fixed!

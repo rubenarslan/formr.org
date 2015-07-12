@@ -7,6 +7,7 @@ class User {
 	public $user_code = null;
 	private $logged_in = false;
 	private $admin = false;
+	private $referrer_code = null;
 	// todo: time zone, etc.
 	public $settings = array();
 	public $errors = array();
@@ -36,7 +37,7 @@ class User {
 	}
 
 	private function load() {
-		$user = $this->dbh->select('id, email, password, admin, user_code')
+		$user = $this->dbh->select('id, email, password, admin, user_code, referrer_code')
 				->from('survey_users')
 				->where(array('id' => $this->id))
 				->limit(1)
@@ -48,6 +49,7 @@ class User {
 			$this->id = (int) $user['id'];
 			$this->user_code = $user['user_code'];
 			$this->admin = $user['admin'];
+			$this->referrer_code = $user['referrer_code'];
 			return true;
 		}
 
@@ -81,24 +83,28 @@ class User {
 		return (int) $this->id === (int) $object->user_id;
 	}
 
-	public function register($email, $password) {
+	public function register($email, $password, $referrer_code) {
+		$hash = password_hash($password, PASSWORD_DEFAULT);
+		
 		$user_exists = $this->dbh->entry_exists('survey_users', array('email' => $email));
 		if ($user_exists) {
 			$this->errors[] = "User already exists";
 			return false;
 		}
-
-		$hash = password_hash($password, PASSWORD_DEFAULT);
+		
 		if ($this->user_code === null) {
 			$this->user_code = crypto_token(48);
 		}
+		
+		$this->referrer_code = $referrer_code;
 
 		if ($hash) :
 			$inserted = $this->dbh->insert('survey_users', array(
 				'email' => $email,
 				'created' => mysql_now(),
 				'password' => $hash,
-				'user_code' => $this->user_code
+				'user_code' => $this->user_code,
+				'referrer_code' => $this->referrer_code
 			));
 
 			if (!$inserted) {
@@ -129,12 +135,34 @@ class User {
 		$mail->Body = "Dear user,
 
 you, or someone else created an account on " . WEBROOT . ".
-For some studies, you will need a verified email address.
-To verify your address, please go to this link:
+You will need to verify that this is your email address.
+To do so, please go to this link:
 " . $verify_link . "
 
 If you did not sign up, please notify us and we will 
 suspend the account.
+
+If you signed up with a valid referral token, you will 
+automatically be able to create new studies (rather 
+than just take part).
+If you have no such token, please reply to this email 
+and tell us why you should get access (we're happy 
+about new users, but want to know a little about what 
+you plan to do).
+
+To get help with conducting studies, refer to the help 
+section here.
+We have provided copious documentation and some detailed 
+HowTos, but there also is a mailing list to which you 
+can write if you need more help. 
+". site_url("public/documentation#help")."
+
+While you have a live study on formr, you should be 
+signed up to the mailing list, so that you hear 
+quickly if there will be a big update or if there
+might be trouble with formr. 
+There are fewer than two messages per month on the list.
+https://groups.google.com/forum/#!forum/formr
 
 Best regards,
 
@@ -301,6 +329,14 @@ formr robots";
 					array('int', 'int')
 				);
 				alert("Your email was successfully verified!", "alert-success");
+				
+				if(in_array( $this->referrer_code, Config::get("referrer_codes"))):
+					$this->dbh->update('survey_users', 
+						array('admin' => 1),
+						array('email' => $email)
+					);
+					alert("You now have the rights to create your own studies!", "alert-success");
+				endif;
 				return true;
 			else:
 				alert("Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.", "alert-danger");

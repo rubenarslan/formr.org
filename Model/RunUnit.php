@@ -4,7 +4,7 @@ class RunUnitFactory {
 
 	protected $supported = array('Survey', 'Pause', 'Email', 'External', 'Page', 'SkipBackward', 'SkipForward', 'Shuffle');
 
-	public function make($dbh, $session, $unit, $run_session = NULL) {
+	public function make($dbh, $session, $unit, $run_session = NULL, $run = NULL) {
 		if (empty($unit['type'])) {
 			$unit['type'] = 'Survey';
 		}
@@ -14,7 +14,7 @@ class RunUnitFactory {
 			throw new Exception("Unsupported unit type '$type'");
 		}
 
-		return new $type($dbh, $session, $unit, $run_session);
+		return new $type($dbh, $session, $unit, $run_session, $run);
 	}
 
 	public function getSupportedUnits() {
@@ -44,19 +44,46 @@ class RunUnit {
 	public $run_id;
 	public $description = "";
 	protected $body_parsed = null;
-	protected $non_user_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions', 'survey_items_display', 'survey_email_log', 'shuffle');
+
+	/**
+	 * Array of tables that contain user/study data to be used when parsing variables
+	 * indexed by table names with values being an array of columns of interest
+	 *
+	 * @var array
+	 */
+	protected $non_user_tables = array(
+		'survey_users' => array("created","modified", "user_code","email","email_verified","mobile_number", "mobile_verified"),
+		'survey_run_sessions' => array("session","created","last_access","position","current_unit_id", "deactivated","no_email"),
+		'survey_unit_sessions' => array("created","ended","unit_id"),
+		'survey_items_display' => array("created","answered_time","answered","displaycount","item_id"),
+		'survey_email_log' => array("email_id","created","recipient"),
+		'shuffle' => array("unit_id","created","group"),
+	);
+
+	/**
+	 * Array of tables that contain system session data to be used when parsing variables
+	 *
+	 * @var array
+	 */
 	protected $non_session_tables = array('survey_users', 'survey_run_sessions', 'survey_unit_sessions');
+
+	/**
+	 * collects strings to parse on opencpu before rendering the unit
+	 * @var array
+	 */
+	protected $strings_to_parse = array();
 
 	/**
 	 * @var DB
 	 */
 	protected $dbh;
 
-	public function __construct($fdb, $session = null, $unit = null, $run_session = null) {
+	public function __construct($fdb, $session = null, $unit = null, $run_session = null, $run = NULL) {
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->unit = $unit;
 		$this->run_session = $run_session;
+		$this->run = $run;
 
 		if (isset($unit['run_id'])) {
 			$this->run_id = $unit['run_id'];
@@ -139,9 +166,9 @@ class RunUnit {
 		);
 	}
 
-	public function addToRun($run_id, $position = 1, $options = array("description" => '')) {
+	public function addToRun($run_id, $position = 10, $options = array("description" => '')) {
 		if (!is_numeric($position)) {
-			$position = 1;
+			$position = 10;
 		}
 		$this->position = (int) $position;
 		if(!isset($options['description'])) {
@@ -196,7 +223,7 @@ class RunUnit {
 			->limit(20)->fetchAll();
 		
 		if (!$results) {
-			echo 'No data to compare to yet.';
+			alert('No data to compare to yet.','alert-info');
 			return false;
 		}
 		return $results;
@@ -217,7 +244,7 @@ class RunUnit {
 				->fetch();
 
 			if (!$temp_user) {
-				echo 'No data to compare yet';
+				alert('No data to compare to yet','alert-info');
 				return false;
 			}
 
@@ -253,7 +280,7 @@ class RunUnit {
 	public function runDialog($dialog) {
 		return '
 		<div class="col-xs-12 row run_unit_inner ' . $this->type . '" data-type="' . $this->type . '">
-		<div class="row"><h4><input type="text" value="'.$this->description.'" placeholder="Description (click to edit)" class="run_unit_description" name="description"></h4></div>
+		<div class="col-xs-12"><h4><input type="text" value="'.$this->description.'" placeholder="Description (click to edit)" class="run_unit_description" name="description"></h4></div>
 				<div class="col-xs-3 run_unit_position">
 					<h1><i class="muted fa fa-2x ' . $this->icon . '"></i></h1>
 					' . $this->howManyReachedIt() . ' <button href="ajax_remove_run_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run" type="button"><i class="fa fa-times"></i></button><br>
@@ -274,70 +301,78 @@ class RunUnit {
 	protected $survey_results;
 
 	/**
-	 * We have a set of study and variable names. Now we get the data.
+	 * Get user data needed to execute a query/request (mainly used in opencpu requests)
 	 *
-	 * @param array $needed
+	 * @param string $q
+	 * @param string $required
 	 * @return array
 	 */
-	public function getUserDataInRun($needed) {
+	public function getUserDataInRun($q, $required = null) {
+		$cache_key = Cache::makeKey($q, $required, $this->session_id, $this->run_session_id);
+		if (($data = Cache::get($cache_key))) {
+			return $data;
+		}
+
+		$needed = $this->dataNeeded($q, $required);
 		$surveys = $needed['matches'];
 		$results_tables = $needed['matches_results_tables'];
 		$matches_variable_names = $needed['matches_variable_names'];
 		$this->survey_results = array('datasets' => array());
 
-		foreach($surveys AS $study_id => $survey_name) :
-			if(!isset($this->survey_results['datasets'][$survey_name])):
+		foreach($surveys AS $study_id => $survey_name) {
+			if (isset($this->survey_results['datasets'][$survey_name])) {
+				continue;
+			}
+	
+			$results_table = $results_tables[$survey_name];
+			if(empty($matches_variable_names[ $survey_name ])) {
+				$variables = "NULL AS formr_dummy";
+			} else {
+				$variables = "`$results_table`.`" . implode("`,`$results_table`.`" ,$matches_variable_names[ $survey_name ]) . '`';
+			}
 				
-				$results_table = $results_tables[$survey_name];
-				if(empty($matches_variable_names[ $survey_name ])) {
-					$variables = "NULL AS formr_dummy";
-				} else {
-					$variables = "`$results_table`.`" . implode("`,`$results_table`.`" ,$matches_variable_names[ $survey_name ]) . '`';
-				}
-				
-				$q1 = "SELECT $variables";
-				if($this->run_session_id === NULL AND !in_array($survey_name, $this->non_session_tables)) { // todo: what to do with session_id tables in faketestrun
-					$q3 = " WHERE `$results_table`.session_id = :session_id;"; // just for testing surveys
-				} else {
-					$q3  = " WHERE  `survey_run_sessions`.id = :run_session_id;";
-				}
+			$q1 = "SELECT $variables";
+			if($this->run_session_id === NULL AND !in_array($survey_name, $this->non_session_tables)) { // todo: what to do with session_id tables in faketestrun
+				$q3 = " WHERE `$results_table`.session_id = :session_id;"; // just for testing surveys
+			} else {
+				$q3  = " WHERE  `survey_run_sessions`.id = :run_session_id;";
+			}
 
-				if(!in_array($survey_name, $this->non_session_tables )) {
-					$q2 = "
-						LEFT JOIN `survey_unit_sessions` ON `$results_table`.session_id = `survey_unit_sessions`.id
-						LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-					";
-				} elseif($survey_name == 'survey_unit_sessions'){
-					$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id";
-				} elseif($survey_name == 'survey_run_sessions') {
-					$q2 = "";
-				} elseif($survey_name == 'survey_users') {
-					$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_users`.id = `survey_run_sessions`.user_id";
-				}
+			if(!in_array($survey_name, $this->non_session_tables )) {
+				$q2 = "
+					LEFT JOIN `survey_unit_sessions` ON `$results_table`.session_id = `survey_unit_sessions`.id
+					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+				";
+			} elseif($survey_name == 'survey_unit_sessions'){
+				$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id";
+			} elseif($survey_name == 'survey_run_sessions') {
+				$q2 = "";
+			} elseif($survey_name == 'survey_users') {
+				$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_users`.id = `survey_run_sessions`.user_id";
+			}
 
-				$q1 .= " FROM `$results_table` ";
+			$q1 .= " FROM `$results_table` ";
 
-				$q = $q1 . $q2 . $q3;
+			$q = $q1 . $q2 . $q3;
 
-				$get_results = $this->dbh->prepare($q);
-				if($this->run_session_id === NULL) {
-					$get_results->bindValue(':session_id', $this->session_id);
-				} else {
-					$get_results->bindValue(':run_session_id', $this->run_session_id);
-				}
-				$get_results->execute();
+			$get_results = $this->dbh->prepare($q);
+			if($this->run_session_id === NULL) {
+				$get_results->bindValue(':session_id', $this->session_id);
+			} else {
+				$get_results->bindValue(':run_session_id', $this->run_session_id);
+			}
+			$get_results->execute();
 
-				$this->survey_results['datasets'][$survey_name] = array();
-				while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
-					foreach($res AS $var => $val):
-						if(!isset($this->survey_results['datasets'][$survey_name][$var])) {
-							$this->survey_results['datasets'][$survey_name][$var] = array();
-						}
-						$this->survey_results['datasets'][$survey_name][$var][] = $val;
-					endforeach;
-				endwhile;
-			endif;
-		endforeach;
+			$this->survey_results['datasets'][$survey_name] = array();
+			while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
+				foreach($res AS $var => $val):
+					if(!isset($this->survey_results['datasets'][$survey_name][$var])) {
+						$this->survey_results['datasets'][$survey_name][$var] = array();
+					}
+					$this->survey_results['datasets'][$survey_name][$var][] = $val;
+				endforeach;
+			endwhile;
+		}
 
 		if(!empty($needed['variables'])):
 			if(in_array('formr_last_action_date', $needed['variables']) OR in_array('formr_last_action_time', $needed['variables'])):
@@ -348,7 +383,7 @@ class RunUnit {
 				);
 				$last_action_time = strtotime($last_action);
 				if(in_array('formr_last_action_date', $needed['variables'])):
-					$this->survey_results['.formr$last_action_date'] = "as.Date('".date("Y-m-d", $last_action_time)."')";
+					$this->survey_results['.formr$last_action_date'] = "as.POSIXct('".date("Y-m-d", $last_action_time)."')";
 				endif;
 				if(in_array('formr_last_action_time', $needed['variables']) ):
 					$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T", $last_action_time)."')";
@@ -367,6 +402,7 @@ class RunUnit {
 			$this->survey_results['datasets'][$needed['token_add']] = array();
 		endif;
 
+		Cache::set($cache_key, $this->survey_results);
 		return $this->survey_results;
 	}
 
@@ -377,63 +413,56 @@ class RunUnit {
 		return false;
 	}
 
-	public function dataNeeded($fdb, $q, $token_add = NULL) {
-		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
-		
-		// first, generate a master list of the search set (all the surveys that are part of the run)
-		$results = $fdb->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
-				->from('survey_studies')
-				->leftJoin('survey_runs', 'survey_runs.user_id = survey_studies.user_id')
-				->where('survey_runs.id = :run_id')
-				->bindParams(array('run_id' => $this->run_id))
-				->fetchAll();
-
-		// also add some "global" formr tables
-		$tables = $this->non_user_tables;
-		$table_ids = $this->non_user_tables;
-		$results_tables = array_combine($this->non_user_tables, $this->non_user_tables);
-		// map table ID to the name that the user sees (because tables in the DB are prefixed with the user ID, so they're unique)
-		foreach ($results as $res) {
-			$table_ids[] = $res['id'];
-			$tables[] = $res['name']; // FIXME: ID can overwrite the non_user_tables
-			$results_tables[$res['name']] = $res['results_table'];
+	protected function dataNeeded($q, $token_add = null) {
+		$cache_key = Cache::makeKey($q, $token_add);
+		if (($data = Cache::get($cache_key))) {
+			return $data;
 		}
 
-		if($token_add !== null AND !in_array($this->name, $tables)):	 // send along this table if necessary
+		$matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
+
+		$results = $this->run->getAllSurveys();
+
+		// also add some "global" formr tables
+		$non_user_tables = array_keys($this->non_user_tables);
+		$tables = $non_user_tables;
+		$table_ids = $non_user_tables;
+		$results_tables = array_combine($non_user_tables, $non_user_tables);
+
+		if($token_add !== null):	 // send along this table if necessary, always as the first one, since we attach it
 			$table_ids[] = $this->id;
 			$tables[] = $this->name;
 			$results_tables[ $this->name ] = $this->results_table;
 		endif;
-	
+
+		// map table ID to the name that the user sees (because tables in the DB are prefixed with the user ID, so they're unique)
+		foreach ($results as $res) {
+			if($res['name'] !== $token_add):
+				$table_ids[] = $res['id'];
+				$tables[] = $res['name']; // FIXME: ID can overwrite the non_user_tables
+				$results_tables[$res['name']] = $res['results_table'];
+			endif;
+		}
+
 		foreach($tables AS $index => $table_name):
 			$study_id = $table_ids[$index];
-		
-			if($table_name == $token_add OR preg_match("/\b$table_name\b/",$q)): // study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
+
+			// For preg_match, study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
+			if($table_name == $token_add OR preg_match("/\b$table_name\b/", $q)) {
 				$matches[ $study_id ] = $table_name;
-				$matches_results_tables[ $table_name ] = $results_tables[ $table_name ];
-			endif;
+				$matches_results_tables[ $table_name ] = $results_tables[ $table_name ];	
+			}
+
 		endforeach;
 
 		// loop through any studies that are mentioned in the command
 		foreach($matches AS $study_id => $table_name):
 
 			// generate a search set of variable names for each study
-			if(in_array($table_name, $this->non_user_tables)):
-				if($table_name == 'survey_users'):
-					$variable_names_in_table[ $table_name ] = array("created","modified", "user_code","email","email_verified","mobile_number", "mobile_verified");
-				elseif($table_name == 'survey_run_sessions'):
-					$variable_names_in_table[ $table_name ] = array("session","created","last_access","position","current_unit_id", "deactivated","no_email");
-				elseif($table_name == 'survey_unit_sessions'):
-					$variable_names_in_table[ $table_name ] = array("created","ended","unit_id");
-				elseif($table_name == 'survey_items_display'):
-					$variable_names_in_table[ $table_name ] = array("created","answered_time","answered","displaycount","item_id");
-				elseif($table_name == 'survey_email_log'):
-					$variable_names_in_table[ $table_name ] = array("email_id","created","recipient");
-				elseif($table_name == 'shuffle'):
-					$variable_names_in_table[ $table_name ] = array("unit_id","created","group");
-				endif;
-			else:
-				$items = $fdb->select('name')->from('survey_items')
+			if(array_key_exists($table_name, $this->non_user_tables)) {
+				$variable_names_in_table[$table_name] = $this->non_user_tables[$table_name];
+			} else {
+				$items = $this->dbh->select('name')->from('survey_items')
 					->where(array('study_id' => $study_id))
 					->where("type NOT IN ('mc_heading', 'note', 'submit')")
 					->fetchAll();
@@ -442,15 +471,19 @@ class RunUnit {
 				foreach ($items as $res) {
 					$variable_names_in_table[ $table_name ][] = $res['name']; // search set for user defined tables
 				}
-			endif;
+			}
 
 			$matches_variable_names[ $table_name ] = array();
-			foreach($variable_names_in_table[ $table_name ] AS $variable_name) { // generate match list for variable names
-				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);  // try to match scales too, extraversion_1 + extraversion_2 - extraversion_3R = extraversion (script might mention the construct name, but not its item constituents)
-				if(strlen($variable_name_base) < 3) { // don't match very short variable name bases
+			// generate match list for variable names
+			foreach($variable_names_in_table[ $table_name ] AS $variable_name) {
+				// try to match scales too, extraversion_1 + extraversion_2 - extraversion_3R = extraversion (script might mention the construct name, but not its item constituents)
+				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);
+				// don't match very short variable name bases
+				if(strlen($variable_name_base) < 3) {
 					$variable_name_base = $variable_name;
 				}
-				if(preg_match("/\b$variable_name\b/",$q) OR preg_match("/\b$variable_name_base\b/",$q)) { // item name appears as word, matches survey$item, survey[, "item"], but not item_2 for item-scale unfortunately
+				// item name appears as word, matches survey$item, survey[, "item"], but not item_2 for item-scale unfortunately
+				if(preg_match("/\b$variable_name\b/",$q) OR preg_match("/\b$variable_name_base\b/",$q)) {
 					$matches_variable_names[ $table_name ][] = $variable_name;
 				}
 			}
@@ -468,7 +501,9 @@ class RunUnit {
 		if(preg_match('/\b.formr\$login_code\b/',$q)) { $variables[] = 'formr_login_code'; }
 		if(preg_match('/\b.formr\$login_link\b/',$q)) { $variables[] = 'formr_login_link'; }
 
-		return compact("matches","matches_results_tables", "matches_variable_names", "token_add", "variables");
+		$data = compact("matches","matches_results_tables", "matches_variable_names", "token_add", "variables");
+		Cache::set($cache_key, $data);
+		return $data;
 	}
 
 	public function parseBodySpecial() {
@@ -484,7 +519,7 @@ class RunUnit {
 		if (!$this->grabRandomSession()) {
 			return false;
 		}
-		return $this->getParsedText($source);
+		return opencpu_debug(opencpu_knit($source, 'json', true));
 	}
 
 	public function getParsedBodyAdmin($source, $email_embed = false) {
@@ -493,7 +528,7 @@ class RunUnit {
 				return false;
 			}
 
-			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
+			$opencpu_vars = $this->getUserDataInRun($source);
 			/* @var $session OpenCPU_Session */
 			$session = opencpu_knitadmin($source, $opencpu_vars, true);
 			$body = opencpu_debug($session);
@@ -518,7 +553,6 @@ class RunUnit {
 
 	public function getParsedBody($source, $email_embed = false) {
 		/* @var $session OpenCPU_Session */
-
 		if (!$this->knittingNeeded($source)) { // knit if need be
 			if($email_embed) {
 				return array('body' => $this->body_parsed, 'images' => array());
@@ -535,18 +569,27 @@ class RunUnit {
 
 		// If there is a cache of opencpu, check if it still exists
 		if($opencpu_url) {
-			$opencpu_url .= $email_embed ? '' : 'R/.val/';
-			$session = opencpu_get($opencpu_url, $email_embed ? "" : "json", null, true);
+			if ($this->called_by_cron) {
+				return false; // don't regenerate once we once had a report for this feedback, if it's only the cronjob
+			}
+			
+			$opencpu_url = rtrim($opencpu_url,"/") . $email_embed ? '' : '/R/.val/';
+			$format = ($email_embed ? "" : "json");
+			$session = opencpu_get($opencpu_url, $format , null, true);
 		}
-
+		
+		
 		// If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
-		if (empty($session) || $session->hasError()) {
-			$ocpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $source));
+		if (!isset($session) || empty($session) || $session->hasError()) {
+			$ocpu_vars = $this->getUserDataInRun($source);
 			$session = $email_embed ? opencpu_knitemail($source, $ocpu_vars, '', true) : opencpu_knitdisplay($source, $ocpu_vars, true);
 		}
-
+		
 		// At this stage we are sure to have an OpenCPU_Session in $session. If there is an error in the session return FALSE
-		if ($session->hasError()) {
+		if(empty($session)) {
+			alert('OpenCPU is probably down or inaccessible.', 'alert-danger');
+			return false;
+		} elseif ($session->hasError()) {
 			$where = '';
 			if(isset($this->run_name)) {
 				$where = "Run: ". $this->run_name. " (".$this->position."-". $this->type.") ";
@@ -555,22 +598,21 @@ class RunUnit {
 			alert('There was a problem with OpenCPU.', 'alert-danger');
 			return false;
 		} else {
+			
 			$opencpu_url = $session->getLocation();
-		}
 
-		if($email_embed) {
-			$report = array(
-				'body' => $session->getObject(),
-				'images' => $session->getFiles('/figure-html/'),
-			);
-		} else {
-			$report = $session->getJSONObject();
-		}
+			if($email_embed) {
+				$report = array(
+					'body' => $session->getObject(),
+					'images' => $session->getFiles('/figure-html'),
+				);
+			} else {
+				$report = $session->getJSONObject();
+			}
 
-		if($this->session_id) {
-			try {
-				$set_report = $this->dbh->prepare("
-					INSERT INTO `survey_reports` (`session_id`, `unit_id`, `opencpu_url`, `created`, `last_viewed`) 
+			if($this->session_id) {
+				$set_report = $this->dbh->prepare(
+				"INSERT INTO `survey_reports` (`session_id`, `unit_id`, `opencpu_url`, `created`, `last_viewed`) 
 					VALUES  (:session_id, :unit_id, :opencpu_url,  NOW(), 	NOW() ) 
 					ON DUPLICATE KEY UPDATE opencpu_url = VALUES(opencpu_url), created = VALUES(created)");
 
@@ -578,12 +620,10 @@ class RunUnit {
 					$set_report->bindParam(":opencpu_url", $opencpu_url);
 					$set_report->bindParam(":session_id", $this->session_id);
 					$set_report->execute();
-			} catch (Exception $e) {
-				log_exception($e, __CLASS__);
 			}
-		}
 
-		return $report;
+			return $report;
+		}
 	}
 
 }

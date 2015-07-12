@@ -3,17 +3,18 @@
 class RunSession {
 
 	public $session = null;
-	public $id, $run_id, $ended, $position, $current_unit_type, $user_id, $created, $run_name, $run_owner_id;
+	public $id, $run_id, $ended, $position, $current_unit_type, $user_id, $created, $run_name, $run_owner_id, $run,$unit_session;
 	private $cron = false;
 	/**
 	 * @var DB
 	 */
 	private $dbh;
 
-	public function __construct($fdb, $run_id, $user_id, $session) {
+	public function __construct($fdb, $run_id, $user_id, $session, $run = NULL) {
 		$this->dbh = $fdb;
 		$this->session = $session;
 		$this->run_id = $run_id;
+		$this->run = $run;
 		if ($user_id == 'cron'):
 			$this->cron = true;
 		else:
@@ -60,7 +61,11 @@ class RunSession {
 
 		return false;
 	}
-
+	public function getLastAccess() {
+		return $this->dbh->select('last_access')
+			->from('survey_run_sessions')
+			->where(array('id' => $this->id));
+	}
 	public function create($session = NULL) {
 		if ($session !== NULL) {
 			if (strlen($session) != 64) {
@@ -92,7 +97,8 @@ class RunSession {
 			if ($i > 80) {
 				global $user;
 				if ($user->isCron() OR $user->isAdmin()) {
-					alert(print_r($unit, true), 'alert-danger');
+					if(isset($unit))
+						alert(print_r($unit, true), 'alert-danger');
 				}
 				alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?', 'alert-danger');
 				return false;
@@ -104,7 +110,7 @@ class RunSession {
 					$unit_info['cron'] = true;
 				}
 
-				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this);
+				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this, $this->run);
 				$this->current_unit_type = $unit->type;
 				$output = $unit->exec();
 
@@ -117,10 +123,7 @@ class RunSession {
 
 			} else {
 				if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
-					return array(
-						'title' => 'Nothing here.',
-						'body' => "<div class='broken_tape'><h1><span>Oops. This study's creator forgot to give it a proper ending and now the tape's run out.</span></h1></div>"
-					); // if that fails because the run is wrongly configured, return
+					return array('body' => ''); // if that fails because the run is wrongly configured, return nothing
 				}
 			}
 		endwhile;
@@ -144,8 +147,9 @@ class RunSession {
 		$unit = $this->getCurrentUnit(); // get first unit in line
 		if ($unit):
 			$unit_factory = new RunUnitFactory();
-			$unit = $unit_factory->make($this->dbh, null, $unit, $this);
-			$unit->end();	 // cancel it
+			$unit = $unit_factory->make($this->dbh, null, $unit, $this, $this->run);
+			if($unit->type == "Survey") $unit->expire();
+			else $unit->end();	 // cancel it
 		endif;
 
 		if ($this->runTo($position)):
@@ -161,13 +165,13 @@ class RunSession {
 
 		if ($unit_id):
 
-			$unit_session = new UnitSession($this->dbh, $this->id, $unit_id);
-			if (!$unit_session->id) {
-				$unit_session->create();
+			$this->unit_session = new UnitSession($this->dbh, $this->id, $unit_id);
+			if (!$this->unit_session->id) {
+				$this->unit_session->create();
 			}
 			$_SESSION['session'] = $this->session;
 
-			if ($unit_session->id):
+			if ($this->unit_session->id):
 				$updated = $this->dbh->update('survey_run_sessions', array('position' => $position), array('id' => $this->id));
 				$success = $updated != 0;
 				if ($success):
@@ -216,7 +220,8 @@ class RunSession {
 			$unit['run_id'] = $this->run_id;
 			$unit['run_name'] = $this->run_name;
 			$unit['run_session_id'] = $this->id;
-			return $unit;
+			$this->unit_session = new UnitSession($this->dbh, $this->id, $unit['unit_id'], $unit['session_id']);
+				return $unit;
 		endif;
 		return false;
 	}
@@ -237,7 +242,7 @@ class RunSession {
 		$select->bindParams(array('run_id' => $this->run_id, 'position' => $position));
 		$next = $select->fetch();
 		if (!$next) {
-			alert('Run ' . $this->run_name . ': Forgot a landing page', 'alert-danger');
+			alert('Run ' . $this->run_name . ': Oops, this study\'s creator forgot to give it a proper ending.', 'alert-danger');
 			return false;
 		}
 		return $this->runTo($next['position'], $next['unit_id']);

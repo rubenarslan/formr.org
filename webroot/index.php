@@ -16,6 +16,7 @@ ini_set('session.gc_probability', 1);
 
 date_default_timezone_set(Config::get('timezone'));
 mb_internal_encoding('UTF-8');
+register_shutdown_function('shutdown_formr_org');
 
 $site = Site::getInstance();
 $fdb = DB::getInstance();
@@ -59,10 +60,8 @@ try {
 	$router = Router::getInstance()->route();
 	$router->execute();
 } catch (Exception $e) {
-	log_exception($e);
-	if(DEBUG) {
-		alert("<pre style='background-color:transparent;border:0'>". 'Exception: ' . $e->getMessage() . "\n". $e->getTraceAsString()."</pre>", "alert-danger");
-	} else {
+	formr_log_exception($e);
+	if(!DEBUG) {
 		$date = date('Y-m-d H:i:s');
 		alert("<small>".$date. " There was a fatal error. Please let the administrators and know what you were trying to do and provide this message's date & time.</small>", "alert-danger");
 	}

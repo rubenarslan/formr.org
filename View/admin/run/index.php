@@ -5,10 +5,13 @@ Template::load('header', array(
 Template::load('acp_nav');
 ?>
 <div class="row">
-    <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?= WEBROOT ?>admin/run/<?= $run->name; ?>" data-units='<?php echo json_encode($run->getAllUnitIds()); ?>'>
-        <div class="col-md-7 run_dialog">
+	<div class="col-lg-12">
+    <form class="form-horizontal edit_run form-inline" enctype="multipart/form-data" name="edit_run" method="post" action="<?= WEBROOT ?>admin/run/<?= $run->name; ?>" data-units='<?php echo json_encode($run->getAllUnitIds()); ?>'>
+        <div class="col-md-8 transparent_well">
             <div class="row">
-                <div class="col-md-12 run_dialog">
+                <div class="col-md-12">
+					<h2>Edit run</h2>
+					
                     <h4>
                         Publicness:
                         <input type="hidden" value="<?= $run->name ?>" name="old_run_name" class="run_name">
@@ -30,7 +33,7 @@ Template::load('acp_nav');
                 </div>
             </div>
             <div class="row">
-                <div class="col-lg-12 run_dialog">
+                <div class="col-lg-12">
                     <h4>
                         <div class="btn-group">
                             <a class="reorder_units btn hastooltip" title="Save new positions" href="<?= WEBROOT ?>admin/run/<?= $run->name; ?>/ajax_reorder">
@@ -54,7 +57,7 @@ Template::load('acp_nav');
             </div>
             <div class="run_units">
             </div>
-            <div class="row" id="run_dialog_choices">
+            <div class="row" id="choices">
                 <div class="form-group col-lg-12">
                     <div class="btn-group">
                         <a class="add_survey add_run_unit btn btn-lg hastooltip" title="Add survey" href="<?= WEBROOT ?>admin/run/<?= $run->name; ?>/ajax_create_run_unit?type=Survey">
@@ -88,7 +91,7 @@ Template::load('acp_nav');
         </div>
 
 
-        <div class="col-md-5 pull-right well transparent_well">
+        <div class="col-md-4 pull-right transparent_well">
             <?php Template::load('run_module_explanations'); ?>
         </div>
 

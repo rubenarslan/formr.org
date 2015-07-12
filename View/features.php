@@ -1,138 +1,160 @@
-<div class="lead">
-	<p>There are three main components: surveys, runs and the R package.</p>
-	<div class="panel-group" id="feature_accordion">
-		
-		<div class="panel panel-default">
-			<div class="panel-heading">
-				<a class="accordion-toggle" data-toggle="collapse" data-parent="#feature_accordion" href="#feature_surveys">
-					<i class="fa-fw fa fa-pencil-square"></i> Surveys <br><small>ask questions, get data</small>
-				</a>
-			</div>
-			<div id="feature_surveys" class="panel-collapse collapse">
-				<div class="panel-body">
-				
-					<p>
-						are simple or complicated forms and surveys used to gather information in a single session.
-					</p>
-					<p>
-						There is a wide variety of items to choose from: text and number inputs, Likert scales, sliders, geolocation, date pickers, dropdowns and <a href="<?=WEBROOT?>public/documentation/#available_items">many more</a>. They are geared towards power users, so instead of dragging and dropping elements till your fingers bleed, you upload item spreadsheets that can easily be re-used, combined and shared.
-					</p>
-				</div>
-			</div>
-		</div>
-			
-			
-		<div class="panel panel-default">
-			<div class="panel-heading">
-				<a class="accordion-toggle" data-toggle="collapse" data-parent="#feature_accordion" href="#feature_runs">
-					<i class="fa-fw fa fa-rocket"></i> Runs <br><small>control your study like a boombox</small>
-				</a>
-			</div>
-			<div id="feature_runs" class="panel-collapse collapse in">
-				<div class="panel-body">
-				
-					<p>
-					enable you to link surveys and chain them together. Using a number of boombox-themed control elements to control the participant's way through your study, you can design studies of <abbr title="All of these boombox-controls know R, so though you don't have to be an R-wizard to run a study with formr, it certainly helps with the limitless complexity aspect.">limitless</abbr> complexity. You can
-					</p>
-				
-					<ul>
-						<li>manage access to and eligibility for a study:
-							<span class="">
-								<i class="fa-fw fa fa-pencil-square"></i>
-								<i class="fa-fw fa fa-forward"></i>
-								<i class="fa-fw fa fa-stop"></i>
-							</span>
-						</li>
-						<li>use different pathways for different users:
-							<span class="">
-								<i class="fa-fw fa fa-pencil-square"></i>
-								<i class="fa-fw fa fa-forward"></i>
-								<i class="fa-fw fa fa-pencil-square"></i>
-								<i class="fa-fw fa fa-forward"></i>
-							</span>
-		
-						</li>
-						<li>send email invites and reminders:
-							<span class="">
-								<i class="fa-fw fa fa-forward"></i>
-								<i class="fa-fw fa fa-envelope"></i>
-							</span>
+<p class="lead">
+	The following designs and many more are possible:
+</p>
+<ul class="fa-ul-more-padding">
+	<li>simple surveys with and without feedback
+	</li>
+	<li>complex surveys (using skipping logic, personalised text, complex feedback)
+	</li>
+	<li>surveys with eligibility limitations
+	</li>
+	<li>diary studies including completely flexible automated email/text message reminders</li>
+	<li>longitudinal studies (e.g. automatically re-contact participants after they return from their exchange year). The items of later waves need not exist in final form at wave 1.</li>
+	<li>longitudinal social networks and other studies that require rating a variable number of things or persons</li>
+</ul>
+<h2>
+	Core strengths
+</h2>
+<ul class="fa-ul-more-padding">
+	<li>
+		generates very pretty feedback live, including <a href="http://ggplot2.org/">ggplot2</a>, <a href="http://cran.r-project.org/web/packages/lattice/">lattice</a> and interactive <a href="http://rcharts.io/">rCharts</a> plots. We find that this greatly increases interest and retention in our studies. 
+	</li>
+	<li>
+		automates complex experience sampling, diary and training studies, including automated reminders via email or text message
+	</li>
+	<li>
+		looks nice on a phone (about 30-40% of participants fill out our surveys on a mobile device)
+	</li>
+	<li>
+		easily share, swap and combine surveys (they're simply spreadsheets) and runs (you can share complete designs, e.g. "daily diary study")
+	</li>
+	<li>
+		you can use R to do basically anything that R can do (i.e. complicated stuff, like using a sentiment analysis of a participant's Twitter feed to decide when the survey happens)
+	</li>
+	<li>
+		not jealous at all – feel free to integrate other components (other survey engines, reaction time tasks, whatever you are used to) with formr, we tried our best to make it easy.
+	</li>
+</ul>
+<h2>
+	Features
+</h2>
+<ul class="fa-ul-more-padding">
+	<li>
+		manage access to and eligibility for studies
+	</li>
+	<li>
+		longitudinal studies
+	</li>
+	<li>
+		send text messages (see the <a href="https://github.com/rubenarslan/formr.org/wiki/How-to-send-text-messages-(SMS)">HowTo</a>)
+	</li>
+	<li>
+		works on all somewhat modern devices and degrades gracefully where it doesn't
+	</li>
+	<li>
+		formats text using <a href="https://help.github.com/articles/github-flavored-markdown/">Github-flavoured</a>  <a href="https://help.github.com/articles/markdown-basics/">Markdown</a> (a.k.a. the easiest and least bothersome way to mark up text)
+	</li>
+	<li>
+		file, image, video, sound uploads for users (as survey items) and admins (to supply study materials)
+	</li>
+	<li>
+		complex conditional items
+	</li>
+	<li>
+		a dedicated <a href="https://github.com/rubenarslan/formr/">formr R package</a>: makes pretty feedback graphs and complex run logic even simpler. Simplifies data wrangling (importing, aggregating, simulating data from surveys).
+	</li>
+	<li>
+		a nice editor, <a href="https://github.com/ajaxorg/ace">Ace</a>, for editing Markdown &amp; R in runs.
+	</li>
 	
-						</li>
-						<li>implement delays/pauses:
-							<span class="">
-								<i class="fa-fw fa fa-pause"></i>
-							</span>
-	
-						</li>
-						<li>add external modules:
-							<span class="">
-								<i class="fa-fw fa fa-external-link-square"></i>
-							</span>
-						</li>
-						<li>loop surveys and thus enable diaries and experience-sampling studies:
-							<span class="">
-								<i class="fa-fw fa fa-envelope"></i>
-								<i class="fa-fw fa fa-pencil-square"></i>
-								<i class="fa-fw fa fa-backward"></i>
-							</span>
-	
-						</li>
-						<li>give custom feedback, through <a href="https://public.opencpu.org/pages">OpenCPU</a>'s R API.
-							<span class="">
-								<i class="fa-fw fa fa-stop"></i>
-							</span>
-						</li>
-						<li>randomise participants into groups for e.g. A-B-testing or experiments<br>
-							<span class="">
-								<i class="fa-fw fa fa-random"></i>
-								<i class="fa-fw fa fa-forward"></i>
-								<i class="fa-fw fa fa-pencil-square"></i>
-							</span>
-						</li>
-					</ul>
-					<p>
-						The following designs and many more are possible:
-					</p>
-				
-					<ul>
-						<li>simple one-shot surveys
-						</li>
-						<li>complex one-shot surveys (using skipping logic, personalised text, complex feedback
-						</li>
-						<li>surveys with eligibility limitations
-						</li>
-						<li>diary studies including completely flexible automated email reminders</li>
-						<li>longitudinal studies (ie. wait 2 months after last participation or re-contact after they return from their exchange year). The items of later waves need not exist in final form at wave 1.</li>
-						<li>longitudinal social networks and other studies that require rating a variable number of things or persons</li>
-					</ul>
-				</div>
-			</div>
-		</div>
-		<div class="panel panel-default">
-			<div class="panel-heading">
-				<a class="accordion-toggle" data-toggle="collapse" data-parent="#feature_accordion" href="#feature_r_package">
-					<i class="fa-fw fa"> R</i> package <br><small>accompanying R package</small>
-				</a>
-			</div>
-			<div id="feature_r_package" class="panel-collapse collapse">
-				<div class="panel-body">
-				
-					<p>
-						Wherever you use R in formr you can also use the functions in its R package. If you want to use the package in a different environment,
-						you'll need to install it using these two lines of code.	
-					</p>
-					<pre><code class="r">install.packages("devtools")
-devtools::install_github("rubenarslan/formr")</code></pre>
-					<p>The package currently has the following feature sets</p>
-					<ul>
-						<li>Connecting to formr, importing your data, correctly typing all variables, automatically aggregating scales.</li>
-						<li>Easily making feedback plots e.g. <pre><code class="r">qplot_on_normal(0.8, "Extraversion")</code></pre>
-							The package also has a function to simulate possible data, so you can make feedback plots ahead of collecting data.</li>
-						<li>Some shorthand functions for frequently needed operations on the site: <pre><code class="r">first(cars); last(cars); current(cars); "formr." %contains% "mr."</code></pre>.</li>
-					</ul>
-				</div>
-			</div>
-		</div>
-	</div>
-</div>
+</ul>
+<h3>
+	Plans:
+</h3>
+<ul class="fa-ul-more-padding">
+	<li>
+		work offline on mobile phones and other devices with intermittent internet access (in the meantime <a href="https://enketo.org/">enketo</a> is pretty good and free too, but geared towards humanitarian aid)
+	</li>
+
+	<li>
+		a better API (some basics are there)
+	</li>
+	<li>
+		social networks, round robin studies - at the moment they can be implemented, but are a bit bothersome at first. There is a dedicated module already which might also get released as open source if there's time. 
+	</li>
+	<li>
+		more <a href="https://github.com/rubenarslan/formr.org/issues?labels=enhancement&page=1&state=open">planned enhancements on Github</a>
+	</li>
+</ul>
+
+<h4>
+	Disclaimer
+</h4>
+<p>
+	This is pretty much brand new software and is supplied for free, open-source. As such, it doesn't come with a warranty of any kind. Still, if you let us know when formr causes you trouble or headaches, we will try to help you resolve the problem and you will get our heartfelt apologies.
+</p>
+<p>
+	If you're the technical type (or employ one), you might consider hosting a stable release of formr yourself, because this version of formr tracks the most recent pre-release and will thus sometimes have kinks.
+</p>
+<!--
+<p>
+enable you to link surveys and chain them together. Using a number of boombox-themed control elements to control the participant's way through your study, you can design studies of <abbr title="All of these boombox-controls know R, so though you don't have to be an R-wizard to run a study with formr, it certainly helps with the limitless complexity aspect.">limitless</abbr> complexity. You can
+</p>
+
+<ul>
+	<li>manage access to and eligibility for a study:
+		<span class="">
+			<i class="fa-fw fa fa-pencil-square"></i>
+			<i class="fa-fw fa fa-forward"></i>
+			<i class="fa-fw fa fa-stop"></i>
+		</span>
+	</li>
+	<li>use different pathways for different users:
+		<span class="">
+			<i class="fa-fw fa fa-pencil-square"></i>
+			<i class="fa-fw fa fa-forward"></i>
+			<i class="fa-fw fa fa-pencil-square"></i>
+			<i class="fa-fw fa fa-forward"></i>
+		</span>
+
+	</li>
+	<li>send email invites and reminders:
+		<span class="">
+			<i class="fa-fw fa fa-forward"></i>
+			<i class="fa-fw fa fa-envelope"></i>
+		</span>
+
+	</li>
+	<li>implement delays/pauses:
+		<span class="">
+			<i class="fa-fw fa fa-pause"></i>
+		</span>
+
+	</li>
+	<li>add external modules:
+		<span class="">
+			<i class="fa-fw fa fa-external-link-square"></i>
+		</span>
+	</li>
+	<li>loop surveys and thus enable diaries and experience-sampling studies:
+		<span class="">
+			<i class="fa-fw fa fa-envelope"></i>
+			<i class="fa-fw fa fa-pencil-square"></i>
+			<i class="fa-fw fa fa-backward"></i>
+		</span>
+
+	</li>
+	<li>give custom feedback, through <a href="https://public.opencpu.org/pages">OpenCPU</a>'s R API.
+		<span class="">
+			<i class="fa-fw fa fa-stop"></i>
+		</span>
+	</li>
+	<li>randomise participants into groups for e.g. A-B-testing or experiments<br>
+		<span class="">
+			<i class="fa-fw fa fa-random"></i>
+			<i class="fa-fw fa fa-forward"></i>
+			<i class="fa-fw fa fa-pencil-square"></i>
+		</span>
+	</li>
+</ul>
+-->

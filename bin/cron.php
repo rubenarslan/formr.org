@@ -79,7 +79,7 @@ if (file_exists($lockfile)) {
 
 	// hack to delete $lockfile if cron hangs for more that 30 mins
 	if ((strtotime($started) + (30 * 60)) < time()) {
-		cron_log("Forced delte of $lockfile");
+		cron_log("Forced delete of $lockfile");
 		unlink($lockfile);
 	}
 	exit(0);
@@ -121,7 +121,7 @@ try {
 
 		// Foreach session, execute all units
 		foreach ($dues as $session) {
-			$run_session = new RunSession($fdb, $run->id, 'cron', $session);
+			$run_session = new RunSession($fdb, $run->id, 'cron', $session, $run);
 			// Q. How will this go through all units of a session?
 			$types = $run_session->getUnit(); // start looping thru their units.
 			$i++;

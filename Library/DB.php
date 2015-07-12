@@ -324,7 +324,7 @@ class DB {
 		$signs = array();
 		foreach ($cols_where as $i => $col_condition) {
 			$col_condition = trim($col_condition);
-			$col_condition = preg_replace('/s+/', ' ', $col_condition);
+			$col_condition = preg_replace('/\s+/', ' ', $col_condition);
 			$parts = array_filter(explode(' ', $col_condition));
 			if (count($parts) === 1) {
 				$signs[$i] = '=';
@@ -616,6 +616,12 @@ class DB_Select {
 			$this->where[] = $where;
 		}
 		return $this;
+	}
+
+	public function whereIn($field, array $values) {
+		$field = DB::quoteCol($field);
+		$values = array_map(array($this->PDO, 'quote'), $values);
+		$this->where[] = "{$field} IN (" . implode(',', $values) . ")";
 	}
 
 	public function like($colname, $value, $pad = 'both') {

@@ -24,6 +24,7 @@ class SpreadsheetReader {
 			$objWriter->save($filename);
 		    return true;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -57,6 +58,7 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -74,6 +76,7 @@ class SpreadsheetReader {
 		    echo json_encode($array,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -94,6 +97,7 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -132,6 +136,8 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
+			
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -150,6 +156,7 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -205,6 +212,7 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -223,6 +231,7 @@ class SpreadsheetReader {
 		    $objWriter->save('php://output');
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -245,6 +254,7 @@ class SpreadsheetReader {
 		    echo json_encode($items,JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE  + JSON_NUMERIC_CHECK);
 		    exit;
 		} catch (Exception $e) {
+			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.",'alert-danger');
 			return false;
 		}
@@ -332,7 +342,7 @@ class SpreadsheetReader {
 		} catch (PHPExcel_Exception $e) {
 			$this->errors[] = "An error occured reading your excel file. Please check your file or report to admin";
 			$this->errors[] = $e->getMessage();
-			log_exception($e, __CLASS__, $inputFileName);
+			formr_log_exception($e, __CLASS__, $inputFileName);
 			return;
 		}
 
@@ -420,12 +430,13 @@ class SpreadsheetReader {
 						continue; // skip columns that aren't allowed
 				
 					$col = $columns[$column_number];
-					$val = hardTrueFalse($cell->getValue());
+					$val = hardTrueFalse(Normalizer::normalize( $cell->getValue(),  Normalizer::FORM_C));
 				
 
 					if($col == 'list_name'):
+						$val = trim($val);
 						
-						if(trim($val)==''):
+						if($val==''):
 							
 							if(isset($lastListName)):
 								$choices_messages[] = __("Row $row_number: list name empty. The previous list name %s was used.",$lastListName);
@@ -453,7 +464,8 @@ class SpreadsheetReader {
 						$lastListName = $val;
 						
 					elseif($col == 'name'):
-						if(trim($val)==''):
+						$val = trim($val);
+						if($val==''):
 							$choices_messages[] = "Row $row_number: choice name empty. Row skipped.";
 							if(isset($data[$row_number])):
 								unset($data[$row_number]);
@@ -488,8 +500,8 @@ class SpreadsheetReader {
 		$callEndTime = microtime(true);
 		$callTime = $callEndTime - $callStartTime;
 		$choices_messages[] = 'Call time to read choices sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
-		
-		$this->messages[] = '<ul><li>'.implode("</li><li>",$choices_messages).'</li></ul>';
+
+		$this->messages[] = '<ul><li>'.implode("</li><li>", $choices_messages).'</li></ul>';
 		$this->choices = $data;
 	}
 	
@@ -556,10 +568,11 @@ class SpreadsheetReader {
 					if(isset($data[$row_number][$col])):
 						continue; // dont overwrite e.g. order column
 					endif;
-					$val = hardTrueFalse($cell->getValue());
+					$val = hardTrueFalse(Normalizer::normalize( $cell->getValue(),  Normalizer::FORM_C));
 
 					if($col == 'name'):
-						if(trim($val) == ''):
+						$val = trim($val);
+						if($val == ''):
 							$empty_rows[] = $row_number;
 							if(isset($data[$row_number])):
 								unset($data[$row_number]);
@@ -581,9 +594,9 @@ class SpreadsheetReader {
 						endif;
 
 					elseif($col == 'type'):
-						if(mb_strpos($val," ") !== false):
-							$val = preg_replace("/\s+/", " ", $val); // multiple spaces collapse into one
-							$type_options = explode(" ",$val); // get real type and options
+						if(mb_strpos($val, ' ') !== false):
+							$val= preg_replace('/\s+/', ' ', $val);
+							$type_options = explode(' ', trim($val), 2); // get real type and options
 							$val = $type_options[0];
 							unset($type_options[0]); // remove real type from options
 							//todo: find all items where the "you defined choices message" error might erroneously be triggered
@@ -604,7 +617,7 @@ class SpreadsheetReader {
 						
 						
 					elseif($col == 'label'):
-						$val = trim($val);
+						$val = $val;
 					elseif($col == 'optional'):
 						if ($val === '*')
 							$val = 1;

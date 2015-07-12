@@ -9,7 +9,7 @@ Template::load('acp_nav');
 	<div class="col-lg-10 col-md-10 col-sm-9 main_body">
 
 <div class="row">
-	<div class="col-lg-6 col-md-7 col-sm-8 col-lg-offset-1 well">
+	<div class="col-md-8 col-lg-offset-1 transparent_well">
 
 	<h2><i class="fa fa-rocket"></i> Create a new run</h2>
 	<ul class="fa-ul fa-ul-more-padding">
@@ -24,7 +24,7 @@ Template::load('acp_nav');
 	  			<?php echo _("Run shorthand:"); ?>
 	  		</label>
 	  		<div class="controls">
-	  			<input class="form-control" required type="text" placeholder="Name (a to Z, 0 to 9 and _)" name="run_name" id="kurzname">
+	  			<input class="form-control" required type="text" placeholder="Name (a to Z, 0 to 9 and _)" name="run_name" id="kurzname" style="width:300px">
 	  		</div>
 	  	</div>
 	  	<div class="form-group">
@@ -34,6 +34,12 @@ Template::load('acp_nav');
 	  	</div>
 	  </form>
 	</div>
+	<div class="col-md-8 col-lg-offset-1 well">
+		<h2><i class="fa fa-question-circle"></i> Help</h2>
+		
+		<?php Template::load('run_module_explanations'); ?>
+	</div>
+	
 </div>
 
 <?php

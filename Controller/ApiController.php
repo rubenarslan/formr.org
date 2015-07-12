@@ -13,7 +13,7 @@ class ApiController extends Controller {
 
 	public function createSessionAction() {
 		$i= 0;
-		$run_session = new RunSession($this->fdb, $this->run->id, null, null);
+		$run_session = new RunSession($this->fdb, $this->run->id, null, null, null);
 		if(isset($_POST['code'])):
 			if(is_array($_POST['code'])):
 				foreach($_POST['code'] AS $code):
@@ -32,7 +32,7 @@ class ApiController extends Controller {
 
 	public function endLastExternalAction() {
 		if(isset($_POST['session'])):
-			$run_session = new RunSession($this->fdb, $this->run->id, null, $_POST['session']);
+			$run_session = new RunSession($this->fdb, $this->run->id, null, $_POST['session'], null);
 
 			if($run_session->session !== NULL)
 				$run_session->endLastExternal();

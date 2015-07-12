@@ -43,7 +43,6 @@ install_dependencies:
 	@echo "Installing dependencies ....."
 
 	cd $(INSTALL_DIR) && $(COMPOSER) install
-	cd $(INSTALL_DIR) && $(COMPOSER) update
 	@echo "Done"
 
 uninstall:
@@ -56,10 +55,9 @@ update: init update_files clean
 	@echo "Updating.... Done"
 
 update_files:
-	$(GIT) reset --hard
 	$(GIT) pull origin $(GIT_BRANCH)
 
-	cd $(INSTALL_DIR) && $(COMPOSER) update
+	cd $(INSTALL_DIR) && $(COMPOSER) install
 	@chmod 0755 $(INSTALL_DIR)/bin/cron.php
 
 init:

@@ -3,7 +3,8 @@ Template::load('header');
 Template::load('acp_nav');
 ?>
 <div class="row">
-	<div class="col-lg-5 col-md-6 col-sm-8 well">
+	<div class="col-lg-5 col-md-6 col-sm-8">
+		<div class="col-lg-12 transparent_well">
 
 		<h2><i class="fa fa-trash-o"></i> Delete run</h2>
 		<form method="post" action="<?=WEBROOT?>admin/run/<?=$run->name?>/delete_run">
@@ -26,6 +27,7 @@ Template::load('acp_nav');
 	
 		</form>
 
+		</div>
 	</div>
 </div>
 

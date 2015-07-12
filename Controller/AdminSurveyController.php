@@ -41,7 +41,7 @@ class AdminSurveyController extends AdminController {
 			$study = new Survey($this->fdb, null, array(
 				'name' => $survey_name,
 				'user_id' => $this->user->id
-			));
+			), null, null);
 			if ($study->createIndependently()) {
 				if ($study->uploadItemTable($_FILES['uploaded'], $survey_name)) {
 					alert('<strong>Success!</strong> New survey created!', 'alert-success');
@@ -238,7 +238,7 @@ class AdminSurveyController extends AdminController {
 			return;
 		}
 
-		$study = new Survey($this->fdb, null, array('name' => $name));
+		$study = new Survey($this->fdb, null, array('name' => $name), null, null);
 		if (!$study->valid):
 			alert("<strong>Error:</strong> Survey does not exist.", 'alert-danger');
 			not_found();

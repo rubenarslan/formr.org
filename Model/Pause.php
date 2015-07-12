@@ -16,8 +16,8 @@ class Pause extends RunUnit {
 	public $type = "Pause";
 	public $icon = "fa-pause";
 
-	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL) {
-		parent::__construct($fdb, $session, $unit, $run_session);
+	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
+		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
 		if ($this->id):
 			$vars = $this->dbh->select('id, body, body_parsed, wait_until_time, wait_minutes, wait_until_date, relative_to')
@@ -134,7 +134,7 @@ class Pause extends RunUnit {
 
 		// if a relative_to has been defined by user or automatically, we need to retrieve its value
 		if ($this->relative_to_true) {
-			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->relative_to));
+			$opencpu_vars = $this->getUserDataInRun($this->relative_to);
 			$result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
 			if ($result === null) {
 				return false;
@@ -213,7 +213,6 @@ class Pause extends RunUnit {
 
 		$results = $this->getSampleSessions();
 		if (!$results) {
-			echo 'No data to compare to yet.';
 			return false;
 		}
 
@@ -226,7 +225,7 @@ class Pause extends RunUnit {
 			$this->run_session_id = current($results)['id'];
 			echo "<h3>Pause relative to</h3>";
 
-			$opencpu_vars = $this->getUserDataInRun($this->dataNeeded($this->dbh, $this->relative_to));
+			$opencpu_vars = $this->getUserDataInRun($this->relative_to);
 			$session = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json', null, true);
 
 			echo opencpu_debug($session);
@@ -272,7 +271,6 @@ class Pause extends RunUnit {
 				return true; // openCPU errors
 			}
 			return array(
-				'title' => 'Pause',
 				'body' => $body
 			);
 		}
