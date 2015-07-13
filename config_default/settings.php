@@ -3,6 +3,8 @@
  * Formr.org configuration
  */
 
+$settings['version'] = 'v0.7.1';
+
 // Database Settings
 $settings['database'] = array(
 	'datasource' => 'Database/Mysql',
@@ -74,3 +76,13 @@ $settings['define_root'] = array(
 );
 
 $settings['referrer_codes'] = array();
+
+// Cron settings
+$settings['cron'] = array(
+	// maximum time to live for a 'cron session' in minutes
+	'ttl_cron' => 15,
+	// maximum time to live for log file in minutes
+	'ttl_lockfile' => 30,
+	// Should cron be intercepted if session time is exceeded?
+	'intercept_if_expired' => false,
+);

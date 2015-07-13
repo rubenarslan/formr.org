@@ -3,9 +3,10 @@
 
 require_once dirname(__FILE__) . '/../define_root.php';
 
-// Set maximum execution time to 6 minutes as cron runs every 7 minutes. (There should be better way to do this)
+// Set maximum execution time to 9 minutes as cron runs every 10 minutes. (There should be better way to do this)
 $start_time = microtime(true);
-$max_exec_time = 6 * 60;
+$max_exec_time = (int)Config::get('cron.ttl_cron') * 60;
+$intercept_if_expired = (int)Config::get('cron.intercept_if_expired');
 set_time_limit($max_exec_time);
 
 // Define vars
@@ -78,7 +79,7 @@ if (file_exists($lockfile)) {
 	cron_log("Cron overlapped. Started: $started, Overlapped: $start_date");
 
 	// hack to delete $lockfile if cron hangs for more that 30 mins
-	if ((strtotime($started) + (30 * 60)) < time()) {
+	if ((strtotime($started) + ((int)Config::get('cron.ttl_lockfile') * 60)) < time()) {
 		cron_log("Forced delete of $lockfile");
 		unlink($lockfile);
 	}
@@ -175,7 +176,7 @@ try {
 
 		//echo $msg . "<br />";
 		cron_log(strip_tags($msg), true);
-		if (microtime(true) - $start_time > $max_exec_time) {
+		if ($intercept_if_expired && microtime(true) - $start_time > $max_exec_time) {
 			throw new Exception("Cron Intercepted! Started at: $start_date, Intercepted at: " . date('r'));
 		}
 	endforeach;
