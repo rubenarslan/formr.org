@@ -3,6 +3,8 @@
  * Formr.org configuration
  */
 
+$settings['version'] = 'v0.7.1';
+
 // Database Settings
 $settings['database'] = array(
 	'datasource' => 'Database/Mysql',

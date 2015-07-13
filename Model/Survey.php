@@ -113,7 +113,7 @@ class Survey extends RunUnit {
 
 	public function render() {
 		global $js;
-		$js = (isset($js) ? $js : '') . '<script src="' . WEBROOT . 'assets/' . (DEBUG ? 'js' : 'minified') . '/survey.js"></script>';
+		$js = (isset($js) ? $js : '') . '<script src="' . WEBROOT . 'assets/' . (DEBUG ? 'js' : 'minified') . '/survey.js?v='.VERSION.'"></script>';
 
 		$ret = '
 		<div class="row study-' . $this->id . ' study-name-'. $this->name .'">
