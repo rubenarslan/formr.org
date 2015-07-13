@@ -1,5 +1,5 @@
 <div class="row">
-<nav class="main_public_nav navbar navbar-default navbar-formr" role="navigation">
+<nav class="main_public_nav navbar navbar-default navbar-formr">
     <!-- Brand and toggle get grouped for better mobile display -->
      <div class="navbar-header">
        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#public-nav-collapse" title="toggle navigaton">

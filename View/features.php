@@ -83,7 +83,7 @@
 		social networks, round robin studies - at the moment they can be implemented, but are a bit bothersome at first. There is a dedicated module already which might also get released as open source if there's time. 
 	</li>
 	<li>
-		more <a href="https://github.com/rubenarslan/formr.org/issues?labels=enhancement&page=1&state=open">planned enhancements on Github</a>
+		more <a href="https://github.com/rubenarslan/formr.org/issues?labels=enhancement&amp;page=1&amp;state=open">planned enhancements on Github</a>
 	</li>
 </ul>
 

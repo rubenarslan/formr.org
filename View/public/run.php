@@ -1,5 +1,5 @@
 <?php Template::load('header', array('title' => $title, 'css' => $css, 'js' => $js)); ?>
-
+<?php Template::load('no_nav'); ?>
 <div class="row">
 	<div class="col-lg-12 run_position_<?php echo $run_session->position; ?> run_unit_type_<?php echo $run_session->current_unit_type; ?> run_content">	
 		<header class="run_content_header">

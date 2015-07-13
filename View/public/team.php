@@ -1,6 +1,5 @@
 <?php
-    Template::load('header');
-    Template::load('public_nav');
+    Template::load('header_nav');
 ?>
 <div class="row">
 	<div class="col-lg-5 col-lg-offset-1 col-sm-7 col-sm-offset-1 col-xs-12">
@@ -25,12 +24,12 @@
 	</div>
 	<div class="col-lg-3 col-lg-offset-1" style="text-align:center">
 		<p class="lead">
-			<img src="<?=WEBROOT?>assets/img/goettingen_uni.png"><br>
+			<img src="<?=WEBROOT?>assets/img/goettingen_uni.png" alt="Uni Göttingen logo"><br>
 			<small><small>Georg August University Göttingen</small></small>
 		</p>
 		
 		<p class="lead">
-			<img src="<?=WEBROOT?>assets/img/jena_uni.png"><br>
+			<img src="<?=WEBROOT?>assets/img/jena_uni.png" alt="Uni Jena logo"><br>
 			<small><small>Friedrich Schiller University Jena</small></small>
 		</p>
 	</div>
