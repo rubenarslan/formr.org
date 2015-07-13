@@ -74,3 +74,11 @@ $settings['define_root'] = array(
 );
 
 $settings['referrer_codes'] = array();
+
+// Cron settings
+$settings['cron'] = array(
+	// maximum time to live for a 'cron session' in minutes
+	'ttl_cron' => 15,
+	// maximum time to live for log file in minutes
+	'ttl_lockfile' => 30,
+);
