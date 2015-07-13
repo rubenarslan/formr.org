@@ -1,0 +1,13 @@
+{
+    "name": "Text_message",
+    "units": [
+        {
+            "type": "External",
+            "description": "send a text message via Clickatell",
+            "position": 10,
+            "special": "",
+            "address": "text_message_clickatell( # look here to see other providers: https:\/\/github.com\/rubenarslan\/formr.org\/wiki\/How-to-send-text-messages-(SMS)\r\n    survey1$mobile_phone_nr, # specify the correct field in the correct survey here\r\n    paste0(\"Hi dear user, please take part in our study again: https:\/\/formr.org\/YourStudy\/?code=\", # text for message\r\n    survey_run_sessions$session), # access token\r\n    \"Your_Provider_Token\");  # change this to your token\r\nFALSE # this means that you will not retry sending the text message",
+            "api_end": 0
+        }
+    ]
+}
