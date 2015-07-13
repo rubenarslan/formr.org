@@ -1299,6 +1299,14 @@ class Item_select_or_add_one extends Item {
 		$this->classes_input[] = 'select2add';
 		$this->classes_input[] = 'form-control';
 		$for_select2 = array();
+
+		// Hack to split choices if comma separated and have only one element
+		// ASSUMPTION: choices are not suppose to have commas (weirdo)
+		$choice = current($this->choices);
+		if (count($this->choices) == 1 && strpos($choice, ',') !== false) {
+			$this->choices = explode(',', $choice);
+		}
+
 		foreach ($this->choices AS $option) {
 			$for_select2[] = array('id' => $option, 'text' => $option);
 		}
