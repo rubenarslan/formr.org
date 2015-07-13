@@ -3,9 +3,9 @@
 
 require_once dirname(__FILE__) . '/../define_root.php';
 
-// Set maximum execution time to 6 minutes as cron runs every 7 minutes. (There should be better way to do this)
+// Set maximum execution time to 9 minutes as cron runs every 10 minutes. (There should be better way to do this)
 $start_time = microtime(true);
-$max_exec_time = 6 * 60;
+$max_exec_time = 9 * 60;
 set_time_limit($max_exec_time);
 
 // Define vars
