@@ -81,4 +81,6 @@ $settings['cron'] = array(
 	'ttl_cron' => 15,
 	// maximum time to live for log file in minutes
 	'ttl_lockfile' => 30,
+	// Should cron be intercepted if session time is exceeded?
+	'intercept_if_expired' => false,
 );

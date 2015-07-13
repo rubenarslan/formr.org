@@ -6,6 +6,7 @@ require_once dirname(__FILE__) . '/../define_root.php';
 // Set maximum execution time to 9 minutes as cron runs every 10 minutes. (There should be better way to do this)
 $start_time = microtime(true);
 $max_exec_time = (int)Config::get('cron.ttl_cron') * 60;
+$intercept_if_expired = (int)Config::get('cron.intercept_if_expired');
 set_time_limit($max_exec_time);
 
 // Define vars
@@ -175,7 +176,7 @@ try {
 
 		//echo $msg . "<br />";
 		cron_log(strip_tags($msg), true);
-		if (microtime(true) - $start_time > $max_exec_time) {
+		if ($intercept_if_expired && microtime(true) - $start_time > $max_exec_time) {
 			throw new Exception("Cron Intercepted! Started at: $start_date, Intercepted at: " . date('r'));
 		}
 	endforeach;
