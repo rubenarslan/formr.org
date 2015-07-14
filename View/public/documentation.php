@@ -31,8 +31,10 @@
 				<?php Template::load('knitr_markdown'); ?>
 			</div>
 			<div class="tab-pane fade in active" id="run_module_explanations">
-				<div class="col-lg-8 col-md-9">
-					<?php Template::load('run_module_explanations'); ?>
+				<div class="row">
+					<div class="col-lg-8 col-md-9">
+						<?php Template::load('run_module_explanations'); ?>
+					</div>
 				</div>
 			</div>
 			<div class="tab-pane fade" id="sample_survey_sheet">
