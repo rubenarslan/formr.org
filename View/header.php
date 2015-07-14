@@ -7,11 +7,11 @@
         <meta charset="utf-8"> 
 		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 
-		<link rel="stylesheet" type="text/css" href="<?= WEBROOT ?>assets/lib/bower<?= DEBUG ? "" : ".min" ?>.css?v=<?php echo VERSION; ?>" />
+		<link rel="stylesheet" type="text/css" href="<?= asset_url('assets/lib/bower'. (DEBUG ? '' : '.min') . '.css') ; ?>" />
 
 		<?php echo isset($css) ? $css : '' ?>
 
-		<script type="text/javascript" src="<?= WEBROOT ?>assets/<?= DEBUG ? "lib" : "minified" ?>/bower.js?v=<?php echo VERSION; ?>"></script>	
+		<script type="text/javascript" src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/bower.js') ; ?>"></script>	
 		<?php echo isset($js) ? $js : '' ?>
 		<script type="text/javascript">
 

@@ -728,13 +728,6 @@ function admin_url($uri = '') {
 	return site_url('admin' . $uri);
 }
 
-function assets_url($uri = '') {
-	if ($uri) {
-		$uri = '/' . $uri;
-	}
-	return site_url('assets' . $uri);
-}
-
 function run_url($name = '') {
 	return RUNROOT . $name;
 }
@@ -1159,4 +1152,21 @@ function remove_tag_wrapper($text, $tag = 'p') {
 		$text = isset($matches[1]) ? $matches[1] : $text;
 	}
 	return $text;
+}
+
+/**
+* modified from https://stackoverflow.com/questions/118884/what-is-an-elegant-way-to-force-browsers-to-reload-cached-css-js-files?rq=1
+ *  Given a file, i.e. /css/base.css, replaces it with a string containing the
+ *  file's mtime, i.e. /css/base.1221534296.css.
+ *  
+ *  @param $file  The file to be loaded. Must not start with a slash.
+ */
+function asset_url($file)
+{
+  $mtime = filemtime(INCLUDE_ROOT . "webroot/" . $file);
+
+	if(! $mtime) 
+	  return site_url($file);
+
+	return site_url($file . "?v" . $mtime);
 }

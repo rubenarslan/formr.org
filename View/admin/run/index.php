@@ -1,6 +1,6 @@
 <?php
 Template::load('header', array(
-	'js' => '<script src="' . WEBROOT . 'assets/'. (DEBUG?'js':'minified'). '/run.js"></script>'
+	'js' => '<script src="' . asset_url('assets/'. (DEBUG ? 'js' : 'minified') . '/run.js') . '"></script>'
 ));
 Template::load('acp_nav');
 ?>

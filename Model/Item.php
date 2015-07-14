@@ -982,7 +982,7 @@ class Item_note extends Item {
 	public $save_in_results_table = false;
 
 	public function setMoreOptions() {
-		
+		unset($this->input_attributes['required']);
 	}
 
 	protected function render_label() {
@@ -1216,7 +1216,7 @@ class Item_select_one extends Item {
 
 	protected function render_input() {
 		$this->splitValues();
-		$ret = '<input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required')) . '>';
+		$ret = '<input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required','multiple')) . '>';
 		$ret .= '<select ' . self::_parseAttributes($this->input_attributes, array('type')) . '>';
 
 		if (!isset($this->input_attributes['multiple'])) {

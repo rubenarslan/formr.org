@@ -15,13 +15,13 @@
 </pre>
 <p>
 	will turn into a nice bulleted list.
-	<ul>
-		<li>list item 1
-		</li>
-		<li>list item 2
-		</li>
-	</ul>
 </p>
+<ul>
+	<li>list item 1
+	</li>
+	<li>list item 2
+	</li>
+</ul>
 <p>
 	<code>#</code> at the beginning of a line turns it into a large headline, <code>##</code> up to <code>######</code> turn it into smaller ones.
 </p> 

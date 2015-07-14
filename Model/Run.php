@@ -693,10 +693,10 @@ This study is currently being serviced. Please return at a later time."
 			endif;
 
 			if ($this->custom_css_path) {
-				$css = '<link rel="stylesheet" href="' . WEBROOT . $this->custom_css_path . '" type="text/css" media="screen">';
+				$css = '<link rel="stylesheet" href="' . asset_url( $this->custom_css_path) . '" type="text/css" media="screen">';
 			}
 			if ($this->custom_js_path) {
-				$js .= '<script src="' . WEBROOT . $this->custom_js_path . '"></script>';
+				$js .= '<script src="' . asset_url( $this->custom_js_path ) . '"></script>';
 			}
 
 			$alerts = $site->renderAlerts();

@@ -1,5 +1,5 @@
 <?php
-	Template::load('header', array('js' => '<script src="'.  assets_url('js/run_users.js').'"></script>'));
+	Template::load('header', array('js' => '<script src="'.  asset_url('assets/js/run_users.js').'"></script>'));
     Template::load('acp_nav');
 ?>
 <h2>formr user activity</h2>
