@@ -32,7 +32,7 @@
 	
 		// initialising special items
 		// --------------------------
-		webshim.ready('geolocation',function() {
+		webshim.ready('DOM geolocation',function() {
 			"use strict";
 			$('.geolocator').click(function()
 			{
@@ -66,7 +66,7 @@
 				$(this).closest('.input-group-btn.hidden').removeClass('hidden');
 			});
 		});
-		webshim.ready('forms forms-ext dom-extend', function()
+		webshim.ready('DOM forms forms-ext dom-extend', function()
 	    {
 	        var radios = $('div.btn-radio button.btn');
 	        radios.closest('div.btn-group').removeClass('hidden');
