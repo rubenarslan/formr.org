@@ -173,13 +173,8 @@ class RunSession {
 
 			if ($this->unit_session->id):
 				$updated = $this->dbh->update('survey_run_sessions', array('position' => $position), array('id' => $this->id));
-				$success = $updated != 0;
-				if ($success):
-					$this->position = (int) $position;
-					return true;
-				else:
-					alert(__('<strong>Error.</strong> Could not edit run session position for unit %s at pos. %s.', $unit_id, $position), 'alert-danger');
-				endif;
+				$this->position = (int) $position;
+				return true;
 			else:
 				alert(__('<strong>Error.</strong> Could not create unit session for unit %s at pos. %s.', $unit_id, $position), 'alert-danger');
 			endif;

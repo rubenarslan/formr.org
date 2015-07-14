@@ -150,7 +150,7 @@ class Branch extends RunUnit {
 		if ($result AND ( $this->automatically_jump OR ! $this->called_by_cron)):
 			if ($this->run_session->session):
 				$this->end();
-				$this->run_session->runTo($this->if_true);
+				return ! $this->run_session->runTo($this->if_true);
 			endif;
 		elseif (!$result AND ( $this->automatically_go_on OR ! $this->called_by_cron)): // the condition is false and it goes on
 			$this->end();
