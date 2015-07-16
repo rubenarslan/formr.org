@@ -65,7 +65,7 @@
 			<?php echo _("Password:"); ?>
 		</label>
 		<div class="controls">
-			<input class="form-control" required type="password" placeholder="your account password" name="password" id="password" value="<?=$acc->account['password']; ?>">
+			<input class="form-control" type="password" placeholder="your account password" name="password" id="password" value="">
 		</div>
 	</div>
 	
