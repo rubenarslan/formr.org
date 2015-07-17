@@ -280,9 +280,14 @@
 				    }
 				}
 				
+				var is_network_selector = $(elm).parents(".form-group").hasClass("network_select") || $(elm).parents(".form-group").hasClass("ratgeber_class") || $(elm).parents(".form-group").hasClass("cant_add_choice");
+				
 				slct.select2({
 					createSearchChoice:function(term, data)
 					{ 
+						if(is_network_selector)
+							return null; // don't allow choice creation
+						
 						if ($(data).filter(function() { 
 							return this.text.localeCompare(term) === 0; 
 						}).length === 0) 
