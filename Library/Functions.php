@@ -746,6 +746,24 @@ function admin_run_url($name = '', $action = '') {
 	return admin_url('run/' . $name);
 }
 
+
+/**
+* modified from https://stackoverflow.com/questions/118884/what-is-an-elegant-way-to-force-browsers-to-reload-cached-css-js-files?rq=1
+ *  Given a file, i.e. /css/base.css, replaces it with a string containing the
+ *  file's mtime, i.e. /css/base.1221534296.css.
+ *  
+ *  @param $file  The file to be loaded. Must not start with a slash.
+ */
+function asset_url($file)
+{
+  $mtime = filemtime(INCLUDE_ROOT . "webroot/" . $file);
+
+	if(! $mtime) 
+	  return site_url($file);
+
+	return site_url($file . "?v" . $mtime);
+}
+
 function array_to_accordion($array) {
 	$rand = mt_rand(0, 10000);
 	$acc = '<div class="panel-group opencpu_accordion" id="opencpu_accordion' . $rand . '">';
@@ -934,6 +952,8 @@ function opencpu_knit($code, $return_format = 'json', $return_session = false) {
  */
 function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1, $return_session = false) {
 	$params = array('text' => "'" . addslashes($source) . "'", 'self_contained' => $self_contained);
+	$uri = '/formr/R/formr_render_commonmark/' . $return_format;
+	
 	$uri = '/formr/R/formr_inline_render/' . $return_format;
 	try {
 		$session = OpenCPU::getInstance()->post($uri, $params);
@@ -959,13 +979,14 @@ function opencpu_knitdisplay($source, $variables = null, $return_session = false
 
 	$source = '```{r settings,message=FALSE,warning=F,echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning=F,message=F,echo=F)
+opts_chunk$set(warning=F,message=F,echo=F,fig.retina=2,fig.height=7,fig.width=10)
+opts_knit$set(base.url="'.OpenCPU::TEMP_BASE_URL.'")
 ' . $variables . '
 ```
 ' .
 $source;
 
-	return opencpu_knit2html($source, 'json', 1, $return_session);
+	return opencpu_knit2html($source, 'json', 0, $return_session);
 }
 
 function opencpu_knitadmin($source, $variables = null, $return_session = false) {
@@ -975,13 +996,14 @@ function opencpu_knitadmin($source, $variables = null, $return_session = false) 
 
 	$source = '```{r settings,message=FALSE,warning=F,echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning=T,message=T,echo=T)
+opts_chunk$set(warning=T,message=T,echo=T,fig.retina=2,fig.height=7,fig.width=10)
+opts_knit$set(base.url="'.OpenCPU::TEMP_BASE_URL.'")
 ' . $variables . '
 ```
 ' .
 $source;
 
-	return opencpu_knit2html($source, '', 1, $return_session);
+	return opencpu_knit2html($source, '', 0, $return_session);
 }
 
 function opencpu_knitemail($source, array $variables = null, $return_format = 'json', $return_session = false) {
@@ -991,7 +1013,7 @@ function opencpu_knitemail($source, array $variables = null, $return_format = 'j
 
 	$source = '```{r settings,message=FALSE,warning=F,echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning=F,message=F,echo=F)
+opts_chunk$set(warning=F,message=F,echo=F,fig.retina=2)
 opts_knit$set(upload.fun=function(x) { paste0("cid:", basename(x)) })
 ' . $variables . '
 ```
@@ -1152,21 +1174,4 @@ function remove_tag_wrapper($text, $tag = 'p') {
 		$text = isset($matches[1]) ? $matches[1] : $text;
 	}
 	return $text;
-}
-
-/**
-* modified from https://stackoverflow.com/questions/118884/what-is-an-elegant-way-to-force-browsers-to-reload-cached-css-js-files?rq=1
- *  Given a file, i.e. /css/base.css, replaces it with a string containing the
- *  file's mtime, i.e. /css/base.1221534296.css.
- *  
- *  @param $file  The file to be loaded. Must not start with a slash.
- */
-function asset_url($file)
-{
-  $mtime = filemtime(INCLUDE_ROOT . "webroot/" . $file);
-
-	if(! $mtime) 
-	  return site_url($file);
-
-	return site_url($file . "?v" . $mtime);
 }

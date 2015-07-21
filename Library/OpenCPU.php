@@ -6,8 +6,10 @@ class OpenCPU {
 	protected $libUri = '/ocpu/library';
 	protected $last_message = null;
 	protected $rLibPath = '/usr/local/lib/R/site-library';
+	protected $rTempBaseUrl = "__formr_opencpu_session_url__";
 
 	const STRING_DELIMITER = "\n\n==========formr=opencpu=string=delimiter==========\n\n";
+	const TEMP_BASE_URL = "__formr_opencpu_session_url__";
 	const STRING_DELIMITER_PARSED = "<p>==========formr=opencpu=string=delimiter==========</p>";
 
 	/**
@@ -77,6 +79,9 @@ class OpenCPU {
 
 	public function getRLibPath() {
 		return $this->rLibPath;
+	}
+	public function getRTempBaseUrl() {
+		return $this->rTempBaseUrl;
 	}
 
 	public function setLibUrl($libUri) {
@@ -367,6 +372,11 @@ class OpenCPU_Session {
 		if ($name === 'json') {
 			$object = $this->getJSONObject($object);
 		}
+		if(is_string($object)) {
+			$object = str_replace($this->ocpu->getRLibPath(), $this->getBaseUrl() . $this->ocpu->getLibUri(), $object);
+			return str_replace($this->ocpu->getRTempBaseUrl() , $this->getLocation().'files/', $object);
+		}
+		
 		return $object;
 	}
 
@@ -383,7 +393,8 @@ class OpenCPU_Session {
 		// if decoded object is a non-empty array, get it's first element
 		if (is_array($json) && array_key_exists(0, $json)) {
 			if(is_string($json[0])) {
-				return str_replace($this->ocpu->getRLibPath(), $this->getBaseUrl() . $this->ocpu->getLibUri(), $json[0]);
+				$string = str_replace($this->ocpu->getRLibPath(), $this->getBaseUrl() . $this->ocpu->getLibUri(), $json[0]);
+				return str_replace($this->ocpu->getRTempBaseUrl() , $this->getLocation().'files/', $string);
 			}
 			return $json[0];
 		}
