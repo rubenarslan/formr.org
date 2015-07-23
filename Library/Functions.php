@@ -816,9 +816,10 @@ function is_formr_truthy($value) {
  * The array parameter if it contains an entry called 'datasets', then these will be passed as R dataframes and other key/value pairs will be passed as R variables
  *
  * @param array $data
+ * @param string $context
  * @return string Returns R variables
  */
-function opencpu_define_vars(array $data, $context = NULL) {
+function opencpu_define_vars(array $data, $context = null) {
 	$vars = '';
 	if (!$data) {
 		return $vars;
@@ -867,7 +868,7 @@ function opencpu_get($location, $return_format = 'json', $context = null, $retur
 		}
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
-		formr_log_exception($e);
+		opencpu_log($e);
 		return null;
 	}
 }
@@ -908,7 +909,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		notify_user_error($e, "There was a problem dynamically evaluating a value using openCPU.");
-		formr_log_exception($e, 'OpenCPU');
+		opencpu_log($e);
 		return null;
 	}
 }
@@ -936,7 +937,7 @@ function opencpu_knit($code, $return_format = 'json', $return_session = false) {
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		notify_user_error($e, "There was a problem dynamically knitting something using openCPU.");
-		formr_log_exception($e, 'OpenCPU');
+		opencpu_log($e);
 		return null;
 	}
 }
@@ -967,12 +968,12 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		notify_user_error($e, "There was a problem dynamically knitting something to HTML using openCPU.");
-		formr_log_exception($e, 'OpenCPU');
+		opencpu_log($e);
 		return null;
 	}
 }
 
-function opencpu_knitdisplay($source, $variables = null, $return_session = false, $context = NULL) {
+function opencpu_knitdisplay($source, $variables = null, $return_session = false, $context = null) {
 	if (!is_string($variables)) {
 		$variables = opencpu_define_vars($variables, $context);
 	}
@@ -1138,6 +1139,16 @@ function opencpu_debug($session, OpenCPU $ocpu = null) {
 	}
 
 	return array_to_accordion($debug);
+}
+
+function opencpu_log($msg) {
+	$log = '';
+	if ($msg instanceof Exception) {
+		$log .= $msg->getMessage() . "\n" . $msg->getTraceAsString();
+	} else {
+		$log .= $msg;
+	}
+	error_log($log . "\n", 3, get_log_file('opencpu.log'));
 }
 
 function pre_htmlescape($str) {
