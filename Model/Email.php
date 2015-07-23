@@ -178,9 +178,8 @@ class Email extends RunUnit {
 		}
 
 		$opencpu_vars = $this->getUserDataInRun($this->recipient_field);
-		$result = opencpu_evaluate($this->recipient_field, $opencpu_vars, $return_format, null, $return_session);
 
-		return $result;
+		return opencpu_evaluate($this->recipient_field, $opencpu_vars, $return_format, null, $return_session);
 	}
 
 	public function sendMail($who = NULL) {
