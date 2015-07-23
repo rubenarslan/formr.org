@@ -884,6 +884,12 @@ function opencpu_get($location, $return_format = 'json', $context = null, $retur
  * @return string|OpenCPU_Session|null Returns null if an error occured so check the return value using the equivalence operator (===)
  */
 function opencpu_evaluate($code, $variables = null, $return_format = 'json', $context = null, $return_session = false) {
+	if ($return_session !== true) {
+		$result = shortcut_without_opencpu($code, $variables);
+		if($result !== null) 
+			return current($result);
+	}
+	
 	if (!is_string($variables)) {
 		$variables = opencpu_define_vars($variables, $context);
 	}
@@ -913,6 +919,26 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 		return null;
 	}
 }
+
+
+/**
+ * In one common, well-defined case, we just skip calling openCPU
+ *
+ * @param string code
+ * @param array data for openCPU
+ * @return mixed|null Returns null if things aren't simple, so check the return value using the equivalence operator (===)
+ */
+function shortcut_without_opencpu($code, $data) {
+	if(preg_match("/^([a-zA-Z0-9_]+)\\\$([a-zA-Z0-9_]+)$/", $code, $matches)):
+		$survey = $matches[1];
+		$variable = $matches[2];
+		if(count($data) == 1 AND count($data['datasets']) == 1 AND count($data['datasets'][$survey]) == 1 AND count($data['datasets'][$survey][$variable])==1):
+			return $data['datasets'][$survey][$variable];
+		endif;
+	endif;
+	return null;
+}
+
 
 /**
  * Call knit() function from the knitr R package
