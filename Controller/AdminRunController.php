@@ -527,6 +527,7 @@ class AdminRunController extends AdminController {
 		endif;
 		$this->run = $run;
 	}
+
 	private function exportAction() {
 		$run = $this->run;
 		$site = $this->site;
