@@ -87,6 +87,7 @@ class Autoload {
 			'Pause' => INCLUDE_ROOT . 'Model/Pause.php',
 			'PublicController' => INCLUDE_ROOT . 'Controller/PublicController.php',
 			'Request' => INCLUDE_ROOT . 'Library/Request.php',
+			'Response' => INCLUDE_ROOT . 'Library/Response.php',
 			'Router' => INCLUDE_ROOT . 'Library/Router.php',
 			'Run' => INCLUDE_ROOT . 'Model/Run.php',
 			'RunSession' => INCLUDE_ROOT . 'Model/RunSession.php',

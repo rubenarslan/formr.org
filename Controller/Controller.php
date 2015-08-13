@@ -68,12 +68,17 @@ abstract class Controller {
 		)));
 	}
 
-	protected function getPrivateAction($name) {
-		$parts = array_filter(explode('_', $name));
+	protected function getPrivateAction($name, $separator = '_', $protected = false) {
+		$parts = array_filter(explode($separator, $name));
 		$action = array_shift($parts);
 		foreach ($parts as $part) {
 			$action .= ucwords(strtolower($part));
 		}
+
+		if ($protected) {
+			return $action;
+		}
+
 		$method = $action . 'Action';
 		if (!method_exists($this, $method)) {
 			throw new Exception("Action '$name' is not found.");
