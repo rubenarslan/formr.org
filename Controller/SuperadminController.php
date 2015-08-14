@@ -15,12 +15,14 @@ class SuperadminController extends Controller {
 			return redirect_to('/');
 		}
 
-		if (isset($_POST['admin_level']) AND isset($_POST['user_id'])) {
-			$this->setAdminLevel($_POST['user_id'], $_POST['admin_level']);
+		$request = new Request($_POST);
+		if ($request->user_id && is_numeric($request->admin_level)) {
+			$this->setAdminLevel($request->user_id, $request->admin_level);
 		}
 
-		echo $this->site->renderAlerts();
-		exit;
+		if ($request->user_api) {
+			$this->apiUserManagement($request->user_id, $request->user_email, $request->api_action);
+		}
 	}
 
 	private function setAdminLevel($user_id, $level) {
@@ -40,6 +42,50 @@ class SuperadminController extends Controller {
 				alert('<strong>Level assigned to user.</strong>', 'alert-success');
 			endif;
 		}
+
+		echo $this->site->renderAlerts();
+		exit;
+	}
+
+	private function apiUserManagement($user_id, $user_email, $action) {
+		$user = new User($this->fdb, $user_id, null);
+		$response = new Response();
+		$response->setContentType('application/json');
+		if ($user->email !== $user_email) {
+			$response->setJsonContent(array('success' => false, 'message' => 'Invalid User'));
+		} elseif ($action === 'create') {
+			$client = OAuthDAO::getInstance()->createClient($user);
+			if (!$client) {
+				$response->setJsonContent(array('success' => false, 'message' => 'Unable to create client'));
+			} else {
+				$client['user'] = $user->email;
+				$response->setJsonContent(array('success' => true, 'data' => $client));
+			}
+		} elseif ($action === 'get') {
+			$client = OAuthDAO::getInstance()->getClient($user);
+			if (!$client) {
+				$response->setJsonContent(array('success' => true, 'data' => array('client_id' => '', 'client_secret' => '', 'user' => $user->email)));
+			} else {
+				$client['user'] = $user->email;
+				$response->setJsonContent(array('success' => true, 'data' => $client));
+			}
+		} elseif ($action === 'delete') {
+			if (OAuthDAO::getInstance()->deleteClient($user)) {
+				$response->setJsonContent(array('success' => true, 'message' => 'Credentials revoked for user ' . $user->email));
+			} else {
+				$response->setJsonContent(array('success' => false, 'message' => 'An error occured'));
+			}
+		} elseif ($action === 'change') {
+			$client = OAuthDAO::getInstance()->refreshToken($user);
+			if (!$client) {
+				$response->setJsonContent(array('success' => false, 'message' => 'An error occured refereshing API secret.'));
+			} else {
+				$client['user'] = $user->email;
+				$response->setJsonContent(array('success' => true, 'data' => $client));
+			}
+		}
+
+		$response->send();
 	}
 
 	public function cronLogAction() {
@@ -136,25 +182,18 @@ class SuperadminController extends Controller {
 			$userx['Created'] = "<small class='hastooltip' title='{$userx['created']}'>".timetostr(strtotime($userx['created']))."</small>";
 			$userx['Modified'] = "<small class='hastooltip' title='{$userx['modified']}'>".timetostr(strtotime($userx['modified']))."</small>";
 			$userx['Admin'] = "
-				<form class='form-inline form-ajax' action='".WEBROOT."superadmin/ajax_admin' method='post'>
+				<form class='form-inline form-ajax' action='" . site_url('superadmin/ajax_admin') . "' method='post'>
 				<span class='input-group' style='width:160px'>
 					<span class='input-group-btn'>
-						<button type='submit' class='btn hastooltip'
-						title='Give this level to this user'><i class='fa fa-hand-o-right'></i></button>
+						<button type='submit' class='btn hastooltip' title='Give this level to this user'><i class='fa fa-hand-o-right'></i></button>
 					</span>
 					<input type='hidden' name='user_id' value='{$userx['id']}'>
 					<input type='number' name='admin_level' max='100' min='-1' value='".h($userx['admin'])."' class='form-control'>
 				</span>
 			</form>";
+			$userx['API Access'] = '<button type="button" class="btn api-btn hastooltip" title="Manage API Access" data-user="'.$userx['id'].'" data-email="'.$userx['email'].'"><i class="fa fa-cloud"></i></button>';
 
-
-			unset($userx['email']);
-			unset($userx['created']);
-			unset($userx['modified']);
-			unset($userx['admin']);
-			unset($userx['id']);
-			unset($userx['email_verified']);
-		#	$user['body'] = "<small title=\"{$user['body']}\">". substr($user['body'],0,50). "…</small>";
+			unset($userx['email'], $userx['created'], $userx['modified'], $userx['admin'], $userx['id'], $userx['email_verified']);
 
 			$users[] = $userx;
 		}

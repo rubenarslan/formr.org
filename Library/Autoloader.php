@@ -81,6 +81,7 @@ class Autoload {
 			'Item_week' => INCLUDE_ROOT . 'Model/Item.php',
 			'Item_year' => INCLUDE_ROOT . 'Model/Item.php',
 			'Item_yearmonth' => INCLUDE_ROOT . 'Model/Item.php',
+			'OAuthDAO' => INCLUDE_ROOT . 'Dao /OAuthDAO.php',
 			'OpenCPU' => INCLUDE_ROOT . 'Library/OpenCPU.php',
 			'Page' => INCLUDE_ROOT . 'Model/Page.php',
 			'Pagination' => INCLUDE_ROOT . 'Model/Pagination.php',

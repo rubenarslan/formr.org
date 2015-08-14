@@ -42,6 +42,11 @@ class ApiController extends Controller {
 	 */
 	protected $error = array();
 
+	/**
+	 * @var OAuth2\Server
+	 */
+	protected $oauthServer;
+
 	public function __construct(Site &$site) {
 		parent::__construct($site);
 		$this->initialize();
@@ -168,6 +173,7 @@ class ApiController extends Controller {
 
 	protected function response() {
 		$this->response->setStatusCode($this->data['statusCode'], $this->data['statusText']);
+		$this->response->setContentType('application/json');
 		$this->response->setJsonContent($this->data['response']);
 		$this->response->send();
 	}
@@ -179,34 +185,7 @@ class ApiController extends Controller {
 	}
 
 	protected function intializeOauth() {
-		// Setup DB connection for oauth
-		$db_config = (array)Config::get('database');
-		$options = array(
-			'host' => $db_config['host'],
-			'dbname' => $db_config['database'],
-			'charset' => 'utf8',
-		);
-		if (!empty($db_config['port'])) {
-			$options['port'] = $db_config['port'];
-		}
-
-		$dsn = 'mysql:' . http_build_query($options, null, ';');
-		$username = $db_config['login'];
-		$password = $db_config['password'];
-
-		OAuth2\Autoloader::register();
-
-		// $dsn is the Data Source Name for your database, for exmaple "mysql:dbname=my_oauth2_db;host=localhost"
-		$storage = new OAuth2\Storage\Pdo(array('dsn' => $dsn, 'username' => $username, 'password' => $password));
-
-		// Pass a storage object or array of storage objects to the OAuth2 server class
-		$server = new OAuth2\Server($storage);
-
-		// Add the "Client Credentials" grant type (it is the simplest of the grant types)
-		$server->addGrantType(new OAuth2\GrantType\ClientCredentials($storage));
-
-		// Add the "Authorization Code" grant type (this is where the oauth magic happens)
-		$server->addGrantType(new OAuth2\GrantType\AuthorizationCode($storage));
+		$this->oauthServer = Site::getOauthServer();
 	}
 
 	protected function initializeRun() {
