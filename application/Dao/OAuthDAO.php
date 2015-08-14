@@ -4,8 +4,6 @@
  * This class acts as a Data Access Object for the OAuth2 Library
  * imported from https://github.com/bshaffer/oauth2-server-php
  */
-
-
 class OAuthDAO {
 
 	/**
@@ -28,23 +26,23 @@ class OAuthDAO {
 	 * @var OAuthDAO
 	 */
 	public static $instance;
-	
+
 	const DEFAULT_REDIRECT_URL = 'http://formr.org';
 
 	public function __construct($config = array()) {
 		$this->server = Site::getOauthServer();
 		$this->storage = $this->server->getStorage('client');
 		$this->config = array_merge(array(
-            'client_table' => 'oauth_clients',
-            'access_token_table' => 'oauth_access_tokens',
-            'refresh_token_table' => 'oauth_refresh_tokens',
-            'code_table' => 'oauth_authorization_codes',
-            'user_table' => 'oauth_users',
-            'jwt_table'  => 'oauth_jwt',
-            'jti_table'  => 'oauth_jti',
-            'scope_table'  => 'oauth_scopes',
-            'public_key_table'  => 'oauth_public_keys',
-        ), $config);
+			'client_table' => 'oauth_clients',
+			'access_token_table' => 'oauth_access_tokens',
+			'refresh_token_table' => 'oauth_refresh_tokens',
+			'code_table' => 'oauth_authorization_codes',
+			'user_table' => 'oauth_users',
+			'jwt_table' => 'oauth_jwt',
+			'jti_table' => 'oauth_jti',
+			'scope_table' => 'oauth_scopes',
+			'public_key_table' => 'oauth_public_keys',
+				), $config);
 	}
 
 	public static function getInstance() {
@@ -85,11 +83,11 @@ class OAuthDAO {
 
 		$client_id = $client['client_id'];
 		$db = Site::getDb();
-		$db->delete($this->config['client_table'],			array('client_id' => $client_id));
-		$db->delete($this->config['access_token_table'],	array('client_id' => $client_id));
-		$db->delete($this->config['refresh_token_table'],	array('client_id' => $client_id));
-		$db->delete($this->config['code_table'],			array('client_id' => $client_id));
-		$db->delete($this->config['jwt_table'],				array('client_id' => $client_id));
+		$db->delete($this->config['client_table'], array('client_id' => $client_id));
+		$db->delete($this->config['access_token_table'], array('client_id' => $client_id));
+		$db->delete($this->config['refresh_token_table'], array('client_id' => $client_id));
+		$db->delete($this->config['code_table'], array('client_id' => $client_id));
+		$db->delete($this->config['jwt_table'], array('client_id' => $client_id));
 		return true;
 	}
 
@@ -123,4 +121,5 @@ class OAuthDAO {
 		$client_secret = substr(str_replace('.', '', $jwt->encode($client_id, $client_id)), 0, 60);
 		return compact('client_id', 'client_secret');
 	}
+
 }
