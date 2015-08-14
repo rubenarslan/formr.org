@@ -3,6 +3,7 @@ $(function(){
     var $current_target;
 	$('.form-ajax').each(ajaxifyForm);
 	$('.link-ajax').each(ajaxifyLink);
+	$('.api-btn').click(userAPIAccess);
 	
 	$('abbr.abbreviated_session').click(function ()
 	{
@@ -27,6 +28,7 @@ $(function(){
         $current_target.parents("tr").css("background-color","transparent");
 //        $current_target = null;
     });
+
 	function ajaxifyLink(i,elm) {
 	    $(elm).click(function(e)
 	    {
@@ -55,6 +57,7 @@ $(function(){
 	    	return false;
 	    });
 	}
+
 	function ajaxifyForm(i,elm) {
 	    $(elm).submit(function(e)
 	    {
@@ -74,7 +77,7 @@ $(function(){
 			{
 	            $submit.attr('disabled',false);
 	            $submit.css('color','green');
-				general_alert(data, '.main_body');
+				$('.main_body').prepend(data);
 			},this))
 	        .fail($.proxy(function(e, x, settings, exception) {
 	            $submit.attr('disabled',false);
@@ -82,5 +85,89 @@ $(function(){
 	        },this));
 	    	return false;
 	    });
+	}
+
+	function userAPIAccess(e) {
+		var userId = parseInt($(this).data('user'), 11);
+		var userEmail = $(this).data('email');
+		if (!userId || !userEmail) {
+			return;
+		}
+
+		var data = {user_id: userId, user_email: userEmail, user_api: true, api_action: 'get'};
+		postdata(saAjaxUrl, data, function(response) {
+			if (response && response.success) {
+				userAPIModal(response.data, data);
+			}
+		});
+
+		
+	}
+
+	function userAPIModal(data, meta) {
+		var $modal = $($.parseHTML(getHTMLTemplate('tpl-user-api', {user: ' (' + data.user + ')', client_id: data.client_id, client_secret: data.client_secret})));
+
+		if (data.client_id) {
+			$modal.find('.api-create').remove();
+		} else {
+			$modal.find('.api-change, .api-delete').remove();
+		}
+
+		$modal.on('shown.bs.modal', function () {
+			$modal.find('.api-create').click(function() {
+				if (!confirm("Are you sure?"))  return;
+				var request = {user_id: meta.user_id, user_email: meta.user_email, user_api: true, api_action: 'create'};
+				postdata(saAjaxUrl, request, function(response) {
+					if (response && response.success) {
+						$modal.modal('hide');
+						userAPIModal(response.data, meta);
+					}
+				});
+			});
+
+			$modal.find('.api-change').click(function() {
+				if (!confirm("Are you sure?")) return;
+				var request = {user_id: meta.user_id, user_email: meta.user_email, user_api: true, api_action: 'change'};
+				postdata(saAjaxUrl, request, function(response) {
+					if (response && response.success) {
+						$modal.modal('hide');
+						userAPIModal(response.data, meta);
+					}
+				});
+			});
+
+			$modal.find('.api-delete').click(function() {
+				if (!confirm("Are you sure?")) return;
+				var request = {user_id: meta.user_id, user_email: meta.user_email, user_api: true, api_action: 'delete'};
+				postdata(saAjaxUrl, request, function(response) {
+					if (response && response.success) {
+						$modal.modal('hide');
+						userAPIModal({user: data.user, 'client_id': '', 'client_secret': ''}, meta);
+					}
+				});
+			});
+
+		}).on('hidden.bs.modal', function () {
+			$modal.remove();
+		}).modal('show');
+	}
+
+	function postdata(url, data, callback, type) {
+		type = type || 'json';
+		$.ajax({
+			type: 'POST',
+			url: url,
+			data: data,
+			dataType: type,
+			success: function(response, code, jqxhr) {
+				callback(response);
+			},
+			error: function(jqxhr, errText) {
+				$('.main_body').prepend(errText);
+			},
+			beforeSend: function(jqxhr) {
+				//alert(this.url);
+			}
+		});
 	}
 });

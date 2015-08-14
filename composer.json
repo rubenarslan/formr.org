@@ -19,7 +19,8 @@
 		"erusev/parsedown-extra": "0.*",
 		"ircmaxell/password-compat": "1.*",
 		"phpoffice/phpexcel": "1.*",
-		"phpmailer/phpmailer":  "5.*"
+		"phpmailer/phpmailer":  "5.*",
+		"bshaffer/oauth2-server-php": "~1.7"
     },
     "require-dev": {
            "phpunit/phpunit": "3.7.*"
