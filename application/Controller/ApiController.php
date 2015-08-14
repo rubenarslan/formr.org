@@ -58,7 +58,7 @@ class ApiController extends Controller {
 
 	public function oauthAction($action = null) {
 		if (!$this->isValidAction('oauth', $action)) {
-			$this->response->badRequest('Invalid Oauth Request');
+			$this->response->badRequest('Invalid Auth Request');
 		}
 
 		$this->intializeOauth();
@@ -72,28 +72,22 @@ class ApiController extends Controller {
 	}
 
 	public function postAction($action = null) {
-		/*
-		 * @todo
-		 * Implement resouce access under oauth
-		 */
 		if (!Request::isHTTPPostRequest() || !$this->isValidAction('post', $action)) {
 			$this->response->badRequest('Invalid Post Request');
 		}
 
+		$this->request();
 		$method = $this->getPrivateAction($action, '-', true);
 		$this->{$method}();
 		$this->response();
 	}
 
 	public function getAction($action = null) {
-		/*
-		 * @todo
-		 * Implement resouce access under oauth
-		 */
 		if (!Request::isHTTPGetRequest() || !$this->isValidAction('get', $action)) {
 			$this->response->badRequest('Invalid Get Request');
 		}
 
+		$this->request();
 		$method = $this->getPrivateAction($action, '-', true);
 		$this->{$method}();
 		$this->response();
@@ -150,25 +144,32 @@ class ApiController extends Controller {
 	}
 
 	protected function authorize() {
+		if (!Request::isHTTPPostRequest()) {
+			$this->response->badRequest('Invalid Auth Request');
+		}
 		/*
 		 * @todo
 		 * Implement authorization under oauth
 		 */
-		$this->response->setContent('Authorize person');
-		$this->response->send();
 	}
 
 	protected function token() {
-		/*
-		 * @todo
-		 * Implement access token generation under oauth
-		 */
-		$this->response->setContent('Get Access token');
-		$this->response->send();
+		if (!Request::isHTTPPostRequest()) {
+			$this->response->badRequest('Invalid Token Request');
+		}
+		// Ex: curl -u testclient:testpass http://formr.org/api/oauth/token -d 'grant_type=client_credentials'
+		$this->oauthServer->handleTokenRequest(OAuth2\Request::createFromGlobals())->send();
 	}
 
 	protected function request() {
-		
+		$this->intializeOauth();
+		// Handle a request to a resource and authenticate the access token
+		// Ex: curl http://formr.org/api/post/action-name -d 'access_token=YOUR_TOKEN'
+		if (!$this->oauthServer->verifyResourceRequest(OAuth2\Request::createFromGlobals())) {
+			$this->setError(403, 'Invalid/Unauthorized access token');
+			$this->setData(403, 'Error Request', $this->error);
+			$this->response();
+		}
 	}
 
 	protected function response() {
@@ -189,7 +190,7 @@ class ApiController extends Controller {
 	}
 
 	protected function initializeRun() {
-		$run_name = $this->get->getParam('run_name');
+		$run_name = $this->request->getParam('run_name');
 		if (!$run_name) {
 			alert('<strong>Error.</strong> Required "run_name" parameter not found!.', 'alert-danger');
 		}
