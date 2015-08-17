@@ -30,7 +30,7 @@ class ApiController extends Controller {
 	 * @var array
 	 */
 	protected $data = array(
-		'statusCode' => 200,
+		'statusCode' => Response::STATUS_OK,
 		'statusText' => 'OK',
 		'response' => '',
 	);
@@ -61,7 +61,7 @@ class ApiController extends Controller {
 			$this->response->badRequest('Invalid Auth Request');
 		}
 
-		$this->intializeOauth();
+		$this->oauthServer = Site::getOauthServer();
 		if ($action === 'authorize') {
 			$this->authorize();
 		} elseif ($action === 'token') {
@@ -72,21 +72,30 @@ class ApiController extends Controller {
 	}
 
 	public function postAction($action = null) {
-		if (!Request::isHTTPPostRequest() || !$this->isValidAction('post', $action)) {
+		if (!Request::isHTTPPostRequest()) {
+			$this->response->badMethod();
+		}
+
+		if (!$this->isValidAction('post', $action)) {
 			$this->response->badRequest('Invalid Post Request');
 		}
 
-		$this->request();
-		$method = $this->getPrivateAction($action, '-', true);
-		$this->{$method}();
-		$this->response();
+		$this->doAction($action);
 	}
 
 	public function getAction($action = null) {
-		if (!Request::isHTTPGetRequest() || !$this->isValidAction('get', $action)) {
+		if (!Request::isHTTPGetRequest()) {
+			$this->response->badMethod();
+		}
+
+		if (!$this->isValidAction('get', $action)) {
 			$this->response->badRequest('Invalid Get Request');
 		}
 
+		$this->doAction($action);
+	}
+
+	protected function doAction($action) {
 		$this->request();
 		$method = $this->getPrivateAction($action, '-', true);
 		$this->{$method}();
@@ -120,10 +129,10 @@ class ApiController extends Controller {
 		}
 
 		if ($i) {
-			$this->setData(200, 'OK', array('created_sessions' => $i));
+			$this->setData(Response::STATUS_OK, 'OK', array('created_sessions' => $i));
 		} else {
-			$this->setError(500, 'Error occured when creating session');
-			$this->setData(500, 'Error Request', $this->error);
+			$this->setError(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error occured when creating session');
+			$this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', $this->error);
 		}
 	}
 
@@ -134,10 +143,10 @@ class ApiController extends Controller {
 
 			if($run_session->session !== NULL) {
 				$run_session->endLastExternal();
-				$this->setData(200, 'OK', array('success' => 'external unit ended'));
+				$this->setData(Response::STATUS_OK, 'OK', array('success' => 'external unit ended'));
 			} else {
-				$this->setError(403, 'Invalid session token');
-				$this->setData(500, 'Error Request', $this->error);
+				$this->setError(Response::STATUS_NOT_FOUND, 'Invalid Session Token');
+				$this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', $this->error);
 			}
 		}
 
@@ -145,7 +154,7 @@ class ApiController extends Controller {
 
 	protected function authorize() {
 		if (!Request::isHTTPPostRequest()) {
-			$this->response->badRequest('Invalid Auth Request');
+			$this->response->badMethod();
 		}
 		/*
 		 * @todo
@@ -155,19 +164,19 @@ class ApiController extends Controller {
 
 	protected function token() {
 		if (!Request::isHTTPPostRequest()) {
-			$this->response->badRequest('Invalid Token Request');
+			$this->response->badMethod();
 		}
 		// Ex: curl -u testclient:testpass http://formr.org/api/oauth/token -d 'grant_type=client_credentials'
 		$this->oauthServer->handleTokenRequest(OAuth2\Request::createFromGlobals())->send();
 	}
 
 	protected function request() {
-		$this->intializeOauth();
+		$this->oauthServer = Site::getOauthServer();
 		// Handle a request to a resource and authenticate the access token
 		// Ex: curl http://formr.org/api/post/action-name -d 'access_token=YOUR_TOKEN'
 		if (!$this->oauthServer->verifyResourceRequest(OAuth2\Request::createFromGlobals())) {
-			$this->setError(403, 'Invalid/Unauthorized access token');
-			$this->setData(403, 'Error Request', $this->error);
+			$this->setError(Response::STATUS_UNAUTHORIZED, 'Invalid/Unauthorized access token');
+			$this->setData(Response::STATUS_UNAUTHORIZED, 'Error Request', $this->error);
 			$this->response();
 		}
 	}
@@ -185,10 +194,6 @@ class ApiController extends Controller {
 		$this->response = new Response();
 	}
 
-	protected function intializeOauth() {
-		$this->oauthServer = Site::getOauthServer();
-	}
-
 	protected function initializeRun() {
 		$run_name = $this->request->getParam('run_name');
 		if (!$run_name) {
@@ -197,13 +202,13 @@ class ApiController extends Controller {
 
 		$run = new Run($this->fdb, $run_name);
 		if (!$run->valid) {
-			$this->setError(400, 'Invalid Run');
+			$this->setError(Response::STATUS_NOT_FOUND, 'Invalid Run or run not found');
 		} elseif (!$run->hasApiAccess($this->post->getParam('api_secret'))) {
-			$this->setError(403, 'Unauthorized access to run');
+			$this->setError(Response::STATUS_UNAUTHORIZED, 'Unauthorized access to run');
 		}
 
 		if ($this->error) {
-			$this->setData(500, 'Error Request', $this->error);
+			$this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', $this->error);
 			return $this->response();
 		}
 
