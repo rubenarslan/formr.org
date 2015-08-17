@@ -187,6 +187,10 @@ class Response {
 	 * @throws UnexpectedValueException
 	 */
 	public function setJsonContent($content) {
+		if (is_string($content)) {
+			return $this->setContent($content);
+		}
+
 		if (!$content = json_encode($content)) {
 			throw new UnexpectedValueException('The Response content cannot be json encoded');
 		}
