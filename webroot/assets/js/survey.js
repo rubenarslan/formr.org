@@ -32,6 +32,21 @@
 	
 		// initialising special items
 		// --------------------------
+		
+		$("button.submit_automatically_after_timeout").each(function(i,elm) {
+			var white_cover = $('<div class="white_cover"></div>');
+			$('<div class="submit_fuse_box"><div class="submit_fuse"></div></div>').appendTo(elm);
+			white_cover.appendTo("body");
+			$(window).on("load", function() {
+				var timeout = $(elm).data('timeout');
+				white_cover.remove();
+				window.setTimeout(function() {
+					$(elm).click();
+				}, timeout);
+				$(".submit_fuse").animate({ "width": 0}, timeout);
+			});
+		});
+		
 		webshim.ready('DOM geolocation',function() {
 			"use strict";
 			$('.geolocator').click(function()

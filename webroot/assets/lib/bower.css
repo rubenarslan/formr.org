@@ -11158,3 +11158,21 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 .import-run-dialog .form-group {
     margin-bottom: 5px;
 }
+.white_cover {
+	position:fixed;
+	left:0;
+	top:0;
+	min-width:100%;
+	min-height:100%;
+	background-color:white;
+	z-index:99999999;
+}
+.submit_fuse_box {
+	width:90%;
+	height:10px;
+}
+.submit_fuse {
+	width:100%;
+	background-color: #5BC0DE;
+	height:10px;
+}
