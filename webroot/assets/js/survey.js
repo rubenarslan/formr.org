@@ -368,6 +368,12 @@
                $(this).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
 			});
 		});
+		$(".form-group.item-submit").each(function(i, elm) { // track submit buttons too
+			$(elm).find("button").click(function(){
+               $(elm).find("input.item_answered").val(mysql_datetime());
+               $(elm).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
+			});
+		});
 	}
 	Survey.prototype.update = function (e) {
 		this.getData();
