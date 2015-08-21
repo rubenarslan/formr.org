@@ -88,6 +88,8 @@ $(function(){
 	}
 
 	function userAPIAccess(e) {
+	    /*jshint validthis:true */
+		
 		var userId = parseInt($(this).data('user'), 11);
 		var userEmail = $(this).data('email');
 		if (!userId || !userEmail) {
