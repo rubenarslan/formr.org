@@ -93,8 +93,7 @@ class ApiDAO {
 		}
 		// single session or multiple sessions were not requested.
 		if (empty($requested_run->sessions)) {
-			$this->setError(Response::STATUS_BAD_REQUEST, 'Missing parameter', 'The sessions for the requested run were not specified');
-			$this->setData(Response::STATUS_BAD_REQUEST, 'Missing Parameter', $this->error);
+			$this->setData(Response::STATUS_BAD_REQUEST, 'Missing parameter', null, 'The sessions for the requested run were not specified');
 			return $this;
 		}
 
@@ -163,8 +162,7 @@ class ApiDAO {
 		if ($i) {
 			$this->setData(Response::STATUS_OK, 'OK', array('created_sessions' => $i, 'sessions' => $sessions));
 		} else {
-			$this->setError(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error occured when creating session');
-			$this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', $this->error);
+			$this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', null, 'Error occured when creating session');
 		}
 
 		return $this;
@@ -183,12 +181,10 @@ class ApiDAO {
 				$run_session->endLastExternal();
 				$this->setData(Response::STATUS_OK, 'OK', array('success' => 'external unit ended'));
 			} else {
-				$this->setError(Response::STATUS_NOT_FOUND, 'Invalid Session Token');
-				$this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', $this->error);
+				$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid user session');
 			}
 		} else {
-			$this->setError(Response::STATUS_NOT_FOUND, 'Session code not found');
-			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', $this->error);
+			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Session code not found');
 		}
 
 		return $this;
@@ -214,27 +210,28 @@ class ApiDAO {
 	 */
 	protected function getRunFromRequest($request) {
 		if (empty($request->run->name)) {
-			$this->setError(Response::STATUS_NOT_FOUND, 'Required "run_name" parameter not found!.');
-			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', $this->error);
+			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Required "run_name" parameter not found.');
 			return false;
 		}
 
 		$run = new Run($this->fdb, $request->run->name);
 		if (!$this->user || !$run->valid) {
-			$this->setError(Response::STATUS_NOT_FOUND, 'Invalid Run or run not found');
+			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run or run not found');
+			return false;
 		} elseif (!$this->user->created($run) || !$run->hasApiAccess($request->run->api_secret)) {
-			$this->setError(Response::STATUS_UNAUTHORIZED, 'Unauthorized access to run');
-		}
-
-		if ($this->error) {
-			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', $this->error);
+			$this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', null, 'Unauthorized access to run');
 			return false;
 		}
 
 		return $run;
 	}
 
-	private function setData($statusCode = null, $statusText = null, $response = null) {
+	private function setData($statusCode = null, $statusText = null, $response = null, $error = null) {
+		if ($error !== null) {
+			$this->setError($statusCode, $statusText, $error);
+			return $this->setData($statusCode, $statusText, $this->error);
+		}
+
 		if ($statusCode !== null) {
 			$this->data['statusCode'] = $statusCode;
 		}
