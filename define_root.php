@@ -1,8 +1,10 @@
 <?php
 define('INCLUDE_ROOT', __DIR__. '/');
 
+define('APPLICATION_PATH', INCLUDE_ROOT . 'application/');
+
 // Load composer Autoloader
-require_once INCLUDE_ROOT . "vendor/autoload.php";
+require_once INCLUDE_ROOT . 'vendor/autoload.php';
 
 // Initialize settings array and define routes
 $settings = array();
@@ -18,13 +20,13 @@ $settings['routes'] = array (
 
 // Load application settings
 /* @var $settings array */
-require_once INCLUDE_ROOT . "config_default/settings.php";
-require_once INCLUDE_ROOT . "config/settings.php";
+require_once INCLUDE_ROOT . 'config_default/settings.php';
+require_once INCLUDE_ROOT . 'config/settings.php';
 
 // Load application autoloader
-$autoloader = require_once INCLUDE_ROOT . "Library/Autoloader.php";
+$autoloader = require_once APPLICATION_PATH . 'Library/Autoloader.php';
 // Include helper functions
-require_once INCLUDE_ROOT . "Library/Functions.php";
+require_once APPLICATION_PATH . 'Library/Functions.php';
 // Initialize Config
 Config::initialize($settings);
 
