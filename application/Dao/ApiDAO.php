@@ -23,7 +23,11 @@ class ApiDAO {
 		'response' => array(),
 	);
 
-	protected $run;
+	/**
+	 * Formr user object current accessing data
+	 * @var User
+	 */
+	protected $user;
 
 	/**
 	 * Error information
@@ -35,11 +39,101 @@ class ApiDAO {
 	public function __construct(Request $request, DB $db) {
 		$this->fdb = $db;
 		$this->request = $request;
+		$this->user = OAuthDAO::getInstance()->getUserByAccessToken($this->request->getParam('access_token'));
 	}
 
 	public function results() {
-		
-		
+		/**
+		 * $request in this method is expected to be an object of the following format
+		 * $request = '{
+		 * 		run: {
+		 * 			name: 'some_run_name',
+		 * 			api_secret: 'run_api_secret_as_show_in_run_settings'
+		 *			surveys: [{
+		 *				name: 'survey_name',
+		 *				items: 'name, email, pov_1'
+		 *			}],
+		 *			sessions: ['xxxx', 'xxxx']
+		 * 		}
+		 * }'
+		 */
+		if (!($request = $this->parseJsonRequest()) || !($run = $this->getRunFromRequest($request))) {
+			return $this;
+		}
+		$requested_run = $request->run;
+
+		// Determine which surveys in the run for which to collect data
+		if (!empty($requested_run->survey)) {
+			$surveys = array($requested_run->survey);
+		} elseif (!empty($requested_run->surveys)) {
+			$surveys = $requested_run->surveys;
+		} else {
+			$surveys = array();
+			$run_surveys = $run->getAllSurveys();
+			foreach ($run_surveys as $survey) {
+				/**  @var Survey $svy */
+				$svy = Survey::loadById($survey['id']);
+				$items = $svy->getItems('id, type, name');
+				$items_names = array();
+				foreach ($items as $item) {
+					$items_names[] = $item['name'];
+				}
+				$surveys[] = (object) array(
+					'name' => $svy->name,
+					'items' => implode(',', $items_names),
+					'object' => $svy,
+				);
+			}
+		}
+
+		// Determine which run sessions in the run will be returned.
+		// (For now let's prevent returning data of all sessions so this should be required)
+		if (!empty($requested_run->session)) {
+			$requested_run->sessions = array($requested_run->session);
+		}
+		// single session or multiple sessions were not requested.
+		if (empty($requested_run->sessions)) {
+			$this->setError(Response::STATUS_BAD_REQUEST, 'Missing parameter', 'The sessions for the requested run were not specified');
+			$this->setData(Response::STATUS_BAD_REQUEST, 'Missing Parameter', $this->error);
+			return $this;
+		}
+
+		// For each session, get results foreach survey in the run
+		$results = array();
+		foreach ($requested_run->sessions as $session) {
+			$results[$session] = array('session' => $session, 'results' => array());
+			foreach ($surveys as $s) {
+				if (empty($s->name)) {
+					continue;
+				}
+
+				$results[$session]['results'][$s->name] = array();
+				if (empty($s->object)) {
+					$s->object = new Survey($this->fdb, null, array('name' => $s->name));
+				}
+				/** @var Survey $svy */
+				$svy = $s->object;
+				if (empty($svy->valid)) {
+					$results[$session]['results'][$s->name] = null;
+					conitnue;
+				}
+
+				if (empty($s->items)) {
+					$items = array();
+				} else {
+					$items = array_map('trim', explode(',', $s->items));
+				}
+
+				/**
+				 * @todo parse data to fine form
+				 */
+				$data = $svy->getItemDisplayResults($items, $session);
+				$results[$session]['results'][$s->name] = $data;
+			}
+		}
+
+		$this->setData(Response::STATUS_OK, 'OK', $results);
+		return $this;
 	}
 
 	public function createSession() {
@@ -72,7 +166,7 @@ class ApiDAO {
 			$this->setError(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error occured when creating session');
 			$this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', $this->error);
 		}
-	
+
 		return $this;
 	}
 
@@ -81,11 +175,11 @@ class ApiDAO {
 			return $this;
 		}
 
-		if(!empty($request->run->session)) {
+		if (!empty($request->run->session)) {
 			$session_code = $request->run->session;
 			$run_session = new RunSession($this->fdb, $run->id, null, $session_code, null);
 
-			if($run_session->session !== NULL) {
+			if ($run_session->session !== NULL) {
 				$run_session->endLastExternal();
 				$this->setData(Response::STATUS_OK, 'OK', array('success' => 'external unit ended'));
 			} else {
@@ -109,10 +203,10 @@ class ApiDAO {
 	 * $request object must have a root element called 'run' which must have child elements called 'name' and 'api_secret'
 	 * Example:
 	 * $request = '{
-	 *		run: {
-	 *			name: 'some_run_name',
-	 *			api_secret: 'run_api_secret_as_show_in_run_settings
-	 *		}
+	 * 		run: {
+	 * 			name: 'some_run_name',
+	 * 			api_secret: 'run_api_secret_as_show_in_run_settings'
+	 * 		}
 	 * }'
 	 *
 	 * @param object $request A JSON object of the sent request
@@ -126,9 +220,9 @@ class ApiDAO {
 		}
 
 		$run = new Run($this->fdb, $request->run->name);
-		if (!$run->valid) {
+		if (!$this->user || !$run->valid) {
 			$this->setError(Response::STATUS_NOT_FOUND, 'Invalid Run or run not found');
-		} elseif (!$run->hasApiAccess($request->run->api_secret)) {
+		} elseif (!$this->user->created($run) || !$run->hasApiAccess($request->run->api_secret)) {
 			$this->setError(Response::STATUS_UNAUTHORIZED, 'Unauthorized access to run');
 		}
 
@@ -171,5 +265,5 @@ class ApiDAO {
 		}
 		return $object;
 	}
-}
 
+}

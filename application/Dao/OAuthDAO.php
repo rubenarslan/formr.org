@@ -104,6 +104,26 @@ class OAuthDAO {
 	}
 
 	/**
+	 * Get formr user object from API access token
+	 *
+	 * @param string $access_token
+	 * @return User|boolean If no corresponding user is found, FALSE is returned
+	 */
+	public function getUserByAccessToken($access_token) {
+		if (!$access_token) {
+			return false;
+		}
+
+		$db = Site::getDb();
+		$user_email = $db->findValue($this->config['access_token_table'], array('access_token' => $access_token), 'user_id');
+		$user_id = $db->findValue('survey_users', array('email' => $user_email), 'id');
+		if (!$user_id) {
+			return false;
+		}
+		return new User($db, $user_id);
+	}
+
+	/**
 	 * Generate client ID and client Secret from User object
 	 *
 	 * @todo Re-do the algorithm to create credentials
