@@ -55,7 +55,7 @@ class ApiController extends Controller {
 
 	public function postAction($action = null) {
 		if (!Request::isHTTPPostRequest()) {
-			$this->response->badMethod();
+			$this->response->badMethod('Invalid Request Method');
 		}
 
 		if (!$this->isValidAction('post', $action)) {
@@ -67,7 +67,7 @@ class ApiController extends Controller {
 
 	public function getAction($action = null) {
 		if (!Request::isHTTPGetRequest()) {
-			$this->response->badMethod();
+			$this->response->badMethod('Invalid Request Method');
 		}
 
 		if (!$this->isValidAction('get', $action)) {
@@ -107,7 +107,7 @@ class ApiController extends Controller {
 
 	protected function authorize() {
 		if (!Request::isHTTPPostRequest()) {
-			$this->response->badMethod();
+			$this->response->badMethod('Invalid Request Method');
 		}
 		/*
 		 * @todo
@@ -117,7 +117,7 @@ class ApiController extends Controller {
 
 	protected function token() {
 		if (!Request::isHTTPPostRequest()) {
-			$this->response->badMethod();
+			$this->response->badMethod('Invalid Request Method');
 		}
 		// Ex: curl -u testclient:testpass http://formr.org/api/oauth/token -d 'grant_type=client_credentials'
 		$this->oauthServer->handleTokenRequest(OAuth2\Request::createFromGlobals())->send();

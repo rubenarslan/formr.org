@@ -124,8 +124,11 @@ class Response {
 		exit;
 	}
 
-	public function badMethod() {
+	public function badMethod($message = '') {
 		$this->setStatusCode(self::STATUS_METHOD_NOT_ALLOWED, 'Method Not Allowed');
+		if ($message) {
+			echo "<h1>{$message}</h1>";
+		}
 		exit;
 	}
 
