@@ -226,6 +226,16 @@
 				});
 				webshim.addShadowDom(slct, slct.select2("container"));
 			});
+			$(".clickable_map").each(function(i,elm)
+			{
+				"use strict";
+				elm = $(elm);
+				$(elm).find(".controls").hide();
+				$(elm).find("label").attr("for",null);
+				$(elm).find("area").click(function() {
+					$(elm).find("input[type=text]").val($(this).attr("name"));
+				});
+			});
 	
 			$(".people_list textarea").each(function(i,elm)
 			{
