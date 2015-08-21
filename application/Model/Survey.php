@@ -52,24 +52,42 @@ class Survey extends RunUnit {
 	 */
 	public $parsedown;
 
-	public function __construct($fdb, $session, $unit, $run_session = NULL, $run = NULL) {
+	public function __construct($fdb, $session, $unit, $run_session = null, $run = null) {
 		$this->dbh = $fdb;
-		if (isset($unit['name']) AND ! isset($unit['unit_id'])): // when called via URL
-			global $user;
-			$id = $this->dbh->findValue('survey_studies', array('name' => $unit['name'], 'user_id' => $user->id), array('id'));
-			$this->id = $id;
-			$unit['unit_id'] = $this->id; // parent::__construct needs this
-		endif;
+		if (isset($unit['name']) && !isset($unit['unit_id'])) { //when called via URL
+			$this->load($unit['name']);
+			// parent::__construct needs this
+			$unit['unit_id'] = $this->id;
+		} elseif (isset($unit['unit_id'])) {
+			$this->id = (int) $unit['unit_id'];
+		}
 
 		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
-		if ($this->id):
+		// $this->valid means survey has been loaded from DB so no need to re-load it
+		if ($this->id && !$this->valid):
 			$this->load();
 		endif;
 	}
 
-	private function load() {
-		$vars = $this->dbh->findRow('survey_studies', array('id' => $this->id));
+	/**
+	 * Get survey by id
+	 *
+	 * @param int $id
+	 * @return Survey
+	 */
+	public static function loadById($id) {
+		$unit = array('unit_id' => (int) $id);
+		return new Survey(DB::getInstance(), null, $unit);
+	}
+
+	private function load($survey_name = null) {
+		global $user;
+		if ($survey_name !== null) {
+			$vars = $this->dbh->findRow('survey_studies', array('name' => $survey_name, 'user_id' => $user->id));
+		} else {
+			$vars = $this->dbh->findRow('survey_studies', array('id' => $this->id));
+		}
 		if ($vars):
 			$this->id = $vars['id'];
 			$this->name = $vars['name'];
@@ -126,7 +144,7 @@ class Survey extends RunUnit {
 			</div> <!-- end of col-md-12 div -->
 		</div> <!-- end of row div -->
 		';
-		$this->dbh = NULL;
+		$this->dbh = null;
 		return $ret;
 	}
 
@@ -404,7 +422,7 @@ class Survey extends RunUnit {
 		`survey_items_display`.answered')
 				->from('survey_items')
 				->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-				->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS NULL)")
+				->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS null)")
 				->order('CAST(survey_items.`order` AS UNSIGNED)', 'asc')->order('survey_items.id', 'ASC')
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->statement();
@@ -630,7 +648,7 @@ class Survey extends RunUnit {
 
 	public function end() {
 		$ended = $this->dbh->exec(
-				"UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS NULL", array('session_id' => $this->session_id, 'study_id' => $this->id)
+				"UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null", array('session_id' => $this->session_id, 'study_id' => $this->id)
 		);
 		return parent::end();
 	}
@@ -1099,7 +1117,7 @@ class Survey extends RunUnit {
 	}
 
 	private function getResultsTableSyntax($columns) {
-		$columns = array_filter($columns); // remove NULL, false, '' values (note, fork, submit, ...)
+		$columns = array_filter($columns); // remove null, false, '' values (note, fork, submit, ...)
 
 		if (empty($columns)) {
 			$columns_string = ''; # create a results tabel with only the access times
@@ -1189,16 +1207,28 @@ class Survey extends RunUnit {
 		return $this->result_count;
 	}
 
-	public function getResults() { // fixme: shouldnt be using wildcard operator here.
+	public function getResults($items = null, $session = null) { // fixme: shouldnt be using wildcard operator here.
 		$results_table = $this->results_table;
-		$select = $this->dbh->select("survey_run_sessions.session, {$results_table}.*")
+		if ($items === null) {
+			$items = array('*');
+		}
+
+		$colums = array('survey_run_sessions.session');
+		foreach ($items as $item) {
+			$colums[] = "{$results_table}.{$item}";
+		}
+		$select = $this->dbh->select($colums)
 				->from($results_table)
 				->leftJoin('survey_unit_sessions', "{$results_table}.session_id = survey_unit_sessions.id")
-				->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id')
-				->statement();
+				->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
+
+		if ($session !== null) {
+			$select->where("survey_unit_sessions.session = '$session'");
+		}
+		$stmt = $select->statement();
 
 		$results = array();
-		while ($row = $select->fetch(PDO::FETCH_ASSOC)) {
+		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			unset($row['study_id']);
 			$results[] = $row;
 		}
@@ -1206,8 +1236,15 @@ class Survey extends RunUnit {
 		return $results;
 	}
 
-	public function getItemDisplayResults() {
-		return $this->dbh->select('
+	/**
+	 * Get Results from the item display table
+	 *
+	 * @param array $items An array of item names that are required in the survey
+	 * @param string $session If specified, only results of that particular session will be returned
+	 * @return array
+	 */
+	public function getItemDisplayResults($items = array(), $session = null) {
+		$select =  $this->dbh->select('
 		`survey_run_sessions`.session,
 		`survey_items`.name,
 		`survey_items_display`.answer,
@@ -1217,15 +1254,25 @@ class Survey extends RunUnit {
 		`survey_items_display`.shown_relative,
 		`survey_items_display`.answered,
 		`survey_items_display`.answered_relative,
-		`survey_items_display`.displaycount')
-						->from('survey_items_display')
-						->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
-						->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
-						->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
-						->where('survey_items.study_id = :study_id')
-						->order('survey_run_sessions.session')->order('survey_run_sessions.created')->order('survey_unit_sessions.created')->order('survey_items_display.item_id')
-						->bindParams(array('study_id' => $this->id))
-						->fetchAll();
+		`survey_items_display`.displaycount');
+		
+		$select->from('survey_items_display')
+			->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
+			->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
+			->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
+			->where('survey_items.study_id = :study_id')
+			->order('survey_run_sessions.session')->order('survey_run_sessions.created')->order('survey_unit_sessions.created')->order('survey_items_display.item_id')
+			->bindParams(array('study_id' => $this->id));
+
+		if ($items) {
+			$select->whereIn('survey_items.name', $items);
+		}
+
+		if ($session) {
+			$select->where("survey_run_sessions.session = '$session'");
+		}
+
+		return $select->fetchAll();
 	}
 
 	public function deleteResults($dry_run = false) {
@@ -1267,7 +1314,7 @@ class Survey extends RunUnit {
 		$results_table = $this->results_table;
 		if ($this->hasResultsTable()):
 			$count = $this->dbh->select(array(
-						"SUM(`{$results_table}`.ended IS NULL)" => 'begun',
+						"SUM(`{$results_table}`.ended IS null)" => 'begun',
 						"SUM(`{$results_table}`.ended IS NOT NULL)" => 'finished'
 					))->from($results_table)
 					->leftJoin('survey_unit_sessions', "survey_unit_sessions.id = {$results_table}.session_id")
@@ -1367,7 +1414,7 @@ class Survey extends RunUnit {
 	/**
 	 * Merge survey items. Each parameter is an associative array indexed by the names of the items in the survey
 	 * If $oldItems is empty, then we are creating a new survey table. If $oldItems is not empty, then we delete all items which are not 'keepable'
-	 * All non NULL entries represent the MySQL data type definition of the fields as they should be in the survey results table
+	 * All non null entries represent the MySQL data type definition of the fields as they should be in the survey results table
 	 * NOTE: All the DB queries here should be in a transaction of calling function
 	 *
 	 * @param array $keptItems
