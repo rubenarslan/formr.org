@@ -42,7 +42,7 @@ class OAuthDAO {
 			'jti_table' => 'oauth_jti',
 			'scope_table' => 'oauth_scopes',
 			'public_key_table' => 'oauth_public_keys',
-				), $config);
+		), $config);
 	}
 
 	public static function getInstance() {

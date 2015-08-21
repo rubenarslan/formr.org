@@ -25,24 +25,6 @@ class ApiController extends Controller {
 	protected $response;
 
 	/**
-	 * A conainer to hold processed request's outcome
-	 *
-	 * @var array
-	 */
-	protected $data = array(
-		'statusCode' => Response::STATUS_OK,
-		'statusText' => 'OK',
-		'response' => '',
-	);
-
-	/**
-	 * Error information
-	 *
-	 * @var array
-	 */
-	protected $error = array();
-
-	/**
 	 * @var OAuth2\Server
 	 */
 	protected $oauthServer;
@@ -68,7 +50,7 @@ class ApiController extends Controller {
 			$this->token();
 		}
 
-		$this->response();
+		$this->sendResponse();
 	}
 
 	public function postAction($action = null) {
@@ -80,7 +62,7 @@ class ApiController extends Controller {
 			$this->response->badRequest('Invalid Post Request');
 		}
 
-		$this->doAction($action);
+		$this->doAction($this->post, $action);
 	}
 
 	public function getAction($action = null) {
@@ -92,64 +74,35 @@ class ApiController extends Controller {
 			$this->response->badRequest('Invalid Get Request');
 		}
 
-		$this->doAction($action);
+		$this->doAction($this->get, $action);
 	}
 
-	protected function doAction($action) {
-		$this->request();
-		$method = $this->getPrivateAction($action, '-', true);
-		$this->{$method}();
-		$this->response();
+	protected function doAction(Request $request, $action) {
+		try {
+			$this->request();
+			$method = $this->getPrivateAction($action, '-', true);
+			$dao = new ApiDAO($request, $this->fdb);
+			$data = $dao->{$method}()->getData();
+		} catch (Exception $e) {
+			formr_log_exception($e, 'API');
+			$data = array(
+				'statusCode' => Response::STATUS_INTERNAL_SERVER_ERROR,
+				'statusText' => 'Internal Server Error',
+				'response' => array('error' => 'An unexpected error occured', 'error_code' => Response::STATUS_INTERNAL_SERVER_ERROR),
+			);
+		}
+
+		$this->sendResponse($data['statusCode'], $data['statusText'], $data['response']);
 	}
 
 	protected function isValidAction($type, $action) {
 		$actions = array(
 			'oauth' => array('authorize', 'token'),
 			'post' => array('create-session', 'end-last-external'),
-			'get' => array(),
+			'get' => array('results'),
 		);
 
 		return isset($actions[$type]) && in_array($action, $actions[$type]);
-	}
-
-	protected function createSession() {
-		$this->initializeRun();
-		$i = 0;
-		$run_session = new RunSession($this->fdb, $this->run->id, null, null, null);
-		$code = $this->post->getParam('code');
-
-		if (!is_array($code)) {
-			$code = array($code);
-		}
-
-		foreach ($code as $session) {
-			if (($created = $run_session->create($session))) {
-				$i++;
-			}
-		}
-
-		if ($i) {
-			$this->setData(Response::STATUS_OK, 'OK', array('created_sessions' => $i));
-		} else {
-			$this->setError(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error occured when creating session');
-			$this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', $this->error);
-		}
-	}
-
-	protected function endLastExternal() {
-		$this->initializeRun();
-		if(($session_code = $this->post->getParam('session'))) {
-			$run_session = new RunSession($this->fdb, $this->run->id, null, $session_code, null);
-
-			if($run_session->session !== NULL) {
-				$run_session->endLastExternal();
-				$this->setData(Response::STATUS_OK, 'OK', array('success' => 'external unit ended'));
-			} else {
-				$this->setError(Response::STATUS_NOT_FOUND, 'Invalid Session Token');
-				$this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', $this->error);
-			}
-		}
-
 	}
 
 	protected function authorize() {
@@ -175,16 +128,18 @@ class ApiController extends Controller {
 		// Handle a request to a resource and authenticate the access token
 		// Ex: curl http://formr.org/api/post/action-name -d 'access_token=YOUR_TOKEN'
 		if (!$this->oauthServer->verifyResourceRequest(OAuth2\Request::createFromGlobals())) {
-			$this->setError(Response::STATUS_UNAUTHORIZED, 'Invalid/Unauthorized access token');
-			$this->setData(Response::STATUS_UNAUTHORIZED, 'Error Request', $this->error);
-			$this->response();
+			$this->sendResponse(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', array(
+				'error' => 'Invalid/Unauthorized access token',
+				'error_code' => Response::STATUS_UNAUTHORIZED,
+				'error_description' => 'Access token for this resouce request is invalid or unauthorized',
+			));
 		}
 	}
 
-	protected function response() {
-		$this->response->setStatusCode($this->data['statusCode'], $this->data['statusText']);
+	protected function sendResponse($statusCode = Response::STATUS_OK, $statusText = 'OK', $response = null) {
+		$this->response->setStatusCode($statusCode, $statusText);
 		$this->response->setContentType('application/json');
-		$this->response->setJsonContent($this->data['response']);
+		$this->response->setJsonContent($response);
 		$this->response->send();
 	}
 
@@ -192,52 +147,6 @@ class ApiController extends Controller {
 		$this->post = new Request($_POST);
 		$this->get = new Request($_GET);
 		$this->response = new Response();
-	}
-
-	protected function initializeRun() {
-		$run_name = $this->request->getParam('run_name');
-		if (!$run_name) {
-			alert('<strong>Error.</strong> Required "run_name" parameter not found!.', 'alert-danger');
-		}
-
-		$run = new Run($this->fdb, $run_name);
-		if (!$run->valid) {
-			$this->setError(Response::STATUS_NOT_FOUND, 'Invalid Run or run not found');
-		} elseif (!$run->hasApiAccess($this->post->getParam('api_secret'))) {
-			$this->setError(Response::STATUS_UNAUTHORIZED, 'Unauthorized access to run');
-		}
-
-		if ($this->error) {
-			$this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', $this->error);
-			return $this->response();
-		}
-
-		$this->run = $run;
-		return true;
-	}
-
-	private function setData($statusCode = null, $statusText = null, $response = null) {
-		if ($statusCode !== null) {
-			$this->data['statusCode'] = $statusCode;
-		}
-		if ($statusText !== null) {
-			$this->data['statusText'] = $statusText;
-		}
-		if ($response !== null) {
-			$this->data['response'] = $response;
-		}
-	}
-
-	private function setError($code = null, $error = null, $desc = null) {
-		if ($code !== null) {
-			$this->error['error_code'] = $code;
-		}
-		if ($error !== null) {
-			$this->error['error'] = $error;
-		}
-		if ($desc !== null) {
-			$this->error['error_description'] = $desc;
-		}
 	}
 
 }
