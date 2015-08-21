@@ -19,13 +19,13 @@ class User {
 	 */
 	private $dbh;
 
-	public function __construct($fdb, $id, $user_code) {
+	public function __construct($fdb, $id = null, $user_code = null) {
 		$this->dbh = $fdb;
 
-		if ($id !== NULL): // if there is a registered, logged in user
+		if ($id !== null): // if there is a registered, logged in user
 			$this->id = (int) $id;
 			$this->load(); // load his stuff
-		elseif ($user_code !== NULL):
+		elseif ($user_code !== null):
 			$this->user_code = $user_code; // if there is someone who has been browsing the site
 		else:
 			$this->user_code = crypto_token(48); // a new arrival

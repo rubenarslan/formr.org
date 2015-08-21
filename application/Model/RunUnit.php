@@ -43,6 +43,21 @@ class RunUnit {
 	public $valid;
 	public $run_id;
 	public $description = "";
+
+	/**
+	 * @var RunSession
+	 */
+	public $run_session;
+
+	/**
+	 * @var Run
+	 */
+	public $run;
+
+	/**
+	 * parsed body if unit
+	 * @var string
+	 */
 	protected $body_parsed = null;
 
 	/**
@@ -144,8 +159,8 @@ class RunUnit {
 
 	public function modify($options = array()) {
 		$change = array('modified' => mysql_now());
-		if($this->run_unit_id AND isset($options['description'])):
-			$update_desc = $this->dbh->update('survey_run_units', array("description" => $options['description']), array('id' => $this->run_unit_id ));
+		if($this->run_unit_id && isset($options['description'])):
+			$this->dbh->update('survey_run_units', array("description" => $options['description']), array('id' => $this->run_unit_id ));
 			$this->description = $options['description'];
 		endif;
 		return $this->dbh->update('survey_units', $change, array('id' => $this->id));
