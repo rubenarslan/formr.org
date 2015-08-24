@@ -108,13 +108,13 @@ class ApiDAO {
 
 				$results[$session]['results'][$s->name] = array();
 				if (empty($s->object)) {
-					$s->object = new Survey($this->fdb, null, array('name' => $s->name));
+					$s->object = Survey::loadByUserAndName($this->user, $s->name);
 				}
 				/** @var Survey $svy */
 				$svy = $s->object;
 				if (empty($svy->valid)) {
 					$results[$session]['results'][$s->name] = null;
-					conitnue;
+					continue;
 				}
 
 				if (empty($s->items)) {
@@ -123,11 +123,7 @@ class ApiDAO {
 					$items = array_map('trim', explode(',', $s->items));
 				}
 
-				/**
-				 * @todo parse data to fine form
-				 */
-				$data = $svy->getItemDisplayResults($items, $session);
-				$results[$session]['results'][$s->name] = $data;
+				$results[$session]['results'][$s->name] = $this->getSurveyResults($svy, $session, $items);
 			}
 		}
 
@@ -255,12 +251,42 @@ class ApiDAO {
 		}
 	}
 
-	private function parseJsonRequest() {
-		$object = @json_decode($this->request->getParam('request'));
+	private function parseJsonRequest() {	
+		$object = json_decode($this->request->getParam('request'));
 		if (!$object) {
+			$this->setData(Response::STATUS_BAD_REQUEST, 'Invalid Request', null, "Unable to parse 'request' parameter");
 			return false;
 		}
 		return $object;
+	}
+
+	private function getSurveyResults(Survey $survey, $session = null, $requested_items = array()) {
+		$data = $survey->getItemDisplayResults($requested_items, $session);
+		// Get requested item names to match by id
+		$select = $this->fdb->select('id, name')
+			->from('survey_items')
+			->where(array('study_id' => $survey->id));
+		if ($requested_items) {
+			$select->whereIn('name', $requested_items);
+		}
+		$stmt = $select->statement();
+		$items = array();
+		while (($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
+			$items[$row['id']] = $row['name'];
+		}
+
+		$results = array();
+		foreach ($data as $row) {
+			if (!isset($items[$row['item_id']])) {
+				continue;
+			}
+			$session_id = $row['unit_session_id'];
+			if (!isset($results[$session_id])) {
+				$results[$session_id] =  array();
+			}
+			$results[$session_id][$items[$row['item_id']]] = $row['answer'];
+		}
+		return array_values($results);
 	}
 
 }

@@ -49,8 +49,6 @@ class ApiController extends Controller {
 		} elseif ($action === 'token') {
 			$this->token();
 		}
-
-		$this->sendResponse();
 	}
 
 	public function postAction($action = null) {

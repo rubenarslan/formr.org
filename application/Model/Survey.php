@@ -81,6 +81,12 @@ class Survey extends RunUnit {
 		return new Survey(DB::getInstance(), null, $unit);
 	}
 
+	public static function loadByUserAndName(User $user, $name) {
+		$db = Site::getDb();
+		$id = $db->findValue('survey_studies', array('user_id' => $user->id, 'name' => $name), 'id');
+		return self::loadById($id);
+	}
+
 	private function load($survey_name = null) {
 		global $user;
 		if ($survey_name !== null) {
@@ -1247,6 +1253,8 @@ class Survey extends RunUnit {
 		$select =  $this->dbh->select('
 		`survey_run_sessions`.session,
 		`survey_items`.name,
+		`survey_items_display`.session_id as unit_session_id,
+		`survey_items_display`.item_id,
 		`survey_items_display`.answer,
 		`survey_items_display`.created,
 		`survey_items_display`.saved,

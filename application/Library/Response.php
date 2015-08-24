@@ -269,7 +269,9 @@ class Response {
 	 * @return void
 	 */
 	public function send() {
-		echo $this->content;
+		if ($this->content) {
+			echo $this->content;
+		}
 		exit;
 	}
 
