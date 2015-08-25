@@ -581,6 +581,7 @@ This study is currently being serviced. Please return at a later time."
 		$unit['run_name'] = $this->name;
 		return $unit;
 	}
+
 	public function getAllSurveys() {
 		// first, generate a master list of the search set (all the surveys that are part of the run)
 		return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
@@ -591,6 +592,7 @@ This study is currently being serviced. Please return at a later time."
 				->bindParams(array('run_id' => $this->id))
 				->fetchAll();
 	}
+
 	public function getRandomGroups() {
 		$g_users = $this->dbh->prepare("SELECT 
 			`survey_run_sessions`.session,

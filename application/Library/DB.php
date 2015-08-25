@@ -619,7 +619,7 @@ class DB_Select {
 	}
 
 	public function whereIn($field, array $values) {
-		$field = DB::quoteCol($field);
+		$field = $this->parseColName($field);
 		$values = array_map(array($this->PDO, 'quote'), $values);
 		$this->where[] = "{$field} IN (" . implode(',', $values) . ")";
 	}

@@ -42,7 +42,7 @@ class OAuthDAO {
 			'jti_table' => 'oauth_jti',
 			'scope_table' => 'oauth_scopes',
 			'public_key_table' => 'oauth_public_keys',
-				), $config);
+		), $config);
 	}
 
 	public static function getInstance() {
@@ -101,6 +101,26 @@ class OAuthDAO {
 		$client_secret = $details['client_secret'];
 		$this->storage->setClientDetails($client_id, $client_secret, self::DEFAULT_REDIRECT_URL, null, null, $formrUser->email);
 		return compact('client_id', 'client_secret');
+	}
+
+	/**
+	 * Get formr user object from API access token
+	 *
+	 * @param string $access_token
+	 * @return User|boolean If no corresponding user is found, FALSE is returned
+	 */
+	public function getUserByAccessToken($access_token) {
+		if (!$access_token) {
+			return false;
+		}
+
+		$db = Site::getDb();
+		$user_email = $db->findValue($this->config['access_token_table'], array('access_token' => $access_token), 'user_id');
+		$user_id = $db->findValue('survey_users', array('email' => $user_email), 'id');
+		if (!$user_id) {
+			return false;
+		}
+		return new User($db, $user_id);
 	}
 
 	/**

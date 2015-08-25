@@ -1,6 +1,24 @@
 <?php
 
 class Response {
+
+	/** HTTP status codes */
+	const STATUS_OK						= 200;
+	const STATUS_CREATED				= 201;
+	const STATUS_NO_CONTENT				= 204;
+	const STATUS_NOT_MODIFIED			= 304;
+	const STATUS_TEMPORARY_REDIRECT		= 307;
+	const STATUS_PERMANENT_REDIRECT		= 308;
+	const STATUS_BAD_REQUEST			= 400;
+	const STATUS_UNAUTHORIZED			= 401;
+	const STATUS_FORBIDDEN				= 403;
+	const STATUS_NOT_FOUND				= 404;
+	const STATUS_METHOD_NOT_ALLOWED		= 405;
+	const STATUS_UNPROCESSABLE_ENTITY	= 422;
+	const STATUS_INTERNAL_SERVER_ERROR	= 500;
+	const STATUS_SERVICE_UNAVAILABLE	= 503;
+	const STATUS_GATEWAY_TIMEOUT		= 504;
+
 	/**
 	 * @var string
 	 */
@@ -31,7 +49,7 @@ class Response {
 	 * @return Response
 	 */
 	public function setStatusCode($code, $text = null) {
-		$code = (int)$code;
+		$code = (int) $code;
 		$text = $text ? $text : "Status $code";
 		// status
 		header(sprintf('HTTP/1.0 %s %s', $code, $text));
@@ -44,7 +62,7 @@ class Response {
 	 * @return void
 	 */
 	public function notFound() {
-		$this->setStatusCode(404, 'Resource Not Found');
+		$this->setStatusCode(self::STATUS_NOT_FOUND, 'Resource Not Found');
 		$this->setHeader('Pragma', 'no-cache');
 		exit;
 	}
@@ -56,7 +74,7 @@ class Response {
 	 * @return void
 	 */
 	public function badRequest($message = "") {
-		$this->setStatusCode(400, 'Bad Request');
+		$this->setStatusCode(self::STATUS_BAD_REQUEST, 'Bad Request');
 		if ($message) {
 			echo "<h1>{$message}</h1>";
 		}
@@ -71,7 +89,7 @@ class Response {
 	 */
 	public function notModified($etag) {
 		// if not modified, save some cpu and bandwidth
-		$this->setStatusCode(304, 'Not Modified');
+		$this->setStatusCode(self::STATUS_NOT_MODIFIED, 'Not Modified');
 		$this->setEtag($etag);
 		exit;
 	}
@@ -82,7 +100,7 @@ class Response {
 	 * @return void
 	 */
 	public function forbidden() {
-		$this->setStatusCode(403, 'Forbidden');
+		$this->setStatusCode(self::STATUS_FORBIDDEN, 'Forbidden');
 		exit;
 	}
 
@@ -92,7 +110,7 @@ class Response {
 	 * @return void
 	 */
 	public function fatalError() {
-		$this->setStatusCode(500, 'Internal Error');
+		$this->setStatusCode(self::STATUS_INTERNAL_SERVER_ERROR, 'Internal Error');
 		exit;
 	}
 
@@ -102,7 +120,15 @@ class Response {
 	 * @return void
 	 */
 	public function gatewayTimeout() {
-		$this->setStatusCode(504, 'Gateway Timeout');
+		$this->setStatusCode(self::STATUS_GATEWAY_TIMEOUT, 'Gateway Timeout');
+		exit;
+	}
+
+	public function badMethod($message = '') {
+		$this->setStatusCode(self::STATUS_METHOD_NOT_ALLOWED, 'Method Not Allowed');
+		if ($message) {
+			echo "<h1>{$message}</h1>";
+		}
 		exit;
 	}
 
@@ -151,7 +177,7 @@ class Response {
 			throw new UnexpectedValueException('The Response content must be a string or object implementing __toString(), "' . gettype($content) . '" given.');
 		}
 
-		$this->content = (string)$content;
+		$this->content = (string) $content;
 
 		return $this;
 	}
@@ -164,6 +190,10 @@ class Response {
 	 * @throws UnexpectedValueException
 	 */
 	public function setJsonContent($content) {
+		if (is_string($content)) {
+			return $this->setContent($content);
+		}
+
 		if (!$content = json_encode($content)) {
 			throw new UnexpectedValueException('The Response content cannot be json encoded');
 		}
@@ -239,7 +269,9 @@ class Response {
 	 * @return void
 	 */
 	public function send() {
-		echo $this->content;
+		if ($this->content) {
+			echo $this->content;
+		}
 		exit;
 	}
 
