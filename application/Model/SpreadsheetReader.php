@@ -600,7 +600,7 @@ class SpreadsheetReader {
 							$val = $type_options[0];
 							unset($type_options[0]); // remove real type from options
 							//todo: find all items where the "you defined choices message" error might erroneously be triggered
-							if(isset($type_options[1]) && !in_array($val, array('server','get','text', 'textarea', 'file', 'image', 'rating_button')) && preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($type_options[1]) ) ):
+							if(isset($type_options[1]) && !in_array($val, array('server','get','text', 'textarea', 'file', 'image', 'rating_button','submit')) && preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($type_options[1]) ) ):
 								$data[$row_number]['choice_list'] = $type_options[1];
 								unset($type_options[1]);
 							endif;

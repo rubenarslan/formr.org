@@ -1011,6 +1011,10 @@ class Item_submit extends Item {
 		$this->classes_input[] = 'btn';
 		$this->classes_input[] = 'btn-lg';
 		$this->classes_input[] = 'btn-info';
+		if($this->type_options !== NULL AND is_numeric($this->type_options)) {
+			$this->input_attributes["data-timeout"] = $this->type_options;
+			$this->classes_input[] = "submit_automatically_after_timeout";
+		}
 	}
 
 	protected function render_inner() {

@@ -32,6 +32,21 @@
 	
 		// initialising special items
 		// --------------------------
+		
+		$("button.submit_automatically_after_timeout").each(function(i,elm) {
+			var white_cover = $('<div class="white_cover"></div>');
+			$('<div class="submit_fuse_box"><div class="submit_fuse"></div></div>').appendTo(elm);
+			white_cover.appendTo("body");
+			$(window).on("load", function() {
+				var timeout = $(elm).data('timeout');
+				white_cover.remove();
+				window.setTimeout(function() {
+					$(elm).click();
+				}, timeout);
+				$(".submit_fuse").animate({ "width": 0}, timeout);
+			});
+		});
+		
 		webshim.ready('DOM geolocation',function() {
 			"use strict";
 			$('.geolocator').click(function()
@@ -211,6 +226,16 @@
 				});
 				webshim.addShadowDom(slct, slct.select2("container"));
 			});
+			$(".clickable_map").each(function(i,elm)
+			{
+				"use strict";
+				elm = $(elm);
+				$(elm).find(".controls").hide();
+				$(elm).find("label").attr("for",null);
+				$(elm).find("area").click(function() {
+					$(elm).find("input[type=text]").val($(this).attr("name"));
+				});
+			});
 	
 			$(".people_list textarea").each(function(i,elm)
 			{
@@ -351,6 +376,12 @@
 			   $(this).addClass('formr_answered');
                $(this).find("input.item_answered").val(mysql_datetime());
                $(this).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
+			});
+		});
+		$(".form-group.item-submit").each(function(i, elm) { // track submit buttons too
+			$(elm).find("button").click(function(){
+               $(elm).find("input.item_answered").val(mysql_datetime());
+               $(elm).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
 			});
 		});
 	}
