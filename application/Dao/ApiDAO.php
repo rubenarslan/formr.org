@@ -214,7 +214,7 @@ class ApiDAO {
 		if (!$this->user || !$run->valid) {
 			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run or run not found');
 			return false;
-		} elseif (!$this->user->created($run) || !$run->hasApiAccess($request->run->api_secret)) {
+		} elseif (!$this->user->created($run)) {
 			$this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', null, 'Unauthorized access to run');
 			return false;
 		}
