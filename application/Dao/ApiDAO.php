@@ -97,34 +97,34 @@ class ApiDAO {
 			return $this;
 		}
 
-		// For each session, get results foreach survey in the run
+
+		// Get result for each survey for each session
 		$results = array();
-		foreach ($requested_run->sessions as $session) {
-			$result = array('formr_session' => $session);
-			foreach ($surveys as $s) {
-				if (empty($s->name)) {
-					continue;
-				}
-
-				if (empty($s->object)) {
-					$s->object = Survey::loadByUserAndName($this->user, $s->name);
-				}
-				/** @var Survey $svy */
-				$svy = $s->object;
-				if (empty($svy->valid)) {
-					$result[$s->name] = null;
-					continue;
-				}
-
-				if (empty($s->items)) {
-					$items = array();
-				} else {
-					$items = array_map('trim', explode(',', $s->items));
-				}
-
-				$result[$s->name] = $this->getSurveyResults($svy, $session, $items);
+		foreach ($surveys as $s) {
+			if (empty($s->name)) {
+				continue;
 			}
-			$results[] = $result;
+			if (empty($s->object)) {
+				$s->object = Survey::loadByUserAndName($this->user, $s->name);
+			}
+			/** @var Survey $svy */
+			$svy = $s->object;
+			if (empty($svy->valid)) {
+				$results[$s->name] = null;
+				continue;
+			}
+
+			if (empty($s->items)) {
+				$items = array();
+			} else {
+				$items = array_map('trim', explode(',', $s->items));
+			}
+
+			//Get data for all requested sessions in this survey
+			$results[$s->name] = array();
+			foreach ($requested_run->sessions as $session) {
+				$results[$s->name] = array_merge($results[$s->name], $this->getSurveyResults($svy, $session, $items));
+			}
 		}
 
 		$this->setData(Response::STATUS_OK, 'OK', $results);
@@ -282,7 +282,7 @@ class ApiDAO {
 			}
 			$session_id = $row['unit_session_id'];
 			if (!isset($results[$session_id])) {
-				$results[$session_id] =  array();
+				$results[$session_id] =  array('session' => $session);
 			}
 			$results[$session_id][$items[$row['item_id']]] = $row['answer'];
 		}
