@@ -97,33 +97,33 @@ class ApiDAO {
 			return $this;
 		}
 
-		// For each session, get results foreach survey in the run
+
+		// Get result for each survey for each session
 		$results = array();
-		foreach ($requested_run->sessions as $session) {
-			$results[$session] = array('session' => $session, 'results' => array());
-			foreach ($surveys as $s) {
-				if (empty($s->name)) {
-					continue;
-				}
+		foreach ($surveys as $s) {
+			if (empty($s->name)) {
+				continue;
+			}
+			if (empty($s->object)) {
+				$s->object = Survey::loadByUserAndName($this->user, $s->name);
+			}
+			/** @var Survey $svy */
+			$svy = $s->object;
+			if (empty($svy->valid)) {
+				$results[$s->name] = null;
+				continue;
+			}
 
-				$results[$session]['results'][$s->name] = array();
-				if (empty($s->object)) {
-					$s->object = Survey::loadByUserAndName($this->user, $s->name);
-				}
-				/** @var Survey $svy */
-				$svy = $s->object;
-				if (empty($svy->valid)) {
-					$results[$session]['results'][$s->name] = null;
-					continue;
-				}
+			if (empty($s->items)) {
+				$items = array();
+			} else {
+				$items = array_map('trim', explode(',', $s->items));
+			}
 
-				if (empty($s->items)) {
-					$items = array();
-				} else {
-					$items = array_map('trim', explode(',', $s->items));
-				}
-
-				$results[$session]['results'][$s->name] = $this->getSurveyResults($svy, $session, $items);
+			//Get data for all requested sessions in this survey
+			$results[$s->name] = array();
+			foreach ($requested_run->sessions as $session) {
+				$results[$s->name] = array_merge($results[$s->name], $this->getSurveyResults($svy, $session, $items));
 			}
 		}
 
@@ -214,7 +214,7 @@ class ApiDAO {
 		if (!$this->user || !$run->valid) {
 			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run or run not found');
 			return false;
-		} elseif (!$this->user->created($run) || !$run->hasApiAccess($request->run->api_secret)) {
+		} elseif (!$this->user->created($run)) {
 			$this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', null, 'Unauthorized access to run');
 			return false;
 		}
@@ -282,7 +282,7 @@ class ApiDAO {
 			}
 			$session_id = $row['unit_session_id'];
 			if (!isset($results[$session_id])) {
-				$results[$session_id] =  array();
+				$results[$session_id] =  array('session' => $session);
 			}
 			$results[$session_id][$items[$row['item_id']]] = $row['answer'];
 		}
