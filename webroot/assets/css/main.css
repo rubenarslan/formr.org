@@ -1636,6 +1636,40 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 	background-color: #5BC0DE;
 	height:10px;
 }
-area {
-	cursor:pointer;
+.clickable_map .controls {
+	display:none;
+}
+.clickable_map div.map_link_container {
+	position:relative;
+}
+.clickable_map div.map_link_container a {
+	position:absolute;
+	display:block;
+	width:35%;
+	height:35%;
+	background-color:black;
+	opacity:0;
+	z-index: 20;
+}
+.clickable_map div.map_link_container a.topleft {
+	top:0;
+	left:0;
+}
+.clickable_map div.map_link_container a.bottomright {
+	bottom:0;
+	right:0;
+}
+.clickable_map div.map_link_container a.topright {
+	top:0;
+	right:0;
+}
+.clickable_map div.map_link_container a.bottomleft {
+	bottom:0;
+	left:0;
+}
+.clickable_map div.map_link_container a:hover {
+	opacity:0.2;
+}
+.clickable_map div.map_link_container a:active,.clickable_map div.map_link_container a.selected {
+	opacity:0.4;
 }

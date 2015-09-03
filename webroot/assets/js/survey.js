@@ -229,11 +229,18 @@
 			$(".clickable_map").each(function(i,elm)
 			{
 				"use strict";
-				elm = $(elm);
-				$(elm).find(".controls").hide();
-				$(elm).find("label").attr("for",null);
-				$(elm).find("area").click(function() {
-					$(elm).find("input[type=text]").val($(this).attr("name"));
+				var $elm = $(elm);
+				$elm.find("label").attr("for",null);
+				var img = $elm.find("label img");
+				var four_corners = $("<div class='map_link_container'><a class='topleft'></a><a class='topright'></a><a class='bottomleft'></a><a class='bottomright'></a></div>");
+				four_corners.appendTo($elm.find("label"));
+				img.appendTo(four_corners);
+				$elm.find("label div a").click(function(e) {
+					$elm.find('.selected').removeClass("selected");
+					$elm.find("input[type=text]").val($(this).attr("class"));
+					$(this).addClass("selected");
+					e.preventDefault();
+					return false;
 				});
 			});
 	

@@ -10,10 +10,10 @@ try using the following <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.
 			 display text. Notes are displayed at least once and disappear only when there are no unanswered items left behind them (so putting a note directly before another ensures it will be displayed only once)
 		 </dd>
 		 <dt>
-			 submit
+			 submit <i>timeout</i>
 		 </dt>
 		 <dd>
-		 	display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>showif</code> or for dynamically generating item text have been given. 
+		 	display a submit button. No items are displayed after the submit button, until all of the ones preceding it have been answered. This is useful for pagination and to ensure that answers required for <code>showif</code> or for dynamically generating item text have been given. If you specify the optional timeout (an integer, milliseconds), the submit button will automatically submit after that time has passed. However, if not all items are answered or optional, the user will end up on the same page. Together with optional items, this is a way to use timed submissions. The data in the item display table can be used to check how long an item was displayed and whether this matches with the server's time for when it sent the item and received the response.
 		 </dd>
 	 </dl>
 	<h4><i class="fa fa-fw fa-keyboard-o"></i> Simple input family</h4>

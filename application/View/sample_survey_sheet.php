@@ -277,4 +277,10 @@
 	 <dd>
 		 Controls the vertical space between label and choices, if you've set answer_below_label. Default value is 15.
 	 </dd>
+	 <dt>
+		 clickable_map
+	 </dt>
+	 <dd>
+		 If you use this class for a text type item, with one image in the label, this image will become a clickable image, with the four outer corners selectable (the selection will be stored in the text field). Will probably require customisation for your purposes.
+	 </dd>
  </dl>
