@@ -46,8 +46,8 @@ class ApiController extends Controller {
 		$this->oauthServer = Site::getOauthServer();
 		if ($action === 'authorize') {
 			$this->authorize();
-		} elseif ($action === 'token') {
-			$this->token();
+		} elseif ($action === 'access_token') {
+			$this->access_token();
 		}
 	}
 
@@ -95,7 +95,7 @@ class ApiController extends Controller {
 
 	protected function isValidAction($type, $action) {
 		$actions = array(
-			'oauth' => array('authorize', 'token'),
+			'oauth' => array('authorize', 'access_token'),
 			'post' => array('create-session', 'end-last-external'),
 			'get' => array('results'),
 		);
@@ -104,19 +104,14 @@ class ApiController extends Controller {
 	}
 
 	protected function authorize() {
-		if (!Request::isHTTPPostRequest()) {
-			$this->response->badMethod('Invalid Request Method');
-		}
 		/*
 		 * @todo
 		 * Implement authorization under oauth
 		 */
+		$this->response->badRequest('Not Implemented');
 	}
 
-	protected function token() {
-		if (!Request::isHTTPPostRequest()) {
-			$this->response->badMethod('Invalid Request Method');
-		}
+	protected function access_token() {
 		// Ex: curl -u testclient:testpass http://formr.org/api/oauth/token -d 'grant_type=client_credentials'
 		$this->oauthServer->handleTokenRequest(OAuth2\Request::createFromGlobals())->send();
 	}
