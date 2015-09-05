@@ -3,7 +3,7 @@
 class SpreadsheetReader {
 
 	private $choices_columns = array('list_name','name','label');
-	private $survey_columns = array('name', 'type', 'label', 'optional', 'class' ,'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'order',
+	private $survey_columns = array('name', 'type', 'label', 'optional', 'class' ,'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'block_order', 'item_order',
 	# legacy
 		'variablenname', 'wortlaut', 'typ', 'ratinguntererpol', 'ratingobererpol', 	'mcalt1', 'mcalt2', 'mcalt3', 'mcalt4', 'mcalt5', 'mcalt6', 'mcalt7', 'mcalt8', 'mcalt9', 'mcalt10', 'mcalt11', 'mcalt12', 'mcalt13', 'mcalt14',);
 	public $messages = array();
@@ -274,6 +274,8 @@ class SpreadsheetReader {
 			$col = 'choice1';
 		elseif($col=='ratingobererpol')
 			$col = 'choice2';
+		elseif($col=='order')
+			$col = 'item_order';
 		
 		return $col;
 	}
@@ -511,20 +513,29 @@ class SpreadsheetReader {
 	
 		$columns = array();
 		$nr_of_columns = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestColumn());
+		if($nr_of_columns > 30) {
+			$this->warnings[] = __('Only the first 30 columns out of %d were read.',$nr_of_columns);
+			$nr_of_columns = 30;
+		}
 
+		$nr_of_blank_column_headers = 0;
 		for($i = 0; $i < $nr_of_columns;$i++):
 			$col_name = mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue());
-			if(in_array($col_name, $this->survey_columns)):
-				$oldCol = $col_name;
-				$col_name = $this->translate_legacy_column($col_name);
+			if(trim($col_name)!=''):
+				if(in_array($col_name, $this->survey_columns)):
+					$oldCol = $col_name;
+					$col_name = $this->translate_legacy_column($col_name);
 				
-				if($oldCol != $col_name)
-					$this->warnings[] = __('The column "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"',$oldCol,$col_name);
+					if($oldCol != $col_name)
+						$this->warnings[] = __('The column "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"',$oldCol,$col_name);
 				
-				$columns[$i] = $col_name;
+					$columns[$i] = $col_name;
 				
+				else:
+					$skipped_columns[$i] = $col_name;
+				endif;
 			else:
-				$skipped_columns[$i] = $col_name;
+				$nr_of_blank_column_headers++;
 			endif;
 
 			if($col_name == 'choice1' AND !array_search('name', $columns)):
@@ -532,17 +543,17 @@ class SpreadsheetReader {
 				return false;
 			endif;
 		endfor;
+		if($nr_of_blank_column_headers > 0)
+			$this->warnings[] = __('Your sheet appears to contain at least %d columns without names (in the first row)."',$nr_of_blank_column_headers);
 
-		$survey_messages = $empty_rows = array();
+		$empty_rows = array();
 	  	$this->messages[] = 'Survey worksheet - ' . $worksheet->getTitle();
-		$survey_messages[] = 'These columns were <strong>used</strong>: '. implode($columns,", ");
+		$this->messages[] = 'These columns were <strong>used</strong>: '. implode($columns,", ");
 		if(!empty($skipped_columns)) {
 			$this->warnings[] = 'These survey sheet columns were <strong>skipped</strong>: '. implode($skipped_columns,", ");
 		}
-	#	var_dump($columns);
 
 		$variablennames = $data = array();
-		$order = 1;
 
 	  	foreach($worksheet->getRowIterator() as $row):
 			$row_number = $row->getRowIndex();
@@ -555,8 +566,6 @@ class SpreadsheetReader {
 	  		$cellIterator = $row->getCellIterator();
 	  		$cellIterator->setIterateOnlyExistingCells(false); // Loop all cells, even if it is not set
 		
-			$data[$row_number] = array('order' => $order++);
-		
 	 		foreach($cellIterator as $cell) :
 	  			if (!is_null($cell)):
 					$column_number = $cell->columnIndexFromString($cell->getColumn()) - 1;
@@ -566,7 +575,7 @@ class SpreadsheetReader {
 				
 					$col = $columns[$column_number];
 					if(isset($data[$row_number][$col])):
-						continue; // dont overwrite e.g. order column
+						continue; // dont overwrite set columns
 					endif;
 					$val = hardTrueFalse(Normalizer::normalize( $cell->getValue(),  Normalizer::FORM_C));
 
@@ -616,8 +625,6 @@ class SpreadsheetReader {
 						endif;
 						
 						
-					elseif($col == 'label'):
-						$val = $val;
 					elseif($col == 'optional'):
 						if ($val === '*')
 							$val = 1;
@@ -652,6 +659,10 @@ class SpreadsheetReader {
 				$data[$row_number][ $col ] = $val;
 			
 			endforeach; // cell loop
+			
+			if(!isset($data[$row_number][ "item_order"])): // if no order is entered, use row_number
+				$data[$row_number][ "item_order"] = $row_number-1;
+			endif;
 			// row has been put into array
 #			if(!isset($data[$row_number]['id'])) $data[$row_number]['id'] = $row_number;
 
@@ -659,12 +670,10 @@ class SpreadsheetReader {
 
 		$callEndTime = microtime(true);
 		$callTime = $callEndTime - $callStartTime;
-		$survey_messages[] = 'Call time to read survey sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
+		$this->messages[] = 'Call time to read survey sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
 		if (!empty($empty_rows)) {
-			$survey_messages[] = "Rows ".implode($empty_rows,", ").": variable name empty. Rows skipped.";
+			$this->messages[] = "Rows ".implode($empty_rows,", ").": variable name empty. Rows skipped.";
 		}
-
-		$this->messages[] = '<ul><li>'.implode("</li><li>",$survey_messages).'</li></ul>';
 
 		$this->survey = $data;
 	}

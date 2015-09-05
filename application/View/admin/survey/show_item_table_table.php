@@ -3,7 +3,7 @@
 		<tr>
 			<?php
 			$use_columns = $empty_columns = array();
-			$display_columns = array('type', 'name', 'label_parsed', 'class', 'showif', 'choices', 'value');
+			$display_columns = array('type', 'name', 'label_parsed', 'class', 'showif', 'choices', 'value','block_order','item_order');
 			foreach (current($results) AS $field => $value):
 				if (in_array($field, $display_columns) AND ! empty_column($field, $results)):
 					array_push($use_columns, $field);
