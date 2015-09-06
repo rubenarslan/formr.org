@@ -267,7 +267,7 @@ class Survey extends RunUnit {
 				shown_relative = :shown_relative,
 				answered = :answered,
 				answered_relative = :answered_relative,
-				displaycount = displaycount + 1,
+				displaycount = COALESCE(displaycount,0) + 1,
 				hidden = :hidden
 				WHERE item_id = :item_id AND
 				session_id = :session_id");
@@ -311,7 +311,7 @@ class Survey extends RunUnit {
 					$answered_relative = null;
 				endif;
 
-				$survey_items_display->bindValue(":hidden",0);
+				$survey_items_display->bindValue(":hidden",0); // an item that was answered has to have been shown
 				$survey_items_display->bindValue(":saved", mysql_now());
 				$survey_items_display->bindParam(":shown", $shown);
 				$survey_items_display->bindParam(":shown_relative", $shown_relative);
@@ -418,6 +418,11 @@ class Survey extends RunUnit {
 				$show_ifs[] = $showif;
 			}
 		}
+		
+		$hidden_update = $this->dbh->prepare("UPDATE `survey_items_display`
+			SET hidden = :hidden
+			WHERE item_id = :item_id AND session_id = :session_id");
+		$hidden_update->bindValue(":session_id", $this->session_id);
 
 		if ($show_ifs) {
 			$ocpu_session = opencpu_multiparse_showif($this, $show_ifs, true);
@@ -425,10 +430,17 @@ class Survey extends RunUnit {
 				notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
 			}
 			$results = $ocpu_session->getJSONObject();
-			// Fit show-ifs
-			foreach ($items as &$item) {
-				$item->setVisibility(array_val($results, "si.{$item->name}" ));
-			}
+		} else {
+			$results = array();
+		}
+		// Fit show-ifs
+		foreach ($items as &$item) {
+			$hidden = $item->setVisibility(array_val($results, "si.{$item->name}" ));
+
+			$hidden_update->bindValue(":item_id", $item->id);
+			if($hidden!==null) $hidden = (int)!$hidden;
+			$hidden_update->bindValue(":hidden", $hidden);
+			$hidden_update->execute();
 		}
 
 		// Compute dynamic values only if items are certainly visisble
@@ -483,15 +495,15 @@ class Survey extends RunUnit {
 				`survey_items`.showif,
 				`survey_items`.value,
 
-		`survey_items_display`.displaycount, 
-		`survey_items_display`.session_id,
-		`survey_items_display`.answered')
+				`survey_items_display`.displaycount, 
+				`survey_items_display`.session_id,
+				`survey_items_display`.answered')
 				->from('survey_items')
 				->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-				->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS null)")
+				->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS null) AND (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)")
 				->order('survey_items_display.`display_order`', 'asc')
 				->order('survey_items.`item_order`', 'asc') // only needed for transfer
-				->order('survey_items.id', 'ASC')
+				->order('survey_items.id', 'asc')
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->statement();
 
@@ -609,7 +621,7 @@ class Survey extends RunUnit {
 		$this->dbh->beginTransaction();
 
 		$view_query = "UPDATE `survey_items_display`
-			SET displaycount = displaycount + 1, created = COALESCE(created, NOW())
+			SET displaycount = COALESCE(displaycount,0) + 1, created = COALESCE(created, NOW())
 			WHERE item_id = :item_id AND session_id = :session_id";
 		$view_update = $this->dbh->prepare($view_query);
 		$view_update->bindValue(":session_id", $this->session_id);

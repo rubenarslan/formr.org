@@ -17,13 +17,12 @@ Template::load('acp_nav');
 		</h4>
 		
 				<p>
-					Click the "Show Items" button to show an overview table of your items. To leave the overview, press <kbd>Esc</kbd> or click the close button in the top or bottom right.
+					Click the "Show Items" button to show an overview table of your items. To leave the overview, press <kbd>esc</kbd> or click the close button in the top or bottom right.
 				</p>
 				<p>
 					You can download your item table in different formats (.xls, .xlsx, .json), but take care: The downloaded table
 					may not exactly match the uploaded table (most importantly, choice labels are always relegated to a second sheet).
 				</p>
-				<p>oneline</p>
 		</div>
 
 		<!-- dialog for items in items table -->

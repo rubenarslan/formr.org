@@ -56,6 +56,7 @@ if(count($results)>0):
 	<thead><tr>
 <?php
 foreach(current($results) AS $field => $value):
+	if(in_array($field, array( "shown_relative","answered_relative","item_id","display_order","hidden"))) continue;
     echo "<th>{$field}</th>";
 endforeach;
 ?>
@@ -64,13 +65,31 @@ endforeach;
 
 <?php
 // printing table rows
+$last_sess = null;
 foreach($results AS $row):
 	$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
-	$row['shown'] = '<abbr title="'.$row['shown'].'">'.timetostr(strtotime($row['shown'])).'</abbr>';
-	$row['saved'] = '<abbr title="'.$row['saved'].'">'.timetostr(strtotime($row['saved'])).'</abbr>';
-	$row['answered'] = '<abbr title="'.$row['answered'].'">'.timetostr(strtotime($row['answered'])).'</abbr>';
+	$row['shown'] = '<abbr title="'.$row['shown']. ' relative: '.$row['shown_relative'].'">'.timetostr(strtotime($row['shown'])).'</abbr> ';
+
+	if($row['hidden']===1)
+		$row['shown'] .= "<small><em>not shown</em></small>";
+	if($row['hidden']===null)
+		$row['shown'] .= $row['shown']."<small><em>not yet</em></small>";
 	
-    echo "<tr>";
+	$row['saved'] = '<abbr title="'.$row['saved'].'">'.timetostr(strtotime($row['saved'])).'</abbr>';
+	$row['answered'] = '<abbr title="'.$row['answered']. ' relative: '.$row['answered_relative'].'">'.timetostr(strtotime($row['answered'])).'</abbr>';
+	unset($row['shown_relative']);
+	unset($row['answered_relative']);
+	unset($row['item_id']);
+	unset($row['display_order']);
+	unset($row['display_order']);
+	//	$row['hidden'] = stringBool($row['hidden']);
+	unset($row['hidden']);
+	
+	if($last_sess == $row['unit_session_id'])
+		echo "<tr>";
+	else
+		echo '<tr class="thick_border_top">';
+	$last_sess = $row['unit_session_id'];
 
     // $row is array... foreach( .. ) puts every element
     // of $row to $cell variable

@@ -430,8 +430,8 @@ class Item extends HTML_element {
 	 * Set the visibility of an item based on show-if results returned from opencpu
 	 * $showif_result Can be an array or an interger value returned by ocpu. If a non-empty array then $showif_result[0] can have the following values
 	 * - NULL if the variable in $showif is Not Avaliable,
-	 * - TRUE if it avaliable and true,
-	 * - FALSE if it avaliable and not true
+	 * - TRUE if it avalaible and true,
+	 * - FALSE if it avalaible and not true
 	 * - An empty array if a problem occured with opencpu
 	 *
 	 * @param array|int $showif_result
@@ -439,7 +439,7 @@ class Item extends HTML_element {
 	 */
 	public function setVisibility($showif_result) {
 		if (!$showif_result) {
-			return;
+			return true;
 		}
 
 		$result = true;
@@ -459,6 +459,7 @@ class Item extends HTML_element {
 		if ($result === null) {
 			$this->probably_render = true;
 		}
+		return $result;
 	}
 
 	/**

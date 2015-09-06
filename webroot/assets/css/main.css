@@ -1673,3 +1673,6 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 .clickable_map div.map_link_container a:active,.clickable_map div.map_link_container a.selected {
 	opacity:0.4;
 }
+.thick_border_top {
+	border-top:2px solid gray;
+}
