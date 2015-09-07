@@ -23,37 +23,41 @@
 		  <li><a href="#available_items" data-toggle="tab">Item types</a></li>
 		  <li><a href="#r_helpers" data-toggle="tab">R helpers</a></li>
 		  <li><a href="#features" data-toggle="tab">Features</a></li>
+		  <li><a href="#api" data-toggle="tab">API</a></li>
 		  <li><a href="#help" data-toggle="tab">Help</a></li>
 		</ul>
 	
 		<div class="tab-content">
 			<div class="tab-pane fade" id="knitr_markdown">
-				<?php Template::load('knitr_markdown'); ?>
+				<?php Template::load('public/documentation/knitr_markdown'); ?>
 			</div>
 			<div class="tab-pane fade in active" id="run_module_explanations">
 				<div class="row">
 					<div class="col-lg-8 col-md-9">
-						<?php Template::load('run_module_explanations'); ?>
+						<?php Template::load('public/documentation/run_module_explanations'); ?>
 					</div>
 				</div>
 			</div>
 			<div class="tab-pane fade" id="sample_survey_sheet">
-                <?php Template::load('sample_survey_sheet'); ?>
+                <?php Template::load('public/documentation/sample_survey_sheet'); ?>
 			</div>
 			<div class="tab-pane fade" id="sample_choices_sheet">
-                <?php Template::load('sample_choices_sheet'); ?>
+                <?php Template::load('public/documentation/sample_choices_sheet'); ?>
 			</div>
 			<div class="tab-pane fade" id="available_items">
-                <?php Template::load('item_types'); ?>
+                <?php Template::load('public/documentation/item_types'); ?>
 			</div>
 			<div class="tab-pane fade" id="r_helpers">
-                <?php Template::load('r_helpers'); ?>
+                <?php Template::load('public/documentation/r_helpers'); ?>
 			</div>
 			<div class="tab-pane fade" id="features">
-                <?php Template::load('features'); ?>
+                <?php Template::load('public/documentation/features'); ?>
+			</div>
+			<div class="tab-pane fade" id="api">
+                <?php Template::load('public/documentation/api'); ?>
 			</div>
 			<div class="tab-pane fade active" id="help">
-                <?php Template::load('get_help'); ?>
+                <?php Template::load('public/documentation/get_help'); ?>
 			</div>
 		</div>
 	</div>
