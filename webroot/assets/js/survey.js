@@ -9,12 +9,12 @@
 			performance.webkitNow;
 	})();
 	
-	$(document).ready(function() {
+	$(document).ready(function(e) {
 		var survey = new Survey();
-		$('form').on('change', function() { 
-			survey.update();
+		survey.update(e);
+		$('form').on('change', function(e) { 
+			survey.update(e);
 		});
-		survey.update();
 	});
 
 	function Survey() {
@@ -88,7 +88,6 @@
 	        radios.closest('.controls').find('label[class!=keep-label]').addClass('hidden');
 			radios.off('click').each(function() {
 				var $btn = $(this);
-          
 				var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
 				$btn.toggleClass('btn-checked', is_checked_already);
 		
@@ -128,29 +127,21 @@
 			});
         
 			$('div.btn-check button.btn').off('click').click(function(event){
-				"use strict";
 				var $btn = $(this);
-				$('#'+$btn.attr('data-for')).trigger("togglecheck"); // toggle the button
+				var $original_box = $('#'+$btn.attr('data-for'));
+				
+				var checked = !!$original_box.prop('checked');
+				$btn.toggleClass('btn-checked', !checked).find('i').toggleClass('fa-check', !checked); // check this one
+				$original_box.prop('checked',! checked); // toggle check
+				$original_box.change(); // trigger change event to sync up
 				return false;
 			}).each(function() {
-				"use strict";
 				var $btn = $(this);
 				var $original_box = $('#'+$btn.attr('data-for'));
 		
-				$original_box.change(function()
-				{
-					var checked = !!$(this).prop('checked');
-					var $btn = $('button.btn[data-for="'+ this.id +'"]');
-					$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
-				})
-				.change()
-				.on('togglecheck',function()
-				{
-					var checked = !!$(this).prop('checked');
-					$(this).prop('checked',!checked); // toggle check
-					$(this).change(); // trigger change event to sync up
-				});
-		
+				var checked = !!$original_box.prop('checked');
+				$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
+
 				$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 				$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
 		
@@ -237,9 +228,8 @@
 				img.appendTo(four_corners);
 				$elm.find("label div a").click(function(e) {
 					$elm.find('.selected').removeClass("selected");
-					$elm.find("input[type=text]").val($(this).attr("class"));
+					$elm.find("input[type=text]").val($(this).attr("class")).change();
 					$(this).addClass("selected");
-					e.preventDefault();
 					return false;
 				});
 			});
@@ -371,7 +361,6 @@
     
 	    var pageload_time = mysql_datetime();
 	    var relative_time = window.performance.now ? performance.now() : null;
-	    $('form').find("input.item_shown, input.item_shown_relative, input.item_answered, input.item_answered_relative").change(function(e) { e.stopPropagation(); });
 		$(".form-group:not([data-showif])").each(function(i,elm) // walk through all form elements that are automatically shown
 		{
 	        $(elm).find("input.item_shown").val(pageload_time);
@@ -394,7 +383,7 @@
 	}
 	Survey.prototype.update = function (e) {
 		this.getData();
-		this.showIf(); // if the showif changes the available inputs, refresh data
+		this.showIf();
 		this.getProgress();
 	};
 	Survey.prototype.getData = function () {
@@ -431,7 +420,6 @@
 	
 		survey.$progressbar.css('width',Math.round(prog)+'%');
 		survey.$progressbar.text(Math.round(prog)+'%');
-		survey.change_events_set = true;
 		return prog;
 	};
 
@@ -443,30 +431,28 @@
 		{
 			var showif = $(elm).data('showif'); // get specific condition
 
-			try
+			with(survey.data) // using the form data as the environment
 			{
-				with(survey.data) // using the form data as the environment
+				var hide = true; // hiding is the default, if the try..catch fails
+				try
 				{
-					var hide = ! eval(showif); // evaluate the condition
-					if($(elm).hasClass('hidden') != hide) {
-						any_change = true;
-						$(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
-						$(elm).find('input,select,textarea,button').prop('disabled', hide); // enable/disable depending on evaluation
-						$(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
-		                if(! hide) {
-		                    $(elm).find("input.item_shown").val(mysql_datetime());
-		                    $(elm).find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
-						}
+					hide = ! eval(showif); // evaluate the condition
+				}
+				catch(e)
+				{
+					if(window.console) console.log("JS showif failed",showif, e,  $(elm).find('input').attr('name'));
+				}
+		
+				if($(elm).hasClass('hidden') != hide) {
+					any_change = true;
+					$(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
+					$(elm).find('input,select,textarea,button').prop('disabled', hide); // enable/disable depending on evaluation
+					$(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
+	                if(! hide) {
+	                    $(elm).find("input.item_shown").val(mysql_datetime());
+	                    $(elm).find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
 					}
 				}
-			}
-			catch(e)
-			{
-				if(window.console) console.log("JS showif failed",showif, e,  $(elm).find('input').attr('name'));
-			}
-			finally
-			{
-				return;
 			}
 		});
 		return any_change;
