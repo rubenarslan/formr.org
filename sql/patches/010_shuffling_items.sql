@@ -4,8 +4,6 @@ ADD COLUMN `item_order` SMALLINT(6) NULL DEFAULT NULL AFTER `block_order`;
 
 UPDATE `survey_items` SET item_order = CAST(survey_items.`order` AS UNSIGNED);
 
-ALTER TABLE `survey_items` DROP COLUMN `order`;
-
 ALTER TABLE `survey_items_display` 
 CHANGE COLUMN `displaycount` `displaycount` SMALLINT(5) UNSIGNED NULL DEFAULT NULL ,
 ADD COLUMN `display_order` MEDIUMINT(8) UNSIGNED NULL DEFAULT NULL AFTER `displaycount`,

@@ -3,7 +3,7 @@
 class SpreadsheetReader {
 
 	private $choices_columns = array('list_name','name','label');
-	private $survey_columns = array('name', 'type', 'label', 'optional', 'class' ,'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value', 'block_order', 'item_order',
+	private $survey_columns = array('name', 'type', 'label', 'optional', 'class' ,'showif', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6', 'choice7', 'choice8', 'choice9', 'choice10', 'choice11', 'choice12', 'choice13', 'choice14', 'value','order', 'block_order', 'item_order',
 	# legacy
 		'variablenname', 'wortlaut', 'typ', 'ratinguntererpol', 'ratingobererpol', 	'mcalt1', 'mcalt2', 'mcalt3', 'mcalt4', 'mcalt5', 'mcalt6', 'mcalt7', 'mcalt8', 'mcalt9', 'mcalt10', 'mcalt11', 'mcalt12', 'mcalt13', 'mcalt14',);
 	public $messages = array();
@@ -274,8 +274,6 @@ class SpreadsheetReader {
 			$col = 'choice1';
 		elseif($col=='ratingobererpol')
 			$col = 'choice2';
-		elseif($col=='order')
-			$col = 'item_order';
 		
 		return $col;
 	}
@@ -659,7 +657,8 @@ class SpreadsheetReader {
 				$data[$row_number][ $col ] = $val;
 			
 			endforeach; // cell loop
-			
+
+			$data[$row_number][ "order"] = $row_number-1;			
 			if(!isset($data[$row_number][ "item_order"])): // if no order is entered, use row_number
 				$data[$row_number][ "item_order"] = $row_number-1;
 			endif;

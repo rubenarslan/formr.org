@@ -174,39 +174,42 @@ class Survey extends RunUnit {
 				`survey_items`.`block_order`')
 				->from('survey_items')
 				->where("`survey_items`.`study_id` = :study_id")
+				->order("`survey_items`.order")
 				->bindParams(array('`study_id`' => $this->id))
 				->statement();
 
 		// sort blocks randomly (if they are consecutive), then by item number and if the latter are identical, randomly
-		$block_order = $item_order = $random_order = $block_numbers = $item_ids =  array();
+		$block_segment = $block_order = $item_order = $random_order = $block_numbers = $item_ids =  array();
 		$last_block = "";
 		$block_nr = 0;
+		$block_segment_i = 0;
 		while($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
 			if($item['block_order'] == "") { // not blocked
 				$item['block_order'] = "";
 				$block_order[] = $block_nr;
 			} else {
-				if($last_block === "") { // new segment of blocks
-					$block_nr = $block_nr + 1000001;
-				}
 				if(! array_key_exists($item['block_order'], $block_numbers)) { // new block
-					// by choosing this range, the next non-block segment is forced to follow
-					$rand_block_number = mt_rand($block_nr-999999,$block_nr-1);
-
-					while(in_array($rand_block_number,$block_numbers)) { // don't allow collisions. possible infinite loop, but we don't allow that many items, let alone blocks
-						$rand_block_number = mt_rand($block_nr-999999,$block_nr-1);
+					if($last_block === "") { // new segment of blocks
+						$block_segment_i = 0;
+						$block_segment = range($block_nr, $block_nr + 10000); // by choosing this range, the next non-block segment is forced to follow
+						shuffle($block_segment);
+						$block_nr = $block_nr + 10001;
 					}
+					
+					$rand_block_number = $block_segment[$block_segment_i];
 					$block_numbers[ $item['block_order'] ] = $rand_block_number;
+					$block_segment_i++;
 				}
 				$block_order[] = $block_numbers[ $item['block_order'] ]; // get stored block order
 			} // sort the blocks with each other
 	
 			// but keep the order within blocks if desired
 			$item_order[] = $item['item_order']; // after sorting by block, sort by item order 
-			$random_order[] = mt_rand();		 // if item order is identical, sort randomly (within block)
 			$item_ids[] = $item['id'];
 			$last_block = $item['block_order'];
 		}
+		$random_order = range(1,count($item_ids));// if item order is identical, sort randomly (within block)
+		shuffle($random_order);
 		array_multisort($block_order, $item_order, $random_order, $item_ids); 
 		// order is already sufficiently defined at least by random_order, but this is a simple way to sort $item_ids is sorted accordingly
 		
@@ -502,7 +505,7 @@ class Survey extends RunUnit {
 				->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
 				->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS null) AND (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)")
 				->order('survey_items_display.`display_order`', 'asc')
-				->order('survey_items.`item_order`', 'asc') // only needed for transfer
+				->order('survey_items.`order`', 'asc') // only needed for transfer
 				->order('survey_items.id', 'asc')
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->statement();
@@ -980,7 +983,7 @@ class Survey extends RunUnit {
 	}
 
 	protected $user_defined_columns = array(
-		'name', 'label', 'label_parsed', 'type', 'type_options', 'choice_list', 'optional', 'class', 'showif', 'value', 'block_order', 'item_order' // study_id is not among the user_defined columns
+		'name', 'label', 'label_parsed', 'type', 'type_options', 'choice_list', 'optional', 'class', 'showif', 'value', 'block_order', 'item_order', 'order' // study_id is not among the user_defined columns
 	);
 	protected $choices_user_defined_columns = array(
 		'list_name', 'name', 'label', 'label_parsed' // study_id is not among the user_defined columns
@@ -1055,8 +1058,8 @@ class Survey extends RunUnit {
 
 		$UPDATES = implode(', ', get_duplicate_update_string($this->user_defined_columns));
 		$add_items = $this->dbh->prepare(
-				"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`) 
-			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order
+				"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
+			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order
 		) ON DUPLICATE KEY UPDATE $UPDATES");
 
 		$result_columns = array();
@@ -1256,7 +1259,7 @@ class Survey extends RunUnit {
 		return $this->dbh->select($columns)
 						->from('survey_items')
 						->where(array('study_id' => $this->id))
-						->order('`item_order`', 'asc')->order('id', 'asc') // now this may not always be consistent with upload, since position is ill-defined (but only exchangeable items should be re-ordered in terms of earliest upload)
+						->order("`survey_items`.order")
 						->fetchAll();
 	}
 
@@ -1264,7 +1267,7 @@ class Survey extends RunUnit {
 		$get_items = $this->dbh->select('type, type_options, choice_list, name, label, optional, class, showif, value, block_order, item_order')
 				->from('survey_items')
 				->where(array('study_id' => $this->id))
-				->order('`item_order`', 'asc')->order('id', 'asc') // now this may not always be consistent with upload, since position is ill-defined (but only exchangeable items should be re-ordered in terms of earliest upload)
+				->order("`survey_items`.order")
 				->statement();
 
 		$results = array();

@@ -68,6 +68,7 @@ class Item extends HTML_element {
 	public $js_showif = null;
 	public $value = null; // syntax for sticky value
 	public $value_validated = null;
+	public $order = null;
 	public $block_order = null;
 	public $item_order = null;
 	public $displaycount = null;
@@ -109,6 +110,9 @@ class Item extends HTML_element {
 			$this->value = $options['value'];
 		}
 
+		if (isset($options['order'])) {
+			$this->order = $options['order'];
+		}
 		if (isset($options['block_order'])) {
 			$this->block_order = $options['block_order'];
 		}
