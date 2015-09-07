@@ -497,9 +497,9 @@ class SpreadsheetReader {
 		
 		endforeach; // row loop
 
-		$callEndTime = microtime(true);
-		$callTime = $callEndTime - $callStartTime;
-		$choices_messages[] = 'Call time to read choices sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
+//		$callEndTime = microtime(true);
+//		$callTime = $callEndTime - $callStartTime;
+//		$choices_messages[] = 'Call time to read choices sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
 
 		$this->messages[] = '<ul><li>'.implode("</li><li>", $choices_messages).'</li></ul>';
 		$this->choices = $data;
@@ -545,7 +545,6 @@ class SpreadsheetReader {
 			$this->warnings[] = __('Your sheet appears to contain at least %d columns without names (in the first row)."',$nr_of_blank_column_headers);
 
 		$empty_rows = array();
-	  	$this->messages[] = 'Survey worksheet - ' . $worksheet->getTitle();
 		$this->messages[] = 'These columns were <strong>used</strong>: '. implode($columns,", ");
 		if(!empty($skipped_columns)) {
 			$this->warnings[] = 'These survey sheet columns were <strong>skipped</strong>: '. implode($skipped_columns,", ");
@@ -667,9 +666,10 @@ class SpreadsheetReader {
 
 		endforeach; // row loop
 
+
 		$callEndTime = microtime(true);
 		$callTime = $callEndTime - $callStartTime;
-		$this->messages[] = 'Call time to read survey sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
+	  	$this->messages[] = 'Survey <abbr title="Call time to read survey sheet was ' . sprintf('%.4f',$callTime) . ' seconds">worksheet</abbr> - ' . $worksheet->getTitle() .' ('. $row_number .' rows, '.$nr_of_columns.' columns)';
 		if (!empty($empty_rows)) {
 			$this->messages[] = "Rows ".implode($empty_rows,", ").": variable name empty. Rows skipped.";
 		}

@@ -1122,7 +1122,7 @@ class Survey extends RunUnit {
 			if ($this->hasResultsTable() && !$this->confirmed_deletion) {
 				// queries of the merge are included in opened transaction
 				if ($this->backupResults() AND $this->mergeItems($keptItems, $newItems, $oldItems)) {
-					$this->messages[] = "<strong>The old results table was modified and backed up.</strong>";
+					$this->messages[] = "<strong>The old results table was backed up and modified.</strong>";
 				} else {
 					$this->errors[] = "<strong>The back up or updating the item table failed.</strong>";
 				}
@@ -1193,8 +1193,10 @@ class Survey extends RunUnit {
 				$add_choices->execute();
 			endif;
 		}
-		$this->messages[] = $deleted . " old choices deleted.";
-		$this->messages[] = count($this->SPR->choices) . " choices were successfully loaded.";
+		if($deleted > 0) {
+			$this->messages[] = $deleted . " old choices deleted.";
+			$this->messages[] = count($this->SPR->choices) . " new choices were successfully loaded.";
+		}
 
 		return true;
 	}
