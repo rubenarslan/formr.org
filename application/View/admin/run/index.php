@@ -103,5 +103,5 @@ Template::load('acp_nav');
 
 
 <?php
-Template::load('run_modals');
+Template::load('admin/run/run_modals');
 Template::load('footer');

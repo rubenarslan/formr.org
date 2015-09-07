@@ -221,7 +221,7 @@ class AdminAjaxController {
 					$exports = array();
 				}
 
-				Template::load('run_import_dialog', array('exports' => $exports));
+				Template::load('admin/run/run_import_dialog', array('exports' => $exports));
 				exit;
 			}
 
