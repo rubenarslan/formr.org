@@ -153,24 +153,19 @@ class AdminSurveyController extends AdminController {
 		$study = $this->study;
 		session_over($this->site, $this->user);
 
+		$format = $this->request->getParam('format');
+		if (!$format || !in_array($format, array("xlsx", "xls", "json"))) {
+			die("invalid format");
+		}
+
 		$SPR = new SpreadsheetReader();
 
-		if (!isset($_GET['format']) OR ! in_array($_GET['format'], array("xlsx", "xls", "json")))
-			die("invalid format");
-		$format = $_GET['format'];
-
 		if ($format == 'xlsx'):
-			$items = $study->getItemsForSheet();
-			$choices = $study->getChoicesForSheet();
-			$SPR->exportItemTableXLSX($items, $choices, $study->name);
+			$SPR->exportItemTableXLSX($study);
 		elseif ($format == 'xls'):
-			$items = $study->getItemsForSheet();
-			$choices = $study->getChoicesForSheet();
-			$SPR->exportItemTableXLS($items, $choices, $study->name);
+			$SPR->exportItemTableXLS($study);
 		else: // json
-			$items = $study->getItems();
-			$choices = $study->getChoices();
-			$SPR->exportItemTableJSON($items, $choices, $study->name);
+			$SPR->exportItemTableJSON($study);
 		endif;
 	}
 
