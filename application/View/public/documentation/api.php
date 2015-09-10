@@ -11,7 +11,7 @@ secret)
 
 <p>
 API base URL: <br />
-<code class="php">https://formr.org/api or https://api.formr.org</code>
+<code class="php">https://api.formr.org</code>
 </p>
 
 
