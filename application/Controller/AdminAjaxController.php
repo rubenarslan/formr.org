@@ -21,6 +21,11 @@ class AdminAjaxController {
 	protected $site;
 
 	/**
+	 * @var Request
+	 */
+	protected $request;
+
+	/**
 	 *
 	 * @var DB
 	 */
@@ -29,7 +34,8 @@ class AdminAjaxController {
 	public function __construct(AdminController $controller) {
 		$this->controller = $controller;
 		$this->site = $controller->getSite();
-		$this->dbh = $this->controller->getDB();
+		$this->dbh = $controller->getDB();
+		$this->request = new Request();
 	}
 
 	public static function call($method, AdminController $controller) {
@@ -69,13 +75,10 @@ class AdminAjaxController {
 		$dbh = $this->dbh;
 
 		if (is_ajax_request()) :
-			if (isset($_GET['run_unit_id'])):
-				if (isset($_GET['special']))
-					$special = $_GET['special'];
-				else
-					$special = false;
+			if ($run_unit_id = $this->request->getParam('run_unit_id')):
+				$special = $this->request->getParam('special');
 
-				$unit_info = $run->getUnitAdmin($_GET['run_unit_id'], $special);
+				$unit_info = $run->getUnitAdmin($run_unit_id, $special);
 				$unit_factory = new RunUnitFactory();
 				$unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
 
@@ -86,8 +89,9 @@ class AdminAjaxController {
 
 		bad_request_header();
 		$alert_msg = "<strong>Sorry, missing unit.</strong> ";
-		if (isset($unit))
+		if (isset($unit)) {
 			$alert_msg .= implode($unit->errors);
+		}
 		alert($alert_msg, 'alert-danger');
 		echo $this->site->renderAlerts();
 	}
@@ -95,7 +99,7 @@ class AdminAjaxController {
 	private function ajaxRemind() {
 		$run = $this->controller->run;
 		// find the last email unit
-		$email = $run->getReminder($_GET['session'], $_GET['run_session_id']);
+		$email = $run->getReminder($$this->request->getParam('session'), $this->request->getParam('run_session_id'));
 		if ($email->exec() !== false):
 			alert('<strong>Something went wrong with the reminder.</strong> in run ' . $run->name, 'alert-danger');
 			bad_request_header();
@@ -130,7 +134,7 @@ class AdminAjaxController {
 	}
 	private function ajaxDeleteUser() {
 		$run = $this->controller->run;
-		$deleted = $this->dbh->delete('survey_run_sessions', array('id' => $_GET['run_session_id']));
+		$deleted = $this->dbh->delete('survey_run_sessions', array('id' => $this->request->getParam('run_session_id')));
 		if($deleted):
 			alert('User with session ' . h($_GET['session']) . ' was deleted.', 'alert-info');
 		else: 
@@ -151,14 +155,10 @@ class AdminAjaxController {
 		$dbh = $this->dbh;
 
 		if (is_ajax_request()):
-			if (isset($_POST['run_unit_id'])):
-				if (isset($_GET['special']))
-					$special = $_GET['special'];
-				else
-					$special = false;
+			if ($run_unit_id = $this->request->getParam('run_unit_id')):
+				$special = $this->request->getParam('special');
 
-				$unit_info = $run->getUnitAdmin($_POST['run_unit_id'], $special);
-
+				$unit_info = $run->getUnitAdmin($run_unit_id, $special);
 				$unit_factory = new RunUnitFactory();
 				$unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
 
@@ -172,8 +172,9 @@ class AdminAjaxController {
 
 		bad_request_header();
 		$alert_msg = '<strong>Sorry, could not remove unit.</strong> ';
-		if (isset($unit))
+		if (isset($unit)) {
 			$alert_msg .= implode($unit->errors);
+		}
 		alert($alert_msg, 'alert-danger');
 
 		echo $this->site->renderAlerts();
@@ -190,8 +191,9 @@ class AdminAjaxController {
 
 		bad_request_header();
 		$alert_msg = "'<strong>Sorry.</strong> '";
-		if (isset($unit))
+		if (isset($unit)) {
 			$alert_msg .= implode($unit->errors);
+		}
 		alert($alert_msg, 'alert-danger');
 
 		echo $this->site->renderAlerts();
@@ -275,12 +277,9 @@ class AdminAjaxController {
 		if(is_ajax_request()):
 
 			$unit_factory = new RunUnitFactory();
-			if(isset($_POST['run_unit_id'])):
-				if(isset($_POST['special']))
-					$special = $_POST['special'];
-				else $special = false;
-
-				$unit_info = $run->getUnitAdmin($_POST['run_unit_id'], $special);
+			if($run_unit_id = $this->request->getParam('run_unit_id')):
+				$special = $this->request->getParam('special');
+				$unit_info = $run->getUnitAdmin($run_unit_id, $special);
 
 				$unit = $unit_factory->make($dbh,null,$unit_info, null, $run);
 
@@ -322,12 +321,9 @@ class AdminAjaxController {
 		$run = new Run($this->dbh, $this->controller->run->name);
 
 		if(is_ajax_request()):
-			if(isset($_GET['run_unit_id'])):
-				if(isset($_GET['special']))
-					$special = $_GET['special'];
-				else $special = false;
-
-				$unit = $run->getUnitAdmin($_GET['run_unit_id'], $special);
+			if($run_unit_id = $this->request->getParam('run_unit_id')):
+				$special = $this->request->getParam('special');
+				$unit = $run->getUnitAdmin($run_unit_id, $special);
 				$unit_factory = new RunUnitFactory();
 				$unit = $unit_factory->make($this->dbh, null, $unit, null, $run);
 
