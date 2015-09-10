@@ -484,28 +484,30 @@ This study is currently being serviced. Please return at a later time."
 				continue;
 			}
 
-			if ($name == "custom_js" OR $name == "custom_css"):
-				if ($name == "custom_js"):
-					$old_path = $this->custom_js_path;
+			if ($name == "custom_js" || $name == "custom_css"):
+				if ($name == "custom_js") {
+					$asset_path = $this->custom_js_path;
 					$file_ending = '.js';
-				else:
-					$old_path = $this->custom_css_path;
+				} else {
+					$asset_path = $this->custom_css_path;
 					$file_ending = '.css';
-				endif;
+				}
 
-				if ($value == null AND $old_path != null) {
-					$path = new SplFileInfo(INCLUDE_ROOT . "webroot/" . $old_path);
-					$exists = file_exists($path->getPathname());
-					if ($exists && !unlink(INCLUDE_ROOT . "webroot/" . $old_path)) {
+				$asset_file = INCLUDE_ROOT . "webroot/" . $asset_path;
+				// Delete old file if css/js was emptied
+				if (!$value && $asset_path) {
+					if (file_exists($asset_file) && !unlink($asset_file)) {
 						alert("Could not delete old file.", 'alert-warning');
 					}
 				} else {
-					if ($old_path == null) {
-						$old_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
+					// if $asset_path has not been set it means neither JS or CSS has been entered so create a new path
+					if (!$asset_path) {
+						$asset_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
+						$asset_file = INCLUDE_ROOT . 'webroot/' . $asset_path;
 					}
-					$path = new SplFileInfo(INCLUDE_ROOT . "webroot/" . $old_path);
-					$exists = file_exists($path->getPathname());
-					if ($exists):
+
+					$path = new SplFileInfo($asset_file);
+					if (file_exists($path->getPathname())):
 						$file = $path->openFile('c+');
 						$file->rewind();
 						$file->ftruncate(0); // truncate any existing file
@@ -514,8 +516,7 @@ This study is currently being serviced. Please return at a later time."
 					endif;
 					$file->fwrite($value);
 					$file->fflush();
-
-					$value = $old_path;
+					$value = $asset_path;
 				}
 				$name = $name . "_path";
 			endif;

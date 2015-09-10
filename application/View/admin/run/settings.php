@@ -73,7 +73,7 @@ Template::load('acp_nav');
 				
 			</div>
 			<div class="tab-pane fade" id="css">
-				<form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_settings">
+				<form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
 				
 				<div class="row">
 					<p class="pull-right" style="padding-top:10px;margin-bottom:0;margin-right:15px">
@@ -90,7 +90,7 @@ Template::load('acp_nav');
 				</form>
 			</div>
 			<div class="tab-pane fade" id="js">
-				<form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_settings">
+				<form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
 				
 				<div class="row">
 					<p class="pull-right" style="padding-top:10px;margin-bottom:0;margin-right:15px">
@@ -109,7 +109,7 @@ Template::load('acp_nav');
 
 	
 					<div class="single_unit_display">
-						<form class="form-horizontal edit_run" enctype="multipart/form-data"  name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>" data-units='<?php
+						<form class="form-horizontal edit_run" enctype="multipart/form-data"  name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php
 							echo json_encode(array(array("special" => "service_message","run_unit_id" => $service_message_id) ) );
 							?>'>
 							<h3><i class="fa fa-eject"></i> Edit service message</h3>
@@ -129,12 +129,12 @@ Template::load('acp_nav');
 			<div class="tab-pane fade" id="reminder">
 				<div class="row">
 					<div class="single_unit_display">
-						<form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>" data-units='<?php
-							echo json_encode(array(array("special" => "reminder_email","run_unit_id" => $reminder_email_id) ) );
+						<form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php
+							echo json_encode(array(array("special" => "reminder_email", "run_unit_id" => $reminder_email_id) ) );
 							?>'>
 							<h3><i class="fa fa-bullhorn"></i> Edit email reminder</h3>
 							<p class="lead">
-								Modify the text of a reminder, which you can then send to any user using the <i class="fa fa-bullhorn"></i> reminder button in the <a href="<?=WEBROOT?>admin/run/<?=$run->name ;?>/user_overview">user overview</a>.
+								Modify the text of a reminder, which you can then send to any user using the <i class="fa fa-bullhorn"></i> reminder button in the <a href="<?php echo admin_run_url($run->name, 'user_overview'); ?>">user overview</a>.
 							</p>
 							<div class="run_units">
 							</div>
@@ -145,7 +145,7 @@ Template::load('acp_nav');
 			<div class="tab-pane fade" id="overview_script">
 				<div class="row">
 					<div class="single_unit_display">
-						<form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>" data-units='<?php
+						<form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php
 							echo json_encode(array(array("special" => "overview_script","run_unit_id" => $overview_script_id) ) );
 							?>'>
 							<h3><i class="fa fa-eye"></i> Edit overview script</h3>

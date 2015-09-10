@@ -303,11 +303,12 @@ class AdminAjaxController {
 
 	private function ajaxSaveSettings() {
 		$run = $this->controller->run;
-
+		$post = new Request($_POST);
 		if(is_ajax_request()):
-			$saved = $run->saveSettings($_POST);
+			$saved = $run->saveSettings($post->getParams());
 			if($saved):
-				echo '';
+				alert('Settings saved', 'alert-success');
+				echo $this->site->renderAlerts();
 				exit;
 			else:
 				bad_request_header();
