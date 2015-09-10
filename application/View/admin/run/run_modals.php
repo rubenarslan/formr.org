@@ -4,16 +4,35 @@
         <div class="modal-dialog">
             <div class="modal-content">
 				<form id="export_run_units" method="post">
-                <div class="modal-header">
+                <div class="modal-header" style="padding: 0px 15px;">
                     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
-                    <h3>JSON export of modules</h3>
+                    <h3>Run Export</h3>
                 </div>
                 <div class="modal-body">
-                    <h5>Select run units to export and give your export a name</h5>
-					<div class="row"><div class="col-md-12">
-						<input class="form-control" placeholder="Name Export (a to Z, 0 to 9, _ and spaces)" name="export_name" value="%{run_name}" />
-						<input type="hidden" name="units">
+					<div class="row">
+						<div class="col-md-12">
+							<div class="form-group" style="padding-left: 15px;">
+								<h4>Enter a name for your export and select run units</h4>
+								<input class="form-control" placeholder="Name Export (a to Z, 0 to 9, _ and spaces)" name="export_name" value="%{run_name}" style="width: 80%;" />
+							</div>
+							<input type="hidden" name="units">
+						</div>
 					</div>
+					<div class="row">
+						<div class="col-md-6">
+							<div class="form-group checkbox">
+								<label>Export Format </label>
+								<select name="format">
+									<option value="json">JSON</option>
+								</select>
+							</div>
+						</div>
+						<div class="col-md-6">
+							<div class="form-group checkbox">
+								<label><input type="checkbox" name="include_survey_details" value="true"> Include Survey Details </label>
+							</div>
+						</div>
+						<div class="clearfix"></div>
 					</div>
                     <div class="row"><div class="col-md-12">%{export_html}</div></div>
                 </div>

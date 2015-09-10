@@ -731,11 +731,21 @@ This study is currently being serviced. Please return at a later time."
 	/**
 	 * Export RUN units
 	 *
-	 * @param array $units
 	 * @param string $name The name that will be assigned to export
+	 * @param array $units
+	 * @param boolean $inc_survey Should survey data be included in export?
 	 * @return mixed Returns an array of its two inputs.
 	*/
-	public function exportUnits(array $units, $name) {
+	public function export($name, array $units, $inc_survey) {
+		$SPR = new SpreadsheetReader();
+		foreach ($units as $i => &$unit) {
+			if ($inc_survey && $unit->type === 'Survey') {
+				$survey = Survey::loadById($unit->unit_id);
+				$unit->survey_data = $SPR->exportItemTableJSON($survey, true);
+			}
+			unset($unit->unit_id, $unit->run_unit_id);
+		}
+
 		$export = array(
 			'name' => $name,
 			'units' => array_values($units),

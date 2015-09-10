@@ -529,12 +529,19 @@ class AdminRunController extends AdminController {
 	}
 
 	private function exportAction() {
+		$formats = array('json');
 		$run = $this->run;
 		$site = $this->site;
-		
+
 		if (($units = (array)json_decode($site->request->str('units'))) && ($name = $site->request->str('export_name')) && preg_match('/^[a-z0-9_\s]+$/i', $name)) {
-			
-			if (!($export = $run->exportUnits($units, $name))) {
+			$format = $this->request->getParam('format');
+			$inc_survey = $this->request->getParam('include_survey_details') === 'true';
+			if (!in_array($format, $formats)) {
+				alert('Invalid Export format selected', 'alert-danger');
+				redirect_to(admin_run_url($run->name));
+			}
+
+			if (!($export = $run->export($name, $units, $format, $inc_survey))) {
 				bad_request_header();
 				echo $site->renderAlerts();
 			} else {
@@ -542,7 +549,7 @@ class AdminRunController extends AdminController {
 				$SPR->exportJSON($export, $name);
 			}
 		} else {
-			redirect_to("admin/run/{$run->name}");
+			redirect_to(admin_run_url($run->name));
 		}
 	}
 
