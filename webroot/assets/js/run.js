@@ -376,6 +376,8 @@
 
         for (var i = 0; i < this.units.length; i++) {
             var unit = this.units[i].serialize();
+            unit.unit_id = this.units[i].unit_id;
+            unit.run_unit_id = this.units[i].run_unit_id;
             unsavedChanges = unsavedChanges || this.units[i].unsavedChanges;
             units[unit.position] = unit;
             exportDialog.append($($.parseHTML(getHTMLTemplate('tpl-export-unit-block', {unit_pos: unit.position, unit_json: JSON.stringify(unit, null, "\t")}))));
@@ -406,7 +408,7 @@
                 $units.each(function () {
                     var $unit = $(this).find('.select');
                     var selected = parseInt($unit.data('selected'), 10),
-                            unit_pos = parseInt($unit.data('position'), 10);
+                        unit_pos = parseInt($unit.data('position'), 10);
                     if (selected && unit_pos && !isNaN(selected) && !isNaN(unit_pos)) {
                         selectedUnits[unit_pos] = units[unit_pos];
                     }
