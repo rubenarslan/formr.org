@@ -993,6 +993,7 @@ class Survey extends RunUnit {
 	 * Get All choice lists in this survey with associated items
 	 *
 	 * @param array $specific An array if list_names which if defined, only lists specified in the array will be returned
+	 * @param string $label
 	 * @return $array Returns an array indexed by list name;
 	 */
 	public function getChoices($specific = null, $label = 'label') {
@@ -1275,8 +1276,7 @@ class Survey extends RunUnit {
 		$results = array();
 		while ($row = $get_items->fetch(PDO::FETCH_ASSOC)):
 			$row["type"] = $row["type"] . " " . $row["type_options"] . " " . $row["choice_list"];
-			unset($row["choice_list"]);
-			unset($row["type_options"]);
+			unset($row["choice_list"], $row["type_options"]); //FIXME: why unset here?
 			$results[] = $row;
 		endwhile;
 

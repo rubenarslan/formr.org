@@ -1190,7 +1190,7 @@ function array_val($array, $key, $default = '') {
 
 function shutdown_formr_org() {
 	$error = error_get_last();
-	if($error !== null && $error['type'] === E_ERROR) {
+	if($error !== null && $error['type'] === E_ERROR && !DEBUG) {
 		$errno = $error["type"];
 		$errfile = $error["file"];
 		$errline = $error["line"];
