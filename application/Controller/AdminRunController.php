@@ -541,7 +541,7 @@ class AdminRunController extends AdminController {
 				redirect_to(admin_run_url($run->name));
 			}
 
-			if (!($export = $run->export($name, $units, $format, $inc_survey))) {
+			if (!($export = $run->export($name, $units, $inc_survey))) {
 				bad_request_header();
 				echo $site->renderAlerts();
 			} else {

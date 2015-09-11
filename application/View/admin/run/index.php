@@ -92,7 +92,7 @@ Template::load('acp_nav');
 
 
         <div class="col-md-4 pull-right transparent_well">
-            <?php Template::load('run_module_explanations'); ?>
+            <?php Template::load('public/documentation/run_module_explanations'); ?>
         </div>
 
 

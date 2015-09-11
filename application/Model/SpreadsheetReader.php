@@ -162,6 +162,10 @@ class SpreadsheetReader {
 		}
 	}
 
+	public function getAllowedColumnNames() {
+		return $this->survey_columns;
+	}
+
 	private function getSheetsFromArrays($items, $choices = array(), $settings = array()) {
 		set_time_limit(300); # defaults to 30
 		ini_set('memory_limit', '1024M');
@@ -606,23 +610,28 @@ class SpreadsheetReader {
 				if (!is_null($cell)):
 					$column_number = $cell->columnIndexFromString($cell->getColumn()) - 1;
 
-					if (!array_key_exists($column_number, $columns))
-						continue; // skip columns that aren't allowed
+					// skip columns that aren't allowed
+					if (!array_key_exists($column_number, $columns)) {
+						continue;
+					}
 
 					$col = $columns[$column_number];
-					if (isset($data[$row_number][$col])):
-						continue; // dont overwrite set columns
-					endif;
+					// dont overwrite set columns
+					if (isset($data[$row_number][$col])) {
+						continue;
+					}
+
 					$val = hardTrueFalse(Normalizer::normalize($cell->getValue(), Normalizer::FORM_C));
 
 					if ($col == 'name'):
 						$val = trim($val);
 						if ($val == ''):
 							$empty_rows[] = $row_number;
-							if (isset($data[$row_number])):
+							if (isset($data[$row_number])) {
 								unset($data[$row_number]);
-							endif;
-							continue 2; # skip this row
+							}
+							// skip this row
+							continue 2;
 
 						elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{1,64}$/", $val)):
 							$this->errors[] = __("The variable name '%s' is invalid. It has to be between 1 and 64 characters. It needs to start with a letter and can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $val);
@@ -650,7 +659,7 @@ class SpreadsheetReader {
 								unset($type_options[1]);
 							endif;
 
-							$data[$row_number]['type_options'] = implode(" ", $type_options);
+							$data[$row_number]['type_options'] = implode(' ', $type_options);
 						endif;
 
 						$oldType = $val;
@@ -659,7 +668,6 @@ class SpreadsheetReader {
 						if ($oldType != $val):
 							$this->warnings[] = __('The type "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"', $oldType, $val);
 						endif;
-
 
 					elseif ($col == 'optional'):
 						if ($val === '*')
@@ -689,17 +697,16 @@ class SpreadsheetReader {
 
 					endif; // cell null
 
+					$data[$row_number][$col] = $val;
 				endif; // validation
-
-
-				$data[$row_number][$col] = $val;
 
 			endforeach; // cell loop
 
-			$data[$row_number][ "order"] = $row_number-1;			
-			if(!isset($data[$row_number][ "item_order"]) OR trim($data[$row_number][ "item_order"])===""): // if no order is entered, use row_number
-				$data[$row_number][ "item_order"] = $row_number-1;
-			endif;
+			$data[$row_number]["order"] = $row_number - 1;
+			// if no order is entered, use row_number
+			if(!isset($data[$row_number]["item_order"]) || trim($data[$row_number]["item_order"]) === "") {
+				$data[$row_number]["item_order"] = $row_number - 1;
+			}
 			// row has been put into array
 #			if(!isset($data[$row_number]['id'])) $data[$row_number]['id'] = $row_number;
 

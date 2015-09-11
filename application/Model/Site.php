@@ -220,6 +220,17 @@ class Site {
 		return DB::getInstance();
 	}
 
+
+	/**
+	 *
+	 * @global User $user
+	 * @return User
+	 */
+	public static function getCurrentUser() {
+		global $user;
+		return $user;
+	}
+
 	/**
 	 * @return \OAuth2\Server
 	 */

@@ -40,7 +40,6 @@ class Survey extends RunUnit {
 		'hidden_but_rendered_on_current_page' => 0,
 		'not_answered_on_current_page' => 0
 	);
-	
 
 	/**
 	 * @var DB
@@ -81,6 +80,18 @@ class Survey extends RunUnit {
 		return new Survey(DB::getInstance(), null, $unit);
 	}
 
+	/**
+	 * Get survey by name
+	 *
+	 * @param string $name
+	 * @return Survey
+	 */
+	public static function loadByName($name) {
+		$db = Site::getDb();
+		$id = $db->findValue('survey_studies', array('name' => $name), 'id');
+		return self::loadById($id);
+	}
+
 	public static function loadByUserAndName(User $user, $name) {
 		$db = Site::getDb();
 		$id = $db->findValue('survey_studies', array('user_id' => $user->id, 'name' => $name), 'id');
@@ -115,6 +126,17 @@ class Survey extends RunUnit {
 	}
 
 	public function create($options) {
+		// If survey_data is present (an object with "name", "items", "settings" entries)
+		// then create/update the survey and set $options[unit_id] as Survey's ID
+		if (!empty($options['survey_data'])) {
+			if ($created = $this->createFromData($options['survey_data'])) {
+				$options = array_merge($options, $created);
+				$this->id = $created['id'];
+				$this->name = $created['name'];
+				$this->results_table = $created['results_table'];
+			}
+		}
+
 		// this unit type is a bit special
 		// all other unit types are created only within runs
 		// but surveys are semi-independent of runs
@@ -124,8 +146,8 @@ class Survey extends RunUnit {
 		if (count($options) === 1 || isset($options['mock'])) {
 			$this->valid = true;
 		} else { // and link it to the run only later
-			if (isset($options['unit_id']) AND $options['unit_id'] != '') {
-				$this->id = $options['unit_id'];
+			if (!empty($options['unit_id'])) {
+				$this->id = (int) $options['unit_id'];
 				if ($this->linkToRun()) {
 					$this->load();
 				}
@@ -135,12 +157,79 @@ class Survey extends RunUnit {
 		}
 	}
 
+	/**
+	 * Create survey from data the $data object has the following fields
+	 * $data = {
+	 * 		name: a string representing the name of the survey
+	 * 		items: an array of objects representing items in the survey (fields as  in excel sheet)
+	 * 		settings: an object with settings of the survey
+	 * }
+	 *
+	 * @param object $data
+	 * @return array|bool Returns an array with info on created survey or FALSE on failure
+	 * 
+	 * @todo process items
+	 */
+	protected function createFromData($data) {
+		if (empty($data->name) || empty($data->items)) {
+			return false;
+		}
+
+		if (empty($data->settings)) {
+			$data->settings = array();
+		}
+
+		$created = array();
+		// check if survey exists by name even if it belongs to different user
+		$survey = Survey::loadByName($data->name);
+		if ($survey->valid && !Site::getCurrentUser()->created($survey)) {
+			alert("You are not the creator of survey {$data->name} so can't modify it", 'alert-warning');
+			return false;
+		} elseif ($survey->valid && Site::getCurrentUser()->created($survey)) {
+			$created['id'] = $survey->id;
+		} else {
+			$survey->unit = array(
+				'user_id' => Site::getCurrentUser()->id,
+				'name' => $data->name,
+			);
+			if ($survey->createIndependently((array)$data->settings)) {
+				$created['unit_id'] = $survey->id;
+				$created['id'] = $survey->id;
+			}
+		}
+
+		$created['results_table'] = $survey->results_table;
+		$created['name'] = $survey->name;
+
+		// Mock SpreadSheetReader to use existing mechanism of creating survey items
+		$SPR = new SpreadsheetReader();
+		$i = 1;
+		foreach ($data->items as $item) {
+			if (!empty($item->choices) && !empty($item->choice_list)) {
+				foreach ($item->choices as $name => $label) {
+					$SPR->choices[] = array(
+						'list_name' => $item->choice_list,
+						'name' => $name,
+						'label' => $label,
+					);
+				}
+				unset($item->choices);
+			}
+			$SPR->survey[$i++] = (array)$item;
+		}
+		if (!$survey->createSurvey($SPR)) {
+			alert("Unable to import survey items in survey '{$survey->name}'", 'alert-warning');
+		}
+
+		return $created;
+	}
+
 	public function render() {
 		global $js;
-		$js = (isset($js) ? $js : ''). '<script src="' . asset_url('assets/'. (DEBUG ? 'js' : 'minified') . '/survey.js').'"></script>' ;
+		$js = (isset($js) ? $js : '') . '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/survey.js') . '"></script>';
 
 		$ret = '
-		<div class="row study-' . $this->id . ' study-name-'. $this->name .'">
+		<div class="row study-' . $this->id . ' study-name-' . $this->name . '">
 			<div class="col-md-12">
 		';
 		$ret .= $this->render_form_header() .
@@ -154,7 +243,7 @@ class Survey extends RunUnit {
 		return $ret;
 	}
 
-        protected function startEntry() {
+	protected function startEntry() {
 		$this->dbh->insert_update($this->results_table, array(
 			'session_id' => $this->session_id,
 			'study_id' => $this->id,
@@ -162,11 +251,11 @@ class Survey extends RunUnit {
 				), array(
 			'modified' => mysql_now(),
 		));
-	
-		if($this->dbh->findValue('survey_items_display', array("session_id" => $this->session_id), "id")) {
+
+		if ($this->dbh->findValue('survey_items_display', array("session_id" => $this->session_id), "id")) {
 			return;
 		}
-		
+
 		// get the definition of the order
 		$get_items = $this->dbh->select('
 				`survey_items`.id,
@@ -179,47 +268,46 @@ class Survey extends RunUnit {
 				->statement();
 
 		// sort blocks randomly (if they are consecutive), then by item number and if the latter are identical, randomly
-		$block_segment = $block_order = $item_order = $random_order = $block_numbers = $item_ids =  array();
+		$block_segment = $block_order = $item_order = $random_order = $block_numbers = $item_ids = array();
 		$last_block = "";
 		$block_nr = 0;
 		$block_segment_i = 0;
-		while($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
-			if($item['block_order'] == "") { // not blocked
+		while ($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
+			if ($item['block_order'] == "") { // not blocked
 				$item['block_order'] = "";
 				$block_order[] = $block_nr;
 			} else {
-				if(! array_key_exists($item['block_order'], $block_numbers)) { // new block
-					if($last_block === "") { // new segment of blocks
+				if (!array_key_exists($item['block_order'], $block_numbers)) { // new block
+					if ($last_block === "") { // new segment of blocks
 						$block_segment_i = 0;
 						$block_segment = range($block_nr, $block_nr + 10000); // by choosing this range, the next non-block segment is forced to follow
 						shuffle($block_segment);
 						$block_nr = $block_nr + 10001;
 					}
-					
+
 					$rand_block_number = $block_segment[$block_segment_i];
-					$block_numbers[ $item['block_order'] ] = $rand_block_number;
+					$block_numbers[$item['block_order']] = $rand_block_number;
 					$block_segment_i++;
 				}
-				$block_order[] = $block_numbers[ $item['block_order'] ]; // get stored block order
+				$block_order[] = $block_numbers[$item['block_order']]; // get stored block order
 			} // sort the blocks with each other
-	
 			// but keep the order within blocks if desired
 			$item_order[] = $item['item_order']; // after sorting by block, sort by item order 
 			$item_ids[] = $item['id'];
 			$last_block = $item['block_order'];
 		}
-		$random_order = range(1,count($item_ids));// if item order is identical, sort randomly (within block)
+		$random_order = range(1, count($item_ids)); // if item order is identical, sort randomly (within block)
 		shuffle($random_order);
-		array_multisort($block_order, $item_order, $random_order, $item_ids); 
+		array_multisort($block_order, $item_order, $random_order, $item_ids);
 		// order is already sufficiently defined at least by random_order, but this is a simple way to sort $item_ids is sorted accordingly
-		
+
 		$survey_items_display = $this->dbh->prepare(
-			"INSERT INTO `survey_items_display` 
+				"INSERT INTO `survey_items_display` 
 				(`item_id`, `session_id`, `display_order`)
 			VALUES (:item_id, :session_id, :display_order)");
 		$survey_items_display->bindParam(":session_id", $this->session_id);
-		
-		foreach($item_ids AS $display_order => $item_id) {
+
+		foreach ($item_ids AS $display_order => $item_id) {
 			$survey_items_display->bindParam(":item_id", $item_id);
 			$survey_items_display->bindParam(":display_order", $display_order);
 			$survey_items_display->execute();
@@ -262,7 +350,7 @@ class Survey extends RunUnit {
 			return false;
 		}
 		$survey_items_display = $this->dbh->prepare(
-			"UPDATE `survey_items_display` SET 
+				"UPDATE `survey_items_display` SET 
 				created = COALESCE(created,NOW()),
 				answer = :answer, 
 				saved = :saved,
@@ -314,7 +402,7 @@ class Survey extends RunUnit {
 					$answered_relative = null;
 				endif;
 
-				$survey_items_display->bindValue(":hidden",0); // an item that was answered has to have been shown
+				$survey_items_display->bindValue(":hidden", 0); // an item that was answered has to have been shown
 				$survey_items_display->bindValue(":saved", mysql_now());
 				$survey_items_display->bindParam(":shown", $shown);
 				$survey_items_display->bindParam(":shown_relative", $shown_relative);
@@ -358,22 +446,22 @@ class Survey extends RunUnit {
 		foreach ($this->unanswered as $item) {
 			// count only rendered items, not skipped ones
 			if ($item->isRendered($this)) {
-				$this->progress_counts['not_answered']++;
+				$this->progress_counts['not_answered'] ++;
 			}
 			// count those items that were hidden but rendered (ie. those relying on missing data for their showif)
 			if ($item->isHiddenButRendered($this)) {
-				$this->progress_counts['hidden_but_rendered']++;
+				$this->progress_counts['hidden_but_rendered'] ++;
 			}
 		}
 		/** @var Item $item */
 		foreach ($this->to_render as $item) {
 			// On current page, count only rendered items, not skipped ones
 			if ($item->isRendered($this)) {
-				$this->progress_counts['visible_on_current_page']++;
+				$this->progress_counts['visible_on_current_page'] ++;
 			}
 			// On current page, count those items that were hidden but rendered (ie. those relying on missing data for their showif)
 			if ($item->isHiddenButRendered($this)) {
-				$this->progress_counts['hidden_but_rendered_on_current_page']++;
+				$this->progress_counts['hidden_but_rendered_on_current_page'] ++;
 			}
 		}
 
@@ -389,7 +477,7 @@ class Survey extends RunUnit {
 		}
 
 		// if there only hidden items, that have no way of becoming visible (no other items)
-		if($this->progress_counts['not_answered'] === $this->progress_counts['hidden_but_rendered']) {
+		if ($this->progress_counts['not_answered'] === $this->progress_counts['hidden_but_rendered']) {
 			$this->progress = 1;
 		}
 		return $this->progress;
@@ -410,7 +498,7 @@ class Survey extends RunUnit {
 		/* @var Item $item */
 		foreach ($items as $name => $item) {
 			if (($showif = $item->getShowIf())) {
-				$name =  "si.{$name}";
+				$name = "si.{$name}";
 				$cache_key = md5($showif);
 				if (isset($showifs_cache[$cache_key])) {
 					$showif = "{$name} = {$showifs_cache[$cache_key]}";
@@ -421,7 +509,7 @@ class Survey extends RunUnit {
 				$show_ifs[] = $showif;
 			}
 		}
-		
+
 		$hidden_update = $this->dbh->prepare("UPDATE `survey_items_display`
 			SET hidden = :hidden
 			WHERE item_id = :item_id AND session_id = :session_id");
@@ -429,7 +517,7 @@ class Survey extends RunUnit {
 
 		if ($show_ifs) {
 			$ocpu_session = opencpu_multiparse_showif($this, $show_ifs, true);
-			if(!$ocpu_session OR $ocpu_session->hasError()) {
+			if (!$ocpu_session OR $ocpu_session->hasError()) {
 				notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
 			}
 			$results = $ocpu_session->getJSONObject();
@@ -438,10 +526,11 @@ class Survey extends RunUnit {
 		}
 		// Fit show-ifs
 		foreach ($items as &$item) {
-			$hidden = $item->setVisibility(array_val($results, "si.{$item->name}" ));
+			$hidden = $item->setVisibility(array_val($results, "si.{$item->name}"));
 
 			$hidden_update->bindValue(":item_id", $item->id);
-			if($hidden!==null) $hidden = (int)!$hidden;
+			if ($hidden !== null)
+				$hidden = (int) !$hidden;
 			$hidden_update->bindValue(":hidden", $hidden);
 			$hidden_update->execute();
 		}
@@ -460,7 +549,7 @@ class Survey extends RunUnit {
 
 		if ($dynamic_values) {
 			$ocpu_session = opencpu_multiparse_values($this, $dynamic_values, true);
-			if(!$ocpu_session OR $ocpu_session->hasError()) {
+			if (!$ocpu_session OR $ocpu_session->hasError()) {
 				notify_user_error(opencpu_debug($ocpu_session), "There was a problem getting dynamic values using openCPU.");
 			}
 			$results = $ocpu_session->getJSONObject();
@@ -469,7 +558,6 @@ class Survey extends RunUnit {
 				$item->setDynamicValue(array_val($results, $item->name));
 			}
 		}
-
 	}
 
 	/**
@@ -552,7 +640,7 @@ class Survey extends RunUnit {
 			if (!$item->isRendered()) {
 				continue;
 			}
-			if(!$item->hidden) {
+			if (!$item->hidden) {
 				$visibleItems++;
 			} else if ($visibleItems === 0) {
 				// if this item was not preceded by any visible items
@@ -580,7 +668,6 @@ class Survey extends RunUnit {
 		// Use only visible items
 		// FIXME: Truncating the unanswered items array here will break progress so use $this->to_render array to process labels and merge back
 		// $this->unanswered = $this->to_render;
-
 		// gather and format choice_lists and save all choice labels that need parsing
 		$choices = $this->getChoices($lists_to_fetch, null);
 		$choice_lists = array();
@@ -595,7 +682,7 @@ class Survey extends RunUnit {
 			}
 			$choice_lists[$choice['list_name']][$choice['name']] = $choices[$i]['label_parsed'];
 		}
-		
+
 		// Now that we have the items and the choices, If there was anything left to parse, we do so here!
 		if ($strings_to_parse) {
 			$parsed_strings = opencpu_multistring_parse($this, $strings_to_parse);
@@ -650,7 +737,6 @@ class Survey extends RunUnit {
 			}
 
 			$this->dbh->commit();
-
 		} catch (Exception $e) {
 			$this->dbh->rollBack();
 			formr_log_exception($e, __CLASS__);
@@ -712,7 +798,7 @@ class Survey extends RunUnit {
 		}
 
 		// if the last item was not a submit button, add a default one
-		if (isset($item) AND ($item->type !== "submit" OR $item->hidden)) {
+		if (isset($item) AND ( $item->type !== "submit" OR $item->hidden)) {
 			$sub_sets = array('label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!', 'class_input' => 'btn-info .default_formr_button');
 			$item = new Item_submit($sub_sets);
 			$ret .= $item->render();
@@ -883,11 +969,11 @@ class Survey extends RunUnit {
 		endif;
 
 		$allowed_size = Config::get('admin_maximum_size_of_uploaded_files');
-		if ($allowed_size && $file['size'] > $allowed_size*1024*1024):
+		if ($allowed_size && $file['size'] > $allowed_size * 1024 * 1024):
 			alert("File exceeds allowed size of {$allowed_size} MB", 'alert-danger');
 			return false;
 		endif;
-		
+
 		umask(0002);
 		ini_set('memory_limit', '256M');
 		$target = $_FILES['uploaded']['tmp_name'];
@@ -945,8 +1031,7 @@ class Survey extends RunUnit {
 	}
 
 	/* ADMIN functions */
-
-	public function createIndependently() {
+	public function createIndependently($settings = array()) {
 		$name = trim($this->unit['name']);
 		$results_table = "formr_" . $this->unit['user_id'] . '_' . $name;
 		if ($name == ""):
@@ -973,11 +1058,13 @@ class Survey extends RunUnit {
 			'results_table' => $this->results_table,
 		));
 
-		$this->changeSettings(array(
+		
+		$settings = array_merge(array(
 			"maximum_number_displayed" => 0,
 			"displayed_percentage_maximum" => 100,
 			"add_percentage_points" => 0,
-		));
+		), $settings);
+		$this->changeSettings($settings);
 
 		return true;
 	}
@@ -1081,7 +1168,8 @@ class Survey extends RunUnit {
 				continue;
 			}
 
-			if (!$this->knittingNeeded($item->label)): // if the parsed label is constant
+			// if the parsed label is constant or exists
+			if (!$this->knittingNeeded($item->label) && !$item->label_parsed):
 				$markdown = $this->parsedown->text($item->label);
 				$item->label_parsed = $markdown;
 				if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
@@ -1177,8 +1265,8 @@ class Survey extends RunUnit {
 		$add_choices->bindParam(":study_id", $this->id);
 
 		foreach ($this->SPR->choices AS $choice) {
-			if(isset($choice['list_name']) AND isset($choice['name']) AND isset($choice['label'])):
-				if (!$this->knittingNeeded($choice['label'])): // if the parsed label is constant
+			if (isset($choice['list_name']) AND isset($choice['name']) AND isset($choice['label'])):
+				if (!$this->knittingNeeded($choice['label']) && empty($choice['label_parsed'])): // if the parsed label is constant
 					$markdown = $this->parsedown->text($choice['label']); // transform upon insertion into db instead of at runtime
 
 					if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)):
@@ -1194,7 +1282,7 @@ class Survey extends RunUnit {
 				$add_choices->execute();
 			endif;
 		}
-		if($deleted > 0) {
+		if ($deleted > 0) {
 			$this->messages[] = $deleted . " old choices deleted.";
 			$this->messages[] = count($this->SPR->choices) . " new choices were successfully loaded.";
 		}
@@ -1329,7 +1417,7 @@ class Survey extends RunUnit {
 	 * @return array
 	 */
 	public function getItemDisplayResults($items = array(), $session = null) {
-		$select =  $this->dbh->select('
+		$select = $this->dbh->select('
 		`survey_run_sessions`.session,
 		`survey_items`.name,
 		`survey_items_display`.session_id as unit_session_id,
@@ -1344,17 +1432,17 @@ class Survey extends RunUnit {
 		`survey_items_display`.displaycount,
 		`survey_items_display`.display_order,
 		`survey_items_display`.hidden');
-		
+
 		$select->from('survey_items_display')
-			->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
-			->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
-			->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
-			->where('survey_items.study_id = :study_id')
-			->order('survey_run_sessions.session')
-			->order('survey_run_sessions.created')
-			->order('survey_unit_sessions.created')
-			->order('survey_items_display.display_order')
-			->bindParams(array('study_id' => $this->id));
+				->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
+				->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
+				->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
+				->where('survey_items.study_id = :study_id')
+				->order('survey_run_sessions.session')
+				->order('survey_run_sessions.created')
+				->order('survey_unit_sessions.created')
+				->order('survey_items_display.display_order')
+				->bindParams(array('study_id' => $this->id));
 
 		if ($items) {
 			$select->whereIn('survey_items.name', $items);

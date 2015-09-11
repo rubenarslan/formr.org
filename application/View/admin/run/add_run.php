@@ -37,7 +37,7 @@ Template::load('acp_nav');
 	<div class="col-md-8 col-lg-offset-1 well">
 		<h2><i class="fa fa-question-circle"></i> Help</h2>
 		
-		<?php Template::load('run_module_explanations'); ?>
+		<?php Template::load('public/documentation/run_module_explanations'); ?>
 	</div>
 	
 </div>
