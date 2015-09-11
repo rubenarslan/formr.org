@@ -270,10 +270,10 @@ class Survey extends RunUnit {
 				shown_relative = :shown_relative,
 				answered = :answered,
 				answered_relative = :answered_relative,
-				displaycount = COALESCE(displaycount,0) + 1,
+				displaycount = COALESCE(displaycount,1),
 				hidden = :hidden
 				WHERE item_id = :item_id AND
-				session_id = :session_id");
+				session_id = :session_id"); # fixme: displaycount starts at 2
 		$survey_items_display->bindParam(":session_id", $this->session_id);
 
 		try {
