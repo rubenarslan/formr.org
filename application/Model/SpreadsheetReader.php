@@ -696,9 +696,9 @@ class SpreadsheetReader {
 
 			endforeach; // cell loop
 
-			$data[$row_number]["order"] = $row_number - 1;
-			if (!isset($data[$row_number]["item_order"])): // if no order is entered, use row_number
-				$data[$row_number]["item_order"] = $row_number - 1;
+			$data[$row_number][ "order"] = $row_number-1;			
+			if(!isset($data[$row_number][ "item_order"]) OR trim($data[$row_number][ "item_order"])===""): // if no order is entered, use row_number
+				$data[$row_number][ "item_order"] = $row_number-1;
 			endif;
 			// row has been put into array
 #			if(!isset($data[$row_number]['id'])) $data[$row_number]['id'] = $row_number;
