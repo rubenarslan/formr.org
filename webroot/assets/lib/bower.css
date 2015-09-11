@@ -8650,9 +8650,10 @@ Original style from softwaremaniacs.org (c) Ivan Sagalaev <Maniac@SoftwareManiac
 .hljs-constant,
 .hljs-parent,
 .hljs-tag .hljs-value,
-.hljs-rules .hljs-value,
+.hljs-rule .hljs-value,
 .hljs-preprocessor,
 .hljs-pragma,
+.hljs-name,
 .haml .hljs-symbol,
 .ruby .hljs-symbol,
 .ruby .hljs-symbol .hljs-string,
@@ -8663,6 +8664,7 @@ Original style from softwaremaniacs.org (c) Ivan Sagalaev <Maniac@SoftwareManiac
 .hljs-flow,
 .hljs-stream,
 .bash .hljs-variable,
+.pf .hljs-variable,
 .apache .hljs-tag,
 .apache .hljs-cbracket,
 .tex .hljs-command,
@@ -8670,7 +8672,8 @@ Original style from softwaremaniacs.org (c) Ivan Sagalaev <Maniac@SoftwareManiac
 .erlang_repl .hljs-function_or_atom,
 .asciidoc .hljs-header,
 .markdown .hljs-header,
-.coffeescript .hljs-attribute {
+.coffeescript .hljs-attribute,
+.tp .hljs-variable {
   color: #800;
 }
 
@@ -8703,7 +8706,6 @@ Original style from softwaremaniacs.org (c) Ivan Sagalaev <Maniac@SoftwareManiac
 }
 
 .hljs-label,
-.hljs-javadoc,
 .ruby .hljs-string,
 .hljs-decorator,
 .hljs-filter .hljs-argument,
@@ -8739,13 +8741,11 @@ Original style from softwaremaniacs.org (c) Ivan Sagalaev <Maniac@SoftwareManiac
 .hljs-title,
 .hljs-built_in,
 .css .hljs-tag,
-.hljs-javadoctag,
-.hljs-phpdoc,
-.hljs-dartdoc,
-.hljs-yardoctag,
+.hljs-doctag,
 .smalltalk .hljs-class,
 .hljs-winutils,
 .bash .hljs-variable,
+.pf .hljs-variable,
 .apache .hljs-tag,
 .hljs-type,
 .hljs-typename,
@@ -8753,12 +8753,15 @@ Original style from softwaremaniacs.org (c) Ivan Sagalaev <Maniac@SoftwareManiac
 .asciidoc .hljs-strong,
 .markdown .hljs-strong,
 .hljs-request,
-.hljs-status {
+.hljs-status,
+.tp .hljs-data,
+.tp .hljs-io {
   font-weight: bold;
 }
 
 .asciidoc .hljs-emphasis,
-.markdown .hljs-emphasis {
+.markdown .hljs-emphasis,
+.tp .hljs-units {
   font-style: italic;
 }
 
@@ -8778,15 +8781,12 @@ Original style from softwaremaniacs.org (c) Ivan Sagalaev <Maniac@SoftwareManiac
 }
 
 /*
-Version: 3.5.2 Timestamp: Sat Nov  1 14:43:36 EDT 2014
+Version: 3.5.4 Timestamp: Sun Aug 30 13:30:32 EDT 2015
 */
 .select2-container {
     margin: 0;
     position: relative;
     display: inline-block;
-    /* inline-block for ie7 */
-    zoom: 1;
-    *display: inline;
     vertical-align: middle;
 }
 
@@ -8967,10 +8967,6 @@ html[dir="rtl"] .select2-container .select2-choice > .select2-chosen {
     width: auto;
 }
 
-.select2-drop-auto-width .select2-search {
-    padding-top: 4px;
-}
-
 .select2-container .select2-choice .select2-arrow {
     display: inline-block;
     width: 18px;
@@ -9022,8 +9018,7 @@ html[dir="rtl"] .select2-container .select2-choice .select2-arrow b {
     width: 100%;
     min-height: 26px;
     margin: 0;
-    padding-left: 4px;
-    padding-right: 4px;
+    padding: 4px 4px 0 4px;
 
     position: relative;
     z-index: 10000;
@@ -9067,10 +9062,6 @@ html[dir="rtl"] .select2-search input {
     background: url('select2.png') no-repeat -37px -22px, -webkit-linear-gradient(top, #fff 85%, #eee 99%) 0 0;
     background: url('select2.png') no-repeat -37px -22px, -o-linear-gradient(top, #fff 85%, #eee 99%) 0 0;
     background: url('select2.png') no-repeat -37px -22px, linear-gradient(to bottom, #fff 85%, #eee 99%) 0 0;
-}
-
-.select2-drop.select2-drop-above .select2-search input {
-    margin-top: 4px;
 }
 
 .select2-search input.select2-active {

@@ -99,7 +99,7 @@ grunt.initConfig({
 		cssDest: 'lib/bower.css',
 		exclude: [
 			'ace-builds',
-			'webshim'
+			'webshim',
 		],
 		bowerOptions: {
 		  relative: true
