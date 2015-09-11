@@ -187,6 +187,7 @@ class Survey extends RunUnit {
 			return false;
 		} elseif ($survey->valid && Site::getCurrentUser()->created($survey)) {
 			$created['id'] = $survey->id;
+			$created['unit_id'] = $survey->id;
 		} else {
 			$survey->unit = array(
 				'user_id' => Site::getCurrentUser()->id,
@@ -1552,8 +1553,9 @@ class Survey extends RunUnit {
 				$dialog .= '<option value=""></option>';
 			foreach ($studies as $study):
 				$selected = "";
-				if ($this->id === $study['id'])
-					$selected = "selected";
+				if ($this->id === $study['id']) {
+					$selected = 'selected = "selected"';
+				}
 				$dialog .= "<option value=\"{$study['id']}\" $selected>{$study['name']}</option>";
 			endforeach;
 			$dialog .= "</select>";
