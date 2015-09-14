@@ -472,7 +472,7 @@
 					 * @TODO Ajaxify this upload if necessary
 					 */
 					var $form = $(this).parents('form');
-					$form.find('input[name=position]').val(module.getMaxPosition() + 10)
+					$form.find('input[name=position]').val(module.getMaxPosition() + 10);
 					$form.submit();
 					return true;
 				});
