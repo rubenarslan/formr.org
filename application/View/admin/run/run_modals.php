@@ -75,6 +75,7 @@
     <div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="ImportUnits" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
+				<form action="<?php echo admin_run_url($run->name, 'import'); ?>" enctype="multipart/form-data" method="post">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
                     <h3>JSON import of modules</h3>
@@ -83,10 +84,11 @@
                     <div>%{content}</div>
 					<div class="clearfix"></div>
                 </div>
-            <div class="modal-footer">
-                <button class="btn btn-success confirm-import" aria-hidden="true">Import</button>
-                <button class="btn cancel-import" data-dismiss="modal" aria-hidden="true">Close</button>
-            </div>
+				<div class="modal-footer">
+					<button class="btn btn-success confirm-import" aria-hidden="true" type="submit">Import</button>
+					<button class="btn cancel-import" data-dismiss="modal" aria-hidden="true" type="b">Close</button>
+				</div>
+			</form>
         </div>
     </div>
 </script>

@@ -465,33 +465,16 @@
 
 			$modal.on('shown.bs.modal', function () {
 				$modal.find('.confirm-import').click(function (e) {
-					var json_string = $.trim($modal.find('textarea').val());
-					if (!json_string)
-						return;
+					e.preventDefault();
 					$(this).html(bootstrap_spinner());
-					$.ajax({
-						url: module.url + '/ajax_run_import',
-						dataType: 'json',
-						method: 'post',
-						data: {string: json_string, position: module.getMaxPosition() + 10},
-						success: $.proxy(function (data, textStatus) {
-							bootstrap_alert('Import completed', 'Success', '.main_body', 'alert-success');
-							$modal.find('.cancel-import').trigger('click');
-							// better reload page after import not to mess up with JS objects
-							location.reload();
-							/*
-							 $.each(data, function (position, html) {
-							 var unit = new RunUnit(module);
-							 module.units.push(unit);
-							 unit.init(html);
-							 });
-							 */
-						}, this),
-						error: function (e, x, settings, exception) {
-							$modal.find('.cancel-import').trigger('click');
-							ajaxErrorHandling(e, x, settings, exception);
-						}
-					});
+					/**
+					 * 
+					 * @TODO Ajaxify this upload if necessary
+					 */
+					var $form = $(this).parents('form');
+					$form.find('input[name=position]').val(module.getMaxPosition() + 10)
+					$form.submit();
+					return true;
 				});
 			}).on('hidden.bs.modal', function () {
 				$modal.remove();

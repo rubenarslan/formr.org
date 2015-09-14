@@ -614,7 +614,7 @@ function get_run_dir_contents($dir) {
 		$file_contents = file_get_contents($file);
 		$json = json_decode($file_contents);
 		if ($json) {
-			$contents[] = $json;
+			$contents[basename($file)] = $json->name;
 		}
 	}
 	return $contents;
