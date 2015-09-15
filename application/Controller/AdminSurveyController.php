@@ -29,21 +29,44 @@ class AdminSurveyController extends AdminController {
 	}
 
 	public function addSurveyAction() {
-		if (!empty($_POST) AND ! isset($_FILES['uploaded'])) {
+		$settings = $params = array();
+		if (Request::isHTTPPostRequest() && $this->request->google_sheet && $this->request->survey_name) {
+			preg_match('/spreadsheets\/d\/(.*)\/edit/', $this->request->google_sheet, $matches);
+			if (!empty($matches[1])) {
+				$google_id = $matches[1];
+				$destination = Config::get('survey_upload_dir') . '/google-' . $google_id . '.xlsx';
+				$sheet = download_google_sheet($google_id, $destination);
+				if ($sheet) {
+					$params['google_file_id'] = $sheet['google_id'];
+					$file = array(
+						'name' => $this->request->survey_name . '.xlsx',
+						'tmp_name' => $sheet['file'],
+						'size' => filesize($sheet['file'])
+					);
+				} else {
+					alert("Unable to download the file at '{$this->request->google_sheet}'", 'alert-danger');
+				}
+			}
+
+		} elseif (Request::isHTTPPostRequest() && !isset($_FILES['uploaded'])) {
 			alert('<strong>Error:</strong> You have to select an item table file here.', 'alert-danger');
 		} elseif (isset($_FILES['uploaded'])) {
+			$file = $_FILES['uploaded'];
+		}
+
+		if (!empty($file)) {
 			unset($_SESSION['study_id']);
 			unset($_GET['study_name']);
 
-			$filename = basename($_FILES['uploaded']['name']);
+			$filename = basename($file['name']);
 			$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", $filename); // take only the first part, before the dash if present or the dot
 
 			$study = new Survey($this->fdb, null, array(
 				'name' => $survey_name,
 				'user_id' => $this->user->id
 			), null, null);
-			if ($study->createIndependently()) {
-				if ($study->uploadItemTable($_FILES['uploaded'], $survey_name)) {
+			if ($study->createIndependently($settings, $params)) {
+				if ($study->uploadItemTable($file, $survey_name)) {
 					alert('<strong>Success!</strong> New survey created!', 'alert-success');
 					redirect_to("admin/survey/{$study->name}/show_item_table");
 				} else {
@@ -80,7 +103,24 @@ class AdminSurveyController extends AdminController {
 
 	private function uploadItemsAction() {
 		$study = $this->study;
-		if (!empty($_POST) AND ! isset($_FILES['uploaded'])) {
+		$vars = array(
+			'google_id' => $study->getGoogleFileId()
+		);
+		if (Request::isHTTPPostRequest() && $this->request->google_id) {
+			$google_id = $this->request->google_id;
+			$destination = Config::get('survey_upload_dir') . '/google-' . $google_id . '.xlsx';
+			$sheet = download_google_sheet($google_id, $destination);
+			if ($sheet) {
+				$params['google_file_id'] = $sheet['google_id'];
+				$file = array(
+					'name' => $study->name . '.xlsx',
+					'tmp_name' => $sheet['file'],
+					'size' => filesize($sheet['file'])
+				);
+			} else {
+				alert("Unable to download the file at '{$this->request->google_sheet}'", 'alert-danger');
+			}
+		} elseif (Request::isHTTPPostRequest() && !isset($_FILES['uploaded'])) {
 			alert('<strong>Error:</strong> You have to select an item table file here.', 'alert-danger');
 		} elseif (isset($_FILES['uploaded'])) {
 			$filename = basename($_FILES['uploaded']['name']);
@@ -89,12 +129,14 @@ class AdminSurveyController extends AdminController {
 			if ($study->name !== $survey_name) {
 				alert('<strong>Error:</strong> The uploaded file name <code>' . htmlspecialchars($survey_name) . '</code> did not match the study name <code>' . $study->name . '</code>.', 'alert-danger');
 			} else {
-				if ($study->uploadItemTable($_FILES['uploaded'], $_POST['delete_confirm'])) {
-					redirect_to(admin_study_url($study->name, 'show_item_table'));
-				}
+				$file = $_FILES['uploaded'];
 			}
 		}
-		$this->renderView('survey/upload_items');
+
+		if (!empty($file) && $study->uploadItemTable($file, $_POST['delete_confirm'])) {
+			redirect_to(admin_study_url($study->name, 'show_item_table'));
+		}
+		$this->renderView('survey/upload_items', $vars);
 	}
 
 	private function showItemTableAction() {
@@ -161,9 +203,9 @@ class AdminSurveyController extends AdminController {
 		if ($format == 'original') {
 			$filename = $study->getOriginalFileName();
 			$file = Config::get('survey_upload_dir') . '/' . $filename;
-			if (!file_exists($file)) {
+			if (!is_file($file)) {
 				alert('The original file could not be found. Try another format', 'alert-danger');
-				redirect(admin_study_url($study->name));
+				redirect_to(admin_study_url($study->name));
 			}
 
 			$type = 'application/vnd.ms-excel';

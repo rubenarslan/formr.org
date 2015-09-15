@@ -228,7 +228,7 @@ class CURL {
 	 *
 	 * @param string $url url to download
 	 * @param string $output_file path there to save the result
-	 * param Array $ params request parameters (GET or POST)
+	 * @param Array $ params request parameters (GET or POST)
 	 * @param string $method http method (GET/POST)
 	 * @param array $options curl extra options
 	 * @param array &$info curl_getinfo() results stored here
