@@ -151,8 +151,6 @@ class AdminRunController extends AdminController {
 			$users[] = $userx;
 		}
 
-		session_over($this->site, $this->user);
-
 		$vars = get_defined_vars();
 		$this->renderView('run/user_overview', $vars);
 	}
@@ -239,8 +237,6 @@ class AdminRunController extends AdminController {
 			$users[] = $userx;
 		}
 
-		session_over($this->site, $this->user);
-
 		$vars = get_defined_vars();
 		$this->renderView('run/user_detail', $vars);
 	}
@@ -282,7 +278,6 @@ class AdminRunController extends AdminController {
 	}
 
 	private function randomGroupsExportAction() {
-		session_over($this->site, $this->user);
 		$run = $this->run;
 
 		$g_users = $run->getRandomGroups();
@@ -348,7 +343,6 @@ class AdminRunController extends AdminController {
 	private function overviewAction() {
 		$run = $this->run;
 
-		session_over($this->site, $this->user);
 		$this->renderView('run/overview', array(
 			'users' => $run->getNumberOfSessionsInRun(),
 			'overview_script' => $run->getOverviewScript(),
@@ -414,7 +408,6 @@ class AdminRunController extends AdminController {
 			unset($email['body']);
 			$emails[] = $email;
 		}
-		session_over($this->site, $this->user);
 
 		$vars = get_defined_vars();
 		$this->renderView('run/email_log', $vars);
@@ -506,7 +499,6 @@ class AdminRunController extends AdminController {
 
 			$cronlogs[] = $cronlog;
 		}
-		session_over($this->site, $this->user);
 
 		$vars = get_defined_vars();
 		$this->renderView('run/cron_log', $vars);

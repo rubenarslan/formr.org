@@ -17,7 +17,7 @@ class AdminController extends Controller {
 	public function infoAction() {
 		$this->renderView('misc/info');
 	}
-
+/*
 	public function cronAction() {
 		$this->renderView('misc/cron', array("fdb"=> $this->fdb));
 	}
@@ -25,7 +25,7 @@ class AdminController extends Controller {
 	public function cronForkedAction() {
 		$this->renderView('misc/cron_forked');
 	}
-
+*/
 	public function testOpencpuAction() {
 		$this->renderView('misc/test_opencpu');
 	}

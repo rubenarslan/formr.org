@@ -243,7 +243,7 @@ formr robots";
 			$mail->Subject = 'formr: forgot password';
 			$mail->Body = "Dear user,
 
-you, or someone else used the forgotten password box on " . WEBROOT . "
+you, or someone else used the forgotten password box on " . site_url() . "
 to create a link for you to reset your password. 
 If that was you, you can go to this link (within two days)
 to choose a new password:
@@ -267,8 +267,7 @@ formr robots";
 
 	function logout() {
 		$this->logged_in = false;
-		session_unset();	 // unset $_SESSION variable for the run-time
-		session_destroy();   // destroy session data in storage
+		Session::destroy();
 	}
 
 	public function changePassword($password, $new_password) {

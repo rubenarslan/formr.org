@@ -2,9 +2,24 @@
 
 class RunSession {
 
+	public $id;
+	public $run_id;
+	public $user_id;
 	public $session = null;
-	public $id, $run_id, $ended, $position, $current_unit_type, $user_id, $created, $run_name, $run_owner_id, $run,$unit_session;
+	public $created;
+	public $ended;
+	public $last_access;
+	public $position;
+	public $current_unit_id;
+	public $deactivated;
+	public $no_mail;
+	public $current_unit_type;
+	public $run_name;
+	public $run_owner_id;
+	public $run;
+	public $unit_session;
 	private $cron = false;
+
 	/**
 	 * @var DB
 	 */
@@ -15,15 +30,15 @@ class RunSession {
 		$this->session = $session;
 		$this->run_id = $run_id;
 		$this->run = $run;
-		if ($user_id == 'cron'):
+		if ($user_id == 'cron') {
 			$this->cron = true;
-		else:
+		} else {
 			$this->user_id = $user_id;
-		endif;
+		}
 
-		if ($this->session != null AND $this->run_id != null): // called with null in constructor if they have no session yet
+		if ($this->session && $this->run_id) {// called with null in constructor if they have no session yet
 			$this->load();
-		endif;
+		}
 	}
 
 	private function load() {
@@ -34,13 +49,15 @@ class RunSession {
 			`survey_run_sessions`.run_id, 
 			`survey_run_sessions`.created, 
 			`survey_run_sessions`.ended, 
-			`survey_run_sessions`.position, 
+			`survey_run_sessions`.position,
+			`survey_run_sessions`.last_access,
+			`survey_run_sessions`.no_mail,
 			`survey_runs`.name AS run_name,
 			`survey_runs`.user_id AS run_owner_id')
-		->from('survey_run_sessions')
-		->leftJoin('survey_runs', 'survey_runs.id = survey_run_sessions.run_id')
-		->where(array('run_id' => $this->run_id, 'session' => $this->session))
-		->limit(1)->fetch();
+						->from('survey_run_sessions')
+						->leftJoin('survey_runs', 'survey_runs.id = survey_run_sessions.run_id')
+						->where(array('run_id' => $this->run_id, 'session' => $this->session))
+						->limit(1)->fetch();
 
 		if ($sess_array) {
 			$this->id = $sess_array['id'];
@@ -52,6 +69,8 @@ class RunSession {
 			$this->position = $sess_array['position'];
 			$this->run_name = $sess_array['run_name'];
 			$this->run_owner_id = $sess_array['run_owner_id'];
+			$this->last_access = $sess_array['last_access'];
+			$this->no_mail = $sess_array['no_mail'];
 
 			if (!$this->cron) {
 				$this->dbh->update('survey_run_sessions', array('last_access' => mysql_now()), array('id' => $this->id));
@@ -61,11 +80,13 @@ class RunSession {
 
 		return false;
 	}
+
 	public function getLastAccess() {
 		return $this->dbh->select('last_access')
-			->from('survey_run_sessions')
-			->where(array('id' => $this->id));
+						->from('survey_run_sessions')
+						->where(array('id' => $this->id));
 	}
+
 	public function create($session = NULL) {
 		if ($session !== NULL) {
 			if (strlen($session) != 64) {
@@ -97,7 +118,7 @@ class RunSession {
 			if ($i > 80) {
 				global $user;
 				if ($user->isCron() OR $user->isAdmin()) {
-					if(isset($unit))
+					if (isset($unit))
 						alert(print_r($unit, true), 'alert-danger');
 				}
 				alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?', 'alert-danger');
@@ -105,7 +126,7 @@ class RunSession {
 			}
 
 			$unit_info = $this->getCurrentUnit(); // get first unit in line
-			if ($unit_info) {		 // if there is one, spin that shit
+			if ($unit_info) {   // if there is one, spin that shit
 				if ($this->cron) {
 					$unit_info['cron'] = true;
 				}
@@ -118,9 +139,8 @@ class RunSession {
 					if (!isset($done[$unit->type])) {
 						$done[$unit->type] = 0;
 					}
-					$done[$unit->type]++;
+					$done[$unit->type] ++;
 				}
-
 			} else {
 				if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
 					return array('body' => ''); // if that fails because the run is wrongly configured, return nothing
@@ -148,8 +168,10 @@ class RunSession {
 		if ($unit):
 			$unit_factory = new RunUnitFactory();
 			$unit = $unit_factory->make($this->dbh, null, $unit, $this, $this->run);
-			if($unit->type == "Survey") $unit->expire();
-			else $unit->end();	 // cancel it
+			if ($unit->type == "Survey")
+				$unit->expire();
+			else
+				$unit->end();  // cancel it
 		endif;
 
 		if ($this->runTo($position)):
@@ -192,14 +214,14 @@ class RunSession {
 			`survey_unit_sessions`.id AS session_id,
 			`survey_unit_sessions`.created,
 			`survey_units`.type')
-		->from('survey_unit_sessions')
-		->leftJoin('survey_units', 'survey_unit_sessions.unit_id = survey_units.id')
-		->where('survey_unit_sessions.run_session_id = :run_session_id')
-		->where('survey_unit_sessions.unit_id = :unit_id')
-		->where('survey_unit_sessions.ended IS NULL') //so we know when to runToNextUnit
-		->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
-		->order('survey_unit_sessions`.id', 'desc')
-		->limit(1);
+				->from('survey_unit_sessions')
+				->leftJoin('survey_units', 'survey_unit_sessions.unit_id = survey_units.id')
+				->where('survey_unit_sessions.run_session_id = :run_session_id')
+				->where('survey_unit_sessions.unit_id = :unit_id')
+				->where('survey_unit_sessions.ended IS NULL') //so we know when to runToNextUnit
+				->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
+				->order('survey_unit_sessions`.id', 'desc')
+				->limit(1);
 
 		$unit = $query->fetch();
 
@@ -216,7 +238,7 @@ class RunSession {
 			$unit['run_name'] = $this->run_name;
 			$unit['run_session_id'] = $this->id;
 			$this->unit_session = new UnitSession($this->dbh, $this->id, $unit['unit_id'], $unit['session_id']);
-				return $unit;
+			return $unit;
 		endif;
 		return false;
 	}

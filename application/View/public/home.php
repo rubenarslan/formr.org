@@ -10,7 +10,7 @@
 					chain simple forms &amp; surveys into long runs, use the power of <abbr title="A statistics environment. Nice plots abound!">R</abbr> to generate pretty feedback and complex designs
 			</p>
 			<p>
-				<a class="btn btn-primary btn-lg" role="button" href="<?=WEBROOT?>public/register">Sign up (it's free!)</a>
+				<a class="btn btn-primary btn-lg" role="button" href="<?php echo site_url('public/register'); ?>">Sign up (it's free!)</a>
 			</p>
 		</div>
 		<div class="">
@@ -20,20 +20,20 @@
 			</ul>
 			<div class="tab-content">
 				<div class="well tab-pane fade" id="features">
-					<?php Template::load('features'); ?>
+					<?php Template::load('public/documentation/features'); ?>
 				</div>
 				
 				<div class="well tab-pane fade in active" id="options">
 					<ul class="fa-ul lead">
 						<li><i class="fa fa-li fa-plug"></i> 
-							You can <a href="<?=WEBROOT?>public/register">register</a> for free and use formr to conduct your own studies. 
+							You can <a href="<?php echo site_url('public/register'); ?>">register</a> for free and use formr to conduct your own studies. 
 						</li>
 						<li>
-							<i class="fa fa-li fa-pencil-square"></i> You can <a href="<?=WEBROOT?>public/studies">take some of the published studies for a test run</a>.
+							<i class="fa fa-li fa-pencil-square"></i> You can <a href="<?php echo site_url('public/studies'); ?>">take some of the published studies for a test run</a>.
 						</li>
 						<li>
 							<i class="fa fa-li fa-file"></i> 
-							You can read the <a href="<?=WEBROOT?>public/documentation" title="hopefully you'll get some idea of what formr can do for you">super exciting docs</a>.
+							You can read the <a href="<?php echo site_url('public/documentation'); ?>" title="hopefully you'll get some idea of what formr can do for you">super exciting docs</a>.
 						</li>
 						<li>
 							<i class="fa fa-li fa-life-ring"></i> 

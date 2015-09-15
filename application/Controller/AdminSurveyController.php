@@ -109,7 +109,6 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function showResultsAction() {
-		session_over($this->site, $this->user);
 		$this->renderView('survey/show_results', array(
 			'resultCount' => $this->study->getResultCount(),
 			'results' => $this->study->getResults(),
@@ -151,7 +150,6 @@ class AdminSurveyController extends AdminController {
 
 	private function exportItemTableAction() {
 		$study = $this->study;
-		session_over($this->site, $this->user);
 
 		$format = $this->request->getParam('format');
 		if (!$format || !in_array($format, array("xlsx", "xls", "json"))) {
@@ -171,7 +169,6 @@ class AdminSurveyController extends AdminController {
 
 	private function exportItemdisplayAction() {
 		$study = $this->study;
-		session_over($this->site, $this->user);
 
 		$results = $study->getItemDisplayResults();
 		if (!count($results)) {
@@ -202,8 +199,6 @@ class AdminSurveyController extends AdminController {
 
 	private function exportResultsAction() {
 		$study = $this->study;
-		session_over($this->site, $this->user);
-
 		$results = $study->getResults();
 
 		$SPR = new SpreadsheetReader();

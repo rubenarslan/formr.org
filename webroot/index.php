@@ -1,5 +1,7 @@
 <?php
 require_once '../define_root.php';
+
+// General PHP-side configuration
 error_reporting(-1);
 if (DEBUG > 0) {
     ini_set('display_errors', 1);
@@ -18,44 +20,51 @@ date_default_timezone_set(Config::get('timezone'));
 mb_internal_encoding('UTF-8');
 register_shutdown_function('shutdown_formr_org');
 
-$site = Site::getInstance();
+// Start formr session
+Session::configure();
+Session::start();
+
+// Define SITE object
+/** @var Site $site */
+if (($site = Session::get('site')) && is_object($site)) {
+	$site->updateRequestObject();
+} else {
+	$site = Site::getInstance();
+	Session::set('site', $site);
+}
+
+// Create DB connection
 $fdb = DB::getInstance();
 
-$site->start_session();
-if (isset($_SESSION['site']) AND is_object($_SESSION['site'])): // first we see what's in that session
-	$site = $_SESSION['site']; // if we already have a site object, possibly with alerts and referrers, we use that instead
-    $site->updateRequestObject();
-endif;
+// Set current user
+if (($usr = Session::get('user'))) {
+    $user = unserialize($usr);
+	// This segment basically checks whether the user-specific expiry time was met
+	// If user session is expired, user is logged out and redirected
+	if (!empty($user->id) && !$site->expire_session(Config::get('expire_registered_session'))) { // logged in user
+		// refresh user object if not expired
+		$user = new User($fdb, $user->id, $user->user_code);
+		// admins have a different expiry, can only be lower
+		if ($user->isAdmin() && $site->expire_session(Config::get('expire_admin_session'))) {
+			unset($user);
+		}
+	} elseif (!empty($user->user_code) && !$site->expire_session(Config::get('expire_unregistered_session'))) { // visitor
+		// refresh user object
+		$user = new User($fdb, null, $user->user_code);
+	}
+}
+// we were unable to get 'proper' user from session
+if (empty($user->user_code)) {
+	$user = new User($fdb, null, null);
+}
 
-if (isset($_SESSION['user'])):
-    $sess_user = unserialize($_SESSION['user']);
-
-    // this segment basically checks whether the user-specific expiry time was met
-    if (isset($sess_user->id)): // logged in user
-        if (!$site->expire_session(Config::get('expire_registered_session'))): // if not expired: recreate user object
-            $user = new User($fdb, $sess_user->id, $sess_user->user_code);
-
-            if ($user->isAdmin()):
-                if ($site->expire_session(Config::get('expire_admin_session'))): // admins have a different expiry, can only be lower
-                    unset($user);
-                endif;
-            endif;
-        endif;
-    elseif (isset($sess_user->user_code)):
-        if (!$site->expire_session(Config::get('expire_unregistered_session'))):
-            $user = new User($fdb, null, $sess_user->user_code);
-        endif;
-    endif;
-endif;
-
-$_SESSION['last_activity'] = time(); // update last activity time stamp
+// update session
+Session::set('last_activity', time());
+Session::set('user', serialize($user));
 
 $site->refresh();
 
-if (!isset($user)):
-    $user = new User($fdb, null, null);
-endif;
-
+// Route request
 try {
 	$router = Router::getInstance()->route();
 	$router->execute();

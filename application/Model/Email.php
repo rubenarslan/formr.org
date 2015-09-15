@@ -354,14 +354,36 @@ class Email extends RunUnit {
 		$this->run_session_id = null;
 	}
 
+	private function sessionCanReceiveMails() {
+		// If not executing under a run session or no_mail is null the user can receive email
+		if (!$this->run_session || $this->run_session->no_mail === null) {
+			return true;
+		}
+
+		// If no mail is 0 then user has choose not to receive emails
+		if ((int)$this->run_session->no_mail === 0) {
+			return false;
+		}
+
+		// If no_mail is set && the timestamp is less that current time then the snooze period has expired
+		if ($this->run_session->no_mail <= time()) {
+			return true;
+		}
+
+		return false;
+	}
+
 	public function exec() {
+		if (!$this->sessionCanReceiveMails()) {
+			return array('body' => "Session '{$this->run_session->session}' cannot receive mails");
+		}
+
 		$err = $this->sendMail();
-		if ($this->mail_sent):
+		if ($this->mail_sent) {
 			$this->end();
 			return false;
-		else:
-			return array('body' => $err);
-		endif;
+		}
+		return array('body' => $err);
 	}
 
 }

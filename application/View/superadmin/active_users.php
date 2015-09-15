@@ -3,7 +3,6 @@
     Template::load('acp_nav');
 ?>
 <h2>formr user activity</h2>
-<?php session_over($site, $user); ?>
 
 	<?php
 	
