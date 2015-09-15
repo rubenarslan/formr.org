@@ -99,6 +99,7 @@ class Autoload {
 			'RunSession' => APPLICATION_PATH . 'Model/RunSession.php',
 			'RunUnit' => APPLICATION_PATH . 'Model/RunUnit.php',
 			'RunUnitFactory' => APPLICATION_PATH . 'Model/RunUnit.php',
+			'Session' => APPLICATION_PATH . 'Library/Session.php',
 			'Shuffle' => APPLICATION_PATH . 'Model/Shuffle.php',
 			'Site' => APPLICATION_PATH . 'Model/Site.php',
 			'SkipBackward' => APPLICATION_PATH . 'Model/SkipBackward.php',

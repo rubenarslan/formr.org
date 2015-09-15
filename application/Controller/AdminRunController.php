@@ -151,8 +151,6 @@ class AdminRunController extends AdminController {
 			$users[] = $userx;
 		}
 
-		session_over($this->site, $this->user);
-
 		$vars = get_defined_vars();
 		$this->renderView('run/user_overview', $vars);
 	}
@@ -239,8 +237,6 @@ class AdminRunController extends AdminController {
 			$users[] = $userx;
 		}
 
-		session_over($this->site, $this->user);
-
 		$vars = get_defined_vars();
 		$this->renderView('run/user_detail', $vars);
 	}
@@ -282,7 +278,6 @@ class AdminRunController extends AdminController {
 	}
 
 	private function randomGroupsExportAction() {
-		session_over($this->site, $this->user);
 		$run = $this->run;
 
 		$g_users = $run->getRandomGroups();
@@ -348,7 +343,6 @@ class AdminRunController extends AdminController {
 	private function overviewAction() {
 		$run = $this->run;
 
-		session_over($this->site, $this->user);
 		$this->renderView('run/overview', array(
 			'users' => $run->getNumberOfSessionsInRun(),
 			'overview_script' => $run->getOverviewScript(),
@@ -414,7 +408,6 @@ class AdminRunController extends AdminController {
 			unset($email['body']);
 			$emails[] = $email;
 		}
-		session_over($this->site, $this->user);
 
 		$vars = get_defined_vars();
 		$this->renderView('run/email_log', $vars);
@@ -506,7 +499,6 @@ class AdminRunController extends AdminController {
 
 			$cronlogs[] = $cronlog;
 		}
-		session_over($this->site, $this->user);
 
 		$vars = get_defined_vars();
 		$this->renderView('run/cron_log', $vars);
@@ -551,6 +543,38 @@ class AdminRunController extends AdminController {
 		} else {
 			redirect_to(admin_run_url($run->name));
 		}
+	}
+
+	private function importAction() {
+		if ($run_file = $this->request->getParam('run_file_name')) {
+			$file = Config::get('run_exports_dir') . '/' .  $run_file;
+		} elseif (!empty($_FILES['run_file'])) {
+			$file = $_FILES['run_file']['tmp_name'];
+		}
+
+		if (empty($file)) {
+			alert('Please select a run file or upload one', 'alert-danger');
+			return redirect_to(admin_run_url($this->run->name));
+		}
+
+		if (!file_exists($file)) {
+			alert('The corresponding import file could not be found or is not readable', 'alert-danger');
+			return redirect_to(admin_run_url($this->run->name));
+		}
+
+		$json_string = file_get_contents($file);
+		if (!$json_string) {
+			alert('Unable to extract JSON object from file', 'alert-danger');
+			return redirect_to(admin_run_url($this->run->name));
+		}
+
+		$start_position = $this->request->int('position', 1);
+
+		if ($this->run->importUnits($json_string, $start_position)) {
+			alert('Run modules imported successfully!', 'alert-success');
+		}
+
+		redirect_to(admin_run_url($this->run->name));
 	}
 
 }

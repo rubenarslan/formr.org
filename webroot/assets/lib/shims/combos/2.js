@@ -221,6 +221,7 @@ var swfmini = function() {
 }();
 
 webshims.isReady('swfmini', true);
+;
 //this might was already extended by ES5 shim feature
 (function($){
 	"use strict";
@@ -1456,7 +1457,7 @@ webshims.register('dom-extend', function($, webshims, window, document, undefine
 	
 })();
 });
-webshims.register('form-core', function ($, webshims, window, document, undefined, options) {
+;webshims.register('form-core', function($, webshims, window, document, undefined, options){
 	"use strict";
 
 	webshims.capturingEventPrevented = function(e){
@@ -1595,8 +1596,6 @@ webshims.register('form-core', function ($, webshims, window, document, undefine
 
 	var transClass = ('transitionDelay' in document.documentElement.style) ?  '' : ' no-transition';
 	var poCFG = webshims.cfg.wspopover;
-	var lReg = /</g;
-	var gReg = />/g;
 
 	addModule('form-validation', $.extend({d: ['form-message']}, formExtras));
 
@@ -1723,7 +1722,7 @@ webshims.register('form-core', function ($, webshims, window, document, undefine
 		var message = '';
 		var elem = this[0];
 		if(elem){
-			message = webshims.getContentValidationMessage(elem, false, key) || $.prop(elem, 'customValidationMessage') || ($.prop(elem, 'validationMessage') || '').replace(lReg, '&lt;').replace(gReg, '&gt;');
+			message = webshims.getContentValidationMessage(elem, false, key) || $.prop(elem, 'customValidationMessage') || ($.prop(elem, 'validationMessage') || '');
 		}
 		return message;
 	};
@@ -1771,7 +1770,7 @@ webshims.register('form-core', function ($, webshims, window, document, undefine
 		webshims.isReady('WINDOWLOAD', true);
 	}
 });
-webshims.register('form-datalist', function ($, webshims, window, document, undefined, options) {
+;webshims.register('form-datalist', function($, webshims, window, document, undefined, options){
 	"use strict";
 	var lazyLoad = function(name){
 		if(!name || typeof name != 'string'){
@@ -2068,7 +2067,7 @@ webshims.register('form-datalist', function ($, webshims, window, document, unde
 	})();
 	
 });
-(function (webshims) {
+;(function(webshims){
 	"use strict";
 	var support = webshims.support;
 	var hasNative = support.mediaelement;

@@ -52,9 +52,11 @@ function notify_user_error($error, $public_message = '') {
 }
 
 function redirect_to($location) {
+/*
 	global $site, $user;
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
+ */
 	if (strpos($location, 'index') !== false) {
 		$location = '';
 	}
@@ -67,6 +69,9 @@ function redirect_to($location) {
 			$location = $base . $location;
 		}
 	}
+
+	Session::globalRefresh();
+	Session::over();
 	header("Location: $location");
 	exit;
 }
@@ -76,40 +81,43 @@ function session_over($site, $user) {
 	if ($closed) {
 		return false;
 	}
-
+/*
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
-
+*/
 	session_write_close();
 	$closed = true;
 	return true;
 }
 
 function access_denied() {
+/*
 	global $site, $user;
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
-
+*/
 	header('HTTP/1.0 403 Forbidden');
 	Template::load('public/not_found');
 	exit;
 }
 
 function not_found() {
+/*
 	global $site, $user;
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
-
+*/
 	header('HTTP/1.0 404 Not Found');
 	Template::load('public/not_found');
 	exit;
 }
 
 function bad_request() {
+/*
 	global $site, $user;
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
-
+*/
 	header('HTTP/1.0 400 Bad Request');
 	Template::load('public/not_found');
 	exit;
@@ -614,7 +622,7 @@ function get_run_dir_contents($dir) {
 		$file_contents = file_get_contents($file);
 		$json = json_decode($file_contents);
 		if ($json) {
-			$contents[] = $json;
+			$contents[basename($file)] = $json->name;
 		}
 	}
 	return $contents;

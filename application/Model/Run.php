@@ -620,10 +620,9 @@ This study is currently being serviced. Please return at a later time."
 	}
 
 	private function fakeTestRun() {
-
-		if (isset($_SESSION['dummy_survey_session'])):
+		if ($session = Session::get('dummy_survey_session')):
 			$run_session = $this->makeDummyRunSession(self::TEST_RUN, "Survey");
-			$unit = new Survey($this->dbh, null, $_SESSION['dummy_survey_session'], $run_session, $this);
+			$unit = new Survey($this->dbh, null, $session, $run_session, $this);
 			$output = $unit->exec();
 
 			if (!$output):
@@ -633,7 +632,7 @@ This study is currently being serviced. Please return at a later time."
 					<p>You're finished with testing this survey.</p>
 					<a href='" . admin_study_url($_SESSION['dummy_survey_session']['survey_name'])  . "'>Back to the admin control panel.</a>";
 
-				unset($_SESSION['dummy_survey_session']);
+				Session::delete('dummy_survey_session');
 			endif;
 			return compact("output", "run_session");
 		else:
@@ -660,11 +659,6 @@ This study is currently being serviced. Please return at a later time."
 		elseif ($this->name == self::TEST_RUN):
 			extract($this->fakeTestRun());
 		else:
-/// fixme: legacy? UnitSession is never saved in _SESSION
-//			if ($user->loggedIn() AND isset($_SESSION['UnitSession']) AND $user->user_code !== unserialize($_SESSION['UnitSession'])->session):
-//				alert('<strong>Error.</strong> You seem to have switched sessions.', 'alert-danger');
-//				redirect_to('index');
-//			endif;
 
 			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
@@ -672,12 +666,11 @@ This study is currently being serviced. Please return at a later time."
 				($this->public >= 1 AND $run_session->id) OR // already enrolled
 				($this->public >= 2)) { // anyone with link can access
 
-				if ($run_session->id === NULL):
+				if ($run_session->id === null) {
 					$run_session->create($user->user_code);  // generating access code for those who don't have it but need it
-				endif;
-				global $site;
-				session_over($site, $user);
+				}
 
+				Session::globalRefresh();
 				$output = $run_session->getUnit();
 			} else {
 				$output = $this->getServiceMessage()->exec();

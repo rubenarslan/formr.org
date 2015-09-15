@@ -67,13 +67,10 @@ class PublicController extends Controller {
 		}
 
 		if($this->request->str('email') && $this->request->str('password')) {
-			if($this->user->login($this->request->str('email'), $this->request->str('password'))){
+			if($this->user->login($this->request->str('email'), $this->request->str('password'))) {
 				alert('<strong>Success!</strong> You were logged in!', 'alert-success');
-				if($this->user->isAdmin()) {
-					redirect_to('admin');
-				} else {
-					redirect_to('index');
-				}
+				Session::set('user', serialize($this->user));
+				$redirect = $this->user->isAdmin() ? redirect_to('admin') : redirect_to();
 			} else {
 				alert(implode($this->user->errors), 'alert-danger');
 			}
@@ -171,6 +168,58 @@ class PublicController extends Controller {
 		if ($run_vars) {
 			Template::load('public/run', $run_vars);
 		}
+	}
+
+	public function settingsAction($run_name = '') {
+		$run = new Run($this->fdb, $run_name);
+		if (!$run->valid) {
+			not_found();
+		}
+		// People who have no session in the run need not set anything
+		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code);
+		if (!$session->id) {
+			alert('A session for you could not be found in the study', 'alert-danger');
+			redirect_to('index');
+		}
+
+		$settings = array('no_email' => 1);
+		if (Request::isHTTPPostRequest()) {
+			$update = array();
+			$settings = array(
+				'no_email' => $this->request->getParam('no_email'),
+				'delete_cookie' => (int)$this->request->getParam('delete_cookie'),
+			);
+
+			if ($settings['no_email'] == 1) {
+				$update['no_email'] = null;
+			} elseif ($settings['no_email'] == 0) {
+				$update['no_email'] = 0;
+			} elseif ($ts = strtotime($settings['no_email'])) {
+				$update['no_email'] = $ts;
+			}
+
+			if ($update) {
+				$this->fdb->update('survey_run_sessions', $update, array('id' => $session->id));
+			}
+			$this->fdb->insert_update('survey_run_settings', array(
+				'run_session_id' => $session->id,
+				'settings' => json_encode($settings),
+			));
+			if ($settings['delete_cookie'])  {
+				alert('Your session was ended as requested! You need to login again', 'alert-warning');
+				Session::destroy();
+			}
+			alert('Settings saved successfully for survey "'.$run->name.'"', 'alert-success');
+		}
+
+		$row = $this->fdb->findRow('survey_run_settings', array('run_session_id' => $session->id));
+		if ($row) {
+			$settings = (array)json_decode($row['settings']);
+		}
+		Template::load('public/settings', array(
+			'run' => $run,
+			'settings' => $settings,
+		));
 	}
 }
 

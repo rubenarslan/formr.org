@@ -3,7 +3,6 @@ Template::load('header', array('js' => '<script src="' . asset_url('assets/js/ru
 Template::load('acp_nav');
 ?>	
 <h2>formr users</h2>
-<?php session_over($site, $user); ?>
 
 <?php if (!empty($users)): ?>
 	<table class='table table-striped'>

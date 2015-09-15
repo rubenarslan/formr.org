@@ -13,30 +13,30 @@
 	  <div class="collapse navbar-collapse" id="public-nav-collapse">
 		<ul class="nav navbar-nav menu-highlight">
 		    <li>
-				<a href="<?php echo site_url('public/documentation'); ?>"><i class="fa fa-file fa-fw"></i><?php echo _("documentation"); ?></a>
+				<a href="<?php echo site_url('documentation/'); ?>"><i class="fa fa-file fa-fw"></i><?php echo _("documentation"); ?></a>
 			</li>
 
 		    <li>
-				<a href="<?php echo site_url('public/studies'); ?>"><i class="fa fa-pencil-square fa-fw"></i> <?php echo _("studies"); ?></a>
+				<a href="<?php echo site_url('studies'); ?>"><i class="fa fa-pencil-square fa-fw"></i> <?php echo _("studies"); ?></a>
 			</li>
 
 		    <li>
-				<a href="<?php echo site_url('public/team'); ?>"><i class="fa fa-coffee fa-fw"></i> <?php echo _("team"); ?></a>
+				<a href="<?php echo site_url('team'); ?>"><i class="fa fa-coffee fa-fw"></i> <?php echo _("team"); ?></a>
 			</li>
 
 		<?php if($user->loggedIn()): ?>
 			<li>
-				<a href="<?php echo site_url('public/edit_user'); ?>"> <i class="fa fa-cogs fa-fw"></i><?php echo _("settings"); ?></a>
+				<a href="<?php echo site_url('edit_user'); ?>"> <i class="fa fa-cogs fa-fw"></i><?php echo _("settings"); ?></a>
 			</li>
 			<li>
-				<a href="<?php echo site_url('public/logout'); ?>"><i class="fa fa-cogs fa-sign-out"></i><?php echo _("logout"); ?></a>
+				<a href="<?php echo site_url('logout'); ?>"><i class="fa fa-cogs fa-sign-out"></i><?php echo _("logout"); ?></a>
 			</li>
 		<?php else: ?>
 			<li>
-				<a href="<?php echo site_url('public/login'); ?>"><i class="fa fa-sign-in fa-fw"></i> <?php echo _("login"); ?></a>
+				<a href="<?php echo site_url('login'); ?>"><i class="fa fa-sign-in fa-fw"></i> <?php echo _("login"); ?></a>
 			</li>
 			<li>
-				<a href="<?php echo site_url('public/register'); ?>"> <i class="fa fa-pencil fa-fw"></i> <?php echo _("sign up") ?></a>
+				<a href="<?php echo site_url('register'); ?>"> <i class="fa fa-pencil fa-fw"></i> <?php echo _("sign up") ?></a>
 			</li>
 		<?php endif; ?>
 		</ul>

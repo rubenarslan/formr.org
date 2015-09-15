@@ -112,6 +112,7 @@ class AdminAjaxController {
 			redirect_to("admin/run/" . $run->name . "/user_overview");
 		endif;
 	}
+
 	private function ajaxSendToPosition() {
 		$run = $this->controller->run;
 		$dbh = $this->dbh;
@@ -120,24 +121,25 @@ class AdminAjaxController {
 		$new_position = $_POST['new_position'];
 		$_POST = array();
 
-		if(!$run_session->forceTo($new_position)):
-			alert('<strong>Something went wrong with the position change.</strong> in run '.$run->name, 'alert-danger');
+		if (!$run_session->forceTo($new_position)):
+			alert('<strong>Something went wrong with the position change.</strong> in run ' . $run->name, 'alert-danger');
 			bad_request_header();
 		endif;
 
-		if(is_ajax_request()):
+		if (is_ajax_request()):
 			echo $this->site->renderAlerts();
 			exit;
 		else:
-			redirect_to("admin/run/".$run->name."/user_overview");
+			redirect_to("admin/run/" . $run->name . "/user_overview");
 		endif;
 	}
+
 	private function ajaxDeleteUser() {
 		$run = $this->controller->run;
 		$deleted = $this->dbh->delete('survey_run_sessions', array('id' => $this->request->getParam('run_session_id')));
-		if($deleted):
+		if ($deleted):
 			alert('User with session ' . h($_GET['session']) . ' was deleted.', 'alert-info');
-		else: 
+		else:
 			alert('User with session ' . h($_GET['session']) . ' could not be deleted.', 'alert-warning');
 			bad_request_header();
 		endif;
@@ -213,47 +215,29 @@ class AdminAjaxController {
 		$run = $this->controller->run;
 		$site = $this->site;
 
-		if (is_ajax_request()) {
-			// If only showing dialog then show it and exit
-			$dialog_only = $site->request->bool('dialog');
-			if ($dialog_only) {
-				// Read on exported runs from configured directory
-				$dir = Config::get('run_exports_dir');
-				if (!($exports = (array) get_run_dir_contents($dir))) {
-					$exports = array();
-				}
-
-				Template::load('admin/run/run_import_dialog', array('exports' => $exports));
-				exit;
-			}
-
-			// Else do actual import of specified units
-			$json_string = $site->request->str('string');
-			$start_position = $site->request->int('position', 1);
-
-			if (!$json_string) {
-				bad_request_header();
-				exit(1);
-			}
-
-			if (!($imports = $run->importUnits($json_string, $start_position))) {
-				bad_request_header();
-				echo $site->renderAlerts();
-			} else {
-				json_header();
-				echo json_encode($imports);
-				exit(0);
-			}
-		} else {
+		if (!is_ajax_request()) {
 			bad_request_header();
+			exit;
+		}
+		// If only showing dialog then show it and exit
+		$dialog_only = $site->request->bool('dialog');
+		if ($dialog_only) {
+			// Read on exported runs from configured directory
+			$dir = Config::get('run_exports_dir');
+			if (!($exports = (array) get_run_dir_contents($dir))) {
+				$exports = array();
+			}
+
+			Template::load('admin/run/run_import_dialog', array('exports' => $exports, 'run' => $this->controller->run));
+			exit;
 		}
 	}
 
 	private function ajaxRunLockedToggle() {
 		$run = $this->controller->run;
-		if(is_ajax_request()):
-			if(isset($_POST['on'])):
-				if(!$run->toggleLocked((bool)$_POST['on']))
+		if (is_ajax_request()):
+			if (isset($_POST['on'])):
+				if (!$run->toggleLocked((bool) $_POST['on']))
 					echo 'Error!';
 				$this->site->renderAlerts();
 			endif;
@@ -262,9 +246,9 @@ class AdminAjaxController {
 
 	private function ajaxRunPublicToggle() {
 		$run = $this->controller->run;
-		if(is_ajax_request()):
-			if(isset($_GET['public'])):
-				if(!$run->togglePublic((int)$_GET['public']))
+		if (is_ajax_request()):
+			if (isset($_GET['public'])):
+				if (!$run->togglePublic((int) $_GET['public']))
 					echo 'Error!';
 			endif;
 		endif;
@@ -274,29 +258,30 @@ class AdminAjaxController {
 		$run = $this->controller->run;
 		$dbh = $this->dbh;
 
-		if(is_ajax_request()):
+		if (is_ajax_request()):
 
 			$unit_factory = new RunUnitFactory();
-			if($run_unit_id = $this->request->getParam('run_unit_id')):
+			if ($run_unit_id = $this->request->getParam('run_unit_id')):
 				$special = $this->request->getParam('special');
 				$unit_info = $run->getUnitAdmin($run_unit_id, $special);
 
-				$unit = $unit_factory->make($dbh,null,$unit_info, null, $run);
+				$unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
 
 				$unit->create($_POST);
-				if($unit->valid):
-						if(isset($_POST['unit_id'])):
-							alert('<strong>Success.</strong> '.ucfirst($unit->type).' unit was updated.','alert-success');
-						endif;
-						echo $unit->displayForRun($this->site->renderAlerts());
-						exit;
+				if ($unit->valid):
+					if (isset($_POST['unit_id'])):
+						alert('<strong>Success.</strong> ' . ucfirst($unit->type) . ' unit was updated.', 'alert-success');
+					endif;
+					echo $unit->displayForRun($this->site->renderAlerts());
+					exit;
 				endif;
 			endif;
 		endif;
 		bad_request_header();
 		$alert_msg = "<strong>Sorry.</strong> Something went wrong while saving. Please contact formr devs, if this problem persists.";
-		if(isset($unit)) $alert_msg .= implode($unit->errors);
-		alert($alert_msg,'alert-danger');
+		if (isset($unit))
+			$alert_msg .= implode($unit->errors);
+		alert($alert_msg, 'alert-danger');
 
 		echo $this->site->renderAlerts();
 	}
@@ -304,15 +289,15 @@ class AdminAjaxController {
 	private function ajaxSaveSettings() {
 		$run = $this->controller->run;
 		$post = new Request($_POST);
-		if(is_ajax_request()):
+		if (is_ajax_request()):
 			$saved = $run->saveSettings($post->getParams());
-			if($saved):
+			if ($saved):
 				alert('Settings saved', 'alert-success');
 				echo $this->site->renderAlerts();
 				exit;
 			else:
 				bad_request_header();
-				alert('<strong>Error.</strong> '.implode($run->errors,"<br>"),'alert-danger');
+				alert('<strong>Error.</strong> ' . implode($run->errors, "<br>"), 'alert-danger');
 				echo $this->site->renderAlerts();
 			endif;
 		endif;
@@ -321,8 +306,8 @@ class AdminAjaxController {
 	private function ajaxTestUnit() {
 		$run = new Run($this->dbh, $this->controller->run->name);
 
-		if(is_ajax_request()):
-			if($run_unit_id = $this->request->getParam('run_unit_id')):
+		if (is_ajax_request()):
+			if ($run_unit_id = $this->request->getParam('run_unit_id')):
 				$special = $this->request->getParam('special');
 				$unit = $run->getUnitAdmin($run_unit_id, $special);
 				$unit_factory = new RunUnitFactory();
@@ -336,8 +321,9 @@ class AdminAjaxController {
 
 		bad_request_header();
 		$alert_msg = "'<strong>Sorry.</strong> '";
-		if(isset($unit)) $alert_msg .= implode($unit->errors);
-		alert($alert_msg,'alert-danger');
+		if (isset($unit))
+			$alert_msg .= implode($unit->errors);
+		alert($alert_msg, 'alert-danger');
 
 		echo $this->site->renderAlerts();
 	}
