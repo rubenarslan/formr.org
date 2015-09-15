@@ -1002,6 +1002,13 @@ class Survey extends RunUnit {
 				alert('<ul><li>' . implode("</li><li>", $this->messages) . '</li></ul>', 'alert-info');
 			}
 
+			// save original survey sheet
+			$file = Config::get('survey_upload_dir') . '/' . $filename;
+			if (move_uploaded_file($target, $file)) {
+					$this->dbh->update('survey_studies', array('original_file' => $filename), array('id' => $this->id));	
+			} else {
+				alert('Unable to save original uploaded file', 'alert-warning');
+			}
 			return true;
 		else:
 			alert('<ul><li>' . implode("</li><li>", $this->errors) . '</li></ul>', 'alert-danger');
@@ -1655,4 +1662,7 @@ class Survey extends RunUnit {
 		return true;
 	}
 
+	public function getOriginalFileName() {
+		return $this->dbh->findValue('survey_studies', array('id' => $this->id), 'original_file');
+	}
 }

@@ -62,13 +62,13 @@ class AdminSurveyController extends AdminController {
 			$session = new UnitSession($this->fdb, null, $study->id);
 			$session->create();
 
-			$_SESSION['dummy_survey_session'] = array(
+			Session::set('dummy_survey_session', array(
 				"session_id" => $session->id,
 				"unit_id" => $study->id,
 				"run_session_id" => $session->run_session_id,
 				"run_name" => Run::TEST_RUN,
 				"survey_name" => $study->name
-			);
+			));
 
 			alert("<strong>Go ahead.</strong> You can test the study " . $study->name . " now.", 'alert-info');
 			redirect_to(run_url(Run::TEST_RUN));
@@ -152,19 +152,35 @@ class AdminSurveyController extends AdminController {
 		$study = $this->study;
 
 		$format = $this->request->getParam('format');
-		if (!$format || !in_array($format, array("xlsx", "xls", "json"))) {
+		if (!$format || !in_array($format, array("xlsx", "xls", "json", "original"))) {
 			die("invalid format");
 		}
 
 		$SPR = new SpreadsheetReader();
 
-		if ($format == 'xlsx'):
+		if ($format == 'original') {
+			$filename = $study->getOriginalFileName();
+			$file = Config::get('survey_upload_dir') . '/' . $filename;
+			if (!file_exists($file)) {
+				alert('The original file could not be found. Try another format', 'alert-danger');
+				redirect(admin_study_url($study->name));
+			}
+
+			$type = 'application/vnd.ms-excel';
+			//@todo get right type
+
+			header('Content-Disposition: attachment;filename="' . $filename . '"');
+			header('Cache-Control: max-age=0');
+			header('Content-Type: ' . $type);
+			readfile($file);
+			exit;
+		} elseif ($format == 'xlsx') {
 			$SPR->exportItemTableXLSX($study);
-		elseif ($format == 'xls'):
+		} elseif ($format == 'xls') {
 			$SPR->exportItemTableXLS($study);
-		else: // json
+		} else {
 			$SPR->exportItemTableJSON($study);
-		endif;
+		}
 	}
 
 	private function exportItemdisplayAction() {
