@@ -57,7 +57,7 @@ foreach ($dues as $session) {
 
 $executed_types = cron_parse_executed_types($done);
 
-$msg = date('Y-m-d H:i:s') . ' ' . "$i sessions in the run " . $run->name . " were processed. {$executed_types} ended.";
+$msg = date('Y-m-d H:i:s') . ' ' . "$i sessions in the run " . $run->name . " were processed. {$executed_types}.";
 cron_log($msg);
 cron_log("cron-run call end for {$run->name}");
 exit(0);
