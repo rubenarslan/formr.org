@@ -117,65 +117,14 @@ try {
 			continue;
 		}
 
-		// get all session codes that have Branch, Pause, or Email lined up (not ended)
-		$dues = $run->getCronDues();
-
-		// Foreach session, execute all units
-		foreach ($dues as $session) {
-			$run_session = new RunSession($fdb, $run->id, 'cron', $session, $run);
-			// Q. How will this go through all units of a session?
-			$types = $run_session->getUnit(); // start looping thru their units.
-			$i++;
-
-			if ($types === false):
-				alert("This session '$session' caused problems", 'alert-danger');
-				continue 1;
-			endif;
-
-			foreach ($types as $type => $nr) {
-				if (!isset($done[$type])) {
-					$done[$type] = 0;
-				}
-				$done[$type] += $nr;
-			}
+		// Execute the cron of each log as background process
+		$script = dirname(__FILE__) . '/cron-run.php';
+		$stdout = get_log_file("cron-run-{$run->name}.log");
+		$command = "php $script -n {$run->name} > {$stdout} 2>&1";
+		exec($command, $output, $status);
+		if ($status != 0) {
+			cron_log("Command '{$command}' exited with status {$status}. Output: " . print_r($output, 1));
 		}
-
-		// Build message report for current Run (saved in cron log)
-		$alert_types = $site->alert_types;
-		$alerts = $site->renderAlerts();
-		$alerts = str_replace('<button type="button" class="close" data-dismiss="alert">&times;</button>', '', $alerts);
-
-		$executed_types = '[none]';
-		if (!empty($types)) {
-			$executed_types = cron_parse_executed_types($types);
-		}
-
-		$msg = date('Y-m-d H:i:s') . ' ' . "$i sessions in the run " . $run->name . " were processed. {$executed_types} ended.<br />" . "\n";
-		$msg .= $alerts;
-
-		// Save cron log (This should be moved to logging in file system to avoid clustering DB)
-		unset($done["Page"]);
-		if (array_sum($done) > 0 OR array_sum($alert_types) > 0) {
-			$log = $fdb->prepare("
-			INSERT INTO `survey_cron_log` (run_id, created, ended, sessions, skipforwards, skipbackwards, pauses, emails, shuffles, errors, warnings, notices, message)
-			VALUES (:run_id, :created, NOW(), :sessions, :skipforwards, :skipbackwards, :pauses, :emails, :shuffles, :errors, :warnings, :notices, :message)");
-			$log->bindParam(':run_id', $run->id);
-			$log->bindParam(':created', $created);
-			$log->bindParam(':sessions', $i);
-			$log->bindParam(':skipforwards', $done['SkipForward']);
-			$log->bindParam(':skipbackwards', $done['SkipBackward']);
-			$log->bindParam(':pauses', $done['Pause']);
-			$log->bindParam(':emails', $done['Email']);
-			$log->bindParam(':shuffles', $done['Shuffle']);
-			$log->bindParam(':errors', $alert_types['alert-danger']);
-			$log->bindParam(':warnings', $alert_types['alert-warning']);
-			$log->bindParam(':notices', $alert_types['alert-info']);
-			$log->bindParam(':message', $msg);
-			$log->execute();
-		}
-
-		//echo $msg . "<br />";
-		cron_log(strip_tags($msg), true);
 		if ($intercept_if_expired && microtime(true) - $start_time > $max_exec_time) {
 			throw new Exception("Cron Intercepted! Started at: $start_date, Intercepted at: " . date('r'));
 		}
