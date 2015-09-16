@@ -28,6 +28,8 @@ if (empty($opts['n'])) {
 }
 
 $site = Site::getInstance();
+$user = new User(DB::getInstance(), null, null);
+$user->cron = true;
 $name = $opts['n'];
 $run = new Run(DB::getInstance(), $name);
 if (!$run->valid) {

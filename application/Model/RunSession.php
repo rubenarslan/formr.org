@@ -117,7 +117,7 @@ class RunSession {
 			$i++;
 			if ($i > 80) {
 				global $user;
-				if ($user->isCron() OR $user->isAdmin()) {
+				if ($user->isCron() || $user->isAdmin()) {
 					if (isset($unit))
 						alert(print_r($unit, true), 'alert-danger');
 				}
