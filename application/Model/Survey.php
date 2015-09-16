@@ -977,8 +977,8 @@ class Survey extends RunUnit {
 
 		umask(0002);
 		ini_set('memory_limit', '256M');
-		$target = $_FILES['uploaded']['tmp_name'];
-		$filename = $_FILES['uploaded']['name'];
+		$target = $file['tmp_name'];
+		$filename = $file['name'];
 
 		$this->messages[] = "File <b>$filename</b> was uploaded.";
 		$this->messages[] = "Survey name was determined to be <b>{$this->name}</b>.";
@@ -1002,6 +1002,13 @@ class Survey extends RunUnit {
 				alert('<ul><li>' . implode("</li><li>", $this->messages) . '</li></ul>', 'alert-info');
 			}
 
+			// save original survey sheet
+			$file = Config::get('survey_upload_dir') . '/' . $filename;
+			if (move_uploaded_file($target, $file)) {
+					$this->dbh->update('survey_studies', array('original_file' => $filename), array('id' => $this->id));	
+			} else {
+				alert('Unable to save original uploaded file', 'alert-warning');
+			}
 			return true;
 		else:
 			alert('<ul><li>' . implode("</li><li>", $this->errors) . '</li></ul>', 'alert-danger');
@@ -1032,7 +1039,7 @@ class Survey extends RunUnit {
 	}
 
 	/* ADMIN functions */
-	public function createIndependently($settings = array()) {
+	public function createIndependently($settings = array(), $params = array()) {
 		$name = trim($this->unit['name']);
 		$results_table = "formr_" . $this->unit['user_id'] . '_' . $name;
 		if ($name == ""):
@@ -1050,16 +1057,16 @@ class Survey extends RunUnit {
 		$this->name = $name;
 		$this->results_table = $results_table;
 
-		$this->dbh->insert('survey_studies', array(
+		$study = array_merge(array(
 			'id' => $this->id,
 			'created' => mysql_now(),
 			'modified' => mysql_now(),
 			'user_id' => $this->unit['user_id'],
 			'name' => $this->name,
 			'results_table' => $this->results_table,
-		));
+		), $params);
+		$this->dbh->insert('survey_studies', $study);
 
-		
 		$settings = array_merge(array(
 			"maximum_number_displayed" => 0,
 			"displayed_percentage_maximum" => 100,
@@ -1655,4 +1662,11 @@ class Survey extends RunUnit {
 		return true;
 	}
 
+	public function getOriginalFileName() {
+		return $this->dbh->findValue('survey_studies', array('id' => $this->id), 'original_file');
+	}
+
+	public function getGoogleFileId() {
+		return $this->dbh->findValue('survey_studies', array('id' => $this->id), 'google_file_id');
+	}
 }

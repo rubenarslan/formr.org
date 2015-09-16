@@ -63,6 +63,9 @@ $settings['admin_maximum_size_of_uploaded_files'] = 50;
 // Directory for exported runs
 $settings['run_exports_dir'] = INCLUDE_ROOT . 'documentation/run_components';
 
+// Directory for uploaded survey
+$settings['survey_upload_dir'] = INCLUDE_ROOT . 'tmp/backups/surveys';
+
 // application webroot
 $settings['web_dir'] = INCLUDE_ROOT . 'webroot';
 

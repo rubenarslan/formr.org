@@ -1220,3 +1220,20 @@ function remove_tag_wrapper($text, $tag = 'p') {
 	}
 	return $text;
 }
+
+function download_google_sheet($google_id, $destination_file) {
+	$ret = array('google_id' => $google_id);
+	$google_link = "http://docs.google.com/spreadsheets/d/{$google_id}/export?format=xlsx&{$google_id}";
+	try {
+		$options = array(
+			CURLOPT_SSL_VERIFYHOST => 0,
+			CURLOPT_SSL_VERIFYPEER => 0,
+		);
+		CURL::DownloadUrl($google_link, $destination_file, null, CURL::HTTP_METHOD_GET, $options);
+		$ret['file'] = $destination_file;
+	} catch (Exception $e) {
+		formr_log_exception($e, 'CURL_DOWNLOAD', $google_link);
+		return false;
+	}
+	return $ret;
+}

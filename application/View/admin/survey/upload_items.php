@@ -33,7 +33,7 @@ $resultCount = $study->getResultCount();
 				</li>
 			</ul>
 
-			<form class="" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="<?= WEBROOT ?>admin/survey/<?= $study->name ?>/upload_items">
+			<form class="" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="">
 				<input type="hidden" name="study_id" value="<?= $study->id ?>">
 
 				<div class="form-group">
@@ -92,6 +92,14 @@ $resultCount = $study->getResultCount();
 					</div>
 				</div>
 			</form>
+			<?php if (!empty($google_id)): ?>
+				<h3>OR</h3>
+				<form method="post" action="">
+					<input type="hidden" name="google_id" value="<?php echo $google_id; ?>" />
+					<button type="submit" class="btn btn-default btn-lg"><i class="fa fa-download"></i> Or Import Google Sheet</button>
+					
+				</form>
+			<?php endif; ?>
 		</div>
 	</div>
 </div>

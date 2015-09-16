@@ -51,7 +51,7 @@ class RunSession {
 			`survey_run_sessions`.ended, 
 			`survey_run_sessions`.position,
 			`survey_run_sessions`.last_access,
-			`survey_run_sessions`.no_mail,
+			`survey_run_sessions`.no_email,
 			`survey_runs`.name AS run_name,
 			`survey_runs`.user_id AS run_owner_id')
 						->from('survey_run_sessions')
@@ -70,7 +70,7 @@ class RunSession {
 			$this->run_name = $sess_array['run_name'];
 			$this->run_owner_id = $sess_array['run_owner_id'];
 			$this->last_access = $sess_array['last_access'];
-			$this->no_mail = $sess_array['no_mail'];
+			$this->no_mail = $sess_array['no_email'];
 
 			if (!$this->cron) {
 				$this->dbh->update('survey_run_sessions', array('last_access' => mysql_now()), array('id' => $this->id));
@@ -135,7 +135,7 @@ class RunSession {
 				$this->current_unit_type = $unit->type;
 				$output = $unit->exec();
 
-				if (!$output AND is_object($unit)) {
+				if (!$output && is_object($unit)) {
 					if (!isset($done[$unit->type])) {
 						$done[$unit->type] = 0;
 					}

@@ -53,6 +53,10 @@ Template::load('acp_nav');
 					</div>
 					<div class="modal-body">
 						<div class="list-group-item">
+							<h4 class="list-group-item-heading"><a href="<?php echo admin_study_url($study->name, 'export_item_table?format=original'); ?>"><i class="fa fa-floppy-o fa-fw"></i> ORIGINAL</a></h4>
+							<p class="list-group-item-text">Downloads the latest uploaded items sheet</p>
+						</div>
+						<div class="list-group-item">
 							<h4 class="list-group-item-heading"><a href="<?php echo admin_study_url($study->name, 'export_item_table?format=xls'); ?>"><i class="fa fa-floppy-o fa-fw"></i> XLS</a></h4>
 							<p class="list-group-item-text">old excel format, won't work with more than 16384 rows or 256 columns</p>
 						</div>
