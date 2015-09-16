@@ -148,7 +148,11 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function showItemTableAction() {
-		$this->renderView('survey/show_item_table');
+		$vars = array(
+			'google_id' => $this->study->getGoogleFileId(),
+			'original_file' => $this->study->getOriginalFileName(),
+		);
+		$this->renderView('survey/show_item_table', $vars);
 	}
 
 	private function showItemdisplayAction() {
