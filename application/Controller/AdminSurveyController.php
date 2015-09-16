@@ -133,7 +133,7 @@ class AdminSurveyController extends AdminController {
 			}
 		}
 
-		if (!empty($file) && $study->uploadItemTable($file, $_POST['delete_confirm'])) {
+		if (!empty($file) && $study->uploadItemTable($file, $this->request->delete_confirm)) {
 			redirect_to(admin_study_url($study->name, 'show_item_table'));
 		}
 		$this->renderView('survey/upload_items', $vars);
