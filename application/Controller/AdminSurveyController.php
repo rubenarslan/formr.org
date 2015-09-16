@@ -68,12 +68,15 @@ class AdminSurveyController extends AdminController {
 			if ($study->createIndependently($settings, $params)) {
 				if ($study->uploadItemTable($file, $survey_name)) {
 					alert('<strong>Success!</strong> New survey created!', 'alert-success');
+					delete_tmp_file($file);
 					redirect_to("admin/survey/{$study->name}/show_item_table");
 				} else {
 					alert('<strong>Bugger!</strong> A new survey was created, but there were problems with your item table. Please fix them and try again.', 'alert-danger');
+					delete_tmp_file($file);
 					redirect_to("admin/survey/{$study->name}/upload_items");
 				}
 			}
+			delete_tmp_file($file);
 		}
 
 		$this->renderView('survey/add_survey');
@@ -106,12 +109,13 @@ class AdminSurveyController extends AdminController {
 		$vars = array(
 			'google_id' => $study->getGoogleFileId()
 		);
+
+		$file = null;
 		if (Request::isHTTPPostRequest() && $this->request->google_id) {
 			$google_id = $this->request->google_id;
 			$destination = Config::get('survey_upload_dir') . '/google-' . $google_id . '.xlsx';
 			$sheet = download_google_sheet($google_id, $destination);
 			if ($sheet) {
-				$params['google_file_id'] = $sheet['google_id'];
 				$file = array(
 					'name' => $study->name . '.xlsx',
 					'tmp_name' => $sheet['file'],
@@ -134,13 +138,21 @@ class AdminSurveyController extends AdminController {
 		}
 
 		if (!empty($file) && $study->uploadItemTable($file, $this->request->delete_confirm)) {
+			delete_tmp_file($file);
 			redirect_to(admin_study_url($study->name, 'show_item_table'));
 		}
+
+		delete_tmp_file($file);
+
 		$this->renderView('survey/upload_items', $vars);
 	}
 
 	private function showItemTableAction() {
-		$this->renderView('survey/show_item_table');
+		$vars = array(
+			'google_id' => $this->study->getGoogleFileId(),
+			'original_file' => $this->study->getOriginalFileName(),
+		);
+		$this->renderView('survey/show_item_table', $vars);
 	}
 
 	private function showItemdisplayAction() {

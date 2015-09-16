@@ -1237,3 +1237,10 @@ function download_google_sheet($google_id, $destination_file) {
 	}
 	return $ret;
 }
+
+function delete_tmp_file($file) {
+	// unlink tmp file especially for the case of google sheets
+	if (!empty($file['tmp_name']) && file_exists($file['tmp_name'])) {
+		@unlink($file['tmp_name']);
+	}
+}
