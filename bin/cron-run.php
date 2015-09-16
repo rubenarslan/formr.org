@@ -4,9 +4,13 @@ require_once dirname(__FILE__) . '/../define_root.php';
 
 // log to formr log file
 function cron_log($message) {
-	$cron_logfile = INCLUDE_ROOT . 'tmp/logs/cron.log';
 	$message = date('Y-m-d H:i:s') . ' ' . $message . "\n";
+	/*
+	$cron_logfile = INCLUDE_ROOT . 'tmp/logs/cron.log';
 	return error_log($message, 3, $cron_logfile);
+	 */
+	// echo to STDOUT instead
+	echo $message;
 }
 
 function cron_parse_executed_types($types) {
@@ -31,6 +35,7 @@ if (!$run->valid) {
 	exit(1);
 }
 
+cron_log('----------');
 cron_log("cron-run call start for {$run->name}");
 // get all session codes that have Branch, Pause, or Email lined up (not ended)
 $dues = $run->getCronDues();
@@ -57,8 +62,11 @@ foreach ($dues as $session) {
 
 $executed_types = cron_parse_executed_types($done);
 
-$msg = date('Y-m-d H:i:s') . ' ' . "$i sessions in the run " . $run->name . " were processed. {$executed_types}.";
+$msg = "$i sessions in the run " . $run->name . " were processed. {$executed_types}.";
 cron_log($msg);
+if ($site->alerts) {
+	cron_log("\n<alerts>\n" . $site->renderAlerts() . "\n<alerts>");
+}
 cron_log("cron-run call end for {$run->name}");
 exit(0);
 
