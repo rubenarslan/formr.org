@@ -762,13 +762,11 @@ function admin_run_url($name = '', $action = '') {
  *  
  *  @param $file  The file to be loaded. Must not start with a slash.
  */
-function asset_url($file)
-{
+function asset_url($file) {
   $mtime = filemtime(INCLUDE_ROOT . "webroot/" . $file);
-
-	if(! $mtime) 
+	if(! $mtime) {
 	  return site_url($file);
-
+	}
 	return site_url($file . "?v" . $mtime);
 }
 
@@ -894,8 +892,9 @@ function opencpu_get($location, $return_format = 'json', $context = null, $retur
 function opencpu_evaluate($code, $variables = null, $return_format = 'json', $context = null, $return_session = false) {
 	if ($return_session !== true) {
 		$result = shortcut_without_opencpu($code, $variables);
-		if($result !== null) 
+		if($result !== null) {
 			return current($result);
+		}
 	}
 	
 	if (!is_string($variables)) {

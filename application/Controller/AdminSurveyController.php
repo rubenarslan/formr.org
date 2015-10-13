@@ -192,7 +192,7 @@ class AdminSurveyController extends AdminController {
 		if (isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name) {
 			$study->delete();
 			alert("<strong>Success.</strong> Successfully deleted study '{$study->name}'.", 'alert-success');
-			redirect_to(WEBROOT . "admin/index");
+			redirect_to(admin_url());
 		} elseif (isset($_POST['delete'])) {
 			alert("<b>Error:</b> You must type the study's name '{$study->name}' to delete it.", 'alert-danger');
 		}
