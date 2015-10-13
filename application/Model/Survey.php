@@ -220,6 +220,7 @@ class Survey extends RunUnit {
 		}
 		if (!$survey->createSurvey($SPR)) {
 			alert("Unable to import survey items in survey '{$survey->name}'", 'alert-warning');
+			return false;
 		}
 
 		return $created;

@@ -24,7 +24,7 @@ Template::load('acp_nav');
 	
 		<div class="tab-content">
 			<div class="tab-pane fade in active" id="settings">
-				<form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?=WEBROOT?>admin/run/<?=$run->name ;?>/ajax_save_settings">
+				<form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
 					
 				<div class="row">
 					<h3 class="col-lg-12">general settings</h3>

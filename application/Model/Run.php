@@ -497,7 +497,7 @@ This study is currently being serviced. Please return at a later time."
 				// Delete old file if css/js was emptied
 				if (!$value && $asset_path) {
 					if (file_exists($asset_file) && !unlink($asset_file)) {
-						alert("Could not delete old file.", 'alert-warning');
+						alert("Could not delete old file ({$asset_path}).", 'alert-warning');
 					}
 				} else {
 					// if $asset_path has not been set it means neither JS or CSS has been entered so create a new path
@@ -731,6 +731,7 @@ This study is currently being serviced. Please return at a later time."
 	*/
 	public function export($name, array $units, $inc_survey) {
 		$SPR = new SpreadsheetReader();
+		// Save run units
 		foreach ($units as $i => &$unit) {
 			if ($inc_survey && $unit->type === 'Survey') {
 				$survey = Survey::loadById($unit->unit_id);
@@ -738,10 +739,21 @@ This study is currently being serviced. Please return at a later time."
 			}
 			unset($unit->unit_id, $unit->run_unit_id);
 		}
+		// Save run settings
+		$settings = array(
+			'header_image_path' => $this->header_image_path,
+			'description' => $this->description,
+			'footer_text' => $this->footer_text,
+			'public_blurb' => $this->public_blurb,
+			'cron_active' => (int) $this->cron_active,
+			'custom_js' => $this->getCustomJS(),
+			'custom_css' => $this->getCustomCSS(),
+		);
 
 		$export = array(
 			'name' => $name,
 			'units' => array_values($units),
+			'settings' => $settings,
 		);
 		return $export;
 	}
@@ -769,7 +781,7 @@ This study is currently being serviced. Please return at a later time."
 
 		$units = (array) $json->units;
 		$createdUnits = array();
-		$ruFactory = new RunUnitFactory();
+		$runFactory = new RunUnitFactory();
 
 		foreach ($units as $unit) {
 			if (!empty($unit->position) && !empty($unit->type)) {
@@ -791,7 +803,7 @@ This study is currently being serviced. Please return at a later time."
 					unset($unit->account_id);
 				}
 
-				$unitObj = $ruFactory->make($this->dbh, null, (array) $unit, null, $this);
+				$unitObj = $runFactory->make($this->dbh, null, (array) $unit, null, $this);
 				$unitObj->create((array) $unit);
 				if ($unitObj->valid) {
 					$unitObj->addToRun($this->id, $unitObj->position, (array) $unit );
@@ -802,6 +814,10 @@ This study is currently being serviced. Please return at a later time."
 			}
 		}
 
+		// try importing settings
+		if (!empty($json->settings)) {
+			$this->saveSettings((array) $json->settings);
+		}
 		return $createdUnits;
 	}
 
