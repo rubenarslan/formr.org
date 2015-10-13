@@ -166,11 +166,12 @@ class Survey extends RunUnit {
 	 * }
 	 *
 	 * @param object $data
-	 * @return array|bool Returns an array with info on created survey or FALSE on failure
+	 * @param boolean $return_spr flag as to whether just an SPR object should be returned
+	 * @return array|bool|SpreadsheetReader Returns an array with info on created survey, SpreadsheetReader if indicated by second parameter or FALSE on failure
 	 * 
 	 * @todo process items
 	 */
-	protected function createFromData($data) {
+	protected function createFromData($data, $return_spr = false) {
 		if (empty($data->name) || empty($data->items)) {
 			return false;
 		}
@@ -216,8 +217,13 @@ class Survey extends RunUnit {
 				}
 				unset($item->choices);
 			}
-			$SPR->survey[$i++] = (array)$item;
+			$SPR->addSurveyItem((array)$item);
 		}
+
+		if ($return_spr === true) {
+			return $SPR;
+		}
+
 		if (!$survey->createSurvey($SPR)) {
 			alert("Unable to import survey items in survey '{$survey->name}'", 'alert-warning');
 			return false;
@@ -984,8 +990,18 @@ class Survey extends RunUnit {
 		$this->messages[] = "File <b>$filename</b> was uploaded.";
 		$this->messages[] = "Survey name was determined to be <b>{$this->name}</b>.";
 
-		$SPR = new SpreadsheetReader();
-		$SPR->readItemTableFile($target);
+		// @todo FIXME: This check is fakish because for some reason finfo_file doesn't deal with excel sheets exported from formr
+		// survey uploaded via JSON?
+		if (preg_match('/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.json$/', $filename)) {
+			$data = @json_decode(file_get_contents($target));
+			$SPR = $this->createFromData($data, true);
+		} else {
+			// survey uploaded via excel
+			$SPR = new SpreadsheetReader();
+			$SPR->readItemTableFile($target);
+		}
+
+		
 		$this->errors = array_merge($this->errors, $SPR->errors);
 		$this->warnings = array_merge($this->warnings, $SPR->warnings);
 		$this->messages = array_merge($this->messages, $SPR->messages);
