@@ -28,6 +28,42 @@
 			container: 'body'
 		});
 		this.block.find('.select2').select2();
+        
+		var slct = this.block.find('input.select2recipient');
+        if(slct.length > 0) {
+    		if(!slct.select2("container").hasClass("select2-container")) { // if it's not already select2ified
+    		    var slctdata0 = slct.attr('data-select2init'), slctdata;
+    		    if (typeof slctdata0 != 'object') {
+    		        slctdata = $.parseJSON(slctdata0);
+    		    } else {
+                    slctdata = slctdata0;
+                }
+        		slct.select2({
+        			createSearchChoice:function(term, data)
+        			{ 
+        				if ($(data).filter(function() { 
+        					return this.text.localeCompare(term) === 0; 
+        				}).length === 0) 
+        				{
+        					return {id:term, text:term};
+        				}
+        			},
+        			initSelection:function(element, callback)
+        			{
+        				var data;
+        				data = {id: element.val(), text: element.val()};
+                        $.each(slctdata, function(k, v) {
+        					if(v.id === element.val()) {
+        						data = v;
+        						return false;
+        					}
+        				});
+        				callback(data);
+        			},
+        			data: slctdata 
+                });
+            }
+        }
 
 		this.unsavedChanges = false;
 		this.save_button = this.block.find('a.unit_save');

@@ -89,6 +89,13 @@ label
     margin-left:-15px;
     border-radius:0 0 4px 4px;
 }
+.monkey_bar {
+    background:white;
+    position:fixed;
+    bottom:0;
+    height:50px;
+    z-index:99;
+}
 .run_header, .survey_header
 {
     height:330px;
@@ -279,7 +286,7 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
 .run_unit_dialog textarea.form-control {
     width:388px;
 }
-.run_unit_dialog input.full_width {
+.run_unit_dialog .full_width {
     width:362px;
 }
 .run_unit_inner .run_unit_description, .run_unit_position input
@@ -303,7 +310,6 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
 div.run_unit {
 	padding-bottom:20px;
 }
-
 .fa-1-5x
 {
 	font-size:1.7em;

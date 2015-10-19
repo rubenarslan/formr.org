@@ -98,7 +98,7 @@ Template::load('acp_nav');
                 Delete this user
             </div>
             <div class="modal-body">
-                Are you sure, you want to delete this user and all of their data in this run?
+                Are you sure you want to delete this user and all of their data in this run?
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default cancel" data-dismiss="modal">Cancel</button>
@@ -106,6 +106,6 @@ Template::load('acp_nav');
             </div>
         </div>
     </div>
-</div>	
+</div>
 
 <?php Template::load('footer');

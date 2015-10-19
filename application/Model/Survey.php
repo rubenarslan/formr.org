@@ -556,7 +556,6 @@ class Survey extends RunUnit {
 				$dynamic_values[] = "{$name} = (function(){{$item->getValue()}})()";
 			}
 		}
-
 		if ($dynamic_values) {
 			$ocpu_session = opencpu_multiparse_values($this, $dynamic_values, true);
 			if (!$ocpu_session OR $ocpu_session->hasError()) {
@@ -758,7 +757,7 @@ class Survey extends RunUnit {
 		$action = run_url($this->run_name);
 		$enctype = 'multipart/form-data'; # maybe make this conditional application/x-www-form-urlencoded
 
-		$ret = '<form action="' . $action . '" method="post" class="form-horizontal' .
+		$ret = '<form action="' . $action . '" method="post" class="form-horizontal main_formr_survey' .
 				($this->settings['enable_instant_validation'] ? ' ws-validate' : '')
 				. '" accept-charset="utf-8" enctype="' . $enctype . '">';
 

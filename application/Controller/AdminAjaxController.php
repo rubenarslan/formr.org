@@ -99,7 +99,7 @@ class AdminAjaxController {
 	private function ajaxRemind() {
 		$run = $this->controller->run;
 		// find the last email unit
-		$email = $run->getReminder($$this->request->getParam('session'), $this->request->getParam('run_session_id'));
+		$email = $run->getReminder($this->request->getParam('session'), $this->request->getParam('run_session_id'));
 		if ($email->exec() !== false):
 			alert('<strong>Something went wrong with the reminder.</strong> in run ' . $run->name, 'alert-danger');
 			bad_request_header();
@@ -123,6 +123,24 @@ class AdminAjaxController {
 
 		if (!$run_session->forceTo($new_position)):
 			alert('<strong>Something went wrong with the position change.</strong> in run ' . $run->name, 'alert-danger');
+			bad_request_header();
+		endif;
+
+		if (is_ajax_request()):
+			echo $this->site->renderAlerts();
+			exit;
+		else:
+			redirect_to("admin/run/" . $run->name . "/user_overview");
+		endif;
+	}
+	private function ajaxNextInRun() {
+		$run = $this->controller->run;
+		$dbh = $this->dbh;
+
+		$run_session = new RunSession($dbh, $run->id, null, $_GET['session'], $run);
+
+		if (!$run_session->runToNextUnit()):
+			alert('<strong>Something went wrong with the unpause.</strong> in run ' . $run->name, 'alert-danger');
 			bad_request_header();
 		endif;
 

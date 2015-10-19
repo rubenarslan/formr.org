@@ -136,6 +136,23 @@ class Email extends RunUnit {
 				->from('survey_email_accounts')
 				->where(array('user_id' => $user->id))->fetchAll();
 	}
+	private function getPotentialRecipientFields() {
+		$get_recips = $this->dbh->prepare("SELECT survey_studies.name AS survey,survey_items.name AS item FROM survey_items
+			LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
+		LEFT JOIN survey_run_units ON survey_studies.id = survey_run_units.unit_id
+		LEFT JOIN survey_runs ON survey_runs.id = survey_run_units.run_id
+		WHERE survey_runs.id = :run_id AND
+		survey_items.type = 'email'");
+		$get_recips->bindValue(':run_id', $this->run_id);
+		$get_recips->execute();
+
+		$recips = array();
+		while($res = $get_recips->fetch(PDO::FETCH_ASSOC)):
+			$email = $res['survey'] . "$" . $res['item'];
+			$recips[] = array("id" => $email, "text" => $email);
+		endwhile;
+		return $recips;
+	}
 
 	public function displayForRun($prepend = '') {
 		$email_accounts = $this->getEmailAccounts();
@@ -159,7 +176,7 @@ class Email extends RunUnit {
 			<input class="form-control full_width" type="text" placeholder="Email subject" name="subject" value="' . h($this->subject) . '">
 		</label></p>
 		<p><label>Recipient-Field: <br>
-					<input class="form-control full_width" type="text" placeholder="survey_users$email" name="recipient_field" value="' . h($this->recipient_field) . '">
+					<input class="form-control full_width select2recipient" type="text" placeholder="survey_users$email" name="recipient_field" value="' . h($this->recipient_field) . '" data-select2init="'.htmlentities(json_encode( $this->getPotentialRecipientFields(), JSON_UNESCAPED_UNICODE)).'">
 				</label></p>
 		<p><label>Body: <br>
 			<textarea style="width:388px;"  data-editor="markdown" placeholder="You can use Markdown" name="body" rows="7" cols="60" class="form-control col-md-5">' . h($this->body) . '</textarea></label><br>
