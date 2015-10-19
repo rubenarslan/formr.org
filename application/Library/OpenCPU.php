@@ -165,7 +165,7 @@ class OpenCPU {
 		if ($this->curl_info['http_code'] == 400) {
 			$results = "R Error: $results";
 			return new OpenCPU_Session(null, null, $results, $this);
-		} elseif ($this->curl_info['http_code'] < 200 || $this->curl_info['http_code'] > 300) {
+		} elseif ($this->curl_info['http_code'] < 200 || $this->curl_info['http_code'] > 302) {
 			if (!$results) {
 				$results = "OpenCPU server '{$this->baseUrl}' could not be contacted";
 			}

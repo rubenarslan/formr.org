@@ -967,7 +967,7 @@ class Survey extends RunUnit {
 	}
 
 //  
-	public function uploadItemTable($file, $confirmed_deletion) {
+	public function uploadItemTable($file, $confirmed_deletion, $updates = array()) {
 		if (trim($confirmed_deletion) == ''):
 			$this->confirmed_deletion = false;
 		elseif ($confirmed_deletion === $this->name):
@@ -1010,8 +1010,7 @@ class Survey extends RunUnit {
 		$this->warnings = array_unique($this->warnings);
 
 		// if items are ok, make actual survey
-		if (empty($this->errors) AND $this->createSurvey($SPR)):
-
+		if (empty($this->errors) && $this->createSurvey($SPR)):
 			if (!empty($this->warnings)) {
 				alert('<ul><li>' . implode("</li><li>", $this->warnings) . '</li></ul>', 'alert-warning');
 			}
@@ -1021,13 +1020,19 @@ class Survey extends RunUnit {
 			}
 
 			// save original survey sheet
-			$filename = 'formr-survey-' . $this->user_id . '-' . $filename;
+			$filename = 'formr-survey-' . Site::getCurrentUser()->id . '-' . $filename;
 			$file = Config::get('survey_upload_dir') . '/' . $filename;
 			if (move_uploaded_file($target, $file) || rename($target, $file)) {
-					$this->dbh->update('survey_studies', array('original_file' => $filename), array('id' => $this->id));	
+				$updates['original_file'] = $filename;	
 			} else {
 				alert('Unable to save original uploaded file', 'alert-warning');
 			}
+
+			// update db entry if necessary
+			if ($updates) {
+				$this->dbh->update('survey_studies', $updates, array('id' => $this->id));
+			}
+
 			return true;
 		else:
 			alert('<ul><li>' . implode("</li><li>", $this->errors) . '</li></ul>', 'alert-danger');
@@ -1058,7 +1063,7 @@ class Survey extends RunUnit {
 	}
 
 	/* ADMIN functions */
-	public function createIndependently($settings = array(), $params = array()) {
+	public function createIndependently($settings = array(), $updates = array()) {
 		$name = trim($this->unit['name']);
 		$results_table = "formr_" . $this->unit['user_id'] . '_' . $name;
 		if ($name == ""):
@@ -1083,15 +1088,14 @@ class Survey extends RunUnit {
 			'user_id' => $this->unit['user_id'],
 			'name' => $this->name,
 			'results_table' => $this->results_table,
-		), $params);
+		), $updates);
 		$this->dbh->insert('survey_studies', $study);
 
-		$settings = array_merge(array(
+		$this->changeSettings(array_merge(array(
 			"maximum_number_displayed" => 0,
 			"displayed_percentage_maximum" => 100,
 			"add_percentage_points" => 0,
-		), $settings);
-		$this->changeSettings($settings);
+		), $settings));
 
 		return true;
 	}
@@ -1561,6 +1565,9 @@ class Survey extends RunUnit {
 	public function delete() {
 		if ($this->deleteResults()): // always back up
 			$this->dbh->query("DROP TABLE IF EXISTS `{$this->results_table}`");
+			if (($filename = $this->getOriginalFileName())) {
+				@unlink(Config::get('survey_upload_dir') . '/' . $filename);
+			}
 			return parent::delete();
 		endif;
 		return false;
