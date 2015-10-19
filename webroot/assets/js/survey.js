@@ -400,8 +400,16 @@
 					return true;
 				}
 		
-				if(!survey.data[ obj.name ]) survey.data[obj.name] = obj.value;
-				else survey.data[obj.name] += ", " + obj.value;
+				if(!survey.data[ obj.name ]) {
+                    var val = obj.value;
+                    if($.isNumeric(val)) {
+                        val = parseFloat(val);
+                    }
+                    survey.data[obj.name] = val;
+                }
+				else {
+                    survey.data[obj.name] += ", " + obj.value;
+                }
 			}
 		});
 	

@@ -523,14 +523,16 @@ class Survey extends RunUnit {
 			WHERE item_id = :item_id AND session_id = :session_id");
 		$hidden_update->bindValue(":session_id", $this->session_id);
 
+		$results = array();
+
 		if ($show_ifs) {
 			$ocpu_session = opencpu_multiparse_showif($this, $show_ifs, true);
 			if (!$ocpu_session OR $ocpu_session->hasError()) {
 				notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
 			}
-			$results = $ocpu_session->getJSONObject();
-		} else {
-			$results = array();
+			else {
+				$results = $ocpu_session->getJSONObject();
+			}
 		}
 		// Fit show-ifs
 		foreach ($items as &$item) {
