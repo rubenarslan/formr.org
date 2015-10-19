@@ -803,10 +803,18 @@ This study is currently being serviced. Please return at a later time."
 			'custom_css' => $this->getCustomCSS(),
 		);
 
+		// save run files
+		$files = array();
+		$uploads = $this->getUploadedFiles();
+		foreach ($uploads as $file) {
+			$files[] = site_url('file_download/'. $this->id . '/' . $file['original_file_name']);
+		}
+
 		$export = array(
 			'name' => $name,
 			'units' => array_values($units),
 			'settings' => $settings,
+			'files' => $files,
 		);
 		return $export;
 	}

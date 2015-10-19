@@ -8,7 +8,7 @@ $resultCount = $study->getResultCount();
 	<div class="col-lg-10 col-sm-12 col-md-10">
 		<div class="transparent_well col-md-12" style="padding-bottom: 20px;">
 			<h2>Upload item table</h2>
-			<?php if (!empty($google['link'])): ?>
+			<?php if (!empty($google['id'])): ?>
 				<div class="alert alert-info">
 					This survey was created from the following google sheet <a href="<?php echo $google['link']; ?>" target="_blank"><?php echo $google['link']; ?></a>
 				</div>
