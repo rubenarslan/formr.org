@@ -451,7 +451,6 @@ class SpreadsheetReader {
 		if (!empty($skipped_columns))
 			$this->warnings[] = 'These choices sheet columns were <strong>skipped</strong>: ' . implode($skipped_columns, ", ");
 
-
 		if (count($columns) > 0 AND ! in_array("list_name", $columns)):
 			$this->errors[] = "You forgot to define the list_name column on the choices sheet.";
 		endif;

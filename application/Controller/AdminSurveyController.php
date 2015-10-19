@@ -29,25 +29,14 @@ class AdminSurveyController extends AdminController {
 	}
 
 	public function addSurveyAction() {
-		$settings = $params = array();
+		$settings = $updates = array();
 		if (Request::isHTTPPostRequest() && $this->request->google_sheet && $this->request->survey_name) {
-			preg_match('/spreadsheets\/d\/(.*)\/edit/', $this->request->google_sheet, $matches);
-			if (!empty($matches[1])) {
-				$google_id = $matches[1];
-				$destination = Config::get('survey_upload_dir') . '/google-' . $google_id . '.xlsx';
-				$sheet = download_google_sheet($google_id, $destination);
-				if ($sheet) {
-					$params['google_file_id'] = $sheet['google_id'];
-					$file = array(
-						'name' => $this->request->survey_name . '.xlsx',
-						'tmp_name' => $sheet['file'],
-						'size' => filesize($sheet['file'])
-					);
-				} else {
-					alert("Unable to download the file at '{$this->request->google_sheet}'", 'alert-danger');
-				}
+			$file = google_download_survey_sheet($this->request->survey_name, $this->request->google_sheet);
+			if (!$file) {
+				alert("Unable to download the file at '{$this->request->google_sheet}'", 'alert-danger');
+			} else {
+				$updates['google_file_id'] = $file['google_id'];
 			}
-
 		} elseif (Request::isHTTPPostRequest() && !isset($_FILES['uploaded'])) {
 			alert('<strong>Error:</strong> You have to select an item table file here.', 'alert-danger');
 		} elseif (isset($_FILES['uploaded'])) {
@@ -65,21 +54,23 @@ class AdminSurveyController extends AdminController {
 				'name' => $survey_name,
 				'user_id' => $this->user->id
 			), null, null);
-			if ($study->createIndependently($settings, $params)) {
+
+			if ($study->createIndependently($settings, $updates)) {
 				if ($study->uploadItemTable($file, $survey_name)) {
 					alert('<strong>Success!</strong> New survey created!', 'alert-success');
 					delete_tmp_file($file);
-					redirect_to("admin/survey/{$study->name}/show_item_table");
+					redirect_to(admin_study_url($study->name, 'show_item_table'));
 				} else {
 					alert('<strong>Bugger!</strong> A new survey was created, but there were problems with your item table. Please fix them and try again.', 'alert-danger');
 					delete_tmp_file($file);
-					redirect_to("admin/survey/{$study->name}/upload_items");
+					redirect_to(admin_study_url($study->name, 'upload_items'));
 				}
 			}
 			delete_tmp_file($file);
 		}
 
-		$this->renderView('survey/add_survey');
+		$vars = array('google' => array());
+		$this->renderView('survey/add_survey', $vars);
 	}
 
 	private function accessAction() {
@@ -105,24 +96,23 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function uploadItemsAction() {
+		$updates = array();
 		$study = $this->study;
+		$google_id = $study->getGoogleFileId();
 		$vars = array(
-			'google_id' => $study->getGoogleFileId()
+			'study_name' => $study->name,
+			'google' => array('id' => $google_id, 'link' => google_get_sheet_link($google_id), 'name' => $study->name),
 		);
 
 		$file = null;
-		if (Request::isHTTPPostRequest() && $this->request->google_id) {
-			$google_id = $this->request->google_id;
-			$destination = Config::get('survey_upload_dir') . '/google-' . $google_id . '.xlsx';
-			$sheet = download_google_sheet($google_id, $destination);
-			if ($sheet) {
-				$file = array(
-					'name' => $study->name . '.xlsx',
-					'tmp_name' => $sheet['file'],
-					'size' => filesize($sheet['file'])
-				);
+		if (Request::isHTTPPostRequest() && $this->request->google_sheet && $this->request->survey_name) {
+			//@todo check if names match
+
+			$file = google_download_survey_sheet($study->name, $this->request->google_sheet);
+			if (!$file) {
+				alert("Unable to download the file at '{$this->request->google_id}'", 'alert-danger');
 			} else {
-				alert("Unable to download the file at '{$this->request->google_sheet}'", 'alert-danger');
+				$updates['google_file_id'] = $file['google_id'];
 			}
 		} elseif (Request::isHTTPPostRequest() && !isset($_FILES['uploaded'])) {
 			alert('<strong>Error:</strong> You have to select an item table file here.', 'alert-danger');
@@ -137,7 +127,7 @@ class AdminSurveyController extends AdminController {
 			}
 		}
 
-		if (!empty($file) && $study->uploadItemTable($file, $this->request->delete_confirm)) {
+		if (!empty($file) && $study->uploadItemTable($file, $this->request->delete_confirm, $updates)) {
 			delete_tmp_file($file);
 			redirect_to(admin_study_url($study->name, 'show_item_table'));
 		}

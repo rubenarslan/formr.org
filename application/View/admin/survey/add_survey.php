@@ -8,7 +8,7 @@ Template::load('acp_nav');
 <div class="col-lg-10 col-md-10 col-sm-9 main_body">
 
 	<div class="row">
-		<div class="col-md-8 col-lg-offset-1 transparent_well">
+		<div class="col-md-12 col-lg-offset-1 transparent_well">
 
 			<h2><i class="fa fa-pencil-square"></i> Create new survey &amp; upload item table</h2>
 			<p>Please keep this in mind when uploading surveys</p>
@@ -32,12 +32,14 @@ Template::load('acp_nav');
 					<strong>Make it meaningful.</strong>
 				</li>
 			</ul>
-			<div class="col-md-7">
+			<hr />
+			<div class="col-md-6">
 				<form class="" enctype="multipart/form-data"  id="add_study" name="add_study" method="post" action="<?php echo admin_url('survey/add_survey'); ?>">
 					<input type="hidden" name="new_study" value="1">
 					<div class="form-group">
 						<h3><label class="control-label" for="file_upload">
-								Please choose an item table <i class="fa fa-info-circle" title="Did you know, that on many computers you can also drag and drop a file on this box instead of navigating there through the file browser?"></i>: 
+								Please upload an item table <i class="fa fa-info-circle" title="Did you know, that on many computers you can also drag and drop a file on this box instead of navigating there through the file browser?"></i>: 
+								<small><br />(Excel and JSON supported)</small>
 							</label></h3>
 						<div class="controls">
 							<input required name="uploaded" type="file" id="file_upload">
@@ -50,9 +52,12 @@ Template::load('acp_nav');
 					</div>
 				</form>
 			</div>
-			<div class="col-md-5">
+			<div class="col-md-6" style="border-left: 1px solid #efefef; padding-left: 35px;">
+				<h3><label class="control-label" for="file_upload">
+						Import a google sheet <i class="fa fa-info-circle" title="You can also create an item table from a google sheet"></i>: 
+					</label></h3>
 				<h3>&nbsp;</h3>
-				<a href="#" data-toggle="modal" data-target="#google-import" class="btn btn-default btn-lg"><i class="fa fa-download"></i> Or Import Google Sheet</a>
+				<a href="#" data-toggle="modal" data-target="#google-import" class="btn btn-default btn-lg"><i class="fa fa-download"></i>Import Google Sheet</a>
 			</div>
 		</div>
 	</div>
@@ -81,36 +86,8 @@ Template::load('acp_nav');
 		</div>
 	</div>
 
-	<!-- dialog for google imports -->
-	<div class="modal fade" id="google-import" tabindex="-1" role="dialog" aria-labelledby="GoogleImport" aria-hidden="true">
-		<div class="modal-dialog">
-			<div class="modal-content">
-				<form action="<?php echo admin_url('survey/add_survey'); ?>" method="post">
-					<div class="modal-header">
-						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-						<h4 class="modal-title">Import From Google Sheets</h4>
-					</div>
-					<div class="modal-body">
-						<div class="form-group">
-							<label>Enter Survey Name</label>
-							<input name="survey_name" class="form-control" placeholder="Survey Name">
-						</div>
-						<div class="form-group">
-							<label>Enter Google Share Link</label>
-							<textarea name="google_sheet" class="form-control" placeholder="Google share link"></textarea>
-							<i>Make sure this sheet is accessible by anyone with the link</i>
-						</div>
-
-					</div>
-					<div class="modal-footer">
-						<button type="submit" class="btn btn-default">Import</button>
-					</div>
-				</form>
-			</div>
-		</div>
-	</div>
-
-
 	<?php
+	
+	Template::load('admin/survey/goole_sheet_import', array('params' => $google));
 	Template::load('footer');
 	

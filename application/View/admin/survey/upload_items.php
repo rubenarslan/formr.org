@@ -5,9 +5,14 @@ $resultCount = $study->getResultCount();
 ?>
 
 <div class="row">
-	<div class="col-lg-8 col-sm-7 col-md-8">
+	<div class="col-lg-10 col-sm-12 col-md-10">
 		<div class="transparent_well col-md-12" style="padding-bottom: 20px;">
 			<h2>Upload item table</h2>
+			<?php if (!empty($google['link'])): ?>
+				<div class="alert alert-info">
+					This survey was created from the following google sheet <a href="<?php echo $google['link']; ?>" target="_blank"><?php echo $google['link']; ?></a>
+				</div>
+			<?php endif; ?>
 			<p>Please keep this in mind when uploading item tables:</p>
 			<ul class="fa-ul fa-ul-more-padding">
 				<li>
@@ -32,74 +37,67 @@ $resultCount = $study->getResultCount();
 					</ul>
 				</li>
 			</ul>
-
-			<form class="" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="">
-				<input type="hidden" name="study_id" value="<?= $study->id ?>">
-
-				<div class="form-group">
-					<h3>
-						<label class="control-label" for="file_upload">
-							Please choose an item table <i class="fa fa-info-circle" title="Did you know, that on many computers you can also drag and drop a file on this box instead of navigating there through the file browser?"></i>: 
-						</label>
-					</h3>
-					<div class="controls">
-						<input name="uploaded" type="file" id="file_upload">
-					</div>
-				</div>
-				<?php
-				$results = $resultCount['finished'];
-				if ($results > 0):
-					?>
+			<hr />
+			
+			<div class="col-md-6">
+				<form class="" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="">
+					<input type="hidden" name="study_id" value="<?= $study->id ?>">
 					<div class="form-group">
-
-						<label class="control-label" for="delete_confirm" title="this is required to avoid accidental deletions">Do you want to delete the results, if the item table changes were too major?<br><strong>Leave this field empty</strong> if you're fixing typos in a live study.</label>
+						<h3><label class="control-label" for="file_upload">
+								Please upload an item table <i class="fa fa-info-circle" title="Did you know, that on many computers you can also drag and drop a file on this box instead of navigating there through the file browser?"></i>: 
+								<small><br />(Excel and JSON supported)</small>
+							</label></h3>
 						<div class="controls">
-							<div class="input-group">
-								<span class="input-group-addon"><i class="fa fa-pencil-square"></i></span>
-								<input class="form-control" name="delete_confirm" id="delete_confirm" type="text" placeholder="survey name (see up left)"></label>
-							</div>
+							<input required name="uploaded" type="file" id="file_upload">
 						</div>
 					</div>
-					<?php
-				else:
-					?>
-					<input name="delete_confirm" type="hidden" value="">
-				<?php
-				endif;
-				?>
-				<div class="form-group">
-					<div class="controls">
-						<?php
-						if ($results > 10):
-							$btnclass = 'btn-danger';
-							$icon = 'fa-bolt';
-						elseif ($results > 0):
-							$btnclass = 'btn-warning';
-							$icon = 'fa-exclamation-triangle';
-						else:
-							$btnclass = 'btn-success';
-							$icon = 'fa-pencil-square';
-						endif;
-						?>
-						<button class="btn btn-default <?= $btnclass ?> btn-lg" type="submit"><i class="fa-fw fa <?= $icon ?>"></i> <?php
-							if ($results):
-								echo __("Upload new items, possibly overwrite %d existing results.", $results);
-							else:
-								echo _("Upload new items.");
-							endif;
-							?></button>
-
-					</div>
-				</div>
-			</form>
-			<?php if (!empty($google_id)): ?>
-				<h3>OR</h3>
-				<form method="post" action="">
-					<input type="hidden" name="google_id" value="<?php echo $google_id; ?>" />
-					<button type="submit" class="btn btn-default btn-lg"><i class="fa fa-download"></i> Or Import Google Sheet</button>
 					
+					<?php
+						$results = $resultCount['finished'];
+						if ($results > 0): 
+					?>
+							<div class="form-group">
+								<label class="control-label" for="delete_confirm" title="this is required to avoid accidental deletions">Do you want to delete the results, if the item table changes were too major?<br><strong>Leave this field empty</strong> if you're fixing typos in a live study.</label>
+								<div class="controls">
+									<div class="input-group">
+										<span class="input-group-addon"><i class="fa fa-pencil-square"></i></span>
+										<input class="form-control" name="delete_confirm" id="delete_confirm" type="text" placeholder="survey name (see up left)"></label>
+									</div>
+								</div>
+							</div>
+						<?php else: ?>
+							<input name="delete_confirm" type="hidden" value="">
+						<?php endif; ?>
+						<div class="form-group">
+							<div class="controls">
+								<?php
+								if ($results > 10):
+									$btnclass = 'btn-danger';
+									$icon = 'fa-bolt';
+								elseif ($results > 0):
+									$btnclass = 'btn-warning';
+									$icon = 'fa-exclamation-triangle';
+								else:
+									$btnclass = 'btn-success';
+									$icon = 'fa-pencil-square';
+								endif;
+								?>
+								<button class="btn btn-default <?= $btnclass ?> btn-lg" type="submit"><i class="fa-fw fa <?= $icon ?>"></i>
+									<?php
+										echo $results ? __("Upload new items, possibly overwrite %d existing results.", $results) : _("Upload new items.");
+									?>
+								</button>
+							</div>
+						</div>
 				</form>
-			<?php endif; ?>
+			</div>
+			<div class="col-md-6" style="border-left: 1px solid #efefef; padding-left: 35px;">
+				<h3><label class="control-label" for="file_upload">
+						Import a google sheet <i class="fa fa-info-circle" title="You can also create an item table from a google sheet"></i>: 
+					</label></h3>
+				<h3>&nbsp;</h3>
+				<a href="#" data-toggle="modal" data-target="#google-import" class="btn btn-default btn-lg"><i class="fa fa-download"></i>Import Google Sheet</a>
+			</div>
 		</div>
 	</div>
 </div>
@@ -115,18 +113,19 @@ $resultCount = $study->getResultCount();
 
 		<div class="tab-content">
 			<div class="tab-pane fade" id="sample_survey_sheet">
-<?php Template::load('sample_survey_sheet'); ?>
+				<?php Template::load('public/documentation/sample_survey_sheet'); ?>
 			</div>
 			<div class="tab-pane fade" id="sample_choices_sheet">
-<?php Template::load('sample_choices_sheet'); ?>
+				<?php Template::load('public/documentation/sample_choices_sheet'); ?>
 			</div>
 			<div class="tab-pane fade in active" id="available_items">
-<?php Template::load('item_types'); ?>
-
+				<?php Template::load('public/documentation/item_types'); ?>
 			</div>
 		</div>
 	</div>
 </div>
 
 <?php
+
+Template::load('admin/survey/goole_sheet_import', array('params' => $google));
 Template::load('footer');

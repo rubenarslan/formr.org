@@ -1220,26 +1220,82 @@ function remove_tag_wrapper($text, $tag = 'p') {
 	return $text;
 }
 
-function download_google_sheet($google_id, $destination_file) {
-	$ret = array('google_id' => $google_id);
-	$google_link = "http://docs.google.com/spreadsheets/d/{$google_id}/export?format=xlsx&{$google_id}";
-	try {
-		$options = array(
-			CURLOPT_SSL_VERIFYHOST => 0,
-			CURLOPT_SSL_VERIFYPEER => 0,
-		);
-		CURL::DownloadUrl($google_link, $destination_file, null, CURL::HTTP_METHOD_GET, $options);
-		$ret['file'] = $destination_file;
-	} catch (Exception $e) {
-		formr_log_exception($e, 'CURL_DOWNLOAD', $google_link);
-		return false;
-	}
-	return $ret;
-}
-
 function delete_tmp_file($file) {
 	// unlink tmp file especially for the case of google sheets
 	if (!empty($file['tmp_name']) && file_exists($file['tmp_name'])) {
 		@unlink($file['tmp_name']);
 	}
+}
+
+/**
+ * Hackathon to dwnload an excel sheet from google
+ *
+ * @param string $survey_name
+ * @param string $google_link The URL of the Google Sheet
+ * @return array|boolean Returns an array similar to that of an 'uploaded-php-file' or FALSE otherwise;
+ */
+function google_download_survey_sheet($survey_name, $google_link) {
+	$google_id = google_get_sheet_id($google_link);
+	if (!$google_id) {
+		return false;
+	}
+
+	$destination_file = Config::get('survey_upload_dir') . '/googledownload-' . $google_id . '.xlsx';
+	$google_download_link = "http://docs.google.com/spreadsheets/d/{$google_id}/export?format=xlsx&{$google_id}";
+	$info = array();
+
+	try {
+		if (!is_writable(dirname($destination_file))) {
+			throw new Exception("The survey backup directory is not writable");
+		}
+		$options = array(
+			CURLOPT_SSL_VERIFYHOST => 0,
+			CURLOPT_SSL_VERIFYPEER => 0,
+		);
+
+		CURL::DownloadUrl($google_download_link, $destination_file, null, CURL::HTTP_METHOD_GET, $options, $info);
+		if (empty($info['http_code']) || $info['http_code'] < 200 || $info['http_code'] > 302 || strstr($info['content_type'], "text/html") !== false) {
+			$link = google_get_sheet_link($google_id);
+			throw new Exception("The google sheet at {$link} could not be downloaded. Please make sure everyone with the link can access the sheet!");
+		}
+
+		$ret = array(
+			'name' => $survey_name . '.xlsx',
+			'tmp_name' => $destination_file,
+			'size' => filesize($destination_file),
+			'google_id' => $google_id,
+			'google_link' => google_get_sheet_link($google_id),
+			'google_download_link' => $google_download_link,
+		);
+	} catch (Exception $e) {
+		formr_log_exception($e, 'CURL_DOWNLOAD', $google_link);
+		alert($e->getMessage(), 'alert-danger');
+		$ret = false;
+	}
+	return $ret;
+}
+
+/**
+ * preg-match the Google sheet ID from the google sheet link
+ *
+ * @param string $link
+ * @return string|null
+ */
+function google_get_sheet_id($link) {
+	$matches = array();
+	preg_match('/spreadsheets\/d\/(.*)\/edit/', $link, $matches);
+	if (!empty($matches[1])) {
+		return $matches[1];
+	}
+	return null;
+}
+
+/**
+ * Returns the google sheet link given ID
+ *
+ * @param string $id
+ * @return string
+ */
+function google_get_sheet_link($id) {
+	return "https://docs.google.com/spreadsheets/d/{$id}/edit";
 }
