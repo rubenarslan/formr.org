@@ -157,6 +157,14 @@ class PublicController extends Controller {
 		$this->renderView('public/not_found');
 	}
 
+	public function fileDownloadAction($run_id = 0, $original_filename = '') {
+		$path = $this->fdb->findValue('survey_uploaded_files', array('run_id' => (int)$run_id, 'original_file_name' => $original_filename), array('new_file_path'));
+		if ($path) {
+			return redirect_to(asset_url($path));
+		}
+		bad_request();
+	}
+
 	public function runAction($run_name = '') {
 		// hack for run name
 		$_GET['run_name'] = $run_name;

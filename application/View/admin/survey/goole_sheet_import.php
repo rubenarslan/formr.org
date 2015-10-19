@@ -8,7 +8,7 @@
 					<h4 class="modal-title">Import From Google Sheets</h4>
 				</div>
 				<div class="modal-body">
-					<?php if (!empty($params['link'])): ?>
+					<?php if (!empty($params['id'])): ?>
 						<div class="alert alert-info">
 							View sheet in <a href="<?php echo $params['link']; ?>" target="_blank">google docs</a>
 						</div>
