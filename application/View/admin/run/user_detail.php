@@ -1,5 +1,5 @@
 <?php
-    $js = '<script src="'.WEBROOT.'assets/'. (DEBUG?'js':'minified'). '/run_users.js"></script>';
+	$js = '<script src="'.asset_url('assets/'. (DEBUG?'js':'minified'). '/run_users.js').'"></script>';
     Template::load('header', array('js' => $js));
     Template::load('acp_nav');
 ?>
