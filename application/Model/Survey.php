@@ -989,8 +989,7 @@ class Survey extends RunUnit {
 		$target = $file['tmp_name'];
 		$filename = $file['name'];
 
-		$this->messages[] = "File <b>$filename</b> was uploaded.";
-		$this->messages[] = "Survey name was determined to be <b>{$this->name}</b>.";
+		$this->messages[] = "File <b>$filename</b> was uploaded to survey <b>{$this->name}</b>.";
 
 		// @todo FIXME: This check is fakish because for some reason finfo_file doesn't deal with excel sheets exported from formr
 		// survey uploaded via JSON?
@@ -1192,11 +1191,14 @@ class Survey extends RunUnit {
 				continue;
 			}
 
-			$val_errors = $item->validate();
-			if (!empty($val_errors)) {
-				$this->errors = $this->errors + $val_errors;
+			$val_results = $item->validate();
+			if (!empty($val_results['val_errors'])) {
+				$this->errors = $this->errors + $val_results['val_errors'];
 				unset($this->SPR->survey[$row_number], $oldItems[$item->name]);
 				continue;
+			}
+			if(!empty($val_results['val_warnings'])) {
+				$this->warnings = $this->warnings + $val_results['val_warnings'];
 			}
 
 			// if the parsed label is constant or exists
@@ -1227,38 +1229,40 @@ class Survey extends RunUnit {
 			$result_columns[] = $result_field;
 			$add_items->execute();
 		}
-
 		$unused = $this->item_factory->unusedChoiceLists();
 		if (!empty($unused)):
 			$this->warnings[] = __("These choice lists were not used: '%s'", implode("', '", $unused));
 		endif;
 
 		// Try to merge survey items if survey table already exists and deletion was not confirmed or create a new table
-		try {
-			if (!empty($this->errors)) {
-				throw new Exception("No need to continue further if there are errors above");
-			}
+		if (empty($this->errors)) {
+			try {
 
-			if ($this->hasResultsTable() && !$this->confirmed_deletion) {
-				// queries of the merge are included in opened transaction
-				if ($this->backupResults() AND $this->mergeItems($keptItems, $newItems, $oldItems)) {
-					$this->messages[] = "<strong>The old results table was backed up and modified.</strong>";
+				if ($this->hasResultsTable() && !$this->confirmed_deletion) {
+					// queries of the merge are included in opened transaction
+					if ($this->backupResults() AND $this->mergeItems($keptItems, $newItems, $oldItems)) {
+						$this->messages[] = "<strong>The old results table was backed up and modified.</strong>";
+					} else {
+						$this->errors[] = "<strong>The back up or updating the item table failed.</strong>";
+					}
 				} else {
-					$this->errors[] = "<strong>The back up or updating the item table failed.</strong>";
+					if ($this->confirmed_deletion) {
+						$this->deleteResults();
+					}
+					$new_syntax = $this->getResultsTableSyntax($result_columns);
+					$this->createResultsTable($new_syntax);
+					$this->warnings[] = "A new results table was created.";
 				}
-			} else {
-				if ($this->confirmed_deletion) {
-					$this->deleteResults();
-				}
-				$new_syntax = $this->getResultsTableSyntax($result_columns);
-				$this->createResultsTable($new_syntax);
-				$this->warnings[] = "A new results table was created.";
+				return $this->dbh->commit();
+			} catch (Exception $e) {
+				$this->dbh->rollBack();
+				$this->errors[] = "An Error occured and all changes were rolled back";
+				formr_log_exception($e, __CLASS__, $this->errors);
+				return false;
 			}
-			return $this->dbh->commit();
-		} catch (Exception $e) {
+		} else {
 			$this->dbh->rollBack();
-			$this->errors[] = "An Error occured and all changes were rolled back";
-			formr_log_exception($e, __CLASS__, $this->errors);
+			$this->errors[] = "An error occured, so all changes were rolled back";
 			return false;
 		}
 	}
@@ -1313,11 +1317,6 @@ class Survey extends RunUnit {
 				$add_choices->execute();
 			endif;
 		}
-		if ($deleted > 0) {
-			$this->messages[] = $deleted . " old choices deleted.";
-			$this->messages[] = count($this->SPR->choices) . " new choices were successfully loaded.";
-		}
-
 		return true;
 	}
 
