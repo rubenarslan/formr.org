@@ -1001,7 +1001,6 @@ class Survey extends RunUnit {
 			$SPR->readItemTableFile($target);
 		}
 
-		
 		$this->errors = array_merge($this->errors, $SPR->errors);
 		$this->warnings = array_merge($this->warnings, $SPR->warnings);
 		$this->messages = array_merge($this->messages, $SPR->messages);
@@ -1020,8 +1019,9 @@ class Survey extends RunUnit {
 			}
 
 			// save original survey sheet
+			$filename = 'formr-survey-' . $this->user_id . '-' . $filename;
 			$file = Config::get('survey_upload_dir') . '/' . $filename;
-			if (move_uploaded_file($target, $file)) {
+			if (move_uploaded_file($target, $file) || rename($target, $file)) {
 					$this->dbh->update('survey_studies', array('original_file' => $filename), array('id' => $this->id));	
 			} else {
 				alert('Unable to save original uploaded file', 'alert-warning');

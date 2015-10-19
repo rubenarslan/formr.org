@@ -69,11 +69,11 @@ class AdminSurveyController extends AdminController {
 				if ($study->uploadItemTable($file, $survey_name)) {
 					alert('<strong>Success!</strong> New survey created!', 'alert-success');
 					delete_tmp_file($file);
-					redirect_to("admin/survey/{$study->name}/show_item_table");
+					redirect_to(admin_study_url($study->name, 'show_item_table'));
 				} else {
 					alert('<strong>Bugger!</strong> A new survey was created, but there were problems with your item table. Please fix them and try again.', 'alert-danger');
 					delete_tmp_file($file);
-					redirect_to("admin/survey/{$study->name}/upload_items");
+					redirect_to(admin_study_url($study->name, 'upload_items'));
 				}
 			}
 			delete_tmp_file($file);
