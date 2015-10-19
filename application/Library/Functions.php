@@ -1188,9 +1188,9 @@ function pre_htmlescape($str) {
 	return '<pre>' . htmlspecialchars($str) . '</pre>';
 }
 
-function array_val($array, $key, $default = '') {
-	if (isset($array[$key])) {
-		$default = $array[$key];
+function array_val($array, $key, $default = "") {
+	if (array_key_exists($key, $array)) {
+		return $array[$key];
 	}
 	return $default;
 }

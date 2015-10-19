@@ -545,7 +545,7 @@ class Survey extends RunUnit {
 			$hidden_update->execute();
 		}
 
-		// Compute dynamic values only if items are certainly visisble
+		// Compute dynamic values only if items are certainly visible
 		foreach ($items as $name => &$item) {
 			if ($item->needsDynamicValue() && $item->isRendered()) {
 				// for items of type 'opencpu_session', compute thier values immediately and not send in bulk request
@@ -564,7 +564,8 @@ class Survey extends RunUnit {
 			$results = $ocpu_session->getJSONObject();
 			// Fit dynamic values in properly reder
 			foreach ($items as &$item) {
-				$item->setDynamicValue(array_val($results, $item->name));
+				$val = array_val($results, $item->name, null);
+				$item->setDynamicValue($val);
 			}
 		}
 	}
