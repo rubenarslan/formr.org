@@ -710,7 +710,7 @@ This study is currently being serviced. Please return at a later time."
 					<span class='input-group' style='width:220px'>
 						<span class='input-group-btn'>
 						<a class='btn hastooltip' href='".WEBROOT."{$this->name}/?code=".urlencode($user->user_code)."' 
-						title='Link to this session (copy & share to debug)'><small>".substr($user->user_code,1,8)."</small></a>
+						title='Link to this session (copy & share to debug)'><small>".substr($user->user_code,0,7)."</small></a>
 					
 						<button class='btn monkey hastooltip' disabled type='button' title='Monkey mode: fill out all form fields with nonsense values'><i class='fa fa-check-square-o'></i></button>
 					

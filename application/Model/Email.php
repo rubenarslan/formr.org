@@ -18,6 +18,8 @@ class Email extends RunUnit {
 	public $icon = "fa-envelope";
 	public $type = "Email";
 	private $subject_parsed = null;
+	private $mostrecent = "most recent reported address";
+
 
 	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
 		parent::__construct($fdb, $session, $unit, $run_session, $run);
@@ -136,6 +138,7 @@ class Email extends RunUnit {
 				->from('survey_email_accounts')
 				->where(array('user_id' => $user->id))->fetchAll();
 	}
+	
 	private function getPotentialRecipientFields() {
 		$get_recips = $this->dbh->prepare("SELECT survey_studies.name AS survey,survey_items.name AS item FROM survey_items
 			LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
@@ -146,7 +149,7 @@ class Email extends RunUnit {
 		$get_recips->bindValue(':run_id', $this->run_id);
 		$get_recips->execute();
 
-		$recips = array();
+		$recips = array( array( "id" => $this->mostrecent, "text" => $this->mostrecent ));
 		while($res = $get_recips->fetch(PDO::FETCH_ASSOC)):
 			$email = $res['survey'] . "$" . $res['item'];
 			$recips[] = array("id" => $email, "text" => $email);
@@ -190,8 +193,30 @@ class Email extends RunUnit {
 	}
 
 	public function getRecipientField($return_format = 'json', $return_session = false) {
-		if (empty($this->recipient_field)) {
-			$this->recipient_field = 'survey_users$email';
+		if (empty($this->recipient_field) OR $this->recipient_field = $this->mostrecent) {
+			$get_recip = $this->dbh->prepare("SELECT `survey_items_display`.`answer` AS email FROM survey_items_display
+			LEFT JOIN survey_items ON survey_items_display.item_id = survey_items.id
+			LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
+			LEFT JOIN survey_run_units ON survey_studies.id = survey_run_units.unit_id
+			LEFT JOIN survey_run_sessions ON survey_run_units.run_id = survey_run_sessions.run_id
+			WHERE survey_run_units.run_id = :run_id AND
+			survey_items.type = 'email' AND
+			survey_items_display.answer IS NOT NULL AND
+			survey_run_sessions.id = :run_session_id
+			ORDER BY survey_items_display.answered DESC
+			LIMIT 1");
+			$get_recip->bindValue(':run_id', $this->run_id);
+			$get_recip->bindValue(':run_session_id', $this->run_session_id);
+			$get_recip->execute();
+
+			$recips = array();
+			$res = $get_recip->fetch(PDO::FETCH_ASSOC);
+			if($res) {
+				$email = $res['email'];
+				return $email;
+			} else {
+				return null;
+			}
 		}
 
 		$opencpu_vars = $this->getUserDataInRun($this->recipient_field);
@@ -314,7 +339,12 @@ class Email extends RunUnit {
 
 		$link = "https://mailinator.com/inbox.jsp?to=".$RandReceiv;
 		echo "<h4>Recipient</h4>";
-		echo opencpu_debug($this->getRecipientField('',true));
+		$recipient_field = $this->getRecipientField('',true);
+		if(!is_string($recipient_field) AND get_class($recipient_field) == "OpenCPU_Session") {
+			echo opencpu_debug();
+		} else {
+			echo $this->mostrecent . ": " . $recipient_field;
+		}
 		echo "<h4>Subject</h4>";
 		if($this->knittingNeeded($this->subject)):
 			echo $this->getParsedTextAdmin($this->subject);
@@ -356,8 +386,7 @@ class Email extends RunUnit {
 			foreach ($results AS $row):
 				$this->run_session_id = $row['id'];
 
-				$opencpu_vars = $this->getUserDataInRun($this->recipient_field);
-				$email = stringBool(opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json'));
+				$email = stringBool($this->getRecipientField());
 				$good = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
 				$rows .= "
 					<tr>
