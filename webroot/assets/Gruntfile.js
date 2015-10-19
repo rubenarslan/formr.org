@@ -95,8 +95,8 @@ grunt.initConfig({
 	},
 	bower_concat: {
 	  all: {
-		dest: 'lib/bower.js',
-		cssDest: 'lib/bower.css',
+		dest: 'lib/bower_lib.js',
+		cssDest: 'lib/bower_lib.css',
 		exclude: [
 			'ace-builds',
 			'webshim',
@@ -123,13 +123,13 @@ grunt.initConfig({
 		  separator: ';',
 		},
 		js: {
-		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','lib/bower.js', 'js/main.js'],
+		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','lib/bower_lib.js', 'js/main.js'],
 		  dest: 'lib/bower.js',
 		}
 	},
 	concat_css: {
 		all: {
-			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower.css', 'css/main.css'],
+			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower_lib.css', 'css/main.css'],
 			dest: 'lib/bower.css'
 		},
 	},
@@ -208,6 +208,8 @@ grunt.initConfig({
   grunt.registerTask('default', ['bower','copy','jshint','bower_concat','concat','concat_css','uglify','csslint',"autoprefixer",'cssmin']);
   grunt.registerTask('build', ['copy','jshint','bower_concat','concat','concat_css','uglify','csslint',"autoprefixer",'cssmin']);
   grunt.registerTask('quick', ['bower_concat','concat','concat_css','uglify',"autoprefixer",'cssmin']);
+  grunt.registerTask('css', ['concat_css','cssmin']);
+  grunt.registerTask('myjs', ['jshint','concat','uglify','autoprefixer']);
 //	grunt.registerTask('bowerinstall', ['bower']);
 };
 

@@ -22,11 +22,16 @@ $(function(){
         ajaxifyLink(1,$(this).find('.danger'));
         $(this).find('.danger').click(function(e) {
             $current_target.css("color","#ee5f5b");
+            if($modal.hasClass('refresh_on_success')) {
+                window.setTimeout(function() {
+                    document.location.reload(true);
+                }, 200);
+            }
             $modal.modal("hide");
+            
         });
     }).on("hide.bs.modal", function(e) {
         $current_target.parents("tr").css("background-color","transparent");
-//        $current_target = null;
     });
 
 	function ajaxifyLink(i,elm) {
@@ -49,6 +54,9 @@ $(function(){
 	                $(this).attr('href',old_href);
 	                if(!$(this).hasClass("danger"))
 	                    $(this).css('color','green');
+                    if($(this).hasClass('refresh_on_success')) {
+                        document.location.reload(true);
+                    }
 	    		},this))
 	            .fail($.proxy(function(e, x, settings, exception) {
 	                $(this).attr('href',old_href);
@@ -63,7 +71,7 @@ $(function(){
 	    {
 	    	e.preventDefault();
 	        var $this = $(this);
-	        var $submit = $this.find('button.btn');
+	        var $submit = $this.find('button[type=submit].btn');
 	        $submit.attr('disabled',true);
 
 	    	$.ajax(
@@ -78,6 +86,10 @@ $(function(){
 	            $submit.attr('disabled',false);
 	            $submit.css('color','green');
 				$('.main_body').prepend(data);
+                
+                if($submit.hasClass('refresh_on_success')) {
+                    document.location.reload(true);
+                }
 			},this))
 	        .fail($.proxy(function(e, x, settings, exception) {
 	            $submit.attr('disabled',false);
@@ -146,6 +158,7 @@ $(function(){
 						$modal.modal('hide');
 						userAPIModal({user: data.user, 'client_id': '', 'client_secret': ''}, meta);
 					}
+                    
 				});
 			});
 
