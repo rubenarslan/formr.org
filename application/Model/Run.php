@@ -620,6 +620,11 @@ This study is currently being serviced. Please return at a later time."
 	}
 	private function isTesting($run_session, $user) {
 		if($run_session->run_owner_id == $user->id) return true;
+		elseif($this->name === "fake_test_run") return true;
+		return false;
+	}
+	private function isFakeTestRun($run_session, $user) {
+		if($this->name === "fake_test_run") return true;
 		return false;
 	}
 	private function fakeTestRun() {
@@ -647,6 +652,7 @@ This study is currently being serviced. Please return at a later time."
 
 	private function makeDummyRunSession($position, $current_unit_type) {
 		$run_session = new stdClass();
+		$run_session->id = -1;
 		$run_session->position = $position;
 		$run_session->current_unit_type = $current_unit_type;
 		$run_session->run_owner_id = $this->user_id;
@@ -702,6 +708,8 @@ This study is currently being serviced. Please return at a later time."
 
 			$run_content = '';
 			
+			$disable_run_stuff = $this->isFakeTestRun($run_session, $user) ? " disabled " : "";
+			
 			if($this->isTesting($run_session, $user)) {
 				$js .= '<script src="'.asset_url('assets/'. (DEBUG?'js':'minified'). '/run_users.js').'"></script>';			
 				$run_content .=  "
@@ -711,25 +719,25 @@ This study is currently being serviced. Please return at a later time."
 						<span class='input-group-btn'>
 						<a class='btn hastooltip' href='".WEBROOT."{$this->name}/?code=".urlencode($user->user_code)."' 
 						title='Link to this session (copy & share to debug)'><small>".substr($user->user_code,0,7)."</small></a>
-					
+
 						<button class='btn monkey hastooltip' disabled type='button' title='Monkey mode: fill out all form fields with nonsense values'><i class='fa fa-check-square-o'></i></button>
-					
-						<a class='btn hastooltip link-ajax' href='".WEBROOT."admin/run/{$this->name}/ajax_remind?run_session_id={$run_session->id}&amp;session=".urlencode($user->user_code)."' 
+						<a class='btn hastooltip link-ajax $disable_run_stuff' href='".WEBROOT."admin/run/{$this->name}/ajax_remind?run_session_id={$run_session->id}&amp;session=".urlencode($user->user_code)."' 
 						title='Send yourself a reminder (if you already gave an email address)'><i class='fa fa-bullhorn'></i></a>
 					
-						<a href='".WEBROOT."admin/run/{$this->name}/ajax_nextInRun?run_session_id={$run_session->id}&amp;session=".urlencode($user->user_code)."'  class='btn hastooltip  link-ajax refresh_on_success unpause_now'
+						<a href='".WEBROOT."admin/run/{$this->name}/ajax_nextInRun?run_session_id={$run_session->id}&amp;session=".urlencode($user->user_code)."'  class='btn hastooltip $disable_run_stuff link-ajax refresh_on_success unpause_now'
 							title='Go to next step in run (unpause/skip)'><i class='fa fa-play'></i></a>
 					
-						<button type='submit' class='btn hastooltip refresh_on_success'
+						<button type='submit' class='btn hastooltip refresh_on_success' $disable_run_stuff
 							title='Send this user to that position'><i class='fa fa-hand-o-right'></i></button>
 							</span>
 					
 						<input type='hidden' name='session' value='{$user->user_code}'>
-						<input type='number' name='new_position' value='{$run_session->position}' class='form-control' style='width:80px'>
+						<input type='number' $disable_run_stuff name='new_position' value='{$run_session->position}' class='form-control' style='width:80px'>
 						<span class='input-group-btn link-ajax-modal'>
-							<a class='btn hastooltip refresh_on_success' data-toggle='modal' data-target='#confirm-delete' href='#' data-href='".WEBROOT."admin/run/{$this->name}/ajax_deleteUser?run_session_id={$run_session->id}&amp;session=".urlencode($user->user_code)."' 
+							<a class='btn hastooltip refresh_on_success $disable_run_stuff' data-toggle='modal' data-target='#confirm-delete' href='#' data-href='".WEBROOT."admin/run/{$this->name}/ajax_deleteUser?run_session_id={$run_session->id}&amp;session=".urlencode($user->user_code)."' 
 							title=\"Delete this user and all their data (you'll have to confirm)\"><i class='fa fa-trash-o'></i></a>
 						</span>
+				
 					</span>
 				</form>
 				</div>
