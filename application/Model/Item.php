@@ -1755,6 +1755,10 @@ class Item_get extends Item {
 		return $this->render_input();
 	}
 
+	public function needsDynamicValue() {
+		return false;
+	}
+
 }
 
 class Item_choose_two_weekdays extends Item_mc_multiple {
