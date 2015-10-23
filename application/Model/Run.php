@@ -646,9 +646,11 @@ This study is currently being serviced. Please return at a later time."
 		endif;
 	}
 	
-	private function makeTestRunSession($testing = 1) {
-		$test_code = crypto_token(48);
-		$test_code = "TESTCODE" . substr($test_code,8);
+	public function makeTestRunSession($testing = 1) {
+		$animal_name = AnimalName::haikunate(["tokenLength" => 0, "delimiter" => "", ]) . "XXX";
+		$animal_name = str_replace(" ", "", $animal_name);
+		$test_code = crypto_token(48 - floor(3/4*strlen($animal_name)));
+		$test_code = $animal_name . substr($test_code, 0,64-strlen($animal_name));
 		$run_session = new RunSession($this->dbh, $this->id, NULL, $test_code, $this); // does this user have a session?
 		$run_session->create($test_code, $testing);
 		
@@ -707,6 +709,11 @@ This study is currently being serviced. Please return at a later time."
 			
 			$disable_run_stuff = $this->isFakeTestRun($run_session, $user) ? " disabled " : "";
 			if($run_session->isTesting()) {
+				$animal_end = strpos($user->user_code,"XXX");
+				if($animal_end === FALSE) $animal_end = 10;
+				$icon = "fa-stethoscope";
+				if($user->created($this)) $icon = "fa-user-md";
+				$short_user_code = '<i class="fa '.$icon.'"></i> '.substr($user->user_code,0,$animal_end);
 				$js .= '<script src="'.asset_url('assets/'. (DEBUG?'js':'minified'). '/run_users.js').'"></script>';			
 				$run_content .=  "
 					<div class='monkey_bar'>
@@ -714,7 +721,7 @@ This study is currently being serviced. Please return at a later time."
 					<span class='input-group' style='width:220px'>
 						<span class='input-group-btn'>
 						<a class='btn hastooltip' href='".WEBROOT."{$this->name}/?code=".urlencode($user->user_code)."' 
-						title='Link to this session (copy & share to debug)'><small>".substr($user->user_code,0,7)."</small></a>
+						title='Link to this session (copy & share to debug)'><small>".$short_user_code."</small></a>
 
 						<button class='btn monkey hastooltip' disabled type='button' title='Monkey mode: fill out all form fields with nonsense values'><i class='fa fa-check-square-o'></i></button>
 						<a class='btn hastooltip link-ajax $disable_run_stuff' href='".WEBROOT."admin/run/{$this->name}/ajax_remind?run_session_id={$run_session->id}&amp;session=".urlencode($user->user_code)."' 

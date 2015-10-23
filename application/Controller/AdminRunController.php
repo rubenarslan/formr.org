@@ -119,7 +119,7 @@ class AdminRunController extends AdminController {
 			$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>".timetostr(strtotime($userx['last_access']))."</small>";
 			$userx['Action'] = "
 				<form class='form-inline form-ajax' action='".WEBROOT."admin/run/{$userx['run_name']}/ajax_send_to_position' method='post'>
-				<span class='input-group' style='width:220px'>
+				<span class='input-group'>
 					<span class='input-group-btn'>
 					<a class='btn hastooltip' href='".WEBROOT."{$userx['run_name']}/?code=".urlencode($userx['session'])."' 
 					title='Pretend you are this user (you will really manipulate their data!)'><i class='fa fa-user-secret'></i></a>
@@ -134,7 +134,7 @@ class AdminRunController extends AdminController {
 						title='Send this user to that position'><i class='fa fa-hand-o-right'></i></button>
 					</span>
 					<input type='hidden' name='session' value='{$userx['session']}'>
-					<input type='number' name='new_position' value='{$userx['position']}' class='form-control'>
+					<input type='number' name='new_position' value='{$userx['position']}' class='form-control' style='width:80px'>
 					<span class='input-group-btn link-ajax-modal'>
 						<a class='btn hastooltip' data-toggle='modal' data-target='#confirm-delete' href='#' data-href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_deleteUser?run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
 						title=\"Delete this user and all their data (you'll have to confirm)\"><i class='fa fa-trash-o'></i></a>
@@ -160,13 +160,10 @@ class AdminRunController extends AdminController {
 	}
 	
 	private function createNewTestCodeAction() {
-		$test_code = crypto_token(48);
-		$test_code = "TESTCODE" . substr($test_code,8);
-		$run_session = new RunSession($this->fdb, $this->run->id, NULL, $test_code, $this->run); // does this user have a session?
-		$run_session->create($test_code, 1);
+		$run_session = $this->run->makeTestRunSession();
 		alert("You've created a new test code. Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user.", "alert-info");
 		
-		redirect_to(admin_run_url($this->run->name, "user_overview?session=".$test_code));
+		redirect_to(admin_run_url($this->run->name, "user_overview?session=".$run_session->session));
 	}
 
 	private function userDetailAction() {
