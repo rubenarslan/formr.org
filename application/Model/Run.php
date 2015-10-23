@@ -63,7 +63,8 @@ class Run {
 		if ($name == self::TEST_RUN):
 			$this->name = $name;
 			$this->valid = true;
-			$this->user_id = 0;
+			$this->user_id = -1;
+			$this->id = -1;
 			return true;
 		endif;
 
@@ -618,18 +619,13 @@ This study is currently being serviced. Please return at a later time."
 		$g_users->execute();
 		return $g_users;
 	}
-	private function isTesting($run_session, $user) {
-		if($run_session->run_owner_id == $user->id) return true;
-		elseif($this->name === "fake_test_run") return true;
-		return false;
-	}
 	private function isFakeTestRun($run_session, $user) {
-		if($this->name === "fake_test_run") return true;
+		if($this->name === self::TEST_RUN) return true;
 		return false;
 	}
 	private function fakeTestRun() {
 		if ($session = Session::get('dummy_survey_session')):
-			$run_session = $this->makeDummyRunSession(self::TEST_RUN, "Survey");
+			$run_session = $this->makeTestRunSession();
 			$unit = new Survey($this->dbh, null, $session, $run_session, $this);
 			$output = $unit->exec();
 
@@ -649,14 +645,13 @@ This study is currently being serviced. Please return at a later time."
 			return false;
 		endif;
 	}
-
-	private function makeDummyRunSession($position, $current_unit_type) {
-		$run_session = new stdClass();
-		$run_session->id = -1;
-		$run_session->position = $position;
-		$run_session->current_unit_type = $current_unit_type;
-		$run_session->run_owner_id = $this->user_id;
-		$run_session->user_id = $this->user_id;
+	
+	private function makeTestRunSession($testing = 1) {
+		$test_code = crypto_token(48);
+		$test_code = "TESTCODE" . substr($test_code,8);
+		$run_session = new RunSession($this->dbh, $this->id, NULL, $test_code, $this); // does this user have a session?
+		$run_session->create($test_code, $testing);
+		
 		return $run_session;
 	}
 
@@ -671,19 +666,21 @@ This study is currently being serviced. Please return at a later time."
 
 			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
-			if ($user->created($this) OR // owner always has access
+			if (
+				($user->created($this) // owner always has access
+					OR $run_session->isTesting()) OR // testers always have access
 				($this->public >= 1 AND $run_session->id) OR // already enrolled
 				($this->public >= 2)) { // anyone with link can access
-
+				
 				if ($run_session->id === null) {
-					$run_session->create($user->user_code);  // generating access code for those who don't have it but need it
+					$run_session->create($user->user_code, (int)$user->created($this));  // generating access code for those who don't have it but need it
 				}
 
 				Session::globalRefresh();
 				$output = $run_session->getUnit();
 			} else {
 				$output = $this->getServiceMessage()->exec();
-				$run_session = $this->makeDummyRunSession("service_message", "Page");
+				$run_session = $this->makeTestRunSession(0);
 				alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');
 			}
 		endif;
@@ -709,8 +706,7 @@ This study is currently being serviced. Please return at a later time."
 			$run_content = '';
 			
 			$disable_run_stuff = $this->isFakeTestRun($run_session, $user) ? " disabled " : "";
-			
-			if($this->isTesting($run_session, $user)) {
+			if($run_session->isTesting()) {
 				$js .= '<script src="'.asset_url('assets/'. (DEBUG?'js':'minified'). '/run_users.js').'"></script>';			
 				$run_content .=  "
 					<div class='monkey_bar'>
@@ -826,6 +822,7 @@ This study is currently being serviced. Please return at a later time."
 		);
 		return $export;
 	}
+	
 	/**
 	 * Import a set of run units into current run by parsing a valid json string.
 	 * Existing exported run units are read from configured dir $settings[run_exports_dir]

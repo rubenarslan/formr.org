@@ -19,6 +19,8 @@ class RunSession {
 	public $run;
 	public $unit_session;
 	private $cron = false;
+	private $is_testing = false;
+	private $test_run = false;
 
 	/**
 	 * @var DB
@@ -35,8 +37,19 @@ class RunSession {
 		} else {
 			$this->user_id = $user_id;
 		}
-
-		if ($this->session && $this->run_id) {// called with null in constructor if they have no session yet
+		
+		if($run_id == -1) {
+			$this->test_run = true;
+			$this->id = -1;
+			$this->session = $session;
+			$this->run_id = $run_id;
+			$this->user_id = $user_id;
+			$this->run_name = $run->name;
+			$this->run_owner_id = $user_id;
+			$this->is_testing = true;
+			Site::getInstance()->setRunSession($this);
+		}
+		else if ($this->session && $this->run_id) {// called with null in constructor if they have no session yet
 			$this->load();
 		}
 	}
@@ -52,6 +65,7 @@ class RunSession {
 			`survey_run_sessions`.position,
 			`survey_run_sessions`.last_access,
 			`survey_run_sessions`.no_email,
+			`survey_run_sessions`.testing,
 			`survey_runs`.name AS run_name,
 			`survey_runs`.user_id AS run_owner_id')
 						->from('survey_run_sessions')
@@ -71,10 +85,12 @@ class RunSession {
 			$this->run_owner_id = $sess_array['run_owner_id'];
 			$this->last_access = $sess_array['last_access'];
 			$this->no_mail = $sess_array['no_email'];
+			$this->is_testing = (bool)$sess_array['testing'];
 
 			if (!$this->cron) {
 				$this->dbh->update('survey_run_sessions', array('last_access' => mysql_now()), array('id' => $this->id));
 			}
+			Site::getInstance()->setRunSession($this);
 			return true;
 		}
 
@@ -87,7 +103,10 @@ class RunSession {
 						->where(array('id' => $this->id));
 	}
 
-	public function create($session = NULL) {
+	public function create($session = NULL, $testing = 0) {
+		if($this->run_id === -1) {
+			return false;
+		}
 		if ($session !== NULL) {
 			if (strlen($session) != 64) {
 				alert("<strong>Error.</strong> Session tokens need to be exactly 64 characters long.", 'alert-danger');
@@ -96,12 +115,13 @@ class RunSession {
 		} else {
 			$session = crypto_token(48);
 		}
-
+		
 		$this->dbh->insert_update('survey_run_sessions', array(
 			'run_id' => $this->run_id,
 			'user_id' => $this->user_id,
 			'session' => $session,
 			'created' => mysql_now(),
+			'testing' => $testing
 		), array('user_id'));
 		$this->session = $session;
 		return $this->load();
@@ -287,6 +307,14 @@ class RunSession {
 		}
 
 		return false;
+	}
+	
+	public function setTestingStatus($status = 0) {
+		$this->dbh->update("survey_run_sessions", array('testing' => $status), array('id' => $this->id));
+	}
+	
+	public function isTesting() {
+		return $this->is_testing;
 	}
 
 	public function __sleep() {

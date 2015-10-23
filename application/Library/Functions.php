@@ -36,12 +36,12 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) { // shortha
 }
 
 function notify_user_error($error, $public_message = '') {
-	global $user;
+	$run_session = Site::getInstance()->getRunSession();
 	$date = date('Y-m-d H:i:s');
 
 	$message = $date . ': ' . $public_message . "<br>";
 
-	if (DEBUG OR $user->isAdmin()) {
+	if (DEBUG OR $run_session->isTesting() ) {
 		if ($error instanceof Exception) {
 			$message .= '<pre>' . $error->getMessage() . "</pre>";
 		} else {

@@ -1297,7 +1297,8 @@ class Item_mc_multiple extends Item_mc {
 class Item_check extends Item_mc_multiple {
 
 	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
-	public $choice_list = '*';
+	public $choice_list = NULL;
+	protected $hasChoices = false;
 
 	protected function setMoreOptions() {
 		parent::setMoreOptions();

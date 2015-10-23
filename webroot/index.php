@@ -67,7 +67,7 @@ $site->refresh();
 // Route request
 try {
 	$router = Router::getInstance()->route();
-	$router->execute();
+	$router->execute();	
 } catch (Exception $e) {
 	formr_log_exception($e);
 	if(!DEBUG) {

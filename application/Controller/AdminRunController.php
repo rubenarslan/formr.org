@@ -94,6 +94,7 @@ class AdminRunController extends AdminController {
 			`survey_run_sessions`.position,
 			`survey_run_sessions`.last_access,
 			`survey_run_sessions`.created,
+			`survey_run_sessions`.testing,
 			`survey_runs`.name AS run_name,
 			`survey_units`.type AS unit_type,
 			`survey_run_sessions`.last_access,
@@ -121,8 +122,11 @@ class AdminRunController extends AdminController {
 				<span class='input-group' style='width:220px'>
 					<span class='input-group-btn'>
 					<a class='btn hastooltip' href='".WEBROOT."{$userx['run_name']}/?code=".urlencode($userx['session'])."' 
-					title='Pretend you are this user (you will really manipulate their data!'><i class='fa fa-user-secret'></i></a>
+					title='Pretend you are this user (you will really manipulate their data!)'><i class='fa fa-user-secret'></i></a>
 					
+					<a class='btn hastooltip link-ajax' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_toggle_testing?toggle_on=".($userx['testing']?0:1)."&amp;run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
+					title='Toggle testing status'><i class='fa ". ($userx['testing']?'fa-stethoscope':'fa-heartbeat')."'></i></a>
+
 					<a class='btn hastooltip link-ajax' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_remind?run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
 					title='Remind this user'><i class='fa fa-bullhorn'></i></a>
 					
@@ -153,6 +157,16 @@ class AdminRunController extends AdminController {
 
 		$vars = get_defined_vars();
 		$this->renderView('run/user_overview', $vars);
+	}
+	
+	private function createNewTestCodeAction() {
+		$test_code = crypto_token(48);
+		$test_code = "TESTCODE" . substr($test_code,8);
+		$run_session = new RunSession($this->fdb, $this->run->id, NULL, $test_code, $this->run); // does this user have a session?
+		$run_session->create($test_code, 1);
+		alert("You've created a new test code. Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user.", "alert-info");
+		
+		redirect_to(admin_run_url($this->run->name, "user_overview?session=".$test_code));
 	}
 
 	private function userDetailAction() {
