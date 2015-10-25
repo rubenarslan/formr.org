@@ -289,6 +289,16 @@ class RunSession {
 		return false;
 	}
 
+	/**
+	 * Check if current run session is a test
+	 *
+	 * @param User $user
+	 * @return boolean True if current user in run is testing. False otherwise
+	 */
+	public function isTest(User $user) {
+		return $this->run_owner_id == $user->id;
+	}
+
 	public function __sleep() {
 		return array('id', 'session', 'run_id');
 	}
