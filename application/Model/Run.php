@@ -713,15 +713,15 @@ This study is currently being serviced. Please return at a later time."
 				if($animal_end === FALSE) $animal_end = 10;
 				$icon = "fa-stethoscope";
 				if($user->created($this)) $icon = "fa-user-md";
-				$short_user_code = '<i class="fa '.$icon.'"></i> '.substr($user->user_code,0,$animal_end);
+				$short_user_code = '<i class="fa '.$icon.'"></i> <small>'.substr($user->user_code,0,$animal_end). '</small>';
 				$js .= '<script src="'.asset_url('assets/'. (DEBUG?'js':'minified'). '/run_users.js').'"></script>';			
 				$run_content .=  "
 					<div class='monkey_bar'>
 					<form class='form-inline form-ajax' action='".WEBROOT."admin/run/{$this->name}/ajax_send_to_position' method='post'>
-					<span class='input-group' style='width:220px'>
+					<span class='input-group'>
 						<span class='input-group-btn'>
 						<a class='btn hastooltip' href='".WEBROOT."{$this->name}/?code=".urlencode($user->user_code)."' 
-						title='Link to this session (copy & share to debug)'><small>".$short_user_code."</small></a>
+						title='Link to this session (copy & share to debug)'>".$short_user_code."</a>
 
 						<button class='btn monkey hastooltip' disabled type='button' title='Monkey mode: fill out all form fields with nonsense values'><i class='fa fa-check-square-o'></i></button>
 						<a class='btn hastooltip link-ajax $disable_run_stuff' href='".WEBROOT."admin/run/{$this->name}/ajax_remind?run_session_id={$run_session->id}&amp;session=".urlencode($user->user_code)."' 

@@ -444,7 +444,7 @@ class Item extends HTML_element {
 
 	protected function render_prepended() {
 		if (isset($this->prepend)) {
-			return '<span class="input-group-addon"><i class="fa ' . $this->prepend . '"></i></span>';
+			return '<span class="input-group-addon"><i class="fa fa-fw ' . $this->prepend . '"></i></span>';
 		}
 		return '';
 	}
@@ -845,9 +845,9 @@ class Item_range extends Item_number {
 			$this->input_attributes['value'] = $this->value_validated;
 		}
 
-		return (isset($this->choices[1]) ? '<label class="pad-right">' . $this->choices[1] . ' </label>' : '') .
+		return (isset($this->choices[1]) ? '<label class="pad-right keep-label">' . $this->choices[1] . ' </label>' : '') .
 				'<input ' . self::_parseAttributes($this->input_attributes, array('required')) . ' />' .
-				(isset($this->choices[2]) ? ' <label class="pad-left">' . $this->choices[2] . ' </label>' : '');
+				(isset($this->choices[2]) ? ' <label class="pad-left keep-label">' . $this->choices[2] . ' </label>' : '');
 	}
 
 }
@@ -873,7 +873,7 @@ class Item_range_ticks extends Item_number {
 	}
 
 	protected function render_input() {
-		$ret = (isset($this->choices[1]) ? '<label class="pad-right">' . $this->choices[1] . ' </label> ' : '') .
+		$ret = (isset($this->choices[1]) ? '<label class="pad-right keep-label">' . $this->choices[1] . ' </label> ' : '') .
 				'<input ' . self::_parseAttributes($this->input_attributes, array('required')) . '>';
 		$ret .= '<datalist id="dlist' . $this->id . '">
         <select class="">';
@@ -883,7 +883,7 @@ class Item_range_ticks extends Item_number {
 		$ret .= '
 	        </select>
 	    </datalist>';
-		$ret .= (isset($this->choices[2]) ? ' <label class="pad-left">' . $this->choices[2] . ' </label>' : '');
+		$ret .= (isset($this->choices[2]) ? ' <label class="pad-left keep-label">' . $this->choices[2] . ' </label>' : '');
 
 		return $ret;
 	}
@@ -1671,7 +1671,7 @@ class Item_geopoint extends Item {
 		$ret = '
 			<span class="input-group-btn hidden">
 				<button class="btn btn-default geolocator item' . $this->id . '">
-					<i class="fa fa-location-arrow"></i>
+					<i class="fa fa-location-arrow fa-fw"></i>
 				</button>
 			</span>
 			</div>

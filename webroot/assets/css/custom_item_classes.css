@@ -666,3 +666,41 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
 .thick_border_top {
 	border-top:2px solid gray;
 }
+
+@media (max-width: 768px) { 
+    /* display mc_heading style displays on mobile, when question and choices stack, aren't side-by-side */
+    form.form-horizontal div.form-row.item-mc_heading.form-group  {
+        display:none;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label {
+    	text-align:inherit;
+    	text-indent:inherit;
+    	height:inherit;
+    	overflow:inherit;
+    	line-height:inherit;
+    	min-height:inherit;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label span {
+    	line-height:inherit;
+        visibility:visible;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
+        visibility:visible;
+    }
+    
+    form.form-horizontal div.form-row.form-group div.controls label:not(.keep-label),
+    form.form-horizontal div.form-row.form-group div.controls button.btn
+    {
+        width:100%;
+    }
+    
+    
+    /* make buttons show labels when they're shown vertically  */
+    
+    .show_value_instead_of_label.form-row .btn .btn_value {
+        display:none;
+    }
+    .show_value_instead_of_label.form-row .btn .btn_label {
+        display:inline;
+    }
+}
