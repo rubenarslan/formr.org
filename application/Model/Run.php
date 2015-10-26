@@ -708,24 +708,20 @@ This study is currently being serviced. Please return at a later time."
 
 			$run_content = '';
 			
-			$disable_run_stuff = $this->isFakeTestRun() ? " disabled " : "";
 			if($run_session->isTesting()) {
 				$animal_end = strpos($user->user_code, "XXX");
 				if($animal_end === false) {
 					$animal_end = 10;
 				}
 
-				$icon = "fa-stethoscope";
-				if($user->created($this)) {
-					$icon = "fa-user-md";
-				}
-
-				$short_user_code = '<i class="fa '.$icon.'"></i> <small>' . substr($user->user_code, 0, $animal_end) . '</small>';
 				$js .= '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_users.js') . '"></script>';			
 				$run_content .= Template::get('admin/run/monkey_bar', array(
 					'user' => $user,
 					'run' => $this,
 					'run_session' => $run_session,
+					'short_code' => substr($user->user_code, 0, $animal_end),
+					'icon' => $user->created($this) ? "fa-user-md" : "fa-stethoscope",
+					'disable_class' => $this->isFakeTestRun() ? " disabled " : "",
 				));
 			}
 

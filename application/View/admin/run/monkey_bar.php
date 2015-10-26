@@ -1,18 +1,18 @@
 <div class="monkey_bar">
 	<form class="form-inline form-ajax" action="<?php echo admin_run_url($run->name, 'ajax_send_to_position'); ?>" method="post">
-		<span class="input-group" style="width:220px">
+		<span class="input-group">
 			<span class="input-group-btn">
-				<a class="btn hastooltip" href="<?php echo site_url($run->name . '/?code=' . urlencode($user->user_code)); ?>" title="Link to this session (copy & share to debug)"><small> <?php echo substr($user->user_code, 0, 7); ?></small></a>
+				<a class="btn hastooltip" href="<?php echo site_url($run->name . '/?code=' . urlencode($user->user_code)); ?>" title="Link to this session (copy & share to debug)"><i class="fa <?= $icon ?>"></i><small> <?php echo $short_code; ?></small></a>
 				<button class="btn monkey hastooltip" disabled type="button" title="Monkey mode: fill out all form fields with nonsense values"><i class="fa fa-check-square-o"></i></button>
-				<a class="btn hastooltip link-ajax" href="<?php echo admin_run_url($run->name, "ajax_remind?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" title="Send yourself a reminder (if you already gave an email address)"><i class="fa fa-bullhorn"></i></a>
-				<a href="<?php echo admin_run_url($run->name, "ajax_nextInRun?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" class="btn hastooltip  link-ajax refresh_on_success unpause_now" title="Go to next step in run (unpause/skip)"><i class="fa fa-play"></i></a>
-				<button type="submit" class="btn hastooltip refresh_on_success" title="Send this user to that position"><i class="fa fa-hand-o-right"></i></button>
+				<a class="btn hastooltip link-ajax <?= $disable_class ?>" href="<?php echo admin_run_url($run->name, "ajax_remind?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" title="Send yourself a reminder (if you already gave an email address)"><i class="fa fa-bullhorn"></i></a>
+				<a href="<?php echo admin_run_url($run->name, "ajax_nextInRun?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" class="btn hastooltip <?= $disable_class ?> link-ajax refresh_on_success unpause_now" title="Go to next step in run (unpause/skip)"><i class="fa fa-play"></i></a>
+				<button type="submit" class="btn hastooltip refresh_on_success <?= $disable_class ?>" title="Send this user to that position"><i class="fa fa-hand-o-right"></i></button>
 			</span>
 
 			<input type="hidden" name="session" value="<?php echo $user->user_code;?>">
 			<input type="number" name="new_position" value="<?php echo $run_session->position; ?>" class="form-control" style="width:80px">
 			<span class="input-group-btn link-ajax-modal">
-				<a class="btn hastooltip refresh_on_success" data-toggle="modal" data-target="#confirm-delete" href="javascript:void(0);" data-href="<?php echo admin_run_url($run->name, "ajax_deleteUser?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" title="Delete this user and all their data (you will have to confirm)"><i class="fa fa-trash-o"></i></a>
+				<a class="btn hastooltip refresh_on_success <?= $disable_class; ?>" data-toggle="modal" data-target="#confirm-delete" href="javascript:void(0);" data-href="<?php echo admin_run_url($run->name, "ajax_deleteUser?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" title="Delete this user and all their data (you will have to confirm)"><i class="fa fa-trash-o"></i></a>
 			</span>
 		</span>
 	</form>
