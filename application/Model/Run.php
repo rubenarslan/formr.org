@@ -239,7 +239,7 @@ class Run {
 							'created' => mysql_now(),
 							'original_file_name' => $original_file_name,
 							'new_file_path' => $new_file_path,
-								), array(
+						), array(
 							'modified' => mysql_now()
 						));
 					} else {
