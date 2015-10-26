@@ -446,8 +446,7 @@ class SpreadsheetReader {
 				$skipped_columns[$i] = $col_name;
 			endif;
 		endfor;
-		$this->messages[] = 'Choices worksheet - ' . $worksheet->getTitle();
-		$choices_messages[] = 'These columns were <strong>used</strong>: ' . implode($columns, ", ");
+		$this->messages[] = 'Choices worksheet - ' . $worksheet->getTitle() . '. These columns were <strong>used</strong>: ' . implode($columns, ", ");
 		if (!empty($skipped_columns))
 			$this->warnings[] = 'These choices sheet columns were <strong>skipped</strong>: ' . implode($skipped_columns, ", ");
 
@@ -559,8 +558,9 @@ class SpreadsheetReader {
 //		$callEndTime = microtime(true);
 //		$callTime = $callEndTime - $callStartTime;
 //		$choices_messages[] = 'Call time to read choices sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
-
-		$this->messages[] = '<ul><li>' . implode("</li><li>", $choices_messages) . '</li></ul>';
+		if(!empty($choices_messages))
+			$this->messages[] = '<ul><li>' . implode("</li><li>", $choices_messages) . '</li></ul>';
+		
 		$this->choices = $data;
 	}
 
@@ -603,8 +603,7 @@ class SpreadsheetReader {
 		if ($nr_of_blank_column_headers > 0)
 			$this->warnings[] = __('Your sheet appears to contain at least %d columns without names (in the first row)."', $nr_of_blank_column_headers);
 
-		$empty_rows = array();
-		$this->messages[] = 'These columns were <strong>used</strong>: ' . implode($columns, ", ");
+		$ambiguous_rows = $empty_rows = array();
 		if (!empty($skipped_columns)) {
 			$this->warnings[] = 'These survey sheet columns were <strong>skipped</strong>: ' . implode($skipped_columns, ", ");
 		}
@@ -642,9 +641,11 @@ class SpreadsheetReader {
 					if ($col == 'name'):
 						$val = trim($val);
 						if ($val == ''):
-							$empty_rows[] = $row_number;
 							if (isset($data[$row_number])) {
 								unset($data[$row_number]);
+								$ambiguous_rows[] = $row_number;
+							} else {
+								$empty_rows[] = $row_number;
 							}
 							// skip this row
 							continue 2;
@@ -731,11 +732,15 @@ class SpreadsheetReader {
 
 		$callEndTime = microtime(true);
 		$callTime = $callEndTime - $callStartTime;
-		$this->messages[] = 'Survey <abbr title="Call time to read survey sheet was ' . sprintf('%.4f', $callTime) . ' seconds">worksheet</abbr> - ' . $worksheet->getTitle() . ' (' . $row_number . ' rows, ' . $nr_of_columns . ' columns)';
+		$this->messages[] = 'Survey <abbr title="Call time to read survey sheet was ' . sprintf('%.4f', $callTime) . ' seconds">worksheet</abbr> - ' . $worksheet->getTitle() . ' (' . $row_number . ' rows, ' . $nr_of_columns . ' columns). These columns were <strong>used</strong>: ' . implode($columns, ", ");
+		
 		if (!empty($empty_rows)) {
 			$this->messages[] = "Rows " . implode($empty_rows, ", ") . ": variable name empty. Rows skipped.";
 		}
-
+		
+		if (!empty($ambiguous_rows)) {
+			$this->warnings[] = "Rows " . implode($ambiguous_rows, ", ") . ": variable name empty, but other columns had content. Rows skipped, but double-check that you did not forget to define a variable name for a proper item.";
+		}
 		$this->survey = $data;
 	}
 

@@ -75,6 +75,7 @@ class Item extends HTML_element {
 	public $error = null;
 	public $dont_validate = null;
 	public $val_errors = array();
+	public $val_warnings = array();
 	public $mysql_field = 'TEXT DEFAULT NULL';
 	protected $prepend = null;
 	protected $append = null;
@@ -93,6 +94,119 @@ class Item extends HTML_element {
 	protected $presetValues = array();
 	protected $probably_render = null;
 	public $presetValue = null;
+	public $allowed_classes = array(
+		"",
+		"clickable_map",
+		"thick_border_top",
+		"red",
+		"green",
+		"people_list",
+		"vertical_range",
+		"space_label_answer_vertical_10",
+		"space_label_answer_vertical_20",
+		"space_label_answer_vertical_30",
+		"space_label_answer_vertical_40",
+		"space_label_answer_vertical_50",
+		"space_label_answer_vertical_60",
+		"space_bottom_10",
+		"space_bottom_20",
+		"space_bottom_30",
+		"space_bottom_40",
+		"space_bottom_50",
+		"space_bottom_60",
+		"hidden",
+		"rating_button_label_width50",
+		"rating_button_label_width60",
+		"rating_button_label_width70",
+		"rating_button_label_width80",
+		"rating_button_label_width90",
+		"rating_button_label_width100",
+		"rating_button_label_width150",
+		"rating_button_label_width200",
+		"mc_width50",
+		"mc_width60",
+		"mc_width70",
+		"mc_width80",
+		"mc_width100",
+		"mc_width150",
+		"mc_width200",
+		"mc_equal_widths",
+		"mc_vertical",
+		"mc_block",
+		"mc_boxed",
+		"rotate_label30",
+		"rotate_label45",
+		"rotate_label90",
+		"hide_label",
+		"answer_align_right",
+		"answer_align_left",
+		"answer_align_center",
+		"label_align_right",
+		"label_align_left",
+		"label_align_center",
+		"right20",
+		"right30",
+		"right50",
+		"right70",
+		"right80",
+		"right100",
+		"right100",
+		"right150",
+		"right200",
+		"right300",
+		"right400",
+		"right500",
+		"right600",
+		"right700",
+		"right800",
+		"right900",
+		"padding100",
+		"padding200",
+		"padding300",
+		"padding400",
+		"padding500",
+		"padding600",
+		"padding700",
+		"padding800",
+		"padding900",
+		"left_offset0",
+		"left_offset100",
+		"left_offset200",
+		"left_offset300",
+		"left_offset400",
+		"left_offset500",
+		"left_offset600",
+		"left_offset700",
+		"left_offset800",
+		"left_offset900",
+		"right_offset0",
+		"right_offset100",
+		"right_offset200",
+		"right_offset300",
+		"right_offset400",
+		"right_offset500",
+		"right_offset600",
+		"right_offset700",
+		"right_offset800",
+		"right_offset900",
+		"left0",
+		"left100",
+		"left200",
+		"left300",
+		"left400",
+		"left500",
+		"left600",
+		"left700",
+		"left800",
+		"left900",
+		"align_horizontally",
+		"clear",
+		"row_height_40",
+		"answer_below_label",
+		"float_image_left",
+		"float_image_right",
+		"label_as_placeholder"
+	);
 	
 	public function __construct($options = array()) {
 		// simply load the array into the object, with some sensible defaults
@@ -280,22 +394,30 @@ class Item extends HTML_element {
 	}
 
 	public function validate() {
-		if (!$this->hasChoices AND $this->choice_list != null):
+		if (!$this->hasChoices AND ($this->choice_list !== null OR count($this->choices))):
 			$this->val_errors[] = "'{$this->name}' You defined choices for this item, even though this type doesn't have choices.";
-		elseif ($this->hasChoices AND $this->choice_list == null AND $this->type !== "select_or_add_multiple"):
+		elseif ($this->hasChoices AND ($this->choice_list === null OR count($this->choices)===0) AND $this->type !== "select_or_add_multiple"):
 			$this->val_errors[] = "'{$this->name}' You forgot to define choices for this item.";
+		elseif($this->hasChoices AND count(array_unique($this->choices)) < count($this->choices)):
+			$dups = implode(array_diff_assoc($this->choices, array_unique($this->choices)), ", ");
+			$this->val_errors[] = "'{$this->name}' You defined duplicated choices (".h($dups).") for this item.";
 		endif;
+		
 		if (!preg_match('/^[A-Za-z][A-Za-z0-9_]+$/', $this->name)):
 			$this->val_errors[] = "'{$this->name}' The variable name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. It needs to start with a letter. You cannot use spaces, dots, or dashes.";
 		endif;
 
 		if (trim($this->type) == ""):
 			$this->val_errors[] = "{$this->name}: The type column must not be empty.";
-#		elseif(!in_array($this->type,$this->allowedTypes) ):
-#			$this->val_errors[] = "{$this->name}: Typ '{$this->type}' nicht erlaubt. In den Admineinstellungen änderbar.";
 		endif;
+		
+		$defined_classes = array_map("trim", explode(" ",$this->class));
+		$missing_classes = array_diff($defined_classes, $this->allowed_classes);
+		if(count($missing_classes) > 0) {
+			$this->val_warnings[] = "'{$this->name}' You used CSS classes that aren't part of the standard set (but maybe you defined them yourself): ". implode(", ", $missing_classes);
+		}
 
-		return $this->val_errors;
+		return array("val_errors" =>  $this->val_errors, "val_warnings" => $this->val_warnings);
 	}
 
 	public function validateInput($reply) {
@@ -322,7 +444,7 @@ class Item extends HTML_element {
 
 	protected function render_prepended() {
 		if (isset($this->prepend)) {
-			return '<span class="input-group-addon"><i class="fa ' . $this->prepend . '"></i></span>';
+			return '<span class="input-group-addon"><i class="fa fa-fw ' . $this->prepend . '"></i></span>';
 		}
 		return '';
 	}
@@ -723,9 +845,9 @@ class Item_range extends Item_number {
 			$this->input_attributes['value'] = $this->value_validated;
 		}
 
-		return (isset($this->choices[1]) ? '<label class="pad-right">' . $this->choices[1] . ' </label>' : '') .
+		return (isset($this->choices[1]) ? '<label class="pad-right keep-label">' . $this->choices[1] . ' </label>' : '') .
 				'<input ' . self::_parseAttributes($this->input_attributes, array('required')) . ' />' .
-				(isset($this->choices[2]) ? ' <label class="pad-left">' . $this->choices[2] . ' </label>' : '');
+				(isset($this->choices[2]) ? ' <label class="pad-left keep-label">' . $this->choices[2] . ' </label>' : '');
 	}
 
 }
@@ -751,7 +873,7 @@ class Item_range_ticks extends Item_number {
 	}
 
 	protected function render_input() {
-		$ret = (isset($this->choices[1]) ? '<label class="pad-right">' . $this->choices[1] . ' </label> ' : '') .
+		$ret = (isset($this->choices[1]) ? '<label class="pad-right keep-label">' . $this->choices[1] . ' </label> ' : '') .
 				'<input ' . self::_parseAttributes($this->input_attributes, array('required')) . '>';
 		$ret .= '<datalist id="dlist' . $this->id . '">
         <select class="">';
@@ -761,7 +883,7 @@ class Item_range_ticks extends Item_number {
 		$ret .= '
 	        </select>
 	    </datalist>';
-		$ret .= (isset($this->choices[2]) ? ' <label class="pad-left">' . $this->choices[2] . ' </label>' : '');
+		$ret .= (isset($this->choices[2]) ? ' <label class="pad-left keep-label">' . $this->choices[2] . ' </label>' : '');
 
 		return $ret;
 	}
@@ -1175,7 +1297,8 @@ class Item_mc_multiple extends Item_mc {
 class Item_check extends Item_mc_multiple {
 
 	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
-	public $choice_list = '*';
+	public $choice_list = NULL;
+	protected $hasChoices = false;
 
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
@@ -1548,7 +1671,7 @@ class Item_geopoint extends Item {
 		$ret = '
 			<span class="input-group-btn hidden">
 				<button class="btn btn-default geolocator item' . $this->id . '">
-					<i class="fa fa-location-arrow"></i>
+					<i class="fa fa-location-arrow fa-fw"></i>
 				</button>
 			</span>
 			</div>
@@ -1692,7 +1815,6 @@ class Item_server extends Item {
 	}
 
 	public function validate() {
-		parent::validate();
 		if (!in_array($this->get_var, array(
 					'HTTP_USER_AGENT',
 					'HTTP_ACCEPT',
@@ -1706,6 +1828,7 @@ class Item_server extends Item {
 					'REQUEST_TIME_FLOAT'
 				))) {
 			$this->val_errors[] = __('The server variable %s with the value %s cannot be saved', $this->name, $this->get_var);
+			return parent::validate();
 		}
 
 		return $this->val_errors;
@@ -1744,11 +1867,10 @@ class Item_get extends Item {
 	}
 
 	public function validate() {
-		parent::validate();
 		if (!preg_match('/^[A-Za-z0-9_]+$/', $this->get_var)):
 			$this->val_errors[] = __('Problem with variable %s "get %s". The part after get can only contain a-Z0-9 and the underscore.', $this->name, $this->get_var);
 		endif;
-		return $this->val_errors;
+		return parent::validate();
 	}
 
 	public function render() {

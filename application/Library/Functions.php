@@ -36,12 +36,12 @@ function alert($msg, $class = 'alert-warning', $dismissable = true) { // shortha
 }
 
 function notify_user_error($error, $public_message = '') {
-	global $user;
+	$run_session = Site::getInstance()->getRunSession();
 	$date = date('Y-m-d H:i:s');
 
 	$message = $date . ': ' . $public_message . "<br>";
 
-	if (DEBUG OR $user->isAdmin()) {
+	if (DEBUG OR $run_session->isTesting() ) {
 		if ($error instanceof Exception) {
 			$message .= '<pre>' . $error->getMessage() . "</pre>";
 		} else {
@@ -1188,9 +1188,9 @@ function pre_htmlescape($str) {
 	return '<pre>' . htmlspecialchars($str) . '</pre>';
 }
 
-function array_val($array, $key, $default = '') {
-	if (isset($array[$key])) {
-		$default = $array[$key];
+function array_val($array, $key, $default = "") {
+	if (array_key_exists($key, $array)) {
+		return $array[$key];
 	}
 	return $default;
 }

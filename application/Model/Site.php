@@ -21,6 +21,11 @@ class Site {
 	 */
 	protected $path;
 
+	/**
+	* @var RunSession
+	*/
+	protected $runSession = null;
+
 	protected function __construct() {
 		$this->updateRequestObject();
 	}
@@ -206,6 +211,14 @@ class Site {
 
 	public function getCurrentRoute() {
 		return $this->request->getParam('route');
+	}
+
+	public function setRunSession(RunSession $runSession ) {
+		$this->runSession = $runSession;
+	}
+	
+	public function getRunSession() {
+		return $this->runSession;
 	}
 
 	/**

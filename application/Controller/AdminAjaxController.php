@@ -112,6 +112,24 @@ class AdminAjaxController {
 			redirect_to("admin/run/" . $run->name . "/user_overview");
 		endif;
 	}
+	
+
+	private function ajaxToggleTesting() {
+		$run = $this->controller->run;
+		$dbh = $this->dbh;
+
+		$run_session = new RunSession($dbh, $run->id, null, $this->request->getParam('session'), $run);
+		
+		$status = $this->request->getParam('toggle_on') ? 1: 0;
+		$run_session->setTestingStatus( $status );
+		
+		if (is_ajax_request()):
+			echo $this->site->renderAlerts();
+			exit;
+		else:
+			redirect_to("admin/run/" . $run->name . "/user_overview");
+		endif;
+	}
 
 	private function ajaxSendToPosition() {
 		$run = $this->controller->run;

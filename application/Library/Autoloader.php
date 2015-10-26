@@ -25,6 +25,7 @@ class Autoload {
 			'AdminMailController' => APPLICATION_PATH . 'Controller/AdminMailController.php',
 			'AdminRunController' => APPLICATION_PATH . 'Controller/AdminRunController.php',
 			'AdminSurveyController' => APPLICATION_PATH . 'Controller/AdminSurveyController.php',
+			'AnimalName' => APPLICATION_PATH . 'Library/AnimalName.php',
 			'ApiController' => APPLICATION_PATH . 'Controller/ApiController.php',
 			'ApiDAO' => APPLICATION_PATH . 'Dao/ApiDAO.php',
 			'Branch' => APPLICATION_PATH . 'Model/Branch.php',

@@ -2,7 +2,7 @@
   "name": "formr",
   "version": "0.6.10",
   "main": [
-    "css/main.css",
+    "css/core.css",
     "js/main.js"
   ],
   "ignore": [

@@ -170,8 +170,13 @@
 		<nav class="col-lg-2 col-md-2 col-sm-3 admin_sidebar">
 			<ul class="fa-ul  fa-ul-more-padding menu-highlight">
 				<li>
-					<a href="<?php echo run_url($run->name); ?>" title="To play as a new user, test the run in a new private/incognito window (right-click in Chrome or Firefox). To play as yourself, simply click the link (remember that the run saves your position and progress)!">
-						<i class="fa-li fa fa-play"></i> <?php echo _("Test run"); ?>
+					<a href="<?php echo run_url($run->name); ?>" title="Click this link to play the run as yourself. Remember that the run saves your position and progress, so you will go where you left off. If you're testing a diary, this may be desirable, if you're testing a one-shot survey, maybe not so.">
+						<i class="fa-li fa fa-play"></i> <?php echo _("Use run as yourself"); ?>
+					</a>
+				</li>
+				<li>
+					<a href="<?php echo admin_run_url($run->name, 'create_new_test_code'); ?>" title="Generate a new test code, to test as a new user.">
+						<i class="fa-li fa fa-stethoscope"></i> <?php echo _("New test code"); ?>
 					</a>
 				</li>
 				<li title="Here you can monitor users' progress, send them to a different position and send them manual reminders.">

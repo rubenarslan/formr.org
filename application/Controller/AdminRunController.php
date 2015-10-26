@@ -90,6 +90,7 @@ class AdminRunController extends AdminController {
 			`survey_run_sessions`.position,
 			`survey_run_sessions`.last_access,
 			`survey_run_sessions`.created,
+			`survey_run_sessions`.testing,
 			`survey_runs`.name AS run_name,
 			`survey_units`.type AS unit_type,
 			`survey_run_sessions`.last_access,
@@ -107,6 +108,13 @@ class AdminRunController extends AdminController {
 		$vars['position_lt'] = $position_cmp;
 		$vars['currentUser'] = $this->user;
 		$this->renderView('run/user_overview', $vars);
+	}
+	
+	private function createNewTestCodeAction() {
+		$run_session = $this->run->makeTestRunSession();
+		alert("You've created a new test code. Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user.", "alert-info");
+		
+		redirect_to(admin_run_url($this->run->name, "user_overview?session=".$run_session->session));
 	}
 
 	private function userDetailAction() {
