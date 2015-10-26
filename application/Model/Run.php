@@ -68,7 +68,7 @@ class Run {
 			return true;
 		endif;
 
-		if ($name !== null OR ($name = $this->create($options))):
+		if ($name !== null OR ( $name = $this->create($options))):
 			$this->name = $name;
 			$columns = "id,user_id,name,api_secret_hash,public,cron_active,locked, header_image_path,title,description,description_parsed,footer_text,footer_text_parsed,public_blurb,public_blurb_parsed,custom_css_path,custom_js_path";
 			$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
@@ -195,10 +195,10 @@ class Run {
 
 	public function getUploadedFiles() {
 		return $this->dbh->select('id, created, modified, original_file_name, new_file_path')
-						->from('survey_uploaded_files')
-						->where(array('run_id' => $this->id))
-						->order('created', 'asc')
-						->fetchAll();
+					->from('survey_uploaded_files')
+					->where(array('run_id' => $this->id))
+					->order('created', 'asc')
+					->fetchAll();
 	}
 
 	public $file_endings = array(
@@ -239,7 +239,7 @@ class Run {
 							'created' => mysql_now(),
 							'original_file_name' => $original_file_name,
 							'new_file_path' => $new_file_path,
-						), array(
+								), array(
 							'modified' => mysql_now()
 						));
 					} else {
@@ -272,10 +272,10 @@ class Run {
 
 	public function getAllUnitIds() {
 		return $this->dbh->select(array('id' => 'run_unit_id', 'unit_id', 'position'))
-						->from('survey_run_units')
-						->where(array('run_id' => $this->id))
-						->order('position')
-						->fetchAll();
+					->from('survey_run_units')
+					->where(array('run_id' => $this->id))
+					->order('position')
+					->fetchAll();
 	}
 
 	public function getOverviewScript() {
@@ -337,7 +337,7 @@ plot(cars)
 			"body" =>
 			"# Service message
 This study is currently being serviced. Please return at a later time."
-));
+		));
 		if ($unit->valid):
 			$this->dbh->update('survey_runs', array('service_message' => $unit->id), array('id' => $this->id));
 			alert('A service message was auto-created.', 'alert-info');
@@ -376,9 +376,9 @@ This study is currently being serviced. Please return at a later time."
 	public function emptySelf() {
 		$surveys = $this->getAllSurveys();
 		$unit_factory = new RunUnitFactory();
-		foreach($surveys AS $survey) {
+		foreach ($surveys AS $survey) {
 			$unit = $unit_factory->make($this->dbh, null, $survey, null, $this);
-			if(!$unit->deleteResults(true)) {
+			if (!$unit->deleteResults(true)) {
 				alert('Could not delete results of survey ' . $unit->name, 'alert-danger');
 				return false;
 			}
@@ -547,12 +547,12 @@ This study is currently being serviced. Please return at a later time."
 				`survey_units`.type,
 				`survey_units`.created,
 				`survey_units`.modified')
-			->from('survey_run_units')
-			->leftJoin('survey_units', 'survey_units.id = survey_run_units.unit_id')
-			->where('survey_run_units.run_id = :run_id')
-			->where('survey_run_units.id = :id')
-			->bindParams(array('run_id' => $this->id, 'id' => $id))
-			->limit(1)->fetch();
+					->from('survey_run_units')
+					->leftJoin('survey_units', 'survey_units.id = survey_run_units.unit_id')
+					->where('survey_run_units.run_id = :run_id')
+					->where('survey_run_units.id = :id')
+					->bindParams(array('run_id' => $this->id, 'id' => $id))
+					->limit(1)->fetch();
 		else:
 			if (!in_array($special, array("service_message", "overview_script", "reminder_email"))) {
 				die("Special unit not allowed");
@@ -565,12 +565,12 @@ This study is currently being serviced. Please return at a later time."
 				`survey_units`.type,
 				`survey_units`.created,
 				`survey_units`.modified")
-			->from('survey_runs')
-			->leftJoin('survey_units', "survey_units.id = `survey_runs`.`$special`")
-			->where('survey_runs.id = :run_id')
-			->where("`survey_runs`.`$special` = :unit_id")
-			->bindParams(array('run_id' => $this->id, 'unit_id' => $id))
-			->limit(1)->fetch();
+					->from('survey_runs')
+					->leftJoin('survey_units', "survey_units.id = `survey_runs`.`$special`")
+					->where('survey_runs.id = :run_id')
+					->where("`survey_runs`.`$special` = :unit_id")
+					->bindParams(array('run_id' => $this->id, 'unit_id' => $id))
+					->limit(1)->fetch();
 			$unit["special"] = $special;
 		endif;
 
@@ -587,12 +587,12 @@ This study is currently being serviced. Please return at a later time."
 	public function getAllSurveys() {
 		// first, generate a master list of the search set (all the surveys that are part of the run)
 		return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
-				->from('survey_studies')
-				->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
-				->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
-				->where('survey_runs.id = :run_id')
-				->bindParams(array('run_id' => $this->id))
-				->fetchAll();
+					->from('survey_studies')
+					->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
+					->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
+					->where('survey_runs.id = :run_id')
+					->bindParams(array('run_id' => $this->id))
+					->fetchAll();
 	}
 
 	public function getRandomGroups() {
@@ -635,7 +635,7 @@ This study is currently being serviced. Please return at a later time."
 				$output['body'] = "
 					<h1>Finish</h1>
 					<p>You're finished with testing this survey.</p>
-					<a href='" . admin_study_url($_SESSION['dummy_survey_session']['survey_name'])  . "'>Back to the admin control panel.</a>";
+					<a href='" . admin_study_url($_SESSION['dummy_survey_session']['survey_name']) . "'>Back to the admin control panel.</a>";
 
 				Session::delete('dummy_survey_session');
 			endif;
@@ -646,15 +646,15 @@ This study is currently being serviced. Please return at a later time."
 			return false;
 		endif;
 	}
-	
+
 	public function makeTestRunSession($testing = 1) {
-		$animal_name = AnimalName::haikunate(["tokenLength" => 0, "delimiter" => "", ]) . "XXX";
+		$animal_name = AnimalName::haikunate(["tokenLength" => 0, "delimiter" => "",]) . "XXX";
 		$animal_name = str_replace(" ", "", $animal_name);
-		$test_code = crypto_token(48 - floor(3/4*strlen($animal_name)));
-		$test_code = $animal_name . substr($test_code, 0,64-strlen($animal_name));
+		$test_code = crypto_token(48 - floor(3 / 4 * strlen($animal_name)));
+		$test_code = $animal_name . substr($test_code, 0, 64 - strlen($animal_name));
 		$run_session = new RunSession($this->dbh, $this->id, NULL, $test_code, $this); // does this user have a session?
 		$run_session->create($test_code, $testing);
-		
+
 		return $run_session;
 	}
 
@@ -669,14 +669,13 @@ This study is currently being serviced. Please return at a later time."
 
 			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
-			if (
-				($user->created($this) OR // owner always has access
+			if (($user->created($this) OR // owner always has access
 				$run_session->isTesting()) OR // testers always have access
 				($this->public >= 1 AND $run_session->id) OR // already enrolled
 				($this->public >= 2)) { // anyone with link can access
 				
 				if ($run_session->id === null) {
-					$run_session->create($user->user_code, (int)$user->created($this));  // generating access code for those who don't have it but need it
+					$run_session->create($user->user_code, (int) $user->created($this));  // generating access code for those who don't have it but need it
 				}
 
 				Session::globalRefresh();
@@ -688,64 +687,66 @@ This study is currently being serviced. Please return at a later time."
 			}
 		endif;
 
-		if ($output):
-			global $site, $title, $css, $js;
+		if (!$output) {
+			return;
+		}
 
-			if (isset($output['title'])):
-				$title = $output['title'];
-			else:
-				$title = $this->title ? $this->title : $this->name;
-			endif;
+		global $site, $title, $css, $js;
 
-			if ($this->custom_css_path) {
-				$css = '<link rel="stylesheet" href="' . asset_url($this->custom_css_path) . '" type="text/css" media="screen">';
-			}
-			if ($this->custom_js_path) {
-				$js .= '<script src="' . asset_url($this->custom_js_path) . '"></script>';
-			}
-
-			$alerts = $site->renderAlerts();
-
-			$run_content = '';
-			
-			if($run_session->isTesting()) {
-				$animal_end = strpos($user->user_code, "XXX");
-				if($animal_end === false) {
-					$animal_end = 10;
-				}
-
-				$js .= '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_users.js') . '"></script>';			
-				$run_content .= Template::get('admin/run/monkey_bar', array(
-					'user' => $user,
-					'run' => $this,
-					'run_session' => $run_session,
-					'short_code' => substr($user->user_code, 0, $animal_end),
-					'icon' => $user->created($this) ? "fa-user-md" : "fa-stethoscope",
-					'disable_class' => $this->isFakeTestRun() ? " disabled " : "",
-				));
-			}
-
-			if (trim($this->description_parsed)) {
-				$run_content .= $this->description_parsed;
-			}
-			
-			if (isset($output['body'])) {
-				$run_content .= $output['body'];
-			}
-			if (trim($this->footer_text_parsed)) {
-				$run_content .= $this->footer_text_parsed;
-			}
-
-			return array(
-				'title' => $title,
-				'css' => $css,
-				'js' => $js,
-				'alerts' => $alerts,
-				'run_session' => $run_session,
-				'run_content' => $run_content,
-				'run' => $this,
-			);
+		if (isset($output['title'])):
+			$title = $output['title'];
+		else:
+			$title = $this->title ? $this->title : $this->name;
 		endif;
+
+		if ($this->custom_css_path) {
+			$css = '<link rel="stylesheet" href="' . asset_url($this->custom_css_path) . '" type="text/css" media="screen">';
+		}
+		if ($this->custom_js_path) {
+			$js .= '<script src="' . asset_url($this->custom_js_path) . '"></script>';
+		}
+
+		$alerts = $site->renderAlerts();
+
+		$run_content = '';
+
+		if ($run_session->isTesting()) {
+			$animal_end = strpos($user->user_code, "XXX");
+			if ($animal_end === false) {
+				$animal_end = 10;
+			}
+
+			$js .= '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_users.js') . '"></script>';
+			$run_content .= Template::get('admin/run/monkey_bar', array(
+				'user' => $user,
+				'run' => $this,
+				'run_session' => $run_session,
+				'short_code' => substr($user->user_code, 0, $animal_end),
+				'icon' => $user->created($this) ? "fa-user-md" : "fa-stethoscope",
+				'disable_class' => $this->isFakeTestRun() ? " disabled " : "",
+			));
+		}
+
+		if (trim($this->description_parsed)) {
+			$run_content .= $this->description_parsed;
+		}
+
+		if (isset($output['body'])) {
+			$run_content .= $output['body'];
+		}
+		if (trim($this->footer_text_parsed)) {
+			$run_content .= $this->footer_text_parsed;
+		}
+
+		return array(
+			'title' => $title,
+			'css' => $css,
+			'js' => $js,
+			'alerts' => $alerts,
+			'run_session' => $run_session,
+			'run_content' => $run_content,
+			'run' => $this,
+		);
 	}
 
 	/**
@@ -755,7 +756,7 @@ This study is currently being serviced. Please return at a later time."
 	 * @param array $units
 	 * @param boolean $inc_survey Should survey data be included in export?
 	 * @return mixed Returns an array of its two inputs.
-	*/
+	 */
 	public function export($name, array $units, $inc_survey) {
 		$SPR = new SpreadsheetReader();
 		// Save run units
@@ -781,7 +782,7 @@ This study is currently being serviced. Please return at a later time."
 		$files = array();
 		$uploads = $this->getUploadedFiles();
 		foreach ($uploads as $file) {
-			$files[] = site_url('file_download/'. $this->id . '/' . $file['original_file_name']);
+			$files[] = site_url('file_download/' . $this->id . '/' . $file['original_file_name']);
 		}
 
 		$export = array(
@@ -792,7 +793,7 @@ This study is currently being serviced. Please return at a later time."
 		);
 		return $export;
 	}
-	
+
 	/**
 	 * Import a set of run units into current run by parsing a valid json string.
 	 * Existing exported run units are read from configured dir $settings[run_exports_dir]
@@ -842,7 +843,7 @@ This study is currently being serviced. Please return at a later time."
 				$unitObj = $runFactory->make($this->dbh, null, (array) $unit, null, $this);
 				$unitObj->create((array) $unit);
 				if ($unitObj->valid) {
-					$unitObj->addToRun($this->id, $unitObj->position, (array) $unit );
+					$unitObj->addToRun($this->id, $unitObj->position, (array) $unit);
 					// @todo check how to manage this because they are echoed only on next page load
 					//alert('<strong>Success.</strong> '.ucfirst($unitObj->type).' unit was created.','alert-success');
 					$createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
@@ -858,4 +859,3 @@ This study is currently being serviced. Please return at a later time."
 	}
 
 }
-		
