@@ -26,7 +26,7 @@ class AdminMailController extends AdminController {
 		$acc = new EmailAccount($this->fdb, $_GET['account_id'], $this->user->id);
 
 		if(!$this->user->created($acc)):
-			alert("<strong>Error:</strong> Not your email account.",'alert-danger');
+			alert("<strong>Error:</strong> Not your email account.", 'alert-danger');
 			redirect_to("/admin/mail/index");
 		endif;
 
@@ -34,7 +34,7 @@ class AdminMailController extends AdminController {
 			$acc->test();
 		} elseif(!empty($_POST)) {
 			$acc->changeSettings($_POST);
-			alert('<strong>Success!</strong> Your email account settings were changed!','alert-success');
+			alert('<strong>Success!</strong> Your email account settings were changed!', 'alert-success');
 			redirect_to("/admin/mail/edit?account_id=".$_GET['account_id']);
 		}
 

@@ -539,8 +539,9 @@ class Survey extends RunUnit {
 			$hidden = $item->setVisibility(array_val($results, "si.{$item->name}"));
 
 			$hidden_update->bindValue(":item_id", $item->id);
-			if ($hidden !== null)
+			if ($hidden !== null) {
 				$hidden = (int) !$hidden;
+			}
 			$hidden_update->bindValue(":hidden", $hidden);
 			$hidden_update->execute();
 		}
