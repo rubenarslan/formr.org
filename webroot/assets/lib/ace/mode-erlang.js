@@ -993,7 +993,7 @@ oop.inherits(Mode, TextMode);
 
 (function() {
     this.lineCommentStart = "%";
-    this.blockComment = null;
+    this.blockComment = {start: "/*", end: "*/"};
     this.$id = "ace/mode/erlang";
 }).call(Mode.prototype);
 

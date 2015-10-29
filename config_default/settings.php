@@ -89,3 +89,19 @@ $settings['cron'] = array(
 	// Should cron be intercepted if session time is exceeded?
 	'intercept_if_expired' => false,
 );
+
+// Settings for social share buttons
+$settings['social_share'] = array(
+	'facebook' => array(
+		'url' => 'https://www.facebook.com/sharer.php?u=%{url}&t=%{title}',
+		'target' => '_blank',
+		'width' => 300,
+		'height' => 400,
+	),
+	'twitter' => array(
+		'url' => 'http://twitter.com/share?url=%{url}&text=%{title}',
+		'target' => '_blank',
+		'width' => 300,
+		'height' => 400,
+	),
+);

@@ -10498,6 +10498,96 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 	background-color: #5BC0DE;
 	height:10px;
 }
+.study-box {
+	-webkit-box-sizing: content-box;
+	-moz-box-sizing: content-box;
+	box-sizing: content-box;
+	border: none;
+	text-overflow: clip;
+	-webkit-box-shadow: 1px 4px 11px 4px rgba(7,0,0,0.36) ;
+	box-shadow: 1px 4px 11px 4px rgba(7,0,0,0.36) ;
+	-webkit-transition: all 300ms cubic-bezier(0.42, 0, 0.58, 1);
+	-o-transition: all 300ms cubic-bezier(0.42, 0, 0.58, 1);
+	transition: all 300ms cubic-bezier(0.42, 0, 0.58, 1);
+	margin: 0px 15px 20px 15px;
+	min-height: 50px;
+	padding-top: 20px;
+}
+
+.study-box h4 a{
+	font-size: 18px;
+	color: #555;
+	text-transform: uppercase;
+}
+.study-box h4 a:hover {
+	color: #49afcd;
+	text-decoration: none;
+}
+.study-box .open,
+.study-box .blurb {
+	margin-top: 5px;
+	border-top: 1px solid #efefef;
+	padding: 15px 0px;
+}
+.study-box .open {
+	display: block;
+	margin-bottom: 10px;
+}
+.social-share {
+	float: right;
+	padding: 12px 0px;
+	color: #999999;
+	font-size: 12px;
+	display: block;
+}
+
+.social-share-icon {
+	width: 16px;
+	height: 16px;
+	display: inline-block;
+	margin-left: 8px;
+	background-color: transparent;
+	background-position: center center;
+	background-repeat: no-repeat;
+	cursor: pointer;
+	border: 0px !important;
+}
+
+.social-share-icon.share i {
+	font-style: normal;
+}
+
+.social-share-icon.share {
+	background: none;
+	line-height: 16px;
+	width: auto;
+	vertical-align: top;
+	cursor: default;
+}
+
+.social-share-icon.facebook {
+	background-image: url('../img/sprites/facebook.png');
+}
+
+.social-share-icon.facebook:hover {
+	background-image: url('../img/sprites/facebook_mo.png');
+}
+
+.social-share-icon.twitter {
+	background-image: url('../img/sprites/twitter.png');
+}
+
+.social-share-icon.twitter:hover {
+	background-image: url('../img/sprites/twitter_mo.png');
+}
+
+.social-share-icon.draugiem {
+	background-image: url('../img/sprites/draugiem.png');
+}
+
+.social-share-icon.draugiem:hover {
+	background-image: url('../img/sprites/draugiem_mo.png');
+}
 /* CLASSES THAT CAN BE ADDED BY USER TO ITEM CONTAINERS */
 form.form-horizontal div.form-group.float_image_right img {
   float:right;
