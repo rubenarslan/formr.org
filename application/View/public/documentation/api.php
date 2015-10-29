@@ -5,7 +5,7 @@ The formr API is the primary way to get data/results out of the platform. It's a
 study for specified participants (sessions)
 </p>
 <p>
-Resource requests to the formr API require that you have a valid access token which you can obtain by providing api credentials (a client id and a client 
+Resource requests to the formr API require that you have a valid access token which you can obtain by providing API credentials (a client id and a client 
 secret)
 </p>
 
@@ -17,35 +17,35 @@ API base URL: <br />
 
 <h4>Obtaining Client ID and Client Secret</h4>
 <p>
-Access to the API is heavily restricted due to privacy issues so only the administrators of formr are able to provide api credentials to formr users. To 
-obtain api credentials send an email to rubenarslan@gmail.com or cyril.tata@gmail.com and your credentials will be sent to you in a few minutes.
+Access to the API is restricted, so only the administrators of formr are able to provide API credentials to formr users. To 
+obtain API credentials, send an email to <a title=" We're excited to have people try this out, so you'll get a test account, if you're human or at least cetacean. But let us know a little about what you plan to do." class="schmail" href="mailto:IMNOTSENDINGSPAMTOcyril.tata@that-big-googly-eyed-email-provider.com">Cyril</a> and your credentials will be sent to you.
 </p>
 
 <h4>Obtaining An Access Token</h4>
 <p>
-An access token is an opaque string that identifies a formr user and can be used to make API calls without further authentication. formr api access tokens 
-are short-lived tokens and have a life span of about an hour.
+An access token is an opaque string that identifies a formr user and can be used to make API calls without further authentication. formr API access tokens 
+are short-lived and have a life span of about an hour.
 </p>
 	
 <p>To generate an access token you need to make an HTTP POST request to the token endpoint of the API</p>
 
 <pre>
-<code class="php">
+<code class="http">
 POST /oauth/access_token?
      client_id={client-id}
-    &client_secret={client-secret}
-    &grant_type=client_credentials
+    &amp;client_secret={client-secret}
+    &amp;grant_type=client_credentials
 </code>
 </pre>
 
 <p>
-This call will return a JSON object containing an access token which can be used to access the api without further authentication required.
+This call will return a JSON object containing an access token which can be used to access the API without further authentication required.
 <br />
 Sample successful response
 </p>
 
 <pre>
-<code class="php">
+<code class="json">
 {
 	"access_token":"XXXXXX3635f0dc13d563504b4d",
 	"expires_in":3600,
@@ -60,7 +60,7 @@ client details are not correct, then an error object is returned containing an e
 generated error. An example of an error object is
 
 <pre>
-<code class="php">
+<code class="json">
 {
 	"error":"invalid_client",
 	"error_description":"The client credentials are invalid"
@@ -72,7 +72,7 @@ generated error. An example of an error object is
 <h4>Making Resource Requests using generated access token</h4>
 
 With the generated access token, you are able to make requests to the resource endpoints of the formr API. For now only the results resource endpoint has 
-been implement
+been implemented
 
 <h5>Getting study results over the API</h5>
 
@@ -81,28 +81,28 @@ To obtain the results of a particular session in a particular run, send a GET HT
 and a request object. A request object in this case MUST be a JSON formatted string and passed using a parameter name called "request". For example
 
 <pre>
-<code class="php">
+<code class="http">
 GET /get/results?
      access_token={access-token}
-    &request={json-string-representing-request}
+    &amp;request={json-string-representing-request}
 </code>
 </pre>
 
 <p>The JSON string representing the "request" object for the GET request has to be of the following format</p>
 
 <pre>
-<code class="php">
-request = {
-	run: {
-		name:  "run name",
-		sessions: ["sdaswew434df", "fdgdfg4323"],
-		surveys: [{
-			name: "survey_1",
-			items: ["survey_1_item_1", "survey_1_item_2", "survey_1_item_3"]
+<code class="json">
+{
+	"run": {
+		"name":  "run name",
+		"sessions": ["sdaswew434df", "fdgdfg4323"],
+		"surveys": [{
+			"name": "survey_1",
+			"items": ["survey_1_item_1", "survey_1_item_2", "survey_1_item_3"]
 		},
 		{
-			name: "survey_2",
-			items: ["survey_2_item_1", "survey_2_item_2", "survey_2_item_3"]
+			"name": "survey_2",
+			"items": ["survey_2_item_1", "survey_2_item_2", "survey_2_item_3"]
 		}]
 	}
 }
@@ -115,7 +115,7 @@ Parameters of the run object: <br /><br />
 <ul>
 	<li><b>name (required):</b> This should be name name of the run as shown on formr.org</li>
 
-	<li><b>sessions (required):</b> An array of strings representing the sessions of interest whose results will be returned. At the moment the API does not support 
+	<li><b>sessions (required):</b> An array of strings representing the sessions of interest whose results will be returned. At the moment, the API does not support 
 returning the results of all the sessions in the run in one request but this might be implemented in the future. A single session can also be specified 
 with the <code>session</code> parameter which MUST be a string an not an array of strings.</li>
 
@@ -140,7 +140,7 @@ The response to a results request is a JSON object. The keys of this JSON struct
 </p>
 
 <pre>
-<code class="php">
+<code class="json">
 {
 	"survey_1": [{
 		"session": "sdaswew434df",
@@ -161,20 +161,30 @@ The response to a results request is a JSON object. The keys of this JSON struct
 
 <h4>Using the formr API in R</h4>
 
-<pre>
-// some note on the R package and how to include the library to the R work space
-
-## Connecting to the API with client ID and client secret
-
-// Code showing call to helper function and paramters
-
-## Getting results over the API
-
-// Code showing call to result helper funciton and parameter
+<pre><code class="r">// install formr library, you only need to do this once and for updates
+devtools::install_github("rubenarslan/formr")
+# load the library to the R work space, you need to do this each session
+library(formr)
+# connect to the API with your client_id and client_secret
+# you only need to do this once per session if you don't need longer than one hour
+formr_api_access_token(client_id = "your_id", client_secret = "your_secret" )
+# To get the results row for a specific user, do the following
+results = formr_api_results(list(
+	run = list(
+	   name = "validation",  # for which run do you want results
+	   session = "joyousCoyoteXXXLk5ByctNPryS4k-5JqZJYE19HwFhPu4FFk8beIHoBtyWniv46", # and for which user
+	   surveys = list(
+	   	list(
+	   	name = "try_validation", # for which survey
+	   	items = list("mc_religion", "plz") # and for which items
+	   	)
+	   )
+	 )
+	)
+# Now you can e.g. do:
+rotex = results$rotation_exercise
+rotex[, c("exercise_1","exercise_2")]
+# to read the documentation in the R package, do e.g.
+?formr_api_results
+</code>
 </pre>
-
-
-
-
-
-
