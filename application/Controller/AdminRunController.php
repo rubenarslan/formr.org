@@ -55,38 +55,34 @@ class AdminRunController extends AdminController {
 
 		$search = '';
 		$querystring = array();
-		$position_lt = '=';
-		if(isset($_GET['session']) OR isset($_GET['position'])):
-			if(isset($_GET['session']) AND trim($_GET['session'])!=''):
-				$_GET['session'] = str_replace("…","",$_GET['session']);
-				$search .= 'AND `survey_run_sessions`.session LIKE :session ';
-				$search_session = $_GET['session'] . "%";
-				$querystring['session'] = $_GET['session'];
-			endif;
-			if(isset($_GET['position']) AND trim($_GET['position'])!=''):
-				if(isset($_GET['position']) AND in_array($_GET['position_lt'], array('=','>','<'))) $position_lt = $_GET['position_lt'];
+		$position_cmp = '=';
+		$query_params = array(':run_id' => $run->id);
 
-				$search .= 'AND `survey_run_sessions`.position '.$position_lt.' :position ';
-				$search_position = $_GET['position'];
-				$querystring['position_lt'] = $position_lt;
-				$querystring['position'] = $_GET['position'];
-			endif;
-		endif;
+		if ($this->request->position_lt && in_array($this->request->position_lt, array('=', '>', '<'))) {
+			$position_cmp = $this->request->position_lt;
+			$querystring['position_lt'] = $position_cmp;
+		}
+
+		if ($this->request->session) {
+			$session = str_replace("…", "", $this->request->session);
+			$search .= 'AND `survey_run_sessions`.session LIKE :session ';
+			$query_params[':session'] = $session . "%";
+			$querystring['session'] = $session;
+		}
+
+		if ($this->request->position) {
+			$position = $this->request->position;
+			$search .= "AND `survey_run_sessions`.position {$position_cmp} :position ";
+			$query_params[':position'] = $position;
+			$querystring['position'] = $position;
+		}
 
 		$user_count_query = "SELECT COUNT(`survey_run_sessions`.id) AS count FROM `survey_run_sessions` WHERE `survey_run_sessions`.run_id = :run_id $search;";
-		$params = array(':run_id' => $run->id);
-		if (isset($search_session)) {
-			$params[':session'] = $search_session;
-		}
-		if (isset($search_position)) {
-			$params[':position'] = $search_position;
-		}
-
-		$user_count = $fdb->execute($user_count_query, $params, true);
+		$user_count = $fdb->execute($user_count_query, $query_params, true);
 		$pagination = new Pagination($user_count, 200, true);
 		$limits = $pagination->getLimits();
 
-		$params[':admin_code'] = $this->user->user_code;
+		$query_params[':admin_code'] = $this->user->user_code;
 
 		$users_query = "SELECT 
 			`survey_run_sessions`.id AS run_session_id,
@@ -107,59 +103,10 @@ class AdminRunController extends AdminController {
 		ORDER BY `survey_run_sessions`.session != :admin_code, hang DESC, `survey_run_sessions`.last_access DESC
 		LIMIT $limits;";
 
-		$g_users = $fdb->execute($users_query, $params);
-
-		$users = array();
-		foreach ($g_users as $userx) {
-			$animal_end = strpos($userx['session'],"XXX");
-			if($animal_end === FALSE) $animal_end = 10;
-			$short_user_code =substr($userx['session'],0,$animal_end);
-			
-			$userx['Run position'] = "<span class='hastooltip' title='Current position in run'>({$userx['position']}</span> – <small>{$userx['unit_type']})</small>";
-			$itsyou = '';
-			if($userx['session'] == $this->user->user_code) $itsyou = '<i class="fa fa-user-md" class="hastooltip" title="This is you"></i> ';
-			$userx['Session'] = $itsyou."<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".$short_user_code."…</abbr></small>";
-			$userx['Created'] = "<small>{$userx['created']}</small>";
-			$userx['Last Access'] = "<small class='hastooltip' title='{$userx['last_access']}'>".timetostr(strtotime($userx['last_access']))."</small>";
-			$userx['Action'] = "
-				<form class='form-inline form-ajax' action='".WEBROOT."admin/run/{$userx['run_name']}/ajax_send_to_position' method='post'>
-				<span class='input-group'>
-					<span class='input-group-btn'>
-					<a class='btn hastooltip' href='".WEBROOT."{$userx['run_name']}/?code=".urlencode($userx['session'])."' 
-					title='Pretend you are this user (you will really manipulate their data!)'><i class='fa fa-user-secret'></i></a>
-					
-					<a class='btn hastooltip link-ajax' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_toggle_testing?toggle_on=".($userx['testing']?0:1)."&amp;run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
-					title='Toggle testing status'><i class='fa ". ($userx['testing']?'fa-stethoscope':'fa-heartbeat')."'></i></a>
-
-					<a class='btn hastooltip link-ajax' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_remind?run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
-					title='Remind this user'><i class='fa fa-bullhorn'></i></a>
-					
-						<button type='submit' class='btn hastooltip'
-						title='Send this user to that position'><i class='fa fa-hand-o-right'></i></button>
-					</span>
-					<input type='hidden' name='session' value='{$userx['session']}'>
-					<input type='number' name='new_position' value='{$userx['position']}' class='form-control' style='width:80px'>
-					<span class='input-group-btn link-ajax-modal'>
-						<a class='btn hastooltip' data-toggle='modal' data-target='#confirm-delete' href='#' data-href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_deleteUser?run_session_id={$userx['run_session_id']}&amp;session=".urlencode($userx['session'])."' 
-						title=\"Delete this user and all their data (you'll have to confirm)\"><i class='fa fa-trash-o'></i></a>
-					</span>
-				</span>
-			</form>";
-
-			unset($userx['session']);
-			unset($userx['position']);
-			unset($userx['run_name']);
-			unset($userx['run_session_id']);
-			unset($userx['unit_type']);
-			unset($userx['last_access']);
-			unset($userx['last_access_days']);
-			unset($userx['created']);
-		#	$user['body'] = "<small title=\"{$user['body']}\">". substr($user['body'],0,50). "…</small>";
-
-			$users[] = $userx;
-		}
-
 		$vars = get_defined_vars();
+		$vars['users'] = $fdb->execute($users_query, $query_params);
+		$vars['position_lt'] = $position_cmp;
+		$vars['currentUser'] = $this->user;
 		$this->renderView('run/user_overview', $vars);
 	}
 	

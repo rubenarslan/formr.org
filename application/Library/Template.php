@@ -22,5 +22,11 @@ class Template {
         }
     }
 
+	public static function get($template, $vars = array()) {
+		ob_start();
+		Template::load($template, $vars);
+		return ob_get_clean();
+	}
+
 }
 
