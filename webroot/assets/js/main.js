@@ -33,7 +33,7 @@
 		'forms-ext': {
 			types: 'range date time number month color',
 			customDatalist: true,
-			replaceUI: {range: true}
+			replaceUI: {range: true, color: true}
 		}
 	});
 	webshim.polyfill('es5 forms forms-ext geolocation');

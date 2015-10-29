@@ -30909,7 +30909,7 @@ the specific language governing permissions and limitations under the Apache Lic
 		'forms-ext': {
 			types: 'range date time number month color',
 			customDatalist: true,
-			replaceUI: {range: true}
+			replaceUI: {range: true, color: true}
 		}
 	});
 	webshim.polyfill('es5 forms forms-ext geolocation');

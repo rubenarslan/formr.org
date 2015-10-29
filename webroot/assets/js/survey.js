@@ -487,8 +487,11 @@
             textarea                 : "thank the formr monkey\nmany times",
             year                     : date.getFullYear(),
             email                    : "formr_monkey@example.org",
-            url                      : "http://formr_monkey.example.org/",
+            url                      : "http://formrmonkey.example.org/",
             date                     : "07-08-2015",
+            month                    : "07-08-2015",
+            yearmonth                : "07-08-2015",
+            week                     : "07-08-2015",
             datetime                 : dateString,
             'datetime-local'         : date.toISOString(),
             day                      : date.getDay(),
@@ -496,6 +499,7 @@
             color                    : "#ff0000",
             number                   : 20,
             tel                      : "1234567890",
+            cc                       : "4999-2939-2939-3",
             range                    : 1
         };
         
@@ -589,7 +593,7 @@
                 {
                   inputElementType = inputElement.getAttribute("type").toLowerCase();
                   // If the input element value is not set and the type is not set or is one of the supported types
-                  if(inputElementType == "color" || inputElementType == "date" || inputElementType == "datetime" || inputElementType == "datetime-local" || inputElementType == "email"  || inputElementType == "number" || inputElementType == "password" || inputElementType == "search" || inputElementType == "tel" || inputElementType == "text" || inputElementType == "time" || inputElementType == "url" || inputElementType == "range")
+                  if(defaultByType[inputElementType])
                   {
                     inputElementMaxlength = inputElement.getAttribute("maxlength");
                     
