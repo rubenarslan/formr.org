@@ -8,7 +8,7 @@
 		<div class="row">
         <?php foreach($runs as $run) : ?>
             <div class="col-md-3 study-box">
-                <h4><a href="<?php echo run_url($run['name']); ?>"><?php echo ($run['title'] ? $run['title'] : $run['name']); ?></a></h4>
+                <h4 class="study-box-headline"><a href="<?php echo run_url($run['name']); ?>"><?php echo ($run['title'] ? $run['title'] : $run['name']); ?></a></h4>
 				<div class="blurb">
 					
 					<?php

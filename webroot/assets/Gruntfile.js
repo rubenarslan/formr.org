@@ -114,6 +114,7 @@ grunt.initConfig({
 			  "important": false,
 			  "duplicate-background-images": false,
 			  "box-model": false,
+			  'box-sizing': false
 		  },
 	    src: ['css/core.css', 'css/custom_item_classes.css']
 	  },

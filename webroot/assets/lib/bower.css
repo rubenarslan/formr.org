@@ -10509,17 +10509,17 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 	-webkit-transition: all 300ms cubic-bezier(0.42, 0, 0.58, 1);
 	-o-transition: all 300ms cubic-bezier(0.42, 0, 0.58, 1);
 	transition: all 300ms cubic-bezier(0.42, 0, 0.58, 1);
-	margin: 0px 15px 30px 15px;
+	margin: 0 15px 30px 15px;
 	min-height: 50px;
 	padding-top: 20px;
 }
 
-.study-box h4 a{
+.study-box-headline a{
 	font-size: 18px;
 	color: #555;
 	text-transform: uppercase;
 }
-.study-box h4 a:hover {
+.study-box-headline a:hover {
 	color: #49afcd;
 	text-decoration: none;
 }
@@ -10527,7 +10527,7 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 .study-box .blurb {
 	margin-top: 5px;
 	border-top: 1px solid #efefef;
-	padding: 15px 0px;
+	padding: 15px 0;
 }
 .study-box .open {
 	display: block;
@@ -10535,7 +10535,7 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 }
 .social-share {
 	float: right;
-	padding: 12px 0px;
+	padding: 12px 0;
 	color: #999999;
 	font-size: 12px;
 	display: block;
@@ -10550,7 +10550,7 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 	background-position: center center;
 	background-repeat: no-repeat;
 	cursor: pointer;
-	border: 0px !important;
+	border: 0 !important;
 }
 
 .social-share-icon.share i {
@@ -10579,14 +10579,6 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 
 .social-share-icon.twitter:hover {
 	background-image: url('../img/sprites/twitter_mo.png');
-}
-
-.social-share-icon.draugiem {
-	background-image: url('../img/sprites/draugiem.png');
-}
-
-.social-share-icon.draugiem:hover {
-	background-image: url('../img/sprites/draugiem_mo.png');
 }
 /* CLASSES THAT CAN BE ADDED BY USER TO ITEM CONTAINERS */
 form.form-horizontal div.form-group.float_image_right img {
