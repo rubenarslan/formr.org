@@ -42,7 +42,7 @@
 		<div id="survey" class="panel-collapse collapse survey">
 			<div class="panel-body">
 				<p>
-					Surveys are series of questions (or other items) that are created using simple spreadsheets/<a href="<?=site_url('public/documentation#sample_survey_sheet')?>">item tables</a> (eg. Excel).
+					Surveys are series of questions (or other items) that are created using simple spreadsheets/<a href="<?=site_url('public/documentation#sample_survey_sheet')?>">item tables</a> (e.g. Excel).
 				</p>
 				<p>
 					Survey item tables are just spreadsheets – and they can just as easily be shared, reused, recycled and collaboratively edited using e.g. Google Sheets.

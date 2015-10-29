@@ -19,8 +19,11 @@ Template::load('acp_nav');
 	<h2><i class="fa fa-file"></i> Upload files</h2>
 	<ul class="fa-ul fa-ul-more-padding">
 		<li><i class="fa-li fa fa-files-o"></i> Choose as many files as you'd like.</li>
-		<li><i class="fa-li fa fa-link"></i> You will be able to browse them by name here, but you'll have to copy a randomly-generated link to embed them.</li>
-		<li><i class="fa-li fa fa-cloud-upload"></i> We do not prevent users from sharing the images with others. If your users see an image/video, there is no way of preventing them from re-sharing it, if you're not looking over their shoulders. They can always take a picture of the screen with a smartphone, take a screenshot, etc. Because almost everyone can do this nowadays, we saw no point in generating single-use links for the images (so that users can't share the picture directly). Please be aware of this and don't use formr to show confidential information in an un-supervised setting (online). However, because the links are large random numbers, it is fairly safe to use formr to upload confidential information to be shown in the lab, the images cannot easily be discovered by people who don't have access to the study including them.</li>
+		<li><i class="fa-li fa fa-link"></i> You will be able to browse them by name here, but you'll have to copy a randomly-generated link to embed them.</li> 
+		<li><i class="fa-li fa fa-image"></i>	To embed images, use the following Markdown syntax: <code>![image description for blind users](image link)</code>, so in a concrete example <code>![Picture of a guitar](<?= asset_url("assets/tmp/admin/mkWpDTv5Um2ijGs1SJbH1uw9Bn2ctysD8N3tbkuwalOM.png")?>)</code>. You can embed images anywhere you can use Markdown (e.g. in item and choice labels, feedback, emails).</li>
+		<li><i class="fa-li fa fa-cloud-upload"></i> We do not prevent users from sharing the links with others. 
+			If your users see an image/video, there is no way of preventing them from re-sharing it, if you're not looking over their shoulders.<br>
+			Users can always take a photo of the screen, even if you could prevent screenshots. Hence, we saw no point in generating single-use links for the images (so that users can't share the picture directly). Please be aware of this and don't use formr to show confidential information in an un-supervised setting. However, because the links are large random numbers, it's fairly safe to use formr to upload confidential information to be shown in the lab, the images cannot be discovered by people who don't have access to the study.</li>
 	</ul>
 
 		<div class="fallback">
@@ -40,7 +43,6 @@ Template::load('acp_nav');
 		</div>
 	  </form>
 	</div>
-	
 	<?php
 	if(!empty($files)):
 		?>
@@ -51,8 +53,12 @@ Template::load('acp_nav');
 		<?php
 		foreach(current($files) AS $field => $value):
 			if($field == 'id') continue;
-			if($field != 'hang')
-			    echo "<th>{$field}</th>";
+			if($field == "original_file_name"):
+				$field = 'File name';
+			elseif($field == 'new_file_path'):
+				$field = "Copy this link";
+			endif;
+		    echo "<th>{$field}</th>";
 		endforeach;
 		?>
 			</tr></thead>
@@ -63,8 +69,7 @@ Template::load('acp_nav');
 				unset($row['id']);
 				$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
 				$row['modified'] = '<abbr title="'.$row['modified'].'">'.timetostr(strtotime($row['modified'])).'</abbr>';
-				$row['new_file_path'] = '<a href="'. WEBROOT.$row['new_file_path'].'"><i class="fa fa-download"></i> Download/View</a>';
-				
+				$row['new_file_path'] = '<a href="'. asset_url($row['new_file_path']) .'"><i class="fa fa-download"></i> Download/View</a>';
 			    echo "<tr>";
 
 			    foreach($row as $cell):
