@@ -30943,6 +30943,18 @@ the specific language governing permissions and limitations under the Apache Lic
 				$a.parents('li').addClass('active');
 			}
 		});
+
+		//Social share button click
+		$('.social-share-icon').unbind('click').bind('click', function() {
+			var $social = $(this), href = $social.attr('data-href');
+			if (href) {
+				if ($social.attr('data-target')) {
+					window.open(href, $social.attr('data-target'), $social.attr('data-width') ? 'width=' + $social.attr('data-width') + ',height=' + $social.attr('data-height') : undefined);
+				} else {
+					window.location.href = href;
+				}
+			}
+		});
 	});
 }());
 

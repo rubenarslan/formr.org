@@ -107,6 +107,7 @@ class ApiDAO {
 			if (empty($s->object)) {
 				$s->object = Survey::loadByUserAndName($this->user, $s->name);
 			}
+
 			/** @var Survey $svy */
 			$svy = $s->object;
 			if (empty($svy->valid)) {
@@ -116,8 +117,12 @@ class ApiDAO {
 
 			if (empty($s->items)) {
 				$items = array();
-			} else {
+			} elseif (is_array($s->items)) {
+				$items = array_map('trim', $s->items);
+			} elseif (is_string($s->items)) {
 				$items = array_map('trim', explode(',', $s->items));
+			} else {
+				throw new Exception("Invalid type for survey items. Type: " . gettype($s->itmes));
 			}
 
 			//Get data for all requested sessions in this survey

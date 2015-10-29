@@ -56,9 +56,6 @@ snippet imp\n\
 ##\n\
 ## Comments\n\
 snippet /*\n\
-	/*\n\
-	 * ${1}\n\
-	 */\n\
 ##\n\
 ## Constants\n\
 snippet co\n\
@@ -139,9 +136,6 @@ snippet findbyid\n\
 ##\n\
 ## Javadocs\n\
 snippet /**\n\
-	/**\n\
-	 * ${1}\n\
-	 */\n\
 snippet @au\n\
 	@author `system(\"grep \\`id -un\\` /etc/passwd | cut -d \\\":\\\" -f5 | cut -d \\\",\\\" -f1\")`\n\
 snippet @br\n\

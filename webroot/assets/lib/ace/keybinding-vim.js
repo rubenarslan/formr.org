@@ -1491,7 +1491,7 @@ dom.importCssString(".normal-mode .ace_cursor{\
         if (command === false) {
           return undefined;
         } else if (command === true) {
-          return function() { return true; };
+          return function() {};
         } else {
           return function() {
             if ((command.operator || command.isEdit) && cm.getOption('readOnly'))
@@ -2276,14 +2276,12 @@ dom.importCssString(".normal-mode .ace_cursor{\
             (line > last && cur.line == last)) {
           return;
         }
-        var fold = cm.ace.session.getFoldLine(line);
+        var fold = cm.ace.session.getFoldAt(line, endCh);
         if (fold) {
-          if (motionArgs.forward) {
-            if (line > fold.start.row)
-              line = fold.end.row + 1;
-          } else {
-            line = fold.start.row;
-          }
+          if (motionArgs.forward)
+            line = fold.end.row + 1;
+          else
+            line = fold.start.row - 1;
         }
         if (motionArgs.toFirstChar){
           endCh=findFirstNonWhiteSpaceCharacter(cm.getLine(line));
@@ -3817,17 +3815,8 @@ dom.importCssString(".normal-mode .ace_cursor{\
         if (any) { return isEmpty(i) != isEmpty(i + dir); }
         return !isEmpty(i) && isEmpty(i + dir);
       }
-      function skipFold(i) {
-          dir = dir > 0 ? 1 : -1;
-          var foldLine = cm.ace.session.getFoldLine(i);
-          if (foldLine) {
-              if (i + dir > foldLine.start.row && i + dir < foldLine.end.row)
-                  dir = (dir > 0 ? foldLine.end.row : foldLine.start.row) - i;
-          }
-      }
       if (dir) {
         while (min <= i && i <= max && repeat > 0) {
-          skipFold(i);
           if (isBoundary(i, dir)) { repeat--; }
           i += dir;
         }

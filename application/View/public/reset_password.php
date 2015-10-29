@@ -2,7 +2,7 @@
 <div class="row">
 	<div class="col-lg-4 col-lg-offset-1 col-sm-5 col-sm-offset-1 col-xs-12 well">
 		<h2>Reset password</h2>
-		<form class="" id="login" name="login" method="post" action="<?php echo site_url('public/reset_password'); ?>">
+		<form class="" id="login" name="login" method="post" action="<?php echo site_url('reset_password');?>">
 			<div class="form-group small-left">
 				<label class="control-label sr-only" for="new_password">
 
