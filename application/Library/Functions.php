@@ -1299,3 +1299,11 @@ function google_get_sheet_id($link) {
 function google_get_sheet_link($id) {
 	return "https://docs.google.com/spreadsheets/d/{$id}/edit";
 }
+
+function strt_replace($str, $params) {
+	foreach ($params as $key => $value) {
+		$str = str_replace('%{'.$key.'}', $value, $str);
+		$str = str_replace('{'.$key.'}', $value, $str);
+	}
+	return $str;
+}

@@ -3,7 +3,7 @@
 	<div class="col-lg-4 col-lg-offset-1 col-sm-5 col-sm-offset-1 col-xs-12 well">
 		<h2>Sign up</h2>
 		<p class="lead">It's free. We don't spam.</p>
-		<form class="" id="register" name="register" method="post" action="<?=WEBROOT?>public/register">
+		<form class="" id="register" name="register" method="post" action="<?php echo site_url('register');?>">
 			<div class="form-group small-left">
 				<label class="control-label sr-only" for="email">
 					<?php echo _("Email"); ?>
