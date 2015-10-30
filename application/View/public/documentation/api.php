@@ -161,7 +161,7 @@ The response to a results request is a JSON object. The keys of this JSON struct
 
 <h4>Using the formr API in R</h4>
 
-<pre><code class="r">// install formr library, you only need to do this once and for updates
+<pre><code class="r"># install formr library, you only need to do this once and for updates
 devtools::install_github("rubenarslan/formr")
 # load the library to the R work space, you need to do this each session
 library(formr)
