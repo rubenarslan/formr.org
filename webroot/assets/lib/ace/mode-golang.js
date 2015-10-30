@@ -65,7 +65,7 @@ ace.define("ace/mode/golang_highlight_rules",["require","exports","module","ace/
             "float64|complex64|complex128|byte|rune|uint|int|uintptr|bool|error"
         );
         var builtinFunctions = (
-            "new|close|cap|copy|panic|panicln|print|println|len|make|delete|real|recover|imag|append"
+            "make|close|new|panic|recover"
         );
         var builtinConstants = ("nil|true|false|iota");
 
@@ -74,9 +74,7 @@ ace.define("ace/mode/golang_highlight_rules",["require","exports","module","ace/
             "constant.language": builtinConstants,
             "support.function": builtinFunctions,
             "support.type": builtinTypes
-        }, "");
-        
-        var stringEscapeRe = "\\\\(?:[0-7]{3}|x\\h{2}|u{4}|U\\h{6}|[abfnrtv'\"\\\\])".replace(/\\h/g, "[a-fA-F\\d]");
+        }, "identifier");
 
         this.$rules = {
             "start" : [
@@ -86,43 +84,32 @@ ace.define("ace/mode/golang_highlight_rules",["require","exports","module","ace/
                 },
                 DocCommentHighlightRules.getStartRule("doc-start"),
                 {
-                    token : "comment.start", // multi line comment
+                    token : "comment", // multi line comment
                     regex : "\\/\\*",
                     next : "comment"
                 }, {
                     token : "string", // single line
-                    regex : /"(?:[^"\\]|\\.)*?"/
+                    regex : '["](?:(?:\\\\.)|(?:[^"\\\\]))*?["]'
                 }, {
-                    token : "string", // raw
+                    token : "string", // single line
+                    regex : '[`](?:[^`]*)[`]'
+                }, {
+                    token : "string", // multi line string start
+                    merge : true,
                     regex : '[`](?:[^`]*)$',
                     next : "bqstring"
                 }, {
                     token : "constant.numeric", // rune
-                    regex : "'(?:[^\\'\uD800-\uDBFF]|[\uD800-\uDBFF][\uDC00-\uDFFF]|" + stringEscapeRe.replace('"', '')  + ")'"
+                    regex : "['](?:(?:\\\\.)|(?:[^'\\\\]))[']"
                 }, {
                     token : "constant.numeric", // hex
-                    regex : "0[xX][0-9a-fA-F]+\\b" 
+                    regex : "0[xX][0-9a-fA-F]+\\b"
                 }, {
                     token : "constant.numeric", // float
                     regex : "[+-]?\\d+(?:(?:\\.\\d*)?(?:[eE][+-]?\\d+)?)?\\b"
                 }, {
-                    token : ["keyword", "text", "entity.name.function"],
-                    regex : "(func)(\\s+)([a-zA-Z_$][a-zA-Z0-9_$]*)\\b"
-                }, {
-                    token : function(val) {
-                        if (val[val.length - 1] == "(") {
-                            return [{
-                                type: keywordMapper(val.slice(0, -1)) || "support.function",
-                                value: val.slice(0, -1)
-                            }, {
-                                type: "paren.lparen",
-                                value: val.slice(-1)
-                            }];
-                        }
-                        
-                        return keywordMapper(val) || "identifier";
-                    },
-                    regex : "[a-zA-Z_$][a-zA-Z0-9_$]*\\b\\(?"
+                    token : keywordMapper,
+                    regex : "[a-zA-Z_$][a-zA-Z0-9_$]*\\b"
                 }, {
                     token : "keyword.operator",
                     regex : "!|\\$|%|&|\\*|\\-\\-|\\-|\\+\\+|\\+|~|==|=|!=|<=|>=|<<=|>>=|>>>=|<>|<|>|!|&&|\\|\\||\\?\\:|\\*=|%=|\\+=|\\-=|&=|\\^="
@@ -142,20 +129,22 @@ ace.define("ace/mode/golang_highlight_rules",["require","exports","module","ace/
             ],
             "comment" : [
                 {
-                    token : "comment.end",
-                    regex : "\\*\\/",
+                    token : "comment", // closing comment
+                    regex : ".*?\\*\\/",
                     next : "start"
                 }, {
-                    defaultToken : "comment",
+                    token : "comment", // comment spanning whole line
+                    regex : ".+"
                 }
             ],
             "bqstring" : [
                 {
                     token : "string",
-                    regex : '`',
+                    regex : '(?:[^`]*)`',
                     next : "start"
                 }, {
-                    defaultToken : "string"
+                    token : "string",
+                    regex : '.+'
                 }
             ]
         };
@@ -718,7 +707,6 @@ var Mode = function() {
     this.HighlightRules = GolangHighlightRules;
     this.$outdent = new MatchingBraceOutdent();
     this.foldingRules = new CStyleFoldMode();
-    this.$behaviour = new CstyleBehaviour();
 };
 oop.inherits(Mode, TextMode);
 

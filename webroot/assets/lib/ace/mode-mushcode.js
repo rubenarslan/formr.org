@@ -610,6 +610,7 @@ oop.inherits(Mode, TextMode);
 
 (function() {
 
+    this.lineCommentStart = "#";
 
     this.getNextLineIndent = function(state, line, tab) {
         var indent = this.$getIndent(line);
