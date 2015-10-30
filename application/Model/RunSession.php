@@ -185,19 +185,17 @@ class RunSession {
 
 	public function forceTo($position) {
 		$unit = $this->getCurrentUnit(); // get first unit in line
-		if ($unit):
+		if ($unit) {
 			$unit_factory = new RunUnitFactory();
 			$unit = $unit_factory->make($this->dbh, null, $unit, $this, $this->run);
-			if ($unit->type == "Survey")
+			if ($unit->type == "Survey") {
 				$unit->expire();
-			else
+			} else {
 				$unit->end();  // cancel it
-		endif;
+			}
+		}
 
-		if ($this->runTo($position)):
-			return true;
-		endif;
-		return false;
+		return $this->runTo($position);
 	}
 
 	public function runTo($position, $unit_id = null) {

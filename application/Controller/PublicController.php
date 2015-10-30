@@ -229,5 +229,42 @@ class PublicController extends Controller {
 			'settings' => $settings,
 		));
 	}
+
+	public function monkeyBarAction($run_name = '', $action = '') {
+		$action = str_replace('ajax_', '', $action);
+		$allowed_actions = array('send_to_position', 'remind', 'next_in_run', 'delete_user');
+		if (!$run_name || !in_array($action, $allowed_actions)) {
+			throw new Exception("Invalid Request parameters");
+		}
+
+		$parts = explode('_', $action);
+		$method = array_shift($parts) . str_replace(' ', '', ucwords(implode(' ', $parts)));
+		$runDao = new RunDAO($this->request, $this->fdb, $run_name);
+
+		// check if run session usedby the monkey bar is a test if not this action is not valid
+		if (!($runSession = $runDao->getRunSession()) || !$runSession->isTesting()) {
+			throw new Exception ("Unauthorized access to run session");
+		}
+
+		if (!method_exists($runDao, $method)) {
+			throw new Exception("Invalid method {$action}");
+		}
+
+		$runDao->{$method}();
+		if (($errors = $runDao->getErrors())) {
+			$errors = implode("\n", $errors);
+			alert(nl2br($errors), 'alert-danger');
+		}
+
+		if (($message = $runDao->getMessage())) {
+			alert($message, 'alert-info');
+		}
+
+		if (is_ajax_request()) {
+			echo $this->site->renderAlerts();
+			exit;
+		}
+		redirect_to('');
+	}
 }
 

@@ -11,11 +11,13 @@ var StatusBar = function(editor, parentNode) {
 
     var statusUpdate = lang.delayedCall(function(){
         this.updateStatus(editor)
-    }.bind(this)).schedule.bind(null, 100);
-    
-    editor.on("changeStatus", statusUpdate);
-    editor.on("changeSelection", statusUpdate);
-    editor.on("keyboardActivity", statusUpdate);
+    }.bind(this));
+    editor.on("changeStatus", function() {
+        statusUpdate.schedule(100);
+    });
+    editor.on("changeSelection", function() {
+        statusUpdate.schedule(100);
+    });
 };
 
 (function(){
@@ -28,17 +30,13 @@ var StatusBar = function(editor, parentNode) {
         add(editor.keyBinding.getStatusText(editor));
         if (editor.commands.recording)
             add("REC");
-        
-        var sel = editor.selection;
-        var c = sel.lead;
-        
-        if (!sel.isEmpty()) {
+
+        var c = editor.selection.lead;
+        add(c.row + ":" + c.column, " ");
+        if (!editor.selection.isEmpty()) {
             var r = editor.getSelectionRange();
-            add("(" + (r.end.row - r.start.row) + ":"  +(r.end.column - r.start.column) + ")", " ");
+            add("(" + (r.end.row - r.start.row) + ":"  +(r.end.column - r.start.column) + ")");
         }
-        add(c.row + ":" + c.column, " ");        
-        if (sel.rangeCount)
-            add("[" + sel.rangeCount + "]", " ");
         status.pop();
         this.element.textContent = status.join("");
     };

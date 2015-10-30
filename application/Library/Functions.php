@@ -763,11 +763,15 @@ function admin_run_url($name = '', $action = '') {
  *  @param $file  The file to be loaded. Must not start with a slash.
  */
 function asset_url($file) {
-  $mtime = filemtime(INCLUDE_ROOT . "webroot/" . $file);
-	if(! $mtime) {
+  $mtime = @filemtime(INCLUDE_ROOT . "webroot/" . $file);
+	if(!$mtime) {
 	  return site_url($file);
 	}
 	return site_url($file . "?v" . $mtime);
+}
+
+function moneybar_url($run_name, $action) {
+	return site_url('monkey_bar/' . $run_name . '/' . $action);
 }
 
 function array_to_accordion($array) {

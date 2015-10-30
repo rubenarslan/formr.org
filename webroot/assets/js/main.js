@@ -93,8 +93,9 @@ function bootstrap_alert(message, bold, where, cls) {
 	$alert[0].scrollIntoView(false);
 }
 
-function bootstrap_modal(header, body) {
-	var $modal = $($.parseHTML(getHTMLTemplate('tpl-test-modal', {'body': body, 'header': header})));
+function bootstrap_modal(header, body, t) {
+	t = t || 'tpl-test-modal';
+	var $modal = $($.parseHTML(getHTMLTemplate(t, {'body': body, 'header': header})));
 	$modal.modal('show').on('hidden.bs.modal', function() {
 		$modal.remove();
 	});

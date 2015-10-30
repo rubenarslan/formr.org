@@ -63,6 +63,7 @@ cursor: pointer;\
 float: left;\
 height: 22px;\
 margin: 0;\
+padding: 0;\
 position: relative;\
 }\
 .ace_searchbtn:last-child,\
@@ -254,14 +255,10 @@ var SearchBox = function(editor, range, showReplaceForm) {
     }]);
     this.$searchBarKb = new HashHandler();
     this.$searchBarKb.bindKeys({
-        "Ctrl-f|Command-f": function(sb) {
+        "Ctrl-f|Command-f|Ctrl-H|Command-Option-F": function(sb) {
             var isReplace = sb.isReplace = !sb.isReplace;
             sb.replaceBox.style.display = isReplace ? "" : "none";
-            sb.searchInput.focus();
-        },
-        "Ctrl-H|Command-Option-F": function(sb) {
-            sb.replaceBox.style.display = "";
-            sb.replaceInput.focus();
+            sb[isReplace ? "replaceInput" : "searchInput"].focus();
         },
         "Ctrl-G|Command-G": function(sb) {
             sb.findNext();
@@ -326,15 +323,14 @@ var SearchBox = function(editor, range, showReplaceForm) {
         this.editor.session.highlight(re || this.editor.$search.$options.re);
         this.editor.renderer.updateBackMarkers()
     };
-    this.find = function(skipCurrent, backwards, preventScroll) {
+    this.find = function(skipCurrent, backwards) {
         var range = this.editor.find(this.searchInput.value, {
             skipCurrent: skipCurrent,
             backwards: backwards,
             wrap: true,
             regExp: this.regExpOption.checked,
             caseSensitive: this.caseSensitiveOption.checked,
-            wholeWord: this.wholeWordOption.checked,
-            preventScroll: preventScroll
+            wholeWord: this.wholeWordOption.checked
         });
         var noMatch = !range && this.searchInput.value;
         dom.setCssClass(this.searchBox, "ace_nomatch", noMatch);
@@ -387,9 +383,6 @@ var SearchBox = function(editor, range, showReplaceForm) {
 
         if (value)
             this.searchInput.value = value;
-        
-        this.find(false, false, true);
-        
         this.searchInput.focus();
         this.searchInput.select();
 
