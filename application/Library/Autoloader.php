@@ -97,6 +97,7 @@ class Autoload {
 			'Response' => APPLICATION_PATH . 'Library/Response.php',
 			'Router' => APPLICATION_PATH . 'Library/Router.php',
 			'Run' => APPLICATION_PATH . 'Model/Run.php',
+			'RunDAO' => APPLICATION_PATH . 'Dao/RunDAO.php',
 			'RunSession' => APPLICATION_PATH . 'Model/RunSession.php',
 			'RunUnit' => APPLICATION_PATH . 'Model/RunUnit.php',
 			'RunUnitFactory' => APPLICATION_PATH . 'Model/RunUnit.php',

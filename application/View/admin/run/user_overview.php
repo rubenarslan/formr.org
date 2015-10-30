@@ -93,7 +93,7 @@ Template::load('acp_nav');
 								<input type="hidden" name="session" value="<?php echo $user['session']; ?>" />
 								<input type="number" name="new_position" value="<?php echo $user['position']; ?>" class="form-control" />
 								<span class='input-group-btn link-ajax-modal'>
-									<a class="btn hastooltip" data-toggle="modal" data-target="#confirm-delete" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_remind?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)"><i class='fa fa-trash-o'></i></a>
+									<a class="btn hastooltip" data-toggle="modal" data-target="#confirm-delete" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_delete_user?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)"><i class='fa fa-trash-o'></i></a>
 								</span>
 							</span>
 						</form>

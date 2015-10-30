@@ -47,12 +47,12 @@ $(function(){
 	    		{
 	                type: "GET",
 	                url: old_href,
-	    			dataType: 'html',
+	    			dataType: 'html'
 	    		})
 	    		.done($.proxy(function(data)
 	    		{
 					var $this = $(this);
-	                $this.attr('href',old_href);
+	                $this.attr('href', old_href);
 	                if(!$this.hasClass("danger"))
 	                    $this.css('color','green');
 					var $logo = $this.find('i.fa');
@@ -63,12 +63,15 @@ $(function(){
 	                    $logo.removeClass('fa-heartbeat');
 	                    $logo.addClass('fa-stethoscope');
 					}
+
+					bootstrap_modal('Alert', data, 'tpl-feedback-modal');
+
                     if($this.hasClass('refresh_on_success')) {
                         document.location.reload(true);
                     }
 	    		},this))
 	            .fail($.proxy(function(e, x, settings, exception) {
-	                $(this).attr('href',old_href);
+	                $(this).attr('href', old_href);
 	                ajaxErrorHandling(e, x, settings, exception);
 	            },this));
 	    	return false;
