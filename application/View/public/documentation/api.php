@@ -171,12 +171,12 @@ formr_api_access_token(client_id = "your_id", client_secret = "your_secret" )
 # To get the results row for a specific user, do the following
 results = formr_api_results(list(
 	run = list(
-	   name = "validation",  # for which run do you want results
+	   name = "rotation",  # for which run do you want results
 	   session = "joyousCoyoteXXXLk5ByctNPryS4k-5JqZJYE19HwFhPu4FFk8beIHoBtyWniv46", # and for which user
 	   surveys = list(
 	   	list(
-	   	name = "try_validation", # for which survey
-	   	items = list("mc_religion", "plz") # and for which items
+	   	name = "rotation_exercise", # for which survey
+	   	items = list("exercise_1", "exercise_2") # and for which items
 	   	)
 	   )
 	 )
