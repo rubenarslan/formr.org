@@ -73,8 +73,15 @@ Template::load('acp_nav');
 					<td>
 						<?php if ($currentUser->user_code == $user['session']): ?>
 							<i class="fa fa-user-md" class="hastooltip" title="This is you"></i>
-						<?php endif; ?>
-						<small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="<?php echo $user['session']; ?>"><?php echo mb_substr($user['session'], 0, 10); ?>…</abbr></small>
+						<?php endif; 
+						
+						$animal_end = strpos($user['session'], "XXX");
+						if ($animal_end === false) {
+							$animal_end = 10;
+						}
+						$short_session = mb_substr($user['session'], 0, $animal_end); 
+						?>
+						<small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="<?php echo $user['session']; ?>"><?php echo $short_session ?>…</abbr></small>
 					</td>
 					<td>
 						<small><?php echo $user['created']; ?></small>
