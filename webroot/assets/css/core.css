@@ -1065,3 +1065,7 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 .social-share-icon.twitter:hover {
 	background-image: url('../img/sprites/twitter_mo.png');
 }
+.position_monkey {
+	width: 80px !important;
+	border:1px solid black;
+}

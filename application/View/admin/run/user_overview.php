@@ -79,7 +79,7 @@ Template::load('acp_nav');
 						if ($animal_end === false) {
 							$animal_end = 10;
 						}
-						$short_session = mb_substr($user['session'], 0, $animal_end); 
+						$short_session = substr($user['session'], 0, $animal_end); 
 						?>
 						<small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="<?php echo $user['session']; ?>"><?php echo $short_session ?>…</abbr></small>
 					</td>
@@ -91,14 +91,18 @@ Template::load('acp_nav');
 					</td>
 					<td>
 						<form class='form-inline form-ajax' action="<?php echo admin_run_url($user['run_name'], 'ajax_send_to_position'); ?>" method='post'>
-							<span class='input-group' style='width:220px'>
+							<span class='input-group'>
 								<span class='input-group-btn'>
-									<a class="btn hastooltip" href="<?php echo site_url($user['run_name'] . "?code=" . urlencode($user['session'])); ?>" title="Pretend you are this user (you will really manipulate their data!"><i class="fa fa-user-secret"></i></a>
+									<a class="btn hastooltip" href="<?php echo site_url($user['run_name'] . "?code=" . urlencode($user['session'])); ?>" title="<?=($user['testing']?'Test using this identity (open in incognito window to have a separate session)':'Pretend you are this user (you will really manipulate this data)');?>"><i class="fa fa-user-secret"></i></a>
+									
+									<a class='btn hastooltip link-ajax' href='<?= site_url("admin/run/{$user['run_name']}/ajax_toggle_testing?toggle_on=".($user['testing']?0:1)."&amp;run_session_id={$user['run_session_id']}&amp;session=".urlencode($user['session']))?>' 
+									title='Toggle testing status'><i class='fa <?=($user['testing']?'fa-stethoscope':'fa-heartbeat')?>'></i></a>
+									
 									<a class='btn hastooltip link-ajax' href="<?php echo admin_run_url($user['run_name'], "ajax_remind?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Remind this user"><i class="fa fa-bullhorn"></i></a>
 									<button type="submit" class="btn hastooltip" title="Send this user to that position"><i class="fa fa-hand-o-right"></i></button>
 								</span>
 								<input type="hidden" name="session" value="<?php echo $user['session']; ?>" />
-								<input type="number" name="new_position" value="<?php echo $user['position']; ?>" class="form-control" />
+								<input type="number" name="new_position" value="<?php echo $user['position']; ?>" class="form-control position_monkey"/>
 								<span class='input-group-btn link-ajax-modal'>
 									<a class="btn hastooltip" data-toggle="modal" data-target="#confirm-delete" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_delete_user?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)"><i class='fa fa-trash-o'></i></a>
 								</span>

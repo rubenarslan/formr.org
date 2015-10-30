@@ -10,7 +10,7 @@
 			</span>
 
 			<input type="hidden" name="session" value="<?php echo $user->user_code;?>">
-			<input type="number" name="new_position" value="<?php echo $run_session->position; ?>" class="form-control" style="width:80px">
+			<input type="number" name="new_position" value="<?php echo $run_session->position; ?>" class="form-control position_monkey">
 			<span class="input-group-btn link-ajax-modal">
 				<a class="btn hastooltip refresh_on_success <?= $disable_class; ?>" data-toggle="modal" data-target="#confirm-delete" href="javascript:void(0);" data-href="<?php echo moneybar_url($run->name, "ajax_delete_user?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" data-location="<?= site_url() ?>" title="Delete this user and all their data (you will have to confirm)"><i class="fa fa-trash-o"></i></a>
 			</span>

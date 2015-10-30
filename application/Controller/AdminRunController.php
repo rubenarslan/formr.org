@@ -263,6 +263,7 @@ class AdminRunController extends AdminController {
 		endif;
 		$format = $_GET['format'];
 
+
 		if($format == 'xlsx')
 			$SPR->exportXLSX($users,"Shuffle_Run_".$run->name);
 		elseif($format == 'xls')

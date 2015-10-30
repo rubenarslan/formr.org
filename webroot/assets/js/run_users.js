@@ -56,15 +56,16 @@ $(function(){
 	                if(!$this.hasClass("danger"))
 	                    $this.css('color','green');
 					var $logo = $this.find('i.fa');
+					
 	                if($logo.hasClass("fa-stethoscope")) {
 	                    $logo.addClass('fa-heartbeat');
 	                    $logo.removeClass('fa-stethoscope');
 					} else if($logo.hasClass("fa-heartbeat")) {
 	                    $logo.removeClass('fa-heartbeat');
 	                    $logo.addClass('fa-stethoscope');
+					} else {
+						bootstrap_modal('Alert', data, 'tpl-feedback-modal');
 					}
-
-					bootstrap_modal('Alert', data, 'tpl-feedback-modal');
 
                     if($this.hasClass('refresh_on_success')) {
                         document.location.reload(true);
