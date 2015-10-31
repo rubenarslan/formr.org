@@ -63,6 +63,9 @@ $settings['admin_maximum_size_of_uploaded_files'] = 50;
 // Directory for exported runs
 $settings['run_exports_dir'] = INCLUDE_ROOT . 'documentation/run_components';
 
+// Directory for uploaded survey
+$settings['survey_upload_dir'] = INCLUDE_ROOT . 'tmp/backups/surveys';
+
 // application webroot
 $settings['web_dir'] = INCLUDE_ROOT . 'webroot';
 
@@ -85,4 +88,20 @@ $settings['cron'] = array(
 	'ttl_lockfile' => 30,
 	// Should cron be intercepted if session time is exceeded?
 	'intercept_if_expired' => false,
+);
+
+// Settings for social share buttons
+$settings['social_share'] = array(
+	'facebook' => array(
+		'url' => 'https://www.facebook.com/sharer.php?u=%{url}&t=%{title}',
+		'target' => '_blank',
+		'width' => 300,
+		'height' => 400,
+	),
+	'twitter' => array(
+		'url' => 'http://twitter.com/share?url=%{url}&text=%{title}',
+		'target' => '_blank',
+		'width' => 300,
+		'height' => 400,
+	),
 );

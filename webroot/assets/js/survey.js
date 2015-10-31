@@ -9,12 +9,19 @@
 			performance.webkitNow;
 	})();
 	
-	$(document).ready(function() {
+	$(document).ready(function(e) {
 		var survey = new Survey();
-		$('form').on('change', function() { 
-			survey.update();
+        if($("button.monkey").length > 0) {
+            $("button.monkey").click(function() {
+                survey.doMonkey(0);
+                return false;
+            }); 
+            $("button.monkey").attr('disabled',false);
+        }
+		survey.update(e);
+		$('form.main_formr_survey').on('change', function(e) { 
+			survey.update(e);
 		});
-		survey.update();
 	});
 
 	function Survey() {
@@ -32,6 +39,21 @@
 	
 		// initialising special items
 		// --------------------------
+		
+		$("button.submit_automatically_after_timeout").each(function(i,elm) {
+			var white_cover = $('<div class="white_cover"></div>');
+			$('<div class="submit_fuse_box"><div class="submit_fuse"></div></div>').appendTo(elm);
+			white_cover.appendTo("body");
+			$(window).on("load", function() {
+				var timeout = $(elm).data('timeout');
+				white_cover.remove();
+				window.setTimeout(function() {
+					$(elm).click();
+				}, timeout);
+				$(".submit_fuse").animate({ "width": 0}, timeout);
+			});
+		});
+		
 		webshim.ready('DOM geolocation',function() {
 			"use strict";
 			$('.geolocator').click(function()
@@ -73,7 +95,6 @@
 	        radios.closest('.controls').find('label[class!=keep-label]').addClass('hidden');
 			radios.off('click').each(function() {
 				var $btn = $(this);
-          
 				var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
 				$btn.toggleClass('btn-checked', is_checked_already);
 		
@@ -113,29 +134,21 @@
 			});
         
 			$('div.btn-check button.btn').off('click').click(function(event){
-				"use strict";
 				var $btn = $(this);
-				$('#'+$btn.attr('data-for')).trigger("togglecheck"); // toggle the button
+				var $original_box = $('#'+$btn.attr('data-for'));
+				
+				var checked = !!$original_box.prop('checked');
+				$btn.toggleClass('btn-checked', !checked).find('i').toggleClass('fa-check', !checked); // check this one
+				$original_box.prop('checked',! checked); // toggle check
+				$original_box.change(); // trigger change event to sync up
 				return false;
 			}).each(function() {
-				"use strict";
 				var $btn = $(this);
 				var $original_box = $('#'+$btn.attr('data-for'));
 		
-				$original_box.change(function()
-				{
-					var checked = !!$(this).prop('checked');
-					var $btn = $('button.btn[data-for="'+ this.id +'"]');
-					$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
-				})
-				.change()
-				.on('togglecheck',function()
-				{
-					var checked = !!$(this).prop('checked');
-					$(this).prop('checked',!checked); // toggle check
-					$(this).change(); // trigger change event to sync up
-				});
-		
+				var checked = !!$original_box.prop('checked');
+				$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
+
 				$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 				$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
 		
@@ -210,6 +223,22 @@
 					document.activeElement.blur();
 				});
 				webshim.addShadowDom(slct, slct.select2("container"));
+			});
+			$(".clickable_map").each(function(i,elm)
+			{
+				"use strict";
+				var $elm = $(elm);
+				$elm.find("label").attr("for",null);
+				var img = $elm.find("label img");
+				var four_corners = $("<div class='map_link_container'><a class='topleft'></a><a class='topright'></a><a class='bottomleft'></a><a class='bottomright'></a></div>");
+				four_corners.appendTo($elm.find("label"));
+				img.appendTo(four_corners);
+				$elm.find("label div a").click(function(e) {
+					$elm.find('.selected').removeClass("selected");
+					$elm.find("input[type=text]").val($(this).attr("class")).change();
+					$(this).addClass("selected");
+					return false;
+				});
 			});
 	
 			$(".people_list textarea").each(function(i,elm)
@@ -339,7 +368,6 @@
     
 	    var pageload_time = mysql_datetime();
 	    var relative_time = window.performance.now ? performance.now() : null;
-	    $('form').find("input.item_shown, input.item_shown_relative, input.item_answered, input.item_answered_relative").change(function(e) { e.stopPropagation(); });
 		$(".form-group:not([data-showif])").each(function(i,elm) // walk through all form elements that are automatically shown
 		{
 	        $(elm).find("input.item_shown").val(pageload_time);
@@ -353,10 +381,16 @@
                $(this).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
 			});
 		});
+		$(".form-group.item-submit").each(function(i, elm) { // track submit buttons too
+			$(elm).find("button").click(function(){
+               $(elm).find("input.item_answered").val(mysql_datetime());
+               $(elm).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
+			});
+		});
 	}
 	Survey.prototype.update = function (e) {
 		this.getData();
-		this.showIf(); // if the showif changes the available inputs, refresh data
+		this.showIf();
 		this.getProgress();
 	};
 	Survey.prototype.getData = function () {
@@ -373,8 +407,16 @@
 					return true;
 				}
 		
-				if(!survey.data[ obj.name ]) survey.data[obj.name] = obj.value;
-				else survey.data[obj.name] += ", " + obj.value;
+				if(!survey.data[ obj.name ]) {
+                    var val = obj.value;
+                    if($.isNumeric(val)) {
+                        val = parseFloat(val);
+                    }
+                    survey.data[obj.name] = val;
+                }
+				else {
+                    survey.data[obj.name] += ", " + obj.value;
+                }
 			}
 		});
 	
@@ -393,7 +435,6 @@
 	
 		survey.$progressbar.css('width',Math.round(prog)+'%');
 		survey.$progressbar.text(Math.round(prog)+'%');
-		survey.change_events_set = true;
 		return prog;
 	};
 
@@ -405,34 +446,208 @@
 		{
 			var showif = $(elm).data('showif'); // get specific condition
 
-			try
+			with(survey.data) // using the form data as the environment
 			{
-				with(survey.data) // using the form data as the environment
+				var hide = true; // hiding is the default, if the try..catch fails
+				try
 				{
-					var hide = ! eval(showif); // evaluate the condition
-					if($(elm).hasClass('hidden') != hide) {
-						any_change = true;
-						$(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
-						$(elm).find('input,select,textarea,button').prop('disabled', hide); // enable/disable depending on evaluation
-						$(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
-		                if(! hide) {
-		                    $(elm).find("input.item_shown").val(mysql_datetime());
-		                    $(elm).find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
-						}
+					hide = ! eval(showif); // evaluate the condition
+				}
+				catch(e)
+				{
+					if(window.console) console.log("JS showif failed",showif, e,  $(elm).find('input').attr('name'));
+				}
+		
+				if($(elm).hasClass('hidden') != hide) {
+					any_change = true;
+					$(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
+					$(elm).find('input,select,textarea,button').prop('disabled', hide); // enable/disable depending on evaluation
+					$(elm).find('.select2-container').select2('enable',! hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
+	                if(! hide) {
+	                    $(elm).find("input.item_shown").val(mysql_datetime());
+	                    $(elm).find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
 					}
 				}
-			}
-			catch(e)
-			{
-				if(window.console) console.log("JS showif failed",showif, e,  $(elm).find('input').attr('name'));
-			}
-			finally
-			{
-				return;
 			}
 		});
 		return any_change;
 	};
+    Survey.prototype.doMonkey = function(monkey_iteration) {
+		var survey = this;
+        
+        if(monkey_iteration > 2) return false;
+        else if (monkey_iteration === undefined) monkey_iteration = 0;
+        else monkey_iteration++;
+        
+		var items_left = $("form.main_formr_survey .form-row:not(.hidden):not(.formr_answered):not(.item-submit)");
+        var date                     = new Date();
+        var dateString               = date.toISOString().split('T')[0];
+        var defaultByType            = {
+            text                     : "thank the formr monkey",
+            textarea                 : "thank the formr monkey\nmany times",
+            year                     : date.getFullYear(),
+            email                    : "formr_monkey@example.org",
+            url                      : "http://formrmonkey.example.org/",
+            date                     : "07-08-2015",
+            month                    : "07-08-2015",
+            yearmonth                : "07-08-2015",
+            week                     : "07-08-2015",
+            datetime                 : dateString,
+            'datetime-local'         : date.toISOString(),
+            day                      : date.getDay(),
+            time                     : "11:22",
+            color                    : "#ff0000",
+            number                   : 20,
+            tel                      : "1234567890",
+            cc                       : "4999-2939-2939-3",
+            range                    : 1
+        };
+        
+        items_left.each(function(i, formRow)
+        {
+            // adapted from https://github.com/chrispederick/web-developer/
+            formRow                      = $(formRow);
+            var inputElement             = null;
+            var inputElementMaxlength    = null;
+            var inputElementName         = null;
+            var inputElements            = null;
+            var inputElementType         = "text";
+            var option                   = null;
+            var options                  = null;
+            var selectElement            = null;
+            var selectElements           = null;
+            var textAreaElement          = null;
+            var textAreaElements         = null;
+            var textAreaElementMaxlength = null;
+            var maximumValue             = 0;
+            var minimumValue             = 0;
+
+              select2Elements    = formRow.find(".select2-container:visible");
+              // Loop through the select2 tags
+              for(j = 0, m = select2Elements.length; j < m; j++)
+              {
+                select2Element = $(select2Elements[j]);
+
+                // If the button element is not disabled and the value is not set
+                if(select2Element.data('select2').opts.data) {
+                    select2Element.select2('data', select2Element.data('select2').opts.data[0]);
+                } else if (select2Element.data('select2').select) {
+                    select2Element.select2('val', select2Element.data('select2').select[0].options[1].value);
+                }
+                return;
+              }
+
+              buttonElements    = formRow.find("button.btn:visible");
+              
+              // Loop through the button tags
+              for(j = 0, m = buttonElements.length; j < m; j++)
+              {
+                buttonElement = buttonElements[j];
+
+                // If the button element is not disabled and the value is not set
+                if(!buttonElement.disabled)
+                {
+                    buttonElement.click();
+                }
+                return;
+              }
+              
+              selectElements   = formRow.find("select:visible");
+              // Loop through the select tags
+              for(j = 0, m = selectElements.length; j < m; j++)
+              {
+                selectElement = selectElements[j];
+
+                // If the select element is not disabled and the value is not set
+                if(!selectElement.disabled && !selectElement.value.trim())
+                {
+                  options = selectElement.options;
+
+                  // Loop through the options
+                  for(var k = 0, n = options.length; k < n; k++)
+                  {
+                    option = options.item(k);
+
+                    // If the option is set and the option text and option value are not empty
+                    if(option && option.text.trim() && option.value.trim())
+                    {
+                      selectElement.selectedIndex = k;
+
+
+                      break;
+                    }
+                  }
+                }
+                return;
+              }
+              
+              inputElements    = formRow.find("input:not(.ws-inputreplace):not(input[type=hidden])");
+              // Loop through the input tags
+              for(var j = 0, m = inputElements.length; j < m; j++)
+              {
+                inputElement = inputElements[j];
+                inputElementName      = inputElement.getAttribute("name");
+
+                // If the input element is not disabled
+                if(!inputElement.disabled)
+                {
+                  inputElementType = inputElement.getAttribute("type").toLowerCase();
+                  // If the input element value is not set and the type is not set or is one of the supported types
+                  if(defaultByType[inputElementType])
+                  {
+                    inputElementMaxlength = inputElement.getAttribute("maxlength");
+                    
+                    if(defaultByType[inputElementType]) {
+                        $(inputElement).val(defaultByType[inputElementType]);
+                    }
+                    
+                    if(inputElement.max) {
+                        $(inputElement).val(inputElement.max + "");
+                    }
+                    if(inputElement.min) {
+                        $(inputElement).val(inputElement.min + "");
+                    }
+                    // If the input element has a maxlength attribute
+                    if(inputElementMaxlength && inputElement.value > inputElementMaxlength)
+                    {
+                      $(inputElement).val( inputElement.value.substr(0, inputElementMaxlength) );
+                    }
+                  }
+                  else if((inputElementType == "checkbox" || inputElementType == "radio"))
+                  {
+                    $(inputElement).prop('checked',true);
+                  }
+                }
+              }
+
+              textAreaElements = formRow.find("textarea:visible");
+              // Loop through the text area tags
+              for(j = 0, m = textAreaElements.length; j < m; j++)
+              {
+                textAreaElement = textAreaElements[j];
+
+                // If the text area element is not disabled and the value is not set
+                if(!textAreaElement.disabled && !textAreaElement.value.trim())
+                {
+                  textAreaElementMaxlength = textAreaElement.getAttribute("maxlength");
+                  $(textAreaElement).val(defaultByType.textarea);
+
+                  // If the text area element has a maxlength attribute
+                  if(textAreaElementMaxlength && textAreaElement.value > textAreaElementMaxlength)
+                  {
+                    textAreaElement.value = textAreaElement.value.substr(0, textAreaElementMaxlength);
+                  }
+                }
+              }
+              
+        });
+        // get progress
+        items_left.each(function(i, elm)
+        {
+            $(elm).trigger('change');
+        });
+        survey.doMonkey(monkey_iteration);
+    };
 
 	function flatStringifyGeo(geo) {
 		"use strict";

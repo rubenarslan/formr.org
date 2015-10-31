@@ -33,7 +33,7 @@
 		'forms-ext': {
 			types: 'range date time number month color',
 			customDatalist: true,
-			replaceUI: {range: true}
+			replaceUI: {range: true, color: true}
 		}
 	});
 	webshim.polyfill('es5 forms forms-ext geolocation');
@@ -67,6 +67,18 @@
 				$a.parents('li').addClass('active');
 			}
 		});
+
+		//Social share button click
+		$('.social-share-icon').unbind('click').bind('click', function() {
+			var $social = $(this), href = $social.attr('data-href');
+			if (href) {
+				if ($social.attr('data-target')) {
+					window.open(href, $social.attr('data-target'), $social.attr('data-width') ? 'width=' + $social.attr('data-width') + ',height=' + $social.attr('data-height') : undefined);
+				} else {
+					window.location.href = href;
+				}
+			}
+		});
 	});
 }());
 
@@ -81,8 +93,9 @@ function bootstrap_alert(message, bold, where, cls) {
 	$alert[0].scrollIntoView(false);
 }
 
-function bootstrap_modal(header, body) {
-	var $modal = $($.parseHTML(getHTMLTemplate('tpl-test-modal', {'body': body, 'header': header})));
+function bootstrap_modal(header, body, t) {
+	t = t || 'tpl-test-modal';
+	var $modal = $($.parseHTML(getHTMLTemplate(t, {'body': body, 'header': header})));
 	$modal.modal('show').on('hidden.bs.modal', function() {
 		$modal.remove();
 	});

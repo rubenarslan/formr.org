@@ -1,4 +1,4 @@
-(function() {
+(function () {
 	"use strict";
 	function RunUnit(run) {
 		this.run = run;
@@ -28,6 +28,42 @@
 			container: 'body'
 		});
 		this.block.find('.select2').select2();
+        
+		var slct = this.block.find('input.select2recipient');
+        if(slct.length > 0) {
+    		if(!slct.select2("container").hasClass("select2-container")) { // if it's not already select2ified
+    		    var slctdata0 = slct.attr('data-select2init'), slctdata;
+    		    if (typeof slctdata0 != 'object') {
+    		        slctdata = $.parseJSON(slctdata0);
+    		    } else {
+                    slctdata = slctdata0;
+                }
+        		slct.select2({
+        			createSearchChoice:function(term, data)
+        			{ 
+        				if ($(data).filter(function() { 
+        					return this.text.localeCompare(term) === 0; 
+        				}).length === 0) 
+        				{
+        					return {id:term, text:term};
+        				}
+        			},
+        			initSelection:function(element, callback)
+        			{
+        				var data;
+        				data = {id: element.val(), text: element.val()};
+                        $.each(slctdata, function(k, v) {
+        					if(v.id === element.val()) {
+        						data = v;
+        						return false;
+        					}
+        				});
+        				callback(data);
+        			},
+        			data: slctdata 
+                });
+            }
+        }
 
 		this.unsavedChanges = false;
 		this.save_button = this.block.find('a.unit_save');
@@ -109,9 +145,9 @@
 			this.test_button.html(old_text).removeAttr('disabled');
 			var code_blocks = $modal.find('pre code');
 			Array.prototype.forEach.call(code_blocks, hljs.highlightBlock);
-	//	  $modal.find('#opencpu_accordion').on('hidden', function (event) {
-	//		  event.stopPropagation()
-	//	  });
+			//	  $modal.find('#opencpu_accordion').on('hidden', function (event) {
+			//		  event.stopPropagation()
+			//	  });
 		}, this)).fail($.proxy(function (e, x, settings, exception) {
 			this.test_button.attr('disabled', false).html(old_text);
 			ajaxErrorHandling(e, x, settings, exception);
@@ -142,7 +178,7 @@
 				.done($.proxy(function (data)
 				{
 					$.proxy(this.init(data), this);
-	//			this.save_button.html(old_text).removeAttr('disabled'); // not necessary because it's reloaded. should I be more economic about all this DOM and HTTP jazz? there's basically 2 situations where a reload makes things easier: emails where the accounts have been updated, surveys which went from "open" to "chose one". One day...
+					//			this.save_button.html(old_text).removeAttr('disabled'); // not necessary because it's reloaded. should I be more economic about all this DOM and HTTP jazz? there's basically 2 situations where a reload makes things easier: emails where the accounts have been updated, surveys which went from "open" to "chose one". One day...
 				}, this))
 				.fail($.proxy(function (e, x, settings, exception) {
 					this.save_button.removeAttr('disabled').html(old_text);
@@ -166,7 +202,7 @@
 
 		textarea.css('display', 'none');
 
-	//	   ace.require("ace/ext/language_tools");
+		//	   ace.require("ace/ext/language_tools");
 
 		this.editor = ace.edit(editDiv[0]);
 		this.editor.setOptions({
@@ -376,9 +412,11 @@
 
 		for (var i = 0; i < this.units.length; i++) {
 			var unit = this.units[i].serialize();
+			unit.unit_id = this.units[i].unit_id;
+			unit.run_unit_id = this.units[i].run_unit_id;
 			unsavedChanges = unsavedChanges || this.units[i].unsavedChanges;
 			units[unit.position] = unit;
-			exportDialog.append($($.parseHTML(getHTMLTemplate('tpl-export-unit-block', { unit_pos: unit.position, unit_json: JSON.stringify(unit, null, "\t")}))));
+			exportDialog.append($($.parseHTML(getHTMLTemplate('tpl-export-unit-block', {unit_pos: unit.position, unit_json: JSON.stringify(unit, null, "\t")}))));
 		}
 
 		if (unsavedChanges) {
@@ -387,9 +425,9 @@
 		}
 
 		var export_html = exportDialog.html();//JSON.stringify(units, null, "\t");
-		var $modal = $($.parseHTML(getHTMLTemplate('tpl-export-units', {run_name: this.name,'export_html': export_html})));
-		$modal.find('form#export_run_units').attr("action",runUrl + '/export');
-    
+		var $modal = $($.parseHTML(getHTMLTemplate('tpl-export-units', {run_name: this.name, 'export_html': export_html})));
+		$modal.find('form#export_run_units').attr("action", runUrl + '/export');
+
 		$modal.on('shown.bs.modal', function () {
 			$modal.find('.confirm-export').click(function (e) {
 				var name = $.trim($modal.find('input[name=export_name]').val());
@@ -403,10 +441,10 @@
 				// Get all selected units. If you can't find any you can't export any
 				var selectedUnits = {};
 				var $units = $modal.find('.run-export-unit-block');
-				$units.each(function(){
+				$units.each(function () {
 					var $unit = $(this).find('.select');
 					var selected = parseInt($unit.data('selected'), 10),
-						unit_pos = parseInt($unit.data('position'), 10);
+							unit_pos = parseInt($unit.data('position'), 10);
 					if (selected && unit_pos && !isNaN(selected) && !isNaN(unit_pos)) {
 						selectedUnits[unit_pos] = units[unit_pos];
 					}
@@ -414,22 +452,21 @@
 				if ($.isEmptyObject(selectedUnits)) {
 					return;
 				}
-	            console.log(selectedUnits);
 				$modal.find('input[name=units]').val(JSON.stringify(selectedUnits));
-	            window.setTimeout(function(){
+				window.setTimeout(function () {
 					$modal.find('.cancel-export').trigger('click');
-	            }, 100);
-	            return true;
+				}, 100);
+				return true;
 			});
 		}).on('hidden.bs.modal', function () {
 			$modal.remove();
 		}).modal('show');
 
 		var $codeblocks = $modal.find('pre code');
-		$codeblocks.each(function(){
+		$codeblocks.each(function () {
 			var code_block = $(this);
 			hljs.highlightBlock(code_block.get(0));
-			code_block.parents('.run-export-unit-block').find('.select').on('click', function() {
+			code_block.parents('.run-export-unit-block').find('.select').on('click', function () {
 				var $s = $(this);
 				var selected = parseInt($s.data('selected'), 10);
 				if (selected) {
@@ -441,7 +478,7 @@
 				}
 			});
 		});
-	
+
 	};
 
 	Run.prototype.importUnits = function () {
@@ -451,11 +488,12 @@
 			return $modal.modal('show');
 		}
 
-		$.get(this.url+'/ajax_run_import', {'dialog': true}, function(data) {
+		$.get(this.url + '/ajax_run_import', {'dialog': true}, function (data) {
 			$modal = $($.parseHTML(getHTMLTemplate('tpl-import-units', {'content': data}))).attr('id', 'run-import-modal-dialog');
-			$modal.find('select').bind('change', function(){
+			$modal.find('select').bind('change', function () {
 				var val = parseInt($(this).val(), 10);
-				if (isNaN(val)) return;
+				if (isNaN(val))
+					return;
 				var eid = 'selected-run-export-' + val;
 				var json_string = getHTMLTemplate(eid);
 				$modal.find('textarea').val(JSON.stringify($.parseJSON(json_string), null, "\t"));
@@ -463,28 +501,16 @@
 
 			$modal.on('shown.bs.modal', function () {
 				$modal.find('.confirm-import').click(function (e) {
-					var json_string = $.trim($modal.find('textarea').val());
-					if (!json_string) return;
+					e.preventDefault();
 					$(this).html(bootstrap_spinner());
-					$.ajax({
-						url: module.url + '/ajax_run_import',
-						dataType: 'json',
-						method: 'post',
-						data: {string: json_string, position: module.getMaxPosition() + 10},
-						success: $.proxy(function (data, textStatus) {
-							bootstrap_alert('Import completed', 'Success', '.main_body', 'alert-success');
-							$modal.find('.cancel-import').trigger('click');
-							$.each(data, function(position, html) {
-								var unit = new RunUnit(module);
-								module.units.push(unit);
-								unit.init(html);
-							});
-						}, this),
-						error: function (e, x, settings, exception) {
-							$modal.find('.cancel-import').trigger('click');
-							ajaxErrorHandling(e, x, settings, exception);
-						}
-					});
+					/**
+					 * 
+					 * @TODO Ajaxify this upload if necessary
+					 */
+					var $form = $(this).parents('form');
+					$form.find('input[name=position]').val(module.getMaxPosition() + 10);
+					$form.submit();
+					return true;
 				});
 			}).on('hidden.bs.modal', function () {
 				$modal.remove();
@@ -509,7 +535,7 @@
 				{
 					bootstrap_alert("You used the position " + pos + " more than once, therefore the new order could not be saved. <a href='#unit_" + elm.unit_id + "'>Click here to scroll to the duplicated position.</a>", 'Error.', '.main_body');
 					dupes = true;
-	//					return;
+					//					return;
 				}
 				else
 				{
@@ -534,7 +560,7 @@
 								elm.position_changed = false;
 							});
 							this.reorder_button.removeClass('btn-info').attr('disabled', 'disabled');
-	//				var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
+							//				var old_positions = $.makeArray($('.run_unit_position input:visible').map(function() { return +$(this).val(); }));
 							var old_order = are_positions_unique.join(','); // for some reason I have to join to compare content order, otherwise annoying behavior with clones etc, slice doesn't help
 							var new_order = are_positions_unique.sort(function (x, y) {
 								return x - y;

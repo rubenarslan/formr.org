@@ -1,0 +1,706 @@
+/* CLASSES THAT CAN BE ADDED BY USER TO ITEM CONTAINERS */
+form.form-horizontal div.form-group.float_image_right img {
+  float:right;
+}
+
+form.form-horizontal div.form-group.float_image_left img {
+  float:left;
+}
+form.form-horizontal div.answer_below_label .control-label {
+  width:99%;
+  text-align:left;
+  margin-bottom:15px;
+}
+form.form-horizontal div.answer_below_label .controls {
+  width:99%;
+  margin-left:0;
+  clear: left;
+}
+
+.item-check {
+    clear:both;
+}
+@media (min-width: 768px) {
+    .form-horizontal div.form-group.row_height_40 
+    {
+        height:40px;
+    }
+     
+    .form-horizontal div.form-group.clear, .form-horizontal div.form-group.align_horizontally + div.form-group:not(.align_horizontally)
+    {
+        clear:both;
+    }
+    .form-horizontal div.form-group.align_horizontally
+    {
+        width:auto;
+        float:left;
+        margin-right:20px;
+    }
+    .form-horizontal div.form-group.align_horizontally .control-label {
+        width: 0;
+        max-width: 0;
+        overflow:hidden;
+    }
+    .form-horizontal div.form-group.align_horizontally .controls {
+      	margin-left: 0;
+    }
+    
+}
+
+.form-horizontal div.form-group.left0 .control-label {
+  width: 0;
+  max-width: 0;
+  overflow:hidden;
+}
+.form-horizontal div.form-group.left0 .controls {
+  	margin-left: 0;
+}
+
+.form-horizontal div.form-group.left100 .control-label {
+  width: 100px;
+  max-width: 100px;
+}
+.form-horizontal div.form-group.left100 .controls {
+  	margin-left: 120px;
+}
+
+.form-horizontal div.form-group.left200 .control-label {
+  width: 200px;
+  max-width: 200px;
+}
+.form-horizontal div.form-group.left200 .controls {
+  	margin-left: 220px;
+}
+
+.form-horizontal div.form-group.left300 .control-label {
+  width: 300px;
+  max-width: 300px;
+}
+.form-horizontal div.form-group.left300 .controls {
+  	margin-left: 320px;
+}
+
+.form-horizontal div.form-group.left400 .control-label {
+  width: 400px;
+  max-width: 400px;
+}
+.form-horizontal div.form-group.left400 .controls {
+  	margin-left: 420px;
+}
+
+.form-horizontal div.form-group.left500 .control-label {
+  width: 500px;
+  max-width: 500px;
+}
+.form-horizontal div.form-group.left500 .controls {
+  	margin-left: 520px;
+}
+
+.form-horizontal div.form-group.left600 .control-label {
+  width: 600px;
+  max-width: 600px;
+}
+.form-horizontal div.form-group.left600 .controls {
+  	margin-left: 620px;
+}
+
+.form-horizontal div.form-group.left700 .control-label {
+    width: 700px;
+    max-width: 700px;
+}
+.form-horizontal div.form-group.left700 .controls {
+  	margin-left: 720px;
+}
+
+.form-horizontal div.form-group.left800 .control-label {
+  width: 800px;
+  max-width: 800px;
+}
+.form-horizontal div.form-group.left800 .controls {
+  	margin-left: 820px;
+}
+
+.form-horizontal div.form-group.left900 .control-label {
+  width: 900px;
+  max-width: 900px;
+}
+.form-horizontal div.form-group.left900 .controls {
+  	margin-left: 920px;
+}
+
+/* OFFSET classes */
+.form-horizontal div.form-group.right_offset0 .controls {
+  margin-left: 5px;
+}
+.form-horizontal div.form-group.right_offset100 .controls {
+  margin-left: 120px;
+}
+
+.form-horizontal div.form-group.right_offset200 .controls {
+  margin-left: 220px;
+}
+
+.form-horizontal div.form-group.right_offset300 .controls {
+  margin-left: 320px;
+}
+
+.form-horizontal div.form-group.right_offset400 .controls {
+  margin-left: 420px;
+}
+
+
+.form-horizontal div.form-group.right_offset500 .controls {
+  margin-left: 520px;
+}
+
+.form-horizontal div.form-group.right_offset600 .controls {
+  margin-left: 620px;
+}
+
+.form-horizontal div.form-group.right_offset700 .controls {
+  margin-left: 720px;
+}
+
+.form-horizontal div.form-group.right_offset800 .controls {
+  margin-left: 820px;
+}
+
+.form-horizontal div.form-group.right_offset900 .controls {
+  margin-left: 920px;
+}
+
+
+/* OFFSET classes */
+.form-horizontal div.form-group.left_offset0 .controls {
+  margin-left: 5px;
+}
+.form-horizontal div.form-group.left_offset100 .controls {
+  margin-left: 100px;
+}
+
+.form-horizontal div.form-group.left_offset200 .controls {
+  margin-left: 200px;
+}
+
+.form-horizontal div.form-group.left_offset300 .controls {
+  margin-left: 300px;
+}
+
+.form-horizontal div.form-group.left_offset400 .controls {
+  margin-left: 400px;
+}
+
+
+.form-horizontal div.form-group.left_offset500 .controls {
+  margin-left: 500px;
+}
+
+.form-horizontal div.form-group.left_offset600 .controls {
+  margin-left: 600px;
+}
+
+.form-horizontal div.form-group.left_offset700 .controls {
+  margin-left: 700px;
+}
+
+.form-horizontal div.form-group.left_offset800 .controls {
+  margin-left: 800px;
+}
+
+.form-horizontal div.form-group.left_offset900 .controls {
+  margin-left: 900px;
+}
+
+/* PADDING classes */
+.form-horizontal div.form-group.padding100 .control-label {
+  padding-left: 100px;
+}
+.form-horizontal div.form-group.padding100 .controls {
+  padding-left: 100px;
+}
+
+.form-horizontal div.form-group.padding200 .control-label {
+  padding-left: 200px;
+}
+.form-horizontal div.form-group.padding200 .controls {
+  padding-left: 200px;
+}
+
+
+.form-horizontal div.form-group.padding300 .control-label {
+  padding-left: 300px;
+}
+.form-horizontal div.form-group.padding300 .controls {
+  padding-left: 300px;
+}
+
+.form-horizontal div.form-group.padding400 .control-label {
+  padding-left: 400px;
+}
+.form-horizontal div.form-group.padding400 .controls {
+  padding-left: 400px;
+}
+
+
+.form-horizontal div.form-group.padding500 .control-label {
+  padding-left: 500px;
+}
+.form-horizontal div.form-group.padding500 .controls {
+  padding-left: 500px;
+}
+
+.form-horizontal div.form-group.padding600 .control-label {
+  padding-left: 600px;
+}
+.form-horizontal div.form-group.padding600 .controls {
+  padding-left: 600px;
+}
+
+.form-horizontal div.form-group.padding700 .control-label {
+  padding-left: 700px;
+}
+.form-horizontal div.form-group.padding700 .controls {
+  padding-left: 700px;
+}
+
+.form-horizontal div.form-group.padding800 .control-label {
+  padding-left: 800px;
+}
+.form-horizontal div.form-group.padding800 .controls {
+  padding-left: 800px;
+}
+
+
+.form-horizontal div.form-group.padding900 .control-label {
+  padding-left: 900px;
+}
+.form-horizontal div.form-group.padding900 .controls {
+  padding-left: 900px;
+}
+
+.form-horizontal div.form-group.right20 .controls, .form-horizontal div.form-group.right20 .controls .form-control {
+  max-width: 20px;
+}
+.form-horizontal div.form-group.right30 .controls, .form-horizontal div.form-group.right30 .controls .form-control {
+  max-width: 30px;
+}
+.form-horizontal div.form-group.right50 .controls, .form-horizontal div.form-group.right50 .controls .form-control {
+  max-width: 50px;
+}
+.form-horizontal div.form-group.right70 .controls, .form-horizontal div.form-group.right70 .controls .form-control {
+  max-width: 70px;
+}
+.form-horizontal div.form-group.right80 .controls, .form-horizontal div.form-group.right80 .controls .form-control {
+  max-width: 80px;
+}
+.form-horizontal div.form-group.right100 .controls, .form-horizontal div.form-group.right100 .controls .form-control, .form-horizontal div.form-group.right100 .controls .select2-container {
+  max-width: 100px;
+}
+.form-horizontal div.form-group.right150 .controls, .form-horizontal div.form-group.right150 .controls .form-control, .form-horizontal div.form-group.right150 .controls .select2-container {
+  max-width: 150px;
+  width: 150px;
+}
+
+.form-horizontal div.form-group.right200 .controls, .form-horizontal div.form-group.right200 .controls .form-control {
+  max-width: 200px;
+}
+.form-horizontal div.form-group.right300 .controls, .form-horizontal div.form-group.right300 .controls .form-control {
+  max-width: 300px;
+}
+
+.form-horizontal div.form-group.right400 .controls, .form-horizontal div.form-group.right400 .controls .form-control {
+  max-width: 400px;
+}
+
+.form-horizontal div.form-group.right500 .controls, .form-horizontal div.form-group.right500 .controls .form-control {
+  max-width: 500px;
+}
+
+.form-horizontal div.form-group.right600 .controls, .form-horizontal div.form-group.right600 .controls .form-control {
+  max-width: 600px;
+}
+
+.form-horizontal div.form-group.right700 .controls, .form-horizontal div.form-group.right700 .controls .form-control {
+  max-width: 700px;
+}
+
+.form-horizontal div.form-group.right800 .controls, .form-horizontal div.form-group.right800 .controls .form-control {
+  max-width: 800px;
+}
+
+.form-horizontal div.form-group.right900 .controls, .form-horizontal div.form-group.right900 .controls .form-control {
+  max-width: 900px;
+}
+
+
+form.form-horizontal div.label_align_left .control-label {
+  text-align:left;
+  padding-left:5px;
+}
+form.form-horizontal div.label_align_center .control-label {
+  text-align:center;
+  padding-left:5px;
+}
+form.form-horizontal div.label_align_right .control-label {
+  text-align: right; /* default */
+  padding-left:5px;
+}
+
+form.form-horizontal div.answer_align_left .controls {
+  text-align: left ;  /* default */
+  padding-right:5px;
+}
+form.form-horizontal div.answer_align_center .controls {
+  text-align: center;
+  padding-right:5px;
+}
+form.form-horizontal div.answer_align_right .controls {
+  text-align:right;
+  padding-right:5px;
+}
+
+
+
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls label {
+  border-left:1px solid #EEE;
+  border-right:1px solid #EEE;
+  margin:0;
+}
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls label:first-of-type {
+  border-left:0;
+}
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls label:last-of-type {
+  border-right:0;
+}
+form.form-horizontal div.form-row.form-group.mc_boxed div.controls {
+  border-collapse:collapse;
+}
+div.item-textarea textarea {
+    width:500px;
+    height:200px;
+}
+div.item-geopoint input[type=text] {
+    width:250px;
+}
+form.form-horizontal div.form-row.item-mc_heading.form-group div.controls label {
+	text-align:center;
+	text-indent:0;
+}
+form.form-horizontal div.form-row.item-mc_heading.form-group div.controls label input {
+	display:none;
+}
+form.form-horizontal div.form-row.form-group.hide_label div.controls label {
+	text-align:center;
+	text-indent:0;
+	height:25px;
+	overflow:hidden;
+	line-height:0;
+	min-height:25px;
+}
+form.form-horizontal div.form-row.form-group.hide_label div.controls label span {
+	line-height:0;
+    visibility:hidden;
+}
+form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
+    visibility:visible;
+}
+form.form-horizontal div.form-row.form-group.rotate_label45 div.controls label {
+	transform: rotate(-45deg);
+}
+form.form-horizontal div.form-row.form-group.rotate_label30 div.controls label {
+	transform: rotate(-30deg);
+}
+form.form-horizontal div.form-row.form-group.rotate_label90 div.controls label {
+	transform: rotate(-90deg);
+}
+
+form.form-horizontal div.form-row.form-group.mc_block div.controls label input {
+  display:block;
+}
+
+form.form-horizontal div.form-row.form-group.mc_vertical div.controls {
+  display:block;
+}
+form.form-horizontal div.form-row.form-group.mc_vertical div.controls label {
+  display:block;
+  padding-left:18px;
+  padding-right:5px;
+  padding-top:5px;
+  text-indent:-18px;
+}
+
+/* choice widths */
+
+form.form-horizontal div.form-group.mc_equal_widths div.controls {
+/*  width:100%;*/
+  table-layout:fixed;
+}
+form.form-horizontal div.form-group.mc_equal_widths div.controls label {
+	width:2%;
+}
+form.form-horizontal div.form-group.mc_width50 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc_width50 div.controls button.btn {
+	width:50px;
+}
+form.form-horizontal div.form-group.mc_width60 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc_width60 div.controls button.btn {
+	width:60px;
+}
+form.form-horizontal div.form-group.mc_width70 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc_width70 div.controls button.btn {
+	width:70px;
+}
+form.form-horizontal div.form-group.mc_width80 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc_width80 div.controls button.btn {
+	width:80px;
+}
+form.form-horizontal div.form-group.mc_width80 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc_width80 div.controls button.btn {
+	width:90px;
+}
+form.form-horizontal div.form-group.mc_width100 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc_width100 div.controls button.btn {
+	width:100px;
+}
+form.form-horizontal div.form-group.mc_width150 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc_width150 div.controls button.btn {
+	width:150px;
+}
+form.form-horizontal div.form-group.mc_width200 div.controls label:not(.keep-label),
+form.form-horizontal div.form-group.mc_width200 div.controls button.btn {
+	width:200px;
+}
+
+/* rating_button_label_width */
+form.form-horizontal div.item-rating_button div.controls label.keep-label {
+    vertical-align: middle;
+    text-align: right;
+}
+form.form-horizontal div.item-rating_button div.controls .btn-group + label.keep-label {
+    text-align: left;
+}
+form.form-horizontal div.form-row.form-group.item-rating_button .btn-group {
+     vertical-align: middle;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width50 div.controls label.keep-label
+{
+	width:50px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width60 div.controls label.keep-label
+{
+	width:60px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width70 div.controls label.keep-label
+{
+	width:70px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width80 div.controls label.keep-label
+{
+	width:80px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width90 div.controls label.keep-label
+{
+	width:90px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width100 div.controls label.keep-label
+{
+	width:100px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width150 div.controls label.keep-label
+{
+	width:150px;
+}
+form.form-horizontal div.form-row.form-group.rating_button_label_width200 div.controls label.keep-label
+{
+	width:200px;
+}
+
+form.form-horizontal div.form-row.form-group.hidden {
+	display:none;
+}
+.form-horizontal div.form-row.form-group.space_bottom_10
+{
+	margin-bottom:10px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_20
+{
+	margin-bottom:20px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_30
+{
+	margin-bottom:30px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_50
+{
+	margin-bottom:40px;
+}
+.form-horizontal div.form-row.form-group.space_bottom_60
+{
+	margin-bottom:60px;
+}
+
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_10 .control-label
+{
+	margin-bottom:10px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_20 .control-label
+{
+	margin-bottom:20px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_30 .control-label
+{
+	margin-bottom:30px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_40 .control-label
+{
+	margin-bottom:40px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_50 .control-label
+{
+	margin-bottom:50px;
+}
+.form-horizontal div.form-row.form-group.space_label_answer_vertical_60 .control-label
+{
+	margin-bottom:60px;
+}
+
+
+.show_value_instead_of_label .btn .btn_value {
+    display:inline;
+}
+.show_value_instead_of_label .btn .btn_label {
+    display:none;
+}
+
+
+
+.people_list .select2-container
+{
+    min-height:200px;
+}
+.people_list .select2-container .select2-choices
+{
+    min-height:200px;
+}
+.people_list .select2-container-multi .select2-choices
+{
+    background:none;
+}
+.people_list .select2-container-multi .select2-choices .select2-search-choice
+{
+    background:none;
+    border:none;
+    border-radius:0;
+    box-shadow:none;
+    width:100%;
+}
+.select2-results li.people_list_results
+{
+    display:none;
+}
+.people_list .select2-search-field input.select2-input
+{
+    margin-left:18px;
+}
+.people_list .select2-plus
+{
+    margin-right:-17px;
+    font-weight:bold;
+    color:gray;
+    width:18px;
+    margin-left:9px;
+}
+
+
+form.form-horizontal div.form-group.vertical_range div.controls div.controls-inner label {
+	display:block;
+	padding:0;
+}
+.vertical_range .ws-range,
+.vertical_range input[type="range"] {
+    width: 0.61538em;
+    height: 140px;
+}
+.vertical_range .ws-range
+ .ws-range-thumb {
+	 margin-left:-4.5px !important;
+}
+
+.clickable_map .controls {
+	display:none;
+}
+.clickable_map div.map_link_container {
+	position:relative;
+}
+.clickable_map div.map_link_container a {
+	position:absolute;
+	display:block;
+	width:35%;
+	height:35%;
+	background-color:black;
+	opacity:0;
+	z-index: 20;
+}
+.clickable_map div.map_link_container a.topleft {
+	top:0;
+	left:0;
+}
+.clickable_map div.map_link_container a.bottomright {
+	bottom:0;
+	right:0;
+}
+.clickable_map div.map_link_container a.topright {
+	top:0;
+	right:0;
+}
+.clickable_map div.map_link_container a.bottomleft {
+	bottom:0;
+	left:0;
+}
+.clickable_map div.map_link_container a:hover {
+	opacity:0.2;
+}
+.clickable_map div.map_link_container a:active,.clickable_map div.map_link_container a.selected {
+	opacity:0.4;
+}
+.thick_border_top {
+	border-top:2px solid gray;
+}
+
+@media (max-width: 768px) { 
+    /* display mc_heading style displays on mobile, when question and choices stack, aren't side-by-side */
+    form.form-horizontal div.form-row.item-mc_heading.form-group  {
+        display:none;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label {
+    	text-align:inherit;
+    	text-indent:inherit;
+    	height:inherit;
+    	overflow:inherit;
+    	line-height:inherit;
+    	min-height:inherit;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label span {
+    	line-height:inherit;
+        visibility:visible;
+    }
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
+        visibility:visible;
+    }
+    
+    form.form-horizontal div.form-row.form-group div.controls label:not(.keep-label),
+    form.form-horizontal div.form-row.form-group div.controls button.btn
+    {
+        width:100%;
+    }
+    
+    
+    /* make buttons show labels when they're shown vertically  */
+    
+    .show_value_instead_of_label.form-row .btn .btn_value {
+        display:none;
+    }
+    .show_value_instead_of_label.form-row .btn .btn_label {
+        display:inline;
+    }
+}
