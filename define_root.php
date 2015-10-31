@@ -48,6 +48,5 @@ function define_webroot($settings = array()) {
 	define('SSL', $protocol === "https://");
     define('RUNROOT', WEBROOT);
 	define('DEBUG', Config::get('display_errors'));
-	define('VERSION', Config::get('version'));
 }
 define_webroot($settings);

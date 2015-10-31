@@ -1,4 +1,7 @@
 # formr survey framework
+#### how to cite
+Please cite _Arslan, R.C., & Tata, C.S. (2015). formr.org survey software (Version 0.8.0). doi:10.5281/zenodo.32986_ if you are publishing research conducted using formr.
+[![DOI](https://zenodo.org/badge/18913/rubenarslan/formr.org.svg)](https://zenodo.org/badge/latestdoi/18913/rubenarslan/formr.org)
 
 #### chain simple forms & surveys into long runs, use the power of R to generate pretty feedback and complex designs
 
