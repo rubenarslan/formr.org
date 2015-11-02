@@ -119,7 +119,7 @@ try {
 
 		// Execute the cron of each log as background process
 		$script = dirname(__FILE__) . '/cron-run.php';
-		$stdout = get_log_file("cron-run-{$run->name}.log");
+		$stdout = get_log_file("cron/cron-run-{$run->name}.log");
 		$command = "php $script -n {$run->name} >> {$stdout} 2>&1 &";
 		cron_log("Execute '{$command}'");
 		exec($command, $output, $status);
