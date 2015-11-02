@@ -9,6 +9,7 @@ formr-package/man
 /nbproject/private/
 /createclassmap.php
 /tmp/logs/*
+!/tmp/logs/cron/
 /nbproject
 /webroot/assets/node_modules/*
 /webroot/assets/bower_components/*
