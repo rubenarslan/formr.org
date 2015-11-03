@@ -193,7 +193,7 @@ class Email extends RunUnit {
 	}
 
 	public function getRecipientField($return_format = 'json', $return_session = false) {
-		if (empty($this->recipient_field) OR $this->recipient_field = $this->mostrecent) {
+		if (empty($this->recipient_field) OR $this->recipient_field === $this->mostrecent) {
 			$get_recip = $this->dbh->prepare("SELECT `survey_items_display`.`answer` AS email FROM survey_items_display
 			LEFT JOIN survey_items ON survey_items_display.item_id = survey_items.id
 			LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
