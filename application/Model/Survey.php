@@ -523,7 +523,7 @@ class Survey extends RunUnit {
 			WHERE item_id = :item_id AND session_id = :session_id");
 		$hidden_update->bindValue(":session_id", $this->session_id);
 
-		$results = array();
+		$showif_results = array();
 
 		if ($show_ifs) {
 			$ocpu_session = opencpu_multiparse_showif($this, $show_ifs, true);
@@ -531,12 +531,12 @@ class Survey extends RunUnit {
 				notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
 			}
 			else {
-				$results = $ocpu_session->getJSONObject();
+				$showif_results = $ocpu_session->getJSONObject();
 			}
 		}
 		// Fit show-ifs
 		foreach ($items as &$item) {
-			$hidden = $item->setVisibility(array_val($results, "si.{$item->name}"));
+			$hidden = $item->setVisibility(array_val($showif_results, "si.{$item->name}"));
 
 			$hidden_update->bindValue(":item_id", $item->id);
 			if ($hidden !== null) {
@@ -545,6 +545,8 @@ class Survey extends RunUnit {
 			$hidden_update->bindValue(":hidden", null);
 			$hidden_update->execute();
 		}
+		
+		$dyn_value_results = array();
 
 		// Compute dynamic values only if items are certainly visible
 		foreach ($items as $name => &$item) {
@@ -561,11 +563,13 @@ class Survey extends RunUnit {
 			$ocpu_session = opencpu_multiparse_values($this, $dynamic_values, true);
 			if (!$ocpu_session OR $ocpu_session->hasError()) {
 				notify_user_error(opencpu_debug($ocpu_session), "There was a problem getting dynamic values using openCPU.");
+			} else {
+				$dyn_value_results = $ocpu_session->getJSONObject();
 			}
-			$results = $ocpu_session->getJSONObject();
-			// Fit dynamic values in properly reder
+			
+			// Fit dynamic values in properly 
 			foreach ($items as &$item) {
-				$val = array_val($results, $item->name, null);
+				$val = array_val($dyn_value_results, $item->name, null);
 				$item->setDynamicValue($val);
 			}
 		}
