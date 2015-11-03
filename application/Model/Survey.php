@@ -542,7 +542,7 @@ class Survey extends RunUnit {
 			if ($hidden !== null) {
 				$hidden = (int) !$hidden;
 			}
-			$hidden_update->bindValue(":hidden", $hidden);
+			$hidden_update->bindValue(":hidden", null);
 			$hidden_update->execute();
 		}
 		
