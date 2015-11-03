@@ -570,9 +570,7 @@ class Survey extends RunUnit {
 			// Fit dynamic values in properly 
 			foreach ($items as &$item) {
 				$val = array_val($dyn_value_results, $item->name, null);
-				if($val !== array('NA') AND $item->type == "calculate") {
-					$item->setDynamicValue($val);
-				}
+				$item->setDynamicValue($val);
 			}
 		}
 	}
