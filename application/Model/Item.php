@@ -1750,6 +1750,7 @@ class Item_ip extends Item {
 	public $input_attributes = array('type' => 'hidden');
 	public $mysql_field = 'VARCHAR (46) DEFAULT NULL';
 	public $no_user_input_required = true;
+	public $optional = 1;	
 
 	protected function setMoreOptions() {
 		$this->input_attributes['value'] = $_SERVER["REMOTE_ADDR"];
@@ -1771,6 +1772,7 @@ class Item_referrer extends Item {
 	public $input_attributes = array('type' => 'hidden');
 	public $mysql_field = 'TEXT DEFAULT NULL';
 	public $no_user_input_required = true;
+	public $optional = 1;
 
 	protected function setMoreOptions() {
 		global $site;
@@ -1800,6 +1802,8 @@ class Item_server extends Item {
 	private $get_var = 'HTTP_USER_AGENT';
 	public $mysql_field = 'TEXT DEFAULT NULL';
 	public $no_user_input_required = true;
+	public $optional = 1;
+	
 
 	protected function setMoreOptions() {
 		if (isset($this->type_options_array) AND is_array($this->type_options_array)) {
