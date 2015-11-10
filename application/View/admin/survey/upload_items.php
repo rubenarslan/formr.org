@@ -40,7 +40,7 @@ $resultCount = $study->getResultCount();
 			<hr />
 			
 			<div class="col-md-6">
-				<form class="" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="">
+				<form class="" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="#">
 					<input type="hidden" name="study_id" value="<?= $study->id ?>">
 					<div class="form-group">
 						<h3>
@@ -134,5 +134,5 @@ $resultCount = $study->getResultCount();
 
 <?php
 
-Template::load('admin/survey/goole_sheet_import', array('params' => $google));
+Template::load('admin/survey/google_sheet_import', array('params' => $google));
 Template::load('footer');
