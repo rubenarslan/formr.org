@@ -39,7 +39,7 @@
 			</li>
 
 			<li class="dropdown">
-				<a class="dropdown-toggle" data-toggle="dropdown"href="#"><i class="fa fa-envelope fa-fw"></i> mail <b class="caret"></b></a>
+				<a class="dropdown-toggle" data-toggle="dropdown" href="#"><i class="fa fa-envelope fa-fw"></i> mail <b class="caret"></b></a>
 				<ul class="dropdown-menu">
 					<li><a href="<?php echo admin_url('mail'); ?>"><?php echo _("list & add accounts"); ?></a></li>
 					<?php $accs = $user->getEmailAccounts(); if ($accs): ?>
