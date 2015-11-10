@@ -609,15 +609,14 @@ class RunUnit {
 
 		// At this stage we are sure to have an OpenCPU_Session in $session. If there is an error in the session return FALSE
 		if(empty($session)) {
-			alert('OpenCPU is probably down or inaccessible.', 'alert-danger');
+			alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
 			return false;
 		} elseif ($session->hasError()) {
 			$where = '';
 			if(isset($this->run_name)) {
 				$where = "Run: ". $this->run_name. " (".$this->position."-". $this->type.") ";
 			}
-			formr_log($where. $session->getError());
-			alert('There was a problem with OpenCPU.', 'alert-danger');
+			notify_user_error( opencpu_debug( $session ), 'There was a problem with OpenCPU.');
 			return false;
 		} else {
 			
