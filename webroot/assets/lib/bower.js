@@ -30964,7 +30964,7 @@ function general_alert(message, place) {
 
 function bootstrap_alert(message, bold, where, cls) {
 	cls = cls || 'alert-danger';
-	var $alert = $('<div class="row"><div class="col-md-6 col-sm-6 all-alerts"><div class="alert ' + cls + '"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold : 'Problem') + '</strong> ' + message + '</div></div></div>');
+	var $alert = $('<div class="row"><div class="col-lg-12 all-alerts"><div class="alert ' + cls + '"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold : 'Problem') + '</strong> ' + message + '</div></div></div>');
 	$alert.prependTo($(where));
 	$alert[0].scrollIntoView(false);
 }

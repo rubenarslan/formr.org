@@ -43,6 +43,7 @@ class RunUnit {
 	public $valid;
 	public $run_id;
 	public $description = "";
+	protected $had_major_changes = false;
 
 	/**
 	 * @var RunSession
@@ -307,6 +308,13 @@ class RunUnit {
 				<input type="hidden" value="' . $this->special . '" name="special">' . $dialog . '
 			</div>
 		</div>';
+	}
+	
+	public function hadMajorChanges() {
+		return $this->had_major_changes;
+	}
+	protected function majorChange() {
+		$this->had_major_changes = true;
 	}
 
 	public function displayForRun($prepend = '') {

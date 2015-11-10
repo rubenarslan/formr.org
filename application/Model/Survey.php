@@ -149,6 +149,7 @@ class Survey extends RunUnit {
 			if (!empty($options['unit_id'])) {
 				$this->id = (int) $options['unit_id'];
 				if ($this->linkToRun()) {
+					$this->majorChange();
 					$this->load();
 				}
 			}

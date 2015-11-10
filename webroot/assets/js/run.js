@@ -17,7 +17,7 @@
 		this.unit_id = this.dialog_inputs.filter('input[name=unit_id]').val();
 		this.run_unit_id = this.dialog_inputs.filter('input[name=run_unit_id]').val();
 		this.special = this.dialog_inputs.filter('input[name=special]').val();
-		this.block.attr('id', "unit_" + this.run_unit_id);
+		this.block.attr('id', "run_unit_" + this.run_unit_id);
 		this.dialog_inputs.on('input change', $.proxy(this.changes, this));
 		this.description.on('input change', $.proxy(this.changes, this));
 		this.save_inputs = this.dialog_inputs.add(this.position).add(this.description);
@@ -143,8 +143,8 @@
 			$(".opencpu_accordion", $modal).collapse({toggle: true});
 
 			this.test_button.html(old_text).removeAttr('disabled');
-			var code_blocks = $modal.find('pre code');
-			Array.prototype.forEach.call(code_blocks, hljs.highlightBlock);
+			var codeblocks = $modal.find('pre code');
+			Array.prototype.forEach.call(codeblocks, hljs.highlightBlock);
 			//	  $modal.find('#opencpu_accordion').on('hidden', function (event) {
 			//		  event.stopPropagation()
 			//	  });
@@ -177,8 +177,16 @@
 				})
 				.done($.proxy(function (data)
 				{
-					$.proxy(this.init(data), this);
-					//			this.save_button.html(old_text).removeAttr('disabled'); // not necessary because it's reloaded. should I be more economic about all this DOM and HTTP jazz? there's basically 2 situations where a reload makes things easier: emails where the accounts have been updated, surveys which went from "open" to "chose one". One day...
+					if(data !== '') { // when things change a lot
+						$.proxy(this.init(data), this);
+					} else { // quicker, less wasteful
+						this.save_button.attr('disabled', true).removeClass('btn-info').text('Saved')
+							.click($.proxy(this.save, this));
+						this.unsavedChanges = false;
+						this.test_button.removeAttr('disabled');
+					}
+						
+					// not necessary because it's reloaded. should I be more economic about all this DOM and HTTP jazz? there's basically 2 situations where a reload makes things easier: emails where the accounts have been updated, surveys which went from "open" to "chose one". One day...
 				}, this))
 				.fail($.proxy(function (e, x, settings, exception) {
 					this.save_button.removeAttr('disabled').html(old_text);
@@ -210,6 +218,7 @@
 			maxLines: 30
 		});
 		this.editor.setTheme("ace/theme/textmate");
+		this.editor.$blockScrolling = Infinity;
 		var session = this.editor.getSession();
 		session.setValue(textarea.val());
 		this.editor.renderer.setShowGutter(false);
@@ -410,6 +419,11 @@
 		var unsavedChanges = false;
 		var exportDialog = $('<div />');
 
+		var pre_lock = this.lock_toggle.hasClass("btn-checked");
+		if(pre_lock) {
+			this.lock(false, this.form);
+		}
+
 		for (var i = 0; i < this.units.length; i++) {
 			var unit = this.units[i].serialize();
 			unit.unit_id = this.units[i].unit_id;
@@ -417,6 +431,10 @@
 			unsavedChanges = unsavedChanges || this.units[i].unsavedChanges;
 			units[unit.position] = unit;
 			exportDialog.append($($.parseHTML(getHTMLTemplate('tpl-export-unit-block', {unit_pos: unit.position, unit_json: JSON.stringify(unit, null, "\t")}))));
+		}
+		
+		if(pre_lock) {
+			this.lock(pre_lock, this.form);
 		}
 
 		if (unsavedChanges) {
@@ -429,14 +447,14 @@
 		$modal.find('form#export_run_units').attr("action", runUrl + '/export');
 
 		$modal.on('shown.bs.modal', function () {
+			
 			$modal.find('.confirm-export').click(function (e) {
-				var name = $.trim($modal.find('input[name=export_name]').val());
+				var export_name = $.trim($modal.find('input[name=export_name]').val());
 				// If the export name is not valid, no need
 				var pattern = /^[a-z0-9_\s]+$/i;
-				if (!name || !pattern.test(name)) {
-					$modal.modal('hide');
-					bootstrap_modal("Enter a valid export name", "Export Name Error");
-					return;
+				if (!export_name || !pattern.test(export_name)) {
+					bootstrap_alert("Enter a valid export name", "Export name invalid.", '.run_export_before_alert');
+					return false;
 				}
 				// Get all selected units. If you can't find any you can't export any
 				var selectedUnits = {};
@@ -450,7 +468,8 @@
 					}
 				});
 				if ($.isEmptyObject(selectedUnits)) {
-					return;
+					bootstrap_alert("You need to select at least one unit to export.", "Nothing chosen.", '.run_export_before_alert');
+					return false;
 				}
 				$modal.find('input[name=units]').val(JSON.stringify(selectedUnits));
 				window.setTimeout(function () {
@@ -464,9 +483,9 @@
 
 		var $codeblocks = $modal.find('pre code');
 		$codeblocks.each(function () {
-			var code_block = $(this);
-			hljs.highlightBlock(code_block.get(0));
-			code_block.parents('.run-export-unit-block').find('.select').on('click', function () {
+			var codeblock = $(this);
+			hljs.highlightBlock(codeblock.get(0));
+			codeblock.parents('.run-export-unit-block').find('.select').on('click', function () {
 				var $s = $(this);
 				var selected = parseInt($s.data('selected'), 10);
 				if (selected) {
@@ -533,7 +552,7 @@
 
 				if ($.inArray(pos, are_positions_unique) > -1)
 				{
-					bootstrap_alert("You used the position " + pos + " more than once, therefore the new order could not be saved. <a href='#unit_" + elm.unit_id + "'>Click here to scroll to the duplicated position.</a>", 'Error.', '.main_body');
+					bootstrap_alert("You used the position " + pos + " more than once, therefore the new order could not be saved. <a href='#run_unit_" + elm.run_unit_id + "'>Click here to scroll to the duplicated position.</a>", 'Error.', '.run_units');
 					dupes = true;
 					//					return;
 				}
@@ -585,7 +604,7 @@
 	};
 	Run.prototype.lock = function (on, context)
 	{
-		context.find('.position, .remove_unit_from_run, .reorder_units, .unit_save, .form-control, select, .from_days, .add_run_unit').each(function (i, elm)
+		context.find('.import_run_units, .run_unit_description, .position, .remove_unit_from_run, .reorder_units, .unit_save, .form-control, select, .from_days, .add_run_unit').each(function (i, elm)
 		{
 			if (on)
 			{

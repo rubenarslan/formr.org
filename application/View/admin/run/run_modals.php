@@ -8,10 +8,10 @@
                     <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
                     <h3>Run Export</h3>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body ">
 					<div class="row">
 						<div class="col-md-12">
-							<div class="form-group" style="padding-left: 15px;">
+							<div class="form-group run_export_before_alert" style="padding-left: 15px;">
 								<h4>Enter a name for your export and select run units</h4>
 								<input class="form-control" placeholder="Name Export (a to Z, 0 to 9, _ and spaces)" name="export_name" value="%{run_name}" style="width: 80%;" />
 							</div>
