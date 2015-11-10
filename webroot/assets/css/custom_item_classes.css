@@ -7,14 +7,14 @@ form.form-horizontal div.form-group.float_image_left img {
   float:left;
 }
 form.form-horizontal div.answer_below_label .control-label {
-  width:99%;
-  text-align:left;
-  margin-bottom:15px;
+  width:99% !important;
+  text-align:left !important;
+  margin-bottom:15px !important;
 }
 form.form-horizontal div.answer_below_label .controls {
-  width:99%;
-  margin-left:0;
-  clear: left;
+  width:99% !important;
+  margin-left:0 !important;
+  clear: left !important;
 }
 
 .item-check {
@@ -427,6 +427,90 @@ form.form-horizontal div.form-row.form-group.mc_vertical div.controls label {
   padding-right:5px;
   padding-top:5px;
   text-indent:-18px;
+}
+
+/* make buttons go vertical on small screens  */
+div.form-row.mc_vertical .btn-group > .btn,
+div.form-row.mc_vertical .btn-group > .btn-group {
+  display: block;
+  float: none;
+  width: 100%;
+  max-width: 100%;
+}
+
+div.form-row.mc_vertical .btn-group > .btn-group:before,
+div.form-row.mc_vertical .btn-group > .btn-group:after {
+  display: table;
+  content: " ";
+}
+
+div.form-row.mc_vertical .btn-group > .btn-group:after {
+  clear: both;
+}
+
+div.form-row.mc_vertical .btn-group > .btn-group:before,
+div.form-row.mc_vertical .btn-group > .btn-group:after {
+  display: table;
+  content: " ";
+}
+
+div.form-row.mc_vertical .btn-group > .btn-group:after {
+  clear: both;
+}
+
+div.form-row.mc_vertical .btn-group > .btn-group > .btn {
+  float: none;
+}
+
+div.form-row.mc_vertical .btn-group > .btn + .btn,
+div.form-row.mc_vertical .btn-group > .btn + .btn-group,
+div.form-row.mc_vertical .btn-group > .btn-group + .btn,
+div.form-row.mc_vertical .btn-group > .btn-group + .btn-group {
+  margin-top: -1px;
+  margin-left: 0;
+}
+
+div.form-row.mc_vertical .btn-group > .btn:not(:first-child):not(:last-child) {
+  border-radius: 0;
+}
+
+div.form-row.mc_vertical .btn-group > .btn:first-child:not(:last-child) {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+div.form-row.mc_vertical .btn-group > .btn:last-child:not(:first-child) {
+  border-top-right-radius: 0;
+  border-bottom-left-radius: 4px;
+  border-top-left-radius: 0;
+}
+
+div.form-row.mc_vertical .btn-group > .btn-group:not(:first-child):not(:last-child) > .btn {
+  border-radius: 0;
+}
+
+div.form-row.mc_vertical .btn-group > .btn-group:first-child > .btn:last-child,
+div.form-row.mc_vertical .btn-group > .btn-group:first-child > .dropdown-toggle {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+div.form-row.mc_vertical .btn-group > .btn-group:last-child > .btn:first-child {
+  border-top-right-radius: 0;
+  border-top-left-radius: 0;
+}
+
+/* special logic for rating_button  */
+div.form-row.mc_vertical.item-rating_button div.controls .controls-inner label.keep-label,
+div.form-row.mc_vertical.item-rating_button div.controls .controls-inner {
+    text-align:center;
+}
+div.form-row.mc_vertical.item-rating_button div.controls  label.keep-label {
+    display:block;
+}
+div.form-row.mc_vertical.vertical_range .control-label {
+	padding-top:0;
 }
 
 /* choice widths */
