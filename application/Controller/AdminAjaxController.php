@@ -305,10 +305,11 @@ class AdminAjaxController {
 
 				$unit->create($_POST);
 				if ($unit->valid):
-					if (isset($_POST['unit_id'])):
-						alert('<strong>Success.</strong> ' . ucfirst($unit->type) . ' unit was updated.', 'alert-success');
+					if($unit->hadMajorChanges() OR !empty($this->site->alerts)):
+						echo $unit->displayForRun($this->site->renderAlerts());
+					else:
+						echo '';
 					endif;
-					echo $unit->displayForRun($this->site->renderAlerts());
 					exit;
 				endif;
 			endif;

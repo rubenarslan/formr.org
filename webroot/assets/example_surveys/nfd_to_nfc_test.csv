@@ -1,3 +1,7 @@
 type,name,label
-note,nfc,"UTF-8-NFC: åäöüÅÄÖÜß.
-note,nfd,"UTF-8-NFD: åäöüÅÄÖÜß
+note,nfc,"UTF-8-NFC: åäöüÅÄÖÜß."
+note,nfd,"UTF-8-NFD: åäöüÅÄÖÜß"
+,,
+,,
+,," "
+,,

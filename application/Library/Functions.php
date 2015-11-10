@@ -1015,9 +1015,15 @@ function opencpu_knitdisplay($source, $variables = null, $return_session = false
 		$variables = opencpu_define_vars($variables, $context);
 	}
 
-	$source = '```{r settings,message=FALSE,warning=F,echo=F}
+	$run_session = Site::getInstance()->getRunSession();
+	
+	$show_errors = 'F';
+	if ($run_session->isTesting() ) {
+		$show_errors = 'T';
+	}
+	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning=F,message=F,echo=F,fig.retina=2,fig.height=7,fig.width=10)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2,fig.height=7,fig.width=10)
 opts_knit$set(base.url="'.OpenCPU::TEMP_BASE_URL.'")
 ' . $variables . '
 ```
@@ -1048,10 +1054,16 @@ function opencpu_knitemail($source, array $variables = null, $return_format = 'j
 	if (!is_string($variables)) {
 		$variables = opencpu_define_vars($variables);
 	}
+	$run_session = Site::getInstance()->getRunSession();
+	
+	$show_errors = 'F';
+	if ($run_session->isTesting() ) {
+		$show_errors = 'T';
+	}
 
-	$source = '```{r settings,message=FALSE,warning=F,echo=F}
+	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning=F,message=F,echo=F,fig.retina=2)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2)
 opts_knit$set(upload.fun=function(x) { paste0("cid:", basename(x)) })
 ' . $variables . '
 ```

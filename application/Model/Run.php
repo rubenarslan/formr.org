@@ -414,7 +414,7 @@ This study is currently being serviced. Please return at a later time."
 		$unit = $unit_factory->make($this->dbh, null, array('type' => "Email"), null, $this);
 		$unit->create(array(
 			"subject" => "Reminder",
-			"recipient_field" => 'survey_users$email',
+			"recipient_field" => '',
 			"body" =>
 			"Please take part in our study at {{login_link}}.",
 		));

@@ -642,10 +642,13 @@ class SpreadsheetReader {
 						$val = trim($val);
 						if ($val == ''):
 							if (isset($data[$row_number])) {
+								if(trim(implode($data[$row_number]))) {
+									unset($data[$row_number]);
+									$ambiguous_rows[] = $row_number;
+								} else {
+									$empty_rows[] = $row_number;
+								}
 								unset($data[$row_number]);
-								$ambiguous_rows[] = $row_number;
-							} else {
-								$empty_rows[] = $row_number;
 							}
 							// skip this row
 							continue 2;
@@ -741,6 +744,8 @@ class SpreadsheetReader {
 		if (!empty($ambiguous_rows)) {
 			$this->warnings[] = "Rows " . implode($ambiguous_rows, ", ") . ": variable name empty, but other columns had content. Rows skipped, but double-check that you did not forget to define a variable name for a proper item.";
 		}
+//		pr($ambiguous_rows);
+//		die;
 		$this->survey = $data;
 	}
 

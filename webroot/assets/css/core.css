@@ -369,6 +369,7 @@ body .select2-container
     border:none;
     box-shadow:none;
     padding:0;
+	height:auto;
 }
 .form-control.select2-container .select2-choice
 {
