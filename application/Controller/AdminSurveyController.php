@@ -141,8 +141,14 @@ class AdminSurveyController extends AdminController {
 		$vars = array(
 			'google_id' => $this->study->getGoogleFileId(),
 			'original_file' => $this->study->getOriginalFileName(),
+			'results' => $this->study->getItemsWithChoices()
 		);
-		$this->renderView('survey/show_item_table', $vars);
+		if(empty($vars['results'])) {
+			alert("No valid item table uploaded so far.", 'alert-warning');
+			redirect_to(admin_study_url($this->study->name, 'upload_items'));
+		} else {
+			$this->renderView('survey/show_item_table', $vars);
+		}
 	}
 
 	private function showItemdisplayAction() {
@@ -197,7 +203,8 @@ class AdminSurveyController extends AdminController {
 
 		$format = $this->request->getParam('format');
 		if (!$format || !in_array($format, array("xlsx", "xls", "json", "original"))) {
-			die("invalid format");
+			alert("Invalid format requested", 'alert-danger');
+			bad_request();
 		}
 
 		$SPR = new SpreadsheetReader();
@@ -232,7 +239,8 @@ class AdminSurveyController extends AdminController {
 
 		$results = $study->getItemDisplayResults();
 		if (!count($results)) {
-			die("Nothing to export");
+			alert("No results to export.", 'alert-danger');
+			redirect_to(admin_study_url($this->study->name, 'show_itemdisplay'));
 		}
 
 		$SPR = new SpreadsheetReader();
@@ -260,7 +268,11 @@ class AdminSurveyController extends AdminController {
 	private function exportResultsAction() {
 		$study = $this->study;
 		$results = $study->getResults();
-
+		
+		if (!count($results)) {
+			alert("No results to export.", 'alert-danger');
+			redirect_to(admin_study_url($this->study->name, 'show_results'));
+		}
 		$SPR = new SpreadsheetReader();
 
 		if (!isset($_GET['format']) OR ! in_array($_GET['format'], $SPR->exportFormats)):

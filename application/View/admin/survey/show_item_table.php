@@ -1,5 +1,4 @@
 <?php
-$results = $study->getItemsWithChoices();
 Template::load('header');
 Template::load('acp_nav');
 ?>

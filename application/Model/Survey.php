@@ -1273,17 +1273,21 @@ class Survey extends RunUnit {
 	}
 
 	public function getItemsWithChoices() {
-		$choice_lists = $this->getChoices();
-		$this->item_factory = new ItemFactory($choice_lists);
+		if($this->hasResultsTable()) {
+			$choice_lists = $this->getChoices();
+			$this->item_factory = new ItemFactory($choice_lists);
 
-		$raw_items = $this->getItems();
+			$raw_items = $this->getItems();
 
-		$items = array();
-		foreach ($raw_items as $row) {
-			$item = $this->item_factory->make($row);
-			$items[$item->name] = $item;
+			$items = array();
+			foreach ($raw_items as $row) {
+				$item = $this->item_factory->make($row);
+				$items[$item->name] = $item;
+			}
+			return $items;
+		} else {
+			return array();
 		}
-		return $items;
 	}
 
 	private function addChoices() {
@@ -1416,32 +1420,36 @@ class Survey extends RunUnit {
 	}
 
 	public function getResults($items = null, $session = null) { // fixme: shouldnt be using wildcard operator here.
-		$results_table = $this->results_table;
-		if ($items === null) {
-			$items = array('*');
-		}
+		if ($this->hasResultsTable()) {
+			$results_table = $this->results_table;
+			if ($items === null) {
+				$items = array('*');
+			}
 
-		$colums = array('survey_run_sessions.session');
-		foreach ($items as $item) {
-			$colums[] = "{$results_table}.{$item}";
-		}
-		$select = $this->dbh->select($colums)
-				->from($results_table)
-				->leftJoin('survey_unit_sessions', "{$results_table}.session_id = survey_unit_sessions.id")
-				->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
+			$colums = array('survey_run_sessions.session');
+			foreach ($items as $item) {
+				$colums[] = "{$results_table}.{$item}";
+			}
+			$select = $this->dbh->select($colums)
+					->from($results_table)
+					->leftJoin('survey_unit_sessions', "{$results_table}.session_id = survey_unit_sessions.id")
+					->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
 
-		if ($session !== null) {
-			$select->where("survey_unit_sessions.session = '$session'");
-		}
-		$stmt = $select->statement();
+			if ($session !== null) {
+				$select->where("survey_unit_sessions.session = '$session'");
+			}
+			$stmt = $select->statement();
 
-		$results = array();
-		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-			unset($row['study_id']);
-			$results[] = $row;
-		}
+			$results = array();
+			while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+				unset($row['study_id']);
+				$results[] = $row;
+			}
 
-		return $results;
+			return $results;
+		} else {
+			return array();
+		}
 	}
 
 	/**
@@ -1541,29 +1549,32 @@ class Survey extends RunUnit {
 	}
 
 	public function getAverageTimeItTakes() {
-		$get = "SELECT AVG(middle_values) AS 'median' FROM (
-		  SELECT took AS 'middle_values' FROM
-			(
-			  SELECT @row:=@row+1 as `row`, (x.ended - x.created) AS took
-		      FROM `{$this->results_table}` AS x, (SELECT @row:=0) AS r
-			  WHERE 1
-			  -- put some where clause here
-			  ORDER BY took
-			) AS t1,
-			(
-			  SELECT COUNT(*) as 'count'
-		      FROM `{$this->results_table}` x
-			  WHERE 1
-			  -- put same where clause here
-			) AS t2
-			-- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
-			WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
+		if($this->hasResultsTable()) {
+			$get = "SELECT AVG(middle_values) AS 'median' FROM (
+			  SELECT took AS 'middle_values' FROM
+				(
+				  SELECT @row:=@row+1 as `row`, (x.ended - x.created) AS took
+			      FROM `{$this->results_table}` AS x, (SELECT @row:=0) AS r
+				  WHERE 1
+				  -- put some where clause here
+				  ORDER BY took
+				) AS t1,
+				(
+				  SELECT COUNT(*) as 'count'
+			      FROM `{$this->results_table}` x
+				  WHERE 1
+				  -- put same where clause here
+				) AS t2
+				-- the following condition will return 1 record for odd number sets, or 2 records for even number sets.
+				WHERE t1.row >= t2.count/2 and t1.row <= ((t2.count/2) +1)) AS t3;";
 
-		$get = $this->dbh->query($get, true);
-		$time = $get->fetch(PDO::FETCH_NUM);
-		$time = round($time[0] / 60, 3); # seconds to minutes
+			$get = $this->dbh->query($get, true);
+			$time = $get->fetch(PDO::FETCH_NUM);
+			$time = round($time[0] / 60, 3); # seconds to minutes
 
-		return $time;
+			return $time;
+		}
+		return '';
 	}
 
 	public function delete() {
