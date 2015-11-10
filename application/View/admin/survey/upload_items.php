@@ -43,10 +43,11 @@ $resultCount = $study->getResultCount();
 				<form class="" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="">
 					<input type="hidden" name="study_id" value="<?= $study->id ?>">
 					<div class="form-group">
-						<h3><label class="control-label" for="file_upload">
-								Please upload an item table <i class="fa fa-info-circle" title="Did you know, that on many computers you can also drag and drop a file on this box instead of navigating there through the file browser?"></i>: 
-								<small><br />(Excel and JSON supported)</small>
-							</label></h3>
+						<h3>
+							<label class="control-label" for="file_upload">
+								Upload an item table <i class="fa fa-info-circle" title="Did you know, that on many computers you can also drag and drop a file on this box instead of navigating there through the file browser?"></i>:
+							</label>
+						</h3>
 						<div class="controls">
 							<input required name="uploaded" type="file" id="file_upload">
 						</div>
@@ -92,11 +93,17 @@ $resultCount = $study->getResultCount();
 				</form>
 			</div>
 			<div class="col-md-6" style="border-left: 1px solid #efefef; padding-left: 35px;">
-				<h3><label class="control-label" for="file_upload">
-						Import a google sheet <i class="fa fa-info-circle" title="You can also create an item table from a google sheet"></i>: 
-					</label></h3>
-				<h3>&nbsp;</h3>
-				<a href="#" data-toggle="modal" data-target="#google-import" class="btn btn-default btn-lg"><i class="fa fa-download"></i>Import Google Sheet</a>
+				<h3>
+					<label class="control-label" for="file_upload">
+						Or import a google sheet <i class="fa fa-info-circle" title="You can also create an item table from a google sheet"></i>:
+					</label>
+				</h3>
+				<div class="form-group">
+				
+					<div class="controls">
+						<a href="#" data-toggle="modal" data-target="#google-import" class="btn btn-default btn-lg"><i class="fa fa-download"></i>Import Google Sheet</a>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
