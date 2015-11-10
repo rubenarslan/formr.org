@@ -436,7 +436,8 @@ class SpreadsheetReader {
 		// non-allowed columns will be ignored, allows to specify auxiliary information if needed
 
 		$skipped_columns = $columns = array();
-		$nr_of_columns = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestColumn());
+		$nr_of_columns = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestDataColumn());
+		$nr_of_data_rows = $worksheet->getHighestDataRow();
 
 		for ($i = 0; $i < $nr_of_columns; $i++):
 			$col_name = mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue());
@@ -469,9 +470,12 @@ class SpreadsheetReader {
 		$data = array();
 		$choice_names = array();
 
+		$last_list_names = array();
 		foreach ($worksheet->getRowIterator() AS $row):
 
+			$list_name_was_empty = false;
 			$row_number = $row->getRowIndex();
+			if($row_number > $nr_of_data_rows) break;
 
 			if ($row_number == 1): # skip table head
 				continue;
@@ -498,14 +502,22 @@ class SpreadsheetReader {
 						if ($val == ''):
 
 							if (isset($lastListName)):
-								$choices_messages[] = __("Row $row_number: list name empty. The previous list name %s was used.", $lastListName);
+								if(!array_key_exists($lastListName, $last_list_names)) {
+									$last_list_names[ $lastListName ] = array();
+								}
+								$last_list_names[ $lastListName ][] = $row_number;
+								$list_name_was_empty = true;
 								$val = $lastListName;
 							else:
 								if (isset($data[$row_number])):
 									unset($data[$row_number]);
 								endif;
-								$choices_messages[] = "Row $row_number: list name empty. Skipped.";
-
+								if (isset($data[$row_number])) {
+									if(trim(implode($data[$row_number]))) {
+										$this->warnings[] = "Choice sheet. Row $row_number: list name empty, but content in other columns. Row skipped.";
+									}
+									unset($data[$row_number]);
+								}
 								continue 2; # skip this row
 							endif;
 
@@ -525,10 +537,14 @@ class SpreadsheetReader {
 					elseif ($col == 'name'):
 						$val = trim($val);
 						if ($val == ''):
-							$choices_messages[] = "Row $row_number: choice name empty. Row skipped.";
-							if (isset($data[$row_number])):
+							if (isset($data[$row_number])) {
+								if(trim(implode($data[$row_number])) AND !$list_name_was_empty) {
+									$this->warnings[] = "Choice sheet. Row $row_number: choice name empty, but content in other columns. Row skipped.";
+								} else if($list_name_was_empty) {
+									array_pop($last_list_names[ $lastListName ]);
+								}
 								unset($data[$row_number]);
-							endif;
+							}
 							continue 2; # skip this row
 
 						elseif (!preg_match("/^[a-zA-Z0-9_]{1,255}$/", $val)):
@@ -555,6 +571,10 @@ class SpreadsheetReader {
 			endforeach; // cell loop
 
 		endforeach; // row loop
+		
+		foreach($last_list_names AS $list_name => $row_numbers):
+			$choices_messages[] = "$list_name: this list name was assigned to rows " .min($row_numbers) .'-'. max($row_numbers) . " automatically, because they had an empty list name and followed in this list.";
+		endforeach;
 //		$callEndTime = microtime(true);
 //		$callTime = $callEndTime - $callStartTime;
 //		$choices_messages[] = 'Call time to read choices sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
@@ -569,7 +589,9 @@ class SpreadsheetReader {
 		// non-allowed columns will be ignored, allows to specify auxiliary information if needed
 
 		$columns = array();
-		$nr_of_columns = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestColumn());
+		$nr_of_columns = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestDataColumn());
+		$nr_of_data_rows = $worksheet->getHighestDataRow();
+		
 		if ($nr_of_columns > 30) {
 			$this->warnings[] = __('Only the first 30 columns out of %d were read.', $nr_of_columns);
 			$nr_of_columns = 30;
@@ -601,7 +623,7 @@ class SpreadsheetReader {
 			endif;
 		endfor;
 		if ($nr_of_blank_column_headers > 0)
-			$this->warnings[] = __('Your sheet appears to contain at least %d columns without names (in the first row)."', $nr_of_blank_column_headers);
+			$this->warnings[] = __('Your survey sheet appears to contain %d columns without names (given in the first row).', $nr_of_blank_column_headers);
 
 		$ambiguous_rows = $empty_rows = array();
 		if (!empty($skipped_columns)) {
@@ -613,6 +635,8 @@ class SpreadsheetReader {
 		foreach ($worksheet->getRowIterator() as $row):
 			$row_number = $row->getRowIndex();
 
+			if($row_number > $nr_of_data_rows) break;
+			
 			// skip table head
 			if ($row_number == 1) {
 				continue;
@@ -645,8 +669,6 @@ class SpreadsheetReader {
 								if(trim(implode($data[$row_number]))) {
 									unset($data[$row_number]);
 									$ambiguous_rows[] = $row_number;
-								} else {
-									$empty_rows[] = $row_number;
 								}
 								unset($data[$row_number]);
 							}
@@ -744,8 +766,6 @@ class SpreadsheetReader {
 		if (!empty($ambiguous_rows)) {
 			$this->warnings[] = "Rows " . implode($ambiguous_rows, ", ") . ": variable name empty, but other columns had content. Rows skipped, but double-check that you did not forget to define a variable name for a proper item.";
 		}
-//		pr($ambiguous_rows);
-//		die;
 		$this->survey = $data;
 	}
 

@@ -88,6 +88,6 @@ Template::load('acp_nav');
 
 	<?php
 	
-	Template::load('admin/survey/goole_sheet_import', array('params' => $google));
+	Template::load('admin/survey/google_sheet_import', array('params' => $google));
 	Template::load('footer');
 	

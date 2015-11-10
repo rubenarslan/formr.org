@@ -1,7 +1,7 @@
-<div class="modal fade" id="google-import" tabindex="-1" role="dialog" aria-labelledby="GoogleImport" aria-hidden="true">
+<div class="modal fade" id="google-import" tabindex="-1" role="dialog" aria-hidden="true">
 	<div class="modal-dialog">
 		<div class="modal-content">
-			<form action="" method="post">
+			<form action="#" method="post">
 				<input type="hidden" name="google_id" value="<?php echo array_val($params, 'id'); ?>" />
 				<div class="modal-header">
 					<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
