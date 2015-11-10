@@ -105,7 +105,7 @@ class Pause extends RunUnit {
 			<textarea style="width:388px;"  data-editor="markdown" class="form-control col-md-5" placeholder="You can use Markdown" name="body" rows="10">' . h($this->body) . '</textarea>
 		</label></p>
 			';
-		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save.</a>
+		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Pause">Save</a>
 		<a class="btn btn-default unit_test" href="ajax_test_unit?type=Pause">Test</a></p>';
 
 

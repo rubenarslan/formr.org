@@ -89,7 +89,7 @@ class Branch extends RunUnit {
 		</div>';
 		$dialog .= '
 			<p class="btn-group">
-				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=SkipForward">Save.</a>
+				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=SkipForward">Save</a>
 				<a class="btn btn-default unit_test" href="ajax_test_unit?type=SkipForward">Test</a>
 			</p>';
 

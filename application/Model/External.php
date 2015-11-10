@@ -55,8 +55,8 @@ class External extends RunUnit {
 		<p>Enter a URL like <code>http://example.org?code={{login_code}}</code> and the user will be sent to that URL, replacing <code>{{login_code}}</code> with that user\'s code. Enter R-code to e.g. send more data along: <code>paste0(\'http:example.org?code={{login_link}}&<br>age=\', demographics$sex)</code>.</p>
 		';
 
-		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=External">Save.</a>
-		<a class="btn btn-default unit_test" href="ajax_test_unit?type=External">Preview.</a></p>';
+		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=External">Save</a>
+		<a class="btn btn-default unit_test" href="ajax_test_unit?type=External">Test</a></p>';
 
 
 		$dialog = $prepend . $dialog;
