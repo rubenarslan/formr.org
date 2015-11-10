@@ -37,8 +37,8 @@
 						<tr>
 							<td>
 								<b>Delete Survey Session</b> <br />
-								<i>This is equivalent to logging out! You session cookie will be deleted but your data will still be saved! <br />
-								To re-activate your session you need to use the login link.</i>
+								<i>Your session cookie will be deleted, so your session will no longer be accessible from this computer, but your data will still be saved.<br>
+								To re-activate your session you can use the login link, if you have one.</i>
 							</td>
 							<td><input type="checkbox" name="delete_cookie" value="1" <?php if (array_val($settings, 'delete_cookie')) echo "checked='checked'"; ?>> </td>
 						</tr>

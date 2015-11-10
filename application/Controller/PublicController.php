@@ -58,7 +58,7 @@ class PublicController extends Controller {
 				redirect_to('index');
 			}
 		}
-		$this->renderView('public/edit_user');
+		$this->renderView('edit_user');
 	}
 
 	public function loginAction() {
@@ -114,10 +114,10 @@ class PublicController extends Controller {
 
 		if((!isset($_GET['verification_token']) OR !isset($_GET['email']) ) AND !isset($_POST['email'])):
 			alert("You need to follow the link you received in your verification mail.");
-			redirect_to("public/login");
+			redirect_to("login");
 		else:
 			$user->verify_email($_GET['email'], $_GET['verification_token']);
-			redirect_to("public/login");
+			redirect_to("login");
 		endif;
 	}
 
@@ -140,7 +140,7 @@ class PublicController extends Controller {
 
 		if((!isset($_GET['reset_token']) OR !isset($_GET['email']) ) AND !isset($_POST['email'])):
 			alert("You need to follow the link you received in your password reset mail");
-			redirect_to("public/forgot_password");
+			redirect_to("forgot_password");
 		endif;
 
 		if(!empty($_POST) AND isset($_POST['email'])  AND isset($_POST['new_password'])  AND isset($_POST['reset_token'])) {
@@ -214,10 +214,11 @@ class PublicController extends Controller {
 				'settings' => json_encode($settings),
 			));
 			if ($settings['delete_cookie'])  {
-				alert('Your session was ended as requested! You need to login again', 'alert-warning');
 				Session::destroy();
+				redirect_to( "index/");
 			}
 			alert('Settings saved successfully for survey "'.$run->name.'"', 'alert-success');
+			redirect_to( "settings/" . $run->name );
 		}
 
 		$row = $this->fdb->findRow('survey_run_settings', array('run_session_id' => $session->id));
