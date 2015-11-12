@@ -757,7 +757,7 @@ class SpreadsheetReader {
 
 		$callEndTime = microtime(true);
 		$callTime = $callEndTime - $callStartTime;
-		$this->messages[] = 'Survey <abbr title="Call time to read survey sheet was ' . sprintf('%.4f', $callTime) . ' seconds">worksheet</abbr> - ' . $worksheet->getTitle() . ' (' . $row_number . ' rows, ' . $nr_of_columns . ' columns). These columns were <strong>used</strong>: ' . implode($columns, ", ");
+		$this->messages[] = 'Survey <abbr title="Call time to read survey sheet was ' . sprintf('%.4f', $callTime) . ' seconds">worksheet</abbr> - ' . $worksheet->getTitle() . ' (' . count($data) . ' non-empty rows, ' . count($nr_of_columns) . ' columns). These columns were <strong>used</strong>: ' . implode($columns, ", ");
 		
 		if (!empty($empty_rows)) {
 			$this->messages[] = "Rows " . implode($empty_rows, ", ") . ": variable name empty. Rows skipped.";

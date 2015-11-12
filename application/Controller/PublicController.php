@@ -58,7 +58,7 @@ class PublicController extends Controller {
 				redirect_to('index');
 			}
 		}
-		$this->renderView('edit_user');
+		$this->renderView('public/edit_user');
 	}
 
 	public function loginAction() {
