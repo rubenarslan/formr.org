@@ -1493,7 +1493,47 @@ class Survey extends RunUnit {
 		}
 
 		if ($session) {
-			$select->where("survey_run_sessions.session = '$session'");
+			if(strlen($session) == 64) {
+				$select->where("survey_run_sessions.session = :session");
+			} else {
+				$select->where("survey_run_sessions.session LIKE :session");
+				$session .= "%";
+			}
+			$select->bindParams(array("session" => $session));
+		}
+
+		return $select->fetchAll();
+	}
+	/**
+	 * Get Results from the item display table
+	 *
+	 * @param array $items An array of item names that are required in the survey
+	 * @param string $session If specified, only results of that particular session will be returned
+	 * @return array
+	 */
+	public function getResultsByItemAndSession($items = array(), $sessions = null) {
+		$select = $this->dbh->select('
+		`survey_run_sessions`.session,
+		`survey_items`.name,
+		`survey_items_display`.answer');
+
+		$select->from('survey_items_display')
+				->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
+				->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
+				->leftJoin('survey_items', 'survey_items_display.item_id = survey_items.id')
+				->where('survey_items.study_id = :study_id')
+				->order('survey_run_sessions.session')
+				->order('survey_run_sessions.created')
+				->order('survey_unit_sessions.created')
+				->order('survey_items_display.display_order')
+				->bindParams(array('study_id' => $this->id));
+
+		if (!empty( $items)) {
+			$select->whereIn('survey_items.name', $items);
+		}
+
+		if (!empty( $sessions)) {
+			$select->whereIn('survey_items.name', $sessions);
 		}
 
 		return $select->fetchAll();
