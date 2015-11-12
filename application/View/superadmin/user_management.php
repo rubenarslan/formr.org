@@ -52,6 +52,9 @@ Template::load('acp_nav');
 					<tr>
 						<td><b>Client Secret</b></td><td>%{client_secret}</td>
 					</tr>
+					<tr>
+						<td><b>R command</b></td><td><pre><code class="r">formr_api_access_token("%{client_id}", "%{client_secret}")</code></pre></td>
+					</tr>
 				</table>
 				<div class="clearfix"></div>
 			</div>
