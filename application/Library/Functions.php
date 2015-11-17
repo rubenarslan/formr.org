@@ -1018,7 +1018,7 @@ function opencpu_knitdisplay($source, $variables = null, $return_session = false
 	$run_session = Site::getInstance()->getRunSession();
 	
 	$show_errors = 'F';
-	if ($run_session->isTesting() ) {
+	if (!$run_session OR $run_session->isTesting() ) {
 		$show_errors = 'T';
 	}
 	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
@@ -1038,16 +1038,22 @@ function opencpu_knitadmin($source, $variables = null, $return_session = false) 
 		$variables = opencpu_define_vars($variables);
 	}
 
-	$source = '```{r settings,message=FALSE,warning=F,echo=F}
+	$run_session = Site::getInstance()->getRunSession();
+	
+	$show_errors = 'F';
+	if (!$run_session OR $run_session->isTesting() ) {
+		$show_errors = 'T';
+	}
+	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning=T,message=T,echo=T,fig.retina=2,fig.height=7,fig.width=10)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2,fig.height=7,fig.width=10)
 opts_knit$set(base.url="'.OpenCPU::TEMP_BASE_URL.'")
 ' . $variables . '
 ```
 ' .
 $source;
 
-	return opencpu_knit2html($source, '', 0, $return_session);
+	return opencpu_knit2html($source, 'json', 0, $return_session);
 }
 
 function opencpu_knitemail($source, array $variables = null, $return_format = 'json', $return_session = false) {
@@ -1057,7 +1063,7 @@ function opencpu_knitemail($source, array $variables = null, $return_format = 'j
 	$run_session = Site::getInstance()->getRunSession();
 	
 	$show_errors = 'F';
-	if ($run_session->isTesting() ) {
+	if (!$run_session OR $run_session->isTesting() ) {
 		$show_errors = 'T';
 	}
 
