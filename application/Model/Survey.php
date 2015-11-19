@@ -668,7 +668,7 @@ class Survey extends RunUnit {
 				$lists_to_fetch[] = $item->choice_list;
 			}
 
-			if (!$item->label_parsed) {
+			if ($item->needsDynamicLabel() ) {
 				$this->unanswered[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
 				$strings_to_parse[] = $item->label;
 			}
@@ -688,7 +688,7 @@ class Survey extends RunUnit {
 		$choices = $this->getChoices($lists_to_fetch, null);
 		$choice_lists = array();
 		foreach ($choices as $i => $choice) {
-			if (!$choice['label_parsed']) {
+			if ($choice['label_parsed'] === null) {
 				$choices[$i]['label_parsed'] = opencpu_string_key(count($strings_to_parse));
 				$strings_to_parse[] = $choice['label'];
 			}
