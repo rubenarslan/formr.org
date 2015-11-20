@@ -267,5 +267,10 @@ class PublicController extends Controller {
 		}
 		redirect_to('');
 	}
+
+	public function osfApiAction() {
+
+	}
+
 }
 
