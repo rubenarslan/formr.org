@@ -268,8 +268,66 @@ class PublicController extends Controller {
 		redirect_to('');
 	}
 
-	public function osfApiAction() {
+	public function osfApiAction($do = '') {
+		$user = Site::getCurrentUser();
+		if (!$user->loggedIn()) {
+			alert('You need to login to access this section', 'alert-warning');
+			redirect_to('index');
+		}
 
+		$osfconfg = Config::get('osf');
+		$osfconfg['state'] = $user->user_code;
+
+		$osf = new OSF($osfconfg);
+
+		// Case 1: User wants to login to give formr authorization
+		// If user has a valid access token then just use it (i.e redirect to where access token is needed
+		if ($do === 'login') {
+			if ($token = OSF::getUserAccessToken($user)) {
+				// redirect user to where he came from and get access token from there for current user
+				$redirect = $this->request->getParam('redirect', 'admin');
+				alert('You have authorized FORMR to act on your behalf on the OSF', 'alert-success');
+			} else {
+				// redirect user to login link
+				$redirect = $osf->getLoginUrl();
+			}
+			redirect_to($redirect);
+		}
+
+		// Case 2: User is oauth2-ing. Handle authorization code exchange
+		if ($code = $this->request->getParam('code')) {
+			if ($this->request->getParam('state') != $user->user_code) {
+				throw new Exception("Invalid OSF-OAUTH 2.0 request");
+			}
+
+			$params = $this->request->getParams();
+			try {
+				$logged = $osf->login($params);
+			} catch (Exception $e) {
+				formr_log_exception($e, 'OSF');
+				$logged = array('error' => $e->getMessage());
+			}
+
+			if (!empty($logged['access_token'])) {
+				// save this access token for this user
+				// redirect user to where osf actions need to happen (@todo pass this in a 'redirect session parameter'
+				OSF::setUserAccessToken($user, $logged);
+				alert('You have authorized FORMR to act on your behalf on the OSF', 'alert-success');
+				redirect_to('admin');
+			} else {
+				$error = !empty($logged['error']) ? $logged['error'] : 'Access token could not be obtained';
+				alert('OSF API Error: ' . $error, 'alert-danger');
+				redirect_to('admin');
+			}
+		}
+
+		// Case 3: User is oauth2-ing. Handle case when user cancels authorization
+		if ($error = $this->request->getParam('error')) {
+			alert('Access was denied at OSF-Formr with error code: ' . $error, 'alert-danger');
+			redirect_to('admin');
+		}
+
+		redirect_to('index');
 	}
 
 }

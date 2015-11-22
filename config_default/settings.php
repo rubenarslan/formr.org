@@ -105,3 +105,11 @@ $settings['social_share'] = array(
 		'height' => 400,
 	),
 );
+
+// Settings for the OSF API
+$settings['osf'] = array(
+	'client_id' => 'xxxxxxxxx',
+	'client_secret' => 'xxxxxxx-secret',
+	'redirect_url' => 'https://formr.org/osf-api',
+	'scope' => 'user.profile',
+);
