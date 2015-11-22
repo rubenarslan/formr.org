@@ -272,7 +272,7 @@ class PublicController extends Controller {
 		$user = Site::getCurrentUser();
 		if (!$user->loggedIn()) {
 			alert('You need to login to access this section', 'alert-warning');
-			redirect_to('index');
+			redirect_to('login');
 		}
 
 		$osfconfg = Config::get('osf');
