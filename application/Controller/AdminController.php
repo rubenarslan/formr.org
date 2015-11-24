@@ -41,11 +41,11 @@ class AdminController extends Controller {
 
 	protected function header() {
 		if (!$this->user->isAdmin()) {
-			alert("<strong>Sorry:</strong> Only admins have access.", 'alert-info');
-			access_denied();
+			alert('You need to login to access the admin section', 'alert-warning');
+			redirect_to('login');
 		}
 
-		if ($this->site->inSuperAdminArea() AND ! $this->user->isSuperAdmin()) {
+		if ($this->site->inSuperAdminArea() && !$this->user->isSuperAdmin()) {
 			alert("<strong>Sorry:</strong> Only superadmins have access.", 'alert-info');
 			access_denied();
 		}

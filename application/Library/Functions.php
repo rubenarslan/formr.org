@@ -52,11 +52,6 @@ function notify_user_error($error, $public_message = '') {
 }
 
 function redirect_to($location) {
-/*
-	global $site, $user;
-	$_SESSION['site'] = $site;
-	$_SESSION['user'] = serialize($user);
- */
 	if (strpos($location, 'index') !== false) {
 		$location = '';
 	}

@@ -89,6 +89,7 @@ class Autoload {
 			'Item_yearmonth' => APPLICATION_PATH . 'Model/Item.php',
 			'OAuthDAO' => APPLICATION_PATH . 'Dao/OAuthDAO.php',
 			'OpenCPU' => APPLICATION_PATH . 'Library/OpenCPU.php',
+			'OSF' => APPLICATION_PATH . 'Library/OSF.php',
 			'Page' => APPLICATION_PATH . 'Model/Page.php',
 			'Pagination' => APPLICATION_PATH . 'Model/Pagination.php',
 			'Pause' => APPLICATION_PATH . 'Model/Pause.php',

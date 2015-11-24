@@ -36,7 +36,7 @@ class Router {
 
 		// First try to get controller path from the route which is one of those configured routes
 		foreach ($this->routes as $r) {
-			if (strpos($route, $r) !== false) {
+			if (strpos($route, $r) === 0) {
 				$controllerPath = $r;
 			}
 		}
@@ -79,7 +79,11 @@ class Router {
 	}
 
 	private function getActionName($action) {
-		$parts = array_filter(explode('_', $action));
+		if (strpos($action, '-') !== false) {
+			$parts = array_filter(explode('-', $action));
+		} else {
+			$parts = array_filter(explode('_', $action));
+		}
 		$action = array_shift($parts);
 		foreach ($parts as $part) {
 			$action .= ucwords(strtolower($part));

@@ -61,8 +61,12 @@ class Request {
 	 * @param string $name
 	 * @return mixed
 	 */
-	public function getParam($name) {
-		return $this->__get($name);
+	public function getParam($name, $default = null) {
+		$param = $this->__get($name);
+		if ($param === null) {
+			$param = $default;
+		}
+		return $param;
 	}
 
 	/**
