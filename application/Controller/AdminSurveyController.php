@@ -161,7 +161,7 @@ class AdminSurveyController extends AdminController {
 	private function showResultsAction() {
 		$this->renderView('survey/show_results', array(
 			'resultCount' => $this->study->getResultCount(),
-			'results' => $this->study->getResults(),
+			'results' => $this->study->getResults(null, null, true),
 		));
 	}
 
