@@ -1420,8 +1420,10 @@ class Survey extends RunUnit {
 		return $this->result_count;
 	}
 
-	public function getResults($items = null, $session = null) { // fixme: shouldnt be using wildcard operator here.
+	public function getResults($items = null, $session = null, $returnStmt = false) { // fixme: shouldnt be using wildcard operator here.
 		if ($this->hasResultsTable()) {
+			ini_set('memory_limit', '256M');
+
 			$results_table = $this->results_table;
 			if ($items === null) {
 				$items = array('*');
@@ -1437,9 +1439,13 @@ class Survey extends RunUnit {
 					->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
 
 			if ($session !== null) {
-				$select->where("survey_unit_sessions.session = '$session'");
+				$select->where("survey_run_sessions.session = '$session'");
 			}
 			$stmt = $select->statement();
+
+			if ($returnStmt) {
+				return $stmt;
+			}
 
 			$results = array();
 			while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
