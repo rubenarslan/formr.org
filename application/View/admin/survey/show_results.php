@@ -52,50 +52,41 @@ Template::load('acp_nav');
 			</div>
 		</div>
 
-<?php
-if(count($results)>0):
+<?php if($results->rowCount()): ?>
+	<div class="col-md-12">
 
-?>
-<div class="col-md-12">
+	<table class='table table-striped'>
+		<?php
+			$print_header = true;
+			while ($row = $results->fetch(PDO::FETCH_ASSOC)) {
+				unset($row['study_id']);
+				if ($print_header) {
+					echo '<thead><tr>';
+					foreach ($row as $field => $value) {
+						echo '<td>' . $field . '</td>';
+					}
+					echo '</tr></thead>';
+					echo '<tbody>';
+					$print_header = false;
+				}
 
-<table class='table table-striped'>
-	<thead><tr>
-<?php
-foreach(current($results) AS $field => $value):
-    echo "<th>{$field}</th>";
-endforeach;
-?>
-	</tr></thead>
-<tbody>
+				$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
+				$row['ended'] = '<abbr title="'.$row['ended'].'">'.timetostr(strtotime($row['ended'])).'</abbr>';
+				$row['modified'] = '<abbr title="'.$row['modified'].'">'.timetostr(strtotime($row['modified'])).'</abbr>';
+				echo '<tr>';
+					foreach($row as $cell) {
+						echo '<td>' . $cell . '</td>';
+					}
+				echo '</tr>';
+			}
+		?>
+	</tbody>
+	</table>
 
-<?php
-// printing table rows
-foreach($results AS $row):
-#    $row = array_reverse($row, true);
-	$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
-	$row['ended'] = '<abbr title="'.$row['ended'].'">'.timetostr(strtotime($row['ended'])).'</abbr>';
-	$row['modified'] = '<abbr title="'.$row['modified'].'">'.timetostr(strtotime($row['modified'])).'</abbr>';
-#    $row = array_reverse($row, true);
-	
-    echo "<tr>";
+	</div>
 
-    // $row is array... foreach( .. ) puts every element
-    // of $row to $cell variable
-    foreach($row as $cell):
-        echo "<td>$cell</td>";
-	endforeach;
+<?php endif; ?>
 
-    echo "</tr>\n";
-endforeach;
-
-?>
-</tbody></table>
-
-</div>
-
-<?php
-endif;
-?>
 </div>
 </div>
 
