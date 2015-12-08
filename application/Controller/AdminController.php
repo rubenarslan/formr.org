@@ -34,6 +34,28 @@ class AdminController extends Controller {
 		$this->renderView('misc/test_opencpu_speed');
 	}
 
+	public function osfAction() {
+		if (!($token = OSF::getUserAccessToken($this->user))) {
+			redirect_to('osf-api/login');
+		}
+
+		if (Request::isHTTPPostRequest()) {
+			$osf = new OSF(Config::get('osf'));
+			$osf->setAccessToken($token);
+			$file = Config::get('survey_upload_dir') . '/random_items3-v2.json';
+			$response = $osf->upload($this->request->getParam('osf_project'), $file);
+			echo '<pre>';
+			print_r($response);
+			die();
+		}
+
+		$this->renderView('misc/osf', array(
+			'token' => $token,
+			'runs' => $this->user->getRuns(),
+			'osf_projects' => array('nhfbw'),
+		));
+	}
+
 	protected function renderView($template, $vars = array()) {
 		$template = 'admin/' . $template;
 		parent::renderView($template, $vars);

@@ -285,7 +285,7 @@ class PublicController extends Controller {
 		if ($do === 'login') {
 			if ($token = OSF::getUserAccessToken($user)) {
 				// redirect user to where he came from and get access token from there for current user
-				$redirect = $this->request->getParam('redirect', 'admin');
+				$redirect = $this->request->getParam('redirect', 'admin/osf');
 				alert('You have authorized FORMR to act on your behalf on the OSF', 'alert-success');
 			} else {
 				// redirect user to login link
@@ -313,7 +313,7 @@ class PublicController extends Controller {
 				// redirect user to where osf actions need to happen (@todo pass this in a 'redirect session parameter'
 				OSF::setUserAccessToken($user, $logged);
 				alert('You have authorized FORMR to act on your behalf on the OSF', 'alert-success');
-				redirect_to('admin');
+				redirect_to('admin/osf');
 			} else {
 				$error = !empty($logged['error']) ? $logged['error'] : 'Access token could not be obtained';
 				alert('OSF API Error: ' . $error, 'alert-danger');
