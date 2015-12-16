@@ -27,7 +27,7 @@
 								<select name="no_email">
 									<?php 
 									foreach ($no_email_settings as $key => $value): 
-										$selected = (array_val($settings, 'no_email') === $key) ? 'selected="selected"' : '';
+										$selected = (array_val($settings, 'no_email') == $key) ? 'selected="selected"' : '';
 										echo '<option value="'.$key.'" '.$selected.'>'.$value.'</option>';
 									endforeach;
 									?>
@@ -46,7 +46,8 @@
 					<tfoot>
 						<tr>
 							<td colspan="2">
-								<button class="btn btn-default">Save</button>
+								<input name="_sess" value="<?= htmlentities($settings['code']); ?>" type="hidden" />
+								<button class="btn btn-default" type="submit">Save</button>
 							</td>
 						</tr>
 					</tfoot>
