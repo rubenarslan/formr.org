@@ -183,15 +183,26 @@ class PublicController extends Controller {
 		if (!$run->valid) {
 			not_found();
 		}
+
+		// Login if user entered with code and redirect without login code
+		if (Request::isHTTPGetRequest() && ($code = $this->request->getParam('code'))) {
+			$_GET['run_name'] = $run_name;
+			$this->user = $this->site->loginUser($this->user);
+			if ($this->user->user_code != $code) {
+				alert('Unable to login with the provided code', 'alert-warning');
+			}
+			redirect_to('settings/' . $run_name);
+		}
+
 		// People who have no session in the run need not set anything
 		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code);
 		if (!$session->id) {
-			alert('A session for you could not be found in the study', 'alert-danger');
+			alert('You cannot create settings in a study you have not participated in.', 'alert-danger');
 			redirect_to('index');
 		}
 
 		$settings = array('no_email' => 1);
-		if (Request::isHTTPPostRequest()) {
+		if (Request::isHTTPPostRequest() && $this->user->user_code == $this->request->getParam('_sess')) {
 			$update = array();
 			$settings = array(
 				'no_email' => $this->request->getParam('no_email'),
@@ -209,15 +220,17 @@ class PublicController extends Controller {
 			if ($update) {
 				$this->fdb->update('survey_run_sessions', $update, array('id' => $session->id));
 			}
+
 			$this->fdb->insert_update('survey_run_settings', array(
 				'run_session_id' => $session->id,
 				'settings' => json_encode($settings),
 			));
+
+			alert('Settings saved successfully for survey "'.$run->name.'"', 'alert-success');
 			if ($settings['delete_cookie'])  {
 				Session::destroy();
-				redirect_to( "index/");
+				redirect_to("index/");
 			}
-			alert('Settings saved successfully for survey "'.$run->name.'"', 'alert-success');
 			redirect_to( "settings/" . $run->name );
 		}
 
@@ -225,6 +238,7 @@ class PublicController extends Controller {
 		if ($row) {
 			$settings = (array)json_decode($row['settings']);
 		}
+		$settings['code'] = $this->user->user_code;
 		Template::load('public/settings', array(
 			'run' => $run,
 			'settings' => $settings,
