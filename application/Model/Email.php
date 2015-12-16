@@ -99,6 +99,7 @@ class Email extends RunUnit {
 	}
 
 	private function getBody($embed_email = true) {
+		$sess = null;
 		if (isset($this->run_name)) {
 			$sess = isset($this->session) ? $this->session : "TESTCODE";
 			$login_link = site_url("{$this->run_name}?code=".urlencode($sess));
@@ -107,7 +108,10 @@ class Email extends RunUnit {
 			alert("Generated a login link, but no run was specified", 'alert-danger');
 		}
 
-		$login_link_html = "<a href='$login_link'>Login link</a>";
+		$settings_link = site_url("settings/{$this->run_name}/?code=" . urlencode($sess));
+		$settings_link_html = '<a href="'. $settings_link . '">Settings link</a>';
+
+		$login_link_html = '<a href="'. $login_link . '">Login link</a>';
 
 		if ($this->run_session_id):
 			$response = $this->getParsedBody($this->body, true);
@@ -125,6 +129,8 @@ class Email extends RunUnit {
 			$this->body_parsed = str_replace("{{login_link}}", $login_link_html, $this->body_parsed);
 			$this->body_parsed = str_replace("{{login_url}}", $login_link, $this->body_parsed);
 			$this->body_parsed = str_replace("{{login_code}}", $this->session, $this->body_parsed);
+			$this->body_parsed = str_replace("{{settings_link}}", $settings_link_html, $this->body_parsed);
+			$this->body_parsed = str_replace("{{settings_url}}", $settings_link, $this->body_parsed);
 			return $this->body_parsed;
 		else:
 			alert("Session ID for email recipient is missing.", "alert-danger");
