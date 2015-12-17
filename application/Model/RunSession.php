@@ -329,4 +329,31 @@ class RunSession {
 		return array('id', 'session', 'run_id');
 	}
 
+	public function saveSettings($settings, $update = null) {
+		if (!empty($update)) {
+			$this->dbh->update('survey_run_sessions', $update, array('id' => $this->id));
+		}
+
+		$oldSettings = $this->getSettings();
+		unset($oldSettings['code']);
+		if ($oldSettings) {
+			$settings = array_merge($oldSettings, $settings);
+		}
+
+		$this->dbh->insert_update('survey_run_settings', array(
+			'run_session_id' => $this->id,
+			'settings' => json_encode($settings),
+		));
+	}
+
+	public function getSettings() {
+		$settings = array();
+		$row = $this->dbh->findRow('survey_run_settings', array('run_session_id' => $this->id));
+		if ($row) {
+			$settings = (array)json_decode($row['settings']);
+		}
+		$settings['code'] = $this->session;
+		return $settings;
+	}
+
 }

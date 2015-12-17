@@ -430,6 +430,8 @@ class Email extends RunUnit {
 
 		// If no_mail is set && the timestamp is less that current time then the snooze period has expired
 		if ($this->run_session->no_mail <= time()) {
+			// modify subscription settings
+			$this->run_session->saveSettings(array('no_email' => '1'), array('no_email' => null));
 			return true;
 		}
 
@@ -438,7 +440,7 @@ class Email extends RunUnit {
 
 	public function exec() {
 		if (!$this->sessionCanReceiveMails()) {
-			return array('body' => "Session '{$this->run_session->session}' cannot receive mails");
+			return array('body' => "<p>Session <code>{$this->run_session->session}</code> cannot receive mails at this time </p>");
 		}
 
 		$err = $this->sendMail();

@@ -1,13 +1,5 @@
 <?php Template::load('header_nav'); ?>
-<?php
-	$no_email_settings = array(
-		'1' => 'Subscribe to E-mails',
-		'+1 week' => 'Unsubscribe for one week',
-		'+2 weeks' => 'Unsubscribe for two weeks',
-		'+1 month' => 'Unsubscribe for one month',
-		'0' => 'Never receive emails'
-	);
-?>
+
 <div class="row">
 	<div class="col-xs-12">
 		<h2>Survey Settings for "<?php echo $run->name; ?>"</h2>
@@ -26,8 +18,8 @@
 							<td>
 								<select name="no_email">
 									<?php 
-									foreach ($no_email_settings as $key => $value): 
-										$selected = (array_val($settings, 'no_email') == $key) ? 'selected="selected"' : '';
+									foreach ($email_subscriptions as $key => $value): 
+										$selected = ((string)array_val($settings, 'no_email') === (string)$key) ? 'selected="selected"' : '';
 										echo '<option value="'.$key.'" '.$selected.'>'.$value.'</option>';
 									endforeach;
 									?>
