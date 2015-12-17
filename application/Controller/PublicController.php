@@ -183,15 +183,26 @@ class PublicController extends Controller {
 		if (!$run->valid) {
 			not_found();
 		}
+
+		// Login if user entered with code and redirect without login code
+		if (Request::isHTTPGetRequest() && ($code = $this->request->getParam('code'))) {
+			$_GET['run_name'] = $run_name;
+			$this->user = $this->site->loginUser($this->user);
+			if ($this->user->user_code != $code) {
+				alert('Unable to login with the provided code', 'alert-warning');
+			}
+			redirect_to('settings/' . $run_name);
+		}
+
 		// People who have no session in the run need not set anything
 		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code);
 		if (!$session->id) {
-			alert('A session for you could not be found in the study', 'alert-danger');
+			alert('You cannot create settings in a study you have not participated in.', 'alert-danger');
 			redirect_to('index');
 		}
 
 		$settings = array('no_email' => 1);
-		if (Request::isHTTPPostRequest()) {
+		if (Request::isHTTPPostRequest() && $this->user->user_code == $this->request->getParam('_sess')) {
 			$update = array();
 			$settings = array(
 				'no_email' => $this->request->getParam('no_email'),
@@ -209,15 +220,17 @@ class PublicController extends Controller {
 			if ($update) {
 				$this->fdb->update('survey_run_sessions', $update, array('id' => $session->id));
 			}
+
 			$this->fdb->insert_update('survey_run_settings', array(
 				'run_session_id' => $session->id,
 				'settings' => json_encode($settings),
 			));
+
+			alert('Settings saved successfully for survey "'.$run->name.'"', 'alert-success');
 			if ($settings['delete_cookie'])  {
 				Session::destroy();
-				redirect_to( "index/");
+				redirect_to("index/");
 			}
-			alert('Settings saved successfully for survey "'.$run->name.'"', 'alert-success');
 			redirect_to( "settings/" . $run->name );
 		}
 
@@ -225,6 +238,7 @@ class PublicController extends Controller {
 		if ($row) {
 			$settings = (array)json_decode($row['settings']);
 		}
+		$settings['code'] = $this->user->user_code;
 		Template::load('public/settings', array(
 			'run' => $run,
 			'settings' => $settings,
@@ -267,5 +281,68 @@ class PublicController extends Controller {
 		}
 		redirect_to('');
 	}
+
+	public function osfApiAction($do = '') {
+		$user = Site::getCurrentUser();
+		if (!$user->loggedIn()) {
+			alert('You need to login to access this section', 'alert-warning');
+			redirect_to('login');
+		}
+
+		$osfconfg = Config::get('osf');
+		$osfconfg['state'] = $user->user_code;
+
+		$osf = new OSF($osfconfg);
+
+		// Case 1: User wants to login to give formr authorization
+		// If user has a valid access token then just use it (i.e redirect to where access token is needed
+		if ($do === 'login') {
+			if ($token = OSF::getUserAccessToken($user)) {
+				// redirect user to where he came from and get access token from there for current user
+				$redirect = $this->request->getParam('redirect', 'admin/osf');
+				alert('You have authorized FORMR to act on your behalf on the OSF', 'alert-success');
+			} else {
+				// redirect user to login link
+				$redirect = $osf->getLoginUrl();
+			}
+			redirect_to($redirect);
+		}
+
+		// Case 2: User is oauth2-ing. Handle authorization code exchange
+		if ($code = $this->request->getParam('code')) {
+			if ($this->request->getParam('state') != $user->user_code) {
+				throw new Exception("Invalid OSF-OAUTH 2.0 request");
+			}
+
+			$params = $this->request->getParams();
+			try {
+				$logged = $osf->login($params);
+			} catch (Exception $e) {
+				formr_log_exception($e, 'OSF');
+				$logged = array('error' => $e->getMessage());
+			}
+
+			if (!empty($logged['access_token'])) {
+				// save this access token for this user
+				// redirect user to where osf actions need to happen (@todo pass this in a 'redirect session parameter'
+				OSF::setUserAccessToken($user, $logged);
+				alert('You have authorized FORMR to act on your behalf on the OSF', 'alert-success');
+				redirect_to('admin/osf');
+			} else {
+				$error = !empty($logged['error']) ? $logged['error'] : 'Access token could not be obtained';
+				alert('OSF API Error: ' . $error, 'alert-danger');
+				redirect_to('admin');
+			}
+		}
+
+		// Case 3: User is oauth2-ing. Handle case when user cancels authorization
+		if ($error = $this->request->getParam('error')) {
+			alert('Access was denied at OSF-Formr with error code: ' . $error, 'alert-danger');
+			redirect_to('admin');
+		}
+
+		redirect_to('index');
+	}
+
 }
 
