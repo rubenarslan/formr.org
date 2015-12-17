@@ -1,8 +1,8 @@
 <?php
+
 /**
  * Formr.org configuration
  */
-
 $settings['version'] = '0.8.0';
 
 // Database Settings
@@ -71,11 +71,11 @@ $settings['web_dir'] = INCLUDE_ROOT . 'webroot';
 
 // Setup settings for application that can overwrite defaults in /define_root.php
 $settings['define_root'] = array(
-    //'protocol' => 'http://',
-    //'doc_root' => 'localhost/formr.org/',
-    //'server_root' => INCLUDE_ROOT . '/',
-    //'online' => false,
-    //'testing' => true
+		//'protocol' => 'http://',
+		//'doc_root' => 'localhost/formr.org/',
+		//'server_root' => INCLUDE_ROOT . '/',
+		//'online' => false,
+		//'testing' => true
 );
 
 $settings['referrer_codes'] = array();
@@ -112,4 +112,13 @@ $settings['osf'] = array(
 	'client_secret' => 'xxxxxxx-secret',
 	'redirect_url' => 'https://formr.org/osf-api',
 	'scope' => 'user.profile',
+);
+
+// Default time lengths for email subscriptions
+$settings['email_subscriptions'] = array(
+	'1' => 'Subscribe to E-mails',
+	'+1 week' => 'Unsubscribe for one week',
+	'+2 weeks' => 'Unsubscribe for two weeks',
+	'+1 month' => 'Unsubscribe for one month',
+	'0' => 'Never receive emails',
 );
