@@ -209,7 +209,7 @@ class PublicController extends Controller {
 				'delete_cookie' => (int)$this->request->getParam('delete_cookie'),
 			);
 
-			if ($settings['no_email'] == 1) {
+			if ($settings['no_email'] === '1') {
 				$update['no_email'] = null;
 			} elseif ($settings['no_email'] == 0) {
 				$update['no_email'] = 0;
@@ -217,31 +217,20 @@ class PublicController extends Controller {
 				$update['no_email'] = $ts;
 			}
 
-			if ($update) {
-				$this->fdb->update('survey_run_sessions', $update, array('id' => $session->id));
-			}
-
-			$this->fdb->insert_update('survey_run_settings', array(
-				'run_session_id' => $session->id,
-				'settings' => json_encode($settings),
-			));
+			$session->saveSettings($settings, $update);
 
 			alert('Settings saved successfully for survey "'.$run->name.'"', 'alert-success');
 			if ($settings['delete_cookie'])  {
 				Session::destroy();
-				redirect_to("index/");
+				redirect_to('index');
 			}
-			redirect_to( "settings/" . $run->name );
+			redirect_to('settings/' . $run->name);
 		}
 
-		$row = $this->fdb->findRow('survey_run_settings', array('run_session_id' => $session->id));
-		if ($row) {
-			$settings = (array)json_decode($row['settings']);
-		}
-		$settings['code'] = $this->user->user_code;
 		Template::load('public/settings', array(
 			'run' => $run,
-			'settings' => $settings,
+			'settings' => $session->getSettings(),
+			'email_subscriptions' => Config::get('email_subscriptions'),
 		));
 	}
 
