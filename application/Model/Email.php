@@ -20,6 +20,12 @@ class Email extends RunUnit {
 	private $subject_parsed = null;
 	private $mostrecent = "most recent reported address";
 
+	/**
+	 * An array of unit's exportable attributes
+	 * @var array
+	 */
+	public $export_attribs = array('type', 'description', 'position', 'special', 'subject', 'account_id', 'recipient_field', 'body');
+
 
 	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
 		parent::__construct($fdb, $session, $unit, $run_session, $run);

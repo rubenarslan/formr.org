@@ -11,6 +11,12 @@ class Shuffle extends RunUnit {
 	public $type = 'Shuffle';
 	public $icon = "fa-random";
 
+	/**
+	 * An array of unit's exportable attributes
+	 * @var array
+	 */
+	public $export_attribs = array('type', 'description', 'position', 'special', 'groups');
+
 	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
 		parent::__construct($fdb, $session, $unit, $run_session, $run);
 

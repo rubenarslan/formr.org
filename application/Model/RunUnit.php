@@ -46,6 +46,12 @@ class RunUnit {
 	protected $had_major_changes = false;
 
 	/**
+	 * An array of unit's exportable attributes
+	 * @var array
+	 */
+	public $export_attribs = array('type', 'description', 'position', 'special');
+
+	/**
 	 * @var RunSession
 	 */
 	public $run_session;
