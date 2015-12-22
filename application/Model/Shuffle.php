@@ -6,10 +6,10 @@ class Shuffle extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $groups = 2;
 	public $ended = false;
 	public $type = 'Shuffle';
 	public $icon = "fa-random";
+	protected $groups = 2;
 
 	/**
 	 * An array of unit's exportable attributes

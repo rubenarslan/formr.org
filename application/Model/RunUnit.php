@@ -653,4 +653,14 @@ class RunUnit {
 		}
 	}
 
+	public function getExportUnit() {
+		$unit = array();
+		foreach ($this->export_attribs as $property) {
+			if (property_exists($this, $property)) {
+				$unit[$property] = $this->{$property};
+			}
+		}
+		return $unit;
+	}
+
 }

@@ -6,19 +6,19 @@ class Email extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $mail_sent = false;
-	private $body = null;
+	protected $mail_sent = false;
+	protected $body = null;
 	protected $body_parsed = null;
-	private $account_id = null;
-	private $images = array();
-	private $subject = null;
-	private $recipient_field;
-	private $recipient;
-	private $html = 1;
+	protected $account_id = null;
+	protected $images = array();
+	protected $subject = null;
+	protected $recipient_field;
+	protected $recipient;
+	protected $html = 1;
 	public $icon = "fa-envelope";
 	public $type = "Email";
-	private $subject_parsed = null;
-	private $mostrecent = "most recent reported address";
+	protected $subject_parsed = null;
+	protected $mostrecent = "most recent reported address";
 
 	/**
 	 * An array of unit's exportable attributes
@@ -89,7 +89,7 @@ class Email extends RunUnit {
 		return true;
 	}
 
-	private function getSubject() {
+	protected function getSubject() {
 		if ($this->subject_parsed === NULL):
 			if ($this->knittingNeeded($this->subject)):
 				if ($this->run_session_id):
@@ -104,7 +104,7 @@ class Email extends RunUnit {
 		return $this->subject_parsed;
 	}
 
-	private function getBody($embed_email = true) {
+	protected function getBody($embed_email = true) {
 		$sess = null;
 		if (isset($this->run_name)) {
 			$sess = isset($this->session) ? $this->session : "TESTCODE";
@@ -144,14 +144,14 @@ class Email extends RunUnit {
 		endif;
 	}
 
-	private function getEmailAccounts() {
+	protected function getEmailAccounts() {
 		global $user;
 		return $this->dbh->select('id, from')
 				->from('survey_email_accounts')
 				->where(array('user_id' => $user->id))->fetchAll();
 	}
 	
-	private function getPotentialRecipientFields() {
+	protected function getPotentialRecipientFields() {
 		$get_recips = $this->dbh->prepare("SELECT survey_studies.name AS survey,survey_items.name AS item FROM survey_items
 			LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
 		LEFT JOIN survey_run_units ON survey_studies.id = survey_run_units.unit_id
@@ -330,7 +330,7 @@ class Email extends RunUnit {
 		return $this->mail_sent;
 	}
 
-	private function numberOfEmailsSent() {
+	protected function numberOfEmailsSent() {
 		$log = $this->dbh->prepare("SELECT
 			SUM(created > DATE_SUB(NOW(), INTERVAL 1 MINUTE)) AS in_last_1m,
 			SUM(created > DATE_SUB(NOW(), INTERVAL 10 MINUTE)) AS in_last_10m,
@@ -344,7 +344,7 @@ class Email extends RunUnit {
 		return $log->fetch(PDO::FETCH_ASSOC);
 	}
 
-	private function logMail() {
+	protected function logMail() {
 		$query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient) VALUES (:session_id, :email_id, NOW(), :recipient)";
 		$this->dbh->exec($query, array(
 			'session_id' => $this->session_id,
@@ -423,7 +423,7 @@ class Email extends RunUnit {
 		$this->run_session_id = null;
 	}
 
-	private function sessionCanReceiveMails() {
+	protected function sessionCanReceiveMails() {
 		// If not executing under a run session or no_mail is null the user can receive email
 		if (!$this->run_session || $this->run_session->no_mail === null) {
 			return true;

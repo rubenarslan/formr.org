@@ -39,20 +39,58 @@ class AdminController extends Controller {
 			redirect_to('osf-api/login');
 		}
 
-		if (Request::isHTTPPostRequest()) {
-			$osf = new OSF(Config::get('osf'));
-			$osf->setAccessToken($token);
-			$file = Config::get('survey_upload_dir') . '/random_items3-v2.json';
-			$response = $osf->upload($this->request->getParam('osf_project'), $file);
-			echo '<pre>';
-			print_r($response);
-			die();
+		$osf = new OSF(Config::get('osf'));
+		$osf->setAccessToken($token);
+
+		if (Request::isHTTPPostRequest() && $this->request->getParam('osf_action') === 'export-run') {
+			$run = new Run($this->fdb, $this->request->getParam('formr_project'));
+			$osf_project = $this->request->getParam('osf_project');
+			if (!$run->valid || !$osf_project) {
+				throw new Exception('Invalid Request');
+			}
+
+			$unitIds = $run->getAllUnitTypes();
+			$units = array();
+			$factory = new RunUnitFactory();
+
+			/* @var RunUnit $u */
+			foreach ($unitIds as $u) {
+				$unit = $factory->make($this->fdb, null, $u, null, $run);
+				$ex_unit = $unit->getExportUnit();
+				$ex_unit['unit_id'] = $unit->id;
+				$units[] = (object) $ex_unit;
+			}
+
+			$export = $run->export($run->name, $units, true);
+			$export_file = Config::get('survey_upload_dir') . '/run-' . time() . '-' . $run->name . '.json';
+			$create = file_put_contents($export_file, json_encode($export, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
+			$response = $osf->upload($osf_project, $export_file, $run->name . '.json');
+			@unlink($export_file);
+
+			if (!$response->hasError()) {
+				alert('Run exported to OSF', 'alert-success');
+			} else {
+				alert($response->getError(), 'alert-danger');
+			}
+
+		}
+
+		// @todo implement get projects recursively
+		$response = $osf->getProjects();
+		$osf_projects = array();
+		if ($response->hasError()) {
+			alert($response->getError(), 'alert-danger');
+		} else {
+			foreach ($response->getJSON()->data as $project) {
+				$osf_projects[] = array('id' => $project->id, 'name' => $project->attributes->title);
+			}
 		}
 
 		$this->renderView('misc/osf', array(
 			'token' => $token,
 			'runs' => $this->user->getRuns(),
-			'osf_projects' => array('nhfbw'),
+			'run_selected'=> $this->request->getParam('run'),
+			'osf_projects' => $osf_projects,
 		));
 	}
 
