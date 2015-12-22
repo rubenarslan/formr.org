@@ -46,6 +46,12 @@ class RunUnit {
 	protected $had_major_changes = false;
 
 	/**
+	 * An array of unit's exportable attributes
+	 * @var array
+	 */
+	public $export_attribs = array('type', 'description', 'position', 'special');
+
+	/**
 	 * @var RunSession
 	 */
 	public $run_session;
@@ -645,6 +651,16 @@ class RunUnit {
 
 			return $report;
 		}
+	}
+
+	public function getExportUnit() {
+		$unit = array();
+		foreach ($this->export_attribs as $property) {
+			if (property_exists($this, $property)) {
+				$unit[$property] = $this->{$property};
+			}
+		}
+		return $unit;
 	}
 
 }

@@ -13,7 +13,7 @@ class OSF {
 	 *
 	 * @var string
 	 */
-	protected $nodes_api = 'https://api.osf.io/v2/nodes/';
+	protected $api = 'https://api.osf.io/v2';
 
 	/**
 	 * URI to exchange for access token
@@ -253,17 +253,20 @@ class OSF {
 	 *
 	 * @param string $node_id OSF node id
 	 * @param string $file absolute path to file
-	 * @param array $info container to hold http info after request
+	 * @param string $osf_file name of file on the OSF server
+	 * 
+	 * @uses access_token
 	 * @return OSF_Response
 	 * @throws OSF_Exception
 	 */
-	public function upload($node_id, $file, $info = null) {
+	public function upload($node_id, $file, $osf_file) {
 		if (!file_exists($file)) {
 			throw new OSF_Exception("Requested file not found");
 		}
 
+		$info = null;
 		$params = array('format' => 'json', '_'=>time());
-		$url = $this->nodes_api . $node_id . '/files/';
+		$url = $this->api . '/nodes/' . $node_id . '/files/';
 		try {
 			$files_json = CURL::HttpRequest($url, $params, CURL::HTTP_METHOD_GET, $this->curlOpts(), $info);
 		} catch (Exception $e) {
@@ -278,10 +281,41 @@ class OSF {
 		$links = $response->getJSON()->data[0]->links;
 		$curlopts = $this->curlOpts();
 		$curlopts[CURLOPT_POSTFIELDS] = file_get_contents($file);
-		$upload_url = $links->upload . '?' . http_build_query(array('kind' => 'file', 'name' => basename($file)));
+		$upload_url = $links->upload . '?' . http_build_query(array('kind' => 'file', 'name' => $osf_file));
 		$uploaded = CURL::HttpRequest($upload_url, array('file' => CURL::getPostFileParam($file)), CURL::HTTP_METHOD_PUT, $curlopts, $info);
 
 		return new OSF_Response($uploaded, $info);
+	}
+
+	/**
+	 * Retrieve project list of particular user
+	 *
+	 * @param string $user OSF id of that user. Defaults to 'me' for authenticated user
+	 * @return OSF_Response
+	 * @throws OSF_Exception
+	 */
+	public function getProjects($user = 'me') {
+		$params = array('format' => 'json');
+		$info = null;
+
+		try {
+			// first get user information to obtain nodes_api for that user
+			$url = $this->api . '/users/' . $user;
+			$json = CURL::HttpRequest($url, $params, CURL::HTTP_METHOD_GET, $this->curlOpts(), $info);
+			$userResponse = new OSF_Response($json, $info);
+			if ($userResponse->hasError()) {
+				return $userResponse;
+			}
+			$nodesApi = $userResponse->getJSON()->data->links->self . 'nodes/';
+
+			// get project list from user's nodes
+			$params['filter'] = array('category' => 'project');
+			$json = CURL::HttpRequest($nodesApi, $params, CURL::HTTP_METHOD_GET, $this->curlOpts(), $info);
+		} catch (Exception $e) {
+			$json = $this->wrapError($e->getMessage());
+		}
+
+		return new OSF_Response($json, $info);
 	}
 
 	protected function curlOpts() {

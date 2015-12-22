@@ -493,6 +493,7 @@ div.all-alerts + div
 .main_public_nav
 {
     margin-bottom:20px;
+	border-bottom: 1px solid #efefef;
 }
 .form-horizontal.form-horizontal-small-left .control-label
 {

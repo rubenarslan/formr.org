@@ -278,6 +278,15 @@ class Run {
 					->fetchAll();
 	}
 
+	public function getAllUnitTypes() {
+		$select = $this->dbh->select(array('survey_run_units.id' => 'run_unit_id', 'unit_id', 'position', 'type', 'description'));
+		$select->from('survey_run_units');
+		$select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
+		$select->where(array('run_id' => $this->id))->order('position');
+		
+		return $select->fetchAll();
+	}
+
 	public function getOverviewScript() {
 		$id = $this->getOverviewScriptId();
 		$unit_factory = new RunUnitFactory();

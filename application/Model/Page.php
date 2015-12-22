@@ -14,6 +14,12 @@ class Page extends RunUnit {
 	public $type = 'Endpage';
 	public $icon = "fa-stop";
 
+	/**
+	 * An array of unit's exportable attributes
+	 * @var array
+	 */
+	public $export_attribs = array('type', 'description', 'position', 'special', 'body');
+
 	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
 		parent::__construct($fdb, $session, $unit, $run_session, $run);
 
