@@ -253,6 +253,11 @@ class Survey extends RunUnit {
 	}
 
 	protected function startEntry() {
+		if (!$this->dbh->table_exists($this->results_table)) {
+			alert('A results table for this survey could not be found', 'alert-danger');
+			throw new Exception("Results table '{$this->results_table}' not found!");
+		}
+
 		$this->dbh->insert_update($this->results_table, array(
 			'session_id' => $this->session_id,
 			'study_id' => $this->id,
