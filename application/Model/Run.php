@@ -38,17 +38,22 @@ class Run {
 	public $locked = false;
 	public $errors = array();
 	public $messages = array();
-	private $run_settings = array("header_image_path", "title", "description", "footer_text", "public_blurb", "custom_css", "custom_js", "cron_active");
 	public $custom_css_path = null;
 	public $custom_js_path = null;
 	public $header_image_path = null;
 	public $title = null;
 	public $description = null;
+	public $osf_project_id = null;
 	private $description_parsed = null;
 	public $footer_text = null;
 	private $footer_text_parsed = null;
 	public $public_blurb = null;
 	private $public_blurb_parsed = null;
+	private $run_settings = array(
+		"header_image_path", "title", "description",
+		"footer_text", "public_blurb", "custom_css",
+		"custom_js", "cron_active", "osf_project_id",
+	);
 
 	/**
 	 * @var DB
@@ -70,7 +75,7 @@ class Run {
 
 		if ($name !== null OR ( $name = $this->create($options))):
 			$this->name = $name;
-			$columns = "id,user_id,name,api_secret_hash,public,cron_active,locked, header_image_path,title,description,description_parsed,footer_text,footer_text_parsed,public_blurb,public_blurb_parsed,custom_css_path,custom_js_path";
+			$columns = "id, user_id, name, api_secret_hash ,public,cron_active, locked, header_image_path, title,description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id";
 			$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
 
 			if ($vars):
@@ -90,6 +95,7 @@ class Run {
 				$this->public_blurb_parsed = $vars['public_blurb_parsed'];
 				$this->custom_css_path = $vars['custom_css_path'];
 				$this->custom_js_path = $vars['custom_js_path'];
+				$this->osf_project_id = $vars['osf_project_id'];
 				$this->valid = true;
 			endif;
 		endif;

@@ -68,11 +68,15 @@ class AdminController extends Controller {
 			@unlink($export_file);
 
 			if (!$response->hasError()) {
+				$run->saveSettings(array('osf_project_id' => $osf_project));
 				alert('Run exported to OSF', 'alert-success');
 			} else {
 				alert($response->getError(), 'alert-danger');
 			}
 
+			if ($redirect = $this->request->getParam('redirect')) {
+				redirect_to($redirect);
+			}
 		}
 
 		// @todo implement get projects recursively
