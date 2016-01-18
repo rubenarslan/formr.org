@@ -261,16 +261,36 @@ class Survey extends RunUnit {
 		$this->dbh->insert_update($this->results_table, array(
 			'session_id' => $this->session_id,
 			'study_id' => $this->id,
-			'created' => mysql_now()
-				), array(
+			'created' => mysql_now()),
+		array(
 			'modified' => mysql_now(),
 		));
 
-		if ($this->dbh->findValue('survey_items_display', array("session_id" => $this->session_id), "id")) {
+		// Check if session already has enough entries in the items_display table for this survey
+		$no_items = $this->dbh->count('survey_items', array('study_id' => $this->id), 'id');
+		$no_display_items = $this->dbh->count('survey_items_display', array('session_id' => $this->session_id), 'id');
+		if ($no_display_items >= $no_items) {
 			return;
 		}
 
 		// get the definition of the order
+		$item_ids = $this->getOrderedItemsIds();
+
+		$survey_items_display = $this->dbh->prepare(
+			"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`) 
+			 VALUES (:item_id, :session_id, :display_order)
+			 ON DUPLICATE KEY UPDATE item_id = VALUES(item_id)");
+
+		$survey_items_display->bindParam(":session_id", $this->session_id);
+
+		foreach ($item_ids AS $display_order => $item_id) {
+			$survey_items_display->bindParam(":item_id", $item_id);
+			$survey_items_display->bindParam(":display_order", $display_order);
+			$survey_items_display->execute();
+		}
+	}
+
+	protected function getOrderedItemsIds() {
 		$get_items = $this->dbh->select('
 				`survey_items`.id,
 				`survey_items`.`item_order`,
@@ -286,6 +306,7 @@ class Survey extends RunUnit {
 		$last_block = "";
 		$block_nr = 0;
 		$block_segment_i = 0;
+
 		while ($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
 			if ($item['block_order'] == "") { // not blocked
 				$item['block_order'] = "";
@@ -310,22 +331,13 @@ class Survey extends RunUnit {
 			$item_ids[] = $item['id'];
 			$last_block = $item['block_order'];
 		}
+
 		$random_order = range(1, count($item_ids)); // if item order is identical, sort randomly (within block)
 		shuffle($random_order);
 		array_multisort($block_order, $item_order, $random_order, $item_ids);
 		// order is already sufficiently defined at least by random_order, but this is a simple way to sort $item_ids is sorted accordingly
 
-		$survey_items_display = $this->dbh->prepare(
-				"INSERT INTO `survey_items_display` 
-				(`item_id`, `session_id`, `display_order`)
-			VALUES (:item_id, :session_id, :display_order)");
-		$survey_items_display->bindParam(":session_id", $this->session_id);
-
-		foreach ($item_ids AS $display_order => $item_id) {
-			$survey_items_display->bindParam(":item_id", $item_id);
-			$survey_items_display->bindParam(":display_order", $display_order);
-			$survey_items_display->execute();
-		}
+		return $item_ids;
 	}
 
 	public function post($posted, $redirect = true) {
