@@ -267,16 +267,69 @@ class Survey extends RunUnit {
 		$this->dbh->insert_update($this->results_table, array(
 			'session_id' => $this->session_id,
 			'study_id' => $this->id,
-			'created' => mysql_now()
-				), array(
+			'created' => mysql_now()),
+		array(
 			'modified' => mysql_now(),
 		));
 
-		if ($this->dbh->findValue('survey_items_display', array("session_id" => $this->session_id), "id")) {
+		// Check if session already has enough entries in the items_display table for this survey
+		$no_items = $this->dbh->count('survey_items', array('study_id' => $this->id), 'id');
+		$no_display_items = $this->dbh->count('survey_items_display', array('session_id' => $this->session_id), 'id');
+		if($this->allItemsHaveAnOrder()) {
 			return;
-		}
+		} else {
+			// get the definition of the order
+			$item_ids = $this->getOrderedItemsIds();
 
-		// get the definition of the order
+			$survey_items_display = $this->dbh->prepare(
+				"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`) 
+					VALUES (:item_id, :session_id, :display_order)
+				 ON DUPLICATE KEY UPDATE item_id = VALUES(item_id)");
+
+			 $survey_items_display->bindParam(":session_id", $this->session_id);
+
+			 foreach ($item_ids AS $display_order => $item_id) {
+				 $survey_items_display->bindParam(":item_id", $item_id);
+				 $survey_items_display->bindParam(":display_order", $display_order);
+				 $survey_items_display->execute();
+			 }
+		}
+	}
+	protected function allItemsHaveAnOrder() {
+		/*
+			we have cascading deletes for items->item_display so we only need to worry whether the item_display is short of items
+			12 items
+			12 ordered items
+		
+			scenario A
+			1 deleted
+			11 items
+			11 ordered items
+			-> don't reorder
+
+			scenario B
+			1 added
+			13 items
+			12 ordered items
+
+			-> reorder
+			scenario C
+			1 added, 1 deleted
+			12 items
+			11 ordered items
+			-> reorder
+		
+		*/
+		$nr_items = $this->dbh->count('survey_items', array('study_id' => $this->id), 'id');
+		$nr_display_items = $this->dbh->count('survey_items_display', array('session_id' => $this->session_id), 'id');
+		if ($nr_display_items === $nr_items) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	protected function getOrderedItemsIds() {
 		$get_items = $this->dbh->select('
 				`survey_items`.id,
 				`survey_items`.`item_order`,
@@ -292,6 +345,7 @@ class Survey extends RunUnit {
 		$last_block = "";
 		$block_nr = 0;
 		$block_segment_i = 0;
+
 		while ($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
 			if ($item['block_order'] == "") { // not blocked
 				$item['block_order'] = "";
@@ -316,22 +370,13 @@ class Survey extends RunUnit {
 			$item_ids[] = $item['id'];
 			$last_block = $item['block_order'];
 		}
+
 		$random_order = range(1, count($item_ids)); // if item order is identical, sort randomly (within block)
 		shuffle($random_order);
 		array_multisort($block_order, $item_order, $random_order, $item_ids);
 		// order is already sufficiently defined at least by random_order, but this is a simple way to sort $item_ids is sorted accordingly
 
-		$survey_items_display = $this->dbh->prepare(
-				"INSERT INTO `survey_items_display` 
-				(`item_id`, `session_id`, `display_order`)
-			VALUES (:item_id, :session_id, :display_order)");
-		$survey_items_display->bindParam(":session_id", $this->session_id);
-
-		foreach ($item_ids AS $display_order => $item_id) {
-			$survey_items_display->bindParam(":item_id", $item_id);
-			$survey_items_display->bindParam(":display_order", $display_order);
-			$survey_items_display->execute();
-		}
+		return $item_ids;
 	}
 
 	public function post($posted, $redirect = true) {
@@ -1478,6 +1523,8 @@ class Survey extends RunUnit {
 	 * @return array
 	 */
 	public function getItemDisplayResults($items = array(), $session = null) {
+		ini_set('memory_limit', '1024M');
+		
 		$select = $this->dbh->select('
 		`survey_run_sessions`.session,
 		`survey_items`.name,

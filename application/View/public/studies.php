@@ -6,7 +6,7 @@
 	<div class="col-md-12">
 		<h2><?=_("Current studies:")?></h2>
 		<div class="row">
-        <?php foreach($runs as $run) : ?>
+        <?php $i = 1; foreach($runs as $run) : ?>
             <div class="col-md-3 study-box">
                 <h4 class="study-box-headline"><a href="<?php echo run_url($run['name']); ?>"><?php echo ($run['title'] ? $run['title'] : $run['name']); ?></a></h4>
 				<div class="blurb">
@@ -26,7 +26,8 @@
 					<?php Template::load('public/social_share', array('title' => $run['name'], 'url' => run_url($run['name']))); ?>
 				</div>
             </div>
-         <?php endforeach; ?>
+			<?php if ($i > 1 && $i %3 == 0){ echo '</div><div class="row">'; } ?>
+         <?php $i++; endforeach; ?>
 		</div>
 
 	</div>
