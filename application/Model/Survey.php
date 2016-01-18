@@ -269,24 +269,57 @@ class Survey extends RunUnit {
 		// Check if session already has enough entries in the items_display table for this survey
 		$no_items = $this->dbh->count('survey_items', array('study_id' => $this->id), 'id');
 		$no_display_items = $this->dbh->count('survey_items_display', array('session_id' => $this->session_id), 'id');
-		if ($no_display_items >= $no_items) {
+		if($this->allItemsHaveAnOrder()) {
 			return;
+		} else {
+			// get the definition of the order
+			$item_ids = $this->getOrderedItemsIds();
+
+			$survey_items_display = $this->dbh->prepare(
+				"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`) 
+					VALUES (:item_id, :session_id, :display_order)
+				 ON DUPLICATE KEY UPDATE item_id = VALUES(item_id)");
+
+			 $survey_items_display->bindParam(":session_id", $this->session_id);
+
+			 foreach ($item_ids AS $display_order => $item_id) {
+				 $survey_items_display->bindParam(":item_id", $item_id);
+				 $survey_items_display->bindParam(":display_order", $display_order);
+				 $survey_items_display->execute();
+			 }
 		}
+	}
+	protected function allItemsHaveAnOrder() {
+		/*
+			we have cascading deletes for items->item_display so we only need to worry whether the item_display is short of items
+			12 items
+			12 ordered items
+		
+			scenario A
+			1 deleted
+			11 items
+			11 ordered items
+			-> don't reorder
 
-		// get the definition of the order
-		$item_ids = $this->getOrderedItemsIds();
+			scenario B
+			1 added
+			13 items
+			12 ordered items
 
-		$survey_items_display = $this->dbh->prepare(
-			"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`) 
-			 VALUES (:item_id, :session_id, :display_order)
-			 ON DUPLICATE KEY UPDATE item_id = VALUES(item_id)");
-
-		$survey_items_display->bindParam(":session_id", $this->session_id);
-
-		foreach ($item_ids AS $display_order => $item_id) {
-			$survey_items_display->bindParam(":item_id", $item_id);
-			$survey_items_display->bindParam(":display_order", $display_order);
-			$survey_items_display->execute();
+			-> reorder
+			scenario C
+			1 added, 1 deleted
+			12 items
+			11 ordered items
+			-> reorder
+		
+		*/
+		$nr_items = $this->dbh->count('survey_items', array('study_id' => $this->id), 'id');
+		$nr_display_items = $this->dbh->count('survey_items_display', array('session_id' => $this->session_id), 'id');
+		if ($nr_display_items === $nr_items) {
+			return true;
+		} else {
+			return false;
 		}
 	}
 
