@@ -51,7 +51,7 @@ function notify_user_error($error, $public_message = '') {
 	alert($message, 'alert-danger');
 }
 
-function redirect_to($location) {
+function redirect_to($location = '') {
 	if (strpos($location, 'index') !== false) {
 		$location = '';
 	}
