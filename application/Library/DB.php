@@ -228,10 +228,11 @@ class DB {
 	 *
 	 * @param string $table_name
 	 * @param array|string $where If a string is given, it must be properly escaped
+	 * @param string $col specify some column name to count
 	 * @return int
 	 */
-	public function count($table_name, $where = array()) {
-		$query = "SELECT count(*) FROM {$table_name}";
+	public function count($table_name, $where = array(), $col = '*') {
+		$query = "SELECT count({$col}) FROM {$table_name}";
 		$params = array();
 		if ($where && is_array($where)) {
 			$wc = self::parseWhereBindParams($where);
