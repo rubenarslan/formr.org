@@ -1517,6 +1517,8 @@ class Survey extends RunUnit {
 	 * @return array
 	 */
 	public function getItemDisplayResults($items = array(), $session = null) {
+		ini_set('memory_limit', '1024M');
+		
 		$select = $this->dbh->select('
 		`survey_run_sessions`.session,
 		`survey_items`.name,
