@@ -7,7 +7,7 @@ Template::load('acp_nav');
 		<div class="col-lg-12 transparent_well">
 
 		<h2><i class="fa fa-ticket"></i> Add user</h2>
-		<form method="post" action="<?=WEBROOT?>admin/run/<?=$run->name?>/create_new_named_session">
+		<form method="post" action="<?= admin_run_url($run->name, 'create_new_named_session') ?>">
 			<div class="form-group">
 				<label class="control-label" for="code_name">Choose an identifier/cipher/code name for the user you want to add (if you leave this empty, an entirely random code name will be created).<br>
 					You can only use a-Z, 0-9, _ and -.</label>
