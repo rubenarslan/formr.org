@@ -6,10 +6,16 @@ class External extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $address = null;
-	private $api_end = 0;
+	protected $address = null;
+	protected $api_end = 0;
 	public $icon = "fa-external-link-square";
 	public $type = "External";
+
+	/**
+	 * An array of unit's exportable attributes
+	 * @var array
+	 */
+	public $export_attribs = array('type', 'description', 'position', 'special', 'address', 'api_end');
 
 	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
 		parent::__construct($fdb, $session, $unit, $run_session, $run);

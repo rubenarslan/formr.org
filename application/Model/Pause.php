@@ -6,15 +6,21 @@ class Pause extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
-	private $body = '';
+	protected $body = '';
 	protected $body_parsed = '';
-	private $relative_to = null;
-	private $wait_minutes = null;
-	private $wait_until_time = null;
-	private $wait_until_date = null;
+	protected $relative_to = null;
+	protected $wait_minutes = null;
+	protected $wait_until_time = null;
+	protected $wait_until_date = null;
 	public $ended = false;
 	public $type = "Pause";
 	public $icon = "fa-pause";
+	
+	/**
+	 * An array of unit's exportable attributes
+	 * @var array
+	 */
+	public $export_attribs = array('type', 'description', 'position', 'special', 'wait_until_time', 'wait_until_date', 'wait_minutes', 'relative_to', 'body');
 
 	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
 		parent::__construct($fdb, $session, $unit, $run_session, $run);
@@ -118,7 +124,7 @@ class Pause extends RunUnit {
 		return $this->delete();
 	}
 
-	private function checkRelativeTo() {
+	protected function checkRelativeTo() {
 		$this->wait_minutes_true = !($this->wait_minutes === null OR trim($this->wait_minutes) == '');
 		$this->relative_to_true = !($this->relative_to === null OR trim($this->relative_to) == '');
 
@@ -129,7 +135,7 @@ class Pause extends RunUnit {
 		endif;
 	}
 
-	private function checkWhetherPauseIsOver() {
+	protected function checkWhetherPauseIsOver() {
 		$conditions = array();
 
 		// if a relative_to has been defined by user or automatically, we need to retrieve its value

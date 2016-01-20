@@ -24,6 +24,8 @@ class CURL {
 	const HTTP_METHOD_GET = 'GET';
 	const HTTP_METHOD_POST = 'POST';
 	const HTTP_METHOD_HEAD = 'HEAD';
+	const HTTP_METHOD_PUT = 'PUT';
+	const HTTP_METHOD_DELETE = 'DELETE';
 
 	/**
 	 * Download Filters
@@ -108,6 +110,9 @@ class CURL {
 		if ($method == self::HTTP_METHOD_POST) {
 			$options[CURLOPT_POST] = true;
 			$options[CURLOPT_POSTFIELDS] = $params;
+		} elseif ($method === self::HTTP_METHOD_PUT) {
+			$options[CURLOPT_RETURNTRANSFER] = true;
+			$options[CURLOPT_CUSTOMREQUEST] = self::HTTP_METHOD_PUT;
 		} elseif ($method == self::HTTP_METHOD_GET || $method == self::HTTP_METHOD_HEAD) {
 			if ($method == self::HTTP_METHOD_GET) {
 				$options[CURLOPT_HTTPGET] = true;

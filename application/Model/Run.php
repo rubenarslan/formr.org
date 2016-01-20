@@ -38,17 +38,22 @@ class Run {
 	public $locked = false;
 	public $errors = array();
 	public $messages = array();
-	private $run_settings = array("header_image_path", "title", "description", "footer_text", "public_blurb", "custom_css", "custom_js", "cron_active");
 	public $custom_css_path = null;
 	public $custom_js_path = null;
 	public $header_image_path = null;
 	public $title = null;
 	public $description = null;
+	public $osf_project_id = null;
 	private $description_parsed = null;
 	public $footer_text = null;
 	private $footer_text_parsed = null;
 	public $public_blurb = null;
 	private $public_blurb_parsed = null;
+	private $run_settings = array(
+		"header_image_path", "title", "description",
+		"footer_text", "public_blurb", "custom_css",
+		"custom_js", "cron_active", "osf_project_id",
+	);
 
 	/**
 	 * @var DB
@@ -70,7 +75,7 @@ class Run {
 
 		if ($name !== null OR ( $name = $this->create($options))):
 			$this->name = $name;
-			$columns = "id,user_id,name,api_secret_hash,public,cron_active,locked, header_image_path,title,description,description_parsed,footer_text,footer_text_parsed,public_blurb,public_blurb_parsed,custom_css_path,custom_js_path";
+			$columns = "id, user_id, name, api_secret_hash ,public,cron_active, locked, header_image_path, title,description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id";
 			$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
 
 			if ($vars):
@@ -90,6 +95,7 @@ class Run {
 				$this->public_blurb_parsed = $vars['public_blurb_parsed'];
 				$this->custom_css_path = $vars['custom_css_path'];
 				$this->custom_js_path = $vars['custom_js_path'];
+				$this->osf_project_id = $vars['osf_project_id'];
 				$this->valid = true;
 			endif;
 		endif;
@@ -276,6 +282,15 @@ class Run {
 					->where(array('run_id' => $this->id))
 					->order('position')
 					->fetchAll();
+	}
+
+	public function getAllUnitTypes() {
+		$select = $this->dbh->select(array('survey_run_units.id' => 'run_unit_id', 'unit_id', 'position', 'type', 'description'));
+		$select->from('survey_run_units');
+		$select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
+		$select->where(array('run_id' => $this->id))->order('position');
+		
+		return $select->fetchAll();
 	}
 
 	public function getOverviewScript() {
@@ -656,6 +671,23 @@ This study is currently being serviced. Please return at a later time."
 		$run_session->create($test_code, $testing);
 
 		return $run_session;
+	}
+	
+	
+	public function addNamedRunSession($name, $testing = 0) {
+		$name = str_replace(" ", "_", $name);
+		if(preg_match('/^[a-zA-Z0-9_-~]{0,32}$/', $name)) {
+			if(strlen($name) > 0) $name .= 'XXX';
+			$new_code = crypto_token(48 - floor(3 / 4 * strlen($name)));
+			$new_code = $name . substr($new_code, 0, 64 - strlen($name));
+			$run_session = new RunSession($this->dbh, $this->id, NULL, $new_code, $this); // does this user have a session?
+			$run_session->create($new_code, $testing);
+
+			return $run_session;
+		} else {
+			alert("Invalid characters in suggested name. Only a-z, numbers, _ - and ~ are allowed. Minimum length is 3, maximum is 32. Spaces are automatically replaced by a _.", 'alert-danger');
+			return false;
+		}
 	}
 
 	public function exec($user) {
