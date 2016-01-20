@@ -14,6 +14,9 @@ Template::load('acp_nav');
 		<p>
 			Participants who have been stuck at the same survey, external link or email for 2 days or more are highlighted in yellow at the top. Being stuck at an email module usually means that the user somehow ended up there without a valid email address, so that the email cannot be sent. Being stuck at a survey or external link usually means that the user interrupted the survey/external part before completion, you probably want to remind them manually (if you have the means to do so).
 		</p>
+		<p>
+			You can manually create <a href="<?=admin_run_url($run->name, 'create_new_test_code'); ?>">new test users</a> or <a href="<?=admin_run_url($run->name, 'create_new_named_session'); ?>">real users</a>. Test users are useful to test your run. They are like normal users, but have animal names to make them easy to re-identify and you get a bunch of tools to help you fill out faster and skip over pauses. You may want to create real users if a) you want to send users a link containing an identifier to link them up with other data sources b) you are manually enrolling participants, i.e. participants cannot enrol automatically. The identifier you choose will be displayed in the table below, making it easier to administrate users with a specific cipher/code.
+		</p>
 		<div class="row col-md-12">
 			<form action="<?php echo admin_run_url($run->name, 'user_overview'); ?>" method="get" accept-charset="utf-8">
 
