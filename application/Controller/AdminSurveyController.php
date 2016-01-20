@@ -235,6 +235,7 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function exportItemdisplayAction() {
+		ini_set('memory_limit', '1024M');
 		$study = $this->study;
 
 		$results = $study->getItemDisplayResults();
