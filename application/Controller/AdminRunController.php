@@ -116,20 +116,25 @@ class AdminRunController extends AdminController {
 		
 		redirect_to(admin_run_url($this->run->name, "user_overview?session=".$run_session->session));
 	}
+
 	private function createNewNamedSessionAction() {
 
-		$run = $this->run;
-		if(isset($_POST['add_user'])) {
-			$run_session = $this->run->addNamedRunSession($_POST['code_name']);
+		if(Request::isHTTPPostRequest()) {
+			$code_name = $this->request->getParam('code_name');
+			$run_session = $this->run->addNamedRunSession($code_name);
+
 			if($run_session) {
 				$sess = $run_session->session;
-				alert("You've added a user with the code name ".h($_POST['code_name']).". <br>
-					Send them this link to participate <br>
-					<textarea readonly cols='60' rows='3' class='copy_clipboard'>".h('<'.site_url("{$this->run_name}?code=".urlencode($sess)).'>')."</textarea>", "alert-info");
+				$sess_url = site_url("{$this->run->name}?code=".urlencode($sess));
+
+				alert("You've added a user with the code name '{$code_name}'. <br />
+					  Send them this link to participate <br />
+					  <textarea readonly cols='60' rows='3' class='copy_clipboard'>" . h($sess_url) . "</textarea>", "alert-info");
 		
-				redirect_to(admin_run_url($this->run->name, "user_overview?session=".$_POST['code_name']));
+				redirect_to(admin_run_url($this->run->name, "user_overview?session={$sess}"));
 			}
 		}
+
 		$this->renderView('run/create_new_named_session');
 		
 	}

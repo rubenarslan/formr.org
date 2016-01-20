@@ -676,18 +676,22 @@ This study is currently being serviced. Please return at a later time."
 	
 	public function addNamedRunSession($name, $testing = 0) {
 		$name = str_replace(" ", "_", $name);
-		if(preg_match('/^[a-zA-Z0-9_-~]{0,32}$/', $name)) {
-			if(strlen($name) > 0) $name .= 'XXX';
-			$new_code = crypto_token(48 - floor(3 / 4 * strlen($name)));
-			$new_code = $name . substr($new_code, 0, 64 - strlen($name));
-			$run_session = new RunSession($this->dbh, $this->id, NULL, $new_code, $this); // does this user have a session?
-			$run_session->create($new_code, $testing);
-
-			return $run_session;
-		} else {
-			alert("Invalid characters in suggested name. Only a-z, numbers, _ - and ~ are allowed. Minimum length is 3, maximum is 32. Spaces are automatically replaced by a _.", 'alert-danger');
+		if ($name && !preg_match('/^[a-zA-Z0-9_-~]{0,32}$/', $name)) {
+			alert("Invalid characters in suggested name. Only a-z, numbers, _ - and ~ are allowed. Spaces are automatically replaced by a _.", 'alert-danger');
 			return false;
 		}
+
+		if ($name) {
+			$name .= 'XXX';
+		}
+
+		$new_code = crypto_token(48 - floor(3 / 4 * strlen($name)));
+		$new_code = $name . substr($new_code, 0, 64 - strlen($name));
+		$run_session = new RunSession($this->dbh, $this->id, null, $new_code, $this); // does this user have a session?
+		$run_session->create($new_code, $testing);
+
+		return $run_session;
+		
 	}
 
 	public function exec($user) {
