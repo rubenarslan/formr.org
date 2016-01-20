@@ -1071,3 +1071,7 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 	width: 80px !important;
 	border:1px solid black;
 }
+.copy_clipboard {
+	background:transparent;
+	border:0;
+}

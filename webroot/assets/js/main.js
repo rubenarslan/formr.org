@@ -79,6 +79,17 @@
 				}
 			}
 		});
+		$('.copy_clipboard').click(function() {
+			this.select();
+
+			try {
+		 	   var copysuccessful = document.execCommand('copy');
+		 	   if(copysuccessful) {
+				   $(this).tooltip({title: "Link was copied to clipboard.", position : 'top'}).tooltip('show');
+		 	   }
+			} catch (err) {
+			}
+		});
 	});
 }());
 
