@@ -35,6 +35,16 @@ class Pagination {
 		return $this->start . "," . $this->per_page;
 	}
 
+	public function setPage($page) {
+		if (is_numeric($page)) {
+			$this->page = (int) $page;
+		}
+
+		if ($this->page < 0) {
+			throw new Exception("Pagination page number must be positive.");
+		}
+	}
+
 
 	private function setMaximum($maximum) {
 		$maximum = (int)$maximum;
@@ -68,7 +78,7 @@ class Pagination {
 			}
 
 			echo '<ul class="pagination' . $pagination_size . '">';
-			foreach ($pages AS $page):
+			foreach ($pages as $page):
 				if ($page == $this->page) {
 					$active = ' class="active"';
 				} else {

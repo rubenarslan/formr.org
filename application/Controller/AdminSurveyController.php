@@ -19,11 +19,11 @@ class AdminSurveyController extends AdminController {
 
 		if (!empty($_POST)) {
 			$this->study->changeSettings($_POST);
-			redirect_to(WEBROOT . "admin/survey/{$this->study->name}");
+			redirect_to(admin_study_url($this->study->name));
 		}
 
 		if (empty($this->study)) {
-			redirect_to(WEBROOT . 'admin/survey/add_survey');
+			redirect_to(admin_url('survey/add_survey'));
 		}
 		$this->renderView('survey/index');
 	}
@@ -152,16 +152,71 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function showItemdisplayAction() {
+		// paginate based on number of items on this sheet so that each
+		// run session will have all items for each pagination
+		$items = $this->study->getItems('id'); $ids = array();
+		foreach ($items as $item) {
+			$ids[] = $item['id'];
+		}
+
+		$itemsCount = count($ids);
+		$result = $this->fdb->query('select count(*) as count from survey_items_display where item_id in ('. implode(',', $ids).')');
+		$totalCount = 0;
+		if (!empty($result[0]['count'])) {
+			$totalCount = $result[0]['count'];
+		}
+
+		// show 10 sessions per_page (so limit = 10 * number of items in a survey)
+		$limit = $this->request->int('per_page', 10 * $itemsCount);
+		$page = ($this->request->int('page', 1) - 1);
+		$paginate = array(
+			'limit' => $limit,
+			'page' => $page,
+			'offset' =>  $limit * $page,
+			'count' => $totalCount,
+		);
+
+		if ($paginate['page'] < 0 || $paginate['limit'] < 0) {
+			throw new Exception('Invalid Page number');
+		}
+
+		$pagination = new Pagination($paginate['count'], $paginate['limit']);
+		$pagination->setPage($paginate['page']);
+
 		$this->renderView('survey/show_itemdisplay', array(
 			'resultCount' => $this->study->getResultCount(),
-			'results' => $this->study->getItemDisplayResults(),
+			'results' => $this->study->getItemDisplayResults(null, null, $paginate),
+			'pagination' => $pagination,
+			'study_name' => $this->study->name,
 		));
 	}
 
 	private function showResultsAction() {
+		$count = $this->study->getResultCount();
+		$totalCount = $count['finished'] + $count['begun'];
+		$limit = $this->request->int('per_page', 100);
+		$page = ($this->request->int('page', 1) - 1);
+		$paginate = array(
+			'limit' => $limit,
+			'page' => $page,
+			'offset' =>  $limit * $page,
+			'order' => 'desc',
+			'order_by' => 'session_id',
+			'count' => $totalCount,
+		);
+
+		if ($paginate['page'] < 0 || $paginate['limit'] < 0) {
+			throw new Exception('Invalid Page number');
+		}
+
+		$pagination = new Pagination($paginate['count'], $paginate['limit']);
+		$pagination->setPage($paginate['page']);
+
 		$this->renderView('survey/show_results', array(
-			'resultCount' => $this->study->getResultCount(),
-			'results' => $this->study->getResults(null, null, true),
+			'resultCount' => $count,
+			'results' =>  $totalCount <= 0 ? array() : $this->study->getResults(null, null, $paginate),
+			'pagination' => $pagination,
+			'study_name' => $this->study->name,
 		));
 	}
 
