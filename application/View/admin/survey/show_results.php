@@ -5,7 +5,7 @@ Template::load('acp_nav');
 <div class="row">
 	<div class="col-lg-10 col-sm-12 col-md-10">
 		
-		<div class="transparent_well col-md-12" style="padding-bottom: 20px;">
+		<div class="transparent_well col-md-12" style="padding-bottom: 20px;"> 
 		<div class="row">
 			<div class="col-md-12">
 				<h2 class="drop_shadow">Results <small>
@@ -52,39 +52,43 @@ Template::load('acp_nav');
 			</div>
 		</div>
 
-<?php if($results->rowCount()): ?>
+<?php if($results): ?>
 	<div class="col-md-12">
 
-	<table class='table table-striped'>
-		<?php
-			$print_header = true;
-			while ($row = $results->fetch(PDO::FETCH_ASSOC)) {
-				unset($row['study_id']);
-				if ($print_header) {
-					echo '<thead><tr>';
-					foreach ($row as $field => $value) {
-						echo '<td>' . $field . '</td>';
+		<table class='table table-striped'>
+			<?php
+				$print_header = true;
+				foreach($results as $row) {
+					unset($row['study_id']);
+					if ($print_header) {
+						echo '<thead><tr>';
+						foreach ($row as $field => $value) {
+							echo '<td>' . $field . '</td>';
+						}
+						echo '</tr></thead>';
+						echo '<tbody>';
+						$print_header = false;
 					}
-					echo '</tr></thead>';
-					echo '<tbody>';
-					$print_header = false;
+
+					$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
+					$row['ended'] = '<abbr title="'.$row['ended'].'">'.timetostr(strtotime($row['ended'])).'</abbr>';
+					$row['modified'] = '<abbr title="'.$row['modified'].'">'.timetostr(strtotime($row['modified'])).'</abbr>';
+					echo '<tr>';
+						foreach($row as $cell) {
+							echo '<td>' . $cell . '</td>';
+						}
+					echo '</tr>';
 				}
+				echo '</tbody>';
+			?>
+		</table>
 
-				$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
-				$row['ended'] = '<abbr title="'.$row['ended'].'">'.timetostr(strtotime($row['ended'])).'</abbr>';
-				$row['modified'] = '<abbr title="'.$row['modified'].'">'.timetostr(strtotime($row['modified'])).'</abbr>';
-				echo '<tr>';
-					foreach($row as $cell) {
-						echo '<td>' . $cell . '</td>';
-					}
-				echo '</tr>';
-			}
-		?>
-	</tbody>
-	</table>
-
+		<div class="text-center">
+			<?php $pagination->render("admin/survey/{$study_name}/show_results"); ?>
+		</div>
 	</div>
 
+	
 <?php endif; ?>
 
 </div>

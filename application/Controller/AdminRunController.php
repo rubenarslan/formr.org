@@ -252,6 +252,7 @@ class AdminRunController extends AdminController {
 
 			if ($response->hasError()) {
 				alert($response->getError(), 'alert-danger');
+				$token = null;
 			} else {
 				foreach ($response->getJSON()->data as $project) {
 					$osf_projects[] = array('id' => $project->id, 'name' => $project->attributes->title);
