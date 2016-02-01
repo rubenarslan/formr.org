@@ -42,6 +42,12 @@ class Survey extends RunUnit {
 	);
 
 	/**
+	 * An array of unit's exportable attributes
+	 * @var array
+	 */
+	public $export_attribs = array('type', 'description', 'position', 'special');
+
+	/**
 	 * @var DB
 	 */
 	public $dbh;

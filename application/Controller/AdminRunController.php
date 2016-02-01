@@ -117,6 +117,28 @@ class AdminRunController extends AdminController {
 		redirect_to(admin_run_url($this->run->name, "user_overview?session=".$run_session->session));
 	}
 
+	private function createNewNamedSessionAction() {
+
+		if(Request::isHTTPPostRequest()) {
+			$code_name = $this->request->getParam('code_name');
+			$run_session = $this->run->addNamedRunSession($code_name);
+
+			if($run_session) {
+				$sess = $run_session->session;
+				$sess_url = site_url("{$this->run->name}?code=".urlencode($sess));
+
+				alert("You've added a user with the code name '{$code_name}'. <br />
+					  Send them this link to participate <br />
+					  <textarea readonly cols='60' rows='3' class='copy_clipboard'>" . h($sess_url) . "</textarea>", "alert-info");
+		
+				redirect_to(admin_run_url($this->run->name, "user_overview?session={$sess}"));
+			}
+		}
+
+		$this->renderView('run/create_new_named_session');
+		
+	}
+
 	private function userDetailAction() {
 		$run = $this->run;
 		$fdb = $this->fdb;
@@ -221,7 +243,28 @@ class AdminRunController extends AdminController {
 	}
 
 	private function settingsAction() {
-		$this->renderView('run/settings');
+		$osf_projects = array();
+
+		if (($token = OSF::getUserAccessToken($this->user))) {
+			$osf = new OSF(Config::get('osf'));
+			$osf->setAccessToken($token);
+			$response = $osf->getProjects();
+
+			if ($response->hasError()) {
+				alert($response->getError(), 'alert-danger');
+			} else {
+				foreach ($response->getJSON()->data as $project) {
+					$osf_projects[] = array('id' => $project->id, 'name' => $project->attributes->title);
+				}
+			}
+		}
+
+		$this->renderView('run/settings', array(
+			'osf_token' => $token,
+			'run_selected'=> $this->request->getParam('run'),
+			'osf_projects' => $osf_projects,
+			'osf_project' => $this->run->osf_project_id,
+		));
 	}
 
 	private function renameRunAction() {
