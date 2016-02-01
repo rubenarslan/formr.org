@@ -54,7 +54,7 @@ class Pagination {
 		}
 
 		$this->maximum = (int)$maximum;
-		$this->maximum_page = (int) floor(($this->maximum - $this->per_page) / $this->per_page); // get the last page that can display this many x, divide it by x, 
+		$this->maximum_page = (int) ceil(($this->maximum - $this->per_page) / $this->per_page); // get the last page that can display this many x, divide it by x, 
 		if ($this->maximum_page < 0):
 			$this->maximum_page = 0; // but if it's negative make it 0
 		endif;
