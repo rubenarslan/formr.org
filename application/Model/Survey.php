@@ -1472,7 +1472,7 @@ class Survey extends RunUnit {
 
 	public function getResults($items = null, $session = null, $returnStmt = false) { // fixme: shouldnt be using wildcard operator here.
 		if ($this->hasResultsTable()) {
-			ini_set('memory_limit', '256M');
+			ini_set('memory_limit', '1024M');
 
 			$results_table = $this->results_table;
 			if ($items === null) {
