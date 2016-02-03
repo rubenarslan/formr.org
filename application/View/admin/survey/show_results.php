@@ -53,7 +53,30 @@ Template::load('acp_nav');
 		</div>
 
 <?php if($results): ?>
-	<div class="col-md-12">
+	<h3>Results for '<?= $study_name ?>'</h3>
+	<div class="row col-md-12">
+		<form action="<?= admin_study_url($study_name, 'show_results')?>" method="get" accept-charset="utf-8">
+
+			<div class="row">
+				<div class="col-lg-10">
+					<div class="input-group">
+						<span class="input-group-addon">Search by session <i class="fa fa-user"></i></span>
+						<input type="search" placeholder="Session key" name="session" class="form-control user-success" value="<?= $session ?>">
+					</div><!-- /input-group -->
+				</div>
+
+				<div class="col-lg-1">
+					<div class="input-group">
+						<input type="submit" value="Search" class="btn">
+					</div><!-- /input-group -->
+				</div>
+			</div><!-- /.row -->
+		</form>
+	</div>
+	<div class="clearfix"></div>
+	<hr />
+			
+	<div class="row col-md-12">
 
 		<table class='table table-striped'>
 			<?php

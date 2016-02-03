@@ -166,8 +166,10 @@ class AdminSurveyController extends AdminController {
 			$totalCount = $result[0]['count'];
 		}
 
-		// show 10 sessions per_page (so limit = 10 * number of items in a survey)
-		$limit = $this->request->int('per_page', 10 * $itemsCount);
+		$session = $this->request->str('session', null);
+		// show $no_sessions sessions per_page (so limit = $no_sessions * number of items in a survey)
+		$no_sessions = $this->request->int('sess_per_page', 10);
+		$limit = $this->request->int('per_page', $no_sessions * $itemsCount);
 		$page = ($this->request->int('page', 1) - 1);
 		$paginate = array(
 			'limit' => $limit,
@@ -185,9 +187,10 @@ class AdminSurveyController extends AdminController {
 
 		$this->renderView('survey/show_itemdisplay', array(
 			'resultCount' => $this->study->getResultCount(),
-			'results' => $this->study->getItemDisplayResults(null, null, $paginate),
+			'results' => $this->study->getItemDisplayResults(null, $session, $paginate),
 			'pagination' => $pagination,
 			'study_name' => $this->study->name,
+			'session' => $session,
 		));
 	}
 
@@ -203,6 +206,9 @@ class AdminSurveyController extends AdminController {
 			'order' => 'desc',
 			'order_by' => 'session_id',
 			'count' => $totalCount,
+			'filter' => array(
+				'session' => $this->request->str('session'),
+			)
 		);
 
 		if ($paginate['page'] < 0 || $paginate['limit'] < 0) {
@@ -217,6 +223,7 @@ class AdminSurveyController extends AdminController {
 			'results' =>  $totalCount <= 0 ? array() : $this->study->getResults(null, null, $paginate),
 			'pagination' => $pagination,
 			'study_name' => $this->study->name,
+			'session' => $this->request->str('session'),
 		));
 	}
 
