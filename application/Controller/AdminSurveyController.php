@@ -166,6 +166,7 @@ class AdminSurveyController extends AdminController {
 			$totalCount = $result[0]['count'];
 		}
 
+		$session = $this->request->str('session', null);
 		// show $no_sessions sessions per_page (so limit = $no_sessions * number of items in a survey)
 		$no_sessions = $this->request->int('sess_per_page', 10);
 		$limit = $this->request->int('per_page', $no_sessions * $itemsCount);
@@ -186,9 +187,10 @@ class AdminSurveyController extends AdminController {
 
 		$this->renderView('survey/show_itemdisplay', array(
 			'resultCount' => $this->study->getResultCount(),
-			'results' => $this->study->getItemDisplayResults(null, null, $paginate),
+			'results' => $this->study->getItemDisplayResults(null, $session, $paginate),
 			'pagination' => $pagination,
 			'study_name' => $this->study->name,
+			'session' => $session,
 		));
 	}
 
