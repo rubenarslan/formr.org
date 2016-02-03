@@ -33,8 +33,14 @@ if (($site = Session::get('site')) && is_object($site)) {
 	Session::set('site', $site);
 }
 
-// Create DB connection
-$fdb = DB::getInstance();
+try {
+	// Create DB connection
+	$fdb = DB::getInstance();
+} catch(Exception $e) {
+	formr_log($e->getMessage(), 'Database Connection Error');
+	alert('Data store could not be found', 'alert-danger');
+	bad_request();
+}
 
 // Set current user
 if (($usr = Session::get('user'))) {
