@@ -1501,9 +1501,14 @@ class Survey extends RunUnit {
 				$select->limit($paginate['limit'], $paginate['offset']);
 			}
 
-			if ($session !== null) {
-				$select->where("survey_run_sessions.session = '$session'");
+			if (!empty($paginate['filter']['session'])) {
+				$session = $paginate['filter']['session'];
 			}
+
+			if ($session !== null) {
+				strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
+			}
+
 			$stmt = $select->statement();
 
 			$results = array();

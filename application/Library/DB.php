@@ -636,7 +636,7 @@ class DB_Select {
 			$value = "%$value%";
 		}
 		$this->PDO->quote($value);
-		$this->where("$colname LIKE $value");
+		$this->where("$colname LIKE '$value'");
 		return $this;
 	}
 
