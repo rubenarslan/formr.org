@@ -466,7 +466,7 @@ class Item extends HTML_element {
 	}
 
 	protected function render_inner() {
-		$inputgroup = isset($this->prepend) OR isset($this->append);
+		$inputgroup = isset($this->prepend) || isset($this->append);
 		return $this->render_label() . '
 					<div class="' . implode(" ", $this->classes_controls) . '"><div class="controls-inner">' .
 				($inputgroup ? '<div class="input-group">' : '') .
@@ -1165,7 +1165,7 @@ class Item_mc extends Item {
 	public function validateInput($reply) {
 		if (!($this->optional AND $reply == '') AND ! empty($this->choices) AND // check
 				( is_string($reply) AND ! in_array($reply, array_keys($this->choices)) ) OR // mc
-				( is_array($reply) AND $diff = array_diff($reply, array_keys($this->choices)) AND ! empty($diff) && current($diff) !== '' ) // mc_multiple
+				( is_array($reply) AND ($diff = array_diff($reply, array_keys($this->choices))) AND ! empty($diff) && current($diff) !== '' ) // mc_multiple
 		) { // invalid multiple choice answer 
 			if (isset($diff)) {
 				$problem = $diff;

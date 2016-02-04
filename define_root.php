@@ -34,7 +34,7 @@ Config::initialize($settings);
 function define_webroot($settings = array()) {
 	if(defined('WEBROOT')) return;
 
-	$protocol = (!isset($_SERVER['HTTPS']) OR $_SERVER['HTTPS'] == '') ? 'http://' : 'https://';
+	$protocol = (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] == '') ? 'http://' : 'https://';
     $doc_root = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'].'/' : '/';
 	$online = true;
 
