@@ -125,8 +125,8 @@ class Pause extends RunUnit {
 	}
 
 	protected function checkRelativeTo() {
-		$this->wait_minutes_true = !($this->wait_minutes === null OR trim($this->wait_minutes) == '');
-		$this->relative_to_true = !($this->relative_to === null OR trim($this->relative_to) == '');
+		$this->wait_minutes_true = !($this->wait_minutes === null || trim($this->wait_minutes) == '');
+		$this->relative_to_true = !($this->relative_to === null || trim($this->relative_to) == '');
 
 		// disambiguate what user meant
 		if ($this->wait_minutes_true AND ! $this->relative_to_true):  // user said wait minutes relative to, implying a relative to

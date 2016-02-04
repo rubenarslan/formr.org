@@ -5,7 +5,7 @@ Template::load('acp_nav');
 <div class="row">
 	<div class="col-lg-10 col-sm-12 col-md-10">
 		
-		<div class="transparent_well col-md-12" style="padding-bottom: 20px;">
+		<div class="transparent_well col-md-12" style="padding-bottom: 20px;"> 
 		<div class="row">
 			<div class="col-md-12">
 				<h2 class="drop_shadow">Results <small>
@@ -52,39 +52,66 @@ Template::load('acp_nav');
 			</div>
 		</div>
 
-<?php if($results->rowCount()): ?>
-	<div class="col-md-12">
+<?php if($results): ?>
+	<h3>Results for '<?= $study_name ?>'</h3>
+	<div class="row col-md-12">
+		<form action="<?= admin_study_url($study_name, 'show_results')?>" method="get" accept-charset="utf-8">
 
-	<table class='table table-striped'>
-		<?php
-			$print_header = true;
-			while ($row = $results->fetch(PDO::FETCH_ASSOC)) {
-				unset($row['study_id']);
-				if ($print_header) {
-					echo '<thead><tr>';
-					foreach ($row as $field => $value) {
-						echo '<td>' . $field . '</td>';
+			<div class="row">
+				<div class="col-lg-10">
+					<div class="input-group">
+						<span class="input-group-addon">Search by session <i class="fa fa-user"></i></span>
+						<input type="search" placeholder="Session key" name="session" class="form-control user-success" value="<?= $session ?>">
+					</div><!-- /input-group -->
+				</div>
+
+				<div class="col-lg-1">
+					<div class="input-group">
+						<input type="submit" value="Search" class="btn">
+					</div><!-- /input-group -->
+				</div>
+			</div><!-- /.row -->
+		</form>
+	</div>
+	<div class="clearfix"></div>
+	<hr />
+			
+	<div class="row col-md-12">
+
+		<table class='table table-striped'>
+			<?php
+				$print_header = true;
+				foreach($results as $row) {
+					unset($row['study_id']);
+					if ($print_header) {
+						echo '<thead><tr>';
+						foreach ($row as $field => $value) {
+							echo '<td>' . $field . '</td>';
+						}
+						echo '</tr></thead>';
+						echo '<tbody>';
+						$print_header = false;
 					}
-					echo '</tr></thead>';
-					echo '<tbody>';
-					$print_header = false;
+
+					$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
+					$row['ended'] = '<abbr title="'.$row['ended'].'">'.timetostr(strtotime($row['ended'])).'</abbr>';
+					$row['modified'] = '<abbr title="'.$row['modified'].'">'.timetostr(strtotime($row['modified'])).'</abbr>';
+					echo '<tr>';
+						foreach($row as $cell) {
+							echo '<td>' . $cell . '</td>';
+						}
+					echo '</tr>';
 				}
+				echo '</tbody>';
+			?>
+		</table>
 
-				$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
-				$row['ended'] = '<abbr title="'.$row['ended'].'">'.timetostr(strtotime($row['ended'])).'</abbr>';
-				$row['modified'] = '<abbr title="'.$row['modified'].'">'.timetostr(strtotime($row['modified'])).'</abbr>';
-				echo '<tr>';
-					foreach($row as $cell) {
-						echo '<td>' . $cell . '</td>';
-					}
-				echo '</tr>';
-			}
-		?>
-	</tbody>
-	</table>
-
+		<div class="text-center">
+			<?php $pagination->render("admin/survey/{$study_name}/show_results"); ?>
+		</div>
 	</div>
 
+	
 <?php endif; ?>
 
 </div>

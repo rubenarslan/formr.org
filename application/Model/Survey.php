@@ -1476,7 +1476,7 @@ class Survey extends RunUnit {
 		return $this->result_count;
 	}
 
-	public function getResults($items = null, $session = null, $returnStmt = false) { // fixme: shouldnt be using wildcard operator here.
+	public function getResults($items = null, $session = null, array $paginate = null) { // fixme: shouldnt be using wildcard operator here.
 		if ($this->hasResultsTable()) {
 			ini_set('memory_limit', '1024M');
 
@@ -1494,14 +1494,22 @@ class Survey extends RunUnit {
 					->leftJoin('survey_unit_sessions', "{$results_table}.session_id = survey_unit_sessions.id")
 					->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
 
-			if ($session !== null) {
-				$select->where("survey_run_sessions.session = '$session'");
+			if ($paginate && isset($paginate['offset'])) {
+				$order = isset($paginate['order']) ? $paginate['order'] : 'asc';
+				$order_by = isset($paginate['order_by']) ? $paginate['order_by'] : 'session_id';
+				$select->order("{$results_table}.{$order_by}", $order);
+				$select->limit($paginate['limit'], $paginate['offset']);
 			}
-			$stmt = $select->statement();
 
-			if ($returnStmt) {
-				return $stmt;
+			if (!empty($paginate['filter']['session'])) {
+				$session = $paginate['filter']['session'];
 			}
+
+			if ($session !== null) {
+				strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
+			}
+
+			$stmt = $select->statement();
 
 			$results = array();
 			while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1522,7 +1530,7 @@ class Survey extends RunUnit {
 	 * @param string $session If specified, only results of that particular session will be returned
 	 * @return array
 	 */
-	public function getItemDisplayResults($items = array(), $session = null) {
+	public function getItemDisplayResults($items = array(), $session = null, array $paginate = null) {
 		ini_set('memory_limit', '1024M');
 		
 		$select = $this->dbh->select('
@@ -1564,6 +1572,10 @@ class Survey extends RunUnit {
 				$session .= "%";
 			}
 			$select->bindParams(array("session" => $session));
+		}
+
+		if ($paginate && isset($paginate['offset'])) {
+			$select->limit($paginate['limit'], $paginate['offset']);
 		}
 
 		return $select->fetchAll();
