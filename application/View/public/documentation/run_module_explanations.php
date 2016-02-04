@@ -350,9 +350,9 @@
 				<ul class="fa-ul">
 					 <li><i class="fa-li fa fa-pause"></i> 			Pos. 10. a waiting period (e.g. let's say we know when exchange students will arrive in their host country, and do not ask questions before they've been there one week)</li>
 					 <li><i class="fa-li fa fa-envelope"></i> 		Pos. 20. Now we have to send our exchange students an email to invite them to do the survey.</li>
-					 <li><i class="fa-li fa fa-forward"></i> 		Pos. 30. a Skip Forward which checks <code>time_passed(weeks = 2)</code>. The first dropdown is set to "automatically", the second to "if user reacts". It is set to jump to pos. 50.</li>
+					 <li><i class="fa-li fa fa-forward"></i> 		Pos. 30. a Skip Forward which checks <code>! time_passed(weeks = 2)</code>, i.e. "two weeks have not passed yet". The first dropdown (if two weeks have not passed) is set to "if user reacts", only then jump to pos. 60 (the survey). The second (else if two weeks have passed) is set to go on "automatically".</li>
 					 <li><i class="fa-li fa fa-envelope"></i> 		Pos. 40. This is our email reminder for the students who did not react after one week.</li>
-					 <li><i class="fa-li fa fa-forward"></i>		Pos. 50.  a Skip Forward which checks <code>time_passed(weeks = 8)</code>. The first dropdown is set to "automatically", the second to "if user reacts". It is set to jump to pos. 70.</li>
+					 <li><i class="fa-li fa fa-forward"></i>		Pos. 50.  a Skip Forward which checks <code>time_passed(weeks = 8)</code>, .e. "eight weeks have passed". The first dropdown (if eight weeks have passed) is set to "automatically", only then jump to pos. 70 (wait for return home), the second (else if: "while eight weeks have not yet passed") is set to go on only "if user reacts".</li>
 					 <li><i class="fa-li fa fa-pencil-square"></i> 	Pos. 60. the survey we want the exchange students to fill out</li>
 					 <li><i class="fa-li fa fa-pause"></i> 			Pos. 70. Because this is a longitudinal study, we now wait for our exchange students to return home. The rest is left out.</li>
 
@@ -361,13 +361,13 @@
 					What would happen?
 				</h5>
 				<p>
-					The pause would simply lead to all exchange students being invited once they've been in their host country for a week (we left out the part where we obtained the necessary information). After the invitation, however, we don't just give up, if they don't react. After another week has passed (two weeks in the host country), we remind them.<br>
+					The pause would simply lead to all exchange students being invited once they've been in their host country for a week (we left out the part where we obtained or entered the necessary information). After the invitation, however, we don't just give up, if they don't react. After another week has passed (two weeks in the host country), we remind them.<br>
 					How is this done? It's just a little tricky:<br>
-					The condition at pos. 30 says "if two weeks have passed". This is false directly after we sent the email.<br>
-					Therefore we set the second dropdown to "if user reacts" (usually it's set to "automatically").<br>
-					Now <a href="https://www.youtube.com/watch?v=JVHVZksFRZg#t=0m39s">if he doesn't answer</a> for two weeks, the condition will become true and the run will automatically jump to position 50, which is our email reminder (tentatively titled "Oh lover boy..."). We hope the participant clicks on the link in our invitation email before then though.<br>
-					If he does, he will jump to the survey.<br>
-					<a href="https://www.youtube.com/watch?v=JVHVZksFRZg#t=0m43s">If he still doesn't answer</a>, we will patiently wait for another eight weeks. Again, if the condition is false (eight weeks have not passed) and the user reacts, he goes on to the survey. If the condition turns true, we <em>automatically</em> jump to position 70, which stands for waiting for the second wave, i.e. we gave up on getting a reaction in the first wave (but we still have "Baby, oh baby, My sweet baby, you're the one" up our sleeve).
+					The condition at pos. 30 says "if two weeks have not passed". This is true directly after we sent the email.<br>
+					Therefore we set the first dropdown to "if user reacts" (usually it's set to "automatically").<br>
+					Now <a href="https://www.youtube.com/watch?v=JVHVZksFRZg#t=0m39s">if he doesn't answer</a> for two weeks, the condition will become false and the run will automatically go on to 40 (the else conditon), to our email reminder (tentatively titled "Oh lover boy..."). We hope the participant clicks on the link in our invitation email before then though.<br>
+					If he does, he will jump to the survey at position 60.<br>
+					<a href="https://www.youtube.com/watch?v=JVHVZksFRZg#t=0m43s">If he still doesn't answer</a>, we will patiently wait for another eight weeks. This time, it's the other way around, if the condition is false (eight weeks have not passed) and the user reacts, he goes on to the survey. If the condition turns true, we <em>automatically</em> jump to position 70, which stands for waiting for return home, i.e. we gave up on getting a reaction in the first wave (but we still have "Baby, oh baby, My sweet baby, you're the one" up our sleeve).
 				</p>
 			</div>
 		</div>
