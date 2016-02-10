@@ -462,8 +462,8 @@
 				$units.each(function () {
 					var $unit = $(this).find('.select');
 					var selected = parseInt($unit.data('selected'), 10),
-							unit_pos = parseInt($unit.data('position'), 10);
-					if (selected && unit_pos && !isNaN(selected) && !isNaN(unit_pos)) {
+						unit_pos = parseInt($unit.data('position'), 10);
+					if (selected && !isNaN(selected) && !isNaN(unit_pos)) {
 						selectedUnits[unit_pos] = units[unit_pos];
 					}
 				});
