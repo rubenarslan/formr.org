@@ -684,7 +684,6 @@ class Item_text extends Item {
 
 }
 
-// textarea automatically chosen when size exceeds a certain limit
 class Item_textarea extends Item {
 
 	public $type = 'textarea';
@@ -706,7 +705,6 @@ class Item_textarea extends Item {
 
 }
 
-// textarea automatically chosen when size exceeds a certain limit
 class Item_letters extends Item_text {
 
 	public $type = 'letters';
@@ -824,7 +822,7 @@ class Item_number extends Item {
 
 }
 
-// slider, polyfilled in firefox etc, native in many, ..?
+// slider, polyfilled everywhere
 class Item_range extends Item_number {
 
 	public $type = 'range';
@@ -1356,7 +1354,7 @@ class Item_select_one extends Item {
 		$ret .= '<select ' . self::_parseAttributes($this->input_attributes, array('type')) . '>';
 
 		if (!isset($this->input_attributes['multiple'])) {
-			$ret .= '<option value=""> </option>';
+			$ret .= '<option value="">&nbsp;</option>';
 		}
 
 		if ($this->value_validated) {
@@ -1843,6 +1841,8 @@ class Item_server extends Item {
 	}
 
 }
+class Item_browser extends Item_server {
+}
 
 class Item_get extends Item {
 
@@ -1927,7 +1927,7 @@ class Item_timezone extends Item_select_one {
 		$ret = '<select ' . self::_parseAttributes($this->input_attributes, array('type')) . '>';
 
 		if (!isset($this->input_attributes['multiple'])) {
-			$ret .= '<option value=""> </option>';
+			$ret .= '<option value="">&nbsp;</option>';
 		}
 
 		foreach ($this->choices AS $value => $option):
@@ -1969,11 +1969,11 @@ class Item_mc_heading extends Item_mc {
 			$this->label_first = false;
 		}
 
-		if (mb_strpos(implode(" ", $this->classes_wrapper), 'mc-first-left') !== false) {
+		if (mb_strpos(implode(" ", $this->classes_wrapper), 'mc_first_left') !== false) {
 			$this->label_first = true;
 		}
 		$all_left = false;
-		if (mb_strpos(implode(" ", $this->classes_wrapper), 'mc-all-left') !== false) {
+		if (mb_strpos(implode(" ", $this->classes_wrapper), 'mc_all_left') !== false) {
 			$all_left = true;
 		}
 
@@ -2078,6 +2078,55 @@ class Item_blank extends Item_text {
 
 		return '<div class="' . implode(" ", $this->classes_wrapper) . '"' . ($this->data_showif ? ' data-showif="' . h($this->js_showif) . '"' : '') . '>' . $this->label_parsed . '</div>';
 	}
+}
+
+class Item_hidden extends Item {
+
+	public $type = 'hidden';
+	public $mysql_field = 'TEXT DEFAULT NULL';
+	public $input_attributes = array('type' => 'hidden');
+	public $optional = 1;
+	public function setMoreOptions() {
+		unset($this->input_attributes["required"]);
+		$this->classes_wrapper[] = "hidden";
+	}
+	public function render_inner() {
+		return $this->render_input();
+	}
+}
+
+class Item_block extends Item_note {
+
+	public $type = 'block';
+	public $input_attributes = array('type' => 'checkbox');
+	
+	public function setMoreOptions() {
+		$this->classes_wrapper[] = "alert alert-danger";
+	}
+	protected function render_label() {
+		return parent::render_label();
+	}
+}
+
+class Item_shuffle extends Item_number {
+	public $type = 'shuffle';
+	public $no_user_input_required = true;
+	public $optional = 1;
+	public $input_attributes = array('type' => 'number', 'min' => 0, 'max' => 1, 'step' => 1);
+	
+	protected function setMoreOptions() {
+		parent::setMoreOptions();
+		$this->input_attributes['value'] = mt_rand($this->input_attributes['min'],$this->input_attributes['max']);
+	}
+
+	public function validateInput($reply)
+	{
+		return $reply;
+	}
+	public function getReply($reply) {
+		return $this->input_attributes['value'];
+	}
+	
 }
 
 class HTML_element {

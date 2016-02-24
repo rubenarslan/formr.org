@@ -493,7 +493,7 @@ class RunUnit {
 			} else {
 				$items = $this->dbh->select('name')->from('survey_items')
 					->where(array('study_id' => $study_id))
-					->where("type NOT IN ('mc_heading', 'note', 'submit')")
+					->where("type NOT IN ('mc_heading', 'note', 'submit', 'block')")
 					->fetchAll();
 
 				$variable_names_in_table[ $table_name ] = array("created", "modified", "ended"); // should avoid modified, sucks for caching

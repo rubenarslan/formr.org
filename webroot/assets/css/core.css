@@ -208,6 +208,7 @@ form.form-horizontal div.form-group div.controls label {
 form.form-horizontal div.form-group div.controls input[type=radio],form.form-horizontal div.form-group div.controls input[type=checkbox] {
     vertical-align:top;
 }
+form.form-horizontal div.form-group.form-row.item-block div.control-label,
 form.form-horizontal div.form-group.form-row.item-note div.control-label,
 form.form-horizontal div.form-group.form-message div.control-label {
     margin-left:0;
@@ -215,6 +216,7 @@ form.form-horizontal div.form-group.form-message div.control-label {
 	width:100%;
 	max-width:100%;
 }
+form.form-horizontal div.form-group.form-row.item-block div.controls,
 form.form-horizontal div.form-group.form-row.item-note div.controls
 {
     display:none;
