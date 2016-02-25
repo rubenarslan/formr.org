@@ -8,11 +8,6 @@ $resultCount = $study->getResultCount();
 	<div class="col-lg-10 col-sm-12 col-md-10">
 		<div class="transparent_well col-md-12" style="padding-bottom: 20px;">
 			<h2>Upload item table</h2>
-			<?php if (!empty($google['id'])): ?>
-				<div class="alert alert-info">
-					This survey was created from the following google sheet <a href="<?php echo $google['link']; ?>" target="_blank"><?php echo $google['link']; ?></a>
-				</div>
-			<?php endif; ?>
 			<p>Please keep this in mind when uploading item tables:</p>
 			<ul class="fa-ul fa-ul-more-padding">
 				<li>
@@ -39,7 +34,7 @@ $resultCount = $study->getResultCount();
 			</ul>
 			<hr />
 			
-			<div class="col-md-6">
+			<div class="col-md-9">
 				<form class="" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="#">
 					<input type="hidden" name="study_id" value="<?= $study->id ?>">
 					<div class="form-group">
@@ -49,7 +44,22 @@ $resultCount = $study->getResultCount();
 							</label>
 						</h3>
 						<div class="controls">
-							<input required name="uploaded" type="file" id="file_upload">
+							<input name="uploaded" type="file" id="file_upload">
+						</div>
+						<h4>
+							<label class="control-label" for="google_sheet">
+								or use 	<?php if (!empty($google['id'])): ?>
+									<a href="<?php echo $google['link']; ?>" target="_blank" title="Go to your Google sheet, check if this is the right one">this</a>
+								<?php else: ?>
+									a
+								<?php endif; ?>Google sheet
+							</label>
+						</h4>
+						<div class="controls">
+							<textarea name="google_sheet" class="form-control" placeholder="Google share link" rows="2"><?php if (!empty($google['id'])): 
+								echo h(array_val($google, 'link')); 
+								endif; ?></textarea>
+							<i>Make sure the sheet is accessible by anyone with the link</i>
 						</div>
 					</div>
 					
@@ -58,7 +68,9 @@ $resultCount = $study->getResultCount();
 						if ($results > 0): 
 					?>
 							<div class="form-group">
-								<label class="control-label" for="delete_confirm" title="this is required to avoid accidental deletions">Do you want to delete the results, if the item table changes were too major?<br><strong>Leave this field empty</strong> if you're fixing typos in a live study.</label>
+								<label class="control-label" for="delete_confirm" title="this is required to avoid accidental deletions">Do you want to delete the results, if the item table changes were too major?<br>
+									<strong>Enter the survey name below</strong> if you're okay with data being <abbr title="e.g. when you removed an item, see above">potentially</abbr> deleted.<br>
+									<strong>Leave this field empty</strong> if you're fixing typos in a <abbr title="upload will fail if deletion required">live study</a>.</label>
 								<div class="controls">
 									<div class="input-group">
 										<span class="input-group-addon"><i class="fa fa-pencil-square"></i></span>
@@ -92,19 +104,6 @@ $resultCount = $study->getResultCount();
 						</div>
 				</form>
 			</div>
-			<div class="col-md-6" style="border-left: 1px solid #efefef; padding-left: 35px;">
-				<h3>
-					<label class="control-label" for="file_upload">
-						Or import a google sheet <i class="fa fa-info-circle" title="You can also create an item table from a google sheet"></i>:
-					</label>
-				</h3>
-				<div class="form-group">
-				
-					<div class="controls">
-						<a href="#" data-toggle="modal" data-target="#google-import" class="btn btn-default btn-lg"><i class="fa fa-download"></i>Import Google Sheet</a>
-					</div>
-				</div>
-			</div>
 		</div>
 	</div>
 </div>
@@ -134,5 +133,4 @@ $resultCount = $study->getResultCount();
 
 <?php
 
-Template::load('admin/survey/google_sheet_import', array('params' => $google));
 Template::load('footer');
