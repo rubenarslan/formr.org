@@ -64,13 +64,13 @@ $resultCount = $study->getResultCount();
 					</div>
 					
 					<?php
-						$results = $resultCount['finished'];
-						if ($results > 0): 
+						$real_users = $resultCount['real_users'];
+						if ($real_users > 0): 
 					?>
 							<div class="form-group">
 								<label class="control-label" for="delete_confirm" title="this is required to avoid accidental deletions">Do you want to delete the results, if the item table changes were too major?<br>
 									<strong>Enter the survey name below</strong> if you're okay with data being <abbr title="e.g. when you removed an item, see above">potentially</abbr> deleted.<br>
-									<strong>Leave this field empty</strong> if you're fixing typos in a <abbr title="upload will fail if deletion required">live study</a>.</label>
+									<strong>Leave this field empty</strong> if you're fixing typos in a <abbr title="upload will fail if deletion is required">live study</a>.</label>
 								<div class="controls">
 									<div class="input-group">
 										<span class="input-group-addon"><i class="fa fa-pencil-square"></i></span>
@@ -84,10 +84,10 @@ $resultCount = $study->getResultCount();
 						<div class="form-group">
 							<div class="controls">
 								<?php
-								if ($results > 10):
+								if ($real_users > 10):
 									$btnclass = 'btn-danger';
 									$icon = 'fa-bolt';
-								elseif ($results > 0):
+								elseif ($real_users > 0):
 									$btnclass = 'btn-warning';
 									$icon = 'fa-exclamation-triangle';
 								else:
@@ -97,7 +97,7 @@ $resultCount = $study->getResultCount();
 								?>
 								<button class="btn btn-default <?= $btnclass ?> btn-lg" type="submit"><i class="fa-fw fa <?= $icon ?>"></i>
 									<?php
-										echo $results ? __("Upload new items, possibly overwrite %d existing results.", $results) : _("Upload new items.");
+										echo (array_sum($resultCount)) ? "Upload new items, possibly partially delete $real_users real results and {$resultCount['testers']} test sessions." : _("Upload new items.");
 									?>
 								</button>
 							</div>
