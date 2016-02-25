@@ -321,7 +321,7 @@ class Email extends RunUnit {
 				register_shutdown_function(create_function('', "unlink('{$local_image}');"));
 
 				if (!$mail->AddEmbeddedImage($local_image, $image_id, $image_id, 'base64', 'image/png' )):
-					alert('Email with the subject ' . $this->subject . ' was not sent to ' . $this->recipient . ':<br>' . $mail->ErrorInfo, 'alert-danger');
+					alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
 				endif;
 			endforeach;
 
@@ -396,7 +396,7 @@ class Email extends RunUnit {
 		echo "<h4>Attempt to send email</h4>";
 
 		if($this->sendMail($receiver)):
-			echo "<p>An email was sent to your own email address (h($receiver)).</p>";
+			echo "<p>An email was sent to your own email address (". h($receiver). ").</p>";
 		else:
 			echo "<p>No email sent.</p>";
 		endif;
