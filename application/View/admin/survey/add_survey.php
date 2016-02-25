@@ -39,7 +39,6 @@ Template::load('acp_nav');
 					<div class="form-group">
 						<h3><label class="control-label" for="file_upload">
 								Please upload an item table <i class="fa fa-info-circle" title="Did you know, that on many computers you can also drag and drop a file on this box instead of navigating there through the file browser?"></i>: 
-								<small><br />(Excel and JSON supported)</small>
 							</label></h3>
 						<div class="controls">
 							<input required name="uploaded" type="file" id="file_upload">
@@ -56,7 +55,8 @@ Template::load('acp_nav');
 				<h3><label class="control-label" for="file_upload">
 						Import a google sheet <i class="fa fa-info-circle" title="You can also create an item table from a google sheet"></i>: 
 					</label></h3>
-				<h3>&nbsp;</h3>
+					<br>
+					<br>
 				<a href="#" data-toggle="modal" data-target="#google-import" class="btn btn-default btn-lg"><i class="fa fa-download"></i>Import Google Sheet</a>
 			</div>
 		</div>

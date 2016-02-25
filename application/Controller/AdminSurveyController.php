@@ -105,29 +105,29 @@ class AdminSurveyController extends AdminController {
 		);
 
 		$file = null;
-		if (Request::isHTTPPostRequest() && $this->request->google_sheet && $this->request->survey_name) {
-			//@todo check if names match
-
+		if (isset($_FILES['uploaded']) AND $_FILES['uploaded']['name'] !== "") {
+			$filename = basename($_FILES['uploaded']['name']);
+			$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", $filename); // take only the first part, before the dash if present or the dot if present
+			
+			if ($study->name !== $survey_name) {
+				alert('<strong>Error:</strong> The uploaded file name <code>' . htmlspecialchars($survey_name) . '</code> did not match the study name <code>' . $study->name . '</code>.', 'alert-danger');
+			} else {
+				$file = $_FILES['uploaded'];
+			}
+			
+		} elseif (Request::isHTTPPostRequest() && $this->request->google_sheet) {
 			$file = google_download_survey_sheet($study->name, $this->request->google_sheet);
 			if (!$file) {
 				alert("Unable to download the file at '{$this->request->google_id}'", 'alert-danger');
 			} else {
 				$updates['google_file_id'] = $file['google_id'];
 			}
-		} elseif (Request::isHTTPPostRequest() && !isset($_FILES['uploaded'])) {
-			alert('<strong>Error:</strong> You have to select an item table file here.', 'alert-danger');
-		} elseif (isset($_FILES['uploaded'])) {
-			$filename = basename($_FILES['uploaded']['name']);
-			$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", $filename); // take only the first part, before the dash if present or the dot if present
-
-			if ($study->name !== $survey_name) {
-				alert('<strong>Error:</strong> The uploaded file name <code>' . htmlspecialchars($survey_name) . '</code> did not match the study name <code>' . $study->name . '</code>.', 'alert-danger');
-			} else {
-				$file = $_FILES['uploaded'];
-			}
+		} elseif (Request::isHTTPPostRequest()) {
+			alert('<strong>Error:</strong> You have to select an item table file or enter a Google link here.', 'alert-danger');
 		}
-
+		
 		if (!empty($file) && $study->uploadItemTable($file, $this->request->delete_confirm, $updates)) {
+			
 			delete_tmp_file($file);
 			redirect_to(admin_study_url($study->name, 'show_item_table'));
 		}
