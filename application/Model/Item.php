@@ -2103,9 +2103,6 @@ class Item_block extends Item_note {
 	public function setMoreOptions() {
 		$this->classes_wrapper[] = "alert alert-danger";
 	}
-	protected function render_label() {
-		return parent::render_label();
-	}
 }
 
 class Item_shuffle extends Item_number {
