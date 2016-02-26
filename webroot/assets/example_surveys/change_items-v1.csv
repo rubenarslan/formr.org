@@ -1,0 +1,6 @@
+type,name,label
+text,gets_deleted,gets_deleted
+text,changes_type,changes_type
+text,label_change,label_change
+text,is_renamed,is_renamed
+text,stays,stays

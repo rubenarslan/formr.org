@@ -10,7 +10,8 @@ Template::load('acp_nav');
 			<div class="col-md-12">
 				<h2 class="drop_shadow">Results <small>
 						<?=(int)$resultCount['finished']?> complete,
-						<?=(int)$resultCount['begun']?> begun
+						<?=(int)$resultCount['begun']?> begun,
+						<?=(int)$resultCount['testers']?> testers
 				</small></h2>
 				<h4><a href="<?php echo admin_study_url($study->name, 'show_itemdisplay'); ?>"><i class="fa fa-table fa-fw"></i> Detailed table of item display and answer times.</a></h4>
 			</div>

@@ -92,7 +92,7 @@
 	<?php $resultCount = $study->getResultCount(); ?>
 	<div class="row">
 		<div class="col-lg-12 no-padding">
-			<h3 class="drop_shadow white"><i class="fa fa-pencil-square"></i> <?php echo $study->name; ?> <small><?= ($resultCount['begun'] + $resultCount['finished']) ?> results</small></h3>
+			<h3 class="drop_shadow white"><i class="fa fa-pencil-square"></i> <?php echo $study->name; ?> <small><?= $resultCount['real_users']; ?> results, <?= $resultCount['testers'] ?> test sessions</small></h3>
 		</div>
 	</div>
 

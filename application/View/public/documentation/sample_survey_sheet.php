@@ -1,6 +1,6 @@
 <h3>Sample survey sheet</h3>
 
-<p>You can <a href="<?=WEBROOT?>assets/example_surveys/all_widgets.xlsx">download a survey Excel file</a> to get started.</p>
+<p>You can <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/" title="Select File->Make a copy if you have a Google account, or download it as an Excel file, if you don't">clone a Google spreadsheet</a> to get started.</p>
 <p>Some helpful tips:</p>
 <ul>
 	<li>

@@ -20,11 +20,12 @@ class Survey extends RunUnit {
 	public $openCPU = null;
 	public $icon = "fa-pencil-square-o";
 	public $type = "Survey";
-	public $result_count = 0;
 	private $confirmed_deletion = false;
+	private $created_new = false;
 	public $item_factory = null;
 	public $unanswered = array();
 	public $to_render = array();
+	private $result_count = null;
 
 	/**
 	 * Counts for progress computation
@@ -1029,28 +1030,15 @@ class Survey extends RunUnit {
 	}
 
 //  
-	public function uploadItemTable($file, $confirmed_deletion, $updates = array()) {
-		if (trim($confirmed_deletion) == ''):
-			$this->confirmed_deletion = false;
-		elseif ($confirmed_deletion === $this->name):
-			$this->confirmed_deletion = true;
-		else:
-			alert("<strong>Error:</strong> You confirmed the deletion of the study's results but your input did not match the study's name. Update aborted.", 'alert-danger');
-			$this->confirmed_deletion = false;
-			return false;
-		endif;
-
-		$allowed_size = Config::get('admin_maximum_size_of_uploaded_files');
-		if ($allowed_size && $file['size'] > $allowed_size * 1024 * 1024):
-			alert("File exceeds allowed size of {$allowed_size} MB", 'alert-danger');
-			return false;
-		endif;
-
+	public function uploadItemTable($file, $confirmed_deletion, $updates = array(), $created_new = false) {
 		umask(0002);
 		ini_set('memory_limit', '256M');
 		$target = $file['tmp_name'];
 		$filename = $file['name'];
 
+		$this->confirmed_deletion = $confirmed_deletion;
+		$this->created_new = $created_new;
+		
 		$this->messages[] = "File <b>$filename</b> was uploaded to survey <b>{$this->name}</b>.";
 
 		// @todo FIXME: This check is fakish because for some reason finfo_file doesn't deal with excel sheets exported from formr
@@ -1213,38 +1201,46 @@ class Survey extends RunUnit {
 	}
 
 	public function createSurvey($SPR) {
+		/*
+			0. new creation -> do it
+			1. is the upload identical to the existing -> do nothing
+			2. are there any results at all? -> nuke existing shit, do fresh start
+			3. does the upload entail text/minor changes to the item table -> simply do changes
+			4. does the upload entail changes to results (i.e. will there be deletion) -> confirm deletion
+			     4a. deletion confirmed: backup results, modify results table, drop stuff
+			     4b. deletion not confirmed: cancel the whole shit.
+		*/
+		//
+		// 0 and 1 were handled in the AdminSurveyController
+		 
 		$this->SPR = $SPR;
-
 		$this->dbh->beginTransaction();
-
 		$this->parsedown = new ParsedownExtra();
 		$this->parsedown = $this->parsedown->setBreaksEnabled(true)->setUrlsLinked(true);
-
 		$this->addChoices();
 		$choice_lists = $this->getChoices();
-
 		$this->item_factory = new ItemFactory($choice_lists);
-
+		
+		
 		// Get old items, mark them as false meaning all are vulnerable for delete.
 		// When the loop over survey items ends you will know which should be deleted.
-		$items = $this->getItems('name, type, choice_list');
-		$oldItems = $keptItems = $newItems = array();
-		foreach ($items as $item) {
-			$item['skip_more_options'] = true;
+		$old_items = array();
+		foreach ($this->getItems() as $item) {
 			if (($object = $this->item_factory->make($item)) !== false) {
-				$oldItems[$item['name']] = $object;
+				$old_items[$item['name']] = $object->getResultField();
 			}
 		}
-
+		
+		$result_columns = array();
 		$UPDATES = implode(', ', get_duplicate_update_string($this->user_defined_columns));
 		$add_items = $this->dbh->prepare(
 				"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
 			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order
 		) ON DUPLICATE KEY UPDATE $UPDATES");
 
-		$result_columns = array();
 		$add_items->bindParam(":study_id", $this->id);
-
+		
+		$new_items = array();
 		foreach ($this->SPR->survey as $row_number => $row) {
 			$item = $this->item_factory->make($row);
 			if (!$item) {
@@ -1256,7 +1252,7 @@ class Survey extends RunUnit {
 			$val_results = $item->validate();
 			if (!empty($val_results['val_errors'])) {
 				$this->errors = $this->errors + $val_results['val_errors'];
-				unset($this->SPR->survey[$row_number], $oldItems[$item->name]);
+				unset($this->SPR->survey[$row_number]);
 				continue;
 			}
 			if(!empty($val_results['val_warnings'])) {
@@ -1271,62 +1267,88 @@ class Survey extends RunUnit {
 					$item->label_parsed = $matches[1];
 				}
 			endif;
-
+			
 			foreach ($this->user_defined_columns as $param) {
 				$add_items->bindValue(":$param", $item->$param);
 			}
 
 			$result_field = $item->getResultField();
-
-			// Mark item as not to be deleted from survey_items table by saving in $keptItems array.
-			// All not in $keptItems but in $oldItems will be deleted and also removed from results_table.
-			if (isset($oldItems[$item->name])) {
-				$keptItems[$item->name] = $item;
-				unset($oldItems[$item->name]);
-			} else {
-				// these will be used to alter the results table adding new items
-				$newItems[$item->name] = $item;
-			}
+			
+			$new_items[ $item->name ] = $result_field;
 
 			$result_columns[] = $result_field;
-			$add_items->execute();
+			$change = $add_items->execute();
 		}
+		$staid_same = array_intersect_assoc($old_items, $new_items);
+		$added = array_diff_assoc($new_items, $old_items);
+		$deleted = array_diff_assoc($old_items, $new_items);
+		
 		$unused = $this->item_factory->unusedChoiceLists();
 		if (!empty($unused)):
 			$this->warnings[] = __("These choice lists were not used: '%s'", implode("', '", $unused));
 		endif;
-
-		// Try to merge survey items if survey table already exists and deletion was not confirmed or create a new table
+		
+		// we'll do it if the user confirmed they are okay with deleted data or if we have no real data yet
+		if(count($deleted) > 0) { // deletion will happen
+			// step 4
+			if($this->doWeHaveRealData() && !$this->confirmed_deletion) {
+				$deleted_columns_string =  implode(array_keys($deleted), ", ");
+				$this->errors[] = "<strong>No permission to delete data</strong>. Enter the survey name, if you are okay with data being deleted from the following columns: " . $deleted_columns_string;
+			}
+			if($this->confirmed_deletion && $this->doWeHaveRealData() && !$this->backupResults()) {
+				$this->errors[] = "<strong>Back up failed.</strong> Deletions would have been necessary, but backing up the item table failed, so no modification was carried out.</strong>";
+			}
+		}
+			
 		if (empty($this->errors)) {
 			try {
-
-				if ($this->hasResultsTable() && !$this->confirmed_deletion) {
-					// queries of the merge are included in opened transaction
-					if ($this->backupResults() AND $this->mergeItems($keptItems, $newItems, $oldItems)) {
-						$this->messages[] = "<strong>The old results table was backed up and modified.</strong>";
-					} else {
-						$this->errors[] = "<strong>The back up or updating the item table failed.</strong>";
+				
+				if(count($deleted) > 0) {
+					$actually_deleted = array_diff(array_keys($deleted), array_keys($added)); 
+					// some items were just re-typed, they only have to be deleted from the wide format table which has inflexible types
+					if (count($actually_deleted) > 0) {
+						$toDelete = implode(',', array_map(array($this->dbh, 'quote'), $actually_deleted));
+						$studyId = (int) $this->id;
+						$delQ = "DELETE FROM survey_items WHERE `name` IN ($toDelete) AND study_id = $studyId";
+						$this->dbh->query($delQ);
+					}
+				}
+				
+				// we start fresh if it's a new creation, no results table exist or it is completely empty
+				if ($this->created_new || !$this->hasResultsTable() || !$this->doWeHaveAnyDataAtAll()) {
+					// step 2
+					$this->messages[] = "The results table was newly created, because there were no results and test sessions.";
+					// if there is no results table or no existing data at all, drop table, create anew
+					// i.e. where possible prefer nuclear option
+					$new_syntax = $this->getResultsTableSyntax($result_columns);
+					if(!$this->createResultsTable($new_syntax)) {
+						$this->errors[] = "<strong>Item table could not be created.</strong>";
+						$this->dbh->rollBack();
+						return false;
 					}
 				} else {
-					if ($this->confirmed_deletion) {
-						$this->deleteResults();
+					// this will never happen if deletion was not confirmed, because this would raise an error
+					// 2 and 4a
+					$merge = $this->alterResultsTable($added, $deleted);
+					if(! $merge) {
+						$this->dbh->rollBack();
+						$this->errors[] = "<strong>Item table could not be modified.</strong>";
+						return false;
 					}
-					$new_syntax = $this->getResultsTableSyntax($result_columns);
-					$this->createResultsTable($new_syntax);
-					$this->warnings[] = "A new results table was created.";
 				}
-				return $this->dbh->commit();
-			} catch (Exception $e) {
+			}
+			catch (Exception $e) {
 				$this->dbh->rollBack();
-				$this->errors[] = "An Error occured and all changes were rolled back";
+				$this->errors[] = "An error occured and all changes were rolled back";
 				formr_log_exception($e, __CLASS__, $this->errors);
 				return false;
 			}
 		} else {
-			$this->dbh->rollBack();
-			$this->errors[] = "An error occured, so all changes were rolled back";
 			return false;
 		}
+		$this->dbh->commit();
+		
+		return true;
 	}
 
 	public function getItemsWithChoices() {
@@ -1467,15 +1489,6 @@ class Survey extends RunUnit {
 		return $results;
 	}
 
-	public function countResults() {
-		$query = "SELECT COUNT(*) AS count FROM `{$this->results_table}`";
-		$results = $this->dbh->query($query, true);
-		if ($row = $results->fetch(PDO::FETCH_ASSOC)) {
-			$this->result_count = $row['count'];
-		}
-		return $this->result_count;
-	}
-
 	public function getResults($items = null, $session = null, array $paginate = null) { // fixme: shouldnt be using wildcard operator here.
 		if ($this->hasResultsTable()) {
 			ini_set('memory_limit', '1024M');
@@ -1614,54 +1627,75 @@ class Survey extends RunUnit {
 
 		return $select->fetchAll();
 	}
-
-	public function deleteResults($dry_run = false) {
-		$resC = $this->getResultCount();
-		if ($resC['finished'] > 10):
-			if ($this->backupResults()):
-				$this->warnings[] = __("%s results rows were backed up.", array_sum($resC));
-			else:
-				$this->errors[] = __("Backup of %s result rows failed. Deletion cancelled.", array_sum($resC));
-				return false;
-			endif;
-		elseif ($resC == array('finished' => 0, 'begun' => 0)):
+	
+	protected function doWeHaveAnyDataAtAll($min = 0) {
+		$this->result_count = $this->getResultCount();
+		if(($this->result_count["real_users"] + $this->result_count['testers']) > 0) {
 			return true;
-		else:
-			$this->warnings[] = __("%s results rows were deleted.", array_sum($resC));
-		endif;
-
-		if (!$dry_run) {
-			$delete = $this->dbh->query("TRUNCATE TABLE `{$this->results_table}`");
-			$this->dbh->delete('survey_unit_sessions', array('unit_id' => $this->id));
 		} else {
-			$delete = true;
+			return false;
 		}
-		return $delete;
+	}
+	protected function doWeHaveRealData($min = 0) {
+		$this->result_count = $this->getResultCount();
+		if($this->result_count["real_users"] > 1) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	public function deleteResults() {
+		$this->result_count = $this->getResultCount();
+		
+		if (array_sum($this->result_count) === 0):
+			return true;
+		elseif ($this->backupResults()):
+			$delete = $this->dbh->query("TRUNCATE TABLE `{$this->results_table}`");
+			$delete_item_disp = $this->dbh->delete('survey_unit_sessions', array('unit_id' => $this->id));
+			return $delete && $delete_item_disp;
+		else:
+			$this->errors[] = __("Backup of %s result rows failed. Deletion cancelled.", array_sum($this->result_count));
+			return false;
+		endif;
 	}
 
 	public function backupResults() {
-		$filename = $this->results_table . date('YmdHis') . ".tab";
-		if (isset($this->user_id)) {
-			$filename = "user" . $this->user_id . $filename;
-		}
-		$filename = INCLUDE_ROOT . "tmp/backups/results/" . $filename;
+		$this->result_count = $this->getResultCount();
+		if ( $this->doWeHaveRealData() ):
+			$this->messages[] = __("<strong>Backed up.</strong> The old results were backed up in a file (%s results)", array_sum($this->result_count));
+			
+			$filename = $this->results_table . date('YmdHis') . ".tab";
+			if (isset($this->user_id)) {
+				$filename = "user" . $this->user_id . $filename;
+			}
+			$filename = INCLUDE_ROOT . "tmp/backups/results/" . $filename;
 
-		$SPR = new SpreadsheetReader();
-		return $SPR->backupTSV($this->getResults(), $filename);
+			$SPR = new SpreadsheetReader();
+			return $SPR->backupTSV($this->getResults(), $filename);
+		else: // if we have no real data, no need for backup
+			return true;
+		endif;
 	}
 
 	public function getResultCount() {
-		$results_table = $this->results_table;
-		if ($this->hasResultsTable()):
-			$count = $this->dbh->select(array(
-						"SUM(`{$results_table}`.ended IS null)" => 'begun',
-						"SUM(`{$results_table}`.ended IS NOT NULL)" => 'finished'
-					))->from($results_table)
-					->leftJoin('survey_unit_sessions', "survey_unit_sessions.id = {$results_table}.session_id")
-					->fetch();
-			return $count;
+		if($this->result_count === null):
+			$results_table = $this->results_table;
+			if ($this->hasResultsTable()):
+				$count = $this->dbh->select(array(
+							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS null)" => 'begun',
+							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS NOT NULL)" => 'finished',
+							"SUM(`survey_run_sessions`.`testing` IS NULL OR `survey_run_sessions`.`testing` = 1)" => 'testers',
+							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0)" => 'real_users'
+						))->from($results_table)
+						->leftJoin('survey_unit_sessions', "survey_unit_sessions.id = {$results_table}.session_id")
+						->leftJoin('survey_run_sessions', "survey_unit_sessions.run_session_id = survey_run_sessions.id")
+						->fetch();
+				return $count;
+			else:
+				return array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
+			endif;
 		else:
-			return array('finished' => 0, 'begun' => 0);
+			return $this->result_count;
 		endif;
 	}
 
@@ -1759,64 +1793,65 @@ class Survey extends RunUnit {
 	}
 
 	/**
-	 * Merge survey items. Each parameter is an associative array indexed by the names of the items in the survey
-	 * If $oldItems is empty, then we are creating a new survey table. If $oldItems is not empty, then we delete all items which are not 'keepable'
+	 * Merge survey items. Each parameter is an associative array indexed by the names of the items in the survey, with the 
+	 * mysql field definition as the value.
+	 * new items are added, old items are deleted, items that changed type are deleted from the results table but not the item_display_table
 	 * All non null entries represent the MySQL data type definition of the fields as they should be in the survey results table
 	 * NOTE: All the DB queries here should be in a transaction of calling function
 	 *
-	 * @param array $keptItems
 	 * @param array $newItems
 	 * @param array $deleteItems
+	 * @param bool $confirmed_deletion
 	 * @return bool;
 	 */
-	private function mergeItems(array $keptItems, array $newItems, array $deleteItems) {
-		if (!$keptItems && !$newItems) {
-			// we are creating a new table
-			return false;
-		}
+	private function alterResultsTable(array $newItems, array $deleteItems) {
+		$actions = $toAdd = $toDelete = $deleteQuery = $addQuery = array();
+		$addQ = $delQ = null;
+		
+		// just for safety checking that there is something to be deleted (in case of aborted earlier tries)
+		$existingColumns = $this->dbh->getTableDefinition($this->results_table, 'Field'); 
 
-		$toDelete = $alterQuery = array();
-		$altQ = $delQ = null;
-		$existingColumns = $this->dbh->getTableDefinition($this->results_table, 'Field');
-
-		/* @var $item Item */
-		// Create query to modify items in an existing results table
-		foreach ($keptItems as $item) {
-			if (($field_definition = $item->getResultField()) !== null && isset($existingColumns[$item->name])) {
-				$alterQuery[] = " MODIFY $field_definition";
-			}
-		}
 		// Create query to drop items in existing table
-		foreach ($deleteItems as $item) {
-			if (($field_definition = $item->getResultField()) !== null && isset($existingColumns[$item->name])) {
-				$alterQuery[] = " DROP `{$item->name}`";
+		foreach ($deleteItems as $name => $result_field) {
+			if ($result_field !== null && isset($existingColumns[$name])) {
+				$deleteQuery[] = " DROP `{$name}`";
 			}
-			$toDelete[] = $item->name;
+			$toDelete[] = $name;
 		}
-		// Create query for adding items to an existing table
-		foreach ($newItems as $item) {
-			if (($field_definition = $item->getResultField()) !== null) {
-				$alterQuery[] = " ADD $field_definition";
+		// Create query for adding items to existing table
+		foreach ($newItems as $name => $result_field) {
+			if ($result_field !== null) {
+				$addQuery[] = " ADD $result_field";
 			}
+			$toAdd[] = $name;
 		}
-
-		if ($alterQuery) {
-			// prepend the alter table clause
-			$alterQuery[0] = "ALTER TABLE `{$this->results_table}` {$alterQuery[0]}";
-			$altQ = implode(',', $alterQuery);
-			//formr_log("\nMerge Survey {$this->name} \n ALTER: $altQ");
-			$this->dbh->query($altQ);
-		}
-
-		// Create query for deleting items from survey_items table
-		if ($toDelete) {
-			$toDelete = implode(',', array_map(array($this->dbh, 'quote'), $toDelete));
-			$studyId = (int) $this->id;
-			$delQ = "DELETE FROM survey_items WHERE `name` IN ($toDelete) AND study_id = $studyId";
-			//formr_log("\nMerge Survey {$this->name} \n DELETE: $delQ");
+		
+		// prepare these strings for feedback
+		$added_columns_string =  implode($toAdd, ", ");
+		$deleted_columns_string =  implode($toDelete, ", ");
+		
+		
+		// if something should be deleted
+		if ($deleteQuery) {
+			$delQ = "ALTER TABLE `{$this->results_table}`" . implode(',', $deleteQuery);
 			$this->dbh->query($delQ);
+			$actions[] = "Deleted columns: $deleted_columns_string.";
 		}
-
+		
+		// we only get here if the deletion stuff was harmless, allowed or did not happen
+		if ($addQuery) {
+			$addQ = "ALTER TABLE `{$this->results_table}`" . implode(',', $addQuery);
+			$this->dbh->query($addQ);
+			$actions[] = "Added columns: $added_columns_string.";
+		}
+		
+		if(!empty($actions)) {
+			$this->messages[] = "<strong>The results table was modified.</strong>";
+			$this->messages = array_merge($this->messages, $actions);
+		} else {
+			$this->messages[] = "The results table did not need to be modified.";
+		}
+		
 		return true;
 	}
 

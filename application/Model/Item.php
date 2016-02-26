@@ -272,9 +272,7 @@ class Item extends HTML_element {
 
 		$this->input_attributes['name'] = $this->name;
 
-		if (empty($options['skip_more_options'])) {
-			$this->setMoreOptions();
-		}
+		$this->setMoreOptions();
 
 		// after the easily overridden setMoreOptions, some post-processing that is universal to all items.
 

@@ -1105,7 +1105,7 @@ function opencpu_multistring_parse(Survey $survey, array $string_templates) {
 		return opencpu_string_key_parsing($strings);
 	} else {
 		notify_user_error(opencpu_debug($session), "There was a problem dynamically knitting something to HTML using openCPU.");
-		return opencpu_string_key_parsing($string_templates);
+		return fill_array(opencpu_string_key_parsing($string_templates));
 	}
 }
 
@@ -1323,4 +1323,26 @@ function strt_replace($str, $params) {
 		$str = str_replace('{'.$key.'}', $value, $str);
 	}
 	return $str;
+}
+
+function fill_array($array, $value = '') {
+	foreach ($array as $key => $v) {
+		$array[$key] = $value;
+	}
+	return $array;
+}
+
+function files_are_equal($a, $b)
+{
+	if (!file_exists($a) || !file_exists($b))
+		return false;
+	
+	// Check if filesize is different
+	if (filesize($a) !== filesize($b))
+		return false;
+
+	if (sha1_file($a) !== sha1_file($b))
+		return false;
+
+	return true;
 }

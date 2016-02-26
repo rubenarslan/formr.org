@@ -1,0 +1,6 @@
+type,name,label
+number,changes_type,changes_type
+text,is_renamed2,is_renamed
+text,label_change,label_change2
+text,is_added,is_added
+text,stays,stays
