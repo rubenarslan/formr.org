@@ -46,26 +46,33 @@ class AdminSurveyController extends AdminController {
 		if (!empty($file)) {
 			unset($_SESSION['study_id']);
 			unset($_GET['study_name']);
+			
+			$allowed_size = Config::get('admin_maximum_size_of_uploaded_files');
+			if ($allowed_size && $file['size'] > $allowed_size * 1024 * 1024):
+				alert("File exceeds allowed size of {$allowed_size} MB", 'alert-danger');
+			else:
+				$filename = basename($file['name']);
+				$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", $filename); // take only the first part, before the dash if present or the dot
 
-			$filename = basename($file['name']);
-			$survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", $filename); // take only the first part, before the dash if present or the dot
+				$study = new Survey($this->fdb, null, array(
+					'name' => $survey_name,
+					'user_id' => $this->user->id
+				), null, null);
 
-			$study = new Survey($this->fdb, null, array(
-				'name' => $survey_name,
-				'user_id' => $this->user->id
-			), null, null);
-
-			if ($study->createIndependently($settings, $updates)) {
-				if ($study->uploadItemTable($file, $survey_name)) {
-					alert('<strong>Success!</strong> New survey created!', 'alert-success');
-					delete_tmp_file($file);
-					redirect_to(admin_study_url($study->name, 'show_item_table'));
-				} else {
-					alert('<strong>Bugger!</strong> A new survey was created, but there were problems with your item table. Please fix them and try again.', 'alert-danger');
-					delete_tmp_file($file);
-					redirect_to(admin_study_url($study->name, 'upload_items'));
+				if ($study->createIndependently($settings, $updates)) {
+					$confirmed_deletion = true;
+					$created_new = true;
+					if ($study->uploadItemTable($file, $confirmed_deletion, $updates, $created_new)) {
+						alert('<strong>Success!</strong> New survey created!', 'alert-success');
+						delete_tmp_file($file);
+						redirect_to(admin_study_url($study->name, 'show_item_table'));
+					} else {
+						alert('<strong>Bugger!</strong> A new survey was created, but there were problems with your item table. Please fix them and try again.', 'alert-danger');
+						delete_tmp_file($file);
+						redirect_to(admin_study_url($study->name, 'upload_items'));
+					}
 				}
-			}
+			endif;
 			delete_tmp_file($file);
 		}
 
@@ -73,27 +80,6 @@ class AdminSurveyController extends AdminController {
 		$this->renderView('survey/add_survey', $vars);
 	}
 
-	private function accessAction() {
-		$study = $this->study;
-		if ($this->user->created($study)):
-			$session = new UnitSession($this->fdb, null, $study->id);
-			$session->create();
-
-			Session::set('dummy_survey_session', array(
-				"session_id" => $session->id,
-				"unit_id" => $study->id,
-				"run_session_id" => $session->run_session_id,
-				"run_name" => Run::TEST_RUN,
-				"survey_name" => $study->name
-			));
-
-			alert("<strong>Go ahead.</strong> You can test the study " . $study->name . " now.", 'alert-info');
-			redirect_to(run_url(Run::TEST_RUN));
-		else:
-			alert("<strong>Sorry.</strong> You don't have access to this study", 'alert-danger');
-			redirect_to("index");
-		endif;
-	}
 
 	private function uploadItemsAction() {
 		$updates = array();
@@ -103,6 +89,23 @@ class AdminSurveyController extends AdminController {
 			'study_name' => $study->name,
 			'google' => array('id' => $google_id, 'link' => google_get_sheet_link($google_id), 'name' => $study->name),
 		);
+
+		if(Request::isHTTPPostRequest()):
+			$confirmed_deletion = false;
+			if(isset($this->request->delete_confirm)):
+				$confirmed_deletion = $this->request->delete_confirm;
+			endif;
+			if (trim($confirmed_deletion) == ''):
+				$confirmed_deletion = false;
+			elseif ($confirmed_deletion === $study->name):
+				$confirmed_deletion = true;
+			else:
+				alert("<strong>Error:</strong> You confirmed the deletion of the study's results but your input did not match the study's name. Update aborted.", 'alert-danger');
+				$confirmed_deletion = false;
+				redirect_to(admin_study_url($study->name, 'upload_items'));
+				return false;
+			endif;
+		endif;
 
 		$file = null;
 		if (isset($_FILES['uploaded']) AND $_FILES['uploaded']['name'] !== "") {
@@ -126,15 +129,51 @@ class AdminSurveyController extends AdminController {
 			alert('<strong>Error:</strong> You have to select an item table file or enter a Google link here.', 'alert-danger');
 		}
 		
-		if (!empty($file) && $study->uploadItemTable($file, $this->request->delete_confirm, $updates)) {
+		if (!empty($file)) {
+			$allowed_size = Config::get('admin_maximum_size_of_uploaded_files');
+			if ($allowed_size && $file['size'] > $allowed_size * 1024 * 1024):
+				alert("File exceeds allowed size of {$allowed_size} MB", 'alert-danger');
+				redirect_to(admin_study_url($study->name, 'upload_items'));
+				return false;
+			endif;
 			
+			if (($filename = $study->getOriginalFileName()) &&
+				files_are_equal($file['tmp_name'], Config::get('survey_upload_dir') . '/' . $filename )) {
+				alert("Uploaded item table was identical to last uploaded item table. <br>
+					No changes carried out.", 'alert-info');
+				$success = false;
+			} else {
+				$success = $study->uploadItemTable($file, $confirmed_deletion, $updates, false);
+			}
 			delete_tmp_file($file);
-			redirect_to(admin_study_url($study->name, 'show_item_table'));
+			if($success) {
+				redirect_to(admin_study_url($study->name, 'show_item_table'));
+			}
 		}
 
-		delete_tmp_file($file);
-
 		$this->renderView('survey/upload_items', $vars);
+	}
+	
+	private function accessAction() {
+		$study = $this->study;
+		if ($this->user->created($study)):
+			$session = new UnitSession($this->fdb, null, $study->id);
+			$session->create();
+
+			Session::set('dummy_survey_session', array(
+				"session_id" => $session->id,
+				"unit_id" => $study->id,
+				"run_session_id" => $session->run_session_id,
+				"run_name" => Run::TEST_RUN,
+				"survey_name" => $study->name
+			));
+
+			alert("<strong>Go ahead.</strong> You can test the study " . $study->name . " now.", 'alert-info');
+			redirect_to(run_url(Run::TEST_RUN));
+		else:
+			alert("<strong>Sorry.</strong> You don't have access to this study", 'alert-danger');
+			redirect_to("index");
+		endif;
 	}
 
 	private function showItemTableAction() {
@@ -196,7 +235,7 @@ class AdminSurveyController extends AdminController {
 
 	private function showResultsAction() {
 		$count = $this->study->getResultCount();
-		$totalCount = $count['finished'] + $count['begun'];
+		$totalCount = $count['real_users'] + $count['testers'];
 		$limit = $this->request->int('per_page', 100);
 		$page = ($this->request->int('page', 1) - 1);
 		$paginate = array(
@@ -232,7 +271,10 @@ class AdminSurveyController extends AdminController {
 
 		if (isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name) {
 			if ($study->deleteResults()):
+				alert(implode($study->messages), 'alert-info');
 				alert("<strong>Success.</strong> All results in '{$study->name}' were deleted.", 'alert-success');
+			else:
+				alert(implode($study->errors), 'alert-danger');				
 			endif;
 			redirect_to(WEBROOT . "admin/survey/{$study->name}/delete_results");
 		} elseif (isset($_POST['delete'])) {

@@ -1331,3 +1331,18 @@ function fill_array($array, $value = '') {
 	}
 	return $array;
 }
+
+function files_are_equal($a, $b)
+{
+	if (!file_exists($a) || !file_exists($b))
+		return false;
+	
+	// Check if filesize is different
+	if (filesize($a) !== filesize($b))
+		return false;
+
+	if (sha1_file($a) !== sha1_file($b))
+		return false;
+
+	return true;
+}
