@@ -378,7 +378,9 @@ class Item extends HTML_element {
 			$this->mysql_field = 'VARCHAR (' . $maxlen . ') DEFAULT NULL';
 		endif;
 	}
-
+	public function isStoredInResultsTable() {
+		return $this->save_in_results_table;
+	}
 	public function getResultField() {
 		if (!empty($this->choices)):
 			$this->chooseResultFieldBasedOnChoices();

@@ -26,6 +26,7 @@ class Survey extends RunUnit {
 	public $unanswered = array();
 	public $to_render = array();
 	private $result_count = null;
+	public $unlinked = false;
 
 	/**
 	 * Counts for progress computation
@@ -1368,6 +1369,18 @@ class Survey extends RunUnit {
 			return array();
 		}
 	}
+	public function getItemsInResultsTable() {
+		$items = $this->getItems();
+		$names = array();
+		$itemFactory = new ItemFactory(array());
+		foreach($items AS $item) {
+			$item = $itemFactory->make($item);
+			if($item->isStoredInResultsTable()) {
+				$names[] = $item->name;
+			}
+		}
+		return $names;
+	}
 
 	private function addChoices() {
 		// delete cascades to item display ?? FIXME so maybe not a good idea to delete then
@@ -1495,22 +1508,37 @@ class Survey extends RunUnit {
 
 			$results_table = $this->results_table;
 			if ($items === null) {
-				$items = array('*');
+				$items = $this->getItemsInResultsTable();
 			}
-
-			$colums = array('survey_run_sessions.session');
+			
+			$count = $this->getResultCount();
+			if($this->unlinked && $count['real_users'] <= 10) {
+				if($count['real_users'] > 0) {
+					alert("<strong>You cannot see these results yet.</strong> It will only be possible after 10 real users have registered.", 'alert-warning');
+				}
+				return array();
+			}
+			if($this->unlinked) {
+				$columns = array();
+			} else {
+				$columns = array('survey_run_sessions.session', "{$results_table}.`created`", "{$results_table}.`modified`", "{$results_table}.`ended`");
+			}
 			foreach ($items as $item) {
-				$colums[] = "{$results_table}.{$item}";
+				$columns[] = "{$results_table}.{$item}";
 			}
-			$select = $this->dbh->select($colums)
+			
+			$select = $this->dbh->select($columns)
 					->from($results_table)
 					->leftJoin('survey_unit_sessions', "{$results_table}.session_id = survey_unit_sessions.id")
 					->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
 
 			if ($paginate && isset($paginate['offset'])) {
 				$order = isset($paginate['order']) ? $paginate['order'] : 'asc';
-				$order_by = isset($paginate['order_by']) ? $paginate['order_by'] : 'session_id';
-				$select->order("{$results_table}.{$order_by}", $order);
+				$order_by = isset($paginate['order_by']) ? $paginate['order_by'] : '{$results_table}.session_id';
+				if($this->unlinked) {
+					$order_by = "RAND()";
+				}
+				$select->order($order_by, $order);
 				$select->limit($paginate['limit'], $paginate['offset']);
 			}
 
@@ -1546,9 +1574,15 @@ class Survey extends RunUnit {
 	public function getItemDisplayResults($items = array(), $session = null, array $paginate = null) {
 		ini_set('memory_limit', '1024M');
 		
-		$select = $this->dbh->select('
-		`survey_run_sessions`.session,
-		`survey_items`.name,
+		$count = $this->getResultCount();
+		if($this->unlinked) {
+			if($count['real_users'] > 0) {
+				alert("<strong>You cannot see the long-form results yet.</strong> It will only be possible after 10 real users have registered.", 'alert-warning');
+			}
+			return array();
+		}
+		
+		$select = $this->dbh->select("`survey_run_sessions`.session,
 		`survey_items_display`.session_id as unit_session_id,
 		`survey_items_display`.item_id,
 		`survey_items_display`.answer,
@@ -1560,7 +1594,7 @@ class Survey extends RunUnit {
 		`survey_items_display`.answered_relative,
 		`survey_items_display`.displaycount,
 		`survey_items_display`.display_order,
-		`survey_items_display`.hidden');
+		`survey_items_display`.hidden'");
 
 		$select->from('survey_items_display')
 				->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
@@ -1590,7 +1624,6 @@ class Survey extends RunUnit {
 		if ($paginate && isset($paginate['offset'])) {
 			$select->limit($paginate['limit'], $paginate['offset']);
 		}
-
 		return $select->fetchAll();
 	}
 	/**
