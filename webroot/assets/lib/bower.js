@@ -30912,7 +30912,7 @@ the specific language governing permissions and limitations under the Apache Lic
 			replaceUI: {range: true, color: true}
 		}
 	});
-	webshim.polyfill('es5 forms forms-ext geolocation');
+	webshim.polyfill('es5 es6 forms forms-ext geolocation');
 	webshim.activeLang('de');
 
 

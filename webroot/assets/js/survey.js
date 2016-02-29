@@ -203,7 +203,7 @@
 				"use strict";
 				var slct = $(elm); 
 				slct.select2({
-					width: "element",
+					width: "width:300px",
 					dropdownCssClass: "bigdrop", // apply css that makes the dropdown taller
 					maximumSelectionSize: slct.data('select2maximumSelectionSize'),
 					maximumInputLength: slct.data('select2maximumInputLength'),
