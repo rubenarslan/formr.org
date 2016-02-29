@@ -314,12 +314,15 @@ class Item extends HTML_element {
 			$this->js_showif = preg_replace("/current\(\s*(\w+)\s*\)/", "$1", $this->showif); // remove current function
 			$this->js_showif = preg_replace("/tail\(\s*(\w+)\s*, 1\)/", "$1", $this->js_showif); // remove current function, JS evaluation is always in session			
 			// all other R functions may break
-			$this->js_showif = preg_replace("/\"/", "'", $this->js_showif); // double quotes to single quotes
 			$this->js_showif = preg_replace("/(^|[^&])(\&)([^&]|$)/", "$1&$3", $this->js_showif); // & operators, only single ones need to be doubled
 			$this->js_showif = preg_replace("/(^|[^|])(\|)([^|]|$)/", "$1&$3", $this->js_showif); // | operators, only single ones need to be doubled
 			$this->js_showif = preg_replace("/FALSE/", "false", $this->js_showif); // uppercase, R, FALSE, to lowercase, JS, false
 			$this->js_showif = preg_replace("/TRUE/", "true", $this->js_showif); // uppercase, R, TRUE, to lowercase, JS, true
-			$this->js_showif = preg_replace("/\s*\%contains\%\s*([a-zA-Z0-9_'\"]+)/", ".indexOf($1) > -1", $this->js_showif);
+			$quoted_string = "([\"'])((\\\\{2})*|(.*?[^\\\\](\\\\{2})*))\\1";
+			$this->js_showif = preg_replace("/\s*\%contains\%\s*".$quoted_string."/", ".indexOf($1$2$1) > -1", $this->js_showif);
+			$this->js_showif = preg_replace("/\s*\%begins_with\%\s*".$quoted_string."/", ".indexOf($1$2$1) === 0", $this->js_showif);
+			$this->js_showif = preg_replace("/\s*\%starts_with\%\s*".$quoted_string."/", ".indexOf($1$2$1) === 0", $this->js_showif);
+			$this->js_showif = preg_replace("/\s*\%ends_with\%\s*".$quoted_string."/", ".endsWith($1$2$1)", $this->js_showif);
 			$this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $this->js_showif);
 
 			if (strstr($this->showif, "//js_only") !== false) {
@@ -378,7 +381,9 @@ class Item extends HTML_element {
 			$this->mysql_field = 'VARCHAR (' . $maxlen . ') DEFAULT NULL';
 		endif;
 	}
-
+	public function isStoredInResultsTable() {
+		return $this->save_in_results_table;
+	}
 	public function getResultField() {
 		if (!empty($this->choices)):
 			$this->chooseResultFieldBasedOnChoices();
