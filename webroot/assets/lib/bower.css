@@ -10646,6 +10646,14 @@ form.form-horizontal div.answer_below_label .controls {
   	margin-left: 0;
 }
 
+.form-horizontal div.form-group.left50 .control-label {
+  width: 50px;
+  max-width: 50px;
+}
+.form-horizontal div.form-group.left50 .controls {
+  	margin-left: 70px;
+}
+
 .form-horizontal div.form-group.left100 .control-label {
   width: 100px;
   max-width: 100px;
