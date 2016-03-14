@@ -4,6 +4,7 @@ $(function(){
 	$('.form-ajax').each(ajaxifyForm);
 	$('.link-ajax').each(ajaxifyLink);
 	$('.api-btn').click(userAPIAccess);
+	$('.sessions-search-switch').click(toggleSessionSearch);
 	
 	$('abbr.abbreviated_session').click(function ()
 	{
@@ -197,5 +198,20 @@ $(function(){
 				//alert(this.url);
 			}
 		});
+	}
+
+	function toggleSessionSearch() {
+		/*jshint validthis:true */
+		var $me = $(this);
+		if ($me.data('active') === 'single') {
+			$me.siblings('.single').addClass('hidden');
+			$me.siblings('.multiple').removeClass('hidden');
+			$me.data('active', 'multiple');
+		} else {
+			$me.siblings('.single').removeClass('hidden');
+			$me.siblings('.multiple').addClass('hidden');
+			$me.data('active', 'single');
+		}
+		
 	}
 });

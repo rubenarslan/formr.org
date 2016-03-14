@@ -1073,3 +1073,9 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 	background:transparent;
 	border:0;
 }
+.sessions-search-switch {
+	position: absolute;
+	top: 0;
+	right: 1px;
+	cursor: pointer;
+}
