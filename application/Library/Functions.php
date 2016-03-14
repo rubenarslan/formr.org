@@ -1112,14 +1112,18 @@ function opencpu_multistring_parse(Survey $survey, array $string_templates) {
 /**
  * Substitute parsed strings in the collection of items that were sent for parsing
  * This function does not return anything as the collection of items is passed by reference
+ * For objects having the property 'label_parsed', they are checked and substituted
  *
  * @param array $array An array of data contaning label templates
  * @param array $parsed_strings An array of parsed labels
  */
 function opencpu_substitute_parsed_strings (array &$array, array $parsed_strings) {
-	foreach ($array as $key => $value) {
+	foreach ($array as $key => &$value) {
 		if (is_array($array[$key])) {
 			opencpu_substitute_parsed_strings($array[$key], $parsed_strings);
+		} elseif (is_object($value) && property_exists($value, 'label_parsed')) {
+			$value->label_parsed = isset($parsed_strings[$value->label_parsed]) ? $parsed_strings[$value->label_parsed] : $value->label_parsed;
+			$array[$key] = $value;
 		} elseif (isset($parsed_strings[$value])) {
 			$array[$key] = $parsed_strings[$value];
 		}
