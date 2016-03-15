@@ -25,6 +25,7 @@
 	});
 
 	function Survey() {
+		this.$form = $("form");
 		this.$progressbar = $('.progress .progress-bar');
 		this.already_answered = this.$progressbar.data('already-answered');
 		this.items_left = this.$progressbar.data('items-left');
@@ -389,12 +390,21 @@
 		});
 	}
 	Survey.prototype.update = function (e) {
+		/// update at most every 500ms
+		var now = new Date().getTime();
+		if(this.last_update && this.last_update + 500 > now) {
+			window.setTimeout($.proxy(this.update, this), this.last_update + 500 - now);
+			return;
+		} else {
+			this.last_update = now;
+		}
+		
 		this.getData();
 		this.showIf();
 		this.getProgress();
 	};
 	Survey.prototype.getData = function () {
-		var badArray = $('form').serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
+		var badArray = this.$form.serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
 		this.data = {};
 		var survey = this;
 		
@@ -441,8 +451,10 @@
 	Survey.prototype.showIf = function(e)
 	{
 		var survey = this;
+		if(! survey.items_with_showifs)
+			survey.items_with_showifs = $(".form-group[data-showif]");
 		var any_change = false;
-		$(".form-group[data-showif]").each(function(i,elm) // walk through all form elements that are dynamically shown/hidden
+		survey.items_with_showifs.each(function(i,elm) // walk through all form elements that are dynamically shown/hidden
 		{
 			var showif = $(elm).data('showif'); // get specific condition
 
