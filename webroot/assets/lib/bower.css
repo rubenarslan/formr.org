@@ -10588,6 +10588,12 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 	background:transparent;
 	border:0;
 }
+.sessions-search-switch {
+	position: absolute;
+	top: 0;
+	right: 1px;
+	cursor: pointer;
+}
 /* CLASSES THAT CAN BE ADDED BY USER TO ITEM CONTAINERS */
 form.form-horizontal div.form-group.float_image_right img {
   float:right;

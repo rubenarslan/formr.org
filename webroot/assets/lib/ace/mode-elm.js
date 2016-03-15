@@ -29,9 +29,6 @@ var ElmHighlightRules = function() {
             regex: /0(?:[xX][0-9A-Fa-f]+|[oO][0-7]+)|\d+(\.\d+)?([eE][-+]?\d*)?/,
             token: "constant.numeric"
         }, {
-            token: "comment",
-            regex: "--.*"
-        }, {
             token : "keyword",
             regex : /\.\.|\||:|=|\\|\"|->|<-|\u2192/
         }, {
@@ -288,7 +285,7 @@ oop.inherits(Mode, TextMode);
 
 (function() {
     this.lineCommentStart = "--";
-    this.blockComment = {start: "{-", end: "-}", nestable: true};
+    this.blockComment = {start: "{-", end: "-}"};
     this.$id = "ace/mode/elm";
 }).call(Mode.prototype);
 
