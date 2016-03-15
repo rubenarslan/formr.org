@@ -137,7 +137,7 @@ ace.define("ace/mode/coffee_highlight_rules",["require","exports","module","ace/
                     regex : "(\\.)(\\s*)(" + illegal + ")"
                 }, {
                     token : "punctuation.operator",
-                    regex : "\\.{1,3}"
+                    regex : "\\."
                 }, {
                     token : ["keyword", "text", "language.support.class",
                      "text", "keyword", "text", "language.support.class"],

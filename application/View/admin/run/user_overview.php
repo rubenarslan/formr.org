@@ -21,11 +21,15 @@ Template::load('acp_nav');
 			<form action="<?php echo admin_run_url($run->name, 'user_overview'); ?>" method="get" accept-charset="utf-8">
 
 				<div class="row">
-					<div class="col-lg-3">
-						<div class="input-group">
+					<div class="col-lg-3" id="search-session">
+						<span class="sessions-search-switch" data-active="<?php echo !empty($_GET['sessions']) ? 'multiple' : 'single'; ?>"><i class="fa fa-refresh"></i></span>
+						<div class="input-group single <?php if(!empty($_GET['sessions'])) echo 'hidden'; ?>">
 							<span class="input-group-addon"><i class="fa fa-user"></i></span>
 							<input type="search" placeholder="Session key" name="session" class="form-control" value="<?= isset($_GET['session']) ? h($_GET['session']) : ''; ?>">
-
+						</div><!-- /input-group -->
+						<div class="input-group multiple <?php if(empty($_GET['sessions'])) echo 'hidden'; ?>">
+							<span class="input-group-addon"><i class="fa fa-users"></i></span>
+							<textarea placeholder="Session keys (Enter each in new line)" name="sessions" class="form-control"><?= isset($_GET['sessions']) ? h($_GET['sessions']) : ''; ?></textarea>
 						</div><!-- /input-group -->
 					</div><!-- /.col-lg-6 -->
 					<div class="col-lg-3">
