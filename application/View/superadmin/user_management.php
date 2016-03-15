@@ -73,4 +73,4 @@ Template::load('acp_nav');
 </script>
 
 <?php
-Template::load('footer');
+Template::load('footer', array('js' => '<script src="' . asset_url('assets/js/run_users.js') . '"></script>'));

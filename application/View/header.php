@@ -11,8 +11,6 @@
 
 		<?php echo isset($css) ? $css : '' ?>
 
-		<script type="text/javascript" src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/bower.js') ; ?>"></script>	
-		<?php echo isset($js) ? $js : '' ?>
 	</head>
 	<body>
 		<div class="container">
