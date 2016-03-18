@@ -59,7 +59,6 @@ class Survey extends RunUnit {
 	 */
 	public $parsedown;
 
-	private $last_item_display_order;
 
 	public function __construct($fdb, $session, $unit, $run_session = null, $run = null) {
 		$this->dbh = $fdb;
@@ -387,12 +386,17 @@ class Survey extends RunUnit {
 	 * Save posted survey data to database
 	 *
 	 * @param array $posted
+	 * @param bool $validate Should items be validated before posted?
 	 * @return boolean Returns TRUE if all data was successfully validated and saved or FALSE otherwise
 	 * @throws Exception
 	 */
-	public function post($posted) {
+	public function post($posted, $validate = true) {
 		// remove variables user is not allowed to overrite (they should not be sent to user in the first place if not used in request)
 		unset($posted['id'], $posted['session'], $posted['session_id'], $posted['study_id'], $posted['created'], $posted['modified'], $posted['ended']);
+
+		if (!$posted) {
+			return false;
+		}
 
 		if (isset($posted["_item_views"]["shown"])):
 			$posted["_item_views"]["shown"] = array_filter($posted["_item_views"]["shown"]);
@@ -423,7 +427,7 @@ class Survey extends RunUnit {
 
 			/** @var Item $item */
 			$item = $items[$item_name];
-			$validInput = $item->validateInput($item_value);
+			$validInput = $validate ? $item->validateInput($item_value) : $item_value;
 			if ($item->save_in_results_table) {
 				if ($item->error) {
 					$this->errors[$item_name] = $item->error;
@@ -641,6 +645,8 @@ class Survey extends RunUnit {
 				$results = $ocpu_session->getJSONObject();
 				$updateVisibility = $this->dbh->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
 				$updateVisibility->bindValue(":session_id", $this->session_id);
+
+				$save = array();
 				foreach ($items as $item_name => &$item) {
 					// set show-if visibility for items
 					$siname = "si.{$item->name}";
@@ -653,10 +659,12 @@ class Survey extends RunUnit {
 					// set dynamic values for items
 					$val = array_val($results, $item->name, null);
 					$item->setDynamicValue($val);
-					
+					// save dynamic value
+					if (isset($results[$item->name]) && $item->value !== null) {
+						$save[$item->name] = $item->value;
+					}
 				}
-				
-				//$ocpu_session = opencpu_multiparse_values($this, $dynamic_values, true);
+				$this->post($save, false);
 			}
 		}
 
@@ -714,11 +722,18 @@ class Survey extends RunUnit {
 	}
 	
 	protected function processPageItems($items) {
+		$hiddenItems = array();
 		foreach ($items as $name => $item) {
 			if (!$item->isRendered()) {
+				$hiddenItems[$name] = null;
 				unset($items[$name]);
 				continue;
 			}
+		}
+
+		// save hidden items as answered with NULL in order not to get them in next request
+		if ($hiddenItems) {
+			$this->post($hiddenItems, false);
 		}
 		return $items;
 	}
@@ -726,10 +741,9 @@ class Survey extends RunUnit {
 	/**
 	 * Get the next items to be possibly displayed in the survey
 	 *
-	 * @param int $last_order Some indicator indicating from what 'order' items should be fetch
 	 * @return array Returns items that can be possibly shown on current page
 	 */
-	protected function getNextItems($last_order = null) {
+	protected function getNextItems() {
 		$this->unanswered = array();
 		$select = $this->dbh->select('
 				`survey_items`.id,
@@ -756,10 +770,6 @@ class Survey extends RunUnit {
 			->order('survey_items.`order`', 'asc') // only needed for transfer
 			->order('survey_items.id', 'asc');
 
-		if ($last_order !== null) {
-			$select->where("`survey_items_display`.`display_order` > {$last_order}");
-		}
-
 		$get_items = $select->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))->statement();
 
 		// We initialise item factory with no choice list because we don't know which choices will be used yet.
@@ -783,7 +793,6 @@ class Survey extends RunUnit {
 			}
 		}
 
-		$this->last_item_display_order = $item ? $item['display_order'] : null;
 		return $pageItems;
 	}
 
@@ -974,7 +983,7 @@ class Survey extends RunUnit {
 
 				// If no items ended up to be on the page but for a submit button, then continue
 				if (!$items || (count($items) == 1 && $lastItem->type === 'submit')) {
-					$last_order = $this->last_item_display_order;
+					continue;
 				} else {
 					$items = $this->processDynamicLabelsAndChoices($items);
 					$this->to_render = $items;
