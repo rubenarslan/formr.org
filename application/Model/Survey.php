@@ -595,8 +595,7 @@ class Survey extends RunUnit {
 	 */
 	protected function processDynamicValuesAndShowIfs(&$items) {
 		// In this loop we gather all show-ifs and dynamic-values that need processing and all values.
-		$show_ifs = $dynamic_values = array();
-		$showifs_cache = array();
+		$code = $cache = array();
 		$process = false;
 
 		/* @var $item Item */
@@ -612,13 +611,13 @@ class Survey extends RunUnit {
 
 			$siname = "si.{$name}";
 			$cache_key = md5($showif);
-			if (isset($showifs_cache[$cache_key])) {
-				$showif = "{$siname} = {$showifs_cache[$cache_key]}";
+			if (isset($cache[$cache_key])) {
+				$showif = "{$siname} = {$cache[$cache_key]}";
 			} else {
-				$showifs_cache[$cache_key] = $siname;
+				$cache[$cache_key] = $siname;
 				$showif = "{$siname} = {$showif}";
 			}
-			$show_ifs[$siname] = $showif;
+			$code[$siname] = $showif;
 
 			// 2. Check item's value
 			if ($item->needsDynamicValue()) {
@@ -629,13 +628,12 @@ class Survey extends RunUnit {
 				}
 
 				// If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as tring
-				$dynamic_values[$name] = "{$name} = (function(){ifelse({$siname}, {$item->getValue()}, '{$item->getValue()}')})()";
+				$code[$name] = "{$name} = (function(){ifelse({$siname}, {$item->getValue()}, '{$item->getValue()}')})()";
 				$process = true;
 			}
 			
 		}
 
-		$code = $show_ifs + $dynamic_values;
 		if ($process && $code) {
 			$ocpu_session = opencpu_multiparse_showif($this, $code, true);
 			if (!$ocpu_session OR $ocpu_session->hasError()) {
