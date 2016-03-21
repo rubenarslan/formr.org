@@ -41,7 +41,7 @@ function notify_user_error($error, $public_message = '') {
 
 	$message = $date . ': ' . $public_message . "<br>";
 
-	if (DEBUG || ($run_session && $run_session->isTesting())) {
+	if (DEBUG || ($run_session && $run_session->isTesting()) ) {
 		if ($error instanceof Exception) {
 			$message .= '<pre>' . $error->getMessage() . "</pre>";
 		} else {
@@ -954,7 +954,7 @@ function shortcut_without_opencpu($code, $data) {
  * @param bool $return_session Should OpenCPU_Session object be returned
  * @return string|null
  */
-function opencpu_knit($code, $return_format = 'json', $return_session = false) {
+function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $return_session = false) {
 	$params = array('text' => "'" . addslashes($code) . "'");
 	$uri = '/knitr/R/knit/' . $return_format;
 	try {
@@ -972,6 +972,30 @@ function opencpu_knit($code, $return_format = 'json', $return_session = false) {
 		opencpu_log($e);
 		return null;
 	}
+}
+
+
+function opencpu_knit_plaintext($source, $variables = null, $return_session = false, $context = null) {
+	if (!is_string($variables)) {
+		$variables = opencpu_define_vars($variables, $context);
+	}
+
+	$run_session = Site::getInstance()->getRunSession();
+	
+	$show_errors = 'F';
+	if (!$run_session OR $run_session->isTesting() ) {
+		$show_errors = 'T';
+	}
+	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
+library(knitr); library(formr)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2,fig.height=7,fig.width=10)
+opts_knit$set(base.url="'.OpenCPU::TEMP_BASE_URL.'")
+' . $variables . '
+```
+' .
+$source;
+
+	return opencpu_knit($source, 'json', 0, $return_session);
 }
 
 /**
