@@ -541,14 +541,16 @@ class RunUnit {
 	}
 
 	public function getParsedText($source) {
-		return opencpu_knit($source, 'json');
+		$ocpu_vars = $this->getUserDataInRun($source);
+		return opencpu_knit_plaintext($source, $ocpu_vars, false);
 	}
 
 	public function getParsedTextAdmin($source) {
 		if (!$this->grabRandomSession()) {
 			return false;
 		}
-		return opencpu_debug(opencpu_knit($source, 'json', true));
+		$ocpu_vars = $this->getUserDataInRun($source);
+		return opencpu_debug(opencpu_knit_plaintext($source, $ocpu_vars, true));
 	}
 
 	public function getParsedBodyAdmin($source, $email_embed = false) {
