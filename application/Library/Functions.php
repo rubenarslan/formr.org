@@ -41,7 +41,7 @@ function notify_user_error($error, $public_message = '') {
 
 	$message = $date . ': ' . $public_message . "<br>";
 
-	if (DEBUG OR $run_session->isTesting() ) {
+	if (DEBUG || ($run_session && $run_session->isTesting())) {
 		if ($error instanceof Exception) {
 			$message .= '<pre>' . $error->getMessage() . "</pre>";
 		} else {
