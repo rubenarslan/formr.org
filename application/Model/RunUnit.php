@@ -505,8 +505,8 @@ class RunUnit {
 			$matches_variable_names[ $table_name ] = array();
 			// generate match list for variable names
 			foreach($variable_names_in_table[ $table_name ] AS $variable_name) {
-				// try to match scales too, extraversion_1 + extraversion_2 - extraversion_3R = extraversion (script might mention the construct name, but not its item constituents)
-				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);
+				// try to match scales too, extraversion_1 + extraversion_2 - extraversion_3R - extraversion_4r = extraversion (script might mention the construct name, but not its item constituents)
+				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/i","", $variable_name);
 				// don't match very short variable name bases
 				if(strlen($variable_name_base) < 3) {
 					$variable_name_base = $variable_name;
