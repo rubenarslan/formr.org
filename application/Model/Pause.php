@@ -15,6 +15,7 @@ class Pause extends RunUnit {
 	public $ended = false;
 	public $type = "Pause";
 	public $icon = "fa-pause";
+	private $relative_to_result = null;
 	
 	/**
 	 * An array of unit's exportable attributes
@@ -133,6 +134,7 @@ class Pause extends RunUnit {
 			$this->relative_to = 'tail(survey_unit_sessions$created,1)'; // we take this as implied, this is the time someone arrived at this pause
 			$this->relative_to_true = true;
 		endif;
+		return $this->relative_to_true;
 	}
 
 	protected function checkWhetherPauseIsOver() {
@@ -167,7 +169,7 @@ class Pause extends RunUnit {
 				$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
 				$bind_relative_to = true;
 			else:
-				alert("Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. " . print_r($relative_to, true), 'alert-warning');
+				alert("Pause {$this->position}: Relative to yields neither a date, nor a time. " . print_r($relative_to, true), 'alert-warning');
 				return false;
 			endif;
 		endif;
@@ -221,7 +223,6 @@ class Pause extends RunUnit {
 		if (!$results) {
 			return false;
 		}
-
 		if ($this->knittingNeeded($this->body)) {
 			echo "<h3>Pause message</h3>";
 			echo $this->getParsedBodyAdmin($this->body);
@@ -237,7 +238,7 @@ class Pause extends RunUnit {
 			echo opencpu_debug($session);
 		}
 
-		if (!empty($results)) {
+		if (!empty($results) AND (!$session OR !$session->hasError())) {
 
 			echo '<table class="table table-striped">
 					<thead><tr>
@@ -245,7 +246,7 @@ class Pause extends RunUnit {
 			if ($this->relative_to_true) {
 				echo '<th>Relative to</th>';
 			}
-			echo '<th>Test</th>
+			echo '<th>Wait?</th>
 					</tr></thead>
 					<tbody>';
 

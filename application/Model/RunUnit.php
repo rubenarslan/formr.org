@@ -406,16 +406,27 @@ class RunUnit {
 		if(!empty($needed['variables'])):
 			if(in_array('formr_last_action_date', $needed['variables']) OR in_array('formr_last_action_time', $needed['variables'])):
 				$last_action = $this->dbh->execute(
-					"SELECT `created` FROM `survey_unit_sessions` WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
-					array('session_id' => $this->session_id, 'unit_id' => $this->id),
+					"SELECT `survey_unit_sessions`.`created` FROM `survey_unit_sessions` 
+					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+					WHERE `survey_run_sessions`.id  = :run_session_id AND `unit_id` = :unit_id AND `survey_unit_sessions`.`ended` IS NULL LIMIT 1",
+					array('run_session_id' => $this->run_session_id, 'unit_id' => $this->id),
 					true
 				);
-				$last_action_time = strtotime($last_action);
-				if(in_array('formr_last_action_date', $needed['variables'])):
-					$this->survey_results['.formr$last_action_date'] = "as.POSIXct('".date("Y-m-d", $last_action_time)."')";
-				endif;
-				if(in_array('formr_last_action_time', $needed['variables']) ):
-					$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T", $last_action_time)."')";
+				if($last_action !== false):
+					$last_action_time = strtotime($last_action);
+					if(in_array('formr_last_action_date', $needed['variables'])):
+						$this->survey_results['.formr$last_action_date'] = "as.POSIXct('".date("Y-m-d", $last_action_time)."')";
+					endif;
+					if(in_array('formr_last_action_time', $needed['variables']) ):
+						$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T", $last_action_time)."')";
+					endif;
+				else:
+					if(in_array('formr_last_action_date', $needed['variables'])):
+						$this->survey_results['.formr$last_action_date'] = "NA";
+					endif;
+					if(in_array('formr_last_action_time', $needed['variables']) ):
+						$this->survey_results['.formr$last_action_time'] = "NA";
+					endif;					
 				endif;
 			endif;
 			
