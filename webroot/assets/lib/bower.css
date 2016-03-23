@@ -10664,9 +10664,15 @@ form.form-horizontal img, div.modal-content img,img {
 	right: 1px;
 	cursor: pointer;
 }
-.navbar-toggle, .btn {
+.navbar-toggle, .btn, button {
 	-ms-touch-action: none;
-	    touch-action: none;
+	touch-action: none;
+}
+.js .js_hidden {
+	display: none !important;
+}
+.no_js .js_shown {
+	display: none !important;
 }
 /* CLASSES THAT CAN BE ADDED BY USER TO ITEM CONTAINERS */
 form.form-horizontal div.form-group.float_image_right img {

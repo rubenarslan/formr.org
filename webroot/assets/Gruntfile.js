@@ -99,8 +99,7 @@ grunt.initConfig({
 		cssDest: 'lib/bower_lib.css',
 		exclude: [
 			'ace-builds',
-			'webshim',
-			'hammerjs'
+			'webshim'
 		],
 	    mainFiles: {
 	      'font-awesome': ['css/font-awesome.css']
@@ -128,11 +127,11 @@ grunt.initConfig({
 		  separator: ';',
 		},
 		head: {
-		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js'],
+		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js', 'lib/bower_lib.js', 'js/highlight/highlight.pack.js', 'js/main.js'],
 		  dest: 'lib/head.js',
 		},
 		foot: {
-		  src: ['lib/bower_lib.js', 'js/highlight/highlight.pack.js', 'js/main.js'],
+		  src: [],
 		  dest: 'lib/foot.js',
 		}
 	},

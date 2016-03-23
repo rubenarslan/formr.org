@@ -21,7 +21,9 @@
 
 		hljs.initHighlighting();
 		$('.nav-tabs, .tab-content').stickyStuff();
-
+		
+		// hammer time
+		$(".navbar-toggle").attr("style", "-ms-touch-action: manipulation; touch-action: manipulation;");
 		// Higlight current menu item
 		$('ul.menu-highlight a').each(function() {
 			var $a = $(this);

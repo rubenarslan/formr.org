@@ -90,6 +90,7 @@ class Item extends HTML_element {
 	protected $classes_label = array('control-label');
 	protected $presetValues = array();
 	protected $probably_render = null;
+	protected $js_hidden = false;
 	public $presetValue = null;
 	public $allowed_classes = array(
 		"",
@@ -1179,7 +1180,7 @@ class Item_mc extends Item {
 
 		$this->splitValues();
 
-		$ret = '<div class="mc-table"><input ' . self::_parseAttributes($this->input_attributes, array('type', 'id', 'required')) . ' type="hidden" value="" id="item' . $this->id . '_">';
+		$ret = '<div class="mc-table'. ($this->js_hidden ? ' js_hidden' : '').'"><input ' . self::_parseAttributes($this->input_attributes, array('type', 'id', 'required')) . ' type="hidden" value="" id="item' . $this->id . '_">';
 
 		$opt_values = array_count_values($this->choices);
 		if (isset($opt_values['']) && /* $opt_values[''] > 0 && */ current($this->choices) != '') { // and the first option isn't empty
@@ -1248,7 +1249,7 @@ class Item_mc_multiple extends Item_mc {
 		}
 		$this->splitValues();
 
-		$ret = '<div class="mc-table"><input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required', 'data-grouprequired')) . '>';
+		$ret = '<div class="mc-table'. ($this->js_hidden ? ' js_hidden' : '').'"><input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required', 'data-grouprequired')) . '>';
 		if (!$this->optional) {
 			$ret .= '<input class="hidden" value="" id="item' . $this->id . '__" ' . self::_parseAttributes($this->input_attributes, array('id', 'required', 'class')) . '>'; // this is a kludge, but if I don't add this, checkboxes are always circled red
 		}
@@ -1319,7 +1320,7 @@ class Item_check extends Item_mc_multiple {
 		unset($this->input_attributes['value']);
 
 		$ret = '<input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required')) . '>
-			<label for="item' . $this->id . '_1"><input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="1" id="item' . $this->id . '_1"></label>';
+			<label class="'. ($this->js_hidden ? ' js_hidden' : '').'" for="item' . $this->id . '_1"><input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="1" id="item' . $this->id . '_1"></label>';
 		return $ret;
 	}
 
@@ -1472,14 +1473,15 @@ class Item_select_or_add_multiple extends Item_select_or_add_one {
 class Item_mc_button extends Item_mc {
 
 	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
-
+	protected $js_hidden = true;
+	
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
 		$this->classes_wrapper[] = 'btn-radio';
 	}
 
 	protected function render_appended() {
-		$ret = '<div class="btn-group hidden">';
+		$ret = '<div class="btn-group js_shown">';
 		foreach ($this->choices AS $value => $option):
 			$ret .= '<button class="btn" data-for="item' . $this->id . '_' . $value . '">' .
 					"<span class='btn_value'>$value</span><span class='btn_label'>$option</span>" .
@@ -1548,7 +1550,8 @@ class Item_rating_button extends Item_mc_button {
 		$ret = '<input ' . self::_parseAttributes($this->input_attributes, array('type', 'id', 'required')) . ' type="hidden" value="" id="item' . $this->id . '_">';
 
 		$ret .= "<label class='keep-label'>{$this->lower_text} </label> ";
-
+		
+		$ret .= '<span class="js_hidden">';
 		if ($this->value_validated) {
 			$this->presetValues[] = $this->value_validated;
 		}
@@ -1564,6 +1567,7 @@ class Item_rating_button extends Item_mc_button {
 					'<input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="' . $option . '" id="item' . $this->id . '_' . $option . '">' . $option .
 					'</label>';
 		endforeach;
+		$ret .= '</span>';
 
 		return $ret;
 	}
@@ -1581,6 +1585,7 @@ class Item_mc_multiple_button extends Item_mc_multiple {
 
 	public $mysql_field = 'VARCHAR (40) DEFAULT NULL';
 	public $type = "mc_multiple_button";
+	protected $js_hidden = true;
 
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
@@ -1588,7 +1593,7 @@ class Item_mc_multiple_button extends Item_mc_multiple {
 	}
 
 	protected function render_appended() {
-		$ret = '<div class="btn-group hidden">';
+		$ret = '<div class="btn-group js_shown">';
 		foreach ($this->choices AS $value => $option):
 			$ret .= '<button class="btn" data-for="item' . $this->id . '_' . $value . '">' .
 					"<span class='btn_value'>$value</span><span class='btn_label'>$option</span>" .
@@ -1604,6 +1609,7 @@ class Item_mc_multiple_button extends Item_mc_multiple {
 class Item_check_button extends Item_check {
 
 	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	protected $js_hidden = true;
 
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
@@ -1611,7 +1617,7 @@ class Item_check_button extends Item_check {
 	}
 
 	protected function render_appended() {
-		$ret = '<div class="btn-group hidden">
+		$ret = '<div class="btn-group js_shown">
 					<button class="btn" data-for="item' . $this->id . '_1"><i class="fa fa-2x fa-fw"></i></button>' .
 				'</div>';
 		return $ret;

@@ -23,6 +23,49 @@
 			survey.update(e);
 		});
 	});
+	
+	function ButtonGroup(item) {
+		this.$item = $(item);
+		this.$button_group = this.$item.find(".btn-group");
+		if(this.$item.hasClass("btn-checkbox")) {
+			this.kind = "checkbox";
+		} else if(this.$item.hasClass("btn-check")) {
+			this.kind = "check";
+		} else {
+			this.kind = "radio";
+		}
+		this.$buttons = this.$button_group.find(".btn");
+		this.$inputs = this.$item.find("input[id]");
+		var group = this;
+		this.$buttons.off('click').each(function() {
+			var $btn = $(this),
+				$input = group.$inputs.filter('#'+$btn.attr('data-for'));
+			var is_checked_already = !!$input.prop('checked'); // couple with its radio button
+			$btn.toggleClass('btn-checked', is_checked_already);
+			webshim.addShadowDom($input, group.$button_group);
+			
+			// hammer time
+			$btn.attr("style", "-ms-touch-action: manipulation; touch-action: manipulation;");
+			
+			$btn.click(function() { 
+				return group.button_click(group, $btn, $input); 
+			});
+		});
+	}
+	ButtonGroup.prototype.button_click = function(group, $btn, $input) {
+		var checked_status = !!$input.prop('checked'); // couple with its radio button
+		if(group.kind === 'radio') {
+			group.$buttons.removeClass('btn-checked'); // uncheck all
+			checked_status = false; // can't turn off the radio
+		}
+		$btn.toggleClass('btn-checked', ! checked_status);
+		if(group.kind === 'check') {
+			$btn.find('i').toggleClass('fa-check', ! checked_status);
+		}
+		$input.prop('checked', ! checked_status); // check the real input
+		$btn.change();
+		return false;
+	};
 
 	function Survey() {
 		this.$form = $("form");
@@ -91,65 +134,9 @@
 		});
 		webshim.ready('DOM forms forms-ext dom-extend', function()
 	    {
-	        var radios = $('div.btn-radio button.btn');
-	        radios.closest('div.btn-group').removeClass('hidden');
-	        radios.closest('.controls').find('label[class!=keep-label]').addClass('hidden');
-			radios.off('click').each(function() {
-				var $btn = $(this);
-				var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
-				$btn.toggleClass('btn-checked', is_checked_already);
-		
-				webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
-			}).click(function(event){
-				var $btn = $(this);
-				$('#'+$btn.attr('data-for')).prop('checked',true); // couple with its radio button
-				var all_buttons = $btn.closest('div.btn-group').find('button.btn'); // find all buttons
-				all_buttons.removeClass('btn-checked'); // uncheck all
-				$btn.addClass('btn-checked'); // check this one
-				$btn.change();
-				return false;
-			});
-
-
-			$('div.btn-checkbox button.btn').off('click').click(function(event){
-				var $btn = $(this);
-				var checked = $('#'+$btn.attr('data-for')).prop('checked');
-				$('#'+$btn.attr('data-for')).prop('checked',!checked); // couple with its radio button
-				$btn.toggleClass('btn-checked',!checked); // check this one
-				$('#'+$btn.attr('data-for')).change();
-		
-				return false;
-			}).each(function() {
-				var $btn = $(this);
-				var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
-				$btn.toggleClass('btn-checked', is_checked_already);
-		
-				$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-				$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
-
-				webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
-			});
-        
-			$('div.btn-check button.btn').off('click').click(function(event){
-				var $btn = $(this);
-				var $original_box = $('#'+$btn.attr('data-for'));
-				
-				var checked = !!$original_box.prop('checked');
-				$btn.toggleClass('btn-checked', !checked).find('i').toggleClass('fa-check', !checked); // check this one
-				$original_box.prop('checked',! checked); // toggle check
-				$original_box.change(); // trigger change event to sync up
-				return false;
-			}).each(function() {
-				var $btn = $(this);
-				var $original_box = $('#'+$btn.attr('data-for'));
-		
-				var checked = !!$original_box.prop('checked');
-				$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
-
-				$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-				$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
-		
-				webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
+	        var mc_buttons = $('div.btn-radio, div.btn-checkbox, div.btn-check');
+			mc_buttons.each(function(i, elm) {
+				new ButtonGroup(elm);
 			});
 
 			$('.item-number.counter input[type=number]').each(function() {
@@ -184,6 +171,7 @@
 				});
 					
 			});
+			
 			$("select.select2zone, .form-group.select2 select").each(function(i,elm)
 			{
 				"use strict";
