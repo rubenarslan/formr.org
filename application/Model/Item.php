@@ -1625,6 +1625,7 @@ class Item_sex extends Item_mc_button {
 
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
+		$this->setChoices(array());
 	}
 	public function setChoices($choices) {
 		$this->choices = array(1 => '♂', 2 => '♀');
@@ -1692,6 +1693,9 @@ class Item_random extends Item_number {
 			$this->error = __("Both random minimum and maximum need to be specified");
 		}
 		return $reply;
+	}
+	public function getReply($reply) {
+		return $this->input_attributes['value'];
 	}
 
 }
@@ -1895,13 +1899,13 @@ class Item_timezone extends Item_select_one {
 	public $choice_list = '*';
 
 	protected function chooseResultFieldBasedOnChoices() {
-		
 	}
 
 	protected function setMoreOptions() {
 		$this->classes_input[] = 'select2zone';
 
 		parent::setMoreOptions();
+		$this->setChoices(array());
 	}
 	public function setChoices($choices) {
 		$zonenames = timezone_identifiers_list();
@@ -2099,26 +2103,6 @@ class Item_block extends Item_note {
 	}
 }
 
-class Item_shuffle extends Item_number {
-	public $type = 'shuffle';
-	public $no_user_input_required = true;
-	public $optional = 1;
-	public $input_attributes = array('type' => 'number', 'min' => 0, 'max' => 1, 'step' => 1);
-	
-	protected function setMoreOptions() {
-		parent::setMoreOptions();
-		$this->input_attributes['value'] = mt_rand($this->input_attributes['min'],$this->input_attributes['max']);
-	}
-
-	public function validateInput($reply) {
-		return $reply;
-	}
-
-	public function getReply($reply) {
-		return $this->input_attributes['value'];
-	}
-	
-}
 
 class HTML_element {
 
