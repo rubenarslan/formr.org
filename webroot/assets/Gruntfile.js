@@ -123,12 +123,8 @@ grunt.initConfig({
 		options: {
 		  separator: ';',
 		},
-		head: {
-		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js'],
-		  dest: 'lib/webshim.js',
-		},
-		foot: {
-		  src: ['lib/bower_lib.js', 'js/main.js'],
+		js: {
+		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','lib/bower_lib.js', 'js/main.js'],
 		  dest: 'lib/bower.js',
 		}
 	},
@@ -170,10 +166,6 @@ grunt.initConfig({
 		}
 	},
 	uglify: {
-		webshim: {
-			src: 'lib/webshim.js',
-			dest: 'minified/webshim.js'
-		},
 		main: {
 			src: 'lib/bower.js',
 			dest: 'minified/bower.js'
@@ -198,7 +190,7 @@ grunt.initConfig({
 	jshint: {
 //		beforeconcat:  ['bower_components/webshim/js-webshim/dev/polyfiller.js','lib/bower.js', 'js/main.js'],
 //		afterconcat: ['lib/bower.js'],
-		files:  ['js/webshim.js', 'js/main.js','js/survey.js','js/run.js','js/run_settings.js','js/run_users.js'],
+		files:  ['js/main.js','js/survey.js','js/run.js','js/run_settings.js','js/run_users.js'],
 		options: {
 			globals: {
 				"$": false,
