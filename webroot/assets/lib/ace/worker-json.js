@@ -5,16 +5,15 @@ if (typeof window.window != "undefined" && window.document)
 if (window.require && window.define)
     return;
 
-if (!window.console) {
-    window.console = function() {
-        var msgs = Array.prototype.slice.call(arguments, 0);
-        postMessage({type: "log", data: msgs});
-    };
-    window.console.error =
-    window.console.warn = 
-    window.console.log =
-    window.console.trace = window.console;
-}
+window.console = function() {
+    var msgs = Array.prototype.slice.call(arguments, 0);
+    postMessage({type: "log", data: msgs});
+};
+window.console.error =
+window.console.warn = 
+window.console.log =
+window.console.trace = window.console;
+
 window.window = window;
 window.ace = window;
 
@@ -1056,7 +1055,7 @@ var Document = function(textOrLines) {
         }
     };
     this.replace = function(range, text) {
-        if (!(range instanceof Range))
+        if (!range instanceof Range)
             range = Range.fromPoints(range.start, range.end);
         if (text.length === 0 && range.isEmpty())
             return range.start;
