@@ -43,9 +43,6 @@ class ItemFactory {
 		);
 	}
 
-	public function setChoiceLists(array $lists) {
-		$this->choice_lists = $lists;
-	}
 
 }
 
@@ -644,16 +641,6 @@ class Item extends HTML_element {
 		$this->choices = $choices;
 	}
 
-	protected function setChoiceListFromOptions() {
-		if (!$this->type_options_array || $this->choice_list) {
-			return $this->choice_list;
-		}
-
-		$lc = explode(' ', trim(end($this->type_options_array)));
-		$choice_list = count($lc) > 1 ? end($lc) : $this->choice_list;
-		$this->choice_list = $choice_list;
-		return $this->choice_list;
-	}
 	public function getReply($reply) {
 		return $reply;
 	}
@@ -733,7 +720,6 @@ class Item_number extends Item {
 		$this->classes_input[] = 'form-control';
 		if (isset($this->type_options) && trim($this->type_options) != "") {
 			$this->type_options_array = explode(",", $this->type_options, 3);
-			$this->setChoiceListFromOptions();
 
 			$min = trim(reset($this->type_options_array));
 			if (is_numeric($min) OR $min === 'any') {
@@ -1486,7 +1472,6 @@ class Item_mc_button extends Item_mc {
 
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
-		$this->setChoiceListFromOptions();
 		$this->classes_wrapper[] = 'btn-radio';
 	}
 
@@ -1509,12 +1494,15 @@ class Item_rating_button extends Item_mc_button {
 
 	public $mysql_field = 'SMALLINT DEFAULT NULL';
 	public $type = "rating_button";
+	private $step = 1;
+	private $lower_limit = 1;
+	private $upper_limit = 5;
 
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
-		$step = 1;
-		$lower_limit = 1;
-		$upper_limit = 5;
+		$this->step = 1;
+		$this->lower_limit = 1;
+		$this->upper_limit = 5;
 
 		if (isset($this->type_options_array) && is_array($this->type_options_array)) {
 			if (count($this->type_options_array) == 1) {
@@ -1522,14 +1510,14 @@ class Item_rating_button extends Item_mc_button {
 			}
 
 			if (count($this->type_options_array) == 1) {
-				$upper_limit = (int) trim($this->type_options_array[0]);
+				$this->upper_limit = (int) trim($this->type_options_array[0]);
 			} elseif (count($this->type_options_array) == 2) {
-				$lower_limit = (int) trim($this->type_options_array[0]);
-				$upper_limit = (int) trim($this->type_options_array[1]);
+				$this->lower_limit = (int) trim($this->type_options_array[0]);
+				$this->upper_limit = (int) trim($this->type_options_array[1]);
 			} elseif (count($this->type_options_array) == 3) {
-				$lower_limit = (int) trim($this->type_options_array[0]);
-				$upper_limit = (int) trim($this->type_options_array[1]);
-				$step = (int) trim($this->type_options_array[2]);
+				$this->lower_limit = (int) trim($this->type_options_array[0]);
+				$this->upper_limit = (int) trim($this->type_options_array[1]);
+				$this->step = (int) trim($this->type_options_array[2]);
 			}
 		}
 
@@ -1537,22 +1525,20 @@ class Item_rating_button extends Item_mc_button {
 		 * For obvious reason $this->choices can still be empty at this point (if user doesn't have choice1, choice2 columns but used a choice_list instead)
 		 * So get labels from choice list which should be gotten from last item in options array
 		 */
-		if (!$this->choices) {
-			$this->choice_list = $this->setChoiceListFromOptions();
-		}
-
-		$this->lower_text = current($this->choices);
-		$this->upper_text = next($this->choices);
+	}
+	public function setChoices($choices) {
+		$this->lower_text = current($choices);
+		$this->upper_text = next($choices);
 		// force step to be a non-zero positive number less than or equal to upper limit
-		if ($step <= 0 || $step > $upper_limit) {
-			$step = $upper_limit;
+		if ($this->step <= 0 || $this->step > $this->upper_limit) {
+			$this->step = $this->upper_limit;
 		}
 
-		$choices = range($lower_limit, $upper_limit, $step);
+		$choices = range($this->lower_limit, $this->upper_limit, $this->step);
 		$this->choices = array_combine($choices, $choices);
 	}
-
 	protected function render_input() {
+
 		$this->splitValues();
 
 
