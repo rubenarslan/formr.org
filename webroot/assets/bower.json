@@ -17,7 +17,7 @@
 	"font-awesome": "git://github.com/FortAwesome/Font-Awesome#4.*",
 	"jquery": "git://github.com/components/jquery.git#2.*",
 	"select2": "git://github.com/ivaynberg/select2.git#3.*",
-	"webshim": "git://github.com/aFarkas/webshim.git#1.15.6",
+	"webshim": "git://github.com/aFarkas/webshim.git#1.*",
 	"ace-builds": "git://github.com/ajaxorg/ace-builds#1.*",
   	"hammerjs": "git://github.com/hammerjs/hammer-time"
   },
