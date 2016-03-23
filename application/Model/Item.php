@@ -1622,10 +1622,11 @@ class Item_check_button extends Item_check {
 class Item_sex extends Item_mc_button {
 
 	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
-	public $choice_list = '*';
 
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
+	}
+	public function setChoices($choices) {
 		$this->choices = array(1 => '♂', 2 => '♀');
 	}
 
@@ -1898,6 +1899,11 @@ class Item_timezone extends Item_select_one {
 	}
 
 	protected function setMoreOptions() {
+		$this->classes_input[] = 'select2zone';
+
+		parent::setMoreOptions();
+	}
+	public function setChoices($choices) {
 		$zonenames = timezone_identifiers_list();
 		asort($zonenames);
 		$zones = array();
@@ -1909,9 +1915,6 @@ class Item_timezone extends Item_select_one {
 		endforeach;
 		$this->choices = $zones;
 		$this->offsets = $offsets;
-		$this->classes_input[] = 'select2zone';
-
-		parent::setMoreOptions();
 	}
 
 	protected function render_input() {
