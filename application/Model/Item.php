@@ -1528,10 +1528,6 @@ class Item_rating_button extends Item_mc_button {
 		 * For obvious reason $this->choices can still be empty at this point (if user doesn't have choice1, choice2 columns but used a choice_list instead)
 		 * So get labels from choice list which should be gotten from last item in options array
 		 */
-	}
-	public function setChoices($choices) {
-		$this->lower_text = current($choices);
-		$this->upper_text = next($choices);
 		// force step to be a non-zero positive number less than or equal to upper limit
 		if ($this->step <= 0 || $this->step > $this->upper_limit) {
 			$this->step = $this->upper_limit;
@@ -1539,6 +1535,10 @@ class Item_rating_button extends Item_mc_button {
 
 		$choices = range($this->lower_limit, $this->upper_limit, $this->step);
 		$this->choices = array_combine($choices, $choices);
+	}
+	public function setChoices($choices) {
+		$this->lower_text = current($choices);
+		$this->upper_text = next($choices);
 	}
 	protected function render_input() {
 
