@@ -1398,45 +1398,48 @@ class Item_select_or_add_one extends Item {
 	public $mysql_field = 'TEXT DEFAULT NULL';
 	public $input_attributes = array('type' => 'text');
 	protected $hasChoices = true;
+	private $maxSelect = 0;
+	private $maxType = 255;
 
 	protected function setMoreOptions() {
 		parent::setMoreOptions();
 
-		$maxType = 255; $maxSelect = 0;
 		if (isset($this->type_options) && trim($this->type_options) != "") {
 			$this->type_options_array = explode(",", $this->type_options, 3);
 
-			$maxType = trim(reset($this->type_options_array));
-			if (!is_numeric($maxType)) {
-				$maxType = 255;
+			$this->maxType = trim(reset($this->type_options_array));
+			if (!is_numeric($this->maxType)) {
+				$this->maxType = 255;
 			}
 
 			if (count($this->type_options_array) > 1) {
-				$maxSelect = trim(next($this->type_options_array));
+				$this->maxSelect = trim(next($this->type_options_array));
 			}
-			if (!isset($maxSelect) OR ! is_numeric($maxSelect)) {
-				$maxSelect = 0;
+			if (!isset($this->maxSelect) OR ! is_numeric($this->maxSelect)) {
+				$this->maxSelect = 0;
 			}
 		}
 
 		$this->classes_input[] = 'select2add';
 		$this->classes_input[] = 'form-control';
-		$for_select2 = array();
-
+	}
+	public function setChoices($choices) {
+		$this->choices = $choices;
 		// Hack to split choices if comma separated and have only one element
 		// ASSUMPTION: choices are not suppose to have commas (weirdo)
 		$choice = current($this->choices);
 		if (count($this->choices) == 1 && strpos($choice, ',') !== false) {
 			$this->choices = explode(',', $choice);
 		}
+		$for_select2 = array();
 
 		foreach ($this->choices AS $option) {
 			$for_select2[] = array('id' => $option, 'text' => $option);
 		}
 
 		$this->input_attributes['data-select2add'] = json_encode($for_select2, JSON_UNESCAPED_UNICODE);
-		$this->input_attributes['data-select2maximumSelectionSize'] = (int) $maxSelect;
-		$this->input_attributes['data-select2maximumInputLength'] = (int) $maxType;
+		$this->input_attributes['data-select2maximumSelectionSize'] = (int) $this->maxSelect;
+		$this->input_attributes['data-select2maximumInputLength'] = (int) $this->maxType;
 	}
 	protected function chooseResultFieldBasedOnChoices() { // override parent
 	}
