@@ -17,10 +17,9 @@
 	"font-awesome": "git://github.com/FortAwesome/Font-Awesome#4.3.*",
 	"jquery": "git://github.com/components/jquery.git#2.*",
 	"select2": "git://github.com/ivaynberg/select2.git#3.*",
-	"webshim": "git://github.com/aFarkas/webshim.git#1.*",
-	"highlightjs": "git://github.com/components/highlightjs#8.*",
+	"webshim": "git://github.com/aFarkas/webshim.git#1.15.6",
 	"ace-builds": "git://github.com/ajaxorg/ace-builds#1.*",
-	"fastclick": "~1.0.6"
+  	"hammerjs": "git://github.com/hammerjs/hammer-time"
   },
   "homepage": "https://github.com/rubenarslan/formr.org",
   "authors": [

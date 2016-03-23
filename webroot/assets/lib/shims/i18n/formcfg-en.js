@@ -44,12 +44,16 @@ webshims.formcfg.en = {
 		",": ","
 	},
 	"numberSigns": ".",
-	"dateSigns": "-",
+	"dateSigns": "/",
 	"timeSigns": ":. ",
-	"dFormat": "-",
+	"dFormat": "/",
 	"patterns": {
-		"d": "yy-mm-dd"
+		"d": "mm/dd/yy"
 	},
+	"meridian": [
+		"AM",
+		"PM"
+	],
 	"month": {
 		"currentText": "This month"
 	},
@@ -118,7 +122,7 @@ webshims.formcfg.en = {
 			"Sa"
 		],
 		"weekHeader": "Wk",
-		"firstDay": 1,
+		"firstDay": 0,
 		"isRTL": false,
 		"showMonthAfterYear": false,
 		"yearSuffix": ""

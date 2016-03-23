@@ -83,12 +83,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 		date: 1,
 		month: 1,
 		week: 1,
-		text: 1,
-		password: 1,
-		search: 1,
-		email: 1,
-		tel: 1,
-		url: 1
+		text: 1
 	};
 	//see: http://code.google.com/p/chromium/issues/detail?id=179708 and bug above
 	var noFocusWidgets = {
@@ -257,14 +252,10 @@ webshims.register('form-validation', function($, webshims, window, document, und
 	;
 
 	var setRoot = function(){
-		if(document.scrollingElement){
-			webshims.scrollRoot = $(document.scrollingElement);
-		} else {
-			webshims.scrollRoot = (isWebkit || document.compatMode == 'BackCompat') ?
-				$(document.body) :
-				$(document.documentElement)
-			;
-		}
+		webshims.scrollRoot = (isWebkit || document.compatMode == 'BackCompat') ?
+			$(document.body) :
+			$(document.documentElement)
+		;
 	};
 	var hasTransition = ('transitionDelay' in document.documentElement.style);
 	var resetPos = {display: 'inline-block', left: 0, top: 0, marginTop: 0, marginLeft: 0, marginRight: 0, marginBottom: 0};
@@ -927,7 +918,7 @@ webshims.register('form-validation', function($, webshims, window, document, und
 			var jElm = $(e.target);
 
 
-			if(!firstEvent && !$.find.matchesSelector(e.target, 'form, fieldset') ){
+			if(!firstEvent){
 				//trigger firstinvalid
 				firstEvent = $.Event('firstinvalid');
 				jElm.addClass('first-invalid').trigger(firstEvent);

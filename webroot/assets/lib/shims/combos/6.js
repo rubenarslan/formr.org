@@ -209,7 +209,7 @@ webshims.register('form-native-extend', function($, webshims, window, doc, undef
 	
 	
 });
-;webshims.register('form-number-date-api', function($, webshims, window, document, undefined, options){
+webshims.register('form-number-date-api', function ($, webshims, window, document, undefined, options) {
 	"use strict";
 	if(!webshims.addInputType){
 		webshims.error("you can not call forms-ext feature after calling forms feature. call both at once instead: $.webshims.polyfill('forms forms-ext')");
@@ -825,7 +825,7 @@ webshims.register('form-native-extend', function($, webshims, window, doc, undef
 	}
 	
 });
-;(function($){
+(function ($) {
 	"use strict";
 
 	var isNumber = function(string){
@@ -1445,7 +1445,7 @@ webshims.register('form-native-extend', function($, webshims, window, doc, undef
 		webshims.isReady('range-ui', true);
 	}
 })(window.webshims ? webshims.$ : jQuery);
-;webshims.register('form-number-date-ui', function($, webshims, window, document, undefined, options){
+webshims.register('form-number-date-ui', function ($, webshims, window, document, undefined, options) {
 	"use strict";
 	var curCfg;
 	var formcfg = webshims.formcfg;
@@ -1640,8 +1640,8 @@ webshims.register('form-native-extend', function($, webshims, window, doc, undef
 		};
 	})();
 	var addZero = function(val){
-		val = val+'';
 		if(!val){return "";}
+		val = val+'';
 		return val.length == 1 ? '0'+val : val;
 	};
 	
@@ -1720,12 +1720,13 @@ webshims.register('form-native-extend', function($, webshims, window, doc, undef
 				",": ","
 			},
 			numberSigns: '.',
-			dateSigns: '-',
+			dateSigns: '/',
 			timeSigns: ":. ",
-			dFormat: "-",
+			dFormat: "/",
 			patterns: {
-				d: "yy-mm-dd"
+				d: "mm/dd/yy"
 			},
+			meridian: ['AM', 'PM'],
 			month:  {
 				currentText: 'This month'
 			},
@@ -1744,7 +1745,7 @@ webshims.register('form-native-extend', function($, webshims, window, doc, undef
 				"dayNamesShort": ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],
 				"dayNamesMin": ["Su","Mo","Tu","We","Th","Fr","Sa"],
 				"weekHeader": "Wk",
-				"firstDay": 1,
+				"firstDay": 0,
 				"isRTL": false,
 				"showMonthAfterYear": false,
 				"yearSuffix": ""
@@ -1752,29 +1753,19 @@ webshims.register('form-native-extend', function($, webshims, window, doc, undef
 		}, formcfg.en || {});
 		
 		if(!formcfg['en-US']){
-			formcfg['en-US'] = $.extend(true, {}, formcfg.en, {
-				date: {firstDay: 0},
-				patterns: {d: "mm/dd/yy"},
-				dateSigns: '/',
-				dFormat: "/",
-				meridian: ['AM', 'PM']
-				
-			});
+			formcfg['en-US'] = $.extend(true, {}, formcfg['en']);
 		}
 		if(!formcfg['en-GB']){
 			formcfg['en-GB'] = $.extend(true, {}, formcfg.en, {
-				date: {firstDay: 1},
-				patterns: {d: "dd/mm/yy"},
-				dateSigns: '/',
-				dFormat: "/",
-				meridian: ['AM', 'PM']
+				date: {firstDay: 1}, 
+				patterns: {d: "dd/mm/yy"}
 			});
 		}
 		if(!formcfg['en-AU']){
 			formcfg['en-AU'] = $.extend(true, {}, formcfg['en-GB']);
 		}
 		if(!formcfg['']){
-			formcfg[''] = formcfg['en'];
+			formcfg[''] = formcfg['en-US'];
 		}
 		
 		curCfg = formcfg[''];
@@ -3463,7 +3454,7 @@ webshims.register('form-native-extend', function($, webshims, window, doc, undef
 	})();
 });
 
-;webshims.register('form-datalist', function($, webshims, window, document, undefined, options){
+webshims.register('form-datalist', function ($, webshims, window, document, undefined, options) {
 	"use strict";
 	var lazyLoad = function(name){
 		if(!name || typeof name != 'string'){

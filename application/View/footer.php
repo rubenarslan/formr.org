@@ -3,7 +3,7 @@
 	</div> <!-- end of sidenav container -->
 </div> <!-- end of main content div -->
 
-<script type="text/javascript" src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/bower.js') ; ?>"></script>	
+<script type="text/javascript" src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/foot.js') ; ?>"></script>	
 <?php
  echo isset($js) ? $js : '' ?>
 <?php if ($site->inAdminArea()): ?>

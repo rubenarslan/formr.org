@@ -15,46 +15,30 @@ webshims.register('form-combat', function($,webshims){
 			webshims.info('detected use of '+ pName +' try to add support.');
 		}
 	};
-
-	if($.fn.select2){
-
-		addReplacement('select2', {
-			shadow: $.fn.select2.amd ? '$container' : 'container',
-			shadowFocus: $.fn.select2.amd ? '$selection' : 'focusser',
-			_create: function(elem, shadow, shadowFocus, widgetData){
-				var onValidate;
-				if(('$dropdown' in widgetData)){
-					onValidate = function(e){
-						if (!webshims.wsPopover.isInElement([elem, shadow, shadowFocus, $(widgetData.$dropdown)], e.target)) {
-							$(elem).trigger('updatevalidation.webshims');
-						}
-					};
-					$(shadow).on('wsallowinstantvalidation', function(e, data){
-						$(document).off('focusin', onValidate);
-						if(data.type == 'focusout' && data.target != elem){
-							$(document).on('focusin', onValidate);
-							return false;
-						}
-					});
-				} else if(('container' in widgetData) && $.isFunction(widgetData.opened)){
-					onValidate = function(e){
-						if (!webshims.wsPopover.isInElement([elem, shadow, shadowFocus, $(widgetData.container)], e.target)) {
-							$(elem).trigger('updatevalidation.webshims');
-						}
-					};
-
-					$(shadow).on('wsallowinstantvalidation', function(e, data){
-						$(document).off('focusin', onValidate);
-						if(data.type == 'focusout' && data.target != elem && widgetData.opened()){
-							$(document).on('focusin', onValidate);
-							return false;
-						}
-					});
-				}
+	
+	addReplacement('select2', {
+		shadow: 'container',
+		shadowFocus: 'focusser',
+		_create: function(elem, shadow, shadowFocus, widgetData){
+			
+			if(('container' in widgetData) && $.isFunction(widgetData.opened)){
+				var onValidate = function(e){
+					if (!webshims.wsPopover.isInElement([elem, shadow, shadowFocus, $(widgetData.container)], e.target)) {
+						$(elem).trigger('updatevalidation.webshims');
+					}
+				};
+				
+				$(shadow).on('wsallowinstantvalidation', function(e, data){
+					$(document).off('focusin', onValidate);
+					if(data.type == 'focusout' && data.target != elem && widgetData.opened()){
+						$(document).on('focusin', onValidate);
+						return false;
+					}
+				});
 			}
-		});
-	}
-
+		}
+	});
+	
 	addReplacement('chosen', {
 		shadow: 'container',
 		shadowFocus: 'search_field'
@@ -139,7 +123,6 @@ webshims.register('form-combat', function($,webshims){
 		if(!shadowFocus){
 			shadowFocus = shadow;
 		}
-
 		if(shadow && (replacementDatas.success || ($(shadowFocus).attr('tabindex') || $(shadowFocus).prop('tabIndex') > -1))){
 			webshims.addShadowDom(elem, shadow, {shadowFocusElement: shadowFocus});
 			if(pluginDescriptor._create){

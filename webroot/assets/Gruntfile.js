@@ -128,19 +128,17 @@ grunt.initConfig({
 		  separator: ';',
 		},
 		head: {
-		  src: ['lib/bower_lib.js', 'bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js', 'js/main.js', 'lib/highlight/highlight.pack.js'],
-//		  src: ['lib/bower_lib.js', 'bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js', 'bower_components/hammerjs/hammer-time.js', 'lib/highlight/highlight.pack.js', 'js/main.js'],
-		  dest: 'lib/webshim.js',
+		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js'],
+		  dest: 'lib/head.js',
+		},
+		foot: {
+		  src: ['lib/bower_lib.js', 'js/highlight/highlight.pack.js', 'js/main.js'],
+		  dest: 'lib/foot.js',
 		}
-//,
-//		foot: {
-//		  src: ['lib/bower_lib.js', 'lib/highlight/highlight.pack.js' ,'js/main.js'],
-//		  dest: 'lib/bower.js',
-//		}
 	},
 	concat_css: {
 		all: {
-			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower_lib.css', 'lib/highlight/styles/vs.css', 'css/core.css', 'css/custom_item_classes.css'],
+			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower_lib.css', 'js/highlight/styles/vs.css', 'css/core.css', 'css/custom_item_classes.css'],
 			dest: 'lib/bower.css'
 		},
 	},
@@ -176,13 +174,13 @@ grunt.initConfig({
 		}
 	},
 	uglify: {
-		webshim: {
-			src: 'lib/webshim.js',
-			dest: 'minified/webshim.js'
+		head: {
+			src: 'lib/head.js',
+			dest: 'minified/head.js'
 		},
-		main: {
-			src: 'lib/bower.js',
-			dest: 'minified/bower.js'
+		foot: {
+			src: 'lib/foot.js',
+			dest: 'minified/foot.js'
 		},
 		run: {
 			src: 'js/run.js',
