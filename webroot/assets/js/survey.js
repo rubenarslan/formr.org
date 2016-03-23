@@ -99,8 +99,6 @@
 				var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
 				$btn.toggleClass('btn-checked', is_checked_already);
 		
-				var fc = new FastClick(this);
-		
 				webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 			}).click(function(event){
 				var $btn = $(this);
@@ -129,8 +127,6 @@
 				$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 				$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
 
-				var fc = new FastClick(this);
-
 				webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 			});
         
@@ -152,8 +148,6 @@
 
 				$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
 				$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
-		
-				var fc = new FastClick(this);
 		
 				webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
 			});
@@ -189,8 +183,6 @@
 					webshim.addShadowDom($input, btns);
 				});
 					
-//				var fcd = new FastClick(btns.find(".btn-down")); //broken
-//				var fcu = new FastClick(btns.find(".btn-up"));
 			});
 			$("select.select2zone, .form-group.select2 select").each(function(i,elm)
 			{

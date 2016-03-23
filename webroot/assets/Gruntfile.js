@@ -100,7 +100,11 @@ grunt.initConfig({
 		exclude: [
 			'ace-builds',
 			'webshim',
+			'hammerjs'
 		],
+	    mainFiles: {
+	      'font-awesome': ['css/font-awesome.css']
+	    },
 		bowerOptions: {
 		  relative: true
 		}
@@ -124,17 +128,19 @@ grunt.initConfig({
 		  separator: ';',
 		},
 		head: {
-		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js'],
+		  src: ['lib/bower_lib.js', 'bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js', 'js/main.js', 'lib/highlight/highlight.pack.js'],
+//		  src: ['lib/bower_lib.js', 'bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js', 'bower_components/hammerjs/hammer-time.js', 'lib/highlight/highlight.pack.js', 'js/main.js'],
 		  dest: 'lib/webshim.js',
-		},
-		foot: {
-		  src: ['lib/bower_lib.js', 'js/main.js'],
-		  dest: 'lib/bower.js',
 		}
+//,
+//		foot: {
+//		  src: ['lib/bower_lib.js', 'lib/highlight/highlight.pack.js' ,'js/main.js'],
+//		  dest: 'lib/bower.js',
+//		}
 	},
 	concat_css: {
 		all: {
-			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower_lib.css', 'css/core.css', 'css/custom_item_classes.css'],
+			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower_lib.css', 'lib/highlight/styles/vs.css', 'css/core.css', 'css/custom_item_classes.css'],
 			dest: 'lib/bower.css'
 		},
 	},
@@ -196,8 +202,6 @@ grunt.initConfig({
 		}
 	},
 	jshint: {
-//		beforeconcat:  ['bower_components/webshim/js-webshim/dev/polyfiller.js','lib/bower.js', 'js/main.js'],
-//		afterconcat: ['lib/bower.js'],
 		files:  ['js/webshim.js', 'js/main.js','js/survey.js','js/run.js','js/run_settings.js','js/run_users.js'],
 		options: {
 			globals: {

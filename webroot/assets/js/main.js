@@ -1,5 +1,6 @@
 (function() {
 	"use strict";
+	
 	/**
 	 * formr.org main.js
 	 * @requires jQuery, webshim
@@ -13,8 +14,6 @@
 					replace(encodeURIComponent("\r\n\r\n"), "");
 			$(".schmail").attr('href', schmail);
 		}
-		if ($(".navbar-toggle").length == 1)
-			var navbar_toggle = new FastClick($(".navbar-toggle")[0]); // particularly annoying if this one doesn't fastclick
 
 		$('*[title]').tooltip({
 			container: 'body'
