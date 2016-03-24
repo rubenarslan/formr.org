@@ -722,8 +722,8 @@ class Survey extends RunUnit {
 	protected function processPageItems($items) {
 		$hiddenItems = array();
 		foreach ($items as $name => $item) {
-			if (!$item->isRendered()) {
-				$hiddenItems[$name] = null;
+			if (!$item->isRendered() || $item->no_user_input_required) {
+				$hiddenItems[$name] = $item->value;
 				unset($items[$name]);
 				continue;
 			}
