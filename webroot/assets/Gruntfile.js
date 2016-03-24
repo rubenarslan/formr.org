@@ -130,10 +130,10 @@ grunt.initConfig({
 		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js', 'lib/bower_lib.js', 'js/highlight/highlight.pack.js', 'js/main.js'],
 		  dest: 'lib/head.js',
 		},
-		foot: {
-		  src: [],
-		  dest: 'lib/foot.js',
-		}
+//		foot: {
+//		  src: [],
+//		  dest: 'lib/foot.js',
+//		}
 	},
 	concat_css: {
 		all: {
@@ -177,10 +177,10 @@ grunt.initConfig({
 			src: 'lib/head.js',
 			dest: 'minified/head.js'
 		},
-		foot: {
-			src: 'lib/foot.js',
-			dest: 'minified/foot.js'
-		},
+//		foot: {
+//			src: 'lib/foot.js',
+//			dest: 'minified/foot.js'
+//		},
 		run: {
 			src: 'js/run.js',
 			dest: 'minified/run.js'

@@ -4,14 +4,14 @@
 <html class="no_js">
 	<head> 
 	    <script>(function(H){H.className=H.className.replace(/\bno_js\b/,'js')})(document.documentElement)</script>
-        <title><?php echo $site->makeTitle(); ?></title>
-        <meta charset="utf-8"> 
 		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-
-		<script type="text/javascript" src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/head.js') ; ?>"></script>	
+        <meta charset="utf-8"> 
+        <title><?php echo $site->makeTitle(); ?></title>
 		<link rel="stylesheet" type="text/css" href="<?= asset_url('assets/lib/bower'. (DEBUG ? '' : '.min') . '.css') ; ?>" />
-
 		<?php echo isset($css) ? $css : '' ?>
+		
+		<script type="text/javascript" src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/head.js') ; ?>"></script>	
+		<?php echo isset($js) ? $js : '' ?>
 
 	</head>
 	<body>
