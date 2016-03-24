@@ -1180,7 +1180,8 @@ function opencpu_debug($session, OpenCPU $ocpu = null) {
 	if (empty($session)) {
 		$debug['Response'] = 'No OpenCPU_Session found. Server may be down.';
 		if ($ocpu !== null) {
-			$debug['Request'] = (string) $ocpu->getRequest();
+			$request = $ocpu->getRequest();
+			$debug['Request'] = (string) $request;
 			$reponse_info = $ocpu->getRequestInfo();
 			$debug['Request Headers'] = pre_htmlescape(print_r($reponse_info['request_header'], 1));
 		}
@@ -1192,7 +1193,12 @@ function opencpu_debug($session, OpenCPU $ocpu = null) {
 			else:
 				$debug['Response'] = stringBool($session->getObject('text'));
 			endif;
-			$debug['Request'] = pre_htmlescape((string) $session->getRequest());
+			$request = $session->getRequest();
+			$debug['Request'] =  pre_htmlescape((string) $request);
+			$params = $request->getParams();
+			if(isset($params['text'])) {
+				$debug['R Markdown'] = '<textarea class="form-control" rows="10" readonly>'. h(stripslashes(substr($params['text'], 1, -1))) . '</textarea>';
+			}
 			$urls = $session->getResponsePathsAsLinks();
 			if (!$session->hasError() AND ! empty($urls)) {
 				$locations = '';
@@ -1259,7 +1265,8 @@ function shutdown_formr_org() {
 }
 
 function remove_tag_wrapper($text, $tag = 'p') {
-	if (preg_match("@^<{$tag}>(.+)</{$tag}>$@", trim($text), $matches)) {
+	$text = trim($text);
+	if (preg_match("@^<{$tag}>(.+)</{$tag}>$@", $text, $matches)) {
 		$text = isset($matches[1]) ? $matches[1] : $text;
 	}
 	return $text;
