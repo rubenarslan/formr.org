@@ -602,22 +602,18 @@ class Survey extends RunUnit {
 		foreach ($items as $name => &$item) {
 			// 1. Check item's show-if
 			$showif = $item->getShowIf();
-			// force true for all items without a showif
-			if (!$showif) {
-				$showif = 'T';
-			} else {
-				$process = true;
+			
+			if($showif) {
+				$siname = "si.{$name}";
+				$cache_key = md5($showif);
+				if (isset($cache[$cache_key])) {
+					$showif = "{$siname} = {$cache[$cache_key]}";
+				} else {
+					$cache[$cache_key] = $siname;
+					$showif = "{$siname} = {$showif}";
+				}
+				$code[$siname] = $showif;
 			}
-
-			$siname = "si.{$name}";
-			$cache_key = md5($showif);
-			if (isset($cache[$cache_key])) {
-				$showif = "{$siname} = {$cache[$cache_key]}";
-			} else {
-				$cache[$cache_key] = $siname;
-				$showif = "{$siname} = {$showif}";
-			}
-			$code[$siname] = $showif;
 
 			// 2. Check item's value
 			if ($item->needsDynamicValue()) {
@@ -626,9 +622,15 @@ class Survey extends RunUnit {
 					$item->evaluateDynamicValue($this);
 					continue;
 				}
+				if(!$showif) {
+					$code[$name] = "{$name} = (function(){ {$item->getValue()} })()";
+				} else {
+					$code[$name] = "if({$siname}) {
+	{$name} = (function(){ {$item->getValue()} })()
+}";
+				}
 
-				// If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as tring
-				$code[$name] = "{$name} = (function(){ifelse({$siname}, {$item->getValue()}, '{$item->getValue()}')})()";
+				// If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as string
 				$process = true;
 			}
 			
