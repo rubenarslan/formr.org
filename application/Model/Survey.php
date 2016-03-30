@@ -557,11 +557,11 @@ class Survey extends RunUnit {
 		/** @var Item $item */
 		foreach ($this->to_render as $item) {
 			// On current page, count only rendered items, not skipped ones
-			if ($item->isRendered($this)) {
+			if ($item->isRendered()) {
 				$this->progress_counts['visible_on_current_page'] ++;
 			}
 			// On current page, count those items that were hidden but rendered (ie. those relying on missing data for their showif)
-			if ($item->isHiddenButRendered($this)) {
+			if ($item->isHiddenButRendered()) {
 				$this->progress_counts['hidden_but_rendered_on_current_page'] ++;
 			}
 		}
@@ -660,8 +660,10 @@ class Survey extends RunUnit {
 					$val = array_val($results, $item->name, null);
 					$item->setDynamicValue($val);
 					// save dynamic value
-					if (isset($results[$item->name]) && $item->value !== null) {
-						$save[$item->name] = $item->value;
+					// if a. we have a value b. this item does not require user input (e.g. calculate)
+					if (isset($results[$item->name]) && $item->getComputedValue() !== null && !$item->requiresUserInput()) {
+						$save[$item->name] = $item->getComputedValue();
+						unset($items[$item_name]);
 					}
 				}
 				$this->post($save, false);
@@ -723,20 +725,28 @@ class Survey extends RunUnit {
 		return $items;
 	}
 	
-	protected function processPageItems($items) {
+	/**
+	 * All items that don't require connecting to openCPU and don't require user input are posted immediately.
+	 * Examples: get parameters, browser, ip.
+	 *
+	 * @return array Returns items that may have to be sent to openCPU or be rendered for user input
+	 */
+	protected function processAutomaticItems($items) {
 		$hiddenItems = array();
 		foreach ($items as $name => $item) {
-			if (!$item->isRendered() || $item->no_user_input_required) {
-				$hiddenItems[$name] = $item->value;
+			if (!$item->requiresUserInput() && !$item->needsDynamicValue()) {
+				$hiddenItems[$name] = $item->getComputedValue();
 				unset($items[$name]);
 				continue;
 			}
 		}
 
-		// save hidden items as answered with NULL in order not to get them in next request
+		// save these values
 		if ($hiddenItems) {
 			$this->post($hiddenItems, false);
 		}
+		
+		// return possibly shortened item array
 		return $items;
 	}
 
@@ -978,9 +988,10 @@ class Survey extends RunUnit {
 
 			$last_order = null;
 			while(($items = $this->getNextItems($last_order))) {
+				// process automatic values (such as get, browser)
+				$items = $this->processAutomaticItems($items);
 				// process showifs, dynamic values for these items
 				$items = $this->processDynamicValuesAndShowIfs($items);
-				$items = $this->processPageItems($items);
 				$lastItem = end($items);
 
 				// If no items ended up to be on the page but for a submit button, then continue

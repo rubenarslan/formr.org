@@ -21,7 +21,7 @@ class ItemFactory {
 		if (!empty($item['choice_list'])): // if it has choices
 			if (isset($this->choice_lists[$item['choice_list']])): // if this choice_list exists
 				$item['choices'] = $this->choice_lists[$item['choice_list']]; // take it
-				$this->used_choice_lists[$item['choice_list']] = true; // check it as used
+				$this->used_choice_lists[] = $item['choice_list']; // check it as used
 			else:
 				$item['val_errors'] = array(__("Choice list %s does not exist, but is specified for item %s", $item['choice_list'], $item['name']));
 			endif;
@@ -39,7 +39,7 @@ class ItemFactory {
 
 	public function unusedChoiceLists() {
 		return array_diff(
-				array_keys($this->choice_lists), array_keys($this->used_choice_lists)
+				array_keys($this->choice_lists), $this->used_choice_lists
 		);
 	}
 
@@ -243,6 +243,13 @@ class Item extends HTML_element {
 		if (isset($options['choice_list'])) {
 			$this->choice_list = $options['choice_list'];
 		}
+		
+		if (empty($this->choice_list) && $this->hasChoices && $this->type_options != "") {
+			$lc = explode(' ', trim($this->type_options));
+			if(count($lc) > 1) {
+				$this->choice_list = end($lc);
+			}
+		}
 
 		if (isset($options['choices'])) {
 			$this->choices = $options['choices'];
@@ -397,7 +404,7 @@ class Item extends HTML_element {
 	public function validate() {
 		if (!$this->hasChoices && ($this->choice_list !== null OR count($this->choices))):
 			$this->val_errors[] = "'{$this->name}' You defined choices for this item, even though this type doesn't have choices.";
-		elseif ($this->hasChoices && ($this->choice_list === null OR count($this->choices)===0) && $this->type !== "select_or_add_multiple"):
+		elseif ($this->hasChoices && ($this->choice_list === null && count($this->choices)===0) && $this->type !== "select_or_add_multiple"):
 			$this->val_errors[] = "'{$this->name}' You forgot to define choices for this item.";
 		elseif($this->hasChoices && count(array_unique($this->choices)) < count($this->choices)):
 			$dups = implode(array_diff_assoc($this->choices, array_unique($this->choices)), ", ");
@@ -614,8 +621,15 @@ class Item extends HTML_element {
 			$value = $value[0];
 		}
 
-		$this->value = $value;
 		$this->input_attributes['value'] = $value;
+	}
+	
+	public function getComputedValue() {
+		if(isset($this->input_attributes['value'])) {
+			return $this->input_attributes['value'];
+		} else {
+			return null;
+		}
 	}
 
 	/**
@@ -626,7 +640,16 @@ class Item extends HTML_element {
 	 * @return boolean
 	 */
 	public function isRendered() {
-		return !$this->hidden || $this->probably_render;
+		return $this->requiresUserInput() && (!$this->hidden || $this->probably_render);
+	}
+	
+	/**
+	 * Says if an item requires user input.
+	 *
+	 * @return boolean
+	 */
+	public function requiresUserInput() {
+		return !$this->no_user_input_required;
 	}
 
 	/**
@@ -1809,13 +1832,13 @@ class Item_server extends Item {
 		if (isset($this->type_options_array) && is_array($this->type_options_array)) {
 			if (count($this->type_options_array) == 1) {
 				$this->get_var = trim(current($this->type_options_array));
-				$this->input_attributes['value'] = $_SERVER[$this->get_var];
 			}
 		}
+		$this->input_attributes['value'] = $_SERVER[$this->get_var];
 	}
 
 	public function getReply($reply) {
-		return $_SERVER[$this->get_var];
+		return $this->input_attributes['value'];
 	}
 
 	public function validate() {
@@ -1868,7 +1891,6 @@ class Item_get extends Item {
 		$request = new Request($_GET);
 		if (($value = $request->getParam($this->get_var)) !== null) {
 			$this->input_attributes['value'] = $value;
-			$this->value = $value;
 		}
 	}
 
