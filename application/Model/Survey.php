@@ -596,7 +596,6 @@ class Survey extends RunUnit {
 	protected function processDynamicValuesAndShowIfs(&$items) {
 		// In this loop we gather all show-ifs and dynamic-values that need processing and all values.
 		$code = $cache = array();
-		$process = false;
 
 		/* @var $item Item */
 		foreach ($items as $name => &$item) {
@@ -629,19 +628,18 @@ class Survey extends RunUnit {
 	{$name} = (function(){ {$item->getValue()} })()
 }";
 				}
-
 				// If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as string
-				$process = true;
 			}
 			
 		}
 
-		if ($process && $code) {
+		if ($code) {
 			$ocpu_session = opencpu_multiparse_showif($this, $code, true);
 			if (!$ocpu_session OR $ocpu_session->hasError()) {
 				notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
-			}
+			} 
 			else {
+				print_hidden_opencpu_debug_message($ocpu_session, "OpenCPU debugger for dynamic values and showifs.");
 				$results = $ocpu_session->getJSONObject();
 				$updateVisibility = $this->dbh->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
 				$updateVisibility->bindValue(":session_id", $this->session_id);
