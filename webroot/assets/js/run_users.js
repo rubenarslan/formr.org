@@ -5,7 +5,13 @@ $(function(){
 	$('.link-ajax').each(ajaxifyLink);
 	$('.api-btn').click(userAPIAccess);
 	$('.sessions-search-switch').click(toggleSessionSearch);
-	
+	if($(".hidden_debug_message").length > 0) {
+        $(".show_hidden_debugging_messages").click(function() {
+			$('.hidden_debug_message').toggleClass("hidden");
+            return false;
+        }); 
+        $(".show_hidden_debugging_messages").attr('disabled',false);
+    }
 	$('abbr.abbreviated_session').click(function ()
 	{
 		if($(this).text() !== $(this).data("full-session")) {
@@ -14,6 +20,13 @@ $(function(){
 			$(this).text( $(this).data("full-session").substr(0,10) + "…" );
 		}
 	});
+	if($(".download_r_code").length > 0) {
+        $(".download_r_code").click(function() {
+			var $this = $(this);
+			download($this.data("filename"), $this.nextAll("textarea").val());
+			return false;
+		});
+    }
 	
     $('#confirm-delete').on('show.bs.modal', function(e) {
         $current_target = $(e.relatedTarget);
@@ -213,5 +226,18 @@ $(function(){
 			$me.data('active', 'single');
 		}
 		
+	}
+	
+	function download(filename, text) {
+	  var element = document.createElement('a');
+	  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+	  element.setAttribute('download', filename);
+
+	  element.style.display = 'none';
+	  document.body.appendChild(element);
+
+	  element.click();
+
+	  document.body.removeChild(element);
 	}
 });

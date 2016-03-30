@@ -2,7 +2,8 @@
 	<form class="form-inline form-ajax" action="<?php echo moneybar_url($run->name, 'ajax_send_to_position'); ?>" method="post">
 		<span class="input-group">
 			<span class="input-group-btn">
-				<a class="btn hastooltip" href="<?php echo site_url($run->name . '/?code=' . urlencode($user->user_code)); ?>" title="Link to this session (copy & share to debug)"><i class="fa <?= $icon ?>"></i><small> <?php echo $short_code; ?></small></a>
+				<a class="btn hastooltip" href="<?php echo site_url($run->name . '/?code=' . urlencode($user->user_code)); ?>" title="Link to this session (copy &amp; share to debug)"><i class="fa <?= $icon ?>"></i><small> <?php echo $short_code; ?></small></a>
+				<button class="btn hastooltip show_hidden_debugging_messages" disabled type="button" title="Show hidden debugging messages"><i class="fa fa-search"></i></button>
 				<button class="btn monkey hastooltip" disabled type="button" title="Monkey mode: fill out all form fields with nonsense values"><i class="fa fa-check-square-o"></i></button>
 				<a class="btn hastooltip link-ajax <?= $disable_class ?>" href="<?php echo moneybar_url($run->name, "ajax_remind?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" title="Send yourself a reminder (if you already gave an email address)"><i class="fa fa-bullhorn"></i></a>
 				<a href="<?php echo moneybar_url($run->name, "ajax_next_in_run?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" class="btn hastooltip <?= $disable_class ?> link-ajax refresh_on_success unpause_now" title="Go to next step in run (unpause/skip)"><i class="fa fa-play"></i></a>

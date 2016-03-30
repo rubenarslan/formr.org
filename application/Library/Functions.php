@@ -51,6 +51,18 @@ function notify_user_error($error, $public_message = '') {
 	alert($message, 'alert-danger');
 }
 
+function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '') {
+	$run_session = Site::getInstance()->getRunSession();
+	if (DEBUG || ($run_session && $run_session->isTesting()) ) {
+		$date = date('Y-m-d H:i:s');
+
+		$message = $date . ': ' . $public_message . "<br>";
+
+		$message .= opencpu_debug($ocpu_req);
+		alert($message, 'alert-info hidden_debug_message hidden');
+	}
+}
+
 function redirect_to($location = '') {
 	if (strpos($location, 'index') !== false) {
 		$location = '';
@@ -1123,6 +1135,7 @@ function opencpu_multistring_parse(Survey $survey, array $string_templates) {
 	$session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $survey->name);
 
 	if($session AND !$session->hasError()) {
+		print_hidden_opencpu_debug_message($session, "OpenCPU debugger for dynamic values and showifs.");
 		$parsed_strings = $session->getJSONObject();
 		$strings = explode(OpenCPU::STRING_DELIMITER_PARSED, $parsed_strings);
 		$strings = array_map("remove_tag_wrapper", $strings);
@@ -1197,7 +1210,14 @@ function opencpu_debug($session, OpenCPU $ocpu = null) {
 			$debug['Request'] =  pre_htmlescape((string) $request);
 			$params = $request->getParams();
 			if(isset($params['text'])) {
-				$debug['R Markdown'] = '<textarea class="form-control" rows="10" readonly>'. h(stripslashes(substr($params['text'], 1, -1))) . '</textarea>';
+				$debug['R Markdown'] = '
+					<a href="#" class="download_r_code" data-filename="formr_rmarkdown.Rmd">Download R Markdown file.</a><br>
+					<textarea class="form-control" rows="10" readonly>'. h(stripslashes(substr($params['text'], 1, -1))) . '</textarea>';
+			}
+			if(isset($params['x'])) {
+				$debug['R Code'] = '
+					<a href="#" class="download_r_code" data-filename="formr_values_showifs.R">Download R code file.</a><br>
+					<textarea class="form-control" rows="10" readonly>'. h((substr($params['x'], 1, -1))) . '</textarea>';
 			}
 			$urls = $session->getResponsePathsAsLinks();
 			if (!$session->hasError() AND ! empty($urls)) {
