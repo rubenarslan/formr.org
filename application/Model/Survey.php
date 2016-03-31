@@ -633,39 +633,40 @@ class Survey extends RunUnit {
 			
 		}
 
-		if ($code) {
-			$ocpu_session = opencpu_multiparse_showif($this, $code, true);
-			if (!$ocpu_session OR $ocpu_session->hasError()) {
-				notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
-			} 
-			else {
-				print_hidden_opencpu_debug_message($ocpu_session, "OpenCPU debugger for dynamic values and showifs.");
-				$results = $ocpu_session->getJSONObject();
-				$updateVisibility = $this->dbh->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
-				$updateVisibility->bindValue(":session_id", $this->session_id);
+		if (!$code) {
+			return $items;
+		}
 
-				$save = array();
-				foreach ($items as $item_name => &$item) {
-					// set show-if visibility for items
-					$siname = "si.{$item->name}";
-					$isVisible = $item->setVisibility(array_val($results, $siname));
-					$hidden = $isVisible === null ? null : (int)!$isVisible;
-					$updateVisibility->bindValue(":item_id", $item->id);
-					$updateVisibility->bindValue(":hidden", $hidden);
-					$updateVisibility->execute();
+		$ocpu_session = opencpu_multiparse_showif($this, $code, true);
+		if (!$ocpu_session || $ocpu_session->hasError()) {
+			notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
+		} else {
+			print_hidden_opencpu_debug_message($ocpu_session, "OpenCPU debugger for dynamic values and showifs.");
+			$results = $ocpu_session->getJSONObject();
+			$updateVisibility = $this->dbh->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
+			$updateVisibility->bindValue(":session_id", $this->session_id);
 
-					// set dynamic values for items
-					$val = array_val($results, $item->name, null);
-					$item->setDynamicValue($val);
-					// save dynamic value
-					// if a. we have a value b. this item does not require user input (e.g. calculate)
-					if (isset($results[$item->name]) && $item->getComputedValue() !== null && !$item->requiresUserInput()) {
-						$save[$item->name] = $item->getComputedValue();
-						unset($items[$item_name]);
-					}
+			$save = array();
+			foreach ($items as $item_name => &$item) {
+				// set show-if visibility for items
+				$siname = "si.{$item->name}";
+				$isVisible = $item->setVisibility(array_val($results, $siname));
+				$hidden = $isVisible === null ? null : (int)!$isVisible;
+				$updateVisibility->bindValue(":item_id", $item->id);
+				$updateVisibility->bindValue(":hidden", $hidden);
+				$updateVisibility->execute();
+
+				// set dynamic values for items
+				$val = array_val($results, $item->name, null);
+				$item->setDynamicValue($val);
+				// save dynamic value
+				// if a. we have a value b. this item does not require user input (e.g. calculate)
+				if (isset($results[$item->name]) && $item->getComputedValue() !== null && !$item->requiresUserInput()) {
+					$save[$item->name] = $item->getComputedValue();
+					unset($items[$item_name]);
 				}
-				$this->post($save, false);
 			}
+			$this->post($save, false);
 		}
 
 		return $items;
@@ -743,7 +744,7 @@ class Survey extends RunUnit {
 		if ($hiddenItems) {
 			$this->post($hiddenItems, false);
 		}
-		
+
 		// return possibly shortened item array
 		return $items;
 	}
