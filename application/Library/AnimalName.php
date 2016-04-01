@@ -5,6 +5,7 @@ use Atrox\Haikunator;
  */
 Haikunator::$ADJECTIVES = array(
     "adorable",
+    "awkward",
     "adventurous",
     "aggressive",
     "alert",
@@ -12,6 +13,7 @@ Haikunator::$ADJECTIVES = array(
     "average",
     "beautiful",
     "blue-eyed ",
+    "bored",
     "bloody",
     "blushing",
     "bright",
@@ -47,14 +49,13 @@ Haikunator::$ADJECTIVES = array(
     "poised",
     "precious",
     "quaint",
+    "quirky",
     "shiny",
     "smoggy",
     "sparkling",
     "spotless",
     "stormy",
     "strange",
-    "ugly",
-    "ugliest",
     "unsightly",
     "unusual",
     "wide-eyed ",
@@ -71,6 +72,7 @@ Haikunator::$ADJECTIVES = array(
     "clever",
     "clumsy",
     "concerned",
+    "cool",
     "crazy",
     "curious",
     "dead",
@@ -88,11 +90,9 @@ Haikunator::$ADJECTIVES = array(
     "horrible",
     "important",
     "impossible",
-    "inexpensive",
     "innocent",
     "inquisitive",
     "modern",
-    "mushy",
     "odd",
     "open",
     "outstanding",
@@ -110,11 +110,10 @@ Haikunator::$ADJECTIVES = array(
     "tame",
     "tender",
     "tough",
-    "uninterested",
     "vast",
     "wandering",
     "wild",
-    "wrong",
+    "wasted",
     "agreeable",
     "amused",
     "brave",
@@ -147,9 +146,11 @@ Haikunator::$ADJECTIVES = array(
     "healthy",
     "helpful",
     "hilarious",
+    "hungover",
     "jolly",
     "joyous",
     "kind",
+    "lame",
     "lively",
     "lovely",
     "lucky",
@@ -174,7 +175,6 @@ Haikunator::$ADJECTIVES = array(
 );
 Haikunator::$NOUNS = array("Aardvark",
 	"Adelie"
-	,"Affenpinscher"
 	,"Hound"
 	,"Bush Elephant"
 	,"Forest Elephant"
@@ -182,47 +182,37 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Elephant"
 	,"Penguin"
 	,"Tree Toad"
-	,"Ainu"
 	,"Akbash"
 	,"Akita"
-	,"Malamute"
 	,"Albatross"
 	,"Alligator"
-	,"Dachsbracke"
 	,"Bulldog"
-	,"Foxhound"
 	,"Angelfish"
 	,"Ant"
 	,"Anteater"
+	,"Aardvark"
 	,"Antelope"
-	,"Appenzeller"
 	,"Fox"
 	,"Hare"
 	,"Wolf"
 	,"Armadillo"
 	,"Asian Elephant"
-	,"Cattle Dog"
-	,"Kelpie Dog"
 	,"Mist"
 	,"Shepherd"
-	,"Terrier"
 	,"Avocet"
 	,"Axolotl"
 	,"Baboon"
 	,"Camel"
 	,"Badger"
-	,"Balinese"
 	,"Bandicoot"
 	,"Barb"
 	,"Barn Owl"
 	,"Barnacle"
 	,"Barracuda"
-	,"Basenji"
 	,"Basking"
 	,"Bat"
 	,"Beagle"
 	,"Bear"
-	,"Collie"
 	,"Bearded Dragon"
 	,"Beaver"
 	,"Beetle"
@@ -230,33 +220,24 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Bichon"
 	,"Binturong"
 	,"Bird"
-	,"Birman"
 	,"Bison"
 	,"Black Bear"
 	,"Rhinoceros"
-	,"Bloodhound"
 	,"Blue Whale"
 	,"Bluetick"
 	,"Bobcat"
-	,"Bolognese"
 	,"Bombay"
-	,"Bongo"
 	,"Bonobo"
 	,"Booby"
-	,"Border Collie"
 	,"Orangutan"
 	,"Borneo Elephant"
-	,"Boxer Dog"
 	,"Boykin"
 	,"Brown Bear"
 	,"Budgerigar"
-	,"Budgie"
 	,"Buffalo"
-	,"Bull Mastiff"
 	,"Bull Shark"
 	,"Bullfrog"
 	,"Bumblebee"
-	,"Burmese"
 	,"Butterfly"
 	,"Fish"
 	,"Caiman"
@@ -282,7 +263,6 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Chinook"
 	,"Chinstrap"
 	,"Chipmunk"
-	,"Chow Chow"
 	,"Cichlid"
 	,"Leopard"
 	,"Clown Fish"
@@ -291,9 +271,8 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Cockroach"
 	,"Collared Peccary"
 	,"Common Buzzard"
-	,"Common Frog"
-	,"Common Loon"
-	,"Common Toad"
+	,"Loon"
+	,"Toad"
 	,"Coral"
 	,"Cottontop"
 	,"Tamarin"
@@ -316,8 +295,6 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Dhole"
 	,"Dingo"
 	,"Discus"
-	,"Doberman"
-	,"Pinscher"
 	,"Dodo"
 	,"Dog"
 	,"Dogo"
@@ -340,12 +317,10 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Elephant Seal"
 	,"Elephant Shrew"
 	,"Emu"
-	,"Eskimo Dog"
 	,"Falcon"
 	,"Fennec"
 	,"Ferret"
 	,"Fin Whale"
-	,"Spitz"
 	,"Fire-Bellied Toad"
 	,"Fishing Cat"
 	,"Flamingo"
@@ -353,13 +328,9 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Fly"
 	,"Flying Squirrel"
 	,"Fossa"
-	,"Fox Terrier"
-	,"French Bulldog"
 	,"Frigatebird"
 	,"Frilled Lizard"
 	,"Fur Seal"
-	,"Galapagos Penguin"
-	,"Galapagos Tortoise"
 	,"Gar"
 	,"Gecko"
 	,"Gentoo Penguin"
@@ -373,7 +344,6 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Glow Worm"
 	,"Goat"
 	,"Oriole"
-	,"Retriever"
 	,"Goose"
 	,"Gopher"
 	,"Grasshopper"
@@ -389,12 +359,10 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Shark"
 	,"Hamster"
 	,"Harrier"
-	,"Havanese"
 	,"Hedgehog"
 	,"Hercules Beetle"
 	,"Hermit Crab"
 	,"Heron"
-	,"Highland Cattle"
 	,"Himalayan"
 	,"Hippopotamus"
 	,"Honey Bee"
@@ -409,7 +377,6 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Humpback Whale"
 	,"Hyena"
 	,"Ibis"
-	,"Ibizan Hound"
 	,"Iguana"
 	,"Impala"
 	,"Indian Elephant"
@@ -417,13 +384,9 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Indochinese Tiger"
 	,"Indri"
 	,"Insect"
-	,"Setter"
-	,"WolfHound"
-	,"Jack Russel"
 	,"Jackal"
 	,"Jaguar"
 	,"Chin"
-	,"Javanese"
 	,"Jellyfish"
 	,"Kakapo"
 	,"Kangaroo"
@@ -435,8 +398,6 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Koala"
 	,"Komodo Dragon"
 	,"Kudu"
-	,"Labradoodle"
-	,"Labrador Retriever"
 	,"Ladybird"
 	,"Leaf-Tailed Gecko"
 	,"Lemming"
@@ -455,10 +416,8 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Macaroni Penguin"
 	,"Macaw"
 	,"Magpie"
-	,"Maine Coon"
 	,"Malayan Civet"
 	,"Malayan Tiger"
-	,"Maltese"
 	,"Manatee"
 	,"Mandrill"
 	,"Manta Ray"
@@ -473,7 +432,6 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Mole"
 	,"Molly"
 	,"Mongoose"
-	,"Mongrel"
 	,"Monitor"
 	,"Monkey"
 	,"Moorhen"
@@ -484,9 +442,6 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Mountain Lion"
 	,"Mouse"
 	,"Mule"
-	,"Neanderthal"
-	,"Neapolitan"
-	,"Newfoundland"
 	,"Newt"
 	,"Nightingale"
 	,"Numbat"
@@ -504,7 +459,6 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Parrot"
 	,"Patas Monkey"
 	,"Peacock"
-	,"Pekingese"
 	,"Pelican"
 	,"Persian"
 	,"Pheasant"
@@ -535,8 +489,6 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Quoll"
 	,"Rabbit"
 	,"Raccoon"
-	,"Raccoon Dog"
-	,"Ragdoll"
 	,"Rat"
 	,"Rattlesnake"
 	,"Red Panda"
@@ -548,11 +500,8 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Rock Hyrax"
 	,"Rockhopper"
 	,"Roseate Spoonbill"
-	,"Rottweiler"
 	,"Royal Penguin"
 	,"Russian Blue"
-	,"Sabre-Toothed Tiger"
-	,"Saint Bernard"
 	,"Salamander"
 	,"Sand Lizard"
 	,"Saola"
@@ -569,11 +518,7 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Seal"
 	,"Serval"
 	,"Sheep"
-	,"Shih Tzu"
 	,"Shrimp"
-	,"Siamese"
-	,"Siberian"
-	,"Siberian Husky"
 	,"Siberian Tiger"
 	,"Silver Dollar"
 	,"Skunk"
@@ -584,7 +529,6 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Snapping Turtle"
 	,"Snowshoe"
 	,"Snowy Owl"
-	,"Somali"
 	,"Spadefoot Toad"
 	,"Sparrow"
 	,"Spectacled Bear"
@@ -620,6 +564,7 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Tropicbird"
 	,"Tuatara"
 	,"Turkey"
+	,"Turtle"
 	,"Uakari"
 	,"Uguisu"
 	,"Umbrellabird"
@@ -634,9 +579,7 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Water Dragon"
 	,"Water Vole"
 	,"Weasel"
-	,"Welsh Corgi"
 	,"Whale Shark"
-	,"Whippet"
 	,"White Tiger"
 	,"Wild Boar"
 	,"Wildebeest"
@@ -649,8 +592,6 @@ Haikunator::$NOUNS = array("Aardvark",
 	,"Wrasse"
 	,"Yak"
 	,"Yellow-Eyed Penguin"
-	,"Yorkie"
-	,"Yorkiepoo"
 	,"Zebra"
 	,"Zebra Shark"
 	,"Zebu");
