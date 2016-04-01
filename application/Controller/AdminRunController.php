@@ -124,7 +124,12 @@ class AdminRunController extends AdminController {
 	
 	private function createNewTestCodeAction() {
 		$run_session = $this->run->makeTestRunSession();
-		alert("You've created a new test code. Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user.", "alert-info");
+		$sess = $run_session->session;
+		$animal = substr($sess, 0,strpos($sess, "XXX"));
+		$sess_url = site_url("{$this->run->name}?code=".urlencode($sess));
+		
+		alert("You've created a new test animal, ".h($animal).". Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user or copy the link below <br><textarea readonly cols='60' rows='3' class='copy_clipboard'>" . h($sess_url) . "</textarea>", "alert-info");
+		
 		
 		redirect_to(admin_run_url($this->run->name, "user_overview?session=".$run_session->session));
 	}
