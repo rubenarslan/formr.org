@@ -134,6 +134,25 @@ function toggleElement(id) {
 	$('#' + id).toggleClass('hidden');
 }
 
+function download(filename, text) {
+  var element = document.createElement('a');
+  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+  element.setAttribute('download', filename);
+
+  element.style.display = 'none';
+  document.body.appendChild(element);
+
+  element.click();
+
+  document.body.removeChild(element);
+}
+
+function download_next_textarea() {
+	var $this = $(this);
+	download($this.data("filename"), $this.nextAll("textarea").val());
+	return false;
+}
+
 /**
  * jQuery Plugin: Sticky Accordion and Tabs
  *

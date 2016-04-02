@@ -639,6 +639,8 @@ class RunUnit {
 			return false;
 		} else {
 			
+			print_hidden_opencpu_debug_message($session, "OpenCPU debugger for run R code in {$this->type} at {$this->position}.");
+			
 			$opencpu_url = $session->getLocation();
 
 			if($email_embed) {

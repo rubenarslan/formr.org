@@ -21,11 +21,7 @@ $(function(){
 		}
 	});
 	if($(".download_r_code").length > 0) {
-        $(".download_r_code").click(function() {
-			var $this = $(this);
-			download($this.data("filename"), $this.nextAll("textarea").val());
-			return false;
-		});
+        $(".download_r_code").click(download_next_textarea);
     }
 	
     $('#confirm-delete').on('show.bs.modal', function(e) {
@@ -226,18 +222,5 @@ $(function(){
 			$me.data('active', 'single');
 		}
 		
-	}
-	
-	function download(filename, text) {
-	  var element = document.createElement('a');
-	  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-	  element.setAttribute('download', filename);
-
-	  element.style.display = 'none';
-	  document.body.appendChild(element);
-
-	  element.click();
-
-	  document.body.removeChild(element);
 	}
 });
