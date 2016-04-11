@@ -64,6 +64,7 @@ function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '') {
 }
 
 function redirect_to($location = '') {
+	$location = str_replace(PHP_EOL, '', $location);
 	if (strpos($location, 'index') !== false) {
 		$location = '';
 	}
