@@ -214,18 +214,20 @@ class Site {
 	}
 
 	public function setRunSession(RunSession $runSession) {
-		$id = $runSession->id;
-		if ($id) {
-			Session::set('current_run_session_id', $id);
+		$session = $runSession->session;
+		if ($session) {
+			Session::set('current_run_session_code', $session);
+			$id = md5($session);
 			$this->runSessions[$id] = $runSession;
 		}
 	}
 
-	public function getRunSession($id = null) {
-		if ($id === null) {
+	public function getRunSession($session = null) {
+		if ($session === null) {
 			// if $id is null, get from current session
-			$id = Session::get('current_run_session_id');
+			$session = Session::get('current_run_session_code');
 		}
+		$id = md5($session);
 		return isset($this->runSessions[$id]) ? $this->runSessions[$id] : null;
 	}
 

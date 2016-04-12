@@ -37,7 +37,7 @@ class RunSession {
 		} else {
 			$this->user_id = $user_id;
 		}
-		
+
 		if($run_id == -1) {
 			$this->test_run = true;
 			$this->id = -1;
