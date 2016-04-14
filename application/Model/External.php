@@ -74,11 +74,15 @@ class External extends RunUnit {
 		return $this->delete();
 	}
 
-	private function isR() {
-		if (substr($this->address, 0, 4) == "http") {
+	private function isR($address) {
+		if (substr($address, 0, 4) == "http") {
 			return false;
 		}
 		return true;
+	}
+	
+	private function isAddress($address) {
+		return ! $this->isR($address);
 	}
 
 	private function makeAddress($address) {
@@ -89,7 +93,7 @@ class External extends RunUnit {
 	}
 
 	public function test() {
-		if ($this->isR()) {
+		if ($this->isR($this->address)) {
 			if ($results = $this->getSampleSessions()) {
 				if (!$results) {
 					return false;
@@ -112,28 +116,39 @@ class External extends RunUnit {
 	}
 
 	public function exec() {
-		if ($this->called_by_cron) {
-			return true; // never show to the cronjob
-		}
+		if ($this->isR($this->address)) {
+			$opencpu_vars = $this->getUserDataInRun($this->address);
+			$result = opencpu_evaluate($this->address, $opencpu_vars);
 
-		if ($this->isR()) {
-
-			if ($this->address=== null) {
+			if ($result=== null) {
 				return true; // don't go anywhere, wait for the error to be fixed!
 			}
+			elseif($result === FALSE) {
+				$this->end();
+				return false; // go on, no redirect
+			} 
+			elseif($this->isAddress($result) ) {
+				$goto = $result;
+			}
+		} else { // the simplest case, just an address
+			$goto = $this->address;
 		}
-
-		if($this->isR() AND $this->address === FALSE) {
-			return false;
-		}
-
-		$this->address = $this->makeAddress($this->address);
+		
+		// replace the code placeholder, if any
+		$goto = $this->makeAddress($goto);
+		
+		
+		// sometimes we aren't able to control the other end
 		if (!$this->api_end) {
 			$this->end();
 		}
-
-		redirect_to($this->address);
-		return false;
+		
+		// never redirect if we're just in the cron job
+		if(! $this->called_by_cron) {
+			redirect_to($goto);
+			return false;
+		}
+		return true; // wait for user
 	}
 
 }

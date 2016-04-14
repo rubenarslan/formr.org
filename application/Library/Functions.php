@@ -928,8 +928,9 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 
 		if ($session->hasError()) {
 			throw new OpenCPU_Exception($session->getError());
+		} else {
+			print_hidden_opencpu_debug_message($session, "OpenCPU debugger for run R code.");
 		}
-		print_hidden_opencpu_debug_message($session, "OpenCPU debugger for run R code.");
 		
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
