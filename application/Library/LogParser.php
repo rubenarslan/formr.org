@@ -38,7 +38,11 @@ class LogParser {
 		if ($handle) {
 			while (($line = fgets($handle)) !== false) {
 				$line = trim($line);
-				if (!$line || strstr($line, self::LOG_MARKER)) {
+				if (!$line) {
+					continue;
+				}
+
+				if (strstr($line, self::LOG_MARKER)) {
 					$id++;
 					continue;
 				}
