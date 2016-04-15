@@ -19,7 +19,7 @@
 	<div id="log-entries" class="text panel-group opencpu_accordion">
 		<?php
 			if ($parse) {
-				$parser->printCronLogFile($parse);
+				$parser->printCronLogFile($parse, $expand_logs);
 			}
 		?>
 	</div>
