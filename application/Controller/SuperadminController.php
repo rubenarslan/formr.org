@@ -88,7 +88,24 @@ class SuperadminController extends Controller {
 		$response->send();
 	}
 
+	public function cronLogParsed() {
+		$parser = new LogParser();
+		$files = $parser->getCronLogFiles();
+		$file = $this->request->getParam('f');
+		$parse = null;
+		if ($file && isset($files[$file])) {
+			$parse = $file;
+		}
+		$this->renderView('superadmin/cron_log_parsed', array(
+			'files' => $files,
+			'parse' => $parse,
+			'parser' => $parser,
+		));
+	}
+
 	public function cronLogAction() {
+		return $this->cronLogParsed();
+		// @todo: deprecate code
 		$cron_entries_count = $this->fdb->count('survey_cron_log');
 		$pagination = new Pagination($cron_entries_count);
 		$limits = $pagination->getLimits();

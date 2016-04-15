@@ -461,7 +461,16 @@ class AdminRunController extends AdminController {
 		));
 	}
 
+	private function cronLogParsed() {
+		$parser = new LogParser();
+		$parse = $this->run->name . '.log';
+		$vars = get_defined_vars();
+		$this->renderView('run/cron_log_parsed', $vars);
+	}
+
 	private function cronLogAction() {
+		return $this->cronLogParsed();
+		// @todo: deprecate code
 		$run = $this->run;
 		$fdb = $this->fdb;
 
