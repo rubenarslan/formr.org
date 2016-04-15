@@ -984,8 +984,8 @@ form.form-horizontal img, div.modal-content img,img {
     max-width: 200px;
     overflow: hidden;
     position: absolute;
-    top: 0px;
-    left: 0px;
+    top: 0;
+    left: 0;
 }
 .cron-log .file.current a {
     background: #efefef;
@@ -1010,7 +1010,7 @@ form.form-horizontal img, div.modal-content img,img {
 .cron-log .log-entry .panel-heading a {
     display: block;
 }
-#log-entries {
+.log-entries {
     display: none;
 }
 

@@ -9,7 +9,7 @@
 
 
 <div class="cron-log">
-	<div id="log-entries" class="text panel-group opencpu_accordion">
+	<div id="log-entries" class="log-entries text panel-group opencpu_accordion">
 		<?php
 			if ($parse) {
 				$parser->printCronLogFile($parse);
