@@ -10674,6 +10674,7 @@ form.form-horizontal img, div.modal-content img,img {
 .no_js .js_shown {
 	display: none !important;
 }
+
 .carousel_indicators li {
 	background-color: gray;
 }
@@ -10683,6 +10684,43 @@ form.form-horizontal img, div.modal-content img,img {
 .carousel-inner .item img {
 	margin-left: auto;
 	margin-right: auto;
+}
+.cron-log {
+   position: relative; 
+}
+.cron-log .files {
+    width: 200px;
+    max-width: 200px;
+    overflow: hidden;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+}
+.cron-log .file.current a {
+    background: #efefef;
+    color: #000;
+    padding: 3px;
+}
+.cron-log .text {
+    margin-left: 210px;
+    float: left;
+    width: 800px;
+}
+.cron-log .log-entry {
+    max-width: 100%;
+}
+.cron-log .log-entry .hidden {
+    display: block !important;
+    visibility: visible !important;
+}
+.cron-log .log-entry .panel-content {
+    padding: 12px;
+}
+.cron-log .log-entry .panel-heading a {
+    display: block;
+}
+#log-entries {
+    display: none;
 }
 /* CLASSES THAT CAN BE ADDED BY USER TO ITEM CONTAINERS */
 form.form-horizontal div.form-group.float_image_right img {
