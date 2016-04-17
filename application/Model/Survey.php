@@ -647,23 +647,41 @@ class Survey extends RunUnit {
 			$updateVisibility->bindValue(":session_id", $this->session_id);
 
 			$save = array();
+
+			$definitelyShownItems = 0;
 			foreach ($items as $item_name => &$item) {
 				// set show-if visibility for items
 				$siname = "si.{$item->name}";
 				$isVisible = $item->setVisibility(array_val($results, $siname));
-				$hidden = $isVisible === null ? null : (int)!$isVisible;
+				// three possible states: 1 = hidden, 0 = shown, null = depends on JS on the page, render anyway
+				if($isVisible === null) {
+					if($definitelyShownItems > 0) {
+						$hidden = null; // we only render it, if there are some items before it on which its display could depend
+					} else {
+						$hidden = 1; // otherwise it's hidden for good
+					}
+				} else {
+					$hidden = (int)!$isVisible;
+				}
 				$updateVisibility->bindValue(":item_id", $item->id);
 				$updateVisibility->bindValue(":hidden", $hidden);
 				$updateVisibility->execute();
-
-				// set dynamic values for items
-				$val = array_val($results, $item->name, null);
-				$item->setDynamicValue($val);
-				// save dynamic value
-				// if a. we have a value b. this item does not require user input (e.g. calculate)
-				if (isset($results[$item->name]) && $item->getComputedValue() !== null && !$item->requiresUserInput()) {
-					$save[$item->name] = $item->getComputedValue();
-					unset($items[$item_name]);
+				
+				if($hidden === 0) {
+					$definitelyShownItems++; // track whether there are any items certain to be shown
+				}
+				if($hidden === 1) { // gone for good
+					unset($items[$item_name]); // we remove items that are definitely hidden from consideration
+				} else {
+					// set dynamic values for items
+					$val = array_val($results, $item->name, null);
+					$item->setDynamicValue($val);
+					// save dynamic value
+					// if a. we have a value b. this item does not require user input (e.g. calculate)
+					if (isset($results[$item->name]) && $item->getComputedValue() !== null && !$item->requiresUserInput()) {
+						$save[$item->name] = $item->getComputedValue();
+						unset($items[$item_name]); // we remove items that are immediately written from consideration
+					}
 				}
 			}
 			$this->post($save, false);
@@ -776,7 +794,9 @@ class Survey extends RunUnit {
 				`survey_items_display`.answered')
 			->from('survey_items')
 			->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-			->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS null) AND (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)")
+			->where("survey_items.study_id = :study_id AND 
+				(survey_items_display.saved IS null) AND 
+				(survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)")
 			->order('`survey_items_display`.`display_order`', 'asc')
 			->order('survey_items.`order`', 'asc') // only needed for transfer
 			->order('survey_items.id', 'asc');
@@ -985,8 +1005,7 @@ class Survey extends RunUnit {
 				}
 			}
 
-			$last_order = null;
-			while(($items = $this->getNextItems($last_order))) {
+			while(($items = $this->getNextItems())) {
 				// process automatic values (such as get, browser)
 				$items = $this->processAutomaticItems($items);
 				// process showifs, dynamic values for these items
