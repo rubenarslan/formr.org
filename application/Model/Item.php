@@ -1506,7 +1506,7 @@ class Item_mc_button extends Item_mc {
 	protected function render_appended() {
 		$ret = '<div class="btn-group js_shown">';
 		foreach ($this->choices AS $value => $option):
-			$ret .= '<button class="btn" data-for="item' . $this->id . '_' . $value . '">' .
+			$ret .= '<button type="button" class="btn" data-for="item' . $this->id . '_' . $value . '">' .
 					"<span class='btn_value'>$value</span><span class='btn_label'>$option</span>" .
 					'</button>';
 		endforeach;
@@ -1618,7 +1618,7 @@ class Item_mc_multiple_button extends Item_mc_multiple {
 	protected function render_appended() {
 		$ret = '<div class="btn-group js_shown">';
 		foreach ($this->choices AS $value => $option):
-			$ret .= '<button class="btn" data-for="item' . $this->id . '_' . $value . '">' .
+			$ret .= '<button type="button" class="btn" data-for="item' . $this->id . '_' . $value . '">' .
 					"<span class='btn_value'>$value</span><span class='btn_label'>$option</span>" .
 					'</button>';
 		endforeach;
@@ -1641,7 +1641,7 @@ class Item_check_button extends Item_check {
 
 	protected function render_appended() {
 		$ret = '<div class="btn-group js_shown">
-					<button class="btn" data-for="item' . $this->id . '_1"><i class="fa fa-2x fa-fw"></i></button>' .
+					<button type="button" class="btn" data-for="item' . $this->id . '_1"><i class="fa fa-2x fa-fw"></i></button>' .
 				'</div>';
 		return $ret;
 	}
@@ -1691,7 +1691,7 @@ class Item_geopoint extends Item {
 	protected function render_appended() {
 		$ret = '
 			<span class="input-group-btn hidden">
-				<button class="btn btn-default geolocator item' . $this->id . '">
+				<button type="button" class="btn btn-default geolocator item' . $this->id . '">
 					<i class="fa fa-location-arrow fa-fw"></i>
 				</button>
 			</span>
