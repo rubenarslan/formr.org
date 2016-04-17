@@ -496,7 +496,11 @@ class Item extends HTML_element {
 		}
 
 		$this->classes_wrapper = array_unique($this->classes_wrapper);
-		return '<div class="' . implode(" ", $this->classes_wrapper) . '"' . ($this->data_showif ? ' data-showif="' . h($this->js_showif) . '"' : '') . '>' . $this->render_inner() . $this->render_item_view_input() . '</div>';
+		return '<div class="' . implode(" ", $this->classes_wrapper) . '"' . ($this->data_showif ? ' data-showif="' . h($this->js_showif) . '"' : '') . '>' . $this->render_inner() . $this->render_item_view_input() . '
+			<div class="hidden_debug_message hidden item_name">
+						<span class="badge hastooltip" title="'.h($this->js_showif).'">' . h($this->name) . '</span>
+			</div>
+			</div>';
 	}
 
 	protected function splitValues() {

@@ -10026,6 +10026,9 @@ output.output {
     margin: 0 0 0 10px;
 }
 
+.form-row {
+	position: relative;
+}
 .form-row .form-control
 {
     max-width:300px;
@@ -10721,6 +10724,12 @@ form.form-horizontal img, div.modal-content img,img {
 }
 .log-entries {
     display: none;
+}
+.item_name {
+	position:absolute;
+	top: 10px;
+	right: 0;
+	opacity: 0.7;
 }
 /* CLASSES THAT CAN BE ADDED BY USER TO ITEM CONTAINERS */
 form.form-horizontal div.form-group.float_image_right img {

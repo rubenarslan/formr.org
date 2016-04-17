@@ -23,6 +23,13 @@
 			survey.update(e);
 		});
 	});
+	if($(".form-row.hidden").length > 0) {
+        $(".show_hidden_items").click(function() {
+			$('.form-row.hidden').removeClass("hidden");
+            return false;
+        }); 
+        $(".show_hidden_items").attr('disabled',false);
+    }
 	
 	function ButtonGroup(item) {
 		this.$item = $(item);
