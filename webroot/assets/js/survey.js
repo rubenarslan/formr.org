@@ -53,7 +53,9 @@
 		this.percentage_minimum = this.$progressbar.data('percentage-minimum');
 		this.percentage_maximum = this.$progressbar.data('percentage-maximum');
 		this.form_inputs = {};
-	
+		this.last_update = false;
+		this.next_update = false;
+		this.dont_update = false;
 		// initialising special items
 		// --------------------------
 		
@@ -341,18 +343,26 @@
 		});
 	}
 	Survey.prototype.update = function () {
+		var survey = this;
+		if(survey.dont_update) {
+			return;
+		}
 		/// update at most every 500ms
 		var now = new Date().getTime();
-		if(this.last_update && this.last_update + 500 > now) {
-			window.setTimeout($.proxy(this.update, this), this.last_update + 500 - now);
+		
+		if(survey.last_update && survey.last_update + 500 > now) {
+			if(! survey.next_update) { // don't queue up a bunch of updates
+				survey.next_update = window.setTimeout($.proxy(survey.update, survey), survey.last_update + 500 - now);
+			}
 			return;
-		} else {
-			this.last_update = now;
+		} else  {
+			survey.last_update = now;
+			survey.next_update = false;
 		}
 		
-		this.getData();
-		this.showIf();
-		this.getProgress();
+		survey.getData();
+		survey.showIf();
+		survey.getProgress();
 	};
 	Survey.prototype.getData = function () {
 		var badArray = this.$form.serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
@@ -437,10 +447,11 @@
 	};
     Survey.prototype.doMonkey = function(monkey_iteration) {
 		var survey = this;
-        
         if(monkey_iteration > 2) return false;
         else if (monkey_iteration === undefined) monkey_iteration = 0;
         else monkey_iteration++;
+
+		survey.dont_update = true;
         
 		var items_left = $("form.main_formr_survey .form-row:not(.hidden):not(.formr_answered):not(.item-submit)");
         var date                     = new Date();
@@ -609,6 +620,8 @@
         {
             $(elm).trigger('change');
         });
+		survey.dont_update = false;
+		survey.update();
         survey.doMonkey(monkey_iteration);
     };
 	
