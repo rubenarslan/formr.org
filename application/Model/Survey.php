@@ -287,7 +287,7 @@ class Survey extends RunUnit {
 			$survey_items_display = $this->dbh->prepare(
 				"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`) 
 					VALUES (:item_id, :session_id, :display_order)
-				 ON DUPLICATE KEY UPDATE item_id = VALUES(item_id)");
+				 ON DUPLICATE KEY UPDATE display_order = VALUES(display_order)");
 
 			 $survey_items_display->bindParam(":session_id", $this->session_id);
 
