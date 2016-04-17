@@ -17,3 +17,4 @@ formr-package/man
 /webroot/assets/tmp/admin/*.*
 /tmp/backups/results/*.*
 /tmp/backups/surveys/*.*
+webroot/assets/img/randPic

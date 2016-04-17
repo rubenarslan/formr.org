@@ -1164,7 +1164,11 @@ class Item_submit extends Item {
 	}
 
 	protected function render_inner() {
-		return '<button ' . self::_parseAttributes($this->input_attributes, array('required')) . '>' . $this->label_parsed . '</button>';
+		$ret = '<button ' . self::_parseAttributes($this->input_attributes, array('required')) . '>' . $this->label_parsed . '</button>';
+		if(isset($this->input_attributes["data-timeout"])) {
+			$ret .= '<div class="white_cover"></div>';
+		}
+		return $ret;
 	}
 
 }

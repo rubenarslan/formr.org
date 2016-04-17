@@ -1,36 +1,4 @@
-(function() {
-	// polyfill window.performance.now
-	window.performance = window.performance || {};
-	performance.now = (function() {
-	  return performance.now       ||
-	         performance.mozNow    ||
-	         performance.msNow     ||
-	         performance.oNow      ||
-			performance.webkitNow;
-	})();
-	
-	$(document).ready(function(e) {
-		var survey = new Survey();
-        if($("button.monkey").length > 0) {
-            $("button.monkey").click(function() {
-                survey.doMonkey(0);
-                return false;
-            }); 
-            $("button.monkey").attr('disabled',false);
-        }
-		survey.update(e);
-		$('form.main_formr_survey').on('change', function(e) { 
-			survey.update(e);
-		});
-	});
-	if($(".form-row.hidden").length > 0) {
-        $(".show_hidden_items").click(function() {
-			$('.form-row.hidden').removeClass("hidden");
-            return false;
-        }); 
-        $(".show_hidden_items").attr('disabled',false);
-    }
-	
+(function($) {
 	function ButtonGroup(item) {
 		this.$item = $(item);
 		this.$button_group = this.$item.find(".btn-group");
@@ -81,9 +49,7 @@
 		this.items_left = this.$progressbar.data('items-left');
 		this.items_on_page = this.$progressbar.data('items-on-page');
 		if(!$('.default_formr_button')[0]) this.items_on_page--; // we don't count submit buttons (but there is the special case of the default one)
-//		console.log("this.items_on_page",this.items_on_page);
 		this.hidden_but_rendered = this.$progressbar.data('hidden-but-rendered');
-//		console.log("this.hidden_but_rendered",this.hidden_but_rendered);
 		this.percentage_minimum = this.$progressbar.data('percentage-minimum');
 		this.percentage_maximum = this.$progressbar.data('percentage-maximum');
 		this.form_inputs = {};
@@ -92,12 +58,10 @@
 		// --------------------------
 		
 		$("button.submit_automatically_after_timeout").each(function(i,elm) {
-			var white_cover = $('<div class="white_cover"></div>');
 			$('<div class="submit_fuse_box"><div class="submit_fuse"></div></div>').appendTo(elm);
-			white_cover.appendTo("body");
 			$(window).on("load", function() {
 				var timeout = $(elm).data('timeout');
-				white_cover.remove();
+				$(".white_cover").remove();
 				window.setTimeout(function() {
 					$(elm).click();
 				}, timeout);
@@ -376,7 +340,7 @@
 			});
 		});
 	}
-	Survey.prototype.update = function (e) {
+	Survey.prototype.update = function () {
 		/// update at most every 500ms
 		var now = new Date().getTime();
 		if(this.last_update && this.last_update + 500 > now) {
@@ -647,23 +611,29 @@
         });
         survey.doMonkey(monkey_iteration);
     };
+	
+	$(function() { // on domready
+		var survey = new Survey();
+		survey.update();
+		$('form.main_formr_survey').on('change', function() { 
+			survey.update();
+		});
+		
+		if($(".form-row.hidden").length > 0) {
+	        $(".show_hidden_items").click(function() {
+				$('.form-row.hidden').removeClass("hidden");
+	            return false;
+	        }); 
+	        $(".show_hidden_items").attr('disabled',false);
+	    }
+        if($("button.monkey").length > 0) {
+            $("button.monkey").click(function() {
+                survey.doMonkey(0);
+                return false;
+            }); 
+            $("button.monkey").attr('disabled',false);
+        }
+	});
+	
 
-	function flatStringifyGeo(geo) {
-		"use strict";
-		var result = {};
-		result.timestamp = geo.timestamp;
-		var coords = {};
-		coords.accuracy = geo.coords.accuracy;
-		coords.altitude = geo.coords.altitude;
-		coords.altitudeAccuracy = geo.coords.altitudeAccuracy;
-		coords.heading = geo.coords.heading;
-		coords.latitude = geo.coords.latitude;
-		coords.longitude = geo.coords.longitude;
-		coords.speed = geo.coords.speed;
-		result.coords = coords;
-		return JSON.stringify(result);
-	}
-	function mysql_datetime() {
-	    return (new Date()).toISOString().slice(0, 19).replace('T', ' ');
-	}
-}());
+}(jQuery));

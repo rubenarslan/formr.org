@@ -1,49 +1,5 @@
-$(function(){
+(function($) {
 	"use strict";
-    var $current_target;
-	$('.form-ajax').each(ajaxifyForm);
-	$('.link-ajax').each(ajaxifyLink);
-	$('.api-btn').click(userAPIAccess);
-	$('.sessions-search-switch').click(toggleSessionSearch);
-	if($(".hidden_debug_message").length > 0) {
-        $(".show_hidden_debugging_messages").click(function() {
-			$('.hidden_debug_message').toggleClass("hidden");
-            return false;
-        }); 
-        $(".show_hidden_debugging_messages").attr('disabled',false);
-    }
-	$('abbr.abbreviated_session').click(function ()
-	{
-		if($(this).text() !== $(this).data("full-session")) {
-			$(this).text( $(this).data("full-session") );
-		} else {
-			$(this).text( $(this).data("full-session").substr(0,10) + "…" );
-		}
-	});
-	if($(".download_r_code").length > 0) {
-        $(".download_r_code").click(download_next_textarea);
-    }
-	
-    $('#confirm-delete').on('show.bs.modal', function(e) {
-        $current_target = $(e.relatedTarget);
-        var $modal = $(this);
-        $current_target.parents("tr").css("background-color","#ee5f5b");
-        $(this).find('.danger').attr('href', $current_target.data('href'));
-        ajaxifyLink(1,$(this).find('.danger'));
-        $(this).find('.danger').click(function(e) {
-            $current_target.css("color","#ee5f5b");
-            if($modal.hasClass('refresh_on_success')) {
-                window.setTimeout(function() {
-                    document.location.reload(true);
-                }, 200);
-            }
-            $modal.modal("hide");
-            
-        });
-    }).on("hide.bs.modal", function(e) {
-        $current_target.parents("tr").css("background-color","transparent");
-    });
-
 	function ajaxifyLink(i,elm) {
 	    $(elm).click(function(e)
 	    {
@@ -66,7 +22,7 @@ $(function(){
 	                if(!$this.hasClass("danger"))
 	                    $this.css('color','green');
 					var $logo = $this.find('i.fa');
-					
+				
 	                if($logo.hasClass("fa-stethoscope")) {
 	                    $logo.addClass('fa-heartbeat');
 	                    $logo.removeClass('fa-stethoscope');
@@ -109,7 +65,7 @@ $(function(){
 	            $submit.attr('disabled',false);
 	            $submit.css('color','green');
 				$('.main_body').prepend(data);
-                
+            
                 if($submit.hasClass('refresh_on_success')) {
                     document.location.reload(true);
                 }
@@ -124,7 +80,7 @@ $(function(){
 
 	function userAPIAccess(e) {
 	    /*jshint validthis:true */
-		
+	
 		var userId = parseInt($(this).data('user'), 10);
 		var userEmail = $(this).data('email');
 		if (!userId || !userEmail) {
@@ -138,7 +94,7 @@ $(function(){
 			}
 		});
 
-		
+	
 	}
 
 	function userAPIModal(data, meta) {
@@ -181,7 +137,7 @@ $(function(){
 						$modal.modal('hide');
 						userAPIModal({user: data.user, 'client_id': '', 'client_secret': ''}, meta);
 					}
-                    
+                
 				});
 			});
 
@@ -221,6 +177,52 @@ $(function(){
 			$me.siblings('.multiple').addClass('hidden');
 			$me.data('active', 'single');
 		}
-		
+	
 	}
-});
+
+	$(function(){
+	    var $current_target;
+		$('.form-ajax').each(ajaxifyForm);
+		$('.link-ajax').each(ajaxifyLink);
+		$('.api-btn').click(userAPIAccess);
+		$('.sessions-search-switch').click(toggleSessionSearch);
+		if($(".hidden_debug_message").length > 0) {
+	        $(".show_hidden_debugging_messages").click(function() {
+				$('.hidden_debug_message').toggleClass("hidden");
+	            return false;
+	        }); 
+	        $(".show_hidden_debugging_messages").attr('disabled',false);
+	    }
+		$('abbr.abbreviated_session').click(function ()
+		{
+			if($(this).text() !== $(this).data("full-session")) {
+				$(this).text( $(this).data("full-session") );
+			} else {
+				$(this).text( $(this).data("full-session").substr(0,10) + "…" );
+			}
+		});
+		if($(".download_r_code").length > 0) {
+	        $(".download_r_code").click(function() { return download_next_textarea(this); });
+	    }
+	
+	    $('#confirm-delete').on('show.bs.modal', function(e) {
+	        $current_target = $(e.relatedTarget);
+	        var $modal = $(this);
+	        $current_target.parents("tr").css("background-color","#ee5f5b");
+	        $(this).find('.danger').attr('href', $current_target.data('href'));
+	        ajaxifyLink(1,$(this).find('.danger'));
+	        $(this).find('.danger').click(function(e) {
+	            $current_target.css("color","#ee5f5b");
+	            if($modal.hasClass('refresh_on_success')) {
+	                window.setTimeout(function() {
+	                    document.location.reload(true);
+	                }, 200);
+	            }
+	            $modal.modal("hide");
+            
+	        });
+	    }).on("hide.bs.modal", function(e) {
+	        $current_target.parents("tr").css("background-color","transparent");
+	    });
+	});
+}(jQuery));

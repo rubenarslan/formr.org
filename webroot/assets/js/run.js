@@ -1,4 +1,4 @@
-(function () {
+(function ($) {
 	"use strict";
 	function RunUnit(run) {
 		this.run = run;
@@ -648,9 +648,9 @@
 		return false;
 	};
 
-	$(document).ready(function () {
+	$(function () { // on domready
 		$('.edit_run').each(function (i, elm) {
 			new Run($(elm));
 		});
 	});
-}());
+}(jQuery));

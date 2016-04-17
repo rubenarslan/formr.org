@@ -1,6 +1,6 @@
-$(function(){
-    $('textarea.big_ace_editor').each(function(i, elm)
-    {
+(function($) {
+	"use strict";
+	function make_editor(i, elm) {
        var textarea = $(elm);
        var mode = textarea.data('editor');
 
@@ -21,23 +21,21 @@ $(function(){
        editor.setTheme("ace/theme/textmate");
        var session = editor.getSession();
        session.setValue(textarea.val());
-   
+
        session.setUseWrapMode(true);
        session.setMode("ace/mode/" + mode);
-       
-       var form =$(this).parents('form');
+   
+       var form =$(elm).parents('form');
        editor.on('change',function() { 
 		   form.trigger("change"); 
 	   });
        form.on('ajax_submission',function() {
            textarea.val(session.getValue());
        });
-
-    });
-    $(".save_settings").each(function(i, elm)
-    {
+	}
+	function save_settings(i, elm)	{
         $(elm).prop("disabled",true);
-        var form =$(this).parents('form');
+        var form =$(elm).parents('form');
         form
         .change(function()
         {
@@ -63,8 +61,12 @@ $(function(){
                .fail(function(e, x, settings, exception) {
                    ajaxErrorHandling(e, x, settings, exception);
                });
-           
+       
            return false;
        });
-    });
-});
+    }
+	$(function(){
+	    $('textarea.big_ace_editor').each(make_editor);
+	    $(".save_settings").each(save_settings);
+	});
+}(jQuery));

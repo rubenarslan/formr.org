@@ -10,7 +10,7 @@
 		<link rel="stylesheet" type="text/css" href="<?= asset_url('assets/lib/bower'. (DEBUG ? '' : '.min') . '.css') ; ?>" />
 		<?php echo isset($css) ? $css : '' ?>
 		
-		<script type="text/javascript" src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/head.js') ; ?>"></script>	
+		<script src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/head.js') ; ?>"></script>	
 		<?php echo isset($js) ? $js : '' ?>
 
 	</head>

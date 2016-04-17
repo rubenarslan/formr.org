@@ -841,14 +841,17 @@ form.form-horizontal img, div.modal-content img,img {
 .import-run-dialog .form-group {
 	margin-bottom: 5px;
 }
-.white_cover {
+.js .white_cover {
 	position:fixed;
 	left:0;
 	top:0;
 	min-width:100%;
 	min-height:100%;
 	background-color:white;
-	z-index:99999999;
+	z-index:9999;
+}
+.no_js .white_cover {
+	display: none;
 }
 .submit_fuse_box {
 	width:90%;
