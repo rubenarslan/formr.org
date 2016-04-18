@@ -1204,24 +1204,28 @@ function opencpu_debug($session, OpenCPU $ocpu = null) {
 	} else {
 
 		try {
+			$request = $session->getRequest();
+			$params = $request->getParams();
+			
 			if ($session->hasError()):
 				$debug['Response'] = pre_htmlescape($session->getError());
 			else:
-				$debug['Response'] = stringBool($session->getObject('text'));
+				if(isset($params['text'])):
+					$debug['Response'] = stringBool($session->getObject('text'));
+				else:
+					$debug['Response'] = pre_htmlescape(json_encode($session->getJSONObject(),  JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
+				endif;
 			endif;
-			$request = $session->getRequest();
 			$debug['Request'] =  pre_htmlescape((string) $request);
-			$params = $request->getParams();
-			if(isset($params['text'])) {
+			if(isset($params['text'])):
 				$debug['R Markdown'] = '
 					<a href="#" class="download_r_code" data-filename="formr_rmarkdown.Rmd">Download R Markdown file.</a><br>
 					<textarea class="form-control" rows="10" readonly>'. h(stripslashes(substr($params['text'], 1, -1))) . '</textarea>';
-			}
-			if(isset($params['x'])) {
+			elseif(isset($params['x'])):
 				$debug['R Code'] = '
 					<a href="#" class="download_r_code" data-filename="formr_values_showifs.R">Download R code file.</a><br>
 					<textarea class="form-control" rows="10" readonly>'. h((substr($params['x'], 1, -1))) . '</textarea>';
-			}
+			endif;
 			$urls = $session->getResponsePathsAsLinks();
 			if (!$session->hasError() AND ! empty($urls)) {
 				$locations = '';

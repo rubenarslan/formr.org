@@ -595,7 +595,7 @@ class Survey extends RunUnit {
 	 */
 	protected function processDynamicValuesAndShowIfs(&$items) {
 		// In this loop we gather all show-ifs and dynamic-values that need processing and all values.
-		$code = $cache = array();
+		$code = array();
 
 		/* @var $item Item */
 		foreach ($items as $name => &$item) {
@@ -604,14 +604,10 @@ class Survey extends RunUnit {
 			
 			if($showif) {
 				$siname = "si.{$name}";
-				$cache_key = md5($showif);
-				if (isset($cache[$cache_key])) {
-					$showif = "{$siname} = {$cache[$cache_key]}";
-				} else {
-					$cache[$cache_key] = $siname;
-					$showif = "{$siname} = {$showif}";
-				}
-				$code[$siname] = $showif;
+				$showif = str_replace("\n","\n\t",$showif);
+				$code[$siname] = "{$siname} = (function(){
+	{$showif}
+})()";
 			}
 
 			// 2. Check item's value
@@ -621,11 +617,13 @@ class Survey extends RunUnit {
 					$item->evaluateDynamicValue($this);
 					continue;
 				}
-				if(!$showif) {
-					$code[$name] = "{$name} = (function(){ {$item->getValue()} })()";
-				} else {
+				$val = str_replace("\n","\n\t",$item->getValue());
+				$code[$name] = "{$name} = (function(){
+{$val}
+})()";
+				if($showif) {
 					$code[$name] = "if({$siname}) {
-	{$name} = (function(){ {$item->getValue()} })()
+	". $code[$name] ."
 }";
 				}
 				// If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as string
