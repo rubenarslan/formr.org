@@ -638,6 +638,9 @@ class Survey extends RunUnit {
 		$ocpu_session = opencpu_multiparse_showif($this, $code, true);
 		if (!$ocpu_session || $ocpu_session->hasError()) {
 			notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
+			foreach($items AS $name => &$item) {
+				$item->alwaysInvalid();
+			}
 		} else {
 			print_hidden_opencpu_debug_message($ocpu_session, "OpenCPU debugger for dynamic values and showifs.");
 			$results = $ocpu_session->getJSONObject();
