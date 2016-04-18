@@ -665,11 +665,9 @@ class Survey extends RunUnit {
 				$updateVisibility->bindValue(":hidden", $hidden);
 				$updateVisibility->execute();
 				
-				if($hidden === 0) {
-					$definitelyShownItems++; // track whether there are any items certain to be shown
-				}
 				if($hidden === 1) { // gone for good
 					unset($items[$item_name]); // we remove items that are definitely hidden from consideration
+					continue; // don't increment counter
 				} else {
 					// set dynamic values for items
 					$val = array_val($results, $item->name, null);
@@ -679,8 +677,10 @@ class Survey extends RunUnit {
 					if (isset($results[$item->name]) && $item->getComputedValue() !== null && !$item->requiresUserInput()) {
 						$save[$item->name] = $item->getComputedValue();
 						unset($items[$item_name]); // we remove items that are immediately written from consideration
+						continue; // don't increment counter
 					}
 				}
+				$definitelyShownItems++; // track whether there are any items certain to be shown
 			}
 			$this->post($save, false);
 		}
