@@ -495,6 +495,8 @@ This study is currently being serviced. Please return at a later time."
 
 		$updates = array();
 		foreach ($posted AS $name => $value):
+			$value = trim($value);
+
 			if (!in_array($name, $this->run_settings)) {
 				$this->errors[] = "Invalid setting " . h($name);
 				continue;
@@ -509,13 +511,15 @@ This study is currently being serviced. Please return at a later time."
 					$file_ending = '.css';
 				}
 
+				$name = $name . "_path";
 				$asset_file = INCLUDE_ROOT . "webroot/" . $asset_path;
 				// Delete old file if css/js was emptied
 				if (!$value && $asset_path) {
 					if (file_exists($asset_file) && !unlink($asset_file)) {
 						alert("Could not delete old file ({$asset_path}).", 'alert-warning');
 					}
-				} else {
+					$value = null;
+				} elseif ($value) {
 					// if $asset_path has not been set it means neither JS or CSS has been entered so create a new path
 					if (!$asset_path) {
 						$asset_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
@@ -534,7 +538,6 @@ This study is currently being serviced. Please return at a later time."
 					$file->fflush();
 					$value = $asset_path;
 				}
-				$name = $name . "_path";
 			endif;
 
 			$updates[$name] = $value;
