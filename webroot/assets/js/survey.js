@@ -17,7 +17,9 @@
 				$input = group.$inputs.filter('#'+$btn.attr('data-for'));
 			var is_checked_already = !!$input.prop('checked'); // couple with its radio button
 			$btn.toggleClass('btn-checked', is_checked_already);
-			webshim.addShadowDom($input, group.$button_group);
+			webshim.ready("dom-extend", function(){
+				webshim.addShadowDom($input, group.$button_group);
+			});
 			
 			// hammer time
 			$btn.attr("style", "-ms-touch-action: manipulation; touch-action: manipulation;");
@@ -150,7 +152,9 @@
 				"use strict";
 				var slct = $(elm); 
 				slct.select2();
-				webshim.addShadowDom(slct, slct.select2("container"));
+				webshim.ready("dom-extend", function(){
+					webshim.addShadowDom(slct, slct.select2("container"));
+				});
 			});
 			$(".select2pills select").each(function(i,elm)
 			{
@@ -176,7 +180,9 @@
 				}).on("change select2-open", function(e) {
 					document.activeElement.blur();
 				});
-				webshim.addShadowDom(slct, slct.select2("container"));
+				webshim.ready("dom-extend", function(){
+					webshim.addShadowDom(slct, slct.select2("container"));
+				});
 			});
 			$(".clickable_map").each(function(i,elm)
 			{
@@ -240,7 +246,9 @@
 				}).removeClass("form-control");
 				var plus = $("<span class='select2-plus'>+</span>");
 				plus.insertBefore(slct.select2("container").find('.select2-search-field input'));
-				webshim.addShadowDom(slct, slct.select2("container"));
+				webshim.ready("dom-extend", function(){
+					webshim.addShadowDom(slct, slct.select2("container"));
+				});
 			});
 	
 			$("input.select2add").each(function(i,elm)
