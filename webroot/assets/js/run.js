@@ -523,18 +523,7 @@
 			});
 
 			$modal.on('shown.bs.modal', function () {
-				$modal.find('.confirm-import').click(function (e) {
-					e.preventDefault();
-					$(this).html(bootstrap_spinner());
-					/**
-					 * 
-					 * @TODO Ajaxify this upload if necessary
-					 */
-					var $form = $(this).parents('form');
-					$form.find('input[name=position]').val(module.getMaxPosition() + 10);
-					$form.submit();
-					return true;
-				});
+				// do nothing
 			}).on('hidden.bs.modal', function () {
 				$modal.remove();
 			}).modal('show');

@@ -849,6 +849,11 @@ This study is currently being serviced. Please return at a later time."
 			$start_position = (int) $start_position - 10;
 		}
 		$json = json_decode($json_string);
+		$existingUnits = $this->getAllUnitIds();
+		if ($existingUnits) {
+			$last = end($existingUnits);
+			$start_position = $last['position'] + 10;
+		}
 
 		if (empty($json->units)) {
 			alert("<strong>Error</strong> Invalid json string provided.", 'alert-danger');
@@ -860,7 +865,7 @@ This study is currently being serviced. Please return at a later time."
 		$runFactory = new RunUnitFactory();
 
 		foreach ($units as $unit) {
-			if (!empty($unit->position) && !empty($unit->type)) {
+			if (isset($unit->position) && !empty($unit->type)) {
 				$unit->position = $start_position + $unit->position;
 				// for some reason Endpage replaces Page
 				if (strpos($unit->type, 'page') !== false) {

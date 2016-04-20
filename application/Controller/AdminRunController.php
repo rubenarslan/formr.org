@@ -601,8 +601,7 @@ class AdminRunController extends AdminController {
 			return redirect_to(admin_run_url($this->run->name));
 		}
 
-		$start_position = $this->request->int('position', 1);
-
+		$start_position = 10;
 		if ($this->run->importUnits($json_string, $start_position)) {
 			alert('Run modules imported successfully!', 'alert-success');
 		}
