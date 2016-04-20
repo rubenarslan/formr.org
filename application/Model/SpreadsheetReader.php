@@ -277,7 +277,7 @@ class SpreadsheetReader {
 			unset($items[$i]['id'], $items[$i]['study_id']);
 			if (isset($val["choice_list"]) && isset($choices[$val["choice_list"]])) {
 				$items[$i]["choices"] = $choices[$val["choice_list"]];
-				unset($val["choice_list"]);
+				unset($items[$i]["choice_list"]);
 			}
 		}
 

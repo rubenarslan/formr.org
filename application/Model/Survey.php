@@ -235,7 +235,11 @@ class Survey extends RunUnit {
 		}
 
 		if (!$survey->createSurvey($SPR)) {
-			alert("Unable to import survey items in survey '{$survey->name}'", 'alert-warning');
+			alert("Unable to import survey items in survey '{$survey->name}'. You may need to independently create this survey and attach it to run", 'alert-warning');
+			$errors = array_merge($survey->errors, $SPR->errors, $SPR->warnings);
+			if ($errors) {
+				alert(nl2br(implode("\n", $errors)), 'alert-warning');
+			}
 			return false;
 		}
 
@@ -1286,8 +1290,7 @@ class Survey extends RunUnit {
 		$this->addChoices();
 		$choice_lists = $this->getChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
-		
-		
+
 		// Get old items, mark them as false meaning all are vulnerable for delete.
 		// When the loop over survey items ends you will know which should be deleted.
 		$old_items = array();
@@ -1296,11 +1299,11 @@ class Survey extends RunUnit {
 				$old_items[$item['name']] = $object->getResultField();
 			}
 		}
-		
+
 		$result_columns = array();
 		$UPDATES = implode(', ', get_duplicate_update_string($this->user_defined_columns));
 		$add_items = $this->dbh->prepare(
-				"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
+			"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
 			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order
 		) ON DUPLICATE KEY UPDATE $UPDATES");
 
@@ -1339,8 +1342,8 @@ class Survey extends RunUnit {
 			}
 
 			$result_field = $item->getResultField();
-			
-			$new_items[ $item->name ] = $result_field;
+
+			$new_items[$item->name] = $result_field;
 
 			$result_columns[] = $result_field;
 			$change = $add_items->execute();
@@ -1365,7 +1368,7 @@ class Survey extends RunUnit {
 				$this->errors[] = "<strong>Back up failed.</strong> Deletions would have been necessary, but backing up the item table failed, so no modification was carried out.</strong>";
 			}
 		}
-			
+
 		if (empty($this->errors)) {
 			try {
 				
