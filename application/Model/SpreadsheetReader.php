@@ -258,7 +258,7 @@ class SpreadsheetReader {
 
 			header('Content-Disposition: attachment;filename="' . $filename . '.xls"');
 			header('Cache-Control: max-age=0');
-			header('Content-Type: application/vnd.ms-excel');
+			header('Content-Type: application/vnd.ms-excel; charset=utf-8');
 			$objWriter->save('php://output');
 			exit;
 		} catch (Exception $e) {
@@ -293,7 +293,7 @@ class SpreadsheetReader {
 
 		header('Content-Disposition: attachment;filename="' . $filename . '.json"');
 		header('Cache-Control: max-age=0');
-		header('Content-type: application/json');
+		header('Content-type: application/json; charset=utf-8');
 
 		try {
 			echo json_encode($object, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
