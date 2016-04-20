@@ -273,11 +273,11 @@ class SpreadsheetReader {
 		$choices = $study->getChoices();
 		$filename = $study->name;
 
-		foreach ($items AS $i => $val) {
+		foreach ($items as $i => $val) {
 			unset($items[$i]['id'], $items[$i]['study_id']);
 			if (isset($val["choice_list"]) && isset($choices[$val["choice_list"]])) {
 				$items[$i]["choices"] = $choices[$val["choice_list"]];
-				unset($items[$i]["choice_list"]);
+				$items[$i]["choice_list"] = $items[$i]["name"];
 			}
 		}
 
