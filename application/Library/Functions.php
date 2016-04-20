@@ -43,7 +43,7 @@ function notify_user_error($error, $public_message = '') {
 
 	if (DEBUG || ($run_session && $run_session->isTesting()) ) {
 		if ($error instanceof Exception) {
-			$message .= '<pre>' . $error->getMessage() . "</pre>";
+			$message .= $error->getMessage();
 		} else {
 			$message .= $error;
 		}
@@ -928,7 +928,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 		}
 
 		if ($session->hasError()) {
-			throw new OpenCPU_Exception($session->getError());
+			throw new OpenCPU_Exception(opencpu_debug($session));
 		} else {
 			print_hidden_opencpu_debug_message($session, "OpenCPU debugger for run R code.");
 		}
@@ -979,7 +979,7 @@ function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $retu
 		}
 
 		if ($session->hasError()) {
-			throw new OpenCPU_Exception($session->getError());
+			throw new OpenCPU_Exception(opencpu_debug($session));
 		}
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
@@ -1034,8 +1034,9 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 		}
 
 		if ($session->hasError()) {
-			throw new OpenCPU_Exception($session->getError());
+			throw new OpenCPU_Exception(opencpu_debug($session));
 		}
+		
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		notify_user_error($e, "There was a problem dynamically knitting something to HTML using openCPU.");
