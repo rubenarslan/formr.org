@@ -58,7 +58,7 @@ class Email extends RunUnit {
 			$this->recipient_field = $options['recipient_field'];
 			$this->body = $options['body'];
 			$this->subject = $options['subject'];
-			if (isset($options['account_id']) AND is_numeric($options['account_id'])) {
+			if (isset($options['account_id']) && is_numeric($options['account_id'])) {
 				$this->account_id = (int) $options['account_id'];
 			}
 //			$this->html = $options['html'] ? 1:0;
@@ -71,8 +71,9 @@ class Email extends RunUnit {
 			endif;
 		endif;
 
-
-		$this->body_parsed = $parsedown->text($this->body);
+		if (!isset($options['skip_parsing'])) {
+			$this->body_parsed = $parsedown->text($this->body);
+		}
 
 		$this->dbh->insert_update('survey_emails', array(
 			'id' => $this->id,

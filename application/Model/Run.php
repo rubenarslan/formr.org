@@ -843,6 +843,7 @@ This study is currently being serviced. Please return at a later time."
 	 * @return array Returns an array on rendered units indexed by position
 	 */
 	public function importUnits($json_string, $start_position = 0) {
+		ini_set('memory_limit', '256M');
 		if (!$start_position) {
 			$start_position = 0;
 		} else {
@@ -881,13 +882,15 @@ This study is currently being serviced. Please return at a later time."
 				}
 
 				if (strpos($unit->type, 'Email') !== false) {
-					unset($unit->account_id);
+					$unit->account_id = null;
 				}
 
 				$unitObj = $runFactory->make($this->dbh, null, (array) $unit, null, $this);
-				$unitObj->create((array) $unit);
+				$unit = (array) $unit;
+				$unit['skip_parsing'] = true;
+				$unitObj->create($unit);
 				if ($unitObj->valid) {
-					$unitObj->addToRun($this->id, $unitObj->position, (array) $unit);
+					$unitObj->addToRun($this->id, $unitObj->position, $unit);
 					// @todo check how to manage this because they are echoed only on next page load
 					//alert('<strong>Success.</strong> '.ucfirst($unitObj->type).' unit was created.','alert-success');
 					$createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());

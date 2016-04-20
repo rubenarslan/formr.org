@@ -65,7 +65,9 @@ class Pause extends RunUnit {
 
 		$parsedown = new ParsedownExtra();
 		$parsedown->setBreaksEnabled(true);
-		$this->body_parsed = $parsedown->text($this->body); // transform upon insertion into db instead of at runtime
+		if (!isset($options['skip_parsing'])) {
+			$this->body_parsed = $parsedown->text($this->body); // transform upon insertion into db instead of at runtime
+		}
 
 		$this->dbh->insert_update('survey_pauses', array(
 			'id' => $this->id,
