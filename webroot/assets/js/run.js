@@ -514,16 +514,20 @@
 		$.get(this.url + '/ajax_run_import', {'dialog': true}, function (data) {
 			$modal = $($.parseHTML(getHTMLTemplate('tpl-import-units', {'content': data}))).attr('id', 'run-import-modal-dialog');
 			$modal.find('select').bind('change', function () {
-				var val = parseInt($(this).val(), 10);
-				if (isNaN(val))
-					return;
-				var eid = 'selected-run-export-' + val;
-				var json_string = getHTMLTemplate(eid);
-				$modal.find('textarea').val(JSON.stringify($.parseJSON(json_string), null, "\t"));
+                            var val = parseInt($(this).val(), 10);
+                            if (isNaN(val)) {
+				return;
+                            }
+                            var eid = 'selected-run-export-' + val;
+                            var json_string = getHTMLTemplate(eid);
+                            $modal.find('textarea').val(JSON.stringify($.parseJSON(json_string), null, "\t"));
 			});
 
 			$modal.on('shown.bs.modal', function () {
-				// do nothing
+                            $modal.find('.confirm-import').click(function (e) {
+				$(this).hide();
+				return true;
+                            });
 			}).on('hidden.bs.modal', function () {
 				$modal.remove();
 			}).modal('show');
