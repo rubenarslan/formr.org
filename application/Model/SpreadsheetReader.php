@@ -71,7 +71,7 @@ class SpreadsheetReader {
 
 		header('Content-Disposition: attachment;filename="' . $filename . '.json"');
 		header('Cache-Control: max-age=0');
-		header('Content-type: application/json');
+		header('Content-type: application/json; charset=utf-8');
 
 		try {
 			echo json_encode($array, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
