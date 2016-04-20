@@ -1410,6 +1410,7 @@ class Survey extends RunUnit {
 				return false;
 			}
 		} else {
+			$this->dbh->rollBack();
 			return false;
 		}
 		$this->dbh->commit();
