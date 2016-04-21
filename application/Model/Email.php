@@ -71,7 +71,7 @@ class Email extends RunUnit {
 			endif;
 		endif;
 
-		if (!isset($options['skip_parsing'])) {
+		if (!$this->knittingNeeded($this->body)) {
 			$this->body_parsed = $parsedown->text($this->body);
 		}
 

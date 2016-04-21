@@ -887,7 +887,6 @@ This study is currently being serviced. Please return at a later time."
 
 				$unitObj = $runFactory->make($this->dbh, null, (array) $unit, null, $this);
 				$unit = (array) $unit;
-				$unit['skip_parsing'] = true;
 				$unitObj->create($unit);
 				if ($unitObj->valid) {
 					$unitObj->addToRun($this->id, $unitObj->position, $unit);
