@@ -796,6 +796,7 @@ class Survey extends RunUnit {
 				`survey_items_display`.displaycount, 
 				`survey_items_display`.session_id,
 				`survey_items_display`.`display_order`,
+				`survey_items_display`.`hidden`,
 				`survey_items_display`.answered')
 			->from('survey_items')
 			->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')

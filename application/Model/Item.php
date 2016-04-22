@@ -259,6 +259,10 @@ class Item extends HTML_element {
 			$this->showif = $options['showif'];
 		}
 
+		if (array_key_exists('hidden', $options)) {
+			$this->hidden = $options['hidden'];
+		}
+
 		if (isset($options['val_error']) && $options['val_error']) {
 			$this->val_error = $options['val_error'];
 		}
@@ -534,6 +538,9 @@ class Item extends HTML_element {
 	}
 
 	public function getShowIf() {
+		if($this->hidden !== null) {
+			return false;
+		}
 		if (trim($this->showif)!= "" && strstr($this->showif, "//js_only") === false) {
 			return $this->showif;
 		}
