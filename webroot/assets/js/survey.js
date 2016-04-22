@@ -1,52 +1,71 @@
-(function() {
-	// polyfill window.performance.now
-	window.performance = window.performance || {};
-	performance.now = (function() {
-	  return performance.now       ||
-	         performance.mozNow    ||
-	         performance.msNow     ||
-	         performance.oNow      ||
-			performance.webkitNow;
-	})();
-	
-	$(document).ready(function(e) {
-		var survey = new Survey();
-        if($("button.monkey").length > 0) {
-            $("button.monkey").click(function() {
-                survey.doMonkey(0);
-                return false;
-            }); 
-            $("button.monkey").attr('disabled',false);
-        }
-		survey.update(e);
-		$('form.main_formr_survey').on('change', function(e) { 
-			survey.update(e);
+(function($) {
+	function ButtonGroup(item) {
+		this.$item = $(item);
+		this.$button_group = this.$item.find(".btn-group");
+		if(this.$item.hasClass("btn-checkbox")) {
+			this.kind = "checkbox";
+		} else if(this.$item.hasClass("btn-check")) {
+			this.kind = "check";
+		} else {
+			this.kind = "radio";
+		}
+		this.$buttons = this.$button_group.find(".btn");
+		this.$inputs = this.$item.find("input[id]");
+		var group = this;
+		this.$buttons.off('click').each(function() {
+			var $btn = $(this),
+				$input = group.$inputs.filter('#'+$btn.attr('data-for'));
+			var is_checked_already = !!$input.prop('checked'); // couple with its radio button
+			$btn.toggleClass('btn-checked', is_checked_already);
+			webshim.ready("dom-extend", function(){
+				webshim.addShadowDom($input, group.$button_group);
+			});
+			
+			// hammer time
+			$btn.attr("style", "-ms-touch-action: manipulation; touch-action: manipulation;");
+			
+			$btn.click(function() { 
+				return group.button_click(group, $btn, $input); 
+			});
 		});
-	});
+	}
+	ButtonGroup.prototype.button_click = function(group, $btn, $input) {
+		var checked_status = !!$input.prop('checked'); // couple with its radio button
+		if(group.kind === 'radio') {
+			group.$buttons.removeClass('btn-checked'); // uncheck all
+			checked_status = false; // can't turn off the radio
+		}
+		$btn.toggleClass('btn-checked', ! checked_status);
+		if(group.kind === 'check') {
+			$btn.find('i').toggleClass('fa-check', ! checked_status);
+		}
+		$input.prop('checked', ! checked_status); // check the real input
+		$btn.change();
+		return false;
+	};
 
 	function Survey() {
+		this.$form = $("form");
 		this.$progressbar = $('.progress .progress-bar');
 		this.already_answered = this.$progressbar.data('already-answered');
 		this.items_left = this.$progressbar.data('items-left');
 		this.items_on_page = this.$progressbar.data('items-on-page');
 		if(!$('.default_formr_button')[0]) this.items_on_page--; // we don't count submit buttons (but there is the special case of the default one)
-//		console.log("this.items_on_page",this.items_on_page);
 		this.hidden_but_rendered = this.$progressbar.data('hidden-but-rendered');
-//		console.log("this.hidden_but_rendered",this.hidden_but_rendered);
 		this.percentage_minimum = this.$progressbar.data('percentage-minimum');
 		this.percentage_maximum = this.$progressbar.data('percentage-maximum');
 		this.form_inputs = {};
-	
+		this.last_update = false;
+		this.next_update = false;
+		this.dont_update = false;
 		// initialising special items
 		// --------------------------
 		
 		$("button.submit_automatically_after_timeout").each(function(i,elm) {
-			var white_cover = $('<div class="white_cover"></div>');
 			$('<div class="submit_fuse_box"><div class="submit_fuse"></div></div>').appendTo(elm);
-			white_cover.appendTo("body");
 			$(window).on("load", function() {
 				var timeout = $(elm).data('timeout');
-				white_cover.remove();
+				$(".white_cover").remove();
 				window.setTimeout(function() {
 					$(elm).click();
 				}, timeout);
@@ -90,71 +109,9 @@
 		});
 		webshim.ready('DOM forms forms-ext dom-extend', function()
 	    {
-	        var radios = $('div.btn-radio button.btn');
-	        radios.closest('div.btn-group').removeClass('hidden');
-	        radios.closest('.controls').find('label[class!=keep-label]').addClass('hidden');
-			radios.off('click').each(function() {
-				var $btn = $(this);
-				var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
-				$btn.toggleClass('btn-checked', is_checked_already);
-		
-				var fc = new FastClick(this);
-		
-				webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
-			}).click(function(event){
-				var $btn = $(this);
-				$('#'+$btn.attr('data-for')).prop('checked',true); // couple with its radio button
-				var all_buttons = $btn.closest('div.btn-group').find('button.btn'); // find all buttons
-				all_buttons.removeClass('btn-checked'); // uncheck all
-				$btn.addClass('btn-checked'); // check this one
-				$btn.change();
-				return false;
-			});
-
-
-			$('div.btn-checkbox button.btn').off('click').click(function(event){
-				var $btn = $(this);
-				var checked = $('#'+$btn.attr('data-for')).prop('checked');
-				$('#'+$btn.attr('data-for')).prop('checked',!checked); // couple with its radio button
-				$btn.toggleClass('btn-checked',!checked); // check this one
-				$('#'+$btn.attr('data-for')).change();
-		
-				return false;
-			}).each(function() {
-				var $btn = $(this);
-				var is_checked_already = !!$('#'+$btn.attr('data-for')).prop('checked'); // couple with its radio button
-				$btn.toggleClass('btn-checked', is_checked_already);
-		
-				$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-				$btn.closest('.controls').find('label').addClass('hidden'); // hide normal radio buttons
-
-				var fc = new FastClick(this);
-
-				webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
-			});
-        
-			$('div.btn-check button.btn').off('click').click(function(event){
-				var $btn = $(this);
-				var $original_box = $('#'+$btn.attr('data-for'));
-				
-				var checked = !!$original_box.prop('checked');
-				$btn.toggleClass('btn-checked', !checked).find('i').toggleClass('fa-check', !checked); // check this one
-				$original_box.prop('checked',! checked); // toggle check
-				$original_box.change(); // trigger change event to sync up
-				return false;
-			}).each(function() {
-				var $btn = $(this);
-				var $original_box = $('#'+$btn.attr('data-for'));
-		
-				var checked = !!$original_box.prop('checked');
-				$btn.toggleClass('btn-checked', checked).find('i').toggleClass('fa-check', checked); // check this one
-
-				$btn.closest('div.btn-group').removeClass('hidden'); // show special buttons
-				$original_box.closest('label').addClass('hidden'); // hide normal checkbox button
-		
-				var fc = new FastClick(this);
-		
-				webshim.addShadowDom($('#'+$btn.attr('data-for')), $btn.closest('div.btn-group'));
+	        var mc_buttons = $('div.btn-radio, div.btn-checkbox, div.btn-check');
+			mc_buttons.each(function(i, elm) {
+				new ButtonGroup(elm);
 			});
 
 			$('.item-number.counter input[type=number]').each(function() {
@@ -188,15 +145,16 @@
 					webshim.addShadowDom($input, btns);
 				});
 					
-//				var fcd = new FastClick(btns.find(".btn-down")); //broken
-//				var fcu = new FastClick(btns.find(".btn-up"));
 			});
+			
 			$("select.select2zone, .form-group.select2 select").each(function(i,elm)
 			{
 				"use strict";
 				var slct = $(elm); 
 				slct.select2();
-				webshim.addShadowDom(slct, slct.select2("container"));
+				webshim.ready("dom-extend", function(){
+					webshim.addShadowDom(slct, slct.select2("container"));
+				});
 			});
 			$(".select2pills select").each(function(i,elm)
 			{
@@ -222,7 +180,9 @@
 				}).on("change select2-open", function(e) {
 					document.activeElement.blur();
 				});
-				webshim.addShadowDom(slct, slct.select2("container"));
+				webshim.ready("dom-extend", function(){
+					webshim.addShadowDom(slct, slct.select2("container"));
+				});
 			});
 			$(".clickable_map").each(function(i,elm)
 			{
@@ -286,7 +246,9 @@
 				}).removeClass("form-control");
 				var plus = $("<span class='select2-plus'>+</span>");
 				plus.insertBefore(slct.select2("container").find('.select2-search-field input'));
-				webshim.addShadowDom(slct, slct.select2("container"));
+				webshim.ready("dom-extend", function(){
+					webshim.addShadowDom(slct, slct.select2("container"));
+				});
 			});
 	
 			$("input.select2add").each(function(i,elm)
@@ -388,13 +350,30 @@
 			});
 		});
 	}
-	Survey.prototype.update = function (e) {
-		this.getData();
-		this.showIf();
-		this.getProgress();
+	Survey.prototype.update = function () {
+		var survey = this;
+		if(survey.dont_update) {
+			return;
+		}
+		/// update at most every 500ms
+		var now = new Date().getTime();
+		
+		if(survey.last_update && survey.last_update + 500 > now) {
+			if(! survey.next_update) { // don't queue up a bunch of updates
+				survey.next_update = window.setTimeout($.proxy(survey.update, survey), survey.last_update + 500 - now);
+			}
+			return;
+		} else  {
+			survey.last_update = now;
+			survey.next_update = false;
+		}
+		
+		survey.getData();
+		survey.showIf();
+		survey.getProgress();
 	};
 	Survey.prototype.getData = function () {
-		var badArray = $('form').serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
+		var badArray = this.$form.serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
 		this.data = {};
 		var survey = this;
 		
@@ -441,8 +420,10 @@
 	Survey.prototype.showIf = function(e)
 	{
 		var survey = this;
+		if(! survey.items_with_showifs)
+			survey.items_with_showifs = $(".form-group[data-showif]");
 		var any_change = false;
-		$(".form-group[data-showif]").each(function(i,elm) // walk through all form elements that are dynamically shown/hidden
+		survey.items_with_showifs.each(function(i,elm) // walk through all form elements that are dynamically shown/hidden
 		{
 			var showif = $(elm).data('showif'); // get specific condition
 
@@ -474,10 +455,11 @@
 	};
     Survey.prototype.doMonkey = function(monkey_iteration) {
 		var survey = this;
-        
         if(monkey_iteration > 2) return false;
         else if (monkey_iteration === undefined) monkey_iteration = 0;
         else monkey_iteration++;
+
+		survey.dont_update = true;
         
 		var items_left = $("form.main_formr_survey .form-row:not(.hidden):not(.formr_answered):not(.item-submit)");
         var date                     = new Date();
@@ -646,25 +628,33 @@
         {
             $(elm).trigger('change');
         });
+		survey.dont_update = false;
+		survey.update();
         survey.doMonkey(monkey_iteration);
     };
+	
+	$(function() { // on domready
+		var survey = new Survey();
+		survey.update();
+		$('form.main_formr_survey').on('change', function() { 
+			survey.update();
+		});
+		
+		if($(".form-row.hidden").length > 0) {
+	        $(".show_hidden_items").click(function() {
+				$('.form-row.hidden').removeClass("hidden");
+	            return false;
+	        }); 
+	        $(".show_hidden_items").attr('disabled',false);
+	    }
+        if($("button.monkey").length > 0) {
+            $("button.monkey").click(function() {
+                survey.doMonkey(0);
+                return false;
+            }); 
+            $("button.monkey").attr('disabled',false);
+        }
+	});
+	
 
-	function flatStringifyGeo(geo) {
-		"use strict";
-		var result = {};
-		result.timestamp = geo.timestamp;
-		var coords = {};
-		coords.accuracy = geo.coords.accuracy;
-		coords.altitude = geo.coords.altitude;
-		coords.altitudeAccuracy = geo.coords.altitudeAccuracy;
-		coords.heading = geo.coords.heading;
-		coords.latitude = geo.coords.latitude;
-		coords.longitude = geo.coords.longitude;
-		coords.speed = geo.coords.speed;
-		result.coords = coords;
-		return JSON.stringify(result);
-	}
-	function mysql_datetime() {
-	    return (new Date()).toISOString().slice(0, 19).replace('T', ' ');
-	}
-}());
+}(jQuery));

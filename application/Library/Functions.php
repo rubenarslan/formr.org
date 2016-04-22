@@ -43,7 +43,7 @@ function notify_user_error($error, $public_message = '') {
 
 	if (DEBUG || ($run_session && $run_session->isTesting()) ) {
 		if ($error instanceof Exception) {
-			$message .= '<pre>' . $error->getMessage() . "</pre>";
+			$message .= $error->getMessage();
 		} else {
 			$message .= $error;
 		}
@@ -51,7 +51,20 @@ function notify_user_error($error, $public_message = '') {
 	alert($message, 'alert-danger');
 }
 
+function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '') {
+	$run_session = Site::getInstance()->getRunSession();
+	if (DEBUG || ($run_session && $run_session->isTesting()) ) {
+		$date = date('Y-m-d H:i:s');
+
+		$message = $date . ': ' . $public_message . "<br>";
+
+		$message .= opencpu_debug($ocpu_req);
+		alert($message, 'alert-info hidden_debug_message hidden');
+	}
+}
+
 function redirect_to($location = '') {
+	$location = str_replace(PHP_EOL, '', $location);
 	if (strpos($location, 'index') !== false) {
 		$location = '';
 	}
@@ -915,7 +928,9 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 		}
 
 		if ($session->hasError()) {
-			throw new OpenCPU_Exception($session->getError());
+			throw new OpenCPU_Exception(opencpu_debug($session));
+		} else {
+			print_hidden_opencpu_debug_message($session, "OpenCPU debugger for run R code.");
 		}
 		
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
@@ -964,7 +979,7 @@ function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $retu
 		}
 
 		if ($session->hasError()) {
-			throw new OpenCPU_Exception($session->getError());
+			throw new OpenCPU_Exception(opencpu_debug($session));
 		}
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
@@ -1019,8 +1034,9 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 		}
 
 		if ($session->hasError()) {
-			throw new OpenCPU_Exception($session->getError());
+			throw new OpenCPU_Exception(opencpu_debug($session));
 		}
+		
 		return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
 	} catch (OpenCPU_Exception $e) {
 		notify_user_error($e, "There was a problem dynamically knitting something to HTML using openCPU.");
@@ -1123,6 +1139,7 @@ function opencpu_multistring_parse(Survey $survey, array $string_templates) {
 	$session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $survey->name);
 
 	if($session AND !$session->hasError()) {
+		print_hidden_opencpu_debug_message($session, "OpenCPU debugger for dynamic values and showifs.");
 		$parsed_strings = $session->getJSONObject();
 		$strings = explode(OpenCPU::STRING_DELIMITER_PARSED, $parsed_strings);
 		$strings = array_map("remove_tag_wrapper", $strings);
@@ -1136,14 +1153,18 @@ function opencpu_multistring_parse(Survey $survey, array $string_templates) {
 /**
  * Substitute parsed strings in the collection of items that were sent for parsing
  * This function does not return anything as the collection of items is passed by reference
+ * For objects having the property 'label_parsed', they are checked and substituted
  *
  * @param array $array An array of data contaning label templates
  * @param array $parsed_strings An array of parsed labels
  */
 function opencpu_substitute_parsed_strings (array &$array, array $parsed_strings) {
-	foreach ($array as $key => $value) {
+	foreach ($array as $key => &$value) {
 		if (is_array($array[$key])) {
 			opencpu_substitute_parsed_strings($array[$key], $parsed_strings);
+		} elseif (is_object($value) && property_exists($value, 'label_parsed')) {
+			$value->label_parsed = isset($parsed_strings[$value->label_parsed]) ? $parsed_strings[$value->label_parsed] : $value->label_parsed;
+			$array[$key] = $value;
 		} elseif (isset($parsed_strings[$value])) {
 			$array[$key] = $parsed_strings[$value];
 		}
@@ -1176,19 +1197,36 @@ function opencpu_debug($session, OpenCPU $ocpu = null) {
 	if (empty($session)) {
 		$debug['Response'] = 'No OpenCPU_Session found. Server may be down.';
 		if ($ocpu !== null) {
-			$debug['Request'] = (string) $ocpu->getRequest();
+			$request = $ocpu->getRequest();
+			$debug['Request'] = (string) $request;
 			$reponse_info = $ocpu->getRequestInfo();
 			$debug['Request Headers'] = pre_htmlescape(print_r($reponse_info['request_header'], 1));
 		}
 	} else {
 
 		try {
+			$request = $session->getRequest();
+			$params = $request->getParams();
+			
 			if ($session->hasError()):
 				$debug['Response'] = pre_htmlescape($session->getError());
 			else:
-				$debug['Response'] = stringBool($session->getObject('text'));
+				if(isset($params['text'])):
+					$debug['Response'] = stringBool($session->getObject('text'));
+				else:
+					$debug['Response'] = pre_htmlescape(json_encode($session->getJSONObject(),  JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
+				endif;
 			endif;
-			$debug['Request'] = pre_htmlescape((string) $session->getRequest());
+			$debug['Request'] =  pre_htmlescape((string) $request);
+			if(isset($params['text'])):
+				$debug['R Markdown'] = '
+					<a href="#" class="download_r_code" data-filename="formr_rmarkdown.Rmd">Download R Markdown file.</a><br>
+					<textarea class="form-control" rows="10" readonly>'. h(stripslashes(substr($params['text'], 1, -1))) . '</textarea>';
+			elseif(isset($params['x'])):
+				$debug['R Code'] = '
+					<a href="#" class="download_r_code" data-filename="formr_values_showifs.R">Download R code file.</a><br>
+					<textarea class="form-control" rows="10" readonly>'. h((substr($params['x'], 1, -1))) . '</textarea>';
+			endif;
 			$urls = $session->getResponsePathsAsLinks();
 			if (!$session->hasError() AND ! empty($urls)) {
 				$locations = '';
@@ -1255,7 +1293,8 @@ function shutdown_formr_org() {
 }
 
 function remove_tag_wrapper($text, $tag = 'p') {
-	if (preg_match("@^<{$tag}>(.+)</{$tag}>$@", trim($text), $matches)) {
+	$text = trim($text);
+	if (preg_match("@^<{$tag}>(.+)</{$tag}>$@", $text, $matches)) {
 		$text = isset($matches[1]) ? $matches[1] : $text;
 	}
 	return $text;

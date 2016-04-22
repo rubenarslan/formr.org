@@ -6,6 +6,7 @@ class Survey extends RunUnit {
 	public $name = null;
 	public $run_name = null;
 	public $items = array();
+	public $items_validated = array();
 	public $session = null;
 	public $results_table = null;
 	public $run_session_id = null;
@@ -57,6 +58,7 @@ class Survey extends RunUnit {
 	 * @var ParsedownExtra
 	 */
 	public $parsedown;
+
 
 	public function __construct($fdb, $session, $unit, $run_session = null, $run = null) {
 		$this->dbh = $fdb;
@@ -233,7 +235,11 @@ class Survey extends RunUnit {
 		}
 
 		if (!$survey->createSurvey($SPR)) {
-			alert("Unable to import survey items in survey '{$survey->name}'", 'alert-warning');
+			alert("Unable to import survey items in survey '{$survey->name}'. You may need to independently create this survey and attach it to run", 'alert-warning');
+			$errors = array_merge($survey->errors, $SPR->errors, $SPR->warnings);
+			if ($errors) {
+				alert(nl2br(implode("\n", $errors)), 'alert-warning');
+			}
 			return false;
 		}
 
@@ -285,7 +291,7 @@ class Survey extends RunUnit {
 			$survey_items_display = $this->dbh->prepare(
 				"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`) 
 					VALUES (:item_id, :session_id, :display_order)
-				 ON DUPLICATE KEY UPDATE item_id = VALUES(item_id)");
+				 ON DUPLICATE KEY UPDATE display_order = VALUES(display_order)");
 
 			 $survey_items_display->bindParam(":session_id", $this->session_id);
 
@@ -380,9 +386,21 @@ class Survey extends RunUnit {
 		return $item_ids;
 	}
 
-	public function post($posted, $redirect = true) {
+	/**
+	 * Save posted survey data to database
+	 *
+	 * @param array $posted
+	 * @param bool $validate Should items be validated before posted?
+	 * @return boolean Returns TRUE if all data was successfully validated and saved or FALSE otherwise
+	 * @throws Exception
+	 */
+	public function post($posted, $validate = true) {
 		// remove variables user is not allowed to overrite (they should not be sent to user in the first place if not used in request)
 		unset($posted['id'], $posted['session'], $posted['session_id'], $posted['study_id'], $posted['created'], $posted['modified'], $posted['ended']);
+
+		if (!$posted) {
+			return false;
+		}
 
 		if (isset($posted["_item_views"]["shown"])):
 			$posted["_item_views"]["shown"] = array_filter($posted["_item_views"]["shown"]);
@@ -396,27 +414,43 @@ class Survey extends RunUnit {
 		 * ALL data on current page must valid before any database operation or saves are made
 		 * This should help avoid inconsistencies or having notes and headings spread across pages
 		 */
+
+		// Get items from database that are related to what is being posted
+		$items = $this->getItemsWithChoices(null, array(
+			'field' => 'name',
+			'values' => array_keys($posted),
+		));
+
 		// Validate items and if any fails return user to same page with all unansered items and error messages
 		// This loop also accumulates potential update data
 		$update_data = array();
 		foreach ($posted as $item_name => $item_value) {
-			if (isset($this->unanswered[$item_name]) && $this->unanswered[$item_name]->save_in_results_table) {
-				$value = $this->unanswered[$item_name]->validateInput($item_value);
-				if ($this->unanswered[$item_name]->error) {
-					$this->errors[$item_name] = $this->unanswered[$item_name]->error;
+			if (!isset($items[$item_name])) {
+				continue;
+			}
+
+			/** @var Item $item */
+			$item = $items[$item_name];
+			$validInput = $validate ? $item->validateInput($item_value) : $item_value;
+			if ($item->save_in_results_table) {
+				if ($item->error) {
+					$this->errors[$item_name] = $item->error;
 				} else {
-					// save validated input
-					$this->unanswered[$item_name]->value_validated = $value;
-					$update_data[$item_name] = $this->unanswered[$item_name]->getReply($value);
+					$item->value_validated = $validInput;
+					$items[$item_name] = $item;
+					$update_data[$item_name] = $item->getReply($validInput);
 				}
 			}
 		}
 
 		if (!empty($this->errors)) {
+			// @todo fill values of unanswered items to pre-populate form
+			$this->items_validated = $items;
 			return false;
 		}
+
 		$survey_items_display = $this->dbh->prepare(
-				"UPDATE `survey_items_display` SET 
+			"UPDATE `survey_items_display` SET 
 				created = COALESCE(created,NOW()),
 				answer = :answer, 
 				saved = :saved,
@@ -426,48 +460,40 @@ class Survey extends RunUnit {
 				answered_relative = :answered_relative,
 				displaycount = COALESCE(displaycount,1),
 				hidden = :hidden
-				WHERE item_id = :item_id AND
-				session_id = :session_id"); # fixme: displaycount starts at 2
+			WHERE item_id = :item_id AND session_id = :session_id"); # fixme: displaycount starts at 2
 		$survey_items_display->bindParam(":session_id", $this->session_id);
 
 		try {
 			$this->dbh->beginTransaction();
 
-			// Update results table in one query
-			if ($update_data) {
-				$update_where = array(
-					'study_id' => $this->id,
-					'session_id' => $this->session_id,
-				);
-				$this->dbh->update($this->results_table, $update_data, $update_where);
-			}
-
 			// update item_display table for each posted item using prepared statement
 			foreach ($posted AS $name => $value) {
-				if (!isset($this->unanswered[$name])) {
+				if (!isset($items[$name])) {
 					continue;
 				}
 
-				$survey_items_display->bindValue(":item_id", $this->unanswered[$name]->id);
-				$survey_items_display->bindValue(":answer", $this->unanswered[$name]->getReply($value));
+				/* @var Item $item */
+				$item = $items[$name];
 
-				if (isset($posted["_item_views"]["shown"][$this->unanswered[$name]->id], $posted["_item_views"]["shown_relative"][$this->unanswered[$name]->id])):
-					$shown = $posted["_item_views"]["shown"][$this->unanswered[$name]->id];
-					$shown_relative = $posted["_item_views"]["shown_relative"][$this->unanswered[$name]->id];
-				else:
+				if (isset($posted["_item_views"]["shown"][$item->id], $posted["_item_views"]["shown_relative"][$item->id])) {
+					$shown = $posted["_item_views"]["shown"][$item->id];
+					$shown_relative = $posted["_item_views"]["shown_relative"][$item->id];
+				} else {
 					$shown = mysql_now();
 					$shown_relative = null; // and where this is null, performance.now wasn't available
-				endif;
+				}
 
-				if (isset($posted["_item_views"]["answered"][$this->unanswered[$name]->id], // separately to "shown" because of items like "note"
-								$posted["_item_views"]["answered_relative"][$this->unanswered[$name]->id])):
-					$answered = $posted["_item_views"]["answered"][$this->unanswered[$name]->id];
-					$answered_relative = $posted["_item_views"]["answered_relative"][$this->unanswered[$name]->id];
-				else:
+				if (isset($posted["_item_views"]["answered"][$item->id], // separately to "shown" because of items like "note"
+								$posted["_item_views"]["answered_relative"][$item->id])) {
+					$answered = $posted["_item_views"]["answered"][$item->id];
+					$answered_relative = $posted["_item_views"]["answered_relative"][$item->id];
+				} else {
 					$answered = $shown; // this way we can identify items where JS time failed because answered and show time are exactly identical
 					$answered_relative = null;
-				endif;
+				}
 
+				$survey_items_display->bindValue(":item_id", $item->id);
+				$survey_items_display->bindValue(":answer", $item->getReply($value));
 				$survey_items_display->bindValue(":hidden", 0); // an item that was answered has to have been shown
 				$survey_items_display->bindValue(":saved", mysql_now());
 				$survey_items_display->bindParam(":shown", $shown);
@@ -479,20 +505,33 @@ class Survey extends RunUnit {
 				if (!$item_answered) {
 					throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$this->results_table}' (FieldType: {$this->unanswered[$name]->getResultField()})");
 				}
-				unset($this->unanswered[$name]);
+				unset($this->unanswered[$name]); //?? FIX ME
 			} //endforeach
+
+			// Update results table in one query
+			if ($update_data) {
+				$update_where = array(
+					'study_id' => $this->id,
+					'session_id' => $this->session_id,
+				);
+				$this->dbh->update($this->results_table, $update_data, $update_where);
+			}
 			$this->dbh->commit();
 		} catch (Exception $e) {
 			$this->dbh->rollBack();
 			notify_user_error($e, 'An error occurred while trying to save your survey data. Please notify the author of this survey with this date and time');
 			formr_log_exception($e, __CLASS__);
-			$redirect = false;
+			//$redirect = false;
+			return false;
 		}
 
 		// If all was well and we are re-directing then do so
+		/*
 		if ($redirect) {
 			redirect_to($this->run_name);
 		}
+		*/
+		return true;
 	}
 
 	protected function getProgress() {
@@ -522,11 +561,11 @@ class Survey extends RunUnit {
 		/** @var Item $item */
 		foreach ($this->to_render as $item) {
 			// On current page, count only rendered items, not skipped ones
-			if ($item->isRendered($this)) {
+			if ($item->isRendered()) {
 				$this->progress_counts['visible_on_current_page'] ++;
 			}
 			// On current page, count those items that were hidden but rendered (ie. those relying on missing data for their showif)
-			if ($item->isHiddenButRendered($this)) {
+			if ($item->isHiddenButRendered()) {
 				$this->progress_counts['hidden_but_rendered_on_current_page'] ++;
 			}
 		}
@@ -551,196 +590,125 @@ class Survey extends RunUnit {
 
 	/**
 	 * Process show-ifs and dynamic values for a given set of items in survey
+	 * @note: All dynamic values are processed (even for those we don't know if they will be shown)
 	 *
 	 * @param Item[] $items
 	 * @param array $show_ifs
 	 * @param array $dynamic_values
 	 * @return array
 	 */
-	protected function parseShowIfsAndDynamicValues(&$items) {
+	protected function processDynamicValuesAndShowIfs(&$items) {
 		// In this loop we gather all show-ifs and dynamic-values that need processing and all values.
-		$show_ifs = $dynamic_values = array();
-		$showifs_cache = array();
-		/* @var Item $item */
-		foreach ($items as $name => $item) {
-			if (($showif = $item->getShowIf())) {
-				$name = "si.{$name}";
-				$cache_key = md5($showif);
-				if (isset($showifs_cache[$cache_key])) {
-					$showif = "{$name} = {$showifs_cache[$cache_key]}";
-				} else {
-					$showifs_cache[$cache_key] = $name;
-					$showif = "{$name} = {$showif}";
-				}
-				$show_ifs[] = $showif;
-			}
-		}
+		$code = array();
 
-		$hidden_update = $this->dbh->prepare("UPDATE `survey_items_display`
-			SET hidden = :hidden
-			WHERE item_id = :item_id AND session_id = :session_id");
-		$hidden_update->bindValue(":session_id", $this->session_id);
-
-		$showif_results = array();
-
-		if ($show_ifs) {
-			$ocpu_session = opencpu_multiparse_showif($this, $show_ifs, true);
-			if (!$ocpu_session OR $ocpu_session->hasError()) {
-				notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
-			}
-			else {
-				$showif_results = $ocpu_session->getJSONObject();
-			}
-		}
-		// Fit show-ifs
-		foreach ($items as &$item) {
-			$hidden = $item->setVisibility(array_val($showif_results, "si.{$item->name}"));
-
-			$hidden_update->bindValue(":item_id", $item->id);
-			if ($hidden !== null) {
-				$hidden = (int) !$hidden;
-			}
-			$hidden_update->bindValue(":hidden", null);
-			$hidden_update->execute();
-		}
-		
-		$dyn_value_results = array();
-
-		// Compute dynamic values only if items are certainly visible
+		/* @var $item Item */
 		foreach ($items as $name => &$item) {
-			if ($item->needsDynamicValue() && $item->isRendered()) {
+			// 1. Check item's show-if
+			$showif = $item->getShowIf();
+			
+			if($showif) {
+				$siname = "si.{$name}";
+				$showif = str_replace("\n","\n\t",$showif);
+				$code[$siname] = "{$siname} = (function(){
+	{$showif}
+})()";
+			}
+
+			// 2. Check item's value
+			if ($item->needsDynamicValue()) {
 				// for items of type 'opencpu_session', compute thier values immediately and not send in bulk request
 				if ($item->type === 'opencpu_session') {
 					$item->evaluateDynamicValue($this);
 					continue;
 				}
-				$dynamic_values[] = "{$name} = (function(){{$item->getValue()}})()";
-			}
-		}
-		if ($dynamic_values) {
-			$ocpu_session = opencpu_multiparse_values($this, $dynamic_values, true);
-			if (!$ocpu_session OR $ocpu_session->hasError()) {
-				notify_user_error(opencpu_debug($ocpu_session), "There was a problem getting dynamic values using openCPU.");
-			} else {
-				$dyn_value_results = $ocpu_session->getJSONObject();
+				$val = str_replace("\n","\n\t",$item->getValue());
+				$code[$name] = "{$name} = (function(){
+{$val}
+})()";
+				if($showif) {
+					$code[$name] = "if({$siname}) {
+	". $code[$name] ."
+}";
+				}
+				// If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as string
 			}
 			
-			// Fit dynamic values in properly 
-			foreach ($items as &$item) {
-				$val = array_val($dyn_value_results, $item->name, null);
-				$item->setDynamicValue($val);
-			}
 		}
+
+		if (!$code) {
+			return $items;
+		}
+
+		$ocpu_session = opencpu_multiparse_showif($this, $code, true);
+		if (!$ocpu_session || $ocpu_session->hasError()) {
+			notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
+			foreach($items AS $name => &$item) {
+				$item->alwaysInvalid();
+			}
+		} else {
+			print_hidden_opencpu_debug_message($ocpu_session, "OpenCPU debugger for dynamic values and showifs.");
+			$results = $ocpu_session->getJSONObject();
+			$updateVisibility = $this->dbh->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
+			$updateVisibility->bindValue(":session_id", $this->session_id);
+
+			$save = array();
+
+			$definitelyShownItems = 0;
+			foreach ($items as $item_name => &$item) {
+				// set show-if visibility for items
+				$siname = "si.{$item->name}";
+				$isVisible = $item->setVisibility(array_val($results, $siname));
+				// three possible states: 1 = hidden, 0 = shown, null = depends on JS on the page, render anyway
+				if($isVisible === null) {
+					if($definitelyShownItems > 0) {
+						$hidden = null; // we only render it, if there are some items before it on which its display could depend
+					} else {
+						$hidden = 1; // otherwise it's hidden for good
+					}
+				} else {
+					$hidden = (int)!$isVisible;
+				}
+				$updateVisibility->bindValue(":item_id", $item->id);
+				$updateVisibility->bindValue(":hidden", $hidden);
+				$updateVisibility->execute();
+				
+				if($hidden === 1) { // gone for good
+					unset($items[$item_name]); // we remove items that are definitely hidden from consideration
+					continue; // don't increment counter
+				} else {
+					// set dynamic values for items
+					$val = array_val($results, $item->name, null);
+					$item->setDynamicValue($val);
+					// save dynamic value
+					// if a. we have a value b. this item does not require user input (e.g. calculate)
+					if (isset($results[$item->name]) && $item->getComputedValue() !== null && !$item->requiresUserInput()) {
+						$save[$item->name] = $item->getComputedValue();
+						unset($items[$item_name]); // we remove items that are immediately written from consideration
+						continue; // don't increment counter
+					}
+				}
+				$definitelyShownItems++; // track whether there are any items certain to be shown
+			}
+			$this->post($save, false);
+		}
+
+		return $items;
 	}
 
-	/**
-	 * Get the next items to be displayed in the survey
-	 * This function first restricts the number of items to walk through by only requesting those from the DB which have not yet been answered.
-	 * - Choices for fetched items are filtered out and fetched from DB.
-	 * - Item and choice labels that require parsing are bundled together and sent to opencpu. Some 'placeholder' logic is used here
-	 *
-	 * @param boolean $process Should dynamic values and showifs be processed?
-	 * @return Item[] Returns an array of items that should be shown next
-	 * @todo delegate the work load in this method
-	 */
-	protected function getNextItems($process = true) {
-		$this->unanswered = array();
-		$get_items = $this->dbh->select('
-				`survey_items`.id,
-				`survey_items`.study_id,
-				`survey_items`.type,
-				`survey_items`.choice_list,
-				`survey_items`.type_options,
-				`survey_items`.name,
-				`survey_items`.label,
-				`survey_items`.label_parsed,
-				`survey_items`.optional,
-				`survey_items`.class,
-				`survey_items`.showif,
-				`survey_items`.value,
-
-				`survey_items_display`.displaycount, 
-				`survey_items_display`.session_id,
-				`survey_items_display`.answered')
-				->from('survey_items')
-				->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-				->where("survey_items.study_id = :study_id AND (survey_items_display.saved IS null) AND (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)")
-				->order('survey_items_display.`display_order`', 'asc')
-				->order('survey_items.`order`', 'asc') // only needed for transfer
-				->order('survey_items.id', 'asc')
-				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
-				->statement();
-
-		// We initialise item factory with no choice list because we don't know which choices will be used yet.
-		// This assumes choices are not required for show-ifs and dynamic values (hope so)
-		$itemFactory = new ItemFactory(array());
-		while ($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
-			$this->unanswered[$item['name']] = $itemFactory->make($item);
-		}
-
-		if (!$this->unanswered) {
-			return array();
-		}
-
-		// Process show-ifs to determine which items need to be shown
-		// FIXME: Maybe there is a way to process only page-necessary show-ifs. At the moment all are processed
-		if ($process) {
-			$this->parseShowIfsAndDynamicValues($this->unanswered);
-		}
-
-		// At this point all show-ifs have been processed and all possible dynamic values have been set
-		// Save values for all items that do not require user input, have values set and will be rendered
-		// If there are any of such values, the we post and redirect
-		$post = array();
-		foreach ($this->unanswered as $name => $item) {
-			if ($item->no_user_input_required && isset($item->input_attributes['value']) && $item->isRendered()) {
-				$post[$item->name] = $item->input_attributes['value'];
-			}
-		}
-		if ($post) {
-			// save survey data and redirect.
-			$this->post($post, true);
-		}
-
-		// Gather labels and choice_lists to be parsed only for items that will potentially be visibile
-		$strings_to_parse = array();
-		$lists_to_fetch = array();
-		$this->to_render = array();
-
-		/** @var Item $item */
-		$visibleItems = 0;
-		foreach ($this->unanswered as $name => $item) {
-			if (!$item->isRendered()) {
-				continue;
-			}
-			if (!$item->hidden) {
-				$visibleItems++;
-			} else if ($visibleItems === 0) {
-				// if this item was not preceded by any visible items
-				$this->unanswered[$name]->setVisibility(array(false));
-				continue;
-			}
-
+	protected function processDynamicLabelsAndChoices(&$items) {
+		// Gather choice lists
+		$lists_to_fetch = $strings_to_parse = array();
+		foreach ($items as $name => &$item) {
 			if ($item->choice_list) {
 				$lists_to_fetch[] = $item->choice_list;
 			}
-
+	
 			if ($item->needsDynamicLabel() ) {
-				$this->unanswered[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
+				$items[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
 				$strings_to_parse[] = $item->label;
-			}
-
-			$this->to_render[$name] = (array) $this->unanswered[$name];
-			// Since as we are skipping all non-rendered items, we can safely truncate here on a submit button
-			// This will help process fewer item labels and choice labels (maybe it is more optimal)
-			if ($item->type === 'submit' && $visibleItems > 0 && $this->to_render) {
-				break;
 			}
 		}
 
-		// Use only visible items
-		// FIXME: Truncating the unanswered items array here will break progress so use $this->to_render array to process labels and merge back
-		// $this->unanswered = $this->to_render;
 		// gather and format choice_lists and save all choice labels that need parsing
 		$choices = $this->getChoices($lists_to_fetch, null);
 		$choice_lists = array();
@@ -762,21 +730,107 @@ class Survey extends RunUnit {
 			// Replace parsed strings in $choice_list array
 			opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
 			// Replace parsed strings in unanswered items array
-			opencpu_substitute_parsed_strings($this->to_render, $parsed_strings);
+			opencpu_substitute_parsed_strings($items, $parsed_strings);
 		}
 
-		// Merge processed visible items into the unanswered array
-		// and set choices for various items with processed choice_lists
-		$itemFactory->setChoiceLists($choice_lists);
-		foreach ($this->to_render as $name => $item) {
-			$choice_list = $item['choice_list'];
+		// Merge parsed choice lists into items
+		foreach ($items as $name => &$item) {
+			$choice_list = $item->choice_list;
 			if (isset($choice_lists[$choice_list])) {
-				$this->unanswered[$name]->setChoices($choice_lists[$choice_list]);
+				$list = $choice_lists[$choice_list];
+				$list = array_filter($list);
+				$items[$name]->setChoices($list);
 			}
-			$this->unanswered[$name]->refresh($item, array('label_parsed'));
-			$this->to_render[$name] = $this->unanswered[$name];
+			//$items[$name]->refresh($item, array('label_parsed'));
 		}
-		return $this->unanswered;
+
+		return $items;
+	}
+	
+	/**
+	 * All items that don't require connecting to openCPU and don't require user input are posted immediately.
+	 * Examples: get parameters, browser, ip.
+	 *
+	 * @return array Returns items that may have to be sent to openCPU or be rendered for user input
+	 */
+	protected function processAutomaticItems($items) {
+		$hiddenItems = array();
+		foreach ($items as $name => $item) {
+			if (!$item->requiresUserInput() && !$item->needsDynamicValue()) {
+				$hiddenItems[$name] = $item->getComputedValue();
+				unset($items[$name]);
+				continue;
+			}
+		}
+
+		// save these values
+		if ($hiddenItems) {
+			$this->post($hiddenItems, false);
+		}
+
+		// return possibly shortened item array
+		return $items;
+	}
+
+	/**
+	 * Get the next items to be possibly displayed in the survey
+	 *
+	 * @return array Returns items that can be possibly shown on current page
+	 */
+	protected function getNextItems() {
+		$this->unanswered = array();
+		$select = $this->dbh->select('
+				`survey_items`.id,
+				`survey_items`.study_id,
+				`survey_items`.type,
+				`survey_items`.choice_list,
+				`survey_items`.type_options,
+				`survey_items`.name,
+				`survey_items`.label,
+				`survey_items`.label_parsed,
+				`survey_items`.optional,
+				`survey_items`.class,
+				`survey_items`.showif,
+				`survey_items`.value,
+
+				`survey_items_display`.displaycount, 
+				`survey_items_display`.session_id,
+				`survey_items_display`.`display_order`,
+				`survey_items_display`.`hidden`,
+				`survey_items_display`.answered')
+			->from('survey_items')
+			->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
+			->where("survey_items.study_id = :study_id AND 
+				(survey_items_display.saved IS null) AND 
+				(survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)")
+			->order('`survey_items_display`.`display_order`', 'asc')
+			->order('survey_items.`order`', 'asc') // only needed for transfer
+			->order('survey_items.id', 'asc');
+
+		$get_items = $select->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))->statement();
+
+		// We initialise item factory with no choice list because we don't know which choices will be used yet.
+		// This assumes choices are not required for show-ifs and dynamic values (hope so)
+		$itemFactory = new ItemFactory(array());
+		$pageItems = array();
+		$inPage = true;
+
+		while ($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
+			/* @var $oItem Item */
+			$oItem = $itemFactory->make($item);
+			$this->unanswered[$oItem->name] = $oItem;
+
+			// If no user input is required and item can be on current page, then save it to be shown
+			if ($inPage) {
+				$pageItems[$oItem->name] = $oItem;
+			}
+
+			if ($oItem->type === 'submit') {
+				$inPage = false;
+			}
+		}
+
+		return $pageItems;
 	}
 
 	protected function renderNextItems() {
@@ -950,12 +1004,29 @@ class Survey extends RunUnit {
 			// POST items only if request is a post request
 			if (Request::isHTTPPostRequest()) {
 				$request = new Request($_POST);
-				$items = $this->getNextItems(false);
-				$this->post(array_merge($request->getParams(), $_FILES));
+				//$items = $this->getNextItems(false);
+				$posted = $this->post(array_merge($request->getParams(), $_FILES));
+				if ($posted) {
+					redirect_to($this->run_name);
+				}
 			}
 
-			// we only arrive here if neither of the posts above led to a redirect (either because it's a fake post request or because there was an error)
-			$items = $this->getNextItems();
+			while(($items = $this->getNextItems())) {
+				// process automatic values (such as get, browser)
+				$items = $this->processAutomaticItems($items);
+				// process showifs, dynamic values for these items
+				$items = $this->processDynamicValuesAndShowIfs($items);
+				$lastItem = end($items);
+
+				// If no items ended up to be on the page but for a submit button, then continue
+				if (!$items || (count($items) == 1 && $lastItem->type === 'submit')) {
+					continue;
+				} else {
+					$items = $this->processDynamicLabelsAndChoices($items);
+					$this->to_render = $items;
+					break;
+				}
+			}
 
 			if ($this->getProgress() === 1) {
 				$this->end();
@@ -1220,8 +1291,7 @@ class Survey extends RunUnit {
 		$this->addChoices();
 		$choice_lists = $this->getChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
-		
-		
+
 		// Get old items, mark them as false meaning all are vulnerable for delete.
 		// When the loop over survey items ends you will know which should be deleted.
 		$old_items = array();
@@ -1230,11 +1300,11 @@ class Survey extends RunUnit {
 				$old_items[$item['name']] = $object->getResultField();
 			}
 		}
-		
+
 		$result_columns = array();
 		$UPDATES = implode(', ', get_duplicate_update_string($this->user_defined_columns));
 		$add_items = $this->dbh->prepare(
-				"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
+			"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
 			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order
 		) ON DUPLICATE KEY UPDATE $UPDATES");
 
@@ -1273,8 +1343,8 @@ class Survey extends RunUnit {
 			}
 
 			$result_field = $item->getResultField();
-			
-			$new_items[ $item->name ] = $result_field;
+
+			$new_items[$item->name] = $result_field;
 
 			$result_columns[] = $result_field;
 			$change = $add_items->execute();
@@ -1299,7 +1369,7 @@ class Survey extends RunUnit {
 				$this->errors[] = "<strong>Back up failed.</strong> Deletions would have been necessary, but backing up the item table failed, so no modification was carried out.</strong>";
 			}
 		}
-			
+
 		if (empty($this->errors)) {
 			try {
 				
@@ -1344,6 +1414,7 @@ class Survey extends RunUnit {
 				return false;
 			}
 		} else {
+			$this->dbh->rollBack();
 			return false;
 		}
 		$this->dbh->commit();
@@ -1351,12 +1422,12 @@ class Survey extends RunUnit {
 		return true;
 	}
 
-	public function getItemsWithChoices() {
+	public function getItemsWithChoices($columns = null, $whereIn = null) {
 		if($this->hasResultsTable()) {
 			$choice_lists = $this->getChoices();
 			$this->item_factory = new ItemFactory($choice_lists);
 
-			$raw_items = $this->getItems();
+			$raw_items = $this->getItems($columns, $whereIn);
 
 			$items = array();
 			foreach ($raw_items as $row) {
@@ -1460,16 +1531,19 @@ class Survey extends RunUnit {
 		return false;
 	}
 
-	public function getItems($columns = null) {
+	public function getItems($columns = null, $whereIn = null) {
 		if ($columns === null) {
 			$columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, value, block_order,item_order";
 		}
 
-		return $this->dbh->select($columns)
-						->from('survey_items')
-						->where(array('study_id' => $this->id))
-						->order("`survey_items`.order")
-						->fetchAll();
+		$select =  $this->dbh->select($columns);
+		$select->from('survey_items');
+		$select->where(array('study_id' => $this->id));
+		if ($whereIn) {
+			$select->whereIn($whereIn['field'], $whereIn['values']);
+		}
+		$select->order("`survey_items`.order");
+		return $select->fetchAll();
 	}
 
 	public function getItemsForSheet() {

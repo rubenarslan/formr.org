@@ -315,6 +315,9 @@ output.output {
     margin: 0 0 0 10px;
 }
 
+.form-row {
+	position: relative;
+}
 .form-row .form-control
 {
     max-width:300px;
@@ -810,130 +813,6 @@ form.form-horizontal img, div.modal-content img,img {
 	}
 	
 }
-
-/*
-
-Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
-
-*/
-
-.hljs {
-  display: block; padding: 0.5em;
-  color: #000;
-  background: #fff;
-}
-
-.hljs-subst,
-.hljs-title {
-  font-weight: normal;
-  color: #000;
-}
-
-.hljs-comment,
-.hljs-template_comment,
-.hljs-javadoc,
-.diff .hljs-header {
-  color: #808080;
-  font-style: italic;
-}
-
-.hljs-annotation,
-.hljs-decorator,
-.hljs-preprocessor,
-.hljs-pragma,
-.hljs-doctype,
-.hljs-pi,
-.hljs-chunk,
-.hljs-shebang,
-.apache .hljs-cbracket,
-.hljs-prompt,
-.http .hljs-title {
-  color: #808000;
-}
-
-.hljs-tag,
-.hljs-pi {
-  background: #efefef;
-}
-
-.hljs-tag .hljs-title,
-.hljs-id,
-.hljs-attr_selector,
-.hljs-pseudo,
-.hljs-literal,
-.hljs-keyword,
-.hljs-hexcolor,
-.css .hljs-function,
-.ini .hljs-title,
-.css .hljs-class,
-.hljs-list .hljs-title,
-.clojure .hljs-title,
-.nginx .hljs-title,
-.tex .hljs-command,
-.hljs-request,
-.hljs-status {
-  font-weight: bold;
-  color: #000080;
-}
-
-.hljs-attribute,
-.hljs-rules .hljs-keyword,
-.hljs-number,
-.hljs-date,
-.hljs-regexp,
-.tex .hljs-special {
-  font-weight: bold;
-  color: #0000ff;
-}
-
-.hljs-number,
-.hljs-regexp {
-  font-weight: normal;
-}
-
-.hljs-string,
-.hljs-value,
-.hljs-filter .hljs-argument,
-.css .hljs-function .hljs-params,
-.apache .hljs-tag {
-  color: #008000;
-  font-weight: bold;
-}
-
-.hljs-symbol,
-.ruby .hljs-symbol .hljs-string,
-.hljs-char,
-.tex .hljs-formula {
-  color: #000;
-  background: #d0eded;
-  font-style: italic;
-}
-
-.hljs-phpdoc,
-.hljs-yardoctag,
-.hljs-javadoctag {
-  text-decoration: underline;
-}
-
-.hljs-variable,
-.hljs-envvar,
-.apache .hljs-sqbracket,
-.nginx .hljs-built_in {
-  color: #660e7a;
-}
-
-.hljs-addition {
-  background: #baeeba;
-}
-
-.hljs-deletion {
-  background: #ffc8bd;
-}
-
-.diff .hljs-change {
-  background: #bccff9;
-}
-
 /* admin stuff */
 .run-export-unit-block {
     position: relative;
@@ -962,14 +841,17 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 .import-run-dialog .form-group {
 	margin-bottom: 5px;
 }
-.white_cover {
+.js .white_cover {
 	position:fixed;
 	left:0;
 	top:0;
 	min-width:100%;
 	min-height:100%;
 	background-color:white;
-	z-index:99999999;
+	z-index:9999;
+}
+.no_js .white_cover {
+	display: none;
 }
 .submit_fuse_box {
 	width:90%;
@@ -1072,4 +954,74 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 .copy_clipboard {
 	background:transparent;
 	border:0;
+}
+.sessions-search-switch {
+	position: absolute;
+	top: 0;
+	right: 1px;
+	cursor: pointer;
+}
+.navbar-toggle, .btn, button {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.js .js_hidden {
+	display: none !important;
+}
+.no_js .js_shown {
+	display: none !important;
+}
+
+.carousel_indicators li {
+	background-color: gray;
+}
+.carousel_control {
+	width: 25px;
+}
+.carousel-inner .item img {
+	margin-left: auto;
+	margin-right: auto;
+}
+.cron-log {
+   position: relative; 
+}
+.cron-log .files {
+    width: 200px;
+    max-width: 200px;
+    overflow: hidden;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+.cron-log .file.current a {
+    background: #efefef;
+    color: #000;
+    padding: 3px;
+}
+.cron-log .text {
+    margin-left: 210px;
+    float: left;
+    width: 800px;
+}
+.cron-log .log-entry {
+    max-width: 100%;
+}
+.cron-log .log-entry .hidden {
+    display: block !important;
+    visibility: visible !important;
+}
+.cron-log .log-entry .panel-content {
+    padding: 12px;
+}
+.cron-log .log-entry .panel-heading a {
+    display: block;
+}
+.log-entries {
+    display: none;
+}
+.item_name {
+	position:absolute;
+	top: 10px;
+	right: 0;
+	opacity: 0.7;
 }

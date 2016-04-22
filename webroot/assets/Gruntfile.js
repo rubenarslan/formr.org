@@ -99,8 +99,11 @@ grunt.initConfig({
 		cssDest: 'lib/bower_lib.css',
 		exclude: [
 			'ace-builds',
-			'webshim',
+			'webshim'
 		],
+	    mainFiles: {
+	      'font-awesome': ['css/font-awesome.css']
+	    },
 		bowerOptions: {
 		  relative: true
 		}
@@ -123,14 +126,18 @@ grunt.initConfig({
 		options: {
 		  separator: ';',
 		},
-		js: {
-		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','lib/bower_lib.js', 'js/main.js'],
-		  dest: 'lib/bower.js',
-		}
+		head: {
+		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js', 'lib/bower_lib.js', 'js/highlight/highlight.pack.js', 'js/main.js'],
+		  dest: 'lib/head.js',
+		},
+//		foot: {
+//		  src: [],
+//		  dest: 'lib/foot.js',
+//		}
 	},
 	concat_css: {
 		all: {
-			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower_lib.css', 'css/core.css', 'css/custom_item_classes.css'],
+			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower_lib.css', 'js/highlight/styles/vs.css', 'css/core.css', 'css/custom_item_classes.css'],
 			dest: 'lib/bower.css'
 		},
 	},
@@ -166,10 +173,14 @@ grunt.initConfig({
 		}
 	},
 	uglify: {
-		main: {
-			src: 'lib/bower.js',
-			dest: 'minified/bower.js'
+		head: {
+			src: 'lib/head.js',
+			dest: 'minified/head.js'
 		},
+//		foot: {
+//			src: 'lib/foot.js',
+//			dest: 'minified/foot.js'
+//		},
 		run: {
 			src: 'js/run.js',
 			dest: 'minified/run.js'
@@ -188,9 +199,7 @@ grunt.initConfig({
 		}
 	},
 	jshint: {
-//		beforeconcat:  ['bower_components/webshim/js-webshim/dev/polyfiller.js','lib/bower.js', 'js/main.js'],
-//		afterconcat: ['lib/bower.js'],
-		files:  ['js/main.js','js/survey.js','js/run.js','js/run_settings.js','js/run_users.js'],
+		files:  ['js/webshim.js', 'js/main.js','js/survey.js','js/run.js','js/run_settings.js','js/run_users.js'],
 		options: {
 			globals: {
 				"$": false,

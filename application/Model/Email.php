@@ -58,7 +58,7 @@ class Email extends RunUnit {
 			$this->recipient_field = $options['recipient_field'];
 			$this->body = $options['body'];
 			$this->subject = $options['subject'];
-			if (isset($options['account_id']) AND is_numeric($options['account_id'])) {
+			if (isset($options['account_id']) && is_numeric($options['account_id'])) {
 				$this->account_id = (int) $options['account_id'];
 			}
 //			$this->html = $options['html'] ? 1:0;
@@ -71,8 +71,9 @@ class Email extends RunUnit {
 			endif;
 		endif;
 
-
-		$this->body_parsed = $parsedown->text($this->body);
+		if (!$this->knittingNeeded($this->body)) {
+			$this->body_parsed = $parsedown->text($this->body);
+		}
 
 		$this->dbh->insert_update('survey_emails', array(
 			'id' => $this->id,
@@ -103,8 +104,8 @@ class Email extends RunUnit {
 		endif;
 		return $this->subject_parsed;
 	}
-
-	protected function getBody($embed_email = true) {
+	
+	protected function substituteLinks($body) {
 		$sess = null;
 		if (isset($this->run_name)) {
 			$sess = isset($this->session) ? $this->session : "TESTCODE";
@@ -118,7 +119,19 @@ class Email extends RunUnit {
 		$settings_link_html = '<a href="'. $settings_link . '">Settings link</a>';
 
 		$login_link_html = '<a href="'. $login_link . '">Login link</a>';
+		
+		$body = str_replace("{{login_link}}", $login_link_html, $body);
+		$body = str_replace("{{login_url}}", $login_link, $body);
+		$body = str_replace("{{login_code}}", urlencode($sess), $body);
+		$body = str_replace("{{settings_link}}", $settings_link_html, $body);
+		$body = str_replace("{{settings_url}}", $settings_link, $body);
+		$body = str_replace(urlencode("{{login_url}}"), $login_link, $body);
+		$body = str_replace(urlencode("{{login_code}}"), urlencode($sess), $body);
+		$body = str_replace(urlencode("{{settings_url}}"), $settings_link, $body);
+		return $body;
+	}
 
+	protected function getBody($embed_email = true) {
 		if ($this->run_session_id):
 			$response = $this->getParsedBody($this->body, true);
 			if($response === false):
@@ -132,11 +145,8 @@ class Email extends RunUnit {
 				endif;
 			endif;
 
-			$this->body_parsed = str_replace("{{login_link}}", $login_link_html, $this->body_parsed);
-			$this->body_parsed = str_replace("{{login_url}}", $login_link, $this->body_parsed);
-			$this->body_parsed = str_replace("{{login_code}}", $this->session, $this->body_parsed);
-			$this->body_parsed = str_replace("{{settings_link}}", $settings_link_html, $this->body_parsed);
-			$this->body_parsed = str_replace("{{settings_url}}", $settings_link, $this->body_parsed);
+			$this->body_parsed = $this->substituteLinks($this->body_parsed); // once more, in case it was pre-parsed
+			
 			return $this->body_parsed;
 		else:
 			alert("Session ID for email recipient is missing.", "alert-danger");

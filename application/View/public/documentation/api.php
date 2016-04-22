@@ -110,7 +110,8 @@ GET /get/results?
 </pre>
 
 <p>
-Parameters of the run object: <br /><br />
+Parameters of the run object:
+</p>
 
 <ul>
 	<li><b>name (required):</b> This should be name name of the run as shown on formr.org</li>
@@ -131,7 +132,6 @@ included in the results set which is generally not recommended.</li>
 	</li>
 
 </ul>
-</p>
 
 <h6>RESPONSE</h6>
 

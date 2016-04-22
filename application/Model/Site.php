@@ -22,9 +22,9 @@ class Site {
 	protected $path;
 
 	/**
-	* @var RunSession
+	* @var RunSession[]
 	*/
-	protected $runSession = null;
+	protected $runSessions = array();
 
 	protected function __construct() {
 		$this->updateRequestObject();
@@ -213,12 +213,22 @@ class Site {
 		return $this->request->getParam('route');
 	}
 
-	public function setRunSession(RunSession $runSession ) {
-		$this->runSession = $runSession;
+	public function setRunSession(RunSession $runSession) {
+		$session = $runSession->session;
+		if ($session) {
+			Session::set('current_run_session_code', $session);
+			$id = md5($session);
+			$this->runSessions[$id] = $runSession;
+		}
 	}
-	
-	public function getRunSession() {
-		return $this->runSession;
+
+	public function getRunSession($session = null) {
+		if ($session === null) {
+			// if $id is null, get from current session
+			$session = Session::get('current_run_session_code');
+		}
+		$id = md5($session);
+		return isset($this->runSessions[$id]) ? $this->runSessions[$id] : null;
 	}
 
 	/**

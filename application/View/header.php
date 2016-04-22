@@ -1,18 +1,18 @@
 <?php header('Content-type: text/html; charset=utf-8');
 ?><!DOCTYPE html>
 
-<html>
+<html class="no_js">
 	<head> 
-        <title><?php echo $site->makeTitle(); ?></title>
-        <meta charset="utf-8"> 
+	    <script>(function(H){H.className=H.className.replace(/\bno_js\b/,'js')})(document.documentElement)</script>
 		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-
+        <meta charset="utf-8"> 
+        <title><?php echo $site->makeTitle(); ?></title>
 		<link rel="stylesheet" type="text/css" href="<?= asset_url('assets/lib/bower'. (DEBUG ? '' : '.min') . '.css') ; ?>" />
-
 		<?php echo isset($css) ? $css : '' ?>
-
-		<script type="text/javascript" src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/bower.js') ; ?>"></script>	
+		
+		<script src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/head.js') ; ?>"></script>	
 		<?php echo isset($js) ? $js : '' ?>
+
 	</head>
 	<body>
 		<div class="container">

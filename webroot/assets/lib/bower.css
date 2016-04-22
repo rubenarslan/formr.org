@@ -6798,15 +6798,15 @@ button.close {
   }
 }
 /*!
- *  Font Awesome 4.3.0 by @davegandy - http://fontawesome.io - @fontawesome
+ *  Font Awesome 4.5.0 by @davegandy - http://fontawesome.io - @fontawesome
  *  License - http://fontawesome.io/license (Font: SIL OFL 1.1, CSS: MIT License)
  */
 /* FONT PATH
  * -------------------------- */
 @font-face {
   font-family: 'FontAwesome';
-  src: url('../fonts/fontawesome-webfont.eot?v=4.3.0');
-  src: url('../fonts/fontawesome-webfont.eot?#iefix&v=4.3.0') format('embedded-opentype'), url('../fonts/fontawesome-webfont.woff2?v=4.3.0') format('woff2'), url('../fonts/fontawesome-webfont.woff?v=4.3.0') format('woff'), url('../fonts/fontawesome-webfont.ttf?v=4.3.0') format('truetype'), url('../fonts/fontawesome-webfont.svg?v=4.3.0#fontawesomeregular') format('svg');
+  src: url('../fonts/fontawesome-webfont.eot?v=4.5.0');
+  src: url('../fonts/fontawesome-webfont.eot?#iefix&v=4.5.0') format('embedded-opentype'), url('../fonts/fontawesome-webfont.woff2?v=4.5.0') format('woff2'), url('../fonts/fontawesome-webfont.woff?v=4.5.0') format('woff'), url('../fonts/fontawesome-webfont.ttf?v=4.5.0') format('truetype'), url('../fonts/fontawesome-webfont.svg?v=4.5.0#fontawesomeregular') format('svg');
   font-weight: normal;
   font-style: normal;
 }
@@ -6817,10 +6817,6 @@ button.close {
   text-rendering: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  -webkit-transform: translate(0, 0);
-      -ms-transform: translate(0, 0);
-       -o-transform: translate(0, 0);
-          transform: translate(0, 0);
 }
 /* makes the font 33% larger relative to the icon container */
 .fa-lg {
@@ -6867,6 +6863,19 @@ button.close {
   border: solid 0.08em #eeeeee;
   border-radius: .1em;
 }
+.fa-pull-left {
+  float: left;
+}
+.fa-pull-right {
+  float: right;
+}
+.fa.fa-pull-left {
+  margin-right: .3em;
+}
+.fa.fa-pull-right {
+  margin-left: .3em;
+}
+/* Deprecated as of 4.4.0 */
 .pull-right {
   float: right;
 }
@@ -7452,6 +7461,7 @@ button.close {
 .fa-credit-card:before {
   content: "\f09d";
 }
+.fa-feed:before,
 .fa-rss:before {
   content: "\f09e";
 }
@@ -8333,6 +8343,8 @@ button.close {
 .fa-git:before {
   content: "\f1d3";
 }
+.fa-y-combinator-square:before,
+.fa-yc-square:before,
 .fa-hacker-news:before {
   content: "\f1d4";
 }
@@ -8357,7 +8369,6 @@ button.close {
 .fa-history:before {
   content: "\f1da";
 }
-.fa-genderless:before,
 .fa-circle-thin:before {
   content: "\f1db";
 }
@@ -8562,6 +8573,7 @@ button.close {
 .fa-mercury:before {
   content: "\f223";
 }
+.fa-intersex:before,
 .fa-transgender:before {
   content: "\f224";
 }
@@ -8588,6 +8600,9 @@ button.close {
 }
 .fa-neuter:before {
   content: "\f22c";
+}
+.fa-genderless:before {
+  content: "\f22d";
 }
 .fa-facebook-official:before {
   content: "\f230";
@@ -8623,161 +8638,272 @@ button.close {
 .fa-medium:before {
   content: "\f23a";
 }
-
-/*
-
-Original style from softwaremaniacs.org (c) Ivan Sagalaev <Maniac@SoftwareManiacs.Org>
-
-*/
-
-.hljs {
-  display: block;
-  overflow-x: auto;
-  padding: 0.5em;
-  background: #f0f0f0;
-  -webkit-text-size-adjust: none;
+.fa-yc:before,
+.fa-y-combinator:before {
+  content: "\f23b";
 }
-
-.hljs,
-.hljs-subst,
-.hljs-tag .hljs-title,
-.nginx .hljs-title {
-  color: black;
+.fa-optin-monster:before {
+  content: "\f23c";
 }
-
-.hljs-string,
-.hljs-title,
-.hljs-constant,
-.hljs-parent,
-.hljs-tag .hljs-value,
-.hljs-rule .hljs-value,
-.hljs-preprocessor,
-.hljs-pragma,
-.hljs-name,
-.haml .hljs-symbol,
-.ruby .hljs-symbol,
-.ruby .hljs-symbol .hljs-string,
-.hljs-template_tag,
-.django .hljs-variable,
-.smalltalk .hljs-class,
-.hljs-addition,
-.hljs-flow,
-.hljs-stream,
-.bash .hljs-variable,
-.pf .hljs-variable,
-.apache .hljs-tag,
-.apache .hljs-cbracket,
-.tex .hljs-command,
-.tex .hljs-special,
-.erlang_repl .hljs-function_or_atom,
-.asciidoc .hljs-header,
-.markdown .hljs-header,
-.coffeescript .hljs-attribute,
-.tp .hljs-variable {
-  color: #800;
+.fa-opencart:before {
+  content: "\f23d";
 }
-
-.smartquote,
-.hljs-comment,
-.hljs-annotation,
-.diff .hljs-header,
-.hljs-chunk,
-.asciidoc .hljs-blockquote,
-.markdown .hljs-blockquote {
-  color: #888;
+.fa-expeditedssl:before {
+  content: "\f23e";
 }
-
-.hljs-number,
-.hljs-date,
-.hljs-regexp,
-.hljs-literal,
-.hljs-hexcolor,
-.smalltalk .hljs-symbol,
-.smalltalk .hljs-char,
-.go .hljs-constant,
-.hljs-change,
-.lasso .hljs-variable,
-.makefile .hljs-variable,
-.asciidoc .hljs-bullet,
-.markdown .hljs-bullet,
-.asciidoc .hljs-link_url,
-.markdown .hljs-link_url {
-  color: #080;
+.fa-battery-4:before,
+.fa-battery-full:before {
+  content: "\f240";
 }
-
-.hljs-label,
-.ruby .hljs-string,
-.hljs-decorator,
-.hljs-filter .hljs-argument,
-.hljs-localvars,
-.hljs-array,
-.hljs-attr_selector,
-.hljs-important,
-.hljs-pseudo,
-.hljs-pi,
-.haml .hljs-bullet,
-.hljs-doctype,
-.hljs-deletion,
-.hljs-envvar,
-.hljs-shebang,
-.apache .hljs-sqbracket,
-.nginx .hljs-built_in,
-.tex .hljs-formula,
-.erlang_repl .hljs-reserved,
-.hljs-prompt,
-.asciidoc .hljs-link_label,
-.markdown .hljs-link_label,
-.vhdl .hljs-attribute,
-.clojure .hljs-attribute,
-.asciidoc .hljs-attribute,
-.lasso .hljs-attribute,
-.coffeescript .hljs-property,
-.hljs-phony {
-  color: #88f;
+.fa-battery-3:before,
+.fa-battery-three-quarters:before {
+  content: "\f241";
 }
-
-.hljs-keyword,
-.hljs-id,
-.hljs-title,
-.hljs-built_in,
-.css .hljs-tag,
-.hljs-doctag,
-.smalltalk .hljs-class,
-.hljs-winutils,
-.bash .hljs-variable,
-.pf .hljs-variable,
-.apache .hljs-tag,
-.hljs-type,
-.hljs-typename,
-.tex .hljs-command,
-.asciidoc .hljs-strong,
-.markdown .hljs-strong,
-.hljs-request,
-.hljs-status,
-.tp .hljs-data,
-.tp .hljs-io {
-  font-weight: bold;
+.fa-battery-2:before,
+.fa-battery-half:before {
+  content: "\f242";
 }
-
-.asciidoc .hljs-emphasis,
-.markdown .hljs-emphasis,
-.tp .hljs-units {
-  font-style: italic;
+.fa-battery-1:before,
+.fa-battery-quarter:before {
+  content: "\f243";
 }
-
-.nginx .hljs-built_in {
-  font-weight: normal;
+.fa-battery-0:before,
+.fa-battery-empty:before {
+  content: "\f244";
 }
-
-.coffeescript .javascript,
-.javascript .xml,
-.lasso .markup,
-.tex .hljs-formula,
-.xml .javascript,
-.xml .vbscript,
-.xml .css,
-.xml .hljs-cdata {
-  opacity: 0.5;
+.fa-mouse-pointer:before {
+  content: "\f245";
+}
+.fa-i-cursor:before {
+  content: "\f246";
+}
+.fa-object-group:before {
+  content: "\f247";
+}
+.fa-object-ungroup:before {
+  content: "\f248";
+}
+.fa-sticky-note:before {
+  content: "\f249";
+}
+.fa-sticky-note-o:before {
+  content: "\f24a";
+}
+.fa-cc-jcb:before {
+  content: "\f24b";
+}
+.fa-cc-diners-club:before {
+  content: "\f24c";
+}
+.fa-clone:before {
+  content: "\f24d";
+}
+.fa-balance-scale:before {
+  content: "\f24e";
+}
+.fa-hourglass-o:before {
+  content: "\f250";
+}
+.fa-hourglass-1:before,
+.fa-hourglass-start:before {
+  content: "\f251";
+}
+.fa-hourglass-2:before,
+.fa-hourglass-half:before {
+  content: "\f252";
+}
+.fa-hourglass-3:before,
+.fa-hourglass-end:before {
+  content: "\f253";
+}
+.fa-hourglass:before {
+  content: "\f254";
+}
+.fa-hand-grab-o:before,
+.fa-hand-rock-o:before {
+  content: "\f255";
+}
+.fa-hand-stop-o:before,
+.fa-hand-paper-o:before {
+  content: "\f256";
+}
+.fa-hand-scissors-o:before {
+  content: "\f257";
+}
+.fa-hand-lizard-o:before {
+  content: "\f258";
+}
+.fa-hand-spock-o:before {
+  content: "\f259";
+}
+.fa-hand-pointer-o:before {
+  content: "\f25a";
+}
+.fa-hand-peace-o:before {
+  content: "\f25b";
+}
+.fa-trademark:before {
+  content: "\f25c";
+}
+.fa-registered:before {
+  content: "\f25d";
+}
+.fa-creative-commons:before {
+  content: "\f25e";
+}
+.fa-gg:before {
+  content: "\f260";
+}
+.fa-gg-circle:before {
+  content: "\f261";
+}
+.fa-tripadvisor:before {
+  content: "\f262";
+}
+.fa-odnoklassniki:before {
+  content: "\f263";
+}
+.fa-odnoklassniki-square:before {
+  content: "\f264";
+}
+.fa-get-pocket:before {
+  content: "\f265";
+}
+.fa-wikipedia-w:before {
+  content: "\f266";
+}
+.fa-safari:before {
+  content: "\f267";
+}
+.fa-chrome:before {
+  content: "\f268";
+}
+.fa-firefox:before {
+  content: "\f269";
+}
+.fa-opera:before {
+  content: "\f26a";
+}
+.fa-internet-explorer:before {
+  content: "\f26b";
+}
+.fa-tv:before,
+.fa-television:before {
+  content: "\f26c";
+}
+.fa-contao:before {
+  content: "\f26d";
+}
+.fa-500px:before {
+  content: "\f26e";
+}
+.fa-amazon:before {
+  content: "\f270";
+}
+.fa-calendar-plus-o:before {
+  content: "\f271";
+}
+.fa-calendar-minus-o:before {
+  content: "\f272";
+}
+.fa-calendar-times-o:before {
+  content: "\f273";
+}
+.fa-calendar-check-o:before {
+  content: "\f274";
+}
+.fa-industry:before {
+  content: "\f275";
+}
+.fa-map-pin:before {
+  content: "\f276";
+}
+.fa-map-signs:before {
+  content: "\f277";
+}
+.fa-map-o:before {
+  content: "\f278";
+}
+.fa-map:before {
+  content: "\f279";
+}
+.fa-commenting:before {
+  content: "\f27a";
+}
+.fa-commenting-o:before {
+  content: "\f27b";
+}
+.fa-houzz:before {
+  content: "\f27c";
+}
+.fa-vimeo:before {
+  content: "\f27d";
+}
+.fa-black-tie:before {
+  content: "\f27e";
+}
+.fa-fonticons:before {
+  content: "\f280";
+}
+.fa-reddit-alien:before {
+  content: "\f281";
+}
+.fa-edge:before {
+  content: "\f282";
+}
+.fa-credit-card-alt:before {
+  content: "\f283";
+}
+.fa-codiepie:before {
+  content: "\f284";
+}
+.fa-modx:before {
+  content: "\f285";
+}
+.fa-fort-awesome:before {
+  content: "\f286";
+}
+.fa-usb:before {
+  content: "\f287";
+}
+.fa-product-hunt:before {
+  content: "\f288";
+}
+.fa-mixcloud:before {
+  content: "\f289";
+}
+.fa-scribd:before {
+  content: "\f28a";
+}
+.fa-pause-circle:before {
+  content: "\f28b";
+}
+.fa-pause-circle-o:before {
+  content: "\f28c";
+}
+.fa-stop-circle:before {
+  content: "\f28d";
+}
+.fa-stop-circle-o:before {
+  content: "\f28e";
+}
+.fa-shopping-bag:before {
+  content: "\f290";
+}
+.fa-shopping-basket:before {
+  content: "\f291";
+}
+.fa-hashtag:before {
+  content: "\f292";
+}
+.fa-bluetooth:before {
+  content: "\f293";
+}
+.fa-bluetooth-b:before {
+  content: "\f294";
+}
+.fa-percent:before {
+  content: "\f295";
 }
 
 /*
@@ -9503,6 +9629,74 @@ html[dir="rtl"] .select2-container-multi .select2-search-choice-close {
         background-position: 100% -21px !important;
     }
 }
+/*
+
+Visual Studio-like style based on original C# coloring by Jason Diamond <jason@diamond.name>
+
+*/
+.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 0.5em;
+  background: white;
+  color: black;
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-variable {
+  color: #008000;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-name,
+.hljs-tag {
+  color: #00f;
+}
+
+.hljs-string,
+.hljs-title,
+.hljs-section,
+.hljs-attribute,
+.hljs-literal,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-addition {
+  color: #a31515;
+}
+
+.hljs-deletion,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-meta {
+  color: #2b91af;
+}
+
+.hljs-doctag {
+  color: #808080;
+}
+
+.hljs-attr {
+  color: #f00;
+}
+
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+  color: #00b0e8;
+}
+
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
 body {
 	margin-bottom:50px;
 }
@@ -9832,6 +10026,9 @@ output.output {
     margin: 0 0 0 10px;
 }
 
+.form-row {
+	position: relative;
+}
 .form-row .form-control
 {
     max-width:300px;
@@ -10328,130 +10525,6 @@ form.form-horizontal img, div.modal-content img,img {
 	}
 	
 }
-
-/*
-
-Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
-
-*/
-
-.hljs {
-  display: block; padding: 0.5em;
-  color: #000;
-  background: #fff;
-}
-
-.hljs-subst,
-.hljs-title {
-  font-weight: normal;
-  color: #000;
-}
-
-.hljs-comment,
-.hljs-template_comment,
-.hljs-javadoc,
-.diff .hljs-header {
-  color: #808080;
-  font-style: italic;
-}
-
-.hljs-annotation,
-.hljs-decorator,
-.hljs-preprocessor,
-.hljs-pragma,
-.hljs-doctype,
-.hljs-pi,
-.hljs-chunk,
-.hljs-shebang,
-.apache .hljs-cbracket,
-.hljs-prompt,
-.http .hljs-title {
-  color: #808000;
-}
-
-.hljs-tag,
-.hljs-pi {
-  background: #efefef;
-}
-
-.hljs-tag .hljs-title,
-.hljs-id,
-.hljs-attr_selector,
-.hljs-pseudo,
-.hljs-literal,
-.hljs-keyword,
-.hljs-hexcolor,
-.css .hljs-function,
-.ini .hljs-title,
-.css .hljs-class,
-.hljs-list .hljs-title,
-.clojure .hljs-title,
-.nginx .hljs-title,
-.tex .hljs-command,
-.hljs-request,
-.hljs-status {
-  font-weight: bold;
-  color: #000080;
-}
-
-.hljs-attribute,
-.hljs-rules .hljs-keyword,
-.hljs-number,
-.hljs-date,
-.hljs-regexp,
-.tex .hljs-special {
-  font-weight: bold;
-  color: #0000ff;
-}
-
-.hljs-number,
-.hljs-regexp {
-  font-weight: normal;
-}
-
-.hljs-string,
-.hljs-value,
-.hljs-filter .hljs-argument,
-.css .hljs-function .hljs-params,
-.apache .hljs-tag {
-  color: #008000;
-  font-weight: bold;
-}
-
-.hljs-symbol,
-.ruby .hljs-symbol .hljs-string,
-.hljs-char,
-.tex .hljs-formula {
-  color: #000;
-  background: #d0eded;
-  font-style: italic;
-}
-
-.hljs-phpdoc,
-.hljs-yardoctag,
-.hljs-javadoctag {
-  text-decoration: underline;
-}
-
-.hljs-variable,
-.hljs-envvar,
-.apache .hljs-sqbracket,
-.nginx .hljs-built_in {
-  color: #660e7a;
-}
-
-.hljs-addition {
-  background: #baeeba;
-}
-
-.hljs-deletion {
-  background: #ffc8bd;
-}
-
-.diff .hljs-change {
-  background: #bccff9;
-}
-
 /* admin stuff */
 .run-export-unit-block {
     position: relative;
@@ -10480,14 +10553,17 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 .import-run-dialog .form-group {
 	margin-bottom: 5px;
 }
-.white_cover {
+.js .white_cover {
 	position:fixed;
 	left:0;
 	top:0;
 	min-width:100%;
 	min-height:100%;
 	background-color:white;
-	z-index:99999999;
+	z-index:9999;
+}
+.no_js .white_cover {
+	display: none;
 }
 .submit_fuse_box {
 	width:90%;
@@ -10587,6 +10663,76 @@ Intellij Idea-like styling (c) Vasily Polovnyov <vast@whiteants.net>
 .copy_clipboard {
 	background:transparent;
 	border:0;
+}
+.sessions-search-switch {
+	position: absolute;
+	top: 0;
+	right: 1px;
+	cursor: pointer;
+}
+.navbar-toggle, .btn, button {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.js .js_hidden {
+	display: none !important;
+}
+.no_js .js_shown {
+	display: none !important;
+}
+
+.carousel_indicators li {
+	background-color: gray;
+}
+.carousel_control {
+	width: 25px;
+}
+.carousel-inner .item img {
+	margin-left: auto;
+	margin-right: auto;
+}
+.cron-log {
+   position: relative; 
+}
+.cron-log .files {
+    width: 200px;
+    max-width: 200px;
+    overflow: hidden;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+.cron-log .file.current a {
+    background: #efefef;
+    color: #000;
+    padding: 3px;
+}
+.cron-log .text {
+    margin-left: 210px;
+    float: left;
+    width: 800px;
+}
+.cron-log .log-entry {
+    max-width: 100%;
+}
+.cron-log .log-entry .hidden {
+    display: block !important;
+    visibility: visible !important;
+}
+.cron-log .log-entry .panel-content {
+    padding: 12px;
+}
+.cron-log .log-entry .panel-heading a {
+    display: block;
+}
+.log-entries {
+    display: none;
+}
+.item_name {
+	position:absolute;
+	top: 10px;
+	right: 0;
+	opacity: 0.7;
 }
 /* CLASSES THAT CAN BE ADDED BY USER TO ITEM CONTAINERS */
 form.form-horizontal div.form-group.float_image_right img {

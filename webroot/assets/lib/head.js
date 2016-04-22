@@ -1,4 +1,1450 @@
-/*!
+(function (factory) {
+	if (typeof WSDEBUG === 'undefined') {
+		window.WSDEBUG = true;
+	}
+	var addAsync = function(){
+		if(!window.asyncWebshims){
+			window.asyncWebshims = {
+				cfg: [],
+				ready: []
+			};
+		}
+	};
+	var start = function(){
+		if(window.jQuery){
+			factory(jQuery);
+			factory = function(){return window.webshims;};
+		}
+	};
+
+
+	window.webshims = {
+		setOptions: function(){
+			addAsync();
+			window.asyncWebshims.cfg.push(arguments);
+		},
+
+		ready: function(){
+			addAsync();
+			window.asyncWebshims.ready.push(arguments);
+		},
+		activeLang: function(lang){
+			addAsync();
+			window.asyncWebshims.lang = lang;
+		},
+		polyfill: function(features){
+			addAsync();
+			window.asyncWebshims.polyfill = features;
+		},
+		_curScript: (function(){
+			var scripts, i, scriptUrl, match, regUrl;
+			//modern browsers: Chrome 29+, Firefox 4+
+			var currentScript = document.currentScript;
+
+			//in debug mode remove result to fully test fallback in all browsers
+			if(WSDEBUG){
+				currentScript = false;
+			}
+			if (!currentScript) {
+				//error trick: works in Safari, Chrome, Firefox, IE 10+
+				//idea found here: https://github.com/samyk/jiagra/
+				try {
+					throw(new Error(''));
+				} catch (e) {
+					//Safari has sourceURL
+					scriptUrl = (e.sourceURL || e.stack || '').split('\n');
+					regUrl = /(?:fil|htt|wid|abo|app|res)(.)+/i;
+
+					for(i = 0; i < scriptUrl.length; i++){
+						//extract scriptUrl from stack: this is dangerous! All browsers have different string patterns (pattern can even vary between different browser versions). Help to make it bulletproof!!!
+						if((match = scriptUrl[i].match(regUrl))){
+							scriptUrl = match[0].replace(/[\:\s\(]+[\d\:\)\(\s]+$/, '');
+							break;
+						}
+					}
+
+
+				}
+
+				scripts = document.scripts || document.getElementsByTagName('script');
+
+				//get script by URL or by readyState == 'interactive' (readySate is supported in IE10-)
+				//if this fails the last found script is set to the currentScript
+				for (i = 0; i < scripts.length; i++) {
+					if(scripts[i].getAttribute('src')){
+						currentScript = scripts[i];
+						if (scripts[i].readyState == 'interactive' || scriptUrl == scripts[i].src) {
+							if(WSDEBUG){
+								currentScript.wsFoundCurrent = true;
+							}
+							break;
+						}
+					}
+				}
+			}
+
+			return currentScript;
+		})()
+	};
+	window.webshim = window.webshims;
+
+
+	window.webshims.timer = setInterval(start, 0);
+	start();
+
+	if (typeof define === 'function' && define.amd) {
+		define('polyfiller', ['jquery'], factory);
+	}
+}(function($){
+	"use strict";
+	var firstRun, path;
+	var navigator = window.navigator;
+	var webshims = window.webshims;
+	var DOMSUPPORT = 'dom-support';
+	var special = $.event.special;
+	var emptyJ = $([]);
+
+	var asyncWebshims = window.asyncWebshims;
+	var support = {};
+	var Object = window.Object;
+	var addSource = function(text){
+		return text +"\n//# sourceURL="+this.url;
+	};
+	var getAutoEnhance = function(prop){
+		return !webCFG.enhanceAuto && prop == 'auto' ? false : prop;
+	};
+	var featureAlias = {
+		matchmedia: 'matchMedia',
+		xhr2: 'filereader',
+		promise: 'es6',
+		URL: 'url'
+	};
+	var supportCapture = 'capture' in create('input');
+
+	clearInterval(webshims.timer);
+	support.advancedObjectProperties = support.objectAccessor = support.ES5 = !!('create' in Object && 'seal' in Object);
+
+	if(support.ES5 && !('toJSON' in Date.prototype)){
+		support.ES5 = false;
+	}
+
+
+	path = ($.support.hrefNormalized === false) ? webshims._curScript.getAttribute("src", 4) : webshims._curScript.src;
+	path = path.split('?')[0].slice(0, path.lastIndexOf("/") + 1) + 'shims/';
+
+	function create(name){
+		return document.createElement(name);
+	}
+
+	$.extend(webshims, {
+		version: '1.15.10',
+
+		cfg: {
+			enhanceAuto: window.Audio && (!window.matchMedia || matchMedia('(min-device-width: 721px)').matches),
+			//addCacheBuster: false,
+			waitReady: true,
+//			extendNative: false,
+			loadStyles: true,
+			wsdoc: document,
+			wspopover: {appendTo: 'auto', hideOnBlur: true},
+			ajax: {crossDomain: true},
+			loadScript: function(src, success){
+				$.ajax($.extend({}, webCFG.ajax, {url: src, success: success, dataType: 'script', cache: true, global: false, dataFilter: addSource}));
+			},
+			basePath: path
+		},
+		support: support,
+		bugs: {},
+		/*
+		 * some data
+		 */
+		modules: {},
+		features: {},
+		featureList: [],
+		setOptions: function(name, opts){
+			if (typeof name == 'string' && arguments.length > 1) {
+				webCFG[name] = (!$.isPlainObject(opts)) ? opts : $.extend(true, webCFG[name] || {}, opts);
+			} else if (typeof name == 'object') {
+				$.extend(true, webCFG, name);
+			}
+		},
+		_getAutoEnhance: getAutoEnhance,
+		addPolyfill: function(name, cfg){
+			cfg = cfg || {};
+			var feature = cfg.f || name;
+			if (!webshimsFeatures[feature]) {
+				webshimsFeatures[feature] = [];
+				webshims.featureList.push(feature);
+				webCFG[feature] = {};
+			}
+
+			webshimsFeatures[feature].push(name);
+			cfg.options = $.extend(webCFG[feature], cfg.options);
+
+			addModule(name, cfg);
+			if (cfg.methodNames) {
+				$.each(cfg.methodNames, function(i, methodName){
+					webshims.addMethodName(methodName);
+				});
+			}
+		},
+		polyfill: (function(){
+			var loaded = {};
+			return function(features){
+				if(!features){
+					features = webshims.featureList;
+					WSDEBUG && webshims.warn('loading all features without specifing might be bad for performance');
+				}
+
+				if (typeof features == 'string') {
+					features = features.split(' ');
+				}
+
+				if(WSDEBUG){
+					for(var i = 0; i < features.length; i++){
+						if(loaded[features[i]]){
+							webshims.error(features[i] +' already loaded, you might want to use updatePolyfill instead? see: afarkas.github.io/webshim/demos/#Shiv-dynamic-html5');
+						}
+						loaded[features[i]] = true;
+					}
+				}
+				return webshims._polyfill(features);
+			};
+		})(),
+		_polyfill: function(features){
+			var toLoadFeatures = [];
+			var hasFormsExt, needExtStyles;
+
+			if(!firstRun.run){
+				hasFormsExt = $.inArray('forms-ext', features) !== -1;
+				firstRun();
+				needExtStyles = (hasFormsExt && !modules["form-number-date-ui"].test()) || (!supportCapture && $.inArray('mediacapture', features) !== -1);
+
+				if(hasFormsExt && $.inArray('forms', features) == -1){
+					features.push('forms');
+					if(WSDEBUG){
+						webshims.warn('need to load forms feature to use forms-ext feature.');
+					}
+				}
+				if(webCFG.loadStyles){
+					loader.loadCSS('styles/shim'+(needExtStyles ? '-ext' : '')+'.css');
+				}
+			}
+
+
+			if (webCFG.waitReady) {
+				$.readyWait++;
+				onReady(features, function(){
+					$.ready(true);
+				});
+			}
+
+			$.each(features, function(i, feature){
+
+				feature = featureAlias[feature] || feature;
+
+				if(!webshimsFeatures[feature]){
+					WSDEBUG && webshims.error("could not find webshims-feature (aborted): "+ feature);
+					isReady(feature, true);
+					return;
+				}
+				if (feature !== webshimsFeatures[feature][0]) {
+					onReady(webshimsFeatures[feature], function(){
+						isReady(feature, true);
+					});
+				}
+				toLoadFeatures = toLoadFeatures.concat(webshimsFeatures[feature]);
+			});
+
+			loadList(toLoadFeatures);
+
+
+			$.each(features, function(i, feature){
+				var o = webCFG[feature];
+				if(!o){return;}
+				if(feature == 'mediaelement' && (o.replaceUI = getAutoEnhance(o.replaceUI))){
+					o.plugins.unshift('mediacontrols');
+				}
+				if(o.plugins && o.plugins.length){
+					loadList(webCFG[feature].plugins);
+				}
+			});
+		},
+
+		/*
+		 * handle ready modules
+		 */
+		reTest: (function(){
+			var resList;
+			var reTest = function(i, name){
+				var module = modules[name];
+				var readyName = name+'Ready';
+				if(module && !module.loaded && !( (module.test && $.isFunction(module.test) ) ? module.test([]) : module.test )){
+					if(special[readyName]){
+						delete special[readyName];
+					}
+					webshimsFeatures[module.f];
+
+					resList.push(name);
+				}
+			};
+			return function(moduleNames){
+				if(typeof moduleNames == 'string'){
+					moduleNames = moduleNames.split(' ');
+				}
+				resList = [];
+				$.each(moduleNames, reTest);
+				loadList(resList);
+			};
+		})(),
+		isReady: function(name, _set){
+
+			name = name + 'Ready';
+			if (_set) {
+				if (special[name] && special[name].add) {
+					return true;
+				}
+
+				special[name] = $.extend(special[name] || {}, {
+					add: function(details){
+						details.handler.call(this, name);
+					}
+				});
+				$(document).triggerHandler(name);
+			}
+			return !!(special[name] && special[name].add) || false;
+		},
+		ready: function(events, fn /*, _created*/){
+			var _created = arguments[2];
+			if (typeof events == 'string') {
+				events = events.split(' ');
+			}
+
+			if (!_created) {
+				events = $.map($.grep(events, function(evt){
+					return !isReady(evt);
+				}), function(evt){
+					return evt + 'Ready';
+				});
+			}
+			if (!events.length) {
+				fn($, webshims, window, document);
+				return;
+			}
+			var readyEv = events.shift(), readyFn = function(){
+				onReady(events, fn, true);
+			};
+
+			$(document).one(readyEv, readyFn);
+		},
+
+		/*
+		 * basic DOM-/jQuery-Helpers
+		 */
+
+
+		capturingEvents: function(names, _maybePrevented){
+			if (!document.addEventListener) {
+				return;
+			}
+			if (typeof names == 'string') {
+				names = [names];
+			}
+			$.each(names, function(i, name){
+				var handler = function(e){
+					e = $.event.fix(e);
+					if (_maybePrevented && webshims.capturingEventPrevented) {
+						webshims.capturingEventPrevented(e);
+					}
+					return $.event.dispatch.call(this, e);
+				};
+				special[name] = special[name] || {};
+				if (special[name].setup || special[name].teardown) {
+					return;
+				}
+				$.extend(special[name], {
+					setup: function(){
+						this.addEventListener(name, handler, true);
+					},
+					teardown: function(){
+						this.removeEventListener(name, handler, true);
+					}
+				});
+			});
+		},
+		register: function(name, fn){
+			var module = modules[name];
+			if (!module) {
+				webshims.error("can't find module: " + name);
+				return;
+			}
+			module.loaded = true;
+			var ready = function(){
+				fn($, webshims, window, document, undefined, module.options);
+				isReady(name, true);
+			};
+			if (module.d && module.d.length) {
+				onReady(module.d, ready);
+			} else {
+				ready();
+			}
+
+		},
+		c: {},
+		/*
+		 * loader
+		 */
+		loader: {
+
+			addModule: function(name, ext){
+				modules[name] = ext;
+				ext.name = ext.name || name;
+				if(!ext.c){
+					ext.c = [];
+				}
+				$.each(ext.c, function(i, comboname){
+					if(!webshims.c[comboname]){
+						webshims.c[comboname] = [];
+					}
+					webshims.c[comboname].push(name);
+				});
+			},
+			loadList: (function(){
+
+				var loadedModules = [];
+				var loadScript = function(src, names){
+					if (typeof names == 'string') {
+						names = [names];
+					}
+					$.merge(loadedModules, names);
+					loader.loadScript(src, false, names);
+				};
+
+				var noNeedToLoad = function(name, list){
+					if (isReady(name) || $.inArray(name, loadedModules) != -1) {
+						return true;
+					}
+					var module = modules[name];
+					var supported;
+					if (module) {
+						supported = (module.test && $.isFunction(module.test)) ? module.test(list) : module.test;
+						if (supported) {
+							isReady(name, true);
+							return true;
+						} else {
+							return false;
+						}
+					}
+					return true;
+				};
+
+				var setDependencies = function(module, list){
+					if (module.d && module.d.length) {
+						var addDependency = function(i, dependency){
+							if (!noNeedToLoad(dependency, list) && $.inArray(dependency, list) == -1) {
+								list.push(dependency);
+							}
+						};
+						$.each(module.d, function(i, dependency){
+							if (modules[dependency]) {
+								if(!modules[dependency].loaded){
+									addDependency(i, dependency);
+								}
+							}
+							else
+								if (webshimsFeatures[dependency]) {
+									$.each(webshimsFeatures[dependency], addDependency);
+									onReady(webshimsFeatures[dependency], function(){
+										isReady(dependency, true);
+									});
+								}
+						});
+						if (!module.noAutoCallback) {
+							module.noAutoCallback = true;
+						}
+					}
+				};
+
+				return function(list){
+					var module;
+					var loadCombos = [];
+					var i;
+					var len;
+					var foundCombo;
+					var loadCombo = function(j, combo){
+						foundCombo = combo;
+						$.each(webshims.c[combo], function(i, moduleName){
+							if($.inArray(moduleName, loadCombos) == -1 || $.inArray(moduleName, loadedModules) != -1){
+								foundCombo = false;
+								return false;
+							}
+						});
+						if(foundCombo){
+							loadScript('combos/'+foundCombo, webshims.c[foundCombo]);
+							return false;
+						}
+					};
+
+					//length of list is dynamically
+					for (i = 0; i < list.length; i++) {
+						module = modules[list[i]];
+						if (!module || noNeedToLoad(module.name, list)) {
+							if (WSDEBUG && !module) {
+								webshims.warn('could not find: ' + list[i]);
+							}
+							continue;
+						}
+						if (module.css && webCFG.loadStyles) {
+							loader.loadCSS(module.css);
+						}
+
+						if (module.loadInit) {
+							module.loadInit();
+						}
+
+
+						setDependencies(module, list);
+						if(!module.loaded){
+							loadCombos.push(module.name);
+						}
+						module.loaded = true;
+					}
+
+					for(i = 0, len = loadCombos.length; i < len; i++){
+						foundCombo = false;
+
+						module = loadCombos[i];
+
+						if($.inArray(module, loadedModules) == -1){
+							if(webCFG.debug != 'noCombo'){
+								$.each(modules[module].c, loadCombo);
+							}
+							if(!foundCombo){
+								loadScript(modules[module].src || module, module);
+							}
+						}
+					}
+				};
+			})(),
+
+			makePath: function(src){
+				if (src.indexOf('//') != -1 || src.indexOf('/') === 0) {
+					return src;
+				}
+
+				if (src.indexOf('.') == -1) {
+					src += '.js';
+				}
+				if (webCFG.addCacheBuster) {
+					src += webCFG.addCacheBuster;
+				}
+				return webCFG.basePath + src;
+			},
+
+			loadCSS: (function(){
+				var parent, loadedSrcs = {};
+				return function(src){
+					src = this.makePath(src);
+					if (loadedSrcs[src]) {
+						return;
+					}
+					parent = parent || $('link, style')[0] || $('script')[0];
+					loadedSrcs[src] = 1;
+					$('<link rel="stylesheet" />').insertBefore(parent).attr({
+						href: src
+					});
+				};
+			})(),
+
+			loadScript: (function(){
+				var loadedSrcs = {};
+				return function(src, callback, name, noShimPath){
+					if(!noShimPath){
+						src = loader.makePath(src);
+					}
+					if (loadedSrcs[src]) {return;}
+					var complete = function(){
+
+						if (callback) {
+							callback();
+						}
+
+						if (name) {
+							if (typeof name == 'string') {
+								name = name.split(' ');
+							}
+							$.each(name, function(i, name){
+								if (!modules[name]) {
+									return;
+								}
+								if (modules[name].afterLoad) {
+									modules[name].afterLoad();
+								}
+								isReady(!modules[name].noAutoCallback ? name : name + 'FileLoaded', true);
+							});
+
+						}
+					};
+
+					loadedSrcs[src] = 1;
+					webCFG.loadScript(src, complete, $.noop);
+				};
+			})()
+		}
+	});
+
+	/*
+	 * shortcuts
+	 */
+
+
+	var webCFG = webshims.cfg;
+	var webshimsFeatures = webshims.features;
+	var isReady = webshims.isReady;
+	var onReady = webshims.ready;
+	var addPolyfill = webshims.addPolyfill;
+	var modules = webshims.modules;
+	var loader = webshims.loader;
+	var loadList = loader.loadList;
+	var addModule = loader.addModule;
+	var bugs = webshims.bugs;
+	var removeCombos = [];
+	var importantLogs = {
+		warn: 1,
+		error: 1
+	};
+	var $fn = $.fn;
+	var video = create('video');
+
+	webshims.addMethodName = function(name){
+		name = name.split(':');
+		var prop = name[1];
+		if (name.length == 1) {
+			prop = name[0];
+			name = name[0];
+		} else {
+			name = name[0];
+		}
+
+		$fn[name] = function(){
+			return this.callProp(prop, arguments);
+		};
+	};
+
+	$fn.callProp = function(prop, args){
+		var ret;
+		if(!args){
+			args = [];
+		}
+		this.each(function(){
+			var fn = $.prop(this, prop);
+
+			if (fn && fn.apply) {
+				ret = fn.apply(this, args);
+				if (ret !== undefined) {
+					return false;
+				}
+			} else {
+				webshims.warn(prop+ " is not a method of "+ this);
+			}
+		});
+		return (ret !== undefined) ? ret : this;
+	};
+
+
+
+	webshims.activeLang = (function(){
+
+		if(!('language' in navigator)){
+			navigator.language = navigator.browserLanguage || '';
+		}
+		var curLang = $.attr(document.documentElement, 'lang') || navigator.language;
+		onReady('webshimLocalization', function(){
+			webshims.activeLang(curLang);
+		});
+		return function(lang){
+			if(lang){
+				if (typeof lang == 'string' ) {
+					curLang = lang;
+				} else if(typeof lang == 'object'){
+					var args = arguments;
+					var that = this;
+					onReady('webshimLocalization', function(){
+						webshims.activeLang.apply(that, args);
+					});
+				}
+			}
+			return curLang;
+		};
+	})();
+
+	webshims.errorLog = [];
+	$.each(['log', 'error', 'warn', 'info'], function(i, fn){
+		webshims[fn] = function(message){
+			if( (importantLogs[fn] && webCFG.debug !== false) || webCFG.debug){
+				webshims.errorLog.push(message);
+				if(window.console && console.log){
+					console[(console[fn]) ? fn : 'log'](message);
+				}
+			}
+		};
+	});
+
+	if(WSDEBUG){
+		if(!webshims._curScript.wsFoundCurrent){
+			webshims.error('Could not detect currentScript! Use basePath to set script path.');
+		}
+	}
+
+	/*
+	 * jQuery-plugins for triggering dom updates can be also very usefull in conjunction with non-HTML5 DOM-Changes (AJAX)
+	 * Example:
+	 * webshim.addReady(function(context, insertedElement){
+	 * 		$('div.tabs', context).add(insertedElement.filter('div.tabs')).tabs();
+	 * });
+	 *
+	 * $.ajax({
+	 * 		success: function(html){
+	 * 			$('#main').htmlPolyfill(html);
+	 * 		}
+	 * });
+	 */
+
+	(function(){
+		//Overwrite DOM-Ready and implement a new ready-method
+		$.isDOMReady = $.isReady;
+		var onReady = function(){
+
+			$.isDOMReady = true;
+			isReady('DOM', true);
+			setTimeout(function(){
+				isReady('WINDOWLOAD', true);
+			}, 9999);
+		};
+
+		firstRun = function(){
+			if(!firstRun.run){
+
+				if(WSDEBUG && $.mobile && ($.mobile.textinput || $.mobile.rangeslider || $.mobile.button)){
+					webshims.info('jQM textinput/rangeslider/button detected waitReady was set to false. Use webshims.ready("featurename") to script against polyfilled methods/properties');
+
+					if(!webCFG.readyEvt){
+						webshims.error('in a jQuery mobile enviroment: you should change the readyEvt to "pageinit".');
+					}
+
+					if(webCFG.waitReady){
+						webshims.error('in a jQuery mobile enviroment: you should change the waitReady to false.')
+					}
+				}
+
+				if (WSDEBUG && webCFG.waitReady && $.isReady) {
+					webshims.warn('Call webshims.polyfill before DOM-Ready or set waitReady to false.');
+				}
+
+				if(!$.isDOMReady && webCFG.waitReady){
+					var $Ready = $.ready;
+					$.ready = function(unwait){
+						if(unwait !== true && document.body){
+							onReady();
+						}
+						return $Ready.apply(this, arguments);
+					};
+					$.ready.promise = $Ready.promise;
+				}
+				if(webCFG.readyEvt){
+					$(document).one(webCFG.readyEvt, onReady);
+				} else {
+					$(onReady);
+				}
+			}
+			firstRun.run = true;
+		};
+
+		$(window).on('load', function(){
+			onReady();
+			setTimeout(function(){
+				isReady('WINDOWLOAD', true);
+			}, 9);
+		});
+
+		var readyFns = [];
+		var eachTrigger = function(){
+			if(this.nodeType == 1){
+				webshims.triggerDomUpdate(this);
+			}
+		};
+		$.extend(webshims, {
+			addReady: function(fn){
+				var readyFn = function(context, elem){
+					webshims.ready('DOM', function(){fn(context, elem);});
+				};
+				readyFns.push(readyFn);
+
+				if(webCFG.wsdoc){
+					readyFn(webCFG.wsdoc, emptyJ);
+				}
+			},
+			triggerDomUpdate: function(context){
+				if(!context || !context.nodeType){
+					if(context && context.jquery){
+						context.each(function(){
+							webshims.triggerDomUpdate(this);
+						});
+					}
+					return;
+				}
+				var type = context.nodeType;
+				if(type != 1 && type != 9){return;}
+				var elem = (context !== document) ? $(context) : emptyJ;
+				$.each(readyFns, function(i, fn){
+					fn(context, elem);
+				});
+			}
+		});
+
+		$fn.clonePolyfill = $fn.clone;
+
+		$fn.htmlPolyfill = function(a){
+			if(!arguments.length){
+				return $(this.clonePolyfill()).html();
+			}
+			var ret = $fn.html.call(this,  a);
+			if(ret === this && $.isDOMReady){
+				this.each(eachTrigger);
+			}
+			return ret;
+		};
+
+		$fn.jProp = function(){
+			return this.pushStack($($fn.prop.apply(this, arguments) || []));
+		};
+
+		$.each(['after', 'before', 'append', 'prepend', 'replaceWith'], function(i, name){
+			$fn[name+'Polyfill'] = function(a){
+				a = $(a);
+				$fn[name].call(this, a);
+				if($.isDOMReady){
+					a.each(eachTrigger);
+				}
+				return this;
+			};
+
+		});
+
+		$.each(['insertAfter', 'insertBefore', 'appendTo', 'prependTo', 'replaceAll'], function(i, name){
+			$fn[name.replace(/[A-Z]/, function(c){return "Polyfill"+c;})] = function(){
+				$fn[name].apply(this, arguments);
+				if($.isDOMReady){
+					webshims.triggerDomUpdate(this);
+				}
+				return this;
+			};
+		});
+
+		$fn.updatePolyfill = function(){
+			if($.isDOMReady){
+				webshims.triggerDomUpdate(this);
+			}
+			return this;
+		};
+
+		$.each(['getNativeElement', 'getShadowElement', 'getShadowFocusElement'], function(i, name){
+			$fn[name] = function(){
+				return this.pushStack(this);
+			};
+		});
+
+	})();
+
+
+	if(WSDEBUG){
+		webCFG.debug = true;
+	}
+
+	if(Object.create){
+		webshims.objectCreate = function(proto, props, opts){
+			if(WSDEBUG && props){
+				webshims.error('second argument for webshims.objectCreate is only available with DOM support');
+			}
+			var o = Object.create(proto);
+			if(opts){
+				o.options = $.extend(true, {}, o.options  || {}, opts);
+				opts = o.options;
+			}
+			if(o._create && $.isFunction(o._create)){
+				o._create(opts);
+			}
+			return o;
+		};
+	}
+
+
+
+
+	/*
+	 * Start Features
+	 */
+
+	/* general modules */
+	/* change path $.webshims.modules[moduleName].src */
+
+
+	addModule('swfmini', {
+		test: function(){
+			if(window.swfobject && !window.swfmini){
+				window.swfmini = window.swfobject;
+			}
+			return ('swfmini' in window);
+		},
+		c: [16, 7, 2, 8, 1, 12, 23]
+	});
+	modules.swfmini.test();
+
+	addModule('sizzle', {test: $.expr.filters});
+	/*
+	 * polyfill-Modules
+	 */
+
+	// webshims lib uses a of http://github.com/kriskowal/es5-shim/ to implement
+	addPolyfill('es5', {
+		test: !!(support.ES5 && Function.prototype.bind),
+		d: ['sizzle']
+	});
+
+	addPolyfill('dom-extend', {
+		f: DOMSUPPORT,
+		noAutoCallback: true,
+		d: ['es5'],
+		c: [16, 7, 2, 15, 30, 3, 8, 4, 9, 10, 25, 31, 34]
+	});
+
+	//<picture
+	create('picture');
+	addPolyfill('picture', {
+		test: ('picturefill' in window) || !!window.HTMLPictureElement || ('respimage' in window),
+		d: ['matchMedia'],
+		c: [18],
+		loadInit: function(){
+			isReady('picture', true);
+		}
+	});
+	//>
+
+	//<matchMedia
+	addPolyfill('matchMedia', {
+		test: !!(window.matchMedia && matchMedia('all').addListener),
+		c: [18]
+	});
+	//>
+
+	//<sticky
+	addPolyfill('sticky', {
+		test: (($(create('b')).attr('style', 'position: -webkit-sticky; position: sticky').css('position') || '').indexOf('sticky') != -1),
+		d: ['es5', 'matchMedia']
+	});
+	//>
+
+	//<es6
+	addPolyfill('es6', {
+		test: !!(Math.imul && Number.MIN_SAFE_INTEGER && Object.is && window.Promise && Promise.all),// && window.Map && Map.prototype && typeof Map.prototype.forEach !== 'function' && window.Set
+		d: ['es5']
+	});
+	//>
+
+	//<geolocation
+
+	addPolyfill('geolocation', {
+		test: 'geolocation' in navigator,
+		options: {
+			destroyWrite: true
+//			,confirmText: ''
+		},
+		c: [21]
+	});
+	//>
+
+	//<canvas
+	(function(){
+		addPolyfill('canvas', {
+			src: 'excanvas',
+			test: ('getContext' in create('canvas')),
+			options: {type: 'flash'}, //excanvas | flash | flashpro
+			noAutoCallback: true,
+
+			loadInit: function(){
+				var type = this.options.type;
+				if(type && type.indexOf('flash') !== -1 && (!modules.swfmini.test() || swfmini.hasFlashPlayerVersion('9.0.0'))){
+					this.src = type == 'flash' ? 'FlashCanvas/flashcanvas' : 'FlashCanvasPro/flashcanvas';
+				}
+			},
+			methodNames: ['getContext'],
+			d: [DOMSUPPORT]
+		});
+	})();
+	//>
+
+
+	//<usermedia
+	var userMediaTest =  ('getUserMedia' in navigator);
+
+	addPolyfill('usermedia-core', {
+		f: 'usermedia',
+		test: userMediaTest && window.URL,
+		d: ['url', DOMSUPPORT]
+	});
+
+	addPolyfill('usermedia-shim', {
+		f: 'usermedia',
+		test: !!(userMediaTest || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia),
+		d: ['url', 'mediaelement', DOMSUPPORT]
+	});
+	//>
+
+	//<mediacapture
+	addPolyfill('mediacapture', {
+		test: supportCapture,
+		d: ['swfmini', 'usermedia', DOMSUPPORT, 'filereader', 'forms', 'canvas']
+	});
+	//>
+
+
+	//<forms
+	(function(){
+		var formExtend, formOptions;
+		var fShim = 'form-shim-extend';
+		var formvalidation = 'formvalidation';
+		var fNuAPI = 'form-number-date-api';
+		var bustedValidity = false;
+		var bustedWidgetUi = false;
+		var replaceBustedUI = false;
+		var inputtypes = {};
+
+
+		var progress = create('progress');
+		var output = create('output');
+
+		var initialFormTest = function(){
+			var tmp, fieldset;
+			var testValue = '1(';
+			var input = create('input');
+			fieldset = $('<fieldset><textarea required="" /></fieldset>')[0];
+
+			support.inputtypes = inputtypes;
+
+			$.each(['range', 'date', 'datetime-local', 'month', 'color', 'number'], function(i, type){
+				input.setAttribute('type', type);
+				inputtypes[type] = (input.type == type && (input.value = testValue) && input.value != testValue);
+			});
+
+			support.datalist = !!(('options' in create('datalist')) && window.HTMLDataListElement);
+
+			support[formvalidation] = ('checkValidity' in input);
+
+			support.fieldsetelements = ('elements' in fieldset);
+
+
+			if((support.fieldsetdisabled = ('disabled' in fieldset))){
+				try {
+					if(fieldset.querySelector(':invalid')){
+						fieldset.disabled = true;
+						tmp = !fieldset.querySelector(':invalid') && fieldset.querySelector(':disabled');
+					}
+				} catch(er){}
+				support.fieldsetdisabled =  !!tmp;
+			}
+
+			if(support[formvalidation]){
+				bustedWidgetUi = !support.fieldsetdisabled || !support.fieldsetelements || !('value' in progress) || !('value' in output);
+				replaceBustedUI = bustedWidgetUi && (/Android/i).test(navigator.userAgent);
+				bustedValidity = window.opera || bugs.bustedValidity || bustedWidgetUi || !support.datalist;
+
+				if(!bustedValidity && inputtypes.number){
+					bustedValidity = true;
+					try {
+						input.type = 'number';
+						input.value = '';
+						input.stepUp();
+						bustedValidity = input.value != '1';
+					} catch(e){}
+				}
+
+			}
+
+			bugs.bustedValidity = bustedValidity;
+
+			formExtend = support[formvalidation] && !bustedValidity ? 'form-native-extend' : fShim;
+			initialFormTest = $.noop;
+			return false;
+		};
+		var typeTest = function(o){
+			var ret = true;
+			if(!o._types){
+				o._types = o.types.split(' ');
+			}
+			$.each(o._types, function(i, name){
+				if((name in inputtypes) && !inputtypes[name]){
+					ret = false;
+					return false;
+				}
+			});
+			return ret;
+		};
+
+
+		webshims.validationMessages = webshims.validityMessages = {
+			langSrc: 'i18n/formcfg-',
+			availableLangs: "ar bg ca cs el es fa fi fr he hi hu it ja lt nl no pl pt pt-BR pt-PT ru sv zh-CN zh-TW".split(' ')
+		};
+		webshims.formcfg = $.extend({}, webshims.validationMessages);
+
+		webshims.inputTypes = {};
+
+		addPolyfill('form-core', {
+			f: 'forms',
+			test: initialFormTest,
+			d: ['es5'],
+			options: {
+				placeholderType: 'value',
+				messagePopover: {},
+				list: {
+					popover: {
+						constrainWidth: true
+					}
+				},
+				iVal: {
+					sel: '.ws-validate',
+					handleBubble: 'hide',
+					recheckDelay: 400
+//					,fx: 'slide'
+				}
+	//			,customMessages: false,
+	//			overridePlaceholder: false, // might be good for IE10
+	//			replaceValidationUI: false
+			},
+			methodNames: ['setCustomValidity', 'checkValidity', 'setSelectionRange'],
+			c: [16, 7, 2, 8, 1, 15, 30, 3, 31]
+		});
+
+		formOptions = webCFG.forms;
+
+		addPolyfill('form-native-extend', {
+			f: 'forms',
+			test: function(toLoad){
+				initialFormTest();
+				return !support[formvalidation] || bustedValidity  || $.inArray(fNuAPI, toLoad  || []) == -1 || modules[fNuAPI].test();
+			},
+			d: ['form-core', DOMSUPPORT, 'form-message'],
+			c: [6, 5, 14, 29]
+		});
+
+		addPolyfill(fShim, {
+			f: 'forms',
+			test: function(){
+				initialFormTest();
+				return support[formvalidation] && !bustedValidity;
+			},
+			d: ['form-core', DOMSUPPORT, 'sizzle'],
+			c: [16, 15, 28]
+		});
+
+		addPolyfill(fShim+'2', {
+			f: 'forms',
+			test: function(){
+				initialFormTest();
+				return support[formvalidation] && !bustedWidgetUi;
+			},
+			d: [fShim],
+			c: [27]
+		});
+
+		addPolyfill('form-message', {
+			f: 'forms',
+			test: function(toLoad){
+				initialFormTest();
+				return !( formOptions.customMessages || !support[formvalidation] || bustedValidity || !modules[formExtend].test(toLoad) );
+			},
+			d: [DOMSUPPORT],
+			c: [16, 7, 15, 30, 3, 8, 4, 14, 28]
+		});
+
+
+		addPolyfill(fNuAPI, {
+			f: 'forms-ext',
+			options: {
+				types: 'date time range number'
+			},
+			test: function(){
+				initialFormTest();
+				var ret = !bustedValidity;
+
+				if(ret){
+					ret = typeTest(this.options);
+				}
+
+				return ret;
+			},
+			methodNames: ['stepUp', 'stepDown'],
+			d: ['forms', DOMSUPPORT],
+			c: [6, 5, 17, 14, 28, 29, 33]
+		});
+
+		addModule('range-ui', {
+			options: {},
+			noAutoCallback: true,
+			test: function(){
+				return !!$fn.rangeUI;
+			},
+			d: ['es5'],
+			c: [6, 5, 9, 10, 17, 11]
+		});
+
+		addPolyfill('form-number-date-ui', {
+			f: 'forms-ext',
+			test: function(){
+				var o = this.options;
+				o.replaceUI = getAutoEnhance(o.replaceUI);
+				initialFormTest();
+				//input widgets on old androids can't be trusted
+				if(!o.replaceUI && replaceBustedUI){
+					o.replaceUI = true;
+				}
+				return !o.replaceUI && typeTest(o);
+			},
+			d: ['forms', DOMSUPPORT, fNuAPI, 'range-ui'],
+			options: {
+				widgets: {
+					calculateWidth: true,
+					animate: true
+				}
+			},
+			c: [6, 5, 9, 10, 17, 11]
+		});
+
+		addPolyfill('form-datalist', {
+			f: 'forms',
+			test: function(){
+				initialFormTest();
+				if(replaceBustedUI){
+					formOptions.customDatalist = true;
+				}
+				return support.datalist && !formOptions.fD;
+			},
+			d: ['form-core', DOMSUPPORT],
+			c: [16, 7, 6, 2, 9, 15, 30, 31, 28, 33]
+		});
+	})();
+	//>
+
+	//<filereader
+	var supportFileReader = 'FileReader' in window && 'FormData' in window;
+	addPolyfill('filereader-xhr', {
+		f: 'filereader',
+		test: supportFileReader,
+		d: [DOMSUPPORT, 'swfmini'],
+		c: [25, 27]
+	});
+
+	addPolyfill('canvas-blob', {
+		f: 'filereader',
+		methodNames: ['toBlob'],
+		test: !(supportFileReader && !create('canvas').toBlob)
+	});
+	//>
+
+	//<details
+	addPolyfill('details', {
+		test: ('open' in create('details')),
+		d: [DOMSUPPORT],
+		options: {
+//			animate: false,
+			text: 'Details'
+		},
+		c: [21, 22]
+	});
+	//>
+
+	//<url
+	addPolyfill('url', {
+		test: function(){
+			var support = false;
+			try {
+				support = new URL('b', 'http://a');
+				support = !!(support.searchParams && support.href == 'http://a/b');
+			} catch(e){}
+			return support;
+		},
+		d: ['es5']
+	});
+	//>
+
+	//<mediaelement
+	(function(){
+		webshims.mediaelement = {};
+		var track = create('track');
+		support.mediaelement = ('canPlayType' in video);
+		support.texttrackapi = ('addTextTrack' in video);
+		support.track = ('kind' in track);
+
+		create('audio');
+
+		if(!(bugs.track = !support.texttrackapi)){
+			try {
+				bugs.track = !('oncuechange' in video.addTextTrack('metadata'));
+			} catch(e){}
+		}
+
+		addPolyfill('mediaelement-core', {
+			f: 'mediaelement',
+			noAutoCallback: true,
+			options: {
+				//replaceUI: false,
+				jme: {},
+				plugins: [],
+				vars: {},
+				params: {},
+				attrs: {},
+				changeSWF: $.noop
+			},
+			methodNames: ['play', 'pause', 'canPlayType', 'mediaLoad:load'],
+			d: ['swfmini'],
+			c: [16, 7, 2, 8, 1, 12, 13, 23]
+		});
+
+
+		addPolyfill('mediaelement-jaris', {
+			f: 'mediaelement',
+			d: ['mediaelement-core', DOMSUPPORT],
+			test: function(){
+				var options = this.options;
+
+				if(!support.mediaelement || webshims.mediaelement.loadSwf){
+					return false;
+				}
+
+				if(options.preferFlash && !modules.swfmini.test()){
+					options.preferFlash = false;
+				}
+				return !( options.preferFlash && swfmini.hasFlashPlayerVersion('11.3') );
+			},
+			c: [21, 25]
+		});
+
+		addPolyfill('track', {
+			options: {
+				positionDisplay: true,
+				override: bugs.track
+			},
+			test: function(){
+				var o = this.options;
+				o.override = getAutoEnhance(o.override);
+				return !o.override && !bugs.track;
+			},
+			d: ['mediaelement', DOMSUPPORT],
+			methodNames: ['addTextTrack'],
+			c: [21, 12, 13, 22, 34]
+		});
+
+		addModule('jmebase', {
+			src: 'jme/base',
+			c: [98, 99, 97]
+		});
+
+		$.each([
+			['mediacontrols', {c: [98, 99], css: 'jme/controls.css'}],
+			['playlist', {c: [98, 97]}],
+			['alternate-media']
+		], function(i, plugin){
+			addModule(plugin[0], $.extend({
+				src: 'jme/'+plugin[0],
+				d: ['jmebase']
+			}, plugin[1]));
+		});
+
+
+		addModule('track-ui', {
+			d: ['track', DOMSUPPORT]
+		});
+
+	})();
+	//>
+
+
+	//>removeCombos<
+	addPolyfill('feature-dummy', {
+		test: true,
+		loaded: true,
+		c: removeCombos
+	});
+
+	webshims.$ = $;
+	$.webshims = webshims;
+	$.webshim = webshim;
+
+	webshims.callAsync = function(){
+		webshims.callAsync = $.noop;
+
+		if(asyncWebshims){
+			if(asyncWebshims.cfg){
+				if(!asyncWebshims.cfg.length){
+					asyncWebshims.cfg = [[asyncWebshims.cfg]];
+				}
+				$.each(asyncWebshims.cfg, function(i, cfg){
+					webshims.setOptions.apply(webshims, cfg);
+				});
+			}
+			if(asyncWebshims.ready){
+				$.each(asyncWebshims.ready, function(i, ready){
+					webshims.ready.apply(webshims, ready);
+				});
+			}
+			if(asyncWebshims.lang){
+				webshims.activeLang(asyncWebshims.lang);
+			}
+			if('polyfill' in asyncWebshims){
+				webshims.polyfill(asyncWebshims.polyfill);
+			}
+		}
+		webshims.isReady('jquery', true);
+	};
+
+	webshims.callAsync();
+	return webshims;
+}));
+;webshim.setOptions({
+	extendNative: false,
+	waitReady: false,
+	forms: {
+		addValidators: true,
+        iVal: {
+            //add config to find right wrapper
+            fieldWrapper: '.form-group',
+			//wether an invalid input should be re-checked while user types
+			recheckDelay: 600,
+            //add bootstrap specific classes
+            errorMessageClass: 'help-block',
+	    	errorMessageWrapper: "span",
+            successWrapperClass: '',
+            errorWrapperClass: 'has-error',
+        
+            //general iVal cfg
+            sel: '.ws-validate',
+            handleBubble: 'hide' // hide error bubble
+        },
+		customDatalist: true,
+		replaceValidationUI: true
+	},
+	geolocation: {
+		confirmText: '{location} wants to know your position. You will have to enter one manually if you decline.'
+	},
+	'forms-ext': {
+		types: 'range date time number month color',
+		customDatalist: true,
+		replaceUI: {range: true, color: true}
+	}
+});
+webshim.polyfill('es5 es6 forms forms-ext geolocation');
+webshim.activeLang('de');
+;/*!
  * jQuery JavaScript Library v2.1.4
  * http://jquery.com/
  *
@@ -15479,4 +16925,232 @@ the specific language governing permissions and limitations under the Apache Lic
         }
     };
 
+}(jQuery));
+;/*! highlight.js v9.2.0 | BSD3 License | git.io/hljslicense */
+!function(e){var n="object"==typeof window&&window||"object"==typeof self&&self;"undefined"!=typeof exports?e(exports):n&&(n.hljs=e({}),"function"==typeof define&&define.amd&&define([],function(){return n.hljs}))}(function(e){function n(e){return e.replace(/&/gm,"&amp;").replace(/</gm,"&lt;").replace(/>/gm,"&gt;")}function t(e){return e.nodeName.toLowerCase()}function r(e,n){var t=e&&e.exec(n);return t&&0==t.index}function a(e){return/^(no-?highlight|plain|text)$/i.test(e)}function i(e){var n,t,r,i=e.className+" ";if(i+=e.parentNode?e.parentNode.className:"",t=/\blang(?:uage)?-([\w-]+)\b/i.exec(i))return w(t[1])?t[1]:"no-highlight";for(i=i.split(/\s+/),n=0,r=i.length;r>n;n++)if(w(i[n])||a(i[n]))return i[n]}function o(e,n){var t,r={};for(t in e)r[t]=e[t];if(n)for(t in n)r[t]=n[t];return r}function u(e){var n=[];return function r(e,a){for(var i=e.firstChild;i;i=i.nextSibling)3==i.nodeType?a+=i.nodeValue.length:1==i.nodeType&&(n.push({event:"start",offset:a,node:i}),a=r(i,a),t(i).match(/br|hr|img|input/)||n.push({event:"stop",offset:a,node:i}));return a}(e,0),n}function c(e,r,a){function i(){return e.length&&r.length?e[0].offset!=r[0].offset?e[0].offset<r[0].offset?e:r:"start"==r[0].event?e:r:e.length?e:r}function o(e){function r(e){return" "+e.nodeName+'="'+n(e.value)+'"'}f+="<"+t(e)+Array.prototype.map.call(e.attributes,r).join("")+">"}function u(e){f+="</"+t(e)+">"}function c(e){("start"==e.event?o:u)(e.node)}for(var s=0,f="",l=[];e.length||r.length;){var g=i();if(f+=n(a.substr(s,g[0].offset-s)),s=g[0].offset,g==e){l.reverse().forEach(u);do c(g.splice(0,1)[0]),g=i();while(g==e&&g.length&&g[0].offset==s);l.reverse().forEach(o)}else"start"==g[0].event?l.push(g[0].node):l.pop(),c(g.splice(0,1)[0])}return f+n(a.substr(s))}function s(e){function n(e){return e&&e.source||e}function t(t,r){return new RegExp(n(t),"m"+(e.cI?"i":"")+(r?"g":""))}function r(a,i){if(!a.compiled){if(a.compiled=!0,a.k=a.k||a.bK,a.k){var u={},c=function(n,t){e.cI&&(t=t.toLowerCase()),t.split(" ").forEach(function(e){var t=e.split("|");u[t[0]]=[n,t[1]?Number(t[1]):1]})};"string"==typeof a.k?c("keyword",a.k):Object.keys(a.k).forEach(function(e){c(e,a.k[e])}),a.k=u}a.lR=t(a.l||/\b\w+\b/,!0),i&&(a.bK&&(a.b="\\b("+a.bK.split(" ").join("|")+")\\b"),a.b||(a.b=/\B|\b/),a.bR=t(a.b),a.e||a.eW||(a.e=/\B|\b/),a.e&&(a.eR=t(a.e)),a.tE=n(a.e)||"",a.eW&&i.tE&&(a.tE+=(a.e?"|":"")+i.tE)),a.i&&(a.iR=t(a.i)),void 0===a.r&&(a.r=1),a.c||(a.c=[]);var s=[];a.c.forEach(function(e){e.v?e.v.forEach(function(n){s.push(o(e,n))}):s.push("self"==e?a:e)}),a.c=s,a.c.forEach(function(e){r(e,a)}),a.starts&&r(a.starts,i);var f=a.c.map(function(e){return e.bK?"\\.?("+e.b+")\\.?":e.b}).concat([a.tE,a.i]).map(n).filter(Boolean);a.t=f.length?t(f.join("|"),!0):{exec:function(){return null}}}}r(e)}function f(e,t,a,i){function o(e,n){for(var t=0;t<n.c.length;t++)if(r(n.c[t].bR,e))return n.c[t]}function u(e,n){if(r(e.eR,n)){for(;e.endsParent&&e.parent;)e=e.parent;return e}return e.eW?u(e.parent,n):void 0}function c(e,n){return!a&&r(n.iR,e)}function g(e,n){var t=N.cI?n[0].toLowerCase():n[0];return e.k.hasOwnProperty(t)&&e.k[t]}function p(e,n,t,r){var a=r?"":E.classPrefix,i='<span class="'+a,o=t?"":"</span>";return i+=e+'">',i+n+o}function h(){if(!k.k)return n(M);var e="",t=0;k.lR.lastIndex=0;for(var r=k.lR.exec(M);r;){e+=n(M.substr(t,r.index-t));var a=g(k,r);a?(B+=a[1],e+=p(a[0],n(r[0]))):e+=n(r[0]),t=k.lR.lastIndex,r=k.lR.exec(M)}return e+n(M.substr(t))}function d(){var e="string"==typeof k.sL;if(e&&!R[k.sL])return n(M);var t=e?f(k.sL,M,!0,y[k.sL]):l(M,k.sL.length?k.sL:void 0);return k.r>0&&(B+=t.r),e&&(y[k.sL]=t.top),p(t.language,t.value,!1,!0)}function b(){L+=void 0!==k.sL?d():h(),M=""}function v(e,n){L+=e.cN?p(e.cN,"",!0):"",k=Object.create(e,{parent:{value:k}})}function m(e,n){if(M+=e,void 0===n)return b(),0;var t=o(n,k);if(t)return t.skip?M+=n:(t.eB&&(M+=n),b(),t.rB||t.eB||(M=n)),v(t,n),t.rB?0:n.length;var r=u(k,n);if(r){var a=k;a.skip?M+=n:(a.rE||a.eE||(M+=n),b(),a.eE&&(M=n));do k.cN&&(L+="</span>"),k.skip||(B+=k.r),k=k.parent;while(k!=r.parent);return r.starts&&v(r.starts,""),a.rE?0:n.length}if(c(n,k))throw new Error('Illegal lexeme "'+n+'" for mode "'+(k.cN||"<unnamed>")+'"');return M+=n,n.length||1}var N=w(e);if(!N)throw new Error('Unknown language: "'+e+'"');s(N);var x,k=i||N,y={},L="";for(x=k;x!=N;x=x.parent)x.cN&&(L=p(x.cN,"",!0)+L);var M="",B=0;try{for(var C,j,I=0;;){if(k.t.lastIndex=I,C=k.t.exec(t),!C)break;j=m(t.substr(I,C.index-I),C[0]),I=C.index+j}for(m(t.substr(I)),x=k;x.parent;x=x.parent)x.cN&&(L+="</span>");return{r:B,value:L,language:e,top:k}}catch(O){if(-1!=O.message.indexOf("Illegal"))return{r:0,value:n(t)};throw O}}function l(e,t){t=t||E.languages||Object.keys(R);var r={r:0,value:n(e)},a=r;return t.forEach(function(n){if(w(n)){var t=f(n,e,!1);t.language=n,t.r>a.r&&(a=t),t.r>r.r&&(a=r,r=t)}}),a.language&&(r.second_best=a),r}function g(e){return E.tabReplace&&(e=e.replace(/^((<[^>]+>|\t)+)/gm,function(e,n){return n.replace(/\t/g,E.tabReplace)})),E.useBR&&(e=e.replace(/\n/g,"<br>")),e}function p(e,n,t){var r=n?x[n]:t,a=[e.trim()];return e.match(/\bhljs\b/)||a.push("hljs"),-1===e.indexOf(r)&&a.push(r),a.join(" ").trim()}function h(e){var n=i(e);if(!a(n)){var t;E.useBR?(t=document.createElementNS("http://www.w3.org/1999/xhtml","div"),t.innerHTML=e.innerHTML.replace(/\n/g,"").replace(/<br[ \/]*>/g,"\n")):t=e;var r=t.textContent,o=n?f(n,r,!0):l(r),s=u(t);if(s.length){var h=document.createElementNS("http://www.w3.org/1999/xhtml","div");h.innerHTML=o.value,o.value=c(s,u(h),r)}o.value=g(o.value),e.innerHTML=o.value,e.className=p(e.className,n,o.language),e.result={language:o.language,re:o.r},o.second_best&&(e.second_best={language:o.second_best.language,re:o.second_best.r})}}function d(e){E=o(E,e)}function b(){if(!b.called){b.called=!0;var e=document.querySelectorAll("pre code");Array.prototype.forEach.call(e,h)}}function v(){addEventListener("DOMContentLoaded",b,!1),addEventListener("load",b,!1)}function m(n,t){var r=R[n]=t(e);r.aliases&&r.aliases.forEach(function(e){x[e]=n})}function N(){return Object.keys(R)}function w(e){return e=(e||"").toLowerCase(),R[e]||R[x[e]]}var E={classPrefix:"hljs-",tabReplace:null,useBR:!1,languages:void 0},R={},x={};return e.highlight=f,e.highlightAuto=l,e.fixMarkup=g,e.highlightBlock=h,e.configure=d,e.initHighlighting=b,e.initHighlightingOnLoad=v,e.registerLanguage=m,e.listLanguages=N,e.getLanguage=w,e.inherit=o,e.IR="[a-zA-Z]\\w*",e.UIR="[a-zA-Z_]\\w*",e.NR="\\b\\d+(\\.\\d+)?",e.CNR="(-?)(\\b0[xX][a-fA-F0-9]+|(\\b\\d+(\\.\\d*)?|\\.\\d+)([eE][-+]?\\d+)?)",e.BNR="\\b(0b[01]+)",e.RSR="!|!=|!==|%|%=|&|&&|&=|\\*|\\*=|\\+|\\+=|,|-|-=|/=|/|:|;|<<|<<=|<=|<|===|==|=|>>>=|>>=|>=|>>>|>>|>|\\?|\\[|\\{|\\(|\\^|\\^=|\\||\\|=|\\|\\||~",e.BE={b:"\\\\[\\s\\S]",r:0},e.ASM={cN:"string",b:"'",e:"'",i:"\\n",c:[e.BE]},e.QSM={cN:"string",b:'"',e:'"',i:"\\n",c:[e.BE]},e.PWM={b:/\b(a|an|the|are|I|I'm|isn't|don't|doesn't|won't|but|just|should|pretty|simply|enough|gonna|going|wtf|so|such|will|you|your|like)\b/},e.C=function(n,t,r){var a=e.inherit({cN:"comment",b:n,e:t,c:[]},r||{});return a.c.push(e.PWM),a.c.push({cN:"doctag",b:"(?:TODO|FIXME|NOTE|BUG|XXX):",r:0}),a},e.CLCM=e.C("//","$"),e.CBCM=e.C("/\\*","\\*/"),e.HCM=e.C("#","$"),e.NM={cN:"number",b:e.NR,r:0},e.CNM={cN:"number",b:e.CNR,r:0},e.BNM={cN:"number",b:e.BNR,r:0},e.CSSNM={cN:"number",b:e.NR+"(%|em|ex|ch|rem|vw|vh|vmin|vmax|cm|mm|in|pt|pc|px|deg|grad|rad|turn|s|ms|Hz|kHz|dpi|dpcm|dppx)?",r:0},e.RM={cN:"regexp",b:/\//,e:/\/[gimuy]*/,i:/\n/,c:[e.BE,{b:/\[/,e:/\]/,r:0,c:[e.BE]}]},e.TM={cN:"title",b:e.IR,r:0},e.UTM={cN:"title",b:e.UIR,r:0},e.METHOD_GUARD={b:"\\.\\s*"+e.UIR,r:0},e});hljs.registerLanguage("json",function(e){var i={literal:"true false null"},n=[e.QSM,e.CNM],r={e:",",eW:!0,eE:!0,c:n,k:i},t={b:"{",e:"}",c:[{cN:"attr",b:/"/,e:/"/,c:[e.BE],i:"\\n"},e.inherit(r,{b:/:/})],i:"\\S"},c={b:"\\[",e:"\\]",c:[e.inherit(r)],i:"\\S"};return n.splice(n.length,0,t,c),{c:n,k:i,i:"\\S"}});hljs.registerLanguage("css",function(e){var c="[a-zA-Z-][a-zA-Z0-9_-]*",t={b:/[A-Z\_\.\-]+\s*:/,rB:!0,e:";",eW:!0,c:[{cN:"attribute",b:/\S/,e:":",eE:!0,starts:{eW:!0,eE:!0,c:[{b:/[\w-]+\(/,rB:!0,c:[{cN:"built_in",b:/[\w-]+/},{b:/\(/,e:/\)/,c:[e.ASM,e.QSM]}]},e.CSSNM,e.QSM,e.ASM,e.CBCM,{cN:"number",b:"#[0-9A-Fa-f]+"},{cN:"meta",b:"!important"}]}}]};return{cI:!0,i:/[=\/|'\$]/,c:[e.CBCM,{cN:"selector-id",b:/#[A-Za-z0-9_-]+/},{cN:"selector-class",b:/\.[A-Za-z0-9_-]+/},{cN:"selector-attr",b:/\[/,e:/\]/,i:"$"},{cN:"selector-pseudo",b:/:(:)?[a-zA-Z0-9\_\-\+\(\)"'.]+/},{b:"@(font-face|page)",l:"[a-z-]+",k:"font-face page"},{b:"@",e:"[{;]",c:[{cN:"keyword",b:/\S+/},{b:/\s/,eW:!0,eE:!0,r:0,c:[e.ASM,e.QSM,e.CSSNM]}]},{cN:"selector-tag",b:c,r:0},{b:"{",e:"}",i:/\S/,c:[e.CBCM,t]}]}});hljs.registerLanguage("xml",function(s){var e="[A-Za-z0-9\\._:-]+",t={eW:!0,i:/</,r:0,c:[{cN:"attr",b:e,r:0},{b:"=",r:0,c:[{cN:"string",v:[{b:/"/,e:/"/},{b:/'/,e:/'/},{b:/[^\s\/>]+/}]}]}]};return{aliases:["html","xhtml","rss","atom","xsl","plist"],cI:!0,c:[{cN:"meta",b:"<!DOCTYPE",e:">",r:10,c:[{b:"\\[",e:"\\]"}]},s.C("<!--","-->",{r:10}),{b:"<\\!\\[CDATA\\[",e:"\\]\\]>",r:10},{b:/<\?(php)?/,e:/\?>/,sL:"php",c:[{b:"/\\*",e:"\\*/",skip:!0}]},{cN:"tag",b:"<style(?=\\s|>|$)",e:">",k:{name:"style"},c:[t],starts:{e:"</style>",rE:!0,sL:["css","xml"]}},{cN:"tag",b:"<script(?=\\s|>|$)",e:">",k:{name:"script"},c:[t],starts:{e:"</script>",rE:!0,sL:["actionscript","javascript","handlebars","xml"]}},{cN:"meta",v:[{b:/<\?xml/,e:/\?>/,r:10},{b:/<\?\w+/,e:/\?>/}]},{cN:"tag",b:"</?",e:"/?>",c:[{cN:"name",b:/[^\/><\s]+/,r:0},t]}]}});hljs.registerLanguage("r",function(e){var r="([a-zA-Z]|\\.[a-zA-Z.])[a-zA-Z0-9._]*";return{c:[e.HCM,{b:r,l:r,k:{keyword:"function if in break next repeat else for return switch while try tryCatch stop warning require library attach detach source setMethod setGeneric setGroupGeneric setClass ...",literal:"NULL NA TRUE FALSE T F Inf NaN NA_integer_|10 NA_real_|10 NA_character_|10 NA_complex_|10"},r:0},{cN:"number",b:"0[xX][0-9a-fA-F]+[Li]?\\b",r:0},{cN:"number",b:"\\d+(?:[eE][+\\-]?\\d*)?L\\b",r:0},{cN:"number",b:"\\d+\\.(?!\\d)(?:i\\b)?",r:0},{cN:"number",b:"\\d+(?:\\.\\d*)?(?:[eE][+\\-]?\\d*)?i?\\b",r:0},{cN:"number",b:"\\.\\d+(?:[eE][+\\-]?\\d*)?i?\\b",r:0},{b:"`",e:"`",r:0},{cN:"string",c:[e.BE],v:[{b:'"',e:'"'},{b:"'",e:"'"}]}]}});hljs.registerLanguage("markdown",function(e){return{aliases:["md","mkdown","mkd"],c:[{cN:"section",v:[{b:"^#{1,6}",e:"$"},{b:"^.+?\\n[=-]{2,}$"}]},{b:"<",e:">",sL:"xml",r:0},{cN:"bullet",b:"^([*+-]|(\\d+\\.))\\s+"},{cN:"strong",b:"[*_]{2}.+?[*_]{2}"},{cN:"emphasis",v:[{b:"\\*.+?\\*"},{b:"_.+?_",r:0}]},{cN:"quote",b:"^>\\s+",e:"$"},{cN:"code",v:[{b:"`.+?`"},{b:"^( {4}|	)",e:"$",r:0}]},{b:"^[-\\*]{3,}",e:"$"},{b:"\\[.+?\\][\\(\\[].*?[\\)\\]]",rB:!0,c:[{cN:"string",b:"\\[",e:"\\]",eB:!0,rE:!0,r:0},{cN:"link",b:"\\]\\(",e:"\\)",eB:!0,eE:!0},{cN:"symbol",b:"\\]\\[",e:"\\]",eB:!0,eE:!0}],r:10},{b:"^\\[.+\\]:",rB:!0,c:[{cN:"symbol",b:"\\[",e:"\\]:",eB:!0,eE:!0,starts:{cN:"link",e:"$"}}]}]}});;function mysql_datetime() {
+    return (new Date()).toISOString().slice(0, 19).replace('T', ' ');
+}
+
+window.performance = window.performance || {};
+performance.now = (function() {
+  return performance.now       ||
+         performance.mozNow    ||
+         performance.msNow     ||
+         performance.oNow      ||
+		performance.webkitNow;
+})();
+
+function flatStringifyGeo(geo) {
+	var result = {};
+	result.timestamp = geo.timestamp;
+	var coords = {};
+	coords.accuracy = geo.coords.accuracy;
+	coords.altitude = geo.coords.altitude;
+	coords.altitudeAccuracy = geo.coords.altitudeAccuracy;
+	coords.heading = geo.coords.heading;
+	coords.latitude = geo.coords.latitude;
+	coords.longitude = geo.coords.longitude;
+	coords.speed = geo.coords.speed;
+	result.coords = coords;
+	return JSON.stringify(result);
+}
+
+function general_alert(message, place) {
+	$(place).append(message);
+}
+
+function bootstrap_alert(message, bold, where, cls) {
+	cls = cls || 'alert-danger';
+	var $alert = $('<div class="row"><div class="col-lg-12 all-alerts"><div class="alert ' + cls + '"><button type="button" class="close" data-dismiss="alert">&times;</button><strong>' + (bold ? bold : 'Problem') + '</strong> ' + message + '</div></div></div>');
+	$alert.prependTo($(where));
+	$alert[0].scrollIntoView(false);
+}
+
+function bootstrap_modal(header, body, t) {
+	t = t || 'tpl-test-modal';
+	var $modal = $($.parseHTML(getHTMLTemplate(t, {'body': body, 'header': header})));
+	$modal.modal('show').on('hidden.bs.modal', function() {
+		$modal.remove();
+	});
+	return $modal;
+}
+
+function bootstrap_spinner() {
+	return ' <i class="fa fa-spinner fa-spin"></i>';
+}
+
+function ajaxErrorHandling(e, x, settings, exception) {
+	var message;
+	var statusErrorMap = {
+		'400': "Server understood the request but request content was invalid.",
+		'401': "You don't have access.",
+		'403': "You were logged out while coding, please open a new tab and login again. This way no data will be lost.",
+		'404': "Page not found.",
+		'500': "Internal Server Error.",
+		'503': "Server can't be reached."
+	};
+	if (e.status) {
+		message = statusErrorMap[e.status];
+		if (!message)
+			message = (typeof e.statusText !== 'undefined' && e.statusText !== 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
+	}
+	else if (e.statusText === 'parsererror')
+		message = "Parsing JSON Request failed.";
+	else if (e.statusText === 'timeout')
+		message = "The attempt to save timed out. Are you connected to the internet?";
+	else if (e.statusText === 'abort')
+		message = "The request was aborted by the server.";
+	else
+		message = (typeof e.statusText !== 'undefined' && e.statusText !== 'error') ? e.statusText : 'Unknown error. Check your internet connection.';
+
+	if (e.responseText) {
+		var resp = $(e.responseText);
+		resp = resp.find(".alert").addBack().filter(".alert").html();
+		message = message + "<br>" + resp;
+	}
+
+	bootstrap_alert(message, 'Error.', '.main_body');
+}
+
+function stringTemplate(string, params) {
+	for (var i in params) {
+		var t = "%?\{" + i + "\}";
+		string = string.replace((new RegExp(t, 'g')), params[i]);
+	}
+	return string;
+}
+
+function getHTMLTemplate(id, params) {
+	var $tpl = jQuery('#' + id);
+	if (!$tpl.length)
+		return;
+	return stringTemplate($.trim($tpl.html()), params);
+}
+
+function toggleElement(id) {
+	$('#' + id).toggleClass('hidden');
+}
+
+function download(filename, text) {
+  var element = document.createElement('a');
+  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+  element.setAttribute('download', filename);
+
+  element.style.display = 'none';
+  document.body.appendChild(element);
+
+  element.click();
+
+  document.body.removeChild(element);
+}
+
+function download_next_textarea(link) {
+	var $link = $(link);
+	download($link.data("filename"), $link.nextAll("textarea").val());
+	return false;
+}
+
+(function($) {
+	"use strict";
+	
+	/**
+	 * formr.org main.js
+	 * @requires jQuery, webshim
+	 */
+	
+	// polyfill window.performance.now
+
+	/**
+	 * jQuery Plugin: Sticky Accordion and Tabs
+	 *
+	 */
+	(function($) {
+		$.fn.stickyStuff = function() {
+			var context = this;
+			// Show the tab/collapsible corresponding with the hash in the URL, or the first tab (if the collapsible is inside a tab, show that too).
+			var showStuffFromHash = function() {
+				var hash = window.location.hash;
+				var selector = hash ? 'a[href="' + hash + '"]' : 'li.active > a';
+				if($(selector, context).data('toggle') === "tab") {
+					$(selector, context).tab('show');
+				} else if($(selector, context).data('toggle') === "collapse") {
+					var collapsible = hash;
+					$(collapsible, context).collapse("show");
+					var parent_tab = $(collapsible, context).parents('.tab-pane');
+					if (parent_tab && !parent_tab.hasClass("active")) {
+						$('a[href=#' + parent_tab.attr('id') + ']').tab('show');
+					}
+				}
+			};
+		
+
+			// Set the correct tab when the page loads
+			showStuffFromHash(context);
+
+			// Set the correct tab when a user uses their back/forward button
+			$(window).on('hashchange', function() {
+				showStuffFromHash(context);
+			});
+
+			// Change the URL when tabs are clicked
+			$('a', context).on('click', function(e) {
+				history.pushState(null, null, this.href);
+				showStuffFromHash(context);
+			});
+
+			return this;
+		};
+	}(jQuery));
+	
+	$(function(){ // on domready
+		if ($(".schmail").length == 1) {
+			var schmail = $(".schmail").attr('href');
+			schmail = schmail.replace("IMNOTSENDINGSPAMTO", "").
+					replace("that-big-googly-eyed-email-provider", "gmail").
+					replace(encodeURIComponent("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above."), "").
+					replace(encodeURIComponent("\r\n\r\n"), "");
+			$(".schmail").attr('href', schmail);
+		}
+
+		$('*[title]').tooltip({
+			container: 'body'
+		});
+
+		hljs.initHighlighting();
+		$('.nav-tabs, .tab-content').stickyStuff();
+		
+		// hammer time
+		$(".navbar-toggle").attr("style", "-ms-touch-action: manipulation; touch-action: manipulation;");
+		// Higlight current menu item
+		$('ul.menu-highlight a').each(function() {
+			var $a = $(this);
+			var href = $a.attr('href');
+			if (href === document.location.href) {
+				$a.parents('li').addClass('active');
+			}
+		});
+
+		//Social share button click
+		$('.social-share-icon').unbind('click').bind('click', function() {
+			var $social = $(this), href = $social.attr('data-href');
+			if (href) {
+				if ($social.attr('data-target')) {
+					window.open(href, $social.attr('data-target'), $social.attr('data-width') ? 'width=' + $social.attr('data-width') + ',height=' + $social.attr('data-height') : undefined);
+				} else {
+					window.location.href = href;
+				}
+			}
+		});
+		$('.copy_clipboard').click(function() {
+			this.select();
+
+			try {
+		 	   var copysuccessful = document.execCommand('copy');
+		 	   if(copysuccessful) {
+				   $(this).tooltip({title: "Link was copied to clipboard.", position : 'top'}).tooltip('show');
+		 	   }
+			} catch (err) {
+			}
+		});
+	});
 }(jQuery));

@@ -87,6 +87,7 @@ class Autoload {
 			'Item_week' => APPLICATION_PATH . 'Model/Item.php',
 			'Item_year' => APPLICATION_PATH . 'Model/Item.php',
 			'Item_yearmonth' => APPLICATION_PATH . 'Model/Item.php',
+			'LogParser' => APPLICATION_PATH . 'Library/LogParser.php',
 			'OAuthDAO' => APPLICATION_PATH . 'Dao/OAuthDAO.php',
 			'OpenCPU' => APPLICATION_PATH . 'Library/OpenCPU.php',
 			'OSF' => APPLICATION_PATH . 'Library/OSF.php',
