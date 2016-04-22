@@ -1,6 +1,7 @@
 webshim.setOptions({
 	extendNative: false,
 	waitReady: false,
+	loadStyles: false,
 	forms: {
 		addValidators: true,
         iVal: {

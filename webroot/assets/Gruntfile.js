@@ -137,7 +137,7 @@ grunt.initConfig({
 	},
 	concat_css: {
 		all: {
-			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower_lib.css', 'js/highlight/styles/vs.css', 'css/core.css', 'css/custom_item_classes.css'],
+			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower_lib.css', 'js/highlight/styles/vs.css', 'lib/shims/styles/shim-ext.css', 'css/core.css', 'css/custom_item_classes.css'],
 			dest: 'lib/bower.css'
 		},
 	},

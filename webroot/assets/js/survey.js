@@ -40,6 +40,9 @@
 			$btn.find('i').toggleClass('fa-check', ! checked_status);
 		}
 		$input.prop('checked', ! checked_status); // check the real input
+		if(group.kind === 'checkbox') { // messy fix to make webshims happy
+			$input.triggerHandler('click.groupRequired');
+		}
 		$btn.change();
 		return false;
 	};
