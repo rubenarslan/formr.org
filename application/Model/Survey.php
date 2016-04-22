@@ -681,8 +681,10 @@ class Survey extends RunUnit {
 					$item->setDynamicValue($val);
 					// save dynamic value
 					// if a. we have a value b. this item does not require user input (e.g. calculate)
-					if (isset($results[$item->name]) && $item->getComputedValue() !== null && !$item->requiresUserInput()) {
-						$save[$item->name] = $item->getComputedValue();
+					if (isset($results[$item->name]) && !$item->requiresUserInput()) {
+						if( $item->getComputedValue() !== null ) {
+							$save[$item->name] = $item->getComputedValue();
+						}
 						unset($items[$item_name]); // we remove items that are immediately written from consideration
 						continue; // don't increment counter
 					}
