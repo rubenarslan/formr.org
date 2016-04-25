@@ -1288,7 +1288,9 @@ class Item_mc_multiple extends Item_mc {
 		$this->splitValues();
 
 		$ret = '<div class="mc-table'. ($this->js_hidden ? ' js_hidden' : '').'"><input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required', 'data-grouprequired')) . '>';
-
+		if (!$this->optional) {
+			$ret .= '<input class="hidden" value="" id="item' . $this->id . '__" ' . self::_parseAttributes($this->input_attributes, array('id', 'required', 'class')) . '>'; // this is a kludge, but if I don't add this, checkboxes are always circled red
+		}
 		if ($this->value_validated) {
 			$this->presetValues[] = $this->value_validated;
 		}
@@ -1301,7 +1303,7 @@ class Item_mc_multiple extends Item_mc {
 			}
 
 			$ret .= '<label for="item' . $this->id . '_' . $value . '">' .
-					'<input ' . self::_parseAttributes($this->input_attributes, array('id', 'required')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '" /> ' . $option .
+					'<input ' . self::_parseAttributes($this->input_attributes, array('id', 'required', 'data-grouprequired')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '" /> ' . $option .
 					'</label> ';
 		}
 		$ret .= '</div>';
