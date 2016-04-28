@@ -287,6 +287,10 @@ class SpreadsheetReader {
 			'settings' => $study->settings,
 		);
 
+		if ($google_id = $study->getGoogleFileId()) {
+			$object['google_sheet'] = google_get_sheet_link($google_id);
+		}
+
 		if ($return_object === true) {
 			return $object;
 		}
@@ -571,8 +575,10 @@ class SpreadsheetReader {
 			endforeach; // cell loop
 
 		endforeach; // row loop
-		
-		foreach($last_list_names AS $list_name => $row_numbers):
+		foreach($last_list_names as $list_name => $row_numbers):
+			if (!$row_numbers) {
+				continue;
+			}
 			$choices_messages[] = "$list_name: this list name was assigned to rows " .min($row_numbers) .'-'. max($row_numbers) . " automatically, because they had an empty list name and followed in this list.";
 		endforeach;
 //		$callEndTime = microtime(true);
