@@ -10513,9 +10513,13 @@ form.form-horizontal img, div.modal-content img,img {
     }
     
     /* special logic for rating_button  */
+    form.form-horizontal div.form-group.item-rating_button div.controls .controls-inner  {
+        float: left;
+    }
     form.form-horizontal div.form-group.item-rating_button div.controls .controls-inner label.keep-label,
     form.form-horizontal div.form-group.item-rating_button div.controls .controls-inner {
         text-align:center;
+        margin: 0 auto;
     }
     form.form-horizontal div.form-group.item-rating_button div.controls  label.keep-label {
         display:block;
@@ -11255,9 +11259,14 @@ div.form-row.mc_vertical .btn-group > .btn-group:last-child > .btn:first-child {
 }
 
 /* special logic for rating_button  */
+div.form-row.mc_vertical.item-rating_button div.controls .controls-inner {
+  float: left;
+}
+
 div.form-row.mc_vertical.item-rating_button div.controls .controls-inner label.keep-label,
 div.form-row.mc_vertical.item-rating_button div.controls .controls-inner {
     text-align:center;
+    margin: 0 auto;
 }
 div.form-row.mc_vertical.item-rating_button div.controls  label.keep-label {
     display:block;
