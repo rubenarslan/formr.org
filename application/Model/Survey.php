@@ -129,6 +129,7 @@ class Survey extends RunUnit {
 			$this->settings['add_percentage_points'] = (int) array_val($vars, 'add_percentage_points');
 			$this->settings['enable_instant_validation'] = (int) array_val($vars, 'enable_instant_validation');
 			$this->settings['expire_after'] = (int) array_val($vars, 'expire_after');
+			$this->settings['google_file_id'] = array_val($vars, 'google_file_id');
 
 			$this->valid = true;
 		endif;
