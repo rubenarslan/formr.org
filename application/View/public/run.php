@@ -18,4 +18,4 @@
 	</div>
 </div>
 
-<?php Template::load('footer');
+<?php Template::load('footer', array('title' => $title, 'css' => $css, 'js' => $js)); 

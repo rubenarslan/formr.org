@@ -228,7 +228,19 @@ These items don't require the user to do anything, so including them simply mean
 		random min,max
 	</dt>
 	<dd>
-		generates <a href="http://php.net/mt_rand">a random number</a> for later use (e.g. randomisation in experiments). Minimum and maximum default to 0 and 1 respectively. If you specify them, you have to specify both. You will probably prefer to do your shuffling using the run module Shuffle.
+		generates <a href="http://php.net/mt_rand">a random number</a> for later use (e.g. randomisation in experiments). Minimum and maximum default to 0 and 1 respectively. If you specify them, you have to specify both.
+	</dd>
+	<dt>
+		hidden
+	</dt>
+	<dd>
+		you can use this item with a pre-set value, if you need to use data from previous pages together with data on the same page for a showif
+	</dd>
+	<dt>
+		block
+	</dt>
+	<dd>
+		Blocks progress. You can give this item a showif such as <code>(item1 + item2) > 100</code> to add further requirements.
 	</dd>
 
 </dl>

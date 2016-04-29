@@ -221,7 +221,7 @@
 	 </dd>
 	 
 	 <dt>
-		 rotate-label45, rotate-label30, <br>rotate-label90
+		 rotate_label45, rotate_label30, <br>rotate_label90
 	 </dt>
 	 <dd>
 		 This rotates the labels for mc and mc_multiple replies. Useful if some have long words, that would lead to exaggerated widths for one answer column.
@@ -244,7 +244,7 @@
 	 
 	 
 	 <dt>
-		 mc-equal-widths
+		 mc_equal_widths
 	 </dt>
 	 <dd>
 		 This makes answer labels for mc-family items have equal widths, even though their contents would lead them to have different widths. This won't work in combination with every other option for mc-styling and if your widest elements are very wide, the choices might jut out of the viewport.
@@ -252,7 +252,7 @@
 
 
 	 <dt>
-		 mc-width50 (60, … , <br>100, 150, 200)
+		 mc_width50 (60, … , <br>100, 150, 200)
 	 </dt>
 	 <dd>
 		 This makes choice labels and choice buttons for mc-family items have fixed widths. If one choice has text wider than that width, it might jut out or ignore the fixed width, depending on the browser.

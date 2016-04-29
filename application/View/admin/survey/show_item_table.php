@@ -88,11 +88,11 @@ Template::load('acp_nav');
 
 	</div>
 </div>
-<script type="text/javascript">
-jQuery(document).ready(function() {
-	$('#show-survey-items').trigger('click');
-});
-</script>
 
 <?php
-Template::load('footer');
+Template::load('footer', array('js' => '<script type="text/javascript">
+jQuery(document).ready(function() {
+	$("#show-survey-items").trigger("click");
+});
+</script>
+'));

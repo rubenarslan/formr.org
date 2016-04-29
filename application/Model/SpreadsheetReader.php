@@ -71,7 +71,7 @@ class SpreadsheetReader {
 
 		header('Content-Disposition: attachment;filename="' . $filename . '.json"');
 		header('Cache-Control: max-age=0');
-		header('Content-type: application/json');
+		header('Content-type: application/json; charset=utf-8');
 
 		try {
 			echo json_encode($array, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
@@ -258,7 +258,7 @@ class SpreadsheetReader {
 
 			header('Content-Disposition: attachment;filename="' . $filename . '.xls"');
 			header('Cache-Control: max-age=0');
-			header('Content-Type: application/vnd.ms-excel');
+			header('Content-Type: application/vnd.ms-excel; charset=utf-8');
 			$objWriter->save('php://output');
 			exit;
 		} catch (Exception $e) {
@@ -273,11 +273,11 @@ class SpreadsheetReader {
 		$choices = $study->getChoices();
 		$filename = $study->name;
 
-		foreach ($items AS $i => $val) {
+		foreach ($items as $i => $val) {
 			unset($items[$i]['id'], $items[$i]['study_id']);
 			if (isset($val["choice_list"]) && isset($choices[$val["choice_list"]])) {
 				$items[$i]["choices"] = $choices[$val["choice_list"]];
-				unset($val["choice_list"]);
+				$items[$i]["choice_list"] = $items[$i]["name"];
 			}
 		}
 
@@ -287,13 +287,17 @@ class SpreadsheetReader {
 			'settings' => $study->settings,
 		);
 
+		if ($google_id = $study->getGoogleFileId()) {
+			$object['google_sheet'] = google_get_sheet_link($google_id);
+		}
+
 		if ($return_object === true) {
 			return $object;
 		}
 
 		header('Content-Disposition: attachment;filename="' . $filename . '.json"');
 		header('Cache-Control: max-age=0');
-		header('Content-type: application/json');
+		header('Content-type: application/json; charset=utf-8');
 
 		try {
 			echo json_encode($object, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
@@ -571,8 +575,10 @@ class SpreadsheetReader {
 			endforeach; // cell loop
 
 		endforeach; // row loop
-		
-		foreach($last_list_names AS $list_name => $row_numbers):
+		foreach($last_list_names as $list_name => $row_numbers):
+			if (!$row_numbers) {
+				continue;
+			}
 			$choices_messages[] = "$list_name: this list name was assigned to rows " .min($row_numbers) .'-'. max($row_numbers) . " automatically, because they had an empty list name and followed in this list.";
 		endforeach;
 //		$callEndTime = microtime(true);

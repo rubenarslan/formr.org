@@ -56,6 +56,14 @@ form.form-horizontal div.answer_below_label .controls {
   	margin-left: 0;
 }
 
+.form-horizontal div.form-group.left50 .control-label {
+  width: 50px;
+  max-width: 50px;
+}
+.form-horizontal div.form-group.left50 .controls {
+  	margin-left: 70px;
+}
+
 .form-horizontal div.form-group.left100 .control-label {
   width: 100px;
   max-width: 100px;
@@ -502,9 +510,14 @@ div.form-row.mc_vertical .btn-group > .btn-group:last-child > .btn:first-child {
 }
 
 /* special logic for rating_button  */
+div.form-row.mc_vertical.item-rating_button div.controls .controls-inner {
+  float: left;
+}
+
 div.form-row.mc_vertical.item-rating_button div.controls .controls-inner label.keep-label,
 div.form-row.mc_vertical.item-rating_button div.controls .controls-inner {
     text-align:center;
+    margin: 0 auto;
 }
 div.form-row.mc_vertical.item-rating_button div.controls  label.keep-label {
     display:block;

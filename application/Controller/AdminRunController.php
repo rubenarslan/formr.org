@@ -77,6 +77,18 @@ class AdminRunController extends AdminController {
 			$querystring['position'] = $position;
 		}
 
+		if ($this->request->sessions) {
+			$sessions = array();
+			foreach (explode("\n", $this->request->sessions) as $session) {
+				$session = $this->fdb->quote($session);
+				if($session) {
+					$sessions[] = $session;
+				}
+			}
+			$search .= " AND session IN (" . implode($sessions, ",") . ")";
+			$querystring['sessions'] = $this->request->sessions;
+		}
+
 		$user_count_query = "SELECT COUNT(`survey_run_sessions`.id) AS count FROM `survey_run_sessions` WHERE `survey_run_sessions`.run_id = :run_id $search;";
 		$user_count = $fdb->execute($user_count_query, $query_params, true);
 		$pagination = new Pagination($user_count, 200, true);
@@ -112,7 +124,12 @@ class AdminRunController extends AdminController {
 	
 	private function createNewTestCodeAction() {
 		$run_session = $this->run->makeTestRunSession();
-		alert("You've created a new test code. Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user.", "alert-info");
+		$sess = $run_session->session;
+		$animal = substr($sess, 0,strpos($sess, "XXX"));
+		$sess_url = site_url("{$this->run->name}?code=".urlencode($sess));
+		
+		alert("You've created a new test animal, ".h($animal).". Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user or copy the link below <br><textarea readonly cols='60' rows='3' class='copy_clipboard'>" . h($sess_url) . "</textarea>", "alert-info");
+		
 		
 		redirect_to(admin_run_url($this->run->name, "user_overview?session=".$run_session->session));
 	}
@@ -444,7 +461,16 @@ class AdminRunController extends AdminController {
 		));
 	}
 
+	private function cronLogParsed() {
+		$parser = new LogParser();
+		$parse = $this->run->name . '.log';
+		$vars = get_defined_vars();
+		$this->renderView('run/cron_log_parsed', $vars);
+	}
+
 	private function cronLogAction() {
+		return $this->cronLogParsed();
+		// @todo: deprecate code
 		$run = $this->run;
 		$fdb = $this->fdb;
 
@@ -575,8 +601,7 @@ class AdminRunController extends AdminController {
 			return redirect_to(admin_run_url($this->run->name));
 		}
 
-		$start_position = $this->request->int('position', 1);
-
+		$start_position = 10;
 		if ($this->run->importUnits($json_string, $start_position)) {
 			alert('Run modules imported successfully!', 'alert-success');
 		}

@@ -495,6 +495,8 @@ This study is currently being serviced. Please return at a later time."
 
 		$updates = array();
 		foreach ($posted AS $name => $value):
+			$value = trim($value);
+
 			if (!in_array($name, $this->run_settings)) {
 				$this->errors[] = "Invalid setting " . h($name);
 				continue;
@@ -509,13 +511,15 @@ This study is currently being serviced. Please return at a later time."
 					$file_ending = '.css';
 				}
 
+				$name = $name . "_path";
 				$asset_file = INCLUDE_ROOT . "webroot/" . $asset_path;
 				// Delete old file if css/js was emptied
 				if (!$value && $asset_path) {
 					if (file_exists($asset_file) && !unlink($asset_file)) {
 						alert("Could not delete old file ({$asset_path}).", 'alert-warning');
 					}
-				} else {
+					$value = null;
+				} elseif ($value) {
 					// if $asset_path has not been set it means neither JS or CSS has been entered so create a new path
 					if (!$asset_path) {
 						$asset_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
@@ -534,7 +538,6 @@ This study is currently being serviced. Please return at a later time."
 					$file->fflush();
 					$value = $asset_path;
 				}
-				$name = $name . "_path";
 			endif;
 
 			$updates[$name] = $value;
@@ -840,12 +843,18 @@ This study is currently being serviced. Please return at a later time."
 	 * @return array Returns an array on rendered units indexed by position
 	 */
 	public function importUnits($json_string, $start_position = 0) {
+		ini_set('memory_limit', '256M');
 		if (!$start_position) {
 			$start_position = 0;
 		} else {
 			$start_position = (int) $start_position - 10;
 		}
 		$json = json_decode($json_string);
+		$existingUnits = $this->getAllUnitIds();
+		if ($existingUnits) {
+			$last = end($existingUnits);
+			$start_position = $last['position'] + 10;
+		}
 
 		if (empty($json->units)) {
 			alert("<strong>Error</strong> Invalid json string provided.", 'alert-danger');
@@ -857,7 +866,7 @@ This study is currently being serviced. Please return at a later time."
 		$runFactory = new RunUnitFactory();
 
 		foreach ($units as $unit) {
-			if (!empty($unit->position) && !empty($unit->type)) {
+			if (isset($unit->position) && !empty($unit->type)) {
 				$unit->position = $start_position + $unit->position;
 				// for some reason Endpage replaces Page
 				if (strpos($unit->type, 'page') !== false) {
@@ -873,13 +882,14 @@ This study is currently being serviced. Please return at a later time."
 				}
 
 				if (strpos($unit->type, 'Email') !== false) {
-					unset($unit->account_id);
+					$unit->account_id = null;
 				}
 
 				$unitObj = $runFactory->make($this->dbh, null, (array) $unit, null, $this);
-				$unitObj->create((array) $unit);
+				$unit = (array) $unit;
+				$unitObj->create($unit);
 				if ($unitObj->valid) {
-					$unitObj->addToRun($this->id, $unitObj->position, (array) $unit);
+					$unitObj->addToRun($this->id, $unitObj->position, $unit);
 					// @todo check how to manage this because they are echoed only on next page load
 					//alert('<strong>Success.</strong> '.ucfirst($unitObj->type).' unit was created.','alert-success');
 					$createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());

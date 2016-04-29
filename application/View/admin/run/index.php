@@ -104,4 +104,6 @@ Template::load('acp_nav');
 
 <?php
 Template::load('admin/run/run_modals');
-Template::load('footer');
+Template::load('footer', array(
+	'js' => '<script src="' . asset_url('assets/'. (DEBUG ? 'js' : 'minified') . '/run.js') . '"></script>'
+));

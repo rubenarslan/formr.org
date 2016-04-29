@@ -406,16 +406,27 @@ class RunUnit {
 		if(!empty($needed['variables'])):
 			if(in_array('formr_last_action_date', $needed['variables']) OR in_array('formr_last_action_time', $needed['variables'])):
 				$last_action = $this->dbh->execute(
-					"SELECT `created` FROM `survey_unit_sessions` WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1",
-					array('session_id' => $this->session_id, 'unit_id' => $this->id),
+					"SELECT `survey_unit_sessions`.`created` FROM `survey_unit_sessions` 
+					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+					WHERE `survey_run_sessions`.id  = :run_session_id AND `unit_id` = :unit_id AND `survey_unit_sessions`.`ended` IS NULL LIMIT 1",
+					array('run_session_id' => $this->run_session_id, 'unit_id' => $this->id),
 					true
 				);
-				$last_action_time = strtotime($last_action);
-				if(in_array('formr_last_action_date', $needed['variables'])):
-					$this->survey_results['.formr$last_action_date'] = "as.POSIXct('".date("Y-m-d", $last_action_time)."')";
-				endif;
-				if(in_array('formr_last_action_time', $needed['variables']) ):
-					$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T", $last_action_time)."')";
+				if($last_action !== false):
+					$last_action_time = strtotime($last_action);
+					if(in_array('formr_last_action_date', $needed['variables'])):
+						$this->survey_results['.formr$last_action_date'] = "as.POSIXct('".date("Y-m-d", $last_action_time)."')";
+					endif;
+					if(in_array('formr_last_action_time', $needed['variables']) ):
+						$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T", $last_action_time)."')";
+					endif;
+				else:
+					if(in_array('formr_last_action_date', $needed['variables'])):
+						$this->survey_results['.formr$last_action_date'] = "NA";
+					endif;
+					if(in_array('formr_last_action_time', $needed['variables']) ):
+						$this->survey_results['.formr$last_action_time'] = "NA";
+					endif;					
 				endif;
 			endif;
 			
@@ -505,8 +516,8 @@ class RunUnit {
 			$matches_variable_names[ $table_name ] = array();
 			// generate match list for variable names
 			foreach($variable_names_in_table[ $table_name ] AS $variable_name) {
-				// try to match scales too, extraversion_1 + extraversion_2 - extraversion_3R = extraversion (script might mention the construct name, but not its item constituents)
-				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/","", $variable_name);
+				// try to match scales too, extraversion_1 + extraversion_2 - extraversion_3R - extraversion_4r = extraversion (script might mention the construct name, but not its item constituents)
+				$variable_name_base = preg_replace("/_?[0-9]{1,3}R?$/i","", $variable_name);
 				// don't match very short variable name bases
 				if(strlen($variable_name_base) < 3) {
 					$variable_name_base = $variable_name;
@@ -541,14 +552,16 @@ class RunUnit {
 	}
 
 	public function getParsedText($source) {
-		return opencpu_knit($source, 'json');
+		$ocpu_vars = $this->getUserDataInRun($source);
+		return opencpu_knit_plaintext($source, $ocpu_vars, false);
 	}
 
 	public function getParsedTextAdmin($source) {
 		if (!$this->grabRandomSession()) {
 			return false;
 		}
-		return opencpu_debug(opencpu_knit($source, 'json', true));
+		$ocpu_vars = $this->getUserDataInRun($source);
+		return opencpu_debug(opencpu_knit_plaintext($source, $ocpu_vars, true));
 	}
 
 	public function getParsedBodyAdmin($source, $email_embed = false) {
@@ -625,6 +638,8 @@ class RunUnit {
 			notify_user_error( opencpu_debug( $session ), 'There was a problem with OpenCPU.');
 			return false;
 		} else {
+			
+			print_hidden_opencpu_debug_message($session, "OpenCPU debugger for run R code in {$this->type} at {$this->position}.");
 			
 			$opencpu_url = $session->getLocation();
 
