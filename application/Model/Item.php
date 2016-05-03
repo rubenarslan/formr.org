@@ -538,10 +538,14 @@ class Item extends HTML_element {
 	}
 
 	public function getShowIf() {
+		if(strstr($this->showif, "//js_only") !== false) {
+			return "NA";
+		}
+
 		if($this->hidden !== null) {
 			return false;
 		}
-		if (trim($this->showif)!= "" && strstr($this->showif, "//js_only") === false) {
+		if (trim($this->showif)!= "") {
 			return $this->showif;
 		}
 		return false;
