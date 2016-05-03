@@ -1012,7 +1012,16 @@ class Survey extends RunUnit {
 				}
 			}
 
+			$loops = 0;
 			while(($items = $this->getNextItems())) {
+				// exit loop if it has ran more than 10 times and log remaining items
+				$loops++;
+				if ($loops > 10) {
+					alert('Too many empty pages in this survey. Please alert an administrator.', 'alert-danger');
+					formr_log("Survey::exec() '{$this->name}' terminatted with an infinite loop for items: ");
+					formr_log(array_keys($items));
+					break;
+				}
 				// process automatic values (such as get, browser)
 				$items = $this->processAutomaticItems($items);
 				// process showifs, dynamic values for these items

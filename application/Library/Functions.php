@@ -1235,10 +1235,10 @@ function opencpu_debug($session, OpenCPU $ocpu = null) {
 					$locations .= "<a href='$link'>$path</a><br />";
 				}
 				$debug['Locations'] = $locations;
-				$debug['Session Info'] = pre_htmlescape($session->getInfo());
-				$debug['Session Console'] = pre_htmlescape($session->getConsole());
-				$debug['Session Stdout'] = pre_htmlescape($session->getStdout());
 			}
+			$debug['Session Info'] = pre_htmlescape($session->getInfo());
+			$debug['Session Console'] = pre_htmlescape($session->getConsole());
+			$debug['Session Stdout'] = pre_htmlescape($session->getStdout());
 
 			$reponse_headers = $session->getResponseHeaders();
 			$debug['Response Headers'] = pre_htmlescape(print_r($reponse_headers, 1));
