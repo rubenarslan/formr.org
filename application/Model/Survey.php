@@ -1017,7 +1017,7 @@ class Survey extends RunUnit {
 				$loops++;
 				if ($loops > 10) {
 					alert('Too many empty pages in this survey. Please alert an administrator.', 'alert-danger');
-					formr_log("Survey::exec() '{$this->name}' terminatted with an infinite loop for items: ");
+					formr_log("Survey::exec() '{$this->run_name} > {$this->name}' terminated with an infinite loop for items: ");
 					formr_log(array_keys($items));
 					break;
 				}
@@ -1025,22 +1025,23 @@ class Survey extends RunUnit {
 				$items = $this->processAutomaticItems($items);
 				// process showifs, dynamic values for these items
 				$items = $this->processDynamicValuesAndShowIfs($items);
+				// If no items survived all the processing then move on
+				if (!$items) {
+					continue;
+				}
 				$lastItem = end($items);
 
-				// If no items ended up to be on the page but for a submit button, then continue
-				if (!$items || (count($items) == 1 && $lastItem->type === 'submit')) {
-
-					if(count($items) == 1 && $lastItem->type === 'submit') { // hide the submit button
-						$updateVisibility = $this->dbh->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
-						$updateVisibility->bindValue(":session_id", $this->session_id);
-						$updateVisibility->bindValue(":item_id", $lastItem->id);
-						$updateVisibility->bindValue(":hidden", true);
-						$updateVisibility->execute();
-					}
+				// If no items ended up to be on the page but for a submit button, make it hidden and continue
+				// else render processed items
+				if(count($items) == 1 && $lastItem->type === 'submit') {
+					$sess_item = array(
+						'session_id' => $this->session_id,
+						'item_id' => $lastItem->id,
+					);
+					$this->dbh->update('survey_items_display', array('hidden' => 1), $sess_item);
 					continue;
 				} else {
-					$items = $this->processDynamicLabelsAndChoices($items);
-					$this->to_render = $items;
+					$this->to_render = $this->processDynamicLabelsAndChoices($items);
 					break;
 				}
 			}
