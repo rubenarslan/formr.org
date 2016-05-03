@@ -6,7 +6,6 @@ class OpenCPU {
 	protected $libUri = '/ocpu/library';
 	protected $last_message = null;
 	protected $rLibPath = '/usr/local/lib/R/site-library';
-	protected $rTempBaseUrl = "__formr_opencpu_session_url__";
 
 	const STRING_DELIMITER = "\n\n==========formr=opencpu=string=delimiter==========\n\n";
 	const TEMP_BASE_URL = "__formr_opencpu_session_url__";
@@ -81,7 +80,7 @@ class OpenCPU {
 		return $this->rLibPath;
 	}
 	public function getRTempBaseUrl() {
-		return $this->rTempBaseUrl;
+		return self::TEMP_BASE_URL;
 	}
 
 	public function setLibUrl($libUri) {
@@ -282,6 +281,10 @@ class OpenCPU_Session {
 		return $this->ocpu->getRequest();
 	}
 
+	public function isJSONResult() {
+		return ($this->ocpu->getRequestInfo("content_type") === "application/json");
+	}
+
 	/**
 	 * Returns the list of returned paths as a string separated by newline char
 	 *
@@ -329,7 +332,7 @@ class OpenCPU_Session {
 	 * @return array
 	 */
 	public function getResponsePaths() {
-		if (!$this->key) {
+		if (!$this->key || $this->isJSONResult()) {
 			return null;
 		}
 
@@ -341,7 +344,7 @@ class OpenCPU_Session {
 		return $files;
 	}
 	public function getResponsePathsAsLinks() {
-		if (!$this->key) {
+		if (!$this->key || $this->isJSONResult()) {
 			return null;
 		}
 
