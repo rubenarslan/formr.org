@@ -606,7 +606,6 @@ class Survey extends RunUnit {
 		foreach ($items as $name => &$item) {
 			// 1. Check item's show-if
 			$showif = $item->getShowIf();
-			
 			if($showif) {
 				$siname = "si.{$name}";
 				$showif = str_replace("\n","\n\t",$showif);
@@ -1030,6 +1029,14 @@ class Survey extends RunUnit {
 
 				// If no items ended up to be on the page but for a submit button, then continue
 				if (!$items || (count($items) == 1 && $lastItem->type === 'submit')) {
+
+					if(count($items) == 1 && $lastItem->type === 'submit') { // hide the submit button
+						$updateVisibility = $this->dbh->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
+						$updateVisibility->bindValue(":session_id", $this->session_id);
+						$updateVisibility->bindValue(":item_id", $lastItem->id);
+						$updateVisibility->bindValue(":hidden", true);
+						$updateVisibility->execute();
+					}
 					continue;
 				} else {
 					$items = $this->processDynamicLabelsAndChoices($items);
