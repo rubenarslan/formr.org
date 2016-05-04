@@ -608,7 +608,7 @@ class Survey extends RunUnit {
 			$showif = $item->getShowIf();
 			if($showif) {
 				$siname = "si.{$name}";
-				$showif = str_replace("\n","\n\t",$showif);
+				$showif = str_replace("\n", "\n\t", $showif);
 				$code[$siname] = "{$siname} = (function(){
 	{$showif}
 })()";
@@ -642,7 +642,7 @@ class Survey extends RunUnit {
 		$ocpu_session = opencpu_multiparse_showif($this, $code, true);
 		if (!$ocpu_session || $ocpu_session->hasError()) {
 			notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
-			foreach($items AS $name => &$item) {
+			foreach($items as $name => &$item) {
 				$item->alwaysInvalid();
 			}
 		} else {
@@ -660,11 +660,9 @@ class Survey extends RunUnit {
 				$isVisible = $item->setVisibility(array_val($results, $siname));
 				// three possible states: 1 = hidden, 0 = shown, null = depends on JS on the page, render anyway
 				if($isVisible === null) {
-					if($definitelyShownItems > 0) {
-						$hidden = null; // we only render it, if there are some items before it on which its display could depend
-					} else {
-						$hidden = 1; // otherwise it's hidden for good
-					}
+					// we only render it, if there are some items before it on which its display could depend
+					// otherwise it's hidden for good
+					$hidden = $definitelyShownItems > 0 ? null : 1;
 				} else {
 					$hidden = (int)!$isVisible;
 				}
@@ -1013,9 +1011,9 @@ class Survey extends RunUnit {
 
 			$loops = 0;
 			while(($items = $this->getNextItems())) {
-				// exit loop if it has ran more than 10 times and log remaining items
+				// exit loop if it has ran more than x times and log remaining items
 				$loops++;
-				if ($loops > 10) {
+				if ($loops > 20) {
 					alert('Too many empty pages in this survey. Please alert an administrator.', 'alert-danger');
 					formr_log("Survey::exec() '{$this->run_name} > {$this->name}' terminated with an infinite loop for items: ");
 					formr_log(array_keys($items));
