@@ -1188,6 +1188,8 @@ class Item_submit extends Item {
 class Item_mc extends Item {
 
 	public $type = 'mc';
+	public $lower_text = '';
+	public $upper_text = '';
 	public $input_attributes = array('type' => 'radio');
 	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 	protected $hasChoices = true;
