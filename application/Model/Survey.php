@@ -1013,7 +1013,7 @@ class Survey extends RunUnit {
 			while(($items = $this->getNextItems())) {
 				// exit loop if it has ran more than x times and log remaining items
 				$loops++;
-				if ($loops > 20) {
+				if ($loops > Config::get('allowed_empty_pages', 80)) {
 					alert('Too many empty pages in this survey. Please alert an administrator.', 'alert-danger');
 					formr_log("Survey::exec() '{$this->run_name} > {$this->name}' terminated with an infinite loop for items: ");
 					formr_log(array_keys($items));
