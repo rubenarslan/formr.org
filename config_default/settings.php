@@ -122,3 +122,7 @@ $settings['email_subscriptions'] = array(
 	'+1 month' => 'Unsubscribe for one month',
 	'0' => 'Never receive emails',
 );
+
+// Limit to number of pages to skip in a survey
+$settings['allowed_empty_pages'] = 100;
+		
