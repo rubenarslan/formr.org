@@ -736,7 +736,7 @@ class Survey extends RunUnit {
 			$choice_list = $item->choice_list;
 			if (isset($choice_lists[$choice_list])) {
 				$list = $choice_lists[$choice_list];
-				$list = array_filter($list);
+				$list = array_filter($list, 'is_formr_truthy');
 				$items[$name]->setChoices($list);
 			}
 			//$items[$name]->refresh($item, array('label_parsed'));
