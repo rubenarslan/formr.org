@@ -15,6 +15,7 @@ formr-package/man
 /webroot/assets/node_modules/*
 /webroot/assets/bower_components/*
 /webroot/assets/tmp/admin/*.*
+/webroot/importresults.php
 /tmp/backups/results/*.*
 /tmp/backups/surveys/*.*
 webroot/assets/img/randPic
