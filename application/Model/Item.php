@@ -1394,7 +1394,14 @@ class Item_select_one extends Item {
 			$this->presetValues[] = $this->value_validated;
 		}
 
-		foreach ($this->choices AS $value => $option):
+		// Hack to split choices if comma separated and have only one element
+		// ASSUMPTION: choices are not suppose to have commas (weirdo)
+		$choice = current($this->choices);
+		if (count($this->choices) == 1 && strpos($choice, ',') !== false) {
+			$this->choices = explode(',', $choice);
+		}
+
+		foreach ($this->choices as $value => $option):
 			// determine whether options needs to be checked
 			$selected = '';
 			if (in_array($value, $this->presetValues)) {
