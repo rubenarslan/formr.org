@@ -279,7 +279,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 			sleep(2);
 		}
 	} else {
-		$sess = !empty($runSession->id) ? !empty($runSession->id) : null;
+		$sess = !empty($runSession->id) ? $runSession->id : null;
 		$missing = "\n\n/* missing entry - unit session_id : {$entry['session_id']}; sesssion: {$sess} */";
 		file_put_contents($sqlBackupFile, $missing, FILE_APPEND);
 	}
