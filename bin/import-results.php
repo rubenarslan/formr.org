@@ -136,6 +136,7 @@ foreach($survey->getItems('id, name') as $item) {
 
 // OPEN results sheet
 try {
+	echo "\nReading backup file '", $backupFile, "' ...\n";
 	//  Identify the type of $inputFileName 
 	$fileType = PHPExcel_IOFactory::identify($backupFile);
 	//  Create a new Reader of the type that has been identified 
@@ -273,7 +274,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 				$displayVals = quoteVals($db, array_values($itemsDisplay));
 				array_walk($displayCols, array('DB', 'quoteCol'));
 				array_walk($displayVals, array($db, 'quote'));
-				$sql = "\n/*INSERT INTO `survey_items_display` (" . implode(', ', $displayCols). ") VALUES (" . implode(', ', $displayVals). ") ON DUPLICATE KEY UPDATE session_id=VALUES(session_id);*/";
+				$sql = "\nINSERT INTO `survey_items_display` (" . implode(', ', $displayCols). ") VALUES (" . implode(', ', $displayVals). ") ON DUPLICATE KEY UPDATE session_id=VALUES(session_id);";
 				fwrite($fp, $sql);
 			}
 		}
@@ -291,4 +292,4 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 }
 fclose($fp);
 
-quit("Rows processed: {$processed}", 0);
+quit("Rows processed: {$processed}\n SQL file: {$sqlBackupFile}", 0);
