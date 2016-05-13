@@ -26,6 +26,7 @@ function quoteVals($db, $vals) {
 function help() {
 	echo "
 		Import results of a study into a run. Results should referably be in CSV format.
+		This script generates an SQL file that can then be ran against the respective formr database.
 		Usage:
 			php ./import-results.php [options]
 			Example: php ./import-results.php --survey-id=<sid> --run-id=<rid> --backup-file=<file-path>
@@ -35,7 +36,7 @@ function help() {
 			--survey-id  : Numeric ID of the survey to which you want to import data
 			--run-id     : Numeric ID of the run to which you want to import data
 			--backup-file: Asolute path to the backup results file
-			--skip-itemsdisplay: If this flag is present then queries for survey_items_display table will not be generated
+			--include-itemsdisplay: If this flag is present then queries for survey_items_display table will be included
 			
 	";
 	exit(0);
@@ -50,8 +51,8 @@ function quit($msg = '', $code = 1) {
 }
 
 function collectVars() {
-	$opts = getopt ('h', array('survey-id:', 'run-id:', 'backup-file:', 'skip-itemsdisplay'));
-	if (isset($opts['h'])) {
+	$opts = getopt ('h', array('survey-id:', 'run-id:', 'backup-file:', 'include-itemsdisplay', 'help'));
+	if (isset($opts['h']) || isset($opts['help'])) {
 		return help();
 	}
 
@@ -76,7 +77,7 @@ function collectVars() {
 		'studyId' => (int) $opts['survey-id'],
 		'backupFile' => $backupFile,
 		'sqlBackupFile' => $backupFile . '.sql',
-		'skipItemsDisplay' => isset($opts['skip-itemsdisplay']),
+		'inlcudeItemsDisplay' => isset($opts['include-itemsdisplay']),
 	);
 }
 
@@ -262,7 +263,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 			$created = strtotime($entry['created']);
 			$itemsDisplay = itemsDisplayCols($item_id, $session_id, $created, $itemValue);
 
-			if (empty(skipItemsDisplay) && ($itemsDisplay = itemsDisplayCols($item_id, $session_id, $created, $itemValue))) {
+			if (!empty($inlcudeItemsDisplay) && ($itemsDisplay = itemsDisplayCols($item_id, $session_id, $created, $itemValue))) {
 				$displayCols = quoteCols($db, array_keys($itemsDisplay));
 				$displayVals = quoteVals($db, array_values($itemsDisplay));
 				array_walk($displayCols, array('DB', 'quoteCol'));
