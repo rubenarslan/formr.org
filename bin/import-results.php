@@ -177,11 +177,16 @@ if ($badCols) {
 // Empty sql backup file
 if (file_exists($sqlBackupFile)) {
 	rename($sqlBackupFile, $sqlBackupFile . '.formrbk');
-	file_put_contents($sqlBackupFile, '');
 }
+file_put_contents($sqlBackupFile, '');
 
 // Read rows and insert each entry after reading to prvent overload
 $processed = 0;
+$fp = fopen($sqlBackupFile, 'wb');
+if (!$fp) {
+	quit('Unable to open sql file for writing');
+}
+
 foreach ($resultsSheet->getRowIterator() as $row) {
 	$rowNr = $row->getRowIndex();
 	// Read only data rows
@@ -228,7 +233,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 		$entry['study_id'] = $studyId;
 		$newline =  "\n\n/*NEW ROW: Inserting data for run-session: " . $runSession->session . "*/";
 		echo $newline;
-		file_put_contents($sqlBackupFile, $newline, FILE_APPEND);
+		fwrite($fp, $newline);
 
 		$unitSession = array(
 			'id' => $entry['session_id'],
@@ -242,7 +247,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 		$unitSessionCols = quoteCols($db, array_keys($unitSession));
 		$unitSessionVals = quoteVals($db, array_values($unitSession));
 		$sql = "\nINSERT INTO `survey_unit_sessions` (" . implode(', ', $unitSessionCols). ") VALUES (" . implode(', ', $unitSessionVals). ") ON DUPLICATE KEY UPDATE id=VALUES(id);";
-		file_put_contents($sqlBackupFile, $sql, FILE_APPEND);
+		fwrite($fp, $sql);
 	
 		// Insert results table entry
 		$resultCols = quoteCols($db, array_keys($entry));
@@ -250,7 +255,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 		array_walk($resultCols, array('DB', 'quoteCol'));
 		array_walk($resultVals, array($db, 'quote'));
 		$sql = "\nINSERT INTO `{$survey->results_table}` (" . implode(', ', $resultCols). ") VALUES (" . implode(', ', $resultVals). ") ON DUPLICATE KEY UPDATE session_id=VALUES(session_id);";
-		file_put_contents($sqlBackupFile, $sql, FILE_APPEND);
+		fwrite($fp, $sql);
 
 		// Insert to items display table
 		foreach ($entry as $itemName => $itemValue) {
@@ -269,7 +274,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 				array_walk($displayCols, array('DB', 'quoteCol'));
 				array_walk($displayVals, array($db, 'quote'));
 				$sql = "\n/*INSERT INTO `survey_items_display` (" . implode(', ', $displayCols). ") VALUES (" . implode(', ', $displayVals). ") ON DUPLICATE KEY UPDATE session_id=VALUES(session_id);*/";
-				file_put_contents($sqlBackupFile, $sql, FILE_APPEND);
+				fwrite($fp, $sql);
 			}
 		}
 
@@ -279,10 +284,11 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 			sleep(2);
 		}
 	} else {
-		$sess = !empty($runSession->id) ? $runSession->id : null;
-		$missing = "\n\n/* missing entry - unit session_id : {$entry['session_id']}; sesssion: {$sess} */";
-		file_put_contents($sqlBackupFile, $missing, FILE_APPEND);
+		$sess = !empty($runSession->session) ? $runSession->session : null;
+		$missing = "\n\n/* missing entry - unit session_id : {$entry['session_id']}; session: {$sess} */";
+		fwrite($fp, $missing);
 	}
 }
+fclose($fp);
 
 quit("Rows processed: {$processed}", 0);
