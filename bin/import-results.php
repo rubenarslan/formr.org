@@ -288,6 +288,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 	} else {
 		$sess = !empty($runSession->session) ? $runSession->session : null;
 		$missing = "\n\n/* missing entry - unit session_id : {$entry['session_id']}; session: {$sess} */";
+		echo $missing;
 		fwrite($fp, $missing);
 	}
 }
