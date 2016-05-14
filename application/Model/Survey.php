@@ -1734,19 +1734,23 @@ class Survey extends RunUnit {
 			return false;
 		}
 	}
-	public function deleteResults() {
-		$this->result_count = $this->getResultCount();
+	public function deleteResults($run_id = null) {
+		$this->result_count = $this->getResultCount($run_id);
 		
-		if (array_sum($this->result_count) === 0):
+		if (array_sum($this->result_count) === 0) {
 			return true;
-		elseif ($this->backupResults()):
+		} elseif ($run_id !== null) {
+			//@todo implement deleting results only for a particular run
+			$this->error[] =  'Deleting run specific results for a survey is not yet implemented';
+			return false;
+		} elseif ($this->backupResults()) {
 			$delete = $this->dbh->query("TRUNCATE TABLE `{$this->results_table}`");
 			$delete_item_disp = $this->dbh->delete('survey_unit_sessions', array('unit_id' => $this->id));
 			return $delete && $delete_item_disp;
-		else:
+		} else {
 			$this->errors[] = __("Backup of %s result rows failed. Deletion cancelled.", array_sum($this->result_count));
 			return false;
-		endif;
+		}
 	}
 
 	public function backupResults() {
@@ -1767,19 +1771,24 @@ class Survey extends RunUnit {
 		endif;
 	}
 
-	public function getResultCount() {
+	public function getResultCount($run_id = null) {
 		if($this->result_count === null):
 			$results_table = $this->results_table;
 			if ($this->hasResultsTable()):
-				$count = $this->dbh->select(array(
+				$select = $this->dbh->select(array(
 							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS null)" => 'begun',
 							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS NOT NULL)" => 'finished',
 							"SUM(`survey_run_sessions`.`testing` IS NULL OR `survey_run_sessions`.`testing` = 1)" => 'testers',
 							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0)" => 'real_users'
 						))->from($results_table)
 						->leftJoin('survey_unit_sessions', "survey_unit_sessions.id = {$results_table}.session_id")
-						->leftJoin('survey_run_sessions', "survey_unit_sessions.run_session_id = survey_run_sessions.id")
-						->fetch();
+						->leftJoin('survey_run_sessions', "survey_unit_sessions.run_session_id = survey_run_sessions.id");
+
+				if ($run_id) {
+					$select->where("survey_run_sessions.run_id = {$run_id}");
+				}
+
+				$count = $select->fetch();
 				return $count;
 			else:
 				return array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
