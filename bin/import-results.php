@@ -226,7 +226,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 		}
 		
 		if ($value && $runSession === null && $column == 'session') {
-			$value = ltrim('=', $value);
+			$value = ltrim($value, '=');
 			$runSession = new RunSession($db, $runId, null, $value, $run);
 		}
 	}
