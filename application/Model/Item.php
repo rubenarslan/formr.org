@@ -1373,7 +1373,7 @@ class Item_check extends Item_mc_multiple {
 class Item_select_one extends Item {
 
 	public $type = 'select';
-	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $mysql_field = 'TEXT DEFAULT NULL';
 	public $input_attributes = array('type' => 'select');
 	protected $hasChoices = true;
 
@@ -1398,7 +1398,8 @@ class Item_select_one extends Item {
 		// ASSUMPTION: choices are not suppose to have commas (weirdo)
 		$choice = current($this->choices);
 		if (count($this->choices) == 1 && strpos($choice, ',') !== false) {
-			$this->choices = explode(',', $choice);
+			$choices = explode(',', $choice);
+			$this->choices = array_combine($choices, $choices);
 		}
 
 		foreach ($this->choices as $value => $option):
@@ -1412,6 +1413,12 @@ class Item_select_one extends Item {
 
 		$ret .= '</select>';
 		return $ret;
+	}
+
+	protected function chooseResultFieldBasedOnChoices() {
+		if (count($this->choices) == count(array_filter($this->choices, 'is_numeric'))) {
+			return parent::chooseResultFieldBasedOnChoices();
+		}
 	}
 
 }
@@ -1492,8 +1499,8 @@ class Item_select_or_add_one extends Item {
 		$this->input_attributes['data-select2maximumSelectionSize'] = (int) $this->maxSelect;
 		$this->input_attributes['data-select2maximumInputLength'] = (int) $this->maxType;
 	}
-	protected function chooseResultFieldBasedOnChoices() { // override parent
-	}
+
+	protected function chooseResultFieldBasedOnChoices() {} // override parent
 
 }
 
