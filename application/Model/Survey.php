@@ -1304,7 +1304,8 @@ class Survey extends RunUnit {
 		$this->dbh->beginTransaction();
 		$this->parsedown = new ParsedownExtra();
 		$this->parsedown = $this->parsedown->setBreaksEnabled(true)->setUrlsLinked(true);
-		$this->addChoices();
+		
+		// Get old choice lists for getting old items
 		$choice_lists = $this->getChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
 
@@ -1316,6 +1317,11 @@ class Survey extends RunUnit {
 				$old_items[$item['name']] = $object->getResultField();
 			}
 		}
+
+		// Save new choice list and create new item factory for the new items
+		$this->addChoices();
+		$choice_lists = $this->getChoices();
+		$this->item_factory = new ItemFactory($choice_lists);
 
 		$result_columns = array();
 		$UPDATES = implode(', ', get_duplicate_update_string($this->user_defined_columns));
@@ -1368,7 +1374,7 @@ class Survey extends RunUnit {
 		$staid_same = array_intersect_assoc($old_items, $new_items);
 		$added = array_diff_assoc($new_items, $old_items);
 		$deleted = array_diff_assoc($old_items, $new_items);
-		
+
 		$unused = $this->item_factory->unusedChoiceLists();
 		if (!empty($unused)):
 			$this->warnings[] = __("These choice lists were not used: '%s'", implode("', '", $unused));

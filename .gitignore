@@ -18,3 +18,4 @@ formr-package/man
 /tmp/backups/results/*.*
 /tmp/backups/surveys/*.*
 webroot/assets/img/randPic
+tests/test.php

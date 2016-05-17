@@ -392,12 +392,10 @@ This study is currently being serviced. Please return at a later time."
 		$surveys = $this->getAllSurveys();
 		$unit_factory = new RunUnitFactory();
 		foreach ($surveys AS $survey) {
+			/* @var $unit Survey */
 			$unit = $unit_factory->make($this->dbh, null, $survey, null, $this);
-			if (!$unit->deleteResults($this->id)) {
-				alert('Could not delete results of survey ' . $unit->name, 'alert-danger');
-				if (!empty($unit->errors)) {
-					alert(implode('<br/>', $unit->errors), 'alert-danger');
-				}
+			if (!$unit->backupResults()) {
+				alert('Could not backup results of survey ' . $unit->name, 'alert-danger');
 				return false;
 			}
 		}
