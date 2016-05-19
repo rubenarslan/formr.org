@@ -1336,7 +1336,7 @@ class Survey extends RunUnit {
 		foreach ($this->SPR->survey as $row_number => $row) {
 			$item = $this->item_factory->make($row);
 			if (!$item) {
-				$this->errors[] = __("Row %s: Type %s is invalid.", $row_number, $this->SPR->survey[$row_number]['type']);
+				$this->errors[] = __("Row %s: Type %s is invalid.", $row_number, array_val($this->SPR->survey[$row_number], 'type'));
 				unset($this->SPR->survey[$row_number]);
 				continue;
 			}
