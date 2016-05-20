@@ -613,6 +613,17 @@ This study is currently being serviced. Please return at a later time."
 					->bindParams(array('run_id' => $this->id))
 					->fetchAll();
 	}
+	public function getAllLinkedSurveys() {
+		// first, generate a master list of the search set (all the surveys that are part of the run)
+		return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
+					->from('survey_studies')
+					->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
+					->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
+					->where('survey_runs.id = :run_id')
+					->where('survey_studies.unlinked = 0')
+					->bindParams(array('run_id' => $this->id))
+					->fetchAll();
+	}
 
 	public function getRandomGroups() {
 		$g_users = $this->dbh->prepare("SELECT 

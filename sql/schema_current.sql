@@ -347,6 +347,7 @@ CREATE TABLE IF NOT EXISTS `survey_studies` (
   `enable_instant_validation` tinyint(1) DEFAULT '1',
   `original_file` varchar(50) DEFAULT NULL,
   `google_file_id` varchar(150) DEFAULT NULL,
+  `unlinked` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `results_table_UNIQUE` (`results_table`),
   UNIQUE KEY `name_by_user` (`user_id`,`name`),
