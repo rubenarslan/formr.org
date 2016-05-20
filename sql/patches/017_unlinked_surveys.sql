@@ -1,0 +1,1 @@
+ALTER TABLE `survey_studies` ADD `unlinked` tinyint(1) NULL DEFAULT '0';

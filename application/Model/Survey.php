@@ -1,5 +1,10 @@
 <?php
-
+//fixme:
+// attack vector against unlinked surveys
+// - delete user data one by one, see which one disappears
+// - calculate survey_run_sessions$session in the unlinked surveys
+// - calculate private data from unlinked survey in linked survey
+// - check user_overview to see which users have already made it to the unlinked survey
 class Survey extends RunUnit {
 
 	public $id = null;
@@ -27,7 +32,6 @@ class Survey extends RunUnit {
 	public $unanswered = array();
 	public $to_render = array();
 	private $result_count = null;
-	public $unlinked = false;
 
 	/**
 	 * Counts for progress computation
@@ -131,6 +135,7 @@ class Survey extends RunUnit {
 			$this->settings['enable_instant_validation'] = (int) array_val($vars, 'enable_instant_validation');
 			$this->settings['expire_after'] = (int) array_val($vars, 'expire_after');
 			$this->settings['google_file_id'] = array_val($vars, 'google_file_id');
+			$this->settings['unlinked'] = array_val($vars, 'unlinked');
 
 			$this->valid = true;
 		endif;
@@ -1050,7 +1055,7 @@ class Survey extends RunUnit {
 				AND $key_value_pairs['maximum_number_displayed'] = (int) $key_value_pairs['maximum_number_displayed']
 				AND $key_value_pairs['maximum_number_displayed'] > 3000 || $key_value_pairs['maximum_number_displayed'] < 1
 		) {
-			alert("Maximum number displayed has to be between 1 and 65535", 'alert-warning');
+			alert("Maximum number displayed has to be between 1 and 3000", 'alert-warning');
 			$errors = true;
 		}
 
@@ -1076,6 +1081,18 @@ class Survey extends RunUnit {
 		) {
 			alert("Instant validation has to be set to either 0 (off) or 1 (on).", 'alert-warning');
 			$errors = true;
+		}
+
+		if (isset($key_value_pairs['unlinked'])
+				AND $key_value_pairs['unlinked'] = (int) $key_value_pairs['unlinked']
+		) {
+			if(! ($key_value_pairs['unlinked'] === 0 || $key_value_pairs['unlinked'] === 1)) {
+				alert("Unlinked has to be set to either 0 (off) or 1 (on).", 'alert-warning');
+				$errors = true;
+			} else if( $key_value_pairs['unlinked'] < $this->settings['unlinked']) {
+				alert("Once a survey has been unlinked, it cannot be relinked.", 'alert-warning');
+				$errors = true;
+			}
 		}
 
 		if (isset($key_value_pairs['expire_after'])
@@ -1587,16 +1604,24 @@ class Survey extends RunUnit {
 			}
 			
 			$count = $this->getResultCount();
-			if($this->unlinked && $count['real_users'] <= 10) {
+			$get_all = true;
+			if($this->settings['unlinked'] && $count['real_users'] <= 10) {
 				if($count['real_users'] > 0) {
-					alert("<strong>You cannot see these results yet.</strong> It will only be possible after 10 real users have registered.", 'alert-warning');
+					alert("<strong>You cannot see the real results yet.</strong> It will only be possible after 10 real users have registered.", 'alert-warning');
 				}
-				return array();
+				$get_all = false;
 			}
-			if($this->unlinked) {
+			if($this->settings['unlinked']) {
 				$columns = array();
-			} else {
-				$columns = array('survey_run_sessions.session', "{$results_table}.`created`", "{$results_table}.`modified`", "{$results_table}.`ended`");
+				// considered showing data for test sessions, but then researchers could set real users to "test" to identify them
+/*				$columns = array(
+					"IF(survey_run_sessions.testing, survey_run_sessions.session, '') AS session",
+					"IF(survey_run_sessions.testing, `{$results_table}`.`created`, '') AS created",
+					"IF(survey_run_sessions.testing, `{$results_table}`.`modified`, '') AS modified",
+					"IF(survey_run_sessions.testing, `{$results_table}`.`ended`, '') AS ended",
+				);
+*/			} else {
+				$columns = array('survey_run_sessions.session', "`{$results_table}`.`created`", "`{$results_table}`.`modified`", "`{$results_table}`.`ended`");
 			}
 			foreach ($items as $item) {
 				$columns[] = "{$results_table}.{$item}";
@@ -1606,11 +1631,14 @@ class Survey extends RunUnit {
 					->from($results_table)
 					->leftJoin('survey_unit_sessions', "{$results_table}.session_id = survey_unit_sessions.id")
 					->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
+			if (!$get_all) {
+				$select->where('survey_run_sessions.testing  = 1');
+			}
 
 			if ($paginate && isset($paginate['offset'])) {
 				$order = isset($paginate['order']) ? $paginate['order'] : 'asc';
 				$order_by = isset($paginate['order_by']) ? $paginate['order_by'] : '{$results_table}.session_id';
-				if($this->unlinked) {
+				if($this->settings['unlinked']) {
 					$order_by = "RAND()";
 				}
 				$select->order($order_by, $order);
@@ -1650,7 +1678,7 @@ class Survey extends RunUnit {
 		ini_set('memory_limit', '1024M');
 		
 		$count = $this->getResultCount();
-		if($this->unlinked) {
+		if($this->settings['unlinked']) {
 			if($count['real_users'] > 0) {
 				alert("<strong>You cannot see the long-form results yet.</strong> It will only be possible after 10 real users have registered.", 'alert-warning');
 			}

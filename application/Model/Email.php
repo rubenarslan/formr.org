@@ -168,6 +168,7 @@ class Email extends RunUnit {
 		LEFT JOIN survey_runs ON survey_runs.id = survey_run_units.run_id
 		WHERE survey_runs.id = :run_id AND
 		survey_items.type = 'email'");
+		// fixme: if the last reported email thing is known to work, show only linked email addresses here.
 		$get_recips->bindValue(':run_id', $this->run_id);
 		$get_recips->execute();
 
