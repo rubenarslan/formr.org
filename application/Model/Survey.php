@@ -1051,16 +1051,19 @@ class Survey extends RunUnit {
 
 	public function changeSettings($key_value_pairs) {
 		$errors = false;
+		array_walk($key_value_pairs, function (&$value, $key) {
+		    if ($key !== 'google_file_id') {
+		        $value = (int) $value;
+		    }
+		});
 		if (isset($key_value_pairs['maximum_number_displayed'])
-				AND $key_value_pairs['maximum_number_displayed'] = (int) $key_value_pairs['maximum_number_displayed']
-				AND $key_value_pairs['maximum_number_displayed'] > 3000 || $key_value_pairs['maximum_number_displayed'] < 1
+				AND $key_value_pairs['maximum_number_displayed'] > 3000 || $key_value_pairs['maximum_number_displayed'] < 0
 		) {
 			alert("Maximum number displayed has to be between 1 and 3000", 'alert-warning');
 			$errors = true;
 		}
 
 		if (isset($key_value_pairs['displayed_percentage_maximum'])
-				AND $key_value_pairs['displayed_percentage_maximum'] = (int) $key_value_pairs['displayed_percentage_maximum']
 				AND $key_value_pairs['displayed_percentage_maximum'] > 100 || $key_value_pairs['displayed_percentage_maximum'] < 1
 		) {
 			alert("Percentage maximum has to be between 1 and 100.", 'alert-warning');
@@ -1068,7 +1071,6 @@ class Survey extends RunUnit {
 		}
 
 		if (isset($key_value_pairs['add_percentage_points'])
-				AND $key_value_pairs['add_percentage_points'] = (int) $key_value_pairs['add_percentage_points']
 				AND $key_value_pairs['add_percentage_points'] > 100 || $key_value_pairs['add_percentage_points'] < 0
 		) {
 			alert("Percentage points added has to be between 0 and 100.", 'alert-warning');
@@ -1076,16 +1078,13 @@ class Survey extends RunUnit {
 		}
 
 		if (isset($key_value_pairs['enable_instant_validation'])
-				AND $key_value_pairs['enable_instant_validation'] = (int) $key_value_pairs['enable_instant_validation']
 				AND ! ($key_value_pairs['enable_instant_validation'] === 0 || $key_value_pairs['enable_instant_validation'] === 1)
 		) {
 			alert("Instant validation has to be set to either 0 (off) or 1 (on).", 'alert-warning');
 			$errors = true;
 		}
 
-		if (isset($key_value_pairs['unlinked'])
-				AND $key_value_pairs['unlinked'] = (int) $key_value_pairs['unlinked']
-		) {
+		if (isset($key_value_pairs['unlinked'])) {
 			if(! ($key_value_pairs['unlinked'] === 0 || $key_value_pairs['unlinked'] === 1)) {
 				alert("Unlinked has to be set to either 0 (off) or 1 (on).", 'alert-warning');
 				$errors = true;
@@ -1096,7 +1095,6 @@ class Survey extends RunUnit {
 		}
 
 		if (isset($key_value_pairs['expire_after'])
-				AND $key_value_pairs['expire_after'] = (int) $key_value_pairs['expire_after']
 				AND $key_value_pairs['expire_after'] > 3153600
 		) {
 			alert("Survey expiry time (in minutes) has to be below 3153600.", 'alert-warning');
