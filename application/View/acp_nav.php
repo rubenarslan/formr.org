@@ -92,7 +92,7 @@
 	<?php $resultCount = $study->getResultCount(); ?>
 	<div class="row">
 		<div class="col-lg-12 no-padding">
-			<h3 class="drop_shadow white"><i class="fa fa-pencil-square"></i> <?php echo $study->name; ?> <small><?= $resultCount['real_users']; ?> results, <?= $resultCount['testers'] ?> test sessions</small></h3>
+			<h3 class="drop_shadow white"><i class="fa fa-pencil-square"></i> <?php echo $study->name; ?> (ID:<?php echo $study->id; ?>) <small><?= $resultCount['real_users']; ?> results, <?= $resultCount['testers'] ?> test sessions</small></h3>
 		</div>
 	</div>
 
@@ -163,7 +163,7 @@
 	<div class="run_header">&nbsp;</div>	
 	<div class="row">
 		<div class="col-lg-12">
-			<h1 class="drop_shadow run_header_name"><i class="fa fa-rocket"></i> <?php echo $run->name; ?></h1>
+			<h1 class="drop_shadow run_header_name"><i class="fa fa-rocket"></i> <?php echo $run->name; ?> (ID:<?php echo $run->id; ?>)</h1>
 		</div>
 	</div>
 	<div class="row">
