@@ -76,11 +76,15 @@ label
 	padding-right:15px;
 }
 .monkey_bar {
-    background:white;
-    position:fixed;
+    display: inline-block;
+    position: fixed;
+    z-index: 99;
     bottom:0;
     height: 60px;
-    z-index: 99;
+    margin-left: -303px;
+}
+.monkey_bar form {
+    background:white;
 }
 .run_header, .survey_header
 {

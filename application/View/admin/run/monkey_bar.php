@@ -1,3 +1,5 @@
+<div class="row">
+<div class="col-xs-12 text-right">
 <div class="monkey_bar">
 	<div class="text-center">
 				<a class="hastooltip label label-default" href="<?php echo site_url($run->name . '/?code=' . urlencode($user->user_code)); ?>" title="Link to this session (copy &amp; share to debug)"><i class="fa <?= $icon ?>"></i> <?php echo $short_code; ?> (<?=$run_session->position; ?>)</a>
@@ -57,4 +59,6 @@
 			</div>
 		</div>
 	</div>
+</div>
+</div>
 </div>
