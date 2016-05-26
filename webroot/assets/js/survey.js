@@ -458,7 +458,10 @@
 	};
     Survey.prototype.doMonkey = function(monkey_iteration) {
 		var survey = this;
-        if(monkey_iteration > 2) return false;
+        if(monkey_iteration > 2) {
+        	$("form.main_formr_survey button[type=submit]").click();
+        	return false;
+        }
         else if (monkey_iteration === undefined) monkey_iteration = 0;
         else monkey_iteration++;
 

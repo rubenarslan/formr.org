@@ -41,7 +41,7 @@ function notify_user_error($error, $public_message = '') {
 
 	$message = $date . ': ' . $public_message . "<br>";
 
-	if (DEBUG || ($run_session && $run_session->isTesting()) ) {
+	if (DEBUG || ($run_session && !$run_session->isCron() && $run_session->isTesting()) ) {
 		if ($error instanceof Exception) {
 			$message .= $error->getMessage();
 		} else {
@@ -53,7 +53,7 @@ function notify_user_error($error, $public_message = '') {
 
 function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '') {
 	$run_session = Site::getInstance()->getRunSession();
-	if (DEBUG || ($run_session && $run_session->isTesting()) ) {
+	if (DEBUG || ($run_session && !$run_session->isCron() && $run_session->isTesting()) ) {
 		$date = date('Y-m-d H:i:s');
 
 		$message = $date . ': ' . $public_message . "<br>";
@@ -778,7 +778,7 @@ function asset_url($file) {
 	return site_url($file . "?v" . $mtime);
 }
 
-function moneybar_url($run_name, $action) {
+function monkeybar_url($run_name, $action) {
 	return site_url('monkey_bar/' . $run_name . '/' . $action);
 }
 

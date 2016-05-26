@@ -170,6 +170,32 @@ class AdminAjaxController {
 		endif;
 	}
 
+	private function ajaxSnipUnitSession() {
+		$run = $this->controller->run;
+		$dbh = $this->dbh;
+		$run_session = new RunSession($dbh, $run->id, null, $this->request->getParam('session'), $run);
+
+		$unit_session = $run_session->getUnitSession();
+		if($unit_session):
+			$deleted = $dbh->delete('survey_unit_sessions', array('id' => $unit_session->id));
+			if($deleted):
+				alert('<strong>Success.</strong> You deleted the data at the current position.','alert-success');
+			else:
+				alert('<strong>Couldn\'t delete.</strong>', 'alert-danger');
+				bad_request_header();
+			endif;
+		else:
+			alert("No unit session found", 'alert-danger');
+		endif;
+
+		if (is_ajax_request()):
+			echo $this->site->renderAlerts();
+			exit;
+		else:
+			redirect_to("admin/run/" . $run->name . "/user_overview");
+		endif;
+	}
+
 	private function ajaxDeleteUser() {
 		$run = $this->controller->run;
 		$deleted = $this->dbh->delete('survey_run_sessions', array('id' => $this->request->getParam('run_session_id')));

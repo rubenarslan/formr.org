@@ -93,6 +93,28 @@ class RunDAO {
 		}
 	}
 
+	public function snipUnitSession() {
+		$run = $this->run;
+		$session = $this->request->session;
+		$run_session = new RunSession($this->db, $run->id, null, $session, $run);
+
+		$unit_session = $run_session->getUnitSession();
+		if($unit_session):
+			$deleted = $this->db->delete('survey_unit_sessions', array('id' => $unit_session->id));
+			if($deleted):
+				$this->message = '<strong>Success.</strong> You deleted the data at the current position.';
+				if (!$run_session->forceTo($run_session->position)):
+					$this->errors[] = 'Data was deleted, but could not stay at position. ' . $run->name;
+					return false;
+				endif;
+			else:
+				$this->errors[] = '<strong>Couldn\'t delete.</strong>';
+			endif;
+		else:
+			$this->errors[] = "No unit session found";
+		endif;
+	}
+
 	public function getRunSession() {
 		return $this->runSession;
 	}
