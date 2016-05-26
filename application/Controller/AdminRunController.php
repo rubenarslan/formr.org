@@ -119,6 +119,7 @@ class AdminRunController extends AdminController {
 		$vars['users'] = $fdb->execute($users_query, $query_params);
 		$vars['position_lt'] = $position_cmp;
 		$vars['currentUser'] = $this->user;
+		$vars['unit_types'] = $run->getAllUnitTypes();
 		$this->renderView('run/user_overview', $vars);
 	}
 	

@@ -205,7 +205,7 @@
 	        $(".download_r_code").click(function() { return download_next_textarea(this); });
 	    }
 	
-	    $('#confirm-delete').on('show.bs.modal', function(e) {
+	    $('.removal_modal').on('show.bs.modal', function(e) {
 	        $current_target = $(e.relatedTarget);
 	        var $modal = $(this);
 	        $current_target.parents("tr").css("background-color","#ee5f5b");

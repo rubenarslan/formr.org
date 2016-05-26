@@ -778,7 +778,7 @@ function asset_url($file) {
 	return site_url($file . "?v" . $mtime);
 }
 
-function moneybar_url($run_name, $action) {
+function monkeybar_url($run_name, $action) {
 	return site_url('monkey_bar/' . $run_name . '/' . $action);
 }
 

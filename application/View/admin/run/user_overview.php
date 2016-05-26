@@ -109,7 +109,13 @@ Template::load('acp_nav');
 									<button type="submit" class="btn hastooltip" title="Send this user to that position"><i class="fa fa-hand-o-right"></i></button>
 								</span>
 								<input type="hidden" name="session" value="<?php echo $user['session']; ?>" />
-								<input type="number" name="new_position" value="<?php echo $user['position']; ?>" class="form-control position_monkey"/>
+								<select name="new_position" class="form-control position_monkey ">
+								<?php foreach($unit_types AS $run_unit): ?>
+									<option value="<?=$run_unit['position']?>" <?=($run_unit['position'] === $user['position']) ? 'selected' : '' ?>>
+										<?=$run_unit['position'] . " - (" . $run_unit['type'] . ") " . $run_unit['description']?>
+									</option>
+								<?php endforeach; ?>
+								</select>
 								<span class='input-group-btn link-ajax-modal'>
 									<a class="btn hastooltip" data-toggle="modal" data-target="#confirm-delete" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_delete_user?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)"><i class='fa fa-trash-o'></i></a>
 								</span>

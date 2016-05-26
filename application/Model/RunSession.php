@@ -261,6 +261,13 @@ class RunSession {
 		return false;
 	}
 
+	public function getUnitSession() {
+		if($this->getCurrentUnit()) {
+			return $this->unit_session;
+		}
+		return false;
+	}
+
 	public function runToNextUnit() {
 		$select = $this->dbh->select('unit_id, position')
 				->from('survey_run_units')

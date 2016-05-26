@@ -236,7 +236,7 @@ class PublicController extends Controller {
 
 	public function monkeyBarAction($run_name = '', $action = '') {
 		$action = str_replace('ajax_', '', $action);
-		$allowed_actions = array('send_to_position', 'remind', 'next_in_run', 'delete_user');
+		$allowed_actions = array('send_to_position', 'remind', 'next_in_run', 'delete_user', 'snip_unit_session');
 		if (!$run_name || !in_array($action, $allowed_actions)) {
 			throw new Exception("Invalid Request parameters");
 		}
