@@ -314,6 +314,9 @@ class RunSession {
 	public function isTesting() {
 		return $this->is_testing;
 	}
+	public function isCron() {
+		return $this->cron;
+	}
 
 	/**
 	 * Check if current run session is a test
