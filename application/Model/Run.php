@@ -761,6 +761,17 @@ This study is currently being serviced. Please return at a later time."
 
 		$run_content = '';
 
+		if (trim($this->description_parsed)) {
+			$run_content .= $this->description_parsed;
+		}
+
+		if (isset($output['body'])) {
+			$run_content .= $output['body'];
+		}
+		if (trim($this->footer_text_parsed)) {
+			$run_content .= $this->footer_text_parsed;
+		}
+
 		if ($run_session->isTesting()) {
 			$animal_end = strpos($user->user_code, "XXX");
 			if ($animal_end === false) {
@@ -778,16 +789,6 @@ This study is currently being serviced. Please return at a later time."
 			));
 		}
 
-		if (trim($this->description_parsed)) {
-			$run_content .= $this->description_parsed;
-		}
-
-		if (isset($output['body'])) {
-			$run_content .= $output['body'];
-		}
-		if (trim($this->footer_text_parsed)) {
-			$run_content .= $this->footer_text_parsed;
-		}
 
 		return array(
 			'title' => $title,
