@@ -1705,18 +1705,18 @@ class Survey extends RunUnit {
 		}
 		
 		$select = $this->dbh->select("`survey_run_sessions`.session,
-		`survey_items_display`.session_id as unit_session_id,
-		`survey_items_display`.item_id,
-		`survey_items_display`.answer,
-		`survey_items_display`.created,
-		`survey_items_display`.saved,
-		`survey_items_display`.shown,
-		`survey_items_display`.shown_relative,
-		`survey_items_display`.answered,
-		`survey_items_display`.answered_relative,
-		`survey_items_display`.displaycount,
-		`survey_items_display`.display_order,
-		`survey_items_display`.hidden'");
+		`survey_items_display`.`session_id` as `unit_session_id`,
+		`survey_items_display`.`item_id`,
+		`survey_items_display`.`answer`,
+		`survey_items_display`.`created`,
+		`survey_items_display`.`saved`,
+		`survey_items_display`.`shown`,
+		`survey_items_display`.`shown_relative`,
+		`survey_items_display`.`answered`,
+		`survey_items_display`.`answered_relative`,
+		`survey_items_display`.`displaycount`,
+		`survey_items_display`.`display_order`,
+		`survey_items_display`.`hidden`");
 
 		$select->from('survey_items_display')
 				->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
