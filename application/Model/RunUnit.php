@@ -32,6 +32,7 @@ class RunUnit {
 	public $session = null;
 	public $unit = null;
 	public $ended = false;
+	public $expired = false;
 	public $position;
 	public $called_by_cron = false;
 	public $knitr = false;
@@ -227,6 +228,20 @@ class RunUnit {
 
 		if ($ended === 1) {
 			$this->ended = true;
+			return true;
+		}
+
+		return false;
+	}
+
+	public function expire() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
+		$expired = $this->dbh->exec(
+			"UPDATE `survey_unit_sessions` SET `expired` = NOW() WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+		);
+
+		if ($expired === 1) {
+			$this->expired = true;
 			return true;
 		}
 

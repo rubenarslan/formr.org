@@ -98,6 +98,7 @@ Template::load('acp_nav');
 						$row['created'] = '<abbr title="'.$row['created'].'">'.timetostr(strtotime($row['created'])).'</abbr>';
 						$row['ended'] = '<abbr title="'.$row['ended'].'">'.timetostr(strtotime($row['ended'])).'</abbr>';
 						$row['modified'] = '<abbr title="'.$row['modified'].'">'.timetostr(strtotime($row['modified'])).'</abbr>';
+						$row['expired'] = '<abbr title="'.$row['expired'].'">'.timetostr(strtotime($row['expired'])).'</abbr>';
 					endif;
 					echo '<tr>';
 						foreach($row as $cell) {

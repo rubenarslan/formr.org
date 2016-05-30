@@ -942,9 +942,6 @@ class Survey extends RunUnit {
 		return "</form>"; /* close form */
 	}
 
-	public function expire() {
-		return parent::end();
-	}
 
 	public function end() {
 		$ended = $this->dbh->exec(
@@ -1640,7 +1637,7 @@ class Survey extends RunUnit {
 					"IF(survey_run_sessions.testing, `{$results_table}`.`ended`, '') AS ended",
 				);
 */			} else {
-				$columns = array('survey_run_sessions.session', "`{$results_table}`.`created`", "`{$results_table}`.`modified`", "`{$results_table}`.`ended`");
+				$columns = array('survey_run_sessions.session', "`{$results_table}`.`created`", "`{$results_table}`.`modified`", "`{$results_table}`.`ended`, `survey_unit_sessions`.`expired`");
 			}
 			foreach ($items as $item) {
 				$columns[] = "{$results_table}.{$item}";

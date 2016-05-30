@@ -148,6 +148,7 @@ CREATE TABLE IF NOT EXISTS `survey_externals` (
   `id` int(10) unsigned NOT NULL,
   `address` text,
   `api_end` tinyint(1) DEFAULT '0',
+  `expire_after` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `fk_survey_forks_survey_run_items1_idx` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -380,6 +381,7 @@ CREATE TABLE IF NOT EXISTS `survey_unit_sessions` (
   `run_session_id` int(11) DEFAULT NULL,
   `created` datetime NOT NULL,
   `ended` datetime DEFAULT NULL,
+  `expired` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `session_uq` (`created`,`run_session_id`,`unit_id`),
   KEY `fk_survey_sessions_survey_units1_idx` (`unit_id`),
