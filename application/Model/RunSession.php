@@ -295,7 +295,7 @@ class RunSession {
 			UPDATE `survey_unit_sessions`
 			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
 			SET `survey_unit_sessions`.`ended` = NOW()
-			WHERE `survey_unit_sessions`.run_session_id = :id AND `survey_units`.type = 'External' AND  `survey_unit_sessions`.ended IS NULL;";
+			WHERE `survey_unit_sessions`.run_session_id = :id AND `survey_units`.type = 'External' AND  `survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL;";
 
 		$updated = $this->dbh->exec($query, array('id' => $this->id));
 		$success = $updated !== false;

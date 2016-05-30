@@ -27,7 +27,7 @@ class ApiDAO {
 	 * Formr user object current accessing data
 	 * @var User
 	 */
-	protected $user;
+	protected $user = null;
 
 	/**
 	 * Error information
@@ -211,19 +211,26 @@ class ApiDAO {
 	 */
 	protected function getRunFromRequest($request) {
 		if (empty($request->run->name)) {
-			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Required "run_name" parameter not found.');
+			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Required "run : { name: }" parameter not found.');
 			return false;
 		}
 
 		$run = new Run($this->fdb, $request->run->name);
-		if (!$this->user || !$run->valid) {
+		if(!$run->valid) {
 			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run or run not found');
-			return false;
-		} elseif (!$this->user->created($run)) {
-			$this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', null, 'Unauthorized access to run');
 			return false;
 		}
 
+		if($this->user !== false) { // need authentication
+			if (!$this->user) {
+				$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'No user.');
+				return false;		
+			}
+		 	elseif (!$this->user->created($run)) {
+				$this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', null, 'Unauthorized access to run');
+				return false;
+			}
+		}
 		return $run;
 	}
 
