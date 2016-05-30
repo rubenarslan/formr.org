@@ -77,7 +77,7 @@ class ApiController extends Controller {
 
 	protected function doAction(Request $request, $action) {
 		try {
-			$this->request();
+			$this->authenticate( $action ); // only proceed if authenticated, if not exit via response
 			$method = $this->getPrivateAction($action, '-', true);
 			$dao = new ApiDAO($request, $this->fdb);
 			$data = $dao->{$method}()->getData();
@@ -116,16 +116,19 @@ class ApiController extends Controller {
 		$this->oauthServer->handleTokenRequest(OAuth2\Request::createFromGlobals())->send();
 	}
 
-	protected function request() {
-		$this->oauthServer = Site::getOauthServer();
-		// Handle a request to a resource and authenticate the access token
-		// Ex: curl http://formr.org/api/post/action-name -d 'access_token=YOUR_TOKEN'
-		if (!$this->oauthServer->verifyResourceRequest(OAuth2\Request::createFromGlobals())) {
-			$this->sendResponse(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', array(
-				'error' => 'Invalid/Unauthorized access token',
-				'error_code' => Response::STATUS_UNAUTHORIZED,
-				'error_description' => 'Access token for this resouce request is invalid or unauthorized',
-			));
+	protected function authenticate($action) {
+		$publicActions = array("end-last-external");
+		if(! in_array($action, $publicActions) ) {
+			$this->oauthServer = Site::getOauthServer();
+			// Handle a request to a resource and authenticate the access token
+			// Ex: curl http://formr.org/api/post/action-name -d 'access_token=YOUR_TOKEN'
+			if (!$this->oauthServer->verifyResourceRequest(OAuth2\Request::createFromGlobals())) {
+				$this->sendResponse(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', array(
+					'error' => 'Invalid/Unauthorized access token',
+					'error_code' => Response::STATUS_UNAUTHORIZED,
+					'error_description' => 'Access token for this resouce request is invalid or unauthorized',
+				));
+			}
 		}
 	}
 

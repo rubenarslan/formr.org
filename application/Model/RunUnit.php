@@ -32,6 +32,7 @@ class RunUnit {
 	public $session = null;
 	public $unit = null;
 	public $ended = false;
+	public $expired = false;
 	public $position;
 	public $called_by_cron = false;
 	public $knitr = false;
@@ -76,7 +77,8 @@ class RunUnit {
 	protected $non_user_tables = array(
 		'survey_users' => array("created","modified", "user_code","email","email_verified","mobile_number", "mobile_verified"),
 		'survey_run_sessions' => array("session","created","last_access","position","current_unit_id", "deactivated","no_email"),
-		'survey_unit_sessions' => array("created","ended","unit_id"),
+		'survey_unit_sessions' => array("created","ended",'expired',"unit_id", "position", "type"),
+		'externals' => array("created","ended",'expired', "position"),
 		'survey_items_display' => array("created","answered_time","answered","displaycount","item_id"),
 		'survey_email_log' => array("email_id","created","recipient"),
 		'shuffle' => array("unit_id","created","group"),
@@ -233,6 +235,20 @@ class RunUnit {
 		return false;
 	}
 
+	public function expire() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
+		$expired = $this->dbh->exec(
+			"UPDATE `survey_unit_sessions` SET `expired` = NOW() WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+		);
+
+		if ($expired === 1) {
+			$this->expired = true;
+			return true;
+		}
+
+		return false;
+	}
+
 	protected function getSampleSessions() {
 		$current_position = -9999999;
 		if (isset($this->unit['position'])) {
@@ -357,33 +373,48 @@ class RunUnit {
 			if(empty($matches_variable_names[ $survey_name ])) {
 				$variables = "NULL AS formr_dummy";
 			} else {
-				$variables = "`$results_table`.`" . implode("`,`$results_table`.`" ,$matches_variable_names[ $survey_name ]) . '`';
+				$variables = '';
+				if($results_table === "survey_unit_sessions") {
+					if(($key = array_search('position', $matches_variable_names[ $survey_name ])) !== false) {
+ 						unset($matches_variable_names[ $survey_name ][$key]);
+						$variables .= '`survey_run_units`.`position`, ';
+					}
+					if(($key = array_search('type', $matches_variable_names[ $survey_name ])) !== false) {
+ 						unset($matches_variable_names[ $survey_name ][$key]);
+						$variables .= '`survey_units`.`type`, ';
+					}
+				}
+				$variables .= "`$results_table`.`" . implode("`,`$results_table`.`" ,$matches_variable_names[ $survey_name ]) . '`';
 			}
-				
+			
 			$q1 = "SELECT $variables";
-			if($this->run_session_id === NULL AND !in_array($survey_name, $this->non_session_tables)) { // todo: what to do with session_id tables in faketestrun
-				$q3 = " WHERE `$results_table`.session_id = :session_id;"; // just for testing surveys
+			if($this->run_session_id === NULL AND !in_array($results_table, $this->non_session_tables)) { // todo: what to do with session_id tables in faketestrun
+				$q3 = " WHERE `$results_table`.session_id = :session_id"; // just for testing surveys
 			} else {
-				$q3  = " WHERE  `survey_run_sessions`.id = :run_session_id;";
+				$q3  = " WHERE  `survey_run_sessions`.id = :run_session_id";
+				if($survey_name === "externals") {
+					$q3 .= " AND `survey_units`.`type` = 'External'";
+				}
 			}
 
-			if(!in_array($survey_name, $this->non_session_tables )) {
+			if(!in_array($results_table, $this->non_session_tables )) {
 				$q2 = "
 					LEFT JOIN `survey_unit_sessions` ON `$results_table`.session_id = `survey_unit_sessions`.id
 					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 				";
-			} elseif($survey_name == 'survey_unit_sessions'){
-				$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id";
-			} elseif($survey_name == 'survey_run_sessions') {
+			} elseif($results_table == 'survey_unit_sessions'){
+				$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+				LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
+				LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id";
+			} elseif($results_table == 'survey_run_sessions') {
 				$q2 = "";
-			} elseif($survey_name == 'survey_users') {
+			} elseif($results_table == 'survey_users') {
 				$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_users`.id = `survey_run_sessions`.user_id";
 			}
 
 			$q1 .= " FROM `$results_table` ";
 
-			$q = $q1 . $q2 . $q3;
-
+			$q = $q1 . $q2 . $q3 . ";";
 			$get_results = $this->dbh->prepare($q);
 			if($this->run_session_id === NULL) {
 				$get_results->bindValue(':session_id', $this->session_id);
@@ -469,6 +500,9 @@ class RunUnit {
 		$tables = $non_user_tables;
 		$table_ids = $non_user_tables;
 		$results_tables = array_combine($non_user_tables, $non_user_tables);
+		if(isset($results_tables['externals'])) {
+			$results_tables['externals'] = 'survey_unit_sessions';
+		}
 
 		if($token_add !== null):	 // send along this table if necessary, always as the first one, since we attach it
 			$table_ids[] = $this->id;

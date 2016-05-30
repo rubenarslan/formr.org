@@ -205,7 +205,8 @@ class AdminRunController extends AdminController {
 			`survey_run_units`.position,
 			`survey_units`.type AS unit_type,
 			`survey_unit_sessions`.created,
-			`survey_unit_sessions`.ended
+			`survey_unit_sessions`.ended,
+			`survey_unit_sessions`.expired
 		FROM `survey_unit_sessions`
 		LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 		LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
@@ -224,6 +225,9 @@ class AdminRunController extends AdminController {
 			$staid = ($userx['ended'] ? strtotime($userx['ended']) : time() ) -strtotime($userx['created']);
 			$userx['staid'] = "<small title='$staid seconds'>".timetostr(time()+$staid)."</small>";
 			$userx['left'] = "<small>{$userx['ended']}</small>";
+			if($userx['expired']) {
+				$userx['left'] = "<small><abbr title='{$userx['expired']}'>expired</abbr></small>";
+			}
 			if($userx['unit_type']!= 'Survey') 
 				$userx['delete'] = "<a onclick='return confirm(\"Are you sure you want to delete this unit session?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/delete_unit_session?session_id={$userx['session_id']}' class='hastooltip' title='Delete this waypoint'><i class='fa fa-times'></i></a>";
 			else 

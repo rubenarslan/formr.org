@@ -25,7 +25,7 @@ class AdminSurveyController extends AdminController {
 		if (empty($this->study)) {
 			redirect_to(admin_url('survey/add_survey'));
 		}
-		$this->renderView('survey/index');
+		$this->renderView('survey/index', array('survey_id' => $this->study->id));
 	}
 
 	public function addSurveyAction() {

@@ -52,7 +52,7 @@
 		<thead><tr>
 	<?php
 	foreach(current($users) AS $field => $value):
-		if($field == 'created' OR $field == 'ended')
+		if($field === 'created' OR $field === 'ended' OR $field === 'expired')
 			continue;
 	    echo "<th>{$field}</th>";
 	endforeach;
@@ -74,6 +74,7 @@
 			
 			unset($row['created']);
 			unset($row['ended']);
+			unset($row['expired']);
 			
 			
 			echo '<tr class="'.$user_class.$continued.'">';
