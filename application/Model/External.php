@@ -59,7 +59,7 @@ class External extends RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
-		$dialog = '<p><label>Address: <br>
+		$dialog = '<p><label>External link: <br>
 			<textarea style="width:388px;"  data-editor="r" class="form-control full_width" rows="2" type="text" name="external_link">' . h($this->address) . '</textarea></label></p>
 		<p><input type="hidden" name="api_end" value="0"><label><input type="checkbox" name="api_end" value="1"' . ($this->api_end ? ' checked ' : '') . '> end using <abbr class="initialism" title="Application programming interface. Better not check this if you don\'t know what it means">API</abbr></label></p>
 		<p><label>Expire after <input type="number" style="width:80px" name="expire_after" class="form-control" value="'.$this->expire_after.'"> minutes</label></p>
