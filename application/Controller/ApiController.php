@@ -77,7 +77,7 @@ class ApiController extends Controller {
 
 	protected function doAction(Request $request, $action) {
 		try {
-			$this->authenticate( $action ); // only proceed if authenticated, if not exit via response
+			$this->authenticate($action); // only proceed if authenticated, if not exit via response
 			$method = $this->getPrivateAction($action, '-', true);
 			$dao = new ApiDAO($request, $this->fdb);
 			$data = $dao->{$method}()->getData();
@@ -118,7 +118,7 @@ class ApiController extends Controller {
 
 	protected function authenticate($action) {
 		$publicActions = array("end-last-external");
-		if(! in_array($action, $publicActions) ) {
+		if(!in_array($action, $publicActions) ) {
 			$this->oauthServer = Site::getOauthServer();
 			// Handle a request to a resource and authenticate the access token
 			// Ex: curl http://formr.org/api/post/action-name -d 'access_token=YOUR_TOKEN'

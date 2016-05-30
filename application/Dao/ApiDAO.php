@@ -170,7 +170,13 @@ class ApiDAO {
 	}
 
 	public function endLastExternal() {
-		if (!($request = $this->parseJsonRequest()) || !($run = $this->getRunFromRequest($request))) {
+		if (!($request = $this->parseJsonRequest())) {
+			return $this;
+		}
+
+		$run = new Run($this->fdb, $request->run->name);
+		if (!$run->valid) {
+			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run');
 			return $this;
 		}
 
@@ -207,7 +213,7 @@ class ApiDAO {
 	 * }'
 	 *
 	 * @param object $request A JSON object of the sent request
-	 * @return boolean|Run
+	 * @return boolean|Run Returns a run object if a valid run is found or FALSE otherwise 
 	 */
 	protected function getRunFromRequest($request) {
 		if (empty($request->run->name)) {
@@ -216,21 +222,14 @@ class ApiDAO {
 		}
 
 		$run = new Run($this->fdb, $request->run->name);
-		if(!$run->valid) {
-			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run or run not found');
+		if(!$run->valid || !$this->user) {
+			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run or run/user not found');
+			return false;
+		} elseif (!$this->user->created($run)) {
+			$this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', null, 'Unauthorized access to run');
 			return false;
 		}
 
-		if($this->user !== false) { // need authentication
-			if (!$this->user) {
-				$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'No user.');
-				return false;		
-			}
-		 	elseif (!$this->user->created($run)) {
-				$this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', null, 'Unauthorized access to run');
-				return false;
-			}
-		}
 		return $run;
 	}
 
