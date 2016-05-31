@@ -1212,9 +1212,8 @@ class Survey extends RunUnit {
 	}
 
 	/* ADMIN functions */
-	public function createIndependently($settings = array(), $updates = array()) {
-		$name = trim($this->unit['name']);
-		$results_table = "formr_" . $this->unit['user_id'] . '_' . $name;
+
+	public function checkName($name) {
 		if ($name == ""):
 			alert(_("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored."), 'alert-danger');
 			return false;
@@ -1225,6 +1224,16 @@ class Survey extends RunUnit {
 			alert(__("<strong>Error:</strong> The survey name %s is already taken.", h($name)), 'alert-danger');
 			return false;
 		endif;
+		return true;
+	}
+
+	public function createIndependently($settings = array(), $updates = array()) {
+		$name = trim($this->unit['name']);
+		$results_table = "formr_" . $this->unit['user_id'] . '_' . $name;
+		$check_name = $this->checkName($name, $results_table);
+		if(!$check_name) {
+			return false;	
+		}
 
 		$this->id = parent::create('Survey');
 		$this->name = $name;
@@ -1887,6 +1896,23 @@ class Survey extends RunUnit {
 			return $time;
 		}
 		return '';
+	}
+
+	public function rename($new_name) {
+		if($this->results_table === $this->name) {
+			$mod = $this->dbh->update('survey_studies', array('results_table' => $this->name), array(
+				'id' => $this->id,
+				));
+		}
+		if($this->checkName($new_name, $this->results_table)) {
+			$mod = $this->dbh->update('survey_studies', array('name' => $new_name), array(
+				'id' => $this->id,
+				));
+			if($mod) {
+				$this->name = $new_name;
+			}
+			return $mod;
+		}
 	}
 
 	public function delete() {

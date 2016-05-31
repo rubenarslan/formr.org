@@ -156,6 +156,12 @@
 					</a>
 				</li>
 
+				<li>
+					<a class="hastooltip" title="Rename your survey, but be careful, if you've referred to it by name somewhere in the run or in other surveys." href="<?php echo admin_study_url($study->name, 'rename_study'); ?>">
+						<i class="fa-li fa fa-unlock"></i> Rename study</a>
+				</li>
+
+
 			</ul>
 
 	</nav>
