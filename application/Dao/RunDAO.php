@@ -50,7 +50,7 @@ class RunDAO {
 	}
 
 	public function sendToPosition() {
-		if (!$this->request->session || !$this->request->new_position) {
+		if ($this->request->session === null || $this->request->new_position === null) {
 			$this->errors[] = 'Missing session or position parameter';
 			return false;
 		}
@@ -76,7 +76,7 @@ class RunDAO {
 	}
 
 	public function nextInRun() {
-		if (!$this->runSession->runToNextUnit()) {
+		if (!$this->runSession->endUnitSession()) {
 			$this->errors[] = 'Unable to move to next unit in run ' . $this->run->name;
 			return false;
 		}

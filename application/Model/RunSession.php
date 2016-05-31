@@ -183,19 +183,25 @@ class RunSession {
 		return $unit_id;
 	}
 
-	public function forceTo($position) {
+	public function endUnitSession() {
 		$unit = $this->getCurrentUnit(); // get first unit in line
 		if ($unit) {
 			$unit_factory = new RunUnitFactory();
 			$unit = $unit_factory->make($this->dbh, null, $unit, $this, $this->run);
-			if ($unit->type == "Survey") {
+			if ($unit->type == "Survey" || $unit->type == "External") {
 				$unit->expire();
 			} else {
 				$unit->end();  // cancel it
 			}
+			return true;
 		}
+		return false;
+	}
 
-		return $this->runTo($position);
+	public function forceTo($position) {
+		if($this->endUnitSession()) {
+			return $this->runTo($position);
+		}
 	}
 
 	public function runTo($position, $unit_id = null) {

@@ -184,6 +184,17 @@
 	    var $current_target;
 		$('.form-ajax').each(ajaxifyForm);
 		$('.link-ajax').each(ajaxifyLink);
+		console.log($('.link-ajax .fa-pause'));
+		$('.link-ajax .fa-pause').parent(".btn").mouseenter(function() {
+			$(this).find('.fa').removeClass('fa-pause').addClass('fa-play');
+		}).mouseleave(function() {
+			$(this).find('.fa').addClass('fa-pause').removeClass('fa-play');
+		});
+		$('.link-ajax .fa-stop').parent(".btn").mouseenter(function() {
+			$(this).find('.fa').removeClass('fa-stop').addClass('fa-play');
+		}).mouseleave(function() {
+			$(this).find('.fa').addClass('fa-stop').removeClass('fa-play');
+		});
 		$('.api-btn').click(userAPIAccess);
 		$('.sessions-search-switch').click(toggleSessionSearch);
 		if($(".hidden_debug_message").length > 0) {

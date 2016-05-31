@@ -157,7 +157,7 @@ class AdminAjaxController {
 
 		$run_session = new RunSession($dbh, $run->id, null, $_GET['session'], $run);
 
-		if (!$run_session->runToNextUnit()):
+		if (!$run_session->endUnitSession()):
 			alert('<strong>Something went wrong with the unpause.</strong> in run ' . $run->name, 'alert-danger');
 			bad_request_header();
 		endif;
