@@ -146,7 +146,6 @@ class External extends RunUnit {
 				$this->expire();
 				return false;
 			}
-			return true;
 		}
 
 		// if it's the user, redirect them or do the call
@@ -171,14 +170,17 @@ class External extends RunUnit {
 		// replace the code placeholder, if any
 		$goto = $this->makeAddress($goto);
 		
-		
-		// sometimes we aren't able to control the other end
-		if (!$this->api_end) {
-			$this->end();
+		// never redirect if we're just in the cron job
+		if ($this->called_by_cron) {
+			// sometimes we aren't able to control the other end
+			if (!$this->api_end) {
+				$this->end();
+			}
+			
+			redirect_to($goto);
+			return false;
 		}
-		
-		redirect_to($goto);
-		return false;
+		return true;
 	}
 
 }
