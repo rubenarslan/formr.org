@@ -733,7 +733,6 @@ This study is currently being serviced. Please return at a later time."
 				$output = $run_session->getUnit();
 			} else {
 				$output = $this->getServiceMessage()->exec();
-				$run_session = $this->makeTestRunSession(0);
 				alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');
 			}
 		endif;
