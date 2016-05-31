@@ -950,7 +950,10 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
  * @return mixed|null Returns null if things aren't simple, so check the return value using the equivalence operator (===)
  */
 function shortcut_without_opencpu($code, $data) {
-	if(preg_match("/^([a-zA-Z0-9_]+)\\\$([a-zA-Z0-9_]+)$/", $code, $matches)) {
+	if($code === 'tail(survey_unit_sessions$created,1)') {
+		return array(end($data['datasets']['survey_unit_sessions']['created']));
+	}
+	elseif(preg_match("/^([a-zA-Z0-9_]+)\\\$([a-zA-Z0-9_]+)$/", $code, $matches)) {
 		$survey = $matches[1];
 		$variable = $matches[2];
 		if(!empty($data['datasets'][$survey][$variable]) && count($data['datasets'][$survey][$variable]) == 1) {
