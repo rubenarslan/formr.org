@@ -98,7 +98,9 @@
 
 	<div class="row">
 		<nav class="col-lg-2 col-md-2 col-sm-3 admin_sidebar">
+
 			<ul class="fa-ul fa-ul-more-padding menu-highlight">
+
 				<li>
 					<a href="<?php echo admin_study_url($study->name, 'access'); ?>" title="Simply click this link to test this survey. But remember that it's not in the broader context of a run, so if you refer to other surveys, that will cause problems." class="hastooltip"><i class="fa-li fa fa-play"></i> <?php echo _("Test study"); ?></a>
 				</li>
@@ -161,8 +163,17 @@
 						<i class="fa-li fa fa-unlock"></i> Rename study</a>
 				</li>
 
-
 			</ul>
+				<?php if( trim($study->settings['google_file_id']) && $resultCount['real_users'] === "0"): 
+						$google_link = google_get_sheet_link($study->settings['google_file_id']); ?>
+						<br>
+						<form class="" action="<?=admin_study_url($study->name, 'upload_items')?>" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="#">
+							<input type="hidden" name="study_id" value="<?= $study->id ?>">
+							<input type="hidden" name="google_sheet" value="<?php echo h($google_link); ?>">
+
+							<button class="btn" type="submit"><small> <i class="fa-fw fa fa-pencil-square"></i> Quick-upload items</small></button>
+						</form>
+				<?php endif; ?>
 
 	</nav>
 <?php elseif (isset($run)): ?>
