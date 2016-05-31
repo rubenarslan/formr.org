@@ -184,7 +184,7 @@
 	    var $current_target;
 		$('.form-ajax').each(ajaxifyForm);
 		$('.link-ajax').each(ajaxifyLink);
-		console.log($('.link-ajax .fa-pause'));
+
 		$('.link-ajax .fa-pause').parent(".btn").mouseenter(function() {
 			$(this).find('.fa').removeClass('fa-pause').addClass('fa-play');
 		}).mouseleave(function() {

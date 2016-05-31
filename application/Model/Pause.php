@@ -184,9 +184,11 @@ class Pause extends RunUnit {
 			$conditions['time'] = "CURTIME() >= :wait_time";
 			$new_day = $this->dbh->prepare("SELECT 1 AS finished FROM `survey_unit_sessions` 
 				WHERE `survey_unit_sessions`.unit_id = :id 
+				AND `survey_unit_sessions`.run_session_id = :run_session_id
 				AND DATE(`survey_unit_sessions`.ended) = CURDATE()
 				LIMIT 1");
 			$new_day->bindValue(":id", $this->id);
+			$new_day->bindValue(":run_session_id", $this->run_session_id);
 			$new_day->execute();
 			if($new_day->rowCount() > 0) {
 				return false;
