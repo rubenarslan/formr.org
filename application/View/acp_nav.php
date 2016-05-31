@@ -235,6 +235,30 @@
 					</a>
 				</li>
 
+				<li class="dropdown"> <a class="dropdown-toggle" data-toggle="dropdown" href="#"><i class="fa-li fa fa-floppy-o"></i> Export data </a>
+					<ul class="dropdown-menu">
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=csv'); ?>"><i class="fa fa-floppy-o"></i> Download CSV</a>
+						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=csv_german'); ?>"><i class="fa fa-floppy-o"></i> Download German CSV</a>
+						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=tsv'); ?>"><i class="fa fa-floppy-o"></i> Download TSV</a>
+						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=xls'); ?>"><i class="fa fa-floppy-o"></i> Download XLS</a>
+						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=xlsx'); ?>"><i class="fa fa-floppy-o"></i> Download XLSX</a>
+						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=json'); ?>"><i class="fa fa-floppy-o"></i> Download JSON</a>
+						</li>
+
+					</ul>
+				</li>
+
 				<li class="nav-header"><i class="fa-li fa fa-bolt"></i> Danger Zone</li>
 				<li>
 					<a class="hastooltip" title="Go to deletion dialog, does not delete yet" href="<?php echo admin_run_url($run->name, 'delete_run'); ?>">

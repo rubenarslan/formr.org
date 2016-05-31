@@ -305,6 +305,38 @@ class AdminRunController extends AdminController {
 		$this->renderView('run/rename_run');
 	}
 
+	private function exportDataAction() {
+		$SPR = new SpreadsheetReader();
+
+		if (!isset($_GET['format']) OR ! in_array($_GET['format'], $SPR->exportFormats)):
+			alert("Invalid format requested.", "alert-danger");
+			bad_request();
+		endif;
+		$format = $_GET['format'];
+
+		$run = $this->run;
+		$results = $run->getData();
+
+
+		if(count($results) === 0) {
+			alert("No linked data yet", 'alert-info');
+			redirect_to(admin_run_url($run->name));
+		} else {
+			if ($format == 'xlsx')
+				$SPR->exportXLSX($results, $run->name . "_data");
+			elseif ($format == 'xls')
+				$SPR->exportXLS($results, $run->name . "_data");
+			elseif ($format == 'csv_german')
+				$SPR->exportCSV_german($results, $run->name . "_data");
+			elseif ($format == 'tsv')
+				$SPR->exportTSV($results, $run->name . "_data");
+			elseif ($format == 'json')
+				$SPR->exportJSON($results, $run->name . "_data");
+			else
+				$SPR->exportCSV($results, $run->name . "_data");
+		}
+	}
+
 	private function randomGroupsExportAction() {
 		$run = $this->run;
 

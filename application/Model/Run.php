@@ -625,6 +625,44 @@ This study is currently being serviced. Please return at a later time."
 					->fetchAll();
 	}
 
+	public function getData() {
+		$fdb = $this->dbh;
+		$collect = $fdb->prepare("SELECT 
+			`survey_studies`.name AS survey_name,
+			`survey_run_units`.position AS unit_position,
+			`survey_unit_sessions`.id AS unit_session_id,
+			`survey_run_sessions`.session AS session,
+			`survey_items`.type,
+			`survey_items`.name AS item_name,
+			`survey_items`.label,
+			`survey_items`.optional,
+			`survey_items`.showif,
+			`survey_items_display`.created,
+			`survey_items_display`.saved,
+			`survey_items_display`.shown,
+			`survey_items_display`.shown_relative,
+			`survey_items_display`.answered,
+			`survey_items_display`.answered_relative,
+			`survey_items_display`.displaycount,
+			`survey_items_display`.display_order,
+			`survey_items_display`.hidden
+			FROM `survey_items_display`
+			LEFT JOIN `survey_unit_sessions` ON `survey_items_display`.session_id = `survey_unit_sessions`.id
+			LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
+			LEFT JOIN `survey_items` ON `survey_items_display`.item_id = `survey_items`.id
+			LEFT JOIN `survey_studies` ON `survey_items`.study_id = `survey_studies`.id
+			LEFT JOIN `survey_run_units` ON `survey_studies`.id = `survey_run_units`.unit_id
+			WHERE `survey_run_sessions`.run_id = :id 
+			AND `survey_studies`.unlinked = 0");
+		$collect->bindValue(":id", $this->id);
+		$collect->execute();
+		$results = array();
+		while ($row = $collect->fetch(PDO::FETCH_ASSOC)) {
+			$results[] = $row;
+		}
+		return $results;
+	}
+
 	public function getRandomGroups() {
 		$g_users = $this->dbh->prepare("SELECT 
 			`survey_run_sessions`.session,
