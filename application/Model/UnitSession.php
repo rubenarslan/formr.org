@@ -39,7 +39,7 @@ class UnitSession {
 			$vars = $this->dbh->select(array('id','created'))
 					->from('survey_unit_sessions')
 					->where(array('run_session_id' => $this->run_session_id, 'unit_id' => $this->unit_id))
-					->where('ended IS NULL')
+					->where('ended IS NULL AND expired IS NULL')
 					->order('created', 'desc')->limit(1)
 					->fetch();
 		endif;
