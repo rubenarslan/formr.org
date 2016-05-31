@@ -229,9 +229,9 @@ class AdminRunController extends AdminController {
 				$userx['left'] = "<small><abbr title='{$userx['expired']}'>expired</abbr></small>";
 			}
 			if($userx['unit_type']!= 'Survey') 
-				$userx['delete'] = "<a onclick='return confirm(\"Are you sure you want to delete this unit session?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/delete_unit_session?session_id={$userx['session_id']}' class='hastooltip' title='Delete this waypoint'><i class='fa fa-times'></i></a>";
+				$userx['delete'] = "<a onclick='return confirm(\"Are you sure you want to delete this unit session?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_delete_unit_session?session_id={$userx['session_id']}' class='hastooltip link-ajax' title='Delete this waypoint'><i class='fa fa-times'></i></a>";
 			else 
-				$userx['Delete'] =  "<a onclick='return confirm(\"You shouldnt delete survey sessions, you might delete data! REALLY sure?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/delete_unit_session?session_id={$userx['session_id']}' class='hastooltip' title='Survey sessions should not be deleted'><i class='fa fa-times'></i></a>";
+				$userx['Delete'] =  "<a onclick='return confirm(\"You shouldnt delete survey sessions, you might delete data! REALLY sure?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_delete_unit_session?session_id={$userx['session_id']}' class='hastooltip link-ajax' title='Survey sessions should not be deleted'><i class='fa fa-times'></i></a>";
 
 			unset($userx['session']);
 			unset($userx['session_id']);
@@ -440,17 +440,6 @@ class AdminRunController extends AdminController {
 
 		$vars = get_defined_vars();
 		$this->renderView('run/email_log', $vars);
-	}
-
-	private function deleteUnitSessionAction () {
-		$del = $this->fdb->prepare('DELETE FROM `survey_unit_sessions` WHERE id = :id');
-		$del->bindParam(':id', $_GET['session_id']);
-		if($del->execute())
-			alert('<strong>Success.</strong> You deleted this unit session.','alert-success');
-		else
-			alert('<strong>Couldn\'t delete.</strong> Sorry. <pre>'. print_r($del->errorInfo(), true).'</pre>','alert-danger');
-
-		redirect_to("admin/run/{$this->run->name}/user_detail");
 	}
 
 	private function deleteRunAction() {

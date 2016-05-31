@@ -214,6 +214,27 @@ class AdminAjaxController {
 		endif;
 	}
 
+	private function ajaxDeleteUnitSession() {
+		$run = $this->controller->run;
+		$del = $this->dbh->prepare('DELETE FROM `survey_unit_sessions` WHERE id = :id');
+		$del->bindParam(':id', $_GET['session_id']);
+
+		if($del->execute()):
+			alert('<strong>Success.</strong> You deleted this unit session.','alert-success');
+		else:
+			alert('<strong>Couldn\'t delete.</strong> Sorry. <pre>'. print_r($del->errorInfo(), true).'</pre>','alert-danger');
+			bad_request_header();
+		endif;
+
+		if (is_ajax_request()):
+			echo $this->site->renderAlerts();
+			exit;
+		else:
+			redirect_to("admin/run/" . $run->name . "/user_detail");
+		endif;
+
+	}
+
 	private function ajaxRemoveRunUnitFromRun() {
 		$run = $this->controller->run;
 		$dbh = $this->dbh;

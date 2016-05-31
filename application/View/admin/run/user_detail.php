@@ -7,7 +7,6 @@
 	<div class="col-md-12">
 		<h2 class="drop_shadow">log of user activity in this run</h2>
 		<p class="lead">Here you can see users' history of participation, i.e. when they got to certain point in a study, how long they staid at each station and so forth. Earliest participants come first.</p>
-<?php if(!empty($users)): ?>
 	<div class="row col-md-12">
 		<form action="<?=WEBROOT.'admin/run/'.$run->name.'/user_detail'?>" method="get" accept-charset="utf-8">
 		
@@ -47,7 +46,8 @@
 		
 		</form>
 	</div>
-	
+	<?php if(!empty($users)): ?>
+
 	<table class='table'>
 		<thead><tr>
 	<?php
