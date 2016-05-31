@@ -182,15 +182,14 @@ class Pause extends RunUnit {
 		endif;
 		if ($this->wait_until_time AND $this->wait_until_time != '00:00:00'):
 			$conditions['time'] = "CURTIME() >= :wait_time";
-			$day_passed = $this->dbh->prepare("SELECT 1 AS finished FROM `survey_unit_sessions` 
-				LEFT JOIN `survey_units` ON `survey_units`.id = `survey_unit_sessions`.unit_id
-				WHERE `survey_units`.id = :id 
+			$new_day = $this->dbh->prepare("SELECT 1 AS finished FROM `survey_unit_sessions` 
+				WHERE `survey_unit_sessions`.unit_id = :id 
 				AND DATE(`survey_unit_sessions`.ended) = CURDATE()
 				LIMIT 1");
-			$day_passed->bindValue(":id", $this->id);
-			$day_passed->execute();
-			if($day_passed->rowCount() > 0) {
-				$conditions['day_passed'] = "0 = 1";
+			$new_day->bindValue(":id", $this->id);
+			$new_day->execute();
+			if($new_day->rowCount() > 0) {
+				return false;
 			}
 		endif;
 
