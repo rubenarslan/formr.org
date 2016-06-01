@@ -129,7 +129,7 @@ Template::load('acp_nav');
 		
 		<?php
 			$append = !empty($querystring) ? '?' . http_build_query($querystring) . '&' : '';
-			$pagination->render(admin_run_url($run->name, 'user_overview' . $append));
+			$pagination->render("admin/run/{$run->name}/user_overview" . $append);
 		?>
 	</div>
 </div>
