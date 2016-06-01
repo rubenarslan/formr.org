@@ -1400,7 +1400,7 @@ class Survey extends RunUnit {
 				$deleted_columns_string =  implode(array_keys($deleted), ", ");
 				$this->errors[] = "<strong>No permission to delete data</strong>. Enter the survey name, if you are okay with data being deleted from the following columns: " . $deleted_columns_string;
 			}
-			if($this->confirmed_deletion && $this->doWeHaveRealData() && !$this->backupResults()) {
+			if($this->doWeHaveRealData() && $this->confirmed_deletion && !$this->backupResults(array_keys($old_items))) {
 				$this->errors[] = "<strong>Back up failed.</strong> Deletions would have been necessary, but backing up the item table failed, so no modification was carried out.</strong>";
 			}
 		}
@@ -1815,9 +1815,9 @@ class Survey extends RunUnit {
 		}
 	}
 
-	public function backupResults() {
+	public function backupResults($itemNames = null) {
 		$this->result_count = $this->getResultCount();
-		if ( $this->doWeHaveRealData() ):
+		if ($this->doWeHaveRealData()) {
 			$this->messages[] = __("<strong>Backed up.</strong> The old results were backed up in a file (%s results)", array_sum($this->result_count));
 			
 			$filename = $this->results_table . date('YmdHis') . ".tab";
@@ -1827,10 +1827,10 @@ class Survey extends RunUnit {
 			$filename = INCLUDE_ROOT . "tmp/backups/results/" . $filename;
 
 			$SPR = new SpreadsheetReader();
-			return $SPR->backupTSV($this->getResults(), $filename);
-		else: // if we have no real data, no need for backup
+			return $SPR->backupTSV($this->getResults($itemNames), $filename);
+		} else { // if we have no real data, no need for backup
 			return true;
-		endif;
+		}
 	}
 
 	public function getResultCount($run_id = null) {
