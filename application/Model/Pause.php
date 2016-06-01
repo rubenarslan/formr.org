@@ -241,7 +241,7 @@ class Pause extends RunUnit {
 			echo opencpu_debug($session);
 		}
 
-		if (!empty($results) AND (!$session OR !$session->hasError())) {
+		if (!empty($results) && (empty($session) || !$session->hasError())) {
 
 			echo '<table class="table table-striped">
 					<thead><tr>
