@@ -142,6 +142,7 @@ class Survey extends RunUnit {
 	}
 
 	public function create($options) {
+		$old_name = $this->name;
 		// If survey_data is present (an object with "name", "items", "settings" entries)
 		// then create/update the survey and set $options[unit_id] as Survey's ID
 		if (!empty($options['survey_data'])) {
@@ -167,6 +168,9 @@ class Survey extends RunUnit {
 				if ($this->linkToRun()) {
 					$this->majorChange();
 					$this->load();
+					if(empty($options['description']) || $options['description'] === $old_name) {
+						$options['description'] = $this->name;
+					}
 				}
 			}
 			$this->modify($options);

@@ -197,9 +197,6 @@ class RunUnit {
 		$this->position = (int) $position;
 		if(!isset($options['description'])) {
 			$options['description'] = '';
-			if(isset($this->name)) {
-				$options['description'] = $this->name;
-			}
 		}
 
 		$this->run_unit_id = $this->dbh->insert('survey_run_units', array(
