@@ -1615,7 +1615,7 @@ class Survey extends RunUnit {
 			ini_set('memory_limit', '1024M');
 
 			$results_table = $this->results_table;
-			if ($items === null) {
+			if (!$items) {
 				$items = $this->getItemsInResultsTable();
 			}
 			
