@@ -256,6 +256,9 @@
 						<li>
 							<a href="<?php echo admin_run_url($run->name, 'export_data?format=json'); ?>"><i class="fa fa-floppy-o"></i> Download JSON</a>
 						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_survey_results'); ?>"><i class="fa fa-floppy-o"></i> Download Survey Results (zip)</a>
+						</li>
 
 					</ul>
 				</li>

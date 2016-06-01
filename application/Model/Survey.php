@@ -1623,7 +1623,7 @@ class Survey extends RunUnit {
 		return $results;
 	}
 
-	public function getResults($items = null, $session = null, array $paginate = null) { // fixme: shouldnt be using wildcard operator here.
+	public function getResults($items = null, $session = null, array $paginate = null, $runId = null) { // fixme: shouldnt be using wildcard operator here.
 		if ($this->hasResultsTable()) {
 			ini_set('memory_limit', '1024M');
 
@@ -1661,7 +1661,11 @@ class Survey extends RunUnit {
 					->leftJoin('survey_unit_sessions', "{$results_table}.session_id = survey_unit_sessions.id")
 					->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
 			if (!$get_all) {
-				$select->where('survey_run_sessions.testing  = 1');
+				$select->where('survey_run_sessions.testing = 1');
+			}
+
+			if ($runId !== null) {
+				$select->where("survey_run_sessions.run_id = {$runId}");
 			}
 
 			if ($paginate && isset($paginate['offset'])) {

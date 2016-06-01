@@ -337,6 +337,54 @@ class AdminRunController extends AdminController {
 		}
 	}
 
+	private function exportSurveyResultsAction() {
+		$studies = $this->run->getAllSurveys();
+		$dir = INCLUDE_ROOT . 'tmp/backups/results';
+		if (!$dir) {
+			alert('Unable to create run backup directory', 'alert-danger');
+			redirect_to(admin_run_url($this->run->name));
+		}
+
+		// create study result files
+		$SPR = new SpreadsheetReader();
+		$errors = array();
+		$files = array();
+		foreach ($studies as $study) {
+			$survey = Survey::loadById($study['id']);
+			$backupFile = $dir . '/' . $this->run->name . '-' . $survey->name . '.tab';
+			$backup = $SPR->exportTSV($survey->getResults(null, null, null, $this->run->id), $survey->name, $backupFile);
+			if (!$backup) {
+				$errors[] = "Unable to backup {$survey->name}";
+			} else {
+				$files[] = $backupFile;
+			}
+		}
+
+		// zip files and send to 
+		if ($files) {
+			$zipfile = $dir . '/' . $this->run->name . '-' . date('d-m-Y') . '.zip';
+			
+			//create the archive
+			if (!create_zip_archive($files, $zipfile)) {
+				alert('Unable to create zip archive: ' . basename($zipfile), 'alert-danger');
+				redirect_to(admin_run_url($this->run->name));
+			}
+
+			$filename = basename($zipfile);
+			header("Content-Type: application/zip");
+			header("Content-Disposition: attachment; filename=$filename");
+			header("Content-Length: " . filesize($zipfile));
+			readfile($zipfile);
+			// attempt to cleanup files after download
+			$files[] = $zipfile;
+			deletefiles($files);
+			exit;
+		} else {
+			alert('No files to zip and download', 'alert-danger');
+		}
+		redirect_to(admin_run_url($this->run->name));
+	}
+
 	private function randomGroupsExportAction() {
 		$run = $this->run;
 

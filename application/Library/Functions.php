@@ -1399,8 +1399,7 @@ function fill_array($array, $value = '') {
 	return $array;
 }
 
-function files_are_equal($a, $b)
-{
+function files_are_equal($a, $b) {
 	if (!file_exists($a) || !file_exists($b))
 		return false;
 	
@@ -1412,4 +1411,31 @@ function files_are_equal($a, $b)
 		return false;
 
 	return true;
+}
+
+function create_zip_archive($files, $destination, $overwrite = true) {
+	$zip = new ZipArchive();
+
+	if ($zip->open($destination, $overwrite ? ZIPARCHIVE::OVERWRITE : ZIPARCHIVE::CREATE) !== true) {
+		return false;
+	}
+
+	//add the files
+	foreach($files as $file) {
+		if (is_file($file)) {
+			$zip->addFile($file, basename($file));
+		}
+	}
+	$zip->close();
+
+	//check to make sure the file exists
+	return file_exists($destination);
+}
+
+function deletefiles($files) {
+	foreach($files as $file) {
+		if(is_file($file)) {
+			@unlink($file);
+		}
+	}
 }
