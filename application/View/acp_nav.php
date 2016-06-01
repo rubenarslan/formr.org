@@ -73,6 +73,7 @@
 				</ul>
 			</li>
 			<li><a href="<?php echo site_url('public/logout'); ?>"><i class="fa fa-sign-out fa-fw"></i> log out</a></li>
+			<li><a href="<?php echo site_url('public/edit_user'); ?>" title="Edit user settings"><i class="fa fa-cogs fa-fw"></i> <?=$user->email?></a></li>
 		</ul>
 		<ul class="nav navbar-nav navbar-right">
 			<li>
