@@ -1413,7 +1413,7 @@ function files_are_equal($a, $b) {
 	return true;
 }
 
-function create_zip_archive($files, $destination, $overwrite = true) {
+function create_zip_archive($files, $destination, $overwrite = false) {
 	$zip = new ZipArchive();
 
 	if ($zip->open($destination, $overwrite ? ZIPARCHIVE::OVERWRITE : ZIPARCHIVE::CREATE) !== true) {
