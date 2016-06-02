@@ -1907,11 +1907,6 @@ class Survey extends RunUnit {
 	}
 
 	public function rename($new_name) {
-		if($this->results_table === $this->name) {
-			$mod = $this->dbh->update('survey_studies', array('results_table' => $this->name), array(
-				'id' => $this->id,
-				));
-		}
 		if($this->checkName($new_name, $this->results_table)) {
 			$mod = $this->dbh->update('survey_studies', array('name' => $new_name), array(
 				'id' => $this->id,
