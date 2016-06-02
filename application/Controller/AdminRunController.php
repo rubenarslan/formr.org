@@ -347,8 +347,12 @@ class AdminRunController extends AdminController {
 
 		// create study result files
 		$SPR = new SpreadsheetReader();
-		$errors = array();
-		$files = array();
+		$errors = $files = $metadata = array();
+		$metadata['run'] = array(
+			'ID' => $this->run->id,
+			'NAME' => $this->run->name,
+		);
+
 		foreach ($studies as $study) {
 			$survey = Survey::loadById($study['id']);
 			$backupFile = $dir . '/' . $this->run->name . '-' . $survey->name . '.tab';
@@ -358,6 +362,16 @@ class AdminRunController extends AdminController {
 			} else {
 				$files[] = $backupFile;
 			}
+			$metadata['survey:'.$survey->id] = array(
+				'ID' => $survey->id,
+				'NAME' => $survey->name,
+				'RUN_ID' => $this->run->id
+			);
+		}
+
+		$metafile = $dir . '/' . $this->run->name . '.metadata';
+		if (create_ini_file($metadata, $metafile)) {
+			$files[] = $metafile;
 		}
 
 		// zip files and send to 

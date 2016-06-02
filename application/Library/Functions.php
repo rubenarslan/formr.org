@@ -1432,6 +1432,18 @@ function create_zip_archive($files, $destination, $overwrite = false) {
 	return file_exists($destination);
 }
 
+function create_ini_file($assoc, $filepath) {
+	file_put_contents($filepath, '');
+	foreach ($assoc as $section => $fields) {
+		file_put_contents($filepath, "[{$section}]\n", FILE_APPEND);
+		foreach ($fields as $key => $value) {
+			file_put_contents($filepath, "{$key} = {$value}\n", FILE_APPEND);
+		}
+		file_put_contents($filepath, "\n", FILE_APPEND);
+	}
+	return file_exists($filepath);
+}
+
 function deletefiles($files) {
 	foreach($files as $file) {
 		if(is_file($file)) {
