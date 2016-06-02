@@ -950,7 +950,10 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
  * @return mixed|null Returns null if things aren't simple, so check the return value using the equivalence operator (===)
  */
 function shortcut_without_opencpu($code, $data) {
-	if(preg_match("/^([a-zA-Z0-9_]+)\\\$([a-zA-Z0-9_]+)$/", $code, $matches)) {
+	if($code === 'tail(survey_unit_sessions$created,1)') {
+		return array(end($data['datasets']['survey_unit_sessions']['created']));
+	}
+	elseif(preg_match("/^([a-zA-Z0-9_]+)\\\$([a-zA-Z0-9_]+)$/", $code, $matches)) {
 		$survey = $matches[1];
 		$variable = $matches[2];
 		if(!empty($data['datasets'][$survey][$variable]) && count($data['datasets'][$survey][$variable]) == 1) {
@@ -1396,8 +1399,7 @@ function fill_array($array, $value = '') {
 	return $array;
 }
 
-function files_are_equal($a, $b)
-{
+function files_are_equal($a, $b) {
 	if (!file_exists($a) || !file_exists($b))
 		return false;
 	
@@ -1409,4 +1411,43 @@ function files_are_equal($a, $b)
 		return false;
 
 	return true;
+}
+
+function create_zip_archive($files, $destination, $overwrite = false) {
+	$zip = new ZipArchive();
+
+	if ($zip->open($destination, $overwrite ? ZIPARCHIVE::OVERWRITE : ZIPARCHIVE::CREATE) !== true) {
+		return false;
+	}
+
+	//add the files
+	foreach($files as $file) {
+		if (is_file($file)) {
+			$zip->addFile($file, basename($file));
+		}
+	}
+	$zip->close();
+
+	//check to make sure the file exists
+	return file_exists($destination);
+}
+
+function create_ini_file($assoc, $filepath) {
+	file_put_contents($filepath, '');
+	foreach ($assoc as $section => $fields) {
+		file_put_contents($filepath, "[{$section}]\n", FILE_APPEND);
+		foreach ($fields as $key => $value) {
+			file_put_contents($filepath, "{$key} = {$value}\n", FILE_APPEND);
+		}
+		file_put_contents($filepath, "\n", FILE_APPEND);
+	}
+	return file_exists($filepath);
+}
+
+function deletefiles($files) {
+	foreach($files as $file) {
+		if(is_file($file)) {
+			@unlink($file);
+		}
+	}
 }

@@ -73,6 +73,7 @@
 				</ul>
 			</li>
 			<li><a href="<?php echo site_url('public/logout'); ?>"><i class="fa fa-sign-out fa-fw"></i> log out</a></li>
+			<li><a href="<?php echo site_url('public/edit_user'); ?>" title="Edit user settings"><i class="fa fa-cogs fa-fw"></i> <?=$user->email?></a></li>
 		</ul>
 		<ul class="nav navbar-nav navbar-right">
 			<li>
@@ -98,7 +99,9 @@
 
 	<div class="row">
 		<nav class="col-lg-2 col-md-2 col-sm-3 admin_sidebar">
+
 			<ul class="fa-ul fa-ul-more-padding menu-highlight">
+
 				<li>
 					<a href="<?php echo admin_study_url($study->name, 'access'); ?>" title="Simply click this link to test this survey. But remember that it's not in the broader context of a run, so if you refer to other surveys, that will cause problems." class="hastooltip"><i class="fa-li fa fa-play"></i> <?php echo _("Test study"); ?></a>
 				</li>
@@ -156,7 +159,22 @@
 					</a>
 				</li>
 
+				<li>
+					<a class="hastooltip" title="Rename your survey, but be careful, if you've referred to it by name somewhere in the run or in other surveys." href="<?php echo admin_study_url($study->name, 'rename_study'); ?>">
+						<i class="fa-li fa fa-unlock"></i> Rename study</a>
+				</li>
+
 			</ul>
+				<?php if( trim($study->settings['google_file_id']) && $resultCount['real_users'] === "0"): 
+						$google_link = google_get_sheet_link($study->settings['google_file_id']); ?>
+						<br>
+						<form class="" action="<?=admin_study_url($study->name, 'upload_items')?>" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="#">
+							<input type="hidden" name="study_id" value="<?= $study->id ?>">
+							<input type="hidden" name="google_sheet" value="<?php echo h($google_link); ?>">
+
+							<button class="btn" type="submit"><small> <i class="fa-fw fa fa-pencil-square"></i> Quick-upload items</small></button>
+						</form>
+				<?php endif; ?>
 
 	</nav>
 <?php elseif (isset($run)): ?>
@@ -216,6 +234,33 @@
 					<a href="<?php echo admin_run_url($run->name, 'cron_log'); ?>" title="The log of everything that happened without user interaction, i.e. when you click 'Play', like sending email reminders and checking whether pauses are over.">
 						<i class="fa-li fa fa-cog"></i> <?php echo _("Cron"); ?>
 					</a>
+				</li>
+
+				<li class="dropdown"> <a class="dropdown-toggle" data-toggle="dropdown" href="#"><i class="fa-li fa fa-floppy-o"></i> Export data </a>
+					<ul class="dropdown-menu">
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=csv'); ?>"><i class="fa fa-floppy-o"></i> Download CSV</a>
+						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=csv_german'); ?>"><i class="fa fa-floppy-o"></i> Download German CSV</a>
+						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=tsv'); ?>"><i class="fa fa-floppy-o"></i> Download TSV</a>
+						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=xls'); ?>"><i class="fa fa-floppy-o"></i> Download XLS</a>
+						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=xlsx'); ?>"><i class="fa fa-floppy-o"></i> Download XLSX</a>
+						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_data?format=json'); ?>"><i class="fa fa-floppy-o"></i> Download JSON</a>
+						</li>
+						<li>
+							<a href="<?php echo admin_run_url($run->name, 'export_survey_results'); ?>"><i class="fa fa-floppy-o"></i> Download Survey Results (zip)</a>
+						</li>
+
+					</ul>
 				</li>
 
 				<li class="nav-header"><i class="fa-li fa fa-bolt"></i> Danger Zone</li>

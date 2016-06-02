@@ -229,9 +229,9 @@ class AdminRunController extends AdminController {
 				$userx['left'] = "<small><abbr title='{$userx['expired']}'>expired</abbr></small>";
 			}
 			if($userx['unit_type']!= 'Survey') 
-				$userx['delete'] = "<a onclick='return confirm(\"Are you sure you want to delete this unit session?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/delete_unit_session?session_id={$userx['session_id']}' class='hastooltip' title='Delete this waypoint'><i class='fa fa-times'></i></a>";
+				$userx['delete'] = "<a onclick='return confirm(\"Are you sure you want to delete this unit session?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_delete_unit_session?session_id={$userx['session_id']}' class='hastooltip link-ajax' title='Delete this waypoint'><i class='fa fa-times'></i></a>";
 			else 
-				$userx['Delete'] =  "<a onclick='return confirm(\"You shouldnt delete survey sessions, you might delete data! REALLY sure?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/delete_unit_session?session_id={$userx['session_id']}' class='hastooltip' title='Survey sessions should not be deleted'><i class='fa fa-times'></i></a>";
+				$userx['Delete'] =  "<a onclick='return confirm(\"You shouldnt delete survey sessions, you might delete data! REALLY sure?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_delete_unit_session?session_id={$userx['session_id']}' class='hastooltip link-ajax' title='Survey sessions should not be deleted'><i class='fa fa-times'></i></a>";
 
 			unset($userx['session']);
 			unset($userx['session_id']);
@@ -303,6 +303,100 @@ class AdminRunController extends AdminController {
 			}
 		}
 		$this->renderView('run/rename_run');
+	}
+
+	private function exportDataAction() {
+		$SPR = new SpreadsheetReader();
+
+		if (!isset($_GET['format']) OR ! in_array($_GET['format'], $SPR->exportFormats)):
+			alert("Invalid format requested.", "alert-danger");
+			bad_request();
+		endif;
+		$format = $_GET['format'];
+
+		$run = $this->run;
+		$results = $run->getData();
+
+
+		if(count($results) === 0) {
+			alert("No linked data yet", 'alert-info');
+			redirect_to(admin_run_url($run->name));
+		} else {
+			if ($format == 'xlsx')
+				$SPR->exportXLSX($results, $run->name . "_data");
+			elseif ($format == 'xls')
+				$SPR->exportXLS($results, $run->name . "_data");
+			elseif ($format == 'csv_german')
+				$SPR->exportCSV_german($results, $run->name . "_data");
+			elseif ($format == 'tsv')
+				$SPR->exportTSV($results, $run->name . "_data");
+			elseif ($format == 'json')
+				$SPR->exportJSON($results, $run->name . "_data");
+			else
+				$SPR->exportCSV($results, $run->name . "_data");
+		}
+	}
+
+	private function exportSurveyResultsAction() {
+		$studies = $this->run->getAllSurveys();
+		$dir = INCLUDE_ROOT . 'tmp/backups/results';
+		if (!$dir) {
+			alert('Unable to create run backup directory', 'alert-danger');
+			redirect_to(admin_run_url($this->run->name));
+		}
+
+		// create study result files
+		$SPR = new SpreadsheetReader();
+		$errors = $files = $metadata = array();
+		$metadata['run'] = array(
+			'ID' => $this->run->id,
+			'NAME' => $this->run->name,
+		);
+
+		foreach ($studies as $study) {
+			$survey = Survey::loadById($study['id']);
+			$backupFile = $dir . '/' . $this->run->name . '-' . $survey->name . '.tab';
+			$backup = $SPR->exportTSV($survey->getResults(null, null, null, $this->run->id), $survey->name, $backupFile);
+			if (!$backup) {
+				$errors[] = "Unable to backup {$survey->name}";
+			} else {
+				$files[] = $backupFile;
+			}
+			$metadata['survey:'.$survey->id] = array(
+				'ID' => $survey->id,
+				'NAME' => $survey->name,
+				'RUN_ID' => $this->run->id
+			);
+		}
+
+		$metafile = $dir . '/' . $this->run->name . '.metadata';
+		if (create_ini_file($metadata, $metafile)) {
+			$files[] = $metafile;
+		}
+
+		// zip files and send to 
+		if ($files) {
+			$zipfile = $dir . '/' . $this->run->name . '-' . date('d-m-Y') . '.zip';
+			
+			//create the archive
+			if (!create_zip_archive($files, $zipfile)) {
+				alert('Unable to create zip archive: ' . basename($zipfile), 'alert-danger');
+				redirect_to(admin_run_url($this->run->name));
+			}
+
+			$filename = basename($zipfile);
+			header("Content-Type: application/zip");
+			header("Content-Disposition: attachment; filename=$filename");
+			header("Content-Length: " . filesize($zipfile));
+			readfile($zipfile);
+			// attempt to cleanup files after download
+			$files[] = $zipfile;
+			deletefiles($files);
+			exit;
+		} else {
+			alert('No files to zip and download', 'alert-danger');
+		}
+		redirect_to(admin_run_url($this->run->name));
 	}
 
 	private function randomGroupsExportAction() {
@@ -440,17 +534,6 @@ class AdminRunController extends AdminController {
 
 		$vars = get_defined_vars();
 		$this->renderView('run/email_log', $vars);
-	}
-
-	private function deleteUnitSessionAction () {
-		$del = $this->fdb->prepare('DELETE FROM `survey_unit_sessions` WHERE id = :id');
-		$del->bindParam(':id', $_GET['session_id']);
-		if($del->execute())
-			alert('<strong>Success.</strong> You deleted this unit session.','alert-success');
-		else
-			alert('<strong>Couldn\'t delete.</strong> Sorry. <pre>'. print_r($del->errorInfo(), true).'</pre>','alert-danger');
-
-		redirect_to("admin/run/{$this->run->name}/user_detail");
 	}
 
 	private function deleteRunAction() {

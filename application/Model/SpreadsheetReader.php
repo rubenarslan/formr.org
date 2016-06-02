@@ -83,20 +83,27 @@ class SpreadsheetReader {
 		}
 	}
 
-	public function exportTSV($array, $filename) {
+	public function exportTSV($array, $filename, $savefile = null) {
 		$objPHPExcel = $this->objectFromArray($array);
 
 		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
 		$objWriter->setDelimiter("\t");
 		$objWriter->setEnclosure("");
 
-		header('Content-Disposition: attachment;filename="' . $filename . '.tab"');
-		header('Cache-Control: max-age=0');
-		header('Content-type: text/csv'); // or maybe text/tab-separated-values?
+		if ($savefile === null) {
+			header('Content-Disposition: attachment;filename="' . $filename . '.tab"');
+			header('Cache-Control: max-age=0');
+			header('Content-type: text/csv'); // or maybe text/tab-separated-values?
+		}
 
 		try {
-			$objWriter->save('php://output');
-			exit;
+			if ($savefile !== null) {
+				$objWriter->save($savefile);
+				return true;
+			} else {
+				$objWriter->save('php://output');
+				exit;
+			}
 		} catch (Exception $e) {
 			formr_log_exception($e, __CLASS__);
 			alert("Couldn't save file.", 'alert-danger');
@@ -104,20 +111,27 @@ class SpreadsheetReader {
 		}
 	}
 
-	public function exportCSV_german($array, $filename) {
+	public function exportCSV_german($array, $filename, $savefile = null) {
 		$objPHPExcel = $this->objectFromArray($array);
 
 		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
 		$objWriter->setDelimiter(";");
 		$objWriter->setEnclosure('"');
 
-		header('Content-Disposition: attachment;filename="' . $filename . '.csv"');
-		header('Cache-Control: max-age=0');
-		header('Content-type: text/csv');
+		if ($savefile === null) {
+			header('Content-Disposition: attachment;filename="' . $filename . '.csv"');
+			header('Cache-Control: max-age=0');
+			header('Content-type: text/csv');
+		}
 
 		try {
-			$objWriter->save('php://output');
-			exit;
+			if ($savefile !== null) {
+				$objWriter->save($savefile);
+				return true;
+			} else {
+				$objWriter->save('php://output');
+				exit;
+			}
 		} catch (Exception $e) {
 			alert("Couldn't save file.", 'alert-danger');
 			return false;

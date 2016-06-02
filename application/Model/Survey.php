@@ -142,6 +142,7 @@ class Survey extends RunUnit {
 	}
 
 	public function create($options) {
+		$old_name = $this->name;
 		// If survey_data is present (an object with "name", "items", "settings" entries)
 		// then create/update the survey and set $options[unit_id] as Survey's ID
 		if (!empty($options['survey_data'])) {
@@ -167,6 +168,9 @@ class Survey extends RunUnit {
 				if ($this->linkToRun()) {
 					$this->majorChange();
 					$this->load();
+					if(empty($options['description']) || $options['description'] === $old_name) {
+						$options['description'] = $this->name;
+					}
 				}
 			}
 			$this->modify($options);
@@ -1212,9 +1216,8 @@ class Survey extends RunUnit {
 	}
 
 	/* ADMIN functions */
-	public function createIndependently($settings = array(), $updates = array()) {
-		$name = trim($this->unit['name']);
-		$results_table = "formr_" . $this->unit['user_id'] . '_' . $name;
+
+	public function checkName($name, $results_table) {
 		if ($name == ""):
 			alert(_("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored."), 'alert-danger');
 			return false;
@@ -1225,6 +1228,16 @@ class Survey extends RunUnit {
 			alert(__("<strong>Error:</strong> The survey name %s is already taken.", h($name)), 'alert-danger');
 			return false;
 		endif;
+		return true;
+	}
+
+	public function createIndependently($settings = array(), $updates = array()) {
+		$name = trim($this->unit['name']);
+		$results_table = "formr_" . $this->unit['user_id'] . '_' . $name;
+		$check_name = $this->checkName($name, $results_table);
+		if(!$check_name) {
+			return false;	
+		}
 
 		$this->id = parent::create('Survey');
 		$this->name = $name;
@@ -1610,7 +1623,7 @@ class Survey extends RunUnit {
 		return $results;
 	}
 
-	public function getResults($items = null, $session = null, array $paginate = null) { // fixme: shouldnt be using wildcard operator here.
+	public function getResults($items = null, $session = null, array $paginate = null, $runId = null) { // fixme: shouldnt be using wildcard operator here.
 		if ($this->hasResultsTable()) {
 			ini_set('memory_limit', '1024M');
 
@@ -1648,7 +1661,11 @@ class Survey extends RunUnit {
 					->leftJoin('survey_unit_sessions', "{$results_table}.session_id = survey_unit_sessions.id")
 					->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
 			if (!$get_all) {
-				$select->where('survey_run_sessions.testing  = 1');
+				$select->where('survey_run_sessions.testing = 1');
+			}
+
+			if ($runId !== null) {
+				$select->where("survey_run_sessions.run_id = {$runId}");
 			}
 
 			if ($paginate && isset($paginate['offset'])) {
@@ -1887,6 +1904,18 @@ class Survey extends RunUnit {
 			return $time;
 		}
 		return '';
+	}
+
+	public function rename($new_name) {
+		if($this->checkName($new_name, $this->results_table)) {
+			$mod = $this->dbh->update('survey_studies', array('name' => $new_name), array(
+				'id' => $this->id,
+				));
+			if($mod) {
+				$this->name = $new_name;
+			}
+			return $mod;
+		}
 	}
 
 	public function delete() {

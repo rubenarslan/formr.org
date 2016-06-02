@@ -49,6 +49,14 @@ Template::load('acp_nav');
 			    <h4 class="list-group-item-heading"><a href="<?php echo admin_study_url($study->name, 'export_results?format=json'); ?>"><i class="fa fa-floppy-o fa-fw"></i> JSON</a></h4>
 			    <p class="list-group-item-text">not particularly human-readable, but machines love it. This is probably the fastest way to get your data into R, just use <pre><code class="r hljs">data = as.data.frame(jsonlite::fromJSON("/path/to/exported_file.json"))</code></pre></p>
 			  </div>
+			  <div class="list-group-item">
+			    <h4 class="list-group-item-heading"><i class="fa fa-floppy-o fa-fw"></i> SPSS/SAS/Stata</h4>
+			    <p class="list-group-item-text">if you want to export to .sav, .dta or other proprietary formats, we recommend importing via the R API and exporting via the haven package. 
+			    Items will be automatically labelled. If you want, you can use the third line below to also label item values.
+			    <pre><code class="r hljs">formr_connect("your@email.com", "your_pw")
+data = formr_results("survey")
+haven::write_sav(data, path = "data.sav")</code></pre></p>
+			  </div>
 			</div>
 			</div>
 		</div>
