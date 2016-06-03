@@ -293,7 +293,7 @@ class RunUnit {
 	}
 
 	protected function howManyReachedItNumbers() {
-		$reached = $this->dbh->select(array('SUM(`survey_unit_sessions`.ended IS NULL)' => 'begun', 'SUM(`survey_unit_sessions`.ended IS NOT NULL)' => 'finished'))
+		$reached = $this->dbh->select(array('SUM(`survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL)' => 'begun', 'SUM(`survey_unit_sessions`.ended IS NOT NULL)' => 'finished', 'SUM(`survey_unit_sessions`.expired IS NOT NULL)' => 'expired'))
 						->from('survey_unit_sessions')
 						->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
 						->where('survey_unit_sessions.unit_id = :unit_id')
@@ -312,7 +312,14 @@ class RunUnit {
 		if ($reached['finished'] === "0") {
 			$reached['finished'] = "";
 		}
-		return "<span class='hastooltip badge' title='Number of unfinished sessions'>" . $reached['begun'] . "</span> <span class='hastooltip badge badge-success' title='Number of finished sessions'>" . $reached['finished'] . "</span>";
+		if ($reached['expired'] === "0") {
+			$reached['expired'] = "";
+		}
+		return "
+				<span class='hastooltip badge badge-info' title='Number of unfinished sessions'>" . $reached['begun'] . "</span>
+				<span class='hastooltip badge' title='Number of expired sessions'>" . $reached['expired'] . "</span>
+				<span class='hastooltip badge badge-success' title='Number of finished sessions'>" . $reached['finished'] . "</span>
+		";
 	}
 
 	public function runDialog($dialog) {

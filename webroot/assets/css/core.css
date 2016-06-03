@@ -638,6 +638,13 @@ form.form-horizontal img, div.modal-content img,img {
 .badge-success {
   background-color: #468847;
 }
+.badge-warning {
+  background-color: #f89406;
+}
+.badge-info {
+  background-color: #3a87ad;
+}
+
 .run_unit_position .badge:empty {
   visibility:hidden;
   display:inline;
