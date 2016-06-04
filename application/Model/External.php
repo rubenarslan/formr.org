@@ -171,7 +171,7 @@ class External extends RunUnit {
 		$goto = $this->makeAddress($goto);
 		
 		// never redirect if we're just in the cron job
-		if ($this->called_by_cron) {
+		if (! $this->called_by_cron) {
 			// sometimes we aren't able to control the other end
 			if (!$this->api_end) {
 				$this->end();
