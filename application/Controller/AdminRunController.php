@@ -290,6 +290,7 @@ class AdminRunController extends AdminController {
 			'run_selected'=> $this->request->getParam('run'),
 			'osf_projects' => $osf_projects,
 			'osf_project' => $this->run->osf_project_id,
+			'run_id' => $this->run->id,
 		));
 	}
 
