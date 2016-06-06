@@ -19,6 +19,8 @@ class Session {
 	protected static $secure = false;
 
 	protected static $httponly = true;
+	
+	const REQUEST_TOKENS = 'formr_request_tokens';
 
 	public static function configure($config = array()) {
 		self::$lifetime = Config::get('session_cookie_lifetime');
@@ -60,8 +62,8 @@ class Session {
 		$_SESSION[$key] = $value;
 	}
 
-	public static function get($key) {
-		return isset($_SESSION[$key]) ? $_SESSION[$key] : null;
+	public static function get($key, $default = null) {
+		return isset($_SESSION[$key]) ? $_SESSION[$key] : $default;
 	}
 
 	public static function delete($key) {
@@ -74,6 +76,29 @@ class Session {
 		global $user, $site;
 		self::set('user', serialize($user));
 		self::set('site', $site);
+	}
+
+	public static function getRequestToken() {
+		$token = sha1(mt_rand());
+		if (!$tokens = self::get(self::REQUEST_TOKENS)) {
+			$tokens = array($token => 1);
+		} else {
+			$tokens[$token] = 1;
+		}
+		self::set(self::REQUEST_TOKENS, $tokens);
+		return $token;
+	}
+
+	public static function canValidateRequestToken(Request $request) {
+		$token = $request->getParam(self::REQUEST_TOKENS);
+		$tokens = self::get(self::REQUEST_TOKENS, array());
+		if (!empty($tokens[$token])) {
+			// a valid request token dies after it's validity is retrived :P
+			unset($tokens[$token]);
+			self::set(self::REQUEST_TOKENS, $tokens);
+			return true;
+		}
+		return false;	
 	}
 }
 
