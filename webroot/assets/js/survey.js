@@ -62,6 +62,8 @@
         this.last_update = false;
         this.next_update = false;
         this.dont_update = false;
+        this.spinner = '<i class="fa fa-spinner fa-spin"></i>'
+        var survey = this;
         // initialising special items
         // --------------------------
 
@@ -365,6 +367,11 @@
             $(elm).find("button").click(function () {
                 $(elm).find("input.item_answered").val(mysql_datetime());
                 $(elm).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
+                if ($(elm).parents('form.main_formr_survey').checkValidity()) {
+                    $(this).append(survey.spinner);
+                } else {
+                    return false;
+                }
             });
         });
     }
