@@ -2,6 +2,7 @@ webshim.setOptions({
     extendNative: false,
     waitReady: false,
     loadStyles: true,
+    replaceUI: true,
     forms: {
         addValidators: true,
         iVal: {
@@ -31,5 +32,5 @@ webshim.setOptions({
         replaceUI: {range: true, color: true}
     }
 });
-webshim.polyfill('es5 es6 forms forms-ext geolocation');
 webshim.activeLang('de');
+webshim.polyfill('es5 es6 forms forms-ext geolocation');
