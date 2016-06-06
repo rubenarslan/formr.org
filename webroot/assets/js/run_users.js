@@ -151,6 +151,7 @@
     }
 
     function deleteUserSession(e) {
+        /*jshint validthis:true */
         var $btn = $(this);
         var $modal = $($.parseHTML(getHTMLTemplate('tpl-delete-run-session', {action: $btn.data('href'), session: $btn.data('session')})));
         $modal.on('hidden.bs.modal', function () {
