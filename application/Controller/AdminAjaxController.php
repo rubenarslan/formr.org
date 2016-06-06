@@ -199,19 +199,18 @@ class AdminAjaxController {
 	private function ajaxDeleteUser() {
 		$run = $this->controller->run;
 		$deleted = $this->dbh->delete('survey_run_sessions', array('id' => $this->request->getParam('run_session_id')));
-		if ($deleted):
+		if ($deleted) {
 			alert('User with session ' . h($_GET['session']) . ' was deleted.', 'alert-info');
-		else:
+		} else {
 			alert('User with session ' . h($_GET['session']) . ' could not be deleted.', 'alert-warning');
 			bad_request_header();
-		endif;
+		}
 
-		if (is_ajax_request()):
-			echo $this->site->renderAlerts();
-			exit;
-		else:
-			redirect_to("admin/run/" . $run->name . "/user_overview");
-		endif;
+		if (!is_ajax_request()) {
+			redirect_to(admin_run_url($run->name, 'user_overview'));
+		}
+		echo $this->site->renderAlerts();
+		exit;
 	}
 
 	private function ajaxDeleteUnitSession() {

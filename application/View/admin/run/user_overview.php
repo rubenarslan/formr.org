@@ -117,7 +117,7 @@ Template::load('acp_nav');
 								<?php endforeach; ?>
 								</select>
 								<span class='input-group-btn link-ajax-modal'>
-									<a class="btn hastooltip" data-toggle="modal" data-target="#confirm-delete" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_delete_user?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)"><i class='fa fa-trash-o'></i></a>
+									<a class="btn hastooltip delete-run-session" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_delete_user?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-trash-o'></i></a>
 								</span>
 							</span>
 						</form>
@@ -134,22 +134,29 @@ Template::load('acp_nav');
 	</div>
 </div>
 
-<div class="modal fade" id="confirm-delete" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                Delete this user
-            </div>
-            <div class="modal-body">
-                Are you sure you want to delete this user and all of their data in this run?
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default cancel" data-dismiss="modal">Cancel</button>
-                <a href="#" class="btn btn-danger danger" data-dismiss="modal">Delete</a>
-            </div>
+<script id="tpl-delete-run-session" type="text/formr">
+    <div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="DeleteUser" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+				<form action="%{action}" enctype="multipart/form-data" method="post">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                    <h3>Delete Run Session</h3>
+                </div>
+                <div class="modal-body">
+                    <div>
+						Are you sure you want to delete this run session and all it's data? <br />
+						<pre>%{session}</pre>
+				    </div>
+					<div class="clearfix"></div>
+                </div>
+				<div class="modal-footer">
+					<button class="btn btn-danger" aria-hidden="true" type="submit">Delete</button>
+					<button class="btn cancel" data-dismiss="modal" aria-hidden="true" type="button">Cancel</button>
+				</div>
+			</form>
         </div>
     </div>
-</div>
-
+</script>
 <?php
 Template::load('footer');
