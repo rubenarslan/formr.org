@@ -1012,7 +1012,6 @@ class Survey extends RunUnit {
 				$request = new Request($_POST);
 				//check if user session has a valid form token
 				if (!Session::canValidateRequestToken($request)) {
-					error_log("NO TOKEN: " . print_r($request->getParams(),1));
 					redirect_to($this->run_name);
 				}
 
