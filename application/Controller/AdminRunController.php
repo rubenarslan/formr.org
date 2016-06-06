@@ -198,6 +198,9 @@ class AdminRunController extends AdminController {
 		$pagination = new Pagination($user_count, 400, true);
 		$limits = $pagination->getLimits();
 
+
+		$params[':run_id2'] = $params[':run_id'];
+
 		$users_query = "SELECT 
 			`survey_run_sessions`.session,
 			`survey_unit_sessions`.id AS session_id,
@@ -212,7 +215,7 @@ class AdminRunController extends AdminController {
 		LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
 		LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
 		LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
-		WHERE `survey_run_sessions`.run_id = :run_id $search
+		WHERE `survey_runs`.id = :run_id2 AND `survey_run_sessions`.run_id = :run_id $search
 		ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT $limits";
 
 		$g_users = $fdb->execute($users_query, $params);
