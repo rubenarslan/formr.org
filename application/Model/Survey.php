@@ -1005,16 +1005,15 @@ class Survey extends RunUnit {
 		// execute survey unit in a try catch block
 		// @todo Do same for other run units
 		try {
+			$request = new Request($_POST);
+			//check if user session has a valid form token for POST requests
+			if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
+				redirect_to($this->run_name);
+			}
 			$this->startEntry();
 
 			// POST items only if request is a post request
 			if (Request::isHTTPPostRequest()) {
-				$request = new Request($_POST);
-				//check if user session has a valid form token
-				if (!Session::canValidateRequestToken($request)) {
-					redirect_to($this->run_name);
-				}
-
 				$posted = $this->post(array_merge($request->getParams(), $_FILES));
 				if ($posted) {
 					redirect_to($this->run_name);
