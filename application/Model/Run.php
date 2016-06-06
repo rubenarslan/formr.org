@@ -626,6 +626,7 @@ This study is currently being serviced. Please return at a later time."
 	}
 
 	public function getData() {
+		ini_set('memory_limit', '1024M');
 		$fdb = $this->dbh;
 		$collect = $fdb->prepare("SELECT 
 			`survey_studies`.name AS survey_name,

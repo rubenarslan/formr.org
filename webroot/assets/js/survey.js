@@ -367,12 +367,20 @@
             $(elm).find("button").click(function () {
                 $(elm).find("input.item_answered").val(mysql_datetime());
                 $(elm).find("input.item_answered_relative").val(window.performance.now ? performance.now() : null);
-                if ($(elm).parents('form.main_formr_survey').checkValidity()) {
-                    $(this).append(survey.spinner);
-                } else {
-                    return false;
-                }
             });
+        });
+        $('form.main_formr_survey').bind('submit', function(e) {
+            var $form = $(this);
+            var $button = $form.find('.form-group.item-submit button');
+            if ($button.find('.fa-spinner').length) {
+                return false;
+            }
+            if ($form.checkValidity()) {
+                $button.append(survey.spinner);
+                return true;
+            } else {
+                return false;
+            }
         });
     }
     Survey.prototype.update = function () {
