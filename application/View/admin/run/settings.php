@@ -12,6 +12,7 @@ Template::load('acp_nav');
 
 	<div class="col-md-10 transparent_well" style="padding-bottom: 20px;">
 		<h2><i class="fa fa-cogs"></i> Settings</h3>
+		<p>Run ID: <?php echo $run_id; ?></p>
 
 			<ul class="nav nav-tabs">
 				<li class="active"><a href="#settings" data-toggle="tab">Settings</a></li>

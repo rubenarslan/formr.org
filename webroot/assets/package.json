@@ -1,21 +1,21 @@
 {
   "name": "formr",
-  "version": "0.6.9",
+  "version": "0.11.2",
   "description": "formr survey framework",
   "readme": "../../README.md",
   "devDependencies": {
     "grunt": "~0.4.5",
-    "grunt-contrib-jshint": "~0.11.0",
-    "grunt-contrib-uglify": "~0.5.0",
+    "grunt-autoprefixer": "~3.0.3",
     "grunt-bower-concat": "~0.4.0",
-    "grunt-contrib-cssmin": "~0.12.1",
+    "grunt-concat-css": "~0.3.1",
     "grunt-contrib-concat": "~0.5.0",
     "grunt-contrib-copy": "~0.7.0",
     "grunt-contrib-csslint": "~0.4.0",
+    "grunt-contrib-cssmin": "~0.12.1",
+    "grunt-contrib-jshint": "~0.11.0",
     "grunt-contrib-less": "~1.0.1",
-    "grunt-contrib-watch": "~0.6.1",
-    "grunt-autoprefixer": "~3.0.3",
-    "grunt-concat-css": "~0.3.1"
+    "grunt-contrib-uglify": "~0.5.0",
+    "grunt-contrib-watch": "~0.6.1"
   },
   "repository": {
     "type": "git",

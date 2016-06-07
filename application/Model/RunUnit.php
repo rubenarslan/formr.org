@@ -394,39 +394,45 @@ class RunUnit {
 				$variables .= "`$results_table`.`" . implode("`,`$results_table`.`" ,$matches_variable_names[ $survey_name ]) . '`';
 			}
 			
-			$q1 = "SELECT $variables";
+			$select = "SELECT $variables";
 			if($this->run_session_id === NULL AND !in_array($results_table, $this->non_session_tables)) { // todo: what to do with session_id tables in faketestrun
-				$q3 = " WHERE `$results_table`.session_id = :session_id"; // just for testing surveys
+				$where = " WHERE `$results_table`.session_id = :session_id"; // just for testing surveys
 			} else {
-				$q3  = " WHERE  `survey_run_sessions`.id = :run_session_id";
+				$where  = " WHERE  `survey_run_sessions`.id = :run_session_id";
 				if($survey_name === "externals") {
-					$q3 .= " AND `survey_units`.`type` = 'External'";
+					$where .= " AND `survey_units`.`type` = 'External'";
 				}
 			}
 
 			if(!in_array($results_table, $this->non_session_tables )) {
-				$q2 = "
+				$joins = "
 					LEFT JOIN `survey_unit_sessions` ON `$results_table`.session_id = `survey_unit_sessions`.id
 					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 				";
 			} elseif($results_table == 'survey_unit_sessions'){
-				$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+				$joins = "LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 				LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-				LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id";
+				LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+				LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+				";
+				$where .= " AND `survey_runs`.id = :run_id";
 			} elseif($results_table == 'survey_run_sessions') {
-				$q2 = "";
+				$joins = "";
 			} elseif($results_table == 'survey_users') {
-				$q2 = "LEFT JOIN `survey_run_sessions` ON `survey_users`.id = `survey_run_sessions`.user_id";
+				$joins = "LEFT JOIN `survey_run_sessions` ON `survey_users`.id = `survey_run_sessions`.user_id";
 			}
 
-			$q1 .= " FROM `$results_table` ";
+			$select .= " FROM `$results_table` ";
 
-			$q = $q1 . $q2 . $q3 . ";";
+			$q = $select . $joins . $where . ";";
 			$get_results = $this->dbh->prepare($q);
 			if($this->run_session_id === NULL) {
 				$get_results->bindValue(':session_id', $this->session_id);
 			} else {
 				$get_results->bindValue(':run_session_id', $this->run_session_id);
+			}
+			if($results_table == 'survey_unit_sessions') {
+				$get_results->bindValue(':run_id', $this->run_id);
 			}
 			$get_results->execute();
 
