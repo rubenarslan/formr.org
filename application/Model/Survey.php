@@ -889,6 +889,7 @@ class Survey extends RunUnit {
 
 		/* pass on hidden values */
 		$ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
+		$ret .= '<input type="hidden" name="' . Session::REQUEST_TOKENS . '" value="' . h(Session::getRequestToken()) . '" />';
 
 		if (!isset($this->settings["displayed_percentage_maximum"]) OR $this->settings["displayed_percentage_maximum"] == 0) {
 			$this->settings["displayed_percentage_maximum"] = 100;
@@ -1004,12 +1005,15 @@ class Survey extends RunUnit {
 		// execute survey unit in a try catch block
 		// @todo Do same for other run units
 		try {
+			$request = new Request($_POST);
+			//check if user session has a valid form token for POST requests
+			if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
+				redirect_to($this->run_name);
+			}
 			$this->startEntry();
 
 			// POST items only if request is a post request
 			if (Request::isHTTPPostRequest()) {
-				$request = new Request($_POST);
-				//$items = $this->getNextItems(false);
 				$posted = $this->post(array_merge($request->getParams(), $_FILES));
 				if ($posted) {
 					redirect_to($this->run_name);
