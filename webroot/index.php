@@ -43,24 +43,32 @@ try {
 }
 
 // Set current user
+$expiry = Config::get('expire_unregistered_session');
 if (($usr = Session::get('user'))) {
     $user = unserialize($usr);
 	// This segment basically checks whether the user-specific expiry time was met
 	// If user session is expired, user is logged out and redirected
-	if (!empty($user->id) && !$site->expire_session(Config::get('expire_registered_session'))) { // logged in user
+	if (!empty($user->id)) { // logged in user
 		// refresh user object if not expired
+		$expiry = Config::get('expire_registered_session');
 		$user = new User($fdb, $user->id, $user->user_code);
 		// admins have a different expiry, can only be lower
-		if ($user->isAdmin() && $site->expire_session(Config::get('expire_admin_session'))) {
-			unset($user);
+		if ($user->isAdmin()) {
+			$expiry = Config::get('expire_admin_session');
 		}
-	} elseif (!empty($user->user_code) && !$site->expire_session(Config::get('expire_unregistered_session'))) { // visitor
+	} elseif (!empty($user->user_code)) { // visitor
 		// refresh user object
+		Session::resetLoginCookie(0); // non-logged in users don't get persistent cookies
 		$user = new User($fdb, null, $user->user_code);
 	}
 }
+if($site->expire_session($expiry)) {
+	unset($user);
+	unset($expiry);
+}
 // we were unable to get 'proper' user from session
 if (empty($user->user_code)) {
+	Session::resetLoginCookie(0); // non-logged in users don't get persistent cookies
 	$user = new User($fdb, null, null);
 }
 
