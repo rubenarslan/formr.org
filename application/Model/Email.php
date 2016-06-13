@@ -258,7 +258,7 @@ class Email extends RunUnit {
 
 		if ($this->recipient == null):
 			//formr_log("Email recipient could not be determined from this field definition " . $this->recipient_field);
-			alert("We could not find an email recipient. Sesssion: {$this->run_session->session}", 'alert-danger');
+			alert("We could not find an email recipient. Session: {$this->run_session->session}", 'alert-danger');
 			return false;
 		endif;
 

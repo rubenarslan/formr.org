@@ -290,7 +290,7 @@ class RunSession {
 		$select->bindParams(array('run_id' => $this->run_id, 'position' => $position));
 		$next = $select->fetch();
 		if (!$next) {
-			alert('Run ' . $this->run_name . ': Oops, this study\'s creator forgot to give it a proper ending.', 'alert-danger');
+			alert('Run ' . $this->run_name . ': Oops, this study\'s creator forgot to give it a proper ending, user ' . h($this->session) . ' is dangling at the end.', 'alert-danger');
 			return false;
 		}
 		return $this->runTo($next['position'], $next['unit_id']);
