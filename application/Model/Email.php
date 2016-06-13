@@ -258,16 +258,16 @@ class Email extends RunUnit {
 
 		if ($this->recipient == null):
 			//formr_log("Email recipient could not be determined from this field definition " . $this->recipient_field);
-			alert("We could not find an email recipient.", 'alert-danger');
+			alert("We could not find an email recipient. Session: {$this->run_session->session}", 'alert-danger');
 			return false;
 		endif;
 
 		if ($this->account_id === null):
-			alert("The study administrator (you?) did not set up an email account. <a href='" . WEBROOT . "/admin/mail/'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
+			alert("The study administrator (you?) did not set up an email account. <a href='" . admin_url('mail') . "'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
 			return false;
 		endif;
 
-		$run_session = Site::getInstance()->getRunSession();
+		$run_session = $this->run_session;
 
 		$testing = !$run_session || $run_session->isTesting();
 		
@@ -280,41 +280,48 @@ class Email extends RunUnit {
 		
 				
 		$mails_sent = $this->numberOfEmailsSent();
+		$error = null;
+		$warning = null;
 		if(!$mailing_themselves):
 			if ($mails_sent['in_last_1m'] > 0):
-				if($mails_sent['in_last_1m'] < 3 AND $testing):
-					alert(sprintf("We already sent %d mail to this recipient in the last minute. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_1m']), 'alert-info');
+				if($mails_sent['in_last_1m'] < 3 && $testing):
+					$warning = sprintf("We already sent %d mail to this recipient in the last minute. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_1m']);
 				else:
-					alert(sprintf("We already sent %d mail to this recipient in the last minute. No email was sent.", $mails_sent['in_last_1m']), 'alert-warning');
-					return false;
+					$error = sprintf("We already sent %d mail to this recipient in the last minute. No email was sent.", $mails_sent['in_last_1m']);
 				endif;
 			elseif ($mails_sent['in_last_10m'] > 0):
-				if($mails_sent['in_last_10m'] < 10 AND $testing):
-					alert(sprintf("We already sent %d mail to this recipient in the last 10 minutes. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_10m']), 'alert-info');
+				if($mails_sent['in_last_10m'] < 10 && $testing):
+					$warning = sprintf("We already sent %d mail to this recipient in the last 10 minutes. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_10m']);
 				else:
-					alert(sprintf("We already sent %d mail to this recipient in the last 10 minutes. No email was sent.", $mails_sent['in_last_10m']),  'alert-warning');
-					return false;
+					$error = sprintf("We already sent %d mail to this recipient in the last 10 minutes. No email was sent.", $mails_sent['in_last_10m']);
 				endif;
 			elseif ($mails_sent['in_last_1h'] > 2):
-				if($mails_sent['in_last_1h'] < 10 AND $testing):
-					alert(sprintf("We already sent %d mails to this recipient in the last hour. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_1h']), 'alert-info');
+				if($mails_sent['in_last_1h'] < 10 && $testing):
+					$warning = sprintf("We already sent %d mails to this recipient in the last hour. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_1h']);
 				else:
-					alert(sprintf("We already sent %d mails to this recipient in the last hour. No email was sent.", $mails_sent['in_last_1h']), 'alert-warning');
-					return false;
+					$error = sprintf("We already sent %d mails to this recipient in the last hour. No email was sent.", $mails_sent['in_last_1h']);
 				endif;
-			elseif ($mails_sent['in_last_1d'] > 5 AND !$testing):
-				alert(sprintf("We already sent %d mails to this recipient in the last day. No email was sent.", $mails_sent['in_last_1d']), 'alert-warning');
-				return false;
-			elseif ($mails_sent['in_last_1w'] > 20 AND !$testing):
-				alert(sprintf("We already sent %d mails to this recipient in the last week. No email was sent.", $mails_sent['in_last_1w']), 'alert-warning');
-				return false;
+			elseif ($mails_sent['in_last_1d'] > 5 && !$testing):
+				$error = sprintf("We already sent %d mails to this recipient in the last day. No email was sent.", $mails_sent['in_last_1d']);
+			elseif ($mails_sent['in_last_1w'] > 20 && !$testing):
+				$error = sprintf("We already sent %d mails to this recipient in the last week. No email was sent.", $mails_sent['in_last_1w']);
 			endif;
 		else:
-			if ($mails_sent['in_last_1m'] > 1 OR $mails_sent['in_last_1d'] > 100):
-				alert(sprintf("Too many emails are being sent to the study administrator, %d mails today. Please wait a little.", $mails_sent['in_last_1d']), 'alert-warning');
-				return false;
+			if ($mails_sent['in_last_1m'] > 1 || $mails_sent['in_last_1d'] > 100):
+				$error = sprintf("Too many emails are being sent to the study administrator, %d mails today. Please wait a little.", $mails_sent['in_last_1d']);
 			endif;
 		endif;
+		
+		if ($error !== null) {
+			$error = "Session: " . $this->run_session->session . ":\n" . $error;
+			alert(nl2br($error), 'alert-danger');
+			return false;
+		}
+
+		if ($warning !== null) {
+			$warning = "Session: " . $this->run_session->session . ":\n" . $warning;
+			alert(nl2br($warning), 'alert-info');
+		}
 
 		$mail = $acc->makeMailer();
 

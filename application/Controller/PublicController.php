@@ -70,7 +70,6 @@ class PublicController extends Controller {
 			if($this->user->login($this->request->str('email'), $this->request->str('password'))) {
 				alert('<strong>Success!</strong> You were logged in!', 'alert-success');
 				Session::set('user', serialize($this->user));
-				Session::resetLoginCookie(time() + Config::get('session_cookie_lifetime')); // non-logged in users don't get persistent cookies
 				$redirect = $this->user->isAdmin() ? redirect_to('admin') : redirect_to();
 			} else {
 				alert(implode($this->user->errors), 'alert-danger');
