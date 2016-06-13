@@ -206,12 +206,11 @@ class AdminAjaxController {
 			bad_request_header();
 		}
 
-		if (is_ajax_request()):
-			echo $this->site->renderAlerts();
-			exit;
-		else:
-			redirect_to("admin/run/" . $run->name . "/user_overview");
-		endif;
+		if (!is_ajax_request()) {
+			redirect_to(admin_run_url($run->name, 'user_overview'));
+		}
+		echo $this->site->renderAlerts();
+		exit;
 	}
 
 	private function ajaxDeleteUnitSession() {
