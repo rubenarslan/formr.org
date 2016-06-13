@@ -58,17 +58,15 @@ if (($usr = Session::get('user'))) {
 		}
 	} elseif (!empty($user->user_code)) { // visitor
 		// refresh user object
-		Session::resetLoginCookie(0); // non-logged in users don't get persistent cookies
 		$user = new User($fdb, null, $user->user_code);
 	}
 }
+
 if($site->expire_session($expiry)) {
-	unset($user);
-	unset($expiry);
+	unset($user, $expiry);
 }
 // we were unable to get 'proper' user from session
 if (empty($user->user_code)) {
-	Session::resetLoginCookie(0); // non-logged in users don't get persistent cookies
 	$user = new User($fdb, null, null);
 }
 

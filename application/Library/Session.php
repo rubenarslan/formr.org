@@ -39,12 +39,6 @@ class Session {
         session_start();
 	}
 
-	public static function resetLoginCookie($lifetime) {
-		if (isset($_COOKIE[self::$name])) {
-	  	    setcookie(self::$name, $_COOKIE[self::$name], $lifetime, self::$path);
-	  	}
-	}
-
 	public static function destroy() {
 		session_unset();
         session_destroy();
