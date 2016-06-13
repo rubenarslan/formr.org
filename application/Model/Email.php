@@ -267,7 +267,7 @@ class Email extends RunUnit {
 			return false;
 		endif;
 
-		$run_session = Site::getInstance()->getRunSession();
+		$run_session = $this->run_session;
 
 		$testing = !$run_session || $run_session->isTesting();
 		
