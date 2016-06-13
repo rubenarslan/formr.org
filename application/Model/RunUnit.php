@@ -683,7 +683,7 @@ class RunUnit {
 			if(isset($this->run_name)) {
 				$where = "Run: ". $this->run_name. " (".$this->position."-". $this->type.") ";
 			}
-			notify_user_error( opencpu_debug( $session ), 'There was a problem with OpenCPU.');
+			notify_user_error( opencpu_debug( $session ), 'There was a problem with OpenCPU for session ' . h($this->session));
 			return false;
 		} else {
 			

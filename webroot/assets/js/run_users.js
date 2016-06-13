@@ -154,8 +154,18 @@
         /*jshint validthis:true */
         var $btn = $(this);
         var $modal = $($.parseHTML(getHTMLTemplate('tpl-delete-run-session', {action: $btn.data('href'), session: $btn.data('session')})));
+        var $parent_tr = $btn.parents('tr');
+        $btn.css("border-color", "#ee5f5b");
+        $btn.css("color", "#ee5f5b");
+
+        $modal.find('form').each(ajaxifyForm).submit(function() {
+            $parent_tr.css("background-color", "#ee5f5b");
+            $modal.modal('hide');
+        });
         $modal.on('hidden.bs.modal', function () {
             $modal.remove();
+            $btn.css("border-color", "black");
+            $btn.css("color", "black");
         }).modal('show');
 
     }
