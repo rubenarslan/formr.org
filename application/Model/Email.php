@@ -258,12 +258,12 @@ class Email extends RunUnit {
 
 		if ($this->recipient == null):
 			//formr_log("Email recipient could not be determined from this field definition " . $this->recipient_field);
-			alert("We could not find an email recipient.", 'alert-danger');
+			alert("We could not find an email recipient. Sesssion: {$this->run_session->session}", 'alert-danger');
 			return false;
 		endif;
 
 		if ($this->account_id === null):
-			alert("The study administrator (you?) did not set up an email account. <a href='" . WEBROOT . "/admin/mail/'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
+			alert("The study administrator (you?) did not set up an email account. <a href='" . admin_url('mail') . "'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
 			return false;
 		endif;
 
