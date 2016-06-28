@@ -418,7 +418,7 @@ class AdminSurveyController extends AdminController {
 			return;
 		}
 
-		$study = new Survey($this->fdb, null, array('name' => $name), null, null);
+		$study = new Survey($this->fdb, null, array('name' => $name, 'user_id' => $this->user->id), null, null);
 		if (!$study->valid):
 			alert("<strong>Error:</strong> Survey does not exist.", 'alert-danger');
 			not_found();
