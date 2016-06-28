@@ -258,7 +258,7 @@ class Email extends RunUnit {
 
 		if ($this->recipient == null):
 			//formr_log("Email recipient could not be determined from this field definition " . $this->recipient_field);
-			alert("We could not find an email recipient. Session: {$this->run_session->session}", 'alert-danger');
+			alert("We could not find an email recipient. Session: {$this->session}", 'alert-danger');
 			return false;
 		endif;
 
@@ -313,13 +313,13 @@ class Email extends RunUnit {
 		endif;
 		
 		if ($error !== null) {
-			$error = "Session: " . $this->run_session->session . ":\n" . $error;
+			$error = "Session: {$this->session}:\n {$error}";
 			alert(nl2br($error), 'alert-danger');
 			return false;
 		}
 
 		if ($warning !== null) {
-			$warning = "Session: " . $this->run_session->session . ":\n" . $warning;
+			$warning = "Session: {$this->session}:\n {$warning}";
 			alert(nl2br($warning), 'alert-info');
 		}
 
@@ -479,7 +479,7 @@ class Email extends RunUnit {
 
 	public function exec() {
 		if (!$this->sessionCanReceiveMails()) {
-			return array('body' => "<p>Session <code>{$this->run_session->session}</code> cannot receive mails at this time </p>");
+			return array('body' => "<p>Session <code>{$this->session}</code> cannot receive mails at this time </p>");
 		}
 
 		$err = $this->sendMail();
