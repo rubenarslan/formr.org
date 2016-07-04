@@ -66,7 +66,7 @@ class AdminRunController extends AdminController {
 		if ($this->request->session) {
 			$session = str_replace("…", "", $this->request->session);
 			$search .= 'AND `survey_run_sessions`.session LIKE :session ';
-			$query_params[':session'] = $session . "%";
+			$query_params[':session'] = "%" . $session . "%";
 			$querystring['session'] = $session;
 		}
 
