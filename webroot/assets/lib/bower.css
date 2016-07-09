@@ -9697,6 +9697,26 @@ Visual Studio-like style based on original C# coloring by Jason Diamond <jason@d
 .hljs-strong {
   font-weight: bold;
 }
+html, body {
+    height: 100%;
+}
+
+.rmarkdown_iframe {
+     position:fixed; 
+     left:0; 
+     top:0; 
+     width:100%;
+     height:100%;
+}
+
+.rmarkdown_iframe iframe {
+    width:100%;
+    height:100%; 
+    display:block; 
+    background: #FFF; 
+    border:none;
+}
+
 body {
 	margin-bottom:50px;
 }
