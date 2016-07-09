@@ -1049,6 +1049,54 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 	}
 }
 
+
+function opencpu_knit_iframe($source, $variables = null, $return_session = false, $context = null, $footer_text = '') {
+	if (!is_string($variables)) {
+		$variables = opencpu_define_vars($variables, $context);
+	}
+
+	$run_session = Site::getInstance()->getRunSession();
+	
+	$show_errors = 'F';
+	if (!$run_session OR $run_session->isTesting() ) {
+		$show_errors = 'T';
+	}
+	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
+library(knitr); library(formr)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error=T,echo=F,fig.retina=2,fig.height=7,fig.width=10)
+' . $variables . '
+```
+' .
+$source . 
+"
+
+
+
+# &nbsp;
+
+" . $footer_text;
+
+	$params = array('text' => "'" . addslashes($source) . "'");
+	
+	$uri = '/formr/R/formr_render/';
+	try {
+		$session = OpenCPU::getInstance()->post($uri, $params);
+		if ($return_session === true) {
+			return $session;
+		}
+
+		if ($session->hasError()) {
+			throw new OpenCPU_Exception(opencpu_debug($session));
+		}
+		
+		return $session->getJSONObject();
+	} catch (OpenCPU_Exception $e) {
+		notify_user_error($e, "There was a problem dynamically knitting something to HTML using openCPU.");
+		opencpu_log($e);
+		return null;
+	}
+}
+
 function opencpu_knitdisplay($source, $variables = null, $return_session = false, $context = null) {
 	if (!is_string($variables)) {
 		$variables = opencpu_define_vars($variables, $context);
