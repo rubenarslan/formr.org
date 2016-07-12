@@ -1,16 +1,13 @@
 <?php
-$js = '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_settings.js') . '"></script>
-<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run.js') . '"></script>';
-$service_message_id = $run->getServiceMessageId();
-$reminder_email_id = $run->getReminderId();
-$overview_script_id = $run->getOverviewScriptId();
+$js = '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_settings.js') . '"></script>';
+$js.= '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run.js') . '"></script>';
 
 Template::load('header', array('js' => $js));
 Template::load('acp_nav');
 ?>
 <div class="row">
 
-	<div class="col-md-10 transparent_well" style="padding-bottom: 20px;">
+	<div class="col-md-10 transparent_well settings" style="padding-bottom: 20px;">
 		<h2><i class="fa fa-cogs"></i> Settings</h3>
 		<p>Run ID: <?php echo $run_id; ?></p>
 
@@ -108,60 +105,76 @@ Template::load('acp_nav');
 				</div>
 				<div class="tab-pane fade" id="service_message">
 					<div class="row">
-
-
-						<div class="single_unit_display">
-							<form class="form-horizontal edit_run" enctype="multipart/form-data"  name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php
-							echo json_encode(array(array("special" => "service_message", "run_unit_id" => $service_message_id)));
-							?>'>
-								<h3><i class="fa fa-eject"></i> Edit service message</h3>
-								<ul class="fa-ul fa-ul-more-padding">
-									<li><i class="fa-li fa fa-cog fa-lg fa-spin"></i> If you are making changes to your run, while it's live, you may want to keep your users from using it at the time. <br>Use this message to let them know that the run will be working again soon.</li>
-									<li><i class="fa-li fa fa-lg fa-stop"></i> You can also use this message to end a study, so that no new users will be admitted and old users who are not finished cannot go on.</li>
-								</ul>
-								<div class="run_units">
-								</div>
-							</form>
-
+						<div class="add">
+							<h3><i class="fa fa-eject"></i> Edit service message</h3>
+							<ul class="fa-ul fa-ul-more-padding">
+								<li><i class="fa-li fa fa-cog fa-lg fa-spin"></i> If you are making changes to your run, while it's live, you may want to keep your users from using it at the time. <br>Use this message to let them know that the run will be working again soon.</li>
+								<li><i class="fa-li fa fa-lg fa-stop"></i> You can also use this message to end a study, so that no new users will be admitted and old users who are not finished cannot go on.</li>
+							</ul>
+							<?php if (empty($service_messages)): ?>
+								<a href="<?= admin_run_url($run->name, 'create_run_unit?type=Page&special=ServiceMessagePage&redirect=settings:::service_message') ?>" class="btn btn-default pull-right add_run_unit"><i class="fa fa-plus"></i> Add Service Message</a>
+							<?php endif; ?>
 						</div>
-
+						<div class="clearfix"></div>
+						<div class="row special-units  reminder-cells">
+							<?php foreach ($service_messages as $message): ?>
+								<div class="col-md-11 single_unit_display">
+									<form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($message['html_units']); ?>'>
+										<div class="run_units"></div>
+									</form>
+								</div>
+							<?php endforeach; ?>
+						</div>
 					</div>
-
 				</div>
 				<div class="tab-pane fade" id="reminder">
 					<div class="row">
-						<div class="single_unit_display">
-							<form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php
-							echo json_encode(array(array("special" => "reminder_email", "run_unit_id" => $reminder_email_id)));
-							?>'>
-								<h3><i class="fa fa-bullhorn"></i> Edit email reminder</h3>
-								<p class="lead">
-									Modify the text of a reminder, which you can then send to any user using the <i class="fa fa-bullhorn"></i> reminder button in the <a href="<?php echo admin_run_url($run->name, 'user_overview'); ?>">user overview</a>.
-								</p>
-								<div class="run_units">
+						<div class="add">
+							<h3><i class="fa fa-bullhorn"></i> Add/Modify Email Reminders</h3>
+							<p class="lead">
+								Modify the text of a reminder, which you can then send to any user using the <i class="fa fa-bullhorn"></i> reminder button in the <a href="<?php echo admin_run_url($run->name, 'user_overview'); ?>">user overview</a>.
+							</p>
+							<a href="<?= admin_run_url($run->name, 'create_run_unit?type=Email&special=ReminderEmail&redirect=settings:::reminder') ?>" class="btn btn-default pull-right add_run_unit"><i class="fa fa-plus"></i> Add Reminder</a>
+						</div>
+						<div class="clearfix"></div>
+						<div class="row special-units  reminder-cells">
+							<?php foreach ($reminders as $reminder): ?>
+								<div class="col-md-6 single_unit_display">
+									<form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($reminder['html_units']); ?>'>
+						
+										<a href="<?= admin_run_url($run->name, 'delete_run_unit?type=Email&special=ReminderEmail&redirect=settings:::reminder&unit_id=' . $reminder['id']) ?>" class="reminder-delete remove_unit_from_run" data-action="<?php echo admin_run_url($run->name); ?>" data-id="<?php echo $reminder['id']; ?>"><i class="fa fa-2x fa-trash"></i></a>
+										<div class="run_units"></div>
+									</form>
 								</div>
-							</form>
+							<?php endforeach; ?>
 						</div>
 					</div>
 				</div>
 				<div class="tab-pane fade" id="overview_script">
 					<div class="row">
-						<div class="single_unit_display">
-							<form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php
-							echo json_encode(array(array("special" => "overview_script", "run_unit_id" => $overview_script_id)));
-							?>'>
-								<h3><i class="fa fa-eye"></i> Edit overview script</h3>
-								<ul class="fa-ul fa-ul-more-padding">
-									<li><i class="fa-li fa fa-code"></i> In here, you can use Markdown and R interspersed to make a custom overview for your study.</li>
-									<li><i class="fa-li fa fa-lg fa-thumb-tack"></i> Useful commands to start might be <pre><code class="r">nrow(survey_name) # get the number of entries
+						<div class="add">
+							<h3><i class="fa fa-eye"></i> Edit overview script</h3>
+							<ul class="fa-ul fa-ul-more-padding">
+								<li><i class="fa-li fa fa-code"></i> In here, you can use Markdown and R interspersed to make a custom overview for your study.</li>
+								<li><i class="fa-li fa fa-lg fa-thumb-tack"></i> Useful commands to start might be <pre><code class="r">nrow(survey_name) # get the number of entries
 table(is.na(survey_name$ended)) # get finished/unfinished entries
 table(is.na(survey_name$modified)) # get entries where any data was entered vs not
 library(ggplot2)
 qplot(survey_name$created) # plot entries by startdate</code></pre></li>
-								</ul>
-								<div class="run_units">
+							</ul>
+							<?php if (empty($overview_scripts)): ?>
+								<a href="<?= admin_run_url($run->name, 'create_run_unit?type=Page&special=OverviewScriptPage&redirect=settings:::overview_script') ?>" class="btn btn-default pull-right add_run_unit"><i class="fa fa-plus"></i> Add Overview Script</a>
+							<?php endif; ?>
+						</div>
+						<div class="clearfix"></div>
+						<div class="row special-units  reminder-cells">
+							<?php foreach ($overview_scripts as $script): ?>
+								<div class="col-md-11 single_unit_display">
+									<form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($script['html_units']); ?>'>
+										<div class="run_units"></div>
+									</form>
 								</div>
-							</form>
+							<?php endforeach; ?>
 						</div>
 					</div>
 				</div>

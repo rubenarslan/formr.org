@@ -46,15 +46,9 @@ class AdminAjaxController {
 
 	private function ajaxCreateRunUnit() {
 		if (is_ajax_request()):
-			$dbh = $this->dbh;
-			$run = $this->controller->run;
-
-			$unit_factory = new RunUnitFactory();
-			$unit = $unit_factory->make($dbh, null, array('type' => $_GET['type'], 'position' => $_POST['position']), null, $run);
-			$unit->create($_POST);
-
+			$unit = $this->controller->createRunUnit();
 			if ($unit->valid):
-				$unit->addToRun($run->id, $_POST['position']);
+				$unit->addToRun($this->controller->run->id, $unit->position);
 				alert('<strong>Success.</strong> ' . ucfirst($unit->type) . ' unit was created.', 'alert-success');
 				echo $unit->displayForRun($this->site->renderAlerts());
 				exit;
@@ -99,18 +93,20 @@ class AdminAjaxController {
 	private function ajaxRemind() {
 		$run = $this->controller->run;
 		// find the last email unit
-		$email = $run->getReminder($this->request->getParam('session'), $this->request->getParam('run_session_id'));
-		if ($email->exec() !== false):
-			alert('<strong>Something went wrong with the reminder.</strong> in run ' . $run->name, 'alert-danger');
-			bad_request_header();
-		endif;
+		$email = $run->getReminder($this->request->getParam('reminder'), $this->request->getParam('session'), $this->request->getParam('run_session_id'));
+		$email->run_session = new RunSession($this->dbh, $run->id, null, $this->request->getParam('session'), $run);
+		if ($email->exec() !== false) {
+			alert('<strong>Something went wrong with the reminder.</strong> Run: ' . $run->name, 'alert-danger');
+		} else {
+			alert('Reminder sent!', 'alert-success');
+		}
 
-		if (is_ajax_request()):
+		if (is_ajax_request()) {
 			echo $this->site->renderAlerts();
 			exit;
-		else:
+		} else {
 			redirect_to("admin/run/" . $run->name . "/user_overview");
-		endif;
+		}
 	}
 	
 
@@ -246,7 +242,7 @@ class AdminAjaxController {
 				$unit_factory = new RunUnitFactory();
 				$unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
 
-				if ($unit->removeFromRun()):
+				if ($unit->removeFromRun($special)):
 					alert('<strong>Success.</strong> Unit with ID ' . h($_POST['run_unit_id']) . ' was deleted.', 'alert-success');
 					echo $this->site->renderAlerts();
 					exit;

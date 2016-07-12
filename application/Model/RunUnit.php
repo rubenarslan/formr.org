@@ -101,7 +101,7 @@ class RunUnit {
 	 * @var DB
 	 */
 	protected $dbh;
-
+	
 	public function __construct($fdb, $session = null, $unit = null, $run_session = null, $run = NULL) {
 		$this->dbh = $fdb;
 		$this->session = $session;
@@ -168,8 +168,9 @@ class RunUnit {
 
 	public function modify($options = array()) {
 		$change = array('modified' => mysql_now());
+		$table = empty($options['special']) ? 'survey_run_units' : 'survey_run_special_units';
 		if($this->run_unit_id && isset($options['description'])):
-			$this->dbh->update('survey_run_units', array("description" => $options['description']), array('id' => $this->run_unit_id ));
+			$this->dbh->update($table, array("description" => $options['description']), array('id' => $this->run_unit_id ));
 			$this->description = $options['description'];
 		endif;
 		return $this->dbh->update('survey_units', $change, array('id' => $this->id));
@@ -199,6 +200,14 @@ class RunUnit {
 			$options['description'] = '';
 		}
 
+		if ($this->special) {
+			return $this->dbh->insert('survey_run_special_units', array(
+				'id' => $this->id,
+				'run_id' => $run_id,
+				'type' => $this->special,
+				'description' => $options['description']
+			));
+		}
 		$this->run_unit_id = $this->dbh->insert('survey_run_units', array(
 			'unit_id' => $this->id,
 			'run_id' => $run_id,
@@ -208,16 +217,23 @@ class RunUnit {
 		return $this->run_unit_id;
 	}
 
-	public function removeFromRun() {
-		return $this->dbh->delete('survey_run_units', array('id' => $this->run_unit_id));
+	public function removeFromRun($special = null) {
+		if ($special !== null) {
+			return $this->dbh->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
+		} else {
+			return $this->dbh->delete('survey_run_units', array('id' => $this->run_unit_id));
+		}
 	}
 
-	public function delete() {
-		$affected = $this->dbh->delete('survey_units', array('id' => $this->id));
-		if ($affected): // remove from all runs
-			$affected += $this->dbh->delete('survey_run_units', array('unit_id' => $this->id));
-		endif;
-
+	public function delete($special = null) {
+		if ($special !== null) {
+			return $this->dbh->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
+		} else {
+			$affected = $this->dbh->delete('survey_units', array('id' => $this->id));
+			if ($affected) { // remove from all runs
+				$affected += $this->dbh->delete('survey_run_units', array('unit_id' => $this->id));
+			}
+		}
 		return $affected;
 	}
 
@@ -729,6 +745,35 @@ class RunUnit {
 			}
 		}
 		return $unit;
+	}
+
+	public static function getDefaults($type) {
+		$defaults = array();
+		$defaults['ServiceMessagePage'] = array(
+			'type' => 'Page',
+			'title' => 'Service message',
+			'special' => 'ServiceMessagePage',
+			'description' => 'Service Message ' . date('d.m.Y'),
+			'body' => "# Service message \n This study is currently being serviced. Please return at a later time."
+		);
+
+		$defaults['OverviewScriptPage'] = array(
+			'type' => 'Page',
+			'title' => 'Overview script',
+			'special' => 'OverviewScriptPage',
+			'body' => "# Intersperse Markdown with R
+```{r}
+plot(cars)
+```");
+		$defaults['ReminderEmail'] = array(
+			'type' => 'Email',
+			'subject' => 'Reminder',
+			'special' => 'ReminderEmail',
+			'recipient_field' => '',
+			'body' => "\nPlease take part in our study at {{login_link}}.",
+		);
+
+		return array_val($defaults, $type, array());
 	}
 
 }
