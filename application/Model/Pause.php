@@ -124,8 +124,8 @@ class Pause extends RunUnit {
 		return parent::runDialog($dialog, 'fa-pause');
 	}
 
-	public function removeFromRun() {
-		return $this->delete();
+	public function removeFromRun($special = null) {
+		return $this->delete($special);
 	}
 
 	protected function checkRelativeTo() {

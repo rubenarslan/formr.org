@@ -7,7 +7,7 @@
  * 
  */
 
-require_once '../define_root.php';
+require_once dirname(__FILE__) . '/../define_root.php';
 
 function quoteCols($db, $cols) {
 	foreach ($cols as $i => $col) {

@@ -105,7 +105,7 @@ Template::load('acp_nav');
 									<a class='btn hastooltip link-ajax' href='<?= site_url("admin/run/{$user['run_name']}/ajax_toggle_testing?toggle_on=".($user['testing']?0:1)."&amp;run_session_id={$user['run_session_id']}&amp;session=".urlencode($user['session']))?>' 
 									title='Toggle testing status'><i class='fa <?=($user['testing']?'fa-stethoscope':'fa-heartbeat')?>'></i></a>
 									
-									<a class='btn hastooltip link-ajax' href="<?php echo admin_run_url($user['run_name'], "ajax_remind?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Remind this user"><i class="fa fa-bullhorn"></i></a>
+									<a class="btn hastooltip remind-run-session" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_remind?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Remind this user" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-bullhorn'></i></a>
 									<button type="submit" class="btn hastooltip" title="Send this user to that position"><i class="fa fa-hand-o-right"></i></button>
 								</span>
 								<input type="hidden" name="session" value="<?php echo $user['session']; ?>" />
@@ -155,6 +155,34 @@ Template::load('acp_nav');
 					<button class="btn cancel" data-dismiss="modal" aria-hidden="true" type="button">Cancel</button>
 				</div>
 			</form>
+        </div>
+    </div>
+</script>
+<script id="tpl-remind-run-session" type="text/formr">
+    <div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="DeleteUser" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                    <h3>Send Reminder</h3>
+                </div>
+                <div class="modal-body">
+                    <table class="table table-stripped">
+						<thead>
+							<tr><th>ID</th><th>Description</th><th>Select Reminder</th></tr>
+						</thead>
+						<tbody>
+						<?php foreach ($reminders as $r): ?>
+							<tr>
+								<td><?= $r['unit_id'] ?></td>
+								<td><?= $r['description'] ?></td>
+								<td><a href="javascript:void(0);" data-reminder="<?= $r['unit_id'] ?>" class="send btn btn-default"><i class="fa fa-paper-plane"></i> send</a></td>
+							</tr>
+						<?php endforeach ?>
+						</tbody>
+					</table>
+					<div class="clearfix"></div>
+                </div>
         </div>
     </div>
 </script>

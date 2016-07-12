@@ -115,4 +115,22 @@ class AdminController extends Controller {
 		}
 	}
 
+	public function createRunUnit($id = null) {
+		$dbh = $this->fdb;
+		$run = $this->run;
+		$unit_factory = new RunUnitFactory();
+		$unit_data = array(
+			'type' => $this->request->type,
+			'position' => (int)$this->request->position,
+			'special' => $this->request->special,
+		);
+		$unit_data = array_merge($this->request->getParams(), $unit_data, RunUnit::getDefaults($this->request->type), RunUnit::getDefaults($this->request->special));
+		if ($id) {
+			$unit_data['unit_id'] = $id;
+		}
+		$unit = $unit_factory->make($dbh, null, $unit_data, null, $run);
+		$unit->create($unit_data);
+		return $unit;
+	}
+
 }
