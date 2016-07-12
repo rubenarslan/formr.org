@@ -169,9 +169,37 @@
         }).modal('show');
 
     }
+    
+    function remindUserSession(e) {
+        /*jshint validthis:true */
+        var $btn = $(this);
+        var $modal = $($.parseHTML(getHTMLTemplate('tpl-remind-run-session', {action: $btn.data('href'), session: $btn.data('session')})));
+        var $parent_tr = $btn.parents('tr');
+        $btn.css("border-color", "#ee5f5b");
+        $btn.css("color", "#ee5f5b");
 
-    function postdata(url, data, callback, type) {
+        $modal.on('shown.bs.modal', function() {
+            $modal.find('.send').click(function() {
+                var href = $btn.data('href'), reminder = $(this).data('reminder');
+                $(this).append(bootstrap_spinner());
+                postdata(href, {reminder: reminder}, function(response) {
+                    $modal.modal('hide');
+                    bootstrap_modal('Send Reminder', response, 'tpl-feedback-modal').modal('show');
+                }, 'html');
+            });
+        });
+
+        $modal.on('hidden.bs.modal', function () {
+            $modal.remove();
+            $btn.css("border-color", "black");
+            $btn.css("color", "black");
+        }).modal('show');
+
+    }
+
+    function postdata(url, data, callback, type, errCallback) {
         type = type || 'json';
+        errCallback = errCallback || function(){};
         $.ajax({
             type: 'POST',
             url: url,
@@ -182,6 +210,7 @@
             },
             error: function (jqxhr, errText) {
                 $('.main_body').prepend(errText);
+                errCallback(jqxhr, errText);
             },
             beforeSend: function (jqxhr) {
                 //alert(this.url);
@@ -262,5 +291,6 @@
             $current_target.parents("tr").css("background-color", "transparent");
         });
         $('a.delete-run-session').bind('click', deleteUserSession);
+        $('a.remind-run-session').bind('click', remindUserSession);
     });
 }(jQuery));

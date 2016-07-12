@@ -75,8 +75,8 @@ class External extends RunUnit {
 		return parent::runDialog($dialog, 'fa-external-link-square');
 	}
 
-	public function removeFromRun() {
-		return $this->delete();
+	public function removeFromRun($special = null) {
+		return $this->delete($special);
 	}
 
 	private function isR($address) {

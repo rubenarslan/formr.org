@@ -66,8 +66,8 @@ class Shuffle extends RunUnit {
 		return parent::runDialog($dialog, 'fa-random fa-1-5x');
 	}
 
-	public function removeFromRun() {
-		return $this->delete();
+	public function removeFromRun($special = null) {
+		return $this->delete($special);
 	}
 
 	public function randomise_into_group() {

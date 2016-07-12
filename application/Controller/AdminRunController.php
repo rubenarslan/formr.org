@@ -120,6 +120,7 @@ class AdminRunController extends AdminController {
 		$vars['position_lt'] = $position_cmp;
 		$vars['currentUser'] = $this->user;
 		$vars['unit_types'] = $run->getAllUnitTypes();
+		$vars['reminders'] = $this->run->getSpecialUnits(false, 'ReminderEmail');
 		$this->renderView('run/user_overview', $vars);
 	}
 	
@@ -291,6 +292,9 @@ class AdminRunController extends AdminController {
 			'osf_projects' => $osf_projects,
 			'osf_project' => $this->run->osf_project_id,
 			'run_id' => $this->run->id,
+			'reminders' => $this->run->getSpecialUnits(true, 'ReminderEmail'),
+			'service_messages' => $this->run->getSpecialUnits(true, 'ServiceMessagePage'),
+			'overview_scripts' => $this->run->getSpecialUnits(true, 'OverviewScriptPage'),
 		));
 	}
 
@@ -497,7 +501,7 @@ class AdminRunController extends AdminController {
 
 		$email_count_query = "SELECT COUNT(`survey_email_log`.id) AS count
 		FROM `survey_email_log`
-		LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id
+		LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id 
 		LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
 		WHERE `survey_run_sessions`.run_id = :run_id";
 
@@ -699,6 +703,35 @@ class AdminRunController extends AdminController {
 		}
 
 		redirect_to(admin_run_url($this->run->name));
+	}
+
+	private function createRunUnitAction() {
+		$redirect = $this->request->redirect ? admin_run_url($this->run->name, $this->request->redirect) : admin_run_url($this->run->name);
+		$unit = $this->createRunUnit();
+		if ($unit->valid) {
+			$unit->addToRun($this->run->id, $unit->position);
+			alert('Run unit created', 'alert-success');
+		} else {
+			alert('An unexpected error occured. Unit could not be created', 'alert-danger');
+		}
+		redirect_to(str_replace(':::', '#', $redirect));
+	}
+
+	private function deleteRunUnitAction() {
+		$id = (int)$this->request->unit_id;
+		if (!$id) {
+			throw new Exception('Missing Parameter');
+		}
+		$redirect = $this->request->redirect ? admin_run_url($this->run->name, $this->request->redirect) : admin_run_url($this->run->name);
+		$unit = $this->createRunUnit($id);
+		if ($unit->valid) {
+			$unit->run_unit_id = $id;
+			$unit->removeFromRun($this->request->special);
+			alert('Run unit deleted', 'alert-success');
+		} else {
+			alert('An unexpected error occured. Unit could not be deleted', 'alert-danger');
+		}
+		redirect_to(str_replace(':::', '#', $redirect));
 	}
 
 }

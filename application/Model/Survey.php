@@ -1922,13 +1922,13 @@ class Survey extends RunUnit {
 		}
 	}
 
-	public function delete() {
+	public function delete($special = null) {
 		if ($this->deleteResults()): // always back up
 			$this->dbh->query("DROP TABLE IF EXISTS `{$this->results_table}`");
 			if (($filename = $this->getOriginalFileName())) {
 				@unlink(Config::get('survey_upload_dir') . '/' . $filename);
 			}
-			return parent::delete();
+			return parent::delete($special);
 		endif;
 		return false;
 	}

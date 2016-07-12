@@ -88,8 +88,8 @@ class Page extends RunUnit {
 		return parent::runDialog($dialog, 'fa-stop fa-1-5x');
 	}
 
-	public function removeFromRun() {
-		return $this->delete();
+	public function removeFromRun($special = null) {
+		return $this->delete($special);
 	}
 
 	public function test() {

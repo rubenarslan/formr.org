@@ -183,6 +183,7 @@ class Run {
 			return false;
 		endif;
 
+		// create run db entry
 		$new_secret = crypto_token(66);
 		$this->dbh->insert('survey_runs', array(
 			'user_id' => $options['user_id'],
@@ -194,8 +195,14 @@ class Run {
 			'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
 			'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
 		));
-		$this->getServiceMessageId();
+		$this->id = $this->dbh->pdo()->lastInsertId();
 
+		// create default run service message
+		$factory = new RunUnitFactory();
+		$options = RunUnit::getDefaults('ServiceMessagePage');
+		$unit = $factory->make($this->dbh, null, $options, null, $this);
+		$unit->create($options);
+		$unit->addToRun($this->id, 0, $options);
 		return $name;
 	}
 
@@ -294,72 +301,11 @@ class Run {
 	}
 
 	public function getOverviewScript() {
-		$id = $this->getOverviewScriptId();
-		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id), null, $this);
-		return $unit;
-	}
-
-	public function getOverviewScriptId() {
-		$id = $this->dbh->findValue('survey_runs', array('id' => $this->id), 'overview_script');
-		if (!$id) {
-			$id = $this->addOverviewScript();
-		}
-		return $id;
-	}
-
-	protected function addOverviewScript() {
-		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"), null, $this);
-		$unit->create(array(
-			"title" => "Overview script",
-			"body" =>
-			"# Intersperse Markdown with R
-```{r}
-plot(cars)
-```"
-		));
-
-		if ($unit->valid):
-			$this->dbh->update('survey_runs', array('overview_script' => $unit->id), array('id' => $this->id));
-			alert('An overview script was auto-created.', 'alert-info');
-			return $unit->id;
-		else:
-			alert('<strong>Sorry.</strong> ' . implode($unit->errors), 'alert-danger');
-		endif;
+		return $this->getSpecialUnit('OverviewScriptPage');
 	}
 
 	public function getServiceMessage() {
-		$id = $this->getServiceMessageId();
-		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page", "unit_id" => $id), null, $this);
-		return $unit;
-	}
-
-	public function getServiceMessageId() {
-		$id = $this->dbh->findValue('survey_runs', array('id' => $this->id), 'service_message');
-		if (!$id) {
-			$id = $this->addServiceMessage();
-		}
-		return $id;
-	}
-
-	protected function addServiceMessage() {
-		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Page"), null, $this);
-		$unit->create(array(
-			"title" => "Service message",
-			"body" =>
-			"# Service message
-This study is currently being serviced. Please return at a later time."
-		));
-		if ($unit->valid):
-			$this->dbh->update('survey_runs', array('service_message' => $unit->id), array('id' => $this->id));
-			alert('A service message was auto-created.', 'alert-info');
-			return $unit->id;
-		else:
-			alert('<strong>Sorry.</strong> ' . implode($unit->errors), 'alert-danger');
-		endif;
+		return $this->getSpecialUnit('ServiceMessagePage');
 	}
 
 	public function getNumberOfSessionsInRun() {
@@ -404,44 +350,64 @@ This study is currently being serviced. Please return at a later time."
 		return $rows;
 	}
 
-	public function getReminder($session, $run_session_id) {
-		$id = $this->getReminderId();
+	public function getSpecialUnit($xtype, $id = null) {
+		$units = $this->getSpecialUnits(false, $xtype, $id);
+		if (empty($units)) {
+			return null;
+		}
+		$factory = new RunUnitFactory();
+		return $factory->make($this->dbh, null, $units[0], null, $this);
+	}
+
+	public function getSpecialUnits($render = false, $xtype = null, $id = null) {
+		$cols = array(
+			'survey_run_special_units.id' => 'unit_id', 'survey_run_special_units.run_id', 'survey_run_special_units.type' => 'xtype', 'survey_run_special_units.description',
+			'survey_units.type', 'survey_units.created', 'survey_units.modified'
+		);
+		$select = $this->dbh->select($cols);
+		$select->from('survey_run_special_units');
+		$select->join('survey_units', 'survey_units.id = survey_run_special_units.id');
+		$select->where('survey_run_special_units.run_id = :run_id');
+		$select->order('survey_units.id', 'desc');
+		$params = array('run_id' => $this->id);
+		if ($xtype !== null) {
+			$select->where('survey_run_special_units.type = :xtype');
+			$params['xtype'] = $xtype;
+		}
+		if ($id !== null) {
+			$select->where('survey_run_special_units.id = :id');
+			$params['id'] = $id;
+		}
+		$select->bindParams($params);
+		
+		if ($render === false) {
+			return $select->fetchAll();
+		} else {
+			$units = array();
+			foreach ($select->fetchAll() as $unit) {
+				$units[] = array(
+					'id' => $unit['unit_id'],
+					'html_units' => array(array(
+						'special' => $unit['xtype'],
+						'run_unit_id' => $unit['unit_id'],
+						'unit_id' => $unit['unit_id']
+					)),
+				);
+			}
+			return $units;
+		}
+	}
+
+	public function getReminder($reminder_id, $session, $run_session_id) {
 		$unit_factory = new RunUnitFactory();
 		$unit = $unit_factory->make($this->dbh, $session, array(
 			'type' => "Email",
-			"unit_id" => $id,
+			"unit_id" => $reminder_id,
 			"run_name" => $this->name,
 			"run_id" => $this->id,
 			"run_session_id" => $run_session_id
 		), null, $this);
 		return $unit;
-	}
-
-	public function getReminderId() {
-		$id = $this->dbh->findValue('survey_runs', array('id' => $this->id), 'reminder_email');
-		if (!$id) {
-			$id = $this->addReminder();
-		}
-		return $id;
-	}
-
-	protected function addReminder() {
-		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, null, array('type' => "Email"), null, $this);
-		$unit->create(array(
-			"subject" => "Reminder",
-			"recipient_field" => '',
-			"body" =>
-			"Please take part in our study at {{login_link}}.",
-		));
-
-		if ($unit->valid):
-			$this->dbh->update('survey_runs', array('reminder_email' => $unit->id), array('id' => $this->id));
-			alert('A reminder email was auto-created.', 'alert-info');
-			return $unit->id;
-		else:
-			alert('<strong>Sorry.</strong> ' . implode($unit->errors), 'alert-danger');
-		endif;
 	}
 
 	public function getCustomCSS() {
@@ -556,7 +522,7 @@ This study is currently being serviced. Please return at a later time."
 	}
 
 	public function getUnitAdmin($id, $special = false) {
-		if (!$special):
+		if (!$special) {
 			$unit = $this->dbh->select('
 				`survey_run_units`.id,
 				`survey_run_units`.run_id,
@@ -572,26 +538,28 @@ This study is currently being serviced. Please return at a later time."
 					->where('survey_run_units.id = :id')
 					->bindParams(array('run_id' => $this->id, 'id' => $id))
 					->limit(1)->fetch();
-		else:
-			if (!in_array($special, array("service_message", "overview_script", "reminder_email"))) {
+		} else {
+			$specials = array('ServiceMessagePage', 'OverviewScriptPage', 'ReminderEmail');
+			if (!in_array($special, $specials)) {
 				die("Special unit not allowed");
 			}
 
 			$unit = $this->dbh->select("
-				`survey_runs`.`$special` AS unit_id,
-				`survey_runs`.id AS run_id,
+				`survey_run_special_units`.`id` AS unit_id,
+				`survey_run_special_units`.`run_id`,
+				`survey_run_special_units`.`description`,
 				`survey_units`.id,
 				`survey_units`.type,
 				`survey_units`.created,
 				`survey_units`.modified")
-					->from('survey_runs')
-					->leftJoin('survey_units', "survey_units.id = `survey_runs`.`$special`")
-					->where('survey_runs.id = :run_id')
-					->where("`survey_runs`.`$special` = :unit_id")
+					->from('survey_run_special_units')
+					->leftJoin('survey_units', "survey_units.id = `survey_run_special_units`.`id`")
+					->where('survey_run_special_units.run_id = :run_id')
+					->where("`survey_run_special_units`.`id` = :unit_id")
 					->bindParams(array('run_id' => $this->id, 'unit_id' => $id))
 					->limit(1)->fetch();
 			$unit["special"] = $special;
-		endif;
+		}
 
 		if ($unit === false) { // or maybe we've got a problem
 			alert("Missing unit! $id", 'alert-danger');

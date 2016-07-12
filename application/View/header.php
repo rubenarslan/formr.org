@@ -1,6 +1,4 @@
-<?php header('Content-type: text/html; charset=utf-8');
-?><!DOCTYPE html>
-
+<?php header('Content-type: text/html; charset=utf-8'); ?><!DOCTYPE html>
 <html class="no_js">
 	<head> 
 	    <script>(function(H){H.className=H.className.replace(/\bno_js\b/,'js')})(document.documentElement)</script>
@@ -9,7 +7,7 @@
         <title><?php echo $site->makeTitle(); ?></title>
 		<link rel="stylesheet" type="text/css" href="<?= asset_url('assets/lib/bower'. (DEBUG ? '' : '.min') . '.css') ; ?>" />
 		<?php echo isset($css) ? $css : '' ?>
-		
+
 		<script src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/head.js') ; ?>"></script>	
 		<?php echo isset($js) ? $js : '' ?>
 

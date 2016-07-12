@@ -98,8 +98,8 @@ class Branch extends RunUnit {
 		return parent::runDialog($dialog);
 	}
 
-	public function removeFromRun() {
-		return $this->delete();
+	public function removeFromRun($special = null) {
+		return $this->delete($special);
 	}
 
 	public function test() {
