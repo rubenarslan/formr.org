@@ -378,7 +378,7 @@ class Email extends RunUnit {
 	}
 
 	protected function logMail() {
-		if (!$this->session_id) {
+		if (!$this->session_id && $this->run_session) {
 			$unit = $this->run_session->getCurrentUnit();
 			$session_id = $unit ? $unit['session_id'] : null;
 		} else {
