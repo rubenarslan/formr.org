@@ -378,9 +378,15 @@ class Email extends RunUnit {
 	}
 
 	protected function logMail() {
+		if (!$this->session_id) {
+			$unit = $this->run_session->getCurrentUnit();
+			$session_id = $unit ? $unit['session_id'] : null;
+		} else {
+			$session_id = $this->session_id;
+		}
 		$query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient) VALUES (:session_id, :email_id, NOW(), :recipient)";
 		$this->dbh->exec($query, array(
-			'session_id' => $this->session_id,
+			'session_id' => $session_id,
 			'email_id' => $this->id,
 			'recipient' => $this->recipient,
 		));
