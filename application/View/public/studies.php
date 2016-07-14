@@ -4,7 +4,12 @@
 
 <div class="row">
 	<div class="col-md-12">
-		<h2><?=_("Current studies:")?></h2>
+		<h3><i class="fa fa-file"></i> <?=_('Publications')?></h3>
+		<p><i>publications/papers written whilst using formr.org</i></p>
+		<?php Template::load('public/publications'); ?>
+
+		<h3><i class="fa fa-file-archive-o"></i> <?=_('Studies')?></h3>
+		<p><i>studies currently running on formr.org</i></p>
 		<div class="row">
         <?php $i = 1; foreach($runs as $run) : ?>
             <div class="col-md-3 study-box">
