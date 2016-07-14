@@ -4,8 +4,7 @@
 
 <div class="row">
 	<div class="col-md-12">
-		<h3><i class="fa fa-file"></i> <?=_('Publications')?></h3>
-		<p><i>publications/papers written whilst using formr.org</i></p>
+		<h3><i class="fa fa-file"></i> <?=_('Publications')?> 		<small>using data collected using the formr.org software</small></h3>
 		<?php Template::load('public/publications'); ?>
 
 		<h3><i class="fa fa-file-archive-o"></i> <?=_('Studies')?></h3>

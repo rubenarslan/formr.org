@@ -1,4 +1,4 @@
-<ul class="publications">
+<ul class="publications list-unstyled">
 	<li>
 		Greischel, H., Noack, P., &amp; Neyer, F. J. (2016). Sailing Uncharted Waters: Adolescent Personality Development and Social Relationship Experiences During a Year Abroad.
 		<i>Journal of Youth and Adolescence</i>. doi:10.1007/s10964-016-0479-1
