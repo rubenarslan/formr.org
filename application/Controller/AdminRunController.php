@@ -165,26 +165,28 @@ class AdminRunController extends AdminController {
 		$search = '';
 		$querystring = array();
 		$position_lt = '=';
-		if(isset($_GET['session']) OR isset($_GET['position'])):
-			if(isset($_GET['session']) AND trim($_GET['session'])!=''):
-				$_GET['session'] = str_replace("…","",$_GET['session']);
-				$search .= 'AND `survey_run_sessions`.session LIKE :session ';
-				$search_session = $_GET['session'] . "%";
-				$querystring['session'] = $_GET['session'];
-			endif;
-			if(isset($_GET['position']) AND trim($_GET['position'])!=''):
-				if(isset($_GET['position']) AND in_array($_GET['position_lt'], array('=','>','<'))) $position_lt = $_GET['position_lt'];
+		if ($this->request->session) {
+			$session = str_replace('…', '', $this->request->session);
+			$search .= 'AND `survey_run_sessions`.session LIKE :session ';
+			$search_session = "%" . $session . "%";
+			$querystring['session'] = $session;
+		}
+		
+		if ($this->request->position) {
+			$position = $this->request->position;
+			if (in_array($this->request->position_lt, array())) {
+				$position_lt = $this->request->position_lt;
+			}
+			$search .= 'AND `survey_run_units`.position '.$position_lt.' :position ';
+			$search_position = $position;
+			$querystring['position_lt'] = $position_lt;
+			$querystring['position'] = $position;
+		}
 
-				$search .= 'AND `survey_run_sessions`.position '.$position_lt.' :position ';
-				$search_position = $_GET['position'];
-				$querystring['position_lt'] = $position_lt;
-				$querystring['position'] = $_GET['position'];
-			endif;
-		endif;
-
-
-		$user_count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count 
-			FROM `survey_unit_sessions` LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id 
+		$user_count_query = "
+			SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions` 
+			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id`
 			WHERE `survey_run_sessions`.run_id = :run_id $search";
 
 		$params = array(':run_id' => $run->id);
@@ -225,25 +227,19 @@ class AdminRunController extends AdminController {
 		foreach ($g_users as $userx) {
 			$userx['Unit in Run'] = $userx['unit_type']. " <span class='hastooltip' title='position in run {$userx['run_name']} '>({$userx['position']})</span>";
 			$userx['Session'] = "<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],0,10)."…</abbr></small>";
-			$userx['entered'] = "<small>{$userx['created']}</small>";
-			$staid = ($userx['ended'] ? strtotime($userx['ended']) : time() ) -strtotime($userx['created']);
-			$userx['staid'] = "<small title='$staid seconds'>".timetostr(time()+$staid)."</small>";
-			$userx['left'] = "<small>{$userx['ended']}</small>";
+			$userx['Entered'] = "<small>{$userx['created']}</small>";
+			$staid = ($userx['ended'] ? strtotime($userx['ended']) : time() ) - strtotime($userx['created']);
+			$userx['Stayed'] = "<small title='$staid seconds'>".timetostr(time()+$staid)."</small>";
+			$userx['Left'] = "<small>{$userx['ended']}</small>";
 			if($userx['expired']) {
-				$userx['left'] = "<small><abbr title='{$userx['expired']}'>expired</abbr></small>";
+				$userx['Left'] = "<small><abbr title='{$userx['expired']}'>expired</abbr></small>";
 			}
 			if($userx['unit_type']!= 'Survey') 
 				$userx['delete'] = "<a onclick='return confirm(\"Are you sure you want to delete this unit session?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_delete_unit_session?session_id={$userx['session_id']}' class='hastooltip link-ajax' title='Delete this waypoint'><i class='fa fa-times'></i></a>";
 			else 
 				$userx['Delete'] =  "<a onclick='return confirm(\"You shouldnt delete survey sessions, you might delete data! REALLY sure?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_delete_unit_session?session_id={$userx['session_id']}' class='hastooltip link-ajax' title='Survey sessions should not be deleted'><i class='fa fa-times'></i></a>";
 
-			unset($userx['session']);
-			unset($userx['session_id']);
-			unset($userx['run_name']);
-			unset($userx['unit_type']);
-			unset($userx['position']);
-		#	$user['body'] = "<small title=\"{$user['body']}\">". substr($user['body'],0,50). "…</small>";
-
+			unset($userx['session'], $userx['session_id'], $userx['run_name'], $userx['unit_type'], $userx['position'], $userx['left']);
 			$users[] = $userx;
 		}
 
