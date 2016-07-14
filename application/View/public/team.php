@@ -15,7 +15,8 @@
 		</p>
 		<h3><i class="fa fa-fw fa-coffee"></i> Team</h3>
 		<p>
-			formr was made by <a href="https://www.psych.uni-goettingen.de/en/biopers/team/arslan">Ruben C. Arslan</a> and <a href="https://www.psych.uni-goettingen.de/de/it/team/cyril-tata/cyril-s-tata">Cyril S. Tata</a>. <br>The current incarnation of the survey framework draws on prior work by Linus Neumann, prior funding by Jaap J. A. Denissen, ideas, testing, and feedback by Sarah J. Lennartz and Isabelle Habedank.
+			formr was made by <a href="https://www.psych.uni-goettingen.de/en/biopers/team/arslan">Ruben C. Arslan</a> and <a href="https://www.psych.uni-goettingen.de/de/it/team/cyril-tata/cyril-s-tata">Cyril S. Tata</a>.
+		<p>The current incarnation of the survey framework draws on prior work by Linus Neumann, prior funding by Jaap J. A. Denissen, ideas, testing, and feedback by Sarah J. Lennartz, Isabelle Habedank, and Tanja M. Gerlach</p>
 		</p>
 		
 		<h3><i class="fa fa-fw fa-money"></i> Funding</h3>
