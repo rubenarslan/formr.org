@@ -1111,3 +1111,6 @@ form.form-horizontal img, div.modal-content img,img {
 .reminder-cells .run_unit_inner.Endpage {
     border: none;
 }
+.publications li {
+    margin-bottom: 10px;
+}
