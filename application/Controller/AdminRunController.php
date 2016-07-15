@@ -174,7 +174,7 @@ class AdminRunController extends AdminController {
 		
 		if ($this->request->position) {
 			$position = $this->request->position;
-			if (in_array($this->request->position_lt, array())) {
+			if (in_array($this->request->position_lt, array('>', '=', '<'))) {
 				$position_lt = $this->request->position_lt;
 			}
 			$search .= 'AND `survey_run_units`.position '.$position_lt.' :position ';
