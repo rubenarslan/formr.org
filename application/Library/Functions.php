@@ -1320,6 +1320,9 @@ function pre_htmlescape($str) {
 }
 
 function array_val($array, $key, $default = "") {
+	if (!is_array($array)) {
+		return false;
+	}
 	if (array_key_exists($key, $array)) {
 		return $array[$key];
 	}

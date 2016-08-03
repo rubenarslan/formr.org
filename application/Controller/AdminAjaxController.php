@@ -234,30 +234,43 @@ class AdminAjaxController {
 		$run = $this->controller->run;
 		$dbh = $this->dbh;
 
-		if (is_ajax_request()):
-			if ($run_unit_id = $this->request->getParam('run_unit_id')):
+		if (is_ajax_request()) {
+			if (($run_unit_id = $this->request->getParam('run_unit_id'))) {
 				$special = $this->request->getParam('special');
 
 				$unit_info = $run->getUnitAdmin($run_unit_id, $special);
 				$unit_factory = new RunUnitFactory();
+				/* @var $unit RunUnit */
 				$unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
+				if (!$unit) {
+					not_found();
+				}
+				$sess_key = __METHOD__ . $unit->id;
+				$results = $unit->howManyReachedItNumbers();
+				$has_sessions = $results && (array_val($results, 'begun') || array_val($results, 'finished') || array_val($results, 'expired'));
 
-				if ($unit->removeFromRun($special)):
-					alert('<strong>Success.</strong> Unit with ID ' . h($_POST['run_unit_id']) . ' was deleted.', 'alert-success');
-					echo $this->site->renderAlerts();
+				if ($has_sessions && !Session::get($sess_key)) {
+					Session::set($sess_key, $unit->id);
+					echo 'warn';
 					exit;
-				endif;
-			endif;
-		endif;
-
-		bad_request_header();
-		$alert_msg = '<strong>Sorry, could not remove unit.</strong> ';
-		if (isset($unit)) {
-			$alert_msg .= implode($unit->errors);
+				} elseif (!$has_sessions || (Session::get($sess_key) === $unit->id && $this->request->getParam('confirm') === 'yes')) {
+					if ($unit->removeFromRun($special)) {
+						alert('<strong>Success.</strong> Unit with ID ' . $this->request->run_unit_id . ' was deleted.', 'alert-success');
+					} else {
+						bad_request_header();
+						$alert_msg = '<strong>Sorry, could not remove unit.</strong> ';
+						$alert_msg .= implode($unit->errors);
+						alert($alert_msg, 'alert-danger');
+					}
+				}
+			}
+		} else {
+			not_found();
 		}
-		alert($alert_msg, 'alert-danger');
 
+		Session::delete($sess_key);
 		echo $this->site->renderAlerts();
+		exit;
 	}
 
 	private function ajaxReorder() {

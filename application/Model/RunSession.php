@@ -201,10 +201,9 @@ class RunSession {
 	public function forceTo($position) {
 		// If there a unit for current position, then end the unit's session before moving
 		if ($this->getUnitIdAtPosition($this->position)) {
-			return $this->endUnitSession() ? $this->runTo($position) : false;
-		} else {
-			return $this->runTo($position);
+			$this->endUnitSession();
 		}
+		return $this->runTo($position);
 	}
 
 	public function runTo($position, $unit_id = null) {
