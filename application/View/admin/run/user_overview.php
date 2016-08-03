@@ -25,18 +25,24 @@ Template::load('acp_nav');
 						<span class="sessions-search-switch" data-active="<?php echo !empty($_GET['sessions']) ? 'multiple' : 'single'; ?>"><i class="fa fa-refresh"></i></span>
 						<div class="input-group single <?php if(!empty($_GET['sessions'])) echo 'hidden'; ?>">
 							<span class="input-group-addon"><i class="fa fa-user"></i></span>
-							<input type="search" placeholder="Session key" name="session" class="form-control" value="<?= isset($_GET['session']) ? h($_GET['session']) : ''; ?>">
+							<input type="search" placeholder="Session key" name="session" class="form-control" value="<?= h(array_val($_GET, 'session')) ?>">
 						</div><!-- /input-group -->
 						<div class="input-group multiple <?php if(empty($_GET['sessions'])) echo 'hidden'; ?>">
 							<span class="input-group-addon"><i class="fa fa-users"></i></span>
-							<textarea placeholder="Session keys (Enter each in new line)" name="sessions" class="form-control"><?= isset($_GET['sessions']) ? h($_GET['sessions']) : ''; ?></textarea>
+							<textarea placeholder="Session keys (Enter each in new line)" name="sessions" class="form-control"><?= h(array_val($_GET, 'sessions')) ?></textarea>
 						</div><!-- /input-group -->
 					</div><!-- /.col-lg-6 -->
 					<div class="col-lg-3">
 						<div class="input-group">
 							<span class="input-group-addon"><i class="fa fa-flag-checkered"></i></span>
-							<input type="number" placeholder="Position" name="position" class="form-control round_right" value="<?= isset($_GET['position']) ? h($_GET['position']) : ''; ?>">
-
+							<select type="number" placeholder="Position" name="position" class="form-control round_right">
+								<option value="">Position</option>
+								<?php foreach($unit_types AS $run_unit): ?>
+								<option value="<?=$run_unit['position']?>" <?=($run_unit['position'] == array_val($_GET, 'position')) ? 'selected="selected"' : '' ?>>
+										<?=$run_unit['position'] . " - (" . $run_unit['type'] . ") " . $run_unit['description']?>
+									</option>
+								<?php endforeach; ?>
+							</select>
 						</div><!-- /input-group -->
 					</div><!-- /.col-lg-6 -->
 
