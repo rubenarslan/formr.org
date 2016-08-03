@@ -44,12 +44,13 @@ class Run {
 	public $title = null;
 	public $description = null;
 	public $osf_project_id = null;
-	private $description_parsed = null;
 	public $footer_text = null;
-	private $footer_text_parsed = null;
 	public $public_blurb = null;
+	private $description_parsed = null;
+	private $footer_text_parsed = null;
 	private $public_blurb_parsed = null;
 	private $api_secret_hash = null;
+	private $owner = null;
 	private $run_settings = array(
 		"header_image_path", "title", "description",
 		"footer_text", "public_blurb", "custom_css",
@@ -325,7 +326,10 @@ class Run {
 	 * @return \User
 	 */
 	public function getOwner() {
-		return new User($this->dbh, $this->user_id);
+		if (!$this->owner) {
+			$this->owner = new User($this->dbh, $this->user_id);
+		}
+		return $this->owner;
 	}
 
 	public function getUserCounts() {
