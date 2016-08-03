@@ -132,11 +132,11 @@ class AdminAjaxController {
 		$dbh = $this->dbh;
 
 		$run_session = new RunSession($dbh, $run->id, null, $_POST['session'], $run);
-		$new_position = $_POST['new_position'];
+		$new_position = $this->request->int('new_position');
 		$_POST = array();
 
 		if (!$run_session->forceTo($new_position)):
-			alert('<strong>Something went wrong with the position change.</strong> in run ' . $run->name, 'alert-danger');
+			alert('<strong>Something went wrong with the position change.</strong> Run: ' . $run->name, 'alert-danger');
 			bad_request_header();
 		endif;
 

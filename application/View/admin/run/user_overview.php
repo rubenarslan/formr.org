@@ -116,11 +116,12 @@ Template::load('acp_nav');
 								</span>
 								<input type="hidden" name="session" value="<?php echo $user['session']; ?>" />
 								<select name="new_position" class="form-control position_monkey ">
-								<?php foreach($unit_types AS $run_unit): ?>
-									<option value="<?=$run_unit['position']?>" <?=($run_unit['position'] === $user['position']) ? 'selected' : '' ?>>
-										<?=$run_unit['position'] . " - (" . $run_unit['type'] . ") " . $run_unit['description']?>
-									</option>
-								<?php endforeach; ?>
+									<option value="">[unknown]</option>
+									<?php foreach($unit_types AS $run_unit): ?>
+										<option value="<?=$run_unit['position']?>" <?=($run_unit['position'] === $user['position']) ? 'selected' : '' ?>>
+											<?=$run_unit['position'] . " - (" . $run_unit['type'] . ") " . $run_unit['description']?>
+										</option>
+									<?php endforeach; ?>
 								</select>
 								<span class='input-group-btn link-ajax-modal'>
 									<a class="btn hastooltip delete-run-session" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_delete_user?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-trash-o'></i></a>
