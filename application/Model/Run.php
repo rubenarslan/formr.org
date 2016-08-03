@@ -33,7 +33,7 @@ class Run {
 	public $public = false;
 	public $cron_active = true;
 	public $live = false;
-	private $api_secret_hash = null;
+	public $user_id = null;
 	public $being_serviced = false;
 	public $locked = false;
 	public $errors = array();
@@ -49,6 +49,7 @@ class Run {
 	private $footer_text_parsed = null;
 	public $public_blurb = null;
 	private $public_blurb_parsed = null;
+	private $api_secret_hash = null;
 	private $run_settings = array(
 		"header_image_path", "title", "description",
 		"footer_text", "public_blurb", "custom_css",
@@ -317,6 +318,14 @@ class Run {
 		$g_users->bindParam(':run_id', $this->id);
 		$g_users->execute();
 		return $g_users->fetch(PDO::FETCH_ASSOC);
+	}
+
+	/**
+	 *
+	 * @return \User
+	 */
+	public function getOwner() {
+		return new User($this->dbh, $this->user_id);
 	}
 
 	public function getUserCounts() {

@@ -272,12 +272,9 @@ class Email extends RunUnit {
 		$testing = !$run_session || $run_session->isTesting();
 		
 		$acc = new EmailAccount($this->dbh, $this->account_id, null);
-		if((is_array($acc->account) && $acc->account["from"] === $this->recipient) || Site::getCurrentUser()->email === $this->recipient) {
-			$mailing_themselves = true;
-		} else {
-			$mailing_themselves = false;
-		}
-		
+		$mailing_themselves = (is_array($acc->account) && $acc->account["from"] === $this->recipient) ||
+							  (Site::getCurrentUser()->email === $this->recipient) ||
+							  ($this->run && $this->run->getOwner()->email === $this->recipient);
 				
 		$mails_sent = $this->numberOfEmailsSent();
 		$error = null;
