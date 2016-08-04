@@ -44,6 +44,7 @@ $dues = $run->getCronDues();
 $done = array();
 $i = 0;
 // Foreach session, execute all units
+$run->getOwner();
 foreach ($dues as $session) {
 	$run_session = new RunSession(DB::getInstance(), $run->id, 'cron', $session, $run);
 	$types = $run_session->getUnit(); // start looping thru their units.

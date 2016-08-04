@@ -308,7 +308,7 @@ class RunUnit {
 		return $this->run_session_id;
 	}
 
-	protected function howManyReachedItNumbers() {
+	public function howManyReachedItNumbers() {
 		$reached = $this->dbh->select(array('SUM(`survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL)' => 'begun', 'SUM(`survey_unit_sessions`.ended IS NOT NULL)' => 'finished', 'SUM(`survey_unit_sessions`.expired IS NOT NULL)' => 'expired'))
 						->from('survey_unit_sessions')
 						->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
@@ -320,7 +320,7 @@ class RunUnit {
 		return $reached;
 	}
 
-	protected function howManyReachedIt() {
+	public function howManyReachedIt() {
 		$reached = $this->howManyReachedItNumbers();
 		if ($reached['begun'] === "0") {
 			$reached['begun'] = "";

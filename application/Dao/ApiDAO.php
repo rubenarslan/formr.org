@@ -57,7 +57,25 @@ class ApiDAO {
 		 * 		}
 		 * }'
 		 */
-		if (!($request = $this->parseJsonRequest()) || !($run = $this->getRunFromRequest($request))) {
+
+		// Get run object from request
+		$request_run = $this->request->arr('run');
+		$request_surveys = $this->request->arr('surveys');
+		$request = array('run' => array(
+			'name' => array_val($request_run, 'name', null),
+			'session' => array_val($request_run, 'session', null),
+			'sessions' => array_filter(explode(',', array_val($request_run, 'sessions', false))),
+			'surveys' => array()
+		));
+		foreach ($request_surveys as $survey_name => $survey_fields) {
+			$request['run']['surveys'][] = (object)array(
+				'name' => $survey_name,
+				'items' => $survey_fields,
+			);
+		}
+
+		$request = json_decode(json_encode($request));
+		if (!($run = $this->getRunFromRequest($request))) {
 			return $this;
 		}
 		$requested_run = $request->run;
@@ -91,9 +109,17 @@ class ApiDAO {
 		if (!empty($requested_run->session)) {
 			$requested_run->sessions = array($requested_run->session);
 		}
-		// single session or multiple sessions were not requested.
+		// If no specific sessions are requested then return all sessions
 		if (empty($requested_run->sessions)) {
-			$this->setData(Response::STATUS_BAD_REQUEST, 'Missing parameter', null, 'The sessions for the requested run were not specified');
+			$sessions = $this->fdb->find('survey_run_sessions', array('run_id' => $run->id), array('cols' => 'session'));
+			foreach ($sessions as $sess) {
+				$requested_run->sessions[] = $sess['session'];
+			}
+		}
+
+		// If sessions are still not available then run is empty
+		if (empty($requested_run->sessions)) {
+			$this->setData(Response::STATUS_NOT_FOUND, 'Empty Run', null, 'No sessions were found in this run.');
 			return $this;
 		}
 
@@ -263,9 +289,15 @@ class ApiDAO {
 	}
 
 	private function parseJsonRequest() {	
-		$object = json_decode($this->request->getParam('request'));
+		//$object = json_decode($this->request->getParam('request'));
+		$request = file_get_contents('php://input');
+		if (!$request) {
+			$this->setData(Response::STATUS_BAD_REQUEST, 'Invalid Request', null, "Request payload not found");
+			return false;
+		}
+		$object = json_decode($request);
 		if (!$object) {
-			$this->setData(Response::STATUS_BAD_REQUEST, 'Invalid Request', null, "Unable to parse 'request' parameter");
+			$this->setData(Response::STATUS_BAD_REQUEST, 'Invalid Request', null, "Unable to parse JSON request");
 			return false;
 		}
 		return $object;

@@ -202,19 +202,17 @@ class Survey extends RunUnit {
 		}
 
 		$created = array();
-		// check if survey exists by name even if it belongs to different user
+		// check if survey exists by name even if it belongs to current user. If that is the case then use existing ID.
 		$survey = Survey::loadByName($data->name);
-		if ($survey->valid && !Site::getCurrentUser()->created($survey)) {
-			alert("You are not the creator of survey {$data->name} so can't modify it", 'alert-warning');
-			return false;
-		} elseif ($survey->valid && Site::getCurrentUser()->created($survey)) {
+		if ($survey->valid && Site::getCurrentUser()->created($survey)) {
 			$created['id'] = $survey->id;
 			$created['unit_id'] = $survey->id;
 		} else {
-			$survey->unit = array(
+			$unit = array(
 				'user_id' => Site::getCurrentUser()->id,
 				'name' => $data->name,
 			);
+			$survey = new Survey(DB::getInstance(), null, $unit);
 			if ($survey->createIndependently((array)$data->settings)) {
 				$created['unit_id'] = $survey->id;
 				$created['id'] = $survey->id;

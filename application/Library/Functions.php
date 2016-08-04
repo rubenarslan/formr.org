@@ -1244,7 +1244,7 @@ function opencpu_multiparse_values(Survey $survey, array $values, $return_sessio
 	return opencpu_evaluate($code, $variables, 'json', null, $return_session);
 }
 
-function opencpu_debug($session, OpenCPU $ocpu = null) {
+function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 	$debug = array();
 	if (empty($session)) {
 		$debug['Response'] = 'No OpenCPU_Session found. Server may be down.';
@@ -1259,26 +1259,25 @@ function opencpu_debug($session, OpenCPU $ocpu = null) {
 		try {
 			$request = $session->getRequest();
 			$params = $request->getParams();
-			
-			if ($session->hasError()):
+			if ($session->hasError()) {
 				$debug['Response'] = pre_htmlescape($session->getError());
-			else:
-				if(isset($params['text'])):
+			} else {
+				if (isset($params['text']) || $rtype === 'text') {
 					$debug['Response'] = stringBool($session->getObject('text'));
-				else:
+				} else {
 					$debug['Response'] = pre_htmlescape(json_encode($session->getJSONObject(),  JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
-				endif;
-			endif;
+				}
+			}
 			$debug['Request'] =  pre_htmlescape((string) $request);
-			if(isset($params['text'])):
+			if(isset($params['text'])) {
 				$debug['R Markdown'] = '
 					<a href="#" class="download_r_code" data-filename="formr_rmarkdown.Rmd">Download R Markdown file.</a><br>
 					<textarea class="form-control" rows="10" readonly>'. h(stripslashes(substr($params['text'], 1, -1))) . '</textarea>';
-			elseif(isset($params['x'])):
+			} elseif(isset($params['x'])) {
 				$debug['R Code'] = '
 					<a href="#" class="download_r_code" data-filename="formr_values_showifs.R">Download R code file.</a><br>
 					<textarea class="form-control" rows="10" readonly>'. h((substr($params['x'], 1, -1))) . '</textarea>';
-			endif;
+			}
 			$urls = $session->getResponsePathsAsLinks();
 			if (!$session->hasError() AND ! empty($urls)) {
 				$locations = '';
@@ -1320,6 +1319,9 @@ function pre_htmlescape($str) {
 }
 
 function array_val($array, $key, $default = "") {
+	if (!is_array($array)) {
+		return false;
+	}
 	if (array_key_exists($key, $array)) {
 		return $array[$key];
 	}
