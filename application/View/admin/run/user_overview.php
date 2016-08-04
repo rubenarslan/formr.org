@@ -125,6 +125,7 @@ Template::load('acp_nav');
 								</select>
 								<span class='input-group-btn link-ajax-modal'>
 									<a class="btn hastooltip delete-run-session" href="javascript:void(0)" data-href="<?php echo admin_run_url($user['run_name'], "ajax_delete_user?run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])); ?>" title="Delete this user and all their data (you'll have to confirm)" data-session="<?php echo h($user['session']); ?>"><i class='fa fa-trash-o'></i></a>
+									<a class="btn hastooltip" href="<?php echo admin_run_url($user['run_name'], "user_detail?session=" . urlencode(substr($user['session'], 0, 15))); ?>" title="Go to user detail"><i class="fa fa-list"></i></a>
 								</span>
 							</span>
 						</form>
