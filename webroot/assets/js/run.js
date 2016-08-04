@@ -236,31 +236,57 @@
         return session;
     };
 
-    RunUnit.prototype.removeFromRun = function (e)
+    RunUnit.prototype.removeFromRun = function (e, confirm)
     {
         e.preventDefault();
         $(".tooltip").hide();
-        var $unit = this.block;
+        var self = this;
+        var event = e;
+        var $unit = this.block, $modal;
+        var action = this.run.url + "/" + this.remove_button.attr('href');
+        var data = {'run_unit_id': this.run_unit_id}
+        if (confirm === 'yes') {
+            data['confirm'] = 'yes';
+        }
         $unit.hide();
         $.ajax(
-                {
-                    url: this.run.url + "/" + this.remove_button.attr('href'),
-                    dataType: 'html',
-                    data: {"run_unit_id": this.run_unit_id},
-                    method: 'POST'
-                })
-                .done($.proxy(function (data)
-                {
+            {
+                url: action,
+                dataType: 'html',
+                data: data,
+                method: 'POST'
+            }).done($.proxy(function (data)  {
+                $unit.show();
+                if (!data) {
+                    return;
+                } else if (data === 'warn') {
+                    $modal = $($.parseHTML(getHTMLTemplate('tpl-confirmation', {
+                        'content': 'Are you sure you want to delete this run unit and all it\'s data?',
+                    })));
+                    $modal.on('shown.bs.modal', function () {
+                        $modal.find('.btn-yes').click(function (e) {
+                            self.removeFromRun(event, 'yes');
+                            $modal.modal('hide');
+                        });
+                        $modal.find('.btn-no').click(function (e) {
+                            $modal.modal('hide');
+                            self.removeFromRun(event, 'no');
+                        });
+                    }).on('hidden.bs.modal', function () {
+                        $modal.remove();
+                    }).modal('show');
+                } else {
                     $unit.html(data);
                     $unit.show();
                     var whereitat = this.run.units.indexOf(this);
-                    if (whereitat > -1)
+                    if (whereitat > -1) {
                         this.run.units.splice(whereitat, 1); // remove from the run unit list
-                }, this))
-                .fail(function (e, x, settings, exception) {
-                    $unit.show();
-                    ajaxErrorHandling(e, x, settings, exception);
-                });
+                    }
+                }
+            }, this)).fail(function (e, x, settings, exception) {
+                $unit.show();
+                ajaxErrorHandling(e, x, settings, exception);
+            });
 
         return false;
     };
