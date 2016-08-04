@@ -111,8 +111,8 @@ class Branch extends RunUnit {
 
 		$this->run_session_id = current($results)['id'];
 		$opencpu_vars = $this->getUserDataInRun($this->condition);
-		$ocpu_session = opencpu_evaluate($this->condition, $opencpu_vars, '', null, true);
-		echo opencpu_debug($ocpu_session);
+		$ocpu_session = opencpu_evaluate($this->condition, $opencpu_vars, 'text', null, true);
+		echo opencpu_debug($ocpu_session, null, 'text');
 
 		echo '<table class="table table-striped">
 				<thead><tr>

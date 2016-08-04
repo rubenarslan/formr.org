@@ -400,7 +400,7 @@ class Email extends RunUnit {
 		echo "<h4>Recipient</h4>";
 		$recipient_field = $this->getRecipientField('',true);
 		if(!is_string($recipient_field) AND get_class($recipient_field) == "OpenCPU_Session") {
-			echo opencpu_debug($recipient_field);
+			echo opencpu_debug($recipient_field, null, 'text');
 		} else {
 			echo $this->mostrecent . ": " . $recipient_field;
 		}
