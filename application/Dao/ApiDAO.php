@@ -288,9 +288,8 @@ class ApiDAO {
 		}
 	}
 
-	private function parseJsonRequest() {	
-		//$object = json_decode($this->request->getParam('request'));
-		$request = file_get_contents('php://input');
+	private function parseJsonRequest() {
+		$request = $this->request->str('request', null) ? $this->request->str('request') : file_get_contents('php://input');
 		if (!$request) {
 			$this->setData(Response::STATUS_BAD_REQUEST, 'Invalid Request', null, "Request payload not found");
 			return false;
