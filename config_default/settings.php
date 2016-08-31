@@ -125,4 +125,10 @@ $settings['email_subscriptions'] = array(
 
 // Limit to number of pages to skip in a survey
 $settings['allowed_empty_pages'] = 100;
+
+// Gearman settings
+$settings['gearman'] = array(
+	'host' => 'server.gearman.net',
+	'port' => 4730,
+);
 		
