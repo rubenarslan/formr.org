@@ -4,7 +4,7 @@
  * This class acts as a Data Access Object for the OAuth2 Library
  * imported from https://github.com/bshaffer/oauth2-server-php
  */
-class OAuthDAO {
+class OAuthHelper {
 
 	/**
 	 * @var \OAuth2\Server
@@ -23,7 +23,7 @@ class OAuthDAO {
 	protected $config;
 
 	/**
-	 * @var OAuthDAO
+	 * @var OAuthHelper
 	 */
 	public static $instance;
 
