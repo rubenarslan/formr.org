@@ -1,5 +1,5 @@
 <?php
-require_once '../define_root.php';
+require_once dirname(__FILE__) . '/../setup.php';
 
 // Start formr session
 Session::configure();
