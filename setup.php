@@ -30,7 +30,7 @@ require_once APPLICATION_PATH . 'Library/Functions.php';
 // Initialize Config
 Config::initialize($settings);
 
-// Define global constants
+// Global Setup
 function __setup($settings = array()) {
 	if(defined('WEBROOT')) return;
 
@@ -48,26 +48,26 @@ function __setup($settings = array()) {
 	define('SSL', $protocol === "https://");
     define('RUNROOT', WEBROOT);
 	define('DEBUG', Config::get('display_errors'));
+	
+	// General PHP-side configuration
+	error_reporting(-1);
+	if (DEBUG > 0) {
+		ini_set('display_errors', 1);
+	}
+
+	ini_set("log_errors", 1);
+	ini_set("error_log", get_log_file('errors.log'));
+
+	ini_set('session.gc_maxlifetime', Config::get('session_cookie_lifetime'));
+	ini_set('session.cookie_lifetime', Config::get('session_cookie_lifetime'));
+	ini_set('session.hash_function', 1);
+	ini_set('session.hash_bits_per_character', 5);
+	ini_set('session.gc_divisor', 100);
+	ini_set('session.gc_probability', 1);
+
+	date_default_timezone_set(Config::get('timezone'));
+	mb_internal_encoding('UTF-8');
+	register_shutdown_function('shutdown_formr_org');
 }
 __setup($settings);
-
-// General PHP-side configuration
-error_reporting(-1);
-if (DEBUG > 0) {
-    ini_set('display_errors', 1);
-}
-
-ini_set("log_errors", 1);
-ini_set("error_log", get_log_file('errors.log'));
-
-ini_set('session.gc_maxlifetime', Config::get('session_cookie_lifetime'));
-ini_set('session.cookie_lifetime', Config::get('session_cookie_lifetime'));
-ini_set('session.hash_function', 1);
-ini_set('session.hash_bits_per_character', 5);
-ini_set('session.gc_divisor', 100);
-ini_set('session.gc_probability', 1);
-
-date_default_timezone_set(Config::get('timezone'));
-mb_internal_encoding('UTF-8');
-register_shutdown_function('shutdown_formr_org');
 
