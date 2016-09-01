@@ -6,7 +6,7 @@
  * 
  */
 
-require_once dirname(__FILE__) . '/../define_root.php';
+require_once dirname(__FILE__) . '/../setup.php';
 
 
 function migrateSpecialUnits() {
