@@ -11,6 +11,7 @@ formr-package/man
 /tmp/logs/*
 !/tmp/logs/cron/
 /tmp/logs/cron/*
+/tmp/*.lock
 /nbproject
 /webroot/assets/node_modules/*
 /webroot/assets/bower_components/*
