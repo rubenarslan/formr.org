@@ -1,6 +1,6 @@
 <?php
 
-require_once dirname(__FILE__) . '/../define_root.php';
+require_once dirname(__FILE__) . '/../setup.php';
 
 // log to formr log file
 function cron_log($message) {
