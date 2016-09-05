@@ -52,9 +52,9 @@ class Deamon {
 
 	public function __construct(DB $db) {
 		$this->db = $db;
-		$this->lockFile = INCLUDE_ROOT . '/tmp/lock/cron.lock';
+		$this->lockFile = INCLUDE_ROOT . '/tmp/deamon.lock';
 		$this->runExpireTime = Config::get('deamon.run_expire_time', 10*60);
-		$this->loopInterval = Config::get('deamon.loop_interval', 1);
+		$this->loopInterval = Config::get('deamon.loop_interval', 60);
 
 		// Register signal handlers that should be able to kill the cron in case some other weird shit happens 
 		// apart from cron exiting cleanly
@@ -83,6 +83,7 @@ class Deamon {
 		// loop forever until terminated by SIGINT
 		while (!$this->out) {
 			try {
+				file_put_contents($this->lockFile, date('r'));
 				// loop until terminated but with taking some nap
 				while (!$this->out && $this->rested()) {
 					
@@ -156,7 +157,7 @@ class Deamon {
 	protected function cleanup($interrupt = null) {
 		if (file_exists($this->lockFile)) {
 			unlink($this->lockFile);
-			self::dbg("Cronfile cleanup complete");
+			self::dbg("Lockfile cleanup complete");
 		}
 	}
 
@@ -200,7 +201,7 @@ class Deamon {
 		}
 
 		$str = date('Y-m-d H:i:s') . ' ' . $str . PHP_EOL;
-		return error_log($str, 3, get_log_file('cron.log'));
+		return error_log($str, 3, get_log_file('deamon.log'));
 	}
 }
 

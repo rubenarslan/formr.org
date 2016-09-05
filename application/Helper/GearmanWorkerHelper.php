@@ -21,7 +21,7 @@ class GearmanWorkerHelper extends GearmanWorker {
 			list($host, $port) = explode(':', $server, 2);
 			$this->addServer($host, $port);
 		}
-		$this->logFile = get_log_file('errors.log');
+		$this->logFile = get_log_file('deamon.log');
 	}
 
 	/**
