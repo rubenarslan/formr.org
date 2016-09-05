@@ -53,8 +53,8 @@ class GearmanWorkerHelper extends GearmanWorker {
 				$startTime = isset($startTime) ? $startTime : time();
 				if (time() - $startTime >= $timeout) {
 					$this->dbg("Waited for a new job for $timeout seconds, giving up.");
-					// @todo notify admin that worker is going offline
-					exit(90);
+					// @todo notify admin that worker is going offline and use exit code 90 (expected)
+					exit(0);
 				}
 			} else if (in_array($this->returnCode(), array(GEARMAN_WORK_EXCEPTION, GEARMAN_SUCCESS, GEARMAN_WORK_FAIL))) {
 
@@ -96,12 +96,18 @@ class GearmanWorkerHelper extends GearmanWorker {
 	 * Debug output
 	 *
 	 * @param string $str
+	 * @param array $args
+	 * @param Run $run
 	 */
-	protected function dbg($str) {
-		//$this->logFile = get_log_file('errors.log');
-		$args = func_get_args();
-		if (count($args) > 1) {
-			$str = vsprintf(array_shift($args), $args);
+	protected function dbg($str, $args = array(), Run $run = null) {
+		if ($run !== null && is_object($run)) {
+			$logfile = get_log_file("cron/cron-run-{$run->name}.log");
+		} else {
+			$logfile = $this->logFile;
+		}
+
+		if (count($args) > 0) {
+			$str = vsprintf($str, $args);
 		}
 
 		$str = join(" ", array(
@@ -111,13 +117,13 @@ class GearmanWorkerHelper extends GearmanWorker {
 			$str,
 			PHP_EOL
 		));
-		return error_log($str, 3, $this->logFile);
+		return error_log($str, 3, $logfile);
 	}
 
-	protected function cleanup() {
+	protected function cleanup(Run $run = null) {
 		global $site;
 		if ($site->alerts) {
-			$this->dbg("\n<alerts>\n%s\n</alerts>", $site->renderAlerts());
+			$this->dbg("\n<alerts>\n%s\n</alerts>", array($site->renderAlerts()), $run);
 		}
 	}
 
@@ -125,11 +131,12 @@ class GearmanWorkerHelper extends GearmanWorker {
 	 * Sets job return status and writes statistics.
 	 *
 	 * @param GearmanJob $job
-	 * @param $GEARMAN_JOB_STATUS
+	 * @param int $GEARMAN_JOB_STATUS
+	 * @param Run $run
 	 */
-	protected function setJobReturn(GearmanJob $job, $GEARMAN_JOB_STATUS) {
+	protected function setJobReturn(GearmanJob $job, $GEARMAN_JOB_STATUS, Run $run = null) {
 		$job->setReturn($GEARMAN_JOB_STATUS);
-		$this->cleanup();
+		$this->cleanup($run);
 	}
 
 }
@@ -142,6 +149,7 @@ class RunWorkerHelper extends GearmanWorkerHelper {
 	}
 
 	public function processRun(GearmanJob $job) {
+		$r = null;
 		try {
 			$run = json_decode($job->workload(), true);
 			if (empty($run['name'])) {
@@ -150,14 +158,12 @@ class RunWorkerHelper extends GearmanWorkerHelper {
 				throw $ex;
 			}
 
-			//$this->logFile = get_log_file("cron/cron-run-{$run['name']}.log");
-
 			$r = new Run(DB::getInstance(), $run['name']);
 			if (!$r->valid) {
 				throw new Exception("Invalid Run {$run['name']}");
 			}
 
-			$this->dbg("Processing run >>> %s", $run['name']);
+			$this->dbg("Processing run >>> %s", array($run['name']), $r);
 			$dues = $r->getCronDues();
 			$i = 0;
 			foreach ($dues as $session) {
@@ -170,15 +176,15 @@ class RunWorkerHelper extends GearmanWorkerHelper {
 				$i++;
 			}
 
-			$this->dbg("%s sessions in the run '%s' were queued for processing", $i, $run['name']);
+			$this->dbg("%s sessions in the run '%s' were queued for processing", array($i, $run['name']), $r);
 		} catch (Exception $e) {
 			$this->dbg("Error: " . $e->getMessage() . PHP_EOL . $e->getTraceAsString());
 			$job->sendException($e->getMessage());
-			$this->setJobReturn($job, GEARMAN_WORK_EXCEPTION);
+			$this->setJobReturn($job, GEARMAN_WORK_EXCEPTION, $r);
 			return;
 		}
 
-		$this->setJobReturn($job, GEARMAN_SUCCESS);
+		$this->setJobReturn($job, GEARMAN_SUCCESS, $r);
 	}
 }
 
@@ -190,7 +196,7 @@ class RunSessionWorkerHelper extends GearmanWorkerHelper {
 	}
 
 	public function processRunSession(GearmanJob $job) {
-		
+		$r = null;
 		try {
 			$session = json_decode($job->workload(), true);
 
@@ -198,17 +204,15 @@ class RunSessionWorkerHelper extends GearmanWorkerHelper {
 				throw new Exception("Missing parameters for job: !" . $job->workload());
 			}
 
-			//$this->logFile = get_log_file("cron/cron-run-{$session['run_name']}.log");
-
 			$r = new Run(DB::getInstance(), $session['run_name']);
 			if (!$r->valid) {
 				throw new Exception("Invalid Run {$session['run_name']}");
 			}
 			$owner = $r->getOwner();
-			$this->dbg("Processing run session >>> %s > %s", $session['run_name'], $session['session']);
+			//$this->dbg("Processing run session >>> %s > %s", array($session['run_name'], $session['session']), $r);
 
 			$run_session = new RunSession(DB::getInstance(), $r->id, 'cron', $session['session'], $r);
-			$types = true;//$run_session->getUnit(); // start looping thru their units.
+			$types = $run_session->getUnit(); // start looping thru their units.
 			if (!$types) {
 				$error = "This session '{$session['session']}' caused problems";
 				alert($error, 'alert-danger');
@@ -217,10 +221,10 @@ class RunSessionWorkerHelper extends GearmanWorkerHelper {
 		} catch (Exception $e) {
 			$this->dbg("Error: " . $e->getMessage() . PHP_EOL . $e->getTraceAsString());
 			$job->sendException($e->getMessage());
-			$this->setJobReturn($job, GEARMAN_WORK_EXCEPTION);
+			$this->setJobReturn($job, GEARMAN_WORK_EXCEPTION, $r);
 			return;
 		}
 		// @todo. Echo types
-		$this->setJobReturn($job, GEARMAN_SUCCESS);
+		$this->setJobReturn($job, GEARMAN_SUCCESS, $r);
 	}
 }

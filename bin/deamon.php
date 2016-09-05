@@ -4,7 +4,7 @@ require_once dirname(__FILE__) . '/../setup.php';
 
 function _log($message) {
 	$message = date('Y-m-d H:i:s') . ' ' . $message . PHP_EOL;
-	return error_log($message, 3, get_log_file('errors.log'));
+	return error_log($message, 3, get_log_file('deamon.log'));
 }
 
 if (!function_exists('gearman_version')) {
