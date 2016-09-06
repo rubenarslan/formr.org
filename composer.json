@@ -1,29 +1,30 @@
 {
-	"name": "rubenarslan/formr",
-	"description": "make complex (longitudinal, network, diary, ...) studies using spreadsheets and give feedback with R graphs",
-	"version": "0.5.0",
-	"keywords": ["form", "survey", "study", "psychology", "R", "feedback"],
-	"homepage": "https://github.com/rubenarslan/formr",
-	"license": "BSD-2-Clause-FreeBSD",
-	"authors": [
-		{
-			"name": "Ruben C. Arslan",
-			"email": "rubenarslan@gmail.com",
-			"homepage": "https://github.com/rubenarslan",
-			"role": "Developer"
-		}
-	],
+    "name": "rubenarslan/formr",
+    "description": "make complex (longitudinal, network, diary, ...) studies using spreadsheets and give feedback with R graphs",
+    "version": "0.5.0",
+    "keywords": ["form", "survey", "study", "psychology", "R", "feedback"],
+    "homepage": "https://github.com/rubenarslan/formr",
+    "license": "BSD-2-Clause-FreeBSD",
+    "authors": [
+        {
+            "name": "Ruben C. Arslan",
+            "email": "rubenarslan@gmail.com",
+            "homepage": "https://github.com/rubenarslan",
+            "role": "Developer"
+        }
+    ],
     "require": {
         "php": ">=5.4.0",
-		"erusev/parsedown": "1.*",
-		"erusev/parsedown-extra": "0.*",
-		"ircmaxell/password-compat": "1.*",
-		"phpoffice/phpexcel": "1.*",
-		"phpmailer/phpmailer":  "5.*",
-		"bshaffer/oauth2-server-php": "~1.7",
-		"atrox/haikunator": "^1.0"
+        "erusev/parsedown": "1.*",
+        "erusev/parsedown-extra": "0.*",
+        "ircmaxell/password-compat": "1.*",
+        "phpoffice/phpexcel": "1.*",
+        "phpmailer/phpmailer": "5.*",
+        "bshaffer/oauth2-server-php": "~1.7",
+        "atrox/haikunator": "^1.0",
+        "mhlavac/gearman": "dev-master"
     },
     "require-dev": {
-           "phpunit/phpunit": "3.7.*"
+        "phpunit/phpunit": "3.7.*"
     }
 }

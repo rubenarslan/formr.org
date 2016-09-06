@@ -54,7 +54,7 @@ class SuperadminController extends Controller {
 		if ($user->email !== $user_email) {
 			$response->setJsonContent(array('success' => false, 'message' => 'Invalid User'));
 		} elseif ($action === 'create') {
-			$client = OAuthDAO::getInstance()->createClient($user);
+			$client = OAuthHelper::getInstance()->createClient($user);
 			if (!$client) {
 				$response->setJsonContent(array('success' => false, 'message' => 'Unable to create client'));
 			} else {
@@ -62,7 +62,7 @@ class SuperadminController extends Controller {
 				$response->setJsonContent(array('success' => true, 'data' => $client));
 			}
 		} elseif ($action === 'get') {
-			$client = OAuthDAO::getInstance()->getClient($user);
+			$client = OAuthHelper::getInstance()->getClient($user);
 			if (!$client) {
 				$response->setJsonContent(array('success' => true, 'data' => array('client_id' => '', 'client_secret' => '', 'user' => $user->email)));
 			} else {
@@ -70,13 +70,13 @@ class SuperadminController extends Controller {
 				$response->setJsonContent(array('success' => true, 'data' => $client));
 			}
 		} elseif ($action === 'delete') {
-			if (OAuthDAO::getInstance()->deleteClient($user)) {
+			if (OAuthHelper::getInstance()->deleteClient($user)) {
 				$response->setJsonContent(array('success' => true, 'message' => 'Credentials revoked for user ' . $user->email));
 			} else {
 				$response->setJsonContent(array('success' => false, 'message' => 'An error occured'));
 			}
 		} elseif ($action === 'change') {
-			$client = OAuthDAO::getInstance()->refreshToken($user);
+			$client = OAuthHelper::getInstance()->refreshToken($user);
 			if (!$client) {
 				$response->setJsonContent(array('success' => false, 'message' => 'An error occured refereshing API secret.'));
 			} else {

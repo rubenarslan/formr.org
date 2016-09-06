@@ -1,6 +1,6 @@
 <?php
 
-class RunDAO {
+class RunHelper {
 
 	/**
 	 *

@@ -157,7 +157,7 @@ class RunSession {
 
 				if (!$output && is_object($unit)) {
 					if (!isset($done[$unit->type])) {
-						$done[$unit->type] = 0;
+						$done[$unit->type] = 1;
 					}
 					$done[$unit->type] ++;
 				}

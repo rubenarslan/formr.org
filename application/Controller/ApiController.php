@@ -79,8 +79,8 @@ class ApiController extends Controller {
 		try {
 			$this->authenticate($action); // only proceed if authenticated, if not exit via response
 			$method = $this->getPrivateAction($action, '-', true);
-			$dao = new ApiDAO($request, $this->fdb);
-			$data = $dao->{$method}()->getData();
+			$helper = new ApiHelper($request, $this->fdb);
+			$data = $helper->{$method}()->getData();
 		} catch (Exception $e) {
 			formr_log_exception($e, 'API');
 			$data = array(

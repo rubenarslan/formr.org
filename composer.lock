@@ -4,7 +4,8 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "baa081bbda4782751fd4f807a75640ba",
+    "hash": "b58aee79ae9525c549223f3d772da221",
+    "content-hash": "b0ec0e93db3d122650dbbed41e4e624f",
     "packages": [
         {
             "name": "atrox/haikunator",
@@ -268,6 +269,7 @@
                 "rest",
                 "web service"
             ],
+            "abandoned": "guzzlehttp/guzzle",
             "time": "2015-03-18 18:23:50"
         },
         {
@@ -372,6 +374,68 @@
                 "single sign on"
             ],
             "time": "2015-04-02 15:09:47"
+        },
+        {
+            "name": "mhlavac/gearman",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mhlavac/gearman.git",
+                "reference": "c174db79f5847921a497fe51931e83a35283a35e"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/mhlavac/gearman/zipball/c174db79f5847921a497fe51931e83a35283a35e",
+                "reference": "c174db79f5847921a497fe51931e83a35283a35e",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3.0"
+            },
+            "require-dev": {
+                "fabpot/php-cs-fixer": "~1.10",
+                "phpunit/phpunit": "~4.0",
+                "symfony/process": "~2.7"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "0.1.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "MHlavac\\Gearman\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "New BSD"
+            ],
+            "authors": [
+                {
+                    "name": "Till Klampaeckel",
+                    "homepage": "http://pear.php.net/user/till"
+                },
+                {
+                    "name": "Brian L. Moon",
+                    "homepage": "http://pear.php.net/user/brianlmoon"
+                },
+                {
+                    "name": "Joe Stump",
+                    "homepage": "http://pear.php.net/user/jstump"
+                },
+                {
+                    "name": "Chris Goffinet",
+                    "homepage": "http://pear.php.net/user/lenn0x"
+                },
+                {
+                    "name": "Martin Hlavac",
+                    "homepage": "http://www.mhlavac.net"
+                }
+            ],
+            "description": "Gearman (http://www.danga.com/gearman) is a system to farm out work to other machines. It can load balance function calls to lots of machines and allows you to call functions between languages. It can also run all function calls in parallel.",
+            "time": "2015-11-05 19:42:12"
         },
         {
             "name": "phpmailer/phpmailer",
@@ -963,7 +1027,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {
+        "mhlavac/gearman": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {

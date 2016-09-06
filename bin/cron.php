@@ -1,7 +1,7 @@
 #!/usr/bin/php
 <?php
 
-require_once dirname(__FILE__) . '/../define_root.php';
+require_once dirname(__FILE__) . '/../setup.php';
 
 // Set maximum execution time to 9 minutes as cron runs every 10 minutes. (There should be better way to do this)
 $start_time = microtime(true);

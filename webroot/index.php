@@ -1,24 +1,5 @@
 <?php
-require_once '../define_root.php';
-
-// General PHP-side configuration
-error_reporting(-1);
-if (DEBUG > 0) {
-    ini_set('display_errors', 1);
-}
-ini_set("log_errors", 1);
-ini_set("error_log", get_log_file('errors.log'));
-
-ini_set('session.gc_maxlifetime', Config::get('session_cookie_lifetime'));
-ini_set('session.cookie_lifetime', Config::get('session_cookie_lifetime'));
-ini_set('session.hash_function', 1);
-ini_set('session.hash_bits_per_character', 5);
-ini_set('session.gc_divisor', 100);
-ini_set('session.gc_probability', 1);
-
-date_default_timezone_set(Config::get('timezone'));
-mb_internal_encoding('UTF-8');
-register_shutdown_function('shutdown_formr_org');
+require_once dirname(__FILE__) . '/../setup.php';
 
 // Start formr session
 Session::configure();
