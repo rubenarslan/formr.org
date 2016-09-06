@@ -160,7 +160,9 @@ class RunWorkerHelper extends GearmanWorkerHelper {
 
 			$r = new Run(DB::getInstance(), $run['name']);
 			if (!$r->valid) {
-				throw new Exception("Invalid Run {$run['name']}");
+				$ex = new Exception("Invalid Run {$run['name']}");
+				$job->sendException($ex->getMessage());
+				throw $ex;
 			}
 
 			$this->dbg("Processing run >>> %s", array($run['name']), $r);
@@ -206,17 +208,19 @@ class RunSessionWorkerHelper extends GearmanWorkerHelper {
 
 			$r = new Run(DB::getInstance(), $session['run_name']);
 			if (!$r->valid) {
-				throw new Exception("Invalid Run {$session['run_name']}");
+				$ex = new Exception("Invalid Run {$session['run_name']}");
+				$job->sendException($ex->getMessage());
+				throw $ex;
 			}
 			$owner = $r->getOwner();
 			//$this->dbg("Processing run session >>> %s > %s", array($session['run_name'], $session['session']), $r);
 
 			$run_session = new RunSession(DB::getInstance(), $r->id, 'cron', $session['session'], $r);
 			$types = $run_session->getUnit(); // start looping thru their units.
-			if (!$types) {
+			if ($types === false) {
 				$error = "This session '{$session['session']}' caused problems";
 				alert($error, 'alert-danger');
-				throw new Exception($error);
+				//throw new Exception($error);
 			}
 		} catch (Exception $e) {
 			$this->dbg("Error: " . $e->getMessage() . PHP_EOL . $e->getTraceAsString());
