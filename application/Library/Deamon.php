@@ -52,7 +52,7 @@ class Deamon {
 
 	public function __construct(DB $db) {
 		$this->db = $db;
-		$this->lockFile = INCLUDE_ROOT . '/tmp/deamon.lock';
+		$this->lockFile = INCLUDE_ROOT . 'tmp/deamon.lock';
 		$this->runExpireTime = Config::get('deamon.run_expire_time', 10*60);
 		$this->loopInterval = Config::get('deamon.loop_interval', 60);
 
@@ -73,7 +73,7 @@ class Deamon {
 
 	public function run() {
 		$runExpireTime = $time = $id = 0;
-		$fetchStmt = $this->db->prepare('select id, name, last_deamon_access from survey_runs where last_deamon_access < :run_expiration_time');
+		$fetchStmt = $this->db->prepare('select id, name, last_deamon_access from survey_runs where last_deamon_access < :run_expiration_time and cron_active = 1 order by rand()');
 		$fetchStmt->bindParam(':run_expiration_time', $runExpireTime, PDO::PARAM_INT);
 
 		$updateStmt = $this->db->prepare('update survey_runs set last_deamon_access = :time where id = :id');
