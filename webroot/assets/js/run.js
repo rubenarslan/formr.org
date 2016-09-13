@@ -149,7 +149,9 @@
             //		  event.stopPropagation()
             //	  });
             if ($modal.find(".download_r_code").length > 0) {
-                $modal.find(".download_r_code").click(download_next_textarea);
+                $modal.find(".download_r_code").click(function () {
+                    return download_next_textarea(this);
+                });
             }
 
         }, this)).fail($.proxy(function (e, x, settings, exception) {
@@ -244,9 +246,9 @@
         var event = e;
         var $unit = this.block, $modal;
         var action = this.run.url + "/" + this.remove_button.attr('href');
-        var data = {'run_unit_id': this.run_unit_id}
+        var data = {'run_unit_id': this.run_unit_id};
         if (confirm === 'yes') {
-            data['confirm'] = 'yes';
+            data.confirm = 'yes';
         }
         $unit.hide();
         $.ajax(
