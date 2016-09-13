@@ -21,7 +21,7 @@
 			</li>
 
 		    <li>
-				<a href="<?php echo site_url('team'); ?>"><i class="fa fa-coffee fa-fw"></i> <?php echo _("team"); ?></a>
+				<a href="<?php echo site_url('about'); ?>"><i class="fa fa-coffee fa-fw"></i> <?php echo _("about"); ?></a>
 			</li>
 
 		<?php if($user->loggedIn()): ?>

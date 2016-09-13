@@ -17,8 +17,8 @@ class PublicController extends Controller {
 		$this->renderView('public/studies', array('runs' => $this->user->getAvailableRuns()));
 	}
 
-	public function teamAction() {
-		$this->renderView('public/team');
+	public function aboutAction() {
+		$this->renderView('public/about');
 	}
 
 	public function editUserAction() {
