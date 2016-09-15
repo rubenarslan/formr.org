@@ -7,7 +7,7 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
 			note
 		</dt>
 		<dd>
-			 display text. Notes are displayed at least once and disappear only when there are no unanswered items left behind them (so putting a note directly before another ensures it will be displayed only once)
+			 display text. Notes are only displayed once, you can think of them as being "answered" simple by submitting.
 		 </dd>
 		 <dt>
 			 submit <i>timeout</i>

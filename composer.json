@@ -1,18 +1,18 @@
 {
-    "name": "rubenarslan/formr",
-    "description": "make complex (longitudinal, network, diary, ...) studies using spreadsheets and give feedback with R graphs",
-    "version": "0.5.0",
-    "keywords": ["form", "survey", "study", "psychology", "R", "feedback"],
-    "homepage": "https://github.com/rubenarslan/formr",
-    "license": "BSD-2-Clause-FreeBSD",
-    "authors": [
-        {
-            "name": "Ruben C. Arslan",
-            "email": "rubenarslan@gmail.com",
-            "homepage": "https://github.com/rubenarslan",
-            "role": "Developer"
-        }
-    ],
+	"name": "rubenarslan/formr",
+	"description": "make complex (longitudinal, network, diary, ...) studies using spreadsheets and give feedback with R graphs",
+	"version": "0.12.7",
+	"keywords": ["form", "survey", "study", "psychology", "R", "feedback"],
+	"homepage": "https://github.com/rubenarslan/formr.org",
+	"license": "BSD-2-Clause-FreeBSD",
+	"authors": [
+		{
+			"name": "Ruben C. Arslan",
+			"email": "rubenarslan@gmail.com",
+			"homepage": "https://github.com/rubenarslan",
+			"role": "Developer"
+		}
+	],
     "require": {
         "php": ">=5.4.0",
         "erusev/parsedown": "1.*",
