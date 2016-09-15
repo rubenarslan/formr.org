@@ -1,7 +1,7 @@
 {
 	"name": "rubenarslan/formr",
 	"description": "make complex (longitudinal, network, diary, ...) studies using spreadsheets and give feedback with R graphs",
-	"version": "0.5.0",
+	"version": "0.12.7",
 	"keywords": ["form", "survey", "study", "psychology", "R", "feedback"],
 	"homepage": "https://github.com/rubenarslan/formr",
 	"license": "BSD-2-Clause-FreeBSD",

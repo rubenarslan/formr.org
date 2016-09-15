@@ -687,7 +687,12 @@ class RunUnit {
 		// If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
 		if (empty($session) || $session->hasError()) {
 			$ocpu_vars = $this->getUserDataInRun($source);
-			$session = $email_embed ? opencpu_knitemail($source, $ocpu_vars, '', true) : opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->footer_text);
+			if($email_embed) {
+				$session = opencpu_knitemail($source, $ocpu_vars, '', true);
+			} else {
+				$session = opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->description, $this->run->footer_text);
+				$this->run->renderedDescAndFooterAlready = true;
+			}
 		}
 
 		// At this stage we are sure to have an OpenCPU_Session in $session. If there is an error in the session return FALSE

@@ -433,6 +433,10 @@ div.pos_changed input {
 	color:#49afcd;
 }
 
+.all-alerts {
+    z-index: 2;
+}
+
 div.all-alerts + div
 {
     margin-right:300px;

@@ -1,5 +1,5 @@
 {
-    "name": "Basic_Diary",
+    "name": "Basic_diary",
     "units": [
         {
             "type": "Survey",
@@ -9,34 +9,35 @@
         },
         {
             "type": "Pause",
-            "description": "diary beginning: a pause until the diary is accessible",
+            "description": "start the diary the next day",
             "position": 20,
+            "special": "",
+            "wait_until_time": "",
+            "wait_until_date": "",
+            "wait_minutes": "",
+            "relative_to": "next_day()",
+            "body": "## Thank you for signing up for our study\r\n\r\nWe will invite you to the diary tomorrow at 5pm via email."
+        },
+        {
+            "type": "Pause",
+            "description": "diary beginning: a pause until the diary is accessible",
+            "position": 30,
             "special": "",
             "wait_until_time": "17:00:00",
             "wait_until_date": "",
             "wait_minutes": "",
-            "relative_to": "next_day()",
+            "relative_to": "",
             "body": "## Thank you for your participation\r\n\r\nWe will invite you to participate again tomorrow around 5pm."
         },
         {
             "type": "Email",
             "description": "diary invitation: sent after the pause above expires",
-            "position": 30,
+            "position": 40,
             "special": "",
             "account_id": 1,
             "subject": "Diary invitation",
-            "recipient_field": "demographics$email",
+            "recipient_field": "most recent reported address",
             "body": "Dear participant,\r\n\r\nplease fill out your diary now, you have until midnight to start.\r\n\r\n{{login_link}}\r\n\r\nBest wishes,\r\n\r\nthe study robot"
-        },
-        {
-            "type": "SkipForward",
-            "description": "access window: if user does'nt react within 7 hours, skip day",
-            "position": 40,
-            "special": "",
-            "condition": "time_passed(hours = 7)",
-            "automatically_jump": 1,
-            "if_true": 60,
-            "automatically_go_on": 0
         },
         {
             "type": "Survey",
@@ -49,7 +50,7 @@
             "description": "end of diary loop",
             "position": 60,
             "special": "",
-            "condition": "nrow(diary) < 20 # diary has been filled out at least 20 times",
+            "condition": "nrow(diary) < 20 # diary has been filled out at least 20 times\r\n\r\n# alternatively: run the diary for 20 days, no matter how many times it was filled out (you can also combine these criteria using &&)\r\n# remove the comment signs: # to use this criterion instead\r\n# library(lubridate)\r\n# today() > ( as.Date(demographics$created) + days(20) )",
             "if_true": 20
         },
         {
@@ -57,7 +58,14 @@
             "description": "end of study",
             "position": 70,
             "special": "",
-            "body": "## It's over\r\n\r\nThanks for participating in our diary study."
+            "body": "## It's over\r\n\r\nThanks for participating in our diary study.\r\n"
+        },
+        {
+            "type": "Endpage",
+            "description": "Notes",
+            "position": 80,
+            "special": "",
+            "body": "# Notes\r\n\r\n1. Make sure you ask for an email address in the first survey\r\n2. Set an expiry time for the diary survey at pos 50, so that the survey is only accessible for a certain time window (otherwise the diary won't continue until the users responds to the diary).\r\n3. At step 60 we refer to the initial survey, assuming you named it \"demographics\". If you choose a different name, specify that instead.\r\n4. You can delete this unit (80), but users will never see it in this design."
         }
-    ]
+    ],
 }

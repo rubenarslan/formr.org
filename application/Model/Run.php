@@ -56,6 +56,7 @@ class Run {
 		"footer_text", "public_blurb", "custom_css",
 		"custom_js", "cron_active", "osf_project_id",
 	);
+	public $renderedDescAndFooterAlready = false;
 
 	/**
 	 * @var DB
@@ -780,14 +781,14 @@ class Run {
 
 		$run_content = '';
 
-		if (trim($this->description_parsed)) {
+		if (! $this->renderedDescAndFooterAlready && trim($this->description_parsed)) {
 			$run_content .= $this->description_parsed;
 		}
 
 		if (isset($output['body'])) {
 			$run_content .= $output['body'];
 		}
-		if (trim($this->footer_text_parsed)) {
+		if (! $this->renderedDescAndFooterAlready && trim($this->footer_text_parsed)) {
 			$run_content .= $this->footer_text_parsed;
 		}
 

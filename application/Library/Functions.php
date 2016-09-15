@@ -1050,7 +1050,7 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 }
 
 
-function opencpu_knit_iframe($source, $variables = null, $return_session = false, $context = null, $footer_text = '') {
+function opencpu_knit_iframe($source, $variables = null, $return_session = false, $context = null, $description = '', $footer_text = '') {
 	if (!is_string($variables)) {
 		$variables = opencpu_define_vars($variables, $context);
 	}
@@ -1066,6 +1066,11 @@ library(knitr); library(formr)
 opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error=T,echo=F,fig.retina=2,fig.height=7,fig.width=10)
 ' . $variables . '
 ```
+
+'.
+$description .'
+
+
 ' .
 $source . 
 "
