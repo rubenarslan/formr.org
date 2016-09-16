@@ -19,10 +19,11 @@ try {
 	$fdb = DB::getInstance();
 	$user = new User($fdb, null, null);
 	$user->cron = true;
-	$opts = getopt('w:a:t:');
+	$opts = getopt('w:a:t:c');
 	$worker = isset($opts['w']) ? $opts['w'] : null;
 	$amount = isset($opts['a']) ? $opts['a'] : 5;
 	$timeout = isset($opts['t']) ? $opts['t'] : 40;
+	$cronize = isset($opts['c']);
 } catch (Exception $e) {
 	_log("Deamon Start-up Error: " . $e->getMessage() . PHP_EOL . $e->getTraceAsString());
 	exit(1);
@@ -44,7 +45,7 @@ if ($worker) {
 	try {
 		_log('Starting deamon...');
 		$deamon = new Deamon($fdb);
-		$deamon->run();
+		$ran = empty($cronize) ? $deamon->run() : $deamon->cronize();
 	} catch (Exception $e) {
 		_log("Deamon Error: " . $e->getMessage() . PHP_EOL . $e->getTraceAsString());
 		exit(1);

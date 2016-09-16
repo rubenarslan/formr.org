@@ -53,7 +53,7 @@ class Deamon {
 	public function __construct(DB $db) {
 		$this->db = $db;
 		$this->lockFile = INCLUDE_ROOT . 'tmp/deamon.lock';
-		$this->runExpireTime = Config::get('deamon.run_expire_time', 10*60);
+		$this->runExpireTime = Config::get('deamon.run_expire_time', 10 * 60);
 		$this->loopInterval = Config::get('deamon.loop_interval', 60);
 
 		// Register signal handlers that should be able to kill the cron in case some other weird shit happens 
@@ -86,7 +86,7 @@ class Deamon {
 				file_put_contents($this->lockFile, date('r'));
 				// loop until terminated but with taking some nap
 				while (!$this->out && $this->rested()) {
-					
+
 					$runExpireTime = time() - $this->runExpireTime;
 					$fetchStmt->execute();
 					$runs = $fetchStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -124,6 +124,31 @@ class Deamon {
 		echo getmypid(), " Terminating...\n";
 	}
 
+	public function cronize() {
+		$time = $id = null;
+		$fetchStmt = $this->db->prepare('select id, name, last_deamon_access from survey_runs where cron_active = 1 order by rand()');
+		$updateStmt = $this->db->prepare('update survey_runs set last_deamon_access = :time where id = :id');
+		$updateStmt->bindParam(':time', $time);
+		$updateStmt->bindParam(':id', $id);
+
+		$fetchStmt->execute();
+		$runs = $fetchStmt->fetchAll(PDO::FETCH_ASSOC);
+
+		if (!$runs) {
+			self::dbg('No runs to be processed at this time.. waiting to retry');
+			return;
+		}
+
+		$gearmanClient = $this->getGearmanClient();
+		foreach ($runs as $run) {
+			$time = time();
+			$id = $run['id'];
+			self::dbg("Process run [cr.d] '%s'. Last access: %s", $run['name'], date('r', $run['last_deamon_access']));
+			$updateStmt->execute();
+			$gearmanClient->doBackground('process_run', json_encode($run));
+		}
+	}
+
 	/**
 	 * Signal handler
 	 *
@@ -134,23 +159,23 @@ class Deamon {
 			// Set terminated flag to be able to terminate program securely
 			// to prevent from terminating in the middle of the process
 			// Use Ctrl+C to send interruption signal to a running program
-		case SIGINT:
-		case SIGTERM:
-			$this->out = true;
-			self::dbg("%s Received termination signal", getmypid());
-			$this->cleanup('SIGINT|SIGTERM');
-			break;
+			case SIGINT:
+			case SIGTERM:
+				$this->out = true;
+				self::dbg("%s Received termination signal", getmypid());
+				$this->cleanup('SIGINT|SIGTERM');
+				break;
 
 			// switch the debug mode on/off
 			// @example: $ kill -s SIGUSR1 <pid>
-		case SIGUSR1:
-			if ((self::$dbg = !self::$dbg)) {
-				self::dbg("\nEntering debug mode...\n");
-			} else {
-				self::dbg("\nLeaving debug mode...\n");
-			}
-			$this->cleanup('SIGUSR1');
-			break;
+			case SIGUSR1:
+				if ((self::$dbg = !self::$dbg)) {
+					self::dbg("\nEntering debug mode...\n");
+				} else {
+					self::dbg("\nLeaving debug mode...\n");
+				}
+				$this->cleanup('SIGUSR1');
+				break;
 		}
 	}
 
@@ -203,5 +228,5 @@ class Deamon {
 		$str = date('Y-m-d H:i:s') . ' ' . $str . PHP_EOL;
 		return error_log($str, 3, get_log_file('deamon.log'));
 	}
-}
 
+}
