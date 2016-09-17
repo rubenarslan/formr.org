@@ -26,12 +26,12 @@
 			This instance of the formr.org is hosted on servers at the Georg August University Göttingen. It implements a security model that individually and uniquely protects the various entities of the platform, the application, it's data and the R interface (OpenCPU). These entities communicate only within a local network whose access is restricted to the IT administators of the Georg-Elias-Müller-Institute of Psychology.
 		</p>
 		<p>
-			Our entire database is backed up nightly. Whenever real data is deleted by you in bulk, formr backs it up as well, right before deletion. No extra backup is made, if you delete single users/single survey entries. We do not back up specifically back up run units and survey files, but you can redownload the most recently uploaded version of a survey file.
+			Our entire database is backed up nightly. Whenever real data is deleted by you in bulk, formr backs it up as well, right before deletion. No backup is made if you delete single users/single survey entries. We do not specifically back up run units and survey files, but you can redownload the most recently uploaded version of a survey file and download files with the run structure to your computer or to the <a href="https://osf.io">openscienceframework</a>.
 		</p>
 
 		<h3><i class="fa fa-fw fa-lock"></i> Security</h3>
 		<p>
-			Your (and your participants') connection to this site is encrypted using state-of-the-art security using <a href="https://en.wikipedia.org/wiki/HTTPS">HTTPS (also called HTTPS over TLS)</a>. This protects against eavesdropping on survey responses and tampering with the content of our site.
+			Your (and your participants') connection to this site is encrypted using state-of-the-art security using <a href="https://en.wikipedia.org/wiki/HTTPS">HTTPS (also called HTTP over TLS)</a>. This protects against eavesdropping on survey responses and tampering with the content of our site.
 		</p>
 		<p>
 			We have taken several measures to make it very unlikely that sensitive participant's data is divulged. It is not possible for participants to retrieve their answers to past responses, unless those are incorporated in a feedback somewhere by you, the researcher. Therefore, care should be taken not to incorporate sensitive information into the feedback and to alert participants to any possible privacy gray areas in the feedback (e.g. incorporating participant responses about their employer in a feedback mailed to a work email address or incorporating feedback on romantic activity in a study where it's likely that the participant's partner has access to their device).

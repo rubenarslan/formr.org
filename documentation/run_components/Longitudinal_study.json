@@ -1,0 +1,55 @@
+{
+    "name": "Longitudinal_study",
+    "units": [
+        {
+            "type": "Survey",
+            "description": "wave1: initial survey, have to collect contact info here",
+            "position": 110,
+            "special": ""
+        },
+        {
+            "type": "Pause",
+            "description": "wait 1 year for wave 2",
+            "position": 120,
+            "special": "",
+            "wait_until_time": "",
+            "wait_until_date": "",
+            "wait_minutes": 525600,
+            "relative_to": "",
+            "body": "## Thank you for participating\r\n\r\nWe'll recontact you in a year."
+        },
+        {
+            "type": "Email",
+            "description": "wave2: invitation",
+            "position": 200,
+            "special": "",
+            "account_id": 1,
+            "subject": "Longitudinal study: Wave 2",
+            "recipient_field": "most recent reported address",
+            "body": "Remember us?\r\n\r\n{{login_link}}"
+        },
+        {
+            "type": "Survey",
+            "description": "wave2: survey",
+            "position": 210,
+            "special": ""
+        },
+        {
+            "type": "Endpage",
+            "description": "end",
+            "position": 300,
+            "special": "",
+            "body": "## Thank you for participating\r\n\r\nYou could of course repeat the part from 120-210 for however many waves you want."
+        }
+    ],
+    "settings": {
+        "header_image_path": null,
+        "description": null,
+        "footer_text": "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
+        "public_blurb": null,
+        "cron_active": 1,
+        "custom_js": "",
+        "custom_css": ""
+    },
+    "files": []
+}
