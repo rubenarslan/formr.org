@@ -1359,7 +1359,7 @@ class Survey extends RunUnit {
 		) ON DUPLICATE KEY UPDATE $UPDATES");
 
 		$add_items->bindParam(":study_id", $this->id);
-		
+
 		$new_items = array();
 		foreach ($this->SPR->survey as $row_number => $row) {
 			$item = $this->item_factory->make($row);
@@ -1397,7 +1397,13 @@ class Survey extends RunUnit {
 			$new_items[$item->name] = $result_field;
 
 			$result_columns[] = $result_field;
-			$change = $add_items->execute();
+			try {
+				$change = $add_items->execute();
+			} catch (Exception $e) {
+				$this->dbh->rollBack();
+				$this->errors[] = "An error occured while adding item '{$item->name}': \n" .  $e->getMessage();
+				return false;
+			}
 		}
 		$staid_same = array_intersect_assoc($old_items, $new_items);
 		$added = array_diff_assoc($new_items, $old_items);
@@ -1521,22 +1527,25 @@ class Survey extends RunUnit {
 		$add_choices->bindParam(":study_id", $this->id);
 
 		foreach ($this->SPR->choices AS $choice) {
-			if (isset($choice['list_name']) AND isset($choice['name']) AND isset($choice['label'])):
-				if (!$this->knittingNeeded($choice['label']) && empty($choice['label_parsed'])): // if the parsed label is constant
+			if (isset($choice['list_name']) AND isset($choice['name']) AND isset($choice['label'])) {
+				if (!$this->knittingNeeded($choice['label']) && empty($choice['label_parsed'])) { // if the parsed label is constant
 					$markdown = $this->parsedown->text($choice['label']); // transform upon insertion into db instead of at runtime
-
-					if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)):
+					$choice['label_parsed'] = $markdown;
+					if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
 						$choice['label_parsed'] = $matches[1];
-					else:
-						$choice['label_parsed'] = $markdown;
-					endif;
-				endif;
+					}
+				}
 
 				foreach ($this->choices_user_defined_columns as $param) {
 					$add_choices->bindParam(":$param", $choice[$param]);
 				}
-				$add_choices->execute();
-			endif;
+
+				try {
+					$change = $add_choices->execute();
+				} catch (Exception $e) {
+					$this->errors[] = "An error occured while adding choice '{$choice['name']}': \n" .  $e->getMessage();
+				}
+			}
 		}
 		return true;
 	}
