@@ -112,3 +112,56 @@
         </div>
     </div>
 </script>
+
+<script id="tpl-delete-run-session" type="text/formr">
+    <div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="DeleteUser" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+				<form action="%{action}" enctype="multipart/form-data" method="post">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                    <h3>Delete Run Session</h3>
+                </div>
+                <div class="modal-body">
+                    <div>
+						Are you sure you want to delete this run session and all it's data? <br />
+						<pre>%{session}</pre>
+				    </div>
+					<div class="clearfix"></div>
+                </div>
+				<div class="modal-footer">
+					<button class="btn btn-danger" aria-hidden="true" type="submit">Delete</button>
+					<button class="btn cancel" data-dismiss="modal" aria-hidden="true" type="button">Cancel</button>
+				</div>
+			</form>
+        </div>
+    </div>
+</script>
+<script id="tpl-remind-run-session" type="text/formr">
+    <div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="DeleteUser" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                    <h3>Send Reminder</h3>
+                </div>
+                <div class="modal-body">
+                    <table class="table table-stripped">
+						<thead>
+							<tr><th>ID</th><th>Description</th><th>Select Reminder</th></tr>
+						</thead>
+						<tbody>
+						<?php foreach ($reminders as $r): ?>
+							<tr>
+								<td><?= $r['unit_id'] ?></td>
+								<td><?= $r['description'] ?></td>
+								<td><a href="javascript:void(0);" data-reminder="<?= $r['unit_id'] ?>" class="send btn btn-default"><i class="fa fa-paper-plane"></i> send</a></td>
+							</tr>
+						<?php endforeach ?>
+						</tbody>
+					</table>
+					<div class="clearfix"></div>
+                </div>
+        </div>
+    </div>
+</script>

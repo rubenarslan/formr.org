@@ -261,7 +261,7 @@
                     return;
                 } else if (data === 'warn') {
                     $modal = $($.parseHTML(getHTMLTemplate('tpl-confirmation', {
-                        'content': 'Are you sure you want to delete this run unit and all it\'s data?',
+                        'content': 'Are you sure you want to delete this run unit and all it\'s data?'
                     })));
                     $modal.on('shown.bs.modal', function () {
                         $modal.find('.btn-yes').click(function (e) {

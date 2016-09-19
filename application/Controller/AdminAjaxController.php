@@ -413,11 +413,67 @@ class AdminAjaxController {
 
 		bad_request_header();
 		$alert_msg = "'<strong>Sorry.</strong> '";
-		if (isset($unit))
+		if (isset($unit)) {
 			$alert_msg .= implode($unit->errors);
+		}
 		alert($alert_msg, 'alert-danger');
 
 		echo $this->site->renderAlerts();
+	}
+
+	private function ajaxUserBulkActions() {
+		if (!is_ajax_request()) {
+			redirect_to(admin_url());
+		}
+		$action = $this->request->str('action');
+		$sessions = $this->request->arr('sessions');
+		$qs = $res = array();
+		if (!$action || !$sessions) {
+			bad_request();
+			exit;
+		}
+		foreach ($sessions as $session) {
+			$qs[] = $this->dbh->quote($session);
+		}
+		$count = count($sessions);
+		if ($action === 'toggleTest') {
+			$query = 'UPDATE survey_run_sessions SET testing = 1 - testing WHERE session IN ('. implode(',', $qs) . ')';
+			$this->dbh->query($query);
+			alert("{$count} selected session(s) were successfully modified", 'alert-success');
+			$res['success'] = true;
+		} elseif ($action === 'sendReminder') {
+			$run = $this->controller->run;
+			$count = 0;
+			foreach ($sessions as $sess) {
+				$email = $run->getReminder($this->request->int('reminder'), $sess, null);
+				$email->run_session = new RunSession($this->dbh, $run->id, null, $sess, $run);
+				$email->run_session_id = $email->run_session->id;
+				if ($email->exec() === false) {
+					$count++;
+				}
+			}
+
+			if ($count) {
+				alert("{$count} session(s) have been sent the reminder '{$email->getSubject()}'", 'alert-success');
+				$res['success'] = true;
+			} else {
+				$res['error'] = $this->site->renderAlerts();
+			}
+		} elseif ($action === 'deleteSessions') {
+			$query = 'DELETE FROM survey_run_sessions WHERE session IN ('. implode(',', $qs) . ')';
+			$this->dbh->query($query);
+			alert("{$count} selected session(s) were successfully deleted", 'alert-success');
+			$res['success'] = true;
+		} elseif ($action === 'positionSessions') {
+			$query = 'UPDATE survey_run_sessions SET position = ' . $this->request->int('pos') . ' WHERE session IN ('. implode(',', $qs) . ')';
+			$this->dbh->query($query);
+			alert("{$count} selected session(s) were successfully moved", 'alert-success');
+			$res['success'] = true;
+		}
+
+		header('Content-Type: application/json');
+		echo json_encode($res);
+		exit(0);
 	}
 
 	protected function getPrivateAction($name) {

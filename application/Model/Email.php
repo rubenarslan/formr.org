@@ -94,7 +94,7 @@ class Email extends RunUnit {
 		return true;
 	}
 
-	protected function getSubject() {
+	public function getSubject() {
 		if ($this->subject_parsed === NULL):
 			if ($this->knittingNeeded($this->subject)):
 				if ($this->run_session_id):
@@ -240,6 +240,7 @@ class Email extends RunUnit {
 
 			$recips = array();
 			$res = $get_recip->fetch(PDO::FETCH_ASSOC);
+			var_dump($res); die();
 			if($res) {
 				$email = $res['email'];
 				return $email;

@@ -70,6 +70,7 @@ Template::load('acp_nav');
 		<table class="table table-striped">
 			<thead>
 				<tr>
+					<th></th>
 					<th>Run position</th>
 					<th>Session</th>
 					<th>Created</th>
@@ -80,6 +81,9 @@ Template::load('acp_nav');
 			<tbody>
 				<?php foreach ($users as $user): ?>
 				<tr>
+					<td>
+						<input class="ba-select-session" type="checkbox" value="<?php echo h($user['session']); ?>" />
+					</td>
 					<td>
 						<span class="hastooltip" title="Current position in run"><?php echo $user['position']; ?></span> – <small><?php echo $user['unit_type']; ?></small>
 					</td>
@@ -134,6 +138,28 @@ Template::load('acp_nav');
 				<?php endforeach; ?>
 			</tbody>
 		</table>
+		<div class="bulk-actions-ba">
+			<form class="form-inline form-ajax form-ba" action="<?php echo admin_run_url($user['run_name'], 'ajax_user_bulk_actions'); ?>" method="post">
+				Do with selected: 			
+				<span class="input-group">
+					<span class="input-group-btn">
+						<a class="btn hastooltip ba" data-action="toggleTest" title="Toggle testing status for selected users"><i class="fa fa-heartbeat"></i></a>
+						<a class="btn hastooltip ba" data-action="sendReminder" href="javascript:void(0)" title="Remind selected users"><i class='fa fa-bullhorn'></i></a>
+						<a class="btn hastooltip ba" data-action="deleteSessions" href="javascript:void(0)" title="Delete selected users and all their data (you'll have to confirm)"><i class='fa fa-trash-o'></i></a>
+						<a class="btn hastooltip ba" data-action="positionSessions" title="Send users to selected position"><i class="fa fa-hand-o-right"></i></a>
+					</span>
+					<select name="ba_new_position" class="form-control position_monkey">
+						<option value="">[select]</option>
+						<?php foreach($unit_types AS $run_unit): ?>
+							<option value="<?=$run_unit['position']?>">
+								<?=$run_unit['position'] . " - (" . $run_unit['type'] . ") " . $run_unit['description']?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</span>
+			</form>
+			<p>&nbsp;</p>
+		</div>
 		
 		<?php
 			$append = !empty($querystring) ? '?' . http_build_query($querystring) . '&' : '';
@@ -142,57 +168,6 @@ Template::load('acp_nav');
 	</div>
 </div>
 
-<script id="tpl-delete-run-session" type="text/formr">
-    <div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="DeleteUser" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-				<form action="%{action}" enctype="multipart/form-data" method="post">
-                <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
-                    <h3>Delete Run Session</h3>
-                </div>
-                <div class="modal-body">
-                    <div>
-						Are you sure you want to delete this run session and all it's data? <br />
-						<pre>%{session}</pre>
-				    </div>
-					<div class="clearfix"></div>
-                </div>
-				<div class="modal-footer">
-					<button class="btn btn-danger" aria-hidden="true" type="submit">Delete</button>
-					<button class="btn cancel" data-dismiss="modal" aria-hidden="true" type="button">Cancel</button>
-				</div>
-			</form>
-        </div>
-    </div>
-</script>
-<script id="tpl-remind-run-session" type="text/formr">
-    <div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="DeleteUser" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
-                    <h3>Send Reminder</h3>
-                </div>
-                <div class="modal-body">
-                    <table class="table table-stripped">
-						<thead>
-							<tr><th>ID</th><th>Description</th><th>Select Reminder</th></tr>
-						</thead>
-						<tbody>
-						<?php foreach ($reminders as $r): ?>
-							<tr>
-								<td><?= $r['unit_id'] ?></td>
-								<td><?= $r['description'] ?></td>
-								<td><a href="javascript:void(0);" data-reminder="<?= $r['unit_id'] ?>" class="send btn btn-default"><i class="fa fa-paper-plane"></i> send</a></td>
-							</tr>
-						<?php endforeach ?>
-						</tbody>
-					</table>
-					<div class="clearfix"></div>
-                </div>
-        </div>
-    </div>
-</script>
 <?php
+Template::load('admin/run/run_modals', array('reminders' => $reminders));
 Template::load('footer');

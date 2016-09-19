@@ -175,8 +175,8 @@
         var $btn = $(this);
         var $modal = $($.parseHTML(getHTMLTemplate('tpl-remind-run-session', {action: $btn.data('href'), session: $btn.data('session')})));
         var $parent_tr = $btn.parents('tr');
-        $btn.css("border-color", "#ee5f5b");
-        $btn.css("color", "#ee5f5b");
+        //$btn.css("border-color", "#ee5f5b");
+        //$btn.css("color", "#ee5f5b");
 
         $modal.on('shown.bs.modal', function() {
             $modal.find('.send').click(function() {
@@ -185,14 +185,17 @@
                 postdata(href, {reminder: reminder}, function(response) {
                     $modal.modal('hide');
                     bootstrap_modal('Send Reminder', response, 'tpl-feedback-modal').modal('show');
+
+                    $btn.css("border-color", "green");
+                    $btn.css("color", "green");
                 }, 'html');
             });
         });
 
         $modal.on('hidden.bs.modal', function () {
             $modal.remove();
-            $btn.css("border-color", "black");
-            $btn.css("color", "black");
+            //$btn.css("border-color", "black");
+            //$btn.css("color", "black");
         }).modal('show');
 
     }
@@ -230,8 +233,125 @@
             $me.siblings('.multiple').addClass('hidden');
             $me.data('active', 'single');
         }
-
     }
+
+    function doBulkAction(e) {
+        /*jshint validthis:true */
+        var $btn = $(this);
+        var sessions = [];
+        $('input.ba-select-session').each(function() {
+            if ($(this).is(':checked')) {
+                sessions.push($(this).val());
+            }
+        });
+        if (sessions.length && typeof(bulkActions[$btn.data('action')]) === 'function') {
+            bulkActions[$btn.data('action')]($btn.parents('form').attr('action'), sessions);
+        }
+    }
+
+    var bulkActions = {
+        toggleTest: function(url, sessions) {
+            var $modal = $($.parseHTML(getHTMLTemplate('tpl-confirmation', {
+                    'content': '<h4>Are you sure you want to perform this action?</h4>'
+            })));
+            $modal.on('shown.bs.modal', function () {
+                $modal.find('.btn-yes').click(function (e) {
+                    $(this).append(bootstrap_spinner());
+                    postdata(url, {action: 'toggleTest', 'sessions': sessions}, function(response) {
+                        $modal.modal('hide');
+                        if (response.success) {
+                            document.location = url.replace('ajax_user_bulk_actions', 'user_overview');
+                            return;
+                        }
+                        $(this).find('.fa-spin').remove();
+                        bootstrap_modal('Error', response.error, 'tpl-feedback-modal').modal('show');
+                    }, 'json');
+                });
+                $modal.find('.btn-no').click(function (e) {
+                    $modal.modal('hide');
+                });
+            }).on('hidden.bs.modal', function () {
+                $modal.remove();
+            }).modal('show');
+        },
+
+        sendReminder: function(url, sessions) {
+            var $modal = $($.parseHTML(getHTMLTemplate('tpl-remind-run-session', {action: url, session: null})));
+
+            $modal.on('shown.bs.modal', function() {
+                $modal.find('.send').click(function() {
+                    var reminder = $(this).data('reminder');
+                    $(this).append(bootstrap_spinner());
+                    postdata(url, {action: 'sendReminder', 'sessions': sessions, reminder: reminder}, function(response) {
+                        $modal.modal('hide');
+                        if (response.success) {
+                            document.location = url.replace('ajax_user_bulk_actions', 'user_overview');
+                            return;
+                        }
+                        bootstrap_modal('Error', response.error, 'tpl-feedback-modal').modal('show');
+                    }, 'json');
+                });
+            }).on('hidden.bs.modal', function () {
+                $modal.remove();
+            }).modal('show');
+        },
+
+        deleteSessions: function(url, sessions) {
+            var $modal = $($.parseHTML(getHTMLTemplate('tpl-confirmation', {
+                    'content': '<h4>Are you sure you want delete ' + sessions.length + ' session(s)?</h4>'
+            })));
+            $modal.on('shown.bs.modal', function () {
+                $modal.find('.btn-yes').click(function (e) {
+                    $(this).append(bootstrap_spinner());
+                    postdata(url, {action: 'deleteSessions', 'sessions': sessions}, function(response) {
+                        $modal.modal('hide');
+                        if (response.success) {
+                            document.location = url.replace('ajax_user_bulk_actions', 'user_overview');
+                            return;
+                        }
+                        $(this).find('.fa-spin').remove();
+                        bootstrap_modal('Error', response.error, 'tpl-feedback-modal').modal('show');
+                    }, 'json');
+                });
+                $modal.find('.btn-no').click(function (e) {
+                    $modal.modal('hide');
+                });
+            }).on('hidden.bs.modal', function () {
+                $modal.remove();
+            }).modal('show');
+        },
+
+        positionSessions: function(url, sessions) {
+            var pos = parseInt($('select[name=ba_new_position]').val());
+            if (isNaN(pos)) {
+                alert('Bad position selected');
+                return;
+            }
+
+            var $modal = $($.parseHTML(getHTMLTemplate('tpl-confirmation', {
+                    'content': '<h4>Are you sure you want push ' + sessions.length + ' session(s) to position <b>' + pos + '</b>?</h4>'
+            })));
+            $modal.on('shown.bs.modal', function () {
+                $modal.find('.btn-yes').click(function (e) {
+                    $(this).append(bootstrap_spinner());
+                    postdata(url, {action: 'positionSessions', 'sessions': sessions, 'pos': pos}, function(response) {
+                        $modal.modal('hide');
+                        if (response.success) {
+                            document.location = url.replace('ajax_user_bulk_actions', 'user_overview');
+                            return;
+                        }
+                        $(this).find('.fa-spin').remove();
+                        bootstrap_modal('Error', response.error, 'tpl-feedback-modal').modal('show');
+                    }, 'json');
+                });
+                $modal.find('.btn-no').click(function (e) {
+                    $modal.modal('hide');
+                });
+            }).on('hidden.bs.modal', function () {
+                $modal.remove();
+            }).modal('show');
+        }
+    };
 
     $(function () {
         var $current_target;
@@ -292,5 +412,6 @@
         });
         $('a.delete-run-session').bind('click', deleteUserSession);
         $('a.remind-run-session').bind('click', remindUserSession);
+        $('div.bulk-actions-ba').find('.ba').bind('click', doBulkAction);
     });
 }(jQuery));
