@@ -85,9 +85,9 @@ class Run {
 				$this->id = $vars['id'];
 				$this->user_id = (int) $vars['user_id'];
 				$this->api_secret_hash = $vars['api_secret_hash'];
-				$this->public = $vars['public'];
-				$this->cron_active = $vars['cron_active'];
-				$this->locked = $vars['locked'];
+				$this->public = (int)$vars['public'];
+				$this->cron_active = (int)$vars['cron_active'];
+				$this->locked = (int)$vars['locked'];
 				$this->header_image_path = $vars['header_image_path'];
 				$this->title = $vars['title'];
 				$this->description = $vars['description'];

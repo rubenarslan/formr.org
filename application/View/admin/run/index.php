@@ -11,7 +11,8 @@ Template::load('acp_nav');
             <div class="row">
                 <div class="col-md-12">
 					<h2>Edit run</h2>
-					
+					<a href="javascript:void(0);" class="btn btn-danger btn-panic pull-right" id="btn-panic">I am panicking :(</a>
+
                     <h4>
                         Publicness:
                         <input type="hidden" value="<?= $run->name ?>" name="old_run_name" class="run_name">

@@ -1118,3 +1118,7 @@ form.form-horizontal img, div.modal-content img,img {
 .publications li {
     margin-bottom: 10px;
 }
+.btn-panic {
+    background: #ee5f5b;
+    color: #fff;
+}
