@@ -67,6 +67,8 @@ class GearmanWorkerHelper extends GearmanWorker {
 				if ($amount == 0) {
 					$this->dbg("Completed $originalAmount jobs");
 					$keepWorking = false;
+					// sleep abit so that process can spawn again (notify admin)
+					sleep(10);
 				}
 
 			}
