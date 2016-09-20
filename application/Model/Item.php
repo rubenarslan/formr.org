@@ -2111,8 +2111,8 @@ class Item_file extends Item {
 			$reply = null;
 		}
 
-		$this->reply = $reply;
-		return parent::validateInput($reply);
+		$this->reply = parent::validateInput($reply);
+		return $this->reply;
 	}
 
 	public function getReply($reply) {
