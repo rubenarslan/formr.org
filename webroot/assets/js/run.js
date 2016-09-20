@@ -1,3 +1,4 @@
+/*jshint scripturl:true*/
 (function ($) {
     "use strict";
     function RunUnit(run) {
