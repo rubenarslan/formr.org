@@ -196,8 +196,15 @@
             $modal.remove();
             //$btn.css("border-color", "black");
             //$btn.css("color", "black");
-        }).modal('show');
-
+        });//.modal('show');
+        $.get($btn.data('href'), {session: $btn.data('session'), get_count: true}, function(response, textSatus, jqXH) {
+            $modal.find('.reminder-row-count').text('(0)');
+            for (var unit_id in response) {
+                var count = response[unit_id];
+                $modal.find('.reminder-row-count-'+unit_id).text(' ('+count+')');
+            }
+            $modal.modal('show');
+        });
     }
 
     function postdata(url, data, callback, type, errCallback) {

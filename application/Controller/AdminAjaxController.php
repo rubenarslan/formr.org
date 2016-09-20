@@ -91,6 +91,18 @@ class AdminAjaxController {
 	}
 
 	private function ajaxRemind() {
+		if ($this->request->bool('get_count') === true) {
+			$sessions = $this->getSessionRemindersSent($this->request->int('run_session_id'));
+			$count = array();
+			foreach ($sessions as $sess) {
+				if (!isset($count[$sess['unit_id']])) {
+					$count[$sess['unit_id']] = 0;
+				}
+				$count[$sess['unit_id']]++;
+			}
+			return $this->outjson($count);
+		}
+
 		$run = $this->controller->run;
 		// find the last email unit
 		$email = $run->getReminder($this->request->getParam('reminder'), $this->request->getParam('session'), $this->request->getParam('run_session_id'));
@@ -473,9 +485,7 @@ class AdminAjaxController {
 			$res['success'] = true;
 		}
 
-		header('Content-Type: application/json');
-		echo json_encode($res);
-		exit(0);
+		$this->outjson($res);
 	}
 
 	protected function getPrivateAction($name) {
@@ -489,6 +499,24 @@ class AdminAjaxController {
 			throw new Exception("Action '$name' is not found in $class.");
 		}
 		return $action;
+	}
+
+	protected function getSessionRemindersSent($run_session_id) {
+		$stmt = $this->dbh->prepare(
+		'SELECT survey_unit_sessions.id as unit_session_id, survey_run_special_units.id as unit_id FROM survey_unit_sessions 
+			LEFT JOIN survey_units ON survey_unit_sessions.unit_id = survey_units.id
+			LEFT JOIN survey_run_special_units ON survey_run_special_units.id = survey_units.id
+			WHERE survey_unit_sessions.run_session_id = :run_session_id AND survey_run_special_units.type = "ReminderEmail"
+		');
+		$stmt->bindValue('run_session_id', $run_session_id, PDO::PARAM_INT);
+		$stmt->execute();
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	protected function outjson($res) {
+		header('Content-Type: application/json');
+		echo json_encode($res);
+		exit(0);
 	}
 
 }

@@ -148,7 +148,7 @@
                 <div class="modal-body">
                     <table class="table table-stripped">
 						<thead>
-							<tr><th>ID</th><th>Description</th><th>Select Reminder</th></tr>
+							<tr><th>ID</th><th>Description</th><th>Select Reminder</th><th>Sent</th></tr>
 						</thead>
 						<tbody>
 						<?php foreach ($reminders as $r): ?>
@@ -156,6 +156,7 @@
 								<td><?= $r['unit_id'] ?></td>
 								<td><?= $r['description'] ?></td>
 								<td><a href="javascript:void(0);" data-reminder="<?= $r['unit_id'] ?>" class="send btn btn-default"><i class="fa fa-paper-plane"></i> send</a></td>
+								<td class="reminder-row-count reminder-row-count-<?= $r['unit_id'] ?>"></td>
 							</tr>
 						<?php endforeach ?>
 						</tbody>
