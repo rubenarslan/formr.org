@@ -531,7 +531,7 @@ class AdminRunController extends AdminController {
 			$email['from'] = "{$email['from_name']}<br><small>{$email['from']}</small>";
 			unset($email['from_name']);
 			$email['to'] = $email['to']."<br><small>at run position ".$email['position_in_run']."</small>";
-			$email['mail'] = $email['subject']."<br><small>". substr($email['body'],0,100). "…</small>";
+			$email['mail'] = $email['subject']."<br><small>". h(substr($email['body'], 0, 100)). "…</small>";
 			$email['sent'] = '<abbr title="'.$email['sent'].'">'.timetostr(strtotime($email['sent'])).'</abbr>';
 			unset($email['position_in_run']);
 			unset($email['subject']);
