@@ -413,15 +413,17 @@ class Run {
 	}
 
 	public function getReminder($reminder_id, $session, $run_session_id) {
-		// @todo: create a unit_session here and get a session_id and pass it when making the unit
-		
+		// create a unit_session here and get a session_id and pass it when making the unit
+		$unitSession = new UnitSession($this->dbh, $run_session_id, $reminder_id);
+		$session_id = $unitSession->create();
 		$unit_factory = new RunUnitFactory();
 		$unit = $unit_factory->make($this->dbh, $session, array(
 			'type' => "Email",
 			"unit_id" => $reminder_id,
 			"run_name" => $this->name,
 			"run_id" => $this->id,
-			"run_session_id" => $run_session_id
+			"run_session_id" => $run_session_id,
+			"session_id" => $session_id,
 		), null, $this);
 		return $unit;
 	}

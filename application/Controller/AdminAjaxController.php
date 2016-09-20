@@ -100,6 +100,7 @@ class AdminAjaxController {
 		} else {
 			alert('Reminder sent!', 'alert-success');
 		}
+		$email->end();
 
 		if (is_ajax_request()) {
 			echo $this->site->renderAlerts();
@@ -451,6 +452,7 @@ class AdminAjaxController {
 				if ($email->exec() === false) {
 					$count++;
 				}
+				$email->end();
 			}
 
 			if ($count) {
