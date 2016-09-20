@@ -49,15 +49,5 @@
             "special": "",
             "body": "kthxbye"
         }
-    ],
-    "settings": {
-        "header_image_path": null,
-        "description": null,
-        "footer_text": "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
-        "public_blurb": null,
-        "cron_active": 1,
-        "custom_js": "",
-        "custom_css": ""
-    },
-    "files": []
+    ]
 }
