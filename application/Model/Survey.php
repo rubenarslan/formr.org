@@ -1158,6 +1158,11 @@ class Survey extends RunUnit {
 			$SPR->readItemTableFile($target);
 		}
 
+		if (!$SPR || !is_object($SPR)) {
+			alert('Spreadsheet object could not be created!', 'alert-danger');
+			return false;
+		}
+
 		$this->errors = array_merge($this->errors, $SPR->errors);
 		$this->warnings = array_merge($this->warnings, $SPR->warnings);
 		$this->messages = array_merge($this->messages, $SPR->messages);

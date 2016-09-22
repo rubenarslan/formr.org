@@ -1869,7 +1869,7 @@ class Item_server extends Item {
 				$this->get_var = trim(current($this->type_options_array));
 			}
 		}
-		$this->input_attributes['value'] = $_SERVER[$this->get_var];
+		$this->input_attributes['value'] = array_val($_SERVER, $this->get_var);
 	}
 
 	public function getReply($reply) {
