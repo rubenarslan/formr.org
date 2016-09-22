@@ -1182,7 +1182,7 @@ class Survey extends RunUnit {
 			// save original survey sheet
 			$filename = 'formr-survey-' . Site::getCurrentUser()->id . '-' . $filename;
 			$file = Config::get('survey_upload_dir') . '/' . $filename;
-			if (move_uploaded_file($target, $file) || rename($target, $file)) {
+			if (file_exists($target) && (move_uploaded_file($target, $file) || rename($target, $file))) {
 				$updates['original_file'] = $filename;	
 			} else {
 				alert('Unable to save original uploaded file', 'alert-warning');
