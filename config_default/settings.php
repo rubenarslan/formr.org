@@ -3,7 +3,6 @@
 /**
  * Formr.org configuration
  */
-$settings['version'] = 'vX.X.X';
 
 // Database Settings
 $settings['database'] = array(
