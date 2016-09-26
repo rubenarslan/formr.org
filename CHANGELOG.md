@@ -10,71 +10,157 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - These release changes are preliminary and the mentioned versions are not recommended for use so ignored in this documentation.
 
 ## [0.7.0]
+### Changed
+* It's now possible to present submit buttons by themselves on a page.
+Sometimes this might happen unintentionally if all items on a page are skipped via a showif, but the submit button doesn't have the same showif. 
+In this case, previously, the submit button would never be displayed. We decided it would be more consistent to show it once. This shouldn't break anything, but might lead to an extraneous step in some very complex studies 
 
 ## [0.7.1]
+### Added
+* Make 'time to last' for cron tasks configurable
+* Pass page labels in one OpenCPU request
+### Changed
+* Append formr version to asset URLs for poisoning
 
 ## [0.7.2]
+#### Changed
+* Dynamic options are split by a comma
 
 ## [0.8.0]
+### Added
+* Items can be shuffled (in and between blocks) now.
+* Timed submit buttons allow you to specify a minimum time in which to submit.
+* Item tables can be imported straight from Google Docs, reducing the edit-download-upload-cycle previously necessary. Makes collaboration easier.
+* A proper test mode
+  * you can now create test codes for runs. They're special in that they enable a bar with specific features (auto-filling forms, skipping to the next step in the run/ending a pause).
+  * you can now share test codes for runs before releasing the run to the public
+  * test codes have names like zanyElephant, which allow you to find them again if you're looking for a specific test case
+* the first semblance of an OAuth2.0 API (manual activation needed)
+* users can turn off emails from your study for a week or forever if you allow them to.
 
 ## [0.8.1]
+* bug fix release
+* testing how zenodo mints DOIs for releases
+
+## [0.8.2]
+### Changed
+* Changed URL slugs for public URLs
+* CSS fixes
 
 ## [0.9.0]
+### Added
+* Open Science Framework API connection
+  * barring unforeseen changes on the side of osf.io it is now possible to connect runs to an OSF project. Currently, you can only export the Run-JSON there (in essence, saving all of the run structure and survey items). You can use this for pre-registration or version tracking.
+### Changed
+* improvements to testing
+  * when the test button is clicked in the edit run view, test emails are sent to your admin email address, not mailinator
+  * there are new buttons when testing surveys: a light bulb shows items that were hidden on the page, a magnifying glass shows debugging info (item names, requests sent to openCPU)
+  * our openCPU debugger (the accordion with info on the openCPU request) is now shown whenever there is an r problem (or you click the magnifying glass). it has the option to download the r code or the rmarkdown. That way you can edit it in Rstudio, which has much better code highlighting for debugging.
+* improvements to the survey module
+  * now hidden items work consistently: every showif is only called once unless the return value in R is `NA`.
+  * only items on the currently visible page are evaluated (before this calculate items at the end of the survey were also evaluated)
+  * we've minimised costly openCPU requests
+* there are no more flashes of unstyled content (where the mc_buttons only appear after a moment)
 
 ## [0.10.0]
+# Changed
+* Re-factor show-if evaluation functionality
 
 ## [0.10.2]
+* Few bug fixes
 
 ## [0.10.3]
+* Few bug fixes
 
 ## [0.10.4]
+* Few bug fixes
 
-## [0.10.10]
-
-## [0.10.11]
-
-## [0.10.12]
 
 ## [0.11.0]
+### Added
+* Export run survey results
+* Unlink Surveys to separate confidential from experimental data.
+### Changed
+* Major bug fixes
+* pause module was simplified (if an hour of day is set, the pause will only expire once per day) for diaries
+* improved external module to simplify integration with e.g. [SoSci Survey](https://github.com/rubenarslan/formr.org/wiki/How-to-combine-formr-with-surveys-from-SoSci-survey) (how to)
+* surveys can be renamed, run unit modules description default to survey names
 
 ## [0.11.1]
+### Added
+* Show exired sessions in UI
+* Email bug fixes
 
 ## [0.11.2]
+* Fix accessing external module over the API by specifying non-restrictive routes
 
 ## [0.11.3]
+### Changed
+* Run owner's email should be flagged as 'self-mailing'
+* Add validation request tokens to survey forms
 
 ## [0.11.4]
+* Tactical revert of forged dependencies
 
 ## [0.11.5]
+### Changed
+* Re-factor user login procedure
+* Non-registered users get no persistent cookie
 
 ## [0.11.6]
+* Minor bug fixes
+* Revert previous login cookie logic
 
 ## [0.11.7]
+* Bug fixes of PHP warnings
 
 ## [0.11.8]
+* Debug: Log session codes for problematic sessions
+* Minor bug fixes
 
 ## [0.11.9]
+### Added
+* Use iframes for feedback
 
-## [0.12]
+## [0.12.0]
+### Added
+* Introduced *special run units*:
+  * Reminders
+  * Service Message
+  * Overview Script
+* Possibility to add multiple reminders.
+* Reminder sending UI modified to support multiple reminders
+* much more complex feedback (including JS-graphs etc.) now possible because we embed iframes
+
+### Changed
+* run/survey import/export improved
+* some UI improvements
 
 ## [0.12.1]
+* Minor bug fixes
 
 ## [0.12.2]
+* Fix bug on run users listing
+* Edit publications documentation
 
 ## [0.12.3]
+* Fix bug on run users listing
+* Edit publications documentation
 
 ## [0.12.4]
+* Edit documentation
 
 ## [0.12.5]
+### Changed
+* Re-factor API to accept json formatted requests
+* API bug fixes
 
 ## [0.12.6]
-
-...Description
-
 ### Added
- 
+* Support for deprecated 'request' api parameter
+
+## [0.12.7]
 ### Changed
-
-
-
-
+* Update documentation
+* Update sample studies
+* improve handling of debugger with iframes
