@@ -25,7 +25,7 @@ install the [R package](https://github.com/rubenarslan/formr) if that's what you
 Those who don't mind running on a frequently-updated server, we will probably also give you access to our hosted version
 at [formr.org](https://formr.org).
 
-### Requirements
+### 0. Requirements
 
 The following requirements should be installed on the system you intend to install formr on:
 
@@ -34,9 +34,9 @@ The following requirements should be installed on the system you intend to insta
 * Apache >= 2.4
 * MySQL >= 5.5.40
 * [Composer](https://getcomposer.org/) (for installing dependencies)
-* [Gearman](http://gearman.org/) (Server + Client) [OPTIONAL] (for running background jobs)
-* [Supervisor](http://supervisord.org/) [OPTIONAL]
-* [smysqlin](https://bitbucket.org/cyriltata/smysqlin) [OPTIONAL] (for managing database patches)
+* [Gearman](http://gearman.org/) (Server + Client) *OPTIONAL* (for running background jobs)
+* [Supervisor](http://supervisord.org/) *OPTIONAL*
+* [smysqlin](https://bitbucket.org/cyriltata/smysqlin) *OPTIONAL* (for managing database patches)
 
 ### 1. Clone the Git repository and checkout the *desired* release (version)
 
@@ -56,7 +56,7 @@ Suppose for example you want to run release *v0.12.0* `git fetch --tags && git c
 At this point you should have your formr files present in the installation directory. Go to the root of the installation directory and install the application dependencies by running
 
 ```sh
-composer install
+    composer install
 ```
 	
 
@@ -65,15 +65,15 @@ composer install
 Login to mysql server with a user that has appropriate privileges and execute these commands to create the database
 
 ```sh
-CREATE DATABASE formr DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
-GRANT ALL PRIVILEGES ON formr.* TO formr@localhost IDENTIFIED BY 'EnterPassword';
-FLUSH PRIVILEGES;
-quit;
+    CREATE DATABASE formr DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+    GRANT ALL PRIVILEGES ON formr.* TO formr@localhost IDENTIFIED BY 'EnterPassword';
+    FLUSH PRIVILEGES;
+    quit;
 ```
 Import the initial required database structure
 
 ```sh
-mysql formr -uformr -pEnterPassword < /path/to/formr/sql/schema.sql
+    mysql formr -uformr -pEnterPassword < /path/to/formr/sql/schema.sql
 ```
 
 Optionally, you could use [smysqlin](https://bitbucket.org/cyriltata/smysqlin) to set up and manage patches to the formr mysql database.
@@ -98,20 +98,20 @@ In other to process sessions in the background, you will have to setup the formr
 * To install the formr crontab in a linux system, uncomment the cron command you will like to use in `/path/to/formr/config/formr_crontab` and then
 create a symbolic link to install the formr crontab in the system's crontab configuration 
 ```sh
-ln -s /path/to/formr/config/formr_crontab /etc/cron.d/formr
+    ln -s /path/to/formr/config/formr_crontab /etc/cron.d/formr
 ```
 * To use the formr deamon, you will need to install and setup [Gearman](http://gearman.org/) and [Supervisor](http://supervisord.org/).
 formr comes with a programs supervisor config in `/path/to/formr/config/supervisord.conf`. Edit this file to suit your needs. This config can be added to supervisor's default
 config by creating a symbolic link as follows or moving the config file to supervisor's default config directory
 ```sh
-ln -s /path/to/formr/config/supervisord.conf /etc/supervisor/conf.d/formr.conf
+    ln -s /path/to/formr/config/supervisord.conf /etc/supervisor/conf.d/formr.conf
 ```
 
 #### Configure smysqlin for installing db patches
 If you decided to use [smysqlin](https://bitbucket.org/cyriltata/smysqlin) to manage your database patches. The you could setup a formr configuration
 for smysqlin using the file in `/path/to/formr/config/formr.ini`. Modify it accordingly and add it to the smysql in configuration by copying file or creating a symbolic link
 ```sh
-ln -s /path/to/formr/config/formr.ini /etc/smysqlin/formr.ini
+    ln -s /path/to/formr/config/formr.ini /etc/smysqlin/formr.ini
 ```
 
 #### Set paths and permissions
