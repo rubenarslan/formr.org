@@ -1,16 +1,5 @@
--- Formr.org Database Schema
-
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-SET time_zone = "+00:00";
-
-
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
-
 --
--- Database: `formr_org`
+-- Database: `formr_org schema`
 --
 
 -- --------------------------------------------------------
@@ -122,19 +111,6 @@ CREATE TABLE `osf` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `shuffle`
---
-
-CREATE TABLE `shuffle` (
-  `session_id` int(10) unsigned NOT NULL,
-  `unit_id` int(10) unsigned NOT NULL,
-  `created` datetime DEFAULT NULL,
-  `group` smallint(5) unsigned DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `survey_branches`
 --
 
@@ -182,7 +158,8 @@ CREATE TABLE `survey_emails` (
   `recipient_field` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
   `body` mediumtext CHARACTER SET latin1,
   `body_parsed` mediumtext CHARACTER SET latin1,
-  `html` tinyint(1) DEFAULT NULL
+  `html` tinyint(1) DEFAULT NULL,
+  `cron_only` tinyint(1) unsigned NOT NULL DEFAULT '0' 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 -- --------------------------------------------------------
@@ -264,7 +241,7 @@ CREATE TABLE `survey_items` (
 --
 
 CREATE TABLE `survey_items_display` (
-`id` mediumint(11) unsigned NOT NULL,
+`id` bigint(20) unsigned NOT NULL,
   `item_id` int(10) unsigned NOT NULL,
   `session_id` int(10) unsigned NOT NULL,
   `answer` mediumtext COLLATE utf8_unicode_ci,
@@ -382,7 +359,8 @@ CREATE TABLE `survey_runs` (
   `footer_text_parsed` mediumtext COLLATE utf8_unicode_ci,
   `custom_css_path` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
   `custom_js_path` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
-  `osf_project_id` varchar(20) COLLATE utf8_unicode_ci DEFAULT NULL
+  `osf_project_id` varchar(20) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `last_deamon_access` int(10) unsigned NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 -- --------------------------------------------------------
@@ -395,7 +373,7 @@ CREATE TABLE `survey_run_sessions` (
 `id` int(11) NOT NULL,
   `run_id` int(10) unsigned NOT NULL,
   `user_id` int(10) unsigned DEFAULT NULL,
-  `session` char(64) CHARACTER SET latin1 COLLATE latin1_bin NOT NULL,
+  `session` char(64) CHARACTER SET utf8 NOT NULL,
   `created` datetime DEFAULT NULL,
   `ended` datetime DEFAULT NULL,
   `last_access` datetime DEFAULT NULL,
@@ -416,6 +394,19 @@ CREATE TABLE `survey_run_settings` (
   `run_session_id` int(10) unsigned NOT NULL,
   `settings` mediumtext COLLATE utf8_unicode_ci
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `survey_run_special_units`
+--
+
+CREATE TABLE `survey_run_special_units` (
+  `id` int(10) unsigned NOT NULL,
+  `run_id` int(10) unsigned NOT NULL,
+  `type` varchar(25) NOT NULL,
+  `description` varchar(225) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- --------------------------------------------------------
 
@@ -545,6 +536,19 @@ CREATE TABLE `survey_users` (
   `mobile_verified` tinyint(1) DEFAULT '0',
   `referrer_code` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+
+--
+-- Table structure for table `shuffle`
+--
+
+CREATE TABLE `shuffle` (
+  `session_id` int(10) unsigned NOT NULL,
+  `unit_id` int(10) unsigned NOT NULL,
+  `created` datetime DEFAULT NULL,
+  `group` smallint(5) unsigned DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
 
 --
 -- Indexes for dumped tables
@@ -693,6 +697,12 @@ ALTER TABLE `survey_run_sessions`
 --
 ALTER TABLE `survey_run_settings`
  ADD PRIMARY KEY (`run_session_id`);
+
+--
+-- Indexes for table `survey_run_special_units`
+--
+ALTER TABLE `survey_run_special_units`
+ ADD PRIMARY KEY (`id`), ADD KEY `run_id` (`run_id`), ADD KEY `type` (`type`);
 
 --
 -- Indexes for table `survey_run_units`
@@ -924,6 +934,13 @@ ADD CONSTRAINT `fk_survey_run_sessions_survey_units1` FOREIGN KEY (`current_unit
 ADD CONSTRAINT `fk_survey_run_sessions_survey_users1` FOREIGN KEY (`user_id`) REFERENCES `survey_users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION;
 
 --
+-- Constraints for table `survey_run_special_units`
+--
+ALTER TABLE `survey_run_special_units`
+ADD CONSTRAINT `survey_run_special_units_ibfk_1` FOREIGN KEY (`id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
+ADD CONSTRAINT `survey_run_special_units_ibfk_2` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION;
+
+--
 -- Constraints for table `survey_run_units`
 --
 ALTER TABLE `survey_run_units`
@@ -963,6 +980,3 @@ ADD CONSTRAINT `fk_survey_unit_sessions_survey_run_sessions1` FOREIGN KEY (`run_
 ALTER TABLE `survey_uploaded_files`
 ADD CONSTRAINT `fk_survey_uploaded_files_survey_runs1` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION;
 
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
