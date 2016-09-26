@@ -46,7 +46,7 @@ function __setup($settings = array()) {
 	define('WEBROOT', $protocol . $doc_root);
 	define('ONLINE', $online);
 	define('SSL', $protocol === "https://");
-    define('RUNROOT', WEBROOT);
+	define('RUNROOT', WEBROOT);
 	define('DEBUG', Config::get('display_errors'));
 	
 	// General PHP-side configuration
