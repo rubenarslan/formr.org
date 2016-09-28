@@ -141,6 +141,22 @@ class GearmanWorkerHelper extends GearmanWorker {
 		$this->cleanup($run);
 	}
 
+	/**
+	 * Send a GEARMAN_WORK_EXCEPTION status for a job and exit with error code 225
+	 * (the sleeping is added so that processes like supervisor should not attempt to restart quickly)
+	 *
+	 * @param GearmanJob $job
+	 * @param Exception $ex
+	 * @param Run $run
+	 */
+	protected function sendJobException(GearmanJob $job, Exception $ex, Run $run = null) {
+		$job->sendException($ex->getMessage() . PHP_EOL . $ex->getTraceAsString());
+		$this->cleanup($run);
+		// sleep abit so that process can spawn again (notify admin)
+		sleep(4);
+		exit(225);
+	}
+
 }
 
 class RunWorkerHelper extends GearmanWorkerHelper {
@@ -156,15 +172,13 @@ class RunWorkerHelper extends GearmanWorkerHelper {
 			$run = json_decode($job->workload(), true);
 			if (empty($run['name'])) {
 				$ex = new Exception("Missing parameters for job: " . $job->workload());
-				$job->sendException($ex->getMessage() . PHP_EOL . $ex->getTraceAsString());
-				exit(225);
+				return $this->sendJobException($job, $ex);
 			}
 
 			$r = new Run(DB::getInstance(), $run['name']);
 			if (!$r->valid) {
 				$ex = new Exception("Invalid Run {$run['name']}");
-				$job->sendException($ex->getMessage());
-				exit(225);
+				return $this->sendJobException($job, $ex);
 			}
 
 			$this->dbg("Processing run >>> %s", array($run['name']), $r);
@@ -183,8 +197,7 @@ class RunWorkerHelper extends GearmanWorkerHelper {
 			$this->dbg("%s sessions in the run '%s' were queued for processing", array($i, $run['name']), $r);
 		} catch (Exception $e) {
 			$this->dbg("Error: " . $e->getMessage() . PHP_EOL . $e->getTraceAsString());
-			$job->sendException($e->getMessage());
-			exit(225);
+			return $this->sendJobException($job, $e, $r);
 		}
 
 		$this->setJobReturn($job, GEARMAN_SUCCESS, $r);
@@ -205,15 +218,13 @@ class RunSessionWorkerHelper extends GearmanWorkerHelper {
 
 			if (empty($session['session'])) {
 				$ex = new Exception("Missing parameters for job: " . $job->workload());
-				$job->sendException($ex->getMessage() . PHP_EOL . $ex->getTraceAsString());
-				exit(225);
+				return $this->sendJobException($job, $ex);
 			}
 
 			$r = new Run(DB::getInstance(), $session['run_name']);
 			if (!$r->valid) {
 				$ex = new Exception("Invalid Run {$session['run_name']}");
-				$job->sendException($ex->getMessage());
-				exit(225);
+				return $this->sendJobException($job, $ex);
 			}
 			$owner = $r->getOwner();
 			//$this->dbg("Processing run session >>> %s > %s", array($session['run_name'], $session['session']), $r);
@@ -227,8 +238,7 @@ class RunSessionWorkerHelper extends GearmanWorkerHelper {
 			}
 		} catch (Exception $e) {
 			$this->dbg("Error: " . $e->getMessage() . PHP_EOL . $e->getTraceAsString());
-			$job->sendException($e->getMessage());
-			exit(225);
+			return $this->sendJobException($job, $e, $r);
 		}
 		// @todo. Echo types
 		$this->setJobReturn($job, GEARMAN_SUCCESS, $r);
