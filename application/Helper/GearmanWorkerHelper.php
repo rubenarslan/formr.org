@@ -157,14 +157,16 @@ class RunWorkerHelper extends GearmanWorkerHelper {
 			if (empty($run['name'])) {
 				$ex = new Exception("Missing parameters for job: " . $job->workload());
 				$job->sendException($ex->getMessage() . PHP_EOL . $ex->getTraceAsString());
-				throw $ex;
+				$this->setJobReturn($job, GEARMAN_WORK_EXCEPTION);
+				return;
 			}
 
 			$r = new Run(DB::getInstance(), $run['name']);
 			if (!$r->valid) {
 				$ex = new Exception("Invalid Run {$run['name']}");
 				$job->sendException($ex->getMessage());
-				throw $ex;
+				$this->setJobReturn($job, GEARMAN_WORK_EXCEPTION);
+				return;
 			}
 
 			$this->dbg("Processing run >>> %s", array($run['name']), $r);
@@ -205,14 +207,18 @@ class RunSessionWorkerHelper extends GearmanWorkerHelper {
 			$session = json_decode($job->workload(), true);
 
 			if (empty($session['session'])) {
-				throw new Exception("Missing parameters for job: !" . $job->workload());
+				$ex = new Exception("Missing parameters for job: " . $job->workload());
+				$job->sendException($ex->getMessage() . PHP_EOL . $ex->getTraceAsString());
+				$this->setJobReturn($job, GEARMAN_WORK_EXCEPTION);
+				return;
 			}
 
 			$r = new Run(DB::getInstance(), $session['run_name']);
 			if (!$r->valid) {
 				$ex = new Exception("Invalid Run {$session['run_name']}");
 				$job->sendException($ex->getMessage());
-				throw $ex;
+				$this->setJobReturn($job, GEARMAN_WORK_EXCEPTION);
+				return;
 			}
 			$owner = $r->getOwner();
 			//$this->dbg("Processing run session >>> %s > %s", array($session['run_name'], $session['session']), $r);
