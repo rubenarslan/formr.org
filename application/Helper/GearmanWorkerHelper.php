@@ -151,6 +151,7 @@ class GearmanWorkerHelper extends GearmanWorker {
 	 */
 	protected function sendJobException(GearmanJob $job, Exception $ex, Run $run = null) {
 		$job->sendException($ex->getMessage() . PHP_EOL . $ex->getTraceAsString());
+		$job->sendFail();
 		$this->cleanup($run);
 		// sleep abit so that process can spawn again (notify admin)
 		sleep(4);
