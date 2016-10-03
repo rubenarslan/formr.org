@@ -167,15 +167,18 @@ In this case, previously, the submit button would never be displayed. We decided
 
 ## [0.13.0]
 ### Added
-* Background session processing is now distributed and make asynchronous by using Gearman
 * Reminders now processed as unit sessions. Researchers are able to see how many times a particular reminder has been sent to a participant.
 * Actions in "User Overview" can be performed on multiple participants at the same time:
   * Deleting Sessions
   * Moving sessions to a position in the run
   * Sending reminders
   * Setting test status
-* Users can choose to execute email units (i.e. send emails) only when user is not currently active on a study
-* New panic button: Lock's run, disable's run cron and makes run private.
+* Users can choose to execute email units (i.e. send emails) only when user is not currently active on a study using the option in the email run unit.
+* New panic button to temporarily de-activate run in case of emergency: Functions of the panic button:
+  * lock's run
+  * disable's run cron
+  * makes run private.
+* [major feature] Background session processing is now distributed and make asynchronous by using Gearman
 
 ### Changed
 * Error reporting on survey upload improved to point out what individual item caused issues
