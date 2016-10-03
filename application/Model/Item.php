@@ -71,6 +71,7 @@ class Item extends HTML_element {
 	public $displaycount = null;
 	public $error = null;
 	public $dont_validate = null;
+	public $reply = null;
 	public $val_errors = array();
 	public $val_warnings = array();
 	public $mysql_field = 'TEXT DEFAULT NULL';
@@ -1868,7 +1869,7 @@ class Item_server extends Item {
 				$this->get_var = trim(current($this->type_options_array));
 			}
 		}
-		$this->input_attributes['value'] = $_SERVER[$this->get_var];
+		$this->input_attributes['value'] = array_val($_SERVER, $this->get_var);
 	}
 
 	public function getReply($reply) {
@@ -2092,8 +2093,14 @@ class Item_file extends Item {
 			if (filesize($reply['tmp_name']) < $this->max_size) {
 				$finfo = new finfo(FILEINFO_MIME_TYPE);
 				$mime = $finfo->file($reply['tmp_name']);
+				$new_file_name = crypto_token(66) . $this->file_endings[$mime];
 				if (!in_array($mime, array_keys($this->file_endings))) {
 					$this->error = 'Files of type' . $mime . ' are not allowed to be uploaded.';
+				} elseif (move_uploaded_file($reply['tmp_name'], INCLUDE_ROOT . 'webroot/assets/tmp/' . $new_file_name)) {
+					$public_path = WEBROOT . 'assets/tmp/' . $new_file_name;
+					$reply = __($this->embed_html, $public_path);
+				} else {
+					$this->error = __("Unable to save uploaded file");
 				}
 			} else {
 				$this->error = __("This file is too big the maximum is %d megabytes.", round($this->max_size / 1048576, 2));
@@ -2103,15 +2110,13 @@ class Item_file extends Item {
 			$this->error = "Error uploading file";
 			$reply = null;
 		}
-		return parent::validateInput($reply);
+
+		$this->reply = parent::validateInput($reply);
+		return $this->reply;
 	}
+
 	public function getReply($reply) {
-		$new_file_name = crypto_token(66) . $this->file_endings[$mime];
-		$reply = null;
-		if (move_uploaded_file($reply['tmp_name'], INCLUDE_ROOT . 'webroot/assets/tmp/' . $new_file_name)) {
-			$public_path = WEBROOT . 'assets/tmp/' . $new_file_name;
-			$reply = __($this->embed_html, $public_path);
-		}
+		return $this->reply;
 	}
 }
 

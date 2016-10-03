@@ -1,3 +1,4 @@
+/*jshint scripturl:true*/
 (function ($) {
     "use strict";
     function RunUnit(run) {
@@ -103,10 +104,8 @@
         }
 
         this.run.lock(this.run.lock_toggle.hasClass("btn-checked"), this.block);
-        this.save_button.attr('disabled', true).removeClass('btn-info').text('Saved')
-                .click($.proxy(this.save, this));
-
-
+        this.save_button.attr('disabled', true).removeClass('btn-info').text('Saved').click($.proxy(this.save, this));
+                
     };
 
     RunUnit.prototype.position_changes = function (e) {
@@ -263,7 +262,7 @@
                     return;
                 } else if (data === 'warn') {
                     $modal = $($.parseHTML(getHTMLTemplate('tpl-confirmation', {
-                        'content': 'Are you sure you want to delete this run unit and all it\'s data?',
+                        'content': 'Are you sure you want to delete this run unit and all it\'s data?'
                     })));
                     $modal.on('shown.bs.modal', function () {
                         $modal.find('.btn-yes').click(function (e) {
@@ -347,6 +346,9 @@
         this.importer_button = this.form.find('a.import_run_units');
         this.importer_button.click($.proxy(this.importUnits, this));
 
+        this.panic_button = $('#btn-panic');
+        this.panic_button.click($.proxy(this.panic, this));
+
         this.reorder_button = this.form.find('a.reorder_units');
         this.reorder_button
                 .attr('disabled', 'disabled')
@@ -354,8 +356,7 @@
 
         this.lock_toggle = this.form.find('a.lock-toggle');
         this.lock(this.lock_toggle.hasClass("btn-checked"), this.form);
-        this.lock_toggle.click(function (e)
-        {
+        this.lock_toggle.click(function (e) {
             e.preventDefault();
             var $this = $(this);
             var on = (!$this.hasClass('btn-checked')) ? 1 : 0;
@@ -627,8 +628,7 @@
             }
         }
     };
-    Run.prototype.lock = function (on, context)
-    {
+    Run.prototype.lock = function (on, context) {
         context.find('.import_run_units, .run_unit_description, .position, .remove_unit_from_run, .reorder_units, .unit_save, .form-control, select, .from_days, .add_run_unit').each(function (i, elm)
         {
             if (on)
@@ -667,6 +667,23 @@
             method: 'POST',
         }).fail(ajaxErrorHandling);
         return false;
+    };
+
+    Run.prototype.panic = function(e) {
+        var vars = {
+            'content': '<h4>Are you really panicking?</h4>',
+            'yes_url': this.url + '/panic',
+            'no_url': 'javascript:void(0);'
+        };
+
+        var $modal = $($.parseHTML(getHTMLTemplate('tpl-confirmation', vars))).attr('id', 'run-panic-dialog');
+        $modal.on('shown.bs.modal', function () {
+            $modal.find('.btn-yes').click(function (e) {
+                document.location = $(this).data('yes');
+            });
+        }).on('hidden.bs.modal', function () {
+            $modal.remove();
+        }).modal('show');
     };
 
     $(function () { // on domready

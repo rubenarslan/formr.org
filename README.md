@@ -73,7 +73,7 @@ If you want to test formr, you can simply clone this repository and follow the [
 If you need help, consult our [mailing list](https://groups.google.com/forum/#!forum/formr).
 
 #### Credit
-See [formr.org/public/about](https://formr.org/public/about) for funding and contact info.
+See [formr.org/about](https://formr.org/about) for funding and contact info.
 
 See [composer.json](https://github.com/rubenarslan/formr.org/blob/master/composer.json) for the PHP components we use and
 [bower.json](https://github.com/rubenarslan/formr.org/blob/master/webroot/assets/bower.json) for the Javascript and CSS components we use.

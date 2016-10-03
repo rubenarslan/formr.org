@@ -27,6 +27,7 @@ class UnitSession {
 			'created' => $now
 		));
 		$this->created = $now;
+		return $this->id;
 	}
 
 	public function load() {

@@ -91,6 +91,18 @@ class AdminAjaxController {
 	}
 
 	private function ajaxRemind() {
+		if ($this->request->bool('get_count') === true) {
+			$sessions = $this->getSessionRemindersSent($this->request->int('run_session_id'));
+			$count = array();
+			foreach ($sessions as $sess) {
+				if (!isset($count[$sess['unit_id']])) {
+					$count[$sess['unit_id']] = 0;
+				}
+				$count[$sess['unit_id']]++;
+			}
+			return $this->outjson($count);
+		}
+
 		$run = $this->controller->run;
 		// find the last email unit
 		$email = $run->getReminder($this->request->getParam('reminder'), $this->request->getParam('session'), $this->request->getParam('run_session_id'));
@@ -100,6 +112,7 @@ class AdminAjaxController {
 		} else {
 			alert('Reminder sent!', 'alert-success');
 		}
+		$email->end();
 
 		if (is_ajax_request()) {
 			echo $this->site->renderAlerts();
@@ -413,11 +426,66 @@ class AdminAjaxController {
 
 		bad_request_header();
 		$alert_msg = "'<strong>Sorry.</strong> '";
-		if (isset($unit))
+		if (isset($unit)) {
 			$alert_msg .= implode($unit->errors);
+		}
 		alert($alert_msg, 'alert-danger');
 
 		echo $this->site->renderAlerts();
+	}
+
+	private function ajaxUserBulkActions() {
+		if (!is_ajax_request()) {
+			redirect_to(admin_url());
+		}
+		$action = $this->request->str('action');
+		$sessions = $this->request->arr('sessions');
+		$qs = $res = array();
+		if (!$action || !$sessions) {
+			bad_request();
+			exit;
+		}
+		foreach ($sessions as $session) {
+			$qs[] = $this->dbh->quote($session);
+		}
+		$count = count($sessions);
+		if ($action === 'toggleTest') {
+			$query = 'UPDATE survey_run_sessions SET testing = 1 - testing WHERE session IN ('. implode(',', $qs) . ')';
+			$this->dbh->query($query);
+			alert("{$count} selected session(s) were successfully modified", 'alert-success');
+			$res['success'] = true;
+		} elseif ($action === 'sendReminder') {
+			$run = $this->controller->run;
+			$count = 0;
+			foreach ($sessions as $sess) {
+				$runSession = new RunSession($this->dbh, $run->id, null, $sess, $run);
+				$email = $run->getReminder($this->request->int('reminder'), $sess, $runSession->id);
+				$email->run_session = $runSession;
+				if ($email->exec() === false) {
+					$count++;
+				}
+				$email->end();
+			}
+
+			if ($count) {
+				alert("{$count} session(s) have been sent the reminder '{$email->getSubject()}'", 'alert-success');
+				$res['success'] = true;
+			} else {
+				$res['error'] = $this->site->renderAlerts();
+			}
+		} elseif ($action === 'deleteSessions') {
+			$query = 'DELETE FROM survey_run_sessions WHERE session IN ('. implode(',', $qs) . ')';
+			$this->dbh->query($query);
+			alert("{$count} selected session(s) were successfully deleted", 'alert-success');
+			$res['success'] = true;
+		} elseif ($action === 'positionSessions') {
+			$query = 'UPDATE survey_run_sessions SET position = ' . $this->request->int('pos') . ' WHERE session IN ('. implode(',', $qs) . ')';
+			$this->dbh->query($query);
+			alert("{$count} selected session(s) were successfully moved", 'alert-success');
+			$res['success'] = true;
+		}
+
+		$this->outjson($res);
 	}
 
 	protected function getPrivateAction($name) {
@@ -431,6 +499,24 @@ class AdminAjaxController {
 			throw new Exception("Action '$name' is not found in $class.");
 		}
 		return $action;
+	}
+
+	protected function getSessionRemindersSent($run_session_id) {
+		$stmt = $this->dbh->prepare(
+		'SELECT survey_unit_sessions.id as unit_session_id, survey_run_special_units.id as unit_id FROM survey_unit_sessions 
+			LEFT JOIN survey_units ON survey_unit_sessions.unit_id = survey_units.id
+			LEFT JOIN survey_run_special_units ON survey_run_special_units.id = survey_units.id
+			WHERE survey_unit_sessions.run_session_id = :run_session_id AND survey_run_special_units.type = "ReminderEmail"
+		');
+		$stmt->bindValue('run_session_id', $run_session_id, PDO::PARAM_INT);
+		$stmt->execute();
+		return $stmt->fetchAll(PDO::FETCH_ASSOC);
+	}
+
+	protected function outjson($res) {
+		header('Content-Type: application/json');
+		echo json_encode($res);
+		exit(0);
 	}
 
 }

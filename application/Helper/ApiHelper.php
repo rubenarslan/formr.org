@@ -1,6 +1,6 @@
 <?php
 
-class ApiDAO {
+class ApiHelper {
 
 	/**
 	 * @var DB
@@ -39,7 +39,7 @@ class ApiDAO {
 	public function __construct(Request $request, DB $db) {
 		$this->fdb = $db;
 		$this->request = $request;
-		$this->user = OAuthDAO::getInstance()->getUserByAccessToken($this->request->getParam('access_token'));
+		$this->user = OAuthHelper::getInstance()->getUserByAccessToken($this->request->getParam('access_token'));
 	}
 
 	public function results() {

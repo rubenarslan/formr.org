@@ -85,9 +85,9 @@ class Run {
 				$this->id = $vars['id'];
 				$this->user_id = (int) $vars['user_id'];
 				$this->api_secret_hash = $vars['api_secret_hash'];
-				$this->public = $vars['public'];
-				$this->cron_active = $vars['cron_active'];
-				$this->locked = $vars['locked'];
+				$this->public = (int)$vars['public'];
+				$this->cron_active = (int)$vars['cron_active'];
+				$this->locked = (int)$vars['locked'];
 				$this->header_image_path = $vars['header_image_path'];
 				$this->title = $vars['title'];
 				$this->description = $vars['description'];
@@ -413,13 +413,17 @@ class Run {
 	}
 
 	public function getReminder($reminder_id, $session, $run_session_id) {
+		// create a unit_session here and get a session_id and pass it when making the unit
+		$unitSession = new UnitSession($this->dbh, $run_session_id, $reminder_id);
+		$session_id = $unitSession->create();
 		$unit_factory = new RunUnitFactory();
 		$unit = $unit_factory->make($this->dbh, $session, array(
 			'type' => "Email",
 			"unit_id" => $reminder_id,
 			"run_name" => $this->name,
 			"run_id" => $this->id,
-			"run_session_id" => $run_session_id
+			"run_session_id" => $run_session_id,
+			"session_id" => $session_id,
 		), null, $this);
 		return $unit;
 	}

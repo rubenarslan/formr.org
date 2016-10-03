@@ -10824,6 +10824,10 @@ form.form-horizontal img, div.modal-content img,img {
 .publications li {
     margin-bottom: 10px;
 }
+.btn-panic {
+    background: #ee5f5b;
+    color: #fff;
+}
 /* CLASSES THAT CAN BE ADDED BY USER TO ITEM CONTAINERS */
 form.form-horizontal div.form-group.float_image_right img {
   float:right;

@@ -25,7 +25,10 @@ class AdminRunController extends AdminController {
 			redirect_to('admin/run/add_run');
 		}
 
-		$this->renderView('run/index');
+		$vars = array(
+			'show_panic' => $this->showPanicButton(),
+		);
+		$this->renderView('run/index', $vars);
 	}
 
 	public function addRunAction() {
@@ -528,7 +531,7 @@ class AdminRunController extends AdminController {
 			$email['from'] = "{$email['from_name']}<br><small>{$email['from']}</small>";
 			unset($email['from_name']);
 			$email['to'] = $email['to']."<br><small>at run position ".$email['position_in_run']."</small>";
-			$email['mail'] = $email['subject']."<br><small>". substr($email['body'],0,100). "…</small>";
+			$email['mail'] = $email['subject']."<br><small>". h(substr($email['body'], 0, 100)). "…</small>";
 			$email['sent'] = '<abbr title="'.$email['sent'].'">'.timetostr(strtotime($email['sent'])).'</abbr>';
 			unset($email['position_in_run']);
 			unset($email['subject']);
@@ -730,4 +733,28 @@ class AdminRunController extends AdminController {
 		redirect_to(str_replace(':::', '#', $redirect));
 	}
 
+	private function panicAction() {
+		$settings = array(
+			'locked' => 1,
+			'cron_active' => 0,
+			'public' => 0,
+			//@todo maybe do more
+		);
+		$updated = $this->fdb->update('survey_runs', $settings, array('id' => $this->run->id));
+		if ($updated) {
+			$msg = array("Panic mode activated for '{$this->run->name}'");
+			$msg[] = " - Only you can access this run";
+			$msg[] = " - The cron job for this run has been deactivated";
+			$msg[] = " - The run has been 'locked' for editing";
+			alert(implode("\n", $msg), 'alert-success');
+		}
+		redirect_to("admin/run/{$this->run->name}");
+	}
+
+	private function showPanicButton() {
+		$on = $this->run->locked === 1 &&
+				$this->run->cron_active === 0 &&
+				$this->run->public === 0;
+		return !$on;
+	}
 }

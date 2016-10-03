@@ -3,7 +3,6 @@
 /**
  * Formr.org configuration
  */
-$settings['version'] = '0.12.7';
 
 // Database Settings
 $settings['database'] = array(
@@ -125,4 +124,14 @@ $settings['email_subscriptions'] = array(
 
 // Limit to number of pages to skip in a survey
 $settings['allowed_empty_pages'] = 100;
+
+// Deamon settings
+$settings['deamon'] = array(
+	// List of gearman servers in format {host:port}
+	'gearman_servers' => array('server.gearman.net:4730'),
+	// Number of seconds to expire before run is fetched from DB for processing
+	'run_expire_time' => 10 * 60,
+	// Number of seconds for which deamon loop should rest before getting next batch
+	'loop_interval' => 1,
+);
 		

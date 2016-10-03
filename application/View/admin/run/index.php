@@ -11,7 +11,8 @@ Template::load('acp_nav');
             <div class="row">
                 <div class="col-md-12">
 					<h2>Edit run</h2>
-					
+					<a href="javascript:void(0);" class="btn btn-danger btn-panic pull-right" id="btn-panic">I am panicking :(</a>
+
                     <h4>
                         Publicness:
                         <input type="hidden" value="<?= $run->name ?>" name="old_run_name" class="run_name">
@@ -103,7 +104,5 @@ Template::load('acp_nav');
 
 
 <?php
-Template::load('admin/run/run_modals');
-Template::load('footer', array(
-	'js' => '<script src="' . asset_url('assets/'. (DEBUG ? 'js' : 'minified') . '/run.js') . '"></script>'
-));
+Template::load('admin/run/run_modals', array('reminders' => array()));
+Template::load('footer');

@@ -147,12 +147,12 @@ class Branch extends RunUnit {
 
 		$result = (bool)$eval;
 		// if condition is true and we're set to jump automatically, or if the user reacted
-		if ($result AND ( $this->automatically_jump OR ! $this->called_by_cron)):
+		if ($result && ($this->automatically_jump || !$this->called_by_cron)):
 			if ($this->run_session->session):
 				$this->end();
-				return ! $this->run_session->runTo($this->if_true);
+				return !$this->run_session->runTo($this->if_true);
 			endif;
-		elseif (!$result AND ( $this->automatically_go_on OR ! $this->called_by_cron)): // the condition is false and it goes on
+		elseif (!$result && ($this->automatically_go_on || !$this->called_by_cron)): // the condition is false and it goes on
 			$this->end();
 			return false;
 		else: // we wait for the condition to turn true or false, depends.

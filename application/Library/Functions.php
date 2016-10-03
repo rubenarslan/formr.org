@@ -32,7 +32,7 @@ function get_log_file($filename) {
 
 function alert($msg, $class = 'alert-warning', $dismissable = true) { // shorthand
 	global $site;
-	$site->alert($msg, $class, $dismissable);
+	$site->alert(nl2br($msg), $class, $dismissable);
 }
 
 function notify_user_error($error, $public_message = '') {

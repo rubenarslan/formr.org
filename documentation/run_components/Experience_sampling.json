@@ -1,0 +1,53 @@
+{
+    "name": "Experience_sampling",
+    "units": [
+        {
+            "type": "Survey",
+            "description": "get email, intro survey",
+            "position": 10,
+            "special": ""
+        },
+        {
+            "type": "Pause",
+            "description": "wait until reminding user again",
+            "position": 20,
+            "special": "",
+            "wait_until_time": "",
+            "wait_until_date": "",
+            "wait_minutes": "",
+            "relative_to": "library(lubridate)\r\nx_minutes = sample(5:100, 1) # random number between 5 and 100\r\nhour_now = hour(now())\r\ntime_passed(minutes = x_minutes) && hour_now > 9 && hour_now < 22\r\n# wait a random nr of minutes, only trigger reminders between 9 and 22 o'clock",
+            "body": "# Wait\r\nPlease wait for your first reminder."
+        },
+        {
+            "type": "Email",
+            "description": "reminder",
+            "position": 30,
+            "special": "",
+            "account_id": 1,
+            "subject": "Time to tell us about your experiences!",
+            "recipient_field": "most recent reported address",
+            "body": "Time to tell us about your experiences!\r\n\r\n{{login_link}}"
+        },
+        {
+            "type": "Survey",
+            "description": "experience sampling survey",
+            "position": 40,
+            "special": ""
+        },
+        {
+            "type": "SkipBackward",
+            "description": "loop the experience sampling",
+            "position": 50,
+            "special": "",
+            "condition": "nrow(experience_survey) < 100",
+            "if_true": 30
+        },
+        {
+            "type": "Endpage",
+            "description": "end",
+            "position": 60,
+            "special": "",
+            "body": "kthxbye"
+        }
+    ]
+}

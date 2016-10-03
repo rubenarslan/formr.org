@@ -759,5 +759,5 @@
             "special": "",
             "body": "# Thank you\r\n\r\nFor rating all your friends.\r\n\r\n\r\n```{r message = F, warning = F}\r\nlibrary(DT)\r\nlibrary(ggplot2)\r\nlibrary(dplyr)\r\nlibrary(tidyr)\r\n```\r\n\r\n```{r}\r\nfriend_list = friend_list %>% gather(variable, value) %>%\r\nseparate(variable, c(\"variable\", \"friend\"), sep = \"_\") %>% \r\n    mutate(friend_nr = stringr::str_match(friend, \"\\\\d+\")[,1] %>% as.numeric()) %>%\r\n\t\tselect(-friend) %>%\r\n\t\tspread(variable, value)\r\n\r\nfriends = friend_list %>% left_join(friend_rate, by = \"friend_nr\")\r\n\r\n# name_friend, sex_friend, type_friend, size_friend, food, liking\r\n\r\ndatatable(friends, options = list(pageLength = 5))\r\n```\r\n\r\n```{r}\r\nqplot(size, liking, data = friends)\r\n```\r\n"
         }
-    ],
+    ]
 }

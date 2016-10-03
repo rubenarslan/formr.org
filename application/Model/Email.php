@@ -15,6 +15,7 @@ class Email extends RunUnit {
 	protected $recipient_field;
 	protected $recipient;
 	protected $html = 1;
+	protected $cron_only = 0;
 	public $icon = "fa-envelope";
 	public $type = "Email";
 	protected $subject_parsed = null;
@@ -24,7 +25,7 @@ class Email extends RunUnit {
 	 * An array of unit's exportable attributes
 	 * @var array
 	 */
-	public $export_attribs = array('type', 'description', 'position', 'special', 'subject', 'account_id', 'recipient_field', 'body');
+	public $export_attribs = array('type', 'description', 'position', 'special', 'subject', 'account_id', 'recipient_field', 'body', 'cron_only');
 
 
 	public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
@@ -40,6 +41,7 @@ class Email extends RunUnit {
 				$this->subject = $vars['subject'];
 //				$this->html = $vars['html'] ? 1:0;
 				$this->html = 1;
+				$this->cron_only = (int)$vars['cron_only'];
 
 				$this->valid = true;
 			endif;
@@ -63,6 +65,7 @@ class Email extends RunUnit {
 			}
 //			$this->html = $options['html'] ? 1:0;
 			$this->html = 1;
+			$this->cron_only = isset($options['cron_only']) ? 1 : 0;
 		}
 		if ($this->account_id === null):
 			$email_accounts = $this->getEmailAccounts();
@@ -83,6 +86,7 @@ class Email extends RunUnit {
 			'body_parsed' => $this->body_parsed,
 			'subject' => $this->subject,
 			'html' => $this->html,
+			'cron_only' => $this->cron_only,
 		));
 
 		$this->valid = true;
@@ -90,7 +94,7 @@ class Email extends RunUnit {
 		return true;
 	}
 
-	protected function getSubject() {
+	public function getSubject() {
 		if ($this->subject_parsed === NULL):
 			if ($this->knittingNeeded($this->subject)):
 				if ($this->run_session_id):
@@ -208,6 +212,8 @@ class Email extends RunUnit {
 			<textarea style="width:388px;"  data-editor="markdown" placeholder="You can use Markdown" name="body" rows="7" cols="60" class="form-control col-md-5">' . h($this->body) . '</textarea></label><br>
 			<code>{{login_link}}</code> will be replaced by a personalised link to this run, <code>{{login_code}}</code> will be replaced with this user\'s session code.</p>';
 //		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
+		
+		$dialog .= '<p><label><input type="checkbox" name="cron_only" value="1"'.($this->cron_only ?' checked ':'').'> Send e-mails only when cron is running</label></p>';
 		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Email">Save</a>
 		<a class="btn btn-default unit_test" href="ajax_test_unit?type=Email">Test</a></p>';
 
@@ -234,6 +240,7 @@ class Email extends RunUnit {
 
 			$recips = array();
 			$res = $get_recip->fetch(PDO::FETCH_ASSOC);
+			var_dump($res); die();
 			if($res) {
 				$email = $res['email'];
 				return $email;
@@ -481,10 +488,18 @@ class Email extends RunUnit {
 	}
 
 	public function exec() {
+		// If emails should be sent only when cron is active and unit is not called by cron, then end it and move on
+		if ($this->cron_only && !$this->called_by_cron) {
+			$this->end();
+			return false;
+		}
+
+		// Check if user is enabled to receive emails
 		if (!$this->sessionCanReceiveMails()) {
 			return array('body' => "<p>Session <code>{$this->session}</code> cannot receive mails at this time </p>");
 		}
 
+		// Try to send email
 		$err = $this->sendMail();
 		if ($this->mail_sent) {
 			$this->end();

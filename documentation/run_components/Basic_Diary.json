@@ -67,5 +67,5 @@
             "special": "",
             "body": "# Notes\r\n\r\n1. Make sure you ask for an email address in the first survey\r\n2. Set an expiry time for the diary survey at pos 50, so that the survey is only accessible for a certain time window (otherwise the diary won't continue until the users responds to the diary).\r\n3. At step 60 we refer to the initial survey, assuming you named it \"demographics\". If you choose a different name, specify that instead.\r\n4. You can delete this unit (80), but users will never see it in this design."
         }
-    ],
+    ]
 }

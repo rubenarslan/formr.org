@@ -243,24 +243,24 @@ class PublicController extends Controller {
 
 		$parts = explode('_', $action);
 		$method = array_shift($parts) . str_replace(' ', '', ucwords(implode(' ', $parts)));
-		$runDao = new RunDAO($this->request, $this->fdb, $run_name);
+		$runHelper = new RunHelper($this->request, $this->fdb, $run_name);
 
 		// check if run session usedby the monkey bar is a test if not this action is not valid
-		if (!($runSession = $runDao->getRunSession()) || !$runSession->isTesting()) {
+		if (!($runSession = $runHelper->getRunSession()) || !$runSession->isTesting()) {
 			throw new Exception ("Unauthorized access to run session");
 		}
 
-		if (!method_exists($runDao, $method)) {
+		if (!method_exists($runHelper, $method)) {
 			throw new Exception("Invalid method {$action}");
 		}
 
-		$runDao->{$method}();
-		if (($errors = $runDao->getErrors())) {
+		$runHelper->{$method}();
+		if (($errors = $runHelper->getErrors())) {
 			$errors = implode("\n", $errors);
 			alert(nl2br($errors), 'alert-danger');
 		}
 
-		if (($message = $runDao->getMessage())) {
+		if (($message = $runHelper->getMessage())) {
 			alert($message, 'alert-info');
 		}
 
