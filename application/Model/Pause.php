@@ -160,7 +160,7 @@ class Pause extends RunUnit {
 				$conditions['relative_to'] = "1=1";
 			elseif ($relative_to === false):
 				$conditions['relative_to'] = "0=1";
-			elseif (!is_array($relative_to) AND strtotime($relative_to)):
+			elseif (!is_array($relative_to) && strtotime($relative_to)):
 				$conditions['relative_to'] = ":relative_to <= NOW()";
 				$bind_relative_to = true;
 			else:
@@ -168,7 +168,7 @@ class Pause extends RunUnit {
 				return false;
 			endif;
 		elseif ($this->wait_minutes_true):   // if a wait minutes was defined by user, we need to add its condition
-			if (strtotime($relative_to)):
+			if (!is_array($relative_to) && strtotime($relative_to)):
 				$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
 				$bind_relative_to = true;
 			else:

@@ -187,3 +187,7 @@ In this case, previously, the submit button would never be displayed. We decided
   * [Issue #262](https://github.com/rubenarslan/formr.org/issues/262)
   * [Issue #265](https://github.com/rubenarslan/formr.org/issues/265)
   * [Issue #266](https://github.com/rubenarslan/formr.org/issues/266)
+
+## [0.13.1]
+### Changed
+* Fixed PHP warnings

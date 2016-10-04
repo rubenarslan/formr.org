@@ -23,7 +23,7 @@ $settings['routes'] = array (
 require_once INCLUDE_ROOT . 'config_default/settings.php';
 require_once INCLUDE_ROOT . 'config/settings.php';
 // Set current formr version (bumbped on release)
-$settings['version'] = 'v0.13.0';
+$settings['version'] = 'v0.13.1';
 
 // Load application autoloader
 $autoloader = require_once APPLICATION_PATH . 'Library/Autoloader.php';
