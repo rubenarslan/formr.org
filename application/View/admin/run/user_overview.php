@@ -139,7 +139,7 @@ Template::load('acp_nav');
 			</tbody>
 		</table>
 		<div class="bulk-actions-ba">
-			<form class="form-inline form-ajax form-ba" action="<?php echo admin_run_url($user['run_name'], 'ajax_user_bulk_actions'); ?>" method="post">
+			<form class="form-inline form-ajax form-ba" action="<?php echo admin_run_url($run->name, 'ajax_user_bulk_actions'); ?>" method="post">
 				Do with selected: 			
 				<span class="input-group">
 					<span class="input-group-btn">
