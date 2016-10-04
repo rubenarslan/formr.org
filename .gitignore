@@ -15,6 +15,9 @@ formr-package/man
 /nbproject
 /webroot/assets/node_modules/*
 /webroot/assets/bower_components/*
+/webroot/assets/tmp/*
+!/webroot/assets/tmp/dsc.php
+/webroot/assets/
 /webroot/assets/tmp/admin/*.*
 /tmp/backups/results/*.*
 /tmp/backups/surveys/*.*
