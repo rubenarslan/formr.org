@@ -250,5 +250,5 @@ qplot(survey_name$created) # plot entries by startdate</code></pre></li>
 	<div class="clearfix"></div>
 </div>
 <?php
-Template::load('admin/run/run_modals');
+Template::load('admin/run/run_modals', array('reminders' => array()));
 Template::load('footer');
