@@ -191,3 +191,13 @@ In this case, previously, the submit button would never be displayed. We decided
 ## [0.13.1]
 ### Changed
 * Fixed PHP warnings
+
+## [0.13.2]
+### Changed
+* Fixed PHP warnings
+
+## [0.13.3]
+### Changed
+* Increased memory limit when exporting results in JSON
+* When backing-up results, only items saved in results table are exported
+* Minor bug fixes
