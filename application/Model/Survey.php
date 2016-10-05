@@ -1345,9 +1345,13 @@ class Survey extends RunUnit {
 		// Get old items, mark them as false meaning all are vulnerable for delete.
 		// When the loop over survey items ends you will know which should be deleted.
 		$old_items = array();
+		$old_items_in_results = array();
 		foreach ($this->getItems() as $item) {
 			if (($object = $this->item_factory->make($item)) !== false) {
 				$old_items[$item['name']] = $object->getResultField();
+				if ($object->isStoredInResultsTable()) {
+					$old_items_in_results[] = $item['name'];
+				}
 			}
 		}
 
@@ -1426,7 +1430,7 @@ class Survey extends RunUnit {
 				$deleted_columns_string =  implode(array_keys($deleted), ", ");
 				$this->errors[] = "<strong>No permission to delete data</strong>. Enter the survey name, if you are okay with data being deleted from the following columns: " . $deleted_columns_string;
 			}
-			if($this->doWeHaveRealData() && $this->confirmed_deletion && !$this->backupResults(array_keys($old_items))) {
+			if($this->doWeHaveRealData() && $this->confirmed_deletion && !$this->backupResults($old_items_in_results)) {
 				$this->errors[] = "<strong>Back up failed.</strong> Deletions would have been necessary, but backing up the item table failed, so no modification was carried out.</strong>";
 			}
 		}

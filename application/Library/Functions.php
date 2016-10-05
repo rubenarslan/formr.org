@@ -1334,6 +1334,11 @@ function array_val($array, $key, $default = "") {
 }
 
 function shutdown_formr_org() {
+	$user = Site::getCurrentUser();
+	if (is_object($user) && $user->cron) {
+		exit(0);
+	}
+
 	$error = error_get_last();
 	if($error !== null && $error['type'] === E_ERROR && !DEBUG) {
 		$errno = $error["type"];

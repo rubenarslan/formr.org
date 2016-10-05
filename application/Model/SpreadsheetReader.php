@@ -67,7 +67,7 @@ class SpreadsheetReader {
 
 	public function exportJSON($array, $filename) {
 		set_time_limit(300); # defaults to 30
-		ini_set('memory_limit', '1024M');
+		ini_set('memory_limit', '2048M');
 
 		header('Content-Disposition: attachment;filename="' . $filename . '.json"');
 		header('Cache-Control: max-age=0');
