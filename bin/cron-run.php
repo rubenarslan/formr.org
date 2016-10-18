@@ -79,6 +79,7 @@ cron_log("cron-run call start for {$run->name}");
 
 // Lock cron
 file_put_contents($lockfile, $start_date);
+register_shutdown_function('cron_cleanup');
 
 // get all session codes that have Branch, Pause, or Email lined up (not ended)
 $dues = $run->getCronDues();
