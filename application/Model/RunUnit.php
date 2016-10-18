@@ -611,7 +611,7 @@ class RunUnit {
 	}
 
 	public function parseBodySpecial() {
-		$ocpu_vars = $this->getUserDataInRun($this->body);
+		$ocpu_vars = array();//$this->getUserDataInRun($this->body);
 		$session = opencpu_knitadmin($this->body, $ocpu_vars, true);
 		return opencpu_debug($session);
 	}
