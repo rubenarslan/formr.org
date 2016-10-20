@@ -1336,7 +1336,7 @@ function array_val($array, $key, $default = "") {
 function shutdown_formr_org() {
 	$user = Site::getCurrentUser();
 	if (is_object($user) && $user->cron) {
-		exit(0);
+		return;
 	}
 
 	$error = error_get_last();
