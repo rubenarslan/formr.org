@@ -39,10 +39,7 @@ function cron_lock_exists($lockfile, $start_date) {
 }
 
 function cron_cleanup() {
-	global $lockfile, $start_time;
-	$exec_time = microtime(true) - $start_time;
-	$lasted = $exec_time > 60 ? ceil($exec_time / 60) . ' minutes' : ceil($exec_time) . ' seconds';
-	cron_log("Cron ran for {$lasted}");
+	global $lockfile;
 
 	if (file_exists($lockfile)) {
 		unlink($lockfile);
@@ -113,6 +110,12 @@ if ($site->alerts) {
 	cron_log("\n<alerts>\n" . $site->renderAlerts() . "\n</alerts>");
 }
 
+// log execution time
+$exec_time = microtime(true) - $start_time;
+$lasted = $exec_time > 60 ? ceil($exec_time / 60) . ' minutes' : ceil($exec_time) . ' seconds';
+cron_log("Cron ran for {$lasted}");
+
+// cleanup
 cron_cleanup();
 cron_log("cron-run call end for {$run->name}");
 exit(0);
