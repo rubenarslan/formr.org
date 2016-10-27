@@ -222,36 +222,34 @@ class Email extends RunUnit {
 	}
 
 	public function getRecipientField($return_format = 'json', $return_session = false) {
-		if (empty($this->recipient_field) OR $this->recipient_field === $this->mostrecent) {
-			$get_recip = $this->dbh->prepare("SELECT `survey_items_display`.`answer` AS email FROM survey_items_display
-			LEFT JOIN survey_items ON survey_items_display.item_id = survey_items.id
-			LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
-			LEFT JOIN survey_run_units ON survey_studies.id = survey_run_units.unit_id
-			LEFT JOIN survey_run_sessions ON survey_run_units.run_id = survey_run_sessions.run_id
-			WHERE survey_run_units.run_id = :run_id AND
-			survey_items.type = 'email' AND
-			survey_items_display.answer IS NOT NULL AND
-			survey_run_sessions.id = :run_session_id
-			ORDER BY survey_items_display.answered DESC
-			LIMIT 1");
+		if (empty($this->recipient_field) || $this->recipient_field === $this->mostrecent) {
+			$recent_email_query = "
+				SELECT survey_items_display.answer AS email FROM survey_unit_sessions
+				LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id AND survey_units.type = 'Survey'
+				LEFT JOIN survey_run_units ON survey_run_units.unit_id = survey_units.id
+				LEFT JOIN survey_items_display ON survey_items_display.session_id = survey_unit_sessions.id
+				LEFT JOIN survey_items ON survey_items.id = survey_items_display.item_id
+				WHERE
+				survey_unit_sessions.run_session_id = :run_session_id AND 
+				survey_run_units.run_id = :run_id AND 
+				survey_items.type = 'email'
+				ORDER BY survey_items_display.answered DESC
+				LIMIT 1
+			";
+
+			$get_recip = $this->dbh->prepare($recent_email_query);
 			$get_recip->bindValue(':run_id', $this->run_id);
 			$get_recip->bindValue(':run_session_id', $this->run_session_id);
 			$get_recip->execute();
 
-			$recips = array();
 			$res = $get_recip->fetch(PDO::FETCH_ASSOC);
-			var_dump($res); die();
-			if($res) {
-				$email = $res['email'];
-				return $email;
-			} else {
-				return null;
-			}
+			$recipient = array_val($res, 'email', null);
+		} else {
+			$opencpu_vars = $this->getUserDataInRun($this->recipient_field);
+			$recipient = opencpu_evaluate($this->recipient_field, $opencpu_vars, $return_format, null, $return_session);
 		}
 
-		$opencpu_vars = $this->getUserDataInRun($this->recipient_field);
-
-		return opencpu_evaluate($this->recipient_field, $opencpu_vars, $return_format, null, $return_session);
+		return $recipient;
 	}
 
 	public function sendMail($who = NULL) {
