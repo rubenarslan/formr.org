@@ -103,7 +103,7 @@ class Deamon {
 						$id = $run['id'];
 						self::dbg("Process run '%s'. Last access: %s", $run['name'], date('r', $run['last_deamon_access']));
 						$updateStmt->execute();
-						$gearmanClient->doBackground('process_run', json_encode($run));
+						$gearmanClient->doHighBackground('process_run', json_encode($run), $run['name']);
 					}
 
 				}
@@ -145,7 +145,7 @@ class Deamon {
 			$id = $run['id'];
 			self::dbg("Process run [cr.d] '%s'. Last access: %s", $run['name'], date('r', $run['last_deamon_access']));
 			$updateStmt->execute();
-			$gearmanClient->doBackground('process_run', json_encode($run));
+			$gearmanClient->doHighBackground('process_run', json_encode($run), $run['name']);
 		}
 	}
 
