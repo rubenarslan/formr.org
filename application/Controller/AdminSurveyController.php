@@ -363,10 +363,10 @@ class AdminSurveyController extends AdminController {
 
 		$SPR = new SpreadsheetReader();
 
-		if (!isset($_GET['format']) OR ! in_array($_GET['format'], $SPR->exportFormats)):
+		if (!isset($_GET['format']) || !in_array($_GET['format'], $SPR->exportFormats)) {
 			alert("Invalid format requested.", "alert-danger");
 			bad_request();
-		endif;
+		}
 		$format = $_GET['format'];
 
 		if ($format == 'xlsx')

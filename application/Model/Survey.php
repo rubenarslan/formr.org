@@ -1138,7 +1138,7 @@ class Survey extends RunUnit {
 //  
 	public function uploadItemTable($file, $confirmed_deletion, $updates = array(), $created_new = false) {
 		umask(0002);
-		ini_set('memory_limit', '256M');
+		ini_set('memory_limit', Config::get('memory_limit.survey_upload_items'));
 		$target = $file['tmp_name'];
 		$filename = $file['name'];
 
@@ -1645,7 +1645,7 @@ class Survey extends RunUnit {
 
 	public function getResults($items = null, $session = null, array $paginate = null, $runId = null) { // fixme: shouldnt be using wildcard operator here.
 		if ($this->hasResultsTable()) {
-			ini_set('memory_limit', '1024M');
+			ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
 			$results_table = $this->results_table;
 			if (!$items) {
@@ -1728,8 +1728,8 @@ class Survey extends RunUnit {
 	 * @return array
 	 */
 	public function getItemDisplayResults($items = array(), $session = null, array $paginate = null) {
-		ini_set('memory_limit', '1024M');
-		
+		ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
+
 		$count = $this->getResultCount();
 		if($this->settings['unlinked']) {
 			if($count['real_users'] > 0) {
