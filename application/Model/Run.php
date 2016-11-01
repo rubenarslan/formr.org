@@ -612,7 +612,7 @@ class Run {
 	}
 
 	public function getData() {
-		ini_set('memory_limit', '1024M');
+		ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
 		$fdb = $this->dbh;
 		$collect = $fdb->prepare("SELECT 
 			`survey_studies`.name AS survey_name,
@@ -880,7 +880,7 @@ class Run {
 	 * @return array Returns an array on rendered units indexed by position
 	 */
 	public function importUnits($json_string, $start_position = 0) {
-		ini_set('memory_limit', '256M');
+		ini_set('memory_limit', Config::get('memory_limit.run_import_units'));
 		if (!$start_position) {
 			$start_position = 0;
 		} else {

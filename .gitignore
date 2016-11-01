@@ -12,11 +12,17 @@ formr-package/man
 !/tmp/logs/cron/
 /tmp/logs/cron/*
 /tmp/*.lock
+/tmp/*.*
 /nbproject
+/webroot/assets/tmp/*
+/webroot/assets/dsc.php
 /webroot/assets/node_modules/*
 /webroot/assets/bower_components/*
 /webroot/assets/tmp/admin/*.*
 /tmp/backups/results/*.*
 /tmp/backups/surveys/*.*
+/tmp/backups/backups/
+/tmp/backups/sessions/
 webroot/assets/img/randPic
 tests/test.php
+

@@ -39,10 +39,7 @@ function cron_lock_exists($lockfile, $start_date) {
 }
 
 function cron_cleanup() {
-	global $lockfile, $start_time;
-	$exec_time = microtime(true) - $start_time;
-	$lasted = $exec_time > 60 ? ceil($exec_time / 60) . ' minutes' : ceil($exec_time) . ' seconds';
-	cron_log("Cron ran for {$lasted}");
+	global $lockfile;
 
 	if (file_exists($lockfile)) {
 		unlink($lockfile);
@@ -79,6 +76,7 @@ cron_log("cron-run call start for {$run->name}");
 
 // Lock cron
 file_put_contents($lockfile, $start_date);
+register_shutdown_function('cron_cleanup');
 
 // get all session codes that have Branch, Pause, or Email lined up (not ended)
 $dues = $run->getCronDues();
@@ -112,6 +110,12 @@ if ($site->alerts) {
 	cron_log("\n<alerts>\n" . $site->renderAlerts() . "\n</alerts>");
 }
 
+// log execution time
+$exec_time = microtime(true) - $start_time;
+$lasted = $exec_time > 60 ? ceil($exec_time / 60) . ' minutes' : ceil($exec_time) . ' seconds';
+cron_log("Cron ran for {$lasted}");
+
+// cleanup
 cron_cleanup();
 cron_log("cron-run call end for {$run->name}");
 exit(0);

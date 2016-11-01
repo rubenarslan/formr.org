@@ -134,4 +134,17 @@ $settings['deamon'] = array(
 	// Number of seconds for which deamon loop should rest before getting next batch
 	'loop_interval' => 1,
 );
+
+// Configure memory limits to be set when performing certain actions
+$settings['memory_limit'] = array(
+	// Run
+	'run_get_data' => '1024M',
+	'run_import_units' => '256M',
+	// Spreadsheet
+	'spr_object_array' => '1024M',
+	'spr_sheets_array' => '1024M',
+	// Survey
+	'survey_get_results' => '2048M',
+	'survey_upload_items' => '256M',
+);
 		

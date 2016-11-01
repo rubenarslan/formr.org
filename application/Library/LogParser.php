@@ -8,9 +8,11 @@ class LogParser {
 	
 	const LOG_MARKER_END = 'cron-run call end';
 	
-	const LOG_MARGER_ALERTS_START = '<alerts>';
+	const LOG_MARKER_ALERTS_START = '<alerts>';
 
-	const LOG_MARGER_ALERTS_END = '</alerts>';
+	const LOG_MARKER_ALERTS_END = '</alerts>';
+	
+	const LOG_MARKER_START_GM = 'Processing run >>>';
 
 	public function __construct() {
 		
@@ -35,6 +37,7 @@ class LogParser {
 		$handle = fopen($file, "r");
 		$id = 1;
 		$class = $expand ? ' in' : null;
+		$openRow = false;
 		if ($handle) {
 			while (($line = fgets($handle)) !== false) {
 				$line = trim($line);
@@ -47,7 +50,12 @@ class LogParser {
 					continue;
 				}
 
-				if (strstr($line, self::LOG_MARKER_START) !== false) {
+				if (strstr($line, self::LOG_MARKER_START) !== false || strstr($line, self::LOG_MARKER_START_GM) !== false) {
+					if ($openRow === true) {
+						echo '</div></div>';
+						$id++;
+					}
+					$openRow = true;
 					$id_str = 'log-entry-' . $id;
 					$time = strtotime($this->stripLineTime($line, true));
 					echo '<div class="log-entry panel panel-default" data-time="'.$time.'">';
@@ -59,10 +67,11 @@ class LogParser {
 					
 					echo '<div id="'.$id_str.'" class="panel-content panel-collapse collapse '.$class.'" aria-expanded="false">';
 				} elseif (strstr($line, self::LOG_MARKER_END) !== false) {
+					$openRow = false;
 					echo '</div></div>';
-				} elseif (strstr($line, self::LOG_MARGER_ALERTS_START) !== false) {
+				} elseif (strstr($line, self::LOG_MARKER_ALERTS_START) !== false) {
 					echo '<div class="alerts">';
-				} elseif (strstr($line, self::LOG_MARGER_ALERTS_END) !== false) {
+				} elseif (strstr($line, self::LOG_MARKER_ALERTS_END) !== false) {
 					echo '</div>';
 				} else {
 					echo $this->stripLineTime($line);
@@ -86,7 +95,7 @@ class LogParser {
 			return 0;
 		}
 		
-		return preg_replace($pattern, '', $line);
+		return preg_replace($pattern, '', str_replace('<br />', '', $line));
 	}
 
 }

@@ -191,7 +191,8 @@ class RunWorkerHelper extends GearmanWorkerHelper {
 					'run_name' => $run['name'],
 					'run_id' => $run['id'],
 				);
-				$this->getGearmanClient()->doBackground('process_run_session', json_encode($data));
+				$workload = json_encode($data);
+				$this->getGearmanClient()->doBackground('process_run_session', $workload, md5($workload));
 				$i++;
 			}
 
