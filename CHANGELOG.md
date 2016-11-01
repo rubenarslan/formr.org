@@ -201,3 +201,13 @@ In this case, previously, the submit button would never be displayed. We decided
 * Increased memory limit when exporting results in JSON
 * When backing-up results, only items saved in results table are exported
 * Minor bug fixes
+
+## [0.14.0] - 1.11.2016
+### Added
+* When sending 'run jobs' to the gearman server, a high priority is used.
+* User unique identifies for gearman jobs to avoid duplicates
+### Changed
+* Configurable memory limits
+* Bug Fixes
+  * Fix query to get _most recent mail_ in the Email Run Unit
+  * properly parse cron logs generated when running gearman
