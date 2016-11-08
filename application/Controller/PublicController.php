@@ -82,10 +82,15 @@ class PublicController extends Controller {
 		$user = $this->user;
 		if($user->loggedIn()) {
 			$user->logout();
-			$user = new User($this->fdb, null, null);
-			alert('<strong>Logged out:</strong> You have been logged out.','alert-info');
+			$redirect_to = 'login';
+		} else {
+			Session::destroy();
+			$redirect_to = $this->request->getParam('_rdir');
 		}
-		redirect_to("index");
+
+		$user = new User($this->fdb, null, null);
+		alert('<strong>Logged out:</strong> You have been logged out.','alert-info');
+		redirect_to($redirect_to);
 	}
 
 	public function registerAction() {
