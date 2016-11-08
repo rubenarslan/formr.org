@@ -206,8 +206,14 @@ In this case, previously, the submit button would never be displayed. We decided
 ### Added
 * When sending 'run jobs' to the gearman server, a high priority is used.
 * User unique identifies for gearman jobs to avoid duplicates
+
 ### Changed
 * Configurable memory limits
 * Bug Fixes
   * Fix query to get _most recent mail_ in the Email Run Unit
   * properly parse cron logs generated when running gearman
+
+## [0.14.1] - 7.11.2016
+### Changed
+* Logout page should also logout anonymous run sessions
+* A page to redirect to after logout can be specified using the get parameter *_rdir*
