@@ -227,6 +227,82 @@ class Pause extends RunUnit {
 		return $result;
 	}
 
+	protected function isOver() {
+		// Frist get the latest pause session unit for this session.
+		// This query assumes the unit session has been created but not ended
+		// 
+		$q = 'SELECT id, created, ended, expired 
+			  FROM survey_unit_sessions 
+			  WHERE unit_id = :id AND run_session_id = :run_session_id AND ended is NULL
+			  ORDER BY created DESC LIMIT 1
+			  ';
+		$unit = $this->dbh->prepare($q);
+		$unit->bindValue(':id', $this->id);
+		$unit->bindValue('run_session_id', $this->run_session_id);
+		$row = $unit->fetch(PDO::FETCH_ASSOC);
+		if (!$row) {
+			return false;
+		}
+
+		$now = time();
+		$creation_datetime = strtotime($row['created']);
+		$expiration_datetime = null;
+
+		$expiration_second = date('s', $now);
+		$expiration_minute = date('i', $now);
+		$expiration_hour = date('H', $now);
+		$expiration_day = date('j', $now);
+		$expiration_month = date('n', $now);
+		$expiration_year = date('Y', $now);
+
+		$has_wait_minutes = !empty(trim($this->wait_minutes));
+		$has_relative_to = !empty(trim($this->relative_to));
+
+		if ($has_relative_to) {
+			// send to opencpu to compute value
+			$opencpu_vars = $this->getUserDataInRun($this->relative_to);
+			$result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
+			if ($result === null) {
+				alert("Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. " . print_r($this->relative_to, true), 'alert-warning');
+				return false;
+			}
+			$relative_to_result = $relative_to = $result;
+
+			if ($relative_to_result === false) {
+				// Return false (i.e pause should not expire) if the 'relative_to' field is boolean and condition is not satisfied
+				return false;
+			}
+
+			if (is_string($relative_to_result) && ($stt = strtotime($relative_to_result))) {
+				// Set the datetime from which expiration should be calculated
+				$creation_datetime = $stt;
+			}
+		}
+
+		if ($has_wait_minutes && $creation_datetime) {
+			$expiration_datetime = $creation_datetime + ($this->wait_minutes * 60);
+		}
+
+		if ($this->wait_until_date && $this->wait_until_date != '0000-00-00') {
+			list($expiration_year, $expiration_month, $expiration_day) = explode('-', $this->wait_until_date, 3);
+			$expiration_datetime = mktime(0, 0, 5, $expiration_day, $expiration_month, $expiration_year);
+		}
+
+		if ($this->wait_until_time && $this->wait_until_time != '00:00:00') {
+			list($expiration_hour, $expiration_minute, $expiration_second) = explode(':', $this->wait_until_time, 3);
+			$expiration_datetime = mktime($expiration_hour, $expiration_minute, $expiration_second, $expiration_day, $expiration_month, $expiration_year);
+		}
+
+		if (!$expiration_datetime) {
+			// There was some issue calculating the expiration time for this session
+			alert("Pause {$this->position}: Unable to get expiration datetime for session with id: {$this->run_session_id}", 'alert-warning');
+			return false;
+		}
+
+		// Pause expires IF $expiration_datetime is greater than now
+		return $expiration_datetime <= $now;
+	}
+
 	public function test() {
 		if (!$this->knittingNeeded($this->body)) {
 			echo "<h3>Pause message</h3>";
@@ -282,8 +358,8 @@ class Pause extends RunUnit {
 	}
 
 	public function exec() {
-		$this->checkRelativeTo();
-		if ($this->checkWhetherPauseIsOver()) {
+		//$this->checkRelativeTo();
+		if ($this->isOver()) {
 			$this->end();
 			return false;
 		} else {
