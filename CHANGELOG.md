@@ -217,3 +217,7 @@ In this case, previously, the submit button would never be displayed. We decided
 ### Changed
 * Logout page should also logout anonymous run sessions
 * A page to redirect to after logout can be specified using the get parameter *_rdir*
+
+## [0.14.2] - 17.11.2016
+### Changed
+* Bug fix on OR operator
