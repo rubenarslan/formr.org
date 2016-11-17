@@ -133,7 +133,7 @@ class Pause extends RunUnit {
 		$this->relative_to_true = !($this->relative_to === null || trim($this->relative_to) == '');
 
 		// disambiguate what user meant
-		if ($this->wait_minutes_true AND ! $this->relative_to_true):  // user said wait minutes relative to, implying a relative to
+		if ($this->wait_minutes_true && !$this->relative_to_true):  // user said wait minutes relative to, implying a relative to
 			$this->relative_to = 'tail(survey_unit_sessions$created,1)'; // we take this as implied, this is the time someone arrived at this pause
 			$this->relative_to_true = true;
 		endif;
@@ -358,8 +358,8 @@ class Pause extends RunUnit {
 	}
 
 	public function exec() {
-		//$this->checkRelativeTo();
-		if ($this->isOver()) {
+		$this->checkRelativeTo();
+		if ($this->checkWhetherPauseIsOver()) {
 			$this->end();
 			return false;
 		} else {
