@@ -325,7 +325,7 @@ class Item extends HTML_element {
 			$this->js_showif = preg_replace("/tail\(\s*(\w+)\s*, 1\)/", "$1", $this->js_showif); // remove current function, JS evaluation is always in session			
 			// all other R functions may break
 			$this->js_showif = preg_replace("/(^|[^&])(\&)([^&]|$)/", "$1&$3", $this->js_showif); // & operators, only single ones need to be doubled
-			$this->js_showif = preg_replace("/(^|[^|])(\|)([^|]|$)/", "$1&$3", $this->js_showif); // | operators, only single ones need to be doubled
+			$this->js_showif = preg_replace("/(^|[^|])(\|)([^|]|$)/", "$1|$3", $this->js_showif); // | operators, only single ones need to be doubled
 			$this->js_showif = preg_replace("/FALSE/", "false", $this->js_showif); // uppercase, R, FALSE, to lowercase, JS, false
 			$this->js_showif = preg_replace("/TRUE/", "true", $this->js_showif); // uppercase, R, TRUE, to lowercase, JS, true
 			$quoted_string = "([\"'])((\\\\{2})*|(.*?[^\\\\](\\\\{2})*))\\1";
