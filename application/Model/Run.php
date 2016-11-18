@@ -32,6 +32,7 @@ class Run {
 	public $valid = false;
 	public $public = false;
 	public $cron_active = true;
+	public $cron_fork = false;
 	public $live = false;
 	public $user_id = null;
 	public $being_serviced = false;
@@ -78,7 +79,7 @@ class Run {
 
 		if ($name !== null OR ( $name = $this->create($options))):
 			$this->name = $name;
-			$columns = "id, user_id, name, api_secret_hash ,public,cron_active, locked, header_image_path, title,description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id";
+			$columns = "id, user_id, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id";
 			$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
 
 			if ($vars):
@@ -87,6 +88,7 @@ class Run {
 				$this->api_secret_hash = $vars['api_secret_hash'];
 				$this->public = (int)$vars['public'];
 				$this->cron_active = (int)$vars['cron_active'];
+				$this->cron_fork = (int)$vars['cron_fork'];
 				$this->locked = (int)$vars['locked'];
 				$this->header_image_path = $vars['header_image_path'];
 				$this->title = $vars['title'];

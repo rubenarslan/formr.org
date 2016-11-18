@@ -576,6 +576,10 @@ class DB_Select {
 		$this->PDO = $pdo;
 		$this->columns($cols);
 	}
+	
+	public function __destruct() {
+		$this->PDO = null;
+	}
 
 	public function columns(array $cols) {
 		if ($cols) {

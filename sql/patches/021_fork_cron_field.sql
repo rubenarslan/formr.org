@@ -1,0 +1,1 @@
+ALTER TABLE `survey_runs` ADD `cron_fork` TINYINT UNSIGNED NOT NULL DEFAULT '0' ;
