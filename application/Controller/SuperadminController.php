@@ -4,6 +4,9 @@ class SuperadminController extends Controller {
 
 	public function __construct(Site &$site) {
 		parent::__construct($site);
+		if (!$this->user->isSuperAdmin()) {
+			throw new Exception('You do not have sufficient rights to access this section');
+		}
 	}
 
 	public function indexAction() {
@@ -298,6 +301,34 @@ class SuperadminController extends Controller {
 		$this->renderView('superadmin/active_users', array(
 			'users' => $users,
 			'pagination' => $pagination,
+		));
+	}
+	
+	public function runsManagementAction() {
+		if (Request::isHTTPPostRequest()) {
+			// process post request and redirect
+			foreach ($this->request->arr('runs') as $id => $data) {
+				$update = array(
+					'cron_active' => (int)isset($data['cron_active']),
+					'cron_fork'   => (int)isset($data['cron_fork']),
+					'locked'      => (int)isset($data['locked']),
+				);
+				$this->fdb->update('survey_runs', $update, array('id' => (int)$id));
+			}
+			alert('Changes saved', 'alert-success');
+			redirect_to('superadmin/runs_management');
+		}
+
+		$q = 'SELECT survey_runs.id AS run_id, name, survey_runs.user_id, cron_active, cron_fork, locked, count(survey_run_sessions.session) AS sessions, survey_users.email
+			  FROM survey_runs 
+			  LEFT JOIN survey_users ON survey_users.id = survey_runs.user_id 
+			  LEFT JOIN survey_run_sessions ON survey_run_sessions.run_id = survey_runs.id 
+			  GROUP BY survey_run_sessions.run_id
+			  ORDER BY survey_runs.name ASC
+		';
+		$this->renderView('superadmin/runs_management', array(
+			'runs' => $this->fdb->query($q),
+			'i' => 1,
 		));
 	}
 }	
