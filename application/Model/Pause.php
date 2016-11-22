@@ -129,8 +129,10 @@ class Pause extends RunUnit {
 	}
 
 	protected function checkRelativeTo() {
-		$this->wait_minutes_true = !($this->wait_minutes === null || trim($this->wait_minutes) == '');
-		$this->relative_to_true = !($this->relative_to === null || trim($this->relative_to) == '');
+		$this->relative_to = trim($this->relative_to);
+		$this->wait_minutes = trim($this->wait_minutes);
+		$this->wait_minutes_true = !($this->wait_minutes === null || $this->wait_minutes == '');
+		$this->relative_to_true = !($this->relative_to === null || $this->relative_to == '');
 
 		// disambiguate what user meant
 		if ($this->wait_minutes_true && !$this->relative_to_true):  // user said wait minutes relative to, implying a relative to
@@ -255,8 +257,8 @@ class Pause extends RunUnit {
 		$expiration_month = date('n', $now);
 		$expiration_year = date('Y', $now);
 
-		$has_wait_minutes = !empty(trim($this->wait_minutes));
-		$has_relative_to = !empty(trim($this->relative_to));
+		$has_wait_minutes = !empty($this->wait_minutes);
+		$has_relative_to = !empty($this->relative_to);
 
 		if ($has_relative_to) {
 			// send to opencpu to compute value
