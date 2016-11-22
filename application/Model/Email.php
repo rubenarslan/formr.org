@@ -332,7 +332,7 @@ class Email extends RunUnit {
 				'message' => $this->getBody(),
 				'recipient' => $this->recipient,
 				'created' => mysql_datetime(),
-				'account_id' =>(int) $this->account_id,
+				'account_id' => (int) $this->account_id,
 				'meta' => json_encode(array(
 					'session_id' => $this->session_id,
 					'email_id' => $this->id,
