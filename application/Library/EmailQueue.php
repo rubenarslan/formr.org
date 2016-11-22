@@ -24,6 +24,20 @@ class EmailQueue {
 	protected $out = false;
 
 	/**
+	 * Number of times mailer is allowed to sleep before exiting
+	 *
+	 * @var int
+	 */
+	protected $allowedSleeps = 120; 
+
+	/**
+	 * Number of seconds mailer should sleep before checking if there is something in queue
+	 *
+	 * @var int
+	 */
+	protected $sleep = 15;
+
+	/**
 	 *
 	 * @var PHPMailer[]
 	 */
@@ -236,11 +250,17 @@ class EmailQueue {
 		while (!$this->out) {
 			try {
 				// loop until terminated but with taking some nap
+				$sleeps = 0;
 				while (!$this->out && $this->rested()) {
 					if ($this->processQueue() === false) {
 						// if there is nothing to process in the queue sleep for sometime
 						// self::dbg("Sleeping because nothing was found in queue");
-						sleep(10);
+						sleep($this->sleep);
+						$sleeps++;
+					}
+					if ($sleeps > $this->allowedSleeps) {
+						// exit to restart supervisor process
+						exit(1);
 					}
 				}
 			} catch (Exception $e) {
