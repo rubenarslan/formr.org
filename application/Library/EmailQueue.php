@@ -77,7 +77,7 @@ class EmailQueue {
 	 * @return PHPMailer
 	 */
 	protected function getSMTPConnection($account) {
-		$account_id = $account_id['account_id'];
+		$account_id = $account['account_id'];
 		if (!isset($this->connections[$account_id])) {
 			$mail = new PHPMailer();
 			$mail->SetLanguage("de", "/");
@@ -88,7 +88,7 @@ class EmailQueue {
 			$mail->Mailer = "smtp";
 			$mail->Host = $account['host'];
 			$mail->Port = $account['port'];
-			if ($this->account['tls']) {
+			if ($account['tls']) {
 				$mail->SMTPSecure = 'tls';
 			} else {
 				$mail->SMTPSecure = 'ssl';
@@ -123,7 +123,7 @@ class EmailQueue {
 			$mailer = $this->getSMTPConnection($account);
 			$emailsStatement = $this->getEmailsStatement($account['account_id']);
 			while($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
-				if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL) || !$email['subject'] || $email['body']) {
+				if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL) || !$email['subject'] || !$email['message']) {
 					continue;
 				}
 
@@ -156,12 +156,12 @@ class EmailQueue {
 				// Send mail
 				if ($mailer->send()) {
 					$query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient) VALUES (:session_id, :email_id, NOW(), :recipient)";
-					$this->dbh->exec($query, array(
+					$this->db->exec($query, array(
 						'session_id' => $meta['session_id'],
 						'email_id' => $meta['email_id'],
 						'recipient' => $email['recipient'],
 					));
-					$this->dbh->exec("DELETE FROM survey_email_queue WHERE id = " . (int)$email['id']);
+					$this->db->exec("DELETE FROM survey_email_queue WHERE id = " . (int)$email['id']);
 					self::dbg("Send Success. \n {$debugInfo}");
 				} else {
 					self::dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
@@ -196,6 +196,10 @@ class EmailQueue {
 		}
 
 		$str = date('Y-m-d H:i:s') . ' Email-Queue: ' . $str . PHP_EOL;
+		if (DEBUG) {
+			echo $str;
+			return;
+		}
 		return error_log($str, 3, get_log_file('email-queue.log'));
 	}
 
@@ -235,6 +239,7 @@ class EmailQueue {
 				while (!$this->out && $this->rested()) {
 					if ($this->processQueue() === false) {
 						// if there is nothing to process in the queue sleep for sometime
+						// self::dbg("Sleeping because nothing was found in queue");
 						sleep(10);
 					}
 				}
