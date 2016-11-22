@@ -394,6 +394,7 @@ class Item extends HTML_element {
 	public function isStoredInResultsTable() {
 		return $this->save_in_results_table;
 	}
+
 	public function getResultField() {
 		if (!empty($this->choices)):
 			$this->chooseResultFieldBasedOnChoices();
@@ -558,7 +559,6 @@ class Item extends HTML_element {
 			$this->presetValue = null;
 			return false;
 		}
-
 		if (is_numeric($this->value)) {
 			$this->input_attributes['value'] = $this->value;
 			return false;
@@ -857,7 +857,7 @@ class Item_range extends Item_number {
 	public $type = 'range';
 	public $input_attributes = array('type' => 'range', 'min' => 0, 'max' => 100, 'step' => 1);
 	protected $hasChoices = true;
-	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $mysql_field = 'INT UNSIGNED DEFAULT NULL';
 
 	protected function setMoreOptions() {
 		$this->lower_text = current($this->choices);
@@ -1740,11 +1740,12 @@ class Item_geopoint extends Item {
 class Item_random extends Item_number {
 
 	public $type = 'random';
-	public $input_attributes = array('type' => 'hidden');
-	public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
+	public $input_attributes = array('type' => 'hidden', 'step' => 1);
+	public $mysql_field = 'INT UNSIGNED DEFAULT NULL';
 	public $no_user_input_required = true;
 
 	protected function setMoreOptions() {
+		parent::setMoreOptions();
 		$this->input_attributes['value'] = $this->validateInput();
 	}
 
