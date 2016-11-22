@@ -221,3 +221,7 @@ In this case, previously, the submit button would never be displayed. We decided
 ## [0.14.2] - 17.11.2016
 ### Changed
 * Bug fix on OR operator
+
+## [0.14.3] - 22.11.2016
+### Changed
+*Fix range issues for Item_random
