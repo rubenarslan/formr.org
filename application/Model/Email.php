@@ -421,8 +421,8 @@ class Email extends RunUnit {
 		$receiver = $user->getEmail();
 
 		echo "<h4>Recipient</h4>";
-		$recipient_field = $this->getRecipientField('',true);
-		if(!is_string($recipient_field) AND get_class($recipient_field) == "OpenCPU_Session") {
+		$recipient_field = $this->getRecipientField('', true);
+		if($recipient_field instanceof OpenCPU_Session) {
 			echo opencpu_debug($recipient_field, null, 'text');
 		} else {
 			echo $this->mostrecent . ": " . $recipient_field;
@@ -444,7 +444,6 @@ class Email extends RunUnit {
 		else:
 			echo "<p>No email sent.</p>";
 		endif;
-
 
 		$results = $this->getSampleSessions();
 		if ($results) {
