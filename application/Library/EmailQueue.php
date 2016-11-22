@@ -186,7 +186,7 @@ class EmailQueue {
 				$mailer->clearAllRecipients();
 			}
 			// close connection after processing batch
-			$emailAccountsStatement->closeCursor();
+			$emailsStatement->closeCursor();
 			$this->closeSMTPConnection($account['account_id']);
 		}
 		$emailAccountsStatement->closeCursor();
