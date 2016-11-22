@@ -325,6 +325,24 @@ class Email extends RunUnit {
 			alert(nl2br($warning), 'alert-info');
 		}
 
+		// if formr is configured to use the email queue then add mail to queue and return
+		if (Config::get('email.use_queue', false) === true && filter_var($this->recipient, FILTER_VALIDATE_EMAIL)) {
+			$this->mail_sent = $this->dbh->insert('survey_email_queue', array(
+				'subject' => $this->getSubject(),
+				'message' => $this->getBody(),
+				'recipient' => $this->recipient,
+				'created' => mysql_datetime(),
+				'account_id' =>(int) $this->account_id,
+				'meta' => json_encode(array(
+					'session_id' => $this->session_id,
+					'email_id' => $this->id,
+					'embedded_images' => $this->images,
+					'attachments' => ''
+				)),
+			));
+			return $this->mail_sent;
+		}
+
 		$mail = $acc->makeMailer();
 
 //		if($this->html)
