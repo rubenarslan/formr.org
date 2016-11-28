@@ -65,13 +65,19 @@ class EmailQueue {
 	 *
 	 * @return PDOStatement
 	 */
-	protected function getEmailAccountsStatement() {
-		$query = 'SELECT account_id, `from`, from_name, host, port, tls, username, password 
+	protected function getEmailAccountsStatement($account_id) {
+		$WHERE = '';
+		if ($account_id) {
+			$WHERE .= 'account_id = ' . (int)$account_id;
+		}
+
+		$query = "SELECT account_id, `from`, from_name, host, port, tls, username, password 
 				FROM survey_email_queue
 				LEFT JOIN survey_email_accounts ON survey_email_accounts.id = survey_email_queue.account_id
+				{$WHERE}
 				GROUP BY account_id
 				ORDER BY RAND()
-				';
+				";
 		return $this->db->rquery($query);
 	}
 
@@ -126,8 +132,8 @@ class EmailQueue {
 		}
 	}
 
-	protected function processQueue() {
-		$emailAccountsStatement = $this->getEmailAccountsStatement();
+	protected function processQueue($account_id = null) {
+		$emailAccountsStatement = $this->getEmailAccountsStatement($account_id);
 		if ($emailAccountsStatement->rowCount() <= 0) {
 			$emailAccountsStatement->closeCursor();
 			return false;
@@ -181,7 +187,7 @@ class EmailQueue {
 					self::dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
 					//@todo delete email if it has expired
 				}
-	
+
 				$query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient, sent) VALUES (:session_id, :email_id, NOW(), :recipient, :sent)";
 				$this->db->exec($query, array(
 					'session_id' => $meta['session_id'],
@@ -257,14 +263,14 @@ class EmailQueue {
 		}
 	}
 
-	public function run() {
+	public function run($account_id = null) {
 		// loop forever until terminated by SIGINT
 		while (!$this->out) {
 			try {
 				// loop until terminated but with taking some nap
 				$sleeps = 0;
 				while (!$this->out && $this->rested()) {
-					if ($this->processQueue() === false) {
+					if ($this->processQueue($account_id) === false) {
 						// if there is nothing to process in the queue sleep for sometime
 						// self::dbg("Sleeping because nothing was found in queue");
 						sleep($this->sleep);
