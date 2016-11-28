@@ -168,26 +168,35 @@ class EmailQueue {
 					}
 				}
 				// Send mail
-				if ($mailer->send()) {
-					$query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient) VALUES (:session_id, :email_id, NOW(), :recipient)";
-					$this->db->exec($query, array(
-						'session_id' => $meta['session_id'],
-						'email_id' => $meta['email_id'],
-						'recipient' => $email['recipient'],
-					));
+				try {
+					$sent = $mailer->send();
 					$this->db->exec("DELETE FROM survey_email_queue WHERE id = " . (int)$email['id']);
 					self::dbg("Send Success. \n {$debugInfo}");
-				} else {
+				} catch (phpmailerException $e) {
+					formr_log_exception($e, 'EmailQueue');
+					$sent = false;
 					self::dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
 					//@todo delete email if it has expired
 				}
+	
+				$query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient, sent) VALUES (:session_id, :email_id, NOW(), :recipient, :sent)";
+				$this->db->exec($query, array(
+					'session_id' => $meta['session_id'],
+					'email_id' => $meta['email_id'],
+					'recipient' => $email['recipient'],
+					'sent' => (int)$sent,
+				));
+
 				$mailer->clearAddresses();
 				$mailer->clearAttachments();
 				$mailer->clearAllRecipients();
 			}
-			// close connection after processing batch
+			// close sql emails cursor after processing batch
 			$emailsStatement->closeCursor();
-			$this->closeSMTPConnection($account['account_id']);
+			// check if smtp connection is lost and kill object
+			if (!$mailer->getSMTPInstance()->connected()) {
+				$this->closeSMTPConnection($account['account_id']);
+			}
 		}
 		$emailAccountsStatement->closeCursor();
 		return true;

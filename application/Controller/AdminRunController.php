@@ -512,9 +512,10 @@ class AdminRunController extends AdminController {
 			`survey_email_accounts`.from_name, 
 			`survey_email_accounts`.`from`, 
 			`survey_email_log`.recipient AS `to`,
+			`survey_email_log`.`sent`,
 			`survey_emails`.subject,
 			`survey_emails`.body,
-			`survey_email_log`.created AS `sent`,
+			`survey_email_log`.created,
 			`survey_run_units`.position AS position_in_run
 		FROM `survey_email_log`
 		LEFT JOIN `survey_emails` ON `survey_email_log`.email_id = `survey_emails`.id
@@ -532,10 +533,9 @@ class AdminRunController extends AdminController {
 			unset($email['from_name']);
 			$email['to'] = $email['to']."<br><small>at run position ".$email['position_in_run']."</small>";
 			$email['mail'] = $email['subject']."<br><small>". h(substr($email['body'], 0, 100)). "…</small>";
-			$email['sent'] = '<abbr title="'.$email['sent'].'">'.timetostr(strtotime($email['sent'])).'</abbr>';
-			unset($email['position_in_run']);
-			unset($email['subject']);
-			unset($email['body']);
+			$email['datetime'] = '<abbr title="'.$email['created'].'">'.timetostr(strtotime($email['created'])).'</abbr> ';
+			$email['datetime'] .= $email['sent'] ? '<i class="fa fa-check-circle"></i>' : '<i class="fa fa-times-circle"></i>';
+			unset($email['position_in_run'], $email['subject'], $email['body'], $email['created'], $email['sent']);
 			$emails[] = $email;
 		}
 
