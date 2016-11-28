@@ -169,11 +169,14 @@ class EmailQueue {
 				}
 				// Send mail
 				try {
-					$sent = $mailer->send();
-					$this->db->exec("DELETE FROM survey_email_queue WHERE id = " . (int)$email['id']);
-					self::dbg("Send Success. \n {$debugInfo}");
-				} catch (phpmailerException $e) {
-					formr_log_exception($e, 'EmailQueue');
+					if (($sent = $mailer->send())) {
+						$this->db->exec("DELETE FROM survey_email_queue WHERE id = " . (int)$email['id']);
+						self::dbg("Send Success. \n {$debugInfo}");
+					} else {
+						throw new Exception('Mail sending failed');
+					}
+				} catch (Exception $e) {
+					formr_log_exception($e, 'EmailQueue ' . $debugInfo);
 					$sent = false;
 					self::dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
 					//@todo delete email if it has expired
