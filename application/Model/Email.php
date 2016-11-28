@@ -303,9 +303,9 @@ class Email extends RunUnit {
 				else:
 					$error = sprintf("We already sent %d mails to this recipient in the last hour. No email was sent.", $mails_sent['in_last_1h']);
 				endif;
-			elseif ($mails_sent['in_last_1d'] > 5 && !$testing):
+			elseif ($mails_sent['in_last_1d'] > 9 && !$testing):
 				$error = sprintf("We already sent %d mails to this recipient in the last day. No email was sent.", $mails_sent['in_last_1d']);
-			elseif ($mails_sent['in_last_1w'] > 20 && !$testing):
+			elseif ($mails_sent['in_last_1w'] > 60 && !$testing):
 				$error = sprintf("We already sent %d mails to this recipient in the last week. No email was sent.", $mails_sent['in_last_1w']);
 			endif;
 		else:
