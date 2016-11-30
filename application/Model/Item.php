@@ -1674,6 +1674,12 @@ class Item_check_button extends Item_check {
 		$this->classes_wrapper[] = 'btn-check';
 	}
 
+	protected function render_label() {
+		return '<label class="' . implode(" ", $this->classes_label) . '">' .
+				($this->error ? '<span class="label label-danger hastooltip" title="' . $this->error . '"><i class="fa fa-exclamation-triangle"></i></span> ' : '') . $this->label_parsed .
+				'</label>';
+	}
+
 	protected function render_appended() {
 		$ret = '<div class="btn-group js_shown">
 					<button type="button" class="btn" data-for="item' . $this->id . '_1"><i class="fa fa-2x fa-fw"></i></button>' .

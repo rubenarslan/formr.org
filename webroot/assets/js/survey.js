@@ -62,7 +62,7 @@
         this.last_update = false;
         this.next_update = false;
         this.dont_update = false;
-        this.spinner = '<i class="fa fa-spinner fa-spin"></i>';
+        this.spinner = ' <i class="fa fa-spinner fa-spin"></i>';
         var survey = this;
         // initialising special items
         // --------------------------
@@ -377,12 +377,14 @@
             }
             if ($form.checkValidity()) {
                 $button.append(survey.spinner);
+                $button.prop('disabled', true);
                 return true;
             } else {
                 return false;
             }
         });
     }
+
     Survey.prototype.update = function () {
         var survey = this;
         if (survey.dont_update) {
