@@ -28,7 +28,7 @@ $settings['alternative_opencpu_instance'] = array(
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
 
-// email SMTP configuration
+// email SMTP and queueing configuration
 $settings['email'] = array(
 	'host' => 'smtp.example.com',
 	'port' => 587,
@@ -37,8 +37,14 @@ $settings['email'] = array(
 	'from_name' => 'Formr',
 	'username' => 'email@example.com',
 	'password' => 'password',
+	// use db queue for emailing
 	'use_queue' => false,
-	'queue_loop_interval' => 10  // Number of seconds for which deamon loop should rest before getting next batch
+	// Number of seconds for which deamon loop should rest before getting next batch
+	'queue_loop_interval' => 10,
+	// Number of seconds to expire (i.e delete) a queue item if it failed to get delivered
+	'queue_item_ttl' => 20*60,
+	// Number of times to retry an item before deleting
+	'queue_item_tries' => 4,
 );
 
 // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
