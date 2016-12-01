@@ -241,3 +241,9 @@ In this case, previously, the submit button would never be displayed. We decided
    * https://github.com/rubenarslan/formr.org/issues/270
    * https://github.com/rubenarslan/formr.org/issues/244
    * https://github.com/rubenarslan/formr.org/issues/272
+
+## [0.15.1] - 1.12.2016
+## [0.15.2] - 1.12.2016
+### Changed
+- Configure re-try limits for email queue items
+- reset smtp connection if queue item fails

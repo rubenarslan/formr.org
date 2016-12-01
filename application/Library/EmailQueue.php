@@ -210,6 +210,9 @@ class EmailQueue {
 					//formr_log_exception($e, 'EmailQueue ' . $debugInfo);
 					self::dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
 					$this->registerFailure($email);
+					// reset php mailer object for this account if smtp sending failed. Probably some limits have been hit
+					$this->closeSMTPConnection($account['account_id']);
+					$mailer = $this->getSMTPConnection($account);
 				}
 
 				$mailer->clearAddresses();
