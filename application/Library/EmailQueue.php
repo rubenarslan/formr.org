@@ -37,6 +37,16 @@ class EmailQueue {
 	 */
 	protected $sleep = 15;
 
+	protected $itemTtl;
+
+	protected $itemTries;
+
+	/**
+	 *
+	 * @var array
+	 */
+	protected $failures = array();
+
 	/**
 	 *
 	 * @var PHPMailer[]
@@ -46,6 +56,8 @@ class EmailQueue {
 	public function __construct(DB $db) {
 		$this->db = $db;
 		$this->loopInterval = Config::get('email.queue_loop_interval', 5);
+		$this->itemTtl = Config::get('email.queue_item_ttl', 20 * 60);
+		$this->itemTries = Config::get('email.queue_item_tries', 4);
 		// Register signal handlers that should be able to kill the cron in case some other weird shit happens 
 		// apart from cron exiting cleanly
 		// declare signal handlers
@@ -120,6 +132,7 @@ class EmailQueue {
 			$mail->AddReplyTo($account['from'], $account['from_name']);
 			$mail->CharSet = "utf-8";
 			$mail->WordWrap = 65;
+			$mail->AllowEmpty = true;
 
 			$this->connections[$account_id] = $mail;
 		}
@@ -140,10 +153,16 @@ class EmailQueue {
 		}
 
 		while ($account = $emailAccountsStatement->fetch(PDO::FETCH_ASSOC)) {
+			if (!filter_var($account['from'], FILTER_VALIDATE_EMAIL)) {
+				$this->db->exec('DELETE FROM survey_email_queue WHERE account_id = ' . (int)$account['account_id']);
+				continue;
+			}
+
 			$mailer = $this->getSMTPConnection($account);
 			$emailsStatement = $this->getEmailsStatement($account['account_id']);
 			while($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
-				if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL) || !$email['subject'] || !$email['message']) {
+				if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL) || !$email['subject']) {
+					$this->registerFailure($email);
 					continue;
 				}
 
@@ -155,8 +174,7 @@ class EmailQueue {
 				$mailer->addAddress($email['recipient']);
 				// add emdedded images
 				if (!empty($meta['embedded_images'])) {
-					$embeddedImages = json_decode($meta['embedded_images'], true);
-					foreach ($embeddedImages as $imageId => $image) {
+					foreach ($meta['embedded_images'] as $imageId => $image) {
 						$localImage = INCLUDE_ROOT . 'tmp/formrEA' . uniqid() . $imageId;
 						copy($image, $localImage);
 						if (!$mailer->addEmbeddedImage($localImage, $imageId, $imageId, 'base64', 'image/png')) {
@@ -166,39 +184,39 @@ class EmailQueue {
 				}
 				// add attachments (attachments MUST be paths to local file
 				if (!empty($meta['attachments'])) {
-					$attachments = json_decode($meta['attachments'], true);
-					foreach ($attachments as $attachment) {
+					foreach ($meta['attachments'] as $attachment) {
 						if (!$mailer->addAttachment($attachment, basename($attachment))) {
 							self::dbg("Unable to add attachment {$attachment} \n" . $mailer->ErrorInfo . ".\n {$debugInfo}");
 						}
 					}
 				}
+
 				// Send mail
 				try {
 					if (($sent = $mailer->send())) {
 						$this->db->exec("DELETE FROM survey_email_queue WHERE id = " . (int)$email['id']);
+						$query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient, sent) VALUES (:session_id, :email_id, NOW(), :recipient, :sent)";
+						$this->db->exec($query, array(
+							'session_id' => $meta['session_id'],
+							'email_id' => $meta['email_id'],
+							'recipient' => $email['recipient'],
+							'sent' => (int)$sent,
+						));
 						self::dbg("Send Success. \n {$debugInfo}");
 					} else {
-						throw new Exception('Mail sending failed');
+						throw new Exception($mailer->ErrorInfo);
 					}
 				} catch (Exception $e) {
-					formr_log_exception($e, 'EmailQueue ' . $debugInfo);
-					$sent = false;
+					//formr_log_exception($e, 'EmailQueue ' . $debugInfo);
 					self::dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
-					//@todo delete email if it has expired
+					$this->registerFailure($email);
 				}
-
-				$query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient, sent) VALUES (:session_id, :email_id, NOW(), :recipient, :sent)";
-				$this->db->exec($query, array(
-					'session_id' => $meta['session_id'],
-					'email_id' => $meta['email_id'],
-					'recipient' => $email['recipient'],
-					'sent' => (int)$sent,
-				));
 
 				$mailer->clearAddresses();
 				$mailer->clearAttachments();
 				$mailer->clearAllRecipients();
+				$this->clearFiles($meta['embedded_images']);
+				$this->clearFiles($meta['attachments']);
 			}
 			// close sql emails cursor after processing batch
 			$emailsStatement->closeCursor();
@@ -209,6 +227,32 @@ class EmailQueue {
 		}
 		$emailAccountsStatement->closeCursor();
 		return true;
+	}
+
+	/**
+	 * Register email send failure and/or remove expired emails
+	 *
+	 * @param array $email @array(id, subject, message, recipient, created, meta)
+	 */
+	protected function registerFailure($email) {
+		$id = $email['id'];
+		if (!isset($this->failures[$id])) {
+			$this->failures[$id] = 0;
+		}
+		$this->failures[$id]++;
+		if ($this->failures[$id] > $this->itemTries || (time() - strtotime($email['created'])) > $this->itemTtl) {
+			$this->db->exec('DELETE FROM survey_email_queue WHERE id = ' . (int)$id);
+		}
+	}
+
+	protected function clearFiles($files) {
+		if (!empty($files)) {
+			foreach ($files as $file) {
+				if (is_file($file)) {
+					@unlink($file);
+				}
+			}
+		}
 	}
 
 	private function rested() {
@@ -272,13 +316,13 @@ class EmailQueue {
 				while (!$this->out && $this->rested()) {
 					if ($this->processQueue($account_id) === false) {
 						// if there is nothing to process in the queue sleep for sometime
-						// self::dbg("Sleeping because nothing was found in queue");
+						self::dbg("Sleeping because nothing was found in queue");
 						sleep($this->sleep);
 						$sleeps++;
 					}
 					if ($sleeps > $this->allowedSleeps) {
 						// exit to restart supervisor process
-						exit(1);
+						$this->out = true;
 					}
 				}
 			} catch (Exception $e) {
