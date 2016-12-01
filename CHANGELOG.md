@@ -247,3 +247,7 @@ In this case, previously, the submit button would never be displayed. We decided
 ### Changed
 - Configure re-try limits for email queue items
 - reset smtp connection if queue item fails
+
+## [0.15.3] - 2.12.2016
+### Changed
+* Bug fix: Cron should be processed if it is locked.
