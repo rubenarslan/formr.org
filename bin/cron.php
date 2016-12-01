@@ -139,7 +139,9 @@ function cron_process_run(Run $run, $run_lockfile) {
 	$lasted = $exec_time > 60 ? ceil($exec_time / 60) . ' minutes' : ceil($exec_time) . ' seconds';
 	cron_log("Cron ran for {$lasted}", $logfile);
 	cron_log("cron-run call end for {$run->name}", $logfile);
-	unlink($run_lockfile);
+	if (file_exists($run_lockfile)) {
+		unlink($run_lockfile);
+	}
 	cron_run_cleanup();
 
 	return true;
@@ -209,6 +211,12 @@ try {
 			continue;
 		}
 
+		// If run is locked, do not process it
+		$run_lockfile = INCLUDE_ROOT . "tmp/cron-{$run->name}.lock";
+		if (cron_lock_exists($run_lockfile, $start_date, get_log_file("cron/cron-run-{$run->name}.log"))) {
+			continue;
+		}
+
 		// If run should be forked, run in separate process. Else process in this loop
 		if ($run->cron_fork) {
 			$script = dirname(__FILE__) . '/cron.php';
@@ -222,7 +230,6 @@ try {
 			continue;
 		} else {
 			cron_log("Execute Loop Run: '{$run->name}'", $logfile);
-			$run_lockfile = INCLUDE_ROOT . "tmp/cron-{$run->name}.lock";
 			cron_process_run($run, $run_lockfile);
 		}
 
