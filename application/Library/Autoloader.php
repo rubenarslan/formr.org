@@ -38,6 +38,7 @@ class Autoload {
 			'Deamon' => APPLICATION_PATH . 'Library/Deamon.php',
 			'Email' => APPLICATION_PATH . 'Model/Email.php',
 			'EmailAccount' => APPLICATION_PATH . 'Model/EmailAccount.php',
+			'EmailQueue' => APPLICATION_PATH . 'Library/EmailQueue.php',
 			'External' => APPLICATION_PATH . 'Model/External.php',
 			'GearmanWorkerHelper' =>  APPLICATION_PATH . 'Helper/GearmanWorkerHelper.php',
 			'HTML_element' => APPLICATION_PATH . 'Model/Item.php',

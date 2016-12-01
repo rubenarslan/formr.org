@@ -671,7 +671,8 @@
 
     Run.prototype.panic = function(e) {
         var vars = {
-            'content': '<h4>Are you really panicking?</h4>',
+            'content': '<h4>Are you really panicking?</h4>'+
+                       '<p>This run will be <b>made private</b>, <b>locked</b> and <b>cron tasks will be disabled</b>. You will need to manually undo these actions later.</p>',
             'yes_url': this.url + '/panic',
             'no_url': 'javascript:void(0);'
         };

@@ -303,9 +303,9 @@ class Email extends RunUnit {
 				else:
 					$error = sprintf("We already sent %d mails to this recipient in the last hour. No email was sent.", $mails_sent['in_last_1h']);
 				endif;
-			elseif ($mails_sent['in_last_1d'] > 5 && !$testing):
+			elseif ($mails_sent['in_last_1d'] > 9 && !$testing):
 				$error = sprintf("We already sent %d mails to this recipient in the last day. No email was sent.", $mails_sent['in_last_1d']);
-			elseif ($mails_sent['in_last_1w'] > 20 && !$testing):
+			elseif ($mails_sent['in_last_1w'] > 60 && !$testing):
 				$error = sprintf("We already sent %d mails to this recipient in the last week. No email was sent.", $mails_sent['in_last_1w']);
 			endif;
 		else:
@@ -323,6 +323,24 @@ class Email extends RunUnit {
 		if ($warning !== null) {
 			$warning = "Session: {$this->session}:\n {$warning}";
 			alert(nl2br($warning), 'alert-info');
+		}
+
+		// if formr is configured to use the email queue then add mail to queue and return
+		if (Config::get('email.use_queue', false) === true && filter_var($this->recipient, FILTER_VALIDATE_EMAIL)) {
+			$this->mail_sent = $this->dbh->insert('survey_email_queue', array(
+				'subject' => $this->getSubject(),
+				'message' => $this->getBody(),
+				'recipient' => $this->recipient,
+				'created' => mysql_datetime(),
+				'account_id' => (int) $this->account_id,
+				'meta' => json_encode(array(
+					'session_id' => $this->session_id,
+					'email_id' => $this->id,
+					'embedded_images' => $this->images,
+					'attachments' => ''
+				)),
+			));
+			return $this->mail_sent;
 		}
 
 		$mail = $acc->makeMailer();
@@ -403,8 +421,8 @@ class Email extends RunUnit {
 		$receiver = $user->getEmail();
 
 		echo "<h4>Recipient</h4>";
-		$recipient_field = $this->getRecipientField('',true);
-		if(!is_string($recipient_field) AND get_class($recipient_field) == "OpenCPU_Session") {
+		$recipient_field = $this->getRecipientField('', true);
+		if($recipient_field instanceof OpenCPU_Session) {
 			echo opencpu_debug($recipient_field, null, 'text');
 		} else {
 			echo $this->mostrecent . ": " . $recipient_field;
@@ -426,7 +444,6 @@ class Email extends RunUnit {
 		else:
 			echo "<p>No email sent.</p>";
 		endif;
-
 
 		$results = $this->getSampleSessions();
 		if ($results) {

@@ -466,6 +466,10 @@ div.all-alerts + div
     color: #5BC0DE;
     text-shadow: none;
 }
+.btn-info[disabled] {
+    background-color: transparent !important;
+    border: #ffffff solid 1px;
+}
 .btn-info:hover,.btn-info:active,.btn-info:focus {
     background-color: #DCF7FB;
     color: #5BC0DE;

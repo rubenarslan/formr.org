@@ -37,6 +37,8 @@ $settings['email'] = array(
 	'from_name' => 'Formr',
 	'username' => 'email@example.com',
 	'password' => 'password',
+	'use_queue' => false,
+	'queue_loop_interval' => 10  // Number of seconds for which deamon loop should rest before getting next batch
 );
 
 // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
