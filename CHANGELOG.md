@@ -225,3 +225,19 @@ In this case, previously, the submit button would never be displayed. We decided
 ## [0.14.3] - 22.11.2016
 ### Changed
 *Fix range issues for Item_random
+
+## [0.15.0] - 1.12.2016
+### Added
+* E-mail queuing
+   * Setting: `$settings['email']['use_queue']` - Should queue be used or not?
+   * Setting: `$settings['email']['queue_loop_interval']` - Number of seconds for which deamon loop should rest before getting next batch
+* Run management interface for superadmin. In this interface the superadmin can determine which run is allowed to run in the cron and whose cron should be forked in an independent process.
+* MySQL database v21: add email queue table, run property for process forking and a _sent_ flag to email log table.
+
+### Changed
+* Memory limits to exports are now configurable.
+* Increased weekly limit on how many e-mails an address can receive.
+* Bug Fixes:
+   * https://github.com/rubenarslan/formr.org/issues/270
+   * https://github.com/rubenarslan/formr.org/issues/244
+   * https://github.com/rubenarslan/formr.org/issues/272
