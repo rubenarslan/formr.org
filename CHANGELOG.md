@@ -251,3 +251,9 @@ In this case, previously, the submit button would never be displayed. We decided
 ## [0.15.3] - 2.12.2016
 ### Changed
 * Bug fix: Cron should be processed if it is locked.
+
+## [0.15.4] - 19.12.2016
+### Changed
+* Bug fix: Clear email attachments after email is sent
+* Increase timeout limits for CURL requests
+
