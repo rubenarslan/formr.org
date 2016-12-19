@@ -172,11 +172,13 @@ class EmailQueue {
 				$mailer->Subject = $email['subject'];
 				$mailer->msgHTML($email['message']);
 				$mailer->addAddress($email['recipient']);
+				$files = array();
 				// add emdedded images
 				if (!empty($meta['embedded_images'])) {
 					foreach ($meta['embedded_images'] as $imageId => $image) {
 						$localImage = INCLUDE_ROOT . 'tmp/formrEA' . uniqid() . $imageId;
 						copy($image, $localImage);
+						$files[] = $localImage;
 						if (!$mailer->addEmbeddedImage($localImage, $imageId, $imageId, 'base64', 'image/png')) {
 							self::dbg("Unable to attach image: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
 						}
@@ -185,6 +187,7 @@ class EmailQueue {
 				// add attachments (attachments MUST be paths to local file
 				if (!empty($meta['attachments'])) {
 					foreach ($meta['attachments'] as $attachment) {
+						$files[] = $attachment;
 						if (!$mailer->addAttachment($attachment, basename($attachment))) {
 							self::dbg("Unable to add attachment {$attachment} \n" . $mailer->ErrorInfo . ".\n {$debugInfo}");
 						}
@@ -218,8 +221,7 @@ class EmailQueue {
 				$mailer->clearAddresses();
 				$mailer->clearAttachments();
 				$mailer->clearAllRecipients();
-				$this->clearFiles($meta['embedded_images']);
-				$this->clearFiles($meta['attachments']);
+				$this->clearFiles($files);
 			}
 			// close sql emails cursor after processing batch
 			$emailsStatement->closeCursor();

@@ -44,7 +44,7 @@ class CURL {
 		// The number of seconds to wait while trying to connect. Use 0 to wait indefinitely.
 		CURLOPT_CONNECTTIMEOUT => 20,
 		// The maximum number of seconds to allow cURL functions to execute.
-		CURLOPT_TIMEOUT => 30,
+		CURLOPT_TIMEOUT => 120,
 		// TRUE to return the transfer as a string of the return value of
 		// curl_exec() instead of outputting it out directly.
 		CURLOPT_RETURNTRANSFER => 1,
