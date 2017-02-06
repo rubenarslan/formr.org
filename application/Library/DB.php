@@ -466,11 +466,10 @@ class DB {
 		return $col;
 	}
 
-	public static function quoteCol($col) {
+	public static function quoteCol($col, $table = null) {
 		$col = trim($col);
 		$col = trim($col, '`');
-		$col = "`$col`";
-		return $col;
+		return $table !== null ? "`$table`.`$col`" : "`$col`";
 	}
 
 	public static function parseColName($string) {
