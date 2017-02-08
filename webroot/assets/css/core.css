@@ -1085,7 +1085,7 @@ form.form-horizontal img, div.modal-content img,img {
     display: block;
     position: relative;
 }
-.settings .add a{
+.settings .add a.add_run_unit{
     position: absolute;
     right: 5px;
     top: 2px;

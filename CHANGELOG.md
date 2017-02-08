@@ -257,3 +257,13 @@ In this case, previously, the submit button would never be displayed. We decided
 * Bug fix: Clear email attachments after email is sent
 * Increase timeout limits for CURL requests
 
+## [0.15.5] - 08.02.2017
+### Changed
+* Bug fix: Fix PHP warnings
+* Issues closed:
+   * https://github.com/rubenarslan/formr.org/issues/275
+   * https://github.com/rubenarslan/formr.org/issues/276
+   * https://github.com/rubenarslan/formr.org/issues/277
+   * https://github.com/rubenarslan/formr.org/issues/278
+   * https://github.com/rubenarslan/formr.org/issues/280
+
