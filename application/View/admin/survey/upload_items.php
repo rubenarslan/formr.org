@@ -67,7 +67,8 @@ $resultCount = $study->getResultCount();
 						$real_users = $resultCount['real_users'];
 						if ($real_users > 0): 
 					?>
-							<div class="form-group">
+							<div class="form-group alert-danger col-md-12">
+								<h4><i class="fa fa-exclamation-triangle"></i> Delete Results Confirmation</h4>
 								<label class="control-label" for="delete_confirm" title="this is required to avoid accidental deletions">Do you want to delete the results, if the item table changes were too major?<br>
 									<strong>Enter the survey name below</strong> if you're okay with data being <abbr title="e.g. when you removed an item, see above">potentially</abbr> deleted.<br>
 									<strong>Leave this field empty</strong> if you're fixing typos in a <abbr title="upload will fail if deletion is required">live study</a>.</label>
@@ -77,6 +78,7 @@ $resultCount = $study->getResultCount();
 										<input class="form-control" name="delete_confirm" id="delete_confirm" type="text" placeholder="survey name (see up left)"></label>
 									</div>
 								</div>
+								<br />
 							</div>
 						<?php else: ?>
 							<input name="delete_confirm" type="hidden" value="">

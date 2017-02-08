@@ -1,5 +1,6 @@
 <?php
-Template::load('header');
+$js = '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_users.js') . '"></script>';
+Template::load('header', array('js' => $js));
 Template::load('acp_nav');
 ?>
 
@@ -102,6 +103,14 @@ Template::load('acp_nav');
 								$row['shown'] .= $row['shown'] . "<small><em>not yet</em></small>";
 							}
 
+							// truncate session code
+							if ($row['session']) {
+								if (($animal_end = strpos($row['session'], "XXX")) === false) {
+									$animal_end = 10;
+								}
+								$short_session = substr($row['session'], 0, $animal_end);
+								$row['session'] = '<small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="'. $row['session'] . '">' . $short_session . '…</abbr></small>';
+							}
 							$row['saved'] = '<abbr title="' . $row['saved'] . '">' . timetostr(strtotime($row['saved'])) . '</abbr>';
 							$row['answered'] = '<abbr title="' . $row['answered'] . ' relative: ' . $row['answered_relative'] . '">' . timetostr(strtotime($row['answered'])) . '</abbr>';
 							unset($row['shown_relative'], $row['answered_relative'], $row['item_id'], $row['display_order'], $row['hidden']);

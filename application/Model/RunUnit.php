@@ -393,23 +393,29 @@ class RunUnit {
 			}
 	
 			$results_table = $results_tables[$survey_name];
+			$variables = array();
 			if(empty($matches_variable_names[ $survey_name ])) {
-				$variables = "NULL AS formr_dummy";
+				$variables[] = "NULL AS formr_dummy";
 			} else {
-				$variables = '';
 				if($results_table === "survey_unit_sessions") {
-					if(($key = array_search('position', $matches_variable_names[ $survey_name ])) !== false) {
- 						unset($matches_variable_names[ $survey_name ][$key]);
-						$variables .= '`survey_run_units`.`position`, ';
+					if(($key = array_search('position', $matches_variable_names[$survey_name])) !== false) {
+ 						unset($matches_variable_names[$survey_name][$key]);
+						$variables[] = '`survey_run_units`.`position`';
 					}
-					if(($key = array_search('type', $matches_variable_names[ $survey_name ])) !== false) {
- 						unset($matches_variable_names[ $survey_name ][$key]);
-						$variables .= '`survey_units`.`type`, ';
+					if(($key = array_search('type', $matches_variable_names[$survey_name])) !== false) {
+ 						unset($matches_variable_names[$survey_name][$key]);
+						$variables[] = '`survey_units`.`type`';
 					}
 				}
-				$variables .= "`$results_table`.`" . implode("`,`$results_table`.`" ,$matches_variable_names[ $survey_name ]) . '`';
+				
+				if (!empty($matches_variable_names[$survey_name])) {
+					foreach ($matches_variable_names[$survey_name] as $k => $v) {
+						$variables[] = DB::quoteCol($v, $results_table);
+					}
+				}
 			}
-			
+
+			$variables = implode(', ', $variables);
 			$select = "SELECT $variables";
 			if($this->run_session_id === NULL AND !in_array($results_table, $this->non_session_tables)) { // todo: what to do with session_id tables in faketestrun
 				$where = " WHERE `$results_table`.session_id = :session_id"; // just for testing surveys
@@ -490,10 +496,10 @@ class RunUnit {
 				endif;
 			endif;
 			
-			if(in_array('formr_login_link',$needed['variables']) ):
+			if(in_array('formr_login_link', $needed['variables']) ):
 				$this->survey_results['.formr$login_link'] = WEBROOT."{$this->run_name}?code=".urlencode($this->session);
 			endif;
-			if(in_array('formr_login_code',$needed['variables']) ):
+			if(in_array('formr_login_code', $needed['variables']) ):
 				$this->survey_results['.formr$login_code'] = $this->session;
 			endif;
 		endif;
