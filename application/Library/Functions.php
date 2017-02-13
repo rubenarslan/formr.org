@@ -33,7 +33,7 @@ function get_log_file($filename) {
 function alert($msg, $class = 'alert-warning', $dismissable = true) { // shorthand
 	global $site;
 	if (!is_object($site)) {
-		$site = new Site();
+		$site = Site::getInstance();
 	}
 	$site->alert($msg, $class, $dismissable);
 }
