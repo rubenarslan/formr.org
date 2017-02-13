@@ -737,7 +737,7 @@ class SpreadsheetReader {
 							$val = 0;
 						else
 							$val = null;
-					elseif (mb_strpos($col, "choice") === 0 AND ( $val !== null AND $val !== '')):
+					elseif (mb_strpos($col, "choice") === 0 && ($val !== null AND $val !== '') && isset($data[$row_number])):
 
 						$nr = mb_substr($col, 6);
 						$this->choices[] = array(
