@@ -1,6 +1,6 @@
 {
   "name": "formr",
-  "version": "0.6.10",
+  "version": "0.15.0",
   "main": [
     "css/core.css",
     "js/main.js"
@@ -13,17 +13,19 @@
     "tests"
   ],
   "dependencies": {
-	"bootstrap": "git://github.com/twbs/bootstrap",
-	"font-awesome": "git://github.com/FortAwesome/Font-Awesome#4.*",
-	"jquery": "git://github.com/components/jquery.git#2.*",
+	"bootstrap": "git://github.com/twbs/bootstrap#3.3.7",
+	"font-awesome": "git://github.com/FortAwesome/Font-Awesome#4.5.0",
+	"jquery": "git://github.com/components/jquery.git#3.1.1",
 	"select2": "git://github.com/ivaynberg/select2.git#3.*",
 	"webshim": "git://github.com/aFarkas/webshim.git#1.*",
 	"ace-builds": "git://github.com/ajaxorg/ace-builds#1.*",
-  	"hammerjs": "git://github.com/hammerjs/hammer-time"
+  	"hammerjs": "git://github.com/hammerjs/hammer-time",
+        "material": "git://github.com/google/material-design-lite.git#1.3.0"
   },
   "homepage": "https://github.com/rubenarslan/formr.org",
   "authors": [
-    "Ruben C. Arslan <rubenarslan@gmail.com>"
+    "Ruben C. Arslan <rubenarslan@gmail.com>",
+    "Cyril Tata <cyril.tata@gmail.com>"
   ],
   "license": "MIT",
   "private": true
