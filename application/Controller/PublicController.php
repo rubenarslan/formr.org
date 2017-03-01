@@ -3,13 +3,9 @@
 class PublicController extends Controller {
 	public function __construct(Site &$site) {
 		parent::__construct($site);
-		if (DEBUG) {
-			$this->registerCSS(Config::get('default_assets.dev.site.css'));
-			$this->registerJS(Config::get('default_assets.dev.site.js'));
-		} else {
-			$this->registerCSS(Config::get('default_assets.prod.site.css'));
-			$this->registerJS(Config::get('default_assets.prod.site.js'));
-		}
+		$default_assets = get_default_assets();
+		$this->registerCSS($default_assets['css']);
+		$this->registerJS($default_assets['js']);
 	}
 
 	public function indexAction() {
@@ -82,6 +78,7 @@ class PublicController extends Controller {
 				alert(implode($this->user->errors), 'alert-danger');
 			}
 		}
+
 		$this->renderView('public/login');
 	}
 
@@ -184,10 +181,13 @@ class PublicController extends Controller {
 
 		$this->user = $this->site->loginUser($this->user);
 		$run = new Run($this->fdb, $this->request->str('run_name'));
+		$this->run = $run;
 		$run_vars = $run->exec($this->user);
-		if ($run_vars) {
-			Template::load('public/run', $run_vars);
-		}
+		$this->registerCSS($run_vars['css']);
+		$this->registerJS($run_vars['js']);
+		unset($run_vars['css'], $run_vars['js']);
+
+		$this->renderView('public/run', $run_vars);
 	}
 
 	public function settingsAction($run_name = '') {
@@ -239,8 +239,8 @@ class PublicController extends Controller {
 			redirect_to('settings/' . $run->name);
 		}
 
-		Template::load('public/settings', array(
-			'run' => $run,
+		$this->run = $run;
+		$this->renderView('public/settings', array(
 			'settings' => $session->getSettings(),
 			'email_subscriptions' => Config::get('email_subscriptions'),
 		));

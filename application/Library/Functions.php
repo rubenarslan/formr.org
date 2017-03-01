@@ -1518,3 +1518,17 @@ function deletefiles($files) {
 		}
 	}
 }
+
+function get_default_assets() {
+	if (DEBUG) {
+		return array(
+			'js' => Config::get('default_assets.dev.site.js'),
+			'css' => Config::get('default_assets.dev.site.css'),
+		);
+	} else {
+		return array(
+			'js' => Config::get('default_assets.prod.site.js'),
+			'css' => Config::get('default_assets.prod.site.css'),
+		);
+	}
+}
