@@ -7,8 +7,8 @@ class PublicController extends Controller {
 			$this->registerCSS(Config::get('default_assets.dev.site.css'));
 			$this->registerJS(Config::get('default_assets.dev.site.js'));
 		} else {
-			$this->registerCSS(Config::get('default_assets.min.site.css'));
-			$this->registerJS(Config::get('default_assets.min.site.js'));
+			$this->registerCSS(Config::get('default_assets.prod.site.css'));
+			$this->registerJS(Config::get('default_assets.prod.site.js'));
 		}
 	}
 
