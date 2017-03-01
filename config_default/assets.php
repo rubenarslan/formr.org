@@ -11,7 +11,7 @@ $settings['default_assets']['dev'] = array(
 	'site' => array(
 		'css' => array(
 			'https://fonts.googleapis.com/css?family=Roboto:400,100,300,600,400italic,700',
-			//'bower_components/material/material.css',
+			'bower_components/material/material.css',
 			'bower_components/bootstrap/dist/css/bootstrap.css',
 			'bower_components/font-awesome/css/font-awesome.css',
 			'bower_components/select2/select2.css',
@@ -22,7 +22,7 @@ $settings['default_assets']['dev'] = array(
 			'bower_components/jquery/jquery.js',
 			'bower_components/bootstrap/dist/js/bootstrap.js',
 			'bower_components/select2/select2.js',
-			//'bower_components/material/material.js',
+			'bower_components/material/material.js',
 			'bower_components/webshim/js-webshim/dev/polyfiller.js',
 			'common/js/webshim.js',
 			'common/js/highlight/highlight.pack.js',

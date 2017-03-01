@@ -908,7 +908,7 @@ class Survey extends RunUnit {
 		$prog = round($prog);
 
 		$ret .= '
-			<div class="container progress-container">
+			<div class="row progress-container">
 			<div class="progress">
 				  <div data-percentage-minimum="' . $this->settings["add_percentage_points"] . '" data-percentage-maximum="' . $this->settings["displayed_percentage_maximum"] . '" data-already-answered="' . $this->progress_counts['already_answered'] . '" data-items-left="' . $this->progress_counts['not_answered_on_current_page'] . '" data-items-on-page="' . ($this->progress_counts['not_answered'] - $this->progress_counts['not_answered_on_current_page']) . '" data-hidden-but-rendered="' . $this->progress_counts['hidden_but_rendered_on_current_page'] . '" class="progress-bar" style="width: ' . $prog . '%;">' . $prog . '%</div>
 			</div>

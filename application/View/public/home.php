@@ -15,6 +15,7 @@
 			<div class="fmr-intro-text">
 				<div class="fmr-center-position">
 					<h2 class="animate-box"><b>formr</b> survey framework</h2>
+					<?php Template::load('public/alerts'); ?>
 					<h3>chain simple forms & surveys into long runs, use the power of R to generate pretty feedback and complex designs</h3>
 					<p><a href="<?= site_url('register'); ?>" class="btn btn-primary btn-lg">Sign up &amp; Get started</a></p>
 				</div>
@@ -23,7 +24,6 @@
 	</div>
 	<div class="fmr-learn-more animate-box">
 		<a href="#home-more" class="scroll-buttonn">
-			<span class="text">Explore more</span>
 			<span class="arrow"><i class="fa fa-chevron-down"></i></span>
 		</a>
 	</div>

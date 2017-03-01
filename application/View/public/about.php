@@ -7,7 +7,7 @@
 	</div>
 </section>
 
-<section id="fmr-projects">
+<section id="fmr-projects" style="padding-top: 2em;">
 	<div class="container">
 		<div class="row">
 			<div class="col-md-6 col-md-offset-3 text-center">

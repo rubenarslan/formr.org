@@ -30,13 +30,17 @@
     // FullHeight
     var fullHeight = function () {
         if (!isiPad() && !isiPhone()) {
-            if ($('.js-fullheight.static').length) {
-                $('.js-fullheight').css({'min-height': 70, 'height': 70});
-                return;
-            }
-            var offset = $('.js-fullheight.full').length ? 0 : 49;
-            $('.js-fullheight').css('min-height', $(window).height() - offset);
+            var offset = $('.js-fullheight.full').length ? 0 : 49,
+                minHeight = $(window).height() - offset;
+            $('.js-fullheight').css('min-height', minHeight);
             $('.run-container').css('min-height', $(window).height() - 1);
+            
+            minHeight += offset;
+            var cHeight = $('#fmr-hero .fmr-intro').height();
+            var _mTop = (minHeight >= cHeight) ? ((minHeight - cHeight) / 2) + 5 : 75;
+            var mTop = _mTop > 75 ? _mTop : 75;
+            $('#fmr-hero .fmr-intro .fmr-intro-text').css('padding-top', mTop);
+            console.log(minHeight, cHeight, _mTop);
         }
     };
     $(window).resize(fullHeight);
