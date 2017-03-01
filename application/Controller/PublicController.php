@@ -25,7 +25,7 @@ class PublicController extends Controller {
 	}
 
 	public function aboutAction() {
-		$this->renderView('public/about');
+		$this->renderView('public/about', array('bodyClass' => 'fmr-about'));
 	}
 
 	public function editUserAction() {

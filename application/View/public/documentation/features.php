@@ -1,3 +1,5 @@
+<h3>Features</h3><hr />
+
 <p class="lead">
 	The following designs and many more are possible:
 </p>
@@ -87,15 +89,6 @@
 	</li>
 </ul>
 
-<h4>
-	Disclaimer
-</h4>
-<p>
-	This is pretty much brand new software and is supplied for free, open-source. As such, it doesn't come with a warranty of any kind. Still, if you let us know when formr causes you trouble or headaches, we will try to help you resolve the problem and you will get our heartfelt apologies.
-</p>
-<p>
-	If you're the technical type (or employ one), you might consider hosting a stable release of formr yourself, because this version of formr tracks the most recent pre-release and will thus sometimes have kinks.
-</p>
 <!--
 <p>
 enable you to link surveys and chain them together. Using a number of boombox-themed control elements to control the participant's way through your study, you can design studies of <abbr title="All of these boombox-controls know R, so though you don't have to be an R-wizard to run a study with formr, it certainly helps with the limitless complexity aspect.">limitless</abbr> complexity. You can

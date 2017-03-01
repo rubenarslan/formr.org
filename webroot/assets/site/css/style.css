@@ -1337,7 +1337,9 @@ body {
 .mfp-with-zoom.mfp-removing.mfp-bg {
   opacity: 0;
 }
-
+.dl-horizontal dd {
+    margin-bottom: 15px;
+}
 /** cyril added **/
 .below-header {
     margin-top: 90px;

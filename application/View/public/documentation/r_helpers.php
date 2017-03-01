@@ -1,3 +1,5 @@
+<h3>R Helpers</h3><hr />
+
 <p>
 	Wherever you use R in formr you can also use the functions in its R package. If you want to use the package in a different environment,
 	you'll need to install it using these two lines of code.	

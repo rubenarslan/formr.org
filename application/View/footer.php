@@ -37,7 +37,7 @@
 			<div class="col-md-3 col-sm-6 col-xs-12 animate-box">
 				<div class="fmr-footer-widget">
 					<ul class="fmr-links">
-						<li><a href="https://www.uni-goettingen.de/" target="_blank"><img src="https://formr.org/assets/img/goettingen_uni.png" alt="Uni Göttingen logo"></a></li>
+						<li><a href="https://www.uni-goettingen.de/" target="_blank"><img src="<?= asset_url('build/img/goettingen_uni.png') ?>" alt="Uni Göttingen logo"></a></li>
 					</ul>
 				</div>
 			</div>

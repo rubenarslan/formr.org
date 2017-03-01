@@ -36,6 +36,6 @@
     </head>
 
 	<body>
-		
+
 	<div id="fmr-page" class="<?php echo !empty($bodyClass) ? $bodyClass : 'body'; ?>">
 

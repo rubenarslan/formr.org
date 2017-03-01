@@ -1,4 +1,4 @@
-<h3>formr runs</h3>
+<h3>formr <i>Runs</i></h3><hr />
 <p>
 	A formr "run" contains your study's complete design. Designs can range from the simple (a single survey or a randomised experiment) to the complex (like a diary study with daily reminders by email and text message or a longitudinal study tracking social network changes).
 </p>

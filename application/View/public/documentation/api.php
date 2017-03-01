@@ -1,4 +1,4 @@
-<h3>API</h3>
+<h3>formr API</h3><hr />
 
 <p>
 The formr API is the primary way to get data/results out of the platform. It's a low-level HTTP-based API that you can use principally to get results of a 

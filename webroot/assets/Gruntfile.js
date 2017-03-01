@@ -58,7 +58,7 @@ module.exports = function (grunt) {
                     expand: true,
                     cwd: 'bower_components/ace-builds/src-min-noconflict/',
                     dest: 'build/js/ace/',
-                    src: [ '**']
+                    src: ['**']
                 }]
             },
             // Copy fonts
@@ -87,7 +87,6 @@ module.exports = function (grunt) {
                     expand: true,
                     cwd: "site/img/",
                     dest: "build/img/",
-                    flatten: true,
                     src: ["**"]
                 }]
             },
