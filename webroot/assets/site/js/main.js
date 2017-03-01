@@ -31,7 +31,7 @@
     var fullHeight = function () {
         if (!isiPad() && !isiPhone()) {
             if ($('.js-fullheight.static').length) {
-                $('.js-fullheight').css({'min-height': 90, 'height': 90});
+                $('.js-fullheight').css({'min-height': 70, 'height': 70});
                 return;
             }
             var offset = $('.js-fullheight.full').length ? 0 : 49;

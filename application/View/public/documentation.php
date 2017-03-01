@@ -1,14 +1,10 @@
 
 <?php Template::load('header'); ?>
 
-<section id="fmr-header">
+<section id="fmr-header"  class="fmr-small-header">
 	<div class="container">
 		<?php Template::load('public_nav'); ?>
 	</div>
-</section>
-
-<section id="fmr-hero"  class="js-fullheight static" data-next="yes">
-	<div class="fmr-overlay"></div>
 </section>
 
 <section id="fmr-projects" style="padding-top: 2em; background: #fff">

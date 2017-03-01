@@ -1340,7 +1340,7 @@ body {
 .dl-horizontal dd {
     margin-bottom: 15px;
 }
-/** cyril added **/
+/** custom added **/
 .below-header {
     margin-top: 90px;
 }
@@ -1413,6 +1413,16 @@ address, ul, ol, a {
     padding: 15px;
     color: #484c50;
     border-bottom: 1px solid #f9f9f9;
+    margin-bottom: 14px;
+}
+.study-box h2 a {
+    color: #555;
+}
+.study-box .blurb {
+    height: 115px;
+    max-height: 155px;
+    overflow: hidden;
+    margin-bottom: 10px;
 }
 .navbar-toggle.collapsed {
     display: none !important;
@@ -1456,7 +1466,14 @@ address, ul, ol, a {
 .documentation-content .tab-pane a  {
     color: #337ab7;
 }
-/** end cyril added **/
+#fmr-header.fmr-small-header {
+    padding-top: 14px;
+    height: 70px;
+    background: #555;
+    padding-top: 15px;
+    position: relative;
+}
+/** end custom added **/
 
 @media screen and (max-width: 480px) {
   .col-xxs-12 {
