@@ -768,7 +768,8 @@ class Run {
 			return;
 		}
 
-		global $site, $title, $css, $js;
+		global $site, $title;
+		$css = $js = array();
 
 		if (isset($output['title'])):
 			$title = $output['title'];
@@ -777,10 +778,12 @@ class Run {
 		endif;
 
 		if ($this->custom_css_path) {
-			$css = '<link rel="stylesheet" href="' . asset_url($this->custom_css_path) . '" type="text/css" media="screen">';
+			//$css = '<link rel="stylesheet" href="' . asset_url($this->custom_css_path) . '" type="text/css" media="screen">';
+			$css[] = asset_url($this->custom_css_path);
 		}
 		if ($this->custom_js_path) {
-			$js .= '<script src="' . asset_url($this->custom_js_path) . '"></script>';
+			//$js .= '<script src="' . asset_url($this->custom_js_path) . '"></script>';
+			$js[] = asset_url($this->custom_js_path);
 		}
 
 		$alerts = $site->renderAlerts();
@@ -804,7 +807,9 @@ class Run {
 				$animal_end = 10;
 			}
 
-			$js .= '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_users.js') . '"></script>';
+			//$js .= '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_users.js') . '"></script>';
+			$js[] = DEBUG ? asset_url('common/js/run_users.js') : asset_url('build/js/run_users.min.js');
+
 			$run_content .= Template::get('admin/run/monkey_bar', array(
 				'user' => $user,
 				'run' => $this,
