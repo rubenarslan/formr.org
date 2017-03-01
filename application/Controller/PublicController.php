@@ -3,6 +3,13 @@
 class PublicController extends Controller {
 	public function __construct(Site &$site) {
 		parent::__construct($site);
+		if (DEBUG) {
+			$this->registerCSS(Config::get('default_assets.dev.site.css'));
+			$this->registerJS(Config::get('default_assets.dev.site.js'));
+		} else {
+			$this->registerCSS(Config::get('default_assets.min.site.css'));
+			$this->registerJS(Config::get('default_assets.min.site.js'));
+		}
 	}
 
 	public function indexAction() {

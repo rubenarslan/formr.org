@@ -38,9 +38,9 @@ abstract class Controller {
 	 */
 	protected $request;
 
-	protected $css;
+	protected $css = array();
 
-	protected $js;
+	protected $js = array();
 
 	public function __construct(Site &$site) {
 		/** @todo do these with dependency injection */
@@ -49,8 +49,12 @@ abstract class Controller {
 		$this->user = &$user;
 		$this->study = $study;
 		$this->run = $run;
-		$this->css = $css;
-		$this->js = $js;
+		if (is_array($css)) {
+			$this->css = $css;
+		}
+		if (is_array($js)) {
+			$this->js = $js;
+		}
 
 		$this->fdb = DB::getInstance();
 		$this->request = $site->request;
@@ -95,6 +99,20 @@ abstract class Controller {
 
 	public function getDB() {
 		return $this->fdb;
+	}
+
+	protected function registerCSS($files) {
+		if (!is_array($files)) {
+			$files = array($files);
+		}
+		$this->css = array_merge($this->css, array_filter($files));
+	}
+
+	protected function registerJS($files) {
+		if (!is_array($files)) {
+			$files = array($files);
+		}
+		$this->js = array_merge($this->js, array_filter($files));
 	}
 
 }

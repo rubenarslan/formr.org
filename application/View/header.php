@@ -1,22 +1,41 @@
 <?php header('Content-type: text/html; charset=utf-8'); ?><!DOCTYPE html>
-<html class="no_js">
-	<head> 
+<html class="no-js">
+    <head>
 	    <script>(function(H){H.className=H.className.replace(/\bno_js\b/,'js')})(document.documentElement)</script>
 		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-        <meta charset="utf-8"> 
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <title><?php echo $site->makeTitle(); ?></title>
-		<link rel="stylesheet" type="text/css" href="<?= asset_url('assets/lib/bower'. (DEBUG ? '' : '.min') . '.css') ; ?>" />
-		<?php echo isset($css) ? $css : '' ?>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta charset="utf-8">
+        <meta name="description" content="formr - an online survey framework with live feedback" />
+        <meta name="keywords" content="formr, online survey, R software, opencpu, live feedback" />
+        <meta name="author" content="formr.org" />
 
-		<script src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/head.js') ; ?>"></script>	
-		<?php echo isset($js) ? $js : '' ?>
+        <meta property="og:title" content="<?php echo $site->makeTitle(); ?>"/>
+        <meta property="og:image" content=""/>
+        <meta property="og:url" content="https://formr.org"/>
+        <meta property="og:site_name" content="formr"/>
+        <meta property="og:description" content="an online survey framework with live feedback"/>
+        <meta name="twitter:title" content="formr" />
+        <meta name="twitter:image" content="" />
+        <meta name="twitter:url" content="https://formr.org" />
+        <meta name="twitter:card" content="an online survey framework with live feedback" />
 
-	</head>
+		<?php
+			foreach($css as $file) {
+				echo '<link href="' . asset_url($file) . '" rel="stylesheet" type="text/css">' . "\n";
+			}
+		?>
+		<?php
+			foreach($js as $file) {
+				echo '<script src="' . asset_url($file) . '"></script>' . "\n";
+			}
+		?>
+
+    </head>
+
 	<body>
-		<div class="container">
+		
+	<div id="fmr-page" class="<?php echo !empty($bodyClass) ? $bodyClass : 'body'; ?>">
 
-			<!--[if lt IE 7]>
-				<p class="alert chromeframe">
-			 <button type="button" class="close" data-dismiss="alert">&times;</button>
-			   You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
-			<![endif]-->

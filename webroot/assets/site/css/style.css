@@ -202,11 +202,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 body {
-  background: #efefef url(../images/white_wave.png) repeat;
+  background: #efefef url(../img/white_wave.png) repeat;
 }
 @media only screen and (-webkit-min-device-pixel-ratio: 2), only screen and (min--moz-device-pixel-ratio: 2), only screen and (-o-min-device-pixel-ratio: 2 / 1), only screen and (min-device-pixel-ratio: 2), only screen and (min-resolution: 192dpi), only screen and (min-resolution: 2dppx) {
   body {
-    background: #efefef url(../images/white_wave_@2X.png) repeat;
+    background: #efefef url(../img/white_wave_@2X.png) repeat;
   }
 }
 
@@ -323,6 +323,7 @@ body {
   background-size: cover;
   background-attachment: fixed;
   background-repeat: no-repeat;
+  background-image: url('../img/hero_bg.jpg');
   position: relative;
   width: 100%;
 }
