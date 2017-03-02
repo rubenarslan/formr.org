@@ -224,6 +224,7 @@ class AdminSurveyController extends AdminController {
 		$pagination = new Pagination($paginate['count'], $paginate['limit']);
 		$pagination->setPage($paginate['page']);
 
+		$this->registerJS(DEBUG ? 'admin/js/run_users.js' : 'build/js/run_users.min.js');
 		$this->renderView('survey/show_itemdisplay', array(
 			'resultCount' => $this->study->getResultCount(),
 			'results' => $this->study->getItemDisplayResults(null, $session, $paginate),

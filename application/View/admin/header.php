@@ -16,6 +16,11 @@
 			echo '<script src="' . asset_url($file) . '"></script>' . "\n";
 		}
 		?>
+		
+		<?php
+			$runs = $user->getRuns();
+			$studies =  $user->getStudies();
+		?>
     </head>
 
     <body class="hold-transition skin-black">

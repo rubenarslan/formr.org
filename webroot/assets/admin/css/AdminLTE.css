@@ -2254,6 +2254,7 @@ a:focus {
 .btn-primary {
   background-color: #3c8dbc;
   border-color: #367fa9;
+  color: #fff;
 }
 .btn-primary:hover,
 .btn-primary:active,

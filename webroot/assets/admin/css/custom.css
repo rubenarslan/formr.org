@@ -92,3 +92,6 @@
 .skin-black .wrapper {
     background: #fff;
 }
+tr.thick_border_top {
+    border-top: 2px solid #efefef;
+}

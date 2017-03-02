@@ -1,9 +1,4 @@
-<?php 
-	Template::load('admin/header', array(
-		'studies' => $studies,
-		'runs' =>$runs,
-	));
-?>
+<?php Template::load('admin/header'); ?>
 
 <div class="content-wrapper">
 	<section class="content-header">
@@ -12,6 +7,7 @@
 
 	<section class="content">
 
+		<?php Template::load('public/alerts'); ?>
 		<div class="row">
 			<div class="col-md-3">
 				<a href="<?php echo site_url('documentation'); ?>" class="dashboard-link">
