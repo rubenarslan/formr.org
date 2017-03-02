@@ -11,7 +11,7 @@
 				<div class="col-md-6 col-md-push-6">
 					<div class="fmr-intro-text">
 						<div class="col-md-12">
-							<div class="login-form below-header mdl-card mdl-shadow--2dp pull-right" style="">
+							<div class="login-form mdl-card mdl-shadow--2dp pull-right" style="">
 								<h2>formr sign-up</h2>
 								<?php Template::load('public/alerts'); ?>
 								
@@ -36,7 +36,7 @@
 					<p>&nbsp;</p>
 				</div>
 				<div class="col-md-6 col-md-pull-6">
-					<div class="below-header fmr-intro-text">
+					<div class="fmr-intro-text">
 						<div class="fmr-center-position">
 							<h2 class="animate-box">Sign-Up</h2>
 							<h3>It's free, we don't spam</h3>

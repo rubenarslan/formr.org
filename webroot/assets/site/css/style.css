@@ -1341,9 +1341,6 @@ body {
     margin-bottom: 15px;
 }
 /** custom added **/
-.below-header {
-    margin-top: 90px;
-}
 .login-form {
     color: #555 !important;
     padding: 15px;
@@ -1480,6 +1477,10 @@ address, ul, ol, a {
 #fmr-page .mdl-card a {
     color: #8dc63f;
 }
+#fmr-intro.js-fullheight .fmr-intro-text {
+    padding-top: 90px;
+}
+
 .form-horizontal .control-label {
     text-align: left !important;
     color: #000;

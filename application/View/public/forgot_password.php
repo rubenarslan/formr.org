@@ -6,11 +6,11 @@
 	<div class="fmr-overlay"></div>
 	<div class="container">
 		<div class="fmr-intro js-fullheight">
-			<div class="row">
+			<div class="col-md-12">
 				<div class="col-md-6 col-md-offset-3">
 					<div class="fmr-intro-text">
 						<div class="col-md-12">
-							<div class="login-form below-header mdl-card mdl-shadow--2dp">
+							<div class="login-form mdl-card mdl-shadow--2dp">
 								<h2>Forgot Password</h2>
 								<?= Template::load('public/alerts') ?>
 								<h4 class="lead">Enter your email below and a link to reset your password will be sent to you.</h4>

@@ -37,8 +37,8 @@
             
             minHeight += offset;
             var cHeight = $('#fmr-hero .fmr-intro').height();
-            var _mTop = (minHeight >= cHeight) ? ((minHeight - cHeight) / 2) + 5 : 75;
-            var mTop = _mTop > 75 ? _mTop : 75;
+            var _mTop = (minHeight >= cHeight) ? ((minHeight - cHeight) / 2) + 5 : 90;
+            var mTop = _mTop > 90 ? _mTop : 90;
             $('#fmr-hero .fmr-intro .fmr-intro-text').css('padding-top', mTop);
             console.log(minHeight, cHeight, _mTop);
         }
