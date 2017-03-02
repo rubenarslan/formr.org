@@ -46,4 +46,19 @@
 	<!-- /.box-body -->
 </div>
 <!-- /.box -->
+<?php 
+	if (empty($resultCount)) {
+		 $resultCount = $study->getResultCount();
+	}
+	if (trim($study->settings['google_file_id']) && $resultCount['real_users'] === "0"):
+	$google_link = google_get_sheet_link($study->settings['google_file_id']);
+?>
+	<form class="" action="<?= admin_study_url($study->name, 'upload_items') ?>" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="#">
+		<input type="hidden" name="study_id" value="<?= $study->id ?>">
+		<input type="hidden" name="google_sheet" value="<?php echo h($google_link); ?>">
+
+		<button class="btn btn-lg" type="submit"><small> <i class="fa-fw fa fa-pencil-square"></i> Quick-upload items</small></button>
+	</form>
+<?php endif; ?>
+<hr />
 <a href="<?= admin_url('survey') ?>" class="btn btn-primary btn-block margin-bottom"><i class="fa fa-plus-circle"></i> Add Survey</a>
