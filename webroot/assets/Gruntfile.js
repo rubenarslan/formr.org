@@ -274,8 +274,8 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks('grunt-contrib-clean');
 
     // Register Tasks
-    grunt.registerTask('default', ['bower', 'bower_concat', 'copy', 'csslint', 'concat_css', 'autoprefixer', 'cssmin', 'jshint', 'concat', 'uglify', 'clean']);
-    //grunt.registerTask('build', []);
+    grunt.registerTask('default', ['bower_concat', 'copy', 'csslint', 'concat_css', 'autoprefixer', 'cssmin', 'jshint', 'concat', 'uglify', 'clean']);
+    grunt.registerTask('update', ['bower', 'bower_concat', 'copy', 'csslint', 'concat_css', 'autoprefixer', 'cssmin', 'jshint', 'concat', 'uglify', 'clean']);
     //grunt.registerTask('css', []);
     //grunt.registerTask('myjs', []);
 };
