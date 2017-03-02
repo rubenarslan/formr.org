@@ -255,6 +255,7 @@ form.form-horizontal div.form-group div.controls input[type=radio],form.form-hor
 }
 form.form-horizontal div.form-group.form-row.item-block div.control-label,
 form.form-horizontal div.form-group.form-row.item-note div.control-label,
+form.form-horizontal div.form-group.form-row.item-note_iframe div.control-label,
 form.form-horizontal div.form-group.form-message div.control-label {
     margin-left:0;
 	text-align:left;
@@ -262,10 +263,17 @@ form.form-horizontal div.form-group.form-message div.control-label {
 	max-width:100%;
 }
 form.form-horizontal div.form-group.form-row.item-block div.controls,
-form.form-horizontal div.form-group.form-row.item-note div.controls
+form.form-horizontal div.form-group.form-row.item-note div.controls,
+form.form-horizontal div.form-group.form-row.item-note_iframe div.controls
 {
     display:none;
 }
+
+form.form-horizontal div.form-group.form-row.item-note_iframe .rmarkdown_iframe {
+    position: static;
+    height: auto;
+}
+
 div.controls-inner {
     display:block;
 }

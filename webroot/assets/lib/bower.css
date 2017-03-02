@@ -11741,3 +11741,27 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
 .analogue_rating_scale30 .btn-group > .btn {
 	width: 30px;
 }
+
+
+form.form-horizontal div.form-group div.controls input[type=radio],form.form-horizontal div.form-group div.controls input[type=checkbox] {
+    vertical-align:top;
+}
+form.form-horizontal div.form-group.form-row.item-block div.control-label,
+form.form-horizontal div.form-group.form-row.item-note div.control-label,
+form.form-horizontal div.form-group.form-row.item-note_iframe div.control-label,
+form.form-horizontal div.form-group.form-message div.control-label {
+    margin-left:0;
+  text-align:left;
+  width:100%;
+  max-width:100%;
+}
+form.form-horizontal div.form-group.form-row.item-block div.controls,
+form.form-horizontal div.form-group.form-row.item-note div.controls,
+form.form-horizontal div.form-group.form-row.item-note_iframe div.controls
+{
+    display:none;
+}
+form.form-horizontal div.form-group.form-row.item-note_iframe .rmarkdown_iframe {
+    position: static;
+    height: auto;
+}
