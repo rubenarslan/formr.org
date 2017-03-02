@@ -1,5 +1,5 @@
 <?php header('Content-type: text/html; charset=utf-8'); ?><!DOCTYPE html>
-<html class="no-js">
+<html class="no_js">
     <head>
 		<script>(function (H) {
                 H.className = H.className.replace(/\bno_js\b/, 'js')

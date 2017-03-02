@@ -188,6 +188,12 @@ class PublicController extends Controller {
 		$this->registerCSS($run_vars['css']);
 		$this->registerJS($run_vars['js']);
 		unset($run_vars['css'], $run_vars['js']);
+		// @todo. Cleapup CSS and remove this hack
+		foreach ($this->css as $i => $file) {
+			if ($file === 'site/css/style.css') {
+				$this->css[$i] = 'site/css/run.css';
+			}
+		}
 
 		$this->renderView('public/run', $run_vars);
 	}
