@@ -5,10 +5,15 @@ class AdminController extends Controller {
 	public function __construct(Site &$site) {
 		parent::__construct($site);
 		$this->header();
+		if (!Request::isAjaxRequest()) {
+			$default_assets = get_default_assets('admin');
+			$this->registerCSS($default_assets['css']);
+			$this->registerJS($default_assets['js']);
+		}
 	}
 
 	public function indexAction() {
-		$this->renderView('misc/index', array(
+		$this->renderView('home', array(
 			'runs' => $this->user->getRuns(),
 			'studies' => $this->user->getStudies(),
 		));

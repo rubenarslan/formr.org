@@ -181,6 +181,10 @@ class Request {
 		return strtolower($_SERVER['REQUEST_METHOD']) === 'get';
 	}
 
+	public static function isAjaxRequest() {
+		return strtolower(env('HTTP_X_REQUESTED_WITH')) === 'xmlhttprequest';
+	}
+
 	private static function stripslashes($value) {
 		// skip objects (object.toString() results in wrong output)
 		if (!is_object($value) && !is_array($value)) {

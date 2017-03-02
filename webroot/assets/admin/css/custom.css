@@ -89,3 +89,6 @@
 .muted {
     color: #DDD;
 }
+.skin-black .wrapper {
+    background: #fff;
+}

@@ -3,9 +3,11 @@
 class PublicController extends Controller {
 	public function __construct(Site &$site) {
 		parent::__construct($site);
-		$default_assets = get_default_assets();
-		$this->registerCSS($default_assets['css']);
-		$this->registerJS($default_assets['js']);
+		if (!Request::isAjaxRequest()) {
+			$default_assets = get_default_assets();
+			$this->registerCSS($default_assets['css']);
+			$this->registerJS($default_assets['js']);
+		}
 	}
 
 	public function indexAction() {

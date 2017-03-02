@@ -35,16 +35,17 @@ $settings['default_assets']['dev'] = array(
 		'css' => array(
 			'bower_components/bootstrap/dist/css/bootstrap.css',
 			'bower_components/font-awesome/css/font-awesome.css',
+			'bower_components/select2/select2.css',
 			'admin/css/AdminLTE.css',
 			'admin/css/skin-black.css',
 			'admin/css/custom.css',
-			'bower_components/select2/select2.css',
 			'admin/css/AdminLTE-select2.css'
 		),
 		'js' => array(
 			'bower_components/jquery/jquery.js',
 			'bower_components/bootstrap/dist/js/bootstrap.js',
 			'bower_components/ace-builds/src-noconflict/ace.js',
+			'admin/js/main.js',
 		)
 	),
 );
