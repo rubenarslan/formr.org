@@ -1519,16 +1519,16 @@ function deletefiles($files) {
 	}
 }
 
-function get_default_assets() {
+function get_default_assets($config = 'site') {
 	if (DEBUG) {
 		return array(
-			'js' => Config::get('default_assets.dev.site.js'),
-			'css' => Config::get('default_assets.dev.site.css'),
+			'js' => Config::get("default_assets.dev.{$config}.js"),
+			'css' => Config::get("default_assets.dev.{$config}.css"),
 		);
 	} else {
 		return array(
-			'js' => Config::get('default_assets.prod.site.js'),
-			'css' => Config::get('default_assets.prod.site.css'),
+			'js' => Config::get("default_assets.prod.{$config}.js"),
+			'css' => Config::get("default_assets.prod.{$config}.css"),
 		);
 	}
 }
