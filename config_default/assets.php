@@ -51,6 +51,7 @@ $settings['default_assets']['dev'] = array(
 $settings['default_assets']['prod'] = array(
 	'site' => array(
 		'css' => array(
+			'https://fonts.googleapis.com/css?family=Roboto:400,100,300,600,400italic,700',
 			'build/css/formr.min.css'
 		),
 		'js' => array(

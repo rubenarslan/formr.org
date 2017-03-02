@@ -1,11 +1,8 @@
-
-<?php Template::load('header'); ?>
-
-<section id="fmr-header"  class="fmr-small-header">
-	<div class="container">
-		<?php Template::load('public_nav'); ?>
-	</div>
-</section>
+<?php 
+	Template::load('public/header', array(
+		'headerClass' => 'fmr-small-header',
+	)); 
+?>
 
 <section id="fmr-projects" style="padding-top: 2em; background: #fff">
 	<div class="container">

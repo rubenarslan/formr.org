@@ -1,10 +1,6 @@
-<?php Template::load('header'); ?>
-
-<section id="fmr-header">
-	<div class="container">
-		<?php Template::load('public_nav'); ?>
-	</div>
-</section>
+<?php 
+	Template::load('public/header'); 
+?>
 
 <section id="fmr-hero" class="js-fullheight full" data-next="yes">
 	<div class="fmr-overlay"></div>
@@ -37,6 +33,7 @@
 							</div>
 						</div>
 					</div>
+					<p>&nbsp;</p>
 				</div>
 				<div class="col-md-6 col-md-pull-6">
 					<div class="below-header fmr-intro-text">

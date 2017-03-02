@@ -1,11 +1,5 @@
+<?php Template::load('public/header'); ?>
 
-<?php Template::load('header'); ?>
-
-<section id="fmr-header">
-	<div class="container">
-		<?php Template::load('public_nav'); ?>
-	</div>
-</section>
 <!-- #fmr-header -->
 
 <section id="fmr-hero" class="js-fullheight" data-next="yes">
