@@ -777,7 +777,9 @@ function asset_url($file) {
 	if (strpos($file, 'http') !== false) {
 		return $file;
 	}
-	$file = 'assets/' . $file;
+	if (strpos($file, 'assets') === false) {
+		$file = 'assets/' . $file;
+	}
 	$mtime = @filemtime(INCLUDE_ROOT . "webroot/" . $file);
 	if(!$mtime) {
 	  return site_url($file);

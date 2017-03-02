@@ -95,3 +95,29 @@
 tr.thick_border_top {
     border-top: 2px solid #efefef;
 }
+.log-entry .panel-content {
+    padding: 15px;
+}
+.bulk-actions-ba form {
+    border: 1px solid #efefef;
+    padding: 5px;
+    margin-top: 15px;
+}
+.has-actions .input-group .position_monkey {
+    width: 70px;
+    padding: 0;
+}
+.readonly-textarea {
+    border: 1px solid #efefef;
+    background: transparent;
+    color: #555;
+    width: 70%;
+    padding: 8px;
+}
+.dropzone {
+    border: 2px solid #efefef;
+    padding: 20px 15px;
+}
+.panel-default > .panel-heading + .panel-collapse > .panel-body img {
+    max-width: 100%;
+}

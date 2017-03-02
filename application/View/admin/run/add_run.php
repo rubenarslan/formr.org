@@ -17,6 +17,7 @@
 
                         <form action="<?php echo admin_url('run/add_run'); ?>" role="form" enctype="multipart/form-data"  id="add_study" name="add_study" method="post">
                             <div class="box-body">
+								<?php Template::load('public/alerts'); ?>
 
                                 <div class="callout callout-info">
                                     <h4>Enter Run shorthand</h4>

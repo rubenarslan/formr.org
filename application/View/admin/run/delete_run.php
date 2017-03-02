@@ -19,6 +19,7 @@
 					</div>
 					<form role="form" action="<?php echo admin_run_url($run->name, 'delete_run'); ?>" method="post">
 						<div class="box-body">
+							<?php Template::load('public/alerts'); ?>
 
 							<h4>Type run name to confirm it's deletion</h4>
 							<div class="form-group">

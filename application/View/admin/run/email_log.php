@@ -1,41 +1,63 @@
-<?php
-Template::load('header');
-Template::load('acp_nav');
-?>
+<?php Template::load('admin/header'); ?>
 
-<h2 class="drop_shadow">email log <small>sent during runs</small></h2>
+<div class="content-wrapper">
+	<!-- Content Header (Page header) -->
+	<section class="content-header">
+		<h1><?php echo $run->name; ?> </h1>
+	</section>
 
-<?php if(!empty($emails)) { ?>
-	<table class='table table-striped'>
-		<thead><tr>
-	<?php
-	foreach(current($emails) AS $field => $value):
-	    echo "<th>{$field}</th>";
-	endforeach;
-	?>
-		</tr></thead>
-	<tbody>
-		<?php
-		// printing table rows
-		foreach($emails AS $row):
-		    echo "<tr>";
+	<!-- Main content -->
+	<section class="content">
+		<div class="row">
+			<div class="col-md-2">
+				<?php Template::load('admin/run/menu'); ?>
+			</div>
+			<div class="col-md-10">
+				<div class="box box-primary">
+					<div class="box-header with-border">
+						<h3 class="box-title">Email Log </h3>
+					</div>
+					<div class="box-body table-responsive">
+						<?php if ($emails): ?>
 
-		    // $row is array... foreach( .. ) puts every element
-		    // of $row to $cell variable
-		    foreach($row as $cell):
-		        echo "<td>$cell</td>";
-			endforeach;
+							<table class="table table-striped">
+								<thead>
+									<tr>
+										<?php
+										foreach (current($emails) AS $field => $value) {
+											echo "<th>{$field}</th>";
+										}
+										?>
+									</tr>
+								</thead>
+								<tbody>
+									<?php
+									// printing table rows
+									foreach ($emails AS $row) {
+										echo "<tr>";
+										foreach ($row as $cell) {
+											echo "<td>$cell</td>";
+										}
+										echo "</tr>\n";
+									};
+									?>
+								</tbody>
+							</table>
+							<div class="pagination">
+								<?php $pagination->render("admin/run/{$run->name}/email_log"); ?>
+							</div>
+						<?php else: ?>
+						<h5 class="lead"><i>No E-mails yet</i></h5>
+						<?php endif; ?>
+					</div>
+				</div>
 
-		    echo "</tr>\n";
-		endforeach;
-		?>
-	</tbody></table>
-<?php
-$pagination->render("admin/run/".$run->name."/email_log");
+			</div>
+		</div>
 
-} else {
-	echo "No emails sent yet.";
-}
-	?>
+		<div class="clear clearfix"></div>
+	</section>
+	<!-- /.content -->
+</div>
 
-<?php Template::load('footer');
+<?php Template::load('admin/footer'); ?>

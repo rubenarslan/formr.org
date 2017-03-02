@@ -46,7 +46,12 @@ $settings['default_assets']['dev'] = array(
 		'js' => array(
 			'bower_components/jquery/jquery.js',
 			'bower_components/bootstrap/dist/js/bootstrap.js',
+			'bower_components/webshim/js-webshim/dev/polyfiller.js',
+			'bower_components/select2/select2.js',
 			'bower_components/ace-builds/src-noconflict/ace.js',
+			'common/js/webshim.js',
+			'common/js/highlight/highlight.pack.js',
+			'common/js/main.js',
 			'admin/js/main.js',
 		)
 	),
