@@ -202,12 +202,6 @@ These items don't require the user to do anything, so including them simply mean
 		in the <strong>value</strong> column you can specify an R expression, the result of which will be saved into this variable. Useful to pull in external data or to forestall recalculating something repeatedly that you want to refer to later.
 	</dd>
 	<dt>
-		opencpu_session
-	</dt>
-	<dd>
-		like <code>calculate</code>, but stores the URL of the OpenCPU session of the result instead. Using e.g. <code>get_opencpu_rds(paste0(survey$opencpu_session_item,".val/rds"))</code> you can then retrieve its return value for later use.
-	</dd>
-	<dt>
 		ip
 	</dt>
 	<dd>

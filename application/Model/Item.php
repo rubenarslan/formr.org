@@ -535,7 +535,7 @@ class Item extends HTML_element {
 		$this->input_attributes['class'] .= " always_invalid";
 	}
 
-	public function needsDynamicLabel() {
+	public function needsDynamicLabel($survey) {
 		return $this->label_parsed === null;
 	}
 
@@ -1157,6 +1157,31 @@ class Item_note extends Item {
 	}
 
 }
+
+// notes are rendered at full width
+class Item_note_iframe extends Item_note {
+
+	public $type = 'note_iframe';
+	public $mysql_field = null;
+	public $input_attributes = array('type' => 'hidden', "value" => 1);
+	public $save_in_results_table = false;
+
+	public function needsDynamicLabel($survey) {
+		$ocpu_vars = $survey->getUserDataInRun($this->label, $survey->name);
+		$ocpu_session = opencpu_knit_iframe($this->label, $ocpu_vars, true, $survey->name);
+		if ($ocpu_session && !$ocpu_session->hasError()) {
+			$iframesrc = $ocpu_session->getFiles("knit.html")['knit.html'];
+			$this->label_parsed = '<div class="rmarkdown_iframe">
+					<iframe src="'.$iframesrc.'">
+					  <p>Your browser does not support iframes.</p>
+					</iframe>
+				</div>';
+		}
+
+		return false;
+	}
+}
+
 
 class Item_submit extends Item {
 
@@ -1780,32 +1805,6 @@ class Item_calculate extends Item {
 
 	public function render() {
 		return $this->render_input();
-	}
-
-}
-
-class Item_opencpu_session extends Item {
-
-	public $type = 'opencpu_session';
-	public $input_attributes = array('type' => 'hidden');
-	public $no_user_input_required = true;
-	public $mysql_field = 'VARCHAR (255) DEFAULT NULL';
-
-	public function render() {
-		return $this->render_input();
-	}
-
-	public function evaluateDynamicValue(Survey $survey) {
-		$value = $this->getValue();
-		$variables = $survey->getUserDataInRun($value, $survey->name);
-		$ocpu_session = opencpu_evaluate($value, $variables, 'json', $survey->name, true);
-		if ($ocpu_session && !$ocpu_session->hasError()) {
-			$this->value = $ocpu_session->getLocation();
-			$this->input_attributes['value'] = $this->value;
-			return $this->value;
-		}
-		// @todo Add error reporting if $ocpu_session has an error
-		return null;
 	}
 
 }

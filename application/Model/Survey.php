@@ -624,11 +624,6 @@ class Survey extends RunUnit {
 
 			// 2. Check item's value
 			if ($item->needsDynamicValue()) {
-				// for items of type 'opencpu_session', compute thier values immediately and not send in bulk request
-				if ($item->type === 'opencpu_session') {
-					$item->evaluateDynamicValue($this);
-					continue;
-				}
 				$val = str_replace("\n","\n\t",$item->getValue());
 				$code[$name] = "{$name} = (function(){
 {$val}
@@ -709,7 +704,7 @@ class Survey extends RunUnit {
 				$lists_to_fetch[] = $item->choice_list;
 			}
 	
-			if ($item->needsDynamicLabel() ) {
+			if ($item->needsDynamicLabel($this) ) {
 				$items[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
 				$strings_to_parse[] = $item->label;
 			}

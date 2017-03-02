@@ -19,6 +19,10 @@ body {
     background: #FFF; 
     border:none;
 }
+.item-note_iframe .rmarkdown_iframe {
+    position: static;
+    height: 100vh;
+}
 .formr-brand, h1, h2, h3, h4 {
     font-family:"FPL Neu","Palatino";
 }
@@ -154,6 +158,7 @@ form.form-horizontal div.form-group div.controls input[type=radio],form.form-hor
 }
 form.form-horizontal div.form-group.form-row.item-block div.control-label,
 form.form-horizontal div.form-group.form-row.item-note div.control-label,
+form.form-horizontal div.form-group.form-row.item-note_iframe div.control-label,
 form.form-horizontal div.form-group.form-message div.control-label {
     margin-left:0;
     text-align:left;
