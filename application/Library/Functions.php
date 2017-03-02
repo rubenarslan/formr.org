@@ -1276,7 +1276,19 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 			if ($session->hasError()) {
 				$debug['Response'] = pre_htmlescape($session->getError());
 			} else {
-				if (isset($params['text']) || $rtype === 'text') {
+				if($session->getFiles("knit.html")) {
+					$iframesrc = $session->getFiles("knit.html")['knit.html'];
+					$debug['Response'] = '
+					<p>
+						<a href="'.$iframesrc.'" target="_blank">Open in new window</a>
+					</p>
+					<div class="rmarkdown_iframe">
+					<iframe src="'.$iframesrc.'">
+					  <p>Your browser does not support iframes.</p>
+					</iframe>
+					</div>';
+				}
+				else if (isset($params['text']) || $rtype === 'text') {
 					$debug['Response'] = stringBool($session->getObject('text'));
 				} else {
 					$debug['Response'] = pre_htmlescape(json_encode($session->getJSONObject(),  JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
