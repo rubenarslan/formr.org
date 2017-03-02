@@ -17,7 +17,6 @@ formr-package/man
 /webroot/assets/tmp/*
 /webroot/assets/dsc.php
 /webroot/assets/node_modules/*
-/webroot/assets/bower_components/*
 /webroot/assets/tmp/admin/*.*
 /tmp/backups/results/*.*
 /tmp/backups/surveys/*.*
@@ -26,3 +25,5 @@ formr-package/man
 webroot/assets/img/randPic
 tests/test.php
 
+webroot/assets/bower_components
+webroot/assets/lib/bower_components
