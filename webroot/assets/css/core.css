@@ -269,9 +269,9 @@ form.form-horizontal div.form-group.form-row.item-note_iframe div.controls
     display:none;
 }
 
-form.form-horizontal div.form-group.form-row.item-note_iframe .rmarkdown_iframe {
+.item-note_iframe .rmarkdown_iframe {
     position: static;
-    height: auto;
+    height: 100vh;
 }
 
 div.controls-inner {
