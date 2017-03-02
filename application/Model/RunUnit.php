@@ -618,8 +618,7 @@ class RunUnit {
 
 	public function parseBodySpecial() {
 		$ocpu_vars = array();//$this->getUserDataInRun($this->body);
-		$session = opencpu_knitadmin($this->body, $ocpu_vars, true);
-		return opencpu_debug($session);
+		return $this->getParsedBodyAdmin($this->body, false, false);
 	}
 
 	public function getParsedText($source) {
@@ -635,36 +634,29 @@ class RunUnit {
 		return opencpu_debug(opencpu_knit_plaintext($source, $ocpu_vars, true));
 	}
 
-	public function getParsedBodyAdmin($source, $email_embed = false) {
+	public function getParsedBodyAdmin($source, $email_embed = false, $pick_session = true) {
 		if ($this->knittingNeeded($source)) {
-			if (!$this->grabRandomSession()) {
+			if ($pick_session && !$this->grabRandomSession()) {
 				return false;
 			}
 
-			$opencpu_vars = $this->getUserDataInRun($source);
-			/* @var $session OpenCPU_Session */
-			$session = opencpu_knitadmin($source, $opencpu_vars, true);
+			$session = $this->getParsedBody($source, $email_embed, true, $pick_session);
+
 			$body = opencpu_debug($session);
-
-			if ($email_embed) {
-				$report = array('body' => $body, 'images' => array());
-			} else {
-				$report = $body;
-			}
-
-			return $report;
-
 		} else {
 			$report = $this->body_parsed;
-			if ($email_embed) {
-				$report = array('body' => $this->body_parsed, 'images' => array());
-			}
 
-			return $report;
 		}
+		if ($email_embed) {
+			$report = array('body' => $this->body_parsed, 'images' => array());
+		} else {
+			$report = $body;
+		}
+
+		return $report;
 	}
 
-	public function getParsedBody($source, $email_embed = false) {
+	public function getParsedBody($source, $email_embed = false, $admin = false, $has_session_data = true) {
 		/* @var $session OpenCPU_Session */
 		if (!$this->knittingNeeded($source)) { // knit if need be
 			if($email_embed) {
@@ -673,27 +665,35 @@ class RunUnit {
 				return $this->body_parsed;
 			}
 		}
+		
+		$session = NULL;
+		if(!$admin) {
 
-		$opencpu_url = $this->dbh->findValue('survey_reports', array(
-			'unit_id' => $this->id, 
-			'session_id' => $this->session_id,
-			'created >=' => $this->modified // if the definition of the unit changed, don't use old reports
-		),  array('opencpu_url'));
+			$opencpu_url = $this->dbh->findValue('survey_reports', array(
+				'unit_id' => $this->id, 
+				'session_id' => $this->session_id,
+				'created >=' => $this->modified // if the definition of the unit changed, don't use old reports
+			),  array('opencpu_url'));
 
-		// If there is a cache of opencpu, check if it still exists
-		if($opencpu_url) {
-			if ($this->called_by_cron) {
-				return false; // don't regenerate once we once had a report for this feedback, if it's only the cronjob
+			// If there is a cache of opencpu, check if it still exists
+			if($opencpu_url) {
+				if ($this->called_by_cron) {
+					return false; // don't regenerate once we once had a report for this feedback, if it's only the cronjob
+				}
+
+				$opencpu_url = rtrim($opencpu_url, "/") . $email_embed ? '' : '/R/.val/';
+				$format = "";
+				$session = opencpu_get($opencpu_url, $format , null, true);
 			}
-
-			$opencpu_url = rtrim($opencpu_url, "/") . $email_embed ? '' : '/R/.val/';
-			$format = "";
-			$session = opencpu_get($opencpu_url, $format , null, true);
 		}
 
 		// If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
 		if (empty($session) || $session->hasError()) {
-			$ocpu_vars = $this->getUserDataInRun($source);
+			if($has_session_data) {
+				$ocpu_vars = $this->getUserDataInRun($source);
+			} else {
+				$ocpu_vars = array();
+			}
 			if($email_embed) {
 				$session = opencpu_knitemail($source, $ocpu_vars, '', true);
 			} else {
@@ -715,6 +715,10 @@ class RunUnit {
 			return false;
 		} else {
 			
+			if($admin) {
+				return $session;
+			}
+
 			print_hidden_opencpu_debug_message($session, "OpenCPU debugger for run R code in {$this->type} at {$this->position}.");
 			
 			$opencpu_url = $session->getLocation();

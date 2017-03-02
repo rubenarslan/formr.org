@@ -9717,6 +9717,12 @@ html, body {
     border:none;
 }
 
+.panel-body .rmarkdown_iframe {
+    position: static;
+    width:100%;
+    height: 500px;
+}
+
 body {
 	margin-bottom:50px;
 }
