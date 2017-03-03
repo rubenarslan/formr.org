@@ -40,4 +40,4 @@
 	</div>
 </section>
 
-<?php Template::load('footer'); ?>
+<?php Template::load('public/footer'); ?>

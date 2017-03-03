@@ -115,5 +115,17 @@ abstract class Controller {
 		$this->js = array_merge($this->js, array_filter($files));
 	}
 
+	//@todo introduce switch to choose which assets to load
+	protected function registerAssets($which = null) {
+		$this->registerJS(array(
+			'build/bs-material/material.js',
+			'build/bs-material/ripples.js'
+		));
+		$this->registerCSS(array(
+			'build/bs-material/bootstrap-material-design.css',
+			'build/bs-material/ripples.css'
+		));
+	}
+
 }
 

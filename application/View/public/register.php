@@ -11,24 +11,25 @@
 				<div class="col-md-6 col-md-push-6">
 					<div class="fmr-intro-text">
 						<div class="col-md-12">
-							<div class="login-form mdl-card mdl-shadow--2dp pull-right" style="">
+							<div class="login-form pull-right" style="">
 								<h2>formr sign-up</h2>
 								<?php Template::load('public/alerts'); ?>
 								
 								<form class="" id="register" name="register" method="post" action="<?php echo site_url('register'); ?>">
-									<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-										<input class="mdl-textfield__input" type="email" id="email" name="email">
-										<label class="mdl-textfield__label" for="email"><i class="fa fa-envelope-o fa-fw"></i> Email</label>
+									<div class="form-group label-floating">
+										<label class="control-label" for="email"><i class="fa fa-envelope"></i> Email</label>
+										<input class="form-control" type="email" id="email" name="email" required>
 									</div>
-									<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-										<input class="mdl-textfield__input" type="text" id="pass" name="password">
-										<label class="mdl-textfield__label" for="pass"><i class="fa fa-key fa-fw"></i> Password</label>
+									<div class="form-group label-floating">
+										<label class="control-label" for="pass"><i class="fa fa-lock"></i> Password</label>
+										<input class="form-control" type="password" id="pass" name="password" required>
 									</div>
-									<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-										<input class="mdl-textfield__input" type="text" id="token" name="referrer_code">
-										<label class="mdl-textfield__label" for="token"><i class="fa fa-gift fa-fw"></i> Referral token (if available)</label>
+									<div class="form-group label-floating">
+										<label class="control-label" for="token"><i class="fa fa-gift"></i> Referral token (if available)</label>
+										<input class="form-control" type="text" id="token" name="referrer_code">
 									</div>
-									<button type="submit" class="btn-primary mdl-button mdl-js-button mdl-js-ripple-effect"><i class="fa fa-pencil fa-fw"></i> Sign Up</button>
+									
+									<button type="submit" class="btn btn-sup btn-material-pink btn-raised"><i class="fa fa-pencil fa-fw"></i> Sign Up</button>
 								</form>
 							</div>
 						</div>
@@ -62,4 +63,4 @@ This is what I want to use formr for:
 	<div class="clear"></div>
 </section>
 
-<?php Template::load('footer'); ?>
+<?php Template::load('public/footer'); ?>

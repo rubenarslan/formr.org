@@ -58,4 +58,4 @@
 
 <?php Template::load('public/newsletter'); ?>
 
-<?php Template::load('footer'); ?>
+<?php Template::load('public/footer'); ?>

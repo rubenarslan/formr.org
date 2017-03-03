@@ -10,16 +10,16 @@
 				<div class="col-md-6 col-md-offset-3">
 					<div class="fmr-intro-text">
 						<div class="col-md-12">
-							<div class="login-form mdl-card mdl-shadow--2dp">
+							<div class="login-form large">
 								<h2>Forgot Password</h2>
 								<?= Template::load('public/alerts') ?>
 								<h4 class="lead">Enter your email below and a link to reset your password will be sent to you.</h4>
 								<form class="" id="login" name="login" method="post" action="<?php echo site_url('forgot_password'); ?>">
-									<div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-										<input class="mdl-textfield__input" type="text" id="email" name="email" required>
-										<label class="mdl-textfield__label" for="email"><i class="fa fa-envelope-o fa-fw"></i> Email</label>
+									<div class="form-group label-floating">
+										<label class="control-label" for="email"><i class="fa fa-envelope" required></i> Email</label>
+										<input class="form-control" type="email" id="email" name="email">
 									</div>
-									<button class="btn-primary mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect"><i class="fa fa-send"></i> Send Link</button>
+									<button class="btn btn-sup btn-material-pink btn-raised"><i class="fa fa-send"></i> Send Link</button>
 								</form>
 							</div>
 						</div>
@@ -34,6 +34,6 @@
 </section>
 
 
-<?php Template::load('footer'); ?>
+<?php Template::load('public/footer'); ?>
 
 

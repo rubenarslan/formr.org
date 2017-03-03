@@ -81,6 +81,7 @@ class PublicController extends Controller {
 			}
 		}
 
+		$this->registerAssets('material');
 		$this->renderView('public/login');
 	}
 
@@ -117,6 +118,8 @@ class PublicController extends Controller {
 				alert(implode($user->errors),'alert-danger');
 			}
 		}
+		
+		$this->registerAssets('material');
 		$this->renderView('public/register');
 	}
 
@@ -140,6 +143,8 @@ class PublicController extends Controller {
 		if($this->request->str('email')) {
 			$this->user->forgot_password($this->request->str('email'));
 		}
+
+		$this->registerAssets('material');
 		$this->renderView('public/forgot_password');
 	}
 
@@ -158,6 +163,7 @@ class PublicController extends Controller {
 			$user->reset_password($_POST['email'], $_POST['reset_token'], $_POST['new_password']);
 		}
 
+		$this->registerAssets('material');
 		$this->renderView('public/reset_password', array(
 			'reset_data_email' => isset($_GET['email']) ? $_GET['email'] : '',
 			'reset_data_token' => isset($_GET['reset_token']) ? $_GET['reset_token'] : '',

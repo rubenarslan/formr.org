@@ -190,10 +190,11 @@ h1, h2, h3, h4, h5, h6 {
 .form-control {
   box-shadow: none;
   background: transparent;
-  border: 2px solid rgba(0, 0, 0, 0.1);
+  /*border: 2px solid rgba(0, 0, 0, 0.1); */
   height: 54px;
   font-size: 18px;
   font-weight: 300;
+  padding-left: 10px;
 }
 .form-control:active, .form-control:focus {
   outline: none;
@@ -1344,13 +1345,19 @@ body {
 .login-form {
     color: #555 !important;
     padding: 15px;
+    width: 450px;
     max-width: 100%;
-    padding: 35px;
+    padding: 25px;
     min-height: 400px;
     background: #fff;
 }
-.login-form .mdl-textfield {
-    width: 100%;
+.login-form.large {
+    width: 700px;
+}
+.login-form .form-control {
+    height: 34px;
+    border: none;
+    border-bottom: 1px solid #efefef;
 }
 
 #fmr-hero .fmr-intro > div .login-form .btn-primary {
@@ -1469,13 +1476,6 @@ address, ul, ol, a {
     background: #555;
     padding-top: 15px;
     position: relative;
-}
-#fmr-page .mdl-card {
-    max-width: 100%;
-    width: auto;
-}
-#fmr-page .mdl-card a {
-    color: #8dc63f;
 }
 #fmr-intro.js-fullheight .fmr-intro-text {
     padding-top: 90px;

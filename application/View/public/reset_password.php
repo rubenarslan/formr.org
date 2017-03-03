@@ -1,5 +1,5 @@
-<?php 
-	Template::load('public/header'); 
+<?php
+Template::load('public/header');
 ?>
 
 <section id="fmr-hero" class="js-fullheight full" data-next="yes">
@@ -13,16 +13,17 @@
 							<div class="login-form below-header mdl-card mdl-shadow--2dp">
 								<h2>Reset Password</h2>
 								<?= Template::load('public/alerts') ?>
-								
-                                            <form class="" id="login" name="login" method="post" action="<?php echo site_url('reset_password');?>">
-                                                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
-                                                    <input required type="hidden" name="email" id="email" value="<?= htmlspecialchars($reset_data_email); ?>">
-                                                    <input required type="hidden" name="reset_token" id="reset_token" value="<?= htmlspecialchars($reset_data_token); ?>">
-                                                    <input class="mdl-textfield__input" type="password" name="new_password" id="new_password">
-                                                    <label class="mdl-textfield__label" for="new_password"><i class="fa fa-key fa-fw"></i> Enter New Password (Choose a secure phrase)</label>
-                                                </div>
-                                                <button class="btn-primary mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect"><i class="fa fa-refresh"></i> Reset</button>
-                                            </form>
+
+								<form class="login-form large" id="login" name="login" method="post" action="<?php echo site_url('reset_password'); ?>">
+									<div class="form-group label-floating">
+										<input required type="hidden" name="email" id="email" value="<?= htmlspecialchars($reset_data_email); ?>">
+										<input required type="hidden" name="reset_token" id="reset_token" value="<?= htmlspecialchars($reset_data_token); ?>">
+										
+										<label class="control-label" for="pass"><i class="fa fa-lock"></i> Enter New Password (Choose a secure phrase)</label>
+										<input class="form-control" type="password" id="pass" name="new_password" required>
+									</div>
+									<button class="btn btn-sup btn-material-pink btn-raised"><i class="fa fa-refresh"></i> Reset</button>
+								</form>
 							</div>
 						</div>
 					</div>
@@ -35,4 +36,4 @@
 	<div class="clear"></div>
 </section>
 
-<?php Template::load('footer'); ?>
+<?php Template::load('public/footer'); ?>

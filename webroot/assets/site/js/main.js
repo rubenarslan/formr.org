@@ -22,11 +22,6 @@
         el.css('margin-left', divide);
     };
 
-    // Loading page
-    var loaderPage = function () {
-        $(".fmr-loader").fadeOut("slow");
-    };
-
     // FullHeight
     var fullHeight = function () {
         if (!isiPad() && !isiPhone()) {
@@ -44,31 +39,6 @@
         }
     };
     $(window).resize(fullHeight);
-
-    var toggleBtnColor = function () {
-
-        return;
-        /*
-        if ($('#fmr-hero').length > 0) {
-            $('#fmr-hero').waypoint(function (direction) {
-                if (direction === 'down') {
-                    $('.fmr-nav-toggle').addClass('dark');
-                }
-            }, {offset: -$('#fmr-hero').height()});
-
-            $('#fmr-hero').waypoint(function (direction) {
-                if (direction === 'up') {
-                    $('.fmr-nav-toggle').removeClass('dark');
-                }
-            }, {
-                offset: function () {
-                    return -$(this.element).height() + 0;
-                }
-            });
-        }
-
-        */
-    };
 
 
     // Scroll Next
@@ -147,19 +117,6 @@
 
     };
 
-
-    var testimonialFlexslider = function () {
-        var $flexslider = $('.flexslider');
-        $flexslider.flexslider({
-            animation: "fade",
-            manualControls: ".flex-control-nav li",
-            directionNav: false,
-            smoothHeight: true,
-            useCSS: false /* Chrome fix*/
-        });
-    };
-
-
     var goToTop = function () {
 
         $('.js-gotop').on('click', function (event) {
@@ -175,20 +132,23 @@
 
     };
 
+    var material = function() {
+        if ($.material) {
+            $.material.init();
+        }
+    };
+
 
     // Document on load.
     $(function () {
         gotToNextSection();
-        loaderPage();
         fullHeight();
-        //toggleBtnColor();
         scrollNext();
         mobileMenuOutsideClick();
         offcanvasMenu();
         burgerMenu();
-        //testimonialFlexslider();
         goToTop();
-
+        material();
     });
 
 

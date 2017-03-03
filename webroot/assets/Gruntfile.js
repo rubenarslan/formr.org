@@ -29,7 +29,9 @@ module.exports = function (grunt) {
                 cssDest: 'build/css/bower.css',
                 exclude: [
                     'ace-builds',
-                    'webshim'
+                    'webshim',
+                    'bootstrap-sass',
+                    'bootstrap-material-design'
                 ],
                 mainFiles: {
                     'font-awesome': ['css/font-awesome.css']
@@ -99,6 +101,20 @@ module.exports = function (grunt) {
                     flatten: true,
                     src: ["**"]
                 }]
+            },
+            // Copy bootstrap-material-design
+            material: {
+                expand: true,
+                dot: true,
+                cwd: "bower_components/bootstrap-material-design/dist",
+                dest: "build/bs-material/",
+                flatten: true,
+                src: [
+                    'css/bootstrap-material-design.css',
+                    'css/ripples.css',
+                    'js/material.js',
+                    'js/ripples.js'
+                ]
             }
         },
  
