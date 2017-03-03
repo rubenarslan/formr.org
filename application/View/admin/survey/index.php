@@ -12,7 +12,7 @@
 				<?php Template::load('admin/survey/menu'); ?>
 			</div>
 
-			<div class="col-md-10">
+			<div class="col-md-8">
 				<div class="box box-primary">
 					<div class="box-header with-border">
 						<h3 class="box-title">Survey Settings</h3>
@@ -67,6 +67,7 @@
 					</form>
 				</div>
 			</div>
+			<div class="clear clearfix"></div>
 		</div>
 
 	</section>

@@ -39,7 +39,6 @@ $settings['default_assets']['dev'] = array(
 			'bower_components/font-awesome/css/font-awesome.css',
 			'bower_components/select2/select2.css',
 			'admin/css/AdminLTE.css',
-			'admin/css/skin-black.css',
 			'admin/css/custom.css',
 		),
 		'js' => array(
