@@ -30,6 +30,7 @@ $settings['default_assets']['dev'] = array(
 			'common/js/webshim.js',
 			'common/js/highlight/highlight.pack.js',
 			'common/js/main.js',
+			'common/js/survey.js',
 			'common/js/run.js',
 			'common/js/run_users.js',
 			'site/js/main.js',

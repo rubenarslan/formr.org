@@ -180,3 +180,6 @@ tr.thick_border_top {
 .modal-header .close {
     margin-top: 5px;
 }
+.btn-checked {
+    background: #ddd;
+}
