@@ -6,6 +6,12 @@
 <?php if ($site->inAdminArea()): ?>
 	<script type="text/javascript" src="<?= asset_url('assets/' . (DEBUG ? 'lib' : 'minified') . '/ace/ace.js') ?>"></script>	
 <?php endif; ?>
+<?php 
+$material = !$site->inAdminArea();
+if($material):
+?>
+<script>$.material.init();</script>
+<?php endif; ?>
 <script id="tpl-feedback-modal" type="text/formr">
     <div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="FormR.org Modal" aria-hidden="true">
         <div class="modal-dialog">                         

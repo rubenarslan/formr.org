@@ -68,6 +68,20 @@ grunt.initConfig({
 				]
 			}]
 		},
+        material: {
+            files: [{
+                expand: true,
+                dot: true,
+                cwd: 'bower_components/bootstrap-material-design/dist/',
+                dest: '',
+                src: [
+                  'css/bootstrap-material-design.css',
+                  'css/ripples.css',
+                  'js/material.js',
+                  'js/ripples.js'
+                ]
+            }]
+        },
 		fonts: {
 			files: [{
 				expand: true,
@@ -99,7 +113,9 @@ grunt.initConfig({
 		cssDest: 'lib/bower_lib.css',
 		exclude: [
 			'ace-builds',
-			'webshim'
+			'webshim',
+            'bootstrap-sass',
+            'bootstrap-material-design'
 		],
 	    mainFiles: {
 	      'font-awesome': ['css/font-awesome.css']

@@ -10,7 +10,21 @@
 
 		<script src="<?= asset_url('assets/'. (DEBUG ? 'lib' : 'minified') . '/head.js') ; ?>"></script>	
 		<?php echo isset($js) ? $js : '' ?>
+		<?php 
+		$material = !$site->inAdminArea();
+		if($material):
+			?>
+		  <!-- Material Design fonts -->
+		  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Roboto:300,400,500,700">
+		  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/icon?family=Material+Icons">
 
+		    <!-- Bootstrap Material Design -->
+		 	<link rel="stylesheet" type="text/css" href="<?= asset_url('assets/css/bootstrap-material-design.css'); ?>" />
+		 	<link rel="stylesheet" type="text/css" href="<?= asset_url('assets/css/ripples.min.css'); ?>" />
+		<script src="<?= asset_url('assets/js/material.js') ; ?>"></script>	
+		<script src="<?= asset_url('assets/js/ripples.js') ; ?>"></script>	
+
+		<?php endif; ?>
 	</head>
 	<body>
 		<div class="container">
