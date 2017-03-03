@@ -774,7 +774,13 @@ function admin_run_url($name = '', $action = '') {
  *  @param $file  The file to be loaded. Must not start with a slash.
  */
 function asset_url($file) {
-  $mtime = @filemtime(INCLUDE_ROOT . "webroot/" . $file);
+	if (strpos($file, 'http') !== false) {
+		return $file;
+	}
+	if (strpos($file, 'assets') === false) {
+		$file = 'assets/' . $file;
+	}
+	$mtime = @filemtime(INCLUDE_ROOT . "webroot/" . $file);
 	if(!$mtime) {
 	  return site_url($file);
 	}
@@ -1524,5 +1530,19 @@ function deletefiles($files) {
 		if(is_file($file)) {
 			@unlink($file);
 		}
+	}
+}
+
+function get_default_assets($config = 'site') {
+	if (DEBUG) {
+		return array(
+			'js' => Config::get("default_assets.dev.{$config}.js"),
+			'css' => Config::get("default_assets.dev.{$config}.css"),
+		);
+	} else {
+		return array(
+			'js' => Config::get("default_assets.prod.{$config}.js"),
+			'css' => Config::get("default_assets.prod.{$config}.css"),
+		);
 	}
 }

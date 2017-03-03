@@ -3,6 +3,11 @@
 class PublicController extends Controller {
 	public function __construct(Site &$site) {
 		parent::__construct($site);
+		if (!Request::isAjaxRequest()) {
+			$default_assets = get_default_assets();
+			$this->registerCSS($default_assets['css']);
+			$this->registerJS($default_assets['js']);
+		}
 	}
 
 	public function indexAction() {
@@ -18,7 +23,7 @@ class PublicController extends Controller {
 	}
 
 	public function aboutAction() {
-		$this->renderView('public/about');
+		$this->renderView('public/about', array('bodyClass' => 'fmr-about'));
 	}
 
 	public function editUserAction() {
@@ -75,6 +80,8 @@ class PublicController extends Controller {
 				alert(implode($this->user->errors), 'alert-danger');
 			}
 		}
+
+		$this->registerAssets('material');
 		$this->renderView('public/login');
 	}
 
@@ -111,6 +118,8 @@ class PublicController extends Controller {
 				alert(implode($user->errors),'alert-danger');
 			}
 		}
+		
+		$this->registerAssets('material');
 		$this->renderView('public/register');
 	}
 
@@ -134,6 +143,8 @@ class PublicController extends Controller {
 		if($this->request->str('email')) {
 			$this->user->forgot_password($this->request->str('email'));
 		}
+
+		$this->registerAssets('material');
 		$this->renderView('public/forgot_password');
 	}
 
@@ -152,6 +163,7 @@ class PublicController extends Controller {
 			$user->reset_password($_POST['email'], $_POST['reset_token'], $_POST['new_password']);
 		}
 
+		$this->registerAssets('material');
 		$this->renderView('public/reset_password', array(
 			'reset_data_email' => isset($_GET['email']) ? $_GET['email'] : '',
 			'reset_data_token' => isset($_GET['reset_token']) ? $_GET['reset_token'] : '',
@@ -177,10 +189,19 @@ class PublicController extends Controller {
 
 		$this->user = $this->site->loginUser($this->user);
 		$run = new Run($this->fdb, $this->request->str('run_name'));
+		$this->run = $run;
 		$run_vars = $run->exec($this->user);
-		if ($run_vars) {
-			Template::load('public/run', $run_vars);
+		$this->registerCSS($run_vars['css']);
+		$this->registerJS($run_vars['js']);
+		unset($run_vars['css'], $run_vars['js']);
+		// @todo. Cleapup CSS and remove this hack
+		foreach ($this->css as $i => $file) {
+			if ($file === 'site/css/style.css') {
+				$this->css[$i] = 'site/css/run.css';
+			}
 		}
+
+		$this->renderView('public/run', $run_vars);
 	}
 
 	public function settingsAction($run_name = '') {
@@ -232,8 +253,8 @@ class PublicController extends Controller {
 			redirect_to('settings/' . $run->name);
 		}
 
-		Template::load('public/settings', array(
-			'run' => $run,
+		$this->run = $run;
+		$this->renderView('public/settings', array(
 			'settings' => $session->getSettings(),
 			'email_subscriptions' => Config::get('email_subscriptions'),
 		));

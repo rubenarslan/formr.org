@@ -1,80 +1,118 @@
-<?php
-Template::load('header');
-Template::load('acp_nav');
-?>
-<div class="row">
-	<div class="col-md-12">
-		<h2>randomisation results</h2>
+<?php Template::load('admin/header'); ?>
 
-<?php if(!empty($users)) { ?>
-<div class="row">
-	<div class="list-group col-md-7">
-		<h5>Export as</h5>
-	  <div class="list-group-item">
-	    <h4 class="list-group-item-heading"><a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export?format=csv"><i class="fa fa-floppy-o fa-fw"></i> CSV</a></h4>
-	    <p class="list-group-item-text">good for big files, problematic to import into German Excel (comma-separated)</p>
-	  </div>
+<div class="content-wrapper">
+	<!-- Content Header (Page header) -->
+	<section class="content-header">
+		<h1><?php echo $run->name; ?> </h1>
+	</section>
 
-	  <div class="list-group-item">
-	    <h4 class="list-group-item-heading"><a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export?format=csv_german"><i class="fa fa-floppy-o fa-fw"></i> German CSV</a></h4>
-	    <p class="list-group-item-text">good for German Excel (semicolon-separated)</p>
-	  </div>
-  
-	  <div class="list-group-item">
-	    <h4 class="list-group-item-heading"><a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export?format=tsv"><i class="fa fa-floppy-o fa-fw"></i> TSV</a></h4>
-	    <p class="list-group-item-text">tab-separated, human readable as plaintext</p>
-	  </div>
-  
-	  <div class="list-group-item">
-	    <h4 class="list-group-item-heading"><a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export?format=xls"><i class="fa fa-floppy-o fa-fw"></i> XLS</a></h4>
-	    <p class="list-group-item-text">old excel format, won't work with more than 16384 rows or 256 columns</p>
-	  </div>
-  
-	  <div class="list-group-item">
-	    <h4 class="list-group-item-heading"><a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export?format=xlsx"><i class="fa fa-floppy-o fa-fw"></i> XLSX</a></h4>
-	    <p class="list-group-item-text">new excel format, higher limits</p>
-	  </div>
-  
-	  <div class="list-group-item">
-	    <h4 class="list-group-item-heading"><a href="<?=WEBROOT?>admin/run/<?=$run->name?>/random_groups_export?format=json"><i class="fa fa-floppy-o fa-fw"></i> JSON</a></h4>
-	    <p class="list-group-item-text">not particularly human-readable, but machines love it. This is probably the fastest way to get your data into R, just use <pre><code class="r hljs">data = as.data.frame(jsonlite::fromJSON( "/path/to/exported_file.json" ))</code></pre></p>
-	  </div>
-	</div>
-</div>
-	<table class='table'>
-		<thead><tr>
-	<?php
-	foreach(current($users) AS $field => $value):
-	    echo "<th>{$field}</th>";
-	endforeach;
-	?>
-		</tr></thead>
-	<tbody>
-		<?php
-		$last_user = '';
-		$tr_class = '';
-		
-		// printing table rows
-		foreach($users AS $row):
-			if($row['session']!==$last_user):
-				$tr_class = ($tr_class=='') ? 'alternate' : '';
-				$last_user = $row['session'];
-			endif;
-			echo '<tr class="'.$tr_class.'">';
+	<!-- Main content -->
+	<section class="content">
+		<div class="row">
+			<div class="col-md-2">
+				<?php Template::load('admin/run/menu'); ?>
+			</div>
+			<div class="col-md-10">
+				<div class="box box-primary">
+					<div class="box-header with-border">
+						<h3 class="box-title">Randomization Results</h3>
+						<div class="pull-right">
+							<a href="#" data-toggle="modal" data-target="#export-random-groups" class="btn btn-primary"><i class="fa fa-save"></i> Export</a>
+						</div>
+					</div>
+					<div class="box-body table-responsive">
+						<?php Template::load('public/alerts'); ?>
+						
+						<?php if ($users): ?>
+							<table class="table table-hover">
+								<thead>
+									<tr>
+										<?php
+										foreach (current($users) as $field => $value):
+											echo "<th>{$field}</th>";
+										endforeach;
+										?>
+									</tr>
+								</thead>
+								<tbody>
+									<?php
+									$last_user = $tr_class = '';
+									foreach ($users AS $row) {
+										if ($row['session'] !== $last_user) {
+											$tr_class = ($tr_class == '') ? 'alternate' : '';
+											$last_user = $row['session'];
+										}
+										echo '<tr class="' . $tr_class . '">';
+										foreach ($row as $cell) {
+											echo "<td>$cell</td>";
+										}
 
-		    // $row is array... foreach( .. ) puts every element
-		    // of $row to $cell variable
-		    foreach($row as $cell):
-		        echo "<td>$cell</td>";
-			endforeach;
+										echo "</tr>\n";
+									}
+									?>
 
-		    echo "</tr>\n";
-		endforeach;
-	}
-		?>
+								</tbody>
+							</table>
 
-	</tbody></table>
-	</div>
+						<?php else: ?>
+						<h5 class="lead"><i>No users to randomize</i></h5>
+						<?php endif; ?>
+					</div>
+				</div>
+
+			</div>
+		</div>
+
+		<div class="clear clearfix"></div>
+	</section>
+	<!-- /.content -->
 </div>
 
-<?php Template::load('footer');
+<div class="modal fade" id="export-random-groups" tabindex="-1" role="dialog" aria-hidden="true" style="display: none;">
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+				<h4 class="modal-title">Export as..</h4>
+			</div>
+			<div class="modal-body">
+				<div class="list-group">
+					<div class="list-group-item">
+						<h4 class="list-group-item-heading"><a href="<?= admin_run_url($run->name, 'random_groups_export?format=csv') ?>"><i class="fa fa-floppy-o fa-fw"></i> CSV</a></h4>
+						<p class="list-group-item-text">good for big files, problematic to import into German Excel (comma-separated)</p>
+					</div>
+
+					<div class="list-group-item">
+						<h4 class="list-group-item-heading"><a href="<?= admin_run_url($run->name, 'random_groups_export?format=csv_german') ?>"><i class="fa fa-floppy-o fa-fw"></i> German CSV</a></h4>
+						<p class="list-group-item-text">good for German Excel (semicolon-separated)</p>
+					</div>
+
+					<div class="list-group-item">
+						<h4 class="list-group-item-heading"><a href="<?= admin_run_url($run->name, 'random_groups_export?format=tsv') ?>"><i class="fa fa-floppy-o fa-fw"></i> TSV</a></h4>
+						<p class="list-group-item-text">tab-separated, human readable as plaintext</p>
+					</div>
+
+					<div class="list-group-item">
+						<h4 class="list-group-item-heading"><a href="<?= admin_run_url($run->name, 'random_groups_export?format=xls') ?>"><i class="fa fa-floppy-o fa-fw"></i> XLS</a></h4>
+						<p class="list-group-item-text">old excel format, won't work with more than 16384 rows or 256 columns</p>
+					</div>
+
+					<div class="list-group-item">
+						<h4 class="list-group-item-heading"><a href="<<?= admin_run_url($run->name, 'random_groups_export?format=xlsx') ?>"><i class="fa fa-floppy-o fa-fw"></i> XLSX</a></h4>
+						<p class="list-group-item-text">new excel format, higher limits</p>
+					</div>
+
+					<div class="list-group-item">
+						<h4 class="list-group-item-heading"><a href="<?= admin_run_url($run->name, 'random_groups_export?format=json') ?>"><i class="fa fa-floppy-o fa-fw"></i> JSON</a></h4>
+						<p class="list-group-item-text">not particularly human-readable, but machines love it. This is probably the fastest way to get your data into R, just use <pre><code class="r hljs">data = as.data.frame(jsonlite::fromJSON( "/path/to/exported_file.json" ))</code></pre></p>
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<?php Template::load('admin/footer'); ?>

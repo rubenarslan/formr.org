@@ -340,7 +340,7 @@ class RunUnit {
 
 	public function runDialog($dialog) {
 		return '
-		<div class="col-xs-12 row run_unit_inner ' . $this->type . '" data-type="' . $this->type . '">
+		<div class="row run_unit_inner ' . strtolower($this->type) . '" data-type="' . $this->type . '">
 		<div class="col-xs-12"><h4><input type="text" value="'.$this->description.'" placeholder="Description (click to edit)" class="run_unit_description" name="description"></h4></div>
 				<div class="col-xs-3 run_unit_position">
 					<h1><i class="muted fa fa-2x ' . $this->icon . '"></i></h1>
@@ -352,7 +352,9 @@ class RunUnit {
 				<input type="hidden" value="' . $this->id . '" name="unit_id">
 				<input type="hidden" value="' . $this->special . '" name="special">' . $dialog . '
 			</div>
-		</div>';
+		</div>
+		<div class="clear clearfix"></div>
+		';
 	}
 	
 	public function hadMajorChanges() {

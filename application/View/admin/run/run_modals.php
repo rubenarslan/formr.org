@@ -62,10 +62,10 @@
 </script>
 <script id="tpl-export-unit-block" type="text/formr">
 <div class="form-group run-export-unit-block">
-	<div class="select btn" data-position="%{unit_pos}" data-selected="1">
+	<div class="select btn btn-default col-sm-1" data-position="%{unit_pos}" data-selected="1">
 		<i class="fa fa-check fa-2x"></i>
 	</div>
-	<div class="col-sm-12">
+	<div class="col-sm-11">
 		<pre><code class="hljs json">%{unit_json}</code></pre>
 	</div>
 	<div class="clearfix"></fix>

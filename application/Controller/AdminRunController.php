@@ -28,6 +28,7 @@ class AdminRunController extends AdminController {
 		$vars = array(
 			'show_panic' => $this->showPanicButton(),
 		);
+		$this->registerJS(DEBUG ? 'common/js/run.js' : 'build/js/run.min.js');
 		$this->renderView('run/index', $vars);
 	}
 
@@ -124,6 +125,7 @@ class AdminRunController extends AdminController {
 		$vars['currentUser'] = $this->user;
 		$vars['unit_types'] = $run->getAllUnitTypes();
 		$vars['reminders'] = $this->run->getSpecialUnits(false, 'ReminderEmail');
+		$this->registerJS(DEBUG ? 'common/js/run_users.js' : 'build/js/run_users.min.js');
 		$this->renderView('run/user_overview', $vars);
 	}
 	
@@ -133,7 +135,7 @@ class AdminRunController extends AdminController {
 		$animal = substr($sess, 0,strpos($sess, "XXX"));
 		$sess_url = site_url("{$this->run->name}?code=".urlencode($sess));
 		
-		alert("You've created a new test animal, ".h($animal).". Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user or copy the link below <br><textarea readonly cols='60' rows='3' class='copy_clipboard'>" . h($sess_url) . "</textarea>", "alert-info");
+		alert("You've created a new test animal, ".h($animal).". Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user or copy the link below <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
 		
 		
 		redirect_to(admin_run_url($this->run->name, "user_overview?session=".$run_session->session));
@@ -151,7 +153,7 @@ class AdminRunController extends AdminController {
 
 				alert("You've added a user with the code name '{$code_name}'. <br />
 					  Send them this link to participate <br />
-					  <textarea readonly cols='60' rows='3' class='copy_clipboard'>" . h($sess_url) . "</textarea>", "alert-info");
+					  <textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
 		
 				redirect_to(admin_run_url($this->run->name, "user_overview?session={$sess}"));
 			}
@@ -246,6 +248,7 @@ class AdminRunController extends AdminController {
 			$users[] = $userx;
 		}
 
+		$this->registerJS(DEBUG ? 'common/js/run_users.js' : 'build/js/run_users.min.js');
 		$vars = get_defined_vars();
 		$this->renderView('run/user_detail', $vars);
 	}
@@ -285,6 +288,11 @@ class AdminRunController extends AdminController {
 			}
 		}
 
+		$js = array(
+			DEBUG ? 'common/js/run_settings.js' : 'build/js/run_settings.min.js',
+			DEBUG ? 'common/js/run.js' : 'build/js/run.min.js'
+		);
+		$this->registerJS($js);
 		$this->renderView('run/settings', array(
 			'osf_token' => $token,
 			'run_selected'=> $this->request->getParam('run'),

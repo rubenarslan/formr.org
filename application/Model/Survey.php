@@ -903,7 +903,7 @@ class Survey extends RunUnit {
 		$prog = round($prog);
 
 		$ret .= '
-			<div class="container progress-container">
+			<div class="row progress-container">
 			<div class="progress">
 				  <div data-percentage-minimum="' . $this->settings["add_percentage_points"] . '" data-percentage-maximum="' . $this->settings["displayed_percentage_maximum"] . '" data-already-answered="' . $this->progress_counts['already_answered'] . '" data-items-left="' . $this->progress_counts['not_answered_on_current_page'] . '" data-items-on-page="' . ($this->progress_counts['not_answered'] - $this->progress_counts['not_answered_on_current_page']) . '" data-hidden-but-rendered="' . $this->progress_counts['hidden_but_rendered_on_current_page'] . '" class="progress-bar" style="width: ' . $prog . '%;">' . $prog . '%</div>
 			</div>
@@ -1978,8 +1978,8 @@ class Survey extends RunUnit {
 			<p>" . (int) $resultCount['finished'] . " complete <a href='" . admin_study_url($this->name, 'show_results') . "'>results</a>, " . (int) $resultCount['begun'] . " begun <abbr class='hastooltip' title='Median duration participants needed to complete the survey'>(in ~{$time}m)</abbr>
 			</p>
 			<p class='btn-group'>
-					<a class='btn' href='" . admin_study_url($this->name, 'show_item_table') . "'>View items</a>
-					<a class='btn' href='" . admin_study_url($this->name, 'upload_items') . "'>Upload items</a>
+					<a class='btn btn-default' href='" . admin_study_url($this->name, 'show_item_table') . "'>View items</a>
+					<a class='btn btn-default' href='" . admin_study_url($this->name, 'upload_items') . "'>Upload items</a>
 			</p>";
 			$dialog .= '<br><p class="btn-group">
 				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Save</a>

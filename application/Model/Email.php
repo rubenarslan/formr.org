@@ -188,7 +188,7 @@ class Email extends RunUnit {
 		$email_accounts = $this->getEmailAccounts();
 
 		if (!empty($email_accounts)):
-			$dialog = '<p><label>Account: <br>
+			$dialog = '<p><label>Account: </label>
 			<select class="select2" name="account_id" style="width:350px">
 			<option value=""></option>';
 			foreach ($email_accounts as $acc):
@@ -198,18 +198,18 @@ class Email extends RunUnit {
 					$dialog .= "<option value=\"{$acc['id']}\">{$acc['from']}</option>";
 			endforeach;
 			$dialog .= "</select>";
-			$dialog .= '</label></p>';
+			$dialog .= '</p>';
 		else:
 			$dialog = "<h5>No email accounts. <a href='" . WEBROOT . "admin/mail/" . "'>Add some here.</a></h5>";
 		endif;
-		$dialog .= '<p><label>Subject: <br>
+		$dialog .= '<p><label>Subject: </label>
 			<input class="form-control full_width" type="text" placeholder="Email subject" name="subject" value="' . h($this->subject) . '">
 		</label></p>
-		<p><label>Recipient-Field: <br>
-					<input class="form-control full_width select2recipient" type="text" placeholder="survey_users$email" name="recipient_field" value="' . h($this->recipient_field) . '" data-select2init="'.htmlentities(json_encode( $this->getPotentialRecipientFields(), JSON_UNESCAPED_UNICODE)).'">
-				</label></p>
-		<p><label>Body: <br>
-			<textarea style="width:388px;"  data-editor="markdown" placeholder="You can use Markdown" name="body" rows="7" cols="60" class="form-control col-md-5">' . h($this->body) . '</textarea></label><br>
+		<p><label>Recipient-Field: </label>
+					<input class="full_width select2recipient" type="text" placeholder="survey_users$email" name="recipient_field" value="' . h($this->recipient_field) . '" data-select2init="'.htmlentities(json_encode( $this->getPotentialRecipientFields(), JSON_UNESCAPED_UNICODE)).'">
+				</p>
+		<p><label>Body:</label>
+			<textarea style="width:388px;"  data-editor="markdown" placeholder="You can use Markdown" name="body" rows="7" cols="60" class="form-control col-md-5">' . h($this->body) . '</textarea><br>
 			<code>{{login_link}}</code> will be replaced by a personalised link to this run, <code>{{login_code}}</code> will be replaced with this user\'s session code.</p>';
 //		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
 		
