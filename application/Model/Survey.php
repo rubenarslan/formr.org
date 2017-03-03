@@ -1983,8 +1983,8 @@ class Survey extends RunUnit {
 			<p>" . (int) $resultCount['finished'] . " complete <a href='" . admin_study_url($this->name, 'show_results') . "'>results</a>, " . (int) $resultCount['begun'] . " begun <abbr class='hastooltip' title='Median duration participants needed to complete the survey'>(in ~{$time}m)</abbr>
 			</p>
 			<p class='btn-group'>
-					<a class='btn' href='" . admin_study_url($this->name, 'show_item_table') . "'>View items</a>
-					<a class='btn' href='" . admin_study_url($this->name, 'upload_items') . "'>Upload items</a>
+					<a class='btn btn-default' href='" . admin_study_url($this->name, 'show_item_table') . "'>View items</a>
+					<a class='btn btn-default' href='" . admin_study_url($this->name, 'upload_items') . "'>Upload items</a>
 			</p>";
 			$dialog .= '<br><p class="btn-group">
 				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Save</a>

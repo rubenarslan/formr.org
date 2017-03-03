@@ -2242,9 +2242,9 @@ a:focus {
   display: block;
 }
 .btn-default {
-  background-color: #f4f4f4;
+  background-color: #f9f9f9;
   color: #444;
-  border-color: #ddd;
+  border-color: #888;
 }
 .btn-default:hover,
 .btn-default:active,
@@ -2273,6 +2273,7 @@ a:focus {
 .btn-info {
   background-color: #00c0ef;
   border-color: #00acd6;
+  color: #fff;
 }
 .btn-info:hover,
 .btn-info:active,

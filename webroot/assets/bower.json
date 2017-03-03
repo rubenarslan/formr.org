@@ -16,7 +16,7 @@
 	"bootstrap": "git://github.com/twbs/bootstrap#3.3.7",
 	"font-awesome": "git://github.com/FortAwesome/Font-Awesome#4.5.0",
 	"jquery": "git://github.com/components/jquery.git#3.1.1",
-	"select2": "git://github.com/ivaynberg/select2.git#3.*",
+	"select2": "git://github.com/ivaynberg/select2.git#4.0.3",
 	"webshim": "git://github.com/aFarkas/webshim.git#1.*",
 	"ace-builds": "git://github.com/ajaxorg/ace-builds#1.*",
   	"hammerjs": "git://github.com/hammerjs/hammer-time",

@@ -3,7 +3,7 @@
     "use strict";
     function RunUnit(run) {
         this.run = run;
-        this.block = $('<div class="run_unit row"></div>');
+        this.block = $('<div class="run_unit"></div>');
         run.form.find('.run_units').append(this.block);
     }
     RunUnit.prototype.init = function (content) {

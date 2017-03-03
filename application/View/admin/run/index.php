@@ -63,8 +63,9 @@
 
                                         <div class="run_units"></div>
 
-                                        <hr />
-                                        <div id="choices">
+										<div class="clear clearfix"></div>
+                                        
+                                        <div id="run-unit-choices">
                                             <div class="form-group col-lg-12 text-center">
                                                 <div class="btn-group">
                                                     <a class="add_survey add_run_unit btn btn-default btn-lg hastooltip" title="Add survey" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Survey') ?>" >

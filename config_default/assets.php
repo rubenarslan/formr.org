@@ -41,7 +41,6 @@ $settings['default_assets']['dev'] = array(
 			'admin/css/AdminLTE.css',
 			'admin/css/skin-black.css',
 			'admin/css/custom.css',
-			'admin/css/AdminLTE-select2.css'
 		),
 		'js' => array(
 			'bower_components/jquery/jquery.js',
