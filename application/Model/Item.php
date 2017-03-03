@@ -535,7 +535,7 @@ class Item extends HTML_element {
 		$this->input_attributes['class'] .= " always_invalid";
 	}
 
-	public function needsDynamicLabel() {
+	public function needsDynamicLabel($survey = null) {
 		return $this->label_parsed === null;
 	}
 
