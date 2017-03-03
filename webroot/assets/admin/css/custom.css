@@ -177,3 +177,6 @@ tr.thick_border_top {
 .select2-drop-active {
     border: 1px solid #ddd;
 }
+.modal-header .close {
+    margin-top: 5px;
+}

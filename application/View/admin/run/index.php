@@ -103,9 +103,6 @@
                         </div>
                         <div class="col-md-4">
                             <div class="box box-primary">
-                                <div class="box-header with-border">
-                                    <h3 class="box-title">Formr Runs </h3>
-                                </div>
                                 <div class="box-body">
                                     <?php Template::load('public/documentation/run_module_explanations'); ?>
                                 </div>
