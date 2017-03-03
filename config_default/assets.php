@@ -19,7 +19,7 @@ $settings['default_assets']['dev'] = array(
 			'site/css/style.css',
 		),
 		'js' => array(
-			'bower_components/jquery/jquery.js',
+			'bower_components/jquery/dist/jquery.js',
 			'bower_components/bootstrap/dist/js/bootstrap.js',
 			'bower_components/select2/select2.js',
 			'bower_components/material/material.js',
@@ -42,7 +42,7 @@ $settings['default_assets']['dev'] = array(
 			'admin/css/style.css',
 		),
 		'js' => array(
-			'bower_components/jquery/jquery.js',
+			'bower_components/jquery/dist/jquery.js',
 			'bower_components/bootstrap/dist/js/bootstrap.js',
 			'bower_components/webshim/js-webshim/dev/polyfiller.js',
 			'bower_components/select2/select2.js',
