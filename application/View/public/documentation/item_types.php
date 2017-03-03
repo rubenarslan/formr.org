@@ -10,6 +10,12 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
 			 display text. Notes are only displayed once, you can think of them as being "answered" simple by submitting.
 		 </dd>
 		 <dt>
+			note_iframe
+		</dt>
+		<dd>
+			 If you want to render complex rmarkdown <a href="http://www.htmlwidgets.org/">htmlwidgets</a>, use this.
+		 </dd>
+		 <dt>
 			 submit <i>timeout</i>
 		 </dt>
 		 <dd>
