@@ -156,13 +156,16 @@ class PublicController extends Controller {
 			redirect_to("index");
 		}
 
-		if((!isset($_GET['reset_token']) OR !isset($_GET['email']) ) AND !isset($_POST['email'])):
+		if((!isset($_GET['reset_token']) || !isset($_GET['email'])) && !isset($_POST['email'])):
 			alert("You need to follow the link you received in your password reset mail");
 			redirect_to("forgot_password");
 		endif;
 
-		if(!empty($_POST) AND isset($_POST['email'])  AND isset($_POST['new_password'])  AND isset($_POST['reset_token'])) {
-			$user->reset_password($_POST['email'], $_POST['reset_token'], $_POST['new_password']);
+		if(!empty($_POST['email']) && !empty($_POST['new_password']) && !empty($_POST['reset_token'])) {
+			$done = $user->reset_password($_POST['email'], $_POST['reset_token'], $_POST['new_password'], $_POST['new_password_c']);
+			if ($done) {
+				redirect_to('reset_password?reset_token=&email=');
+			}
 		}
 
 		$this->registerAssets('material');

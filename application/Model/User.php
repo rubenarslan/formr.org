@@ -296,7 +296,12 @@ formr robots";
 		return false;
 	}
 
-	public function reset_password($email, $token, $new_password) {
+	public function reset_password($email, $token, $new_password, $new_password_confirm) {
+		if ($new_password !== $new_password_confirm) {
+			alert('The passwords you entered do not match', 'alert-danger');
+			return false;
+		}
+
 		$reset_token_hash = $this->dbh->findValue('survey_users', array('email' => $email), array('reset_token_hash'));
 
 		if ($reset_token_hash):
@@ -307,7 +312,8 @@ formr robots";
 					array('email' => $email),
 					array('str', 'int', 'int')
 				);
-				alert("Your password was successfully changed. You can now use it to login.", "alert-success");
+				$login_anchor = '<a href="'.site_url('login').'">login</a>';
+				alert("Your password was successfully changed. You can now use it to {$login_anchor}.", 'alert-success');
 				return true;
 			endif;
 		endif;

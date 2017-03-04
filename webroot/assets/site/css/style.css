@@ -1356,7 +1356,7 @@ body {
     width: 450px;
     max-width: 100%;
     padding: 25px;
-    min-height: 400px;
+    min-height: 300px;
     background: #fff;
 }
 .login-form.large {
@@ -1579,7 +1579,9 @@ address, ul, ol, a {
     padding-top: 2em;
   }
 }
-
+.no-margin {
+    margin: 0px !important;
+}
 .no-js #loader {
   display: none;
 }
