@@ -11,7 +11,7 @@
 				<div class="col-md-6 col-md-push-6">
 					<div class="fmr-intro-text">
 						<div class="col-md-12">
-							<div class="login-form pull-right" style="">
+							<div class="login-form well pull-right" style="">
 								<h2>formr sign-up</h2>
 								<?php Template::load('public/alerts'); ?>
 								

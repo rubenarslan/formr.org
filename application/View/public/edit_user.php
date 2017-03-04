@@ -9,7 +9,7 @@ Template::load('public/header');
 			<div class="row">
 				<div class="fmr-intro-text">
 					<div class="col-md-12">
-						<div class="login-form large">
+						<div class="login-form large well">
 							<h2>Edit Account</h2>
 							<?php Template::load('public/alerts'); ?>
 

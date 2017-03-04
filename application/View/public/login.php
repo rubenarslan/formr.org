@@ -10,7 +10,7 @@ Template::load('public/header');
 				<div class="col-md-6 col-md-push-6">
 					<div class="fmr-intro-text">
 						<div class="col-md-12">
-							<div class="login-form pull-right" style="">
+							<div class="login-form well pull-right" style="">
 								<h2>formr login</h2>
 								<?= Template::load('public/alerts') ?>
 								<form class="" id="login" name="login" method="post" action="<?php echo site_url('login'); ?>">

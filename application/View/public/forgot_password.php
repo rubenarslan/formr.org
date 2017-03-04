@@ -10,7 +10,7 @@
 				<div class="col-md-6 col-md-offset-3">
 					<div class="fmr-intro-text">
 						<div class="col-md-12">
-							<div class="login-form large">
+							<div class="login-form large well">
 								<h2>Forgot Password</h2>
 								<?= Template::load('public/alerts') ?>
 								<h4 class="lead">Enter your email below and a link to reset your password will be sent to you.</h4>

@@ -10,7 +10,7 @@
 				<div class="broken_tape">
 					<div class="fmr-intro-text">
 						<div class="col-md-12">
-							<div class="login-form large">
+							<div class="login-form large well">
 								<h2>Oops!</h2>
 								<?php
 								$alerts = $site->renderAlerts();
