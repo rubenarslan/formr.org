@@ -535,7 +535,7 @@ class Item extends HTML_element {
 		$this->input_attributes['class'] .= " always_invalid";
 	}
 
-	public function needsDynamicLabel($survey) {
+	public function needsDynamicLabel($survey = null) {
 		return $this->label_parsed === null;
 	}
 
@@ -1166,7 +1166,7 @@ class Item_note_iframe extends Item_note {
 	public $input_attributes = array('type' => 'hidden', "value" => 1);
 	public $save_in_results_table = false;
 
-	public function needsDynamicLabel($survey) {
+	public function needsDynamicLabel($survey = null) {
 		$ocpu_vars = $survey->getUserDataInRun($this->label, $survey->name);
 		$ocpu_session = opencpu_knit_iframe($this->label, $ocpu_vars, true, $survey->name);
 		if ($ocpu_session && !$ocpu_session->hasError()) {
