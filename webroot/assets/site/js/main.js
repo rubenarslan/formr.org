@@ -32,8 +32,8 @@
             
             minHeight += offset;
             var cHeight = $('#fmr-hero .fmr-intro').height();
-            var _mTop = (minHeight >= cHeight) ? ((minHeight - cHeight) / 2) + 5 : 90;
-            var mTop = _mTop > 90 ? _mTop : 90;
+            var _mTop = (minHeight >= cHeight) ? ((minHeight - cHeight) / 2) + 5 : 120;
+            var mTop = _mTop > 120 ? _mTop : 120;
             $('#fmr-hero .fmr-intro .fmr-intro-text').css('padding-top', mTop);
             console.log(minHeight, cHeight, _mTop);
         }
@@ -80,7 +80,7 @@
         $('#fmr-offcanvas').prepend('<ul id="fmr-side-links">');
         $('body').prepend('<a href="#" class="js-fmr-nav-toggle fmr-nav-toggle"><i></i></a>');
 
-        $('.left-menu li, .right-menu li').each(function () {
+        $('#formr-nav .nav li').each(function () {
 
             var $this = $(this);
 

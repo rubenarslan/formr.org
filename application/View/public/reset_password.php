@@ -10,7 +10,7 @@ Template::load('public/header');
 				<div class="col-md-6 col-md-offset-3">
 					<div class="fmr-intro-text">
 						<div class="col-md-12">
-							<div class="login-form below-header mdl-card mdl-shadow--2dp">
+							<div class="login-form large">
 								<h2>Reset Password</h2>
 								<?= Template::load('public/alerts') ?>
 
@@ -26,6 +26,7 @@ Template::load('public/header');
 								</form>
 							</div>
 						</div>
+						<div class="clearfix"></div>
 					</div>
 				</div>
 				<div class="clearfix"></div>

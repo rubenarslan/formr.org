@@ -323,10 +323,13 @@ body {
   background-color: transparent;
   background-size: cover;
   background-attachment: fixed;
-  background-repeat: no-repeat;
-  background-image: url('../img/hero_bg.jpg');
+  background-repeat: repeat-y;
+  background-image: url('../img/boombox_innards.jpg');
   position: relative;
   width: 100%;
+}
+#fmr-page.not-found #fmr-hero {
+    background-image: url('../img/broken_tape.jpg');
 }
 @media screen and (max-width: 480px) {
   #fmr-hero {
@@ -356,7 +359,7 @@ body {
 }
 #fmr-hero .fmr-intro > div {
   vertical-align: middle;
-  display: table-cell;
+  /*display: table-cell;*/
 }
 #fmr-hero .fmr-intro > div .fmr-left-position {
   width: 65%;
@@ -1192,6 +1195,7 @@ body {
 #fmr-offcanvas ul {
   padding: 0;
   margin: 0;
+  margin-top: 20px;
 }
 #fmr-offcanvas ul li {
   padding: 0;
@@ -1206,7 +1210,11 @@ body {
 #fmr-offcanvas ul li.active a {
   color: #8dc63f;
 }
-
+#fmr-offcanvas ul li.account {
+    border-top: 2px solid #efefef;
+    margin-top: 15px;
+    padding-top: 15px;
+}
 .fmr-nav-toggle {
   cursor: pointer;
   text-decoration: none;
@@ -1353,6 +1361,7 @@ body {
 }
 .login-form.large {
     width: 700px;
+    margin: 0 auto;
 }
 .login-form .form-control {
     height: 34px;
@@ -1473,9 +1482,12 @@ address, ul, ol, a {
 #fmr-header.fmr-small-header {
     padding-top: 14px;
     height: 70px;
-    background: #555;
+    background: #efefef;
     padding-top: 15px;
     position: relative;
+}
+#fmr-header.fmr-small-header nav ul li a {
+    color: #888;
 }
 #fmr-intro.js-fullheight .fmr-intro-text {
     padding-top: 90px;

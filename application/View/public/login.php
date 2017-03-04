@@ -29,6 +29,7 @@ Template::load('public/header');
 								</form>
 							</div>
 						</div>
+						<div class="clearfix"></div>
 					</div>
 				</div>
 				<div class="col-md-6 col-md-pull-6">

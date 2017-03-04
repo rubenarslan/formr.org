@@ -33,6 +33,7 @@
 								</form>
 							</div>
 						</div>
+						<div class="clearfix"></div>
 					</div>
 					<p>&nbsp;</p>
 				</div>

@@ -63,6 +63,8 @@ class PublicController extends Controller {
 				redirect_to('index');
 			}
 		}
+
+		$this->registerAssets('material');
 		$this->renderView('public/edit_user');
 	}
 

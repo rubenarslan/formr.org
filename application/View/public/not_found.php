@@ -1,5 +1,5 @@
 <?php 
-	Template::load('public/header'); 
+	Template::load('public/header', array('bodyClass' => 'not-found')); 
 ?>
 
 <section id="fmr-hero" class="js-fullheight full">
@@ -10,7 +10,7 @@
 				<div class="broken_tape">
 					<div class="fmr-intro-text">
 						<div class="col-md-12">
-							<div class="login-form mdl-card mdl-shadow--2dp">
+							<div class="login-form large">
 								<h2>Oops!</h2>
 								<?php
 								$alerts = $site->renderAlerts();
@@ -23,9 +23,10 @@
 								<a href="<?= site_url() ?>"><i class="fa fa-home"></i> Go to home</a>
 							</div>
 						</div>
+						
+					<div class="clearfix"></div>
 					</div>
 				</div>
-				<div class="clearfix"></div>
 
 			</div>
 		</div>
