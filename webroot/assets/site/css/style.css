@@ -1505,9 +1505,13 @@ address, ul, ol, a {
     max-width: 100%;
     height: auto;
 }
+
 input:-webkit-autofill, textarea:-webkit-autofill, select:-webkit-autofill {
     background-color: #fff !important;
     -webkit-box-shadow: 0 0 0px 1000px white inset !important;
+}
+input:-webkit-autofill:focus {
+     -webkit-box-shadow: none;
 }
 /** end custom added **/
 
