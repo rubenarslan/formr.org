@@ -4,9 +4,8 @@ class PublicController extends Controller {
 	public function __construct(Site &$site) {
 		parent::__construct($site);
 		if (!Request::isAjaxRequest()) {
-			$default_assets = get_default_assets();
-			$this->registerCSS($default_assets['css']);
-			$this->registerJS($default_assets['js']);
+			$default_assets = get_default_assets('site');
+			$this->registerAssets($default_assets);
 		}
 	}
 
@@ -64,7 +63,7 @@ class PublicController extends Controller {
 			}
 		}
 
-		$this->registerAssets('material');
+		$this->registerAssets('bootstrap-material-design');
 		$this->renderView('public/edit_user');
 	}
 
@@ -83,7 +82,7 @@ class PublicController extends Controller {
 			}
 		}
 
-		$this->registerAssets('material');
+		$this->registerAssets('bootstrap-material-design');
 		$this->renderView('public/login');
 	}
 
@@ -120,8 +119,8 @@ class PublicController extends Controller {
 				alert(implode($user->errors),'alert-danger');
 			}
 		}
-		
-		$this->registerAssets('material');
+
+		$this->registerAssets('bootstrap-material-design');
 		$this->renderView('public/register');
 	}
 
@@ -146,7 +145,7 @@ class PublicController extends Controller {
 			$this->user->forgot_password($this->request->str('email'));
 		}
 
-		$this->registerAssets('material');
+		$this->registerAssets('bootstrap-material-design');
 		$this->renderView('public/forgot_password');
 	}
 
@@ -168,7 +167,7 @@ class PublicController extends Controller {
 			}
 		}
 
-		$this->registerAssets('material');
+		$this->registerAssets('bootstrap-material-design');
 		$this->renderView('public/reset_password', array(
 			'reset_data_email' => isset($_GET['email']) ? $_GET['email'] : '',
 			'reset_data_token' => isset($_GET['reset_token']) ? $_GET['reset_token'] : '',
@@ -196,16 +195,12 @@ class PublicController extends Controller {
 		$run = new Run($this->fdb, $this->request->str('run_name'));
 		$this->run = $run;
 		$run_vars = $run->exec($this->user);
-		$this->registerCSS($run_vars['css']);
-		$this->registerJS($run_vars['js']);
-		unset($run_vars['css'], $run_vars['js']);
-		// @todo. Cleapup CSS and remove this hack
-		foreach ($this->css as $i => $file) {
-			if ($file === 'site/css/style.css') {
-				$this->css[$i] = 'site/css/run.css';
-			}
-		}
+		
+		$this->replaceAssets('site', 'site:run');
+		$this->registerCSS($run_vars['css'], $this->run->name);
+		$this->registerJS($run_vars['js'], $this->run->name);
 
+		unset($run_vars['css'], $run_vars['js']);
 		$this->renderView('public/run', $run_vars);
 	}
 

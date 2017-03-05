@@ -101,30 +101,71 @@ abstract class Controller {
 		return $this->fdb;
 	}
 
-	protected function registerCSS($files) {
+	protected function registerCSS($files, $name) {
+		if (!$files) {
+			return;
+		}
+
 		if (!is_array($files)) {
 			$files = array($files);
 		}
-		$this->css = array_merge($this->css, array_filter($files));
+		foreach (array_filter($files) as $file) {
+			if (!isset($this->css[$name])) {
+				$this->css[$name] = array();
+			}
+			$this->css[$name][] = $file;
+		}
 	}
 
-	protected function registerJS($files) {
+	protected function registerJS($files, $name) {
+		if (!$files) {
+			return;
+		}
 		if (!is_array($files)) {
 			$files = array($files);
 		}
-		$this->js = array_merge($this->js, array_filter($files));
+		foreach (array_filter($files) as $file) {
+			if (!isset($this->js[$name])) {
+				$this->js[$name] = array();
+			}
+			$this->js[$name][] = $file;
+		}
 	}
 
-	//@todo introduce switch to choose which assets to load
-	protected function registerAssets($which = null) {
-		$this->registerJS(array(
-			'build/bs-material/material.js',
-			'build/bs-material/ripples.js'
-		));
-		$this->registerCSS(array(
-			'build/bs-material/bootstrap-material-design.css',
-			'build/bs-material/ripples.css'
-		));
+	protected function registerAssets($which) {
+		$assets = get_assets();
+		if (!is_array($which)) {
+			$which = array($which);
+		}
+		foreach ($which as $asset) {
+			$this->registerCSS(array_val($assets[$asset], 'css'), $asset);
+			$this->registerJS(array_val($assets[$asset], 'js'), $asset);
+		}
+	}
+	
+	protected function unregisterAssets($which) {
+		if (is_array($which)) {
+			foreach ($which as $a) {
+				$this->unregisterAssets($a);
+			}
+		}
+		if (isset($this->css[$which])) {
+			unset($this->css[$which]);
+		}
+		if (isset($this->js[$which])) {
+			unset($this->js[$which]);
+		}
+	}
+
+	protected function replaceAssets($old, $new) {
+		$assets = get_default_assets('site');
+		foreach ($assets as $i => $asset) {
+			if ($asset === $old) {
+				$assets[$i] = $new;
+			}
+		}
+		$this->css = $this->js = array();
+		$this->registerAssets($assets);
 	}
 
 }

@@ -28,7 +28,6 @@ class AdminRunController extends AdminController {
 		$vars = array(
 			'show_panic' => $this->showPanicButton(),
 		);
-		$this->registerJS(DEBUG ? 'common/js/run.js' : 'build/js/run.min.js');
 		$this->renderView('run/index', $vars);
 	}
 
@@ -125,7 +124,6 @@ class AdminRunController extends AdminController {
 		$vars['currentUser'] = $this->user;
 		$vars['unit_types'] = $run->getAllUnitTypes();
 		$vars['reminders'] = $this->run->getSpecialUnits(false, 'ReminderEmail');
-		$this->registerJS(DEBUG ? 'common/js/run_users.js' : 'build/js/run_users.min.js');
 		$this->renderView('run/user_overview', $vars);
 	}
 	
@@ -248,7 +246,6 @@ class AdminRunController extends AdminController {
 			$users[] = $userx;
 		}
 
-		$this->registerJS(DEBUG ? 'common/js/run_users.js' : 'build/js/run_users.min.js');
 		$vars = get_defined_vars();
 		$this->renderView('run/user_detail', $vars);
 	}
@@ -288,11 +285,6 @@ class AdminRunController extends AdminController {
 			}
 		}
 
-		$js = array(
-			DEBUG ? 'common/js/run_settings.js' : 'build/js/run_settings.min.js',
-			DEBUG ? 'common/js/run.js' : 'build/js/run.min.js'
-		);
-		$this->registerJS($js);
 		$this->renderView('run/settings', array(
 			'osf_token' => $token,
 			'run_selected'=> $this->request->getParam('run'),

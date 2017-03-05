@@ -774,7 +774,7 @@ function admin_run_url($name = '', $action = '') {
  *  @param $file  The file to be loaded. Must not start with a slash.
  */
 function asset_url($file) {
-	if (strpos($file, 'http') !== false) {
+	if (strpos($file, 'http') !== false || strpos($file, '//') === 0) {
 		return $file;
 	}
 	if (strpos($file, 'assets') === false) {
@@ -1535,14 +1535,25 @@ function deletefiles($files) {
 
 function get_default_assets($config = 'site') {
 	if (DEBUG) {
-		return array(
-			'js' => Config::get("default_assets.dev.{$config}.js"),
-			'css' => Config::get("default_assets.dev.{$config}.css"),
-		);
+		return Config::get("default_assets.dev.{$config}");
 	} else {
-		return array(
-			'js' => Config::get("default_assets.prod.{$config}.js"),
-			'css' => Config::get("default_assets.prod.{$config}.css"),
-		);
+		return Config::get("default_assets.prod.{$config}");
+	}
+}
+
+function get_assets() {
+	return get_default_assets('assets');
+}
+
+function print_stylesheets($files, $id = null) {
+	foreach ($files as $i => $file) {
+		$id = 'css-' . $i . $id;
+		echo '<link href="' . asset_url($file) . '" rel="stylesheet" type="text/css" id="'. $id .'">' . "\n";
+	}
+}
+function print_scripts($files, $id = null) {
+	foreach ($files as $i => $file) {
+		$id = 'js-' . $i . $id;
+		echo '<script src="' . asset_url($file) . '" id="'. $id .'"></script>' . "\n";
 	}
 }

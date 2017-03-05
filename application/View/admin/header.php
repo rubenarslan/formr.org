@@ -6,17 +6,15 @@
         <title>formr admin</title>
         <!-- Tell the browser to be responsive to screen width -->
         <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
-        <?php
-		foreach ($css as $file) {
-			echo '<link href="' . asset_url($file) . '" rel="stylesheet" type="text/css">' . "\n";
-		}
+       <?php
+			foreach ($css as $id => $files) {
+				print_stylesheets($files, $id);
+			}
+			foreach ($js as $id => $files) {
+				print_scripts($files, $id);
+			}
 		?>
-		<?php
-		foreach ($js as $file) {
-			echo '<script src="' . asset_url($file) . '"></script>' . "\n";
-		}
-		?>
-		
+
 		<?php
 			$runs = $user->getRuns();
 			$studies =  $user->getStudies();

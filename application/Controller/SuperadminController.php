@@ -9,9 +9,7 @@ class SuperadminController extends Controller {
 		}
 		if (!Request::isAjaxRequest()) {
 			$default_assets = get_default_assets('admin');
-			$this->registerCSS($default_assets['css']);
-			$this->registerJS($default_assets['js']);
-			$this->registerJS(DEBUG ? 'common/js/run_users.js' : 'build/js/run_users.min.js');
+			$this->registerAssets($default_assets);
 		}
 	}
 

@@ -159,6 +159,9 @@ tr.thick_border_top {
 .select2-container.full_width {
     width: 80%;
 }
+.select2-container, .select2-drop-active {
+    max-width: 100%;
+}
 .select2-container .select2-choice .select2-arrow {
     background-image: none;
     background: none;
@@ -195,4 +198,10 @@ a.btn.btn-checked {
     position: static;
     width: 100%;
     height: 500px;
+}
+.panel-body .rmarkdown_iframe iframe {
+    border: 0;
+    width: 100%;
+    height: 100%;
+    height: 100vh;
 }

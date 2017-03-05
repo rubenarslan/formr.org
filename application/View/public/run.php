@@ -25,14 +25,12 @@
         <meta name="twitter:card" content="an online survey framework with live feedback" />
 
 		<?php
-		foreach ($css as $file) {
-			echo '<link href="' . asset_url($file) . '" rel="stylesheet" type="text/css">' . "\n";
-		}
-		?>
-		<?php
-		foreach ($js as $file) {
-			echo '<script src="' . asset_url($file) . '"></script>' . "\n";
-		}
+			foreach ($css as $id => $files) {
+				print_stylesheets($files, $id);
+			}
+			foreach ($js as $id => $files) {
+				print_scripts($files, $id);
+			}
 		?>
 
     </head>

@@ -606,6 +606,9 @@ form.form-horizontal img, div.modal-content img,img {
 .select2-container.full_width {
     width: 80%;
 }
+.select2-container, .select2-drop-active {
+    max-width: 100%;
+}
 .select2-container .select2-choice .select2-arrow {
     background-image: none;
     background: none;

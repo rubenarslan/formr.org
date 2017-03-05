@@ -19,15 +19,17 @@
 					</div>
 					<div class="box-body">
 						<?php Template::load('public/alerts'); ?>
-						
+
 						<?php if (!empty($overview_script)): ?>
 							<div>
-								<h4><i class="fa fa-eye"></i> <?= $overview_script->title ?> </h4>
-								<h5>
-									<?= $user_overview['users_finished'] ?>  finished users,
-									<?= $user_overview['users_active'] ?> active users, 
-									<?= $user_overview['users_waiting'] ?> <abbr title="inactive for at least a week">waiting</abbr> users
-								</h5>
+								<h4>
+									<i class="fa fa-eye"></i> <?= $overview_script->title ?>
+									<small>
+										<?= $user_overview['users_finished'] ?>  finished users,
+										<?= $user_overview['users_active'] ?> active users, 
+										<?= $user_overview['users_waiting'] ?> <abbr title="inactive for at least a week">waiting</abbr> users
+									</small>
+								</h4>
 								<?php echo $overview_script->parseBodySpecial(); ?>
 							</div>
 						<?php else: ?>
