@@ -150,6 +150,7 @@ class External extends RunUnit {
 
 		// if it's the user, redirect them or do the call
 		if ($this->isR($this->address)) {
+			$goto = null;
 			$opencpu_vars = $this->getUserDataInRun($this->address);
 			$result = opencpu_evaluate($this->address, $opencpu_vars);
 
@@ -171,7 +172,7 @@ class External extends RunUnit {
 		$goto = $this->makeAddress($goto);
 		
 		// never redirect if we're just in the cron job
-		if (! $this->called_by_cron) {
+		if (!$this->called_by_cron) {
 			// sometimes we aren't able to control the other end
 			if (!$this->api_end) {
 				$this->end();
