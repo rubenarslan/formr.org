@@ -107,9 +107,7 @@ function access_denied() {
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 */
-	header('HTTP/1.0 403 Forbidden');
-	Template::load('public/not_found');
-	exit;
+	redirect_to('error/403');
 }
 
 function not_found() {
@@ -118,9 +116,7 @@ function not_found() {
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 */
-	header('HTTP/1.0 404 Not Found');
-	Template::load('public/not_found');
-	exit;
+	redirect_to('error/404');
 }
 
 function bad_request() {
@@ -129,9 +125,7 @@ function bad_request() {
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 */
-	header('HTTP/1.0 400 Bad Request');
-	Template::load('public/not_found');
-	exit;
+	redirect_to('error/500');
 }
 
 function bad_request_header() {
@@ -1371,9 +1365,7 @@ function shutdown_formr_org() {
 		$msg .= "Error [$errno] in $errfile line $errline \n $errstr";
 		alert($msg, 'alert-danger');
 
-		bad_request_header();
-		Template::load('public/not_found');
-		exit(0);
+		redirect_to('error/500');
 	}
 }
 
@@ -1551,9 +1543,21 @@ function print_stylesheets($files, $id = null) {
 		echo '<link href="' . asset_url($file) . '" rel="stylesheet" type="text/css" id="'. $id .'">' . "\n";
 	}
 }
+
 function print_scripts($files, $id = null) {
 	foreach ($files as $i => $file) {
 		$id = 'js-' . $i . $id;
 		echo '<script src="' . asset_url($file) . '" id="'. $id .'"></script>' . "\n";
 	}
+}
+
+function _die($msg) {
+	$style = array(
+		'width: 500px', 'max-width: 100%', 'text-align: center', 'line-height: 50px', 'margin: 10% auto',
+		'color: #a94442', 'background-color: #f2dede', 'border: 1px solid #ebccd1', 'font-size: 20px'
+	);
+	echo '<div style="'.implode(';', $style).'">';
+	echo $msg;
+	echo '<div>';
+	exit;
 }

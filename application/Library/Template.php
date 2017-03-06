@@ -18,14 +18,6 @@ class Template {
 
 		if (file_exists($file)) {
 			extract($vars);
-			$default_assets = get_default_assets();
-			if (!$js) {
-				$js = $default_assets['js'];
-			}
-			if (!$css) {
-				$css = $default_assets['css'];
-			}
-
 			include $file;
 		}
 	}

@@ -174,10 +174,6 @@ class PublicController extends Controller {
 		));
 	}
 
-	public function notFoundAction() {
-		$this->renderView('public/not_found');
-	}
-
 	public function fileDownloadAction($run_id = 0, $original_filename = '') {
 		$path = $this->fdb->findValue('survey_uploaded_files', array('run_id' => (int)$run_id, 'original_file_name' => $original_filename), array('new_file_path'));
 		if ($path) {
@@ -207,6 +203,7 @@ class PublicController extends Controller {
 	public function settingsAction($run_name = '') {
 		$run = new Run($this->fdb, $run_name);
 		if (!$run->valid) {
+			alert(' Invalid Run settings', 'alert-danger');
 			not_found();
 		}
 
@@ -224,7 +221,7 @@ class PublicController extends Controller {
 		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code);
 		if (!$session->id) {
 			alert('You cannot create settings in a study you have not participated in.', 'alert-danger');
-			redirect_to('index');
+			redirect_to('error/200');
 		}
 
 		$settings = array('no_email' => 1);
@@ -365,5 +362,18 @@ class PublicController extends Controller {
 		redirect_to('index');
 	}
 
+	public function errorAction($code = null) {
+		if ($code == 200) {
+			// do nothing
+		} elseif ($code == 400) {
+			header('HTTP/1.0 404 Not Found');
+		} elseif ($code == 403) {
+			header('HTTP/1.0 403 Forbidden');
+		} else {
+			header('HTTP/1.0 500 Bad Request');
+		}
+		$this->renderView('public/error');
+		exit;
+	}
 }
 

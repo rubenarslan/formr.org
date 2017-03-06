@@ -738,8 +738,8 @@ class Run {
 
 	public function exec($user) {
 		if (!$this->valid):
-			alert(__("<strong>Error:</strong> Run %s is broken or does not exist.", $this->name), 'alert-danger');
-			redirect_to("/index");
+			alert(__("<strong>Error:</strong> Run '%s' is broken or does not exist.", $this->name), 'alert-danger');
+			redirect_to('error/404');
 			return false;
 		elseif ($this->name == self::TEST_RUN):
 			extract($this->fakeTestRun());
