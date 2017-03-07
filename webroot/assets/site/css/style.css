@@ -103,15 +103,6 @@ h1, h2, h3, h4, h5, h6 {
   color: #fff;
 }
 
-.btn-info {
-  background: #5bc0de;
-  color: #fff;
-  border: 2px solid #5bc0de;
-}
-.btn-info:hover, .btn-info:focus, .btn-info:active {
-  background: #46b8da !important;
-  border-color: #46b8da !important;
-}
 .btn-info.btn-outline {
   background: transparent;
   color: #5bc0de;
@@ -1707,6 +1698,17 @@ iframe.rChart {
 .run-container .btn:focus {
     background-color: #F0F0F0;
     color: #000;
+}
+.run-container .btn-info {
+  background: #fff;
+  color: #5bc0de;
+  border: 1px solid #5bc0de;
+}
+.run-container .btn-info:hover,
+.run-container .btn-info:focus,
+.run-container .btn-info:active {
+  background: #46b8da !important;
+  border-color: #46b8da !important;
 }
 button.btn.btn-checked,
 label.btn.btn-checked,
