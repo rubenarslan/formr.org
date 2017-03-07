@@ -191,8 +191,8 @@ class PublicController extends Controller {
 		$run = new Run($this->fdb, $this->request->str('run_name'));
 		$this->run = $run;
 		$run_vars = $run->exec($this->user);
-		
-		$this->replaceAssets('site', 'site:run');
+
+		//$this->replaceAssets('site', 'site:run');
 		$this->registerCSS($run_vars['css'], $this->run->name);
 		$this->registerJS($run_vars['js'], $this->run->name);
 

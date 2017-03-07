@@ -66,8 +66,6 @@
                     $('.js-fmr-nav-toggle').removeClass('active');
 
                 }
-
-
             }
         });
 
@@ -94,7 +92,6 @@
 
         $('body').on('click', '.js-fmr-nav-toggle', function (event) {
             var $this = $(this);
-
             $('body').toggleClass('fmr-overflow offcanvas-visible');
             $this.toggleClass('active');
             event.preventDefault();
@@ -118,24 +115,24 @@
     };
 
     var goToTop = function () {
-
         $('.js-gotop').on('click', function (event) {
-
             event.preventDefault();
-
             $('html, body').animate({
                 scrollTop: $('html').offset().top
             }, 500);
 
             return false;
         });
-
     };
 
     var material = function() {
         if ($.material) {
             $.material.init();
         }
+    };
+    
+    var runContainer = function() {
+        $('.progress-container').css('width', $('.run-container').width());
     };
 
 
@@ -149,6 +146,7 @@
         burgerMenu();
         goToTop();
         material();
+        runContainer();
     });
 
 

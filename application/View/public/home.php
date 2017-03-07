@@ -11,7 +11,7 @@
 					<h2 class="animate-box"><b>formr</b> survey framework</h2>
 					<?php Template::load('public/alerts'); ?>
 					<h3>chain simple forms & surveys into long runs, use the power of R to generate pretty feedback and complex designs</h3>
-					<p><a href="<?= site_url('register'); ?>" class="btn btn-primary btn-lg">Sign up &amp; Get started</a></p>
+					<p><a href="<?= site_url('register'); ?>" class="btn btn-primary btn-lg btn-raised btn-material-pink">Sign up &amp; Get started</a></p>
 				</div>
 			</div>
 		</div>
@@ -199,7 +199,7 @@
 			</div>
 
 			<div class="fmr-btn-action animate-box">
-				<a href="<?= site_url('documentation/#features'); ?>" class="btn btn-primary btn-cta">More Features</a>
+				<a href="<?= site_url('documentation/#features'); ?>" class="btn btn-primary btn-cta btn-sup btn-raised btn-material-pink">More Features</a>
 			</div>
 
 		</div>
