@@ -1139,15 +1139,16 @@ class Item_note extends Item {
 	public $input_attributes = array('type' => 'hidden', "value" => 1);
 	public $save_in_results_table = false;
 
-	public function setMoreOptions() {
-		unset($this->input_attributes['required']);
-	}
-
 	protected function render_label() {
 		return '<div class="' . implode(" ", $this->classes_label) . '">' .
 				($this->error ? '<span class="label label-danger hastooltip" title="' . $this->error . '"><i class="fa fa-exclamation-triangle"></i></span> ' : '') .
 				$this->label_parsed . '</div>';
 	}
+	protected function render_input() {
+		unset($this->input_attributes['required']);
+		return parent::render_input();
+	}
+
 
 	public function validateInput($reply) {
 		if ($reply != 1) {
@@ -1243,14 +1244,16 @@ class Item_mc extends Item {
 	protected function render_label() {
 		return '<div class="' . implode(" ", $this->classes_label) . '">' .
 				($this->error ? '<span class="label label-danger hastooltip" title="' . $this->error . '"><i class="fa fa-exclamation-triangle"></i></span> ' : '') . $this->label_parsed .
-				'</div>';
+				'
+				</div>';
 	}
 
 	protected function render_input() {
 
 		$this->splitValues();
 
-		$ret = '<div class="mc-table'. ($this->js_hidden ? ' js_hidden' : '').'"><input ' . self::_parseAttributes($this->input_attributes, array('type', 'id', 'required')) . ' type="hidden" value="" id="item' . $this->id . '_">';
+		$ret = '<div class="mc-table'. ($this->js_hidden ? ' js_hidden' : '').'">
+					<input ' . self::_parseAttributes($this->input_attributes, array('type', 'id', 'required')) . ' type="hidden" value="" id="item' . $this->id . '_">';
 
 		$opt_values = array_count_values($this->choices);
 		if (isset($opt_values['']) && /* $opt_values[''] > 0 && */ current($this->choices) != '') { // and the first option isn't empty
