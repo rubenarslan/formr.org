@@ -431,10 +431,10 @@ form.form-horizontal div.form-row.form-group.mc_vertical div.controls {
 }
 form.form-horizontal div.form-row.form-group.mc_vertical div.controls label {
   display:block;
-  padding-left:18px;
+  /*padding-left:18px;*/
   padding-right:5px;
   padding-top:5px;
-  text-indent:-18px;
+ /* text-indent:-18px;*/
 }
 
 /* make buttons go vertical on small screens  */
@@ -843,6 +843,10 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
 	margin-right: 25px;
 	width: 80px;
 	height: 80px;
+}
+.bs-material div.btn-check button.btn,
+.bs-material .square80 .btn-group > .btn {
+    width: auto;
 }
 
 .square70 .btn-group > .btn {

@@ -1278,9 +1278,15 @@ class Item_mc extends Item {
 			} else {
 				$this->input_attributes['checked'] = false;
 			}
-			$ret .= '<label for="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? '<span> ' . $option . ' </span>' : '') .
-					'<input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? "<span>&nbsp;</span>" : '<span> ' . $option . '</span>') .
+
+			$label = '<label class="radio-inline" for="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? '' . $option . '' : '') .
+					'<input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? "<span>&nbsp;</span>" : ' ' . $option . '') .
 					'</label>';
+			if (in_array('mc_vertical', $this->classes_wrapper)) {
+				$ret .= '<div class="radio">' . $label . '</div>';
+			} else {
+				$ret .= $label;
+			}
 
 			if ($this->label_first) {
 				$this->label_first = false;
@@ -1334,9 +1340,14 @@ class Item_mc_multiple extends Item_mc {
 				$this->input_attributes['checked'] = false;
 			}
 
-			$ret .= '<label for="item' . $this->id . '_' . $value . '">' .
+			$label = '<label class="checkbox-inline" for="item' . $this->id . '_' . $value . '">' .
 					'<input ' . self::_parseAttributes($this->input_attributes, array('id', 'required', 'data-grouprequired')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '" /> ' . $option .
 					'</label> ';
+			if (in_array('mc_vertical', $this->classes_wrapper)) {
+				$ret .= '<div class="checkbox">' . $label . '</div>';
+			} else {
+				$ret .= $label;
+			}
 		}
 		$ret .= '</div>';
 		return $ret;
@@ -1388,8 +1399,10 @@ class Item_check extends Item_mc_multiple {
 		}
 		unset($this->input_attributes['value']);
 
-		$ret = '<input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required')) . '>
-			<label class="'. ($this->js_hidden ? ' js_hidden' : '').'" for="item' . $this->id . '_1"><input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="1" id="item' . $this->id . '_1"></label>';
+		$ret = '<div class="checkbox">
+					<input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required')) . '>
+					<label class="'. ($this->js_hidden ? ' js_hidden' : '').'" for="item' . $this->id . '_1"><input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="1" id="item' . $this->id . '_1"></label>
+				</div>';
 		return $ret;
 	}
 

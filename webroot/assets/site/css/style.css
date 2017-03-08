@@ -1758,15 +1758,18 @@ form.form-horizontal div.form-group.form-row.item-block div.controls,
 form.form-horizontal div.form-group.form-row.item-note div.controls {
     display:none;
 }
+.form-horizontal .controls .controls-inner label {
+    text-align: left;
+}
 div.controls-inner {
     display:block;
 }
 form.form-horizontal div.form-row div.controls div.mc-table label {
     display:inline-block;
-    padding-left:18px;
+    /*padding-left:18px;*/
     padding-right:5px;
     padding-top:5px;
-    text-indent:-18px;
+    /*text-indent:-18px;*/
 }
 .form-horizontal.unspaced_rows .form-group {
     margin-bottom:0;
