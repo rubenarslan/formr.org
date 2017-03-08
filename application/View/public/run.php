@@ -35,7 +35,7 @@
 
     </head>
 
-	<body>
+	<body class="<?php echo isset($bodyClass) ? $bodyClass : ''; ?>">
 
         <div id="fmr-page" class="fmr-about">
             <div class="container run-container">
