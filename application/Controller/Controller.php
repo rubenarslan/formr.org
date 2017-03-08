@@ -102,33 +102,25 @@ abstract class Controller {
 	}
 
 	protected function registerCSS($files, $name) {
-		if (!$files) {
-			return;
-		}
-
-		if (!is_array($files)) {
-			$files = array($files);
-		}
-		foreach (array_filter($files) as $file) {
-			if (!isset($this->css[$name])) {
-				$this->css[$name] = array();
-			}
-			$this->css[$name][] = $file;
-		}
+		$this->addFiles($files, $name, 'css');
 	}
 
 	protected function registerJS($files, $name) {
-		if (!$files) {
+		$this->addFiles($files, $name, 'js');
+	}
+
+	private function addFiles($files, $name, $type) {
+		if (!$files || !in_array($type, array('js', 'css'))) {
 			return;
 		}
 		if (!is_array($files)) {
 			$files = array($files);
 		}
 		foreach (array_filter($files) as $file) {
-			if (!isset($this->js[$name])) {
-				$this->js[$name] = array();
+			if (!isset($this->{$type}[$name])) {
+				$this->{$type}[$name] = array();
 			}
-			$this->js[$name][] = $file;
+			$this->{$type}[$name][] = $file;
 		}
 	}
 
