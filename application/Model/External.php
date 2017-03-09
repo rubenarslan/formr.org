@@ -129,13 +129,9 @@ class External extends RunUnit {
 			if (!$last) {
 				return false;
 			}
-			$expired = $this->dbh
-					->select(array(":last <= DATE_SUB(NOW(), INTERVAL :expire_after MINUTE)" => "no_longer_active"))
-					->from('survey_items_display')
-					->bindParams(array("last" => $last, "expire_after" => $expire))
-					->fetch();
-
-			return (bool) $expired['no_longer_active'];
+			$query = 'SELECT :last <= DATE_SUB(NOW(), INTERVAL :expire_after MINUTE) AS no_longer_active';
+			$params = array('last' => $last, 'expire_after' => $expire);
+			return (bool)$this->dbh->execute($query, $params, true);
 		}
 	}
 
