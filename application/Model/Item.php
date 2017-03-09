@@ -1282,8 +1282,8 @@ class Item_mc extends Item {
 				$this->input_attributes['checked'] = false;
 			}
 
-			$label = '<label class="radio-inline" for="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? '' . $option . '' : '') .
-					'<input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? "<span>&nbsp;</span>" : ' ' . $option . '') .
+			$label = '<label class="radio-inline" for="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? '<span class="mc-span">' . $option . '</span>' : '') .
+					'<input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? "<span>&nbsp;</span>" : ' <span class="mc-span">' . $option . '</span>') .
 					'</label>';
 			if (in_array('mc_vertical', $this->classes_wrapper)) {
 				$ret .= '<div class="radio">' . $label . '</div>';
