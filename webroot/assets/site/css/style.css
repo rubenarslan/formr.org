@@ -168,6 +168,9 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: none;
   border-color: #8dc63f;
 }
+.input-group .form-control {
+    z-index: 0;
+}
 
 body {
   background: #efefef url(../img/white_wave.png) repeat;
