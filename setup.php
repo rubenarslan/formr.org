@@ -27,7 +27,7 @@ require_once INCLUDE_ROOT . 'config/settings.php';
 require_once INCLUDE_ROOT . 'config_default/assets.php';
 
 // Set current formr version (bumbped on release)
-$settings['version'] = 'v0.15.6';
+$settings['version'] = 'v0.15.7';
 
 // Load application autoloader
 $autoloader = require_once APPLICATION_PATH . 'Library/Autoloader.php';

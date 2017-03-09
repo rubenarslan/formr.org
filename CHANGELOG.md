@@ -271,3 +271,7 @@ In this case, previously, the submit button would never be displayed. We decided
 ### Changed
 * Bug fix: Fix PHP warnings
 
+## [0.15.7] - 09.03.2017
+### Changed
+* Bug fix: Long query optimization
+
