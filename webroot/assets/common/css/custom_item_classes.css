@@ -789,6 +789,8 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
     form.form-horizontal div.form-row.form-group div.controls button.btn
     {
         width:100%;
+    }
+    form.form-horizontal div.form-row.form-group div.controls label:not(.keep-label) {
         margin-bottom: 10px;
     }
     
