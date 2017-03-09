@@ -1451,10 +1451,6 @@ address, ul, ol, a {
     padding-top: 90px;
 }
 
-.form-horizontal .control-label {
-    text-align: left !important;
-    color: #000;
-}
 .run-container .form-horizontal .form-group {
     margin-left: 0px;
     margin-right: 0px;
@@ -1589,6 +1585,7 @@ input:-webkit-autofill:focus {
 .run-container label {
     font-weight: normal;
     padding-top: 0px !important;
+    color: #000;
 }
 .run-container .progress-container {
     position: fixed;
@@ -1785,7 +1782,7 @@ form.form-horizontal div.form-row div.controls div.btn-group + label.keep-label 
     float: left;
     width: 300px;
     padding-top: 5px;
-    text-align: right !important;
+    text-align: right;
     white-space:normal;
 }
 .form-horizontal .controls {
@@ -1971,10 +1968,10 @@ form.form-horizontal img, div.modal-content img,img {
     form.form-horizontal div.form-row.form-group.item-mc_button div.controls label,
     form.form-horizontal div.form-row.form-group.item-mc_multiple_button div.controls label {
         display:block;
-        padding-left:18px;
+        /*padding-left:18px;*/
         padding-right:5px;
         padding-top:5px;
-        text-indent:-18px;
+        /*text-indent:-18px;*/
     }
 
     /* make buttons go vertical on small screens  */
@@ -2211,4 +2208,7 @@ body .select2-container {
 .btn-info:active, .btn-info:focus, .btn-info:hover {
     background-color: #DCF7FB;
     color: #5BC0DE;
+}
+.radio-inline, .checkbox-inline {
+    margin-left: 10px;
 }
