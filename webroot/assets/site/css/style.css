@@ -1694,7 +1694,7 @@ iframe.rChart {
 .run-container .btn:hover,
 .run-container .btn:active,
 .run-container .btn:focus {
-    background-color: #F0F0F0;
+    background-color: #F0F0F0 !important;
     color: #000;
 }
 .run-container .btn-info {
@@ -1708,10 +1708,10 @@ iframe.rChart {
   background: #46b8da !important;
   border-color: #46b8da !important;
 }
-button.btn.btn-checked,
-label.btn.btn-checked,
-a.btn.btn-checked {
-    background-color: #c3c3c3;
+.run-container button.btn.btn-checked,
+.run-container label.btn.btn-checked,
+.run-container a.btn.btn-checked {
+    background-color: #c3c3c3 !important;
     z-index:2;
     border:1px black solid;
     outline: 1px;
