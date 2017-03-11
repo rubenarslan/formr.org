@@ -6,7 +6,62 @@ module.exports = function (grunt) {
         js: ['bower_components/webshim/js-webshim/dev/polyfiller.js', 'common/js/webshim.js', 'build/js/bower.js', 'common/js/highlight/highlight.pack.js', 'common/js/main.js'],
         css: ['bower_components/bootstrap/dist/css/bootstrap.css', 'build/css/bower.css', 'common/js/highlight/styles/vs.css']
     };
+    var assets = grunt.file.readJSON('assets.json');
+    var common_assets = ['jquery', 'bootstrap', 'font-awesome', 'webshim', 'select2', 'hammer', 'highlight'];
+    var site_assets = ['main:js', 'run_users', 'run', 'survey', 'site', 'site:custom'];
+    var admin_assets = ['ace', 'main:js', 'run_users', 'run_settings', 'run', 'admin'];
 
+    
+    function _asset(asset, type) {
+        var res = []
+        if (Array.isArray(asset)) {
+            return _asset_array(asset, type);
+        }
+
+        if (typeof assets[asset] != 'undefined') {
+            var _asset = assets[asset], res = [];
+            if (typeof _asset[type] != 'undefined') {
+                if (Array.isArray(_asset[type])) {
+                    res = _asset[type];
+                } else {
+                    res = [_asset[type]];
+                }
+            }
+        }
+        return res;
+    }
+
+    function _asset_array(asset, type) {
+        var res = []
+        for (var a in asset) {
+            res = res.concat(_asset(asset[a], type));
+        }
+        return res;
+    }
+
+    function _css(asset) {
+        return _asset(asset, 'css');
+    }
+    
+    function _js(asset) {
+        return _asset(asset, 'js');
+    }
+    
+    function _flattern(array) {
+        return [].concat.apply([], array);
+    }
+
+/*
+console.log(_flattern([_js(common_assets), _js(site_assets)]));
+return;
+/*
+ SITE:CSS = [default], site/css/style.css, common/css/custom_item_classes.css
+ * SITE:CSS:MD = [default], site/css/style.css, [bootstrap-material-design], common/css/custom_item_classes.css
+ * 
+ * SITE:JS
+ * SITE:JS:MD
+ */
+ 
     // Grunt project configuration
     grunt.initConfig({
         // Read package configuration
@@ -83,25 +138,22 @@ module.exports = function (grunt) {
                     src: ["select2.png", "select2x2.png", "select2-spinner.gif"]
                 }]
             },
-            // Copy Images from site
-            theme_site_img: {
+            // Copy Images from site and admin
+            theme_img: {
                 files: [{
                     expand: true,
                     cwd: "site/img/",
                     dest: "build/img/",
                     src: ["**"]
-                }]
-            },
-            // Copy Images from admin
-            theme_admin_img: {
-                files: [{
+                }, {
                     expand: true,
                     cwd: "admin/img/",
                     dest: "build/img/",
                     flatten: true,
                     src: ["**"]
                 }]
-            },
+            }
+/*
             // Copy bootstrap-material-design
             material: {
                 expand: true,
@@ -116,6 +168,7 @@ module.exports = function (grunt) {
                     'js/ripples.js'
                 ]
             }
+*/
         },
  
         /* ************* 
@@ -136,26 +189,33 @@ module.exports = function (grunt) {
                     'box-sizing': false,
                     "floats": false,
                     "font-sizes": false,
-                    "ids": false,
+                    "vendor-prefix": false,
+                    "compatible-vendor-prefixes": false,
+                    "fallback-colors": false,
+                    "gradients": false,
+                    "zero-units": false,
+                    "ids": false
                 },
-                src: [
-                    'common/css/custom_item_classes.css',
-                    'site/css/style.css',
-                    'admin/AdminLTE.css', 'admin/AdminLTE-select2.css', 'admin/skin-black.css', 'admin/custom.css'
-                ],
+                src: _flattern([_css('site:custom'), _css('site'), _css('admin')])
             }
         },
 
         // Concate CSS
         concat_css: {
+            material: {
+                src: _css('bootstrap-material-design'),
+                dest: 'build/bs-material/bootstrap-material-design.css'
+            },
             site: {
-                src: common_src.css.concat(['site/css/style.css', 'common/css/custom_item_classes.css']),
+                src: _flattern([_css(common_assets), ['site/css/style.css', 'common/css/custom_item_classes.css']]),
                 dest: 'build/css/formr.css'
             },
+            site_material: {
+                src: _flattern([_css(common_assets), ['site/css/style.css', 'build/bs-material/bootstrap-material-design.css', 'common/css/custom_item_classes.css']]),
+                dest: 'build/css/formr-material.css'
+            },
             admin: {
-                src: common_src.css.concat([
-                    'admin/AdminLTE.css', 'admin/AdminLTE-select2.css', 'admin/skin-black.css', 'admin/custom.css'
-                ]),
+                src: _flattern([_css(common_assets), ['admin/css/AdminLTE.css', 'admin/css/style.css']]),
                 dest: 'build/css/formr-admin.css'
             }
         },
@@ -178,9 +238,12 @@ module.exports = function (grunt) {
             site: {
                 src: ['build/css/formr.css']
             },
+            site_material: {
+                src: ['build/css/formr-material.css']
+            },
             admin: {
                 src: ['build/css/formr-admin.css']
-            },
+            }
         },
 
         // Minify CSS
@@ -190,10 +253,12 @@ module.exports = function (grunt) {
                 roundingPrecision: -1,
                 rebase: false
             },
-            target: {
+            all: {
                 files: {
                     'build/css/formr.min.css': 'build/css/formr.css',
-                    'build/css/formr-admin.min.css': 'build/css/formr-admin.css'
+                    'build/css/formr-material.min.css': 'build/css/formr-material.css',
+                    'build/css/formr-admin.min.css': 'build/css/formr-admin.css',
+                    'build/bs-material/bootstrap-material-design.min.css': 'build/bs-material/bootstrap-material-design.css'
                 }
             }
         },
@@ -226,51 +291,44 @@ module.exports = function (grunt) {
         // Concatenate JS
         concat: {
             options: {
-                separator: ';',
+                separator: ';\n',
+            },
+            material: {
+                src: _js('bootstrap-material-design'),
+                dest: 'build/bs-material/bootstrap-material-design.js'
             },
             site: {
-                src: common_src.js.concat(['site/js/main.js']),
-                dest: 'build/js/formr.js',
+                src: _flattern([_js(common_assets), _js(site_assets)]),
+                dest: 'build/js/formr.js'
+            },
+            site_material: {
+                src: _flattern([_js(common_assets), _js(site_assets), 'build/bs-material/bootstrap-material-design.js']),
+                dest: 'build/js/formr-material.js'
             },
             admin: {
-                src: common_src.js.concat(['admin/js/main.js']),
-                dest: 'build/js/formr-admin.js',
-            },
+                src: _flattern([_js(common_assets), _js(admin_assets)]),
+                dest: 'build/js/formr-admin.js'
+            }
         },
         
         // Uglify JS
         uglify: {
-            site: {
-                src: 'build/js/formr.js',
-                dest: 'build/js/formr.min.js'
-            },
-            admin: {
-                src: 'build/js/formr-admin.js',
-                dest: 'build/js/formr-admin.min.js'
-            },
-            run: {
-                src: 'common/js/run.js',
-                dest: 'build/js/run.min.js'
-            },
-            run_users: {
-                src: 'common/js/run_users.js',
-                dest: 'build/js/run_users.min.js'
-            },
-            run_settings: {
-                src: 'common/js/run_settings.js',
-                dest: 'build/js/run_settings.min.js'
-            },
-            survey: {
-                src: 'common/js/survey.js',
-                dest: 'build/js/survey.min.js'
+            all: {
+                files: {
+                    'build/js/formr.min.js': 'build/js/formr.js',
+                    'build/js/formr-material.min.js': 'build/js/formr-material.js',
+                    'build/js/formr-admin.min.js': 'build/js/formr-admin.js',
+                    'build/bs-material/bootstrap-material-design.min.js': 'build/bs-material/bootstrap-material-design.js'
+                }
             }
         },
 
         // Clean up
         clean: {
             build: [
-                'build/css/bower.css', 'build/css/formr.css', 'build/css/formr-admin.css',
-                'build/js/bower.js', 'build/js/formr.js', 'build/js/formr-admin.js'
+                'build/css/formr.css', 'build/css/formr-admin.css', 'build/css/formr-material.css',
+                'build/js/formr.js', 'build/js/formr-admin.js', 'build/js/formr-material.js',
+                'build/bs-material/bootstrap-material-design.css', 'build/bs-material/bootstrap-material-design.js'
             ]
         }
 
@@ -290,8 +348,8 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks('grunt-contrib-clean');
 
     // Register Tasks
-    grunt.registerTask('default', ['bower_concat', 'copy', 'csslint', 'concat_css', 'autoprefixer', 'cssmin', 'jshint', 'concat', 'uglify', 'clean']);
-    grunt.registerTask('update', ['bower', 'bower_concat', 'copy', 'csslint', 'concat_css', 'autoprefixer', 'cssmin', 'jshint', 'concat', 'uglify', 'clean']);
+    grunt.registerTask('default', ['copy', 'csslint', 'concat_css', 'autoprefixer', 'cssmin', 'jshint', 'concat', 'uglify', 'clean']);
+    grunt.registerTask('update', ['bower', 'default']);
     //grunt.registerTask('css', []);
     //grunt.registerTask('myjs', []);
 };
