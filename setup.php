@@ -24,7 +24,9 @@ require_once INCLUDE_ROOT . 'config_default/settings.php';
 require_once INCLUDE_ROOT . 'config/settings.php';
 
 // Define default assets
-require_once INCLUDE_ROOT . 'config_default/assets.php';
+if(	php_sapi_name() != 'cli') {
+	require_once INCLUDE_ROOT . 'config_default/assets.php';
+}
 
 // Set current formr version (bumbped on release)
 $settings['version'] = 'v0.15.7';

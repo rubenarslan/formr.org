@@ -57,9 +57,6 @@ h1, h2, h3, h4, h5, h6 {
 .btn.btn-md {
   padding: 10px 20px !important;
 }
-.btn.btn-lg {
-  /*padding: 18px 36px !important;*/
-}
 .btn:hover, .btn:active, .btn:focus {
   box-shadow: none !important;
   outline: none !important;
@@ -1081,7 +1078,6 @@ body {
 }
 .fmr-social li {
   padding: 0;
-  margin: 0;
   display: inline;
 }
 .fmr-social li a {
@@ -1203,8 +1199,8 @@ body {
   position: relative;
   display: -moz-inline-stack;
   display: inline-block;
-  zoom: 1;
   *display: inline;
+  zoom: 1;
   width: 30px;
   height: 2px;
   color: #fff;
@@ -1281,7 +1277,6 @@ body {
   top: 40px;
   right: 20px;
   z-index: 9999;
-  display: block;
   margin: 0 auto;
   display: none;
   cursor: pointer;
@@ -1322,7 +1317,6 @@ body {
 /** custom added **/
 .login-form {
     color: #555 !important;
-    padding: 15px;
     width: 450px;
     max-width: 100%;
     padding: 25px;
@@ -1441,8 +1435,7 @@ address, ul, ol, a {
     color: #337ab7;
 }
 #fmr-header.fmr-small-header {
-    padding-top: 14px;
-    height: 70px;
+    height: 90px;
     background: #efefef;
     padding-top: 15px;
     position: relative;
@@ -1450,10 +1443,12 @@ address, ul, ol, a {
 #fmr-header.fmr-small-header nav ul li a {
     color: #888;
 }
-#fmr-intro.js-fullheight .fmr-intro-text {
+.fmr-intro.js-fullheight .fmr-intro-text {
     padding-top: 90px;
 }
-
+.fmr-intro.js-fullheight {
+    min-height: 595px;
+}
 .run-container .form-horizontal .form-group {
     margin-left: 0px;
     margin-right: 0px;
