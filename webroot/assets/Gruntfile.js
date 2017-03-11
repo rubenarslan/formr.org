@@ -122,7 +122,7 @@ module.exports = function (grunt) {
                 files: [{
                     expand: true,
                     cwd: "bower_components/select2/",
-                    dest: "build/img/",
+                    dest: "build/css/",
                     flatten: true,
                     src: ["select2.png", "select2x2.png", "select2-spinner.gif"]
                 }]
