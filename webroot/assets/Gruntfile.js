@@ -9,7 +9,7 @@ module.exports = function (grunt) {
     var assets = grunt.file.readJSON('assets.json');
     var common_assets = ['jquery', 'bootstrap', 'font-awesome', 'webshim', 'select2', 'hammer', 'highlight'];
     var site_assets = ['main:js', 'run_users', 'run', 'survey', 'site', 'site:custom'];
-    var admin_assets = ['ace', 'main:js', 'run_users', 'run_settings', 'run', 'admin'];
+    var admin_assets = ['main:js', 'run_users', 'run', 'run_settings', 'admin'];
 
     
     function _asset(asset, type) {
