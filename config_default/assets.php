@@ -28,7 +28,7 @@ $settings['default_assets']['dev'] = array(
 	)),
 );
 $settings['default_assets']['prod'] = array(
-	'site' => array('site'),
+	'site' => array('font-google', 'site'),
 	'admin' => array('admin'),
 	'assets' => array_merge($assets, array(
 		// use this array to override any asset defined above using its KEY
@@ -46,7 +46,7 @@ $settings['default_assets']['prod'] = array(
 		),
 		'site' => array(
 			'css' => 'build/css/formr.min.css',
-			'js' => 'build/formr.min.js'
+			'js' => 'build/js/formr.min.js'
 		),
 		'site:material' => array(
 			'css' => 'build/css/formr-material.min.css',
