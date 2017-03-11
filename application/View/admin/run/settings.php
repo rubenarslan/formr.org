@@ -66,6 +66,20 @@
 												<label title="This will be the description of your study shown on the public page">Public blurb</label>
 												<textarea data-editor="markdown" placeholder="Blurb" name="public_blurb" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->public_blurb); ?></textarea>
 											</div>
+											
+											<div class="checkbox form-group col-md-6" style="padding: 15px 0px;">
+												<strong>Look &amp; Feel</strong>
+												<p>
+													You can enable <a target="_blank" href="http://fezvrasta.github.io/bootstrap-material-design/">Material Design</a> to have a nicer
+													look and feel for your study. Some input items from third party packages
+													may not change though.
+												</p>
+												<label>
+													<input type="hidden" name="use_material_design" value="0" />
+													<input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : '' ?> value="1"> Enable Material Design.
+												</label>
+
+											</div>
 
 										</div>
 									</form>

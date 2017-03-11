@@ -47,6 +47,7 @@ class Run {
 	public $osf_project_id = null;
 	public $footer_text = null;
 	public $public_blurb = null;
+	public $use_material_design = false;
 	private $description_parsed = null;
 	private $footer_text_parsed = null;
 	private $public_blurb_parsed = null;
@@ -56,6 +57,7 @@ class Run {
 		"header_image_path", "title", "description",
 		"footer_text", "public_blurb", "custom_css",
 		"custom_js", "cron_active", "osf_project_id",
+		"use_material_design",
 	);
 	public $renderedDescAndFooterAlready = false;
 
@@ -79,7 +81,7 @@ class Run {
 
 		if ($name !== null OR ( $name = $this->create($options))):
 			$this->name = $name;
-			$columns = "id, user_id, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id";
+			$columns = "id, user_id, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design";
 			$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
 
 			if ($vars):
@@ -101,6 +103,7 @@ class Run {
 				$this->custom_css_path = $vars['custom_css_path'];
 				$this->custom_js_path = $vars['custom_js_path'];
 				$this->osf_project_id = $vars['osf_project_id'];
+				$this->use_material_design = (bool)$vars['use_material_design'];
 				$this->valid = true;
 			endif;
 		endif;
@@ -808,7 +811,7 @@ class Run {
 			}
 
 			//$js .= '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_users.js') . '"></script>';
-			$js[] = DEBUG ? asset_url('common/js/run_users.js') : asset_url('build/js/run_users.min.js');
+			//$js[] = DEBUG ? asset_url('common/js/run_users.js') : asset_url('build/js/run_users.min.js');
 
 			$run_content .= Template::get('admin/run/monkey_bar', array(
 				'user' => $user,

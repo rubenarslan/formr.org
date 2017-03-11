@@ -192,12 +192,14 @@ class PublicController extends Controller {
 		$this->run = $run;
 		$run_vars = $run->exec($this->user);
 
-	
-		//Test material design <FIXME>
-		if ($this->request->str('tmd') === 'true') {
-			$this->unregisterAssets('site:custom');
-			$this->registerAssets('bootstrap-material-design');
-			$this->registerAssets('site:custom');
+		if ($run->use_material_design === true || $this->request->str('tmd') === 'true') {
+			if (DEBUG) {
+				$this->unregisterAssets('site:custom');
+				$this->registerAssets('bootstrap-material-design');
+				$this->registerAssets('site:custom');
+			} else {
+				$this->replaceAssets('site', 'site:material');
+			}
 			$run_vars['bodyClass'] = 'bs-material';
 		}
 		$this->registerCSS($run_vars['css'], $this->run->name);

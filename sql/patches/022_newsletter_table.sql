@@ -8,3 +8,4 @@ CREATE TABLE IF NOT EXISTS `survey_newsletter` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+ALTER TABLE  `survey_runs` ADD  `use_material_design` TINYINT( 1 ) NOT NULL DEFAULT  '0';

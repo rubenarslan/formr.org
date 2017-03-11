@@ -149,8 +149,8 @@ abstract class Controller {
 		}
 	}
 
-	protected function replaceAssets($old, $new) {
-		$assets = get_default_assets('site');
+	protected function replaceAssets($old, $new, $module = 'site') {
+		$assets = get_default_assets($module);
 		foreach ($assets as $i => $asset) {
 			if ($asset === $old) {
 				$assets[$i] = $new;
