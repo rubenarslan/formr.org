@@ -28,20 +28,33 @@ $settings['default_assets']['dev'] = array(
 	)),
 );
 $settings['default_assets']['prod'] = array(
-	'site' => array(),
-	'admin' => array(),
+	'site' => array('site'),
+	'admin' => array('admin'),
 	'assets' => array_merge($assets, array(
 		// use this array to override any asset defined above using its KEY
 		// For example 'bootstrap-material-design' is overriden here when site goes to production
 		'bootstrap-material-design' => array(
 			'js' => array(
-				'build/bs-material/bootstrap-material-design.js', //merge of material.js and ripple.js
-				'build/bs-material/ripples.js'
+				'build/js/bootstrap-material-design.min.js', //merge of material.js and ripple.js
 			),
 			'css' => array(
-				'build/bs-material/bootstrap-material-design.css', // merged ripple.css into this
-				'build/bs-material/css/ripples.css',
+				'build/css/bootstrap-material-design.min.css', // merged ripple.css into this
 			)
+		),
+		'ace' => array(
+			'js' => 'build/js/ace/ace.js',
+		),
+		'site' => array(
+			'css' => 'build/css/formr.min.css',
+			'js' => 'build/formr.min.js'
+		),
+		'site:material' => array(
+			'css' => 'build/css/formr-material.min.css',
+			'js' => 'build/js/formr-material.min.js'
+		),
+		'admin' => array(
+			'css' => 'build/css/formr-admin.min.css',
+			'js' => 'build/js/formr-admin.min.js'
 		),
 		
 	)), 

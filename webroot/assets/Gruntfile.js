@@ -50,17 +50,6 @@ module.exports = function (grunt) {
     function _flattern(array) {
         return [].concat.apply([], array);
     }
-
-/*
-console.log(_flattern([_js(common_assets), _js(site_assets)]));
-return;
-/*
- SITE:CSS = [default], site/css/style.css, common/css/custom_item_classes.css
- * SITE:CSS:MD = [default], site/css/style.css, [bootstrap-material-design], common/css/custom_item_classes.css
- * 
- * SITE:JS
- * SITE:JS:MD
- */
  
     // Grunt project configuration
     grunt.initConfig({
@@ -153,22 +142,6 @@ return;
                     src: ["**"]
                 }]
             }
-/*
-            // Copy bootstrap-material-design
-            material: {
-                expand: true,
-                dot: true,
-                cwd: "bower_components/bootstrap-material-design/dist",
-                dest: "build/bs-material/",
-                flatten: true,
-                src: [
-                    'css/bootstrap-material-design.css',
-                    'css/ripples.css',
-                    'js/material.js',
-                    'js/ripples.js'
-                ]
-            }
-*/
         },
  
         /* ************* 
@@ -204,14 +177,14 @@ return;
         concat_css: {
             material: {
                 src: _css('bootstrap-material-design'),
-                dest: 'build/bs-material/bootstrap-material-design.css'
+                dest: 'build/css/bootstrap-material-design.css'
             },
             site: {
                 src: _flattern([_css(common_assets), ['site/css/style.css', 'common/css/custom_item_classes.css']]),
                 dest: 'build/css/formr.css'
             },
             site_material: {
-                src: _flattern([_css(common_assets), ['site/css/style.css', 'build/bs-material/bootstrap-material-design.css', 'common/css/custom_item_classes.css']]),
+                src: _flattern([_css(common_assets), ['site/css/style.css', 'build/css/bootstrap-material-design.css', 'common/css/custom_item_classes.css']]),
                 dest: 'build/css/formr-material.css'
             },
             admin: {
@@ -258,7 +231,7 @@ return;
                     'build/css/formr.min.css': 'build/css/formr.css',
                     'build/css/formr-material.min.css': 'build/css/formr-material.css',
                     'build/css/formr-admin.min.css': 'build/css/formr-admin.css',
-                    'build/bs-material/bootstrap-material-design.min.css': 'build/bs-material/bootstrap-material-design.css'
+                    'build/css/bootstrap-material-design.min.css': 'build/css/bootstrap-material-design.css'
                 }
             }
         },
@@ -295,14 +268,14 @@ return;
             },
             material: {
                 src: _js('bootstrap-material-design'),
-                dest: 'build/bs-material/bootstrap-material-design.js'
+                dest: 'build/js/bootstrap-material-design.js'
             },
             site: {
                 src: _flattern([_js(common_assets), _js(site_assets)]),
                 dest: 'build/js/formr.js'
             },
             site_material: {
-                src: _flattern([_js(common_assets), _js(site_assets), 'build/bs-material/bootstrap-material-design.js']),
+                src: _flattern([_js(common_assets), _js(site_assets), 'build/js/bootstrap-material-design.js']),
                 dest: 'build/js/formr-material.js'
             },
             admin: {
@@ -318,7 +291,7 @@ return;
                     'build/js/formr.min.js': 'build/js/formr.js',
                     'build/js/formr-material.min.js': 'build/js/formr-material.js',
                     'build/js/formr-admin.min.js': 'build/js/formr-admin.js',
-                    'build/bs-material/bootstrap-material-design.min.js': 'build/bs-material/bootstrap-material-design.js'
+                    'build/js/bootstrap-material-design.min.js': 'build/js/bootstrap-material-design.js'
                 }
             }
         },
@@ -326,9 +299,8 @@ return;
         // Clean up
         clean: {
             build: [
-                'build/css/formr.css', 'build/css/formr-admin.css', 'build/css/formr-material.css',
-                'build/js/formr.js', 'build/js/formr-admin.js', 'build/js/formr-material.js',
-                'build/bs-material/bootstrap-material-design.css', 'build/bs-material/bootstrap-material-design.js'
+                'build/css/formr.css', 'build/css/formr-admin.css', 'build/css/formr-material.css', 'build/css/bootstrap-material-design.css',
+                'build/js/formr.js', 'build/js/formr-admin.js', 'build/js/formr-material.js', 'build/js/bootstrap-material-design.js'
             ]
         }
 
