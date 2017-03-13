@@ -18,14 +18,14 @@
 		<div class="row">
 			<div class="col-md-6 col-xs-6">
 				<div class="pull-right text-center">
-					<img src="https://avatars0.githubusercontent.com/u/831109?v=3&s=460" class="img-responsive img-circle team" alt="Ruben Arslan">
+					<img src="<?= asset_url('build/img/ruben.jpg'); ?>" class="img-responsive img-circle team" alt="Ruben Arslan">
 					<hr />
 					<h3>Ruben</h3>
 				</div>
 			</div>
 			<div class="col-md-6 col-xs-6">
 				<div class="pull-left text-center">
-					<img src="https://avatars0.githubusercontent.com/u/2277095?v=3&s=460" class="img-responsive img-circle team" alt="Cyril Tata">
+					<img src="<?= asset_url('build/img/cyril.jpg'); ?>" class="img-responsive img-circle team" alt="Cyril Tata">
 
 					<hr />
 					<h3>Cyril</h3>
