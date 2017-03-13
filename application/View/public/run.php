@@ -4,12 +4,10 @@
 		<script>(function (H) {
                 H.className = H.className.replace(/\bno_js\b/, 'js')
             })(document.documentElement)</script>
-		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+        <title><?php echo $site->makeTitle(); ?></title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <title><?php echo $site->makeTitle(); ?></title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-		<meta charset="utf-8">
         <meta name="description" content="formr - an online survey framework with live feedback" />
         <meta name="keywords" content="formr, online survey, R software, opencpu, live feedback" />
         <meta name="author" content="formr.org" />

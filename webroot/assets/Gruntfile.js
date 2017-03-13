@@ -1,19 +1,23 @@
 module.exports = function (grunt) {
 
-    // Common source files for both site and admin themes
-    // Use this object only after bower_concat task has been run
-    var common_src = {
-        js: ['bower_components/webshim/js-webshim/dev/polyfiller.js', 'common/js/webshim.js', 'build/js/bower.js', 'common/js/highlight/highlight.pack.js', 'common/js/main.js'],
-        css: ['bower_components/bootstrap/dist/css/bootstrap.css', 'build/css/bower.css', 'common/js/highlight/styles/vs.css']
-    };
+    /**
+     * Read assets structure from assets.json and define
+     * common assets using 'asset key' of site and admin
+     */
     var assets = grunt.file.readJSON('assets.json');
     var common_assets = ['jquery', 'bootstrap', 'font-awesome', 'webshim', 'select2', 'hammer', 'highlight'];
     var site_assets = ['main:js', 'run_users', 'run', 'survey', 'site', 'site:custom'];
     var admin_assets = ['main:js', 'run_users', 'run', 'run_settings', 'admin'];
 
-    
+    /**
+     * Returns the JS or CSS structure of an asset defined in assets.json
+     * 
+     * @param {Array|String} asset String representing asset key or an array of asset keys
+     * @param {String} type. Strings 'css' or 'js'
+     * @return {Array}
+     */
     function _asset(asset, type) {
-        var res = []
+        var res = [];
         if (Array.isArray(asset)) {
             return _asset_array(asset, type);
         }
@@ -31,22 +35,45 @@ module.exports = function (grunt) {
         return res;
     }
 
+    /**
+     * Returns the JS or CSS structure of an array of assets
+     * 
+     * @param {Array} asset Array of asset keys
+     * @param {String} type. Strings 'css' or 'js'
+     * @return {Array}
+     */
     function _asset_array(asset, type) {
-        var res = []
+        var res = [];
         for (var a in asset) {
             res = res.concat(_asset(asset[a], type));
         }
         return res;
     }
 
+    /**
+     * Returns the CSS structure of an asset
+     *
+     * @see _asset
+     */
     function _css(asset) {
         return _asset(asset, 'css');
     }
-    
+
+    /**
+     * Returns the JS structure of an asset
+     *
+     * @see _asset
+     */
     function _js(asset) {
         return _asset(asset, 'js');
     }
-    
+
+    /**
+     * Gets an array of arrays and returns a single array
+     *
+     * @param {Array}
+     * @return {Array}
+     */
     function _flattern(array) {
         return [].concat.apply([], array);
     }
@@ -65,7 +92,7 @@ module.exports = function (grunt) {
                 }
             }
         },
-
+/*
         // Concatenate bower components "main" js and css and group them in build/js/bower.js and build/css/bower.css respectively
         bower_concat: {
             all: {
@@ -85,7 +112,7 @@ module.exports = function (grunt) {
                 }
             }
         },
-        
+*/        
          // Copy required/missing files from packages to build folder
         copy: {
             // Copy webshim
@@ -117,8 +144,8 @@ module.exports = function (grunt) {
                     src: ['font-awesome/fonts/*']
                 }]
             },
-            // Copy select2 assets. FIX ME: Is this needed?
-            select_img: {
+            // Copy select2 assets.
+            select2_img: {
                 files: [{
                     expand: true,
                     cwd: "bower_components/select2/",
@@ -205,7 +232,7 @@ module.exports = function (grunt) {
                     "iOS >= 6",
                     "Opera >= 12",
                     "Safari >= 6"
-                ],
+                ]
                 // Task-specific options go here.
             },
             site: {
@@ -246,7 +273,7 @@ module.exports = function (grunt) {
                 'common/js/webshim.js', 'common/js/main.js', 'common/js/survey.js',
                 'common/js/run.js', 'common/js/run_settings.js', 'common/js/run_users.js',
                 'site/js/main.js',
-                'admin/js/main.js',
+                'admin/js/main.js'
             ],
             options: {
                 globals: {
@@ -264,7 +291,7 @@ module.exports = function (grunt) {
         // Concatenate JS
         concat: {
             options: {
-                separator: ';\n',
+                separator: ';\n'
             },
             material: {
                 src: _js('bootstrap-material-design'),
