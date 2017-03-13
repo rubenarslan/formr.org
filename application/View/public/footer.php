@@ -5,9 +5,9 @@
 				<div class="fmr-footer-widget">
 					<h3>formr</h3>
 					<ul class="fmr-links">
-						<li><a href="#">About</a></li>
-						<li><a href="#">Documentation</a></li>
-						<li><a href="#">Studies</a></li>
+						<li><a href="<?= site_url('about')?>">About</a></li>
+						<li><a href="<?= site_url('documentation')?>">Documentation</a></li>
+						<li><a href="<?= site_url('studies')?>">Studies</a></li>
 					</ul>
 				</div>
 			</div>
@@ -16,8 +16,8 @@
 				<div class="fmr-footer-widget">
 					<h3>Support</h3>
 					<ul class="fmr-links">
-						<li><a href="#">formr google group</a></li>
-						<li><a href="#">formr github</a></li>
+						<li><a href="https://groups.google.com/d/forum/formr">formr google group</a></li>
+						<li><a href="https://github.com/rubenarslan/formr.org">formr github</a></li>
 					</ul>
 				</div>
 			</div>
