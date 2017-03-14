@@ -171,7 +171,7 @@
 	<div class="container">
 		<div class="col-md-6 col-md-push-6">
 			<figure class="fmr-feature-image animate-box">
-				<img src="<?= asset_url('build/img/macbook.png')?>" alt="">
+				<img src="<?= asset_url('build/img/feedback-g.png')?>" alt="">
 			</figure>
 		</div>
 		<div class="col-md-6 col-md-pull-6">

@@ -8,7 +8,7 @@
 	<div class="container">
 		<div class="row">
 			<div class="col-md-12">
-				<h2>Formr Documentation</h2>
+				<h2>formR documentation</h2>
 				<p class="lead">
 					chain simple forms into longer runs,
 					use the power of R to generate pretty feedback and complex designs

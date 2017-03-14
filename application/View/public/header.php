@@ -13,12 +13,12 @@
         <meta name="author" content="formr.org" />
 
         <meta property="og:title" content="<?php echo $site->makeTitle(); ?>"/>
-        <meta property="og:image" content=""/>
+        <meta property="og:image" content="<?php echo asset_url('build/img/formr-og.png'); ?>"/>
         <meta property="og:url" content="https://formr.org"/>
         <meta property="og:site_name" content="formr"/>
         <meta property="og:description" content="an online survey framework with live feedback"/>
         <meta name="twitter:title" content="formr" />
-        <meta name="twitter:image" content="" />
+        <meta name="twitter:image" content="<?php echo asset_url('build/img/formr-og.png'); ?>" />
         <meta name="twitter:url" content="https://formr.org" />
         <meta name="twitter:card" content="an online survey framework with live feedback" />
 

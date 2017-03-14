@@ -191,6 +191,7 @@ class PublicController extends Controller {
 		$run = new Run($this->fdb, $this->request->str('run_name'));
 		$this->run = $run;
 		$run_vars = $run->exec($this->user);
+		$run_vars['bodyClass'] = 'fmr-run';
 
 		if ($run->use_material_design === true || $this->request->str('tmd') === 'true') {
 			if (DEBUG) {
@@ -200,7 +201,7 @@ class PublicController extends Controller {
 			} else {
 				$this->replaceAssets('site', 'site:material');
 			}
-			$run_vars['bodyClass'] = 'bs-material';
+			$run_vars['bodyClass'] = 'bs-material fmr-run';
 		}
 		$this->registerCSS($run_vars['css'], $this->run->name);
 		$this->registerJS($run_vars['js'], $this->run->name);
