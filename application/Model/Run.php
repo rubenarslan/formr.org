@@ -79,7 +79,7 @@ class Run {
 			return true;
 		endif;
 
-		if ($name !== null OR ( $name = $this->create($options))):
+		if ($name !== null OR ($name = $this->create($options))):
 			$this->name = $name;
 			$columns = "id, user_id, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design";
 			$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
@@ -199,6 +199,7 @@ class Run {
 			'title' => $name,
 			'api_secret_hash' => $new_secret,
 			'cron_active' => 1,
+			'use_material_design' => 1,
 			'public' => 0,
 			'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
 			'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
