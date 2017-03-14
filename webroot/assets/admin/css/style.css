@@ -1,0 +1,207 @@
+input:focus {outline:none;}
+#login .content-wrapper,
+#login .right-side,
+#login .main-footer {
+    margin-left: 0px;
+}
+#login .content-wrapper {
+    background-color: #222d32;
+}
+#login .content-wrapper .content {
+    width: 500px;
+    max-width: 100%;
+    margin: 0 auto;
+    padding-top: 5%;
+}
+.treeview-header a {
+    border-bottom: 1px solid #efefef;
+}
+.dashboard-link {
+    display: block;
+    background: #fff;
+    overflow: hidden;
+    color: #555;
+    text-decoration: none;
+    text-align: center;
+    padding: 25px;
+    width: 99%;
+    margin: 0 auto;
+    margin-bottom: 15px;
+}
+.dashboard-link span {
+    display: block;
+}
+.dashboard-link span.icon i {
+    font-size: 6em;
+}
+.dashboard-link span.text {
+    font-size: 22px;
+    font-weight: bold;
+    margin-top: 20px;
+}
+#show-items .modal-dialog {
+    width: 100%;
+    margin-top: 2px;
+    margin-left: 2px;
+}
+.thick-border-top {
+    border-top: 2px solid gray;
+}
+.pagination {
+    padding-left: 15px;
+}
+.btn-danger {
+    background: none;
+    color: #d73925;
+}
+.edit-run-header h5 {
+    display: inline-block;
+}
+#run-unit-choices {
+    display: block;
+    margin-top: 15px;
+}
+.run_unit_inner {
+    -webkit-box-shadow: 0 4px 4px -2px #efefef;
+    -moz-box-shadow: 0 4px 4px -2px #efefef;
+    box-shadow: 0 4px 4px -2px #efefef;
+}
+.run_unit_inner.email label {
+    display: block;
+}
+.run_unit_inner.email .form-control {
+    width: 80%;
+}
+.run_unit_position {
+    text-align: center;
+    padding-bottom: 10px;
+}
+.run_unit_inner .run_unit_description,
+.run_unit_position input {
+    border: 0;
+    -webkit-box-shadow: none;
+    box-shadow: none;
+    font-weight: 700;
+    font-size: 45px;
+    height: 65px;
+    width: 100px;
+    text-align: left;
+    background-color: transparent;
+    text-align: center;
+    border-bottom: 1px solid #efefef;
+}
+.run_unit_inner .run_unit_description {
+    font-size: 20px;
+    width: 100%;
+    height: 25px;
+    background-color: #fff;
+    border: 0;
+    text-align: left;
+}
+.run_unit_inner .run_unit_dialog .form-group {
+    margin: 0px;
+}
+.badge-info {
+    background-color: #3a87ad;
+}
+.badge-success {
+    background-color: #468847;
+}
+.muted {
+    color: #DDD;
+}
+.skin-black .wrapper {
+    background: #fff;
+}
+tr.thick_border_top {
+    border-top: 2px solid #efefef;
+}
+.log-entry .panel-content {
+    padding: 15px;
+}
+.bulk-actions-ba form {
+    border: 1px solid #efefef;
+    padding: 5px;
+    margin-top: 15px;
+}
+.has-actions .input-group .position_monkey {
+    width: 70px;
+    padding: 0;
+}
+.readonly-textarea {
+    border: 1px solid #efefef;
+    background: transparent;
+    color: #555;
+    width: 70%;
+    padding: 8px;
+}
+.dropzone {
+    border: 2px solid #efefef;
+    padding: 20px 15px;
+}
+.panel-default > .panel-heading + .panel-collapse > .panel-body img {
+    max-width: 100%;
+}
+.lock-toggle.btn-checked {
+    background-color: #e7e7e7;
+}
+.well-sm {
+    width: 85%;
+}
+/* select2 styles */
+.select2-dropdown-open .select2-choice,
+.select2-container .select2-choice {
+    border-radius: 0;
+    background-image: none;
+    background-color: #fff;
+    height: 30px;
+}
+.select2-container.full_width {
+    width: 80%;
+}
+.select2-container, .select2-drop-active {
+    max-width: 100%;
+}
+.select2-container .select2-choice .select2-arrow {
+    background-image: none;
+    background: none;
+    width: 18px;
+}
+.select2-results {
+    padding: 0px 4px 0px 4px;
+}
+.select2-results .select2-highlighted {
+    background-color: #ddd;
+    color: #000;
+    font-weight: 400;
+}
+.select2-container-active .select2-choice,
+.select2-container-active .select2-choices,
+.select2-drop-active {
+    border: 1px solid #ddd;
+}
+.modal-header .close {
+    margin-top: 5px;
+}
+button.btn.btn-checked,
+label.btn.btn-checked,
+a.btn.btn-checked {
+  background-color: #c3c3c3;
+  z-index:2;
+  border:1px black solid;
+  outline: 1px;
+  -webkit-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+     -moz-box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.panel-body .rmarkdown_iframe {
+    position: static;
+    width: 100%;
+    height: 500px;
+}
+.panel-body .rmarkdown_iframe iframe {
+    border: 0;
+    width: 100%;
+    height: 100%;
+    height: 100vh;
+}

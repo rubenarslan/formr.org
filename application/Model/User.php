@@ -296,7 +296,12 @@ formr robots";
 		return false;
 	}
 
-	public function reset_password($email, $token, $new_password) {
+	public function reset_password($email, $token, $new_password, $new_password_confirm) {
+		if ($new_password !== $new_password_confirm) {
+			alert('The passwords you entered do not match', 'alert-danger');
+			return false;
+		}
+
 		$reset_token_hash = $this->dbh->findValue('survey_users', array('email' => $email), array('reset_token_hash'));
 
 		if ($reset_token_hash):
@@ -307,7 +312,8 @@ formr robots";
 					array('email' => $email),
 					array('str', 'int', 'int')
 				);
-				alert("Your password was successfully changed. You can now use it to login.", "alert-success");
+				$login_anchor = '<a href="'.site_url('login').'">login</a>';
+				alert("Your password was successfully changed. You can now use it to {$login_anchor}.", 'alert-success');
 				return true;
 			endif;
 		endif;
@@ -383,6 +389,57 @@ formr robots";
 				->from('survey_runs')
 				->where('public > 2')
 				->fetchAll();
+	}
+
+	public function verifyNewsletterSubscription($email, $verification_token = null) {
+		$user = $this->dbh->findRow('survey_newsletter', array('email' => $email));
+		if ($verification_token !== null) {
+			// User is verifying an email hash
+			$email_verification_hash = $user['email_verification_hash'];
+			if ($email_verification_hash && password_verify($verification_token . $email, $email_verification_hash)) {
+				$this->dbh->insert_update('survey_newsletter', array('email' => $email, 'email_verification_hash' => null, 'email_verified' => 1));
+				alert('Thank you for subscribing to our newsletter', 'alert-success');
+				return true;
+			} else {
+				alert('Invalid email token', 'alert-danger');
+				return false;
+			}
+		} elseif ($user && $user['email_verified']) {
+			alert('You are already subscribed to our newsletter', 'alert-warning');
+			return false;
+		}
+
+		// New user subscription or re-send verification email for old user
+		$token = crypto_token(48);
+		$token_hash = password_hash($token . $email, PASSWORD_DEFAULT);
+		$this->dbh->insert_update('survey_newsletter', array('email' => $email, 'email_verification_hash' => $token_hash, 'email_verified' => 0));
+
+		$verify_link = site_url("newsletter-subscription/?email=" . rawurlencode($email) . "&token=" . rawurlencode($token));
+		$mail = Site::getInstance()->makeAdminMailer();
+		$mail->AddAddress($email);
+		$mail->Subject = 'formr: confirm your newsletter subscription';
+		$mail->Body = "Dear user,
+
+you, or someone else requested that the email '" . $email . "' be subscribed to newsletters at " . site_url() . ".
+You will need to verify that this is your email address.
+To do so, please go to this link:
+" . $verify_link . "
+
+If you did not make this request, please notify us and we will 
+cancel this request.
+
+Best regards,
+
+formr robots";
+
+		if (!$mail->Send()) {
+			formr_log($mail->ErrorInfo);
+			alert('We were unable to send you a confirmation email. Please contact us.', 'alert-danger');
+			return false;
+		} else {
+			alert('You were sent an email to verify your address.', 'alert-info');
+			return true;
+		}
 	}
 
 }

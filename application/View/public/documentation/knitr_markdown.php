@@ -1,3 +1,5 @@
+<h3>Knit R &amp; Markdown</h3><hr />
+				
 <h4>
 	This section gives some guidance on how to format and customise text in formr. In many cases you'll do it right by default.
 </h4>
@@ -73,6 +75,6 @@ big5$extraversion = scale(big5$extraversion, center = 3.2, scale = 2.1)
 qplot_on_normal(big$extraversion, xlab = "Extraversion")
 </code>```
 </pre>yields<br>
-		<img src="<?=site_url('assets/img/examples/example_fb_plot.png')?>" width="330" height="313" alt="Graph of extraversion bell curve feedback">
+		<img src="<?= asset_url('build/img/examples/example_fb_plot.png')?>" width="330" height="313" alt="Graph of extraversion bell curve feedback">
 	</li>
 </ul>

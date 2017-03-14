@@ -84,7 +84,7 @@ class Site {
 			$class_logo = 'thumbs-up';
 		}
 
-		$logo = '<i class="fa fa-' . $class_logo . '"></i>';
+		$logo = '<i class="fa fa-' . $class_logo . '"></i> &nbsp;';
 		$this->alerts[] = "<div class='alert $class'>" . $logo . '<button type="button" class="close" data-dismiss="alert">&times;</button>' . "$msg</div>";
 	}
 

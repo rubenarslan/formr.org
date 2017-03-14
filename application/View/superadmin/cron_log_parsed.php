@@ -1,37 +1,68 @@
-<?php
-    Template::load('header');
-    Template::load('acp_nav');
-?>	
+<?php Template::load('admin/header'); ?>
 
-<h2 class="drop_shadow">cron log</h2>
+<div class="content-wrapper">
+	<!-- Content Header (Page header) -->
+	<section class="content-header">
+		<h1>Cron Logs <small>Superadmin</small></h1>
+	</section>
 
-<div class="cron-log">
-	<div class="files">
-		<?php foreach ($files as $file => $path): ?>
-		<div class="file <?= $file === $parse ? 'current' : '' ?>">
-			<a href="<?php echo site_url('superadmin/cron_log?f='.$file); ?>">
-				<i class="fa fa-file"></i> <?php echo $file; ?>
-			</a>
+	<!-- Main content -->
+	<section class="content">
+		<div class="row">
+			<div class="col-md-3">
+				<div class="box box-solid">
+					<div class="box-header with-border">
+						<h3 class="box-title"><i class="fa fa-fa"></i> Logs</h3>
+						<div class="box-tools">
+							<button type="button" class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-minus"></i></button>
+						</div>
+					</div>
+					<div class="box-body no-padding">
+						<ul class="nav nav-pills nav-stacked">
+							<?php foreach ($files as $file => $path): ?>
+								<li class="file <?= $file === $parse ? 'active' : '' ?>">
+									<a href="<?php echo site_url('superadmin/cron_log?f=' . $file); ?>">
+										<i class="fa fa-file"></i> <?php echo $file; ?>
+									</a>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+					</div>
+					<!-- /.box-body -->
+				</div>
+				<!-- /.box -->
+			</div>
+			<div class="col-md-9">
+				<div class="box box-primary">
+					<div class="box-header with-border">
+						<h3 class="box-title">Cron Log </h3>
+					</div>
+					<div class="box-body">
+						<div id="log-entries" class="text panel-group opencpu_accordion">
+							<?php
+							if ($parse) {
+								$parser->printCronLogFile($parse, $expand_logs);
+							}
+							?>
+						</div>
+
+						<script>
+							$(document).ready(function () {
+								var $entries = $('#log-entries');
+								var items = $entries.children('.log-entry');
+								$entries.append(items.get().reverse());
+								$entries.show();
+							});
+						</script>
+					</div>
+				</div>
+
+			</div>
 		</div>
 
-		<?php endforeach; ?>
-	</div>
-	<div id="log-entries" class="text panel-group opencpu_accordion">
-		<?php
-			if ($parse) {
-				$parser->printCronLogFile($parse, $expand_logs);
-			}
-		?>
-	</div>
+		<div class="clear clearfix"></div>
+	</section>
+	<!-- /.content -->
 </div>
 
-<script>
-	$(document).ready(function() {
-		var $entries = $('#log-entries');
-		var items = $entries.children('.log-entry');
-		$entries.append(items.get().reverse());
-		$entries.show();
-	});
-</script>
-
-<?php Template::load('footer'); ?>
+<?php Template::load('admin/footer'); ?>

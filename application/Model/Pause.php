@@ -107,7 +107,7 @@ class Pause extends RunUnit {
 						</span>
 					</span>
 					
-				 <label class="inline">relative to 
+				 <label>relative to <br />
 					<textarea data-editor="r" style="width:368px;" rows="2" class="form-control" placeholder="arriving at this pause" name="relative_to">' . h($this->relative_to) . '</textarea>
 					</label
 				</p> 

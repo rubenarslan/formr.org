@@ -1,4 +1,4 @@
-<h3>Sample survey sheet</h3>
+<h3>Survey Spreadsheet</h3><hr />
 
 <p>You can <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/" title="Select File->Make a copy if you have a Google account, or download it as an Excel file, if you don't">clone a Google spreadsheet</a> to get started.</p>
 <p>Some helpful tips:</p>

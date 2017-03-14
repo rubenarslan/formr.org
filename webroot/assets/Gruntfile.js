@@ -1,226 +1,354 @@
-module.exports = function(grunt) {
+module.exports = function (grunt) {
 
-// Load the plugin that provides the "uglify" task.
-grunt.loadNpmTasks('grunt-bower-task');
-//  grunt.loadNpmTasks('grunt-contrib-watch');
-//  grunt.loadNpmTasks('grunt-contrib-less');
-grunt.loadNpmTasks('grunt-contrib-csslint');
-grunt.loadNpmTasks('grunt-autoprefixer');
-grunt.loadNpmTasks('grunt-contrib-copy');
-grunt.loadNpmTasks('grunt-contrib-uglify');
-grunt.loadNpmTasks('grunt-contrib-cssmin');
-grunt.loadNpmTasks('grunt-contrib-concat');
-grunt.loadNpmTasks('grunt-concat-css');
-grunt.loadNpmTasks('grunt-contrib-jshint');
-grunt.loadNpmTasks('grunt-bower-concat');
+    /**
+     * Read assets structure from assets.json and define
+     * common assets using 'asset key' of site and admin
+     */
+    var assets = grunt.file.readJSON('assets.json');
+    var common_assets = ['jquery', 'bootstrap', 'font-awesome', 'webshim', 'select2', 'hammer', 'highlight'];
+    var site_assets = ['main:js', 'run_users', 'run', 'survey', 'site', 'site:custom'];
+    var admin_assets = ['main:js', 'run_users', 'run', 'run_settings', 'admin'];
 
-// Project configuration.
-grunt.initConfig({
-	pkg: grunt.file.readJSON('package.json'),
-	bower: {
-		install: {
-			options: {
-				targetDir: "bower_components/",
-				copy: false
-			}
-		}
-	},
-	copy: {
-		webshim_min: {
-			files: [{
-				expand: true,
-				cwd: 'bower_components/webshim/js-webshim/minified/shims/',
-				dest: 'minified/shims/',
-				src: [
-				  '**',
-				]
-			}]
-		},
-		webshim: {
-			files: [{
-				expand: true,
-				cwd: 'bower_components/webshim/js-webshim/dev/shims/',
-				dest: 'lib/shims/',
-				src: [
-				  '**',
-				]
-			}]
-		},
-		ace_min: {
-			files: [{
-				expand: true,
-				dot: true,
-				cwd: 'bower_components/ace-builds/src-min-noconflict/',
-				dest: 'minified/ace/',
-				src: [
-				  '**'
-				]
-			}]
-		},
-		ace: {
-			files: [{
-				expand: true,
-				dot: true,
-				cwd: 'bower_components/ace-builds/src-noconflict/',
-				dest: 'lib/ace/',
-				src: [
-				  '**'
-				]
-			}]
-		},
-		fonts: {
-			files: [{
-				expand: true,
-				cwd: "bower_components/",
-				dest: "fonts/",
-				flatten: true,
-				src: [
-					"select2.png", "select2x2.png", "select2-spinner.gif",
-					'font-awesome/fonts/*'
-				]
-			}]
-		},
-		select_img: {
-			files: [{
-				expand: true,
-				cwd: "bower_components/select2/",
-				dest: "lib/",
-				flatten: true,
-				src: [
-					"select2.png", "select2x2.png", "select2-spinner.gif",
-					'font-awesome/fonts/*'
-				]
-			}]
-		}
-	},
-	bower_concat: {
-	  all: {
-		dest: 'lib/bower_lib.js',
-		cssDest: 'lib/bower_lib.css',
-		exclude: [
-			'ace-builds',
-			'webshim'
-		],
-	    mainFiles: {
-	      'font-awesome': ['css/font-awesome.css']
-	    },
-		bowerOptions: {
-		  relative: true
-		}
-	  }
-	},
-	csslint: {
-	  lax: {
-		  options: {
-			  "adjoining-classes": false,
-			  "overqualified-elements": false,
-			  "important": false,
-			  "duplicate-background-images": false,
-			  "box-model": false,
-			  'box-sizing': false
-		  },
-	    src: ['css/core.css', 'css/custom_item_classes.css']
-	  },
-	},
-	concat: {
-		options: {
-		  separator: ';',
-		},
-		head: {
-		  src: ['bower_components/webshim/js-webshim/dev/polyfiller.js','js/webshim.js', 'lib/bower_lib.js', 'js/highlight/highlight.pack.js', 'js/main.js'],
-		  dest: 'lib/head.js',
-		},
-//		foot: {
-//		  src: [],
-//		  dest: 'lib/foot.js',
-//		}
-	},
-	concat_css: {
-		all: {
-			src: ['bower_components/bootstrap/dist/css/bootstrap.css','lib/bower_lib.css', 'js/highlight/styles/vs.css', 'css/core.css', 'css/custom_item_classes.css'],
-			dest: 'lib/bower.css'
-		},
-	},
-	autoprefixer: {
-		options: {
-			browsers: [
-				"Android 2.3",
-				"Android >= 4",
-				"Chrome >= 20",
-				"Firefox >= 24",
-				"Explorer >= 8",
-				"iOS >= 6",
-				"Opera >= 12",
-				"Safari >= 6"
-				],
-			// Task-specific options go here.
-		},
-		your_target: {
-			src: 'lib/bower.css'
-			// Target-specific file lists and/or options go here.
-		},
-	},
-	cssmin: {
-		options: {
-			shorthandCompacting: false,
-			roundingPrecision: -1,
-			rebase: false
-		},
-		target: {
-			files: {
-				'lib/bower.min.css': 'lib/bower.css'
-			}
-		}
-	},
-	uglify: {
-		head: {
-			src: 'lib/head.js',
-			dest: 'minified/head.js'
-		},
-//		foot: {
-//			src: 'lib/foot.js',
-//			dest: 'minified/foot.js'
-//		},
-		run: {
-			src: 'js/run.js',
-			dest: 'minified/run.js'
-		},
-		run_users: {
-			src: 'js/run_users.js',
-			dest: 'minified/run_users.js'
-		},
-		run_settings: {
-			src: 'js/run_settings.js',
-			dest: 'minified/run_settings.js'
-		},
-		survey: {
-			src: 'js/survey.js',
-			dest: 'minified/survey.js'
-		}
-	},
-	jshint: {
-		files:  ['js/webshim.js', 'js/main.js','js/survey.js','js/run.js','js/run_settings.js','js/run_users.js'],
-		options: {
-			globals: {
-				"$": false,
-				jQuery: false,
-				webshim: false,
-				hljs: false
-			},
-			"-W085": true,
-			evil: true,
-			browser: true
-		}
-	}
-});
+    /**
+     * Returns the JS or CSS structure of an asset defined in assets.json
+     * 
+     * @param {Array|String} asset String representing asset key or an array of asset keys
+     * @param {String} type. Strings 'css' or 'js'
+     * @return {Array}
+     */
+    function _asset(asset, type) {
+        var res = [];
+        if (Array.isArray(asset)) {
+            return _asset_array(asset, type);
+        }
 
-  // Default task(s).
-  grunt.registerTask('default', ['bower','copy','jshint','bower_concat','concat','concat_css','uglify','csslint',"autoprefixer",'cssmin']);
-  grunt.registerTask('build', ['copy','jshint','bower_concat','concat','concat_css','uglify','csslint',"autoprefixer",'cssmin']);
-  grunt.registerTask('quick', ['bower_concat','concat','concat_css','uglify',"autoprefixer",'cssmin']);
-  grunt.registerTask('css', ['concat_css','csslint',"autoprefixer",'cssmin']);
-  grunt.registerTask('myjs', ['jshint','concat','uglify']);
-//	grunt.registerTask('bowerinstall', ['bower']);
+        if (typeof assets[asset] != 'undefined') {
+            var _asset = assets[asset], res = [];
+            if (typeof _asset[type] != 'undefined') {
+                if (Array.isArray(_asset[type])) {
+                    res = _asset[type];
+                } else {
+                    res = [_asset[type]];
+                }
+            }
+        }
+        return res;
+    }
+
+    /**
+     * Returns the JS or CSS structure of an array of assets
+     * 
+     * @param {Array} asset Array of asset keys
+     * @param {String} type. Strings 'css' or 'js'
+     * @return {Array}
+     */
+    function _asset_array(asset, type) {
+        var res = [];
+        for (var a in asset) {
+            res = res.concat(_asset(asset[a], type));
+        }
+        return res;
+    }
+
+    /**
+     * Returns the CSS structure of an asset
+     *
+     * @see _asset
+     */
+    function _css(asset) {
+        return _asset(asset, 'css');
+    }
+
+    /**
+     * Returns the JS structure of an asset
+     *
+     * @see _asset
+     */
+    function _js(asset) {
+        return _asset(asset, 'js');
+    }
+
+    /**
+     * Gets an array of arrays and returns a single array
+     *
+     * @param {Array}
+     * @return {Array}
+     */
+    function _flattern(array) {
+        return [].concat.apply([], array);
+    }
+ 
+    // Grunt project configuration
+    grunt.initConfig({
+        // Read package configuration
+        pkg: grunt.file.readJSON('package.json'),
+
+        // Install bower components
+        bower: {
+            install: {
+                options: {
+                    targetDir: "bower_components/",
+                    copy: false
+                }
+            }
+        },
+/*
+        // Concatenate bower components "main" js and css and group them in build/js/bower.js and build/css/bower.css respectively
+        bower_concat: {
+            all: {
+                dest: 'build/js/bower.js',
+                cssDest: 'build/css/bower.css',
+                exclude: [
+                    'ace-builds',
+                    'webshim',
+                    'bootstrap-sass',
+                    'bootstrap-material-design'
+                ],
+                mainFiles: {
+                    'font-awesome': ['css/font-awesome.css']
+                },
+                bowerOptions: {
+                    relative: true
+                }
+            }
+        },
+*/        
+         // Copy required/missing files from packages to build folder
+        copy: {
+            // Copy webshim
+            webshim: {
+                files: [{
+                    expand: true,
+                    cwd: 'bower_components/webshim/js-webshim/minified/shims/',
+                    dest: 'build/js/shims/',
+                    src: ['**']
+                        
+                }]
+            },
+            // Copy ace
+            ace: {
+                files: [{
+                    expand: true,
+                    cwd: 'bower_components/ace-builds/src-min-noconflict/',
+                    dest: 'build/js/ace/',
+                    src: ['**']
+                }]
+            },
+            // Copy fonts
+            fonts: {
+                files: [{
+                    expand: true,
+                    cwd: "bower_components/",
+                    dest: "build/fonts/",
+                    flatten: true,
+                    src: ['font-awesome/fonts/*']
+                }]
+            },
+            // Copy select2 assets.
+            select2_img: {
+                files: [{
+                    expand: true,
+                    cwd: "bower_components/select2/",
+                    dest: "build/css/",
+                    flatten: true,
+                    src: ["select2.png", "select2x2.png", "select2-spinner.gif"]
+                }]
+            },
+            // Copy Images from site and admin
+            theme_img: {
+                files: [{
+                    expand: true,
+                    cwd: "site/img/",
+                    dest: "build/img/",
+                    src: ["**"]
+                }, {
+                    expand: true,
+                    cwd: "admin/img/",
+                    dest: "build/img/",
+                    flatten: true,
+                    src: ["**"]
+                }]
+            }
+        },
+ 
+        /* ************* 
+         *     CSS     *
+         * *************/
+
+        // Lint all theme custom css files
+        csslint: {
+            lax: {
+                options: {
+                    "adjoining-classes": false,
+                    "overqualified-elements": false,
+                    "qualified-headings": false,
+                    "unique-headings": false,
+                    "important": false,
+                    "duplicate-background-images": false,
+                    "box-model": false,
+                    'box-sizing': false,
+                    "floats": false,
+                    "font-sizes": false,
+                    "vendor-prefix": false,
+                    "compatible-vendor-prefixes": false,
+                    "fallback-colors": false,
+                    "gradients": false,
+                    "zero-units": false,
+                    "ids": false
+                },
+                src: _flattern([_css('site:custom'), _css('site'), _css('admin')])
+            }
+        },
+
+        // Concate CSS
+        concat_css: {
+            material: {
+                src: _css('bootstrap-material-design'),
+                dest: 'build/css/bootstrap-material-design.css'
+            },
+            site: {
+                src: _flattern([_css(common_assets), ['site/css/style.css', 'common/css/custom_item_classes.css']]),
+                dest: 'build/css/formr.css'
+            },
+            site_material: {
+                src: _flattern([_css(common_assets), ['site/css/style.css', 'build/css/bootstrap-material-design.css', 'common/css/custom_item_classes.css']]),
+                dest: 'build/css/formr-material.css'
+            },
+            admin: {
+                src: _flattern([_css(common_assets), ['admin/css/AdminLTE.css', 'admin/css/style.css']]),
+                dest: 'build/css/formr-admin.css'
+            }
+        },
+
+        // Add browser specific prefixes to CSS
+        autoprefixer: {
+            options: {
+                browsers: [
+                    "Android 2.3",
+                    "Android >= 4",
+                    "Chrome >= 20",
+                    "Firefox >= 24",
+                    "Explorer >= 8",
+                    "iOS >= 6",
+                    "Opera >= 12",
+                    "Safari >= 6"
+                ]
+                // Task-specific options go here.
+            },
+            site: {
+                src: ['build/css/formr.css']
+            },
+            site_material: {
+                src: ['build/css/formr-material.css']
+            },
+            admin: {
+                src: ['build/css/formr-admin.css']
+            }
+        },
+
+        // Minify CSS
+        cssmin: {
+            options: {
+                shorthandCompacting: false,
+                roundingPrecision: -1,
+                rebase: false
+            },
+            all: {
+                files: {
+                    'build/css/formr.min.css': 'build/css/formr.css',
+                    'build/css/formr-material.min.css': 'build/css/formr-material.css',
+                    'build/css/formr-admin.min.css': 'build/css/formr-admin.css',
+                    'build/css/bootstrap-material-design.min.css': 'build/css/bootstrap-material-design.css'
+                }
+            }
+        },
+        
+        /* ************* 
+         *     JS      *
+         * *************/
+
+        // lint JS
+        jshint: {
+            files: [
+                'common/js/webshim.js', 'common/js/main.js', 'common/js/survey.js',
+                'common/js/run.js', 'common/js/run_settings.js', 'common/js/run_users.js',
+                'site/js/main.js',
+                'admin/js/main.js'
+            ],
+            options: {
+                globals: {
+                    "$": false,
+                    jQuery: false,
+                    webshim: false,
+                    hljs: false
+                },
+                "-W085": true,
+                evil: true,
+                browser: true
+            }
+        },
+
+        // Concatenate JS
+        concat: {
+            options: {
+                separator: ';\n'
+            },
+            material: {
+                src: _js('bootstrap-material-design'),
+                dest: 'build/js/bootstrap-material-design.js'
+            },
+            site: {
+                src: _flattern([_js(common_assets), _js(site_assets)]),
+                dest: 'build/js/formr.js'
+            },
+            site_material: {
+                src: _flattern([_js(common_assets), _js(site_assets), 'build/js/bootstrap-material-design.js']),
+                dest: 'build/js/formr-material.js'
+            },
+            admin: {
+                src: _flattern([_js(common_assets), _js(admin_assets)]),
+                dest: 'build/js/formr-admin.js'
+            }
+        },
+        
+        // Uglify JS
+        uglify: {
+            all: {
+                files: {
+                    'build/js/formr.min.js': 'build/js/formr.js',
+                    'build/js/formr-material.min.js': 'build/js/formr-material.js',
+                    'build/js/formr-admin.min.js': 'build/js/formr-admin.js',
+                    'build/js/bootstrap-material-design.min.js': 'build/js/bootstrap-material-design.js'
+                }
+            }
+        },
+
+        // Clean up
+        clean: {
+            build: [
+                'build/css/formr.css', 'build/css/formr-admin.css', 'build/css/formr-material.css', 'build/css/bootstrap-material-design.css',
+                'build/js/formr.js', 'build/js/formr-admin.js', 'build/js/formr-material.js', 'build/js/bootstrap-material-design.js'
+            ]
+        }
+
+    });
+
+    // Load required plugins
+    grunt.loadNpmTasks('grunt-bower-task');
+    grunt.loadNpmTasks('grunt-contrib-csslint');
+    grunt.loadNpmTasks('grunt-autoprefixer');
+    grunt.loadNpmTasks('grunt-contrib-copy');
+    grunt.loadNpmTasks('grunt-contrib-uglify');
+    grunt.loadNpmTasks('grunt-contrib-cssmin');
+    grunt.loadNpmTasks('grunt-contrib-concat');
+    grunt.loadNpmTasks('grunt-concat-css');
+    grunt.loadNpmTasks('grunt-contrib-jshint');
+    grunt.loadNpmTasks('grunt-bower-concat');
+    grunt.loadNpmTasks('grunt-contrib-clean');
+
+    // Register Tasks
+    grunt.registerTask('default', ['copy', 'csslint', 'concat_css', 'autoprefixer', 'cssmin', 'jshint', 'concat', 'uglify', 'clean']);
+    grunt.registerTask('update', ['bower', 'default']);
+    //grunt.registerTask('css', []);
+    //grunt.registerTask('myjs', []);
 };
-
-//https://www.npmjs.com/package/grunt-autoprefixer

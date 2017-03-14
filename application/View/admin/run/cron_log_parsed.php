@@ -1,30 +1,53 @@
-<?php
-    Template::load('header');
-    Template::load('acp_nav');
-?>	
-<h2>cron log</h2>
-<p>
-	The cron job runs every x minutes, to evaluate whether somebody needs to be sent a mail. This usually happens if a pause is over. It will then skip forward or backward, send emails and shuffle participants, but will stop at surveys and pages, because those should be viewed by the user.
-</p>
+<?php Template::load('admin/header'); ?>
 
+<div class="content-wrapper">
+	<!-- Content Header (Page header) -->
+	<section class="content-header">
+		<h1><?php echo $run->name; ?> </h1>
+	</section>
 
-<div class="cron-log">
-	<div id="log-entries" class="log-entries panel-group opencpu_accordion">
-		<?php
-			if ($parse) {
-				$parser->printCronLogFile($parse);
-			}
-		?>
-	</div>
+	<!-- Main content -->
+	<section class="content">
+		<div class="row">
+			<div class="col-md-2">
+				<?php Template::load('admin/run/menu'); ?>
+			</div>
+			<div class="col-md-8">
+				<div class="box box-primary">
+					<div class="box-header with-border">
+						<h3 class="box-title">Cron Log </h3>
+					</div>
+					<div class="box-body">
+						<p>
+							The cron job runs every x minutes, to evaluate whether somebody needs to be sent a mail. This usually happens if a pause is over. It will then skip forward or backward, send emails and shuffle participants, but will stop at surveys and pages, because those should be viewed by the user.
+						</p>
+						<div class="cron-log">
+							<div id="log-entries" class="log-entries panel-group opencpu_accordion">
+								<?php
+								if ($parse) {
+									$parser->printCronLogFile($parse);
+								}
+								?>
+							</div>
+						</div>
+
+						<script>
+							jQuery(document).ready(function () {
+								var $entries = jQuery('#log-entries');
+								var items = $entries.children('.log-entry');
+								$entries.append(items.get().reverse());
+								$entries.show();
+							});
+						</script>
+					</div>
+				</div>
+
+			</div>
+		</div>
+
+		<div class="clear clearfix"></div>
+	</section>
+	<!-- /.content -->
 </div>
 
-<script>
-	$(document).ready(function() {
-		var $entries = $('#log-entries');
-		var items = $entries.children('.log-entry');
-		$entries.append(items.get().reverse());
-		$entries.show();
-	});
-</script>
-	
-<?php Template::load('footer');
+<?php Template::load('admin/footer'); ?>

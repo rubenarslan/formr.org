@@ -107,9 +107,7 @@ function access_denied() {
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 */
-	header('HTTP/1.0 403 Forbidden');
-	Template::load('public/not_found');
-	exit;
+	redirect_to('error/403');
 }
 
 function not_found() {
@@ -118,9 +116,7 @@ function not_found() {
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 */
-	header('HTTP/1.0 404 Not Found');
-	Template::load('public/not_found');
-	exit;
+	redirect_to('error/404');
 }
 
 function bad_request() {
@@ -129,9 +125,7 @@ function bad_request() {
 	$_SESSION['site'] = $site;
 	$_SESSION['user'] = serialize($user);
 */
-	header('HTTP/1.0 400 Bad Request');
-	Template::load('public/not_found');
-	exit;
+	redirect_to('error/500');
 }
 
 function bad_request_header() {
@@ -774,7 +768,13 @@ function admin_run_url($name = '', $action = '') {
  *  @param $file  The file to be loaded. Must not start with a slash.
  */
 function asset_url($file) {
-  $mtime = @filemtime(INCLUDE_ROOT . "webroot/" . $file);
+	if (strpos($file, 'http') !== false || strpos($file, '//') === 0) {
+		return $file;
+	}
+	if (strpos($file, 'assets') === false) {
+		$file = 'assets/' . $file;
+	}
+	$mtime = @filemtime(INCLUDE_ROOT . "webroot/" . $file);
 	if(!$mtime) {
 	  return site_url($file);
 	}
@@ -1270,7 +1270,19 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 			if ($session->hasError()) {
 				$debug['Response'] = pre_htmlescape($session->getError());
 			} else {
-				if (isset($params['text']) || $rtype === 'text') {
+				if($session->getFiles("knit.html")) {
+					$iframesrc = $session->getFiles("knit.html")['knit.html'];
+					$debug['Response'] = '
+					<p>
+						<a href="'.$iframesrc.'" target="_blank">Open in new window</a>
+					</p>
+					<div class="rmarkdown_iframe">
+					<iframe src="'.$iframesrc.'">
+					  <p>Your browser does not support iframes.</p>
+					</iframe>
+					</div>';
+				}
+				else if (isset($params['text']) || $rtype === 'text') {
 					$debug['Response'] = stringBool($session->getObject('text'));
 				} else {
 					$debug['Response'] = pre_htmlescape(json_encode($session->getJSONObject(),  JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
@@ -1353,9 +1365,7 @@ function shutdown_formr_org() {
 		$msg .= "Error [$errno] in $errfile line $errline \n $errstr";
 		alert($msg, 'alert-danger');
 
-		bad_request_header();
-		Template::load('public/not_found');
-		exit(0);
+		redirect_to('error/500');
 	}
 }
 
@@ -1513,4 +1523,41 @@ function deletefiles($files) {
 			@unlink($file);
 		}
 	}
+}
+
+function get_default_assets($config = 'site') {
+	if (DEBUG) {
+		return Config::get("default_assets.dev.{$config}");
+	} else {
+		return Config::get("default_assets.prod.{$config}");
+	}
+}
+
+function get_assets() {
+	return get_default_assets('assets');
+}
+
+function print_stylesheets($files, $id = null) {
+	foreach ($files as $i => $file) {
+		$id = 'css-' . $i . $id;
+		echo '<link href="' . asset_url($file) . '" rel="stylesheet" type="text/css" id="'. $id .'">' . "\n";
+	}
+}
+
+function print_scripts($files, $id = null) {
+	foreach ($files as $i => $file) {
+		$id = 'js-' . $i . $id;
+		echo '<script src="' . asset_url($file) . '" id="'. $id .'"></script>' . "\n";
+	}
+}
+
+function _die($msg) {
+	$style = array(
+		'width: 500px', 'max-width: 100%', 'text-align: center', 'line-height: 50px', 'margin: 10% auto',
+		'color: #a94442', 'background-color: #f2dede', 'border: 1px solid #ebccd1', 'font-size: 20px'
+	);
+	echo '<div style="'.implode(';', $style).'">';
+	echo $msg;
+	echo '<div>';
+	exit;
 }

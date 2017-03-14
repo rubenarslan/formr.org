@@ -7,6 +7,10 @@ class SuperadminController extends Controller {
 		if (!$this->user->isSuperAdmin()) {
 			throw new Exception('You do not have sufficient rights to access this section');
 		}
+		if (!Request::isAjaxRequest()) {
+			$default_assets = get_default_assets('admin');
+			$this->registerAssets($default_assets);
+		}
 	}
 
 	public function indexAction() {

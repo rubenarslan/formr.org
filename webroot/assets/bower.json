@@ -1,30 +1,34 @@
 {
-  "name": "formr",
-  "version": "0.6.10",
-  "main": [
-    "css/core.css",
-    "js/main.js"
-  ],
-  "ignore": [
-    "**/.*",
-    "node_modules",
-    "bower_components",
-    "test",
-    "tests"
-  ],
-  "dependencies": {
-	"bootstrap": "git://github.com/twbs/bootstrap",
-	"font-awesome": "git://github.com/FortAwesome/Font-Awesome#4.*",
-	"jquery": "git://github.com/components/jquery.git#2.*",
-	"select2": "git://github.com/ivaynberg/select2.git#3.*",
-	"webshim": "git://github.com/aFarkas/webshim.git#1.*",
-	"ace-builds": "git://github.com/ajaxorg/ace-builds#1.*",
-  	"hammerjs": "git://github.com/hammerjs/hammer-time"
-  },
-  "homepage": "https://github.com/rubenarslan/formr.org",
-  "authors": [
-    "Ruben C. Arslan <rubenarslan@gmail.com>"
-  ],
-  "license": "MIT",
-  "private": true
+    "name": "formr",
+    "version": "0.16.0",
+    "main": [
+        "build/css/formr.css",
+        "build/css/formr-admin.css",
+        "build/js/formr.js",
+        "build/js/formr-admin.css"
+    ],
+    "ignore": [
+        "**/.*",
+        "node_modules",
+        "bower_components",
+        "test",
+        "tests"
+    ],
+    "dependencies": {
+        "bootstrap": "git://github.com/twbs/bootstrap",
+        "font-awesome": "git://github.com/FortAwesome/Font-Awesome#4.*",
+        "jquery": "git://github.com/components/jquery.git#2.*",
+        "select2": "git://github.com/ivaynberg/select2.git#3.*",
+        "webshim": "git://github.com/aFarkas/webshim.git#1.*",
+        "ace-builds": "git://github.com/ajaxorg/ace-builds#1.*",
+        "hammerjs": "git://github.com/hammerjs/hammer-time",
+        "bootstrap-material-design": "v0.5.*"
+    },
+    "homepage": "https://github.com/rubenarslan/formr.org",
+    "authors": [
+        "Ruben C. Arslan <rubenarslan@gmail.com>",
+        "Cyril Tata <cyril.tata@gmail.com>"
+    ],
+    "license": "MIT",
+    "private": true
 }

@@ -3,6 +3,10 @@
 class PublicController extends Controller {
 	public function __construct(Site &$site) {
 		parent::__construct($site);
+		if (!Request::isAjaxRequest()) {
+			$default_assets = get_default_assets('site');
+			$this->registerAssets($default_assets);
+		}
 	}
 
 	public function indexAction() {
@@ -18,7 +22,7 @@ class PublicController extends Controller {
 	}
 
 	public function aboutAction() {
-		$this->renderView('public/about');
+		$this->renderView('public/about', array('bodyClass' => 'fmr-about'));
 	}
 
 	public function editUserAction() {
@@ -58,6 +62,8 @@ class PublicController extends Controller {
 				redirect_to('index');
 			}
 		}
+
+		$this->registerAssets('bootstrap-material-design');
 		$this->renderView('public/edit_user');
 	}
 
@@ -75,6 +81,8 @@ class PublicController extends Controller {
 				alert(implode($this->user->errors), 'alert-danger');
 			}
 		}
+
+		$this->registerAssets('bootstrap-material-design');
 		$this->renderView('public/login');
 	}
 
@@ -111,6 +119,8 @@ class PublicController extends Controller {
 				alert(implode($user->errors),'alert-danger');
 			}
 		}
+
+		$this->registerAssets('bootstrap-material-design');
 		$this->renderView('public/register');
 	}
 
@@ -134,6 +144,8 @@ class PublicController extends Controller {
 		if($this->request->str('email')) {
 			$this->user->forgot_password($this->request->str('email'));
 		}
+
+		$this->registerAssets('bootstrap-material-design');
 		$this->renderView('public/forgot_password');
 	}
 
@@ -143,23 +155,23 @@ class PublicController extends Controller {
 			redirect_to("index");
 		}
 
-		if((!isset($_GET['reset_token']) OR !isset($_GET['email']) ) AND !isset($_POST['email'])):
+		if((!isset($_GET['reset_token']) || !isset($_GET['email'])) && !isset($_POST['email'])):
 			alert("You need to follow the link you received in your password reset mail");
 			redirect_to("forgot_password");
 		endif;
 
-		if(!empty($_POST) AND isset($_POST['email'])  AND isset($_POST['new_password'])  AND isset($_POST['reset_token'])) {
-			$user->reset_password($_POST['email'], $_POST['reset_token'], $_POST['new_password']);
+		if(!empty($_POST['email']) && !empty($_POST['new_password']) && !empty($_POST['reset_token'])) {
+			$done = $user->reset_password($_POST['email'], $_POST['reset_token'], $_POST['new_password'], $_POST['new_password_c']);
+			if ($done) {
+				redirect_to('reset_password?reset_token=&email=');
+			}
 		}
 
+		$this->registerAssets('bootstrap-material-design');
 		$this->renderView('public/reset_password', array(
 			'reset_data_email' => isset($_GET['email']) ? $_GET['email'] : '',
 			'reset_data_token' => isset($_GET['reset_token']) ? $_GET['reset_token'] : '',
 		));
-	}
-
-	public function notFoundAction() {
-		$this->renderView('public/not_found');
 	}
 
 	public function fileDownloadAction($run_id = 0, $original_filename = '') {
@@ -177,15 +189,31 @@ class PublicController extends Controller {
 
 		$this->user = $this->site->loginUser($this->user);
 		$run = new Run($this->fdb, $this->request->str('run_name'));
+		$this->run = $run;
 		$run_vars = $run->exec($this->user);
-		if ($run_vars) {
-			Template::load('public/run', $run_vars);
+		$run_vars['bodyClass'] = 'fmr-run';
+
+		if ($run->use_material_design === true || $this->request->str('tmd') === 'true') {
+			if (DEBUG) {
+				$this->unregisterAssets('site:custom');
+				$this->registerAssets('bootstrap-material-design');
+				$this->registerAssets('site:custom');
+			} else {
+				$this->replaceAssets('site', 'site:material');
+			}
+			$run_vars['bodyClass'] = 'bs-material fmr-run';
 		}
+		$this->registerCSS($run_vars['css'], $this->run->name);
+		$this->registerJS($run_vars['js'], $this->run->name);
+
+		unset($run_vars['css'], $run_vars['js']);
+		$this->renderView('public/run', $run_vars);
 	}
 
 	public function settingsAction($run_name = '') {
 		$run = new Run($this->fdb, $run_name);
 		if (!$run->valid) {
+			alert(' Invalid Run settings', 'alert-danger');
 			not_found();
 		}
 
@@ -203,7 +231,7 @@ class PublicController extends Controller {
 		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code);
 		if (!$session->id) {
 			alert('You cannot create settings in a study you have not participated in.', 'alert-danger');
-			redirect_to('index');
+			redirect_to('error/200');
 		}
 
 		$settings = array('no_email' => 1);
@@ -232,8 +260,8 @@ class PublicController extends Controller {
 			redirect_to('settings/' . $run->name);
 		}
 
-		Template::load('public/settings', array(
-			'run' => $run,
+		$this->run = $run;
+		$this->renderView('public/settings', array(
 			'settings' => $session->getSettings(),
 			'email_subscriptions' => Config::get('email_subscriptions'),
 		));
@@ -344,5 +372,33 @@ class PublicController extends Controller {
 		redirect_to('index');
 	}
 
+	public function errorAction($code = null) {
+		if ($code == 200) {
+			// do nothing
+		} elseif ($code == 400) {
+			header('HTTP/1.0 404 Not Found');
+		} elseif ($code == 403) {
+			header('HTTP/1.0 403 Forbidden');
+		} else {
+			header('HTTP/1.0 500 Bad Request');
+		}
+		$this->renderView('public/error');
+		exit;
+	}
+
+	public function newsletterSubscriptionAction() {
+		if (Request::isHTTPGetRequest()) {
+			if ($this->request->token && $this->request->email) {
+				$this->user->verifyNewsletterSubscription($this->request->email, $this->request->token);
+			}
+			redirect_to('index');
+		}
+
+		if (!($email = $this->request->str('n_email')) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+			alert('Please enter a valid email for <a href="#newsletter">newsletter subscription</a>', 'alert-danger');
+		}
+		$this->user->verifyNewsletterSubscription($email);
+		redirect_to('index');
+	}
 }
 

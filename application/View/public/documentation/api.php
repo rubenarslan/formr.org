@@ -1,4 +1,4 @@
-<h3>API</h3>
+<h3>formr API</h3><hr />
 
 <p>
 The formr API is the primary way to get data/results out of the platform. It's a low-level HTTP-based API that you can use principally to get results of a 
@@ -140,7 +140,7 @@ results = formr_api_results(list(
 	run = list(
 		name = "rotation",  # for which run do you want results
 		sessions = c("joyousCoyoteXXXLk5ByctNPryS4k-5JqZJYE19HwFhPu4FFk8beIHoBtyWniv46") # and for which user
-	)
+	),
 	surveys = list(
 		rotation_exercise = c("exercise_1", "exercise_2"),
 		rotation_exercise2 = c("exercise2_1", "exercise2_2"),

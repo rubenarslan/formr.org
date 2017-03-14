@@ -535,7 +535,7 @@ class Item extends HTML_element {
 		$this->input_attributes['class'] .= " always_invalid";
 	}
 
-	public function needsDynamicLabel() {
+	public function needsDynamicLabel($survey = null) {
 		return $this->label_parsed === null;
 	}
 
@@ -1139,15 +1139,16 @@ class Item_note extends Item {
 	public $input_attributes = array('type' => 'hidden', "value" => 1);
 	public $save_in_results_table = false;
 
-	public function setMoreOptions() {
-		unset($this->input_attributes['required']);
-	}
-
 	protected function render_label() {
 		return '<div class="' . implode(" ", $this->classes_label) . '">' .
 				($this->error ? '<span class="label label-danger hastooltip" title="' . $this->error . '"><i class="fa fa-exclamation-triangle"></i></span> ' : '') .
 				$this->label_parsed . '</div>';
 	}
+	protected function render_input() {
+		unset($this->input_attributes['required']);
+		return parent::render_input();
+	}
+
 
 	public function validateInput($reply) {
 		if ($reply != 1) {
@@ -1157,6 +1158,31 @@ class Item_note extends Item {
 	}
 
 }
+
+// notes are rendered at full width
+class Item_note_iframe extends Item_note {
+
+	public $type = 'note_iframe';
+	public $mysql_field = null;
+	public $input_attributes = array('type' => 'hidden', "value" => 1);
+	public $save_in_results_table = false;
+
+	public function needsDynamicLabel($survey = null) {
+		$ocpu_vars = $survey->getUserDataInRun($this->label, $survey->name);
+		$ocpu_session = opencpu_knit_iframe($this->label, $ocpu_vars, true, $survey->name);
+		if ($ocpu_session && !$ocpu_session->hasError()) {
+			$iframesrc = $ocpu_session->getFiles("knit.html")['knit.html'];
+			$this->label_parsed = '<div class="rmarkdown_iframe">
+					<iframe src="'.$iframesrc.'">
+					  <p>Your browser does not support iframes.</p>
+					</iframe>
+				</div>';
+		}
+
+		return false;
+	}
+}
+
 
 class Item_submit extends Item {
 
@@ -1218,14 +1244,16 @@ class Item_mc extends Item {
 	protected function render_label() {
 		return '<div class="' . implode(" ", $this->classes_label) . '">' .
 				($this->error ? '<span class="label label-danger hastooltip" title="' . $this->error . '"><i class="fa fa-exclamation-triangle"></i></span> ' : '') . $this->label_parsed .
-				'</div>';
+				'
+				</div>';
 	}
 
 	protected function render_input() {
 
 		$this->splitValues();
 
-		$ret = '<div class="mc-table'. ($this->js_hidden ? ' js_hidden' : '').'"><input ' . self::_parseAttributes($this->input_attributes, array('type', 'id', 'required')) . ' type="hidden" value="" id="item' . $this->id . '_">';
+		$ret = '<div class="mc-table'. ($this->js_hidden ? ' js_hidden' : '').'">
+					<input ' . self::_parseAttributes($this->input_attributes, array('type', 'id', 'required')) . ' type="hidden" value="" id="item' . $this->id . '_">';
 
 		$opt_values = array_count_values($this->choices);
 		if (isset($opt_values['']) && /* $opt_values[''] > 0 && */ current($this->choices) != '') { // and the first option isn't empty
@@ -1253,9 +1281,15 @@ class Item_mc extends Item {
 			} else {
 				$this->input_attributes['checked'] = false;
 			}
-			$ret .= '<label for="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? '<span> ' . $option . ' </span>' : '') .
-					'<input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? "<span>&nbsp;</span>" : '<span> ' . $option . '</span>') .
+
+			$label = '<label class="radio-inline" for="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? '<span class="mc-span">' . $option . '</span>' : '') .
+					'<input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '">' . (($this->label_first || $all_left) ? "<span>&nbsp;</span>" : ' <span class="mc-span">' . $option . '</span>') .
 					'</label>';
+			if (in_array('mc_vertical', $this->classes_wrapper)) {
+				$ret .= '<div class="radio">' . $label . '</div>';
+			} else {
+				$ret .= $label;
+			}
 
 			if ($this->label_first) {
 				$this->label_first = false;
@@ -1309,9 +1343,14 @@ class Item_mc_multiple extends Item_mc {
 				$this->input_attributes['checked'] = false;
 			}
 
-			$ret .= '<label for="item' . $this->id . '_' . $value . '">' .
+			$label = '<label class="checkbox-inline" for="item' . $this->id . '_' . $value . '">' .
 					'<input ' . self::_parseAttributes($this->input_attributes, array('id', 'required', 'data-grouprequired')) . ' value="' . $value . '" id="item' . $this->id . '_' . $value . '" /> ' . $option .
 					'</label> ';
+			if (in_array('mc_vertical', $this->classes_wrapper)) {
+				$ret .= '<div class="checkbox">' . $label . '</div>';
+			} else {
+				$ret .= $label;
+			}
 		}
 		$ret .= '</div>';
 		return $ret;
@@ -1363,8 +1402,10 @@ class Item_check extends Item_mc_multiple {
 		}
 		unset($this->input_attributes['value']);
 
-		$ret = '<input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required')) . '>
-			<label class="'. ($this->js_hidden ? ' js_hidden' : '').'" for="item' . $this->id . '_1"><input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="1" id="item' . $this->id . '_1"></label>';
+		$ret = '<div class="checkbox">
+					<input type="hidden" value="" id="item' . $this->id . '_" ' . self::_parseAttributes($this->input_attributes, array('id', 'type', 'required')) . '>
+					<label class="'. ($this->js_hidden ? ' js_hidden' : '').'" for="item' . $this->id . '_1"><input ' . self::_parseAttributes($this->input_attributes, array('id')) . ' value="1" id="item' . $this->id . '_1"></label>
+				</div>';
 		return $ret;
 	}
 
@@ -1780,32 +1821,6 @@ class Item_calculate extends Item {
 
 	public function render() {
 		return $this->render_input();
-	}
-
-}
-
-class Item_opencpu_session extends Item {
-
-	public $type = 'opencpu_session';
-	public $input_attributes = array('type' => 'hidden');
-	public $no_user_input_required = true;
-	public $mysql_field = 'VARCHAR (255) DEFAULT NULL';
-
-	public function render() {
-		return $this->render_input();
-	}
-
-	public function evaluateDynamicValue(Survey $survey) {
-		$value = $this->getValue();
-		$variables = $survey->getUserDataInRun($value, $survey->name);
-		$ocpu_session = opencpu_evaluate($value, $variables, 'json', $survey->name, true);
-		if ($ocpu_session && !$ocpu_session->hasError()) {
-			$this->value = $ocpu_session->getLocation();
-			$this->input_attributes['value'] = $this->value;
-			return $this->value;
-		}
-		// @todo Add error reporting if $ocpu_session has an error
-		return null;
 	}
 
 }

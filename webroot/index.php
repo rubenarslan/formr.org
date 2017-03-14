@@ -19,8 +19,8 @@ try {
 	$fdb = DB::getInstance();
 } catch(Exception $e) {
 	formr_log($e->getMessage(), 'Database Connection Error');
-	alert('Data store could not be found', 'alert-danger');
-	bad_request();
+	bad_request_header();
+	_die('no data store found');
 }
 
 // Set current user

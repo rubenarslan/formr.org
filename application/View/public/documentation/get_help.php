@@ -1,3 +1,5 @@
+<h3><i class="fa fa-question-circle"></i> Help</h3><hr />
+
 <h4>Where to get help</h4>
 <p>If you're a participant in one of the studies implemented in formr, please reach out to the person running the study.</p>
 <p>If you're running a study yourself, there's several places to look.<p>

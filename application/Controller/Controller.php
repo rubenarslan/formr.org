@@ -38,9 +38,9 @@ abstract class Controller {
 	 */
 	protected $request;
 
-	protected $css;
+	protected $css = array();
 
-	protected $js;
+	protected $js = array();
 
 	public function __construct(Site &$site) {
 		/** @todo do these with dependency injection */
@@ -49,8 +49,12 @@ abstract class Controller {
 		$this->user = &$user;
 		$this->study = $study;
 		$this->run = $run;
-		$this->css = $css;
-		$this->js = $js;
+		if (is_array($css)) {
+			$this->css = $css;
+		}
+		if (is_array($js)) {
+			$this->js = $js;
+		}
 
 		$this->fdb = DB::getInstance();
 		$this->request = $site->request;
@@ -95,6 +99,65 @@ abstract class Controller {
 
 	public function getDB() {
 		return $this->fdb;
+	}
+
+	protected function registerCSS($files, $name) {
+		$this->addFiles($files, $name, 'css');
+	}
+
+	protected function registerJS($files, $name) {
+		$this->addFiles($files, $name, 'js');
+	}
+
+	private function addFiles($files, $name, $type) {
+		if (!$files || !in_array($type, array('js', 'css'))) {
+			return;
+		}
+		if (!is_array($files)) {
+			$files = array($files);
+		}
+		foreach (array_filter($files) as $file) {
+			if (!isset($this->{$type}[$name])) {
+				$this->{$type}[$name] = array();
+			}
+			$this->{$type}[$name][] = $file;
+		}
+	}
+
+	protected function registerAssets($which) {
+		$assets = get_assets();
+		if (!is_array($which)) {
+			$which = array($which);
+		}
+		foreach ($which as $asset) {
+			$this->registerCSS(array_val($assets[$asset], 'css'), $asset);
+			$this->registerJS(array_val($assets[$asset], 'js'), $asset);
+		}
+	}
+	
+	protected function unregisterAssets($which) {
+		if (is_array($which)) {
+			foreach ($which as $a) {
+				$this->unregisterAssets($a);
+			}
+		}
+		if (isset($this->css[$which])) {
+			unset($this->css[$which]);
+		}
+		if (isset($this->js[$which])) {
+			unset($this->js[$which]);
+		}
+	}
+
+	protected function replaceAssets($old, $new, $module = 'site') {
+		$assets = get_default_assets($module);
+		foreach ($assets as $i => $asset) {
+			if ($asset === $old) {
+				$assets[$i] = $new;
+			}
+		}
+		$this->css = $this->js = array();
+		$this->registerAssets($assets);
 	}
 
 }

@@ -1,25 +1,33 @@
-<?php Template::load('header_nav'); ?>
-<div class="row">
-	<div class="col-lg-4 col-lg-offset-1 col-sm-5 col-sm-offset-1 col-xs-12 well">
-	<h2>Forgot password</h2>
-		<form class="" id="login" name="login" method="post" action="<?php echo site_url('forgot_password');?>">
-			<div class="form-group small-left">
-				<label class="control-label sr-only" for="email">
-					<?php echo _("Email"); ?>
-				</label>
-				<div class="controls">
-					<div class="input-group">
-					  <span class="input-group-addon"><i class="fa fa-envelope-o fa-fw"></i></span>
-					  <input class="form-control"  required type="email" placeholder="Your email address" name="email" id="email">
+<?php Template::load('public/header'); ?>
+
+<section id="fmr-hero" class="js-fullheight full" data-next="yes">
+	<div class="fmr-overlay"></div>
+	<div class="container">
+		<div class="fmr-intro js-fullheight">
+			<div class="col-md-12">
+				<div class="fmr-intro-text">
+					<div class="col-md-12">
+						<div class="login-form large well">
+							<h2>Forgot Password</h2>
+							<?= Template::load('public/alerts') ?>
+							<h4 class="lead">Enter your email below and a link to reset your password will be sent to you.</h4>
+							<form class="" id="login" name="login" method="post" action="<?php echo site_url('forgot_password'); ?>">
+								<div class="form-group label-floating">
+									<label class="control-label" for="email"><i class="fa fa-envelope" required></i> Email</label>
+									<input class="form-control" type="email" id="email" name="email">
+								</div>
+								<button class="btn btn-sup btn-material-pink btn-raised"><i class="fa fa-send"></i> Send Link</button>
+							</form>
+						</div>
 					</div>
+					<div class="clearfix"></div>
 				</div>
+				<div class="clearfix"></div>
+				<p>&nbsp;</p>
 			</div>
-			<div class="form-group small-left">
-				<div class="controls">
-					<input type="submit" value="<?php echo _("Send me a link to choose a new password"); ?>"  class="btn btn-default btn-info">
-				</div>
-			</div>
-		</form>
+		</div>
 	</div>
-</div>
-<?php Template::load('footer');
+	<div class="clear"></div>
+</section>
+
+<?php Template::load('public/footer'); ?>

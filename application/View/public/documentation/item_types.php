@@ -1,4 +1,5 @@
-<h3>Item types</h3>
+<h3>Survey Item Types</h3><hr />
+
 There are a lot of item types, in the beginning you will probably only need a few though. To see them in action,
 try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/" title="Select File->Make a copy if you have a Google account, or download it as an Excel file, if you don't">Google spreadsheet</a> or <a href="<?=site_url('widgets')?>">fill it out yourself</a>. It contains example uses of nearly every item there is.
 	<h4><i class="fa fa-fw fa-info"></i> Plain display types</h4>
@@ -8,6 +9,12 @@ try using the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbk
 		</dt>
 		<dd>
 			 display text. Notes are only displayed once, you can think of them as being "answered" simple by submitting.
+		 </dd>
+		 <dt>
+			note_iframe
+		</dt>
+		<dd>
+			 If you want to render complex rmarkdown <a href="http://www.htmlwidgets.org/">htmlwidgets</a>, use this.
 		 </dd>
 		 <dt>
 			 submit <i>timeout</i>
@@ -193,12 +200,6 @@ These items don't require the user to do anything, so including them simply mean
 	</dt>
 	<dd>
 		in the <strong>value</strong> column you can specify an R expression, the result of which will be saved into this variable. Useful to pull in external data or to forestall recalculating something repeatedly that you want to refer to later.
-	</dd>
-	<dt>
-		opencpu_session
-	</dt>
-	<dd>
-		like <code>calculate</code>, but stores the URL of the OpenCPU session of the result instead. Using e.g. <code>get_opencpu_rds(paste0(survey$opencpu_session_item,".val/rds"))</code> you can then retrieve its return value for later use.
 	</dd>
 	<dt>
 		ip
