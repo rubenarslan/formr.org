@@ -275,3 +275,7 @@ In this case, previously, the submit button would never be displayed. We decided
 ### Changed
 * Bug fix: Long query optimization
 
+## [0.16.0] - 14.03.2017
+### Changed
+* New User Interface
+
