@@ -18,19 +18,20 @@
 		<div class="row">
 			<div class="col-md-6 col-xs-6">
 				<div class="pull-right text-center">
-					<img src="<?= asset_url('build/img/ruben.jpg'); ?>" class="img-responsive img-circle team" alt="Ruben Arslan">
-					<hr />
-					<h3>Ruben</h3>
-				</div>
-			</div>
-			<div class="col-md-6 col-xs-6">
-				<div class="pull-left text-center">
 					<img src="<?= asset_url('build/img/cyril.jpg'); ?>" class="img-responsive img-circle team" alt="Cyril Tata">
 
 					<hr />
 					<h3>Cyril</h3>
 				</div>
 			</div>
+			<div class="col-md-6 col-xs-6">
+				<div class="pull-left text-center">
+					<img src="<?= asset_url('build/img/ruben.jpg'); ?>" class="img-responsive img-circle team" alt="Ruben Arslan">
+					<hr />
+					<h3>Ruben</h3>
+				</div>
+			</div>
+
 			<div class="clear"></div>
 
 		</div>
@@ -124,7 +125,7 @@
 	<h2 class="fmr-lead text-center">Hosting &amp; Security</h2>
 	<div class="container">
 		<div class="col-md-6 col-md-push-6">
-			<h3><i class="fa fa-fw fa-lock"></i> Security</h3>
+			<h3 id="security"><i class="fa fa-fw fa-lock"></i> Security</h3>
 			<p>
 				Your (and your participants') connection to this site is encrypted using state-of-the-art security using <a href="https://en.wikipedia.org/wiki/HTTPS">HTTPS (also called HTTP over TLS)</a>. This protects against eavesdropping on survey responses and tampering with the content of our site.
 			</p>
