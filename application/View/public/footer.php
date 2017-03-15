@@ -23,7 +23,7 @@
 				</div>
 			</div>
 
-			<div class="col-md-3 col-sm-6 col-xs-12 animate-box">
+			<div class="col-md-4 col-sm-6 col-xs-12 animate-box">
 				<div class="fmr-footer-widget">
 					<h3>Imprint</h3>
 					<p>
@@ -36,7 +36,7 @@
 				</div>
 			</div>
 
-			<div class="col-md-3 col-sm-6 col-xs-12 animate-box">
+			<div class="col-md-2 col-sm-6 col-xs-12 animate-box">
 				<div class="fmr-footer-widget">
 					<ul class="fmr-links">
 						<li><a href="https://www.uni-goettingen.de/" target="_blank"><img src="<?= asset_url('build/img/goettingen_uni.png') ?>" alt="Uni Göttingen logo"></a></li>
