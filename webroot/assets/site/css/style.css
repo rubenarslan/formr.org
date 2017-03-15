@@ -526,6 +526,7 @@ body {
     width: 100%;
     position: relative;
     background: #fff;
+    height: 417px;
     overflow: hidden;
     z-index: 9;
     margin-bottom: 30px;

@@ -18,19 +18,19 @@
 		<div class="row">
 			<div class="col-md-6 col-xs-6">
 				<div class="pull-right text-center">
+					<img src="<?= asset_url('build/img/cyril.jpg'); ?>" class="img-responsive img-circle team" alt="Cyril Tata">
+					<hr />
+					<h3>Cyril</h3>
+				</div>
+			</div>
+			<div class="col-md-6 col-xs-6">
+				<div class="pull-left text-center">
 					<img src="<?= asset_url('build/img/ruben.jpg'); ?>" class="img-responsive img-circle team" alt="Ruben Arslan">
 					<hr />
 					<h3>Ruben</h3>
 				</div>
 			</div>
-			<div class="col-md-6 col-xs-6">
-				<div class="pull-left text-center">
-					<img src="<?= asset_url('build/img/cyril.jpg'); ?>" class="img-responsive img-circle team" alt="Cyril Tata">
 
-					<hr />
-					<h3>Cyril</h3>
-				</div>
-			</div>
 			<div class="clear"></div>
 
 		</div>
@@ -38,7 +38,7 @@
 </section>
 <!-- END #fmr-projects -->
 
-<section id="fmr-features">
+<section id="fmr-features" style="padding-top: 2em;">
 	<div class="container">
 		<div class="row text-center">
 			<div class="col-md-8 col-md-offset-2">
@@ -54,7 +54,7 @@
 						If you are publishing research conducted using formr, <strong>please cite</strong> 
 					</p>
 					<p>
-						Arslan, R.C., &amp; Tata, C.S. (2017). formr.org survey software (Version v0.15.6). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
+						Arslan, R.C., &amp; Tata, C.S. (2017). formr.org survey software (Version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
 					</p>
 					<p>
 						Cite the version that was active while you ran your study. Zenodo will keep backups of each major release, so that the software used for your study is preserved when we update it and if Github ceases to exist. This ensures reproducibility and allows us to trace papers affected by major bugs, should we discover any in the future. 
@@ -106,9 +106,6 @@
 					<p>
 						formr is open source software and uses a lot of other free software, see the <a href="https://github.com/rubenarslan/formr.org">Github repository</a> for some due credit. Most importantly, formr uses <a href="http://opencpu.org">OpenCPU</a> as its R backend.
 					</p>
-					<p>
-						Photos: FreeDigitalPhotos.net
-					</p>
 				</div>
 			</div>
 			<div class="clearfix visible-sm-block"></div>
@@ -124,7 +121,7 @@
 	<h2 class="fmr-lead text-center">Hosting &amp; Security</h2>
 	<div class="container">
 		<div class="col-md-6 col-md-push-6">
-			<h3><i class="fa fa-fw fa-lock"></i> Security</h3>
+			<h3 id="security"><i class="fa fa-fw fa-lock"></i> Security</h3>
 			<p>
 				Your (and your participants') connection to this site is encrypted using state-of-the-art security using <a href="https://en.wikipedia.org/wiki/HTTPS">HTTPS (also called HTTP over TLS)</a>. This protects against eavesdropping on survey responses and tampering with the content of our site.
 			</p>
