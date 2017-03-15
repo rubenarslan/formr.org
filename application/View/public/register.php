@@ -42,19 +42,22 @@
 						<div class="fmr-center-position">
 							<h2 class="animate-box">Sign-Up</h2>
 							<h3>It's free, we don't spam</h3>
-							<p>If you don't have a referral token, you will need to write us an <a title=" We're excited to have people try this out, so you'll get a test account, if you're human or at least cetacean. But let us know a little about what you plan to do." class="schmail" href="mailto:IMNOTSENDINGSPAMTOruben.arslan@that-big-googly-eyed-email-provider.com?subject=<?=rawurlencode("formr private beta");?>&amp;body=<?=rawurlencode("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above.Hi there!
+							<p>If you don't have a referral token, sign up first and then write us an <a title=" We're excited to have people try this out, so you'll get a test account, if you're human. But let us know a little about what you plan to do (and sign up first)." class="schmail" href="mailto:IMNOTSENDINGSPAMTOruben.arslan@that-big-googly-eyed-email-provider.com?subject=<?=rawurlencode("formr private beta");?>&amp;body=<?=rawurlencode("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above.Hi there!
 
-I'd like an admin account on formr. I'm totally not a robot.
+I'd like to create studies using formr. I'm totally not a dolphin.
 
-I already have registered with the email address from which I'm sending this request. 
+I confirm that I have already registered with the email address from which I'm sending this request. 
 
-I'm affiliated with the University of Atlantis
+I'm affiliated with the University of Atlantis.
 
 This is what I want to use formr for:
 [x] find out more about land mammals
 [x] plan cetacean world domination 
 [ ] excessively use your server resources
-");?>">email</a> to ask for an admin account. If you have one, you'll get your admin account once you confirm your email address.</p>
+
+Squee'ek uh'k kk'kkkk squeek eee'eek!
+Not a Dolphin
+");?>">email</a> to ask for the right to create studies. If you have a token, you'll be able to create studies once you confirm your email address.</p>
 						</div>
 					</div>
 				</div>

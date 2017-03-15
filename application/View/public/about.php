@@ -107,9 +107,6 @@
 					<p>
 						formr is open source software and uses a lot of other free software, see the <a href="https://github.com/rubenarslan/formr.org">Github repository</a> for some due credit. Most importantly, formr uses <a href="http://opencpu.org">OpenCPU</a> as its R backend.
 					</p>
-					<p>
-						Photos: FreeDigitalPhotos.net
-					</p>
 				</div>
 			</div>
 			<div class="clearfix visible-sm-block"></div>

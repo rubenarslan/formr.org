@@ -14,8 +14,9 @@
 
 			<div class="col-md-3 col-sm-6 col-xs-12 animate-box">
 				<div class="fmr-footer-widget">
-					<h3>Support</h3>
+					<h3>Get support</h3>
 					<ul class="fmr-links">
+						<li><a href="<?= site_url('documentation#help')?>">How to get help</a></li>
 						<li><a href="https://groups.google.com/d/forum/formr">formr google group</a></li>
 						<li><a href="https://github.com/rubenarslan/formr.org">formr github</a></li>
 					</ul>
@@ -24,9 +25,10 @@
 
 			<div class="col-md-3 col-sm-6 col-xs-12 animate-box">
 				<div class="fmr-footer-widget">
-					<h3>Contact Us</h3>
+					<h3>Imprint</h3>
 					<p>
-						University of Goettingen <br />
+						Georg-Elias-Mueller-Institut of Psychology<br>
+						University of Goettingen <br>
 						Goßlerstraße 14, <br>
 						37073 Göttingen <br>
 						Germany
