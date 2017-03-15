@@ -19,7 +19,6 @@
 			<div class="col-md-6 col-xs-6">
 				<div class="pull-right text-center">
 					<img src="<?= asset_url('build/img/cyril.jpg'); ?>" class="img-responsive img-circle team" alt="Cyril Tata">
-
 					<hr />
 					<h3>Cyril</h3>
 				</div>
@@ -39,7 +38,7 @@
 </section>
 <!-- END #fmr-projects -->
 
-<section id="fmr-features">
+<section id="fmr-features" style="padding-top: 2em;">
 	<div class="container">
 		<div class="row text-center">
 			<div class="col-md-8 col-md-offset-2">
@@ -55,7 +54,7 @@
 						If you are publishing research conducted using formr, <strong>please cite</strong> 
 					</p>
 					<p>
-						Arslan, R.C., &amp; Tata, C.S. (2017). formr.org survey software (Version v0.15.6). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
+						Arslan, R.C., &amp; Tata, C.S. (2017). formr.org survey software (Version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
 					</p>
 					<p>
 						Cite the version that was active while you ran your study. Zenodo will keep backups of each major release, so that the software used for your study is preserved when we update it and if Github ceases to exist. This ensures reproducibility and allows us to trace papers affected by major bugs, should we discover any in the future. 

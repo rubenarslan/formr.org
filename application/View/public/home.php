@@ -61,7 +61,7 @@
 					<p>all platforms and device sizes are supported (about 30-40% of participants fill out our surveys on a mobile device)</p>
 				</div>
 			</div>
-			<div class="clearfix visible-sm-block"></div>
+			<div class="clear clearfix"></div>
 
 			<div class="col-md-4 col-sm-6 col-xs-12 animate-box">
 				<div class="fmr-feature">
