@@ -1465,6 +1465,10 @@ address, ul, ol, a {
     margin-left: 0px;
     margin-right: 0px;
 }
+.run-container .run_content_header {
+    margin-bottom: 10px;
+    display: block;
+}
 .run-container .run_content_header img {
     max-width: 100%;
     height: auto;
@@ -1710,6 +1714,7 @@ iframe.rChart {
 .run-container .btn-info:active {
     background: #46b8da !important;
     border-color: #46b8da !important;
+    color: #fff;
 }
 .run-container button.btn.btn-checked,
 .run-container label.btn.btn-checked,
