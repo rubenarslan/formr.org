@@ -280,6 +280,7 @@ In this case, previously, the submit button would never be displayed. We decided
 * New User Interface
 
 ## [0.16.1] - 15.03.2017
+## [0.16.2] - 16.03.2017
 ### Changed
 * Fix CSS bugs
 

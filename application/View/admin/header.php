@@ -87,3 +87,4 @@
                     </div><!-- /.container-fluid -->
                 </nav>
             </header>
+			<div class="alerts-container"></div>

@@ -24,7 +24,7 @@
 
     // FullHeight
     var fullHeight = function () {
-        if (!isiPad() && !isiPhone()) {
+        //if (!isiPad() && !isiPhone()) {
             var offset = $('.js-fullheight.full').length ? 0 : 49,
                 minHeight = Math.min($(window).height(), 620) - offset;
             $('.js-fullheight').css('min-height', minHeight);
@@ -35,7 +35,7 @@
             var _mTop = (minHeight >= cHeight) ? ((minHeight - cHeight) / 2) + 5 : 120;
             var mTop = _mTop > 120 ? _mTop : 120;
             $('#fmr-hero .fmr-intro .fmr-intro-text').css('padding-top', mTop);
-        }
+        //}
     };
     $(window).resize(fullHeight);
 
