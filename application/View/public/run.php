@@ -45,7 +45,7 @@
 							<?php endif; ?>
                         </header>
 
-						<div class="row">
+						<div class="alerts-container">
 							<?php Template::load('public/alerts'); ?>
 						</div>
 

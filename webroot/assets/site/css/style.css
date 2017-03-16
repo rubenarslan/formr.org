@@ -1465,6 +1465,10 @@ address, ul, ol, a {
     margin-left: 0px;
     margin-right: 0px;
 }
+.run-container .run_content_header {
+    margin-bottom: 10px;
+    display: block;
+}
 .run-container .run_content_header img {
     max-width: 100%;
     height: auto;
@@ -1710,6 +1714,7 @@ iframe.rChart {
 .run-container .btn-info:active {
     background: #46b8da !important;
     border-color: #46b8da !important;
+    color: #fff;
 }
 .run-container button.btn.btn-checked,
 .run-container label.btn.btn-checked,
@@ -2215,8 +2220,15 @@ body .select2-container {
     background-color: #DCF7FB;
     color: #5BC0DE;
 }
-.radio-inline, .checkbox-inline {
-    margin-left: 10px;
+radio input[type="radio"],
+.radio-inline input[type="radio"],
+.checkbox input[type="checkbox"],
+.checkbox-inline input[type="checkbox"] {
+    top: 10%;
+}
+.item-mc.hide_label .radio-inline + .radio-inline,
+.item-mc.hide_label .checkbox-inline + .checkbox-inline {
+    margin-left: 0px;
 }
 .empty-study-blurb {
     height: 100%;

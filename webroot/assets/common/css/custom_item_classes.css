@@ -780,9 +780,11 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
         line-height:inherit;
         min-height:inherit;
     }
-    form.form-horizontal div.form-row.form-group.hide_label div.controls label span {
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label span,
+    form.form-horizontal div.form-row.form-group.hide_label div.controls label span.mc-span {
         line-height:inherit;
         visibility:visible;
+        display: inline-block;
     }
     form.form-horizontal div.form-row.form-group.hide_label div.controls label input {
         visibility:visible;
@@ -795,6 +797,7 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
     }
     form.form-horizontal div.form-row.form-group div.controls label:not(.keep-label) {
         margin-bottom: 10px;
+        margin-left: 0px;
     }
 
 
@@ -821,6 +824,15 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
     .analogue_rating_scale30 .btn-group > .btn {
         height: 30px;
     }
+    
+    /* cancel all rotated labels */
+    form.form-horizontal div.form-row.form-group.rotate_label30 div.controls label,
+    form.form-horizontal div.form-row.form-group.rotate_label45 div.controls label,
+    form.form-horizontal div.form-row.form-group.rotate_label90 div.controls label {
+        transform: none;
+        margin-top: 0px;
+    }
+    
 }
 
 .select2pills .select2-container
