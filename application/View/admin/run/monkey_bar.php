@@ -57,10 +57,10 @@
 	</form>
 </div>
 
-<div class="modal fade refresh_on_success removal_modal" id="confirm-delete" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade refresh_on_success removal_modal monkey-bar-modal" id="confirm-delete" tabindex="-1" role="dialog" aria-hidden="true">
 	<div class="modal-dialog">
 		<div class="modal-content">
-			<div class="modal-header">Delete your test user?</div>
+			<div class="modal-header"><strong>Delete your test user?</strong></div>
 			<div class="modal-body">
 				Are you sure you want to delete your current session and all of your data in this run? You will start fresh.
 			</div>
@@ -73,10 +73,10 @@
 </div>
 
 
-<div class="modal fade refresh_on_success removal_modal" id="confirm-snip" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade refresh_on_success removal_modal monkey-bar-modal" id="confirm-snip" tabindex="-1" role="dialog" aria-hidden="true">
 	<div class="modal-dialog">
 		<div class="modal-content">
-			<div class="modal-header">Snip some data</div>
+			<div class="modal-header"><strong>Snip some data</strong></div>
 			<div class="modal-body">
 				The data that this user entered at the current position will be deleted!
 			</div>
