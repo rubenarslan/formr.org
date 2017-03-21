@@ -21,6 +21,7 @@
                                     </h3>
                                 </div>
                                 <div class="box-body">
+									<?php Template::load('public/alerts'); ?>
                                     <form class="form-horizontal edit_run form-inline" enctype="multipart/form-data" name="edit_run" method="post" action="<?= admin_run_url($run->name) ?>" data-units='<?php echo json_encode($run->getAllUnitIds()); ?>'>
                                         <input type="hidden" value="CyrilTestDiary" name="old_run_name" class="run_name" />
                                         <div class="edit-run-header pull-right">
@@ -83,7 +84,7 @@
                                                     <a class="add_pause add_run_unit btn btn-default btn-lg hastooltip" title="Add pause" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Pause') ?>">
                                                         <i class="fa fa-pause fa-2x"></i>
                                                     </a>
-                                                    <a class="add_skipforward add_run_unit btn-default btn btn-lg hastooltip" title="Add a jump (skip forward)" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Forward') ?>">
+                                                    <a class="add_skipforward add_run_unit btn-default btn btn-lg hastooltip" title="Add a jump (skip forward)" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=SkipForward') ?>">
                                                         <i class="fa fa-forward fa-2x"></i>
                                                     </a>
                                                     <a class="add_shuffle add_run_unit btn btn-default btn-lg hastooltip" title="Add shuffle (randomise participants)" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Shuffle') ?>">
