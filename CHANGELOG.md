@@ -284,3 +284,8 @@ In this case, previously, the submit button would never be displayed. We decided
 ### Changed
 * Fix CSS bugs
 
+## [0.16.3] - 21.03.2017
+### Changed
+* HTML meta-tags
+* Fix broken run unit SkipForward link
+
