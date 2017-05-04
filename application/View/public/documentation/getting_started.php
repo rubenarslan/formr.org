@@ -3,6 +3,7 @@
 <h4> <i class="fa fa-circle"></i> Creating Studies </h4>
 <p>
 	To begin creating studies using formr, you need to <a href="<?= site_url('register')?>">sign-up</a> with your email and obtain an administrator account.
+	An administrator account is obtained by sending a request via email to <a href="mailto:rubenarslan@gmail.com">rubenarslan@gmail.com</a> or <a href="mailto:cyril.tata@gmail.com">cyril.tata@gmail.com</a>.
 	Studies in formr are <a href="<?= site_url('documentation#sample_survey_sheet')?>">created using spreadsheets</a>. As a good starting point, you can clone the following <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUmslcq2IHnY9o52RmQLKFw/">Google spreadsheet</a>
 	and study it to get versed with the definitions of the <a href="<?= site_url('documentation#available_items')?>">item types</a> formr supports.
 </p>
