@@ -289,3 +289,10 @@ In this case, previously, the submit button would never be displayed. We decided
 * HTML meta-tags
 * Fix broken run unit SkipForward link
 
+## [0.16.4] - 05.05.2017
+### Added
+* Variable to get number of participants in R `.formr$nr_of_participants`
+
+### Changed
+* Minor Bug Fixes: Form error messages, missing variables, CSS.
+

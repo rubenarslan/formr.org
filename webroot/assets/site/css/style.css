@@ -1747,6 +1747,10 @@ label.inline {
     display:inline-block;
     width:330px;
 }
+.form-group.has-error .help-block {
+	display: block !important;
+	position: relative;
+}
 form.form-horizontal div.form-group div.controls label {
     display:inline-block;
 }

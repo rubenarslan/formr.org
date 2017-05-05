@@ -499,10 +499,15 @@ class RunUnit {
 			endif;
 			
 			if(in_array('formr_login_link', $needed['variables']) ):
-				$this->survey_results['.formr$login_link'] = WEBROOT."{$this->run_name}?code=".urlencode($this->session);
+				$this->survey_results['.formr$login_link'] = "'".site_url($this->run_name)."?code=".urlencode($this->session)."'";
 			endif;
 			if(in_array('formr_login_code', $needed['variables']) ):
-				$this->survey_results['.formr$login_code'] = $this->session;
+				$this->survey_results['.formr$login_code'] = "'".$this->session."'";
+			endif;
+			if(in_array('formr_nr_of_participants', $needed['variables']) ):
+				$q = 'SELECT count(id) AS nr_of_participants FROM `survey_run_sessions` WHERE run_id = :run_id';
+				$count = (int) $this->dbh->execute($q, array('run_id' => $this->run_id), true);
+				$this->survey_results['.formr$nr_of_participants'] = $count;
 			endif;
 		endif;
 
@@ -610,8 +615,9 @@ class RunUnit {
 		$variables = array();
 		if(preg_match("/\btime_passed\b/",$q)) { $variables[] = 'formr_last_action_time'; }
 		if(preg_match("/\bnext_day\b/",$q)) { $variables[] = 'formr_last_action_date'; }
-		if(preg_match('/\b.formr\$login_code\b/',$q)) { $variables[] = 'formr_login_code'; }
-		if(preg_match('/\b.formr\$login_link\b/',$q)) { $variables[] = 'formr_login_link'; }
+		if(strstr($q, '.formr$login_code') !== false) { $variables[] = 'formr_login_code'; }
+		if(strstr($q, '.formr$login_link') !== false) { $variables[] = 'formr_login_link'; }
+		if(strstr($q, '.formr$nr_of_participants') !== false) { $variables[] = 'formr_nr_of_participants'; }
 
 		$data = compact("matches","matches_results_tables", "matches_variable_names", "token_add", "variables");
 		Cache::set($cache_key, $data);
@@ -646,7 +652,7 @@ class RunUnit {
 
 			$body = opencpu_debug($session);
 		} else {
-			$report = $this->body_parsed;
+			$body = $this->body_parsed;
 
 		}
 		if ($email_embed) {
