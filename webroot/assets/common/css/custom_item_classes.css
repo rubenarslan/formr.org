@@ -935,6 +935,7 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
 }
 .bs-material .btn, .bs-material .input-group-btn .btn {
     padding: 6px 12px;
+	text-transform: none;
 }
 .bs-material .radio span.mc-span, .bs-material label.radio-inline span.mc-span,
 .bs-material .checkbox span.mc-span, .bs-material label.checkbox-inline span.mc-span {

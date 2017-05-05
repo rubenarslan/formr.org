@@ -5,7 +5,7 @@ You can <a href="https://docs.google.com/spreadsheets/d/1vXJ8sbkh0p4pM5xNqOelRUm
 	<thead>
 		<tr>
 			<th>
-				list name
+				list_name
 			</th>
 			<th>
 				name
