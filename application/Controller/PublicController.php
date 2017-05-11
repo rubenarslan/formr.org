@@ -394,10 +394,15 @@ class PublicController extends Controller {
 			redirect_to('index');
 		}
 
+		if (!Session::canValidateRequestToken($this->request)) {
+			redirect_to('error/500');
+		}
+
 		if (!($email = $this->request->str('n_email')) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
 			alert('Please enter a valid email for <a href="#newsletter">newsletter subscription</a>', 'alert-danger');
+		} else {
+			$this->user->verifyNewsletterSubscription($email);
 		}
-		$this->user->verifyNewsletterSubscription($email);
 		redirect_to('index');
 	}
 }
