@@ -296,3 +296,8 @@ In this case, previously, the submit button would never be displayed. We decided
 ### Changed
 * Minor Bug Fixes: Form error messages, missing variables, CSS.
 
+## [0.16.5] - 11.05.2017
+### Added
+* CSRF protection
+
+
