@@ -102,7 +102,10 @@ class EmailAccount {
 		$mail->FromName = $this->account['from_name'];
 		$mail->AddReplyTo($this->account['from'], $this->account['from_name']);
 		$mail->CharSet = "utf-8";
-		$mail->WordWrap = 65;		 // set word wrap to 50 characters
+		$mail->WordWrap = 65; // set word wrap to 65 characters
+		if (is_array(Config::get('email.smtp_options'))) {
+			$mail->SMTPOptions = array_merge($mail->SMTPOptions, Config::get('email.smtp_options'));
+		}
 
 		return $mail;
 	}
