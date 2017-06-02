@@ -45,6 +45,8 @@ $settings['email'] = array(
 	'queue_item_ttl' => 20*60,
 	// Number of times to retry an item before deleting
 	'queue_item_tries' => 4,
+	// SMTP options for phpmailer
+	'smtp_options' => array(),
 );
 
 // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged

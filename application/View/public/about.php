@@ -163,7 +163,5 @@
 
 <?php Template::load('public/disclaimer'); ?>
 
-<?php Template::load('public/newsletter'); ?>
-
 <?php Template::load('public/footer'); ?>
 			

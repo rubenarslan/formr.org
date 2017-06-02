@@ -5,7 +5,7 @@ class EmailQueue {
 
 	/**
 	 * 
-	 * @param DB $db
+	 * @var DB
 	 */
 	protected $db;
 
@@ -28,7 +28,7 @@ class EmailQueue {
 	 *
 	 * @var int
 	 */
-	protected $allowedSleeps = 120; 
+	protected $allowedSleeps = 120;
 
 	/**
 	 * Number of seconds mailer should sleep before checking if there is something in queue
@@ -36,9 +36,7 @@ class EmailQueue {
 	 * @var int
 	 */
 	protected $sleep = 15;
-
 	protected $itemTtl;
-
 	protected $itemTries;
 
 	/**
@@ -80,7 +78,7 @@ class EmailQueue {
 	protected function getEmailAccountsStatement($account_id) {
 		$WHERE = '';
 		if ($account_id) {
-			$WHERE .= 'account_id = ' . (int)$account_id;
+			$WHERE .= 'account_id = ' . (int) $account_id;
 		}
 
 		$query = "SELECT account_id, `from`, from_name, host, port, tls, username, password 
@@ -99,7 +97,7 @@ class EmailQueue {
 	 * @return PDOStatement
 	 */
 	protected function getEmailsStatement($account_id) {
-		$query = 'SELECT id, subject, message, recipient, created, meta FROM survey_email_queue WHERE account_id = ' . (int)$account_id;
+		$query = 'SELECT id, subject, message, recipient, created, meta FROM survey_email_queue WHERE account_id = ' . (int) $account_id;
 		return $this->db->rquery($query);
 	}
 
@@ -133,6 +131,9 @@ class EmailQueue {
 			$mail->CharSet = "utf-8";
 			$mail->WordWrap = 65;
 			$mail->AllowEmpty = true;
+			if (is_array(Config::get('email.smtp_options'))) {
+				$mail->SMTPOptions = array_merge($mail->SMTPOptions, Config::get('email.smtp_options'));
+			}
 
 			$this->connections[$account_id] = $mail;
 		}
@@ -154,13 +155,13 @@ class EmailQueue {
 
 		while ($account = $emailAccountsStatement->fetch(PDO::FETCH_ASSOC)) {
 			if (!filter_var($account['from'], FILTER_VALIDATE_EMAIL)) {
-				$this->db->exec('DELETE FROM survey_email_queue WHERE account_id = ' . (int)$account['account_id']);
+				$this->db->exec('DELETE FROM survey_email_queue WHERE account_id = ' . (int) $account['account_id']);
 				continue;
 			}
 
 			$mailer = $this->getSMTPConnection($account);
 			$emailsStatement = $this->getEmailsStatement($account['account_id']);
-			while($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
+			while ($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
 				if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL) || !$email['subject']) {
 					$this->registerFailure($email);
 					continue;
@@ -197,13 +198,13 @@ class EmailQueue {
 				// Send mail
 				try {
 					if (($sent = $mailer->send())) {
-						$this->db->exec("DELETE FROM survey_email_queue WHERE id = " . (int)$email['id']);
+						$this->db->exec("DELETE FROM survey_email_queue WHERE id = " . (int) $email['id']);
 						$query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient, sent) VALUES (:session_id, :email_id, NOW(), :recipient, :sent)";
 						$this->db->exec($query, array(
 							'session_id' => $meta['session_id'],
 							'email_id' => $meta['email_id'],
 							'recipient' => $email['recipient'],
-							'sent' => (int)$sent,
+							'sent' => (int) $sent,
 						));
 						self::dbg("Send Success. \n {$debugInfo}");
 					} else {
@@ -246,7 +247,7 @@ class EmailQueue {
 		}
 		$this->failures[$id]++;
 		if ($this->failures[$id] > $this->itemTries || (time() - strtotime($email['created'])) > $this->itemTtl) {
-			$this->db->exec('DELETE FROM survey_email_queue WHERE id = ' . (int)$id);
+			$this->db->exec('DELETE FROM survey_email_queue WHERE id = ' . (int) $id);
 		}
 	}
 
@@ -344,4 +345,5 @@ class EmailQueue {
 			}
 		}
 	}
+
 }
