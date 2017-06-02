@@ -56,6 +56,4 @@
 	</div>
 </section>
 
-<?php Template::load('public/newsletter'); ?>
-
 <?php Template::load('public/footer'); ?>
