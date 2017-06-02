@@ -386,24 +386,5 @@ class PublicController extends Controller {
 		exit;
 	}
 
-	public function newsletterSubscriptionAction() {
-		if (Request::isHTTPGetRequest()) {
-			if ($this->request->token && $this->request->email) {
-				$this->user->verifyNewsletterSubscription($this->request->email, $this->request->token);
-			}
-			redirect_to('index');
-		}
-
-		if (!Session::canValidateRequestToken($this->request)) {
-			redirect_to('error/500');
-		}
-
-		if (!($email = $this->request->str('n_email')) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-			alert('Please enter a valid email for <a href="#newsletter">newsletter subscription</a>', 'alert-danger');
-		} else {
-			$this->user->verifyNewsletterSubscription($email);
-		}
-		redirect_to('index');
-	}
 }
 

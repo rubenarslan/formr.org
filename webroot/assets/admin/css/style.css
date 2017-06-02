@@ -39,6 +39,24 @@ input:focus {outline:none;}
     font-weight: bold;
     margin-top: 20px;
 }
+.dashboard-small-links i {
+	font-size: 16px;
+}
+.dashboard-small-link {
+	background: #fff;
+	padding: 6px 8px;
+	border: 1px solid #efefef;
+	margin-right: 5px;
+	margin-bottom: 5px;
+	border-radius: 2px;
+	display: inline-block;
+	font-size: 14px;
+}
+.dashboard-small-link:hover {
+	color: #555;
+	background: #e1e1e1;
+}
+
 #show-items .modal-dialog {
     width: 100%;
     margin-top: 2px;

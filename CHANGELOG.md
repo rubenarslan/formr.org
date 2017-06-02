@@ -300,4 +300,11 @@ In this case, previously, the submit button would never be displayed. We decided
 ### Added
 * CSRF protection
 
+## [0.16.6] - 02.06.2017
+### Added
+* Config item for phpmailer SMTPOptions
+* Quick links to runs and surveys on admin dash board
 
+### Changed
+* Fix broken sign up referrer code functionality
+* Remove newsletter subscription
