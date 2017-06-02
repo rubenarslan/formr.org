@@ -323,10 +323,10 @@ formr robots";
 	}
 
 	public function verify_email($email, $token) {
-		$email_verification_hash = $this->dbh->findValue('survey_users', array('email' => $email), array('email_verification_hash'));
+		$verify_data = $this->dbh->findRow('survey_users', array('email' => $email), array('email_verification_hash', 'referrer_code'));
 
-		if ($email_verification_hash):
-			if (password_verify($token, $email_verification_hash)):
+		if ($verify_data):
+			if (password_verify($token, $verify_data['email_verification_hash'])):
 
 				$this->dbh->update('survey_users', 
 					array('email_verification_hash' => null, 'email_verified' => 1), 
@@ -335,7 +335,7 @@ formr robots";
 				);
 				alert("Your email was successfully verified!", "alert-success");
 				
-				if(in_array( $this->referrer_code, Config::get("referrer_codes"))):
+				if(in_array($verify_data['referrer_code'], Config::get("referrer_codes"))):
 					$this->dbh->update('survey_users', 
 						array('admin' => 1),
 						array('email' => $email)
