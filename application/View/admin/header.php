@@ -16,8 +16,10 @@
 		?>
 
 		<?php
-			$runs = $user->getRuns();
-			$studies =  $user->getStudies();
+			if (!isset($runs) || !isset($studies)) {
+				$runs = $user->getRuns();
+				$studies =  $user->getStudies();
+			}
 		?>
     </head>
 

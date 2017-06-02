@@ -67,6 +67,35 @@
 		</div>
 
 	</section>
+	
+	
+	<section class="content">
+		<div class="row">
+			<div class="col-md-12 dashboard-small-links">
+				
+				<h2>Runs</h2>
+				<?php if(empty($runs)): ?>
+					<i>You haven't created any run yet! <a href="<?php echo admin_url('run'); ?>"> Create new Run</a>.</i>
+				<?php else: ?>
+					<?php foreach ($runs as $d_run): ?>
+					<a class="dashboard-small-link" href="<?php echo admin_run_url($d_run['name']); ?>"><?php echo $d_run['name']; ?></a>
+					<?php endforeach; ?>
+				<?php endif; ?>
+
+				<h2>Surveys</h2>
+				<?php if(empty($studies)): ?>
+					<i>You haven't created any surveys yet! <a href="<?php echo admin_url('survey'); ?>"> Create new Survey</a>.</i>
+				<?php else: ?>
+					<?php foreach ($studies as $d_study): ?>
+					<a class="dashboard-small-link" href="<?php echo admin_study_url($d_study['name']); ?>"><?php echo $d_study['name']; ?></a>
+					<?php endforeach; ?>
+				<?php endif; ?>
+				
+			</div>
+		</div>
+	</section>
+	
+	
 </div>
 
 <?php Template::load('admin/footer');?>

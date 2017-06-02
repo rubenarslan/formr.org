@@ -13,7 +13,10 @@ class AdminController extends Controller {
 	}
 
 	public function indexAction() {
-		$this->renderView('home');
+		$this->renderView('home', array(
+			'runs' => $this->user->getRuns(),
+			'studies' =>  $this->user->getStudies(),
+		));
 	}
 
 	public function infoAction() {
