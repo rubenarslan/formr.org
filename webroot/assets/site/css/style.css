@@ -2240,3 +2240,7 @@ radio input[type="radio"],
     background: url('../img/boombox_small.jpg') left center no-repeat;
     opacity: 0.1;
 }
+.render-alerts {
+    position:relative;
+    z-index: 100;
+}
