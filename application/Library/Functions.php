@@ -1275,12 +1275,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 					$debug['Response'] = '
 					<p>
 						<a href="'.$iframesrc.'" target="_blank">Open in new window</a>
-					</p>
-					<div class="rmarkdown_iframe">
-					<iframe src="'.$iframesrc.'">
-					  <p>Your browser does not support iframes.</p>
-					</iframe>
-					</div>';
+					</p>';
 				}
 				else if (isset($params['text']) || $rtype === 'text') {
 					$debug['Response'] = stringBool($session->getObject('text'));
