@@ -790,8 +790,6 @@ class Run {
 			$js[] = asset_url($this->custom_js_path);
 		}
 
-		$alerts = $site->renderAlerts();
-
 		$run_content = '';
 
 		if (! $this->renderedDescAndFooterAlready && trim($this->description_parsed)) {
@@ -829,7 +827,6 @@ class Run {
 			'title' => $title,
 			'css' => $css,
 			'js' => $js,
-			'alerts' => $alerts,
 			'run_session' => $run_session,
 			'run_content' => $run_content,
 			'run' => $this,
