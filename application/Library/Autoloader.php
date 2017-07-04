@@ -11,12 +11,12 @@ class Autoload {
 	private static $loader = null;
 
 	public static function classMap() {
-		if (!defined('INCLUDE_ROOT')) {
-			define('INCLUDE_ROOT', realpath(dirname(__FILE__) . '../../') . '/');
+		if (!defined('APPLICATION_ROOT')) {
+			define('APPLICATION_ROOT', realpath(dirname(__FILE__) . '../../') . '/');
 		}
 
 		if (!defined('APPLICATION_PATH')) {
-			define('APPLICATION_PATH', INCLUDE_ROOT . 'application/');
+			define('APPLICATION_PATH', APPLICATION_ROOT . 'application/');
 		}
 
 		return array(

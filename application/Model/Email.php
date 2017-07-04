@@ -354,7 +354,7 @@ class Email extends RunUnit {
 
 		if(filter_var($this->recipient, FILTER_VALIDATE_EMAIL) AND $mail->Body !== false AND $mail->Subject !== false):
 			foreach ($this->images AS $image_id => $image):
-				$local_image = INCLUDE_ROOT . 'tmp/' . uniqid() . $image_id;
+				$local_image = APPLICATION_ROOT . 'tmp/' . uniqid() . $image_id;
 				copy($image, $local_image);
 				register_shutdown_function(create_function('', "unlink('{$local_image}');"));
 

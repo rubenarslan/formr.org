@@ -2118,7 +2118,7 @@ class Item_file extends Item {
 				$new_file_name = crypto_token(66) . $this->file_endings[$mime];
 				if (!in_array($mime, array_keys($this->file_endings))) {
 					$this->error = 'Files of type' . $mime . ' are not allowed to be uploaded.';
-				} elseif (move_uploaded_file($reply['tmp_name'], INCLUDE_ROOT . 'webroot/assets/tmp/' . $new_file_name)) {
+				} elseif (move_uploaded_file($reply['tmp_name'], APPLICATION_ROOT . 'webroot/assets/tmp/' . $new_file_name)) {
 					$public_path = WEBROOT . 'assets/tmp/' . $new_file_name;
 					$reply = __($this->embed_html, $public_path);
 				} else {

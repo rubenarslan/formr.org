@@ -1,10 +1,13 @@
 <?php
-define('INCLUDE_ROOT', __DIR__. '/');
+define('APPLICATION_ROOT', __DIR__. '/');
+define('INCLUDE_ROOT', APPLICATION_ROOT);
 
-define('APPLICATION_PATH', INCLUDE_ROOT . 'application/');
+define('APPLICATION_PATH', APPLICATION_ROOT . 'application/');
+
+define('APPPLICATION_CRYPTO_KEY_FILE', APPLICATION_ROOT  . 'formr-crypto.key');
 
 // Load composer Autoloader
-require_once INCLUDE_ROOT . 'vendor/autoload.php';
+require_once APPLICATION_ROOT . 'vendor/autoload.php';
 
 // Initialize settings array and define routes
 $settings = array();
@@ -20,12 +23,12 @@ $settings['routes'] = array (
 
 // Load application settings
 /* @var $settings array */
-require_once INCLUDE_ROOT . 'config_default/settings.php';
-require_once INCLUDE_ROOT . 'config/settings.php';
+require_once APPLICATION_ROOT . 'config_default/settings.php';
+require_once APPLICATION_ROOT . 'config/settings.php';
 
 // Define default assets
 if(php_sapi_name() != 'cli') {
-	require_once INCLUDE_ROOT . 'config_default/assets.php';
+	require_once APPLICATION_ROOT . 'config_default/assets.php';
 }
 
 // Set current formr version (bumbped on release)

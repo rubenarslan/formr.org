@@ -346,7 +346,7 @@ class AdminRunController extends AdminController {
 
 	private function exportSurveyResultsAction() {
 		$studies = $this->run->getAllSurveys();
-		$dir = INCLUDE_ROOT . 'tmp/backups/results';
+		$dir = APPLICATION_ROOT . 'tmp/backups/results';
 		if (!$dir) {
 			alert('Unable to create run backup directory', 'alert-danger');
 			redirect_to(admin_run_url($this->run->name));
