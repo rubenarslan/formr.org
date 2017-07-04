@@ -168,29 +168,31 @@ Best regards,
 
 formr robots";
 
-		if (!$mail->Send()):
+		if (!$mail->Send()) {
 			alert($mail->ErrorInfo, 'alert-danger');
-		else:
+		} else {
 			alert("You were sent an email to verify your address.", 'alert-info');
-		endif;
+		}
 	}
 
 	public function login($email, $password) {
-		$user = $this->dbh->select('id, password, admin, user_code')
+		$user = $this->dbh->select('id, password, admin, user_code, email_verified')
 				->from('survey_users')
 				->where(array('email' => $email))
 				->limit(1)->fetch();
-
-		if ($user && password_verify($password, $user['password'])) {
+		if ($user && !$user['email_verified']) {
+			$this->errors[] = 'Please verify your email address by clicking on the verification link that was sent to you.';
+			return false;
+		} elseif ($user && password_verify($password, $user['password'])) {
 			if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
 				$hash = password_hash($password, PASSWORD_DEFAULT);
 				/* Store new hash in db */
-				if ($hash):
+				if ($hash) {
 					$this->dbh->update('survey_users', array('password' => $hash), array('email' => $email));
-				else:
-					alert('<strong>Error!</strong> Hash error.', 'alert-danger');
+				} else {
+					$this->errors[] = 'An error occurred verifying your password. Please contact site administrators!';
 					return false;
-				endif;
+				}
 			}
 
 			$this->logged_in = true;
@@ -199,10 +201,10 @@ formr robots";
 			$this->user_code = $user['user_code'];
 			$this->admin = $user['admin'];
 			return true;
+		} else {
+			$this->errors[] = 'Your login credentials were incorrect!';
+			return false;
 		}
-
-		$this->errors[] = _("<strong>Error.</strong> Your login credentials were incorrect.");
-		return false;
 	}
 
 	public function setAdminLevelTo($level) {
