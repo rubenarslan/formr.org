@@ -32,8 +32,9 @@ The following requirements should be installed on the system you intend to insta
 * [Git](http://git-scm.com/) (for installation)
 * PHP >= 5.4
 * Apache >= 2.4
-* MySQL >= 5.5.40
+* MySQL >= 5.6
 * [Composer](https://getcomposer.org/) (for installing dependencies)
+* [The Sodium crypto library (Libsodium)](https://paragonie.com/book/pecl-libsodium/read/00-intro.md#installing-libsodium)
 * [Gearman](http://gearman.org/) (Server + Client) *OPTIONAL* (for running background jobs)
 * [Supervisor](http://supervisord.org/) *OPTIONAL*
 * [smysqlin](https://bitbucket.org/cyriltata/smysqlin) *OPTIONAL* (for managing database patches)

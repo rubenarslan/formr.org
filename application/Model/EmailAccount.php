@@ -11,6 +11,8 @@ class EmailAccount {
 	 * @var DB
 	 */
 	private $dbh;
+	
+	const AK_GLUE = ':fmr:';
 
 	public function __construct($fdb, $id, $user_id) {
 		$this->dbh = $fdb;
@@ -27,7 +29,11 @@ class EmailAccount {
 		if ($this->account) {
 			$this->valid = true;
 			$this->user_id = (int) $this->account['user_id'];
-
+			if ($this->account['auth_key']) {
+				list($username, $password) = explode(self::AK_GLUE, Crypto::decrypt($this->account['auth_key']), 2);
+				$this->account['username'] = $username;
+				$this->account['password'] = $password;
+			}
 		}
 	}
 
@@ -39,6 +45,7 @@ class EmailAccount {
 
 	public function changeSettings($posted) {
 		$change_pw = "";
+		$old_password = $this->account['password'];
 		$this->account = $posted;
 
 		$params = array(
@@ -48,15 +55,21 @@ class EmailAccount {
 			'host' => $this->account['host'],
 			'port' => $this->account['port'],
 			'tls' => $this->account['tls'],
-			'username' => $this->account['username']
+			'username' => $this->account['username'],
+			'password' => $old_password,
 		);
 
-		if (trim($posted['password']) != "") {
-			$change_pw = ", `password` = :password";
+		if (trim($posted['password']) != '') {
 			$params['password'] = $this->account['password'];
 		}
+
+		$params['auth_key'] = Crypto::encrypt(array($params['username'], $params['password']), self::AK_GLUE);
+		if (!$params['auth_key']) {
+			return false;
+		}
+
 		$query = "UPDATE `survey_email_accounts` 
-			SET `from` = :fromm, `from_name` = :from_name, `host` = :host, `port` = :port, `tls` = :tls, `username` = :username $change_pw
+			SET `from` = :fromm, `from_name` = :from_name, `host` = :host, `port` = :port, `tls` = :tls, `username` = :username, `password` = :password, `auth_key` = :auth_key
 			WHERE id = :id LIMIT 1";
 
 		$this->dbh->exec($query, $params);

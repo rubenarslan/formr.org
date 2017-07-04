@@ -255,7 +255,7 @@ class Run {
 						$new_file_path = 'assets/tmp/admin/' . crypto_token(33, true) . $this->file_endings[$mime];
 					}
 
-					if (move_uploaded_file($files['tmp_name'][$i], INCLUDE_ROOT . "webroot/" . $new_file_path)) {
+					if (move_uploaded_file($files['tmp_name'][$i], APPLICATION_ROOT . "webroot/" . $new_file_path)) {
 						$this->dbh->insert_update('survey_uploaded_files', array(
 							'run_id' => $this->id,
 							'created' => mysql_now(),
@@ -451,7 +451,7 @@ class Run {
 	}
 
 	private function getFileContent($path) {
-		$path = new SplFileInfo(INCLUDE_ROOT . "webroot/" . $path);
+		$path = new SplFileInfo(APPLICATION_ROOT . "webroot/" . $path);
 		$exists = file_exists($path->getPathname());
 		if ($exists) {
 			$file = $path->openFile('c+');
@@ -503,7 +503,7 @@ class Run {
 				}
 
 				$name = $name . "_path";
-				$asset_file = INCLUDE_ROOT . "webroot/" . $asset_path;
+				$asset_file = APPLICATION_ROOT . "webroot/" . $asset_path;
 				// Delete old file if css/js was emptied
 				if (!$value && $asset_path) {
 					if (file_exists($asset_file) && !unlink($asset_file)) {
@@ -514,7 +514,7 @@ class Run {
 					// if $asset_path has not been set it means neither JS or CSS has been entered so create a new path
 					if (!$asset_path) {
 						$asset_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
-						$asset_file = INCLUDE_ROOT . 'webroot/' . $asset_path;
+						$asset_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
 					}
 
 					$path = new SplFileInfo($asset_file);

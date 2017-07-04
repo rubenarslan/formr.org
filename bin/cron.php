@@ -163,7 +163,7 @@ if (!empty($opts['n'])) {
 		exit(1);
 	}
 
-	$lockfile = INCLUDE_ROOT . "tmp/cron-{$name}.lock";
+	$lockfile = APPLICATION_ROOT . "tmp/cron-{$name}.lock";
 	register_shutdown_function('cron_run_cleanup');
 	cron_process_run($run, $lockfile);
 	unset($site, $user, $run);
@@ -177,7 +177,7 @@ $start_date = date('r');
 $start_time = microtime(true);
 $max_exec_time = (int)Config::get('cron.ttl_cron') * 60;
 $intercept_if_expired = (int)Config::get('cron.intercept_if_expired');
-$lockfile = INCLUDE_ROOT . 'tmp/cron.lock';
+$lockfile = APPLICATION_ROOT . 'tmp/cron.lock';
 
 set_time_limit($max_exec_time);
 
@@ -212,7 +212,7 @@ try {
 		}
 
 		// If run is locked, do not process it
-		$run_lockfile = INCLUDE_ROOT . "tmp/cron-{$run->name}.lock";
+		$run_lockfile = APPLICATION_ROOT . "tmp/cron-{$run->name}.lock";
 		if (cron_lock_exists($run_lockfile, $start_date, get_log_file("cron/cron-run-{$run->name}.log"))) {
 			continue;
 		}

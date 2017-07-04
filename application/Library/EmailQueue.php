@@ -177,7 +177,7 @@ class EmailQueue {
 				// add emdedded images
 				if (!empty($meta['embedded_images'])) {
 					foreach ($meta['embedded_images'] as $imageId => $image) {
-						$localImage = INCLUDE_ROOT . 'tmp/formrEA' . uniqid() . $imageId;
+						$localImage = APPLICATION_ROOT . 'tmp/formrEA' . uniqid() . $imageId;
 						copy($image, $localImage);
 						$files[] = $localImage;
 						if (!$mailer->addEmbeddedImage($localImage, $imageId, $imageId, 'base64', 'image/png')) {

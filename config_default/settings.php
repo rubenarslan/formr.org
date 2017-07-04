@@ -70,19 +70,19 @@ $settings['session_cookie_lifetime'] = max($settings['expire_unregistered_sessio
 $settings['admin_maximum_size_of_uploaded_files'] = 50;
 
 // Directory for exported runs
-$settings['run_exports_dir'] = INCLUDE_ROOT . 'documentation/run_components';
+$settings['run_exports_dir'] = APPLICATION_ROOT . 'documentation/run_components';
 
 // Directory for uploaded survey
-$settings['survey_upload_dir'] = INCLUDE_ROOT . 'tmp/backups/surveys';
+$settings['survey_upload_dir'] = APPLICATION_ROOT . 'tmp/backups/surveys';
 
 // application webroot
-$settings['web_dir'] = INCLUDE_ROOT . 'webroot';
+$settings['web_dir'] = APPLICATION_ROOT . 'webroot';
 
 // Setup settings for application that can overwrite defaults in /define_root.php
 $settings['define_root'] = array(
 		//'protocol' => 'http://',
 		//'doc_root' => 'localhost/formr.org/',
-		//'server_root' => INCLUDE_ROOT . '/',
+		//'server_root' => APPLICATION_ROOT . '/',
 		//'online' => false,
 		//'testing' => true
 );
