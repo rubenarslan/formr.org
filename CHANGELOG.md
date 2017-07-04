@@ -308,3 +308,8 @@ In this case, previously, the submit button would never be displayed. We decided
 ### Changed
 * Fix broken sign up referrer code functionality
 * Remove newsletter subscription
+
+## [0.16.8] - 04.07.2017
+### Changed
+* Fix bug preventing user email change
+

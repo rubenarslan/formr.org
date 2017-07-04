@@ -21,7 +21,7 @@ Template::load('public/header');
 								<h4 class="lead">Changes are effective immediately</h4>
 								<div class="form-group label-floating">
 									<label class="control-label" for="email"><i class="fa fa-envelope-o fa-fw"></i> New Email (Leave empty to keep current email)</label>
-									<input class="form-control" type="email" id="email" name="new-email">
+									<input class="form-control" type="email" id="email" name="new_email">
 								</div>
 								<div class="form-group label-floating">
 									<label class="control-label" for="pass2"><i class="fa fa-key fa-fw"></i> Enter New Password (Choose a secure phrase)</label>
