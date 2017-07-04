@@ -42,24 +42,26 @@ class PublicController extends Controller {
 			$redirect = false;
 			if($this->request->str('new_password')) {
 				if($this->user->changePassword($this->request->str('password'), $this->request->str('new_password'))) {
-					alert('<strong>Success!</strong> Your password was changed!','alert-success');
-					$redirect = true;
+					alert('<strong>Success!</strong> Your password was changed! Please sign-in with your new password.','alert-success');
+					$redirect = 'logout';
 				} else {
 					alert(implode($this->user->errors), 'alert-danger');
 				}
 			}
 
 			if($this->request->str('new_email')) {
-				if($this->user->changeEmail($this->request->str('password'), $this->request->str('new_email'))) {
-					alert('<strong>Success!</strong> Your email address was changed!', 'alert-success');
-					$redirect = true;
+				if ($this->fdb->entry_exists('survey_users', array('email' => $this->request->str('new_email')))) {
+					alert("The provided email address is already in use!", 'alert-danger');
+				} elseif ($this->user->changeEmail($this->request->str('password'), $this->request->str('new_email'))) {
+					//alert('<strong>Success!</strong> Your email address was changed! Please veirfy your new email and sign-in.', 'alert-success');
+					$redirect = 'logout';
 				} else {
-					alert(implode($this->user->errors),'alert-danger');
+					alert(implode($this->user->errors), 'alert-danger');
 				}
 			}
 
 			if($redirect) {
-				redirect_to('index');
+				redirect_to($redirect);
 			}
 		}
 
@@ -83,22 +85,22 @@ class PublicController extends Controller {
 		}
 
 		$this->registerAssets('bootstrap-material-design');
-		$this->renderView('public/login');
+		$this->renderView('public/login', array('alerts' => $this->site->renderAlerts()));
 	}
 
 	public function logoutAction() {
 		$user = $this->user;
 		if($user->loggedIn()) {
+			alert('You have been logged out!', 'alert-info');
+			$alerts = $this->site->renderAlerts();
 			$user->logout();
-			$redirect_to = 'login';
+			$this->registerAssets('bootstrap-material-design');
+			$this->renderView('public/login', array('alerts' => $alerts));
 		} else {
 			Session::destroy();
 			$redirect_to = $this->request->getParam('_rdir');
+			redirect_to($redirect_to);
 		}
-
-		$user = new User($this->fdb, null, null);
-		alert('<strong>Logged out:</strong> You have been logged out.','alert-info');
-		redirect_to($redirect_to);
 	}
 
 	public function registerAction() {

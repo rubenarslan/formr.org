@@ -271,18 +271,18 @@ formr robots";
 	}
 
 	public function changePassword($password, $new_password) {
-		if ($this->login($this->email, $password)):
+		if ($this->login($this->email, $password)) {
 
 			$hash = password_hash($new_password, PASSWORD_DEFAULT);
 			/* Store new hash in db */
-			if ($hash):
+			if ($hash) {
 				$this->dbh->update('survey_users', array('password' => $hash), array('email' => $this->email));
 				return true;
-			else:
+			} else {
 				alert('<strong>Error!</strong> Hash error.', 'alert-danger');
 				return false;
-			endif;
-		endif;
+			}
+		}
 		return false;
 	}
 
