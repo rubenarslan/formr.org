@@ -10,11 +10,8 @@ function _e($str) {
 	echo $str . "\n\n";
 }
 
-$DB = DB::getInstance();
-Crypto::setup();
-
-
 function encrypt_accounts($DB) {
+	Crypto::setup();
 	$accounts = $DB->select('id, username, password, auth_key')->from('survey_email_accounts')->fetchAll();
 	foreach ($accounts as $account) {
 		if (!$account['username'] || !$account['password']) {
