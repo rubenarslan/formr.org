@@ -32,6 +32,7 @@ class Autoload {
 			'Cache' => APPLICATION_PATH . 'Library/Cache.php',
 			'Config' => APPLICATION_PATH . 'Library/Config.php',
 			'Controller' => APPLICATION_PATH . 'Controller/Controller.php',
+			'Crypto' => APPLICATION_PATH . 'Library/Crypto.php',
 			'CURL' => APPLICATION_PATH . 'Library/CURL.php',
 			'DB' => APPLICATION_PATH . 'Library/DB.php',
 			'DB_Select' => APPLICATION_PATH . 'Model/DB.php',
