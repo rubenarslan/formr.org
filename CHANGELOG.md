@@ -313,3 +313,10 @@ In this case, previously, the submit button would never be displayed. We decided
 ### Changed
 * Fix bug preventing user email change
 
+## [0.16.9] - 05.07.2017
+### Added
+* Use paragonie/halite for user accounts encryption - https://paragonie.com/project/halite
+
+### Changed
+* Fix bug allowing unverified email accounts to login.
+

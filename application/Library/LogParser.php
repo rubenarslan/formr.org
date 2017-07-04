@@ -19,7 +19,7 @@ class LogParser {
 	}
 
 	public function getCronLogFiles() {
-		$search = INCLUDE_ROOT . 'tmp/logs/cron/*.log';
+		$search = APPLICATION_ROOT . 'tmp/logs/cron/*.log';
 		$files = array();
 		foreach (glob($search) as $file) {
 			$filename = str_replace('cron-run-', '', basename($file));
@@ -29,7 +29,7 @@ class LogParser {
 	}
 
 	public function printCronLogFile($file, $expand = false) {
-		$file = INCLUDE_ROOT . 'tmp/logs/cron/cron-run-' . $file;
+		$file = APPLICATION_ROOT . 'tmp/logs/cron/cron-run-' . $file;
 		if (!file_exists($file)) {
 			return null;
 		}

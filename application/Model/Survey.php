@@ -1853,7 +1853,7 @@ class Survey extends RunUnit {
 			if (isset($this->user_id)) {
 				$filename = "user" . $this->user_id . $filename;
 			}
-			$filename = INCLUDE_ROOT . "tmp/backups/results/" . $filename;
+			$filename = APPLICATION_ROOT . "tmp/backups/results/" . $filename;
 
 			$SPR = new SpreadsheetReader();
 			return $SPR->backupTSV($this->getResults($itemNames), $filename);

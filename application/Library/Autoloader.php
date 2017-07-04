@@ -11,12 +11,12 @@ class Autoload {
 	private static $loader = null;
 
 	public static function classMap() {
-		if (!defined('INCLUDE_ROOT')) {
-			define('INCLUDE_ROOT', realpath(dirname(__FILE__) . '../../') . '/');
+		if (!defined('APPLICATION_ROOT')) {
+			define('APPLICATION_ROOT', realpath(dirname(__FILE__) . '../../') . '/');
 		}
 
 		if (!defined('APPLICATION_PATH')) {
-			define('APPLICATION_PATH', INCLUDE_ROOT . 'application/');
+			define('APPLICATION_PATH', APPLICATION_ROOT . 'application/');
 		}
 
 		return array(
@@ -32,6 +32,7 @@ class Autoload {
 			'Cache' => APPLICATION_PATH . 'Library/Cache.php',
 			'Config' => APPLICATION_PATH . 'Library/Config.php',
 			'Controller' => APPLICATION_PATH . 'Controller/Controller.php',
+			'Crypto' => APPLICATION_PATH . 'Library/Crypto.php',
 			'CURL' => APPLICATION_PATH . 'Library/CURL.php',
 			'DB' => APPLICATION_PATH . 'Library/DB.php',
 			'DB_Select' => APPLICATION_PATH . 'Model/DB.php',

@@ -27,7 +27,7 @@ function formr_log_exception(Exception $e, $prefix = '', $debug_data = null) {
 }
 
 function get_log_file($filename) {
-	return INCLUDE_ROOT . "tmp/logs/$filename";
+	return APPLICATION_ROOT . "tmp/logs/$filename";
 }
 
 function alert($msg, $class = 'alert-warning', $dismissable = true) { // shorthand
@@ -774,7 +774,7 @@ function asset_url($file) {
 	if (strpos($file, 'assets') === false) {
 		$file = 'assets/' . $file;
 	}
-	$mtime = @filemtime(INCLUDE_ROOT . "webroot/" . $file);
+	$mtime = @filemtime(APPLICATION_ROOT . "webroot/" . $file);
 	if(!$mtime) {
 	  return site_url($file);
 	}

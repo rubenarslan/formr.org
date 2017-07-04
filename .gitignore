@@ -27,3 +27,5 @@ tests/test.php
 
 webroot/assets/bower_components
 webroot/assets/lib/bower_components
+
+/*.key

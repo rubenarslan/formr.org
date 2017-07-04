@@ -209,7 +209,7 @@ class Email extends RunUnit {
 					<input class="full_width select2recipient" type="text" placeholder="survey_users$email" name="recipient_field" value="' . h($this->recipient_field) . '" data-select2init="'.htmlentities(json_encode( $this->getPotentialRecipientFields(), JSON_UNESCAPED_UNICODE)).'">
 				</p>
 		<p><label>Body:</label>
-			<textarea style="width:388px;"  data-editor="markdown" placeholder="You can use Markdown" name="body" rows="7" cols="60" class="form-control col-md-5">' . h($this->body) . '</textarea><br>
+			<textarea style="width:388px;"  data-editor="markdown" placeholder="You can use Markdown" name="body" rows="7" cols="60" class="form-control col-md-5">' . h($this->body) . '</textarea><br /><div class="clearfix"></div>
 			<code>{{login_link}}</code> will be replaced by a personalised link to this run, <code>{{login_code}}</code> will be replaced with this user\'s session code.</p>';
 //		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
 		
@@ -354,7 +354,7 @@ class Email extends RunUnit {
 
 		if(filter_var($this->recipient, FILTER_VALIDATE_EMAIL) AND $mail->Body !== false AND $mail->Subject !== false):
 			foreach ($this->images AS $image_id => $image):
-				$local_image = INCLUDE_ROOT . 'tmp/' . uniqid() . $image_id;
+				$local_image = APPLICATION_ROOT . 'tmp/' . uniqid() . $image_id;
 				copy($image, $local_image);
 				register_shutdown_function(create_function('', "unlink('{$local_image}');"));
 

@@ -52,7 +52,7 @@ class Deamon {
 
 	public function __construct(DB $db) {
 		$this->db = $db;
-		$this->lockFile = INCLUDE_ROOT . 'tmp/deamon.lock';
+		$this->lockFile = APPLICATION_ROOT . 'tmp/deamon.lock';
 		$this->runExpireTime = Config::get('deamon.run_expire_time', 10 * 60);
 		$this->loopInterval = Config::get('deamon.loop_interval', 60);
 

@@ -35,7 +35,7 @@ class FirstTest extends PHPUnit_Framework_TestCase
 #			'user_id' => 1
 #		));
 #		$this->assertEquals(TRUE, $study->createIndependently() );
-#		$works = $study->uploadItemTable(INCLUDE_ROOT."/webroot/assets/example_surveys/all_widgets.xlsx");
+#		$works = $study->uploadItemTable(APPLICATION_ROOT."/webroot/assets/example_surveys/all_widgets.xlsx");
 #		$this->assertEquals(TRUE, $works);
 #	}
 }
