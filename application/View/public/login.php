@@ -12,7 +12,7 @@ Template::load('public/header');
 						<div class="col-md-12">
 							<div class="login-form well pull-right" style="">
 								<h2>formr login</h2>
-								<?= Template::load('public/alerts') ?>
+								<?= Template::load('public/alerts', array('alerts' => $alerts)) ?>
 								<form class="" id="login" name="login" method="post" action="<?php echo site_url('login'); ?>">
 									<div class="form-group label-floating">
 										<label class="control-label" for="email"><i class="fa fa-envelope"></i> Email</label>
