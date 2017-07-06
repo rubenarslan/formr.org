@@ -67,6 +67,7 @@ class EmailAccount {
 		if (!$params['auth_key']) {
 			return false;
 		}
+		$params['password'] = '';
 
 		$query = "UPDATE `survey_email_accounts` 
 			SET `from` = :fromm, `from_name` = :from_name, `host` = :host, `port` = :port, `tls` = :tls, `username` = :username, `password` = :password, `auth_key` = :auth_key
