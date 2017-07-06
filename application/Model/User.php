@@ -181,6 +181,8 @@ formr robots";
 				->where(array('email' => $email))
 				->limit(1)->fetch();
 		if ($user && !$user['email_verified']) {
+			$this->id = $user['id'];
+			$this->email = $email;
 			$this->errors[] = 'Please verify your email address by clicking on the verification link that was sent to you.';
 			return false;
 		} elseif ($user && password_verify($password, $user['password'])) {

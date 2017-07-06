@@ -76,11 +76,6 @@ function __setup($settings = array()) {
 	ini_set('session.gc_divisor', 100);
 	ini_set('session.gc_probability', 1);
 
-	// Set default timzone, encoding and shutdown function.
-	date_default_timezone_set(Config::get('timezone'));
-	mb_internal_encoding('UTF-8');
-	register_shutdown_function('shutdown_formr_org');
-
 	// Set cryptography module
 	try {
 		Crypto::setup();
@@ -89,6 +84,12 @@ function __setup($settings = array()) {
 		exit($e->getMessage());
 		
 	}
+
+	// Set default timzone, encoding and shutdown function.
+	date_default_timezone_set(Config::get('timezone'));
+	mb_internal_encoding('UTF-8');
+	register_shutdown_function('shutdown_formr_org');
+
 }
 __setup($settings);
 
