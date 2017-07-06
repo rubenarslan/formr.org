@@ -81,7 +81,7 @@ class EmailQueue {
 			$WHERE .= 'account_id = ' . (int) $account_id;
 		}
 
-		$query = "SELECT account_id, `from`, from_name, host, port, tls, username, password 
+		$query = "SELECT account_id, `from`, from_name, host, port, tls, username, password, auth_key 
 				FROM survey_email_queue
 				LEFT JOIN survey_email_accounts ON survey_email_accounts.id = survey_email_queue.account_id
 				{$WHERE}
@@ -158,6 +158,10 @@ class EmailQueue {
 				$this->db->exec('DELETE FROM survey_email_queue WHERE account_id = ' . (int) $account['account_id']);
 				continue;
 			}
+
+			list($username, $password) = explode(EmailAccount::AK_GLUE, Crypto::decrypt($account['auth_key']), 2);
+			$account['username'] = $username;
+			$account['password'] = $password;
 
 			$mailer = $this->getSMTPConnection($account);
 			$emailsStatement = $this->getEmailsStatement($account['account_id']);

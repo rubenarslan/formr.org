@@ -22,8 +22,11 @@ formr-package/man
 /tmp/backups/surveys/*.*
 /tmp/backups/backups/
 /tmp/backups/sessions/
-webroot/assets/img/randPic
+webroot/assets/img
 tests/test.php
+nohup.out
+webroot/assets/*.mp4
+webroot/assets/*.html
 
 webroot/assets/bower_components
 webroot/assets/lib/bower_components
