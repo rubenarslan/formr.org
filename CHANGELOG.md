@@ -321,6 +321,8 @@ In this case, previously, the submit button would never be displayed. We decided
 * Fix bug allowing unverified email accounts to login.
 
 ## [0.16.10] - 06.07.2017
+## [0.16.11] - 06.07.2017
 ### Changed
 * Fix sign-up bug
+* Get right auth credentials for email queue accounts
 
