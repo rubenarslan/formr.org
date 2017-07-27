@@ -38,22 +38,6 @@
 		</div>
 	</div>
 </section>
-<!-- END #fmr-projects -->
 
-<section id="fmr-features">
-	<div class="container">
-		<div class="row text-center row-bottom-padded-md">
-			<div class="col-md-8 col-md-offset-2">
-				<h2 class="fmr-lead animate-box">Publications</h2>
-				<p class="fmr-sub-lead animate-box">Publications using data collected using the formr.org software</p>
-			</div>
-		</div>
-		<div class="row">
-			<div class="col-md-12">
-				<?php Template::load('public/publications'); ?>
-			</div>
-		</div>
-	</div>
-</section>
 
 <?php Template::load('public/footer'); ?>

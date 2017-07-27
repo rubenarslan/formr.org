@@ -25,6 +25,10 @@ class PublicController extends Controller {
 		$this->renderView('public/about', array('bodyClass' => 'fmr-about'));
 	}
 
+	public function publicationsAction() {
+		$this->renderView('public/publications');
+	}
+
 	public function editUserAction() {
 		/**
 		* @todo: 

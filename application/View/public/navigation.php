@@ -15,6 +15,7 @@
 				<li><a href="<?php echo site_url('about'); ?>">About</a></li>
 				<li><a href="<?php echo site_url('documentation'); ?>">Documentation</a></li>
 				<li><a href="<?php echo site_url('studies'); ?>">Studies</a></li>
+				<li><a href="<?php echo site_url('publications'); ?>">Publications</a></li>
 			</ul>
 			<ul class="nav navbar-nav navbar-right">
 				<?php if (!empty($user) && $user->loggedIn()): ?>

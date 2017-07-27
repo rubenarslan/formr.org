@@ -46,7 +46,7 @@ class Router {
 		}
 
 		// get action
-		$params = (array)array_filter(explode('/', str_replace($controllerPath, '', $route)));
+		$params = (array)array_filter(explode('/', preg_replace('/\b' . preg_quote($controllerPath, '/') . '\b/', '', $route)));
 		$action = array_shift($params);
 		if (!$action) {
 			$action = 'index';
