@@ -326,3 +326,7 @@ In this case, previously, the submit button would never be displayed. We decided
 * Fix sign-up bug
 * Get right auth credentials for email queue accounts
 
+## [0.16.12] - 27.07.2017
+### Changed
+* Publications moved to new page
+

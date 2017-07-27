@@ -50,21 +50,25 @@
 			<div class="col-md-6 col-sm-12">
 				<div class="text-left">
 					<h3><i class="fa fa-fw fa-quote-left"></i> Citation</h3>
-					<p>
-						If you are publishing research conducted using formr, <strong>please cite</strong> 
-					</p>
-					<p>
-						Arslan, R.C., &amp; Tata, C.S. (2017). formr.org survey software (Version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
-					</p>
+					<div class="alert alert-info">
+						<p>
+							If you are publishing research conducted using formr, <strong>please cite</strong> 
+						</p>
+						<blockquote>
+							Arslan, R.C., &amp; Tata, C.S. (2017). formr.org survey software (Version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
+						</blockquote>
+					</div>
 					<p>
 						Cite the version that was active while you ran your study. Zenodo will keep backups of each major release, so that the software used for your study is preserved when we update it and if Github ceases to exist. This ensures reproducibility and allows us to trace papers affected by major bugs, should we discover any in the future. 
 					</p>
-					<p>
-						If you used the accompanying R package, you should cite it too, because it is independent of the rest of the software and independently versioned.
-					</p>
-					<p>
-						Arslan, R.C. (2017). formr R package (Version 0.4.1). <a href="https://zenodo.org/badge/latestdoi/19236374"><img src="https://zenodo.org/badge/19236374.svg" alt="DOI"></a>
-					</p>
+					<div class="alert alert-info">
+						<p>
+							If you used the accompanying R package, you should cite it too, because it is independent of the rest of the software and independently versioned.
+						</p>
+						<blockquote>
+							Arslan, R.C. (2017). formr R package (Version 0.4.1). <a href="https://zenodo.org/badge/latestdoi/19236374"><img src="https://zenodo.org/badge/19236374.svg" alt="DOI"></a>
+						</blockquote>
+					</div>
 
 					<h3><i class="fa fa-fw fa-money"></i> Funding</h3>
 					<p>Friedrich-Schiller-University Jena – <a href="http://dfg.de/">DFG</a> <a href="http://www.kompass.uni-jena.de">project "Kompass"</a>, PIs: <a href="http://www.uni-jena.de/en/Faculties/Social+and+Behavioral+Sciences/Institutes+_+Departments/Institute+of+Psychology/Departments/Differential+Psychology+and+Personality+Psychology/Personality+Psychology+and+Psychological+Assessment/Julia+Zimmermann.html">Julia Zimmermann</a>, <a href="https://www.uni-jena.de/Fakult%C3%A4ten/Sozial_+und+Verhaltenswissenschaften/Institute_Lehrst%C3%BChle/Institut+f%C3%BCr+Psychologie/Abteilungen/Lehrstuhl+f%C3%BCr+Differentielle+Psychologie_+Pers%C3%B6nlichkeitspsychologie+und+Psychologische+Diagnostik/Franz+Neyer.html">Franz J. Neyer</a>
