@@ -19,6 +19,7 @@ class Survey extends RunUnit {
 	public $valid = false;
 	public $public = false;
 	public $errors = array();
+	public $validation_errors = array();
 	public $messages = array();
 	public $warnings = array();
 	public $position;
@@ -443,7 +444,7 @@ class Survey extends RunUnit {
 			$validInput = $validate ? $item->validateInput($item_value) : $item_value;
 			if ($item->save_in_results_table) {
 				if ($item->error) {
-					$this->errors[$item_name] = $item->error;
+					$this->validation_errors[$item_name] = $item->error;
 				} else {
 					$item->value_validated = $validInput;
 					$items[$item_name] = $item;
@@ -452,7 +453,7 @@ class Survey extends RunUnit {
 			}
 		}
 
-		if (!empty($this->errors)) {
+		if (!empty($this->validation_errors)) {
 			// @todo fill values of unanswered items to pre-populate form
 			$this->items_validated = $items;
 			return false;
@@ -909,11 +910,11 @@ class Survey extends RunUnit {
 			</div>
 			</div>';
 
-		if (!empty($this->errors)) {
+		if (!empty($this->validation_errors)) {
 			$ret .= '
-			<div class="form-group has-error form-message">
-				<div class="control-label"><i class="fa fa-exclamation-triangle pull-left fa-2x"></i>' . implode("<br>", array_unique($this->errors)) . '</div>' .
-					'</div>';
+			<div class="alert alert-danger form-group form-message">
+				<div class="control-label"><i class="fa fa-exclamation-triangle pull-left fa-2x"></i>' . implode("<br>", array_unique($this->validation_errors, SORT_STRING)) . '</div>' .
+			'</div>';
 		}
 
 		return $ret;
@@ -923,6 +924,9 @@ class Survey extends RunUnit {
 		$ret = '';
 
 		foreach ($this->rendered_items AS $item) {
+			if (!empty($this->validation_errors[$item->name])) {
+				$item->error = $this->validation_errors[$item->name];
+			}
 			$ret .= $item->render();
 		}
 

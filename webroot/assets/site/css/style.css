@@ -2244,3 +2244,6 @@ radio input[type="radio"],
     position:relative;
     z-index: 100;
 }
+.alert.alert-info .opencpu_accordion a {
+	color: #008000;
+}

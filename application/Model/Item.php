@@ -439,7 +439,7 @@ class Item extends HTML_element {
 
 		if (!$this->optional && (($reply === null || $reply === false || $reply === array() || $reply === '') || (is_array($reply) && count($reply) === 1 && current($reply) === ''))
 		) { // missed a required field
-			$this->error = __("You missed entering some required information.<span class='hidden'>item name: %s</span>", h($this->name));
+			$this->error = __("You missed entering some required information");
 		} elseif ($this->optional && $reply == '') {
 			$reply = null;
 		}
