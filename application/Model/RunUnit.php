@@ -501,11 +501,13 @@ class RunUnit {
 			}
 			if(in_array('formr_nr_of_participants', $needed['variables'])) {
 				$count = (int)$this->dbh->count('survey_run_sessions', array('run_id' => $this->run_id), 'id');
-				$this->survey_results['.formr$nr_of_participants'] = $count;
+				$this->survey_results['.formr$nr_of_participants'] = (int)$count;
 			}
 			if(in_array('formr_session_last_active', $needed['variables']) && $this->run_session_id) {
 				$last_access = $this->dbh->findValue('survey_run_sessions', array('id' => $this->run_session_id), 'last_access');
-				$this->survey_results['.formr$session_last_active'] = $last_access;
+				if ($last_access) {
+					$this->survey_results['.formr$session_last_active'] = "as.POSIXct('".date("Y-m-d H:i:s T", strtotime($last_access))."')";
+				}
 			}
 		}
 
