@@ -366,7 +366,7 @@ formr robots";
 
 	public function getEmailAccounts() {
 		if ($this->isAdmin()):
-			$accs = $this->dbh->find('survey_email_accounts', array('user_id' => $this->id), array('cols' => 'id, from'));
+			$accs = $this->dbh->find('survey_email_accounts', array('user_id' => $this->id, 'deleted' => 0), array('cols' => 'id, from'));
 
 			$results = array();
 			foreach ($accs as $acc) {

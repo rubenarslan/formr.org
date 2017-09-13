@@ -68,7 +68,7 @@ class Email extends RunUnit {
 			$this->cron_only = isset($options['cron_only']) ? 1 : 0;
 		}
 		if ($this->account_id === null):
-			$email_accounts = $this->getEmailAccounts();
+			$email_accounts = Site::getCurrentUser()->getEmailAccounts();
 			if (count($email_accounts) > 0):
 				$this->account_id = current($email_accounts)['id'];
 			endif;
@@ -157,13 +157,6 @@ class Email extends RunUnit {
 			return false;
 		endif;
 	}
-
-	protected function getEmailAccounts() {
-		global $user;
-		return $this->dbh->select('id, from')
-				->from('survey_email_accounts')
-				->where(array('user_id' => $user->id))->fetchAll();
-	}
 	
 	protected function getPotentialRecipientFields() {
 		$get_recips = $this->dbh->prepare("SELECT survey_studies.name AS survey,survey_items.name AS item FROM survey_items
@@ -185,7 +178,7 @@ class Email extends RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
-		$email_accounts = $this->getEmailAccounts();
+		$email_accounts = Site::getCurrentUser()->getEmailAccounts();
 
 		if (!empty($email_accounts)):
 			$dialog = '<p><label>Account: </label>
