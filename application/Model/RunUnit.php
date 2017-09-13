@@ -461,18 +461,20 @@ class RunUnit {
 			$get_results->execute();
 
 			$this->survey_results['datasets'][$survey_name] = array();
-			while($res = $get_results->fetch(PDO::FETCH_ASSOC)):
-				foreach($res AS $var => $val):
+			while($res = $get_results->fetch(PDO::FETCH_ASSOC)) {
+				foreach($res AS $var => $val) {
 					if(!isset($this->survey_results['datasets'][$survey_name][$var])) {
 						$this->survey_results['datasets'][$survey_name][$var] = array();
 					}
 					$this->survey_results['datasets'][$survey_name][$var][] = $val;
-				endforeach;
-			endwhile;
+				}
+			}
 		}
 
-		if(!empty($needed['variables'])):
-			if(in_array('formr_last_action_date', $needed['variables']) OR in_array('formr_last_action_time', $needed['variables'])):
+		if(!empty($needed['variables'])) {
+			if(in_array('formr_last_action_date', $needed['variables']) || in_array('formr_last_action_time', $needed['variables'])) {
+				$this->survey_results['.formr$last_action_date'] = "NA";
+				$this->survey_results['.formr$last_action_time'] = "NA";
 				$last_action = $this->dbh->execute(
 					"SELECT `survey_unit_sessions`.`created` FROM `survey_unit_sessions` 
 					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
@@ -480,36 +482,32 @@ class RunUnit {
 					array('run_session_id' => $this->run_session_id, 'unit_id' => $this->id),
 					true
 				);
-				if($last_action !== false):
+				if($last_action !== false) {
 					$last_action_time = strtotime($last_action);
-					if(in_array('formr_last_action_date', $needed['variables'])):
+					if(in_array('formr_last_action_date', $needed['variables'])) {
 						$this->survey_results['.formr$last_action_date'] = "as.POSIXct('".date("Y-m-d", $last_action_time)."')";
-					endif;
-					if(in_array('formr_last_action_time', $needed['variables']) ):
+					}
+					if(in_array('formr_last_action_time', $needed['variables'])) {
 						$this->survey_results['.formr$last_action_time'] = "as.POSIXct('".date("Y-m-d H:i:s T", $last_action_time)."')";
-					endif;
-				else:
-					if(in_array('formr_last_action_date', $needed['variables'])):
-						$this->survey_results['.formr$last_action_date'] = "NA";
-					endif;
-					if(in_array('formr_last_action_time', $needed['variables']) ):
-						$this->survey_results['.formr$last_action_time'] = "NA";
-					endif;					
-				endif;
-			endif;
+					}
+				}
+			}
 			
-			if(in_array('formr_login_link', $needed['variables']) ):
+			if(in_array('formr_login_link', $needed['variables'])) {
 				$this->survey_results['.formr$login_link'] = "'".site_url($this->run_name)."?code=".urlencode($this->session)."'";
-			endif;
-			if(in_array('formr_login_code', $needed['variables']) ):
+			}
+			if(in_array('formr_login_code', $needed['variables'])) {
 				$this->survey_results['.formr$login_code'] = "'".$this->session."'";
-			endif;
-			if(in_array('formr_nr_of_participants', $needed['variables']) ):
-				$q = 'SELECT count(id) AS nr_of_participants FROM `survey_run_sessions` WHERE run_id = :run_id';
-				$count = (int) $this->dbh->execute($q, array('run_id' => $this->run_id), true);
+			}
+			if(in_array('formr_nr_of_participants', $needed['variables'])) {
+				$count = (int)$this->dbh->count('survey_run_sessions', array('run_id' => $this->run_id), 'id');
 				$this->survey_results['.formr$nr_of_participants'] = $count;
-			endif;
-		endif;
+			}
+			if(in_array('formr_session_last_active', $needed['variables']) && $this->run_session_id) {
+				$last_access = $this->dbh->findValue('survey_run_sessions', array('id' => $this->run_session_id), 'last_access');
+				$this->survey_results['.formr$session_last_active'] = $last_access;
+			}
+		}
 
 		if ($needed['token_add'] !== null AND ! isset($this->survey_results['datasets'][$needed['token_add']])):
 			$this->survey_results['datasets'][$needed['token_add']] = array();
@@ -613,11 +611,24 @@ class RunUnit {
 		endforeach;
 	
 		$variables = array();
-		if(preg_match("/\btime_passed\b/",$q)) { $variables[] = 'formr_last_action_time'; }
-		if(preg_match("/\bnext_day\b/",$q)) { $variables[] = 'formr_last_action_date'; }
-		if(strstr($q, '.formr$login_code') !== false) { $variables[] = 'formr_login_code'; }
-		if(strstr($q, '.formr$login_link') !== false) { $variables[] = 'formr_login_link'; }
-		if(strstr($q, '.formr$nr_of_participants') !== false) { $variables[] = 'formr_nr_of_participants'; }
+		if(preg_match("/\btime_passed\b/",$q)) {
+			$variables[] = 'formr_last_action_time';
+		}
+		if(preg_match("/\bnext_day\b/",$q)) {
+			$variables[] = 'formr_last_action_date';
+		}
+		if(strstr($q, '.formr$login_code') !== false) {
+			$variables[] = 'formr_login_code';
+		}
+		if(strstr($q, '.formr$login_link') !== false) {
+			$variables[] = 'formr_login_link';
+		}
+		if(strstr($q, '.formr$nr_of_participants') !== false) {
+			$variables[] = 'formr_nr_of_participants';
+		}
+		if(strstr($q, '.formr$session_last_active') !== false) {
+			$variables[] = 'formr_session_last_active';
+		}
 
 		$data = compact("matches","matches_results_tables", "matches_variable_names", "token_add", "variables");
 		Cache::set($cache_key, $data);
