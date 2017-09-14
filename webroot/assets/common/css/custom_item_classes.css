@@ -775,11 +775,6 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
 .bs-material .form-group .checkbox label, .bs-material .form-group .radio label, .bs-material .form-group label {
 	color: #000;
 }
-.bs-material .form-group label.control-label {
-	/* FIXME */
-	font-size: 16px;
-	line-height: 18px;
-}
 .bs-material .btn, .bs-material .input-group-btn .btn {
 	padding: 6px 12px;
 	text-transform: none;

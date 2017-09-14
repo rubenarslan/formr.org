@@ -1506,8 +1506,9 @@ input:-webkit-autofill:focus {
 	margin-top: 20px;
 	margin-bottom: 20px;
 }
-.run-container .control-label, .run-container label {
+.run-container .form-group .control-label, .run-container .form-group label {
 	font-weight: normal;
+	font-size: inherit;
 	padding-top: 0px !important;
 	color: #000;
 }
@@ -2074,7 +2075,7 @@ radio input[type="radio"], .radio-inline input[type="radio"], .checkbox input[ty
 	top: 10%;
 }
 .form-group .checkbox label, .form-group .radio label, .form-group label {
-	font-size: inherit;
+	font-size: inherit !important;
 }
 .item-mc.hide_label .radio-inline+.radio-inline, .item-mc.hide_label .checkbox-inline+.checkbox-inline {
 	margin-left: 0px;
