@@ -1165,7 +1165,7 @@ function opencpu_knitemail($source, array $variables = null, $return_format = 'j
 	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
 opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2)
-opts_knit$set(upload.fun=function(x) { paste0("cid:", basename(x)) })
+opts_knit$set(upload.fun=function(x) { paste0("cid:", URLencode(basename(x))) })
 ' . $variables . '
 ```
 ' .
