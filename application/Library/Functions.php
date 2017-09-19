@@ -1267,6 +1267,15 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 		try {
 			$request = $session->getRequest();
 			$params = $request->getParams();
+			if(isset($params['text'])) {
+				$debug['R Markdown'] = '
+					<a href="#" class="download_r_code" data-filename="formr_rmarkdown.Rmd">Download R Markdown file to debug.</a><br>
+					<textarea class="form-control" rows="10" readonly>'. h(stripslashes(substr($params['text'], 1, -1))) . '</textarea>';
+			} elseif(isset($params['x'])) {
+				$debug['R Code'] = '
+					<a href="#" class="download_r_code" data-filename="formr_values_showifs.R">Download R code file to debug.</a><br>
+					<textarea class="form-control" rows="10" readonly>'. h((substr($params['x'], 1, -1))) . '</textarea>';
+			}
 			if ($session->hasError()) {
 				$debug['Response'] = pre_htmlescape($session->getError());
 			} else {
@@ -1283,16 +1292,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 					$debug['Response'] = pre_htmlescape(json_encode($session->getJSONObject(),  JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
 				}
 			}
-			$debug['Request'] =  pre_htmlescape((string) $request);
-			if(isset($params['text'])) {
-				$debug['R Markdown'] = '
-					<a href="#" class="download_r_code" data-filename="formr_rmarkdown.Rmd">Download R Markdown file.</a><br>
-					<textarea class="form-control" rows="10" readonly>'. h(stripslashes(substr($params['text'], 1, -1))) . '</textarea>';
-			} elseif(isset($params['x'])) {
-				$debug['R Code'] = '
-					<a href="#" class="download_r_code" data-filename="formr_values_showifs.R">Download R code file.</a><br>
-					<textarea class="form-control" rows="10" readonly>'. h((substr($params['x'], 1, -1))) . '</textarea>';
-			}
+
 			$urls = $session->getResponsePathsAsLinks();
 			if (!$session->hasError() AND ! empty($urls)) {
 				$locations = '';
@@ -1305,6 +1305,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 			$debug['Session Info'] = pre_htmlescape($session->getInfo());
 			$debug['Session Console'] = pre_htmlescape($session->getConsole());
 			$debug['Session Stdout'] = pre_htmlescape($session->getStdout());
+			$debug['Request'] =  pre_htmlescape((string) $request);
 
 			$reponse_headers = $session->getResponseHeaders();
 			$debug['Response Headers'] = pre_htmlescape(print_r($reponse_headers, 1));

@@ -223,3 +223,8 @@ a.btn.btn-checked {
     height: 100%;
     height: 100vh;
 }
+
+.alert .panel-group.opencpu_accordion a {
+    color: #008000;
+    text-decoration: none;
+}

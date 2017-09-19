@@ -2090,6 +2090,7 @@ radio input[type="radio"], .radio-inline input[type="radio"], .checkbox input[ty
 	position: relative;
 	z-index: 100;
 }
-.alert.alert-info .opencpu_accordion a {
+
+.alert .panel-group.opencpu_accordion a {
 	color: #008000;
 }
