@@ -1010,7 +1010,7 @@ function opencpu_knit_plaintext($source, $variables = null, $return_session = fa
 	}
 	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2,fig.height=7,fig.width=10)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.height=7,fig.width=10)
 opts_knit$set(base.url="'.OpenCPU::TEMP_BASE_URL.'")
 ' . $variables . '
 ```
@@ -1064,9 +1064,18 @@ function opencpu_knit_iframe($source, $variables = null, $return_session = false
 	if (!$run_session OR $run_session->isTesting() ) {
 		$show_errors = 'T';
 	}
-	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
+	$yaml = "";
+	$yaml_lines = '/^\-\-\-/um';
+	if(preg_match_all($yaml_lines, $source) >= 2) {
+		$parts = preg_split($yaml_lines, $source, 3);
+		$yaml = "---" . $parts[1] . "---\n\n";
+		$source = $parts[2];
+	}
+
+	$source = $yaml .
+'```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error=T,echo=F,fig.retina=2,fig.height=7,fig.width=10)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error=T,echo=F,fig.height=7,fig.width=10)
 ' . $variables . '
 ```
 
@@ -1118,7 +1127,7 @@ function opencpu_knitdisplay($source, $variables = null, $return_session = false
 	}
 	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2,fig.height=7,fig.width=10)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.height=7,fig.width=10)
 opts_knit$set(base.url="'.OpenCPU::TEMP_BASE_URL.'")
 ' . $variables . '
 ```
@@ -1141,7 +1150,7 @@ function opencpu_knitadmin($source, $variables = null, $return_session = false) 
 	}
 	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2,fig.height=7,fig.width=10)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.height=7,fig.width=10)
 opts_knit$set(base.url="'.OpenCPU::TEMP_BASE_URL.'")
 ' . $variables . '
 ```
