@@ -1622,7 +1622,7 @@ iframe.rChart {
 .run-container .btn-info:hover, .run-container .btn-info:focus, .run-container .btn-info:active {
 	background: #46b8da !important;
 	border-color: #46b8da !important;
-	color: #fff;
+	color: #fff !important;
 }
 .run-container button.btn.btn-checked, .run-container label.btn.btn-checked, .run-container a.btn.btn-checked {
 	background-color: #c3c3c3 !important;
