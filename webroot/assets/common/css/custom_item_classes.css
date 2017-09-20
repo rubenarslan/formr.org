@@ -376,10 +376,9 @@ form.form-horizontal div.form-row.form-group.mc_vertical div.controls {
 }
 form.form-horizontal div.form-row.form-group.mc_vertical div.controls label {
 	display: block;
-	/*padding-left:18px;*/
+	padding-left: 2px;
 	padding-right: 5px;
 	padding-top: 5px;
-	/* text-indent:-18px;*/
 }
 
 /* make buttons go vertical on small screens  */
@@ -761,32 +760,4 @@ form.form-horizontal div.form-group.vertical_range div.controls div.controls-inn
 }
 .analogue_rating_scale30 .btn-group>.btn {
 	width: 30px;
-}
-
-/* bootstrap-material-design fixes */
-
-.bs-material div.btn-check button.btn, .bs-material .square80 .btn-group>.btn {
-	width: auto;
-	min-width: 80px;
-}
-.bs-material .radio label, .bs-material label.radio-inline, .bs-material .checkbox label, .bs-material checkbox.radio-inline {
-	padding-left: 30px;
-	margin-left: 0px;
-}
-.bs-material .form-group .checkbox label, .bs-material .form-group .radio label, .bs-material .form-group label {
-	color: #000;
-}
-.bs-material .btn, .bs-material .input-group-btn .btn {
-	padding: 6px 12px;
-	text-transform: none;
-}
-.bs-material .radio span.mc-span, .bs-material label.radio-inline span.mc-span, .bs-material .checkbox span.mc-span, .bs-material label.checkbox-inline span.mc-span {
-	position: relative;
-	margin: -2px 10px 0px 0px;
-}
-.bs-material .monkey_bar .form-group {
-	margin: 0px;
-}
-.bs-material .monkey_bar .input-group {
-	border: 1px solid #f5f5f5;
 }

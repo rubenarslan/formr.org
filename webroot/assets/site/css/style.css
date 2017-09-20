@@ -1808,7 +1808,7 @@ div.btn-check button.btn {
 	height: 52px;
 	width: 52px;
 }
-.form-group .mc-table label+label, .mc-table label+label {
+.form-group .mc-table label, .mc-table label {
 	margin-left: -1px;
 }
 form.form-horizontal img, div.modal-content img, img {
@@ -2102,4 +2102,35 @@ radio input[type="radio"], .radio-inline input[type="radio"], .checkbox input[ty
 
 .alert .panel-group.opencpu_accordion a {
 	color: #008000;
+}
+.checkbox .checkbox-material, label.checkbox-inline .checkbox-material {
+	margin: 0px 10px;
+}
+
+/* bootstrap-material-design fixes */
+
+.bs-material div.btn-check button.btn, .bs-material .square80 .btn-group>.btn {
+	width: auto;
+	min-width: 80px;
+}
+.bs-material .radio label, .bs-material label.radio-inline, .bs-material .checkbox label, .bs-material checkbox.radio-inline {
+	padding-left: 30px;
+	margin-left: 0px;
+}
+.bs-material .form-group .checkbox label, .bs-material .form-group .radio label, .bs-material .form-group label {
+	color: #000;
+}
+.bs-material .btn, .bs-material .input-group-btn .btn {
+	padding: 6px 12px;
+	text-transform: none;
+}
+.bs-material .radio span.mc-span, .bs-material label.radio-inline span.mc-span, .bs-material .checkbox span.mc-span, .bs-material label.checkbox-inline span.mc-span {
+	position: relative;
+	margin: -2px 10px 0px 0px;
+}
+.bs-material .monkey_bar .form-group {
+	margin: 0px;
+}
+.bs-material .monkey_bar .input-group {
+	border: 1px solid #f5f5f5;
 }
