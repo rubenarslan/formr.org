@@ -1200,13 +1200,8 @@ class Survey extends RunUnit {
 			return;
 		}
 
-		$study_exists = $this->dbh->entry_exists('survey_studies', array('name' => $this->name, 'user_id' => $this->unit['user_id']));
+		$study_exists = $this->dbh->entry_exists('survey_studies', array('name' => $name, 'user_id' => $this->unit['user_id']));
 		if ($study_exists) {
-			return true;
-		}
-
-		$table_exists = $this->dbh->table_exists($results_table);
-		if ($table_exists) {
 			return true;
 		}
 
