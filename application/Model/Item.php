@@ -285,6 +285,10 @@ class Item extends HTML_element {
 		$this->setMoreOptions();
 
 		// after the easily overridden setMoreOptions, some post-processing that is universal to all items.
+		if($this->type == "note") {
+			// notes can not be "required"
+			unset($options['optional']);
+		}
 
 		if (isset($options['optional']) && $options['optional']) {
 			$this->optional = 1;
@@ -1138,17 +1142,13 @@ class Item_note extends Item {
 	public $mysql_field = null;
 	public $input_attributes = array('type' => 'hidden', "value" => 1);
 	public $save_in_results_table = false;
+	public $optional = 1;
 
 	protected function render_label() {
 		return '<div class="' . implode(" ", $this->classes_label) . '">' .
 				($this->error ? '<span class="label label-danger hastooltip" title="' . $this->error . '"><i class="fa fa-exclamation-triangle"></i></span> ' : '') .
 				$this->label_parsed . '</div>';
 	}
-	protected function render_input() {
-		unset($this->input_attributes['required']);
-		return parent::render_input();
-	}
-
 
 	public function validateInput($reply) {
 		if ($reply != 1) {
@@ -1156,7 +1156,6 @@ class Item_note extends Item {
 		}
 		return $reply;
 	}
-
 }
 
 // notes are rendered at full width
@@ -2186,7 +2185,8 @@ class Item_block extends Item_note {
 
 	public $type = 'block';
 	public $input_attributes = array('type' => 'checkbox');
-	
+	public $optional = 0;
+
 	public function setMoreOptions() {
 		$this->classes_wrapper[] = "alert alert-danger";
 	}
