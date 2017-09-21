@@ -1510,7 +1510,6 @@ input:-webkit-autofill:focus {
 	font-weight: normal;
 	font-size: inherit;
 	line-height: inherit;
-	margin: 0px;
 	padding-top: 0px !important;
 	color: #000;
 }
