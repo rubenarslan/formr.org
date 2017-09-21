@@ -1509,6 +1509,8 @@ input:-webkit-autofill:focus {
 .run-container .form-group .control-label, .run-container .form-group label {
 	font-weight: normal;
 	font-size: inherit;
+	line-height: inherit;
+	margin: 0px;
 	padding-top: 0px !important;
 	color: #000;
 }
