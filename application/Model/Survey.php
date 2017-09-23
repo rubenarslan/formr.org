@@ -32,6 +32,7 @@ class Survey extends RunUnit {
 	public $item_factory = null;
 	public $unanswered = array();
 	public $to_render = array();
+	public $study_name_pattern = "/[a-zA-Z][a-zA-Z0-9_]{2,64}/";
 	private $result_count = null;
 
 	/**
@@ -1195,49 +1196,46 @@ class Survey extends RunUnit {
 		endif;
 	}
 
-	protected function existsByName($name, $results_table) {
-		if (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $name) || !preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $results_table)) {
-			return;
-		}
-
-		$study_exists = $this->dbh->entry_exists('survey_studies', array('name' => $name, 'user_id' => $this->unit['user_id']));
-		if ($study_exists) {
-			return true;
-		}
-
-		return false;
-	}
-
-	protected function hasResultsTable() {
+	protected function resultsTableExists() {
 		return $this->dbh->table_exists($this->results_table);
 	}
 
 	/* ADMIN functions */
 
-	public function checkName($name, $results_table) {
-		if ($name == ""):
+	public function checkName($name) {
+		if ($name == "") {
 			alert(_("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored."), 'alert-danger');
 			return false;
-		elseif (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", $name)):
+		}
+		elseif (!preg_match($this->study_name_pattern, $name)) {
 			alert('<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from a to Z, 0 to 9 and the underscore. It needs to start with a letter. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>.', 'alert-danger');
 			return false;
-		elseif ($this->existsByName($name, $results_table)):
-			alert(__("<strong>Error:</strong> The survey name %s is already taken.", h($name)), 'alert-danger');
-			return false;
-		endif;
+		}
+		else {
+			$study_exists = $this->dbh->entry_exists('survey_studies', array('name' => $name, 'user_id' => $this->unit['user_id']));
+			if ($study_exists) {
+				alert(__("<strong>Error:</strong> The survey name %s is already taken.", h($name)), 'alert-danger');
+				return false;
+			}
+		}
 		return true;
 	}
 
 	public function createIndependently($settings = array(), $updates = array()) {
 		$name = trim($this->unit['name']);
-		$results_table = "formr_" . $this->unit['user_id'] . '_' . $name;
-		$check_name = $this->checkName($name, $results_table);
+		$check_name = $this->checkName($name);
 		if(!$check_name) {
 			return false;	
 		}
-
 		$this->id = parent::create('Survey');
 		$this->name = $name;
+
+		$results_table = substr("s" . $this->id . '_' . $name, 0, 64);
+
+		if( $this->dbh->table_exists($results_table)) {
+			alert("Results table name conflict. This shouldn't happen. Please alert the formr admins.", 'alert-danger');
+			return false;
+		}
 		$this->results_table = $results_table;
 
 		$study = array_merge(array(
@@ -1248,7 +1246,9 @@ class Survey extends RunUnit {
 			'name' => $this->name,
 			'results_table' => $this->results_table,
 		), $updates);
+
 		$this->dbh->insert('survey_studies', $study);
+
 
 		$this->changeSettings(array_merge(array(
 			"maximum_number_displayed" => 0,
@@ -1440,7 +1440,11 @@ class Survey extends RunUnit {
 				}
 				
 				// we start fresh if it's a new creation, no results table exist or it is completely empty
-				if ($this->created_new || !$this->hasResultsTable() || !$this->doWeHaveAnyDataAtAll()) {
+				if ($this->created_new || !$this->resultsTableExists() || !$this->doWeHaveAnyDataAtAll()) {
+					if($this->created_new && $this->resultsTableExists()) {
+						alert("Results table name conflict. This shouldn't happen. Please alert the formr admins", 'alert-danger');
+						return false;
+					}
 					// step 2
 					$this->messages[] = "The results table was newly created, because there were no results and test sessions.";
 					// if there is no results table or no existing data at all, drop table, create anew
@@ -1478,7 +1482,7 @@ class Survey extends RunUnit {
 	}
 
 	public function getItemsWithChoices($columns = null, $whereIn = null) {
-		if($this->hasResultsTable()) {
+		if($this->resultsTableExists()) {
 			$choice_lists = $this->getChoices();
 			$this->item_factory = new ItemFactory($choice_lists);
 
@@ -1572,12 +1576,12 @@ class Survey extends RunUnit {
 		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
 		  PRIMARY KEY (`session_id`) ,
 		  INDEX `ending` (`session_id` DESC, `study_id` ASC, `ended` ASC) ,
-		  CONSTRAINT `fk_{$this->results_table}_survey_unit_sessions1`
+		  CONSTRAINT
 		    FOREIGN KEY (`session_id` )
 		    REFERENCES `survey_unit_sessions` (`id` )
 		    ON DELETE CASCADE
 		    ON UPDATE NO ACTION,
-		  CONSTRAINT `fk_{$this->results_table}_survey_studies1`
+		  CONSTRAINT
 		    FOREIGN KEY (`study_id` )
 		    REFERENCES `survey_studies` (`id` )
 		    ON DELETE NO ACTION
@@ -1634,7 +1638,7 @@ class Survey extends RunUnit {
 	}
 
 	public function getResults($items = null, $session = null, array $paginate = null, $runId = null) { // fixme: shouldnt be using wildcard operator here.
-		if ($this->hasResultsTable()) {
+		if ($this->resultsTableExists()) {
 			ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
 			$results_table = $this->results_table;
@@ -1864,7 +1868,7 @@ class Survey extends RunUnit {
 	public function getResultCount($run_id = null) {
 		if($this->result_count === null):
 			$results_table = $this->results_table;
-			if ($this->hasResultsTable()):
+			if ($this->resultsTableExists()):
 				$select = $this->dbh->select(array(
 							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS null)" => 'begun',
 							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS NOT NULL)" => 'finished',
@@ -1889,7 +1893,7 @@ class Survey extends RunUnit {
 	}
 
 	public function getAverageTimeItTakes() {
-		if($this->hasResultsTable()) {
+		if($this->resultsTableExists()) {
 			$get = "SELECT AVG(middle_values) AS 'median' FROM (
 			  SELECT took AS 'middle_values' FROM
 				(
@@ -1918,7 +1922,7 @@ class Survey extends RunUnit {
 	}
 
 	public function rename($new_name) {
-		if($this->checkName($new_name, $this->results_table)) {
+		if($this->checkName($new_name)) {
 			$mod = $this->dbh->update('survey_studies', array('name' => $new_name), array(
 				'id' => $this->id,
 				));
