@@ -58,7 +58,7 @@ input:focus {outline:none;}
 }
 
 #show-items .modal-dialog {
-    width: 100%;
+    width: 99%;
     margin-top: 2px;
     margin-left: 2px;
 }
