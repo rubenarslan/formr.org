@@ -1574,7 +1574,7 @@ class Survey extends RunUnit {
 
 		  PRIMARY KEY (`session_id`) ,
 		  INDEX `idx_survey_results_survey_studies` (`study_id` ASC) ,
-		  INDEX `ending` (`session_id` DESC, `study_id` ASC, `ended` ASC) ,
+		  INDEX `idx_ending` (`session_id` DESC, `study_id` ASC, `ended` ASC) ,
 		  CONSTRAINT
 		    FOREIGN KEY (`session_id` )
 		    REFERENCES `survey_unit_sessions` (`id` )
