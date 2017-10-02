@@ -5,7 +5,8 @@ class SuperadminController extends Controller {
 	public function __construct(Site &$site) {
 		parent::__construct($site);
 		if (!$this->user->isSuperAdmin()) {
-			throw new Exception('You do not have sufficient rights to access this section');
+			alert('You do not have sufficient rights to access the requested location', 'alert-danger');
+			redirect_to('admin');
 		}
 		if (!Request::isAjaxRequest()) {
 			$default_assets = get_default_assets('admin');

@@ -46,7 +46,7 @@
 					<div class="box-header with-border">
 						<h3 class="box-title"><?= $form_title ?></h3>
 					</div>
-					<form class="form-horizontal" action="" method="post">
+					<form class="form-horizontal" action="" method="post" autocomplete="off">
 						<div class="box-body">
 							<?php Template::load('public/alerts'); ?>
 							<div class="form-group">
@@ -89,13 +89,13 @@
 							<div class="form-group">
 								<label class="col-sm-2 control-label">Username</label>
 								<div class="col-sm-10">
-									<input name="username" value="<?= array_val($acc->account, 'username') ?>" type="text" class="form-control" placeholder="Username" required>
+									<input name="username" value="<?= array_val($acc->account, 'username') ?>" type="text" class="form-control" placeholder="Username" autocomplete="off" required />
 								</div>
 							</div>
 							<div class="form-group">
 								<label class="col-sm-2 control-label">Password</label>
 								<div class="col-sm-10">
-									<input name="password" type="password" class="form-control" placeholder="Password" />
+									<input name="password" type="password" class="form-control" placeholder="Password" autocomplete="off" />
 								</div>
 							</div>
 

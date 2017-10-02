@@ -751,9 +751,9 @@ class Run {
 
 			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
-			if (($user->created($this) OR // owner always has access
-				$run_session->isTesting()) OR // testers always have access
-				($this->public >= 1 AND $run_session->id) OR // already enrolled
+			if (($user->created($this) || // owner always has access
+				$run_session->isTesting()) || // testers always have access
+				($this->public >= 1 && $run_session->id) || // already enrolled
 				($this->public >= 2)) { // anyone with link can access
 				
 				if ($run_session->id === null) {
@@ -766,6 +766,8 @@ class Run {
 				$output = $this->getServiceMessage()->exec();
 				alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');
 			}
+			$run_session->setLastAccess();
+
 		endif;
 
 		if (!$output) {

@@ -118,7 +118,7 @@ function download(filename, text) {
 
 function download_next_textarea(link) {
     var $link = $(link);
-    download($link.data("filename"), $link.nextAll("textarea").val());
+    download($link.data("filename"), $link.parent().find("textarea").val());
     return false;
 }
 

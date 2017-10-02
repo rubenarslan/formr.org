@@ -1,3 +1,4 @@
+<div class="table-responsive no-padding">
 <table class='table table-striped'>
 	<thead>
 		<tr>
@@ -41,3 +42,4 @@
 		<?php endforeach; ?>
 	</tbody>
 </table>
+</div>

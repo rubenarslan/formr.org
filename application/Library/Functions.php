@@ -1010,7 +1010,7 @@ function opencpu_knit_plaintext($source, $variables = null, $return_session = fa
 	}
 	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2,fig.height=7,fig.width=10)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.height=7,fig.width=10)
 opts_knit$set(base.url="'.OpenCPU::TEMP_BASE_URL.'")
 ' . $variables . '
 ```
@@ -1064,9 +1064,18 @@ function opencpu_knit_iframe($source, $variables = null, $return_session = false
 	if (!$run_session OR $run_session->isTesting() ) {
 		$show_errors = 'T';
 	}
-	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
+	$yaml = "";
+	$yaml_lines = '/^\-\-\-/um';
+	if(preg_match_all($yaml_lines, $source) >= 2) {
+		$parts = preg_split($yaml_lines, $source, 3);
+		$yaml = "---" . $parts[1] . "---\n\n";
+		$source = $parts[2];
+	}
+
+	$source = $yaml .
+'```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error=T,echo=F,fig.retina=2,fig.height=7,fig.width=10)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error=T,echo=F,fig.height=7,fig.width=10)
 ' . $variables . '
 ```
 
@@ -1118,7 +1127,7 @@ function opencpu_knitdisplay($source, $variables = null, $return_session = false
 	}
 	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2,fig.height=7,fig.width=10)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.height=7,fig.width=10)
 opts_knit$set(base.url="'.OpenCPU::TEMP_BASE_URL.'")
 ' . $variables . '
 ```
@@ -1141,7 +1150,7 @@ function opencpu_knitadmin($source, $variables = null, $return_session = false) 
 	}
 	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2,fig.height=7,fig.width=10)
+opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.height=7,fig.width=10)
 opts_knit$set(base.url="'.OpenCPU::TEMP_BASE_URL.'")
 ' . $variables . '
 ```
@@ -1165,7 +1174,7 @@ function opencpu_knitemail($source, array $variables = null, $return_format = 'j
 	$source = '```{r settings,warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F}
 library(knitr); library(formr)
 opts_chunk$set(warning='. $show_errors .',message='. $show_errors .',error='. $show_errors .',echo=F,fig.retina=2)
-opts_knit$set(upload.fun=function(x) { paste0("cid:", basename(x)) })
+opts_knit$set(upload.fun=function(x) { paste0("cid:", URLencode(basename(x))) })
 ' . $variables . '
 ```
 ' .
@@ -1267,6 +1276,15 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 		try {
 			$request = $session->getRequest();
 			$params = $request->getParams();
+			if(isset($params['text'])) {
+				$debug['R Markdown'] = '
+					<a href="#" class="download_r_code" data-filename="formr_rmarkdown.Rmd">Download R Markdown file to debug.</a><br>
+					<textarea class="form-control" rows="10" readonly>'. h(stripslashes(substr($params['text'], 1, -1))) . '</textarea>';
+			} elseif(isset($params['x'])) {
+				$debug['R Code'] = '
+					<a href="#" class="download_r_code" data-filename="formr_values_showifs.R">Download R code file to debug.</a><br>
+					<textarea class="form-control" rows="10" readonly>'. h((substr($params['x'], 1, -1))) . '</textarea>';
+			}
 			if ($session->hasError()) {
 				$debug['Response'] = pre_htmlescape($session->getError());
 			} else {
@@ -1283,16 +1301,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 					$debug['Response'] = pre_htmlescape(json_encode($session->getJSONObject(),  JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
 				}
 			}
-			$debug['Request'] =  pre_htmlescape((string) $request);
-			if(isset($params['text'])) {
-				$debug['R Markdown'] = '
-					<a href="#" class="download_r_code" data-filename="formr_rmarkdown.Rmd">Download R Markdown file.</a><br>
-					<textarea class="form-control" rows="10" readonly>'. h(stripslashes(substr($params['text'], 1, -1))) . '</textarea>';
-			} elseif(isset($params['x'])) {
-				$debug['R Code'] = '
-					<a href="#" class="download_r_code" data-filename="formr_values_showifs.R">Download R code file.</a><br>
-					<textarea class="form-control" rows="10" readonly>'. h((substr($params['x'], 1, -1))) . '</textarea>';
-			}
+
 			$urls = $session->getResponsePathsAsLinks();
 			if (!$session->hasError() AND ! empty($urls)) {
 				$locations = '';
@@ -1305,6 +1314,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 			$debug['Session Info'] = pre_htmlescape($session->getInfo());
 			$debug['Session Console'] = pre_htmlescape($session->getConsole());
 			$debug['Session Stdout'] = pre_htmlescape($session->getStdout());
+			$debug['Request'] =  pre_htmlescape((string) $request);
 
 			$reponse_headers = $session->getResponseHeaders();
 			$debug['Response Headers'] = pre_htmlescape(print_r($reponse_headers, 1));
