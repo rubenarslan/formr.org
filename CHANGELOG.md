@@ -330,3 +330,10 @@ In this case, previously, the submit button would never be displayed. We decided
 ### Changed
 * Publications moved to new page
 
+## [0.16.13] - 02.10.2017
+### Changed
+Bug fix release.
+* See [Github](https://github.com/rubenarslan/formr.org/issues?utf8=%E2%9C%93&q=milestone%3Av0.16.13%20) for details
+* add mc_horizontal class
+* fix some CSS bugs in new material design
+* several UI fixes
