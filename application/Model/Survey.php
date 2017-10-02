@@ -1571,10 +1571,9 @@ class Survey extends RunUnit {
 		  `ended` DATETIME NULL DEFAULT NULL ,
 	
 		  $columns_string
-		  
-		  INDEX `fk_survey_results_survey_unit_sessions1_idx` (`session_id` ASC) ,
-		  INDEX `fk_survey_results_survey_studies1_idx` (`study_id` ASC) ,
+
 		  PRIMARY KEY (`session_id`) ,
+		  INDEX `idx_survey_results_survey_studies` (`study_id` ASC) ,
 		  INDEX `ending` (`session_id` DESC, `study_id` ASC, `ended` ASC) ,
 		  CONSTRAINT
 		    FOREIGN KEY (`session_id` )
