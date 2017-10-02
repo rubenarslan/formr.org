@@ -38,7 +38,7 @@ class EmailAccount {
 	}
 
 	public function create() {
-		$this->id = $this->dbh->insert('survey_email_accounts', array('user_id' => $this->user_id));
+		$this->id = $this->dbh->insert('survey_email_accounts', array('user_id' => $this->user_id, 'auth_key' => ''));
 		$this->load($this->id);
 		return $this->id;
 	}
@@ -125,7 +125,7 @@ class EmailAccount {
 	}
 
 	public function delete() {
-		return $this->dbh->delete('survey_email_accounts', array('id' => $this->id));
+		return $this->dbh->update('survey_email_accounts', array('deleted' => 1), array('id' => $this->id));
 	}
 
 }

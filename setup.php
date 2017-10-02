@@ -31,8 +31,8 @@ if(php_sapi_name() != 'cli') {
 	require_once APPLICATION_ROOT . 'config_default/assets.php';
 }
 
-// Set current formr version (bumbped on release)
-$settings['version'] = 'v0.16.12';
+// Set current formr version (bumped on release)
+$settings['version'] = 'v0.16.13';
 
 // Load application autoloader
 $autoloader = require_once APPLICATION_PATH . 'Library/Autoloader.php';

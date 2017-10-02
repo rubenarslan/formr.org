@@ -48,8 +48,7 @@ class RunSession {
 			$this->run_owner_id = $user_id;
 			$this->is_testing = true;
 			Site::getInstance()->setRunSession($this);
-		}
-		else if ($this->session && $this->run_id) {// called with null in constructor if they have no session yet
+		} else if ($this->session && $this->run_id) {// called with null in constructor if they have no session yet
 			$this->load();
 		}
 	}
@@ -87,9 +86,6 @@ class RunSession {
 			$this->no_mail = $sess_array['no_email'];
 			$this->is_testing = (bool)$sess_array['testing'];
 
-			if (!$this->cron) {
-				$this->dbh->update('survey_run_sessions', array('last_access' => mysql_now()), array('id' => $this->id));
-			}
 			Site::getInstance()->setRunSession($this);
 			return true;
 		}
@@ -101,6 +97,12 @@ class RunSession {
 		return $this->dbh->select('last_access')
 						->from('survey_run_sessions')
 						->where(array('id' => $this->id));
+	}
+
+	public function setLastAccess() {
+		if (!$this->cron && (int)$this->id > 0) {
+			$this->dbh->update('survey_run_sessions', array('last_access' => mysql_now()), array('id' => (int)$this->id));
+		}
 	}
 
 	public function create($session = NULL, $testing = 0) {

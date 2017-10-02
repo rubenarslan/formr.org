@@ -40,7 +40,7 @@
 			<input type="hidden" name="session" value="<?php echo $user->user_code;?>">
 			<select name="new_position" class="form-control position_monkey " <?= $disable_class ?>>
 			<?php foreach($run->getAllUnitTypes() AS $run_unit): ?>
-				<option value="<?=$run_unit['position']?>" <?=($run_unit['position'] === $run_session->position) ? 'selected' : '' ?>>
+				<option value="<?=$run_unit['position']?>" <?=((int)$run_unit['position'] === (int)$run_session->position) ? 'selected="selected"' : '' ?>>
 					<?=$run_unit['position'] . " - (" . $run_unit['type'] . ") " . $run_unit['description']?>
 				</option>
 			<?php endforeach; ?>

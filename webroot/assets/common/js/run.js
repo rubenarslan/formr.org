@@ -121,7 +121,7 @@
         if (!this.unsavedChanges) // dont touch the DOM for every change
         {
             this.unsavedChanges = true;
-            this.save_button.addClass('btn-info').removeAttr('disabled').text('Unsaved changes…');
+            this.save_button.addClass('btn-info').removeAttr('disabled').text('Save changes');
             this.test_button.attr('disabled', 'disabled');
         }
     };
