@@ -626,7 +626,7 @@ class Survey extends RunUnit {
 
 			// 2. Check item's value
 			if ($item->needsDynamicValue()) {
-				$val = str_replace("\n","\n\t",$item->getValue());
+				$val = str_replace("\n","\n\t",$item->getValue($this));
 				$code[$name] = "{$name} = (function(){
 {$val}
 })()";
