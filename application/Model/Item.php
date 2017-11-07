@@ -575,7 +575,7 @@ class Item extends HTML_element {
 
 	public function getValue(Survey $survey = null) {
 		if ($survey && $this->value === 'sticky') {
-			$this->value = "tail(na.omit({$survey->results_table}\${$this->name}),1)";
+			$this->value = "tail(na.omit({$survey->name}\${$this->name}),1)";
 		}
 		return trim($this->value);
 	}

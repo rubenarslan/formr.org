@@ -99,18 +99,18 @@ class Pause extends RunUnit {
 				</label> <strong>and</strong>
 				
 				</p>
-				<p class="well well-sm">
+				<div class="well well-sm">
 					<span class="input-group">
 						<input class="form-control" type="number" style="width:230px" placeholder="wait this many minutes" name="wait_minutes" value="' . h($this->wait_minutes) . '">
 				        <span class="input-group-btn">
 							<button class="btn btn-default from_days hastooltip" title="Enter a number of days and press this button to convert them to minutes (*60*24)"><small>convert days</small></button>
 						</span>
 					</span>
-					
-				 <label>relative to <br />
-					<textarea data-editor="r" style="width:368px;" rows="2" class="form-control" placeholder="arriving at this pause" name="relative_to">' . h($this->relative_to) . '</textarea>
-					</label
-				</p> 
+					<br />
+					<label>relative to <br />
+						<textarea data-editor="r" style="width:368px;" rows="2" class="form-control" placeholder="arriving at this pause" name="relative_to">' . h($this->relative_to) . '</textarea>
+					</label>
+				</div> 
 		<p><label>Text to show while waiting: <br>
 			<textarea style="width:388px;"  data-editor="markdown" class="form-control col-md-5" placeholder="You can use Markdown" name="body" rows="10">' . h($this->body) . '</textarea>
 		</label></p>

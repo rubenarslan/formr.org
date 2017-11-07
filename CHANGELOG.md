@@ -337,3 +337,9 @@ Bug fix release.
 * add mc_horizontal class
 * fix some CSS bugs in new material design
 * several UI fixes
+
+## [0.16.14] - 11.07.2017
+### Changed
+Bug fix release.
+* See [Github](https://github.com/rubenarslan/formr.org/issues/314) for details
+* Compute dynamic value using current survey object
