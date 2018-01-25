@@ -138,6 +138,8 @@ class Survey extends RunUnit {
 			$this->settings['expire_after'] = (int) array_val($vars, 'expire_after');
 			$this->settings['google_file_id'] = array_val($vars, 'google_file_id');
 			$this->settings['unlinked'] = array_val($vars, 'unlinked');
+			$this->settings['expire_invitation_after'] = (int) array_val($vars, 'expire_invitation_after');
+			$this->settings['expire_invitation_grace'] = (int) array_val($vars, 'expire_invitation_grace');
 
 			$this->valid = true;
 		endif;
@@ -986,10 +988,26 @@ class Survey extends RunUnit {
 		}
 	}
 
+	private function hasExpiredInvitation() {
+		$expire = (int) $this->settings['expire_invitation_after'];
+		$grace_period = (int) $this->settings['expire_invitation_grace'];
+		if ($expire == 0) {
+			return false;
+		}
+		$invited = strtotime($this->run_session->unit_session->created);
+		if (!$invited) {
+			return false;
+		}
+		if ($invited < time() - ($expire + $grace_period)) {
+			return true;
+		}
+		return false;
+	}
+
 	public function exec() {
 		// never show to the cronjob
 		if ($this->called_by_cron) {
-			if ($this->hasExpired()) {
+			if ($this->hasExpired() || $this->hasExpiredInvitation()) {
 				$this->expire();
 				return false;
 			}

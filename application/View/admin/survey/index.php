@@ -135,6 +135,30 @@
 										</div>
 									</td>
 								</tr>
+								<tr>
+									<td colspan="2">
+										<label>Invitation Expiration</label>
+										<span class="help-block">
+											<i class="fa fa-info-circle"></i>
+											If you require the user to have completed this survey after a certain period of time (in minutes) from the invite, specify the number of minutes here.
+											If the user reacts almost when this time is about to expire and you want this user to be able to complete filling out the survey, specify a <i>"grace period"</i> below (in minutes).
+										</span>
+										<div class="form-group " style="padding-left: 0px;">
+											<div class="input-group">
+												<div class="input-group-addon"> Expire in</div>
+												<input type="number" class="form-control" name="expire_invitation_after" value="<?= h($study->settings['expire_invitation_after']) ?>" min="0" max="3153600" size="20" />
+												<div class="input-group-addon"> Minutes</div>
+												<div class="input-group-addon"> with a grace period of </div>
+												<input type="number" class="form-control" name="expire_invitation_grace" value="<?= h($study->settings['expire_invitation_grace']) ?>" min="0" max="3153600" size="20" />
+												<div class="input-group-addon"> Minutes</div>
+											</div>
+											
+											<div class="input-group">
+												
+											</div>
+										</div>
+									</td>
+								</tr>
 
 							</table>
 
