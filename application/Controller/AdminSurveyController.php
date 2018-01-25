@@ -28,6 +28,13 @@ class AdminSurveyController extends AdminController {
 		$this->renderView('survey/index', array('survey_id' => $this->study->id));
 	}
 
+	public function listAction() {
+		$vars = array(
+			'studies' => $this->user->getStudies('id DESC', null),
+		);
+		$this->renderView('survey/list', $vars);
+	}
+
 	public function addSurveyAction() {
 		$settings = $updates = array();
 		if (Request::isHTTPPostRequest() && $this->request->google_sheet && $this->request->survey_name) {

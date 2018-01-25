@@ -655,6 +655,11 @@ class DB_Select {
 			return $this;
 		}
 
+		if ($order === null) {
+			$this->order[] = $by;
+			return $this;
+		}
+
 		$order = strtoupper($order);
 		if (!in_array($order, array('ASC', 'DESC'))) {
 			throw new Exception("Invalid Order");

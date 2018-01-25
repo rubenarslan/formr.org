@@ -17,8 +17,8 @@
 
 		<?php
 			if (!isset($runs) || !isset($studies)) {
-				$runs = $user->getRuns();
-				$studies =  $user->getStudies();
+				$runs = $user->getRuns('id DESC', 5);
+				$studies =  $user->getStudies('id DESC', 5);
 			}
 		?>
     </head>
@@ -49,6 +49,11 @@
 												<li><a href="<?php echo admin_study_url($menu_study['name']); ?>"><?php echo $menu_study['name']; ?></a></li>
 											<?php endforeach;?>
 										<?php endif; ?>
+										<li class="divider"></li>
+										<li>
+											<a href="<?php echo admin_url('survey/list'); ?>"><i class="fa fa-th-list"></i> View All</a>
+										</li>
+										
                                     </ul>
                                 </li>
                                 <li class="dropdown">
@@ -61,6 +66,10 @@
 												<li><a href="<?php echo admin_run_url($menu_run['name']); ?>"><?php echo $menu_run['name']; ?></a></li>
 											<?php endforeach; ?>
 										<?php endif; ?>
+										<li class="divider"></li>
+										<li>
+											<a href="<?php echo admin_url('run/list'); ?>"><i class="fa fa-th-list"></i> View All</a>
+										</li>
                                     </ul>
                                 </li>
                                 <li><a href="<?php echo admin_url('mail'); ?>"><i class="fa fa-envelope"></i> <span>Mail Accounts</span></a></li>

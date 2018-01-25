@@ -31,6 +31,13 @@ class AdminRunController extends AdminController {
 		$this->renderView('run/index', $vars);
 	}
 
+	public function listAction() {
+		$vars = array(
+			'runs' => $this->user->getRuns('id DESC', null),
+		);
+		$this->renderView('run/list', $vars);
+	}
+
 	public function addRunAction() {
 		if (!empty($_POST)) {
 			$run_name = $this->request->str('run_name');
