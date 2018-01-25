@@ -15,6 +15,33 @@
 			<div class="col-md-8">
 				<div class="box box-primary">
 					<div class="box-header with-border">
+						<h3 class="box-title">Survey Shortcuts</h3>
+					</div>
+					<div class="box-body">
+						<div class="row">
+							<div class="col-md-4">
+								<a href="<?= admin_study_url($study->name, 'show_item_table') ?>" class="dashboard-link">
+									<span class="icon"><i class="fa fa-download"></i></span>
+									<span class="text">Download Items</span>
+								</a>
+							</div>
+
+							<div class="col-md-4">
+								<a href="<?= admin_study_url($study->name, 'show_item_table') ?>" class="dashboard-link">
+									<span class="icon"><i class="fa fa-th"></i></span>
+									<span class="text">Show Items</span>
+								</a>
+							</div>
+							<div class="col-md-4">
+								<a href="<?= admin_study_url($study->name, 'upload_items') ?>" class="dashboard-link">
+									<span class="icon"><i class="fa fa-upload"></i></span>
+									<span class="text">Upload Items</span>
+								</a>
+							</div>
+						</div>
+					</div>
+					
+					<div class="box-header with-border">
 						<h3 class="box-title">Survey Settings</h3>
 					</div>
 					<form role="form" method="post" action="<?php echo admin_study_url($study->name); ?>">
