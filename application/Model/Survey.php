@@ -1091,12 +1091,7 @@ class Survey extends RunUnit {
 			$errors = true;
 		}
 
-		if (isset($key_value_pairs['enable_instant_validation'])
-				AND ! ($key_value_pairs['enable_instant_validation'] === 0 || $key_value_pairs['enable_instant_validation'] === 1)
-		) {
-			alert("Instant validation has to be set to either 0 (off) or 1 (on).", 'alert-warning');
-			$errors = true;
-		}
+		$key_value_pairs['enable_instant_validation'] = (int)(isset($key_value_pairs['enable_instant_validation']) && $key_value_pairs['enable_instant_validation'] == 1);
 
 		if (isset($key_value_pairs['unlinked'])) {
 			if(! ($key_value_pairs['unlinked'] === 0 || $key_value_pairs['unlinked'] === 1)) {
