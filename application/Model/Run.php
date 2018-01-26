@@ -81,13 +81,15 @@ class Run {
 
 		if ($name !== null OR ($name = $this->create($options))):
 			$this->name = $name;
-			$columns = "id, user_id, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design";
+			$columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design";
 			$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
 
 			if ($vars):
 				$this->id = $vars['id'];
 				$this->user_id = (int) $vars['user_id'];
 				$this->api_secret_hash = $vars['api_secret_hash'];
+				$this->created = (int)$vars['created'];
+				$this->modified = (int)$vars['modified'];
 				$this->public = (int)$vars['public'];
 				$this->cron_active = (int)$vars['cron_active'];
 				$this->cron_fork = (int)$vars['cron_fork'];
@@ -197,6 +199,8 @@ class Run {
 			'user_id' => $options['user_id'],
 			'name' => $name,
 			'title' => $name,
+			'created' => mysql_now(),
+			'modified' => mysql_now(),
 			'api_secret_hash' => $new_secret,
 			'cron_active' => 1,
 			'use_material_design' => 1,
@@ -535,6 +539,7 @@ class Run {
 		endforeach;
 
 		if ($updates) {
+			$updates['modified'] = mysql_now();
 			$this->dbh->update('survey_runs', $updates, array('id' => $this->id));
 		}
 
