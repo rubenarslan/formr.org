@@ -14,8 +14,8 @@ class AdminController extends Controller {
 
 	public function indexAction() {
 		$this->renderView('home', array(
-			'runs' => $this->user->getRuns(),
-			'studies' =>  $this->user->getStudies(),
+			'runs' => $this->user->getRuns('id DESC', 5),
+			'studies' =>  $this->user->getStudies('id DESC', 5),
 		));
 	}
 

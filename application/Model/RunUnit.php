@@ -184,6 +184,7 @@ class RunUnit {
 	}
 
 	public function linkToRun() {
+		// todo: set run modified
 		return $this->dbh->update('survey_run_units', 
 				array('unit_id' => $this->id), 
 				array('id' => $this->run_unit_id), 
@@ -192,6 +193,7 @@ class RunUnit {
 	}
 
 	public function addToRun($run_id, $position = 10, $options = array("description" => '')) {
+		// todo: set run modified
 		if (!is_numeric($position)) {
 			$position = 10;
 		}
@@ -218,6 +220,7 @@ class RunUnit {
 	}
 
 	public function removeFromRun($special = null) {
+		// todo: set run modified
 		if ($special !== null) {
 			return $this->dbh->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
 		} else {
@@ -226,6 +229,7 @@ class RunUnit {
 	}
 
 	public function delete($special = null) {
+		// todo: set run modified
 		if ($special !== null) {
 			return $this->dbh->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
 		} else {

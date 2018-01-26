@@ -468,7 +468,7 @@ class Item extends HTML_element {
 	}
 
 	protected function render_input() {
-		if ($this->value_validated) {
+		if ($this->value_validated !== null) {
 			$this->input_attributes['value'] = $this->value_validated;
 		}
 
@@ -514,8 +514,12 @@ class Item extends HTML_element {
 	}
 
 	protected function splitValues() {
-		if (isset($this->input_attributes['value'])):
-			$this->presetValues = array_map("trim", explode(",", $this->input_attributes['value']));
+		if (isset($this->value_validated)):
+			if(is_array($this->value_validated)):
+				$this->presetValues = $this->value_validated;
+			else:
+				$this->presetValues = array_map("trim", explode(",", $this->value_validated));
+			endif;
 			unset($this->input_attributes['value']);
 		else:
 			$this->presetValues = array();

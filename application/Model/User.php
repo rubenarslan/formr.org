@@ -357,11 +357,18 @@ formr robots";
 		return false;
 	}
 
-	public function getStudies() {
-		if ($this->isAdmin()):
-			return $this->dbh->find('survey_studies', array('user_id' => $this->id));
-		endif;
-		return false;
+	public function getStudies($order = 'id DESC', $limit = null) {
+		if ($this->isAdmin()) {
+			$select = $this->dbh->select();
+			$select->from('survey_studies');
+			$select->order($order, null);
+			if ($limit) {
+				$select->limit($limit);
+			}
+			$select->where(array('user_id' => $this->id));
+			return $select->fetchAll();
+		}
+		return array();
 	}
 
 	public function getEmailAccounts() {
@@ -381,11 +388,18 @@ formr robots";
 		return false;
 	}
 
-	public function getRuns() {
-		if ($this->isAdmin()):
-			return $this->dbh->find('survey_runs', array('user_id' => $this->id));
-		endif;
-		return false;
+	public function getRuns($order = 'id DESC', $limit = null) {
+		if ($this->isAdmin()) {
+			$select = $this->dbh->select();
+			$select->from('survey_runs');
+			$select->order($order, null);
+			if ($limit) {
+				$select->limit($limit);
+			}
+			$select->where(array('user_id' => $this->id));
+			return $select->fetchAll();
+		}
+		return array();
 	}
 
 	function getAvailableRuns() {

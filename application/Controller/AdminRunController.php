@@ -31,6 +31,13 @@ class AdminRunController extends AdminController {
 		$this->renderView('run/index', $vars);
 	}
 
+	public function listAction() {
+		$vars = array(
+			'runs' => $this->user->getRuns('id DESC', null),
+		);
+		$this->renderView('run/list', $vars);
+	}
+
 	public function addRunAction() {
 		if (!empty($_POST)) {
 			$run_name = $this->request->str('run_name');
@@ -482,16 +489,19 @@ class AdminRunController extends AdminController {
 
 	private function emptyRunAction() {
 		$run = $this->run;
-		if(isset($_POST['empty']) AND trim($_POST['empty_confirm']) === $run->name) {
-			$run->emptySelf();
-			redirect_to(admin_run_url($run->name, "empty_run"));
-		} elseif(isset($_POST['empty'])) {
-			alert("<b>Error:</b> You must type the run's name '{$run->name}' to empty it.",'alert-danger');
+		if ($this->request->isHTTPPostRequest()) {
+			if ($this->request->getParam('empty_confirm') === $run->name) {
+				$run->emptySelf();
+				redirect_to(admin_run_url($run->name, "empty_run"));
+			} else {
+				alert("<b>Error:</b> You must type the run's name '{$run->name}' to empty it.", 'alert-danger');
+			}
 		}
-
+		
 		$this->renderView('run/empty_run', array(
 			'users' => $run->getNumberOfSessionsInRun(),
 		));
+		
 	}
 
 	private function emailLogAction() {

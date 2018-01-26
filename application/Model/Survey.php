@@ -138,6 +138,8 @@ class Survey extends RunUnit {
 			$this->settings['expire_after'] = (int) array_val($vars, 'expire_after');
 			$this->settings['google_file_id'] = array_val($vars, 'google_file_id');
 			$this->settings['unlinked'] = array_val($vars, 'unlinked');
+			$this->settings['expire_invitation_after'] = (int) array_val($vars, 'expire_invitation_after');
+			$this->settings['expire_invitation_grace'] = (int) array_val($vars, 'expire_invitation_grace');
 
 			$this->valid = true;
 		endif;
@@ -447,15 +449,14 @@ class Survey extends RunUnit {
 				if ($item->error) {
 					$this->validation_errors[$item_name] = $item->error;
 				} else {
-					$item->value_validated = $validInput;
-					$items[$item_name] = $item;
 					$update_data[$item_name] = $item->getReply($validInput);
 				}
+				$item->value_validated = $item_value;
+				$items[$item_name] = $item;
 			}
 		}
 
 		if (!empty($this->validation_errors)) {
-			// @todo fill values of unanswered items to pre-populate form
 			$this->items_validated = $items;
 			return false;
 		}
@@ -928,6 +929,9 @@ class Survey extends RunUnit {
 			if (!empty($this->validation_errors[$item->name])) {
 				$item->error = $this->validation_errors[$item->name];
 			}
+			if (!empty($this->items_validated[$item->name])) {
+				$item->value_validated = $this->items_validated[$item->name]->value_validated;
+			}
 			$ret .= $item->render();
 		}
 
@@ -966,23 +970,36 @@ class Survey extends RunUnit {
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->fetch();
 
-		return $arr['last_viewed'];
+		return isset($arr['last_viewed']) ? $arr['last_viewed'] : null;
 	}
 
+	/**
+	 * @see https://github.com/rubenarslan/formr.org/wiki/Expiry
+	 * @return boolean
+	 */
 	private function hasExpired() {
-		$expire = (int) $this->settings['expire_after'];
-		if ($expire === 0) {
+		$expire_invitation = (int) $this->settings['expire_invitation_after'];
+		$grace_period = (int) $this->settings['expire_invitation_grace'];
+		$expire_inactivity = (int) $this->settings['expire_after'];
+		if ($expire_inactivity === 0 && $expire_invitation === 0) {
 			return false;
 		} else {
-			if (!($last = $this->getTimeWhenLastViewedItem())) {
-				$last = $this->run_session->unit_session->created;
+			$now = time();
+
+			$last_active = $this->getTimeWhenLastViewedItem(); // when was the user last active on the study
+			$expire_invitation_time = $expire_inactivity_time = 0; // default to 0 (means: other values supervene. users only get here if at least one value is nonzero)
+			if($expire_inactivity !== 0 && $last_active != null) {
+				$expire_inactivity_time = strtotime($last_active) + $expire_inactivity * 60;
 			}
-			if (!$last) {
-				return false;
+			$invitation_sent = $this->run_session->unit_session->created;
+			if($expire_invitation !== 0 && $invitation_sent) {
+				$expire_invitation_time = strtotime($invitation_sent) + $expire_invitation * 60;
+				if($grace_period !== 0 && $last_active) {
+					$expire_invitation_time = $expire_invitation_time + $grace_period * 60;
+				}
 			}
-			$query = 'SELECT :last <= DATE_SUB(NOW(), INTERVAL :expire_after MINUTE) AS no_longer_active';
-			$params = array('last' => $last, 'expire_after' => $expire);
-			return (bool)$this->dbh->execute($query, $params, true);
+			$expire = max($expire_inactivity_time, $expire_invitation_time);
+			return ($expire > 0) && ($now > $expire); // when we switch to the new scheduler, we need to return the timestamp here
 		}
 	}
 
@@ -1091,12 +1108,7 @@ class Survey extends RunUnit {
 			$errors = true;
 		}
 
-		if (isset($key_value_pairs['enable_instant_validation'])
-				AND ! ($key_value_pairs['enable_instant_validation'] === 0 || $key_value_pairs['enable_instant_validation'] === 1)
-		) {
-			alert("Instant validation has to be set to either 0 (off) or 1 (on).", 'alert-warning');
-			$errors = true;
-		}
+		$key_value_pairs['enable_instant_validation'] = (int)(isset($key_value_pairs['enable_instant_validation']) && $key_value_pairs['enable_instant_validation'] == 1);
 
 		if (isset($key_value_pairs['unlinked'])) {
 			if(! ($key_value_pairs['unlinked'] === 0 || $key_value_pairs['unlinked'] === 1)) {
