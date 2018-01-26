@@ -125,7 +125,7 @@
 									<td colspan="2">
 										<label>Inactivity Expiration</label>
 										<span class="help-block">
-											<i class="fa fa-info-circle"></i> Should the survey expire after a certain number of minutes of inactivity? Specify <b>0 </b>if not. If a user is never active for x minutes or if the last activity is more than x minutes ago, the run will automatically move on.
+											<i class="fa fa-info-circle"></i> Should the survey expire after a certain number of minutes of inactivity? Specify <b>0 </b>if not. If a user inactive for x minutes, the run will automatically move on. If the invitation is still valid (see below), this value doesn't count.
 										</span>
 										<div class="form-group col-md-6 nlp" style="padding-left: 0px;">
 											<div class="input-group">
@@ -140,8 +140,8 @@
 										<label>Invitation Expiration</label>
 										<span class="help-block">
 											<i class="fa fa-info-circle"></i>
-											If you require the user to have completed this survey after a certain period of time (in minutes) from the invite, specify the number of minutes here.
-											If the user reacts almost when this time is about to expire and you want this user to be able to complete filling out the survey, specify a <i>"grace period"</i> below (in minutes).
+											How many minutes after the survey becomes available (usually via invitation), should the invitation expire? An expired invitation means that the link sent out will no longer go to the survey, but to the next step in the run.<br>
+											For people who react to the invitation, how long do you want the access window to last. If someone begins one minute before the invitation expires, do you want them to have a grace period allowing them to finish? The survey will always expire after the invitation expiry + grace, even if a user is currently editing. To allow a user to keep editing for however long, set both grace period and inactivity expiration to 0. If inactivity and grace period expiration are set, the earlier time determines when the survey expires.
 										</span>
 										<div class="form-group " style="padding-left: 0px;">
 											<div class="input-group">

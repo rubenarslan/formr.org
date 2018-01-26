@@ -347,3 +347,4 @@ Bug fix release.
 ## [0.16.15] - 26.11.2018
 ### Changed
 * Fixed PHP-side survey validation so that entered data is not lost, partially addressing #327
+* Added further ways to specify expiry #305
