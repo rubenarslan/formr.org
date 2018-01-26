@@ -973,62 +973,17 @@ class Survey extends RunUnit {
 		return $arr['last_viewed'];
 	}
 
-	private function hasExpired() {
+private function hasExpired() {
 		$expire_invitation = (int) $this->settings['expire_invitation_after'];
 		$grace_period = (int) $this->settings['expire_invitation_grace'];
 		$expire_inactivity = (int) $this->settings['expire_after'];
 		if ($expire_inactivity === 0 && $expire_invitation === 0) {
 			return false;
 		} else {
-			/*
-			definitions:
-			expire_invitation: time until which somebody has to have accessed the survey
-			expire_inactivity: time for how long somebody has to have been inactive before survey expires (after starting)
-			grace_period: time after starting by which one has to be finished
-
-			scenarios:
-			1. invitation should be valid for 7 hours, people should be able to edit for at most 8 hours:
-				- expire_invitation: 7*60, grace_period = 30, expire_inactivity = 0
-				- can result in people loading a a page at 7:59, submitting a page at 8:01 and having data lost
-				- result:
-					- for someone who never reacted: 7*60
-					- for someone who clicks at 6:50, then is inactive: 7:30
-					- for someone who clicks at 6:50, then waits 5minutes, then fills out within 20 minutes: 7:15
-					- for someone who clicks at 6:50, then waits 20minutes, then fills out 1 item every 10 min: is interrupted 7:30
-			2. invitation should be valid for 7 hours. once started, people should not be locked out unless they're inactive for more than 30m
-				- expire_invitation = 7*60, grace_period = 0, expire_inactivity = 30
-				- can result in people stringing out a session for hours (but unlikely user behaviour)
-				- result:
-					- for someone who never reacted: 7*60
-					- for someone who clicks at 6:50, then is inactive: 7:20
-					- for someone who clicks at 6:50, then waits 5minutes, then fills out within 20 minutes: finishes 7:15 
-					- for someone who clicks at 6:50, then waits 20minutes, then fills out 1 item every 20 min: finishes unpredictably late 
-			3. invitation should be valid for 7 hours, people should be able to edit for at most 10 hours, but only if they stay active
-				- expire_invitation = 7*60, grace_period = 3*60, expire_inactivity = 30
-				- result:
-					- for someone who never reacted: 7*60
-					- for someone who clicks at 6:50, then is inactive: 7:20
-					- for someone who clicks at 6:50, then waits 5minutes, then fills out within 20 minutes: finishes 7:15 
-					- for someone who clicks at 6:50, then waits 20minutes, then fills out 1 item every 20 min: is interrupted 10:00
-			4. invitation should be valid for 7 hours, as soon as people react, they have unlimited time to fill out
-				- expire_invitation = 7*60, grace_period = 0, expire_inactivity = 0
-				- result:
-					- for someone who never reacted: 7*60
-					- for someone who clicks at 6:50, then is inactive: never
-					- for someone who clicks at 6:50, then waits 5minutes, then fills out within 20 minutes: finishes 7:15
-					- for someone who clicks at 6:50, then waits 20minutes, then fills out 1 item every 20 min: finishes unpredictably late 
-			5. if people start, they should finish within a day.
-				- expire_invitation = 0, grace_period = 0, expire_inactivity = 24 * 60
-				- result:
-					- for someone who never reacted: never
-					- for someone who clicks at 6:50, then is inactive: 6:50 + 24:00
-					- for someone who clicks at 6:50, then waits 5minutes, then fills out within 20 minutes: finishes 7:15
-					- for someone who clicks at 6:50, then waits 20minutes, then fills out 1 item every 20 min: finishes unpredictably late 
-			*/
 			$now = time();
 
 			$last_active = $this->getTimeWhenLastViewedItem(); // when was the user last active on the study
-			$expire_with_grace = $expire_invitation_time = $expire_inactivity_time = 0; // default to 0 (means: other values supervene. users only get here if at least one value is nonzero)
+			$expire_invitation_time = $expire_inactivity_time = 0; // default to 0 (means: other values supervene. users only get here if at least one value is nonzero)
 			if($expire_inactivity !== 0 && $last_active != null) {
 				$expire_inactivity_time = strtotime($last_active) + $expire_inactivity * 60;
 			}
@@ -1036,14 +991,11 @@ class Survey extends RunUnit {
 			if($expire_invitation !== 0 && $invitation_sent) {
 				$expire_invitation_time = strtotime($invitation_sent) + $expire_invitation * 60;
 				if($grace_period !== 0 && $last_active) {
-					$expire_with_grace_time = $expire_invitation_time + $grace_period * 60;
-					if($expire_inactivity_time === 0) { // if no inactivity window is applied
-						$expire_inactivity_time = $expire_with_grace_time; // we need to make sure the 0 value is ignored
-					}
+					$expire_invitation_time = $expire_invitation_time + $grace_period * 60;
 				}
 			}
-			$expire = max(min($expire_with_grace_time, $expire_inactivity_time), $expire_invitation_time);
-			return $now > $expire; // when we switch to the new scheduler, we need to return the timestamp here
+			$expire = max($expire_inactivity_time, $expire_invitation_time);
+			return ($expire > 0) && ($now > $expire); // when we switch to the new scheduler, we need to return the timestamp here
 		}
 	}
 

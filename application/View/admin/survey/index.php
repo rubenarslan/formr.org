@@ -120,41 +120,42 @@
 										<input type="text" class="form-control" name="google_file_id" value="<?= h($study->settings['google_file_id']) ?>" />
 									</td>
 								</tr>
-								<tr><td colspan="2"><h4>Survey Expiration</h4></td></tr>
+								<tr><td colspan="2"><h4>Survey access window</h4></td></tr>
 								<tr>
 									<td colspan="2">
-										<label>Inactivity Expiration</label>
+										<label>Access window</label>
 										<span class="help-block">
-											<i class="fa fa-info-circle"></i> Should the survey expire after a certain number of minutes of inactivity? Specify <b>0 </b>if not. If a user inactive for x minutes, the run will automatically move on. If the invitation is still valid (see below), this value doesn't count.
+											<i class="fa fa-info-circle"></i>
+											How big should the access window be for your survey? Here, you define the time a user can start the survey (usually after receiving an email invitation). By setting the second value to a value other than zero, you are saying that the user has to finish with the survey x minutes after the access window closed.<br>
+											The sum of these values is the maximum time someone can spend on this unit, giving you more predictability than the snooze button above. To allow a user to keep editing indefinitely, set the finishing time and inactivity expiration to 0. If inactivity expiration is also set, a survey can expire before the end of the finish time.
+											<a href="https://github.com/rubenarslan/formr.org/wiki/Expiry">More information</a>.
 										</span>
-										<div class="form-group col-md-6 nlp" style="padding-left: 0px;">
+										<div class="form-group " style="padding-left: 0px;">
 											<div class="input-group">
-												<input type="number" class="form-control" name="expire_after" value="<?= h($study->settings['expire_after']) ?>" min="0" max="3153600" size="20" />
-												<div class="input-group-addon"> Minutes</div>
+												<div class="input-group-addon"> Start editing within </div>
+												<input type="number" class="form-control" name="expire_invitation_after" value="<?= h($study->settings['expire_invitation_after']) ?>" min="0" max="3153600" size="20" />
+												<div class="input-group-addon"> minutes</div>
+												<div class="input-group-addon"> finishing editing within </div>
+												<input type="number" class="form-control" name="expire_invitation_grace" value="<?= h($study->settings['expire_invitation_grace']) ?>" min="0" max="3153600" size="20" />
+												<div class="input-group-addon"> minutes after the access window closed</div>
+											</div>
+											
+											<div class="input-group">
+												
 											</div>
 										</div>
 									</td>
 								</tr>
 								<tr>
 									<td colspan="2">
-										<label>Invitation Expiration</label>
+										<label>Inactivity Expiration (snooze)</label>
 										<span class="help-block">
-											<i class="fa fa-info-circle"></i>
-											How many minutes after the survey becomes available (usually via invitation), should the invitation expire? An expired invitation means that the link sent out will no longer go to the survey, but to the next step in the run.<br>
-											For people who react to the invitation, how long do you want the access window to last. If someone begins one minute before the invitation expires, do you want them to have a grace period allowing them to finish? The survey will always expire after the invitation expiry + grace, even if a user is currently editing. To allow a user to keep editing for however long, set both grace period and inactivity expiration to 0. If inactivity and grace period expiration are set, the earlier time determines when the survey expires.
+											<i class="fa fa-info-circle"></i> If a user is inactive in the survey for x minutes, should the survey expire? Specify <b>0 </b>if not. If a user inactive for x minutes, the run will automatically move on. If the invitation is still valid (see below), this value doesn't count. Beware: much like with the snooze button on your alarm clock, a user can theoretically snooze indefinitely.
 										</span>
-										<div class="form-group " style="padding-left: 0px;">
+										<div class="form-group col-md-2 nlp" style="padding-left: 0px;">
 											<div class="input-group">
-												<div class="input-group-addon"> Expire in</div>
-												<input type="number" class="form-control" name="expire_invitation_after" value="<?= h($study->settings['expire_invitation_after']) ?>" min="0" max="3153600" size="20" />
+												<input type="number" class="form-control" name="expire_after" value="<?= h($study->settings['expire_after']) ?>" min="0" max="3153600" size="20" />
 												<div class="input-group-addon"> Minutes</div>
-												<div class="input-group-addon"> with a grace period of </div>
-												<input type="number" class="form-control" name="expire_invitation_grace" value="<?= h($study->settings['expire_invitation_grace']) ?>" min="0" max="3153600" size="20" />
-												<div class="input-group-addon"> Minutes</div>
-											</div>
-											
-											<div class="input-group">
-												
 											</div>
 										</div>
 									</td>
