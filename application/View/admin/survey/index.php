@@ -78,26 +78,24 @@
 								</tr>
 
 								<tr>
-									<td>
-										<label>Maximum Percentage Display</label>
+									<td colspan="2">
+										<label>Percentage Display</label>
 										<span class="help-block">
-											<i class="fa fa-info-circle"></i> Sometimes, in complex studies where several surveys are linked, you'll want to let the progress bar that the user sees only vary in a given range (e.g. first survey 0-40, second survey 40-100). This is the upper limit for this survey.
+											<i class="fa fa-info-circle"></i> Sometimes, in complex studies where several surveys are linked, you'll want to let the progress bar that the user sees only vary in a given range (e.g. first survey 0-40, second survey 40-100).
 										</span>
-										<span class="col-md-6 nlp" style="padding-left: 0px;">
-											<input type="number" class="form-control" name="displayed_percentage_maximum" value="<?= h($study->settings['displayed_percentage_maximum']) ?>" min="0" max="100" />
-										</span>
-
+										<div class="form-group " style="padding-left: 0px;">
+											<div class="input-group">
+												<div class="input-group-addon"> from </div>
+												<input type="number" class="form-control" name="add_percentage_points" value="<?= h($study->settings['add_percentage_points']) ?>" min="0" max="100" />
+												<div class="input-group-addon"> to</div>
+												<input type="number" class="form-control" name="displayed_percentage_maximum" value="<?= h($study->settings['displayed_percentage_maximum']) ?>" min="0" max="100" />	<div class="input-group-addon"> %</div>
+											</div>
 
 									</td>
 									<td>
-										<label>Minimum Percentage Display</label>
-										<span class="help-block">
-											<i class="fa fa-info-circle"></i> Sometimes, in complex studies where several surveys are linked, you'll want to let the progress bar that the user sees only vary in a given range (e.g. first survey 0-40, second survey 40-100). This is the lower limit for this survey.
-										</span>
-										<span class="col-md-6 nlp" style="padding-left: 0px;">
-											<input type="number" class="form-control" name="add_percentage_points" value="<?= h($study->settings['add_percentage_points']) ?>" min="0" max="100" />
-										</span>
+										
 									</td>
+
 								</tr>
 
 								<tr>
