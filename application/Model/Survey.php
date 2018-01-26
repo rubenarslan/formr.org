@@ -970,7 +970,7 @@ class Survey extends RunUnit {
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->fetch();
 
-		return $arr['last_viewed'];
+		return isset($arr['last_viewed']) ? $arr['last_viewed'] : null;
 	}
 
 	/**
@@ -987,7 +987,7 @@ class Survey extends RunUnit {
 			$now = time();
 
 			$last_active = $this->getTimeWhenLastViewedItem(); // when was the user last active on the study
-			$expire_with_grace = $expire_invitation_time = $expire_inactivity_time = 0; // default to 0 (means: other values supervene. users only get here if at least one value is nonzero)
+			$expire_invitation_time = $expire_inactivity_time = 0; // default to 0 (means: other values supervene. users only get here if at least one value is nonzero)
 			if($expire_inactivity !== 0 && $last_active != null) {
 				$expire_inactivity_time = strtotime($last_active) + $expire_inactivity * 60;
 			}
@@ -995,14 +995,11 @@ class Survey extends RunUnit {
 			if($expire_invitation !== 0 && $invitation_sent) {
 				$expire_invitation_time = strtotime($invitation_sent) + $expire_invitation * 60;
 				if($grace_period !== 0 && $last_active) {
-					$expire_with_grace_time = $expire_invitation_time + $grace_period * 60;
-					if($expire_inactivity_time === 0) { // if no inactivity window is applied
-						$expire_inactivity_time = $expire_with_grace_time; // we need to make sure the 0 value is ignored
-					}
+					$expire_invitation_time = $expire_invitation_time + $grace_period * 60;
 				}
 			}
-			$expire = max(min($expire_with_grace_time, $expire_inactivity_time), $expire_invitation_time);
-			return $now > $expire; // when we switch to the new scheduler, we need to return the timestamp here
+			$expire = max($expire_inactivity_time, $expire_invitation_time);
+			return ($expire > 0) && ($now > $expire); // when we switch to the new scheduler, we need to return the timestamp here
 		}
 	}
 
