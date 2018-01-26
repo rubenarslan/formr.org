@@ -973,6 +973,10 @@ class Survey extends RunUnit {
 		return $arr['last_viewed'];
 	}
 
+	/**
+	 * @see https://github.com/rubenarslan/formr.org/wiki/Expiry
+	 * @return boolean
+	 */
 	private function hasExpired() {
 		$expire_invitation = (int) $this->settings['expire_invitation_after'];
 		$grace_period = (int) $this->settings['expire_invitation_grace'];
@@ -980,51 +984,6 @@ class Survey extends RunUnit {
 		if ($expire_inactivity === 0 && $expire_invitation === 0) {
 			return false;
 		} else {
-			/*
-			definitions:
-			expire_invitation: time until which somebody has to have accessed the survey
-			expire_inactivity: time for how long somebody has to have been inactive before survey expires (after starting)
-			grace_period: time after starting by which one has to be finished
-
-			scenarios:
-			1. invitation should be valid for 7 hours, people should be able to edit for at most 8 hours:
-				- expire_invitation: 7*60, grace_period = 30, expire_inactivity = 0
-				- can result in people loading a a page at 7:59, submitting a page at 8:01 and having data lost
-				- result:
-					- for someone who never reacted: 7*60
-					- for someone who clicks at 6:50, then is inactive: 7:30
-					- for someone who clicks at 6:50, then waits 5minutes, then fills out within 20 minutes: 7:15
-					- for someone who clicks at 6:50, then waits 20minutes, then fills out 1 item every 10 min: is interrupted 7:30
-			2. invitation should be valid for 7 hours. once started, people should not be locked out unless they're inactive for more than 30m
-				- expire_invitation = 7*60, grace_period = 0, expire_inactivity = 30
-				- can result in people stringing out a session for hours (but unlikely user behaviour)
-				- result:
-					- for someone who never reacted: 7*60
-					- for someone who clicks at 6:50, then is inactive: 7:20
-					- for someone who clicks at 6:50, then waits 5minutes, then fills out within 20 minutes: finishes 7:15 
-					- for someone who clicks at 6:50, then waits 20minutes, then fills out 1 item every 20 min: finishes unpredictably late 
-			3. invitation should be valid for 7 hours, people should be able to edit for at most 10 hours, but only if they stay active
-				- expire_invitation = 7*60, grace_period = 3*60, expire_inactivity = 30
-				- result:
-					- for someone who never reacted: 7*60
-					- for someone who clicks at 6:50, then is inactive: 7:20
-					- for someone who clicks at 6:50, then waits 5minutes, then fills out within 20 minutes: finishes 7:15 
-					- for someone who clicks at 6:50, then waits 20minutes, then fills out 1 item every 20 min: is interrupted 10:00
-			4. invitation should be valid for 7 hours, as soon as people react, they have unlimited time to fill out
-				- expire_invitation = 7*60, grace_period = 0, expire_inactivity = 0
-				- result:
-					- for someone who never reacted: 7*60
-					- for someone who clicks at 6:50, then is inactive: never
-					- for someone who clicks at 6:50, then waits 5minutes, then fills out within 20 minutes: finishes 7:15
-					- for someone who clicks at 6:50, then waits 20minutes, then fills out 1 item every 20 min: finishes unpredictably late 
-			5. if people start, they should finish within a day.
-				- expire_invitation = 0, grace_period = 0, expire_inactivity = 24 * 60
-				- result:
-					- for someone who never reacted: never
-					- for someone who clicks at 6:50, then is inactive: 6:50 + 24:00
-					- for someone who clicks at 6:50, then waits 5minutes, then fills out within 20 minutes: finishes 7:15
-					- for someone who clicks at 6:50, then waits 20minutes, then fills out 1 item every 20 min: finishes unpredictably late 
-			*/
 			$now = time();
 
 			$last_active = $this->getTimeWhenLastViewedItem(); // when was the user last active on the study
