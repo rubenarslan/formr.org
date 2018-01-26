@@ -224,7 +224,7 @@ In this case, previously, the submit button would never be displayed. We decided
 
 ## [0.14.3] - 22.11.2016
 ### Changed
-*Fix range issues for Item_random
+* Fix range issues for Item_random
 
 ## [0.15.0] - 1.12.2016
 ### Added
@@ -343,3 +343,7 @@ Bug fix release.
 Bug fix release.
 * See [Github](https://github.com/rubenarslan/formr.org/issues/314) for details
 * Compute dynamic value using current survey object
+
+## [0.16.15] - 26.11.2018
+### Changed
+* Fixed PHP-side survey validation so that entered data is not lost, partially addressing #327

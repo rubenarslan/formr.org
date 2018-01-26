@@ -449,15 +449,14 @@ class Survey extends RunUnit {
 				if ($item->error) {
 					$this->validation_errors[$item_name] = $item->error;
 				} else {
-					$item->value_validated = $validInput;
-					$items[$item_name] = $item;
 					$update_data[$item_name] = $item->getReply($validInput);
 				}
+				$item->value_validated = $item_value;
+				$items[$item_name] = $item;
 			}
 		}
 
 		if (!empty($this->validation_errors)) {
-			// @todo fill values of unanswered items to pre-populate form
 			$this->items_validated = $items;
 			return false;
 		}
@@ -929,6 +928,9 @@ class Survey extends RunUnit {
 		foreach ($this->rendered_items AS $item) {
 			if (!empty($this->validation_errors[$item->name])) {
 				$item->error = $this->validation_errors[$item->name];
+			}
+			if (!empty($this->items_validated[$item->name])) {
+				$item->value_validated = $this->items_validated[$item->name]->value_validated;
 			}
 			$ret .= $item->render();
 		}
