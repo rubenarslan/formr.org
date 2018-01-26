@@ -344,7 +344,7 @@ Bug fix release.
 * See [Github](https://github.com/rubenarslan/formr.org/issues/314) for details
 * Compute dynamic value using current survey object
 
-## [0.16.15] - 26.11.2018
+## [0.16.15] - 26.01.2018
 ### Changed
 * Fixed PHP-side survey validation so that entered data is not lost, partially addressing #327
 * Added further ways to specify expiry #305

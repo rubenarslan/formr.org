@@ -970,10 +970,14 @@ class Survey extends RunUnit {
 				->bindParams(array('session_id' => $this->session_id, 'study_id' => $this->id))
 				->fetch();
 
-		return $arr['last_viewed'];
+		return isset($arr['last_viewed']) ? $arr['last_viewed'] : null;
 	}
 
-private function hasExpired() {
+	/**
+	 * @see https://github.com/rubenarslan/formr.org/wiki/Expiry
+	 * @return boolean
+	 */
+	private function hasExpired() {
 		$expire_invitation = (int) $this->settings['expire_invitation_after'];
 		$grace_period = (int) $this->settings['expire_invitation_grace'];
 		$expire_inactivity = (int) $this->settings['expire_after'];
