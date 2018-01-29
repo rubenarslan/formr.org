@@ -1566,3 +1566,16 @@ function _die($msg) {
 	echo '<div>';
 	exit;
 }
+
+function fwrite_json($handle, $data) {
+	if ($handle) {
+		fseek($handle, 0, SEEK_END);
+		if (ftell($handle) > 0) {
+			fseek($handle, -1, SEEK_END);
+			fwrite($handle, ',', 1);
+			fwrite($handle, "\n" . json_encode($data) . "]");
+		} else {
+			fwrite($handle, json_encode(array($data)));
+		}
+	}
+}

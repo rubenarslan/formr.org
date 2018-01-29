@@ -320,34 +320,46 @@ class AdminRunController extends AdminController {
 	}
 
 	private function exportDataAction() {
+		$run = $this->run;
+		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
-
-		if (!isset($_GET['format']) OR ! in_array($_GET['format'], $SPR->exportFormats)):
+		if (!in_array($format, $SPR->exportFormats)) {
 			alert("Invalid format requested.", "alert-danger");
 			bad_request();
-		endif;
-		$format = $_GET['format'];
+		}
 
-		$run = $this->run;
-		$results = $run->getData();
-
-
-		if(count($results) === 0) {
-			alert("No linked data yet", 'alert-info');
+		/* @var $resultsStmt PDOStatement */
+		$resultsStmt = $run->getData(true);
+		if (!$resultsStmt->columnCount()) {
+			alert('No linked data yet', 'alert-info');
 			redirect_to(admin_run_url($run->name));
-		} else {
-			if ($format == 'xlsx')
-				$SPR->exportXLSX($results, $run->name . "_data");
-			elseif ($format == 'xls')
-				$SPR->exportXLS($results, $run->name . "_data");
-			elseif ($format == 'csv_german')
-				$SPR->exportCSV_german($results, $run->name . "_data");
-			elseif ($format == 'tsv')
-				$SPR->exportTSV($results, $run->name . "_data");
-			elseif ($format == 'json')
-				$SPR->exportJSON($results, $run->name . "_data");
-			else
-				$SPR->exportCSV($results, $run->name . "_data");
+		}
+
+		$filename = $run->name . '_data';
+		switch ($format) {
+			case 'xlsx':
+				$downloaded = $SPR->exportXLSX($resultsStmt, $filename);
+			break;
+			case 'xls':
+				$downloaded = $SPR->exportXLS($resultsStmt, $filename);
+			break;
+			case 'csv_german':
+				$downloaded = $SPR->exportCSV_german($resultsStmt, $filename);
+			break;
+			case 'tsv':
+				$downloaded = $SPR->exportTSV($resultsStmt, $filename);
+			break;
+			case 'json':
+				$downloaded = $SPR->exportJSON($resultsStmt, $filename);
+			break;
+			default:
+				$downloaded = $SPR->exportCSV($resultsStmt, $filename);
+			break;
+		}
+
+		if (!$downloaded) {
+			alert('An error occured during results download.', 'alert-danger');
+			redirect_to(admin_run_url($run->name));
 		}
 	}
 
@@ -370,7 +382,7 @@ class AdminRunController extends AdminController {
 		foreach ($studies as $study) {
 			$survey = Survey::loadById($study['id']);
 			$backupFile = $dir . '/' . $this->run->name . '-' . $survey->name . '.tab';
-			$backup = $SPR->exportTSV($survey->getResults(null, null, null, $this->run->id), $survey->name, $backupFile);
+			$backup = $SPR->exportTSV($survey->getResults(null, null, null, $this->run->id, true), $survey->name, $backupFile);
 			if (!$backup) {
 				$errors[] = "Unable to backup {$survey->name}";
 			} else {
@@ -415,41 +427,46 @@ class AdminRunController extends AdminController {
 
 	private function randomGroupsExportAction() {
 		$run = $this->run;
-
-		$g_users = $run->getRandomGroups();
-
-		$users = array();
-		while($userx = $g_users->fetch(PDO::FETCH_ASSOC)) {
-			unset($userx['run_name']);
-			unset($userx['unit_type']);
-			unset($userx['ended']);
-			unset($userx['position']);
-		#	$user['body'] = "<small title=\"{$user['body']}\">". substr($user['body'],0,50). "…</small>";
-
-			$users[] = $userx;
+		$format = $this->request->str('format');
+		$SPR = new SpreadsheetReader();
+		if (!in_array($format, $SPR->exportFormats)) {
+			alert("Invalid format requested.", "alert-danger");
+			bad_request();
 		}
 
-		$SPR = new SpreadsheetReader();
+		/* @var $resultsStmt PDOStatement */
+		$resultsStmt = $run->getRandomGroups(); //@TODO unset run_name, unit_type, ended, position
+		if (!$resultsStmt->columnCount()) {
+			alert('No linked data yet', 'alert-info');
+			redirect_to(admin_run_url($run->name));
+		}
 
-		if(!isset($_GET['format']) OR !in_array($_GET['format'], $SPR->exportFormats)):
-			alert("Invalid format requested.","alert-danger");
-			bad_request();
-		endif;
-		$format = $_GET['format'];
+		$filename = "Shuffle_Run_" . $run->name;
+		switch ($format) {
+			case 'xlsx':
+				$downloaded = $SPR->exportXLSX($resultsStmt, $filename);
+			break;
+			case 'xls':
+				$downloaded = $SPR->exportXLS($resultsStmt, $filename);
+			break;
+			case 'csv_german':
+				$downloaded = $SPR->exportCSV_german($resultsStmt, $filename);
+			break;
+			case 'tsv':
+				$downloaded = $SPR->exportTSV($resultsStmt, $filename);
+			break;
+			case 'json':
+				$downloaded = $SPR->exportJSON($resultsStmt, $filename);
+			break;
+			default:
+				$downloaded = $SPR->exportCSV($resultsStmt, $filename);
+			break;
+		}
 
-
-		if($format == 'xlsx')
-			$SPR->exportXLSX($users,"Shuffle_Run_".$run->name);
-		elseif($format == 'xls')
-			$SPR->exportXLS($users,"Shuffle_Run_".$run->name);
-		elseif($format == 'csv_german')
-			$SPR->exportCSV_german($users,"Shuffle_Run_".$run->name);
-		elseif($format == 'tsv')
-			$SPR->exportTSV($users,"Shuffle_Run_".$run->name);
-		elseif($format == 'json')
-			$SPR->exportJSON($users,"Shuffle_Run_".$run->name);
-		else
-			$SPR->exportCSV($users,"Shuffle_Run_".$run->name);
+		if (!$downloaded) {
+			alert('An error occured during results download.', 'alert-danger');
+			redirect_to(admin_run_url($run->name));
+		}
 	}
 
 	private function randomGroupsAction() {

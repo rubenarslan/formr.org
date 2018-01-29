@@ -157,4 +157,8 @@ $settings['memory_limit'] = array(
 	'survey_get_results' => '2048M',
 	'survey_upload_items' => '256M',
 );
+
+// Use this config item to enable the apache X-Sendfile header. @see https://tn123.org/mod_xsendfile/
+// Before using this, make sure xsendfile is installed and configured correctly with apache
+$settings['use_xsendfile'] = false;
 		
