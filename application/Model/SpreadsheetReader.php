@@ -46,132 +46,178 @@ class SpreadsheetReader {
 		return $objPHPExcel;
 	}
 
-	public function exportCSV($array, $filename) {
-		$objPHPExcel = $this->objectFromArray($array);
+	/**
+	 * 
+	 * @param PDOStatement $stmt
+	 * @return PHPExcel;
+	 */
+	protected function objectFromPDOStatement(PDOStatement $stmt) {
+		$PHPExcel = new PHPExcel();
+		$PHPExcelSheet = $PHPExcel->getSheet(0);
 
-		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
-
-		header('Content-Disposition: attachment;filename="' . $filename . '.csv"');
-		header('Cache-Control: max-age=0');
-		header('Content-type: text/csv');
-
-		try {
-			$objWriter->save('php://output');
-			exit;
-		} catch (Exception $e) {
-			formr_log_exception($e, __CLASS__);
-			alert("Couldn't save file.", 'alert-danger');
-			return false;
-		}
-	}
-
-	public function exportJSON($array, $filename) {
-		set_time_limit(300); # defaults to 30
-
-		header('Content-Disposition: attachment;filename="' . $filename . '.json"');
-		header('Cache-Control: max-age=0');
-		header('Content-type: application/json; charset=utf-8');
-
-		try {
-			echo json_encode($array, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
-			exit;
-		} catch (Exception $e) {
-			formr_log_exception($e, __CLASS__);
-			alert("Couldn't save file.", 'alert-danger');
-			return false;
-		}
-	}
-
-	public function exportTSV($array, $filename, $savefile = null) {
-		$objPHPExcel = $this->objectFromArray($array);
-
-		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
-		$objWriter->setDelimiter("\t");
-		$objWriter->setEnclosure("");
-
-		if ($savefile === null) {
-			header('Content-Disposition: attachment;filename="' . $filename . '.tab"');
-			header('Cache-Control: max-age=0');
-			header('Content-type: text/csv'); // or maybe text/tab-separated-values?
-		}
-
-		try {
-			if ($savefile !== null) {
-				$objWriter->save($savefile);
-				return true;
-			} else {
-				$objWriter->save('php://output');
-				exit;
+		list ($startColumn, $startRow) = PHPExcel_Cell::coordinateFromString('A1');
+		$writeColumns = true;
+		while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+			if ($writeColumns) {
+				$columns = array_keys($row);
+				$currentColumn = $startColumn;
+				foreach ($columns as $cellValue) {
+					$PHPExcelSheet->getCell($currentColumn . $startRow)->setValue($cellValue);
+					++$currentColumn;
+				}
+				++$startRow;
+				$writeColumns = false;
 			}
-		} catch (Exception $e) {
-			formr_log_exception($e, __CLASS__);
-			alert("Couldn't save file.", 'alert-danger');
-			return false;
+			$currentColumn = $startColumn;
+			foreach ($row as $cellValue) {
+				$PHPExcelSheet->getCell($currentColumn . $startRow)->setValue($cellValue);
+				++$currentColumn;
+			}
+			++$startRow;
 		}
+		return $PHPExcel;
 	}
 
-	public function exportCSV_german($array, $filename, $savefile = null) {
-		$objPHPExcel = $this->objectFromArray($array);
+	public function exportCSV(PDOStatement $stmt, $filename) {
+		if (!$stmt->columnCount()) {
+			return false;
+		}
 
-		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
-		$objWriter->setDelimiter(";");
-		$objWriter->setEnclosure('"');
+		try {
+			$phpExel = $this->objectFromPDOStatement($stmt);
+			$phpExelWriter = PHPExcel_IOFactory::createWriter($phpExel, 'CSV');
 
-		if ($savefile === null) {
 			header('Content-Disposition: attachment;filename="' . $filename . '.csv"');
 			header('Cache-Control: max-age=0');
-			header('Content-type: text/csv');
+			header('Content-Type: text/csv');
+			$phpExelWriter->save('php://output');
+			exit;
+		} catch (Exception $e) {
+			formr_log_exception($e, __METHOD__);
+			alert('Couldn\'t save file.', 'alert-danger');
+			return false;
+		}
+	}
+
+	public function exportJSON($object, $filename) {
+		set_time_limit(300);
+		if ($object instanceof PDOStatement) {
+			$file = APPLICATION_ROOT . "tmp/downloads/{$filename}.json";
+			file_put_contents($file, '');
+
+			$handle = fopen($file, 'w+');
+			while ($row = $object->fetch(PDO::FETCH_ASSOC)) {
+				fwrite_json($handle, $row);
+			}
+			fclose($handle);
+
+			header('Content-Disposition: attachment;filename="' . $filename . '.json"');
+			header('Cache-Control: max-age=0');
+			header('Content-type: application/json; charset=utf-8');
+			Config::get('use_xsendfile') ? header('X-Sendfile: ' . $file) : readfile($file);
+			exit;
+		} else {
+			header('Content-Disposition: attachment;filename="' . $filename . '.json"');
+			header('Cache-Control: max-age=0');
+			header('Content-type: application/json; charset=utf-8');
+			echo json_encode($object, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK);
+			exit;
+			
+		}
+	}
+
+	public function exportTSV(PDOStatement $stmt, $filename, $savefile = null) {
+		if (!$stmt->columnCount()) {
+			return false;
 		}
 
 		try {
-			if ($savefile !== null) {
-				$objWriter->save($savefile);
-				return true;
-			} else {
-				$objWriter->save('php://output');
+			$phpExel = $this->objectFromPDOStatement($stmt);
+			$phpExelWriter = PHPExcel_IOFactory::createWriter($phpExel, 'CSV');
+			$phpExelWriter->setDelimiter("\t");
+			$phpExelWriter->setEnclosure("");
+
+			if ($savefile === null) {
+				header('Content-Disposition: attachment;filename="' . $filename . '.tab"');
+				header('Cache-Control: max-age=0');
+				header('Content-Type: text/csv'); // or maybe text/tab-separated-values?
+				$phpExelWriter->save('php://output');
 				exit;
+			} else {
+				$phpExelWriter->save($savefile);
+				return true;
 			}
 		} catch (Exception $e) {
-			alert("Couldn't save file.", 'alert-danger');
+			formr_log_exception($e, __METHOD__);
+			alert('Couldn\'t save file.', 'alert-danger');
 			return false;
 		}
 	}
 
-	public function exportXLS($array, $filename) {
-		$objPHPExcel = $this->objectFromArray($array);
-
-		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
-
-		header('Content-Disposition: attachment;filename="' . $filename . '.xls"');
-		header('Cache-Control: max-age=0');
-		header('Content-Type: application/vnd.ms-excel');
+	public function exportCSV_german(PDOStatement $stmt, $filename, $savefile = null) {
+		if (!$stmt->columnCount()) {
+			return false;
+		}
 
 		try {
-			$objWriter->save('php://output');
-			exit;
-		} catch (Exception $e) {
-			formr_log_exception($e, __CLASS__);
+			$phpExel = $this->objectFromPDOStatement($stmt);
+			$phpExelWriter = PHPExcel_IOFactory::createWriter($phpExel, 'CSV');
+			$phpExelWriter->setDelimiter(';');
+			$phpExelWriter->setEnclosure('"');
 
-			alert("Couldn't save file.", 'alert-danger');
+			if ($savefile === null) {
+				header('Content-Disposition: attachment;filename="' . $filename . '.csv"');
+				header('Cache-Control: max-age=0');
+				header('Content-Type: text/csv');
+				$phpExelWriter->save('php://output');
+				exit;
+			} else {
+				$phpExelWriter->save($savefile);
+				return true;
+			}
+		} catch (Exception $e) {
+			formr_log_exception($e, __METHOD__);
+			alert('Couldn\'t save file.', 'alert-danger');
 			return false;
 		}
 	}
 
-	public function exportXLSX($array, $filename) {
-		$objPHPExcel = $this->objectFromArray($array);
-
-		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
-
-		header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
-		header('Cache-Control: max-age=0');
-		header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+	public function exportXLS(PDOStatement $stmt, $filename) {
+		if (!$stmt->columnCount()) {
+			return false;
+		}
 
 		try {
-			$objWriter->save('php://output');
+			$phpExel = $this->objectFromPDOStatement($stmt);
+			$phpExelWriter = PHPExcel_IOFactory::createWriter($phpExel, 'Excel5');
+			header('Content-Disposition: attachment;filename="' . $filename . '.xls"');
+			header('Cache-Control: max-age=0');
+			header('Content-Type: application/vnd.ms-excel');
+			$phpExelWriter->save('php://output');
 			exit;
 		} catch (Exception $e) {
-			formr_log_exception($e, __CLASS__);
-			alert("Couldn't save file.", 'alert-danger');
+			formr_log_exception($e, __METHOD__);
+			alert('Couldn\'t save file.', 'alert-danger');
+			return false;
+		}
+	}
+
+	public function exportXLSX(PDOStatement $stmt, $filename) {
+		if (!$stmt->columnCount()) {
+			return false;
+		}
+
+		try {
+			$phpExel = $this->objectFromPDOStatement($stmt);
+			$phpExelWriter = PHPExcel_IOFactory::createWriter($phpExel, 'Excel2007');
+			header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
+			header('Cache-Control: max-age=0');
+			header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+			$phpExelWriter->save('php://output');
+			exit;
+		} catch (Exception $e) {
+			formr_log_exception($e, __METHOD__);
+			alert('Couldn\'t save file.', 'alert-danger');
 			return false;
 		}
 	}

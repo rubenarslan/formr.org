@@ -349,3 +349,7 @@ Bug fix release.
 * Fixed PHP-side survey validation so that entered data is not lost, partially addressing #327
 * Added further ways to specify expiry #305
 * UI Changes in Survey settings
+
+## [0.16.16] - 31.01.2018
+### Changed
+* Add option to use [XSendFile] (https://tn123.org/mod_xsendfile/) for downloads

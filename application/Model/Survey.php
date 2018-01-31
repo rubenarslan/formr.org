@@ -1648,7 +1648,7 @@ class Survey extends RunUnit {
 		return $results;
 	}
 
-	public function getResults($items = null, $session = null, array $paginate = null, $runId = null) { // fixme: shouldnt be using wildcard operator here.
+	public function getResults($items = null, $session = null, array $paginate = null, $runId = null, $rstmt = false) {
 		if ($this->resultsTableExists()) {
 			ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
@@ -1712,6 +1712,9 @@ class Survey extends RunUnit {
 			}
 
 			$stmt = $select->statement();
+			if ($rstmt === true) {
+				return $stmt;
+			}
 
 			$results = array();
 			while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1730,9 +1733,11 @@ class Survey extends RunUnit {
 	 *
 	 * @param array $items An array of item names that are required in the survey
 	 * @param string $session If specified, only results of that particular session will be returned
-	 * @return array
+	 * @param array $paginate Pagination parameters [offset, limit]
+	 * @param boolean $rstmt If TRUE, PDOStament will be returned instead
+	 * @return array|PDOStatement
 	 */
-	public function getItemDisplayResults($items = array(), $session = null, array $paginate = null) {
+	public function getItemDisplayResults($items = array(), $session = null, array $paginate = null, $rstmt = false) {
 		ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
 		$count = $this->getResultCount();
@@ -1786,13 +1791,17 @@ class Survey extends RunUnit {
 		if ($paginate && isset($paginate['offset'])) {
 			$select->limit($paginate['limit'], $paginate['offset']);
 		}
+
+		if ($rstmt === true) {
+			return $select->statement();
+		}
 		return $select->fetchAll();
 	}
 	/**
 	 * Get Results from the item display table
 	 *
 	 * @param array $items An array of item names that are required in the survey
-	 * @param string $session If specified, only results of that particular session will be returned
+	 * @param array $sessions If specified, only results of that particular session will be returned
 	 * @return array
 	 */
 	public function getResultsByItemAndSession($items = array(), $sessions = null) {
@@ -1812,11 +1821,11 @@ class Survey extends RunUnit {
 				->order('survey_items_display.display_order')
 				->bindParams(array('study_id' => $this->id));
 
-		if (!empty( $items)) {
+		if (!empty($items)) {
 			$select->whereIn('survey_items.name', $items);
 		}
 
-		if (!empty( $sessions)) {
+		if (!empty($sessions)) {
 			$select->whereIn('survey_items.name', $sessions);
 		}
 

@@ -622,7 +622,7 @@ class Run {
 					->fetchAll();
 	}
 
-	public function getData() {
+	public function getData($rstmt = false) {
 		ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
 		$fdb = $this->dbh;
 		$collect = $fdb->prepare("SELECT 
@@ -639,6 +639,7 @@ class Run {
 			`survey_items_display`.saved,
 			`survey_items_display`.shown,
 			`survey_items_display`.shown_relative,
+			`survey_items_display`.answer,
 			`survey_items_display`.answered,
 			`survey_items_display`.answered_relative,
 			`survey_items_display`.displaycount,
@@ -654,6 +655,10 @@ class Run {
 			AND `survey_studies`.unlinked = 0");
 		$collect->bindValue(":id", $this->id);
 		$collect->execute();
+		if ($rstmt === true) {
+			return $collect;
+		}
+
 		$results = array();
 		while ($row = $collect->fetch(PDO::FETCH_ASSOC)) {
 			$results[] = $row;

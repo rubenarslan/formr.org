@@ -361,63 +361,89 @@ class AdminSurveyController extends AdminController {
 
 	private function exportItemdisplayAction() {
 		$study = $this->study;
-
-		$results = $study->getItemDisplayResults();
-		if (!count($results)) {
-			alert("No results to export.", 'alert-danger');
-			redirect_to(admin_study_url($this->study->name, 'show_itemdisplay'));
-		}
-
+		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
-
-		if (!isset($_GET['format']) || !in_array($_GET['format'], $SPR->exportFormats)) {
+		if (!in_array($format, $SPR->exportFormats)) {
 			alert("Invalid format requested.", "alert-danger");
 			bad_request();
 		}
-		$format = $_GET['format'];
 
-		if ($format == 'xlsx')
-			$SPR->exportXLSX($results, $study->name . "_itemdisplay");
-		elseif ($format == 'xls')
-			$SPR->exportXLS($results, $study->name . "_itemdisplay");
-		elseif ($format == 'csv_german')
-			$SPR->exportCSV_german($results, $study->name . "_itemdisplay");
-		elseif ($format == 'tsv')
-			$SPR->exportTSV($results, $study->name . "_itemdisplay");
-		elseif ($format == 'json')
-			$SPR->exportJSON($results, $study->name . "_itemdisplay");
-		else
-			$SPR->exportCSV($results, $study->name . "_itemdisplay");
+		/* @var $resultsStmt PDOStatement */
+		$resultsStmt = $study->getItemDisplayResults(null, null, null, true);
+		if (!$resultsStmt->columnCount()) {
+			alert('No data to export!', 'alert-danger');
+			redirect_to(admin_study_url($study->name, 'show_itemdisplay'));
+		}
+
+		$filename = $study->name . '_itemdisplay';
+		switch ($format) {
+			case 'xlsx':
+				$downloaded = $SPR->exportXLSX($resultsStmt, $filename);
+			break;
+			case 'xls':
+				$downloaded = $SPR->exportXLS($resultsStmt, $filename);
+			break;
+			case 'csv_german':
+				$downloaded = $SPR->exportCSV_german($resultsStmt, $filename);
+			break;
+			case 'tsv':
+				$downloaded = $SPR->exportTSV($resultsStmt, $filename);
+			break;
+			case 'json':
+				$downloaded = $SPR->exportJSON($resultsStmt, $filename);
+			break;
+			default:
+				$downloaded = $SPR->exportCSV($resultsStmt, $filename);
+			break;
+		}
+
+		if (!$downloaded) {
+			alert('An error occured during results download.', 'alert-danger');
+			redirect_to(admin_study_url($study->name, 'show_itemdisplay'));
+		}
 	}
 
 	private function exportResultsAction() {
 		$study = $this->study;
-		$results = $study->getResults();
-		
-		if (!count($results)) {
-			alert("No results to export.", 'alert-danger');
-			redirect_to(admin_study_url($this->study->name, 'show_results'));
-		}
+		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
-
-		if (!isset($_GET['format']) OR ! in_array($_GET['format'], $SPR->exportFormats)):
+		if (!in_array($format, $SPR->exportFormats)) {
 			alert("Invalid format requested.", "alert-danger");
 			bad_request();
-		endif;
-		$format = $_GET['format'];
+		}
 
-		if ($format == 'xlsx')
-			$SPR->exportXLSX($results, $study->name);
-		elseif ($format == 'xls')
-			$SPR->exportXLS($results, $study->name);
-		elseif ($format == 'csv_german')
-			$SPR->exportCSV_german($results, $study->name);
-		elseif ($format == 'tsv')
-			$SPR->exportTSV($results, $study->name);
-		elseif ($format == 'json')
-			$SPR->exportJSON($results, $study->name);
-		else
-			$SPR->exportCSV($results, $study->name);
+		/* @var $resultsStmt PDOStatement */
+		$resultsStmt = $study->getResults(null, null, null, null, true);
+		if (!$resultsStmt->columnCount()) {
+			alert('No data to export!', 'alert-danger');
+			redirect_to(admin_study_url($study->name, 'show_results'));
+		}
+
+		switch ($format) {
+			case 'xlsx':
+				$downloaded = $SPR->exportXLSX($resultsStmt, $study->name);
+			break;
+			case 'xls':
+				$downloaded = $SPR->exportXLS($resultsStmt, $study->name);
+			break;
+			case 'csv_german':
+				$downloaded = $SPR->exportCSV_german($resultsStmt, $study->name);
+			break;
+			case 'tsv':
+				$downloaded = $SPR->exportTSV($resultsStmt, $study->name);
+			break;
+			case 'json':
+				$downloaded = $SPR->exportJSON($resultsStmt, $study->name);
+			break;
+			default:
+				$downloaded = $SPR->exportCSV($resultsStmt, $study->name);
+			break;
+		}
+
+		if (!$downloaded) {
+			alert('An error occured during results download.', 'alert-danger');
+			redirect_to(admin_study_url($study->name, 'show_results'));
+		}
 	}
 
 	private function setStudy($name) {
