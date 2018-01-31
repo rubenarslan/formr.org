@@ -1793,8 +1793,7 @@ class Survey extends RunUnit {
 		}
 
 		if ($rstmt === true) {
-			$select->statement();
-			return $select;
+			return $select->statement();
 		}
 		return $select->fetchAll();
 	}

@@ -639,6 +639,7 @@ class Run {
 			`survey_items_display`.saved,
 			`survey_items_display`.shown,
 			`survey_items_display`.shown_relative,
+			`survey_items_display`.answer,
 			`survey_items_display`.answered,
 			`survey_items_display`.answered_relative,
 			`survey_items_display`.displaycount,
