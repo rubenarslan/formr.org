@@ -7,6 +7,8 @@ class SpreadsheetReader {
 		# legacy
 		'variablenname', 'wortlaut', 'typ', 'ratinguntererpol', 'ratingobererpol', 'mcalt1', 'mcalt2', 'mcalt3', 'mcalt4', 'mcalt5', 'mcalt6', 'mcalt7', 'mcalt8', 'mcalt9', 'mcalt10', 'mcalt11', 'mcalt12', 'mcalt13', 'mcalt14',);
 	private $internal_columns = array('choice_list', 'type_options', 'label_parsed');
+	private $existing_choice_lists = array();
+
 	public $messages = array();
 	public $errors = array();
 	public $warnings = array();
@@ -222,10 +224,6 @@ class SpreadsheetReader {
 		}
 	}
 
-	public function getAllowedColumnNames() {
-		return $this->survey_columns;
-	}
-
 	private function getSheetsFromArrays($items, $choices = array(), $settings = array()) {
 		set_time_limit(300); # defaults to 30
 		ini_set('memory_limit', Config::get('memory_limit.spr_sheets_array'));
@@ -278,7 +276,6 @@ class SpreadsheetReader {
 		$objPHPExcel->getSheet(0)->fromArray($items);
 		$objPHPExcel->getSheet(0)->setTitle('survey');
 		$objPHPExcel->getSheet(0)->getStyle('A1:H1')->applyFromArray(array('font' => array('bold' => true)));
-
 
 		return $objPHPExcel;
 	}
@@ -368,110 +365,47 @@ class SpreadsheetReader {
 		}
 	}
 
-	private function translate_legacy_column($col) {
+	private function translateLegacyColumn($col) {
 		$col = trim(mb_strtolower($col));
-		if ($col == 'variablenname')
-			$col = 'name';
-		elseif ($col == 'typ')
-			$col = 'type';
-		elseif ($col == 'wortlaut' or $col == 'text')
-			$col = 'label';
-		elseif (mb_substr($col, 0, 5) == 'mcalt')
-			$col = 'choice' . mb_substr($col, 5);
-		elseif ($col == 'ratinguntererpol')
-			$col = 'choice1';
-		elseif ($col == 'ratingobererpol')
-			$col = 'choice2';
+		$translations = array(
+			'variablenname' => 'name',
+			'typ'			=> 'type',
+			'wortlaut'		=> 'label',
+			'text'			=> 'label',
+			'ratinguntererpol' => 'choice1',
+			'ratingobererpol'  => 'choice2',
+		);
 
-		return $col;
-	}
-
-	private function translate_legacy_type($type) {
-		$type = trim(mb_strtolower($type));
-
-		if ($type == 'offen')
-			$type = 'text';
-		elseif ($type == 'instruktion')
-			$type = 'note';
-		elseif ($type == 'instruction')
-			$type = 'note';
-		elseif ($type == 'fork')
-			$type = 'note';
-		elseif ($type == 'rating')
-			$type = 'rating_button';
-		elseif ($type == 'mmc')
-			$type = 'mc_multiple';
-		elseif ($type == 'select')
-			$type = 'select_one';
-		elseif ($type == 'mselect')
-			$type = 'select_multiple';
-		elseif ($type == 'select_add')
-			$type = 'select_or_add_one';
-		elseif ($type == 'mselect_add')
-			$type = 'select_or_add_multiple';
-		elseif ($type == 'btnrating')
-			$type = 'rating_button';
-		elseif ($type == 'range_list')
-			$type = 'range_ticks';
-		elseif ($type == 'btnradio')
-			$type = 'mc_button';
-		elseif ($type == 'btncheckbox')
-			$type = 'mc_multiple_button';
-		elseif ($type == 'btncheck')
-			$type = 'check_button';
-		elseif ($type == 'geolocation')
-			$type = 'geopoint';
-		elseif ($type == 'mcnt')
-			$type = 'mc';
-
-		return $type;
-	}
-
-	public function readItemTableFile($inputFileName) {
-		$this->errors = $this->messages = array();
-
-		define('EOL', (PHP_SAPI == 'cli') ? PHP_EOL : '<br />');
-
-		if (!file_exists($inputFileName)):
-			exit($inputFileName . " does not exist." . EOL);
-		endif;
-
-		try {
-			//  Identify the type of $inputFileName 
-			$inputFileType = PHPExcel_IOFactory::identify($inputFileName);
-			//  Create a new Reader of the type that has been identified 
-			$objReader = PHPExcel_IOFactory::createReader($inputFileType);
-			//  Load $inputFileName to a PHPExcel Object 
-			///  Advise the Reader that we only want to load cell data 
-			$objReader->setReadDataOnly(true);
-
-			// Load $inputFileName to a PHPExcel Object
-			$objPHPExcel = PHPExcel_IOFactory::load($inputFileName);
-		} catch (PHPExcel_Exception $e) {
-			$this->errors[] = "An error occured reading your excel file. Please check your file or report to admin";
-			$this->errors[] = $e->getMessage();
-			formr_log_exception($e, __CLASS__, $inputFileName);
-			return;
-		}
-
-		if ($objPHPExcel->sheetNameExists('survey')) {
-
-			$survey_sheet = $objPHPExcel->getSheetByName('survey');
+		if (mb_substr($col, 0, 5) == 'mcalt') {
+			return 'choice' . mb_substr($col, 5);
 		} else {
-			$survey_sheet = $objPHPExcel->getSheet(0);
+			return isset($translations[$col]) ? $translations[$col] : $col;
 		}
+	}
 
-		if ($objPHPExcel->sheetNameExists('choices') AND $objPHPExcel->getSheetCount() > 1) {
-			$choices_sheet = $objPHPExcel->getSheetByName('choices');
-		} elseif ($objPHPExcel->getSheetCount() > 1) {
-			$choices_sheet = $objPHPExcel->getSheet(1);
-		}
+	private function translateLegacyType($type) {
+		$type = trim(mb_strtolower($type));
+		$translations = array(
+			'offen' => 'text',
+			'instruktion' => 'note',
+			'instruction' => 'note',
+			'fork'		  => 'note',
+			'rating'	  => 'rating_button',
+			'mmc'		  => 'mc_multiple',
+			'select'	  => 'select_one',
+			'mselect'	  => 'select_multiple',
+			'select_or_add' => 'select_or_add_one',
+			'mselect_add' => 'select_or_add_multiple',
+			'btnrating'	  => 'rating_button',
+			'range_list'  => 'range_ticks',
+			'btnradio'	  => 'mc_button',
+			'btncheckbox' => 'mc_multiple_button',
+			'btncheck'	  => 'check_button',
+			'geolocation' => 'geopoint',
+			'mcnt'		  => 'mc',
+		);
 
-		if (isset($choices_sheet)) {
-			$this->readChoicesSheet($choices_sheet);
-		}
-
-		$this->readSurveySheet($survey_sheet);
+		return isset($translations[$type]) ? $translations[$type] : $type;
 	}
 
 	public function addSurveyItem(array $row) {
@@ -490,348 +424,375 @@ class SpreadsheetReader {
 		$this->survey[] = $row;
 	}
 
-	private $existing_choice_lists = array();
+	public function readItemTableFile($filepath) {
+		ini_set('max_execution_time', 360);
 
-	private function readChoicesSheet($worksheet) {
-		$callStartTime = microtime(true);
+		$this->errors = $this->messages = $this->warnings = array();
+		if (!file_exists($filepath)) {
+			$this->errors[] = 'Item table file does not exist';
+			return;
+		}
 
+		try {
+			//  Identify the type of $filepath and create PHPExcel object from a read-only reader
+			$filetype = PHPExcel_IOFactory::identify($filepath);
+			$phpExcelReader = PHPExcel_IOFactory::createReader($filetype);
+			$phpExcelReader->setReadDataOnly(true);
+			
+			/* @var $phpExcel PHPExcel */
+			$phpExcel = $phpExcelReader->load($filepath);
+
+			// Gather sheets to be read
+			if ($phpExcel->sheetNameExists('survey')) {
+				$surveySheet = $phpExcel->getSheetByName('survey');
+			} else {
+				$surveySheet = $phpExcel->getSheet(0);
+			}
+
+			if ($phpExcel->sheetNameExists('choices') && $phpExcel->getSheetCount() > 1) {
+				$choicesSheet = $phpExcel->getSheetByName('choices');
+			} elseif ($phpExcel->getSheetCount() > 1) {
+				$choicesSheet = $phpExcel->getSheet(1);
+			}
+
+			if (isset($choicesSheet)) {
+				$this->readChoicesSheet($choicesSheet);
+			}
+
+			$this->readSurveySheet($surveySheet);
+
+		} catch (PHPExcel_Exception $e) {
+			$this->errors[] = "An error occured reading your excel file. Please check your file or report to admin";
+			$this->errors[] = $e->getMessage();
+			formr_log_exception($e, __CLASS__, $filepath);
+			return;
+		}
+	}
+
+	private function readChoicesSheet(PHPExcel_Worksheet $worksheet) {
 		//  Get worksheet dimensions
 		// non-allowed columns will be ignored, allows to specify auxiliary information if needed
+		$skippedColumns = $columns = array();
+		$colCount = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestDataColumn());
+		$rowCount = $worksheet->getHighestDataRow();
 
-		$skipped_columns = $columns = array();
-		$nr_of_columns = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestDataColumn());
-		$nr_of_data_rows = $worksheet->getHighestDataRow();
+		for ($i = 0; $i < $colCount; $i++) {
+			$colName = mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue());
+			if (in_array($colName, $this->choices_columns)) {
+				$columns[$i] = $colName;
+			} else {
+				$skippedColumns[$i] = $colName;
+			}
+		}
 
-		for ($i = 0; $i < $nr_of_columns; $i++):
-			$col_name = mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue());
-			if (in_array($col_name, $this->choices_columns)):
-				$columns[$i] = $col_name;
-			elseif ($col_name):
-				$skipped_columns[$i] = $col_name;
-			endif;
-		endfor;
-		$this->messages[] = 'Choices worksheet - ' . $worksheet->getTitle() . '. These columns were <strong>used</strong>: ' . implode($columns, ", ");
-		if (!empty($skipped_columns))
-			$this->warnings[] = 'These choices sheet columns were <strong>skipped</strong>: ' . implode($skipped_columns, ", ");
+		if (!in_array('list_name', $columns)) {
+			$this->errors[] = 'You forgot to define the "list_name" column on the choices sheet.';
+		}
+		if (!in_array('name', $columns)) {
+			$this->errors[] = 'You forgot to define the "name" column on the choices sheet';
+		}
+		if (!in_array('label', $columns)) {
+			$this->errors[] = 'You forgot to define the "label" column on the choices sheet.';
+		}
 
-		if (count($columns) > 0 AND ! in_array("list_name", $columns)):
-			$this->errors[] = "You forgot to define the list_name column on the choices sheet.";
-		endif;
-		if (count($columns) > 0 AND ! in_array("name", $columns)):
-			$this->errors[] = "You forgot to define the name column on the choices sheet.";
-		endif;
-		if (count($columns) > 0 AND ! in_array("label", $columns)):
-			$this->errors[] = "You forgot to define the label column on the choices sheet.";
-		endif;
-
-
-		if (!empty($this->errors)):
+		if ($this->errors) {
 			return false;
-		endif;
-		#	var_dump($columns);
+		}
+
+		if ($skippedColumns) {
+			$this->warnings[] = sprintf('Choices worksheet "%s" <strong>skipped</strong> columns: %s',  $worksheet->getTitle(), implode($skippedColumns, ", "));
+		}
+		$this->messages[] = sprintf('Choices worksheet "%s" <strong>used</strong> columns: %s',  $worksheet->getTitle(), implode($columns, ", "));
 
 		$data = array();
-		$choice_names = array();
+		$choiceNames = array();
+		$inheritedListNames = array();
 
-		$last_list_names = array();
-		foreach ($worksheet->getRowIterator() AS $row):
-
-			$list_name_was_empty = false;
-			$row_number = $row->getRowIndex();
-			if($row_number > $nr_of_data_rows) break;
-
-			if ($row_number == 1): # skip table head
-				continue;
-			endif;
-			$cellIterator = $row->getCellIterator();
-			$cellIterator->setIterateOnlyExistingCells(false); // Loop all cells, even if it is not set
-
-			$data[$row_number] = array();
-
-			foreach ($cellIterator AS $cell):
-				if (!is_null($cell)):
-					$column_number = $cell->columnIndexFromString($cell->getColumn()) - 1;
-
-					if (!array_key_exists($column_number, $columns))
-						continue; // skip columns that aren't allowed
-
-					$col = $columns[$column_number];
-					$val = hardTrueFalse(Normalizer::normalize($cell->getValue(), Normalizer::FORM_C));
-
-
-					if ($col == 'list_name'):
-						$val = trim($val);
-
-						if ($val == ''):
-
-							if (isset($lastListName)):
-								if(!array_key_exists($lastListName, $last_list_names)) {
-									$last_list_names[ $lastListName ] = array();
-								}
-								$last_list_names[ $lastListName ][] = $row_number;
-								$list_name_was_empty = true;
-								$val = $lastListName;
-							else:
-								if (isset($data[$row_number])):
-									unset($data[$row_number]);
-								endif;
-								if (isset($data[$row_number])) {
-									if(trim(implode($data[$row_number]))) {
-										$this->warnings[] = "Choice sheet. Row $row_number: list name empty, but content in other columns. Row skipped.";
-									}
-									unset($data[$row_number]);
-								}
-								continue 2; # skip this row
-							endif;
-
-						elseif (!preg_match("/^[a-zA-Z0-9_]{1,255}$/", $val)):
-							$this->errors[] = __("The list name '%s' is invalid. It has to be between 1 and 255 characters long. It may not contain anything other than the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $val);
-						endif;
-
-						if (!in_array($val, $this->existing_choice_lists)):
-							$this->existing_choice_lists[] = $val;
-							$choice_names[$val] = array(); // of course choices only should be unique in a list
-						elseif (in_array($val, $this->existing_choice_lists) AND $val != $lastListName):
-							$this->errors[] = __("We found a discontinuous list: the same list name ('<em>%s</em>') was used before row %s, but other lists came in between.", h($val), $row_number);
-						endif;
-
-						$lastListName = $val;
-
-					elseif ($col == 'name'):
-						$val = trim($val);
-						if ($val == ''):
-							if (isset($data[$row_number])) {
-								if(trim(implode($data[$row_number])) AND !$list_name_was_empty) {
-									$this->warnings[] = "Choice sheet. Row $row_number: choice name empty, but content in other columns. Row skipped.";
-								} else if($list_name_was_empty) {
-									array_pop($last_list_names[ $lastListName ]);
-								}
-								unset($data[$row_number]);
-							}
-							continue 2; # skip this row
-
-						elseif (!preg_match("/^[a-zA-Z0-9_]{1,255}$/", $val)):
-							$this->errors[] = __("The choice name '%s' is invalid. It has to be between 1 and 255 characters long. It may not contain anything other than the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $val);
-						endif;
-
-						if (($previous = array_search(mb_strtolower($val), $choice_names[$data[$row_number]['list_name']])) === false):
-							$choice_names[$data[$row_number]['list_name']][$row_number] = mb_strtolower($val);
-						else:
-							$this->errors[] = "Row $row_number: choice name '$val' already appeared in the list of choices, last in row $previous.";
-						endif;
-
-					elseif ($col == 'label'):
-						if (!trim($val)):
-							$val = $data[$row_number]['name'];
-						endif;
-					endif;
-
-
-				endif;  // cell null
-
-				$data[$row_number][$col] = $val;
-
-			endforeach; // cell loop
-
-		endforeach; // row loop
-		foreach($last_list_names as $list_name => $row_numbers):
-			if (!$row_numbers) {
+		foreach ($worksheet->getRowIterator(1, $rowCount) as $row) {
+			/* @var $row PHPExcel_Worksheet_Row */
+			$rowNumber = $row->getRowIndex();
+			if ($rowNumber == 1) {
+				// skip table head
 				continue;
 			}
-			$choices_messages[] = "$list_name: this list name was assigned to rows " .min($row_numbers) .'-'. max($row_numbers) . " automatically, because they had an empty list name and followed in this list.";
-		endforeach;
-//		$callEndTime = microtime(true);
-//		$callTime = $callEndTime - $callStartTime;
-//		$choices_messages[] = 'Call time to read choices sheet was ' . sprintf('%.4f',$callTime) . " seconds" . EOL .  "$row_number rows were read. Current memory usage: " . (memory_get_usage(true) / 1024 / 1024) . " MB" ;
-		if(!empty($choices_messages)) {
-			$this->messages[] = '<ul><li>' . implode("</li><li>", $choices_messages) . '</li></ul>';
+			if($rowNumber > $rowCount) break;
+
+			$data[$rowNumber] = array();
+			$cellIterator = $row->getCellIterator('A', $worksheet->getHighestDataColumn());
+			$cellIterator->setIterateOnlyExistingCells(false);
+			foreach ($cellIterator as $cell) {
+				/* @var $cell PHPExcel_Cell */
+				if (is_null($cell)) {
+					continue;
+				}
+
+				$colNumber = PHPExcel_Cell::columnIndexFromString($cell->getColumn()) - 1;
+				if (!isset($columns[$colNumber])) {
+					continue; // not a column of interest
+				}
+				$colName = $columns[$colNumber];
+				$cellValue = hardTrueFalse(Normalizer::normalize($cell->getValue(), Normalizer::FORM_C));
+				$cellValue = trim($cellValue);
+
+				if ($colName == 'list_name') {
+					if ($cellValue && !preg_match("/^[a-zA-Z0-9_]{1,255}$/", $cellValue)) {
+						$this->errors[] = __("The list name '%s' is invalid. It has to be between 1 and 255 characters long. It may not contain anything other than the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $cellValue);
+					}
+
+					if (!$cellValue && !isset($lastListName)) {
+						$this->warnings[] = __('Skipping Row %s of choices sheet', $rowNumber);
+						unset($data[$rowNumber]);
+						continue 2;
+					} elseif (!$cellValue && isset($lastListName)) {
+						$cellValue = $lastListName;
+						if (!isset($inheritedListNames[$cellValue])) {
+							$inheritedListNames[$cellValue] = array();
+						}
+						$inheritedListNames[$cellValue][] = $rowNumber;
+					}
+
+					if (!in_array($cellValue, $this->existing_choice_lists)) {
+						$this->existing_choice_lists[] = $cellValue;
+						$data[$rowNumber]['list_name'] = $cellValue;
+					} elseif (in_array($cellValue, $this->existing_choice_lists) && $lastListName != $cellValue) {
+						$this->errors[] = __("We found a discontinuous list: the same list name ('<em>%s</em>') was used before row %s, but other lists came in between.", $cellValue, $rowNumber);
+					} else {
+						//$data[$rowNumber]['list_name'] = $cellValue;
+					}
+
+					$lastListName = $cellValue;
+				} elseif ($colName == 'name') {
+					if (!is_formr_truthy($cellValue)) {
+						$this->warnings[] = __("Skipping Row %s of choices sheet: Choice name empty, but content in other columns.", $rowNumber);
+						if (isset($inheritedListNames[$data[$rowNumber]['list_name']])) {
+							// remove this row from bookmarks
+							$bmk = &$inheritedListNames[$data[$rowNumber]['list_name']];
+							if (($key = array_search($rowNumber, $bmk)) !== false) {
+								unset($bmk[$key]);
+							}
+						}
+						unset($data[$rowNumber]);
+						continue 2;
+					}
+					if (!preg_match("/^[a-zA-Z0-9_]{1,255}$/", $cellValue)) {
+						$this->errors[] = __("The choice name '%s' is invalid. It has to be between 1 and 255 characters long. It may not contain anything other than the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $cellValue);
+					}
+					//$data[$rowNumber]['name'] = $cellValue;
+					
+				} elseif ($colName == 'label') {
+					if (!$cellValue && isset($data[$rowNumber]['name'])) {
+						$cellValue = $data[$rowNumber]['name'];
+					}
+					//$data[$rowNumber]['label'] = $cellValue;
+				}
+
+				// Stop processing if we have any errors
+				if ($this->errors) {
+					$error = sprintf("Error in cell %s%s (Choices sheet): \n %s", $cell->getColumn(), $rowNumber, implode("\n", $this->errors));
+					throw new PHPExcel_Exception($error);
+				}
+
+				// Save cell value
+				$data[$rowNumber][$colName] = $cellValue;
+			} // Cell loop
+
+		} // Rows loop
+
+		// Data has been gathered, group lists by list_name and check if there are duplicates for each list.
+		foreach ($data as $rowNumber => $row) {
+			if (!isset($choiceNames[$row['list_name']])) {
+				$choiceNames[$row['list_name']] = array();
+			}
+			if (isset($choiceNames[$row['list_name']][$row['name']])) {
+				throw new PHPExcel_Exception(sprintf("'%s' has already been used as a 'name' for the list '%s'", $row['name'], $row['list_name']));
+			}
+			$choiceNames[$row['list_name']][$row['name']] = $row['label'];
 		}
-		
+
+		// Announce rows that inherited list_names
+		$msgs = array();
+		foreach ($inheritedListNames as $name => $rows) {
+			$msgs[] = $rows ? sprintf("%s: This list name was assigned to rows %s - %s automatically, because they had an empty list name and followed in this list.", $name, min($rows), max($rows)) : null;
+		}
+		if ($msgs = array_filter($msgs)) {
+			$this->messages[] = '<ul><li>' . implode('</li><li>', $msgs) . '</li></ul>';
+		}
+
 		$this->choices = $data;
 	}
 
-	private function readSurveySheet($worksheet) {
+	private function readSurveySheet(PHPExcel_Worksheet $worksheet) {
 		$callStartTime = microtime(true);
 		// non-allowed columns will be ignored, allows to specify auxiliary information if needed
 
-		$columns = array();
-		$nr_of_columns = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestDataColumn());
-		$nr_of_data_rows = $worksheet->getHighestDataRow();
-		
-		if ($nr_of_columns > 30) {
-			$this->warnings[] = __('Only the first 30 columns out of %d were read.', $nr_of_columns);
-			$nr_of_columns = 30;
+		$skippedColumns = $columns = array();
+		$colCount = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestDataColumn());
+		$rowCount = $worksheet->getHighestDataRow();
+
+		if ($colCount > 30) {
+			$this->warnings[] = __('Only the first 30 columns out of %d were read.', $colCount);
+			$colCount = 30;
 		}
 
-		$nr_of_blank_column_headers = 0;
-		for ($i = 0; $i < $nr_of_columns; $i++):
-			$col_name = mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue());
-			if (trim($col_name) != ''):
-				if (in_array($col_name, $this->survey_columns)):
-					$oldCol = $col_name;
-					$col_name = $this->translate_legacy_column($col_name);
-
-					if ($oldCol != $col_name)
-						$this->warnings[] = __('The column "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"', $oldCol, $col_name);
-
-					$columns[$i] = $col_name;
-
-				else:
-					$skipped_columns[$i] = $col_name;
-				endif;
-			else:
-				$nr_of_blank_column_headers++;
-			endif;
-
-			if ($col_name == 'choice1' AND ! array_search('name', $columns)):
-				$this->errors[] = 'The name and type column have to be placed to the left of all choice columns.';
-				return false;
-			endif;
-		endfor;
-		if ($nr_of_blank_column_headers > 0)
-			$this->warnings[] = __('Your survey sheet appears to contain %d columns without names (given in the first row).', $nr_of_blank_column_headers);
-
-		$ambiguous_rows = $empty_rows = array();
-		if (!empty($skipped_columns)) {
-			$this->warnings[] = 'These survey sheet columns were <strong>skipped</strong>: ' . implode($skipped_columns, ", ");
-		}
-
-		$variablennames = $data = array();
-
-		foreach ($worksheet->getRowIterator() as $row):
-			$row_number = $row->getRowIndex();
-
-			if($row_number > $nr_of_data_rows) break;
-			
-			// skip table head
-			if ($row_number == 1) {
+		$blankColCount = 0;
+		for ($i = 0; $i < $colCount; $i++) {
+			$colName = trim(mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue()));
+			if (!$colName) {
+				$blankColCount++;
 				continue;
 			}
-
-			$cellIterator = $row->getCellIterator();
-			$cellIterator->setIterateOnlyExistingCells(false); // Loop all cells, even if it is not set
-
-			foreach ($cellIterator as $cell) :
-				if (!is_null($cell)):
-					$column_number = $cell->columnIndexFromString($cell->getColumn()) - 1;
-
-					// skip columns that aren't allowed
-					if (!array_key_exists($column_number, $columns)) {
-						continue;
-					}
-
-					$col = $columns[$column_number];
-					// dont overwrite set columns
-					if (isset($data[$row_number][$col])) {
-						continue;
-					}
-
-					$val = hardTrueFalse(Normalizer::normalize($cell->getValue(), Normalizer::FORM_C));
-
-					if ($col == 'name'):
-						$val = trim($val);
-						if ($val == ''):
-							if (isset($data[$row_number])) {
-								if(trim(implode($data[$row_number]))) {
-									unset($data[$row_number]);
-									$ambiguous_rows[] = $row_number;
-								}
-								unset($data[$row_number]);
-							}
-							// skip this row
-							continue 2;
-
-						elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{1,64}$/", $val)):
-							$this->errors[] = __("The variable name '%s' is invalid. It has to be between 1 and 64 characters. It needs to start with a letter and can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $val);
-						endif;
-
-						if (in_array($val, array('session_id', 'created', 'modified', 'ended'))):
-							$this->errors[] = "Row $row_number: variable name '$val' is not permitted.";
-						endif;
-
-						if (($previous = array_search(mb_strtolower($val), $variablennames)) === false):
-							$variablennames[$row_number] = mb_strtolower($val);
-						else:
-							$this->errors[] = "Row $row_number: variable name '$val' already appeared, last in row $previous.";
-						endif;
-
-					elseif ($col == 'type'):
-						if (mb_strpos($val, ' ') !== false):
-							$val = preg_replace('/\s+/', ' ', $val);
-							$type_options = explode(' ', trim($val), 2); // get real type and options
-							$val = $type_options[0];
-							unset($type_options[0]); // remove real type from options
-							//todo: find all items where the "you defined choices message" error might erroneously be triggered
-							if (isset($type_options[1]) && !in_array($val, array('server', 'get', 'text', 'textarea', 'file', 'image', 'rating_button', 'submit')) && preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($type_options[1]))):
-								$data[$row_number]['choice_list'] = $type_options[1];
-								unset($type_options[1]);
-							endif;
-							
-							$data[$row_number]['type_options'] = implode(' ', $type_options);
-						endif;
-
-						$oldType = $val;
-						$val = $this->translate_legacy_type($val);
-
-						if ($oldType != $val):
-							$this->warnings[] = __('The type "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"', $oldType, $val);
-						endif;
-
-					elseif ($col == 'optional'):
-						if ($val === '*')
-							$val = 1;
-						elseif ($val === '!')
-							$val = 0;
-						else
-							$val = null;
-					elseif (mb_strpos($col, "choice") === 0 && ($val !== null AND $val !== '') && isset($data[$row_number])):
-
-						$nr = mb_substr($col, 6);
-						$this->choices[] = array(
-							'list_name' => $data[$row_number]['name'],
-							'name' => $nr,
-							'label' => $val,
-						);
-
-						if (!isset($data[$row_number]['choice_list'])):
-
-							$data[$row_number]['choice_list'] = $data[$row_number]['name'];
-
-						elseif (isset($data[$row_number]['choice_list']) AND $nr == 1):
-
-							$this->errors[] = __("Row $row_number: You defined both a named choice_list '%s' for item '%s' and a nonempty choice1 column. Choose one.", $data[$row_number]['choice_list'], $data[$row_number]['name']);
-
-						endif;
-
-					endif; // cell null
-
-					$data[$row_number][$col] = $val;
-				endif; // validation
-
-			endforeach; // cell loop
-
-			$data[$row_number]["order"] = $row_number - 1;
-			// if no order is entered, use row_number
-			if(!isset($data[$row_number]["item_order"]) || trim($data[$row_number]["item_order"]) === "") {
-				$data[$row_number]["item_order"] = $row_number - 1;
+			if (in_array($colName, $this->survey_columns)) {
+				$trColName = $this->translateLegacyColumn($colName);
+				if ($colName != $trColName) {
+					$this->warnings[] = __('The column "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"', $colName, $trColName);
+				}
+				$columns[$i] = $trColName;
+			} else {
+				$skippedColumns[$i] = $colName;
 			}
-			// row has been put into array
-#			if(!isset($data[$row_number]['id'])) $data[$row_number]['id'] = $row_number;
 
-		endforeach; // row loop
+			if ($colName == 'choice1' && (!in_array('name', $columns) || !in_array('type', $columns))) {
+				$this->errors[] = "The 'name' and 'type' column have to be placed to the left of all choice columns.";
+				return false;
+			}
+		}
 
+		if ($blankColCount) {
+			$this->warnings[] = __('Your survey sheet appears to contain %d columns without names (given in the first row).', $blankColCount);
+		}
+		if ($skippedColumns) {
+			$this->warnings[] = __('These survey sheet columns were <strong>skipped</strong>: %s', implode($skippedColumns, ', '));
+		}
+
+		$data = $skippedRows = $emptyRows = $variableNames = array();
+
+		foreach ($worksheet->getRowIterator(1, $rowCount) as $row) {
+			/* @var $row PHPExcel_Worksheet_Row */
+			$rowNumber = $row->getRowIndex();
+			if ($rowNumber == 1) {
+				// skip table head
+				continue;
+			}
+			if($rowNumber > $rowCount) break;
+			
+			$data[$rowNumber] = array();
+			$cellIterator = $row->getCellIterator('A', $worksheet->getHighestDataColumn());
+			$cellIterator->setIterateOnlyExistingCells(false);
+			foreach ($cellIterator as $cell) {
+				/* @var $cell PHPExcel_Cell */
+				if (is_null($cell)) {
+					continue;
+				}
+
+				$colNumber = PHPExcel_Cell::columnIndexFromString($cell->getColumn()) - 1;
+				if (!isset($columns[$colNumber])) {
+					continue; // not a column of interest
+				}
+				$colName = $columns[$colNumber];
+				if (isset($data[$rowNumber][$colName])) {
+					continue; // dont overwrite set columns
+				}
+
+				$cellValue = trim(hardTrueFalse(Normalizer::normalize($cell->getValue(), Normalizer::FORM_C)));
+
+				if ($colName == 'name') {
+					if (!$cellValue) {
+						if (!empty($data[$rowNumber])) {
+							$skippedRows[] = $rowNumber;
+						} else {
+							$emptyRows[] = $rowNumber;
+						}
+						unset($data[$rowNumber]);
+						continue 2; // Skip row with no item name
+					} elseif (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]{1,64}$/', $cellValue)) {
+						$this->errors[] = __("The variable name '%s' is invalid. It has to be between 1 and 64 characters. It needs to start with a letter and can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $cellValue);
+					}
+
+					if (in_array($cellValue, array('session_id', 'created', 'modified', 'ended'))) {
+						$this->errors[] = __("Row %s: variable name '%s' is not permitted.", $rowNumber, $cellValue);
+					}
+
+					if (($existingRow = array_search(mb_strtolower($cellValue), $variableNames)) === false) {
+						$variableNames[$rowNumber] = mb_strtolower($cellValue);
+					} else {
+						$this->errors[] = __("Row %s: Variable name '%s' already appeared in row %s", $rowNumber, $cellValue, $existingRow);
+					}
+					
+				} elseif ($colName == 'type') {
+					if (mb_strpos($cellValue, ' ') !== false) {
+						$typeOptions = explode(' ', trim(preg_replace('/\s+/', ' ', $cellValue))); // get real type and options
+						$type = $typeOptions[0];
+						unset($typeOptions[0]);
+						if (!empty($typeOptions[1]) &&
+							!in_array($type, array('server', 'get', 'text', 'textarea', 'file', 'image', 'rating_button', 'submit')) &&
+							preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($typeOptions[1]))) {
+							$data[$rowNumber]['choice_list'] = trim($typeOptions[1]);
+							unset($typeOptions[1]);
+						}
+						$data[$rowNumber]['type_options'] = implode(' ', $typeOptions);
+						$cellValue = $type;
+					}
+					
+					$trType = $this->translateLegacyType($cellValue);
+					if ($trType != $cellValue) {
+						$this->warnings[] = __('The type "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"', $cellValue, $trType);
+					}
+					$cellValue = $trType;
+					
+				} elseif ($colName == 'optional') {
+					if ($cellValue === '*') {
+						$cellValue = 1;
+					} elseif ($cellValue === '!') {
+						$cellValue = 0;
+					} else {
+						$cellValue = null;
+					}
+					
+				} elseif (strpos($colName, 'choice') === 0 && is_formr_truthy($cellValue) && isset($data[$rowNumber])) {
+					$choiceValue = substr($colName, 6);
+					$this->choices[] = array(
+						'list_name' => $data[$rowNumber]['name'],
+						'name' => $choiceValue,
+						'label' => $cellValue,
+					);
+					
+					if (!isset($data[$rowNumber]['choice_list'])) {
+						$data[$rowNumber]['choice_list'] = $data[$rowNumber]['name'];
+					} elseif (isset($data[$rowNumber]['choice_list']) && $choiceValue == 1) {
+						$this->errors[] = __("Row %s: You defined both a named choice_list '%s' for item '%s' and a nonempty choice1 column. Choose one.", $rowNumber, $data[$rowNumber]['choice_list'], $data[$rowNumber]['name']);
+					}
+				}
+
+				// Stop processing if we have any errors
+				if ($this->errors) {
+					$error = sprintf("Error in cell %s%s (Survey Sheet): \n %s", $cell->getColumn(), $rowNumber, implode("\n", $this->errors));
+					throw new PHPExcel_Exception($error);
+				}
+
+				// Save cell value
+				$data[$rowNumber][$colName] = $cellValue;
+				
+			} // Cell Loop
+
+			$data[$rowNumber]['order'] = $rowNumber - 1;
+			// if no order is entered, use row_number
+			if(!isset($data[$rowNumber]['item_order']) || !is_formr_truthy($data[$rowNumber]['item_order'])) {
+				$data[$rowNumber]['item_order'] = $data[$rowNumber]['order'];
+			}
+		} // Rows Loop
 
 		$callEndTime = microtime(true);
 		$callTime = $callEndTime - $callStartTime;
-		$this->messages[] = 'Survey <abbr title="Call time to read survey sheet was ' . sprintf('%.4f', $callTime) . ' seconds">worksheet</abbr> - ' . $worksheet->getTitle() . ' (' . count($data) . ' non-empty rows, ' . count($nr_of_columns) . ' columns). These columns were <strong>used</strong>: ' . implode($columns, ", ");
+		$this->messages[] = 'Survey <abbr title="Call time to read survey sheet was ' . sprintf('%.4f', $callTime) . ' seconds">worksheet</abbr> - ' . $worksheet->getTitle() . ' (' . count($data) . ' non-empty rows, ' . $colCount . ' columns). These columns were <strong>used</strong>: ' . implode($columns, ", ");
 		
-		if (!empty($empty_rows)) {
-			$this->messages[] = "Rows " . implode($empty_rows, ", ") . ": variable name empty. Rows skipped.";
+		if (!empty($emptyRows)) {
+			$this->messages[] = __('Empty rows (no variable name): %s', implode($emptyRows, ", "));
 		}
 		
-		if (!empty($ambiguous_rows)) {
-			$this->warnings[] = "Rows " . implode($ambiguous_rows, ", ") . ": variable name empty, but other columns had content. Rows skipped, but double-check that you did not forget to define a variable name for a proper item.";
+		if (!empty($skippedRows)) {
+			$this->warnings[] = __('Skipped rows (no variable name): %s. Variable name empty, but other columns had content. Double-check that you did not forget to define a variable name for a proper item.', implode($skippedRows, ", "));
 		}
+
 		$this->survey = $data;
 	}
 
