@@ -1637,7 +1637,11 @@ class Item_rating_button extends Item_mc_button {
 			$this->step = $this->upper_limit;
 		}
 
-		$choices = range($this->lower_limit, $this->upper_limit, $this->step);
+		if ($this->upper_limit >= $this->lower_limit + $this->step) {
+			$choices = array($this->lower_limit, $this->upper_limit);
+		} else {
+			$choices = range($this->lower_limit, $this->upper_limit, $this->step);
+		}
 		$this->choices = array_combine($choices, $choices);
 	}
 	public function setChoices($choices) {
