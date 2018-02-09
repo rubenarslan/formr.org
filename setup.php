@@ -23,12 +23,12 @@ $settings['routes'] = array (
 
 // Load application settings
 /* @var $settings array */
-require_once APPLICATION_ROOT . 'config_default/settings.php';
+require_once APPLICATION_ROOT . 'config.dist/settings.php';
 require_once APPLICATION_ROOT . 'config/settings.php';
 
 // Define default assets
 if(php_sapi_name() != 'cli') {
-	require_once APPLICATION_ROOT . 'config_default/assets.php';
+	require_once APPLICATION_ROOT . 'config.dist/assets.php';
 }
 
 // Set current formr version (bumped on release)

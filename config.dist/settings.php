@@ -158,7 +158,14 @@ $settings['memory_limit'] = array(
 	'survey_upload_items' => '256M',
 );
 
+// Absolute path to file where encryption key for creating email accounts should be stored
+// Defaults to {APPLICATION_ROOT}/formr-crypto.key
+$settings['encryption_key_file'] = null;
+
 // Use this config item to enable the apache X-Sendfile header. @see https://tn123.org/mod_xsendfile/
 // Before using this, make sure xsendfile is installed and configured correctly with apache
 $settings['use_xsendfile'] = false;
+
+// Use sub domains for studies
+$settings['use_study_subdomains'] = false;
 		
