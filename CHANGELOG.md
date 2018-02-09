@@ -353,3 +353,7 @@ Bug fix release.
 ## [0.16.16] - 31.01.2018
 ### Changed
 * Add option to use [XSendFile] (https://tn123.org/mod_xsendfile/) for downloads
+
+## [0.16.17] - 09.02.2018
+### Changed
+* Architectural change.
