@@ -84,7 +84,7 @@ class Site {
 			$class_logo = 'thumbs-up';
 		}
 
-		str_replace(APPLICATION_ROOT, '', $msg);
+		$msg = str_replace(APPLICATION_ROOT, '', $msg);
 		$logo = '<i class="fa fa-' . $class_logo . '"></i> &nbsp;';
 		$this->alerts[] = "<div class='alert $class'>" . $logo . '<button type="button" class="close" data-dismiss="alert">&times;</button>' . "$msg</div>";
 	}
