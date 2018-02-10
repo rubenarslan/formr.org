@@ -53,7 +53,7 @@ function __setup($settings = array()) {
     if (!empty($settings['define_root'])) {
         extract($settings['define_root']);
     }
-	
+
 	define('WEBROOT', $protocol . $doc_root);
 	define('ONLINE', $online);
 	define('SSL', $protocol === "https://");
@@ -68,21 +68,16 @@ function __setup($settings = array()) {
 
 	ini_set("log_errors", 1);
 	ini_set("error_log", get_log_file('errors.log'));
-
 	ini_set('session.gc_maxlifetime', Config::get('session_cookie_lifetime'));
 	ini_set('session.cookie_lifetime', Config::get('session_cookie_lifetime'));
-	ini_set('session.hash_function', 1);
-	ini_set('session.hash_bits_per_character', 5);
-	ini_set('session.gc_divisor', 100);
-	ini_set('session.gc_probability', 1);
 
 	// Set cryptography module
 	try {
 		Crypto::setup();
+		throw new Exception('WTF');
 	} catch (Exception $e) {
 		formr_log_exception($e);
-		exit($e->getMessage());
-		
+		_die('Encryption service unavailable');
 	}
 
 	// Set default timzone, encoding and shutdown function.
