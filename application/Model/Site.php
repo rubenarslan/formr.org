@@ -260,6 +260,7 @@ class Site {
 	public function getSessionUser() {
 		$expiry = Config::get('expire_unregistered_session');
 		$db = self::getDb();
+		$user = null;
 
 		if (($usr = Session::get('user'))) {
 			$user = unserialize($usr);

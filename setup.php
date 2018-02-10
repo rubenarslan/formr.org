@@ -74,7 +74,6 @@ function __setup($settings = array()) {
 	// Set cryptography module
 	try {
 		Crypto::setup();
-		throw new Exception('WTF');
 	} catch (Exception $e) {
 		formr_log_exception($e);
 		_die('Encryption service unavailable');
