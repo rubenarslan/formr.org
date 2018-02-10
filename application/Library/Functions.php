@@ -1557,6 +1557,7 @@ function print_scripts($files, $id = null) {
 }
 
 function _die($msg) {
+	header('HTTP/1.1 503 Service Unavailable.', TRUE, 503);
 	$style = array(
 		'width: 500px', 'max-width: 100%', 'text-align: center', 'line-height: 50px', 'margin: 10% auto',
 		'color: #a94442', 'background-color: #f2dede', 'border: 1px solid #ebccd1', 'font-size: 20px'

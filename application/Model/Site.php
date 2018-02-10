@@ -253,6 +253,38 @@ class Site {
 	}
 
 	/**
+	 * Get Site user from current Session
+	 *
+	 * @return User|null
+	 */
+	public function getSessionUser() {
+		$expiry = Config::get('expire_unregistered_session');
+		$db = self::getDb();
+
+		if (($usr = Session::get('user'))) {
+			$user = unserialize($usr);
+			// This segment basically checks whether the user-specific expiry time was met
+			// If user session is expired, user is logged out and redirected
+			if (!empty($user->id)) { // logged in user
+				// refresh user object if not expired
+				$expiry = Config::get('expire_registered_session');
+				$user = new User($db, $user->id, $user->user_code);
+				// admins have a different expiry, can only be lower
+				if ($user->isAdmin()) {
+					$expiry = Config::get('expire_admin_session');
+				}
+			} elseif (!empty($user->user_code)) { // visitor
+				// refresh user object
+				$user = new User($db, null, $user->user_code);
+			}
+		}
+
+		if(!$this->expire_session($expiry)) {
+			return $user;
+		}
+	}
+
+	/**
 	 * @return \OAuth2\Server
 	 */
 	public static function getOauthServer() {
