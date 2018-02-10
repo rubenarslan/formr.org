@@ -280,9 +280,15 @@ class Site {
 			}
 		}
 
-		if(!$this->expire_session($expiry)) {
-			return $user;
+		if($this->expire_session($expiry)) {
+			$user = null;
 		}
+
+		if (empty($user->user_code)) {
+			$user = new User($db, null, null);
+		}
+
+		return $user;
 	}
 
 	/**

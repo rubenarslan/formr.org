@@ -99,6 +99,7 @@ class Autoload {
 			'Pagination' => APPLICATION_PATH . 'Model/Pagination.php',
 			'Pause' => APPLICATION_PATH . 'Model/Pause.php',
 			'PublicController' => APPLICATION_PATH . 'Controller/PublicController.php',
+			'PublicRunController' => APPLICATION_PATH . 'Controller/PublicRunController.php',
 			'Request' => APPLICATION_PATH . 'Library/Request.php',
 			'Response' => APPLICATION_PATH . 'Library/Response.php',
 			'Router' => APPLICATION_PATH . 'Library/Router.php',

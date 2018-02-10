@@ -42,7 +42,7 @@ require_once APPLICATION_PATH . 'Library/Functions.php';
 Config::initialize($settings);
 
 // Global Setup
-function __setup($settings = array()) {
+function __formr_setup($settings = array()) {
 	if(defined('WEBROOT')) return;
 
 	$protocol = (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] == '') ? 'http://' : 'https://';
@@ -85,5 +85,5 @@ function __setup($settings = array()) {
 	register_shutdown_function('shutdown_formr_org');
 
 }
-__setup($settings);
+__formr_setup($settings);
 

@@ -59,8 +59,10 @@ class Router {
 		if (!class_exists($controllerName, true)) {
 			throw new Exception ("Controller $controllerName does not exist");
 		}
+
 		if (!method_exists($controllerName, $actionName)) {
-			$actionName = $this->shiftAction($controllerName);
+			// Assume at this point user is trying to access a private action via the indexAction
+			list($controllerName, $actionName) = $this->shiftAction($controllerName);
 			// push back the $action as an action parameter
 			array_unshift($params, $action);
 		}
@@ -94,14 +96,24 @@ class Router {
 	/**
 	 * Some hack method to shift blame when we can't find action in controller
 	 *
-	 * @param type $controller
+	 * @param string $controller
 	 * @return string
 	 */
 	private function shiftAction($controller) {
 		if ($controller === 'PublicController') {
-			return 'runAction';
+			return array('PublicRunController', 'indexAction');
 		}
-		return 'indexAction';
+		return array($controller, 'indexAction');
+	}
+
+	/**
+	 * Some hack method to shift blame when we can't find action in controller
+	 *
+	 * @return array
+	 */
+	private function getStudyRoute() {
+		//$actionName = $this->getActionName($action ? $action : 'index');
+		return array('PublicRunController', 'indexAction');
 	}
 
 	public function execute() {

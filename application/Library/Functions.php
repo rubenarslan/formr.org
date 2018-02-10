@@ -741,8 +741,8 @@ function admin_url($uri = '') {
 	return site_url('admin' . $uri);
 }
 
-function run_url($name = '') {
-	return RUNROOT . $name;
+function run_url($name = '', $action = '') {
+	return RUNROOT . $name . '/' . $action;
 }
 
 function admin_study_url($name = '', $action = '') {

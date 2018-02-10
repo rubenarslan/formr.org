@@ -24,9 +24,6 @@ try {
 
 // Set site's session user or create one if not available
 $user = $site->getSessionUser();
-if (empty($user->user_code)) {
-	$user = new User($fdb, null, null);
-}
 
 // update session
 Session::set('last_activity', time());
