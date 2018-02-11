@@ -66,7 +66,7 @@ class Run {
 	 */
 	private $dbh;
 
-	const TEST_RUN = 'fake_test_run';
+	const TEST_RUN = 'formr-test-run';
 
 	public function __construct($fdb, $name, $options = null) {
 		$this->dbh = $fdb;

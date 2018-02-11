@@ -741,8 +741,23 @@ function admin_url($uri = '') {
 	return site_url('admin' . $uri);
 }
 
-function run_url($name = '', $action = '') {
-	return RUNROOT . $name . '/' . $action;
+function run_url($name = '', $action = '', $params = array()) {
+	$protocol = Config::get('define_root.protocol');
+	$domain = trim(Config::get('define_root.doc_root'), "\/\\");
+	$subdomain = null;
+	if (Config::get('use_study_subdomains')) {
+		$subdomain = strtolower($name) . '.';
+	} else {
+		$domain .= '/' . $name;
+	}
+	$url = $protocol . $subdomain . $domain;
+	if ($action) {
+		$url .= '/' . $action . '/';
+	}
+	if ($params) {
+		$url .= '?' . http_build_query($params);
+	}
+	return $url;
 }
 
 function admin_study_url($name = '', $action = '') {

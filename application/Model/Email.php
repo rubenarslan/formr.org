@@ -113,13 +113,13 @@ class Email extends RunUnit {
 		$sess = null;
 		if (isset($this->run_name)) {
 			$sess = isset($this->session) ? $this->session : "TESTCODE";
-			$login_link = site_url("{$this->run_name}?code=".urlencode($sess));
+			$login_link = run_url($this->run_name, null, array('code' => urlencode($sess)));
 		} else {
 			$login_link = site_url();
 			alert("Generated a login link, but no run was specified", 'alert-danger');
 		}
 
-		$settings_link = site_url("settings/{$this->run_name}/?code=" . urlencode($sess));
+		$settings_link = run_url($this->run_name, 'settings', array('code' => urlencode($sess)));
 		$settings_link_html = '<a href="'. $settings_link . '">Settings link</a>';
 
 		$login_link_html = '<a href="'. $login_link . '">Login link</a>';

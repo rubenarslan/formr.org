@@ -19,34 +19,13 @@ class PublicRunController extends Controller {
 		}
 
 		$this->user = $this->site->loginUser($this->user);
-		$run = new Run($this->fdb, $this->request->str('run_name'));
-		$this->run = $run;
-		$run_vars = $run->exec($this->user);
+		$this->run = new Run($this->fdb, $this->request->str('run_name'));
+		$run_vars = $this->run->exec($this->user);
 		$run_vars['bodyClass'] = 'fmr-run';
 
-		if ($run->use_material_design === true || $this->request->str('tmd') === 'true') {
-			if (DEBUG) {
-				$this->unregisterAssets('site:custom');
-				$this->registerAssets('bootstrap-material-design');
-				$this->registerAssets('site:custom');
-			} else {
-				$this->replaceAssets('site', 'site:material');
-			}
-			$run_vars['bodyClass'] = 'bs-material fmr-run';
-		}
-		$this->registerCSS($run_vars['css'], $this->run->name);
-		$this->registerJS($run_vars['js'], $this->run->name);
-
+		$assset_vars = $this->filterAssets($run_vars);
 		unset($run_vars['css'], $run_vars['js']);
-		$this->renderView('public/run', $run_vars);
-	}
-
-	protected function getPrivateActionMethod($action) {
-		$actionName = $this->getPrivateAction($action, '-', true) . 'Action';
-		if (!method_exists($this, $actionName)) {
-			return false;
-		}
-		return $actionName;
+		$this->renderView('public/run/index', array_merge($run_vars, $assset_vars));
 	}
 
 	protected function settingsAction() {
@@ -101,10 +80,35 @@ class PublicRunController extends Controller {
 		}
 
 		$this->run = $run;
-		$this->renderView('public/settings', array(
+		$this->renderView('public/run/settings', array(
 			'settings' => $session->getSettings(),
 			'email_subscriptions' => Config::get('email_subscriptions'),
 		));
+	}
+
+	private function getPrivateActionMethod($action) {
+		$actionName = $this->getPrivateAction($action, '-', true) . 'Action';
+		if (!method_exists($this, $actionName)) {
+			return false;
+		}
+		return $actionName;
+	}
+
+	private function filterAssets($assets) {
+		$vars = array();
+		if ($this->run->use_material_design === true || $this->request->str('tmd') === 'true') {
+			if (DEBUG) {
+				$this->unregisterAssets('site:custom');
+				$this->registerAssets('bootstrap-material-design');
+				$this->registerAssets('site:custom');
+			} else {
+				$this->replaceAssets('site', 'site:material');
+			}
+			$vars['bodyClass'] = 'bs-material fmr-run';
+		}
+		$this->registerCSS($assets['css'], $this->run->name);
+		$this->registerJS($assets['js'], $this->run->name);
+		return $vars;
 	}
 
 }
