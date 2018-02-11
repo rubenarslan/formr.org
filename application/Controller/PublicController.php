@@ -29,7 +29,7 @@ class PublicController extends Controller {
 		$this->renderView('public/publications');
 	}
 
-	public function editUserAction() {
+	public function accountAction() {
 		/**
 		* @todo: 
 		* - allow changing email address
@@ -45,7 +45,9 @@ class PublicController extends Controller {
 		if(!empty($_POST)) {
 			$redirect = false;
 			if($this->request->str('new_password')) {
-				if($this->user->changePassword($this->request->str('password'), $this->request->str('new_password'))) {
+				if ($this->request->str('new_password') !== $this->request->str('new_password_c')) {
+					alert('The new passwords do not match', 'alert-danger');
+				} elseif($this->user->changePassword($this->request->str('password'), $this->request->str('new_password'))) {
 					alert('<strong>Success!</strong> Your password was changed! Please sign-in with your new password.','alert-success');
 					$redirect = 'logout';
 				} else {
@@ -55,7 +57,7 @@ class PublicController extends Controller {
 
 			if($this->request->str('new_email')) {
 				if ($this->fdb->entry_exists('survey_users', array('email' => $this->request->str('new_email')))) {
-					alert("The provided email address is already in use!", 'alert-danger');
+					alert('The provided email address is already in use!', 'alert-danger');
 				} elseif ($this->user->changeEmail($this->request->str('password'), $this->request->str('new_email'))) {
 					//alert('<strong>Success!</strong> Your email address was changed! Please veirfy your new email and sign-in.', 'alert-success');
 					$redirect = 'logout';
@@ -70,7 +72,7 @@ class PublicController extends Controller {
 		}
 
 		$this->registerAssets('bootstrap-material-design');
-		$this->renderView('public/edit_user');
+		$this->renderView('public/account', array('user' => $this->user));
 	}
 
 	public function loginAction() {

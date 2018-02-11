@@ -19,7 +19,7 @@
 			</ul>
 			<ul class="nav navbar-nav navbar-right">
 				<?php if (!empty($user) && $user->loggedIn()): ?>
-					<li class="account"><a href="<?php echo site_url('edit_user'); ?>"><i class="fa fa-user fa-fw"></i> Account</a></li>
+					<li class="account"><a href="<?php echo site_url('account'); ?>"><i class="fa fa-user fa-fw"></i> Account</a></li>
 					<li><a href="<?php echo site_url('logout'); ?>"><i class="fa fa-power-off fa-fw"></i> Logout </a></li>
 				<?php else: ?>
 					<li class="account"><a href="<?php echo site_url('login'); ?>"><i class="fa fa-sign-in fa-fw"></i> Login</a></li>
