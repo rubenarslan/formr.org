@@ -118,7 +118,7 @@ class AdminAjaxController {
 			echo $this->site->renderAlerts();
 			exit;
 		} else {
-			redirect_to("admin/run/" . $run->name . "/user_overview");
+			redirect_to(admin_run_url($run->name, 'user_overview'));
 		}
 	}
 	
@@ -136,7 +136,7 @@ class AdminAjaxController {
 			echo $this->site->renderAlerts();
 			exit;
 		else:
-			redirect_to("admin/run/" . $run->name . "/user_overview");
+			redirect_to(admin_run_url($run->name, 'user_overview'));
 		endif;
 	}
 
@@ -157,7 +157,7 @@ class AdminAjaxController {
 			echo $this->site->renderAlerts();
 			exit;
 		else:
-			redirect_to("admin/run/" . $run->name . "/user_overview");
+			redirect_to(admin_run_url($run->name, 'user_overview'));
 		endif;
 	}
 	private function ajaxNextInRun() {
@@ -175,7 +175,7 @@ class AdminAjaxController {
 			echo $this->site->renderAlerts();
 			exit;
 		else:
-			redirect_to("admin/run/" . $run->name . "/user_overview");
+			redirect_to(admin_run_url($run->name, 'user_overview'));
 		endif;
 	}
 
@@ -201,7 +201,7 @@ class AdminAjaxController {
 			echo $this->site->renderAlerts();
 			exit;
 		else:
-			redirect_to("admin/run/" . $run->name . "/user_overview");
+			redirect_to(admin_run_url($run->name, 'user_overview'));
 		endif;
 	}
 
@@ -238,7 +238,7 @@ class AdminAjaxController {
 			echo $this->site->renderAlerts();
 			exit;
 		else:
-			redirect_to("admin/run/" . $run->name . "/user_detail");
+			redirect_to(admin_run_url($run->name, 'user_detail'));
 		endif;
 
 	}

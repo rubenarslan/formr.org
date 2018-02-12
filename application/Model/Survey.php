@@ -1019,7 +1019,7 @@ class Survey extends RunUnit {
 			$request = new Request($_POST);
 			//check if user session has a valid form token for POST requests
 			if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
-				redirect_to($this->run_name);
+				redirect_to(run_url($this->run_name));
 			}
 			$this->startEntry();
 
@@ -1027,7 +1027,7 @@ class Survey extends RunUnit {
 			if (Request::isHTTPPostRequest()) {
 				$posted = $this->post(array_merge($request->getParams(), $_FILES));
 				if ($posted) {
-					redirect_to($this->run_name);
+					redirect_to(run_url($this->run_name));
 				}
 			}
 

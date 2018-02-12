@@ -66,7 +66,7 @@ function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '') {
 	}
 }
 
-function redirect_to($location = '') {
+function redirect_to($location = '', $params = array()) {
 	$location = str_replace(PHP_EOL, '', $location);
 	if (strpos($location, 'index') !== false) {
 		$location = '';
@@ -79,6 +79,9 @@ function redirect_to($location = '') {
 		} else {
 			$location = $base . $location;
 		}
+	}
+	if ($params) {
+		$location .= '?' . http_build_query($params);
 	}
 
 	Session::globalRefresh();
@@ -727,18 +730,22 @@ function mysql_interval($interval) {
 	return mysql_datetime($time);
 }
 
-function site_url($uri = '') {
+function site_url($uri = '', $params = array()) {
+	$url = WEBROOT;
 	if ($uri) {
-		return WEBROOT . $uri;
+		$url .= $uri . '/';
 	}
-	return WEBROOT;
+	if ($params) {
+		$url .= '?' . http_build_query($params);
+	}
+	return trim($url, '\/\\');
 }
 
-function admin_url($uri = '') {
+function admin_url($uri = '', $params = array()) {
 	if ($uri) {
 		$uri = '/' . $uri;
 	}
-	return site_url('admin' . $uri);
+	return site_url('admin' . $uri, $params);
 }
 
 function run_url($name = '', $action = '', $params = array()) {
@@ -760,18 +767,18 @@ function run_url($name = '', $action = '', $params = array()) {
 	return $url;
 }
 
-function admin_study_url($name = '', $action = '') {
+function admin_study_url($name = '', $action = '', $params = array()) {
 	if ($action) {
 		$name = $name . '/' . $action;
 	}
-	return admin_url('survey/' . $name);
+	return admin_url('survey/' . $name, $params);
 }
 
-function admin_run_url($name = '', $action = '') {
+function admin_run_url($name = '', $action = '', $params = array()) {
 	if ($action) {
 		$name = $name . '/' . $action;
 	}
-	return admin_url('run/' . $name);
+	return admin_url('run/' . $name, $params);
 }
 
 

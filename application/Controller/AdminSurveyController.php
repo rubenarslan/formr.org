@@ -283,7 +283,7 @@ class AdminSurveyController extends AdminController {
 			else:
 				alert(implode($study->errors), 'alert-danger');				
 			endif;
-			redirect_to(WEBROOT . "admin/survey/{$study->name}/delete_results");
+			redirect_to(admin_study_url($study->name, 'delete_results'));
 		} elseif (isset($_POST['delete'])) {
 			alert("<b>Error:</b> Survey's name must match '{$study->name}' to delete results.", 'alert-danger');
 		}

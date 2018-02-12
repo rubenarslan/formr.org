@@ -126,7 +126,10 @@ class User {
 		$token_hash = password_hash($token, PASSWORD_DEFAULT);
 		$this->dbh->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
 
-		$verify_link = WEBROOT . "public/verify_email/?email=" . rawurlencode($this->email) . "&verification_token=" . rawurlencode($token);
+		$verify_link = site_url('verify_email', array(
+				'email' => rawurlencode($this->email),
+				'verification_token' => rawurlencode($token)
+			));
 
 		global $site;
 		$mail = $site->makeAdminMailer();
@@ -134,7 +137,7 @@ class User {
 		$mail->Subject = 'formr: confirm your email address';
 		$mail->Body = "Dear user,
 
-you, or someone else created an account on " . WEBROOT . ".
+you, or someone else created an account on " . site_url() . ".
 You will need to verify that this is your email address.
 To do so, please go to this link:
 " . $verify_link . "
@@ -239,7 +242,10 @@ formr robots";
 
 			$this->dbh->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
 
-			$reset_link = WEBROOT . "public/reset_password?email=" . rawurlencode($email) . "&reset_token=" . rawurlencode($token);
+			$reset_link = site_url('reset_password', array(
+				'email' => rawurlencode($email),
+				'reset_token' => rawurlencode($token)
+			));
 			
 			global $site;
 			$mail = $site->makeAdminMailer();
@@ -263,7 +269,7 @@ formr robots";
 				alert($mail->ErrorInfo, 'alert-danger');
 			else:
 				alert("You were sent a password reset link.", 'alert-info');
-				redirect_to("public/forgot_password");
+				redirect_to("forgot_password");
 			endif;
 
 		endif;

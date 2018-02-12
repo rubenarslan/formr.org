@@ -27,8 +27,8 @@
 						<ul class="nav nav-pills nav-stacked">
 							<?php foreach ($accs as $account): ?>
 							<li>
-								<a href="<?php echo admin_url('mail/?account_id=' . $account['id']); ?>" style="display: inline-block"><i class="fa fa-envelope"></i> <?= $account['from'] ?></a>
-								<a href="<?php echo admin_url('mail/delete?account_id=' . $account['id']); ?>" class="pull-right" style="display: inline-block" onclick="return confirm('Are you sure you want to delete this account?')"><i class="fa fa-trash text-red"></i></a>
+								<a href="<?php echo admin_url('mail', array('account_id' => $account['id'])); ?>" style="display: inline-block"><i class="fa fa-envelope"></i> <?= $account['from'] ?></a>
+								<a href="<?php echo admin_url('mail/delete', array('account_id' => $account['id'])); ?>" class="pull-right" style="display: inline-block" onclick="return confirm('Are you sure you want to delete this account?')"><i class="fa fa-trash text-red"></i></a>
 							</li>
 							<?php endforeach; ?>
 						</ul>

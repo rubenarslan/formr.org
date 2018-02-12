@@ -141,9 +141,8 @@ class AdminRunController extends AdminController {
 		$sess_url = run_url($this->run->name, null, array('code' => urlencode($sess)));
 		
 		alert("You've created a new test animal, ".h($animal).". Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user or copy the link below <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
-		
-		
-		redirect_to(admin_run_url($this->run->name, "user_overview?session=".$run_session->session));
+
+		redirect_to(admin_run_url($this->run->name, 'user_overview', array('session' => $run_session->session)));
 	}
 
 	private function createNewNamedSessionAction() {
@@ -159,8 +158,8 @@ class AdminRunController extends AdminController {
 				alert("You've added a user with the code name '{$code_name}'. <br />
 					  Send them this link to participate <br />
 					  <textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
-		
-				redirect_to(admin_run_url($this->run->name, "user_overview?session={$sess}"));
+
+				redirect_to(admin_run_url($this->run->name, 'user_overview', array('session' => $sess)));
 			}
 		}
 
@@ -265,7 +264,7 @@ class AdminRunController extends AdminController {
 				if($run->uploadFiles($_FILES['uploaded_files'])) {
 					alert('<strong>Success.</strong> The files were uploaded.','alert-success');
 					if(!empty($run->messages)) alert('<strong>These files were overwritten:</strong> '.implode($run->messages),'alert-info');
-					redirect_to("admin/run/".$run->name."/upload_files");
+					redirect_to(admin_run_url($run->name, 'upload_files'));
 				} else {
 					alert('<strong>Sorry, files could not be uploaded.</strong> '.implode($run->errors),'alert-danger');
 				}
@@ -306,11 +305,12 @@ class AdminRunController extends AdminController {
 
 	private function renameRunAction() {
 		$run = $this->run;
-		if( !empty($_POST) ) {
-			if(isset($_POST['new_name'])) {
-				if($run->rename($_POST['new_name'])) {
+		if($this->request->isHTTPPostRequest()) {
+			$newName = $this->request->getParam('new_name');
+			if($newName) {
+				if($run->rename($newName)) {
 					alert('<strong>Success.</strong> The run was renamed to "'.$_POST['new_name'] . '"','alert-success');
-					redirect_to("admin/run/".$_POST['new_name']);
+					redirect_to(admin_run_url($newName));
 				} else {
 					alert('<strong>Sorry, run could not be renamed.</strong> '.implode($run->errors),'alert-danger');
 				}

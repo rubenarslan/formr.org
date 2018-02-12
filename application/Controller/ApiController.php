@@ -35,7 +35,7 @@ class ApiController extends Controller {
 	}
 
 	public function indexAction() {
-		redirect_to('public/index');
+		$this->sendResponse(Response::STATUS_FORBIDDEN, 'Invalid', array('error' => 'No Entry Point'));
 	}
 
 	public function oauthAction($action = null) {

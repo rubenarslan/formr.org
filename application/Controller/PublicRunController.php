@@ -52,7 +52,7 @@ class PublicRunController extends Controller {
 		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code);
 		if (!$session->id) {
 			alert('You cannot create settings in a study you have not participated in.', 'alert-danger');
-			redirect_to('error/200');
+			redirect_to('error/403');
 		}
 
 		$settings = array('no_email' => 1);
