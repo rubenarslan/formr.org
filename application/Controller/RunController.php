@@ -91,7 +91,12 @@ class RunController extends Controller {
 	private function getRun() {
 		$name = $this->request->str('run_name');
 		if ($name !== Run::TEST_RUN && Config::get('use_study_subdomains') && !FMRSD_CONTEXT) {
-			throw new Exception('Invalid Study Context');
+			//throw new Exception('Invalid Study Context');
+			// Redirect existing users to run's sub-domain URL and QSA
+			$params = $this->request->getParams();
+			unset($params['route'], $params['run_name']);
+			$url = run_url($name, null, $params);
+			redirect_to($url);
 		}
 
 		return new Run($this->fdb, $name);
