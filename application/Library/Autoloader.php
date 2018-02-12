@@ -99,11 +99,11 @@ class Autoload {
 			'Pagination' => APPLICATION_PATH . 'Model/Pagination.php',
 			'Pause' => APPLICATION_PATH . 'Model/Pause.php',
 			'PublicController' => APPLICATION_PATH . 'Controller/PublicController.php',
-			'PublicRunController' => APPLICATION_PATH . 'Controller/PublicRunController.php',
 			'Request' => APPLICATION_PATH . 'Library/Request.php',
 			'Response' => APPLICATION_PATH . 'Library/Response.php',
 			'Router' => APPLICATION_PATH . 'Library/Router.php',
 			'Run' => APPLICATION_PATH . 'Model/Run.php',
+			'RunController' => APPLICATION_PATH . 'Controller/RunController.php',
 			'RunHelper' => APPLICATION_PATH . 'Helper/RunHelper.php',
 			'RunSession' => APPLICATION_PATH . 'Model/RunSession.php',
 			'RunSessionWorkerHelper' => APPLICATION_PATH . 'Helper/GearmanWorkerHelper.php',
@@ -156,7 +156,7 @@ class Autoload {
 
 			include $file;
 			if (!class_exists($class)) {
-				$message = sprintf("Autloader expected class %s to be defined in file %s. The class was found but the file was not in it", $class, $file);
+				$message = sprintf("Autloader expected class %s to be defined in file %s. The file was found but the class was not in it", $class, $file);
 				throw new RuntimeException($message);
 			}
 			return true;

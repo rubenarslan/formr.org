@@ -71,8 +71,7 @@ class Router {
 
 		// Sub-domains for now are used only for accessing studies
 		if ($this->usingSubDomain && FMRSD_CONTEXT) {
-			$controllerName = 'PublicRunController';
-			$actionName = 'indexAction';
+			list($controllerName, $actionName) = $this->getStudyRoute();
 			$runName = $this->getRunFromSubDomain();
 			if ($action !== 'index') {
 				array_unshift($params, $action);
@@ -121,7 +120,7 @@ class Router {
 	 */
 	private function shiftAction($controller) {
 		if ($controller === 'PublicController') {
-			return array('PublicRunController', 'indexAction');
+			return $this->getStudyRoute();
 		}
 		return array($controller, 'indexAction');
 	}
@@ -132,8 +131,7 @@ class Router {
 	 * @return array
 	 */
 	private function getStudyRoute() {
-		//$actionName = $this->getActionName($action ? $action : 'index');
-		return array('PublicRunController', 'indexAction');
+		return array('RunController', 'indexAction');
 	}
 
 	/**

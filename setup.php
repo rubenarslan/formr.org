@@ -19,6 +19,7 @@ $settings['routes'] = array (
 	'admin/mail',
 	'superadmin',
 	'api',
+	'run/'
 );
 
 // Load application settings

@@ -749,6 +749,10 @@ function admin_url($uri = '', $params = array()) {
 }
 
 function run_url($name = '', $action = '', $params = array()) {
+	if ($name === Run::TEST_RUN) {
+		return site_url('run/' . $name);
+	}
+
 	$protocol = Config::get('define_root.protocol');
 	$domain = trim(Config::get('define_root.doc_root'), "\/\\");
 	$subdomain = null;

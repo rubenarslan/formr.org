@@ -1,6 +1,6 @@
 <?php
 
-class PublicRunController extends Controller {
+class RunController extends Controller {
 
 	public function __construct(Site &$site) {
 		parent::__construct($site);
