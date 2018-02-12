@@ -39,7 +39,7 @@ try {
 	formr_log_exception($e);
 	if(!DEBUG) {
 		$date = date('Y-m-d H:i:s');
-		alert("<small>".$date. " There was a fatal error. Please let the administrators and know what you were trying to do and provide this message's date & time.</small>", "alert-danger");
+		alert("<small> {$date} There was a fatal error. \n {$e->getMessage()}. \nPlease let the administrators and know what you were trying to do and provide this message's date & time.</small>", "alert-danger");
 	}
 	bad_request();
 }

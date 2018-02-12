@@ -14,12 +14,13 @@ class PublicRunController extends Controller {
 		// hack for run name
 		$_GET['run_name'] = $runName;
 		$this->site->request->run_name = $runName;
+
 		if ($method = $this->getPrivateActionMethod($privateAction)) {
 			return $this->$method();
 		}
 
 		$this->user = $this->site->loginUser($this->user);
-		$this->run = new Run($this->fdb, $this->request->str('run_name'));
+		$this->run = $this->getRun();
 		$run_vars = $this->run->exec($this->user);
 		$run_vars['bodyClass'] = 'fmr-run';
 
@@ -28,9 +29,10 @@ class PublicRunController extends Controller {
 		$this->renderView('public/run/index', array_merge($run_vars, $assset_vars));
 	}
 
-	protected function settingsAction() {
-		$run_name = $this->request->run_name;
-		$run = new Run($this->fdb, $run_name);
+	protected function settingsAction() {		
+		$run = $this->getRun();
+		$run_name = $this->site->request->run_name;
+
 		if (!$run->valid) {
 			alert(' Invalid Run settings', 'alert-danger');
 			not_found();
@@ -84,6 +86,15 @@ class PublicRunController extends Controller {
 			'settings' => $session->getSettings(),
 			'email_subscriptions' => Config::get('email_subscriptions'),
 		));
+	}
+
+	private function getRun() {
+		$name = $this->request->str('run_name');
+		if ($name !== Run::TEST_RUN && Config::get('use_study_subdomains') && !FMRSD_CONTEXT) {
+			throw new Exception('Invalid Study Context');
+		}
+
+		return new Run($this->fdb, $name);
 	}
 
 	private function getPrivateActionMethod($action) {

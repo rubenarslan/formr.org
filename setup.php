@@ -59,7 +59,7 @@ function __formr_setup($settings = array()) {
 	define('SSL', $protocol === "https://");
 	define('RUNROOT', WEBROOT);
 	define('DEBUG', Config::get('display_errors'));
-	define('SD_CONTEXT', getenv('FORMR_SD_STUDY') === 'true');
+	define('FMRSD_CONTEXT', getenv('FMRSD_CONTEXT') === 'true');
 	
 	// General PHP-side configuration
 	error_reporting(-1);
