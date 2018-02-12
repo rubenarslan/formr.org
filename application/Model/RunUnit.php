@@ -498,10 +498,10 @@ class RunUnit {
 			}
 			
 			if(in_array('formr_login_link', $needed['variables'])) {
-				$this->survey_results['.formr$login_link'] = "'".site_url($this->run_name)."?code=".urlencode($this->session)."'";
+				$this->survey_results['.formr$login_link'] = "'" . run_url($this->run_name, null, array('code' => $this->session)) . "'";
 			}
 			if(in_array('formr_login_code', $needed['variables'])) {
-				$this->survey_results['.formr$login_code'] = "'".$this->session."'";
+				$this->survey_results['.formr$login_code'] = "'" . $this->session . "'";
 			}
 			if(in_array('formr_nr_of_participants', $needed['variables'])) {
 				$count = (int)$this->dbh->count('survey_run_sessions', array('run_id' => $this->run_id), 'id');

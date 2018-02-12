@@ -91,7 +91,7 @@ class External extends RunUnit {
 	}
 
 	private function makeAddress($address) {
-		$login_link = run_url($this->run_name, null, array('code' => urlencode($this->session)));
+		$login_link = run_url($this->run_name, null, array('code' => $this->session));
 		$address = str_replace("{{login_link}}", $login_link, $address);
 		$address = str_replace("{{login_code}}", $this->session, $address);
 		return $address;

@@ -127,8 +127,8 @@ class User {
 		$this->dbh->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
 
 		$verify_link = site_url('verify_email', array(
-				'email' => rawurlencode($this->email),
-				'verification_token' => rawurlencode($token)
+				'email' => $this->email,
+				'verification_token' => $token
 			));
 
 		global $site;
@@ -243,8 +243,8 @@ formr robots";
 			$this->dbh->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
 
 			$reset_link = site_url('reset_password', array(
-				'email' => rawurlencode($email),
-				'reset_token' => rawurlencode($token)
+				'email' => $email,
+				'reset_token' => $token
 			));
 			
 			global $site;

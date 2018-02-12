@@ -138,7 +138,7 @@ class AdminRunController extends AdminController {
 		$run_session = $this->run->makeTestRunSession();
 		$sess = $run_session->session;
 		$animal = substr($sess, 0,strpos($sess, "XXX"));
-		$sess_url = run_url($this->run->name, null, array('code' => urlencode($sess)));
+		$sess_url = run_url($this->run->name, null, array('code' => $sess));
 		
 		alert("You've created a new test animal, ".h($animal).". Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user or copy the link below <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
 
@@ -153,7 +153,7 @@ class AdminRunController extends AdminController {
 
 			if($run_session) {
 				$sess = $run_session->session;
-				$sess_url = run_url($this->run->name, null, array('code' => urlencode($sess)));
+				$sess_url = run_url($this->run->name, null, array('code' => $sess));
 
 				alert("You've added a user with the code name '{$code_name}'. <br />
 					  Send them this link to participate <br />
