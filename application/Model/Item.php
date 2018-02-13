@@ -68,6 +68,7 @@ class Item extends HTML_element {
 	public $order = null;
 	public $block_order = null;
 	public $item_order = null;
+	public $page_no = null;
 	public $displaycount = null;
 	public $error = null;
 	public $dont_validate = null;
@@ -93,119 +94,7 @@ class Item extends HTML_element {
 	protected $probably_render = null;
 	protected $js_hidden = false;
 	public $presetValue = null;
-	public $allowed_classes = array(
-		"",
-		"clickable_map",
-		"thick_border_top",
-		"red",
-		"green",
-		"people_list",
-		"vertical_range",
-		"space_label_answer_vertical_10",
-		"space_label_answer_vertical_20",
-		"space_label_answer_vertical_30",
-		"space_label_answer_vertical_40",
-		"space_label_answer_vertical_50",
-		"space_label_answer_vertical_60",
-		"space_bottom_10",
-		"space_bottom_20",
-		"space_bottom_30",
-		"space_bottom_40",
-		"space_bottom_50",
-		"space_bottom_60",
-		"hidden",
-		"rating_button_label_width50",
-		"rating_button_label_width60",
-		"rating_button_label_width70",
-		"rating_button_label_width80",
-		"rating_button_label_width90",
-		"rating_button_label_width100",
-		"rating_button_label_width150",
-		"rating_button_label_width200",
-		"mc_width50",
-		"mc_width60",
-		"mc_width70",
-		"mc_width80",
-		"mc_width100",
-		"mc_width150",
-		"mc_width200",
-		"mc_equal_widths",
-		"mc_vertical",
-		"mc_block",
-		"mc_boxed",
-		"rotate_label30",
-		"rotate_label45",
-		"rotate_label90",
-		"hide_label",
-		"answer_align_right",
-		"answer_align_left",
-		"answer_align_center",
-		"label_align_right",
-		"label_align_left",
-		"label_align_center",
-		"right20",
-		"right30",
-		"right50",
-		"right70",
-		"right80",
-		"right100",
-		"right100",
-		"right150",
-		"right200",
-		"right300",
-		"right400",
-		"right500",
-		"right600",
-		"right700",
-		"right800",
-		"right900",
-		"padding100",
-		"padding200",
-		"padding300",
-		"padding400",
-		"padding500",
-		"padding600",
-		"padding700",
-		"padding800",
-		"padding900",
-		"left_offset0",
-		"left_offset100",
-		"left_offset200",
-		"left_offset300",
-		"left_offset400",
-		"left_offset500",
-		"left_offset600",
-		"left_offset700",
-		"left_offset800",
-		"left_offset900",
-		"right_offset0",
-		"right_offset100",
-		"right_offset200",
-		"right_offset300",
-		"right_offset400",
-		"right_offset500",
-		"right_offset600",
-		"right_offset700",
-		"right_offset800",
-		"right_offset900",
-		"left0",
-		"left100",
-		"left200",
-		"left300",
-		"left400",
-		"left500",
-		"left600",
-		"left700",
-		"left800",
-		"left900",
-		"align_horizontally",
-		"clear",
-		"row_height_40",
-		"answer_below_label",
-		"float_image_left",
-		"float_image_right",
-		"label_as_placeholder"
-	);
+	public $allowed_classes = array();
 	
 	public function __construct($options = array()) {
 		// simply load the array into the object, with some sensible defaults
@@ -236,13 +125,17 @@ class Item extends HTML_element {
 		$this->label = isset($options['label']) ? $options['label'] : '';
 		$this->label_parsed = isset($options['label_parsed']) ? $options['label_parsed'] : null;
 
-		if (isset($options['type_options'])):
+		if (isset($options['type_options'])) {
 			$this->type_options = trim($options['type_options']);
 			$this->type_options_array = array($options['type_options']);
-		endif;
+		}
 
 		if (isset($options['choice_list'])) {
 			$this->choice_list = $options['choice_list'];
+		}
+
+		if (isset($options['page_no'])) {
+			$this->page_no = $options['page_no'];
 		}
 		
 		if (empty($this->choice_list) && $this->hasChoices && $this->type_options != "") {
@@ -304,10 +197,10 @@ class Item extends HTML_element {
 			$this->classes_wrapper[] = 'optional';
 		}
 
-		if (isset($options['class']) && $options['class']):
+		if (isset($options['class']) && $options['class']) {
 			$this->classes_wrapper = array_merge($this->classes_wrapper, explode(" ", $options['class']));
 			$this->class = $options['class'];
-		endif;
+		}
 
 		$this->classes_wrapper[] = "item-" . $this->type;
 
@@ -323,7 +216,7 @@ class Item extends HTML_element {
 			$this->input_attributes['placeholder'] = $this->label;
 		}
 
-		if ($this->showif):
+		if ($this->showif) {
 			// primitive R to JS translation
 			$this->js_showif = preg_replace("/current\(\s*(\w+)\s*\)/", "$1", $this->showif); // remove current function
 			$this->js_showif = preg_replace("/tail\(\s*(\w+)\s*, 1\)/", "$1", $this->js_showif); // remove current function, JS evaluation is always in session			
@@ -342,7 +235,9 @@ class Item extends HTML_element {
 			if (strstr($this->showif, "//js_only") !== false) {
 				$this->setVisibility(array(null));
 			}
-		endif;
+		}
+
+		$this->allowed_classes = Config::get('css_classes', array());
 	}
 
 	public function refresh($options = array(), $properties = array()) {
