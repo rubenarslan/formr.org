@@ -37,12 +37,12 @@ class UnitSession {
 
 	public function load() {
 		if($this->id !== null) {
-			$vars = $this->dbh->select('id, created, unit_id, run_session_id, ended, meta')
+			$vars = $this->dbh->select('id, created, unit_id, run_session_id, ended')
 					->from('survey_unit_sessions')
 					->where(array('id' => $this->id))
 					->fetch();
 		} else {
-			$vars = $this->dbh->select('id, created, unit_id, run_session_id, ended, meta')
+			$vars = $this->dbh->select('id, created, unit_id, run_session_id, ended')
 					->from('survey_unit_sessions')
 					->where(array('run_session_id' => $this->run_session_id, 'unit_id' => $this->unit_id))
 					->where('ended IS NULL AND expired IS NULL')
