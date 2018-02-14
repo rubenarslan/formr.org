@@ -194,43 +194,6 @@ class PublicController extends Controller {
 		bad_request();
 	}
 
-	public function monkeyBarAction($run_name = '', $action = '') {
-		$action = str_replace('ajax_', '', $action);
-		$allowed_actions = array('send_to_position', 'remind', 'next_in_run', 'delete_user', 'snip_unit_session');
-		if (!$run_name || !in_array($action, $allowed_actions)) {
-			throw new Exception("Invalid Request parameters");
-		}
-
-		$parts = explode('_', $action);
-		$method = array_shift($parts) . str_replace(' ', '', ucwords(implode(' ', $parts)));
-		$runHelper = new RunHelper($this->request, $this->fdb, $run_name);
-
-		// check if run session usedby the monkey bar is a test if not this action is not valid
-		if (!($runSession = $runHelper->getRunSession()) || !$runSession->isTesting()) {
-			throw new Exception ("Unauthorized access to run session");
-		}
-
-		if (!method_exists($runHelper, $method)) {
-			throw new Exception("Invalid method {$action}");
-		}
-
-		$runHelper->{$method}();
-		if (($errors = $runHelper->getErrors())) {
-			$errors = implode("\n", $errors);
-			alert($errors, 'alert-danger');
-		}
-
-		if (($message = $runHelper->getMessage())) {
-			alert($message, 'alert-info');
-		}
-
-		if (is_ajax_request()) {
-			echo $this->site->renderAlerts();
-			exit;
-		}
-		redirect_to('');
-	}
-
 	public function osfApiAction($do = '') {
 		$user = Site::getCurrentUser();
 		if (!$user->loggedIn()) {

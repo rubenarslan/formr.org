@@ -763,6 +763,7 @@ function run_url($name = '', $action = '', $params = array()) {
 	}
 	$url = $protocol . $subdomain . $domain;
 	if ($action) {
+		$action = trim($action, "\/\\");
 		$url .= '/' . $action . '/';
 	}
 	if ($params) {
@@ -807,8 +808,8 @@ function asset_url($file) {
 	return site_url($file . "?v" . $mtime);
 }
 
-function monkeybar_url($run_name, $action) {
-	return site_url('monkey_bar/' . $run_name . '/' . $action);
+function monkeybar_url($run_name, $action = '', $params = array()) {
+	return run_url($run_name, 'monkey-bar/' . $action, $params);
 }
 
 function array_to_accordion($array) {

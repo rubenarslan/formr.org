@@ -17,7 +17,8 @@ class RunController extends Controller {
 		$pageNo = null;
 
 		if ($method = $this->getPrivateActionMethod($privateAction)) {
-			return $this->$method();
+			$args = array_slice(func_get_args(), 2);
+			return call_user_func_array(array($this, $method), $args);
 		} elseif (is_numeric($privateAction)) {
 			$pageNo = (int) $privateAction;
 			Request::setGlobals('pageNo', $pageNo);
@@ -90,6 +91,45 @@ class RunController extends Controller {
 			'settings' => $session->getSettings(),
 			'email_subscriptions' => Config::get('email_subscriptions'),
 		));
+	}
+
+	protected function monkeyBarAction($action = '') {
+		$action = str_replace('ajax_', '', $action);
+		$allowed_actions = array('send_to_position', 'remind', 'next_in_run', 'delete_user', 'snip_unit_session');
+		$run = $this->getRun();
+
+		if (!in_array($action, $allowed_actions) || !$run->valid) {
+			throw new Exception("Invalid Request parameters");
+		}
+
+		$parts = explode('_', $action);
+		$method = array_shift($parts) . str_replace(' ', '', ucwords(implode(' ', $parts)));
+		$runHelper = new RunHelper($this->request, $this->fdb, $run->name);
+
+		// check if run session usedby the monkey bar is a test if not this action is not valid
+		if (!($runSession = $runHelper->getRunSession()) || !$runSession->isTesting()) {
+			throw new Exception ("Unauthorized access to run session");
+		}
+
+		if (!method_exists($runHelper, $method)) {
+			throw new Exception("Invalid method {$action}");
+		}
+
+		$runHelper->{$method}();
+		if (($errors = $runHelper->getErrors())) {
+			$errors = implode("\n", $errors);
+			alert($errors, 'alert-danger');
+		}
+
+		if (($message = $runHelper->getMessage())) {
+			alert($message, 'alert-info');
+		}
+
+		if (is_ajax_request()) {
+			echo $this->site->renderAlerts();
+			exit;
+		}
+		redirect_to('');
 	}
 
 	private function getRun() {

@@ -52,9 +52,9 @@ class SurveyHelper {
 	}
 
 	/**
-	 * Returns HTML page to be rendered for Survey
+	 * Returns HTML page to be rendered for Survey or FALSE if survey ended
 	 *
-	 * @return string
+	 * @return string|boolean
 	 */
 	public function renderSurvey($unitSessionId) {
 		$unitSession = $this->getUnitSession($unitSessionId);

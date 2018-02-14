@@ -751,13 +751,14 @@ class Run {
 	}
 
 	public function exec($user) {
-		if (!$this->valid):
+		if (!$this->valid) {
 			alert(__("<strong>Error:</strong> Run '%s' is broken or does not exist.", $this->name), 'alert-danger');
 			redirect_to('error/404');
 			return false;
-		elseif ($this->name == self::TEST_RUN):
-			extract($this->fakeTestRun());
-		else:
+		} elseif ($this->name == self::TEST_RUN) {
+			$test = $this->fakeTestRun();
+			extract($test);
+		} else {
 
 			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
@@ -777,21 +778,20 @@ class Run {
 				alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');
 			}
 			$run_session->setLastAccess();
-
-		endif;
+		}
 
 		if (!$output) {
 			return;
 		}
 
-		global $site, $title;
+		global $title;
 		$css = $js = array();
 
-		if (isset($output['title'])):
+		if (isset($output['title'])) {
 			$title = $output['title'];
-		else:
+		} else {
 			$title = $this->title ? $this->title : $this->name;
-		endif;
+		}
 
 		if ($this->custom_css_path) {
 			//$css = '<link rel="stylesheet" href="' . asset_url($this->custom_css_path) . '" type="text/css" media="screen">';
