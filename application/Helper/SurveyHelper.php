@@ -58,10 +58,14 @@ class SurveyHelper {
 	 */
 	public function renderSurvey($unitSessionId) {
 		$unitSession = $this->getUnitSession($unitSessionId);
-		$pageNo = $this->getCurrentPage();
 		if (!Request::getGlobals('pageNo')) {
 			$pageNo = $this->getCurrentPage();
 			$this->redirectToPage($pageNo);
+		}
+
+		$pageNo = $this->getCurrentPage();
+		if ($pageNo < 1) {
+			throw new Exception('Invalid Survey Page');
 		}
 
 		// Check if user is allowed to enter this page
@@ -245,7 +249,7 @@ class SurveyHelper {
 
 	protected function emptyPreviousPageExists($pageNo) {
 		$prev = $pageNo - 1;
-		if ($prev <= 1) {
+		if ($prev < 1) {
 			return false;
 		}
 		$query = array(
