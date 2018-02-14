@@ -1032,19 +1032,6 @@ class Survey extends RunUnit {
 			}
 			$this->startEntry();
 
-			// Use SurveyHelper if study is configured to use pages
-			$usePager = in_array($this->name, Config::get('paging_surveys', array()));
-			if ($usePager) {
-				$surveyHelper = new SurveyHelper(new Request(array_merge($_POST, $_FILES)), $this, new Run($this->dbh, $this->run_name));
-				$surveyHelper->savePageItems($this->session_id);
-				if (($renderSurvey = $surveyHelper->renderSurvey($this->session_id)) !== false) {
-					return array('body' => $renderSurvey);
-				} else {
-					// Survey ended
-					return false;
-				}
-			}
-
 			// POST items only if request is a post request
 			if (Request::isHTTPPostRequest()) {
 				$posted = $this->post(array_merge($request->getParams(), $_FILES));
@@ -1294,7 +1281,7 @@ class Survey extends RunUnit {
 	}
 
 	protected $user_defined_columns = array(
-		'name', 'label', 'label_parsed', 'type', 'type_options', 'choice_list', 'optional', 'class', 'showif', 'value', 'block_order', 'item_order', 'order', 'page_no' // study_id is not among the user_defined columns
+		'name', 'label', 'label_parsed', 'type', 'type_options', 'choice_list', 'optional', 'class', 'showif', 'value', 'block_order', 'item_order', 'order' // study_id is not among the user_defined columns
 	);
 	protected $choices_user_defined_columns = array(
 		'list_name', 'name', 'label', 'label_parsed' // study_id is not among the user_defined columns
@@ -1387,8 +1374,8 @@ class Survey extends RunUnit {
 		$result_columns = array();
 		$UPDATES = implode(', ', get_duplicate_update_string($this->user_defined_columns));
 		$add_items = $this->dbh->prepare(
-			"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`, `page_no`) 
-			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order, :page_no
+			"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
+			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order
 		) ON DUPLICATE KEY UPDATE $UPDATES");
 
 		$add_items->bindParam(":study_id", $this->id);
@@ -1640,7 +1627,7 @@ class Survey extends RunUnit {
 
 	public function getItems($columns = null, $whereIn = null) {
 		if ($columns === null) {
-			$columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, value, block_order,item_order,page_no";
+			$columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, value, block_order,item_order";
 		}
 
 		$select =  $this->dbh->select($columns);
@@ -1654,7 +1641,7 @@ class Survey extends RunUnit {
 	}
 
 	public function getItemsForSheet() {
-		$get_items = $this->dbh->select('type, type_options, choice_list, name, label, optional, class, showif, value, block_order, item_order,page_no')
+		$get_items = $this->dbh->select('type, type_options, choice_list, name, label, optional, class, showif, value, block_order, item_order')
 				->from('survey_items')
 				->where(array('study_id' => $this->id))
 				->order("`survey_items`.order")

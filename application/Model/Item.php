@@ -68,7 +68,6 @@ class Item extends HTML_element {
 	public $order = null;
 	public $block_order = null;
 	public $item_order = null;
-	public $page_no = null;
 	public $displaycount = null;
 	public $error = null;
 	public $dont_validate = null;
@@ -140,10 +139,6 @@ class Item extends HTML_element {
 			$this->choice_list = $options['choice_list'];
 		}
 
-		if (isset($options['page_no'])) {
-			$this->page_no = $options['page_no'];
-		}
-		
 		if (empty($this->choice_list) && $this->hasChoices && $this->type_options != "") {
 			$lc = explode(' ', trim($this->type_options));
 			if(count($lc) > 1) {
