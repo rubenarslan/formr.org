@@ -7,7 +7,7 @@
 	</div>
 	<div class="box-body no-padding">
 		<ul class="nav nav-pills nav-stacked">
-			<li><a href="<?php echo run_url($run->name) ?>" target="_blank" title="Click this link to play the run as yourself. Remember that the run saves your position and progress, so you will go where you left off. If you're testing a diary, this may be desirable, if you're testing a one-shot survey, maybe not so."><i class="fa fa-play"></i> Test as yourself</a></li>
+			<li><a href="<?php echo run_url($run->name, null, array('code' => $user->user_code)) ?>" target="_blank" title="Click this link to play the run as yourself. Remember that the run saves your position and progress, so you will go where you left off. If you're testing a diary, this may be desirable, if you're testing a one-shot survey, maybe not so."><i class="fa fa-play"></i> Test as yourself</a></li>
 			<li><a href="<?php echo admin_run_url($run->name, 'create_new_test_code'); ?>" title="Generate a random new test code, to test as a new user."><i class="fa fa-stethoscope"></i> New test code</a></li>
 			<li><a href="<?php echo admin_run_url($run->name, 'create_new_named_session'); ?>" title="Generate a named test session."><i class="fa fa-stethoscope"></i> New named code</a></li>
 			<li><a href="<?php echo admin_run_url($run->name, 'user_overview'); ?>" title="Here you can monitor users' progress, send them to a different position and send them manual reminders."><i class="fa fa-users"></i> Users</a></li>

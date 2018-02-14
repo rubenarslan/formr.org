@@ -217,7 +217,7 @@ class PublicController extends Controller {
 		$runHelper->{$method}();
 		if (($errors = $runHelper->getErrors())) {
 			$errors = implode("\n", $errors);
-			alert(nl2br($errors), 'alert-danger');
+			alert($errors, 'alert-danger');
 		}
 
 		if (($message = $runHelper->getMessage())) {

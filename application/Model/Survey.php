@@ -23,6 +23,7 @@ class Survey extends RunUnit {
 	public $messages = array();
 	public $warnings = array();
 	public $position;
+	public $rendered_items = array();
 	private $SPR;
 	public $openCPU = null;
 	public $icon = "fa-pencil-square-o";
@@ -259,16 +260,14 @@ class Survey extends RunUnit {
 		return $created;
 	}
 
-	public function render() {
-		global $js;
-		$js = (isset($js) ? $js : '') . '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/survey.js') . '"></script>';
-
+	public function render($form_action = null, $form_append = null) {
 		$ret = '
 		<div class="row study-' . $this->id . ' study-name-' . $this->name . '">
 			<div class="col-md-12">
 		';
-		$ret .= $this->render_form_header() .
+		$ret .= $this->render_form_header($form_action) .
 				$this->render_items() .
+				$form_append .
 				$this->render_form_footer();
 		$ret .= '
 			</div> <!-- end of col-md-12 div -->
@@ -302,19 +301,19 @@ class Survey extends RunUnit {
 			$item_ids = $this->getOrderedItemsIds();
 
 			$survey_items_display = $this->dbh->prepare(
-				"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`) 
-					VALUES (:item_id, :session_id, :display_order)
+				"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`)  VALUES (:item_id, :session_id, :display_order)
 				 ON DUPLICATE KEY UPDATE display_order = VALUES(display_order)");
 
 			 $survey_items_display->bindParam(":session_id", $this->session_id);
 
-			 foreach ($item_ids AS $display_order => $item_id) {
+			 foreach ($item_ids as $display_order => $item_id) {
 				 $survey_items_display->bindParam(":item_id", $item_id);
 				 $survey_items_display->bindParam(":display_order", $display_order);
 				 $survey_items_display->execute();
 			 }
 		}
 	}
+
 	protected function allItemsHaveAnOrder() {
 		/*
 			we have cascading deletes for items->item_display so we only need to worry whether the item_display is short of items
@@ -442,9 +441,15 @@ class Survey extends RunUnit {
 				continue;
 			}
 
-			/** @var Item $item */
-			$item = $items[$item_name];
-			$validInput = $validate ? $item->validateInput($item_value) : $item_value;
+			/** @var $item Item */
+			if ($item_value instanceof Item) {
+				$item = $item_value;
+				$item_value = $item->value_validated;
+			} else {
+				$item = $items[$item_name];
+			}
+
+			$validInput = ($validate && !$item->skip_validation) ? $item->validateInput($item_value) : $item_value;
 			if ($item->save_in_results_table) {
 				if ($item->error) {
 					$this->validation_errors[$item_name] = $item->error;
@@ -484,8 +489,13 @@ class Survey extends RunUnit {
 					continue;
 				}
 
-				/* @var Item $item */
-				$item = $items[$name];
+				/* @var $item Item */
+				if ($value instanceof Item) {
+					$item = $value;
+					$value = $item->value_validated;
+				} else {
+					$item = $items[$name];
+				}
 
 				if (isset($posted["_item_views"]["shown"][$item->id], $posted["_item_views"]["shown_relative"][$item->id])) {
 					$shown = $posted["_item_views"]["shown"][$item->id];
@@ -605,8 +615,6 @@ class Survey extends RunUnit {
 	 * @note: All dynamic values are processed (even for those we don't know if they will be shown)
 	 *
 	 * @param Item[] $items
-	 * @param array $show_ifs
-	 * @param array $dynamic_values
 	 * @return array
 	 */
 	protected function processDynamicValuesAndShowIfs(&$items) {
@@ -755,6 +763,7 @@ class Survey extends RunUnit {
 	 * All items that don't require connecting to openCPU and don't require user input are posted immediately.
 	 * Examples: get parameters, browser, ip.
 	 *
+	 * @param Item[] $items
 	 * @return array Returns items that may have to be sent to openCPU or be rendered for user input
 	 */
 	protected function processAutomaticItems($items) {
@@ -875,8 +884,8 @@ class Survey extends RunUnit {
 		}
 	}
 
-	protected function render_form_header() {
-		$action = run_url($this->run_name);
+	protected function render_form_header($action = null) {
+		$action = $action !== null ? $action : run_url($this->run_name);
 		$enctype = 'multipart/form-data'; # maybe make this conditional application/x-www-form-urlencoded
 
 		$ret = '<form action="' . $action . '" method="post" class="form-horizontal main_formr_survey' .
@@ -1022,6 +1031,19 @@ class Survey extends RunUnit {
 				redirect_to(run_url($this->run_name));
 			}
 			$this->startEntry();
+
+			// Use SurveyHelper if study is configured to use pages
+			$usePager = in_array($this->name, Config::get('paging_surveys', array()));
+			if ($usePager) {
+				$surveyHelper = new SurveyHelper(new Request(array_merge($_POST, $_FILES)), $this, new Run($this->dbh, $this->run_name));
+				$surveyHelper->savePageItems($this->session_id);
+				if (($renderSurvey = $surveyHelper->renderSurvey($this->session_id)) !== false) {
+					return array('body' => $renderSurvey);
+				} else {
+					// Survey ended
+					return false;
+				}
+			}
 
 			// POST items only if request is a post request
 			if (Request::isHTTPPostRequest()) {
@@ -1272,7 +1294,7 @@ class Survey extends RunUnit {
 	}
 
 	protected $user_defined_columns = array(
-		'name', 'label', 'label_parsed', 'type', 'type_options', 'choice_list', 'optional', 'class', 'showif', 'value', 'block_order', 'item_order', 'order' // study_id is not among the user_defined columns
+		'name', 'label', 'label_parsed', 'type', 'type_options', 'choice_list', 'optional', 'class', 'showif', 'value', 'block_order', 'item_order', 'order', 'page_no' // study_id is not among the user_defined columns
 	);
 	protected $choices_user_defined_columns = array(
 		'list_name', 'name', 'label', 'label_parsed' // study_id is not among the user_defined columns
@@ -1365,8 +1387,8 @@ class Survey extends RunUnit {
 		$result_columns = array();
 		$UPDATES = implode(', ', get_duplicate_update_string($this->user_defined_columns));
 		$add_items = $this->dbh->prepare(
-			"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
-			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order
+			"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`, `page_no`) 
+			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order, :page_no
 		) ON DUPLICATE KEY UPDATE $UPDATES");
 
 		$add_items->bindParam(":study_id", $this->id);
@@ -1416,7 +1438,7 @@ class Survey extends RunUnit {
 				return false;
 			}
 		}
-		$staid_same = array_intersect_assoc($old_items, $new_items);
+		$unchanged = array_intersect_assoc($old_items, $new_items);
 		$added = array_diff_assoc($new_items, $old_items);
 		$deleted = array_diff_assoc($old_items, $new_items);
 
@@ -1618,7 +1640,7 @@ class Survey extends RunUnit {
 
 	public function getItems($columns = null, $whereIn = null) {
 		if ($columns === null) {
-			$columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, value, block_order,item_order";
+			$columns = "id, study_id, type, choice_list, type_options, name, label, label_parsed, optional, class, showif, value, block_order,item_order,page_no";
 		}
 
 		$select =  $this->dbh->select($columns);
@@ -1632,7 +1654,7 @@ class Survey extends RunUnit {
 	}
 
 	public function getItemsForSheet() {
-		$get_items = $this->dbh->select('type, type_options, choice_list, name, label, optional, class, showif, value, block_order, item_order')
+		$get_items = $this->dbh->select('type, type_options, choice_list, name, label, optional, class, showif, value, block_order, item_order,page_no')
 				->from('survey_items')
 				->where(array('study_id' => $this->id))
 				->order("`survey_items`.order")

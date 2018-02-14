@@ -1,17 +1,18 @@
 <?php
-define('APPLICATION_ROOT', __DIR__. '/');
+
+define('APPLICATION_ROOT', __DIR__ . '/');
 define('INCLUDE_ROOT', APPLICATION_ROOT);
 
 define('APPLICATION_PATH', APPLICATION_ROOT . 'application/');
 
-define('APPPLICATION_CRYPTO_KEY_FILE', APPLICATION_ROOT  . 'formr-crypto.key');
+define('APPPLICATION_CRYPTO_KEY_FILE', APPLICATION_ROOT . 'formr-crypto.key');
 
 // Load composer Autoloader
 require_once APPLICATION_ROOT . 'vendor/autoload.php';
 
 // Initialize settings array and define routes
 $settings = array();
-$settings['routes'] = array (
+$settings['routes'] = array(
 	'public',
 	'admin',
 	'admin/run',
@@ -28,9 +29,9 @@ require_once APPLICATION_ROOT . 'config.dist/settings.php';
 require_once APPLICATION_ROOT . 'config/settings.php';
 
 // Define default assets
-if(php_sapi_name() != 'cli') {
+if (php_sapi_name() != 'cli') {
 	require_once APPLICATION_ROOT . 'config.dist/assets.php';
-	require_once APPLICATION_ROOT . 'config.dist/css.classes.php';
+	require_once APPLICATION_ROOT . 'config.dist/css-classes.php';
 }
 
 // Set current formr version (bumped on release)
@@ -45,16 +46,18 @@ Config::initialize($settings);
 
 // Global Setup
 function __formr_setup($settings = array()) {
-	if(defined('WEBROOT')) return;
+	if (defined('WEBROOT')) {
+		return;
+	}
 
 	$protocol = (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] == '') ? 'http://' : 'https://';
-    $doc_root = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'].'/' : '/';
+	$doc_root = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] . '/' : '/';
 	$online = true;
 
-   // Maybe dev env contains $settings['define_root'] so use these
-    if (!empty($settings['define_root'])) {
-        extract($settings['define_root']);
-    }
+	// Maybe dev env contains $settings['define_root'] so use these
+	if (!empty($settings['define_root'])) {
+		extract($settings['define_root']);
+	}
 
 	define('WEBROOT', $protocol . $doc_root);
 	define('ONLINE', $online);
@@ -62,7 +65,7 @@ function __formr_setup($settings = array()) {
 	define('RUNROOT', WEBROOT);
 	define('DEBUG', Config::get('display_errors'));
 	define('FMRSD_CONTEXT', getenv('FMRSD_CONTEXT'));
-	
+
 	// General PHP-side configuration
 	error_reporting(-1);
 	if (DEBUG > 0) {
@@ -86,7 +89,7 @@ function __formr_setup($settings = array()) {
 	date_default_timezone_set(Config::get('timezone'));
 	mb_internal_encoding('UTF-8');
 	register_shutdown_function('shutdown_formr_org');
-
 }
+
 __formr_setup($settings);
 

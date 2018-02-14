@@ -120,4 +120,3 @@ $settings['css_classes'] = array(
 	"float_image_right",
 	"label_as_placeholder"
 );
-

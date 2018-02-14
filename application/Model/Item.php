@@ -76,16 +76,20 @@ class Item extends HTML_element {
 	public $val_errors = array();
 	public $val_warnings = array();
 	public $mysql_field = 'TEXT DEFAULT NULL';
-	protected $prepend = null;
-	protected $append = null;
-	protected $type_options_array = array();
 	public $choices = array();
-	protected $hasChoices = false;
-	protected $data_showif = false;
 	public $hidden = false;
 	public $no_user_input_required = false;
 	public $save_in_results_table = true;
 	public $input_attributes = array(); // so that the pre-set value can be set externally
+	public $presetValue = null;
+	public $allowed_classes = array();
+	public $skip_validation = false;
+
+	protected $prepend = null;
+	protected $append = null;
+	protected $type_options_array = array();
+	protected $hasChoices = false;
+	protected $data_showif = false;
 	protected $classes_controls = array('controls');
 	protected $classes_wrapper = array('form-group', 'form-row');
 	protected $classes_input = array();
@@ -93,8 +97,6 @@ class Item extends HTML_element {
 	protected $presetValues = array();
 	protected $probably_render = null;
 	protected $js_hidden = false;
-	public $presetValue = null;
-	public $allowed_classes = array();
 	
 	public function __construct($options = array()) {
 		// simply load the array into the object, with some sensible defaults
@@ -110,6 +112,10 @@ class Item extends HTML_element {
 
 		if (isset($options['value'])) {
 			$this->value = $options['value'];
+		}
+
+		if (isset($options['value_validated'])) {
+			$this->value_validated = $options['value_validated'];
 		}
 
 		if (isset($options['order'])) {
@@ -962,6 +968,9 @@ class Item_datetime extends Item {
 		return parent::validateInput($reply);
 	}
 	public function getReply($reply) {
+		if (!$reply) {
+			return null;
+		}
 		$time_reply = strtotime($reply);
 		return date($this->html5_date_format, $time_reply);
 	}
@@ -1097,10 +1106,11 @@ class Item_submit extends Item {
 			$this->input_attributes["data-timeout"] = $this->type_options;
 			$this->classes_input[] = "submit_automatically_after_timeout";
 		}
+		$this->input_attributes['value'] = $this->label_parsed;
 	}
 
 	protected function render_inner() {
-		$ret = '<button ' . self::_parseAttributes($this->input_attributes, array('required')) . '>' . $this->label_parsed . '</button>';
+		$ret = '<input ' . self::_parseAttributes($this->input_attributes, array('required')) . ' />';
 		if(isset($this->input_attributes["data-timeout"])) {
 			$ret .= '<div class="white_cover"></div>';
 		}

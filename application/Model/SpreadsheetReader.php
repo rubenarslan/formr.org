@@ -665,6 +665,7 @@ class SpreadsheetReader {
 		}
 
 		$data = $skippedRows = $emptyRows = $variableNames = array();
+		$pageNo = 1;
 
 		foreach ($worksheet->getRowIterator(1, $rowCount) as $row) {
 			/* @var $row PHPExcel_Worksheet_Row */
@@ -678,6 +679,8 @@ class SpreadsheetReader {
 			$data[$rowNumber] = array();
 			$cellIterator = $row->getCellIterator('A', $worksheet->getHighestDataColumn());
 			$cellIterator->setIterateOnlyExistingCells(false);
+			$incrementPage = false;
+
 			foreach ($cellIterator as $cell) {
 				/* @var $cell PHPExcel_Cell */
 				if (is_null($cell)) {
@@ -737,8 +740,11 @@ class SpreadsheetReader {
 					if ($trType != $cellValue) {
 						$this->warnings[] = __('The type "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"', $cellValue, $trType);
 					}
+					if ($trType === 'submit') {
+						$incrementPage = true;
+					}
 					$cellValue = $trType;
-					
+
 				} elseif ($colName == 'optional') {
 					if ($cellValue === '*') {
 						$cellValue = 1;
@@ -774,6 +780,10 @@ class SpreadsheetReader {
 				
 			} // Cell Loop
 
+			$data[$rowNumber]['page_no'] = $pageNo;
+			if ($incrementPage) {
+				$pageNo++;
+			}
 			$data[$rowNumber]['order'] = $rowNumber - 1;
 			// if no order is entered, use row_number
 			if(!isset($data[$rowNumber]['item_order']) || !is_formr_truthy($data[$rowNumber]['item_order'])) {

@@ -14,9 +14,13 @@ class RunController extends Controller {
 		// hack for run name
 		$_GET['run_name'] = $runName;
 		$this->site->request->run_name = $runName;
+		$pageNo = null;
 
 		if ($method = $this->getPrivateActionMethod($privateAction)) {
 			return $this->$method();
+		} elseif (is_numeric($privateAction)) {
+			$pageNo = (int) $privateAction;
+			Request::setGlobals('pageNo', $pageNo);
 		}
 
 		$this->user = $this->site->loginUser($this->user);
