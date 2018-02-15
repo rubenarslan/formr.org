@@ -19,7 +19,6 @@ class SelectOne_Item extends Item {
 		$this->splitValues();
 		$tpl = '
 			<input type="hidden" value="" id="item%{id}_" %{input_attributes} />
-			<label class="keep-label">%{lower_text}</label>
 			<select %{select_attributes}>
 				%{empty_option}
 				%{options}
@@ -45,12 +44,11 @@ class SelectOne_Item extends Item {
 			if (in_array($value, $this->presetValues)) {
 				$selected = ' selected="selected"';
 			}
-			$options .= sprintf('<option value="%" %s>%s</option>', $value, $selected, $option);
+			$options .= sprintf('<option value="%s" %s >%s</option>', $value, $selected, $option);
 		}
 
 		return Template::replace($tpl, array(
 			'id' => $this->id,
-			'lower_text' => $this->lower_text,
 			'empty_option' => !isset($this->input_attributes['multiple']) ? '<option value=""> &nbsp; </option>' : '',
 			'options' => $options,
 			'input_attributes' => self::_parseAttributes($this->input_attributes, array('id', 'type', 'required','multiple')),

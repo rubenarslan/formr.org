@@ -41,7 +41,7 @@ class Timezone_Item extends SelectOne_Item {
 		$options = '';
 		foreach ($this->choices as $value => $option) {
 			$selected = array('selected' => $this->isSelectedOptionValue($value, $this->value_validated));
-			$options .= sprintf('<option value="%" %s>%s</option>', $value, self::_parseAttributes($selected, array('type')), $option);
+			$options .= sprintf('<option value="%s" %s>%s</option>', $value, self::_parseAttributes($selected, array('type')), $option);
 		}
 		
 		return Template::replace($tpl, array(

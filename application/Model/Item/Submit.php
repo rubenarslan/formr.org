@@ -19,7 +19,8 @@ class Submit_Item extends Item {
 	}
 
 	protected function render_inner() {
-		return Template::replace('<input %{input_attributes} /> %{time_out}', array(
+		return Template::replace('<button %{input_attributes}>%{label}</button> %{time_out}', array(
+			'label' => $this->label_parsed,
 			'input_attributes' => self::_parseAttributes($this->input_attributes, array('required')),
 			'time_out' => isset($this->input_attributes["data-timeout"]) ? '<div class="white_cover"></div>' : '',
 		));

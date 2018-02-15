@@ -16,7 +16,7 @@ class Textarea_Item extends Item {
 
 		$value = array_val($this->input_attributes, 'value');
 		unset($this->input_attributes['value']);
-		return '<textarea ' . self::_parseAttributes($this->input_attributes, array('type')) . '>' . $value . '</textarea>';
+		return sprintf('<textarea %s>%s</textarea>', self::_parseAttributes($this->input_attributes, array('type')), $value);
 	}
 
 }

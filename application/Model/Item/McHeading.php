@@ -45,7 +45,7 @@ class McHeading_Item extends Mc_Item {
 			$all_left = true;
 		}
 
-		foreach ($this->choices AS $value => $option) {
+		foreach ($this->choices as $value => $option) {
 			$this->input_attributes['selected'] = $this->isSelectedOptionValue($value, $this->value_validated);
 			$label = '
 				<label for="item%{id}_%{value}">

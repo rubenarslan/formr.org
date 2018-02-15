@@ -77,7 +77,7 @@ class RatingButton_Item extends McButton_Item {
 				$this->input_attributes['checked'] = false;
 			}
 
-			$label = '<label for="item%{id}_%{option}"><input value="%{option}" id="item%{id}_%{option}" %{input_attributes} /></label> %{option} ';
+			$label = '<label for="item%{id}_%{option}"><input value="%{option}" id="item%{id}_%{option}" %{input_attributes} /> %{option} </label> ';
 			$labels .= Template::replace($label, array(
 				'id' => $this->id,
 				'option' => $option,

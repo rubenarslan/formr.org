@@ -27,9 +27,11 @@ class RangeTicks_Item extends Number_Item {
 		$tpl = '
 			%{left_label}
 			<input %{input_attributes} />
-			<datalist id="dlist%{id}"> <select class="">
-				%{options}
-			</select> </datalist>
+			<datalist id="dlist%{id}">
+				<select class="">
+					%{options}
+				</select>
+			</datalist>
 			%{right_label}
 		';
 

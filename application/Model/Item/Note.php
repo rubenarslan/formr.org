@@ -10,7 +10,7 @@ class Note_Item extends Item {
 	public $optional = 1;
 
 	protected function render_label() {
-		$template = '<label class="%{class}">%{error} %{text} </label>';
+		$template = '<div class="%{class}">%{error} %{text} </div>';
 
 		return Template::replace($template, array(
 			'class' => implode(' ', $this->classes_label),

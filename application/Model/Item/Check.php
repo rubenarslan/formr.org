@@ -45,11 +45,11 @@ class Check_Item extends McMultiple_Item {
 			$this->input_attributes['checked'] = false;
 		}
 		unset($this->input_attributes['value']);
-		
+
 		$template = '
 			<div class="checkbox">
 				<input type="hidden" value="" id="item%{id}_" %{attributes} />
-				<label class="%{class}" for="%{id}"><input id="item%{id}_1" value="1" %{input_attributes} /></label>
+				<label class="%{class}" for="item%{id}_1"><input id="item%{id}_1" value="1" %{input_attributes} /></label>
 			</div>
 		';
 
@@ -58,7 +58,6 @@ class Check_Item extends McMultiple_Item {
 			'class' => $this->js_hidden ? ' js_hidden' : '',
 			'attributes' => self::_parseAttributes($this->input_attributes, array('id', 'type', 'required')),
 			'input_attributes' => self::_parseAttributes($this->input_attributes, array('id')),
-			
 		));
 	}
 

@@ -401,8 +401,9 @@ class Item {
 		$template = '
 			<span class="item-view-inputs">
 				<input class="item_shown" type="hidden" name="_item_views[shown][%{id}]" />
-				<input class="item_answered" type="hidden" name="_item_views[answered][%{id}]">
-				<input class="item_answered_relative" type="hidden" name="_item_views[answered_relative][%{id}]">
+				<input class="item_shown_relative" type="hidden" name="_item_views[shown_relative][%{id}]" />
+				<input class="item_answered" type="hidden" name="_item_views[answered][%{id}]" />
+				<input class="item_answered_relative" type="hidden" name="_item_views[answered_relative][%{id}]" />
 			</span>
 		';
 		return Template::replace($template, array('id' => $this->id));

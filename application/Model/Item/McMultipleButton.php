@@ -13,16 +13,6 @@ class McMultipleButton_Item extends McMultiple_Item {
 
 	protected function render_appended() {
 		$ret = '<div class="btn-group js_shown">';
-		foreach ($this->choices AS $value => $option):
-			$ret .= '<button type="button" class="btn" data-for="item' . $this->id . '_' . $value . '">' .
-					"<span class='btn_value'>$value</span><span class='btn_label'>$option</span>" .
-					'</button>';
-		endforeach;
-		$ret .= '</div>';
-
-		return $ret;
-		
-		$ret = '<div class="btn-group js_shown">';
 		foreach ($this->choices as $value => $option) {
 			$tpl = '
 				<button type="button" class="btn" data-for="item%{id}_%{value}">
