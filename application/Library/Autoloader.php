@@ -63,27 +63,35 @@ class Autoload {
 			define('APPLICATION_PATH', APPLICATION_ROOT . 'application/');
 		}
 
-		if (strpos($class, 'Controller') !== false) {
+		$class = $this->classNameToPath($class);
+		$libraryPath = APPLICATION_PATH . "Library/{$class}.php";
+		$modelPath = APPLICATION_PATH . "Model/{$class}.php";
+
+		if (strstr($class, 'Controller') !== false) {
 			$file = APPLICATION_PATH . "Controller/{$class}.php";
-		} elseif (strpos($class, 'Helper') !== false) {
+		} elseif (strstr($class, 'Helper') !== false) {
 			$file = APPLICATION_PATH . "Helper/{$class}.php";
-		} else {
-			$class = str_replace('Factory', '', $class);
-			$libraryPath = APPLICATION_PATH . "Library/{$class}.php";
-			$modelPath = APPLICATION_PATH . "Model/{$class}.php";
-			if (strpos($class, 'Item_') === 0 || strpos($class, 'HTML_') === 0) {
-				$file = APPLICATION_PATH . 'Model/Item.php';
-			} elseif (file_exists($modelPath)) {
-				$file = $modelPath;
-			} elseif (file_exists($libraryPath)) {
-				$file = $libraryPath;
-			}
+		} elseif (file_exists($modelPath)) {
+			$file = $modelPath;
+		} elseif (file_exists($libraryPath)) {
+			$file = $libraryPath;
 		}
 
 		if (!empty($file)) {
 			return $file;
 		}
 		return false;
+	}
+
+	protected function classNameToPath($class) {
+		if (strstr($class, '_') !== false) {
+			$pieces = array_reverse(explode('_', $class));
+			$class = implode('/', $pieces);
+		}
+		if (substr($class, -7) === 'Factory') {
+			$class = str_replace('Factory', '', $class);
+		}
+		return $class;
 	}
 
 	public static function getLoader() {
