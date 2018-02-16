@@ -299,19 +299,29 @@ class Survey extends RunUnit {
 			return;
 		} else {
 			// get the definition of the order
-			$item_ids = $this->getOrderedItemsIds();
+			list($item_ids, $item_types) = $this->getOrderedItemsIds();
+
+			// define paramers to bind parameters
+			$display_order = null;
+			$item_id = null;
+			$page = 1;
 
 			$survey_items_display = $this->dbh->prepare(
-				"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`)  VALUES (:item_id, :session_id, :display_order)
-				 ON DUPLICATE KEY UPDATE display_order = VALUES(display_order)");
+				"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`, `page`)  VALUES (:item_id, :session_id, :display_order, :page)
+				 ON DUPLICATE KEY UPDATE `display_order` = VALUES(`display_order`), `page` = VALUES(`page`)"
+			);
+			$survey_items_display->bindParam(":session_id", $this->session_id);
+			$survey_items_display->bindParam(":item_id", $item_id);
+			$survey_items_display->bindParam(":display_order", $display_order);
+			$survey_items_display->bindParam(":page", $page);
 
-			 $survey_items_display->bindParam(":session_id", $this->session_id);
-
-			 foreach ($item_ids as $display_order => $item_id) {
-				 $survey_items_display->bindParam(":item_id", $item_id);
-				 $survey_items_display->bindParam(":display_order", $display_order);
-				 $survey_items_display->execute();
-			 }
+			foreach ($item_ids as $display_order => $item_id) {
+				$survey_items_display->execute();
+				// set page number when submit button is hit or we reached max_items_per_page for survey
+				if ($item_types[$item_id] === 'submit') {
+					$page++;
+				}
+			}
 		}
 	}
 
@@ -352,6 +362,7 @@ class Survey extends RunUnit {
 	protected function getOrderedItemsIds() {
 		$get_items = $this->dbh->select('
 				`survey_items`.id,
+				`survey_items`.`type`,
 				`survey_items`.`item_order`,
 				`survey_items`.`block_order`')
 				->from('survey_items')
@@ -362,13 +373,15 @@ class Survey extends RunUnit {
 
 		// sort blocks randomly (if they are consecutive), then by item number and if the latter are identical, randomly
 		$block_segment = $block_order = $item_order = $random_order = $block_numbers = $item_ids = array();
+		$types = array();
+
 		$last_block = "";
 		$block_nr = 0;
 		$block_segment_i = 0;
 
 		while ($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
 			if ($item['block_order'] == "") { // not blocked
-				$item['block_order'] = "";
+				$item['block_order'] = ""; // ? why is this necessary
 				$block_order[] = $block_nr;
 			} else {
 				if (!array_key_exists($item['block_order'], $block_numbers)) { // new block
@@ -389,6 +402,8 @@ class Survey extends RunUnit {
 			$item_order[] = $item['item_order']; // after sorting by block, sort by item order 
 			$item_ids[] = $item['id'];
 			$last_block = $item['block_order'];
+
+			$types[$item['id']] = $item['type'];
 		}
 
 		$random_order = range(1, count($item_ids)); // if item order is identical, sort randomly (within block)
@@ -396,7 +411,7 @@ class Survey extends RunUnit {
 		array_multisort($block_order, $item_order, $random_order, $item_ids);
 		// order is already sufficiently defined at least by random_order, but this is a simple way to sort $item_ids is sorted accordingly
 
-		return $item_ids;
+		return array($item_ids, $types);
 	}
 
 	/**
@@ -946,10 +961,10 @@ class Survey extends RunUnit {
 		}
 
 		// if the last item was not a submit button, add a default one
-		if (isset($item) && ( $item->type !== "submit" || $item->hidden)) {
+		if (isset($item) && ($item->type !== "submit" || $item->hidden)) {
 			$sub_sets = array(
 				'label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!',
-				'class_input' => 'btn-info .default_formr_button',
+				'class_input' => 'btn-info default_formr_button',
 			);
 			$item = new Submit_Item($sub_sets);
 			$ret .= $item->render();
@@ -1035,6 +1050,20 @@ class Survey extends RunUnit {
 				redirect_to(run_url($this->run_name));
 			}
 			$this->startEntry();
+
+			// Use SurveyHelper if study is configured to use pages
+			// @TODO Add setting to enable this paging feature
+			$usePager = true;//in_array($this->name, Config::get('paging_surveys', array()));
+			if ($usePager) {
+				$surveyHelper = new SurveyHelper(new Request(array_merge($_POST, $_FILES)), $this, new Run($this->dbh, $this->run_name));
+				$surveyHelper->savePageItems($this->session_id);
+				if (($renderSurvey = $surveyHelper->renderSurvey($this->session_id)) !== false) {
+					return array('body' => $renderSurvey);
+				} else {
+					// Survey ended
+					return false;
+				}
+			}
 
 			// POST items only if request is a post request
 			if (Request::isHTTPPostRequest()) {
@@ -1634,7 +1663,7 @@ class Survey extends RunUnit {
 		if ($whereIn) {
 			$select->whereIn($whereIn['field'], $whereIn['values']);
 		}
-		$select->order("`survey_items`.order");
+		$select->order("`survey_items`.item_order");
 		return $select->fetchAll();
 	}
 
