@@ -18,22 +18,22 @@
 
 <div class="box box-solid">
 	<div class="box-header with-border">
-		<h3 class="box-title"><i class="fa fa-th"></i> Testing &amp; management</h3>
+		<h3 class="box-title"><i class="fa fa-th"></i> Testing &amp; Management</h3>
 		<div class="box-tools">
 			<button type="button" class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-minus"></i></button>
 		</div>
 	</div>
 	<div class="box-body no-padding">
 		<ul class="nav nav-pills nav-stacked">
-			<li><a target="_blank" href="<?php echo admin_run_url($run->name, 'create_new_test_code'); ?>" title="Test run with a new guinea pig account. You'll start from the beginning and have extended debugging ability."><i class="fa fa-stethoscope"></i> Test run</a></li>
+			<li><a target="_blank" href="<?php echo admin_run_url($run->name, 'create_new_test_code'); ?>" title="Test run with a new guinea pig account. You'll start from the beginning and have extended debugging ability."><i class="fa fa-stethoscope"></i> Test Run</a></li>
 
-			<li><a href="<?php echo admin_run_url($run->name, 'user_overview?session=XXX'); ?>" title="See a list of existing guinea pigs/test sessions and continue testing."><i class="fa fa-wheelchair"></i> Old guinea pigs</a></li>
+			<li><a href="<?php echo admin_run_url($run->name, 'user_overview?session=XXX'); ?>" title="See a list of existing guinea pigs/test sessions and continue testing."><i class="fa fa-wheelchair"></i> Old Guinea Pigs</a></li>
 
 			<li><a href="<?php echo admin_run_url($run->name, 'user_overview'); ?>" title="Here you can monitor users' progress, send them to a different position and send them manual reminders."><i class="fa fa-users"></i> Users</a></li>
 
 			<li><a href="<?php echo admin_run_url($run->name, 'overview'); ?>" title="Here you can monitor your custom progress indicators, do preliminary data analysis and so on."><i class="fa fa-eye"></i> Overview</a></li>
 
-			<li><a href="<?php echo admin_run_url($run->name, 'create_new_named_session'); ?>" title="Generate a named test session. People might want this to connect e.g. ciphers to data."><i class="fa fa-address-card"></i> New named user</a></li>
+			<li><a href="<?php echo admin_run_url($run->name, 'create_new_named_session'); ?>" title="Generate a named test session. People might want this to connect e.g. ciphers to data."><i class="fa fa-user"></i> New Named User</a></li>
 		</ul>
 	</div>
 	<!-- /.box-body -->
