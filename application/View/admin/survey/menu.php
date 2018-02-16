@@ -8,7 +8,7 @@
 	</div>
 	<div class="box-body no-padding context-menu">
 		<ul class="nav nav-pills nav-stacked">
-			<li><a href="<?= admin_study_url($study->name, 'access') ?>" class="hastooltip" title="Simply click this link to test this survey. But remember that it's not in the broader context of a run, so if you refer to other surveys, that will cause problems."><i class="fa fa-play"></i> Test Survey</a></li>
+			<li><a target="_blank" href="<?= admin_study_url($study->name, 'access') ?>" class="hastooltip" title="Simply click this link to test this survey. But remember that it's not in the broader context of a run, so if you refer to other surveys, that will cause problems."><i class="fa fa-play"></i> Test Survey</a></li>
 			<li><a href="<?= admin_study_url($study->name) ?>"><i class="fa fa-cogs"></i> Settings</a></li>
 			<li><a href="<?= admin_study_url($study->name, 'show_item_table') ?>"><i class="fa fa-th"></i> Items Table</a></li>
 			<li><a href="<?= admin_study_url($study->name, 'upload_items') ?>"><i class="fa fa-upload"></i> Import Items</a></li>
@@ -57,7 +57,7 @@
 		<input type="hidden" name="study_id" value="<?= $study->id ?>">
 		<input type="hidden" name="google_sheet" value="<?php echo h($google_link); ?>">
 
-		<button class="btn btn-lg" type="submit"><small> <i class="fa-fw fa fa-pencil-square"></i> Quick-upload items</small></button>
+		<button class="btn btn-lg" type="submit" title="Will update the item table from the Google Sheet. This button only works before the survey contains real data."><small> <i class="fa-fw fa fa-pencil-square"></i> Quick-import items</small></button>
 	</form>
 <?php endif; ?>
 <hr />

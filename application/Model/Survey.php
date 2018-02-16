@@ -2014,7 +2014,7 @@ class Survey extends RunUnit {
 			</p>";
 			$dialog .= '<br><p class="btn-group">
 				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Save</a>
-				<a class="btn btn-default" href="' . admin_study_url($this->name, 'access') . '">Test</a>
+				<a title="Test this survey with this button for a quick look. Unless you need a quick look, you should prefer to use the \"Test run\" function to test the survey in the context of the run." class="btn btn-default" target="_blank" href="' . admin_study_url($this->name, 'access') . '">Test</a>
 			</p>';
 //		elseif($studies):
 		} else {

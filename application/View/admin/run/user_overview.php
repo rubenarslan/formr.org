@@ -3,7 +3,7 @@
 <div class="content-wrapper">
 	<!-- Content Header (Page header) -->
 	<section class="content-header">
-		<h1><?php echo $run->name; ?> </h1>
+		<h1><?php echo $run->name; ?> <small><a target="_blank" title="The official link to your run, which you can share with prospective users." href="<?php echo run_url($run->name, null, null) ?>"><?php echo run_url($run->name, null, null) ?></a></small> </h1>
 	</section>
 
 	<!-- Main content -->
@@ -114,7 +114,7 @@
 											<form class='form-inline form-ajax' action="<?php echo admin_run_url($user['run_name'], 'ajax_send_to_position'); ?>" method='post'>
 												<span class='input-group'>
 													<span class='input-group-btn'>
-														<a class="btn hastooltip" href="<?php echo site_url($user['run_name'] . "?code=" . urlencode($user['session'])); ?>" title="<?= ($user['testing'] ? 'Test using this identity (open in incognito window to have a separate session)' : 'Pretend you are this user (you will really manipulate this data)'); ?>"><i class="fa fa-user-secret"></i></a>
+														<a target="_blank" class="btn hastooltip" href="<?php echo site_url($user['run_name'] . "?code=" . urlencode($user['session'])); ?>" title="<?= ($user['testing'] ? 'Test using this guinea pig again.' : 'Pretend you are this user (you will really manipulate this data)'); ?>"><i class="fa fa-user-secret"></i></a>
 
 														<a class='btn hastooltip link-ajax' href='<?= site_url("admin/run/{$user['run_name']}/ajax_toggle_testing?toggle_on=" . ($user['testing'] ? 0 : 1) . "&amp;run_session_id={$user['run_session_id']}&amp;session=" . urlencode($user['session'])) ?>' 
 														   title='Toggle testing status'><i class='fa <?= ($user['testing'] ? 'fa-stethoscope' : 'fa-heartbeat') ?>'></i></a>

@@ -140,9 +140,9 @@ class AdminRunController extends AdminController {
 		$animal = substr($sess, 0,strpos($sess, "XXX"));
 		$sess_url = run_url($this->run->name, null, array('code' => $sess));
 		
-		alert("You've created a new test animal, ".h($animal).". Click on the little spy below 'Action' and open the link in a new Private mode/Incognito window to test as that user or copy the link below <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
+		alert("You've created a new guinea pig, ".h($animal).". Use this guinea pig to move through the run like a normal user with special powers (accessibly via the monkey bar at the bottom right). As a guinea pig, you can see more detailed error messages than real users, so it is easier to e.g. debug R problems. If you want someone else to be the guinea pig, just forward them this link: <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
 
-		redirect_to(admin_run_url($this->run->name, 'user_overview', array('session' => $run_session->session)));
+		redirect_to($sess_url);
 	}
 
 	private function createNewNamedSessionAction() {

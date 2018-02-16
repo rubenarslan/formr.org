@@ -281,7 +281,7 @@ class RunUnit {
 			->limit(20)->fetchAll();
 		
 		if (!$results) {
-			alert('No data to compare to yet.','alert-info');
+			alert('No data to compare to yet. Create some test data by sending guinea pigs through the run using the "Test run" function on the left.','alert-info');
 			return false;
 		}
 		return $results;
@@ -302,7 +302,7 @@ class RunUnit {
 				->fetch();
 
 			if (!$temp_user) {
-				alert('No data to compare to yet','alert-info');
+				alert('No data to compare to yet. Create some test data by sending guinea pigs through the run using the "Test run" function on the left.','alert-info');
 				return false;
 			}
 
