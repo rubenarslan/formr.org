@@ -762,7 +762,7 @@ class Run {
 
 			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
-			if (($user->created($this) || // owner always has access
+			if (($this->getOwner()->user_code == $user->user_code || // owner always has access
 				$run_session->isTesting()) || // testers always have access
 				($this->public >= 1 && $run_session->id) || // already enrolled
 				($this->public >= 2)) { // anyone with link can access
