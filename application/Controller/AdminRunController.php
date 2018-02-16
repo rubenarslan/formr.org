@@ -322,7 +322,7 @@ class AdminRunController extends AdminController {
 				$error = __('The run name "%s" is already taken. Please choose another name', $run_name);
 			} else {
 				if ($run->rename($run_name)) {
-					alert("<strong>Success.</strong> Run was renamed to '{$run->name}'.", 'alert-success');
+					alert("<strong>Success.</strong> Run was renamed to '{$run_name}'.", 'alert-success');
 					redirect_to(admin_run_url($run_name));
 				} else {
 					$error = 'An error renaming your run please try again';
