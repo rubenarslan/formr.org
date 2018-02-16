@@ -24,6 +24,14 @@
 
 					</div>
 
+					<?php if ($study->settings['hide_results']): ?>
+					<div class="col-md-12">
+						<p>&nbsp;</p>
+						<p class="callout callout-warning"><i class="fa fa-warning"></i> Displaying results has been disabled for this survey.</p>
+					</div>
+					<div class="clearfix"></div>
+					<?php endif; ?>
+
 					<div class="box-body table-responsive no-padding">
 						<?php Template::load('public/alerts'); ?>
 						<?php if ($results): ?>

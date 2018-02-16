@@ -92,10 +92,6 @@
 											</div>
 
 									</td>
-									<td>
-										
-									</td>
-
 								</tr>
 
 								<tr>
@@ -104,18 +100,22 @@
 										<span class="help-block">
 											<i class="fa fa-info-circle"></i> 
 											Unlinking a survey means that the results will only be shown in random order, without session codes and dates and only after a minimum of 10 results are in. This is meant as a way to anonymise personally identifiable data and separate it from the survey data that you will analyze.
-											<strong>If you set this to 1, you won't be able to set it back to 0.</strong>
+											<strong class="text-red">You can't change this settings once you select this option.</strong>
 										</span>
-										<span class="col-md-4 nlp" style="padding-left: 0px;">
-											<input type="number" class="form-control" name="unlinked" value="<?= h($study->settings['unlinked']) ?>" min="0" max="1" size="20" />
-										</span>
+										<div class="checkbox">
+											<label> <input type="checkbox" name="unlinked" value="1" <?php if ($study->settings['unlinked']) echo 'checked="checked"'; ?>> <strong>Unlink Survey</strong> </label>
+										</div>
 									</td>
 									<td>
-										<label>Google Sheet</label>
+										<label>Disable Results Display</label>
 										<span class="help-block">
-											<i class="fa fa-info-circle"></i> This ID links to a Google Spreadsheet. You can use one to make it easier to work on spreadsheets collaboratively.
+											<i class="fa fa-info-circle"></i> Selecting this option will disable displaying the data of this survey in formr. However the data will still be available for use.
+											<strong class="text-red">You can't change this settings once you select this option.</strong>
 										</span>
-										<input type="text" class="form-control" name="google_file_id" value="<?= h($study->settings['google_file_id']) ?>" />
+										<div class="checkbox">
+											<label> <input type="checkbox" name="hide_results" value="1" <?php if ($study->settings['hide_results']) echo 'checked="checked"'; ?>> <strong>Disable</strong> </label>
+										</div>
+										<input type="hidden" class="form-control" name="google_file_id" value="<?= h($study->settings['google_file_id']) ?>" />
 									</td>
 								</tr>
 								<tr><td colspan="2"><h4>Survey access window</h4></td></tr>

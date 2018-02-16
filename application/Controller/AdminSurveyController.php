@@ -17,8 +17,9 @@ class AdminSurveyController extends AdminController {
 			return $this->$privateAction();
 		}
 
-		if (!empty($_POST)) {
-			$this->study->changeSettings($_POST);
+		if ($this->request->isHTTPPostRequest()) {
+			$request = new Request($_POST);
+			$this->study->changeSettings($request->getParams());
 			redirect_to(admin_study_url($this->study->name));
 		}
 
@@ -198,6 +199,10 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function showItemdisplayAction() {
+		if ($this->study->settings['hide_results']) {
+			return $this->hideResults();
+		}
+
 		// paginate based on number of items on this sheet so that each
 		// run session will have all items for each pagination
 		$items = $this->study->getItems('id'); $ids = array();
@@ -241,6 +246,10 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function showResultsAction() {
+		if ($this->study->settings['hide_results']) {
+			return $this->hideResults();
+		}
+
 		$count = $this->study->getResultCount();
 		$totalCount = $count['real_users'] + $count['testers'];
 		$limit = $this->request->int('per_page', 100);
@@ -270,6 +279,15 @@ class AdminSurveyController extends AdminController {
 			'pagination' => $pagination,
 			'study_name' => $this->study->name,
 			'session' => $this->request->str('session'),
+		));
+	}
+
+	private function hideResults() {
+		$this->renderView('survey/show_results', array(
+			'resultCount' => $this->study->getResultCount(),
+			'results' =>  array(),
+			'pagination' => new Pagination(1),
+			'study_name' => $this->study->name,
 		));
 	}
 

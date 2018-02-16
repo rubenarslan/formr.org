@@ -141,6 +141,7 @@ class Survey extends RunUnit {
 			$this->settings['unlinked'] = array_val($vars, 'unlinked');
 			$this->settings['expire_invitation_after'] = (int) array_val($vars, 'expire_invitation_after');
 			$this->settings['expire_invitation_grace'] = (int) array_val($vars, 'expire_invitation_grace');
+			$this->settings['hide_results'] = (int) array_val($vars, 'hide_results');
 
 			$this->valid = true;
 		endif;
@@ -1099,42 +1100,38 @@ class Survey extends RunUnit {
 		        $value = (int) $value;
 		    }
 		});
-		if (isset($key_value_pairs['maximum_number_displayed'])
-				AND $key_value_pairs['maximum_number_displayed'] > 3000 || $key_value_pairs['maximum_number_displayed'] < 0
-		) {
+		if (isset($key_value_pairs['maximum_number_displayed']) && $key_value_pairs['maximum_number_displayed'] > 3000 || $key_value_pairs['maximum_number_displayed'] < 0) {
 			alert("Maximum number displayed has to be between 1 and 3000", 'alert-warning');
 			$errors = true;
 		}
 
-		if (isset($key_value_pairs['displayed_percentage_maximum'])
-				AND $key_value_pairs['displayed_percentage_maximum'] > 100 || $key_value_pairs['displayed_percentage_maximum'] < 1
-		) {
+		if (isset($key_value_pairs['displayed_percentage_maximum']) && $key_value_pairs['displayed_percentage_maximum'] > 100 || $key_value_pairs['displayed_percentage_maximum'] < 1) {
 			alert("Percentage maximum has to be between 1 and 100.", 'alert-warning');
 			$errors = true;
 		}
 
-		if (isset($key_value_pairs['add_percentage_points'])
-				AND $key_value_pairs['add_percentage_points'] > 100 || $key_value_pairs['add_percentage_points'] < 0
-		) {
+		if (isset($key_value_pairs['add_percentage_points']) && $key_value_pairs['add_percentage_points'] > 100 || $key_value_pairs['add_percentage_points'] < 0) {
 			alert("Percentage points added has to be between 0 and 100.", 'alert-warning');
 			$errors = true;
 		}
 
 		$key_value_pairs['enable_instant_validation'] = (int)(isset($key_value_pairs['enable_instant_validation']) && $key_value_pairs['enable_instant_validation'] == 1);
+		$key_value_pairs['hide_results'] = (int)(isset($key_value_pairs['hide_results']) && $key_value_pairs['hide_results'] === 1);
+		$key_value_pairs['unlinked'] = (int)(isset($key_value_pairs['unlinked']) && $key_value_pairs['unlinked'] === 1);
 
-		if (isset($key_value_pairs['unlinked'])) {
-			if(! ($key_value_pairs['unlinked'] === 0 || $key_value_pairs['unlinked'] === 1)) {
-				alert("Unlinked has to be set to either 0 (off) or 1 (on).", 'alert-warning');
-				$errors = true;
-			} else if( $key_value_pairs['unlinked'] < $this->settings['unlinked']) {
-				alert("Once a survey has been unlinked, it cannot be relinked.", 'alert-warning');
-				$errors = true;
-			}
+		// user can't revert unlinking
+		if($key_value_pairs['unlinked'] < $this->settings['unlinked']) {
+			alert("Once a survey has been unlinked, it cannot be relinked.", 'alert-warning');
+			$errors = true;
 		}
 
-		if (isset($key_value_pairs['expire_after'])
-				AND $key_value_pairs['expire_after'] > 3153600
-		) {
+		// user can't revert preventing results display
+		if($key_value_pairs['hide_results'] < $this->settings['hide_results']) {
+			alert("Once results display is disabled, it cannot be re-enabled", 'alert-warning');
+			$errors = true;
+		}
+
+		if (isset($key_value_pairs['expire_after']) && $key_value_pairs['expire_after'] > 3153600) {
 			alert("Survey expiry time (in minutes) has to be below 3153600.", 'alert-warning');
 			$errors = true;
 		}
@@ -1148,9 +1145,7 @@ class Survey extends RunUnit {
 			return false;
 		}
 
-		$this->dbh->update('survey_studies', $key_value_pairs, array(
-			'id' => $this->id,
-		));
+		$this->dbh->update('survey_studies', $key_value_pairs, array('id' => $this->id));
 
 		alert('Survey settings updated', 'alert-success', true);
 	}
