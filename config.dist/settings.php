@@ -168,4 +168,7 @@ $settings['use_xsendfile'] = false;
 
 // Use sub domains for studies
 $settings['use_study_subdomains'] = false;
+
+// Reserved run names which users are not allowed to use
+$settings['reserved_run_names'] = array('api', 'test', 'delegate');
 		

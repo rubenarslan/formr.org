@@ -68,47 +68,51 @@ class Run {
 
 	const TEST_RUN = 'formr-test-run';
 
-	public function __construct($fdb, $name, $options = null) {
+	public function __construct($fdb, $name) {
 		$this->dbh = $fdb;
 
-		if ($name == self::TEST_RUN):
+		if ($name == self::TEST_RUN) {
 			$this->name = $name;
 			$this->valid = true;
 			$this->user_id = -1;
 			$this->id = -1;
 			return true;
-		endif;
+		}
 
-		if ($name !== null OR ($name = $this->create($options))):
+		if ($name !== null) {
 			$this->name = $name;
-			$columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design";
-			$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
+			$this->load();
+		}
+	}
 
-			if ($vars):
-				$this->id = $vars['id'];
-				$this->user_id = (int) $vars['user_id'];
-				$this->api_secret_hash = $vars['api_secret_hash'];
-				$this->created = (int)$vars['created'];
-				$this->modified = (int)$vars['modified'];
-				$this->public = (int)$vars['public'];
-				$this->cron_active = (int)$vars['cron_active'];
-				$this->cron_fork = (int)$vars['cron_fork'];
-				$this->locked = (int)$vars['locked'];
-				$this->header_image_path = $vars['header_image_path'];
-				$this->title = $vars['title'];
-				$this->description = $vars['description'];
-				$this->description_parsed = $vars['description_parsed'];
-				$this->footer_text = $vars['footer_text'];
-				$this->footer_text_parsed = $vars['footer_text_parsed'];
-				$this->public_blurb = $vars['public_blurb'];
-				$this->public_blurb_parsed = $vars['public_blurb_parsed'];
-				$this->custom_css_path = $vars['custom_css_path'];
-				$this->custom_js_path = $vars['custom_js_path'];
-				$this->osf_project_id = $vars['osf_project_id'];
-				$this->use_material_design = (bool)$vars['use_material_design'];
-				$this->valid = true;
-			endif;
-		endif;
+	protected function load() {
+		$columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design";
+		$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
+
+		if ($vars) {
+			$this->id = $vars['id'];
+			$this->user_id = (int) $vars['user_id'];
+			$this->api_secret_hash = $vars['api_secret_hash'];
+			$this->created = (int)$vars['created'];
+			$this->modified = (int)$vars['modified'];
+			$this->public = (int)$vars['public'];
+			$this->cron_active = (int)$vars['cron_active'];
+			$this->cron_fork = (int)$vars['cron_fork'];
+			$this->locked = (int)$vars['locked'];
+			$this->header_image_path = $vars['header_image_path'];
+			$this->title = $vars['title'];
+			$this->description = $vars['description'];
+			$this->description_parsed = $vars['description_parsed'];
+			$this->footer_text = $vars['footer_text'];
+			$this->footer_text_parsed = $vars['footer_text_parsed'];
+			$this->public_blurb = $vars['public_blurb'];
+			$this->public_blurb_parsed = $vars['public_blurb_parsed'];
+			$this->custom_css_path = $vars['custom_css_path'];
+			$this->custom_js_path = $vars['custom_js_path'];
+			$this->osf_project_id = $vars['osf_project_id'];
+			$this->use_material_design = (bool)$vars['use_material_design'];
+			$this->valid = true;
+		}
 	}
 
 	public function getCronDues() {
@@ -139,17 +143,6 @@ class Run {
 
 	public function rename($new_name) {
 		$name = trim($new_name);
-		if ($name == ""):
-			$this->errors[] = _("You have to specify a run name.");
-			return false;
-		elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/", $name)):
-			$this->errors[] = _("The run's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
-			return false;
-		elseif ($this->existsByName($name)):
-			$this->errors[] = __("The run's name '%s' is already taken.", h($name));
-			return false;
-		endif;
-
 		$this->dbh->update('survey_runs', array('name' => $name), array('id' => $this->id));
 		return true;
 	}
@@ -182,16 +175,6 @@ class Run {
 
 	public function create($options) {
 		$name = trim($options['run_name']);
-		if ($name == ""):
-			$this->errors[] = _("You have to specify a run name.");
-			return false;
-		elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/", $name)):
-			$this->errors[] = _("The run's name has to be between 3 and 20 characters and can't start with a number or contain anything other a-Z_0-9.");
-			return false;
-		elseif ($this->existsByName($name) OR $name == self::TEST_RUN OR Router::isWebRootDir($name)):
-			$this->errors[] = __("The run's name '%s' is already taken.", h($name));
-			return false;
-		endif;
 
 		// create run db entry
 		$new_secret = crypto_token(66);
@@ -209,6 +192,8 @@ class Run {
 			'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
 		));
 		$this->id = $this->dbh->pdo()->lastInsertId();
+		$this->name = $name;
+		$this->load();
 
 		// create default run service message
 		$factory = new RunUnitFactory();
@@ -279,8 +264,8 @@ class Run {
 		return empty($this->errors);
 	}
 
-	protected function existsByName($name) {
-		return $this->dbh->entry_exists('survey_runs', array('name' => $name));
+	public static function nameExists($name) {
+		return DB::getInstance()->entry_exists('survey_runs', array('name' => $name));
 	}
 
 	public function reorder($positions) {

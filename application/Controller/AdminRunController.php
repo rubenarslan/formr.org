@@ -39,20 +39,27 @@ class AdminRunController extends AdminController {
 	}
 
 	public function addRunAction() {
-		if (!empty($_POST)) {
+		if ($this->request->isHTTPPostRequest()) {
 			$run_name = $this->request->str('run_name');
-			if ($run_name AND ! preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/", $run_name)) {
-				alert('<strong>Error:</strong> The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore (at least 2 characters, at most 255). It needs to start with a letter.', 'alert-danger');
-				redirect_to("admin/run/");
+			if (!$run_name) {
+				$error = 'You have to specify a run name';
+			} elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/", $run_name)) {
+				$error = 'The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore (at least 2 characters, at most 255). It needs to start with a letter.';
+			} elseif ($run_name == Run::TEST_RUN || Router::isWebRootDir($run_name) || in_array($run_name, Config::get('reserved_run_names', array())) || Run::nameExists($run_name)) {
+				$error = __('The run name "%s" is already taken. Please choose another name', $run_name);
 			} else {
-				$run = new Run($this->fdb, null, array('run_name' => $run_name, 'user_id' => $this->user->id));
+				$run = new Run($this->fdb, null);
+				$run->create(array('run_name' => $run_name, 'user_id' => $this->user->id));
 				if ($run->valid) {
-					alert('<strong>Success.</strong> Run "' . $run->name . '" was created.', 'alert-success');
-					redirect_to("admin/run/{$run->name}");
+					alert("<strong>Success.</strong> Run '{$run->name}' was created.", 'alert-success');
+					redirect_to(admin_run_url($run->name));
 				} else {
-					alert('<strong>Sorry.</strong> ' . implode($run->errors), 'alert-danger');
-					redirect_to("admin/run/");
+					$error = 'An error creating your run please try again';
 				}
+			}
+
+			if (!empty($error)) {
+				alert("<strong>Error:</strong> {$error}", 'alert-danger');
 			}
 		}
 
@@ -306,16 +313,27 @@ class AdminRunController extends AdminController {
 	private function renameRunAction() {
 		$run = $this->run;
 		if($this->request->isHTTPPostRequest()) {
-			$newName = $this->request->getParam('new_name');
-			if($newName) {
-				if($run->rename($newName)) {
-					alert('<strong>Success.</strong> The run was renamed to "'.$_POST['new_name'] . '"','alert-success');
-					redirect_to(admin_run_url($newName));
+			$run_name = $this->request->str('new_name');
+			if (!$run_name) {
+				$error = 'You have to specify a new run name';
+			} elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/", $run_name)) {
+				$error = 'The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore (at least 2 characters, at most 255). It needs to start with a letter.';
+			} elseif ($run_name == Run::TEST_RUN || Router::isWebRootDir($run_name) || in_array($run_name, Config::get('reserved_run_names', array())) || Run::nameExists($run_name)) {
+				$error = __('The run name "%s" is already taken. Please choose another name', $run_name);
+			} else {
+				if ($run->rename($run_name)) {
+					alert("<strong>Success.</strong> Run was renamed to '{$run->name}'.", 'alert-success');
+					redirect_to(admin_run_url($run_name));
 				} else {
-					alert('<strong>Sorry, run could not be renamed.</strong> '.implode($run->errors),'alert-danger');
+					$error = 'An error renaming your run please try again';
 				}
 			}
+
+			if (!empty($error)) {
+				alert("<strong>Error:</strong> {$error}", 'alert-danger');
+			}
 		}
+
 		$this->renderView('run/rename_run');
 	}
 
