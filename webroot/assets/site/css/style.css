@@ -1506,11 +1506,13 @@ input:-webkit-autofill:focus {
 	margin-top: 20px;
 	margin-bottom: 20px;
 }
-.run-container .form-group .control-label, .run-container .form-group label {
+.run-container .form-group .control-label,
+.run-container .form-group label {
 	font-weight: normal;
 	font-size: inherit;
 	line-height: inherit;
 	padding-top: 0px !important;
+	margin-top: 0px;
 	color: #000;
 }
 .run-container .progress-container {

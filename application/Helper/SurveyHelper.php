@@ -3,6 +3,11 @@
 /**
  * Helper class to handle custom survey execution
  *
+ * @TODO what should happen if max items displayed is exceeded.
+ * A user selecting using this paging option should not even need that setting.
+ * 
+ * @TODO update displaycount?
+ *
  */
 class SurveyHelper {
 
@@ -36,13 +41,9 @@ class SurveyHelper {
 	protected $errors = array();
 	protected $message = null;
 
-	/**
-	 * Items to be rendered on current Page
-	 * @var Item[]
-	 */
-	protected $pageItems = array();
-
 	protected $maxPage = null;
+
+	protected $postedValues = array();
 
 	const FMR_PAGE_ELEMENT = 'fmr_unit_page_element';
 
@@ -107,20 +108,20 @@ class SurveyHelper {
 		$currPage = $this->request->getParam(self::FMR_PAGE_ELEMENT);
 
 		$pageItems = $this->getPageItems($currPage, false);
-		$posted = $this->request->getParams();
+		$this->postedValues = $this->request->getParams();
 
 		// Mock submit other items that are suppose to be on this page because user is leaving the page anyway and hidden items must have been skipped for this session
 		foreach ($pageItems as $name => $item) {
-			if (isset($posted[$name]) && $item->requiresUserInput()) {
+			if (isset($this->postedValues[$name])) {
 				continue;
 			}
 			$item->skip_validation = true;
 			//$item->value_validated = null;
-			$posted[$name] = $item;
+			$this->postedValues[$name] = $item;
 		}
 
-		unset($posted['fmr_unit_page_element']);
-		$save = $this->survey->post($posted);
+		unset($this->postedValues['fmr_unit_page_element']);
+		$save = $this->survey->post($this->postedValues);
 		if ($save) {
 			$currPage++;
 			$this->redirectToPage($currPage);
@@ -155,15 +156,17 @@ class SurveyHelper {
 		// We initialise item factory with no choice list because we don't know which choices will be used yet.
 		// This assumes choices are not required for show-ifs and dynamic values (hope so)
 		$itemFactory = new ItemFactory(array());
+		/* @var $pageItems Item[] */
 		$pageItems = array();
 
 		while ($item = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			/* @var $oItem Item */
 			$oItem = $itemFactory->make($item);
 			$oItem->hidden = null;
+			$pItem = array_val($this->postedValues, $oItem->name, $oItem->value_validated);
+			$oItem->value_validated = $pItem instanceof Item ? $pItem->value_validated : $pItem;
 			$pageItems[$oItem->name] = $oItem;
 
-			// @TODO what should happen if max items displayed is exceeded
 			if ($oItem->type === 'submit') {
 				break;
 			}
@@ -172,11 +175,7 @@ class SurveyHelper {
 		// add a submit button if none exists
 		$lastItem = end($pageItems);
 		if ($lastItem && $lastItem->type !== 'submit') {
-			$opts = array(
-				'label_parsed' => 'Continue  <i class="fa fa-arrow-circle-right pull-left"></i>',
-				'class_input' => 'btn-info default_formr_button',
-			);
-			$pageItems[] = new Submit_Item($opts);
+			$pageItems[] = $this->getSubmitButton();
 		}
 
 		if (!$pageItems) {
@@ -190,10 +189,14 @@ class SurveyHelper {
 
 		$pageItems = $this->processAutomaticItems($pageItems);
 		$pageItems = $this->processDynamicValuesAndShowIfs($pageItems);
-		// @todo check if items are left before processing render
-		// If no items are left, then update page number;
 		$pageItems = $this->processDynamicLabelsAndChoices($pageItems);
 
+		//Check if there is any rendered item and if not, dummy post these and move to next page
+		if (!$this->displayedItemExists($pageItems)) {
+			$this->survey->post($pageItems, false);
+			$pageNo++;
+			$this->redirectToPage($pageNo);
+		}
 		return $pageItems;
 	}
 
@@ -263,6 +266,20 @@ class SurveyHelper {
 		return $this->unitSession;
 	}
 
+	/**
+	 * 
+	 * @return Submit_Item
+	 */
+	protected function getSubmitButton () {
+		$opts = array(
+			'label_parsed' => 'Continue  <i class="fa fa-arrow-circle-right pull-left"></i>',
+			'class_input' => 'btn-info default_formr_button',
+		);
+		$submitButton = new Submit_Item($opts);
+		$submitButton->input_attributes['value'] = 1;
+		return $submitButton;
+	}
+
 	protected function getPageElement($pageNo) {
 		$tpl = '<div class="col-md-12 text-right" class="fmr-survey-page-count">
 					<strong>Page %{page}/%{max_page}</strong>
@@ -299,6 +316,32 @@ class SurveyHelper {
 			return $row['page'];
 		}
 		return false;
+	}
+
+	/**
+	 * All items that don't require connecting to openCPU and don't require user input are posted immediately.
+	 * Examples: get parameters, browser, ip.
+	 *
+	 * @param Item[] $items
+	 * @return array Returns items that may have to be sent to openCPU or be rendered for user input
+	 */
+	protected function processAutomaticItems($items) {
+		$hiddenItems = array();
+		foreach ($items as $name => $item) {
+			if (!$item->requiresUserInput() && !$item->needsDynamicValue()) {
+				$hiddenItems[$name] = $item->getComputedValue();
+				//unset($items[$name]);
+				continue;
+			}
+		}
+
+		// save these values
+		if ($hiddenItems) {
+			$this->survey->post($hiddenItems, false);
+		}
+
+		// return possibly shortened item array
+		return $items;
 	}
 
 	/**
@@ -445,30 +488,21 @@ class SurveyHelper {
 	}
 
 	/**
-	 * All items that don't require connecting to openCPU and don't require user input are posted immediately.
-	 * Examples: get parameters, browser, ip.
+	 * Checks if a displayed (rendered and visible) item exists in an array of items
 	 *
 	 * @param Item[] $items
-	 * @return array Returns items that may have to be sent to openCPU or be rendered for user input
+	 * @return boolean
 	 */
-	protected function processAutomaticItems($items) {
-		$hiddenItems = array();
-		foreach ($items as $name => $item) {
-			if (!$item->requiresUserInput() && !$item->needsDynamicValue()) {
-				$hiddenItems[$name] = $item->getComputedValue();
-				//unset($items[$name]);
-				continue;
+	protected function displayedItemExists(&$items) {
+		foreach ($items as $item) {
+			if ($item->isRendered() && !$item->hidden && $item->type !== 'submit') {
+				return true;
 			}
 		}
-
-		// save these values
-		if ($hiddenItems) {
-			$this->survey->post($hiddenItems, false);
-		}
-
-		// return possibly shortened item array
-		return $items;
+		return false;
 	}
+
+
 
 	private function redirectToPage($page) {
 		if ($page < 0) {
