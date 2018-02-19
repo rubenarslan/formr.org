@@ -125,7 +125,7 @@
 										<span class="help-block">
 											<i class="fa fa-info-circle"></i>
 											How big should the access window be for your survey? Here, you define the time a user can start the survey (usually after receiving an email invitation). By setting the second value to a value other than zero, you are saying that the user has to finish with the survey x minutes after the access window closed.<br>
-											The sum of these values is the maximum time someone can spend on this unit, giving you more predictability than the snooze button above. To allow a user to keep editing indefinitely, set the finishing time and inactivity expiration to 0. If inactivity expiration is also set, a survey can expire before the end of the finish time.
+											The sum of these values is the maximum time someone can spend on this unit, giving you more predictability than the snooze button (see below). To allow a user to keep editing indefinitely, set the finishing time and inactivity expiration to 0. If inactivity expiration is also set, a survey can expire before the end of the finish time.
 											<a href="https://github.com/rubenarslan/formr.org/wiki/Expiry">More information</a>.
 										</span>
 										<div class="form-group " style="padding-left: 0px;">
@@ -148,7 +148,7 @@
 									<td colspan="2">
 										<label>Inactivity Expiration (snooze)</label>
 										<span class="help-block">
-											<i class="fa fa-info-circle"></i> If a user is inactive in the survey for x minutes, should the survey expire? Specify <b>0 </b>if not. If a user inactive for x minutes, the run will automatically move on. If the invitation is still valid (see below), this value doesn't count. Beware: much like with the snooze button on your alarm clock, a user can theoretically snooze indefinitely.
+											<i class="fa fa-info-circle"></i> If a user is inactive in the survey for x minutes, should the survey expire? Specify <b>0 </b>if not. If a user inactive for x minutes, the run will automatically move on. If the invitation is still valid (see above), this value doesn't count. Beware: much like with the snooze button on your alarm clock, a user can theoretically snooze indefinitely.
 										</span>
 										<div class="form-group col-md-2 nlp" style="padding-left: 0px;">
 											<div class="input-group">
