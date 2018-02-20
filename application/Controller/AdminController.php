@@ -115,8 +115,7 @@ class AdminController extends Controller {
 		}
 
 		if ($this->site->inSuperAdminArea() && !$this->user->isSuperAdmin()) {
-			alert("<strong>Sorry:</strong> Only superadmins have access.", 'alert-info');
-			access_denied();
+			formr_error(403, 'Access Denied', 'Sorry! Only super admins have access to this section.');
 		}
 	}
 

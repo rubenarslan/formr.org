@@ -19,7 +19,7 @@ try {
 	$fdb = DB::getInstance();
 } catch(Exception $e) {
 	formr_log($e->getMessage(), 'Database Connection Error');
-	_die('no data store found');
+	formr_error(503, 'Service Unavailable', 'Data store unavailable');
 }
 
 // Set site's session user or create one if not available

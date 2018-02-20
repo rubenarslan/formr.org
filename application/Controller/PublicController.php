@@ -191,7 +191,7 @@ class PublicController extends Controller {
 		if ($path) {
 			return redirect_to(asset_url($path));
 		}
-		bad_request();
+		formr_error(404, 'Not Found', 'The requested file does not exist');
 	}
 
 	public function osfApiAction($do = '') {
@@ -263,17 +263,7 @@ class PublicController extends Controller {
 	}
 
 	public function errorAction($code = null) {
-		if ($code == 200) {
-			// do nothing
-		} elseif ($code == 400) {
-			header('HTTP/1.0 404 Not Found');
-		} elseif ($code == 403) {
-			header('HTTP/1.0 403 Forbidden');
-		} else {
-			header('HTTP/1.0 500 Bad Request');
-		}
-		$this->renderView('public/error');
-		exit;
+		formr_error($code);
 	}
 
 }

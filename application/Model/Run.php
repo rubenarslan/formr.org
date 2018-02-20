@@ -86,6 +86,10 @@ class Run {
 	}
 
 	protected function load() {
+		if (in_array($this->name, Config::get('reserved_run_names', array()))) {
+			return;
+		}
+
 		$columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design";
 		$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
 
@@ -737,8 +741,7 @@ class Run {
 
 	public function exec($user) {
 		if (!$this->valid) {
-			alert(__("<strong>Error:</strong> Run '%s' is broken or does not exist.", $this->name), 'alert-danger');
-			redirect_to('error/404');
+			formr_error(404, 'Study Not Found', __("Run '%s' is broken or does not exist.", $this->name));
 			return false;
 		} elseif ($this->name == self::TEST_RUN) {
 			$test = $this->fakeTestRun();
@@ -779,11 +782,9 @@ class Run {
 		}
 
 		if ($this->custom_css_path) {
-			//$css = '<link rel="stylesheet" href="' . asset_url($this->custom_css_path) . '" type="text/css" media="screen">';
 			$css[] = asset_url($this->custom_css_path);
 		}
 		if ($this->custom_js_path) {
-			//$js .= '<script src="' . asset_url($this->custom_js_path) . '"></script>';
 			$js[] = asset_url($this->custom_js_path);
 		}
 

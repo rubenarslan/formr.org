@@ -132,7 +132,25 @@ function bad_request() {
 }
 
 function bad_request_header() {
-	header('HTTP/1.0 400 Bad Request');
+	header('HTTP/1.0 500 Bad Request');
+}
+
+function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed') {
+	$code = $code ? $code : 500;
+	if ($code == 400) {
+		header('HTTP/1.0 404 Not Found');
+	} elseif ($code == 403) {
+		header('HTTP/1.0 403 Forbidden');
+	} else {
+		header('HTTP/1.0 500 Bad Request');
+	}
+
+	Template::load('public/error', array(
+		'code' => $code,
+		'title' => $title,
+		'text' => $text,
+	));
+	exit;
 }
 
 function json_header() {
@@ -542,10 +560,9 @@ function echo_time_points($points) {
 function crypto_token($length, $url = true) {
 	$bytes = openssl_random_pseudo_bytes($length, $crypto_strong);
 	$base64 = base64_url_encode($bytes);
-	if (!$crypto_strong):
-		alert("Generated cryptographic tokens are not strong.", 'alert-error');
-		bad_request();
-	endif;
+	if (!$crypto_strong) {
+		formr_error(500, 'Cryptographic Error', 'Generated cryptographic tokens are not strong.');
+	}
 	return $base64;
 }
 
@@ -1395,9 +1412,9 @@ function shutdown_formr_org() {
 
 		$msg = "A fatal error occured and your request could not be completed. Contact site admins with these details \n";
 		$msg .= "Error [$errno] in $errfile line $errline \n $errstr";
-		alert($msg, 'alert-danger');
+		//alert($msg, 'alert-danger');
 
-		redirect_to('error/500');
+		formr_error(500, 'Fatal Error', nl2br($msg));
 	}
 }
 
@@ -1581,18 +1598,6 @@ function print_scripts($files, $id = null) {
 		$id = 'js-' . $i . $id;
 		echo '<script src="' . asset_url($file) . '" id="'. $id .'"></script>' . "\n";
 	}
-}
-
-function _die($msg) {
-	header('HTTP/1.1 503 Service Unavailable.', TRUE, 503);
-	$style = array(
-		'width: 500px', 'max-width: 100%', 'text-align: center', 'line-height: 50px', 'margin: 10% auto',
-		'color: #a94442', 'background-color: #f2dede', 'border: 1px solid #ebccd1', 'font-size: 20px'
-	);
-	echo '<div style="'.implode(';', $style).'">';
-	echo $msg;
-	echo '<div>';
-	exit;
 }
 
 function fwrite_json($handle, $data) {
