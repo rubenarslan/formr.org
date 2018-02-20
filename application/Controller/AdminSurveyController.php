@@ -378,6 +378,10 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function exportItemdisplayAction() {
+		if ($this->study->settings['hide_results']) {
+			return $this->hideResults();
+		}
+
 		$study = $this->study;
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
@@ -422,6 +426,10 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function exportResultsAction() {
+		if ($this->study->settings['hide_results']) {
+			return $this->hideResults();
+		}
+
 		$study = $this->study;
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();

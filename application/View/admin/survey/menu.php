@@ -12,6 +12,7 @@
 			<li><a href="<?= admin_study_url($study->name) ?>"><i class="fa fa-cogs"></i> Settings</a></li>
 			<li><a href="<?= admin_study_url($study->name, 'show_item_table') ?>"><i class="fa fa-th"></i> Items Table</a></li>
 			<li><a href="<?= admin_study_url($study->name, 'upload_items') ?>"><i class="fa fa-upload"></i> Import Items</a></li>
+			<?php if (!$study->settings['hide_results']): ?>
 			<li><a href="<?= admin_study_url($study->name, 'show_results') ?>"><i class="fa fa-file-text-o"></i> Show Results</a></li>
 			<li class="dropdown"><a  href="#" data-toggle="dropdown" aria-expanded="false" class="dropdown-toggle"><i class="fa fa-save"></i> Export Results</a>
 				<ul class="dropdown-menu">
@@ -23,6 +24,7 @@
 					<li><a href="<?= admin_study_url($study->name, 'export_results?format=json'); ?>"><i class="fa fa-floppy-o"></i> Download JSON</a></li>
 				</ul>
 			</li>
+			<?php endif; ?>
 		</ul>
 	</div>
 	<!-- /.box-body -->

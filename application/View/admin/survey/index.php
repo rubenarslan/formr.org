@@ -150,7 +150,7 @@
 										<span class="help-block">
 											<i class="fa fa-info-circle"></i> If a user is inactive in the survey for x minutes, should the survey expire? Specify <b>0 </b>if not. If a user inactive for x minutes, the run will automatically move on. If the invitation is still valid (see above), this value doesn't count. Beware: much like with the snooze button on your alarm clock, a user can theoretically snooze indefinitely.
 										</span>
-										<div class="form-group col-md-2 nlp" style="padding-left: 0px;">
+										<div class="form-group col-md-3 nlp" style="padding-left: 0px;">
 											<div class="input-group">
 												<input type="number" class="form-control" name="expire_after" value="<?= h($study->settings['expire_after']) ?>" min="0" max="3153600" size="20" />
 												<div class="input-group-addon"> Minutes</div>
