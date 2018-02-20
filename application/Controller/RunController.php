@@ -22,6 +22,8 @@ class RunController extends Controller {
 		} elseif (is_numeric($privateAction)) {
 			$pageNo = (int) $privateAction;
 			Request::setGlobals('pageNo', $pageNo);
+		} elseif ($privateAction !== null) {
+			formr_error(404, 'Not Found', 'The request URL was not found');
 		}
 
 		$this->user = $this->site->loginUser($this->user);
@@ -39,8 +41,7 @@ class RunController extends Controller {
 		$run_name = $this->site->request->run_name;
 
 		if (!$run->valid) {
-			alert(' Invalid Run settings', 'alert-danger');
-			not_found();
+			formr_error(404, 'Run Not Found', 'Requested Run does not exist or has been moved');
 		}
 
 		// Login if user entered with code and redirect without login code
@@ -56,8 +57,7 @@ class RunController extends Controller {
 		// People who have no session in the run need not set anything
 		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code);
 		if (!$session->id) {
-			alert('You cannot create settings in a study you have not participated in.', 'alert-danger');
-			redirect_to('error/403');
+			formr_error(403, 'Unauthorized Access', 'You cannot create settings in a study you have not participated in.');
 		}
 
 		$settings = array('no_email' => 1);
@@ -134,6 +134,7 @@ class RunController extends Controller {
 
 	private function getRun() {
 		$name = $this->request->str('run_name');
+		$run = new Run($this->fdb, $name);
 		if ($name !== Run::TEST_RUN && Config::get('use_study_subdomains') && !FMRSD_CONTEXT) {
 			//throw new Exception('Invalid Study Context');
 			// Redirect existing users to run's sub-domain URL and QSA
@@ -141,9 +142,12 @@ class RunController extends Controller {
 			unset($params['route'], $params['run_name']);
 			$url = run_url($name, null, $params);
 			redirect_to($url);
+		} elseif (!$run->valid) {
+			$msg = __('If you\'re trying to create an online,  <a href="%s">read the full documentation</a> to learn how to set one up.', site_url('documentation'));
+			formr_error(500, 'There isn\'t an online study here.', $msg);
 		}
 
-		return new Run($this->fdb, $name);
+		return $run;
 	}
 
 	private function getPrivateActionMethod($action) {

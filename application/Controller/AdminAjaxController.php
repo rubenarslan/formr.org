@@ -256,7 +256,7 @@ class AdminAjaxController {
 				/* @var $unit RunUnit */
 				$unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
 				if (!$unit) {
-					not_found();
+					formr_error(404, 'Not Found', 'Requested Run Unit was not found');
 				}
 				$sess_key = __METHOD__ . $unit->id;
 				$results = $unit->howManyReachedItNumbers();
@@ -278,7 +278,7 @@ class AdminAjaxController {
 				}
 			}
 		} else {
-			not_found();
+			formr_error(500);
 		}
 
 		Session::delete($sess_key);
@@ -320,8 +320,7 @@ class AdminAjaxController {
 		$site = $this->site;
 
 		if (!is_ajax_request()) {
-			bad_request_header();
-			exit;
+			formr_error(500);
 		}
 		// If only showing dialog then show it and exit
 		$dialog_only = $site->request->bool('dialog');
@@ -442,7 +441,7 @@ class AdminAjaxController {
 		$sessions = $this->request->arr('sessions');
 		$qs = $res = array();
 		if (!$action || !$sessions) {
-			bad_request();
+			formr_error();
 			exit;
 		}
 		foreach ($sessions as $session) {

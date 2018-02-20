@@ -82,7 +82,7 @@ function __formr_setup($settings = array()) {
 		Crypto::setup();
 	} catch (Exception $e) {
 		formr_log_exception($e);
-		_die('Encryption service unavailable');
+		formr_error(503, 'Service Unavailable', 'Encryption service unavailable');
 	}
 
 	// Set default timzone, encoding and shutdown function.
