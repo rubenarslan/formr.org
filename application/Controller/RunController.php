@@ -144,7 +144,7 @@ class RunController extends Controller {
 			redirect_to($url);
 		} elseif (!$run->valid) {
 			$msg = __('If you\'re trying to create an online,  <a href="%s">read the full documentation</a> to learn how to set one up.', site_url('documentation'));
-			formr_error(500, 'There isn\'t an online study here.', $msg);
+			formr_error(400, 'There isn\'t an online study here.', $msg);
 		}
 
 		return $run;

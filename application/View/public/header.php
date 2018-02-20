@@ -1,9 +1,7 @@
 <?php header('Content-type: text/html; charset=utf-8'); ?><!DOCTYPE html>
 <html class="no_js">
     <head>
-		<script>(function (H) {
-                H.className = H.className.replace(/\bno_js\b/, 'js')
-            })(document.documentElement)</script>
+		<script>(function (H) { H.className = H.className.replace(/\bno_js\b/, 'js') })(document.documentElement)</script>
         <title><?php echo $site->makeTitle(); ?></title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
         <meta charset="utf-8">
@@ -36,7 +34,7 @@
 				print_scripts($files, $id);
 			}
 		?>
-
+		<link rel="icon" href="<?php echo site_url('favicon.ico'); ?>">
     </head>
 
 	<body>

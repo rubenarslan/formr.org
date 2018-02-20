@@ -30,7 +30,7 @@
 				print_scripts($files, $id);
 			}
 		?>
-
+		<link rel="icon" href="<?php echo site_url('favicon.ico'); ?>">
     </head>
 
 	<body class="<?php echo isset($bodyClass) ? $bodyClass : ''; ?>">
