@@ -17,11 +17,11 @@
 					<div class="box-header with-border">
 						<h3 class="box-title">Survey Results <small> <?= (int) $resultCount['finished'] ?> complete, <?= (int) $resultCount['begun'] ?> begun, <?= (int) $resultCount['testers'] ?> testers </small></h3>
 						<div class="pull-right">
+							<?php if (!$study->settings['hide_results']): ?>
 							<a href="#" data-toggle="modal" data-target="#download-items" class="btn btn-primary"><i class="fa fa-save"></i> Export</a>
 							<a href="<?php echo admin_study_url($study->name, 'show_itemdisplay'); ?>" class="btn btn-primary"><i class="fa fa-file-text-o"></i> Detailed Results</a>
-
+							<?php endif; ?>
 						</div>
-
 					</div>
 
 					<?php if ($study->settings['hide_results']): ?>
