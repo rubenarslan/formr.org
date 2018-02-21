@@ -10,6 +10,7 @@
 			a:hover { text-decoration: underline; }
 			h1 { width: 800px; position:relative; left: -100px; letter-spacing: -1px; line-height: 60px; font-size: 60px; font-weight: 100; margin: 0px 0 50px 0; text-shadow: 0 1px 0 #fff; }
 			p { color: rgba(0, 0, 0, 0.5); margin: 20px 0; line-height: 1.6; }
+			button {display: none;}
 		</style>
 		<link rel="icon" href="<?php echo site_url('favicon.ico'); ?>">
 	</head>
@@ -19,6 +20,7 @@
 			<p><strong><?php echo $title; ?></strong></p>
 
 			<p><?php echo $text; ?></p>
+			<p class="back"> <a href="<?php echo site_url(); ?>">Go to Site</a> </p>
 		</div>
 		<div>
 			<?php echo $site->renderAlerts(); ?>

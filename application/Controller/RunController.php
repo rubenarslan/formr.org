@@ -23,7 +23,7 @@ class RunController extends Controller {
 			$pageNo = (int) $privateAction;
 			Request::setGlobals('pageNo', $pageNo);
 		} elseif ($privateAction !== null) {
-			formr_error(404, 'Not Found', 'The request URL was not found');
+			formr_error(404, 'Not Found', 'The requested URL was not found');
 		}
 
 		$this->user = $this->site->loginUser($this->user);
@@ -41,7 +41,7 @@ class RunController extends Controller {
 		$run_name = $this->site->request->run_name;
 
 		if (!$run->valid) {
-			formr_error(404, 'Run Not Found', 'Requested Run does not exist or has been moved');
+			formr_error(404, 'Not Found', 'Requested Run does not exist or has been moved');
 		}
 
 		// Login if user entered with code and redirect without login code
@@ -57,7 +57,7 @@ class RunController extends Controller {
 		// People who have no session in the run need not set anything
 		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code);
 		if (!$session->id) {
-			formr_error(403, 'Unauthorized Access', 'You cannot create settings in a study you have not participated in.');
+			formr_error(401, 'Unauthorized', 'You cannot create settings in a study you have not participated in.');
 		}
 
 		$settings = array('no_email' => 1);
@@ -143,8 +143,8 @@ class RunController extends Controller {
 			$url = run_url($name, null, $params);
 			redirect_to($url);
 		} elseif (!$run->valid) {
-			$msg = __('If you\'re trying to create an online,  <a href="%s">read the full documentation</a> to learn how to set one up.', site_url('documentation'));
-			formr_error(400, 'There isn\'t an online study here.', $msg);
+			$msg = __('If you\'re trying to create an online study,  <a href="%s">read the full documentation</a> to learn how to create one.', site_url('documentation'));
+			formr_error(404, 'Not Found', $msg, 'There isn\'t an online study here.');
 		}
 
 		return $run;
