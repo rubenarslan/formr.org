@@ -135,19 +135,13 @@ function bad_request_header() {
 	header('HTTP/1.0 500 Bad Request');
 }
 
-function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed') {
+function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null) {
 	$code = $code ? $code : 500;
-	if ($code == 400) {
-		header('HTTP/1.0 404 Not Found');
-	} elseif ($code == 403) {
-		header('HTTP/1.0 403 Forbidden');
-	} else {
-		header('HTTP/1.0 500 Bad Request');
-	}
+	header("HTTP/1.0 {$code} {$title}");
 
 	Template::load('public/error', array(
 		'code' => $code,
-		'title' => $title,
+		'title' => $hint ? $hint : $title,
 		'text' => $text,
 	));
 	exit;
@@ -561,7 +555,7 @@ function crypto_token($length, $url = true) {
 	$bytes = openssl_random_pseudo_bytes($length, $crypto_strong);
 	$base64 = base64_url_encode($bytes);
 	if (!$crypto_strong) {
-		formr_error(500, 'Cryptographic Error', 'Generated cryptographic tokens are not strong.');
+		formr_error(500, 'Internal Server Error', 'Generated cryptographic tokens are not strong.', 'Cryptographic Error');
 	}
 	return $base64;
 }
@@ -1414,7 +1408,7 @@ function shutdown_formr_org() {
 		$msg .= "Error [$errno] in $errfile line $errline \n $errstr";
 		//alert($msg, 'alert-danger');
 
-		formr_error(500, 'Fatal Error', nl2br($msg));
+		formr_error(500, 'Internal Server Error', nl2br($msg), 'Fatal Error');
 	}
 }
 

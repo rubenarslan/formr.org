@@ -273,15 +273,17 @@ class Run {
 	}
 
 	public function reorder($positions) {
+		$run_unit_id = null;
+		$pos = null;
 		$update = "UPDATE `survey_run_units` SET position = :position WHERE run_id = :run_id AND id = :run_unit_id";
 		$reorder = $this->dbh->prepare($update);
 		$reorder->bindParam(':run_id', $this->id);
+		$reorder->bindParam(':run_unit_id', $run_unit_id);
+		$reorder->bindParam(':position', $pos);
 
-		foreach ($positions AS $run_unit_id => $pos):
-			$reorder->bindParam(':run_unit_id', $run_unit_id);
-			$reorder->bindParam(':position', $pos);
+		foreach ($positions as $run_unit_id => $pos) {	
 			$reorder->execute();
-		endforeach;
+		}
 		return true;
 	}
 
@@ -741,7 +743,7 @@ class Run {
 
 	public function exec($user) {
 		if (!$this->valid) {
-			formr_error(404, 'Study Not Found', __("Run '%s' is broken or does not exist.", $this->name));
+			formr_error(404, 'Not Found', __("Run '%s' is broken or does not exist.", $this->name), 'Study Not Found');
 			return false;
 		} elseif ($this->name == self::TEST_RUN) {
 			$test = $this->fakeTestRun();

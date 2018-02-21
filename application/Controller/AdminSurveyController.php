@@ -346,7 +346,7 @@ class AdminSurveyController extends AdminController {
 
 		$format = $this->request->getParam('format');
 		if (!$format || !in_array($format, array("xlsx", "xls", "json", "original"))) {
-			formr_error(500, 'Invalid Format', 'Invalid format requested');
+			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
 		}
 
 		$SPR = new SpreadsheetReader();
@@ -385,7 +385,7 @@ class AdminSurveyController extends AdminController {
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
 		if (!in_array($format, $SPR->exportFormats)) {
-			formr_error(500, 'Invalid Format', 'Invalid format requested');
+			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
 		}
 
 		/* @var $resultsStmt PDOStatement */
@@ -432,7 +432,7 @@ class AdminSurveyController extends AdminController {
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
 		if (!in_array($format, $SPR->exportFormats)) {
-			formr_error(500, 'Invalid Format', 'Invalid format requested');
+			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
 		}
 
 		/* @var $resultsStmt PDOStatement */
@@ -476,9 +476,9 @@ class AdminSurveyController extends AdminController {
 
 		$study = new Survey($this->fdb, null, array('name' => $name, 'user_id' => $this->user->id), null, null);
 		if (!$study->valid) {
-			formr_error(404, 'Survey Not Found', 'Requested Survey does not exist or has been moved');
+			formr_error(404, 'Not Found', 'Requested Survey does not exist or has been moved');
 		} elseif (!$this->user->created($study)) {
-			formr_error(403, 'Unauthorized Access', 'You do not have access to modify this survey');
+			formr_error(401, 'Unauthorized', 'You do not have access to modify this survey');
 		}
 		$this->study = $study;
 	}

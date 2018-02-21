@@ -342,7 +342,7 @@ class AdminRunController extends AdminController {
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
 		if (!in_array($format, $SPR->exportFormats)) {
-			formr_error(500, 'Invalid Format', 'Invalid format requested');
+			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
 		}
 
 		/* @var $resultsStmt PDOStatement */
@@ -447,7 +447,7 @@ class AdminRunController extends AdminController {
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
 		if (!in_array($format, $SPR->exportFormats)) {
-			formr_error(500, 'Invalid Format', 'Invalid format requested');
+			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
 		}
 
 		/* @var $resultsStmt PDOStatement */
@@ -682,9 +682,9 @@ class AdminRunController extends AdminController {
 
 		$run = new Run($this->fdb, $name);
 		if (!$run->valid) {
-			formr_error(404, 'Run Not Found', 'Requested Run does not exist or has been moved');
+			formr_error(404, 'Not Found', 'Requested Run does not exist or has been moved');
 		} elseif (!$this->user->created($run)) {
-			formr_error(403, 'Unauthorized Access', 'You do not have access to modify this run');
+			formr_error(401, 'Unauthorized', 'You do not have access to modify this run');
 		}
 		$this->run = $run;
 	}
