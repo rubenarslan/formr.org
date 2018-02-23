@@ -262,9 +262,4 @@ class PublicController extends Controller {
 		redirect_to('index');
 	}
 
-	public function errorAction($code = null) {
-		formr_error($code);
-	}
-
 }
-
