@@ -40,12 +40,10 @@ class RatingButton_Item extends McButton_Item {
 			$this->step = $this->upper_limit;
 		}
 
-		if ($this->upper_limit <= $this->lower_limit + $this->step) {
-			$choices = array($this->lower_limit, $this->upper_limit);
-		} else {
-			$choices = range($this->lower_limit, $this->upper_limit, $this->step);
+		$choices = @range($this->lower_limit, $this->upper_limit, $this->step);
+		if ($choices && is_array($choices)) {
+			$this->choices = array_combine($choices, $choices);
 		}
-		$this->choices = array_combine($choices, $choices);
 	}
 
 	public function setChoices($choices) {
