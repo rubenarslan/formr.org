@@ -3,7 +3,7 @@
 <div class="content-wrapper">
 	<!-- Content Header (Page header) -->
 	<section class="content-header">
-		<h1><?php echo $run->name; ?> </h1>
+		<h1><?php echo $run->name; ?> <small><a target="_blank" title="The official link to your run, which you can share with prospective users." href="<?php echo run_url($run->name, null, null) ?>"><?php echo run_url($run->name, null, null) ?></a></small> </h1>
 	</section>
 
 	<!-- Main content -->
@@ -17,7 +17,7 @@
                                 <div class="box-header with-border">
                                     <h3 class="box-title" style="display: block">
                                         Edit Run 
-                                        <a href="javascript:void(0);" class="btn btn-danger btn-panic pull-right" id="btn-panic">I am panicking :(</a>
+                                        <a href="javascript:void(0);" class="btn btn-danger btn-panic pull-right" id="btn-panic" title="Don't panic! Click this button for an explanation.">I am panicking :-(</a>
                                     </h3>
                                 </div>
                                 <div class="box-body">

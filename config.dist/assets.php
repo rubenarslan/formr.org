@@ -1,8 +1,6 @@
 <?php
 /**
  * Define assets to be loaded in dev or production mode
- * @TODO:
- * - Define $settings['default_assets']['prod']
  *
  */
 

@@ -84,7 +84,7 @@ class Site {
 			$class_logo = 'thumbs-up';
 		}
 
-		$msg = nl2br(str_replace(APPLICATION_ROOT, '', $msg));
+		$msg = str_replace(APPLICATION_ROOT, '', $msg);
 		$logo = '<i class="fa fa-' . $class_logo . '"></i> &nbsp;';
 		$this->alerts[] = "<div class='alert $class'>" . $logo . '<button type="button" class="close" data-dismiss="alert">&times;</button>' . "$msg</div>";
 	}
@@ -249,6 +249,45 @@ class Site {
 	 */
 	public static function getCurrentUser() {
 		global $user;
+		return $user;
+	}
+
+	/**
+	 * Get Site user from current Session
+	 *
+	 * @return User|null
+	 */
+	public function getSessionUser() {
+		$expiry = Config::get('expire_unregistered_session');
+		$db = self::getDb();
+		$user = null;
+
+		if (($usr = Session::get('user'))) {
+			$user = unserialize($usr);
+			// This segment basically checks whether the user-specific expiry time was met
+			// If user session is expired, user is logged out and redirected
+			if (!empty($user->id)) { // logged in user
+				// refresh user object if not expired
+				$expiry = Config::get('expire_registered_session');
+				$user = new User($db, $user->id, $user->user_code);
+				// admins have a different expiry, can only be lower
+				if ($user->isAdmin()) {
+					$expiry = Config::get('expire_admin_session');
+				}
+			} elseif (!empty($user->user_code)) { // visitor
+				// refresh user object
+				$user = new User($db, null, $user->user_code);
+			}
+		}
+
+		if($this->expire_session($expiry)) {
+			$user = null;
+		}
+
+		if (empty($user->user_code)) {
+			$user = new User($db, null, null);
+		}
+
 		return $user;
 	}
 

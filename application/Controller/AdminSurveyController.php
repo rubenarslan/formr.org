@@ -17,8 +17,9 @@ class AdminSurveyController extends AdminController {
 			return $this->$privateAction();
 		}
 
-		if (!empty($_POST)) {
-			$this->study->changeSettings($_POST);
+		if ($this->request->isHTTPPostRequest()) {
+			$request = new Request($_POST);
+			$this->study->changeSettings($request->getParams());
 			redirect_to(admin_study_url($this->study->name));
 		}
 
@@ -198,6 +199,10 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function showItemdisplayAction() {
+		if ($this->study->settings['hide_results']) {
+			return $this->hideResults();
+		}
+
 		// paginate based on number of items on this sheet so that each
 		// run session will have all items for each pagination
 		$items = $this->study->getItems('id'); $ids = array();
@@ -241,6 +246,10 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function showResultsAction() {
+		if ($this->study->settings['hide_results']) {
+			return $this->hideResults();
+		}
+
 		$count = $this->study->getResultCount();
 		$totalCount = $count['real_users'] + $count['testers'];
 		$limit = $this->request->int('per_page', 100);
@@ -273,6 +282,15 @@ class AdminSurveyController extends AdminController {
 		));
 	}
 
+	private function hideResults() {
+		$this->renderView('survey/show_results', array(
+			'resultCount' => $this->study->getResultCount(),
+			'results' =>  array(),
+			'pagination' => new Pagination(1),
+			'study_name' => $this->study->name,
+		));
+	}
+
 	private function deleteResultsAction() {
 		$study = $this->study;
 
@@ -283,7 +301,7 @@ class AdminSurveyController extends AdminController {
 			else:
 				alert(implode($study->errors), 'alert-danger');				
 			endif;
-			redirect_to(WEBROOT . "admin/survey/{$study->name}/delete_results");
+			redirect_to(admin_study_url($study->name, 'delete_results'));
 		} elseif (isset($_POST['delete'])) {
 			alert("<b>Error:</b> Survey's name must match '{$study->name}' to delete results.", 'alert-danger');
 		}
@@ -328,8 +346,7 @@ class AdminSurveyController extends AdminController {
 
 		$format = $this->request->getParam('format');
 		if (!$format || !in_array($format, array("xlsx", "xls", "json", "original"))) {
-			alert("Invalid format requested", 'alert-danger');
-			bad_request();
+			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
 		}
 
 		$SPR = new SpreadsheetReader();
@@ -360,12 +377,15 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function exportItemdisplayAction() {
+		if ($this->study->settings['hide_results']) {
+			return $this->hideResults();
+		}
+
 		$study = $this->study;
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
 		if (!in_array($format, $SPR->exportFormats)) {
-			alert("Invalid format requested.", "alert-danger");
-			bad_request();
+			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
 		}
 
 		/* @var $resultsStmt PDOStatement */
@@ -404,12 +424,15 @@ class AdminSurveyController extends AdminController {
 	}
 
 	private function exportResultsAction() {
+		if ($this->study->settings['hide_results']) {
+			return $this->hideResults();
+		}
+
 		$study = $this->study;
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
 		if (!in_array($format, $SPR->exportFormats)) {
-			alert("Invalid format requested.", "alert-danger");
-			bad_request();
+			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
 		}
 
 		/* @var $resultsStmt PDOStatement */
@@ -452,13 +475,11 @@ class AdminSurveyController extends AdminController {
 		}
 
 		$study = new Survey($this->fdb, null, array('name' => $name, 'user_id' => $this->user->id), null, null);
-		if (!$study->valid):
-			alert("<strong>Error:</strong> Survey does not exist.", 'alert-danger');
-			not_found();
-		elseif (!$this->user->created($study)):
-			alert("<strong>Error:</strong> Not your survey.", 'alert-danger');
-			access_denied();
-		endif;
+		if (!$study->valid) {
+			formr_error(404, 'Not Found', 'Requested Survey does not exist or has been moved');
+		} elseif (!$this->user->created($study)) {
+			formr_error(401, 'Unauthorized', 'You do not have access to modify this survey');
+		}
 		$this->study = $study;
 	}
 

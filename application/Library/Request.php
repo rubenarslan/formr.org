@@ -4,6 +4,8 @@ class Request {
 
 	private $data = array();
 
+	private static $globals = array();
+
 	/**
 	 * @param array $data
 	 */
@@ -183,6 +185,14 @@ class Request {
 
 	public static function isAjaxRequest() {
 		return strtolower(env('HTTP_X_REQUESTED_WITH')) === 'xmlhttprequest';
+	}
+
+	public static function setGlobals($key, $value) {
+		self::$globals[$key] = $value;
+	}
+
+	public static function getGlobals($key, $default = null) {
+		return isset(self::$globals[$key]) ? self::$globals[$key] : $default;
 	}
 
 	private static function stripslashes($value) {

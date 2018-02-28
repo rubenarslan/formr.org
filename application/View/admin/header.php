@@ -89,7 +89,7 @@
                             </ul>
 
                             <ul class="nav navbar-nav navbar-right">
-								<li><a href="<?php echo site_url('edit_user'); ?>"><i class="fa fa-user"></i> <span><?= $user->email;?> </span></a></li>
+								<li><a href="<?php echo site_url('account'); ?>"><i class="fa fa-user"></i> <span><?= $user->email;?> </span></a></li>
                                 <li><a href="<?php echo site_url('documentation/#help'); ?>"><i class="fa fa-question-circle"></i> <span>Help</span></a></li>
                                 <li><a href="<?php echo site_url(); ?>"><i class="fa fa-globe"></i> <span>Go to site</span></a></li>
                                 <li><a href="<?php echo site_url('logout'); ?>"><i class="fa fa-power-off"></i> <span>Logout</span></a></li>

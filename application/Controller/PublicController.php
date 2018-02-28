@@ -29,7 +29,7 @@ class PublicController extends Controller {
 		$this->renderView('public/publications');
 	}
 
-	public function editUserAction() {
+	public function accountAction() {
 		/**
 		* @todo: 
 		* - allow changing email address
@@ -45,7 +45,9 @@ class PublicController extends Controller {
 		if(!empty($_POST)) {
 			$redirect = false;
 			if($this->request->str('new_password')) {
-				if($this->user->changePassword($this->request->str('password'), $this->request->str('new_password'))) {
+				if ($this->request->str('new_password') !== $this->request->str('new_password_c')) {
+					alert('The new passwords do not match', 'alert-danger');
+				} elseif($this->user->changePassword($this->request->str('password'), $this->request->str('new_password'))) {
 					alert('<strong>Success!</strong> Your password was changed! Please sign-in with your new password.','alert-success');
 					$redirect = 'logout';
 				} else {
@@ -55,7 +57,7 @@ class PublicController extends Controller {
 
 			if($this->request->str('new_email')) {
 				if ($this->fdb->entry_exists('survey_users', array('email' => $this->request->str('new_email')))) {
-					alert("The provided email address is already in use!", 'alert-danger');
+					alert('The provided email address is already in use!', 'alert-danger');
 				} elseif ($this->user->changeEmail($this->request->str('password'), $this->request->str('new_email'))) {
 					//alert('<strong>Success!</strong> Your email address was changed! Please veirfy your new email and sign-in.', 'alert-success');
 					$redirect = 'logout';
@@ -70,7 +72,7 @@ class PublicController extends Controller {
 		}
 
 		$this->registerAssets('bootstrap-material-design');
-		$this->renderView('public/edit_user');
+		$this->renderView('public/account', array('user' => $this->user));
 	}
 
 	public function loginAction() {
@@ -132,14 +134,16 @@ class PublicController extends Controller {
 
 	public function verifyEmailAction() {
 		$user = $this->user;
+		$verification_token = $this->request->str('verification_token');
+		$email = $this->request->str('email');
 
-		if((!isset($_GET['verification_token']) OR !isset($_GET['email']) ) AND !isset($_POST['email'])):
+		if(!$verification_token || !$email) {
 			alert("You need to follow the link you received in your verification mail.");
-			redirect_to("login");
-		else:
-			$user->verify_email($_GET['email'], $_GET['verification_token']);
-			redirect_to("login");
-		endif;
+			redirect_to('login');
+		} else {
+			$user->verify_email($email, $verification_token);
+			redirect_to('login');
+		};
 	}
 
 	public function forgotPasswordAction() {
@@ -158,25 +162,27 @@ class PublicController extends Controller {
 	public function resetPasswordAction() {
 		$user = $this->user;
 		if($user->loggedIn()) {
-			redirect_to("index");
+			redirect_to('index');
 		}
 
-		if((!isset($_GET['reset_token']) || !isset($_GET['email'])) && !isset($_POST['email'])):
-			alert("You need to follow the link you received in your password reset mail");
-			redirect_to("forgot_password");
-		endif;
-
-		if(!empty($_POST['email']) && !empty($_POST['new_password']) && !empty($_POST['reset_token'])) {
-			$done = $user->reset_password($_POST['email'], $_POST['reset_token'], $_POST['new_password'], $_POST['new_password_c']);
-			if ($done) {
-				redirect_to('reset_password?reset_token=&email=');
+		if ($this->request->isHTTPGetRequest() && (!$this->request->str('email') || !$this->request->str('reset_token')) && !$this->request->str('ok')) {
+			alert('You need to follow the link you received in your password reset mail');
+			redirect_to('forgot_password');
+		} elseif ($this->request->isHTTPPostRequest()) {
+			$postRequest = new Request($_POST);
+			$email = $postRequest->str('email');
+			$token = $postRequest->str('reset_token');
+			$newPass = $postRequest->str('new_password');
+			$newPassOK = $postRequest->str('new_password_c');
+			if (($done = $user->reset_password($email, $token, $newPass, $newPassOK))) {
+				redirect_to('forgot_password');
 			}
 		}
 
 		$this->registerAssets('bootstrap-material-design');
 		$this->renderView('public/reset_password', array(
-			'reset_data_email' => isset($_GET['email']) ? $_GET['email'] : '',
-			'reset_data_token' => isset($_GET['reset_token']) ? $_GET['reset_token'] : '',
+			'reset_data_email' => $this->request->str('email'),
+			'reset_data_token' => $this->request->str('reset_token'),
 		));
 	}
 
@@ -185,129 +191,7 @@ class PublicController extends Controller {
 		if ($path) {
 			return redirect_to(asset_url($path));
 		}
-		bad_request();
-	}
-
-	public function runAction($run_name = '') {
-		// hack for run name
-		$_GET['run_name'] = $run_name;
-		$this->site->request->run_name = $run_name;
-
-		$this->user = $this->site->loginUser($this->user);
-		$run = new Run($this->fdb, $this->request->str('run_name'));
-		$this->run = $run;
-		$run_vars = $run->exec($this->user);
-		$run_vars['bodyClass'] = 'fmr-run';
-
-		if ($run->use_material_design === true || $this->request->str('tmd') === 'true') {
-			if (DEBUG) {
-				$this->unregisterAssets('site:custom');
-				$this->registerAssets('bootstrap-material-design');
-				$this->registerAssets('site:custom');
-			} else {
-				$this->replaceAssets('site', 'site:material');
-			}
-			$run_vars['bodyClass'] = 'bs-material fmr-run';
-		}
-		$this->registerCSS($run_vars['css'], $this->run->name);
-		$this->registerJS($run_vars['js'], $this->run->name);
-
-		unset($run_vars['css'], $run_vars['js']);
-		$this->renderView('public/run', $run_vars);
-	}
-
-	public function settingsAction($run_name = '') {
-		$run = new Run($this->fdb, $run_name);
-		if (!$run->valid) {
-			alert(' Invalid Run settings', 'alert-danger');
-			not_found();
-		}
-
-		// Login if user entered with code and redirect without login code
-		if (Request::isHTTPGetRequest() && ($code = $this->request->getParam('code'))) {
-			$_GET['run_name'] = $run_name;
-			$this->user = $this->site->loginUser($this->user);
-			if ($this->user->user_code != $code) {
-				alert('Unable to login with the provided code', 'alert-warning');
-			}
-			redirect_to('settings/' . $run_name);
-		}
-
-		// People who have no session in the run need not set anything
-		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code);
-		if (!$session->id) {
-			alert('You cannot create settings in a study you have not participated in.', 'alert-danger');
-			redirect_to('error/200');
-		}
-
-		$settings = array('no_email' => 1);
-		if (Request::isHTTPPostRequest() && $this->user->user_code == $this->request->getParam('_sess')) {
-			$update = array();
-			$settings = array(
-				'no_email' => $this->request->getParam('no_email'),
-				'delete_cookie' => (int)$this->request->getParam('delete_cookie'),
-			);
-
-			if ($settings['no_email'] === '1') {
-				$update['no_email'] = null;
-			} elseif ($settings['no_email'] == 0) {
-				$update['no_email'] = 0;
-			} elseif ($ts = strtotime($settings['no_email'])) {
-				$update['no_email'] = $ts;
-			}
-
-			$session->saveSettings($settings, $update);
-
-			alert('Settings saved successfully for survey "'.$run->name.'"', 'alert-success');
-			if ($settings['delete_cookie'])  {
-				Session::destroy();
-				redirect_to('index');
-			}
-			redirect_to('settings/' . $run->name);
-		}
-
-		$this->run = $run;
-		$this->renderView('public/settings', array(
-			'settings' => $session->getSettings(),
-			'email_subscriptions' => Config::get('email_subscriptions'),
-		));
-	}
-
-	public function monkeyBarAction($run_name = '', $action = '') {
-		$action = str_replace('ajax_', '', $action);
-		$allowed_actions = array('send_to_position', 'remind', 'next_in_run', 'delete_user', 'snip_unit_session');
-		if (!$run_name || !in_array($action, $allowed_actions)) {
-			throw new Exception("Invalid Request parameters");
-		}
-
-		$parts = explode('_', $action);
-		$method = array_shift($parts) . str_replace(' ', '', ucwords(implode(' ', $parts)));
-		$runHelper = new RunHelper($this->request, $this->fdb, $run_name);
-
-		// check if run session usedby the monkey bar is a test if not this action is not valid
-		if (!($runSession = $runHelper->getRunSession()) || !$runSession->isTesting()) {
-			throw new Exception ("Unauthorized access to run session");
-		}
-
-		if (!method_exists($runHelper, $method)) {
-			throw new Exception("Invalid method {$action}");
-		}
-
-		$runHelper->{$method}();
-		if (($errors = $runHelper->getErrors())) {
-			$errors = implode("\n", $errors);
-			alert(nl2br($errors), 'alert-danger');
-		}
-
-		if (($message = $runHelper->getMessage())) {
-			alert($message, 'alert-info');
-		}
-
-		if (is_ajax_request()) {
-			echo $this->site->renderAlerts();
-			exit;
-		}
-		redirect_to('');
+		formr_error(404, 'Not Found', 'The requested file does not exist');
 	}
 
 	public function osfApiAction($do = '') {
@@ -378,19 +262,4 @@ class PublicController extends Controller {
 		redirect_to('index');
 	}
 
-	public function errorAction($code = null) {
-		if ($code == 200) {
-			// do nothing
-		} elseif ($code == 400) {
-			header('HTTP/1.0 404 Not Found');
-		} elseif ($code == 403) {
-			header('HTTP/1.0 403 Forbidden');
-		} else {
-			header('HTTP/1.0 500 Bad Request');
-		}
-		$this->renderView('public/error');
-		exit;
-	}
-
 }
-

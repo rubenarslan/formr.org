@@ -1,37 +1,30 @@
-<?php 
-	Template::load('public/header', array('bodyClass' => 'not-found')); 
-?>
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+		<title><?php echo $title; ?> - formr.org</title>
+		<style type="text/css" media="screen">
+			body { background-color: #f1f1f1;  margin: 0; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+			.container { margin: 50px auto 40px auto; width: 600px; text-align: center; }
+			a { color: #4183c4; text-decoration: none; }
+			a:hover { text-decoration: underline; }
+			h1 { width: 800px; position:relative; left: -100px; letter-spacing: -1px; line-height: 60px; font-size: 60px; font-weight: 100; margin: 0px 0 50px 0; text-shadow: 0 1px 0 #fff; }
+			p { color: rgba(0, 0, 0, 0.5); margin: 20px 0; line-height: 1.6; }
+			button {display: none;}
+		</style>
+		<link rel="icon" href="<?php echo site_url('favicon.ico'); ?>">
+	</head>
+	<body>
+		<div class="container">
+			<h1><?php echo $code; ?></h1>
+			<p><strong><?php echo $title; ?></strong></p>
 
-<section id="fmr-hero" class="js-fullheight full">
-	<div class="fmr-overlay"></div>
-	<div class="container">
-		<div class="fmr-intro js-fullheight">
-			<div class="row">
-				<div class="broken_tape">
-					<div class="fmr-intro-text">
-						<div class="col-md-12">
-							<div class="well">
-								<h2>Oops!</h2>
-								<?php
-								$alerts = $site->renderAlerts();
-								if ($alerts) {
-									echo $alerts;
-								} else {
-									echo '<h4 class="lead">The resource you are looking for have either been moved or does not exist</h4>';
-								}
-								?>
-								<a href="<?= site_url() ?>"><i class="fa fa-home"></i> Go to home</a>
-							</div>
-						</div>
-						
-					<div class="clearfix"></div>
-					</div>
-				</div>
-
-			</div>
+			<p><?php echo $text; ?></p>
+			<p class="back"> <a href="<?php echo site_url(); ?>">Go to Site</a> </p>
 		</div>
-	</div>
-	<div class="clear"></div>
-</section>
+		<div>
+			<?php echo $site->renderAlerts(); ?>
+		</div>
+	</body>
+</html>
 
-<?php Template::load('public/footer'); ?>

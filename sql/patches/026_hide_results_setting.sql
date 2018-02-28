@@ -1,0 +1,1 @@
+ALTER TABLE `survey_studies` ADD `hide_results` TINYINT NOT NULL DEFAULT '0' ;

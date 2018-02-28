@@ -126,7 +126,10 @@ class User {
 		$token_hash = password_hash($token, PASSWORD_DEFAULT);
 		$this->dbh->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
 
-		$verify_link = WEBROOT . "public/verify_email/?email=" . rawurlencode($this->email) . "&verification_token=" . rawurlencode($token);
+		$verify_link = site_url('verify_email', array(
+				'email' => $this->email,
+				'verification_token' => $token
+			));
 
 		global $site;
 		$mail = $site->makeAdminMailer();
@@ -134,7 +137,7 @@ class User {
 		$mail->Subject = 'formr: confirm your email address';
 		$mail->Body = "Dear user,
 
-you, or someone else created an account on " . WEBROOT . ".
+you, or someone else created an account on " . site_url() . ".
 You will need to verify that this is your email address.
 To do so, please go to this link:
 " . $verify_link . "
@@ -239,7 +242,10 @@ formr robots";
 
 			$this->dbh->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
 
-			$reset_link = WEBROOT . "public/reset_password?email=" . rawurlencode($email) . "&reset_token=" . rawurlencode($token);
+			$reset_link = site_url('reset_password', array(
+				'email' => $email,
+				'reset_token' => $token
+			));
 			
 			global $site;
 			$mail = $site->makeAdminMailer();
@@ -263,7 +269,7 @@ formr robots";
 				alert($mail->ErrorInfo, 'alert-danger');
 			else:
 				alert("You were sent a password reset link.", 'alert-info');
-				redirect_to("public/forgot_password");
+				redirect_to("forgot_password");
 			endif;
 
 		endif;
@@ -308,8 +314,8 @@ formr robots";
 
 		$reset_token_hash = $this->dbh->findValue('survey_users', array('email' => $email), array('reset_token_hash'));
 
-		if ($reset_token_hash):
-			if (password_verify($token, $reset_token_hash)):
+		if ($reset_token_hash) {
+			if (password_verify($token, $reset_token_hash)) {
 				$password_hash = password_hash($new_password, PASSWORD_DEFAULT);
 				$this->dbh->update('survey_users', 
 					array('password' => $password_hash, 'reset_token_hash' => null, 'reset_token_expiry' => null), 
@@ -319,8 +325,8 @@ formr robots";
 				$login_anchor = '<a href="'.site_url('login').'">login</a>';
 				alert("Your password was successfully changed. You can now use it to {$login_anchor}.", 'alert-success');
 				return true;
-			endif;
-		endif;
+			}
+		}
 
 		alert("Incorrect token or email address.", "alert-danger");
 		return false;
@@ -328,33 +334,34 @@ formr robots";
 
 	public function verify_email($email, $token) {
 		$verify_data = $this->dbh->findRow('survey_users', array('email' => $email), array('email_verification_hash', 'referrer_code'));
-
-		if ($verify_data):
-			if (password_verify($token, $verify_data['email_verification_hash'])):
-
-				$this->dbh->update('survey_users', 
-					array('email_verification_hash' => null, 'email_verified' => 1), 
-					array('email' => $email),
-					array('int', 'int')
-				);
-				alert("Your email was successfully verified!", "alert-success");
+		if (!$verify_data) {
+			alert('Incorrect token or email address.', 'alert-danger');
+			return false;
+		}
+		
+		if (password_verify($token, $verify_data['email_verification_hash'])) {
+			$this->dbh->update('survey_users', 
+				array('email_verification_hash' => null, 'email_verified' => 1), 
+				array('email' => $email),
+				array('int', 'int')
+			);
+			alert('Your email was successfully verified!', 'alert-success');
 				
-				if(in_array($verify_data['referrer_code'], Config::get("referrer_codes"))):
-					$this->dbh->update('survey_users', 
-						array('admin' => 1),
-						array('email' => $email)
-					);
-					alert("You now have the rights to create your own studies!", "alert-success");
-				endif;
-				return true;
-			else:
-				alert("Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.", "alert-danger");
-				return false;
-			endif;
-		endif;
+			if(in_array($verify_data['referrer_code'], Config::get('referrer_codes'))) {
+				$this->dbh->update('survey_users', 
+					array('admin' => 1),
+					array('email' => $email)
+				);
+				alert('You now have the rights to create your own studies!', 'alert-success');
+			}
+			return true;
+		} else {
+			alert('Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.', 'alert-danger');
+			return false;
+		}
+		
 
-		alert("Incorrect token or email address.", "alert-danger");
-		return false;
+		
 	}
 
 	public function getStudies($order = 'id DESC', $limit = null) {
