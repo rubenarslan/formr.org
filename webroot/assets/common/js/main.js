@@ -215,7 +215,7 @@ function download_next_textarea(link) {
         });
         // Activate clipboard copy links
         $('.copy_clipboard').click(function () {
-            this.select();
+			this.select();
 
             try {
                 var copysuccessful = document.execCommand('copy');
@@ -225,6 +225,19 @@ function download_next_textarea(link) {
             } catch (err) {
             }
         });
+		// Activate .copy-url anchor tags
+		$('.copy-url').click(function() {
+			try {
+				var url = $(this).data('url');
+				var dummy = document.createElement('input');
+				document.body.appendChild(dummy);
+				dummy.value = url;
+				dummy.select();
+				document.execCommand("copy");
+				document.body.removeChild(dummy);
+				bootstrap_modal('URL Copied', url);
+			} catch (err) {}
+		});
         // Append monkey bar modals to <body> element
         if ($('.monkey-bar-modal').length) {
             $('.monkey-bar-modal').appendTo('body');
