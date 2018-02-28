@@ -43,8 +43,8 @@ class AdminRunController extends AdminController {
 			$run_name = $this->request->str('run_name');
 			if (!$run_name) {
 				$error = 'You have to specify a run name';
-			} elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/", $run_name)) {
-				$error = 'The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore (at least 2 characters, at most 255). It needs to start with a letter.';
+			} elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9-]{2,255}$/", $run_name)) {
+				$error = 'The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the hyphen(-) (at least 2 characters, at most 255). It needs to start with a letter.';
 			} elseif ($run_name == Run::TEST_RUN || Router::isWebRootDir($run_name) || in_array($run_name, Config::get('reserved_run_names', array())) || Run::nameExists($run_name)) {
 				$error = __('The run name "%s" is already taken. Please choose another name', $run_name);
 			} else {
@@ -316,8 +316,8 @@ class AdminRunController extends AdminController {
 			$run_name = $this->request->str('new_name');
 			if (!$run_name) {
 				$error = 'You have to specify a new run name';
-			} elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9_]{2,255}$/", $run_name)) {
-				$error = 'The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore (at least 2 characters, at most 255). It needs to start with a letter.';
+			} elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9-]{2,255}$/", $run_name)) {
+				$error = 'The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the hyphen(-) (at least 2 characters, at most 255). It needs to start with a letter.';
 			} elseif ($run_name == Run::TEST_RUN || Router::isWebRootDir($run_name) || in_array($run_name, Config::get('reserved_run_names', array())) || Run::nameExists($run_name)) {
 				$error = __('The run name "%s" is already taken. Please choose another name', $run_name);
 			} else {

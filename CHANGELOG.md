@@ -365,3 +365,7 @@ Bug fix release.
 
 ### Changed
 * Architectural change.
+
+## [0.17.1] - 28.02.2018
+### Changed
+*Replace underscores in run names to hyphens
