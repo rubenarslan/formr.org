@@ -357,3 +357,11 @@ Bug fix release.
 ## [0.16.17] - 09.02.2018
 ### Changed
 * Architectural change.
+
+## [0.17.0] - 28.02.2018
+### Added
+* Sub-domain definition for studies
+* Option to hide survey results
+
+### Changed
+* Architectural change.
