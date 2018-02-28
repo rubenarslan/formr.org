@@ -725,7 +725,7 @@ class SpreadsheetReader {
 						$type = $typeOptions[0];
 						unset($typeOptions[0]);
 						if (!empty($typeOptions[1]) &&
-							!in_array($type, array('server', 'get', 'text', 'textarea', 'file', 'image', 'rating_button', 'submit')) &&
+							!in_array($type, array('server', 'get', 'text', 'textarea', 'letters', 'file', 'image', 'rating_button', 'submit')) &&
 							preg_match('/^[A-Za-z0-9_]{1,20}$/', trim($typeOptions[1]))) {
 							$data[$rowNumber]['choice_list'] = trim($typeOptions[1]);
 							unset($typeOptions[1]);
@@ -733,7 +733,7 @@ class SpreadsheetReader {
 						$data[$rowNumber]['type_options'] = implode(' ', $typeOptions);
 						$cellValue = $type;
 					}
-					
+
 					$trType = $this->translateLegacyType($cellValue);
 					if ($trType != $cellValue) {
 						$this->warnings[] = __('The type "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"', $cellValue, $trType);
