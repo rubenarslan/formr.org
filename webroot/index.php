@@ -34,14 +34,11 @@ $site->refresh();
 // Route request
 try {
 	$router = Router::getInstance()->route();
-	$router->execute();	
+	$router->execute();
 } catch (Exception $e) {
 	formr_log_exception($e);
-	if(!DEBUG) {
-		$date = date('Y-m-d H:i:s');
-		alert("<small> {$date} There was a fatal error. \n {$e->getMessage()}. \nPlease let the administrators and know what you were trying to do and provide this message's date & time.</small>", "alert-danger");
-	}
-	bad_request();
+	$msg = date('Y-m-d H:i:s') . "\n {$e->getMessage()}. \nPlease let the administrators and know what you were trying to do and provide this message's date & time.";
+	formr_error(500, 'Internal Server Error', nl2br($msg), 'Fatal Error');
 }
 
 exit(0);
