@@ -140,6 +140,7 @@ class RunController extends Controller {
 			// Redirect existing users to run's sub-domain URL and QSA
 			$params = $this->request->getParams();
 			unset($params['route'], $params['run_name']);
+			$name = str_replace('_', '-', $name);
 			$url = run_url($name, null, $params);
 			redirect_to($url);
 		} elseif (!$run->valid) {
