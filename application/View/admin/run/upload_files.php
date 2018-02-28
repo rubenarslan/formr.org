@@ -46,36 +46,23 @@
 						<table class="table table-striped">
 							<thead>
 								<tr>
-									<?php
-									foreach (current($files) AS $field => $value) {
-										if ($field == 'id')
-											continue;
-										if ($field == "original_file_name"):
-											$field = 'File name';
-										elseif ($field == 'new_file_path'):
-											$field = "Copy this link";
-										endif;
-										echo "<th>{$field}</th>";
-									}
-									?>
+									<th>File Name</th>
+									<th>Created</th>
+									<th>Actions</th>
 								</tr>
 							</thead>
 							<tbody>
-								<?php
-								// printing table rows
-								foreach ($files as $row) {
-									unset($row['id']);
-									$row['created'] = '<abbr title="' . $row['created'] . '">' . timetostr(strtotime($row['created'])) . '</abbr>';
-									$row['modified'] = '<abbr title="' . $row['modified'] . '">' . timetostr(strtotime($row['modified'])) . '</abbr>';
-									$row['new_file_path'] = '<a href="' . asset_url($row['new_file_path']) . '"><i class="fa fa-download"></i> Download/View</a>';
-									echo "<tr>";
-									foreach ($row as $cell) {
-										echo "<td>$cell</td>";
-									}
-									echo "</tr>\n";
-								}
-								?>
-
+								<?php foreach ($files as $row) { ?>
+								<tr>
+									<td><?php echo $row['original_file_name']; ?></td>
+									<td><abbr title="<?php echo $row['created']; ?>"><?php echo timetostr(strtotime($row['created'])); ?></abbr></td>
+									<td>
+										<a href="<?php echo asset_url($row['new_file_path']); ?>" class="btn btn-sm btn-default"><i class="fa fa-eye"></i> View File</a>
+										<a href="javascript:void(0);" data-url="<?php echo asset_url($row['new_file_path']); ?>" class="btn btn-sm btn-primary copy-url"><i class="fa fa-copy"></i> Copy URL</a>
+										<a href="<?php echo admin_run_url($run->name, 'delete_file', array('file' => $row['original_file_name'], 'id' => $id)); ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this file?');"><i class="fa fa-trash"></i> Delete File</a>	
+									</td>
+								</tr>
+								<?php } ?>
 							</tbody>
 						</table>
 						<?php endif; ?>

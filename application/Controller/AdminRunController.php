@@ -266,7 +266,7 @@ class AdminRunController extends AdminController {
 	private function uploadFilesAction() {
 		$run = $this->run;
 
-		if( !empty($_FILES) ) {
+		if (!empty($_FILES)) {
 			if(isset($_FILES['uploaded_files'])) {
 				if($run->uploadFiles($_FILES['uploaded_files'])) {
 					alert('<strong>Success.</strong> The files were uploaded.','alert-success');
@@ -278,6 +278,18 @@ class AdminRunController extends AdminController {
 			}
 		}
 		$this->renderView('run/upload_files', array('files' => $run->getUploadedFiles()));
+	}
+
+	private function deleteFileAction() {
+		$id = $this->request->int('id');
+		$filename = $this->request->str('file');
+		$deleted = $this->run->deleteFile($id, $filename);
+		if ($deleted) {
+			alert('File Deleted', 'alert-success');
+		} else {
+			alert('Unable to delete selected file', 'alert-danger');
+		}
+		redirect_to(admin_run_url($this->run->name, 'upload_files'));
 	}
 
 	private function settingsAction() {
