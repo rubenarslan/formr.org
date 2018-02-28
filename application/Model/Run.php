@@ -209,10 +209,10 @@ class Run {
 	}
 
 	public function getUploadedFiles() {
-		return $this->dbh->select('id, created, modified, original_file_name, new_file_path')
+		return $this->dbh->select('id, created, original_file_name, new_file_path')
 					->from('survey_uploaded_files')
 					->where(array('run_id' => $this->id))
-					->order('created', 'asc')
+					->order('created', 'desc')
 					->fetchAll();
 	}
 
@@ -266,6 +266,17 @@ class Run {
 			}
 		endfor;
 		return empty($this->errors);
+	}
+
+	public function deleteFile($id, $filename) {
+		$where = array('id' => (int) $id, 'original_file_name' => $filename);
+		$filepath = $this->dbh->findValue('survey_uploaded_files', $where, 'new_file_path');
+		$deleted = $this->dbh->delete('survey_uploaded_files', $where);
+		$physicalfile = APPLICATION_ROOT . "webroot/" . $filepath;
+		if ($deleted && file_exists($physicalfile)) {
+			@unlink($physicalfile);
+		}
+		return $deleted;
 	}
 
 	public static function nameExists($name) {

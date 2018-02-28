@@ -368,4 +368,10 @@ Bug fix release.
 
 ## [0.17.1] - 28.02.2018
 ### Changed
-*Replace underscores in run names to hyphens
+* Replace underscores in run names to hyphens
+
+## [0.17.2] - 28.02.2018
+### Changed
+* Fix rating button glitch (range can be reversed)
+* Issue #332
+* Issue #333
