@@ -23,9 +23,18 @@ class Router {
 
 	protected $routes;
 
-    public function __construct(&$site) {
+	protected $usingSubDomain;
+
+	protected $serverName;
+
+	public function __construct(&$site) {
         $this->site = $site;
 		$this->routes = Config::get('routes');
+		$this->usingSubDomain = Config::get('use_study_subdomains');
+		$this->serverName = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : null;
+		if (!$this->serverName) {
+			throw new Exception('Server name not explicitly defined');
+		}
     }
 
     /**
@@ -59,8 +68,20 @@ class Router {
 		if (!class_exists($controllerName, true)) {
 			throw new Exception ("Controller $controllerName does not exist");
 		}
+
+		// Sub-domains for now are used only for accessing studies
+		if ($this->usingSubDomain && FMRSD_CONTEXT) {
+			list($controllerName, $actionName) = $this->getStudyRoute();
+			$runName = $this->getRunFromSubDomain();
+			if ($action !== 'index') {
+				array_unshift($params, $action);
+			}
+			array_unshift($params, $runName);
+		}
+
 		if (!method_exists($controllerName, $actionName)) {
-			$actionName = $this->shiftAction($controllerName);
+			// Assume at this point user is trying to access a private action via the indexAction
+			list($controllerName, $actionName) = $this->shiftAction($controllerName);
 			// push back the $action as an action parameter
 			array_unshift($params, $action);
 		}
@@ -94,14 +115,34 @@ class Router {
 	/**
 	 * Some hack method to shift blame when we can't find action in controller
 	 *
-	 * @param type $controller
+	 * @param string $controller
 	 * @return string
 	 */
 	private function shiftAction($controller) {
 		if ($controller === 'PublicController') {
-			return 'runAction';
+			return $this->getStudyRoute();
 		}
-		return 'indexAction';
+		return array($controller, 'indexAction');
+	}
+
+	/**
+	 * Some hack method to shift blame when we can't find action in controller
+	 *
+	 * @return array
+	 */
+	private function getStudyRoute() {
+		return array('RunController', 'indexAction');
+	}
+
+	/**
+	 * Get Run name from sub-domain
+	 *
+	 * @return string
+	 */
+	private function getRunFromSubDomain() {
+		$host = explode('.', $this->serverName);
+		$subdomains = array_slice($host, 0, count($host) - 2);
+		return $subdomains[0];
 	}
 
 	public function execute() {

@@ -3,7 +3,12 @@
 class UnitSession {
 
 	public $session = null;
-	public $id, $unit_id, $created, $ended, $run_session_id;
+	public $id;
+	public $unit_id;
+	public $created;
+	public $ended;
+	public $expired;
+	public $run_session_id;
 
 	/**
 	 * @var DB
@@ -31,24 +36,29 @@ class UnitSession {
 	}
 
 	public function load() {
-		if($this->id !== null):
-			$vars = $this->dbh->select(array('id','created'))
+		if($this->id !== null) {
+			$vars = $this->dbh->select('id, created, unit_id, run_session_id, ended')
 					->from('survey_unit_sessions')
 					->where(array('id' => $this->id))
 					->fetch();
-		else:
-			$vars = $this->dbh->select(array('id','created'))
+		} else {
+			$vars = $this->dbh->select('id, created, unit_id, run_session_id, ended')
 					->from('survey_unit_sessions')
 					->where(array('run_session_id' => $this->run_session_id, 'unit_id' => $this->unit_id))
 					->where('ended IS NULL AND expired IS NULL')
 					->order('created', 'desc')->limit(1)
 					->fetch();
-		endif;
-		$id = $vars['id'];
-		$this->created = $vars['created'];
-		if ($id):
-			$this->id = $id;
-		endif;
+		}
+
+		if (!$vars) {
+			return;
+		}
+
+		foreach ($vars as $property => $value) {
+			if (property_exists($this, $property)) {
+				$this->{$property} = $value;
+			}
+		}
 	}
 
 	public function __sleep() {

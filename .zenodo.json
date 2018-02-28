@@ -1,0 +1,17 @@
+{
+    "title": "chain simple forms / surveys into longer runs using the power of R to generate pretty feedback and complex designs https://formr.org",
+    "upload_type": "software",
+    "creators": [
+        {
+            "affiliation": "Center for Adaptive Rationality, Max Planck Institute for Human Development",
+            "name": "Ruben C. Arslan",
+            "orcid": "0000-0002-6670-5658"
+        },
+        {
+            "name": "Cyril Tata",
+            "affiliation": "Georg Elias Müller Institute of Psychology, University of Goettingen"
+        }
+        ],
+    "access_right": "open",
+    "license": "BSD-2-Clause"
+}

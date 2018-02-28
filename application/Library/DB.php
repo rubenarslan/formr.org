@@ -836,15 +836,18 @@ class DB_Select {
 		}
 
 		$clauses = array(); //array_map(array('DB', 'pCol'), $cols);
-		foreach ($cols as $i => $col) {
-			$sign = !empty($signs[$i]) ? $signs[$i] : '=';
-			$clauses[] = "`$col` $sign :$col";
-		}
-
 		$params = array();
 		foreach ($cols as $i => $col) {
-			$params[DB::pkey($col)] = $values[$i];
+			$sign = !empty($signs[$i]) ? $signs[$i] : '=';
+			$param = $col;
+			if (strstr($col, '.') !== false) {
+				list($c, $param) = explode('.', $col, 2);
+			}
+			$col = $this->parseColName($col);
+			$clauses[] = "$col $sign :$param";
+			$params[DB::pkey($param)] = $values[$i];
 		}
+
 		return array(
 			'clauses' => $clauses,
 			'params' => $params,

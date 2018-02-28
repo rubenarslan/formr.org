@@ -23,6 +23,7 @@ class Survey extends RunUnit {
 	public $messages = array();
 	public $warnings = array();
 	public $position;
+	public $rendered_items = array();
 	private $SPR;
 	public $openCPU = null;
 	public $icon = "fa-pencil-square-o";
@@ -140,6 +141,7 @@ class Survey extends RunUnit {
 			$this->settings['unlinked'] = array_val($vars, 'unlinked');
 			$this->settings['expire_invitation_after'] = (int) array_val($vars, 'expire_invitation_after');
 			$this->settings['expire_invitation_grace'] = (int) array_val($vars, 'expire_invitation_grace');
+			$this->settings['hide_results'] = (int) array_val($vars, 'hide_results');
 
 			$this->valid = true;
 		endif;
@@ -259,16 +261,14 @@ class Survey extends RunUnit {
 		return $created;
 	}
 
-	public function render() {
-		global $js;
-		$js = (isset($js) ? $js : '') . '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/survey.js') . '"></script>';
-
+	public function render($form_action = null, $form_append = null) {
 		$ret = '
 		<div class="row study-' . $this->id . ' study-name-' . $this->name . '">
 			<div class="col-md-12">
 		';
-		$ret .= $this->render_form_header() .
+		$ret .= $this->render_form_header($form_action) .
 				$this->render_items() .
+				$form_append .
 				$this->render_form_footer();
 		$ret .= '
 			</div> <!-- end of col-md-12 div -->
@@ -302,19 +302,19 @@ class Survey extends RunUnit {
 			$item_ids = $this->getOrderedItemsIds();
 
 			$survey_items_display = $this->dbh->prepare(
-				"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`) 
-					VALUES (:item_id, :session_id, :display_order)
+				"INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`)  VALUES (:item_id, :session_id, :display_order)
 				 ON DUPLICATE KEY UPDATE display_order = VALUES(display_order)");
 
 			 $survey_items_display->bindParam(":session_id", $this->session_id);
 
-			 foreach ($item_ids AS $display_order => $item_id) {
+			 foreach ($item_ids as $display_order => $item_id) {
 				 $survey_items_display->bindParam(":item_id", $item_id);
 				 $survey_items_display->bindParam(":display_order", $display_order);
 				 $survey_items_display->execute();
 			 }
 		}
 	}
+
 	protected function allItemsHaveAnOrder() {
 		/*
 			we have cascading deletes for items->item_display so we only need to worry whether the item_display is short of items
@@ -442,9 +442,15 @@ class Survey extends RunUnit {
 				continue;
 			}
 
-			/** @var Item $item */
-			$item = $items[$item_name];
-			$validInput = $validate ? $item->validateInput($item_value) : $item_value;
+			/** @var $item Item */
+			if ($item_value instanceof Item) {
+				$item = $item_value;
+				$item_value = $item->value_validated;
+			} else {
+				$item = $items[$item_name];
+			}
+
+			$validInput = ($validate && !$item->skip_validation) ? $item->validateInput($item_value) : $item_value;
 			if ($item->save_in_results_table) {
 				if ($item->error) {
 					$this->validation_errors[$item_name] = $item->error;
@@ -484,8 +490,13 @@ class Survey extends RunUnit {
 					continue;
 				}
 
-				/* @var Item $item */
-				$item = $items[$name];
+				/* @var $item Item */
+				if ($value instanceof Item) {
+					$item = $value;
+					$value = $item->value_validated;
+				} else {
+					$item = $items[$name];
+				}
 
 				if (isset($posted["_item_views"]["shown"][$item->id], $posted["_item_views"]["shown_relative"][$item->id])) {
 					$shown = $posted["_item_views"]["shown"][$item->id];
@@ -605,8 +616,6 @@ class Survey extends RunUnit {
 	 * @note: All dynamic values are processed (even for those we don't know if they will be shown)
 	 *
 	 * @param Item[] $items
-	 * @param array $show_ifs
-	 * @param array $dynamic_values
 	 * @return array
 	 */
 	protected function processDynamicValuesAndShowIfs(&$items) {
@@ -755,6 +764,7 @@ class Survey extends RunUnit {
 	 * All items that don't require connecting to openCPU and don't require user input are posted immediately.
 	 * Examples: get parameters, browser, ip.
 	 *
+	 * @param Item[] $items
 	 * @return array Returns items that may have to be sent to openCPU or be rendered for user input
 	 */
 	protected function processAutomaticItems($items) {
@@ -875,8 +885,8 @@ class Survey extends RunUnit {
 		}
 	}
 
-	protected function render_form_header() {
-		$action = run_url($this->run_name);
+	protected function render_form_header($action = null) {
+		$action = $action !== null ? $action : run_url($this->run_name);
 		$enctype = 'multipart/form-data'; # maybe make this conditional application/x-www-form-urlencoded
 
 		$ret = '<form action="' . $action . '" method="post" class="form-horizontal main_formr_survey' .
@@ -936,9 +946,12 @@ class Survey extends RunUnit {
 		}
 
 		// if the last item was not a submit button, add a default one
-		if (isset($item) AND ( $item->type !== "submit" OR $item->hidden)) {
-			$sub_sets = array('label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!', 'class_input' => 'btn-info .default_formr_button');
-			$item = new Item_submit($sub_sets);
+		if (isset($item) && ( $item->type !== "submit" || $item->hidden)) {
+			$sub_sets = array(
+				'label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!',
+				'class_input' => 'btn-info .default_formr_button',
+			);
+			$item = new Submit_Item($sub_sets);
 			$ret .= $item->render();
 		}
 
@@ -1019,7 +1032,7 @@ class Survey extends RunUnit {
 			$request = new Request($_POST);
 			//check if user session has a valid form token for POST requests
 			if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
-				redirect_to($this->run_name);
+				redirect_to(run_url($this->run_name));
 			}
 			$this->startEntry();
 
@@ -1027,7 +1040,7 @@ class Survey extends RunUnit {
 			if (Request::isHTTPPostRequest()) {
 				$posted = $this->post(array_merge($request->getParams(), $_FILES));
 				if ($posted) {
-					redirect_to($this->run_name);
+					redirect_to(run_url($this->run_name));
 				}
 			}
 
@@ -1087,42 +1100,38 @@ class Survey extends RunUnit {
 		        $value = (int) $value;
 		    }
 		});
-		if (isset($key_value_pairs['maximum_number_displayed'])
-				AND $key_value_pairs['maximum_number_displayed'] > 3000 || $key_value_pairs['maximum_number_displayed'] < 0
-		) {
+		if (isset($key_value_pairs['maximum_number_displayed']) && $key_value_pairs['maximum_number_displayed'] > 3000 || $key_value_pairs['maximum_number_displayed'] < 0) {
 			alert("Maximum number displayed has to be between 1 and 3000", 'alert-warning');
 			$errors = true;
 		}
 
-		if (isset($key_value_pairs['displayed_percentage_maximum'])
-				AND $key_value_pairs['displayed_percentage_maximum'] > 100 || $key_value_pairs['displayed_percentage_maximum'] < 1
-		) {
+		if (isset($key_value_pairs['displayed_percentage_maximum']) && $key_value_pairs['displayed_percentage_maximum'] > 100 || $key_value_pairs['displayed_percentage_maximum'] < 1) {
 			alert("Percentage maximum has to be between 1 and 100.", 'alert-warning');
 			$errors = true;
 		}
 
-		if (isset($key_value_pairs['add_percentage_points'])
-				AND $key_value_pairs['add_percentage_points'] > 100 || $key_value_pairs['add_percentage_points'] < 0
-		) {
+		if (isset($key_value_pairs['add_percentage_points']) && $key_value_pairs['add_percentage_points'] > 100 || $key_value_pairs['add_percentage_points'] < 0) {
 			alert("Percentage points added has to be between 0 and 100.", 'alert-warning');
 			$errors = true;
 		}
 
 		$key_value_pairs['enable_instant_validation'] = (int)(isset($key_value_pairs['enable_instant_validation']) && $key_value_pairs['enable_instant_validation'] == 1);
+		$key_value_pairs['hide_results'] = (int)(isset($key_value_pairs['hide_results']) && $key_value_pairs['hide_results'] === 1);
+		$key_value_pairs['unlinked'] = (int)(isset($key_value_pairs['unlinked']) && $key_value_pairs['unlinked'] === 1);
 
-		if (isset($key_value_pairs['unlinked'])) {
-			if(! ($key_value_pairs['unlinked'] === 0 || $key_value_pairs['unlinked'] === 1)) {
-				alert("Unlinked has to be set to either 0 (off) or 1 (on).", 'alert-warning');
-				$errors = true;
-			} else if( $key_value_pairs['unlinked'] < $this->settings['unlinked']) {
-				alert("Once a survey has been unlinked, it cannot be relinked.", 'alert-warning');
-				$errors = true;
-			}
+		// user can't revert unlinking
+		if($key_value_pairs['unlinked'] < $this->settings['unlinked']) {
+			alert("Once a survey has been unlinked, it cannot be relinked.", 'alert-warning');
+			$errors = true;
 		}
 
-		if (isset($key_value_pairs['expire_after'])
-				AND $key_value_pairs['expire_after'] > 3153600
-		) {
+		// user can't revert preventing results display
+		if($key_value_pairs['hide_results'] < $this->settings['hide_results']) {
+			alert("Once results display is disabled, it cannot be re-enabled", 'alert-warning');
+			$errors = true;
+		}
+
+		if (isset($key_value_pairs['expire_after']) && $key_value_pairs['expire_after'] > 3153600) {
 			alert("Survey expiry time (in minutes) has to be below 3153600.", 'alert-warning');
 			$errors = true;
 		}
@@ -1136,9 +1145,7 @@ class Survey extends RunUnit {
 			return false;
 		}
 
-		$this->dbh->update('survey_studies', $key_value_pairs, array(
-			'id' => $this->id,
-		));
+		$this->dbh->update('survey_studies', $key_value_pairs, array('id' => $this->id));
 
 		alert('Survey settings updated', 'alert-success', true);
 	}
@@ -1416,7 +1423,7 @@ class Survey extends RunUnit {
 				return false;
 			}
 		}
-		$staid_same = array_intersect_assoc($old_items, $new_items);
+		$unchanged = array_intersect_assoc($old_items, $new_items);
 		$added = array_diff_assoc($new_items, $old_items);
 		$deleted = array_diff_assoc($old_items, $new_items);
 
@@ -2002,7 +2009,7 @@ class Survey extends RunUnit {
 			</p>";
 			$dialog .= '<br><p class="btn-group">
 				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Save</a>
-				<a class="btn btn-default" href="' . admin_study_url($this->name, 'access') . '">Test</a>
+				<a title="Test this survey with this button for a quick look. Unless you need a quick look, you should prefer to use the \"Test run\" function to test the survey in the context of the run." class="btn btn-default" target="_blank" href="' . admin_study_url($this->name, 'access') . '">Test</a>
 			</p>';
 //		elseif($studies):
 		} else {

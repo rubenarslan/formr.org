@@ -2,7 +2,7 @@
 <div class="col-xs-12 text-right">
 <div class="monkey_bar">
 	<div class="text-center">
-				<a class="hastooltip label label-default" href="<?php echo site_url($run->name . '/?code=' . urlencode($user->user_code)); ?>" title="Link to this session (copy &amp; share to debug)"><i class="fa <?= $icon ?>"></i> <?php echo $short_code; ?> (<?=$run_session->position; ?>)</a>
+				<a class="hastooltip label label-default" href="<?php echo run_url($run->name, 'monkey-bar', array('code' => $user->user_code)); ?>" title="Link to this session (copy &amp; share to debug)"><i class="fa <?= $icon ?>"></i> <?php echo $short_code; ?> (<?=$run_session->position; ?>)</a>
 	</div>
 	<form class="form-inline form-ajax" action="<?php echo monkeybar_url($run->name, 'ajax_send_to_position'); ?>" method="post">
 		<span class="input-group">
@@ -19,7 +19,7 @@
 				<button class="btn hastooltip show_hidden_debugging_messages" disabled type="button" title="Show hidden debugging messages">
 					<i class="fa fa-search"></i>
 				</button>
-				<a href="<?php echo monkeybar_url($run->name, "ajax_next_in_run?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" class="btn hastooltip <?= $disable_class ?> link-ajax refresh_on_success unpause_now" title="Go to next step in run (unpause/skip)">
+				<a href="<?php echo monkeybar_url($run->name, 'ajax_next_in_run', array('run_session_id' => $run_session->id, 'session' => $user->user_code)); ?>" class="btn hastooltip <?= $disable_class ?> link-ajax refresh_on_success unpause_now" title="Go to next step in run (unpause/skip)">
 					<i class="fa fa-fw 
 					<?php
 					$unit_type = $run_session->getCurrentUnit()['type'];
@@ -46,10 +46,10 @@
 			<?php endforeach; ?>
 			</select>
 			<span class="input-group-btn link-ajax-modal">
-				<a class="btn hastooltip refresh_on_success <?= $disable_class; ?>" data-toggle="modal" data-target="#confirm-snip" href="javascript:void(0);" data-href="<?php echo monkeybar_url($run->name, "ajax_snip_unit_session?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" data-location="<?= site_url() ?>" title="Remove the current data at this position, start over.">
+				<a class="btn hastooltip refresh_on_success <?= $disable_class; ?>" data-toggle="modal" data-target="#confirm-snip" href="javascript:void(0);" data-href="<?php echo monkeybar_url($run->name, 'ajax_snip_unit_session', array('run_session_id' => $run_session->id, 'session' => $user->user_code)); ?>" title="Remove the current data at this position, start over.">
 					<i class="fa fa-scissors"></i>
 				</a>
-				<a class="btn hastooltip refresh_on_success <?= $disable_class; ?>" data-toggle="modal" data-target="#confirm-delete" href="javascript:void(0);" data-href="<?php echo monkeybar_url($run->name, "ajax_delete_user?run_session_id={$run_session->id}&amp;session=" . urlencode($user->user_code)); ?>" data-location="<?= site_url() ?>" title="Delete this user and all their data (you will have to confirm)">
+				<a class="btn hastooltip refresh_on_success <?= $disable_class; ?>" data-toggle="modal" data-target="#confirm-delete" href="javascript:void(0);" data-href="<?php echo monkeybar_url($run->name, 'ajax_delete_user', array('run_session_id' => $run_session->id, 'session' => $user->user_code)); ?>" data-location="<?= site_url() ?>" title="Delete this user and all their data (you will have to confirm)">
 					<i class="fa fa-trash-o"></i>
 				</a>
 			</span>

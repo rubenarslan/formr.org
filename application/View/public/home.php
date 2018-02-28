@@ -111,7 +111,7 @@
 					<img src="<?= asset_url('build/img/feedback.png') ?>" alt="Image" class="img-responsive">
 					<div class="fmr-text">
 						<h2>Surveys with feedback</h2>
-						<p class="text-left">generate simple surveys via spreadsheets. With and without feedback. Use R to generate feedack</p>
+						<p class="text-left">generate simple surveys via spreadsheets. With and without feedback. Use R to generate feedback</p>
 					</div>
 				</div>
 			</div>

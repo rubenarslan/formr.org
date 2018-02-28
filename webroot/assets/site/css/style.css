@@ -1552,6 +1552,9 @@ input:-webkit-autofill:focus {
 .monkey_bar .btn i.fa {
 	width: 0.8em;
 }
+.monkey-bar-modal .btn {
+	margin-top: 0px;
+}
 .position_monkey {
 	width: 65px !important;
 	border: 1px solid black;

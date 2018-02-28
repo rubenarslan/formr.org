@@ -678,6 +678,7 @@ class SpreadsheetReader {
 			$data[$rowNumber] = array();
 			$cellIterator = $row->getCellIterator('A', $worksheet->getHighestDataColumn());
 			$cellIterator->setIterateOnlyExistingCells(false);
+
 			foreach ($cellIterator as $cell) {
 				/* @var $cell PHPExcel_Cell */
 				if (is_null($cell)) {
@@ -738,7 +739,7 @@ class SpreadsheetReader {
 						$this->warnings[] = __('The type "<em>%s</em>" is deprecated and was automatically translated to "<em>%s</em>"', $cellValue, $trType);
 					}
 					$cellValue = $trType;
-					
+
 				} elseif ($colName == 'optional') {
 					if ($cellValue === '*') {
 						$cellValue = 1;

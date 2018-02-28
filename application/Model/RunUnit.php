@@ -281,7 +281,7 @@ class RunUnit {
 			->limit(20)->fetchAll();
 		
 		if (!$results) {
-			alert('No data to compare to yet.','alert-info');
+			alert('No data to compare to yet. Create some test data by sending guinea pigs through the run using the "Test run" function on the left.','alert-info');
 			return false;
 		}
 		return $results;
@@ -302,7 +302,7 @@ class RunUnit {
 				->fetch();
 
 			if (!$temp_user) {
-				alert('No data to compare to yet','alert-info');
+				alert('No data to compare to yet. Create some test data by sending guinea pigs through the run using the "Test run" function on the left.','alert-info');
 				return false;
 			}
 
@@ -498,10 +498,10 @@ class RunUnit {
 			}
 			
 			if(in_array('formr_login_link', $needed['variables'])) {
-				$this->survey_results['.formr$login_link'] = "'".site_url($this->run_name)."?code=".urlencode($this->session)."'";
+				$this->survey_results['.formr$login_link'] = "'" . run_url($this->run_name, null, array('code' => $this->session)) . "'";
 			}
 			if(in_array('formr_login_code', $needed['variables'])) {
-				$this->survey_results['.formr$login_code'] = "'".$this->session."'";
+				$this->survey_results['.formr$login_code'] = "'" . $this->session . "'";
 			}
 			if(in_array('formr_nr_of_participants', $needed['variables'])) {
 				$count = (int)$this->dbh->count('survey_run_sessions', array('run_id' => $this->run_id), 'id');

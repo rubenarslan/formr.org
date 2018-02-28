@@ -66,7 +66,7 @@ function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '') {
 	}
 }
 
-function redirect_to($location = '') {
+function redirect_to($location = '', $params = array()) {
 	$location = str_replace(PHP_EOL, '', $location);
 	if (strpos($location, 'index') !== false) {
 		$location = '';
@@ -79,6 +79,9 @@ function redirect_to($location = '') {
 		} else {
 			$location = $base . $location;
 		}
+	}
+	if ($params) {
+		$location .= '?' . http_build_query($params);
 	}
 
 	Session::globalRefresh();
@@ -129,7 +132,19 @@ function bad_request() {
 }
 
 function bad_request_header() {
-	header('HTTP/1.0 400 Bad Request');
+	header('HTTP/1.0 500 Bad Request');
+}
+
+function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null) {
+	$code = $code ? $code : 500;
+	header("HTTP/1.0 {$code} {$title}");
+
+	Template::load('public/error', array(
+		'code' => $code,
+		'title' => $hint ? $hint : $title,
+		'text' => $text,
+	));
+	exit;
 }
 
 function json_header() {
@@ -539,10 +554,9 @@ function echo_time_points($points) {
 function crypto_token($length, $url = true) {
 	$bytes = openssl_random_pseudo_bytes($length, $crypto_strong);
 	$base64 = base64_url_encode($bytes);
-	if (!$crypto_strong):
-		alert("Generated cryptographic tokens are not strong.", 'alert-error');
-		bad_request();
-	endif;
+	if (!$crypto_strong) {
+		formr_error(500, 'Internal Server Error', 'Generated cryptographic tokens are not strong.', 'Cryptographic Error');
+	}
 	return $base64;
 }
 
@@ -727,36 +741,60 @@ function mysql_interval($interval) {
 	return mysql_datetime($time);
 }
 
-function site_url($uri = '') {
+function site_url($uri = '', $params = array()) {
+	$url = WEBROOT;
 	if ($uri) {
-		return WEBROOT . $uri;
+		$url .= $uri . '/';
 	}
-	return WEBROOT;
+	if ($params) {
+		$url .= '?' . http_build_query($params);
+	}
+	return trim($url, '\/\\');
 }
 
-function admin_url($uri = '') {
+function admin_url($uri = '', $params = array()) {
 	if ($uri) {
 		$uri = '/' . $uri;
 	}
-	return site_url('admin' . $uri);
+	return site_url('admin' . $uri, $params);
 }
 
-function run_url($name = '') {
-	return RUNROOT . $name;
+function run_url($name = '', $action = '', $params = array()) {
+	if ($name === Run::TEST_RUN) {
+		return site_url('run/' . $name);
+	}
+
+	$protocol = Config::get('define_root.protocol');
+	$domain = trim(Config::get('define_root.doc_root'), "\/\\");
+	$subdomain = null;
+	if (Config::get('use_study_subdomains')) {
+		$subdomain = strtolower($name) . '.';
+	} else {
+		$domain .= '/' . $name;
+	}
+	$url = $protocol . $subdomain . $domain;
+	if ($action) {
+		$action = trim($action, "\/\\");
+		$url .= '/' . $action . '/';
+	}
+	if ($params) {
+		$url .= '?' . http_build_query($params);
+	}
+	return $url;
 }
 
-function admin_study_url($name = '', $action = '') {
+function admin_study_url($name = '', $action = '', $params = array()) {
 	if ($action) {
 		$name = $name . '/' . $action;
 	}
-	return admin_url('survey/' . $name);
+	return admin_url('survey/' . $name, $params);
 }
 
-function admin_run_url($name = '', $action = '') {
+function admin_run_url($name = '', $action = '', $params = array()) {
 	if ($action) {
 		$name = $name . '/' . $action;
 	}
-	return admin_url('run/' . $name);
+	return admin_url('run/' . $name, $params);
 }
 
 
@@ -781,8 +819,8 @@ function asset_url($file) {
 	return site_url($file . "?v" . $mtime);
 }
 
-function monkeybar_url($run_name, $action) {
-	return site_url('monkey_bar/' . $run_name . '/' . $action);
+function monkeybar_url($run_name, $action = '', $params = array()) {
+	return run_url($run_name, 'monkey-bar/' . $action, $params);
 }
 
 function array_to_accordion($array) {
@@ -1368,9 +1406,9 @@ function shutdown_formr_org() {
 
 		$msg = "A fatal error occured and your request could not be completed. Contact site admins with these details \n";
 		$msg .= "Error [$errno] in $errfile line $errline \n $errstr";
-		alert($msg, 'alert-danger');
+		//alert($msg, 'alert-danger');
 
-		redirect_to('error/500');
+		formr_error(500, 'Internal Server Error', nl2br($msg), 'Fatal Error');
 	}
 }
 
@@ -1554,17 +1592,6 @@ function print_scripts($files, $id = null) {
 		$id = 'js-' . $i . $id;
 		echo '<script src="' . asset_url($file) . '" id="'. $id .'"></script>' . "\n";
 	}
-}
-
-function _die($msg) {
-	$style = array(
-		'width: 500px', 'max-width: 100%', 'text-align: center', 'line-height: 50px', 'margin: 10% auto',
-		'color: #a94442', 'background-color: #f2dede', 'border: 1px solid #ebccd1', 'font-size: 20px'
-	);
-	echo '<div style="'.implode(';', $style).'">';
-	echo $msg;
-	echo '<div>';
-	exit;
 }
 
 function fwrite_json($handle, $data) {

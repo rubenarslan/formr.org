@@ -671,8 +671,10 @@
 
     Run.prototype.panic = function(e) {
         var vars = {
-            'content': '<h4>Are you really panicking?</h4>'+
-                       '<p>This run will be <b>made private</b>, <b>locked</b> and <b>cron tasks will be disabled</b>. You will need to manually undo these actions later.</p>',
+            'content': '<h4>Don\'t panic!</h4>'+
+                       '<p>Are things not going your way? Users end up in the wrong places, too many emails being sent?' +
+                       '<p>This run will be <b>made private</b>, <b>locked</b> and <b>cron tasks (automatic email and text messages) will be disabled</b>. You will need to manually undo these actions later.</p>' +
+                       '<p>This will essentially buy you some time to fix the bug or get help. By configuring the service message under settings, you can show your users an explanation.</p>',
             'yes_url': this.url + '/panic',
             'no_url': 'javascript:void(0);'
         };

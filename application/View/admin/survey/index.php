@@ -92,10 +92,6 @@
 											</div>
 
 									</td>
-									<td>
-										
-									</td>
-
 								</tr>
 
 								<tr>
@@ -104,18 +100,22 @@
 										<span class="help-block">
 											<i class="fa fa-info-circle"></i> 
 											Unlinking a survey means that the results will only be shown in random order, without session codes and dates and only after a minimum of 10 results are in. This is meant as a way to anonymise personally identifiable data and separate it from the survey data that you will analyze.
-											<strong>If you set this to 1, you won't be able to set it back to 0.</strong>
+											<strong class="text-red">You can't change this settings once you select this option.</strong>
 										</span>
-										<span class="col-md-4 nlp" style="padding-left: 0px;">
-											<input type="number" class="form-control" name="unlinked" value="<?= h($study->settings['unlinked']) ?>" min="0" max="1" size="20" />
-										</span>
+										<div class="checkbox">
+											<label> <input type="checkbox" name="unlinked" value="1" <?php if ($study->settings['unlinked']) echo 'checked="checked"'; ?>> <strong>Unlink Survey</strong> </label>
+										</div>
 									</td>
 									<td>
-										<label>Google Sheet</label>
+										<label>Disable Results Display</label>
 										<span class="help-block">
-											<i class="fa fa-info-circle"></i> This ID links to a Google Spreadsheet. You can use one to make it easier to work on spreadsheets collaboratively.
+											<i class="fa fa-info-circle"></i> Selecting this option will disable displaying the data of this survey in formr. However the data will still be available for use.
+											<strong class="text-red">You can't change this settings once you select this option.</strong>
 										</span>
-										<input type="text" class="form-control" name="google_file_id" value="<?= h($study->settings['google_file_id']) ?>" />
+										<div class="checkbox">
+											<label> <input type="checkbox" name="hide_results" value="1" <?php if ($study->settings['hide_results']) echo 'checked="checked"'; ?>> <strong>Disable</strong> </label>
+										</div>
+										<input type="hidden" class="form-control" name="google_file_id" value="<?= h($study->settings['google_file_id']) ?>" />
 									</td>
 								</tr>
 								<tr><td colspan="2"><h4>Survey access window</h4></td></tr>
@@ -125,7 +125,7 @@
 										<span class="help-block">
 											<i class="fa fa-info-circle"></i>
 											How big should the access window be for your survey? Here, you define the time a user can start the survey (usually after receiving an email invitation). By setting the second value to a value other than zero, you are saying that the user has to finish with the survey x minutes after the access window closed.<br>
-											The sum of these values is the maximum time someone can spend on this unit, giving you more predictability than the snooze button above. To allow a user to keep editing indefinitely, set the finishing time and inactivity expiration to 0. If inactivity expiration is also set, a survey can expire before the end of the finish time.
+											The sum of these values is the maximum time someone can spend on this unit, giving you more predictability than the snooze button (see below). To allow a user to keep editing indefinitely, set the finishing time and inactivity expiration to 0. If inactivity expiration is also set, a survey can expire before the end of the finish time.
 											<a href="https://github.com/rubenarslan/formr.org/wiki/Expiry">More information</a>.
 										</span>
 										<div class="form-group " style="padding-left: 0px;">
@@ -148,9 +148,9 @@
 									<td colspan="2">
 										<label>Inactivity Expiration (snooze)</label>
 										<span class="help-block">
-											<i class="fa fa-info-circle"></i> If a user is inactive in the survey for x minutes, should the survey expire? Specify <b>0 </b>if not. If a user inactive for x minutes, the run will automatically move on. If the invitation is still valid (see below), this value doesn't count. Beware: much like with the snooze button on your alarm clock, a user can theoretically snooze indefinitely.
+											<i class="fa fa-info-circle"></i> If a user is inactive in the survey for x minutes, should the survey expire? Specify <b>0 </b>if not. If a user inactive for x minutes, the run will automatically move on. If the invitation is still valid (see above), this value doesn't count. Beware: much like with the snooze button on your alarm clock, a user can theoretically snooze indefinitely.
 										</span>
-										<div class="form-group col-md-2 nlp" style="padding-left: 0px;">
+										<div class="form-group col-md-3 nlp" style="padding-left: 0px;">
 											<div class="input-group">
 												<input type="number" class="form-control" name="expire_after" value="<?= h($study->settings['expire_after']) ?>" min="0" max="3153600" size="20" />
 												<div class="input-group-addon"> Minutes</div>

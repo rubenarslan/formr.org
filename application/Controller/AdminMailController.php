@@ -31,7 +31,7 @@ class AdminMailController extends AdminController {
 				} else {
 					$acc->changeSettings($this->request->getParams());
 					alert('<strong>Success!</strong> Your email account settings were changed!', 'alert-success');
-					redirect_to("/admin/mail/?account_id=" . $acc->id);
+					redirect_to('/admin/mail/', array('account_id' => $acc->id));
 				}
 			} else {
 				//we are creating
@@ -41,7 +41,7 @@ class AdminMailController extends AdminController {
 					if ($this->request->test_account) {
 						$acc->test();
 					} else {
-						redirect_to('admin/mail/?account_id=' . $acc->id);
+						redirect_to('/admin/mail/', array('account_id' => $acc->id));
 					}
 				} else {
 					alert(implode($acc->errors), 'alert-danger');

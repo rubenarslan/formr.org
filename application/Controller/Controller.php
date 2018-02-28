@@ -160,5 +160,8 @@ abstract class Controller {
 		$this->registerAssets($assets);
 	}
 
-}
+	public function errorAction($code = null, $text = null) {
+		formr_error($code, $text);
+	}
 
+}

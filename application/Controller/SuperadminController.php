@@ -15,7 +15,7 @@ class SuperadminController extends Controller {
 	}
 
 	public function indexAction() {
-		redirect_to('public/index');
+		redirect_to('/');
 	}
 
 	public function ajaxAdminAction() {

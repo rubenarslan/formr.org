@@ -39,7 +39,7 @@
 		</div>
 		<div class="row">
 			<div class="col-md-3">
-				<a href="<?php echo site_url('edit_user'); ?>" class="dashboard-link">
+				<a href="<?php echo site_url('account'); ?>" class="dashboard-link">
 					<span class="icon"><i class="fa fa-user"></i></span>
 					<span class="text"> My Account </span>
 				</a>
