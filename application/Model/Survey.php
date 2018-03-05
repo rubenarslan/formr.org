@@ -142,6 +142,7 @@ class Survey extends RunUnit {
 			$this->settings['expire_invitation_after'] = (int) array_val($vars, 'expire_invitation_after');
 			$this->settings['expire_invitation_grace'] = (int) array_val($vars, 'expire_invitation_grace');
 			$this->settings['hide_results'] = (int) array_val($vars, 'hide_results');
+			$this->settings['use_paging'] = (int) array_val($vars, 'use_paging');
 
 			$this->valid = true;
 		endif;
@@ -1052,9 +1053,7 @@ class Survey extends RunUnit {
 			$this->startEntry();
 
 			// Use SurveyHelper if study is configured to use pages
-			// @TODO Add setting to enable this paging feature
-			$usePager = true;//in_array($this->name, Config::get('paging_surveys', array()));
-			if ($usePager) {
+			if ($this->settings['use_paging']) {
 				$surveyHelper = new SurveyHelper(new Request(array_merge($_POST, $_FILES)), $this, new Run($this->dbh, $this->run_name));
 				$surveyHelper->savePageItems($this->session_id);
 				if (($renderSurvey = $surveyHelper->renderSurvey($this->session_id)) !== false) {
@@ -1146,6 +1145,7 @@ class Survey extends RunUnit {
 
 		$key_value_pairs['enable_instant_validation'] = (int)(isset($key_value_pairs['enable_instant_validation']) && $key_value_pairs['enable_instant_validation'] == 1);
 		$key_value_pairs['hide_results'] = (int)(isset($key_value_pairs['hide_results']) && $key_value_pairs['hide_results'] === 1);
+		$key_value_pairs['use_paging'] = (int)(isset($key_value_pairs['use_paging']) && $key_value_pairs['use_paging'] === 1);
 		$key_value_pairs['unlinked'] = (int)(isset($key_value_pairs['unlinked']) && $key_value_pairs['unlinked'] === 1);
 
 		// user can't revert unlinking
@@ -1156,7 +1156,13 @@ class Survey extends RunUnit {
 
 		// user can't revert preventing results display
 		if($key_value_pairs['hide_results'] < $this->settings['hide_results']) {
-			alert("Once results display is disabled, it cannot be re-enabled", 'alert-warning');
+			alert("Once results display is disabled, it cannot be re-enabled.", 'alert-warning');
+			$errors = true;
+		}
+
+		// user can't revert preventing results display
+		if($key_value_pairs['use_paging'] < $this->settings['use_paging']) {
+			alert("Once you have enabled the use of custom paging, you can revert this setting.", 'alert-warning');
 			$errors = true;
 		}
 

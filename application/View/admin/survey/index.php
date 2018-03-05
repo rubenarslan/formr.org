@@ -158,6 +158,21 @@
 										</div>
 									</td>
 								</tr>
+								<tr><td colspan="2"><h4>Survey Paging</h4></td></tr>
+								<tr>
+									<td colspan="2">
+										<label>Custom Paging</label>
+										<span class="help-block">
+											<i class="fa fa-info-circle"></i> 
+											By enabling custom dynamic paging, your survey items will be "grouped" in pages depending on how your <i>Submit Items</i> are defined in the items sheet. That is, each page ends at a defined submit button.
+											Enabling this option nullifies the above "<i><b>Items Per Page</b></i>" setting, which means the number of items on a page will be determined by where <i>Submit Items</i> are placed in your <a href="<?php echo site_url('documentation#sample_survey_sheet'); ?>">items sheet</a>.
+											<strong class="text-red">You can't change this settings once you select this option.</strong>
+										</span>
+										<div class="checkbox">
+											<label> <input type="checkbox" name="use_paging" value="1" <?php if ($study->settings['use_paging']) echo 'checked="checked"'; ?>> <strong>Enable Paging</strong> </label>
+										</div>
+									</td>
+								</tr>
 
 							</table>
 
