@@ -1162,7 +1162,7 @@ class Survey extends RunUnit {
 
 		// user can't revert preventing results display
 		if($key_value_pairs['use_paging'] < $this->settings['use_paging']) {
-			alert("Once you have enabled the use of custom paging, you can revert this setting.", 'alert-warning');
+			alert("Once you have enabled the use of custom paging, you can't revert this setting.", 'alert-warning');
 			$errors = true;
 		}
 
