@@ -38,6 +38,7 @@ class SurveyHelper {
 	 * @var UnitSession
 	 */
 	protected $unitSession;
+
 	protected $errors = array();
 	protected $message = null;
 
@@ -501,8 +502,6 @@ class SurveyHelper {
 		}
 		return false;
 	}
-
-
 
 	private function redirectToPage($page) {
 		if ($page < 0) {
