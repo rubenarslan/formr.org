@@ -164,6 +164,7 @@ class SurveyHelper {
 			/* @var $oItem Item */
 			$oItem = $itemFactory->make($item);
 			$oItem->hidden = null;
+			$oItem->data_showif = $oItem->js_showif ? true : false;
 			$pItem = array_val($this->postedValues, $oItem->name, $oItem->value_validated);
 			$oItem->value_validated = $pItem instanceof Item ? $pItem->value_validated : $pItem;
 			$pageItems[$oItem->name] = $oItem;

@@ -92,12 +92,12 @@ class Item {
 	public $presetValue = null;
 	public $allowed_classes = array();
 	public $skip_validation = false;
-	
+	public $data_showif = false;
+
 	protected $prepend = null;
 	protected $append = null;
 	protected $type_options_array = array();
 	protected $hasChoices = false;
-	protected $data_showif = false;
 	protected $classes_controls = array('controls');
 	protected $classes_wrapper = array('form-group', 'form-row');
 	protected $classes_input = array();
