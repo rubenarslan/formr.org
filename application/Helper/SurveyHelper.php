@@ -173,12 +173,6 @@ class SurveyHelper {
 			}
 		}
 
-		// add a submit button if none exists
-		$lastItem = end($pageItems);
-		if ($lastItem && $lastItem->type !== 'submit') {
-			$pageItems[] = $this->getSubmitButton();
-		}
-
 		if (!$pageItems) {
 			return array();
 		}
@@ -191,6 +185,12 @@ class SurveyHelper {
 		$pageItems = $this->processAutomaticItems($pageItems);
 		$pageItems = $this->processDynamicValuesAndShowIfs($pageItems);
 		$pageItems = $this->processDynamicLabelsAndChoices($pageItems);
+
+		// add a submit button if none exists
+		$lastItem = end($pageItems);
+		if (($lastItem && $lastItem->type !== 'submit') || ($lastItem && $lastItem->hidden)) {
+			$pageItems[] = $this->getSubmitButton();
+		}
 
 		//Check if there is any rendered item and if not, dummy post these and move to next page
 		if (!$this->displayedItemExists($pageItems)) {

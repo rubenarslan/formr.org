@@ -110,11 +110,11 @@
                  };*/
                 );
                 return false;
-            }).each(function ()
-            {
+            }).each(function () {
                 $(this).closest('.input-group-btn.hidden').removeClass('hidden');
             });
         });
+
         webshim.ready('DOM forms forms-ext dom-extend', function () {
             var mc_buttons = $('div.btn-radio, div.btn-checkbox, div.btn-check');
             mc_buttons.each(function (i, elm) {
@@ -416,8 +416,7 @@
         this.data = {};
         var survey = this;
 
-        $.each(badArray, function (i, obj)
-        {
+        $.each(badArray, function (i, obj) {
             if (obj.name.indexOf('_') !== 0 && obj.name != "session_id") { // skip hidden items beginning with underscore (e.g _item_view)
                 if (obj.name.indexOf('[]', obj.name.length - 2) > -1)
                     obj.name = obj.name.substring(0, obj.name.length - 2);
@@ -432,8 +431,7 @@
                         val = parseFloat(val);
                     }
                     survey.data[obj.name] = val;
-                }
-                else {
+                } else {
                     survey.data[obj.name] += ", " + obj.value;
                 }
             }
@@ -466,24 +464,27 @@
 		}
         var any_change = false;
         survey.items_with_showifs.each(function (i, elm) { // walk through all form elements that are dynamically shown/hidden
-            var showif = $(elm).data('showif'); // get specific condition
-
-            with (survey.data) { // using the form data as the environment
+			var $elm = $(elm);
+            var showif = $elm.data('showif'); // get specific condition
+			with (survey.data) { // using the form data as the environment
                 var hide = true; // hiding is the default, if the try..catch fails
                 try {
                     hide = !eval(showif); // evaluate the condition
                 } catch (e) {
                     if (window.console) {
-                        console.log("JS showif failed", showif, e, $(elm).find('input').attr('name'));
+                        console.log("JS showif failed", showif, e, $elm.find('input').attr('name'));
 					}
 					// Maybe show-if relies on an data that is on a previous page.
 					// So use the data-show attribute which is set based on show-if evaluated in R, using data from previous page.
-					if($(elm).data('show')) {
+					if($elm.data('show')) {
 						hide = false;
 					}
                 }
 
-				any_change = survey.setItemVisibility($(elm), hide);
+				$elm.data('show', false).removeAttr('data-show');
+				$elm.removeAttr('data-show');
+
+				any_change = survey.setItemVisibility($elm, hide);
             }
         });
         return any_change;
