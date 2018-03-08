@@ -2112,6 +2112,12 @@ radio input[type="radio"], .radio-inline input[type="radio"], .checkbox input[ty
 .checkbox .checkbox-material, label.checkbox-inline .checkbox-material {
 	margin: 0px 10px;
 }
+div[class*="-counter"] {
+	display: none;
+}
+div.form-group.is-counter {
+	display: block;
+}
 
 /* bootstrap-material-design fixes */
 
