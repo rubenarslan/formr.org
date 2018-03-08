@@ -164,7 +164,6 @@ class SurveyHelper {
 			/* @var $oItem Item */
 			$oItem = $itemFactory->make($item);
 			$oItem->hidden = null;
-			$oItem->data_showif = $oItem->js_showif ? true : false;
 			$pItem = array_val($this->postedValues, $oItem->name, $oItem->value_validated);
 			$oItem->value_validated = $pItem instanceof Item ? $pItem->value_validated : $pItem;
 			$pageItems[$oItem->name] = $oItem;
@@ -427,6 +426,10 @@ class SurveyHelper {
 						$save[$item->name] = $item->getComputedValue();
 						//unset($items[$item_name]); // we remove items that are immediately written from consideration
 						continue; // don't increment counter
+					}
+					if (!$item->isHiddenButRendered() && $item->isRendered()) {
+						$item->parent_attributes['data-show'] = true;
+						$item->data_showif = $item->js_showif ? true : false;
 					}
 				}
 				$definitelyShownItems++; // track whether there are any items certain to be shown
