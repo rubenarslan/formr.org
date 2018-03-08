@@ -283,15 +283,28 @@ class SurveyHelper {
 
 	protected function getPageElement($pageNo) {
 		$tpl = '<div class="col-md-12 text-right" class="fmr-survey-page-count">
-					<strong>Page %{page}/%{max_page}</strong>
+					<strong><span class="page-text">Page</span> %{page}/%{max_page}</strong>
 					<input name="%{name}" value="%{value}" type="hidden" />
+					<div class="clearfix"></div>
+					<div class="btn-group page-buttons">
+						%{buttons}
+					</div>
 				</div>
 		';
+		$buttons = '';
+		for ($i = 1; $i < $pageNo; $i++) {
+			$buttons .= Template::replace('<a class="btn btn-default" href="%{run_url}">%{page_no}</a>', array(
+				'run_url' => $this->getPageUrl($i),
+				'page_no' => $i
+			));
+		}
+
 		return Template::replace($tpl, array(
 			'page' => $pageNo,
 			'max_page' => $this->getMaxPage(),
 			'name' => self::FMR_PAGE_ELEMENT,
 			'value' => $pageNo,
+			'buttons' => $buttons ? '<span class="btn back-text" style="border: none;"> Back to Page </span>' . $buttons : null,
 		));
 	}
 
@@ -508,13 +521,17 @@ class SurveyHelper {
 	}
 
 	private function redirectToPage($page) {
+		$redirect = $this->getPageUrl($page);
+		redirect_to($redirect);
+	}
+
+	private function getPageUrl($page) {
 		if ($page < 0) {
 			$page = 1;
 		}
 		$params = array_diff_key($_REQUEST, $_POST);
 		unset($params['route'], $params['run_name'], $params['code']);
-		$redirect = run_url($this->run->name, $page, $params);
-		redirect_to($redirect);
+		return run_url($this->run->name, $page, $params);
 	}
 
 }

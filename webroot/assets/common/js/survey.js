@@ -422,10 +422,11 @@
                     obj.name = obj.name.substring(0, obj.name.length - 2);
 
                 if (obj.value === "" && $("input[type=hidden][name='" + obj.name + "']").length === 1 && obj.value === $("input[type=hidden][name='" + obj.name + "']").attr("value")) {
+					survey.data[obj.name] = null;
                     return true;
                 }
 
-                if (!survey.data[ obj.name ]) {
+                if (!survey.data[obj.name]) {
                     var val = obj.value;
                     if ($.isNumeric(val)) {
                         val = parseFloat(val);
@@ -480,9 +481,6 @@
 						hide = false;
 					}
                 }
-
-				$elm.data('show', false).removeAttr('data-show');
-				$elm.removeAttr('data-show');
 
 				any_change = survey.setItemVisibility($elm, hide);
             }
