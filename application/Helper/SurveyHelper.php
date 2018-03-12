@@ -181,6 +181,7 @@ class SurveyHelper {
 			$this->showSurveyItem($oItem);
 			$pItem = array_val($this->postedValues, $oItem->name, $oItem->value_validated);
 			$oItem->value_validated = $pItem instanceof Item ? $pItem->value_validated : $pItem;
+			$oItem->skip_validation = !$process;
 			$pageItems[$oItem->name] = $oItem;
 
 			if ($oItem->type === 'submit') {
@@ -213,6 +214,7 @@ class SurveyHelper {
 		//Check if there is any rendered item and if not, dummy post these and move to next page
 		if (!$this->displayedItemExists($pageItems)) {
 			$this->survey->post($pageItems, false);
+			Session::set('is-survey-post', true);
 			$pageNo++;
 			$this->redirectToPage($pageNo);
 		}
