@@ -29,6 +29,8 @@ class ItemFactory {
 
 		$type = str_replace('-', '_', $type);
 		$class = $this->getItemClass($type);
+		// unset internally set properties
+		unset($item['hidden']);
 
 		if (!class_exists($class, true)) {
 			return false;

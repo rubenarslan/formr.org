@@ -533,7 +533,7 @@ class Survey extends RunUnit {
 
 				$survey_items_display->bindValue(":item_id", $item->id);
 				$survey_items_display->bindValue(":answer", $item->getReply($value));
-				$survey_items_display->bindValue(":hidden", 0); // an item that was answered has to have been shown
+				$survey_items_display->bindValue(":hidden", $item->skip_validation ? (int)$item->hidden : 0); // an item that was answered has to have been shown
 				$survey_items_display->bindValue(":saved", mysql_now());
 				$survey_items_display->bindParam(":shown", $shown);
 				$survey_items_display->bindParam(":shown_relative", $shown_relative);

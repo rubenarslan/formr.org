@@ -74,7 +74,7 @@ class SurveyHelper {
 
 		// Check if user is allowed to enter this page
 		if ($prev = $this->emptyPreviousPageExists($pageNo)) {
-			alert('There are missing responses in your survey. Please proceed from here', 'alert-warning');
+			//alert('There are missing responses in your survey. Please proceed from here', 'alert-warning');
 			$this->redirectToPage($prev);
 		}
 
@@ -87,6 +87,7 @@ class SurveyHelper {
 		$pageElement = $this->getPageElement($pageNo);
 
 		$this->survey->rendered_items = $this->getPageItems($pageNo);
+		Session::delete('is-survey-post');
 		return $this->survey->render($formAction, $pageElement);
 	}
 
@@ -124,6 +125,7 @@ class SurveyHelper {
 		unset($this->postedValues['fmr_unit_page_element']);
 		$save = $this->survey->post($this->postedValues);
 		if ($save) {
+			Session::set('is-survey-post', true);
 			$currPage++;
 			$this->redirectToPage($currPage);
 		}
@@ -159,11 +161,24 @@ class SurveyHelper {
 		$itemFactory = new ItemFactory(array());
 		/* @var $pageItems Item[] */
 		$pageItems = array();
+		$processShowIfs = true;
 
 		while ($item = $stmt->fetch(PDO::FETCH_ASSOC)) {
+			$hidden = $item['hidden'];
+			if ($hidden !== null) {
+				// show-ifs have been processed for this page
+				$processShowIfs = false;
+			}
 			/* @var $oItem Item */
 			$oItem = $itemFactory->make($item);
 			$oItem->hidden = null;
+			$visibility = $hidden === null ? true : (bool)!$hidden;
+			$v = $oItem->type !== 'submit' ? $oItem->setVisibility(array($visibility)) : null;
+			if ($visibility === null || Session::get('is-survey-post')) {
+				$oItem->hidden = null;
+			}
+
+			$this->showSurveyItem($oItem);
 			$pItem = array_val($this->postedValues, $oItem->name, $oItem->value_validated);
 			$oItem->value_validated = $pItem instanceof Item ? $pItem->value_validated : $pItem;
 			$pageItems[$oItem->name] = $oItem;
@@ -183,7 +198,10 @@ class SurveyHelper {
 		}
 
 		$pageItems = $this->processAutomaticItems($pageItems);
-		$pageItems = $this->processDynamicValuesAndShowIfs($pageItems);
+		// Porcess show-ifs only when necessary i.e when user is not going to a previous page OR page is not being POSTed
+		if ($processShowIfs || Session::get('is-survey-post')) {
+			$pageItems = $this->processDynamicValuesAndShowIfs($pageItems);
+		}
 		$pageItems = $this->processDynamicLabelsAndChoices($pageItems);
 
 		// add a submit button if none exists
@@ -428,6 +446,9 @@ class SurveyHelper {
 
 				if ($hidden === 1) { // gone for good
 					//unset($items[$item_name]); // we remove items that are definitely hidden from consideration
+					unset($item->parent_attributes['data-show']);
+					$item->hidden = null;
+					$item->hide();
 					continue; // don't increment counter
 				} else {
 					// set dynamic values for items
@@ -440,10 +461,7 @@ class SurveyHelper {
 						//unset($items[$item_name]); // we remove items that are immediately written from consideration
 						continue; // don't increment counter
 					}
-					if (!$item->isHiddenButRendered() && $item->isRendered()) {
-						$item->parent_attributes['data-show'] = true;
-						$item->data_showif = $item->js_showif ? true : false;
-					}
+					$this->showSurveyItem($item);
 				}
 				$definitelyShownItems++; // track whether there are any items certain to be shown
 			}
@@ -503,6 +521,20 @@ class SurveyHelper {
 		}
 
 		return $items;
+	}
+
+	/**
+	 * Mark as item as "to be shown"
+	 *
+	 * @param Item $item
+	 * @return Item
+	 */
+	protected function showSurveyItem(&$item) {
+		if (!$item->isHiddenButRendered() && $item->isRendered()) {
+			$item->parent_attributes['data-show'] = true;
+			$item->data_showif = $item->js_showif ? true : false;
+		}
+		return $item;
 	}
 
 	/**
