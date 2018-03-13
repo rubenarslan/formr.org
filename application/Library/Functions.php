@@ -10,11 +10,11 @@ function formr_log($msg, $type = '') {// shorthand
 	if ($type) {
 		$msg = "[$type] $msg";
 	}
-
+/*
 	if (DEBUG) {
 		alert('<pre>' . $msg . '</pre>', 'alert-danger');
 	}
-
+*/
 	error_log($msg . "\n", 3, get_log_file('errors.log'));
 }
 
