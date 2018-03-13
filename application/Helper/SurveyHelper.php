@@ -123,7 +123,7 @@ class SurveyHelper {
 		}
 
 		unset($this->postedValues['fmr_unit_page_element']);
-		$save = $this->survey->post($this->postedValues);
+		$save = $this->saveSuryeyItems($this->postedValues);
 		if ($save) {
 			Session::set('is-survey-post', true);
 			$currPage++;
@@ -178,10 +178,9 @@ class SurveyHelper {
 				$oItem->hidden = null;
 			}
 
-			$this->showSurveyItem($oItem);
+			$this->markItemAsShown($oItem);
 			$pItem = array_val($this->postedValues, $oItem->name, $oItem->value_validated);
 			$oItem->value_validated = $pItem instanceof Item ? $pItem->value_validated : $pItem;
-			$oItem->skip_validation = !$process;
 			$pageItems[$oItem->name] = $oItem;
 
 			if ($oItem->type === 'submit') {
@@ -213,7 +212,7 @@ class SurveyHelper {
 
 		//Check if there is any rendered item and if not, dummy post these and move to next page
 		if (!$this->displayedItemExists($pageItems)) {
-			$this->survey->post($pageItems, false);
+			$this->saveSuryeyItems($pageItems, false);
 			Session::set('is-survey-post', true);
 			$pageNo++;
 			$this->redirectToPage($pageNo);
@@ -371,7 +370,7 @@ class SurveyHelper {
 
 		// save these values
 		if ($hiddenItems) {
-			$this->survey->post($hiddenItems, false);
+			$this->saveSuryeyItems($hiddenItems, false);
 		}
 
 		// return possibly shortened item array
@@ -463,11 +462,11 @@ class SurveyHelper {
 						//unset($items[$item_name]); // we remove items that are immediately written from consideration
 						continue; // don't increment counter
 					}
-					$this->showSurveyItem($item);
+					$this->markItemAsShown($item);
 				}
 				$definitelyShownItems++; // track whether there are any items certain to be shown
 			}
-			$this->survey->post($save, false);
+			$this->saveSuryeyItems($save, false);
 		}
 
 		return $items;
@@ -531,12 +530,27 @@ class SurveyHelper {
 	 * @param Item $item
 	 * @return Item
 	 */
-	protected function showSurveyItem(&$item) {
+	protected function markItemAsShown(&$item) {
 		if (!$item->isHiddenButRendered() && $item->isRendered()) {
 			$item->parent_attributes['data-show'] = true;
 			$item->data_showif = $item->js_showif ? true : false;
 		}
 		return $item;
+	}
+
+	/**
+	 * Save Survey Items
+	 *
+	 * @param Item[] $items
+	 * @param boolean $validate
+	 */
+	protected function saveSuryeyItems($items, $validate = true) {
+		if (!$validate) {
+			foreach ($items as &$item) {
+				$item->skip_validation = true;
+			}
+		}
+		return $this->survey->post($items, $validate);
 	}
 
 	/**
