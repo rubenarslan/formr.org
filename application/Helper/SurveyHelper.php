@@ -547,7 +547,9 @@ class SurveyHelper {
 	protected function saveSuryeyItems($items, $validate = true) {
 		if (!$validate) {
 			foreach ($items as &$item) {
-				$item->skip_validation = true;
+				if ($item instanceof Item) {
+					$item->skip_validation = true;
+				}
 			}
 		}
 		return $this->survey->post($items, $validate);
