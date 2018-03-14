@@ -1171,7 +1171,7 @@ class Survey extends RunUnit {
 			$errors = true;
 		}
 
-		if (count(array_intersect(array_keys($key_value_pairs), array_keys($this->settings))) !== count($this->settings)) { // any settings that aren't in the settings array?
+		if (array_diff(array_keys($key_value_pairs), array_keys($this->settings))) { // any settings that aren't in the settings array?
 			alert("Invalid settings.", 'alert-danger');
 			$errors = true;
 		}
@@ -1286,7 +1286,7 @@ class Survey extends RunUnit {
 
 		$results_table = substr("s" . $this->id . '_' . $name, 0, 64);
 
-		if( $this->dbh->table_exists($results_table)) {
+		if($this->dbh->table_exists($results_table)) {
 			alert("Results table name conflict. This shouldn't happen. Please alert the formr admins.", 'alert-danger');
 			return false;
 		}
@@ -1302,7 +1302,7 @@ class Survey extends RunUnit {
 		), $updates);
 
 		$this->dbh->insert('survey_studies', $study);
-
+		$this->load();
 
 		$this->changeSettings(array_merge(array(
 			"maximum_number_displayed" => 0,
