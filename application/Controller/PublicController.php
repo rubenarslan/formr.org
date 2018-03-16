@@ -119,7 +119,7 @@ class PublicController extends Controller {
 			redirect_to("index");
 		}
 
-		if($site->request->str('email')) {
+		if($this->request->isHTTPPostRequest() && $site->request->str('email')) {
 			if($user->register($site->request->str('email'), $site->request->str('password'), $site->request->str('referrer_code'))) {
 				alert('<strong>Success!</strong> You were registered and logged in!','alert-success');
 				redirect_to('index');
@@ -137,7 +137,10 @@ class PublicController extends Controller {
 		$verification_token = $this->request->str('verification_token');
 		$email = $this->request->str('email');
 
-		if(!$verification_token || !$email) {
+		if ($this->request->isHTTPGetRequest() && $this->request->str('token')) {
+			$user->resendVerificationEmail($this->request->str('token'));
+			redirect_to('login');
+		} elseif (!$verification_token || !$email) {
 			alert("You need to follow the link you received in your verification mail.");
 			redirect_to('login');
 		} else {
