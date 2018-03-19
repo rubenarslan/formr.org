@@ -63,7 +63,9 @@
         this.next_update = false;
         this.dont_update = false;
         this.spinner = ' <i class="fa fa-spinner fa-spin"></i>';
+		this.counterBtns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></div>');
         var survey = this;
+
         // initialising special items
         // --------------------------
 
@@ -108,11 +110,11 @@
                  };*/
                 );
                 return false;
-            }).each(function ()
-            {
+            }).each(function () {
                 $(this).closest('.input-group-btn.hidden').removeClass('hidden');
             });
         });
+
         webshim.ready('DOM forms forms-ext dom-extend', function () {
             var mc_buttons = $('div.btn-radio, div.btn-checkbox, div.btn-check');
             mc_buttons.each(function (i, elm) {
@@ -122,7 +124,7 @@
             $('.item-number.counter input[type=number]').each(function () {
                 var $input = $(this);
                 $input.parents("span").hide();
-                var btns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></div>');
+                var btns = survey.counterBtns;
                 btns.insertAfter($input.parents("span"));
                 btns.find(".btn-down").click(function ()
                 {
@@ -153,6 +155,7 @@
                 });
 
             });
+			survey.setUpCounters();
 
             $("select.select2zone, .form-group.select2 select").each(function (i, elm)
             {
@@ -407,36 +410,37 @@
         survey.showIf();
         survey.getProgress();
     };
-    Survey.prototype.getData = function () {
+
+	Survey.prototype.getData = function () {
         var badArray = this.$form.serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
         this.data = {};
         var survey = this;
 
-        $.each(badArray, function (i, obj)
-        {
+        $.each(badArray, function (i, obj) {
             if (obj.name.indexOf('_') !== 0 && obj.name != "session_id") { // skip hidden items beginning with underscore (e.g _item_view)
                 if (obj.name.indexOf('[]', obj.name.length - 2) > -1)
                     obj.name = obj.name.substring(0, obj.name.length - 2);
 
                 if (obj.value === "" && $("input[type=hidden][name='" + obj.name + "']").length === 1 && obj.value === $("input[type=hidden][name='" + obj.name + "']").attr("value")) {
+					survey.data[obj.name] = null;
                     return true;
                 }
 
-                if (!survey.data[ obj.name ]) {
+                if (!survey.data[obj.name]) {
                     var val = obj.value;
                     if ($.isNumeric(val)) {
                         val = parseFloat(val);
                     }
                     survey.data[obj.name] = val;
-                }
-                else {
+                } else {
                     survey.data[obj.name] += ", " + obj.value;
                 }
             }
         });
 
     };
-    Survey.prototype.getProgress = function () {
+
+	Survey.prototype.getProgress = function () {
         var survey = this;
         survey.items_answered_on_page = $(".formr_answered").length + 0;
         survey.items_visible_on_page = $(".form-group:not(.hidden)").length + 0;
@@ -454,43 +458,51 @@
         return prog;
     };
 
-    Survey.prototype.showIf = function (e)
-    {
+    Survey.prototype.showIf = function (e) {
         var survey = this;
-        if (!survey.items_with_showifs)
+        if (!survey.items_with_showifs) {
             survey.items_with_showifs = $(".form-group[data-showif]");
+		}
         var any_change = false;
-        survey.items_with_showifs.each(function (i, elm) // walk through all form elements that are dynamically shown/hidden
-        {
-            var showif = $(elm).data('showif'); // get specific condition
-
-            with (survey.data) // using the form data as the environment
-            {
+        survey.items_with_showifs.each(function (i, elm) { // walk through all form elements that are dynamically shown/hidden
+			var $elm = $(elm);
+            var showif = $elm.data('showif'); // get specific condition
+			with (survey.data) { // using the form data as the environment
                 var hide = true; // hiding is the default, if the try..catch fails
-                try
-                {
+                try {
                     hide = !eval(showif); // evaluate the condition
-                }
-                catch (e)
-                {
-                    if (window.console)
-                        console.log("JS showif failed", showif, e, $(elm).find('input').attr('name'));
+                } catch (e) {
+                    if (window.console) {
+                        console.log("JS showif failed", showif, e, $elm.find('input').attr('name'));
+					}
+					// Maybe show-if relies on an data that is on a previous page.
+					// So use the data-show attribute which is set based on show-if evaluated in R, using data from previous page.
+					if($elm.data('show')) {
+						hide = false;
+					}
                 }
 
-                if ($(elm).hasClass('hidden') != hide) {
-                    any_change = true;
-                    $(elm).toggleClass('hidden', hide); // show/hide depending on evaluation
-                    $(elm).find('input,select,textarea,button').prop('disabled', hide); // enable/disable depending on evaluation
-                    $(elm).find('.select2-container').select2('enable', !hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
-                    if (!hide) {
-                        $(elm).find("input.item_shown").val(mysql_datetime());
-                        $(elm).find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
-                    }
-                }
+				any_change = survey.setItemVisibility($elm, hide);
             }
         });
         return any_change;
     };
+
+	Survey.prototype.setItemVisibility = function($elm, hide) {
+		if ($elm.hasClass('hidden') != hide) {
+			$elm.toggle(!hide);
+			$elm.toggleClass('hidden', hide); // show/hide depending on evaluation
+			$elm.find('input,select,textarea,button').prop('disabled', hide); // enable/disable depending on evaluation
+			$elm.find('.select2-container').select2('enable', !hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
+			if (!hide) {
+				$elm.find("input.item_shown").val(mysql_datetime());
+				$elm.find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
+			}
+			return true;
+		}
+		return false;
+	};
+
     Survey.prototype.doMonkey = function (monkey_iteration) {
         var survey = this;
         if (monkey_iteration > 2) {
@@ -530,8 +542,7 @@
             range: 1
         };
 
-        items_left.each(function (i, formRow)
-        {
+        items_left.each(function (i, formRow) {
             // adapted from https://github.com/chrispederick/web-developer/
             formRow = $(formRow);
             var inputElement = null;
@@ -549,11 +560,10 @@
             var maximumValue = 0;
             var minimumValue = 0;
 
-            select2Elements = formRow.find(".select2-container:visible");
+            var select2Elements = formRow.find(".select2-container:visible");
             // Loop through the select2 tags
-            for (j = 0, m = select2Elements.length; j < m; j++)
-            {
-                select2Element = $(select2Elements[j]);
+            for (j = 0, m = select2Elements.length; j < m; j++) {
+                var select2Element = $(select2Elements[j]);
 
                 // If the button element is not disabled and the value is not set
                 if (select2Element.data('select2').opts.data) {
@@ -564,16 +574,13 @@
                 return;
             }
 
-            buttonElements = formRow.find("button.btn:visible");
-
+            var buttonElements = formRow.find("button.btn:visible");
             // Loop through the button tags
-            for (j = 0, m = buttonElements.length; j < m; j++)
-            {
-                buttonElement = buttonElements[j];
+            for (j = 0, m = buttonElements.length; j < m; j++) {
+                var buttonElement = buttonElements[j];
 
                 // If the button element is not disabled and the value is not set
-                if (!buttonElement.disabled)
-                {
+                if (!buttonElement.disabled) {
                     buttonElement.click();
                 }
                 return;
@@ -581,26 +588,20 @@
 
             selectElements = formRow.find("select:visible");
             // Loop through the select tags
-            for (j = 0, m = selectElements.length; j < m; j++)
-            {
+            for (j = 0, m = selectElements.length; j < m; j++) {
                 selectElement = selectElements[j];
 
                 // If the select element is not disabled and the value is not set
-                if (!selectElement.disabled && !selectElement.value.trim())
-                {
+                if (!selectElement.disabled && !selectElement.value.trim()) {
                     options = selectElement.options;
 
                     // Loop through the options
-                    for (var k = 0, n = options.length; k < n; k++)
-                    {
+                    for (var k = 0, n = options.length; k < n; k++) {
                         option = options.item(k);
 
                         // If the option is set and the option text and option value are not empty
-                        if (option && option.text.trim() && option.value.trim())
-                        {
+                        if (option && option.text.trim() && option.value.trim()) {
                             selectElement.selectedIndex = k;
-
-
                             break;
                         }
                     }
@@ -610,18 +611,15 @@
 
             inputElements = formRow.find("input:not(.ws-inputreplace):not(input[type=hidden])");
             // Loop through the input tags
-            for (var j = 0, m = inputElements.length; j < m; j++)
-            {
+            for (var j = 0, m = inputElements.length; j < m; j++) {
                 inputElement = inputElements[j];
                 inputElementName = inputElement.getAttribute("name");
 
                 // If the input element is not disabled
-                if (!inputElement.disabled)
-                {
+                if (!inputElement.disabled) {
                     inputElementType = inputElement.getAttribute("type").toLowerCase();
                     // If the input element value is not set and the type is not set or is one of the supported types
-                    if (defaultByType[inputElementType])
-                    {
+                    if (defaultByType[inputElementType]) {
                         inputElementMaxlength = inputElement.getAttribute("maxlength");
 
                         if (defaultByType[inputElementType]) {
@@ -639,9 +637,7 @@
                         {
                             $(inputElement).val(inputElement.value.substr(0, inputElementMaxlength));
                         }
-                    }
-                    else if ((inputElementType == "checkbox" || inputElementType == "radio"))
-                    {
+                    } else if ((inputElementType == "checkbox" || inputElementType == "radio")) {
                         $(inputElement).prop('checked', true);
                     }
                 }
@@ -649,19 +645,16 @@
 
             textAreaElements = formRow.find("textarea:visible");
             // Loop through the text area tags
-            for (j = 0, m = textAreaElements.length; j < m; j++)
-            {
+            for (j = 0, m = textAreaElements.length; j < m; j++) {
                 textAreaElement = textAreaElements[j];
 
                 // If the text area element is not disabled and the value is not set
-                if (!textAreaElement.disabled && !textAreaElement.value.trim())
-                {
+                if (!textAreaElement.disabled && !textAreaElement.value.trim()) {
                     textAreaElementMaxlength = textAreaElement.getAttribute("maxlength");
                     $(textAreaElement).val(defaultByType.textarea);
 
                     // If the text area element has a maxlength attribute
-                    if (textAreaElementMaxlength && textAreaElement.value > textAreaElementMaxlength)
-                    {
+                    if (textAreaElementMaxlength && textAreaElement.value > textAreaElementMaxlength) {
                         textAreaElement.value = textAreaElement.value.substr(0, textAreaElementMaxlength);
                     }
                 }
@@ -669,14 +662,73 @@
 
         });
         // get progress
-        items_left.each(function (i, elm)
-        {
+        items_left.each(function (i, elm) {
             $(elm).trigger('change');
         });
         survey.dont_update = false;
         survey.update();
         survey.doMonkey(monkey_iteration);
     };
+
+	Survey.prototype.setUpCounters = function() {
+		var survey = this;
+		webshim.ready('DOM forms forms-ext dom-extend', function () {
+			$('.form-group.item-number.is-counter .controls input').each(function () {
+				var $input = $(this);
+				var $parent = $input.parents('span');
+				var $btns = survey.counterBtns;
+
+				$parent.hide();
+				$btns.insertAfter($parent);
+				toggleCounterElements($input.val());
+
+				// bind-clicks
+                $btns.find('.btn').click(function (e) {
+					e.preventDefault();
+					var $btn = $(this);
+                    var val = 1;
+                    if ($input.val()) {
+						val = +$input.val();
+					}
+ 
+                    if ($btn.is('.btn-down') && $input.attr('min') < val) {
+						val -= 1;
+                    } else if ($btn.is('.btn-up') && $input.attr('max') > val) {
+						val += 1;
+					}
+
+					toggleCounterElements(val);
+					return false;
+                });
+
+				function toggleCounterElements(val) {
+					// get the counter name and show/hide corresponding elements
+					var classList = $input.parents('.is-counter').attr('class').replace(/\s+/g, ' ').split(' ');
+					var counterName = null;
+					for (var i in classList) {
+						if (classList[i].indexOf('-counter') !== -1 && classList[i] !== "is-counter") {
+							counterName = classList[i];
+							break;
+						}
+					}
+					// If there is no DOM element having the counter name value then return;
+					if (!$('.' + counterName + '-' + val).length) {
+						return false;
+					}
+					// Set value
+					$input.attr('value', val);
+					if (counterName) {
+						$('div[class*='+counterName+'-]').each(function() {
+							survey.setItemVisibility($(this), true);
+						});
+						for (var s = 1; s <= val; s++) {
+							survey.setItemVisibility($('.' + counterName + '-' + s), false);
+						}
+					}
+				}
+			});
+		});
+	};
 
     $(function () { // on domready
         var survey = new Survey();

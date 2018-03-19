@@ -179,14 +179,16 @@ formr robots";
 	}
 
 	public function login($email, $password) {
-		$user = $this->dbh->select('id, password, admin, user_code, email_verified')
+		$user = $this->dbh->select('id, password, admin, user_code, email_verified, email_verification_hash')
 				->from('survey_users')
 				->where(array('email' => $email))
 				->limit(1)->fetch();
 		if ($user && !$user['email_verified']) {
+			$verification_link = site_url('verify-email', array('token' => $user['email_verification_hash']));
 			$this->id = $user['id'];
 			$this->email = $email;
-			$this->errors[] = 'Please verify your email address by clicking on the verification link that was sent to you.';
+			$this->errors[] = sprintf('Please verify your email address by clicking on the verification link that was sent to you, '
+							  . 'or click <a href="%s">here</a> to re-send the verification link', $verification_link);
 			return false;
 		} elseif ($user && password_verify($password, $user['password'])) {
 			if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
@@ -359,9 +361,20 @@ formr robots";
 			alert('Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.', 'alert-danger');
 			return false;
 		}
-		
+	}
 
-		
+	public function resendVerificationEmail($verificationHash) {
+		$verify_data = $this->dbh->findRow('survey_users', array('email_verification_hash' => $verificationHash), array('id', 'email_verification_hash', 'email'));
+		if (!$verify_data) {
+			alert('Incorrect token.', 'alert-danger');
+			return false;
+		}
+
+		$this->id = (int)$verify_data['id'];
+		$this->email = $verify_data['email'];
+		$this->needToVerifyMail();
+		$this->id = $this->email = null;
+		return true;
 	}
 
 	public function getStudies($order = 'id DESC', $limit = null) {

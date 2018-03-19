@@ -59,7 +59,7 @@
 									<td>
 										<a href="<?php echo asset_url($row['new_file_path']); ?>" class="btn btn-sm btn-default"><i class="fa fa-eye"></i> View File</a>
 										<a href="javascript:void(0);" data-url="<?php echo asset_url($row['new_file_path']); ?>" class="btn btn-sm btn-primary copy-url"><i class="fa fa-copy"></i> Copy URL</a>
-										<a href="<?php echo admin_run_url($run->name, 'delete_file', array('file' => $row['original_file_name'], 'id' => $id)); ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this file?');"><i class="fa fa-trash"></i> Delete File</a>	
+										<a href="<?php echo admin_run_url($run->name, 'delete_file', array('file' => $row['original_file_name'], 'id' => $row['id'])); ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this file?');"><i class="fa fa-trash"></i> Delete File</a>	
 									</td>
 								</tr>
 								<?php } ?>
