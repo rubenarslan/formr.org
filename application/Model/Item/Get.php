@@ -21,6 +21,8 @@ class Get_Item extends Item {
 		$request = new Request($_GET);
 		if (($value = $request->getParam($this->get_var)) !== null) {
 			$this->input_attributes['value'] = $value;
+			$this->value = $value;
+			$this->value_validated = $value;
 		}
 	}
 

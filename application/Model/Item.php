@@ -29,6 +29,8 @@ class ItemFactory {
 
 		$type = str_replace('-', '_', $type);
 		$class = $this->getItemClass($type);
+		// unset internally set properties
+		unset($item['hidden']);
 
 		if (!class_exists($class, true)) {
 			return false;
@@ -89,15 +91,16 @@ class Item {
 	public $no_user_input_required = false;
 	public $save_in_results_table = true;
 	public $input_attributes = array(); // so that the pre-set value can be set externally
+	public $parent_attributes = array();
 	public $presetValue = null;
 	public $allowed_classes = array();
 	public $skip_validation = false;
-	
+	public $data_showif = false;
+
 	protected $prepend = null;
 	protected $append = null;
 	protected $type_options_array = array();
 	protected $hasChoices = false;
-	protected $data_showif = false;
 	protected $classes_controls = array('controls');
 	protected $classes_wrapper = array('form-group', 'form-row');
 	protected $classes_input = array();
@@ -414,8 +417,11 @@ class Item {
 			$this->classes_wrapper[] = "has-error";
 		}
 		$this->classes_wrapper = array_unique($this->classes_wrapper);
+		if ($this->data_showif) {
+			$this->parent_attributes['data-showif'] = $this->js_showif;
+		}
 		$template = '
-			<div class="%{classes_wrapper}" %{showif}>
+			<div class="%{classes_wrapper}" %{parent_attributes}>
 				%{item_content}
 				<div class="hidden_debug_message hidden item_name">
 					<span class="badge hastooltip" title="%{title}">%{name}</span>
@@ -424,7 +430,7 @@ class Item {
 		';
 		return Template::replace($template, array(
 			'classes_wrapper' => implode(' ', $this->classes_wrapper),
-			'showif' => $this->data_showif ? sprintf('data-showif="%s"', h($this->js_showif)) : '',
+			'parent_attributes' => self::_parseAttributes($this->parent_attributes),
 			'item_content' => $this->render_inner() . $this->render_item_view_input(),
 			'title' => h($this->js_showif),
 			'name' => h($this->name),
