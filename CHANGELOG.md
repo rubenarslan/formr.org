@@ -375,3 +375,9 @@ Bug fix release.
 * Fix rating button glitch (range can be reversed)
 * Issue #332
 * Issue #333
+
+## [0.17.3] - 19.03.2018
+### Added
+* Surveys can be configured to be "paginated". Users can be provided with page numbers where they can click back and forth to make corrections.
+* Uploaded files associated to a run can now be easily deleted and upload file URL can also be easily copied.
+* Users can re-send the email verification link.
