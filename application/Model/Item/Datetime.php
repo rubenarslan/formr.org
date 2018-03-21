@@ -5,7 +5,7 @@ class Datetime_Item extends Item {
 	public $type = 'datetime';
 	public $input_attributes = array('type' => 'datetime');
 	public $mysql_field = 'DATETIME DEFAULT NULL';
-	protected $prepend = 'fa-calendar';
+	//protected $prepend = 'fa-calendar';
 	protected $html5_date_format = 'Y-m-d\TH:i';
 
 	protected function setMoreOptions() {
