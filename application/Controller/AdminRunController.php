@@ -146,9 +146,8 @@ class AdminRunController extends AdminController {
 		$sess = $run_session->session;
 		$animal = substr($sess, 0,strpos($sess, "XXX"));
 		$sess_url = run_url($this->run->name, null, array('code' => $sess));
-		
-		alert("You've created a new guinea pig, ".h($animal).". Use this guinea pig to move through the run like a normal user with special powers (accessibly via the monkey bar at the bottom right). As a guinea pig, you can see more detailed error messages than real users, so it is easier to e.g. debug R problems. If you want someone else to be the guinea pig, just forward them this link: <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
 
+		//alert("You've created a new guinea pig, ".h($animal).". Use this guinea pig to move through the run like a normal user with special powers (accessibly via the monkey bar at the bottom right). As a guinea pig, you can see more detailed error messages than real users, so it is easier to e.g. debug R problems. If you want someone else to be the guinea pig, just forward them this link: <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
 		redirect_to($sess_url);
 	}
 
@@ -162,10 +161,7 @@ class AdminRunController extends AdminController {
 				$sess = $run_session->session;
 				$sess_url = run_url($this->run->name, null, array('code' => $sess));
 
-				alert("You've added a user with the code name '{$code_name}'. <br />
-					  Send them this link to participate <br />
-					  <textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
-
+				//alert("You've added a user with the code name '{$code_name}'. <br /> Send them this link to participate <br /> <textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
 				redirect_to(admin_run_url($this->run->name, 'user_overview', array('session' => $sess)));
 			}
 		}
