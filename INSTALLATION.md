@@ -84,7 +84,7 @@ SQL patches are created with updates and found in the directory `/path/to/formr/
 
 #### Create the config folder
 
-* Duplicate *(don't rename)* the folder `config_default`, name it `config`.
+* Duplicate *(don't rename)* the folder `config-dist`, name it `config`.
 * Edit the /path/to/formr/config/settings.php to configure the right values for the various config items. The comments in the config file should help you identify the meaning of the config items. Some common items you need to modify are
   * database connection parameters
   * the OpenCPU instance to you
