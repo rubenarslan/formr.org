@@ -147,6 +147,11 @@ function cron_process_run(Run $run, $run_lockfile) {
 	return true;
 }
 
+// Check if maintenance is going on
+if (Config::get('in_maintenance')) {
+	formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenace Mode', false);
+}
+
 // Global required variables
 $site = Site::getInstance();
 $fdb = DB::getInstance();

@@ -39,6 +39,7 @@
 												<td><?= $row['email'] ?></td>
 												<td><?= $row['sessions'] ?></td>
 												<td>
+													<input type="hidden" name="runs[<?= $row['run_id'] ?>][run]" value="<?= $row['run_id'] ?>" />
 													<?php $checked = $row['cron_active'] ? 'checked="checked"' : null ?>
 													<input type="checkbox" name="runs[<?= $row['run_id'] ?>][cron_active]" value="<?= $row['cron_active'] ?>" <?= $checked ?> />
 												</td>
