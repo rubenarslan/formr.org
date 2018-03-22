@@ -381,3 +381,11 @@ Bug fix release.
 * Surveys can be configured to be "paginated". Users can be provided with page numbers where they can click back and forth to make corrections.
 * Uploaded files associated to a run can now be easily deleted and upload file URL can also be easily copied.
 * Users can re-send the email verification link.
+
+## [0.17.4] - 22.03.2018
+### Changed
+#### Bug Fixes
+* Use webshim calendar widget in all browsers.
+* Fix Check_Item "optional" flag glitch
+* Add "in_maintenance" config flag to prevent user access when site is under maintenance
+* "Quick Upload" fix for surveys
