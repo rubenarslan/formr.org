@@ -66,11 +66,6 @@ function __formr_setup($settings = array()) {
 	define('DEBUG', $settings['display_errors']);
 	define('FMRSD_CONTEXT', getenv('FMRSD_CONTEXT'));
 
-	// Check if maintenance is going on
-	if ($settings['in_maintenance']) {
-		formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenace Mode', false);
-	}
-
 	// General PHP-side configuration
 	error_reporting(-1);
 	if (DEBUG > 0) {

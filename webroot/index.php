@@ -5,6 +5,11 @@ require_once dirname(__FILE__) . '/../setup.php';
 Session::configure();
 Session::start();
 
+// Check if maintenance is going on
+if (Config::get('in_maintenance')) {
+	formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenace Mode', false);
+}
+
 // Define SITE object
 /** @var Site $site */
 if (($site = Session::get('site')) && is_object($site)) {
