@@ -29,7 +29,12 @@ webshim.setOptions({
     'forms-ext': {
         types: 'range date time number month color',
         customDatalist: true,
-        replaceUI: {range: true, color: true}
+        replaceUI: {range: true, color: true, date: true, month: true},
+		widgets: {
+			'startView': 1,
+			'openOnFocus': true,
+			'calculateWidth': false
+		}
     }
 });
 webshim.activeLang('de');

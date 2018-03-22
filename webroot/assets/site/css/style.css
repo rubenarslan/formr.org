@@ -2118,6 +2118,12 @@ div[class*="-counter"] {
 div.form-group.is-counter {
 	display: block;
 }
+button.ws-popover-opener {
+	background: none;
+}
+.form-group .ws-range {
+	width: 60%;
+}
 
 /* bootstrap-material-design fixes */
 

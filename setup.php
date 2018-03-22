@@ -25,17 +25,17 @@ $settings['routes'] = array(
 
 // Load application settings
 /* @var $settings array */
-require_once APPLICATION_ROOT . 'config.dist/settings.php';
+require_once APPLICATION_ROOT . 'config-dist/settings.php';
 require_once APPLICATION_ROOT . 'config/settings.php';
 
 // Define default assets
 if (php_sapi_name() != 'cli') {
-	require_once APPLICATION_ROOT . 'config.dist/assets.php';
-	require_once APPLICATION_ROOT . 'config.dist/css-classes.php';
+	require_once APPLICATION_ROOT . 'config-dist/assets.php';
+	require_once APPLICATION_ROOT . 'config-dist/css-classes.php';
 }
 
 // Set current formr version (bumped on release)
-$settings['version'] = 'v0.17.3';
+$settings['version'] = 'v0.17.4';
 
 // Load application autoloader
 $autoloader = require_once APPLICATION_PATH . 'Library/Autoloader.php';
@@ -63,7 +63,7 @@ function __formr_setup($settings = array()) {
 	define('ONLINE', $online);
 	define('SSL', $protocol === "https://");
 	define('RUNROOT', WEBROOT);
-	define('DEBUG', Config::get('display_errors'));
+	define('DEBUG', $settings['display_errors']);
 	define('FMRSD_CONTEXT', getenv('FMRSD_CONTEXT'));
 
 	// General PHP-side configuration
@@ -74,19 +74,19 @@ function __formr_setup($settings = array()) {
 
 	ini_set("log_errors", 1);
 	ini_set("error_log", get_log_file('errors.log'));
-	ini_set('session.gc_maxlifetime', Config::get('session_cookie_lifetime'));
-	ini_set('session.cookie_lifetime', Config::get('session_cookie_lifetime'));
+	ini_set('session.gc_maxlifetime', $settings['session_cookie_lifetime']);
+	ini_set('session.cookie_lifetime', $settings['session_cookie_lifetime']);
 
 	// Set cryptography module
 	try {
 		Crypto::setup();
 	} catch (Exception $e) {
 		formr_log_exception($e);
-		formr_error(503, 'Service Unavailable', 'Encryption service unavailable');
+		formr_error(503, 'Service Unavailable', 'Encryption service unavailable', null, false);
 	}
 
 	// Set default timzone, encoding and shutdown function.
-	date_default_timezone_set(Config::get('timezone'));
+	date_default_timezone_set($settings['timezone']);
 	mb_internal_encoding('UTF-8');
 	register_shutdown_function('shutdown_formr_org');
 }

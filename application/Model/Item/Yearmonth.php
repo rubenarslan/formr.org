@@ -6,7 +6,7 @@ class Yearmonth_Item extends Datetime_Item {
 	public $input_attributes = array('type' => 'yearmonth');
 	public $mysql_field = 'DATE DEFAULT NULL';
 	
-	protected $prepend = 'fa-calendar-o';
+	//protected $prepend = 'fa-calendar-o';
 	protected $html5_date_format = 'Y-m-01';
 
 	protected function render_input() {

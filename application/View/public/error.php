@@ -20,10 +20,12 @@
 			<p><strong><?php echo $title; ?></strong></p>
 
 			<p><?php echo $text; ?></p>
-			<p class="back"> <a href="<?php echo site_url(); ?>">Go to Site</a> </p>
+			<?php if ($link): ?>
+				<p class="back"> <a href="<?= $link ?>">Go to Site</a> </p>
+			<?php endif; ?>
 		</div>
 		<div>
-			<?php echo $site->renderAlerts(); ?>
+			<?php echo !empty($site) ? $site->renderAlerts() : null; ?>
 		</div>
 	</body>
 </html>

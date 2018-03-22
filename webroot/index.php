@@ -5,6 +5,11 @@ require_once dirname(__FILE__) . '/../setup.php';
 Session::configure();
 Session::start();
 
+// Check if maintenance is going on
+if (Config::get('in_maintenance')) {
+	formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenace Mode', false);
+}
+
 // Define SITE object
 /** @var Site $site */
 if (($site = Session::get('site')) && is_object($site)) {
@@ -19,7 +24,7 @@ try {
 	$fdb = DB::getInstance();
 } catch(Exception $e) {
 	formr_log($e->getMessage(), 'Database Connection Error');
-	formr_error(503, 'Service Unavailable', 'Data store unavailable');
+	formr_error(503, 'Service Unavailable', 'Data store unavailable', null, false);
 }
 
 // Set site's session user or create one if not available
@@ -38,7 +43,7 @@ try {
 } catch (Exception $e) {
 	formr_log_exception($e);
 	$msg = date('Y-m-d H:i:s') . "\n {$e->getMessage()}. \nPlease let the administrators and know what you were trying to do and provide this message's date & time.";
-	formr_error(500, 'Internal Server Error', nl2br($msg), 'Fatal Error');
+	formr_error(500, 'Internal Server Error', nl2br($msg), 'Fatal Error', false);
 }
 
 exit(0);

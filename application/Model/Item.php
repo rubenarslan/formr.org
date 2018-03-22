@@ -134,6 +134,7 @@ class Item {
 
 	public function __construct($options = array()) {
 		// Load options to object
+		$optional = $this->optional;
 		foreach ($options as $property => $value) {
 			if (property_exists($this, $property)) {
 				$this->{$property} = $value;
@@ -186,7 +187,9 @@ class Item {
 			unset($options['optional']);
 		} elseif (isset($options['optional']) && !$options['optional']) {
 			$this->optional = 0;
-		} // else optional stays default
+		} else {
+			$this->optional = $optional;
+		}
 
 		if (!$this->optional) {
 			$this->classes_wrapper[] = 'required';
