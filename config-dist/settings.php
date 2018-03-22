@@ -171,4 +171,9 @@ $settings['use_study_subdomains'] = false;
 
 // Reserved run names which users are not allowed to use
 $settings['reserved_run_names'] = array('api', 'test', 'delegate');
+
+// Flag indicating whether formr is in maintenance mode
+// If this is set to true, then users will see a maintenance message and cron jobs will not run
+// Restart all server daemon whenever this flag is changed
+$settings['in_maintenance'] = false;
 		
