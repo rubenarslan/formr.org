@@ -13,14 +13,14 @@ require_once APPLICATION_ROOT . 'vendor/autoload.php';
 // Initialize settings array and define routes
 $settings = array();
 $settings['routes'] = array(
-	'public',
-	'admin',
-	'admin/run',
-	'admin/survey',
-	'admin/mail',
-	'superadmin',
-	'api',
-	'run/'
+	'public' => 'PublicController',
+	'admin' => 'AdminController',
+	'admin/run' => 'AdminRunController',
+	'admin/survey' => 'AdminSurveyController',
+	'admin/mail' => 'AdminMailController',
+	'superadmin' => 'SuperadminController',
+	'api' => 'ApiController',
+	'run' => 'RunController'
 );
 
 // Load application settings
