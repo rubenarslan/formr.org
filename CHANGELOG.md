@@ -2,6 +2,9 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.17.5] - 05.04.2018
+### Fixed
+* Testing "Survey" for surveys with paging enabled
 
 ## [0.17.4] - 22.03.2018
 ### Changed
