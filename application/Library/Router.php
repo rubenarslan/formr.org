@@ -42,20 +42,26 @@ class Router {
      */
     public function route() {
 		$route = $this->site->request->str('route');
+		$routeSlugs = $this->extractRouteSlugs($route);
+		$params = null;
 
 		// First try to get controller path from the route which is one of those configured routes
-		foreach ($this->routes as $r) {
-			if (strpos($route, $r) === 0) {
-				$controllerPath = $r;
+		foreach ($routeSlugs as $slug) {
+			if (isset($this->routes[$slug])) {
+				$controller = $this->routes[$slug];
+				$params = $this->getParamsFromRoute($route, $slug);
+				break;
 			}
 		}
-		// If none is found in configured routes then default to public
-		if (empty($controllerPath)) {
-			$controllerPath = 'public';
+
+		if (empty($controller)) {
+			$controller = $this->getControllerName('public');
 		}
 
-		// get action
-		$params = (array)array_filter(explode('/', preg_replace('/\b' . preg_quote($controllerPath, '/') . '\b/', '', $route)));
+		if ($params === null) {
+			$params = $this->getParamsFromRoute($route, '');
+		}
+
 		$action = array_shift($params);
 		if (!$action) {
 			$action = 'index';
@@ -63,7 +69,7 @@ class Router {
 
 		// Check if action exists in controller and if it doesn't assume we are looking at a run
 		// @todo validate runs not to have controller action names (especially PublicController)
-		$controllerName = $this->getControllerName($controllerPath);
+		$controllerName = $controller;
 		$actionName = $this->getActionName($action);
 		if (!class_exists($controllerName, true)) {
 			throw new Exception ("Controller $controllerName does not exist");
@@ -143,6 +149,27 @@ class Router {
 		$host = explode('.', $this->serverName);
 		$subdomains = array_slice($host, 0, count($host) - 2);
 		return $subdomains[0];
+	}
+
+	private function extractRouteSlugs($route) {
+		$parts = explode('/', $route);
+		$slugs = array();
+		$prev = '';
+		foreach ($parts as $r) {
+			$slug = trim(implode('/', array($prev, $r)), '\/');
+			$slugs[] = $slug;
+			$prev = $slug;
+		}
+
+		return array_reverse($slugs);
+	}
+
+	private function getParamsFromRoute($route, $base) {
+		$route = '/' . trim($route, "\\\/") . '/';
+		$base = '/' . trim($base, "\\\/") . '/';
+		$params = (array)array_filter(explode('/', str_replace($base, '', $route)));
+
+		return $params;
 	}
 
 	public function execute() {
