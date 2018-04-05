@@ -770,7 +770,7 @@ function admin_url($uri = '', $params = array()) {
 
 function run_url($name = '', $action = '', $params = array()) {
 	if ($name === Run::TEST_RUN) {
-		return site_url('run/' . $name);
+		return site_url('run/' . $name . '/' . $action);
 	}
 
 	$protocol = Config::get('define_root.protocol');

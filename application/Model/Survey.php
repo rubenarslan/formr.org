@@ -294,8 +294,6 @@ class Survey extends RunUnit {
 		));
 
 		// Check if session already has enough entries in the items_display table for this survey
-		$no_items = $this->dbh->count('survey_items', array('study_id' => $this->id), 'id');
-		$no_display_items = $this->dbh->count('survey_items_display', array('session_id' => $this->session_id), 'id');
 		if($this->allItemsHaveAnOrder()) {
 			return;
 		} else {
@@ -353,11 +351,8 @@ class Survey extends RunUnit {
 		*/
 		$nr_items = $this->dbh->count('survey_items', array('study_id' => $this->id), 'id');
 		$nr_display_items = $this->dbh->count('survey_items_display', array('session_id' => $this->session_id), 'id');
-		if ($nr_display_items === $nr_items) {
-			return true;
-		} else {
-			return false;
-		}
+
+		return $nr_display_items === $nr_items;
 	}
 
 	protected function getOrderedItemsIds() {
