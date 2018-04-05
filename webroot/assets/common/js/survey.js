@@ -442,6 +442,9 @@
 
 	Survey.prototype.getProgress = function () {
         var survey = this;
+		if ($('.fmr-survey-page-count').length) {
+			return survey.getPagingProgress();
+		}
         survey.items_answered_on_page = $(".formr_answered").length + 0;
         survey.items_visible_on_page = $(".form-group:not(.hidden)").length + 0;
 
@@ -457,6 +460,26 @@
         survey.$progressbar.text(Math.round(prog) + '%');
         return prog;
     };
+
+	Survey.prototype.getPagingProgress = function () {
+		var survey = this;
+		var prog = 0;
+		var data = $('.fmr-survey-page-count').data();
+		if (data.answereditems) {
+			// revisiting page
+			prog = data.progress;
+		} else {
+			var visibleItems =  $('.form-group:not(.hidden)').length + 0;
+			var toAnswerItems = $('.form-group.required:not(.hidden,.item-submit,.formr_answered,.counter)').length + 0;
+			var pageProg = ((visibleItems - toAnswerItems) / visibleItems);
+			prog = (pageProg * data.pageprogress) + data.prevprogress;
+		}
+
+		var percentage = Math.round(prog * 100) + '%';
+		survey.$progressbar.css('width', percentage);
+		survey.$progressbar.text(percentage);
+		return prog;
+	};
 
     Survey.prototype.showIf = function (e) {
         var survey = this;

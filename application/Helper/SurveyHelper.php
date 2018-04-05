@@ -46,6 +46,8 @@ class SurveyHelper {
 
 	protected $postedValues = array();
 
+	protected $answeredItems = array();
+
 	const FMR_PAGE_ELEMENT = 'fmr_unit_page_element';
 
 	public function __construct(Request $rq, Survey $s, Run $r) {
@@ -84,9 +86,9 @@ class SurveyHelper {
 		}
 
 		$formAction = ''; //run_url($this->run->name, $pageNo);
-		$pageElement = $this->getPageElement($pageNo);
 
 		$this->survey->rendered_items = $this->getPageItems($pageNo);
+		$pageElement = $this->getPageElement($pageNo);
 		Session::delete('is-survey-post');
 		return $this->survey->render($formAction, $pageElement);
 	}
@@ -183,6 +185,10 @@ class SurveyHelper {
 			$oItem->value_validated = $pItem instanceof Item ? $pItem->value_validated : $pItem;
 			$pageItems[$oItem->name] = $oItem;
 
+			if ($item['answered']) {
+				$this->answeredItems[$oItem->name] = $oItem->value_validated;
+			}
+
 			if ($oItem->type === 'submit') {
 				break;
 			}
@@ -261,16 +267,16 @@ class SurveyHelper {
 			return;
 		}
 		$progress = $currentPage / $maxPage;
-		$this->survey->progress = $progress;
-		$this->survey->progress_counts = array(
-			'already_answered' => 0,
-			'not_answered' => 0,
-			'hidden_but_rendered' => 0,
-			'not_rendered' => 0,
-			'visible_on_current_page' => 0,
-			'hidden_but_rendered_on_current_page' => 0,
-			'not_answered_on_current_page' => 0
+		$data = array(
+			'progress' => $progress,
+			'prevProgress' => ($currentPage - 1) / $maxPage,
+			'pageProgress' => 1 / $maxPage,
+			'page' => $currentPage,
+			'maxPage' => $maxPage,
+			'pageItems' => count($this->survey->rendered_items),
+			'answeredItems' => count($this->answeredItems),
 		);
+		return $data;
 	}
 
 	/**
@@ -301,7 +307,13 @@ class SurveyHelper {
 	}
 
 	protected function getPageElement($pageNo) {
-		$tpl = '<div class="col-md-12 text-right" class="fmr-survey-page-count">
+		$progress = $this->getSurveyProgress($pageNo);
+		$progressAttribs = array();
+		foreach ($progress as $attr => $value) {
+			$progressAttribs[] = sprintf('%s="%s"', 'data-'.$attr, (string)$value);
+		}
+
+		$tpl = '<div class="col-md-12 text-right fmr-survey-page-count" %{progress_attributes}>
 					<strong><span class="page-text">Page</span> %{page}/%{max_page}</strong>
 					<input name="%{name}" value="%{value}" type="hidden" />
 					<div class="clearfix"></div>
@@ -324,6 +336,7 @@ class SurveyHelper {
 			'name' => self::FMR_PAGE_ELEMENT,
 			'value' => $pageNo,
 			'buttons' => $buttons ? '<span class="btn back-text" style="border: none;"> Back to Page </span>' . $buttons : null,
+			'progress_attributes' => implode(' ', $progressAttribs),
 		));
 	}
 
