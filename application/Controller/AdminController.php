@@ -109,9 +109,14 @@ class AdminController extends Controller {
 	}
 
 	protected function header() {
-		if (!$this->user->isAdmin()) {
+		if (!$this->user->loggedIn()) {
 			alert('You need to login to access the admin section', 'alert-warning');
 			redirect_to('login');
+		}
+
+		if (!$this->user->isAdmin()) {
+			alert('You need to request for an admin account in order to access this section. See Documentation.', 'alert-warning');
+			redirect_to('account');
 		}
 
 		if ($this->site->inSuperAdminArea() && !$this->user->isSuperAdmin()) {

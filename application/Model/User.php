@@ -5,14 +5,20 @@ class User {
 	public $id = null;
 	public $email = null;
 	public $user_code = null;
-	private $logged_in = false;
-	private $admin = false;
-	private $referrer_code = null;
-	// todo: time zone, etc.
+	public $first_name = null;
+	public $last_name = null;
+	public $affiliation = null;
+	public $created = 0;
 	public $settings = array();
 	public $errors = array();
 	public $messages = array();
 	public $cron = false;
+
+	private $logged_in = false;
+	private $admin = false;
+	private $referrer_code = null;
+	// todo: time zone, etc.
+	
 
 	/**
 	 * @var DB
@@ -37,7 +43,7 @@ class User {
 	}
 
 	private function load() {
-		$user = $this->dbh->select('id, email, password, admin, user_code, referrer_code')
+		$user = $this->dbh->select('id, email, password, admin, user_code, referrer_code, first_name, last_name, affiliation, created')
 				->from('survey_users')
 				->where(array('id' => $this->id))
 				->limit(1)
@@ -50,6 +56,10 @@ class User {
 			$this->user_code = $user['user_code'];
 			$this->admin = $user['admin'];
 			$this->referrer_code = $user['referrer_code'];
+			$this->first_name = $user['first_name'];
+			$this->last_name = $user['last_name'];
+			$this->affiliation = $user['affiliation'];
+			$this->created = $user['created'];
 			return true;
 		}
 
@@ -202,11 +212,8 @@ formr robots";
 				}
 			}
 
-			$this->logged_in = true;
-			$this->email = $email;
-			$this->id = $user['id'];
-			$this->user_code = $user['user_code'];
-			$this->admin = $user['admin'];
+			$this->id = (int)$user['id'];
+			$this->load();
 			return true;
 		} else {
 			$this->errors[] = 'Your login credentials were incorrect!';
@@ -215,19 +222,18 @@ formr robots";
 	}
 
 	public function setAdminLevelTo($level) {
-		global $user;
-		if (!$user->isSuperAdmin()) {
+		if (!Site::getCurrentUser()->isSuperAdmin()) {
 			throw new Exception("You need more admin rights to effect this change");
 		}
 
 		$level = (int) $level;
-		if ($level !== 0 AND $level !== 1):
+		if ($level !== 0 && $level !== 1) {
 			if ($level > 1) {
 				$level = 1;
 			} else {
 				$level = 0;
 			}
-		endif;
+		}
 
 		return $this->dbh->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 100));
 	}
@@ -283,29 +289,56 @@ formr robots";
 	}
 
 	public function changePassword($password, $new_password) {
-		if ($this->login($this->email, $password)) {
-
-			$hash = password_hash($new_password, PASSWORD_DEFAULT);
-			/* Store new hash in db */
-			if ($hash) {
-				$this->dbh->update('survey_users', array('password' => $hash), array('email' => $this->email));
-				return true;
-			} else {
-				alert('<strong>Error!</strong> Hash error.', 'alert-danger');
-				return false;
-			}
+		if (!$this->login($this->email, $password)) {
+			$this->errors = array('The old password you entered is not correct.');
+			return false;
 		}
-		return false;
+
+		$hash = password_hash($new_password, PASSWORD_DEFAULT);
+		/* Store new hash in db */
+		if ($hash) {
+			$this->dbh->update('survey_users', array('password' => $hash), array('email' => $this->email));
+			return true;
+		} else {
+			$this->errors[] = 'Unable to generate new password';
+			return false;
+		}
 	}
 
-	public function changeEmail($password, $email) {
-		if ($this->login($this->email, $password)):
-			$this->dbh->update('survey_users', array('email' => $email, 'email_verified' => 0), array('id' => $this->id));
-			$this->email = $email;
+	public function changeData($password, $data) {
+		if (!$this->login($this->email, $password)) {
+			$this->errors = array('The old password you entered is not correct.');
+			return false;
+		}
+
+		$verificationRequired = false;
+		$update = array();
+		$update['email'] = array_val($data, 'new_email');
+		$update['first_name'] = array_val($data, 'first_name');
+		$update['last_name'] = array_val($data, 'last_name');
+		$update['affiliation'] = array_val($data, 'affiliation');
+
+		if (!$update['email']) {
+			$this->errors[] = 'Please provide a valid email address';
+			return false;
+		}elseif ($update['email'] !== $this->email) {
+			$verificationRequired = true;
+			$update['email_verified'] = 0;
+			// check if email already exists
+			$exists = $this->dbh->entry_exists('survey_users', array('email' => $update['email']));
+			if ($exists) {
+				$this->errors[] = 'The provided email address is already in use!';
+			}
+			return false;
+		}
+
+		$this->dbh->update('survey_users', $update, array('id' => $this->id));
+		$this->email = $update['email'];
+		if ($verificationRequired) {
 			$this->needToVerifyMail();
-			return true;
-		endif;
-		return false;
+		}
+		$this->load();
+		return true;
 	}
 
 	public function reset_password($email, $token, $new_password, $new_password_confirm) {
