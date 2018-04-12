@@ -328,8 +328,8 @@ formr robots";
 			$exists = $this->dbh->entry_exists('survey_users', array('email' => $update['email']));
 			if ($exists) {
 				$this->errors[] = 'The provided email address is already in use!';
+				return false;
 			}
-			return false;
 		}
 
 		$this->dbh->update('survey_users', $update, array('id' => $this->id));
