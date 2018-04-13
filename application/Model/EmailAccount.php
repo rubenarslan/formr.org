@@ -78,20 +78,18 @@ class EmailAccount {
 	}
 
 	public function test() {
-		$RandReceiv = crypto_token(9, true);
-		$receiver = $RandReceiv . '@mailinator.com';
-		$link = "https://mailinator.com/inbox2.jsp?public_to=" . $RandReceiv;
-
+		$receiver = $this->account['from'];
 		$mail = $this->makeMailer();
 
 		$mail->AddAddress($receiver);
-		$mail->Subject = 'Test';
-		$mail->Body = 'You got mail.';
+		$mail->Subject = 'formr: account test success';
+		$mail->Body = Template::get('email/test-account.txt');
 
 		if (!$mail->Send()) {
 			alert($mail->ErrorInfo, 'alert-danger');
+			return false;
 		} else {
-			redirect_to($link);
+			return alert("An email was sent to <b>{$receiver}</b>. Please confirm that you received this email.", 'alert-success');
 		}
 	}
 

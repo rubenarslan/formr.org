@@ -17,7 +17,7 @@ class AdminMailController extends AdminController {
 			$acc = new EmailAccount($this->fdb, $this->request->account_id, $this->user->id);
 			if (!$acc->valid || !$this->user->created($acc)) {
 				alert("<strong>Error:</strong> Not your email account.", 'alert-danger');
-				redirect_to('admin/mail');
+				$this->redirect(null);
 			}
 		} else {
 			$acc = new EmailAccount($this->fdb, null, $this->user->id);
@@ -28,10 +28,11 @@ class AdminMailController extends AdminController {
 				// we are editing
 				if ($this->request->test_account) {
 					$acc->test();
+					$this->redirect($acc);
 				} else {
 					$acc->changeSettings($this->request->getParams());
 					alert('<strong>Success!</strong> Your email account settings were changed!', 'alert-success');
-					redirect_to('/admin/mail/', array('account_id' => $acc->id));
+					$this->redirect($acc);
 				}
 			} else {
 				//we are creating
@@ -40,8 +41,9 @@ class AdminMailController extends AdminController {
 					alert('<strong>Success!</strong> You added a new email account!', 'alert-success');
 					if ($this->request->test_account) {
 						$acc->test();
+						$this->redirect($acc);
 					} else {
-						redirect_to('/admin/mail/', array('account_id' => $acc->id));
+						$this->redirect($acc);
 					}
 				} else {
 					alert(implode($acc->errors), 'alert-danger');
@@ -61,10 +63,17 @@ class AdminMailController extends AdminController {
 				$email = $acc->account['from'];
 				$acc->delete();
 				alert("<strong>Success:</strong> Account with email '{$email}' was deleted", 'alert-success');
-				redirect_to('admin/mail');
 			}
 		};
-		redirect_to('admin/mail');
+		$this->redirect(null);
+	}
+
+	protected function redirect(EmailAccount $acc) {
+		if ($acc === null) {
+			redirect_to('admin/mail');
+		} else {
+			redirect_to('admin/mail', array('account_id' => $acc->id));
+		}
 	}
 
 }

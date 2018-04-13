@@ -14,7 +14,10 @@ class Template {
 	 */
 	public static function load($template, $vars = array()) {
 		global $site, $user, $fdb, $study, $run, $css, $js;
-		$file = APPLICATION_PATH . 'View/' . $template . '.php';
+		if (strstr($template, '.') === false) {
+			$template .= '.php';
+		}
+		$file = APPLICATION_PATH . 'View/' . $template;
 
 		if (file_exists($file)) {
 			extract($vars);
@@ -26,6 +29,11 @@ class Template {
 		ob_start();
 		Template::load($template, $vars);
 		return ob_get_clean();
+	}
+
+	public static function get_replace($template, $params = array()) {
+		$text = self::get($template);
+		return self::replace($text, $params);
 	}
 
 	public static function replace($template, $params, $rnl = false) {

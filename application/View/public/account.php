@@ -26,6 +26,9 @@ Template::load('public/header');
 						<p> &nbsp; </p>
 						<h4 class="lead"> <i class="fa fa-lock"></i> Login Details</h4>
 						<i class="fa fa-envelope-o fa-fw"></i> Email :  <?php echo $user->email; ?> <br />
+						<?php if (!$user->email_verified): ?>
+							<div class="alert alert-warning">Please verify your email address by clicking on the link sent to your email address.</div>
+						<?php endif; ?>
 						<i class="fa fa-eye-slash fa-fw"></i>  Password : ******************
 
 						<p> &nbsp; </p>
