@@ -31,10 +31,11 @@
             $('.run-container').css('min-height', $(window).height() - 1);
             
             minHeight += offset;
-            var cHeight = $('#fmr-hero .fmr-intro').height();
+            var cHeight = $('.fmr-intro').height();
             var _mTop = (minHeight >= cHeight) ? ((minHeight - cHeight) / 2) + 5 : 120;
             var mTop = _mTop > 120 ? _mTop : 120;
             $('#fmr-hero .fmr-intro .fmr-intro-text').css('padding-top', mTop);
+			$('.js-fullheight.elongate').height(cHeight + 15);
         //}
     };
     $(window).resize(fullHeight);
@@ -134,6 +135,41 @@
         $('.progress-container').css('width', $('.run-container').width());
     };
 
+	var Account = function() {};
+	Account.prototype.init = function() {
+		var account = this;
+		this.container = $('.fmr-account-info');
+		if (!this.container.length) {
+			return;
+		}
+		if (this.container.is('.show-form')) {
+			this.edit(false);
+		}
+
+		this.container.find('.edit-info-btn').click(function(e) {
+			e.preventDefault();
+			account.edit();
+		});
+		this.container.find('.cancel-edit-btn').click(function(e) {
+			e.preventDefault();
+			account.edit(true);
+		});
+	};
+	Account.prototype.edit = function(cancel) {
+		var account = this;
+		if (cancel === true) {
+			account.container.find('.read-info').show();
+			account.container.find('.edit-info').hide();
+		} else {
+			account.container.find('.read-info').hide();
+			account.container.find('.edit-info').show();
+		}
+		fullHeight();
+	};
+	Account.prototype.save = function() {
+		
+	};
+
 
     // Document on load.
     $(function () {
@@ -146,6 +182,7 @@
         goToTop();
         material();
         runContainer();
+		(new Account()).init();
     });
 
 

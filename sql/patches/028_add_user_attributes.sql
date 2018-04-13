@@ -1,0 +1,1 @@
+ALTER TABLE `survey_users` ADD `first_name` VARCHAR(50) NULL AFTER `user_code`, ADD `last_name` VARCHAR(50) NULL AFTER `first_name`, ADD `affiliation` VARCHAR(350) NULL AFTER `last_name`;

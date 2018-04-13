@@ -39,30 +39,34 @@ class PublicController extends Controller {
 
 		if(!$this->user->loggedIn()) {
 			alert('You need to be logged in to go here.', 'alert-info');
-			redirect_to("index");
+			redirect_to('login');
 		}
 
-		if(!empty($_POST)) {
+		$vars = array('showform' => false);
+		if($this->request->isHTTPPostRequest()) {
 			$redirect = false;
+			$oldEmail = $this->user->email;
+
+			// Change basic info + email
+			$change = $this->user->changeData($this->request->str('password'), $this->request->getParams());
+			if (!$change) {
+				alert(nl2br(implode($this->user->errors, "\n")), 'alert-danger');
+				$vars['showform'] = 'show-form';
+			} elseif ($oldEmail != $this->request->str('new_email')) {
+				$redirect = 'logout';
+			}
+
+			// Change password
 			if($this->request->str('new_password')) {
 				if ($this->request->str('new_password') !== $this->request->str('new_password_c')) {
 					alert('The new passwords do not match', 'alert-danger');
+					$vars['showform'] = 'show-form';
 				} elseif($this->user->changePassword($this->request->str('password'), $this->request->str('new_password'))) {
-					alert('<strong>Success!</strong> Your password was changed! Please sign-in with your new password.','alert-success');
+					alert('<strong>Success!</strong> Your password was changed! Please sign-in with your new password.', 'alert-success');
 					$redirect = 'logout';
 				} else {
 					alert(implode($this->user->errors), 'alert-danger');
-				}
-			}
-
-			if($this->request->str('new_email')) {
-				if ($this->fdb->entry_exists('survey_users', array('email' => $this->request->str('new_email')))) {
-					alert('The provided email address is already in use!', 'alert-danger');
-				} elseif ($this->user->changeEmail($this->request->str('password'), $this->request->str('new_email'))) {
-					//alert('<strong>Success!</strong> Your email address was changed! Please veirfy your new email and sign-in.', 'alert-success');
-					$redirect = 'logout';
-				} else {
-					alert(implode($this->user->errors), 'alert-danger');
+					$vars['showform'] = 'show-form';
 				}
 			}
 
@@ -71,20 +75,29 @@ class PublicController extends Controller {
 			}
 		}
 
+		$vars['user'] = $this->user;
+		$vars['joined'] = date('jS F Y', strtotime($this->user->created));
+		$vars['studies'] = $this->fdb->count('survey_runs', array('user_id' => $this->user->id));
+		$vars['names'] = sprintf('%s %s', $this->user->first_name, $this->user->last_name);
+		if ('' === trim($vars['names'])) {
+			$vars['names'] = $this->user->email;
+		}
+		$vars['affiliation'] = $this->user->affiliation ? $this->user->affiliation : '(no affiliation specified)';
+
 		$this->registerAssets('bootstrap-material-design');
-		$this->renderView('public/account', array('user' => $this->user));
+		$this->renderView('public/account', $vars);
 	}
 
 	public function loginAction() {
 		if($this->user->loggedIn()) {
-			redirect_to("index");
+			redirect_to('account');
 		}
 
 		if($this->request->str('email') && $this->request->str('password')) {
 			if($this->user->login($this->request->str('email'), $this->request->str('password'))) {
 				alert('<strong>Success!</strong> You were logged in!', 'alert-success');
 				Session::set('user', serialize($this->user));
-				$redirect = $this->user->isAdmin() ? redirect_to('admin') : redirect_to();
+				$redirect = $this->user->isAdmin() ? redirect_to('admin') : redirect_to('account');
 			} else {
 				alert(implode($this->user->errors), 'alert-danger');
 			}
