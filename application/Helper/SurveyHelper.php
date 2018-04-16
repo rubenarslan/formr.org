@@ -117,9 +117,16 @@ class SurveyHelper {
 		// Mock submit other items that are suppose to be on this page because user is leaving the page anyway and hidden items must have been skipped for this session
 		foreach ($pageItems as $name => $item) {
 			if (isset($this->postedValues[$name])) {
-				continue;
+				$oldValue = $item->value_validated;
+				$item->value_validated = $this->postedValues[$name];
+				if (!$item->requiresUserInput()) {
+					$item->skip_validation = true;
+					$item->value_validated = $oldValue;
+				}
+			} else {
+				$item->skip_validation = true;
 			}
-			$item->skip_validation = true;
+
 			//$item->value_validated = null;
 			$this->postedValues[$name] = $item;
 		}
