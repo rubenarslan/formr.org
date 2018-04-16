@@ -495,6 +495,7 @@ class SurveyHelper {
 	protected function processDynamicLabelsAndChoices(&$items) {
 		// Gather choice lists
 		$lists_to_fetch = $strings_to_parse = array();
+		$session_labels = array();
 		foreach ($items as $name => &$item) {
 			if ($item->choice_list) {
 				$lists_to_fetch[] = $item->choice_list;
@@ -538,9 +539,11 @@ class SurveyHelper {
 				$list = array_filter($list, 'is_formr_truthy');
 				$items[$name]->setChoices($list);
 			}
+			$session_labels[$name] = $item->label_parsed;
 			//$items[$name]->refresh($item, array('label_parsed'));
 		}
 
+		Session::set('labels', $session_labels);
 		return $items;
 	}
 

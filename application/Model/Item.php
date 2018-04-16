@@ -336,8 +336,8 @@ class Item {
 	public function validateInput($reply) {
 		$this->reply = $reply;
 
-		if (!$this->optional && (($reply === null || $reply === false || $reply === array() || $reply === '') || (is_array($reply) && count($reply) === 1 && current($reply) === ''))
-		) { // missed a required field
+		if (!$this->optional && (($reply === null || $reply === false || $reply === array() || $reply === '') || (is_array($reply) && count($reply) === 1 && current($reply) === ''))) {
+			// missed a required field
 			$this->error = __("You missed entering some required information");
 		} elseif ($this->optional && $reply == '') {
 			$reply = null;
