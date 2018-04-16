@@ -11,43 +11,23 @@ class AdminMailController extends AdminController {
 			'accs' => $this->user->getEmailAccounts(),
 			'form_title' => 'Add Mail Account',
 		);
+		$acc = new EmailAccount($this->fdb, null, $this->user->id);
 
 		if ($this->request->account_id) {
-			$vars['form_title'] = 'Edit Mail Account';
 			$acc = new EmailAccount($this->fdb, $this->request->account_id, $this->user->id);
 			if (!$acc->valid || !$this->user->created($acc)) {
-				alert("<strong>Error:</strong> Not your email account.", 'alert-danger');
-				$this->redirect(null);
+				formr_error(401, 'Unauthorized', 'You do not have access to modify this email account');
 			}
-		} else {
-			$acc = new EmailAccount($this->fdb, null, $this->user->id);
+			$vars['form_title'] = "Edit Mail Account ({$acc->account['username']})";
 		}
 
 		if (Request::isHTTPPostRequest()) {
 			if ($acc->id && $this->request->account_id == $acc->id) {
 				// we are editing
-				if ($this->request->test_account) {
-					$acc->test();
-					$this->redirect($acc);
-				} else {
-					$acc->changeSettings($this->request->getParams());
-					alert('<strong>Success!</strong> Your email account settings were changed!', 'alert-success');
-					$this->redirect($acc);
-				}
+				$this->edit($acc);
 			} else {
 				//we are creating
-				if ($acc->create()) {
-					$acc->changeSettings($this->request->getParams());
-					alert('<strong>Success!</strong> You added a new email account!', 'alert-success');
-					if ($this->request->test_account) {
-						$acc->test();
-						$this->redirect($acc);
-					} else {
-						$this->redirect($acc);
-					}
-				} else {
-					alert(implode($acc->errors), 'alert-danger');
-				}
+				$this->create($acc);
 			}
 		}
 
@@ -65,10 +45,29 @@ class AdminMailController extends AdminController {
 				alert("<strong>Success:</strong> Account with email '{$email}' was deleted", 'alert-success');
 			}
 		};
-		$this->redirect(null);
+		$this->redirect();
 	}
 
-	protected function redirect(EmailAccount $acc) {
+	protected function create(EmailAccount $acc) {
+		if ($acc->create()) {
+			$this->edit($acc);
+		} else {
+			alert(implode($acc->errors), 'alert-danger');
+		}
+	}
+
+	protected function edit(EmailAccount $acc) {
+		$acc->changeSettings($this->request->getParams());
+		alert('<strong>Success!</strong> Your email account settings were saved!', 'alert-success');
+
+		if ($this->request->test_account) {
+			$acc->test();
+		}
+
+		$this->redirect($acc);
+	}
+
+	protected function redirect(EmailAccount $acc = null) {
 		if ($acc === null) {
 			redirect_to('admin/mail');
 		} else {

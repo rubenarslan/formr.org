@@ -20,11 +20,11 @@ class EmailAccount {
 		$this->user_id = (int) $user_id;
 
 		if ($id) {
-			$this->load($id);
+			$this->load();
 		}
 	}
 
-	protected function load($id) {
+	protected function load() {
 		$this->account = $this->dbh->findRow('survey_email_accounts', array('id' => $this->id));
 		if ($this->account) {
 			$this->valid = true;
@@ -44,7 +44,6 @@ class EmailAccount {
 	}
 
 	public function changeSettings($posted) {
-		$change_pw = "";
 		$old_password = $this->account['password'];
 		$this->account = $posted;
 
@@ -86,10 +85,11 @@ class EmailAccount {
 		$mail->Body = Template::get('email/test-account.txt');
 
 		if (!$mail->Send()) {
-			alert($mail->ErrorInfo, 'alert-danger');
+			alert('Account Test Failed: ' . $mail->ErrorInfo, 'alert-danger');
 			return false;
 		} else {
-			return alert("An email was sent to <b>{$receiver}</b>. Please confirm that you received this email.", 'alert-success');
+			alert("An email was sent to <b>{$receiver}</b>. Please confirm that you received this email.", 'alert-success');
+			return true;
 		}
 	}
 

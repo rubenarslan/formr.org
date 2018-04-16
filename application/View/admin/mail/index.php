@@ -95,17 +95,27 @@
 							<div class="form-group">
 								<label class="col-sm-2 control-label">Password</label>
 								<div class="col-sm-10">
-									<input name="password" type="password" class="form-control" placeholder="Password" autocomplete="off" />
+									<input name="password" type="password" class="form-control" placeholder="Password (not shown)" autocomplete="off" />
+								</div>
+							</div>
+							<hr />
+							<div class="form-group">
+								<label class="col-sm-2 control-label">Test</label>
+								<div class="col-sm-10">
+									<div class="checkbox">
+										<label> <input type="checkbox"name="test_account" id="test_account" value="1"> Test E-mail account on save (sends a test e-mail to the above address) </label>
+									</div>
+								</div>
+							</div>
+							<div class="form-group">
+								<label class="col-sm-2 control-label">&nbsp;</label>
+								<div class="col-sm-10">
+									<button class="btn btn-primary" name="save_account" type="submit"><i class="fa fa-save"></i> Save Account</button>
 								</div>
 							</div>
 
 						</div>
 						<!-- /.box-body -->
-						<div class="box-footer">
-							<input class="btn btn-info" name="save_account" type="submit" value="Save Account">
-							<input class="btn btn-success" name="test_account" type="submit" value="Test" title="" data-original-title="Sends a test mail to a random mailinator address" />
-						</div>
-						<!-- /.box-footer -->
 					</form>
 
 				</div>
