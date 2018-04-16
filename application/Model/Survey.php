@@ -463,7 +463,6 @@ class Survey extends RunUnit {
 
 			$validInput = ($validate && !$item->skip_validation) ? $item->validateInput($item_value) : $item_value;
 			if ($item->save_in_results_table) {
-				$item->error = 'This is a made up error';
 				if ($item->error) {
 					$this->validation_errors[$item_name] = $item->error;
 				} else {
