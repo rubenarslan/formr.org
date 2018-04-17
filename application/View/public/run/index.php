@@ -2,8 +2,8 @@
 <html class="no_js">
     <head>
 		<script>(function (H) {
-                H.className = H.className.replace(/\bno_js\b/, 'js')
-            })(document.documentElement)</script>
+				H.className = H.className.replace(/\bno_js\b/, 'js')
+			})(document.documentElement)</script>
         <title><?php echo $site->makeTitle(); ?></title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
         <meta charset="utf-8">
@@ -55,5 +55,21 @@
             </div>
         </div>
 
+		<script id="tpl-feedback-modal" type="text/formr">
+			<div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="FormR.org Modal" aria-hidden="true">
+				<div class="modal-dialog">                         
+					<div class="modal-content">                              
+						<div class="modal-header">                                 
+							<button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>                                 
+							<h3>%{header}</h3>                             
+						</div>                             
+						<div class="modal-body">%{body}</div>
+						<div class="modal-footer">                             
+							<button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>                         
+						</div>                     
+					</div>                 
+				</div>
+			</div>
+		</script>
     </body>
 </html>
