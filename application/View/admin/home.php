@@ -45,13 +45,6 @@
 				</a>
 			</div>
 			<div class="col-md-3">
-				<a href="<?php echo site_url('logout'); ?>" class="dashboard-link">
-					<span class="icon"><i class="fa fa-power-off"></i></span>
-					<span class="text"> Logout </span>
-				</a>
-			</div>
-
-			<div class="col-md-3">
 				<a href="<?php echo site_url('documentation/#help'); ?>" class="dashboard-link">
 					<span class="icon"><i class="fa fa-question-circle"></i></span>
 					<span class="text"> Help </span>
@@ -62,6 +55,13 @@
 				<a href="<?php echo site_url(); ?>" class="dashboard-link">
 					<span class="icon"><i class="fa fa-globe"></i></span>
 					<span class="text"> Go to Site </span>
+				</a>
+			</div>
+
+			<div class="col-md-3">
+				<a href="<?php echo site_url('logout'); ?>" class="dashboard-link">
+					<span class="icon"><i class="fa fa-power-off"></i></span>
+					<span class="text"> Logout </span>
 				</a>
 			</div>
 		</div>

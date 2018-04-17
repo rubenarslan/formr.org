@@ -100,7 +100,7 @@ class User {
 		
 		$user_exists = $this->dbh->entry_exists('survey_users', array('email' => $email));
 		if ($user_exists) {
-			$this->errors[] = "User already exists";
+			$this->errors[] = 'This e-mail address is already associated to an existing account.';
 			return false;
 		}
 		

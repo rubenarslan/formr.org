@@ -22,7 +22,7 @@ Template::load('public/header');
 					<?php Template::load('public/alerts'); ?>
 
 					<div class="read-info">
-						<h2 class="read-info"> <?= $names ?> <br /> <i> <?= $affiliation ?></i></h2>
+						<h2 class="read-info"> <?= h($names) ?> <br /> <i> <?= h($affiliation) ?></i></h2>
 						<p> &nbsp; </p>
 						<h4 class="lead"> <i class="fa fa-lock"></i> Login Details</h4>
 						<i class="fa fa-envelope-o fa-fw"></i> Email :  <?php echo $user->email; ?> <br />
