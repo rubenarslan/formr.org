@@ -39,7 +39,7 @@ class EmailAccount {
 
 	public function create() {
 		$this->id = $this->dbh->insert('survey_email_accounts', array('user_id' => $this->user_id, 'auth_key' => ''));
-		$this->load($this->id);
+		$this->load();
 		return $this->id;
 	}
 
@@ -73,6 +73,7 @@ class EmailAccount {
 			WHERE id = :id LIMIT 1";
 
 		$this->dbh->exec($query, $params);
+		$this->load();
 		return true;
 	}
 
