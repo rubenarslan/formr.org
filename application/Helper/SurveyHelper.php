@@ -331,7 +331,7 @@ class SurveyHelper {
 		';
 		$buttons = '';
 		for ($i = 1; $i < $pageNo; $i++) {
-			$buttons .= Template::replace('<a class="btn btn-default" href="%{run_url}">%{page_no}</a>', array(
+			$buttons .= Template::replace('<a class="btn btn-default btn-page-%{page_no}" data-page="%{page_no}" href="%{run_url}">%{page_no}</a>', array(
 				'run_url' => $this->getPageUrl($i),
 				'page_no' => $i
 			));
