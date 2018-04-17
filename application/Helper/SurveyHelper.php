@@ -212,7 +212,7 @@ class SurveyHelper {
 
 		$pageItems = $this->processAutomaticItems($pageItems);
 		// Porcess show-ifs only when necessary i.e when user is not going to a previous page OR page is not being POSTed
-		if ($processShowIfs || Session::get('is-survey-post')) {
+		if ($processShowIfs || Session::get('is-survey-post') || $this->request->getParam('_rsi_')) {
 			$pageItems = $this->processDynamicValuesAndShowIfs($pageItems);
 		}
 		$pageItems = $this->processDynamicLabelsAndChoices($pageItems);
@@ -603,7 +603,7 @@ class SurveyHelper {
 			$page = 1;
 		}
 		$params = array_diff_key($_REQUEST, $_POST);
-		unset($params['route'], $params['run_name'], $params['code']);
+		unset($params['route'], $params['run_name'], $params['code'], $params['_rsi_']);
 		return run_url($this->run->name, $page, $params);
 	}
 
