@@ -117,9 +117,16 @@ class SurveyHelper {
 		// Mock submit other items that are suppose to be on this page because user is leaving the page anyway and hidden items must have been skipped for this session
 		foreach ($pageItems as $name => $item) {
 			if (isset($this->postedValues[$name])) {
-				continue;
+				$oldValue = $item->value_validated;
+				$item->value_validated = $this->postedValues[$name];
+				if (!$item->requiresUserInput()) {
+					$item->skip_validation = true;
+					$item->value_validated = $oldValue;
+				}
+			} else {
+				$item->skip_validation = true;
 			}
-			$item->skip_validation = true;
+
 			//$item->value_validated = null;
 			$this->postedValues[$name] = $item;
 		}
@@ -205,7 +212,7 @@ class SurveyHelper {
 
 		$pageItems = $this->processAutomaticItems($pageItems);
 		// Porcess show-ifs only when necessary i.e when user is not going to a previous page OR page is not being POSTed
-		if ($processShowIfs || Session::get('is-survey-post')) {
+		if ($processShowIfs || Session::get('is-survey-post') || $this->request->getParam('_rsi_')) {
 			$pageItems = $this->processDynamicValuesAndShowIfs($pageItems);
 		}
 		$pageItems = $this->processDynamicLabelsAndChoices($pageItems);
@@ -324,7 +331,7 @@ class SurveyHelper {
 		';
 		$buttons = '';
 		for ($i = 1; $i < $pageNo; $i++) {
-			$buttons .= Template::replace('<a class="btn btn-default" href="%{run_url}">%{page_no}</a>', array(
+			$buttons .= Template::replace('<a class="btn btn-default btn-page-%{page_no}" data-page="%{page_no}" href="%{run_url}">%{page_no}</a>', array(
 				'run_url' => $this->getPageUrl($i),
 				'page_no' => $i
 			));
@@ -488,6 +495,7 @@ class SurveyHelper {
 	protected function processDynamicLabelsAndChoices(&$items) {
 		// Gather choice lists
 		$lists_to_fetch = $strings_to_parse = array();
+		$session_labels = array();
 		foreach ($items as $name => &$item) {
 			if ($item->choice_list) {
 				$lists_to_fetch[] = $item->choice_list;
@@ -531,9 +539,11 @@ class SurveyHelper {
 				$list = array_filter($list, 'is_formr_truthy');
 				$items[$name]->setChoices($list);
 			}
+			$session_labels[$name] = $item->label_parsed;
 			//$items[$name]->refresh($item, array('label_parsed'));
 		}
 
+		Session::set('labels', $session_labels);
 		return $items;
 	}
 
@@ -593,7 +603,7 @@ class SurveyHelper {
 			$page = 1;
 		}
 		$params = array_diff_key($_REQUEST, $_POST);
-		unset($params['route'], $params['run_name'], $params['code']);
+		unset($params['route'], $params['run_name'], $params['code'], $params['_rsi_']);
 		return run_url($this->run->name, $page, $params);
 	}
 

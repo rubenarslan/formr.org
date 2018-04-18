@@ -1,0 +1,35 @@
+Dear user,
+
+you, or someone else created an account on %{site_url}.
+You will need to verify that this is your email address.
+To do so, please go to this link:
+%{verify_link}
+
+If you did not sign up, please notify us and we will 
+suspend the account.
+
+If you signed up with a valid referral token, you will 
+automatically be able to create new studies (rather 
+than just take part).
+If you have no such token, please reply to this email 
+and tell us why you should get access (we're happy 
+about new users, but want to know a little about what 
+you plan to do).
+
+To get help with conducting studies, refer to the help 
+section here.
+We have provided copious documentation and some detailed 
+HowTos, but there also is a mailing list to which you 
+can write if you need more help. 
+%{documentation_url}
+
+While you have a live study on formr, you should be 
+signed up to the mailing list, so that you hear 
+quickly if there will be a big update or if there
+might be trouble with formr. 
+There are fewer than two messages per month on the list.
+https://groups.google.com/forum/#!forum/formr
+
+Best regards,
+
+formr robots

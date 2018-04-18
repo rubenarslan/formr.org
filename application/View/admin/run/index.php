@@ -23,7 +23,7 @@
                                 <div class="box-body">
 									<?php Template::load('public/alerts'); ?>
                                     <form class="form-horizontal edit_run form-inline" enctype="multipart/form-data" name="edit_run" method="post" action="<?= admin_run_url($run->name) ?>" data-units='<?php echo json_encode($run->getAllUnitIds()); ?>'>
-                                        <input type="hidden" value="CyrilTestDiary" name="old_run_name" class="run_name" />
+                                        <input type="hidden" value="<?php echo h($run->name); ?>" name="old_run_name" class="run_name" />
                                         <div class="edit-run-header pull-right">
 
                                             <h5>Publicness: &nbsp; </h5>

@@ -1256,8 +1256,11 @@ body {
 	background: #fff;
 }
 .login-form.large {
-	width: 700px;
+	width: auto;
 	margin: 0 auto;
+}
+.fmr-account-info .login-form.large {
+	padding: 0 0 0px 19px !important;
 }
 .login-form .form-control {
 	height: 34px;
@@ -1289,6 +1292,56 @@ address, ul, ol, a {
 .fmr-login #fmr-hero .fmr-intro>div {
 	display: block;
 }
+
+/** account page */
+.fmr-account-info .fmr-intro {
+	min-height: 571px;
+	position: relative;
+	margin-top: -100px;
+	z-index: 1000;
+}
+.fmr-account-info .profile-user-img {
+	position: relative;
+    z-index: 1001;
+    margin-top: -30px;
+    background: #fff;
+    padding: 8px;
+	border-radius: 50%;
+	width: 200px;
+	height: 200px;
+	max-width: 100%;
+}
+.fmr-account-info .member-info span {
+	display: block;
+	margin: 5px 0px;
+	font-size: 14px;
+	color: #888;
+	text-align: center;
+}
+.fmr-account-info h2 {
+	margin-top: 16px;
+	margin-bottom: 10px;
+}
+.fmr-account-info h2 i {
+	font-size: 15px;
+	font-weight: normal;
+	color: #888;
+}
+.fmr-account-info .edit-info {
+	display: none;
+}
+.fmr-account-info h5 {
+	margin: 30px 0 0 0;
+}
+.fmr-account-info h4.lead {
+	margin: 15px 0 10px 0;
+	border-bottom: 1px solid #efefef;
+	padding-bottom: 6px;
+}
+.fmr-account-info .render-alerts {
+	margin-top: 10px;
+}
+
 .fmr-about .img-circle.team {
 	width: 200px;
 	height: auto;
@@ -1469,6 +1522,17 @@ input:-webkit-autofill:focus {
 @media screen and (max-width: 768px) {
 	.row-top-padded-sm {
 		padding-top: 2em;
+	}
+}
+@media screen and (max-width: 768px) {
+	.login-form.large {
+		padding: 15px !important;
+	}
+	.fmr-account-info .elongate {
+		display: none;
+	}
+	.fmr-account-info .profile-user-img {
+		display: none;
 	}
 }
 .no-margin {
@@ -1671,6 +1735,10 @@ form.form-horizontal div.form-group.form-row.item-block div.control-label, form.
 	text-align: left !important;
 	width: 100%;
 	max-width: 100%;
+}
+form.form-horizontal .fmr-error-messages li {
+	margin-bottom: 8px;
+	margin-left: 8px;
 }
 form.form-horizontal div.form-group.form-row.item-block div.controls, form.form-horizontal div.form-group.form-row.item-note div.controls {
 	display: none;

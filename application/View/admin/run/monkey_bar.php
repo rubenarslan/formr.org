@@ -2,7 +2,7 @@
 <div class="col-xs-12 text-right">
 <div class="monkey_bar">
 	<div class="text-center">
-				<a class="hastooltip label label-default" href="<?php echo run_url($run->name, 'monkey-bar', array('code' => $user->user_code)); ?>" title="Link to this session (copy &amp; share to debug)"><i class="fa <?= $icon ?>"></i> <?php echo $short_code; ?> (<?=$run_session->position; ?>)</a>
+				<a class="hastooltip label label-default" href="<?php echo run_url($run->name, null, array('code' => $user->user_code)); ?>" title="Link to this session (copy &amp; share to debug)"><i class="fa <?= $icon ?>"></i> <?php echo $short_code; ?> (<?=$run_session->position; ?>)</a>
 	</div>
 	<form class="form-inline form-ajax" action="<?php echo monkeybar_url($run->name, 'ajax_send_to_position'); ?>" method="post">
 		<span class="input-group">

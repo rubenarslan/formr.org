@@ -20,11 +20,11 @@ class EmailAccount {
 		$this->user_id = (int) $user_id;
 
 		if ($id) {
-			$this->load($id);
+			$this->load();
 		}
 	}
 
-	protected function load($id) {
+	protected function load() {
 		$this->account = $this->dbh->findRow('survey_email_accounts', array('id' => $this->id));
 		if ($this->account) {
 			$this->valid = true;
@@ -39,12 +39,11 @@ class EmailAccount {
 
 	public function create() {
 		$this->id = $this->dbh->insert('survey_email_accounts', array('user_id' => $this->user_id, 'auth_key' => ''));
-		$this->load($this->id);
+		$this->load();
 		return $this->id;
 	}
 
 	public function changeSettings($posted) {
-		$change_pw = "";
 		$old_password = $this->account['password'];
 		$this->account = $posted;
 
@@ -74,24 +73,24 @@ class EmailAccount {
 			WHERE id = :id LIMIT 1";
 
 		$this->dbh->exec($query, $params);
+		$this->load();
 		return true;
 	}
 
 	public function test() {
-		$RandReceiv = crypto_token(9, true);
-		$receiver = $RandReceiv . '@mailinator.com';
-		$link = "https://mailinator.com/inbox2.jsp?public_to=" . $RandReceiv;
-
+		$receiver = $this->account['from'];
 		$mail = $this->makeMailer();
 
 		$mail->AddAddress($receiver);
-		$mail->Subject = 'Test';
-		$mail->Body = 'You got mail.';
+		$mail->Subject = 'formr: account test success';
+		$mail->Body = Template::get('email/test-account.txt');
 
 		if (!$mail->Send()) {
-			alert($mail->ErrorInfo, 'alert-danger');
+			alert('Account Test Failed: ' . $mail->ErrorInfo, 'alert-danger');
+			return false;
 		} else {
-			redirect_to($link);
+			alert("An email was sent to <b>{$receiver}</b>. Please confirm that you received this email.", 'alert-success');
+			return true;
 		}
 	}
 

@@ -35,7 +35,7 @@ if (php_sapi_name() != 'cli') {
 }
 
 // Set current formr version (bumped on release)
-$settings['version'] = 'v0.17.5';
+$settings['version'] = 'v0.17.6';
 
 // Load application autoloader
 $autoloader = require_once APPLICATION_PATH . 'Library/Autoloader.php';

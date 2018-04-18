@@ -5,14 +5,21 @@ class User {
 	public $id = null;
 	public $email = null;
 	public $user_code = null;
-	private $logged_in = false;
-	private $admin = false;
-	private $referrer_code = null;
-	// todo: time zone, etc.
+	public $first_name = null;
+	public $last_name = null;
+	public $affiliation = null;
+	public $created = 0;
+	public $email_verified = 0;
 	public $settings = array();
 	public $errors = array();
 	public $messages = array();
 	public $cron = false;
+
+	private $logged_in = false;
+	private $admin = false;
+	private $referrer_code = null;
+	// todo: time zone, etc.
+	
 
 	/**
 	 * @var DB
@@ -37,7 +44,7 @@ class User {
 	}
 
 	private function load() {
-		$user = $this->dbh->select('id, email, password, admin, user_code, referrer_code')
+		$user = $this->dbh->select('id, email, password, admin, user_code, referrer_code, first_name, last_name, affiliation, created, email_verified')
 				->from('survey_users')
 				->where(array('id' => $this->id))
 				->limit(1)
@@ -50,6 +57,11 @@ class User {
 			$this->user_code = $user['user_code'];
 			$this->admin = $user['admin'];
 			$this->referrer_code = $user['referrer_code'];
+			$this->first_name = $user['first_name'];
+			$this->last_name = $user['last_name'];
+			$this->affiliation = $user['affiliation'];
+			$this->created = $user['created'];
+			$this->email_verified = $user['email_verified'];
 			return true;
 		}
 
@@ -88,7 +100,7 @@ class User {
 		
 		$user_exists = $this->dbh->entry_exists('survey_users', array('email' => $email));
 		if ($user_exists) {
-			$this->errors[] = "User already exists";
+			$this->errors[] = 'This e-mail address is already associated to an existing account.';
 			return false;
 		}
 		
@@ -111,7 +123,9 @@ class User {
 				throw new Exception("Unable create user account");
 			}
 
-			$login = $this->login($email, $password);
+			//$login = $this->login($email, $password);
+			$this->email = $email;
+			$this->id = $inserted;
 			$this->needToVerifyMail();
 			return true;
 
@@ -135,47 +149,18 @@ class User {
 		$mail = $site->makeAdminMailer();
 		$mail->AddAddress($this->email);
 		$mail->Subject = 'formr: confirm your email address';
-		$mail->Body = "Dear user,
-
-you, or someone else created an account on " . site_url() . ".
-You will need to verify that this is your email address.
-To do so, please go to this link:
-" . $verify_link . "
-
-If you did not sign up, please notify us and we will 
-suspend the account.
-
-If you signed up with a valid referral token, you will 
-automatically be able to create new studies (rather 
-than just take part).
-If you have no such token, please reply to this email 
-and tell us why you should get access (we're happy 
-about new users, but want to know a little about what 
-you plan to do).
-
-To get help with conducting studies, refer to the help 
-section here.
-We have provided copious documentation and some detailed 
-HowTos, but there also is a mailing list to which you 
-can write if you need more help. 
-". site_url("public/documentation#help")."
-
-While you have a live study on formr, you should be 
-signed up to the mailing list, so that you hear 
-quickly if there will be a big update or if there
-might be trouble with formr. 
-There are fewer than two messages per month on the list.
-https://groups.google.com/forum/#!forum/formr
-
-Best regards,
-
-formr robots";
+		$mail->Body = Template::get_replace('email/verify-email.txt', array(
+			'site_url' => site_url(),
+			'documentation_url' => site_url('documentation#help'),
+			'verify_link' => $verify_link,
+		));
 
 		if (!$mail->Send()) {
 			alert($mail->ErrorInfo, 'alert-danger');
 		} else {
 			alert("You were sent an email to verify your address.", 'alert-info');
 		}
+		$this->id = null;
 	}
 
 	public function login($email, $password) {
@@ -183,12 +168,13 @@ formr robots";
 				->from('survey_users')
 				->where(array('email' => $email))
 				->limit(1)->fetch();
+
 		if ($user && !$user['email_verified']) {
 			$verification_link = site_url('verify-email', array('token' => $user['email_verification_hash']));
 			$this->id = $user['id'];
 			$this->email = $email;
 			$this->errors[] = sprintf('Please verify your email address by clicking on the verification link that was sent to you, '
-							  . 'or click <a href="%s">here</a> to re-send the verification link', $verification_link);
+							  . '<a class="btn btn-raised btn-default" href="%s">Resend Link</a>', $verification_link);
 			return false;
 		} elseif ($user && password_verify($password, $user['password'])) {
 			if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
@@ -202,11 +188,8 @@ formr robots";
 				}
 			}
 
-			$this->logged_in = true;
-			$this->email = $email;
-			$this->id = $user['id'];
-			$this->user_code = $user['user_code'];
-			$this->admin = $user['admin'];
+			$this->id = (int)$user['id'];
+			$this->load();
 			return true;
 		} else {
 			$this->errors[] = 'Your login credentials were incorrect!';
@@ -215,19 +198,18 @@ formr robots";
 	}
 
 	public function setAdminLevelTo($level) {
-		global $user;
-		if (!$user->isSuperAdmin()) {
+		if (!Site::getCurrentUser()->isSuperAdmin()) {
 			throw new Exception("You need more admin rights to effect this change");
 		}
 
 		$level = (int) $level;
-		if ($level !== 0 AND $level !== 1):
+		if ($level !== 0 && $level !== 1) {
 			if ($level > 1) {
 				$level = 1;
 			} else {
 				$level = 0;
 			}
-		endif;
+		}
 
 		return $this->dbh->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 100));
 	}
@@ -253,19 +235,10 @@ formr robots";
 			$mail = $site->makeAdminMailer();
 			$mail->AddAddress($email);
 			$mail->Subject = 'formr: forgot password';
-			$mail->Body = "Dear user,
-
-you, or someone else used the forgotten password box on " . site_url() . "
-to create a link for you to reset your password. 
-If that was you, you can go to this link (within two days)
-to choose a new password:
-" . $reset_link . "
-
-If that wasn't you, please simply do not react.
-
-Best regards,
-
-formr robots";
+			$mail->Body = Template::get_replace('email/forgot-password.txt', array(
+				'site_url' => site_url(),
+				'reset_link' => $reset_link,
+			));
 
 			if (!$mail->Send()):
 				alert($mail->ErrorInfo, 'alert-danger');
@@ -283,29 +256,56 @@ formr robots";
 	}
 
 	public function changePassword($password, $new_password) {
-		if ($this->login($this->email, $password)) {
+		if (!$this->login($this->email, $password)) {
+			$this->errors = array('The old password you entered is not correct.');
+			return false;
+		}
 
-			$hash = password_hash($new_password, PASSWORD_DEFAULT);
-			/* Store new hash in db */
-			if ($hash) {
-				$this->dbh->update('survey_users', array('password' => $hash), array('email' => $this->email));
-				return true;
-			} else {
-				alert('<strong>Error!</strong> Hash error.', 'alert-danger');
+		$hash = password_hash($new_password, PASSWORD_DEFAULT);
+		/* Store new hash in db */
+		if ($hash) {
+			$this->dbh->update('survey_users', array('password' => $hash), array('email' => $this->email));
+			return true;
+		} else {
+			$this->errors[] = 'Unable to generate new password';
+			return false;
+		}
+	}
+
+	public function changeData($password, $data) {
+		if (!$this->login($this->email, $password)) {
+			$this->errors = array('The old password you entered is not correct.');
+			return false;
+		}
+
+		$verificationRequired = false;
+		$update = array();
+		$update['email'] = array_val($data, 'new_email');
+		$update['first_name'] = array_val($data, 'first_name');
+		$update['last_name'] = array_val($data, 'last_name');
+		$update['affiliation'] = array_val($data, 'affiliation');
+
+		if (!$update['email']) {
+			$this->errors[] = 'Please provide a valid email address';
+			return false;
+		}elseif ($update['email'] !== $this->email) {
+			$verificationRequired = true;
+			$update['email_verified'] = 0;
+			// check if email already exists
+			$exists = $this->dbh->entry_exists('survey_users', array('email' => $update['email']));
+			if ($exists) {
+				$this->errors[] = 'The provided email address is already in use!';
 				return false;
 			}
 		}
-		return false;
-	}
 
-	public function changeEmail($password, $email) {
-		if ($this->login($this->email, $password)):
-			$this->dbh->update('survey_users', array('email' => $email, 'email_verified' => 0), array('id' => $this->id));
-			$this->email = $email;
+		$this->dbh->update('survey_users', $update, array('id' => $this->id));
+		$this->email = $update['email'];
+		if ($verificationRequired) {
 			$this->needToVerifyMail();
-			return true;
-		endif;
-		return false;
+		}
+		$this->load();
+		return true;
 	}
 
 	public function reset_password($email, $token, $new_password, $new_password_confirm) {

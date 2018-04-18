@@ -722,6 +722,8 @@ class Survey extends RunUnit {
 	protected function processDynamicLabelsAndChoices(&$items) {
 		// Gather choice lists
 		$lists_to_fetch = $strings_to_parse = array();
+		$session_labels = array();
+
 		foreach ($items as $name => &$item) {
 			if ($item->choice_list) {
 				$lists_to_fetch[] = $item->choice_list;
@@ -766,8 +768,10 @@ class Survey extends RunUnit {
 				$items[$name]->setChoices($list);
 			}
 			//$items[$name]->refresh($item, array('label_parsed'));
+			$session_labels[$name] = $item->label_parsed;
 		}
 
+		Session::set('labels', $session_labels);
 		return $items;
 	}
 	
@@ -934,10 +938,11 @@ class Survey extends RunUnit {
 			</div>';
 
 		if (!empty($this->validation_errors)) {
-			$ret .= '
-			<div class="alert alert-danger form-group form-message">
-				<div class="control-label"><i class="fa fa-exclamation-triangle pull-left fa-2x"></i>' . implode("<br>", array_unique($this->validation_errors, SORT_STRING)) . '</div>' .
-			'</div>';
+			$ret .= '<div class="alert alert-danger alert-dismissible form-message fmr-error-messages">'
+						. '<i class="fa fa-exclamation-triangle pull-left fa-2x"></i>'
+						. '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>'
+						. $this->render_errors($this->validation_errors) . 
+					'</div>';
 		}
 
 		return $ret;
@@ -971,6 +976,34 @@ class Survey extends RunUnit {
 
 	protected function render_form_footer() {
 		return "</form>"; /* close form */
+	}
+
+	/**
+	 * 
+	 * @param Item[] $items
+	 * @return string
+	 */
+	protected function render_errors($items) {
+		$labels = Session::get('labels', array());
+		$tpl = 
+		'<li>
+			<i class=""></i>
+			<b>Question/Code</b>: %{question} <br />
+			<b>Error</b>: %{error}
+		 </li>
+		';
+		$errors = '';
+
+		foreach ($items as $name => $error) {
+			if ($error) {
+				$errors .= Template::replace($tpl, array(
+					'question' => strip_tags(array_val($labels, $name, strtoupper($name))),
+					'error' => $error,
+				));
+			}
+		}
+		Session::delete('labels');
+		return '<ul>' . $errors . '</ul>';
 	}
 
 
