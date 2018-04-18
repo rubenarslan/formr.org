@@ -2,6 +2,19 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.17.6] - 18.04.2018
+### Added
+* Alert users if cookies are not activated
+* GET parameter to force re-calculation of show-if for paged-surveys
+
+### Changed
+* UI of the account page
+
+### Fixed
+* Testing Email Accounts (send self-mail)
+* Monkey bar session link #340
+* Default run export name #341
+
 ## [0.17.5] - 05.04.2018
 ### Fixed
 * Testing "Survey" for surveys with paging enabled
