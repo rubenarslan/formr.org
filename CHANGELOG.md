@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.17.7] - 20.04.2018
+### Fixed
+* Do not save values for hidden items
+* RUN file uploads
+
 ## [0.17.6] - 18.04.2018
 ### Added
 * Alert users if cookies are not activated

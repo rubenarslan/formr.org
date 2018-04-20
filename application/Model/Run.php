@@ -234,37 +234,55 @@ class Run {
 		}
 
 		// loop through files and modify them if necessary
-		for ($i = 0; $i < count($files['tmp_name']); $i++):
-			if (filesize($files['tmp_name'][$i]) < $max_size_upload * 1048576) {
-				$finfo = new finfo(FILEINFO_MIME_TYPE);
-				$mime = $finfo->file($files['tmp_name'][$i]);
-				if (!in_array($mime, array_keys($this->file_endings))) {
-					$this->errors[] = __('The file "%s" has the MIME type %s and is not allowed to be uploaded.', $files['name'][$i], $mime);
-				} else {
-					$original_file_name = $files['name'][$i];
-					if (isset($files_by_names[$original_file_name])) {
-						$new_file_path = $files_by_names[$original_file_name];
-					} else {
-						$new_file_path = 'assets/tmp/admin/' . crypto_token(33, true) . $this->file_endings[$mime];
-					}
-
-					if (move_uploaded_file($files['tmp_name'][$i], APPLICATION_ROOT . "webroot/" . $new_file_path)) {
-						$this->dbh->insert_update('survey_uploaded_files', array(
-							'run_id' => $this->id,
-							'created' => mysql_now(),
-							'original_file_name' => $original_file_name,
-							'new_file_path' => $new_file_path,
-						), array(
-							'modified' => mysql_now()
-						));
-					} else {
-						$this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
-					}
-				}
-			} else {
-				$this->errors[] = __("The file '%s' is too big the maximum is %d megabytes.", $files['name'][$i], round($max_size_upload, 2));
+		for ($i = 0; $i < count($files['tmp_name']); $i++) {
+			// validate if any error occured on upload
+			if ($files['error'][$i]) {
+				$this->errors[] = __("An error occured uploading file '%s'. ERROR CODE: PFUL-%d", $files['name'][$i], $files['error'][$i]);
+				continue;
 			}
-		endfor;
+
+			// validate file size
+			$size = (int)$files['size'][$i];
+			if (!$size || ($size > $max_size_upload * 1048576)) {
+				$this->errors[] = __("The file '%s' is too big or the size could not be determined. The allowed maximum size is %d megabytes.", $files['name'][$i], round($max_size_upload, 2));
+				continue;
+			}
+
+			// validate mime type
+			$finfo = new finfo(FILEINFO_MIME_TYPE);
+			$mime = $finfo->file($files['tmp_name'][$i]);
+			if (!isset($this->file_endings[$mime])) {
+				$this->errors[] = __('The file "%s" has the MIME type %s and is not allowed to be uploaded.', $files['name'][$i], $mime);
+				continue;
+			}
+
+			// validation was OK
+			$original_file_name = $files['name'][$i];
+			if (isset($files_by_names[$original_file_name])) {
+				// override existing path
+				$new_file_path = $files_by_names[$original_file_name];
+				$this->messages[] = __('The file "%s" was overriden.', $original_file_name);
+			} else {
+				$new_file_path = 'assets/tmp/admin/' . crypto_token(33, true) . $this->file_endings[$mime];
+			}
+
+			// save file
+			$destination_dir = APPLICATION_ROOT . 'webroot/' . $new_file_path;			
+			if (move_uploaded_file($files['tmp_name'][$i], $destination_dir)) {
+				$this->dbh->insert_update('survey_uploaded_files', array(
+					'run_id' => $this->id,
+					'created' => mysql_now(),
+					'original_file_name' => $original_file_name,
+					'new_file_path' => $new_file_path,
+				), array(
+					'modified' => mysql_now()
+				));
+			} else {
+				$this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
+			}
+
+		}
+
 		return empty($this->errors);
 	}
 
