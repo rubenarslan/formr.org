@@ -520,6 +520,9 @@
 			if (!hide) {
 				$elm.find("input.item_shown").val(mysql_datetime());
 				$elm.find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
+			} else {
+				$elm.find('input,select,textarea').val('');
+				$elm.find('input[type=radio],input[type=checkbox]').prop('checked', false);
 			}
 			return true;
 		}
