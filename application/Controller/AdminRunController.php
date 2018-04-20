@@ -262,17 +262,20 @@ class AdminRunController extends AdminController {
 	private function uploadFilesAction() {
 		$run = $this->run;
 
-		if (!empty($_FILES)) {
-			if(isset($_FILES['uploaded_files'])) {
-				if($run->uploadFiles($_FILES['uploaded_files'])) {
-					alert('<strong>Success.</strong> The files were uploaded.','alert-success');
-					if(!empty($run->messages)) alert('<strong>These files were overwritten:</strong> '.implode($run->messages),'alert-info');
-					redirect_to(admin_run_url($run->name, 'upload_files'));
-				} else {
-					alert('<strong>Sorry, files could not be uploaded.</strong> '.implode($run->errors),'alert-danger');
+		if (!empty($_FILES['uploaded_files'])) {
+			if($run->uploadFiles($_FILES['uploaded_files'])) {
+				alert('<strong>Success.</strong> The files were uploaded.','alert-success');
+				if(!empty($run->messages)) {
+					alert(implode($run->messages, ' '), 'alert-info');
 				}
+				redirect_to(admin_run_url($run->name, 'upload_files'));
+			} else {
+				alert('<strong>Sorry, files could not be uploaded.</strong><br /> ' . nl2br(implode($run->errors, "\n")),'alert-danger');
 			}
+		} elseif ($this->request->isHTTPPostRequest()) {
+			alert('The size of your request exceeds the allowed limit. Please report this to administrators indicating the size of your files.', 'alert-danger');
 		}
+
 		$this->renderView('run/upload_files', array('files' => $run->getUploadedFiles()));
 	}
 
