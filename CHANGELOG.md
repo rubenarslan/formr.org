@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [0.17.8] - 25.04.2018
 ### Fixed
 * Connection to the Open Science Framework
+* Patch Commit
 
 ## [0.17.7] - 20.04.2018
 ### Fixed
