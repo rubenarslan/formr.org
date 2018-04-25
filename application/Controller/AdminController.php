@@ -41,7 +41,7 @@ class AdminController extends Controller {
 
 	public function osfAction() {
 		if (!($token = OSF::getUserAccessToken($this->user))) {
-			redirect_to('osf-api/login');
+			redirect_to('api/osf/login');
 		}
 
 		$osf = new OSF(Config::get('osf'));
@@ -69,7 +69,7 @@ class AdminController extends Controller {
 			$export = $run->export($run->name, $units, true);
 			$export_file = Config::get('survey_upload_dir') . '/run-' . time() . '-' . $run->name . '.json';
 			$create = file_put_contents($export_file, json_encode($export, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
-			$response = $osf->upload($osf_project, $export_file, $run->name . '.json');
+			$response = $osf->upload($osf_project, $export_file, $run->name . '-' . date('YmdHis') . '.json');
 			@unlink($export_file);
 
 			if (!$response->hasError()) {
