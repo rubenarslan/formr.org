@@ -205,7 +205,7 @@
 											<?php if (empty($osf_token)): ?>
 												<p>
 													<br /><br />
-													<a href="<?php echo site_url('osf-api/login?redirect=admin/run/' . $run->name . '/settings'); ?>" class="btn btn-default"><i class="fa fa-link"></i> Connect to the Open Science Framework</a>
+													<a href="<?php echo site_url('api/osf/login?redirect=admin/run/' . $run->name . '/settings'); ?>" class="btn btn-default"><i class="fa fa-link"></i> Connect to the &nbsp;<img src="<?= asset_url('build/img/osf-icon.png') ?>" alt="OSF Icon" /> <b>Open Science Framework</b></a>
 												</p>
 											<?php else: ?>
 												<br /><br />
@@ -217,44 +217,49 @@
 													</div>
 													<div id="collapseOne" class="panel-collapse collapse in">
 														<div class="panel-body">
-															<form action="<?php echo admin_url('osf'); ?>" method="post" />
-															<table class="table table-responsive">
-																<thead>
-																	<tr>
-																		<th>Select OSF Project</th>
-																		<th>&nbsp;</th>
-																	</tr>
-																</thead>
-																<tbody>
-																	<tr>
-																		<td>
-																			<div class="input-group">
-																				<span class="input-group-addon"><i class="fa fa-rocket"></i></span>
-																				<div class="form-group">
-																					<select name="osf_project" class="form-control">
-																						<option value="">....</option>
-																						<?php
-																						foreach ($osf_projects as $project):
-																							$selected = $project['id'] == $osf_project ? 'selected="selected"' : null
-																							?>
-																							<option value="<?= $project['id']; ?>" <?= $selected ?>><?= $project['name']; ?> </option>
-																						<?php endforeach; ?>
-																					</select>          
+															<form action="<?php echo admin_url('osf'); ?>" method="post" >
+															
+																<div class="alert alert-info alert-dismissible">
+																	<a href="#" class="close" data-dismiss="alert" aria-label="close" title="close">&times;</a>
+																	<i class="fa fa-exclamation-circle"></i> In order to be able to export your <i>run</i> structure to the Open Science Framework,
+																	you will first need to create a project on the OSF platform, and then select the corresponding project from the list below.
+																	You may need to refresh this page to see a list of newly created projects.
+																</div>
+																
+																<table class="table table-responsive">
+																	<thead>
+																		<tr>
+																			<th>Select OSF Project</th>
+																			<th><a class="btn btn-default pull-right" href="<?php echo Config::get('osf.site_url'); ?>" target="_blank"><img src="<?= asset_url('build/img/osf-icon.png') ?>" alt="OSF Icon" /> Create an OSF project</a></th>
+																		</tr>
+																	</thead>
+																	<tbody>
+																		<tr>
+																			<td>
+																				<div class="input-group">
+																					<span class="input-group-addon"><i class="fa fa-rocket"></i></span>
+																					<div class="form-group">
+																						<select name="osf_project" class="form-control">
+																							<option value="">....</option>
+																							<?php
+																							foreach ($osf_projects as $project):
+																								$selected = $project['id'] == $osf_project ? 'selected="selected"' : null
+																								?>
+																								<option value="<?= $project['id']; ?>" <?= $selected ?>><?= $project['name']; ?> </option>
+																							<?php endforeach; ?>
+																						</select>          
+																					</div>
 																				</div>
-																			</div>
-																			<p>
-																				<a href="https://osf.io/dashboard/" target="_blank">Create an OSF project</a>
-																			</p>
-																		</td>
-																		<td class="col-md-5">
-																			<input type="hidden" name="formr_project" value="<?php echo $run->name; ?>" />
-																			<input type="hidden" name="osf_action" value="export-run" />
-																			<input type="hidden" name="redirect" value="admin/run/<?= $run->name ?>/settings#osf" />
-																			<button type="submit" class="btn btn-primary btn-large"><i class="fa fa-mail-forward"></i> Export</button>
-																		</td>
-																	</tr>
-																</tbody>
-															</table>
+																			</td>
+																			<td class="col-md-5">
+																				<input type="hidden" name="formr_project" value="<?php echo $run->name; ?>" />
+																				<input type="hidden" name="osf_action" value="export-run" />
+																				<input type="hidden" name="redirect" value="admin/run/<?= $run->name ?>/settings#osf" />
+																				<button type="submit" class="btn btn-primary btn-large"><i class="fa fa-mail-forward"></i> Export</button>
+																			</td>
+																		</tr>
+																	</tbody>
+																</table>
 															</form>
 														</div>	
 													</div>
