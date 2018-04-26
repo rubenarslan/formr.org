@@ -413,6 +413,7 @@ class SurveyHelper {
 	protected function processDynamicValuesAndShowIfs(&$items) {
 		// In this loop we gather all show-ifs and dynamic-values that need processing and all values.
 		$code = array();
+		$save = array();
 
 		/* @var $item Item */
 		foreach ($items as $name => &$item) {
@@ -450,8 +451,6 @@ class SurveyHelper {
 			$results = $ocpu_session->getJSONObject();
 			$updateVisibility = $this->db->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
 			$updateVisibility->bindValue(":session_id", $this->unitSession->id);
-
-			$save = array();
 
 			$definitelyShownItems = 0;
 			foreach ($items as $item_name => &$item) {
@@ -574,6 +573,10 @@ class SurveyHelper {
 	 * @param boolean $validate
 	 */
 	protected function saveSuryeyItems($items, $validate = true) {
+		if (!$items) {
+			return false;
+		}
+
 		if (!$validate) {
 			foreach ($items as &$item) {
 				if ($item instanceof Item) {

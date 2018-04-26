@@ -105,4 +105,16 @@ class Number_Item extends Item {
 		return $reply;
 	}
 
+	public function requiresUserInput() {
+		/**
+		 * Since this item doesn't require user input when it has the 'counter' class
+		 * We should check for the presence of that class
+		 */
+		if(in_array('counter', $this->classes_wrapper)) {
+			return false;
+		} else {
+			return !$this->no_user_input_required;
+		}
+	}
+
 }
