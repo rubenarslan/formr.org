@@ -35,6 +35,7 @@ function help() {
 			-h: Prints this help message
 			--survey-id  : Numeric ID of the survey to which you want to import data
 			--run-id     : Numeric ID of the run to which you want to import data
+			--position   : Position of the UNIT ID in the run
 			--backup-file: Asolute path to the backup results file
 			--include-itemsdisplay: If this flag is present then queries for survey_items_display table will be included
 			
@@ -64,6 +65,10 @@ function collectVars() {
 		quit("Missing option 'run-id'");
 	}
 
+	if (!isset($opts['position'])) {
+		quit("You need to specify the position of the Run unit to which the survey is attached");
+	}
+
 	if (!isset($opts['backup-file'])) {
 		quit("Missing option 'backup-file'");
 	}
@@ -75,6 +80,7 @@ function collectVars() {
 	return array(
 		'runId' => (int) $opts['run-id'],
 		'studyId' => (int) $opts['survey-id'],
+		'position' => (int) $opts['position'],
 		'backupFile' => $backupFile,
 		'sqlBackupFile' => $backupFile . '.sql',
 		'inlcudeItemsDisplay' => isset($opts['include-itemsdisplay']),
@@ -101,16 +107,16 @@ function itemsDisplayCols($item_id, $session_id, $created, $answer) {
 		'shown_relative' => NULL,
 		'answered' => mysql_datetime($answered),
 		'answered_relative' => NULL,
-		'display_count' => 1,
+		'displaycount' => 1,
 		'display_order' => NULL, // FIX ME
-		'hidden' => 1, // FIX-ME
+		'hidden' => 0, // FIX-ME
 	);
 }
 
 $vars = collectVars();
 extract($vars);
-$sysColumns = array('session', 'session_id', 'study_id', 'created', 'modified', 'ended');
-$dateColumns = array('created', 'modified', 'ended');
+$sysColumns = array('session', 'session_id', 'study_id', 'created', 'modified', 'ended', 'expired');
+$dateColumns = array('created', 'modified', 'ended', 'expired');
 $exclColumns = array('session');
 $db = DB::getInstance();
 
@@ -228,6 +234,17 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 		if ($value && $runSession === null && $column == 'session') {
 			$value = ltrim($value, '=');
 			$runSession = new RunSession($db, $runId, null, $value, $run);
+			// Create a fake session and end it if it doesn't exist (maybe set a flag to enable this in command
+			if ($runSession->id <= 0) {
+				$runSession->create($value);
+				$runSession->runTo($position, $studyId);
+				$unitSession = $runSession->getCurrentUnit();
+				$entry['session_id'] = $unitSession['session_id'];
+				$runSession->end();
+			} else {
+				$unitSession = new UnitSession($db, $runSession->id, $studyId);
+				$entry['session_id'] = $unitSession->create();
+			}
 		}
 	}
 

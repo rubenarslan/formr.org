@@ -105,4 +105,33 @@ class Number_Item extends Item {
 		return $reply;
 	}
 
+	public function requiresUserInput() {
+		/**
+		 * Since this item type doesn't require user input when it is serving as a counter,
+		 * we should check for the presence of that class unless we are POSTing
+		 */
+		if($this->isCounter() && Site::getInstance()->request->isHTTPGetRequest()) {
+			return false;
+		} else {
+			return parent::requiresUserInput();
+		}
+	}
+
+	public function needsDynamicValue() {
+		/**
+		 * If item is serving as a counter and already has a saved value then use that
+		 */
+		if ($this->value_validated !== null && $this->isCounter()) {
+			$this->input_attributes['value'] = $this->value_validated;
+			return false;
+		} else {
+			// Use the default calulation
+			return parent::needsDynamicValue();
+		}
+	}
+
+	protected function isCounter() {
+		return in_array('counter', $this->classes_wrapper);
+	}
+
 }

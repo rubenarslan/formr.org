@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.17.9] - 27.04.2018
+### Fixed
+* Bug #342
+* Fix Number item-type value when it is used as counter
+
 ## [0.17.8] - 25.04.2018
 ### Fixed
 * Connection to the Open Science Framework
