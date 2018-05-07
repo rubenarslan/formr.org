@@ -2,6 +2,10 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.17.10] - 07.05.2018
+### Fixed
+* Optionally uploading a file for 'File' item-type.
+
 ## [0.17.9] - 27.04.2018
 ### Fixed
 * Bug #342
