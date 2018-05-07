@@ -42,8 +42,10 @@ class File_Item extends Item {
 				$this->error = __("This file is too big the maximum is %d megabytes.", round($this->max_size / 1048576, 2));
 				$reply = null;
 			}
+		} elseif($reply['error'] === 4 && $this->optional) {
+			$reply = null;
 		} else {
-			$this->error = "Error uploading file";
+			$this->error = __("Error uploading file. (Code: %s)", $reply['error']);
 			$reply = null;
 		}
 
