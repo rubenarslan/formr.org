@@ -451,6 +451,8 @@ class Item {
 				$this->presetValues = array_map("trim", explode(",", $this->value_validated));
 			}
 			unset($this->input_attributes['value']);
+		} elseif (isset($this->input_attributes['value'])) {
+			$this->presetValues[] = $this->input_attributes['value'];
 		} else {
 			$this->presetValues = array();
 		}
