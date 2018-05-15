@@ -2,6 +2,10 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.17.11] - 15.05.2018
+### Fixed
+* Fix 'sticky' value for choice item types
+
 ## [0.17.10] - 07.05.2018
 ### Fixed
 * Optionally uploading a file for 'File' item-type.
