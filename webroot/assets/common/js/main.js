@@ -134,6 +134,18 @@ function cookies_enabled() {
 	}
 }
 
+// Configure cookie-consent script
+		window.gccConfig = {
+			content: {
+				message: "On our website we're using cookies to optimize user experience and to improve our website. " +
+				"By using our website you agree that cookies can be stored on your local computer.",
+			},
+			palette: {
+				popup: {background: '#333333', text: '#fff', link: '#fff'},
+				button: {background: "#8dc63f", text: '#fff'}
+			}
+		};
+
 (function ($) {
 	"use strict";
 

@@ -19,15 +19,15 @@ $assets_common = array('font-google', 'jquery', 'bootstrap', 'font-awesome', 'we
 
 $settings['default_assets']['dev'] = array(
 	// site theme
-	'site' => array_merge ($assets_common, array('main:js', 'run_users', 'run', 'survey', 'site', 'site:custom')),
-	'admin' => array_merge($assets_common, array('ace', 'main:js', 'run_users', 'run_settings', 'run', 'admin')),
+	'site' => array_merge ($assets_common, array('main:js', 'run_users', 'run', 'survey', 'site', 'site:custom', 'cookie-consent')),
+	'admin' => array_merge($assets_common, array('ace', 'main:js', 'run_users', 'run_settings', 'run', 'admin', 'cookie-consent')),
 	'assets' => array_merge($assets, array(
 		// use this array to override any asset defined above using its KEY
 	)),
 );
 $settings['default_assets']['prod'] = array(
-	'site' => array('font-google', 'site'),
-	'admin' => array('admin'),
+	'site' => array('font-google', 'site', 'cookie-consent'),
+	'admin' => array('admin', 'cookie-consent'),
 	'assets' => array_merge($assets, array(
 		// use this array to override any asset defined above using its KEY
 		// For example 'bootstrap-material-design' is overriden here when site goes to production

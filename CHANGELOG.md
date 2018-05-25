@@ -2,6 +2,13 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.17.12] - 25.05.2018
+###  Added
+* Cookie consent alert
+
+### Changed
+* Meta tag info
+
 ## [0.17.11] - 15.05.2018
 ### Fixed
 * Fix 'sticky' value for choice item types

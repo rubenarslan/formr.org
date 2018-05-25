@@ -6,6 +6,11 @@
         ]
     },
 
+	"cookie-consent": {
+		"css": "//cookieconsent.psych.bio.uni-goettingen.de/gemicookieconsent.min.css",
+		"js" : "//cookieconsent.psych.bio.uni-goettingen.de/gemicookieconsent.min.js"
+	},
+
     "jquery": {
         "js": "bower_components/jquery/jquery.js"
     },
