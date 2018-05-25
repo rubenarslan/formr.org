@@ -176,4 +176,18 @@ class RunController extends Controller {
 		return $vars;
 	}
 
+	protected function generateMetaInfo() {
+		$meta = parent::generateMetaInfo();
+		$meta['title'] = $this->run->title ? $this->run->title : $this->run->name;
+		$meta['url'] = run_url($this->run->name);
+		if ($this->run->description) {
+			$meta['description'] = $this->run->description;
+		}
+		if ($this->run->header_image_path) {
+			$meta['image'] = $this->run->header_image_path;
+		}
+
+		return $meta;
+	}
+
 }

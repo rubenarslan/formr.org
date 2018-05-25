@@ -61,7 +61,7 @@ abstract class Controller {
 	}
 
 	protected function renderView($template, $vars = array()) {
-		Template::load($template, array_merge($vars, array(
+		$variables = array_merge(array(
 			'site' => $this->site,
 			'user' => $this->user,
 			'fdb' => $this->fdb,
@@ -69,7 +69,10 @@ abstract class Controller {
 			'css' => $this->css,
 			'run' => $this->run,
 			'study' => $this->study,
-		)));
+			'meta' => $this->generateMetaInfo(),
+		), $vars);
+		Request::setGlobals('variables', $variables);
+		Template::load($template);
 	}
 
 	protected function getPrivateAction($name, $separator = '_', $protected = false) {
@@ -158,6 +161,20 @@ abstract class Controller {
 		}
 		$this->css = $this->js = array();
 		$this->registerAssets($assets);
+	}
+
+	protected function generateMetaInfo() {
+		$meta = array(
+			'head_title' => $this->site->makeTitle(),
+			'title' => 'formr - an online survey framework with live feedback',
+			'description' => 'formr survey framework. chain simple surveys into long runs, use the power of R to generate pretty feedback and complex designs',
+			'keywords' => 'formr, online survey, R software, opencpu, live feedback',
+			'author' => 'formr.org',
+			'url' => site_url(),
+			'image' => asset_url('build/img/formr-og.png'),
+		);
+
+		return $meta;
 	}
 
 	public function errorAction($code = null, $text = null) {
