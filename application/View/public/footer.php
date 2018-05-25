@@ -8,6 +8,7 @@
 						<li><a href="<?= site_url('about')?>">About</a></li>
 						<li><a href="<?= site_url('documentation')?>">Documentation</a></li>
 						<li><a href="<?= site_url('studies')?>">Studies</a></li>
+						<li><a href="https://www.psych.uni-goettingen.de/de/datenschutzerklaerung" target="_blank">Privacy Policy</a></li>
 					</ul>
 				</div>
 			</div>

@@ -1392,24 +1392,25 @@ class Survey extends RunUnit {
 						->order('id', 'ASC')->fetchAll();
 	}
 
+	/**
+	 * Create a new survey using items uploaded by the spreadsheet reader
+	 * Cases:
+	 * 0. new creation -> do it
+	 * 1. is the upload identical to the existing -> do nothing
+	 * 2. are there any results at all? -> nuke existing shit, do fresh start
+	 * 3. does the upload entail text/minor changes to the item table -> simply do changes
+	 * 4. does the upload entail changes to results (i.e. will there be deletion) -> confirm deletion
+	 *    4a. deletion confirmed: backup results, modify results table, drop stuff
+	 *    4b. deletion not confirmed: cancel the whole shit.
+	 * 
+	 * @param SpreadsheetReader $SPR
+	 * @return boolean
+	 */
 	public function createSurvey($SPR) {
-		/*
-			0. new creation -> do it
-			1. is the upload identical to the existing -> do nothing
-			2. are there any results at all? -> nuke existing shit, do fresh start
-			3. does the upload entail text/minor changes to the item table -> simply do changes
-			4. does the upload entail changes to results (i.e. will there be deletion) -> confirm deletion
-			     4a. deletion confirmed: backup results, modify results table, drop stuff
-			     4b. deletion not confirmed: cancel the whole shit.
-		*/
-		//
-		// 0 and 1 were handled in the AdminSurveyController
-		 
 		$this->SPR = $SPR;
-		$this->dbh->beginTransaction();
 		$this->parsedown = new ParsedownExtra();
 		$this->parsedown = $this->parsedown->setBreaksEnabled(true)->setUrlsLinked(true);
-		
+
 		// Get old choice lists for getting old items
 		$choice_lists = $this->getChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
@@ -1427,21 +1428,104 @@ class Survey extends RunUnit {
 			}
 		}
 
-		// Save new choice list and create new item factory for the new items
+		try {
+			$this->dbh->beginTransaction();
+			$data = $this->createSurveyStmt();
+			$new_items = $data['new_items'];
+			$result_columns = $data['result_columns'];
+			
+			//$unchanged = array_intersect_assoc($old_items, $new_items);
+			$added = array_diff_assoc($new_items, $old_items);
+			$deleted = array_diff_assoc($old_items, $new_items);
+			$unused = $this->item_factory->unusedChoiceLists();
+			if ($unused) {
+				$this->warnings[] = __("These choice lists were not used: '%s'", implode("', '", $unused));
+			}
+
+			// If there are items to delete, check if user confirmed deletion and if so check if back up succeeded
+			if(count($deleted) > 0) {
+				if($this->doWeHaveRealData() && !$this->confirmed_deletion) {
+					$deleted_columns_string =  implode(array_keys($deleted), ", ");
+					$this->errors[] = "<strong>No permission to delete data</strong>. Enter the survey name, if you are okay with data being deleted from the following columns: " . $deleted_columns_string;
+				}
+				if($this->doWeHaveRealData() && $this->confirmed_deletion && !$this->backupResults($old_items_in_results)) {
+					$this->errors[] = "<strong>Back up failed.</strong> Deletions would have been necessary, but backing up the item table failed, so no modification was carried out.</strong>";
+				}
+			}
+			
+			// If there are errors at this point then terminate to rollback all changes inluding adding choices and inserting items
+			if (!empty($this->errors)) {
+				throw new Exception('Process terminated prematurely due to errors');
+			}
+
+			$actually_deleted = array_diff(array_keys($deleted), array_keys($added));
+			if ($deleted && $actually_deleted) {
+				// some items were just re-typed, they only have to be deleted from the wide format table which has inflexible types
+				$toDelete = implode(',', array_map(array($this->dbh, 'quote'), $actually_deleted));
+				$studyId = (int) $this->id;
+				$delQ = "DELETE FROM survey_items WHERE `name` IN ($toDelete) AND study_id = $studyId";
+				$this->dbh->query($delQ);
+			}
+			
+			// we start fresh if it's a new creation, no results table exist or it is completely empty
+			if ($this->created_new || !$this->resultsTableExists() || !$this->doWeHaveAnyDataAtAll()) {
+				if($this->created_new && $this->resultsTableExists()) {
+					throw new Exception("Results table name conflict. This shouldn't happen. Please alert the formr admins");
+				}
+				// step 2
+				$this->messages[] = "The results table was newly created, because there were no results and test sessions.";
+				// if there is no results table or no existing data at all, drop table, create anew
+				// i.e. where possible prefer nuclear option
+				$new_syntax = $this->getResultsTableSyntax($result_columns);
+				if(!$this->createResultsTable($new_syntax)) {
+					throw new Exception('Unable to create a data table for survey results');
+				}
+			} else {
+				// this will never happen if deletion was not confirmed, because this would raise an error
+				// 2 and 4a
+				$merge = $this->alterResultsTable($added, $deleted);
+				if(!$merge) {
+					throw new Exception('Required modifications could not be made to the survey results table');
+				}
+			}
+
+			$this->dbh->commit();
+			return true;
+		} catch (Exception $e) {
+			$this->dbh->rollBack();
+			$this->errors[] = 'Error: ' . $e->getMessage();
+			formr_log_exception($e, __CLASS__, $this->errors);
+			return false;
+		}
+
+	}
+
+	/**
+	 * Prepares the statement to insert new items and returns an associative containing
+	 * the SQL definition of the new items and the new result columns
+	 *
+	 * @see createSurvey()
+	 * @return array array(new_items, result_columns)
+	 */
+	protected function createSurveyStmt() {
+		// Save new choices and re-build the item factory
 		$this->addChoices();
 		$choice_lists = $this->getChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
 
-		$result_columns = array();
+		// Prepare SQL statement for adding items
 		$UPDATES = implode(', ', get_duplicate_update_string($this->user_defined_columns));
-		$add_items = $this->dbh->prepare(
+		$addStmt = $this->dbh->prepare(
 			"INSERT INTO `survey_items` (study_id, name, label, label_parsed, type, type_options, choice_list, optional, class, showif, value, `block_order`,`item_order`, `order`) 
-			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order
-		) ON DUPLICATE KEY UPDATE $UPDATES");
+			VALUES (:study_id, :name, :label, :label_parsed, :type, :type_options, :choice_list, :optional, :class, :showif, :value, :block_order, :item_order, :order) 
+			ON DUPLICATE KEY UPDATE $UPDATES");
+		$addStmt->bindParam(":study_id", $this->id);
 
-		$add_items->bindParam(":study_id", $this->id);
+		$ret = array(
+			'new_items' => array(),
+			'result_columns' => array(),
+		);
 
-		$new_items = array();
 		foreach ($this->SPR->survey as $row_number => $row) {
 			$item = $this->item_factory->make($row);
 			if (!$item) {
@@ -1461,106 +1545,26 @@ class Survey extends RunUnit {
 			}
 
 			// if the parsed label is constant or exists
-			if (!$this->knittingNeeded($item->label) && !$item->label_parsed):
+			if (!$this->knittingNeeded($item->label) && !$item->label_parsed) {
 				$markdown = $this->parsedown->text($item->label);
 				$item->label_parsed = $markdown;
 				if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
 					$item->label_parsed = $matches[1];
 				}
-			endif;
-			
+			}
+
 			foreach ($this->user_defined_columns as $param) {
-				$add_items->bindValue(":$param", $item->$param);
+				$addStmt->bindValue(":$param", $item->$param);
 			}
 
 			$result_field = $item->getResultField();
+			$ret['new_items'][$item->name] = $result_field;
+			$ret['result_columns'][] = $result_field;
 
-			$new_items[$item->name] = $result_field;
-
-			$result_columns[] = $result_field;
-			try {
-				$change = $add_items->execute();
-			} catch (Exception $e) {
-				$this->dbh->rollBack();
-				$this->errors[] = "An error occured while adding item '{$item->name}': \n" .  $e->getMessage();
-				return false;
-			}
-		}
-		$unchanged = array_intersect_assoc($old_items, $new_items);
-		$added = array_diff_assoc($new_items, $old_items);
-		$deleted = array_diff_assoc($old_items, $new_items);
-
-		$unused = $this->item_factory->unusedChoiceLists();
-		if (!empty($unused)):
-			$this->warnings[] = __("These choice lists were not used: '%s'", implode("', '", $unused));
-		endif;
-		
-		// we'll do it if the user confirmed they are okay with deleted data or if we have no real data yet
-		if(count($deleted) > 0) { // deletion will happen
-			// step 4
-			if($this->doWeHaveRealData() && !$this->confirmed_deletion) {
-				$deleted_columns_string =  implode(array_keys($deleted), ", ");
-				$this->errors[] = "<strong>No permission to delete data</strong>. Enter the survey name, if you are okay with data being deleted from the following columns: " . $deleted_columns_string;
-			}
-			if($this->doWeHaveRealData() && $this->confirmed_deletion && !$this->backupResults($old_items_in_results)) {
-				$this->errors[] = "<strong>Back up failed.</strong> Deletions would have been necessary, but backing up the item table failed, so no modification was carried out.</strong>";
-			}
+			$addStmt->execute();
 		}
 
-		if (empty($this->errors)) {
-			try {
-				
-				if(count($deleted) > 0) {
-					$actually_deleted = array_diff(array_keys($deleted), array_keys($added)); 
-					// some items were just re-typed, they only have to be deleted from the wide format table which has inflexible types
-					if (count($actually_deleted) > 0) {
-						$toDelete = implode(',', array_map(array($this->dbh, 'quote'), $actually_deleted));
-						$studyId = (int) $this->id;
-						$delQ = "DELETE FROM survey_items WHERE `name` IN ($toDelete) AND study_id = $studyId";
-						$this->dbh->query($delQ);
-					}
-				}
-				
-				// we start fresh if it's a new creation, no results table exist or it is completely empty
-				if ($this->created_new || !$this->resultsTableExists() || !$this->doWeHaveAnyDataAtAll()) {
-					if($this->created_new && $this->resultsTableExists()) {
-						alert("Results table name conflict. This shouldn't happen. Please alert the formr admins", 'alert-danger');
-						return false;
-					}
-					// step 2
-					$this->messages[] = "The results table was newly created, because there were no results and test sessions.";
-					// if there is no results table or no existing data at all, drop table, create anew
-					// i.e. where possible prefer nuclear option
-					$new_syntax = $this->getResultsTableSyntax($result_columns);
-					if(!$this->createResultsTable($new_syntax)) {
-						$this->errors[] = "<strong>Item table could not be created.</strong>";
-						$this->dbh->rollBack();
-						return false;
-					}
-				} else {
-					// this will never happen if deletion was not confirmed, because this would raise an error
-					// 2 and 4a
-					$merge = $this->alterResultsTable($added, $deleted);
-					if(! $merge) {
-						$this->dbh->rollBack();
-						$this->errors[] = "<strong>Item table could not be modified.</strong>";
-						return false;
-					}
-				}
-			}
-			catch (Exception $e) {
-				$this->dbh->rollBack();
-				$this->errors[] = "An error occured and all changes were rolled back";
-				formr_log_exception($e, __CLASS__, $this->errors);
-				return false;
-			}
-		} else {
-			$this->dbh->rollBack();
-			return false;
-		}
-		$this->dbh->commit();
-		
-		return true;
+		return $ret;
 	}
 
 	public function getItemsWithChoices($columns = null, $whereIn = null) {
@@ -1596,23 +1600,14 @@ class Survey extends RunUnit {
 	private function addChoices() {
 		// delete cascades to item display ?? FIXME so maybe not a good idea to delete then
 		$deleted = $this->dbh->delete('survey_item_choices', array('study_id' => $this->id));
-		$add_choices = $this->dbh->prepare('INSERT INTO `survey_item_choices` (
-			study_id,
-	        list_name,
-			name,
-	        label,
-			label_parsed
-		) VALUES (
-			:study_id,
-			:list_name,
-			:name,
-			:label,
-			:label_parsed
-		)');
-		$add_choices->bindParam(":study_id", $this->id);
+		$addChoiceStmt = $this->dbh->prepare(
+			'INSERT INTO `survey_item_choices` (study_id, list_name, name, label, label_parsed) 
+			 VALUES (:study_id, :list_name, :name, :label, :label_parsed )'
+		);
+		$addChoiceStmt->bindParam(":study_id", $this->id);
 
-		foreach ($this->SPR->choices AS $choice) {
-			if (isset($choice['list_name']) AND isset($choice['name']) AND isset($choice['label'])) {
+		foreach ($this->SPR->choices as $choice) {
+			if (isset($choice['list_name']) && isset($choice['name']) && isset($choice['label'])) {
 				if (!$this->knittingNeeded($choice['label']) && empty($choice['label_parsed'])) { // if the parsed label is constant
 					$markdown = $this->parsedown->text($choice['label']); // transform upon insertion into db instead of at runtime
 					$choice['label_parsed'] = $markdown;
@@ -1622,16 +1617,12 @@ class Survey extends RunUnit {
 				}
 
 				foreach ($this->choices_user_defined_columns as $param) {
-					$add_choices->bindParam(":$param", $choice[$param]);
+					$addChoiceStmt->bindValue(":$param", $choice[$param]);
 				}
-
-				try {
-					$change = $add_choices->execute();
-				} catch (Exception $e) {
-					$this->errors[] = "An error occured while adding choice '{$choice['name']}': \n" .  $e->getMessage();
-				}
+				$addChoiceStmt->execute();
 			}
 		}
+
 		return true;
 	}
 
@@ -1910,6 +1901,7 @@ class Survey extends RunUnit {
 			return false;
 		}
 	}
+
 	protected function doWeHaveRealData($min = 0) {
 		$this->result_count = $this->getResultCount();
 		if($this->result_count["real_users"] > 1) {
@@ -1918,6 +1910,7 @@ class Survey extends RunUnit {
 			return false;
 		}
 	}
+
 	public function deleteResults($run_id = null) {
 		$this->result_count = $this->getResultCount($run_id);
 		
@@ -2096,7 +2089,6 @@ class Survey extends RunUnit {
 	 *
 	 * @param array $newItems
 	 * @param array $deleteItems
-	 * @param bool $confirmed_deletion
 	 * @return bool;
 	 */
 	private function alterResultsTable(array $newItems, array $deleteItems) {
@@ -2146,7 +2138,7 @@ class Survey extends RunUnit {
 		} else {
 			$this->messages[] = "The results table did not need to be modified.";
 		}
-		
+
 		return true;
 	}
 
