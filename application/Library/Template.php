@@ -20,7 +20,7 @@ class Template {
 		$file = APPLICATION_PATH . 'View/' . $template;
 
 		if (file_exists($file)) {
-			$vars = array_merge(Request::getGlobals('variables'), $vars);
+			$vars = array_merge(Request::getGlobals('variables', array()), $vars);
 			extract($vars);
 			include $file;
 		}
