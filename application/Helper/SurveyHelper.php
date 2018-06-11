@@ -189,8 +189,10 @@ class SurveyHelper {
 			$oItem->hidden = null;
 			$visibility = $hidden === null ? true : (bool)!$hidden;
 			$v = $oItem->type !== 'submit' ? $oItem->setVisibility(array($visibility)) : null;
-			if ($visibility === null || Session::get('is-survey-post')) {
+			if ($hidden === null || Session::get('is-survey-post')) {
 				$oItem->hidden = null;
+			} else {
+				$oItem->hidden = (int)$hidden;
 			}
 
 			$this->markItemAsShown($oItem);
@@ -466,6 +468,7 @@ class SurveyHelper {
 				} else {
 					$hidden = (int) !$isVisible;
 				}
+				$item->hidden = $hidden;
 				$updateVisibility->bindValue(':item_id', $item->id);
 				$updateVisibility->bindValue(':hidden', $hidden);
 				$updateVisibility->execute();
@@ -559,10 +562,10 @@ class SurveyHelper {
 	 * @return Item
 	 */
 	protected function markItemAsShown(&$item) {
-		if (!$item->isHiddenButRendered() && $item->isRendered()) {
+		if ($item->hidden === 0) {
 			$item->parent_attributes['data-show'] = true;
-			$item->data_showif = $item->js_showif ? true : false;
 		}
+		$item->data_showif = $item->js_showif ? true : false;
 		return $item;
 	}
 
