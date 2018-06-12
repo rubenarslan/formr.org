@@ -2,6 +2,10 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.17.13] - 12.06.2018
+###  Fixed
+* Show-ifs: Use previous show-if value for paginated survey
+
 ## [0.17.12] - 25.05.2018
 ###  Added
 * Cookie consent alert
