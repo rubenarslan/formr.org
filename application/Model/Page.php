@@ -102,7 +102,10 @@ class Page extends RunUnit {
 			return true; // never show to the cronjob
 		endif;
 
+		$run_name = $sess_code = null;
 		if ($this->run_session) {
+			$run_name = $this->run_session->run_name;
+			$sess_code = $this->run_session->session;
 			$this->run_session->end();
 		}
 
@@ -111,9 +114,10 @@ class Page extends RunUnit {
 			return true; // wait for openCPU to be fixed!
 		}
 
+		$body = do_run_shortcodes($this->body_parsed, $run_name, $sess_code);
 		return array(
 //			'title' => $this->title,
-			'body' => $this->body_parsed
+			'body' => $body,
 		);
 	}
 

@@ -55,7 +55,7 @@ class RunController extends Controller {
 		}
 
 		// People who have no session in the run need not set anything
-		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code);
+		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code, $run);
 		if (!$session->id) {
 			formr_error(401, 'Unauthorized', 'You cannot create settings in a study you have not participated in.');
 		}
