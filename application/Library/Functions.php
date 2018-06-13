@@ -135,11 +135,15 @@ function bad_request_header() {
 	header('HTTP/1.0 500 Bad Request');
 }
 
-function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null) {
+function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null, $link_text = null) {
 	$code = $code ? $code : 500;
 	header("HTTP/1.0 {$code} {$title}");
 	if ($link === null) {
 		$link = site_url();
+	}
+
+	if ($link_text === null) {
+		$link_text = 'Go to Site';
 	}
 
 	if (php_sapi_name() == 'cli') {
@@ -152,6 +156,7 @@ function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could
 		'title' => $hint ? $hint : $title,
 		'text' => $text,
 		'link' => $link,
+		'link_text' => $link_text,
 	));
 	exit;
 }

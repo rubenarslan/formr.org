@@ -93,6 +93,14 @@ class RunController extends Controller {
 		));
 	}
 
+	protected function logoutAction() {
+		$run = $this->getRun();
+		Session::destroy();
+		$hint = 'Session Ended';
+		$text = 'Your session was successfully closed! You can restart a new session by clicking the link below.';
+		formr_error(200, 'OK', $text, $hint, run_url($run->name), 'Start New Session');
+	}
+
 	protected function monkeyBarAction($action = '') {
 		$action = str_replace('ajax_', '', $action);
 		$allowed_actions = array('send_to_position', 'remind', 'next_in_run', 'delete_user', 'snip_unit_session');
