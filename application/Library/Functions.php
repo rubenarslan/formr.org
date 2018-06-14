@@ -135,11 +135,15 @@ function bad_request_header() {
 	header('HTTP/1.0 500 Bad Request');
 }
 
-function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null) {
+function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null, $link_text = null) {
 	$code = $code ? $code : 500;
 	header("HTTP/1.0 {$code} {$title}");
 	if ($link === null) {
 		$link = site_url();
+	}
+
+	if ($link_text === null) {
+		$link_text = 'Go to Site';
 	}
 
 	if (php_sapi_name() == 'cli') {
@@ -152,6 +156,7 @@ function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could
 		'title' => $hint ? $hint : $title,
 		'text' => $text,
 		'link' => $link,
+		'link_text' => $link_text,
 	));
 	exit;
 }
@@ -1614,4 +1619,36 @@ function fwrite_json($handle, $data) {
 			fwrite($handle, json_encode(array($data)));
 		}
 	}
+}
+
+function do_run_shortcodes($text, $run_name, $sess_code) {
+	$link_tpl = '<a href="%{url}">%{text}</a>';
+	if ($run_name) {
+		$login_url = run_url($run_name, null, array('code' => $sess_code));
+		$logout_url = run_url($run_name, 'logout', array('code' => $sess_code));
+		$settings_url = run_url($run_name, 'settings', array('code' => $sess_code));
+	} else {
+		$login_url = $settings_url = site_url();
+		$logout_url = site_url('logout');
+		//alert("Generated a login link, but no run was specified", 'alert-danger');
+	}
+	
+
+	$settings_link = Template::replace($link_tpl, array('url' => $settings_url, 'text' => 'Settings Link'));
+	$login_link  = Template::replace($link_tpl, array('url' => $login_url, 'text' => 'Login Link'));
+	$logout_link = Template::replace($link_tpl, array('url' => $logout_url, 'text' => 'Logout Link'));
+
+	$text = str_replace("{{login_link}}", $login_link, $text);
+	$text = str_replace("{{login_url}}", $login_url, $text);
+	$text = str_replace("{{login_code}}", urlencode($sess_code), $text);
+	$text = str_replace("{{settings_link}}", $settings_link, $text);
+	$text = str_replace("{{settings_url}}", $settings_url, $text);
+	$text = str_replace("{{logout_link}}", $logout_link, $text);
+	$text = str_replace("{{logout_url}}", $logout_url, $text);
+	$text = str_replace(urlencode("{{login_url}}"), $login_url, $text);
+	$text = str_replace(urlencode("{{login_code}}"), urlencode($sess_code), $text);
+	$text = str_replace(urlencode("{{settings_url}}"), $settings_url, $text);
+	$text = str_replace(urlencode("{{logout_url}}"), $logout_url, $text);
+
+	return $text;
 }

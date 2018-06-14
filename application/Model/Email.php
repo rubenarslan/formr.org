@@ -111,27 +111,13 @@ class Email extends RunUnit {
 	
 	protected function substituteLinks($body) {
 		$sess = null;
+		$run_name = null;
 		if (isset($this->run_name)) {
+			$run_name = $this->run_name;
 			$sess = isset($this->session) ? $this->session : "TESTCODE";
-			$login_link = run_url($this->run_name, null, array('code' => $sess));
-		} else {
-			$login_link = site_url();
-			alert("Generated a login link, but no run was specified", 'alert-danger');
 		}
 
-		$settings_link = run_url($this->run_name, 'settings', array('code' => $sess));
-		$settings_link_html = '<a href="'. $settings_link . '">Settings link</a>';
-
-		$login_link_html = '<a href="'. $login_link . '">Login link</a>';
-		
-		$body = str_replace("{{login_link}}", $login_link_html, $body);
-		$body = str_replace("{{login_url}}", $login_link, $body);
-		$body = str_replace("{{login_code}}", urlencode($sess), $body);
-		$body = str_replace("{{settings_link}}", $settings_link_html, $body);
-		$body = str_replace("{{settings_url}}", $settings_link, $body);
-		$body = str_replace(urlencode("{{login_url}}"), $login_link, $body);
-		$body = str_replace(urlencode("{{login_code}}"), urlencode($sess), $body);
-		$body = str_replace(urlencode("{{settings_url}}"), $settings_link, $body);
+		$body = do_run_shortcodes($body, $run_name, $sess);
 		return $body;
 	}
 
