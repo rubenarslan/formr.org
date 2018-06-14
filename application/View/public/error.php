@@ -21,7 +21,7 @@
 
 			<p><?php echo $text; ?></p>
 			<?php if ($link): ?>
-				<p class="back"> <a href="<?= $link ?>">Go to Site</a> </p>
+				<p class="back"> <a href="<?= $link ?>"><?= $link_text ?></a> </p>
 			<?php endif; ?>
 		</div>
 		<div>

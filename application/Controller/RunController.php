@@ -55,7 +55,7 @@ class RunController extends Controller {
 		}
 
 		// People who have no session in the run need not set anything
-		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code);
+		$session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code, $run);
 		if (!$session->id) {
 			formr_error(401, 'Unauthorized', 'You cannot create settings in a study you have not participated in.');
 		}
@@ -91,6 +91,14 @@ class RunController extends Controller {
 			'settings' => $session->getSettings(),
 			'email_subscriptions' => Config::get('email_subscriptions'),
 		));
+	}
+
+	protected function logoutAction() {
+		$run = $this->getRun();
+		Session::destroy();
+		$hint = 'Session Ended';
+		$text = 'Your session was successfully closed! You can restart a new session by clicking the link below.';
+		formr_error(200, 'OK', $text, $hint, run_url($run->name), 'Start New Session');
 	}
 
 	protected function monkeyBarAction($action = '') {
