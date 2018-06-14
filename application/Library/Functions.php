@@ -1630,14 +1630,14 @@ function do_run_shortcodes($text, $run_name, $sess_code) {
 	} else {
 		$login_url = $settings_url = site_url();
 		$logout_url = site_url('logout');
-		alert("Generated a login link, but no run was specified", 'alert-danger');
+		//alert("Generated a login link, but no run was specified", 'alert-danger');
 	}
 	
 
 	$settings_link = Template::replace($link_tpl, array('url' => $settings_url, 'text' => 'Settings Link'));
 	$login_link  = Template::replace($link_tpl, array('url' => $login_url, 'text' => 'Login Link'));
 	$logout_link = Template::replace($link_tpl, array('url' => $logout_url, 'text' => 'Logout Link'));
-		
+
 	$text = str_replace("{{login_link}}", $login_link, $text);
 	$text = str_replace("{{login_url}}", $login_url, $text);
 	$text = str_replace("{{login_code}}", urlencode($sess_code), $text);

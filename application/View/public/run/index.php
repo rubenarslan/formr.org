@@ -4,7 +4,7 @@
 		<?php Template::load('public/head') ?>
     </head>
 
-	<body class="<?php echo isset($bodyClass) ? $bodyClass : ''; ?>">
+	<body class="<?php echo isset($bodyClass) ? $bodyClass : ''; ?>" data-url="<?php echo run_url($run->name); ?>">
 
         <div id="fmr-page" class="fmr-about">
             <div class="container run-container">
