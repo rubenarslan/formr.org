@@ -1,49 +1,12 @@
 <?php
 
-// Process emails from email_queue
-class EmailQueue {
+/**
+ * EmailQueue
+ * Process emails in email_queue
+ *
+ */
 
-	/**
-	 * 
-	 * @var DB
-	 */
-	protected $db;
-
-	/**
-	 * Interval in seconds for which loop should be rested
-	 *
-	 * @var int
-	 */
-	protected $loopInterval;
-
-	/**
-	 * Flag used to exit or stay in run loop
-	 *
-	 * @var boolean
-	 */
-	protected $out = false;
-
-	/**
-	 * Number of times mailer is allowed to sleep before exiting
-	 *
-	 * @var int
-	 */
-	protected $allowedSleeps = 120;
-
-	/**
-	 * Number of seconds mailer should sleep before checking if there is something in queue
-	 *
-	 * @var int
-	 */
-	protected $sleep = 15;
-	protected $itemTtl;
-	protected $itemTries;
-
-	/**
-	 *
-	 * @var array
-	 */
-	protected $failures = array();
+class EmailQueue extends Queue {
 
 	/**
 	 *
@@ -51,24 +14,31 @@ class EmailQueue {
 	 */
 	protected $connections = array();
 
-	public function __construct(DB $db) {
-		$this->db = $db;
-		$this->loopInterval = Config::get('email.queue_loop_interval', 5);
-		$this->itemTtl = Config::get('email.queue_item_ttl', 20 * 60);
-		$this->itemTries = Config::get('email.queue_item_tries', 4);
-		// Register signal handlers that should be able to kill the cron in case some other weird shit happens 
-		// apart from cron exiting cleanly
-		// declare signal handlers
-		if (extension_loaded('pcntl')) {
-			declare(ticks = 1);
+	/**
+	 *
+	 * @var int[]
+	 */
+	protected $failures = array();
 
-			pcntl_signal(SIGINT, array(&$this, 'interrupt'));
-			pcntl_signal(SIGTERM, array(&$this, 'interrupt'));
-			pcntl_signal(SIGUSR1, array(&$this, 'interrupt'));
-		} else {
-			self::$dbg = true;
-			self::dbg('pcntl extension is not loaded');
-		}
+	/**
+	 * Number of seconds item should last in queue
+	 *
+	 * @var int
+	 */
+	protected $itemTtl;
+
+	/**
+	 * Number of times the queue can re-try to send the email in case of failures
+	 * @var int
+	 */
+	protected $itemTries;
+
+	protected static $name = 'Email-Queue';
+
+	public function __construct(DB $db, array $config) {
+		parent::__construct($db, $config);
+		$this->itemTtl      = array_val($config, 'queue_item_ttl', 20 * 60);
+		$this->itemTries    = array_val($config, 'queue_item_tries', 4);
 	}
 
 	/**
@@ -262,58 +232,6 @@ class EmailQueue {
 					@unlink($file);
 				}
 			}
-		}
-	}
-
-	private function rested() {
-		static $last_access;
-		if (!is_null($last_access) && $this->loopInterval > ($usleep = (microtime(true) - $last_access))) {
-			usleep(1000000 * ($this->loopInterval - $usleep));
-		}
-
-		$last_access = microtime(true);
-		return true;
-	}
-
-	private static function dbg($str) {
-		$args = func_get_args();
-		if (count($args) > 1) {
-			$str = vsprintf(array_shift($args), $args);
-		}
-
-		$str = date('Y-m-d H:i:s') . ' Email-Queue: ' . $str . PHP_EOL;
-		if (DEBUG) {
-			echo $str;
-			return;
-		}
-		return error_log($str, 3, get_log_file('email-queue.log'));
-	}
-
-	/**
-	 * Signal handler
-	 *
-	 * @param integer $signo
-	 */
-	public function interrupt($signo) {
-		switch ($signo) {
-			// Set terminated flag to be able to terminate program securely
-			// to prevent from terminating in the middle of the process
-			// Use Ctrl+C to send interruption signal to a running program
-			case SIGINT:
-			case SIGTERM:
-				$this->out = true;
-				self::dbg("%s Received termination signal", getmypid());
-				break;
-
-			// switch the debug mode on/off
-			// @example: $ kill -s SIGUSR1 <pid>
-			case SIGUSR1:
-				if ((self::$dbg = !self::$dbg)) {
-					self::dbg("\nEntering debug mode...\n");
-				} else {
-					self::dbg("\nLeaving debug mode...\n");
-				}
-				break;
 		}
 	}
 
