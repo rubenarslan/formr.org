@@ -17,9 +17,9 @@ class SpreadsheetReader {
 	public $exportFormats = array('csv', 'csv_german', 'tsv', 'xlsx', 'xls', 'json');
 
 	public function backupTSV($array, $filename) {
-		$objPHPExcel = $this->objectFromArray($array);
+		$objPhpSpreadsheet = $this->objectFromArray($array);
 
-		$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'CSV');
+		$objWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($objPhpSpreadsheet, 'Csv');
 		$objWriter->setDelimiter("\t");
 		$objWriter->setEnclosure("");
 
@@ -37,34 +37,34 @@ class SpreadsheetReader {
 		set_time_limit(300); # defaults to 30
 		ini_set('memory_limit', Config::get('memory_limit.spr_object_array'));
 
-		$objPHPExcel = new PHPExcel();
+		$objPhpSpreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
 		$current = current($array);
 		if (!$current) {
-			return $objPHPExcel;
+			return $objPhpSpreadsheet;
 		}
 		array_unshift($array, array_keys($current));
-		$objPHPExcel->getSheet(0)->fromArray($array);
+		$objPhpSpreadsheet->getSheet(0)->fromArray($array);
 
-		return $objPHPExcel;
+		return $objPhpSpreadsheet;
 	}
 
 	/**
 	 * 
 	 * @param PDOStatement $stmt
-	 * @return PHPExcel;
+	 * @return \PhpOffice\PhpSpreadsheet\Spreadsheet;
 	 */
 	protected function objectFromPDOStatement(PDOStatement $stmt) {
-		$PHPExcel = new PHPExcel();
-		$PHPExcelSheet = $PHPExcel->getSheet(0);
+		$PhpSpreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+		$PhpSpreadsheetSheet = $PhpSpreadsheet->getSheet(0);
 
-		list ($startColumn, $startRow) = PHPExcel_Cell::coordinateFromString('A1');
+		list ($startColumn, $startRow) = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::coordinateFromString('A1');
 		$writeColumns = true;
 		while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 			if ($writeColumns) {
 				$columns = array_keys($row);
 				$currentColumn = $startColumn;
 				foreach ($columns as $cellValue) {
-					$PHPExcelSheet->getCell($currentColumn . $startRow)->setValue($cellValue);
+					$PhpSpreadsheetSheet->getCell($currentColumn . $startRow)->setValue($cellValue);
 					++$currentColumn;
 				}
 				++$startRow;
@@ -72,12 +72,12 @@ class SpreadsheetReader {
 			}
 			$currentColumn = $startColumn;
 			foreach ($row as $cellValue) {
-				$PHPExcelSheet->getCell($currentColumn . $startRow)->setValue($cellValue);
+				$PhpSpreadsheetSheet->getCell($currentColumn . $startRow)->setValue($cellValue);
 				++$currentColumn;
 			}
 			++$startRow;
 		}
-		return $PHPExcel;
+		return $PhpSpreadsheet;
 	}
 
 	public function exportCSV(PDOStatement $stmt, $filename) {
@@ -86,13 +86,13 @@ class SpreadsheetReader {
 		}
 
 		try {
-			$phpExel = $this->objectFromPDOStatement($stmt);
-			$phpExelWriter = PHPExcel_IOFactory::createWriter($phpExel, 'CSV');
+			$phpSpreadsheet = $this->objectFromPDOStatement($stmt);
+			$phpSpreadsheetWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($phpSpreadsheet, 'Csv');
 
 			header('Content-Disposition: attachment;filename="' . $filename . '.csv"');
 			header('Cache-Control: max-age=0');
 			header('Content-Type: text/csv');
-			$phpExelWriter->save('php://output');
+			$phpSpreadsheetWriter->save('php://output');
 			exit;
 		} catch (Exception $e) {
 			formr_log_exception($e, __METHOD__);
@@ -134,19 +134,19 @@ class SpreadsheetReader {
 		}
 
 		try {
-			$phpExel = $this->objectFromPDOStatement($stmt);
-			$phpExelWriter = PHPExcel_IOFactory::createWriter($phpExel, 'CSV');
-			$phpExelWriter->setDelimiter("\t");
-			$phpExelWriter->setEnclosure("");
+			$phpSpreadsheet = $this->objectFromPDOStatement($stmt);
+			$phpSpreadsheetWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($phpSpreadsheet, 'Csv');
+			$phpSpreadsheetWriter->setDelimiter("\t");
+			$phpSpreadsheetWriter->setEnclosure("");
 
 			if ($savefile === null) {
 				header('Content-Disposition: attachment;filename="' . $filename . '.tab"');
 				header('Cache-Control: max-age=0');
 				header('Content-Type: text/csv'); // or maybe text/tab-separated-values?
-				$phpExelWriter->save('php://output');
+				$phpSpreadsheetWriter->save('php://output');
 				exit;
 			} else {
-				$phpExelWriter->save($savefile);
+				$phpSpreadsheetWriter->save($savefile);
 				return true;
 			}
 		} catch (Exception $e) {
@@ -162,19 +162,19 @@ class SpreadsheetReader {
 		}
 
 		try {
-			$phpExel = $this->objectFromPDOStatement($stmt);
-			$phpExelWriter = PHPExcel_IOFactory::createWriter($phpExel, 'CSV');
-			$phpExelWriter->setDelimiter(';');
-			$phpExelWriter->setEnclosure('"');
+			$phpSpreadsheet = $this->objectFromPDOStatement($stmt);
+			$phpSpreadsheetWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($phpSpreadsheet, 'Csv');
+			$phpSpreadsheetWriter->setDelimiter(';');
+			$phpSpreadsheetWriter->setEnclosure('"');
 
 			if ($savefile === null) {
 				header('Content-Disposition: attachment;filename="' . $filename . '.csv"');
 				header('Cache-Control: max-age=0');
 				header('Content-Type: text/csv');
-				$phpExelWriter->save('php://output');
+				$phpSpreadsheetWriter->save('php://output');
 				exit;
 			} else {
-				$phpExelWriter->save($savefile);
+				$phpSpreadsheetWriter->save($savefile);
 				return true;
 			}
 		} catch (Exception $e) {
@@ -190,12 +190,12 @@ class SpreadsheetReader {
 		}
 
 		try {
-			$phpExel = $this->objectFromPDOStatement($stmt);
-			$phpExelWriter = PHPExcel_IOFactory::createWriter($phpExel, 'Excel5');
+			$phpSpreadsheet = $this->objectFromPDOStatement($stmt);
+			$phpSpreadsheetWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($phpSpreadsheet, 'Xls');
 			header('Content-Disposition: attachment;filename="' . $filename . '.xls"');
 			header('Cache-Control: max-age=0');
 			header('Content-Type: application/vnd.ms-excel');
-			$phpExelWriter->save('php://output');
+			$phpSpreadsheetWriter->save('php://output');
 			exit;
 		} catch (Exception $e) {
 			formr_log_exception($e, __METHOD__);
@@ -210,12 +210,12 @@ class SpreadsheetReader {
 		}
 
 		try {
-			$phpExel = $this->objectFromPDOStatement($stmt);
-			$phpExelWriter = PHPExcel_IOFactory::createWriter($phpExel, 'Excel2007');
+			$phpSpreadsheet = $this->objectFromPDOStatement($stmt);
+			$phpSpreadsheetWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($phpSpreadsheet, 'Xlsx');
 			header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
 			header('Cache-Control: max-age=0');
 			header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-			$phpExelWriter->save('php://output');
+			$phpSpreadsheetWriter->save('php://output');
 			exit;
 		} catch (Exception $e) {
 			formr_log_exception($e, __METHOD__);
@@ -228,24 +228,24 @@ class SpreadsheetReader {
 		set_time_limit(300); # defaults to 30
 		ini_set('memory_limit', Config::get('memory_limit.spr_sheets_array'));
 
-		$objPHPExcel = new PHPExcel();
-		$objPHPExcel->getDefaultStyle()->getFont()->setName('Helvetica');
-		$objPHPExcel->getDefaultStyle()->getFont()->setSize(16);
-		$objPHPExcel->getDefaultStyle()->getAlignment()->setWrapText(true);
-		$sheet_index = $objPHPExcel->getSheetCount() - 1;
+		$objPhpSpreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+		$objPhpSpreadsheet->getDefaultStyle()->getFont()->setName('Helvetica');
+		$objPhpSpreadsheet->getDefaultStyle()->getFont()->setSize(16);
+		$objPhpSpreadsheet->getDefaultStyle()->getAlignment()->setWrapText(true);
+		$sheet_index = $objPhpSpreadsheet->getSheetCount() - 1;
 
 		if (is_array($choices) && count($choices) > 0):
-			$objPHPExcel->createSheet();
+			$objPhpSpreadsheet->createSheet();
 			$sheet_index++;
 			array_unshift($choices, array_keys(current($choices)));
-			$objPHPExcel->getSheet($sheet_index)->getDefaultColumnDimension()->setWidth(20);
-			$objPHPExcel->getSheet($sheet_index)->getColumnDimension('A')->setWidth(20); # list_name
-			$objPHPExcel->getSheet($sheet_index)->getColumnDimension('B')->setWidth(20); # name
-			$objPHPExcel->getSheet($sheet_index)->getColumnDimension('C')->setWidth(30); # label
+			$objPhpSpreadsheet->getSheet($sheet_index)->getDefaultColumnDimension()->setWidth(20);
+			$objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('A')->setWidth(20); # list_name
+			$objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('B')->setWidth(20); # name
+			$objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('C')->setWidth(30); # label
 
-			$objPHPExcel->getSheet($sheet_index)->fromArray($choices);
-			$objPHPExcel->getSheet($sheet_index)->setTitle('choices');
-			$objPHPExcel->getSheet($sheet_index)->getStyle('A1:C1')->applyFromArray(array('font' => array('bold' => true)));
+			$objPhpSpreadsheet->getSheet($sheet_index)->fromArray($choices);
+			$objPhpSpreadsheet->getSheet($sheet_index)->setTitle('choices');
+			$objPhpSpreadsheet->getSheet($sheet_index)->getStyle('A1:C1')->applyFromArray(array('font' => array('bold' => true)));
 		endif;
 
 		if (is_array($settings) && count($settings) > 0):
@@ -255,29 +255,29 @@ class SpreadsheetReader {
 				$sttgs[] = array('item' => $item, 'value' => (string)$value);
 			}
 
-			$objPHPExcel->createSheet();
+			$objPhpSpreadsheet->createSheet();
 			$sheet_index++;
-			$objPHPExcel->getSheet($sheet_index)->getDefaultColumnDimension()->setWidth(20);
-			$objPHPExcel->getSheet($sheet_index)->getColumnDimension('A')->setWidth(20); # item
-			$objPHPExcel->getSheet($sheet_index)->getColumnDimension('B')->setWidth(20); # value
+			$objPhpSpreadsheet->getSheet($sheet_index)->getDefaultColumnDimension()->setWidth(20);
+			$objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('A')->setWidth(20); # item
+			$objPhpSpreadsheet->getSheet($sheet_index)->getColumnDimension('B')->setWidth(20); # value
 
-			$objPHPExcel->getSheet($sheet_index)->fromArray($sttgs);
-			$objPHPExcel->getSheet($sheet_index)->setTitle('settings');
-			$objPHPExcel->getSheet($sheet_index)->getStyle('A1:C1')->applyFromArray(array('font' => array('bold' => true)));
+			$objPhpSpreadsheet->getSheet($sheet_index)->fromArray($sttgs);
+			$objPhpSpreadsheet->getSheet($sheet_index)->setTitle('settings');
+			$objPhpSpreadsheet->getSheet($sheet_index)->getStyle('A1:C1')->applyFromArray(array('font' => array('bold' => true)));
 		endif;
 
 		array_unshift($items, array_keys(current($items)));
-		$objPHPExcel->getSheet(0)->getColumnDimension('A')->setWidth(20); # type
-		$objPHPExcel->getSheet(0)->getColumnDimension('B')->setWidth(20); # name
-		$objPHPExcel->getSheet(0)->getColumnDimension('C')->setWidth(30); # label
-		$objPHPExcel->getSheet(0)->getColumnDimension('D')->setWidth(3);  # optional
-		$objPHPExcel->getSheet(0)->getStyle('D1')->getAlignment()->setWrapText(false);
+		$objPhpSpreadsheet->getSheet(0)->getColumnDimension('A')->setWidth(20); # type
+		$objPhpSpreadsheet->getSheet(0)->getColumnDimension('B')->setWidth(20); # name
+		$objPhpSpreadsheet->getSheet(0)->getColumnDimension('C')->setWidth(30); # label
+		$objPhpSpreadsheet->getSheet(0)->getColumnDimension('D')->setWidth(3);  # optional
+		$objPhpSpreadsheet->getSheet(0)->getStyle('D1')->getAlignment()->setWrapText(false);
 
-		$objPHPExcel->getSheet(0)->fromArray($items);
-		$objPHPExcel->getSheet(0)->setTitle('survey');
-		$objPHPExcel->getSheet(0)->getStyle('A1:H1')->applyFromArray(array('font' => array('bold' => true)));
+		$objPhpSpreadsheet->getSheet(0)->fromArray($items);
+		$objPhpSpreadsheet->getSheet(0)->setTitle('survey');
+		$objPhpSpreadsheet->getSheet(0)->getStyle('A1:H1')->applyFromArray(array('font' => array('bold' => true)));
 
-		return $objPHPExcel;
+		return $objPhpSpreadsheet;
 	}
 
 	public function exportItemTableXLSX(Survey $study) {
@@ -286,8 +286,8 @@ class SpreadsheetReader {
 		$filename = $study->name;
 
 		try {
-			$objPHPExcel = $this->getSheetsFromArrays($items, $choices, $study->settings);
-			$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+			$objPhpSpreadsheet = $this->getSheetsFromArrays($items, $choices, $study->settings);
+			$objWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($objPhpSpreadsheet, 'Xlsx');
 
 			header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
 			header('Cache-Control: max-age=0');
@@ -308,9 +308,9 @@ class SpreadsheetReader {
 		$filename = $study->name;
 
 		try {
-			$objPHPExcel = $this->getSheetsFromArrays($items, $choices, $study->settings);
+			$objPhpSpreadsheet = $this->getSheetsFromArrays($items, $choices, $study->settings);
 
-			$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
+			$objWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($objPhpSpreadsheet, 'Xls');
 
 			header('Content-Disposition: attachment;filename="' . $filename . '.xls"');
 			header('Cache-Control: max-age=0');
@@ -434,25 +434,25 @@ class SpreadsheetReader {
 		}
 
 		try {
-			//  Identify the type of $filepath and create PHPExcel object from a read-only reader
-			$filetype = PHPExcel_IOFactory::identify($filepath);
-			$phpExcelReader = PHPExcel_IOFactory::createReader($filetype);
-			$phpExcelReader->setReadDataOnly(true);
+			//  Identify the type of $filepath and create \PhpOffice\PhpSpreadsheet\Spreadsheet object from a read-only reader
+			$filetype = \PhpOffice\PhpSpreadsheet\IOFactory::identify($filepath);
+			$phpSpreadsheetReader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader($filetype);
+			$phpSpreadsheetReader->setReadDataOnly(true);
 			
-			/* @var $phpExcel PHPExcel */
-			$phpExcel = $phpExcelReader->load($filepath);
+			/* @var $phpSpreadsheet \PhpOffice\PhpSpreadsheet\Spreadsheet */
+			$phpSpreadsheet = $phpSpreadsheetReader->load($filepath);
 
 			// Gather sheets to be read
-			if ($phpExcel->sheetNameExists('survey')) {
-				$surveySheet = $phpExcel->getSheetByName('survey');
+			if ($phpSpreadsheet->sheetNameExists('survey')) {
+				$surveySheet = $phpSpreadsheet->getSheetByName('survey');
 			} else {
-				$surveySheet = $phpExcel->getSheet(0);
+				$surveySheet = $phpSpreadsheet->getSheet(0);
 			}
 
-			if ($phpExcel->sheetNameExists('choices') && $phpExcel->getSheetCount() > 1) {
-				$choicesSheet = $phpExcel->getSheetByName('choices');
-			} elseif ($phpExcel->getSheetCount() > 1) {
-				$choicesSheet = $phpExcel->getSheet(1);
+			if ($phpSpreadsheet->sheetNameExists('choices') && $phpSpreadsheet->getSheetCount() > 1) {
+				$choicesSheet = $phpSpreadsheet->getSheetByName('choices');
+			} elseif ($phpSpreadsheet->getSheetCount() > 1) {
+				$choicesSheet = $phpSpreadsheet->getSheet(1);
 			}
 
 			if (isset($choicesSheet)) {
@@ -461,7 +461,7 @@ class SpreadsheetReader {
 
 			$this->readSurveySheet($surveySheet);
 
-		} catch (PHPExcel_Exception $e) {
+		} catch (\PhpOffice\PhpSpreadsheet\Exception $e) {
 			$this->errors[] = "An error occured reading your excel file. Please check your file or report to admin";
 			$this->errors[] = $e->getMessage();
 			formr_log_exception($e, __CLASS__, $filepath);
@@ -469,14 +469,14 @@ class SpreadsheetReader {
 		}
 	}
 
-	private function readChoicesSheet(PHPExcel_Worksheet $worksheet) {
+	private function readChoicesSheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet) {
 		//  Get worksheet dimensions
 		// non-allowed columns will be ignored, allows to specify auxiliary information if needed
 		$skippedColumns = $columns = array();
-		$colCount = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestDataColumn());
+		$colCount = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($worksheet->getHighestDataColumn());
 		$rowCount = $worksheet->getHighestDataRow();
 
-		for ($i = 0; $i < $colCount; $i++) {
+		for ($i = 1; $i <= $colCount; $i++) {
 			$colName = mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue());
 			if (in_array($colName, $this->choices_columns)) {
 				$columns[$i] = $colName;
@@ -509,7 +509,7 @@ class SpreadsheetReader {
 		$inheritedListNames = array();
 
 		foreach ($worksheet->getRowIterator(1, $rowCount) as $row) {
-			/* @var $row PHPExcel_Worksheet_Row */
+			/* @var $row \PhpOffice\PhpSpreadsheet\Worksheet\Row */
 			$rowNumber = $row->getRowIndex();
 			if ($rowNumber == 1) {
 				// skip table head
@@ -521,12 +521,12 @@ class SpreadsheetReader {
 			$cellIterator = $row->getCellIterator('A', $worksheet->getHighestDataColumn());
 			$cellIterator->setIterateOnlyExistingCells(false);
 			foreach ($cellIterator as $cell) {
-				/* @var $cell PHPExcel_Cell */
+				/* @var $cell \PhpOffice\PhpSpreadsheet\Cell\Cell */
 				if (is_null($cell)) {
 					continue;
 				}
 
-				$colNumber = PHPExcel_Cell::columnIndexFromString($cell->getColumn()) - 1;
+				$colNumber = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($cell->getColumn());
 				if (!isset($columns[$colNumber])) {
 					continue; // not a column of interest
 				}
@@ -589,7 +589,7 @@ class SpreadsheetReader {
 				// Stop processing if we have any errors
 				if ($this->errors) {
 					$error = sprintf("Error in cell %s%s (Choices sheet): \n %s", $cell->getColumn(), $rowNumber, implode("\n", $this->errors));
-					throw new PHPExcel_Exception($error);
+					throw new \PhpOffice\PhpSpreadsheet\Exception($error);
 				}
 
 				// Save cell value
@@ -604,7 +604,7 @@ class SpreadsheetReader {
 				$choiceNames[$row['list_name']] = array();
 			}
 			if (isset($choiceNames[$row['list_name']][$row['name']])) {
-				throw new PHPExcel_Exception(sprintf("'%s' has already been used as a 'name' for the list '%s'", $row['name'], $row['list_name']));
+				throw new \PhpOffice\PhpSpreadsheet\Exception(sprintf("'%s' has already been used as a 'name' for the list '%s'", $row['name'], $row['list_name']));
 			}
 			$choiceNames[$row['list_name']][$row['name']] = $row['label'];
 		}
@@ -621,12 +621,12 @@ class SpreadsheetReader {
 		$this->choices = $data;
 	}
 
-	private function readSurveySheet(PHPExcel_Worksheet $worksheet) {
+	private function readSurveySheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $worksheet) {
 		$callStartTime = microtime(true);
 		// non-allowed columns will be ignored, allows to specify auxiliary information if needed
 
 		$skippedColumns = $columns = array();
-		$colCount = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestDataColumn());
+		$colCount = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($worksheet->getHighestDataColumn());
 		$rowCount = $worksheet->getHighestDataRow();
 
 		if ($colCount > 30) {
@@ -634,8 +634,8 @@ class SpreadsheetReader {
 			$colCount = 30;
 		}
 
-		$blankColCount = 0;
-		for ($i = 0; $i < $colCount; $i++) {
+		$blankColCount = 0; // why should this be set to 1 by default? 
+		for ($i = 1; $i <= $colCount; $i++) {
 			$colName = trim(mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue()));
 			if (!$colName) {
 				$blankColCount++;
@@ -667,7 +667,7 @@ class SpreadsheetReader {
 		$data = $skippedRows = $emptyRows = $variableNames = array();
 
 		foreach ($worksheet->getRowIterator(1, $rowCount) as $row) {
-			/* @var $row PHPExcel_Worksheet_Row */
+			/* @var $row \PhpOffice\PhpSpreadsheet\Worksheet\Row */
 			$rowNumber = $row->getRowIndex();
 			if ($rowNumber == 1) {
 				// skip table head
@@ -680,12 +680,12 @@ class SpreadsheetReader {
 			$cellIterator->setIterateOnlyExistingCells(false);
 
 			foreach ($cellIterator as $cell) {
-				/* @var $cell PHPExcel_Cell */
+				/* @var $cell \PhpOffice\PhpSpreadsheet\Cell\Cell */
 				if (is_null($cell)) {
 					continue;
 				}
 
-				$colNumber = PHPExcel_Cell::columnIndexFromString($cell->getColumn()) - 1;
+				$colNumber = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($cell->getColumn());
 				if (!isset($columns[$colNumber])) {
 					continue; // not a column of interest
 				}
@@ -767,7 +767,7 @@ class SpreadsheetReader {
 				// Stop processing if we have any errors
 				if ($this->errors) {
 					$error = sprintf("Error in cell %s%s (Survey Sheet): \n %s", $cell->getColumn(), $rowNumber, implode("\n", $this->errors));
-					throw new PHPExcel_Exception($error);
+					throw new \PhpOffice\PhpSpreadsheet\Exception($error);
 				}
 
 				// Save cell value

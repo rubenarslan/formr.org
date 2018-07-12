@@ -144,29 +144,29 @@ foreach($survey->getItems('id, name') as $item) {
 try {
 	echo "\nReading backup file '", $backupFile, "' ...\n";
 	//  Identify the type of $inputFileName 
-	$fileType = PHPExcel_IOFactory::identify($backupFile);
+	$fileType = \PhpOffice\PhpSpreadsheet\IOFactory::identify($backupFile);
 	//  Create a new Reader of the type that has been identified 
-	$objReader = PHPExcel_IOFactory::createReader($fileType);
-	//  Load $inputFileName to a PHPExcel Object 
+	$objReader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader($fileType);
+	//  Load $inputFileName to a \PhpOffice\PhpSpreadsheet\Spreadsheet Object 
 	///  Advise the Reader that we only want to load cell data 
 	$objReader->setReadDataOnly(true);
 
-	// Load $inputFileName to a PHPExcel Object
-	$objPHPExcel = PHPExcel_IOFactory::load($backupFile);
+	// Load $inputFileName to a \PhpOffice\PhpSpreadsheet\Spreadsheet Object
+	$objPhpSpreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($backupFile);
 
 	// Get sheet
-	$resultsSheet = $objPHPExcel->getSheet(0);
-} catch (PHPExcel_Exception $e) {
+	$resultsSheet = $objPhpSpreadsheet->getSheet(0);
+} catch (\PhpOffice\PhpSpreadsheet\Exception $e) {
 	formr_log_exception($e, __CLASS__, $backupFile);
 	quit("Error occured while loading backup file: \n" . $e->getMessage());
 }
 
 // Read columns
 $columns = array();
-$nrColumns = PHPExcel_Cell::columnIndexFromString($resultsSheet->getHighestDataColumn());
+$nrColumns = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($resultsSheet->getHighestDataColumn());
 $nrRows = $resultsSheet->getHighestDataRow();
 echo "\nColumns: {$nrColumns}, Rows: {$nrRows} \n";
-for ($i = 0; $i < $nrColumns; $i++) {
+for ($i = 1; $i <= $nrColumns; $i++) {
 	$columns[] = trim($resultsSheet->getCellByColumnAndRow($i, 1)->getValue());
 }
 
@@ -215,7 +215,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 			continue;
 		}
 		
-		$colIndex = $cell->columnIndexFromString($cell->getColumn()) - 1;
+		$colIndex = $cell->columnIndexFromString($cell->getColumn());
 		if (!array_key_exists($colIndex, $columns)) {
 			continue;
 		}
@@ -224,7 +224,7 @@ foreach ($resultsSheet->getRowIterator() as $row) {
 		if (!is_formr_truthy($value)) {
 			$value = null;
 		} elseif (in_array($column, $dateColumns)) {
-			$value = mysql_datetime(PHPExcel_Shared_Date::ExcelToPHP($value));
+			$value = mysql_datetime(\PhpOffice\PhpSpreadsheet\Shared\Date::excelToTimestamp($value));
 		}
 		
 		if (!in_array($column, $exclColumns)) {
