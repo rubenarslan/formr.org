@@ -1,22 +1,52 @@
 # Setup instructions for formr
 
 formr can run on Linux, Mac OS and Windows. However we recommend running formr on a linux environment. The installation instructions detailed
-below are for a linux Environment but can be modified accordingly for other platforms.
+below are for a Debian 9 Environment but can be modified accordingly for other platforms.
 
 ## Installing [R](http://www.r-project.org/) and [OpenCPU](https://public.opencpu.org/pages/)
 
 ### Install R
 
-You can install and set-up the R software by following the [installation instructions](https://cran.r-project.org/bin/linux/) on the r-project website.
+You can install and set-up the R software by following the [installation instructions](https://cran.r-project.org/bin/linux/) on the r-project website. The minimal Version required by OpenCPU ist 3.4.4.
+
+The best way is to use the official R repository.
+
+```
+# CRAN server for Debian stretch (R and related stuff)
+deb http://cran.rstudio.com/bin/linux/debian stretch-cran34/
+```
+
+Add it to the _/etc/apt/sources.list_.
 
 ### Install OpenCPU
 
 Visit the [OpenCPU](https://github.com/jeroenooms/opencpu/) repository and follow the [installation instructions](https://github.com/jeroenooms/opencpu/blob/master/README.md) there on how to set up and configure OpenCPU.
 
+```
+sudo add-apt-repository -y ppa:opencpu/opencpu-2.0
+sudo apt-get update 
+sudo apt-get install opencpu-server rstudio-server
+```
+
+For now, there is no systemctl service script to run opencpu. You'll need to run R in a screen or tmux session:
+
+```
+$ R
+> library(openCpu)
+> ocpu_start_server()
+```
+
 ### Install and using the formr R-package
 
 Visit the [formr R-package repository](https://github.com/rubenarslan/formr) for installation and set up instructions.
 
+Basically run:
+
+```
+sudo R
+> install.packages("devtools")
+> devtools::install_github("rubenarslan/formr")
+```
 
 ## Installing an instance of the formr website
 
@@ -31,13 +61,29 @@ The following requirements should be installed on the system you intend to insta
 
 * [Git](http://git-scm.com/) (for installation)
 * PHP >= 5.6
+	* php-curl
+	* php7.0-fpm
+	* php-zip
+	* php-xml
+	* php-gd
+	* php-intl
+	* pandoc
 * Apache >= 2.4
-* MySQL >= 5.6
+* MySQL / MariaDB >= 5.6
 * [Composer](https://getcomposer.org/) (for installing dependencies)
 * [The Sodium crypto library (Libsodium)](https://paragonie.com/book/pecl-libsodium/read/00-intro.md#installing-libsodium)
+	* The repository version of libsodium is currently incompatible to formR. Use [these instructions](https://github.com/paragonie/halite/issues/48) to set it up.
 * [Gearman](http://gearman.org/) (Server + Client) *OPTIONAL* (for running background jobs)
 * [Supervisor](http://supervisord.org/) *OPTIONAL*
 * [smysqlin](https://bitbucket.org/cyriltata/smysqlin) *OPTIONAL* (for managing database patches)
+
+Paket list for copying:
+
+```
+sudo apt-get install git php apache2 mysql-server composer php-curl php7.0-fpm php7.0-mbstring php-mysql php-zip php-xml php-gd php-intl pandoc
+```
+
+Install libsodium now. See instructions above.
 
 ### 1. Clone the Git repository and checkout the *desired* release (version)
 
@@ -76,6 +122,8 @@ Import the initial required database structure
 ```sh
     mysql formr -uformr -pEnterPassword < /path/to/formr/sql/schema.sql
 ```
+
+__You'll need to apply patchset sql/patches/028_add_user_attributes.sql manually.__
 
 Optionally, you could use [smysqlin](https://bitbucket.org/cyriltata/smysqlin) to set up and manage patches to the formr mysql database.
 SQL patches are created with updates and found in the directory `/path/to/formr/sql/patches`. Any patch will be announced in the update release and you can either run this patch directly against your database or use smysqlin.
@@ -130,3 +178,4 @@ You should be able to see your installation up and running by visiting the confi
 * define_root has a hardcoded path at the time.
 * internal server errors: check permissions (tmp), case-sensitive paths, .htaccess path trouble
 * [contact me](https://psych.uni-goettingen.de/en/biopers/team/arslan)
+* If your layout seems broken, disable developer mode in the _settings.php_
