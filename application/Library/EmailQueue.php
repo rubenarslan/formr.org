@@ -235,7 +235,9 @@ class EmailQueue extends Queue {
 		}
 	}
 
-	public function run($account_id = null) {
+	public function run($config) {
+		$account_id = array_val($config, 'account_id', null);
+
 		// loop forever until terminated by SIGINT
 		while (!$this->out) {
 			try {

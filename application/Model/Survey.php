@@ -1014,7 +1014,7 @@ class Survey extends RunUnit {
 		return parent::end();
 	}
 
-	protected function getTimeWhenLastViewedItem() {
+	public function getTimeWhenLastViewedItem() {
 		// use created (item render time) if viewed time is lacking
 		$arr = $this->dbh->select(array('COALESCE(`survey_items_display`.shown,`survey_items_display`.created)' => 'last_viewed'))
 				->from('survey_items_display')
