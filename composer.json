@@ -23,7 +23,7 @@
         "bshaffer/oauth2-server-php": "~1.7",
         "atrox/haikunator": "^1.0",
         "mhlavac/gearman": "dev-master",
-		"paragonie/halite": "^v1"
+	"paragonie/halite": "*"
     },
     "require-dev": {
         "phpunit/phpunit": "3.7.*"
