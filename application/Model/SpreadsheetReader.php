@@ -526,7 +526,7 @@ class SpreadsheetReader {
 					continue;
 				}
 
-				$colNumber = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($cell->getColumn()) - 1;
+				$colNumber = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($cell->getColumn());
 				if (!isset($columns[$colNumber])) {
 					continue; // not a column of interest
 				}
