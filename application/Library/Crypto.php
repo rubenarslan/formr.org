@@ -7,7 +7,7 @@ class Crypto {
 	private static $key = null;
 
 	public static function setup() {
-		if (!function_exists('\Sodium\version_string')) {
+		if (!function_exists('\Sodium\version_string') && !defined('SODIUM_LIBRARY_VERSION') ) {
 			throw new Exception('The libsodium extension is required. Please see https://paragonie.com/book/pecl-libsodium/read/00-intro.md#installing-libsodium on how to install');
 		}
 		
