@@ -7,7 +7,7 @@ class Crypto {
 	private static $key = null;
 
 	public static function setup() {
-		if (!function_exists('\Sodium\version_string') && !defined('SODIUM_LIBRARY_VERSION') ) {
+		if (! \ParagonIE\Halite\Halite::isLibsodiumSetupCorrectly()) {
 			throw new Exception('The libsodium extension is required. Please see https://paragonie.com/book/pecl-libsodium/read/00-intro.md#installing-libsodium on how to install');
 		}
 		
@@ -40,6 +40,14 @@ class Crypto {
 		return self::$key;
 	}
 
+	private static function doWeNeedHiddenStrings() : bool {
+		if ( class_exists('\ParagonIE\Halite\HiddenString') ) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 	/**
 	 * Encrypt Data
 	 *
@@ -50,6 +58,9 @@ class Crypto {
 	public static function encrypt($data, $glue = '') {
 		if (is_array($data)) {
 			$data = implode($glue, $data);
+		} 
+		if ( self::doWeNeedHiddenStrings() && ! $data instanceof \ParagonIE\Halite\HiddenString ) {
+			$data = new \ParagonIE\Halite\HiddenString($data, true);
 		}
 		try {
 			return \ParagonIE\Halite\Symmetric\Crypto::encrypt($data, self::getKey());
@@ -72,4 +83,3 @@ class Crypto {
 		}
 	}
 }
-
