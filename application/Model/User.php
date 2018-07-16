@@ -95,7 +95,11 @@ class User {
 		return (int) $this->id === (int) $object->user_id;
 	}
 
-	public function register($email, $password, $referrer_code) {
+	public function register($info) {
+		$email = array_val($info, 'email');
+		$password = array_val($info, 'password');
+		$referrer_code = array_val($info, 'referrer_code');
+
 		$hash = password_hash($password, PASSWORD_DEFAULT);
 		
 		$user_exists = $this->dbh->entry_exists('survey_users', array('email' => $email));
@@ -163,7 +167,10 @@ class User {
 		$this->id = null;
 	}
 
-	public function login($email, $password) {
+	public function login($info) {
+		$email = array_val($info, 'email');
+		$password = array_val($info, 'password');
+
 		$user = $this->dbh->select('id, password, admin, user_code, email_verified, email_verification_hash')
 				->from('survey_users')
 				->where(array('email' => $email))
@@ -308,7 +315,12 @@ class User {
 		return true;
 	}
 
-	public function reset_password($email, $token, $new_password, $new_password_confirm) {
+	public function reset_password($info) {
+		$email = array_val($info, 'email');
+		$token = array_val($info, 'reset_token');
+		$new_password = array_val($info, 'new_password');
+		$new_password_confirm = array_val($info, 'new_password_confirm');
+
 		if ($new_password !== $new_password_confirm) {
 			alert('The passwords you entered do not match', 'alert-danger');
 			return false;
