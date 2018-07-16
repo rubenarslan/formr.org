@@ -107,10 +107,14 @@ class EmailAccount {
 		} else {
 			$mail->SMTPSecure = 'ssl';
 		}
-		$mail->SMTPAuth = true; // turn on SMTP authentication
-		$mail->Username = $this->account['username']; // SMTP username
-		$mail->Password = $this->account['password']; // SMTP password
-
+		if (isset($this->account['username'])) {
+			$mail->SMTPAuth = true; // turn on SMTP authentication
+			$mail->Username = $this->account['username']; // SMTP username
+			$mail->Password = $this->account['password']; // SMTP password
+		} else {
+			$mail->SMTPAuth = false; 
+			$mail->SMTPSecure = false;
+		}	
 		$mail->From = $this->account['from'];
 		$mail->FromName = $this->account['from_name'];
 		$mail->AddReplyTo($this->account['from'], $this->account['from_name']);
