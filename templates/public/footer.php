@@ -8,7 +8,7 @@
 						<li><a href="<?= site_url('about')?>">About</a></li>
 						<li><a href="<?= site_url('documentation')?>">Documentation</a></li>
 						<li><a href="<?= site_url('studies')?>">Studies</a></li>
-						<li><a href="https://www.psych.uni-goettingen.de/de/datenschutzerklaerung" target="_blank">Privacy Policy</a></li>
+						<li><a href="https://www.uni-muenster.de/de/datenschutzerklaerung.html" target="_blank">General Privacy Policy</a>, <a href="https://www.uni-muenster.de/PsyTD/formr/extended-privacy-policy.html">Extended Privacy Policy</a></li>
 					</ul>
 				</div>
 			</div>
@@ -28,10 +28,9 @@
 				<div class="fmr-footer-widget">
 					<h3>Imprint</h3>
 					<p>
-						Georg-Elias-Mueller-Institut of Psychology<br>
-						University of Goettingen <br>
-						Goßlerstraße 14, <br>
-						37073 Göttingen <br>
+						Westfälische Wilhelms-Universität Münster<br>
+						Schlossplatz 2<br>
+						48149 Münster<br>
 						Germany
 					</p>
 				</div>
@@ -40,7 +39,7 @@
 			<div class="col-md-2 col-sm-6 col-xs-12 animate-box">
 				<div class="fmr-footer-widget">
 					<ul class="fmr-links">
-						<li><a href="https://www.uni-goettingen.de/" target="_blank"><img src="<?= asset_url('build/img/goettingen_uni.png') ?>" alt="Uni Göttingen logo"></a></li>
+						<li><a href="https://wwu.de/" target="_blank"><img src="<?= asset_url('build/img/wwu.svg') ?>" alt="Logo der WWU"></a></li>
 					</ul>
 				</div>
 			</div>
