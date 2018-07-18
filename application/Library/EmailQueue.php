@@ -123,9 +123,13 @@ class EmailQueue {
 			} else {
 				$mail->SMTPSecure = 'ssl';
 			}
-			$mail->Username = $account['username'];
-			$mail->Password = $account['password'];
-
+			if (isset($account['username'])) {
+				$mail->Username = $account['username'];
+				$mail->Password = $account['password'];
+			} else {
+				$mail->SMTPAuth = false;
+				$mail->SMTPSecure = false;
+			}
 			$mail->setFrom($account['from'], $account['from_name']);
 			$mail->AddReplyTo($account['from'], $account['from_name']);
 			$mail->CharSet = "utf-8";
