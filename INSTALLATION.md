@@ -60,19 +60,23 @@ at [formr.org](https://formr.org).
 The following requirements should be installed on the system you intend to install formr on:
 
 * [Git](http://git-scm.com/) (for installation)
-* PHP >= 5.6
+* PHP ≥ 7.0
+	* composer
 	* php-curl
-	* php7.0-fpm
+	* php-fpm (often: php7.x-fpm e. g. php7.2-fpm)
+	* php-mbstring (often: php7.x-mbstring e. g. php7.2-mbstring)
+	* php-mysql
 	* php-zip
 	* php-xml
 	* php-gd
 	* php-intl
-	* pandoc
+	* pandoc (not needed in devel branch for libsodium23)
 * Apache >= 2.4
 * MySQL / MariaDB >= 5.6
 * [Composer](https://getcomposer.org/) (for installing dependencies)
 * [The Sodium crypto library (Libsodium)](https://paragonie.com/book/pecl-libsodium/read/00-intro.md#installing-libsodium)
 	* The repository version of libsodium is currently incompatible to formR. Use [these instructions](https://github.com/paragonie/halite/issues/48) to set it up.
+	* The Branch devel supports libsodium23 v1.0.16 which is the default version on most current distributions.
 * [Gearman](http://gearman.org/) (Server + Client) *OPTIONAL* (for running background jobs)
 * [Supervisor](http://supervisord.org/) *OPTIONAL*
 * [smysqlin](https://bitbucket.org/cyriltata/smysqlin) *OPTIONAL* (for managing database patches)
@@ -80,16 +84,46 @@ The following requirements should be installed on the system you intend to insta
 Paket list for copying:
 
 ```
-sudo apt-get install git php apache2 mysql-server composer php-curl php7.0-fpm php7.0-mbstring php-mysql php-zip php-xml php-gd php-intl pandoc
+sudo apt-get install git php apache2 mysql-server composer php-curl php-fpm php-mbstring php-mysql php-zip php-xml php-gd php-intl pandoc
 ```
 
 Install libsodium now. See instructions above.
 
+Apache needs the rewrite mod enabled:
+
+```sh
+    sudo a2enmod rewrite
+```
+
+And overrides need to be allowed for the virtual host. On a standard Ubuntu or Debian installation, insert the following block at the end of your default virtual host in `/etc/apache2/sites-enabled/000-default.conf`.
+
+```
+	<Directory /var/www/html>
+		Options Indexes FollowSymlinks MultiViews
+		AllowOverride All
+		Order allow,deny
+		allow from all
+
+	</Directory>
+```
+
+Make sure apache2 and php7.x-fpm run.
+
 ### 1. Clone the Git repository and checkout the *desired* release (version)
+
+The suggested file structure is as follows: Place formr.org's folder, e. g. `/var/www`, accessible for apache's user e. g. `www-data` and to create a symlink to the webroot.
 
 You'll need [Git](http://git-scm.com/) (a version management software). After installing it, navigate to the folder where you want to place formr and run
 ```sh
-    git clone https://github.com/rubenarslan/formr.org.git
+    cd /var/www/
+    git clone https://github.com/rubenarslan/formr.org.git #depending on the system you might need sudo for this
+```
+
+Create the symlink and fix access rights:
+
+```sh
+    ln -s /var/www/formr.org/webroot /var/www/html/formr 
+    chown -R www-data:www-data /var/www/formr.org
 ```
 
 You can also [download the repository as a zip file](https://github.com/rubenarslan/formr/archive/master.zip), but trust me, use Git for this.
@@ -106,7 +140,7 @@ At this point you should have your formr files present in the installation direc
     composer install
 ```
 	
-
+ 
 ### 2. Create an empty MySQL database
 
 Login to mysql server with a user that has appropriate privileges and execute these commands to create the database
