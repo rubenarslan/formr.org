@@ -90,7 +90,7 @@
 												<div class="input-group-addon"> to</div>
 												<input type="number" class="form-control" name="displayed_percentage_maximum" value="<?= h($study->settings['displayed_percentage_maximum']) ?>" min="0" max="100" />	<div class="input-group-addon"> %</div>
 											</div>
-
+										</div>
 									</td>
 								</tr>
 
@@ -138,9 +138,6 @@
 												<div class="input-group-addon"> minutes after the access window closed</div>
 											</div>
 											
-											<div class="input-group">
-												
-											</div>
 										</div>
 									</td>
 								</tr>

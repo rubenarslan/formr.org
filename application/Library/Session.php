@@ -40,9 +40,10 @@ class Session {
 	}
 
 	public static function destroy() {
-		setcookie(session_name(), '', time() - 3600);
+		setcookie(session_name(), '', time() - 3600, '/');
 		session_unset();
         session_destroy();
+		session_write_close();
 	}
 
 	public static function over() {
