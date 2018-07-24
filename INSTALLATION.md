@@ -60,7 +60,7 @@ at [formr.org](https://formr.org).
 The following requirements should be installed on the system you intend to install formr on:
 
 * [Git](http://git-scm.com/) (for installation)
-* PHP >= 5.6
+* PHP ≥ 7.0
 	* composer
 	* php-curl
 	* php-fpm (often: php7.x-fpm e. g. php7.2-fpm)
