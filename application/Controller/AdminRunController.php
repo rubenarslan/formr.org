@@ -221,6 +221,7 @@ class AdminRunController extends AdminController {
 			`survey_unit_sessions`.id AS session_id,
 			`survey_runs`.name AS run_name,
 			`survey_run_units`.position,
+			`survey_run_units`.description,
 			`survey_units`.type AS unit_type,
 			`survey_unit_sessions`.created,
 			`survey_unit_sessions`.ended,
@@ -238,6 +239,7 @@ class AdminRunController extends AdminController {
 		$users = array();
 		foreach ($g_users as $userx) {
 			$userx['Unit in Run'] = $userx['unit_type']. " <span class='hastooltip' title='position in run {$userx['run_name']} '>({$userx['position']})</span>";
+			$userx['Module Description'] = "<small>" . $userx['description'] . "</small>";
 			$userx['Session'] = "<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],0,10)."…</abbr></small>";
 			$userx['Entered'] = "<small>{$userx['created']}</small>";
 			$staid = ($userx['ended'] ? strtotime($userx['ended']) : time() ) - strtotime($userx['created']);
@@ -251,7 +253,7 @@ class AdminRunController extends AdminController {
 			else 
 				$userx['Delete'] =  "<a onclick='return confirm(\"You shouldnt delete survey sessions, you might delete data! REALLY sure?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_delete_unit_session?session_id={$userx['session_id']}' class='hastooltip link-ajax' title='Survey sessions should not be deleted'><i class='fa fa-times'></i></a>";
 
-			unset($userx['session'], $userx['session_id'], $userx['run_name'], $userx['unit_type'], $userx['position'], $userx['left']);
+			unset($userx['session'], $userx['session_id'], $userx['run_name'], $userx['unit_type'], $userx['position'], $userx['description'], $userx['left']);
 			$users[] = $userx;
 		}
 
