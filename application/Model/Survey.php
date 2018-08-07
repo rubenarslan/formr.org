@@ -1688,7 +1688,7 @@ class Survey extends RunUnit {
 		if ($whereIn) {
 			$select->whereIn($whereIn['field'], $whereIn['values']);
 		}
-		$select->order("`survey_items`.item_order");
+		$select->order("order");
 		return $select->fetchAll();
 	}
 
