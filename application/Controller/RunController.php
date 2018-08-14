@@ -53,6 +53,8 @@ class RunController extends Controller {
 		if (Request::isHTTPGetRequest() && ($code = $this->request->getParam('code'))) {
 			$_GET['run_name'] = $run_name;
 			$this->user = $this->loginUser();
+			Request::setGlobals('COOKIE', $this->setRunCookie());
+
 			if ($this->user->user_code != $code) {
 				alert('Unable to login with the provided code', 'alert-warning');
 			}
