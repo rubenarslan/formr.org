@@ -63,7 +63,7 @@
         this.next_update = false;
         this.dont_update = false;
         this.spinner = ' <i class="fa fa-spinner fa-spin"></i>';
-		this.counterBtns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></div>');
+        this.counterBtns = $('<div class="btn-group"><button class="btn btn-lg btn-down"><i class="fa fa-minus-circle"></i></button><button class="btn btn-lg btn-up"><i class="fa fa-plus-circle"></i></button></div>');
         var survey = this;
 
         // initialising special items
@@ -155,7 +155,7 @@
                 });
 
             });
-			survey.setUpCounters();
+            survey.setUpCounters();
 
             $("select.select2zone, .form-group.select2 select").each(function (i, elm)
             {
@@ -402,27 +402,48 @@
             }
             return;
         } else {
+            survey.getData();
+            survey.showIf();
+            var iterations = 0;
+            var any_change = false;
+            // as long as the data keeps changing, keep updating the showifs
+            // this can happen because of showifs affecting each other for example
+            // but do it no more than 10 times in a row (should not happen in well-designed surveys)
+            while (iterations < 10 && survey.getData()) {
+                any_change = survey.showIf();
+                if (! any_change) { // once the showif conditions stop changing, we can stop the loop
+                    break;
+                } else {
+                    iterations++;
+                }
+            }
+            survey.getProgress();
+
             survey.last_update = now;
             survey.next_update = false;
-        }
 
-        survey.getData();
-        survey.showIf();
-        survey.getProgress();
+
+            // if we ran into the limit of number of updates, schedule one in 500ms
+            if(iterations >= 10) {
+                survey.update();
+            }
+        }
     };
 
-	Survey.prototype.getData = function () {
+    Survey.prototype.getData = function () {
         var badArray = this.$form.serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
-        this.data = {};
         var survey = this;
+        var old_data = survey.data;
+        survey.data = {};
 
         $.each(badArray, function (i, obj) {
             if (obj.name.indexOf('_') !== 0 && obj.name != "session_id") { // skip hidden items beginning with underscore (e.g _item_view)
-                if (obj.name.indexOf('[]', obj.name.length - 2) > -1)
+                if (obj.name.indexOf('[]', obj.name.length - 2) > -1) {
                     obj.name = obj.name.substring(0, obj.name.length - 2);
+                }
 
                 if (obj.value === "" && $("input[type=hidden][name='" + obj.name + "']").length === 1 && obj.value === $("input[type=hidden][name='" + obj.name + "']").attr("value")) {
-					survey.data[obj.name] = null;
+                    survey.data[obj.name] = null;
                     return true;
                 }
 
@@ -438,13 +459,15 @@
             }
         });
 
+        // any change?
+        return JSON.stringify(old_data) !== JSON.stringify(survey.data);
     };
 
-	Survey.prototype.getProgress = function () {
+    Survey.prototype.getProgress = function () {
         var survey = this;
-		if ($('.fmr-survey-page-count').length) {
-			return survey.getPagingProgress();
-		}
+        if ($('.fmr-survey-page-count').length) {
+            return survey.getPagingProgress();
+        }
         survey.items_answered_on_page = $(".formr_answered").length + 0;
         survey.items_visible_on_page = $(".form-group:not(.hidden)").length + 0;
 
@@ -461,73 +484,73 @@
         return prog;
     };
 
-	Survey.prototype.getPagingProgress = function () {
-		var survey = this;
-		var prog = 0;
-		var data = $('.fmr-survey-page-count').data();
-		if (data.answereditems) {
-			// revisiting page
-			prog = data.progress;
-		} else {
-			var visibleItems =  $('.form-group:not(.hidden)').length + 0;
-			var toAnswerItems = $('.form-group.required:not(.hidden,.item-submit,.formr_answered,.counter)').length + 0;
-			var pageProg = ((visibleItems - toAnswerItems) / visibleItems);
-			prog = (pageProg * data.pageprogress) + data.prevprogress;
-		}
+    Survey.prototype.getPagingProgress = function () {
+        var survey = this;
+        var prog = 0;
+        var data = $('.fmr-survey-page-count').data();
+        if (data.answereditems) {
+            // revisiting page
+            prog = data.progress;
+        } else {
+            var visibleItems =  $('.form-group:not(.hidden)').length + 0;
+            var toAnswerItems = $('.form-group.required:not(.hidden,.item-submit,.formr_answered,.counter)').length + 0;
+            var pageProg = ((visibleItems - toAnswerItems) / visibleItems);
+            prog = (pageProg * data.pageprogress) + data.prevprogress;
+        }
 
-		var percentage = Math.round(prog * 100) + '%';
-		survey.$progressbar.css('width', percentage);
-		survey.$progressbar.text(percentage);
-		return prog;
-	};
+        var percentage = Math.round(prog * 100) + '%';
+        survey.$progressbar.css('width', percentage);
+        survey.$progressbar.text(percentage);
+        return prog;
+    };
 
     Survey.prototype.showIf = function (e) {
-        var survey = this;
-        if (!survey.items_with_showifs) {
-            survey.items_with_showifs = $(".form-group[data-showif]");
-		}
+        var _survey = this;
+        if (!_survey.items_with_showifs) {
+            _survey.items_with_showifs = $(".form-group[data-showif]");
+        }
         var any_change = false;
-        survey.items_with_showifs.each(function (i, elm) { // walk through all form elements that are dynamically shown/hidden
-			var $elm = $(elm);
-            var showif = $elm.data('showif'); // get specific condition
-			with (survey.data) { // using the form data as the environment
-                var hide = true; // hiding is the default, if the try..catch fails
+        _survey.items_with_showifs.each(function (i, elm) { // walk through all form elements that are dynamically shown/hidden
+            var $elm = $(elm);
+            var _showif = $elm.data('showif'); // get specific condition
+            with (_survey.data) { // using the form data as the environment
+                var _hide = true; // hiding is the default, if the try..catch fails
                 try {
-                    hide = !eval(showif); // evaluate the condition
+                    _hide = !eval(_showif); // evaluate the condition
                 } catch (e) {
                     if (window.console) {
-                        console.log("JS showif failed", showif, e, $elm.find('input').attr('name'));
-					}
-					// Maybe show-if relies on an data that is on a previous page.
-					// So use the data-show attribute which is set based on show-if evaluated in R, using data from previous page.
-					if($elm.data('show')) {
-						hide = false;
-					}
+                        console.log("JS showif failed", _showif, e, $elm.find('input').attr('name'));
+                    }
+                    // Maybe show-if relies on an data that is on a previous page.
+                    // So use the data-show attribute which is set based on show-if evaluated in R, using data from previous page.
+                    if($elm.data('show')) {
+                        _hide = false;
+                    }
                 }
 
-				any_change = survey.setItemVisibility($elm, hide);
+                any_change = _survey.setItemVisibility($elm, _hide);
             }
         });
         return any_change;
     };
 
-	Survey.prototype.setItemVisibility = function($elm, hide) {
-		if ($elm.hasClass('hidden') != hide) {
-			$elm.toggle(!hide);
-			$elm.toggleClass('hidden', hide); // show/hide depending on evaluation
-			$elm.find('input,select,textarea,button').prop('disabled', hide); // enable/disable depending on evaluation
-			$elm.find('.select2-container').select2('enable', !hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
-			if (!hide) {
-				$elm.find("input.item_shown").val(mysql_datetime());
-				$elm.find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
-			} else {
-				$elm.find('input,select,textarea').val('');
-				$elm.find('input[type=radio],input[type=checkbox]').prop('checked', false);
-			}
-			return true;
-		}
-		return false;
-	};
+    Survey.prototype.setItemVisibility = function($elm, hide) {
+        if ($elm.hasClass('hidden') != hide) {
+            $elm.toggle(!hide);
+            $elm.toggleClass('hidden', hide); // show/hide depending on evaluation
+            $elm.find('input,select,textarea,button').prop('disabled', hide); // enable/disable depending on evaluation
+            $elm.find('.select2-container').select2('enable', !hide); // enable/disable select2 in firefox 10, doesn't work via shadowdom
+            if (!hide) {
+                $elm.find("input.item_shown").val(mysql_datetime());
+                $elm.find("input.item_shown_relative").val(window.performance.now ? performance.now() : null);
+            } else {
+                $elm.find('input,select,textarea').val('');
+                $elm.find('input[type=radio],input[type=checkbox]').prop('checked', false);
+            }
+            return true;
+        }
+        return false;
+    };
 
     Survey.prototype.doMonkey = function (monkey_iteration) {
         var survey = this;
@@ -696,65 +719,65 @@
         survey.doMonkey(monkey_iteration);
     };
 
-	Survey.prototype.setUpCounters = function() {
-		var survey = this;
-		webshim.ready('DOM forms forms-ext dom-extend', function () {
-			$('.form-group.item-number.is-counter .controls input').each(function () {
-				var $input = $(this);
-				var $parent = $input.parents('span');
-				var $btns = survey.counterBtns;
+    Survey.prototype.setUpCounters = function() {
+        var survey = this;
+        webshim.ready('DOM forms forms-ext dom-extend', function () {
+            $('.form-group.item-number.is-counter .controls input').each(function () {
+                var $input = $(this);
+                var $parent = $input.parents('span');
+                var $btns = survey.counterBtns;
 
-				$parent.hide();
-				$btns.insertAfter($parent);
-				toggleCounterElements($input.val());
+                $parent.hide();
+                $btns.insertAfter($parent);
+                toggleCounterElements($input.val());
 
-				// bind-clicks
+                // bind-clicks
                 $btns.find('.btn').click(function (e) {
-					e.preventDefault();
-					var $btn = $(this);
+                    e.preventDefault();
+                    var $btn = $(this);
                     var val = 1;
                     if ($input.val()) {
-						val = +$input.val();
-					}
+                        val = +$input.val();
+                    }
  
                     if ($btn.is('.btn-down') && $input.attr('min') < val) {
-						val -= 1;
+                        val -= 1;
                     } else if ($btn.is('.btn-up') && $input.attr('max') > val) {
-						val += 1;
-					}
+                        val += 1;
+                    }
 
-					toggleCounterElements(val);
-					return false;
+                    toggleCounterElements(val);
+                    return false;
                 });
 
-				function toggleCounterElements(val) {
-					// get the counter name and show/hide corresponding elements
-					var classList = $input.parents('.is-counter').attr('class').replace(/\s+/g, ' ').split(' ');
-					var counterName = null;
-					for (var i in classList) {
-						if (classList[i].indexOf('-counter') !== -1 && classList[i] !== "is-counter") {
-							counterName = classList[i];
-							break;
-						}
-					}
-					// If there is no DOM element having the counter name value then return;
-					if (!$('.' + counterName + '-' + val).length) {
-						return false;
-					}
-					// Set value
-					$input.attr('value', val);
-					if (counterName) {
-						$('div[class*='+counterName+'-]').each(function() {
-							survey.setItemVisibility($(this), true);
-						});
-						for (var s = 1; s <= val; s++) {
-							survey.setItemVisibility($('.' + counterName + '-' + s), false);
-						}
-					}
-				}
-			});
-		});
-	};
+                function toggleCounterElements(val) {
+                    // get the counter name and show/hide corresponding elements
+                    var classList = $input.parents('.is-counter').attr('class').replace(/\s+/g, ' ').split(' ');
+                    var counterName = null;
+                    for (var i in classList) {
+                        if (classList[i].indexOf('-counter') !== -1 && classList[i] !== "is-counter") {
+                            counterName = classList[i];
+                            break;
+                        }
+                    }
+                    // If there is no DOM element having the counter name value then return;
+                    if (!$('.' + counterName + '-' + val).length) {
+                        return false;
+                    }
+                    // Set value
+                    $input.attr('value', val);
+                    if (counterName) {
+                        $('div[class*='+counterName+'-]').each(function() {
+                            survey.setItemVisibility($(this), true);
+                        });
+                        for (var s = 1; s <= val; s++) {
+                            survey.setItemVisibility($('.' + counterName + '-' + s), false);
+                        }
+                    }
+                }
+            });
+        });
+    };
 
     $(function () { // on domready
         var survey = new Survey();
