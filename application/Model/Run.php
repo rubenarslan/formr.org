@@ -80,6 +80,12 @@ class Run {
 	 */
 	private $dbh;
 
+	/**
+	 *
+	 * @var RunSession
+	 */
+	public $activeRunSession;
+
 	const TEST_RUN = 'formr-test-run';
 
 	public function __construct($fdb, $name) {
@@ -746,6 +752,7 @@ class Run {
 			$run_session = $this->makeTestRunSession();
 			$unit = new Survey($this->dbh, null, $session, $run_session, $this);
 			$output = $unit->exec();
+			$this->activeRunSession = $run_session;
 
 			if (!$output):
 				$output['title'] = 'Finish';
@@ -796,7 +803,7 @@ class Run {
 		
 	}
 
-	public function exec($user) {
+	public function exec(User $user) {
 		if (!$this->valid) {
 			formr_error(404, 'Not Found', __("Run '%s' is broken or does not exist.", $this->name), 'Study Not Found');
 			return false;
@@ -819,15 +826,13 @@ class Run {
 				Session::globalRefresh();
 				$output = $run_session->getUnit();
 
-				if ($run_session->runAccessExpired()) {
-					alert('Your access to this study has expired, you may need to restart the study again or contact the study admin', 'alert-warning');
-					redirect_to(run_url($this->name, 'logout'));
-				}
 			} else {
 				$output = $this->getServiceMessage()->exec();
 				alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');
 			}
+
 			$run_session->setLastAccess();
+			$this->activeRunSession = $run_session;
 		}
 
 		if (!$output) {
@@ -1014,6 +1019,10 @@ class Run {
 			$this->expire_cookie_unit  = $unit[1];
 			$this->expire_cookie_value = $unit[0];
 		}
+	}
+
+	public function getCookieName() {
+		return sprintf('formr_run_session_%s', $this->id);
 	}
 
 }

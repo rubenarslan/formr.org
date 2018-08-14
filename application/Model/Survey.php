@@ -901,6 +901,7 @@ class Survey extends RunUnit {
 	}
 
 	protected function render_form_header($action = null) {
+		$cookie = Request::getGlobals('COOKIE');
 		$action = $action !== null ? $action : run_url($this->run_name);
 		$enctype = 'multipart/form-data'; # maybe make this conditional application/x-www-form-urlencoded
 
@@ -910,7 +911,9 @@ class Survey extends RunUnit {
 
 		/* pass on hidden values */
 		$ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
-		$ret .= '<input type="hidden" name="' . Session::REQUEST_TOKENS . '" value="' . h(Session::getRequestToken()) . '" />';
+		$ret .= '<input type="hidden" name="' . COOKIE::REQUEST_TOKENS . '" value="' . h($cookie->getRequestToken()) . '" />';
+		$ret .= '<input type="hidden" name="' . COOKIE::REQUEST_USER_CODE . '" value="' . h($cookie->getData('code')) . '" />';
+		$ret .= '<input type="hidden" name="' . COOKIE::REQUEST_NAME . '" value="' . h($cookie->getFile()) . '" />';
 
 		if (!isset($this->settings["displayed_percentage_maximum"]) OR $this->settings["displayed_percentage_maximum"] == 0) {
 			$this->settings["displayed_percentage_maximum"] = 100;
@@ -1074,8 +1077,9 @@ class Survey extends RunUnit {
 		// @todo Do same for other run units
 		try {
 			$request = new Request($_POST);
+			$cookie = Request::getGlobals('COOKIE');
 			//check if user session has a valid form token for POST requests
-			if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
+			if (Request::isHTTPPostRequest() && $cookie && !$cookie->canValidateRequestToken($request)) {
 				redirect_to(run_url($this->run_name));
 			}
 			$this->startEntry();

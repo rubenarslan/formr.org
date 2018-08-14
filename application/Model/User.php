@@ -434,10 +434,12 @@ class User {
 		return array();
 	}
 
-	function getAvailableRuns() {
+	public function getAvailableRuns() {
 		return $this->dbh->select('name,title, public_blurb_parsed')
 				->from('survey_runs')
 				->where('public > 2')
 				->fetchAll();
 	}
+
+	
 }

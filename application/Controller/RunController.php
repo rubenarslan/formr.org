@@ -26,8 +26,13 @@ class RunController extends Controller {
 			formr_error(404, 'Not Found', 'The requested URL was not found');
 		}
 
-		$this->user = $this->site->loginUser($this->user);
 		$this->run = $this->getRun();
+		// @todo check the POSTed code ($_POST[formr_code]) and save data before redirecting
+		// OR if cookie is expired then logout
+		$this->user = $this->loginUser();
+
+		Request::setGlobals('COOKIE', $this->setRunCookie());
+
 		$run_vars = $this->run->exec($this->user);
 		$run_vars['bodyClass'] = 'fmr-run';
 
@@ -47,7 +52,7 @@ class RunController extends Controller {
 		// Login if user entered with code and redirect without login code
 		if (Request::isHTTPGetRequest() && ($code = $this->request->getParam('code'))) {
 			$_GET['run_name'] = $run_name;
-			$this->user = $this->site->loginUser($this->user);
+			$this->user = $this->loginUser();
 			if ($this->user->user_code != $code) {
 				alert('Unable to login with the provided code', 'alert-warning');
 			}
@@ -94,11 +99,14 @@ class RunController extends Controller {
 	}
 
 	protected function logoutAction() {
-		$run = $this->getRun();
+		$this->run = $this->getRun();
+		$this->user = $this->loginUser();
+		$cookie = $this->getRunCookie();
+		$cookie->destroy();
 		Session::destroy();
 		$hint = 'Session Ended';
 		$text = 'Your session was successfully closed! You can restart a new session by clicking the link below.';
-		formr_error(200, 'OK', $text, $hint, run_url($run->name), 'Start New Session');
+		formr_error(200, 'OK', $text, $hint, run_url($this->run->name), 'Start New Session');
 	}
 
 	protected function monkeyBarAction($action = '') {
@@ -197,5 +205,46 @@ class RunController extends Controller {
 
 		return $meta;
 	}
+
+	protected function setRunCookie($refresh = false) {
+		$cookie = $this->getRunCookie();
+
+		if (!$cookie->exists() || $refresh === true) {
+			$expires = $this->run->expire_cookie ? time() + $this->run->expire_cookie : 0;
+			$data = array(
+				'code' => $this->user->user_code,
+				'created' => time(),
+				'modified' => time(),
+				'expires' => $expires,
+			);
+			$cookie->create($data, $expires, '/', null, SSL, true);
+		}
+
+		return $cookie;
+	}
+
+	/**
+	 * 
+	 * @return \Cookie
+	 */
+	protected function getRunCookie() {
+		return new \Cookie($this->run->getCookieName());
+	}
+
+	protected function loginUser() {		
+		// came here with a login link
+		if (isset($_GET['run_name']) && isset($_GET['code']) && strlen($_GET['code']) == 64) {
+			// user came in with login code
+			$loginCode = $_GET['code'];
+		} elseif (($cookie = $this->getRunCookie()) && $cookie->exists() && $cookie->getData('code')) {
+			// try to get user from cookie
+			$loginCode = $cookie->getData('code');
+		} else {
+			// new user just entering the run;
+			$loginCode = null;
+		}
+		return new User($this->fdb, null, $loginCode);
+	}
+
 
 }
