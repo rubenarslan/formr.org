@@ -241,6 +241,13 @@
 	 <dd>
 		 This makes answer labels for mc-family items stack up. Useful if you have so many options, that they jut out of the viewport. If you have very long list, consider using select-type items instead (they come with a search function).
 	 </dd>
+
+	 <dt>
+		 mc_horizontal
+	 </dt>
+	 <dd>
+		 This makes answer labels for mc-family items stay horizontal on small screens.
+	 </dd>
 	 
 	 
 	 <dt>

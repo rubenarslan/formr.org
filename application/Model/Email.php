@@ -270,7 +270,7 @@ class Email extends RunUnit {
 				else:
 					$error = sprintf("We already sent %d mail to this recipient in the last minute. No email was sent.", $mails_sent['in_last_1m']);
 				endif;
-			elseif ($mails_sent['in_last_10m'] > 0):
+			elseif ($mails_sent['in_last_10m'] > 1):
 				if($mails_sent['in_last_10m'] < 10 && $testing):
 					$warning = sprintf("We already sent %d mail to this recipient in the last 10 minutes. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_10m']);
 				else:
