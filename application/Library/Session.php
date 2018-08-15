@@ -20,7 +20,7 @@ class Session {
 
 	protected static $httponly = true;
 	
-	const REQUEST_TOKENS = 'formr_request_tokens';
+	const REQUEST_TOKENS = '_formr_request_tokens';
 
 	public static function configure($config = array()) {
 		self::$lifetime = Config::get('session_cookie_lifetime');

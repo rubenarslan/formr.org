@@ -15,9 +15,9 @@ class Cookie {
 
 	protected $isBrowserCookie = true;
 
-	const REQUEST_TOKENS = 'formr_request_tokens';
-	const REQUEST_USER_CODE = 'formr_code';
-	const REQUEST_NAME = 'formr_cookie';
+	const REQUEST_TOKENS = '_formr_request_tokens';
+	const REQUEST_USER_CODE = '_formr_code';
+	const REQUEST_NAME = '_formr_cookie';
 
 	public function __construct($name, $file = null) {
 		$this->name = $name;
@@ -56,7 +56,7 @@ class Cookie {
 	}
 
 	public function saveData($data) {
-		if (!file_exists($this->filename) && empty($data['expires'])) {
+		if (!file_exists($this->filename) && !isset($data['expires'])) {
 			return;
 		}
 
