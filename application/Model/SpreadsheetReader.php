@@ -574,8 +574,8 @@ class SpreadsheetReader {
 						unset($data[$rowNumber]);
 						continue 2;
 					}
-					if (!preg_match("/^[a-zA-Z0-9_]{1,255}$/", $cellValue)) {
-						$this->errors[] = __("The choice name '%s' is invalid. It has to be between 1 and 255 characters long. It may not contain anything other than the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $cellValue);
+					if (!preg_match("/^.{1,255}$/", $cellValue)) {
+						$this->errors[] = __("The choice name '%s' is invalid. It has to be between 1 and 255 characters long.", $cellValue);
 					}
 					//$data[$rowNumber]['name'] = $cellValue;
 					

@@ -25,11 +25,11 @@
                                         <li><i class="fa-li fa fa-exclamation-triangle"></i> This is the name that users will see in their browser's address bar for your study, possibly elsewhere too.</li>
                                         <li><i class="fa-li fa fa-unlock"></i> It can be changed later, but it also changes the link to your study, so don't change it once you're live.</li>
                                         <li><i class="fa-li fa fa-lightbulb-o"></i> Ideally, it should be the memorable name of your study.</li>
-										<li><i class="fa-li fa fa-edit"></i> Name should contain only alpha-numeric characters and no spaces.</li>
+										<li><i class="fa-li fa fa-edit"></i> Name should contain only alpha-numeric characters and no spaces. It needs to start with a letter.</li>
 									</ul>
                                 </div>
                                 <div class="form-group">
-                                    <input name="run_name" type="text" class="form-control" placeholder="Name (a to Z, 0 to 9 and _)">
+                                    <input name="run_name" type="text" class="form-control" placeholder="Name (a to Z, 0 to 9 and -)" pattern="^[a-zA-Z][a-zA-Z0-9-]$">
                                 </div>
                             </div>
                             <div class="clear clearfix"></div>
