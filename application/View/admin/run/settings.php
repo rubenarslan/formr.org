@@ -46,13 +46,49 @@
 												<input type="text" maxlength="255" placeholder="URL" name="header_image_path" class="form-control" value="<?= h($run->header_image_path); ?>" />
 											</div>
 
-											<div class="checkbox form-group" style="margin-bottom: 15px;">
-												<p>Enable automatic sending of email invitations etc. You would want to turn this off only in case of unforeseen problems (e.g. you're spamming the users by accident).</p>
-												<label>
-													<input type="hidden" name="cron_active" value="0" />
-													<input type="checkbox" name="cron_active" <?= ($run->cron_active) ? 'checked' : '' ?> value="1"> Enable cron.
-												</label>
+											<div class="checkbox form-group"  style="margin-bottom: 15px;">
+												<div class="col-md-6">
+													<strong>Cron</strong>
+													<p>Enable automatic sending of email invitations etc. You would want to turn this off only <br />in case of unforeseen problems (e.g. you're spamming the users by accident).</p>
+													<label>
+														<input type="hidden" name="cron_active" value="0" />
+														<input type="checkbox" name="cron_active" <?= ($run->cron_active) ? 'checked' : '' ?> value="1"> Enable cron.
+													</label>
+												</div>
+												<div class="checkbox col-md-6">
+													<strong>Look &amp; Feel</strong>
+													<p>
+														You can enable <a target="_blank" href="http://fezvrasta.github.io/bootstrap-material-design/">Material Design</a> to have a nicer
+														look and feel for your study. Some input items from third party packages
+														may not change though.
+													</p>
+													<label>
+														<input type="hidden" name="use_material_design" value="0" />
+														<input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : '' ?> value="1"> Enable Material Design.
+													</label>
 
+												</div>
+
+											</div>
+											<div class="form-group" style="margin-bottom: 15px;">
+												<div class="col-md-6">
+													<strong>Session Lifetime</strong>
+													<p>
+														Configure how long a study session is allowed to expire. This is the amount of time a participant is given to complete a study from the time he/she last accessed the study.
+													</p>
+													<div class="input-group">
+														<div class="input-group-addon"> Expire After </div>
+														<input type="number" class="form-control" name="expire_cookie_value" value="<?php echo $run->expire_cookie_value; ?>" />
+														<div class="input-group-addon" style="width: 120px; padding: 0;">
+															<select name="expire_cookie_unit" class="form-control" style="padding: 0; border: none; height: 30px;">
+																<option value=""> Select Units.. </option>
+																<?php foreach ($run->expire_cookie_units as $unit => $label): ?>
+																	<option value="<?= $unit ?>" <?php echo $run->expire_cookie_unit === $unit ? 'selected="selected"': ''?>> <?= $label ?> </option>
+																<?php endforeach;?>
+															</select>
+														</div>
+													</div>
+												</div>
 											</div>
 											<div class="form-group">
 												<label title="Will be shown on every page of the run">Description</label>
@@ -67,19 +103,7 @@
 												<textarea data-editor="markdown" placeholder="Blurb" name="public_blurb" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->public_blurb); ?></textarea>
 											</div>
 											
-											<div class="checkbox form-group col-md-6" style="padding: 15px 0px;">
-												<strong>Look &amp; Feel</strong>
-												<p>
-													You can enable <a target="_blank" href="http://fezvrasta.github.io/bootstrap-material-design/">Material Design</a> to have a nicer
-													look and feel for your study. Some input items from third party packages
-													may not change though.
-												</p>
-												<label>
-													<input type="hidden" name="use_material_design" value="0" />
-													<input type="checkbox" name="use_material_design" <?= ($run->use_material_design) ? 'checked' : '' ?> value="1"> Enable Material Design.
-												</label>
-
-											</div>
+											
 
 										</div>
 									</form>

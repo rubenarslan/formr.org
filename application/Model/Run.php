@@ -48,6 +48,19 @@ class Run {
 	public $footer_text = null;
 	public $public_blurb = null;
 	public $use_material_design = false;
+	public $expire_cookie = 0;
+
+	public $expire_cookie_value = 0;
+	public $expire_cookie_unit;
+	public $expire_cookie_units = array(
+		'seconds' => 'Seconds',
+		'minutes' => 'Minutes',
+		'hours' => 'Hours',
+		'days' => 'Days',
+		'months' => 'Months',
+		'years' => 'Years',
+	);
+
 	private $description_parsed = null;
 	private $footer_text_parsed = null;
 	private $public_blurb_parsed = null;
@@ -57,7 +70,8 @@ class Run {
 		"header_image_path", "title", "description",
 		"footer_text", "public_blurb", "custom_css",
 		"custom_js", "cron_active", "osf_project_id",
-		"use_material_design",
+		"use_material_design", "expire_cookie",
+		"expire_cookie_value", "expire_cookie_unit",
 	);
 	public $renderedDescAndFooterAlready = false;
 
@@ -65,6 +79,12 @@ class Run {
 	 * @var DB
 	 */
 	private $dbh;
+
+	/**
+	 *
+	 * @var RunSession
+	 */
+	public $activeRunSession;
 
 	const TEST_RUN = 'formr-test-run';
 
@@ -90,7 +110,7 @@ class Run {
 			return;
 		}
 
-		$columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design";
+		$columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
 		$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
 
 		if ($vars) {
@@ -115,7 +135,9 @@ class Run {
 			$this->custom_js_path = $vars['custom_js_path'];
 			$this->osf_project_id = $vars['osf_project_id'];
 			$this->use_material_design = (bool)$vars['use_material_design'];
+			$this->expire_cookie = (int)$vars['expire_cookie'];
 			$this->valid = true;
+			$this->setExpireCookieUnits();
 		}
 	}
 
@@ -191,6 +213,7 @@ class Run {
 			'api_secret_hash' => $new_secret,
 			'cron_active' => 1,
 			'use_material_design' => 1,
+			'expire_cookie' => 0,
 			'public' => 0,
 			'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
 			'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
@@ -495,21 +518,30 @@ class Run {
 		$parsedown = new ParsedownExtra();
 		$parsedown->setBreaksEnabled(true);
 		$successes = array();
-		if (isset($posted['description'])):
+		if (isset($posted['description'])) {
 			$posted['description_parsed'] = $parsedown->text($posted['description']);
 			$this->run_settings[] = 'description_parsed';
-		endif;
-		if (isset($posted['public_blurb'])):
+		}
+		if (isset($posted['public_blurb'])){
 			$posted['public_blurb_parsed'] = $parsedown->text($posted['public_blurb']);
 			$this->run_settings[] = 'public_blurb_parsed';
-		endif;
-		if (isset($posted['footer_text'])):
+		}
+		if (isset($posted['footer_text'])) {
 			$posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']);
 			$this->run_settings[] = 'footer_text_parsed';
-		endif;
+		}
+
+		$cookie_units = array_keys($this->expire_cookie_units);
+		if (isset($posted['expire_cookie_value']) && is_numeric($posted['expire_cookie_value']) && 
+			isset($posted['expire_cookie_unit'])  && in_array($posted['expire_cookie_unit'], $cookie_units)) {
+			$posted['expire_cookie'] = factortosecs($posted['expire_cookie_value'], $posted['expire_cookie_unit']);
+		} elseif (!isset($posted['expire_cookie'])) {
+			$posted['expire_cookie'] = $this->expire_cookie;
+		}
+		unset($posted['expire_cookie_value'], $posted['expire_cookie_unit']);
 
 		$updates = array();
-		foreach ($posted AS $name => $value):
+		foreach ($posted as $name => $value) {
 			$value = trim($value);
 
 			if (!in_array($name, $this->run_settings)) {
@@ -517,7 +549,7 @@ class Run {
 				continue;
 			}
 
-			if ($name == "custom_js" || $name == "custom_css"):
+			if ($name == "custom_js" || $name == "custom_css") {
 				if ($name == "custom_js") {
 					$asset_path = $this->custom_js_path;
 					$file_ending = '.js';
@@ -553,10 +585,10 @@ class Run {
 					$file->fflush();
 					$value = $asset_path;
 				}
-			endif;
+			}
 
 			$updates[$name] = $value;
-		endforeach;
+		}
 
 		if ($updates) {
 			$updates['modified'] = mysql_now();
@@ -720,6 +752,7 @@ class Run {
 			$run_session = $this->makeTestRunSession();
 			$unit = new Survey($this->dbh, null, $session, $run_session, $this);
 			$output = $unit->exec();
+			$this->activeRunSession = $run_session;
 
 			if (!$output):
 				$output['title'] = 'Finish';
@@ -770,7 +803,7 @@ class Run {
 		
 	}
 
-	public function exec($user) {
+	public function exec(User $user) {
 		if (!$this->valid) {
 			formr_error(404, 'Not Found', __("Run '%s' is broken or does not exist.", $this->name), 'Study Not Found');
 			return false;
@@ -792,11 +825,14 @@ class Run {
 
 				Session::globalRefresh();
 				$output = $run_session->getUnit();
+
 			} else {
 				$output = $this->getServiceMessage()->exec();
 				alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');
 			}
+
 			$run_session->setLastAccess();
+			$this->activeRunSession = $run_session;
 		}
 
 		if (!$output) {
@@ -850,7 +886,6 @@ class Run {
 				'disable_class' => $this->isFakeTestRun() ? " disabled " : "",
 			));
 		}
-
 
 		return array(
 			'title' => $title,
@@ -976,6 +1011,18 @@ class Run {
 			$this->saveSettings((array) $json->settings);
 		}
 		return $createdUnits;
+	}
+
+	protected function setExpireCookieUnits() {
+		$unit = secstofactor($this->expire_cookie);
+		if ($unit) {
+			$this->expire_cookie_unit  = $unit[1];
+			$this->expire_cookie_value = $unit[0];
+		}
+	}
+
+	public function getCookieName() {
+		return sprintf('formr_run_session_%s', $this->id);
 	}
 
 }

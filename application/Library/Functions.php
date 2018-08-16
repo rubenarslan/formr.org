@@ -1652,3 +1652,42 @@ function do_run_shortcodes($text, $run_name, $sess_code) {
 
 	return $text;
 }
+
+function factortosecs($value, $unit) {
+	$factors = array(
+		'seconds' => 1,
+		'minutes' => 60,
+		'hours' => 3600,
+		'days' => 86400,
+		'months' => 30 * 86400,
+		'years' => 365 * 86400,
+	);
+
+	if (isset($factors[$unit])) {
+		return $value * $factors[$unit];
+	} else {
+		return null;
+	}
+}
+
+function secstofactor($seconds) {
+	if (!$seconds) {
+		return null;
+	}
+
+	$factors = array(
+		'years' => 365 * 86400,
+		'months' => 30 * 86400,
+		'days' => 86400,
+		'hours' => 3600,
+		'minutes' => 60,
+		'seconds' => 1,
+	);
+	
+	foreach ($factors as $unit => $factor) {
+		if ($seconds % $factor === 0) {
+			return array($seconds / $factor, $unit);
+		}
+	}
+	return array($seconds, 'seconds');
+}
