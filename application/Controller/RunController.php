@@ -210,9 +210,9 @@ class RunController extends Controller {
 
 	protected function setRunCookie($refresh = false) {
 		$cookie = $this->getRunCookie();
+		$expires = $this->run->expire_cookie ? time() + $this->run->expire_cookie : 0;
 
 		if (!$cookie->exists() || $refresh === true) {
-			$expires = $this->run->expire_cookie ? time() + $this->run->expire_cookie : 0;
 			$data = array(
 				'code' => $this->user->user_code,
 				'created' => time(),
@@ -220,6 +220,8 @@ class RunController extends Controller {
 				'expires' => $expires,
 			);
 			$cookie->create($data, $expires, '/', null, SSL, true);
+		} elseif ($cookie->exists()) {
+			$cookie->setExpiration($expires);
 		}
 
 		return $cookie;

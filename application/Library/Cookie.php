@@ -51,6 +51,12 @@ class Cookie {
 			unset($data['created'], $data['expires']);
 			return $this->saveData($data);
 		}
+		
+		$data['path'] = $path;
+		$data['domain'] = $domain;
+		$data['secure'] = $secure;
+		$data['httponly'] = $httponly;
+
 		$this->saveData($data);
 		return $this->set($expire, $path, $domain, $secure, $httponly);
 	}
@@ -150,6 +156,20 @@ class Cookie {
 		if (file_exists($this->filename)) {
 			@unlink($this->filename);
 		}
+	}
+
+	public function setExpiration($timestamp) {
+		if (!file_exists($this->filename) || !$this->isBrowserCookie) {
+			return false;
+		}
+
+		$path = $this->getData('path', '/');
+		$domain = $this->getData('domain');
+		$secure = $this->getData('secure', SSL);
+		$httponly = $this->getData('httponly', true);
+		$this->saveData(array('expires' => $timestamp));
+
+		return $this->set($timestamp, $path, $domain, $secure, $httponly);
 	}
 
 }
