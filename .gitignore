@@ -23,6 +23,7 @@ formr-package/man
 /tmp/backups/backups/
 /tmp/backups/sessions/
 /tmp/downloads/*.*
+/tmp/sessions/*.*
 webroot/assets/img
 tests/test.php
 nohup.out

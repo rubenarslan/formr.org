@@ -94,7 +94,11 @@ class PublicController extends Controller {
 		}
 
 		if($this->request->str('email') && $this->request->str('password')) {
-			if($this->user->login($this->request->str('email'), $this->request->str('password'))) {
+			$info = array(
+				'email' => $this->request->str('email'),
+				'password' => $this->request->str('password'),
+			);
+			if($this->user->login($info)) {
 				alert('<strong>Success!</strong> You were logged in!', 'alert-success');
 				Session::set('user', serialize($this->user));
 				$redirect = $this->user->isAdmin() ? redirect_to('admin') : redirect_to('account');
@@ -133,7 +137,12 @@ class PublicController extends Controller {
 		}
 
 		if($this->request->isHTTPPostRequest() && $site->request->str('email')) {
-			if($user->register($site->request->str('email'), $site->request->str('password'), $site->request->str('referrer_code'))) {
+			$info = array(
+				'email' => $site->request->str('email'),
+				'password' => $site->request->str('password'),
+				'referrer_code' => $site->request->str('referrer_code'),
+			);
+			if($user->register($info)) {
 				//alert('<strong>Success!</strong> You were registered and logged in!','alert-success');
 				redirect_to('index');
 			} else {
@@ -186,11 +195,13 @@ class PublicController extends Controller {
 			redirect_to('forgot_password');
 		} elseif ($this->request->isHTTPPostRequest()) {
 			$postRequest = new Request($_POST);
-			$email = $postRequest->str('email');
-			$token = $postRequest->str('reset_token');
-			$newPass = $postRequest->str('new_password');
-			$newPassOK = $postRequest->str('new_password_c');
-			if (($done = $user->reset_password($email, $token, $newPass, $newPassOK))) {
+			$info = array(
+				'email' => $postRequest->str('email'),
+				'reset_token' => $postRequest->str('reset_token'),
+				'new_password' => $postRequest->str('new_password'),
+				'new_password_confirm' => $postRequest->str('new_password_c'),
+			);
+			if (($done = $user->reset_password($info))) {
 				redirect_to('forgot_password');
 			}
 		}
