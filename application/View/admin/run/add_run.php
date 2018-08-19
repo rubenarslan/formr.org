@@ -29,7 +29,7 @@
 									</ul>
                                 </div>
                                 <div class="form-group">
-                                    <input name="run_name" type="text" class="form-control" placeholder="Name (a to Z, 0 to 9 and -)" pattern="^[a-zA-Z][a-zA-Z0-9-]$">
+                                    <input name="run_name" type="text" class="form-control" placeholder="Name (a to Z, 0 to 9 and -)" pattern="^[a-zA-Z][a-zA-Z0-9-]*$">
                                 </div>
                             </div>
                             <div class="clear clearfix"></div>
