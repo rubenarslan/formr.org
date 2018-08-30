@@ -14,7 +14,13 @@ class SpreadsheetReader {
 	public $warnings = array();
 	public $survey = array();
 	public $choices = array();
-	public $exportFormats = array('csv', 'csv_german', 'tsv', 'xlsx', 'xls', 'json');
+	public static $exportFormats = array('csv', 'csv_german', 'tsv', 'xlsx', 'xls', 'json');
+
+	public static function verifyExportFormat($formatstring) {
+		if (!in_array($formatstring, static::$exportFormats)) {
+			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
+		}
+	}
 
 	public function backupTSV($array, $filename) {
 		$objPHPExcel = $this->objectFromArray($array);
@@ -78,6 +84,36 @@ class SpreadsheetReader {
 			++$startRow;
 		}
 		return $PHPExcel;
+	}
+	public function exportInRequestedFormat(PDOStatement $resultsStmt, $filename, $filetype) {
+		self::verifyExportFormat($filetype);
+
+		switch ($filetype) {
+			case 'xlsx':
+				$download_successfull = $this->exportXLSX($resultsStmt, $filename);
+			break;
+			case 'xls':
+				$download_successfull = $this->exportXLS($resultsStmt, $filename);
+			break;
+			case 'csv_german':
+				$download_successfull = $this->exportCSV_german($resultsStmt, $filename);
+			break;
+			case 'tsv':
+				$download_successfull = $this->exportTSV($resultsStmt, $filename);
+			break;
+			case 'json':
+				$download_successfull = $this->exportJSON($resultsStmt, $filename);
+			break;
+			default:
+				$download_successfull = $this->exportCSV($resultsStmt, $filename);
+			break;
+		}
+
+		if (!$download_successfull) {
+			alert('An error occured during results download.', 'alert-danger');
+			redirect_to(admin_study_url($filename, 'show_results'));
+		}
+
 	}
 
 	public function exportCSV(PDOStatement $stmt, $filename) {

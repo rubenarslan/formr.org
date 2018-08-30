@@ -345,9 +345,7 @@ class AdminSurveyController extends AdminController {
 		$study = $this->study;
 
 		$format = $this->request->getParam('format');
-		if (!$format || !in_array($format, array("xlsx", "xls", "json", "original"))) {
-			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
-		}
+		SpreadsheetReader::verifyExportFormat($format);
 
 		$SPR = new SpreadsheetReader();
 
@@ -375,6 +373,12 @@ class AdminSurveyController extends AdminController {
 			$SPR->exportItemTableJSON($study);
 		}
 	}
+	private function verifyThereIsExportableData($resultsStmt) {
+		if ($resultsStmt->rowCount() < 1) {
+			alert('No data to export!', 'alert-danger');
+			redirect_to(admin_study_url($this->study->name, 'show_itemdisplay'));
+		}
+	}
 
 	private function exportItemdisplayAction() {
 		if ($this->study->settings['hide_results']) {
@@ -383,44 +387,13 @@ class AdminSurveyController extends AdminController {
 
 		$study = $this->study;
 		$format = $this->request->str('format');
-		$SPR = new SpreadsheetReader();
-		if (!in_array($format, $SPR->exportFormats)) {
-			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
-		}
 
 		/* @var $resultsStmt PDOStatement */
 		$resultsStmt = $study->getItemDisplayResults(null, null, null, true);
-		if (!$resultsStmt->columnCount()) {
-			alert('No data to export!', 'alert-danger');
-			redirect_to(admin_study_url($study->name, 'show_itemdisplay'));
-		}
+		$this->verifyThereIsExportableData($resultsStmt);
 
-		$filename = $study->name . '_itemdisplay';
-		switch ($format) {
-			case 'xlsx':
-				$downloaded = $SPR->exportXLSX($resultsStmt, $filename);
-			break;
-			case 'xls':
-				$downloaded = $SPR->exportXLS($resultsStmt, $filename);
-			break;
-			case 'csv_german':
-				$downloaded = $SPR->exportCSV_german($resultsStmt, $filename);
-			break;
-			case 'tsv':
-				$downloaded = $SPR->exportTSV($resultsStmt, $filename);
-			break;
-			case 'json':
-				$downloaded = $SPR->exportJSON($resultsStmt, $filename);
-			break;
-			default:
-				$downloaded = $SPR->exportCSV($resultsStmt, $filename);
-			break;
-		}
-
-		if (!$downloaded) {
-			alert('An error occured during results download.', 'alert-danger');
-			redirect_to(admin_study_url($study->name, 'show_itemdisplay'));
-		}
+		$SPR = new SpreadsheetReader();
+		$SPR->exportInRequestedFormat($resultsStmt, $study->name, $format);
 	}
 
 	private function exportResultsAction() {
@@ -430,43 +403,14 @@ class AdminSurveyController extends AdminController {
 
 		$study = $this->study;
 		$format = $this->request->str('format');
-		$SPR = new SpreadsheetReader();
-		if (!in_array($format, $SPR->exportFormats)) {
-			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
-		}
+
 
 		/* @var $resultsStmt PDOStatement */
 		$resultsStmt = $study->getResults(null, null, null, null, true);
-		if (!$resultsStmt->columnCount()) {
-			alert('No data to export!', 'alert-danger');
-			redirect_to(admin_study_url($study->name, 'show_results'));
-		}
+		$this->verifyThereIsExportableData($resultsStmt);
 
-		switch ($format) {
-			case 'xlsx':
-				$downloaded = $SPR->exportXLSX($resultsStmt, $study->name);
-			break;
-			case 'xls':
-				$downloaded = $SPR->exportXLS($resultsStmt, $study->name);
-			break;
-			case 'csv_german':
-				$downloaded = $SPR->exportCSV_german($resultsStmt, $study->name);
-			break;
-			case 'tsv':
-				$downloaded = $SPR->exportTSV($resultsStmt, $study->name);
-			break;
-			case 'json':
-				$downloaded = $SPR->exportJSON($resultsStmt, $study->name);
-			break;
-			default:
-				$downloaded = $SPR->exportCSV($resultsStmt, $study->name);
-			break;
-		}
-
-		if (!$downloaded) {
-			alert('An error occured during results download.', 'alert-danger');
-			redirect_to(admin_study_url($study->name, 'show_results'));
-		}
+		$SPR = new SpreadsheetReader();
+		$SPR->exportInRequestedFormat($resultsStmt, $study->name, $format);
 	}
 
 	private function setStudy($name) {
