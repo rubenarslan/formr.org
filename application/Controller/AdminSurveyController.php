@@ -480,6 +480,13 @@ class AdminSurveyController extends AdminController {
 		} elseif (!$this->user->created($study)) {
 			formr_error(401, 'Unauthorized', 'You do not have access to modify this survey');
 		}
+
+		$google_id = $study->getGoogleFileId();
+		$this->vars['google'] = array(
+			'id' => $google_id,
+			'link' => google_get_sheet_link($google_id),
+			'name' => $study->name
+		);
 		$this->study = $study;
 	}
 
