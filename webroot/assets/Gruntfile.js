@@ -273,7 +273,8 @@ module.exports = function (grunt) {
                 'common/js/webshim.js', 'common/js/main.js', 'common/js/survey.js',
                 'common/js/run.js', 'common/js/run_settings.js', 'common/js/run_users.js',
                 'site/js/main.js',
-                'admin/js/main.js'
+                'admin/js/main.js',
+				'admin/js/admin.js'
             ],
             options: {
                 globals: {
