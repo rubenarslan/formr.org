@@ -73,7 +73,7 @@
 						<table class="table table-striped has-actions">
 							<thead>
 								<tr>
-									<th></th>
+									<th><input id="user-overview-select-all" type="checkbox" /></th>
 									<th>Run position</th>
 									<th>Session</th>
 									<th>Created</th>

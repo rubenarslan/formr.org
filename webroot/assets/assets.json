@@ -75,7 +75,10 @@
     },
     
     "admin": {
-        "js": "admin/js/main.js",
+        "js": [
+            "admin/js/main.js",
+            "admin/js/admin.js"
+	],
         "css": [
             "admin/css/AdminLTE.css",
             "admin/css/style.css"
