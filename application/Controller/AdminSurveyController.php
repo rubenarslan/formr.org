@@ -393,7 +393,11 @@ class AdminSurveyController extends AdminController {
 		$this->verifyThereIsExportableData($resultsStmt);
 
 		$SPR = new SpreadsheetReader();
-		$SPR->exportInRequestedFormat($resultsStmt, $study->name, $format);
+		$download_successfull = $SPR->exportInRequestedFormat($resultsStmt, $study->name, $format);
+                if (!$download_successfull) {
+                        alert('An error occured during results download.', 'alert-danger');
+                        redirect_to(admin_study_url($filename, 'show_results'));
+                }
 	}
 
 	private function exportResultsAction() {
@@ -410,7 +414,12 @@ class AdminSurveyController extends AdminController {
 		$this->verifyThereIsExportableData($resultsStmt);
 
 		$SPR = new SpreadsheetReader();
-		$SPR->exportInRequestedFormat($resultsStmt, $study->name, $format);
+		$download_successfull = $SPR->exportInRequestedFormat($resultsStmt, $study->name, $format);
+
+                if (!$download_successfull) {
+                        alert('An error occured during results download.', 'alert-danger');
+                        redirect_to(admin_study_url($filename, 'show_results'));
+                }
 	}
 
 	private function setStudy($name) {

@@ -16,6 +16,18 @@
 				<div class="box box-primary">
 					<div class="box-header with-border">
 						<h3 class="box-title">User Overview <small><?= $pagination->maximum ?> users</small></h3>
+						<div class="pull-right">
+				                        <div class="dropdown"><a  href="#" data-toggle="dropdown" aria-expanded="false" class="btn btn-primary dropdown-toggle"><i class="fa fa-save"></i> Export User Overview</a>
+				                                <ul class="dropdown-menu">
+				                                        <li><a href="<?= admin_run_url($run->name, 'export_user_overview?format=csv'); ?>"><i class="fa fa-floppy-o"></i> Download CSV</a></li>
+				                                        <li><a href="<?= admin_run_url($run->name, 'export_user_overview?format=csv_german'); ?>"><i class="fa fa-floppy-o"></i> Download German CSV</a></li>
+				                                        <li><a href="<?= admin_run_url($run->name, 'export_user_overview?format=tsv'); ?>"><i class="fa fa-floppy-o"></i> Download TSV</a></li>
+				                                        <li><a href="<?= admin_run_url($run->name, 'export_user_overview?format=xls'); ?>"><i class="fa fa-floppy-o"></i> Download XLS</a></li>
+				                                        <li><a href="<?= admin_run_url($run->name, 'export_user_overview?format=xlsx'); ?>"><i class="fa fa-floppy-o"></i> Download XLSX</a></li>
+				                                        <li><a href="<?= admin_run_url($run->name, 'export_user_overview?format=json'); ?>"><i class="fa fa-floppy-o"></i> Download JSON</a></li>
+				                                </ul>
+				                        </div>
+						</div>
 					</div>
 					<div class="box-body">
 						<?php Template::load('public/alerts'); ?>

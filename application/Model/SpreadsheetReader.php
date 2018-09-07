@@ -109,15 +109,13 @@ class SpreadsheetReader {
 			break;
 		}
 
-		if (!$download_successfull) {
-			alert('An error occured during results download.', 'alert-danger');
-			redirect_to(admin_study_url($filename, 'show_results'));
-		}
 
+		return $download_successfull;
 	}
 
 	public function exportCSV(PDOStatement $stmt, $filename) {
 		if (!$stmt->columnCount()) {
+			formr_log('Debug: column count is not set');
 			return false;
 		}
 
