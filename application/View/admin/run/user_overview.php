@@ -87,6 +87,7 @@
 								<tr>
 									<th><input id="user-overview-select-all" type="checkbox" /></th>
 									<th>Run position</th>
+									<th>Description</th>
 									<th>Session</th>
 									<th>Created</th>
 									<th>Last Access</th>
@@ -101,6 +102,9 @@
 										</td>
 										<td>
 											<span class="hastooltip" title="Current position in run"><?php echo $user['position']; ?></span> – <small><?php echo $user['unit_type']; ?></small>
+										</td>
+										<td>
+											<span class="hastooltip" title="RunUnit Description"><?php echo $user['description']; ?></span> 
 										</td>
 										<td>
 											<?php if ($currentUser->user_code == $user['session']): ?>

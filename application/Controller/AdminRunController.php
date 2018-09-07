@@ -117,6 +117,7 @@ class AdminRunController extends AdminController {
 			`survey_run_sessions`.id AS run_session_id,
 			`survey_run_sessions`.session,
 			`survey_run_sessions`.position,
+			`survey_run_units`.description,
 			`survey_run_sessions`.last_access,
 			`survey_run_sessions`.created,
 			`survey_run_sessions`.testing,
