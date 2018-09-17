@@ -199,7 +199,7 @@ These items don't require the user to do anything, so including them simply mean
 		calculate
 	</dt>
 	<dd>
-		in the <strong>value</strong> column you can specify an R expression, the result of which will be saved into this variable. Useful to pull in external data or to forestall recalculating something repeatedly that you want to refer to later.
+		in the <strong>value</strong> column you can specify an R expression, the result of which will be saved into this variable. Useful to pull in external data or to forestall recalculating something repeatedly that you want to refer to later. If the calculation is based on values from the same module, you can insert the calculate item in the last line of the sheet behind the last submit button and its result will be stored in the database for use in further modules.
 	</dd>
 	<dt>
 		ip
