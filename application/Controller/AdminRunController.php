@@ -302,7 +302,11 @@ class AdminRunController extends AdminController {
 			$userx['Module Description'] = "<small>" . $userx['description'] . "</small>";
 			$userx['Session'] = "<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],0,10)."…</abbr></small>";
 			$userx['Entered'] = "<small>{$userx['created']}</small>";
-			$staid = ($userx['ended'] ? strtotime($userx['ended']) : time() ) - strtotime($userx['created']);
+			if ($userx['expired']) {
+				$staid = strtotime($userx['expired']) - strtotime($userx['created']);
+			} else {
+				$staid = ($userx['ended'] ? strtotime($userx['ended']) : time() ) - strtotime($userx['created']);
+			}
 			$userx['Stayed'] = "<small title='$staid seconds'>".timetostr(time()+$staid)."</small>";
 			$userx['Left'] = "<small>{$userx['ended']}</small>";
 			if($userx['expired']) {
