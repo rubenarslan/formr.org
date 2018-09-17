@@ -965,7 +965,7 @@ class Survey extends RunUnit {
 		if (isset($item) && ($item->type !== "submit" || $item->hidden)) {
 			$sub_sets = array(
 				'label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!',
-				'class_input' => 'btn-info default_formr_button',
+				'classes_input' => array('btn-info default_formr_button'),
 			);
 			$item = new Submit_Item($sub_sets);
 			$ret .= $item->render();
