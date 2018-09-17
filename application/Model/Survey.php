@@ -1709,7 +1709,7 @@ class Survey extends RunUnit {
 		return $results;
 	}
 
-	public function getResults($items = null, $session = null, array $paginate = null, $runId = null, $rstmt = false) {
+	public function getResults($items = null, $filter = null, array $paginate = null, $runId = null, $rstmt = false) {
 		if ($this->resultsTableExists()) {
 			ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
@@ -1764,12 +1764,14 @@ class Survey extends RunUnit {
 				$select->limit($paginate['limit'], $paginate['offset']);
 			}
 
-			if (!empty($paginate['filter']['session'])) {
-				$session = $paginate['filter']['session'];
+			if (!empty($filter['session'])) {
+				$session = $filter['session'];
+				strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
 			}
 
-			if ($session !== null) {
-				strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
+			if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
+				$res_where = Template::replace($res_filter['query'], array('table' => $results_table));
+				$select->where($res_where);
 			}
 
 			$stmt = $select->statement();
@@ -1798,7 +1800,7 @@ class Survey extends RunUnit {
 	 * @param boolean $rstmt If TRUE, PDOStament will be returned instead
 	 * @return array|PDOStatement
 	 */
-	public function getItemDisplayResults($items = array(), $session = null, array $paginate = null, $rstmt = false) {
+	public function getItemDisplayResults($items = array(), $filter = null, array $paginate = null, $rstmt = false) {
 		ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
 		$count = $this->getResultCount();
@@ -1839,6 +1841,7 @@ class Survey extends RunUnit {
 			$select->whereIn('survey_items.name', $items);
 		}
 
+		$session = array_val($filter, 'session', null);
 		if ($session) {
 			if(strlen($session) == 64) {
 				$select->where("survey_run_sessions.session = :session");
@@ -1858,6 +1861,74 @@ class Survey extends RunUnit {
 		}
 		return $select->fetchAll();
 	}
+
+	public function getResultsByItemsPerSession($items = array(), $filter = null, array $paginate = null, $rstmt = false) {
+		if($this->settings['unlinked']) {
+			return array();
+		}
+		ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
+
+		$filter_select = $this->dbh->select('session_id');
+		$filter_select->from($this->results_table);
+		$filter_select->leftJoin('survey_unit_sessions', "{$this->results_table}.session_id = survey_unit_sessions.id");
+		$filter_select->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
+
+		if (!empty($filter['session'])) {
+			$session = $filter['session'];
+			strlen($session) == 64 ? $filter_select->where("survey_run_sessions.session = '$session'") : $filter_select->like('survey_run_sessions.session', $session, 'right');
+		}
+
+		if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
+			$res_where = Template::replace($res_filter['query'], array('table' => $this->results_table));
+			$filter_select->where($res_where);
+		}
+		$filter_select->order('session_id');
+		if ($paginate && isset($paginate['offset'])) {
+			$filter_select->limit($paginate['limit'], $paginate['offset']);
+		}
+		$stmt = $filter_select->statement();
+		$session_ids = '';
+		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+			$session_ids .= "{$row['session_id']},";
+		}
+		$session_ids = trim($session_ids, ',');
+
+		$select = $this->dbh->select("
+		`survey_run_sessions`.session,
+		`survey_items_display`.`session_id` as `unit_session_id`,
+		`survey_items`.`name` as `item_name`,
+		`survey_items_display`.`item_id`,
+		`survey_items_display`.`answer`,
+		`survey_items_display`.`created`,
+		`survey_items_display`.`saved`,
+		`survey_items_display`.`shown`,
+		`survey_items_display`.`shown_relative`,
+		`survey_items_display`.`answered`,
+		`survey_items_display`.`answered_relative`,
+		`survey_items_display`.`displaycount`,
+		`survey_items_display`.`display_order`,
+		`survey_items_display`.`hidden`");
+
+		$select->from('survey_items_display')
+			->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
+			->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
+			->leftJoin('survey_items', 'survey_items.id = survey_items_display.item_id')
+			->where('survey_items.study_id = :study_id')
+			->where('survey_items_display.session_id IN ('.$session_ids.')')
+			->order('survey_items_display.session_id')	
+			->order('survey_items_display.display_order')
+			->bindParams(array('study_id' => $this->id));
+
+		if ($items) {
+			$select->whereIn('survey_items.name', $items);
+		}
+
+		if ($rstmt === true) {
+			return $select->statement();
+		}
+		return $select->fetchAll();
+	}
+
 	/**
 	 * Get Results from the item display table
 	 *
@@ -1948,31 +2019,41 @@ class Survey extends RunUnit {
 		}
 	}
 
-	public function getResultCount($run_id = null) {
-		if($this->result_count === null):
-			$results_table = $this->results_table;
-			if ($this->resultsTableExists()):
-				$select = $this->dbh->select(array(
-							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS null)" => 'begun',
-							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS NOT NULL)" => 'finished',
-							"SUM(`survey_run_sessions`.`testing` IS NULL OR `survey_run_sessions`.`testing` = 1)" => 'testers',
-							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0)" => 'real_users'
-						))->from($results_table)
-						->leftJoin('survey_unit_sessions', "survey_unit_sessions.id = {$results_table}.session_id")
-						->leftJoin('survey_run_sessions', "survey_unit_sessions.run_session_id = survey_run_sessions.id");
-
-				if ($run_id) {
-					$select->where("survey_run_sessions.run_id = {$run_id}");
-				}
-
-				$count = $select->fetch();
-				return $count;
-			else:
-				return array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
-			endif;
-		else:
+	public function getResultCount($run_id = null, $filter = array()) {
+		// If there is no filter and results have been saved in a previous operation then that
+		if ($this->result_count !== null && !$filter) {
 			return $this->result_count;
-		endif;
+		}
+		
+		$count = array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
+		if ($this->resultsTableExists()) {
+			$results_table = $this->results_table;
+			$select = $this->dbh->select(array(
+				"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS null)" => 'begun',
+				"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS NOT NULL)" => 'finished',
+				"SUM(`survey_run_sessions`.`testing` IS NULL OR `survey_run_sessions`.`testing` = 1)" => 'testers',
+				"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0)" => 'real_users'
+			))->from($results_table)
+			  ->leftJoin('survey_unit_sessions', "survey_unit_sessions.id = {$results_table}.session_id")
+			  ->leftJoin('survey_run_sessions', "survey_unit_sessions.run_session_id = survey_run_sessions.id");
+
+			if ($run_id) {
+				$select->where("survey_run_sessions.run_id = {$run_id}");
+			}
+			if (!empty($filter['session'])) {
+				$session = $filter['session'];
+				strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
+			}
+
+			if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
+				$res_where = Template::replace($res_filter['query'], array('table' => $results_table));
+				$select->where($res_where);
+			}
+
+			$count = $select->fetch();
+		}
+
+		return $count;
 	}
 
 	public function getAverageTimeItTakes() {
@@ -2148,5 +2229,24 @@ class Survey extends RunUnit {
 
 	public function getGoogleFileId() {
 		return $this->dbh->findValue('survey_studies', array('id' => $this->id), 'google_file_id');
+	}
+
+	public function getResultsFilter($f = null) {
+		$filter = array(
+			'all' => array(
+				'title' => 'Show All',
+				'query' => null,
+			),
+			'incomplete' => array(
+				'title' => 'Incomplete',
+				'query' => '(%{table}.created <> %{table}.modified or %{table}.modified is null) and %{table}.ended is null',
+			),
+			'complete' => array(
+				'title' => 'Complete',
+				'query' => '%{table}.ended is not null',
+			),
+		);
+
+		return $f !== null ? array_val($filter, $f, null) : $filter;
 	}
 }
