@@ -901,7 +901,7 @@ function opencpu_define_vars(array $data, $context = null) {
 	// Set datasets
 	if (isset($data['datasets']) && is_array($data['datasets'])) {
 		foreach ($data['datasets'] as $data_frame => $content) {
-			$vars .= $data_frame . ' = as.data.frame(jsonlite::fromJSON("' . addslashes(json_encode($content, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)) . '"), stringsAsFactors=F)
+			$vars .= $data_frame . ' = as.data.frame(jsonlite::fromJSON("' . addslashes(json_encode($content, JSON_UNESCAPED_UNICODE)) . '"), stringsAsFactors=F)
 ';
 			if($context === $data_frame) {
 				$vars .= 'attach(tail(' . $context . ', 1))
@@ -1350,7 +1350,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 				else if (isset($params['text']) || $rtype === 'text') {
 					$debug['Response'] = stringBool($session->getObject('text'));
 				} else {
-					$debug['Response'] = pre_htmlescape(json_encode($session->getJSONObject(),  JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
+					$debug['Response'] = pre_htmlescape(json_encode($session->getJSONObject(),  JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE));
 				}
 			}
 
