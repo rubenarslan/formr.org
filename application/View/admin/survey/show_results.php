@@ -39,7 +39,7 @@
 								<div class="input-group input-group-sm">
 									<span class="input-group-addon">Search by session <i class="fa fa-user"></i></span>
 									<input type="text" name="session" class="form-control" value="<?= h($session) ?>">
-									<span class="input-group-addon">Filter Results <i class="fa fa-th"></i></span>
+									<span class="input-group-addon">Filter Results <i class="fa fa-filter"></i></span>
 									<select class="form-control" name="rfilter">
 										<?php foreach ($results_filter as $f => $filter): $selected = $f == $rfilter ? 'selected="selected"' : null ?>
 											<option value="<?= $f ?>" <?= $selected ?>><?= $filter['title'] ?></option>
