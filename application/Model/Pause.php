@@ -201,6 +201,19 @@ class Pause extends RunUnit {
 		
 		if (!empty($wait_time) && empty($wait_date)) {
 			$wait_date = date('Y-m-d');
+			// Check if this unit already expired today for current run_session_id
+			$q = '
+				SELECT 1 AS finished FROM `survey_unit_sessions`
+				WHERE `survey_unit_sessions`.unit_id = :id AND `survey_unit_sessions`.run_session_id = :run_session_id AND DATE(`survey_unit_sessions`.ended) = CURDATE()
+				LIMIT 1
+			';
+			$stmt = $this->dbh->prepare($q);
+			$stmt->bindValue(':id', $this->id);
+			$stmt->bindValue(':run_session_id', $this->run_session_id);
+			$stmt->execute();
+			if ($stmt->rowCount() > 0) {
+				return false;
+			}
 		}
 
 		if (!empty($wait_date) && !empty($wait_time)) {
