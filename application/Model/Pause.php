@@ -6,15 +6,20 @@ class Pause extends RunUnit {
 	public $id = null;
 	public $session = null;
 	public $unit = null;
+	public $ended = false;
+	public $type = "Pause";
+	public $icon = "fa-pause";
+
 	protected $body = '';
 	protected $body_parsed = '';
 	protected $relative_to = null;
 	protected $wait_minutes = null;
 	protected $wait_until_time = null;
 	protected $wait_until_date = null;
-	public $ended = false;
-	public $type = "Pause";
-	public $icon = "fa-pause";
+
+	
+	private $has_relative_to = false;
+	private $has_wait_minutes = false;
 	private $relative_to_result = null;
 	
 	/**
@@ -131,22 +136,23 @@ class Pause extends RunUnit {
 	protected function checkRelativeTo() {
 		$this->relative_to = trim($this->relative_to);
 		$this->wait_minutes = trim($this->wait_minutes);
-		$this->wait_minutes_true = !($this->wait_minutes === null || $this->wait_minutes == '');
-		$this->relative_to_true = !($this->relative_to === null || $this->relative_to == '');
+		$this->has_wait_minutes = !($this->wait_minutes === null || $this->wait_minutes == '');
+		$this->has_relative_to = !($this->relative_to === null || $this->relative_to == '');
 
 		// disambiguate what user meant
-		if ($this->wait_minutes_true && !$this->relative_to_true):  // user said wait minutes relative to, implying a relative to
-			$this->relative_to = 'tail(survey_unit_sessions$created,1)'; // we take this as implied, this is the time someone arrived at this pause
-			$this->relative_to_true = true;
-		endif;
-		return $this->relative_to_true;
+		if ($this->has_wait_minutes && !$this->has_relative_to) {
+			// If user specified waiting minutes but did not specify relative to which timestamp,
+			// we imply we are waiting relative to when the user arrived at the pause
+			$this->relative_to = 'tail(survey_unit_sessions$created,1)';
+			$this->has_relative_to = true;
+		}
+
+		return $this->has_relative_to;
 	}
 
 	protected function checkWhetherPauseIsOver() {
-		$conditions = array();
-
 		// if a relative_to has been defined by user or automatically, we need to retrieve its value
-		if ($this->relative_to_true) {
+		if ($this->has_relative_to) {
 			$opencpu_vars = $this->getUserDataInRun($this->relative_to);
 			$result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
 			if ($result === null) {
@@ -156,153 +162,87 @@ class Pause extends RunUnit {
 		}
 
 		$bind_relative_to = false;
+		$conditions = array();
 
-		if (!$this->wait_minutes_true AND $this->relative_to_true): // if no wait minutes but a relative to was defined, we just use this as the param (useful for complex R expressions)
-			if ($relative_to === true):
-				$conditions['relative_to'] = "1=1";
-			elseif ($relative_to === false):
-				$conditions['relative_to'] = "0=1";
-			elseif (!is_array($relative_to) && strtotime($relative_to)):
-				$conditions['relative_to'] = ":relative_to <= NOW()";
+		if (!$this->has_wait_minutes && $this->has_relative_to) {
+			// if no wait minutes but a relative to was defined, we just use this as the param (useful for complex R expressions)
+			if ($relative_to === true) {
+				$conditions['relative_to'] = '1=1';
+			} elseif ($relative_to === false) {
+				$conditions['relative_to'] = '0=1';
+			} elseif (!is_array($relative_to) && strtotime($relative_to)) {
+				$conditions['relative_to'] = ':relative_to <= NOW()';
 				$bind_relative_to = true;
-			else:
+			} else {
 				alert("Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. " . print_r($relative_to, true), 'alert-warning');
 				return false;
-			endif;
-		elseif ($this->wait_minutes_true):   // if a wait minutes was defined by user, we need to add its condition
-			if (!is_array($relative_to) && strtotime($relative_to)):
+			}
+		} elseif ($this->has_wait_minutes) {
+			if (!is_array($relative_to) && strtotime($relative_to)) {
 				$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
 				$bind_relative_to = true;
-			else:
+			} else {
 				alert("Pause {$this->position}: Relative to yields neither a date, nor a time. " . print_r($relative_to, true), 'alert-warning');
 				return false;
-			endif;
-		endif;
-
-		if ($this->wait_until_date AND $this->wait_until_date != '0000-00-00'):
-			$conditions['date'] = "CURDATE() >= :wait_date";
-		endif;
-		if ($this->wait_until_time AND $this->wait_until_time != '00:00:00'):
-			$conditions['time'] = "CURTIME() >= :wait_time";
-			$new_day = $this->dbh->prepare("SELECT 1 AS finished FROM `survey_unit_sessions` 
-				WHERE `survey_unit_sessions`.unit_id = :id 
-				AND `survey_unit_sessions`.run_session_id = :run_session_id
-				AND DATE(`survey_unit_sessions`.ended) = CURDATE()
-				LIMIT 1");
-			$new_day->bindValue(":id", $this->id);
-			$new_day->bindValue(":run_session_id", $this->run_session_id);
-			$new_day->execute();
-			if($new_day->rowCount() > 0) {
-				return false;
 			}
-		endif;
-
-		if (!empty($conditions)):
-			$condition = implode($conditions, " AND ");
-
-			$q = "SELECT ( {$condition} ) AS test LIMIT 1";
-
-			$evaluate = $this->dbh->prepare($q); // should use readonly
-			if (isset($conditions['minute'])):
-				$evaluate->bindValue(':wait_minutes', $this->wait_minutes);
-			endif;
-			if ($bind_relative_to):
-				$evaluate->bindValue(':relative_to', $relative_to);
-			endif;
-
-			if (isset($conditions['date'])):
-				$evaluate->bindValue(':wait_date', $this->wait_until_date);
-			endif;
-			if (isset($conditions['time'])):
-				$evaluate->bindValue(':wait_time', $this->wait_until_time);
-			endif;
-
-			$evaluate->execute();
-			if ($evaluate->rowCount() === 1):
-				$temp = $evaluate->fetch();
-				$result = $temp['test'];
-			endif;
-		else:
-			$result = true;
-		endif;
-
-		return $result;
-	}
-
-	protected function isOver() {
-		// Frist get the latest pause session unit for this session.
-		// This query assumes the unit session has been created but not ended
-		// 
-		$q = 'SELECT id, created, ended, expired 
-			  FROM survey_unit_sessions 
-			  WHERE unit_id = :id AND run_session_id = :run_session_id AND ended is NULL
-			  ORDER BY created DESC LIMIT 1
-			  ';
-		$unit = $this->dbh->prepare($q);
-		$unit->bindValue(':id', $this->id);
-		$unit->bindValue('run_session_id', $this->run_session_id);
-		$row = $unit->fetch(PDO::FETCH_ASSOC);
-		if (!$row) {
-			return false;
-		}
-
-		$now = time();
-		$creation_datetime = strtotime($row['created']);
-		$expiration_datetime = null;
-
-		$expiration_second = date('s', $now);
-		$expiration_minute = date('i', $now);
-		$expiration_hour = date('H', $now);
-		$expiration_day = date('j', $now);
-		$expiration_month = date('n', $now);
-		$expiration_year = date('Y', $now);
-
-		$has_wait_minutes = !empty($this->wait_minutes);
-		$has_relative_to = !empty($this->relative_to);
-
-		if ($has_relative_to) {
-			// send to opencpu to compute value
-			$opencpu_vars = $this->getUserDataInRun($this->relative_to);
-			$result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
-			if ($result === null) {
-				alert("Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. " . print_r($this->relative_to, true), 'alert-warning');
-				return false;
-			}
-			$relative_to_result = $relative_to = $result;
-
-			if ($relative_to_result === false) {
-				// Return false (i.e pause should not expire) if the 'relative_to' field is boolean and condition is not satisfied
-				return false;
-			}
-
-			if (is_string($relative_to_result) && ($stt = strtotime($relative_to_result))) {
-				// Set the datetime from which expiration should be calculated
-				$creation_datetime = $stt;
-			}
-		}
-
-		if ($has_wait_minutes && $creation_datetime) {
-			$expiration_datetime = $creation_datetime + ($this->wait_minutes * 60);
 		}
 
 		if ($this->wait_until_date && $this->wait_until_date != '0000-00-00') {
-			list($expiration_year, $expiration_month, $expiration_day) = explode('-', $this->wait_until_date, 3);
-			$expiration_datetime = mktime(0, 0, 5, $expiration_day, $expiration_month, $expiration_year);
+			$wait_date = $this->wait_until_date;
 		}
 
 		if ($this->wait_until_time && $this->wait_until_time != '00:00:00') {
-			list($expiration_hour, $expiration_minute, $expiration_second) = explode(':', $this->wait_until_time, 3);
-			$expiration_datetime = mktime($expiration_hour, $expiration_minute, $expiration_second, $expiration_day, $expiration_month, $expiration_year);
+			$wait_time = $this->wait_until_time;
 		}
 
-		if (!$expiration_datetime) {
-			// There was some issue calculating the expiration time for this session
-			alert("Pause {$this->position}: Unable to get expiration datetime for session with id: {$this->run_session_id}", 'alert-warning');
-			return false;
+		if (!empty($wait_date) && empty($wait_time)) {
+			$wait_time = '00:00:01';
+		}
+		
+		if (!empty($wait_time) && empty($wait_date)) {
+			$wait_date = date('Y-m-d');
+			// Check if this unit already expired today for current run_session_id
+			$q = '
+				SELECT 1 AS finished FROM `survey_unit_sessions`
+				WHERE `survey_unit_sessions`.unit_id = :id AND `survey_unit_sessions`.run_session_id = :run_session_id AND DATE(`survey_unit_sessions`.ended) = CURDATE()
+				LIMIT 1
+			';
+			$stmt = $this->dbh->prepare($q);
+			$stmt->bindValue(':id', $this->id);
+			$stmt->bindValue(':run_session_id', $this->run_session_id);
+			$stmt->execute();
+			if ($stmt->rowCount() > 0) {
+				return false;
+			}
 		}
 
-		// Pause expires IF $expiration_datetime is greater than now
-		return $expiration_datetime <= $now;
+		if (!empty($wait_date) && !empty($wait_time)) {
+			$wait_datetime = $wait_date . ' ' . $wait_time;
+			$conditions['datetime'] = ':wait_datetime <= NOW()';
+		}
+
+		if ($conditions) {
+			$condition = implode(' AND ', $conditions);
+			$stmt = $this->dbh->prepare("SELECT {$condition} AS test LIMIT 1");
+			if ($bind_relative_to) {
+				$stmt->bindValue(':relative_to', $relative_to);
+			}
+			if (isset($conditions['minute'])) {
+				$stmt->bindValue(':wait_minutes', $this->wait_minutes);
+			}
+			if (isset($conditions['datetime'])) {
+				$stmt->bindValue(':wait_datetime', $wait_datetime);
+			}
+
+			$stmt->execute();
+			if ($stmt->rowCount() === 1 && ($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
+				$result = (bool)$row['test'];
+			}
+		} else {
+			$result = true;
+		}
+
+		return $result;
 	}
 
 	public function test() {
@@ -335,7 +275,7 @@ class Pause extends RunUnit {
 			echo '<table class="table table-striped">
 					<thead><tr>
 						<th>Code</th>';
-			if ($this->relative_to_true) {
+			if ($this->has_relative_to) {
 				echo '<th>Relative to</th>';
 			}
 			echo '<th>Wait?</th>
@@ -348,7 +288,7 @@ class Pause extends RunUnit {
 				$result = $this->checkWhetherPauseIsOver();
 				echo "<tr>
 						<td style='word-wrap:break-word;max-width:150px'><small>" . $row['session'] . " ({$row['position']})</small></td>";
-				if ($this->relative_to_true) {
+				if ($this->has_relative_to) {
 					echo "<td><small>" . stringBool($this->relative_to_result) . "</small></td>";
 				}
 				echo "<td>" . stringBool($result) . "</td>

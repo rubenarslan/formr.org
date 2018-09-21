@@ -34,19 +34,24 @@
 
 					<div class="box-body table-responsive no-padding">
 						<?php Template::load('public/alerts'); ?>
-						<?php if ($results): ?>
-							<div class="col-md-12" style="margin: 10px;">
-								<form action="<?= admin_study_url($study_name, 'show_results') ?>" accept-charset="utf-8" method="get" class="col-md-6">
-									<div class="input-group input-group-sm">
-										<span class="input-group-addon">Search by session <i class="fa fa-user"></i></span>
-										<input type="text" name="session" class="form-control" value="<?= h($session) ?>">
-										<span class="input-group-btn">
-											<button type="submit" class="btn btn-default btn-flat"><i class="fa fa-search"></i></button>
-										</span>
-									</div>
-								</form>
-							</div>
-						<?php endif; ?>
+						<div class="col-md-12" style="margin: 10px;">
+							<form action="<?= admin_study_url($study_name, 'show_results') ?>" accept-charset="utf-8" method="get" class="col-md-6">
+								<div class="input-group input-group-sm">
+									<span class="input-group-addon">Search by session <i class="fa fa-user"></i></span>
+									<input type="text" name="session" class="form-control" value="<?= h($session) ?>">
+									<span class="input-group-addon">Filter Results <i class="fa fa-filter"></i></span>
+									<select class="form-control" name="rfilter">
+										<?php foreach ($results_filter as $f => $filter): $selected = $f == $rfilter ? 'selected="selected"' : null ?>
+											<option value="<?= $f ?>" <?= $selected ?>><?= $filter['title'] ?></option>
+										<?php endforeach; ?>
+									</select>
+									<span class="input-group-btn">
+										<button type="submit" class="btn btn-default btn-flat"><i class="fa fa-search"></i></button>
+									</span>
+								</div>
+							</form>
+						</div>
+						
 						<table class="table table-hover">
 							<?php
 								$print_header = true;

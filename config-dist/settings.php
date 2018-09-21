@@ -180,4 +180,11 @@ $settings['reserved_run_names'] = array('api', 'test', 'delegate');
 // If this is set to true, then users will see a maintenance message and cron jobs will not run
 // Restart all server daemon whenever this flag is changed
 $settings['in_maintenance'] = false;
+
+// curl settings that override the default settings in the CURL class
+// Use exact PHP constants as defined in http://php.net/manual/en/function.curl-setopt.php
+$settings['curl'] = array(
+	CURLOPT_SSL_VERIFYPEER => true,
+	CURLOPT_SSL_VERIFYHOST => 2,
+);
 		

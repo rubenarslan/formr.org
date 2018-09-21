@@ -350,6 +350,7 @@ module.exports = function (grunt) {
     // Register Tasks
     grunt.registerTask('default', ['copy', 'csslint', 'concat_css', 'autoprefixer', 'cssmin', 'jshint', 'concat', 'uglify', 'clean']);
     grunt.registerTask('update', ['bower', 'default']);
-    //grunt.registerTask('css', []);
-    //grunt.registerTask('myjs', []);
+    grunt.registerTask('mycss', ['csslint', 'concat_css', 'autoprefixer', 'cssmin', 'clean']);
+    grunt.registerTask('myjs', ['jshint', 'concat', 'uglify', 'clean']);
+	grunt.registerTask('minimal', ['mycss', 'myjs']);
 };

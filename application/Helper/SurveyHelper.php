@@ -314,7 +314,7 @@ class SurveyHelper {
 	protected function getSubmitButton () {
 		$opts = array(
 			'label_parsed' => 'Continue  <i class="fa fa-arrow-circle-right pull-left"></i>',
-			'class_input' => 'btn-info default_formr_button',
+			'classes_input' => array('btn-info default_formr_button'),
 		);
 		$submitButton = new Submit_Item($opts);
 		$submitButton->input_attributes['value'] = 1;
