@@ -273,7 +273,8 @@ module.exports = function (grunt) {
                 'common/js/webshim.js', 'common/js/main.js', 'common/js/survey.js',
                 'common/js/run.js', 'common/js/run_settings.js', 'common/js/run_users.js',
                 'site/js/main.js',
-                'admin/js/main.js'
+                'admin/js/main.js',
+				'admin/js/admin.js'
             ],
             options: {
                 globals: {
@@ -349,6 +350,7 @@ module.exports = function (grunt) {
     // Register Tasks
     grunt.registerTask('default', ['copy', 'csslint', 'concat_css', 'autoprefixer', 'cssmin', 'jshint', 'concat', 'uglify', 'clean']);
     grunt.registerTask('update', ['bower', 'default']);
-    //grunt.registerTask('css', []);
-    //grunt.registerTask('myjs', []);
+    grunt.registerTask('mycss', ['csslint', 'concat_css', 'autoprefixer', 'cssmin', 'clean']);
+    grunt.registerTask('myjs', ['jshint', 'concat', 'uglify', 'clean']);
+	grunt.registerTask('minimal', ['mycss', 'myjs']);
 };

@@ -33,7 +33,7 @@ Template::load('public/header', array(
 					<i class="fa fa-info-circle"></i> &nbsp; If you are publishing research conducted using formr, <strong>please cite</strong> 
 				</p>
 				<blockquote>
-					Arslan, R.C., &amp; Tata, C.S. (2017). formr.org survey software (Version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
+					Arslan, R.C., Tata, C.S. &amp; Walther, M.P. (2018). formr: A study framework allowing for automated feedback generation and complex longitudinal experience sampling studies using R. (version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
 				</blockquote>
 				<p>
 					Once your research is published, 

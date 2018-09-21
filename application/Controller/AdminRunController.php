@@ -117,6 +117,7 @@ class AdminRunController extends AdminController {
 			`survey_run_sessions`.id AS run_session_id,
 			`survey_run_sessions`.session,
 			`survey_run_sessions`.position,
+			`survey_run_units`.description,
 			`survey_run_sessions`.last_access,
 			`survey_run_sessions`.created,
 			`survey_run_sessions`.testing,
@@ -139,6 +140,65 @@ class AdminRunController extends AdminController {
 		$vars['unit_types'] = $run->getAllUnitTypes();
 		$vars['reminders'] = $this->run->getSpecialUnits(false, 'ReminderEmail');
 		$this->renderView('run/user_overview', $vars);
+	}
+
+	private function exportUserOverviewAction() {
+		$users_query = "SELECT 
+		        `survey_run_sessions`.position,
+		        `survey_units`.type AS unit_type,
+			`survey_run_units`.description,
+		        `survey_run_sessions`.session,
+		        `survey_run_sessions`.created,
+		        `survey_run_sessions`.last_access,
+		        (`survey_units`.type IN ('Survey','External','Email') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
+		FROM `survey_run_sessions`
+		LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
+		LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
+		LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
+		WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code, hang DESC, `survey_run_sessions`.last_access DESC";
+
+		$query_params = array(':run_id' => $this->run->id, ':admin_code' => $this->user->user_code);
+		$query_obj = $this->fdb->prepare($users_query);
+		$query_obj->execute($query_params);
+
+		$SPR = new SpreadsheetReader();
+		$download_successfull = $SPR->exportInRequestedFormat($query_obj , $this->run->name . '_user_overview', $this->request->str('format'));
+                if (!$download_successfull) {
+			alert('An error occured during user overview download.', 'alert-danger');
+			redirect_to(admin_run_url($this->run->name, 'user_overview'));
+                }
+	}
+
+	private function exportUserDetailAction() {
+		$users_query = "SELECT
+			        `survey_run_units`.position,
+			        `survey_units`.type AS unit_type,
+			        `survey_run_units`.description,
+			        `survey_run_sessions`.session,
+			        `survey_unit_sessions`.created AS entered,
+			        IF (`survey_unit_sessions`.ended > 0, UNIX_TIMESTAMP(`survey_unit_sessions`.ended)-UNIX_TIMESTAMP(`survey_unit_sessions`.created),
+						UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(`survey_unit_sessions`.created)) AS 'seconds_stayed',
+					`survey_unit_sessions`.ended AS 'left',
+			        `survey_unit_sessions`.expired
+				FROM `survey_unit_sessions`
+				LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+				LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
+				LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+				LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+				WHERE `survey_runs`.id = :run_id
+				AND `survey_run_sessions`.run_id = :run_id2
+				ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;";
+
+		$query_params = array(':run_id' => $this->run->id, ':run_id2' => $this->run->id);
+		$query_obj = $this->fdb->prepare($users_query);
+		$query_obj->execute($query_params);
+
+		$SPR = new SpreadsheetReader();
+		$download_successfull = $SPR->exportInRequestedFormat($query_obj , $this->run->name . '_user_detail', $this->request->str('format'));
+                if (!$download_successfull) {
+			alert('An error occured during user detail download.', 'alert-danger');
+			redirect_to(admin_run_url($this->run->name, 'user_detail'));
+                }
 	}
 	
 	private function createNewTestCodeAction() {
@@ -221,6 +281,7 @@ class AdminRunController extends AdminController {
 			`survey_unit_sessions`.id AS session_id,
 			`survey_runs`.name AS run_name,
 			`survey_run_units`.position,
+			`survey_run_units`.description,
 			`survey_units`.type AS unit_type,
 			`survey_unit_sessions`.created,
 			`survey_unit_sessions`.ended,
@@ -238,9 +299,14 @@ class AdminRunController extends AdminController {
 		$users = array();
 		foreach ($g_users as $userx) {
 			$userx['Unit in Run'] = $userx['unit_type']. " <span class='hastooltip' title='position in run {$userx['run_name']} '>({$userx['position']})</span>";
+			$userx['Module Description'] = "<small>" . $userx['description'] . "</small>";
 			$userx['Session'] = "<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],0,10)."…</abbr></small>";
 			$userx['Entered'] = "<small>{$userx['created']}</small>";
-			$staid = ($userx['ended'] ? strtotime($userx['ended']) : time() ) - strtotime($userx['created']);
+			if ($userx['expired']) {
+				$staid = strtotime($userx['expired']) - strtotime($userx['created']);
+			} else {
+				$staid = ($userx['ended'] ? strtotime($userx['ended']) : time() ) - strtotime($userx['created']);
+			}
 			$userx['Stayed'] = "<small title='$staid seconds'>".timetostr(time()+$staid)."</small>";
 			$userx['Left'] = "<small>{$userx['ended']}</small>";
 			if($userx['expired']) {
@@ -251,7 +317,7 @@ class AdminRunController extends AdminController {
 			else 
 				$userx['Delete'] =  "<a onclick='return confirm(\"You shouldnt delete survey sessions, you might delete data! REALLY sure?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_delete_unit_session?session_id={$userx['session_id']}' class='hastooltip link-ajax' title='Survey sessions should not be deleted'><i class='fa fa-times'></i></a>";
 
-			unset($userx['session'], $userx['session_id'], $userx['run_name'], $userx['unit_type'], $userx['position'], $userx['left']);
+			unset($userx['session'], $userx['session_id'], $userx['run_name'], $userx['unit_type'], $userx['position'], $userx['description'], $userx['left']);
 			$users[] = $userx;
 		}
 

@@ -203,6 +203,11 @@ class AdminSurveyController extends AdminController {
 			return $this->hideResults();
 		}
 
+		$filter = array(
+			'session' => $this->request->str('session'),
+			'results' => $this->request->str('rfilter'),
+		);
+
 		// paginate based on number of items on this sheet so that each
 		// run session will have all items for each pagination
 		$items = $this->study->getItems('id'); $ids = array();
@@ -210,17 +215,14 @@ class AdminSurveyController extends AdminController {
 			$ids[] = $item['id'];
 		}
 
-		$itemsCount = count($ids);
-		$result = $this->fdb->query('select count(*) as count from survey_items_display where item_id in ('. implode(',', $ids).')');
-		$totalCount = 0;
-		if (!empty($result[0]['count'])) {
-			$totalCount = $result[0]['count'];
-		}
-
-		$session = $this->request->str('session', null);
+		//$session = $this->request->str('session', null);
 		// show $no_sessions sessions per_page (so limit = $no_sessions * number of items in a survey)
+		//$limit = $this->request->int('per_page', $no_sessions * $itemsCount);
+		
 		$no_sessions = $this->request->int('sess_per_page', 10);
-		$limit = $this->request->int('per_page', $no_sessions * $itemsCount);
+		$count = $this->study->getResultCount(null, $filter);
+		$totalCount = $count['real_users'] + $count['testers'];
+		$limit = $no_sessions;
 		$page = ($this->request->int('page', 1) - 1);
 		$paginate = array(
 			'limit' => $limit,
@@ -238,10 +240,13 @@ class AdminSurveyController extends AdminController {
 
 		$this->renderView('survey/show_itemdisplay', array(
 			'resultCount' => $this->study->getResultCount(),
-			'results' => $this->study->getItemDisplayResults(null, $session, $paginate),
+			'results' => $this->study->getResultsByItemsPerSession(null, $filter, $paginate),
 			'pagination' => $pagination,
 			'study_name' => $this->study->name,
-			'session' => $session,
+			//'session' => $session,
+			'session' => $this->request->str('session'),
+			'rfilter' => $this->request->str('rfilter'),
+			'results_filter' => $this->study->getResultsFilter(),
 		));
 	}
 
@@ -250,7 +255,12 @@ class AdminSurveyController extends AdminController {
 			return $this->hideResults();
 		}
 
-		$count = $this->study->getResultCount();
+		$filter = array(
+			'session' => $this->request->str('session'),
+			'results' => $this->request->str('rfilter'),
+		);
+
+		$count = $this->study->getResultCount(null, $filter);
 		$totalCount = $count['real_users'] + $count['testers'];
 		$limit = $this->request->int('per_page', 100);
 		$page = ($this->request->int('page', 1) - 1);
@@ -261,9 +271,6 @@ class AdminSurveyController extends AdminController {
 			'order' => 'desc',
 			'order_by' => 'session_id',
 			'count' => $totalCount,
-			'filter' => array(
-				'session' => $this->request->str('session'),
-			)
 		);
 
 		if ($paginate['page'] < 0 || $paginate['limit'] < 0) {
@@ -275,10 +282,12 @@ class AdminSurveyController extends AdminController {
 
 		$this->renderView('survey/show_results', array(
 			'resultCount' => $count,
-			'results' =>  $totalCount <= 0 ? array() : $this->study->getResults(null, null, $paginate),
+			'results' =>  $totalCount <= 0 ? array() : $this->study->getResults(null, $filter, $paginate),
 			'pagination' => $pagination,
 			'study_name' => $this->study->name,
 			'session' => $this->request->str('session'),
+			'rfilter' => $this->request->str('rfilter'),
+			'results_filter' => $this->study->getResultsFilter(),
 		));
 	}
 
@@ -345,9 +354,7 @@ class AdminSurveyController extends AdminController {
 		$study = $this->study;
 
 		$format = $this->request->getParam('format');
-		if (!$format || !in_array($format, array("xlsx", "xls", "json", "original"))) {
-			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
-		}
+		SpreadsheetReader::verifyExportFormat($format);
 
 		$SPR = new SpreadsheetReader();
 
@@ -375,6 +382,12 @@ class AdminSurveyController extends AdminController {
 			$SPR->exportItemTableJSON($study);
 		}
 	}
+	private function verifyThereIsExportableData($resultsStmt) {
+		if ($resultsStmt->rowCount() < 1) {
+			alert('No data to export!', 'alert-danger');
+			redirect_to(admin_study_url($this->study->name, 'show_itemdisplay'));
+		}
+	}
 
 	private function exportItemdisplayAction() {
 		if ($this->study->settings['hide_results']) {
@@ -383,44 +396,17 @@ class AdminSurveyController extends AdminController {
 
 		$study = $this->study;
 		$format = $this->request->str('format');
-		$SPR = new SpreadsheetReader();
-		if (!in_array($format, $SPR->exportFormats)) {
-			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
-		}
 
 		/* @var $resultsStmt PDOStatement */
 		$resultsStmt = $study->getItemDisplayResults(null, null, null, true);
-		if (!$resultsStmt->columnCount()) {
-			alert('No data to export!', 'alert-danger');
-			redirect_to(admin_study_url($study->name, 'show_itemdisplay'));
-		}
+		$this->verifyThereIsExportableData($resultsStmt);
 
-		$filename = $study->name . '_itemdisplay';
-		switch ($format) {
-			case 'xlsx':
-				$downloaded = $SPR->exportXLSX($resultsStmt, $filename);
-			break;
-			case 'xls':
-				$downloaded = $SPR->exportXLS($resultsStmt, $filename);
-			break;
-			case 'csv_german':
-				$downloaded = $SPR->exportCSV_german($resultsStmt, $filename);
-			break;
-			case 'tsv':
-				$downloaded = $SPR->exportTSV($resultsStmt, $filename);
-			break;
-			case 'json':
-				$downloaded = $SPR->exportJSON($resultsStmt, $filename);
-			break;
-			default:
-				$downloaded = $SPR->exportCSV($resultsStmt, $filename);
-			break;
-		}
-
-		if (!$downloaded) {
-			alert('An error occured during results download.', 'alert-danger');
-			redirect_to(admin_study_url($study->name, 'show_itemdisplay'));
-		}
+		$SPR = new SpreadsheetReader();
+		$download_successfull = $SPR->exportInRequestedFormat($resultsStmt, $study->name, $format);
+                if (!$download_successfull) {
+                        alert('An error occured during results download.', 'alert-danger');
+                        redirect_to(admin_study_url($filename, 'show_results'));
+                }
 	}
 
 	private function exportResultsAction() {
@@ -430,43 +416,19 @@ class AdminSurveyController extends AdminController {
 
 		$study = $this->study;
 		$format = $this->request->str('format');
-		$SPR = new SpreadsheetReader();
-		if (!in_array($format, $SPR->exportFormats)) {
-			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
-		}
+
 
 		/* @var $resultsStmt PDOStatement */
 		$resultsStmt = $study->getResults(null, null, null, null, true);
-		if (!$resultsStmt->columnCount()) {
-			alert('No data to export!', 'alert-danger');
-			redirect_to(admin_study_url($study->name, 'show_results'));
-		}
+		$this->verifyThereIsExportableData($resultsStmt);
 
-		switch ($format) {
-			case 'xlsx':
-				$downloaded = $SPR->exportXLSX($resultsStmt, $study->name);
-			break;
-			case 'xls':
-				$downloaded = $SPR->exportXLS($resultsStmt, $study->name);
-			break;
-			case 'csv_german':
-				$downloaded = $SPR->exportCSV_german($resultsStmt, $study->name);
-			break;
-			case 'tsv':
-				$downloaded = $SPR->exportTSV($resultsStmt, $study->name);
-			break;
-			case 'json':
-				$downloaded = $SPR->exportJSON($resultsStmt, $study->name);
-			break;
-			default:
-				$downloaded = $SPR->exportCSV($resultsStmt, $study->name);
-			break;
-		}
+		$SPR = new SpreadsheetReader();
+		$download_successfull = $SPR->exportInRequestedFormat($resultsStmt, $study->name, $format);
 
-		if (!$downloaded) {
-			alert('An error occured during results download.', 'alert-danger');
-			redirect_to(admin_study_url($study->name, 'show_results'));
-		}
+                if (!$download_successfull) {
+                        alert('An error occured during results download.', 'alert-danger');
+                        redirect_to(admin_study_url($filename, 'show_results'));
+                }
 	}
 
 	private function setStudy($name) {
@@ -480,6 +442,13 @@ class AdminSurveyController extends AdminController {
 		} elseif (!$this->user->created($study)) {
 			formr_error(401, 'Unauthorized', 'You do not have access to modify this survey');
 		}
+
+		$google_id = $study->getGoogleFileId();
+		$this->vars['google'] = array(
+			'id' => $google_id,
+			'link' => google_get_sheet_link($google_id),
+			'name' => $study->name
+		);
 		$this->study = $study;
 	}
 

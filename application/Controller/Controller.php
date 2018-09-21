@@ -42,6 +42,8 @@ abstract class Controller {
 
 	protected $js = array();
 
+	protected $vars = array();
+
 	public function __construct(Site &$site) {
 		/** @todo do these with dependency injection */
 		global $user, $run, $study, $css, $js;
@@ -70,7 +72,7 @@ abstract class Controller {
 			'run' => $this->run,
 			'study' => $this->study,
 			'meta' => $this->generateMetaInfo(),
-		), $vars);
+		), $this->vars, $vars);
 		Request::setGlobals('variables', $variables);
 		Template::load($template);
 	}
