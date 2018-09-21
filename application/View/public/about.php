@@ -24,7 +24,7 @@
 				</div>
 			</div>
 			<div class="col-md-4 col-xs-4">
-				<div class="pull-left text-center">
+				<div class="text-center">
 					<img src="<?= asset_url('build/img/ruben.jpg'); ?>" class="img-responsive img-circle team" alt="Ruben Arslan">
 					<hr />
 					<h3>Ruben</h3>
@@ -32,7 +32,7 @@
 			</div>
 			<div class="col-md-4 col-xs-4">
 				<div class="pull-left text-center">
-					<img src="<?= asset_url('build/img/walther.jpg'); ?>" class="img-responsive img-circle team" alt="Ruben Arslan">
+					<img src="<?= asset_url('build/img/walther.jpg'); ?>" class="img-responsive img-circle team" alt="Matthias Walther">
 					<hr />
 					<h3>Matthias</h3>
 				</div>
