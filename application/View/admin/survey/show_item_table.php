@@ -44,6 +44,16 @@
 									<span class="text">Show Items</span>
 								</a>
 							</div>
+							
+							<?php if (!empty($google['id'])): ?>
+							<div class="col-md-4">
+								<a href="<?php echo $google['link']; ?>" class="dashboard-link" target="_blank">
+									<span class="icon"><i class="fa fa-google"></i></span>
+									<span class="text">Google Sheet</span>
+								</a>
+							</div>
+							<?php endif ?>
+							
 						</div>
 					</div>
 				</div>

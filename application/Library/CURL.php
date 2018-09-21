@@ -105,7 +105,10 @@ class CURL {
 		if (!$options) {
 			$options = array();
 		}
-		$options += self::$curlOptions;
+
+		$curlConfigOptions = Config::get('curl', array());
+		$curlConfigOptions += self::$curlOptions;
+		$options += $curlConfigOptions;
 
 		if ($method == self::HTTP_METHOD_POST) {
 			$options[CURLOPT_POST] = true;
