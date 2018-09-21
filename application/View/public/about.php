@@ -11,23 +11,30 @@
 			<div class="col-md-6 col-md-offset-3 text-center">
 				<h2 class="fmr-lead animate-box">about formr</h2>
 				<p class="fmr-sub-lead animate-box">
-					formr was made by <a href="https://www.psych.uni-goettingen.de/en/biopers/team/arslan">Ruben C. Arslan</a> and <a href="https://www.psych.uni-goettingen.de/de/it/team/cyril-tata/cyril-s-tata">Cyril S. Tata</a>.
+					formr was made by <a href="https://www.psych.uni-goettingen.de/en/biopers/team/arslan">Ruben C. Arslan</a> and <a href="https://www.psych.uni-goettingen.de/de/it/team/cyril-tata/cyril-s-tata">Cyril S. Tata</a>. <a href="https://www.uni-muenster.de/Psychologie.td/personen/index.html">Matthias P. Walther</a> recently joined the team.
 				</p>
 			</div>
 		</div>
 		<div class="row">
-			<div class="col-md-6 col-xs-6">
+			<div class="col-md-4 col-xs-4">
 				<div class="pull-right text-center">
 					<img src="<?= asset_url('build/img/cyril.jpg'); ?>" class="img-responsive img-circle team" alt="Cyril Tata">
 					<hr />
 					<h3>Cyril</h3>
 				</div>
 			</div>
-			<div class="col-md-6 col-xs-6">
+			<div class="col-md-4 col-xs-4">
 				<div class="pull-left text-center">
 					<img src="<?= asset_url('build/img/ruben.jpg'); ?>" class="img-responsive img-circle team" alt="Ruben Arslan">
 					<hr />
 					<h3>Ruben</h3>
+				</div>
+			</div>
+			<div class="col-md-4 col-xs-4">
+				<div class="pull-left text-center">
+					<img src="<?= asset_url('build/img/walther.jpg'); ?>" class="img-responsive img-circle team" alt="Ruben Arslan">
+					<hr />
+					<h3>Matthias</h3>
 				</div>
 			</div>
 
@@ -55,7 +62,7 @@
 							If you are publishing research conducted using formr, <strong>please cite</strong> 
 						</p>
 						<blockquote>
-							Arslan, R.C., &amp; Tata, C.S. (2017). formr.org survey software (Version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
+							Arslan, R.C., Tata, C.S. &amp; Walther, M.P. (2018). formr: A study framework allowing for automated feedback generation and complex longitudinal experience sampling studies using R. (version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
 						</blockquote>
 					</div>
 					<p>
