@@ -175,10 +175,10 @@ class AdminRunController extends AdminController {
 			        `survey_units`.type AS unit_type,
 			        `survey_run_units`.description,
 			        `survey_run_sessions`.session,
-			        `survey_unit_sessions`.created AS Entered,
+			        `survey_unit_sessions`.created AS entered,
 			        IF (`survey_unit_sessions`.ended > 0, UNIX_TIMESTAMP(`survey_unit_sessions`.ended)-UNIX_TIMESTAMP(`survey_unit_sessions`.created),
-						UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(`survey_unit_sessions`.created)) AS 'Stayed in seconds',
-					`survey_unit_sessions`.ended AS 'Left',
+						UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(`survey_unit_sessions`.created)) AS 'seconds_stayed',
+					`survey_unit_sessions`.ended AS 'left',
 			        `survey_unit_sessions`.expired
 				FROM `survey_unit_sessions`
 				LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
