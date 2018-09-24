@@ -232,7 +232,8 @@ class RunController extends Controller {
 	 * @return \Cookie
 	 */
 	protected function getRunCookie() {
-		return new \Cookie($this->run->getCookieName());
+		$cookie = new \Cookie($this->run->getCookieName());
+		return $cookie;
 	}
 
 	protected function loginUser() {		
