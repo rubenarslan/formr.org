@@ -40,7 +40,7 @@ class Crypto {
 		return self::$key;
 	}
 
-	private static function doWeNeedHiddenStrings() : bool {
+	private static function doWeNeedHiddenStrings() {
 		if ( class_exists('\ParagonIE\Halite\HiddenString') ) {
 			return true;
 		} else {
