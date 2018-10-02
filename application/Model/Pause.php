@@ -201,6 +201,9 @@ class Pause extends RunUnit {
 		
 		if (!empty($wait_time) && empty($wait_date)) {
 			$wait_date = date('Y-m-d');
+		}
+
+		if (!empty($wait_date) && !empty($wait_time)) {
 			// Check if this unit already expired today for current run_session_id
 			$q = '
 				SELECT 1 AS finished FROM `survey_unit_sessions`
@@ -214,9 +217,7 @@ class Pause extends RunUnit {
 			if ($stmt->rowCount() > 0) {
 				return false;
 			}
-		}
 
-		if (!empty($wait_date) && !empty($wait_time)) {
 			$wait_datetime = $wait_date . ' ' . $wait_time;
 			$conditions['datetime'] = ':wait_datetime <= NOW()';
 		}

@@ -240,7 +240,7 @@ class AdminSurveyController extends AdminController {
 
 		$this->renderView('survey/show_itemdisplay', array(
 			'resultCount' => $this->study->getResultCount(),
-			'results' => $this->study->getResultsByItemsPerSession(null, $filter, $paginate),
+			'results' => $totalCount ? $this->study->getResultsByItemsPerSession(null, $filter, $paginate) : array(),
 			'pagination' => $pagination,
 			'study_name' => $this->study->name,
 			//'session' => $session,
