@@ -18,13 +18,15 @@ Template::load('public/header', array(
 				<div class="alert alert-info">
 					<p>
 
-						<i class="fa fa-info-circle"></i> &nbsp; If you are publishing research conducted using formr, <strong>please cite</strong> 
+						<i class="fa fa-info-circle"></i> &nbsp; If you are publishing research conducted using formr, <strong>please cite</strong> both the preprint and the version of the software that was active when you ran your study.
 					</p>
-					<blockquote>
-						Arslan, R.C., Tata, C.S. &amp; Walther, M.P. (2018). formr: A study framework allowing for automated feedback generation and complex longitudinal experience sampling studies using R. (version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
-					</blockquote>
+					
 					<blockquote>
 						Arslan, R. C., Walther, M., & Tata, C. (2018, September 4). formr: A study framework allowing for automated feedback generation and complex longitudinal experience sampling studies using R. <a href="https://doi.org/10.31234/osf.io/pjasu">https://doi.org/10.31234/osf.io/pjasu</a>
+					</blockquote>
+					
+					<blockquote>
+						Arslan, R.C., Tata, C.S. &amp; Walther, M.P. (2018). formr: A study framework allowing for automated feedback generation and complex longitudinal experience sampling studies using R. (version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
 					</blockquote>
 					<p>
 						Once your research is published, 
