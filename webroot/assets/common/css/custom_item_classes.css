@@ -13,7 +13,7 @@ form.form-horizontal div.answer_below_label .control-label {
 }
 form.form-horizontal div.answer_below_label .controls {
 	width: 99% !important;
-	margin-left: 0 !important;
+	margin-left: 0;
 	clear: left !important;
 }
 .item-check {
@@ -292,12 +292,11 @@ form.form-horizontal div.label_align_left .control-label {
 	padding-left: 5px;
 }
 form.form-horizontal div.label_align_center .control-label {
-	text-align: center;
+	text-align: center !important;
 	padding-left: 5px;
 }
 form.form-horizontal div.label_align_right .control-label {
-	text-align: right;
-	/* default */
+	text-align: right !important;
 	padding-left: 5px;
 }
 form.form-horizontal div.answer_align_left .controls {
@@ -306,7 +305,7 @@ form.form-horizontal div.answer_align_left .controls {
 	padding-right: 5px;
 }
 form.form-horizontal div.answer_align_center .controls {
-	text-align: center;
+	text-align: center !important;
 	padding-right: 5px;
 }
 form.form-horizontal div.answer_align_right .controls {
