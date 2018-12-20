@@ -16,4 +16,11 @@ jQuery(document).ready(function() {
 		}
 	});
 
+	// Click dashboard link
+	$('.dashboard-link').each(function(i, l) {
+		var click = $(l).data('click');
+		if (click == 1) {
+			$(l).trigger('click');
+		}
+	});
 });

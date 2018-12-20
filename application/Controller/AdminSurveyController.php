@@ -26,7 +26,10 @@ class AdminSurveyController extends AdminController {
 		if (empty($this->study)) {
 			redirect_to(admin_url('survey/add_survey'));
 		}
-		$this->renderView('survey/index', array('survey_id' => $this->study->id));
+
+		$this->renderView('survey/index', array(
+			'survey_id' => $this->study->id,
+		));
 	}
 
 	public function listAction() {
@@ -188,7 +191,8 @@ class AdminSurveyController extends AdminController {
 		$vars = array(
 			'google_id' => $this->study->getGoogleFileId(),
 			'original_file' => $this->study->getOriginalFileName(),
-			'results' => $this->study->getItemsWithChoices()
+			'results' => $this->study->getItemsWithChoices(),
+			'shortcut' => $this->request->str('to', null)
 		);
 		if(empty($vars['results'])) {
 			alert("No valid item table uploaded so far.", 'alert-warning');
