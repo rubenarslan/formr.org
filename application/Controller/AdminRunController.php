@@ -415,7 +415,7 @@ class AdminRunController extends AdminController {
 		$run = $this->run;
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
-		if (!in_array($format, $SPR->exportFormats)) {
+		if (!in_array($format, SpreadsheetReader::$exportFormats)) {
 			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
 		}
 
@@ -520,7 +520,7 @@ class AdminRunController extends AdminController {
 		$run = $this->run;
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
-		if (!in_array($format, $SPR->exportFormats)) {
+		if (!in_array($format, SpreadsheetReader::$exportFormats)) {
 			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
 		}
 
