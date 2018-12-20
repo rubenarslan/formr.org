@@ -161,6 +161,33 @@
 
     }
 
+	function deleteUserUnitSession(e) {
+		/*jshint validthis:true */
+        var $btn = $(this);
+		var $modal = $($.parseHTML(getHTMLTemplate('tpl-confirmation',{
+			content: $btn.data('msg'),
+			yes_url: $btn.data('href'),
+			no_url: 'javascript:void(0);'
+		})));
+		
+		$modal.on('shown.bs.modal', function () {
+            $modal.find('.btn-yes').click(function () {
+                var href = $btn.data('href');
+                $(this).append(bootstrap_spinner());
+                postdata(href, {'ajax': true}, function (response) {
+                    $modal.modal('hide');
+                    var $bm = bootstrap_modal('Activity Deleted', response, 'tpl-feedback-modal');
+					$bm.on('hidden.bs.modal', function () {
+						$modal.remove();
+						document.location.reload(true);
+					}).modal('show');
+                }, 'html');
+            });
+        }).on('hidden.bs.modal', function () {
+            $modal.remove();
+        }).modal('show');
+	}
+
     function remindUserSession(e) {
         /*jshint validthis:true */
         var $btn = $(this);
@@ -407,6 +434,7 @@
             $current_target.parents("tr").css("background-color", "transparent");
         });
         $('a.delete-run-session').bind('click', deleteUserSession);
+		$('a.delete-user-unit-session').bind('click', deleteUserUnitSession);
         $('a.remind-run-session').bind('click', remindUserSession);
         $('div.bulk-actions-ba').find('.ba').bind('click', doBulkAction);
     });

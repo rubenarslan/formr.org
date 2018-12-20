@@ -294,31 +294,28 @@ class AdminRunController extends AdminController {
 		WHERE `survey_runs`.id = :run_id2 AND `survey_run_sessions`.run_id = :run_id $search
 		ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT $limits";
 
-		$g_users = $fdb->execute($users_query, $params);
+		$users = $fdb->execute($users_query, $params);
 
-		$users = array();
-		foreach ($g_users as $userx) {
-			$userx['Unit in Run'] = $userx['unit_type']. " <span class='hastooltip' title='position in run {$userx['run_name']} '>({$userx['position']})</span>";
-			$userx['Module Description'] = "<small>" . $userx['description'] . "</small>";
-			$userx['Session'] = "<small><abbr class='abbreviated_session' title='Click to show the full session' data-full-session=\"{$userx['session']}\">".mb_substr($userx['session'],0,10)."…</abbr></small>";
-			$userx['Entered'] = "<small>{$userx['created']}</small>";
+		foreach ($users as $i => $userx) {
 			if ($userx['expired']) {
-				$staid = strtotime($userx['expired']) - strtotime($userx['created']);
+				$stay_seconds = strtotime($userx['expired']) - strtotime($userx['created']);
 			} else {
-				$staid = ($userx['ended'] ? strtotime($userx['ended']) : time() ) - strtotime($userx['created']);
+				$stay_seconds = ($userx['ended'] ? strtotime($userx['ended']) : time() ) - strtotime($userx['created']);
 			}
-			$userx['Stayed'] = "<small title='$staid seconds'>".timetostr(time()+$staid)."</small>";
-			$userx['Left'] = "<small>{$userx['ended']}</small>";
+			$userx['stay_seconds'] = $stay_seconds;
 			if($userx['expired']) {
-				$userx['Left'] = "<small><abbr title='{$userx['expired']}'>expired</abbr></small>";
+				$userx['ended'] = $userx['expired'] . ' (expired)';
 			}
-			if($userx['unit_type']!= 'Survey') 
-				$userx['delete'] = "<a onclick='return confirm(\"Are you sure you want to delete this unit session?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_delete_unit_session?session_id={$userx['session_id']}' class='hastooltip link-ajax' title='Delete this waypoint'><i class='fa fa-times'></i></a>";
-			else 
-				$userx['Delete'] =  "<a onclick='return confirm(\"You shouldnt delete survey sessions, you might delete data! REALLY sure?\")' href='".WEBROOT."admin/run/{$userx['run_name']}/ajax_delete_unit_session?session_id={$userx['session_id']}' class='hastooltip link-ajax' title='Survey sessions should not be deleted'><i class='fa fa-times'></i></a>";
+			
+			if($userx['unit_type'] != 'Survey') {
+				$userx['delete_msg'] = "Are you sure you want to delete this unit session?";
+				$userx['delete_title'] = "Delete this waypoint";
+			} else {
+				$userx['delete_msg'] = "You SHOULDN'T delete survey sessions, you might delete data! <br />Are you REALLY sure you want to continue?";
+				$userx['delete_title'] = "Survey unit sessions should not be deleted";
+			}
 
-			unset($userx['session'], $userx['session_id'], $userx['run_name'], $userx['unit_type'], $userx['position'], $userx['description'], $userx['left']);
-			$users[] = $userx;
+			$users[$i] = $userx;
 		}
 
 		$vars = get_defined_vars();
