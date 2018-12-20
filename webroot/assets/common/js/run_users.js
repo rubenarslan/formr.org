@@ -167,7 +167,7 @@
 		var $modal = $($.parseHTML(getHTMLTemplate('tpl-confirmation',{
 			content: $btn.data('msg'),
 			yes_url: $btn.data('href'),
-			no_url: 'javascript:void(0);'
+			no_url: "#"
 		})));
 		
 		$modal.on('shown.bs.modal', function () {
