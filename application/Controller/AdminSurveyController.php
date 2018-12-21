@@ -342,10 +342,11 @@ class AdminSurveyController extends AdminController {
 
 	private function renameStudyAction() {
 		$study = $this->study;
+		$new_name = $this->request->str('new_name');
 
-		if (isset($_POST['new_name']) && $_POST['new_name'] !== $study->name) {
+		if ($new_name && $new_name !== $study->name) {
 			$old_name = $study->name;
-			if($study->rename($_POST['new_name'])) {
+			if($study->rename($new_name)) {
 				alert("<strong>Success.</strong> Successfully renamed study from '{$old_name}' to {$study->name}.", 'alert-success');
 				redirect_to(admin_study_url($study->name, 'rename_study'));
 			}
