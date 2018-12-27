@@ -415,9 +415,7 @@ class AdminRunController extends AdminController {
 		$run = $this->run;
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
-		if (!in_array($format, SpreadsheetReader::$exportFormats)) {
-			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
-		}
+		SpreadsheetReader::verifyExportFormat($format);
 
 		/* @var $resultsStmt PDOStatement */
 		$resultsStmt = $run->getData(true);
@@ -520,9 +518,7 @@ class AdminRunController extends AdminController {
 		$run = $this->run;
 		$format = $this->request->str('format');
 		$SPR = new SpreadsheetReader();
-		if (!in_array($format, SpreadsheetReader::$exportFormats)) {
-			formr_error(400, 'Bad Request', 'Unsupported export format requested.');
-		}
+		SpreadsheetReader::verifyExportFormat($format);
 
 		/* @var $resultsStmt PDOStatement */
 		$resultsStmt = $run->getRandomGroups(); //@TODO unset run_name, unit_type, ended, position

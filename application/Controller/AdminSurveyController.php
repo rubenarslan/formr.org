@@ -401,6 +401,7 @@ class AdminSurveyController extends AdminController {
 
 		$study = $this->study;
 		$format = $this->request->str('format');
+		SpreadsheetReader::verifyExportFormat($format);
 
 		/* @var $resultsStmt PDOStatement */
 		$resultsStmt = $study->getItemDisplayResults(null, null, null, true);
