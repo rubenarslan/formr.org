@@ -20,14 +20,14 @@
 					<div class="box-body">
 						<div class="row">
 							<div class="col-md-4">
-								<a href="<?= admin_study_url($study->name, 'show_item_table') ?>" class="dashboard-link">
+								<a href="<?= admin_study_url($study->name, 'show_item_table?to=download') ?>" class="dashboard-link">
 									<span class="icon"><i class="fa fa-download"></i></span>
 									<span class="text">Download Items</span>
 								</a>
 							</div>
 
 							<div class="col-md-4">
-								<a href="<?= admin_study_url($study->name, 'show_item_table') ?>" class="dashboard-link">
+								<a href="<?= admin_study_url($study->name, 'show_item_table?to=show') ?>" class="dashboard-link">
 									<span class="icon"><i class="fa fa-th"></i></span>
 									<span class="text">Show Items</span>
 								</a>

@@ -26,7 +26,10 @@ class AdminSurveyController extends AdminController {
 		if (empty($this->study)) {
 			redirect_to(admin_url('survey/add_survey'));
 		}
-		$this->renderView('survey/index', array('survey_id' => $this->study->id));
+
+		$this->renderView('survey/index', array(
+			'survey_id' => $this->study->id,
+		));
 	}
 
 	public function listAction() {
@@ -188,7 +191,8 @@ class AdminSurveyController extends AdminController {
 		$vars = array(
 			'google_id' => $this->study->getGoogleFileId(),
 			'original_file' => $this->study->getOriginalFileName(),
-			'results' => $this->study->getItemsWithChoices()
+			'results' => $this->study->getItemsWithChoices(),
+			'shortcut' => $this->request->str('to', null)
 		);
 		if(empty($vars['results'])) {
 			alert("No valid item table uploaded so far.", 'alert-warning');
@@ -338,10 +342,11 @@ class AdminSurveyController extends AdminController {
 
 	private function renameStudyAction() {
 		$study = $this->study;
+		$new_name = $this->request->str('new_name');
 
-		if (isset($_POST['new_name']) && $_POST['new_name'] !== $study->name) {
+		if ($new_name && $new_name !== $study->name) {
 			$old_name = $study->name;
-			if($study->rename($_POST['new_name'])) {
+			if($study->rename($new_name)) {
 				alert("<strong>Success.</strong> Successfully renamed study from '{$old_name}' to {$study->name}.", 'alert-success');
 				redirect_to(admin_study_url($study->name, 'rename_study'));
 			}
@@ -396,6 +401,7 @@ class AdminSurveyController extends AdminController {
 
 		$study = $this->study;
 		$format = $this->request->str('format');
+		SpreadsheetReader::verifyExportFormat($format);
 
 		/* @var $resultsStmt PDOStatement */
 		$resultsStmt = $study->getItemDisplayResults(null, null, null, true);
