@@ -226,7 +226,7 @@ try {
 		if ($run->cron_fork) {
 			$script = dirname(__FILE__) . '/cron.php';
 			$stdout = get_log_file("cron/cron-run-{$run->name}.log");
-			$command = "php $script -n {$run->name} >> {$stdout} 2>&1 &";
+			$command = PHP_BINARY . " $script -n {$run->name} >> {$stdout} 2>&1 &";
 			cron_log("Execute Command Run: '{$command}'", $logfile);
 			exec($command, $output, $status);
 			if ($status != 0) {

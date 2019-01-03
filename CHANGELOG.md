@@ -2,6 +2,31 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.17.20] - 03.01.2019
+### Fixes
+https://github.com/rubenarslan/formr.org/issues/405
+https://github.com/rubenarslan/formr.org/issues/404
+https://github.com/rubenarslan/formr.org/issues/398
+https://github.com/rubenarslan/formr.org/issues/395
+https://github.com/rubenarslan/formr.org/issues/392
+https://github.com/rubenarslan/formr.org/issues/391
+https://github.com/rubenarslan/formr.org/issues/390
+https://github.com/rubenarslan/formr.org/issues/389
+https://github.com/rubenarslan/formr.org/issues/382
+
+## [0.17.18] - 21.09.2018
+### Fixes
+- https://github.com/rubenarslan/formr.org/issues/379
+- https://github.com/rubenarslan/formr.org/issues/332
+- https://github.com/rubenarslan/formr.org/issues/370
+- https://github.com/rubenarslan/formr.org/issues/347
+- https://github.com/rubenarslan/formr.org/issues/355
+- https://github.com/rubenarslan/formr.org/issues/378
+- https://github.com/rubenarslan/formr.org/issues/376
+- https://github.com/rubenarslan/formr.org/issues/374
+- https://github.com/rubenarslan/formr.org/issues/319
+- https://github.com/rubenarslan/formr.org/issues/292
+
 ## [0.17.14] - 14.06.2018
 ###  Added
 * Logout action for RUNs

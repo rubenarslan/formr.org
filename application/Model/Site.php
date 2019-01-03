@@ -130,10 +130,14 @@ class Site {
 		} else {
 			$mail->SMTPSecure = 'ssl';
 		}
-		$mail->SMTPAuth = true; // turn on SMTP authentication
-		$mail->Username = $settings['email']['username']; // SMTP username
-		$mail->Password = $settings['email']['password']; // SMTP password
-
+		if (isset($settings['email']['username'])) {
+			$mail->SMTPAuth = true; // turn on SMTP authentication
+			$mail->Username = $settings['email']['username']; // SMTP username
+			$mail->Password = $settings['email']['password']; // SMTP password
+		} else {
+			$mail->SMTPAuth = false;
+			$mail->SMTPSecure = false;
+		}
 		$mail->From = $settings['email']['from'];
 		$mail->FromName = $settings['email']['from_name'];
 		$mail->AddReplyTo($settings['email']['from'], $settings['email']['from_name']);

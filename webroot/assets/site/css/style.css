@@ -1346,6 +1346,7 @@ address, ul, ol, a {
 	width: 200px;
 	height: auto;
 	max-width: 100%;
+	margin: 0 auto;
 }
 .study-box {
 	height: 360px;

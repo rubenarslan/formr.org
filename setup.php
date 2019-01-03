@@ -1,4 +1,5 @@
 <?php
+define('FORMR_VERSION', 'v0.17.20');
 
 define('APPLICATION_ROOT', __DIR__ . '/');
 define('INCLUDE_ROOT', APPLICATION_ROOT);
@@ -35,7 +36,7 @@ if (php_sapi_name() != 'cli') {
 }
 
 // Set current formr version (bumped on release)
-$settings['version'] = 'v0.17.14';
+$settings['version'] = FORMR_VERSION;
 
 // Load application autoloader
 $autoloader = require_once APPLICATION_PATH . 'Library/Autoloader.php';

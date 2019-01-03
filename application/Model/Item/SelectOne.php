@@ -36,7 +36,7 @@ class SelectOne_Item extends Item {
 			$choices = explode(',', $choice);
 			$this->choices = array_combine($choices, $choices);
 		}
-
+		
 		$options = '';
 		foreach ($this->choices as $value => $option) {
 			// determine whether options needs to be checked
