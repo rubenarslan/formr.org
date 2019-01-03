@@ -901,7 +901,7 @@ function opencpu_define_vars(array $data, $context = null) {
 	// Set datasets
 	if (isset($data['datasets']) && is_array($data['datasets'])) {
 		foreach ($data['datasets'] as $data_frame => $content) {
-			$vars .= $data_frame . ' = as.data.frame(jsonlite::fromJSON("' . addslashes(json_encode($content, JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK)) . '"), stringsAsFactors=F)
+			$vars .= $data_frame . ' = as.data.frame(jsonlite::fromJSON("' . addslashes(json_encode($content, JSON_UNESCAPED_UNICODE)) . '"), stringsAsFactors=F)
 ';
 			if($context === $data_frame) {
 				$vars .= 'attach(tail(' . $context . ', 1))
@@ -1350,7 +1350,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 				else if (isset($params['text']) || $rtype === 'text') {
 					$debug['Response'] = stringBool($session->getObject('text'));
 				} else {
-					$debug['Response'] = pre_htmlescape(json_encode($session->getJSONObject(),  JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
+					$debug['Response'] = pre_htmlescape(json_encode($session->getJSONObject(),  JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE));
 				}
 			}
 
@@ -1651,4 +1651,43 @@ function do_run_shortcodes($text, $run_name, $sess_code) {
 	$text = str_replace(urlencode("{{logout_url}}"), $logout_url, $text);
 
 	return $text;
+}
+
+function factortosecs($value, $unit) {
+	$factors = array(
+		'seconds' => 1,
+		'minutes' => 60,
+		'hours' => 3600,
+		'days' => 86400,
+		'months' => 30 * 86400,
+		'years' => 365 * 86400,
+	);
+
+	if (isset($factors[$unit])) {
+		return $value * $factors[$unit];
+	} else {
+		return null;
+	}
+}
+
+function secstofactor($seconds) {
+	if (!$seconds) {
+		return null;
+	}
+
+	$factors = array(
+		'years' => 365 * 86400,
+		'months' => 30 * 86400,
+		'days' => 86400,
+		'hours' => 3600,
+		'minutes' => 60,
+		'seconds' => 1,
+	);
+	
+	foreach ($factors as $unit => $factor) {
+		if ($seconds % $factor === 0) {
+			return array($seconds / $factor, $unit);
+		}
+	}
+	return array($seconds, 'seconds');
 }

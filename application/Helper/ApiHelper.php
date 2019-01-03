@@ -303,7 +303,7 @@ class ApiHelper {
 	}
 
 	private function getSurveyResults(Survey $survey, $session = null, $requested_items = array()) {
-		$data = $survey->getItemDisplayResults($requested_items, $session);
+		$data = $survey->getItemDisplayResults($requested_items, array('session' => $session));
 		// Get requested item names to match by id
 		$select = $this->fdb->select('id, name')
 			->from('survey_items')

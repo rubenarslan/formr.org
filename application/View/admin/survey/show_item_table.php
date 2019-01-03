@@ -32,18 +32,28 @@
 
 						<div class="row">
 							<div class="col-md-4">
-								<a href="#" class="dashboard-link" data-toggle="modal" data-target="#download-items">
+								<a href="#" class="dashboard-link" data-toggle="modal" data-target="#download-items" data-click="<?= $shortcut === 'download' ?>">
 									<span class="icon"><i class="fa fa-download"></i></span>
 									<span class="text">Download Items</span>
 								</a>
 							</div>
 
 							<div class="col-md-4">
-								<a href="#" class="dashboard-link" data-toggle="modal" data-target="#show-items">
+								<a href="#" class="dashboard-link" data-toggle="modal" data-target="#show-items" data-click="<?= $shortcut === 'show' ?>">
 									<span class="icon"><i class="fa fa-th"></i></span>
 									<span class="text">Show Items</span>
 								</a>
 							</div>
+							
+							<?php if (!empty($google['id'])): ?>
+							<div class="col-md-4">
+								<a href="<?php echo $google['link']; ?>" class="dashboard-link" target="_blank">
+									<span class="icon"><i class="fa fa-google"></i></span>
+									<span class="text">Google Sheet</span>
+								</a>
+							</div>
+							<?php endif ?>
+							
 						</div>
 					</div>
 				</div>

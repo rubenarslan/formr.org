@@ -94,15 +94,25 @@ class RunSession {
 	}
 
 	public function getLastAccess() {
-		return $this->dbh->select('last_access')
-						->from('survey_run_sessions')
-						->where(array('id' => $this->id));
+		return $this->dbh->findValue('survey_run_sessions', array('id' => $this->id), array('last_access'));
 	}
 
 	public function setLastAccess() {
 		if (!$this->cron && (int)$this->id > 0) {
 			$this->dbh->update('survey_run_sessions', array('last_access' => mysql_now()), array('id' => (int)$this->id));
 		}
+	}
+
+	public function runAccessExpired() {
+		if (!$this->run || !($last_access = $this->getLastAccess())) {
+			return false;
+		}
+
+		if (($timestamp = strtotime($last_access)) && $this->run->expire_cookie) {
+			return $timestamp + $this->run->expire_cookie < time();
+		}
+
+		return false;
 	}
 
 	public function create($session = NULL, $testing = 0) {

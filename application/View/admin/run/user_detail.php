@@ -16,6 +16,19 @@
 				<div class="box box-primary">
 					<div class="box-header with-border">
 						<h3 class="box-title">Log of user activity</h3>
+                                                <div class="pull-right">
+                                                        <div class="dropdown"><a  href="#" data-toggle="dropdown" aria-expanded="false" class="btn btn-primary dropdown-toggle"><i class="fa fa-save"></i> Export User Overview</a>
+                                                                <ul class="dropdown-menu">
+                                                                        <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=csv'); ?>"><i class="fa fa-floppy-o"></i> Download CSV</a></li>
+                                                                        <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=csv_german'); ?>"><i class="fa fa-floppy-o"></i> Download German CSV</a></li>
+                                                                        <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=tsv'); ?>"><i class="fa fa-floppy-o"></i> Download TSV</a></li>
+                                                                        <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=xls'); ?>"><i class="fa fa-floppy-o"></i> Download XLS</a></li>
+                                                                        <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=xlsx'); ?>"><i class="fa fa-floppy-o"></i> Download XLSX</a></li>
+                                                                        <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=json'); ?>"><i class="fa fa-floppy-o"></i> Download JSON</a></li>
+                                                                </ul>
+                                                        </div>
+                                                </div>
+
 					</div>
 					<div class="box-body">
 						<h4>
@@ -57,39 +70,40 @@
 							<table class="table table-hover">
 								<thead>
 									<tr>
-										<?php
-										foreach (current($users) AS $field => $value) {
-											if ($field === 'created' || $field === 'ended' || $field === 'expired') {
-												continue;
-											}
-											echo "<th>{$field}</th>";
-										}
-										?>
+										<th>Unit in Run</th>
+										<th>Module Description</th>
+										<th>Session</th>
+										<th>Entered</th>
+										<th>Stayed</th>
+										<th>Left</th>
+										<th>Delete</th>
 									</tr>
 								</thead>
 								<tbody>
 									<?php
 									$last_ended = $last_user = $continued = $user_class = '';
 									// printing table rows
-									foreach ($users as $row) {
-										if ($row['Session'] !== $last_user) { // next user
+									foreach ($users as $row) :
+										if ($row['session'] !== $last_user) { // next user
 											$user_class = ($user_class == '') ? 'alternate' : '';
-											$last_user = $row['Session'];
+											$last_user = $row['session'];
 										} elseif (round((strtotime($row['created']) - $last_ended) / 30) == 0) { // same user
 											$continued = ' immediately_continued';
 										}
 										$last_ended = strtotime($row['created']);
-										unset($row['created'], $row['ended'], $row['expired']);
-
-
-										echo '<tr class="' . $user_class . $continued . '">';
-										$continued = '';
-										foreach ($row as $cell) {
-											echo "<td>$cell</td>";
-										}
-										echo "</tr>\n";
-									}
 									?>
+										<tr class="<?= $user_class . $continued ?>">
+											<td><?= $row['unit_type'] ?> <span class="hastooltip" title="position in run <?= $row['run_name']?>">(<?= $row['position'] ?>)</span></td>
+											<td><small><?= $row['description']?></small></td>
+											<td><small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="<?= h($row['session'])?>"><?= mb_substr($row['session'], 0, 10)?>…</abbr></small></td>
+											<td><small><?= $row['created']?></small></td>
+											<td><small title="<?= $row['stay_seconds']?> seconds"><?= timetostr(time() + $row['stay_seconds']) ?></small></td>
+											<td><small><?= $row['ended']?></small></td>
+											<td>
+												<a data-href="<?php echo admin_run_url($row['run_name'], 'ajax_delete_unit_session', array('session_id' => $row['session_id'])); ?>" href="javascript:void(0);" class="hastooltip delete-user-unit-session" title="<?= h($row['delete_title']) ?>"  data-msg="<?= h($row['delete_msg']) ?>" class="delete-user-unit-session"><i class="fa fa-trash"></i></a>
+											</td>
+										</tr>
+									<?php endforeach; ?>
 								</tbody>
 							</table>
 							<div class="pagination">
@@ -110,5 +124,5 @@
 	</section>
 	<!-- /.content -->
 </div>
-
+<?php Template::load('admin/run/run_modals', array('reminders' => !empty($reminders) ? $reminders : array())); ?>
 <?php Template::load('admin/footer'); ?>

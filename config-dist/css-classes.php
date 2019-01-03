@@ -45,6 +45,7 @@ $settings['css_classes'] = array(
 	"mc_width200",
 	"mc_equal_widths",
 	"mc_vertical",
+	"mc_horizontal",
 	"mc_block",
 	"mc_boxed",
 	"rotate_label30",

@@ -227,10 +227,11 @@ class Item {
 			$this->js_showif = preg_replace("/FALSE/", "false", $this->js_showif); // uppercase, R, FALSE, to lowercase, JS, false
 			$this->js_showif = preg_replace("/TRUE/", "true", $this->js_showif); // uppercase, R, TRUE, to lowercase, JS, true
 			$quoted_string = "([\"'])((\\\\{2})*|(.*?[^\\\\](\\\\{2})*))\\1";
-			$this->js_showif = preg_replace("/\s*\%contains\%\s*" . $quoted_string . "/", ".indexOf($1$2$1) > -1", $this->js_showif);
-			$this->js_showif = preg_replace("/\s*\%begins_with\%\s*" . $quoted_string . "/", ".indexOf($1$2$1) === 0", $this->js_showif);
-			$this->js_showif = preg_replace("/\s*\%starts_with\%\s*" . $quoted_string . "/", ".indexOf($1$2$1) === 0", $this->js_showif);
-			$this->js_showif = preg_replace("/\s*\%ends_with\%\s*" . $quoted_string . "/", ".endsWith($1$2$1)", $this->js_showif);
+			$this->js_showif = preg_replace("/\s*\%contains\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) > -1", $this->js_showif);
+			$this->js_showif = preg_replace("/\s*\%contains_word\%\s*" . $quoted_string . "/", ".toString().match(/\\b$2\\b/) !== null", $this->js_showif);
+			$this->js_showif = preg_replace("/\s*\%begins_with\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) === 0", $this->js_showif);
+			$this->js_showif = preg_replace("/\s*\%starts_with\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) === 0", $this->js_showif);
+			$this->js_showif = preg_replace("/\s*\%ends_with\%\s*" . $quoted_string . "/", ".toString().endsWith($1$2$1)", $this->js_showif);
 			$this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $this->js_showif);
 
 			if (strstr($this->showif, "//js_only") !== false) {

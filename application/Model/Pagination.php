@@ -61,45 +61,48 @@ class Pagination {
 	}
 
 	public function render($url) {
-		if ($this->maximum_page === 0):
+		if ($this->maximum_page === 0) {
 			return '';
-		else:
-			if (mb_substr($url, -1) != "&" AND mb_substr($url, -1) != "?") {
-				$url.="?";
-			}
+		}
 
-			$pages = range(0, $this->maximum_page); // all pages
-			if ($this->maximum_page > 15) {
-				$pagination_size = ' pagination-sm';
-			} elseif ($this->maximum_page < 5) {
-				$pagination_size = ' pagination-lg';
-			} else {
-				$pagination_size = '';
-			}
+		$params = $_GET;
+		unset($params['route']);
 
-			echo '<ul class="pagination' . $pagination_size . '">';
-			foreach ($pages as $page):
-				if ($page == $this->page) {
-					$active = ' class="active"';
-				} else {
-					$active = '';
-				}
-				$page++;
-				$link_text = $page;
-				echo "<li$active><a href='" . WEBROOT . "{$url}page=$page'>$link_text</a></li>";
-			endforeach;
+		$pages = range(0, $this->maximum_page); // all pages
+		if ($this->maximum_page > 15) {
+			$pagination_class = 'pagination pagination-sm';
+		} elseif ($this->maximum_page < 5) {
+			$pagination_class = 'pagination pagination-lg';
+		} else {
+			$pagination_class = 'pagination';
+		}
+		
+		$html = '
+			<ul class="%{pagination_class}">
+				%{pages}
+			</ul>
+		';
+		$ps = '';
+		
+		foreach ($pages as $page) {
+			$active = $page == $this->page ? ' class="active"' : null;
+			$page++;
+			$params['page'] = $page;
+			$href = site_url($url, $params);
+			$ps .= "<li {$active}><a href='{$href}'>{$page}</a></li>";
+		}
+			
+		if ($this->enable_show_all) {
+			$active = $this->page === -1 ? ' class="active"' : null;
+			$params['page'] = 0;
+			$href = site_url($url, $params);
+			$ps .= "<li {$active}><a href='{$href}'>Show all</a></li>";
+		}
 
-			if ($this->enable_show_all):
-				if ($this->page === -1) {
-					$active = ' class="active"';
-				} else {
-					$active = '';
-				}
-				echo "<li$active><a href='" . WEBROOT . "{$url}page=0'>Show all</a></li>";
-			endif;
-
-			echo '</ul>';
-		endif;
+		echo Template::replace($html, array(
+			'pagination_class' => $pagination_class,
+			'pages' => $ps,
+		));
 	}
 
 }

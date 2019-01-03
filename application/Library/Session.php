@@ -20,7 +20,7 @@ class Session {
 
 	protected static $httponly = true;
 	
-	const REQUEST_TOKENS = 'formr_request_tokens';
+	const REQUEST_TOKENS = '_formr_request_tokens';
 
 	public static function configure($config = array()) {
 		self::$lifetime = Config::get('session_cookie_lifetime');
@@ -40,9 +40,10 @@ class Session {
 	}
 
 	public static function destroy() {
-		setcookie(session_name(), '', time() - 3600);
+		setcookie(session_name(), '', time() - 3600, '/');
 		session_unset();
         session_destroy();
+		session_write_close();
 	}
 
 	public static function over() {

@@ -109,6 +109,9 @@ CREATE TABLE `osf` (
 CREATE TABLE `survey_users` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `user_code` char(64) CHARACTER SET latin1 COLLATE latin1_bin NOT NULL,
+  `first_name` varchar(50) DEFAULT NULL,
+  `last_name` varchar(50) DEFAULT NULL,
+  `affiliation` varchar(50) DEFAULT NULL,
   `created` datetime DEFAULT NULL,
   `modified` datetime DEFAULT NULL,
   `first_name` VARCHAR(50) NULL,

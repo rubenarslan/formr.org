@@ -829,9 +829,9 @@ class Survey extends RunUnit {
 				`survey_items_display`.answered')
 			->from('survey_items')
 			->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-			->where("survey_items.study_id = :study_id AND 
-				(survey_items_display.saved IS null) AND 
-				(survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)")
+			->where('(survey_items.study_id = :study_id) AND 
+				     (survey_items_display.saved IS null) AND 
+				     (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)')
 			->order('`survey_items_display`.`display_order`', 'asc')
 			->order('survey_items.`order`', 'asc') // only needed for transfer
 			->order('survey_items.id', 'asc');
@@ -866,7 +866,8 @@ class Survey extends RunUnit {
 
 		$this->dbh->beginTransaction();
 
-		$view_query = "UPDATE `survey_items_display`
+		$view_query = "
+			UPDATE `survey_items_display`
 			SET displaycount = COALESCE(displaycount,0) + 1, created = COALESCE(created, NOW())
 			WHERE item_id = :item_id AND session_id = :session_id";
 		$view_update = $this->dbh->prepare($view_query);
@@ -901,16 +902,35 @@ class Survey extends RunUnit {
 	}
 
 	protected function render_form_header($action = null) {
+		$cookie = Request::getGlobals('COOKIE');
 		$action = $action !== null ? $action : run_url($this->run_name);
 		$enctype = 'multipart/form-data'; # maybe make this conditional application/x-www-form-urlencoded
 
-		$ret = '<form action="' . $action . '" method="post" class="form-horizontal main_formr_survey' .
-				($this->settings['enable_instant_validation'] ? ' ws-validate' : '')
-				. '" accept-charset="utf-8" enctype="' . $enctype . '">';
+		$tpl = '
+			<form action="%{action}" method="post" class="%{class}" enctype="%{enctype}" accept-charset="utf-8">
+				<input type="hidden" name="session_id" value="%{session_id}" />
+				<input type="hidden" name="%{name_request_tokens}" value="%{request_tokens}" />
+				<input type="hidden" name="%{name_user_code}" value="%{user_code}" />
+				<input type="hidden" name="%{name_cookie}" value="%{cookie}" />
+				
+				<div class="row progress-container">
+					<div class="progress">
+						<div class="progress-bar" style="width: %{progress}%;" data-percentage-minimum="%{add_percentage_points}" data-percentage-maximum="%{displayed_percentage_maximum}" data-already-answered="%{already_answered}" data-items-left="%{not_answered_on_current_page}" data-items-on-page="%{items_on_page}" data-hidden-but-rendered="%{hidden_but_rendered}">
+							%{progress} %
+						</div>
+					</div>
+				</div>
 
-		/* pass on hidden values */
-		$ret .= '<input type="hidden" name="session_id" value="' . $this->session_id . '" />';
-		$ret .= '<input type="hidden" name="' . Session::REQUEST_TOKENS . '" value="' . h(Session::getRequestToken()) . '" />';
+				%{errors_tpl}
+		';
+
+		$errors_tpl = '
+			<div class="alert alert-danger alert-dismissible form-message fmr-error-messages">
+				<i class="fa fa-exclamation-triangle pull-left fa-2x"></i>
+				<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+				%{errors}
+			</div>
+		';
 
 		if (!isset($this->settings["displayed_percentage_maximum"]) OR $this->settings["displayed_percentage_maximum"] == 0) {
 			$this->settings["displayed_percentage_maximum"] = 100;
@@ -930,22 +950,29 @@ class Survey extends RunUnit {
 
 		$prog = round($prog);
 
-		$ret .= '
-			<div class="row progress-container">
-			<div class="progress">
-				  <div data-percentage-minimum="' . $this->settings["add_percentage_points"] . '" data-percentage-maximum="' . $this->settings["displayed_percentage_maximum"] . '" data-already-answered="' . $this->progress_counts['already_answered'] . '" data-items-left="' . $this->progress_counts['not_answered_on_current_page'] . '" data-items-on-page="' . ($this->progress_counts['not_answered'] - $this->progress_counts['not_answered_on_current_page']) . '" data-hidden-but-rendered="' . $this->progress_counts['hidden_but_rendered_on_current_page'] . '" class="progress-bar" style="width: ' . $prog . '%;">' . $prog . '%</div>
-			</div>
-			</div>';
+		$tpl_vars = array(
+			'action' => $action,
+			'class' => 'form-horizontal main_formr_survey' . ($this->settings['enable_instant_validation'] ? ' ws-validate' : ''),
+			'enctype' => $enctype,
+			'session_id' => $this->session_id,
+			'name_request_tokens' => Cookie::REQUEST_TOKENS,
+			'name_user_code' => Cookie::REQUEST_USER_CODE,
+			'name_cookie' => Cookie::REQUEST_NAME,
+			'request_tokens' => $cookie->getRequestToken(),
+			'user_code' => h($cookie->getData('code')),
+			'cookie' => $cookie->getFile(),
+			'progress' => $prog,
+			'add_percentage_points' => $this->settings["add_percentage_points"],
+			'displayed_percentage_maximum' => $this->settings["displayed_percentage_maximum"],
+			'already_answered' => $this->progress_counts['already_answered'],
+			'not_answered_on_current_page' => $this->progress_counts['not_answered_on_current_page'],
+			'items_on_page' => $this->progress_counts['not_answered'] - $this->progress_counts['not_answered_on_current_page'],
+			'hidden_but_rendered' => $this->progress_counts['hidden_but_rendered_on_current_page'],
 
-		if (!empty($this->validation_errors)) {
-			$ret .= '<div class="alert alert-danger alert-dismissible form-message fmr-error-messages">'
-						. '<i class="fa fa-exclamation-triangle pull-left fa-2x"></i>'
-						. '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>'
-						. $this->render_errors($this->validation_errors) . 
-					'</div>';
-		}
+			'errors_tpl' => !empty($this->validation_errors) ? Template::replace($errors_tpl, array('errors' => $this->render_errors($this->validation_errors))) : null,
+		);
 
-		return $ret;
+		return Template::replace($tpl, $tpl_vars);
 	}
 
 	protected function render_items() {
@@ -965,7 +992,7 @@ class Survey extends RunUnit {
 		if (isset($item) && ($item->type !== "submit" || $item->hidden)) {
 			$sub_sets = array(
 				'label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!',
-				'class_input' => 'btn-info default_formr_button',
+				'classes_input' => array('btn-info default_formr_button'),
 			);
 			$item = new Submit_Item($sub_sets);
 			$ret .= $item->render();
@@ -975,7 +1002,7 @@ class Survey extends RunUnit {
 	}
 
 	protected function render_form_footer() {
-		return "</form>"; /* close form */
+		return '</form>';
 	}
 
 	/**
@@ -1008,9 +1035,10 @@ class Survey extends RunUnit {
 
 
 	public function end() {
-		$ended = $this->dbh->exec(
-				"UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null", array('session_id' => $this->session_id, 'study_id' => $this->id)
-		);
+		$query = "UPDATE `{$this->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
+		$params = array('session_id' => $this->session_id, 'study_id' => $this->id);
+		$ended = $this->dbh->exec($query, $params);
+
 		return parent::end();
 	}
 
@@ -1074,8 +1102,9 @@ class Survey extends RunUnit {
 		// @todo Do same for other run units
 		try {
 			$request = new Request($_POST);
+			$cookie = Request::getGlobals('COOKIE');
 			//check if user session has a valid form token for POST requests
-			if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
+			if (Request::isHTTPPostRequest() && $cookie && !$cookie->canValidateRequestToken($request)) {
 				redirect_to(run_url($this->run_name));
 			}
 			$this->startEntry();
@@ -1285,21 +1314,20 @@ class Survey extends RunUnit {
 	/* ADMIN functions */
 
 	public function checkName($name) {
-		if ($name == "") {
+		if (!$name) {
 			alert(_("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored."), 'alert-danger');
 			return false;
-		}
-		elseif (!preg_match($this->study_name_pattern, $name)) {
+		} elseif (!preg_match($this->study_name_pattern, $name)) {
 			alert('<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from a to Z, 0 to 9 and the underscore. It needs to start with a letter. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>.', 'alert-danger');
 			return false;
-		}
-		else {
+		} else {
 			$study_exists = $this->dbh->entry_exists('survey_studies', array('name' => $name, 'user_id' => $this->unit['user_id']));
 			if ($study_exists) {
 				alert(__("<strong>Error:</strong> The survey name %s is already taken.", h($name)), 'alert-danger');
 				return false;
 			}
 		}
+
 		return true;
 	}
 
@@ -1688,7 +1716,7 @@ class Survey extends RunUnit {
 		if ($whereIn) {
 			$select->whereIn($whereIn['field'], $whereIn['values']);
 		}
-		$select->order("`survey_items`.item_order");
+		$select->order("order");
 		return $select->fetchAll();
 	}
 
@@ -1709,7 +1737,7 @@ class Survey extends RunUnit {
 		return $results;
 	}
 
-	public function getResults($items = null, $session = null, array $paginate = null, $runId = null, $rstmt = false) {
+	public function getResults($items = null, $filter = null, array $paginate = null, $runId = null, $rstmt = false) {
 		if ($this->resultsTableExists()) {
 			ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
@@ -1764,12 +1792,14 @@ class Survey extends RunUnit {
 				$select->limit($paginate['limit'], $paginate['offset']);
 			}
 
-			if (!empty($paginate['filter']['session'])) {
-				$session = $paginate['filter']['session'];
+			if (!empty($filter['session'])) {
+				$session = $filter['session'];
+				strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
 			}
 
-			if ($session !== null) {
-				strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
+			if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
+				$res_where = Template::replace($res_filter['query'], array('table' => $results_table));
+				$select->where($res_where);
 			}
 
 			$stmt = $select->statement();
@@ -1798,7 +1828,7 @@ class Survey extends RunUnit {
 	 * @param boolean $rstmt If TRUE, PDOStament will be returned instead
 	 * @return array|PDOStatement
 	 */
-	public function getItemDisplayResults($items = array(), $session = null, array $paginate = null, $rstmt = false) {
+	public function getItemDisplayResults($items = array(), $filter = null, array $paginate = null, $rstmt = false) {
 		ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
 		$count = $this->getResultCount();
@@ -1839,6 +1869,7 @@ class Survey extends RunUnit {
 			$select->whereIn('survey_items.name', $items);
 		}
 
+		$session = array_val($filter, 'session', null);
 		if ($session) {
 			if(strlen($session) == 64) {
 				$select->where("survey_run_sessions.session = :session");
@@ -1858,6 +1889,74 @@ class Survey extends RunUnit {
 		}
 		return $select->fetchAll();
 	}
+
+	public function getResultsByItemsPerSession($items = array(), $filter = null, array $paginate = null, $rstmt = false) {
+		if($this->settings['unlinked']) {
+			return array();
+		}
+		ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
+
+		$filter_select = $this->dbh->select('session_id');
+		$filter_select->from($this->results_table);
+		$filter_select->leftJoin('survey_unit_sessions', "{$this->results_table}.session_id = survey_unit_sessions.id");
+		$filter_select->leftJoin('survey_run_sessions', 'survey_unit_sessions.run_session_id = survey_run_sessions.id');
+
+		if (!empty($filter['session'])) {
+			$session = $filter['session'];
+			strlen($session) == 64 ? $filter_select->where("survey_run_sessions.session = '$session'") : $filter_select->like('survey_run_sessions.session', $session, 'right');
+		}
+
+		if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
+			$res_where = Template::replace($res_filter['query'], array('table' => $this->results_table));
+			$filter_select->where($res_where);
+		}
+		$filter_select->order('session_id');
+		if ($paginate && isset($paginate['offset'])) {
+			$filter_select->limit($paginate['limit'], $paginate['offset']);
+		}
+		$stmt = $filter_select->statement();
+		$session_ids = '';
+		while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+			$session_ids .= "{$row['session_id']},";
+		}
+		$session_ids = trim($session_ids, ',');
+
+		$select = $this->dbh->select("
+		`survey_run_sessions`.session,
+		`survey_items_display`.`session_id` as `unit_session_id`,
+		`survey_items`.`name` as `item_name`,
+		`survey_items_display`.`item_id`,
+		`survey_items_display`.`answer`,
+		`survey_items_display`.`created`,
+		`survey_items_display`.`saved`,
+		`survey_items_display`.`shown`,
+		`survey_items_display`.`shown_relative`,
+		`survey_items_display`.`answered`,
+		`survey_items_display`.`answered_relative`,
+		`survey_items_display`.`displaycount`,
+		`survey_items_display`.`display_order`,
+		`survey_items_display`.`hidden`");
+
+		$select->from('survey_items_display')
+			->leftJoin('survey_unit_sessions', 'survey_unit_sessions.id = survey_items_display.session_id')
+			->leftJoin('survey_run_sessions', 'survey_run_sessions.id = survey_unit_sessions.run_session_id')
+			->leftJoin('survey_items', 'survey_items.id = survey_items_display.item_id')
+			->where('survey_items.study_id = :study_id')
+			->where('survey_items_display.session_id IN ('.$session_ids.')')
+			->order('survey_items_display.session_id')	
+			->order('survey_items_display.display_order')
+			->bindParams(array('study_id' => $this->id));
+
+		if ($items) {
+			$select->whereIn('survey_items.name', $items);
+		}
+
+		if ($rstmt === true) {
+			return $select->statement();
+		}
+		return $select->fetchAll();
+	}
+
 	/**
 	 * Get Results from the item display table
 	 *
@@ -1948,31 +2047,41 @@ class Survey extends RunUnit {
 		}
 	}
 
-	public function getResultCount($run_id = null) {
-		if($this->result_count === null):
-			$results_table = $this->results_table;
-			if ($this->resultsTableExists()):
-				$select = $this->dbh->select(array(
-							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS null)" => 'begun',
-							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS NOT NULL)" => 'finished',
-							"SUM(`survey_run_sessions`.`testing` IS NULL OR `survey_run_sessions`.`testing` = 1)" => 'testers',
-							"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0)" => 'real_users'
-						))->from($results_table)
-						->leftJoin('survey_unit_sessions', "survey_unit_sessions.id = {$results_table}.session_id")
-						->leftJoin('survey_run_sessions', "survey_unit_sessions.run_session_id = survey_run_sessions.id");
-
-				if ($run_id) {
-					$select->where("survey_run_sessions.run_id = {$run_id}");
-				}
-
-				$count = $select->fetch();
-				return $count;
-			else:
-				return array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
-			endif;
-		else:
+	public function getResultCount($run_id = null, $filter = array()) {
+		// If there is no filter and results have been saved in a previous operation then that
+		if ($this->result_count !== null && !$filter) {
 			return $this->result_count;
-		endif;
+		}
+		
+		$count = array('finished' => 0, 'begun' => 0, 'testers' => 0, 'real_users' => 0);
+		if ($this->resultsTableExists()) {
+			$results_table = $this->results_table;
+			$select = $this->dbh->select(array(
+				"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS null)" => 'begun',
+				"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0 AND `{$results_table}`.ended IS NOT NULL)" => 'finished',
+				"SUM(`survey_run_sessions`.`testing` IS NULL OR `survey_run_sessions`.`testing` = 1)" => 'testers',
+				"SUM(`survey_run_sessions`.`testing` IS NOT NULL AND `survey_run_sessions`.`testing` = 0)" => 'real_users'
+			))->from($results_table)
+			  ->leftJoin('survey_unit_sessions', "survey_unit_sessions.id = {$results_table}.session_id")
+			  ->leftJoin('survey_run_sessions', "survey_unit_sessions.run_session_id = survey_run_sessions.id");
+
+			if ($run_id) {
+				$select->where("survey_run_sessions.run_id = {$run_id}");
+			}
+			if (!empty($filter['session'])) {
+				$session = $filter['session'];
+				strlen($session) == 64 ? $select->where("survey_run_sessions.session = '$session'") : $select->like('survey_run_sessions.session', $session, 'right');
+			}
+
+			if (!empty($filter['results']) && ($res_filter = $this->getResultsFilter($filter['results']))) {
+				$res_where = Template::replace($res_filter['query'], array('table' => $results_table));
+				$select->where($res_where);
+			}
+
+			$count = $select->fetch();
+		}
+
+		return $count;
 	}
 
 	public function getAverageTimeItTakes() {
@@ -2060,7 +2169,7 @@ class Survey extends RunUnit {
 			<p>" . (int) $resultCount['finished'] . " complete <a href='" . admin_study_url($this->name, 'show_results') . "'>results</a>, " . (int) $resultCount['begun'] . " begun <abbr class='hastooltip' title='Median duration participants needed to complete the survey'>(in ~{$time}m)</abbr>
 			</p>
 			<p class='btn-group'>
-					<a class='btn btn-default' href='" . admin_study_url($this->name, 'show_item_table') . "'>View items</a>
+					<a class='btn btn-default' href='" . admin_study_url($this->name, 'show_item_table?to=show') . "'>View items</a>
 					<a class='btn btn-default' href='" . admin_study_url($this->name, 'upload_items') . "'>Upload items</a>
 			</p>";
 			$dialog .= '<br><p class="btn-group">
@@ -2148,5 +2257,24 @@ class Survey extends RunUnit {
 
 	public function getGoogleFileId() {
 		return $this->dbh->findValue('survey_studies', array('id' => $this->id), 'google_file_id');
+	}
+
+	public function getResultsFilter($f = null) {
+		$filter = array(
+			'all' => array(
+				'title' => 'Show All',
+				'query' => null,
+			),
+			'incomplete' => array(
+				'title' => 'Incomplete',
+				'query' => '(%{table}.created <> %{table}.modified or %{table}.modified is null) and %{table}.ended is null',
+			),
+			'complete' => array(
+				'title' => 'Complete',
+				'query' => '%{table}.ended is not null',
+			),
+		);
+
+		return $f !== null ? array_val($filter, $f, null) : $filter;
 	}
 }

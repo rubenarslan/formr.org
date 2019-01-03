@@ -363,16 +363,12 @@
             $this.toggleClass('btn-checked', on);
             run.lock(on ? true : false, run.form);
 
-            $.ajax(
-                    {
-                        url: $this.attr('href'),
-                        dataType: "html",
-                        method: 'POST',
-                        data: {
-                            on: on
-                        }
-                    })
-                    .fail(ajaxErrorHandling);
+            $.ajax({
+                url: $this.attr('href'),
+                dataType: "html",
+                method: 'POST',
+                data: {on: on }
+            }).fail(ajaxErrorHandling);
             return false;
         });
 
@@ -484,7 +480,7 @@
             $modal.find('.confirm-export').click(function (e) {
                 var export_name = $.trim($modal.find('input[name=export_name]').val());
                 // If the export name is not valid, no need
-                var pattern = /^[a-z0-9_\s]+$/i;
+                var pattern = /^[a-z0-9-\s]+$/i;
                 if (!export_name || !pattern.test(export_name)) {
                     bootstrap_alert("Enter a valid export name", "Export name invalid.", '.run_export_before_alert');
                     return false;
@@ -629,13 +625,18 @@
         }
     };
     Run.prototype.lock = function (on, context) {
-        context.find('.import_run_units, .run_unit_description, .position, .remove_unit_from_run, .reorder_units, .unit_save, .form-control, select, .from_days, .add_run_unit').each(function (i, elm)
-        {
-            if (on)
-            {
+		var units = this.units;
+		for (var i in units) {
+			if (units[i].editor) {
+				units[i].editor.setReadOnly(on);
+			}
+		}
 
-                if (elm.onclick)
-                {
+        var $elements = context.find('.import_run_units, .run_unit_description, .position, .remove_unit_from_run, .reorder_units, .unit_save, .form-control, select, .from_days, .add_run_unit');
+		$elements.each(function(i, elm) {
+			if (on) {
+				$('#run-unit-choices').hide();
+                if (elm.onclick)  {
                     elm.onclick_disabled = elm.onclick;
                     elm.onclick = function (e) {
                         e.preventDefault();
@@ -644,17 +645,20 @@
                 }
                 $(elm).attr('data-old_disabled', $(elm).attr('disabled'));
                 $(elm).attr('disabled', 'disabled');
-            } else // if enabled, set back to default
-            {
-                if (elm.onclick_disabled) // if there was a default
+            } else {
+				$('#run-unit-choices').show();
+				// if enabled, set back to default
+                if (elm.onclick_disabled) {
+					// if there was a default
                     elm.onclick = elm.onclick_disabled;
-                if ($(elm).attr('data-old-disabled') && $(elm).attr('data-old-disabled') !== '')
+				}
+                if ($(elm).attr('data-old-disabled') && $(elm).attr('data-old-disabled') !== '') {
                     $(elm).attr('disabled', $(elm).attr('data-old-disabled'));
-                else
+				} else {
                     $(elm).removeAttr('disabled');
+				}
             }
-
-        });
+		});
     };
 
     Run.prototype.publicToggle = function (e) {
