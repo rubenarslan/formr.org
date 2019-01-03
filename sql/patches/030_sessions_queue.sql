@@ -9,4 +9,4 @@ ALTER TABLE `survey_sessions_queue`
   ADD PRIMARY KEY (`unit_session_id`), 
   ADD KEY `run_session_id` (`run_session_id`,`unit_id`);
 
-ALTER TABLE `survey_unit_sessions` ADD `queueable` TINYINT UNSIGNED NOT NULL DEFAULT '1' , ADD INDEX (`queueable`) ;
+# ALTER TABLE `survey_unit_sessions` ADD `queueable` TINYINT UNSIGNED NOT NULL DEFAULT '1' , ADD INDEX (`queueable`) ;

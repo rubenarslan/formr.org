@@ -40,6 +40,8 @@ class Queue {
 	 */
 	protected $sleep = 15;
 
+	protected $logFile = 'queue.log';
+
 	protected static $dbg;
 
 	protected static $name = 'Formr-Queue';
@@ -74,7 +76,7 @@ class Queue {
 			echo $str;
 			return;
 		}
-		return error_log($str, 3, get_log_file('email-queue.log'));
+		return error_log($str, 3, get_log_file($this->logFile));
 	}
 
 	protected function rested() {

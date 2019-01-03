@@ -33,6 +33,8 @@ class EmailQueue extends Queue {
 	 */
 	protected $itemTries;
 
+	protected $logFile = 'email-queue.log';
+
 	protected static $name = 'Email-Queue';
 
 	public function __construct(DB $db, array $config) {

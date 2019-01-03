@@ -1022,7 +1022,7 @@ class Run {
 	}
 
 	public function getCookieName() {
-		return sprintf('formr_run_session_%s', $this->id);
+		return sprintf('FRS_%s', $this->id);
 	}
 
 }
