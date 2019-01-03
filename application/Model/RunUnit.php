@@ -4,6 +4,17 @@ class RunUnitFactory {
 
 	protected $supported = array('Survey', 'Pause', 'Email', 'External', 'Page', 'SkipBackward', 'SkipForward', 'Shuffle');
 
+	/**
+	 * Create a RunUnit object based on supported types
+	 *
+	 * @param DB $dbh
+	 * @param string $session
+	 * @param array $unit
+	 * @param RunSession $run_session
+	 * @param Run $run
+	 * @return RunUnit
+	 * @throws Exception
+	 */
 	public function make($dbh, $session, $unit, $run_session = NULL, $run = NULL) {
 		if (empty($unit['type'])) {
 			$unit['type'] = 'Survey';
@@ -815,6 +826,19 @@ plot(cars)
 		);
 
 		return array_val($defaults, $type, array());
+	}
+
+	public function addToWorkerQueue(UnitSession $unitSession) {
+		$helper = RunUnitHelper::getInstance();
+		if ($expires = (int)$helper->getUnitSessionExpiration($this->type, $unitSession, $this)) {
+			$q = array(
+				'unit_session_id' => $unitSession->id,
+				'run_session_id' => $unitSession->run_session_id,
+				'unit_id' => $this->id,
+				'expires' => $expires,
+			);
+			$this->dbh->insert_update('survey_sessions_queue', $q, array('expires'));
+		}
 	}
 
 }

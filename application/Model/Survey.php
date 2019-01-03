@@ -275,7 +275,7 @@ class Survey extends RunUnit {
 			</div> <!-- end of col-md-12 div -->
 		</div> <!-- end of row div -->
 		';
-		$this->dbh = null;
+		//$this->dbh = null;
 		return $ret;
 	}
 

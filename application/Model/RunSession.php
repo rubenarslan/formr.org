@@ -17,7 +17,7 @@ class RunSession {
 	public $run_name;
 	public $run_owner_id;
 	public $run;
-	public $unit_session;
+	public $unit_session = false;
 	private $cron = false;
 	private $is_testing = false;
 	private $test_run = false;
@@ -166,12 +166,13 @@ class RunSession {
 				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this, $this->run);
 				$this->current_unit_type = $unit->type;
 				$output = $unit->exec();
+				$queued = $unit->addToWorkerQueue($this->unit_session);
 
 				if (!$output && is_object($unit)) {
 					if (!isset($done[$unit->type])) {
 						$done[$unit->type] = 1;
 					}
-					$done[$unit->type] ++;
+					$done[$unit->type]++;
 				}
 			} else {
 				if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
@@ -282,10 +283,11 @@ class RunSession {
 	}
 
 	public function getUnitSession() {
-		if($this->getCurrentUnit()) {
-			return $this->unit_session;
+		if (!$this->unit_session) {
+			$this->getCurrentUnit();
 		}
-		return false;
+
+		$this->unit_session;
 	}
 
 	public function runToNextUnit() {

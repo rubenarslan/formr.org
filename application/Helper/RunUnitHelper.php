@@ -1,7 +1,7 @@
 <?php
 
 
-class UnitSessionHelper {
+class RunUnitHelper {
 
 	/**
 	 *
@@ -9,8 +9,25 @@ class UnitSessionHelper {
 	 */
 	protected $db;
 
-	public function __construct(DB $db) {
+	/**
+	 *
+	 * @var RunUnitHelper 
+	 */
+	protected static $instance = null;
+
+	protected function __construct(DB $db) {
 		$this->db = $db;
+	}
+
+	/**
+	 * @return RunUnitHelper
+	 */
+	public static function getInstance() {
+		if (self::$instance === null) {
+			self::$instance = new self(DB::getInstance());
+		}
+
+		return self::$instance;
 	}
 
 	public function getUnitSessionExpiration($unitType, UnitSession $unitSession, RunUnit $runUnit) {
