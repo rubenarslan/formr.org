@@ -23,7 +23,7 @@ class SelectOrAddOne_Item extends Item {
 			if (count($this->type_options_array) > 1) {
 				$this->maxSelect = trim(next($this->type_options_array));
 			}
-			if (!isset($this->maxSelect) OR ! is_numeric($this->maxSelect)) {
+			if (!isset($this->maxSelect) || !is_numeric($this->maxSelect)) {
 				$this->maxSelect = 0;
 			}
 		}
@@ -47,8 +47,8 @@ class SelectOrAddOne_Item extends Item {
 		}
 
 		$this->input_attributes['data-select2add'] = json_encode($for_select2, JSON_UNESCAPED_UNICODE);
-		$this->input_attributes['data-select2maximumSelectionSize'] = (int) $this->maxSelect;
-		$this->input_attributes['data-select2maximumInputLength'] = (int) $this->maxType;
+		$this->input_attributes['data-select2maximum-selection-size'] = (int) $this->maxSelect;
+		$this->input_attributes['data-select2maximum-input-length'] = (int) $this->maxType;
 	}
 
 	protected function chooseResultFieldBasedOnChoices() {

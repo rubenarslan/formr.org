@@ -389,7 +389,7 @@ class SurveyHelper {
 	protected function processAutomaticItems($items) {
 		$hiddenItems = array();
 		foreach ($items as $name => $item) {
-			if (!$item->requiresUserInput() && !$item->needsDynamicValue()) {
+			if (!$item->needsDynamicValue() && !$item->requiresUserInput()) {
 				$hiddenItems[$name] = $item->getComputedValue();
 				//unset($items[$name]);
 				continue;

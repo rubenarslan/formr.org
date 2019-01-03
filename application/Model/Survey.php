@@ -1314,21 +1314,20 @@ class Survey extends RunUnit {
 	/* ADMIN functions */
 
 	public function checkName($name) {
-		if ($name == "") {
+		if (!$name) {
 			alert(_("<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. The name has to at least 2, at most 64 characters long. It needs to start with a letter. No dots, no spaces, no dashes, no umlauts please. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>, but they will be ignored."), 'alert-danger');
 			return false;
-		}
-		elseif (!preg_match($this->study_name_pattern, $name)) {
+		} elseif (!preg_match($this->study_name_pattern, $name)) {
 			alert('<strong>Error:</strong> The study name (the name of the file you uploaded) can only contain the characters from a to Z, 0 to 9 and the underscore. It needs to start with a letter. The file can have version numbers after a dash, like this <code>survey_1-v2.xlsx</code>.', 'alert-danger');
 			return false;
-		}
-		else {
+		} else {
 			$study_exists = $this->dbh->entry_exists('survey_studies', array('name' => $name, 'user_id' => $this->unit['user_id']));
 			if ($study_exists) {
 				alert(__("<strong>Error:</strong> The survey name %s is already taken.", h($name)), 'alert-danger');
 				return false;
 			}
 		}
+
 		return true;
 	}
 
@@ -2170,7 +2169,7 @@ class Survey extends RunUnit {
 			<p>" . (int) $resultCount['finished'] . " complete <a href='" . admin_study_url($this->name, 'show_results') . "'>results</a>, " . (int) $resultCount['begun'] . " begun <abbr class='hastooltip' title='Median duration participants needed to complete the survey'>(in ~{$time}m)</abbr>
 			</p>
 			<p class='btn-group'>
-					<a class='btn btn-default' href='" . admin_study_url($this->name, 'show_item_table') . "'>View items</a>
+					<a class='btn btn-default' href='" . admin_study_url($this->name, 'show_item_table?to=show') . "'>View items</a>
 					<a class='btn btn-default' href='" . admin_study_url($this->name, 'upload_items') . "'>Upload items</a>
 			</p>";
 			$dialog .= '<br><p class="btn-group">
