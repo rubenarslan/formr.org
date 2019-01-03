@@ -318,8 +318,8 @@ class CURL {
 			touch($tmpfile, $last_modified);
 		}
 
-		$res = rename($tmpfile, $output_file);
-		if ($res !== true) {
+		$rename = rename($tmpfile, $output_file);
+		if ($rename !== true) {
 			throw new Exception("Unable to rename temporary file");
 		}
 	}

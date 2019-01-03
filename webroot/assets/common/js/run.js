@@ -480,7 +480,7 @@
             $modal.find('.confirm-export').click(function (e) {
                 var export_name = $.trim($modal.find('input[name=export_name]').val());
                 // If the export name is not valid, no need
-                var pattern = /^[a-z0-9_\s]+$/i;
+                var pattern = /^[a-z0-9-\s]+$/i;
                 if (!export_name || !pattern.test(export_name)) {
                     bootstrap_alert("Enter a valid export name", "Export name invalid.", '.run_export_before_alert');
                     return false;
