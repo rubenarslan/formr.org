@@ -31,7 +31,7 @@ class RunController extends Controller {
 		// OR if cookie is expired then logout
 		$this->user = $this->loginUser();
 
-		Request::setGlobals('COOKIE', $this->setRunCookie());
+		//Request::setGlobals('COOKIE', $this->setRunCookie());
 
 		$run_vars = $this->run->exec($this->user);
 		$run_vars['bodyClass'] = 'fmr-run';
@@ -53,7 +53,7 @@ class RunController extends Controller {
 		if (Request::isHTTPGetRequest() && ($code = $this->request->getParam('code'))) {
 			$_GET['run_name'] = $run_name;
 			$this->user = $this->loginUser();
-			Request::setGlobals('COOKIE', $this->setRunCookie());
+			//Request::setGlobals('COOKIE', $this->setRunCookie());
 
 			if ($this->user->user_code != $code) {
 				alert('Unable to login with the provided code', 'alert-warning');
@@ -236,19 +236,23 @@ class RunController extends Controller {
 		return $cookie;
 	}
 
-	protected function loginUser() {		
+	protected function loginUser() {
+		$id = null;
+
 		// came here with a login link
 		if (isset($_GET['run_name']) && isset($_GET['code']) && strlen($_GET['code']) == 64) {
 			// user came in with login code
 			$loginCode = $_GET['code'];
-		} elseif (($cookie = $this->getRunCookie()) && $cookie->exists() && $cookie->getData('code')) {
+		//} elseif (($cookie = $this->getRunCookie()) && $cookie->exists() && $cookie->getData('code')) {
+		} elseif ($user = Site::getInstance()->getSessionUser()) {
 			// try to get user from cookie
-			$loginCode = $cookie->getData('code');
+			$loginCode = $user->user_code;
+			$id = $user->id;
 		} else {
 			// new user just entering the run;
 			$loginCode = null;
 		}
-		return new User($this->fdb, null, $loginCode);
+		return new User($this->fdb, $id, $loginCode);
 	}
 
 

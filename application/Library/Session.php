@@ -21,6 +21,8 @@ class Session {
 	protected static $httponly = true;
 	
 	const REQUEST_TOKENS = '_formr_request_tokens';
+	const REQUEST_USER_CODE = '_formr_code';
+	const REQUEST_NAME = '_formr_cookie';
 
 	public static function configure($config = array()) {
 		self::$lifetime = Config::get('session_cookie_lifetime');

@@ -902,7 +902,7 @@ class Survey extends RunUnit {
 	}
 
 	protected function render_form_header($action = null) {
-		$cookie = Request::getGlobals('COOKIE');
+		//$cookie = Request::getGlobals('COOKIE');
 		$action = $action !== null ? $action : run_url($this->run_name);
 		$enctype = 'multipart/form-data'; # maybe make this conditional application/x-www-form-urlencoded
 
@@ -955,12 +955,12 @@ class Survey extends RunUnit {
 			'class' => 'form-horizontal main_formr_survey' . ($this->settings['enable_instant_validation'] ? ' ws-validate' : ''),
 			'enctype' => $enctype,
 			'session_id' => $this->session_id,
-			'name_request_tokens' => Cookie::REQUEST_TOKENS,
-			'name_user_code' => Cookie::REQUEST_USER_CODE,
-			'name_cookie' => Cookie::REQUEST_NAME,
-			'request_tokens' => $cookie->getRequestToken(),
-			'user_code' => h($cookie->getData('code')),
-			'cookie' => $cookie->getFile(),
+			'name_request_tokens' => Session::REQUEST_TOKENS,
+			'name_user_code' => Session::REQUEST_USER_CODE,
+			'name_cookie' => Session::REQUEST_NAME,
+			'request_tokens' => Session::getRequestToken(), //$cookie->getRequestToken(),
+			'user_code' => h(Site::getCurrentUser()->user_code), //h($cookie->getData('code')),
+			'cookie' => '', //$cookie->getFile(),
 			'progress' => $prog,
 			'add_percentage_points' => $this->settings["add_percentage_points"],
 			'displayed_percentage_maximum' => $this->settings["displayed_percentage_maximum"],
@@ -1104,7 +1104,10 @@ class Survey extends RunUnit {
 			$request = new Request($_POST);
 			$cookie = Request::getGlobals('COOKIE');
 			//check if user session has a valid form token for POST requests
-			if (Request::isHTTPPostRequest() && $cookie && !$cookie->canValidateRequestToken($request)) {
+			//if (Request::isHTTPPostRequest() && $cookie && !$cookie->canValidateRequestToken($request)) {
+			//	redirect_to(run_url($this->run_name));
+			//}
+			if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
 				redirect_to(run_url($this->run_name));
 			}
 			$this->startEntry();
