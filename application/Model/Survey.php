@@ -1436,6 +1436,7 @@ class Survey extends RunUnit {
 			//$unchanged = array_intersect_assoc($old_items, $new_items);
 			$added = array_diff_assoc($new_items, $old_items);
 			$deleted = array_diff_assoc($old_items, $new_items);
+			$maintained = array_diff_assoc($old_items, $deleted);
 			$unused = $this->item_factory->unusedChoiceLists();
 			if ($unused) {
 				$this->warnings[] = __("These choice lists were not used: '%s'", implode("', '", $unused));
@@ -1482,7 +1483,7 @@ class Survey extends RunUnit {
 			} else {
 				// this will never happen if deletion was not confirmed, because this would raise an error
 				// 2 and 4a
-				$merge = $this->alterResultsTable($added, $deleted);
+				$merge = $this->alterResultsTable($added, $deleted, $maintained);
 				if(!$merge) {
 					throw new Exception('Required modifications could not be made to the survey results table');
 				}
@@ -2169,10 +2170,13 @@ class Survey extends RunUnit {
 	 *
 	 * @param array $newItems
 	 * @param array $deleteItems
+	 * @param array $maintainedItems
 	 * @return bool;
 	 */
-	private function alterResultsTable(array $newItems, array $deleteItems) {
-		$actions = $toAdd = $toDelete = $deleteQuery = $addQuery = array();
+	private function alterResultsTable(array $newItems, array $deleteItems, array $maintainedItems) {
+		//ALTER TABLE `s883_DualFeedBack` CHANGE `tick` `tick` TINYINT(3) UNSIGNED NULL DEFAULT NULL;
+		$actions = $toAdd = $toDelete = array();
+		$deleteQuery = $addQuery = $maintainQuery = array();
 		$addQ = $delQ = null;
 		
 		// just for safety checking that there is something to be deleted (in case of aborted earlier tries)
@@ -2192,7 +2196,13 @@ class Survey extends RunUnit {
 			}
 			$toAdd[] = $name;
 		}
-		
+		// create query for modifying maintained items
+		foreach($maintainedItems as $name => $result_field) {
+			if ($result_field !== null) {
+				$maintainQuery[] = " CHANGE `{$name}` $result_field";
+			}
+		}
+
 		// prepare these strings for feedback
 		$added_columns_string =  implode($toAdd, ", ");
 		$deleted_columns_string =  implode($toDelete, ", ");
@@ -2200,18 +2210,23 @@ class Survey extends RunUnit {
 		
 		// if something should be deleted
 		if ($deleteQuery) {
-			$delQ = "ALTER TABLE `{$this->results_table}`" . implode(',', $deleteQuery);
-			$this->dbh->query($delQ);
+			$q = "ALTER TABLE `{$this->results_table}`" . implode(',', $deleteQuery);
+			$this->dbh->query($q);
 			$actions[] = "Deleted columns: $deleted_columns_string.";
 		}
 		
 		// we only get here if the deletion stuff was harmless, allowed or did not happen
 		if ($addQuery) {
-			$addQ = "ALTER TABLE `{$this->results_table}`" . implode(',', $addQuery);
-			$this->dbh->query($addQ);
+			$q = "ALTER TABLE `{$this->results_table}`" . implode(',', $addQuery);
+			$this->dbh->query($q);
 			$actions[] = "Added columns: $added_columns_string.";
 		}
-		
+
+		if ($maintainQuery) {
+			$q = "ALTER TABLE `{$this->results_table}`" . implode(',', $maintainQuery);
+			$this->dbh->query($q);
+		}
+
 		if(!empty($actions)) {
 			$this->messages[] = "<strong>The results table was modified.</strong>";
 			$this->messages = array_merge($this->messages, $actions);

@@ -270,9 +270,9 @@ class Item {
 		if ($len == count(array_filter($choices, 'is_numeric'))) {
 			$this->mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
 
-			$min = isset($this->input_attributes['min']) ? $this->input_attributes['min'] : min($choices);
-			$max = isset($this->input_attributes['max']) ? $this->input_attributes['max'] : max($choices);
-
+			$min = min($choices);
+			$max = max($choices);
+			
 			if ($min < 0) {
 				$this->mysql_field = str_replace('UNSIGNED ', '', $this->mysql_field);
 			}
