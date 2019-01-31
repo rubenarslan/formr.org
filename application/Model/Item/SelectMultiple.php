@@ -6,7 +6,7 @@
 class SelectMultiple_Item extends SelectOne_Item {
 
 	public $type = 'select_multiple';
-	public $mysql_field = 'VARCHAR (40) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(40) DEFAULT NULL';
 
 	protected function chooseResultFieldBasedOnChoices() {
 		$choices = array_keys($this->choices);
