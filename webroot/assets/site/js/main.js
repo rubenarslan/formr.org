@@ -125,6 +125,21 @@
         });
     };
 
+	var resizeRmarkdowniFrame = function() {
+		function rmarkdown_iframe() {
+			if (isiPhone() || isiPad()) {
+				var $win = $(window);
+				$('.rmarkdown_iframe').css({
+					width: $win.width(),
+					height: $win.height()
+				});
+			}
+		}
+
+		rmarkdown_iframe();
+		$(window).bind('resize', rmarkdown_iframe);
+	};
+
     var material = function() {
         if ($.material) {
             $.material.init();
@@ -182,6 +197,7 @@
         goToTop();
         material();
         runContainer();
+		resizeRmarkdowniFrame();
 		(new Account()).init();
     });
 
