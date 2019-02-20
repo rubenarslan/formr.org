@@ -136,8 +136,9 @@
 			}
 		}
 
-		rmarkdown_iframe();
-		$(window).bind('resize', rmarkdown_iframe);
+		$(window).bind('resize', function() {
+			setTimeout(rmarkdown_iframe, 500);
+		}).trigger('resize');
 	};
 
     var material = function() {
