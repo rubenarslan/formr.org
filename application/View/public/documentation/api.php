@@ -127,29 +127,40 @@ The response to a results request is a JSON object. The keys of this JSON struct
 </pre>
 
 <h4>Using the formr API in R</h4>
+<pre><code class="r">
+# load the httr package
+library(httr)
 
-<pre><code class="r"># install formr library, you only need to do this once and for updates
-devtools::install_github("rubenarslan/formr")
-# load the library to the R work space, you need to do this each session
-library(formr)
-# connect to the API with your client_id and client_secret
-# you only need to do this once per session if you don't need longer than one hour
-formr_api_access_token(client_id = "your_id", client_secret = "your_secret" )
-# To get the results row for a specific user, do the following
-results = formr_api_results(list(
-	run = list(
-		name = "rotation",  # for which run do you want results
-		sessions = c("joyousCoyoteXXXLk5ByctNPryS4k-5JqZJYE19HwFhPu4FFk8beIHoBtyWniv46") # and for which user
-	),
-	surveys = list(
-		rotation_exercise = c("exercise_1", "exercise_2"),
-		rotation_exercise2 = c("exercise2_1", "exercise2_2"),
-	)
-))
-# Now you can e.g. do:
-rotex = results$rotation_exercise
-rotex[, c("exercise_1","exercise_2")]
-# to read the documentation in the R package, do e.g.
-?formr_api_results
-</code>
-</pre>
+# Login using your client ID and client Secret to get an access token
+login <- list( # define login credentials
+  client_id = "bb472xxxxxxxxe1918",
+  client_secret = "zEfgeyJ0eXXXXXEwYwNGZj",
+  grant_type = "client_credentials"
+)
+request <- POST( # send POST request
+  "https://api.formr.org/oauth/access_token",
+  body = login, 
+  encode = "form"
+)
+# parse response to get access token
+# If there an error then the response object would contain the details of the error in response$error
+response <- content(request)
+access_token <- response$access_token
+
+#With a valid access token, call API to get the results of a particular study (run)
+query <- list(
+  access_token = access_token,
+  "run[name]" = "/enter run name here/",
+  "run[session]" = "/here you can specify a full session code or just a substring(but include the beginning /",
+  "surveys[survey_1]" = "item_1, item_2, item_etc.", # comma separated list of items to get from the survey or leave empty string to get all items
+  "surveys[survey_2]" = "item_3, item_4, item_etc."
+)
+request <- GET("https://api.formr.org/get/results", query=query)
+results <- content(request)
+
+# With a valid response you can, for example, extract the results of a particular survey say 'survey_1':
+survey_1 = results$survey_1
+survey_1[, c("item_1","item_2")]
+</code></pre>
+
+
