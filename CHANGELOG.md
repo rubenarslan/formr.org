@@ -2,6 +2,9 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.17.21] - 25.02.2019
+* Minor bug fixes
+
 ## [0.17.20] - 03.01.2019
 ### Fixes
 https://github.com/rubenarslan/formr.org/issues/405
