@@ -1413,11 +1413,12 @@ class Survey extends RunUnit {
 		// Get old choice lists for getting old items
 		$choice_lists = $this->getChoices();
 		$this->item_factory = new ItemFactory($choice_lists);
-
+		
 		// Get old items, mark them as false meaning all are vulnerable for delete.
 		// When the loop over survey items ends you will know which should be deleted.
 		$old_items = array();
 		$old_items_in_results = array();
+
 		foreach ($this->getItems() as $item) {
 			if (($object = $this->item_factory->make($item)) !== false) {
 				$old_items[$item['name']] = $object->getResultField();
@@ -1429,11 +1430,10 @@ class Survey extends RunUnit {
 
 		try {
 			$this->dbh->beginTransaction();
-			$data = $this->createSurveyStmt();
+			$data = $this->addItems();
 			$new_items = $data['new_items'];
 			$result_columns = $data['result_columns'];
-			
-			//$unchanged = array_intersect_assoc($old_items, $new_items);
+
 			$added = array_diff_assoc($new_items, $old_items);
 			$deleted = array_diff_assoc($old_items, $new_items);
 			$unused = $this->item_factory->unusedChoiceLists();
@@ -1443,11 +1443,11 @@ class Survey extends RunUnit {
 
 			// If there are items to delete, check if user confirmed deletion and if so check if back up succeeded
 			if(count($deleted) > 0) {
-				if($this->doWeHaveRealData() && !$this->confirmed_deletion) {
+				if($this->realDataExists() && !$this->confirmed_deletion) {
 					$deleted_columns_string =  implode(array_keys($deleted), ", ");
-					$this->errors[] = "<strong>No permission to delete data</strong>. Enter the survey name, if you are okay with data being deleted from the following columns: " . $deleted_columns_string;
+					$this->errors[] = "<strong>No permission to delete data</strong>. Enter the survey name, if you are okay with data being deleted from the following items: " . $deleted_columns_string;
 				}
-				if($this->doWeHaveRealData() && $this->confirmed_deletion && !$this->backupResults($old_items_in_results)) {
+				if($this->realDataExists() && $this->confirmed_deletion && !$this->backupResults($old_items_in_results)) {
 					$this->errors[] = "<strong>Back up failed.</strong> Deletions would have been necessary, but backing up the item table failed, so no modification was carried out.</strong>";
 				}
 			}
@@ -1467,7 +1467,7 @@ class Survey extends RunUnit {
 			}
 			
 			// we start fresh if it's a new creation, no results table exist or it is completely empty
-			if ($this->created_new || !$this->resultsTableExists() || !$this->doWeHaveAnyDataAtAll()) {
+			if ($this->created_new || !$this->resultsTableExists() || !$this->dataExists()) {
 				if($this->created_new && $this->resultsTableExists()) {
 					throw new Exception("Results table name conflict. This shouldn't happen. Please alert the formr admins");
 				}
@@ -1506,7 +1506,7 @@ class Survey extends RunUnit {
 	 * @see createSurvey()
 	 * @return array array(new_items, result_columns)
 	 */
-	protected function createSurveyStmt() {
+	protected function addItems() {
 		// Save new choices and re-build the item factory
 		$this->addChoices();
 		$choice_lists = $this->getChoices();
@@ -1963,7 +1963,7 @@ class Survey extends RunUnit {
 		return $select->fetchAll();
 	}
 	
-	protected function doWeHaveAnyDataAtAll($min = 0) {
+	protected function dataExists($min = 0) {
 		$this->result_count = $this->getResultCount();
 		if(($this->result_count["real_users"] + $this->result_count['testers']) > 0) {
 			return true;
@@ -1972,7 +1972,7 @@ class Survey extends RunUnit {
 		}
 	}
 
-	protected function doWeHaveRealData($min = 0) {
+	protected function realDataExists($min = 0) {
 		$this->result_count = $this->getResultCount();
 		if($this->result_count["real_users"] > 1) {
 			return true;
@@ -2002,7 +2002,7 @@ class Survey extends RunUnit {
 
 	public function backupResults($itemNames = null) {
 		$this->result_count = $this->getResultCount();
-		if ($this->doWeHaveRealData()) {
+		if ($this->realDataExists()) {
 			$this->messages[] = __("<strong>Backed up.</strong> The old results were backed up in a file (%s results)", array_sum($this->result_count));
 			
 			$filename = $this->results_table . date('YmdHis') . ".tab";
@@ -2172,11 +2172,12 @@ class Survey extends RunUnit {
 	 * @return bool;
 	 */
 	private function alterResultsTable(array $newItems, array $deleteItems) {
-		$actions = $toAdd = $toDelete = $deleteQuery = $addQuery = array();
+		$actions = $toAdd = $toDelete = array();
+		$deleteQuery = $addQuery = array();
 		$addQ = $delQ = null;
 		
 		// just for safety checking that there is something to be deleted (in case of aborted earlier tries)
-		$existingColumns = $this->dbh->getTableDefinition($this->results_table, 'Field'); 
+		$existingColumns = $this->dbh->getTableDefinition($this->results_table, 'Field');
 
 		// Create query to drop items in existing table
 		foreach ($deleteItems as $name => $result_field) {
@@ -2192,7 +2193,7 @@ class Survey extends RunUnit {
 			}
 			$toAdd[] = $name;
 		}
-		
+
 		// prepare these strings for feedback
 		$added_columns_string =  implode($toAdd, ", ");
 		$deleted_columns_string =  implode($toDelete, ", ");
@@ -2200,18 +2201,18 @@ class Survey extends RunUnit {
 		
 		// if something should be deleted
 		if ($deleteQuery) {
-			$delQ = "ALTER TABLE `{$this->results_table}`" . implode(',', $deleteQuery);
-			$this->dbh->query($delQ);
+			$q = "ALTER TABLE `{$this->results_table}`" . implode(',', $deleteQuery);
+			$this->dbh->query($q);
 			$actions[] = "Deleted columns: $deleted_columns_string.";
 		}
 		
 		// we only get here if the deletion stuff was harmless, allowed or did not happen
 		if ($addQuery) {
-			$addQ = "ALTER TABLE `{$this->results_table}`" . implode(',', $addQuery);
-			$this->dbh->query($addQ);
+			$q = "ALTER TABLE `{$this->results_table}`" . implode(',', $addQuery);
+			$this->dbh->query($q);
 			$actions[] = "Added columns: $added_columns_string.";
 		}
-		
+
 		if(!empty($actions)) {
 			$this->messages[] = "<strong>The results table was modified.</strong>";
 			$this->messages = array_merge($this->messages, $actions);

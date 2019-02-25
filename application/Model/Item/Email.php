@@ -7,7 +7,7 @@ class Email_Item extends Text_Item {
 
 	public $type = 'email';
 	public $input_attributes = array('type' => 'email', 'maxlength' => 255);
-	public $mysql_field = 'VARCHAR (255) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(255) DEFAULT NULL';
 
 	protected $prepend = 'fa-envelope';
 
