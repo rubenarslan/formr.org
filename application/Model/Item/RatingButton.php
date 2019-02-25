@@ -36,11 +36,12 @@ class RatingButton_Item extends McButton_Item {
 		 * So get labels from choice list which should be gotten from last item in options array
 		 */
 		// force step to be a non-zero positive number less than or equal to upper limit
-		if ($this->step <= 0 || $this->step > $this->upper_limit) {
-			$this->step = $this->upper_limit;
+		$step = $this->step;
+		if ($this->upper_limit < $this->lower_limit && $step > 0) {
+			$step = -1 * $this->step;
 		}
 
-		$choices = @range($this->lower_limit, $this->upper_limit, $this->step);
+		$choices = @range($this->lower_limit, $this->upper_limit, $step);
 		if ($choices && is_array($choices)) {
 			$this->choices = array_combine($choices, $choices);
 		}
