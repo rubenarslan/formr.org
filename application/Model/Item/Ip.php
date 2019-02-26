@@ -4,7 +4,7 @@ class Ip_Item extends Item {
 
 	public $type = 'ip';
 	public $input_attributes = array('type' => 'hidden');
-	public $mysql_field = 'VARCHAR (46) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(46) DEFAULT NULL';
 	public $no_user_input_required = true;
 	public $optional = 1;
 

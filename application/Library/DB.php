@@ -533,6 +533,10 @@ class DB {
 	}
 
 	public function getTableDefinition($table, $property = null) {
+		if (!$this->table_exists($table)) {
+			return array();
+		}
+
 		$query = "SHOW COLUMNS FROM `$table`";
 		$stmt = $this->PDO->query($query);
 		$cols = $stmt->fetchAll(PDO::FETCH_ASSOC);
