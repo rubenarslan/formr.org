@@ -2,7 +2,7 @@
 
 class McMultipleButton_Item extends McMultiple_Item {
 
-	public $mysql_field = 'VARCHAR (40) DEFAULT NULL';
+	public $mysql_field = 'VARCHAR(40) DEFAULT NULL';
 	public $type = "mc_multiple_button";
 	protected $js_hidden = true;
 
