@@ -89,13 +89,13 @@ The following requirements should be installed on the system you intend to insta
 	* php-xml
 	* php-gd
 	* php-intl
-	* pandoc (not needed in devel branch for libsodium23)
+	* pandoc (not needed in `develop` branch for libsodium23)
 * Apache >= 2.4
 * MySQL / MariaDB >= 5.6
 * [Composer](https://getcomposer.org/) (for installing dependencies)
 * [The Sodium crypto library (Libsodium)](https://paragonie.com/book/pecl-libsodium/read/00-intro.md#installing-libsodium)
 	* The repository version of libsodium is currently incompatible to formR. Use [these instructions](https://github.com/paragonie/halite/issues/48) to set it up.
-	* The Branch devel supports libsodium23 v1.0.16 which is the default version on most current distributions.
+	* The Branch `develop` supports libsodium23 v1.0.16 which is the default version on most current distributions.
 * [Gearman](http://gearman.org/) (Server + Client) *OPTIONAL* (for running background jobs)
 * [Supervisor](http://supervisord.org/) *OPTIONAL*
 * [smysqlin](https://bitbucket.org/cyriltata/smysqlin) *OPTIONAL* (for managing database patches)
@@ -158,8 +158,8 @@ At this point you should have your formr files present in the installation direc
 ```sh
     composer install
 ```
-	
- 
+
+
 #### 2. Create an empty MySQL database
 
 Login to mysql server with a user that has appropriate privileges and execute these commands to create the database
