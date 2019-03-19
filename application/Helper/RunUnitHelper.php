@@ -153,8 +153,31 @@ class RunUnitHelper {
 		}
 	}
 
-	public function getPauseExpiration() {
+	/**
+	 * Get expiration timestamp for Pause Run Unit
+	 *
+	 * @param UnitSession $unitSession
+	 * @param Pause $runUnit
+	 * @param mixed $execResults
+	 * @return int
+	 */
+	public function getPauseExpiration(UnitSession $unitSession, Pause $runUnit, $execResults) {
+		$execData = $runUnit->execData;
+		if (!empty($execData['pause_over'])) {
+			// pause is over no need to queue
+			return 0;
+		}
+
+		if ($execData['check_failed'] === true || $execData['expire_relatively'] === false) {
+			// check again in x minutes something went wrong with ocpu evaluation
+			return strtotime($this->expiration_extension);
+		}
 		
+		if (isset($runUnit->execData['expire_timestamp'])) {
+			return $runUnit->execData['expire_timestamp'];
+		}
+
+		return 0;
 	}
 
 	/**

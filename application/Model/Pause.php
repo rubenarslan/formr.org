@@ -151,11 +151,18 @@ class Pause extends RunUnit {
 	}
 
 	protected function checkWhetherPauseIsOver() {
+		$this->execData['check_failed'] = false;
+		$this->execData['expire_relatively'] = null;
+
 		// if a relative_to has been defined by user or automatically, we need to retrieve its value
 		if ($this->has_relative_to) {
 			$opencpu_vars = $this->getUserDataInRun($this->relative_to);
 			$result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
+			pr($this->relative_to);
+			pr($result);
+			echo '<br>=====<br>';
 			if ($result === null) {
+				$this->execData['check_failed'] = true;
 				return false;
 			}
 			$this->relative_to_result = $relative_to = $result;
@@ -168,21 +175,27 @@ class Pause extends RunUnit {
 			// if no wait minutes but a relative to was defined, we just use this as the param (useful for complex R expressions)
 			if ($relative_to === true) {
 				$conditions['relative_to'] = '1=1';
+				$this->execData['expire_relatively'] = true;
 			} elseif ($relative_to === false) {
 				$conditions['relative_to'] = '0=1';
+				$this->execData['expire_relatively'] = false;
 			} elseif (!is_array($relative_to) && strtotime($relative_to)) {
 				$conditions['relative_to'] = ':relative_to <= NOW()';
 				$bind_relative_to = true;
+				$this->execData['expire_timestamp'] = strtotime($relative_to);
 			} else {
 				alert("Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. " . print_r($relative_to, true), 'alert-warning');
+				$this->execData['check_failed'] = true;
 				return false;
 			}
 		} elseif ($this->has_wait_minutes) {
 			if (!is_array($relative_to) && strtotime($relative_to)) {
 				$conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
 				$bind_relative_to = true;
+				$this->execData['expire_timestamp'] = strtotime($relative_to) + ($this->wait_minutes * 60);
 			} else {
 				alert("Pause {$this->position}: Relative to yields neither a date, nor a time. " . print_r($relative_to, true), 'alert-warning');
+				$this->execData['check_failed'] = true;
 				return false;
 			}
 		}
@@ -204,6 +217,9 @@ class Pause extends RunUnit {
 		}
 
 		if (!empty($wait_date) && !empty($wait_time)) {
+			$wait_datetime = $wait_date . ' ' . $wait_time;
+			$this->execData['expire_timestamp'] = strtotime($wait_datetime);
+			
 			// Check if this unit already expired today for current run_session_id
 			$q = '
 				SELECT 1 AS finished FROM `survey_unit_sessions`
@@ -215,10 +231,10 @@ class Pause extends RunUnit {
 			$stmt->bindValue(':run_session_id', $this->run_session_id);
 			$stmt->execute();
 			if ($stmt->rowCount() > 0) {
+				$this->execData['expire_timestamp'] = strtotime('+1 day', $this->execData['expire_timestamp']);
 				return false;
 			}
 
-			$wait_datetime = $wait_date . ' ' . $wait_time;
 			$conditions['datetime'] = ':wait_datetime <= NOW()';
 		}
 
@@ -242,6 +258,8 @@ class Pause extends RunUnit {
 		} else {
 			$result = true;
 		}
+
+		$this->execData['pause_over'] = $result;
 
 		return $result;
 	}
