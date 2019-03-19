@@ -166,7 +166,11 @@ class RunSession {
 				$unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this, $this->run);
 				$this->current_unit_type = $unit->type;
 				$output = $unit->exec();
-				$queued = $unit->addToWorkerQueue($this->unit_session);
+
+				//@TODO check whether output is set or NOT
+				if ($this->unit_session->id) {
+					$queued = $this->unit_session->addToWorkerQueue($unit, $output);
+				}
 
 				if (!$output && is_object($unit)) {
 					if (!isset($done[$unit->type])) {
