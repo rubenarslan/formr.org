@@ -158,9 +158,7 @@ class Pause extends RunUnit {
 		if ($this->has_relative_to) {
 			$opencpu_vars = $this->getUserDataInRun($this->relative_to);
 			$result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
-			pr($this->relative_to);
-			pr($result);
-			echo '<br>=====<br>';
+
 			if ($result === null) {
 				$this->execData['check_failed'] = true;
 				return false;
@@ -260,7 +258,6 @@ class Pause extends RunUnit {
 		}
 
 		$this->execData['pause_over'] = $result;
-
 		return $result;
 	}
 
