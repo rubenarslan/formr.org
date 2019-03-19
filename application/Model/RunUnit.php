@@ -828,17 +828,4 @@ plot(cars)
 		return array_val($defaults, $type, array());
 	}
 
-	public function addToWorkerQueue(UnitSession $unitSession) {
-		$helper = RunUnitHelper::getInstance();
-		if ($expires = (int)$helper->getUnitSessionExpiration($this->type, $unitSession, $this)) {
-			$q = array(
-				'unit_session_id' => $unitSession->id,
-				'run_session_id' => $unitSession->run_session_id,
-				'unit_id' => $this->id,
-				'expires' => $expires,
-			);
-			$this->dbh->insert_update('survey_sessions_queue', $q, array('expires'));
-		}
-	}
-
 }
