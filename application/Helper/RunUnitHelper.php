@@ -15,6 +15,8 @@ class RunUnitHelper {
 	 */
 	protected static $instance = null;
 
+	protected $expiration_extension = '+10 minutes'; //@todo configure this
+
 	protected function __construct(DB $db) {
 		$this->db = $db;
 	}
@@ -30,17 +32,106 @@ class RunUnitHelper {
 		return self::$instance;
 	}
 
-	public function getUnitSessionExpiration($unitType, UnitSession $unitSession, RunUnit $runUnit) {
-		$method = sprintf('get%sExpiration', $unitType);
-		return call_user_func(array($this, $method), $unitSession, $runUnit);
+	/**
+	 * Wrapper function
+	 *
+	 * @param UnitSession $unitSession
+	 * @param RunUnit $runUnit
+	 * @param mixed $execResults
+	 * @return int
+	 */
+	public function getUnitSessionExpiration(UnitSession $unitSession, RunUnit $runUnit, $execResults) {
+		$method = sprintf('get%sExpiration', $runUnit->type);
+		return call_user_func(array($this, $method), $unitSession, $runUnit, $execResults);
 	}
 
-	public function getSurveyExpiration(UnitSession $unitSession, Survey $survey) {
+	/**
+	 * Get expiration timestamp for External Run Unit
+	 * If the results from executing the unit is TRUE then we queue the unit to be executed again after x minutes.
+	 * Other wise 0 should be returned because unit ended after execution
+	 *
+	 * @param UnitSession $unitSession
+	 * @param External $external
+	 * @param mixed $execResults
+	 * @return int
+	 */
+	public function getExternalExpiration(UnitSession $unitSession, External $external, $execResults) {
+		if ($execResults === true) {
+			// set expiration to x minutes for unit session to be executed again
+			return strtotime($this->expiration_extension);
+		}
+		return 0;
+	}
+
+	/**
+	 * Get expiration timestamp for Email Run Unit
+	 * This should always return 0 because email-sending is managed in separate queue
+	 *
+	 * @param UnitSession $unitSession
+	 * @param Email $email
+	 * @param mixed $execResults
+	 * @return int
+	 */
+	public function getEmailExpiration(UnitSession $unitSession, Email $email, $execResults) {
+		return 0;
+	}
+
+	/**
+	 * Get expiration timestamp for Shuffle Run Unit
+	 * This should always return 0 because a shuffle unit ends immediately after execution
+	 *
+	 * @param UnitSession $unitSession
+	 * @param Shuffle $shuffle
+	 * @param mixed $execResults
+	 * @return int
+	 */
+	public function getShuffleExpiration(UnitSession $unitSession, Shuffle $shuffle, $execResults) {
+		return 0;
+	}
+
+	/**
+	 * Get expiration timestamp for Page Run Unit
+	 * Does not need to be executed in intervals so no need to queue.
+	 *
+	 * @param UnitSession $unitSession
+	 * @param Page $page
+	 * @param mixed $execResults
+	 * @return int
+	 */
+	public function getPageExpiration(UnitSession $unitSession, Page $page, $execResults) {
+		return 0;
+	}
+
+	/**
+	 * 
+	 * @see self::getPageExpiration()
+	 */
+	public function getStopExpiration(UnitSession $unitSession, $page, $execResults) {
+		return $this->getPageExpiration($unitSession, $page, $execResults);
+	}
+
+	/**
+	 * 
+	 * @see self::getPageExpiration()
+	 */
+	public function getEndpageExpiration(UnitSession $unitSession, $page, $execResults) {
+		return $this->getPageExpiration($unitSession, $page, $execResults);
+	}
+
+	/**
+	 * Get expiration timestamp for Survey Run Unit
+	 * 
+	 * @param UnitSession $unitSession
+	 * @param Survey $survey
+	 * @param mixed $execResults
+	 * @return int
+	 */
+	public function getSurveyExpiration(UnitSession $unitSession, Survey $survey, $execResults) {
 		$expire_invitation = (int) $survey->settings['expire_invitation_after'];
 		$grace_period = (int) $survey->settings['expire_invitation_grace'];
 		$expire_inactivity = (int) $survey->settings['expire_after'];
 		if ($expire_inactivity === 0 && $expire_invitation === 0) {
-			return false;
+			return 0;
 		} else {
 			$now = time();
 
@@ -62,39 +153,38 @@ class RunUnitHelper {
 		}
 	}
 
-	public function getExternalExpiration() {
-		
-	}
-
-	public function getEmailExpiration() {
-		return null;
-	}
-
-	public function getSkipBackwardExpiration() {
-		
-	}
-
-	public function getSkipForwardExpiration() {
-		
-	}
-
-	public function getShuffleExpiration() {
-		
-	}
-
 	public function getPauseExpiration() {
 		
 	}
 
-	public function getPageExpiration() {
-		
+	/**
+	 * Get expiration timestamp for Branch (SkipForward | SkipBackward) Run Unit
+	 * 
+	 * @param UnitSession $unitSession
+	 * @param Branch $runUnit
+	 * @param mixed $execResults
+	 * @return int
+	 */
+	public function getBranchExpiration(UnitSession $unitSession, Branch $runUnit, $execResults) {
+		if ($execResults === true) {
+			// set expiration to x minutes for unit session to be executed again
+			return strtotime($this->expiration_extension);
+		}
+		return 0;
 	}
 
-	public function getStopExpiration() {
-		return $this->getPageExpiration();
+	/**
+	 * @see getBranchExpiration
+	 */
+	public function getSkipBackwardExpiration(UnitSession $unitSession, Branch $runUnit, $execResults) {
+		return $this->getBranchExpiration($unitSession, $runUnit, $execResults);
 	}
 
-	public function getEndpageExpiration() {
-		return $this->getPageExpiration();
+	/**
+	 * @see getBranchExpiration
+	 */
+	public function getSkipForwardExpiration(UnitSession $unitSession, Branch $runUnit, $execResults) {
+		return $this->getBranchExpiration($unitSession, $runUnit, $execResults);
 	}
+	
 }
