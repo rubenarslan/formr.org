@@ -112,7 +112,16 @@ class RunUnit {
 	 * @var DB
 	 */
 	protected $dbh;
-	
+
+	/**
+	 * To hold temporary data gathered during unit execution.
+	 * This data can then be used after execution e.g. during queueing.
+	 * 
+	 * @var array
+	 */
+	public $execData = array();
+
+
 	public function __construct($fdb, $session = null, $unit = null, $run_session = null, $run = NULL) {
 		$this->dbh = $fdb;
 		$this->session = $session;
