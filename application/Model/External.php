@@ -87,7 +87,7 @@ class External extends RunUnit {
 	}
 	
 	private function isAddress($address) {
-		return ! $this->isR($address);
+		return !$this->isR($address);
 	}
 
 	private function makeAddress($address) {
@@ -150,14 +150,12 @@ class External extends RunUnit {
 			$opencpu_vars = $this->getUserDataInRun($this->address);
 			$result = opencpu_evaluate($this->address, $opencpu_vars);
 
-			if ($result=== null) {
+			if ($result === null) {
 				return true; // don't go anywhere, wait for the error to be fixed!
-			}
-			elseif($result === FALSE) {
+			} elseif($result === false) {
 				$this->end();
 				return false; // go on, no redirect
-			} 
-			elseif($this->isAddress($result) ) {
+			} elseif($this->isAddress($result)) {
 				$goto = $result;
 			}
 		} else { // the simplest case, just an address
@@ -166,7 +164,7 @@ class External extends RunUnit {
 		
 		// replace the code placeholder, if any
 		$goto = $this->makeAddress($goto);
-		
+
 		// never redirect if we're just in the cron job
 		if (!$this->called_by_cron) {
 			// sometimes we aren't able to control the other end
