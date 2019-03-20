@@ -19,6 +19,7 @@ class RunUnitHelper {
 
 	protected function __construct(DB $db) {
 		$this->db = $db;
+		$this->expiration_extension = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
 	}
 
 	/**

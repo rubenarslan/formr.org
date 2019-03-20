@@ -79,8 +79,10 @@ class UnitSession {
 				'run_session_id' => $this->run_session_id,
 				'unit_id' => $runUnit->id,
 				'expires' => $expires,
+				'run' => $runUnit->run->name,
+				'counter' => 1,
 			);
-			$this->dbh->insert_update('survey_sessions_queue', $q, array('expires'));
+			$this->dbh->insert_update('survey_sessions_queue', $q, array('expires', 'counter' => '::counter + 1'));
 		}
 
 	}

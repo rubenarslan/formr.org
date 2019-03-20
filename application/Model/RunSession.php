@@ -168,13 +168,14 @@ class RunSession {
 				$output = $unit->exec();
 
 				//@TODO check whether output is set or NOT
-				if ($this->unit_session->id) {
+				$queue = $this->unit_session->id && !$unit->ended && !$unit->expired;
+				if ($queue) {
 					$queued = $this->unit_session->addToWorkerQueue($unit, $output);
 				}
 
 				if (!$output && is_object($unit)) {
 					if (!isset($done[$unit->type])) {
-						$done[$unit->type] = 1;
+						$done[$unit->type] = 0;
 					}
 					$done[$unit->type]++;
 				}
@@ -268,7 +269,7 @@ class RunSession {
 
 		$unit = $query->fetch();
 
-		if ($unit):
+		if ($unit) {
 			// unit needs:
 			# run_id
 			# run_name
@@ -281,9 +282,11 @@ class RunSession {
 			$unit['run_name'] = $this->run_name;
 			$unit['run_session_id'] = $this->id;
 			$this->unit_session = new UnitSession($this->dbh, $this->id, $unit['unit_id'], $unit['session_id']);
+
 			return $unit;
-		endif;
-		return false;
+		} else {
+			return false;
+		}
 	}
 
 	public function getUnitSession() {
