@@ -144,6 +144,8 @@ $settings['unit_session'] = array(
 	// String representing howmany minutes to set as default expiration for unit sessions
 	// @see http://php.net/manual/en/function.strtotime.php
 	'queue_expiration_extension' => '+10 minutes',
+	// use db queue for processing unit sessions
+	'use_queue' => false,
 );
 
 // Configure memory limits to be set when performing certain actions

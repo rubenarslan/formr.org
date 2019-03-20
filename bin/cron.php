@@ -152,6 +152,12 @@ if (Config::get('in_maintenance')) {
 	formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenace Mode', false);
 }
 
+// If we are processing unit sessions via db queue then cron should not run
+if (Config::get('unit_session.use_queue')) {
+	cron_log('Processing Sessions in DB Queue');
+	exit(0);
+}
+
 // Global required variables
 $site = Site::getInstance();
 $fdb = DB::getInstance();

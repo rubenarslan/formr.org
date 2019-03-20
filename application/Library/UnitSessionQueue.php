@@ -32,6 +32,9 @@ class UnitSessionQueue extends Queue{
 	}
 
 	public function run($config) {
+		if (empty($config['use_queue'])) {
+			throw new Exception('Explicitely configure $config[unit_session] to TRUE in order to use DB queuing.');
+		}
 
 		// loop forever until terminated by SIGINT
 		while (!$this->out) {
@@ -96,6 +99,7 @@ class UnitSessionQueue extends Queue{
 			$run = $this->getRun($session['run']);
 			$runSession = new RunSession($this->db, $run->id, 'cron', $session['session'], $run);
 			$rsUnit = $runSession->getUnit();
+			self::dbg('Proccessed: ' . print_r($session, 1));
 			// at this point the session has executed and probably requeued or ended or expired
 		}
 	}
