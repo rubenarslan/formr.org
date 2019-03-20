@@ -445,7 +445,7 @@ class DB {
 				$column = trim($column, '`');
 				$columns[$i] = "`$column` = VALUES(`$column`)";
 			} else {
-				$value = $this->PDO->quote($column);
+				$value = strstr($column, '::') !== false ? str_replace('::', '', $column) : $this->PDO->quote($column);
 				$column = trim($i, '`');
 				$columns[$i] = "`$column` = $value";
 			}

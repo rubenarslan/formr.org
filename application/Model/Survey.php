@@ -1102,7 +1102,7 @@ class Survey extends RunUnit {
 		// @todo Do same for other run units
 		try {
 			$request = new Request($_POST);
-			$cookie = Request::getGlobals('COOKIE');
+			//$cookie = Request::getGlobals('COOKIE');
 			//check if user session has a valid form token for POST requests
 			//if (Request::isHTTPPostRequest() && $cookie && !$cookie->canValidateRequestToken($request)) {
 			//	redirect_to(run_url($this->run_name));

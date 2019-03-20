@@ -2,7 +2,9 @@ CREATE TABLE `survey_sessions_queue` (
   `unit_session_id` bigint(20) unsigned NOT NULL,
   `run_session_id` int(10) unsigned NOT NULL,
   `unit_id` int(10) unsigned NOT NULL,
-  `expires` int(10) unsigned NOT NULL
+  `expires` int(10) unsigned NOT NULL,
+  `run` VARCHAR(45) NOT NULL,
+  `counter` TINYINT UNSIGNED NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 ALTER TABLE `survey_sessions_queue`
