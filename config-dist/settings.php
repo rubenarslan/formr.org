@@ -146,6 +146,8 @@ $settings['unit_session'] = array(
 	'queue_expiration_extension' => '+10 minutes',
 	// use db queue for processing unit sessions
 	'use_queue' => false,
+	// Log debug messages
+	'debug' => false,
 );
 
 // Configure memory limits to be set when performing certain actions

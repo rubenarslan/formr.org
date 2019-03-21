@@ -53,10 +53,13 @@ class Queue {
 	 */
 	protected $config = array();
 
+	protected $debug = false;
+
 	public function __construct(DB $db, array $config) {
 		$this->db = $db;
 		$this->config = $config;
 		$this->loopInterval = array_val($this->config, 'queue_loop_interval', 5);
+		$this->debug = array_val($this->config, 'debug', false);
 
 		// Register signal handlers that should be able to kill the cron in case some other weird shit happens 
 		// apart from cron exiting cleanly
