@@ -257,7 +257,7 @@ class Email extends RunUnit {
 		
 		$acc = new EmailAccount($this->dbh, $this->account_id, null);
 		$mailing_themselves = (is_array($acc->account) && $acc->account["from"] === $this->recipient) ||
-							  (Site::getCurrentUser()->email === $this->recipient) ||
+							  (($user = Site::getCurrentUser()) && $user->email === $this->recipient) ||
 							  ($this->run && $this->run->getOwner()->email === $this->recipient);
 				
 		$mails_sent = $this->numberOfEmailsSent();
