@@ -100,9 +100,14 @@ class UnitSessionQueue extends Queue{
 			
 			$run = $this->getRun($session['run']);
 			$runSession = new RunSession($this->db, $run->id, 'cron', $session['session'], $run);
+
+			// Execute session again by getting current unit
+			// This action might end or expire a session, thereby removing it from queue
+			// or session might be re-queued to expire in x minutes
 			$rsUnit = $runSession->getUnit();
-			self::dbg('Proccessed: ' . print_r($session, 1));
-			// at this point the session has executed and probably requeued or ended or expired
+			if ($this->debug) {
+				self::dbg('Proccessed: ' . print_r($session, 1));
+			}
 		}
 	}
 
