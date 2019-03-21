@@ -4,7 +4,7 @@ CREATE TABLE `survey_sessions_queue` (
   `unit_id` int(10) unsigned NOT NULL,
   `expires` int(10) unsigned NOT NULL,
   `run` varchar(45) COLLATE utf8_unicode_ci NOT NULL,
-  `counter` tinyint(3) unsigned NOT NULL DEFAULT '0'
+  `counter` int(10) unsigned NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 ALTER TABLE `survey_sessions_queue`

@@ -65,26 +65,4 @@ class UnitSession {
 		return array('id', 'session', 'unit_id', 'created');
 	}
 
-	/**
-	 * Add Session to worker queue
-	 *
-	 * @param RunUnit $runUnit
-	 * @param mixed $execResults
-	 */
-	public function addToWorkerQueue(RunUnit $runUnit, $execResults) {
-		$helper = RunUnitHelper::getInstance();
-		if ($expires = (int)$helper->getUnitSessionExpiration($this, $runUnit, $execResults)) {
-			$q = array(
-				'unit_session_id' => $this->id,
-				'run_session_id' => $this->run_session_id,
-				'unit_id' => $runUnit->id,
-				'expires' => $expires,
-				'run' => $runUnit->run->name,
-				'counter' => 1,
-			);
-			$this->dbh->insert_update('survey_sessions_queue', $q, array('expires', 'counter' => '::counter + 1'));
-		}
-
-	}
-
 }
