@@ -52,11 +52,11 @@ class RunUnitHelper {
 	 * Other wise 0 should be returned because unit ended after execution
 	 *
 	 * @param UnitSession $unitSession
-	 * @param External $external
+	 * @param External $runUnit
 	 * @param mixed $execResults
 	 * @return int
 	 */
-	public function getExternalExpiration(UnitSession $unitSession, External $external, $execResults) {
+	public function getExternalExpiration(UnitSession $unitSession, External $runUnit, $execResults) {
 		if ($execResults === true) {
 			// set expiration to x minutes for unit session to be executed again
 			return strtotime($this->expiration_extension);
@@ -69,11 +69,11 @@ class RunUnitHelper {
 	 * This should always return 0 because email-sending is managed in separate queue
 	 *
 	 * @param UnitSession $unitSession
-	 * @param Email $email
+	 * @param Email $runUnit
 	 * @param mixed $execResults
 	 * @return int
 	 */
-	public function getEmailExpiration(UnitSession $unitSession, Email $email, $execResults) {
+	public function getEmailExpiration(UnitSession $unitSession, Email $runUnit, $execResults) {
 		return 0;
 	}
 
@@ -82,11 +82,11 @@ class RunUnitHelper {
 	 * This should always return 0 because a shuffle unit ends immediately after execution
 	 *
 	 * @param UnitSession $unitSession
-	 * @param Shuffle $shuffle
+	 * @param Shuffle $runUnit
 	 * @param mixed $execResults
 	 * @return int
 	 */
-	public function getShuffleExpiration(UnitSession $unitSession, Shuffle $shuffle, $execResults) {
+	public function getShuffleExpiration(UnitSession $unitSession, Shuffle $runUnit, $execResults) {
 		return 0;
 	}
 
@@ -95,11 +95,11 @@ class RunUnitHelper {
 	 * Does not need to be executed in intervals so no need to queue.
 	 *
 	 * @param UnitSession $unitSession
-	 * @param Page $page
+	 * @param Page $runUnit
 	 * @param mixed $execResults
 	 * @return int
 	 */
-	public function getPageExpiration(UnitSession $unitSession, Page $page, $execResults) {
+	public function getPageExpiration(UnitSession $unitSession, Page $runUnit, $execResults) {
 		return 0;
 	}
 
@@ -107,50 +107,36 @@ class RunUnitHelper {
 	 * 
 	 * @see self::getPageExpiration()
 	 */
-	public function getStopExpiration(UnitSession $unitSession, $page, $execResults) {
-		return $this->getPageExpiration($unitSession, $page, $execResults);
+	public function getStopExpiration(UnitSession $unitSession, $runUnit, $execResults) {
+		return $this->getPageExpiration($unitSession, $runUnit, $execResults);
 	}
 
 	/**
 	 * 
 	 * @see self::getPageExpiration()
 	 */
-	public function getEndpageExpiration(UnitSession $unitSession, $page, $execResults) {
-		return $this->getPageExpiration($unitSession, $page, $execResults);
+	public function getEndpageExpiration(UnitSession $unitSession, $runUnit, $execResults) {
+		return $this->getPageExpiration($unitSession, $runUnit, $execResults);
 	}
 
 	/**
 	 * Get expiration timestamp for Survey Run Unit
 	 * 
 	 * @param UnitSession $unitSession
-	 * @param Survey $survey
+	 * @param Survey $runUnit
 	 * @param mixed $execResults
 	 * @return int
 	 */
-	public function getSurveyExpiration(UnitSession $unitSession, Survey $survey, $execResults) {
-		$expire_invitation = (int) $survey->settings['expire_invitation_after'];
-		$grace_period = (int) $survey->settings['expire_invitation_grace'];
-		$expire_inactivity = (int) $survey->settings['expire_after'];
-		if ($expire_inactivity === 0 && $expire_invitation === 0) {
+	public function getSurveyExpiration(UnitSession $unitSession, Survey $runUnit, $execResults) {
+		if ($execResults === false) {
+			// Survey expired or ended so no need to queue
 			return 0;
+		}
+
+		if (isset($runUnit->execData['expire_timestamp'])) {
+			return $runUnit->execData['expire_timestamp'];
 		} else {
-			$now = time();
-
-			$last_active = $survey->getTimeWhenLastViewedItem(); // when was the user last active on the study
-			$expire_invitation_time = $expire_inactivity_time = 0; // default to 0 (means: other values supervene. users only get here if at least one value is nonzero)
-			if($expire_inactivity !== 0 && $last_active != null) {
-				$expire_inactivity_time = strtotime($last_active) + $expire_inactivity * 60;
-			}
-			$invitation_sent = $unitSession->created;
-			if($expire_invitation !== 0 && $invitation_sent) {
-				$expire_invitation_time = strtotime($invitation_sent) + $expire_invitation * 60;
-				if($grace_period !== 0 && $last_active) {
-					$expire_invitation_time = $expire_invitation_time + $grace_period * 60;
-				}
-			}
-
-			$expire = max($expire_inactivity_time, $expire_invitation_time);
-			return $expire;
+			return 0;
 		}
 	}
 
@@ -174,8 +160,8 @@ class RunUnitHelper {
 			return strtotime($this->expiration_extension);
 		}
 		
-		if (isset($runUnit->execData['expire_timestamp'])) {
-			return $runUnit->execData['expire_timestamp'];
+		if (isset($execData['expire_timestamp'])) {
+			return $execData['expire_timestamp'];
 		}
 
 		return 0;

@@ -1084,14 +1084,17 @@ class Survey extends RunUnit {
 				}
 			}
 			$expire = max($expire_inactivity_time, $expire_invitation_time);
+			$this->execData['expire_timestamp'] = $expire;
+
 			return ($expire > 0) && ($now > $expire); // when we switch to the new scheduler, we need to return the timestamp here
 		}
 	}
 
 	public function exec() {
 		// never show to the cronjob
+		$expired = $this->hasExpired();
 		if ($this->called_by_cron) {
-			if ($this->hasExpired()) {
+			if ($expired) {
 				$this->expire();
 				return false;
 			}
