@@ -3,12 +3,9 @@ CREATE TABLE `survey_sessions_queue` (
   `run_session_id` int(10) unsigned NOT NULL,
   `unit_id` int(10) unsigned NOT NULL,
   `expires` int(10) unsigned NOT NULL,
-  `run` VARCHAR(45) NOT NULL,
-  `counter` TINYINT UNSIGNED NOT NULL DEFAULT '0'
+  `run` varchar(45) COLLATE utf8_unicode_ci NOT NULL,
+  `counter` tinyint(3) unsigned NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 ALTER TABLE `survey_sessions_queue`
-  ADD PRIMARY KEY (`unit_session_id`), 
-  ADD KEY `run_session_id` (`run_session_id`,`unit_id`);
-
-# ALTER TABLE `survey_unit_sessions` ADD `queueable` TINYINT UNSIGNED NOT NULL DEFAULT '1' , ADD INDEX (`queueable`) ;
+ ADD PRIMARY KEY (`unit_session_id`), ADD KEY `run_session_id` (`run_session_id`,`unit_id`), ADD KEY `expires` (`expires`);
