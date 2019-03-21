@@ -46,9 +46,17 @@ class Queue {
 
 	protected static $name = 'Formr-Queue';
 
+	/**
+	 * Configuration passed to queue
+	 *
+	 * @var array
+	 */
+	protected $config = array();
+
 	public function __construct(DB $db, array $config) {
 		$this->db = $db;
-		$this->loopInterval = array_val($config, 'queue_loop_interval', 5);
+		$this->config = $config;
+		$this->loopInterval = array_val($this->config, 'queue_loop_interval', 5);
 
 		// Register signal handlers that should be able to kill the cron in case some other weird shit happens 
 		// apart from cron exiting cleanly
@@ -63,6 +71,10 @@ class Queue {
 			self::$dbg = true;
 			self::dbg('pcntl extension is not loaded');
 		}
+	}
+
+	public function run() {
+		return true;
 	}
 	
 	protected static function dbg($str) {

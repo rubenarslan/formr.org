@@ -39,8 +39,8 @@ class EmailQueue extends Queue {
 
 	public function __construct(DB $db, array $config) {
 		parent::__construct($db, $config);
-		$this->itemTtl      = array_val($config, 'queue_item_ttl', 20 * 60);
-		$this->itemTries    = array_val($config, 'queue_item_tries', 4);
+		$this->itemTtl      = array_val($this->config, 'queue_item_ttl', 20 * 60);
+		$this->itemTries    = array_val($this->config, 'queue_item_tries', 4);
 	}
 
 	/**
@@ -241,8 +241,8 @@ class EmailQueue extends Queue {
 		}
 	}
 
-	public function run($config) {
-		$account_id = array_val($config, 'account_id', null);
+	public function run() {
+		$account_id = array_val($this->config, 'account_id', null);
 
 		// loop forever until terminated by SIGINT
 		while (!$this->out) {

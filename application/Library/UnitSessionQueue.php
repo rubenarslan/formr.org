@@ -24,6 +24,8 @@ class UnitSessionQueue extends Queue{
 	 * @var array
 	 */
 	protected $pushQueries = array();
+	
+	protected $logFile = 'session-queue.log';
 
 	protected $cache;
 
@@ -31,8 +33,8 @@ class UnitSessionQueue extends Queue{
 		parent::__construct($db, $config);
 	}
 
-	public function run($config) {
-		if (empty($config['use_queue'])) {
+	public function run() {
+		if (empty($this->config['use_queue'])) {
 			throw new Exception('Explicitely configure $config[unit_session] to TRUE in order to use DB queuing.');
 		}
 
@@ -42,7 +44,7 @@ class UnitSessionQueue extends Queue{
 				// loop until terminated but with taking some nap
 				$sleeps = 0;
 				while (!$this->out && $this->rested()) {
-					if ($this->processQueue($config) === false) {
+					if ($this->processQueue() === false) {
 						// if there is nothing to process in the queue sleep for sometime
 						self::dbg("Sleeping because nothing was found in queue");
 						sleep($this->sleep);
@@ -84,7 +86,7 @@ class UnitSessionQueue extends Queue{
 		return $this->db->rquery($query);
 	}
 
-	protected function processQueue($config) {
+	protected function processQueue() {
 		$sessionsStmt = $this->getSessionsStatement();
 		if ($sessionsStmt->rowCount() <= 0) {
 			$sessionsStmt->closeCursor();
@@ -133,7 +135,8 @@ class UnitSessionQueue extends Queue{
 		return $run;
 	}
 
-	public static function removeItem(DB $db, $unitId, $unitSessionId) {
+	public static function removeItem($unitId, $unitSessionId) {
+		$db = DB::getInstance();
 		$removed = $db->exec(
 			"DELETE FROM `survey_sessions_queue` WHERE `unit_session_id` = :unit_session_id AND `unit_id` = :unit_id", 
 			array('unit_session_id' => (int)$unitSessionId, 'unit_id' => (int)$unitId)

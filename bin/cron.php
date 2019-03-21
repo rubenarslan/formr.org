@@ -154,7 +154,7 @@ if (Config::get('in_maintenance')) {
 
 // If we are processing unit sessions via db queue then cron should not run
 if (Config::get('unit_session.use_queue')) {
-	cron_log('Processing Sessions in DB Queue');
+	cron_log('Processing Sessions in DB Queue', $logfile);
 	exit(0);
 }
 
