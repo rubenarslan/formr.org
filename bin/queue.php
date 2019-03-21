@@ -40,18 +40,20 @@ try {
 	$queue = null;
 
 	if ($config['queue_type'] === 'Email') {
-		$queue = new EmailQueue(DB::getInstance(), Config::get('email'));
+		$config = array_merge(Config::get('email'), $config);
+		$queue = new EmailQueue(DB::getInstance(), $config);
 	}
 
 	if ($config['queue_type'] === 'UnitSession') {
-		$queue = new UnitSessionQueue(DB::getInstance(), Config::get('unit_session'));
+		$config = array_merge(Config::get('unit_session'), $config);
+		$queue = new UnitSessionQueue(DB::getInstance(), $config);
 	}
 
 	if ($queue === null) {
 		throw new Exception('Invalid Queue Type: ' . $config['queue_type']);
 	}
 
-	$queue->run($config);
+	$queue->run();
 } catch (Exception $e) {
 	formr_log_exception($e, 'Queue');
 	sleep(15);
