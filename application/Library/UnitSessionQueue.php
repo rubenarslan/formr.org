@@ -140,14 +140,46 @@ class UnitSessionQueue extends Queue{
 		return $run;
 	}
 
-	public static function removeItem($unitId, $unitSessionId) {
+	/**
+	 * Remove item from session queue
+	 *
+	 * @param int $unitSessionId ID of the unit session
+	 * @param int $runUnitId ID of the Run unit
+	 * @return booelan
+	 */
+	public static function removeItem($unitSessionId, $runUnitId) {
 		$db = DB::getInstance();
 		$removed = $db->exec(
 			"DELETE FROM `survey_sessions_queue` WHERE `unit_session_id` = :unit_session_id AND `unit_id` = :unit_id", 
-			array('unit_session_id' => (int)$unitSessionId, 'unit_id' => (int)$unitId)
+			array('unit_session_id' => (int)$unitSessionId, 'unit_id' => (int)$runUnitId)
 		);
 
-		return $removed;
+		return (bool)$removed;
+	}
+
+	/**
+	 * Add item to session queue
+	 *
+	 * @param UnitSession $unitSession
+	 * @param RunUnit $runUnit
+	 * @param mixed $execResults
+	 */
+	public static function addItem(UnitSession $unitSession, RunUnit $runUnit, $execResults) {
+		$helper = RunUnitHelper::getInstance();
+		if ($expires = (int)$helper->getUnitSessionExpiration($unitSession, $runUnit, $execResults)) {
+			$q = array(
+				'unit_session_id' => $unitSession->id,
+				'run_session_id' => $unitSession->run_session_id,
+				'unit_id' => $runUnit->id,
+				'expires' => $expires,
+				'run' => $runUnit->run->name,
+				'counter' => 1,
+			);
+
+			$db = DB::getInstance();
+			$db->insert_update('survey_sessions_queue', $q, array('expires', 'counter' => '::counter + 1'));
+		}
+
 	}
 
 }

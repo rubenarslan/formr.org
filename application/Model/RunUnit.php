@@ -269,7 +269,7 @@ class RunUnit {
 
 		if ($ended === 1) {
 			$this->ended = true;
-			UnitSessionQueue::removeItem($this->id, $this->session_id);
+			UnitSessionQueue::removeItem($this->session_id, $this->id);
 			return true;
 		}
 
@@ -284,7 +284,7 @@ class RunUnit {
 
 		if ($expired === 1) {
 			$this->expired = true;
-			UnitSessionQueue::removeItem($this->id, $this->session_id);
+			UnitSessionQueue::removeItem($this->session_id, $this->id);
 			return true;
 		}
 
