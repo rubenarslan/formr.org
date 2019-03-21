@@ -9,7 +9,7 @@
 
 class UnitSessionQueue extends Queue{
 
-	protected static $name = 'UnitSession-Queue';
+	protected $name = 'UnitSession-Queue';
 
 	/**
 	 * Maximum sessions to be processed by each PHP process started for a queue operation
@@ -35,7 +35,7 @@ class UnitSessionQueue extends Queue{
 
 	public function run() {
 		if (empty($this->config['use_queue'])) {
-			throw new Exception('Explicitely configure $config[unit_session] to TRUE in order to use DB queuing.');
+			throw new Exception('Explicitely configure $settings[unit_session] to TRUE in order to use DB queuing.');
 		}
 
 		// loop forever until terminated by SIGINT
@@ -46,13 +46,13 @@ class UnitSessionQueue extends Queue{
 				while (!$this->out && $this->rested()) {
 					if ($this->processQueue() === false) {
 						// if there is nothing to process in the queue sleep for sometime
-						self::dbg("Sleeping because nothing was found in queue");
+						$this->dbg("Sleeping because nothing was found in queue");
 						sleep($this->sleep);
 						$sleeps++;
 					}
 					if ($sleeps > $this->allowedSleeps) {
 						// exit to restart supervisor process
-						self::dbg('Exit and restart process because you have slept alot');
+						$this->dbg('Exit and restart process because you have slept alot');
 						$this->out = true;
 					}
 				}
@@ -63,9 +63,9 @@ class UnitSessionQueue extends Queue{
 					throw $e;
 				}
 
-				self::dbg($e->getMessage() . "[" . $error_code . "]");
+				$this->dbg($e->getMessage() . "[" . $error_code . "]");
 
-				self::dbg("Unable to connect. waiting 5 seconds before reconnect.");
+				$this->dbg("Unable to connect. waiting 5 seconds before reconnect.");
 				sleep(5);
 			}
 		}
@@ -106,7 +106,7 @@ class UnitSessionQueue extends Queue{
 			// or session might be re-queued to expire in x minutes
 			$rsUnit = $runSession->getUnit();
 			if ($this->debug) {
-				self::dbg('Proccessed: ' . print_r($session, 1));
+				$this->dbg('Proccessed: ' . print_r($session, 1));
 			}
 		}
 	}

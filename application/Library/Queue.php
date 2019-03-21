@@ -42,9 +42,7 @@ class Queue {
 
 	protected $logFile = 'queue.log';
 
-	protected static $dbg;
-
-	protected static $name = 'Formr-Queue';
+	protected $name = 'Formr-Queue';
 
 	/**
 	 * Configuration passed to queue
@@ -71,8 +69,8 @@ class Queue {
 			pcntl_signal(SIGTERM, array(&$this, 'interrupt'));
 			pcntl_signal(SIGUSR1, array(&$this, 'interrupt'));
 		} else {
-			self::$dbg = true;
-			self::dbg('pcntl extension is not loaded');
+			$this->debug = true;
+			$this->dbg('pcntl extension is not loaded');
 		}
 	}
 
@@ -80,13 +78,13 @@ class Queue {
 		return true;
 	}
 	
-	protected static function dbg($str) {
+	protected function dbg($str) {
 		$args = func_get_args();
 		if (count($args) > 1) {
 			$str = vsprintf(array_shift($args), $args);
 		}
 
-		$str = date('Y-m-d H:i:s') . ' '. self::$name .': ' . $str . PHP_EOL;
+		$str = date('Y-m-d H:i:s') . ' '. $this->name .': ' . $str . PHP_EOL;
 		if (DEBUG) {
 			echo $str;
 			return;
@@ -117,16 +115,16 @@ class Queue {
 			case SIGINT:
 			case SIGTERM:
 				$this->out = true;
-				self::dbg("%s Received termination signal", getmypid());
+				$this->dbg("%s Received termination signal", getmypid());
 				break;
 
 			// switch the debug mode on/off
 			// @example: $ kill -s SIGUSR1 <pid>
 			case SIGUSR1:
-				if ((self::$dbg = !self::$dbg)) {
-					self::dbg("\nEntering debug mode...\n");
+				if (($this->debug = !$this->debug)) {
+					$this->dbg("\nEntering debug mode...\n");
 				} else {
-					self::dbg("\nLeaving debug mode...\n");
+					$this->dbg("\nLeaving debug mode...\n");
 				}
 				break;
 		}

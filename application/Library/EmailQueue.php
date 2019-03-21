@@ -35,7 +35,7 @@ class EmailQueue extends Queue {
 
 	protected $logFile = 'email-queue.log';
 
-	protected static $name = 'Email-Queue';
+	protected $name = 'Email-Queue';
 
 	public function __construct(DB $db, array $config) {
 		parent::__construct($db, $config);
@@ -161,7 +161,7 @@ class EmailQueue extends Queue {
 						copy($image, $localImage);
 						$files[] = $localImage;
 						if (!$mailer->addEmbeddedImage($localImage, $imageId, $imageId, 'base64', 'image/png')) {
-							self::dbg("Unable to attach image: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
+							$this->dbg("Unable to attach image: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
 						}
 					}
 				}
@@ -170,7 +170,7 @@ class EmailQueue extends Queue {
 					foreach ($meta['attachments'] as $attachment) {
 						$files[] = $attachment;
 						if (!$mailer->addAttachment($attachment, basename($attachment))) {
-							self::dbg("Unable to add attachment {$attachment} \n" . $mailer->ErrorInfo . ".\n {$debugInfo}");
+							$this->dbg("Unable to add attachment {$attachment} \n" . $mailer->ErrorInfo . ".\n {$debugInfo}");
 						}
 					}
 				}
@@ -186,13 +186,13 @@ class EmailQueue extends Queue {
 							'recipient' => $email['recipient'],
 							'sent' => (int) $sent,
 						));
-						self::dbg("Send Success. \n {$debugInfo}");
+						$this->dbg("Send Success. \n {$debugInfo}");
 					} else {
 						throw new Exception($mailer->ErrorInfo);
 					}
 				} catch (Exception $e) {
 					//formr_log_exception($e, 'EmailQueue ' . $debugInfo);
-					self::dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
+					$this->dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
 					$this->registerFailure($email);
 					// reset php mailer object for this account if smtp sending failed. Probably some limits have been hit
 					$this->closeSMTPConnection($account['account_id']);
@@ -252,7 +252,7 @@ class EmailQueue extends Queue {
 				while (!$this->out && $this->rested()) {
 					if ($this->processQueue($account_id) === false) {
 						// if there is nothing to process in the queue sleep for sometime
-						self::dbg("Sleeping because nothing was found in queue");
+						$this->dbg("Sleeping because nothing was found in queue");
 						sleep($this->sleep);
 						$sleeps++;
 					}
@@ -268,9 +268,9 @@ class EmailQueue extends Queue {
 					throw $e;
 				}
 
-				self::dbg($e->getMessage() . "[" . $error_code . "]");
+				$this->dbg($e->getMessage() . "[" . $error_code . "]");
 
-				self::dbg("Unable to connect. waiting 5 seconds before reconnect.");
+				$this->dbg("Unable to connect. waiting 5 seconds before reconnect.");
 				sleep(5);
 			}
 		}

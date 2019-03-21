@@ -15,7 +15,7 @@ class RunUnitHelper {
 	 */
 	protected static $instance = null;
 
-	protected $expiration_extension = '+10 minutes'; //@todo configure this
+	protected $expiration_extension;
 
 	protected function __construct(DB $db) {
 		$this->db = $db;
