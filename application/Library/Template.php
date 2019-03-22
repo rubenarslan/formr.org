@@ -32,8 +32,8 @@ class Template {
 		return ob_get_clean();
 	}
 
-	public static function get_replace($template, $params = array()) {
-		$text = self::get($template);
+	public static function get_replace($template, $params = array(), $vars = array()) {
+		$text = self::get($template, $vars);
 		return self::replace($text, $params);
 	}
 

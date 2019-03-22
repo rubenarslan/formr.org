@@ -1063,6 +1063,10 @@ class Survey extends RunUnit {
 	 * @return boolean
 	 */
 	private function hasExpired() {
+		if (empty($this->run_session->unit_session)) {
+			return false;
+		}
+
 		$expire_invitation = (int) $this->settings['expire_invitation_after'];
 		$grace_period = (int) $this->settings['expire_invitation_grace'];
 		$expire_inactivity = (int) $this->settings['expire_after'];
@@ -2143,56 +2147,15 @@ class Survey extends RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
+		$dialog = Template::get($this->getUnitTemplatePath(), array(
+			'survey' => $this,
+			'studies' => $this->dbh->select('id, name')->from('survey_studies')->where(array('user_id' => Site::getCurrentUser()->id))->fetchAll(),
+			'prepend' => $prepend,
+			'resultCount' => $this->howManyReachedItNumbers(),
+			'time' => $this->getAverageTimeItTakes(),
+		));
 
-		global $user;
-		$studies = $this->dbh->select('id, name')->from('survey_studies')->where(array('user_id' => $user->id))->fetchAll();
-
-		if ($studies):
-			$dialog = '<div class="form-group">';
-			$dialog .= '<select class="select2" name="unit_id" style="width:300px">';
-
-			if ($this->id === null)
-				$dialog .= '<option value=""></option>';
-			foreach ($studies as $study):
-				$selected = "";
-				if ($this->id === $study['id']) {
-					$selected = 'selected = "selected"';
-				}
-				$dialog .= "<option value=\"{$study['id']}\" $selected>{$study['name']}</option>";
-			endforeach;
-			$dialog .= "</select>";
-			$dialog .= '</div>';
-		else:
-			$dialog = "<h5>No studies. <a href='" . admin_study_url() . "'>Add some first</a></h5>";
-		endif;
-
-		if ($this->id) {
-			$resultCount = $this->howManyReachedItNumbers();
-
-			$time = $this->getAverageTimeItTakes();
-
-			$dialog .= "
-			<p>" . (int) $resultCount['finished'] . " complete <a href='" . admin_study_url($this->name, 'show_results') . "'>results</a>, " . (int) $resultCount['begun'] . " begun <abbr class='hastooltip' title='Median duration participants needed to complete the survey'>(in ~{$time}m)</abbr>
-			</p>
-			<p class='btn-group'>
-					<a class='btn btn-default' href='" . admin_study_url($this->name, 'show_item_table?to=show') . "'>View items</a>
-					<a class='btn btn-default' href='" . admin_study_url($this->name, 'upload_items') . "'>Upload items</a>
-			</p>";
-			$dialog .= '<br><p class="btn-group">
-				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Save</a>
-				<a title="Test this survey with this button for a quick look. Unless you need a quick look, you should prefer to use the \"Test run\" function to test the survey in the context of the run." class="btn btn-default" target="_blank" href="' . admin_study_url($this->name, 'access') . '">Test</a>
-			</p>';
-//		elseif($studies):
-		} else {
-			$dialog .= '<p>
-				<div class="btn-group">
-				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Survey">Save</a>
-				</div>
-			</p>';
-		}
-
-		$dialog = $prepend . $dialog;
-		return parent::runDialog($dialog, 'fa-pencil-square');
+		return parent::runDialog($dialog);
 	}
 
 	/**

@@ -164,40 +164,19 @@ class Email extends RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
-		$email_accounts = Site::getCurrentUser()->getEmailAccounts();
+		$dialog = Template::get($this->getUnitTemplatePath(), array(
+			'email' => $this,
+			'prepend' => $prepend,
+			'email_accounts' => Site::getCurrentUser()->getEmailAccounts(),
+			'body' => $this->body,
+			'subject' => $this->subject,
+			'account_id' => $this->account_id,
+			'cron_only' => $this->cron_only,
+			'recipient_field' => $this->recipient_field,
+			'potentialRecipientFields' => $this->getPotentialRecipientFields(),
+		));
 
-		if (!empty($email_accounts)):
-			$dialog = '<p><label>Account: </label>
-			<select class="select2" name="account_id" style="width:350px">
-			<option value=""></option>';
-			foreach ($email_accounts as $acc):
-				if (isset($this->account_id) AND $this->account_id == $acc['id'])
-					$dialog .= "<option selected value=\"{$acc['id']}\">{$acc['from']}</option>";
-				else
-					$dialog .= "<option value=\"{$acc['id']}\">{$acc['from']}</option>";
-			endforeach;
-			$dialog .= "</select>";
-			$dialog .= '</p>';
-		else:
-			$dialog = "<h5>No email accounts. <a href='" . WEBROOT . "admin/mail/" . "'>Add some here.</a></h5>";
-		endif;
-		$dialog .= '<p><label>Subject: </label>
-			<input class="form-control full_width" type="text" placeholder="Email subject" name="subject" value="' . h($this->subject) . '">
-		</label></p>
-		<p><label>Recipient-Field: </label>
-					<input class="full_width select2recipient" type="text" placeholder="survey_users$email" name="recipient_field" value="' . h($this->recipient_field) . '" data-select2init="'.htmlentities(json_encode( $this->getPotentialRecipientFields(), JSON_UNESCAPED_UNICODE)).'">
-				</p>
-		<p><label>Body:</label>
-			<textarea style="width:388px;"  data-editor="markdown" placeholder="You can use Markdown" name="body" rows="7" cols="60" class="form-control col-md-5">' . h($this->body) . '</textarea><br /><div class="clearfix"></div>
-			<code>{{login_link}}</code> will be replaced by a personalised link to this run, <code>{{login_code}}</code> will be replaced with this user\'s session code.</p>';
-//		<p><input type="hidden" name="html" value="0"><label><input type="checkbox" name="html" value="1"'.($this->html ?' checked ':'').'> send HTML emails (may worsen spam rating)</label></p>';
-		
-		$dialog .= '<p><label><input type="checkbox" name="cron_only" value="1"'.($this->cron_only ?' checked ':'').'> Send e-mails only when cron is running</label></p>';
-		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Email">Save</a>
-		<a class="btn btn-default unit_test" href="ajax_test_unit?type=Email">Test</a></p>';
-
-		$dialog = $prepend . $dialog;
-		return parent::runDialog($dialog, 'fa-envelope');
+		return parent::runDialog($dialog);
 	}
 
 	public function getRecipientField($return_format = 'json', $return_session = false) {
@@ -395,8 +374,8 @@ class Email extends RunUnit {
 		if (!$this->grabRandomSession()) {
 			return false;
 		}
-		global $user;
-		
+
+		$user = Site::getCurrentUser();
 		$receiver = $user->getEmail();
 
 		echo "<h4>Recipient</h4>";

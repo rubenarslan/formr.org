@@ -118,6 +118,8 @@ input:focus {outline:none;}
 }
 .run_unit_inner .run_unit_dialog .form-group {
     margin: 0px;
+	display: block;
+	margin-bottom: 4px;
 }
 .badge-info {
     background-color: #3a87ad;
