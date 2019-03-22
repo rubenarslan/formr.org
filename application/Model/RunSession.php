@@ -168,7 +168,7 @@ class RunSession {
 				$output = $unit->exec();
 
 				//@TODO check whether output is set or NOT
-				$queue = $this->unit_session->id && !$unit->ended && !$unit->expired && Config::get('unit_session.use_queue');
+				$queue = $this->unit_session->id && !$unit->ended && !$unit->expired;
 				if ($queue) {
 					$queued = UnitSessionQueue::addItem($this->unit_session, $unit, $output);
 				}

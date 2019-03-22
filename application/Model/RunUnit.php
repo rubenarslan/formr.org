@@ -704,15 +704,16 @@ class RunUnit {
 	}
 
 	public function getParsedBody($source, $email_embed = false, $admin = false, $has_session_data = true) {
-		/* @var $session OpenCPU_Session */
-		if (!$this->knittingNeeded($source)) { // knit if need be
+
+		if (!$this->knittingNeeded($source)) {
 			if($email_embed) {
 				return array('body' => $this->body_parsed, 'images' => array());
 			} else {
 				return $this->body_parsed;
 			}
 		}
-		
+
+		/* @var $session OpenCPU_Session */
 		$session = null;
 		$cache_session = false;
 
