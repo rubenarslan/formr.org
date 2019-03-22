@@ -713,9 +713,10 @@ class RunUnit {
 			}
 		}
 		
-		$session = NULL;
-		if(!$admin) {
+		$session = null;
+		$cache_session = false;
 
+		if(!$admin) {
 			$opencpu_url = $this->dbh->findValue('survey_reports', array(
 				'unit_id' => $this->id, 
 				'session_id' => $this->session_id,
@@ -728,25 +729,22 @@ class RunUnit {
 					return false; // don't regenerate once we once had a report for this feedback, if it's only the cronjob
 				}
 
-				$opencpu_url = rtrim($opencpu_url, "/") . $email_embed ? '' : '/R/.val/';
-				$format = "";
-				$session = opencpu_get($opencpu_url, $format , null, true);
+				$session = opencpu_get($opencpu_url, '' , null, true);
+				$files = $session->getFiles('files/', $opencpu_url);
+				$images = $session->getFiles('/figure-html', $opencpu_url);
 			}
 		}
 
 		// If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
 		if (empty($session) || $session->hasError()) {
-			if($has_session_data) {
-				$ocpu_vars = $this->getUserDataInRun($source);
-			} else {
-				$ocpu_vars = array();
-			}
-			if($email_embed) {
-				$session = opencpu_knitemail($source, $ocpu_vars, '', true);
-			} else {
-				$session = opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->description, $this->run->footer_text);
-				$this->run->renderedDescAndFooterAlready = true;
-			}
+			$ocpu_vars = $has_session_data ? $this->getUserDataInRun($source) : array();
+			$session = $email_embed 
+					   ? opencpu_knitemail($source, $ocpu_vars, '', true)
+					   : opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->description, $this->run->footer_text);
+			
+			$files = $session->getFiles('knit.html');
+			$images = $session->getFiles('/figure-html');
+			$cache_session = true;
 		}
 
 		// At this stage we are sure to have an OpenCPU_Session in $session. If there is an error in the session return FALSE
@@ -758,33 +756,33 @@ class RunUnit {
 			if(isset($this->run_name)) {
 				$where = "Run: ". $this->run_name. " (".$this->position."-". $this->type.") ";
 			}
-			notify_user_error( opencpu_debug( $session ), 'There was a problem with OpenCPU for session ' . h($this->session));
+			notify_user_error(opencpu_debug($session), 'There was a problem with OpenCPU for session ' . h($this->session));
 			return false;
-		} else {
+		} elseif ($admin) {
 			
-			if($admin) {
-				return $session;
-			}
-
+			return $session;
+		} else {
 			print_hidden_opencpu_debug_message($session, "OpenCPU debugger for run R code in {$this->type} at {$this->position}.");
 			
 			$opencpu_url = $session->getLocation();
-
 			if($email_embed) {
 				$report = array(
 					'body' => $session->getObject(),
-					'images' => $session->getFiles('/figure-html'),
+					'images' => $images,
 				);
+				error_log(print_r($report, 1));
 			} else {
-				$iframesrc = $session->getFiles("knit.html")['knit.html'];
-				$report = '<div class="rmarkdown_iframe">
+				$this->run->renderedDescAndFooterAlready = true;
+				$iframesrc = $files['knit.html'];
+				$report = '' . 
+				'<div class="rmarkdown_iframe">
 					<iframe src="'.$iframesrc.'">
 					  <p>Your browser does not support iframes.</p>
 					</iframe>
 				</div>';
 			}
 
-			if($this->session_id) {
+			if($this->session_id && $cache_session) {
 				$set_report = $this->dbh->prepare(
 				"INSERT INTO `survey_reports` (`session_id`, `unit_id`, `opencpu_url`, `created`, `last_viewed`) 
 					VALUES  (:session_id, :unit_id, :opencpu_url,  NOW(), 	NOW() ) 
