@@ -770,7 +770,6 @@ class RunUnit {
 					'body' => $session->getObject(),
 					'images' => $images,
 				);
-				error_log(print_r($report, 1));
 			} else {
 				$this->run->renderedDescAndFooterAlready = true;
 				$iframesrc = $files['knit.html'];
