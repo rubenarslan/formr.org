@@ -1339,8 +1339,8 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
 			if ($session->hasError()) {
 				$debug['Response'] = pre_htmlescape($session->getError());
 			} else {
-				if($session->getFiles("knit.html")) {
-					$iframesrc = $session->getFiles("knit.html")['knit.html'];
+				if(($files = $session->getFiles("knit.html"))) {
+					$iframesrc = $files['knit.html'];
 					$debug['Response'] = '
 					<p>
 						<a href="'.$iframesrc.'" target="_blank">Open in new window</a>

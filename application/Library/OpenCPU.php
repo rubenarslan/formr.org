@@ -306,9 +306,10 @@ class OpenCPU_Session {
 	 * Get an array of files present in current session
 	 *
 	 * @param string $match You can match only files with some slug in the path name
+	 * @param string $baseURL URL segment to prepend to paths
 	 * @return array
 	 */
-	public function getFiles($match = '/files/') {
+	public function getFiles($match = '/files/', $baseURL = null) {
 		if (!$this->key) {
 			return null;
 		}
@@ -321,7 +322,7 @@ class OpenCPU_Session {
 			}
 
 			$id = basename($path);
-			$files[$id] = $this->getResponsePath($path);
+			$files[$id] = $baseURL ? $baseURL . $path : $this->getResponsePath($path);
 		}
 		return $files;
 	}
