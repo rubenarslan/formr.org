@@ -365,22 +365,8 @@ class RunUnit {
 	}
 
 	public function runDialog($dialog) {
-		return '
-		<div class="row run_unit_inner ' . strtolower($this->type) . '" data-type="' . $this->type . '">
-		<div class="col-xs-12"><h4><input type="text" value="'.$this->description.'" placeholder="Description (click to edit)" class="run_unit_description" name="description"></h4></div>
-				<div class="col-xs-3 run_unit_position">
-					<h1><i class="muted fa fa-2x ' . $this->icon . '"></i></h1>
-					' . $this->howManyReachedIt() . ' <button href="ajax_remove_run_unit_from_run" class="remove_unit_from_run btn btn-xs hastooltip" title="Remove unit from run" type="button"><i class="fa fa-times"></i></button><br>
-					<input class="position" value="' . $this->position . '" type="number" name="position[' . $this->run_unit_id . ']" step="1" max="32000" min="-32000"><br>
-				</div>
-			<div class="col-xs-9 run_unit_dialog">
-				<input type="hidden" value="' . $this->run_unit_id . '" name="run_unit_id">
-				<input type="hidden" value="' . $this->id . '" name="unit_id">
-				<input type="hidden" value="' . $this->special . '" name="special">' . $dialog . '
-			</div>
-		</div>
-		<div class="clear clearfix"></div>
-		';
+		$tpl = $this->getUnitTemplatePath('unit');
+		return Template::get($tpl, array('dialog' => $dialog, 'unit' => $this));
 	}
 	
 	public function hadMajorChanges() {
@@ -391,7 +377,7 @@ class RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
-		return $this->runDialog($prepend, '<i class="fa fa-puzzle-piece"></i>'); // FIXME: This class has no parent
+		return $this->runDialog($prepend); // FIXME: This class has no parent
 	}
 
 	protected $survey_results;
@@ -835,6 +821,10 @@ plot(cars)
 		);
 
 		return array_val($defaults, $type, array());
+	}
+
+	protected function getUnitTemplatePath($tpl = null) {
+		return 'admin/run/units/' . ($tpl ? $tpl : strtolower($this->type));
 	}
 
 }

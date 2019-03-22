@@ -52,18 +52,13 @@ class Shuffle extends RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
-		$dialog = '<h5>Randomly assign to one of <input style="width:100px" class="form-control" type="number" placeholder="2" name="groups" value="' . h($this->groups) . '"> groups counting from one.</h5>
-			<p>You can later read the assigned group using <code>shuffle$group</code>. <br>
-		You can then for example use a SkipForward to send one group to a different arm/path in the run or use a showif in a survey to show certain items/stimuli to one group only.</p>
-		';
-#			'<p><input type="hidden" name="end" value="0"><label><input type="checkbox" name="end" value="1"'.($this->can_be_ended ?' checked ':'').'> allow user to continue after viewing page</label></p>';
-		$dialog .= '<p class="btn-group"><a class="btn btn-default unit_save" href="ajax_save_run_unit?type=Shuffle">Save</a>
-		<a class="btn btn-default unit_test" href="ajax_test_unit?type=Shuffle">Test</a></p>';
+		
+		$dialog = Template::get($this->getUnitTemplatePath(), array(
+			'prepend' => $prepend,
+			'groups' => $this->groups
+		));
 
-
-		$dialog = $prepend . $dialog;
-
-		return parent::runDialog($dialog, 'fa-random fa-1-5x');
+		return parent::runDialog($dialog);
 	}
 
 	public function removeFromRun($special = null) {

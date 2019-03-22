@@ -69,31 +69,14 @@ class Branch extends RunUnit {
 	}
 
 	public function displayForRun($prepend = '') {
-		$dialog = '<div class="padding-below">
-			<label>if… <br>
-				<textarea style="width:388px;"  data-editor="r" class="form-control col-md-5" name="condition" rows="4" placeholder="Condition: You can use R here: survey1$item2 == 2">' . h($this->condition) . '</textarea>
-			</label><br>
-			<select style="width:120px" name="automatically_jump">
-			<option value="1" ' . ($this->automatically_jump ? 'selected' : '') . '>automatically</option>
-			<option value="0" ' . ($this->automatically_jump ? '' : 'selected') . '>if user reacts</option>
-			</select>
-			<label>skip forward to
-			<input type="number" class="form-control" style="width:70px" name="if_true" max="32000" min="' . ($this->position + 2) . '" step="1" value="' . h($this->if_true) . '">
-			</label><br>
-			<strong>else</strong>
-			<select style="width:120px" name="automatically_go_on">
-			<option value="1" ' . ($this->automatically_go_on ? 'selected' : '') . '>automatically</option>
-			<option value="0" ' . ($this->automatically_go_on ? '' : 'selected') . '>if user reacts</option>
-			</select>
-			<strong>go on</strong>
-		</div>';
-		$dialog .= '
-			<p class="btn-group">
-				<a class="btn btn-default unit_save" href="ajax_save_run_unit?type=SkipForward">Save</a>
-				<a class="btn btn-default unit_test" href="ajax_test_unit?type=SkipForward">Test</a>
-			</p>';
-
-		$dialog = $prepend . $dialog;
+		$dialog = Template::get($this->getUnitTemplatePath(), array(
+			'prepend' => $prepend,
+			'condition' => $this->condition,
+			'position' => $this->position,
+			'ifTrue' => $this->if_true,
+			'jump' => $this->automatically_jump,
+			'goOn' => $this->automatically_go_on,
+		));
 
 		return parent::runDialog($dialog);
 	}
