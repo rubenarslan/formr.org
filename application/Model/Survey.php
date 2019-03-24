@@ -2151,8 +2151,8 @@ class Survey extends RunUnit {
 			'survey' => $this,
 			'studies' => $this->dbh->select('id, name')->from('survey_studies')->where(array('user_id' => Site::getCurrentUser()->id))->fetchAll(),
 			'prepend' => $prepend,
-			'resultCount' => $this->howManyReachedItNumbers(),
-			'time' => $this->getAverageTimeItTakes(),
+			'resultCount' => $this->id ? $this->howManyReachedItNumbers() : null,
+			'time' => $this->id ? $this->getAverageTimeItTakes() : null,
 		));
 
 		return parent::runDialog($dialog);
