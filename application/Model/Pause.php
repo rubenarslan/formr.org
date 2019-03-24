@@ -191,7 +191,13 @@ class Pause extends RunUnit {
 		if (!empty($wait_date) && !empty($wait_time)) {
 			$wait_datetime = $wait_date . ' ' . $wait_time;
 			$this->execData['expire_timestamp'] = strtotime($wait_datetime);
-			
+
+			// If the expiration hour already passed before the user entered the pause, set expiration to the next day (in 24 hours)
+			if (date('G') > date('G', $this->execData['expire_timestamp'])) {
+				$this->execData['expire_timestamp'] += 24 * 60 * 60; //strtotime('+1 day', $this->execData['expire_timestamp']);
+				return false;
+			}
+/*
 			// Check if this unit already expired today for current run_session_id
 			$q = '
 				SELECT 1 AS finished FROM `survey_unit_sessions`
@@ -206,6 +212,7 @@ class Pause extends RunUnit {
 				$this->execData['expire_timestamp'] = strtotime('+1 day', $this->execData['expire_timestamp']);
 				return false;
 			}
+*/			
 
 			$conditions['datetime'] = ':wait_datetime <= NOW()';
 		}
