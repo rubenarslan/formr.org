@@ -115,24 +115,30 @@ class External extends RunUnit {
 	}
 
 	private function hasExpired() {
-		$expire = $this->expire_after;
+		$expire = (int)$this->expire_after;
 		if ($expire === 0) {
 			return false;
 		} else {
 			$last = $this->run_session->unit_session->created;
-			if (!$last) {
+			if (!$last || !strtotime($last)) {
 				return false;
 			}
-			$query = 'SELECT :last <= DATE_SUB(NOW(), INTERVAL :expire_after MINUTE) AS no_longer_active';
-			$params = array('last' => $last, 'expire_after' => $expire);
-			return (bool)$this->dbh->execute($query, $params, true);
+
+			$expire_ts = strtotime($last)  + ($expire * 60);
+			if (($expired = $expire_ts < time())) {
+				return true;
+			} else {
+				$this->execData['expire_timestamp'] = $expire_ts;
+				return false;
+			}
 		}
 	}
 
 	public function exec() {
 		// never redirect, if we're just in the cronjob. just text for expiry
+		$expired = $this->hasExpired();
 		if ($this->called_by_cron) {
-			if ($this->hasExpired()) {
+			if ($expired) {
 				$this->expire();
 				return false;
 			}

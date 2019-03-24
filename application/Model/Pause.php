@@ -155,6 +155,11 @@ class Pause extends RunUnit {
 				$conditions['relative_to'] = ':relative_to <= NOW()';
 				$bind_relative_to = true;
 				$this->execData['expire_timestamp'] = strtotime($relative_to);
+				// If there was a wait_time, set the timestamp to have this time
+				if ($time = $this->parseWaitTime(true)) {
+					$ts = $this->execData['expire_timestamp'];
+					$this->execData['expire_timestamp'] = mktime($time[0], $time[1], 0, date('m', $ts), date('d', $ts), date('Y', $ts));
+				}
 			} else {
 				alert("Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. " . print_r($relative_to, true), 'alert-warning');
 				$this->execData['check_failed'] = true;
@@ -180,6 +185,9 @@ class Pause extends RunUnit {
 			$wait_time = $this->wait_until_time;
 		}
 
+		$wait_date = $this->parseWaitDate();
+		$wait_time = $this->parseWaitTime();
+
 		if (!empty($wait_date) && empty($wait_time)) {
 			$wait_time = '00:00:01';
 		}
@@ -188,7 +196,7 @@ class Pause extends RunUnit {
 			$wait_date = date('Y-m-d');
 		}
 
-		if (!empty($wait_date) && !empty($wait_time)) {
+		if (!empty($wait_date) && !empty($wait_time) && empty($this->execData['expire_timestamp'])) {
 			$wait_datetime = $wait_date . ' ' . $wait_time;
 			$this->execData['expire_timestamp'] = strtotime($wait_datetime);
 
@@ -196,7 +204,7 @@ class Pause extends RunUnit {
 			$exp_ts =  $this->execData['expire_timestamp'];
 			$exp_hour_min = mktime(date('G', $exp_ts), date('i', $exp_ts), 0);
 			if (time() > $exp_hour_min) {
-				$this->execData['expire_timestamp'] += 24 * 60 * 60; //strtotime('+1 day', $this->execData['expire_timestamp']);
+				$this->execData['expire_timestamp'] += 24 * 60 * 60;
 				return false;
 			}
 /*
@@ -214,10 +222,12 @@ class Pause extends RunUnit {
 				$this->execData['expire_timestamp'] = strtotime('+1 day', $this->execData['expire_timestamp']);
 				return false;
 			}
-*/			
+*/
 
 			$conditions['datetime'] = ':wait_datetime <= NOW()';
 		}
+
+		$result = !empty($this->execData['expire_timestamp']) && $this->execData['expire_timestamp'] <= time();
 
 		if ($conditions) {
 			$condition = implode(' AND ', $conditions);
@@ -242,6 +252,22 @@ class Pause extends RunUnit {
 
 		$this->execData['pause_over'] = $result;
 		return $result;
+	}
+
+	protected function parseWaitTime($parts = false) {
+		if ($this->wait_until_time && $this->wait_until_time != '00:00:00') {
+			return $parts ? explode(':', $this->wait_until_time) : $this->wait_until_time;
+		}
+
+		return null;
+	}
+
+	protected function parseWaitDate($parts = false) {
+		if ($this->wait_until_date && $this->wait_until_date != '0000-00-00') {
+			return $parts ? explode('-', $this->wait_until_date) : $this->wait_until_date;
+		}
+		
+		return null;
 	}
 
 	public function test() {
