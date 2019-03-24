@@ -57,7 +57,9 @@ class RunUnitHelper {
 	 * @return int
 	 */
 	public function getExternalExpiration(UnitSession $unitSession, External $runUnit, $execResults) {
-		if ($execResults === true) {
+		if (!empty($runUnit->execData['expire_timestamp'])) {
+			return $runUnit->execData['expire_timestamp'];
+		} elseif ($execResults === true) {
 			// set expiration to x minutes for unit session to be executed again
 			return strtotime($this->expiration_extension);
 		}
@@ -176,7 +178,9 @@ class RunUnitHelper {
 	 * @return int
 	 */
 	public function getBranchExpiration(UnitSession $unitSession, Branch $runUnit, $execResults) {
-		if ($execResults === true) {
+		if (!empty($runUnit->execData['expire_timestamp'])) {
+			return (int)$runUnit->execData['expire_timestamp'];
+		} elseif ($execResults === true) {
 			// set expiration to x minutes for unit session to be executed again
 			return strtotime($this->expiration_extension);
 		}

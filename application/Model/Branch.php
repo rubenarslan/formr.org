@@ -128,6 +128,12 @@ class Branch extends RunUnit {
 			return true; // don't go anywhere, wait for the error to be fixed!
 		}
 
+		// If execution returned a timestamp greater that now() queue it
+		if (($time = strtotime($eval)) && $time > time()) {
+			$this->execData['expire_timestamp'] = $time;
+			return true;
+		}
+
 		$result = (bool)$eval;
 		// if condition is true and we're set to jump automatically, or if the user reacted
 		if ($result && ($this->automatically_jump || !$this->called_by_cron)):
