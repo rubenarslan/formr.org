@@ -2,144 +2,146 @@
 
 class AdminController extends Controller {
 
-	public function __construct(Site &$site) {
-		parent::__construct($site);
-		$this->header();
-		if (!Request::isAjaxRequest()) {
-			$default_assets = get_default_assets('admin');
-			$this->registerAssets($default_assets);
-			$this->registerAssets('ace');
-		}
-	}
+    public function __construct(Site &$site) {
+        parent::__construct($site);
+        $this->header();
+        if (!Request::isAjaxRequest()) {
+            $default_assets = get_default_assets('admin');
+            $this->registerAssets($default_assets);
+            $this->registerAssets('ace');
+        }
+    }
 
-	public function indexAction() {
-		$this->renderView('home', array(
-			'runs' => $this->user->getRuns('id DESC', 5),
-			'studies' =>  $this->user->getStudies('id DESC', 5),
-		));
-	}
+    public function indexAction() {
+        $this->renderView('home', array(
+            'runs' => $this->user->getRuns('id DESC', 5),
+            'studies' => $this->user->getStudies('id DESC', 5),
+        ));
+    }
 
-	public function infoAction() {
-		$this->renderView('misc/info');
-	}
-/*
-	public function cronAction() {
-		$this->renderView('misc/cron', array("fdb"=> $this->fdb));
-	}
+    public function infoAction() {
+        $this->renderView('misc/info');
+    }
 
-	public function cronForkedAction() {
-		$this->renderView('misc/cron_forked');
-	}
-*/
-	public function testOpencpuAction() {
-		$this->renderView('misc/test_opencpu');
-	}
+    /*
+      public function cronAction() {
+      $this->renderView('misc/cron', array("fdb"=> $this->fdb));
+      }
 
-	public function testOpencpuSpeedAction() {
-		$this->renderView('misc/test_opencpu_speed');
-	}
+      public function cronForkedAction() {
+      $this->renderView('misc/cron_forked');
+      }
+     */
 
-	public function osfAction() {
-		if (!($token = OSF::getUserAccessToken($this->user))) {
-			redirect_to('api/osf/login');
-		}
+    public function testOpencpuAction() {
+        $this->renderView('misc/test_opencpu');
+    }
 
-		$osf = new OSF(Config::get('osf'));
-		$osf->setAccessToken($token);
+    public function testOpencpuSpeedAction() {
+        $this->renderView('misc/test_opencpu_speed');
+    }
 
-		if (Request::isHTTPPostRequest() && $this->request->getParam('osf_action') === 'export-run') {
-			$run = new Run($this->fdb, $this->request->getParam('formr_project'));
-			$osf_project = $this->request->getParam('osf_project');
-			if (!$run->valid || !$osf_project) {
-				throw new Exception('Invalid Request');
-			}
+    public function osfAction() {
+        if (!($token = OSF::getUserAccessToken($this->user))) {
+            redirect_to('api/osf/login');
+        }
 
-			$unitIds = $run->getAllUnitTypes();
-			$units = array();
-			$factory = new RunUnitFactory();
+        $osf = new OSF(Config::get('osf'));
+        $osf->setAccessToken($token);
 
-			/* @var RunUnit $u */
-			foreach ($unitIds as $u) {
-				$unit = $factory->make($this->fdb, null, $u, null, $run);
-				$ex_unit = $unit->getExportUnit();
-				$ex_unit['unit_id'] = $unit->id;
-				$units[] = (object) $ex_unit;
-			}
+        if (Request::isHTTPPostRequest() && $this->request->getParam('osf_action') === 'export-run') {
+            $run = new Run($this->fdb, $this->request->getParam('formr_project'));
+            $osf_project = $this->request->getParam('osf_project');
+            if (!$run->valid || !$osf_project) {
+                throw new Exception('Invalid Request');
+            }
 
-			$export = $run->export($run->name, $units, true);
-			$export_file = Config::get('survey_upload_dir') . '/run-' . time() . '-' . $run->name . '.json';
-			$create = file_put_contents($export_file, json_encode($export, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
-			$response = $osf->upload($osf_project, $export_file, $run->name . '-' . date('YmdHis') . '.json');
-			@unlink($export_file);
+            $unitIds = $run->getAllUnitTypes();
+            $units = array();
+            $factory = new RunUnitFactory();
 
-			if (!$response->hasError()) {
-				$run->saveSettings(array('osf_project_id' => $osf_project));
-				alert('Run exported to OSF', 'alert-success');
-			} else {
-				alert($response->getError(), 'alert-danger');
-			}
+            /* @var RunUnit $u */
+            foreach ($unitIds as $u) {
+                $unit = $factory->make($this->fdb, null, $u, null, $run);
+                $ex_unit = $unit->getExportUnit();
+                $ex_unit['unit_id'] = $unit->id;
+                $units[] = (object) $ex_unit;
+            }
 
-			if ($redirect = $this->request->getParam('redirect')) {
-				redirect_to($redirect);
-			}
-		}
+            $export = $run->export($run->name, $units, true);
+            $export_file = Config::get('survey_upload_dir') . '/run-' . time() . '-' . $run->name . '.json';
+            $create = file_put_contents($export_file, json_encode($export, JSON_PRETTY_PRINT + JSON_UNESCAPED_UNICODE + JSON_NUMERIC_CHECK));
+            $response = $osf->upload($osf_project, $export_file, $run->name . '-' . date('YmdHis') . '.json');
+            @unlink($export_file);
 
-		// @todo implement get projects recursively
-		$response = $osf->getProjects();
-		$osf_projects = array();
-		if ($response->hasError()) {
-			alert($response->getError(), 'alert-danger');
-		} else {
-			foreach ($response->getJSON()->data as $project) {
-				$osf_projects[] = array('id' => $project->id, 'name' => $project->attributes->title);
-			}
-		}
+            if (!$response->hasError()) {
+                $run->saveSettings(array('osf_project_id' => $osf_project));
+                alert('Run exported to OSF', 'alert-success');
+            } else {
+                alert($response->getError(), 'alert-danger');
+            }
 
-		$this->renderView('misc/osf', array(
-			'token' => $token,
-			'runs' => $this->user->getRuns(),
-			'run_selected'=> $this->request->getParam('run'),
-			'osf_projects' => $osf_projects,
-		));
-	}
+            if ($redirect = $this->request->getParam('redirect')) {
+                redirect_to($redirect);
+            }
+        }
 
-	protected function renderView($template, $vars = array()) {
-		$template = 'admin/' . $template;
-		parent::renderView($template, $vars);
-	}
+        // @todo implement get projects recursively
+        $response = $osf->getProjects();
+        $osf_projects = array();
+        if ($response->hasError()) {
+            alert($response->getError(), 'alert-danger');
+        } else {
+            foreach ($response->getJSON()->data as $project) {
+                $osf_projects[] = array('id' => $project->id, 'name' => $project->attributes->title);
+            }
+        }
 
-	protected function header() {
-		if (!$this->user->loggedIn()) {
-			alert('You need to login to access the admin section', 'alert-warning');
-			redirect_to('login');
-		}
+        $this->renderView('misc/osf', array(
+            'token' => $token,
+            'runs' => $this->user->getRuns(),
+            'run_selected' => $this->request->getParam('run'),
+            'osf_projects' => $osf_projects,
+        ));
+    }
 
-		if (!$this->user->isAdmin()) {
-			alert('You need to request for an admin account in order to access this section. See Documentation.', 'alert-warning');
-			redirect_to('account');
-		}
+    protected function renderView($template, $vars = array()) {
+        $template = 'admin/' . $template;
+        parent::renderView($template, $vars);
+    }
 
-		if ($this->site->inSuperAdminArea() && !$this->user->isSuperAdmin()) {
-			formr_error(403, 'Forbidden', 'Sorry! Only super admins have access to this section.');
-		}
-	}
+    protected function header() {
+        if (!$this->user->loggedIn()) {
+            alert('You need to login to access the admin section', 'alert-warning');
+            redirect_to('login');
+        }
 
-	public function createRunUnit($id = null) {
-		$dbh = $this->fdb;
-		$run = $this->run;
-		$unit_factory = new RunUnitFactory();
-		$unit_data = array(
-			'type' => $this->request->type,
-			'position' => (int)$this->request->position,
-			'special' => $this->request->special,
-		);
-		$unit_data = array_merge($this->request->getParams(), $unit_data, RunUnit::getDefaults($this->request->type), RunUnit::getDefaults($this->request->special));
-		if ($id) {
-			$unit_data['unit_id'] = $id;
-		}
-		$unit = $unit_factory->make($dbh, null, $unit_data, null, $run);
-		$unit->create($unit_data);
-		return $unit;
-	}
+        if (!$this->user->isAdmin()) {
+            alert('You need to request for an admin account in order to access this section. See Documentation.', 'alert-warning');
+            redirect_to('account');
+        }
+
+        if ($this->site->inSuperAdminArea() && !$this->user->isSuperAdmin()) {
+            formr_error(403, 'Forbidden', 'Sorry! Only super admins have access to this section.');
+        }
+    }
+
+    public function createRunUnit($id = null) {
+        $dbh = $this->fdb;
+        $run = $this->run;
+        $unit_factory = new RunUnitFactory();
+        $unit_data = array(
+            'type' => $this->request->type,
+            'position' => (int) $this->request->position,
+            'special' => $this->request->special,
+        );
+        $unit_data = array_merge($this->request->getParams(), $unit_data, RunUnit::getDefaults($this->request->type), RunUnit::getDefaults($this->request->special));
+        if ($id) {
+            $unit_data['unit_id'] = $id;
+        }
+        $unit = $unit_factory->make($dbh, null, $unit_data, null, $run);
+        $unit->create($unit_data);
+        return $unit;
+    }
 
 }

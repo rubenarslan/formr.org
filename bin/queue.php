@@ -1,6 +1,5 @@
 #!/usr/bin/php
 <?php
-
 require_once dirname(__FILE__) . '/../setup.php';
 
 /**
@@ -16,45 +15,44 @@ require_once dirname(__FILE__) . '/../setup.php';
  * --batch-limit : For the unit session queue this is the number of items to fetch per SQL query (defaults to 1000)
  * --max-sessions: Maximum number of unit sessions the UnitSession queue is allowed to process
  */
-
 // Check if maintenance is going on
 if (Config::get('in_maintenance')) {
-	formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenace Mode', false);
+    formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenace Mode', false);
 }
 
 $opts = getopt('t:a:o:', array('batch-offset:', 'batch-limit:', 'max-sessions:'));
-$config = (array)$opts;
+$config = (array) $opts;
 $config['queue_type'] = 'Email';
 $config['account_id'] = null;
 
 if (!empty($opts['t'])) {
-	$config['queue_type'] = $opts['t'];
+    $config['queue_type'] = $opts['t'];
 }
 
 if (!empty($opts['a'])) {
-	$config['account_id'] = (int)$opts['a'];
+    $config['account_id'] = (int) $opts['a'];
 }
 
 
 try {
-	$queue = null;
+    $queue = null;
 
-	if ($config['queue_type'] === 'Email') {
-		$config = array_merge(Config::get('email'), $config);
-		$queue = new EmailQueue(DB::getInstance(), $config);
-	}
+    if ($config['queue_type'] === 'Email') {
+        $config = array_merge(Config::get('email'), $config);
+        $queue = new EmailQueue(DB::getInstance(), $config);
+    }
 
-	if ($config['queue_type'] === 'UnitSession') {
-		$config = array_merge(Config::get('unit_session'), $config);
-		$queue = new UnitSessionQueue(DB::getInstance(), $config);
-	}
+    if ($config['queue_type'] === 'UnitSession') {
+        $config = array_merge(Config::get('unit_session'), $config);
+        $queue = new UnitSessionQueue(DB::getInstance(), $config);
+    }
 
-	if ($queue === null) {
-		throw new Exception('Invalid Queue Type: ' . $config['queue_type']);
-	}
+    if ($queue === null) {
+        throw new Exception('Invalid Queue Type: ' . $config['queue_type']);
+    }
 
-	$queue->run();
+    $queue->run();
 } catch (Exception $e) {
-	formr_log_exception($e, 'Queue');
-	sleep(15);
+    formr_log_exception($e, 'Queue');
+    sleep(15);
 }

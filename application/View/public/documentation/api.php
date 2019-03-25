@@ -1,32 +1,32 @@
 <h3>formr API</h3><hr />
 
 <p>
-The formr API is the primary way to get data/results out of the platform. It's a low-level HTTP-based API that you can use principally to get results of a 
-study for specified participants (sessions)
+    The formr API is the primary way to get data/results out of the platform. It's a low-level HTTP-based API that you can use principally to get results of a 
+    study for specified participants (sessions)
 </p>
 <p>
-Resource requests to the formr API require that you have a valid access token which you can obtain by providing API credentials (a client id and a client 
-secret)
+    Resource requests to the formr API require that you have a valid access token which you can obtain by providing API credentials (a client id and a client 
+    secret)
 </p>
 
 <p>
-API base URL: <br />
-<code class="php">https://api.formr.org</code>
+    API base URL: <br />
+    <code class="php">https://api.formr.org</code>
 </p>
 
 
 <h4>Obtaining Client ID and Client Secret</h4>
 <p>
-Access to the API is restricted, so only the administrators of formr are able to provide API credentials to formr users. To 
-obtain API credentials, send an email to <a title=" We're excited to have people try this out, so you'll get a test account, if you're human or at least cetacean. But let us know a little about what you plan to do." class="schmail" href="mailto:IMNOTSENDINGSPAMTOcyril.tata@that-big-googly-eyed-email-provider.com">Cyril</a> and your credentials will be sent to you.
+    Access to the API is restricted, so only the administrators of formr are able to provide API credentials to formr users. To 
+    obtain API credentials, send an email to <a title=" We're excited to have people try this out, so you'll get a test account, if you're human or at least cetacean. But let us know a little about what you plan to do." class="schmail" href="mailto:IMNOTSENDINGSPAMTOcyril.tata@that-big-googly-eyed-email-provider.com">Cyril</a> and your credentials will be sent to you.
 </p>
 
 <h4>Obtaining An Access Token</h4>
 <p>
-An access token is an opaque string that identifies a formr user and can be used to make API calls without further authentication. formr API access tokens 
-are short-lived and have a life span of about an hour.
+    An access token is an opaque string that identifies a formr user and can be used to make API calls without further authentication. formr API access tokens 
+    are short-lived and have a life span of about an hour.
 </p>
-	
+
 <p>To generate an access token you need to make an HTTP POST request to the token endpoint of the API</p>
 
 <pre>
@@ -39,9 +39,9 @@ POST /oauth/access_token?
 </pre>
 
 <p>
-This call will return a JSON object containing an access token which can be used to access the API without further authentication required.
-<br />
-Sample successful response
+    This call will return a JSON object containing an access token which can be used to access the API without further authentication required.
+    <br />
+    Sample successful response
 </p>
 
 <pre>
@@ -92,18 +92,18 @@ GET /get/results?
 </pre>
 
 <p>
-	<b><i>Notes:</i></b><br />
-	<ul>
-		<li><i>survey_name1</i> and <i>survey_name2</i> should be the actual survey names</li>
-		<li>If you want to get results for all surveys in the run you can omit the <i><b>survey</b></i> parameter</li>
-		<li>If you want to get all items from a survey, keep the items list empty.</li>
-	</ul>
+    <b><i>Notes:</i></b><br />
+<ul>
+    <li><i>survey_name1</i> and <i>survey_name2</i> should be the actual survey names</li>
+    <li>If you want to get results for all surveys in the run you can omit the <i><b>survey</b></i> parameter</li>
+    <li>If you want to get all items from a survey, keep the items list empty.</li>
+</ul>
 </p>
 
 <h6>RESPONSE</h6>
 
 <p>
-The response to a results request is a JSON object. The keys of this JSON structure are the names of the survey that were indicated in the requested and the value associated to each survey entry is an array of objects representing the results collected for that survey for all the requested sessions. An example of a response object could be the following:
+    The response to a results request is a JSON object. The keys of this JSON structure are the names of the survey that were indicated in the requested and the value associated to each survey entry is an array of objects representing the results collected for that survey for all the requested sessions. An example of a response object could be the following:
 </p>
 
 <pre>
