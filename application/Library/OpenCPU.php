@@ -2,523 +2,527 @@
 
 class OpenCPU {
 
-	protected $baseUrl = 'https://public.opencpu.org';
-	protected $libUri = '/ocpu/library';
-	protected $last_message = null;
-	protected $rLibPath = '/usr/local/lib/R/site-library';
+    protected $baseUrl = 'https://public.opencpu.org';
+    protected $libUri = '/ocpu/library';
+    protected $last_message = null;
+    protected $rLibPath = '/usr/local/lib/R/site-library';
 
-	const STRING_DELIMITER = "\n\n==========formr=opencpu=string=delimiter==========\n\n";
-	const TEMP_BASE_URL = "__formr_opencpu_session_url__";
-	const STRING_DELIMITER_PARSED = "<p>==========formr=opencpu=string=delimiter==========</p>";
+    const STRING_DELIMITER = "\n\n==========formr=opencpu=string=delimiter==========\n\n";
+    const TEMP_BASE_URL = "__formr_opencpu_session_url__";
+    const STRING_DELIMITER_PARSED = "<p>==========formr=opencpu=string=delimiter==========</p>";
 
-	/**
-	 * @var OpenCPU[]
-	 */
-	protected static $instances = array();
-	/**
-	 * @var OpenCPU_Session[]
-	 */
-	protected $cache = array();
+    /**
+     * @var OpenCPU[]
+     */
+    protected static $instances = array();
 
-	/**
-	 * Additional curl options to set when making curl request
-	 *
-	 * @var Array 
-	 */
-	private $curl_opts = array(
-		CURLINFO_HEADER_OUT => true,
-		CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-		CURLOPT_HEADER => true,
-		CURLOPT_ENCODING => ""
-	);
+    /**
+     * @var OpenCPU_Session[]
+     */
+    protected $cache = array();
 
-	private $curl_info = array();
+    /**
+     * Additional curl options to set when making curl request
+     *
+     * @var Array 
+     */
+    private $curl_opts = array(
+        CURLINFO_HEADER_OUT => true,
+        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+        CURLOPT_HEADER => true,
+        CURLOPT_ENCODING => ""
+    );
+    private $curl_info = array();
 
-	/**
-	 * @var OpenCPU_Request
-	 */
-	protected $request;
+    /**
+     * @var OpenCPU_Request
+     */
+    protected $request;
 
-	/**
-	 * Get an instance of OpenCPU class
-	 *
-	 * @param string $instance Config item name that holds opencpu base URL
-	 * @return OpenCPU
-	 */
-	public static function getInstance($instance = 'opencpu_instance') {
-		if (!isset(self::$instances[$instance])) {
-			self::$instances[$instance] = new self($instance);
-		}
-		return self::$instances[$instance];
-	}
+    /**
+     * Get an instance of OpenCPU class
+     *
+     * @param string $instance Config item name that holds opencpu base URL
+     * @return OpenCPU
+     */
+    public static function getInstance($instance = 'opencpu_instance') {
+        if (!isset(self::$instances[$instance])) {
+            self::$instances[$instance] = new self($instance);
+        }
+        return self::$instances[$instance];
+    }
 
-	protected function __construct($instance) {
-		$config = (array) Config::get($instance);
-		foreach ($config as $key => $value) {
-			$property = lcfirst(preg_replace('/\s+/', '', ucwords(str_replace('_', ' ', $key))));
-			if (property_exists($this, $property)) {
-				$this->{$property} = $value;
-			}
-		}
-	}
+    protected function __construct($instance) {
+        $config = (array) Config::get($instance);
+        foreach ($config as $key => $value) {
+            $property = lcfirst(preg_replace('/\s+/', '', ucwords(str_replace('_', ' ', $key))));
+            if (property_exists($this, $property)) {
+                $this->{$property} = $value;
+            }
+        }
+    }
 
-	/**
-	 * @param string $baseUrl
-	 */
-	public function setBaseUrl($baseUrl) {
-		if ($baseUrl) {
-			$baseUrl = rtrim($baseUrl, "/");
-			$this->baseUrl = $baseUrl;
-		}
-	}
+    /**
+     * @param string $baseUrl
+     */
+    public function setBaseUrl($baseUrl) {
+        if ($baseUrl) {
+            $baseUrl = rtrim($baseUrl, "/");
+            $this->baseUrl = $baseUrl;
+        }
+    }
 
-	public function getBaseUrl() {
-		return $this->baseUrl;
-	}
+    public function getBaseUrl() {
+        return $this->baseUrl;
+    }
 
-	public function getRLibPath() {
-		return $this->rLibPath;
-	}
-	public function getRTempBaseUrl() {
-		return self::TEMP_BASE_URL;
-	}
+    public function getRLibPath() {
+        return $this->rLibPath;
+    }
 
-	public function setLibUrl($libUri) {
-		$libUri = trim($libUri, "/");
-		$this->libUri = '/' . $libUri;
-	}
+    public function getRTempBaseUrl() {
+        return self::TEMP_BASE_URL;
+    }
 
-	public function getLibUri() {
-		return $this->libUri;
-	}
+    public function setLibUrl($libUri) {
+        $libUri = trim($libUri, "/");
+        $this->libUri = '/' . $libUri;
+    }
 
-	public function getLastMessage() {
-		return $this->last_message;
-	}
+    public function getLibUri() {
+        return $this->libUri;
+    }
 
-	/**
-	 * @return OpenCPU_Request
-	 */
-	public function getRequest() {
-		return $this->request;
-	}
+    public function getLastMessage() {
+        return $this->last_message;
+    }
 
-	/**
-	 * Get Response headers of opencpu request
-	 *
-	 * @return null|array
-	 */
-	public function getResponseHeaders() {
-		if (isset($this->curl_info[CURL::RESPONSE_HEADERS])) {
-			return $this->curl_info[CURL::RESPONSE_HEADERS];
-		} elseif(isset($this->curl_info['raw_header'])) {
-			return http_parse_headers($this->curl_info['raw_header']);
-		}
-		return null;
-	}
+    /**
+     * @return OpenCPU_Request
+     */
+    public function getRequest() {
+        return $this->request;
+    }
 
-	public function getRequestInfo($item = null) {
-		if ($item && isset($this->curl_info[$item])) {
-			return $this->curl_info[$item];
-		} elseif ($item) {
-			return null;
-		}
-		return $this->curl_info;
-	}
+    /**
+     * Get Response headers of opencpu request
+     *
+     * @return null|array
+     */
+    public function getResponseHeaders() {
+        if (isset($this->curl_info[CURL::RESPONSE_HEADERS])) {
+            return $this->curl_info[CURL::RESPONSE_HEADERS];
+        } elseif (isset($this->curl_info['raw_header'])) {
+            return http_parse_headers($this->curl_info['raw_header']);
+        }
+        return null;
+    }
 
-	private function call($uri = '', $params = array(), $method = CURL::HTTP_METHOD_GET) {
-		$cachekey = md5(serialize(func_get_args()));
-		if (isset($this->cache[$cachekey])) {
-			return $this->cache[$cachekey];
-		}
+    public function getRequestInfo($item = null) {
+        if ($item && isset($this->curl_info[$item])) {
+            return $this->curl_info[$item];
+        } elseif ($item) {
+            return null;
+        }
+        return $this->curl_info;
+    }
+
+    private function call($uri = '', $params = array(), $method = CURL::HTTP_METHOD_GET) {
+        $cachekey = md5(serialize(func_get_args()));
+        if (isset($this->cache[$cachekey])) {
+            return $this->cache[$cachekey];
+        }
 
 
-		if ($uri && strstr($uri, $this->baseUrl) === false) {
-			$uri = "/" . ltrim($uri, "/");
-			$url = $this->baseUrl . $this->libUri . $uri;
-		} else {
-			$url = $uri;
-		}
+        if ($uri && strstr($uri, $this->baseUrl) === false) {
+            $uri = "/" . ltrim($uri, "/");
+            $url = $this->baseUrl . $this->libUri . $uri;
+        } else {
+            $url = $uri;
+        }
 
-		// set global props
-		$this->curl_info = array();
-		$this->request = new OpenCPU_Request($url, $method, $params);
+        // set global props
+        $this->curl_info = array();
+        $this->request = new OpenCPU_Request($url, $method, $params);
 
-		$curl_opts = $this->curl_opts;
-		// encode request
-		if ($method === CURL::HTTP_METHOD_POST) {
-			$params = array_map(array($this, 'cr2nl'), $params);
-			$params = http_build_query($params);
-			$curl_opts = $this->curl_opts + array(CURLOPT_HTTPHEADER => array(
-				'Content-Length: ' . strlen($params),
-			));
-		}
+        $curl_opts = $this->curl_opts;
+        // encode request
+        if ($method === CURL::HTTP_METHOD_POST) {
+            $params = array_map(array($this, 'cr2nl'), $params);
+            $params = http_build_query($params);
+            $curl_opts = $this->curl_opts + array(CURLOPT_HTTPHEADER => array(
+                    'Content-Length: ' . strlen($params),
+            ));
+        }
 
-		// Maybe something bad happen in CURL request just throw it with OpenCPU_Exception with message returned from CURL
-		try {
-			$results = CURL::HttpRequest($url, $params, $method, $curl_opts, $this->curl_info);
-		} catch (Exception $e) {
-			throw new OpenCPU_Exception($e->getMessage(), -1, $e);
-		}
+        // Maybe something bad happen in CURL request just throw it with OpenCPU_Exception with message returned from CURL
+        try {
+            $results = CURL::HttpRequest($url, $params, $method, $curl_opts, $this->curl_info);
+        } catch (Exception $e) {
+            throw new OpenCPU_Exception($e->getMessage(), -1, $e);
+        }
 
-		if ($this->curl_info['http_code'] == 400) {
-			$results = "R Error: $results";
-			return new OpenCPU_Session(null, null, $results, $this);
-		} elseif ($this->curl_info['http_code'] < 200 || $this->curl_info['http_code'] > 302) {
-			if (!$results) {
-				$results = "OpenCPU server '{$this->baseUrl}' could not be contacted";
-			}
-			throw new OpenCPU_Exception($results, $this->curl_info['http_code']);
-		}
+        if ($this->curl_info['http_code'] == 400) {
+            $results = "R Error: $results";
+            return new OpenCPU_Session(null, null, $results, $this);
+        } elseif ($this->curl_info['http_code'] < 200 || $this->curl_info['http_code'] > 302) {
+            if (!$results) {
+                $results = "OpenCPU server '{$this->baseUrl}' could not be contacted";
+            }
+            throw new OpenCPU_Exception($results, $this->curl_info['http_code']);
+        }
 
-		$headers = $this->getResponseHeaders();
-		if ($method === CURL::HTTP_METHOD_GET) {
-			$headers['Location'] = $url;
-			if(preg_match("@/(x0[a-z0-9-_~]+)/@",$url, $matches)):
-				$headers['X-Ocpu-Session'] = $matches[1];
-			endif;
-		}
-		if (!$headers || empty($headers['Location']) || empty($headers['X-Ocpu-Session'])) {
-			$request = sprintf('[uri %s] %s', $uri, print_r($params, 1));
-			throw new OpenCPU_Exception("Response headers not gotten from request $request");
-		}
+        $headers = $this->getResponseHeaders();
+        if ($method === CURL::HTTP_METHOD_GET) {
+            $headers['Location'] = $url;
+            if (preg_match("@/(x0[a-z0-9-_~]+)/@", $url, $matches)):
+                $headers['X-Ocpu-Session'] = $matches[1];
+            endif;
+        }
+        if (!$headers || empty($headers['Location']) || empty($headers['X-Ocpu-Session'])) {
+            $request = sprintf('[uri %s] %s', $uri, print_r($params, 1));
+            throw new OpenCPU_Exception("Response headers not gotten from request $request");
+        }
 
-		$this->cache[$cachekey] = new OpenCPU_Session($headers['Location'], $headers['X-Ocpu-Session'], $results, $this);
-		return $this->cache[$cachekey];
-	}
+        $this->cache[$cachekey] = new OpenCPU_Session($headers['Location'], $headers['X-Ocpu-Session'], $results, $this);
+        return $this->cache[$cachekey];
+    }
 
-	/**
-	 * Send a POST request to OpenCPU
-	 *
-	 * @param string $uri A uri that is relative to openCPU's library entry point for example '/markdown/R/render'
-	 * @param array $params An array of parameters to pass
-	 * @throws OpenCPU_Exception
-	 * @return OpenCPU_Session
-	 */
-	public function post($uri = '', $params = array()) {
-		return $this->call($uri, $params, CURL::HTTP_METHOD_POST);
-	}
+    /**
+     * Send a POST request to OpenCPU
+     *
+     * @param string $uri A uri that is relative to openCPU's library entry point for example '/markdown/R/render'
+     * @param array $params An array of parameters to pass
+     * @throws OpenCPU_Exception
+     * @return OpenCPU_Session
+     */
+    public function post($uri = '', $params = array()) {
+        return $this->call($uri, $params, CURL::HTTP_METHOD_POST);
+    }
 
-	/**
-	 * Send a GET request to OpenCPU
-	 *
-	 * @param string $uri A uri that is relative to openCPU's library entry point for example '/markdown/R/render'
-	 * @param array $params An array of parameters to pass
-	 * @throws OpenCPU_Exception
-	 * @return OpenCPU_Session
-	 */
-	public function get($uri = '', $params = array()) {
-		return $this->call($uri, $params, CURL::HTTP_METHOD_GET);
-	}
+    /**
+     * Send a GET request to OpenCPU
+     *
+     * @param string $uri A uri that is relative to openCPU's library entry point for example '/markdown/R/render'
+     * @param array $params An array of parameters to pass
+     * @throws OpenCPU_Exception
+     * @return OpenCPU_Session
+     */
+    public function get($uri = '', $params = array()) {
+        return $this->call($uri, $params, CURL::HTTP_METHOD_GET);
+    }
 
-	/**
-	 * Execute a snippet of R code
-	 *
-	 * @param string $code
-	 * @return OpenCPU_Session
-	 */
-	public function snippet($code) {
-		$params = array('x' => '{ 
+    /**
+     * Execute a snippet of R code
+     *
+     * @param string $code
+     * @return OpenCPU_Session
+     */
+    public function snippet($code) {
+        $params = array('x' => '{ 
 (function() {
 	' . $code . '
 })()}');
-		return $this->post('/base/R/identity', $params);
-	}
+        return $this->post('/base/R/identity', $params);
+    }
 
-	private function cr2nl($string) {
-		return str_replace("\r\n", "\n", $string);
-	}
+    private function cr2nl($string) {
+        return str_replace("\r\n", "\n", $string);
+    }
 
 }
 
 class OpenCPU_Session {
 
-	/**
-	 * @var string
-	 */
-	protected $raw_result;
+    /**
+     * @var string
+     */
+    protected $raw_result;
 
-	/**
-	 * @var string
-	 */
-	protected $key;
+    /**
+     * @var string
+     */
+    protected $key;
 
-	/**
-	 * @var string
-	 */
-	protected $location;
+    /**
+     * @var string
+     */
+    protected $location;
 
-	/**
-	 * @var OpenCPU
-	 */
-	private $ocpu;
-	
-	/**
-	 * @var integer
-	 */
-	private $object_length = null;
+    /**
+     * @var OpenCPU
+     */
+    private $ocpu;
 
-	public function __construct($location, $key, $raw_result, OpenCPU $ocpu = null) {
-		$this->raw_result = $raw_result;
-		$this->key = $key;
-		$this->location = $location;
-		$this->ocpu = $ocpu;
-	}
+    /**
+     * @var integer
+     */
+    private $object_length = null;
 
-	/**
-	 * Returns the list of returned paths as a string separated by newline char
-	 *
-	 * @return string
-	 */
-	public function getRawResult() {
-		return $this->raw_result;
-	}
+    public function __construct($location, $key, $raw_result, OpenCPU $ocpu = null) {
+        $this->raw_result = $raw_result;
+        $this->key = $key;
+        $this->location = $location;
+        $this->ocpu = $ocpu;
+    }
 
-	/**
-	 * @return OpenCPU_Request
-	 */
-	public function getRequest() {
-		return $this->ocpu->getRequest();
-	}
+    /**
+     * Returns the list of returned paths as a string separated by newline char
+     *
+     * @return string
+     */
+    public function getRawResult() {
+        return $this->raw_result;
+    }
 
-	public function isJSONResult() {
-		return ($this->ocpu->getRequestInfo("content_type") === "application/json");
-	}
+    /**
+     * @return OpenCPU_Request
+     */
+    public function getRequest() {
+        return $this->ocpu->getRequest();
+    }
 
-	/**
-	 * Returns the list of returned paths as a string separated by newline char
-	 *
-	 * @param bool $as_array If TRUE, paths will be returned in an array
-	 * @return string|array
-	 */
-	public function getResponse($as_array = false) {
-		if ($as_array === true) {
-			return explode("\n", $this->raw_result);
-		}
-		return $this->raw_result;
-	}
+    public function isJSONResult() {
+        return ($this->ocpu->getRequestInfo("content_type") === "application/json");
+    }
 
-	public function getKey() {
-		return $this->key;
-	}
+    /**
+     * Returns the list of returned paths as a string separated by newline char
+     *
+     * @param bool $as_array If TRUE, paths will be returned in an array
+     * @return string|array
+     */
+    public function getResponse($as_array = false) {
+        if ($as_array === true) {
+            return explode("\n", $this->raw_result);
+        }
+        return $this->raw_result;
+    }
 
-	/**
-	 * Get an array of files present in current session
-	 *
-	 * @param string $match You can match only files with some slug in the path name
-	 * @param string $baseURL URL segment to prepend to paths
-	 * @return array
-	 */
-	public function getFiles($match = '/files/', $baseURL = null) {
-		if (!$this->key) {
-			return null;
-		}
+    public function getKey() {
+        return $this->key;
+    }
 
-		$files = array();
-		$result = explode("\n", $this->raw_result);
-		foreach ($result as $path) {
-			if (!$path || strpos($path, $match) === false) {
-				continue;
-			}
+    /**
+     * Get an array of files present in current session
+     *
+     * @param string $match You can match only files with some slug in the path name
+     * @param string $baseURL URL segment to prepend to paths
+     * @return array
+     */
+    public function getFiles($match = '/files/', $baseURL = null) {
+        if (!$this->key) {
+            return null;
+        }
 
-			$id = basename($path);
-			$files[$id] = $baseURL ? $baseURL . $path : $this->getResponsePath($path);
-		}
-		return $files;
-	}
+        $files = array();
+        $result = explode("\n", $this->raw_result);
+        foreach ($result as $path) {
+            if (!$path || strpos($path, $match) === false) {
+                continue;
+            }
 
-	/**
-	 * Get absolute URLs of all resources in the response
-	 *
-	 * @return array
-	 */
-	public function getResponsePaths() {
-		if (!$this->key || $this->isJSONResult()) {
-			return null;
-		}
+            $id = basename($path);
+            $files[$id] = $baseURL ? $baseURL . $path : $this->getResponsePath($path);
+        }
+        return $files;
+    }
 
-		$result = explode("\n", $this->raw_result);
-		$files = array();
-		foreach ($result as $id => $path) {
-			$files[$id] = $this->getResponsePath($path);
-		}
-		return $files;
-	}
-	public function getResponsePathsAsLinks() {
-		if (!$this->key || $this->isJSONResult()) {
-			return null;
-		}
+    /**
+     * Get absolute URLs of all resources in the response
+     *
+     * @return array
+     */
+    public function getResponsePaths() {
+        if (!$this->key || $this->isJSONResult()) {
+            return null;
+        }
 
-		$result = explode("\n", $this->raw_result);
-		$files = array();
-		foreach ($result as $path) {
-			$files[$path] = $this->getResponsePath($path);
-		}
-		return $files;
-	}
+        $result = explode("\n", $this->raw_result);
+        $files = array();
+        foreach ($result as $id => $path) {
+            $files[$id] = $this->getResponsePath($path);
+        }
+        return $files;
+    }
 
-	public function getLocation() {
-		return $this->location;
-	}
+    public function getResponsePathsAsLinks() {
+        if (!$this->key || $this->isJSONResult()) {
+            return null;
+        }
 
-	public function getFileURL($path) {
-		return $this->getResponsePath('/files/' . $path);
-	}
+        $result = explode("\n", $this->raw_result);
+        $files = array();
+        foreach ($result as $path) {
+            $files[$path] = $this->getResponsePath($path);
+        }
+        return $files;
+    }
 
-	public function getObject($name = 'json', $params = array()) {
-		if (!$this->key) {
-			return null;
-		}
+    public function getLocation() {
+        return $this->location;
+    }
 
-		$url = $this->getLocation() . 'R/.val/' . $name;
-		$info = array(); // just in case needed in the furture to get curl info
-		$object = CURL::HttpRequest($url, $params, $method = CURL::HTTP_METHOD_GET, array(), $info);
-		if ($name === 'json') {
-			$object = $this->getJSONObject($object);
-		}
-		if(is_string($object)) {
-			$object = str_replace($this->ocpu->getRLibPath(), $this->getBaseUrl() . $this->ocpu->getLibUri(), $object);
-			return str_replace($this->ocpu->getRTempBaseUrl() , $this->getLocation().'files/', $object);
-		}
-		
-		return $object;
-	}
+    public function getFileURL($path) {
+        return $this->getResponsePath('/files/' . $path);
+    }
 
-	public function getJSONObject($string = null, $as_assoc = true) {
-		if (!$this->key) {
-			return null;
-		}
+    public function getObject($name = 'json', $params = array()) {
+        if (!$this->key) {
+            return null;
+        }
 
-		if ($string === null) {
-			$string = $this->raw_result;
-		}
-		$json = json_decode($string, $as_assoc);
-		$this->object_length = count($json);
-		// if decoded object is a non-empty array, get it's first element
-		if (is_array($json) && array_key_exists(0, $json)) {
-			if(is_string($json[0])) {
-				$string = str_replace($this->ocpu->getRLibPath(), $this->getBaseUrl() . $this->ocpu->getLibUri(), $json[0]);
-				return str_replace($this->ocpu->getRTempBaseUrl() , $this->getLocation().'files/', $string);
-			}
-			return $json[0];
-		}
+        $url = $this->getLocation() . 'R/.val/' . $name;
+        $info = array(); // just in case needed in the furture to get curl info
+        $object = CURL::HttpRequest($url, $params, $method = CURL::HTTP_METHOD_GET, array(), $info);
+        if ($name === 'json') {
+            $object = $this->getJSONObject($object);
+        }
+        if (is_string($object)) {
+            $object = str_replace($this->ocpu->getRLibPath(), $this->getBaseUrl() . $this->ocpu->getLibUri(), $object);
+            return str_replace($this->ocpu->getRTempBaseUrl(), $this->getLocation() . 'files/', $object);
+        }
 
-		return $json;	
-	}
-	
-	public function getObjectLength() {
-		return $this->object_length;
-	}
+        return $object;
+    }
 
-	public function getStdout() {
-		if (!$this->key) {
-			return null;
-		}
+    public function getJSONObject($string = null, $as_assoc = true) {
+        if (!$this->key) {
+            return null;
+        }
 
-		$url = $this->getLocation() . 'stdout';
-		$info = array(); // just in case needed in the furture to get curl info
-		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
-	}
+        if ($string === null) {
+            $string = $this->raw_result;
+        }
+        $json = json_decode($string, $as_assoc);
+        $this->object_length = count($json);
+        // if decoded object is a non-empty array, get it's first element
+        if (is_array($json) && array_key_exists(0, $json)) {
+            if (is_string($json[0])) {
+                $string = str_replace($this->ocpu->getRLibPath(), $this->getBaseUrl() . $this->ocpu->getLibUri(), $json[0]);
+                return str_replace($this->ocpu->getRTempBaseUrl(), $this->getLocation() . 'files/', $string);
+            }
+            return $json[0];
+        }
 
-	public function getConsole() {
-		if (!$this->key) {
-			return null;
-		}
+        return $json;
+    }
 
-		$url = $this->getLocation() . 'console';
-		$info = array(); // just in case needed in the furture to get curl info
-		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
-	}
+    public function getObjectLength() {
+        return $this->object_length;
+    }
 
-	public function getInfo() {
-		if (!$this->key) {
-			return null;
-		}
+    public function getStdout() {
+        if (!$this->key) {
+            return null;
+        }
 
-		$url = $this->getLocation() . 'info';
-		$info = array(); // just in case needed in the furture to get curl info
-		return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
-	}
+        $url = $this->getLocation() . 'stdout';
+        $info = array(); // just in case needed in the furture to get curl info
+        return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
+    }
 
-	public function hasError() {
-		return $this->ocpu->getRequestInfo('http_code') >=  400;
-	}
+    public function getConsole() {
+        if (!$this->key) {
+            return null;
+        }
 
-	public function getError() {
-		if (!$this->hasError()) {
-			return null;
-		}
-		return $this->raw_result;
-	}
+        $url = $this->getLocation() . 'console';
+        $info = array(); // just in case needed in the furture to get curl info
+        return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
+    }
 
-	/**
-	 * @return OpenCPU
-	 */
-	public function caller() {
-		return $this->ocpu;
-	}
+    public function getInfo() {
+        if (!$this->key) {
+            return null;
+        }
 
-	public function getResponseHeaders() {
-		return $this->caller()->getResponseHeaders();
-	}
+        $url = $this->getLocation() . 'info';
+        $info = array(); // just in case needed in the furture to get curl info
+        return CURL::HttpRequest($url, null, $method = CURL::HTTP_METHOD_GET, array(), $info);
+    }
 
-	public function getBaseUrl() {
-		return $this->caller()->getBaseUrl();
-	}
+    public function hasError() {
+        return $this->ocpu->getRequestInfo('http_code') >= 400;
+    }
 
-	protected function getResponsePath($path) {
-		return $this->caller()->getBaseUrl() . $path;
-	}
+    public function getError() {
+        if (!$this->hasError()) {
+            return null;
+        }
+        return $this->raw_result;
+    }
+
+    /**
+     * @return OpenCPU
+     */
+    public function caller() {
+        return $this->ocpu;
+    }
+
+    public function getResponseHeaders() {
+        return $this->caller()->getResponseHeaders();
+    }
+
+    public function getBaseUrl() {
+        return $this->caller()->getBaseUrl();
+    }
+
+    protected function getResponsePath($path) {
+        return $this->caller()->getBaseUrl() . $path;
+    }
+
 }
 
 class OpenCPU_Request {
 
-	protected $url;
+    protected $url;
+    protected $params;
+    protected $method;
 
-	protected $params;
+    public function __construct($url, $method, $params = null) {
+        $this->url = $url;
+        $this->method = $method;
+        $this->params = $params;
+    }
 
-	protected $method;
+    public function getUrl() {
+        return $this->url;
+    }
 
-	public function __construct($url, $method, $params = null) {
-		$this->url = $url;
-		$this->method = $method;
-		$this->params = $params;
-	}
+    public function getMethod() {
+        return $this->method;
+    }
 
-	public function getUrl() {
-		return $this->url;
-	}
+    public function getParams() {
+        return $this->params;
+    }
 
-	public function getMethod() {
-		return $this->method;
-	}
+    public function __toString() {
+        $request = array("METHOD: {$this->method}", "URL: {$this->url}", "PARAMS: " . $this->stringify($this->params));
+        return implode("\n", $request);
+    }
 
-	public function getParams() {
-		return $this->params;
-	}
+    protected function stringify($object) {
+        if (is_string($object)) {
+            return $object;
+        }
 
-	public function __toString() {
-		$request = array("METHOD: {$this->method}", "URL: {$this->url}", "PARAMS: " . $this->stringify($this->params));
-		return implode("\n", $request);
-	}
+        $string = "\n";
+        if (is_array($object)) {
+            foreach ($object as $key => $value) {
+                $value = $this->stringify($value);
+                $string .= "{$key} = {$value} \n";
+            }
+        } else {
+            $string .= (string) $object;
+        }
 
-	protected function stringify($object) {
-		if (is_string($object)) {
-			return $object;
-		}
+        return $string;
+    }
 
-		$string = "\n";
-		if (is_array($object)) {
-			foreach ($object as $key => $value) {
-				$value = $this->stringify($value);
-				$string .= "{$key} = {$value} \n"; 
-			}
-		} else {
-			$string .= (string) $object;
-		}
-
-		return $string;
-	}
 }
 
-class OpenCPU_Exception extends Exception {}
+class OpenCPU_Exception extends Exception {
+    
+}

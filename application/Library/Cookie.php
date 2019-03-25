@@ -2,175 +2,168 @@
 
 class Cookie {
 
+    protected $data = array();
+    protected $name;
+    protected $value;
+    protected $filename;
+    protected $file;
+    protected $isBrowserCookie = true;
 
-	protected $data = array();
+    const REQUEST_TOKENS = '_formr_request_tokens';
+    const REQUEST_USER_CODE = '_formr_code';
+    const REQUEST_NAME = '_formr_cookie';
 
-	protected $name;
+    public function __construct($name, $file = null) {
+        $this->name = $name;
+        $clear = false;
 
-	protected $value;
+        if ($file) {
+            $this->file = md5($file);
+        } elseif (isset($_COOKIE[$name])) {
+            $this->file = $_COOKIE[$name];
+        } elseif (isset($_POST[self::REQUEST_NAME])) {
+            // Load cookie from POSTed data if browser cookie already expired
+            // to avoid data loss on submission
+            $this->file = $_POST[self::REQUEST_NAME];
+            $clear = true; // cookie not sent by browser but by post request
+            $this->isBrowserCookie = false;
+        } else {
+            $this->file = md5(crypto_token(48));
+        }
 
-	protected $filename;
+        $this->filename = APPLICATION_ROOT . 'tmp/sessions/sess_' . $this->file . '.json';
+        if ($this->exists()) {
+            $this->data = $this->getData();
+        }
+        if ($clear) {
+            //$this->deleteFile();
+        }
+    }
 
-	protected $file;
+    public function create($data, $expire = 0, $path = '/', $domain = null, $secure = false, $httponly = false) {
+        if (file_exists($this->filename)) {
+            unset($data['created'], $data['expires']);
+            return $this->saveData($data);
+        }
 
-	protected $isBrowserCookie = true;
+        $data['path'] = $path;
+        $data['domain'] = $domain;
+        $data['secure'] = $secure;
+        $data['httponly'] = $httponly;
 
-	const REQUEST_TOKENS = '_formr_request_tokens';
-	const REQUEST_USER_CODE = '_formr_code';
-	const REQUEST_NAME = '_formr_cookie';
+        $this->saveData($data);
+        return $this->set($expire, $path, $domain, $secure, $httponly);
+    }
 
-	public function __construct($name, $file = null) {
-		$this->name = $name;
-		$clear = false;
+    public function saveData($data) {
+        if (!file_exists($this->filename) && !isset($data['expires'])) {
+            return;
+        }
 
-		if ($file) {
-			$this->file = md5($file);
-		} elseif (isset($_COOKIE[$name])) {
-			$this->file = $_COOKIE[$name];
-		} elseif (isset($_POST[self::REQUEST_NAME])) {
-			// Load cookie from POSTed data if browser cookie already expired
-			// to avoid data loss on submission
-			$this->file = $_POST[self::REQUEST_NAME];
-			$clear = true; // cookie not sent by browser but by post request
-			$this->isBrowserCookie = false;
-		} else {
-			$this->file = md5(crypto_token(48));
-		}
+        $this->data = array_merge($this->data, $data);
+        $this->data['modified'] = time();
+        return file_put_contents($this->filename, json_encode($this->data, JSON_PRETTY_PRINT));
+    }
 
-		$this->filename = APPLICATION_ROOT . 'tmp/sessions/sess_' . $this->file . '.json';
-		if ($this->exists()) {
-			$this->data = $this->getData();
-		}
-		if ($clear) {
-			//$this->deleteFile();
-		}
-	}
+    public function getData($field = null, $default = null) {
+        if (!$this->data && file_exists($this->filename)) {
+            $contents = file_get_contents($this->filename);
+            $this->data = @json_decode($contents, true);
+        }
 
-	public function create($data, $expire = 0, $path = '/', $domain = null, $secure = false, $httponly = false) {
-		if (file_exists($this->filename)) {
-			unset($data['created'], $data['expires']);
-			return $this->saveData($data);
-		}
-		
-		$data['path'] = $path;
-		$data['domain'] = $domain;
-		$data['secure'] = $secure;
-		$data['httponly'] = $httponly;
+        if ($field !== null) {
+            return array_val($this->data, $field, $default);
+        } else {
+            return $this->data;
+        }
+    }
 
-		$this->saveData($data);
-		return $this->set($expire, $path, $domain, $secure, $httponly);
-	}
+    public function clearData() {
+        $this->data = array();
+    }
 
-	public function saveData($data) {
-		if (!file_exists($this->filename) && !isset($data['expires'])) {
-			return;
-		}
+    public function exists() {
+        return isset($_COOKIE[$this->name]) || isset($_POST[self::REQUEST_NAME]);
+    }
 
-		$this->data = array_merge($this->data, $data);
-		$this->data['modified'] = time();
-		return file_put_contents($this->filename, json_encode($this->data, JSON_PRETTY_PRINT));
-	}
+    public function set($expire = 0, $path = '/', $domain = null, $secure = false, $httponly = false) {
+        return setcookie($this->name, $this->file, $expire, $path, $domain, $secure, $httponly);
+    }
 
-	public function getData($field = null, $default = null) {
-		if (!$this->data && file_exists($this->filename)) {
-			$contents = file_get_contents($this->filename);
-			$this->data = @json_decode($contents, true);
-		}
+    public function destroy() {
+        setcookie($this->name, '', time() - 3600);
+        $this->deleteFile();
+    }
 
-		if ($field !== null) {
-			return array_val($this->data, $field, $default);
-		} else {
-			return $this->data;
-		}
-	}
+    public function isExpired() {
+        if (empty($this->data['expires'])) {
+            return false;
+        }
 
-	public function clearData() {
-		$this->data = array();
-	}
+        return $this->data['expires'] < time();
+    }
 
-	public function exists() {
-		return isset($_COOKIE[$this->name]) || isset($_POST[self::REQUEST_NAME]);
-	}
+    public function getRequestToken() {
+        $token = sha1(mt_rand());
+        if (!$tokens = $this->getData(self::REQUEST_TOKENS)) {
+            $tokens = array($token => 1);
+        } else {
+            $tokens[$token] = 1;
+        }
 
-	public function set($expire = 0, $path = '/', $domain = null, $secure = false, $httponly = false) {
-		return setcookie($this->name, $this->file, $expire, $path, $domain, $secure, $httponly);
-	}
+        $this->saveData(array(self::REQUEST_TOKENS => $tokens));
+        return $token;
+    }
 
-	public function destroy() {
-		setcookie($this->name, '', time() - 3600);
-		$this->deleteFile();
-	}
+    public function canValidateRequestToken(Request $request) {
+        $token = $request->getParam(self::REQUEST_TOKENS);
+        $tokens = $this->getData(self::REQUEST_TOKENS, array());
+        //$cookie = $request->getParam(self::REQUEST_NAME);
+        $code = $request->getParam(self::REQUEST_USER_CODE);
+        $validated = false;
 
-	public function isExpired() {
-		if (empty($this->data['expires'])) {
-			return false;
-		}
+        if (!$this->isBrowserCookie) {
+            $validated = $code == $this->getData('code') && !empty($tokens[$token]);
+            error_log('Validated: ' . $validated);
+            error_log('POSTed cookie: ' . print_r($this->getData(), 1));
+        } else {
+            $validated = !empty($tokens[$token]);
+            if ($validated) {
+                unset($tokens[$token]);
+                $this->saveData(array(self::REQUEST_TOKENS => $tokens));
+            }
+            error_log('Browser cookie: ' . print_r($this->getData(), 1));
+        }
 
-		return $this->data['expires'] < time();
-	}
+        return $validated;
+    }
 
-	public function getRequestToken() {
-		$token = sha1(mt_rand());
-		if (!$tokens = $this->getData(self::REQUEST_TOKENS)) {
-			$tokens = array($token => 1);
-		} else {
-			$tokens[$token] = 1;
-		}
+    public function getName() {
+        return $this->name;
+    }
 
-		$this->saveData(array(self::REQUEST_TOKENS => $tokens));
-		return $token;
-	}
+    public function getFile() {
+        return $this->file;
+    }
 
-	public function canValidateRequestToken(Request $request) {
-		$token = $request->getParam(self::REQUEST_TOKENS);
-		$tokens = $this->getData(self::REQUEST_TOKENS, array());
-		//$cookie = $request->getParam(self::REQUEST_NAME);
-		$code = $request->getParam(self::REQUEST_USER_CODE);
-		$validated = false;
+    public function deleteFile() {
+        if (file_exists($this->filename)) {
+            @unlink($this->filename);
+        }
+    }
 
-		if (!$this->isBrowserCookie) {
-			$validated = $code == $this->getData('code') && !empty($tokens[$token]);
-			error_log('Validated: ' . $validated);
-			error_log('POSTed cookie: ' . print_r($this->getData(), 1));
-		} else {
-			$validated = !empty($tokens[$token]);
-			if ($validated) {
-				unset($tokens[$token]);
-				$this->saveData(array(self::REQUEST_TOKENS => $tokens));
-			}
-			error_log('Browser cookie: ' . print_r($this->getData(), 1));
-		}
+    public function setExpiration($timestamp) {
+        if (!file_exists($this->filename) || !$this->isBrowserCookie) {
+            return false;
+        }
 
-		return $validated;	
-	}
+        $path = $this->getData('path', '/');
+        $domain = $this->getData('domain');
+        $secure = $this->getData('secure', SSL);
+        $httponly = $this->getData('httponly', true);
+        $this->saveData(array('expires' => $timestamp));
 
-	public function getName() {
-		return $this->name;
-	}
-
-	public function getFile() {
-		return $this->file;
-	}
-
-	public function deleteFile() {
-		if (file_exists($this->filename)) {
-			@unlink($this->filename);
-		}
-	}
-
-	public function setExpiration($timestamp) {
-		if (!file_exists($this->filename) || !$this->isBrowserCookie) {
-			return false;
-		}
-
-		$path = $this->getData('path', '/');
-		$domain = $this->getData('domain');
-		$secure = $this->getData('secure', SSL);
-		$httponly = $this->getData('httponly', true);
-		$this->saveData(array('expires' => $timestamp));
-
-		return $this->set($timestamp, $path, $domain, $secure, $httponly);
-	}
+        return $this->set($timestamp, $path, $domain, $secure, $httponly);
+    }
 
 }
-

@@ -1,4 +1,6 @@
-<script>(function (H) {H.className = H.className.replace(/\bno_js\b/, 'js')})(document.documentElement)</script>
+<script>(function (H) {
+        H.className = H.className.replace(/\bno_js\b/, 'js')
+    })(document.documentElement)</script>
 <title><?php echo $site->makeTitle(); ?></title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta charset="utf-8">
@@ -25,10 +27,10 @@
 
 <?php
 foreach ($css as $id => $files) {
-	print_stylesheets($files, $id);
+    print_stylesheets($files, $id);
 }
 foreach ($js as $id => $files) {
-	print_scripts($files, $id);
+    print_scripts($files, $id);
 }
 ?>
 <link rel="icon" href="<?php echo site_url('favicon.ico'); ?>">
