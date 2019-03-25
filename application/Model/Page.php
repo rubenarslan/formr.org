@@ -91,10 +91,10 @@ class Page extends RunUnit {
 	}
 
 	public function exec() {
-		if ($this->called_by_cron):
+		if ($this->called_by_cron) {
 			$this->getParsedBody($this->body); // make report before showing it to the user, so they don't have to wait
 			return true; // never show to the cronjob
-		endif;
+		}
 
 		$run_name = $sess_code = null;
 		if ($this->run_session) {
@@ -109,8 +109,8 @@ class Page extends RunUnit {
 		}
 
 		$body = do_run_shortcodes($this->body_parsed, $run_name, $sess_code);
+
 		return array(
-//			'title' => $this->title,
 			'body' => $body,
 		);
 	}

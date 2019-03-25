@@ -272,56 +272,65 @@ class Pause extends RunUnit {
 	}
 
 	public function test() {
-		if (!$this->knittingNeeded($this->body)) {
-			echo "<h3>Pause message</h3>";
-			echo $this->getParsedBodyAdmin($this->body);
-		}
-
 		$results = $this->getSampleSessions();
 		if (!$results) {
 			return false;
 		}
-		if ($this->knittingNeeded($this->body)) {
-			echo "<h3>Pause message</h3>";
-			echo $this->getParsedBodyAdmin($this->body);
-		}
-		if ($this->checkRelativeTo()) {
-			// take the first sample session
-			$this->run_session_id = current($results)['id'];
-			echo "<h3>Pause relative to</h3>";
 
+		// take the first sample session
+		$sess = current($results);
+		$this->run_session_id = $sess['id'];
+		
+		
+		echo "<h3>Pause message</h3>";
+		echo $this->getParsedBodyAdmin($this->body);
+
+		if ($this->checkRelativeTo()) {
+			echo "<h3>Pause relative to</h3>";
 			$opencpu_vars = $this->getUserDataInRun($this->relative_to);
 			$session = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json', null, true);
-
 			echo opencpu_debug($session);
 		}
 
 		if (!empty($results) && (empty($session) || !$session->hasError())) {
+			
+			$test_tpl = '
+				<table class="table table-striped">
+					<thead>
+						<tr>
+							<th>Code</th>
+							<th>Relative to</th>
+							<th>Over</th>
+						</tr>
+						%{rows}
+					</thead>
+				</table>
+			';
+			
+			$row_tpl = '
+				<tr>
+					<td style="word-wrap:break-word;max-width:150px"><small>%{session} (%{position})</small></td>
+					<td><small>%{relative_to}</small></td>
+					<td>%{pause_over}</td>
+				<tr>
+			';
 
-			echo '<table class="table table-striped">
-					<thead><tr>
-						<th>Code</th>';
-			if ($this->has_relative_to) {
-				echo '<th>Relative to</th>';
-			}
-			echo '<th>Wait?</th>
-					</tr></thead>
-					<tbody>';
-
-			foreach ($results AS $row):
+			$rows = '';
+			foreach ($results as $row) {
 				$this->run_session_id = $row['id'];
+				$runSession = new RunSession($this->dbh, $this->run->id, Site::getCurrentUser()->id, $row['session'], $this->run);
+				$runSession->unit_session = new UnitSession($this->dbh, $this->run_session_id, $this->id);
+				$this->run_session = $runSession;
 
-				$result = $this->checkWhetherPauseIsOver();
-				echo "<tr>
-						<td style='word-wrap:break-word;max-width:150px'><small>" . $row['session'] . " ({$row['position']})</small></td>";
-				if ($this->has_relative_to) {
-					echo "<td><small>" . stringBool($this->relative_to_result) . "</small></td>";
-				}
-				echo "<td>" . stringBool($result) . "</td>
-					</tr>";
+				$rows .= Template::replace($row_tpl, array(
+					'session' => $row['session'],
+					'position' => $row['position'],
+					'relative_to' => stringBool($this->relative_to_result), 
+					'pause_over' => stringBool($this->checkWhetherPauseIsOver()),
+				));
+			}
 
-			endforeach;
-			echo '</tbody></table>';
+			echo Template::replace($test_tpl, array('rows' => $rows));
 		}
 	}
 

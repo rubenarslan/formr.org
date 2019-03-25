@@ -107,7 +107,7 @@ class External extends RunUnit {
 				$output = '';
 			}
 		} else {
-			$output = '<a href="'.$this->address.'">'.$this->address."</a>";
+			$output = Template::replace('<a href="%{address}">%{address}</a>', array('address' => $this->address));
 		}
 
 		$this->session = "TESTCODE";
