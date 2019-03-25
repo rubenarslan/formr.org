@@ -70,16 +70,22 @@ class Shuffle extends RunUnit {
 	}
 
 	public function test() {
+		$test_tpl = '
+			<h3>Randomisation</h3>
+			<p>We just generated fifty random group assignments:</p>
+			<div> %{groups} </div>
+			<p>Remember that we start counting at one (1), so if you have two groups you will check <code>shuffle$group == 1</code> and <code>shuffle$group == 2</code>.
+			You can read a person\'s group using <code>shuffle$group</code>.
+			If you generate more than one random group in a run, you might have to use the last one <code>tail(shuffle$group,1)</code>, 
+			but usually you shouldn\'t do this.</p>
+		';
 
-		echo '<h3>Randomisation</h3>
-			<p>We just generated fifty random group assignments:</p>';
-		for ($i = 0; $i < 50; $i++):
-			echo $this->randomise_into_group() . '&nbsp; ';
-		endfor;
-		echo '<p>Remember that we start counting at one (1), so if you have two groups you will check <code>shuffle$group == 1</code> and <code>shuffle$group == 2</code>. You can read a person\'s 
-			group using <code>shuffle$group</code>. If you generate more than one
-		random group in a run, you might have to use the last one <code>tail(shuffle$group,1)</code>, but
-		usually you shouldn\'t do this.</p>';
+		$groups = '';
+		for ($i = 0; $i < 50; $i++) {
+			$groups .= $this->randomise_into_group() . '&nbsp; ';
+		}
+
+		echo Template::replace($test_tpl, array('groups' => $groups));
 	}
 
 	public function exec() {

@@ -87,37 +87,49 @@ class Branch extends RunUnit {
 
 	public function test() {
 		$results = $this->getSampleSessions();
-
 		if (!$results) {
 			return false;
 		}
+
+		$test_tpl = '
+			<table class="table table-striped">
+				<thead>
+					<tr>
+						<th>Code (Position)</th>
+						<th>Test</th>
+					</tr>
+					%{rows}
+				</thead>
+			</table>
+		';
+
+		$row_tpl = '
+			<tr>
+				<td style="word-wrap:break-word;max-width:150px"><small>%{session} (%{position})</small></td>
+				<td>%{result}</td>
+			<tr>
+		';
 
 		$this->run_session_id = current($results)['id'];
 		$opencpu_vars = $this->getUserDataInRun($this->condition);
 		$ocpu_session = opencpu_evaluate($this->condition, $opencpu_vars, 'text', null, true);
 		echo opencpu_debug($ocpu_session, null, 'text');
 
-		echo '<table class="table table-striped">
-				<thead><tr>
-					<th>Code (Position)</th>
-					<th>Test</th>
-				</tr></thead>
-				<tbody>"';
-
 		// Maybe there is a way that we prevent 'calling opencpu' in a loop by gathering what is needed to be evaluated
 		// at opencpu in some 'box' and sending one request (also create new func in formr R package to open this box, evaluate what is inside and return the box)
+		$rows = '';
 		foreach ($results as $row) {
 			$this->run_session_id = $row['id'];
 			$opencpu_vars = $this->getUserDataInRun($this->condition);
 			$eval = opencpu_evaluate($this->condition, $opencpu_vars);
-
-			echo "<tr>
-					<td style='word-wrap:break-word;max-width:150px'><small>" . $row['session'] . " ({$row['position']})</small></td>
-					<td>" . stringBool($eval) . "</td>
-				</tr>";
+			$rows .= Template::replace($row_tpl, array(
+				'session' => $row['session'],
+				'position' => $row['position'],
+				'result' => stringBool($eval),
+			));
 		}
 
-		echo '</tbody></table>';
+		echo Template::replace($test_tpl, array('rows' => $rows));
 		$this->run_session_id = null;
 	}
 

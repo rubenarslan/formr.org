@@ -385,56 +385,63 @@ class Email extends RunUnit {
 		} else {
 			echo $this->mostrecent . ": " . $recipient_field;
 		}
-		echo "<h4>Subject</h4>";
-		if($this->knittingNeeded($this->subject)):
-			echo $this->getParsedTextAdmin($this->subject);
-		else:
-			echo $this->getSubject();
-		endif;
-		echo "<h4>Body</h4>";
 
+		echo "<h4>Subject</h4>";
+		if($this->knittingNeeded($this->subject)) {
+			echo $this->getParsedTextAdmin($this->subject);
+		} else {
+			echo $this->getSubject();
+		}
+
+		echo "<h4>Body</h4>";
 		echo $this->getParsedBodyAdmin($this->body);
 
 		echo "<h4>Attempt to send email</h4>";
-
-		if($this->sendMail($receiver)):
+		if($this->sendMail($receiver)) {
 			echo "<p>An email was sent to your own email address (". h($receiver). ").</p>";
-		else:
+		} else {
 			echo "<p>No email sent.</p>";
-		endif;
+		}
 
 		$results = $this->getSampleSessions();
 		if ($results) {
-
 			if ($this->recipient_field === null OR trim($this->recipient_field) == '') {
 				$this->recipient_field = 'survey_users$email';
 			}
 
-			$output = '
+			$test_tpl = '
 				<table class="table table-striped">
 					<thead>
 						<tr>
 							<th>Code (Position)</th>
 							<th>Test</th>
 						</tr>
+						<tbody>%{rows}</tbody>
 					</thead>
-					<tbody>%s</tbody>
-				</table>';
+				</table>
+			';
+
+			$row_tpl = '
+				<tr>
+					<td style="word-wrap:break-word;max-width:150px"><small>%{session} (%{position})</small></td>
+					<td class="%{class}">%{result}</td>
+				<tr>
+			';
 
 			$rows = '';
-			foreach ($results AS $row):
+			foreach ($results as $row) {
 				$this->run_session_id = $row['id'];
-
 				$email = stringBool($this->getRecipientField());
-				$good = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
-				$rows .= "
-					<tr>
-						<td style='word-wrap:break-word;max-width:150px'><small>" . $row['session'] . " ({$row['position']})</small></td>
-						<td class='$good'>" . $email . "</td>
-					</tr>";
-			endforeach;
+				$class = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
+				$rows .= Template::replace($row_tpl, array(
+					'session' => $row['session'],
+					'position' => $row['position'],
+					'result' => stringBool($email),
+					'class' => $class,
+				));
+			}
 
-			echo sprintf($output, $rows);
+			echo Template::replace($test_tpl, array('rows' => $rows));
 		}
 		$this->run_session_id = null;
 	}
