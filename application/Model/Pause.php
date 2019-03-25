@@ -202,8 +202,9 @@ class Pause extends RunUnit {
 
 			// If the expiration hour already passed before the user entered the pause, set expiration to the next day (in 24 hours)
 			$exp_ts =  $this->execData['expire_timestamp'];
+			$created_ts = strtotime($this->run_session->unit_session->created);
 			$exp_hour_min = mktime(date('G', $exp_ts), date('i', $exp_ts), 0);
-			if (time() > $exp_hour_min) {
+			if ($created_ts > $exp_hour_min) {
 				$this->execData['expire_timestamp'] += 24 * 60 * 60;
 				return false;
 			}
