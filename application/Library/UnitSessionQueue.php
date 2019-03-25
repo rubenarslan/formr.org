@@ -95,9 +95,11 @@ class UnitSessionQueue extends Queue{
 
 		while ($session = $sessionsStmt->fetch(PDO::FETCH_ASSOC)) {
 			if (!$session['session']) {
+				$this->dbg('A session could not be found for item in queue: ' . print_r($session, 1));
+				self::removeItem($session['unit_session_id'], $session['unit_id']);
 				continue;
 			}
-			
+
 			$run = $this->getRun($session['run']);
 			$runSession = new RunSession($this->db, $run->id, 'cron', $session['session'], $run);
 
