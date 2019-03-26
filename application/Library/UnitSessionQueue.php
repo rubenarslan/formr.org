@@ -148,7 +148,7 @@ class UnitSessionQueue extends Queue {
     public static function removeItem($unitSessionId, $runUnitId) {
         $db = DB::getInstance();
         $removed = $db->exec(
-                "DELETE FROM `survey_sessions_queue` WHERE `unit_session_id` = :unit_session_id AND `unit_id` = :unit_id", array('unit_session_id' => (int) $unitSessionId, 'unit_id' => (int) $runUnitId)
+            "DELETE FROM `survey_sessions_queue` WHERE `unit_session_id` = :unit_session_id AND `unit_id` = :unit_id", array('unit_session_id' => (int) $unitSessionId, 'unit_id' => (int) $runUnitId)
         );
 
         return (bool) $removed;

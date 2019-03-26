@@ -16,20 +16,20 @@ class Branch extends RunUnit {
     public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
         parent::__construct($fdb, $session, $unit, $run_session, $run);
 
-        if ($this->id):
+        if ($this->id) {
             $vars = $this->dbh->select('id, condition, if_true, automatically_jump, automatically_go_on')
                     ->from('survey_branches')
                     ->where(array('id' => $this->id))
                     ->fetch();
-            if ($vars):
+            if ($vars) {
                 array_walk($vars, "emptyNull");
                 $this->condition = $vars['condition'];
                 $this->if_true = $vars['if_true'];
                 $this->automatically_jump = $vars['automatically_jump'];
                 $this->automatically_go_on = $vars['automatically_go_on'];
                 $this->valid = true;
-            endif;
-        endif;
+            }
+        }
     }
 
     public function create($options) {
@@ -146,18 +146,30 @@ class Branch extends RunUnit {
         }
 
         $result = (bool) $eval;
-        // if condition is true and we're set to jump automatically, or if the user reacted
-        if ($result && ($this->automatically_jump || !$this->called_by_cron)):
-            if ($this->run_session->session):
-                $this->end();
-                return !$this->run_session->runTo($this->if_true);
-            endif;
-        elseif (!$result && ($this->automatically_go_on || !$this->called_by_cron)): // the condition is false and it goes on
-            $this->end();
-            return false;
-        else: // we wait for the condition to turn true or false, depends.
+
+        if ($result && ($this->automatically_jump || !$this->called_by_cron)) {
+            // if condition is true and we're set to jump automatically, or if the user reacted
+            return $this->jump();
+        } elseif (!$result && ($this->automatically_go_on || !$this->called_by_cron)) {
+            // the condition is false and it goes on
+            return $this->goOn();
+        } else {
+            // we wait for the condition to turn true or false, depends.
             return true;
-        endif;
+        }
+    }
+
+    protected function jump() {
+        if (!empty($this->run_session->session)) {
+            $this->end();
+            $runTo = $this->run_session->runTo($this->if_true);
+            return !$runTo;
+        }
+    }
+
+    protected function goOn() {
+        $this->end();
+        return false;
     }
 
 }
