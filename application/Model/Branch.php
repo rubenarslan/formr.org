@@ -140,10 +140,9 @@ class Branch extends RunUnit {
             return true; // don't go anywhere, wait for the error to be fixed!
         }
 
-        // If execution returned a timestamp greater that now() queue it
-        if (($time = strtotime($eval)) && $time > time()) {
-            $this->execData['expire_timestamp'] = $time;
-            return true;
+        // If execution returned a timestamp less than that now(), skipping is FALSE
+        if (($time = strtotime($eval)) && $time < time()) {
+            $eval = false;
         }
 
         $result = (bool) $eval;
