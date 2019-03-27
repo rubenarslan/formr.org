@@ -168,6 +168,7 @@ class UnitSessionQueue extends Queue {
                 'unit_session_id' => $unitSession->id,
                 'run_session_id' => $unitSession->run_session_id,
                 'unit_id' => $runUnit->id,
+                'created' => time(),
                 'expires' => $expires,
                 'run' => $runUnit->run->name,
                 'counter' => 1,
