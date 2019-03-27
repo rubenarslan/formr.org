@@ -140,9 +140,11 @@ class Branch extends RunUnit {
             return true; // don't go anywhere, wait for the error to be fixed!
         }
 
-        // If execution returned a timestamp less than that now(), skipping is FALSE
-        if (($time = strtotime($eval)) && $time < time()) {
+        // If execution returned a timestamp in the future, then branching evaluates to FALSE
+        if (($time = strtotime($eval)) && $time >= time()) {
             $eval = false;
+        } elseif (($time = strtotime($eval)) && $time < time()) {
+            $eval = true;
         }
 
         $result = (bool) $eval;
