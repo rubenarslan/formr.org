@@ -1,6 +1,6 @@
 <?php
 
-class RunUnitHelper {
+class UnitSessionHelper {
 
     /**
      *
@@ -10,7 +10,7 @@ class RunUnitHelper {
 
     /**
      *
-     * @var RunUnitHelper 
+     * @var UnitSessionHelper 
      */
     protected static $instance = null;
     protected $expiration_extension;
@@ -21,7 +21,7 @@ class RunUnitHelper {
     }
 
     /**
-     * @return RunUnitHelper
+     * @return UnitSessionHelper
      */
     public static function getInstance() {
         if (self::$instance === null) {
@@ -37,7 +37,7 @@ class RunUnitHelper {
      * @param UnitSession $unitSession
      * @param RunUnit $runUnit
      * @param mixed $execResults
-     * @return int
+     * @return array
      */
     public function getUnitSessionExpiration(UnitSession $unitSession, RunUnit $runUnit, $execResults) {
         $method = sprintf('get%sExpiration', $runUnit->type);
@@ -52,16 +52,23 @@ class RunUnitHelper {
      * @param UnitSession $unitSession
      * @param External $runUnit
      * @param mixed $execResults
-     * @return int
+     * @return array
      */
     public function getExternalExpiration(UnitSession $unitSession, External $runUnit, $execResults) {
+        $return = array(
+            'expires' => 0,
+            'execute' => false,
+        );
+
         if (!empty($runUnit->execData['expire_timestamp'])) {
-            return $runUnit->execData['expire_timestamp'];
+            $return['expires'] = $runUnit->execData['expire_timestamp'];
         } elseif ($execResults === true) {
             // set expiration to x minutes for unit session to be executed again
-            return strtotime($this->expiration_extension);
+            $return['expires'] = strtotime($this->expiration_extension);
+            $return['execute'] = true;
         }
-        return 0;
+
+        return $return;
     }
 
     /**
@@ -71,10 +78,13 @@ class RunUnitHelper {
      * @param UnitSession $unitSession
      * @param Email $runUnit
      * @param mixed $execResults
-     * @return int
+     * @return array
      */
     public function getEmailExpiration(UnitSession $unitSession, Email $runUnit, $execResults) {
-        return 0;
+        return array(
+            'expires' => 0,
+            'execute' => false,
+        );
     }
 
     /**
@@ -84,10 +94,13 @@ class RunUnitHelper {
      * @param UnitSession $unitSession
      * @param Shuffle $runUnit
      * @param mixed $execResults
-     * @return int
+     * @return array
      */
     public function getShuffleExpiration(UnitSession $unitSession, Shuffle $runUnit, $execResults) {
-        return 0;
+        return array(
+            'expires' => 0,
+            'execute' => false,
+        );
     }
 
     /**
@@ -97,10 +110,13 @@ class RunUnitHelper {
      * @param UnitSession $unitSession
      * @param Page $runUnit
      * @param mixed $execResults
-     * @return int
+     * @return array
      */
     public function getPageExpiration(UnitSession $unitSession, Page $runUnit, $execResults) {
-        return 0;
+        return array(
+            'expires' => 0,
+            'execute' => false,
+        );
     }
 
     /**
@@ -128,16 +144,21 @@ class RunUnitHelper {
      * @return int
      */
     public function getSurveyExpiration(UnitSession $unitSession, Survey $runUnit, $execResults) {
+        $return = array(
+            'expires' => 0,
+            'execute' => true,
+        );
+
         if ($execResults === false) {
             // Survey expired or ended so no need to queue
-            return 0;
+            return $return;
         }
 
         if (isset($runUnit->execData['expire_timestamp'])) {
-            return $runUnit->execData['expire_timestamp'];
-        } else {
-            return 0;
+            $return['expires'] = $runUnit->execData['expire_timestamp'];
         }
+
+        return $return;
     }
 
     /**
@@ -146,25 +167,32 @@ class RunUnitHelper {
      * @param UnitSession $unitSession
      * @param Pause $runUnit
      * @param mixed $execResults
-     * @return int
+     * @return array
      */
     public function getPauseExpiration(UnitSession $unitSession, Pause $runUnit, $execResults) {
         $execData = $runUnit->execData;
+        $return = array(
+            'expires' => 0,
+            'execute' => false,
+        );
+
         if (!empty($execData['pause_over'])) {
             // pause is over no need to queue
-            return 0;
+            return $return;
         }
 
         if ($execData['check_failed'] === true || $execData['expire_relatively'] === false) {
             // check again in x minutes something went wrong with ocpu evaluation
-            return strtotime($this->expiration_extension);
+            $return['expires'] = strtotime($this->expiration_extension);
+            $return['execute'] = true;
         }
 
         if (isset($execData['expire_timestamp'])) {
-            return $execData['expire_timestamp'];
+            $return['expires'] = $execData['expire_timestamp'];
+            $return['execute'] = false;
         }
 
-        return 0;
+        return $return;
     }
 
     /**
@@ -176,13 +204,20 @@ class RunUnitHelper {
      * @return int
      */
     public function getBranchExpiration(UnitSession $unitSession, Branch $runUnit, $execResults) {
+        $return = array(
+            'expires' => 0,
+            'execute' => false,
+        );
+
         if (!empty($runUnit->execData['expire_timestamp'])) {
-            return (int) $runUnit->execData['expire_timestamp'];
+            $return['expires'] = (int) $runUnit->execData['expire_timestamp'];
         } elseif ($execResults === true) {
             // set expiration to x minutes for unit session to be executed again
-            return strtotime($this->expiration_extension);
+            $return['expires'] = strtotime($this->expiration_extension);
+            $return['execute'] = true;
         }
-        return 0;
+
+        return $return;
     }
 
     /**
