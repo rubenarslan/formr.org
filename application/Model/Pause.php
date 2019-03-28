@@ -9,15 +9,16 @@ class Pause extends RunUnit {
     public $ended = false;
     public $type = "Pause";
     public $icon = "fa-pause";
+
     protected $body = '';
     protected $body_parsed = '';
     protected $relative_to = null;
     protected $wait_minutes = null;
     protected $wait_until_time = null;
     protected $wait_until_date = null;
-    private $has_relative_to = false;
-    private $has_wait_minutes = false;
-    private $relative_to_result = null;
+    protected $has_relative_to = false;
+    protected $has_wait_minutes = false;
+    protected $relative_to_result = null;
 
     /**
      * An array of unit's exportable attributes
@@ -89,12 +90,13 @@ class Pause extends RunUnit {
 
     public function displayForRun($prepend = '') {
         $dialog = Template::get($this->getUnitTemplatePath(), array(
-                    'prepend' => $prepend,
-                    'wait_until_time' => $this->wait_until_time,
-                    'wait_until_date' => $this->wait_until_date,
-                    'wait_minutes' => $this->wait_minutes,
-                    'relative_to' => $this->relative_to,
-                    'body' => $this->body,
+            'prepend' => $prepend,
+            'wait_until_time' => $this->wait_until_time,
+            'wait_until_date' => $this->wait_until_date,
+            'wait_minutes' => $this->wait_minutes,
+            'relative_to' => $this->relative_to,
+            'body' => $this->body,
+            'type' => $this->type,
         ));
 
         return parent::runDialog($dialog);
@@ -129,7 +131,6 @@ class Pause extends RunUnit {
         if ($this->has_relative_to) {
             $opencpu_vars = $this->getUserDataInRun($this->relative_to);
             $result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
-
             if ($result === null) {
                 $this->execData['check_failed'] = true;
                 return false;
@@ -320,10 +321,10 @@ class Pause extends RunUnit {
                 $this->run_session = $runSession;
 
                 $rows .= Template::replace($row_tpl, array(
-                            'session' => $row['session'],
-                            'position' => $row['position'],
-                            'relative_to' => stringBool($this->relative_to_result),
-                            'pause_over' => stringBool($this->checkWhetherPauseIsOver()),
+                    'session' => $row['session'],
+                    'position' => $row['position'],
+                    'relative_to' => stringBool($this->relative_to_result),
+                    'pause_over' => stringBool($this->checkWhetherPauseIsOver()),
                 ));
             }
 
@@ -333,7 +334,13 @@ class Pause extends RunUnit {
 
     public function exec() {
         $this->checkRelativeTo();
-        if ($this->checkWhetherPauseIsOver()) {
+        $pauseOver = $this->checkWhetherPauseIsOver();
+
+        if (!$pauseOver && $this->type === 'Wait' && empty($this->execData['check_failed']) && !$this->called_by_cron) {
+            $this->end();
+            $runTo = $this->run_session->runTo($this->body);
+            return !$runTo;
+        } elseif ($pauseOver) {
             $this->end();
             return false;
         } else {

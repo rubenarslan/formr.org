@@ -194,6 +194,14 @@ class UnitSessionHelper {
 
         return $return;
     }
+    
+    /**
+     * 
+     * @see self::getPauseExpiration()
+     */
+     public function getWaitExpiration(UnitSession $unitSession, Wait $runUnit, $execResults) {
+         return $this->getPauseExpiration($unitSession, $runUnit, $runUnit);
+     }
 
     /**
      * Get expiration timestamp for Branch (SkipForward | SkipBackward) Run Unit
