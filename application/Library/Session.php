@@ -22,7 +22,7 @@ class Session {
         self::$lifetime = Config::get('session_cookie_lifetime');
         self::$secure = SSL;
         foreach ($config as $key => $value) {
-            self::$key = $value;
+            self::${$key} = $value;
         }
     }
 

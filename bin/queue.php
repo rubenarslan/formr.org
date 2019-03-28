@@ -19,8 +19,9 @@ require_once dirname(__FILE__) . '/../setup.php';
 if (Config::get('in_maintenance')) {
     formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenace Mode', false);
 }
+//@todo explain variables
+$opts = getopt('t:a:o:p:n:b:');
 
-$opts = getopt('t:a:o:', array('batch-offset:', 'batch-limit:', 'max-sessions:'));
 $config = (array) $opts;
 $config['queue_type'] = 'Email';
 $config['account_id'] = null;
@@ -31,6 +32,18 @@ if (!empty($opts['t'])) {
 
 if (!empty($opts['a'])) {
     $config['account_id'] = (int) $opts['a'];
+}
+
+if (!empty($opts['p'])) {
+    $config['process_number'] = (int) $opts['p'] + 1;
+}
+
+if (!empty($opts['p'])) {
+    $config['total_processes'] = (int) $opts['n'];
+}
+
+if (!empty($opts['b'])) {
+    $config['batch_items'] = (int) $opts['b'];
 }
 
 

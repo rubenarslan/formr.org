@@ -47,14 +47,14 @@ class EmailQueue extends Queue {
     protected function getEmailAccountsStatement($account_id) {
         $WHERE = '';
         if ($account_id) {
-            $WHERE .= 'account_id = ' . (int) $account_id;
+            $WHERE .= ' WHERE account_id = ' . (int) $account_id . ' ';
         }
 
         $query = "SELECT account_id, `from`, from_name, host, port, tls, username, password, auth_key 
 				FROM survey_email_queue
 				LEFT JOIN survey_email_accounts ON survey_email_accounts.id = survey_email_queue.account_id
 				{$WHERE}
-				GROUP BY account_id
+				GROUP BY account_id 
 				ORDER BY RAND()
 				";
         return $this->db->rquery($query);
