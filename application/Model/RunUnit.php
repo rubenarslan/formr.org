@@ -2,7 +2,7 @@
 
 class RunUnitFactory {
 
-    protected $supported = array('Survey', 'Pause', 'Email', 'External', 'Page', 'SkipBackward', 'SkipForward', 'Shuffle');
+    protected $supported = array('Survey', 'Pause', 'Email', 'External', 'Page', 'SkipBackward', 'SkipForward', 'Shuffle', 'Wait');
 
     /**
      * Create a RunUnit object based on supported types

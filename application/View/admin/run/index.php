@@ -84,6 +84,9 @@
                                         <a class="add_pause add_run_unit btn btn-default btn-lg hastooltip" title="Add pause" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Pause') ?>">
                                             <i class="fa fa-pause fa-2x"></i>
                                         </a>
+                                        <a class="add_wait add_run_unit btn btn-default btn-lg hastooltip" title="Add a waiting time" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Wait') ?>">
+                                            <i class="fa fa-spinner fa-2x"></i>
+                                        </a>
                                         <a class="add_skipforward add_run_unit btn-default btn btn-lg hastooltip" title="Add a jump (skip forward)" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=SkipForward') ?>">
                                             <i class="fa fa-forward fa-2x"></i>
                                         </a>
