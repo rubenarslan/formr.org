@@ -77,8 +77,12 @@ class UnitSessionQueue extends Queue {
         $query = "SELECT session, unit_session_id, run_session_id, unit_id, expires, execute, counter, run 
 				  FROM survey_sessions_queue 
 				  LEFT JOIN survey_run_sessions ON survey_sessions_queue.run_session_id = survey_run_sessions.id
-                  WHERE survey_sessions_queue.expires <= {$now} ORDER BY expires ASC";
+                  WHERE survey_sessions_queue.expires <= {$now} ORDER BY expires ASC
+                  LIMIT {$this->limit} OFFSET {$this->offset}";
 
+        if ($this->debug) {
+            $this->dbg($query);
+        }
         return $this->db->rquery($query);
     }
 

@@ -49,13 +49,22 @@ class Queue {
      */
     protected $config = array();
     protected $debug = false;
+    protected $num_processes = 1;
+    protected $process_num = 1;
+    protected $offset = 0;
+    protected $limit;
+    protected $items_per_process;
 
     public function __construct(DB $db, array $config) {
         $this->db = $db;
         $this->config = $config;
         $this->loopInterval = array_val($this->config, 'queue_loop_interval', 5);
         $this->debug = array_val($this->config, 'debug', false);
+        $this->num_processes = array_val($this->config, 'total_processes', 1);
+        $this->process_num = array_val($this->config, 'process_number', 1);
+        $this->items_per_process = array_val($this->config, 'items_per_process', 100);
 
+        $this->setOffsetLimit();
         // Register signal handlers that should be able to kill the cron in case some other weird shit happens 
         // apart from cron exiting cleanly
         // declare signal handlers
@@ -97,6 +106,24 @@ class Queue {
 
         $last_access = microtime(true);
         return true;
+    }
+
+    protected function hasMultipleProcesses() {
+        return $this->num_processes > 1;
+    }
+
+    protected function setOffsetLimit() {
+        $this->offset = ($this->process_num - 1) * $this->items_per_process;
+        $this->limit = $this->offset + $this->items_per_process;
+        if ($this->process_num == $this->num_processes) {
+            //for the last process, set an everlasting limit
+            $this->limit = PHP_INT_MAX;
+        }
+
+        $this->dbg(
+            "Setting queue process(%d of %d / %d items) with OFFSET %s and LIMIT %s", 
+            $this->process_num, $this->num_processes, $this->items_per_process, $this->offset, $this->limit
+       );
     }
 
     /**
