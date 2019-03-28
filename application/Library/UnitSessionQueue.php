@@ -74,7 +74,7 @@ class UnitSessionQueue extends Queue {
      */
     protected function getSessionsStatement() {
         $now = time();
-        $query = "SELECT session, unit_session_id, run_session_id, unit_id, expires, counter, run 
+        $query = "SELECT session, unit_session_id, run_session_id, unit_id, expires, execute, counter, run 
 				  FROM survey_sessions_queue 
 				  LEFT JOIN survey_run_sessions ON survey_sessions_queue.run_session_id = survey_run_sessions.id
                   WHERE survey_sessions_queue.expires <= {$now} ORDER BY expires ASC";
@@ -102,7 +102,7 @@ class UnitSessionQueue extends Queue {
             // Execute session again by getting current unit
             // This action might end or expire a session, thereby removing it from queue
             // or session might be re-queued to expire in x minutes
-            $rsUnit = $runSession->getUnit();
+            $rsUnit = $runSession->getUnit($session['unit_id'], $session['execute']);
             if ($this->debug) {
                 $this->dbg('Proccessed: ' . print_r($session, 1));
             }
@@ -162,14 +162,17 @@ class UnitSessionQueue extends Queue {
      * @param mixed $execResults
      */
     public static function addItem(UnitSession $unitSession, RunUnit $runUnit, $execResults) {
-        $helper = RunUnitHelper::getInstance();
-        if ($expires = (int) $helper->getUnitSessionExpiration($unitSession, $runUnit, $execResults)) {
+        $helper = UnitSessionHelper::getInstance();
+        $data = $helper->getUnitSessionExpiration($unitSession, $runUnit, $execResults);
+
+        if (!empty($data['expires'])) {
             $q = array(
                 'unit_session_id' => $unitSession->id,
                 'run_session_id' => $unitSession->run_session_id,
                 'unit_id' => $runUnit->id,
                 'created' => time(),
-                'expires' => $expires,
+                'expires' => $data['expires'],
+                'execute' => (int) $data['execute'],
                 'run' => $runUnit->run->name,
                 'counter' => 1,
             );

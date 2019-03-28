@@ -5,7 +5,8 @@ CREATE TABLE `survey_sessions_queue` (
   `created` int(10) unsigned NOT NULL,
   `expires` int(10) unsigned NOT NULL,
   `run` varchar(45) COLLATE utf8_unicode_ci NOT NULL,
-  `counter` int(10) unsigned NOT NULL DEFAULT '0'
+  `counter` int(10) unsigned NOT NULL DEFAULT '0',
+  `execute` tinyint(1) unsigned NOT NULL DEFAULT '1' 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 ALTER TABLE `survey_sessions_queue`

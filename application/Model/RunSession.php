@@ -139,19 +139,26 @@ class RunSession {
         return $this->load();
     }
 
-    public function getUnit() {
+
+    /**
+     * Loop over units in Run for a session only you get a unit with output
+     *
+     * @param int $referenceUnitId
+     * @param boolean $executeReferenceUnit If TRUE, the first unit will be executed if it matches the referenceUnit
+     * @return boolean|int
+     */
+    public function getUnit($referenceUnitId = null, $executeReferenceUnit = false) {
         $i = 0;
         $done = array();
         $unit_factory = new RunUnitFactory();
+        $user = Site::getCurrentUser();
 
         $output = false;
         while (!$output): // only when there is something to display, stop.
             $i++;
             if ($i > 80) {
-                global $user;
                 if ($user->isCron() || $user->isAdmin()) {
-                    if (isset($unit))
-                        alert(print_r($unit, true), 'alert-danger');
+                    if (isset($unit)) alert(print_r($unit, true), 'alert-danger');
                 }
                 alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?', 'alert-danger');
                 return false;
@@ -165,6 +172,13 @@ class RunSession {
 
                 $unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this, $this->run);
                 $this->current_unit_type = $unit->type;
+
+                if ($referenceUnitId && $unit->id == $referenceUnitId && !$executeReferenceUnit) {
+                    $this->endUnitSession($unit_info);
+                    $referenceUnitId = null;
+                    continue;
+                }
+
                 $output = $unit->exec();
 
                 //@TODO check whether output is set or NOT
@@ -201,8 +215,8 @@ class RunSession {
         return $unit_id;
     }
 
-    public function endUnitSession() {
-        $unit = $this->getCurrentUnit(); // get first unit in line
+    public function endUnitSession($unit = null) {
+        $unit = $unit !== null ? $unit : $this->getCurrentUnit(); // get first unit in line
         if ($unit) {
             $unit_factory = new RunUnitFactory();
             $unit = $unit_factory->make($this->dbh, null, $unit, $this, $this->run);
@@ -230,7 +244,6 @@ class RunSession {
         }
 
         if ($unit_id):
-
             $this->unit_session = new UnitSession($this->dbh, $this->id, $unit_id);
             if (!$this->unit_session->id) {
                 $this->unit_session->create();
