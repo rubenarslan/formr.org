@@ -224,6 +224,7 @@ class EmailQueue extends Queue {
         }
         $this->failures[$id] ++;
         if ($this->failures[$id] > $this->itemTries || (time() - strtotime($email['created'])) > $this->itemTtl) {
+            //@todo: notify study administrator
             $this->db->exec('DELETE FROM survey_email_queue WHERE id = ' . (int) $id);
         }
     }

@@ -211,23 +211,18 @@ class Email extends RunUnit {
 
     public function sendMail($who = NULL) {
         $this->mail_sent = false;
+        $this->recipient = $who !== null ? $who : $this->getRecipientField();
 
-        if ($who === null):
-            $this->recipient = $this->getRecipientField();
-        else:
-            $this->recipient = $who;
-        endif;
-
-        if ($this->recipient == null):
+        if ($this->recipient == null) {
             //formr_log("Email recipient could not be determined from this field definition " . $this->recipient_field);
             alert("We could not find an email recipient. Session: {$this->session}", 'alert-danger');
             return false;
-        endif;
+        }
 
-        if ($this->account_id === null):
+        if ($this->account_id === null) {
             alert("The study administrator (you?) did not set up an email account. <a href='" . admin_url('mail') . "'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
             return false;
-        endif;
+        }
 
         $run_session = $this->run_session;
 
