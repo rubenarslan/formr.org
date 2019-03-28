@@ -97,6 +97,10 @@ class UnitSessionQueue extends Queue {
             }
 
             $run = $this->getRun($session['run']);
+            if (!$run->valid) {
+                self::removeItem($session['unit_session_id'], $session['unit_id']);
+                continue;
+            }
             $runSession = new RunSession($this->db, $run->id, 'cron', $session['session'], $run);
 
             // Execute session again by getting current unit
