@@ -127,6 +127,12 @@ class Pause extends RunUnit {
         $this->execData['check_failed'] = false;
         $this->execData['expire_relatively'] = null;
 
+        // If item is in queue and need not be executed, no need to execute again because it hasn't expired.
+        if (!empty($this->run_session->unit_session) && ($queueItem = UnitSessionQueue::findItem($this->run_session->unit_session, array('execute' => 0)))) {
+            $this->execData['expire_timestamp'] = $queueItem['expires'];
+            return false;
+        }
+
         // if a relative_to has been defined by user or automatically, we need to retrieve its value
         if ($this->has_relative_to) {
             $opencpu_vars = $this->getUserDataInRun($this->relative_to);
@@ -156,7 +162,7 @@ class Pause extends RunUnit {
                 // If there was a wait_time, set the timestamp to have this time
                 if ($time = $this->parseWaitTime(true)) {
                     $ts = $this->execData['expire_timestamp'];
-                    $this->execData['expire_timestamp'] = mktime($time[0], $time[1], 0, date('m', $ts), date('d', $ts), date('Y', $ts));
+                    $this->execData['expire_timestamp'] = mktime((int)$time[0], (int)$time[1], 0, (int)date('m', $ts), (int)date('d', $ts), (int)date('Y', $ts));
                 }
             } else {
                 alert("Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. " . print_r($relative_to, true), 'alert-warning');
