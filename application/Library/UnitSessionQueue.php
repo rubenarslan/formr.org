@@ -190,4 +190,13 @@ class UnitSessionQueue extends Queue {
         }
     }
 
+    public static function findItem(UnitSession $unitSession, $where = array()) {
+        if (!Config::get('unit_session.use_queue')) {
+            return false;
+        }
+
+        $where['unit_session_id'] = $unitSession->id;
+        return DB::getInstance()->findRow('survey_sessions_queue', $where, array('run_session_id', 'created', 'expires', 'run'));
+    }
+
 }
