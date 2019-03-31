@@ -163,6 +163,7 @@ class Pause extends RunUnit {
                 if ($time = $this->parseWaitTime(true)) {
                     $ts = $this->execData['expire_timestamp'];
                     $this->execData['expire_timestamp'] = mktime((int)$time[0], (int)$time[1], 0, (int)date('m', $ts), (int)date('d', $ts), (int)date('Y', $ts));
+                    $relative_to = date('Y-m-d H:i:s', $this->execData['expire_timestamp']);
                 }
             } else {
                 alert("Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. " . print_r($relative_to, true), 'alert-warning');
@@ -232,7 +233,8 @@ class Pause extends RunUnit {
             $conditions['datetime'] = ':wait_datetime <= NOW()';
         }
 
-        $result = !empty($this->execData['expire_timestamp']) && $this->execData['expire_timestamp'] <= time();
+        $now = time();
+        $result = !empty($this->execData['expire_timestamp']) && ($this->execData['expire_timestamp'] <= $now);
 
         if ($conditions) {
             $condition = implode(' AND ', $conditions);
