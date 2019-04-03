@@ -344,11 +344,7 @@ class Pause extends RunUnit {
         $this->checkRelativeTo();
         $pauseOver = $this->checkWhetherPauseIsOver();
 
-        if (!$pauseOver && $this->type === 'Wait' && empty($this->execData['check_failed']) && !$this->called_by_cron) {
-            $this->end();
-            $runTo = $this->run_session->runTo($this->body);
-            return !$runTo;
-        } elseif ($pauseOver) {
+        if ($pauseOver) {
             $this->end();
             return false;
         } else {
