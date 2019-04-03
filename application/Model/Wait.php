@@ -41,5 +41,21 @@ class Wait extends Pause {
 
         return $this->has_relative_to;
     }
+
+    public function exec() {
+        $this->checkRelativeTo();
+        $pauseOver = $this->checkWhetherPauseIsOver();
+
+        if (!$pauseOver && !$this->called_by_cron && empty($this->execData['check_failed'])) {
+            $this->end();
+            $runTo = $this->run_session->runTo($this->body);
+            return !$runTo;
+        } elseif ($pauseOver) {
+            $this->end();
+            return false;
+        } else {
+            return true; // Maybe ocpu errors
+        }
+    }
 }
 
