@@ -1640,6 +1640,8 @@ class Survey extends RunUnit {
         $addChoiceStmt->bindParam(":study_id", $this->id);
 
         foreach ($this->SPR->choices as $choice) {
+            $choice['label_parsed'] = '';
+
             if (isset($choice['list_name']) && isset($choice['name']) && isset($choice['label'])) {
                 if (!$this->knittingNeeded($choice['label']) && empty($choice['label_parsed'])) { // if the parsed label is constant
                     $markdown = $this->parsedown->text($choice['label']); // transform upon insertion into db instead of at runtime
