@@ -27,6 +27,7 @@ class AdminRunController extends AdminController {
 
         $vars = array(
             'show_panic' => $this->showPanicButton(),
+            'add_unit_buttons' => $this->getUnitAddButtons(),
         );
         $this->renderView('run/index', $vars);
     }
@@ -866,6 +867,47 @@ class AdminRunController extends AdminController {
                 $this->run->cron_active === 0 &&
                 $this->run->public === 0;
         return !$on;
+    }
+
+    private function getUnitAddButtons() {
+        return array(
+            'Survey' => array(
+                'title' => 'Add Survey',
+                'icon' => 'fa-pencil-square',
+            ),
+            'External' => array(
+                'title' => 'Add External Link',
+                'icon' => 'fa-external-link-square',
+            ),
+            'Email' => array(
+                'title' => 'Add Email',
+                'icon' => 'fa-envelope',
+            ),
+            'SkipBackward' => array(
+                'title' => 'Add a loop (Skip Backwards)',
+                'icon' => 'fa-backward',
+            ),
+            'Pause' => array(
+                'title' => 'Add a Pause',
+                'icon' => 'fa-pause',
+            ),
+            'SkipForward' => array(
+                'title' => 'Add a jump (Skip Forward)',
+                'icon' => 'fa-forward',
+            ),
+            'Wait' => array(
+                'title' => 'Add Waiting Time',
+                'icon' => 'fa-hourglass-half',
+            ),
+            'Shuffle' => array(
+                'title' => 'Add shuffle (Randomise Participants)',
+                'icon' => 'fa-random',
+            ),
+            'Page' => array(
+                'title' => 'Add a Stop Point',
+                'icon' => 'fa-stop',
+            ),
+        );
     }
 
 }

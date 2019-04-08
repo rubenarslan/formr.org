@@ -3,7 +3,7 @@
 class Wait extends Pause {
 
     public $type = "Wait";
-    public $icon = "fa-spinner";
+    public $icon = "fa-hourglass-half";
 
     public function __construct($fdb, $session = null, $unit = null, $run_session = null, $run = null) {
         parent::__construct($fdb, $session, $unit, $run_session, $run);
