@@ -107,6 +107,12 @@ class UnitSessionQueue extends Queue {
             }
             $runSession = new RunSession($this->db, $run->id, 'cron', $session['session'], $run);
 
+            if (!$runSession->id) {
+                $this->dbg('A run session could not be found for item in queue: ' . print_r($session, 1));
+                self::removeItem($session['unit_session_id'], $session['unit_id']);
+                continue;
+            }
+
             // Execute session again by getting current unit
             // This action might end or expire a session, thereby removing it from queue
             // or session might be re-queued to expire in x minutes
