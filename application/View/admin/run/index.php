@@ -69,33 +69,11 @@
                             <div id="run-unit-choices">
                                 <div class="form-group col-lg-12 text-center">
                                     <div class="btn-group">
-                                        <a class="add_survey add_run_unit btn btn-default btn-lg hastooltip" title="Add survey" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Survey') ?>" >
-                                            <i class="fa fa-pencil-square fa-2x"></i>
-                                        </a>
-                                        <a class="add_external add_run_unit btn btn-default btn-lg hastooltip" title="Add external link" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=External') ?>">
-                                            <i class="fa fa-external-link-square fa-2x"></i>
-                                        </a>
-                                        <a class="add_email add_run_unit btn btn-default btn-lg hastooltip" title="Add email" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Email') ?>">
-                                            <i class="fa fa-envelope fa-2x"></i>
-                                        </a>
-                                        <a class="add_skipbackward add_run_unit btn btn-default btn-lg hastooltip" title="Add a loop (skip backwards)" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=SkipBackward') ?>">
-                                            <i class="fa fa-backward fa-2x"></i>
-                                        </a>
-                                        <a class="add_pause add_run_unit btn btn-default btn-lg hastooltip" title="Add pause" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Pause') ?>">
-                                            <i class="fa fa-pause fa-2x"></i>
-                                        </a>
-                                        <a class="add_wait add_run_unit btn btn-default btn-lg hastooltip" title="Add a waiting time" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Wait') ?>">
-                                            <i class="fa fa-spinner fa-2x"></i>
-                                        </a>
-                                        <a class="add_skipforward add_run_unit btn-default btn btn-lg hastooltip" title="Add a jump (skip forward)" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=SkipForward') ?>">
-                                            <i class="fa fa-forward fa-2x"></i>
-                                        </a>
-                                        <a class="add_shuffle add_run_unit btn btn-default btn-lg hastooltip" title="Add shuffle (randomise participants)" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Shuffle') ?>">
-                                            <i class="fa fa-random fa-2x"></i>
-                                        </a>
-                                        <a class="add_page add_run_unit btn btn-default btn-lg hastooltip" title="Add a stop point" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=Page') ?>">
-                                            <i class="fa fa-stop fa-2x"></i>
-                                        </a>
+                                        <?php foreach ($add_unit_buttons as $name => $button): ?>
+                                            <a class="add_<?= strtolower($name)?> add_run_unit btn btn-default btn-lg hastooltip" title="<?= $button['title'] ?>" href="<?= admin_run_url($run->name, 'ajax_create_run_unit?type=' . $name) ?>" >
+                                                <i class="fa fa-2x <?= $button['icon'] ?>"></i>
+                                            </a>
+                                        <?php endforeach; ?>
                                     </div>
                                     <h5 class="text-center">click one of the symbols above to add a module</h5> 
                                 </div>
