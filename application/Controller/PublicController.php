@@ -19,7 +19,7 @@ class PublicController extends Controller {
     }
 
     public function studiesAction() {
-        $this->renderView('public/studies', array('runs' => $this->user->getAvailableRuns()));
+        $this->renderView('public/studies', array('runs' => RunHelper::getPublicRuns()));
     }
 
     public function aboutAction() {
@@ -101,7 +101,8 @@ class PublicController extends Controller {
             if ($this->user->login($info)) {
                 alert('<strong>Success!</strong> You were logged in!', 'alert-success');
                 Session::set('user', serialize($this->user));
-                $redirect = $this->user->isAdmin() ? redirect_to('admin') : redirect_to('account');
+                $redirect = $this->user->isAdmin() ? 'admin' : 'account';
+                redirect_to($redirect);
             } else {
                 alert(implode($this->user->errors), 'alert-danger');
             }
@@ -166,7 +167,7 @@ class PublicController extends Controller {
             alert("You need to follow the link you received in your verification mail.");
             redirect_to('login');
         } else {
-            $user->verify_email($email, $verification_token);
+            $user->verifyEmail($email, $verification_token);
             redirect_to('login');
         };
     }
@@ -177,7 +178,7 @@ class PublicController extends Controller {
         }
 
         if ($this->request->str('email')) {
-            $this->user->forgot_password($this->request->str('email'));
+            $this->user->forgotPassword($this->request->str('email'));
         }
 
         $this->registerAssets('bootstrap-material-design');
@@ -201,7 +202,7 @@ class PublicController extends Controller {
                 'new_password' => $postRequest->str('new_password'),
                 'new_password_confirm' => $postRequest->str('new_password_c'),
             );
-            if (($done = $user->reset_password($info))) {
+            if (($done = $user->resetPassword($info))) {
                 redirect_to('forgot_password');
             }
         }

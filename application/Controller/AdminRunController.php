@@ -70,29 +70,23 @@ class AdminRunController extends AdminController {
     private function userOverviewAction() {
         $run = $this->run;
         $fdb = $this->fdb;
-
-        $search = '';
         $querystring = array();
-        $position_cmp = '=';
-        $query_params = array(':run_id' => $run->id);
+        $queryparams = array('run_id' => $run->id, 'position_operator' => '=');
 
         if ($this->request->position_lt && in_array($this->request->position_lt, array('=', '>', '<'))) {
-            $position_cmp = $this->request->position_lt;
-            $querystring['position_lt'] = $position_cmp;
+            $queryparams['position_operator'] = $this->request->position_lt;
+            $querystring['position_lt'] = $queryparams['position_operator'];
         }
 
         if ($this->request->session) {
             $session = str_replace("…", "", $this->request->session);
-            $search .= 'AND `survey_run_sessions`.session LIKE :session ';
-            $query_params[':session'] = "%" . $session . "%";
+            $queryparams['session'] = "%" . $session . "%";
             $querystring['session'] = $session;
         }
 
         if ($this->request->position) {
-            $position = $this->request->position;
-            $search .= "AND `survey_run_sessions`.position {$position_cmp} :position ";
-            $query_params[':position'] = $position;
-            $querystring['position'] = $position;
+            $queryparams['position'] = $this->request->position;
+            $querystring['position'] = $queryparams['position'];
         }
 
         if ($this->request->sessions) {
@@ -103,198 +97,62 @@ class AdminRunController extends AdminController {
                     $sessions[] = $session;
                 }
             }
-            $search .= " AND session IN (" . implode($sessions, ",") . ")";
+            $queryparams['sessions'] = $sessions;
             $querystring['sessions'] = $this->request->sessions;
         }
 
-        $user_count_query = "SELECT COUNT(`survey_run_sessions`.id) AS count FROM `survey_run_sessions` WHERE `survey_run_sessions`.run_id = :run_id $search;";
-        $user_count = $fdb->execute($user_count_query, $query_params, true);
-        $pagination = new Pagination($user_count, 200, true);
-        $limits = $pagination->getLimits();
+        $queryparams['admin_code'] = $this->user->user_code;
+        $helper = new RunHelper($run, $fdb, $this->request);
+        $table = $helper->getUserOverviewTable($queryparams);
 
-        $query_params[':admin_code'] = $this->user->user_code;
-
-        $users_query = "SELECT 
-			`survey_run_sessions`.id AS run_session_id,
-			`survey_run_sessions`.session,
-			`survey_run_sessions`.position,
-			`survey_run_units`.description,
-			`survey_run_sessions`.last_access,
-			`survey_run_sessions`.created,
-			`survey_run_sessions`.testing,
-			`survey_runs`.name AS run_name,
-			`survey_units`.type AS unit_type,
-			`survey_run_sessions`.last_access,
-			(`survey_units`.type IN ('Survey','External','Email') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
-		FROM `survey_run_sessions`
-		LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
-		LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
-		LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
-		WHERE `survey_run_sessions`.run_id = :run_id $search
-		ORDER BY `survey_run_sessions`.session != :admin_code, hang DESC, `survey_run_sessions`.last_access DESC
-		LIMIT $limits;";
-
-        $vars = get_defined_vars();
-        $vars['users'] = $fdb->execute($users_query, $query_params);
-        $vars['position_lt'] = $position_cmp;
-        $vars['currentUser'] = $this->user;
-        $vars['unit_types'] = $run->getAllUnitTypes();
-        $vars['reminders'] = $this->run->getSpecialUnits(false, 'ReminderEmail');
-        $this->renderView('run/user_overview', $vars);
+        $this->renderView('run/user_overview', array(
+            'users' => $table['data'],
+            'pagination' => $table['pagination'],
+            'position_lt' => $queryparams['position_operator'],
+            'currentUser' => $this->user,
+            'unit_types' => $run->getAllUnitTypes(),
+            'reminders' => $this->run->getSpecialUnits(false, 'ReminderEmail'),
+            'querystring' => $querystring,
+        ));
     }
 
     private function exportUserOverviewAction() {
-        $users_query = "SELECT 
-		        `survey_run_sessions`.position,
-		        `survey_units`.type AS unit_type,
-			`survey_run_units`.description,
-		        `survey_run_sessions`.session,
-		        `survey_run_sessions`.created,
-		        `survey_run_sessions`.last_access,
-		        (`survey_units`.type IN ('Survey','External','Email') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
-		FROM `survey_run_sessions`
-		LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
-		LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
-		LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
-		WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code, hang DESC, `survey_run_sessions`.last_access DESC";
-
-        $query_params = array(':run_id' => $this->run->id, ':admin_code' => $this->user->user_code);
-        $query_obj = $this->fdb->prepare($users_query);
-        $query_obj->execute($query_params);
-
+        $helper = new RunHelper($this->run, $this->fdb, $this->request);
+        $queryParams = array('run_id' => $this->run->id, 'admin_code' => $this->user->user_code);
+        $exportStmt = $helper->getUserOverviewExportPdoStatement($queryParams);
         $SPR = new SpreadsheetReader();
-        $download_successfull = $SPR->exportInRequestedFormat($query_obj, $this->run->name . '_user_overview', $this->request->str('format'));
+        $download_successfull = $SPR->exportInRequestedFormat($exportStmt, $this->run->name . '_user_overview', $this->request->str('format'));
         if (!$download_successfull) {
             alert('An error occured during user overview download.', 'alert-danger');
             redirect_to(admin_run_url($this->run->name, 'user_overview'));
         }
     }
 
-    private function exportUserDetailAction() {
-        $users_query = "SELECT
-			        `survey_run_units`.position,
-			        `survey_units`.type AS unit_type,
-			        `survey_run_units`.description,
-			        `survey_run_sessions`.session,
-			        `survey_unit_sessions`.created AS entered,
-			        IF (`survey_unit_sessions`.ended > 0, UNIX_TIMESTAMP(`survey_unit_sessions`.ended)-UNIX_TIMESTAMP(`survey_unit_sessions`.created),
-						UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(`survey_unit_sessions`.created)) AS 'seconds_stayed',
-					`survey_unit_sessions`.ended AS 'left',
-			        `survey_unit_sessions`.expired
-				FROM `survey_unit_sessions`
-				LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-				LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-				LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-				LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
-				WHERE `survey_runs`.id = :run_id
-				AND `survey_run_sessions`.run_id = :run_id2
-				ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;";
-
-        $query_params = array(':run_id' => $this->run->id, ':run_id2' => $this->run->id);
-        $query_obj = $this->fdb->prepare($users_query);
-        $query_obj->execute($query_params);
-
-        $SPR = new SpreadsheetReader();
-        $download_successfull = $SPR->exportInRequestedFormat($query_obj, $this->run->name . '_user_detail', $this->request->str('format'));
-        if (!$download_successfull) {
-            alert('An error occured during user detail download.', 'alert-danger');
-            redirect_to(admin_run_url($this->run->name, 'user_detail'));
-        }
-    }
-
-    private function createNewTestCodeAction() {
-        $run_session = $this->run->makeTestRunSession();
-        $sess = $run_session->session;
-        $animal = substr($sess, 0, strpos($sess, "XXX"));
-        $sess_url = run_url($this->run->name, null, array('code' => $sess));
-
-        //alert("You've created a new guinea pig, ".h($animal).". Use this guinea pig to move through the run like a normal user with special powers (accessibly via the monkey bar at the bottom right). As a guinea pig, you can see more detailed error messages than real users, so it is easier to e.g. debug R problems. If you want someone else to be the guinea pig, just forward them this link: <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
-        redirect_to($sess_url);
-    }
-
-    private function createNewNamedSessionAction() {
-
-        if (Request::isHTTPPostRequest()) {
-            $code_name = $this->request->getParam('code_name');
-            $run_session = $this->run->addNamedRunSession($code_name);
-
-            if ($run_session) {
-                $sess = $run_session->session;
-                $sess_url = run_url($this->run->name, null, array('code' => $sess));
-
-                //alert("You've added a user with the code name '{$code_name}'. <br /> Send them this link to participate <br /> <textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
-                redirect_to(admin_run_url($this->run->name, 'user_overview', array('session' => $sess)));
-            }
-        }
-
-        $this->renderView('run/create_new_named_session');
-    }
-
     private function userDetailAction() {
         $run = $this->run;
         $fdb = $this->fdb;
-
-        $search = '';
         $querystring = array();
-        $position_lt = '=';
+        $queryparams = array('run_id' => $run->id, 'position_operator' => '=');
+
+        if ($this->request->position_lt && in_array($this->request->position_lt, array('=', '>', '<'))) {
+            $queryparams['position_operator'] = $this->request->position_lt;
+            $querystring['position_lt'] = $queryparams['position_operator'];
+        }
+
         if ($this->request->session) {
-            $session = str_replace('…', '', $this->request->session);
-            $search .= 'AND `survey_run_sessions`.session LIKE :session ';
-            $search_session = "%" . $session . "%";
+            $session = str_replace("…", "", $this->request->session);
+            $queryparams['session'] = "%" . $session . "%";
             $querystring['session'] = $session;
         }
 
         if ($this->request->position) {
-            $position = $this->request->position;
-            if (in_array($this->request->position_lt, array('>', '=', '<'))) {
-                $position_lt = $this->request->position_lt;
-            }
-            $search .= 'AND `survey_run_units`.position ' . $position_lt . ' :position ';
-            $search_position = $position;
-            $querystring['position_lt'] = $position_lt;
-            $querystring['position'] = $position;
+            $queryparams['position'] = $this->request->position;
+            $querystring['position'] = $queryparams['position'];
         }
 
-        $user_count_query = "
-			SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions` 
-			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id`
-			WHERE `survey_run_sessions`.run_id = :run_id $search";
-
-        $params = array(':run_id' => $run->id);
-        if (isset($search_session)) {
-            $params[':session'] = $search_session;
-        }
-        if (isset($search_position)) {
-            $params[':position'] = $search_position;
-        }
-
-        $user_count = $fdb->execute($user_count_query, $params, true);
-        $pagination = new Pagination($user_count, 400, true);
-        $limits = $pagination->getLimits();
-
-
-        $params[':run_id2'] = $params[':run_id'];
-
-        $users_query = "SELECT 
-			`survey_run_sessions`.session,
-			`survey_unit_sessions`.id AS session_id,
-			`survey_runs`.name AS run_name,
-			`survey_run_units`.position,
-			`survey_run_units`.description,
-			`survey_units`.type AS unit_type,
-			`survey_unit_sessions`.created,
-			`survey_unit_sessions`.ended,
-			`survey_unit_sessions`.expired
-		FROM `survey_unit_sessions`
-		LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
-		LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
-		LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
-		LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
-		WHERE `survey_runs`.id = :run_id2 AND `survey_run_sessions`.run_id = :run_id $search
-		ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT $limits";
-
-        $users = $fdb->execute($users_query, $params);
+        $helper = new RunHelper($run, $fdb, $this->request);
+        $table = $helper->getUserDetailTable($queryparams);
+        $users = $table['data'];
 
         foreach ($users as $i => $userx) {
             if ($userx['expired']) {
@@ -318,8 +176,51 @@ class AdminRunController extends AdminController {
             $users[$i] = $userx;
         }
 
-        $vars = get_defined_vars();
-        $this->renderView('run/user_detail', $vars);
+        $this->renderView('run/user_detail', array(
+            'users' => $users,
+            'pagination' => $table['pagination'],
+            'position_lt' => $queryparams['position_operator'],
+            'querystring' => $querystring,
+        ));
+    }
+
+    private function exportUserDetailAction() {
+        $helper = new RunHelper($this->run, $this->fdb, $this->request);
+        $queryParams = array(':run_id' => $this->run->id, ':run_id2' => $this->run->id);
+        $exportStmt = $helper->getUserDetailExportPdoStatement($queryParams);
+        $SPR = new SpreadsheetReader();
+        $download_successfull = $SPR->exportInRequestedFormat($exportStmt, $this->run->name . '_user_detail', $this->request->str('format'));
+        if (!$download_successfull) {
+            alert('An error occured during user detail download.', 'alert-danger');
+            redirect_to(admin_run_url($this->run->name, 'user_detail'));
+        }
+    }
+
+    private function createNewTestCodeAction() {
+        $run_session = $this->run->makeTestRunSession();
+        $sess = $run_session->session;
+        $animal = substr($sess, 0, strpos($sess, "XXX"));
+        $sess_url = run_url($this->run->name, null, array('code' => $sess));
+
+        //alert("You've created a new guinea pig, ".h($animal).". Use this guinea pig to move through the run like a normal user with special powers (accessibly via the monkey bar at the bottom right). As a guinea pig, you can see more detailed error messages than real users, so it is easier to e.g. debug R problems. If you want someone else to be the guinea pig, just forward them this link: <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
+        redirect_to($sess_url);
+    }
+
+    private function createNewNamedSessionAction() {
+        if (Request::isHTTPPostRequest()) {
+            $code_name = $this->request->getParam('code_name');
+            $run_session = $this->run->addNamedRunSession($code_name);
+
+            if ($run_session) {
+                $sess = $run_session->session;
+                $sess_url = run_url($this->run->name, null, array('code' => $sess));
+
+                //alert("You've added a user with the code name '{$code_name}'. <br /> Send them this link to participate <br /> <textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
+                redirect_to(admin_run_url($this->run->name, 'user_overview', array('session' => $sess)));
+            }
+        }
+
+        $this->renderView('run/create_new_named_session');
     }
 
     private function uploadFilesAction() {
@@ -581,12 +482,10 @@ class AdminRunController extends AdminController {
     }
 
     private function overviewAction() {
-        $run = $this->run;
-
         $this->renderView('run/overview', array(
-            'users' => $run->getNumberOfSessionsInRun(),
-            'overview_script' => $run->getOverviewScript(),
-            'user_overview' => $run->getUserCounts(),
+            'users' => $this->run->getNumberOfSessionsInRun(),
+            'overview_script' => $this->run->getOverviewScript(),
+            'user_overview' => $this->run->getUserCounts(),
         ));
     }
 
@@ -607,52 +506,14 @@ class AdminRunController extends AdminController {
     }
 
     private function emailLogAction() {
-        $run = $this->run;
-        $fdb = $this->fdb;
+        $queryparams = array('run_id' => $this->run->id);
+        $helper = new RunHelper($this->run, $this->fdb, $this->request);
+        $table = $helper->getEmailLogTable($queryparams);
 
-        $email_count_query = "SELECT COUNT(`survey_email_log`.id) AS count
-		FROM `survey_email_log`
-		LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id 
-		LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
-		WHERE `survey_run_sessions`.run_id = :run_id";
-
-        $email_count = $fdb->execute($email_count_query, array(':run_id' => $run->id), true);
-        $pagination = new Pagination($email_count, 50, true);
-        $limits = $pagination->getLimits();
-
-        $emails_query = "SELECT 
-			`survey_email_accounts`.from_name, 
-			`survey_email_accounts`.`from`, 
-			`survey_email_log`.recipient AS `to`,
-			`survey_email_log`.`sent`,
-			`survey_emails`.subject,
-			`survey_emails`.body,
-			`survey_email_log`.created,
-			`survey_run_units`.position AS position_in_run
-		FROM `survey_email_log`
-		LEFT JOIN `survey_emails` ON `survey_email_log`.email_id = `survey_emails`.id
-		LEFT JOIN `survey_run_units` ON `survey_emails`.id = `survey_run_units`.unit_id
-		LEFT JOIN `survey_email_accounts` ON `survey_emails`.account_id = `survey_email_accounts`.id
-		LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id
-		LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
-		WHERE `survey_run_sessions`.run_id = :run_id
-		ORDER BY `survey_email_log`.id DESC LIMIT $limits ;";
-
-        $g_emails = $fdb->execute($emails_query, array(':run_id' => $run->id));
-        $emails = array();
-        foreach ($g_emails as $email) {
-            $email['from'] = "{$email['from_name']}<br><small>{$email['from']}</small>";
-            unset($email['from_name']);
-            $email['to'] = $email['to'] . "<br><small>at run position " . $email['position_in_run'] . "</small>";
-            $email['mail'] = $email['subject'] . "<br><small>" . h(substr($email['body'], 0, 100)) . "…</small>";
-            $email['datetime'] = '<abbr title="' . $email['created'] . '">' . timetostr(strtotime($email['created'])) . '</abbr> ';
-            $email['datetime'] .= $email['sent'] ? '<i class="fa fa-check-circle"></i>' : '<i class="fa fa-times-circle"></i>';
-            unset($email['position_in_run'], $email['subject'], $email['body'], $email['created'], $email['sent']);
-            $emails[] = $email;
-        }
-
-        $vars = get_defined_vars();
-        $this->renderView('run/email_log', $vars);
+        $this->renderView('run/email_log', array(
+            'emails' => $table['data'],
+            'pagination' => $table['pagination'],
+        ));
     }
 
     private function deleteRunAction() {
@@ -677,71 +538,6 @@ class AdminRunController extends AdminController {
 
     private function cronLogAction() {
         return $this->cronLogParsed();
-        // @todo: deprecate code
-        $run = $this->run;
-        $fdb = $this->fdb;
-
-        $fdb->count('survey_cron_log', array('run_id' => $run->id));
-        $cron_entries_count = $fdb->count('survey_cron_log', array('run_id' => $run->id));
-
-        $pagination = new Pagination($cron_entries_count);
-        $limits = $pagination->getLimits();
-
-        $cron_query = "SELECT 
-			`survey_cron_log`.id,
-			`survey_cron_log`.run_id,
-			`survey_cron_log`.created,
-			`survey_cron_log`.ended - `survey_cron_log`.created AS time_in_seconds,
-			`survey_cron_log`.sessions, 
-			`survey_cron_log`.skipbackwards, 
-			`survey_cron_log`.skipforwards, 
-			`survey_cron_log`.pauses, 
-			`survey_cron_log`.emails, 
-			`survey_cron_log`.shuffles, 
-			`survey_cron_log`.errors, 
-			`survey_cron_log`.warnings, 
-			`survey_cron_log`.notices, 
-			`survey_cron_log`.message
-		FROM `survey_cron_log`
-		WHERE `survey_cron_log`.run_id = :run_id
-		ORDER BY `survey_cron_log`.id DESC LIMIT $limits;";
-
-        $g_cron = $fdb->execute($cron_query, array(':run_id' => $run->id));
-
-        $cronlogs = array();
-        foreach ($g_cron as $cronlog) {
-            $cronlog = array_reverse($cronlog, true);
-            $cronlog['Modules'] = '<small>';
-
-            if ($cronlog['pauses'] > 0)
-                $cronlog['Modules'] .= $cronlog['pauses'] . ' <i class="fa fa-pause"></i> ';
-            if ($cronlog['skipbackwards'] > 0)
-                $cronlog['Modules'] .= $cronlog['skipbackwards'] . ' <i class="fa fa-backward"></i> ';
-            if ($cronlog['skipforwards'] > 0)
-                $cronlog['Modules'] .= $cronlog['skipforwards'] . ' <i class="fa fa-forward"></i> ';
-            if ($cronlog['emails'] > 0)
-                $cronlog['Modules'] .= $cronlog['emails'] . ' <i class="fa fa-envelope"></i> ';
-            if ($cronlog['shuffles'] > 0)
-                $cronlog['Modules'] .= $cronlog['shuffles'] . ' <i class="fa fa-random"></i>';
-            $cronlog['Modules'] .= '</small>';
-            $cronlog['took'] = '<small>' . round($cronlog['time_in_seconds'] / 60, 2) . 'm</small>';
-            $cronlog['time'] = '<small title="' . $cronlog['created'] . '">' . timetostr(strtotime($cronlog['created'])) . '</small>';
-            $cronlog = array_reverse($cronlog, true);
-            unset($cronlog['created']);
-            unset($cronlog['time_in_seconds']);
-            unset($cronlog['skipforwards']);
-            unset($cronlog['skipbackwards']);
-            unset($cronlog['pauses']);
-            unset($cronlog['emails']);
-            unset($cronlog['shuffles']);
-            unset($cronlog['run_id']);
-            unset($cronlog['id']);
-
-            $cronlogs[] = $cronlog;
-        }
-
-        $vars = get_defined_vars();
-        $this->renderView('run/cron_log', $vars);
     }
 
     private function setRun($name) {
@@ -849,7 +645,7 @@ class AdminRunController extends AdminController {
             'locked' => 1,
             'cron_active' => 0,
             'public' => 0,
-                //@todo maybe do more
+            //@todo maybe do more
         );
         $updated = $this->fdb->update('survey_runs', $settings, array('id' => $this->run->id));
         if ($updated) {

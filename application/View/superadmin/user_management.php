@@ -15,30 +15,42 @@
                         <h3 class="box-title">Formr Users </h3>
                     </div>
                     <div class="box-body table-responsive">
-                        <?php if (!empty($users)): ?>
+                        <?php if ($pdoStatement->rowCount()): ?>
                             <table class='table table-striped'>
                                 <thead>
                                     <tr>
-                                        <?php
-                                        foreach (current($users) AS $field => $value):
-                                            echo "<th>{$field}</th>";
-                                        endforeach;
-                                        ?>
+                                        <th>Email</th>
+                                        <th>Created</th>
+                                        <th>Modified</th>
+                                        <th>Admin</th>
+                                        <th>API Access</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php
-                                    // printing table rows
-                                    foreach ($users AS $row):
-                                        // $row is array... foreach( .. ) puts every element
-                                        // of $row to $cell variable
-                                        echo "<tr>";
-                                        foreach ($row as $cell):
-                                            echo "<td>$cell</td>";
-                                        endforeach;
-                                        echo "</tr>";
-                                    endforeach;
-                                    ?>
+                                    <?php while ($userx = $pdoStatement->fetch(PDO::FETCH_ASSOC)): ?>
+                                    <tr>
+                                        <td>
+                                            <a href="mailto:<?= h($userx['email']) ?>"><?= $userx['email'] ?></a>
+                                            <?php echo $userx['email_verified'] ? ' <i class="fa fa-check-circle-o"></i>' : ' <i class="fa fa-envelope-o"></i>'; ?>
+                                        </td>
+                                        <td><small class="hastooltip" title="<?= $userx['created'] ?>"><?= timetostr(strtotime($userx['created'])) ?></small></td>
+                                        <td><small class="hastooltip" title="<?= $userx['modified'] ?>"><?= timetostr(strtotime($userx['modified'])) ?></small></td>
+                                        <td>
+                                            <form class="form-inline form-ajax" action="<?= site_url('superadmin/ajax_admin') ?>" method="post">
+                                                <span class="input-group" style="width:160px">
+                                                    <span class="input-group-btn">
+                                                        <button type="submit" class="btn hastooltip" title="Give this level to this user"><i class="fa fa-hand-o-right"></i></button>
+                                                    </span>
+                                                    <input type="hidden" name="user_id" value="<?= $userx['id'] ?>">
+                                                    <input type="number" name="admin_level" max="100" min="-1" value="<?= h($userx['admin']) ?>" class="form-control">
+                                                </span>
+                                            </form>
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn api-btn hastooltip" title="Manage API Access" data-user="<?= $userx['id'] ?>" data-email="<?= h($userx['email']) ?>"><i class="fa fa-cloud"></i></button>
+                                        </td>
+                                    </tr>
+                                    <?php endwhile; ?>
                                 </tbody>
                             </table>
                             <div class="pagination">
