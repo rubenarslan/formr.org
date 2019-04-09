@@ -409,4 +409,58 @@ class RunSession {
         return $settings;
     }
 
+    public static function toggleTestingStatus($sessions) {
+        $dbh = DB::getInstance();
+        if (is_string($sessions)) {
+            $sessions = array($sessions);
+        }
+
+        foreach ($sessions as $session) {
+            $qs[] = $dbh->quote($session);
+        }
+
+        $query = 'UPDATE survey_run_sessions SET testing = 1 - testing WHERE session IN (' . implode(',', $qs) . ')';
+        return $dbh->query($query)->rowCount();
+    }
+
+    public static function deleteSessions($sessions) {
+        $dbh = DB::getInstance();
+        if (is_string($sessions)) {
+            $sessions = array($sessions);
+        }
+
+        foreach ($sessions as $session) {
+            $qs[] = $dbh->quote($session);
+        }
+
+        $query = 'DELETE FROM survey_run_sessions WHERE session IN (' . implode(',', $qs) . ')';
+        return $dbh->query($query)->rowCount();
+    }
+
+    public static function positionSessions($sessions, $position) {
+        $dbh = DB::getInstance();
+        if (is_string($sessions)) {
+            $sessions = array($sessions);
+        }
+
+        foreach ($sessions as $session) {
+            $qs[] = $dbh->quote($session);
+        }
+
+        $query = 'UPDATE survey_run_sessions SET position = ' . $position . ' WHERE session IN (' . implode(',', $qs) . ')';
+        return $dbh->query($query)->rowCount();
+    }
+
+    public static function getSentRemindersBySessionId($id) {
+        $stmt = DB::getInstance()->prepare('
+            SELECT survey_unit_sessions.id as unit_session_id, survey_run_special_units.id as unit_id FROM survey_unit_sessions 
+			LEFT JOIN survey_units ON survey_unit_sessions.unit_id = survey_units.id
+			LEFT JOIN survey_run_special_units ON survey_run_special_units.id = survey_units.id
+			WHERE survey_unit_sessions.run_session_id = :run_session_id AND survey_run_special_units.type = "ReminderEmail"
+		');
+        $stmt->bindValue('run_session_id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
 }

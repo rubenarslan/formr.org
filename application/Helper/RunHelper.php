@@ -4,7 +4,7 @@ class RunHelper {
 
     /**
      *
-     * @var Request 
+     * @var Request
      */
     protected $request;
 
@@ -33,11 +33,11 @@ class RunHelper {
     protected $errors = array();
     protected $message = null;
 
-    public function __construct(Request $r, DB $db, $run) {
+    public function __construct(Run $run, DB $db, Request $r) {
         $this->request = $r;
-        $this->run_name = $run;
         $this->db = $db;
-        $this->run = new Run($this->db, $run);
+        $this->run = $run;
+        $this->run_name = $run->name;
 
         if (!$this->run->valid) {
             throw new Exception("Run with name {$run} not found");
@@ -115,7 +115,7 @@ class RunHelper {
             $this->errors[] = "No unit session found";
         endif;
     }
-
+    
     public function getRunSession() {
         return $this->runSession;
     }
@@ -126,6 +126,226 @@ class RunHelper {
 
     public function getMessage() {
         return $this->message;
+    }
+
+    public function getUserOverviewTable($queryParams, $page = null) {
+        $query = array(' `survey_run_sessions`.run_id = :run_id ');
+        if (!empty($queryParams['session'])) {
+            $query[] = ' `survey_run_sessions`.session LIKE :session ';
+        }
+
+        if (!empty($queryParams['sessions'])) {
+            $query[] = ' `survey_run_sessions`.session IN (' . implode($queryParams['sessions'], ',') . ') ';
+        }
+
+        if (!empty($queryParams['position'])) {
+            $query[] = " `survey_run_sessions`.position {$queryParams['position_operator']} :position ";
+        }
+        $adminCode = $queryParams['admin_code'];
+        unset($queryParams['position_operator'], $queryParams['admin_code']);
+
+        $where = implode(' AND ', $query);
+        $count_query = "SELECT COUNT(`survey_run_sessions`.id) AS count FROM `survey_run_sessions` WHERE {$where}";
+        $count = $this->db->execute($count_query, $queryParams, true);
+
+        $pagination = new Pagination($count, 200, true);
+        $limits = $pagination->getLimits();
+        $queryParams['admin_code'] = $adminCode;
+
+        $itemsQuery = "
+            SELECT
+                `survey_run_sessions`.id AS run_session_id,
+                `survey_run_sessions`.session,
+                `survey_run_sessions`.position,
+                `survey_run_units`.description,
+                `survey_run_sessions`.last_access,
+                `survey_run_sessions`.created,
+                `survey_run_sessions`.testing,
+                `survey_runs`.name AS run_name,
+                `survey_units`.type AS unit_type,
+                `survey_run_sessions`.last_access,
+                (`survey_units`.type IN ('Survey','External','Email') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
+            FROM `survey_run_sessions`
+            LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
+            LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
+            LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
+            WHERE {$where}
+            ORDER BY `survey_run_sessions`.session != :admin_code, hang DESC, `survey_run_sessions`.last_access DESC
+            LIMIT $limits
+        ";
+
+        return array(
+            'data' => $this->db->execute($itemsQuery, $queryParams),
+            'pagination' => $pagination,
+        );
+    }
+
+    public function getUserOverviewExportPdoStatement($queryParams) {
+        $query = "
+            SELECT
+                `survey_run_sessions`.position,
+                `survey_units`.type AS unit_type,
+                `survey_run_units`.description,
+                `survey_run_sessions`.session,
+                `survey_run_sessions`.created,
+                `survey_run_sessions`.last_access,
+                (`survey_units`.type IN ('Survey','External','Email') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
+            FROM `survey_run_sessions`
+            LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
+            LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
+            LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
+            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code, hang DESC, `survey_run_sessions`.last_access DESC
+        ";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($queryParams);
+
+        return $stmt;
+    }
+
+    public function getUserDetailTable($queryParams, $page = null) {
+        $query = array(' `survey_run_sessions`.run_id = :run_id ');
+        if (!empty($queryParams['session'])) {
+            $query[] = ' `survey_run_sessions`.session LIKE :session ';
+        }
+
+        if (!empty($queryParams['position'])) {
+            $query[] = " `survey_run_units`.position {$queryParams['position_operator']} :position ";
+        }
+        unset($queryParams['position_operator']);
+
+        $where = implode(' AND ', $query);
+        $count_query = "
+			SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions` 
+			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id`
+            WHERE {$where}
+        ";
+        $count = $this->db->execute($count_query, $queryParams, true);
+        $pagination = new Pagination($count, 200, true);
+        $limits = $pagination->getLimits();
+
+        $query[] = ' `survey_runs`.id = :run_id2 ';
+        $queryParams['run_id2'] = $queryParams['run_id'];
+        $where = implode(' AND ', $query);
+
+        $itemsQuery = "
+            SELECT 
+                `survey_run_sessions`.session,
+                `survey_unit_sessions`.id AS session_id,
+                `survey_runs`.name AS run_name,
+                `survey_run_units`.position,
+                `survey_run_units`.description,
+                `survey_units`.type AS unit_type,
+                `survey_unit_sessions`.created,
+                `survey_unit_sessions`.ended,
+                `survey_unit_sessions`.expired
+            FROM `survey_unit_sessions`
+            LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+            LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
+            LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+            LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+            WHERE {$where}
+            ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT {$limits}
+        ";
+
+        return array(
+            'data' => $this->db->execute($itemsQuery, $queryParams),
+            'pagination' => $pagination,
+        );
+    }
+
+    public function getUserDetailExportPdoStatement($queryParams) {
+        $query = "
+            SELECT
+			    `survey_run_units`.position,
+			    `survey_units`.type AS unit_type,
+			    `survey_run_units`.description,
+			    `survey_run_sessions`.session,
+			    `survey_unit_sessions`.created AS entered,
+			    IF (`survey_unit_sessions`.ended > 0, UNIX_TIMESTAMP(`survey_unit_sessions`.ended)-UNIX_TIMESTAMP(`survey_unit_sessions`.created), UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(`survey_unit_sessions`.created)) AS 'seconds_stayed',
+				`survey_unit_sessions`.ended AS 'left',
+			    `survey_unit_sessions`.expired
+			FROM `survey_unit_sessions`
+			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
+			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+			LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+			WHERE `survey_runs`.id = :run_id AND `survey_run_sessions`.run_id = :run_id2
+			ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;
+        ";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($queryParams);
+
+        return $stmt;
+    }
+
+    public function getEmailLogTable($queryParams) {
+        $count_query = "
+            SELECT COUNT(`survey_email_log`.id) AS count
+            FROM `survey_email_log`
+            LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id 
+            LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
+            WHERE `survey_run_sessions`.run_id = :run_id
+        ";
+        $count = $this->db->execute($count_query, $queryParams, true);
+        $pagination = new Pagination($count, 75, true);
+        $limits = $pagination->getLimits();
+
+        $itemsQuery = "
+            SELECT 
+                `survey_email_accounts`.from_name, 
+                `survey_email_accounts`.`from`, 
+                `survey_email_log`.recipient AS `to`,
+                `survey_email_log`.`sent`,
+                `survey_emails`.subject,
+                `survey_emails`.body,
+                `survey_email_log`.created,
+                `survey_run_units`.position AS position_in_run
+            FROM `survey_email_log`
+            LEFT JOIN `survey_emails` ON `survey_email_log`.email_id = `survey_emails`.id
+            LEFT JOIN `survey_run_units` ON `survey_emails`.id = `survey_run_units`.unit_id
+            LEFT JOIN `survey_email_accounts` ON `survey_emails`.account_id = `survey_email_accounts`.id
+            LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id
+            LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
+            WHERE `survey_run_sessions`.run_id = :run_id
+            ORDER BY `survey_email_log`.id DESC LIMIT $limits
+        ";
+
+        return array(
+            'data' => $this->db->execute($itemsQuery, $queryParams),
+            'pagination' => $pagination,
+        );
+    }
+
+    public static function getPublicRuns() {
+        return DB::getInstance()->select('name, title, public_blurb_parsed')
+                                ->from('survey_runs')
+                                ->where('public > 2')
+                                ->fetchAll();
+    }
+
+    public static function getRunsManagementTablePdoStatement() {
+        $count = DB::getInstance()->count('survey_runs');
+        $pagination = new Pagination($count, 100, true);
+        $limits = $pagination->getLimits();
+
+        $itemsQuery = "
+            SELECT survey_runs.id AS run_id, name, survey_runs.user_id, cron_active, cron_fork, locked, count(survey_run_sessions.id) AS sessions, survey_users.email
+			FROM survey_runs 
+			LEFT JOIN survey_users ON survey_users.id = survey_runs.user_id 
+			LEFT JOIN survey_run_sessions ON survey_run_sessions.run_id = survey_runs.id 
+			GROUP BY survey_run_sessions.run_id
+            ORDER BY survey_runs.name ASC LIMIT $limits
+        ";
+        
+        $stmt = DB::getInstance()->prepare($itemsQuery);
+        $stmt->execute();
+
+        return array(
+            'pdoStatement' => $stmt,
+            'pagination' => $pagination,
+            'count' => $count,
+        );
     }
 
 }

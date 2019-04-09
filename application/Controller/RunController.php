@@ -122,7 +122,7 @@ class RunController extends Controller {
 
         $parts = explode('_', $action);
         $method = array_shift($parts) . str_replace(' ', '', ucwords(implode(' ', $parts)));
-        $runHelper = new RunHelper($this->request, $this->fdb, $run->name);
+        $runHelper = new RunHelper($run, $this->fdb, $this->request);
 
         // check if run session usedby the monkey bar is a test if not this action is not valid
         if (!($runSession = $runHelper->getRunSession()) || !$runSession->isTesting()) {

@@ -15,30 +15,40 @@
                         <h3 class="box-title">Formr active users </h3>
                     </div>
                     <div class="box-body table-responsive">
-                        <?php if (!empty($users)): ?>
+                        <?php if ($pdoStatement->rowCount()): ?>
                             <table class='table table-striped'>
                                 <thead>
                                     <tr>
-                                        <?php
-                                        foreach (current($users) AS $field => $value):
-                                            echo "<th>{$field}</th>";
-                                        endforeach;
-                                        ?>
+                                        <th>Email</th>
+                                        <th>Created</th>
+                                        <th>Modified</th>
+                                        <th>Run</th>
+                                        <th>Users</th>
+                                        <th>Last Active</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php
-                                    // printing table rows
-                                    foreach ($users AS $row):
-                                        // $row is array... foreach( .. ) puts every element
-                                        // of $row to $cell variable
-                                        echo "<tr>";
-                                        foreach ($row as $cell):
-                                            echo "<td>$cell</td>";
-                                        endforeach;
-                                        echo "</tr>";
-                                    endforeach;
-                                    ?>
+                                    <?php $prev_user = null; while ($userx = $pdoStatement->fetch(PDO::FETCH_ASSOC)): ?>
+                                    <tr>
+                                        <td>
+                                            <?php if ($prev_user != $userx['id']): $prev_user = $userx['id'] ?>
+                                                <a href="mailto:<?= h($userx['email']) ?>"><?= $userx['email'] ?></a>
+                                                <?php echo $userx['email_verified'] ? ' <i class="fa fa-check-circle-o"></i>' : ' <i class="fa fa-envelope-o"></i>'; ?>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><small class="hastooltip" title="<?= $userx['created'] ?>"><?= timetostr(strtotime($userx['created'])) ?></small></td>
+                                        <td><small class="hastooltip" title="<?= $userx['modified'] ?>"><?= timetostr(strtotime($userx['modified'])) ?></small></td>
+                                        <td>
+                                            <?php 
+                                                echo h($userx['run_name']);
+                                                echo $userx['cron_active'] ? ' <i class="fa fa-cog"></i> ' : ' ';
+                                                echo '<i class="fa '.$status_icons[(int)$userx['public']].'"></i>';
+                                            ?>
+                                        </td>
+                                        <td><?= $userx['number_of_users_in_run'] ?></td>
+                                        <td><small class="hastooltip" title="<?= $userx['last_edit'] ?>"><?= timetostr(strtotime($userx['last_edit'])) ?></small></td>
+                                    </tr>
+                                    <?php endwhile; ?>
                                 </tbody>
                             </table>
                             <div class="pagination">

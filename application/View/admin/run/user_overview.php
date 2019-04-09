@@ -46,7 +46,7 @@
                         <form action="<?php echo admin_run_url($run->name, 'user_overview'); ?>" method="get" class="form-inline">
                             <label class="sr-only">Name</label>
                             <div id="search-session" style="display: inline-block; position: relative;">
-                                <span class="sessions-search-switch" data-active="<?php echo!empty($_GET['sessions']) ? 'multiple' : 'single'; ?>"><i class="fa fa-retweet"></i></span>
+                                <span class="sessions-search-switch" data-active="<?php echo !empty($_GET['sessions']) ? 'multiple' : 'single'; ?>"><i class="fa fa-retweet"></i></span>
                                 <div class="input-group single <?php if (!empty($_GET['sessions'])) echo 'hidden'; ?>">
                                     <div class="input-group-addon">SEARCH <i class="fa fa-user"></i></div>
                                     <input name="session" value="<?= h(array_val($_GET, 'session')) ?>" type="text" class="form-control" placeholder="Session code"  style="width: 250px;">

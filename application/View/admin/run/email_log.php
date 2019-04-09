@@ -23,24 +23,24 @@
                             <table class="table table-striped">
                                 <thead>
                                     <tr>
-                                        <?php
-                                        foreach (current($emails) AS $field => $value) {
-                                            echo "<th>{$field}</th>";
-                                        }
-                                        ?>
+                                        <th>From</th>
+                                        <th>To</th>
+                                        <th>Mail</th>
+                                        <th>Datetime</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php
-                                    // printing table rows
-                                    foreach ($emails AS $row) {
-                                        echo "<tr>";
-                                        foreach ($row as $cell) {
-                                            echo "<td>$cell</td>";
-                                        }
-                                        echo "</tr>\n";
-                                    };
-                                    ?>
+                                    <?php foreach ($emails as $email): ?>
+                                    <tr>
+                                        <td><?= $email['from_name'] ?> <br><small><?= $email['from'] ?></small></td>
+                                        <td><?= $email['to']?> <br><small> at run position <?= $email['position_in_run'] ?></small></td>
+                                        <td><?= $email['subject'] ?> <br><small><?= h(substr($email['body'], 0, 100)) ?>…</small></td>
+                                        <td>
+                                            <abbr title="<?= $email['created']?>"> <?= timetostr(strtotime($email['created'])) ?></abbr>
+                                            <?php echo $email['sent'] ? '<i class="fa fa-check-circle"></i>' : '<i class="fa fa-times-circle"></i>'; ?>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
                                 </tbody>
                             </table>
                             <div class="pagination">

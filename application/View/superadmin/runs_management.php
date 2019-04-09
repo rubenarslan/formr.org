@@ -3,7 +3,7 @@
 <div class="content-wrapper">
     <!-- Content Header (Page header) -->
     <section class="content-header">
-        <h1>User Management <small>Superadmin</small></h1>
+        <h1>Runs Management <small>Superadmin</small></h1>
     </section>
 
     <!-- Main content -->
@@ -12,11 +12,11 @@
             <div class="col-md-12">
                 <div class="box box-primary">
                     <div class="box-header with-border">
-                        <h3 class="box-title">Formr Runs (<?= count($runs) ?>)</h3>
+                        <h3 class="box-title">Formr Runs (<?= $count ?>) <small>Only runs with sessions are shown so might be different from total count</small></h3>
                     </div>
                     <div class="box-body table-responsive">
                         <?php Template::load('public/alerts'); ?>
-                        <?php if (!empty($runs)): ?>
+                        <?php if ($pdoStatement->rowCount()): ?>
 
                             <form method="post" action="" >
                                 <table class='table table-striped'>
@@ -32,7 +32,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php foreach ($runs as $row): ?>
+                                        <?php while ($row = $pdoStatement->fetch(PDO::FETCH_ASSOC)): ?>
                                             <tr>
                                                 <td><?= $row['run_id'] ?></td>
                                                 <td><?= $row['name'] ?></td>
@@ -52,7 +52,7 @@
                                                     <input type="checkbox" name="runs[<?= $row['run_id'] ?>][locked]" value="<?= $row['locked'] ?>" <?= $checked ?> />
                                                 </td>
                                             </tr>
-                                        <?php endforeach; ?>
+                                        <?php endwhile; ?>
                                         <tr>
                                             <td colspan="7">
                                                 <button type="submit" class="btn btn-primary pull-right"><i class="fa fa-save"></i> Save Changes</button>
@@ -62,7 +62,9 @@
                                 </table>
                             </form>
                         <?php endif; ?>
-
+                        <div class="pagination">
+                            <?php $pagination->render("superadmin/runs_management"); ?>
+                        </div>
                     </div>
                 </div>
 

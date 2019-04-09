@@ -113,7 +113,7 @@ class User {
 
         $this->referrer_code = $referrer_code;
 
-        if ($hash) :
+        if ($hash) {
             $inserted = $this->dbh->insert('survey_users', array(
                 'email' => $email,
                 'created' => mysql_now(),
@@ -132,10 +132,10 @@ class User {
             $this->needToVerifyMail();
             return true;
 
-        else:
+        } else {
             alert('<strong>Error!</strong> Hash error.', 'alert-danger');
             return false;
-        endif;
+        }
     }
 
     public function needToVerifyMail() {
@@ -153,9 +153,9 @@ class User {
         $mail->AddAddress($this->email);
         $mail->Subject = 'formr: confirm your email address';
         $mail->Body = Template::get_replace('email/verify-email.txt', array(
-                    'site_url' => site_url(),
-                    'documentation_url' => site_url('documentation#help'),
-                    'verify_link' => $verify_link,
+            'site_url' => site_url(),
+            'documentation_url' => site_url('documentation#help'),
+            'verify_link' => $verify_link,
         ));
 
         if (!$mail->Send()) {
@@ -179,8 +179,10 @@ class User {
             $verification_link = site_url('verify-email', array('token' => $user['email_verification_hash']));
             $this->id = $user['id'];
             $this->email = $email;
-            $this->errors[] = sprintf('Please verify your email address by clicking on the verification link that was sent to you, '
-                    . '<a class="btn btn-raised btn-default" href="%s">Resend Link</a>', $verification_link);
+            $this->errors[] = sprintf('
+                Please verify your email address by clicking on the verification link that was sent to you, 
+                <a class="btn btn-raised btn-default" href="%s">Resend Link</a>', 
+            $verification_link);
             return false;
         } elseif ($user && password_verify($password, $user['password'])) {
             if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
@@ -203,30 +205,22 @@ class User {
         }
     }
 
-    public function setAdminLevelTo($level) {
+    public function setAdminLevel($level) {
         if (!Site::getCurrentUser()->isSuperAdmin()) {
             throw new Exception("You need more admin rights to effect this change");
         }
 
         $level = (int) $level;
-        if ($level !== 0 && $level !== 1) {
-            if ($level > 1) {
-                $level = 1;
-            } else {
-                $level = 0;
-            }
-        }
+        $level = max(array(0, $level));
+        $level = $level > 1 ? 1 : $level;
 
         return $this->dbh->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 100));
     }
 
-    public function forgot_password($email) {
+    public function forgotPassword($email) {
         $user_exists = $this->dbh->entry_exists('survey_users', array('email' => $email));
 
-        if (!$user_exists):
-            alert("This email address is not registered here.", "alert-danger");
-            return false;
-        else:
+        if ($user_exists) {
             $token = crypto_token(48);
             $hash = password_hash($token, PASSWORD_DEFAULT);
 
@@ -237,23 +231,21 @@ class User {
                 'reset_token' => $token
             ));
 
-            global $site;
-            $mail = $site->makeAdminMailer();
+            $mail = Site::getCurrentUser()->makeAdminMailer();
             $mail->AddAddress($email);
             $mail->Subject = 'formr: forgot password';
             $mail->Body = Template::get_replace('email/forgot-password.txt', array(
-                        'site_url' => site_url(),
-                        'reset_link' => $reset_link,
+                'site_url' => site_url(),
+                'reset_link' => $reset_link,
             ));
 
-            if (!$mail->Send()):
+            if (!$mail->Send()) {
                 alert($mail->ErrorInfo, 'alert-danger');
-            else:
-                alert("You were sent a password reset link.", 'alert-info');
+            } else {
+                alert("If the provided email was registered with us, you will receive an email with instructions on how to reset your password.", 'alert-info');
                 redirect_to("forgot_password");
-            endif;
-
-        endif;
+            }
+        }
     }
 
     function logout() {
@@ -314,7 +306,7 @@ class User {
         return true;
     }
 
-    public function reset_password($info) {
+    public function resetPassword($info) {
         $email = array_val($info, 'email');
         $token = array_val($info, 'reset_token');
         $new_password = array_val($info, 'new_password');
@@ -347,7 +339,7 @@ class User {
         return false;
     }
 
-    public function verify_email($email, $token) {
+    public function verifyEmail($email, $token) {
         $verify_data = $this->dbh->findRow('survey_users', array('email' => $email), array('email_verification_hash', 'referrer_code'));
         if (!$verify_data) {
             alert('Incorrect token or email address.', 'alert-danger');
@@ -355,13 +347,11 @@ class User {
         }
 
         if (password_verify($token, $verify_data['email_verification_hash'])) {
-            $this->dbh->update('survey_users', array('email_verification_hash' => null, 'email_verified' => 1), array('email' => $email), array('int', 'int')
-            );
+            $this->dbh->update('survey_users', array('email_verification_hash' => null, 'email_verified' => 1), array('email' => $email), array('int', 'int'));
             alert('Your email was successfully verified!', 'alert-success');
 
             if (in_array($verify_data['referrer_code'], Config::get('referrer_codes'))) {
-                $this->dbh->update('survey_users', array('admin' => 1), array('email' => $email)
-                );
+                $this->dbh->update('survey_users', array('admin' => 1), array('email' => $email));
                 alert('You now have the rights to create your own studies!', 'alert-success');
             }
             return true;
@@ -400,9 +390,8 @@ class User {
     }
 
     public function getEmailAccounts() {
-        if ($this->isAdmin()):
+        if ($this->isAdmin()) {
             $accs = $this->dbh->find('survey_email_accounts', array('user_id' => $this->id, 'deleted' => 0), array('cols' => 'id, from'));
-
             $results = array();
             foreach ($accs as $acc) {
                 if ($acc['from'] == null) {
@@ -411,7 +400,7 @@ class User {
                 $results[] = $acc;
             }
             return $results;
-        endif;
+        }
 
         return false;
     }
@@ -428,13 +417,6 @@ class User {
             return $select->fetchAll();
         }
         return array();
-    }
-
-    public function getAvailableRuns() {
-        return $this->dbh->select('name,title, public_blurb_parsed')
-                        ->from('survey_runs')
-                        ->where('public > 2')
-                        ->fetchAll();
     }
 
 }

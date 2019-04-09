@@ -449,13 +449,9 @@ class AdminAjaxController {
             formr_error(500);
             exit;
         }
-        foreach ($sessions as $session) {
-            $qs[] = $this->dbh->quote($session);
-        }
-        $count = count($sessions);
+
         if ($action === 'toggleTest') {
-            $query = 'UPDATE survey_run_sessions SET testing = 1 - testing WHERE session IN (' . implode(',', $qs) . ')';
-            $this->dbh->query($query);
+            $count = RunSession::toggleTestingStatus($sessions);
             alert("{$count} selected session(s) were successfully modified", 'alert-success');
             $res['success'] = true;
         } elseif ($action === 'sendReminder') {
@@ -478,13 +474,11 @@ class AdminAjaxController {
                 $res['error'] = $this->site->renderAlerts();
             }
         } elseif ($action === 'deleteSessions') {
-            $query = 'DELETE FROM survey_run_sessions WHERE session IN (' . implode(',', $qs) . ')';
-            $this->dbh->query($query);
+            $count = RunSession::deleteSessions($sessions);
             alert("{$count} selected session(s) were successfully deleted", 'alert-success');
             $res['success'] = true;
         } elseif ($action === 'positionSessions') {
-            $query = 'UPDATE survey_run_sessions SET position = ' . $this->request->int('pos') . ' WHERE session IN (' . implode(',', $qs) . ')';
-            $this->dbh->query($query);
+            $count = RunSession::positionSessions($sessions, $this->request->int('pos'));
             alert("{$count} selected session(s) were successfully moved", 'alert-success');
             $res['success'] = true;
         }
@@ -506,15 +500,7 @@ class AdminAjaxController {
     }
 
     protected function getSessionRemindersSent($run_session_id) {
-        $stmt = $this->dbh->prepare(
-                'SELECT survey_unit_sessions.id as unit_session_id, survey_run_special_units.id as unit_id FROM survey_unit_sessions 
-			LEFT JOIN survey_units ON survey_unit_sessions.unit_id = survey_units.id
-			LEFT JOIN survey_run_special_units ON survey_run_special_units.id = survey_units.id
-			WHERE survey_unit_sessions.run_session_id = :run_session_id AND survey_run_special_units.type = "ReminderEmail"
-		');
-        $stmt->bindValue('run_session_id', $run_session_id, PDO::PARAM_INT);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return RunSession::getSentRemindersBySessionId($run_session_id);
     }
 
     protected function outjson($res) {
