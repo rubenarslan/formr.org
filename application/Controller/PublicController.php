@@ -11,35 +11,37 @@ class PublicController extends Controller {
     }
 
     public function indexAction() {
-        $this->renderView('public/home');
+        $this->setView('public/home');
+        return $this->sendResponse();
     }
 
     public function documentationAction() {
-        $this->renderView('public/documentation');
+        $this->setView('public/documentation', array('headerClass' => 'fmr-small-header'));
+        return $this->sendResponse();
     }
 
     public function studiesAction() {
-        $this->renderView('public/studies', array('runs' => RunHelper::getPublicRuns()));
+        $this->setView('public/studies', array('runs' => RunHelper::getPublicRuns()));
+        return $this->sendResponse();
     }
 
     public function aboutAction() {
-        $this->renderView('public/about', array('bodyClass' => 'fmr-about'));
+        $this->setView('public/about', array(
+            'bodyClass' => 'fmr-about',
+            'headerClass' => 'fmr-small-header'
+        ));
+        return $this->sendResponse();
     }
 
     public function publicationsAction() {
-        $this->renderView('public/publications');
+        $this->setView('public/publications', array('headerClass' => 'fmr-small-header'));
+        return $this->sendResponse();
     }
 
     public function accountAction() {
-        /**
-         * @todo: 
-         * - allow changing email address
-         * - email address verification
-         * - my access code has been compromised, reset? possible problems with external data, maybe they should get their own tokens...
-         */
         if (!$this->user->loggedIn()) {
             alert('You need to be logged in to go here.', 'alert-info');
-            redirect_to('login');
+            $this->request->redirect('login');
         }
 
         $vars = array('showform' => false);
@@ -71,7 +73,7 @@ class PublicController extends Controller {
             }
 
             if ($redirect) {
-                redirect_to($redirect);
+                $this->request->redirect($redirect);
             }
         }
 
@@ -85,12 +87,13 @@ class PublicController extends Controller {
         $vars['affiliation'] = $this->user->affiliation ? $this->user->affiliation : '(no affiliation specified)';
 
         $this->registerAssets('bootstrap-material-design');
-        $this->renderView('public/account', $vars);
+        $this->setView('public/account', $vars);
+        return $this->sendResponse();
     }
 
     public function loginAction() {
         if ($this->user->loggedIn()) {
-            redirect_to('account');
+            $this->request->redirect('account');
         }
 
         if ($this->request->str('email') && $this->request->str('password')) {
@@ -102,14 +105,15 @@ class PublicController extends Controller {
                 alert('<strong>Success!</strong> You were logged in!', 'alert-success');
                 Session::set('user', serialize($this->user));
                 $redirect = $this->user->isAdmin() ? 'admin' : 'account';
-                redirect_to($redirect);
+                $this->request->redirect($redirect);
             } else {
                 alert(implode($this->user->errors), 'alert-danger');
             }
         }
 
         $this->registerAssets('bootstrap-material-design');
-        $this->renderView('public/login', array('alerts' => $this->site->renderAlerts()));
+        $this->setView('public/login', array('alerts' => $this->site->renderAlerts()));
+        return $this->sendResponse();
     }
 
     public function logoutAction() {
@@ -119,11 +123,12 @@ class PublicController extends Controller {
             $alerts = $this->site->renderAlerts();
             $user->logout();
             $this->registerAssets('bootstrap-material-design');
-            $this->renderView('public/login', array('alerts' => $alerts));
+            $this->setView('public/login', array('alerts' => $alerts));
+            return $this->sendResponse();
         } else {
             Session::destroy();
             $redirect_to = $this->request->getParam('_rdir');
-            redirect_to($redirect_to);
+            $this->request->redirect($redirect_to);
         }
     }
 
@@ -134,7 +139,7 @@ class PublicController extends Controller {
         //fixme: cookie problems lead to fatal error with missing user code
         if ($user->loggedIn()) {
             alert('You were already logged in. Please logout before you can register.', 'alert-info');
-            redirect_to("index");
+            $this->request->redirect('index');
         }
 
         if ($this->request->isHTTPPostRequest() && $site->request->str('email')) {
@@ -144,15 +149,15 @@ class PublicController extends Controller {
                 'referrer_code' => $site->request->str('referrer_code'),
             );
             if ($user->register($info)) {
-                //alert('<strong>Success!</strong> You were registered and logged in!','alert-success');
-                redirect_to('index');
+                $this->request->redirect('index');
             } else {
                 alert(implode($user->errors), 'alert-danger');
             }
         }
 
         $this->registerAssets('bootstrap-material-design');
-        $this->renderView('public/register');
+        $this->setView('public/register');
+        return $this->sendResponse();
     }
 
     public function verifyEmailAction() {
@@ -162,19 +167,19 @@ class PublicController extends Controller {
 
         if ($this->request->isHTTPGetRequest() && $this->request->str('token')) {
             $user->resendVerificationEmail($this->request->str('token'));
-            redirect_to('login');
+            $this->request->redirect('login');
         } elseif (!$verification_token || !$email) {
             alert("You need to follow the link you received in your verification mail.");
-            redirect_to('login');
+            $this->request->redirect('login');
         } else {
             $user->verifyEmail($email, $verification_token);
-            redirect_to('login');
+            $this->request->redirect('login');
         };
     }
 
     public function forgotPasswordAction() {
         if ($this->user->loggedIn()) {
-            redirect_to("index");
+            $this->request->redirect('index');
         }
 
         if ($this->request->str('email')) {
@@ -182,18 +187,19 @@ class PublicController extends Controller {
         }
 
         $this->registerAssets('bootstrap-material-design');
-        $this->renderView('public/forgot_password');
+        $this->setView('public/forgot_password');
+        return $this->sendResponse();
     }
 
     public function resetPasswordAction() {
         $user = $this->user;
         if ($user->loggedIn()) {
-            redirect_to('index');
+            $this->request->redirect('index');
         }
 
         if ($this->request->isHTTPGetRequest() && (!$this->request->str('email') || !$this->request->str('reset_token')) && !$this->request->str('ok')) {
             alert('You need to follow the link you received in your password reset mail');
-            redirect_to('forgot_password');
+            $this->request->redirect('forgot_password');
         } elseif ($this->request->isHTTPPostRequest()) {
             $postRequest = new Request($_POST);
             $info = array(
@@ -203,21 +209,22 @@ class PublicController extends Controller {
                 'new_password_confirm' => $postRequest->str('new_password_c'),
             );
             if (($done = $user->resetPassword($info))) {
-                redirect_to('forgot_password');
+                $this->request->redirect('forgot_password');
             }
         }
 
         $this->registerAssets('bootstrap-material-design');
-        $this->renderView('public/reset_password', array(
+        $this->setView('public/reset_password', array(
             'reset_data_email' => $this->request->str('email'),
             'reset_data_token' => $this->request->str('reset_token'),
         ));
+        return $this->sendResponse();
     }
 
     public function fileDownloadAction($run_id = 0, $original_filename = '') {
         $path = $this->fdb->findValue('survey_uploaded_files', array('run_id' => (int) $run_id, 'original_file_name' => $original_filename), array('new_file_path'));
         if ($path) {
-            return redirect_to(asset_url($path));
+            return $this->request->redirect(asset_url($path));
         }
         formr_error(404, 'Not Found', 'The requested file does not exist');
     }

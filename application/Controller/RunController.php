@@ -38,7 +38,9 @@ class RunController extends Controller {
 
         $assset_vars = $this->filterAssets($run_vars);
         unset($run_vars['css'], $run_vars['js']);
-        $this->renderView('public/run/index', array_merge($run_vars, $assset_vars));
+
+        $this->setView('public/run/index', array_merge($run_vars, $assset_vars));
+        return $this->sendResponse();
     }
 
     protected function settingsAction() {
@@ -58,7 +60,7 @@ class RunController extends Controller {
             if ($this->user->user_code != $code) {
                 alert('Unable to login with the provided code', 'alert-warning');
             }
-            redirect_to(run_url($run_name, 'settings'));
+            $this->request->redirect(run_url($run_name, 'settings'));
         }
 
         // People who have no session in the run need not set anything
@@ -88,16 +90,18 @@ class RunController extends Controller {
             alert('Settings saved successfully for survey "' . $run->name . '"', 'alert-success');
             if ($settings['delete_cookie']) {
                 Session::destroy();
-                redirect_to('index');
+                $this->request->redirect('index');
             }
-            redirect_to(run_url($run_name, 'settings'));
+            $this->request->redirect(run_url($run_name, 'settings'));
         }
 
         $this->run = $run;
-        $this->renderView('public/run/settings', array(
+        $this->setView('public/run/settings', array(
             'settings' => $session->getSettings(),
             'email_subscriptions' => Config::get('email_subscriptions'),
         ));
+        
+        return $this->sendResponse();
     }
 
     protected function logoutAction() {
@@ -134,6 +138,7 @@ class RunController extends Controller {
         }
 
         $runHelper->{$method}();
+
         if (($errors = $runHelper->getErrors())) {
             $errors = implode("\n", $errors);
             alert($errors, 'alert-danger');
@@ -143,11 +148,12 @@ class RunController extends Controller {
             alert($message, 'alert-info');
         }
 
-        if (is_ajax_request()) {
-            echo $this->site->renderAlerts();
-            exit;
+        if (Request::isAjaxRequest()) {
+            $content = $this->site->renderAlerts();
+            $this->sendResponse($content);
+        } else {
+            $this->request->redirect('');
         }
-        redirect_to('');
     }
 
     private function getRun() {
@@ -160,7 +166,7 @@ class RunController extends Controller {
             unset($params['route'], $params['run_name']);
             $name = str_replace('_', '-', $name);
             $url = run_url($name, null, $params);
-            redirect_to($url);
+            $this->request->redirect($url);
         } elseif (!$run->valid) {
             $msg = __('If you\'re trying to create an online study,  <a href="%s">read the full documentation</a> to learn how to create one.', site_url('documentation'));
             formr_error(404, 'Not Found', $msg, 'There isn\'t an online study here.');

@@ -37,6 +37,17 @@ abstract class Controller {
      * @var Request
      */
     protected $request;
+    
+    /**
+     * @var Response
+     */
+    protected $response;
+
+    /**
+     * @var View
+     */
+    protected $view;
+
     protected $css = array();
     protected $js = array();
     protected $vars = array();
@@ -57,10 +68,11 @@ abstract class Controller {
 
         $this->fdb = DB::getInstance();
         $this->request = $site->request;
+        $this->response = new Response();
     }
 
-    protected function renderView($template, $vars = array()) {
-        $variables = array_merge(array(
+    protected function setView($template, $vars = array()) {
+        $global = array(
             'site' => $this->site,
             'user' => $this->user,
             'fdb' => $this->fdb,
@@ -69,9 +81,21 @@ abstract class Controller {
             'run' => $this->run,
             'study' => $this->study,
             'meta' => $this->generateMetaInfo(),
-                ), $this->vars, $vars);
-        Request::setGlobals('variables', $variables);
-        Template::load($template);
+        );
+
+        $variables = array_merge($global, $this->vars, $vars);
+        $this->view = new View($template, $variables);
+    }
+
+    protected function sendResponse($content = null) {
+        if ($content === null && $this->view) {
+            $content = $this->view->render();
+        }
+        if ($content !== null) {
+            $this->response->setContent($content);
+        }
+
+        $this->response->send();
     }
 
     protected function getPrivateAction($name, $separator = '_', $protected = false) {

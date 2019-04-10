@@ -6,24 +6,36 @@
 
 class Template {
 
+    protected static $cacheVars = array();
+
     /**
      * Load and display a template
      *
      * @param string $template
      * @param array $vars As associative array representing variables to be passed to templates
      */
-    public static function load($template, $vars = array()) {
-        global $site, $user, $fdb, $study, $run, $css, $js;
+    public static function load($template, $vars = array(), $is_child = false) {
         if (strstr($template, '.') === false) {
             $template .= '.php';
         }
-        $file = APPLICATION_PATH . 'View/' . $template;
+        $file = APPLICATION_ROOT . 'templates/' . $template;
 
         if (file_exists($file)) {
-            $vars = array_merge(Request::getGlobals('variables', array()), $vars);
+            if ($is_child === false) {
+                self::$cacheVars = $vars;
+            } else {
+                $vars = array_merge(self::$cacheVars, $vars);
+            }
+
             extract($vars);
             include $file;
+        } else {
+            throw new Exception("Template file '{$template}' does not exist");
         }
+    }
+
+    public static function loadChild($template, $vars = array()) {
+        self::load($template, $vars, true);
     }
 
     public static function get($template, $vars = array()) {

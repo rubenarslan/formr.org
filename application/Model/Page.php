@@ -87,7 +87,7 @@ class Page extends RunUnit {
     }
 
     public function test() {
-        echo $this->getParsedBodyAdmin($this->body);
+        return $this->getParsedBodyAdmin($this->body);
     }
 
     public function exec() {

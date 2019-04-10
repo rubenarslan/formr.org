@@ -278,9 +278,10 @@ class Pause extends RunUnit {
     }
 
     public function test() {
+        $output = '';
         $results = $this->getSampleSessions();
         if (!$results) {
-            return false;
+            return $output;
         }
 
         // take the first sample session
@@ -288,14 +289,14 @@ class Pause extends RunUnit {
         $this->run_session_id = $sess['id'];
 
 
-        echo "<h3>Pause message</h3>";
-        echo $this->getParsedBodyAdmin($this->body);
+        $output .= "<h3>Pause message</h3>";
+        $output .= $this->getParsedBodyAdmin($this->body);
 
         if ($this->checkRelativeTo()) {
-            echo "<h3>Pause relative to</h3>";
+            $output .= "<h3>Pause relative to</h3>";
             $opencpu_vars = $this->getUserDataInRun($this->relative_to);
             $session = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json', null, true);
-            echo opencpu_debug($session);
+            $output .= opencpu_debug($session);
         }
 
         if (!empty($results) && (empty($session) || !$session->hasError())) {
@@ -336,7 +337,7 @@ class Pause extends RunUnit {
                 ));
             }
 
-            echo Template::replace($test_tpl, array('rows' => $rows));
+            return Template::replace($test_tpl, array('rows' => $rows));
         }
     }
 

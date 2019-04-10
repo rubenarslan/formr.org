@@ -32,7 +32,8 @@ class AdminMailController extends AdminController {
         }
 
         $vars['acc'] = $acc;
-        $this->renderView('mail/index', $vars);
+        $this->setView('mail/index', $vars);
+        return $this->sendResponse();
     }
 
     // @todo
@@ -69,9 +70,9 @@ class AdminMailController extends AdminController {
 
     protected function redirect(EmailAccount $acc = null) {
         if ($acc === null) {
-            redirect_to('admin/mail');
+            $this->request->redirect('admin/mail');
         } else {
-            redirect_to('admin/mail', array('account_id' => $acc->id));
+            $this->request->redirect('admin/mail', array('account_id' => $acc->id));
         }
     }
 

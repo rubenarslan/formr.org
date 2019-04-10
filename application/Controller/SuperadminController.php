@@ -5,8 +5,7 @@ class SuperadminController extends Controller {
     public function __construct(Site &$site) {
         parent::__construct($site);
         if (!$this->user->isSuperAdmin()) {
-            alert('You do not have sufficient rights to access the requested location', 'alert-danger');
-            redirect_to('admin');
+            formr_error(403, 'Unauthorized', 'You do not have access to this area');
         }
         if (!Request::isAjaxRequest()) {
             $default_assets = get_default_assets('admin');
@@ -15,22 +14,43 @@ class SuperadminController extends Controller {
     }
 
     public function indexAction() {
-        redirect_to('/');
+        $this->request->redirect('/');
+    }
+    
+    public function infoAction() {
+        $this->setView('superadmin/info');
+        return $this->sendResponse();
+    }
+
+    public function testOpencpuAction() {
+        $this->setView('superadmin/test_opencpu');
+        return $this->sendResponse();
+    }
+
+    public function testOpencpuSpeedAction() {
+        $this->setView('superadmin/test_opencpu_speed');
+        return $this->sendResponse();
     }
 
     public function ajaxAdminAction() {
-        if (!is_ajax_request()) {
-            return redirect_to('/');
+        if (!Request::isAjaxRequest()) {
+            return $this->request->redirect('/');
         }
 
         $request = new Request($_POST);
+
         if ($request->user_id && is_numeric($request->admin_level)) {
-            $this->setAdminLevel($request->user_id, $request->admin_level);
+            $content = $this->setAdminLevel($request->user_id, $request->admin_level);
+            return $this->sendResponse($content);
         }
 
         if ($request->user_api) {
-            $this->apiUserManagement($request->user_id, $request->user_email, $request->api_action);
+            $content = $this->apiUserManagement($request->user_id, $request->user_email, $request->api_action);
+            $this->response->setContentType('application/json');
+            $this->response->setJsonContent($content);
+            return $this->sendResponse();
         }
+        
     }
 
     private function setAdminLevel($user_id, $level) {
@@ -43,57 +63,56 @@ class SuperadminController extends Controller {
         } elseif ($level == $user->getAdminLevel()) {
             alert('<strong>User already has requested admin rights</strong>', 'alert-warning');
         } else {
-            if (!$user->setAdminLevel($level)) :
+            if (!$user->setAdminLevel($level)) {
                 alert('<strong>Something went wrong with the admin level change.</strong>', 'alert-danger');
-                bad_request_header();
-            else:
+                $this->response->setStatusCode(500, 'Bad Request');
+            } else {
                 alert('<strong>Level assigned to user.</strong>', 'alert-success');
-            endif;
+            }
         }
 
-        echo $this->site->renderAlerts();
-        exit;
+        return $this->site->renderAlerts();
     }
 
     private function apiUserManagement($user_id, $user_email, $action) {
         $user = new User($this->fdb, $user_id, null);
-        $response = new Response();
-        $response->setContentType('application/json');
+        $content = array();
+
         if ($user->email !== $user_email) {
-            $response->setJsonContent(array('success' => false, 'message' => 'Invalid User'));
+            $content = array('success' => false, 'message' => 'Invalid User');
         } elseif ($action === 'create') {
             $client = OAuthHelper::getInstance()->createClient($user);
             if (!$client) {
-                $response->setJsonContent(array('success' => false, 'message' => 'Unable to create client'));
+                $content = array('success' => false, 'message' => 'Unable to create client');
             } else {
                 $client['user'] = $user->email;
-                $response->setJsonContent(array('success' => true, 'data' => $client));
+                $content = array('success' => true, 'data' => $client);
             }
         } elseif ($action === 'get') {
             $client = OAuthHelper::getInstance()->getClient($user);
             if (!$client) {
-                $response->setJsonContent(array('success' => true, 'data' => array('client_id' => '', 'client_secret' => '', 'user' => $user->email)));
+                $content = array('success' => true, 'data' => array('client_id' => '', 'client_secret' => '', 'user' => $user->email));
             } else {
                 $client['user'] = $user->email;
-                $response->setJsonContent(array('success' => true, 'data' => $client));
+                $content = array('success' => true, 'data' => $client);
             }
         } elseif ($action === 'delete') {
             if (OAuthHelper::getInstance()->deleteClient($user)) {
-                $response->setJsonContent(array('success' => true, 'message' => 'Credentials revoked for user ' . $user->email));
+                $content = array('success' => true, 'message' => 'Credentials revoked for user ' . $user->email);
             } else {
-                $response->setJsonContent(array('success' => false, 'message' => 'An error occured'));
+                $content = array('success' => false, 'message' => 'An error occured');
             }
         } elseif ($action === 'change') {
             $client = OAuthHelper::getInstance()->refreshToken($user);
             if (!$client) {
-                $response->setJsonContent(array('success' => false, 'message' => 'An error occured refereshing API secret.'));
+                $content = array('success' => false, 'message' => 'An error occured refereshing API secret.');
             } else {
                 $client['user'] = $user->email;
-                $response->setJsonContent(array('success' => true, 'data' => $client));
+                $content = array('success' => true, 'data' => $client);
             }
         }
 
-        $response->send();
+        return $content;
     }
 
     public function cronLogParsed() {
@@ -106,12 +125,14 @@ class SuperadminController extends Controller {
             $parse = $file;
         }
 
-        $this->renderView('superadmin/cron_log_parsed', array(
+        $this->setView('superadmin/cron_log_parsed', array(
             'files' => $files,
             'parse' => $parse,
             'parser' => $parser,
             'expand_logs' => $expand,
         ));
+
+        return $this->sendResponse();
     }
 
     public function cronLogAction() {
@@ -120,17 +141,20 @@ class SuperadminController extends Controller {
 
     public function userManagementAction() {
         $table = UserHelper::getUserManagementTablePdoStatement();
-        $this->renderView('superadmin/user_management', $table);
+        $this->setView('superadmin/user_management', $table);
+
+        return $this->sendResponse();
     }
 
     public function activeUsersAction() {
         $table = UserHelper::getActiveUsersTablePdoStatement();
-        $this->renderView('superadmin/active_users', array(
+        $this->setView('superadmin/active_users', array(
             'pdoStatement' => $table['pdoStatement'],
             'pagination' => $table['pagination'],
             'status_icons' => array(0 => 'fa-eject', 1 => 'fa-volume-off', 2 => 'fa-volume-down', 3 => 'fa-volume-up' )
         ));
 
+        return $this->sendResponse();
     }
 
     public function runsManagementAction() {
@@ -146,9 +170,10 @@ class SuperadminController extends Controller {
             }
             alert('Changes saved', 'alert-success');
             $qs = $this->request->page ? '/?page=' . $this->request->page : null;
-            redirect_to('superadmin/runs_management' . $qs);
+            $this->request->redirect('superadmin/runs_management' . $qs);
         } else {
-            $this->renderView('superadmin/runs_management', RunHelper::getRunsManagementTablePdoStatement());
+            $this->setView('superadmin/runs_management', RunHelper::getRunsManagementTablePdoStatement());
+            return $this->sendResponse();
         }
     }
 

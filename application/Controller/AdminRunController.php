@@ -14,7 +14,8 @@ class AdminRunController extends AdminController {
             }
 
             if (strpos($private_action, 'ajax') !== false) {
-                return AdminAjaxController::call($private_action, $this);
+                $this->response = AdminAjaxController::call($private_action, $this);
+                return $this->sendResponse();
             }
 
             $privateAction = $this->getPrivateAction($private_action);
@@ -22,21 +23,25 @@ class AdminRunController extends AdminController {
         }
 
         if (empty($this->run)) {
-            redirect_to('admin/run/add_run');
+            $this->request->redirect('admin/run/add_run');
         }
 
         $vars = array(
             'show_panic' => $this->showPanicButton(),
             'add_unit_buttons' => $this->getUnitAddButtons(),
         );
-        $this->renderView('run/index', $vars);
+
+        $this->setView('run/index', $vars);
+        return $this->sendResponse();
     }
 
     public function listAction() {
         $vars = array(
             'runs' => $this->user->getRuns('id DESC', null),
         );
-        $this->renderView('run/list', $vars);
+
+        $this->setView('run/list', $vars);
+        return $this->sendResponse();
     }
 
     public function addRunAction() {
@@ -53,7 +58,7 @@ class AdminRunController extends AdminController {
                 $run->create(array('run_name' => $run_name, 'user_id' => $this->user->id));
                 if ($run->valid) {
                     alert("<strong>Success.</strong> Run '{$run->name}' was created.", 'alert-success');
-                    redirect_to(admin_run_url($run->name));
+                    $this->request->redirect(admin_run_url($run->name));
                 } else {
                     $error = 'An error creating your run please try again';
                 }
@@ -64,7 +69,8 @@ class AdminRunController extends AdminController {
             }
         }
 
-        $this->renderView('run/add_run');
+        $this->setView('run/add_run');
+        return $this->sendResponse();
     }
 
     private function userOverviewAction() {
@@ -105,7 +111,7 @@ class AdminRunController extends AdminController {
         $helper = new RunHelper($run, $fdb, $this->request);
         $table = $helper->getUserOverviewTable($queryparams);
 
-        $this->renderView('run/user_overview', array(
+        $this->setView('run/user_overview', array(
             'users' => $table['data'],
             'pagination' => $table['pagination'],
             'position_lt' => $queryparams['position_operator'],
@@ -114,6 +120,8 @@ class AdminRunController extends AdminController {
             'reminders' => $this->run->getSpecialUnits(false, 'ReminderEmail'),
             'querystring' => $querystring,
         ));
+        
+        return $this->sendResponse();
     }
 
     private function exportUserOverviewAction() {
@@ -124,7 +132,7 @@ class AdminRunController extends AdminController {
         $download_successfull = $SPR->exportInRequestedFormat($exportStmt, $this->run->name . '_user_overview', $this->request->str('format'));
         if (!$download_successfull) {
             alert('An error occured during user overview download.', 'alert-danger');
-            redirect_to(admin_run_url($this->run->name, 'user_overview'));
+            $this->request->redirect(admin_run_url($this->run->name, 'user_overview'));
         }
     }
 
@@ -176,12 +184,14 @@ class AdminRunController extends AdminController {
             $users[$i] = $userx;
         }
 
-        $this->renderView('run/user_detail', array(
+        $this->setView('run/user_detail', array(
             'users' => $users,
             'pagination' => $table['pagination'],
             'position_lt' => $queryparams['position_operator'],
             'querystring' => $querystring,
         ));
+
+        return $this->sendResponse();
     }
 
     private function exportUserDetailAction() {
@@ -192,7 +202,7 @@ class AdminRunController extends AdminController {
         $download_successfull = $SPR->exportInRequestedFormat($exportStmt, $this->run->name . '_user_detail', $this->request->str('format'));
         if (!$download_successfull) {
             alert('An error occured during user detail download.', 'alert-danger');
-            redirect_to(admin_run_url($this->run->name, 'user_detail'));
+            $this->request->redirect(admin_run_url($this->run->name, 'user_detail'));
         }
     }
 
@@ -203,7 +213,7 @@ class AdminRunController extends AdminController {
         $sess_url = run_url($this->run->name, null, array('code' => $sess));
 
         //alert("You've created a new guinea pig, ".h($animal).". Use this guinea pig to move through the run like a normal user with special powers (accessibly via the monkey bar at the bottom right). As a guinea pig, you can see more detailed error messages than real users, so it is easier to e.g. debug R problems. If you want someone else to be the guinea pig, just forward them this link: <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
-        redirect_to($sess_url);
+        $this->request->redirect($sess_url);
     }
 
     private function createNewNamedSessionAction() {
@@ -216,11 +226,12 @@ class AdminRunController extends AdminController {
                 $sess_url = run_url($this->run->name, null, array('code' => $sess));
 
                 //alert("You've added a user with the code name '{$code_name}'. <br /> Send them this link to participate <br /> <textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
-                redirect_to(admin_run_url($this->run->name, 'user_overview', array('session' => $sess)));
+                $this->request->redirect(admin_run_url($this->run->name, 'user_overview', array('session' => $sess)));
             }
         }
 
-        $this->renderView('run/create_new_named_session');
+        $this->setView('run/create_new_named_session');
+        return $this->sendResponse();
     }
 
     private function uploadFilesAction() {
@@ -232,7 +243,7 @@ class AdminRunController extends AdminController {
                 if (!empty($run->messages)) {
                     alert(implode($run->messages, ' '), 'alert-info');
                 }
-                redirect_to(admin_run_url($run->name, 'upload_files'));
+                $this->request->redirect(admin_run_url($run->name, 'upload_files'));
             } else {
                 alert('<strong>Sorry, files could not be uploaded.</strong><br /> ' . nl2br(implode($run->errors, "\n")), 'alert-danger');
             }
@@ -240,19 +251,22 @@ class AdminRunController extends AdminController {
             alert('The size of your request exceeds the allowed limit. Please report this to administrators indicating the size of your files.', 'alert-danger');
         }
 
-        $this->renderView('run/upload_files', array('files' => $run->getUploadedFiles()));
+        $this->setView('run/upload_files', array('files' => $run->getUploadedFiles()));
+        return $this->sendResponse();
     }
 
     private function deleteFileAction() {
         $id = $this->request->int('id');
         $filename = $this->request->str('file');
         $deleted = $this->run->deleteFile($id, $filename);
+        
         if ($deleted) {
             alert('File Deleted', 'alert-success');
         } else {
             alert('Unable to delete selected file', 'alert-danger');
         }
-        redirect_to(admin_run_url($this->run->name, 'upload_files'));
+        
+        $this->request->redirect(admin_run_url($this->run->name, 'upload_files'));
     }
 
     private function settingsAction() {
@@ -273,7 +287,7 @@ class AdminRunController extends AdminController {
             }
         }
 
-        $this->renderView('run/settings', array(
+        $this->setView('run/settings', array(
             'osf_token' => $token,
             'run_selected' => $this->request->getParam('run'),
             'osf_projects' => $osf_projects,
@@ -283,6 +297,8 @@ class AdminRunController extends AdminController {
             'service_messages' => $this->run->getSpecialUnits(true, 'ServiceMessagePage'),
             'overview_scripts' => $this->run->getSpecialUnits(true, 'OverviewScriptPage'),
         ));
+        
+        return $this->sendResponse();
     }
 
     private function renameRunAction() {
@@ -298,7 +314,7 @@ class AdminRunController extends AdminController {
             } else {
                 if ($run->rename($run_name)) {
                     alert("<strong>Success.</strong> Run was renamed to '{$run_name}'.", 'alert-success');
-                    redirect_to(admin_run_url($run_name));
+                    $this->request->redirect(admin_run_url($run_name));
                 } else {
                     $error = 'An error renaming your run please try again';
                 }
@@ -309,7 +325,8 @@ class AdminRunController extends AdminController {
             }
         }
 
-        $this->renderView('run/rename_run');
+        $this->setView('run/rename_run');
+        return $this->sendResponse();
     }
 
     private function exportDataAction() {
@@ -322,7 +339,7 @@ class AdminRunController extends AdminController {
         $resultsStmt = $run->getData(true);
         if (!$resultsStmt->columnCount()) {
             alert('No linked data yet', 'alert-info');
-            redirect_to(admin_run_url($run->name));
+            $this->request->redirect(admin_run_url($run->name));
         }
 
         $filename = $run->name . '_data';
@@ -349,7 +366,7 @@ class AdminRunController extends AdminController {
 
         if (!$downloaded) {
             alert('An error occured during results download.', 'alert-danger');
-            redirect_to(admin_run_url($run->name));
+            $this->request->redirect(admin_run_url($run->name));
         }
     }
 
@@ -358,7 +375,7 @@ class AdminRunController extends AdminController {
         $dir = APPLICATION_ROOT . 'tmp/backups/results';
         if (!$dir) {
             alert('Unable to create run backup directory', 'alert-danger');
-            redirect_to(admin_run_url($this->run->name));
+            $this->request->redirect(admin_run_url($this->run->name));
         }
 
         // create study result files
@@ -397,7 +414,7 @@ class AdminRunController extends AdminController {
             //create the archive
             if (!create_zip_archive($files, $zipfile)) {
                 alert('Unable to create zip archive: ' . basename($zipfile), 'alert-danger');
-                redirect_to(admin_run_url($this->run->name));
+                $this->request->redirect(admin_run_url($this->run->name));
             }
 
             $filename = basename($zipfile);
@@ -412,7 +429,7 @@ class AdminRunController extends AdminController {
         } else {
             alert('No files to zip and download', 'alert-danger');
         }
-        redirect_to(admin_run_url($this->run->name));
+        $this->request->redirect(admin_run_url($this->run->name));
     }
 
     private function randomGroupsExportAction() {
@@ -425,7 +442,7 @@ class AdminRunController extends AdminController {
         $resultsStmt = $run->getRandomGroups(); //@TODO unset run_name, unit_type, ended, position
         if (!$resultsStmt->columnCount()) {
             alert('No linked data yet', 'alert-info');
-            redirect_to(admin_run_url($run->name));
+            $this->request->redirect(admin_run_url($run->name));
         }
 
         $filename = "Shuffle_Run_" . $run->name;
@@ -452,41 +469,26 @@ class AdminRunController extends AdminController {
 
         if (!$downloaded) {
             alert('An error occured during results download.', 'alert-danger');
-            redirect_to(admin_run_url($run->name));
+            $this->request->redirect(admin_run_url($run->name));
         }
     }
 
     private function randomGroupsAction() {
         $run = $this->run;
-        $g_users = $run->getRandomGroups();
+        $pdoStatement = $run->getRandomGroups();
 
-        $users = array();
-        while ($userx = $g_users->fetch(PDO::FETCH_ASSOC)) {
-            $userx['Unit in Run'] = $userx['unit_type'] . " <span class='hastooltip' title='position in run {$userx['run_name']} '>({$userx['position']})</span>";
-            #	$userx['Email'] = "<small title=\"{$userx['session']}\">{$userx['email']}</small>";
-            $userx['Group'] = "<big title=\"Assigned group\">{$userx['group']}</small>";
-            $userx['Created'] = "<small>{$userx['created']}</small>";
-
-            unset($userx['run_name']);
-            unset($userx['unit_type']);
-            unset($userx['created']);
-            unset($userx['ended']);
-            unset($userx['position']);
-            unset($userx['email']);
-            unset($userx['group']);
-            #	$user['body'] = "<small title=\"{$user['body']}\">". substr($user['body'],0,50). "…</small>";
-
-            $users[] = $userx;
-        }
-        $this->renderView('run/random_groups', array('users' => $users));
+        $this->setView('run/random_groups', array('users' => $pdoStatement->fetchAll(PDO::FETCH_ASSOC)));
+        return $this->sendResponse();
     }
 
     private function overviewAction() {
-        $this->renderView('run/overview', array(
+        $this->setView('run/overview', array(
             'users' => $this->run->getNumberOfSessionsInRun(),
             'overview_script' => $this->run->getOverviewScript(),
             'user_overview' => $this->run->getUserCounts(),
         ));
+ 
+        return $this->sendResponse();
     }
 
     private function emptyRunAction() {
@@ -494,15 +496,15 @@ class AdminRunController extends AdminController {
         if ($this->request->isHTTPPostRequest()) {
             if ($this->request->getParam('empty_confirm') === $run->name) {
                 $run->emptySelf();
-                redirect_to(admin_run_url($run->name, "empty_run"));
+                $this->request->redirect(admin_run_url($run->name, "empty_run"));
             } else {
                 alert("<b>Error:</b> You must type the run's name '{$run->name}' to empty it.", 'alert-danger');
             }
         }
 
-        $this->renderView('run/empty_run', array(
-            'users' => $run->getNumberOfSessionsInRun(),
-        ));
+        $this->setView('run/empty_run', array( 'users' => $run->getNumberOfSessionsInRun()));
+        return $this->sendResponse();
+        
     }
 
     private function emailLogAction() {
@@ -510,30 +512,37 @@ class AdminRunController extends AdminController {
         $helper = new RunHelper($this->run, $this->fdb, $this->request);
         $table = $helper->getEmailLogTable($queryparams);
 
-        $this->renderView('run/email_log', array(
+        $this->setView('run/email_log', array(
             'emails' => $table['data'],
             'pagination' => $table['pagination'],
         ));
+        
+        return $this->sendResponse();
     }
 
     private function deleteRunAction() {
         $run = $this->run;
-        if (isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $run->name) {
-            $run->delete();
-        } elseif (isset($_POST['delete'])) {
+        if (Request::isHTTPPostRequest() && $this->request->getParam('delete') && $this->request->getParam('delete_confirm') === $run->name) {
+            if($run->delete()) {
+                $this->request->redirect(admin_url());
+            }
+        } elseif (Request::isHTTPPostRequest() && $this->request->getParam('delete')) {
             alert("<b>Error:</b> You must type the run's name '{$run->name}' to delete it.", 'alert-danger');
         }
 
-        $this->renderView('run/delete_run', array(
+        $this->setView('run/delete_run', array(
             'users' => $run->getNumberOfSessionsInRun(),
         ));
+        return $this->sendResponse();
     }
 
     private function cronLogParsed() {
         $parser = new LogParser();
         $parse = $this->run->name . '.log';
         $vars = get_defined_vars();
-        $this->renderView('run/cron_log_parsed', $vars);
+
+        $this->setView('run/cron_log_parsed', $vars);
+        return $this->sendResponse();
     }
 
     private function cronLogAction() {
@@ -564,19 +573,19 @@ class AdminRunController extends AdminController {
             $inc_survey = $this->request->getParam('include_survey_details') === 'true';
             if (!in_array($format, $formats)) {
                 alert('Invalid Export format selected', 'alert-danger');
-                redirect_to(admin_run_url($run->name));
+                $this->request->redirect(admin_run_url($run->name));
             }
 
             if (!($export = $run->export($name, $units, $inc_survey))) {
-                bad_request_header();
-                echo $site->renderAlerts();
+                $this->response->setStatusCode(500, 'Bad Request');
+                return $this->sendResponse($site->renderAlerts());
             } else {
                 $SPR = new SpreadsheetReader();
                 $SPR->exportJSON($export, $name);
             }
         } else {
             alert('Run Export: Missing run units or invalid run name enterd.', 'alert-danger');
-            redirect_to(admin_run_url($run->name));
+            $this->request->redirect(admin_run_url($run->name));
         }
     }
 
@@ -589,18 +598,18 @@ class AdminRunController extends AdminController {
 
         if (empty($file)) {
             alert('Please select a run file or upload one', 'alert-danger');
-            return redirect_to(admin_run_url($this->run->name));
+            return $this->request->redirect(admin_run_url($this->run->name));
         }
 
         if (!file_exists($file)) {
             alert('The corresponding import file could not be found or is not readable', 'alert-danger');
-            return redirect_to(admin_run_url($this->run->name));
+            return $this->request->redirect(admin_run_url($this->run->name));
         }
 
         $json_string = file_get_contents($file);
         if (!$json_string) {
             alert('Unable to extract JSON object from file', 'alert-danger');
-            return redirect_to(admin_run_url($this->run->name));
+            return $this->request->redirect(admin_run_url($this->run->name));
         }
 
         $start_position = 10;
@@ -608,7 +617,7 @@ class AdminRunController extends AdminController {
             alert('Run modules imported successfully!', 'alert-success');
         }
 
-        redirect_to(admin_run_url($this->run->name));
+        $this->request->redirect(admin_run_url($this->run->name));
     }
 
     private function createRunUnitAction() {
@@ -620,7 +629,7 @@ class AdminRunController extends AdminController {
         } else {
             alert('An unexpected error occured. Unit could not be created', 'alert-danger');
         }
-        redirect_to(str_replace(':::', '#', $redirect));
+        $this->request->redirect(str_replace(':::', '#', $redirect));
     }
 
     private function deleteRunUnitAction() {
@@ -637,7 +646,7 @@ class AdminRunController extends AdminController {
         } else {
             alert('An unexpected error occured. Unit could not be deleted', 'alert-danger');
         }
-        redirect_to(str_replace(':::', '#', $redirect));
+        $this->request->redirect(str_replace(':::', '#', $redirect));
     }
 
     private function panicAction() {
@@ -655,7 +664,7 @@ class AdminRunController extends AdminController {
             $msg[] = " - The run has been 'locked' for editing";
             alert(implode("\n", $msg), 'alert-success');
         }
-        redirect_to("admin/run/{$this->run->name}");
+        $this->request->redirect("admin/run/{$this->run->name}");
     }
 
     private function showPanicButton() {

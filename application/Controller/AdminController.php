@@ -13,37 +13,16 @@ class AdminController extends Controller {
     }
 
     public function indexAction() {
-        $this->renderView('home', array(
+        $this->setView('home', array(
             'runs' => $this->user->getRuns('id DESC', 5),
             'studies' => $this->user->getStudies('id DESC', 5),
         ));
-    }
-
-    public function infoAction() {
-        $this->renderView('misc/info');
-    }
-
-    /*
-      public function cronAction() {
-      $this->renderView('misc/cron', array("fdb"=> $this->fdb));
-      }
-
-      public function cronForkedAction() {
-      $this->renderView('misc/cron_forked');
-      }
-     */
-
-    public function testOpencpuAction() {
-        $this->renderView('misc/test_opencpu');
-    }
-
-    public function testOpencpuSpeedAction() {
-        $this->renderView('misc/test_opencpu_speed');
+        return $this->sendResponse();
     }
 
     public function osfAction() {
         if (!($token = OSF::getUserAccessToken($this->user))) {
-            redirect_to('api/osf/login');
+            $this->request->redirect('api/osf/login');
         }
 
         $osf = new OSF(Config::get('osf'));
@@ -82,7 +61,7 @@ class AdminController extends Controller {
             }
 
             if ($redirect = $this->request->getParam('redirect')) {
-                redirect_to($redirect);
+                $this->request->redirect($redirect);
             }
         }
 
@@ -97,28 +76,30 @@ class AdminController extends Controller {
             }
         }
 
-        $this->renderView('misc/osf', array(
+        $this->setView('misc/osf', array(
             'token' => $token,
             'runs' => $this->user->getRuns(),
             'run_selected' => $this->request->getParam('run'),
             'osf_projects' => $osf_projects,
         ));
+
+        return $this->sendResponse();
     }
 
-    protected function renderView($template, $vars = array()) {
+    protected function setView($template, $vars = array()) {
         $template = 'admin/' . $template;
-        parent::renderView($template, $vars);
+        parent::setView($template, $vars);
     }
 
     protected function header() {
         if (!$this->user->loggedIn()) {
             alert('You need to login to access the admin section', 'alert-warning');
-            redirect_to('login');
+            $this->request->redirect('login');
         }
 
         if (!$this->user->isAdmin()) {
             alert('You need to request for an admin account in order to access this section. See Documentation.', 'alert-warning');
-            redirect_to('account');
+            $this->request->redirect('account');
         }
 
         if ($this->site->inSuperAdminArea() && !$this->user->isSuperAdmin()) {

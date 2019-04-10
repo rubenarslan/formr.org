@@ -104,40 +104,8 @@ function session_over($site, $user) {
     return true;
 }
 
-function access_denied() {
-    /*
-      global $site, $user;
-      $_SESSION['site'] = $site;
-      $_SESSION['user'] = serialize($user);
-     */
-    redirect_to('error/403');
-}
-
-function not_found() {
-    /*
-      global $site, $user;
-      $_SESSION['site'] = $site;
-      $_SESSION['user'] = serialize($user);
-     */
-    redirect_to('error/404');
-}
-
-function bad_request() {
-    /*
-      global $site, $user;
-      $_SESSION['site'] = $site;
-      $_SESSION['user'] = serialize($user);
-     */
-    redirect_to('error/500');
-}
-
-function bad_request_header() {
-    header('HTTP/1.0 500 Bad Request');
-}
-
 function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null, $link_text = null) {
     $code = $code ? $code : 500;
-    header("HTTP/1.0 {$code} {$title}");
     if ($link === null) {
         $link = site_url();
     }
@@ -151,22 +119,16 @@ function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could
         exit;
     }
 
-    Template::load('public/error', array(
+    $view = new View('public/error', array(
         'code' => $code,
         'title' => $hint ? $hint : $title,
         'text' => $text,
         'link' => $link,
         'link_text' => $link_text,
     ));
-    exit;
-}
 
-function json_header() {
-    header('Content-Type: application/json');
-}
-
-function is_ajax_request() {
-    return strtolower(env('HTTP_X_REQUESTED_WITH')) === 'xmlhttprequest';
+    $response = new Response();
+    $response->setStatusCode($code, $title)->setContent($view->render())->send();
 }
 
 function h($text) {

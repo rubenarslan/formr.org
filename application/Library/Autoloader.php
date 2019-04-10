@@ -65,17 +65,18 @@ class Autoload {
         }
 
         $class = $this->classNameToPath($class);
-        $libraryPath = APPLICATION_PATH . "Library/{$class}.php";
-        $modelPath = APPLICATION_PATH . "Model/{$class}.php";
+        $paths = array(
+            APPLICATION_PATH . "Controller/{$class}.php",
+            APPLICATION_PATH . "Library/{$class}.php",
+            APPLICATION_PATH . "Model/{$class}.php",
+            APPLICATION_PATH . "View/{$class}.php",
+            APPLICATION_PATH . "Helper/{$class}.php",
+        );
 
-        if (strstr($class, 'Controller') !== false) {
-            $file = APPLICATION_PATH . "Controller/{$class}.php";
-        } elseif (strstr($class, 'Helper') !== false) {
-            $file = APPLICATION_PATH . "Helper/{$class}.php";
-        } elseif (file_exists($modelPath)) {
-            $file = $modelPath;
-        } elseif (file_exists($libraryPath)) {
-            $file = $libraryPath;
+        foreach ($paths as $path) {
+            if (file_exists($path) && is_readable($path)) {
+                $file = $path;
+            }
         }
 
         if (!empty($file)) {

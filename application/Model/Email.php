@@ -365,36 +365,37 @@ class Email extends RunUnit {
     }
 
     public function test() {
+        $output = '';
         if (!$this->grabRandomSession()) {
-            return false;
+            return $output;
         }
 
         $user = Site::getCurrentUser();
         $receiver = $user->getEmail();
 
-        echo "<h4>Recipient</h4>";
+        $output .= "<h4>Recipient</h4>";
         $recipient_field = $this->getRecipientField('', true);
         if ($recipient_field instanceof OpenCPU_Session) {
-            echo opencpu_debug($recipient_field, null, 'text');
+            $output .= opencpu_debug($recipient_field, null, 'text');
         } else {
-            echo $this->mostrecent . ": " . $recipient_field;
+            $output .= $this->mostrecent . ": " . $recipient_field;
         }
 
-        echo "<h4>Subject</h4>";
+        $output .= "<h4>Subject</h4>";
         if ($this->knittingNeeded($this->subject)) {
-            echo $this->getParsedTextAdmin($this->subject);
+            $output .= $this->getParsedTextAdmin($this->subject);
         } else {
-            echo $this->getSubject();
+            $output .= $this->getSubject();
         }
 
-        echo "<h4>Body</h4>";
-        echo $this->getParsedBodyAdmin($this->body);
+        $output .= "<h4>Body</h4>";
+        $output .= $this->getParsedBodyAdmin($this->body);
 
-        echo "<h4>Attempt to send email</h4>";
+        $output .= "<h4>Attempt to send email</h4>";
         if ($this->sendMail($receiver)) {
-            echo "<p>An email was sent to your own email address (" . h($receiver) . ").</p>";
+            $output .= "<p>An email was sent to your own email address (" . h($receiver) . ").</p>";
         } else {
-            echo "<p>No email sent.</p>";
+            $output .= "<p>No email sent.</p>";
         }
 
         $results = $this->getSampleSessions();
@@ -435,9 +436,10 @@ class Email extends RunUnit {
                 ));
             }
 
-            echo Template::replace($test_tpl, array('rows' => $rows));
+            $output .= Template::replace($test_tpl, array('rows' => $rows));
         }
         $this->run_session_id = null;
+        return $output;
     }
 
     protected function sessionCanReceiveMails() {

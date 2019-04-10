@@ -395,7 +395,7 @@ class OpenCPU_Session {
             $string = $this->raw_result;
         }
         $json = json_decode($string, $as_assoc);
-        $this->object_length = count($json);
+        $this->object_length = is_null($json) ? 0 : count($json);
         // if decoded object is a non-empty array, get it's first element
         if (is_array($json) && array_key_exists(0, $json)) {
             if (is_string($json[0])) {

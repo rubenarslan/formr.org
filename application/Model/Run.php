@@ -176,10 +176,11 @@ class Run {
         try {
             $this->dbh->delete('survey_runs', array('id' => $this->id));
             alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
-            redirect_to(admin_url());
+            return true;
         } catch (Exception $e) {
             formr_log_exception($e, __CLASS__);
             alert(__('Could not delete run %s. This is probably because there are still run units present. For safety\'s sake you\'ll first need to delete each unit individually.', $this->name), 'alert-danger');
+            return false;
         }
     }
 

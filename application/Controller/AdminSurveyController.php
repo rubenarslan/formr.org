@@ -20,23 +20,22 @@ class AdminSurveyController extends AdminController {
         if ($this->request->isHTTPPostRequest()) {
             $request = new Request($_POST);
             $this->study->changeSettings($request->getParams());
-            redirect_to(admin_study_url($this->study->name));
+            $this->request->redirect(admin_study_url($this->study->name));
         }
 
         if (empty($this->study)) {
-            redirect_to(admin_url('survey/add_survey'));
+            $this->request->redirect(admin_url('survey/add_survey'));
         }
 
-        $this->renderView('survey/index', array(
-            'survey_id' => $this->study->id,
-        ));
+        $this->setView('survey/index', array('survey_id' => $this->study->id));
+        return $this->sendResponse();
     }
 
     public function listAction() {
-        $vars = array(
-            'studies' => $this->user->getStudies('id DESC', null),
-        );
-        $this->renderView('survey/list', $vars);
+        $vars = array('studies' => $this->user->getStudies('id DESC', null),);
+        $this->setView('survey/list', $vars);
+
+        return $this->sendResponse();
     }
 
     public function addSurveyAction() {
@@ -59,9 +58,9 @@ class AdminSurveyController extends AdminController {
             unset($_GET['study_name']);
 
             $allowed_size = Config::get('admin_maximum_size_of_uploaded_files');
-            if ($allowed_size && $file['size'] > $allowed_size * 1024 * 1024):
+            if ($allowed_size && $file['size'] > $allowed_size * 1024 * 1024) {
                 alert("File exceeds allowed size of {$allowed_size} MB", 'alert-danger');
-            else:
+            } else {
                 $filename = basename($file['name']);
                 $survey_name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", $filename); // take only the first part, before the dash if present or the dot
 
@@ -76,19 +75,21 @@ class AdminSurveyController extends AdminController {
                     if ($study->uploadItemTable($file, $confirmed_deletion, $updates, $created_new)) {
                         alert('<strong>Success!</strong> New survey created!', 'alert-success');
                         delete_tmp_file($file);
-                        redirect_to(admin_study_url($study->name, 'show_item_table'));
+                        $this->request->redirect(admin_study_url($study->name, 'show_item_table'));
                     } else {
                         alert('<strong>Bugger!</strong> A new survey was created, but there were problems with your item table. Please fix them and try again.', 'alert-danger');
                         delete_tmp_file($file);
-                        redirect_to(admin_study_url($study->name, 'upload_items'));
+                        $this->request->redirect(admin_study_url($study->name, 'upload_items'));
                     }
                 }
-            endif;
+            }
             delete_tmp_file($file);
         }
 
         $vars = array('google' => array());
-        $this->renderView('survey/add_survey', $vars);
+        $this->setView('survey/add_survey', $vars);
+
+        return $this->sendResponse();
     }
 
     private function uploadItemsAction() {
@@ -113,7 +114,7 @@ class AdminSurveyController extends AdminController {
             } else {
                 alert("<strong>Error:</strong> You confirmed the deletion of the study's results but your input did not match the study's name. Update aborted.", 'alert-danger');
                 $confirmed_deletion = false;
-                redirect_to(admin_study_url($study->name, 'upload_items'));
+                $this->request->redirect(admin_study_url($study->name, 'upload_items'));
                 return false;
             }
         }
@@ -141,11 +142,11 @@ class AdminSurveyController extends AdminController {
 
         if (!empty($file)) {
             $allowed_size = Config::get('admin_maximum_size_of_uploaded_files');
-            if ($allowed_size && $file['size'] > $allowed_size * 1024 * 1024):
+            if ($allowed_size && $file['size'] > $allowed_size * 1024 * 1024) {
                 alert("File exceeds allowed size of {$allowed_size} MB", 'alert-danger');
-                redirect_to(admin_study_url($study->name, 'upload_items'));
+                $this->request->redirect(admin_study_url($study->name, 'upload_items'));
                 return false;
-            endif;
+            }
 
             if (($filename = $study->getOriginalFileName()) && files_are_equal($file['tmp_name'], Config::get('survey_upload_dir') . '/' . $filename)) {
                 alert("Uploaded item table was identical to last uploaded item table. <br>
@@ -157,16 +158,17 @@ class AdminSurveyController extends AdminController {
 
             delete_tmp_file($file);
             if ($success) {
-                redirect_to(admin_study_url($study->name, 'show_item_table'));
+                $this->request->redirect(admin_study_url($study->name, 'show_item_table'));
             }
         }
 
-        $this->renderView('survey/upload_items', $vars);
+        $this->setView('survey/upload_items', $vars);
+        return $this->sendResponse();
     }
 
     private function accessAction() {
         $study = $this->study;
-        if ($this->user->created($study)):
+        if ($this->user->created($study)) {
             $session = new UnitSession($this->fdb, null, $study->id);
             $session->create();
 
@@ -179,11 +181,11 @@ class AdminSurveyController extends AdminController {
             ));
 
             alert("<strong>Go ahead.</strong> You can test the study " . $study->name . " now.", 'alert-info');
-            redirect_to(run_url(Run::TEST_RUN));
-        else:
+            $this->request->redirect(run_url(Run::TEST_RUN));
+        } else {
             alert("<strong>Sorry.</strong> You don't have access to this study", 'alert-danger');
-            redirect_to("index");
-        endif;
+            $this->request->redirect("index");
+        }
     }
 
     private function showItemTableAction() {
@@ -196,9 +198,10 @@ class AdminSurveyController extends AdminController {
 
         if (empty($vars['results'])) {
             alert("No valid item table uploaded so far.", 'alert-warning');
-            redirect_to(admin_study_url($this->study->name, 'upload_items'));
+            $this->request->redirect(admin_study_url($this->study->name, 'upload_items'));
         } else {
-            $this->renderView('survey/show_item_table', $vars);
+            $this->setView('survey/show_item_table', $vars);
+            return $this->sendResponse();
         }
     }
 
@@ -220,10 +223,6 @@ class AdminSurveyController extends AdminController {
             $ids[] = $item['id'];
         }
 
-        //$session = $this->request->str('session', null);
-        // show $no_sessions sessions per_page (so limit = $no_sessions * number of items in a survey)
-        //$limit = $this->request->int('per_page', $no_sessions * $itemsCount);
-
         $no_sessions = $this->request->int('sess_per_page', 10);
         $count = $this->study->getResultCount(null, $filter);
         $totalCount = $count['real_users'] + $count['testers'];
@@ -243,7 +242,7 @@ class AdminSurveyController extends AdminController {
         $pagination = new Pagination($paginate['count'], $paginate['limit']);
         $pagination->setPage($paginate['page']);
 
-        $this->renderView('survey/show_itemdisplay', array(
+        $this->setView('survey/show_itemdisplay', array(
             'resultCount' => $this->study->getResultCount(),
             'results' => $totalCount ? $this->study->getResultsByItemsPerSession(null, $filter, $paginate) : array(),
             'pagination' => $pagination,
@@ -253,6 +252,8 @@ class AdminSurveyController extends AdminController {
             'rfilter' => $this->request->str('rfilter'),
             'results_filter' => $this->study->getResultsFilter(),
         ));
+        
+        return $this->sendResponse();
     }
 
     private function showResultsAction() {
@@ -285,7 +286,7 @@ class AdminSurveyController extends AdminController {
         $pagination = new Pagination($paginate['count'], $paginate['limit']);
         $pagination->setPage($paginate['page']);
 
-        $this->renderView('survey/show_results', array(
+        $this->setView('survey/show_results', array(
             'resultCount' => $count,
             'results' => $totalCount <= 0 ? array() : $this->study->getResults(null, $filter, $paginate),
             'pagination' => $pagination,
@@ -294,51 +295,59 @@ class AdminSurveyController extends AdminController {
             'rfilter' => $this->request->str('rfilter'),
             'results_filter' => $this->study->getResultsFilter(),
         ));
+        
+        return $this->sendResponse();
     }
 
     private function hideResults() {
-        $this->renderView('survey/show_results', array(
+        $this->setView('survey/show_results', array(
             'resultCount' => $this->study->getResultCount(),
             'results' => array(),
             'pagination' => new Pagination(1),
             'study_name' => $this->study->name,
         ));
+
+        return $this->sendResponse();
     }
 
     private function deleteResultsAction() {
         $study = $this->study;
 
-        if (isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name) {
+        if (Request::isHTTPPostRequest() && $this->request->getParam('delete_confirm') === $study->name) {
             if ($study->deleteResults()) {
                 alert(implode($study->messages), 'alert-info');
                 alert("<strong>Success.</strong> All results in '{$study->name}' were deleted.", 'alert-success');
             } else {
                 alert(implode($study->errors), 'alert-danger');
             }
-            redirect_to(admin_study_url($study->name, 'delete_results'));
-        } elseif (isset($_POST['delete'])) {
+            $this->request->redirect(admin_study_url($study->name, 'delete_results'));
+        } elseif (Request::isHTTPPostRequest()) {
             alert("<b>Error:</b> Survey's name must match '{$study->name}' to delete results.", 'alert-danger');
         }
 
-        $this->renderView('survey/delete_results', array(
+        $this->setView('survey/delete_results', array(
             'resultCount' => $study->getResultCount(),
         ));
+        
+        return $this->sendResponse();
     }
 
     private function deleteStudyAction() {
         $study = $this->study;
 
-        if (isset($_POST['delete']) AND trim($_POST['delete_confirm']) === $study->name) {
+        if (Request::isHTTPPostRequest() && $this->request->getParam('delete_confirm') === $study->name) {
             $study->delete();
             alert("<strong>Success.</strong> Successfully deleted study '{$study->name}'.", 'alert-success');
-            redirect_to(admin_url());
-        } elseif (isset($_POST['delete'])) {
+            $this->request->redirect(admin_url());
+        } elseif (Request::isHTTPPostRequest()) {
             alert("<b>Error:</b> You must type the study's name '{$study->name}' to delete it.", 'alert-danger');
         }
 
-        $this->renderView('survey/delete_study', array(
+        $this->setView('survey/delete_study', array(
             'resultCount' => $study->getResultCount(),
         ));
+        
+        return $this->sendResponse();
     }
 
     private function renameStudyAction() {
@@ -349,11 +358,12 @@ class AdminSurveyController extends AdminController {
             $old_name = $study->name;
             if ($study->rename($new_name)) {
                 alert("<strong>Success.</strong> Successfully renamed study from '{$old_name}' to {$study->name}.", 'alert-success');
-                redirect_to(admin_study_url($study->name, 'rename_study'));
+                $this->request->redirect(admin_study_url($study->name, 'rename_study'));
             }
         }
 
-        $this->renderView('survey/rename_study', array('study_name' => $study->name));
+        $this->setView('survey/rename_study', array('study_name' => $study->name));
+        return $this->sendResponse();
     }
 
     private function exportItemTableAction() {
@@ -369,7 +379,7 @@ class AdminSurveyController extends AdminController {
             $file = Config::get('survey_upload_dir') . '/' . $filename;
             if (!is_file($file)) {
                 alert('The original file could not be found. Try another format', 'alert-danger');
-                redirect_to(admin_study_url($study->name));
+                $this->request->redirect(admin_study_url($study->name));
             }
 
             $type = 'application/vnd.ms-excel';
@@ -392,7 +402,7 @@ class AdminSurveyController extends AdminController {
     private function verifyThereIsExportableData($resultsStmt) {
         if ($resultsStmt->rowCount() < 1) {
             alert('No data to export!', 'alert-danger');
-            redirect_to(admin_study_url($this->study->name, 'show_itemdisplay'));
+            $this->request->redirect(admin_study_url($this->study->name, 'show_itemdisplay'));
         }
     }
 
@@ -413,7 +423,7 @@ class AdminSurveyController extends AdminController {
         $download_successfull = $SPR->exportInRequestedFormat($resultsStmt, $study->name, $format);
         if (!$download_successfull) {
             alert('An error occured during results download.', 'alert-danger');
-            redirect_to(admin_study_url($filename, 'show_results'));
+            $this->request->redirect(admin_study_url($filename, 'show_results'));
         }
     }
 
@@ -435,7 +445,7 @@ class AdminSurveyController extends AdminController {
 
         if (!$download_successfull) {
             alert('An error occured during results download.', 'alert-danger');
-            redirect_to(admin_study_url($filename, 'show_results'));
+            $this->request->redirect(admin_study_url($filename, 'show_results'));
         }
     }
 
