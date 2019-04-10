@@ -87,8 +87,9 @@ class Branch extends RunUnit {
 
     public function test() {
         $results = $this->getSampleSessions();
+        $output = '';
         if (!$results) {
-            return false;
+            return $output;
         }
 
         $test_tpl = '
@@ -113,7 +114,7 @@ class Branch extends RunUnit {
         $this->run_session_id = current($results)['id'];
         $opencpu_vars = $this->getUserDataInRun($this->condition);
         $ocpu_session = opencpu_evaluate($this->condition, $opencpu_vars, 'text', null, true);
-        echo opencpu_debug($ocpu_session, null, 'text');
+        $output .= opencpu_debug($ocpu_session, null, 'text');
 
         // Maybe there is a way that we prevent 'calling opencpu' in a loop by gathering what is needed to be evaluated
         // at opencpu in some 'box' and sending one request (also create new func in formr R package to open this box, evaluate what is inside and return the box)
@@ -123,14 +124,16 @@ class Branch extends RunUnit {
             $opencpu_vars = $this->getUserDataInRun($this->condition);
             $eval = opencpu_evaluate($this->condition, $opencpu_vars);
             $rows .= Template::replace($row_tpl, array(
-                        'session' => $row['session'],
-                        'position' => $row['position'],
-                        'result' => stringBool($eval),
+                'session' => $row['session'],
+                'position' => $row['position'],
+                'result' => stringBool($eval),
             ));
         }
 
-        echo Template::replace($test_tpl, array('rows' => $rows));
+        $output .= Template::replace($test_tpl, array('rows' => $rows));
         $this->run_session_id = null;
+        
+        return $output;
     }
 
     public function exec() {

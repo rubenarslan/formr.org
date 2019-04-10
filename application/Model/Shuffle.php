@@ -85,7 +85,7 @@ class Shuffle extends RunUnit {
             $groups .= $this->randomise_into_group() . '&nbsp; ';
         }
 
-        echo Template::replace($test_tpl, array('groups' => $groups));
+        return Template::replace($test_tpl, array('groups' => $groups));
     }
 
     public function exec() {

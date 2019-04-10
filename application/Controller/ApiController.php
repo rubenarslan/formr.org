@@ -36,7 +36,7 @@ class ApiController extends Controller {
     }
 
     public function indexAction() {
-        $this->sendResponse(Response::STATUS_FORBIDDEN, 'Invalid', array('error' => 'No Entry Point'));
+        $this->respond(Response::STATUS_FORBIDDEN, 'Invalid', array('error' => 'No Entry Point'));
     }
 
     public function oauthAction($action = null) {
@@ -159,7 +159,7 @@ class ApiController extends Controller {
             );
         }
 
-        $this->sendResponse($data['statusCode'], $data['statusText'], $data['response']);
+        $this->respond($data['statusCode'], $data['statusText'], $data['response']);
     }
 
     protected function isValidAction($type, $action) {
@@ -192,7 +192,7 @@ class ApiController extends Controller {
             // Handle a request to a resource and authenticate the access token
             // Ex: curl http://formr.org/api/post/action-name -d 'access_token=YOUR_TOKEN'
             if (!$this->oauthServer->verifyResourceRequest(OAuth2\Request::createFromGlobals())) {
-                $this->sendResponse(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', array(
+                $this->respond(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', array(
                     'error' => 'Invalid/Unauthorized access token',
                     'error_code' => Response::STATUS_UNAUTHORIZED,
                     'error_description' => 'Access token for this resouce request is invalid or unauthorized',
@@ -201,14 +201,15 @@ class ApiController extends Controller {
         }
     }
 
-    protected function sendResponse($statusCode = Response::STATUS_OK, $statusText = 'OK', $response = null) {
+    protected function respond($statusCode = Response::STATUS_OK, $statusText = 'OK', $response = null) {
         $this->response->setStatusCode($statusCode, $statusText);
         $this->response->setContentType('application/json');
         $this->response->setJsonContent($response);
-        $this->response->send();
+        return $this->sendResponse();
     }
 
     protected function initialize() {
+        $this->view = null;
         $this->post = new Request($_POST);
         $this->get = new Request($_GET);
         $this->response = new Response();

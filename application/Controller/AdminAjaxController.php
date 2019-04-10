@@ -27,6 +27,12 @@ class AdminAjaxController {
 
     /**
      *
+     * @var Response
+     */
+    protected $response;
+
+    /**
+     *
      * @var DB
      */
     protected $dbh;
@@ -36,16 +42,26 @@ class AdminAjaxController {
         $this->site = $controller->getSite();
         $this->dbh = $controller->getDB();
         $this->request = new Request();
+        $this->response = new Response();
     }
 
+    /**
+     * Execute the corresponding ajax method
+     * 
+     * @param string $method
+     * @param AdminController $controller
+     *
+     * @return Response
+     */
     public static function call($method, AdminController $controller) {
         $self = new self($controller);
         $action = $self->getPrivateAction($method);
-        return $self->$action();
+        $self->$action();
+        return $self->response;
     }
 
     private function ajaxCreateRunUnit() {
-        if (!is_ajax_request()) {
+        if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
         }
 
@@ -53,23 +69,20 @@ class AdminAjaxController {
         if ($unit->valid) {
             $unit->addToRun($this->controller->run->id, $unit->position);
             alert('<strong>Success.</strong> ' . ucfirst($unit->type) . ' unit was created.', 'alert-success');
-            $response = $unit->displayForRun($this->site->renderAlerts());
+            $content = $unit->displayForRun($this->site->renderAlerts());
         } else {
-            bad_request_header();
+            $this->response->setStatusCode(500, 'Bad Request');
             $msg = '<strong>Sorry.</strong> Run unit could not be created.';
-            if (!empty($unit)) {
-                $msg .= implode("\n", $unit->errors);
-            }
+            $msg .= !empty($unit) ? implode("\n", $unit->errors) : '';
             alert($msg, 'alert-danger');
-            $response = $this->site->renderAlerts();
+            $content = $this->site->renderAlerts();
         }
 
-        echo $response;
-        exit;
+        return $this->response->setContent($content);
     }
 
     private function ajaxGetUnit() {
-        if (!is_ajax_request()) {
+        if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
         }
 
@@ -83,19 +96,16 @@ class AdminAjaxController {
             $unit_factory = new RunUnitFactory();
             $unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
 
-            $response = $unit->displayForRun();
+            $content = $unit->displayForRun();
         } else {
-            bad_request_header();
+            $this->response->setStatusCode(500, 'Bad Request');
             $msg = '<strong>Sorry.</strong> Missing run unit.';
-            if (!empty($unit)) {
-                $msg .= implode("\n", $unit->errors);
-            }
+            $msg .= !empty($unit) ? implode("\n", $unit->errors) : '';
             alert($msg, 'alert-danger');
-            $response = $this->site->renderAlerts();
+            $content = $this->site->renderAlerts();
         }
 
-        echo $response;
-        exit;
+        $this->response->setContent($content);
     }
 
     private function ajaxRemind() {
@@ -108,7 +118,9 @@ class AdminAjaxController {
                 }
 				$count[$sess['unit_id']]++;
             }
-            return $this->outjson($count);
+
+            $this->response->setContentType('application/json');
+            return $this->response->setJsonContent($count);
         }
 
         $run = $this->controller->run;
@@ -122,11 +134,11 @@ class AdminAjaxController {
         }
         $email->end();
 
-        if (is_ajax_request()) {
-            echo $this->site->renderAlerts();
-            exit;
+        if (Request::isAjaxRequest()) {
+            $content = $this->site->renderAlerts();
+            return $this->response->setContent($content);
         } else {
-            redirect_to(admin_run_url($run->name, 'user_overview'));
+            $this->request->redirect(admin_run_url($run->name, 'user_overview'));
         }
     }
 
@@ -139,11 +151,11 @@ class AdminAjaxController {
         $status = $this->request->getParam('toggle_on') ? 1 : 0;
         $run_session->setTestingStatus($status);
 
-        if (is_ajax_request()) {
-            echo $this->site->renderAlerts();
-            exit;
+        if (Request::isAjaxRequest()) {
+            $content = $this->site->renderAlerts();
+            return $this->response->setContent($content);
         } else {
-            redirect_to(admin_run_url($run->name, 'user_overview'));
+            $this->request->redirect(admin_run_url($run->name, 'user_overview'));
         }
     }
 
@@ -156,14 +168,14 @@ class AdminAjaxController {
 
         if (!$run_session->forceTo($new_position)) {
             alert('<strong>Something went wrong with the position change.</strong> Run: ' . $run->name, 'alert-danger');
-            bad_request_header();
+            $this->response->setStatusCode(500, 'Bad Request');
         }
 
-        if (is_ajax_request()) {
-            echo $this->site->renderAlerts();
-            exit;
+        if (Request::isAjaxRequest()) {
+            $content = $this->site->renderAlerts();
+            return $this->response->setContent($content);
         } else {
-            redirect_to(admin_run_url($run->name, 'user_overview'));
+            $this->request->redirect(admin_run_url($run->name, 'user_overview'));
         }
     }
 
@@ -175,14 +187,14 @@ class AdminAjaxController {
 
         if (!$run_session->endUnitSession()) {
             alert('<strong>Something went wrong with the unpause.</strong> in run ' . $run->name, 'alert-danger');
-            bad_request_header();
+            $this->response->setStatusCode(500, 'Bad Request');
         }
 
-        if (is_ajax_request()) {
-            echo $this->site->renderAlerts();
-            exit;
+        if (Request::isAjaxRequest()) {
+            $content = $this->site->renderAlerts();
+            return $this->response->setContent($content);
         } else {
-            redirect_to(admin_run_url($run->name, 'user_overview'));
+            $this->request->redirect(admin_run_url($run->name, 'user_overview'));
         }
     }
 
@@ -198,60 +210,59 @@ class AdminAjaxController {
                 alert('<strong>Success.</strong> You deleted the data at the current position.', 'alert-success');
             } else {
                 alert('<strong>Couldn\'t delete.</strong>', 'alert-danger');
-                bad_request_header();
+                $this->response->setStatusCode(500, 'Bad Request');
             }
         } else {
             alert("No unit session found", 'alert-danger');
         }
 
-        if (is_ajax_request()) {
-            echo $this->site->renderAlerts();
-            exit;
+        if (Request::isAjaxRequest()) {
+            $content = $this->site->renderAlerts();
+            return $this->response->setContent($content);;
         } else {
-            redirect_to(admin_run_url($run->name, 'user_overview'));
+            $this->request->redirect(admin_run_url($run->name, 'user_overview'));
         }
     }
 
     private function ajaxDeleteUser() {
         $run = $this->controller->run;
-        $deleted = $this->dbh->delete('survey_run_sessions', array('id' => $this->request->getParam('run_session_id')));
+        $deleted = $this->dbh->delete('survey_run_sessions', array('id' => $this->request->getParam('run_session_id'), 'run_id' => $run->id));
         if ($deleted) {
             alert('User with session ' . h($_GET['session']) . ' was deleted.', 'alert-info');
         } else {
             alert('User with session ' . h($_GET['session']) . ' could not be deleted.', 'alert-warning');
-            bad_request_header();
+            $this->response->setStatusCode(500, 'Bad Request');
         }
 
-        if (is_ajax_request()) {
-            echo $this->site->renderAlerts();
-            exit;
+        if (Request::isAjaxRequest()) {
+            $content = $this->site->renderAlerts();
+            return $this->response->setContent($content);
         } else {
-            redirect_to(admin_run_url($run->name, 'user_overview'));
+            $this->request->redirect(admin_run_url($run->name, 'user_overview'));
         }
     }
 
     private function ajaxDeleteUnitSession() {
         $run = $this->controller->run;
-        $del = $this->dbh->prepare('DELETE FROM `survey_unit_sessions` WHERE id = :id');
-        $del->bindValue(':id', $this->request->str('session_id'));
+        $deleted = $this->dbh->delete('survey_unit_sessions', array('id' => $this->request->int('session_id')));
 
-        if ($del->execute()) {
+        if ($deleted) {
             alert('<strong>Success.</strong> You deleted this unit session.', 'alert-success');
         } else {
             alert('<strong>Couldn\'t delete.</strong> Sorry. <pre>' . print_r($del->errorInfo(), true) . '</pre>', 'alert-danger');
-            bad_request_header();
+            $this->response->setStatusCode(500, 'Bad Request');
         }
 
-        if (is_ajax_request()) {
-            echo $this->site->renderAlerts();
-            exit;
+        if (Request::isAjaxRequest()) {
+            $content = $this->site->renderAlerts();
+            return $this->response->setContent($content);;
         } else {
-            redirect_to(admin_run_url($run->name, 'user_detail'));
+            $this->request->redirect(admin_run_url($run->name, 'user_detail'));
         }
     }
 
     private function ajaxRemoveRunUnitFromRun() {
-        if (!is_ajax_request()) {
+        if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
         }
 
@@ -274,13 +285,13 @@ class AdminAjaxController {
 
             if ($has_sessions && !Session::get($sess_key)) {
                 Session::set($sess_key, $unit->id);
-                echo 'warn';
-                exit;
+                $content = 'warn';
+                return $this->response->setContent($content);
             } elseif (!$has_sessions || (Session::get($sess_key) === $unit->id && $this->request->getParam('confirm') === 'yes')) {
                 if ($unit->removeFromRun($special)) {
                     alert('<strong>Success.</strong> Unit with ID ' . $this->request->run_unit_id . ' was deleted.', 'alert-success');
                 } else {
-                    bad_request_header();
+                    $this->response->setStatusCode(500, 'Bad Request');
                     $alert_msg = '<strong>Sorry, could not remove unit.</strong> ';
                     $alert_msg .= implode($unit->errors);
                     alert($alert_msg, 'alert-danger');
@@ -289,12 +300,12 @@ class AdminAjaxController {
         }
 
         Session::delete($sess_key);
-        echo $this->site->renderAlerts();
-        exit;
+        $content = $this->site->renderAlerts();
+        return $this->response->setContent($content);
     }
 
     private function ajaxReorder() {
-        if (!is_ajax_request()) {
+        if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
         }
 
@@ -302,26 +313,23 @@ class AdminAjaxController {
         $positions = $this->request->arr('position');
         if ($positions) {
             $unit = $run->reorder($positions);
-            $response = '';
+            $content = '';
         } else {
-            bad_request_header();
+            $this->response->setStatusCode(500, 'Bad Request');
             $msg = '<strong>Sorry.</strong> Re-ordering run units failed.';
-            if (!empty($unit)) {
-                $msg .= implode("\n", $unit->errors);
-            }
+            $msg .= !empty($unit) ? implode("\n", $unit->errors) : '';
             alert($msg, 'alert-danger');
-            $response = $this->site->renderAlerts();
+            $content = $this->site->renderAlerts();
         }
 
-        echo $response;
-        exit;
+        return $this->response->setContent($content);
     }
 
     private function ajaxRunImport() {
         $run = $this->controller->run;
         $site = $this->site;
 
-        if (!is_ajax_request()) {
+        if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
         }
 
@@ -334,41 +342,44 @@ class AdminAjaxController {
                 $exports = array();
             }
 
-            Template::load('admin/run/run_import_dialog', array('exports' => $exports, 'run' => $this->controller->run));
-            exit;
+            $view = new View('admin/run/run_import_dialog', array(
+                'exports' => $exports,
+                'run' => $this->controller->run
+            ));
+            return $this->response->setContent($view->render());
         }
     }
 
     private function ajaxRunLockedToggle() {
-        if (!is_ajax_request()) {
+        if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
         }
         $run = $this->controller->run;
         $lock = $this->request->int('on');
         if (in_array($lock, array(0, 1))) {
-            $run->toggleLocked($lock);
+            return $run->toggleLocked($lock);
         }
     }
 
     private function ajaxRunPublicToggle() {
-        if (!is_ajax_request()) {
+        if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
         }
         $run = $this->controller->run;
         $pub = $this->request->int('public');
         if (!$run->togglePublic($pub)) {
-            bad_request_header();
+            $this->response->setStatusCode(500, 'Bad Request');
         }
     }
 
     private function ajaxSaveRunUnit() {
-        if (!is_ajax_request()) {
+        if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
         }
 
         $run = $this->controller->run;
         $dbh = $this->dbh;
-        $response = '';
+        $content = '';
 
         $unit_factory = new RunUnitFactory();
         if ($run_unit_id = $this->request->getParam('run_unit_id')) {
@@ -378,24 +389,23 @@ class AdminAjaxController {
             $unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
             $unit->create($_POST);
             if ($unit->valid && ($unit->hadMajorChanges() || !empty($this->site->alerts))) {
-                $response = $unit->displayForRun($this->site->renderAlerts());
+                $content = $unit->displayForRun($this->site->renderAlerts());
             }
         } else {
-            bad_request_header();
+            $this->response->setStatusCode(500, 'Bad Request');
             $alert_msg = "<strong>Sorry.</strong> Something went wrong while saving. Please contact formr devs, if this problem persists.";
             if (!empty($unit)) {
                 $alert_msg .= implode("\n", $unit->errors);
             }
             alert($alert_msg, 'alert-danger');
-            $response = $this->site->renderAlerts();
+            $content = $this->site->renderAlerts();
         }
 
-        echo $response;
-        exit;
+        return $this->response->setContent($content);
     }
 
     private function ajaxSaveSettings() {
-        if (!is_ajax_request()) {
+        if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
         }
 
@@ -404,15 +414,16 @@ class AdminAjaxController {
         if ($run->saveSettings($post->getParams())) {
             alert('Settings saved', 'alert-success');
         } else {
-            bad_request_header();
+            $this->response->setStatusCode(500, 'Bad Request');
             alert('<strong>Error.</strong> ' . implode(".\n", $run->errors), 'alert-danger');
         }
 
-        echo $this->site->renderAlerts();
+        $content = $this->site->renderAlerts();
+        return $this->response->setContent($content);
     }
 
     private function ajaxTestUnit() {
-        if (!is_ajax_request()) {
+        if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
         }
 
@@ -423,22 +434,22 @@ class AdminAjaxController {
             $unit = $run->getUnitAdmin($run_unit_id, $special);
             $unit_factory = new RunUnitFactory();
             $unit = $unit_factory->make($this->dbh, null, $unit, null, $run);
-            $unit->test();
+            $test_content = $unit->test();
+            $content = $this->site->renderAlerts();
+            $content .= $test_content;
         } else {
-            bad_request_header();
+            $this->response->setStatusCode(500, 'Bad Request');
             $alert_msg = "<strong>Sorry.</strong> An error occured during the test.";
-            if (isset($unit)) {
-                $alert_msg .= implode("\n", $unit->errors);
-            }
+            $alert_msg .= isset($unit) ? implode("\n", $unit->errors) : '';
             alert($alert_msg, 'alert-danger');
+            $content = $this->site->renderAlerts();
         }
 
-        echo $this->site->renderAlerts();
-        exit;
+        return $this->response->setContent($content);
     }
 
     private function ajaxUserBulkActions() {
-        if (!is_ajax_request()) {
+        if (!Request::isAjaxRequest()) {
             formr_error(406, 'Not Acceptable');
         }
 
@@ -446,8 +457,8 @@ class AdminAjaxController {
         $sessions = $this->request->arr('sessions');
         $qs = $res = array();
         if (!$action || !$sessions) {
-            formr_error(500);
-            exit;
+            $this->response->setStatusCode(500, 'Bad Request');
+            return $this->response->setContent('Missing Parameters');
         }
 
         if ($action === 'toggleTest') {
@@ -483,7 +494,8 @@ class AdminAjaxController {
             $res['success'] = true;
         }
 
-        $this->outjson($res);
+        $this->response->setContentType('application/json');
+        return $this->response->setJsonContent($res);
     }
 
     protected function getPrivateAction($name) {
@@ -501,12 +513,6 @@ class AdminAjaxController {
 
     protected function getSessionRemindersSent($run_session_id) {
         return RunSession::getSentRemindersBySessionId($run_session_id);
-    }
-
-    protected function outjson($res) {
-        header('Content-Type: application/json');
-        echo json_encode($res);
-        exit(0);
     }
 
 }

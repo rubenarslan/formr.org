@@ -126,7 +126,6 @@ class User {
                 throw new Exception("Unable create user account");
             }
 
-            //$login = $this->login($email, $password);
             $this->email = $email;
             $this->id = $inserted;
             $this->needToVerifyMail();
@@ -250,6 +249,7 @@ class User {
 
     function logout() {
         $this->logged_in = false;
+        $this->id = null;
         Session::destroy();
     }
 

@@ -111,7 +111,7 @@ class External extends RunUnit {
         }
 
         $this->session = "TESTCODE";
-        echo $this->makeAddress($output);
+        return $this->makeAddress($output);
     }
 
     private function hasExpired() {
