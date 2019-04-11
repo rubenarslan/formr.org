@@ -24,6 +24,9 @@ class View {
     }
 
     public function render() {
+        if (!$this->template) {
+            return;
+        }
         return Template::get($this->template, $this->variables);
     }
 }
