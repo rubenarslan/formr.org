@@ -7,12 +7,12 @@ class View {
     protected $variables = array();
 
     public function __construct($template = null, $variables = array()) {
-        $this->template = $template;
-        $this->variables = $variables;
+        $this->setTemplate($template);
+        $this->setVariables($variables);
     }
 
     public function setTemplate($template) {
-        if (!is_string($template)) {
+        if ($template && !is_string($template)) {
             throw new Exception('Invalid template name');
         }
         
