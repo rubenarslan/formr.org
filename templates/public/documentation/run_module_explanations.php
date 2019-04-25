@@ -279,12 +279,15 @@
             <a class="accordion-toggle" data-toggle="collapse" href="#skip_forward">
                 <i class="fa-fw fa fa-forward pull-left fa-3x"></i>
                 Skip Forward<br>
-                <small>filters/screenings, paths, reminders, access windows</small></a>
+                <small>filters/screenings, paths</small></a>
         </div>
         <div id="skip_forward" class="panel-collapse collapse skip_forward">
             <div class="panel-body">
                 <p>
-                    Skip forward allows you to jump forward in the run, if a specific condition is fulfilled. There are many simple but also complicated applications for this. Skip forward modules can do three actions: <b>1.</b> skip to the specified position <b>2.</b> go on (to the next position) <b>3.</b> stay and re-evaluate again in a few minutes. The last action can be specified to take place if the participant hasn't reacted yet.
+                    Skip forward allows you to jump forward in the run, if a specific condition is fulfilled. 
+                </p>
+                <p>
+                    This way, you can create <strong>filters</strong>, and parallel paths or branches in a study. Filters are useful to screen participants. You may need parallel paths in a study to randomise people to one experimental branch out of many, or to make sure a certain part of your study is only completed by those for whom it is relevant.
                 </p>
                 <h4>
                     Example 1: <small>a filter/screening</small>
@@ -341,33 +344,48 @@
                 <p>
                     Starting at 10, participants would complete a survey on optimism. If they indicated that they are pessimists, they fill out a different survey than if they are optimists. Both groups receive the same feedback at the end. It is important to note that we have to let the optimists jump over the survey tailored to pessimists at position 40, so that they do not have to take both surveys.
                 </p>
+            </div>
+        </div>
+    </div>
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <a class="accordion-toggle" data-toggle="collapse" href="#skip_forward">
+                <i class="fa-fw fa fa-hourglass-half pull-left fa-3x"></i>
+                Waiting Time<br>
+                <small>reminders</small></a>
+        </div>
+        <div id="skip_forward" class="panel-collapse collapse skip_forward">
+            <div class="panel-body">
+                <p>
+                    Waiting Time are like Pauses, but instead of making the participant wait, we wait for the participant.
+                </p>
+                <p>
+                    By waiting for the participant for a certain amount of time, we can make sure that people are reminded to participate in our diary study after one hour—but only if they need a reminder. We can also make sure that a part of a study is only accessible at certain times of day.
+                </p>
                 <h4>
-                    Example 3: <small>reminders and access windows</small>
+                    Example 1: <small>reminder</small>
                 </h4>
                 <p>
                     Let's say your run contains
                 </p>
                 <ul class="fa-ul">
-                    <li><i class="fa-li fa fa-pause"></i> 			Pos. 10. a waiting period (e.g. let's say we know when exchange students will arrive in their host country, and do not ask questions before they've been there one week)</li>
+                    <li><i class="fa-li fa fa-pause"></i> 			Pos. 10. a pause (e.g. let's say we know when exchange students will arrive in their host country, and they cannot answer questions before they've been there one week)</li>
                     <li><i class="fa-li fa fa-envelope"></i> 		Pos. 20. Now we have to send our exchange students an email to invite them to do the survey.</li>
-                    <li><i class="fa-li fa fa-forward"></i> 		Pos. 30. a Skip Forward which checks <code>! time_passed(weeks = 2)</code>, i.e. "two weeks have not passed yet". The first dropdown (if two weeks have not passed) is set to "if user reacts", only then jump to pos. 60 (the survey). The second (else if two weeks have passed) is set to go on "automatically".</li>
-                    <li><i class="fa-li fa fa-envelope"></i> 		Pos. 40. This is our email reminder for the students who did not react after one week.</li>
-                    <li><i class="fa-li fa fa-forward"></i>		Pos. 50.  a Skip Forward which checks <code>time_passed(weeks = 8)</code>, .e. "eight weeks have passed". The first dropdown (if eight weeks have passed) is set to "automatically", only then jump to pos. 70 (wait for return home), the second (else if: "while eight weeks have not yet passed") is set to go on only "if user reacts".</li>
-                    <li><i class="fa-li fa fa-pencil-square"></i> 	Pos. 60. the survey we want the exchange students to fill out</li>
-                    <li><i class="fa-li fa fa-pause"></i> 			Pos. 70. Because this is a longitudinal study, we now wait for our exchange students to return home. The rest is left out.</li>
+                    <li><i class="fa-li fa fa-hourglass-half"></i> 		Pos. 30. a Waiting Time for 7 days. If the user clicks the link to answer questions, the study jumps to position 50, the survey. If two weeks go by without a reaction, the study moves on to the next position, the reminder.</li>
+                    <li><i class="fa-li fa fa-envelope"></i> 		Pos. 40. This is our email reminder for the students who did not react after 7 days.</li>
+                    <li><i class="fa-li fa fa-pencil-square"></i> 	Pos. 50. the survey we want the exchange students to fill out. We set an access window of 7 weeks for this survey (in the survey settings), so we wait at most 7 weeks for students to fill the survey out.</li>
+                    <li><i class="fa-li fa fa-pause"></i> 			Pos. 60. Because this is a longitudinal study, we now wait for our exchange students to return home. The rest is left out.</li>
 
                 </ul>
                 <h5>
                     What would happen?
                 </h5>
                 <p>
-                    The pause would simply lead to all exchange students being invited once they've been in their host country for a week (we left out the part where we obtained or entered the necessary information). After the invitation, however, we don't just give up, if they don't react. After another week has passed (two weeks in the host country), we remind them.<br>
-                    How is this done? It's just a little tricky:<br>
-                    The condition at pos. 30 says "if two weeks have not passed". This is true directly after we sent the email.<br>
-                    Therefore we set the first dropdown to "if user reacts" (usually it's set to "automatically").<br>
-                    Now <a href="https://www.youtube.com/watch?v=JVHVZksFRZg#t=0m39s">if he doesn't answer</a> for two weeks, the condition will become false and the run will automatically go on to 40 (the else conditon), to our email reminder (tentatively titled "Oh lover boy..."). We hope the participant clicks on the link in our invitation email before then though.<br>
+                    The pause would simply lead to all exchange students being invited once they've been in their host country for a week (we left out the part where we obtained or entered the necessary information). After the invitation, however, we don't just give up, if they don't react. After another week has passed (one week in the host country), we remind them.<br>
+                    How is this done? We set a waiting time for the participant of 7 days. <br>
+                    Now <a href="https://www.youtube.com/watch?v=JVHVZksFRZg#t=0m39s">if he doesn't answer</a> for one week, the run will automatically go on to 40, to our email reminder (tentatively titled "Oh lover boy..."). We hope the participant clicks on the link in our invitation email before then though.<br>
                     If he does, he will jump to the survey at position 60.<br>
-                    <a href="https://www.youtube.com/watch?v=JVHVZksFRZg#t=0m43s">If he still doesn't answer</a>, we will patiently wait for another eight weeks. This time, it's the other way around, if the condition is false (eight weeks have not passed) and the user reacts, he goes on to the survey. If the condition turns true, we <em>automatically</em> jump to position 70, which stands for waiting for return home, i.e. we gave up on getting a reaction in the first wave (but we still have "Baby, oh baby, My sweet baby, you're the one" up our sleeve).
+                    <a href="https://www.youtube.com/watch?v=JVHVZksFRZg#t=0m43s">If he still doesn't answer</a>, we will patiently wait for another seven weeks. This time, we set an expiry time in the survey settings to achieve this. Until seven weeks have passed he can do the survey. Once the seven weeks are over without him finishing the survey, the run moves on to the next position, which stands for waiting for return home, i.e. we gave up on getting a reaction in the first wave (but we still have "Baby, oh baby, My sweet baby, you're the one" up our sleeve).
                 </p>
             </div>
         </div>
