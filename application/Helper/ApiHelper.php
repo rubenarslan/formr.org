@@ -324,7 +324,7 @@ class ApiHelper {
             }
             $session_id = $row['unit_session_id'];
             if (!isset($results[$session_id])) {
-                $results[$session_id] = array('session' => $session);
+                $results[$session_id] = array('session' => $session, 'created' => $row['created']);
             }
             $results[$session_id][$items[$row['item_id']]] = $row['answer'];
         }

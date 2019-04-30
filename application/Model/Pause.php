@@ -301,7 +301,7 @@ class Pause extends RunUnit {
 
         if (!empty($results) && (empty($session) || !$session->hasError())) {
 
-            $test_tpl = '
+            $test_tpl = $output . '
 				<table class="table table-striped">
 					<thead>
 						<tr>
@@ -332,8 +332,8 @@ class Pause extends RunUnit {
                 $rows .= Template::replace($row_tpl, array(
                     'session' => $row['session'],
                     'position' => $row['position'],
-                    'relative_to' => stringBool($this->relative_to_result),
                     'pause_over' => stringBool($this->checkWhetherPauseIsOver()),
+                    'relative_to' => stringBool($this->relative_to_result),
                 ));
             }
 
