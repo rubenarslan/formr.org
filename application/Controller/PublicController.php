@@ -85,6 +85,7 @@ class PublicController extends Controller {
             $vars['names'] = $this->user->email;
         }
         $vars['affiliation'] = $this->user->affiliation ? $this->user->affiliation : '(no affiliation specified)';
+        $vars['api_credentials'] = OAuthHelper::getInstance()->getClient($this->user);
 
         $this->registerAssets('bootstrap-material-design');
         $this->setView('public/account', $vars);
