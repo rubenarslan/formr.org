@@ -376,7 +376,7 @@ function env($key) {
 }
 
 function emptyNull(&$x) {
-    $x = ($x == '') ? null : $x;
+    $x = is_formr_truthy($x) ? $x : null;
 }
 
 function stringBool($x) {
@@ -842,6 +842,7 @@ function array_to_orderedlist($array, $olclass = null, $liclass = null) {
 
 function is_formr_truthy($value) {
     $value = (string) $value;
+    $value = trim($value);
     return $value || $value === '0';
 }
 
