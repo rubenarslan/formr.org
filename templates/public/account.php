@@ -22,6 +22,7 @@ Template::loadChild('public/header');
                         <?php Template::loadChild('public/alerts'); ?>
 
                         <div class="read-info">
+                            
                             <h2 class="read-info"> <?= h($names) ?> <br /> <i> <?= h($affiliation) ?></i></h2>
                             <p> &nbsp; </p>
                             <h4 class="lead"> <i class="fa fa-lock"></i> Login Details</h4>
@@ -30,8 +31,24 @@ Template::loadChild('public/header');
                                 <div class="alert alert-warning">Please verify your email address by clicking on the link sent to your email address.</div>
                             <?php endif; ?>
                             <i class="fa fa-eye-slash fa-fw"></i>  Password : ******************
-
                             <p> &nbsp; </p>
+                            
+                            <?php if ($api_credentials): ?>
+                            <h4 class="lead"> <i class="fa fa-lock"></i> API Credentials</h4>
+                            <table class="table table-bordered">
+                                <tr>
+                                    <td>Client ID</td>
+                                    <td><code><?= $api_credentials['client_id'] ?></code></td>
+                                </tr>
+                                
+                                <tr>
+                                    <td>Client Secret</td>
+                                    <td><code><?= $api_credentials['client_secret'] ?></code></td>
+                                </tr>
+                            </table>
+                            <p> &nbsp; </p>
+                            <?php endif; ?>
+                            
                             <h4 class="lead"> <i class="fa fa-user"></i> My Account </h4>
                             <ul class="list-unstyled">
                                 <li><a href="<?= admin_url(); ?>"><i class="fa fa-eye-slash  fa-fw" /></i> Go to Admin</a> </li>
