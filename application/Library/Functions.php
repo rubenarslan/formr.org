@@ -841,6 +841,9 @@ function array_to_orderedlist($array, $olclass = null, $liclass = null) {
 }
 
 function is_formr_truthy($value) {
+    if (is_array($value)) {
+        return $value;
+    }
     $value = (string) $value;
     $value = trim($value);
     return $value || $value === '0';
