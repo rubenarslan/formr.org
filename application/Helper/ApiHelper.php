@@ -43,34 +43,20 @@ class ApiHelper {
     }
 
     public function results() {
-        /**
-         * $request in this method is expected to be an object of the following format
-         * $request = '{
-         * 		run: {
-         * 			name: 'some_run_name',
-         * 			api_secret: 'run_api_secret_as_show_in_run_settings'
-         * 			surveys: [{
-         * 				name: 'survey_name',
-         * 				items: 'name, email, pov_1'
-         * 			}],
-         * 			sessions: ['xxxx', 'xxxx']
-         * 		}
-         * }'
-         */
         // Get run object from request
         $request_run = $this->request->arr('run');
         $request_surveys = $this->request->arr('surveys');
         $request = array('run' => array(
-                'name' => array_val($request_run, 'name', null),
-                'session' => array_val($request_run, 'session', null),
-                'sessions' => array_filter(explode(',', array_val($request_run, 'sessions', false))),
-                'surveys' => array()
+            'name' => array_val($request_run, 'name', null),
+            'session' => array_val($request_run, 'session', null),
+            'sessions' => array_filter(explode(',', array_val($request_run, 'sessions', false))),
+            'surveys' => array()
         ));
 
         foreach ($request_surveys as $survey_name => $survey_fields) {
             $request['run']['surveys'][] = (object) array(
-                        'name' => $survey_name,
-                        'items' => $survey_fields,
+                'name' => $survey_name,
+                'items' => $survey_fields,
             );
         }
 
@@ -79,7 +65,7 @@ class ApiHelper {
             return $this;
         }
         $requested_run = $request->run;
-
+        
         // Determine which surveys in the run for which to collect data
         if (!empty($requested_run->survey)) {
             $surveys = array($requested_run->survey);
@@ -89,17 +75,9 @@ class ApiHelper {
             $surveys = array();
             $run_surveys = $run->getAllSurveys();
             foreach ($run_surveys as $survey) {
-                /**  @var Survey $svy */
-                $svy = Survey::loadById($survey['id']);
-                $items = $svy->getItems('id, type, name');
-                $items_names = array();
-                foreach ($items as $item) {
-                    $items_names[] = $item['name'];
-                }
-                $surveys[] = (object) array(
-                            'name' => $svy->name,
-                            'items' => implode(',', $items_names),
-                            'object' => $svy,
+                 $surveys[] = (object) array(
+                    'name' => $survey['name'],
+                    'items' => null,
                 );
             }
         }
@@ -109,53 +87,16 @@ class ApiHelper {
         if (!empty($requested_run->session)) {
             $requested_run->sessions = array($requested_run->session);
         }
-        // If no specific sessions are requested then return all sessions
-        if (empty($requested_run->sessions)) {
-            $sessions = $this->fdb->find('survey_run_sessions', array('run_id' => $run->id), array('cols' => 'session'));
-            foreach ($sessions as $sess) {
-                $requested_run->sessions[] = $sess['session'];
-            }
-        }
 
         // If sessions are still not available then run is empty
-        if (empty($requested_run->sessions)) {
+        if (!$this->fdb->count('survey_run_sessions', array('run_id' => $run->id), 'id')) {
             $this->setData(Response::STATUS_NOT_FOUND, 'Empty Run', null, 'No sessions were found in this run.');
             return $this;
         }
 
-
-        // Get result for each survey for each session
         $results = array();
         foreach ($surveys as $s) {
-            if (empty($s->name)) {
-                continue;
-            }
-            if (empty($s->object)) {
-                $s->object = Survey::loadByUserAndName($this->user, $s->name);
-            }
-
-            /** @var Survey $svy */
-            $svy = $s->object;
-            if (empty($svy->valid)) {
-                $results[$s->name] = null;
-                continue;
-            }
-
-            if (empty($s->items)) {
-                $items = array();
-            } elseif (is_array($s->items)) {
-                $items = array_map('trim', $s->items);
-            } elseif (is_string($s->items)) {
-                $items = array_map('trim', explode(',', $s->items));
-            } else {
-                throw new Exception("Invalid type for survey items. Type: " . gettype($s->itmes));
-            }
-
-            //Get data for all requested sessions in this survey
-            $results[$s->name] = array();
-            foreach ($requested_run->sessions as $session) {
-                $results[$s->name] = array_merge($results[$s->name], $this->getSurveyResults($svy, $session, $items));
-            }
+            $results[$s->name] = $this->getSurveyResults($run, $s->name, $s->items, $requested_run->sessions);
         }
 
         $this->setData(Response::STATUS_OK, 'OK', $results);
@@ -301,34 +242,64 @@ class ApiHelper {
         }
         return $object;
     }
-
-    private function getSurveyResults(Survey $survey, $session = null, $requested_items = array()) {
-        $data = $survey->getItemDisplayResults($requested_items, array('session' => $session));
-        // Get requested item names to match by id
-        $select = $this->fdb->select('id, name')
-                ->from('survey_items')
-                ->where(array('study_id' => $survey->id));
-        if ($requested_items) {
-            $select->whereIn('name', $requested_items);
-        }
-        $stmt = $select->statement();
-        $items = array();
-        while (($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
-            $items[$row['id']] = $row['name'];
-        }
-
+  
+    private function getSurveyResults(Run $run, $survey_name, $survey_items = null, $sessions = null) {
         $results = array();
-        foreach ($data as $row) {
-            if (!isset($items[$row['item_id']])) {
-                continue;
-            }
-            $session_id = $row['unit_session_id'];
+        $query = $query = $this->buildSurveyResultsQuery($run, $survey_name, $survey_items, $sessions);
+        $stmt = $this->fdb->query($query, true);
+
+        while (($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
+            $session_id = $row['session_id'];
             if (!isset($results[$session_id])) {
-                $results[$session_id] = array('session' => $session, 'created' => $row['created']);
+                $results[$session_id] = array('session' => $row['run_session'], 'created' => $row['created']);
             }
-            $results[$session_id][$items[$row['item_id']]] = $row['answer'];
+            $results[$session_id][$row['item_name']] = $row['answer'];
         }
+
         return array_values($results);
+    }
+
+    private function buildSurveyResultsQuery(Run $run, $survey_name, $survey_items = null, $sessions = null) {
+        $params = array(
+            'run_id' => $run->id,
+            'user_id' => $this->user->id,
+            'survey_name' => $this->fdb->quote($survey_name),
+            'WHERE_survey_items' => null,
+            'WHERE_run_sessions' => null,
+        );
+                
+        $q = '
+            SELECT itms_display.item_id, itms_display.session_id, itms_display.answer, itms_display.created,
+                   survey_items.name AS item_name, survey_run_sessions.session AS run_session
+            FROM survey_items_display AS itms_display
+            LEFT JOIN survey_unit_sessions ON survey_unit_sessions.id = itms_display.session_id
+            LEFT JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id
+            LEFT JOIN survey_items ON survey_items.id = itms_display.item_id
+            LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
+            WHERE survey_studies.name = %{survey_name}
+            AND survey_studies.user_id = %{user_id}
+            AND survey_run_sessions.run_id = %{run_id}
+            %{WHERE_survey_items}
+            %{WHERE_run_sessions}
+        ';
+        
+        if ($survey_items && is_string($survey_items)) {
+            $itms = array();
+            foreach (explode(',', $survey_items) as $itm) {
+                $itms[] = $this->fdb->quote(trim($itm));
+            }
+            $params['WHERE_survey_items'] = ' AND survey_items.name IN (' . implode(',', $itms) . ') ';
+        }
+        
+        if ($sessions && is_array($sessions)) {
+            $or_like = array();
+            foreach ($sessions as $session) {
+                $or_like[] = " survey_run_sessions.session LIKE '{$session}%' ";
+            }
+            $params['WHERE_run_sessions'] = ' AND (' . implode('OR', $or_like) . ') ';
+        }
+        
+        return Template::replace($q, $params);
     }
 
 }
