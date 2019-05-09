@@ -17,7 +17,7 @@ class UnitSessionQueue extends Queue {
 
     public function run() {
         if (empty($this->config['use_queue'])) {
-            throw new Exception('Explicitely configure $settings[unit_session] to TRUE in order to use DB queuing.');
+            throw new Exception('Explicitely configure $settings[unit_session][use_queue] to TRUE in order to use DB queuing.');
         }
 
         // loop forever until terminated by SIGINT
