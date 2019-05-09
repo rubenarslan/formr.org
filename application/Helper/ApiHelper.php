@@ -64,6 +64,13 @@ class ApiHelper {
         if (!($run = $this->getRunFromRequest($request))) {
             return $this;
         }
+        
+        // If sessions are still not available then run is empty
+        if (!$this->fdb->count('survey_run_sessions', array('run_id' => $run->id), 'id')) {
+            $this->setData(Response::STATUS_NOT_FOUND, 'Empty Run', null, 'No sessions were found in this run.');
+            return $this;
+        }
+
         $requested_run = $request->run;
         
         // Determine which surveys in the run for which to collect data
@@ -86,12 +93,6 @@ class ApiHelper {
         // (For now let's prevent returning data of all sessions so this should be required)
         if (!empty($requested_run->session)) {
             $requested_run->sessions = array($requested_run->session);
-        }
-
-        // If sessions are still not available then run is empty
-        if (!$this->fdb->count('survey_run_sessions', array('run_id' => $run->id), 'id')) {
-            $this->setData(Response::STATUS_NOT_FOUND, 'Empty Run', null, 'No sessions were found in this run.');
-            return $this;
         }
 
         $results = array();
