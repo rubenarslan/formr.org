@@ -70,12 +70,12 @@ class Branch extends RunUnit {
 
     public function displayForRun($prepend = '') {
         $dialog = Template::get($this->getUnitTemplatePath(), array(
-                    'prepend' => $prepend,
-                    'condition' => $this->condition,
-                    'position' => $this->position,
-                    'ifTrue' => $this->if_true,
-                    'jump' => $this->automatically_jump,
-                    'goOn' => $this->automatically_go_on,
+            'prepend' => $prepend,
+            'condition' => $this->condition,
+            'position' => $this->position,
+            'ifTrue' => $this->if_true,
+            'jump' => $this->automatically_jump,
+            'goOn' => $this->automatically_go_on,
         ));
 
         return parent::runDialog($dialog);
@@ -151,7 +151,7 @@ class Branch extends RunUnit {
         }
 
         $result = (bool) $eval;
-
+        
         if ($result && ($this->automatically_jump || !$this->called_by_cron)) {
             // if condition is true and we're set to jump automatically, or if the user reacted
             return $this->jump();
