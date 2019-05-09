@@ -9,7 +9,7 @@ if (Config::get('in_maintenance')) {
 
 // If we are processing unit sessions via db queue then cron should not run
 if (Config::get('unit_session.use_queue')) {
-    echo "\nProcessing Sessions in DB Queue\n";
+    echo "\n Processing Sessions in DB Queue \n";
     exit(0);
 }
 
@@ -33,7 +33,7 @@ if (!empty($opts['n'])) {
     $params['process_run'] = $run;
 } else {
     $params['lockfile'] = APPLICATION_ROOT . 'tmp/cron.lock';
-    $params['logfile'] = $logfile = get_log_file('cron.log');
+    $params['logfile'] = get_log_file('cron.log');
     $params['process_run'] = false;
 }
 
