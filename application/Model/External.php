@@ -60,10 +60,10 @@ class External extends RunUnit {
 
     public function displayForRun($prepend = '') {
         $dialog = Template::get($this->getUnitTemplatePath(), array(
-                    'prepend' => $prepend,
-                    'address' => $this->address,
-                    'expire_after' => $this->expire_after,
-                    'api_end' => $this->api_end,
+            'prepend' => $prepend,
+            'address' => $this->address,
+            'expire_after' => $this->expire_after,
+            'api_end' => $this->api_end,
         ));
 
         return parent::runDialog($dialog);
