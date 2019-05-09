@@ -485,7 +485,7 @@ class RunUnit {
                 $this->survey_results['.formr$last_action_date'] = "NA";
                 $this->survey_results['.formr$last_action_time'] = "NA";
                 $last_action = $this->dbh->execute(
-                        "SELECT `survey_unit_sessions`.`created` FROM `survey_unit_sessions` 
+                    "SELECT `survey_unit_sessions`.`created` FROM `survey_unit_sessions` 
 					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 					WHERE `survey_run_sessions`.id  = :run_session_id AND `unit_id` = :unit_id AND `survey_unit_sessions`.`ended` IS NULL LIMIT 1", array('run_session_id' => $this->run_session_id, 'unit_id' => $this->id), true
                 );
@@ -719,7 +719,11 @@ class RunUnit {
         // If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
         if (empty($session) || $session->hasError()) {
             $ocpu_vars = $has_session_data ? $this->getUserDataInRun($source) : array();
-            $session = $email_embed ? opencpu_knitemail($source, $ocpu_vars, '', true) : opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->description, $this->run->footer_text);
+            if ($email_embed) {
+                $session = opencpu_knit_email($source, $ocpu_vars, '', true);
+            } else {
+                $session = opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->description, $this->run->footer_text);
+            }
 
             $files = $session->getFiles('knit.html');
             $images = $session->getFiles('/figure-html');
@@ -762,9 +766,10 @@ class RunUnit {
 
             if ($this->session_id && $cache_session) {
                 $set_report = $this->dbh->prepare(
-                        "INSERT INTO `survey_reports` (`session_id`, `unit_id`, `opencpu_url`, `created`, `last_viewed`) 
+                    "INSERT INTO `survey_reports` (`session_id`, `unit_id`, `opencpu_url`, `created`, `last_viewed`) 
 					VALUES  (:session_id, :unit_id, :opencpu_url,  NOW(), 	NOW() ) 
-					ON DUPLICATE KEY UPDATE opencpu_url = VALUES(opencpu_url), created = VALUES(created)");
+					ON DUPLICATE KEY UPDATE opencpu_url = VALUES(opencpu_url), created = VALUES(created)"
+                );
 
                 $set_report->bindParam(":unit_id", $this->id);
                 $set_report->bindParam(":opencpu_url", $opencpu_url);
