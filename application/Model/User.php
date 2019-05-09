@@ -147,11 +147,10 @@ class User {
             'verification_token' => $token
         ));
 
-        global $site;
-        $mail = $site->makeAdminMailer();
+        $mail = Site::getInstance()->makeAdminMailer();
         $mail->AddAddress($this->email);
         $mail->Subject = 'formr: confirm your email address';
-        $mail->Body = Template::get_replace('email/verify-email.txt', array(
+        $mail->Body = Template::get_replace('email/verify-email.ftpl', array(
             'site_url' => site_url(),
             'documentation_url' => site_url('documentation#help'),
             'verify_link' => $verify_link,
@@ -230,10 +229,10 @@ class User {
                 'reset_token' => $token
             ));
 
-            $mail = Site::getCurrentUser()->makeAdminMailer();
+            $mail = Site::getInstance()->makeAdminMailer();
             $mail->AddAddress($email);
             $mail->Subject = 'formr: forgot password';
-            $mail->Body = Template::get_replace('email/forgot-password.txt', array(
+            $mail->Body = Template::get_replace('email/forgot-password.ftpl', array(
                 'site_url' => site_url(),
                 'reset_link' => $reset_link,
             ));

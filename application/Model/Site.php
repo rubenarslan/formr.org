@@ -117,34 +117,34 @@ class Site {
     }
 
     public function makeAdminMailer() {
-        global $settings;
+        $settings = Config::get('email');
         $mail = new PHPMailer();
         $mail->SetLanguage("de", "/");
 
         $mail->IsSMTP();  // telling the class to use SMTP
         $mail->Mailer = "smtp";
-        $mail->Host = $settings['email']['host'];
-        $mail->Port = $settings['email']['port'];
-        if ($settings['email']['tls']) {
+        $mail->Host = $settings['host'];
+        $mail->Port = $settings['port'];
+        if ($settings['tls']) {
             $mail->SMTPSecure = 'tls';
         } else {
             $mail->SMTPSecure = 'ssl';
         }
-        if (isset($settings['email']['username'])) {
+        if (isset($settings['username'])) {
             $mail->SMTPAuth = true; // turn on SMTP authentication
-            $mail->Username = $settings['email']['username']; // SMTP username
-            $mail->Password = $settings['email']['password']; // SMTP password
+            $mail->Username = $settings['username']; // SMTP username
+            $mail->Password = $settings['password']; // SMTP password
         } else {
             $mail->SMTPAuth = false;
             $mail->SMTPSecure = false;
         }
-        $mail->From = $settings['email']['from'];
-        $mail->FromName = $settings['email']['from_name'];
-        $mail->AddReplyTo($settings['email']['from'], $settings['email']['from_name']);
+        $mail->From = $settings['from'];
+        $mail->FromName = $settings['from_name'];
+        $mail->AddReplyTo($settings['from'], $settings['from_name']);
         $mail->CharSet = "utf-8";
         $mail->WordWrap = 65; // set word wrap to 65 characters
-        if (is_array(Config::get('email.smtp_options'))) {
-            $mail->SMTPOptions = array_merge($mail->SMTPOptions, Config::get('email.smtp_options'));
+        if (is_array($settings['smtp_options'])) {
+            $mail->SMTPOptions = array_merge($mail->SMTPOptions, $settings['smtp_options']);
         }
 
         return $mail;
