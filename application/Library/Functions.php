@@ -939,7 +939,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 	' . $variables . '
 	' . $code . '
 })() }');
-
+    
     $uri = '/base/R/identity/' . $return_format;
     try {
         $session = OpenCPU::getInstance()->post($uri, $params);
@@ -1172,7 +1172,7 @@ opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
     return opencpu_knit2html($source, 'json', 0, $return_session);
 }
 
-function opencpu_knitemail($source, array $variables = null, $return_format = 'json', $return_session = false) {
+function opencpu_knit_email($source, array $variables = null, $return_format = 'json', $return_session = false) {
     if (!is_string($variables)) {
         $variables = opencpu_define_vars($variables);
     }
