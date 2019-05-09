@@ -42,16 +42,22 @@ class Cache {
     /**
      * Set cache data
      *
-     * @param string $key
-     * @param mixed $data
+     * @param string $key Key identifying element in cache
+     * @param mixed $data Cache data
+     * @param int $ttl Number of seconds before cache expires
      * @return string Returns the key/index of the cache data that can be used in Cache::get()
      */
-    public static function set($key, $data) {
+    public static function set($key, $data, $ttl = null) {
         if (!is_string($key)) {
             $key = self::makeKey($key);
         }
+        
+        if ($ttl === null) {
+            $ttl = 600;
+        }
+        $ttl = (int)$ttl;
 
-        self::$memory[$key] = $data;
+        self::$memory[$key] = array('ttl' => time() + $ttl, 'data' => $data);
         return $key;
     }
 
@@ -68,7 +74,10 @@ class Cache {
         }
 
         if (isset(self::$memory[$key])) {
-            $default = self::$memory[$key];
+            $cache = self::$memory[$key];
+            if ($cache['ttl'] >= time()) {
+                $default = $cache['data'];
+            }
         }
 
         return $default;
