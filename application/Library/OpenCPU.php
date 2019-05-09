@@ -17,11 +17,6 @@ class OpenCPU {
     protected static $instances = array();
 
     /**
-     * @var OpenCPU_Session[]
-     */
-    protected $cache = array();
-
-    /**
      * Additional curl options to set when making curl request
      *
      * @var Array 
@@ -127,13 +122,17 @@ class OpenCPU {
         return $this->curl_info;
     }
 
+    /**
+     * Send HTTP request to opencpu
+     *
+     * @uses CURL
+     * @param string $uri
+     * @param array $params
+     * @param tystringpe $method
+     * @return \OpenCPU_Session
+     * @throws OpenCPU_Exception
+     */
     private function call($uri = '', $params = array(), $method = CURL::HTTP_METHOD_GET) {
-        $cachekey = md5(serialize(func_get_args()));
-        if (isset($this->cache[$cachekey])) {
-            return $this->cache[$cachekey];
-        }
-
-
         if ($uri && strstr($uri, $this->baseUrl) === false) {
             $uri = "/" . ltrim($uri, "/");
             $url = $this->baseUrl . $this->libUri . $uri;
@@ -184,8 +183,7 @@ class OpenCPU {
             throw new OpenCPU_Exception("Response headers not gotten from request $request");
         }
 
-        $this->cache[$cachekey] = new OpenCPU_Session($headers['Location'], $headers['X-Ocpu-Session'], $results, $this);
-        return $this->cache[$cachekey];
+        return new OpenCPU_Session($headers['Location'], $headers['X-Ocpu-Session'], $results, $this);
     }
 
     /**
