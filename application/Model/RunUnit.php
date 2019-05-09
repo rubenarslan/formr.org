@@ -387,7 +387,7 @@ class RunUnit {
      * @return array
      */
     public function getUserDataInRun($q, $required = null) {
-        $cache_key = Cache::makeKey($q, $required, $this->session_id, $this->run_session_id);
+        $cache_key = Cache::makeKey(__METHOD__, $q, $required, $this->session_id, $this->run_session_id);
         if (($data = Cache::get($cache_key))) {
             return $data;
         }
@@ -534,11 +534,6 @@ class RunUnit {
     }
 
     protected function dataNeeded($q, $token_add = null) {
-        $cache_key = Cache::makeKey($q, $token_add);
-        if (($data = Cache::get($cache_key))) {
-            return $data;
-        }
-
         $matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
 
 //		$results = $this->run->getAllLinkedSurveys(); // fixme -> if the last reported email thing is known to work, we can turn this on
@@ -639,9 +634,7 @@ class RunUnit {
             $variables[] = 'formr_session_last_active';
         }
 
-        $data = compact("matches", "matches_results_tables", "matches_variable_names", "token_add", "variables");
-        Cache::set($cache_key, $data);
-        return $data;
+        return compact("matches", "matches_results_tables", "matches_variable_names", "token_add", "variables");
     }
 
     public function parseBodySpecial() {

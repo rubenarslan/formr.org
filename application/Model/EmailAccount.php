@@ -83,7 +83,7 @@ class EmailAccount {
 
         $mail->AddAddress($receiver);
         $mail->Subject = 'formr: account test success';
-        $mail->Body = Template::get('email/test-account.txt');
+        $mail->Body = Template::get('email/test-account.ftpl');
 
         if (!$mail->Send()) {
             alert('Account Test Failed: ' . $mail->ErrorInfo, 'alert-danger');

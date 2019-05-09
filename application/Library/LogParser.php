@@ -8,6 +8,7 @@ class LogParser {
     const LOG_MARKER_ALERTS_START = '<alerts>';
     const LOG_MARKER_ALERTS_END = '</alerts>';
     const LOG_MARKER_START_GM = 'Processing run >>>';
+    const LOG_COMMENT = '....';
 
     public function __construct() {
         
@@ -36,7 +37,7 @@ class LogParser {
         if ($handle) {
             while (($line = fgets($handle)) !== false) {
                 $line = trim($line);
-                if (!$line) {
+                if (!$line || strstr($line, self::LOG_COMMENT)) {
                     continue;
                 }
 

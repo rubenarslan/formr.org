@@ -9,21 +9,7 @@ class UnitSessionQueue extends Queue {
 
     protected $name = 'UnitSession-Queue';
 
-    /**
-     * Maximum sessions to be processed by each PHP process started for a queue operation
-     *
-     * @var int
-     */
-    protected $maxSessionsPerProcess;
-
-    /**
-     * Array to hold push query values (50 inserted at once)
-     *
-     * @var array
-     */
-    protected $pushQueries = array();
     protected $logFile = 'session-queue.log';
-    protected $cache;
 
     public function __construct(DB $db, array $config) {
         parent::__construct($db, $config);
@@ -124,17 +110,13 @@ class UnitSessionQueue extends Queue {
     }
 
     protected function setCache($type, $key, $value) {
-        if (!isset($this->cache[$type])) {
-            $this->cache[$type] = array();
-        }
-        $this->cache[$type][$key] = $value;
+        $cache_key = "{$type}.{$key}";
+        Cache::set($cache_key, $value);
     }
 
     protected function getCache($type, $key) {
-        if (!empty($this->cache[$type])) {
-            return array_val($this->cache[$type], $key, null);
-        }
-        return null;
+        $cache_key = "{$type}.{$key}";
+        return Cache::get($cache_key);
     }
 
     /**
@@ -196,6 +178,13 @@ class UnitSessionQueue extends Queue {
         }
     }
 
+    /**
+     * Find a UnitSession in the queue
+     *
+     * @param UnitSession $unitSession
+     * @param array $where
+     * @return boolean|array Returns FALSE if an item was not found or an array with queue information
+     */
     public static function findItem(UnitSession $unitSession, $where = array()) {
         if (!Config::get('unit_session.use_queue')) {
             return false;
