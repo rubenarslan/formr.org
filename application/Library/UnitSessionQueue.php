@@ -60,9 +60,12 @@ class UnitSessionQueue extends Queue {
      */
     protected function getSessionsStatement() {
         $now = time();
-        $query = "SELECT session, unit_session_id, run_session_id, unit_id, expires, execute, counter, run 
+        $query = "SELECT survey_sessions_queue.unit_session_id, survey_sessions_queue.run_session_id, survey_sessions_queue.unit_id, survey_sessions_queue.expires, survey_sessions_queue.execute, survey_sessions_queue.counter, survey_sessions_queue.run,
+                         survey_unit_sessions.id AS validate_unit_session_id,
+                         survey_run_sessions.session 
 				  FROM survey_sessions_queue 
 				  LEFT JOIN survey_run_sessions ON survey_sessions_queue.run_session_id = survey_run_sessions.id
+                  LEFT JOIN survey_unit_sessions ON survey_sessions_queue.unit_session_id = survey_unit_sessions.id
                   WHERE survey_sessions_queue.expires <= {$now} ORDER BY expires ASC
                   LIMIT {$this->limit} OFFSET {$this->offset}";
 
@@ -80,7 +83,7 @@ class UnitSessionQueue extends Queue {
         }
 
         while ($session = $sessionsStmt->fetch(PDO::FETCH_ASSOC)) {
-            if (!$session['session']) {
+            if (!$session['session'] || $session['unit_session_id'] != $session['validate_unit_session_id']) {
                 $this->dbg('A session could not be found for item in queue: ' . print_r($session, 1));
                 self::removeItem($session['unit_session_id'], $session['unit_id']);
                 continue;
