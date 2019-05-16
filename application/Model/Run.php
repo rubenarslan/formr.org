@@ -821,7 +821,7 @@ class Run {
                 }
 
                 Session::globalRefresh();
-                $output = $run_session->getUnit();
+                $output = $run_session->execute();
             } else {
                 $output = $this->getServiceMessage()->exec();
                 alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');

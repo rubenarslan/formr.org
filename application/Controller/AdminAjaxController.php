@@ -163,12 +163,16 @@ class AdminAjaxController {
         $run = $this->controller->run;
         $dbh = $this->dbh;
 
-        $run_session = new RunSession($dbh, $run->id, null, $this->request->str('session'), $run);
-        $new_position = $this->request->int('new_position');
+        $runSession = new RunSession($dbh, $run->id, 'cron', $this->request->str('session'), $run);
+        $position = $this->request->int('new_position');
 
-        if (!$run_session->forceTo($new_position)) {
+        if (!$runSession->forceTo($position)) {
             alert('<strong>Something went wrong with the position change.</strong> Run: ' . $run->name, 'alert-danger');
             $this->response->setStatusCode(500, 'Bad Request');
+        } else {
+            // execute current unit but don't return ouput
+            $runSession->execute();
+            alert('Session has been moved to desired position. If moved to a Branching Unit the sesion might have moved on.', 'alert-info');
         }
 
         if (Request::isAjaxRequest()) {

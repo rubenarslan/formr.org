@@ -141,13 +141,13 @@ class RunSession {
 
 
     /**
-     * Loop over units in Run for a session only you get a unit with output
+     * Loop over units in Run for a session until you get a unit with output
      *
      * @param int $referenceUnitId
      * @param boolean $executeReferenceUnit If TRUE, the first unit will be executed if it matches the referenceUnit
-     * @return boolean|int
+     * @return mixed
      */
-    public function getUnit($referenceUnitId = null, $executeReferenceUnit = false) {
+    public function execute($referenceUnitId = null, $executeReferenceUnit = false) {
         $i = 0;
         $done = array();
         $unit_factory = new RunUnitFactory();
