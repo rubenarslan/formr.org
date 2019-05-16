@@ -105,7 +105,7 @@ class UnitSessionQueue extends Queue {
             // Execute session again by getting current unit
             // This action might end or expire a session, thereby removing it from queue
             // or session might be re-queued to expire in x minutes
-            $rsUnit = $runSession->getUnit($session['unit_id'], $session['execute']);
+            $rsUnit = $runSession->execute($session['unit_id'], $session['execute']);
             if ($this->debug) {
                 $this->dbg('Proccessed: ' . print_r($session, 1));
             }
