@@ -196,5 +196,18 @@ class UnitSessionQueue extends Queue {
         $where['unit_session_id'] = $unitSession->id;
         return DB::getInstance()->findRow('survey_sessions_queue', $where, array('run_session_id', 'created', 'expires', 'run'));
     }
+    
+    public static function getRunItems(Run $run) {
+        $query = '
+          SELECT run_session_id, unit_session_id, session, position, unit_id, survey_sessions_queue.created, expires, counter, execute, survey_units.type as unit_type
+          FROM survey_sessions_queue
+          LEFT JOIN survey_run_sessions ON survey_run_sessions.id = survey_sessions_queue.run_session_id
+          LEFT JOIN survey_units ON survey_units.id = survey_sessions_queue.unit_id
+          WHERE run = :run
+          ORDER BY unit_session_id DESC
+        ';
+        
+        return DB::getInstance()->rquery($query, array('run' => $run->name));
+    }
 
 }

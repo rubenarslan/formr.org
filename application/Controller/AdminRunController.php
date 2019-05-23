@@ -536,7 +536,7 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
-    private function cronLogParsed() {
+    private function cronLogAction() {
         $parser = new LogParser();
         $parse = $this->run->name . '.log';
         $vars = get_defined_vars();
@@ -544,9 +544,13 @@ class AdminRunController extends AdminController {
         $this->setView('run/cron_log_parsed', $vars);
         return $this->sendResponse();
     }
-
-    private function cronLogAction() {
-        return $this->cronLogParsed();
+    
+    private function sessionsQueueAction() {
+        $this->setView('run/sessions_queue', array(
+            'stmt' => UnitSessionQueue::getRunItems($this->run),
+            'run_name' => $this->run->name
+        ));
+        return $this->sendResponse();
     }
 
     private function setRun($name) {
