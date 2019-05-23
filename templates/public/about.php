@@ -75,7 +75,7 @@ Template::loadChild('public/header');
                     </div>
 
                     <h3><i class="fa fa-fw fa-money"></i> Funding</h3>
-                    <p>Friedrich-Schiller-University Jena – <a href="http://dfg.de/">DFG</a> <a href="http://www.kompass.uni-jena.de">project "Kompass"</a>, PIs: <a href="http://www.uni-jena.de/en/Faculties/Social+and+Behavioral+Sciences/Institutes+_+Departments/Institute+of+Psychology/Departments/Differential+Psychology+and+Personality+Psychology/Personality+Psychology+and+Psychological+Assessment/Julia+Zimmermann.html">Julia Zimmermann</a>, <a href="https://www.uni-jena.de/Fakult%C3%A4ten/Sozial_+und+Verhaltenswissenschaften/Institute_Lehrst%C3%BChle/Institut+f%C3%BCr+Psychologie/Abteilungen/Lehrstuhl+f%C3%BCr+Differentielle+Psychologie_+Pers%C3%B6nlichkeitspsychologie+und+Psychologische+Diagnostik/Franz+Neyer.html">Franz J. Neyer</a>
+                    <p>Friedrich-Schiller-University Jena – <a href="http://dfg.de/">DFG</a> <a href="http://www.kompass.uni-jena.de">project "Kompass"</a>, PIs: <a href="https://fernuni-hagen.de/bildungspsychologie/team/julia.zimmermann.shtml">Julia Zimmermann</a>, <a href="https://www.psychologie.uni-jena.de/en/Departments/Personality+Psychology+_+Psychological+Diagnostics/staff/Franz+Neyer.html">Franz J. Neyer</a>
                     </p>
                     <p>Georg August University Göttingen – <a href="https://psych.uni-goettingen.de/en/biopers/team/penke">Lars Penke</a>, current hosting</p>
                     <p><a href="https://cos.io">Center for Open Science</a> – <a href="https://cos.io/pr/2015-09-24/">Open Contributor Grant</a> to Ruben Arslan and Cyril Tata. 
