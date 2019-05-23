@@ -437,18 +437,21 @@ class RunSession {
         return $dbh->query($query)->rowCount();
     }
 
-    public static function positionSessions($sessions, $position) {
+    public static function positionSessions(Run $run, $sessions, $position) {
         $dbh = DB::getInstance();
         if (is_string($sessions)) {
             $sessions = array($sessions);
         }
 
+        $count = 0;
         foreach ($sessions as $session) {
-            $qs[] = $dbh->quote($session);
+            $runSession = new RunSession($dbh, $run->id, 'cron', $session, $run);
+            if ($runSession->position != $position && $runSession->runTo($position)) {
+                $runSession->execute();
+                $count++;
+            }
         }
-
-        $query = 'UPDATE survey_run_sessions SET position = ' . $position . ' WHERE session IN (' . implode(',', $qs) . ')';
-        return $dbh->query($query)->rowCount();
+        return $count;
     }
 
     public static function getSentRemindersBySessionId($id) {

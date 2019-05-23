@@ -493,7 +493,7 @@ class AdminAjaxController {
             alert("{$count} selected session(s) were successfully deleted", 'alert-success');
             $res['success'] = true;
         } elseif ($action === 'positionSessions') {
-            $count = RunSession::positionSessions($sessions, $this->request->int('pos'));
+            $count = RunSession::positionSessions($this->controller->run, $sessions, $this->request->int('pos'));
             alert("{$count} selected session(s) were successfully moved", 'alert-success');
             $res['success'] = true;
         }
