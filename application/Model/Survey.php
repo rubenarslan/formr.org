@@ -1399,7 +1399,7 @@ class Survey extends RunUnit {
             $select->whereIn('list_name', $specific);
         }
         $select->order('id', 'ASC');
-
+        
         $lists = array();
         $stmt = $select->statement();
 
@@ -1640,7 +1640,7 @@ class Survey extends RunUnit {
         $addChoiceStmt->bindParam(":study_id", $this->id);
 
         foreach ($this->SPR->choices as $choice) {
-            $choice['label_parsed'] = '';
+            $choice['label_parsed'] = null;
 
             if (isset($choice['list_name']) && isset($choice['name']) && isset($choice['label'])) {
                 if (!$this->knittingNeeded($choice['label']) && empty($choice['label_parsed'])) { // if the parsed label is constant
