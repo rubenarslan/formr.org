@@ -349,12 +349,12 @@
     </div>
     <div class="panel panel-default">
         <div class="panel-heading">
-            <a class="accordion-toggle" data-toggle="collapse" href="#skip_forward">
+            <a class="accordion-toggle" data-toggle="collapse" href="#waiting_time">
                 <i class="fa-fw fa fa-hourglass-half pull-left fa-3x"></i>
                 Waiting Time<br>
                 <small>reminders</small></a>
         </div>
-        <div id="skip_forward" class="panel-collapse collapse skip_forward">
+        <div id="waiting_time" class="panel-collapse collapse skip_forward">
             <div class="panel-body">
                 <p>
                     Waiting Time are like Pauses, but instead of making the participant wait, we wait for the participant.

@@ -1723,7 +1723,7 @@ class Survey extends RunUnit {
         if ($whereIn) {
             $select->whereIn($whereIn['field'], $whereIn['values']);
         }
-        $select->order("order");
+        $select->order("item_order");
         return $select->fetchAll();
     }
 

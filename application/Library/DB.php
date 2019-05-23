@@ -133,15 +133,14 @@ class DB {
 
     /**
      * @param string $query
+     * @param array $params
      *
      * @return PDOStatement
      */
-    public function rquery($query) { //secured query with prepare and execute
-        $args = func_get_args();
-        array_shift($args); //first element is not an argument but the query itself, should removed
-
+    public function rquery($query, $params = array()) { //secured query with prepare and execute
         $stmt = $this->PDO->prepare($query);
-        $stmt->execute($args);
+        $stmt->execute($params);
+
         return $stmt;
     }
 

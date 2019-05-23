@@ -53,6 +53,8 @@
             <li><a href="<?php echo admin_run_url($run->name, 'random_groups'); ?>" title="This is simply your log of how users have been randomised"><i class="fa fa-random"></i> Random Group</a></li>
             <li><a href="<?php echo admin_run_url($run->name, 'email_log'); ?>" title="The log of every email sent from this run."><i class="fa fa-envelope" title="The log of every email sent from this run."></i> Emails Sent</a></li>
             <li><a href="<?php echo admin_run_url($run->name, 'cron_log'); ?>" title="The log of everything that happened without user interaction, i.e. when you click 'Play', like sending email reminders and checking whether pauses are over."><i class="fa fa-cog"></i> Cron </a></li>
+            <li><a href="<?php echo admin_run_url($run->name, 'sessions_queue'); ?>" title="Show elements waiting to be processed in the sessions queue"><i class="fa fa-th-list"></i> Sessions Queue </a></li>
+            
             <li class="dropdown"><a title="Most users prefer to export the surveys one-by-one in wide format. Here, you can download all data in all surveys in this run in long format." href="#" data-toggle="dropdown" aria-expanded="false" class="dropdown-toggle"><i class="fa fa-save"></i> Export Run Data</a>
                 <ul class="dropdown-menu">
                     <li><a href="<?php echo admin_run_url($run->name, 'export_data?format=csv'); ?>"><i class="fa fa-floppy-o"></i> Download CSV</a></li>
