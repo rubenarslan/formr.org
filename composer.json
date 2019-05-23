@@ -11,10 +11,22 @@
 			"email": "rubenarslan@gmail.com",
 			"homepage": "https://github.com/rubenarslan",
 			"role": "Developer"
+		},
+        {
+			"name": "Cyril Tata",
+			"email": "cyril.tata@gmail.com",
+			"homepage": "https://github.com/cyriltata",
+			"role": "Developer"
+		},
+        {
+			"name": "Matthias P. Walther",
+			"email": "m.walther@wwu.de",
+			"homepage": "https://github.com/mpw-wwu",
+			"role": "Developer"
 		}
 	],
     "require": {
-        "php": ">=5.4.0",
+        "php": ">=7.2.0",
         "erusev/parsedown": "1.*",
         "erusev/parsedown-extra": "0.*",
         "ircmaxell/password-compat": "1.*",
@@ -22,7 +34,6 @@
         "phpmailer/phpmailer": "5.*",
         "bshaffer/oauth2-server-php": "~1.7",
         "atrox/haikunator": "^1.0",
-        "mhlavac/gearman": "dev-master",
         "paragonie/halite": "^4"
     },
     "require-dev": {

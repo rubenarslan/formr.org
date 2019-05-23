@@ -1,6 +1,7 @@
 # Setup instructions for formr
 
-formr can run on Linux, Mac OS and Windows. However, we only have experience with and therefore recommend a Linux environment. The installation instructions detailed below are for a Debian 9 Environment but can be modified accordingly for other platforms.
+formr can run on Linux, Mac OS and Windows. However, we only have experience with Linux and therefore recommend a Linux environment. 
+The installation instructions detailed below are for a Debian 9 Environment but can be modified accordingly for other platforms.
 
 ## Virtual Machines
 
@@ -79,7 +80,7 @@ at [formr.org](https://formr.org).
 The following requirements should be installed on the system you intend to install formr on:
 
 * [Git](http://git-scm.com/) (for installation)
-* PHP ≥ 7.0
+* PHP ≥ 7.2
 	* composer
 	* php-curl
 	* php-fpm (often: php7.x-fpm e. g. php7.2-fpm)
@@ -96,8 +97,7 @@ The following requirements should be installed on the system you intend to insta
 * [The Sodium crypto library (Libsodium)](https://paragonie.com/book/pecl-libsodium/read/00-intro.md#installing-libsodium)
 	* The repository version of libsodium is currently incompatible to formR. Use [these instructions](https://github.com/paragonie/halite/issues/48) to set it up.
 	* The Branch devel supports libsodium23 v1.0.16 which is the default version on most current distributions.
-* [Gearman](http://gearman.org/) (Server + Client) *OPTIONAL* (for running background jobs)
-* [Supervisor](http://supervisord.org/) *OPTIONAL*
+* [Supervisor](http://supervisord.org/) *OPTIONAL*. Though optional, we recommend using supervisor for sending out email notifications in queues and well as processing uni sessions.
 * [smysqlin](https://bitbucket.org/cyriltata/smysqlin) *OPTIONAL* (for managing database patches)
 
 Paket list for copying:
@@ -151,7 +151,7 @@ To see the existing releases of formr, go to https://github.com/rubenarslan/form
 ```sh
     git fetch --tags && git checkout <release> -b <release>
 ```
-Suppose for example you want to run release *v0.12.0* `git fetch --tags && git checkout v0.12.0 -b v0.12.0`
+Suppose for example you want to run release *v0.18.0* `git fetch --tags && git checkout v0.18.0 -b v0.18.0`
 
 At this point you should have your formr files present in the installation directory. Go to the root of the installation directory and install the application dependencies by running
 
@@ -202,7 +202,7 @@ create a symbolic link to install the formr crontab in the system's crontab conf
 ```sh
     ln -s /path/to/formr/config/formr_crontab /etc/cron.d/formr
 ```
-* To use the formr deamon, you will need to install and setup [Gearman](http://gearman.org/) and [Supervisor](http://supervisord.org/).
+* To use the formr queues (for email and unit session processing), you will need to install and setup [Supervisor](http://supervisord.org/).
 formr comes with a programs supervisor config in `/path/to/formr/config/supervisord.conf`. Edit this file to suit your needs. This config can be added to supervisor's default
 config by creating a symbolic link as follows or moving the config file to supervisor's default config directory
 ```sh
