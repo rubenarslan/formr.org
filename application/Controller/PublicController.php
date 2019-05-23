@@ -59,11 +59,16 @@ class PublicController extends Controller {
             }
 
             // Change password
+            $passwords = array(
+                'email' => $this->user->email,
+                'password' => $this->request->str('password'),
+                'new_password' => $this->request->str('new_password'),
+            );
             if ($this->request->str('new_password')) {
                 if ($this->request->str('new_password') !== $this->request->str('new_password_c')) {
                     alert('The new passwords do not match', 'alert-danger');
                     $vars['showform'] = 'show-form';
-                } elseif ($this->user->changePassword($this->request->str('password'), $this->request->str('new_password'))) {
+                } elseif ($this->user->changePassword($passwords)) {
                     alert('<strong>Success!</strong> Your password was changed! Please sign-in with your new password.', 'alert-success');
                     $redirect = 'logout';
                 } else {
