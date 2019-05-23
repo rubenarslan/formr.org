@@ -252,12 +252,13 @@ class User {
         Session::destroy();
     }
 
-    public function changePassword($password, $new_password) {
-        if (!$this->login($this->email, $password)) {
+    public function changePassword($info) {
+        if (!$this->login($info)) {
             $this->errors = array('The old password you entered is not correct.');
             return false;
         }
 
+        $new_password = array_val($info, 'new_password');
         $hash = password_hash($new_password, PASSWORD_DEFAULT);
         /* Store new hash in db */
         if ($hash) {
@@ -270,7 +271,7 @@ class User {
     }
 
     public function changeData($password, $data) {
-        if (!$this->login($this->email, $password)) {
+        if (!$this->login(['email' => $this->email, 'password' => $password])) {
             $this->errors = array('The old password you entered is not correct.');
             return false;
         }
