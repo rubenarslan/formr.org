@@ -1,3 +1,5 @@
 <?php
 
-class Browser_Item extends Server_Item {}
+class Browser_Item extends Server_Item {
+    
+}

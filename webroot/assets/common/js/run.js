@@ -104,8 +104,9 @@
         }
 
         this.run.lock(this.run.lock_toggle.hasClass("btn-checked"), this.block);
+        this.save_button.unbind('click');
         this.save_button.attr('disabled', true).removeClass('btn-info').text('Saved').click($.proxy(this.save, this));
-                
+
     };
 
     RunUnit.prototype.position_changes = function (e) {
@@ -185,6 +186,7 @@
                     if (data !== '') { // when things change a lot
                         $.proxy(this.init(data), this);
                     } else { // quicker, less wasteful
+                        this.save_button.unbind('click');
                         this.save_button.attr('disabled', true).removeClass('btn-info').text('Saved')
                                 .click($.proxy(this.save, this));
                         this.unsavedChanges = false;
@@ -307,7 +309,7 @@
         }
         return myself;
     };
-
+    
     function Run(run_form) {
         if (typeof this.autosaved === 'undefined') {
             this.lastSave = $.now(); // only set when loading the first time
