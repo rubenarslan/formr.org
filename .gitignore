@@ -29,8 +29,7 @@ tests/test.php
 nohup.out
 webroot/assets/*.mp4
 webroot/assets/*.html
-
 webroot/assets/bower_components
 webroot/assets/lib/bower_components
-
+/bin/migra.php
 /*.key
