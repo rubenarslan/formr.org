@@ -64,7 +64,7 @@ class PublicController extends Controller {
                 'password' => $this->request->str('password'),
                 'new_password' => $this->request->str('new_password'),
             );
-            if ($this->request->str('new_password')) {
+            if ($passwords['new_password']) {
                 if ($this->request->str('new_password') !== $this->request->str('new_password_c')) {
                     alert('The new passwords do not match', 'alert-danger');
                     $vars['showform'] = 'show-form';

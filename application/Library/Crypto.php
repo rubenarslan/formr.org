@@ -40,14 +40,6 @@ class Crypto {
         return self::$key;
     }
 
-    private static function doWeNeedHiddenStrings() {
-        if (class_exists('\ParagonIE\Halite\HiddenString')) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
     /**
      * Encrypt Data
      *
@@ -59,7 +51,7 @@ class Crypto {
         if (is_array($data)) {
             $data = implode($glue, $data);
         }
-        if (self::doWeNeedHiddenStrings() && !$data instanceof \ParagonIE\Halite\HiddenString) {
+        if (class_exists('\ParagonIE\Halite\HiddenString') && !$data instanceof \ParagonIE\Halite\HiddenString) {
             $data = new \ParagonIE\Halite\HiddenString($data, true);
         }
         try {
