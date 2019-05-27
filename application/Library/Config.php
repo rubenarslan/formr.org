@@ -1,11 +1,12 @@
 <?php
 
-/* 
+/*
  * Load settings (/config/settings.php) in a globally accesible object
  *
  */
 
 class Config {
+
     /**
      * @var array
      */
@@ -52,5 +53,5 @@ class Config {
         }
         return self::searchArray($array[$key], implode('.', $keys), $default);
     }
-}
 
+}
