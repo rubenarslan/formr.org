@@ -1,11 +1,12 @@
 <?php
-/* 
+
+require_once('../application/Library/Config.php');
+
+/*
  * Test Config class
  */
 
-#phpunit --bootstrap ../Library/Config.php ConfigTest
-
-class ConfigTest extends PHPUnit_Framework_TestCase {
+class ConfigTest extends PHPUnit\Framework\TestCase {
 
     public function configProvider() {
         $settings = array(
@@ -42,4 +43,3 @@ class ConfigTest extends PHPUnit_Framework_TestCase {
     }
 
 }
-
