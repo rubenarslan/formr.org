@@ -142,6 +142,9 @@ class Branch extends RunUnit {
         if ($eval === null) {
             return true; // don't go anywhere, wait for the error to be fixed!
         }
+        if (is_array($eval)) {
+            $eval = array_shift($eval);
+        }
 
         // If execution returned a timestamp in the future, then branching evaluates to FALSE
         if (($time = strtotime($eval)) && $time >= time()) {
