@@ -228,8 +228,8 @@ class Request {
         return $value;
     }
 
-    public function redirect($uri = '') {
-        redirect_to($uri);
+    public function redirect($uri = '', $params = array()) {
+        redirect_to($uri, $params);
     }
 
 }
