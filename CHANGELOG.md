@@ -2,6 +2,16 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.18.0] - 27.05.2017
+### Added
+- A new queuing system to process run sessions
+- An overview of sessions waiting in queue
+- A new Run Unit called Waiting Time (see documentation)
+
+### Changed
+- Optimizing the getting of results over the API
+- Some minor bug fixes
+
 ## [0.17.21] - 25.02.2019
 * Minor bug fixes
 

@@ -2,333 +2,305 @@
 
 class ApiHelper {
 
-	/**
-	 * @var DB
-	 */
-	protected $fdb;
+    /**
+     * @var DB
+     */
+    protected $fdb;
 
-	/**
-	 * @var Request
-	 */
-	protected $request;
+    /**
+     * @var Request
+     */
+    protected $request;
 
-	/**
-	 * A conainer to hold processed request's outcome
-	 *
-	 * @var array
-	 */
-	protected $data = array(
-		'statusCode' => Response::STATUS_OK,
-		'statusText' => 'OK',
-		'response' => array(),
-	);
+    /**
+     * A conainer to hold processed request's outcome
+     *
+     * @var array
+     */
+    protected $data = array(
+        'statusCode' => Response::STATUS_OK,
+        'statusText' => 'OK',
+        'response' => array(),
+    );
 
-	/**
-	 * Formr user object current accessing data
-	 * @var User
-	 */
-	protected $user = null;
+    /**
+     * Formr user object current accessing data
+     * @var User
+     */
+    protected $user = null;
 
-	/**
-	 * Error information
-	 *
-	 * @var array
-	 */
-	protected $error = array();
+    /**
+     * Error information
+     *
+     * @var array
+     */
+    protected $error = array();
 
-	public function __construct(Request $request, DB $db) {
-		$this->fdb = $db;
-		$this->request = $request;
-		$this->user = OAuthHelper::getInstance()->getUserByAccessToken($this->request->getParam('access_token'));
-	}
+    public function __construct(Request $request, DB $db) {
+        $this->fdb = $db;
+        $this->request = $request;
+        $this->user = OAuthHelper::getInstance()->getUserByAccessToken($this->request->getParam('access_token'));
+    }
 
-	public function results() {
-		/**
-		 * $request in this method is expected to be an object of the following format
-		 * $request = '{
-		 * 		run: {
-		 * 			name: 'some_run_name',
-		 * 			api_secret: 'run_api_secret_as_show_in_run_settings'
-		 *			surveys: [{
-		 *				name: 'survey_name',
-		 *				items: 'name, email, pov_1'
-		 *			}],
-		 *			sessions: ['xxxx', 'xxxx']
-		 * 		}
-		 * }'
-		 */
+    public function results() {
+        // Get run object from request
+        $request_run = $this->request->arr('run');
+        $request_surveys = $this->request->arr('surveys');
+        $request = array('run' => array(
+            'name' => array_val($request_run, 'name', null),
+            'session' => array_val($request_run, 'session', null),
+            'sessions' => array_filter(explode(',', array_val($request_run, 'sessions', false))),
+            'surveys' => array()
+        ));
 
-		// Get run object from request
-		$request_run = $this->request->arr('run');
-		$request_surveys = $this->request->arr('surveys');
-		$request = array('run' => array(
-			'name' => array_val($request_run, 'name', null),
-			'session' => array_val($request_run, 'session', null),
-			'sessions' => array_filter(explode(',', array_val($request_run, 'sessions', false))),
-			'surveys' => array()
-		));
-		foreach ($request_surveys as $survey_name => $survey_fields) {
-			$request['run']['surveys'][] = (object)array(
-				'name' => $survey_name,
-				'items' => $survey_fields,
-			);
-		}
+        foreach ($request_surveys as $survey_name => $survey_fields) {
+            $request['run']['surveys'][] = (object) array(
+                'name' => $survey_name,
+                'items' => $survey_fields,
+            );
+        }
 
-		$request = json_decode(json_encode($request));
-		if (!($run = $this->getRunFromRequest($request))) {
-			return $this;
-		}
-		$requested_run = $request->run;
+        $request = json_decode(json_encode($request));
+        if (!($run = $this->getRunFromRequest($request))) {
+            return $this;
+        }
+        
+        // If sessions are still not available then run is empty
+        if (!$this->fdb->count('survey_run_sessions', array('run_id' => $run->id), 'id')) {
+            $this->setData(Response::STATUS_NOT_FOUND, 'Empty Run', null, 'No sessions were found in this run.');
+            return $this;
+        }
 
-		// Determine which surveys in the run for which to collect data
-		if (!empty($requested_run->survey)) {
-			$surveys = array($requested_run->survey);
-		} elseif (!empty($requested_run->surveys)) {
-			$surveys = $requested_run->surveys;
-		} else {
-			$surveys = array();
-			$run_surveys = $run->getAllSurveys();
-			foreach ($run_surveys as $survey) {
-				/**  @var Survey $svy */
-				$svy = Survey::loadById($survey['id']);
-				$items = $svy->getItems('id, type, name');
-				$items_names = array();
-				foreach ($items as $item) {
-					$items_names[] = $item['name'];
-				}
-				$surveys[] = (object) array(
-					'name' => $svy->name,
-					'items' => implode(',', $items_names),
-					'object' => $svy,
-				);
-			}
-		}
+        $requested_run = $request->run;
+        
+        // Determine which surveys in the run for which to collect data
+        if (!empty($requested_run->survey)) {
+            $surveys = array($requested_run->survey);
+        } elseif (!empty($requested_run->surveys)) {
+            $surveys = $requested_run->surveys;
+        } else {
+            $surveys = array();
+            $run_surveys = $run->getAllSurveys();
+            foreach ($run_surveys as $survey) {
+                 $surveys[] = (object) array(
+                    'name' => $survey['name'],
+                    'items' => null,
+                );
+            }
+        }
 
-		// Determine which run sessions in the run will be returned.
-		// (For now let's prevent returning data of all sessions so this should be required)
-		if (!empty($requested_run->session)) {
-			$requested_run->sessions = array($requested_run->session);
-		}
-		// If no specific sessions are requested then return all sessions
-		if (empty($requested_run->sessions)) {
-			$sessions = $this->fdb->find('survey_run_sessions', array('run_id' => $run->id), array('cols' => 'session'));
-			foreach ($sessions as $sess) {
-				$requested_run->sessions[] = $sess['session'];
-			}
-		}
+        // Determine which run sessions in the run will be returned.
+        // (For now let's prevent returning data of all sessions so this should be required)
+        if (!empty($requested_run->session)) {
+            $requested_run->sessions = array($requested_run->session);
+        }
 
-		// If sessions are still not available then run is empty
-		if (empty($requested_run->sessions)) {
-			$this->setData(Response::STATUS_NOT_FOUND, 'Empty Run', null, 'No sessions were found in this run.');
-			return $this;
-		}
+        $results = array();
+        foreach ($surveys as $s) {
+            $results[$s->name] = $this->getSurveyResults($run, $s->name, $s->items, $requested_run->sessions);
+        }
 
+        $this->setData(Response::STATUS_OK, 'OK', $results);
+        return $this;
+    }
 
-		// Get result for each survey for each session
-		$results = array();
-		foreach ($surveys as $s) {
-			if (empty($s->name)) {
-				continue;
-			}
-			if (empty($s->object)) {
-				$s->object = Survey::loadByUserAndName($this->user, $s->name);
-			}
+    public function createSession() {
+        if (!($request = $this->parseJsonRequest()) || !($run = $this->getRunFromRequest($request))) {
+            return $this;
+        }
 
-			/** @var Survey $svy */
-			$svy = $s->object;
-			if (empty($svy->valid)) {
-				$results[$s->name] = null;
-				continue;
-			}
+        $i = 0;
+        $run_session = new RunSession($this->fdb, $run->id, null, null, null);
+        $code = null;
+        if (!empty($request->run->code)) {
+            $code = $request->run->code;
+        }
 
-			if (empty($s->items)) {
-				$items = array();
-			} elseif (is_array($s->items)) {
-				$items = array_map('trim', $s->items);
-			} elseif (is_string($s->items)) {
-				$items = array_map('trim', explode(',', $s->items));
-			} else {
-				throw new Exception("Invalid type for survey items. Type: " . gettype($s->itmes));
-			}
+        if (!is_array($code)) {
+            $code = array($code);
+        }
 
-			//Get data for all requested sessions in this survey
-			$results[$s->name] = array();
-			foreach ($requested_run->sessions as $session) {
-				$results[$s->name] = array_merge($results[$s->name], $this->getSurveyResults($svy, $session, $items));
-			}
-		}
+        $sessions = array();
+        foreach ($code as $session) {
+            if (($created = $run_session->create($session))) {
+                $sessions[] = $run_session->session;
+                $i++;
+            }
+        }
 
-		$this->setData(Response::STATUS_OK, 'OK', $results);
-		return $this;
-	}
+        if ($i) {
+            $this->setData(Response::STATUS_OK, 'OK', array('created_sessions' => $i, 'sessions' => $sessions));
+        } else {
+            $this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', null, 'Error occured when creating session');
+        }
 
-	public function createSession() {
-		if (!($request = $this->parseJsonRequest()) || !($run = $this->getRunFromRequest($request))) {
-			return $this;
-		}
+        return $this;
+    }
 
-		$i = 0;
-		$run_session = new RunSession($this->fdb, $run->id, null, null, null);
-		$code = null;
-		if (!empty($request->run->code)) {
-			$code = $request->run->code;
-		}
+    public function endLastExternal() {
+        if (!($request = $this->parseJsonRequest())) {
+            return $this;
+        }
 
-		if (!is_array($code)) {
-			$code = array($code);
-		}
+        $run = new Run($this->fdb, $request->run->name);
+        if (!$run->valid) {
+            $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run');
+            return $this;
+        }
 
-		$sessions = array();
-		foreach ($code as $session) {
-			if (($created = $run_session->create($session))) {
-				$sessions[] = $run_session->session;
-				$i++;
-			}
-		}
+        if (!empty($request->run->session)) {
+            $session_code = $request->run->session;
+            $run_session = new RunSession($this->fdb, $run->id, null, $session_code, null);
 
-		if ($i) {
-			$this->setData(Response::STATUS_OK, 'OK', array('created_sessions' => $i, 'sessions' => $sessions));
-		} else {
-			$this->setData(Response::STATUS_INTERNAL_SERVER_ERROR, 'Error Request', null, 'Error occured when creating session');
-		}
+            if ($run_session->session !== NULL) {
+                $run_session->endLastExternal();
+                $this->setData(Response::STATUS_OK, 'OK', array('success' => 'external unit ended'));
+            } else {
+                $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid user session');
+            }
+        } else {
+            $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Session code not found');
+        }
 
-		return $this;
-	}
+        return $this;
+    }
 
-	public function endLastExternal() {
-		if (!($request = $this->parseJsonRequest())) {
-			return $this;
-		}
+    public function getData() {
+        return $this->data;
+    }
 
-		$run = new Run($this->fdb, $request->run->name);
-		if (!$run->valid) {
-			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run');
-			return $this;
-		}
+    /**
+     * Get Run object from an API request
+     * $request object must have a root element called 'run' which must have child elements called 'name' and 'api_secret'
+     * Example:
+     * $request = '{
+     * 		run: {
+     * 			name: 'some_run_name',
+     * 			api_secret: 'run_api_secret_as_show_in_run_settings'
+     * 		}
+     * }'
+     *
+     * @param object $request A JSON object of the sent request
+     * @return boolean|Run Returns a run object if a valid run is found or FALSE otherwise 
+     */
+    protected function getRunFromRequest($request) {
+        if (empty($request->run->name)) {
+            $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Required "run : { name: }" parameter not found.');
+            return false;
+        }
 
-		if (!empty($request->run->session)) {
-			$session_code = $request->run->session;
-			$run_session = new RunSession($this->fdb, $run->id, null, $session_code, null);
+        $run = new Run($this->fdb, $request->run->name);
+        if (!$run->valid || !$this->user) {
+            $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run or run/user not found');
+            return false;
+        } elseif (!$this->user->created($run)) {
+            $this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', null, 'Unauthorized access to run');
+            return false;
+        }
 
-			if ($run_session->session !== NULL) {
-				$run_session->endLastExternal();
-				$this->setData(Response::STATUS_OK, 'OK', array('success' => 'external unit ended'));
-			} else {
-				$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid user session');
-			}
-		} else {
-			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Session code not found');
-		}
+        return $run;
+    }
 
-		return $this;
-	}
+    private function setData($statusCode = null, $statusText = null, $response = null, $error = null) {
+        if ($error !== null) {
+            $this->setError($statusCode, $statusText, $error);
+            return $this->setData($statusCode, $statusText, $this->error);
+        }
 
-	public function getData() {
-		return $this->data;
-	}
+        if ($statusCode !== null) {
+            $this->data['statusCode'] = $statusCode;
+        }
+        if ($statusText !== null) {
+            $this->data['statusText'] = $statusText;
+        }
+        if ($response !== null) {
+            $this->data['response'] = $response;
+        }
+    }
 
-	/**
-	 * Get Run object from an API request
-	 * $request object must have a root element called 'run' which must have child elements called 'name' and 'api_secret'
-	 * Example:
-	 * $request = '{
-	 * 		run: {
-	 * 			name: 'some_run_name',
-	 * 			api_secret: 'run_api_secret_as_show_in_run_settings'
-	 * 		}
-	 * }'
-	 *
-	 * @param object $request A JSON object of the sent request
-	 * @return boolean|Run Returns a run object if a valid run is found or FALSE otherwise 
-	 */
-	protected function getRunFromRequest($request) {
-		if (empty($request->run->name)) {
-			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Required "run : { name: }" parameter not found.');
-			return false;
-		}
+    private function setError($code = null, $error = null, $desc = null) {
+        if ($code !== null) {
+            $this->error['error_code'] = $code;
+        }
+        if ($error !== null) {
+            $this->error['error'] = $error;
+        }
+        if ($desc !== null) {
+            $this->error['error_description'] = $desc;
+        }
+    }
 
-		$run = new Run($this->fdb, $request->run->name);
-		if(!$run->valid || !$this->user) {
-			$this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run or run/user not found');
-			return false;
-		} elseif (!$this->user->created($run)) {
-			$this->setData(Response::STATUS_UNAUTHORIZED, 'Unauthorized Access', null, 'Unauthorized access to run');
-			return false;
-		}
+    private function parseJsonRequest() {
+        $request = $this->request->str('request', null) ? $this->request->str('request') : file_get_contents('php://input');
+        if (!$request) {
+            $this->setData(Response::STATUS_BAD_REQUEST, 'Invalid Request', null, "Request payload not found");
+            return false;
+        }
+        $object = json_decode($request);
+        if (!$object) {
+            $this->setData(Response::STATUS_BAD_REQUEST, 'Invalid Request', null, "Unable to parse JSON request");
+            return false;
+        }
+        return $object;
+    }
+  
+    private function getSurveyResults(Run $run, $survey_name, $survey_items = null, $sessions = null) {
+        $results = array();
+        $query = $query = $this->buildSurveyResultsQuery($run, $survey_name, $survey_items, $sessions);
+        $stmt = $this->fdb->query($query, true);
 
-		return $run;
-	}
+        while (($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
+            $session_id = $row['session_id'];
+            if (!isset($results[$session_id])) {
+                $results[$session_id] = array('session' => $row['run_session'], 'created' => $row['created']);
+            }
+            $results[$session_id][$row['item_name']] = $row['answer'];
+        }
 
-	private function setData($statusCode = null, $statusText = null, $response = null, $error = null) {
-		if ($error !== null) {
-			$this->setError($statusCode, $statusText, $error);
-			return $this->setData($statusCode, $statusText, $this->error);
-		}
+        return array_values($results);
+    }
 
-		if ($statusCode !== null) {
-			$this->data['statusCode'] = $statusCode;
-		}
-		if ($statusText !== null) {
-			$this->data['statusText'] = $statusText;
-		}
-		if ($response !== null) {
-			$this->data['response'] = $response;
-		}
-	}
-
-	private function setError($code = null, $error = null, $desc = null) {
-		if ($code !== null) {
-			$this->error['error_code'] = $code;
-		}
-		if ($error !== null) {
-			$this->error['error'] = $error;
-		}
-		if ($desc !== null) {
-			$this->error['error_description'] = $desc;
-		}
-	}
-
-	private function parseJsonRequest() {
-		$request = $this->request->str('request', null) ? $this->request->str('request') : file_get_contents('php://input');
-		if (!$request) {
-			$this->setData(Response::STATUS_BAD_REQUEST, 'Invalid Request', null, "Request payload not found");
-			return false;
-		}
-		$object = json_decode($request);
-		if (!$object) {
-			$this->setData(Response::STATUS_BAD_REQUEST, 'Invalid Request', null, "Unable to parse JSON request");
-			return false;
-		}
-		return $object;
-	}
-
-	private function getSurveyResults(Survey $survey, $session = null, $requested_items = array()) {
-		$data = $survey->getItemDisplayResults($requested_items, array('session' => $session));
-		// Get requested item names to match by id
-		$select = $this->fdb->select('id, name')
-			->from('survey_items')
-			->where(array('study_id' => $survey->id));
-		if ($requested_items) {
-			$select->whereIn('name', $requested_items);
-		}
-		$stmt = $select->statement();
-		$items = array();
-		while (($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
-			$items[$row['id']] = $row['name'];
-		}
-
-		$results = array();
-		foreach ($data as $row) {
-			if (!isset($items[$row['item_id']])) {
-				continue;
-			}
-			$session_id = $row['unit_session_id'];
-			if (!isset($results[$session_id])) {
-				$results[$session_id] =  array('session' => $session);
-			}
-			$results[$session_id][$items[$row['item_id']]] = $row['answer'];
-		}
-		return array_values($results);
-	}
+    private function buildSurveyResultsQuery(Run $run, $survey_name, $survey_items = null, $sessions = null) {
+        $params = array(
+            'run_id' => $run->id,
+            'user_id' => $this->user->id,
+            'survey_name' => $this->fdb->quote($survey_name),
+            'WHERE_survey_items' => null,
+            'WHERE_run_sessions' => null,
+        );
+                
+        $q = '
+            SELECT itms_display.item_id, itms_display.session_id, itms_display.answer, itms_display.created,
+                   survey_items.name AS item_name, survey_run_sessions.session AS run_session
+            FROM survey_items_display AS itms_display
+            LEFT JOIN survey_unit_sessions ON survey_unit_sessions.id = itms_display.session_id
+            LEFT JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id
+            LEFT JOIN survey_items ON survey_items.id = itms_display.item_id
+            LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
+            WHERE survey_studies.name = %{survey_name}
+            AND survey_studies.user_id = %{user_id}
+            AND survey_run_sessions.run_id = %{run_id}
+            %{WHERE_survey_items}
+            %{WHERE_run_sessions}
+        ';
+        
+        if ($survey_items && is_string($survey_items)) {
+            $itms = array();
+            foreach (explode(',', $survey_items) as $itm) {
+                $itms[] = $this->fdb->quote(trim($itm));
+            }
+            $params['WHERE_survey_items'] = ' AND survey_items.name IN (' . implode(',', $itms) . ') ';
+        }
+        
+        if ($sessions && is_array($sessions)) {
+            $or_like = array();
+            foreach ($sessions as $session) {
+                $or_like[] = " survey_run_sessions.session LIKE '{$session}%' ";
+            }
+            $params['WHERE_run_sessions'] = ' AND (' . implode('OR', $or_like) . ') ';
+        }
+        
+        return Template::replace($q, $params);
+    }
 
 }

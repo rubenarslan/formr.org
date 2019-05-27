@@ -1,0 +1,27 @@
+{
+    "name": "Reminder",
+    "units": [
+        {
+            "type": "Wait",
+            "description": "send a reminder if participant doesn't react within 60 minutes",
+            "position": 10,
+            "special": "",
+            "wait_until_time": "",
+            "wait_until_date": "",
+            "wait_minutes": 60,
+            "relative_to": "",
+            "body": 30
+        },
+        {
+            "type": "Email",
+            "description": "Reminder",
+            "position": 20,
+            "special": "",
+            "account_id": 2,
+            "subject": "",
+            "recipient_field": "",
+            "body": "Hey,\r\n\r\ndidn't you forget about your favourite study?\r\n{{login_link}}",
+            "cron_only": 1
+        }
+    ]
+}

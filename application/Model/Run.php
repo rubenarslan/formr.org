@@ -27,345 +27,367 @@
  */
 class Run {
 
-	public $id = null;
-	public $name = null;
-	public $valid = false;
-	public $public = false;
-	public $cron_active = true;
-	public $cron_fork = false;
-	public $live = false;
-	public $user_id = null;
-	public $being_serviced = false;
-	public $locked = false;
-	public $errors = array();
-	public $messages = array();
-	public $custom_css_path = null;
-	public $custom_js_path = null;
-	public $header_image_path = null;
-	public $title = null;
-	public $description = null;
-	public $osf_project_id = null;
-	public $footer_text = null;
-	public $public_blurb = null;
-	public $use_material_design = false;
-	private $description_parsed = null;
-	private $footer_text_parsed = null;
-	private $public_blurb_parsed = null;
-	private $api_secret_hash = null;
-	private $owner = null;
-	private $run_settings = array(
-		"header_image_path", "title", "description",
-		"footer_text", "public_blurb", "custom_css",
-		"custom_js", "cron_active", "osf_project_id",
-		"use_material_design",
-	);
-	public $renderedDescAndFooterAlready = false;
+    public $id = null;
+    public $name = null;
+    public $valid = false;
+    public $public = false;
+    public $cron_active = true;
+    public $cron_fork = false;
+    public $live = false;
+    public $user_id = null;
+    public $being_serviced = false;
+    public $locked = false;
+    public $errors = array();
+    public $messages = array();
+    public $custom_css_path = null;
+    public $custom_js_path = null;
+    public $header_image_path = null;
+    public $title = null;
+    public $description = null;
+    public $osf_project_id = null;
+    public $footer_text = null;
+    public $public_blurb = null;
+    public $use_material_design = false;
+    public $expire_cookie = 0;
+    public $expire_cookie_value = 0;
+    public $expire_cookie_unit;
+    public $expire_cookie_units = array(
+        'seconds' => 'Seconds',
+        'minutes' => 'Minutes',
+        'hours' => 'Hours',
+        'days' => 'Days',
+        'months' => 'Months',
+        'years' => 'Years',
+    );
+    private $description_parsed = null;
+    private $footer_text_parsed = null;
+    private $public_blurb_parsed = null;
+    private $api_secret_hash = null;
+    private $owner = null;
+    private $run_settings = array(
+        "header_image_path", "title", "description",
+        "footer_text", "public_blurb", "custom_css",
+        "custom_js", "cron_active", "osf_project_id",
+        "use_material_design", "expire_cookie",
+        "expire_cookie_value", "expire_cookie_unit",
+    );
+    public $renderedDescAndFooterAlready = false;
 
-	/**
-	 * @var DB
-	 */
-	private $dbh;
+    /**
+     * @var DB
+     */
+    private $dbh;
 
-	const TEST_RUN = 'formr-test-run';
+    /**
+     *
+     * @var RunSession
+     */
+    public $activeRunSession;
 
-	public function __construct($fdb, $name) {
-		$this->dbh = $fdb;
+    const TEST_RUN = 'formr-test-run';
 
-		if ($name == self::TEST_RUN) {
-			$this->name = $name;
-			$this->valid = true;
-			$this->user_id = -1;
-			$this->id = -1;
-			return true;
-		}
+    public function __construct($fdb, $name) {
+        $this->dbh = $fdb;
 
-		if ($name !== null) {
-			$this->name = $name;
-			$this->load();
-		}
-	}
+        if ($name == self::TEST_RUN) {
+            $this->name = $name;
+            $this->valid = true;
+            $this->user_id = -1;
+            $this->id = -1;
+            return true;
+        }
 
-	protected function load() {
-		if (in_array($this->name, Config::get('reserved_run_names', array()))) {
-			return;
-		}
+        if ($name !== null) {
+            $this->name = $name;
+            $this->load();
+        }
+    }
 
-		$columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design";
-		$vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
+    protected function load() {
+        if (in_array($this->name, Config::get('reserved_run_names', array()))) {
+            return;
+        }
 
-		if ($vars) {
-			$this->id = $vars['id'];
-			$this->user_id = (int) $vars['user_id'];
-			$this->api_secret_hash = $vars['api_secret_hash'];
-			$this->created = (int)$vars['created'];
-			$this->modified = (int)$vars['modified'];
-			$this->public = (int)$vars['public'];
-			$this->cron_active = (int)$vars['cron_active'];
-			$this->cron_fork = (int)$vars['cron_fork'];
-			$this->locked = (int)$vars['locked'];
-			$this->header_image_path = $vars['header_image_path'];
-			$this->title = $vars['title'];
-			$this->description = $vars['description'];
-			$this->description_parsed = $vars['description_parsed'];
-			$this->footer_text = $vars['footer_text'];
-			$this->footer_text_parsed = $vars['footer_text_parsed'];
-			$this->public_blurb = $vars['public_blurb'];
-			$this->public_blurb_parsed = $vars['public_blurb_parsed'];
-			$this->custom_css_path = $vars['custom_css_path'];
-			$this->custom_js_path = $vars['custom_js_path'];
-			$this->osf_project_id = $vars['osf_project_id'];
-			$this->use_material_design = (bool)$vars['use_material_design'];
-			$this->valid = true;
-		}
-	}
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
+        $vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
 
-	public function getCronDues() {
-		$sessions = $this->dbh->select('session')
-				->from('survey_run_sessions')
-				->where(array('run_id' => $this->id))
-				->order('RAND')
-				->statement();
-		$dues = array();
-		while ($run_session = $sessions->fetch(PDO::FETCH_ASSOC)) {
-			$dues[] = $run_session['session'];
-		}
-		return $dues;
-	}
+        if ($vars) {
+            $this->id = $vars['id'];
+            $this->user_id = (int) $vars['user_id'];
+            $this->api_secret_hash = $vars['api_secret_hash'];
+            $this->created = (int) $vars['created'];
+            $this->modified = (int) $vars['modified'];
+            $this->public = (int) $vars['public'];
+            $this->cron_active = (int) $vars['cron_active'];
+            $this->cron_fork = (int) $vars['cron_fork'];
+            $this->locked = (int) $vars['locked'];
+            $this->header_image_path = $vars['header_image_path'];
+            $this->title = $vars['title'];
+            $this->description = $vars['description'];
+            $this->description_parsed = $vars['description_parsed'];
+            $this->footer_text = $vars['footer_text'];
+            $this->footer_text_parsed = $vars['footer_text_parsed'];
+            $this->public_blurb = $vars['public_blurb'];
+            $this->public_blurb_parsed = $vars['public_blurb_parsed'];
+            $this->custom_css_path = $vars['custom_css_path'];
+            $this->custom_js_path = $vars['custom_js_path'];
+            $this->osf_project_id = $vars['osf_project_id'];
+            $this->use_material_design = (bool) $vars['use_material_design'];
+            $this->expire_cookie = (int) $vars['expire_cookie'];
+            $this->valid = true;
+            $this->setExpireCookieUnits();
+        }
+    }
 
-	/* ADMIN functions */
+    public function getCronDues() {
+        $sessions = $this->dbh->select('session')
+                ->from('survey_run_sessions')
+                ->where(array('run_id' => $this->id))
+                ->order('RAND')
+                ->statement();
+        $dues = array();
+        while ($run_session = $sessions->fetch(PDO::FETCH_ASSOC)) {
+            $dues[] = $run_session['session'];
+        }
+        return $dues;
+    }
 
-	public function getApiSecret($user) {
-		if ($user->isAdmin()) {
-			return $this->api_secret_hash;
-		}
-		return false;
-	}
+    /* ADMIN functions */
 
-	public function hasApiAccess($secret) {
-		return $this->api_secret_hash === $secret;
-	}
+    public function getApiSecret($user) {
+        if ($user->isAdmin()) {
+            return $this->api_secret_hash;
+        }
+        return false;
+    }
 
-	public function rename($new_name) {
-		$name = trim($new_name);
-		$this->dbh->update('survey_runs', array('name' => $name), array('id' => $this->id));
-		return true;
-	}
+    public function hasApiAccess($secret) {
+        return $this->api_secret_hash === $secret;
+    }
 
-	public function delete() {
-		try {
-			$this->dbh->delete('survey_runs', array('id' => $this->id));
-			alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
-			redirect_to(admin_url());
-		} catch (Exception $e) {
-			formr_log_exception($e, __CLASS__);
-			alert(__('Could not delete run %s. This is probably because there are still run units present. For safety\'s sake you\'ll first need to delete each unit individually.', $this->name), 'alert-danger');
-		}
-	}
+    public function rename($new_name) {
+        $name = trim($new_name);
+        $this->dbh->update('survey_runs', array('name' => $name), array('id' => $this->id));
+        $this->dbh->update('survey_sessions_queue', array('run' => $name), array('run' => $this->name));
+        return true;
+    }
 
-	public function togglePublic($public) {
-		if (!in_array($public, range(0, 3))) {
-			return false;
-		}
+    public function delete() {
+        try {
+            $this->dbh->delete('survey_runs', array('id' => $this->id));
+            alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
+            return true;
+        } catch (Exception $e) {
+            formr_log_exception($e, __CLASS__);
+            alert(__('Could not delete run %s. This is probably because there are still run units present. For safety\'s sake you\'ll first need to delete each unit individually.', $this->name), 'alert-danger');
+            return false;
+        }
+    }
 
-		$updated = $this->dbh->update('survey_runs', array('public' => $public), array('id' => $this->id));
-		return $updated !== false;
-	}
+    public function togglePublic($public) {
+        if (!in_array($public, range(0, 3))) {
+            return false;
+        }
 
-	public function toggleLocked($on) {
-		$on = (int) $on;
-		$updated = $this->dbh->update('survey_runs', array('locked' => $on), array('id' => $this->id));
-		return $updated !== false;
-	}
+        $updated = $this->dbh->update('survey_runs', array('public' => $public), array('id' => $this->id));
+        return $updated !== false;
+    }
 
-	public function create($options) {
-		$name = trim($options['run_name']);
+    public function toggleLocked($on) {
+        $on = (int) $on;
+        $updated = $this->dbh->update('survey_runs', array('locked' => $on), array('id' => $this->id));
+        return $updated !== false;
+    }
 
-		// create run db entry
-		$new_secret = crypto_token(66);
-		$this->dbh->insert('survey_runs', array(
-			'user_id' => $options['user_id'],
-			'name' => $name,
-			'title' => $name,
-			'created' => mysql_now(),
-			'modified' => mysql_now(),
-			'api_secret_hash' => $new_secret,
-			'cron_active' => 1,
-			'use_material_design' => 1,
-			'public' => 0,
-			'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
-			'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
-		));
-		$this->id = $this->dbh->pdo()->lastInsertId();
-		$this->name = $name;
-		$this->load();
+    public function create($options) {
+        $name = trim($options['run_name']);
 
-		// create default run service message
-		$factory = new RunUnitFactory();
-		$options = RunUnit::getDefaults('ServiceMessagePage');
-		$unit = $factory->make($this->dbh, null, $options, null, $this);
-		$unit->create($options);
-		$unit->addToRun($this->id, 0, $options);
-		return $name;
-	}
+        // create run db entry
+        $new_secret = crypto_token(66);
+        $this->dbh->insert('survey_runs', array(
+            'user_id' => $options['user_id'],
+            'name' => $name,
+            'title' => $name,
+            'created' => mysql_now(),
+            'modified' => mysql_now(),
+            'api_secret_hash' => $new_secret,
+            'cron_active' => 1,
+            'use_material_design' => 1,
+            'expire_cookie' => 0,
+            'public' => 0,
+            'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
+            'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
+        ));
+        $this->id = $this->dbh->pdo()->lastInsertId();
+        $this->name = $name;
+        $this->load();
 
-	public function getUploadedFiles() {
-		return $this->dbh->select('id, created, original_file_name, new_file_path')
-					->from('survey_uploaded_files')
-					->where(array('run_id' => $this->id))
-					->order('created', 'desc')
-					->fetchAll();
-	}
+        // create default run service message
+        $factory = new RunUnitFactory();
+        $options = RunUnit::getDefaults('ServiceMessagePage');
+        $unit = $factory->make($this->dbh, null, $options, null, $this);
+        $unit->create($options);
+        $unit->addToRun($this->id, 0, $options);
+        return $name;
+    }
 
-	public $file_endings = array(
-		'image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif',
-		'video/mpeg' => '.mpg', 'video/quicktime' => '.mov', 'video/x-flv' => '.flv', 'video/x-f4v' => '.f4v', 'video/x-msvideo' => '.avi',
-		'audio/mpeg' => '.mp3',
-		'application/pdf' => '.pdf',
-		'text/csv' => '.csv', 'text/css' => '.css', 'text/tab-separated-values' => '.tsv', 'text/plain' => '.txt'
-	);
+    public function getUploadedFiles() {
+        return $this->dbh->select('id, created, original_file_name, new_file_path')
+                        ->from('survey_uploaded_files')
+                        ->where(array('run_id' => $this->id))
+                        ->order('created', 'desc')
+                        ->fetchAll();
+    }
 
-	public function uploadFiles($files) {
-		$max_size_upload = Config::get('admin_maximum_size_of_uploaded_files');
-		// make lookup array
-		$existing_files = $this->getUploadedFiles();
-		$files_by_names = array();
-		foreach ($existing_files as $existing_file) {
-			$files_by_names[$existing_file['original_file_name']] = $existing_file['new_file_path'];
-		}
+    public $file_endings = array(
+        'image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif',
+        'video/mpeg' => '.mpg', 'video/quicktime' => '.mov', 'video/x-flv' => '.flv', 'video/x-f4v' => '.f4v', 'video/x-msvideo' => '.avi',
+        'audio/mpeg' => '.mp3',
+        'application/pdf' => '.pdf',
+        'text/csv' => '.csv', 'text/css' => '.css', 'text/tab-separated-values' => '.tsv', 'text/plain' => '.txt'
+    );
 
-		// loop through files and modify them if necessary
-		for ($i = 0; $i < count($files['tmp_name']); $i++) {
-			// validate if any error occured on upload
-			if ($files['error'][$i]) {
-				$this->errors[] = __("An error occured uploading file '%s'. ERROR CODE: PFUL-%d", $files['name'][$i], $files['error'][$i]);
-				continue;
-			}
+    public function uploadFiles($files) {
+        $max_size_upload = Config::get('admin_maximum_size_of_uploaded_files');
+        // make lookup array
+        $existing_files = $this->getUploadedFiles();
+        $files_by_names = array();
+        foreach ($existing_files as $existing_file) {
+            $files_by_names[$existing_file['original_file_name']] = $existing_file['new_file_path'];
+        }
 
-			// validate file size
-			$size = (int)$files['size'][$i];
-			if (!$size || ($size > $max_size_upload * 1048576)) {
-				$this->errors[] = __("The file '%s' is too big or the size could not be determined. The allowed maximum size is %d megabytes.", $files['name'][$i], round($max_size_upload, 2));
-				continue;
-			}
+        // loop through files and modify them if necessary
+        for ($i = 0; $i < count($files['tmp_name']); $i++) {
+            // validate if any error occured on upload
+            if ($files['error'][$i]) {
+                $this->errors[] = __("An error occured uploading file '%s'. ERROR CODE: PFUL-%d", $files['name'][$i], $files['error'][$i]);
+                continue;
+            }
 
-			// validate mime type
-			$finfo = new finfo(FILEINFO_MIME_TYPE);
-			$mime = $finfo->file($files['tmp_name'][$i]);
-			if (!isset($this->file_endings[$mime])) {
-				$this->errors[] = __('The file "%s" has the MIME type %s and is not allowed to be uploaded.', $files['name'][$i], $mime);
-				continue;
-			}
+            // validate file size
+            $size = (int) $files['size'][$i];
+            if (!$size || ($size > $max_size_upload * 1048576)) {
+                $this->errors[] = __("The file '%s' is too big or the size could not be determined. The allowed maximum size is %d megabytes.", $files['name'][$i], round($max_size_upload, 2));
+                continue;
+            }
 
-			// validation was OK
-			$original_file_name = $files['name'][$i];
-			if (isset($files_by_names[$original_file_name])) {
-				// override existing path
-				$new_file_path = $files_by_names[$original_file_name];
-				$this->messages[] = __('The file "%s" was overriden.', $original_file_name);
-			} else {
-				$new_file_path = 'assets/tmp/admin/' . crypto_token(33, true) . $this->file_endings[$mime];
-			}
+            // validate mime type
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->file($files['tmp_name'][$i]);
+            if (!isset($this->file_endings[$mime])) {
+                $this->errors[] = __('The file "%s" has the MIME type %s and is not allowed to be uploaded.', $files['name'][$i], $mime);
+                continue;
+            }
 
-			// save file
-			$destination_dir = APPLICATION_ROOT . 'webroot/' . $new_file_path;			
-			if (move_uploaded_file($files['tmp_name'][$i], $destination_dir)) {
-				$this->dbh->insert_update('survey_uploaded_files', array(
-					'run_id' => $this->id,
-					'created' => mysql_now(),
-					'original_file_name' => $original_file_name,
-					'new_file_path' => $new_file_path,
-				), array(
-					'modified' => mysql_now()
-				));
-			} else {
-				$this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
-			}
+            // validation was OK
+            $original_file_name = $files['name'][$i];
+            if (isset($files_by_names[$original_file_name])) {
+                // override existing path
+                $new_file_path = $files_by_names[$original_file_name];
+                $this->messages[] = __('The file "%s" was overriden.', $original_file_name);
+            } else {
+                $new_file_path = 'assets/tmp/admin/' . crypto_token(33, true) . $this->file_endings[$mime];
+            }
 
-		}
+            // save file
+            $destination_dir = APPLICATION_ROOT . 'webroot/' . $new_file_path;
+            if (move_uploaded_file($files['tmp_name'][$i], $destination_dir)) {
+                $this->dbh->insert_update('survey_uploaded_files', array(
+                    'run_id' => $this->id,
+                    'created' => mysql_now(),
+                    'original_file_name' => $original_file_name,
+                    'new_file_path' => $new_file_path,
+                        ), array(
+                    'modified' => mysql_now()
+                ));
+            } else {
+                $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
+            }
+        }
 
-		return empty($this->errors);
-	}
+        return empty($this->errors);
+    }
 
-	public function deleteFile($id, $filename) {
-		$where = array('id' => (int) $id, 'original_file_name' => $filename);
-		$filepath = $this->dbh->findValue('survey_uploaded_files', $where, 'new_file_path');
-		$deleted = $this->dbh->delete('survey_uploaded_files', $where);
-		$physicalfile = APPLICATION_ROOT . "webroot/" . $filepath;
-		if ($deleted && file_exists($physicalfile)) {
-			@unlink($physicalfile);
-		}
-		return $deleted;
-	}
+    public function deleteFile($id, $filename) {
+        $where = array('id' => (int) $id, 'original_file_name' => $filename);
+        $filepath = $this->dbh->findValue('survey_uploaded_files', $where, 'new_file_path');
+        $deleted = $this->dbh->delete('survey_uploaded_files', $where);
+        $physicalfile = APPLICATION_ROOT . "webroot/" . $filepath;
+        if ($deleted && file_exists($physicalfile)) {
+            @unlink($physicalfile);
+        }
+        return $deleted;
+    }
 
-	public static function nameExists($name) {
-		return DB::getInstance()->entry_exists('survey_runs', array('name' => $name));
-	}
+    public static function nameExists($name) {
+        return DB::getInstance()->entry_exists('survey_runs', array('name' => $name));
+    }
 
-	public function reorder($positions) {
-		$run_unit_id = null;
-		$pos = null;
-		$update = "UPDATE `survey_run_units` SET position = :position WHERE run_id = :run_id AND id = :run_unit_id";
-		$reorder = $this->dbh->prepare($update);
-		$reorder->bindParam(':run_id', $this->id);
-		$reorder->bindParam(':run_unit_id', $run_unit_id);
-		$reorder->bindParam(':position', $pos);
+    public function reorder($positions) {
+        $run_unit_id = null;
+        $pos = null;
+        $update = "UPDATE `survey_run_units` SET position = :position WHERE run_id = :run_id AND id = :run_unit_id";
+        $reorder = $this->dbh->prepare($update);
+        $reorder->bindParam(':run_id', $this->id);
+        $reorder->bindParam(':run_unit_id', $run_unit_id);
+        $reorder->bindParam(':position', $pos);
 
-		foreach ($positions as $run_unit_id => $pos) {	
-			$reorder->execute();
-		}
-		return true;
-	}
+        foreach ($positions as $run_unit_id => $pos) {
+            $reorder->execute();
+        }
+        return true;
+    }
 
-	public function getAllUnitIds() {
-		return $this->dbh->select(array('id' => 'run_unit_id', 'unit_id', 'position'))
-					->from('survey_run_units')
-					->where(array('run_id' => $this->id))
-					->order('position')
-					->fetchAll();
-	}
+    public function getAllUnitIds() {
+        return $this->dbh->select(array('id' => 'run_unit_id', 'unit_id', 'position'))
+                        ->from('survey_run_units')
+                        ->where(array('run_id' => $this->id))
+                        ->order('position')
+                        ->fetchAll();
+    }
 
-	public function getAllUnitTypes() {
-		$select = $this->dbh->select(array('survey_run_units.id' => 'run_unit_id', 'unit_id', 'position', 'type', 'description'));
-		$select->from('survey_run_units');
-		$select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
-		$select->where(array('run_id' => $this->id))->order('position');
-		
-		return $select->fetchAll();
-	}
+    public function getAllUnitTypes() {
+        $select = $this->dbh->select(array('survey_run_units.id' => 'run_unit_id', 'unit_id', 'position', 'type', 'description'));
+        $select->from('survey_run_units');
+        $select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
+        $select->where(array('run_id' => $this->id))->order('position');
 
-	public function getOverviewScript() {
-		return $this->getSpecialUnit('OverviewScriptPage');
-	}
+        return $select->fetchAll();
+    }
 
-	public function getServiceMessage() {
-		return $this->getSpecialUnit('ServiceMessagePage');
-	}
+    public function getOverviewScript() {
+        return $this->getSpecialUnit('OverviewScriptPage');
+    }
 
-	public function getNumberOfSessionsInRun() {
-		$g_users = $this->dbh->prepare(
-			"SELECT COUNT(`survey_run_sessions`.id) AS sessions, AVG(`survey_run_sessions`.position) AS avg_position
+    public function getServiceMessage() {
+        return $this->getSpecialUnit('ServiceMessagePage');
+    }
+
+    public function getNumberOfSessionsInRun() {
+        $g_users = $this->dbh->prepare(
+                "SELECT COUNT(`survey_run_sessions`.id) AS sessions, AVG(`survey_run_sessions`.position) AS avg_position
 			FROM `survey_run_sessions`
 			WHERE `survey_run_sessions`.run_id = :run_id;"
-		);
-		$g_users->bindParam(':run_id', $this->id);
-		$g_users->execute();
-		return $g_users->fetch(PDO::FETCH_ASSOC);
-	}
+        );
+        $g_users->bindParam(':run_id', $this->id);
+        $g_users->execute();
+        return $g_users->fetch(PDO::FETCH_ASSOC);
+    }
 
-	/**
-	 *
-	 * @return \User
-	 */
-	public function getOwner() {
-		if (!$this->owner) {
-			$this->owner = new User($this->dbh, $this->user_id);
-		}
-		return $this->owner;
-	}
+    /**
+     *
+     * @return \User
+     */
+    public function getOwner() {
+        if (!$this->owner) {
+            $this->owner = new User($this->dbh, $this->user_id);
+        }
+        return $this->owner;
+    }
 
-	public function getUserCounts() {
-		$g_users = $this->dbh->prepare(
-			"SELECT COUNT(`id`) AS users_total,
+    public function getUserCounts() {
+        $g_users = $this->dbh->prepare(
+                "SELECT COUNT(`id`) AS users_total,
 				SUM(`ended` IS NOT NULL) AS users_finished,
 				SUM(`ended` IS NULL AND `last_access` >= DATE_SUB(NOW(), INTERVAL 1 DAY) ) 	AS users_active_today,
 				SUM(`ended` IS NULL AND `last_access` >= DATE_SUB(NOW(), INTERVAL 7 DAY) ) 	AS users_active,
@@ -373,206 +395,215 @@ class Run {
 			FROM `survey_run_sessions`
 			WHERE `survey_run_sessions`.run_id = :run_id;");
 
-		$g_users->bindParam(':run_id', $this->id);
-		$g_users->execute();
-		return $g_users->fetch(PDO::FETCH_ASSOC);
-	}
+        $g_users->bindParam(':run_id', $this->id);
+        $g_users->execute();
+        return $g_users->fetch(PDO::FETCH_ASSOC);
+    }
 
-	public function emptySelf() {
-		$surveys = $this->getAllSurveys();
-		$unit_factory = new RunUnitFactory();
-		foreach ($surveys AS $survey) {
-			/* @var $unit Survey */
-			$unit = $unit_factory->make($this->dbh, null, $survey, null, $this);
-			if (!$unit->backupResults()) {
-				alert('Could not backup results of survey ' . $unit->name, 'alert-danger');
-				return false;
-			}
-		}
-		$rows = $this->dbh->delete('survey_run_sessions', array('run_id' => $this->id));
-		alert('Run was emptied. ' . $rows . ' were deleted.', 'alert-info');
-		return $rows;
-	}
+    public function emptySelf() {
+        $surveys = $this->getAllSurveys();
+        $unit_factory = new RunUnitFactory();
+        foreach ($surveys AS $survey) {
+            /* @var $unit Survey */
+            $unit = $unit_factory->make($this->dbh, null, $survey, null, $this);
+            if (!$unit->backupResults()) {
+                alert('Could not backup results of survey ' . $unit->name, 'alert-danger');
+                return false;
+            }
+        }
+        $rows = $this->dbh->delete('survey_run_sessions', array('run_id' => $this->id));
+        alert('Run was emptied. ' . $rows . ' were deleted.', 'alert-info');
+        return $rows;
+    }
 
-	public function getSpecialUnit($xtype, $id = null) {
-		$units = $this->getSpecialUnits(false, $xtype, $id);
-		if (empty($units)) {
-			return null;
-		}
-		$factory = new RunUnitFactory();
-		return $factory->make($this->dbh, null, $units[0], null, $this);
-	}
+    public function getSpecialUnit($xtype, $id = null) {
+        $units = $this->getSpecialUnits(false, $xtype, $id);
+        if (empty($units)) {
+            return null;
+        }
+        $factory = new RunUnitFactory();
+        return $factory->make($this->dbh, null, $units[0], null, $this);
+    }
 
-	public function getSpecialUnits($render = false, $xtype = null, $id = null) {
-		$cols = array(
-			'survey_run_special_units.id' => 'unit_id', 'survey_run_special_units.run_id', 'survey_run_special_units.type' => 'xtype', 'survey_run_special_units.description',
-			'survey_units.type', 'survey_units.created', 'survey_units.modified'
-		);
-		$select = $this->dbh->select($cols);
-		$select->from('survey_run_special_units');
-		$select->join('survey_units', 'survey_units.id = survey_run_special_units.id');
-		$select->where('survey_run_special_units.run_id = :run_id');
-		$select->order('survey_units.id', 'desc');
-		$params = array('run_id' => $this->id);
-		if ($xtype !== null) {
-			$select->where('survey_run_special_units.type = :xtype');
-			$params['xtype'] = $xtype;
-		}
-		if ($id !== null) {
-			$select->where('survey_run_special_units.id = :id');
-			$params['id'] = $id;
-		}
-		$select->bindParams($params);
-		
-		if ($render === false) {
-			return $select->fetchAll();
-		} else {
-			$units = array();
-			foreach ($select->fetchAll() as $unit) {
-				$units[] = array(
-					'id' => $unit['unit_id'],
-					'html_units' => array(array(
-						'special' => $unit['xtype'],
-						'run_unit_id' => $unit['unit_id'],
-						'unit_id' => $unit['unit_id']
-					)),
-				);
-			}
-			return $units;
-		}
-	}
+    public function getSpecialUnits($render = false, $xtype = null, $id = null) {
+        $cols = array(
+            'survey_run_special_units.id' => 'unit_id', 'survey_run_special_units.run_id', 'survey_run_special_units.type' => 'xtype', 'survey_run_special_units.description',
+            'survey_units.type', 'survey_units.created', 'survey_units.modified'
+        );
+        $select = $this->dbh->select($cols);
+        $select->from('survey_run_special_units');
+        $select->join('survey_units', 'survey_units.id = survey_run_special_units.id');
+        $select->where('survey_run_special_units.run_id = :run_id');
+        $select->order('survey_units.id', 'desc');
+        $params = array('run_id' => $this->id);
+        if ($xtype !== null) {
+            $select->where('survey_run_special_units.type = :xtype');
+            $params['xtype'] = $xtype;
+        }
+        if ($id !== null) {
+            $select->where('survey_run_special_units.id = :id');
+            $params['id'] = $id;
+        }
+        $select->bindParams($params);
 
-	public function getReminder($reminder_id, $session, $run_session_id) {
-		// create a unit_session here and get a session_id and pass it when making the unit
-		$unitSession = new UnitSession($this->dbh, $run_session_id, $reminder_id);
-		$session_id = $unitSession->create();
-		$unit_factory = new RunUnitFactory();
-		$unit = $unit_factory->make($this->dbh, $session, array(
-			'type' => "Email",
-			"unit_id" => $reminder_id,
-			"run_name" => $this->name,
-			"run_id" => $this->id,
-			"run_session_id" => $run_session_id,
-			"session_id" => $session_id,
-		), null, $this);
-		return $unit;
-	}
+        if ($render === false) {
+            return $select->fetchAll();
+        } else {
+            $units = array();
+            foreach ($select->fetchAll() as $unit) {
+                $units[] = array(
+                    'id' => $unit['unit_id'],
+                    'html_units' => array(array(
+                            'special' => $unit['xtype'],
+                            'run_unit_id' => $unit['unit_id'],
+                            'unit_id' => $unit['unit_id']
+                        )),
+                );
+            }
+            return $units;
+        }
+    }
 
-	public function getCustomCSS() {
-		if ($this->custom_css_path != null) {
-			return $this->getFileContent($this->custom_css_path);
-		}
+    public function getReminder($reminder_id, $session, $run_session_id) {
+        // create a unit_session here and get a session_id and pass it when making the unit
+        $unitSession = new UnitSession($this->dbh, $run_session_id, $reminder_id);
+        $session_id = $unitSession->create();
+        $unit_factory = new RunUnitFactory();
+        $unit = $unit_factory->make($this->dbh, $session, array(
+            'type' => "Email",
+            "unit_id" => $reminder_id,
+            "run_name" => $this->name,
+            "run_id" => $this->id,
+            "run_session_id" => $run_session_id,
+            "session_id" => $session_id,
+                ), null, $this);
+        return $unit;
+    }
 
-		return "";
-	}
+    public function getCustomCSS() {
+        if ($this->custom_css_path != null) {
+            return $this->getFileContent($this->custom_css_path);
+        }
 
-	public function getCustomJS() {
-		if ($this->custom_js_path != null) {
-			return $this->getFileContent($this->custom_js_path);
-		}
+        return "";
+    }
 
-		return "";
-	}
+    public function getCustomJS() {
+        if ($this->custom_js_path != null) {
+            return $this->getFileContent($this->custom_js_path);
+        }
 
-	private function getFileContent($path) {
-		$path = new SplFileInfo(APPLICATION_ROOT . "webroot/" . $path);
-		$exists = file_exists($path->getPathname());
-		if ($exists) {
-			$file = $path->openFile('c+');
-			$data = '';
-			$file->next();
-			while ($file->valid()) {
-				$data .= $file->current();
-				$file->next();
-			}
-			return $data;
-		}
+        return "";
+    }
 
-		return '';
-	}
+    private function getFileContent($path) {
+        $path = new SplFileInfo(APPLICATION_ROOT . "webroot/" . $path);
+        $exists = file_exists($path->getPathname());
+        if ($exists) {
+            $file = $path->openFile('c+');
+            $data = '';
+            $file->next();
+            while ($file->valid()) {
+                $data .= $file->current();
+                $file->next();
+            }
+            return $data;
+        }
 
-	public function saveSettings($posted) {
-		$parsedown = new ParsedownExtra();
-		$parsedown->setBreaksEnabled(true);
-		$successes = array();
-		if (isset($posted['description'])):
-			$posted['description_parsed'] = $parsedown->text($posted['description']);
-			$this->run_settings[] = 'description_parsed';
-		endif;
-		if (isset($posted['public_blurb'])):
-			$posted['public_blurb_parsed'] = $parsedown->text($posted['public_blurb']);
-			$this->run_settings[] = 'public_blurb_parsed';
-		endif;
-		if (isset($posted['footer_text'])):
-			$posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']);
-			$this->run_settings[] = 'footer_text_parsed';
-		endif;
+        return '';
+    }
 
-		$updates = array();
-		foreach ($posted AS $name => $value):
-			$value = trim($value);
+    public function saveSettings($posted) {
+        $parsedown = new ParsedownExtra();
+        $parsedown->setBreaksEnabled(true);
+        $successes = array();
+        if (isset($posted['description'])) {
+            $posted['description_parsed'] = $parsedown->text($posted['description']);
+            $this->run_settings[] = 'description_parsed';
+        }
+        if (isset($posted['public_blurb'])) {
+            $posted['public_blurb_parsed'] = $parsedown->text($posted['public_blurb']);
+            $this->run_settings[] = 'public_blurb_parsed';
+        }
+        if (isset($posted['footer_text'])) {
+            $posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']);
+            $this->run_settings[] = 'footer_text_parsed';
+        }
 
-			if (!in_array($name, $this->run_settings)) {
-				$this->errors[] = "Invalid setting " . h($name);
-				continue;
-			}
+        $cookie_units = array_keys($this->expire_cookie_units);
+        if (isset($posted['expire_cookie_value']) && is_numeric($posted['expire_cookie_value']) &&
+                isset($posted['expire_cookie_unit']) && in_array($posted['expire_cookie_unit'], $cookie_units)) {
+            $posted['expire_cookie'] = factortosecs($posted['expire_cookie_value'], $posted['expire_cookie_unit']);
+        } elseif (!isset($posted['expire_cookie'])) {
+            $posted['expire_cookie'] = $this->expire_cookie;
+        }
+        unset($posted['expire_cookie_value'], $posted['expire_cookie_unit']);
 
-			if ($name == "custom_js" || $name == "custom_css"):
-				if ($name == "custom_js") {
-					$asset_path = $this->custom_js_path;
-					$file_ending = '.js';
-				} else {
-					$asset_path = $this->custom_css_path;
-					$file_ending = '.css';
-				}
+        $updates = array();
+        foreach ($posted as $name => $value) {
+            $value = trim($value);
 
-				$name = $name . "_path";
-				$asset_file = APPLICATION_ROOT . "webroot/" . $asset_path;
-				// Delete old file if css/js was emptied
-				if (!$value && $asset_path) {
-					if (file_exists($asset_file) && !unlink($asset_file)) {
-						alert("Could not delete old file ({$asset_path}).", 'alert-warning');
-					}
-					$value = null;
-				} elseif ($value) {
-					// if $asset_path has not been set it means neither JS or CSS has been entered so create a new path
-					if (!$asset_path) {
-						$asset_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
-						$asset_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
-					}
+            if (!in_array($name, $this->run_settings)) {
+                $this->errors[] = "Invalid setting " . h($name);
+                continue;
+            }
 
-					$path = new SplFileInfo($asset_file);
-					if (file_exists($path->getPathname())):
-						$file = $path->openFile('c+');
-						$file->rewind();
-						$file->ftruncate(0); // truncate any existing file
-					else:
-						$file = $path->openFile('c+');
-					endif;
-					$file->fwrite($value);
-					$file->fflush();
-					$value = $asset_path;
-				}
-			endif;
+            if ($name == "custom_js" || $name == "custom_css") {
+                if ($name == "custom_js") {
+                    $asset_path = $this->custom_js_path;
+                    $file_ending = '.js';
+                } else {
+                    $asset_path = $this->custom_css_path;
+                    $file_ending = '.css';
+                }
 
-			$updates[$name] = $value;
-		endforeach;
+                $name = $name . "_path";
+                $asset_file = APPLICATION_ROOT . "webroot/" . $asset_path;
+                // Delete old file if css/js was emptied
+                if (!$value && $asset_path) {
+                    if (file_exists($asset_file) && !unlink($asset_file)) {
+                        alert("Could not delete old file ({$asset_path}).", 'alert-warning');
+                    }
+                    $value = null;
+                } elseif ($value) {
+                    // if $asset_path has not been set it means neither JS or CSS has been entered so create a new path
+                    if (!$asset_path) {
+                        $asset_path = 'assets/tmp/admin/' . crypto_token(33, true) . $file_ending;
+                        $asset_file = APPLICATION_ROOT . 'webroot/' . $asset_path;
+                    }
 
-		if ($updates) {
-			$updates['modified'] = mysql_now();
-			$this->dbh->update('survey_runs', $updates, array('id' => $this->id));
-		}
+                    $path = new SplFileInfo($asset_file);
+                    if (file_exists($path->getPathname())):
+                        $file = $path->openFile('c+');
+                        $file->rewind();
+                        $file->ftruncate(0); // truncate any existing file
+                    else:
+                        $file = $path->openFile('c+');
+                    endif;
+                    $file->fwrite($value);
+                    $file->fflush();
+                    $value = $asset_path;
+                }
+            }
 
-		if (!in_array(false, $successes)) {
-			return true;
-		}
+            $updates[$name] = $value;
+        }
 
-		return false;
-	}
+        if ($updates) {
+            $updates['modified'] = mysql_now();
+            $this->dbh->update('survey_runs', $updates, array('id' => $this->id));
+        }
 
-	public function getUnitAdmin($id, $special = false) {
-		if (!$special) {
-			$unit = $this->dbh->select('
+        if (!in_array(false, $successes)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function getUnitAdmin($id, $special = false) {
+        if (!$special) {
+            $unit = $this->dbh->select('
 				`survey_run_units`.id,
 				`survey_run_units`.run_id,
 				`survey_run_units`.unit_id,
@@ -581,19 +612,19 @@ class Run {
 				`survey_units`.type,
 				`survey_units`.created,
 				`survey_units`.modified')
-					->from('survey_run_units')
-					->leftJoin('survey_units', 'survey_units.id = survey_run_units.unit_id')
-					->where('survey_run_units.run_id = :run_id')
-					->where('survey_run_units.id = :id')
-					->bindParams(array('run_id' => $this->id, 'id' => $id))
-					->limit(1)->fetch();
-		} else {
-			$specials = array('ServiceMessagePage', 'OverviewScriptPage', 'ReminderEmail');
-			if (!in_array($special, $specials)) {
-				die("Special unit not allowed");
-			}
+                            ->from('survey_run_units')
+                            ->leftJoin('survey_units', 'survey_units.id = survey_run_units.unit_id')
+                            ->where('survey_run_units.run_id = :run_id')
+                            ->where('survey_run_units.id = :id')
+                            ->bindParams(array('run_id' => $this->id, 'id' => $id))
+                            ->limit(1)->fetch();
+        } else {
+            $specials = array('ServiceMessagePage', 'OverviewScriptPage', 'ReminderEmail');
+            if (!in_array($special, $specials)) {
+                die("Special unit not allowed");
+            }
 
-			$unit = $this->dbh->select("
+            $unit = $this->dbh->select("
 				`survey_run_special_units`.`id` AS unit_id,
 				`survey_run_special_units`.`run_id`,
 				`survey_run_special_units`.`description`,
@@ -601,51 +632,52 @@ class Run {
 				`survey_units`.type,
 				`survey_units`.created,
 				`survey_units`.modified")
-					->from('survey_run_special_units')
-					->leftJoin('survey_units', "survey_units.id = `survey_run_special_units`.`id`")
-					->where('survey_run_special_units.run_id = :run_id')
-					->where("`survey_run_special_units`.`id` = :unit_id")
-					->bindParams(array('run_id' => $this->id, 'unit_id' => $id))
-					->limit(1)->fetch();
-			$unit["special"] = $special;
-		}
+                            ->from('survey_run_special_units')
+                            ->leftJoin('survey_units', "survey_units.id = `survey_run_special_units`.`id`")
+                            ->where('survey_run_special_units.run_id = :run_id')
+                            ->where("`survey_run_special_units`.`id` = :unit_id")
+                            ->bindParams(array('run_id' => $this->id, 'unit_id' => $id))
+                            ->limit(1)->fetch();
+            $unit["special"] = $special;
+        }
 
-		if ($unit === false) { // or maybe we've got a problem
-			alert("Missing unit! $id", 'alert-danger');
-			return false;
-		}
+        if ($unit === false) { // or maybe we've got a problem
+            alert("Missing unit! $id", 'alert-danger');
+            return false;
+        }
 
 
-		$unit['run_name'] = $this->name;
-		return $unit;
-	}
+        $unit['run_name'] = $this->name;
+        return $unit;
+    }
 
-	public function getAllSurveys() {
-		// first, generate a master list of the search set (all the surveys that are part of the run)
-		return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
-					->from('survey_studies')
-					->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
-					->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
-					->where('survey_runs.id = :run_id')
-					->bindParams(array('run_id' => $this->id))
-					->fetchAll();
-	}
-	public function getAllLinkedSurveys() {
-		// first, generate a master list of the search set (all the surveys that are part of the run)
-		return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
-					->from('survey_studies')
-					->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
-					->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
-					->where('survey_runs.id = :run_id')
-					->where('survey_studies.unlinked = 0')
-					->bindParams(array('run_id' => $this->id))
-					->fetchAll();
-	}
+    public function getAllSurveys() {
+        // first, generate a master list of the search set (all the surveys that are part of the run)
+        return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
+                        ->from('survey_studies')
+                        ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
+                        ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
+                        ->where('survey_runs.id = :run_id')
+                        ->bindParams(array('run_id' => $this->id))
+                        ->fetchAll();
+    }
 
-	public function getData($rstmt = false) {
-		ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
-		$fdb = $this->dbh;
-		$collect = $fdb->prepare("SELECT 
+    public function getAllLinkedSurveys() {
+        // first, generate a master list of the search set (all the surveys that are part of the run)
+        return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
+                        ->from('survey_studies')
+                        ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
+                        ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
+                        ->where('survey_runs.id = :run_id')
+                        ->where('survey_studies.unlinked = 0')
+                        ->bindParams(array('run_id' => $this->id))
+                        ->fetchAll();
+    }
+
+    public function getData($rstmt = false) {
+        ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
+        $fdb = $this->dbh;
+        $collect = $fdb->prepare("SELECT 
 			`survey_studies`.name AS survey_name,
 			`survey_run_units`.position AS unit_position,
 			`survey_unit_sessions`.id AS unit_session_id,
@@ -673,21 +705,21 @@ class Run {
 			LEFT JOIN `survey_run_units` ON `survey_studies`.id = `survey_run_units`.unit_id
 			WHERE `survey_run_sessions`.run_id = :id 
 			AND `survey_studies`.unlinked = 0");
-		$collect->bindValue(":id", $this->id);
-		$collect->execute();
-		if ($rstmt === true) {
-			return $collect;
-		}
+        $collect->bindValue(":id", $this->id);
+        $collect->execute();
+        if ($rstmt === true) {
+            return $collect;
+        }
 
-		$results = array();
-		while ($row = $collect->fetch(PDO::FETCH_ASSOC)) {
-			$results[] = $row;
-		}
-		return $results;
-	}
+        $results = array();
+        while ($row = $collect->fetch(PDO::FETCH_ASSOC)) {
+            $results[] = $row;
+        }
+        return $results;
+    }
 
-	public function getRandomGroups() {
-		$g_users = $this->dbh->prepare("SELECT 
+    public function getRandomGroups() {
+        $g_users = $this->dbh->prepare("SELECT 
 			`survey_run_sessions`.session,
 			`survey_unit_sessions`.id AS session_id,
 			`survey_runs`.name AS run_name,
@@ -706,276 +738,287 @@ class Run {
 		WHERE `survey_run_sessions`.run_id = :run_id AND `survey_units`.type = 'Shuffle'
 		ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC;");
 
-		$g_users->bindParam(':run_id', $this->id);
-		$g_users->execute();
-		return $g_users;
-	}
+        $g_users->bindParam(':run_id', $this->id);
+        $g_users->execute();
+        return $g_users;
+    }
 
-	private function isFakeTestRun() {
-		return $this->name === self::TEST_RUN;
-	}
+    private function isFakeTestRun() {
+        return $this->name === self::TEST_RUN;
+    }
 
-	private function fakeTestRun() {
-		if ($session = Session::get('dummy_survey_session')):
-			$run_session = $this->makeTestRunSession();
-			$unit = new Survey($this->dbh, null, $session, $run_session, $this);
-			$output = $unit->exec();
+    private function fakeTestRun() {
+        if ($session = Session::get('dummy_survey_session')):
+            $run_session = $this->makeTestRunSession();
+            $unit = new Survey($this->dbh, null, $session, $run_session, $this);
+            $output = $unit->exec();
+            $this->activeRunSession = $run_session;
 
-			if (!$output):
-				$output['title'] = 'Finish';
-				$output['body'] = "
+            if (!$output):
+                $output['title'] = 'Finish';
+                $output['body'] = "
 					<h1>Finish</h1>
 					<p>You're finished with testing this survey.</p>
 					<a href='" . admin_study_url($_SESSION['dummy_survey_session']['survey_name']) . "'>Back to the admin control panel.</a>";
 
-				Session::delete('dummy_survey_session');
-			endif;
-			return compact("output", "run_session");
-		else:
-			alert("<strong>Error:</strong> Nothing to test-drive.", 'alert-danger');
-			redirect_to("/index");
-			return false;
-		endif;
-	}
+                Session::delete('dummy_survey_session');
+            endif;
+            return compact("output", "run_session");
+        else:
+            alert("<strong>Error:</strong> Nothing to test-drive.", 'alert-danger');
+            redirect_to("/index");
+            return false;
+        endif;
+    }
 
-	public function makeTestRunSession($testing = 1) {
-		$animal_name = AnimalName::haikunate(["tokenLength" => 0, "delimiter" => "",]) . "XXX";
-		$animal_name = str_replace(" ", "", $animal_name);
-		$test_code = crypto_token(48 - floor(3 / 4 * strlen($animal_name)));
-		$test_code = $animal_name . substr($test_code, 0, 64 - strlen($animal_name));
-		$run_session = new RunSession($this->dbh, $this->id, NULL, $test_code, $this); // does this user have a session?
-		$run_session->create($test_code, $testing);
+    public function makeTestRunSession($testing = 1) {
+        $animal_name = AnimalName::haikunate(["tokenLength" => 0, "delimiter" => "",]) . "XXX";
+        $animal_name = str_replace(" ", "", $animal_name);
+        $test_code = crypto_token(48 - floor(3 / 4 * strlen($animal_name)));
+        $test_code = $animal_name . substr($test_code, 0, 64 - strlen($animal_name));
+        $run_session = new RunSession($this->dbh, $this->id, NULL, $test_code, $this); // does this user have a session?
+        $run_session->create($test_code, $testing);
 
-		return $run_session;
-	}
-	
-	
-	public function addNamedRunSession($name, $testing = 0) {
-		$name = str_replace(" ", "_", $name);
-		if ($name && !preg_match('/^[a-zA-Z0-9_-~]{0,32}$/', $name)) {
-			alert("Invalid characters in suggested name. Only a-z, numbers, _ - and ~ are allowed. Spaces are automatically replaced by a _.", 'alert-danger');
-			return false;
-		}
+        return $run_session;
+    }
 
-		if ($name) {
-			$name .= 'XXX';
-		}
+    public function addNamedRunSession($name, $testing = 0) {
+        $name = str_replace(" ", "_", $name);
+        if ($name && !preg_match('/^[a-zA-Z0-9_-~]{0,32}$/', $name)) {
+            alert("Invalid characters in suggested name. Only a-z, numbers, _ - and ~ are allowed. Spaces are automatically replaced by a _.", 'alert-danger');
+            return false;
+        }
 
-		$new_code = crypto_token(48 - floor(3 / 4 * strlen($name)));
-		$new_code = $name . substr($new_code, 0, 64 - strlen($name));
-		$run_session = new RunSession($this->dbh, $this->id, null, $new_code, $this); // does this user have a session?
-		$run_session->create($new_code, $testing);
+        if ($name) {
+            $name .= 'XXX';
+        }
 
-		return $run_session;
-		
-	}
+        $new_code = crypto_token(48 - floor(3 / 4 * strlen($name)));
+        $new_code = $name . substr($new_code, 0, 64 - strlen($name));
+        $run_session = new RunSession($this->dbh, $this->id, null, $new_code, $this); // does this user have a session?
+        $run_session->create($new_code, $testing);
 
-	public function exec($user) {
-		if (!$this->valid) {
-			formr_error(404, 'Not Found', __("Run '%s' is broken or does not exist.", $this->name), 'Study Not Found');
-			return false;
-		} elseif ($this->name == self::TEST_RUN) {
-			$test = $this->fakeTestRun();
-			extract($test);
-		} else {
+        return $run_session;
+    }
 
-			$run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
+    public function exec(User $user) {
+        if (!$this->valid) {
+            formr_error(404, 'Not Found', __("Run '%s' is broken or does not exist.", $this->name), 'Study Not Found');
+            return false;
+        } elseif ($this->name == self::TEST_RUN) {
+            $test = $this->fakeTestRun();
+            extract($test);
+        } else {
 
-			if (($this->getOwner()->user_code == $user->user_code || // owner always has access
-				$run_session->isTesting()) || // testers always have access
-				($this->public >= 1 && $run_session->id) || // already enrolled
-				($this->public >= 2)) { // anyone with link can access
-				
-				if ($run_session->id === null) {
-					$run_session->create($user->user_code, (int) $user->created($this));  // generating access code for those who don't have it but need it
-				}
+            $run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
-				Session::globalRefresh();
-				$output = $run_session->getUnit();
-			} else {
-				$output = $this->getServiceMessage()->exec();
-				alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');
-			}
-			$run_session->setLastAccess();
-		}
+            if (($this->getOwner()->user_code == $user->user_code || // owner always has access
+                    $run_session->isTesting()) || // testers always have access
+                    ($this->public >= 1 && $run_session->id) || // already enrolled
+                    ($this->public >= 2)) { // anyone with link can access
+                if ($run_session->id === null) {
+                    $run_session->create($user->user_code, (int) $user->created($this));  // generating access code for those who don't have it but need it
+                }
 
-		if (!$output) {
-			return;
-		}
+                Session::globalRefresh();
+                $output = $run_session->execute();
+            } else {
+                $output = $this->getServiceMessage()->exec();
+                alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');
+            }
 
-		global $title;
-		$css = $js = array();
+            $run_session->setLastAccess();
+            $this->activeRunSession = $run_session;
+        }
 
-		if (isset($output['title'])) {
-			$title = $output['title'];
-		} else {
-			$title = $this->title ? $this->title : $this->name;
-		}
+        if (!$output) {
+            return;
+        }
 
-		if ($this->custom_css_path) {
-			$css[] = asset_url($this->custom_css_path);
-		}
-		if ($this->custom_js_path) {
-			$js[] = asset_url($this->custom_js_path);
-		}
+        global $title;
+        $css = $js = array();
 
-		$run_content = '';
+        if (isset($output['title'])) {
+            $title = $output['title'];
+        } else {
+            $title = $this->title ? $this->title : $this->name;
+        }
 
-		if (! $this->renderedDescAndFooterAlready && trim($this->description_parsed)) {
-			$run_content .= $this->description_parsed;
-		}
+        if ($this->custom_css_path) {
+            $css[] = asset_url($this->custom_css_path);
+        }
+        if ($this->custom_js_path) {
+            $js[] = asset_url($this->custom_js_path);
+        }
 
-		if (isset($output['body'])) {
-			$run_content .= $output['body'];
-		}
-		if (! $this->renderedDescAndFooterAlready && trim($this->footer_text_parsed)) {
-			$run_content .= $this->footer_text_parsed;
-		}
+        $run_content = '';
 
-		if ($run_session->isTesting()) {
-			$animal_end = strpos($user->user_code, "XXX");
-			if ($animal_end === false) {
-				$animal_end = 10;
-			}
+        if (!$this->renderedDescAndFooterAlready && trim($this->description_parsed)) {
+            $run_content .= $this->description_parsed;
+        }
 
-			//$js .= '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_users.js') . '"></script>';
-			//$js[] = DEBUG ? asset_url('common/js/run_users.js') : asset_url('build/js/run_users.min.js');
+        if (isset($output['body'])) {
+            $run_content .= $output['body'];
+        }
+        if (!$this->renderedDescAndFooterAlready && trim($this->footer_text_parsed)) {
+            $run_content .= $this->footer_text_parsed;
+        }
 
-			$run_content .= Template::get('admin/run/monkey_bar', array(
-				'user' => $user,
-				'run' => $this,
-				'run_session' => $run_session,
-				'short_code' => substr($user->user_code, 0, $animal_end),
-				'icon' => $user->created($this) ? "fa-user-md" : "fa-stethoscope",
-				'disable_class' => $this->isFakeTestRun() ? " disabled " : "",
-			));
-		}
+        if ($run_session->isTesting()) {
+            $animal_end = strpos($user->user_code, "XXX");
+            if ($animal_end === false) {
+                $animal_end = 10;
+            }
 
+            //$js .= '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_users.js') . '"></script>';
+            //$js[] = DEBUG ? asset_url('common/js/run_users.js') : asset_url('build/js/run_users.min.js');
 
-		return array(
-			'title' => $title,
-			'css' => $css,
-			'js' => $js,
-			'run_session' => $run_session,
-			'run_content' => $run_content,
-			'run' => $this,
-		);
-	}
+            $run_content .= Template::get('admin/run/monkey_bar', array(
+                        'user' => $user,
+                        'run' => $this,
+                        'run_session' => $run_session,
+                        'short_code' => substr($user->user_code, 0, $animal_end),
+                        'icon' => $user->created($this) ? "fa-user-md" : "fa-stethoscope",
+                        'disable_class' => $this->isFakeTestRun() ? " disabled " : "",
+            ));
+        }
 
-	/**
-	 * Export RUN units
-	 *
-	 * @param string $name The name that will be assigned to export
-	 * @param array $units
-	 * @param boolean $inc_survey Should survey data be included in export?
-	 * @return mixed Returns an array of its two inputs.
-	 */
-	public function export($name, array $units, $inc_survey) {
-		$SPR = new SpreadsheetReader();
-		// Save run units
-		foreach ($units as $i => &$unit) {
-			if ($inc_survey && $unit->type === 'Survey') {
-				$survey = Survey::loadById($unit->unit_id);
-				$unit->survey_data = $SPR->exportItemTableJSON($survey, true);
-			}
-			unset($unit->unit_id, $unit->run_unit_id);
-		}
-		// Save run settings
-		$settings = array(
-			'header_image_path' => $this->header_image_path,
-			'description' => $this->description,
-			'footer_text' => $this->footer_text,
-			'public_blurb' => $this->public_blurb,
-			'cron_active' => (int) $this->cron_active,
-			'custom_js' => $this->getCustomJS(),
-			'custom_css' => $this->getCustomCSS(),
-		);
+        return array(
+            'title' => $title,
+            'css' => $css,
+            'js' => $js,
+            'run_session' => $run_session,
+            'run_content' => $run_content,
+            'run' => $this,
+        );
+    }
 
-		// save run files
-		$files = array();
-		$uploads = $this->getUploadedFiles();
-		foreach ($uploads as $file) {
-			$files[] = site_url('file_download/' . $this->id . '/' . $file['original_file_name']);
-		}
+    /**
+     * Export RUN units
+     *
+     * @param string $name The name that will be assigned to export
+     * @param array $units
+     * @param boolean $inc_survey Should survey data be included in export?
+     * @return mixed Returns an array of its two inputs.
+     */
+    public function export($name, array $units, $inc_survey) {
+        $SPR = new SpreadsheetReader();
+        // Save run units
+        foreach ($units as $i => &$unit) {
+            if ($inc_survey && $unit->type === 'Survey') {
+                $survey = Survey::loadById($unit->unit_id);
+                $unit->survey_data = $SPR->exportItemTableJSON($survey, true);
+            }
+            unset($unit->unit_id, $unit->run_unit_id);
+        }
+        // Save run settings
+        $settings = array(
+            'header_image_path' => $this->header_image_path,
+            'description' => $this->description,
+            'footer_text' => $this->footer_text,
+            'public_blurb' => $this->public_blurb,
+            'cron_active' => (int) $this->cron_active,
+            'custom_js' => $this->getCustomJS(),
+            'custom_css' => $this->getCustomCSS(),
+        );
 
-		$export = array(
-			'name' => $name,
-			'units' => array_values($units),
-			'settings' => $settings,
-			'files' => $files,
-		);
-		return $export;
-	}
+        // save run files
+        $files = array();
+        $uploads = $this->getUploadedFiles();
+        foreach ($uploads as $file) {
+            $files[] = site_url('file_download/' . $this->id . '/' . $file['original_file_name']);
+        }
 
-	/**
-	 * Import a set of run units into current run by parsing a valid json string.
-	 * Existing exported run units are read from configured dir $settings[run_exports_dir]
-	 * Foreach unit item there is a check for at least for 'type' and 'position' attributes
-	 *
-	 * @param string $json_string JSON string of run units
-	 * @param int $start_position Start position to be assigned to units. Defaults to 1.
-	 * @return array Returns an array on rendered units indexed by position
-	 */
-	public function importUnits($json_string, $start_position = 0) {
-		ini_set('memory_limit', Config::get('memory_limit.run_import_units'));
-		if (!$start_position) {
-			$start_position = 0;
-		} else {
-			$start_position = (int) $start_position - 10;
-		}
-		$json = json_decode($json_string);
-		$existingUnits = $this->getAllUnitIds();
-		if ($existingUnits) {
-			$last = end($existingUnits);
-			$start_position = $last['position'] + 10;
-		}
+        $export = array(
+            'name' => $name,
+            'units' => array_values($units),
+            'settings' => $settings,
+            'files' => $files,
+        );
+        return $export;
+    }
 
-		if (empty($json->units)) {
-			alert("<strong>Error</strong> Invalid json string provided.", 'alert-danger');
-			return false;
-		}
+    /**
+     * Import a set of run units into current run by parsing a valid json string.
+     * Existing exported run units are read from configured dir $settings[run_exports_dir]
+     * Foreach unit item there is a check for at least for 'type' and 'position' attributes
+     *
+     * @param string $json_string JSON string of run units
+     * @param int $start_position Start position to be assigned to units. Defaults to 1.
+     * @return array Returns an array on rendered units indexed by position
+     */
+    public function importUnits($json_string, $start_position = 0) {
+        ini_set('memory_limit', Config::get('memory_limit.run_import_units'));
+        if (!$start_position) {
+            $start_position = 0;
+        } else {
+            $start_position = (int) $start_position - 10;
+        }
+        $json = json_decode($json_string);
+        $existingUnits = $this->getAllUnitIds();
+        if ($existingUnits) {
+            $last = end($existingUnits);
+            $start_position = $last['position'] + 10;
+        }
 
-		$units = (array) $json->units;
-		$createdUnits = array();
-		$runFactory = new RunUnitFactory();
+        if (empty($json->units)) {
+            alert("<strong>Error</strong> Invalid json string provided.", 'alert-danger');
+            return false;
+        }
 
-		foreach ($units as $unit) {
-			if (isset($unit->position) && !empty($unit->type)) {
-				$unit->position = $start_position + $unit->position;
-				// for some reason Endpage replaces Page
-				if (strpos($unit->type, 'page') !== false) {
-					$unit->type = 'Page';
-				}
+        $units = (array) $json->units;
+        $createdUnits = array();
+        $runFactory = new RunUnitFactory();
 
-				if (strpos($unit->type, 'Survey') !== false) {
-					$unit->mock = true;
-				}
+        foreach ($units as $unit) {
+            if (isset($unit->position) && !empty($unit->type)) {
+                $unit->position = $start_position + $unit->position;
+                // for some reason Endpage replaces Page
+                if (strpos($unit->type, 'page') !== false) {
+                    $unit->type = 'Page';
+                }
 
-				if (strpos($unit->type, 'Skip') !== false) {
-					$unit->if_true = $unit->if_true + $start_position;
-				}
+                if (strpos($unit->type, 'Survey') !== false) {
+                    $unit->mock = true;
+                }
 
-				if (strpos($unit->type, 'Email') !== false) {
-					$unit->account_id = null;
-				}
+                if (strpos($unit->type, 'Skip') !== false) {
+                    $unit->if_true = $unit->if_true + $start_position;
+                }
 
-				$unitObj = $runFactory->make($this->dbh, null, (array) $unit, null, $this);
-				$unit = (array) $unit;
-				$unitObj->create($unit);
-				if ($unitObj->valid) {
-					$unitObj->addToRun($this->id, $unitObj->position, $unit);
-					// @todo check how to manage this because they are echoed only on next page load
-					//alert('<strong>Success.</strong> '.ucfirst($unitObj->type).' unit was created.','alert-success');
-					$createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
-				}
-			}
-		}
+                if (strpos($unit->type, 'Email') !== false) {
+                    $unit->account_id = null;
+                }
 
-		// try importing settings
-		if (!empty($json->settings)) {
-			$this->saveSettings((array) $json->settings);
-		}
-		return $createdUnits;
-	}
+                $unitObj = $runFactory->make($this->dbh, null, (array) $unit, null, $this);
+                $unit = (array) $unit;
+                $unitObj->create($unit);
+                if ($unitObj->valid) {
+                    $unitObj->addToRun($this->id, $unitObj->position, $unit);
+                    // @todo check how to manage this because they are echoed only on next page load
+                    //alert('<strong>Success.</strong> '.ucfirst($unitObj->type).' unit was created.','alert-success');
+                    $createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
+                }
+            }
+        }
+
+        // try importing settings
+        if (!empty($json->settings)) {
+            $this->saveSettings((array) $json->settings);
+        }
+        return $createdUnits;
+    }
+
+    protected function setExpireCookieUnits() {
+        $unit = secstofactor($this->expire_cookie);
+        if ($unit) {
+            $this->expire_cookie_unit = $unit[1];
+            $this->expire_cookie_value = $unit[0];
+        }
+    }
+
+    public function getCookieName() {
+        return sprintf('FRS_%s', $this->id);
+    }
 
 }
