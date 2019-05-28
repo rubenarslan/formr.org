@@ -3,23 +3,20 @@
 <div class="content-wrapper">
     <!-- Content Header (Page header) -->
     <section class="content-header">
-        <h1><?php echo $run->name; ?> <small><a target="_blank" title="The official link to your run, which you can share with prospective users." href="<?php echo run_url($run->name, null, null) ?>"><?php echo run_url($run->name, null, null) ?></a></small> </h1>
+        <h1>Runs Management <small>Superadmin</small></h1>
     </section>
 
     <!-- Main content -->
     <section class="content">
         <div class="row">
-            <div class="col-md-2">
-                <?php Template::loadChild('admin/run/menu'); ?>
-            </div>
-            <div class="col-md-8">
+            <div class="col-md-12">
                 <div class="box box-primary">
                     <div class="box-header with-border">
-                        <h3 class="box-title">Sessions in Queue </h3>
+                        <h3 class="box-title"><b><?php echo $run->name; ?></b> Sessions Queue</h3>
                     </div>
                     <div class="box-body">
                         <?php Template::loadChild('public/alerts'); ?>
-                        <p class="lead"> This shows the list of sessions in your run waiting to be processed.</p>
+                        <p class="lead"> This shows the list of sessions in run waiting to be processed.</p>
                         
                         <div class="table-responsive">
                             <table class="table table-striped has-actions">
@@ -37,7 +34,7 @@
                                     <?php while($row = $stmt->fetch(PDO::FETCH_ASSOC)): ?>
                                     <tr>
                                         <td>
-                                            <a class="btn hastooltip" href="<?php echo admin_run_url($run_name, "user_detail?session=" . urlencode(substr($row['session'], 0, 15))); ?>" title="Go to user detail"><i class="fa fa-list"></i></a>
+                                            <a class="btn hastooltip" href="<?php echo admin_run_url($run->name, "user_detail?session=" . urlencode(substr($row['session'], 0, 15))); ?>" title="Go to user detail"><i class="fa fa-list"></i></a>
                                             <?php 
                                                 $animal_end = strpos($row['session'], "XXX");
                                                 if ($animal_end === false) {

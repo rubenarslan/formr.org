@@ -171,6 +171,17 @@ class SuperadminController extends Controller {
             alert('Changes saved', 'alert-success');
             $qs = $this->request->page ? '/?page=' . $this->request->page : null;
             $this->request->redirect('superadmin/runs_management' . $qs);
+        } elseif ($id = $this->request->int('id')) {
+            $runName = $this->fdb->findValue('survey_runs', array('id' => $id), 'name');
+            $run = new Run($this->fdb, $runName);
+            if (!$run->valid) {
+                formr_error(404, 'Not Found', 'Run Not Found');
+            }
+            $this->setView('superadmin/runs_management_queue', array(
+                'stmt' => UnitSessionQueue::getRunItems($run),
+                'run' => $run,
+            ));
+            return $this->sendResponse();
         } else {
             $this->setView('superadmin/runs_management', RunHelper::getRunsManagementTablePdoStatement());
             return $this->sendResponse();
