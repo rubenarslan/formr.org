@@ -43,7 +43,7 @@ if (!empty($opts['p'])) {
 }
 
 if (!empty($opts['b'])) {
-    $config['batch_items'] = (int) $opts['b'];
+    $config['items_per_process'] = (int) $opts['b'];
 }
 
 
