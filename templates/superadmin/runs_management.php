@@ -27,8 +27,8 @@
                                             <th>User</th>
                                             <th>No. Sessions</th>
                                             <th>Cron Active</th>
-                                            <th>Cron Forked</th>
                                             <th>Locked</th>
+                                            <th>Sessions Queue</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -44,13 +44,10 @@
                                                     <input type="checkbox" name="runs[<?= $row['run_id'] ?>][cron_active]" value="<?= $row['cron_active'] ?>" <?= $checked ?> />
                                                 </td>
                                                 <td>
-                                                    <?php $checked = $row['cron_fork'] ? 'checked="checked"' : null ?>
-                                                    <input type="checkbox" name="runs[<?= $row['run_id'] ?>][cron_fork]" value="<?= $row['cron_fork'] ?>" <?= $checked ?> />
-                                                </td>
-                                                <td>
                                                     <?php $checked = $row['locked'] ? 'checked="checked"' : null ?>
                                                     <input type="checkbox" name="runs[<?= $row['run_id'] ?>][locked]" value="<?= $row['locked'] ?>" <?= $checked ?> />
                                                 </td>
+                                                <td><a href="<?= site_url('superadmin/runs_management?id='.$row['run_id']); ?>" class="btn btn-default"><i class="fa fa-th-list"></i> See Queue</a></td>
                                             </tr>
                                         <?php endwhile; ?>
                                         <tr>
