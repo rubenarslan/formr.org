@@ -90,7 +90,8 @@ class Queue {
             $str = vsprintf(array_shift($args), $args);
         }
 
-        $str = date('Y-m-d H:i:s') . ' ' . $this->name . ': ' . $str . PHP_EOL;
+        $proccess = "{$this->process_num}/{$this->num_processes}";
+        $str = date('Y-m-d H:i:s') . ' ' . $this->name . '['.$proccess.']: ' . $str . PHP_EOL;
         if (DEBUG) {
             echo $str;
             return;

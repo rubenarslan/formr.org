@@ -49,7 +49,7 @@
                                             <div class="checkbox form-group"  style="margin-bottom: 15px;">
                                                 <div class="col-md-6">
                                                     <strong>Cron</strong>
-                                                    <p>Enable automatic sending of email invitations etc. You would want to turn this off only <br />in case of unforeseen problems (e.g. you're spamming the users by accident).</p>
+                                                    <p>Enable pause expiration, automatic email sending and other automated operations.</p>
                                                     <label>
                                                         <input type="hidden" name="cron_active" value="0" />
                                                         <input type="checkbox" name="cron_active" <?= ($run->cron_active) ? 'checked' : '' ?> value="1"> Enable cron.

@@ -66,7 +66,7 @@ class UnitSessionQueue extends Queue {
 				  FROM survey_sessions_queue 
 				  LEFT JOIN survey_run_sessions ON survey_sessions_queue.run_session_id = survey_run_sessions.id
                   LEFT JOIN survey_unit_sessions ON survey_sessions_queue.unit_session_id = survey_unit_sessions.id
-                  WHERE survey_sessions_queue.expires <= {$now} ORDER BY expires ASC
+                  WHERE survey_sessions_queue.expires <= {$now} ORDER BY survey_sessions_queue.unit_session_id ASC
                   LIMIT {$this->limit} OFFSET {$this->offset}";
 
         if ($this->debug) {
