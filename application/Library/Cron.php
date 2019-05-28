@@ -150,7 +150,7 @@ class Cron {
                 if (!isset($done[$type])) {
                     $done[$type] = 0;
                 }
-                $done[$type] += $nr;
+                $done[$type] += (int)$nr;
             }
         }
 
