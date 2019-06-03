@@ -185,6 +185,8 @@ class RunSession {
                 $queue = $this->run && $this->run->cron_active && $this->unit_session->id && !$unit->ended && !$unit->expired;
                 if ($queue) {
                     $queued = UnitSessionQueue::addItem($this->unit_session, $unit, $output);
+                } else {
+                    UnitSessionQueue::removeItem($this->unit_session->id, $unit->id);
                 }
 
                 if (!$output && is_object($unit)) {
