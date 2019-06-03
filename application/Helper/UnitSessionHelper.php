@@ -62,10 +62,6 @@ class UnitSessionHelper {
 
         if (!empty($runUnit->execData['expire_timestamp'])) {
             $return['expires'] = $runUnit->execData['expire_timestamp'];
-        } elseif ($execResults === true) {
-            // set expiration to x minutes for unit session to be executed again
-            $return['expires'] = strtotime($this->expiration_extension);
-            $return['execute'] = true;
         }
 
         return $return;
