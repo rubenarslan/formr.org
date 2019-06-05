@@ -143,11 +143,11 @@ class RunSession {
     /**
      * Loop over units in Run for a session until you get a unit with output
      *
-     * @param int $referenceUnitId
-     * @param boolean $executeReferenceUnit If TRUE, the first unit will be executed if it matches the referenceUnit
+     * @param UnitSession $referenceUnitSession
+     * @param boolean $executeReferenceUnit If TRUE, the first unit with session matching the $referenceUnitSession will be executed
      * @return mixed
      */
-    public function execute($referenceUnitId = null, $executeReferenceUnit = false) {
+    public function execute(UnitSession $referenceUnitSession = null, $executeReferenceUnit = false) {
         $i = 0;
         $done = array();
         $unit_factory = new RunUnitFactory();
@@ -173,10 +173,13 @@ class RunSession {
                 $unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this, $this->run);
                 $this->current_unit_type = $unit->type;
 
-                if ($referenceUnitId && $unit->id == $referenceUnitId && !$executeReferenceUnit) {
+                if ($referenceUnitSession && $referenceUnitSession->unit_id == $unit->id && !$executeReferenceUnit) {
                     $this->endUnitSession($unit_info);
-                    $referenceUnitId = null;
+                    $referenceUnitSession = null;
                     continue;
+                } elseif ($referenceUnitSession && $referenceUnitSession->unit_id != $unit->id && !$executeReferenceUnit) {
+                    // dead queue item, remove from queue
+                    UnitSessionQueue::removeItem($referenceUnitSession->id, $referenceUnitSession->unit_id);
                 }
 
                 $output = $unit->exec();
@@ -185,8 +188,6 @@ class RunSession {
                 $queue = $this->run && $this->run->cron_active && $this->unit_session->id && !$unit->ended && !$unit->expired;
                 if ($queue) {
                     $queued = UnitSessionQueue::addItem($this->unit_session, $unit, $output);
-                } else {
-                    UnitSessionQueue::removeItem($this->unit_session->id, $unit->id);
                 }
 
                 if (!$output && is_object($unit)) {

@@ -105,7 +105,8 @@ class UnitSessionQueue extends Queue {
             // Execute session again by getting current unit
             // This action might end or expire a session, thereby removing it from queue
             // or session might be re-queued to expire in x minutes
-            $rsUnit = $runSession->execute($session['unit_id'], $session['execute']);
+            $unitSession = new UnitSession($this->db, $session['run_session_id'], $session['unit_id'], $session['unit_session_id'], false);
+            $rsUnit = $runSession->execute($unitSession, $session['execute']);
             if ($this->debug) {
                 $this->dbg('Proccessed: ' . print_r($session, 1));
             }
@@ -178,6 +179,8 @@ class UnitSessionQueue extends Queue {
 
             $db = DB::getInstance();
             $db->insert_update('survey_sessions_queue', $q, array('expires', 'counter' => '::counter + 1'));
+        } else {
+            UnitSessionQueue::removeItem($unitSession->id, $runUnit->id);
         }
     }
 
