@@ -177,7 +177,7 @@ class RunSession {
                     $this->endUnitSession($unit_info);
                     $referenceUnitSession = null;
                     continue;
-                } elseif ($referenceUnitSession && $referenceUnitSession->unit_id != $unit->id) {
+                } elseif ($referenceUnitSession && $referenceUnitSession->unit_id != $unit->id && !$executeReferenceUnit) {
                     // dead queue item, remove from queue
                     UnitSessionQueue::removeItem($referenceUnitSession->id, $referenceUnitSession->unit_id);
                 }
