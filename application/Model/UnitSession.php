@@ -15,13 +15,14 @@ class UnitSession {
      */
     private $dbh;
 
-    public function __construct($fdb, $run_session_id, $unit_id, $unit_session_id = null) {
+    public function __construct($fdb, $run_session_id, $unit_id, $unit_session_id = null, $load = true) {
         $this->dbh = $fdb;
         $this->unit_id = $unit_id;
         $this->run_session_id = $run_session_id;
         $this->id = $unit_session_id;
-
-        $this->load();
+        if ($load === true) {
+            $this->load();
+        }
     }
 
     public function create() {
