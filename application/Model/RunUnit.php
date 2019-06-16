@@ -689,23 +689,23 @@ class RunUnit {
         /* @var $session OpenCPU_Session */
         $session = null;
         $cache_session = false;
+        $baseUrl = null;
 
         if (!$admin) {
             $opencpu_url = $this->dbh->findValue('survey_reports', array(
                 'unit_id' => $this->id,
                 'session_id' => $this->session_id,
                 'created >=' => $this->modified // if the definition of the unit changed, don't use old reports
-                    ), array('opencpu_url'));
+            ), array('opencpu_url'));
 
             // If there is a cache of opencpu, check if it still exists
-            if ($opencpu_url) {
+            if ($opencpu_url && ($session = opencpu_get($opencpu_url, '', null, true))) {
                 if ($this->called_by_cron) {
                     return false; // don't regenerate once we once had a report for this feedback, if it's only the cronjob
                 }
 
-                $session = opencpu_get($opencpu_url, '', null, true);
-                $files = $session->getFiles('files/', $opencpu_url);
-                $images = $session->getFiles('/figure-html', $opencpu_url);
+                $filesMatch = 'files/';
+                $baseUrl = $opencpu_url;
             }
         }
 
@@ -718,8 +718,7 @@ class RunUnit {
                 $session = opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->description, $this->run->footer_text);
             }
 
-            $files = $session->getFiles('knit.html');
-            $images = $session->getFiles('/figure-html');
+            $filesMatch = 'knit.html';
             $cache_session = true;
         }
 
@@ -739,8 +738,10 @@ class RunUnit {
             return $session;
         } else {
             print_hidden_opencpu_debug_message($session, "OpenCPU debugger for run R code in {$this->type} at {$this->position}.");
-
+            $files = $session->getFiles($filesMatch, $baseUrl);
+            $images = $session->getFiles('/figure-html', $baseUrl);
             $opencpu_url = $session->getLocation();
+
             if ($email_embed) {
                 $report = array(
                     'body' => $session->getObject(),
@@ -750,7 +751,7 @@ class RunUnit {
                 $this->run->renderedDescAndFooterAlready = true;
                 $iframesrc = $files['knit.html'];
                 $report = '' .
-                        '<div class="rmarkdown_iframe">
+                '<div class="rmarkdown_iframe">
 					<iframe src="' . $iframesrc . '">
 					  <p>Your browser does not support iframes.</p>
 					</iframe>
