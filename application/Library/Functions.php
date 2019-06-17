@@ -744,6 +744,7 @@ function run_url($name = '', $action = '', $params = array()) {
     $domain = trim(Config::get('define_root.doc_root'), "\/\\");
     $subdomain = null;
     if (Config::get('use_study_subdomains')) {
+        $domain = str_replace('www.', '', $domain);
         $subdomain = strtolower($name) . '.';
     } else {
         $domain .= '/' . $name;
