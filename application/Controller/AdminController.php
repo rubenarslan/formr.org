@@ -99,7 +99,7 @@ class AdminController extends Controller {
 
         if (!$this->user->isAdmin()) {
             alert('You need to request for an admin account in order to access this section. See Documentation.', 'alert-warning');
-            $this->request->redirect('account');
+            $this->request->redirect('admin/account');
         }
 
         if ($this->site->inSuperAdminArea() && !$this->user->isSuperAdmin()) {
