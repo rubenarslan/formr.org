@@ -36,7 +36,7 @@
                                         <td><small class="hastooltip" title="<?= $userx['created'] ?>"><?= timetostr(strtotime($userx['created'])) ?></small></td>
                                         <td><small class="hastooltip" title="<?= $userx['modified'] ?>"><?= timetostr(strtotime($userx['modified'])) ?></small></td>
                                         <td>
-                                            <form class="form-inline form-ajax" action="<?= site_url('superadmin/ajax_admin') ?>" method="post">
+                                            <form class="form-inline form-ajax" action="<?= site_url('admin/advanced/ajax_admin') ?>" method="post">
                                                 <span class="input-group" style="width:160px">
                                                     <span class="input-group-btn">
                                                         <button type="submit" class="btn hastooltip" title="Give this level to this user"><i class="fa fa-hand-o-right"></i></button>
@@ -54,7 +54,7 @@
                                 </tbody>
                             </table>
                             <div class="pagination">
-                                <?php $pagination->render("superadmin/user_management"); ?>
+                                <?php $pagination->render("admin/advanced/user_management"); ?>
                             </div>
 
                         <?php endif; ?>
@@ -103,7 +103,7 @@
     </div>
 </script>
 <script type="text/javascript">
-    var saAjaxUrl = <?php echo json_encode(site_url('superadmin/ajax_admin')); ?>
+    var saAjaxUrl = <?php echo json_encode(site_url('admin/advanced/ajax_admin')); ?>
 </script>
 
 <?php Template::loadChild('admin/footer'); ?>
