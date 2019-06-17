@@ -230,3 +230,59 @@ a.btn.btn-checked {
     color: #008000;
     text-decoration: none;
 }
+
+.login-form {
+    position: absolute;
+    left: 0px;
+    right: 0px;
+    top: 0px;
+    bottom: 0px;
+    background-color: rgb(255, 255, 255);
+    text-align: center;
+    box-shadow: rgba(0, 0, 0, 0.05) 0px 2px 6px 0px;
+    width: 660px;
+    height: 660px;
+    margin: auto;
+    padding: 48px 150px;
+    border-radius: 8px;
+}
+@media screen and (max-width: 480px) {
+	.login-form {
+		height: 100%;
+        width: 100%;
+        padding: 40px 30px;
+        border-radius: 0px;
+        background: rgb(255, 255, 255);
+	}
+}
+#fmr-hero .fmr-intro>div .login-form h2 {
+	font-weight: 400;
+	font-size: 30px;
+	line-height: 45px;
+	color: #555;
+    margin-bottom: 30px;
+}
+.login-form form .form-group.label-floating label {
+    font-size: 14px !important;
+    text-align: left !important;
+    margin-bottom: 8px;
+}
+
+.login-form .form-control  {
+	height: 34px;
+	border: none;
+	border-bottom: 1px solid #efefef;
+    padding: 10px;
+}
+.login-form-logo {
+    font-size: 55px;
+    color: #555;
+    font-weight: bold;
+}
+.login-form-logo span{
+	color: #99cc53 !important;
+}
+.top-alerts {
+    z-index: 1000;
+    position: absolute;
+}

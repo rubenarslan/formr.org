@@ -19,6 +19,7 @@ $settings['routes'] = array(
 	'admin/survey'   => 'AdminSurveyController',
 	'admin/mail'     => 'AdminMailController',
 	'admin/advanced' => 'AdminAdvancedController',
+    'admin/account'  => 'AdminAccountController',
     'public'         => 'PublicController',
 	'api'            => 'ApiController',
 	'run'            => 'RunController'
