@@ -275,3 +275,13 @@ function cookies_enabled() {
 		}
 	});
 }(jQuery));
+
+
+if ('serviceWorker' in navigator) {
+   navigator.serviceWorker.register('sw.js')
+   .then(function(reg) {
+      console.log('SW successfully installed');
+   }).catch(function(error) {
+      console.log('Registration failed with ' + error);
+   });
+}
