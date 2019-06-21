@@ -285,3 +285,18 @@ if ('serviceWorker' in navigator) {
       console.log('Registration failed with ' + error);
    });
 }
+
+$(document).ready(function() {
+    if ('Notification' in window) {
+       Notification.requestPermission().then(function(permission) {
+         if (permission === 'denied') {
+            console.log('Permission for notifications wasn\'t granted.');
+            return;
+         } 
+         if (permission === 'default') {
+            console.log('Permissions still on default.');
+            return;
+         }
+       });
+    }
+});
