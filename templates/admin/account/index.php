@@ -65,8 +65,8 @@
                             <div class="clearfix"></div>
 
                             <h3 class="lead"> <i class="fa fa-lock"></i> Login Details (changes are effective immediately)</h3>
-                            <div class="alert alert-warning col-md-6">
-                                <i class="fa fa-warning"></i> If you do not intend to change your password, please leave the password fields empty.
+                            <div class="alert alert-warning" style="font-size: 16px;">
+                                <i class="fa fa-warning"></i> &nbsp; <i>If you do not intend to change your password, please leave the password fields empty.</i>
                             </div>
                             <div class="clearfix"></div>
                             
