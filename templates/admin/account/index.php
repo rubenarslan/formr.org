@@ -87,7 +87,7 @@
                             
                             <div class="col-md-5 no-padding confirm-changes">
                                 <label class="control-label" for="pass"><i class="fa fa-check-circle"></i> Enter Old Password to Save Changes</label>
-                                <div class="input-group input-group-sm">
+                                <div class="input-group input-group">
                                     <input class="form-control" type="password" id="pass" name="password" autocomplete="new-password" placeholder="Old Password">
                                     <span class="input-group-btn">
                                       <button type="submit" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Save Changes</button>
