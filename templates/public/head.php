@@ -2,6 +2,7 @@
         H.className = H.className.replace(/\bno_js\b/, 'js')
     })(document.documentElement)</script>
 <title><?php echo $site->makeTitle(); ?></title>
+<link rel="manifest" type="application/manifest+json" href="manifest.json">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
