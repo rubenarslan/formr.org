@@ -21,7 +21,8 @@ $settings['routes'] = array(
 	'admin/mail' => 'AdminMailController',
 	'superadmin' => 'SuperadminController',
 	'api' => 'ApiController',
-	'run' => 'RunController'
+	'run' => 'RunController',
+   'pwa' => 'PwaController'
 );
 
 // Load application settings
