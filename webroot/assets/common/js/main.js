@@ -281,9 +281,83 @@ if ('serviceWorker' in navigator) {
    navigator.serviceWorker.register('sw.js')
    .then(function(reg) {
       console.log('SW successfully installed');
+        configurePushSub();
    }).catch(function(error) {
       console.log('Registration failed with ' + error);
    });
+}
+
+function urlBase64ToUint8Array(base64String) {
+   var padding = '='.repeat((4 - base64String.length % 4) % 4);
+   var base64 = (base64String + padding)
+      .replace(/\-/g, '+')
+      .replace(/_/g, '/');
+
+   var rawData = window.atob(base64);
+   var outputArray = new Uint8Array(rawData.length);
+
+   for (var i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+   }
+   return outputArray;
+}
+
+function configurePushSub() {
+   if (!('serviceWorker' in navigator)) {
+      return;
+   }
+
+   var reg;
+   navigator.serviceWorker.ready
+      .then(function(swreg) {
+         reg = swreg;
+         return swreg.pushManager.getSubscription();
+      })
+      .then(function(sub) {
+         if (sub === null) {
+            var vapidPublicKey = 'BMjkOGYKy_sFVci1vCMhshyyJEoPS_sAyCuzYs4tImm6FMsF9FZu9pDrQnCnT88gVENH8ABLP3Ci7jUNaFPk8kQ';
+            console.log('vapidPublicKey: ' . vapidPublicKey);
+            var convertedVapidPublicKey = urlBase64ToUint8Array(vapidPublicKey);
+            console.log(convertedVapidPublicKey);
+            var retval = reg.pushManager.subscribe({
+               userVisibleOnly: true,
+               applicationServerKey: convertedVapidPublicKey
+            });
+            return retval;
+         }
+         return sub;
+      })
+      .then(function(newSub) {
+         pushsubscriptionobject = newSub;
+         console.log(newSub);
+         jsonfied_subscription = JSON.parse(JSON.stringify(newSub));
+         fetch('https://www.uni-muenster.de/PsyTD/formr-entwicklung/pwa/subscribe', {
+            method: 'POST',
+            credentials: "same-origin",
+            headers: {
+               'Accept': 'application/json',
+               'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(
+               {
+               'endpoint': jsonfied_subscription.endpoint,
+               'auth': jsonfied_subscription.keys.auth,
+               'p256dh': jsonfied_subscription.keys.p256dh,
+               'runname': window.location.href.replace(/.*\//, '')
+               })
+         });
+
+
+         return newSub
+      })
+      .then(function(res) {
+            if (res.ok) {
+            displayConfirmNotification();
+            }
+      })
+      .catch(function(err) {
+            console.log(err);
+      });
 }
 
 $(document).ready(function() {
