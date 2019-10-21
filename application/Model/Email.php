@@ -508,7 +508,7 @@ class Email extends RunUnit {
                        'publicKey' => $row['p256dh'],
                        'authToken' => $row['auth']
                    ]),
-                   'payload' => 'Formr: Bitte Fragebogen ausfüllen!'
+                   'payload' => '{msg: "Please continue your survey!", url: "' . run_url($this->run->name) . '"}'
                ];
             }
     
