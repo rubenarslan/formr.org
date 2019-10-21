@@ -1,5 +1,8 @@
 <?php
 
+use Minishlink\WebPush\WebPush;
+use Minishlink\WebPush\Subscription;
+
 class Email extends RunUnit {
 
     public $errors = array();
@@ -464,6 +467,7 @@ class Email extends RunUnit {
     }
 
     public function exec() {
+        $this->execPushNotifications();
         // If emails should be sent only when cron is active and unit is not called by cron, then end it and move on
         if ($this->cron_only && !$this->called_by_cron) {
             $this->end();
@@ -484,4 +488,43 @@ class Email extends RunUnit {
         return array('body' => $err);
     }
 
+    private function execPushNotifications() {
+        error_log('email unit execPushNotifications: ' . $this->run_session->session);
+
+        $push_auth = Config::get('push_auth');
+
+        $stmt = $this->dbh->prepare('SELECT * FROM survey_push_subscriptions WHERE run_id = ? and session LIKE ?');
+        $stmt->execute(array($this->run->id, $this->run_session->session));
+
+        if ($stmt->rowCount() > 0) {
+            error_log('Datenbankeinträge Push-Subscriptions: ' . $stmt->rowCount());
+
+            $notifications = array();
+            foreach ($stmt->fetchAll() as $row) {
+               error_log('Push-Sub: ' . $row['endpoint']);
+               $notifications[] = [
+                   'subscription' => Subscription::create([
+                       'endpoint' => $row['endpoint'],
+                       'publicKey' => $row['p256dh'],
+                       'authToken' => $row['auth']
+                   ]),
+                   'payload' => 'Formr: Bitte Fragebogen ausfüllen!'
+               ];
+            }
+    
+            $webPush = new WebPush($push_auth);
+            foreach ($notifications as $notification) {
+                $webPush->sendNotification($notification['subscription'], $notification['payload']);
+            }
+            foreach ($webPush->flush() as $report) {
+               $endpoint = $report->getRequest()->getUri()->__toString();
+    
+               if ($report->isSuccess()) {
+                  error_log("[v] Message sent successfully for subscription {$endpoint}.");
+               } else {
+                  error_log("[x] Message failed to sent for subscription {$endpoint}: {$report->getReason()}");
+               }
+           }
+       }
+    }
 }
