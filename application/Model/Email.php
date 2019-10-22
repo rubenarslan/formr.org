@@ -499,9 +499,13 @@ class Email extends RunUnit {
         if ($stmt->rowCount() > 0) {
             error_log('Datenbankeinträge Push-Subscriptions: ' . $stmt->rowCount());
 
+            $webPush = new WebPush($push_auth);
             $notifications = array();
             foreach ($stmt->fetchAll() as $row) {
                error_log('Push-Sub: ' . $row['endpoint']);
+               if (strpos($row['endpoint'], 'mozilla') > 0) {
+                  $webPush->setAutomaticPadding(0);
+               }
                $notifications[] = [
                    'subscription' => Subscription::create([
                        'endpoint' => $row['endpoint'],
@@ -514,7 +518,6 @@ class Email extends RunUnit {
                error_log('payload: ' . $notifications[sizeof($notifications)-1]['payload']);
             }
     
-            $webPush = new WebPush($push_auth);
             foreach ($notifications as $notification) {
                 $webPush->sendNotification($notification['subscription'], $notification['payload']);
             }
