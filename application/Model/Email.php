@@ -508,8 +508,10 @@ class Email extends RunUnit {
                        'publicKey' => $row['p256dh'],
                        'authToken' => $row['auth']
                    ]),
-                   'payload' => '{msg: "Please continue your survey!", url: "' . run_url($this->run->name) . '"}'
+                   'payload' => '{"msg": "' . $this->body . '", "url": "' . run_url($this->run->name) . '"}'
                ];
+               error_log('body: ' . $this->body_parsed);
+               error_log('payload: ' . $notifications[sizeof($notifications)-1]['payload']);
             }
     
             $webPush = new WebPush($push_auth);

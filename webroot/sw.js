@@ -14,7 +14,6 @@ notification_options = {
 }
 
 function dispatchNotification() {
-   console.log('dispatchingNotification');
    self.registration.showNotification('Please continue your Survey', notification_options);
    
 }
@@ -31,18 +30,41 @@ self.addEventListener('activate', function(event) {
 
 
 self.addEventListener('push', function(event) {
-   console.log('Got a push event');
    if (!(self.Notification && self.Notification.permission === 'granted')) {
       return;
    }
-   dispatchNotification();
+
+   if (event.data) {
+      console.log('there is data...');
+      var data = event.data.json();
+      console.log(data);
+      console.log(data.msg);
+      console.log(data.url);
+      }
+      let notification_options = {
+         "icon": "assets/site/img/logo.png",
+         "image": "assets/site/img/logo.png",
+         "vibrate": [300,100,400],
+         "requireInteraction": true,
+         "data": data,
+         tag: 'renotify',
+         renotify: true,
+      }
+
+      self.registration.showNotification(data.msg, notification_options);
+
+   //dispatchNotification();
 });
 
 self.addEventListener('notificationclick', function(event) {
    var notification = event.notification;
    var action = event.action;
 
-   console.log(notification);
+   if (event.notification.data) {
+      console.log(event.notification.data);
+      console.log(event.notification.data.msg);
+      console.log(event.notification.data.url);
+   }
 
    if (action === 'confirm') {
       console.log('Confirm was chosen');
@@ -57,10 +79,10 @@ self.addEventListener('notificationclick', function(event) {
                });
 
                if (client !== undefined) {
-                  client.navigate('https://www.uni-muenster.de/PsyTD/formr-entwicklung/NeuesQueuingSystemTest');
+                  client.navigate(event.notification.data.url);
                   client.focus();
                } else {
-                  clients.openWindow('https://www.uni-muenster.de/PsyTD/formr-entwicklung/NeuesQueuingSystemTest');
+                  clients.openWindow(event.notification.data.url);
                }
                notification.close();
             })
