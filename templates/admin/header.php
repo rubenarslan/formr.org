@@ -38,6 +38,7 @@
 
                         <!-- Collect the nav links, forms, and other content for toggling -->
                         <div class="collapse navbar-collapse" id="navbar-collapse">
+                            <?php if ($user->isAdmin()): ?>
                             <ul class="nav navbar-nav">
                                 <li class="dropdown">
                                     <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-pencil-square"></i> Surveys <span class="caret"></span></a>
@@ -87,6 +88,7 @@
                                     </ul>
                                 </li>
                             </ul>
+                            <?php endif; ?>
 
                             <ul class="nav navbar-nav navbar-right">
                                 <li><a href="<?php echo site_url('account'); ?>"><i class="fa fa-user"></i> <span><?= $user->email; ?> </span></a></li>

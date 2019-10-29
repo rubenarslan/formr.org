@@ -9,6 +9,19 @@
 
         <div class="row">
             <div class="col-md-3">
+                <?php if (!$user->isAdmin()): ?>
+                <div class="box box-warning text-center" style="background-color: #f39c12; color: #fff; padding: 25px;">
+                    <div class="box-header">
+                        <i class="fa fa-warning fa-2x" style="font-size: 55px; color: #fff"></i>
+                    </div>
+                    <div class="box-body box-profile">
+                        <h3>Your account is limited. You can request for full access as specified in the documentation</h3>
+                        <a href="<?= site_url('documentation/#get_started') ?>" class="btn btn-default" target="_blank"><i class="fa fa-link"></i> See Documentation</a>
+                    </div>
+                    <!-- /.box-body -->
+                </div>
+                <?php endif; ?>
+                
                 <div class="box box-primary">
                     <div class="box-body box-profile">
                         <div class="text-center">
@@ -65,8 +78,8 @@
                             <div class="clearfix"></div>
 
                             <h3 class="lead"> <i class="fa fa-lock"></i> Login Details (changes are effective immediately)</h3>
-                            <div class="alert alert-warning" style="font-size: 16px;">
-                                <i class="fa fa-warning"></i> &nbsp; <i>If you do not intend to change your password, please leave the password fields empty.</i>
+                            <div class="alert alert-warning col-md-7" style="font-size: 16px;">
+                                <i class="fa fa-warning"></i> &nbsp; If you do not intend to change your password, please leave the password fields empty.
                             </div>
                             <div class="clearfix"></div>
                             
