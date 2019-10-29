@@ -90,7 +90,7 @@ class UnitSessionQueue extends Queue {
             }
 
             $run = $this->getRun($session['run']);
-            if (!$run->valid) {
+            if (!$run->valid || !$run->cron_active) {
                 self::removeItem($session['unit_session_id'], $session['unit_id']);
                 continue;
             }
