@@ -176,7 +176,7 @@ Import the initial required database structure
     mysql formr -uformr -pEnterPassword < /path/to/formr/sql/schema.sql
 ```
 
-__You'll need to apply patchset sql/patches/028_add_user_attributes.sql manually.__
+__You'll need to apply patchsets 29 and 30 in sql/patches manually.__
 
 Optionally, you could use [smysqlin](https://bitbucket.org/cyriltata/smysqlin) to set up and manage patches to the formr mysql database.
 SQL patches are created with updates and found in the directory `/path/to/formr/sql/patches`. Any patch will be announced in the update release and you can either run this patch directly against your database or use smysqlin.
