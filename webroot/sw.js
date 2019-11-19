@@ -1,23 +1,9 @@
 const SW_VERSION = 'formr-v0.0.15'
 
-notification_options = {
-   "body": "This is a formr notification.",
-   "icon": "assets/site/img/logo.png",
-   "image": "assets/site/img/logo.png",
-   "vibrate": [5,0,5,0,5],
-   "requireInteraction": true,
-   tag: 'renotify',
-   renotify: true,
-//   actions: [
- //     {action: 'open', title: 'Go to survey'}
-  // ]
-}
-
 function dispatchNotification() {
    self.registration.showNotification('Please continue your Survey', notification_options);
    
 }
-                  
 
 
 self.addEventListener('install', function(event) {
@@ -35,11 +21,7 @@ self.addEventListener('push', function(event) {
    }
 
    if (event.data) {
-      console.log('there is data...');
       var data = event.data.json();
-      console.log(data);
-      console.log(data.msg);
-      console.log(data.url);
       }
       let notification_options = {
          "icon": "assets/site/img/logo.png",
@@ -50,6 +32,7 @@ self.addEventListener('push', function(event) {
          tag: 'renotify',
          renotify: true,
       }
+      console.log(data.msg);
 
       self.registration.showNotification(data.msg, notification_options);
 
@@ -77,6 +60,7 @@ self.addEventListener('notificationclick', function(event) {
                var client = clis.find(function(c) {
                   return c.visibilitystate === 'visible';
                });
+               console.log(client);
 
                if (client !== undefined) {
                   client.navigate(event.notification.data.url);

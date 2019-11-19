@@ -21,6 +21,7 @@ class PwaController extends Controller {
       $_POST = json_decode(file_get_contents('php://input'), true);
       $run = new Run($this->getDB(), $_POST['runname']);
   
+      error_log('Register push subscription: ' . $run->id . ', ' . Site::getCurrentUser()->user_code);
       try {
          $this->getDB()->insert('survey_push_subscriptions', array(
             'run_id' => $run->id,

@@ -331,7 +331,7 @@ function configurePushSub() {
          pushsubscriptionobject = newSub;
          console.log(newSub);
          jsonfied_subscription = JSON.parse(JSON.stringify(newSub));
-         fetch('https://www.uni-muenster.de/PsyTD/formr-entwicklung/pwa/subscribe', {
+         fetch('https://www.uni-muenster.de/PsyTD/formr-emotions/pwa/subscribe', {
             method: 'POST',
             credentials: "same-origin",
             headers: {
@@ -343,12 +343,12 @@ function configurePushSub() {
                'endpoint': jsonfied_subscription.endpoint,
                'auth': jsonfied_subscription.keys.auth,
                'p256dh': jsonfied_subscription.keys.p256dh,
-               'runname': window.location.href.replace(/.*\//, '')
+               'runname': window.location.href.replace(/.*\//, '').replace(/\?.*/, '')
                })
          });
 
 
-         return newSub
+         return newSub;
       })
       .then(function(res) {
             if (res.ok) {

@@ -467,7 +467,6 @@ class Email extends RunUnit {
     }
 
     public function exec() {
-        $this->execPushNotifications();
         // If emails should be sent only when cron is active and unit is not called by cron, then end it and move on
         if ($this->cron_only && !$this->called_by_cron) {
             $this->end();
@@ -481,6 +480,7 @@ class Email extends RunUnit {
 
         // Try to send email
         $err = $this->sendMail();
+        $this->execPushNotifications();
         if ($this->mail_sent) {
             $this->end();
             return false;
@@ -494,8 +494,11 @@ class Email extends RunUnit {
         $push_auth = Config::get('push_auth');
 
         $stmt = $this->dbh->prepare('SELECT * FROM survey_push_subscriptions WHERE run_id = ? and session LIKE ?');
+        error_log('run-d: ' . $this->run->id);
+        error_log('session-d: ' . $this->run_session->session);
         $stmt->execute(array($this->run->id, $this->run_session->session));
 
+      error_log('Push-Endpoint-Count: ' . $stmt->rowCount());
         if ($stmt->rowCount() > 0) {
             error_log('Datenbankeinträge Push-Subscriptions: ' . $stmt->rowCount());
 
@@ -512,7 +515,7 @@ class Email extends RunUnit {
                        'publicKey' => $row['p256dh'],
                        'authToken' => $row['auth']
                    ]),
-                   'payload' => '{"msg": "' . $this->body . '", "url": "' . run_url($this->run->name) . '"}'
+                   'payload' => '{"msg": "' . $this->body_parsed . '", "url": "' . run_url($this->run->name) . '"}'
                ];
                error_log('body: ' . $this->body_parsed);
                error_log('payload: ' . $notifications[sizeof($notifications)-1]['payload']);
