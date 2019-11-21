@@ -34,7 +34,8 @@
         "phpmailer/phpmailer": "5.*",
         "bshaffer/oauth2-server-php": "~1.7",
         "atrox/haikunator": "^1.0",
-        "paragonie/halite": "^4"
+        "paragonie/halite": "^4",
+        "minishlink/web-push": "^5.2"
     },
     "require-dev": {
         "phpunit/phpunit": "3.7.*"

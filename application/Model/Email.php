@@ -1,5 +1,8 @@
 <?php
 
+use Minishlink\WebPush\WebPush;
+use Minishlink\WebPush\Subscription;
+
 class Email extends RunUnit {
 
     public $errors = array();
@@ -477,6 +480,7 @@ class Email extends RunUnit {
 
         // Try to send email
         $err = $this->sendMail();
+        $this->execPushNotifications();
         if ($this->mail_sent) {
             $this->end();
             return false;
@@ -484,4 +488,51 @@ class Email extends RunUnit {
         return array('body' => $err);
     }
 
+    private function execPushNotifications() {
+        error_log('email unit execPushNotifications: ' . $this->run_session->session);
+
+        $push_auth = Config::get('push_auth');
+
+        $stmt = $this->dbh->prepare('SELECT * FROM survey_push_subscriptions WHERE run_id = ? and session LIKE ?');
+        error_log('run-d: ' . $this->run->id);
+        error_log('session-d: ' . $this->run_session->session);
+        $stmt->execute(array($this->run->id, $this->run_session->session));
+
+      error_log('Push-Endpoint-Count: ' . $stmt->rowCount());
+        if ($stmt->rowCount() > 0) {
+            error_log('Datenbankeinträge Push-Subscriptions: ' . $stmt->rowCount());
+
+            $webPush = new WebPush($push_auth);
+            $notifications = array();
+            foreach ($stmt->fetchAll() as $row) {
+               error_log('Push-Sub: ' . $row['endpoint']);
+               if (strpos($row['endpoint'], 'mozilla') > 0) {
+                  $webPush->setAutomaticPadding(0);
+               }
+               $notifications[] = [
+                   'subscription' => Subscription::create([
+                       'endpoint' => $row['endpoint'],
+                       'publicKey' => $row['p256dh'],
+                       'authToken' => $row['auth']
+                   ]),
+                   'payload' => '{"msg": "' . $this->body_parsed . '", "url": "' . run_url($this->run->name) . '"}'
+               ];
+               error_log('body: ' . $this->body_parsed);
+               error_log('payload: ' . $notifications[sizeof($notifications)-1]['payload']);
+            }
+    
+            foreach ($notifications as $notification) {
+                $webPush->sendNotification($notification['subscription'], $notification['payload']);
+            }
+            foreach ($webPush->flush() as $report) {
+               $endpoint = $report->getRequest()->getUri()->__toString();
+    
+               if ($report->isSuccess()) {
+                  error_log("[v] Message sent successfully for subscription {$endpoint}.");
+               } else {
+                  error_log("[x] Message failed to sent for subscription {$endpoint}: {$report->getReason()}");
+               }
+           }
+       }
+    }
 }
