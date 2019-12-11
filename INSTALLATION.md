@@ -90,6 +90,7 @@ The following requirements should be installed on the system you intend to insta
 	* php-xml
 	* php-gd
 	* php-intl
+	* php-xml
 	* pandoc (not needed in `develop` branch for libsodium23)
 * Apache >= 2.4
 * MySQL / MariaDB >= 5.6
@@ -103,7 +104,7 @@ The following requirements should be installed on the system you intend to insta
 Paket list for copying:
 
 ```
-sudo apt-get install git php apache2 mysql-server composer php-curl php-fpm php-mbstring php-mysql php-zip php-xml php-gd php-intl pandoc
+sudo apt-get install git php apache2 mysql-server composer php-curl php-fpm php-mbstring php-mysql php-zip php-xml php-gd php-intl php-xml pandoc
 ```
 
 Install libsodium now. See instructions above.
