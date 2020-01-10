@@ -249,15 +249,15 @@ class Email extends RunUnit {
                 else:
                     $error = sprintf("We already sent %d mail to this recipient in the last 10 minutes. No email was sent.", $mails_sent['in_last_10m']);
                 endif;
-            elseif ($mails_sent['in_last_1h'] > 2):
+            elseif ($mails_sent['in_last_1h'] > 3):
                 if ($mails_sent['in_last_1h'] < 10 && $testing):
                     $warning = sprintf("We already sent %d mails to this recipient in the last hour. An email was sent, because you're currently testing, but it would have been delayed for a real user, to avoid allegations of spamming.", $mails_sent['in_last_1h']);
                 else:
                     $error = sprintf("We already sent %d mails to this recipient in the last hour. No email was sent.", $mails_sent['in_last_1h']);
                 endif;
-            elseif ($mails_sent['in_last_1d'] > 9 && !$testing):
+            elseif ($mails_sent['in_last_1d'] > 20 && !$testing):
                 $error = sprintf("We already sent %d mails to this recipient in the last day. No email was sent.", $mails_sent['in_last_1d']);
-            elseif ($mails_sent['in_last_1w'] > 60 && !$testing):
+            elseif ($mails_sent['in_last_1w'] > 140 && !$testing):
                 $error = sprintf("We already sent %d mails to this recipient in the last week. No email was sent.", $mails_sent['in_last_1w']);
             endif;
         else:
