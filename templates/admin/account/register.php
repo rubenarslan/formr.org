@@ -52,22 +52,7 @@
                                                 </div>
                                                 
                                                 <div>
-                                                    <p>If you don't have a referral token, sign up first and then write us an <a title=" We're excited to have people try this out, so you'll get a test account, if you're human. But let us know a little about what you plan to do (and sign up first)." class="schmail" href="mailto:IMNOTSENDINGSPAMTOruben.arslan@that-big-googly-eyed-email-provider.com?subject=<?= rawurlencode("formr private beta"); ?>&amp;body=<?= rawurlencode("If you are not a robot, I have high hopes that you can figure out how to get my proper email address from the above.Hi there!
-
-I'd like to create studies using formr. I'm totally not a dolphin.
-
-I confirm that I have already registered with the email address from which I'm sending this request. 
-
-I'm affiliated with the University of Atlantis.
-
-This is what I want to use formr for:
-[x] find out more about land mammals
-[x] plan cetacean world domination 
-[ ] excessively use your server resources
-
-Squee'ek uh'k kk'kkkk squeek eee'eek!
-Not a Dolphin
-"); ?>">email</a> to ask for the right to create studies. If you have a token, you'll be able to create studies once you confirm your email address.</p>
+                                                    <p>If you don't have a referral token, sign up first and then write us an <a title=" We're excited to have people try this out, so you'll get a test account, if you're human. But let us know a little about what you plan to do (and sign up first)." class="schmail" href="mailto:accounts@formr.org?subject=<?= rawurlencode("formr private beta"); ?>&amp;body=<?= rawurlencode(Template::get('email/reg-account.ftpl')); ?>">email</a> to ask for the right to create studies. If you have a token, you'll be able to create studies once you confirm your email address.</p>
                                                 </div>
 
                                                 <button type="submit" class="btn btn-sup btn-material-pink btn-raised"><i class="fa fa-pencil fa-fw"></i> Sign Up</button>

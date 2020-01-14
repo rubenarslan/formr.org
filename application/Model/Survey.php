@@ -304,15 +304,17 @@ class Survey extends RunUnit {
             $display_order = null;
             $item_id = null;
             $page = 1;
+			$created = mysql_datetime();
 
             $survey_items_display = $this->dbh->prepare(
-                    "INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`, `page`)  VALUES (:item_id, :session_id, :display_order, :page)
-				 ON DUPLICATE KEY UPDATE `display_order` = VALUES(`display_order`), `page` = VALUES(`page`)"
+                    "INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`, `page`, `created`)  VALUES (:item_id, :session_id, :display_order, :page, :created)
+				    ON DUPLICATE KEY UPDATE `display_order` = VALUES(`display_order`), `page` = VALUES(`page`)"
             );
             $survey_items_display->bindParam(":session_id", $this->session_id);
             $survey_items_display->bindParam(":item_id", $item_id);
             $survey_items_display->bindParam(":display_order", $display_order);
             $survey_items_display->bindParam(":page", $page);
+			$survey_items_display->bindParam(":created", $created);
 
             foreach ($item_ids as $display_order => $item_id) {
                 $survey_items_display->execute();

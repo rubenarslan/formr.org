@@ -448,7 +448,7 @@ class RunSession {
         $count = 0;
         foreach ($sessions as $session) {
             $runSession = new RunSession($dbh, $run->id, 'cron', $session, $run);
-            if ($runSession->position != $position && $runSession->runTo($position)) {
+            if ($runSession->position != $position && $runSession->forceTo($position)) {
                 $runSession->execute();
                 $count++;
             }
