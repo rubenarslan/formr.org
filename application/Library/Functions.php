@@ -106,6 +106,7 @@ function session_over($site, $user) {
 
 function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null, $link_text = null) {
     $code = $code ? $code : 500;
+    $text = str_replace(APPLICATION_ROOT, '', $text);
     if ($link === null) {
         $link = site_url();
     }

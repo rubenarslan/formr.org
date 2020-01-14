@@ -129,6 +129,8 @@ class RunHelper {
     }
 
     public function getUserOverviewTable($queryParams, $page = null) {
+        ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
+        
         $query = array(' `survey_run_sessions`.run_id = :run_id ');
         if (!empty($queryParams['session'])) {
             $query[] = ' `survey_run_sessions`.session LIKE :session ';

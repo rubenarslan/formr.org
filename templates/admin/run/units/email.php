@@ -23,7 +23,7 @@
 
     <div class="form-group">
         <label>Recipient</label>
-        <input class="full_width select2recipient" type="text" placeholder="survey_users$email" name="recipient_field" value="<?= $recipient_field ?>" data-select2init="<?= htmlentities(json_encode($potentialRecipientFields, JSON_UNESCAPED_UNICODE)) ?>">
+        <input class="full_width select2recipient" type="text" placeholder="survey_users$email" name="recipient_field" value="<?= h($recipient_field) ?>" data-select2init="<?= htmlentities(json_encode($potentialRecipientFields, JSON_UNESCAPED_UNICODE)) ?>">
     </div>
 
     <div class="form-group">

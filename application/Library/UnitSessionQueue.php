@@ -164,7 +164,7 @@ class UnitSessionQueue extends Queue {
     public static function addItem(UnitSession $unitSession, RunUnit $runUnit, $execResults) {
         $helper = UnitSessionHelper::getInstance();
         $data = $helper->getUnitSessionExpiration($unitSession, $runUnit, $execResults);
-
+        
         if (!empty($data['expires'])) {
             $q = array(
                 'unit_session_id' => $unitSession->id,
@@ -178,7 +178,7 @@ class UnitSessionQueue extends Queue {
             );
 
             $db = DB::getInstance();
-            $db->insert_update('survey_sessions_queue', $q, array('expires', 'counter' => '::counter + 1'));
+            $db->insert_update('survey_sessions_queue', $q, array('expires', 'execute', 'counter' => '::counter + 1'));
         } else {
             UnitSessionQueue::removeItem($unitSession->id, $runUnit->id);
         }

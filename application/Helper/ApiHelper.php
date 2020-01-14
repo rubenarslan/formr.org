@@ -43,6 +43,8 @@ class ApiHelper {
     }
 
     public function results() {
+		ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
+		
         // Get run object from request
         $request_run = $this->request->arr('run');
         $request_surveys = $this->request->arr('surveys');
@@ -254,6 +256,9 @@ class ApiHelper {
             if (!isset($results[$session_id])) {
                 $results[$session_id] = array('session' => $row['run_session'], 'created' => $row['created']);
             }
+			if ($row['created'] && !$results[$session_id]['created']) {
+				$results[$session_id]['created'] = $row['created'];
+			}
             $results[$session_id][$row['item_name']] = $row['answer'];
         }
 
