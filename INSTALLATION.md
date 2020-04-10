@@ -44,7 +44,7 @@ Open `/etc/opencpu/server.conf` using e.g., `sudo nano`. Edit
 the `key_length` setting to be longer. We use 50, OpenCPU uses 13.
 We also set the following packages to `"preload": ["stringr", "dplyr","knitr", "lubridate","formr", "rmarkdown"]`.
 
-Open `/etc/opencpu/server.conf` using e.g., `sudo nano`. Remove the first `location` block and replace it with
+Open `/etc/nginx/opencpu.d/ocpu.conf` using e.g., `sudo nano`. Remove the first `location` block and replace it with
 
 ```
 # OpenCPU API
