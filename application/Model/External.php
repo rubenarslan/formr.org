@@ -170,6 +170,7 @@ class External extends RunUnit {
             // sometimes we aren't able to control the other end
             if (!$this->api_end) {
                 $this->end();
+                $this->run_session->execute();
             }
 
             redirect_to($goto);
