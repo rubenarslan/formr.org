@@ -284,14 +284,17 @@ class Survey extends RunUnit {
             alert('A results table for this survey could not be found', 'alert-danger');
             throw new Exception("Results table '{$this->results_table}' not found!");
         }
-
-        $this->dbh->insert_update($this->results_table, array(
+        
+        $entry = array(
             'session_id' => $this->session_id,
             'study_id' => $this->id,
-			'created' => mysql_now()),
-		array(
-            'modified' => mysql_now(),
-        ));
+        );
+        if (!$this->dbh->entry_exists($this->results_table, $entry)) {
+            $entry['created'] = mysql_now();
+            $this->dbh->insert($this->results_table, $entry);
+        } else {
+            $this->dbh->update($this->results_table, array('modified' => mysql_now()), $entry);
+        }
 
         // Check if session already has enough entries in the items_display table for this survey
         if ($this->allItemsHaveAnOrder()) {
@@ -305,7 +308,7 @@ class Survey extends RunUnit {
             $item_id = null;
             $page = 1;
 			$created = mysql_datetime();
-
+/*
             $survey_items_display = $this->dbh->prepare(
                     "INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`, `page`, `created`)  VALUES (:item_id, :session_id, :display_order, :page, :created)
 				    ON DUPLICATE KEY UPDATE `display_order` = VALUES(`display_order`), `page` = VALUES(`page`)"
@@ -315,9 +318,24 @@ class Survey extends RunUnit {
             $survey_items_display->bindParam(":display_order", $display_order);
             $survey_items_display->bindParam(":page", $page);
 			$survey_items_display->bindParam(":created", $created);
+*/
+            $values = '';
+            $valuesCount = 0;
+            $valuesMax = 60;
+            $sql_tpl = "INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`, `page`, `created`)  VALUES %s ON DUPLICATE KEY UPDATE `display_order` = VALUES(`display_order`), `page` = VALUES(`page`)";
+            $lastId = end($item_ids);
 
             foreach ($item_ids as $display_order => $item_id) {
-                $survey_items_display->execute();
+                $values .= '(' . $item_id . ',' . $this->session_id . ',' . $display_order . ',' . $page . ',' . $this->dbh->quote($created) . '),';
+                $valuesCount++;
+                if (($valuesCount >= $valuesMax) || ($item_id == $lastId && $values)) {
+                    $query = sprintf($sql_tpl, trim($values, ','));
+                    $this->dbh->query($query);
+                    $values = '';
+                    $valuesCount = 0;
+                }
+
+                //$survey_items_display->execute();
                 // set page number when submit button is hit or we reached max_items_per_page for survey
                 if ($item_types[$item_id] === 'submit') {
                     $page++;
@@ -1620,12 +1638,16 @@ class Survey extends RunUnit {
     }
 
     public function getItemsInResultsTable() {
+		if (($existingColumns = $this->dbh->getTableDefinition($this->results_table, 'Field'))) {
+			$existingColumns = array_keys($existingColumns);
+		}
+
         $items = $this->getItems();
         $names = array();
         $itemFactory = new ItemFactory(array());
-        foreach ($items AS $item) {
+        foreach ($items as $item) {
             $item = $itemFactory->make($item);
-            if ($item->isStoredInResultsTable()) {
+            if ($item->isStoredInResultsTable() && in_array($item->name, $existingColumns)) {
                 $names[] = $item->name;
             }
         }
