@@ -1,6 +1,6 @@
 <?php
 
-class SuperadminController extends Controller {
+class AdminAdvancedController extends Controller {
 
     public function __construct(Site &$site) {
         parent::__construct($site);
@@ -18,17 +18,17 @@ class SuperadminController extends Controller {
     }
     
     public function infoAction() {
-        $this->setView('superadmin/info');
+        $this->setView('admin/advanced/info');
         return $this->sendResponse();
     }
 
     public function testOpencpuAction() {
-        $this->setView('superadmin/test_opencpu');
+        $this->setView('admin/advanced/test_opencpu');
         return $this->sendResponse();
     }
 
     public function testOpencpuSpeedAction() {
-        $this->setView('superadmin/test_opencpu_speed');
+        $this->setView('admin/advanced/test_opencpu_speed');
         return $this->sendResponse();
     }
 
@@ -125,7 +125,7 @@ class SuperadminController extends Controller {
             $parse = $file;
         }
 
-        $this->setView('superadmin/cron_log_parsed', array(
+        $this->setView('admin/advanced/cron_log_parsed', array(
             'files' => $files,
             'parse' => $parse,
             'parser' => $parser,
@@ -141,14 +141,14 @@ class SuperadminController extends Controller {
 
     public function userManagementAction() {
         $table = UserHelper::getUserManagementTablePdoStatement();
-        $this->setView('superadmin/user_management', $table);
+        $this->setView('admin/advanced/user_management', $table);
 
         return $this->sendResponse();
     }
 
     public function activeUsersAction() {
         $table = UserHelper::getActiveUsersTablePdoStatement();
-        $this->setView('superadmin/active_users', array(
+        $this->setView('admin/advanced/active_users', array(
             'pdoStatement' => $table['pdoStatement'],
             'pagination' => $table['pagination'],
             'status_icons' => array(0 => 'fa-eject', 1 => 'fa-volume-off', 2 => 'fa-volume-down', 3 => 'fa-volume-up' )
@@ -170,20 +170,20 @@ class SuperadminController extends Controller {
             }
             alert('Changes saved', 'alert-success');
             $qs = $this->request->page ? '/?page=' . $this->request->page : null;
-            $this->request->redirect('superadmin/runs_management' . $qs);
+            $this->request->redirect('admin/advanced/runs-management' . $qs);
         } elseif ($id = $this->request->int('id')) {
             $runName = $this->fdb->findValue('survey_runs', array('id' => $id), 'name');
             $run = new Run($this->fdb, $runName);
             if (!$run->valid) {
                 formr_error(404, 'Not Found', 'Run Not Found');
             }
-            $this->setView('superadmin/runs_management_queue', array(
+            $this->setView('admin/advanced/runs_management_queue', array(
                 'stmt' => UnitSessionQueue::getRunItems($run),
                 'run' => $run,
             ));
             return $this->sendResponse();
         } else {
-            $this->setView('superadmin/runs_management', RunHelper::getRunsManagementTablePdoStatement());
+            $this->setView('admin/advanced/runs_management', RunHelper::getRunsManagementTablePdoStatement());
             return $this->sendResponse();
         }
     }

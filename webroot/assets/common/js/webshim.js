@@ -37,5 +37,5 @@ webshim.setOptions({
 		}
     }
 });
-webshim.activeLang('de');
+webshim.activeLang('en');
 webshim.polyfill('es5 es6 forms forms-ext geolocation');

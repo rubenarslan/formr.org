@@ -27,7 +27,7 @@
                                 <thead>
                                     <tr>
                                         <th>Unit in Run</th>
-                                        <th>Email</th>
+                                        <th>Session</th>
                                         <th>Group</th>
                                         <th>Created</th>
                                     </tr>
@@ -43,7 +43,7 @@
                                     ?>
                                     <tr class="<?= $tr_class ?>">
                                         <td><?= $row['unit_type'] ?> <span class='hastooltip' title='position in run <?= $row['run_name']?>'>(<?= $row['position'] ?>)</span></td>
-                                        <td><small title="<?= $row['session']?>"><?= $row['email']?></small></td>
+                                        <td><small title="<?= $row['session']?>"><?= $row['session']?></small></td>
                                         <td><small title="Assigned group"><?= $row['group'] ?></small></td>
                                         <td><small><?= $row['created'] ?></small></td>
                                     </tr>

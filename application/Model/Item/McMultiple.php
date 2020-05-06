@@ -52,7 +52,7 @@ class McMultiple_Item extends Mc_Item {
 
             $label = '
 				<label class="checkbox-inline" for="item%{id}_%{value}">
-					<input id="item%{id}_%{value}" value="%{value}" %{input_attributes} /> %{option}
+					<input id="item%{id}_%{value}" value="%{value}" %{input_attributes} /> <span class="cb-inline-label">%{option}</span>
 				</label>
 			';
             $label = Template::replace($label, array(

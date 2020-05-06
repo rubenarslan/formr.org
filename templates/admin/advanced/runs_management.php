@@ -47,7 +47,7 @@
                                                     <?php $checked = $row['locked'] ? 'checked="checked"' : null ?>
                                                     <input type="checkbox" name="runs[<?= $row['run_id'] ?>][locked]" value="<?= $row['locked'] ?>" <?= $checked ?> />
                                                 </td>
-                                                <td><a href="<?= site_url('superadmin/runs_management?id='.$row['run_id']); ?>" class="btn btn-default"><i class="fa fa-th-list"></i> See Queue</a></td>
+                                                <td><a href="<?= site_url('admin/advanced/runs_management?id='.$row['run_id']); ?>" class="btn btn-default"><i class="fa fa-th-list"></i> See Queue</a></td>
                                             </tr>
                                         <?php endwhile; ?>
                                         <tr>
@@ -60,7 +60,7 @@
                             </form>
                         <?php endif; ?>
                         <div class="pagination">
-                            <?php $pagination->render("superadmin/runs_management"); ?>
+                            <?php $pagination->render("admin/advanced/runs_management"); ?>
                         </div>
                     </div>
                 </div>

@@ -330,6 +330,7 @@ class AdminRunController extends AdminController {
     }
 
     private function exportDataAction() {
+        formr_error_feature_unavailable();
         $run = $this->run;
         $format = $this->request->str('format');
         $SPR = new SpreadsheetReader();
@@ -371,6 +372,7 @@ class AdminRunController extends AdminController {
     }
 
     private function exportSurveyResultsAction() {
+        formr_error_feature_unavailable();
         $studies = $this->run->getAllSurveys();
         $dir = APPLICATION_ROOT . 'tmp/backups/results';
         if (!$dir) {
@@ -492,6 +494,7 @@ class AdminRunController extends AdminController {
     }
 
     private function emptyRunAction() {
+        formr_error_feature_unavailable();
         $run = $this->run;
         if ($this->request->isHTTPPostRequest()) {
             if ($this->request->getParam('empty_confirm') === $run->name) {
@@ -521,6 +524,7 @@ class AdminRunController extends AdminController {
     }
 
     private function deleteRunAction() {
+        formr_error_feature_unavailable();
         $run = $this->run;
         if (Request::isHTTPPostRequest() && $this->request->getParam('delete') && $this->request->getParam('delete_confirm') === $run->name) {
             if($run->delete()) {
