@@ -132,6 +132,10 @@ function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could
     $response->setStatusCode($code, $title)->setContent($view->render())->send();
 }
 
+function formr_error_feature_unavailable() {
+     formr_error('503', 'Feature Unavailable', 'Sorry this feature is temporarily unavailable. Please try again later', '', 'javascript:history.back();', 'Go Back');
+}
+
 function h($text) {
     return htmlspecialchars($text);
 }
