@@ -52,7 +52,7 @@
                                 </tbody>
                             </table>
                             <div class="pagination">
-                                <?php $pagination->render("superadmin/active_users"); ?>
+                                <?php $pagination->render("admin/advanced/active_users"); ?>
                             </div>
 
                         <?php endif; ?>

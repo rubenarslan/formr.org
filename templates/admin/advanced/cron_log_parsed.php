@@ -21,7 +21,7 @@
                         <ul class="nav nav-pills nav-stacked">
                             <?php foreach ($files as $file => $path): ?>
                                 <li class="file <?= $file === $parse ? 'active' : '' ?>">
-                                    <a href="<?php echo site_url('superadmin/cron_log?f=' . $file); ?>">
+                                    <a href="<?php echo site_url('admin/advanced/cron_log?f=' . $file); ?>">
                                         <i class="fa fa-file"></i> <?php echo $file; ?>
                                     </a>
                                 </li>

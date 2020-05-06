@@ -157,7 +157,7 @@ class RunSession {
         while (!$output): // only when there is something to display, stop.
             $i++;
             if ($i > 80) {
-                if ($user->isCron() || $user->isAdmin()) {
+                if (!empty($user) && $user->isCron() || $user->isAdmin()) {
                     if (isset($unit)) alert(print_r($unit, true), 'alert-danger');
                 }
                 alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?', 'alert-danger');
@@ -173,17 +173,16 @@ class RunSession {
                 $unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this, $this->run);
                 $this->current_unit_type = $unit->type;
 
-                if ($referenceUnitSession && $referenceUnitSession->unit_id == $unit->id && !$executeReferenceUnit) {
+                if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id == $this->unit_session->id && !$executeReferenceUnit) {
                     $this->endUnitSession($unit_info);
                     $referenceUnitSession = null;
                     continue;
-                } elseif ($referenceUnitSession && $referenceUnitSession->unit_id != $unit->id && !$executeReferenceUnit) {
+                } elseif ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id != $this->unit_session->id) {
                     // dead queue item, remove from queue
                     UnitSessionQueue::removeItem($referenceUnitSession->id, $referenceUnitSession->unit_id);
                 }
 
                 $output = $unit->exec();
-
                 //@TODO check whether output is set or NOT
                 $queue = $this->run && $this->run->cron_active && $this->unit_session->id && !$unit->ended && !$unit->expired;
                 if ($queue) {
@@ -449,7 +448,7 @@ class RunSession {
         $count = 0;
         foreach ($sessions as $session) {
             $runSession = new RunSession($dbh, $run->id, 'cron', $session, $run);
-            if ($runSession->position != $position && $runSession->runTo($position)) {
+            if ($runSession->position != $position && $runSession->forceTo($position)) {
                 $runSession->execute();
                 $count++;
             }

@@ -52,7 +52,7 @@ Template::loadChild('acp_nav');
 
     </tbody></table>
 </div>
-<?php $pagination->render("superadmin/cron_log"); ?>
+<?php $pagination->render("admin/advanced/cron_log"); ?>
 </div>
 
 <?php

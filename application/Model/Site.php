@@ -90,7 +90,7 @@ class Site {
     }
 
     public function inSuperAdminArea() {
-        return strpos($this->path, 'superadmin/') !== FALSE;
+        return strpos($this->path, 'admin/advanced') !== FALSE;
     }
 
     public function inAdminArea() {

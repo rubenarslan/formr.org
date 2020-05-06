@@ -407,6 +407,7 @@ class AdminSurveyController extends AdminController {
     }
 
     private function exportItemdisplayAction() {
+        formr_error_feature_unavailable();
         if ($this->study->settings['hide_results']) {
             return $this->hideResults();
         }
@@ -423,7 +424,7 @@ class AdminSurveyController extends AdminController {
         $download_successfull = $SPR->exportInRequestedFormat($resultsStmt, $study->name, $format);
         if (!$download_successfull) {
             alert('An error occured during results download.', 'alert-danger');
-            $this->request->redirect(admin_study_url($filename, 'show_results'));
+            $this->request->redirect(admin_study_url($study->name, 'show_results'));
         }
     }
 

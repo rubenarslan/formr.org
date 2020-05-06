@@ -106,6 +106,7 @@ function session_over($site, $user) {
 
 function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null, $link_text = null) {
     $code = $code ? $code : 500;
+    $text = str_replace(APPLICATION_ROOT, '', $text);
     if ($link === null) {
         $link = site_url();
     }
@@ -129,6 +130,10 @@ function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could
 
     $response = new Response();
     $response->setStatusCode($code, $title)->setContent($view->render())->send();
+}
+
+function formr_error_feature_unavailable() {
+     formr_error('503', 'Feature Unavailable', 'Sorry this feature is temporarily unavailable. Please try again later', '', 'javascript:history.back();', 'Go Back');
 }
 
 function h($text) {
@@ -744,6 +749,7 @@ function run_url($name = '', $action = '', $params = array()) {
     $domain = trim(Config::get('define_root.doc_root'), "\/\\");
     $subdomain = null;
     if (Config::get('use_study_subdomains')) {
+        $domain = str_replace('www.', '', $domain);
         $subdomain = strtolower($name) . '.';
     } else {
         $domain .= '/' . $name;

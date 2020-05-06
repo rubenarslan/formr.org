@@ -38,6 +38,7 @@
 
                         <!-- Collect the nav links, forms, and other content for toggling -->
                         <div class="collapse navbar-collapse" id="navbar-collapse">
+                            <?php if ($user->isAdmin()): ?>
                             <ul class="nav navbar-nav">
                                 <li class="dropdown">
                                     <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-pencil-square"></i> Surveys <span class="caret"></span></a>
@@ -79,14 +80,15 @@
                                         <li><a href="https://github.com/rubenarslan/formr.org"><i class="fa fa-github-alt fa-fw"></i> Github repository </a></li>
                                         <li><a href="https://github.com/rubenarslan/formr"><i class="fa fa-github-alt fa-fw"></i> R package on Github </a></li>
                                         <?php if ($user->isSuperAdmin()): ?>
-                                            <li><a href="<?php echo site_url('superadmin/cron_log'); ?>"><i class="fa fa-cog fa-fw"></i>cron log</a></li>
-                                            <li><a href="<?php echo site_url('superadmin/user_management'); ?>"><i class="fa fa-users fa-fw"></i> manage users</a></li>
-                                            <li><a href="<?php echo site_url('superadmin/active_users'); ?>"><i class="fa fa-users fa-fw"></i> active users</a></li>
-                                            <li><a href="<?php echo site_url('superadmin/runs_management'); ?>"><i class="fa fa-list fa-fw"></i> manage runs</a></li>
+                                            <li><a href="<?php echo site_url('admin/advanced/cron_log'); ?>"><i class="fa fa-cog fa-fw"></i>cron log</a></li>
+                                            <li><a href="<?php echo site_url('admin/advanced/user_management'); ?>"><i class="fa fa-users fa-fw"></i> manage users</a></li>
+                                            <li><a href="<?php echo site_url('admin/advanced/active_users'); ?>"><i class="fa fa-users fa-fw"></i> active users</a></li>
+                                            <li><a href="<?php echo site_url('admin/advanced/runs_management'); ?>"><i class="fa fa-list fa-fw"></i> manage runs</a></li>
                                         <?php endif; ?>
                                     </ul>
                                 </li>
                             </ul>
+                            <?php endif; ?>
 
                             <ul class="nav navbar-nav navbar-right">
                                 <li><a href="<?php echo site_url('account'); ?>"><i class="fa fa-user"></i> <span><?= $user->email; ?> </span></a></li>
