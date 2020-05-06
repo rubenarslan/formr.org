@@ -1,5 +1,7 @@
 <?php
 
+use PHPMailer\PHPMailer\PHPMailer;
+
 /**
  * EmailQueue
  * Process emails in email_queue
