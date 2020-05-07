@@ -81,6 +81,7 @@ abstract class Controller {
             'run' => $this->run,
             'study' => $this->study,
             'meta' => $this->generateMetaInfo(),
+            'jsConfig' => $this->getJsConfig(),
         );
 
         $variables = array_merge($global, $this->vars, $vars);
@@ -198,6 +199,21 @@ abstract class Controller {
         );
 
         return $meta;
+    }
+    
+    protected function getJsConfig() {
+        // Initialize JS config
+        $config = array();
+        // URLs
+        $config['site_url'] = site_url();
+        $config['admin_url'] = admin_url();
+        // Cookie consent
+        $cookieconsent = Site::getSettings('js:cookieconsent', '{}');
+        if ($cookieconsent && ($decoded = json_decode($cookieconsent, true))) {
+            $config['cookieconsent'] = $decoded;
+        }
+        
+        return $config;
     }
 
     public function errorAction($code = null, $text = null) {

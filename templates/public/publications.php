@@ -36,14 +36,7 @@ Template::loadChild('public/header');
             </div>
             <div class="col-md-12">
                 <?php
-                /**
-                 * For now publications are manually read from a pre-configured file as whole-text
-                 * @TODO implement a more reasonable storage for publication
-                 */
-                $file = Config::get('publications_file', APPLICATION_ROOT . 'webroot/assets/publications.html');
-                if (file_exists($file)) {
-                    echo file_get_contents($file);
-                }
+                    echo Site::getSettings('content:publications'); 
                 ?>
             </div>
             <p>&nbsp;</p>
