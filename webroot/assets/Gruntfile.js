@@ -5,9 +5,9 @@ module.exports = function (grunt) {
      * common assets using 'asset key' of site and admin
      */
     var assets = grunt.file.readJSON('assets.json');
-    var common_assets = ['jquery', 'bootstrap', 'font-awesome', 'webshim', 'select2', 'hammer', 'highlight', 'cookieconsent'];
-    var site_assets = ['main:js', 'run_users', 'run', 'survey', 'site', 'site:custom'];
-    var admin_assets = ['main:js', 'run_users', 'run', 'run_settings', 'admin'];
+    var common_assets = assets["config"]["common"];
+    var site_assets = assets["config"]["site"];
+    var admin_assets = assets["config"]["admin"];
 
     /**
      * Returns the JS or CSS structure of an asset defined in assets.json
@@ -77,7 +77,7 @@ module.exports = function (grunt) {
     function _flattern(array) {
         return [].concat.apply([], array);
     }
- 
+
     // Grunt project configuration
     grunt.initConfig({
         // Read package configuration
@@ -92,85 +92,71 @@ module.exports = function (grunt) {
                 }
             }
         },
-/*
-        // Concatenate bower components "main" js and css and group them in build/js/bower.js and build/css/bower.css respectively
-        bower_concat: {
-            all: {
-                dest: 'build/js/bower.js',
-                cssDest: 'build/css/bower.css',
-                exclude: [
-                    'ace-builds',
-                    'webshim',
-                    'bootstrap-sass',
-                    'bootstrap-material-design'
-                ],
-                mainFiles: {
-                    'font-awesome': ['css/font-awesome.css']
-                },
-                bowerOptions: {
-                    relative: true
-                }
-            }
-        },
-*/        
-         // Copy required/missing files from packages to build folder
+
+        // Copy required/missing files from packages to build folder
         copy: {
             // Copy webshim
             webshim: {
                 files: [{
-                    expand: true,
-                    cwd: 'bower_components/webshim/js-webshim/minified/shims/',
-                    dest: 'build/js/shims/',
-                    src: ['**']
-                        
-                }]
+                        expand: true,
+                        cwd: 'bower_components/webshim/js-webshim/minified/shims/',
+                        dest: 'build/js/shims/',
+                        src: ['**']
+
+                    }]
             },
             // Copy ace
             ace: {
                 files: [{
-                    expand: true,
-                    cwd: 'bower_components/ace-builds/src-min-noconflict/',
-                    dest: 'build/js/ace/',
-                    src: ['**']
-                }]
+                        expand: true,
+                        cwd: 'bower_components/ace-builds/src-min-noconflict/',
+                        dest: 'build/js/ace/',
+                        src: ['**']
+                    }]
             },
             // Copy fonts
             fonts: {
                 files: [{
-                    expand: true,
-                    cwd: "bower_components/",
-                    dest: "build/fonts/",
-                    flatten: true,
-                    src: ['font-awesome/fonts/*']
-                }]
+                        expand: true,
+                        cwd: "common/fonts/",
+                        dest: "build/fonts/",
+                        flatten: true,
+                        src: ['*']
+                    }, {
+                        expand: true,
+                        cwd: "bower_components/",
+                        dest: "build/fonts/",
+                        flatten: true,
+                        src: ['font-awesome/fonts/*']
+                    }]
             },
             // Copy select2 assets.
             select2_img: {
                 files: [{
-                    expand: true,
-                    cwd: "bower_components/select2/",
-                    dest: "build/css/",
-                    flatten: true,
-                    src: ["select2.png", "select2x2.png", "select2-spinner.gif"]
-                }]
+                        expand: true,
+                        cwd: "bower_components/select2/",
+                        dest: "build/css/",
+                        flatten: true,
+                        src: ["select2.png", "select2x2.png", "select2-spinner.gif"]
+                    }]
             },
             // Copy Images from site and admin
             theme_img: {
                 files: [{
-                    expand: true,
-                    cwd: "site/img/",
-                    dest: "build/img/",
-                    src: ["**"]
-                }, {
-                    expand: true,
-                    cwd: "admin/img/",
-                    dest: "build/img/",
-                    flatten: true,
-                    src: ["**"]
-                }]
+                        expand: true,
+                        cwd: "site/img/",
+                        dest: "build/img/",
+                        src: ["**"]
+                    }, {
+                        expand: true,
+                        cwd: "admin/img/",
+                        dest: "build/img/",
+                        flatten: true,
+                        src: ["**"]
+                    }]
             }
         },
- 
+
         /* ************* 
          *     CSS     *
          * *************/
@@ -233,7 +219,7 @@ module.exports = function (grunt) {
                     "Opera >= 12",
                     "Safari >= 6"
                 ]
-                // Task-specific options go here.
+                        // Task-specific options go here.
             },
             site: {
                 src: ['build/css/formr.css']
@@ -262,7 +248,7 @@ module.exports = function (grunt) {
                 }
             }
         },
-        
+
         /* ************* 
          *     JS      *
          * *************/
@@ -270,11 +256,11 @@ module.exports = function (grunt) {
         // lint JS
         jshint: {
             files: [
-                'common/js/webshim.js', 'common/js/main.js', 'common/js/survey.js', 'common/js/run.js', 
+                'common/js/webshim.js', 'common/js/main.js', 'common/js/survey.js', 'common/js/run.js',
                 'common/js/run_settings.js', 'common/js/run_users.js', 'common/js/cookieconsent.js',
                 'site/js/main.js',
                 'admin/js/main.js',
-				'admin/js/admin.js'
+                'admin/js/admin.js'
             ],
             options: {
                 globals: {
@@ -311,7 +297,7 @@ module.exports = function (grunt) {
                 dest: 'build/js/formr-admin.js'
             }
         },
-        
+
         // Uglify JS
         uglify: {
             all: {
@@ -352,5 +338,5 @@ module.exports = function (grunt) {
     grunt.registerTask('update', ['bower', 'default']);
     grunt.registerTask('mycss', ['csslint', 'concat_css', 'autoprefixer', 'cssmin', 'clean']);
     grunt.registerTask('myjs', ['jshint', 'concat', 'uglify', 'clean']);
-	grunt.registerTask('minimal', ['mycss', 'myjs']);
+    grunt.registerTask('minimal', ['mycss', 'myjs']);
 };
