@@ -6,11 +6,6 @@
         ]
     },
 
-	"cookie-consent": {
-		"css": "//cookieconsent.psych.bio.uni-goettingen.de/gemicookieconsent.min.css",
-		"js" : "//cookieconsent.psych.bio.uni-goettingen.de/gemicookieconsent.min.js"
-	},
-
     "jquery": {
         "js": "bower_components/jquery/jquery.js"
     },
@@ -103,5 +98,19 @@
     
     "main:js": {
         "js": "common/js/main.js"
-    }
+    },
+    
+    "cookieconsent": {
+		"css": [
+            "bower_components/cookieconsent/src/styles/animation.css",
+            "bower_components/cookieconsent/src/styles/base.css",
+            "bower_components/cookieconsent/src/styles/layout.css",
+            "bower_components/cookieconsent/src/styles/media.css",
+            "bower_components/cookieconsent/src/styles/themes/classic.css"
+        ],
+		"js" : [
+            "bower_components/cookieconsent/src/cookieconsent.js",
+            "common/js/cookieconsent.js"
+        ]
+	}
 }

@@ -3,9 +3,7 @@
     "version": "0.16.0",
     "main": [
         "build/css/formr.css",
-        "build/css/formr-admin.css",
-        "build/js/formr.js",
-        "build/js/formr-admin.css"
+        "build/js/formr.js"
     ],
     "ignore": [
         "**/.*",
@@ -22,7 +20,8 @@
         "webshim": "git://github.com/aFarkas/webshim.git#1.*",
         "ace-builds": "git://github.com/ajaxorg/ace-builds#1.*",
         "hammerjs": "git://github.com/hammerjs/hammer-time",
-        "bootstrap-material-design": "v0.5.*"
+        "bootstrap-material-design": "v0.5.*",
+        "cookieconsent": "git://github.com/insites/cookieconsent"
     },
     "homepage": "https://github.com/rubenarslan/formr.org",
     "authors": [
