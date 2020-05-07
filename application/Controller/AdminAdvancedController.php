@@ -10,13 +10,14 @@ class AdminAdvancedController extends Controller {
         if (!Request::isAjaxRequest()) {
             $default_assets = get_default_assets('admin');
             $this->registerAssets($default_assets);
+            $this->registerAssets('ace');
         }
     }
 
     public function indexAction() {
         $this->request->redirect('/');
     }
-    
+
     public function infoAction() {
         $this->setView('admin/advanced/info');
         return $this->sendResponse();
@@ -50,7 +51,6 @@ class AdminAdvancedController extends Controller {
             $this->response->setJsonContent($content);
             return $this->sendResponse();
         }
-        
     }
 
     private function setAdminLevel($user_id, $level) {
@@ -151,7 +151,7 @@ class AdminAdvancedController extends Controller {
         $this->setView('admin/advanced/active_users', array(
             'pdoStatement' => $table['pdoStatement'],
             'pagination' => $table['pagination'],
-            'status_icons' => array(0 => 'fa-eject', 1 => 'fa-volume-off', 2 => 'fa-volume-down', 3 => 'fa-volume-up' )
+            'status_icons' => array(0 => 'fa-eject', 1 => 'fa-volume-off', 2 => 'fa-volume-down', 3 => 'fa-volume-up')
         ));
 
         return $this->sendResponse();
@@ -186,6 +186,28 @@ class AdminAdvancedController extends Controller {
             $this->setView('admin/advanced/runs_management', RunHelper::getRunsManagementTablePdoStatement());
             return $this->sendResponse();
         }
+    }
+
+    public function settingsAction() {
+        if (Request::isHTTPPostRequest()) {
+            $allowedSettings = array(
+                'content:publications', 'content:footerimprint', 
+                'links:policyurl', 'links:logourl', 'links:logolink', 
+                'js:cookieconsent'
+            );
+            
+            foreach ($allowedSettings as $setting) {
+                if (($value = $this->request->getParam($setting)) !== null) {
+                    $this->fdb->insert_update('survey_settings', array('setting' => $setting, 'value' => $value));
+                }
+            }
+
+            alert('Settings saved', 'alert-success');
+            $this->sendResponse($this->site->renderAlerts());
+        }
+
+        $this->setView('admin/advanced/settings', array('settings' => Site::getSettings()));
+        return $this->sendResponse();
     }
 
 }

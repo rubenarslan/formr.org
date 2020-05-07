@@ -29,6 +29,12 @@
 foreach ($css as $id => $files) {
     print_stylesheets($files, $id);
 }
+?>
+<script>
+    window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}' ?>;
+</script>
+
+<?php
 foreach ($js as $id => $files) {
     print_scripts($files, $id);
 }
