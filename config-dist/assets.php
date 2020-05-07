@@ -15,18 +15,18 @@ if (!is_file($assets_file)) {
 $assets = (array) json_decode(file_get_contents($assets_file), true);
 
 // Assets that are used in both admin and frontend, in the order in which they will be loaded
-$assets_common = array('font-google', 'jquery', 'bootstrap', 'font-awesome', 'webshim', 'select2', 'hammer', 'highlight');
+$assets_common = $assets['config']['common'];
 
 $settings['default_assets']['dev'] = array(
 	// site theme
-	'site' => array_merge ($assets_common, array('main:js', 'run_users', 'run', 'survey', 'site', 'site:custom', 'cookieconsent')),
-	'admin' => array_merge($assets_common, array('ace', 'main:js', 'run_users', 'run_settings', 'run', 'admin', 'cookieconsent')),
+	'site' => array_merge ($assets_common, $assets['config']['site']),
+	'admin' => array_merge($assets_common, array('ace'), $assets['config']['admin']),
 	'assets' => array_merge($assets, array(
 		// use this array to override any asset defined above using its KEY
 	)),
 );
 $settings['default_assets']['prod'] = array(
-	'site' => array('font-google', 'site'),
+	'site' => array('site'),
 	'admin' => array('admin'),
 	'assets' => array_merge($assets, array(
 		// use this array to override any asset defined above using its KEY

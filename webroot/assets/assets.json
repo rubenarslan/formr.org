@@ -1,9 +1,6 @@
 {
-    "font-google": {
-        "css": [
-            "//fonts.googleapis.com/css?family=Roboto:400,100,300,600,400italic,700",
-            "//fonts.googleapis.com/icon?family=Material+Icons"
-        ]
+    "roboto-font": {
+        "css": "common/css/roboto-font.css"
     },
 
     "jquery": {
@@ -112,5 +109,11 @@
             "bower_components/cookieconsent/src/cookieconsent.js",
             "common/js/cookieconsent.js"
         ]
-	}
+	},
+    
+    "config": {
+        "common": ["jquery", "roboto-font", "bootstrap", "font-awesome", "webshim", "select2", "hammer", "highlight", "cookieconsent"],
+        "site": ["main:js", "run_users", "run", "survey", "site", "site:custom"],
+        "admin": ["main:js", "run_users", "run", "run_settings", "admin"]
+    }
 }
