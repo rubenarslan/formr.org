@@ -5,7 +5,7 @@ module.exports = function (grunt) {
      * common assets using 'asset key' of site and admin
      */
     var assets = grunt.file.readJSON('assets.json');
-    var common_assets = ['jquery', 'bootstrap', 'font-awesome', 'webshim', 'select2', 'hammer', 'highlight'];
+    var common_assets = ['jquery', 'bootstrap', 'font-awesome', 'webshim', 'select2', 'hammer', 'highlight', 'cookieconsent'];
     var site_assets = ['main:js', 'run_users', 'run', 'survey', 'site', 'site:custom'];
     var admin_assets = ['main:js', 'run_users', 'run', 'run_settings', 'admin'];
 
@@ -270,8 +270,8 @@ module.exports = function (grunt) {
         // lint JS
         jshint: {
             files: [
-                'common/js/webshim.js', 'common/js/main.js', 'common/js/survey.js',
-                'common/js/run.js', 'common/js/run_settings.js', 'common/js/run_users.js',
+                'common/js/webshim.js', 'common/js/main.js', 'common/js/survey.js', 'common/js/run.js', 
+                'common/js/run_settings.js', 'common/js/run_users.js', 'common/js/cookieconsent.js',
                 'site/js/main.js',
                 'admin/js/main.js',
 				'admin/js/admin.js'
