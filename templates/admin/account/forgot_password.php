@@ -35,6 +35,7 @@
                                 <div class="fmr-intro-text">
                                     <div class="container top-alerts"><?= Template::loadChild('public/alerts') ?></div>
                                     <div class="login-form">
+                                        <span class="close"><a href="<?= site_url() ?>">&times</a></span>
                                         <div>
                                             <a href="<?= site_url() ?>" class="login-form-logo"><span>f</span>orm<span>{`r}</span></a>
                                         </div>
