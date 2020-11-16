@@ -246,6 +246,14 @@ a.btn.btn-checked {
     padding: 48px 150px;
     border-radius: 8px;
 }
+.login-form .close {
+    font-size: 6rem;
+    font-weight: 300;
+    position: absolute;
+    right: 25px;
+    top: 22px;
+}
+
 @media screen and (max-width: 480px) {
 	.login-form {
 		height: 100%;
