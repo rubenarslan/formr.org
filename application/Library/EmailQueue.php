@@ -35,11 +35,19 @@ class EmailQueue extends Queue {
     protected $itemTries;
     protected $logFile = 'email-queue.log';
     protected $name = 'Email-Queue';
+    
+    /**
+     * An array of IDs containing problematic accounts to skip during email processing
+     *
+     * @var array
+     */
+    protected $skipAccounts = array();
 
     public function __construct(DB $db, array $config) {
         parent::__construct($db, $config);
         $this->itemTtl = array_val($this->config, 'queue_item_ttl', 20 * 60);
         $this->itemTries = array_val($this->config, 'queue_item_tries', 4);
+        $this->skipAccounts = array_val($this->config, 'queue_skip_accounts', array());
     }
 
     /**
@@ -129,7 +137,7 @@ class EmailQueue extends Queue {
         }
 
         while ($account = $emailAccountsStatement->fetch(PDO::FETCH_ASSOC)) {
-            if (!filter_var($account['from'], FILTER_VALIDATE_EMAIL)) {
+            if (!filter_var($account['from'], FILTER_VALIDATE_EMAIL) || in_array($account['account_id'], $this->skipAccounts)) {
                 $this->db->exec('DELETE FROM survey_email_queue WHERE account_id = ' . (int) $account['account_id']);
                 continue;
             }
