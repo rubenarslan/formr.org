@@ -407,7 +407,6 @@ class AdminSurveyController extends AdminController {
     }
 
     private function exportItemdisplayAction() {
-        formr_error_feature_unavailable();
         if ($this->study->settings['hide_results']) {
             return $this->hideResults();
         }

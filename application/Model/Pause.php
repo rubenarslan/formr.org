@@ -190,6 +190,8 @@ class Pause extends RunUnit {
             $wait_time = $this->wait_until_time;
         }
 
+        $wait_date_defined = $this->wait_until_date && $this->wait_until_date != '0000-00-00';
+        $wait_time_defined = $this->wait_until_time && $this->wait_until_time != '00:00:00';
         $wait_date = $this->parseWaitDate();
         $wait_time = $this->parseWaitTime();
 
@@ -209,7 +211,7 @@ class Pause extends RunUnit {
             $exp_ts = $this->execData['expire_timestamp'];
             $created_ts = strtotime($this->run_session->unit_session->created);
             $exp_hour_min = mktime(date('G', $exp_ts), date('i', $exp_ts), 0);
-            if ($created_ts > $exp_hour_min) {
+            if ($created_ts > $exp_hour_min && !$wait_date_defined) {
                 $this->execData['expire_timestamp'] += 24 * 60 * 60;
                 return false;
             }

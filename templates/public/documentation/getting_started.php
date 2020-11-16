@@ -29,7 +29,7 @@
     It is recommended you <a href="<?= site_url('documentation#run_module_explanations') ?>">read more about runs</a> before you begin. To create a run go to <strong>Runs > Create a new Run</strong>. Enter a meaningful run name which should contain only of alphanumeric characters.
     If the run was creates successfully, it will be added to the <strong>Runs</strong> menu and you will be redirected to the run admin area.
     Here you can add <a href="<?= site_url('documentation#run_module_explanations') ?>">Run Units</a>, design the complexity of your study and test your study. To modify your study definition later, you can go to <strong>Runs > <i>YourRunName</i></strong>.
-    Your run is the entry point of your study. For participants to access your study, you need to <i>set you run as public or protected</i> in the admin area and it will be accessible under the URL <strong><?= site_url() ?>YourRunName</strong>
+    Your run is the entry point of your study. For participants to access your study, you need to <i>set you run as public or protected</i> in the admin area and it will be accessible under the URL <strong><?= run_url('YourRunName') ?></strong>
 </p>
 
 

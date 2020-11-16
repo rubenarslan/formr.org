@@ -188,4 +188,10 @@ $settings['curl'] = array(
 	CURLOPT_SSL_VERIFYPEER => true,
 	CURLOPT_SSL_VERIFYHOST => 2,
 );
+
+// Disable features temporarily by entering the Controller action names in this array
+$settings['disabled_features'] = array(
+    // RUN.controller_method_name
+    // SURVEY.controller_method_name
+);
 		
