@@ -10,6 +10,13 @@
         foreach ($css as $id => $files) {
             print_stylesheets($files, $id);
         }
+        ?>
+        
+        <script>
+            window.formr = <?php echo !empty($jsConfig) ? json_encode($jsConfig) : '{}' ?>;
+        </script>
+        
+        <?php
         foreach ($js as $id => $files) {
             print_scripts($files, $id);
         }
@@ -49,6 +56,7 @@
                                                 <div class="form-group label-floating">
                                                     <label class="control-label" for="token"><i class="fa fa-gift"></i> Referral token (if available)</label>
                                                     <input class="form-control" type="text" id="token" name="referrer_code"  autocomplete="off">
+                                                    <input type="hidden" name="<?= Session::REQUEST_TOKENS ?>" value="<?= Session::getRequestToken() ?>" />
                                                 </div>
                                                 
                                                 <div>
