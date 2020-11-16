@@ -59,8 +59,8 @@ Template::loadChild('public/header');
                             If you are publishing research conducted using formr, <strong>please cite</strong> 
                         </p>
                         <blockquote>
-                            Arslan, R.C., Tata, C.S. &amp; Walther, M.P. (2018). formr: A study framework allowing for automated feedback generation and complex longitudinal experience sampling studies using R. (version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
-                        </blockquote>
+							Arslan, R. C., Walther, M. P., &amp; Tata, C. S. (2020). formr: A study framework allowing for automated feedback generation and complex longitudinal experience-sampling studies using R. <i>Behavior Research Methods</i>, 52, 376–387. <a href="https://doi.org/10.3758/s13428-019-01236-y" target="_blank">https://doi.org/10.3758/s13428-019-01236-y</a>
+						</blockquote>
                     </div>
                     <p>
                         Cite the version that was active while you ran your study. Zenodo will keep backups of each major release, so that the software used for your study is preserved when we update it and if Github ceases to exist. This ensures reproducibility and allows us to trace papers affected by major bugs, should we discover any in the future. 
