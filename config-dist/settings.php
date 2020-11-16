@@ -45,6 +45,8 @@ $settings['email'] = array(
 	'queue_item_ttl' => 20*60,
 	// Number of times to retry an item before deleting
 	'queue_item_tries' => 4,
+    // an array of account IDs to skip when processing mail queue
+    'queue_skip_accounts' => array(),
 	// SMTP options for phpmailer
 	'smtp_options' => array(),
 );
