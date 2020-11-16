@@ -114,6 +114,13 @@ abstract class Controller {
         if (!method_exists($this, $method)) {
             throw new Exception("Action '$name' is not found.");
         }
+        
+        $disabledFeatures = Config::get('disabled_features', array());
+        if (in_array('SURVEY.'.$method, $disabledFeatures) || in_array('RUN.'.$method, $disabledFeatures)) {
+            formr_error_feature_unavailable();
+        }
+        
+        
         return $method;
     }
 
