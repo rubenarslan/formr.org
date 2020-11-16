@@ -602,22 +602,22 @@ class Survey extends RunUnit {
         /** @var Item $item */
         foreach ($this->unanswered as $item) {
             // count only rendered items, not skipped ones
-            if ($item->isRendered($this)) {
+            if ($item && $item->isRendered($this)) {
                 $this->progress_counts['not_answered'] ++;
             }
             // count those items that were hidden but rendered (ie. those relying on missing data for their showif)
-            if ($item->isHiddenButRendered($this)) {
+            if ($item && $item->isHiddenButRendered($this)) {
                 $this->progress_counts['hidden_but_rendered'] ++;
             }
         }
         /** @var Item $item */
         foreach ($this->to_render as $item) {
             // On current page, count only rendered items, not skipped ones
-            if ($item->isRendered()) {
+            if ($item && $item->isRendered()) {
                 $this->progress_counts['visible_on_current_page'] ++;
             }
             // On current page, count those items that were hidden but rendered (ie. those relying on missing data for their showif)
-            if ($item->isHiddenButRendered()) {
+            if ($item && $item->isHiddenButRendered()) {
                 $this->progress_counts['hidden_but_rendered_on_current_page'] ++;
             }
         }
@@ -802,6 +802,10 @@ class Survey extends RunUnit {
     protected function processAutomaticItems($items) {
         $hiddenItems = array();
         foreach ($items as $name => $item) {
+            if (!$item) {
+                continue;
+            }
+
             if (!$item->requiresUserInput() && !$item->needsDynamicValue()) {
                 $hiddenItems[$name] = $item->getComputedValue();
                 unset($items[$name]);
@@ -1092,14 +1096,14 @@ class Survey extends RunUnit {
 
             $last_active = $this->getTimeWhenLastViewedItem(); // when was the user last active on the study
             $expire_invitation_time = $expire_inactivity_time = 0; // default to 0 (means: other values supervene. users only get here if at least one value is nonzero)
-            if ($expire_inactivity !== 0 && $last_active != null) {
-                $expire_inactivity_time = strtotime($last_active) + $expire_inactivity * 60;
+            if ($expire_inactivity !== 0 && $last_active != null && strtotime($last_active)) {
+                $expire_inactivity_time = strtotime($last_active) + ($expire_inactivity * 60);
             }
             $invitation_sent = $this->run_session->unit_session->created;
-            if ($expire_invitation !== 0 && $invitation_sent) {
-                $expire_invitation_time = strtotime($invitation_sent) + $expire_invitation * 60;
+            if ($expire_invitation !== 0 && $invitation_sent && strtotime($invitation_sent)) {
+                $expire_invitation_time = strtotime($invitation_sent) + ($expire_invitation * 60);
                 if ($grace_period !== 0 && $last_active) {
-                    $expire_invitation_time = $expire_invitation_time + $grace_period * 60;
+                    $expire_invitation_time = $expire_invitation_time + ($grace_period * 60);
                 }
             }
             $expire = max($expire_inactivity_time, $expire_invitation_time);
