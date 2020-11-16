@@ -124,7 +124,13 @@ class AdminAccountController extends Controller {
             $this->request->redirect('index');
         }
 
-        if ($this->request->isHTTPPostRequest() && $site->request->str('email')) {
+        if ($this->request->isHTTPPostRequest() && $site->request->str('email') && filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
+            if (!Session::canValidateRequestToken($site->request)) {
+                alert('Could not process your request please try again later', 'alert-danger');
+                return $this->request->redirect('register');
+            }
+
+
             $info = array(
                 'email' => $site->request->str('email'),
                 'password' => $site->request->str('password'),
