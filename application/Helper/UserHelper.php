@@ -2,10 +2,14 @@
 
 class UserHelper {
 
-    public static function getUserManagementTablePdoStatement() {
+    public static function getUserManagementTablePdoStatement($params = array()) {
         $count = DB::getInstance()->count('survey_users');
         $pagination = new Pagination($count, 200, true);
         $limits = $pagination->getLimits();
+        $where = " ";
+        if (!empty($params['email'])) {
+            $where = " WHERE email LIKE '%{$params['email']}%' ";
+        }
 
         $itemsQuery = "
             SELECT 
@@ -16,6 +20,7 @@ class UserHelper {
                 `survey_users`.admin,
                 `survey_users`.email_verified
             FROM `survey_users`
+            {$where}
             ORDER BY `survey_users`.id ASC  LIMIT $limits
         ";
 

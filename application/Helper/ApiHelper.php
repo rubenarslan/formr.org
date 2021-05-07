@@ -254,7 +254,11 @@ class ApiHelper {
         while (($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
             $session_id = $row['session_id'];
             if (!isset($results[$session_id])) {
-                $results[$session_id] = array('session' => $row['run_session'], 'created' => $row['created'], 'current_position' => $row['current_position']);
+                $results[$session_id] = array(
+                    'session' => $row['run_session'],
+                    'created' => $row['created'],
+                    'current_position' => $row['current_position'
+                ]);
             }
 			if ($row['created'] && !$results[$session_id]['created']) {
 				$results[$session_id]['created'] = $row['created'];

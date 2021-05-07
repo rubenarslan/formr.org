@@ -157,7 +157,7 @@ class RunSession {
         while (!$output): // only when there is something to display, stop.
             $i++;
             if ($i > 80) {
-                if (!empty($user) && $user->isCron() || $user->isAdmin()) {
+                if (!empty($user) && ($user->isCron() || $user->isAdmin())) {
                     if (isset($unit)) alert(print_r($unit, true), 'alert-danger');
                 }
                 alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?', 'alert-danger');
@@ -182,18 +182,26 @@ class RunSession {
                     UnitSessionQueue::removeItem($referenceUnitSession->id, $referenceUnitSession->unit_id);
                 }
 
-                $output = $unit->exec();
-                //@TODO check whether output is set or NOT
-                $queue = $this->run && $this->run->cron_active && $this->unit_session->id && !$unit->ended && !$unit->expired;
-                if ($queue) {
-                    $queued = UnitSessionQueue::addItem($this->unit_session, $unit, $output);
-                }
-
-                if (!$output && is_object($unit)) {
-                    if (!isset($done[$unit->type])) {
-                        $done[$unit->type] = 0;
+                try {
+                    $output = $unit->exec();
+                    //@TODO check whether output is set or NOT
+                    $queue = $this->run && $this->run->cron_active && $this->unit_session->id && !$unit->ended && !$unit->expired;
+                    if ($queue) {
+                        $queued = UnitSessionQueue::addItem($this->unit_session, $unit, $output);
                     }
-                    $done[$unit->type] ++;
+
+                    if (!$output && is_object($unit)) {
+                        if (!isset($done[$unit->type])) {
+                            $done[$unit->type] = 0;
+                        }
+                        $done[$unit->type] ++;
+                    }
+                } catch (Exception $e) {
+                    formr_log_exception($e);
+                    if ($this->cron) {
+                        UnitSessionQueue::removeItem($referenceUnitSession->id, $referenceUnitSession->unit_id);
+                        break;
+                    }
                 }
             } else {
                 if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
