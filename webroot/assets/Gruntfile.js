@@ -186,38 +186,18 @@ module.exports = function (grunt) {
             }
         },
 
-        // Concate CSS
-        concat_css: {
-            material: {
-                src: _css('bootstrap-material-design'),
-                dest: 'build/css/bootstrap-material-design.css'
-            },
-            site: {
-                src: _flattern([_css(common_assets), ['site/css/style.css', 'common/css/custom_item_classes.css']]),
-                dest: 'build/css/formr.css'
-            },
-            site_material: {
-                src: _flattern([_css(common_assets), ['site/css/style.css', 'build/css/bootstrap-material-design.css', 'common/css/custom_item_classes.css']]),
-                dest: 'build/css/formr-material.css'
-            },
-            admin: {
-                src: _flattern([_css(common_assets), ['admin/css/AdminLTE.css', 'admin/css/style.css']]),
-                dest: 'build/css/formr-admin.css'
-            }
-        },
-
         // Add browser specific prefixes to CSS
         autoprefixer: {
             options: {
                 browsers: [
-                    "Android 2.3",
-                    "Android >= 4",
-                    "Chrome >= 20",
-                    "Firefox >= 24",
-                    "Explorer >= 8",
-                    "iOS >= 6",
-                    "Opera >= 12",
-                    "Safari >= 6"
+                    "android 2.3",
+                    "android >= 4",
+                    "chrome >= 20",
+                    "ff > 25",
+                    "ie >= 8",
+                    "ios >= 6",
+                    "opera >= 12",
+                    "safari >= 6"
                 ]
                         // Task-specific options go here.
             },
@@ -277,24 +257,27 @@ module.exports = function (grunt) {
 
         // Concatenate JS
         concat: {
-            options: {
-                separator: ';\n'
+            js: {
+                options: {
+                    separator: ';\n'
+                },
+                files: {
+                    'build/js/bootstrap-material-design.js': [_js('bootstrap-material-design')],
+                    'build/js/formr.js': _flattern([_js(common_assets), _js(site_assets)]),
+                    'build/js/formr-material.js': _flattern([_js(common_assets), _js(site_assets), 'build/js/bootstrap-material-design.js']),
+                    'build/js/formr-admin.js': _flattern([_js(common_assets), _js(admin_assets)]),
+                }
             },
-            material: {
-                src: _js('bootstrap-material-design'),
-                dest: 'build/js/bootstrap-material-design.js'
-            },
-            site: {
-                src: _flattern([_js(common_assets), _js(site_assets)]),
-                dest: 'build/js/formr.js'
-            },
-            site_material: {
-                src: _flattern([_js(common_assets), _js(site_assets), 'build/js/bootstrap-material-design.js']),
-                dest: 'build/js/formr-material.js'
-            },
-            admin: {
-                src: _flattern([_js(common_assets), _js(admin_assets)]),
-                dest: 'build/js/formr-admin.js'
+            css: {
+                options: {
+                    separator: '\n'
+                },
+                files: {
+                    'build/css/bootstrap-material-design.css': [_css('bootstrap-material-design')],
+                    'build/css/formr.css': _flattern([_css(common_assets), ['site/css/style.css', 'common/css/custom_item_classes.css']]),
+                    'build/css/formr-material.css': _flattern([_css(common_assets), ['site/css/style.css', 'build/css/bootstrap-material-design.css', 'common/css/custom_item_classes.css']]),
+                    'build/css/formr-admin.css': _flattern([_css(common_assets), ['admin/css/AdminLTE.css', 'admin/css/style.css']]),
+                }
             }
         },
 
@@ -334,9 +317,9 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks('grunt-contrib-clean');
 
     // Register Tasks
-    grunt.registerTask('default', ['copy', 'csslint', 'concat_css', 'autoprefixer', 'cssmin', 'jshint', 'concat', 'uglify', 'clean']);
+    grunt.registerTask('default', ['copy', 'csslint', 'concat:css', 'autoprefixer', 'cssmin', 'jshint', 'concat:js', 'uglify', 'clean']);
     grunt.registerTask('update', ['bower', 'default']);
-    grunt.registerTask('mycss', ['csslint', 'concat_css', 'autoprefixer', 'cssmin', 'clean']);
-    grunt.registerTask('myjs', ['jshint', 'concat', 'uglify', 'clean']);
+    grunt.registerTask('mycss', ['csslint', 'concat:css', 'autoprefixer', 'cssmin', 'clean']);
+    grunt.registerTask('myjs', ['jshint', 'concat:js', 'uglify', 'clean']);
     grunt.registerTask('minimal', ['mycss', 'myjs']);
 };

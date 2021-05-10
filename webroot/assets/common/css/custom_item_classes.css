@@ -348,6 +348,7 @@ form.form-horizontal div.form-row.form-group.hide_label div.controls label {
 	line-height: 0;
 	min-height: 25px;
 }
+form.form-horizontal div.form-row.form-group.hide_label div.controls label span.cb-inline-label,
 form.form-horizontal div.form-row.form-group.hide_label div.controls label span.mc-span {
 	line-height: 0;
 	visibility: hidden;
