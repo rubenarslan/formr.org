@@ -989,6 +989,10 @@ class Run {
                 if (strpos($unit->type, 'Email') !== false) {
                     $unit->account_id = null;
                 }
+                
+                if (strpos($unit->type, 'Wait') !== false) {
+                    $unit->body = $unit->body + $start_position;
+                }
 
                 $unitObj = $runFactory->make($this->dbh, null, (array) $unit, null, $this);
                 $unit = (array) $unit;
