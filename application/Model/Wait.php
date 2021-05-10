@@ -15,7 +15,9 @@ class Wait extends Pause {
         }
 
         $id = (int) $this->run_session->unit_session->id;
-        $q = "SELECT id, created FROM survey_unit_sessions WHERE id < {$id} ORDER BY id DESC LIMIT 1";
+        $run_session_id = $this->run_session->id;
+        
+        $q = "SELECT id, created FROM survey_unit_sessions WHERE id < {$id} AND run_session_id = {$run_session_id} ORDER BY id DESC LIMIT 1";
         $result = $this->dbh->query($q, true)->fetch(PDO::FETCH_ASSOC);
         if (!$result) {
             return null;
