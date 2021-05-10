@@ -653,6 +653,10 @@ class Survey extends RunUnit {
 
         /* @var $item Item */
         foreach ($items as $name => &$item) {
+            if (!$item) {
+                continue;
+            }
+            
             // 1. Check item's show-if
             $showif = $item->getShowIf();
             if ($showif) {
@@ -742,6 +746,10 @@ class Survey extends RunUnit {
         $session_labels = array();
 
         foreach ($items as $name => &$item) {
+            if (!$item) {
+                continue;
+            }
+            
             if ($item->choice_list) {
                 $lists_to_fetch[] = $item->choice_list;
             }
@@ -868,6 +876,10 @@ class Survey extends RunUnit {
         while ($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
             /* @var $oItem Item */
             $oItem = $itemFactory->make($item);
+            if (!$oItem) {
+                continue;
+            }
+            
             $this->unanswered[$oItem->name] = $oItem;
 
             // If no user input is required and item can be on current page, then save it to be shown
