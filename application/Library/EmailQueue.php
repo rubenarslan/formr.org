@@ -150,7 +150,7 @@ class EmailQueue extends Queue {
             $emailsStatement = $this->getEmailsStatement($account['account_id']);
             while ($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
                 if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL) || !$email['subject']) {
-                    $this->registerFailure($email);
+                    $this->registerFailure($email, $account);
                     continue;
                 }
 
@@ -200,7 +200,7 @@ class EmailQueue extends Queue {
                 } catch (Exception $e) {
                     //formr_log_exception($e, 'EmailQueue ' . $debugInfo);
                     $this->dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
-                    $this->registerFailure($email);
+                    $this->registerFailure($email, $account);
                     // reset php mailer object for this account if smtp sending failed. Probably some limits have been hit
                     $this->closeSMTPConnection($account['account_id']);
                     $mailer = $this->getSMTPConnection($account);
@@ -226,16 +226,25 @@ class EmailQueue extends Queue {
      * Register email send failure and/or remove expired emails
      *
      * @param array $email @array(id, subject, message, recipient, created, meta)
+     * @param array $account @array(account_id, `from`, from_name, host, port, tls, username, password, auth_key)
      */
-    protected function registerFailure($email) {
+    protected function registerFailure($email, $account) {
         $id = $email['id'];
         if (!isset($this->failures[$id])) {
             $this->failures[$id] = 0;
         }
         $this->failures[$id] ++;
         if ($this->failures[$id] > $this->itemTries || (time() - strtotime($email['created'])) > $this->itemTtl) {
-            //@todo: notify study administrator
             $this->db->exec('DELETE FROM survey_email_queue WHERE id = ' . (int) $id);
+            try {
+                $mailer = Site::getInstance()->makeAdminMailer();
+                $mailer->Subject = 'formr: E-mailing problem';
+                $mailer->msgHTML(Template::get_replace('email/email-queue-problem.ftpl', $email));
+                $mailer->addAddress($account['from']);
+                $mailer->send();
+            } catch (Exception $e) {
+                formr_log_exception($e);
+            }
         }
     }
 
@@ -248,6 +257,7 @@ class EmailQueue extends Queue {
             }
         }
     }
+    
 
     public function run() {
         $account_id = array_val($this->config, 'account_id', null);
