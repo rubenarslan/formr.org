@@ -1119,7 +1119,7 @@ class Survey extends RunUnit {
                 }
             }
             $expire = max($expire_inactivity_time, $expire_invitation_time);
-            $this->execData['expire_timestamp'] = $expire;
+            $this->execData['expire_timestamp'] = max(0, $expire_invitation_time);
 
             return ($expire > 0) && ($now > $expire); // when we switch to the new scheduler, we need to return the timestamp here
         }
