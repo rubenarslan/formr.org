@@ -572,7 +572,7 @@ class AdminRunController extends AdminController {
         $run = $this->run;
         $site = $this->site;
 
-        if (($units = (array) json_decode($site->request->str('units'))) && ($name = $site->request->str('export_name')) && preg_match('/^[a-z0-9-\s]+$/i', $name)) {
+        if (($units = (array) json_decode($_POST['units'])) && ($name = $site->request->str('export_name')) && preg_match('/^[a-z0-9-\s]+$/i', $name)) {
             $format = $this->request->getParam('format');
             $inc_survey = $this->request->getParam('include_survey_details') === 'true';
             if (!in_array($format, $formats)) {
