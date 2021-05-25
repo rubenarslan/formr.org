@@ -29,6 +29,14 @@ class Timezone_Item extends SelectOne_Item {
         $this->choices = $zones;
         $this->offsets = $offsets;
     }
+    
+    public function getReply($reply) {
+        if (isset($this->choices[$reply])) {
+            $reply = $this->choices[$reply];
+        }
+        
+        return $reply;
+    }
 
     protected function render_input() {
         $tpl = '
