@@ -6,10 +6,10 @@ form.form-horizontal div.form-group.float_image_right img {
 form.form-horizontal div.form-group.float_image_left img {
 	float: left;
 }
-form.form-horizontal div.answer_below_label .control-label {
+form.form-horizontal div.form-group.answer_below_label .control-label {
 	width: 99% !important;
 	text-align: left !important;
-	margin-bottom: 15px !important;
+	margin-bottom: 15px;
 }
 form.form-horizontal div.answer_below_label .controls {
 	width: 99% !important;
