@@ -215,9 +215,7 @@ class Request {
     private static function stripslashes($value) {
         // skip objects (object.toString() results in wrong output)
         if (!is_object($value) && !is_array($value)) {
-            if (get_magic_quotes_gpc() == 1) {
-                $value = stripslashes($value);
-            }
+            $value = stripslashes($value);
         // object is array
         } elseif (is_array($value)) {
             foreach ($value as $k => $v) {
