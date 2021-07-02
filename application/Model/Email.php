@@ -277,11 +277,20 @@ class Email extends RunUnit {
             alert(nl2br($warning), 'alert-info');
         }
 
+        $subject = $this->getSubject();
+        if($subject === null) {
+            return false;
+        }
+        $body = $this->getBody();
+        if($body === null) {
+            return false;
+        }
+
         // if formr is configured to use the email queue then add mail to queue and return
         if (Config::get('email.use_queue', false) === true && filter_var($this->recipient, FILTER_VALIDATE_EMAIL)) {
             $this->mail_sent = $this->dbh->insert('survey_email_queue', array(
-                'subject' => $this->getSubject(),
-                'message' => $this->getBody(),
+                'subject' => $subject,
+                'message' => $body,
                 'recipient' => $this->recipient,
                 'created' => mysql_datetime(),
                 'account_id' => (int) $this->account_id,
@@ -301,8 +310,8 @@ class Email extends RunUnit {
         $mail->IsHTML(true);
 
         $mail->AddAddress($this->recipient);
-        $mail->Subject = $this->getSubject();
-        $mail->Body = $this->getBody();
+        $mail->Subject = $subject;
+        $mail->Body = $body;
 
         if (filter_var($this->recipient, FILTER_VALIDATE_EMAIL) AND $mail->Body !== false AND $mail->Subject !== false):
             foreach ($this->images AS $image_id => $image):
