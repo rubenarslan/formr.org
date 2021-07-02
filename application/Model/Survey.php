@@ -823,7 +823,7 @@ class Survey extends RunUnit {
 
         // save these values
         if ($hiddenItems) {
-            $this->post($hiddenItems, false);
+            $this->post($hiddenItems, true);
         }
 
         // return possibly shortened item array
