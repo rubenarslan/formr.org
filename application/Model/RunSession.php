@@ -161,6 +161,7 @@ class RunSession {
                 if (!empty($user) && ($user->isCron() || $user->isAdmin())) {
                     if (isset($unit)) alert(print_r($unit, true), 'alert-danger');
                 }
+                formr_log($this->run_name . " contains infinite loops.");
                 alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?', 'alert-danger');
                 return array('body' => '');
             }
@@ -168,6 +169,7 @@ class RunSession {
             $unit_info = $this->getCurrentUnit(); // get first unit in line
             if ($unit_info) {   // if there is one, spin that shit
                 if($last_unit === $unit_info["unit_id"]) {
+                    formr_log($this->run_name . " unit ". $last_unit ." would have been repeated.");
                     alert('The same unit is being repeated. This is an error.', 'alert-danger');
                     return array('body' => '');
                 }
