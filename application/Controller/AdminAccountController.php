@@ -25,7 +25,7 @@ class AdminAccountController extends Controller {
             // Change basic info + email
             $change = $this->user->changeData($this->request->str('password'), $this->request->getParams());
             if (!$change) {
-                alert(nl2br(implode($this->user->errors, "\n")), 'alert-danger');
+                alert(nl2br(implode("\n", $this->user->errors)), 'alert-danger');
                 $vars['showform'] = 'show-form';
             } elseif ($oldEmail != $this->request->str('new_email')) {
                 $redirect = 'logout';

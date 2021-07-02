@@ -137,7 +137,7 @@ class RunHelper {
         }
 
         if (!empty($queryParams['sessions'])) {
-            $query[] = ' `survey_run_sessions`.session IN (' . implode($queryParams['sessions'], ',') . ') ';
+            $query[] = ' `survey_run_sessions`.session IN (' . implode( ',', $queryParams['sessions']) . ') ';
         }
 
         if (!empty($queryParams['position'])) {
