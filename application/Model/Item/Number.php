@@ -74,6 +74,9 @@ class Number_Item extends Item {
         endif;
     }
 
+    protected function chooseResultFieldBasedOnChoices() {
+    }
+
     public function validateInput($reply) { // fixme: input is not re-displayed after this
         $reply = trim(str_replace(",", ".", $reply));
         if (!$reply && $reply !== 0 && $this->optional) {
