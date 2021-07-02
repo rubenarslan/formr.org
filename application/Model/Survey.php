@@ -2232,8 +2232,8 @@ class Survey extends RunUnit {
         }
 
         // prepare these strings for feedback
-        $added_columns_string = implode($toAdd, ", ");
-        $deleted_columns_string = implode($toDelete, ", ");
+        $added_columns_string = implode(", ", $toAdd);
+        $deleted_columns_string = implode(", ", $toDelete);
 
 
         // if something should be deleted
