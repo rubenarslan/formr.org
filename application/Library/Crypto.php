@@ -43,7 +43,7 @@ class Crypto {
     /**
      * Encrypt Data
      *
-     * @param string|array $data String or an array of strongs
+     * @param string|array $data String or an array of strings
      * @param string $glue If array is provided as first parameter, this will be used to glue the elements to form a string
      * @return string|null
      */
@@ -69,7 +69,8 @@ class Crypto {
      */
     public static function decrypt($ciphertext) {
         try {
-            return \ParagonIE\Halite\Symmetric\Crypto::decrypt($ciphertext, self::getKey());
+            $hiddenString = \ParagonIE\Halite\Symmetric\Crypto::decrypt($ciphertext, self::getKey());
+            return $hiddenString->getString();
         } catch (Exception $e) {
             formr_log_exception($e, 'ParagonIE\Halite');
         }

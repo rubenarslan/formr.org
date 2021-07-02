@@ -153,19 +153,26 @@ class RunSession {
         $unit_factory = new RunUnitFactory();
         $user = Site::getCurrentUser();
 
+        $last_unit = null;
         $output = false;
         while (!$output): // only when there is something to display, stop.
             $i++;
-            if ($i > 80) {
+            if ($i > 20) {
                 if (!empty($user) && ($user->isCron() || $user->isAdmin())) {
                     if (isset($unit)) alert(print_r($unit, true), 'alert-danger');
                 }
                 alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?', 'alert-danger');
-                return false;
+                return array('body' => '');
             }
 
             $unit_info = $this->getCurrentUnit(); // get first unit in line
             if ($unit_info) {   // if there is one, spin that shit
+                if($last_unit === $unit_info["unit_id"]) {
+                    alert('The same unit is being repeated. This is an error.', 'alert-danger');
+                    return array('body' => '');
+                }
+                $last_unit = $unit_info["unit_id"];
+            
                 if ($this->cron) {
                     $unit_info['cron'] = true;
                 }
