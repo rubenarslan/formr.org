@@ -172,7 +172,7 @@ class Pause extends RunUnit {
             }
         } elseif ($this->has_wait_minutes) {
             if (!is_array($relative_to) && strtotime($relative_to)) {
-                $conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
+                $conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_seconds SECOND) <= NOW()";
                 $bind_relative_to = true;
                 $this->execData['expire_timestamp'] = strtotime($relative_to) + ($this->wait_minutes * 60);
             } else {
@@ -245,7 +245,7 @@ class Pause extends RunUnit {
                 $stmt->bindValue(':relative_to', $relative_to);
             }
             if (isset($conditions['minute'])) {
-                $stmt->bindValue(':wait_minutes', $this->wait_minutes);
+                $stmt->bindValue(':wait_seconds', floatval($this->wait_minutes) * 60);
             }
             if (isset($conditions['datetime'])) {
                 $stmt->bindValue(':wait_datetime', $wait_datetime);
