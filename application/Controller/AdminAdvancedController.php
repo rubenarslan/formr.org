@@ -140,7 +140,7 @@ class AdminAdvancedController extends Controller {
     }
 
     public function userManagementAction() {
-        $table = UserHelper::getUserManagementTablePdoStatement();
+        $table = UserHelper::getUserManagementTablePdoStatement($this->request->getParams());
         $this->setView('admin/advanced/user_management', $table);
 
         return $this->sendResponse();
