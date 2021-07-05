@@ -78,7 +78,7 @@ class AdminAccountController extends Controller {
             $this->request->redirect('admin/account');
         }
 
-        if ($this->request->str('email') && $this->request->str('password')) {
+        if ($this->request->str('email') && $this->request->str('password') && filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
             $info = array(
                 'email' => $this->request->str('email'),
                 'password' => $this->request->str('password'),
