@@ -10,9 +10,12 @@ class UnitSessionQueue extends Queue {
     protected $name = 'UnitSession-Queue';
 
     protected $logFile = 'session-queue.log';
+    
+    protected $list_type = 'fixed';
 
     public function __construct(DB $db, array $config) {
         parent::__construct($db, $config);
+		$this->list_type = array_val($this->config, 'list_type', null);
     }
 
     public function run() {
@@ -59,6 +62,11 @@ class UnitSessionQueue extends Queue {
      * @return PDOStatement
      */
     protected function getSessionsStatement() {
+        $where = null;
+		if ($this->list_type) {
+			$where = ' AND survey_sessions_queue.execute = ' . ($this->list_type == 'fixed' ? 0 : 1);
+		}
+
         $now = time();
         $query = "SELECT survey_sessions_queue.unit_session_id, survey_sessions_queue.run_session_id, survey_sessions_queue.unit_id, survey_sessions_queue.expires, survey_sessions_queue.execute, survey_sessions_queue.counter, survey_sessions_queue.run,
                          survey_unit_sessions.id AS validate_unit_session_id,
@@ -66,8 +74,9 @@ class UnitSessionQueue extends Queue {
 				  FROM survey_sessions_queue 
 				  LEFT JOIN survey_run_sessions ON survey_sessions_queue.run_session_id = survey_run_sessions.id
                   LEFT JOIN survey_unit_sessions ON survey_sessions_queue.unit_session_id = survey_unit_sessions.id
-                  WHERE survey_sessions_queue.expires <= {$now} ORDER BY survey_sessions_queue.unit_session_id ASC
-                  LIMIT {$this->limit} OFFSET {$this->offset}";
+                  WHERE survey_sessions_queue.expires <= {$now} {$where} 
+				  ORDER BY survey_sessions_queue.unit_session_id ASC";
+                  //LIMIT {$this->limit} OFFSET {$this->offset}";
 
         if ($this->debug) {
             $this->dbg($query);
