@@ -128,8 +128,8 @@ class Pause extends RunUnit {
         $this->execData['expire_relatively'] = null;
 
         // If item is in queue and need not be executed, no need to execute again because it hasn't expired.
-        if (!empty($this->run_session->unit_session) && ($queueItem = UnitSessionQueue::findItem($this->run_session->unit_session, array('execute' => 0)))) {
-            $this->execData['expire_timestamp'] = $queueItem['expires'];
+        if (!empty($this->run_session->unit_session) && ($queueItem = UnitSessionQueue::findItem($this->run_session->unit_session, array('expires >' => mysql_datetime())))) {
+            $this->execData['expire_timestamp'] = strtotime($queueItem['expires']);
             return false;
         }
 

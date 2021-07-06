@@ -29,7 +29,6 @@
                                         <th>Unit (position)</th>
                                         <th>Added On</th>
                                         <th>Expires</th>
-                                        <th>Times Executed</th>
                                         <th>To Execute</th>
                                     </tr>
                                 </thead>
@@ -48,11 +47,10 @@
                                             <small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="<?php echo $row['session']; ?>"><?php echo $short_session ?>…</abbr></small>
                                         </td>
                                         <td><?= $row['unit_type'] ?> (<?=$row['position']?>)</td>
-                                        <td><?php echo date('Y-m-d H:i', $row['created']) ?></td>
-                                        <td><?php echo date('Y-m-d H:i', $row['expires']) ?></td>
-                                        <td><?= $row['counter'] ?></td>
+                                        <td><?php echo $row['created'] ?></td>
+                                        <td><?php echo $row['expires'] ?></td>
                                         <td>
-                                            <?php echo $row['execute'] ? '<span class="label label-success">YES</span>' : '<span class="label label-default">NO</span>'; ?>
+                                            <?php echo $row['queued'] === UnitSessionQueue::QUEUED_TO_EXECUTE ? '<span class="label label-success">YES</span>' : '<span class="label label-default">NO</span>'; ?>
                                         </td>
                                     </tr>
                                     <?php endwhile; ?>
