@@ -697,6 +697,9 @@ function mysql_datetime($time = null) {
     if ($time === null) {
         $time = time();
     }
+    if (is_string($time)) {
+        $time = strtotime($time);
+    }
     return date('Y-m-d H:i:s', $time);
 }
 
