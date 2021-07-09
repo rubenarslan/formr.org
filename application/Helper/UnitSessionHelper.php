@@ -151,7 +151,7 @@ class UnitSessionHelper {
             return $return;
         }
 
-        if (isset($runUnit->execData['expire_timestamp'])) {
+        if (!empty($runUnit->execData['expire_timestamp'])) {
             $return['expires'] = mysql_datetime($runUnit->execData['expire_timestamp']);
         }
 
@@ -184,7 +184,7 @@ class UnitSessionHelper {
             $return['queued'] = UnitSessionQueue::QUEUED_TO_EXECUTE;
         }
 
-        if (isset($execData['expire_timestamp'])) {
+        if (!empty($execData['expire_timestamp'])) {
             $return['expires'] = mysql_datetime($execData['expire_timestamp']);
             $return['queued'] = UnitSessionQueue::QUEUED_TO_END;
         }
