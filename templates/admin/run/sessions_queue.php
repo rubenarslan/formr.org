@@ -44,7 +44,7 @@
                                                 }
                                                 $short_session = substr($row['session'], 0, $animal_end);
                                             ?>
-                                            <small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="<?php echo $row['session']; ?>"><?php echo $short_session ?>…</abbr></small>
+                                            <small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="<?php echo $row['session']; ?>"><?php echo $short_session ?>…</abbr> (<?= $row['unit_session_id'] ?>)</small>
                                         </td>
                                         <td><?= $row['unit_type'] ?> (<?=$row['position']?>)</td>
                                         <td><?php echo $row['created'] ?></td>

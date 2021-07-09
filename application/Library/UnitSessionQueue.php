@@ -68,7 +68,6 @@ class UnitSessionQueue extends Queue {
     protected function getSessionsStatement() {
         $where = null;
 
-        $now = time();
         /*
         $query = "SELECT survey_sessions_queue.unit_session_id, survey_sessions_queue.run_session_id, survey_sessions_queue.unit_id, survey_sessions_queue.expires, survey_sessions_queue.execute, survey_sessions_queue.counter, survey_sessions_queue.run,
                          survey_unit_sessions.id AS validate_unit_session_id,
@@ -86,14 +85,17 @@ class UnitSessionQueue extends Queue {
                 survey_run_sessions.session, survey_run_sessions.run_id, survey_run_sessions.id AS run_session_id 
 			FROM survey_unit_sessions
             LEFT JOIN survey_run_sessions ON survey_unit_sessions.run_session_id = survey_run_sessions.id
-            WHERE survey_unit_sessions.expires <= {$now} {$where} 
+            WHERE survey_unit_sessions.queued >= :queued AND survey_unit_sessions.expires <= :now {$where} 
             ORDER BY survey_unit_sessions.id ASC";
             //LIMIT {$this->limit} OFFSET {$this->offset}";
                   
         if ($this->debug) {
             $this->dbg($query);
         }
-        return $this->db->rquery($query);
+        return $this->db->rquery($query, array(
+            'now' => mysql_datetime(), 
+            'queued' => self::QUEUED_TO_EXECUTE
+        ));
     }
 
     protected function processQueue() {
@@ -126,8 +128,10 @@ class UnitSessionQueue extends Queue {
             // Execute session again by getting current unit
             // This action might end or expire a session, thereby removing it from queue
             // or session might be re-queued to expire in x minutes
+            
             $unitSession = new UnitSession($this->db, $session['run_session_id'], $session['unit_id'], $session['id'], false);
             $rsUnit = $runSession->execute($unitSession, $session['queued'] == self::QUEUED_TO_EXECUTE);
+            
             if ($this->debug) {
                 $this->dbg('Proccessed: ' . print_r($session, 1));
             }
@@ -219,11 +223,11 @@ class UnitSessionQueue extends Queue {
           FROM survey_unit_sessions
           LEFT JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id
           LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id
-          WHERE survey_run_sessions.run_id = :run
+          WHERE survey_run_sessions.run_id = :run AND survey_unit_sessions.queued > :no_queued
           ORDER BY unit_session_id DESC
         ';
         
-        return DB::getInstance()->rquery($query, array('run' => $run->id));
+        return DB::getInstance()->rquery($query, array('run' => $run->id, 'no_queued' => self::QUEUED_NOT));
     }
 
 }
