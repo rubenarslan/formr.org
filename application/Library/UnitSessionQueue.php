@@ -11,7 +11,7 @@ class UnitSessionQueue extends Queue {
 
     protected $logFile = 'session-queue.log';
     
-    protected $list_type = 'fixed';
+    protected $list_type = null;
     
     const QUEUED_TO_EXECUTE = 1;
     const QUEUED_TO_END = 2;
@@ -66,34 +66,32 @@ class UnitSessionQueue extends Queue {
      * @return PDOStatement
      */
     protected function getSessionsStatement() {
-        $where = null;
-
-        /*
-        $query = "SELECT survey_sessions_queue.unit_session_id, survey_sessions_queue.run_session_id, survey_sessions_queue.unit_id, survey_sessions_queue.expires, survey_sessions_queue.execute, survey_sessions_queue.counter, survey_sessions_queue.run,
-                         survey_unit_sessions.id AS validate_unit_session_id,
-                         survey_run_sessions.session 
-				  FROM survey_sessions_queue 
-				  LEFT JOIN survey_run_sessions ON survey_sessions_queue.run_session_id = survey_run_sessions.id
-                  LEFT JOIN survey_unit_sessions ON survey_sessions_queue.unit_session_id = survey_unit_sessions.id
-                  WHERE survey_sessions_queue.expires <= {$now} {$where} 
-				  ORDER BY survey_sessions_queue.unit_session_id ASC";
-                  //LIMIT {$this->limit} OFFSET {$this->offset}";
-        */
+        if ($this->list_type == 'fixed') {
+			$where = ' survey_unit_sessions.queued = :queued ';
+            $queued = self::QUEUED_TO_END;
+        } elseif ($this->list_type == 'execute') {
+            $where = ' survey_unit_sessions.queued = :queued ';
+            $queued = self::QUEUED_TO_EXECUTE;
+        } else {
+            $where = 'survey_unit_sessions.queued >= :queued ';
+            $queued = self::QUEUED_TO_EXECUTE;
+        }
+        
         $query = "SELECT survey_unit_sessions.id, survey_unit_sessions.run_session_id, survey_unit_sessions.unit_id, 
                 survey_unit_sessions.expires, survey_unit_sessions.result, survey_unit_sessions.queued, 
                 survey_run_sessions.session, survey_run_sessions.run_id, survey_run_sessions.id AS run_session_id 
 			FROM survey_unit_sessions
             LEFT JOIN survey_run_sessions ON survey_unit_sessions.run_session_id = survey_run_sessions.id
-            WHERE survey_unit_sessions.queued >= :queued AND survey_unit_sessions.expires <= :now {$where} 
+            WHERE {$where} AND survey_unit_sessions.expires <= :now  
             ORDER BY survey_unit_sessions.id ASC";
             //LIMIT {$this->limit} OFFSET {$this->offset}";
                   
         if ($this->debug) {
-            $this->dbg($query);
+            $this->dbg($query . ' queued: ' . $queued);
         }
         return $this->db->rquery($query, array(
             'now' => mysql_datetime(), 
-            'queued' => self::QUEUED_TO_EXECUTE
+            'queued' => $queued,
         ));
     }
 
