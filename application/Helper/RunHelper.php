@@ -183,8 +183,7 @@ class RunHelper {
     }
 
     public function getUserOverviewExportPdoStatement($queryParams) {
-        $query = "
-            SELECT
+        $query = "SELECT
                 `survey_run_sessions`.position,
                 `survey_units`.type AS unit_type,
                 `survey_run_units`.description,
@@ -216,8 +215,7 @@ class RunHelper {
         unset($queryParams['position_operator']);
 
         $where = implode(' AND ', $query);
-        $count_query = "
-			SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions` 
+        $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions` 
 			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id`
             WHERE {$where}
@@ -230,8 +228,7 @@ class RunHelper {
         $queryParams['run_id2'] = $queryParams['run_id'];
         $where = implode(' AND ', $query);
 
-        $itemsQuery = "
-            SELECT 
+        $itemsQuery = "SELECT 
                 `survey_run_sessions`.session,
                 `survey_unit_sessions`.id AS session_id,
                 `survey_runs`.name AS run_name,
@@ -240,7 +237,10 @@ class RunHelper {
                 `survey_units`.type AS unit_type,
                 `survey_unit_sessions`.created,
                 `survey_unit_sessions`.ended,
-                `survey_unit_sessions`.expired
+                `survey_unit_sessions`.expired,
+                `survey_unit_sessions`.expires,
+                `survey_unit_sessions`.`queued`,
+                `survey_unit_sessions`.result
             FROM `survey_unit_sessions`
             LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
             LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id

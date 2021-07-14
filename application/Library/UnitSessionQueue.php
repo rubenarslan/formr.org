@@ -79,8 +79,7 @@ class UnitSessionQueue extends Queue {
 				  ORDER BY survey_sessions_queue.unit_session_id ASC";
                   //LIMIT {$this->limit} OFFSET {$this->offset}";
         */
-        $query = "
-            SELECT survey_unit_sessions.id, survey_unit_sessions.run_session_id, survey_unit_sessions.unit_id, 
+        $query = "SELECT survey_unit_sessions.id, survey_unit_sessions.run_session_id, survey_unit_sessions.unit_id, 
                 survey_unit_sessions.expires, survey_unit_sessions.result, survey_unit_sessions.queued, 
                 survey_run_sessions.session, survey_run_sessions.run_id, survey_run_sessions.id AS run_session_id 
 			FROM survey_unit_sessions
