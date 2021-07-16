@@ -244,48 +244,51 @@ class RunUnit {
         }
     }
 
-    public function delete($special = null) {
-        // todo: set run modified
-        if ($special !== null) {
-            return $this->dbh->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
-        } else {
-            $affected = $this->dbh->delete('survey_units', array('id' => $this->id));
-            if ($affected) { // remove from all runs
-                $affected += $this->dbh->delete('survey_run_units', array('unit_id' => $this->id));
+
+
+    public function getExportUnit() {
+        $unit = array();
+        foreach ($this->export_attribs as $property) {
+            if (property_exists($this, $property)) {
+                $unit[$property] = $this->{$property};
             }
         }
-        return $affected;
+        return $unit;
     }
 
-    public function end() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
-        $ended = $this->dbh->exec(
-			"UPDATE `survey_unit_sessions` SET `ended` = NOW() WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
-			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+    public static function getDefaults($type) {
+        $defaults = array();
+        $defaults['ServiceMessagePage'] = array(
+            'type' => 'Page',
+            'title' => 'Service message',
+            'special' => 'ServiceMessagePage',
+            'description' => 'Service Message ' . date('d.m.Y'),
+            'body' => "# Service message \n This study is currently being serviced. Please return at a later time."
         );
 
-        if ($ended === 1) {
-            $this->ended = true;
-            UnitSessionQueue::removeItem($this->session_id, $this->id);
-            return true;
-        }
-
-        return false;
-    }
-
-    public function expire() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
-        $expired = $this->dbh->exec(
-			"UPDATE `survey_unit_sessions` SET `expired` = NOW() WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
-			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+        $defaults['OverviewScriptPage'] = array(
+            'type' => 'Page',
+            'title' => 'Overview script',
+            'special' => 'OverviewScriptPage',
+            'body' => "# Intersperse Markdown with R
+```{r}
+plot(cars)
+```");
+        $defaults['ReminderEmail'] = array(
+            'type' => 'Email',
+            'subject' => 'Reminder',
+            'special' => 'ReminderEmail',
+            'recipient_field' => '',
+            'body' => "\nPlease take part in our study at {{login_link}}.",
         );
 
-        if ($expired === 1) {
-            $this->expired = true;
-            UnitSessionQueue::removeItem($this->session_id, $this->id);
-            return true;
-        }
-
-        return false;
+        return array_val($defaults, $type, array());
     }
+
+    protected function getUnitTemplatePath($tpl = null) {
+        return 'admin/run/units/' . ($tpl ? $tpl : strtolower($this->type));
+    }
+
 
     protected function getSampleSessions() {
         $current_position = -9999999;
@@ -375,6 +378,52 @@ class RunUnit {
 
     public function displayForRun($prepend = '') {
         return $this->runDialog($prepend); // FIXME: This class has no parent
+    }
+
+
+    //// METHODS STARTING HERE SHOULD REALLY BE IN UNITSESSION not UNIT
+
+    public function delete($special = null) {
+        // todo: set run modified
+        if ($special !== null) {
+            return $this->dbh->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
+        } else {
+            $affected = $this->dbh->delete('survey_units', array('id' => $this->id));
+            if ($affected) { // remove from all runs
+                $affected += $this->dbh->delete('survey_run_units', array('unit_id' => $this->id));
+            }
+        }
+        return $affected;
+    }
+
+    public function end() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
+        $ended = $this->dbh->exec(
+			"UPDATE `survey_unit_sessions` SET `ended` = NOW() WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+        );
+
+        if ($ended === 1) {
+            $this->ended = true;
+            UnitSessionQueue::removeItem($this->session_id, $this->id);
+            return true;
+        }
+
+        return false;
+    }
+
+    public function expire() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
+        $expired = $this->dbh->exec(
+			"UPDATE `survey_unit_sessions` SET `expired` = NOW() WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+        );
+
+        if ($expired === 1) {
+            $this->expired = true;
+            UnitSessionQueue::removeItem($this->session_id, $this->id);
+            return true;
+        }
+
+        return false;
     }
 
     protected $survey_results;
@@ -773,49 +822,6 @@ class RunUnit {
 
             return $report;
         }
-    }
-
-    public function getExportUnit() {
-        $unit = array();
-        foreach ($this->export_attribs as $property) {
-            if (property_exists($this, $property)) {
-                $unit[$property] = $this->{$property};
-            }
-        }
-        return $unit;
-    }
-
-    public static function getDefaults($type) {
-        $defaults = array();
-        $defaults['ServiceMessagePage'] = array(
-            'type' => 'Page',
-            'title' => 'Service message',
-            'special' => 'ServiceMessagePage',
-            'description' => 'Service Message ' . date('d.m.Y'),
-            'body' => "# Service message \n This study is currently being serviced. Please return at a later time."
-        );
-
-        $defaults['OverviewScriptPage'] = array(
-            'type' => 'Page',
-            'title' => 'Overview script',
-            'special' => 'OverviewScriptPage',
-            'body' => "# Intersperse Markdown with R
-```{r}
-plot(cars)
-```");
-        $defaults['ReminderEmail'] = array(
-            'type' => 'Email',
-            'subject' => 'Reminder',
-            'special' => 'ReminderEmail',
-            'recipient_field' => '',
-            'body' => "\nPlease take part in our study at {{login_link}}.",
-        );
-
-        return array_val($defaults, $type, array());
-    }
-
-    protected function getUnitTemplatePath($tpl = null) {
-        return 'admin/run/units/' . ($tpl ? $tpl : strtolower($this->type));
     }
 
 }
