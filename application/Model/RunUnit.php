@@ -555,6 +555,9 @@ plot(cars)
             if (in_array('formr_login_code', $needed['variables'])) {
                 $this->survey_results['.formr$login_code'] = "'" . $this->session . "'";
             }
+            if (in_array('user_id', $needed['variables'])) {
+                $this->survey_results['user_id'] = "'" . $this->session . "'";
+            }
             if (in_array('formr_nr_of_participants', $needed['variables'])) {
                 $count = (int) $this->dbh->count('survey_run_sessions', array('run_id' => $this->run_id), 'id');
                 $this->survey_results['.formr$nr_of_participants'] = (int) $count;
@@ -672,6 +675,9 @@ plot(cars)
         }
         if (strstr($q, '.formr$login_code') !== false) {
             $variables[] = 'formr_login_code';
+        }
+        if (preg_match("/\buser_id\b/", $q)) {
+            $variables[] = 'user_id';
         }
         if (strstr($q, '.formr$login_link') !== false) {
             $variables[] = 'formr_login_link';
