@@ -83,7 +83,7 @@ class UnitSessionQueue extends Queue {
 			FROM survey_unit_sessions
             LEFT JOIN survey_run_sessions ON survey_unit_sessions.run_session_id = survey_run_sessions.id
             WHERE {$where} AND survey_unit_sessions.expires <= :now  
-            ORDER BY survey_unit_sessions.id ASC";
+            ORDER BY RAND()";
             //LIMIT {$this->limit} OFFSET {$this->offset}";
                   
         if ($this->debug) {
