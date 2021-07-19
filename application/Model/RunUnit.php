@@ -807,17 +807,12 @@ plot(cars)
             alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
             return false;
         } elseif ($this->ocpu->hasError()) {
-            $where = '';
-            if (isset($this->run_name)) {
-                $where = "Run: " . $this->run_name . " (" . $this->position . "-" . $this->type . ") ";
-            }
             $this->session_result = 'error_opencpu_r';
             $this->session_error = 'OpenCPU R error. Fix code.';
             $this->logResult();
-            notify_user_error(opencpu_debug($this->ocpu), 'There was a problem with OpenCPU for session ' . h($this->session));
+            notify_user_error(opencpu_debug($this->ocpu), 'There was a computational error.');
             return false;
         } elseif ($admin) {
-
             return $this->ocpu;
         } else {
             $this->session_result = 'success_knitted';
