@@ -91,6 +91,7 @@
                                     <th>Session</th>
                                     <th>Created</th>
                                     <th>Last Access</th>
+                                    <th>Last Result</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -125,6 +126,9 @@
                                         </td>
                                         <td>
                                             <small class="hastooltip" title="<?php echo $user['last_access']; ?>"> <?php echo timetostr(strtotime($user['last_access'])); ?></small>
+                                        </td>
+                                        <td>
+                                            <small class="label <?=(strpos($user['result'], "error")!==false)?'label-danger ':' ';?>hastooltip" title="<?php echo $user['result_log']; ?>"><?php echo $user['result'];?></small>
                                         </td>
                                         <td>
                                             <form class='form-inline form-ajax' action="<?php echo admin_run_url($user['run_name'], 'ajax_send_to_position'); ?>" method='post'>
