@@ -10,7 +10,7 @@ function update_unit_sessions_table(DB $db) {
         // foreach item in the old sessions_queue table,
         // update the expires timestamp in the unit_sessions table
         $query = "UPDATE survey_unit_sessions SET expires = :expires, queued = :queued WHERE id = :id AND ended IS NULL";
-        $db->exec($query, array(
+        echo $db->exec($query, array(
             'id' => $row['unit_session_id'],
             'expires' => mysql_datetime($row['expires']),
             'queued' => $row['execute'] ? UnitSessionQueue::QUEUED_TO_EXECUTE : UnitSessionQueue::QUEUED_TO_END,
@@ -26,7 +26,7 @@ function run_stuck_pauses(DB $db) {
               WHERE survey_units.type IN ('Pause', 'Wait') AND 
               survey_unit_sessions.ended IS NULL AND survey_unit_sessions.expires IS NULL";
     
-    $stmt = $db->exec($query, array('now' => mysql_datetime()));
+    echo $db->exec($query, array('now' => mysql_datetime()));
 }
 
 $opts = getopt('m:');
