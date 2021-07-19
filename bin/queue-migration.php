@@ -20,23 +20,12 @@ function update_unit_sessions_table(DB $db) {
 
 
 function run_stuck_pauses(DB $db) {
-    $query = "SELECT survey_unit_sessions.id as unit_session_id, unit_id, run_session_id, expires, created, ended, expired, type, survey_run_sessions.run_id 
-              FROM survey_unit_sessions
-              LEFT JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id 
+    $query = "UPDATE survey_unit_sessions SET queued = 2, expires = :now
               LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id 
-              WHERE survey_units.type='PAUSE' AND (survey_unit_sessions.ended IS NULL OR survey_unit_sessions.expires <= :now)
-              ";
+    WHERE survey_units.type IN('Pause', 'Wait') AND 
+    survey_unit_sessions.ended IS NULL AND survey_unit_sessions.expires IS NULL";
     
-    $stmt = $db->rquery($query, array('now' => mysql_datetime()));
-    while ($session = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        
-        $run = new Run($db, null, $session['run_id']);
-        
-        $runSession = new RunSession($db, $run->id, 'cron', $session['session'], $run);
-        $unitSession = new UnitSession($db, $session['run_session_id'], $session['unit_id'], $session['unit_session_id'], false);
-        
-        $runSession->execute($unitSession, true);
-    }
+    $stmt = $db->query($query, array('now' => mysql_datetime()));
 }
 
 $opts = getopt('m:');
