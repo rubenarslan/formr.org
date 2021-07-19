@@ -23,7 +23,7 @@ function run_stuck_pauses(DB $db) {
     $query = "UPDATE survey_unit_sessions
               LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id 
               SET `survey_unit_sessions`.queued = 1, `survey_unit_sessions`.expires = :now
-              WHERE survey_units.type IN('Pause', 'Wait') AND 
+              WHERE survey_units.type IN ('Pause', 'Wait') AND 
               survey_unit_sessions.ended IS NULL AND survey_unit_sessions.expires IS NULL";
     
     $stmt = $db->exec($query, array('now' => mysql_datetime()));
