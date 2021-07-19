@@ -139,6 +139,9 @@ class Pause extends RunUnit {
             $result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
             if ($result === null) {
                 $this->execData['check_failed'] = true;
+                $this->session_result = "error_pause_relative_to";
+                $this->session_error = "OpenCPU R error. Fix code.";
+                $this->logResult();
                 return false;
             }
             $this->relative_to_result = $relative_to = $result;
@@ -348,6 +351,8 @@ class Pause extends RunUnit {
         $pauseOver = $this->checkWhetherPauseIsOver();
 
         if ($pauseOver) {
+            $this->session_result = "pause_ended";
+            $this->logResult();
             $this->end();
             return false;
         } else {

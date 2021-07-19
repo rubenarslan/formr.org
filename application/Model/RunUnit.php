@@ -55,6 +55,9 @@ class RunUnit {
     public $valid;
     public $run_id;
     public $description = "";
+    public $ocpu = null;
+    public $session_result = null;
+    public $session_error = null;
     protected $had_major_changes = false;
 
     /**
@@ -398,8 +401,13 @@ plot(cars)
 
     public function end() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
         $ended = $this->dbh->exec(
-			"UPDATE `survey_unit_sessions` SET `ended` = NOW() WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
-			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+			"UPDATE `survey_unit_sessions` SET 
+                `ended` = NOW(), 
+                `result` = :result, 
+                `result_log` = :result_log 
+                WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array('session_id' => $this->session_id, 'unit_id' => $this->id,
+            'result' => $this->session_result, 'result_log' => $this->session_error)
         );
 
         if ($ended === 1) {
@@ -413,7 +421,8 @@ plot(cars)
 
     public function expire() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
         $expired = $this->dbh->exec(
-			"UPDATE `survey_unit_sessions` SET `expired` = NOW() WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			"UPDATE `survey_unit_sessions` SET `expired` = NOW(), 
+                `result` = 'expired' WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
 			array('session_id' => $this->session_id, 'unit_id' => $this->id)
         );
 
@@ -731,6 +740,19 @@ plot(cars)
         return $report;
     }
 
+    protected function logResult() {
+        $log = $this->dbh->exec(
+			"UPDATE `survey_unit_sessions` SET 
+                `result` = :result, 
+                `result_log` = :result_log 
+                WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array('session_id' => $this->session_id, 'unit_id' => $this->id,
+            'result' => $this->session_result, 'result_log' => $this->session_error)
+        );
+
+        return $log;
+    }
+
     public function getParsedBody($source, $email_embed = false, $admin = false, $has_session_data = true) {
 
         if (!$this->knittingNeeded($source)) {
@@ -741,8 +763,8 @@ plot(cars)
             }
         }
 
-        /* @var $session OpenCPU_Session */
-        $session = null;
+        /* @var $this->ocpu OpenCPU_Session */
+        $this->ocpu = null;
         $cache_session = false;
         $baseUrl = null;
 
@@ -754,7 +776,7 @@ plot(cars)
             ), array('opencpu_url'));
 
             // If there is a cache of opencpu, check if it still exists
-            if ($opencpu_url && ($session = opencpu_get($opencpu_url, '', null, true))) {
+            if ($opencpu_url && ($this->ocpu = opencpu_get($opencpu_url, '', null, true))) {
                 if ($this->called_by_cron) {
                     return false; // don't regenerate once we once had a report for this feedback, if it's only the cronjob
                 }
@@ -765,41 +787,49 @@ plot(cars)
         }
 
         // If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
-        if (empty($session) || $session->hasError()) {
+        if (empty($this->ocpu) || $this->ocpu->hasError()) {
             $ocpu_vars = $has_session_data ? $this->getUserDataInRun($source) : array();
             if ($email_embed) {
-                $session = opencpu_knit_email($source, $ocpu_vars, '', true);
+                $this->ocpu = opencpu_knit_email($source, $ocpu_vars, '', true);
             } else {
-                $session = opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->description, $this->run->footer_text);
+                $this->ocpu = opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->description, $this->run->footer_text);
             }
 
             $filesMatch = 'knit.html';
             $cache_session = true;
         }
 
-        // At this stage we are sure to have an OpenCPU_Session in $session. If there is an error in the session return FALSE
-        if (empty($session)) {
+        // At this stage we are sure to have an OpenCPU_Session in $this->ocpu. If there is an error in the session return FALSE
+        if (empty($this->ocpu)) {
+            $this->session_result = 'error_opencpu_down';
+            $this->session_error = 'OpenCPU is probably down or inaccessible.';
+            $this->logResult();
             alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
             return false;
-        } elseif ($session->hasError()) {
+        } elseif ($this->ocpu->hasError()) {
             $where = '';
             if (isset($this->run_name)) {
                 $where = "Run: " . $this->run_name . " (" . $this->position . "-" . $this->type . ") ";
             }
-            notify_user_error(opencpu_debug($session), 'There was a problem with OpenCPU for session ' . h($this->session));
+            $this->session_result = 'error_opencpu_r';
+            $this->session_error = 'OpenCPU R error. Fix code.';
+            $this->logResult();
+            notify_user_error(opencpu_debug($this->ocpu), 'There was a problem with OpenCPU for session ' . h($this->session));
             return false;
         } elseif ($admin) {
 
-            return $session;
+            return $this->ocpu;
         } else {
-            print_hidden_opencpu_debug_message($session, "OpenCPU debugger for run R code in {$this->type} at {$this->position}.");
-            $files = $session->getFiles($filesMatch, $baseUrl);
-            $images = $session->getFiles('/figure-html', $baseUrl);
-            $opencpu_url = $session->getLocation();
+            $this->session_result = 'success_knitted';
+            $this->logResult();
+            print_hidden_opencpu_debug_message($this->ocpu, "OpenCPU debugger for run R code in {$this->type} at {$this->position}.");
+            $files = $this->ocpu->getFiles($filesMatch, $baseUrl);
+            $images = $this->ocpu->getFiles('/figure-html', $baseUrl);
+            $opencpu_url = $this->ocpu->getLocation();
 
             if ($email_embed) {
                 $report = array(
-                    'body' => $session->getObject(),
+                    'body' => $this->ocpu->getObject(),
                     'images' => $images,
                 );
             } else {

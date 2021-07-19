@@ -110,6 +110,9 @@ class Page extends RunUnit {
 
         $body = do_run_shortcodes($this->body_parsed, $run_name, $sess_code);
 
+        $this->session_result = "ended";
+        $this->logResult();
+
         return array(
             'body' => $body,
         );

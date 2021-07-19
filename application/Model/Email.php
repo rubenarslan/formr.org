@@ -475,21 +475,31 @@ class Email extends RunUnit {
     public function exec() {
         // If emails should be sent only when cron is active and unit is not called by cron, then end it and move on
         if ($this->cron_only && !$this->called_by_cron) {
-            $this->end();
+            $this->session_result = "email_skipped_user_active";
+            $this->logResult();
+                $this->end();
             return false;
         }
 
         // Check if user is enabled to receive emails
         if (!$this->sessionCanReceiveMails()) {
+            $this->session_result = "email_skipped_user_disabled";
+            $this->logResult();
             return array('body' => "<p>Session <code>{$this->session}</code> cannot receive mails at this time </p>");
         }
 
         // Try to send email
         $err = $this->sendMail();
         if ($this->mail_sent) {
+            $this->session_result = "email_sent";
+            $this->logResult();
             $this->end();
             return false;
         }
+        $this->session_result = "error_email";
+        $this->session_log = $err;
+        $this->logResult();
+
         return array('body' => $err);
     }
 
