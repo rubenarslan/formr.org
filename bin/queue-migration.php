@@ -1,5 +1,5 @@
+#!/usr/bin/php
 <?php
-
 require_once dirname(__FILE__) . '/../setup.php';
 
 function update_unit_sessions_table(DB $db) {
