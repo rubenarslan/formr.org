@@ -105,20 +105,20 @@ class UnitSessionQueue extends Queue {
         while ($session = $sessionsStmt->fetch(PDO::FETCH_ASSOC)) {
             if (!$session['session']) {
                 $this->dbg('A session could not be found for item in queue: ' . print_r($session, 1));
-                self::removeItem($session['id'], $session['unit_id']);
+                self::removeItem($session['id']);
                 continue;
             }
 
             $run = $this->getRun($session['run_id']);
             if (!$run->valid || !$run->cron_active) {
-                self::removeItem($session['id'], $session['unit_id']);
+                self::removeItem($session['id']);
                 continue;
             }
             $runSession = new RunSession($this->db, $run->id, 'cron', $session['session'], $run);
 
             if (!$runSession->id) {
                 $this->dbg('A run session could not be found for item in queue: ' . print_r($session, 1));
-                self::removeItem($session['id'], $session['unit_id']);
+                self::removeItem($session['id']);
                 continue;
             }
 
@@ -164,13 +164,12 @@ class UnitSessionQueue extends Queue {
      * Remove item from session queue
      *
      * @param int $unitSessionId ID of the unit session
-     * @param int $runUnitId ID of the Run unit
      * @return booelan
      */
-    public static function removeItem($unitSessionId, $runUnitId) {
+    public static function removeItem($unitSessionId) {
         $db = DB::getInstance();
         $removed = $db->update('survey_unit_sessions', array(
-                'queued' => 0,
+                'queued' => 0
         ), array('id' => $unitSessionId));
 
         return (bool) $removed;
@@ -194,7 +193,7 @@ class UnitSessionQueue extends Queue {
                 'queued' => $data['queued'],
             ), array('id' => $unitSession->id));
         } else {
-            UnitSessionQueue::removeItem($unitSession->id, $runUnit->id);
+            UnitSessionQueue::removeItem($unitSession->id);
         }
     }
 
