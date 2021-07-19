@@ -47,7 +47,7 @@ if (!empty($opts['b'])) {
 }
 
 if (!empty($opts['l'])) {
-    $config['list_type'] = (int) $opts['l'];
+    $config['list_type'] = $opts['l'];
 }
 
 
