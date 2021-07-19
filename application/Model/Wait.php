@@ -49,10 +49,14 @@ class Wait extends Pause {
         $pauseOver = $this->checkWhetherPauseIsOver();
 
         if (!$pauseOver && !$this->called_by_cron && empty($this->execData['check_failed'])) {
+            $this->session_result = "wait_ended_by_user";
+            $this->logResult();
             $this->end();
             $runTo = $this->run_session->runTo($this->body);
             return !$runTo;
         } elseif ($pauseOver) {
+            $this->session_result = "wait_ended";
+            $this->logResult();
             $this->end();
             return false;
         } else {
