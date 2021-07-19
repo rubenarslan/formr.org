@@ -66,10 +66,10 @@ class UnitSessionQueue extends Queue {
      * @return PDOStatement
      */
     protected function getSessionsStatement() {
-        if ($this->list_type == 'fixed') {
+        if ($this->list_type === 'fixed') {
 			$where = ' survey_unit_sessions.queued = :queued ';
             $queued = self::QUEUED_TO_END;
-        } elseif ($this->list_type == 'execute') {
+        } elseif ($this->list_type === 'execute') {
             $where = ' survey_unit_sessions.queued = :queued ';
             $queued = self::QUEUED_TO_EXECUTE;
         } else {
@@ -83,11 +83,12 @@ class UnitSessionQueue extends Queue {
 			FROM survey_unit_sessions
             LEFT JOIN survey_run_sessions ON survey_unit_sessions.run_session_id = survey_run_sessions.id
             WHERE {$where} AND survey_unit_sessions.expires <= :now  
-            ORDER BY RAND()";
+            ORDER BY RAND();";
             //LIMIT {$this->limit} OFFSET {$this->offset}";
                   
         if ($this->debug) {
             $this->dbg($query . ' queued: ' . $queued);
+            $this->dbg($this->list_type);
         }
         return $this->db->rquery($query, array(
             'now' => mysql_datetime(), 
