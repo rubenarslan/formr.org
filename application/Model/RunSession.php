@@ -234,7 +234,7 @@ class RunSession {
         return $unit_id;
     }
 
-    public function endUnitSession($unit = null) {
+    public function endUnitSession($unit = null, $reason = null) {
         $unit = $unit !== null ? $unit : $this->getCurrentUnit(); // get first unit in line
         if ($unit) {
             $unit_factory = new RunUnitFactory();
@@ -244,6 +244,10 @@ class RunSession {
             } else {
                 $unit->end();  // cancel it
             }
+            if ($reason !== null) {
+                $unit->session_result = $reason;
+                $unit->logResult();
+            }
             return true;
         }
         return false;
@@ -252,7 +256,7 @@ class RunSession {
     public function forceTo($position) {
         // If there a unit for current position, then end the unit's session before moving
         if ($this->getUnitIdAtPosition($this->position)) {
-            $this->endUnitSession();
+            $this->endUnitSession(null, "manual_admin_push");
         }
         return $this->runTo($position);
     }
