@@ -128,7 +128,15 @@
                                             <small class="hastooltip" title="<?php echo $user['last_access']; ?>"> <?php echo timetostr(strtotime($user['last_access'])); ?></small>
                                         </td>
                                         <td>
+                                            <?php if(empty($user['result']) && !empty( $user['expires'])) { ?>
+                                                <small class="label label-info hastooltip" title="<?php echo $user['expires']; ?>">expires in <?php echo timetostr(strtotime($user['expires'])); ?></small>
+
+                                            <?php } else {
+                                                ?>
                                             <small class="label <?=(strpos($user['result'], "error")!==false)?'label-danger ':' ';?>hastooltip" title="<?php echo $user['result_log']; ?>"><?php echo $user['result'];?></small>
+                                            <?php 
+                                            }
+                                            ?>
                                         </td>
                                         <td>
                                             <form class='form-inline form-ajax' action="<?php echo admin_run_url($user['run_name'], 'ajax_send_to_position'); ?>" method='post'>
