@@ -82,7 +82,8 @@ class UnitSessionQueue extends Queue {
                 survey_run_sessions.session, survey_run_sessions.run_id 
 			FROM survey_unit_sessions
             LEFT JOIN survey_run_sessions ON survey_unit_sessions.run_session_id = survey_run_sessions.id
-            WHERE {$where} AND survey_unit_sessions.expires <= :now  
+            LEFT JOIN survey_runs ON survey_run_sessions.run_id = survey_runs.id
+            WHERE {$where} AND survey_runs.cron_active = 1 AND survey_unit_sessions.expires <= NOW() 
             ORDER BY RAND();";
             //LIMIT {$this->limit} OFFSET {$this->offset}";
                   
@@ -90,10 +91,8 @@ class UnitSessionQueue extends Queue {
             $this->dbg($query . ' queued: ' . $queued);
             $this->dbg($this->list_type);
         }
-        return $this->db->rquery($query, array(
-            'now' => mysql_datetime(), 
-            'queued' => $queued,
-        ));
+        
+        return $this->db->rquery($query, array('queued' => $queued));
     }
 
     protected function processQueue() {
