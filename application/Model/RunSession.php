@@ -188,7 +188,7 @@ class RunSession {
                     continue;
                 } elseif ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id != $this->unit_session->id) {
                     // dead queue item, remove from queue
-                    UnitSessionQueue::removeItem($referenceUnitSession->id, $referenceUnitSession->unit_id);
+                    UnitSessionQueue::removeItem($referenceUnitSession->id);
                 }
 
                 try {
@@ -208,7 +208,7 @@ class RunSession {
                 } catch (Exception $e) {
                     formr_log_exception($e);
                     if ($this->cron) {
-                        UnitSessionQueue::removeItem($referenceUnitSession->id, $referenceUnitSession->unit_id);
+                        UnitSessionQueue::removeItem($referenceUnitSession->id);
                         break;
                     }
                 }

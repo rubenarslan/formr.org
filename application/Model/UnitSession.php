@@ -8,6 +8,10 @@ class UnitSession {
     public $created;
     public $ended;
     public $expired;
+    public $queued;
+    public $expires;
+    public $result;
+    public $result_log;
     public $run_session_id;
 
     /**

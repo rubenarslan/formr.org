@@ -154,8 +154,8 @@ class RunHelper {
         $limits = $pagination->getLimits();
         $queryParams['admin_code'] = $adminCode;
 
-        $itemsQuery = "
-            SELECT
+        $itemsQuery = 
+            "SELECT
                 `survey_run_sessions`.id AS run_session_id,
                 `survey_run_sessions`.session,
                 `survey_run_sessions`.position,
@@ -166,13 +166,16 @@ class RunHelper {
                 `survey_runs`.name AS run_name,
                 `survey_units`.type AS unit_type,
                 `survey_run_sessions`.last_access,
-                (`survey_units`.type IN ('Survey','External','Email') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
+                `survey_unit_sessions`.result,
+                `survey_unit_sessions`.result_log,
+                `survey_unit_sessions`.expires
             FROM `survey_run_sessions`
             LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
-            WHERE {$where}
-            ORDER BY `survey_run_sessions`.session != :admin_code, hang DESC, `survey_run_sessions`.last_access DESC
+            LEFT JOIN `survey_unit_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id 
+            WHERE `survey_unit_sessions`.`ended` IS NULL AND {$where}
+            ORDER BY `survey_run_sessions`.session != :admin_code, `survey_run_sessions`.last_access DESC
             LIMIT $limits
         ";
 
@@ -183,20 +186,21 @@ class RunHelper {
     }
 
     public function getUserOverviewExportPdoStatement($queryParams) {
-        $query = "
-            SELECT
+        $query = "SELECT
                 `survey_run_sessions`.position,
                 `survey_units`.type AS unit_type,
                 `survey_run_units`.description,
                 `survey_run_sessions`.session,
                 `survey_run_sessions`.created,
                 `survey_run_sessions`.last_access,
-                (`survey_units`.type IN ('Survey','External','Email') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
+                `survey_unit_sessions`.result,
+                `survey_unit_sessions`.result_log,
+                `survey_unit_sessions`.expires
             FROM `survey_run_sessions`
             LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
-            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code, hang DESC, `survey_run_sessions`.last_access DESC
+            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code,`survey_run_sessions`.last_access DESC
         ";
         $stmt = $this->db->prepare($query);
         $stmt->execute($queryParams);
@@ -216,8 +220,7 @@ class RunHelper {
         unset($queryParams['position_operator']);
 
         $where = implode(' AND ', $query);
-        $count_query = "
-			SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions` 
+        $count_query = "SELECT COUNT(`survey_unit_sessions`.id) AS count FROM `survey_unit_sessions` 
 			LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
 			LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.`unit_id` = `survey_run_units`.`unit_id`
             WHERE {$where}
@@ -230,8 +233,7 @@ class RunHelper {
         $queryParams['run_id2'] = $queryParams['run_id'];
         $where = implode(' AND ', $query);
 
-        $itemsQuery = "
-            SELECT 
+        $itemsQuery = "SELECT 
                 `survey_run_sessions`.session,
                 `survey_unit_sessions`.id AS session_id,
                 `survey_runs`.name AS run_name,
@@ -240,7 +242,11 @@ class RunHelper {
                 `survey_units`.type AS unit_type,
                 `survey_unit_sessions`.created,
                 `survey_unit_sessions`.ended,
-                `survey_unit_sessions`.expired
+                `survey_unit_sessions`.expired,
+                `survey_unit_sessions`.expires,
+                `survey_unit_sessions`.`queued`,
+                `survey_unit_sessions`.result,
+                `survey_unit_sessions`.result_log
             FROM `survey_unit_sessions`
             LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
             LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
