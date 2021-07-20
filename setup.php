@@ -1,5 +1,5 @@
 <?php
-define('FORMR_VERSION', 'v0.19.0');
+define('FORMR_VERSION', 'v0.19.1');
 
 define('APPLICATION_ROOT', __DIR__ . '/');
 define('INCLUDE_ROOT', APPLICATION_ROOT);
