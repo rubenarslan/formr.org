@@ -167,7 +167,8 @@ class RunHelper {
                 `survey_units`.type AS unit_type,
                 `survey_run_sessions`.last_access,
                 `survey_unit_sessions`.result,
-                `survey_unit_sessions`.result_log
+                `survey_unit_sessions`.result_log,
+                `survey_unit_sessions`.expires
             FROM `survey_run_sessions`
             LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
@@ -192,12 +193,14 @@ class RunHelper {
                 `survey_run_sessions`.session,
                 `survey_run_sessions`.created,
                 `survey_run_sessions`.last_access,
-                (`survey_units`.type IN ('Survey','External','Email') AND DATEDIFF(NOW(), `survey_run_sessions`.last_access) >= 2) AS hang
+                `survey_unit_sessions`.result,
+                `survey_unit_sessions`.result_log,
+                `survey_unit_sessions`.expires
             FROM `survey_run_sessions`
             LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
-            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code, hang DESC, `survey_run_sessions`.last_access DESC
+            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code,`survey_run_sessions`.last_access DESC
         ";
         $stmt = $this->db->prepare($query);
         $stmt->execute($queryParams);
