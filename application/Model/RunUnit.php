@@ -740,7 +740,7 @@ plot(cars)
         return $report;
     }
 
-    protected function logResult() {
+    public function logResult() {
         $log = $this->dbh->exec(
 			"UPDATE `survey_unit_sessions` SET 
                 `result` = :result, 
