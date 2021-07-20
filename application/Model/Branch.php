@@ -140,6 +140,9 @@ class Branch extends RunUnit {
         $opencpu_vars = $this->getUserDataInRun($this->condition);
         $eval = opencpu_evaluate($this->condition, $opencpu_vars);
         if ($eval === null) {
+            $this->session_result = "error_opencpu_r";
+            $this->session_error = "OpenCPU error. Fix R code.";
+            $this->logResult();
             return true; // don't go anywhere, wait for the error to be fixed!
         }
         if (is_array($eval)) {
@@ -156,9 +159,13 @@ class Branch extends RunUnit {
         $result = (bool) $eval;
         
         if ($result && ($this->automatically_jump || !$this->called_by_cron)) {
+            $this->session_result = "skip_true";
+            $this->logResult();
             // if condition is true and we're set to jump automatically, or if the user reacted
             return $this->jump();
         } elseif (!$result && ($this->automatically_go_on || !$this->called_by_cron)) {
+            $this->session_result = "skip_false";
+            $this->logResult();
             // the condition is false and it goes on
             return $this->goOn();
         } else {

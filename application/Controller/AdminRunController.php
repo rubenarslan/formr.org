@@ -241,11 +241,11 @@ class AdminRunController extends AdminController {
             if ($run->uploadFiles($_FILES['uploaded_files'])) {
                 alert('<strong>Success.</strong> The files were uploaded.', 'alert-success');
                 if (!empty($run->messages)) {
-                    alert(implode($run->messages, ' '), 'alert-info');
+                    alert(implode(' ', $run->messages), 'alert-info');
                 }
                 $this->request->redirect(admin_run_url($run->name, 'upload_files'));
             } else {
-                alert('<strong>Sorry, files could not be uploaded.</strong><br /> ' . nl2br(implode($run->errors, "\n")), 'alert-danger');
+                alert('<strong>Sorry, files could not be uploaded.</strong><br /> ' . nl2br(implode("\n", $run->errors)), 'alert-danger');
             }
         } elseif ($this->request->isHTTPPostRequest()) {
             alert('The size of your request exceeds the allowed limit. Please report this to administrators indicating the size of your files.', 'alert-danger');
@@ -572,7 +572,7 @@ class AdminRunController extends AdminController {
         $run = $this->run;
         $site = $this->site;
 
-        if (($units = (array) json_decode($site->request->str('units'))) && ($name = $site->request->str('export_name')) && preg_match('/^[a-z0-9-\s]+$/i', $name)) {
+        if (($units = (array) json_decode($_POST['units'])) && ($name = $site->request->str('export_name')) && preg_match('/^[a-z0-9-\s]+$/i', $name)) {
             $format = $this->request->getParam('format');
             $inc_survey = $this->request->getParam('include_survey_details') === 'true';
             if (!in_array($format, $formats)) {

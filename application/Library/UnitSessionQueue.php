@@ -10,9 +10,16 @@ class UnitSessionQueue extends Queue {
     protected $name = 'UnitSession-Queue';
 
     protected $logFile = 'session-queue.log';
+    
+    protected $list_type = null;
+    
+    const QUEUED_TO_EXECUTE = 1;
+    const QUEUED_TO_END = 2;
+    const QUEUED_NOT = 0;
 
     public function __construct(DB $db, array $config) {
         parent::__construct($db, $config);
+		$this->list_type = array_val($this->config, 'list_type', null);
     }
 
     public function run() {
@@ -59,20 +66,34 @@ class UnitSessionQueue extends Queue {
      * @return PDOStatement
      */
     protected function getSessionsStatement() {
-        $now = time();
-        $query = "SELECT survey_sessions_queue.unit_session_id, survey_sessions_queue.run_session_id, survey_sessions_queue.unit_id, survey_sessions_queue.expires, survey_sessions_queue.execute, survey_sessions_queue.counter, survey_sessions_queue.run,
-                         survey_unit_sessions.id AS validate_unit_session_id,
-                         survey_run_sessions.session 
-				  FROM survey_sessions_queue 
-				  LEFT JOIN survey_run_sessions ON survey_sessions_queue.run_session_id = survey_run_sessions.id
-                  LEFT JOIN survey_unit_sessions ON survey_sessions_queue.unit_session_id = survey_unit_sessions.id
-                  WHERE survey_sessions_queue.expires <= {$now} ORDER BY survey_sessions_queue.unit_session_id ASC
-                  LIMIT {$this->limit} OFFSET {$this->offset}";
-
-        if ($this->debug) {
-            $this->dbg($query);
+        if ($this->list_type === 'fixed') {
+			$where = ' survey_unit_sessions.queued = :queued ';
+            $queued = self::QUEUED_TO_END;
+        } elseif ($this->list_type === 'execute') {
+            $where = ' survey_unit_sessions.queued = :queued ';
+            $queued = self::QUEUED_TO_EXECUTE;
+        } else {
+            $where = 'survey_unit_sessions.queued >= :queued ';
+            $queued = self::QUEUED_TO_EXECUTE;
         }
-        return $this->db->rquery($query);
+        
+        $query = "SELECT survey_unit_sessions.id, survey_unit_sessions.run_session_id, survey_unit_sessions.unit_id, 
+                survey_unit_sessions.expires, survey_unit_sessions.result, survey_unit_sessions.queued, 
+                survey_run_sessions.session, survey_run_sessions.run_id, survey_run_sessions.id AS run_session_id 
+			FROM survey_unit_sessions
+            LEFT JOIN survey_run_sessions ON survey_unit_sessions.run_session_id = survey_run_sessions.id
+            WHERE {$where} AND survey_unit_sessions.expires <= :now  
+            ORDER BY RAND();";
+            //LIMIT {$this->limit} OFFSET {$this->offset}";
+                  
+        if ($this->debug) {
+            $this->dbg($query . ' queued: ' . $queued);
+            $this->dbg($this->list_type);
+        }
+        return $this->db->rquery($query, array(
+            'now' => mysql_datetime(), 
+            'queued' => $queued,
+        ));
     }
 
     protected function processQueue() {
@@ -83,30 +104,32 @@ class UnitSessionQueue extends Queue {
         }
 
         while ($session = $sessionsStmt->fetch(PDO::FETCH_ASSOC)) {
-            if (!$session['session'] || $session['unit_session_id'] != $session['validate_unit_session_id']) {
+            if (!$session['session']) {
                 $this->dbg('A session could not be found for item in queue: ' . print_r($session, 1));
-                self::removeItem($session['unit_session_id'], $session['unit_id']);
+                self::removeItem($session['id']);
                 continue;
             }
 
-            $run = $this->getRun($session['run']);
-            if (!$run->valid) {
-                self::removeItem($session['unit_session_id'], $session['unit_id']);
+            $run = $this->getRun($session['run_id']);
+            if (!$run->valid || !$run->cron_active) {
+                self::removeItem($session['id']);
                 continue;
             }
             $runSession = new RunSession($this->db, $run->id, 'cron', $session['session'], $run);
 
             if (!$runSession->id) {
                 $this->dbg('A run session could not be found for item in queue: ' . print_r($session, 1));
-                self::removeItem($session['unit_session_id'], $session['unit_id']);
+                self::removeItem($session['id']);
                 continue;
             }
 
             // Execute session again by getting current unit
             // This action might end or expire a session, thereby removing it from queue
             // or session might be re-queued to expire in x minutes
-            $unitSession = new UnitSession($this->db, $session['run_session_id'], $session['unit_id'], $session['unit_session_id'], false);
-            $rsUnit = $runSession->execute($unitSession, $session['execute']);
+            
+            $unitSession = new UnitSession($this->db, $session['run_session_id'], $session['unit_id'], $session['id'], false);
+            $rsUnit = $runSession->execute($unitSession, $session['queued'] == self::QUEUED_TO_EXECUTE);
+            
             if ($this->debug) {
                 $this->dbg('Proccessed: ' . print_r($session, 1));
             }
@@ -129,11 +152,11 @@ class UnitSessionQueue extends Queue {
      * @param string $runName
      * @return \Run
      */
-    protected function getRun($runName) {
-        $run = $this->getCache('run', $runName);
+    protected function getRun($runId) {
+        $run = $this->getCache('run', $runId);
         if (!$run) {
-            $run = new Run($this->db, $runName);
-            $this->setCache('run', $runName, $run);
+            $run = new Run($this->db, null, $runId);
+            $this->setCache('run', $runId, $run);
         }
         return $run;
     }
@@ -142,14 +165,13 @@ class UnitSessionQueue extends Queue {
      * Remove item from session queue
      *
      * @param int $unitSessionId ID of the unit session
-     * @param int $runUnitId ID of the Run unit
      * @return booelan
      */
-    public static function removeItem($unitSessionId, $runUnitId) {
+    public static function removeItem($unitSessionId) {
         $db = DB::getInstance();
-        $removed = $db->exec(
-            "DELETE FROM `survey_sessions_queue` WHERE `unit_session_id` = :unit_session_id AND `unit_id` = :unit_id", array('unit_session_id' => (int) $unitSessionId, 'unit_id' => (int) $runUnitId)
-        );
+        $removed = $db->update('survey_unit_sessions', array(
+                'queued' => 0
+        ), array('id' => $unitSessionId));
 
         return (bool) $removed;
     }
@@ -164,23 +186,15 @@ class UnitSessionQueue extends Queue {
     public static function addItem(UnitSession $unitSession, RunUnit $runUnit, $execResults) {
         $helper = UnitSessionHelper::getInstance();
         $data = $helper->getUnitSessionExpiration($unitSession, $runUnit, $execResults);
-
+        
         if (!empty($data['expires'])) {
-            $q = array(
-                'unit_session_id' => $unitSession->id,
-                'run_session_id' => $unitSession->run_session_id,
-                'unit_id' => $runUnit->id,
-                'created' => time(),
-                'expires' => $data['expires'],
-                'execute' => (int) $data['execute'],
-                'run' => $runUnit->run->name,
-                'counter' => 1,
-            );
-
             $db = DB::getInstance();
-            $db->insert_update('survey_sessions_queue', $q, array('expires', 'counter' => '::counter + 1'));
+            $db->update('survey_unit_sessions', array(
+                'expires' => mysql_datetime($data['expires']),
+                'queued' => $data['queued'],
+            ), array('id' => $unitSession->id));
         } else {
-            UnitSessionQueue::removeItem($unitSession->id, $runUnit->id);
+            UnitSessionQueue::removeItem($unitSession->id);
         }
     }
 
@@ -196,21 +210,21 @@ class UnitSessionQueue extends Queue {
             return false;
         }
 
-        $where['unit_session_id'] = $unitSession->id;
-        return DB::getInstance()->findRow('survey_sessions_queue', $where, array('run_session_id', 'created', 'expires', 'run'));
+        $where['id'] = $unitSession->id;
+        return DB::getInstance()->findRow('survey_unit_sessions', $where, array('run_session_id', 'created', 'expires', 'queued'));
     }
     
     public static function getRunItems(Run $run) {
         $query = '
-          SELECT run_session_id, unit_session_id, session, position, unit_id, survey_sessions_queue.created, expires, counter, execute, survey_units.type as unit_type
-          FROM survey_sessions_queue
-          LEFT JOIN survey_run_sessions ON survey_run_sessions.id = survey_sessions_queue.run_session_id
-          LEFT JOIN survey_units ON survey_units.id = survey_sessions_queue.unit_id
-          WHERE run = :run
+          SELECT survey_unit_sessions.run_session_id, survey_unit_sessions.id as unit_session_id, session, position, unit_id, survey_unit_sessions.created, expires, queued, survey_units.type as unit_type
+          FROM survey_unit_sessions
+          LEFT JOIN survey_run_sessions ON survey_run_sessions.id = survey_unit_sessions.run_session_id
+          LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id
+          WHERE survey_run_sessions.run_id = :run AND survey_unit_sessions.queued > :no_queued
           ORDER BY unit_session_id DESC
         ';
         
-        return DB::getInstance()->rquery($query, array('run' => $run->name));
+        return DB::getInstance()->rquery($query, array('run' => $run->id, 'no_queued' => self::QUEUED_NOT));
     }
 
 }

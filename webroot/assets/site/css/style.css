@@ -1247,41 +1247,6 @@ body {
 
 /** custom added **/
 
-.login-form {
-	color: #555 !important;
-	width: 450px;
-	max-width: 100%;
-	padding: 25px;
-	min-height: 300px;
-	background: #fff;
-}
-.login-form.large {
-	width: auto;
-	margin: 0 auto;
-}
-.fmr-account-info .login-form.large {
-	padding: 0 0 0px 19px !important;
-}
-.login-form .form-control {
-	height: 34px;
-	border: none;
-	border-bottom: 1px solid #efefef;
-}
-#fmr-hero .fmr-intro>div .login-form .btn-primary {
-	padding: inherit !important;
-	height: 45px;
-	margin-top: 30px;
-	width: 200px;
-}
-#fmr-hero .fmr-intro>div .login-form h2 {
-	font-weight: 100;
-	font-size: 30px;
-	line-height: 45px;
-	color: #555;
-}
-.login-form label {
-	font-weight: 400;
-}
 address, ul, ol, a {
 	font-weight: inherit;
 	font-size: inherit;

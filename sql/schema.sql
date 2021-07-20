@@ -1,5 +1,6 @@
 --
 -- Database: `formr`
+-- Schema Updated: 10.05.2021
 --
 
 
@@ -174,6 +175,7 @@ CREATE TABLE `survey_runs` (
   `last_deamon_access` int(10) unsigned DEFAULT '0',
   `cron_fork` tinyint(3) unsigned NOT NULL DEFAULT '1',
   `use_material_design` tinyint(1) NOT NULL DEFAULT '0',
+  `expire_cookie` INT UNSIGNED NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `fk_runs_survey_users1_idx` (`user_id`),
   KEY `fk_survey_runs_survey_units1_idx` (`reminder_email`),
@@ -671,4 +673,25 @@ CREATE TABLE `survey_uploaded_files` (
   CONSTRAINT `fk_survey_uploaded_files_survey_runs1` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
+CREATE TABLE `survey_sessions_queue` (
+  `unit_session_id` bigint(20) unsigned NOT NULL,
+  `run_session_id` int(10) unsigned NOT NULL,
+  `unit_id` int(10) unsigned NOT NULL,
+  `created` int(10) unsigned NOT NULL,
+  `expires` int(10) unsigned NOT NULL,
+  `run` varchar(45) COLLATE utf8_unicode_ci NOT NULL,
+  `counter` int(10) unsigned NOT NULL DEFAULT '0',
+  `execute` tinyint(1) unsigned NOT NULL DEFAULT '1',
+   PRIMARY KEY (`unit_session_id`),
+   KEY `run_session_id` (`run_session_id`,`unit_id`),
+   KEY `expires` (`expires`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+CREATE TABLE `survey_settings` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `setting` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
+  `value` text COLLATE utf8_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `setting` (`setting`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 

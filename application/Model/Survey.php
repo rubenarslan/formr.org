@@ -284,14 +284,17 @@ class Survey extends RunUnit {
             alert('A results table for this survey could not be found', 'alert-danger');
             throw new Exception("Results table '{$this->results_table}' not found!");
         }
-
-        $this->dbh->insert_update($this->results_table, array(
+        
+        $entry = array(
             'session_id' => $this->session_id,
             'study_id' => $this->id,
-			'created' => mysql_now()),
-		array(
-            'modified' => mysql_now(),
-        ));
+        );
+        if (!$this->dbh->entry_exists($this->results_table, $entry)) {
+            $entry['created'] = mysql_now();
+            $this->dbh->insert($this->results_table, $entry);
+        } else {
+            $this->dbh->update($this->results_table, array('modified' => mysql_now()), $entry);
+        }
 
         // Check if session already has enough entries in the items_display table for this survey
         if ($this->allItemsHaveAnOrder()) {
@@ -304,18 +307,35 @@ class Survey extends RunUnit {
             $display_order = null;
             $item_id = null;
             $page = 1;
-
+			$created = mysql_datetime();
+/*
             $survey_items_display = $this->dbh->prepare(
-                    "INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`, `page`)  VALUES (:item_id, :session_id, :display_order, :page)
-				 ON DUPLICATE KEY UPDATE `display_order` = VALUES(`display_order`), `page` = VALUES(`page`)"
+                    "INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`, `page`, `created`)  VALUES (:item_id, :session_id, :display_order, :page, :created)
+				    ON DUPLICATE KEY UPDATE `display_order` = VALUES(`display_order`), `page` = VALUES(`page`)"
             );
             $survey_items_display->bindParam(":session_id", $this->session_id);
             $survey_items_display->bindParam(":item_id", $item_id);
             $survey_items_display->bindParam(":display_order", $display_order);
             $survey_items_display->bindParam(":page", $page);
+			$survey_items_display->bindParam(":created", $created);
+*/
+            $values = '';
+            $valuesCount = 0;
+            $valuesMax = 60;
+            $sql_tpl = "INSERT INTO `survey_items_display` (`item_id`, `session_id`, `display_order`, `page`, `created`)  VALUES %s ON DUPLICATE KEY UPDATE `display_order` = VALUES(`display_order`), `page` = VALUES(`page`)";
+            $lastId = end($item_ids);
 
             foreach ($item_ids as $display_order => $item_id) {
-                $survey_items_display->execute();
+                $values .= '(' . $item_id . ',' . $this->session_id . ',' . $display_order . ',' . $page . ',' . $this->dbh->quote($created) . '),';
+                $valuesCount++;
+                if (($valuesCount >= $valuesMax) || ($item_id == $lastId && $values)) {
+                    $query = sprintf($sql_tpl, trim($values, ','));
+                    $this->dbh->query($query);
+                    $values = '';
+                    $valuesCount = 0;
+                }
+
+                //$survey_items_display->execute();
                 // set page number when submit button is hit or we reached max_items_per_page for survey
                 if ($item_types[$item_id] === 'submit') {
                     $page++;
@@ -582,22 +602,22 @@ class Survey extends RunUnit {
         /** @var Item $item */
         foreach ($this->unanswered as $item) {
             // count only rendered items, not skipped ones
-            if ($item->isRendered($this)) {
+            if ($item && $item->isRendered($this)) {
                 $this->progress_counts['not_answered'] ++;
             }
             // count those items that were hidden but rendered (ie. those relying on missing data for their showif)
-            if ($item->isHiddenButRendered($this)) {
+            if ($item && $item->isHiddenButRendered($this)) {
                 $this->progress_counts['hidden_but_rendered'] ++;
             }
         }
         /** @var Item $item */
         foreach ($this->to_render as $item) {
             // On current page, count only rendered items, not skipped ones
-            if ($item->isRendered()) {
+            if ($item && $item->isRendered()) {
                 $this->progress_counts['visible_on_current_page'] ++;
             }
             // On current page, count those items that were hidden but rendered (ie. those relying on missing data for their showif)
-            if ($item->isHiddenButRendered()) {
+            if ($item && $item->isHiddenButRendered()) {
                 $this->progress_counts['hidden_but_rendered_on_current_page'] ++;
             }
         }
@@ -633,6 +653,10 @@ class Survey extends RunUnit {
 
         /* @var $item Item */
         foreach ($items as $name => &$item) {
+            if (!$item) {
+                continue;
+            }
+            
             // 1. Check item's show-if
             $showif = $item->getShowIf();
             if ($showif) {
@@ -722,6 +746,10 @@ class Survey extends RunUnit {
         $session_labels = array();
 
         foreach ($items as $name => &$item) {
+            if (!$item) {
+                continue;
+            }
+            
             if ($item->choice_list) {
                 $lists_to_fetch[] = $item->choice_list;
             }
@@ -782,6 +810,10 @@ class Survey extends RunUnit {
     protected function processAutomaticItems($items) {
         $hiddenItems = array();
         foreach ($items as $name => $item) {
+            if (!$item) {
+                continue;
+            }
+
             if (!$item->requiresUserInput() && !$item->needsDynamicValue()) {
                 $hiddenItems[$name] = $item->getComputedValue();
                 unset($items[$name]);
@@ -791,7 +823,7 @@ class Survey extends RunUnit {
 
         // save these values
         if ($hiddenItems) {
-            $this->post($hiddenItems, false);
+            $this->post($hiddenItems, true);
         }
 
         // return possibly shortened item array
@@ -844,6 +876,10 @@ class Survey extends RunUnit {
         while ($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
             /* @var $oItem Item */
             $oItem = $itemFactory->make($item);
+            if (!$oItem) {
+                continue;
+            }
+            
             $this->unanswered[$oItem->name] = $oItem;
 
             // If no user input is required and item can be on current page, then save it to be shown
@@ -1072,20 +1108,21 @@ class Survey extends RunUnit {
 
             $last_active = $this->getTimeWhenLastViewedItem(); // when was the user last active on the study
             $expire_invitation_time = $expire_inactivity_time = 0; // default to 0 (means: other values supervene. users only get here if at least one value is nonzero)
-            if ($expire_inactivity !== 0 && $last_active != null) {
-                $expire_inactivity_time = strtotime($last_active) + $expire_inactivity * 60;
+            if ($expire_inactivity !== 0 && $last_active != null && strtotime($last_active)) {
+                $expire_inactivity_time = strtotime($last_active) + ($expire_inactivity * 60);
             }
             $invitation_sent = $this->run_session->unit_session->created;
-            if ($expire_invitation !== 0 && $invitation_sent) {
-                $expire_invitation_time = strtotime($invitation_sent) + $expire_invitation * 60;
+            if ($expire_invitation !== 0 && $invitation_sent && strtotime($invitation_sent)) {
+                $expire_invitation_time = strtotime($invitation_sent) + ($expire_invitation * 60);
                 if ($grace_period !== 0 && $last_active) {
-                    $expire_invitation_time = $expire_invitation_time + $grace_period * 60;
+                    $expire_invitation_time = $expire_invitation_time + ($grace_period * 60);
                 }
             }
             $expire = max($expire_inactivity_time, $expire_invitation_time);
-            $this->execData['expire_timestamp'] = $expire;
+            $this->execData['expire_timestamp'] = max(0, $expire_invitation_time);
 
-            return ($expire > 0) && ($now > $expire); // when we switch to the new scheduler, we need to return the timestamp here
+            // when we switch to the new scheduler, we need to return the timestamp here
+            return ($expire > 0) && ($now > $expire);
         }
     }
 
@@ -1094,6 +1131,8 @@ class Survey extends RunUnit {
         $expired = $this->hasExpired();
         if ($this->called_by_cron) {
             if ($expired) {
+                $this->session_result = "survey_expired";
+                $this->logResult();
                 $this->expire();
                 return false;
             }
@@ -1121,7 +1160,9 @@ class Survey extends RunUnit {
                 if (($renderSurvey = $surveyHelper->renderSurvey($this->session_id)) !== false) {
                     return array('body' => $renderSurvey);
                 } else {
-                    // Survey ended
+                    $this->session_result = "survey_completed";
+                    $this->logResult();
+                        // Survey ended
                     return false;
                 }
             }
@@ -1130,6 +1171,8 @@ class Survey extends RunUnit {
             if (Request::isHTTPPostRequest()) {
                 $posted = $this->post(array_merge($request->getParams(), $_FILES));
                 if ($posted) {
+                    $this->session_result = "survey_filling_out";
+                    $this->logResult();    
                     redirect_to(run_url($this->run_name));
                 }
             }
@@ -1170,6 +1213,8 @@ class Survey extends RunUnit {
             }
 
             if ($this->getProgress() === 1) {
+                $this->session_result = "survey_completed";
+                $this->logResult();
                 $this->end();
                 return false;
             }
@@ -1178,6 +1223,8 @@ class Survey extends RunUnit {
 
             return array('body' => $this->render());
         } catch (Exception $e) {
+            $this->session_result = "error_survey";
+            $this->logResult();
             formr_log_exception($e, __CLASS__);
             return array('body' => '');
         }
@@ -1618,12 +1665,16 @@ class Survey extends RunUnit {
     }
 
     public function getItemsInResultsTable() {
+		if (($existingColumns = $this->dbh->getTableDefinition($this->results_table, 'Field'))) {
+			$existingColumns = array_keys($existingColumns);
+		}
+
         $items = $this->getItems();
         $names = array();
         $itemFactory = new ItemFactory(array());
-        foreach ($items AS $item) {
+        foreach ($items as $item) {
             $item = $itemFactory->make($item);
-            if ($item->isStoredInResultsTable()) {
+            if ($item->isStoredInResultsTable() && in_array($item->name, $existingColumns)) {
                 $names[] = $item->name;
             }
         }
@@ -2191,8 +2242,8 @@ class Survey extends RunUnit {
         }
 
         // prepare these strings for feedback
-        $added_columns_string = implode($toAdd, ", ");
-        $deleted_columns_string = implode($toDelete, ", ");
+        $added_columns_string = implode(", ", $toAdd);
+        $deleted_columns_string = implode(", ", $toDelete);
 
 
         // if something should be deleted

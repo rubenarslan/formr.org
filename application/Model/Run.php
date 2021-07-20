@@ -86,7 +86,7 @@ class Run {
 
     const TEST_RUN = 'formr-test-run';
 
-    public function __construct($fdb, $name) {
+    public function __construct($fdb, $name = null, $id = null) {
         $this->dbh = $fdb;
 
         if ($name == self::TEST_RUN) {
@@ -101,6 +101,11 @@ class Run {
             $this->name = $name;
             $this->load();
         }
+        
+        if ($id !== null) {
+            $this->id = (int) $id;
+            $this->load();
+        }
     }
 
     protected function load() {
@@ -109,7 +114,8 @@ class Run {
         }
 
         $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
-        $vars = $this->dbh->findRow('survey_runs', array('name' => $this->name), $columns);
+        $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
+        $vars = $this->dbh->findRow('survey_runs', $where, $columns);
 
         if ($vars) {
             $this->id = $vars['id'];
@@ -988,6 +994,10 @@ class Run {
 
                 if (strpos($unit->type, 'Email') !== false) {
                     $unit->account_id = null;
+                }
+                
+                if (strpos($unit->type, 'Wait') !== false) {
+                    $unit->body = $unit->body + $start_position;
                 }
 
                 $unitObj = $runFactory->make($this->dbh, null, (array) $unit, null, $this);

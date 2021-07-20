@@ -19,7 +19,8 @@ class Get_Item extends Item {
 
         $this->input_attributes['value'] = '';
         $request = new Request($_GET);
-        if (($value = $request->getParam($this->get_var)) !== null) {
+        $value = $request->getParam($this->get_var);
+        if ($value !== null && $value !== "") {
             $this->input_attributes['value'] = $value;
             $this->value = $value;
             $this->value_validated = $value;
@@ -31,6 +32,18 @@ class Get_Item extends Item {
             $this->val_errors[] = __('Problem with variable %s "get %s". The part after get can only contain a-Z0-9 and the underscore.', $this->name, $this->get_var);
         }
         return parent::validate();
+    }
+
+    public function validateInput($reply) {
+        $this->reply = $reply;
+
+        if (!$this->optional && (($reply === null || $reply === false || $reply === array() || $reply === '') || (is_array($reply) && count($reply) === 1 && current($reply) === ''))) {
+            // missed a required field
+            $this->error = $this->label_parsed;
+        } elseif ($this->optional && $reply == '') {
+            $reply = null;
+        }
+        return $reply;
     }
 
     public function render() {

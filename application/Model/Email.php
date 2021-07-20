@@ -277,11 +277,20 @@ class Email extends RunUnit {
             alert(nl2br($warning), 'alert-info');
         }
 
+        $subject = $this->getSubject();
+        if($subject === null) {
+            return false;
+        }
+        $body = $this->getBody();
+        if($body === null) {
+            return false;
+        }
+
         // if formr is configured to use the email queue then add mail to queue and return
         if (Config::get('email.use_queue', false) === true && filter_var($this->recipient, FILTER_VALIDATE_EMAIL)) {
             $this->mail_sent = $this->dbh->insert('survey_email_queue', array(
-                'subject' => $this->getSubject(),
-                'message' => $this->getBody(),
+                'subject' => $subject,
+                'message' => $body,
                 'recipient' => $this->recipient,
                 'created' => mysql_datetime(),
                 'account_id' => (int) $this->account_id,
@@ -301,8 +310,8 @@ class Email extends RunUnit {
         $mail->IsHTML(true);
 
         $mail->AddAddress($this->recipient);
-        $mail->Subject = $this->getSubject();
-        $mail->Body = $this->getBody();
+        $mail->Subject = $subject;
+        $mail->Body = $body;
 
         if (filter_var($this->recipient, FILTER_VALIDATE_EMAIL) AND $mail->Body !== false AND $mail->Subject !== false):
             foreach ($this->images AS $image_id => $image):
@@ -466,21 +475,31 @@ class Email extends RunUnit {
     public function exec() {
         // If emails should be sent only when cron is active and unit is not called by cron, then end it and move on
         if ($this->cron_only && !$this->called_by_cron) {
-            $this->end();
+            $this->session_result = "email_skipped_user_active";
+            $this->logResult();
+                $this->end();
             return false;
         }
 
         // Check if user is enabled to receive emails
         if (!$this->sessionCanReceiveMails()) {
+            $this->session_result = "email_skipped_user_disabled";
+            $this->logResult();
             return array('body' => "<p>Session <code>{$this->session}</code> cannot receive mails at this time </p>");
         }
 
         // Try to send email
         $err = $this->sendMail();
         if ($this->mail_sent) {
+            $this->session_result = "email_sent";
+            $this->logResult();
             $this->end();
             return false;
         }
+        $this->session_result = "error_email";
+        $this->session_log = $err;
+        $this->logResult();
+
         return array('body' => $err);
     }
 

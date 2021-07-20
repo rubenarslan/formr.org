@@ -4,7 +4,7 @@
             <tr>
                 <?php
                 $use_columns = $empty_columns = array();
-                $display_columns = array('type', 'name', 'label_parsed', 'class', 'showif', 'choices', 'value', 'block_order', 'item_order');
+                $display_columns = array('type', 'name', 'label', 'class', 'showif', 'choices', 'value', 'block_order', 'item_order');
                 foreach (current($results) AS $field => $value):
                     if (in_array($field, $display_columns) AND ! empty_column($field, $results)):
                         array_push($use_columns, $field);
@@ -31,8 +31,8 @@
                         $cell = $row->$field;
                         if (strtolower($field) == 'choices') {
                             $cell = array_to_orderedlist($cell);
-                        } elseif ($field == 'label_parsed' AND $cell === null) {
-                            $cell = $row->label;
+                        } elseif ($field == 'label' AND $cell === null) {
+                            $cell = nl2br($row->label);
                         } elseif (($field == 'value' || $field == 'showif') && $cell != '') {
                             $cell = "<pre><code class='r'>$cell</code></pre>";
                         }

@@ -128,8 +128,8 @@ class Pause extends RunUnit {
         $this->execData['expire_relatively'] = null;
 
         // If item is in queue and need not be executed, no need to execute again because it hasn't expired.
-        if (!empty($this->run_session->unit_session) && ($queueItem = UnitSessionQueue::findItem($this->run_session->unit_session, array('execute' => 0)))) {
-            $this->execData['expire_timestamp'] = $queueItem['expires'];
+        if (!empty($this->run_session->unit_session) && ($queueItem = UnitSessionQueue::findItem($this->run_session->unit_session, array('expires >' => mysql_datetime())))) {
+            $this->execData['expire_timestamp'] = strtotime($queueItem['expires']);
             return false;
         }
 
@@ -139,6 +139,9 @@ class Pause extends RunUnit {
             $result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
             if ($result === null) {
                 $this->execData['check_failed'] = true;
+                $this->session_result = "error_pause_relative_to";
+                $this->session_error = "OpenCPU R error. Fix code.";
+                $this->logResult();
                 return false;
             }
             $this->relative_to_result = $relative_to = $result;
@@ -172,7 +175,7 @@ class Pause extends RunUnit {
             }
         } elseif ($this->has_wait_minutes) {
             if (!is_array($relative_to) && strtotime($relative_to)) {
-                $conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_minutes MINUTE) <= NOW()";
+                $conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_seconds SECOND) <= NOW()";
                 $bind_relative_to = true;
                 $this->execData['expire_timestamp'] = strtotime($relative_to) + ($this->wait_minutes * 60);
             } else {
@@ -190,6 +193,8 @@ class Pause extends RunUnit {
             $wait_time = $this->wait_until_time;
         }
 
+        $wait_date_defined = $this->wait_until_date && $this->wait_until_date != '0000-00-00';
+        $wait_time_defined = $this->wait_until_time && $this->wait_until_time != '00:00:00';
         $wait_date = $this->parseWaitDate();
         $wait_time = $this->parseWaitTime();
 
@@ -209,7 +214,7 @@ class Pause extends RunUnit {
             $exp_ts = $this->execData['expire_timestamp'];
             $created_ts = strtotime($this->run_session->unit_session->created);
             $exp_hour_min = mktime(date('G', $exp_ts), date('i', $exp_ts), 0);
-            if ($created_ts > $exp_hour_min) {
+            if ($created_ts > $exp_hour_min && !$wait_date_defined) {
                 $this->execData['expire_timestamp'] += 24 * 60 * 60;
                 return false;
             }
@@ -243,7 +248,7 @@ class Pause extends RunUnit {
                 $stmt->bindValue(':relative_to', $relative_to);
             }
             if (isset($conditions['minute'])) {
-                $stmt->bindValue(':wait_minutes', $this->wait_minutes);
+                $stmt->bindValue(':wait_seconds', floatval($this->wait_minutes) * 60);
             }
             if (isset($conditions['datetime'])) {
                 $stmt->bindValue(':wait_datetime', $wait_datetime);
@@ -346,6 +351,8 @@ class Pause extends RunUnit {
         $pauseOver = $this->checkWhetherPauseIsOver();
 
         if ($pauseOver) {
+            $this->session_result = "pause_ended";
+            $this->logResult();
             $this->end();
             return false;
         } else {

@@ -8,7 +8,7 @@
 						<li><a href="<?= site_url('about')?>">About</a></li>
 						<li><a href="<?= site_url('documentation')?>">Documentation</a></li>
 						<li><a href="<?= site_url('studies')?>">Studies</a></li>
-						<li><a href="https://www.psych.uni-goettingen.de/de/datenschutzerklaerung" target="_blank">Privacy Policy</a></li>
+						<li><a href="<?= Site::getSettings('links:policyurl') ?>" target="_blank">Privacy Policy</a></li>
 					</ul>
 				</div>
 			</div>
@@ -28,11 +28,7 @@
 				<div class="fmr-footer-widget">
 					<h3>Imprint</h3>
 					<p>
-						Georg-Elias-Mueller-Institut of Psychology<br>
-						University of Goettingen <br>
-						Goßlerstraße 14, <br>
-						37073 Göttingen <br>
-						Germany
+						<?= nl2br(Site::getSettings('content:footerimprint')) ?>
 					</p>
 				</div>
 			</div>
@@ -40,7 +36,7 @@
 			<div class="col-md-2 col-sm-6 col-xs-12 animate-box">
 				<div class="fmr-footer-widget">
 					<ul class="fmr-links">
-						<li><a href="https://www.uni-goettingen.de/" target="_blank"><img src="<?= asset_url('build/img/goettingen_uni.png') ?>" alt="Uni Göttingen logo"></a></li>
+						<li><a href="<?= Site::getSettings('links:logolink') ?>" target="_blank"><img src="<?= Site::getSettings('links:logourl') ?>" alt="Uni Göttingen logo"></a></li>
 					</ul>
 				</div>
 			</div>

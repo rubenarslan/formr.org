@@ -27,6 +27,7 @@ formr-package/man
 webroot/assets/img
 tests/test.php
 nohup.out
+webroot/*.html
 webroot/assets/*.mp4
 webroot/assets/*.html
 webroot/assets/bower_components

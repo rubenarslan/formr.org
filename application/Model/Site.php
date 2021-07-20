@@ -1,4 +1,5 @@
 <?php
+use PHPMailer\PHPMailer\PHPMailer;
 
 class Site {
 
@@ -90,7 +91,7 @@ class Site {
     }
 
     public function inSuperAdminArea() {
-        return strpos($this->path, 'superadmin/') !== FALSE;
+        return strpos($this->path, 'admin/advanced') !== FALSE;
     }
 
     public function inAdminArea() {
@@ -333,6 +334,24 @@ class Site {
         // Add the "Authorization Code" grant type (this is where the oauth magic happens)
         $server->addGrantType(new OAuth2\GrantType\AuthorizationCode($storage));
         return $server;
+    }
+    
+    public static function getSettings($setting = null, $default = null) {
+        $db = DB::getInstance();
+        if ($setting !== null) {
+            $value = trim($db->findValue('survey_settings', array('setting' => $setting), 'value'));
+            return $value ? $value : $default;
+        }
+
+        $settings = array();
+        $rows = $db->select('setting, value')
+                ->from('survey_settings')
+                ->fetchAll();
+        foreach ($rows as $row) {
+            $settings[$row['setting']] = $row['value'];
+        }
+        
+        return $settings;
     }
 
 }

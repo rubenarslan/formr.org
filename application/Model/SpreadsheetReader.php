@@ -532,9 +532,9 @@ class SpreadsheetReader {
         }
 
         if ($skippedColumns) {
-            $this->warnings[] = sprintf('Choices worksheet "%s" <strong>skipped</strong> columns: %s', $worksheet->getTitle(), implode($skippedColumns, ", "));
+            $this->warnings[] = sprintf('Choices worksheet "%s" <strong>skipped</strong> columns: %s', $worksheet->getTitle(), implode(", ", $skippedColumns));
         }
-        $this->messages[] = sprintf('Choices worksheet "%s" <strong>used</strong> columns: %s', $worksheet->getTitle(), implode($columns, ", "));
+        $this->messages[] = sprintf('Choices worksheet "%s" <strong>used</strong> columns: %s', $worksheet->getTitle(), implode(", ", $columns));
 
         $data = array();
         $choiceNames = array();
@@ -691,7 +691,7 @@ class SpreadsheetReader {
             $this->warnings[] = __('Your survey sheet appears to contain %d columns without names (given in the first row).', $blankColCount);
         }
         if ($skippedColumns) {
-            $this->warnings[] = __('These survey sheet columns were <strong>skipped</strong>: %s', implode($skippedColumns, ', '));
+            $this->warnings[] = __('These survey sheet columns were <strong>skipped</strong>: %s', implode(', ', $skippedColumns));
         }
 
         $data = $skippedRows = $emptyRows = $variableNames = array();
@@ -740,7 +740,7 @@ class SpreadsheetReader {
                         $this->errors[] = __("The variable name '%s' is invalid. It has to be between 1 and 64 characters. It needs to start with a letter and can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $cellValue);
                     }
 
-                    if (in_array($cellValue, array('session_id', 'created', 'modified', 'ended'))) {
+                    if (in_array($cellValue, array('session_id', 'created', 'modified', 'ended', 'id', 'study_id'))) {
                         $this->errors[] = __("Row %s: variable name '%s' is not permitted.", $rowNumber, $cellValue);
                     }
 
@@ -811,14 +811,14 @@ class SpreadsheetReader {
 
         $callEndTime = microtime(true);
         $callTime = $callEndTime - $callStartTime;
-        $this->messages[] = 'Survey <abbr title="Call time to read survey sheet was ' . sprintf('%.4f', $callTime) . ' seconds">worksheet</abbr> - ' . $worksheet->getTitle() . ' (' . count($data) . ' non-empty rows, ' . $colCount . ' columns). These columns were <strong>used</strong>: ' . implode($columns, ", ");
+        $this->messages[] = 'Survey <abbr title="Call time to read survey sheet was ' . sprintf('%.4f', $callTime) . ' seconds">worksheet</abbr> - ' . $worksheet->getTitle() . ' (' . count($data) . ' non-empty rows, ' . $colCount . ' columns). These columns were <strong>used</strong>: ' . implode(", ", $columns);
 
         if (!empty($emptyRows)) {
-            $this->messages[] = __('Empty rows (no variable name): %s', implode($emptyRows, ", "));
+            $this->messages[] = __('Empty rows (no variable name): %s', implode(", ", $emptyRows));
         }
 
         if (!empty($skippedRows)) {
-            $this->warnings[] = __('Skipped rows (no variable name): %s. Variable name empty, but other columns had content. Double-check that you did not forget to define a variable name for a proper item.', implode($skippedRows, ", "));
+            $this->warnings[] = __('Skipped rows (no variable name): %s. Variable name empty, but other columns had content. Double-check that you did not forget to define a variable name for a proper item.', implode(", ", $skippedRows));
         }
 
         $this->survey = $data;
