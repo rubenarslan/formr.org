@@ -130,10 +130,9 @@
                                         <td>
                                             <?php if(empty($user['result']) && !empty( $user['expires'])) { ?>
                                                 <small class="label label-info hastooltip" title="<?php echo $user['expires']; ?>">expires in <?php echo timetostr(strtotime($user['expires'])); ?></small>
-
                                             <?php } else {
                                                 ?>
-                                            <small class="label <?=(strpos($user['result'], "error")!==false)?'label-danger ':' ';?>hastooltip" title="<?php echo $user['result_log']; ?>"><?php echo $user['result'];?></small>
+                                            <small class="label <?=(strpos($user['result'], "error")!==false)?'label-danger ':' label-default ';?>hastooltip" title="<?php echo $user['result_log']; ?>"><?php echo $user['result'];?></small>
                                             <?php 
                                             }
                                             ?>
