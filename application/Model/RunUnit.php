@@ -55,6 +55,9 @@ class RunUnit {
     public $valid;
     public $run_id;
     public $description = "";
+    public $ocpu = null;
+    public $session_result = null;
+    public $session_error = null;
     protected $had_major_changes = false;
 
     /**
@@ -244,48 +247,51 @@ class RunUnit {
         }
     }
 
-    public function delete($special = null) {
-        // todo: set run modified
-        if ($special !== null) {
-            return $this->dbh->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
-        } else {
-            $affected = $this->dbh->delete('survey_units', array('id' => $this->id));
-            if ($affected) { // remove from all runs
-                $affected += $this->dbh->delete('survey_run_units', array('unit_id' => $this->id));
+
+
+    public function getExportUnit() {
+        $unit = array();
+        foreach ($this->export_attribs as $property) {
+            if (property_exists($this, $property)) {
+                $unit[$property] = $this->{$property};
             }
         }
-        return $affected;
+        return $unit;
     }
 
-    public function end() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
-        $ended = $this->dbh->exec(
-			"UPDATE `survey_unit_sessions` SET `ended` = NOW() WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
-			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+    public static function getDefaults($type) {
+        $defaults = array();
+        $defaults['ServiceMessagePage'] = array(
+            'type' => 'Page',
+            'title' => 'Service message',
+            'special' => 'ServiceMessagePage',
+            'description' => 'Service Message ' . date('d.m.Y'),
+            'body' => "# Service message \n This study is currently being serviced. Please return at a later time."
         );
 
-        if ($ended === 1) {
-            $this->ended = true;
-            UnitSessionQueue::removeItem($this->session_id, $this->id);
-            return true;
-        }
-
-        return false;
-    }
-
-    public function expire() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
-        $expired = $this->dbh->exec(
-			"UPDATE `survey_unit_sessions` SET `expired` = NOW() WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
-			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+        $defaults['OverviewScriptPage'] = array(
+            'type' => 'Page',
+            'title' => 'Overview script',
+            'special' => 'OverviewScriptPage',
+            'body' => "# Intersperse Markdown with R
+```{r}
+plot(cars)
+```");
+        $defaults['ReminderEmail'] = array(
+            'type' => 'Email',
+            'subject' => 'Reminder',
+            'special' => 'ReminderEmail',
+            'recipient_field' => '',
+            'body' => "\nPlease take part in our study at {{login_link}}.",
         );
 
-        if ($expired === 1) {
-            $this->expired = true;
-            UnitSessionQueue::removeItem($this->session_id, $this->id);
-            return true;
-        }
-
-        return false;
+        return array_val($defaults, $type, array());
     }
+
+    protected function getUnitTemplatePath($tpl = null) {
+        return 'admin/run/units/' . ($tpl ? $tpl : strtolower($this->type));
+    }
+
 
     protected function getSampleSessions() {
         $current_position = -9999999;
@@ -375,6 +381,58 @@ class RunUnit {
 
     public function displayForRun($prepend = '') {
         return $this->runDialog($prepend); // FIXME: This class has no parent
+    }
+
+
+    //// METHODS STARTING HERE SHOULD REALLY BE IN UNITSESSION not UNIT
+
+    public function delete($special = null) {
+        // todo: set run modified
+        if ($special !== null) {
+            return $this->dbh->delete('survey_run_special_units', array('id' => $this->run_unit_id, 'type' => $special));
+        } else {
+            $affected = $this->dbh->delete('survey_units', array('id' => $this->id));
+            if ($affected) { // remove from all runs
+                $affected += $this->dbh->delete('survey_run_units', array('unit_id' => $this->id));
+            }
+        }
+        return $affected;
+    }
+
+    public function end() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
+        $ended = $this->dbh->exec(
+			"UPDATE `survey_unit_sessions` SET 
+                `ended` = NOW(), 
+                `result` = :result, 
+                `result_log` = :result_log 
+                WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array('session_id' => $this->session_id, 'unit_id' => $this->id,
+            'result' => $this->session_result, 'result_log' => $this->session_error)
+        );
+
+        if ($ended === 1) {
+            $this->ended = true;
+            UnitSessionQueue::removeItem($this->session_id, $this->id);
+            return true;
+        }
+
+        return false;
+    }
+
+    public function expire() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
+        $expired = $this->dbh->exec(
+			"UPDATE `survey_unit_sessions` SET `expired` = NOW(), 
+                `result` = 'expired' WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+        );
+
+        if ($expired === 1) {
+            $this->expired = true;
+            UnitSessionQueue::removeItem($this->session_id, $this->id);
+            return true;
+        }
+
+        return false;
     }
 
     protected $survey_results;
@@ -506,6 +564,9 @@ class RunUnit {
             if (in_array('formr_login_code', $needed['variables'])) {
                 $this->survey_results['.formr$login_code'] = "'" . $this->session . "'";
             }
+            if (in_array('user_id', $needed['variables'])) {
+                $this->survey_results['user_id'] = "'" . $this->session . "'";
+            }
             if (in_array('formr_nr_of_participants', $needed['variables'])) {
                 $count = (int) $this->dbh->count('survey_run_sessions', array('run_id' => $this->run_id), 'id');
                 $this->survey_results['.formr$nr_of_participants'] = (int) $count;
@@ -624,6 +685,9 @@ class RunUnit {
         if (strstr($q, '.formr$login_code') !== false) {
             $variables[] = 'formr_login_code';
         }
+        if (preg_match("/\buser_id\b/", $q)) {
+            $variables[] = 'user_id';
+        }
         if (strstr($q, '.formr$login_link') !== false) {
             $variables[] = 'formr_login_link';
         }
@@ -676,6 +740,19 @@ class RunUnit {
         return $report;
     }
 
+    protected function logResult() {
+        $log = $this->dbh->exec(
+			"UPDATE `survey_unit_sessions` SET 
+                `result` = :result, 
+                `result_log` = :result_log 
+                WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array('session_id' => $this->session_id, 'unit_id' => $this->id,
+            'result' => $this->session_result, 'result_log' => $this->session_error)
+        );
+
+        return $log;
+    }
+
     public function getParsedBody($source, $email_embed = false, $admin = false, $has_session_data = true) {
 
         if (!$this->knittingNeeded($source)) {
@@ -686,8 +763,8 @@ class RunUnit {
             }
         }
 
-        /* @var $session OpenCPU_Session */
-        $session = null;
+        /* @var $this->ocpu OpenCPU_Session */
+        $this->ocpu = null;
         $cache_session = false;
         $baseUrl = null;
 
@@ -699,7 +776,7 @@ class RunUnit {
             ), array('opencpu_url'));
 
             // If there is a cache of opencpu, check if it still exists
-            if ($opencpu_url && ($session = opencpu_get($opencpu_url, '', null, true))) {
+            if ($opencpu_url && ($this->ocpu = opencpu_get($opencpu_url, '', null, true))) {
                 if ($this->called_by_cron) {
                     return false; // don't regenerate once we once had a report for this feedback, if it's only the cronjob
                 }
@@ -710,41 +787,44 @@ class RunUnit {
         }
 
         // If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
-        if (empty($session) || $session->hasError()) {
+        if (empty($this->ocpu) || $this->ocpu->hasError()) {
             $ocpu_vars = $has_session_data ? $this->getUserDataInRun($source) : array();
             if ($email_embed) {
-                $session = opencpu_knit_email($source, $ocpu_vars, '', true);
+                $this->ocpu = opencpu_knit_email($source, $ocpu_vars, '', true);
             } else {
-                $session = opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->description, $this->run->footer_text);
+                $this->ocpu = opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->description, $this->run->footer_text);
             }
 
             $filesMatch = 'knit.html';
             $cache_session = true;
         }
 
-        // At this stage we are sure to have an OpenCPU_Session in $session. If there is an error in the session return FALSE
-        if (empty($session)) {
+        // At this stage we are sure to have an OpenCPU_Session in $this->ocpu. If there is an error in the session return FALSE
+        if (empty($this->ocpu)) {
+            $this->session_result = 'error_opencpu_down';
+            $this->session_error = 'OpenCPU is probably down or inaccessible.';
+            $this->logResult();
             alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
             return false;
-        } elseif ($session->hasError()) {
-            $where = '';
-            if (isset($this->run_name)) {
-                $where = "Run: " . $this->run_name . " (" . $this->position . "-" . $this->type . ") ";
-            }
-            notify_user_error(opencpu_debug($session), 'There was a problem with OpenCPU for session ' . h($this->session));
+        } elseif ($this->ocpu->hasError()) {
+            $this->session_result = 'error_opencpu_r';
+            $this->session_error = 'OpenCPU R error. Fix code.';
+            $this->logResult();
+            notify_user_error(opencpu_debug($this->ocpu), 'There was a computational error.');
             return false;
         } elseif ($admin) {
-
-            return $session;
+            return $this->ocpu;
         } else {
-            print_hidden_opencpu_debug_message($session, "OpenCPU debugger for run R code in {$this->type} at {$this->position}.");
-            $files = $session->getFiles($filesMatch, $baseUrl);
-            $images = $session->getFiles('/figure-html', $baseUrl);
-            $opencpu_url = $session->getLocation();
+            $this->session_result = 'success_knitted';
+            $this->logResult();
+            print_hidden_opencpu_debug_message($this->ocpu, "OpenCPU debugger for run R code in {$this->type} at {$this->position}.");
+            $files = $this->ocpu->getFiles($filesMatch, $baseUrl);
+            $images = $this->ocpu->getFiles('/figure-html', $baseUrl);
+            $opencpu_url = $this->ocpu->getLocation();
 
             if ($email_embed) {
                 $report = array(
-                    'body' => $session->getObject(),
+                    'body' => $this->ocpu->getObject(),
                     'images' => $images,
                 );
             } else {
@@ -773,49 +853,6 @@ class RunUnit {
 
             return $report;
         }
-    }
-
-    public function getExportUnit() {
-        $unit = array();
-        foreach ($this->export_attribs as $property) {
-            if (property_exists($this, $property)) {
-                $unit[$property] = $this->{$property};
-            }
-        }
-        return $unit;
-    }
-
-    public static function getDefaults($type) {
-        $defaults = array();
-        $defaults['ServiceMessagePage'] = array(
-            'type' => 'Page',
-            'title' => 'Service message',
-            'special' => 'ServiceMessagePage',
-            'description' => 'Service Message ' . date('d.m.Y'),
-            'body' => "# Service message \n This study is currently being serviced. Please return at a later time."
-        );
-
-        $defaults['OverviewScriptPage'] = array(
-            'type' => 'Page',
-            'title' => 'Overview script',
-            'special' => 'OverviewScriptPage',
-            'body' => "# Intersperse Markdown with R
-```{r}
-plot(cars)
-```");
-        $defaults['ReminderEmail'] = array(
-            'type' => 'Email',
-            'subject' => 'Reminder',
-            'special' => 'ReminderEmail',
-            'recipient_field' => '',
-            'body' => "\nPlease take part in our study at {{login_link}}.",
-        );
-
-        return array_val($defaults, $type, array());
-    }
-
-    protected function getUnitTemplatePath($tpl = null) {
-        return 'admin/run/units/' . ($tpl ? $tpl : strtolower($this->type));
     }
 
 }

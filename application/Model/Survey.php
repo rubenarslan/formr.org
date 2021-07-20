@@ -1131,6 +1131,8 @@ class Survey extends RunUnit {
         $expired = $this->hasExpired();
         if ($this->called_by_cron) {
             if ($expired) {
+                $this->session_result = "survey_expired";
+                $this->logResult();
                 $this->expire();
                 return false;
             }
@@ -1158,7 +1160,9 @@ class Survey extends RunUnit {
                 if (($renderSurvey = $surveyHelper->renderSurvey($this->session_id)) !== false) {
                     return array('body' => $renderSurvey);
                 } else {
-                    // Survey ended
+                    $this->session_result = "survey_completed";
+                    $this->logResult();
+                        // Survey ended
                     return false;
                 }
             }
@@ -1167,6 +1171,8 @@ class Survey extends RunUnit {
             if (Request::isHTTPPostRequest()) {
                 $posted = $this->post(array_merge($request->getParams(), $_FILES));
                 if ($posted) {
+                    $this->session_result = "survey_filling_out";
+                    $this->logResult();    
                     redirect_to(run_url($this->run_name));
                 }
             }
@@ -1207,6 +1213,8 @@ class Survey extends RunUnit {
             }
 
             if ($this->getProgress() === 1) {
+                $this->session_result = "survey_completed";
+                $this->logResult();
                 $this->end();
                 return false;
             }
@@ -1215,6 +1223,8 @@ class Survey extends RunUnit {
 
             return array('body' => $this->render());
         } catch (Exception $e) {
+            $this->session_result = "error_survey";
+            $this->logResult();
             formr_log_exception($e, __CLASS__);
             return array('body' => '');
         }
