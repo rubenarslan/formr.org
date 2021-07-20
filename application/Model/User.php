@@ -159,7 +159,7 @@ class User {
         if (!$mail->Send()) {
             alert($mail->ErrorInfo, 'alert-danger');
         } else {
-            alert("You were sent an email to verify your address.", 'alert-info');
+            alert('An email has been sent to you. Please check your email and verify your account.', 'alert-info');
         }
         $this->id = null;
     }
@@ -241,7 +241,7 @@ class User {
                 alert($mail->ErrorInfo, 'alert-danger');
             } else {
                 alert("If the provided email was registered with us, you will receive an email with instructions on how to reset your password.", 'alert-info');
-                redirect_to("forgot_password");
+                redirect_to("admin/account/forgot-password");
             }
         }
     }

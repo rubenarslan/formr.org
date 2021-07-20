@@ -1,15 +1,7 @@
 {
-    "font-google": {
-        "css": [
-            "//fonts.googleapis.com/css?family=Roboto:400,100,300,600,400italic,700",
-            "//fonts.googleapis.com/icon?family=Material+Icons"
-        ]
+    "roboto-font": {
+        "css": "common/css/roboto-font.css"
     },
-
-	"cookie-consent": {
-		"css": "//cookieconsent.psych.bio.uni-goettingen.de/gemicookieconsent.min.css",
-		"js" : "//cookieconsent.psych.bio.uni-goettingen.de/gemicookieconsent.min.js"
-	},
 
     "jquery": {
         "js": "bower_components/jquery/jquery.js"
@@ -103,5 +95,25 @@
     
     "main:js": {
         "js": "common/js/main.js"
+    },
+    
+    "cookieconsent": {
+		"css": [
+            "bower_components/cookieconsent/src/styles/animation.css",
+            "bower_components/cookieconsent/src/styles/base.css",
+            "bower_components/cookieconsent/src/styles/layout.css",
+            "bower_components/cookieconsent/src/styles/media.css",
+            "bower_components/cookieconsent/src/styles/themes/classic.css"
+        ],
+		"js" : [
+            "bower_components/cookieconsent/src/cookieconsent.js",
+            "common/js/cookieconsent.js"
+        ]
+	},
+    
+    "config": {
+        "common": ["jquery", "roboto-font", "bootstrap", "font-awesome", "webshim", "select2", "hammer", "highlight", "cookieconsent"],
+        "site": ["main:js", "run_users", "run", "survey", "site", "site:custom"],
+        "admin": ["main:js", "run_users", "run", "run_settings", "admin"]
     }
 }

@@ -56,12 +56,12 @@ class UnitSessionHelper {
      */
     public function getExternalExpiration(UnitSession $unitSession, External $runUnit, $execResults) {
         $return = array(
-            'expires' => 0,
-            'execute' => false,
+            'expires' => null,
+            'queued' => UnitSessionQueue::QUEUED_TO_END,
         );
 
         if (!empty($runUnit->execData['expire_timestamp'])) {
-            $return['expires'] = $runUnit->execData['expire_timestamp'];
+            $return['expires'] = mysql_datetime($runUnit->execData['expire_timestamp']);
         }
 
         return $return;
@@ -78,8 +78,8 @@ class UnitSessionHelper {
      */
     public function getEmailExpiration(UnitSession $unitSession, Email $runUnit, $execResults) {
         return array(
-            'expires' => 0,
-            'execute' => false,
+            'expires' => null,
+            'queued' => UnitSessionQueue::QUEUED_TO_END,
         );
     }
 
@@ -94,8 +94,8 @@ class UnitSessionHelper {
      */
     public function getShuffleExpiration(UnitSession $unitSession, Shuffle $runUnit, $execResults) {
         return array(
-            'expires' => 0,
-            'execute' => false,
+            'expires' => null,
+            'queued' => UnitSessionQueue::QUEUED_TO_EXECUTE,
         );
     }
 
@@ -110,8 +110,8 @@ class UnitSessionHelper {
      */
     public function getPageExpiration(UnitSession $unitSession, Page $runUnit, $execResults) {
         return array(
-            'expires' => 0,
-            'execute' => false,
+            'expires' => null,
+            'queued' => UnitSessionQueue::QUEUED_NOT,
         );
     }
 
@@ -141,17 +141,18 @@ class UnitSessionHelper {
      */
     public function getSurveyExpiration(UnitSession $unitSession, Survey $runUnit, $execResults) {
         $return = array(
-            'expires' => 0,
-            'execute' => true,
+            'expires' => null,
+            'queued' => UnitSessionQueue::QUEUED_TO_EXECUTE,
         );
 
         if ($execResults === false) {
             // Survey expired or ended so no need to queue
+            $return['queued'] = UnitSessionQueue::QUEUED_NOT;
             return $return;
         }
 
-        if (isset($runUnit->execData['expire_timestamp'])) {
-            $return['expires'] = $runUnit->execData['expire_timestamp'];
+        if (!empty($runUnit->execData['expire_timestamp'])) {
+            $return['expires'] = mysql_datetime($runUnit->execData['expire_timestamp']);
         }
 
         return $return;
@@ -168,8 +169,8 @@ class UnitSessionHelper {
     public function getPauseExpiration(UnitSession $unitSession, Pause $runUnit, $execResults) {
         $execData = $runUnit->execData;
         $return = array(
-            'expires' => 0,
-            'execute' => false,
+            'expires' => null,
+            'queued' => UnitSessionQueue::QUEUED_NOT,
         );
 
         if (!empty($execData['pause_over'])) {
@@ -179,13 +180,13 @@ class UnitSessionHelper {
 
         if ($execData['check_failed'] === true || $execData['expire_relatively'] === false) {
             // check again in x minutes something went wrong with ocpu evaluation
-            $return['expires'] = strtotime($this->expiration_extension);
-            $return['execute'] = true;
+            $return['expires'] = mysql_datetime(strtotime($this->expiration_extension));
+            $return['queued'] = UnitSessionQueue::QUEUED_TO_EXECUTE;
         }
 
-        if (isset($execData['expire_timestamp'])) {
-            $return['expires'] = $execData['expire_timestamp'];
-            $return['execute'] = false;
+        if (!empty($execData['expire_timestamp'])) {
+            $return['expires'] = mysql_datetime($execData['expire_timestamp']);
+            $return['queued'] = UnitSessionQueue::QUEUED_TO_END;
         }
 
         return $return;
@@ -209,16 +210,17 @@ class UnitSessionHelper {
      */
     public function getBranchExpiration(UnitSession $unitSession, Branch $runUnit, $execResults) {
         $return = array(
-            'expires' => 0,
-            'execute' => false,
+            'expires' => null,
+            'queued' => UnitSessionQueue::QUEUED_NOT,
         );
 
         if (!empty($runUnit->execData['expire_timestamp'])) {
-            $return['expires'] = (int) $runUnit->execData['expire_timestamp'];
+            $return['expires'] = mysql_datetime((int) $runUnit->execData['expire_timestamp']);
+            $return['queued'] = UnitSessionQueue::QUEUED_TO_EXECUTE;
         } elseif ($execResults === true) {
             // set expiration to x minutes for unit session to be executed again
-            $return['expires'] = strtotime($this->expiration_extension);
-            $return['execute'] = true;
+            $return['expires'] = mysql_datetime(strtotime($this->expiration_extension));
+            $return['queued'] = UnitSessionQueue::QUEUED_TO_EXECUTE;
         }
 
         return $return;

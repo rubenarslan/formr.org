@@ -13,7 +13,8 @@ class Session {
     protected static $domain = null;
     protected static $secure = false;
     protected static $httponly = true;
-
+    
+    const REQUEST_TOKENS_COOKIE = 'formr_token';
     const REQUEST_TOKENS = '_formr_request_tokens';
     const REQUEST_USER_CODE = '_formr_code';
     const REQUEST_NAME = '_formr_cookie';
@@ -83,6 +84,8 @@ class Session {
         } else {
             $tokens[$token] = 1;
         }
+        
+        setcookie(self::REQUEST_TOKENS_COOKIE, $token, 0, self::$path, self::$domain, self::$secure, self::$httponly);
         self::set(self::REQUEST_TOKENS, $tokens);
         return $token;
     }
@@ -90,9 +93,10 @@ class Session {
     public static function canValidateRequestToken(Request $request) {
         $token = $request->getParam(self::REQUEST_TOKENS);
         $tokens = self::get(self::REQUEST_TOKENS, array());
-        if (!empty($tokens[$token])) {
+        if (!empty($tokens[$token]) && array_val($_COOKIE, self::REQUEST_TOKENS_COOKIE) == $token) {
             // a valid request token dies after it's validity is retrived :P
             unset($tokens[$token]);
+            setcookie(self::REQUEST_TOKENS_COOKIE, '', -3600, self::$path, self::$domain, self::$secure, self::$httponly);
             self::set(self::REQUEST_TOKENS, $tokens);
             return true;
         }

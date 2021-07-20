@@ -20,7 +20,7 @@ if (Config::get('in_maintenance')) {
     formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenace Mode', false);
 }
 //@todo explain variables
-$opts = getopt('t:a:o:p:n:b:');
+$opts = getopt('t:a:o:p:n:b:l:');
 
 $config = (array) $opts;
 $config['queue_type'] = 'Email';
@@ -38,12 +38,16 @@ if (!empty($opts['p'])) {
     $config['process_number'] = (int) $opts['p'] + 1;
 }
 
-if (!empty($opts['p'])) {
+if (!empty($opts['n'])) {
     $config['total_processes'] = (int) $opts['n'];
 }
 
 if (!empty($opts['b'])) {
     $config['items_per_process'] = (int) $opts['b'];
+}
+
+if (!empty($opts['l'])) {
+    $config['list_type'] = $opts['l'];
 }
 
 

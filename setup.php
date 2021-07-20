@@ -1,5 +1,5 @@
 <?php
-define('FORMR_VERSION', 'v0.18.3');
+define('FORMR_VERSION', 'v0.19.0');
 
 define('APPLICATION_ROOT', __DIR__ . '/');
 define('INCLUDE_ROOT', APPLICATION_ROOT);
@@ -14,14 +14,15 @@ require_once APPLICATION_ROOT . 'vendor/autoload.php';
 // Initialize settings array and define routes
 $settings = array();
 $settings['routes'] = array(
-	'public' => 'PublicController',
-	'admin' => 'AdminController',
-	'admin/run' => 'AdminRunController',
-	'admin/survey' => 'AdminSurveyController',
-	'admin/mail' => 'AdminMailController',
-	'superadmin' => 'SuperadminController',
-	'api' => 'ApiController',
-	'run' => 'RunController'
+	'admin'          => 'AdminController',
+	'admin/run'      => 'AdminRunController',
+	'admin/survey'   => 'AdminSurveyController',
+	'admin/mail'     => 'AdminMailController',
+	'admin/advanced' => 'AdminAdvancedController',
+    'admin/account'  => 'AdminAccountController',
+    'public'         => 'PublicController',
+	'api'            => 'ApiController',
+	'run'            => 'RunController'
 );
 
 // Load application settings

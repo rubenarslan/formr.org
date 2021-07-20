@@ -44,7 +44,7 @@ function notify_user_error($error, $public_message = '') {
 
     $message = $date . ': ' . $public_message . "<br>";
 
-    if (DEBUG || ($run_session && !$run_session->isCron() && $run_session->isTesting())) {
+    if ($run_session && ($run_session->isCron() || $run_session->isTesting())) {
         if ($error instanceof Exception) {
             $message .= $error->getMessage();
         } else {
@@ -56,7 +56,7 @@ function notify_user_error($error, $public_message = '') {
 
 function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '') {
     $run_session = Site::getInstance()->getRunSession();
-    if (DEBUG || ($run_session && !$run_session->isCron() && $run_session->isTesting())) {
+    if ($run_session && !$run_session->isCron() && $run_session->isTesting()) {
         $date = date('Y-m-d H:i:s');
 
         $message = $date . ': ' . $public_message . "<br>";
@@ -106,6 +106,7 @@ function session_over($site, $user) {
 
 function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could not be processed', $hint = null, $link = null, $link_text = null) {
     $code = $code ? $code : 500;
+    $text = str_replace(APPLICATION_ROOT, '', $text);
     if ($link === null) {
         $link = site_url();
     }
@@ -129,6 +130,10 @@ function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could
 
     $response = new Response();
     $response->setStatusCode($code, $title)->setContent($view->render())->send();
+}
+
+function formr_error_feature_unavailable() {
+     formr_error('503', 'Feature Unavailable', 'Sorry this feature is temporarily unavailable. Please try again later', '', 'javascript:history.back();', 'Go Back');
 }
 
 function h($text) {
@@ -692,6 +697,9 @@ function mysql_datetime($time = null) {
     if ($time === null) {
         $time = time();
     }
+    if (is_string($time)) {
+        $time = strtotime($time);
+    }
     return date('Y-m-d H:i:s', $time);
 }
 
@@ -744,6 +752,7 @@ function run_url($name = '', $action = '', $params = array()) {
     $domain = trim(Config::get('define_root.doc_root'), "\/\\");
     $subdomain = null;
     if (Config::get('use_study_subdomains')) {
+        $domain = str_replace('www.', '', $domain);
         $subdomain = strtolower($name) . '.';
     } else {
         $domain .= '/' . $name;
@@ -955,7 +964,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 
         return $return_format === 'json' ? $session->getJSONObject() : $session->getObject($return_format);
     } catch (OpenCPU_Exception $e) {
-        notify_user_error($e, "There was a problem dynamically evaluating a value using openCPU.");
+        notify_user_error($e, "There was a computational error.");
         opencpu_log($e);
         return null;
     }
@@ -993,6 +1002,7 @@ function shortcut_without_opencpu($code, $data) {
 function opencpu_knit($code, $return_format = 'json', $self_contained = 1, $return_session = false) {
     $params = array('text' => "'" . addslashes($code) . "'");
     $uri = '/knitr/R/knit/' . $return_format;
+
     try {
         $session = OpenCPU::getInstance()->post($uri, $params);
         if ($return_session === true) {
@@ -1017,13 +1027,16 @@ function opencpu_knit_plaintext($source, $variables = null, $return_session = fa
 
     $run_session = Site::getInstance()->getRunSession();
 
-    $show_errors = 'F';
+    $show_errors = 'FALSE';
+    $show_warnings = 'FALSE';
     if (!$run_session OR $run_session->isTesting()) {
-        $show_errors = 'T';
+        $show_errors = 'FALSE';
+        $show_warnings = 'TRUE';
     }
-    $source = '```{r settings,warning=' . $show_errors . ',message=' . $show_errors . ',error=' . $show_errors . ',echo=F}
+
+    $source = '```{r settings,warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning=' . $show_errors . ',message=' . $show_errors . ',error=' . $show_errors . ',echo=F,fig.height=7,fig.width=10)
+opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F,fig.height=7,fig.width=10)
 opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
 ' . $variables . '
 ```
@@ -1072,10 +1085,13 @@ function opencpu_knit_iframe($source, $variables = null, $return_session = false
 
     $run_session = Site::getInstance()->getRunSession();
 
-    $show_errors = 'F';
+    $show_errors = 'FALSE';
+    $show_warnings = 'FALSE';
     if (!$run_session OR $run_session->isTesting()) {
-        $show_errors = 'T';
+        $show_errors = 'TRUE';
+        $show_warnings = 'TRUE';
     }
+ 
     $yaml = "";
     $yaml_lines = '/^\-\-\-/um';
     if (preg_match_all($yaml_lines, $source) >= 2) {
@@ -1085,9 +1101,9 @@ function opencpu_knit_iframe($source, $variables = null, $return_session = false
     }
 
     $source = $yaml .
-            '```{r settings,warning=' . $show_errors . ',message=' . $show_errors . ',error=' . $show_errors . ',echo=F}
+            '```{r settings,warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=' . $show_warnings . '}
 library(knitr); library(formr)
-opts_chunk$set(warning=' . $show_errors . ',message=' . $show_errors . ',error=T,echo=F,fig.height=7,fig.width=10)
+opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=' . $show_warnings . ',fig.height=7,fig.width=10)
 ' . $variables . '
 ```
 
@@ -1105,6 +1121,7 @@ opts_chunk$set(warning=' . $show_errors . ',message=' . $show_errors . ',error=T
 
 " . $footer_text;
 
+
     $params = array('text' => "'" . addslashes($source) . "'");
 
     $uri = '/formr/R/formr_render/';
@@ -1120,7 +1137,7 @@ opts_chunk$set(warning=' . $show_errors . ',message=' . $show_errors . ',error=T
 
         return $session->getJSONObject();
     } catch (OpenCPU_Exception $e) {
-        notify_user_error($e, "There was a problem dynamically knitting something to HTML using openCPU.");
+        notify_user_error($e, "There was a computational error.");
         opencpu_log($e);
         return null;
     }
@@ -1133,13 +1150,16 @@ function opencpu_knitdisplay($source, $variables = null, $return_session = false
 
     $run_session = Site::getInstance()->getRunSession();
 
-    $show_errors = 'F';
+    $show_errors = 'FALSE';
+    $show_warnings = 'FALSE';
     if (!$run_session OR $run_session->isTesting()) {
-        $show_errors = 'T';
+        $show_errors = 'TRUE';
+        $show_warnings = 'TRUE';
     }
-    $source = '```{r settings,warning=' . $show_errors . ',message=' . $show_errors . ',error=' . $show_errors . ',echo=F}
+
+    $source = '```{r settings,warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning=' . $show_errors . ',message=' . $show_errors . ',error=' . $show_errors . ',echo=F,fig.height=7,fig.width=10)
+opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F,fig.height=7,fig.width=10)
 opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
 ' . $variables . '
 ```
@@ -1156,13 +1176,16 @@ function opencpu_knitadmin($source, $variables = null, $return_session = false) 
 
     $run_session = Site::getInstance()->getRunSession();
 
-    $show_errors = 'F';
+    $show_errors = 'FALSE';
+    $show_warnings = 'FALSE';
     if (!$run_session OR $run_session->isTesting()) {
-        $show_errors = 'T';
+        $show_errors = 'TRUE';
+        $show_warnings = 'TRUE';
     }
-    $source = '```{r settings,warning=' . $show_errors . ',message=' . $show_errors . ',error=' . $show_errors . ',echo=F}
+    
+    $source = '```{r settings,warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning=' . $show_errors . ',message=' . $show_errors . ',error=' . $show_errors . ',echo=F,fig.height=7,fig.width=10)
+opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F)
 opts_knit$set(base.url="' . OpenCPU::TEMP_BASE_URL . '")
 ' . $variables . '
 ```
@@ -1178,14 +1201,16 @@ function opencpu_knit_email($source, array $variables = null, $return_format = '
     }
     $run_session = Site::getInstance()->getRunSession();
 
-    $show_errors = 'F';
+    $show_errors = 'FALSE';
+    $show_warnings = 'FALSE';
     if (!$run_session OR $run_session->isTesting()) {
-        $show_errors = 'T';
+        $show_errors = 'TRUE';
+        $show_warnings = 'TRUE';
     }
 
-    $source = '```{r settings,warning=' . $show_errors . ',message=' . $show_errors . ',error=' . $show_errors . ',echo=F}
+    $source = '```{r settings,warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F}
 library(knitr); library(formr)
-opts_chunk$set(warning=' . $show_errors . ',message=' . $show_errors . ',error=' . $show_errors . ',echo=F,fig.retina=2)
+opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F,fig.retina=2)
 opts_knit$set(upload.fun=function(x) { paste0("cid:", URLencode(basename(x))) })
 ' . $variables . '
 ```

@@ -22,11 +22,16 @@
                         <a href="<?php echo monkeybar_url($run->name, 'ajax_next_in_run', array('run_session_id' => $run_session->id, 'session' => $user->user_code)); ?>" class="btn hastooltip <?= $disable_class ?> link-ajax refresh_on_success unpause_now" title="Go to next step in run (unpause/skip)">
                             <i class="fa fa-fw 
                             <?php
-                            $unit_type = $run_session->getCurrentUnit()['type'];
-                            if ($unit_type === 'Pause') {
-                                echo 'fa-pause';
-                            } elseif ($unit_type == "Page") {
-                                echo 'fa-stop';
+                            $unit = $run_session->getCurrentUnit();
+                            if($unit) {
+                                $unit_type = $unit['type'];
+                                if ($unit_type === 'Pause') {
+                                    echo 'fa-pause';
+                                } elseif ($unit_type == "Page") {
+                                    echo 'fa-stop';
+                                } else {
+                                    echo 'fa-forward';
+                                }
                             } else {
                                 echo 'fa-forward';
                             }

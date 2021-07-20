@@ -1,0 +1,16 @@
+Dear user, <br /><br />
+
+formr was unable to send the following email in your study
+<br /><br />
+----------------------------------------------------------<br />
+SUBJECT: %{subject}<br />
+TO: %{recipient}<br />
+----------------------------------------------------------<br />
+<br /><br />
+<small>
+%{message}
+</small>
+
+<br /><br />
+Best regards,<br />
+formr robots

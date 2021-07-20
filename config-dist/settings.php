@@ -45,6 +45,8 @@ $settings['email'] = array(
 	'queue_item_ttl' => 20*60,
 	// Number of times to retry an item before deleting
 	'queue_item_tries' => 4,
+    // an array of account IDs to skip when processing mail queue
+    'queue_skip_accounts' => array(),
 	// SMTP options for phpmailer
 	'smtp_options' => array(),
 );
@@ -187,5 +189,11 @@ $settings['in_maintenance'] = false;
 $settings['curl'] = array(
 	CURLOPT_SSL_VERIFYPEER => true,
 	CURLOPT_SSL_VERIFYHOST => 2,
+);
+
+// Disable features temporarily by entering the Controller action names in this array
+$settings['disabled_features'] = array(
+    // RUN.controller_method_name
+    // SURVEY.controller_method_name
 );
 		

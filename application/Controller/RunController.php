@@ -39,7 +39,7 @@ class RunController extends Controller {
         $assset_vars = $this->filterAssets($run_vars);
         unset($run_vars['css'], $run_vars['js']);
 
-        $this->setView('public/run/index', array_merge($run_vars, $assset_vars));
+        $this->setView('run/index', array_merge($run_vars, $assset_vars));
         return $this->sendResponse();
     }
 
@@ -96,7 +96,7 @@ class RunController extends Controller {
         }
 
         $this->run = $run;
-        $this->setView('public/run/settings', array(
+        $this->setView('run/settings', array(
             'settings' => $session->getSettings(),
             'email_subscriptions' => Config::get('email_subscriptions'),
         ));

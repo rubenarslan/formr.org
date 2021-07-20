@@ -153,19 +153,28 @@ class RunSession {
         $unit_factory = new RunUnitFactory();
         $user = Site::getCurrentUser();
 
+        $last_unit = null;
         $output = false;
         while (!$output): // only when there is something to display, stop.
             $i++;
-            if ($i > 80) {
-                if ($user->isCron() || $user->isAdmin()) {
+            if ($i > 20) {
+                if (!empty($user) && ($user->isCron() || $user->isAdmin())) {
                     if (isset($unit)) alert(print_r($unit, true), 'alert-danger');
                 }
+                formr_log($this->run_name . " contains infinite loops.");
                 alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?', 'alert-danger');
-                return false;
+                return array('body' => '');
             }
 
             $unit_info = $this->getCurrentUnit(); // get first unit in line
             if ($unit_info) {   // if there is one, spin that shit
+                if($last_unit === $unit_info["unit_id"]) {
+                    formr_log($this->run_name . " unit ". $last_unit ." would have been repeated.");
+                    alert('The same unit is being repeated. This is an error.', 'alert-danger');
+                    return array('body' => '');
+                }
+                $last_unit = $unit_info["unit_id"];
+            
                 if ($this->cron) {
                     $unit_info['cron'] = true;
                 }
@@ -173,28 +182,35 @@ class RunSession {
                 $unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this, $this->run);
                 $this->current_unit_type = $unit->type;
 
-                if ($referenceUnitSession && $referenceUnitSession->unit_id == $unit->id && !$executeReferenceUnit) {
+                if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id == $this->unit_session->id && !$executeReferenceUnit) {
                     $this->endUnitSession($unit_info);
                     $referenceUnitSession = null;
                     continue;
-                } elseif ($referenceUnitSession && $referenceUnitSession->unit_id != $unit->id && !$executeReferenceUnit) {
+                } elseif ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id != $this->unit_session->id) {
                     // dead queue item, remove from queue
-                    UnitSessionQueue::removeItem($referenceUnitSession->id, $referenceUnitSession->unit_id);
+                    UnitSessionQueue::removeItem($referenceUnitSession->id);
                 }
 
-                $output = $unit->exec();
-
-                //@TODO check whether output is set or NOT
-                $queue = $this->run && $this->run->cron_active && $this->unit_session->id && !$unit->ended && !$unit->expired;
-                if ($queue) {
-                    $queued = UnitSessionQueue::addItem($this->unit_session, $unit, $output);
-                }
-
-                if (!$output && is_object($unit)) {
-                    if (!isset($done[$unit->type])) {
-                        $done[$unit->type] = 0;
+                try {
+                    $output = $unit->exec();
+                    //@TODO check whether output is set or NOT
+                    $queue = $this->run && $this->run->cron_active && $this->unit_session->id && !$unit->ended && !$unit->expired;
+                    if ($queue) {
+                        $queued = UnitSessionQueue::addItem($this->unit_session, $unit, $output);
                     }
-                    $done[$unit->type] ++;
+
+                    if (!$output && is_object($unit)) {
+                        if (!isset($done[$unit->type])) {
+                            $done[$unit->type] = 0;
+                        }
+                        $done[$unit->type] ++;
+                    }
+                } catch (Exception $e) {
+                    formr_log_exception($e);
+                    if ($this->cron) {
+                        UnitSessionQueue::removeItem($referenceUnitSession->id);
+                        break;
+                    }
                 }
             } else {
                 if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
@@ -449,7 +465,7 @@ class RunSession {
         $count = 0;
         foreach ($sessions as $session) {
             $runSession = new RunSession($dbh, $run->id, 'cron', $session, $run);
-            if ($runSession->position != $position && $runSession->runTo($position)) {
+            if ($runSession->position != $position && $runSession->forceTo($position)) {
                 $runSession->execute();
                 $count++;
             }
