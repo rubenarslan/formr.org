@@ -78,8 +78,8 @@ class UnitSessionQueue extends Queue {
         }
         
         $query = "SELECT survey_unit_sessions.id, survey_unit_sessions.run_session_id, survey_unit_sessions.unit_id, 
-                survey_unit_sessions.expires, survey_unit_sessions.result, survey_unit_sessions.queued, 
-                survey_run_sessions.session, survey_run_sessions.run_id, survey_run_sessions.id AS run_session_id 
+                survey_unit_sessions.expires, survey_unit_sessions.queued, 
+                survey_run_sessions.session, survey_run_sessions.run_id 
 			FROM survey_unit_sessions
             LEFT JOIN survey_run_sessions ON survey_unit_sessions.run_session_id = survey_run_sessions.id
             WHERE {$where} AND survey_unit_sessions.expires <= :now  
@@ -112,7 +112,6 @@ class UnitSessionQueue extends Queue {
 
             $run = $this->getRun($session['run_id']);
             if (!$run->valid || !$run->cron_active) {
-                self::removeItem($session['id']);
                 continue;
             }
             $runSession = new RunSession($this->db, $run->id, 'cron', $session['session'], $run);
