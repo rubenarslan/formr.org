@@ -166,15 +166,18 @@ class RunHelper {
                 `survey_runs`.name AS run_name,
                 `survey_units`.type AS unit_type,
                 `survey_run_sessions`.last_access,
-                `survey_unit_sessions`.result,
-                `survey_unit_sessions`.result_log,
-                `survey_unit_sessions`.expires
+                `us`.result,
+                `us`.result_log,
+                `us`.expires
             FROM `survey_run_sessions`
             LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
-            LEFT JOIN `survey_unit_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id 
-            WHERE `survey_unit_sessions`.`ended` IS NULL AND `survey_unit_sessions`.`expired` IS NULL AND {$where}
+            LEFT JOIN
+            (SELECT * FROM `survey_unit_sessions`
+            WHERE `survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL
+                ORDER BY `survey_unit_sessions`.id DESC LIMIT 1) us ON `survey_run_sessions`.id = `us`.run_session_id
+            WHERE {$where}
             ORDER BY `survey_run_sessions`.session != :admin_code, `survey_run_sessions`.last_access DESC
             LIMIT $limits
         ";
@@ -193,16 +196,18 @@ class RunHelper {
                 `survey_run_sessions`.session,
                 `survey_run_sessions`.created,
                 `survey_run_sessions`.last_access,
-                `survey_unit_sessions`.result,
-                `survey_unit_sessions`.result_log,
-                `survey_unit_sessions`.expires
+                `us`.result,
+                `us`.result_log,
+                `us`.expires
             FROM `survey_run_sessions`
             LEFT JOIN `survey_runs` ON `survey_run_sessions`.run_id = `survey_runs`.id
             LEFT JOIN `survey_run_units` ON `survey_run_sessions`.position = `survey_run_units`.position AND `survey_run_units`.run_id = `survey_run_sessions`.run_id
             LEFT JOIN `survey_units` ON `survey_run_units`.unit_id = `survey_units`.id
-            LEFT JOIN `survey_unit_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id 
-            WHERE `survey_unit_sessions`.`ended` IS NULL AND `survey_unit_sessions`.`expired` IS NULL AND 
-                `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code,`survey_run_sessions`.last_access DESC
+            LEFT JOIN
+            (SELECT * FROM `survey_unit_sessions`
+            WHERE `survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL
+                ORDER BY `survey_unit_sessions`.id DESC LIMIT 1) us ON `survey_run_sessions`.id = `us`.run_session_id
+            WHERE `survey_run_sessions`.run_id = :run_id ORDER BY `survey_run_sessions`.session != :admin_code,`survey_run_sessions`.last_access DESC
         ";
         $stmt = $this->db->prepare($query);
         $stmt->execute($queryParams);
