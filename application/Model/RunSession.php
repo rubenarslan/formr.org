@@ -242,8 +242,16 @@ class RunSession {
             $unit_factory = new RunUnitFactory();
             $unit = $unit_factory->make($this->dbh, null, $unit, $this, $this->run);
             if ($unit->type == "Survey" || $unit->type == "External") {
+                if($unit->type == "Survey") {
+                    $unit->session_result = "survey_expired";
+                } else if($unit->type == "External") {
+                    $unit->session_result = "external_expired";
+                }
+                $unit->logResult();
                 $unit->expire();
             } else {
+                $unit->session_result = "pause_ended";
+                $unit->logResult();
                 $unit->end();  // cancel it
             }
             if ($reason !== null) {

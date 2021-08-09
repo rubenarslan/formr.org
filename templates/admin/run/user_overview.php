@@ -88,7 +88,7 @@
                                     <th><input id="user-overview-select-all" type="checkbox" /></th>
                                     <th>Run position</th>
                                     <th>Description</th>
-                                    <th>Session</th>
+                                    <th>User code</th>
                                     <th>Created</th>
                                     <th>Last Access</th>
                                     <th>Last Result</th>
@@ -128,14 +128,18 @@
                                             <small class="hastooltip" title="<?php echo $user['last_access']; ?>"> <?php echo timetostr(strtotime($user['last_access'])); ?></small>
                                         </td>
                                         <td>
-                                            <?php if(empty($user['result']) && !empty( $user['expires'])) { ?>
-                                                <small class="label label-info hastooltip" title="<?php echo $user['expires']; ?>">expires in <?php echo timetostr(strtotime($user['expires'])); ?></small>
-                                            <?php } else {
+                                                <?php
+                                                $label_class = "label-default";
+                                                if (strpos($user['result'], "error")!==false) $label_class = "label-danger";
+                                                else if (!empty($user['result_log'])) $label_class = "label-warning";
                                                 ?>
-                                            <small class="label <?=(strpos($user['result'], "error")!==false)?'label-danger ':' label-default ';?>hastooltip" title="<?php echo $user['result_log']; ?>"><?php echo $user['result'];?></small>
-                                            <?php 
-                                            }
-                                            ?>
+
+                                                <small class="label <?=$label_class?> hastooltip" title="<?php echo $user['result_log']; ?>"><?php echo $user['result'];?></small>
+                                                <?php if(!empty( $user['expires'])) { ?>
+                                                <small class="label label-info hastooltip" title="<?php echo $user['expires']; ?>">expires in <?php echo timetostr(strtotime($user['expires'])); ?></small>
+                                                <?php 
+                                                }
+                                                ?>
                                         </td>
                                         <td>
                                             <form class='form-inline form-ajax' action="<?php echo admin_run_url($user['run_name'], 'ajax_send_to_position'); ?>" method='post'>
