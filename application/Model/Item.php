@@ -231,6 +231,7 @@ class Item {
             $this->js_showif = preg_replace("/\s*\%starts_with\%\s*" . $quoted_string . "/", ".toString().indexOf($1$2$1) === 0", $this->js_showif);
             $this->js_showif = preg_replace("/\s*\%ends_with\%\s*" . $quoted_string . "/", ".toString().endsWith($1$2$1)", $this->js_showif);
             $this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $this->js_showif);
+            $this->js_showif = preg_replace("/\s*is.na\(([a-zA-Z0-9_'\"]+)\)/", "(typeof($1) === 'undefined')", $this->js_showif);
 
             if (strstr($this->showif, "//js_only") !== false) {
                 $this->setVisibility(array(null));
