@@ -96,6 +96,8 @@ class Shuffle extends RunUnit {
             'group' => $group,
             'created' => mysql_now()
         ));
+        $this->session_result = "shuffle_group_$group";
+        $this->logResult();
         $this->end();
         return false;
     }

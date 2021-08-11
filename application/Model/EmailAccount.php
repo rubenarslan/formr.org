@@ -71,7 +71,7 @@ class EmailAccount {
         $params['password'] = '';
 
         $query = "UPDATE `survey_email_accounts` 
-			SET `from` = :fromm, `from_name` = :from_name, `host` = :host, `port` = :port, `tls` = :tls, `username` = :username, `password` = :password, `auth_key` = :auth_key
+			SET `from` = :fromm, `from_name` = :from_name, `host` = :host, `port` = :port, `tls` = :tls, `username` = :username, `password` = :password, `auth_key` = :auth_key, `status` = 0
 			WHERE id = :id LIMIT 1";
 
         $this->dbh->exec($query, $params);
@@ -88,9 +88,11 @@ class EmailAccount {
         $mail->Body = Template::get_replace('email/test-account.ftpl', array('site_url' => site_url()));
 
         if (!$mail->Send()) {
+            $this->invalidate();
             alert('Account Test Failed: ' . $mail->ErrorInfo, 'alert-danger');
             return false;
         } else {
+            $this->validate();
             alert("An email was sent to <b>{$receiver}</b>. Please confirm that you received this email.", 'alert-success');
             return true;
         }
@@ -127,6 +129,14 @@ class EmailAccount {
         }
 
         return $mail;
+    }
+
+    public function invalidate() {
+        return $this->dbh->update('survey_email_accounts', array('status' => -1), array('id' => $this->id));
+    }
+
+    public function validate() {
+        return $this->dbh->update('survey_email_accounts', array('status' => 1), array('id' => $this->id));
     }
 
     public function delete() {

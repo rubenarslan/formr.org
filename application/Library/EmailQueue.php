@@ -1,4 +1,12 @@
 <?php
+/**
+ * 
+ * the email queue takes emails grouped by sending accounts (to minimize opening and closing connections)
+ * it sends queued emails and logs the result to the email_log, the user_sessions, and a .log file (the latter is more immediately visible to the researcher)
+ * it also takes action if emails fail to send in certain ways
+ * - alarms the researcher
+ * - turns off the account (to stop expending effort on broken connections)
+ */
 
 use PHPMailer\PHPMailer\PHPMailer;
 
@@ -8,6 +16,14 @@ use PHPMailer\PHPMailer\PHPMailer;
  *
  */
 class EmailQueue extends Queue {
+    const STATUS_QUEUED = 0;
+    const STATUS_SENT = 1;
+    const STATUS_INVALID_ATTACHMENT = -5;
+    const STATUS_INVALID_SENDER = -5;
+    const STATUS_INVALID_RECIPIENT = -4;
+    const STATUS_INVALID_SUBJECT = -3;
+    const STATUS_FAILED_TO_SEND = -2;
+
 
     /**
      *
@@ -55,14 +71,14 @@ class EmailQueue extends Queue {
      * @return PDOStatement
      */
     protected function getEmailAccountsStatement($account_id) {
-        $WHERE = '';
+        $WHERE = 'WHERE `survey_email_log`.`status` = 0 AND `survey_email_accounts`.status = 1';
         if ($account_id) {
-            $WHERE .= ' WHERE account_id = ' . (int) $account_id . ' ';
+            $WHERE .= ' AND account_id = ' . (int) $account_id . ' ';
         }
 
-        $query = "SELECT account_id, `from`, from_name, host, port, tls, username, password, auth_key 
-				FROM survey_email_queue
-				LEFT JOIN survey_email_accounts ON survey_email_accounts.id = survey_email_queue.account_id
+        $query = "SELECT account_id, `session_id`, `from`, from_name, host, port, tls, username, password, auth_key 
+				FROM survey_email_log
+				LEFT JOIN survey_email_accounts ON survey_email_accounts.id = survey_email_log.account_id
 				{$WHERE}
 				GROUP BY account_id 
 				ORDER BY RAND()
@@ -76,7 +92,7 @@ class EmailQueue extends Queue {
      * @return PDOStatement
      */
     protected function getEmailsStatement($account_id) {
-        $query = 'SELECT id, subject, message, recipient, created, meta FROM survey_email_queue WHERE account_id = ' . (int) $account_id;
+        $query = 'SELECT id,  `session_id`, subject, message, recipient, created, meta FROM survey_email_log WHERE `survey_email_log`.`status` = 0 AND account_id = ' . (int) $account_id;
         return $this->db->rquery($query);
     }
 
@@ -129,6 +145,28 @@ class EmailQueue extends Queue {
         }
     }
 
+    protected function logResult($session_id, $status_code, $result, $result_log = null) {
+        $this->db->exec('UPDATE `survey_email_log` 
+                            SET `status` = :status_code, 
+                                `sent` = NOW()
+                            WHERE `session_id` = :session_id', array(
+                                'session_id' => $session_id,
+                                'status_code' => $status_code));
+        $this->db->exec('UPDATE `survey_unit_sessions` 
+                                SET `result` = :result, 
+                                    `result_log` = :resultlog
+                                WHERE `id` = :session_id', array(
+                                    'session_id' => $session_id,
+                                    'result' => $result,
+                                    'resultlog' => $result_log));
+    }
+    
+    protected function deactivateAccount($account_id) {
+        $this->db->exec('UPDATE `survey_email_accounts` 
+        SET `status` = -1 
+        WHERE id = :id', array("id" => (int) $account_id));
+    }
+
     protected function processQueue($account_id = null) {
         $emailAccountsStatement = $this->getEmailAccountsStatement($account_id);
         if ($emailAccountsStatement->rowCount() <= 0) {
@@ -137,8 +175,8 @@ class EmailQueue extends Queue {
         }
 
         while ($account = $emailAccountsStatement->fetch(PDO::FETCH_ASSOC)) {
-            if (!filter_var($account['from'], FILTER_VALIDATE_EMAIL) || in_array($account['account_id'], $this->skipAccounts)) {
-                $this->db->exec('DELETE FROM survey_email_queue WHERE account_id = ' . (int) $account['account_id']);
+            if (in_array($account['account_id'], $this->skipAccounts)) {
+                $this->deactivateAccount($account['account_id']);
                 continue;
             }
 
@@ -149,8 +187,12 @@ class EmailQueue extends Queue {
             $mailer = $this->getSMTPConnection($account);
             $emailsStatement = $this->getEmailsStatement($account['account_id']);
             while ($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
-                if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL) || !$email['subject']) {
-                    $this->registerFailure($email, $account);
+                if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL)) {
+                    $this->logResult($email['session_id'], self::STATUS_INVALID_RECIPIENT, "error_email_invalid_recipient");
+                    continue;
+                }
+                if (!$email['subject']) {
+                    $this->logResult($email['session_id'], self::STATUS_INVALID_SUBJECT, "error_email_invalid_subject");
                     continue;
                 }
 
@@ -185,22 +227,18 @@ class EmailQueue extends Queue {
                 // Send mail
                 try {
                     if (($sent = $mailer->send())) {
-                        $this->db->exec("DELETE FROM survey_email_queue WHERE id = " . (int) $email['id']);
-                        $query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient, sent) VALUES (:session_id, :email_id, NOW(), :recipient, :sent)";
-                        $this->db->exec($query, array(
-                            'session_id' => $meta['session_id'],
-                            'email_id' => $meta['email_id'],
-                            'recipient' => $email['recipient'],
-                            'sent' => (int) $sent,
-                        ));
+                        $this->logResult($email['session_id'], self::STATUS_SENT, "email_sent");
                         $this->dbg("Send Success. \n {$debugInfo}");
                     } else {
+                        $this->dbg($mailer->ErrorInfo);
+                        $this->logResult($email['session_id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
                         throw new Exception($mailer->ErrorInfo);
                     }
                 } catch (Exception $e) {
                     //formr_log_exception($e, 'EmailQueue ' . $debugInfo);
                     $this->dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
-                    $this->registerFailure($email, $account);
+                    $this->dbg($mailer->ErrorInfo);
+                    $this->logResult($email['session_id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
                     // reset php mailer object for this account if smtp sending failed. Probably some limits have been hit
                     $this->closeSMTPConnection($account['account_id']);
                     $mailer = $this->getSMTPConnection($account);
