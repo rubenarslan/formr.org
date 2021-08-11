@@ -283,11 +283,21 @@ class Email extends RunUnit {
         }
 
         $subject = $this->getSubject();
-        if($subject === null) {
+        if($subject === null || $subject === false || $subject === '') {
+            $this->session_error = "No email subject set.";
+            alert('Email subject empty or could not be dynamically generated.', 'alert-danger');
             return false;
         }
         $body = $this->getBody();
-        if($body === null) {
+        if($body === null || $body === false || $body === '') {
+            $this->session_error = "No email body set.";
+            alert('Email body empty or could not be dynamically generated.', 'alert-danger');
+            return false;
+        }
+
+        if (!filter_var($this->recipient, FILTER_VALIDATE_EMAIL)) {
+            $this->session_error = "No valid email recipient set.";
+            alert('Intended recipient was not a valid email address: ' . $this->recipient, 'alert-danger');
             return false;
         }
 
@@ -337,17 +347,11 @@ class Email extends RunUnit {
                 $this->logMail();
             endif;
         else:
-            if (!filter_var($this->recipient, FILTER_VALIDATE_EMAIL)):
-                $this->session_error = "No valid email recipient set.";
-                alert('Intended recipient was not a valid email address: ' . $this->recipient, 'alert-danger');
-            endif;
             if ($mail->Body === false):
                 $this->session_error = "No email body set.";
-                alert('Email body empty or could not be dynamically generated.', 'alert-danger');
             endif;
             if ($mail->Subject === false):
                 $this->session_error = "No email subject set.";
-                alert('Email subject empty or could not be dynamically generated.', 'alert-danger');
             endif;
         endif;
         return $this->mail_sent;
@@ -361,7 +365,7 @@ class Email extends RunUnit {
 			SUM(created > DATE_SUB(NOW(), INTERVAL 1 DAY)) AS in_last_1d,
 			SUM(1) AS in_last_1w
 			FROM `survey_email_log`
-			WHERE recipient = :recipient AND created > DATE_SUB(NOW(), INTERVAL 7 DAY)");
+			WHERE recipient = :recipient AND `status` = 1 AND created > DATE_SUB(NOW(), INTERVAL 7 DAY)");
         $log->bindParam(':recipient', $this->recipient);
         $log->execute();
         return $log->fetch(PDO::FETCH_ASSOC);
@@ -486,7 +490,7 @@ class Email extends RunUnit {
         if ($this->cron_only && !$this->called_by_cron) {
             $this->session_result = "email_skipped_user_active";
             $this->logResult();
-                $this->end();
+            $this->end();
             return false;
         }
 
@@ -494,7 +498,7 @@ class Email extends RunUnit {
         if (!$this->sessionCanReceiveMails()) {
             $this->session_result = "email_skipped_user_disabled";
             $this->logResult();
-            return array('body' => "<p>Session <code>{$this->session}</code> cannot receive mails at this time </p>");
+            return array('body' => "<p>User <code>{$this->session}</code> disabled receiving emails at this time </p>");
         }
 
         // Try to send email
@@ -504,11 +508,11 @@ class Email extends RunUnit {
             $this->logResult();
             $this->end();
             return false;
+        } else {
+            $this->session_result = "error_email";
+            $this->logResult();
+            return array('body' => $err);
         }
-        $this->session_result = "error_email";
-        $this->logResult();
-
-        return array('body' => $err);
     }
 
 }
