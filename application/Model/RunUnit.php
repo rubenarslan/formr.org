@@ -404,7 +404,7 @@ plot(cars)
 			"UPDATE `survey_unit_sessions` SET 
                 `ended` = NOW(), 
                 `result` = :result, 
-                `result_log` = :result_log 
+                `result_log` = COALESCE(`result_log`, :result_log) 
                 WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
 			array('session_id' => $this->session_id, 'unit_id' => $this->id,
             'result' => $this->session_result, 'result_log' => $this->session_error)
@@ -744,7 +744,7 @@ plot(cars)
         $log = $this->dbh->exec(
 			"UPDATE `survey_unit_sessions` SET 
                 `result` = :result, 
-                `result_log` = :result_log 
+                `result_log` = COALESCE(`result_log`, :result_log) 
                 WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
 			array('session_id' => $this->session_id, 'unit_id' => $this->id,
             'result' => $this->session_result, 'result_log' => $this->session_error)

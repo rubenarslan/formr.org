@@ -1,3 +1,9 @@
+var is = {
+    na: function(x) {
+        return typeof x === "undefined";
+    }
+};
+
 (function ($) {
     function ButtonGroup(item) {
         this.$item = $(item);
@@ -431,10 +437,27 @@
     };
 
     Survey.prototype.getData = function () {
+        var allItems = [];
+
+        $.each( this.$form[0].elements, function(){
+            if( $.inArray( this.name, allItems ) < 0 ){
+                allItems.push(this.name); 
+            }
+        });
+
         var badArray = this.$form.serializeArray(); // items that are valid for submission http://www.w3.org/TR/html401/interact/forms.html#h-17.13.2
         var survey = this;
         var old_data = survey.data;
         survey.data = {};
+
+        $.each(allItems, function (i, obj) {
+            if (obj.indexOf('_') !== 0 && obj != "session_id") { // skip hidden items beginning with underscore (e.g _item_view)
+                if (obj.indexOf('[]', obj.length - 2) > -1) {
+                    obj = obj.substring(0, obj.length - 2);
+                }
+                survey.data[obj] = undefined;
+            }
+        });
 
         $.each(badArray, function (i, obj) {
             if (obj.name.indexOf('_') !== 0 && obj.name != "session_id") { // skip hidden items beginning with underscore (e.g _item_view)

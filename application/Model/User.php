@@ -391,7 +391,7 @@ class User {
 
     public function getEmailAccounts() {
         if ($this->isAdmin()) {
-            $accs = $this->dbh->find('survey_email_accounts', array('user_id' => $this->id, 'deleted' => 0), array('cols' => 'id, from'));
+            $accs = $this->dbh->find('survey_email_accounts', array('user_id' => $this->id, 'deleted' => 0), array('cols' => 'id, from, status'));
             $results = array();
             foreach ($accs as $acc) {
                 if ($acc['from'] == null) {

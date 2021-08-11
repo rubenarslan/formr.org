@@ -242,13 +242,24 @@ class RunSession {
             $unit_factory = new RunUnitFactory();
             $unit = $unit_factory->make($this->dbh, null, $unit, $this, $this->run);
             if ($unit->type == "Survey" || $unit->type == "External") {
+                if($unit->type == "Survey") {
+                    $unit->session_result = "survey_expired";
+                } else if($unit->type == "External") {
+                    $unit->session_result = "external_expired";
+                }
+                $unit->logResult();
                 $unit->expire();
             } else {
+                if ($reason !== null) {
+                  $unit->session_result = $reason;
+                } else if($unit->type == "Pause") {
+                    $unit->session_result = "pause_ended";
+                } else if($unit->type == "Wait") {
+                    $unit->session_result = "wait_ended";
+                } else {
+                    $unit->session_result = "ended";
+                }
                 $unit->end();  // cancel it
-            }
-            if ($reason !== null) {
-                $unit->session_result = $reason;
-                $unit->logResult();
             }
             return true;
         }

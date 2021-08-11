@@ -360,6 +360,8 @@ class Pause extends RunUnit {
             if ($body === false) {
                 return true; // openCPU errors
             }
+            $this->session_result = "pause_waiting";
+            $this->logResult();
             return array(
                 'body' => $body
             );

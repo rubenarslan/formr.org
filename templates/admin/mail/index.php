@@ -25,9 +25,21 @@ Template::loadChild('admin/header');
                     <div class="box-body no-padding context-menu">
                         <?php if ($accs): ?>
                             <ul class="nav nav-pills nav-stacked">
-                                <?php foreach ($accs as $account): ?>
+                                <?php foreach ($accs as $account): 
+                                    $status = $account['status'];
+                                    if( $status == 1) {
+                                        $label = "label-success";
+                                        $text = "tested";
+                                    } else if ($status == -1) {
+                                        $label = "label-danger";
+                                        $text = "not working";
+                                    } else {
+                                        $label = "label-warning";
+                                        $text = "untested";    
+                                    }
+                                    ?>
                                     <li>
-                                        <a href="<?php echo admin_url('mail', array('account_id' => $account['id'])); ?>" style="display: inline-block"><i class="fa fa-envelope"></i> <?= $account['from'] ?></a>
+                                        <a href="<?php echo admin_url('mail', array('account_id' => $account['id'])); ?>" style="display: inline-block"><i class="fa fa-envelope"></i><small class="label <?=$label?>"><?=$text?></small> <?= $account['from'] ?></a>
                                         <a href="<?php echo admin_url('mail/delete', array('account_id' => $account['id'])); ?>" class="pull-right" style="display: inline-block" onclick="return confirm('Are you sure you want to delete this account?')"><i class="fa fa-trash text-red"></i></a>
                                     </li>
                                 <?php endforeach; ?>
@@ -103,7 +115,7 @@ Template::loadChild('admin/header');
                                 <label class="col-sm-2 control-label">Test</label>
                                 <div class="col-sm-10">
                                     <div class="checkbox">
-                                        <label> <input type="checkbox"name="test_account" id="test_account" value="1"> Test E-mail account on save (sends a test e-mail to the above address) </label>
+                                        <label> <input type="checkbox"name="test_account" id="test_account" value="1" checked> Test E-mail account on save (sends a test e-mail to the above address) </label>
                                     </div>
                                 </div>
                             </div>
