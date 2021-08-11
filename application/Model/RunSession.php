@@ -250,13 +250,16 @@ class RunSession {
                 $unit->logResult();
                 $unit->expire();
             } else {
-                $unit->session_result = "pause_ended";
-                $unit->logResult();
+                if ($reason !== null) {
+                  $unit->session_result = $reason;
+                } else if($unit->type == "Pause") {
+                    $unit->session_result = "pause_ended";
+                } else if($unit->type == "Wait") {
+                    $unit->session_result = "wait_ended";
+                } else {
+                    $unit->session_result = "ended";
+                }
                 $unit->end();  // cancel it
-            }
-            if ($reason !== null) {
-                $unit->session_result = $reason;
-                $unit->logResult();
             }
             return true;
         }
