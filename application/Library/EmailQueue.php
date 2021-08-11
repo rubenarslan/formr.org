@@ -73,7 +73,7 @@ class EmailQueue extends Queue {
     protected function getEmailAccountsStatement($account_id) {
         $WHERE = 'WHERE `survey_email_log`.`status` = 0 AND `survey_email_accounts`.status = 1';
         if ($account_id) {
-            $WHERE .= 'AND account_id = ' . (int) $account_id . ' ';
+            $WHERE .= ' AND account_id = ' . (int) $account_id . ' ';
         }
 
         $query = "SELECT account_id, `session_id`, `from`, from_name, host, port, tls, username, password, auth_key 
@@ -175,7 +175,7 @@ class EmailQueue extends Queue {
         }
 
         while ($account = $emailAccountsStatement->fetch(PDO::FETCH_ASSOC)) {
-            if (!filter_var($account['from'], FILTER_VALIDATE_EMAIL) || in_array($account['account_id'], $this->skipAccounts)) {
+            if (in_array($account['account_id'], $this->skipAccounts)) {
                 $this->deactivateAccount($account['account_id']);
                 continue;
             }
@@ -230,14 +230,14 @@ class EmailQueue extends Queue {
                         $this->logResult($email['session_id'], self::STATUS_SENT, "email_sent");
                         $this->dbg("Send Success. \n {$debugInfo}");
                     } else {
-                        formr_log($mailer->ErrorInfo);
+                        $this->dbg($mailer->ErrorInfo);
                         $this->logResult($email['session_id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
                         throw new Exception($mailer->ErrorInfo);
                     }
                 } catch (Exception $e) {
                     //formr_log_exception($e, 'EmailQueue ' . $debugInfo);
                     $this->dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
-                    formr_log($mailer->ErrorInfo);
+                    $this->dbg($mailer->ErrorInfo);
                     $this->logResult($email['session_id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
                     // reset php mailer object for this account if smtp sending failed. Probably some limits have been hit
                     $this->closeSMTPConnection($account['account_id']);
