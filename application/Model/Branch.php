@@ -147,16 +147,22 @@ class Branch extends RunUnit {
         }
         if (is_array($eval)) {
             $eval = array_shift($eval);
+            $this->session_error = "Your R code is returning more than one result. Please fix your code, so it returns only true/false.";
         }
 
-        // If execution returned a timestamp in the future, then branching evaluates to FALSE
-        if (($time = strtotime($eval)) && $time >= time()) {
-            $eval = false;
-        } elseif (($time = strtotime($eval)) && $time < time()) {
-            $eval = true;
+        if($eval === true || $eval === false) {
+            $result = $eval;
+        } else {
+            // If execution returned a timestamp in the future, then branching evaluates to FALSE
+            if (($time = strtotime($eval)) && $time >= time()) {
+                $eval = false;
+            } elseif (($time = strtotime($eval)) && $time < time()) {
+                $eval = true;
+            } else {
+                $result = (bool) $eval;
+            }
+            $this->session_error = "Your R code is not returning true/false. Please fix your code soon.";
         }
-
-        $result = (bool) $eval;
         
         if ($result && ($this->automatically_jump || !$this->called_by_cron)) {
             $this->session_result = "skip_true";
@@ -169,6 +175,9 @@ class Branch extends RunUnit {
             // the condition is false and it goes on
             return $this->goOn();
         } else {
+            $this->session_result = "waiting_deprecated";
+            $this->session_error = "formr is phasing out support for delayed skipbackwards/forwards. Please switch to a different approach soon.";
+            $this->logResult();
             // we wait for the condition to turn true or false, depends.
             return true;
         }

@@ -6,6 +6,7 @@ class Email extends RunUnit {
     public $id = null;
     public $session = null;
     public $unit = null;
+    protected $mail_queued = false;
     protected $mail_sent = false;
     protected $body = null;
     protected $body_parsed = null;
@@ -210,17 +211,19 @@ class Email extends RunUnit {
     }
 
     public function sendMail($who = NULL) {
-        $this->mail_sent = false;
+        $this->mail_queued = $this->mail_sent = false;
         $this->recipient = $who !== null ? $who : $this->getRecipientField();
 
         if ($this->recipient == null) {
             //formr_log("Email recipient could not be determined from this field definition " . $this->recipient_field);
             alert("We could not find an email recipient. Session: {$this->session}", 'alert-danger');
+            $this->session_error = "We could not find an email recipient.";
             return false;
         }
 
         if ($this->account_id === null) {
             alert("The study administrator (you?) did not set up an email account. <a href='" . admin_url('mail') . "'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
+            $this->session_error = "The study administrator (you?) did not set up an email account.";
             return false;
         }
 
@@ -267,41 +270,54 @@ class Email extends RunUnit {
         endif;
 
         if ($error !== null) {
+            $this->session_error = $error;
             $error = "Session: {$this->session}:\n {$error}";
             alert(nl2br($error), 'alert-danger');
             return false;
         }
 
         if ($warning !== null) {
+            $this->session_error = $warning;
             $warning = "Session: {$this->session}:\n {$warning}";
             alert(nl2br($warning), 'alert-info');
         }
 
         $subject = $this->getSubject();
-        if($subject === null) {
+        if($subject === null || $subject === false || $subject === '') {
+            $this->session_error = "No email subject set.";
+            alert('Email subject empty or could not be dynamically generated.', 'alert-danger');
             return false;
         }
         $body = $this->getBody();
-        if($body === null) {
+        if($body === null || $body === false || $body === '') {
+            $this->session_error = "No email body set.";
+            alert('Email body empty or could not be dynamically generated.', 'alert-danger');
+            return false;
+        }
+
+        if (!filter_var($this->recipient, FILTER_VALIDATE_EMAIL)) {
+            $this->session_error = "No valid email recipient set.";
+            alert('Intended recipient was not a valid email address: ' . $this->recipient, 'alert-danger');
             return false;
         }
 
         // if formr is configured to use the email queue then add mail to queue and return
         if (Config::get('email.use_queue', false) === true && filter_var($this->recipient, FILTER_VALIDATE_EMAIL)) {
-            $this->mail_sent = $this->dbh->insert('survey_email_queue', array(
+            $this->mail_queued = $this->dbh->insert('survey_email_log', array(
                 'subject' => $subject,
+                'status' => 0,
+                'session_id' => $this->session_id,
+                'email_id' => $this->id,
                 'message' => $body,
                 'recipient' => $this->recipient,
                 'created' => mysql_datetime(),
                 'account_id' => (int) $this->account_id,
                 'meta' => json_encode(array(
-                    'session_id' => $this->session_id,
-                    'email_id' => $this->id,
                     'embedded_images' => $this->images,
                     'attachments' => ''
                 )),
             ));
-            return $this->mail_sent;
+            return $this->mail_queued;
         }
 
         $mail = $acc->makeMailer();
@@ -331,14 +347,11 @@ class Email extends RunUnit {
                 $this->logMail();
             endif;
         else:
-            if (!filter_var($this->recipient, FILTER_VALIDATE_EMAIL)):
-                alert('Intended recipient was not a valid email address: ' . $this->recipient, 'alert-danger');
-            endif;
             if ($mail->Body === false):
-                alert('Email body empty or could not be dynamically generated.', 'alert-danger');
+                $this->session_error = "No email body set.";
             endif;
             if ($mail->Subject === false):
-                alert('Email subject empty or could not be dynamically generated.', 'alert-danger');
+                $this->session_error = "No email subject set.";
             endif;
         endif;
         return $this->mail_sent;
@@ -352,7 +365,7 @@ class Email extends RunUnit {
 			SUM(created > DATE_SUB(NOW(), INTERVAL 1 DAY)) AS in_last_1d,
 			SUM(1) AS in_last_1w
 			FROM `survey_email_log`
-			WHERE recipient = :recipient AND created > DATE_SUB(NOW(), INTERVAL 7 DAY)");
+			WHERE recipient = :recipient AND `status` = 1 AND created > DATE_SUB(NOW(), INTERVAL 7 DAY)");
         $log->bindParam(':recipient', $this->recipient);
         $log->execute();
         return $log->fetch(PDO::FETCH_ASSOC);
@@ -477,7 +490,7 @@ class Email extends RunUnit {
         if ($this->cron_only && !$this->called_by_cron) {
             $this->session_result = "email_skipped_user_active";
             $this->logResult();
-                $this->end();
+            $this->end();
             return false;
         }
 
@@ -485,22 +498,21 @@ class Email extends RunUnit {
         if (!$this->sessionCanReceiveMails()) {
             $this->session_result = "email_skipped_user_disabled";
             $this->logResult();
-            return array('body' => "<p>Session <code>{$this->session}</code> cannot receive mails at this time </p>");
+            return array('body' => "<p>User <code>{$this->session}</code> disabled receiving emails at this time </p>");
         }
 
         // Try to send email
         $err = $this->sendMail();
-        if ($this->mail_sent) {
-            $this->session_result = "email_sent";
+        if ($this->mail_sent || $this->mail_queued) {
+            $this->session_result = $this->mail_queued ? "email_queued" : "email_sent";
             $this->logResult();
             $this->end();
             return false;
+        } else {
+            $this->session_result = "error_email";
+            $this->logResult();
+            return array('body' => $err);
         }
-        $this->session_result = "error_email";
-        $this->session_log = $err;
-        $this->logResult();
-
-        return array('body' => $err);
     }
 
 }

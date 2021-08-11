@@ -1152,6 +1152,8 @@ class Survey extends RunUnit {
                 redirect_to(run_url($this->run_name));
             }
             $this->startEntry();
+            $this->session_result = "survey_loaded_page";
+            $this->logResult();
 
             // Use SurveyHelper if study is configured to use pages
             if ($this->settings['use_paging']) {
@@ -1182,9 +1184,12 @@ class Survey extends RunUnit {
                 // exit loop if it has ran more than x times and log remaining items
                 $loops++;
                 if ($loops > Config::get('allowed_empty_pages', 80)) {
+        
                     alert('Too many empty pages in this survey. Please alert an administrator.', 'alert-danger');
                     formr_log("Survey::exec() '{$this->run_name} > {$this->name}' terminated with an infinite loop for items: ");
                     formr_log(array_keys($items));
+                    $this->session_result = "error_empty_pages";
+                    $this->logResult();
                     break;
                 }
                 // process automatic values (such as get, browser)
