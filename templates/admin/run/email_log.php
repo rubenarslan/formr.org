@@ -25,8 +25,9 @@
                                     <tr>
                                         <th>From</th>
                                         <th>To</th>
-                                        <th>Mail</th>
-                                        <th>Datetime</th>
+                                        <th>Subject</th>
+                                        <th>Status</th>
+                                        <th>Date and time (queued/attempted to send)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -34,10 +35,29 @@
                                     <tr>
                                         <td><?= $email['from_name'] ?> <br><small><?= $email['from'] ?></small></td>
                                         <td><?= $email['to']?> <br><small> at run position <?= $email['position_in_run'] ?></small></td>
-                                        <td><?= $email['subject'] ?> <br><small><?= h(substr($email['body'], 0, 100)) ?>…</small></td>
+                                        <td><?= $email['subject'] ?></td>
                                         <td>
-                                            <abbr title="<?= $email['created']?>"> <?= timetostr(strtotime($email['created'])) ?></abbr>
-                                            <?php echo $email['sent'] ? '<i class="fa fa-check-circle"></i>' : '<i class="fa fa-times-circle"></i>'; ?>
+                                            <?php 
+                                            $label_class = "label-default";
+                                            $icon = 'fa-check-circle';
+                                            $text = $email['result'];
+                                            $resultlog = $email['result_log'];
+                                            if($email['status'] < 0) {
+                                                $label_class = "label-danger";
+                                                $icon = 'fa-times-circle';
+                                            } else if ($email['status'] == 0) {
+                                                $label_class = "label-info";
+                                                $icon = 'fa-hourglass-half';
+                                            } else if ($email['status'] == 1) {
+                                                $label_class = "label-success";
+                                                $icon = 'fa-check-circle';
+                                            }
+                                            echo "<small class='label $label_class hastooltip' title='$resultlog'><i class='fa $icon'></i> $text</small>";
+                                            ?>
+                                        </td>
+                                        <td>
+                                            q. <abbr title="<?= $email['created']?>"> <?= timetostr(strtotime($email['created'])) ?></abbr><br>
+                                            s. <abbr title="<?= $email['sent']?>"> <?= timetostr(strtotime($email['sent'])) ?></abbr>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>

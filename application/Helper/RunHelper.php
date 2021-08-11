@@ -311,15 +311,16 @@ class RunHelper {
                 `survey_email_accounts`.from_name, 
                 `survey_email_accounts`.`from`, 
                 `survey_email_log`.recipient AS `to`,
-                `survey_email_log`.`sent`,
-                `survey_emails`.subject,
-                `survey_emails`.body,
+                `survey_email_log`.`status`,
+                `survey_email_log`.subject,
+                `survey_email_log`.sent,
                 `survey_email_log`.created,
+                `survey_unit_sessions`.result,
+                `survey_unit_sessions`.result_log,
                 `survey_run_units`.position AS position_in_run
             FROM `survey_email_log`
-            LEFT JOIN `survey_emails` ON `survey_email_log`.email_id = `survey_emails`.id
-            LEFT JOIN `survey_run_units` ON `survey_emails`.id = `survey_run_units`.unit_id
-            LEFT JOIN `survey_email_accounts` ON `survey_emails`.account_id = `survey_email_accounts`.id
+            LEFT JOIN `survey_run_units` ON `survey_email_log`.email_id = `survey_run_units`.unit_id
+            LEFT JOIN `survey_email_accounts` ON `survey_email_log`.account_id = `survey_email_accounts`.id
             LEFT JOIN `survey_unit_sessions` ON `survey_unit_sessions`.id = `survey_email_log`.session_id
             LEFT JOIN `survey_run_sessions` ON `survey_unit_sessions`.run_session_id = `survey_run_sessions`.id
             WHERE `survey_run_sessions`.run_id = :run_id
