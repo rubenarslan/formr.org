@@ -48,7 +48,7 @@ class Check_Item extends McMultiple_Item {
 
         $template = '
 			<div class="checkbox">
-				<input type="hidden" value="" id="item%{id}_" %{attributes} />
+				<input type="hidden" value="0" id="item%{id}_" %{attributes} />
 				<label class="%{class}" for="item%{id}_1"><input id="item%{id}_1" value="1" %{input_attributes} /></label>
 			</div>
 		';

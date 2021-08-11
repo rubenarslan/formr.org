@@ -172,7 +172,7 @@ class AdminAjaxController {
         } else {
             // execute current unit but don't return ouput
             $runSession->execute();
-            alert('Session has been moved to desired position. If moved to a Branching Unit the sesion might have moved on.', 'alert-info');
+            alert('Session has been moved to desired position. If moved to a Branching Unit the session might have moved on.', 'alert-info');
         }
 
         if (Request::isAjaxRequest()) {

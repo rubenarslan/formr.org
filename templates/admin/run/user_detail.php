@@ -72,7 +72,7 @@
                                     <tr>
                                         <th>Unit in Run</th>
                                         <th>Module Description</th>
-                                        <th>Session</th>
+                                        <th>User code</th>
                                         <th>Entered</th>
                                         <th>Stayed</th>
                                         <th>Left</th>
@@ -106,7 +106,13 @@
                                                 <?php if($row['queued'] > 0) echo "</b>"; ?>
                                             </td>
                                             <td>
-                                             <small class="label <?=(strpos($row['result'], "error")!==false)?'label-danger':' label-default';?> hastooltip" title="<?php echo $row['result_log']; ?>"><?php echo $row['result'];?></small>
+                                                <?php
+                                                $label_class = "label-default";
+                                                if (strpos($row['result'], "error")!==false) $label_class = "label-danger";
+                                                else if (!empty($row['result_log'])) $label_class = "label-warning";
+                                                ?>
+
+                                                <small class="label <?=$label_class?> hastooltip" title="<?php echo $row['result_log']; ?>"><?php echo $row['result'];?></small>
                                             </td>
                                             <td>
                                                 <a data-href="<?php echo admin_run_url($row['run_name'], 'ajax_delete_unit_session', array('session_id' => $row['session_id'])); ?>" href="javascript:void(0);" class="hastooltip delete-user-unit-session" title="<?= h($row['delete_title']) ?>"  data-msg="<?= h($row['delete_msg']) ?>" class="delete-user-unit-session"><i class="fa fa-trash"></i></a>
