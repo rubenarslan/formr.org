@@ -17,7 +17,7 @@ require_once dirname(__FILE__) . '/../setup.php';
  */
 // Check if maintenance is going on
 if (Config::get('in_maintenance')) {
-    formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenace Mode', false);
+    formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenance Mode', false);
 }
 //@todo explain variables
 $opts = getopt('t:a:o:p:n:b:l:');
