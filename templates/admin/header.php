@@ -86,8 +86,9 @@
                                         <li><a href="https://github.com/rubenarslan/formr"><i class="fa fa-github-alt fa-fw"></i> R package on Github </a></li>
                                         <?php if ($user->isSuperAdmin()): ?>
                                             <li><a href="<?php echo site_url('admin/advanced/settings'); ?>"><i class="fa fa-cog fa-fw"></i> Global Settings</a></li>
-                                            <li><a href="<?php echo site_url('admin/advanced/user_management'); ?>"><i class="fa fa-users fa-fw"></i> Manage Users</a></li>
-                                            <li><a href="<?php echo site_url('admin/advanced/active_users'); ?>"><i class="fa fa-users fa-fw"></i> Active Users</a></li>
+                                            <li><a href="<?php echo site_url('admin/advanced/user_management'); ?>"><i class="fa fa-users fa-fw"></i> Manage Admins</a></li>
+                                            <li><a href="<?php echo site_url('admin/advanced/user_details'); ?>"><i class="fa fa-users fa-fw"></i> Manage User Details</a></li>
+                                            <li><a href="<?php echo site_url('admin/advanced/active_users'); ?>"><i class="fa fa-users fa-fw"></i> Active Admins</a></li>
                                             <li><a href="<?php echo site_url('admin/advanced/info'); ?>"><i class="fa fa-list fa-fw"></i> PHP Info</a></li>
                                             <li><a href="<?php echo site_url('admin/advanced/runs_management'); ?>"><i class="fa fa-list fa-fw"></i> Manage Runs</a></li>
                                             <li><a href="<?php echo site_url('admin/advanced/cron_log'); ?>"><i class="fa fa-list fa-fw"></i> Cron Log</a></li>

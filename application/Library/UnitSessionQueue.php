@@ -16,6 +16,7 @@ class UnitSessionQueue extends Queue {
     const QUEUED_TO_EXECUTE = 1;
     const QUEUED_TO_END = 2;
     const QUEUED_NOT = 0;
+    const QUEUED_SUPERCEDED = -9;
 
     public function __construct(DB $db, array $config) {
         parent::__construct($db, $config);
@@ -35,7 +36,7 @@ class UnitSessionQueue extends Queue {
                 while (!$this->out && $this->rested()) {
                     if ($this->processQueue() === false) {
                         // if there is nothing to process in the queue sleep for sometime
-                        $this->dbg("Sleeping because nothing was found in queue");
+//                        $this->dbg("Sleeping because nothing was found in queue");
                         sleep($this->sleep);
                         $sleeps++;
                     }
@@ -88,8 +89,8 @@ class UnitSessionQueue extends Queue {
             //LIMIT {$this->limit} OFFSET {$this->offset}";
                   
         if ($this->debug) {
-            $this->dbg($query . ' queued: ' . $queued);
-            $this->dbg($this->list_type);
+//            $this->dbg($query . ' queued: ' . $queued);
+//            $this->dbg($this->list_type);
         }
         
         return $this->db->rquery($query, array('queued' => $queued));

@@ -70,6 +70,7 @@
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
+                                        <th>ID</th>
                                         <th>Unit in Run</th>
                                         <th>Module Description</th>
                                         <th>User code</th>
@@ -95,6 +96,7 @@
                                         $last_ended = strtotime($row['created']);
                                         ?>
                                         <tr class="<?= $user_class . $continued ?>">
+                                            <td><small><?=$row['session_id']?></small></td>
                                             <td><?= $row['unit_type'] ?> <span class="hastooltip" title="position in run <?= $row['run_name'] ?>">(<?= $row['position'] ?>)</span></td>
                                             <td><small><?= $row['description'] ?></small></td>
                                             <td><small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="<?= h($row['session']) ?>"><?= mb_substr($row['session'], 0, 10) ?>…</abbr></small></td>

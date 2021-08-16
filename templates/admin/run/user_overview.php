@@ -102,7 +102,8 @@
                                             <input class="ba-select-session" type="checkbox" value="<?php echo h($user['session']); ?>" />
                                         </td>
                                         <td>
-                                            <span class="hastooltip" title="Current position in run"><?php echo $user['position']; ?></span> – <small><?php echo $user['unit_type']; ?></small>
+                                        <small><span class="hastooltip" title="Current position in run"><?php echo $user['position']; ?></span> – <?php echo $user['unit_type']; ?></small><br>
+                                        <small>USI<?=$user['current_unit_session_id']?></small>
                                         </td>
                                         <td>
                                             <span class="hastooltip" title="RunUnit Description"><?php echo $user['description']; ?></span> 
