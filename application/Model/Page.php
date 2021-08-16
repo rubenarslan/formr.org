@@ -93,6 +93,8 @@ class Page extends RunUnit {
     public function exec() {
         if ($this->called_by_cron) {
             $this->getParsedBody($this->body); // make report before showing it to the user, so they don't have to wait
+            $this->session_result = "ended_study_by_queue";
+            $this->logResult();
             return true; // never show to the cronjob
         }
 
@@ -110,7 +112,7 @@ class Page extends RunUnit {
 
         $body = do_run_shortcodes($this->body_parsed, $run_name, $sess_code);
 
-        $this->session_result = "ended";
+        $this->session_result = "ended_study";
         $this->logResult();
 
         return array(
