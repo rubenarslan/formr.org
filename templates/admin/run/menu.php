@@ -25,7 +25,7 @@
     </div>
     <div class="box-body no-padding">
         <ul class="nav nav-pills nav-stacked">
-            <li><a target="_blank" href="<?php echo admin_run_url($run->name, 'create_new_test_code'); ?>" title="Test run with a new guinea pig account. You'll start from the beginning and have extended debugging ability."><i class="fa fa-stethoscope"></i> Test Run</a></li>
+            <li><a href="<?php echo admin_run_url($run->name, 'create_new_test_code'); ?>" title="Test run with a new guinea pig account. You'll start from the beginning and have extended debugging ability."><i class="fa fa-stethoscope"></i> Test Run</a></li>
 
             <li><a href="<?php echo admin_run_url($run->name, 'user_overview?session=XXX'); ?>" title="See a list of existing guinea pigs/test sessions and continue testing."><i class="fa fa-wheelchair"></i> Old Guinea Pigs</a></li>
 

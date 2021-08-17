@@ -62,6 +62,7 @@ class RunSession {
 			`survey_run_sessions`.created, 
 			`survey_run_sessions`.ended, 
 			`survey_run_sessions`.position,
+			`survey_run_sessions`.current_unit_session_id,
 			`survey_run_sessions`.last_access,
 			`survey_run_sessions`.no_email,
 			`survey_run_sessions`.testing,
@@ -162,12 +163,18 @@ class RunSession {
                     if (isset($unit)) alert(print_r($unit, true), 'alert-danger');
                 }
                 formr_log($this->run_name . " contains infinite loops.");
-                alert('Nesting too deep. Could there be an infinite loop or maybe no landing page?', 'alert-danger');
+                alert('Nesting too deep. Could there be an infinite loop or maybe no landing page (Stop button)?', 'alert-danger');
                 return array('body' => '');
             }
 
             $unit_info = $this->getCurrentUnit(); // get first unit in line
-            if ($unit_info) {   // if there is one, spin that shit
+//            formr_log($unit_info);
+            if (!$unit_info) {
+                if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
+                    return array('body' => ''); // if that fails because the run is wrongly configured, return nothing
+                }
+            } else {
+                  // if there is one, spin that shit
                 if($last_unit === $unit_info["unit_id"]) {
                     formr_log($this->run_name . " unit ". $last_unit ." would have been repeated.");
                     alert('The same unit is being repeated. This is an error.', 'alert-danger');
@@ -182,13 +189,15 @@ class RunSession {
                 $unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this, $this->run);
                 $this->current_unit_type = $unit->type;
 
-                if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id == $this->unit_session->id && !$executeReferenceUnit) {
-                    $this->endUnitSession($unit_info);
+                if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id != $this->unit_session->id) {
+                    // dead queue item, remove from queue
+                    formr_log("Dead queue item " . $referenceUnitSession->id);
+                    UnitSessionQueue::removeItem($referenceUnitSession->id);
                     $referenceUnitSession = null;
                     continue;
-                } elseif ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id != $this->unit_session->id) {
-                    // dead queue item, remove from queue
-                    UnitSessionQueue::removeItem($referenceUnitSession->id);
+                } else if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id == $this->unit_session->id && !$executeReferenceUnit) {
+                    # if we are calling this from the queue and the session is still current
+                    $this->endUnitSession($unit_info); # then just end the session, don't execute it
                     $referenceUnitSession = null;
                     continue;
                 }
@@ -213,10 +222,6 @@ class RunSession {
                         UnitSessionQueue::removeItem($referenceUnitSession->id);
                         break;
                     }
-                }
-            } else {
-                if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
-                    return array('body' => ''); // if that fails because the run is wrongly configured, return nothing
                 }
             }
         endwhile;
@@ -256,8 +261,10 @@ class RunSession {
                     $unit->session_result = "pause_ended";
                 } else if($unit->type == "Wait") {
                     $unit->session_result = "wait_ended";
+                } else if($unit->type == "Endpage") {
+                    $unit->session_result = "ended_by_queue";
                 } else {
-                    $unit->session_result = "ended";
+                    $unit->session_result = "ended_other";
                 }
                 $unit->end();  // cancel it
             }
@@ -309,10 +316,10 @@ class RunSession {
 			`survey_units`.type')
                 ->from('survey_unit_sessions')
                 ->leftJoin('survey_units', 'survey_unit_sessions.unit_id = survey_units.id')
+                ->rightJoin('survey_run_sessions', 'survey_unit_sessions.id = survey_run_sessions.current_unit_session_id')
                 ->where('survey_unit_sessions.run_session_id = :run_session_id')
-                ->where('survey_unit_sessions.unit_id = :unit_id')
                 ->where('survey_unit_sessions.ended IS NULL AND survey_unit_sessions.expired IS NULL') //so we know when to runToNextUnit
-                ->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
+                ->bindParams(array('run_session_id' => $this->id))
                 ->order('survey_unit_sessions`.id', 'desc')
                 ->limit(1);
 
@@ -362,15 +369,14 @@ class RunSession {
         $select->bindParams(array('run_id' => $this->run_id, 'position' => $position));
         $next = $select->fetch();
         if (!$next) {
-            alert('Run ' . $this->run_name . ': Oops, this study\'s creator forgot to give it a proper ending, user ' . h($this->session) . ' is dangling at the end.', 'alert-danger');
+            alert('Run ' . $this->run_name . ': Oops, this study\'s creator forgot to give it a proper ending (a Stop button), user ' . h($this->session) . ' is dangling at the end.', 'alert-danger');
             return false;
         }
         return $this->runTo($next['position'], $next['unit_id']);
     }
 
     public function endLastExternal() {
-        $query = "
-			UPDATE `survey_unit_sessions`
+        $query = "UPDATE `survey_unit_sessions`
 			LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
 			SET `survey_unit_sessions`.`ended` = NOW()
 			WHERE `survey_unit_sessions`.run_session_id = :id AND `survey_units`.type = 'External' AND  `survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL;";

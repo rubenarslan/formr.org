@@ -212,8 +212,12 @@ class AdminRunController extends AdminController {
         $animal = substr($sess, 0, strpos($sess, "XXX"));
         $sess_url = run_url($this->run->name, null, array('code' => $sess));
 
-        //alert("You've created a new guinea pig, ".h($animal).". Use this guinea pig to move through the run like a normal user with special powers (accessibly via the monkey bar at the bottom right). As a guinea pig, you can see more detailed error messages than real users, so it is easier to e.g. debug R problems. If you want someone else to be the guinea pig, just forward them this link: <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
-        $this->request->redirect($sess_url);
+        if (Config::get('use_study_subdomains')) {
+            $this->request->redirect($sess_url);
+        } else {
+            alert("You've created a <a target='_blank' href='".$sess_url."'>new guinea pig, ".h($animal)."</a>. Use this guinea pig to move through the run like a normal user with special powers (accessibly via the monkey bar at the bottom right). As a guinea pig, you can see more detailed error messages than real users, so it is easier to e.g. debug R problems. If you want someone else to be the guinea pig, just forward them this link: <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
+            $this->request->redirect(admin_run_url($this->run->name, 'user_overview'));
+        }
     }
 
     private function createNewNamedSessionAction() {
