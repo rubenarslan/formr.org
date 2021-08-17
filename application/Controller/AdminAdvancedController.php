@@ -209,5 +209,114 @@ class AdminAdvancedController extends Controller {
         $this->setView('admin/advanced/settings', array('settings' => Site::getSettings()));
         return $this->sendResponse();
     }
+    public function userDetailsAction() {
+        $querystring = array();
+        $queryparams = array( 'position_operator' => '=');
+
+        if ($this->request->position_lt && in_array($this->request->position_lt, array('=', '>', '<'))) {
+            $queryparams['position_operator'] = $this->request->position_lt;
+            $querystring['position_lt'] = $queryparams['position_operator'];
+        }
+
+        if ($this->request->run_name) {
+            $queryparams['run_name'] = $this->request->run_name;
+            $querystring['run_name'] = $queryparams['run_name'];
+        }
+
+        if ($this->request->session) {
+            $session = str_replace("…", "", $this->request->session);
+            $queryparams['session'] = "%" . $session . "%";
+            $querystring['session'] = $session;
+        }
+
+        if ($this->request->position) {
+            $queryparams['position'] = $this->request->position;
+            $querystring['position'] = $queryparams['position'];
+        }
+
+        $table = $this->getUserDetailTable($queryparams);
+        $users = $table['data'];
+
+        foreach ($users as $i => $userx) {
+            if ($userx['expired']) {
+                $stay_seconds = strtotime($userx['expired']) - strtotime($userx['created']);
+            } else {
+                $stay_seconds = ($userx['ended'] ? strtotime($userx['ended']) : time() ) - strtotime($userx['created']);
+            }
+            $userx['stay_seconds'] = $stay_seconds;
+            if ($userx['expired']) {
+                $userx['ended'] = $userx['expired'] . ' (expired)';
+            }
+
+            if ($userx['unit_type'] != 'Survey') {
+                $userx['delete_msg'] = "Are you sure you want to delete this unit session?";
+                $userx['delete_title'] = "Delete this waypoint";
+            } else {
+                $userx['delete_msg'] = "You SHOULDN'T delete survey sessions, you might delete data! <br />Are you REALLY sure you want to continue?";
+                $userx['delete_title'] = "Survey unit sessions should not be deleted";
+            }
+
+            $users[$i] = $userx;
+        }
+
+        $this->setView('admin/advanced/user_detail', array(
+            'users' => $users,
+            'pagination' => $table['pagination'],
+            'position_lt' => $queryparams['position_operator'],
+            'querystring' => $querystring,
+        ));
+
+        return $this->sendResponse();
+    }
+
+    private function getUserDetailTable($queryParams, $page = null) {
+        $query = array();
+        if (!empty($queryParams['run_name'])) {
+            $query[] = ' `survey_runs`.name LIKE :run_name ';
+        }
+
+        if (!empty($queryParams['session'])) {
+            $query[] = ' `survey_run_sessions`.session LIKE :session ';
+        }
+
+        if (!empty($queryParams['position'])) {
+            $query[] = " `survey_run_units`.position {$queryParams['position_operator']} :position ";
+        }
+        unset($queryParams['position_operator']);
+
+        if(count($query) > 0 ) {
+            $where = "WHERE " . implode(' AND ', $query);
+        } else {
+            $where = "";
+        }
+
+        $itemsQuery = "SELECT 
+                `survey_run_sessions`.session,
+                `survey_unit_sessions`.id AS session_id,
+                `survey_runs`.name AS run_name,
+                `survey_run_units`.position,
+                `survey_run_units`.description,
+                `survey_units`.type AS unit_type,
+                `survey_unit_sessions`.created,
+                `survey_unit_sessions`.ended,
+                `survey_unit_sessions`.expired,
+                `survey_unit_sessions`.expires,
+                `survey_unit_sessions`.`queued`,
+                `survey_unit_sessions`.result,
+                `survey_unit_sessions`.result_log
+            FROM `survey_unit_sessions`
+            LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
+            LEFT JOIN `survey_units` ON `survey_unit_sessions`.unit_id = `survey_units`.id
+            LEFT JOIN `survey_run_units` ON `survey_unit_sessions`.unit_id = `survey_run_units`.unit_id
+            LEFT JOIN `survey_runs` ON `survey_runs`.id = `survey_run_units`.run_id
+            {$where}
+            ORDER BY `survey_run_sessions`.id DESC,`survey_unit_sessions`.id ASC LIMIT 1000
+        ";
+
+        return array(
+            'data' => $this->fdb->execute($itemsQuery, $queryParams),
+            'pagination' => "",
+        );
+    }
 
 }
