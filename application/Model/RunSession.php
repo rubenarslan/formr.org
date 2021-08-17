@@ -316,10 +316,10 @@ class RunSession {
 			`survey_units`.type')
                 ->from('survey_unit_sessions')
                 ->leftJoin('survey_units', 'survey_unit_sessions.unit_id = survey_units.id')
-                ->rightJoin('survey_run_sessions', 'survey_unit_sessions.id = survey_run_sessions.current_unit_session_id')
                 ->where('survey_unit_sessions.run_session_id = :run_session_id')
+                ->where('survey_unit_sessions.unit_id = :unit_id')
                 ->where('survey_unit_sessions.ended IS NULL AND survey_unit_sessions.expired IS NULL') //so we know when to runToNextUnit
-                ->bindParams(array('run_session_id' => $this->id))
+                ->bindParams(array('run_session_id' => $this->id, 'unit_id' => $this->getUnitIdAtPosition($this->position)))
                 ->order('survey_unit_sessions`.id', 'desc')
                 ->limit(1);
 
