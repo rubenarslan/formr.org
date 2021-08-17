@@ -7,7 +7,7 @@ Session::start();
 
 // Check if maintenance is going on
 if (Config::get('in_maintenance')) {
-	formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenace Mode', false);
+	formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenance Mode', false);
 }
 
 // Define SITE object

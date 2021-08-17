@@ -473,7 +473,7 @@ class Run {
     public function getReminder($reminder_id, $session, $run_session_id) {
         // create a unit_session here and get a session_id and pass it when making the unit
         $unitSession = new UnitSession($this->dbh, $run_session_id, $reminder_id);
-        $session_id = $unitSession->create();
+        $session_id = $unitSession->create(false);
         $unit_factory = new RunUnitFactory();
         $unit = $unit_factory->make($this->dbh, $session, array(
             'type' => "Email",

@@ -84,7 +84,7 @@ class Queue {
         return true;
     }
 
-    protected function dbg($str) {
+    public function dbg($str) {
         $args = func_get_args();
         if (count($args) > 1) {
             $str = vsprintf(array_shift($args), $args);
