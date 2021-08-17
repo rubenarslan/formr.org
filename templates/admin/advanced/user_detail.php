@@ -1,34 +1,13 @@
 <?php Template::loadChild('admin/header'); ?>
 
 <div class="content-wrapper">
-    <!-- Content Header (Page header) -->
-    <section class="content-header">
-        <h1><?php echo $run->name; ?> <small><a target="_blank" title="The official link to your run, which you can share with prospective users." href="<?php echo run_url($run->name, null, null) ?>"><?php echo run_url($run->name, null, null) ?></a></small> </h1>
-    </section>
-
     <!-- Main content -->
     <section class="content">
         <div class="row">
-            <div class="col-md-2">
-                <?php Template::loadChild('admin/run/menu'); ?>
-            </div>
             <div class="col-md-10">
                 <div class="box box-primary">
                     <div class="box-header with-border">
                         <h3 class="box-title">Log of user activity</h3>
-                        <div class="pull-right">
-                            <div class="dropdown"><a  href="#" data-toggle="dropdown" aria-expanded="false" class="btn btn-primary dropdown-toggle"><i class="fa fa-save"></i> Export User Overview</a>
-                                <ul class="dropdown-menu">
-                                    <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=csv'); ?>"><i class="fa fa-floppy-o"></i> Download CSV</a></li>
-                                    <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=csv_german'); ?>"><i class="fa fa-floppy-o"></i> Download German CSV</a></li>
-                                    <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=tsv'); ?>"><i class="fa fa-floppy-o"></i> Download TSV</a></li>
-                                    <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=xls'); ?>"><i class="fa fa-floppy-o"></i> Download XLS</a></li>
-                                    <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=xlsx'); ?>"><i class="fa fa-floppy-o"></i> Download XLSX</a></li>
-                                    <li><a href="<?= admin_run_url($run->name, 'export_user_detail?format=json'); ?>"><i class="fa fa-floppy-o"></i> Download JSON</a></li>
-                                </ul>
-                            </div>
-                        </div>
-
                     </div>
                     <div class="box-body">
                         <h4>
@@ -39,11 +18,16 @@
                         <?php Template::loadChild('public/alerts'); ?>
 
                         <div class="col-md-12" style="margin: 10px;">
-                            <form action="<?= admin_run_url($run->name, 'user_detail') ?>" method="get" class="form-inline">
+                            <form action="<?=site_url('admin/advanced/user_details')?>" method="get" class="form-inline">
                                 <label class="sr-only">Name</label>
                                 <div class="input-group" style="width: 350px;">
-                                    <div class="input-group-addon">SEARCH <i class="fa fa-user"></i></div>
-                                    <input name="session" value="<?= h(array_val($_GET, 'session')) ?>" type="text" class="form-control" placeholder="Session code">
+                                    <div class="input-group-addon"><i class="fa fa-rocket"></i></div>
+                                    <input name="run_name" value="<?= h(array_val($_GET, 'run_name')) ?>" type="text" class="form-control" placeholder="Run name">
+                                </div>
+
+                                <div class="input-group" style="width: 350px;">
+                                    <div class="input-group-addon"><i class="fa fa-user"></i></div>
+                                    <input name="session" value="<?= h(array_val($_GET, 'session')) ?>" type="text" class="form-control" placeholder="User code">
                                 </div>
 
                                 <label class="sr-only" title="This refers to the user's current position!">Position</label>
@@ -71,6 +55,7 @@
                                 <thead>
                                     <tr>
                                         <th>ID</th>
+                                        <th>Study</th>
                                         <th>Unit in Run</th>
                                         <th>Module Description</th>
                                         <th>User code</th>
@@ -97,6 +82,7 @@
                                         ?>
                                         <tr class="<?= $user_class . $continued ?>">
                                             <td><small><?=$row['session_id']?></small></td>
+                                            <td><?=$row['run_name']?></td>
                                             <td><?= $row['unit_type'] ?> <span class="hastooltip" title="position in run <?= $row['run_name'] ?>">(<?= $row['position'] ?>)</span></td>
                                             <td><small><?= $row['description'] ?></small></td>
                                             <td><small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="<?= h($row['session']) ?>"><?= mb_substr($row['session'], 0, 10) ?>…</abbr></small></td>
@@ -123,12 +109,6 @@
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
-                            <div class="pagination">
-                                <?php
-                                $append = $querystring ? "?" . http_build_query($querystring) . "&" : '';
-                                $pagination->render("admin/run/" . $run->name . "/user_detail" . $append);
-                                ?>
-                            </div>
                         <?php endif; ?>
 
                     </div>
@@ -141,5 +121,3 @@
     </section>
     <!-- /.content -->
 </div>
-<?php Template::loadChild('admin/run/run_modals', array('reminders' => !empty($reminders) ? $reminders : array())); ?>
-<?php Template::loadChild('admin/footer'); ?>

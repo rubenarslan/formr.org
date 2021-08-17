@@ -145,20 +145,22 @@ class EmailQueue extends Queue {
         }
     }
 
-    protected function logResult($session_id, $status_code, $result, $result_log = null) {
+    protected function logResult($session_id, $email_id, $status_code, $result, $result_log = null) {
         $this->db->exec('UPDATE `survey_email_log` 
                             SET `status` = :status_code, 
                                 `sent` = NOW()
-                            WHERE `session_id` = :session_id', array(
-                                'session_id' => $session_id,
+                            WHERE `id` = :id', array(
+                                'id' => $email_id,
                                 'status_code' => $status_code));
-        $this->db->exec('UPDATE `survey_unit_sessions` 
-                                SET `result` = :result, 
-                                    `result_log` = :resultlog
-                                WHERE `id` = :session_id', array(
-                                    'session_id' => $session_id,
-                                    'result' => $result,
-                                    'resultlog' => $result_log));
+        if($session_id) {
+            $this->db->exec('UPDATE `survey_unit_sessions` 
+                                    SET `result` = :result, 
+                                        `result_log` = :resultlog
+                                    WHERE `id` = :session_id', array(
+                                        'session_id' => $session_id,
+                                        'result' => $result,
+                                        'resultlog' => $result_log));
+        }
     }
     
     protected function deactivateAccount($account_id) {
@@ -188,11 +190,11 @@ class EmailQueue extends Queue {
             $emailsStatement = $this->getEmailsStatement($account['account_id']);
             while ($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
                 if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL)) {
-                    $this->logResult($email['session_id'], self::STATUS_INVALID_RECIPIENT, "error_email_invalid_recipient");
+                    $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_RECIPIENT, "error_email_invalid_recipient");
                     continue;
                 }
                 if (!$email['subject']) {
-                    $this->logResult($email['session_id'], self::STATUS_INVALID_SUBJECT, "error_email_invalid_subject");
+                    $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_SUBJECT, "error_email_invalid_subject");
                     continue;
                 }
 
@@ -227,18 +229,18 @@ class EmailQueue extends Queue {
                 // Send mail
                 try {
                     if (($sent = $mailer->send())) {
-                        $this->logResult($email['session_id'], self::STATUS_SENT, "email_sent");
+                        $this->logResult($email['session_id'],  $email['id'], self::STATUS_SENT, "email_sent");
                         $this->dbg("Send Success. \n {$debugInfo}");
                     } else {
                         $this->dbg($mailer->ErrorInfo);
-                        $this->logResult($email['session_id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
+                        $this->logResult($email['session_id'],  $email['id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
                         throw new Exception($mailer->ErrorInfo);
                     }
                 } catch (Exception $e) {
                     //formr_log_exception($e, 'EmailQueue ' . $debugInfo);
                     $this->dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
                     $this->dbg($mailer->ErrorInfo);
-                    $this->logResult($email['session_id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
+                    $this->logResult($email['session_id'], $email['id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
                     // reset php mailer object for this account if smtp sending failed. Probably some limits have been hit
                     $this->closeSMTPConnection($account['account_id']);
                     $mailer = $this->getSMTPConnection($account);
