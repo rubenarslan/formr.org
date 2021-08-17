@@ -141,34 +141,47 @@ class External extends RunUnit {
             if ($expired) {
                 $this->expire();
                 return false;
-            } else {
-                return true; // wait for expiry or user
             }
-        } else {
-            if ($this->isR($this->address)) { ## if it's the user, redirect them
-                $goto = null;
-                $opencpu_vars = $this->getUserDataInRun($this->address);
-                $result = opencpu_evaluate($this->address, $opencpu_vars);
+        }
 
-                if ($result === null) {
-                    $this->session_result = "error_opencpu";
-                    return true; // don't go anywhere, wait for the error to be fixed!
-                } elseif ($result === false) {
-                    $this->session_result = "external_r_call_no_redirect";
-                    $this->end();
-                    return false; // go on, no redirect
-                } elseif ($this->isAddress($result)) {
-                    $this->session_result = "external_r_redirect";
-                    $goto = $result;
-                }
-            } else { // the simplest case, just an address
-                $this->session_result = "external_redirect";
-                $goto = $this->address;
+        $goto = null;
+        if ($this->isR($this->address)) { ## if it's the user, redirect them
+            $opencpu_vars = $this->getUserDataInRun($this->address);
+            $result = opencpu_evaluate($this->address, $opencpu_vars);
+
+            if ($result === null) {
+                $this->session_result = "error_opencpu";
+                $this->logResult();
+                return true; // don't go anywhere, wait for the error to be fixed!
+            } elseif ($result === false) {
+                $this->session_result = "external_r_call_no_redirect";
+                $this->end();
+                return false; // go on, no redirect
+            } elseif ($this->isAddress($result)) {
+                $this->session_result = "external_r_redirect";
+                $this->logResult();
+                $goto = $result;
+            } elseif ($result === true) {
+                $this->session_result = "external_try_again";
+                $this->logResult();
+                return true;
+            } else {
+                $this->session_result = "external_warning";
+                $this->session_error = "Externals should return true, false, or a http address. Interpreted as false.".
+                $this->end();
+                return false; // go on, no redirect                
             }
+        } else { // the simplest case, just an address
+            $this->session_result = "external_redirect";
+            $this->logResult();
+            $goto = $this->address;
+        }
+
+        
+        if($goto !== null && !$this->called_by_cron) {
             // replace the code placeholder, if any
             $goto = $this->makeAddress($goto);
-            $this->logResult();
-
+            
             // sometimes we aren't able to control the other end
             if ($this->api_end) {
                 $this->session_result = "external_wait_for_api";
@@ -176,9 +189,9 @@ class External extends RunUnit {
             } else {
                 $this->end();
             }
-
             redirect_to($goto);
             return !$this->api_end;
         }
+        return true;
     }
 }
