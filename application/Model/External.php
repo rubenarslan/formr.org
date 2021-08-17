@@ -135,7 +135,7 @@ class External extends RunUnit {
     }
 
     public function exec() {
-        // never redirect, if we're just in the cronjob. just test for expiry
+        // never redirect, if we're just in the cronjob. just text for expiry
         $expired = $this->hasExpired();
         if ($this->called_by_cron) {
             if ($expired) {
@@ -144,8 +144,9 @@ class External extends RunUnit {
             }
         }
 
-        $goto = null;
-        if ($this->isR($this->address)) { ## if it's the user, redirect them
+        // if it's the user, redirect them or do the call
+        if ($this->isR($this->address)) {
+            $goto = null;
             $opencpu_vars = $this->getUserDataInRun($this->address);
             $result = opencpu_evaluate($this->address, $opencpu_vars);
 
@@ -161,15 +162,6 @@ class External extends RunUnit {
                 $this->session_result = "external_r_redirect";
                 $this->logResult();
                 $goto = $result;
-            } elseif ($result === true) {
-                $this->session_result = "external_try_again";
-                $this->logResult();
-                return true;
-            } else {
-                $this->session_result = "external_warning";
-                $this->session_error = "Externals should return true, false, or a http address. Interpreted as false.".
-                $this->end();
-                return false; // go on, no redirect                
             }
         } else { // the simplest case, just an address
             $this->session_result = "external_redirect";
@@ -177,20 +169,22 @@ class External extends RunUnit {
             $goto = $this->address;
         }
 
-        
-        if($goto !== null && !$this->called_by_cron) {
-            // replace the code placeholder, if any
-            $goto = $this->makeAddress($goto);
-            
+        // replace the code placeholder, if any
+        $goto = $this->makeAddress($goto);
+
+        // never redirect if we're just in the cron job
+        if (!$this->called_by_cron) {
             // sometimes we aren't able to control the other end
-            if ($this->api_end) {
+            if (!$this->api_end) {
+                $this->end();
+                $this->run_session->execute();
+            } else {
                 $this->session_result = "external_wait_for_api";
                 $this->logResult();
-            } else {
-                $this->end();
             }
+
             redirect_to($goto);
-            return !$this->api_end;
+            return false;
         }
         return true;
     }
