@@ -422,7 +422,7 @@ plot(cars)
     public function expire() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
         $expired = $this->dbh->exec(
 			"UPDATE `survey_unit_sessions` SET `expired` = NOW(), 
-                `result` = 'expired' WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+                `result` = COALESCE(`result`, 'expired') WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
 			array('session_id' => $this->session_id, 'unit_id' => $this->id)
         );
 
