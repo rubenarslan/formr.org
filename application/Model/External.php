@@ -139,7 +139,7 @@ class External extends RunUnit {
         $expired = $this->hasExpired();
         if ($this->called_by_cron) {
             if ($expired) {
-                $this->expire();
+                $this->expire("external_expired");
                 return false;
             }
         }

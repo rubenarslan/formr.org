@@ -195,9 +195,7 @@ class RunSession {
                     formr_log("Dead queue item " . $referenceUnitSession->id, " mismatch " . $this->unit_session->id);
                     formr_log($referenceUnitSession);
                     formr_log($this->unit_session);
-                    UnitSessionQueue::removeItem($referenceUnitSession->id);
                     $referenceUnitSession = null;
-                    continue;
                 } else if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id == $this->unit_session->id && !$executeReferenceUnit) {
                     # if we are calling this from the queue and the session is still current
                     $this->endUnitSession($unit_info); # then just end the session, don't execute it

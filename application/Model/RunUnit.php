@@ -412,23 +412,23 @@ plot(cars)
 
         if ($ended === 1) {
             $this->ended = true;
-            UnitSessionQueue::removeItem($this->session_id, $this->id);
             return true;
         }
 
         return false;
     }
 
-    public function expire() { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
+    public function expire($reason = "expired") { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
+        $this->session_result = $reason;
         $expired = $this->dbh->exec(
 			"UPDATE `survey_unit_sessions` SET `expired` = NOW(), 
-                `result` = COALESCE(`result`, 'expired') WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
-			array('session_id' => $this->session_id, 'unit_id' => $this->id)
+                `result` = COALESCE(`result`, :result) WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array('session_id' => $this->session_id,
+            'result' => $this->session_result, 'unit_id' => $this->id)
         );
 
         if ($expired === 1) {
             $this->expired = true;
-            UnitSessionQueue::removeItem($this->session_id, $this->id);
             return true;
         }
 

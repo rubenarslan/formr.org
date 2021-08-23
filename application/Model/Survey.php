@@ -1132,8 +1132,7 @@ class Survey extends RunUnit {
         if ($this->called_by_cron) {
             if ($expired) {
                 $this->session_result = "survey_expired";
-                $this->logResult();
-                $this->expire();
+                $this->expire($this->session_result);
                 return false;
             }
             return true;
@@ -1530,7 +1529,7 @@ class Survey extends RunUnit {
             // If there are items to delete, check if user confirmed deletion and if so check if back up succeeded
             if (count($deleted) > 0) {
                 if ($this->realDataExists() && !$this->confirmed_deletion) {
-                    $deleted_columns_string = implode(array_keys($deleted), ", ");
+                    $deleted_columns_string = implode(", ", array_keys($deleted));
                     $this->errors[] = "<strong>No permission to delete data</strong>. Enter the survey name, if you are okay with data being deleted from the following items: " . $deleted_columns_string;
                 }
                 if ($this->realDataExists() && $this->confirmed_deletion && !$this->backupResults($old_items_in_results)) {
