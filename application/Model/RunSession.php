@@ -177,6 +177,7 @@ class RunSession {
                   // if there is one, spin that shit
                 if($last_unit === $unit_info["unit_id"]) {
                     formr_log($this->run_name . " unit ". $last_unit ." would have been repeated.");
+                    formr_log($unit_info);
                     alert('The same unit is being repeated. This is an error.', 'alert-danger');
                     return array('body' => '');
                 }
@@ -191,7 +192,9 @@ class RunSession {
 
                 if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id != $this->unit_session->id) {
                     // dead queue item, remove from queue
-                    formr_log("Dead queue item " . $referenceUnitSession->id);
+                    formr_log("Dead queue item " . $referenceUnitSession->id, " mismatch " . $this->unit_session->id);
+                    formr_log($referenceUnitSession);
+                    formr_log($this->unit_session);
                     UnitSessionQueue::removeItem($referenceUnitSession->id);
                     $referenceUnitSession = null;
                     continue;
@@ -248,12 +251,11 @@ class RunSession {
             $unit = $unit_factory->make($this->dbh, null, $unit, $this, $this->run);
             if ($unit->type == "Survey" || $unit->type == "External") {
                 if($unit->type == "Survey") {
-                    $unit->session_result = "survey_expired";
+                    $unit->session_result = "survey_expired_q";
                 } else if($unit->type == "External") {
-                    $unit->session_result = "external_expired";
+                    $unit->session_result = "external_expired_q";
                 }
-                $unit->logResult();
-                $unit->expire();
+                $unit->expire($unit->session_result);
             } else {
                 if ($reason !== null) {
                   $unit->session_result = $reason;
