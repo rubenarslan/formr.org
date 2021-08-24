@@ -156,10 +156,7 @@ class RunSession {
 
         $last_unit = null;
         $output = false;
-        $deep_log = false;
-        if($deep_log) formr_log($this->run_name);
         while (!$output): // only when there is something to display, stop.
-            if($deep_log) formr_log($i);
             $i++;
             if ($i > 20) {
                 if (!empty($user) && ($user->isCron() || $user->isAdmin())) {
@@ -170,14 +167,9 @@ class RunSession {
                 return array('body' => '');
             }
 
-            if($deep_log) formr_log($referenceUnitSession, "refUS");
-            if($deep_log) formr_log($executeReferenceUnit, "execute");
             $unit_info = $this->getCurrentUnit(); // get first unit in line
-            if($deep_log) formr_log($unit_info, "gcu");
-
 //            formr_log($unit_info);
             if (!$unit_info) {
-                if($deep_log) formr_log("no unit found");
                 if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
                     return array('body' => ''); // if that fails because the run is wrongly configured, return nothing
                 }
@@ -192,7 +184,6 @@ class RunSession {
                 $last_unit = $unit_info["unit_id"];
             
                 if ($this->cron) {
-                    if($deep_log) formr_log("queue running");
                     $unit_info['cron'] = true;
                 }
 
@@ -201,13 +192,12 @@ class RunSession {
 
                 if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id != $this->unit_session->id) {
                     // dead queue item, remove from queue
-                    formr_log("Dead queue item " . $referenceUnitSession->id . " mismatch " . $this->unit_session->id);
+                    formr_log("Dead queue item " . $referenceUnitSession->id, " mismatch " . $this->unit_session->id);
                     formr_log($referenceUnitSession);
                     formr_log($this->unit_session);
                     $referenceUnitSession = null;
                 } else if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id == $this->unit_session->id && !$executeReferenceUnit) {
-                    # if we are calling this from the queue and the session is still current, but we know it only needs to end
-                    if($deep_log) formr_log($unit_info, "end US");
+                    # if we are calling this from the queue and the session is still current
                     $this->endUnitSession($unit_info); # then just end the session, don't execute it
                     $referenceUnitSession = null;
                     continue;
@@ -215,17 +205,10 @@ class RunSession {
 
                 try {
                     $output = $unit->exec();
-                    $referenceUnitSession = null; // if we got this far, we no longer use the reference unit session
-
-                    if($deep_log) formr_log($output, "output");
-
                     //@TODO check whether output is set or NOT
                     $queue = $this->run && $this->run->cron_active && $this->unit_session->id && !$unit->ended && !$unit->expired;
-                    if($deep_log) formr_log($queue, "queue");
-
                     if ($queue) {
                         $queued = UnitSessionQueue::addItem($this->unit_session, $unit, $output);
-                        if($deep_log) formr_log($queued, "queued");
                     }
 
                     if (!$output && is_object($unit)) {
@@ -243,12 +226,10 @@ class RunSession {
                 }
             }
         endwhile;
-        if($deep_log) formr_log($done, "done");
 
         if ($this->cron) {
             return $done;
         }
-        if($deep_log) formr_log($output, "final output");
 
         return $output;
     }
