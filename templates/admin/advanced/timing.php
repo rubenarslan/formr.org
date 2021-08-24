@@ -1,0 +1,20 @@
+<table>
+<tr>
+	<th>
+		PHP
+	</th>
+	<td><?=$php?></td>
+</tr>
+<tr>
+	<th>
+		DB
+	</th>
+	<td><?=$db?></td>
+</tr>
+<tr>
+	<th>
+		OCPU
+	</th>
+	<td><?=$ocpu?></td>
+</tr>
+</table>

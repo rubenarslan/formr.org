@@ -31,24 +31,32 @@ class UnitSession {
 
     public function create($new_current_unit = TRUE) {
         // only one can be current unit session at all times
-        $this->dbh->beginTransaction();
-        $now = mysql_now();
-        $this->id = $this->dbh->insert('survey_unit_sessions', array(
-            'unit_id' => $this->unit_id,
-            'run_session_id' => $this->run_session_id,
-            'created' => $now
-        ));
-        if($this->run_session_id !== null && $new_current_unit) {
-                $this->dbh->update('survey_run_sessions', 
-                array("current_unit_session_id" => $this->id), 
-                array("id" => $this->run_session_id));
-            $this->dbh->update('survey_unit_sessions', 
-                array("queued" => -9), 
-                array("run_session_id" => $this->run_session_id,
-                    "id <>" => $this->id,
-                    "queued > " => 0));
+        try {
+            $this->dbh->beginTransaction();
+            $now = mysql_now();
+            $this->id = $this->dbh->insert('survey_unit_sessions', array(
+                'unit_id' => $this->unit_id,
+                'run_session_id' => $this->run_session_id,
+                'created' => $now
+            ));
+
+            if ($this->run_session_id !== null && $new_current_unit) {
+                $this->dbh->update('survey_run_sessions',
+                        array("current_unit_session_id" => $this->id),
+                        array("id" => $this->run_session_id));
+                
+                $this->dbh->update('survey_unit_sessions',
+                        array("queued" => -9),
+                        array("run_session_id" => $this->run_session_id,
+                            "id <>" => $this->id,
+                            "queued > " => 0));
+            }
+
+            $this->dbh->commit();
+        } catch (Exception $e) {
+            $this->dbh->rollBack();
         }
-        $this->dbh->commit();
+        
         $this->created = $now;
         return $this->id;
     }
