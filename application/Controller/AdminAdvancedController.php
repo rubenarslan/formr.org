@@ -23,6 +23,20 @@ class AdminAdvancedController extends Controller {
         return $this->sendResponse();
     }
 
+    public function timingAction() {
+        $ocpu = OpenCPU::getInstance('opencpu_instance');
+
+        $db_time = $this->fdb->query("SELECT NOW();")[0]["NOW()"];
+
+        $ocpu_time = $ocpu->post('/base/R/Sys.time/json')->getRawResult();
+
+        $this->setView('admin/advanced/timing', array(
+            "php" => mysql_datetime(), 
+            "db" => $db_time, 
+            "ocpu" => $ocpu_time));
+        return $this->sendResponse();
+    }
+
     public function testOpencpuAction() {
         $this->setView('admin/advanced/test_opencpu');
         return $this->sendResponse();

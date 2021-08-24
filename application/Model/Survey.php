@@ -1132,8 +1132,7 @@ class Survey extends RunUnit {
         if ($this->called_by_cron) {
             if ($expired) {
                 $this->session_result = "survey_expired";
-                $this->logResult();
-                $this->expire();
+                $this->expire($this->session_result);
                 return false;
             }
             return true;
