@@ -174,7 +174,6 @@ class Run {
     public function rename($new_name) {
         $name = trim($new_name);
         $this->dbh->update('survey_runs', array('name' => $name), array('id' => $this->id));
-        $this->dbh->update('survey_sessions_queue', array('run' => $name), array('run' => $this->name));
         return true;
     }
 
