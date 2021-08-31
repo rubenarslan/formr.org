@@ -194,11 +194,12 @@ class EmailQueue extends Queue {
             list($username, $password) = explode(EmailAccount::AK_GLUE, Crypto::decrypt($account['auth_key']), 2);
             $account['username'] = $username;
             $account['password'] = $password;
+
+             /* @var PHPMailer\PHPMailer\PHPMailer $mailer */
+            $mailer = $this->getSMTPConnection($account);
             
             $emailsStatement = $this->getEmailsStatement($account['account_id']);
             while ($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
-                /* @var PHPMailer\PHPMailer\PHPMailer $mailer */
-                $mailer = $this->getSMTPConnection($account);
                 
                 if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL)) {
                     $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_RECIPIENT, "error_email_invalid_recipient");
@@ -254,6 +255,9 @@ class EmailQueue extends Queue {
                     $this->logResult($email['session_id'], $email['id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
                     // reset php mailer object for this account if smtp sending failed. Probably some limits have been hit
                     $this->closeSMTPConnection($account['account_id']);
+                    
+                    // Get a new connection if we encounter an error
+                    $mailer = $this->getSMTPConnection($account);
                 }
 
                 $mailer->clearAddresses();
