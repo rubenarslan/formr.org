@@ -406,8 +406,12 @@ plot(cars)
                 `result` = :result, 
                 `result_log` = COALESCE(`result_log`, :result_log) 
                 WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
-			array('session_id' => $this->session_id, 'unit_id' => $this->id,
-            'result' => $this->session_result, 'result_log' => $this->session_error)
+			array(
+                'session_id' => $this->session_id, 
+                'unit_id' => $this->id, 
+                'result' => substr($this->session_result, 0, 19), 
+                'result_log' => $this->session_error
+             )
         );
 
         if ($ended === 1) {
@@ -421,10 +425,15 @@ plot(cars)
     public function expire($reason = "expired") { // todo: logically this should be part of the Unit Session Model, but I messed up my logic somehow
         $this->session_result = $reason;
         $expired = $this->dbh->exec(
-			"UPDATE `survey_unit_sessions` SET `expired` = NOW(), 
-                `result` = COALESCE(`result`, :result) WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
-			array('session_id' => $this->session_id,
-            'result' => $this->session_result, 'unit_id' => $this->id)
+			"UPDATE `survey_unit_sessions` SET 
+                `expired` = NOW(), 
+                `result` = COALESCE(`result`, :result) 
+               WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
+			array(
+                'session_id' => $this->session_id,
+                'result' => substr($this->session_result, 0, 19),
+                'unit_id' => $this->id
+            )
         );
 
         if ($expired === 1) {
@@ -746,8 +755,12 @@ plot(cars)
                 `result` = :result, 
                 `result_log` = COALESCE(`result_log`, :result_log) 
                 WHERE `id` = :session_id AND `unit_id` = :unit_id AND `ended` IS NULL LIMIT 1", 
-			array('session_id' => $this->session_id, 'unit_id' => $this->id,
-            'result' => $this->session_result, 'result_log' => $this->session_error)
+			array(
+                'session_id' => $this->session_id,
+                'unit_id' => $this->id,
+                'result' => substr($this->session_result, 0, 19),
+                'result_log' => $this->session_error
+            )
         );
 
         return $log;

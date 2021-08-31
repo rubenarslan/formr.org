@@ -186,6 +186,7 @@ class External extends RunUnit {
             redirect_to($goto);
             return false;
         }
+        
         return true;
     }
 }
