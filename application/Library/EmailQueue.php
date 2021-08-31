@@ -97,13 +97,19 @@ class EmailQueue extends Queue {
     }
 
     /**
+     * Create an SMTP instance given an 'account' object
+     * If the instance is already created and connected then we return it.
      *
      * @param array $account
      * @return PHPMailer
      */
     protected function getSMTPConnection($account) {
         $account_id = $account['account_id'];
-        if (!isset($this->connections[$account_id])) {
+        $account_connected = isset($this->connections[$account_id]) && $this->connections[$account_id]->getSMTPInstance()->connected();
+
+        if (!$account_connected) {
+            $this->closeSMTPConnection($account_id);
+            
             $mail = new PHPMailer();
             $mail->SetLanguage("de", "/");
 
@@ -136,11 +142,14 @@ class EmailQueue extends Queue {
 
             $this->connections[$account_id] = $mail;
         }
+        
         return $this->connections[$account_id];
     }
 
     protected function closeSMTPConnection($account_id) {
         if (isset($this->connections[$account_id])) {
+            $this->connections[$account_id]->getSMTPInstance()->quit(true);
+            $this->connections[$account_id]->getSMTPInstance()->close();
             unset($this->connections[$account_id]);
         }
     }
@@ -185,10 +194,12 @@ class EmailQueue extends Queue {
             list($username, $password) = explode(EmailAccount::AK_GLUE, Crypto::decrypt($account['auth_key']), 2);
             $account['username'] = $username;
             $account['password'] = $password;
-
-            $mailer = $this->getSMTPConnection($account);
+            
             $emailsStatement = $this->getEmailsStatement($account['account_id']);
             while ($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
+                /* @var PHPMailer\PHPMailer\PHPMailer $mailer */
+                $mailer = $this->getSMTPConnection($account);
+                
                 if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL)) {
                     $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_RECIPIENT, "error_email_invalid_recipient");
                     continue;
@@ -243,7 +254,6 @@ class EmailQueue extends Queue {
                     $this->logResult($email['session_id'], $email['id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
                     // reset php mailer object for this account if smtp sending failed. Probably some limits have been hit
                     $this->closeSMTPConnection($account['account_id']);
-                    $mailer = $this->getSMTPConnection($account);
                 }
 
                 $mailer->clearAddresses();
@@ -251,12 +261,12 @@ class EmailQueue extends Queue {
                 $mailer->clearAllRecipients();
                 $this->clearFiles($files);
             }
+            
             // close sql emails cursor after processing batch
             $emailsStatement->closeCursor();
-            // check if smtp connection is lost and kill object
-            if (!$mailer->getSMTPInstance()->connected()) {
-                $this->closeSMTPConnection($account['account_id']);
-            }
+            
+            // close connection after processing all emails for that account
+            $this->closeSMTPConnection($account['account_id']);
         }
         $emailAccountsStatement->closeCursor();
         return true;
