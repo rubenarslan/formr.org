@@ -409,7 +409,7 @@ plot(cars)
 			array(
                 'session_id' => $this->session_id, 
                 'unit_id' => $this->id, 
-                'result' => substr($this->session_result, 0, 19), 
+                'result' => substr($this->session_result, 0, 39), 
                 'result_log' => $this->session_error
              )
         );
@@ -758,7 +758,7 @@ plot(cars)
 			array(
                 'session_id' => $this->session_id,
                 'unit_id' => $this->id,
-                'result' => substr($this->session_result, 0, 19),
+                'result' => substr($this->session_result, 0, 39),
                 'result_log' => $this->session_error
             )
         );
