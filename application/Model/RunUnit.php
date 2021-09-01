@@ -91,7 +91,7 @@ class RunUnit {
     protected $non_user_tables = array(
         'survey_users' => array("created", "modified", "user_code", "email", "email_verified", "mobile_number", "mobile_verified"),
         'survey_run_sessions' => array("session", "created", "last_access", "position", "current_unit_id", "deactivated", "no_email"),
-        'survey_unit_sessions' => array("created", "ended", 'expired', "unit_id", "position", "type"),
+        'survey_unit_sessions' => array("created", "ended", 'expired', "unit_id", "position", "type", "result", "result_log"),
         'externals' => array("created", "ended", 'expired', "position"),
         'survey_items_display' => array("created", "answered_time", "answered", "displaycount", "item_id"),
         'survey_email_log' => array("email_id", "created", "recipient"),
