@@ -162,6 +162,12 @@ class External extends RunUnit {
                 $this->session_result = "external_r_redirect";
                 $this->logResult();
                 $goto = $result;
+            } else {
+                $this->session_result = "external_compute";
+                $this->session_error = $result;
+                $this->logResult();
+                $this->end();
+                return false;
             }
         } else { // the simplest case, just an address
             $this->session_result = "external_redirect";
