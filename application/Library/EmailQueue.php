@@ -105,7 +105,7 @@ class EmailQueue extends Queue {
      */
     protected function getSMTPConnection($account, $account_connected = null) {
         $account_id = $account['account_id'];
-        if(! isset($this->connections[$account_id])) {
+        if(!isset($this->connections[$account_id])) {
             $account_connected = false;
         } else if($account_connected === false) {
             $this->closeSMTPConnection($account_id);   
@@ -182,13 +182,21 @@ class EmailQueue extends Queue {
         WHERE id = :id', array("id" => (int) $account_id));
     }
 
-    protected function sendEmail($email, $account, $iteration = 1) {
-        $account_id = $account['account_id'];
-        $mailer = $this->connections[$account_id];
+    /**
+     * 
+     * @param \PHPMailer\PHPMailer\PHPMailer $mailer
+     * @param array $email [recipient, subject, message, session_id, meta]
+     * @param array $account [account_id, from, from_name]
+     * @param boolean $first_try Indicates if we are trying to send the email for the first time
+     * 
+     * @return boolean Returns TRUE is email was sent and FALSE otherwise
+     */
+    protected function sendEmail($mailer, $email, $account, $first_try = true) {
         if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL)) {
             $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_RECIPIENT, "error_email_invalid_recipient");
             return false;
         }
+        
         if (!$email['subject']) {
             $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_SUBJECT, "error_email_invalid_subject");
             return false;
@@ -201,6 +209,7 @@ class EmailQueue extends Queue {
         $mailer->msgHTML($email['message']);
         $mailer->addAddress($email['recipient']);
         $files = array();
+        
         // add emdedded images
         if (!empty($meta['embedded_images'])) {
             foreach ($meta['embedded_images'] as $imageId => $image) {
@@ -212,6 +221,7 @@ class EmailQueue extends Queue {
                 }
             }
         }
+        
         // add attachments (attachments MUST be paths to local file
         if (!empty($meta['attachments'])) {
             foreach ($meta['attachments'] as $attachment) {
@@ -237,20 +247,24 @@ class EmailQueue extends Queue {
             $this->dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
             $this->dbg($mailer->ErrorInfo);
             $this->logResult($email['session_id'], $email['id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
-            // reset php mailer object for this account if smtp sending failed. Probably some limits have been hit
+
+            // Always try a new connection if we encounter an error and smtp client is not connected
+            $mailer = $this->getSMTPConnection($account, $mailer->getSMTPInstance()->connected());
             
-            if($iteration == 1 && !$mailer->getSMTPInstance()->connected()) {
-                $mailer = $this->getSMTPConnection($account, true); // Get a new connection if we encounter an error
-                $this->sendEmail($mailer, $email, $account, $iteration = 2);
+            // Try sending this particular email one more time otherwise give up
+            if($first_try) {
+                return $this->sendEmail($mailer, $email, $account, false);
             } else {
-                return false;
+                $sent = false;
             }
         }
+
         $mailer->clearAddresses();
         $mailer->clearAttachments();
         $mailer->clearAllRecipients();
         $this->clearFiles($files);
-        return true;
+        
+        return $sent;
     }
 
     protected function processQueue($account_id = null) {
@@ -271,11 +285,11 @@ class EmailQueue extends Queue {
             $account['password'] = $password;
 
              /* @var PHPMailer\PHPMailer\PHPMailer $mailer */
-            $this->getSMTPConnection($account);
+            $mailer = $this->getSMTPConnection($account);
             
             $emailsStatement = $this->getEmailsStatement($account['account_id']);
             while ($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
-                $mail_sent = $this->sendEmail($email, $account);
+                $mail_sent = $this->sendEmail($mailer, $email, $account);
             }
             
             // close sql emails cursor after processing batch
@@ -284,6 +298,7 @@ class EmailQueue extends Queue {
             // close connection after processing all emails for that account
             $this->closeSMTPConnection($account['account_id']);
         }
+        
         $emailAccountsStatement->closeCursor();
         return true;
     }
