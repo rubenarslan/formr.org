@@ -135,7 +135,7 @@
                                                 else if (!empty($user['result_log'])) $label_class = "label-warning";
                                                 ?>
 
-                                                <small class="label <?=$label_class?> hastooltip" title="<?php echo $user['result_log']; ?>"><?php echo $user['result'];?></small>
+                                                <small class="label <?=$label_class?> hastooltip" title="<?php echo h($user['result_log']); ?>"><?php echo $user['result'];?></small>
                                                 <?php if(!empty( $user['expires'])) { ?>
                                                 <small class="label label-info hastooltip" title="<?php echo $user['expires']; ?>">expires in <?php echo timetostr(strtotime($user['expires'])); ?></small>
                                                 <?php 
