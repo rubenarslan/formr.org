@@ -2,7 +2,7 @@
 
 /**
  * UnitSessionQueue
- * Process unit sessions in unit_sessions_queue
+ * Process unit sessions in survey_unit_sessions
  *
  */
 class UnitSessionQueue extends Queue {
