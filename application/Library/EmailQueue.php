@@ -97,50 +97,63 @@ class EmailQueue extends Queue {
     }
 
     /**
+     * Create an SMTP instance given an 'account' object
+     * If the instance is already created and connected then we return it.
      *
      * @param array $account
      * @return PHPMailer
      */
-    protected function getSMTPConnection($account) {
+    protected function getSMTPConnection($account, $account_connected = null) {
         $account_id = $account['account_id'];
-        if (!isset($this->connections[$account_id])) {
-            $mail = new PHPMailer();
-            $mail->SetLanguage("de", "/");
+        if(!isset($this->connections[$account_id])) {
+            $account_connected = false;
+        } else if($account_connected === false) {
+            $this->closeSMTPConnection($account_id);   
+        } else {
+            $account_connected = true;
+        }
 
-            $mail->isSMTP();
-            $mail->SMTPAuth = true;
-            $mail->SMTPKeepAlive = true;
-            $mail->Mailer = "smtp";
-            $mail->Host = $account['host'];
-            $mail->Port = $account['port'];
+        if (!$account_connected) {            
+            $mailer = new PHPMailer();
+            $mailer->SetLanguage("de", "/");
+
+            $mailer->isSMTP();
+            $mailer->SMTPAuth = true;
+            $mailer->SMTPKeepAlive = true;
+            $mailer->Mailer = "smtp";
+            $mailer->Host = $account['host'];
+            $mailer->Port = $account['port'];
             if ($account['tls']) {
-                $mail->SMTPSecure = 'tls';
+                $mailer->SMTPSecure = 'tls';
             } else {
-                $mail->SMTPSecure = 'ssl';
+                $mailer->SMTPSecure = 'ssl';
             }
             if (isset($account['username'])) {
-                $mail->Username = $account['username'];
-                $mail->Password = $account['password'];
+                $mailer->Username = $account['username'];
+                $mailer->Password = $account['password'];
             } else {
-                $mail->SMTPAuth = false;
-                $mail->SMTPSecure = false;
+                $mailer->SMTPAuth = false;
+                $mailer->SMTPSecure = false;
             }
-            $mail->setFrom($account['from'], $account['from_name']);
-            $mail->AddReplyTo($account['from'], $account['from_name']);
-            $mail->CharSet = "utf-8";
-            $mail->WordWrap = 65;
-            $mail->AllowEmpty = true;
+            $mailer->setFrom($account['from'], $account['from_name']);
+            $mailer->AddReplyTo($account['from'], $account['from_name']);
+            $mailer->CharSet = "utf-8";
+            $mailer->WordWrap = 65;
+            $mailer->AllowEmpty = true;
             if (is_array(Config::get('email.smtp_options'))) {
-                $mail->SMTPOptions = array_merge($mail->SMTPOptions, Config::get('email.smtp_options'));
+                $mailer->SMTPOptions = array_merge($mailer->SMTPOptions, Config::get('email.smtp_options'));
             }
 
-            $this->connections[$account_id] = $mail;
+            $this->connections[$account_id] = $mailer;
         }
+        
         return $this->connections[$account_id];
     }
 
     protected function closeSMTPConnection($account_id) {
         if (isset($this->connections[$account_id])) {
+            $this->connections[$account_id]->getSMTPInstance()->quit(true);
+            $this->connections[$account_id]->getSMTPInstance()->close();
             unset($this->connections[$account_id]);
         }
     }
@@ -169,6 +182,91 @@ class EmailQueue extends Queue {
         WHERE id = :id', array("id" => (int) $account_id));
     }
 
+    /**
+     * 
+     * @param \PHPMailer\PHPMailer\PHPMailer $mailer
+     * @param array $email [recipient, subject, message, session_id, meta]
+     * @param array $account [account_id, from, from_name]
+     * @param boolean $first_try Indicates if we are trying to send the email for the first time
+     * 
+     * @return boolean Returns TRUE is email was sent and FALSE otherwise
+     */
+    protected function sendEmail($mailer, $email, $account, $first_try = true) {
+        if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL)) {
+            $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_RECIPIENT, "error_email_invalid_recipient");
+            return false;
+        }
+        
+        if (!$email['subject']) {
+            $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_SUBJECT, "error_email_invalid_subject");
+            return false;
+        }
+
+        $meta = json_decode($email['meta'], true);
+        $debugInfo = json_encode(array('id' => $email['id'], 's' => $email['subject'], 'r' => $email['recipient'], 'f' => $account['from']));
+
+        $mailer->Subject = $email['subject'];
+        $mailer->msgHTML($email['message']);
+        $mailer->addAddress($email['recipient']);
+        $files = array();
+        
+        // add emdedded images
+        if (!empty($meta['embedded_images'])) {
+            foreach ($meta['embedded_images'] as $imageId => $image) {
+                $localImage = APPLICATION_ROOT . 'tmp/formrEA' . uniqid() . $imageId;
+                copy($image, $localImage);
+                $files[] = $localImage;
+                if (!$mailer->addEmbeddedImage($localImage, $imageId, $imageId, 'base64', 'image/png')) {
+                    $this->dbg("Unable to attach image: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
+                }
+            }
+        }
+        
+        // add attachments (attachments MUST be paths to local file
+        if (!empty($meta['attachments'])) {
+            foreach ($meta['attachments'] as $attachment) {
+                $files[] = $attachment;
+                if (!$mailer->addAttachment($attachment, basename($attachment))) {
+                    $this->dbg("Unable to add attachment {$attachment} \n" . $mailer->ErrorInfo . ".\n {$debugInfo}");
+                }
+            }
+        }
+
+        // Send mail
+        try {
+            if (($sent = $mailer->send())) {
+                $this->logResult($email['session_id'],  $email['id'], self::STATUS_SENT, "email_sent");
+                $this->dbg("Send Success. \n {$debugInfo}");
+            } else {
+                $this->dbg($mailer->ErrorInfo);
+                $this->logResult($email['session_id'],  $email['id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
+                throw new Exception($mailer->ErrorInfo);
+            }
+        } catch (Exception $e) {
+            //formr_log_exception($e, 'EmailQueue ' . $debugInfo);
+            $this->dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
+            $this->dbg($mailer->ErrorInfo);
+            $this->logResult($email['session_id'], $email['id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
+
+            // Always try a new connection if we encounter an error and smtp client is not connected
+            $mailer = $this->getSMTPConnection($account, $mailer->getSMTPInstance()->connected());
+            
+            // Try sending this particular email one more time otherwise give up
+            if($first_try) {
+                return $this->sendEmail($mailer, $email, $account, false);
+            } else {
+                $sent = false;
+            }
+        }
+
+        $mailer->clearAddresses();
+        $mailer->clearAttachments();
+        $mailer->clearAllRecipients();
+        $this->clearFiles($files);
+        
+        return $sent;
+    }
+
     protected function processQueue($account_id = null) {
         $emailAccountsStatement = $this->getEmailAccountsStatement($account_id);
         if ($emailAccountsStatement->rowCount() <= 0) {
@@ -186,78 +284,19 @@ class EmailQueue extends Queue {
             $account['username'] = $username;
             $account['password'] = $password;
 
-            $mailer = $this->getSMTPConnection($account);
+
             $emailsStatement = $this->getEmailsStatement($account['account_id']);
             while ($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
-                if (!filter_var($email['recipient'], FILTER_VALIDATE_EMAIL)) {
-                    $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_RECIPIENT, "error_email_invalid_recipient");
-                    continue;
-                }
-                if (!$email['subject']) {
-                    $this->logResult($email['session_id'], $email['id'], self::STATUS_INVALID_SUBJECT, "error_email_invalid_subject");
-                    continue;
-                }
-
-                $meta = json_decode($email['meta'], true);
-                $debugInfo = json_encode(array('id' => $email['id'], 's' => $email['subject'], 'r' => $email['recipient'], 'f' => $account['from']));
-
-                $mailer->Subject = $email['subject'];
-                $mailer->msgHTML($email['message']);
-                $mailer->addAddress($email['recipient']);
-                $files = array();
-                // add emdedded images
-                if (!empty($meta['embedded_images'])) {
-                    foreach ($meta['embedded_images'] as $imageId => $image) {
-                        $localImage = APPLICATION_ROOT . 'tmp/formrEA' . uniqid() . $imageId;
-                        copy($image, $localImage);
-                        $files[] = $localImage;
-                        if (!$mailer->addEmbeddedImage($localImage, $imageId, $imageId, 'base64', 'image/png')) {
-                            $this->dbg("Unable to attach image: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
-                        }
-                    }
-                }
-                // add attachments (attachments MUST be paths to local file
-                if (!empty($meta['attachments'])) {
-                    foreach ($meta['attachments'] as $attachment) {
-                        $files[] = $attachment;
-                        if (!$mailer->addAttachment($attachment, basename($attachment))) {
-                            $this->dbg("Unable to add attachment {$attachment} \n" . $mailer->ErrorInfo . ".\n {$debugInfo}");
-                        }
-                    }
-                }
-
-                // Send mail
-                try {
-                    if (($sent = $mailer->send())) {
-                        $this->logResult($email['session_id'],  $email['id'], self::STATUS_SENT, "email_sent");
-                        $this->dbg("Send Success. \n {$debugInfo}");
-                    } else {
-                        $this->dbg($mailer->ErrorInfo);
-                        $this->logResult($email['session_id'],  $email['id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
-                        throw new Exception($mailer->ErrorInfo);
-                    }
-                } catch (Exception $e) {
-                    //formr_log_exception($e, 'EmailQueue ' . $debugInfo);
-                    $this->dbg("Send Failure: " . $mailer->ErrorInfo . ".\n {$debugInfo}");
-                    $this->dbg($mailer->ErrorInfo);
-                    $this->logResult($email['session_id'], $email['id'], self::STATUS_FAILED_TO_SEND, "error_email_not_sent", $mailer->ErrorInfo);
-                    // reset php mailer object for this account if smtp sending failed. Probably some limits have been hit
-                    $this->closeSMTPConnection($account['account_id']);
-                    $mailer = $this->getSMTPConnection($account);
-                }
-
-                $mailer->clearAddresses();
-                $mailer->clearAttachments();
-                $mailer->clearAllRecipients();
-                $this->clearFiles($files);
+                $mail_sent = $this->sendEmail($this->getSMTPConnection($account), $email, $account);
             }
+            
             // close sql emails cursor after processing batch
             $emailsStatement->closeCursor();
-            // check if smtp connection is lost and kill object
-            if (!$mailer->getSMTPInstance()->connected()) {
-                $this->closeSMTPConnection($account['account_id']);
-            }
+            
+            // close connection after processing all emails for that account
+            $this->closeSMTPConnection($account['account_id']);
         }
+        
         $emailAccountsStatement->closeCursor();
         return true;
     }
