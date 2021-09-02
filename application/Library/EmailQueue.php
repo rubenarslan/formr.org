@@ -284,12 +284,10 @@ class EmailQueue extends Queue {
             $account['username'] = $username;
             $account['password'] = $password;
 
-             /* @var PHPMailer\PHPMailer\PHPMailer $mailer */
-            $mailer = $this->getSMTPConnection($account);
-            
+
             $emailsStatement = $this->getEmailsStatement($account['account_id']);
             while ($email = $emailsStatement->fetch(PDO::FETCH_ASSOC)) {
-                $mail_sent = $this->sendEmail($mailer, $email, $account);
+                $mail_sent = $this->sendEmail($this->getSMTPConnection($account), $email, $account);
             }
             
             // close sql emails cursor after processing batch
