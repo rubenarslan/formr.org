@@ -2,74 +2,53 @@
 
 class Branch extends RunUnit {
 
-    public $errors = array();
-    public $id = null;
-    public $session = null;
-    public $unit = null;
     protected $condition = null;
     protected $if_true = null;
     protected $automatically_jump = 1;
     protected $automatically_go_on = 1;
+    
     public $type = 'Branch';
     public $icon = 'fa-code-fork fa-flip-vertical';
 
-    public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
-        parent::__construct($fdb, $session, $unit, $run_session, $run);
+    public function __construct(Run $run, array $props = []) {
+        parent::__construct($run, $props);
 
         if ($this->id) {
-            $vars = $this->dbh->select('id, condition, if_true, automatically_jump, automatically_go_on')
-                    ->from('survey_branches')
-                    ->where(array('id' => $this->id))
-                    ->fetch();
+            $vars = $this->db->findRow('survey_branches', ['id' => $this->id], 'id, condition, if_true, automatically_jump, automatically_go_on');
             if ($vars) {
                 array_walk($vars, "emptyNull");
-                $this->condition = $vars['condition'];
-                $this->if_true = $vars['if_true'];
-                $this->automatically_jump = $vars['automatically_jump'];
-                $this->automatically_go_on = $vars['automatically_go_on'];
-                $this->valid = true;
+                $vars['valid'] = true;
+                $this->assignProperties($vars);
             }
         }
     }
 
-    public function create($options) {
-        $this->dbh->beginTransaction();
-        if (!$this->id) {
-            $this->id = parent::create($this->type);
-        } else {
-            $this->modify($options);
-        }
+    public function create($options = []) {
+        $this->db->beginTransaction();
+        parent::create($options);
 
         if (isset($options['condition'])) {
             array_walk($options, "emptyNull");
-            $this->condition = $options['condition'];
-            if (isset($options['if_true'])) {
-                $this->if_true = $options['if_true'];
-            }
-            if (isset($options['automatically_jump'])) {
-                $this->automatically_jump = $options['automatically_jump'];
-            }
-            if (isset($options['automatically_go_on'])) {
-                $this->automatically_go_on = $options['automatically_go_on'];
-            }
+            $this->assignProperties($options);
         }
+        
         $this->condition = cr2nl($this->condition);
 
-        $this->dbh->insert_update('survey_branches', array(
+        $this->db->insert_update('survey_branches', array(
             'id' => $this->id,
             'condition' => $this->condition,
             'if_true' => $this->if_true,
             'automatically_jump' => $this->automatically_jump,
             'automatically_go_on' => $this->automatically_go_on
         ));
-        $this->dbh->commit();
+        $this->db->commit();
         $this->valid = true;
 
-        return true;
+        return $this;
     }
 
     public function displayForRun($prepend = '') {
-        $dialog = Template::get($this->getUnitTemplatePath(), array(
+        $dialog = Template::get($this->getTemplatePath(), array(
             'prepend' => $prepend,
             'condition' => $this->condition,
             'position' => $this->position,

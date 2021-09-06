@@ -8,6 +8,10 @@
  */
 class Model {
     
+    /**
+     * 
+     * @var DB
+     */
     protected $db;
     
     public $valid = false;

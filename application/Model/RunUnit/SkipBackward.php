@@ -12,7 +12,8 @@ class SkipBackward extends Branch {
     public $export_attribs = array('type', 'description', 'position', 'special', 'condition', 'if_true');
 
     public function displayForRun($prepend = '') {
-        $dialog = Template::get($this->getUnitTemplatePath(), array(
+        
+        $dialog = Template::get($this->getTemplatePath(), array(
                     'prepend' => $prepend,
                     'condition' => $this->condition,
                     'position' => $this->position,
