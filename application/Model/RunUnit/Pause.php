@@ -27,24 +27,15 @@ class Pause extends RunUnit {
     public function __construct(Run $run, array $props = []) {
         parent::__construct($run, $props);
 
-        if ($this->id):
-            $vars = $this->db->select('id, body, body_parsed, wait_until_time, wait_minutes, wait_until_date, relative_to')
-                            ->from('survey_pauses')
-                            ->where(array('id' => $this->id))
-                            ->limit(1)->fetch();
-
-            if ($vars):
+        if ($this->id) {
+            $cols = 'id, body, body_parsed, wait_until_time, wait_minutes, wait_until_date, relative_to';
+            $vars = $this->db->findRow('survey_pauses', ['id' => $this->id], $cols);
+            if ($vars) {
                 array_walk($vars, "emptyNull");
-                $this->body = $vars['body'];
-                $this->body_parsed = $vars['body_parsed'];
-                $this->wait_until_time = $vars['wait_until_time'];
-                $this->wait_until_date = $vars['wait_until_date'];
-                $this->wait_minutes = $vars['wait_minutes'];
-                $this->relative_to = $vars['relative_to'];
-
-                $this->valid = true;
-            endif;
-        endif;
+                $vars['valid'] = true;
+                $this->assignProperties($vars);
+            }
+        }
     }
 
     public function create($options = []) {
@@ -54,11 +45,7 @@ class Pause extends RunUnit {
 
         if (isset($options['body'])) {
             array_walk($options, "emptyNull");
-            $this->body = $options['body'];
-            $this->wait_until_time = $options['wait_until_time'];
-            $this->wait_until_date = $options['wait_until_date'];
-            $this->wait_minutes = $options['wait_minutes'];
-            $this->relative_to = $options['relative_to'];
+            $this->assignProperties($options);
         }
 
         $parsedown = new ParsedownExtra();
