@@ -423,13 +423,8 @@ class AdminAjaxController {
             formr_error(406, 'Not Acceptable');
         }
 
-        $run = new Run($this->dbh, $this->controller->run->name);
-
         if ($run_unit_id = $this->request->getParam('run_unit_id')) {
-            $special = $this->request->getParam('special');
-            $unit = $run->getUnitAdmin($run_unit_id, $special);
-            $unit_factory = new RunUnitFactory();
-            $unit = $unit_factory->make($this->dbh, null, $unit, null, $run);
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams());
             $test_content = $unit->test();
             $content = $this->site->renderAlerts();
             $content .= $test_content;

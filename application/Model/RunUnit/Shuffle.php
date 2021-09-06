@@ -2,13 +2,10 @@
 
 class Shuffle extends RunUnit {
 
-    public $errors = array();
-    public $id = null;
-    public $session = null;
-    public $unit = null;
-    public $ended = false;
     public $type = 'Shuffle';
+    
     public $icon = "fa-random";
+    
     protected $groups = 2;
 
     /**
@@ -17,45 +14,40 @@ class Shuffle extends RunUnit {
      */
     public $export_attribs = array('type', 'description', 'position', 'special', 'groups');
 
-    public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
-        parent::__construct($fdb, $session, $unit, $run_session, $run);
+   public function __construct(Run $run, array $props = []) {
+        parent::__construct($run, $props);
 
-        if ($this->id):
-            $groups = $this->dbh->findValue('survey_shuffles', array('id' => $this->id), array('groups'));
-            if ($groups):
+        if ($this->id) {
+            $groups = $this->db->findValue('survey_shuffles', array('id' => $this->id), array('groups'));
+            if ($groups) {
                 $this->groups = $groups;
                 $this->valid = true;
-            endif;
-        endif;
+            }
+        }
     }
 
-    public function create($options) {
-        $this->dbh->beginTransaction();
-        if (!$this->id) {
-            $this->id = parent::create('Shuffle');
-        } else {
-            $this->modify($options);
-        }
+    public function create($options = []) {
+        parent::create($options);
 
         if (isset($options['groups'])) {
             $this->groups = $options['groups'];
         }
 
-        $this->dbh->insert_update('survey_shuffles', array(
+        $this->db->insert_update('survey_shuffles', array(
             'id' => $this->id,
             'groups' => $this->groups,
         ));
-        $this->dbh->commit();
+
         $this->valid = true;
 
-        return true;
+        return $this;
     }
 
     public function displayForRun($prepend = '') {
 
-        $dialog = Template::get($this->getUnitTemplatePath(), array(
-                    'prepend' => $prepend,
-                    'groups' => $this->groups
+        $dialog = Template::get($this->getTemplatePath(), array(
+            'prepend' => $prepend,
+            'groups' => $this->groups
         ));
 
         return parent::runDialog($dialog);
@@ -65,7 +57,7 @@ class Shuffle extends RunUnit {
         return $this->delete($special);
     }
 
-    public function randomise_into_group() {
+    public function selectRandomGroup() {
         return mt_rand(1, $this->groups);
     }
 
@@ -82,24 +74,10 @@ class Shuffle extends RunUnit {
 
         $groups = '';
         for ($i = 0; $i < 50; $i++) {
-            $groups .= $this->randomise_into_group() . '&nbsp; ';
+            $groups .= $this->selectRandomGroup() . '&nbsp; ';
         }
 
         return Template::replace($test_tpl, array('groups' => $groups));
-    }
-
-    public function exec() {
-        $group = $this->randomise_into_group();
-        $this->dbh->insert('shuffle', array(
-            'session_id' => $this->session_id,
-            'unit_id' => $this->id,
-            'group' => $group,
-            'created' => mysql_now()
-        ));
-        $this->session_result = "shuffle_group_$group";
-        $this->logResult();
-        $this->end();
-        return false;
     }
 
 }

@@ -62,7 +62,11 @@ class Page extends RunUnit {
     }
 
     public function test() {
-        return $this->getParsedBodyAdmin($this->body);
+        // @TODO
+        // - Create a random session to get body
+        // - Move session to this unit
+        // - Execute the session
+        //return $this->getParsedBodyAdmin($this->body);
     }
     
     public function find($id, $special = false) {
@@ -70,36 +74,6 @@ class Page extends RunUnit {
         $this->type = 'Endpage';
         
         return $this;
-    }
-
-    public function exec() {
-        if ($this->called_by_cron) {
-            $this->getParsedBody($this->body); // make report before showing it to the user, so they don't have to wait
-            $this->session_result = "ended_study_by_queue";
-            $this->logResult();
-            return true; // never show to the cronjob
-        }
-
-        $run_name = $sess_code = null;
-        if ($this->run_session) {
-            $run_name = $this->run_session->run_name;
-            $sess_code = $this->run_session->session;
-            $this->run_session->end();
-        }
-
-        $this->body_parsed = $this->getParsedBody($this->body);
-        if ($this->body_parsed === false) {
-            return true; // wait for openCPU to be fixed!
-        }
-
-        $body = do_run_shortcodes($this->body_parsed, $run_name, $sess_code);
-
-        $this->session_result = "ended_study";
-        $this->logResult();
-
-        return array(
-            'body' => $body,
-        );
     }
 
 }
