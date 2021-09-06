@@ -15,13 +15,13 @@ class RunUnitFactory {
      */
     public static function make(Run $run, array $props = []) {
         if (isset($props['id']) && empty($props['type'])) {
-            $unit_id = !empty($props['special']) ? $props['id'] : DB::getInstance()->findValue('survey_run_units', ['id' => $props['id']], 'unit_id');
-            $props['type'] = DB::getInstance()->findValue('survey_units', ['id' => (int)$unit_id], 'type');
+            $props['type'] = DB::getInstance()->findValue('survey_units', ['id' => (int)$props['id']], 'type');
         }
-        
+
         if (empty($props['type'])) {
             throw new RuntimeException('Please specify the Unit Type in $props[]');
         }
+
         $type = $props['type'];
 
         if (!in_array($type, static::SupportedUnits)) {
@@ -228,7 +228,12 @@ plot(cars)
     }
 
     protected function getTemplatePath($tpl = null) {
-        return 'admin/run/units/' . ($tpl ? $tpl : strtolower($this->type));
+        $tpl = $tpl ?? strtolower($this->type);
+        if ($tpl === 'page') {
+            $tpl = 'endpage';
+        }
+        
+        return 'admin/run/units/' . $tpl;
     }
 
     /** @TODO move to RUN and pass unit **/
@@ -294,7 +299,7 @@ plot(cars)
     }
 
     public function displayUnitSessionsCount() {
-        $reached = $this->getSessionsCount();
+        $reached = $this->getUnitSessionsCount();
         if (!$reached['begun']) {
             $reached['begun'] = "";
         }
@@ -400,5 +405,21 @@ plot(cars)
         $this->assignProperties($unit);
         
         return $this;
+    }
+    
+    /**
+     * Get Run unit using run_unit_id
+     * 
+     * @param int $id
+     * @param array $params
+     * @return RunUnit
+     */
+    public static function findByRunUnitId($id, $params = []) {
+        $row = DB::getInstance()->findRow('survey_run_units', ['id' => $id]);
+        if ($row) {
+            $run = new Run(DB::getInstance(), null, $row['run_id']);
+            $params = array_merge($params, ['id' => $row['unit_id']]);
+            return RunUnitFactory::make($run, $params);
+        }
     }
 }
