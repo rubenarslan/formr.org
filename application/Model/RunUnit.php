@@ -422,4 +422,11 @@ plot(cars)
             return RunUnitFactory::make($run, $params);
         }
     }
+    
+    protected function knittingNeeded($source) {
+        if (mb_strpos($source, '`r ') !== false OR mb_strpos($source, '```{r') !== false) {
+            return true;
+        }
+        return false;
+    }
 }

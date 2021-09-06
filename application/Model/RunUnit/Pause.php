@@ -2,12 +2,8 @@
 
 class Pause extends RunUnit {
 
-    public $errors = array();
-    public $id = null;
-    public $session = null;
-    public $unit = null;
-    public $ended = false;
     public $type = "Pause";
+    
     public $icon = "fa-pause";
 
     protected $body = '';
@@ -16,6 +12,8 @@ class Pause extends RunUnit {
     protected $wait_minutes = null;
     protected $wait_until_time = null;
     protected $wait_until_date = null;
+    
+    // @TODO maybe remove
     protected $has_relative_to = false;
     protected $has_wait_minutes = false;
     protected $relative_to_result = null;
@@ -26,11 +24,11 @@ class Pause extends RunUnit {
      */
     public $export_attribs = array('type', 'description', 'position', 'special', 'wait_until_time', 'wait_until_date', 'wait_minutes', 'relative_to', 'body');
 
-    public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
-        parent::__construct($fdb, $session, $unit, $run_session, $run);
+    public function __construct(Run $run, array $props = []) {
+        parent::__construct($run, $props);
 
         if ($this->id):
-            $vars = $this->dbh->select('id, body, body_parsed, wait_until_time, wait_minutes, wait_until_date, relative_to')
+            $vars = $this->db->select('id, body, body_parsed, wait_until_time, wait_minutes, wait_until_date, relative_to')
                             ->from('survey_pauses')
                             ->where(array('id' => $this->id))
                             ->limit(1)->fetch();
@@ -49,13 +47,10 @@ class Pause extends RunUnit {
         endif;
     }
 
-    public function create($options) {
-        $this->dbh->beginTransaction();
-        if (!$this->id) {
-            $this->id = parent::create($this->type);
-        } else {
-            $this->modify($options);
-        }
+    public function create($options = []) {
+        $this->db->beginTransaction();
+        
+        parent::create($options);
 
         if (isset($options['body'])) {
             array_walk($options, "emptyNull");
@@ -73,7 +68,7 @@ class Pause extends RunUnit {
             $this->body_parsed = $parsedown->text($this->body); // transform upon insertion into db instead of at runtime
         }
 
-        $this->dbh->insert_update('survey_pauses', array(
+        $this->db->insert_update('survey_pauses', array(
             'id' => $this->id,
             'body' => $this->body,
             'body_parsed' => $this->body_parsed,
@@ -82,14 +77,15 @@ class Pause extends RunUnit {
             'wait_minutes' => $this->wait_minutes,
             'relative_to' => $this->relative_to,
         ));
-        $this->dbh->commit();
+        
+        $this->db->commit();
         $this->valid = true;
 
-        return true;
+        return $this;
     }
 
     public function displayForRun($prepend = '') {
-        $dialog = Template::get($this->getUnitTemplatePath(), array(
+        $dialog = Template::get($this->getTemplatePath(), array(
             'prepend' => $prepend,
             'wait_until_time' => $this->wait_until_time,
             'wait_until_date' => $this->wait_until_date,
@@ -223,22 +219,6 @@ class Pause extends RunUnit {
                 $this->execData['expire_timestamp'] += 24 * 60 * 60;
                 return false;
             }
-            /*
-              // Check if this unit already expired today for current run_session_id
-              $q = '
-              SELECT 1 AS finished FROM `survey_unit_sessions`
-              WHERE `survey_unit_sessions`.unit_id = :id AND `survey_unit_sessions`.run_session_id = :run_session_id AND DATE(`survey_unit_sessions`.ended) = CURDATE()
-              LIMIT 1
-              ';
-              $stmt = $this->dbh->prepare($q);
-              $stmt->bindValue(':id', $this->id);
-              $stmt->bindValue(':run_session_id', $this->run_session_id);
-              $stmt->execute();
-              if ($stmt->rowCount() > 0) {
-              $this->execData['expire_timestamp'] = strtotime('+1 day', $this->execData['expire_timestamp']);
-              return false;
-              }
-             */
 
             $conditions['datetime'] = ':wait_datetime <= NOW()';
         }
@@ -248,7 +228,7 @@ class Pause extends RunUnit {
 
         if ($conditions) {
             $condition = implode(' AND ', $conditions);
-            $stmt = $this->dbh->prepare("SELECT {$condition} AS test LIMIT 1");
+            $stmt = $this->db->prepare("SELECT {$condition} AS test LIMIT 1");
             if ($bind_relative_to) {
                 $stmt->bindValue(':relative_to', $relative_to);
             }
@@ -335,8 +315,8 @@ class Pause extends RunUnit {
             $rows = '';
             foreach ($results as $row) {
                 $this->run_session_id = $row['id'];
-                $runSession = new RunSession($this->dbh, $this->run->id, Site::getCurrentUser()->id, $row['session'], $this->run);
-                $runSession->unit_session = new UnitSession($this->dbh, $this->run_session_id, $this->id);
+                $runSession = new RunSession($this->db, $this->run->id, Site::getCurrentUser()->id, $row['session'], $this->run);
+                $runSession->unit_session = new UnitSession($this->db, $this->run_session_id, $this->id);
                 $this->run_session = $runSession;
 
                 $rows .= Template::replace($row_tpl, array(
