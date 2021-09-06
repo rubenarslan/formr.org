@@ -67,7 +67,7 @@ class AdminAjaxController {
 
         $unit = $this->controller->createRunUnit();
         if ($unit->valid) {
-            $unit->addToRun($this->controller->run->id, $unit->position);
+            //$unit->addToRun($this->controller->run->id, $unit->position);
             alert('<strong>Success.</strong> ' . ucfirst($unit->type) . ' unit was created.', 'alert-success');
             $content = $unit->displayForRun($this->site->renderAlerts());
         } else {
@@ -86,16 +86,12 @@ class AdminAjaxController {
             formr_error(406, 'Not Acceptable');
         }
 
-        $run = $this->controller->run;
-        $dbh = $this->dbh;
+       $run = $this->controller->run;
 
-        if ($run_unit_id = $this->request->getParam('run_unit_id')) {
-            $special = $this->request->getParam('special');
-
-            $unit_info = $run->getUnitAdmin($run_unit_id, $special);
-            $unit_factory = new RunUnitFactory();
-            $unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
-
+        if ($id = $this->request->getParam('unit_id')) {
+            $params = $this->request->getParams();
+            $params['id'] = (int) $id;
+            $unit = RunUnitFactory::make($run, $params);
             $content = $unit->displayForRun();
         } else {
             $this->response->setStatusCode(500, 'Bad Request');
@@ -382,16 +378,15 @@ class AdminAjaxController {
         }
 
         $run = $this->controller->run;
-        $dbh = $this->dbh;
         $content = '';
 
-        $unit_factory = new RunUnitFactory();
-        if ($run_unit_id = $this->request->getParam('run_unit_id')) {
-            $special = $this->request->getParam('special');
-            $unit_info = $run->getUnitAdmin($run_unit_id, $special);
+        if ($id = $this->request->getParam('unit_id')) {
+            $params = $this->request->getParams();
+            $params['id'] = (int) $id;
 
-            $unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
-            $unit->create($_POST);
+            $unit = RunUnitFactory::make($run, $params);
+            $unit->create($params);
+ 
             if ($unit->valid && ($unit->hadMajorChanges() || !empty($this->site->alerts))) {
                 $content = $unit->displayForRun($this->site->renderAlerts());
             }

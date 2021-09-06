@@ -2,15 +2,11 @@
 
 class Page extends RunUnit {
 
-    public $errors = array();
-    public $id = null;
-    public $session = null;
-    public $unit = null;
     protected $body = '';
+    
     protected $body_parsed = '';
-    public $title = '';
-    private $can_be_ended = 0;
-    public $ended = false;
+
+    public $title;
     public $type = 'Endpage';
     public $icon = "fa-stop";
 
@@ -20,66 +16,45 @@ class Page extends RunUnit {
      */
     public $export_attribs = array('type', 'description', 'position', 'special', 'body');
 
-    public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
-        parent::__construct($fdb, $session, $unit, $run_session, $run);
+    public function __construct(Run $run, array $props = []) {
+        parent::__construct($run, $props);
 
-        if ($this->id):
-            $vars = $this->dbh->findRow('survey_pages', array('id' => $this->id), 'title, body, body_parsed');
-            if ($vars):
-                $this->body = $vars['body'];
-                $this->body_parsed = $vars['body_parsed'];
-                $this->title = $vars['title'];
-#				$this->can_be_ended = $vars['end'] ? 1:0;
-                $this->can_be_ended = 0;
-
-                $this->valid = true;
-            endif;
-        endif;
-
-        if (!empty($_POST) AND isset($_POST['page_submit'])) {
-            unset($_POST['page_submit']);
-            $this->end();
+        if ($this->id) {
+            $vars = $this->db->findRow('survey_pages', array('id' => $this->id), 'title, body, body_parsed');
+            if ($vars) {
+                $vars['valid'] = true;
+                $this->assignProperties($vars);
+            }
         }
     }
 
-    public function create($options) {
-        if (!$this->id) {
-            $this->id = parent::create('Page');
-        } else {
-            $this->modify($options);
-        }
-
-        if (isset($options['body'])) {
-            $this->body = $options['body'];
-//			$this->title = $options['title'];
-//			$this->can_be_ended = $options['end'] ? 1:0;
-            $this->can_be_ended = 0;
-        }
+    public function create($options = []) {
+        parent::create($options);
 
         $parsedown = new ParsedownExtra();
         $this->body_parsed = $parsedown
                 ->setBreaksEnabled(true)
                 ->text($this->body); // transform upon insertion into db instead of at runtime
 
-        $this->dbh->insert_update('survey_pages', array(
+        $this->db->insert_update('survey_pages', array(
             'id' => $this->id,
             'body' => $this->body,
             'body_parsed' => $this->body_parsed,
             'title' => $this->title,
-            'end' => (int) $this->can_be_ended,
+            'end' => 0,
         ));
         $this->valid = true;
 
-        return true;
+        return $this;
     }
 
     public function displayForRun($prepend = '') {
-        $dialog = Template::get($this->getUnitTemplatePath(), array(
-                    'prepend' => $prepend,
-                    'body' => $this->body,
+        $dialog = Template::get($this->getTemplatePath(), array(
+            'prepend' => $prepend,
+            'body' => $this->body,
         ));
 
-        return parent::runDialog($dialog);
+        return $this->runDialog($dialog);
     }
 
     public function removeFromRun($special = null) {
@@ -88,6 +63,13 @@ class Page extends RunUnit {
 
     public function test() {
         return $this->getParsedBodyAdmin($this->body);
+    }
+    
+    public function find($id, $special = false) {
+        parent::find($id, $special);
+        $this->type = 'Endpage';
+        
+        return $this;
     }
 
     public function exec() {
