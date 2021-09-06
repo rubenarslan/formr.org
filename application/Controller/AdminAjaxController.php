@@ -270,17 +270,14 @@ class AdminAjaxController {
         $dbh = $this->dbh;
 
         if (($run_unit_id = $this->request->getParam('run_unit_id'))) {
-            $special = $this->request->getParam('special');
-
-            $unit_info = $run->getUnitAdmin($run_unit_id, $special);
-            $unit_factory = new RunUnitFactory();
-            /* @var $unit RunUnit */
-            $unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams());
+            
             if (!$unit) {
                 formr_error(404, 'Not Found', 'Requested Run Unit was not found');
             }
             $sess_key = __METHOD__ . $unit->id;
-            $results = $unit->howManyReachedItNumbers();
+            $results = $unit->getUnitSessionsCount();
+            
             $has_sessions = $results && (array_val($results, 'begun') || array_val($results, 'finished') || array_val($results, 'expired'));
 
             if ($has_sessions && !Session::get($sess_key)) {
@@ -288,7 +285,7 @@ class AdminAjaxController {
                 $content = 'warn';
                 return $this->response->setContent($content);
             } elseif (!$has_sessions || (Session::get($sess_key) === $unit->id && $this->request->getParam('confirm') === 'yes')) {
-                if ($unit->removeFromRun($special)) {
+                if ($unit->removeFromRun($this->request->getParam('special'))) {
                     alert('<strong>Success.</strong> Unit with ID ' . $this->request->run_unit_id . ' was deleted.', 'alert-success');
                 } else {
                     $this->response->setStatusCode(500, 'Bad Request');
