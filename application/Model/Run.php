@@ -228,11 +228,9 @@ class Run {
         $this->load();
 
         // create default run service message
-        $factory = new RunUnitFactory();
-        $options = RunUnit::getDefaults('ServiceMessagePage');
-        $unit = $factory->make($this->dbh, null, $options, null, $this);
-        $unit->create($options);
-        $unit->addToRun($this->id, 0, $options);
+        $props = RunUnit::getDefaults('ServiceMessagePage');
+        $unit = RunUnitFactory::make($this, $props)->create();
+
         return $name;
     }
 
@@ -604,56 +602,6 @@ class Run {
         }
 
         return false;
-    }
-
-    public function getUnitAdmin($id, $special = false) {
-        if (!$special) {
-            $unit = $this->dbh->select('
-				`survey_run_units`.id,
-				`survey_run_units`.run_id,
-				`survey_run_units`.unit_id,
-				`survey_run_units`.position,
-				`survey_run_units`.description,
-				`survey_units`.type,
-				`survey_units`.created,
-				`survey_units`.modified')
-                            ->from('survey_run_units')
-                            ->leftJoin('survey_units', 'survey_units.id = survey_run_units.unit_id')
-                            ->where('survey_run_units.run_id = :run_id')
-                            ->where('survey_run_units.id = :id')
-                            ->bindParams(array('run_id' => $this->id, 'id' => $id))
-                            ->limit(1)->fetch();
-        } else {
-            $specials = array('ServiceMessagePage', 'OverviewScriptPage', 'ReminderEmail');
-            if (!in_array($special, $specials)) {
-                die("Special unit not allowed");
-            }
-
-            $unit = $this->dbh->select("
-				`survey_run_special_units`.`id` AS unit_id,
-				`survey_run_special_units`.`run_id`,
-				`survey_run_special_units`.`description`,
-				`survey_units`.id,
-				`survey_units`.type,
-				`survey_units`.created,
-				`survey_units`.modified")
-                            ->from('survey_run_special_units')
-                            ->leftJoin('survey_units', "survey_units.id = `survey_run_special_units`.`id`")
-                            ->where('survey_run_special_units.run_id = :run_id')
-                            ->where("`survey_run_special_units`.`id` = :unit_id")
-                            ->bindParams(array('run_id' => $this->id, 'unit_id' => $id))
-                            ->limit(1)->fetch();
-            $unit["special"] = $special;
-        }
-
-        if ($unit === false) { // or maybe we've got a problem
-            alert("Missing unit! $id", 'alert-danger');
-            return false;
-        }
-
-
-        $unit['run_name'] = $this->name;
-        return $unit;
     }
 
     public function getAllSurveys() {
