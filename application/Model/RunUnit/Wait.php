@@ -3,11 +3,12 @@
 class Wait extends Pause {
 
     public $type = "Wait";
+    
     public $icon = "fa-hourglass-half";
 
-    public function __construct($fdb, $session = null, $unit = null, $run_session = null, $run = null) {
-        parent::__construct($fdb, $session, $unit, $run_session, $run);
-    }
+   public function __construct(Run $run, array $props = []) {
+        parent::__construct($run, $props);
+   }
 
     protected function getPreviousUnitSessionCreateDate() {
         if (empty($this->run_session->unit_session->id)) {
