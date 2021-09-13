@@ -93,9 +93,7 @@ class Survey extends RunUnit {
         if ($force || ($this->surveyStudy == null && $this->unit_id)) {
             $this->surveyStudy = null;
             $study = new SurveyStudy($this->unit_id);
-            if (Site::getCurrentUser()->created($study)) {
-                $this->surveyStudy = $study;
-            }
+            $this->surveyStudy = $study;
         }
         
         return $this->surveyStudy;
@@ -106,6 +104,8 @@ class Survey extends RunUnit {
         if ($this->unit_id) {
             $this->surveyStudy = new SurveyStudy();
         }
+        
+        return $this;
     }
     
     /**
@@ -115,4 +115,5 @@ class Survey extends RunUnit {
         parent::find($id, $special, $props);
         $this->getStudy();
     }
+
 }

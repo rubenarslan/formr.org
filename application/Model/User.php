@@ -1,6 +1,6 @@
 <?php
 
-class User {
+class User extends Model {
 
     public $id = null;
     public $email = null;
@@ -11,21 +11,14 @@ class User {
     public $created = 0;
     public $email_verified = 0;
     public $settings = array();
-    public $errors = array();
-    public $messages = array();
     public $cron = false;
-    private $logged_in = false;
-    private $admin = false;
-    private $referrer_code = null;
+    public $logged_in = false;
+    public $admin = false;
+    public $referrer_code = null;
     // todo: time zone, etc.
 
-    /**
-     * @var DB
-     */
-    private $dbh;
-
-    public function __construct($fdb, $id = null, $user_code = null) {
-        $this->dbh = $fdb;
+    public function __construct($id = null, $user_code = null) {
+        parent::__construct();
 
         if ($id !== null): // if there is a registered, logged in user
             $this->id = (int) $id;
@@ -42,24 +35,16 @@ class User {
     }
 
     private function load() {
-        $user = $this->dbh->select('id, email, password, admin, user_code, referrer_code, first_name, last_name, affiliation, created, email_verified')
+        $user = $this->db->select('id, email, password, admin, user_code, referrer_code, first_name, last_name, affiliation, created, email_verified')
                 ->from('survey_users')
                 ->where(array('id' => $this->id))
                 ->limit(1)
                 ->fetch();
 
         if ($user) {
+            $this->assignProperties($user);
+            $this->valid = true;
             $this->logged_in = true;
-            $this->email = $user['email'];
-            $this->id = (int) $user['id'];
-            $this->user_code = $user['user_code'];
-            $this->admin = $user['admin'];
-            $this->referrer_code = $user['referrer_code'];
-            $this->first_name = $user['first_name'];
-            $this->last_name = $user['last_name'];
-            $this->affiliation = $user['affiliation'];
-            $this->created = $user['created'];
-            $this->email_verified = $user['email_verified'];
             return true;
         }
 
@@ -101,7 +86,7 @@ class User {
 
         $hash = password_hash($password, PASSWORD_DEFAULT);
 
-        $user_exists = $this->dbh->entry_exists('survey_users', array('email' => $email));
+        $user_exists = $this->db->entry_exists('survey_users', array('email' => $email));
         if ($user_exists) {
             $this->errors[] = 'This e-mail address is already associated to an existing account.';
             return false;
@@ -114,7 +99,7 @@ class User {
         $this->referrer_code = $referrer_code;
 
         if ($hash) {
-            $inserted = $this->dbh->insert('survey_users', array(
+            $inserted = $this->db->insert('survey_users', array(
                 'email' => $email,
                 'created' => mysql_now(),
                 'password' => $hash,
@@ -140,7 +125,7 @@ class User {
     public function needToVerifyMail() {
         $token = crypto_token(48);
         $token_hash = password_hash($token, PASSWORD_DEFAULT);
-        $this->dbh->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
+        $this->db->update('survey_users', array('email_verification_hash' => $token_hash, 'email_verified' => 0), array('id' => $this->id));
 
         $verify_link = site_url('verify_email', array(
             'email' => $this->email,
@@ -168,7 +153,7 @@ class User {
         $email = array_val($info, 'email');
         $password = array_val($info, 'password');
 
-        $user = $this->dbh->select('id, password, admin, user_code, email_verified, email_verification_hash')
+        $user = $this->db->select('id, password, admin, user_code, email_verified, email_verification_hash')
                         ->from('survey_users')
                         ->where(array('email' => $email))
                         ->limit(1)->fetch();
@@ -187,7 +172,7 @@ class User {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 /* Store new hash in db */
                 if ($hash) {
-                    $this->dbh->update('survey_users', array('password' => $hash), array('email' => $email));
+                    $this->db->update('survey_users', array('password' => $hash), array('email' => $email));
                 } else {
                     $this->errors[] = 'An error occurred verifying your password. Please contact site administrators!';
                     return false;
@@ -212,17 +197,17 @@ class User {
         $level = max(array(0, $level));
         $level = $level > 1 ? 1 : $level;
 
-        return $this->dbh->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 100));
+        return $this->db->update('survey_users', array('admin' => $level), array('id' => $this->id, 'admin <' => 100));
     }
 
     public function forgotPassword($email) {
-        $user_exists = $this->dbh->entry_exists('survey_users', array('email' => $email));
+        $user_exists = $this->db->entry_exists('survey_users', array('email' => $email));
 
         if ($user_exists) {
             $token = crypto_token(48);
             $hash = password_hash($token, PASSWORD_DEFAULT);
 
-            $this->dbh->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
+            $this->db->update('survey_users', array('reset_token_hash' => $hash, 'reset_token_expiry' => mysql_interval('+2 days')), array('email' => $email));
 
             $reset_link = site_url('reset_password', array(
                 'email' => $email,
@@ -262,7 +247,7 @@ class User {
         $hash = password_hash($new_password, PASSWORD_DEFAULT);
         /* Store new hash in db */
         if ($hash) {
-            $this->dbh->update('survey_users', array('password' => $hash), array('email' => $this->email));
+            $this->db->update('survey_users', array('password' => $hash), array('email' => $this->email));
             return true;
         } else {
             $this->errors[] = 'Unable to generate new password';
@@ -290,14 +275,14 @@ class User {
             $verificationRequired = true;
             $update['email_verified'] = 0;
             // check if email already exists
-            $exists = $this->dbh->entry_exists('survey_users', array('email' => $update['email']));
+            $exists = $this->db->entry_exists('survey_users', array('email' => $update['email']));
             if ($exists) {
                 $this->errors[] = 'The provided email address is already in use!';
                 return false;
             }
         }
 
-        $this->dbh->update('survey_users', $update, array('id' => $this->id));
+        $this->db->update('survey_users', $update, array('id' => $this->id));
         $this->email = $update['email'];
         if ($verificationRequired) {
             $this->needToVerifyMail();
@@ -317,12 +302,12 @@ class User {
             return false;
         }
 
-        $reset_token_hash = $this->dbh->findValue('survey_users', array('email' => $email), array('reset_token_hash'));
+        $reset_token_hash = $this->db->findValue('survey_users', array('email' => $email), array('reset_token_hash'));
 
         if ($reset_token_hash) {
             if (password_verify($token, $reset_token_hash)) {
                 $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
-                $this->dbh->update(
+                $this->db->update(
                     'survey_users', 
                     array('password' => $password_hash, 'reset_token_hash' => null, 'reset_token_expiry' => null), 
                     array('email' => $email), 
@@ -340,18 +325,18 @@ class User {
     }
 
     public function verifyEmail($email, $token) {
-        $verify_data = $this->dbh->findRow('survey_users', array('email' => $email), array('email_verification_hash', 'referrer_code'));
+        $verify_data = $this->db->findRow('survey_users', array('email' => $email), array('email_verification_hash', 'referrer_code'));
         if (!$verify_data) {
             alert('Incorrect token or email address.', 'alert-danger');
             return false;
         }
 
         if (password_verify($token, $verify_data['email_verification_hash'])) {
-            $this->dbh->update('survey_users', array('email_verification_hash' => null, 'email_verified' => 1), array('email' => $email), array('int', 'int'));
+            $this->db->update('survey_users', array('email_verification_hash' => null, 'email_verified' => 1), array('email' => $email), array('int', 'int'));
             alert('Your email was successfully verified!', 'alert-success');
 
             if (in_array($verify_data['referrer_code'], Config::get('referrer_codes'))) {
-                $this->dbh->update('survey_users', array('admin' => 1), array('email' => $email));
+                $this->db->update('survey_users', array('admin' => 1), array('email' => $email));
                 alert('You now have the rights to create your own studies!', 'alert-success');
             }
             return true;
@@ -362,7 +347,7 @@ class User {
     }
 
     public function resendVerificationEmail($verificationHash) {
-        $verify_data = $this->dbh->findRow('survey_users', array('email_verification_hash' => $verificationHash), array('id', 'email_verification_hash', 'email'));
+        $verify_data = $this->db->findRow('survey_users', array('email_verification_hash' => $verificationHash), array('id', 'email_verification_hash', 'email'));
         if (!$verify_data) {
             alert('Incorrect token.', 'alert-danger');
             return false;
@@ -377,7 +362,7 @@ class User {
 
     public function getStudies($order = 'id DESC', $limit = null, $cols = []) {
         if ($this->isAdmin()) {
-            $select = $this->dbh->select($cols);
+            $select = $this->db->select($cols);
             $select->from('survey_studies');
             $select->order($order, null);
             if ($limit) {
@@ -391,7 +376,7 @@ class User {
 
     public function getEmailAccounts() {
         if ($this->isAdmin()) {
-            $accs = $this->dbh->find('survey_email_accounts', array('user_id' => $this->id, 'deleted' => 0), array('cols' => 'id, from, status'));
+            $accs = $this->db->find('survey_email_accounts', array('user_id' => $this->id, 'deleted' => 0), array('cols' => 'id, from, status'));
             $results = array();
             foreach ($accs as $acc) {
                 if ($acc['from'] == null) {
@@ -407,7 +392,7 @@ class User {
 
     public function getRuns($order = 'id DESC', $limit = null) {
         if ($this->isAdmin()) {
-            $select = $this->dbh->select();
+            $select = $this->db->select();
             $select->from('survey_runs');
             $select->order($order, null);
             if ($limit) {

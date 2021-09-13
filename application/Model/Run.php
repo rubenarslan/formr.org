@@ -73,10 +73,7 @@ class Run extends Model {
     );
     public $renderedDescAndFooterAlready = false;
 
-    /**
-     * @var DB
-     */
-    private $dbh;
+    public $testingStudy = false;
 
     /**
      *
@@ -94,6 +91,7 @@ class Run extends Model {
             $this->valid = true;
             $this->user_id = -1;
             $this->id = -1;
+            $this->testingStudy = true;
             return true;
         }
 
@@ -675,32 +673,33 @@ class Run extends Model {
         return $g_users;
     }
 
-    private function isFakeTestRun() {
+    private function isStudyTest() {
         return $this->name === self::TEST_RUN;
     }
 
-    private function fakeTestRun() {
-        if ($session = Session::get('dummy_survey_session')):
-            $run_session = $this->makeTestRunSession();
-            $unit = new Survey($this->db, null, $session, $run_session, $this);
-            $output = $unit->exec();
-            $this->activeRunSession = $run_session;
+    private function testStudy() {
+        if (!($data = Session::get('test_study_data'))) {
+            formr_error(404, 'Not Found', 'Nothing to Test-Drive');
+        }
+        
+        $runUnit = (new Survey($this, $data))->load();
+        $runSession = $this->makeTestRunSession();
+        $runSession->addUnitSession(new UnitSession($runSession, $runUnit));
+        $output = $runSession->execute();
 
-            if (!$output):
-                $output['title'] = 'Finish';
-                $output['body'] = "
+        if (!$output) {
+            $output = [
+                'title' => 'Finish',
+                'body' => "
 					<h1>Finish</h1>
 					<p>You're finished with testing this survey.</p>
-					<a href='" . admin_study_url($_SESSION['dummy_survey_session']['survey_name']) . "'>Back to the admin control panel.</a>";
-
-                Session::delete('dummy_survey_session');
-            endif;
-            return compact("output", "run_session");
-        else:
-            alert("<strong>Error:</strong> Nothing to test-drive.", 'alert-danger');
-            redirect_to("/index");
-            return false;
-        endif;
+					<a href='" . admin_study_url($_SESSION['dummy_survey_session']['survey_name']) . "'>Back to the admin control panel.</a>"
+            ];
+            
+            Session::delete('test_study_data');
+        }
+        
+        return compact("output", "runSession");
     }
 
     public function makeTestRunSession($testing = 1) {
@@ -708,7 +707,7 @@ class Run extends Model {
         $animal_name = str_replace(" ", "", $animal_name);
         $test_code = crypto_token(48 - floor(3 / 4 * strlen($animal_name)));
         $test_code = $animal_name . substr($test_code, 0, 64 - strlen($animal_name));
-        $run_session = new RunSession($this->db, $this->id, NULL, $test_code, $this); // does this user have a session?
+        $run_session = new RunSession($test_code, $this); // does this user have a session?
         $run_session->create($test_code, $testing);
 
         return $run_session;
@@ -738,29 +737,29 @@ class Run extends Model {
             formr_error(404, 'Not Found', __("Run '%s' is broken or does not exist.", $this->name), 'Study Not Found');
             return false;
         } elseif ($this->name == self::TEST_RUN) {
-            $test = $this->fakeTestRun();
+            $test = $this->testStudy();
             extract($test);
         } else {
 
-            $run_session = new RunSession($this->db, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
+            $runSession = new RunSession($this->db, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
             if (($this->getOwner()->user_code == $user->user_code || // owner always has access
-                    $run_session->isTesting()) || // testers always have access
-                    ($this->public >= 1 && $run_session->id) || // already enrolled
+                    $runSession->isTesting()) || // testers always have access
+                    ($this->public >= 1 && $runSession->id) || // already enrolled
                     ($this->public >= 2)) { // anyone with link can access
-                if ($run_session->id === null) {
-                    $run_session->create($user->user_code, (int) $user->created($this));  // generating access code for those who don't have it but need it
+                if ($runSession->id === null) {
+                    $runSession->create($user->user_code, (int) $user->created($this));  // generating access code for those who don't have it but need it
                 }
 
                 Session::globalRefresh();
-                $output = $run_session->execute();
+                $output = $runSession->execute();
             } else {
                 $output = $this->getServiceMessage()->exec();
                 alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');
             }
 
-            $run_session->setLastAccess();
-            $this->activeRunSession = $run_session;
+            $runSession->setLastAccess();
+            $this->activeRunSession = $runSession;
         }
 
         if (!$output) {
@@ -796,7 +795,7 @@ class Run extends Model {
             $run_content .= $this->footer_text_parsed;
         }
 
-        if ($run_session->isTesting()) {
+        if ($runSession->isTesting()) {
             $animal_end = strpos($user->user_code, "XXX");
             if ($animal_end === false) {
                 $animal_end = 10;
@@ -808,10 +807,10 @@ class Run extends Model {
             $run_content .= Template::get('admin/run/monkey_bar', array(
                         'user' => $user,
                         'run' => $this,
-                        'run_session' => $run_session,
+                        'run_session' => $runSession,
                         'short_code' => substr($user->user_code, 0, $animal_end),
                         'icon' => $user->created($this) ? "fa-user-md" : "fa-stethoscope",
-                        'disable_class' => $this->isFakeTestRun() ? " disabled " : "",
+                        'disable_class' => $this->isStudyTest() ? " disabled " : "",
             ));
         }
 
@@ -819,7 +818,7 @@ class Run extends Model {
             'title' => $title,
             'css' => $css,
             'js' => $js,
-            'run_session' => $run_session,
+            'run_session' => $runSession,
             'run_content' => $run_content,
             'run' => $this,
         );

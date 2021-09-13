@@ -1,6 +1,6 @@
 <?php
 
-class RunSession {
+class RunSession extends Model {
 
     public $id;
     public $run_id;
@@ -13,80 +13,99 @@ class RunSession {
     public $current_unit_id;
     public $deactivated;
     public $no_mail;
+    public $testing;
+    
+    /**
+     * 
+     * @var Run
+     */
+    protected $run;
+    /**
+     * 
+     * @var User
+     */
+    public $user;
+    
+    private $cron;
+    
+    protected $table = 'survey_run_sessions';
+    /**
+     * An array of unit sessions to evaluate when executing
+     *
+     * @var UnitSession[]
+     */
+    protected $unitSessions = [];
+    /**
+     * An array of unit sessions to evaluate when executing
+     *
+     * @var UnitSession
+     */
+    public $currentUnitSession;
+
+    private $is_testing = false;
+    
+    /*
     public $current_unit_type;
     public $run_name;
     public $run_owner_id;
     public $run;
     public $unit_session = false;
     private $cron = false;
-    private $is_testing = false;
     private $test_run = false;
-
-    /**
-     * @var DB
+     * 
      */
-    private $dbh;
+    
+    /**
+     * A RunSession should always be initiated with a Run and a User
+     * since a RunSession should belong to a User and needs a Run
+     * 
+     * @param string $session The code of the user executing the run
+     * @param Run $run
+     * @param array $options Other options that could be used to initiate a RunSession
+     */
+    public function __construct($session, Run $run, $options = []) {
+        parent::__construct();
 
-    public function __construct($fdb, $run_id, $user_id, $session, $run = NULL) {
-        $this->dbh = $fdb;
         $this->session = $session;
-        $this->run_id = $run_id;
         $this->run = $run;
-        if ($user_id == 'cron') {
-            $this->cron = true;
-        } else {
-            $this->user_id = $user_id;
-        }
+        $this->assignProperties($options);
 
-        if ($run_id == -1) {
-            $this->test_run = true;
-            $this->id = -1;
-            $this->session = $session;
-            $this->run_id = $run_id;
-            $this->user_id = $user_id;
-            $this->run_name = $run->name;
-            $this->run_owner_id = $user_id;
-            $this->is_testing = true;
-            Site::getInstance()->setRunSession($this);
-        } else if ($this->session && $this->run_id) {// called with null in constructor if they have no session yet
+        if ($this->session && $this->run) {
             $this->load();
         }
+
+        if (!$this->valid && !$run->testingStudy) {
+            // Run session is not yet in database, create one for this run
+            
+        } elseif ($run->testingStudy) {
+            // User is just testing the survey so we only need a dummy run session since data is not saved
+            $this->id = -1;
+            $this->is_testing = true;
+            Site::getInstance()->setRunSession($this);
+        }
+
+        $this->user = new User(null, $this->session);
     }
 
     private function load() {
-        $sess_array = $this->dbh->select(' 
-			`survey_run_sessions`.id, 
-			`survey_run_sessions`.session, 
-			`survey_run_sessions`.user_id, 
-			`survey_run_sessions`.run_id, 
-			`survey_run_sessions`.created, 
-			`survey_run_sessions`.ended, 
-			`survey_run_sessions`.position,
-			`survey_run_sessions`.current_unit_session_id,
-			`survey_run_sessions`.last_access,
-			`survey_run_sessions`.no_email,
-			`survey_run_sessions`.testing,
-			`survey_runs`.name AS run_name,
-			`survey_runs`.user_id AS run_owner_id')
-                        ->from('survey_run_sessions')
-                        ->leftJoin('survey_runs', 'survey_runs.id = survey_run_sessions.run_id')
-                        ->where(array('run_id' => $this->run_id, 'session' => $this->session))
-                        ->limit(1)->fetch();
-
-        if ($sess_array) {
-            $this->id = $sess_array['id'];
-            $this->session = $sess_array['session'];
-            $this->run_id = $sess_array['run_id'];
-            $this->user_id = $sess_array['user_id'];
-            $this->created = $sess_array['created'];
-            $this->ended = $sess_array['ended'];
-            $this->position = $sess_array['position'];
-            $this->run_name = $sess_array['run_name'];
-            $this->run_owner_id = $sess_array['run_owner_id'];
-            $this->last_access = $sess_array['last_access'];
-            $this->no_mail = $sess_array['no_email'];
-            $this->is_testing = (bool) $sess_array['testing'];
-
+        $options = [];
+        if ($this->id) {
+            $options['id'] = (int) $this->id;
+        }
+        
+        if ($this->session) {
+            $options['session'] = $this->session;
+            $options['run_id'] = $this->run->id;
+        }
+        
+        if (!$options) {
+            return;
+        }
+        
+        $data = $this->db->findRow('survey_run_sessions', $options);
+        if ($data) {
+            $this->assignProperties($data);
+            $this->valid = true;
             Site::getInstance()->setRunSession($this);
             return true;
         }
@@ -95,12 +114,12 @@ class RunSession {
     }
 
     public function getLastAccess() {
-        return $this->dbh->findValue('survey_run_sessions', array('id' => $this->id), array('last_access'));
+        return $this->db->findValue('survey_run_sessions', array('id' => $this->id), array('last_access'));
     }
 
     public function setLastAccess() {
         if (!$this->cron && (int) $this->id > 0) {
-            $this->dbh->update('survey_run_sessions', array('last_access' => mysql_now()), array('id' => (int) $this->id));
+            $this->db->update('survey_run_sessions', array('last_access' => mysql_now()), array('id' => (int) $this->id));
         }
     }
 
@@ -116,11 +135,12 @@ class RunSession {
         return false;
     }
 
-    public function create($session = NULL, $testing = 0) {
-        if ($this->run_id === -1) {
+    public function create($session = null, $testing = 0) {
+        if ($this->run->id === -1) {
             return false;
         }
-        if ($session !== NULL) {
+
+        if ($session !== null) {
             if (strlen($session) != 64) {
                 alert("<strong>Error.</strong> Session tokens need to be exactly 64 characters long.", 'alert-danger');
                 return false;
@@ -129,13 +149,14 @@ class RunSession {
             $session = crypto_token(48);
         }
 
-        $this->dbh->insert_update('survey_run_sessions', array(
-            'run_id' => $this->run_id,
-            'user_id' => $this->user_id,
+        $this->db->insert_update('survey_run_sessions', array(
+            'run_id' => $this->run->id,
+            'user_id' => $this->user->id,
             'session' => $session,
             'created' => mysql_now(),
             'testing' => $testing
-                ), array('user_id'));
+        ), array('user_id'));
+        
         $this->session = $session;
         return $this->load();
     }
@@ -156,6 +177,19 @@ class RunSession {
 
         $last_unit = null;
         $output = false;
+        
+        foreach ($this->unitSessions as &$unitSession) {
+            if (!$unitSession->pending) {
+                continue;
+            }
+            
+            $this->currentUnitSession = $unitSession;
+            $result = $unitSession->exec();
+            if (isset($result['output'])) {
+                return $result['output'];
+            }
+        }
+/*        
         while (!$output): // only when there is something to display, stop.
             $i++;
             if ($i > 20) {
@@ -187,7 +221,7 @@ class RunSession {
                     $unit_info['cron'] = true;
                 }
 
-                $unit = $unit_factory->make($this->dbh, $this->session, $unit_info, $this, $this->run);
+                $unit = $unit_factory->make($this->db, $this->session, $unit_info, $this, $this->run);
                 $this->current_unit_type = $unit->type;
 
                 if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id != $this->unit_session->id) {
@@ -230,12 +264,17 @@ class RunSession {
         if ($this->cron) {
             return $done;
         }
-
+*/
         return $output;
     }
 
+    public function addUnitSession(UnitSession $unitSession) {
+        $this->unitSessions[] = $unitSession;
+        return $this;
+    }
+
     public function getUnitIdAtPosition($position) {
-        $unit_id = $this->dbh->findValue('survey_run_units', array('run_id' => $this->run_id, 'position' => $position), 'unit_id');
+        $unit_id = $this->db->findValue('survey_run_units', array('run_id' => $this->run_id, 'position' => $position), 'unit_id');
         if (!$unit_id) {
             return false;
         }
@@ -246,7 +285,7 @@ class RunSession {
         $unit = $unit !== null ? $unit : $this->getCurrentUnit(); // get first unit in line
         if ($unit) {
             $unit_factory = new RunUnitFactory();
-            $unit = $unit_factory->make($this->dbh, null, $unit, $this, $this->run);
+            $unit = $unit_factory->make($this->db, null, $unit, $this, $this->run);
             if ($unit->type == "Survey" || $unit->type == "External") {
                 if($unit->type == "Survey") {
                     $unit->session_result = "survey_expired_q";
@@ -287,14 +326,14 @@ class RunSession {
         }
 
         if ($unit_id):
-            $this->unit_session = new UnitSession($this->dbh, $this->id, $unit_id);
+            $this->unit_session = new UnitSession($this->db, $this->id, $unit_id);
             if (!$this->unit_session->id) {
                 $this->unit_session->create();
             }
             $_SESSION['session'] = $this->session;
 
             if ($this->unit_session->id):
-                $updated = $this->dbh->update('survey_run_sessions', array('position' => $position), array('id' => $this->id));
+                $updated = $this->db->update('survey_run_sessions', array('position' => $position), array('id' => $this->id));
                 $this->position = (int) $position;
                 return true;
             else:
@@ -309,7 +348,7 @@ class RunSession {
     }
 
     public function getCurrentUnit() {
-        $query = $this->dbh->select('
+        $query = $this->db->select('
 			`survey_unit_sessions`.unit_id,
 			`survey_unit_sessions`.id AS session_id,
 			`survey_unit_sessions`.created,
@@ -337,7 +376,7 @@ class RunSession {
             $unit['run_id'] = $this->run_id;
             $unit['run_name'] = $this->run_name;
             $unit['run_session_id'] = $this->id;
-            $this->unit_session = new UnitSession($this->dbh, $this->id, $unit['unit_id'], $unit['session_id']);
+            $this->unit_session = new UnitSession($this->db, $this->id, $unit['unit_id'], $unit['session_id']);
 
             return $unit;
         } else {
@@ -354,7 +393,7 @@ class RunSession {
     }
 
     public function runToNextUnit() {
-        $select = $this->dbh->select('unit_id, position')
+        $select = $this->db->select('unit_id, position')
                 ->from('survey_run_units')
                 ->where('run_id = :run_id')
                 ->where('position > :position')
@@ -381,14 +420,14 @@ class RunSession {
 			SET `survey_unit_sessions`.`ended` = NOW()
 			WHERE `survey_unit_sessions`.run_session_id = :id AND `survey_units`.type = 'External' AND  `survey_unit_sessions`.ended IS NULL AND `survey_unit_sessions`.expired IS NULL;";
 
-        $updated = $this->dbh->exec($query, array('id' => $this->id));
+        $updated = $this->db->exec($query, array('id' => $this->id));
         $success = $updated !== false;
         return $success;
     }
 
     public function end() {
         $query = "UPDATE `survey_run_sessions` SET `ended` = NOW() WHERE `id` = :id AND `ended` IS NULL";
-        $updated = $this->dbh->exec($query, array('id' => $this->id));
+        $updated = $this->db->exec($query, array('id' => $this->id));
 
         if ($updated === 1) {
             $this->ended = true;
@@ -399,7 +438,7 @@ class RunSession {
     }
 
     public function setTestingStatus($status = 0) {
-        $this->dbh->update("survey_run_sessions", array('testing' => $status), array('id' => $this->id));
+        $this->db->update("survey_run_sessions", array('testing' => $status), array('id' => $this->id));
     }
 
     public function isTesting() {
@@ -426,7 +465,7 @@ class RunSession {
 
     public function saveSettings($settings, $update = null) {
         if (!empty($update)) {
-            $this->dbh->update('survey_run_sessions', $update, array('id' => $this->id));
+            $this->db->update('survey_run_sessions', $update, array('id' => $this->id));
         }
 
         $oldSettings = $this->getSettings();
@@ -435,7 +474,7 @@ class RunSession {
             $settings = array_merge($oldSettings, $settings);
         }
 
-        $this->dbh->insert_update('survey_run_settings', array(
+        $this->db->insert_update('survey_run_settings', array(
             'run_session_id' => $this->id,
             'settings' => json_encode($settings),
         ));
@@ -443,7 +482,7 @@ class RunSession {
 
     public function getSettings() {
         $settings = array();
-        $row = $this->dbh->findRow('survey_run_settings', array('run_session_id' => $this->id));
+        $row = $this->db->findRow('survey_run_settings', array('run_session_id' => $this->id));
         if ($row) {
             $settings = (array) json_decode($row['settings']);
         }

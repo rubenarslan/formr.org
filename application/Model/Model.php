@@ -42,6 +42,8 @@ class Model {
                 $this->{$prop} = $value;
             }
         }
+        
+        return $props;
     }
     
     public function save() {

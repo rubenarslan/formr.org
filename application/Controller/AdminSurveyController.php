@@ -190,25 +190,14 @@ class AdminSurveyController extends AdminController {
     }
 
     private function accessAction() {
-        $study = $this->study;
-        if ($this->user->created($study)) {
-            $session = new UnitSession($this->fdb, null, $study->id);
-            $session->create();
+        Session::set('test_study_data', array(
+            'study_id' => $this->study->id,
+            'unit_id' => $this->study->id,
+            'data' => $this->study->getItems('id, name, type'),
+        ));
 
-            Session::set('dummy_survey_session', array(
-                "session_id" => $session->id,
-                "unit_id" => $study->id,
-                "run_session_id" => $session->run_session_id,
-                "run_name" => Run::TEST_RUN,
-                "survey_name" => $study->name
-            ));
-
-            alert("<strong>Go ahead.</strong> You can test the study " . $study->name . " now.", 'alert-info');
-            $this->request->redirect(run_url(Run::TEST_RUN));
-        } else {
-            alert("<strong>Sorry.</strong> You don't have access to this study", 'alert-danger');
-            $this->request->redirect("index");
-        }
+        alert("<strong>Go ahead.</strong> You can test the study " . $this->study->name . " now.", 'alert-info');
+        $this->request->redirect(run_url(Run::TEST_RUN));
     }
 
     private function showItemTableAction() {
