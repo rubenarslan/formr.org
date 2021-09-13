@@ -3,6 +3,7 @@
 class RunController extends Controller {
 
     public function __construct(Site &$site) {
+        
         parent::__construct($site);
         if (!Request::isAjaxRequest()) {
             $default_assets = get_default_assets('site');
@@ -158,7 +159,7 @@ class RunController extends Controller {
 
     private function getRun() {
         $name = $this->request->str('run_name');
-        $run = new Run($this->fdb, $name);
+        $run = new Run($name);
         if ($name !== Run::TEST_RUN && Config::get('use_study_subdomains') && !FMRSD_CONTEXT) {
             //throw new Exception('Invalid Study Context');
             // Redirect existing users to run's sub-domain URL and QSA
@@ -258,7 +259,8 @@ class RunController extends Controller {
             // new user just entering the run;
             $loginCode = null;
         }
-        return new User($this->fdb, $id, $loginCode);
+        
+        return new User($id, $loginCode);
     }
 
 }

@@ -145,7 +145,7 @@ class SurveyStudy extends Model {
         }
         
         if ($id) {
-            $options['id'] = $id;
+            $options['id'] = (int) $id;
         }
 
         if ($options && ($vars = $this->db->findRow('survey_studies', $options))) {
