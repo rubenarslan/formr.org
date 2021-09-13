@@ -375,9 +375,9 @@ class User {
         return true;
     }
 
-    public function getStudies($order = 'id DESC', $limit = null) {
+    public function getStudies($order = 'id DESC', $limit = null, $cols = []) {
         if ($this->isAdmin()) {
-            $select = $this->dbh->select();
+            $select = $this->dbh->select($cols);
             $select->from('survey_studies');
             $select->order($order, null);
             if ($limit) {

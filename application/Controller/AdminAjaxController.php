@@ -380,11 +380,14 @@ class AdminAjaxController {
         if ($id = $this->request->getParam('unit_id')) {
             $params = $this->request->getParams();
             $params['id'] = (int) $id;
+            if (!empty($params['position']) && is_array($params['position'])) {
+                $params['position'] = array_shift($params['position']);
+            }
 
             $unit = RunUnitFactory::make($run, $params);
             $unit->create($params);
- 
-            if ($unit->valid && ($unit->hadMajorChanges() || !empty($this->site->alerts))) {
+
+            if ($unit->valid) {
                 $content = $unit->displayForRun($this->site->renderAlerts());
             }
         } else {

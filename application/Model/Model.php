@@ -8,6 +8,10 @@
  */
 class Model {
     
+    public $id = null;
+
+    protected $table = null;
+ 
     /**
      * 
      * @var DB
@@ -15,6 +19,14 @@ class Model {
     protected $db;
     
     public $valid = false;
+    
+    /**
+     * 
+     * @var array
+     */
+    public $errors = [];
+    public $messages = [];
+    public $warnings = [];
 
     public function __construct() {
         $this->boot();
@@ -30,5 +42,26 @@ class Model {
                 $this->{$prop} = $value;
             }
         }
+    }
+    
+    public function save() {
+        $data = $this->toArray();
+        if ($data) {
+            if ($this->db->entry_exists($this->table, ['id' => $this->id])) {
+                return $this->db->update($this->table, $data, ['id' => $this->id]);
+            } else {
+                return $this->db->insert($this->table, $data);
+            }
+        }
+    }
+    
+    public function update($data) {
+        $this->assignProperties($data);
+        $this->save();
+    }
+
+
+    protected function toArray() {
+        return [];
     }
 }

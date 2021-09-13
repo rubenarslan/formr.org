@@ -13,7 +13,7 @@ class RunUnitFactory {
      * @return RunUnit
      * @throws Exception
      */
-    public static function make(Run $run, array $props = []) {
+    public static function make(Run $run = null, array $props = []) {
         if (isset($props['id']) && empty($props['type'])) {
             $props['type'] = DB::getInstance()->findValue('survey_units', ['id' => (int)$props['id']], 'type');
         }
@@ -57,10 +57,10 @@ class RunUnit extends Model {
     public $created = null;
     
     public $modified = null;
-
-    public $errors = array();
     
     public $run_unit_id = null;
+    
+    public $unit_id = null;
 
     public $icon = "fa-user";
 
@@ -112,7 +112,7 @@ class RunUnit extends Model {
         $this->assignProperties($props);
         
         if ($this->id) {
-            $this->find($this->id, $this->special);
+            $this->find($this->id, $this->special, $props);
         }
     }
 
@@ -146,14 +146,14 @@ class RunUnit extends Model {
             $this->position = 10;
         }
 
-        if ($this->special) {
+        if ($this->special && $this->run) {
             $run_unit_id = $this->db->insert('survey_run_special_units', array(
                 'id' => $this->id,
                 'run_id' => $this->run->id,
                 'type' => $this->special,
                 'description' => $this->description ?? '',
             ));
-        } else {
+        } elseif ($this->run->id) {
             $run_unit_id = $this->db->insert('survey_run_units', array(
                 'unit_id' => $this->id,
                 'run_id' => $this->run->id,
@@ -162,9 +162,19 @@ class RunUnit extends Model {
             ));
         }
 
-        $this->run_unit_id = $run_unit_id;
+        $this->run_unit_id = $run_unit_id ?? 0;
         
         return $this;
+    }
+    
+    public function updateUnitId() {
+        return $this->dbh->update(
+                'survey_run_units', 
+                array('unit_id' => $this->id), 
+                array('id' => $this->run_unit_id), 
+                array('int'), 
+                array('int')
+        );
     }
 
     public function modify($options = []) {
@@ -321,14 +331,6 @@ plot(cars)
         return Template::get($tpl, array('dialog' => $dialog, 'unit' => $this));
     }
 
-    public function hadMajorChanges() {
-        //return $this->had_major_changes;
-    }
-
-    protected function majorChange() {
-        //$this->had_major_changes = true;
-    }
-
     public function displayForRun($prepend = '') {
         return $this->runDialog($prepend); // FIXME: This class has no parent
     }
@@ -351,12 +353,15 @@ plot(cars)
      * 
      * @param int $id
      * @param string $special
+     * @param array $props
      * 
      * @return boolean|RunUnit
      */
-    public function find($id, $special = false) {
+    public function find($id, $special = false, $props = []) {
+        $params = array('run_id' => $this->run->id, 'id' => $id);
+        
         if (!$special) {
-            $unit = $this->db->select('
+            $select = $this->db->select('
 				`survey_run_units`.id AS run_unit_id,
 				`survey_run_units`.run_id,
 				`survey_run_units`.unit_id,
@@ -368,16 +373,22 @@ plot(cars)
                             ->from('survey_run_units')
                             ->leftJoin('survey_units', 'survey_units.id = survey_run_units.unit_id')
                             ->where('survey_run_units.run_id = :run_id')
-                            ->where('survey_units.id = :id')
-                            ->bindParams(array('run_id' => $this->run->id, 'id' => $id))
-                            ->limit(1)->fetch();
+                            ->where('survey_units.id = :id');
+            
+            if (!empty($props['run_unit_id'])) {
+                $select->where('survey_run_units.id = :run_unit_id');
+                $params['run_unit_id'] = $props['run_unit_id'];
+            }
+            
+            $unit = $select->bindParams($params)->limit(1)->fetch();
+            
         } else {
             $specials = array('ServiceMessagePage', 'OverviewScriptPage', 'ReminderEmail');
             if (!in_array($special, $specials)) {
                 die("Special unit not allowed");
             }
 
-            $unit = $this->db->select("
+            $select = $this->db->select("
 				`survey_run_special_units`.`id` AS run_unit_id,
 				`survey_run_special_units`.`run_id`,
 				`survey_run_special_units`.`description`,
@@ -388,9 +399,14 @@ plot(cars)
                             ->from('survey_run_special_units')
                             ->leftJoin('survey_units', "survey_units.id = `survey_run_special_units`.`id`")
                             ->where('survey_run_special_units.run_id = :run_id')
-                            ->where("`survey_run_special_units`.`id` = :id")
-                            ->bindParams(array('run_id' => $this->run->id, 'id' => $id))
-                            ->limit(1)->fetch();
+                            ->where("`survey_run_special_units`.`id` = :id");
+            
+            if (!empty($props['run_unit_id'])) {
+                $select->where('survey_run_special_units.id = :run_unit_id');
+                $params['run_unit_id'] = $props['run_unit_id'];
+            }
+            
+            $unit = $select->bindParams($params)->limit(1)->fetch();
             $unit["special"] = $special;
         }
 
@@ -407,6 +423,11 @@ plot(cars)
         return $this;
     }
     
+    public function load() {
+        return $this->find($this->id, $this->special);
+    }
+
+
     /**
      * Get Run unit using run_unit_id
      * 

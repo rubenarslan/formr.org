@@ -1462,6 +1462,7 @@ function google_download_survey_sheet($survey_name, $google_link) {
             'tmp_name' => $destination_file,
             'size' => filesize($destination_file),
             'google_id' => $google_id,
+            'google_file_id' => $google_id,
             'google_link' => google_get_sheet_link($google_id),
             'google_download_link' => $google_download_link,
         );
@@ -1674,4 +1675,11 @@ function secstofactor($seconds) {
         }
     }
     return array($seconds, 'seconds');
+}
+
+function knitting_needed($source) {
+    if (mb_strpos($source, '`r ') !== false || mb_strpos($source, '```{r') !== false) {
+        return true;
+    }
+    return false;
 }

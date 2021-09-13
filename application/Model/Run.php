@@ -25,7 +25,7 @@
  * social network (later)
  * lab date selector (later)
  */
-class Run {
+class Run extends Model {
 
     public $id = null;
     public $name = null;
@@ -59,12 +59,12 @@ class Run {
         'months' => 'Months',
         'years' => 'Years',
     );
-    private $description_parsed = null;
-    private $footer_text_parsed = null;
-    private $public_blurb_parsed = null;
-    private $api_secret_hash = null;
-    private $owner = null;
-    private $run_settings = array(
+    protected $description_parsed = null;
+    protected $footer_text_parsed = null;
+    protected $public_blurb_parsed = null;
+    protected $api_secret_hash = null;
+    protected $owner = null;
+    protected $run_settings = array(
         "header_image_path", "title", "description",
         "footer_text", "public_blurb", "custom_css",
         "custom_js", "cron_active", "osf_project_id",
@@ -86,9 +86,9 @@ class Run {
 
     const TEST_RUN = 'formr-test-run';
 
-    public function __construct($fdb, $name = null, $id = null) {
-        $this->dbh = $fdb;
-
+    public function __construct($name = null, $id = null) {
+        parent::__construct();
+        
         if ($name == self::TEST_RUN) {
             $this->name = $name;
             $this->valid = true;
@@ -115,38 +115,17 @@ class Run {
 
         $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
-        $vars = $this->dbh->findRow('survey_runs', $where, $columns);
+        $vars = $this->db->findRow('survey_runs', $where, $columns);
 
         if ($vars) {
-            $this->id = $vars['id'];
-            $this->user_id = (int) $vars['user_id'];
-            $this->api_secret_hash = $vars['api_secret_hash'];
-            $this->created = (int) $vars['created'];
-            $this->modified = (int) $vars['modified'];
-            $this->public = (int) $vars['public'];
-            $this->cron_active = (int) $vars['cron_active'];
-            $this->cron_fork = (int) $vars['cron_fork'];
-            $this->locked = (int) $vars['locked'];
-            $this->header_image_path = $vars['header_image_path'];
-            $this->title = $vars['title'];
-            $this->description = $vars['description'];
-            $this->description_parsed = $vars['description_parsed'];
-            $this->footer_text = $vars['footer_text'];
-            $this->footer_text_parsed = $vars['footer_text_parsed'];
-            $this->public_blurb = $vars['public_blurb'];
-            $this->public_blurb_parsed = $vars['public_blurb_parsed'];
-            $this->custom_css_path = $vars['custom_css_path'];
-            $this->custom_js_path = $vars['custom_js_path'];
-            $this->osf_project_id = $vars['osf_project_id'];
-            $this->use_material_design = (bool) $vars['use_material_design'];
-            $this->expire_cookie = (int) $vars['expire_cookie'];
-            $this->valid = true;
+            $this->assignProperties($vars);
             $this->setExpireCookieUnits();
+            $this->valid = true;
         }
     }
 
     public function getCronDues() {
-        $sessions = $this->dbh->select('session')
+        $sessions = $this->db->select('session')
                 ->from('survey_run_sessions')
                 ->where(array('run_id' => $this->id))
                 ->order('RAND')
@@ -173,13 +152,13 @@ class Run {
 
     public function rename($new_name) {
         $name = trim($new_name);
-        $this->dbh->update('survey_runs', array('name' => $name), array('id' => $this->id));
+        $this->db->update('survey_runs', array('name' => $name), array('id' => $this->id));
         return true;
     }
 
     public function delete() {
         try {
-            $this->dbh->delete('survey_runs', array('id' => $this->id));
+            $this->db->delete('survey_runs', array('id' => $this->id));
             alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
             return true;
         } catch (Exception $e) {
@@ -194,13 +173,13 @@ class Run {
             return false;
         }
 
-        $updated = $this->dbh->update('survey_runs', array('public' => $public), array('id' => $this->id));
+        $updated = $this->db->update('survey_runs', array('public' => $public), array('id' => $this->id));
         return $updated !== false;
     }
 
     public function toggleLocked($on) {
         $on = (int) $on;
-        $updated = $this->dbh->update('survey_runs', array('locked' => $on), array('id' => $this->id));
+        $updated = $this->db->update('survey_runs', array('locked' => $on), array('id' => $this->id));
         return $updated !== false;
     }
 
@@ -209,7 +188,7 @@ class Run {
 
         // create run db entry
         $new_secret = crypto_token(66);
-        $this->dbh->insert('survey_runs', array(
+        $this->db->insert('survey_runs', array(
             'user_id' => $options['user_id'],
             'name' => $name,
             'title' => $name,
@@ -223,7 +202,7 @@ class Run {
             'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
             'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
         ));
-        $this->id = $this->dbh->pdo()->lastInsertId();
+        $this->id = $this->db->pdo()->lastInsertId();
         $this->name = $name;
         $this->load();
 
@@ -235,7 +214,7 @@ class Run {
     }
 
     public function getUploadedFiles() {
-        return $this->dbh->select('id, created, original_file_name, new_file_path')
+        return $this->db->select('id, created, original_file_name, new_file_path')
                         ->from('survey_uploaded_files')
                         ->where(array('run_id' => $this->id))
                         ->order('created', 'desc')
@@ -295,7 +274,7 @@ class Run {
             // save file
             $destination_dir = APPLICATION_ROOT . 'webroot/' . $new_file_path;
             if (move_uploaded_file($files['tmp_name'][$i], $destination_dir)) {
-                $this->dbh->insert_update('survey_uploaded_files', array(
+                $this->db->insert_update('survey_uploaded_files', array(
                     'run_id' => $this->id,
                     'created' => mysql_now(),
                     'original_file_name' => $original_file_name,
@@ -313,8 +292,8 @@ class Run {
 
     public function deleteFile($id, $filename) {
         $where = array('id' => (int) $id, 'original_file_name' => $filename);
-        $filepath = $this->dbh->findValue('survey_uploaded_files', $where, 'new_file_path');
-        $deleted = $this->dbh->delete('survey_uploaded_files', $where);
+        $filepath = $this->db->findValue('survey_uploaded_files', $where, 'new_file_path');
+        $deleted = $this->db->delete('survey_uploaded_files', $where);
         $physicalfile = APPLICATION_ROOT . "webroot/" . $filepath;
         if ($deleted && file_exists($physicalfile)) {
             @unlink($physicalfile);
@@ -330,7 +309,7 @@ class Run {
         $run_unit_id = null;
         $pos = null;
         $update = "UPDATE `survey_run_units` SET position = :position WHERE run_id = :run_id AND id = :run_unit_id";
-        $reorder = $this->dbh->prepare($update);
+        $reorder = $this->db->prepare($update);
         $reorder->bindParam(':run_id', $this->id);
         $reorder->bindParam(':run_unit_id', $run_unit_id);
         $reorder->bindParam(':position', $pos);
@@ -342,7 +321,7 @@ class Run {
     }
 
     public function getAllUnitIds() {
-        return $this->dbh->select(array('id' => 'run_unit_id', 'unit_id', 'position'))
+        return $this->db->select(array('id' => 'run_unit_id', 'unit_id', 'position'))
                         ->from('survey_run_units')
                         ->where(array('run_id' => $this->id))
                         ->order('position')
@@ -350,7 +329,7 @@ class Run {
     }
 
     public function getAllUnitTypes() {
-        $select = $this->dbh->select(array('survey_run_units.id' => 'run_unit_id', 'unit_id', 'position', 'type', 'description'));
+        $select = $this->db->select(array('survey_run_units.id' => 'run_unit_id', 'unit_id', 'position', 'type', 'description'));
         $select->from('survey_run_units');
         $select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
         $select->where(array('run_id' => $this->id))->order('position');
@@ -367,7 +346,7 @@ class Run {
     }
 
     public function getNumberOfSessionsInRun() {
-        $g_users = $this->dbh->prepare(
+        $g_users = $this->db->prepare(
                 "SELECT COUNT(`survey_run_sessions`.id) AS sessions, AVG(`survey_run_sessions`.position) AS avg_position
 			FROM `survey_run_sessions`
 			WHERE `survey_run_sessions`.run_id = :run_id;"
@@ -383,13 +362,13 @@ class Run {
      */
     public function getOwner() {
         if (!$this->owner) {
-            $this->owner = new User($this->dbh, $this->user_id);
+            $this->owner = new User($this->db, $this->user_id);
         }
         return $this->owner;
     }
 
     public function getUserCounts() {
-        $g_users = $this->dbh->prepare(
+        $g_users = $this->db->prepare(
                 "SELECT COUNT(`id`) AS users_total,
 				SUM(`ended` IS NOT NULL) AS users_finished,
 				SUM(`ended` IS NULL AND `last_access` >= DATE_SUB(NOW(), INTERVAL 1 DAY) ) 	AS users_active_today,
@@ -408,13 +387,13 @@ class Run {
         $unit_factory = new RunUnitFactory();
         foreach ($surveys AS $survey) {
             /* @var $unit Survey */
-            $unit = $unit_factory->make($this->dbh, null, $survey, null, $this);
+            $unit = $unit_factory->make($this->db, null, $survey, null, $this);
             if (!$unit->backupResults()) {
                 alert('Could not backup results of survey ' . $unit->name, 'alert-danger');
                 return false;
             }
         }
-        $rows = $this->dbh->delete('survey_run_sessions', array('run_id' => $this->id));
+        $rows = $this->db->delete('survey_run_sessions', array('run_id' => $this->id));
         alert('Run was emptied. ' . $rows . ' were deleted.', 'alert-info');
         return $rows;
     }
@@ -425,7 +404,7 @@ class Run {
             return null;
         }
         $factory = new RunUnitFactory();
-        return $factory->make($this->dbh, null, $units[0], null, $this);
+        return $factory->make($this->db, null, $units[0], null, $this);
     }
 
     public function getSpecialUnits($render = false, $xtype = null, $id = null) {
@@ -433,7 +412,7 @@ class Run {
             'survey_run_special_units.id' => 'unit_id', 'survey_run_special_units.run_id', 'survey_run_special_units.type' => 'xtype', 'survey_run_special_units.description',
             'survey_units.type', 'survey_units.created', 'survey_units.modified'
         );
-        $select = $this->dbh->select($cols);
+        $select = $this->db->select($cols);
         $select->from('survey_run_special_units');
         $select->join('survey_units', 'survey_units.id = survey_run_special_units.id');
         $select->where('survey_run_special_units.run_id = :run_id');
@@ -469,10 +448,10 @@ class Run {
 
     public function getReminder($reminder_id, $session, $run_session_id) {
         // create a unit_session here and get a session_id and pass it when making the unit
-        $unitSession = new UnitSession($this->dbh, $run_session_id, $reminder_id);
+        $unitSession = new UnitSession($this->db, $run_session_id, $reminder_id);
         $session_id = $unitSession->create(false);
         $unit_factory = new RunUnitFactory();
-        $unit = $unit_factory->make($this->dbh, $session, array(
+        $unit = $unit_factory->make($this->db, $session, array(
             'type' => "Email",
             "unit_id" => $reminder_id,
             "run_name" => $this->name,
@@ -594,7 +573,7 @@ class Run {
 
         if ($updates) {
             $updates['modified'] = mysql_now();
-            $this->dbh->update('survey_runs', $updates, array('id' => $this->id));
+            $this->db->update('survey_runs', $updates, array('id' => $this->id));
         }
 
         if (!in_array(false, $successes)) {
@@ -606,7 +585,7 @@ class Run {
 
     public function getAllSurveys() {
         // first, generate a master list of the search set (all the surveys that are part of the run)
-        return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
+        return $this->db->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
                         ->from('survey_studies')
                         ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
                         ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
@@ -617,7 +596,7 @@ class Run {
 
     public function getAllLinkedSurveys() {
         // first, generate a master list of the search set (all the surveys that are part of the run)
-        return $this->dbh->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
+        return $this->db->select(array('COALESCE(`survey_studies`.`results_table`,`survey_studies`.`name`)' => 'results_table', 'survey_studies.name', 'survey_studies.id'))
                         ->from('survey_studies')
                         ->leftJoin('survey_run_units', 'survey_studies.id = survey_run_units.unit_id')
                         ->leftJoin('survey_runs', 'survey_runs.id = survey_run_units.run_id')
@@ -629,8 +608,8 @@ class Run {
 
     public function getData($rstmt = false) {
         ini_set('memory_limit', Config::get('memory_limit.run_get_data'));
-        $fdb = $this->dbh;
-        $collect = $fdb->prepare("SELECT 
+
+        $collect = $this->db->prepare("SELECT 
 			`survey_studies`.name AS survey_name,
 			`survey_run_units`.position AS unit_position,
 			`survey_unit_sessions`.id AS unit_session_id,
@@ -672,7 +651,7 @@ class Run {
     }
 
     public function getRandomGroups() {
-        $g_users = $this->dbh->prepare("SELECT 
+        $g_users = $this->db->prepare("SELECT 
 			`survey_run_sessions`.session,
 			`survey_unit_sessions`.id AS session_id,
 			`survey_runs`.name AS run_name,
@@ -703,7 +682,7 @@ class Run {
     private function fakeTestRun() {
         if ($session = Session::get('dummy_survey_session')):
             $run_session = $this->makeTestRunSession();
-            $unit = new Survey($this->dbh, null, $session, $run_session, $this);
+            $unit = new Survey($this->db, null, $session, $run_session, $this);
             $output = $unit->exec();
             $this->activeRunSession = $run_session;
 
@@ -729,7 +708,7 @@ class Run {
         $animal_name = str_replace(" ", "", $animal_name);
         $test_code = crypto_token(48 - floor(3 / 4 * strlen($animal_name)));
         $test_code = $animal_name . substr($test_code, 0, 64 - strlen($animal_name));
-        $run_session = new RunSession($this->dbh, $this->id, NULL, $test_code, $this); // does this user have a session?
+        $run_session = new RunSession($this->db, $this->id, NULL, $test_code, $this); // does this user have a session?
         $run_session->create($test_code, $testing);
 
         return $run_session;
@@ -748,7 +727,7 @@ class Run {
 
         $new_code = crypto_token(48 - floor(3 / 4 * strlen($name)));
         $new_code = $name . substr($new_code, 0, 64 - strlen($name));
-        $run_session = new RunSession($this->dbh, $this->id, null, $new_code, $this); // does this user have a session?
+        $run_session = new RunSession($this->db, $this->id, null, $new_code, $this); // does this user have a session?
         $run_session->create($new_code, $testing);
 
         return $run_session;
@@ -763,7 +742,7 @@ class Run {
             extract($test);
         } else {
 
-            $run_session = new RunSession($this->dbh, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
+            $run_session = new RunSession($this->db, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
 
             if (($this->getOwner()->user_code == $user->user_code || // owner always has access
                     $run_session->isTesting()) || // testers always have access
@@ -947,7 +926,7 @@ class Run {
                     $unit->body = $unit->body + $start_position;
                 }
 
-                $unitObj = $runFactory->make($this->dbh, null, (array) $unit, null, $this);
+                $unitObj = $runFactory->make($this->db, null, (array) $unit, null, $this);
                 $unit = (array) $unit;
                 $unitObj->create($unit);
                 if ($unitObj->valid) {

@@ -28,12 +28,15 @@ class Email extends RunUnit {
      */
     public $export_attribs = array('type', 'description', 'position', 'special', 'subject', 'account_id', 'recipient_field', 'body', 'cron_only');
 
-    public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
-        parent::__construct($fdb, $session, $unit, $run_session, $run);
+    public function __construct(Run $run, array $props = []) {
+        parent::__construct($run, $props);
 
-        if ($this->id):
-            $vars = $this->dbh->findRow('survey_emails', array('id' => $this->id));
-            if ($vars):
+        if ($this->id) {
+            $vars = $this->db->findRow('survey_emails', array('id' => $this->id));
+            if ($vars) {
+                $vars['html'] = 1;
+                $this->assignProperties($vars);
+                
                 $this->account_id = $vars['account_id'];
                 $this->recipient_field = $vars['recipient_field'];
                 $this->body = $vars['body'];
@@ -44,41 +47,35 @@ class Email extends RunUnit {
                 $this->cron_only = (int) $vars['cron_only'];
 
                 $this->valid = true;
-            endif;
-        endif;
+            }
+        }
     }
 
-    public function create($options) {
-        if (!$this->id) {
-            $this->id = parent::create('Email');
-        } else {
-            $this->modify($options);
-        }
+    public function create($options = []) {
+        parent::create($options);
 
         $parsedown = new ParsedownExtra();
         if (isset($options['body'])) {
-            $this->recipient_field = $options['recipient_field'];
-            $this->body = $options['body'];
-            $this->subject = $options['subject'];
             if (isset($options['account_id']) && is_numeric($options['account_id'])) {
-                $this->account_id = (int) $options['account_id'];
+               $options['account_id'] = (int) $options['account_id'];
             }
-//			$this->html = $options['html'] ? 1:0;
-            $this->html = 1;
-            $this->cron_only = isset($options['cron_only']) ? 1 : 0;
+            $options['cron_only'] = (int)isset($options['cron_only']);
+            $options['html'] = 1;
+            $this->assignProperties($options);
         }
-        if ($this->account_id === null):
+        
+        if ($this->account_id === null) {
             $email_accounts = Site::getCurrentUser()->getEmailAccounts();
-            if (count($email_accounts) > 0):
+            if (count($email_accounts) > 0) {
                 $this->account_id = current($email_accounts)['id'];
-            endif;
-        endif;
+            }
+        }
 
         if (!$this->knittingNeeded($this->body)) {
             $this->body_parsed = $parsedown->text($this->body);
         }
 
-        $this->dbh->insert_update('survey_emails', array(
+        $this->db->insert_update('survey_emails', array(
             'id' => $this->id,
             'account_id' => $this->account_id,
             'recipient_field' => $this->recipient_field,
@@ -91,7 +88,7 @@ class Email extends RunUnit {
 
         $this->valid = true;
 
-        return true;
+        return $this;
     }
 
     public function getSubject() {
@@ -145,14 +142,14 @@ class Email extends RunUnit {
     }
 
     protected function getPotentialRecipientFields() {
-        $get_recips = $this->dbh->prepare("SELECT survey_studies.name AS survey,survey_items.name AS item FROM survey_items
+        $get_recips = $this->db->prepare("SELECT survey_studies.name AS survey,survey_items.name AS item FROM survey_items
 			LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
 		LEFT JOIN survey_run_units ON survey_studies.id = survey_run_units.unit_id
 		LEFT JOIN survey_runs ON survey_runs.id = survey_run_units.run_id
 		WHERE survey_runs.id = :run_id AND
 		survey_items.type = 'email'");
         // fixme: if the last reported email thing is known to work, show only linked email addresses here.
-        $get_recips->bindValue(':run_id', $this->run_id);
+        $get_recips->bindValue(':run_id', $this->run->id);
         $get_recips->execute();
 
         $recips = array(array("id" => $this->mostrecent, "text" => $this->mostrecent));
@@ -164,7 +161,7 @@ class Email extends RunUnit {
     }
 
     public function displayForRun($prepend = '') {
-        $dialog = Template::get($this->getUnitTemplatePath(), array(
+        $dialog = Template::get($this->getTemplatePath(), array(
                     'email' => $this,
                     'prepend' => $prepend,
                     'email_accounts' => Site::getCurrentUser()->getEmailAccounts(),
@@ -195,8 +192,8 @@ class Email extends RunUnit {
 				LIMIT 1
 			";
 
-            $get_recip = $this->dbh->prepare($recent_email_query);
-            $get_recip->bindValue(':run_id', $this->run_id);
+            $get_recip = $this->db->prepare($recent_email_query);
+            $get_recip->bindValue(':run_id', $this->run->id);
             $get_recip->bindValue(':run_session_id', $this->run_session_id);
             $get_recip->execute();
 
@@ -231,7 +228,7 @@ class Email extends RunUnit {
 
         $testing = !$run_session || $run_session->isTesting();
 
-        $acc = new EmailAccount($this->dbh, $this->account_id, null);
+        $acc = new EmailAccount($this->db, $this->account_id, null);
         $mailing_themselves = (is_array($acc->account) && $acc->account["from"] === $this->recipient) ||
                 (($user = Site::getCurrentUser()) && $user->email === $this->recipient) ||
                 ($this->run && $this->run->getOwner()->email === $this->recipient);
@@ -303,7 +300,7 @@ class Email extends RunUnit {
 
         // if formr is configured to use the email queue then add mail to queue and return
         if (Config::get('email.use_queue', false) === true && filter_var($this->recipient, FILTER_VALIDATE_EMAIL)) {
-            $this->mail_queued = $this->dbh->insert('survey_email_log', array(
+            $this->mail_queued = $this->db->insert('survey_email_log', array(
                 'subject' => $subject,
                 'status' => 0,
                 'session_id' => $this->session_id,
@@ -358,7 +355,7 @@ class Email extends RunUnit {
     }
 
     protected function numberOfEmailsSent() {
-        $log = $this->dbh->prepare("SELECT
+        $log = $this->db->prepare("SELECT
 			SUM(created > DATE_SUB(NOW(), INTERVAL 1 MINUTE)) AS in_last_1m,
 			SUM(created > DATE_SUB(NOW(), INTERVAL 10 MINUTE)) AS in_last_10m,
 			SUM(created > DATE_SUB(NOW(), INTERVAL 1 HOUR)) AS in_last_1h,
@@ -379,7 +376,7 @@ class Email extends RunUnit {
             $session_id = $this->session_id;
         }
         $query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient) VALUES (:session_id, :email_id, NOW(), :recipient)";
-        $this->dbh->exec($query, array(
+        $this->db->exec($query, array(
             'session_id' => $session_id,
             'email_id' => $this->id,
             'recipient' => $this->recipient,
