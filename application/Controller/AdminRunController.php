@@ -562,7 +562,7 @@ class AdminRunController extends AdminController {
             return;
         }
 
-        $run = new Run($this->fdb, $name);
+        $run = new Run($name);
         if (!$run->valid) {
             formr_error(404, 'Not Found', 'Requested Run does not exist or has been moved');
         } elseif (!$this->user->created($run)) {
@@ -632,7 +632,6 @@ class AdminRunController extends AdminController {
         $redirect = $this->request->redirect ? admin_run_url($this->run->name, $this->request->redirect) : admin_run_url($this->run->name);
         $unit = $this->createRunUnit();
         if ($unit->valid) {
-            $unit->addToRun($this->run->id, $unit->position);
             alert('Run unit created', 'alert-success');
         } else {
             alert('An unexpected error occured. Unit could not be created', 'alert-danger');

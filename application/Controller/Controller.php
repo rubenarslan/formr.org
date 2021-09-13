@@ -28,7 +28,7 @@ abstract class Controller {
 
     /**
      *
-     * @var Survey
+     * @var SurveyStudy
      */
     public $study;
 

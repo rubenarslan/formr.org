@@ -69,8 +69,8 @@ class Page extends RunUnit {
         //return $this->getParsedBodyAdmin($this->body);
     }
     
-    public function find($id, $special = false) {
-        parent::find($id, $special);
+    public function find($id, $special = false, $props = []) {
+        parent::find($id, $special, $props);
         $this->type = 'Endpage';
         
         return $this;

@@ -77,6 +77,7 @@ class Autoload {
         foreach ($paths as $path) {
             if (file_exists($path) && is_readable($path)) {
                 $file = $path;
+                break;
             }
         }
 

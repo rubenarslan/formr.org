@@ -14,6 +14,13 @@ class SpreadsheetReader {
     public $survey = array();
     public $choices = array();
     public static $exportFormats = array('csv', 'csv_german', 'tsv', 'xlsx', 'xls', 'json');
+    
+    public $parsedown;
+    
+    public function __construct() {
+        $this->parsedown = new ParsedownExtra();
+        $this->parsedown = $this->parsedown->setBreaksEnabled(true)->setUrlsLinked(true);
+    }
 
     public static function verifyExportFormat($formatstring) {
         if (!in_array($formatstring, static::$exportFormats)) {

@@ -18,27 +18,23 @@ class External extends RunUnit {
      */
     public $export_attribs = array('type', 'description', 'position', 'special', 'address', 'api_end');
 
-    public function __construct($fdb, $session = null, $unit = null, $run_session = NULL, $run = NULL) {
-        parent::__construct($fdb, $session, $unit, $run_session, $run);
+    public function __construct(Run $run, array $props = []) {
+        parent::__construct($run, $props);
 
-        if ($this->id):
-            $vars = $this->dbh->findRow('survey_externals', array('id' => $this->id), 'id, address, api_end, expire_after');
-            if ($vars):
+        if ($this->id) {
+            $vars = $this->db->findRow('survey_externals', array('id' => $this->id), 'id, address, api_end, expire_after');
+            if ($vars) {
                 $this->address = $vars['address'];
                 $this->api_end = $vars['api_end'] ? 1 : 0;
                 $this->expire_after = (int) $vars['expire_after'];
                 $this->valid = true;
-            endif;
-        endif;
+            }
+        }
     }
 
-    public function create($options) {
-        $this->dbh->beginTransaction();
-        if (!$this->id) {
-            $this->id = parent::create('External');
-        } else {
-            $this->modify($options);
-        }
+    public function create($options = []) {
+        $this->db->beginTransaction();
+        parent::create($options);
 
         if (isset($options['external_link'])) {
             $this->address = $options['external_link'];
@@ -46,20 +42,20 @@ class External extends RunUnit {
             $this->expire_after = (int) $options['expire_after'];
         }
 
-        $this->dbh->insert_update('survey_externals', array(
+        $this->db->insert_update('survey_externals', array(
             'id' => $this->id,
             'address' => $this->address,
             'api_end' => $this->api_end,
             'expire_after' => $this->expire_after,
         ));
-        $this->dbh->commit();
+        $this->db->commit();
         $this->valid = true;
 
-        return true;
+        return $this;
     }
 
     public function displayForRun($prepend = '') {
-        $dialog = Template::get($this->getUnitTemplatePath(), array(
+        $dialog = Template::get($this->getTemplatePath(), array(
             'prepend' => $prepend,
             'address' => $this->address,
             'expire_after' => $this->expire_after,
