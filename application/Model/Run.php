@@ -325,6 +325,24 @@ class Run extends Model {
                         ->order('position')
                         ->fetchAll();
     }
+    
+    public function getFirstPosition() {
+        if ($units = $this->getAllUnitIds()) {
+            return $units[0]['position'];
+        }
+    }
+    
+    public function getNextPosition($current) {
+        $row = $this->db->select('position')
+                ->from('survey_run_units')
+                ->where(['run_id' => $this->id, 'position >' => $current])
+                ->order('position')
+                ->fetch();
+        
+        if ($row) {
+            return $row['position'];
+        }
+    }
 
     public function getAllUnitTypes() {
         $select = $this->db->select(array('survey_run_units.id' => 'run_unit_id', 'unit_id', 'position', 'type', 'description'));
@@ -360,7 +378,7 @@ class Run extends Model {
      */
     public function getOwner() {
         if (!$this->owner) {
-            $this->owner = new User($this->db, $this->user_id);
+            $this->owner = new User($this->user_id);
         }
         return $this->owner;
     }
@@ -401,8 +419,12 @@ class Run extends Model {
         if (empty($units)) {
             return null;
         }
-        $factory = new RunUnitFactory();
-        return $factory->make($this->db, null, $units[0], null, $this);
+        
+        return RunUnitFactory::make($this, [
+            'special' => $xtype,
+            'type' => $units[0]['type'],
+            'id' => $units[0]['unit_id'],
+        ]);
     }
 
     public function getSpecialUnits($render = false, $xtype = null, $id = null) {
@@ -444,8 +466,15 @@ class Run extends Model {
         }
     }
 
-    public function getReminder($reminder_id, $session, $run_session_id) {
+    public function getReminderSession($reminder_id, $session, $run_session_id) {
         // create a unit_session here and get a session_id and pass it when making the unit
+        $runUnit = RunUnitFactory::make($this, ['id' => (int)$reminder_id]);
+        $runSession = new RunSession($session, $this, ['id' => (int) $run_session_id]);
+        $runSession->createUnitSession($runUnit, false);
+        
+        return $runSession;
+        /*
+        
         $unitSession = new UnitSession($this->db, $run_session_id, $reminder_id);
         $session_id = $unitSession->create(false);
         $unit_factory = new RunUnitFactory();
@@ -456,8 +485,11 @@ class Run extends Model {
             "run_id" => $this->id,
             "run_session_id" => $run_session_id,
             "session_id" => $session_id,
-                ), null, $this);
+        ), null, $this);
+       
         return $unit;
+         * 
+         */
     }
 
     public function getCustomCSS() {
@@ -682,18 +714,22 @@ class Run extends Model {
             formr_error(404, 'Not Found', 'Nothing to Test-Drive');
         }
         
+        if (isset($data['unit_id'])) {
+            $data['id'] = (int) $data['unit_id'];
+        }
+
         $runUnit = (new Survey($this, $data))->load();
         $runSession = $this->makeTestRunSession();
-        $runSession->addUnitSession(new UnitSession($runSession, $runUnit));
+        $runSession->createUnitSession($runUnit);
         $output = $runSession->execute();
-
+        formr_log('OUTPUT ' . print_r($output,1));
         if (!$output) {
             $output = [
                 'title' => 'Finish',
                 'body' => "
 					<h1>Finish</h1>
 					<p>You're finished with testing this survey.</p>
-					<a href='" . admin_study_url($_SESSION['dummy_survey_session']['survey_name']) . "'>Back to the admin control panel.</a>"
+					<a href='" . admin_study_url($data['study_name']) . "'>Back to the admin control panel.</a>"
             ];
             
             Session::delete('test_study_data');
@@ -741,7 +777,7 @@ class Run extends Model {
             extract($test);
         } else {
 
-            $runSession = new RunSession($this->db, $this->id, $user->id, $user->user_code, $this); // does this user have a session?
+            $runSession = new RunSession($user->user_code, $this, ['user' => $user]);
 
             if (($this->getOwner()->user_code == $user->user_code || // owner always has access
                     $runSession->isTesting()) || // testers always have access
@@ -754,7 +790,8 @@ class Run extends Model {
                 Session::globalRefresh();
                 $output = $runSession->execute();
             } else {
-                $output = $this->getServiceMessage()->exec();
+                $runSession->createUnitSession($this->getServiceMessage(), null, false);
+                $output = $runSession->executeTest();
                 alert("<strong>Sorry:</strong> You cannot currently access this run.", 'alert-warning');
             }
 
@@ -820,6 +857,7 @@ class Run extends Model {
             'js' => $js,
             'run_session' => $runSession,
             'run_content' => $run_content,
+            'redirect' => array_val($output, 'redirect'),
             'run' => $this,
         );
     }

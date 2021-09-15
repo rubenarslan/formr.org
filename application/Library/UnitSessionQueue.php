@@ -168,9 +168,7 @@ class UnitSessionQueue extends Queue {
      */
     public static function removeItem($unitSessionId) {
         $db = DB::getInstance();
-        $removed = $db->update('survey_unit_sessions', array(
-                'queued' => 0
-        ), array('id' => $unitSessionId));
+        $removed = $db->update('survey_unit_sessions', array('queued' => 0), array('id' => $unitSessionId));
 
         return (bool) $removed;
     }
@@ -180,11 +178,12 @@ class UnitSessionQueue extends Queue {
      *
      * @param UnitSession $unitSession
      * @param RunUnit $runUnit
+     * @param array $data Data array description expiration info
      * @param mixed $execResults
      */
-    public static function addItem(UnitSession $unitSession, RunUnit $runUnit, $execResults) {
+    public static function addItem(UnitSession $unitSession, RunUnit $runUnit, $data, $execResults = null) {
         $helper = UnitSessionHelper::getInstance();
-        $data = $helper->getUnitSessionExpiration($unitSession, $runUnit, $execResults);
+        //$data = $helper->getUnitSessionExpiration($unitSession, $runUnit, $execResults);
         
         if (!empty($data['expires'])) {
             $db = DB::getInstance();

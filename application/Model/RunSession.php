@@ -10,10 +10,10 @@ class RunSession extends Model {
     public $ended;
     public $last_access;
     public $position;
-    public $current_unit_id;
-    public $deactivated;
-    public $no_mail;
-    public $testing;
+    public $current_unit_session_id;
+    public $deactivated = 0;
+    public $no_email;
+    public $testing = 0;
     
     /**
      * 
@@ -42,8 +42,7 @@ class RunSession extends Model {
      */
     public $currentUnitSession;
 
-    private $is_testing = false;
-    
+
     /*
     public $current_unit_type;
     public $run_name;
@@ -70,7 +69,7 @@ class RunSession extends Model {
         $this->run = $run;
         $this->assignProperties($options);
 
-        if ($this->session && $this->run) {
+        if (($this->id || $this->session) && $this->run) {
             $this->load();
         }
 
@@ -80,20 +79,20 @@ class RunSession extends Model {
         } elseif ($run->testingStudy) {
             // User is just testing the survey so we only need a dummy run session since data is not saved
             $this->id = -1;
-            $this->is_testing = true;
+            $this->testing = true;
             Site::getInstance()->setRunSession($this);
         }
 
-        $this->user = new User(null, $this->session);
+        if (!$this->user) {
+            $this->user = new User(null, $this->session);
+        }
     }
 
     private function load() {
         $options = [];
         if ($this->id) {
             $options['id'] = (int) $this->id;
-        }
-        
-        if ($this->session) {
+        } elseif ($this->session) {
             $options['session'] = $this->session;
             $options['run_id'] = $this->run->id;
         }
@@ -111,6 +110,10 @@ class RunSession extends Model {
         }
 
         return false;
+    }
+    
+    public function getRun() {
+        return $this->run;
     }
 
     public function getLastAccess() {
@@ -160,6 +163,29 @@ class RunSession extends Model {
         $this->session = $session;
         return $this->load();
     }
+    
+    /**
+     * Create a new unit session for this run session
+     *
+     * @param RunUnit $unit
+     * @param boolean $setAsCurrent
+     * @param boolean $save Should unit session be saved on TV?
+     * @return \RunSession
+     */
+    public function createUnitSession(RunUnit $unit, $setAsCurrent = true, $save = true) {
+        $unitSession = new UnitSession($this, $unit);
+        if ($save === false) {
+            $this->unitSessions[] = $unitSession;
+            return $this;
+        }
+        
+        formr_log('Create unit session ');
+        $unitSession->create($setAsCurrent);
+        formr_log('Created unit session ' . $unitSession->id);
+        $this->unitSessions[] = $unitSession;
+        
+        return $this;
+    }
 
 
     /**
@@ -170,6 +196,14 @@ class RunSession extends Model {
      * @return mixed
      */
     public function execute(UnitSession $referenceUnitSession = null, $executeReferenceUnit = false) {
+        if ($this->ended) {
+            
+        }
+        
+        if ($this->run->testingStudy) {
+            return $this->executeTest();
+        }
+        
         $i = 0;
         $done = array();
         $unit_factory = new RunUnitFactory();
@@ -177,18 +211,33 @@ class RunSession extends Model {
 
         $last_unit = null;
         $output = false;
-        
-        foreach ($this->unitSessions as &$unitSession) {
-            if (!$unitSession->pending) {
-                continue;
-            }
-            
-            $this->currentUnitSession = $unitSession;
-            $result = $unitSession->exec();
-            if (isset($result['output'])) {
-                return $result['output'];
-            }
+
+        // Get the initial position if this run session hasn't executed before
+        if ($this->position === null && !($position = $this->run->getFirstPosition())) {
+            alert('This study has not been defined.', 'alert-danger');
+            return false;
         }
+
+        if (!$this->position) {
+            $this->position = $position;
+            $this->save();
+        }
+
+        $unitSession = $this->getCurrentUnitSession();
+        if (!$unitSession && $this->position === $this->run->getFirstPosition()) {
+            // We are in the first unit of the run
+            return $this->moveOn(true);
+        } elseif (!$unitSession) {
+            // We maybe all previous unit sessions have ended so move on
+            return $this->moveOn();
+        } else {
+            // Currently active unit session. Should most likey be a survey or pause
+            $this->unitSessions[] = $unitSession;
+        }
+
+        return $this->executeSessions();
+        
+        
 /*        
         while (!$output): // only when there is something to display, stop.
             $i++;
@@ -201,7 +250,7 @@ class RunSession extends Model {
                 return array('body' => '');
             }
 
-            $unit_info = $this->getCurrentUnit(); // get first unit in line
+            $unit_info = $this->getCurrentUnitSession(); // get first unit in line
 //            formr_log($unit_info);
             if (!$unit_info) {
                 if (!$this->runToNextUnit()) {   // if there is nothing in line yet, add the next one in run order
@@ -267,6 +316,67 @@ class RunSession extends Model {
 */
         return $output;
     }
+    
+    public function moveOn($starting = false) {
+        if ($this->ended) {
+            die('Run Session Ended');
+        }
+
+        if (!$starting) {
+            $this->position = $this->run->getNextPosition($this->position);
+            if ($this->position) {
+                $this->save();
+            }
+        }
+        
+        if (($unit_id = $this->getUnitIdAtPosition($this->position))) {
+            $runUnit = RunUnitFactory::make($this->run, ['id' => $unit_id]);
+            $this->createUnitSession($runUnit);
+            return $this->execute();
+        }
+
+        alert('Run ' . $this->run->name . ':<br /> Oops, this study\'s creator forgot to give it a proper ending (a Stop button), user ' . h($this->session) . ' is dangling at the end.', 'alert-danger');
+        $this->end();
+        return ['body' => ''];
+    }
+    
+    public function executeSessions() {
+        foreach ($this->unitSessions as $i => $unitSession) {
+            if (!$unitSession->pending) {
+                continue;
+            }
+            
+            $this->unitSessions[$i]->pending = false;
+            
+            $this->currentUnitSession = $unitSession;
+            $result = $unitSession->exec();
+            formr_log($result);
+            if (isset($result['output'])) {
+                if (isset($result['output']['end_session'])) {
+                    $unitSession->end();
+                }
+
+                if (isset($result['output']['expired'])) {
+                    $unitSession->expire();
+                }
+                
+                if (isset($result['output']['move_on'])) {
+                    return $this->moveOn();
+                }
+                
+                if (isset($result['output']['end_run_session'])) {
+                    $this->end();
+                }
+                
+                return $result['output'];
+            } elseif (isset($result['move_on'])) {
+                // @TODO end unit then move on
+                return $this->moveOn();
+            }
+            
+            // @TODO Check if run session should be ended here
+        }
+    }
 
     public function addUnitSession(UnitSession $unitSession) {
         $this->unitSessions[] = $unitSession;
@@ -274,15 +384,14 @@ class RunSession extends Model {
     }
 
     public function getUnitIdAtPosition($position) {
-        $unit_id = $this->db->findValue('survey_run_units', array('run_id' => $this->run_id, 'position' => $position), 'unit_id');
-        if (!$unit_id) {
-            return false;
-        }
-        return $unit_id;
+        return $this->db->findValue('survey_run_units', [
+            'run_id' => $this->run->id,
+            'position' => $position],
+        'unit_id');
     }
 
     public function endUnitSession($unit = null, $reason = null) {
-        $unit = $unit !== null ? $unit : $this->getCurrentUnit(); // get first unit in line
+        $unit = $unit !== null ? $unit : $this->getCurrentUnitSession(); // get first unit in line
         if ($unit) {
             $unit_factory = new RunUnitFactory();
             $unit = $unit_factory->make($this->db, null, $unit, $this, $this->run);
@@ -347,11 +456,15 @@ class RunSession extends Model {
         return false;
     }
 
-    public function getCurrentUnit() {
+    public function getCurrentUnitSession() {
         $query = $this->db->select('
 			`survey_unit_sessions`.unit_id,
-			`survey_unit_sessions`.id AS session_id,
-			`survey_unit_sessions`.created,
+			`survey_unit_sessions`.id,
+            `survey_unit_sessions`.run_session_id,
+            `survey_unit_sessions`.created,
+            `survey_unit_sessions`.expires,
+			`survey_unit_sessions`.ended,
+            `survey_unit_sessions`.expired,
 			`survey_units`.type')
                 ->from('survey_unit_sessions')
                 ->leftJoin('survey_units', 'survey_unit_sessions.unit_id = survey_units.id')
@@ -362,34 +475,24 @@ class RunSession extends Model {
                 ->order('survey_unit_sessions`.id', 'desc')
                 ->limit(1);
 
-        $unit = $query->fetch();
-
-        if ($unit) {
-            // unit needs:
-            # run_id
-            # run_name
-            # unit_id
-            # session_id
-            # run_session_id
-            # type
-            # session? 
-            $unit['run_id'] = $this->run_id;
-            $unit['run_name'] = $this->run_name;
-            $unit['run_session_id'] = $this->id;
-            $this->unit_session = new UnitSession($this->db, $this->id, $unit['unit_id'], $unit['session_id']);
-
-            return $unit;
+        $row = $query->fetch();
+        
+        if ($row) {
+            $u = $row;
+            $u['id'] = (int) $u['unit_id'];
+            $unit = RunUnitFactory::make($this->run, $u);
+            return new UnitSession($this, $unit, $row);
         } else {
             return false;
         }
     }
 
     public function getUnitSession() {
-        if (!$this->unit_session) {
-            $this->getCurrentUnit();
+        if (!$this->currentUnitSession) {
+            $this->currentUnitSession = $this->getCurrentUnitSession();
         }
 
-        $this->unit_session;
+        $this->currentUnitSession;
     }
 
     public function runToNextUnit() {
@@ -405,12 +508,13 @@ class RunSession extends Model {
             $position = $this->position;
         }
 
-        $select->bindParams(array('run_id' => $this->run_id, 'position' => $position));
+        $select->bindParams(array('run_id' => $this->run->id, 'position' => $position));
         $next = $select->fetch();
         if (!$next) {
-            alert('Run ' . $this->run_name . ': Oops, this study\'s creator forgot to give it a proper ending (a Stop button), user ' . h($this->session) . ' is dangling at the end.', 'alert-danger');
+            alert('Run ' . $this->run->name . ': Oops, this study\'s creator forgot to give it a proper ending (a Stop button), user ' . h($this->session) . ' is dangling at the end.', 'alert-danger');
             return false;
         }
+
         return $this->runTo($next['position'], $next['unit_id']);
     }
 
@@ -442,11 +546,11 @@ class RunSession extends Model {
     }
 
     public function isTesting() {
-        return $this->is_testing;
+        return $this->testing;
     }
 
     public function isCron() {
-        return $this->cron;
+        return $this->user->isCron();
     }
 
     /**
@@ -545,6 +649,28 @@ class RunSession extends Model {
         $stmt->bindValue('run_session_id', $id, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    public function toArray() {
+        return [
+            'id' => $this->id,
+            'run_id' => $this->run->id,
+            'user_id' => $this->user->id,
+            'session' => $this->session,
+            'created' => $this->created,
+            'ended' => $this->ended,
+            'last_access' => $this->last_access,
+            'position' => $this->position,
+            'current_unit_session_id' => $this->current_unit_session_id,
+            'deactivated' => $this->deactivated,
+            'no_email' => $this->no_email,
+            'testing' => $this->testing,
+            'created' => $this->created,
+        ];
+    }
+    
+    public function executeTest() {
+        return $this->executeSessions();
     }
 
 }

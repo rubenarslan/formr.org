@@ -65,13 +65,12 @@ class RunHelper {
     }
 
     public function remind() {
-        $email = $this->run->getReminder($this->request->reminder_id, $this->request->session, $this->request->run_session_id);
-        if ($email->exec() !== false) {
+        $emailSession = $this->run->getReminderSession($this->request->reminder_id, $this->request->session, $this->request->run_session_id);
+        if ($emailSession->execute() === false) {
             $this->errors[] = 'Something went wrong with the reminder. in run ' . $this->run->name;
-            $email->end();
             return false;
         }
-        $email->end();
+
         $this->message = 'Reminder sent';
         return true;
     }

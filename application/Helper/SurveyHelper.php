@@ -23,7 +23,7 @@ class SurveyHelper {
     protected $run;
 
     /**
-     * @var Survey
+     * @var SurveyStudy
      */
     protected $survey;
 
@@ -46,11 +46,12 @@ class SurveyHelper {
 
     const FMR_PAGE_ELEMENT = 'fmr_unit_page_element';
 
-    public function __construct(Request $rq, Survey $s, Run $r) {
+    public function __construct(Request $rq, UnitSession $us) {
         $this->request = $rq;
-        $this->survey = $s;
-        $this->run = $r;
-        $this->db = $s->dbh;
+        $this->unitSession = $us;
+        $this->survey = $this->unitSession->runUnit->surveyStudy;
+        $this->run = $this->unitSession->runUnit->run;
+        $this->db = $this->unitSession->getDbConnection();
     }
 
     /**
@@ -58,8 +59,7 @@ class SurveyHelper {
      *
      * @return string|boolean
      */
-    public function renderSurvey($unitSessionId) {
-        $unitSession = $this->getUnitSession($unitSessionId);
+    public function renderSurvey() {
         if (!Request::getGlobals('pageNo')) {
             $pageNo = $this->getCurrentPage();
             $this->redirectToPage($pageNo);
@@ -92,10 +92,8 @@ class SurveyHelper {
     /**
      * Save posted page item for specified Unit Session
      *
-     * @param int $unitSessionId
      */
-    public function savePageItems($unitSessionId) {
-        $unitSession = $this->getUnitSession($unitSessionId);
+    public function savePageItems() {
         if (!Request::isHTTPPostRequest()) {
             // Accept only POST requests
             return;
@@ -293,13 +291,9 @@ class SurveyHelper {
     /**
      * Get current unit session accessing the Survey
      *
-     * @param int $unitSessionId
      * @return UnitSession
      */
-    protected function getUnitSession($unitSessionId) {
-        if (!$this->unitSession) {
-            $this->unitSession = new UnitSession($this->db, null, null, $unitSessionId);
-        }
+    protected function getUnitSession() {
         return $this->unitSession;
     }
 
@@ -583,7 +577,8 @@ class SurveyHelper {
                 }
             }
         }
-        return $this->survey->post($items, $validate);
+
+        return $this->unitSession->updateSurveyStudyRecord($items, $validate);
     }
 
     /**

@@ -95,13 +95,13 @@ class Survey extends RunUnit {
             $study = new SurveyStudy($this->unit_id);
             $this->surveyStudy = $study;
         }
-        
+
         return $this->surveyStudy;
     }
     
     public function load() {
         parent::load();
-        if ($this->unit_id) {
+        if ($this->unit_id && !$this->surveyStudy) {
             $this->surveyStudy = new SurveyStudy();
         }
         
@@ -114,6 +114,61 @@ class Survey extends RunUnit {
     public function find($id, $special = false, $props = []) {
         parent::find($id, $special, $props);
         $this->getStudy();
+    }
+    
+    public function getUnitSessionExpirationData(UnitSession $unitSession) {
+        $data = [];
+        
+        $expire_invitation = (int) $this->surveyStudy->expire_invitation_after;
+        $grace_period = (int) $this->surveyStudy->expire_invitation_grace;
+        $expire_inactivity = (int) $this->surveyStudy->expire_after;
+        
+        if ($expire_inactivity === 0 && $expire_invitation === 0) {
+            return $data;
+        } else {
+            $now = time();
+
+            $last_active = $this->getUnitSessionLastVisit($unitSession); // when was the user last active on the study
+            $expire_invitation_time = $expire_inactivity_time = 0; // default to 0 (means: other values supervene. users only get here if at least one value is nonzero)
+            if ($expire_inactivity !== 0 && $last_active != null && strtotime($last_active)) {
+                $expire_inactivity_time = strtotime($last_active) + ($expire_inactivity * 60);
+            }
+            $invitation_sent = $unitSession->created;
+            if ($expire_invitation !== 0 && $invitation_sent && strtotime($invitation_sent)) {
+                $expire_invitation_time = strtotime($invitation_sent) + ($expire_invitation * 60);
+                if ($grace_period !== 0 && $last_active) {
+                    $expire_invitation_time = $expire_invitation_time + ($grace_period * 60);
+                }
+            }
+            
+            $expire = max($expire_inactivity_time, $expire_invitation_time);
+            
+            $data['expires'] = max(0, $expire_invitation_time);
+            $data['queued'] = UnitSessionQueue::QUEUED_TO_END;
+
+            return $data;
+        } 
+        
+    }
+    
+    public function getUnitSessionLastVisit(UnitSession $unitSession) {
+        // use created (item render time) if viewed time is lacking
+        $arr = $this->db->select(array('COALESCE(`survey_items_display`.shown,`survey_items_display`.created)' => 'last_viewed'))
+                ->from('survey_items_display')
+                ->leftJoin('survey_items', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
+                ->where('survey_items_display.session_id IS NOT NULL')
+                ->where('survey_items.study_id = :study_id')
+                ->order('survey_items_display.shown', 'desc')
+                ->order('survey_items_display.created', 'desc')
+                ->limit(1)
+                ->bindParams(array('session_id' => $unitSession->id, 'study_id' => $this->id))
+                ->fetch();
+
+        return isset($arr['last_viewed']) ? $arr['last_viewed'] : null;
+    }
+
+    public function getUnitSessionOutput(UnitSession $unitSession) {
+       return $unitSession->processSurveyStudyRequest();
     }
 
 }

@@ -658,13 +658,13 @@ class SurveyStudy extends Model {
 
             $count = $this->getResultCount();
             $get_all = true;
-            if ($this->settings['unlinked'] && $count['real_users'] <= 10) {
+            if ($this->unlinked && $count['real_users'] <= 10) {
                 if ($count['real_users'] > 0) {
                     alert("<strong>You cannot see the real results yet.</strong> It will only be possible after 10 real users have registered.", 'alert-warning');
                 }
                 $get_all = false;
             }
-            if ($this->settings['unlinked']) {
+            if ($this->unlinked) {
                 $columns = array();
                 // considered showing data for test sessions, but then researchers could set real users to "test" to identify them
                 /* 				$columns = array(
@@ -696,7 +696,7 @@ class SurveyStudy extends Model {
             if ($paginate && isset($paginate['offset'])) {
                 $order = isset($paginate['order']) ? $paginate['order'] : 'asc';
                 $order_by = isset($paginate['order_by']) ? $paginate['order_by'] : '{$results_table}.session_id';
-                if ($this->settings['unlinked']) {
+                if ($this->unlinked) {
                     $order_by = "RAND()";
                 }
                 $select->order($order_by, $order);
@@ -1128,6 +1128,61 @@ class SurveyStudy extends Model {
         );
 
         return $f !== null ? array_val($filter, $f, null) : $filter;
+    }
+    
+    public function getOrderedItemsIds() {
+        $get_items = $this->db->select('
+				`survey_items`.id,
+				`survey_items`.`type`,
+				`survey_items`.`item_order`,
+				`survey_items`.`block_order`')
+                ->from('survey_items')
+                ->where("`survey_items`.`study_id` = :study_id")
+                ->order("`survey_items`.order")
+                ->bindParams(array('`study_id`' => $this->id))
+                ->statement();
+
+        // sort blocks randomly (if they are consecutive), then by item number and if the latter are identical, randomly
+        $block_segment = $block_order = $item_order = $random_order = $block_numbers = $item_ids = array();
+        $types = array();
+
+        $last_block = "";
+        $block_nr = 0;
+        $block_segment_i = 0;
+
+        while ($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
+            if ($item['block_order'] == "") { // not blocked
+                $item['block_order'] = ""; // ? why is this necessary
+                $block_order[] = $block_nr;
+            } else {
+                if (!array_key_exists($item['block_order'], $block_numbers)) { // new block
+                    if ($last_block === "") { // new segment of blocks
+                        $block_segment_i = 0;
+                        $block_segment = range($block_nr, $block_nr + 10000); // by choosing this range, the next non-block segment is forced to follow
+                        shuffle($block_segment);
+                        $block_nr = $block_nr + 10001;
+                    }
+
+                    $rand_block_number = $block_segment[$block_segment_i];
+                    $block_numbers[$item['block_order']] = $rand_block_number;
+                    $block_segment_i++;
+                }
+                $block_order[] = $block_numbers[$item['block_order']]; // get stored block order
+            } // sort the blocks with each other
+            // but keep the order within blocks if desired
+            $item_order[] = $item['item_order']; // after sorting by block, sort by item order 
+            $item_ids[] = $item['id'];
+            $last_block = $item['block_order'];
+
+            $types[$item['id']] = $item['type'];
+        }
+
+        $random_order = range(1, count($item_ids)); // if item order is identical, sort randomly (within block)
+        shuffle($random_order);
+        array_multisort($block_order, $item_order, $random_order, $item_ids);
+        // order is already sufficiently defined at least by random_order, but this is a simple way to sort $item_ids is sorted accordingly
+
+        return array($item_ids, $types);
     }
 
 }

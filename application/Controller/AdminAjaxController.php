@@ -120,15 +120,14 @@ class AdminAjaxController {
         }
 
         $run = $this->controller->run;
+        
         // find the last email unit
-        $email = $run->getReminder($this->request->getParam('reminder'), $this->request->getParam('session'), $this->request->getParam('run_session_id'));
-        $email->run_session = new RunSession($this->dbh, $run->id, null, $this->request->getParam('session'), $run);
-        if ($email->exec() !== false) {
+        $emailSession = $run->getReminderSession($this->request->getParam('reminder'), $this->request->getParam('session'), $this->request->getParam('run_session_id'));
+        if ($emailSession->execute() === false) {
             alert('<strong>Something went wrong with the reminder.</strong> Run: ' . $run->name, 'alert-danger');
         } else {
             alert('Reminder sent!', 'alert-success');
         }
-        $email->end();
 
         if (Request::isAjaxRequest()) {
             $content = $this->site->renderAlerts();
@@ -271,7 +270,7 @@ class AdminAjaxController {
 
         if (($run_unit_id = $this->request->getParam('run_unit_id'))) {
             $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams());
-            
+            formr_log($unit);
             if (!$unit) {
                 formr_error(404, 'Not Found', 'Requested Run Unit was not found');
             }
@@ -463,13 +462,11 @@ class AdminAjaxController {
             $run = $this->controller->run;
             $count = 0;
             foreach ($sessions as $sess) {
-                $runSession = new RunSession($this->dbh, $run->id, null, $sess, $run);
-                $email = $run->getReminder($this->request->int('reminder'), $sess, $runSession->id);
-                $email->run_session = $runSession;
-                if ($email->exec() === false) {
+                $emailSession = $run->getReminderSession($this->request->int('reminder'), $sess, $runSession->id);
+                if ($emailSession->execute() !== false) {
                     $count++;
                 }
-                $email->end();
+                //$email->end();
             }
 
             if ($count) {

@@ -192,6 +192,7 @@ class AdminSurveyController extends AdminController {
     private function accessAction() {
         Session::set('test_study_data', array(
             'study_id' => $this->study->id,
+            'study_name' => $this->study->name,
             'unit_id' => $this->study->id,
             'data' => $this->study->getItems('id, name, type'),
         ));
