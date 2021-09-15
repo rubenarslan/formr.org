@@ -117,7 +117,15 @@ class RunController extends Controller {
         Session::destroy();
         $hint = 'Session Ended';
         $text = 'Your session was successfully closed! You can restart a new session by clicking the link below.';
-        formr_error(200, 'OK', $text, $hint, run_url($this->run->name), 'Start New Session');
+        $url = run_url($this->run->name);
+        if ($this->request->prev) {
+            //If user is loggin out from a test session, show button to create another test session
+            $prevRunSesson = new RunSession($this->request->prev, $this->run);
+            if ($prevRunSesson->testing) {
+                $url = admin_run_url($this->run->name, 'create_new_test_code');
+            }
+        }
+        formr_error(200, 'OK', $text, $hint, $url, 'Start New Session');
     }
 
     protected function monkeyBarAction($action = '') {

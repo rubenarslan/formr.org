@@ -197,13 +197,14 @@ class RunSession extends Model {
      */
     public function execute(UnitSession $referenceUnitSession = null, $executeReferenceUnit = false) {
         if ($this->ended) {
-            
+            // User tried to access an already ended run session, logout
+            return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
         }
         
         if ($this->run->testingStudy) {
             return $this->executeTest();
         }
-        
+/*     
         $i = 0;
         $done = array();
         $unit_factory = new RunUnitFactory();
@@ -211,7 +212,7 @@ class RunSession extends Model {
 
         $last_unit = null;
         $output = false;
-
+*/
         // Get the initial position if this run session hasn't executed before
         if ($this->position === null && !($position = $this->run->getFirstPosition())) {
             alert('This study has not been defined.', 'alert-danger');
@@ -318,18 +319,14 @@ class RunSession extends Model {
     }
     
     public function moveOn($starting = false) {
-        if ($this->ended) {
-            die('Run Session Ended');
-        }
-
         if (!$starting) {
             $this->position = $this->run->getNextPosition($this->position);
-            if ($this->position) {
+            if ($this->position !== null) {
                 $this->save();
             }
         }
         
-        if (($unit_id = $this->getUnitIdAtPosition($this->position))) {
+        if ($this->position && ($unit_id = $this->getUnitIdAtPosition($this->position))) {
             $runUnit = RunUnitFactory::make($this->run, ['id' => $unit_id]);
             $this->createUnitSession($runUnit);
             return $this->execute();
