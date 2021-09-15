@@ -334,7 +334,7 @@ class UnitSession extends Model {
             }
 
             $renderedItems = $this->getRenderedStudyItems();
-            $renderer = new FormRenderer($this, $renderedItems, $this->validatedItems, $this->progressCounts, $this->errors);
+            $renderer = new FormRenderer($this, $renderedItems, $this->validatedItems, $this->errors, $this->progressCounts);
 
             return ['body' => $renderer->render()];
         } catch (Exception $e) {
@@ -452,6 +452,7 @@ class UnitSession extends Model {
     protected function processDynamicValuesAndShowIfs(&$items) {
         // In this loop we gather all show-ifs and dynamic-values that need processing and all values.
         $code = array();
+        $study = $this->runUnit->surveyStudy;
 
         /* @var $item Item */
         foreach ($items as $name => &$item) {
@@ -471,7 +472,7 @@ class UnitSession extends Model {
 
             // 2. Check item's value
             if ($item->needsDynamicValue()) {
-                $val = str_replace("\n", "\n\t", $item->getValue($this));
+                $val = str_replace("\n", "\n\t", $item->getValue($study));
                 $code[$name] = "{$name} = (function(){
 {$val}
 })()";
@@ -558,7 +559,8 @@ class UnitSession extends Model {
                 $lists_to_fetch[] = $item->choice_list;
             }
 
-            if ($item->needsDynamicLabel($this)) {
+            $vars = ($item->type == 'note_iframe') ? $this->getRunData($item->label, $study->name) : [];
+            if ($item->needsDynamicLabel($vars)) {
                 $items[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
                 $strings_to_parse[] = $item->label;
             }
@@ -1081,7 +1083,8 @@ class UnitSession extends Model {
         $matches_variable_names = $variable_names_in_table = $matches = $matches_results_tables = $results_tables = $tables = array();
 
 //		$results = $this->run->getAllLinkedSurveys(); // fixme -> if the last reported email thing is known to work, we can turn this on
-        $results = $this->runSession->getRun()->getAllSurveys();
+        $surveys = $this->runSession->getRun()->getAllSurveys();
+        $study = $this->runUnit->surveyStudy;
 
         // also add some "global" formr tables
         $non_user_tables = array_keys(get_db_non_user_tables());
@@ -1093,18 +1096,18 @@ class UnitSession extends Model {
         }
 
         if ($token_add !== null) {  // send along this table if necessary, always as the first one, since we attach it
-            $table_ids[] = $this->id;
-            $tables[] = $this->name;
-            $results_tables[$this->name] = $this->results_table;
+            $table_ids[] = $study->id;
+            $tables[] = $study->name;
+            $results_tables[$study->name] = $study->results_table;
         }
 
         // map table ID to the name that the user sees (because tables in the DB are prefixed with the user ID, so they're unique)
-        foreach ($results as $res) {
-            if ($res['name'] !== $token_add):
+        foreach ($surveys as $res) {
+            if ($res['name'] !== $token_add) {
                 $table_ids[] = $res['id'];
                 $tables[] = $res['name']; // FIXME: ID can overwrite the non_user_tables
                 $results_tables[$res['name']] = $res['results_table'];
-            endif;
+            }
         }
 
         foreach ($tables as $index => $table_name) {
@@ -1175,14 +1178,6 @@ class UnitSession extends Model {
         }
 
         return compact("matches", "matches_results_tables", "matches_variable_names", "token_add", "variables");
-    }
-
-    public function getCachedReportUrl() {
-        return $this->db->findValue('survey_reports', array(
-                    'unit_id' => $this->runUnit->id,
-                    'session_id' => $this->id,
-                    'created >=' => $this->runUnit->modified // if the definition of the unit changed, don't use old reports
-                        ), array('opencpu_url'));
     }
 
 }

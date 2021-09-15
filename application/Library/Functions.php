@@ -1235,13 +1235,14 @@ function opencpu_string_key_parsing($strings) {
 /**
  * Parse a bulk of strings in ocpu
  *
- * @param Survey $survey Current survey containing strings that are beigin parsed
+ * @param UnitSession $unitSession Unit session containing the data needed
  * @param array $string_templates An array of strings to be parsed
  * @return array Returns an array of parsed labels indexed by the label-key to be substituted
  */
-function opencpu_multistring_parse(Survey $survey, array $string_templates) {
+function opencpu_multistring_parse(UnitSession $unitSession, array $string_templates) {
+    $survey = $unitSession->runUnit->surveyStudy;
     $markdown = implode(OpenCPU::STRING_DELIMITER, $string_templates);
-    $opencpu_vars = $survey->getUserDataInRun($markdown, $survey->name);
+    $opencpu_vars = $unitSession->getRunData($markdown, $survey->name);
     $session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $survey->name);
 
     if ($session AND ! $session->hasError()) {
@@ -1277,7 +1278,8 @@ function opencpu_substitute_parsed_strings(array &$array, array $parsed_strings)
     }
 }
 
-function opencpu_multiparse_showif(Survey $survey, array $showifs, $return_session = false) {
+function opencpu_multiparse_showif(UnitSession $unitSession, array $showifs, $return_session = false) {
+    $survey = $unitSession->runUnit->surveyStudy;
     $code = "(function() {with(tail({$survey->name}, 1), {\n";
     $code .= "formr.showifs = list();\n";
     $code .= "within(formr.showifs,  { \n";
@@ -1285,16 +1287,17 @@ function opencpu_multiparse_showif(Survey $survey, array $showifs, $return_sessi
     $code .= "})\n";
     $code .= "})})()\n";
 
-    $variables = $survey->getUserDataInRun($code, $survey->name);
+    $variables = $unitSession->getRunData($code, $survey->name);
     return opencpu_evaluate($code, $variables, 'json', null, $return_session);
 }
 
-function opencpu_multiparse_values(Survey $survey, array $values, $return_session = false) {
+function opencpu_multiparse_values(UnitSession $unitSession, array $values, $return_session = false) {
+    $survey = $unitSession->runUnit->surveyStudy;
     $code = "(function() {with(tail({$survey->name}, 1), {\n";
     $code .= "list(\n" . implode(",\n", $values) . "\n)";
     $code .= "})})()\n";
 
-    $variables = $survey->getUserDataInRun($code, $survey->name);
+    $variables = $unitSession->getRunData($code, $survey->name);
     return opencpu_evaluate($code, $variables, 'json', null, $return_session);
 }
 

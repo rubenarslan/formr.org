@@ -432,7 +432,7 @@ class SurveyHelper {
             return $items;
         }
 
-        $ocpu_session = opencpu_multiparse_showif($this->survey, $code, true);
+        $ocpu_session = opencpu_multiparse_showif($this->unitSession, $code, true);
         if (!$ocpu_session || $ocpu_session->hasError()) {
             notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
             foreach ($items as $name => &$item) {
@@ -499,7 +499,8 @@ class SurveyHelper {
                 $lists_to_fetch[] = $item->choice_list;
             }
 
-            if ($item->needsDynamicLabel($this->survey)) {
+            $vars = $item->type == 'note_iframe' ? $this->getRunData($item->label, $this->survey->name) : [];
+            if ($item->needsDynamicLabel($vars)) {
                 $items[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
                 $strings_to_parse[] = $item->label;
             }
@@ -522,7 +523,7 @@ class SurveyHelper {
 
         // Now that we have the items and the choices, If there was anything left to parse, we do so here!
         if ($strings_to_parse) {
-            $parsed_strings = opencpu_multistring_parse($this->survey, $strings_to_parse);
+            $parsed_strings = opencpu_multistring_parse($this->unitSession, $strings_to_parse);
             // Replace parsed strings in $choice_list array
             opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
             // Replace parsed strings in unanswered items array
