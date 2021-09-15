@@ -183,9 +183,9 @@ class UnitSession extends Model {
                 $params = array('session_id' => $this->id, 'study_id' => $unit->surveyStudy->id);
                 $this->db->exec($query, $params);
                 
-                $this->result = "survey_expired_q";
+                $this->result = "survey_ended";
             } else if ($unit->type == "External") {
-                $this->result = "external_expired_q";
+                $this->result = "external_ended";
             }
         } else {
             if ($reason !== null) {
@@ -199,7 +199,6 @@ class UnitSession extends Model {
             } else {
                 $this->result = "ended_other";
             }
-            $unit->end();  // cancel it
         }
 
         // @TODO import end from run unit
@@ -726,8 +725,10 @@ class UnitSession extends Model {
         );
         if (!$this->db->entry_exists($study->results_table, $entry)) {
             $entry['created'] = mysql_now();
-            formr_log($entry);
             $this->db->insert($study->results_table, $entry);
+            
+            $this->result = 'survey_started';
+            $this->logResult();
         } else {
             $this->db->update($study->results_table, array('modified' => mysql_now()), $entry);
         }

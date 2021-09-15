@@ -337,11 +337,14 @@ class Run extends Model {
                 ->from('survey_run_units')
                 ->where(['run_id' => $this->id, 'position >' => $current])
                 ->order('position')
+                ->limit(1)
                 ->fetch();
         
         if ($row) {
             return $row['position'];
         }
+
+        return null;
     }
 
     public function getAllUnitTypes() {
