@@ -17,17 +17,18 @@ class User extends Model {
     public $referrer_code = null;
     // todo: time zone, etc.
 
-    public function __construct($id = null, $user_code = null) {
+    public function __construct($id = null, $user_code = null, $options = []) {
         parent::__construct();
-
-        if ($id !== null): // if there is a registered, logged in user
+        $this->assignProperties($options);
+        
+        if ($id !== null) { // if there is a registered, logged in user
             $this->id = (int) $id;
             $this->load(); // load his stuff
-        elseif ($user_code !== null):
+        } elseif ($user_code !== null) {
             $this->user_code = $user_code; // if there is someone who has been browsing the site
-        else:
+        } else {
             $this->user_code = crypto_token(48); // a new arrival
-        endif;
+        }
     }
 
     public function __sleep() {

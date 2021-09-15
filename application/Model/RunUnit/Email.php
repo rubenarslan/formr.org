@@ -71,7 +71,7 @@ class Email extends RunUnit {
             }
         }
 
-        if (!$this->knittingNeeded($this->body)) {
+        if (!knitting_needed($this->body)) {
             $this->body_parsed = $parsedown->text($this->body);
         }
 
@@ -93,7 +93,7 @@ class Email extends RunUnit {
 
     public function getSubject() {
         if ($this->subject_parsed === NULL):
-            if ($this->knittingNeeded($this->subject)):
+            if (knitting_needed($this->subject)):
                 if ($this->run_session_id):
                     $this->subject_parsed = $this->getParsedText($this->subject);
                 else:
@@ -401,7 +401,7 @@ class Email extends RunUnit {
         }
 
         $output .= "<h4>Subject</h4>";
-        if ($this->knittingNeeded($this->subject)) {
+        if (knitting_needed($this->subject)) {
             $output .= $this->getParsedTextAdmin($this->subject);
         } else {
             $output .= $this->getSubject();

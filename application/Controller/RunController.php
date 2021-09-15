@@ -36,6 +36,10 @@ class RunController extends Controller {
 
         $run_vars = $this->run->exec($this->user);
         $run_vars['bodyClass'] = 'fmr-run';
+        
+        if (!empty($run_vars['redirect'])) {
+            return $this->request->redirect($run_vars['redirect']);
+        }
 
         $assset_vars = $this->filterAssets($run_vars);
         unset($run_vars['css'], $run_vars['js']);

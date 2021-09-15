@@ -66,4 +66,8 @@ class Model {
     protected function toArray() {
         return [];
     }
+    
+    public function getDbConnection() {
+        return $this->db;
+    }
 }

@@ -168,7 +168,7 @@ class RunUnit extends Model {
     }
     
     public function updateUnitId() {
-        return $this->dbh->update(
+        return $this->db->update(
                 'survey_run_units', 
                 array('unit_id' => $this->id), 
                 array('id' => $this->run_unit_id), 
@@ -359,7 +359,7 @@ plot(cars)
      */
     public function find($id, $special = false, $props = []) {
         $params = array('run_id' => $this->run->id, 'id' => $id);
-        
+ 
         if (!$special) {
             $select = $this->db->select('
 				`survey_run_units`.id AS run_unit_id,
@@ -381,7 +381,6 @@ plot(cars)
             }
             
             $unit = $select->bindParams($params)->limit(1)->fetch();
-            
         } else {
             $specials = array('ServiceMessagePage', 'OverviewScriptPage', 'ReminderEmail');
             if (!in_array($special, $specials)) {
@@ -422,7 +421,6 @@ plot(cars)
         $unit['valid'] = true;
         
         $this->assignProperties($unit);
-        
         return $this;
     }
     
@@ -441,20 +439,135 @@ plot(cars)
     public static function findByRunUnitId($id, $params = []) {
         $row = DB::getInstance()->findRow('survey_run_units', ['id' => $id]);
         if ($row) {
-            $run = new Run(DB::getInstance(), null, $row['run_id']);
+            $run = new Run(null, $row['run_id']);
             $params = array_merge($params, ['id' => $row['unit_id']]);
             return RunUnitFactory::make($run, $params);
         }
     }
     
-    protected function knittingNeeded($source) {
-        if (mb_strpos($source, '`r ') !== false OR mb_strpos($source, '```{r') !== false) {
-            return true;
-        }
-        return false;
-    }
-    
     public function exec() {
         return null;
     }
+    
+    public function getUnitSessionExpirationData(UnitSession $unitSession) {
+        return [];
+    }
+    
+    public function getUnitSessionOutput(UnitSession $unitSession) {
+        return null;
+    }
+    
+    public function getParsedBody($source = null, UnitSession $unitSession = null, $options = []) {
+
+        $email_embed = array_val($options, 'email_embed');
+        if (!knitting_needed($source)) {
+            if ($email_embed) {
+                return ['body' => $this->body_parsed, 'images' => []];
+            } else {
+                return $this->body_parsed;
+            }
+        }
+        
+        $admin = array_val($options, 'admin');
+        $isCron = array_val($options, 'is_cron');
+        $sessionId = $unitSession->id;
+
+        /* @var $ocpu OpenCPU_Session */
+        $ocpu = null;
+        $cache_session = false;
+        $baseUrl = null;
+
+        if (!$admin) {
+            $opencpu_url = $this->db->findValue('survey_reports', array(
+                'unit_id' => $this->id,
+                'session_id' => $sessionId,
+                'created >=' => $this->modified // if the definition of the unit changed, don't use old reports
+            ), array('opencpu_url'));
+
+            // If there is a cache of opencpu, check if it still exists
+            if ($opencpu_url && ($ocpu = opencpu_get($opencpu_url, '', null, true))) {
+                if ($isCron) {
+                    // don't regenerate once we once had a report for this feedback, if it's only the cronjob
+                    return null;
+                }
+
+                $filesMatch = 'files/';
+                $baseUrl = $opencpu_url;
+            }
+        }
+
+        // If there no session or old session (from aquired url) has an error for some reason, then get a new one for current request
+        if (empty($ocpu) || $ocpu->hasError()) {
+            $ocpu_vars = $unitSession->getRunData($source);
+            if ($email_embed) {
+                $ocpu = opencpu_knit_email($source, $ocpu_vars, '', true);
+            } else {
+                $ocpu = opencpu_knit_iframe($source, $ocpu_vars, true, null, $this->run->description, $this->run->footer_text);
+            }
+
+            $filesMatch = 'knit.html';
+            $cache_session = true;
+        }
+
+        // At this stage we are sure to have an OpenCPU_Session in $ocpu. If there is an error in the session return FALSE
+        if (empty($ocpu)) {
+            $this->errors['session'] = [
+                'result' => 'error_opencpu_down',
+                'result_log' => 'OpenCPU is probably down or inaccessible.',
+            ];
+            alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
+            return false;
+        } elseif ($ocpu->hasError()) {
+            $this->errors['session'] = [
+                'result' => 'error_opencpu_r',
+                'result_log' => 'OpenCPU R error. Fix code.',
+            ];
+            notify_user_error(opencpu_debug($ocpu), 'There was a computational error.');
+            return false;
+        } elseif ($admin) {
+            return $ocpu;
+        } else {
+            $this->messages['session'] = [
+                'result' => 'success_knitted',
+                'result_log' => null,
+            ];
+            
+            print_hidden_opencpu_debug_message($ocpu, "OpenCPU debugger for run R code in {$this->type} at {$this->position}.");
+            $files = $ocpu->getFiles($filesMatch, $baseUrl);
+            $images = $ocpu->getFiles('/figure-html', $baseUrl);
+            $opencpu_url = $ocpu->getLocation();
+
+            if ($email_embed) {
+                $report = array(
+                    'body' => $ocpu->getObject(),
+                    'images' => $images,
+                );
+            } else {
+                $this->run->renderedDescAndFooterAlready = true;
+                $iframesrc = $files['knit.html'];
+                $report = '' .
+                '<div class="rmarkdown_iframe">
+					<iframe src="' . $iframesrc . '">
+					  <p>Your browser does not support iframes.</p>
+					</iframe>
+				</div>';
+            }
+
+            if ($sessionId && $cache_session) {
+                $set_report = $this->db->prepare(
+                    "INSERT INTO `survey_reports` (`session_id`, `unit_id`, `opencpu_url`, `created`, `last_viewed`) 
+					VALUES  (:session_id, :unit_id, :opencpu_url,  NOW(), 	NOW() ) 
+					ON DUPLICATE KEY UPDATE opencpu_url = VALUES(opencpu_url), created = VALUES(created)"
+                );
+
+                $set_report->bindParam(":unit_id", $this->id);
+                $set_report->bindParam(":opencpu_url", $opencpu_url);
+                $set_report->bindParam(":session_id", $sessionId);
+                $set_report->execute();
+            }
+
+            return $report;
+        }
+    }
+
 }

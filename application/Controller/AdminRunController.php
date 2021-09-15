@@ -54,8 +54,11 @@ class AdminRunController extends AdminController {
             } elseif ($run_name == Run::TEST_RUN || Router::isWebRootDir($run_name) || in_array($run_name, Config::get('reserved_run_names', array())) || Run::nameExists($run_name)) {
                 $error = __('The run name "%s" is already taken. Please choose another name', $run_name);
             } else {
-                $run = new Run($this->fdb, null);
-                $run->create(array('run_name' => $run_name, 'user_id' => $this->user->id));
+                $run = new Run();
+                $run->create([
+                    'run_name' => $run_name,
+                    'user_id' => $this->user->id
+                ]);
                 if ($run->valid) {
                     alert("<strong>Success.</strong> Run '{$run->name}' was created.", 'alert-success');
                     $this->request->redirect(admin_run_url($run->name));
