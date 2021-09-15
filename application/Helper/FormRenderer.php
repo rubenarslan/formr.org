@@ -1,13 +1,8 @@
 <?php
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 
 /**
- * Description of SurveyRenderer
+ * Render a form for a unit sessions based on rendered and validated items
  *
  * @author ctata
  */
@@ -155,7 +150,6 @@ class FormRenderer {
 
         // if the last item was not a submit button, add a default one
         if (isset($item) && ($item->type !== "submit" || $item->hidden)) {
-            die('ADD');
             $sub_sets = array(
                 'label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!',
                 'classes_input' => array('btn-info default_formr_button'),
