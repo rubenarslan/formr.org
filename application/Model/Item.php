@@ -475,7 +475,7 @@ class Item {
         $this->input_attributes['class'] .= " always_invalid";
     }
 
-    public function needsDynamicLabel($survey = null) {
+    public function needsDynamicLabel($vars = []) {
         return $this->label_parsed === null;
     }
 
@@ -507,11 +507,11 @@ class Item {
         return true;
     }
 
-    public function evaluateDynamicValue(Survey $survey) {
+    public function evaluateDynamicValue(SurveyStudy $survey) {
         
     }
 
-    public function getValue(Survey $survey = null) {
+    public function getValue(SurveyStudy $survey = null) {
         if ($survey && $this->value === 'sticky') {
             $this->value = "tail(na.omit({$survey->name}\${$this->name}),1)";
         }

@@ -20,7 +20,7 @@ class FormRenderer {
     protected $run;
     /**
      * 
-     * @var StudySurvey
+     * @var SurveyStudy
      */
     protected $study;
     /**
@@ -40,14 +40,14 @@ class FormRenderer {
     
     protected $validatedItems;
 
-    public function __construct(UnitSession $unitSession, $renderedItems, $validatedItems = [], $progressCounts = [], $validationErrors = []) {
+    public function __construct(UnitSession $unitSession, $renderedItems, $validatedItems = [], $validationErrors = [], $progressCounts = []) {
         $this->unitSession = $unitSession;
         $this->run = $unitSession->runSession->getRun();
         $this->study = $unitSession->runUnit->surveyStudy;
         $this->renderedItems = $renderedItems;
         $this->validatedItems = $validatedItems;
-        $this->progressCounts = $progressCounts;
         $this->validationErrors = $validationErrors;
+        $this->progressCounts = $progressCounts;
     }
     
     public function render($form_action = null, $form_append = null) {
@@ -134,7 +134,7 @@ class FormRenderer {
             'not_answered_on_current_page' => $this->progressCounts['not_answered_on_current_page'],
             'items_on_page' => $this->progressCounts['not_answered'] - $this->progressCounts['not_answered_on_current_page'],
             'hidden_but_rendered' => $this->progressCounts['hidden_but_rendered_on_current_page'],
-            'errors_tpl' => !empty($this->validationErrors) ? Template::replace($errors_tpl, array('errors' => $this->renderErrors($this->validationErrors))) : null,
+            'errors_tpl' => !empty($this->validationErrors) ? Template::replace($errors_tpl, array('errors' => $this->renderErrors())) : null,
         );
 
         return Template::replace($tpl, $tpl_vars);
@@ -143,7 +143,7 @@ class FormRenderer {
     protected function renderItems() {
         $ret = '';
 
-        foreach ($this->renderedItems AS $item) {
+        foreach ($this->renderedItems as $item) {
             if (!empty($this->validationErrors[$item->name])) {
                 $item->error = $this->validationErrors[$item->name];
             }
@@ -155,6 +155,7 @@ class FormRenderer {
 
         // if the last item was not a submit button, add a default one
         if (isset($item) && ($item->type !== "submit" || $item->hidden)) {
+            die('ADD');
             $sub_sets = array(
                 'label_parsed' => '<i class="fa fa-arrow-circle-right pull-left fa-2x"></i> Go on to the<br>next page!',
                 'classes_input' => array('btn-info default_formr_button'),
@@ -175,7 +176,7 @@ class FormRenderer {
      * @param Item[] $items
      * @return string
      */
-    protected function renderErrors($items) {
+    protected function renderErrors() {
         $labels = Session::get('labels', array());
         $tpl = '
         <li>
@@ -186,7 +187,7 @@ class FormRenderer {
 		';
         $errors = '';
 
-        foreach ($items as $name => $error) {
+        foreach ($this->validationErrors as $name => $error) {
             if ($error) {
                 $errors .= Template::replace($tpl, array(
                     'question' => strip_tags(array_val($labels, $name, strtoupper($name))),
