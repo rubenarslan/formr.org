@@ -112,7 +112,7 @@ class ApiHelper {
         }
 
         $i = 0;
-        $run_session = new RunSession($this->fdb, $run->id, null, null, null);
+        $run_session = new RunSession(null, $run);
         $code = null;
         if (!empty($request->run->code)) {
             $code = $request->run->code;
@@ -152,7 +152,7 @@ class ApiHelper {
 
         if (!empty($request->run->session)) {
             $session_code = $request->run->session;
-            $run_session = new RunSession($this->fdb, $run->id, null, $session_code, null);
+            $run_session = new RunSession($session_code, null);
 
             if ($run_session->session !== NULL) {
                 $run_session->endLastExternal();

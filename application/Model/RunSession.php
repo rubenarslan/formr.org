@@ -26,7 +26,7 @@ class RunSession extends Model {
      * @var User
      */
     public $user;
-    private $cron;
+
     protected $table = 'survey_run_sessions';
 
     /**
@@ -169,19 +169,16 @@ class RunSession extends Model {
     /**
      * Loop over units in Run for a session until you get a unit with output
      *
-     * @param UnitSession $unitSession
+     * @param UnitSession $referenceUnitSession
      * @param boolean $executeReferenceUnit If TRUE, the first unit with session matching the $referenceUnitSession will be executed
      * @return mixed
      */
-    public function execute(UnitSession $unitSession = null, $executeReferenceUnit = false) {
+    public function execute(UnitSession $referenceUnitSession = null, $executeReferenceUnit = false) {
         if ($this->ended) {
             // User tried to access an already ended run session, logout
             return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
         }
-
-        // @TODO check if run session has executed many units (20?) without output
-
-
+       
         if ($this->run->testingStudy) {
             return $this->executeTest();
         }
@@ -195,8 +192,19 @@ class RunSession extends Model {
             $this->position = $position;
             $this->save();
         }
+        
+        $currentUnitSession = $this->getCurrentUnitSession();
+        // If there is a referenceUnitSession then it is sent by the queue
+        if ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id == $currentUnitSession->id && !$executeReferenceUnit) {
+            $this->endCurrentUnitSession();
+            return $this->moveOn();
+        } elseif ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id != $currentUnitSession->id) {
+            UnitSessionQueue::removeItem($referenceUnitSession->id);
+            return $this->moveOn();
+        }
 
-        $unitSession = $unitSession ? $unitSession : $this->getCurrentUnitSession();
+        $unitSession = $currentUnitSession;
+        
         formr_log('Current Unit Is ' . ($unitSession ? $unitSession->runUnit->type : ''));
         if (!$unitSession && $this->position === $this->run->getFirstPosition()) {
             // We are in the first unit of the run
@@ -352,6 +360,21 @@ class RunSession extends Model {
 
         $this->currentUnitSession;
     }
+    
+    public function endCurrentUnitSession($reason = null) {
+        if ($this->getCurrentUnitSession()) {
+            $type = $this->currentUnitSession->runUnit->type;
+            if ($type == 'Survey' || $type == 'External') {
+                $this->currentUnitSession->expire();
+            } else {
+                $this->currentUnitSession->end($reason);
+            }
+            
+            return true;
+        }
+        
+        return false;
+    }
 
     public function endLastExternal() {
         $query = "UPDATE `survey_unit_sessions`
@@ -505,6 +528,26 @@ class RunSession extends Model {
 
     public function executeTest() {
         return $this->executeUnitSession();
+    }
+    
+    public function canReceiveMails() {
+        if ($this->no_email === null) {
+            return true;
+        }
+
+        // If no mail is 0 then user has choose not to receive emails
+        if ((int) $this->no_email === 0) {
+            return false;
+        }
+
+        // If no_mail is set && the timestamp is less that current time then the snooze period has expired
+        if ($this->no_email <= time()) {
+            // modify subscription settings
+            $this->saveSettings(array('no_email' => '1'), array('no_email' => null));
+            return true;
+        }
+
+        return false;
     }
 
 }

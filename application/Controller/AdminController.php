@@ -37,11 +37,10 @@ class AdminController extends Controller {
 
             $unitIds = $run->getAllUnitTypes();
             $units = array();
-            $factory = new RunUnitFactory();
 
             /* @var RunUnit $u */
             foreach ($unitIds as $u) {
-                $unit = $factory->make($this->fdb, null, $u, null, $run);
+                $unit = RunUnitFactory::make($run, $u);
                 $ex_unit = $unit->getExportUnit();
                 $ex_unit['unit_id'] = $unit->id;
                 $units[] = (object) $ex_unit;

@@ -4,8 +4,10 @@ class Email extends RunUnit {
 
     public $errors = array();
     public $id = null;
-    public $session = null;
     public $unit = null;
+    public $icon = "fa-envelope";
+    public $type = "Email";
+    
     protected $mail_queued = false;
     protected $mail_sent = false;
     protected $body = null;
@@ -17,8 +19,6 @@ class Email extends RunUnit {
     protected $recipient;
     protected $html = 1;
     protected $cron_only = 0;
-    public $icon = "fa-envelope";
-    public $type = "Email";
     protected $subject_parsed = null;
     protected $mostrecent = "most recent reported address";
 
@@ -36,16 +36,6 @@ class Email extends RunUnit {
             if ($vars) {
                 $vars['html'] = 1;
                 $this->assignProperties($vars);
-                
-                $this->account_id = $vars['account_id'];
-                $this->recipient_field = $vars['recipient_field'];
-                $this->body = $vars['body'];
-                $this->body_parsed = $vars['body_parsed'];
-                $this->subject = $vars['subject'];
-//				$this->html = $vars['html'] ? 1:0;
-                $this->html = 1;
-                $this->cron_only = (int) $vars['cron_only'];
-
                 $this->valid = true;
             }
         }
@@ -90,76 +80,7 @@ class Email extends RunUnit {
 
         return $this;
     }
-
-    public function getSubject() {
-        if ($this->subject_parsed === NULL):
-            if (knitting_needed($this->subject)):
-                if ($this->run_session_id):
-                    $this->subject_parsed = $this->getParsedText($this->subject);
-                else:
-                    return false;
-                endif;
-            else:
-                return $this->subject;
-            endif;
-        endif;
-        return $this->subject_parsed;
-    }
-
-    protected function substituteLinks($body) {
-        $sess = null;
-        $run_name = null;
-        if (isset($this->run_name)) {
-            $run_name = $this->run_name;
-            $sess = isset($this->session) ? $this->session : "TESTCODE";
-        }
-
-        $body = do_run_shortcodes($body, $run_name, $sess);
-        return $body;
-    }
-
-    protected function getBody($embed_email = true) {
-        if ($this->run_session_id):
-            $response = $this->getParsedBody($this->body, true);
-            if ($response === false):
-                return false;
-            else:
-                if (isset($response['body'])):
-                    $this->body_parsed = $response['body'];
-                endif;
-                if (isset($response['images'])):
-                    $this->images = $response['images'];
-                endif;
-            endif;
-
-            $this->body_parsed = $this->substituteLinks($this->body_parsed); // once more, in case it was pre-parsed
-
-            return $this->body_parsed;
-        else:
-            alert("Session ID for email recipient is missing.", "alert-danger");
-            return false;
-        endif;
-    }
-
-    protected function getPotentialRecipientFields() {
-        $get_recips = $this->db->prepare("SELECT survey_studies.name AS survey,survey_items.name AS item FROM survey_items
-			LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
-		LEFT JOIN survey_run_units ON survey_studies.id = survey_run_units.unit_id
-		LEFT JOIN survey_runs ON survey_runs.id = survey_run_units.run_id
-		WHERE survey_runs.id = :run_id AND
-		survey_items.type = 'email'");
-        // fixme: if the last reported email thing is known to work, show only linked email addresses here.
-        $get_recips->bindValue(':run_id', $this->run->id);
-        $get_recips->execute();
-
-        $recips = array(array("id" => $this->mostrecent, "text" => $this->mostrecent));
-        while ($res = $get_recips->fetch(PDO::FETCH_ASSOC)):
-            $email = $res['survey'] . "$" . $res['item'];
-            $recips[] = array("id" => $email, "text" => $email);
-        endwhile;
-        return $recips;
-    }
-
+    
     public function displayForRun($prepend = '') {
         $dialog = Template::get($this->getTemplatePath(), array(
                     'email' => $this,
@@ -175,9 +96,72 @@ class Email extends RunUnit {
 
         return parent::runDialog($dialog);
     }
+    
+    protected function getPotentialRecipientFields() {
+        $stmt = $this->db->prepare("
+            SELECT survey_studies.name AS survey,survey_items.name AS item FROM survey_items
+                LEFT JOIN survey_studies ON survey_studies.id = survey_items.study_id
+                LEFT JOIN survey_run_units ON survey_studies.id = survey_run_units.unit_id
+                LEFT JOIN survey_runs ON survey_runs.id = survey_run_units.run_id
+            WHERE survey_runs.id = :run_id AND survey_items.type = 'email'"
+        );
+        
+        // fixme: if the last reported email thing is known to work, show only linked email addresses here.
+        $stmt->bindValue(':run_id', $this->run->id);
+        $stmt->execute();
 
-    public function getRecipientField($return_format = 'json', $return_session = false) {
-        if (empty($this->recipient_field) || $this->recipient_field === $this->mostrecent) {
+        $recips = [['id' => $this->mostrecent, 'text' => $this->mostrecent]];
+        while ($res = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $email = $res['survey'] . "$" . $res['item'];
+            $recips[] = ["id" => $email, "text" => $email];
+        }
+        
+        return $recips;
+    }
+
+    public function getSubject(UnitSession $unitsession = null) {
+        if ($this->subject_parsed === null) {
+            if (knitting_needed($this->subject)) {
+                if ($unitsession !== null) {
+                    $this->subject_parsed = $unitsession->getParsedText($this->subject);
+                } else {
+                    return false;
+                }
+            } else {
+                $this->subject_parsed = $this->subject;
+            }
+        }
+        
+        return $this->subject_parsed;
+    }
+
+    protected function editParsedBody(UnitSession $unitsession = null) {
+        $sess = null;
+        $run_name = null;
+        if ($unitsession !== null) {
+            $run_name = $unitsession->runSession->getRun()->name;
+            $sess = $unitsession->runSession->session;
+        }
+
+        return do_run_shortcodes($this->body_parsed, $run_name, $sess);
+    }
+
+    protected function getBody(UnitSession $unitsession = null) {
+        $response = $this->getParsedBody($this->body, $unitsession, ['email_embed' => true]);
+        if (isset($response['body'])) {
+            $this->body_parsed = $response['body'];
+        }
+        
+        if (isset($response['images'])) {
+            $this->images = $response['images'];
+        }
+        
+        $this->body_parsed = $this->editParsedBody($unitsession);
+        return $this->body_parsed;
+    }
+
+    public function getRecipientField(UnitSession $unitSession, $return_session = false) {
+        if (!$this->recipient_field || $this->recipient_field === $this->mostrecent) {
             $recent_email_query = "
 				SELECT survey_items_display.answer AS email FROM survey_unit_sessions
 				LEFT JOIN survey_units ON survey_units.id = survey_unit_sessions.unit_id AND survey_units.type = 'Survey'
@@ -194,41 +178,41 @@ class Email extends RunUnit {
 
             $get_recip = $this->db->prepare($recent_email_query);
             $get_recip->bindValue(':run_id', $this->run->id);
-            $get_recip->bindValue(':run_session_id', $this->run_session_id);
+            $get_recip->bindValue(':run_session_id', $unitSession->runSession->id);
             $get_recip->execute();
 
             $res = $get_recip->fetch(PDO::FETCH_ASSOC);
             $recipient = array_val($res, 'email', null);
         } else {
-            $opencpu_vars = $this->getUserDataInRun($this->recipient_field);
-            $recipient = opencpu_evaluate($this->recipient_field, $opencpu_vars, $return_format, null, $return_session);
+            $opencpu_vars = $unitSession->getRunData($this->recipient_field);
+            $recipient = opencpu_evaluate($this->recipient_field, $opencpu_vars, 'json', null, $return_session);
         }
 
         return $recipient;
     }
 
-    public function sendMail($who = NULL) {
+    public function sendMail(UnitSession $unitSession, $who = null) {
         $this->mail_queued = $this->mail_sent = false;
-        $this->recipient = $who !== null ? $who : $this->getRecipientField();
+        $this->recipient = $who !== null ? $who : $this->getRecipientField($unitSession);
 
         if ($this->recipient == null) {
             //formr_log("Email recipient could not be determined from this field definition " . $this->recipient_field);
-            alert("We could not find an email recipient. Session: {$this->session}", 'alert-danger');
-            $this->session_error = "We could not find an email recipient.";
+            alert("We could not find an email recipient. Session: {$unitSession->runSession->session}", 'alert-danger');
+            $this->errors['log'] = $this-$this->getLogMessage('no_recipient', 'We could not find an email recipient');
             return false;
         }
 
         if ($this->account_id === null) {
             alert("The study administrator (you?) did not set up an email account. <a href='" . admin_url('mail') . "'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
-            $this->session_error = "The study administrator (you?) did not set up an email account.";
+            $this->errors['log'] = $this-$this->getLogMessage('no_recipient', "The study administrator (you?) did not set up an email account.");
             return false;
         }
 
-        $run_session = $this->run_session;
+        $run_session = $unitSession->runSession;
 
         $testing = !$run_session || $run_session->isTesting();
 
-        $acc = new EmailAccount($this->db, $this->account_id, null);
+        $acc = new EmailAccount($this->account_id, null);
         $mailing_themselves = (is_array($acc->account) && $acc->account["from"] === $this->recipient) ||
                 (($user = Site::getCurrentUser()) && $user->email === $this->recipient) ||
                 ($this->run && $this->run->getOwner()->email === $this->recipient);
@@ -267,43 +251,44 @@ class Email extends RunUnit {
         endif;
 
         if ($error !== null) {
-            $this->session_error = $error;
+            $this->errors['log'] = $this->getLogMessage('error_send_eligible', $error);
             $error = "Session: {$this->session}:\n {$error}";
             alert(nl2br($error), 'alert-danger');
             return false;
         }
 
         if ($warning !== null) {
-            $this->session_error = $warning;
+            $this->messages['log'] = $this->getLogMessage(null, $warning);
             $warning = "Session: {$this->session}:\n {$warning}";
             alert(nl2br($warning), 'alert-info');
         }
 
-        $subject = $this->getSubject();
+        $subject = $this->getSubject($unitSession);
         if($subject === null || $subject === false || $subject === '') {
-            $this->session_error = "No email subject set.";
+            $this->errors['log'] = $this->getLogMessage('no_email_subject', 'No email subject set');
             alert('Email subject empty or could not be dynamically generated.', 'alert-danger');
             return false;
         }
-        $body = $this->getBody();
+        
+        $body = $this->getBody($unitSession);
         if($body === null || $body === false || $body === '') {
-            $this->session_error = "No email body set.";
+            $this->errors['log'] = $this->getLogMessage('no_email_body', 'No email body set');
             alert('Email body empty or could not be dynamically generated.', 'alert-danger');
             return false;
         }
 
         if (!filter_var($this->recipient, FILTER_VALIDATE_EMAIL)) {
-            $this->session_error = "No valid email recipient set.";
+            $this->errors['log'] = $this->getLogMessage('invalid_email', 'No valid email recipient set');
             alert('Intended recipient was not a valid email address: ' . $this->recipient, 'alert-danger');
             return false;
         }
 
         // if formr is configured to use the email queue then add mail to queue and return
-        if (Config::get('email.use_queue', false) === true && filter_var($this->recipient, FILTER_VALIDATE_EMAIL)) {
+        if (Config::get('email.use_queue', false) === true) {
             $this->mail_queued = $this->db->insert('survey_email_log', array(
                 'subject' => $subject,
                 'status' => 0,
-                'session_id' => $this->session_id,
+                'session_id' => $unitSession->id,
                 'email_id' => $this->id,
                 'message' => $body,
                 'recipient' => $this->recipient,
@@ -314,6 +299,7 @@ class Email extends RunUnit {
                     'attachments' => ''
                 )),
             ));
+            
             return $this->mail_queued;
         }
 
@@ -325,32 +311,24 @@ class Email extends RunUnit {
         $mail->AddAddress($this->recipient);
         $mail->Subject = $subject;
         $mail->Body = $body;
+        
+        foreach ($this->images as $image_id => $image) {
+            $local_image = APPLICATION_ROOT . 'tmp/' . uniqid() . $image_id;
+            copy($image, $local_image);
+            register_shutdown_function(create_function('', "unlink('{$local_image}');"));
 
-        if (filter_var($this->recipient, FILTER_VALIDATE_EMAIL) AND $mail->Body !== false AND $mail->Subject !== false):
-            foreach ($this->images AS $image_id => $image):
-                $local_image = APPLICATION_ROOT . 'tmp/' . uniqid() . $image_id;
-                copy($image, $local_image);
-                register_shutdown_function(create_function('', "unlink('{$local_image}');"));
+            if (!$mail->AddEmbeddedImage($local_image, $image_id, $image_id, 'base64', 'image/png')) {
+                alert("Could not embed image with id '{$image_id}'", 'alert-danger');
+            }
+        }
+        
+        if ($mail->Send()) {
+            $this->mail_sent = true;
+            $this->logMail($$unitSession); 
+        } else {
+            alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
+        }
 
-                if (!$mail->AddEmbeddedImage($local_image, $image_id, $image_id, 'base64', 'image/png')):
-                    alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
-                endif;
-            endforeach;
-
-            if (!$mail->Send()):
-                alert('Email with the subject "' . h($mail->Subject) . '" was not sent to ' . h($this->recipient) . ':<br>' . $mail->ErrorInfo, 'alert-danger');
-            else:
-                $this->mail_sent = true;
-                $this->logMail();
-            endif;
-        else:
-            if ($mail->Body === false):
-                $this->session_error = "No email body set.";
-            endif;
-            if ($mail->Subject === false):
-                $this->session_error = "No email subject set.";
-            endif;
-        endif;
         return $this->mail_sent;
     }
 
@@ -365,19 +343,14 @@ class Email extends RunUnit {
 			WHERE recipient = :recipient AND `status` = 1 AND created > DATE_SUB(NOW(), INTERVAL 7 DAY)");
         $log->bindParam(':recipient', $this->recipient);
         $log->execute();
+        
         return $log->fetch(PDO::FETCH_ASSOC);
     }
 
-    protected function logMail() {
-        if (!$this->session_id && $this->run_session) {
-            $unit = $this->run_session->getCurrentUnit();
-            $session_id = $unit ? $unit['session_id'] : null;
-        } else {
-            $session_id = $this->session_id;
-        }
+    protected function logMail(UnitSession $unitSession) {
         $query = "INSERT INTO `survey_email_log` (session_id, email_id, created, recipient) VALUES (:session_id, :email_id, NOW(), :recipient)";
         $this->db->exec($query, array(
-            'session_id' => $session_id,
+            'session_id' => $unitSession->id,
             'email_id' => $this->id,
             'recipient' => $this->recipient,
         ));
@@ -461,55 +434,34 @@ class Email extends RunUnit {
         return $output;
     }
 
-    protected function sessionCanReceiveMails() {
-        // If not executing under a run session or no_mail is null the user can receive email
-        if (!$this->run_session || $this->run_session->no_mail === null) {
-            return true;
-        }
-
-        // If no mail is 0 then user has choose not to receive emails
-        if ((int) $this->run_session->no_mail === 0) {
-            return false;
-        }
-
-        // If no_mail is set && the timestamp is less that current time then the snooze period has expired
-        if ($this->run_session->no_mail <= time()) {
-            // modify subscription settings
-            $this->run_session->saveSettings(array('no_email' => '1'), array('no_email' => null));
-            return true;
-        }
-
-        return false;
-    }
-
-    public function exec() {
+    public function getUnitSessionOutput(UnitSession $unitSession) {
         // If emails should be sent only when cron is active and unit is not called by cron, then end it and move on
-        if ($this->cron_only && !$this->called_by_cron) {
-            $this->session_result = "email_skipped_user_active";
-            $this->logResult();
-            $this->end();
-            return false;
+        $data = [];
+        if ($this->cron_only && !$unitSession->isExecutedByCron()) {
+            $data['log'] = $this->getLogMessage('email_skipped_user_active');
+            $data['end_session'] = true;
+            return $data;
         }
 
         // Check if user is enabled to receive emails
-        if (!$this->sessionCanReceiveMails()) {
-            $this->session_result = "email_skipped_user_disabled";
-            $this->logResult();
-            return array('body' => "<p>User <code>{$this->session}</code> disabled receiving emails at this time </p>");
+        if (!$unitSession->runSession->canReceiveMails()) {
+            $data['log'] = $this->getLogMessage('email_skipped_user_disabled');
+            $data['body'] = "<p>User <code>{$unitSession->runSession->session}</code> disabled receiving emails at this time </p>";
+            return $data;
         }
 
         // Try to send email
-        $err = $this->sendMail();
+        $err = $this->sendMail($unitSession);
         if ($this->mail_sent || $this->mail_queued) {
-            $this->session_result = $this->mail_queued ? "email_queued" : "email_sent";
-            $this->logResult();
-            $this->end();
-            return false;
+            $log = array_val($this->messages, 'log', ['result_log' => null]);
+            $data['log'] = $this->getLogMessage(($this->mail_queued ? 'email_queued' : 'email_sent'), $log['result_log']);
+            $data['end_session'] = $data['move_on'] = true;
         } else {
-            $this->session_result = "error_email";
-            $this->logResult();
-            return array('body' => $err);
+            $data['log'] = array_val($this->errors, 'log', $this->getLogMessage('error_email'));
+            $data['body'] = $err;
         }
+  
+        return $data;
     }
 
 }

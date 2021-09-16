@@ -71,30 +71,6 @@ class RunUnit extends Model {
      */
     public $run = null;
 
-
-    /* TODO remove
-    public $user_id = null;
-    public $run_unit_id = null; // this is the ID of the unit-to-run-link entry
-    public $session = null;
-    public $unit = null;
-    public $ended = false;
-    public $expired = false;
-    public $called_by_cron = false;
-    public $knitr = false;
-    public $session_id = null;
-    public $run_session_id = null;
-    public $type = '';
-    public $icon = 'fa-wrench';
-    public $special = false;
-    public $valid;
-    public $run_id;
-    public $ocpu = null;
-    public $session_result = null;
-    public $session_error = null;
-    protected $had_major_changes = false;
-
-     */
-
     /**
      * An array of unit's exportable attributes
      * 
@@ -111,7 +87,7 @@ class RunUnit extends Model {
         $this->run = $run;
         $this->assignProperties($props);
         
-        if ($this->id) {
+        if ($this->id && empty($props['mock'])) {
             $this->find($this->id, $this->special, $props);
         }
     }
@@ -469,7 +445,7 @@ plot(cars)
         }
         
         $admin = array_val($options, 'admin');
-        $isCron = array_val($options, 'is_cron');
+        $isCron = $this->isCron();
         $sessionId = $unitSession->id;
 
         /* @var $ocpu OpenCPU_Session */

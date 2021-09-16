@@ -20,6 +20,9 @@ class Model {
     
     public $valid = false;
     
+    protected $cron = false;
+
+
     /**
      * 
      * @var array
@@ -34,6 +37,7 @@ class Model {
     
     public function boot() {
         $this->db = DB::getInstance();
+        $this->cron = Site::runningInConsole();
     }
     
     protected function assignProperties(array $props) {
@@ -69,5 +73,9 @@ class Model {
     
     public function getDbConnection() {
         return $this->db;
+    }
+    
+    public function isCron() {
+        return $this->cron;
     }
 }

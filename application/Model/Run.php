@@ -403,12 +403,12 @@ class Run extends Model {
 
     public function emptySelf() {
         $surveys = $this->getAllSurveys();
-        $unit_factory = new RunUnitFactory();
-        foreach ($surveys AS $survey) {
+        foreach ($surveys as $survey) {
+            $survey['type'] = 'Survey';
             /* @var $unit Survey */
-            $unit = $unit_factory->make($this->db, null, $survey, null, $this);
-            if (!$unit->backupResults()) {
-                alert('Could not backup results of survey ' . $unit->name, 'alert-danger');
+            $unit = RunUnitFactory::make($this, $survey);
+            if (!$unit->surveyStudy->backupResults()) {
+                alert('Could not backup results of survey ' . $unit->surveyStudy->name, 'alert-danger');
                 return false;
             }
         }
@@ -476,23 +476,6 @@ class Run extends Model {
         $runSession->createUnitSession($runUnit, false);
         
         return $runSession;
-        /*
-        
-        $unitSession = new UnitSession($this->db, $run_session_id, $reminder_id);
-        $session_id = $unitSession->create(false);
-        $unit_factory = new RunUnitFactory();
-        $unit = $unit_factory->make($this->db, $session, array(
-            'type' => "Email",
-            "unit_id" => $reminder_id,
-            "run_name" => $this->name,
-            "run_id" => $this->id,
-            "run_session_id" => $run_session_id,
-            "session_id" => $session_id,
-        ), null, $this);
-       
-        return $unit;
-         * 
-         */
     }
 
     public function getCustomCSS() {
@@ -765,7 +748,7 @@ class Run extends Model {
 
         $new_code = crypto_token(48 - floor(3 / 4 * strlen($name)));
         $new_code = $name . substr($new_code, 0, 64 - strlen($name));
-        $run_session = new RunSession($this->db, $this->id, null, $new_code, $this); // does this user have a session?
+        $run_session = new RunSession($new_code, $this); // does this user have a session?
         $run_session->create($new_code, $testing);
 
         return $run_session;
@@ -878,7 +861,7 @@ class Run extends Model {
         // Save run units
         foreach ($units as $i => &$unit) {
             if ($inc_survey && $unit->type === 'Survey') {
-                $survey = Survey::loadById($unit->unit_id);
+                $survey = SurveyStudy::loadById($unit->unit_id);
                 $unit->survey_data = $SPR->exportItemTableJSON($survey, true);
             }
             unset($unit->unit_id, $unit->run_unit_id);
@@ -940,7 +923,6 @@ class Run extends Model {
 
         $units = (array) $json->units;
         $createdUnits = array();
-        $runFactory = new RunUnitFactory();
 
         foreach ($units as $unit) {
             if (isset($unit->position) && !empty($unit->type)) {
@@ -951,6 +933,9 @@ class Run extends Model {
                 }
 
                 if (strpos($unit->type, 'Survey') !== false) {
+                    // @TODO create study and add study_id to UNIT
+                    $unit->survey_data;
+                    formr_log($unit); die('OK');
                     $unit->mock = true;
                 }
 
@@ -966,13 +951,11 @@ class Run extends Model {
                     $unit->body = $unit->body + $start_position;
                 }
 
-                $unitObj = $runFactory->make($this->db, null, (array) $unit, null, $this);
                 $unit = (array) $unit;
-                $unitObj->create($unit);
+                $unitObj = RunUnitFactory::make($this, (array) $unit);
+                $unitObj->create();
+                
                 if ($unitObj->valid) {
-                    $unitObj->addToRun($this->id, $unitObj->position, $unit);
-                    // @todo check how to manage this because they are echoed only on next page load
-                    //alert('<strong>Success.</strong> '.ucfirst($unitObj->type).' unit was created.','alert-success');
                     $createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
                 }
             }

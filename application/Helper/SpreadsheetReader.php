@@ -320,7 +320,7 @@ class SpreadsheetReader {
         return $objPhpSpreadsheet;
     }
 
-    public function exportItemTableXLSX(Survey $study) {
+    public function exportItemTableXLSX(SurveyStudy $study) {
         $items = $study->getItemsForSheet();
         $choices = $study->getChoicesForSheet();
         $filename = $study->name;
@@ -342,7 +342,7 @@ class SpreadsheetReader {
         }
     }
 
-    public function exportItemTableXLS(Survey $study) {
+    public function exportItemTableXLS(SurveyStudy $study) {
         $items = $study->getItemsForSheet();
         $choices = $study->getChoicesForSheet();
         $filename = $study->name;
@@ -364,7 +364,7 @@ class SpreadsheetReader {
         }
     }
 
-    public function exportItemTableJSON(Survey $study, $return_object = false) {
+    public function exportItemTableJSON(SurveyStudy $study, $return_object = false) {
         $items = $study->getItems();
         $choices = $study->getChoices();
         $filename = $study->name;
@@ -380,7 +380,7 @@ class SpreadsheetReader {
         $object = array(
             'name' => $study->name,
             'items' => $items,
-            'settings' => $study->settings,
+            'settings' => $study->getSettings(),
         );
 
         if ($google_id = $study->getGoogleFileId()) {
