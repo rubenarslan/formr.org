@@ -353,5 +353,9 @@ class Site {
         
         return $settings;
     }
+    
+    public static function runningInConsole() {
+        return php_sapi_name() === "cli";
+    }
 
 }

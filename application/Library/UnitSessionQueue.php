@@ -114,8 +114,7 @@ class UnitSessionQueue extends Queue {
             if (!$run->valid || !$run->cron_active) {
                 continue;
             }
-            $runSession = new RunSession($this->db, $run->id, 'cron', $session['session'], $run);
-
+            $runSession = new RunSession($session['session'], $run);
             if (!$runSession->id) {
                 $this->dbg('A run session could not be found for item in queue: ' . print_r($session, 1));
                 self::removeItem($session['id']);
@@ -125,9 +124,8 @@ class UnitSessionQueue extends Queue {
             // Execute session again by getting current unit
             // This action might end or expire a session, thereby removing it from queue
             // or session might be re-queued to expire in x minutes
-            
-            $unitSession = new UnitSession($this->db, $session['run_session_id'], $session['unit_id'], $session['id'], false);
-            $rsUnit = $runSession->execute($unitSession, $session['queued'] == self::QUEUED_TO_EXECUTE);
+            $unitSession = new UnitSession($runSession, null, ['id' => $session['id'], 'load' => true]);
+            $runSession->execute($unitSession,  $session['queued'] == self::QUEUED_TO_EXECUTE);
             
             if ($this->debug) {
                 $this->dbg('Proccessed: ' . print_r($session, 1));

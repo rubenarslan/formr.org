@@ -137,7 +137,7 @@ class Cron {
         $run->getOwner();
         while ($row = $sessions->fetch(PDO::FETCH_ASSOC)) {
             $session = $row['session'];
-            $runSession = new RunSession($this->db, $run->id, 'cron', $session, $run);
+            $runSession = new RunSession($session, $run);
             $types = $runSession->execute(); // start looping thru their units.
             $i++;
 

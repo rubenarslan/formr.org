@@ -141,7 +141,7 @@ class AdminAjaxController {
         $run = $this->controller->run;
         $dbh = $this->dbh;
 
-        $run_session = new RunSession($dbh, $run->id, null, $this->request->getParam('session'), $run);
+        $run_session = new RunSession($this->request->getParam('session'), $run);
 
         $status = $this->request->getParam('toggle_on') ? 1 : 0;
         $run_session->setTestingStatus($status);
@@ -158,7 +158,7 @@ class AdminAjaxController {
         $run = $this->controller->run;
         $dbh = $this->dbh;
 
-        $runSession = new RunSession($dbh, $run->id, 'cron', $this->request->str('session'), $run);
+        $runSession = new RunSession($this->request->str('session'), $run);
         $position = $this->request->int('new_position');
 
         if (!$runSession->forceTo($position)) {
@@ -182,9 +182,9 @@ class AdminAjaxController {
         $run = $this->controller->run;
         $dbh = $this->dbh;
 
-        $run_session = new RunSession($dbh, $run->id, null, $_GET['session'], $run);
+        $run_session = new RunSession($_GET['session'], $run);
 
-        if (!$run_session->endUnitSession()) {
+        if (!$run_session->endCurrentUnitSession()) {
             alert('<strong>Something went wrong with the unpause.</strong> in run ' . $run->name, 'alert-danger');
             $this->response->setStatusCode(500, 'Bad Request');
         }

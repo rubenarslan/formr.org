@@ -1185,4 +1185,18 @@ class SurveyStudy extends Model {
         return array($item_ids, $types);
     }
 
+    public function getSettings() {
+        $keys = [
+            'maximum_number_displayed', 'displayed_percentage_maximum', 'add_percentage_points',
+            'enable_instant_validation', 'expire_after', 'google_file_id', 'unlinked',
+            'expire_invitation_after', 'expire_invitation_grace', 'hide_results', 'use_paging',
+        ];
+        $settings = [];
+        
+        foreach ($keys as $key) {
+            $settings[$key] = $this->{$key};
+        }
+        
+        return $settings;
+    }
 }

@@ -50,7 +50,7 @@ class UnitSession extends Model {
      * @param RunUnit $runUnit
      * @param array $options An array of other options used to fetch a unit ID
      */
-    public function __construct(RunSession $runSession, RunUnit $runUnit, $options = []) {
+    public function __construct(RunSession $runSession, RunUnit $runUnit = null, $options = []) {
         parent::__construct();
 
         $this->runSession = $runSession;
@@ -93,15 +93,20 @@ class UnitSession extends Model {
     }
 
     public function load() {
+        $columns = 'id, unit_id, run_session_id, created, expires, queued, result, result_log, ended, expired';
         if ($this->id !== null) {
-            $vars = $this->db->findRow('survey_unit_sessions', ['id' => $this->id], 'id, created, unit_id, run_session_id, ended');
+            $vars = $this->db->findRow('survey_unit_sessions', ['id' => $this->id], $columns);
         } else {
-            $vars = $this->db->select('id, created, unit_id, run_session_id, ended')
+            $vars = $this->db->select($columns)
                     ->from('survey_unit_sessions')
                     ->where(['run_session_id' => $this->run_session_id, 'unit_id' => $this->unit_id])
                     ->where('ended IS NULL AND expired IS NULL')
                     ->order('created', 'desc')->limit(1)
                     ->fetch();
+        }
+        
+        if ($vars['unit_id'] && !$this->runUnit) {
+            $this->runUnit = RunUnitFactory::make($this->runSession->getRun(), ['id' => $vars['unit_id']]);
         }
 
         $this->assignProperties($vars);
@@ -1171,6 +1176,11 @@ class UnitSession extends Model {
         $variables = opencpu_formr_variables($q);
 
         return compact("matches", "matches_results_tables", "matches_variable_names", "token_add", "variables");
+    }
+    
+    public function getParsedText($source) {
+        $ocpu_vars = $this->getRunData($source);
+        return opencpu_knit_plaintext($source, $ocpu_vars, false);
     }
 
 }
