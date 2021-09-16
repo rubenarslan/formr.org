@@ -27,7 +27,7 @@ class Wait extends Pause {
         return $result['created'];
     }
 
-    protected function checkRelativeTo() {
+    protected function parseRelativeTo() {
         $this->relative_to = trim($this->relative_to);
         $this->wait_minutes = trim($this->wait_minutes);
         $this->has_wait_minutes = !($this->wait_minutes === null || $this->wait_minutes == '');
@@ -45,24 +45,24 @@ class Wait extends Pause {
         return $this->has_relative_to;
     }
 
-    public function exec() {
-        $this->checkRelativeTo();
-        $pauseOver = $this->checkWhetherPauseIsOver();
+    public function getUnitSessionOutput(UnitSession $unitSession) {
+        $output = [];
+        $expiration = $this->getUnitSessionExpirationData($unitSession);
 
-        if (!$pauseOver && !$this->called_by_cron && empty($this->execData['check_failed'])) {
-            $this->session_result = "wait_ended_by_user";
-            $this->logResult();
-            $this->end();
-            $runTo = $this->run_session->runTo($this->body);
-            return !$runTo;
-        } elseif ($pauseOver) {
-            $this->session_result = "wait_ended";
-            $this->logResult();
-            $this->end();
-            return false;
+        if (empty($expiration['expired']) && !$unitSession->isExecutedByCron() && empty($expiration['check_failed'])) {
+            $output['end_session'] = true;
+            $output['run_to'] = $this->body;
+            $output['log'] = $this->getLogMessage('wait_ended_by_user');
+        } elseif ($expiration['expired'] === true) {
+            $output['end_session'] = true;
+            $output['move_on'] = true;
+            $output['log'] = $this->getLogMessage('wait_ended');
         } else {
-            return true; // Maybe ocpu errors
+            // maybe errors
+            $output['wait_opencpu'] = true;
         }
+        
+        return $output;
     }
 }
 

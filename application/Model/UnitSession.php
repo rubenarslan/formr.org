@@ -14,7 +14,6 @@ class UnitSession extends Model {
     public $expired;
     public $meta;
     public $queueable = 1;
-    public $pending = true;
 
     /**
      * @var RunSession
@@ -71,9 +70,9 @@ class UnitSession extends Model {
                 'run_session_id' => $this->runSession->id > 0 ? $this->runSession->id : null,
                 'created' => mysql_now(),
             ]);
-            formr_log('Insert to DB . ' . print_r($session, 1));
+            
             $this->id = $this->db->insert('survey_unit_sessions', $session);
-            formr_log('Inserted' . $this->id);
+            formr_log("Inserted {$this->runUnit->type} " . $this->id);
             if ($this->run_session_id !== null && $new_current_unit) {
                 $this->runSession->currentUnitSession = $this;
                 $this->db->update('survey_run_sessions', ['current_unit_session_id' => $this->id], ['id' => $this->runSession->id]);
@@ -112,25 +111,21 @@ class UnitSession extends Model {
         return array('id', 'session', 'unit_id', 'created');
     }
 
-    public function exec() {
+    public function execute() {
         $this->execResults = [];
         // Check if session has expired by getting relevant unit data
         if ($this->isExpired()) {
-            $this->expire();
             $this->execResults['move_on'] = true;
             return $this->execResults;
         }
 
         if (($output = $this->runUnit->getUnitSessionOutput($this))) {
-            // @TODO
-            // - check redirect
-            // - check waits
-            //
-            $this->execResults['output'] = $output;
-        }
+            if (!empty($output['log'])) {
+                $this->assignProperties($output['log']);
+                $this->logResult();
+            }
 
-        if ($this->isQueuable()) {
-            $this->queue();
+            $this->execResults['output'] = $output;
         }
 
         return $this->execResults;
@@ -138,9 +133,28 @@ class UnitSession extends Model {
 
     protected function isExpired() {
         $expirationData = $this->runUnit->getUnitSessionExpirationData($this);
-        formr_log($expirationData);
+
+        if (!empty($expirationData['log'])) {
+            $this->assignProperties($expirationData['log']);
+            $this->logResult();
+        }
+        unset($expirationData['log']);
+        $this->execResults = array_merge($this->execResults, $expirationData);
+            
+        if ($this->runUnit instanceof Pause || $this->runUnit instanceof Branch) {
+            $expiration_extension = Config::get('unit_session.queue_expiration_extension', '+10 minutes');
+            if ($expirationData['check_failed'] === true || $expirationData['expire_relatively'] === false) {
+                // check again in x minutes something went wrong with ocpu evaluation
+                $expirationData['expires'] = mysql_datetime(strtotime($expiration_extension));
+                $expirationData['queued'] = UnitSessionQueue::QUEUED_TO_EXECUTE;
+            }
+        }
+
         if (empty($expirationData['expires'])) {
             return false;
+        } elseif(!empty($expirationData['end_session'])) {
+            $this->execResults['end_session'] = true;
+            return true;
         } elseif ($expirationData['expires'] < time()) {
             return true;
         } else {
@@ -151,17 +165,20 @@ class UnitSession extends Model {
     /**
      * Check if unit session should be queued
      * ** ALWAYS CALL AFTER $this->isExpired() ***
+     *
      * @return boolean
      */
     protected function isQueuable() {
-        return !empty($this->execResults['queued']);
+        return !empty($this->execResults['queued']) && $this->runSession->getRun()->cron_active;
     }
 
     public function expire() {
         $unit = $this->runUnit;
-        $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `expired` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
-        $params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
-        $this->db->exec($query, $params);
+        if ($unit->type === 'Survey') {
+            $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `expired` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
+            $params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
+            $this->db->exec($query, $params);
+        }
                 
         $expired = $this->db->exec(
             "UPDATE `survey_unit_sessions` SET 
@@ -195,9 +212,9 @@ class UnitSession extends Model {
             } else if ($unit->type == "Wait") {
                 $this->result = "wait_ended";
             } else if ($unit->type == "Endpage") {
-                $this->result = "ended_by_queue";
+                $this->result = $this->isExecutedByCron() ? 'ended_by_queue' : 'ended';
             } else {
-                $this->result = "ended_other";
+                //$this->result = "ended_other";
             }
         }
 
@@ -220,7 +237,9 @@ class UnitSession extends Model {
     }
 
     public function queue($output = null) {
-        UnitSessionQueue::addItem($this, $this->runUnit, $this->execResults['add_to_queue']);
+        if ($this->isQueuable()) {
+            UnitSessionQueue::addItem($this, $this->runUnit, $this->execResults['queued']);
+        }
     }
 
     public function logResult() {
@@ -256,11 +275,6 @@ class UnitSession extends Model {
             $study = $this->runUnit->surveyStudy;
 
             $request = new Request($_POST);
-            //$cookie = Request::getGlobals('COOKIE');
-            //check if user session has a valid form token for POST requests
-            //if (Request::isHTTPPostRequest() && $cookie && !$cookie->canValidateRequestToken($request)) {
-            //	redirect_to(run_url($this->run_name));
-            //}
             if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
                 return ['redirect' => run_url($run->name)];
             }
@@ -859,7 +873,7 @@ class UnitSession extends Model {
             $this->db->beginTransaction();
 
             // update item_display table for each posted item using prepared statement
-            foreach ($posted AS $name => $value) {
+            foreach ($posted as $name => $value) {
                 if (!isset($items[$name])) {
                     continue;
                 }
@@ -1084,7 +1098,6 @@ class UnitSession extends Model {
 
 //		$results = $this->run->getAllLinkedSurveys(); // fixme -> if the last reported email thing is known to work, we can turn this on
         $surveys = $this->runSession->getRun()->getAllSurveys();
-        $study = $this->runUnit->surveyStudy;
 
         // also add some "global" formr tables
         $non_user_tables = array_keys(get_db_non_user_tables());
@@ -1096,6 +1109,7 @@ class UnitSession extends Model {
         }
 
         if ($token_add !== null) {  // send along this table if necessary, always as the first one, since we attach it
+            $study = $this->runUnit->surveyStudy;
             $table_ids[] = $study->id;
             $tables[] = $study->name;
             $results_tables[$study->name] = $study->results_table;
@@ -1154,28 +1168,7 @@ class UnitSession extends Model {
             }
         }
 
-        $variables = [];
-        if (preg_match("/\btime_passed\b/", $q)) {
-            $variables[] = 'formr_last_action_time';
-        }
-        if (preg_match("/\bnext_day\b/", $q)) {
-            $variables[] = 'formr_last_action_date';
-        }
-        if (strstr($q, '.formr$login_code') !== false) {
-            $variables[] = 'formr_login_code';
-        }
-        if (preg_match("/\buser_id\b/", $q)) {
-            $variables[] = 'user_id';
-        }
-        if (strstr($q, '.formr$login_link') !== false) {
-            $variables[] = 'formr_login_link';
-        }
-        if (strstr($q, '.formr$nr_of_participants') !== false) {
-            $variables[] = 'formr_nr_of_participants';
-        }
-        if (strstr($q, '.formr$session_last_active') !== false) {
-            $variables[] = 'formr_session_last_active';
-        }
+        $variables = opencpu_formr_variables($q);
 
         return compact("matches", "matches_results_tables", "matches_variable_names", "token_add", "variables");
     }

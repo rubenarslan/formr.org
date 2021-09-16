@@ -44,7 +44,7 @@ class RunHelper {
         }
 
         if ($this->request->session) {
-            $this->runSession = new RunSession($this->db, $this->run->id, null, $this->request->session, $this->run);
+            $this->runSession = new RunSession($this->request->session, $this->run);
         }
     }
 
@@ -96,7 +96,7 @@ class RunHelper {
     public function snipUnitSession() {
         $run = $this->run;
         $session = $this->request->session;
-        $run_session = new RunSession($this->db, $run->id, null, $session, $run);
+        $run_session = new RunSession($session, $run);
 
         $unit_session = $run_session->getUnitSession();
         if ($unit_session):

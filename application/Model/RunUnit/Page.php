@@ -80,29 +80,26 @@ class Page extends RunUnit {
         $output = [];
         if ($unitSession->isExecutedByCron()) {
             $this->getParsedBody($this->body, $unitSession);
+            $output['log'] = array_val($this->errors, 'log', []);
             $output['wait_user'] = true;
             return $output;
         }
 
         $this->body_parsed = $this->getParsedBody($this->body, $unitSession);
         if ($this->body_parsed === false) {
-            $unitSession->assignProperties(array_val($this->messages, 'session'));
-            $unitSession->assignProperties(array_val($this->errors, 'session'));
-            $unitSession->logResult();
             $output['wait_opencpu'] = true; // wait for openCPU to be fixed!
+            $output['log'] = array_val($this->errors, 'log', []);
             return $output;
         }
-
+        
         $runSession = $unitSession->runSession;
         if ($runSession->id) {
            $runSession->end();
         }
         
         $output['body'] = do_run_shortcodes($this->body_parsed, $runSession->getRun()->name, $runSession->session);
-        $output['end_session'] = true;
-        
-        $unitSession->result = 'ended';
-        $unitSession->logResult();
+        $output['end_session'] = $output['expired'] = true;
+        $output['log'] = $this->getLogMessage('ended');
         
         return $output;
     }
