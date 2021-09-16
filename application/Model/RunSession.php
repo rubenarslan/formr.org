@@ -220,7 +220,14 @@ class RunSession extends Model {
         return $this->executeUnitSession();
     }
 
-    public function moveOn($starting = false) {
+    /**
+     * Move on to the next unit of the Run
+     * 
+     * @param boolean $starting TRUE if we are in the first run unit. FALSE otherwise.
+     * @param boolean $execute TRUE means we continue executing the next unit
+     * @return type
+     */
+    public function moveOn($starting = false, $execute = true) {
         if (!$starting) {
             $this->position = $this->run->getNextPosition($this->position);
             if ($this->position !== null) {
@@ -231,7 +238,7 @@ class RunSession extends Model {
         if ($this->position && ($unit_id = $this->getUnitIdAtPosition($this->position))) {
             $runUnit = RunUnitFactory::make($this->run, ['id' => $unit_id]);
             $this->createUnitSession($runUnit);
-            return $this->execute();
+            return $execute ? $this->execute() : null;
         }
 
         alert('Run ' . $this->run->name . ':<br /> Oops, this study\'s creator forgot to give it a proper ending (a Stop button), user ' . h($this->session) . ' is dangling at the end.', 'alert-danger');
@@ -260,6 +267,12 @@ class RunSession extends Model {
 
             if (isset($result['output']['expired'])) {
                 $this->currentUnitSession->expire();
+            }
+            
+            if (isset($result['output']['redirect'])) {
+                // move on in the run before redirecting to external service
+                $this->moveOn(false, false);
+                return $result['output'];
             }
 
             if (isset($result['output']['move_on'])) {

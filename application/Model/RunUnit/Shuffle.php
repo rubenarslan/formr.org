@@ -79,5 +79,21 @@ class Shuffle extends RunUnit {
 
         return Template::replace($test_tpl, array('groups' => $groups));
     }
+    
+    public function getUnitSessionOutput(UnitSession $unitSession) {
+        $group = $this->selectRandomGroup();
+        $this->db->insert('shuffle', array(
+            'session_id' => $unitSession->id,
+            'unit_id' => $this->id,
+            'group' => $group,
+            'created' => mysql_now()
+        ));
+
+        return [
+            'log' => $this->getLogMessage('group_' . $group),
+            'end_session' => true,
+            'move_on' => true,
+        ];
+    }
 
 }
