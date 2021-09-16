@@ -511,26 +511,19 @@ plot(cars)
 
         // At this stage we are sure to have an OpenCPU_Session in $ocpu. If there is an error in the session return FALSE
         if (empty($ocpu)) {
-            $this->errors['session'] = [
-                'result' => 'error_opencpu_down',
-                'result_log' => 'OpenCPU is probably down or inaccessible.',
-            ];
+            $this->errors['log'] = $this->getLogMessage('error_opencpu_down', 'OpenCPU is probably down or inaccessible.');
+            
             alert('OpenCPU is probably down or inaccessible. Please retry in a few minutes.', 'alert-danger');
             return false;
         } elseif ($ocpu->hasError()) {
-            $this->errors['session'] = [
-                'result' => 'error_opencpu_r',
-                'result_log' => 'OpenCPU R error. Fix code.',
-            ];
+            $this->errors['log'] = $this->getLogMessage('error_opencpu_r', 'OpenCPU R error. Fix code.');
+            
             notify_user_error(opencpu_debug($ocpu), 'There was a computational error.');
             return false;
         } elseif ($admin) {
             return $ocpu;
         } else {
-            $this->messages['session'] = [
-                'result' => 'success_knitted',
-                'result_log' => null,
-            ];
+            $this->messages['log'] = $this->getLogMessage('success_knitted');
             
             print_hidden_opencpu_debug_message($ocpu, "OpenCPU debugger for run R code in {$this->type} at {$this->position}.");
             $files = $ocpu->getFiles($filesMatch, $baseUrl);
@@ -570,4 +563,7 @@ plot(cars)
         }
     }
 
+    public function getLogMessage($result, $result_log = null) {
+        return compact('result', 'result_log');
+    }
 }

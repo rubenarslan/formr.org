@@ -9,6 +9,8 @@ class Branch extends RunUnit {
     
     public $type = 'Branch';
     public $icon = 'fa-code-fork fa-flip-vertical';
+    
+    protected $outputData;
 
     public function __construct(Run $run, array $props = []) {
         parent::__construct($run, $props);
@@ -115,18 +117,19 @@ class Branch extends RunUnit {
         return $output;
     }
 
-    public function exec() {
-        $opencpu_vars = $this->getUserDataInRun($this->condition);
+    public function getUnitSessionExpirationData(UnitSession $unitSession) {
+        $data = ['expire_relatively' => null, 'check_failed' => false];
+        $opencpu_vars = $unitSession->getRunData($this->condition);
         $eval = opencpu_evaluate($this->condition, $opencpu_vars);
+        
         if ($eval === null) {
-            $this->session_result = "error_opencpu_r";
-            $this->session_error = "OpenCPU error. Fix R code.";
-            $this->logResult();
-            return true; // don't go anywhere, wait for the error to be fixed!
+            $data['log'] = $this->getLogMessage('error_opencpu_r', 'OpenCPU error. Fix R code');
+            $data['wait_opencpu'] = true;
+            return $data;
         }
         if (is_array($eval)) {
             $eval = array_shift($eval);
-            $this->session_error = "Your R code is returning more than one result. Please fix your code, so it returns only true/false.";
+            $data['log'] = $this->getLogMessage('opencpu_result_warn', "Your R code is returning more than one result. Please fix your code, so it returns only true/false");
         }
 
         if($eval === true || $eval === false) {
@@ -134,45 +137,38 @@ class Branch extends RunUnit {
         } else {
             // If execution returned a timestamp in the future, then branching evaluates to FALSE
             if (($time = strtotime($eval)) && $time >= time()) {
-                $eval = false;
+                $result = false;
             } elseif (($time = strtotime($eval)) && $time < time()) {
-                $eval = true;
+                $result = true;
             } else {
                 $result = (bool) $eval;
             }
-            $this->session_error = "Your R code is not returning true/false. Please fix your code soon.";
+            $data['log'] = $this->getLogMessage('opencpu_result_warn', "Your R code is not returning true/false. Please fix your code soon");
         }
         
-        if ($result && ($this->automatically_jump || !$this->called_by_cron)) {
-            $this->session_result = "skip_true";
-            $this->logResult();
+        if ($result && ($this->automatically_jump || !$unitSession->isExecutedByCron())) {
             // if condition is true and we're set to jump automatically, or if the user reacted
-            return $this->jump();
-        } elseif (!$result && ($this->automatically_go_on || !$this->called_by_cron)) {
-            $this->session_result = "skip_false";
-            $this->logResult();
-            // the condition is false and it goes on
-            return $this->goOn();
+            $data['log'] = $this->getLogMessage('skip_true');
+            $data['end_session'] = true;
+            $data['run_to'] = $this->if_true;
+        } elseif (!$result && ($this->automatically_go_on || !$unitSession->isExecutedByCron())) {
+             // the condition is false and it goes on
+            $data['log'] = $this->getLogMessage('skip_false');
+            $data['end_session'] = $data['move_on'] = true;
         } else {
-            $this->session_result = "waiting_deprecated";
-            $this->session_error = "formr is phasing out support for delayed skipbackwards/forwards. Please switch to a different approach soon.";
-            $this->logResult();
-            // we wait for the condition to turn true or false, depends.
-            return true;
+            $data['log'] = $this->getLogMessage('waiting_deprecated', 'formr is phasing out support for delayed skipbackwards/forwards. Please switch to a different approach soon');
+            $data['check_failed'] = true;
         }
+        
+        // We already computed needed output data so save and use when getting session output
+        $this->outputData = $data;
+        return $data;
+    }
+    
+    public function getUnitSessionOutput(UnitSession $unitSession) {
+        unset($this->outputData['log']);
+        return $this->outputData;
     }
 
-    protected function jump() {
-        if (!empty($this->run_session->session)) {
-            $this->end();
-            $runTo = $this->run_session->runTo($this->if_true);
-            return !$runTo;
-        }
-    }
-
-    protected function goOn() {
-        $this->end();
-        return false;
-    }
 
 }

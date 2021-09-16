@@ -89,7 +89,7 @@ class Pause extends RunUnit {
         return $this->delete($special);
     }
 
-    protected function checkRelativeTo() {
+    protected function parseRelativeTo() {
         $this->relative_to = trim($this->relative_to);
         $this->wait_minutes = trim($this->wait_minutes);
         $this->has_wait_minutes = !($this->wait_minutes === null || $this->wait_minutes == '');
@@ -106,30 +106,33 @@ class Pause extends RunUnit {
         return $this->has_relative_to;
     }
 
-    protected function checkWhetherPauseIsOver() {
-        $this->execData['check_failed'] = false;
-        $this->execData['expire_relatively'] = null;
-
-        // If item is in queue and need not be executed, no need to execute again because it hasn't expired.
-        if (!empty($this->run_session->unit_session) && ($queueItem = UnitSessionQueue::findItem($this->run_session->unit_session, array('expires >' => mysql_datetime())))) {
-            $this->execData['expire_timestamp'] = strtotime($queueItem['expires']);
-            return false;
+    public function getUnitSessionExpirationData(UnitSession $unitSession) {
+        $this->parseRelativeTo();
+        $data = [
+            'check_failed' => false,
+            'expire_relatively' => null,
+            'expired' => false,
+            'queued' => UnitSessionQueue::QUEUED_TO_END,
+        ];
+      
+        if ($unitSession->expires && ($timestamp = strtotime($unitSession->expires)) > time()) {
+            // Pause has not expired, no need to fetch new data about it
+            $data['expires'] = $timestamp;
+            return $data;
         }
 
         // if a relative_to has been defined by user or automatically, we need to retrieve its value
         if ($this->has_relative_to) {
-            if($this->relative_to === 'tail(survey_unit_sessions$created,1)' &&
-            $this->run_session && $this->run_session->unit_session) {
-                $result = $this->run_session->unit_session->created;
+            if($this->relative_to === 'tail(survey_unit_sessions$created,1)' && $unitSession->created) {
+                $result = $unitSession->created;
             } else {
-                $opencpu_vars = $this->getUserDataInRun($this->relative_to);
+                $opencpu_vars = $unitSession->getRunData($this->relative_to);
                 $result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
                 if ($result === null) {
-                    $this->execData['check_failed'] = true;
-                    $this->session_result = "error_pause_relative_to";
-                    $this->session_error = "OpenCPU R error. Fix code.";
-                    $this->logResult();
-                    return false;
+                    $data['check_failed'] = true;
+                    $data['log'] = $this->getLogMessage('error_pause_relative_to', 'OpenCPU R error. Fix code.');
+                    $this->errors[] = 'Could not evaluate relative_to value on opencpu';
+                    return $data;
                 }
             }
             $this->relative_to_result = $relative_to = $result;
@@ -142,34 +145,36 @@ class Pause extends RunUnit {
             // if no wait minutes but a relative to was defined, we just use this as the param (useful for complex R expressions)
             if ($relative_to === true) {
                 $conditions['relative_to'] = '1=1';
-                $this->execData['expire_relatively'] = true;
+                $data['expire_relatively'] = true;
             } elseif ($relative_to === false) {
                 $conditions['relative_to'] = '0=1';
-                $this->execData['expire_relatively'] = false;
+                $data['expire_relatively'] = false;
             } elseif (!is_array($relative_to) && strtotime($relative_to)) {
                 $conditions['relative_to'] = ':relative_to <= NOW()';
                 $bind_relative_to = true;
-                $this->execData['expire_timestamp'] = strtotime($relative_to);
+                $data['expires'] = strtotime($relative_to);
                 // If there was a wait_time, set the timestamp to have this time
                 if ($time = $this->parseWaitTime(true)) {
-                    $ts = $this->execData['expire_timestamp'];
-                    $this->execData['expire_timestamp'] = mktime((int)$time[0], (int)$time[1], 0, (int)date('m', $ts), (int)date('d', $ts), (int)date('Y', $ts));
-                    $relative_to = date('Y-m-d H:i:s', $this->execData['expire_timestamp']);
+                    $ts = $data['expires'];
+                    $data['expires'] = mktime((int)$time[0], (int)$time[1], 0, (int)date('m', $ts), (int)date('d', $ts), (int)date('Y', $ts));
+                    $relative_to = date('Y-m-d H:i:s', $data['expires']);
                 }
             } else {
-                alert("Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. " . print_r($relative_to, true), 'alert-warning');
-                $this->execData['check_failed'] = true;
-                return false;
+                $this->errors[] = "Pause {$this->position}: Relative to yields neither true nor false, nor a date, nor a time. " . print_r($relative_to, true);
+                $data['check_failed'] = true;
+                $data['log'] = $this->getLogMessage('error_pause_relative_to', 'OpenCPU R error. Fix code.');
+                return $data;
             }
         } elseif ($this->has_wait_minutes) {
             if (!is_array($relative_to) && strtotime($relative_to)) {
                 $conditions['minute'] = "DATE_ADD(:relative_to, INTERVAL :wait_seconds SECOND) <= NOW()";
                 $bind_relative_to = true;
-                $this->execData['expire_timestamp'] = strtotime($relative_to) + ($this->wait_minutes * 60);
+                $data['expires'] = strtotime($relative_to) + ($this->wait_minutes * 60);
             } else {
-                alert("Pause {$this->position}: Relative to yields neither a date, nor a time. " . print_r($relative_to, true), 'alert-warning');
-                $this->execData['check_failed'] = true;
-                return false;
+                $this->errors[] = "Pause {$this->position}: Relative to yields neither a date, nor a time. " . print_r($relative_to, true);
+                $data['check_failed'] = true;
+                $data['log'] = $this->getLogMessage('error_pause_wait_minutes', 'Relative to yields neither a date, nor a time');
+                return $data;
             }
         }
 
@@ -194,24 +199,24 @@ class Pause extends RunUnit {
             $wait_date = date('Y-m-d');
         }
 
-        if (!empty($wait_date) && !empty($wait_time) && empty($this->execData['expire_timestamp'])) {
+        if (!empty($wait_date) && !empty($wait_time) && empty($data['expires'])) {
             $wait_datetime = $wait_date . ' ' . $wait_time;
-            $this->execData['expire_timestamp'] = strtotime($wait_datetime);
+            $data['expires'] = strtotime($wait_datetime);
 
             // If the expiration hour already passed before the user entered the pause, set expiration to the next day (in 24 hours)
-            $exp_ts = $this->execData['expire_timestamp'];
-            $created_ts = strtotime($this->run_session->unit_session->created);
+            $exp_ts = $data['expires'];
+            $created_ts = strtotime($unitSession->created);
             $exp_hour_min = mktime(date('G', $exp_ts), date('i', $exp_ts), 0);
             if ($created_ts > $exp_hour_min && !$wait_date_defined) {
-                $this->execData['expire_timestamp'] += 24 * 60 * 60;
-                return false;
+                $data['expires'] += 24 * 60 * 60;
+                return $data;
             }
 
             $conditions['datetime'] = ':wait_datetime <= NOW()';
         }
 
         $now = time();
-        $result = !empty($this->execData['expire_timestamp']) && ($this->execData['expire_timestamp'] <= $now);
+        $result = !empty($data['expires']) && ($data['expires'] <= $now);
 
         if ($conditions) {
             $condition = implode(' AND ', $conditions);
@@ -234,8 +239,9 @@ class Pause extends RunUnit {
             $result = true;
         }
 
-        $this->execData['pause_over'] = $result;
-        return $result;
+        $data['end_session'] = $data['expired'] = $result;
+        
+        return $data;
     }
 
     protected function parseWaitTime($parts = false) {
@@ -269,7 +275,7 @@ class Pause extends RunUnit {
         $output .= "<h3>Pause message</h3>";
         $output .= $this->getParsedBodyAdmin($this->body);
 
-        if ($this->checkRelativeTo()) {
+        if ($this->parseRelativeTo()) {
             $output .= "<h3>Pause relative to</h3>";
             $opencpu_vars = $this->getUserDataInRun($this->relative_to);
             $session = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json', null, true);
@@ -302,7 +308,7 @@ class Pause extends RunUnit {
             $rows = '';
             foreach ($results as $row) {
                 $this->run_session_id = $row['id'];
-                $runSession = new RunSession($this->db, $this->run->id, Site::getCurrentUser()->id, $row['session'], $this->run);
+                $runSession = new RunSession($row['session'], $this->run);
                 $runSession->unit_session = new UnitSession($this->db, $this->run_session_id, $this->id);
                 $this->run_session = $runSession;
 
@@ -318,26 +324,19 @@ class Pause extends RunUnit {
         }
     }
 
-    public function exec() {
-        $this->checkRelativeTo();
-        $pauseOver = $this->checkWhetherPauseIsOver();
-
-        if ($pauseOver) {
-            $this->session_result = "pause_ended";
-            $this->logResult();
-            $this->end();
-            return false;
-        } else {
-            $body = $this->getParsedBody($this->body);
-            if ($body === false) {
-                return true; // openCPU errors
-            }
-            $this->session_result = "pause_waiting";
-            $this->logResult();
-            return array(
-                'body' => $body
-            );
+    public function getUnitSessionOutput(UnitSession $unitSession) {
+        $body = $this->getParsedBody($this->body, $unitSession);
+        if ($body === false) {
+            // opencpu error
+            $output['log'] = array_val($this->errors, 'log', []);
+            $output['wait_opencpu'] = true; // wait for openCPU to be fixed!
+            return $output;
         }
+
+        return [
+            'body' => $body, 
+            'log' => $this->getLogMessage('pause_waiting')
+        ];
     }
 
 }

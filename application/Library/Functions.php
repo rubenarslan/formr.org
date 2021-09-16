@@ -133,7 +133,7 @@ function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could
 }
 
 function formr_error_feature_unavailable() {
-     formr_error('503', 'Feature Unavailable', 'Sorry this feature is temporarily unavailable. Please try again later', '', 'javascript:history.back();', 'Go Back');
+    formr_error('503', 'Feature Unavailable', 'Sorry this feature is temporarily unavailable. Please try again later', '', 'javascript:history.back();', 'Go Back');
 }
 
 function h($text) {
@@ -592,7 +592,7 @@ function empty_column($col, $arr) {
     foreach ($arr AS $row):
         if (!(empty($row->$col)) OR // not empty column? (also treats 0 and empty strings as empty)
                 $last != $row->$col OR // any variation in this column?
-                ! (!is_array($row->$col) AND trim($row->$col) == '')):
+                !(!is_array($row->$col) AND trim($row->$col) == '')):
             $empty = false;
             break;
         endif;
@@ -948,7 +948,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 	' . $variables . '
 	' . $code . '
 })() }');
-    
+
     $uri = '/base/R/identity/' . $return_format;
     try {
         $session = OpenCPU::getInstance()->post($uri, $params);
@@ -1091,7 +1091,7 @@ function opencpu_knit_iframe($source, $variables = null, $return_session = false
         $show_errors = 'TRUE';
         $show_warnings = 'TRUE';
     }
- 
+
     $yaml = "";
     $yaml_lines = '/^\-\-\-/um';
     if (preg_match_all($yaml_lines, $source) >= 2) {
@@ -1120,7 +1120,6 @@ opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',err
 # &nbsp;
 
 " . $footer_text;
-
 
     $params = array('text' => "'" . addslashes($source) . "'");
 
@@ -1182,7 +1181,7 @@ function opencpu_knitadmin($source, $variables = null, $return_session = false) 
         $show_errors = 'TRUE';
         $show_warnings = 'TRUE';
     }
-    
+
     $source = '```{r settings,warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F}
 library(knitr); library(formr)
 opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F)
@@ -1245,7 +1244,7 @@ function opencpu_multistring_parse(UnitSession $unitSession, array $string_templ
     $opencpu_vars = $unitSession->getRunData($markdown, $survey->name);
     $session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $survey->name);
 
-    if ($session AND ! $session->hasError()) {
+    if ($session AND!$session->hasError()) {
         print_hidden_opencpu_debug_message($session, "OpenCPU debugger for dynamic values and showifs.");
         $parsed_strings = $session->getJSONObject();
         $strings = explode(OpenCPU::STRING_DELIMITER_PARSED, $parsed_strings);
@@ -1342,7 +1341,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
             }
 
             $urls = $session->getResponsePathsAsLinks();
-            if (!$session->hasError() AND ! empty($urls)) {
+            if (!$session->hasError() AND!empty($urls)) {
                 $locations = '';
                 foreach ($urls AS $path => $link) {
                     $path = str_replace('/ocpu/tmp/' . $session->getKey(), '', $path);
@@ -1376,6 +1375,33 @@ function opencpu_log($msg) {
         $log .= $msg;
     }
     error_log($log . "\n", 3, get_log_file('opencpu.log'));
+}
+
+function opencpu_formr_variables($q) {
+    $variables = [];
+    if (preg_match("/\btime_passed\b/", $q)) {
+        $variables[] = 'formr_last_action_time';
+    }
+    if (preg_match("/\bnext_day\b/", $q)) {
+        $variables[] = 'formr_last_action_date';
+    }
+    if (strstr($q, '.formr$login_code') !== false) {
+        $variables[] = 'formr_login_code';
+    }
+    if (preg_match("/\buser_id\b/", $q)) {
+        $variables[] = 'user_id';
+    }
+    if (strstr($q, '.formr$login_link') !== false) {
+        $variables[] = 'formr_login_link';
+    }
+    if (strstr($q, '.formr$nr_of_participants') !== false) {
+        $variables[] = 'formr_nr_of_participants';
+    }
+    if (strstr($q, '.formr$session_last_active') !== false) {
+        $variables[] = 'formr_session_last_active';
+    }
+
+    return $variables;
 }
 
 function pre_htmlescape($str) {

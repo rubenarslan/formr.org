@@ -144,7 +144,8 @@ class Survey extends RunUnit {
             $expire = max($expire_inactivity_time, $expire_invitation_time);
             
             $data['expires'] = max(0, $expire_invitation_time);
-            $data['queued'] = UnitSessionQueue::QUEUED_TO_END;
+            $data['expired'] = ($data['expires'] > 0) && ($now > $data['expires']);
+            $data['queued'] = UnitSessionQueue::QUEUED_TO_EXECUTE;
 
             return $data;
         } 

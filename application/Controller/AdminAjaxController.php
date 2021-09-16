@@ -200,7 +200,7 @@ class AdminAjaxController {
     private function ajaxSnipUnitSession() {
         $run = $this->controller->run;
         $dbh = $this->dbh;
-        $run_session = new RunSession($dbh, $run->id, null, $this->request->getParam('session'), $run);
+        $run_session = new RunSession($this->request->getParam('session'), $run);
 
         $unit_session = $run_session->getUnitSession();
         if ($unit_session) {
