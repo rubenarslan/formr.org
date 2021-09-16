@@ -708,7 +708,7 @@ class Run extends Model {
         $runSession = $this->makeTestRunSession();
         $runSession->createUnitSession($runUnit);
         $output = $runSession->execute();
-        formr_log('OUTPUT ' . print_r($output,1));
+        
         if (!$output) {
             $output = [
                 'title' => 'Finish',

@@ -2,7 +2,6 @@
 
 class External extends RunUnit {
 
-    public $errors = array();
     public $id = null;
     public $session = null;
     public $unit = null;
@@ -80,14 +79,14 @@ class External extends RunUnit {
         return !$this->isR($address);
     }
 
-    private function makeAddress($address) {
-        $login_link = run_url($this->run_name, null, array('code' => $this->session));
+    private function makeAddress(UnitSession $us, $address) {
+        $login_link = run_url($us->runSession->getRun()->name, null, array('code' => $us->runSession->session));
         $address = str_replace("{{login_link}}", $login_link, $address);
-        $address = str_replace("{{login_code}}", $this->session, $address);
+        $address = str_replace("{{login_code}}", $us->runSession->session, $address);
         return $address;
     }
 
-    public function test() {
+    public function test(UnitSession $unitSession) {
         if ($this->isR($this->address)) {
             if ($results = $this->getSampleSessions()) {
                 if (!$results) {
@@ -96,7 +95,7 @@ class External extends RunUnit {
 
                 $this->run_session_id = current($results)['id'];
 
-                $opencpu_vars = $this->getUserDataInRun($this->address);
+                $opencpu_vars = $unitSession->getRunData($this->address);
                 $ocpu_session = opencpu_evaluate($this->address, $opencpu_vars, '', null, true);
                 $output = opencpu_debug($ocpu_session, null, 'text');
             } else {
@@ -106,89 +105,79 @@ class External extends RunUnit {
             $output = Template::replace('<a href="%{address}">%{address}</a>', array('address' => $this->address));
         }
 
-        $this->session = "TESTCODE";
-        return $this->makeAddress($output);
-    }
+        return do_run_shortcodes($output, $unitSession->runSession->getRun()->name, $unitSession->runSession->session);
+     }
 
-    private function hasExpired() {
+    public function getUnitSessionExpirationData(UnitSession $unitSession) {
+        $data = ['queued' => UnitSessionQueue::QUEUED_TO_END];
         $expire = (int) $this->expire_after;
-        if ($expire === 0) {
-            return false;
-        } else {
-            $last = $this->run_session->unit_session->created;
+        if ($expire) {
+            $last = $unitSession->created;
             if (!$last || !strtotime($last)) {
-                return false;
+                return $data;
             }
 
             $expire_ts = strtotime($last) + ($expire * 60);
             if (($expired = $expire_ts < time())) {
-                return true;
+                $data['expired'] = true;
             } else {
-                $this->execData['expire_timestamp'] = $expire_ts;
-                return false;
+                $data['expires'] = $expire_ts;
             }
         }
+        
+        return $data;
     }
 
-    public function exec() {
-        // never redirect, if we're just in the cronjob. just text for expiry
-        $expired = $this->hasExpired();
-        if ($this->called_by_cron) {
-            if ($expired) {
-                $this->expire("external_expired");
-                return false;
+    public function getUnitSessionOutput(UnitSession $unitSession) {
+        $data = [];
+        $expired = $this->getUnitSessionExpirationData($unitSession);
+        if ($unitSession->isExecutedByCron()) {
+            if (!empty($expired['expired'])) {
+                $data['expired'] = true;
+                return $expired;
             }
         }
 
         // if it's the user, redirect them or do the call
         if ($this->isR($this->address)) {
-            $goto = null;
-            $opencpu_vars = $this->getUserDataInRun($this->address);
+            $opencpu_vars = $unitSession->getRunData($this->address);
             $result = opencpu_evaluate($this->address, $opencpu_vars);
 
             if ($result === null) {
-                $this->session_result = "error_opencpu";
-                $this->logResult();
-                return true; // don't go anywhere, wait for the error to be fixed!
+                $data['log'] = $this->getLogMessage('error_opencpu');
+                $data['wait_opencpu'] = true; // don't go anywhere, wait for the error to be fixed!
+                return $data;
             } elseif ($result === false) {
-                $this->session_result = "external_r_call_no_redirect";
-                $this->end();
-                return false; // go on, no redirect
+                $data['log'] = $this->getLogMessage('external_r_call_no_redirect');
+                $data['end_session'] = true;
+                $data['move_on'] = true; // go on, no redirect
+                return $data;
             } elseif ($this->isAddress($result)) {
-                $this->session_result = "external_r_redirect";
-                $this->logResult();
-                $goto = $result;
+                $data['log'] = $this->getLogMessage('external_r_redirect');
+                $data['redirect'] = $result;
             } else {
-                $this->session_result = "external_compute";
-                $this->session_error = $result;
-                $this->logResult();
-                $this->end();
-                return false;
+                $data['log'] = $this->getLogMessage('external_compute', $result);
+                $data['end_session'] = true;
+                $data['move_on'] = true;
+                return $data;
             }
         } else { // the simplest case, just an address
-            $this->session_result = "external_redirect";
-            $this->logResult();
-            $goto = $this->address;
-        }
-
-        // replace the code placeholder, if any
-        $goto = $this->makeAddress($goto);
-
-        // never redirect if we're just in the cron job
-        if (!$this->called_by_cron) {
-            // sometimes we aren't able to control the other end
-            if (!$this->api_end) {
-                $this->end();
-                $this->run_session->execute();
-            } else {
-                $this->session_result = "external_wait_for_api";
-                $this->logResult();
-            }
-
-            redirect_to($goto);
-            return false;
+            $data['log'] = $this->getLogMessage('external_redirect');
+            $data['redirect'] = $this->address;
         }
         
-        return true;
+        $data['redirect'] = do_run_shortcodes($data['redirect'], $unitSession->runSession->getRun()->name, $unitSession->runSession->session);
+
+        // never redirect if we're just in the cron job
+        if (!$unitSession->isExecutedByCron()) {
+            // sometimes we aren't able to control the other end
+            if (!$this->api_end) {
+                $data['end_session'] = $data['move_on'] = true;
+            } else {
+                $data['log'] = $this->getLogMessage('external_wait_for_api');
+            }
+        }
+        
+        return $data;
     }
 }
