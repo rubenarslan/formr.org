@@ -250,7 +250,7 @@ class RunSession extends Model {
         $result = $this->currentUnitSession->execute();
         formr_log($result, $this->id . $this->currentUnitSession->runUnit->type);
 
-        if (isset($result['end_session'])) {
+        if (!empty($result['end_session'])) {
             formr_log("END {$this->currentUnitSession->runUnit->type}", $this->id);
             $this->currentUnitSession->end();
         } elseif (!empty($result['expired'])) {
