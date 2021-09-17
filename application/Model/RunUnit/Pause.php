@@ -334,7 +334,7 @@ class Pause extends RunUnit {
         }
 
         return [
-            'body' => $body, 
+            'content' => $body, 
             'log' => $this->getLogMessage('pause_waiting')
         ];
     }

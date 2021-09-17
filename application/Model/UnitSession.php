@@ -106,7 +106,9 @@ class UnitSession extends Model {
         $this->execResults = [];
         // Check if session has expired by getting relevant unit data
         if ($this->isExpired()) {
+            $this->execResults['expired'] =true;
             $this->execResults['move_on'] = true;
+            $this->execResults['end_session'] = true;
             return $this->execResults;
         }
 
@@ -115,8 +117,10 @@ class UnitSession extends Model {
                 $this->assignProperties($output['log']);
                 $this->logResult();
             }
-
-            $this->execResults['output'] = $output;
+            
+            foreach ($output as $key => $value) {
+                $this->execResults[$key] = $value;
+            }
         }
 
         return $this->execResults;
@@ -148,8 +152,11 @@ class UnitSession extends Model {
             return true;
         } elseif ($expirationData['expires'] < time()) {
             return true;
-        } else {
-            $this->execResults['queued'] = $expirationData;
+        } elseif ($expirationData['queued']) {
+            $this->execResults['queue'] = [
+                'expires' => $expirationData['expires'],
+                'queued' => $expirationData['queued'],
+            ];
         }
     }
 
@@ -160,7 +167,7 @@ class UnitSession extends Model {
      * @return boolean
      */
     protected function isQueuable() {
-        return !empty($this->execResults['queued']) && $this->runSession->getRun()->cron_active;
+        return !empty($this->execResults['queue']) && $this->runSession->getRun()->cron_active;
     }
 
     public function expire() {
@@ -229,7 +236,7 @@ class UnitSession extends Model {
 
     public function queue($output = null) {
         if ($this->isQueuable()) {
-            UnitSessionQueue::addItem($this, $this->runUnit, $this->execResults['queued']);
+            UnitSessionQueue::addItem($this, $this->runUnit, $this->execResults['queue']);
         }
     }
 

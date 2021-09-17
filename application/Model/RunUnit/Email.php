@@ -446,7 +446,7 @@ class Email extends RunUnit {
         // Check if user is enabled to receive emails
         if (!$unitSession->runSession->canReceiveMails()) {
             $data['log'] = $this->getLogMessage('email_skipped_user_disabled');
-            $data['body'] = "<p>User <code>{$unitSession->runSession->session}</code> disabled receiving emails at this time </p>";
+            $data['content'] = "<p>User <code>{$unitSession->runSession->session}</code> disabled receiving emails at this time </p>";
             return $data;
         }
 
@@ -458,7 +458,7 @@ class Email extends RunUnit {
             $data['end_session'] = $data['move_on'] = true;
         } else {
             $data['log'] = array_val($this->errors, 'log', $this->getLogMessage('error_email'));
-            $data['body'] = $err;
+            $data['content'] = $err;
         }
   
         return $data;

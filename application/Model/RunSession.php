@@ -26,7 +26,6 @@ class RunSession extends Model {
      * @var User
      */
     public $user;
-
     protected $table = 'survey_run_sessions';
 
     /**
@@ -35,7 +34,6 @@ class RunSession extends Model {
      * @var UnitSession
      */
     public $currentUnitSession;
-
 
     /**
      * A RunSession should always be initiated with a Run and a User
@@ -155,7 +153,8 @@ class RunSession extends Model {
      * @return \RunSession
      */
     public function createUnitSession(RunUnit $unit, $setAsCurrent = true, $save = true) {
-        formr_log("CREATE {$unit->type}");
+        formr_log("=======================================");
+        formr_log("CREATE {$unit->type}", $this->id);
         $unitSession = new UnitSession($this, $unit);
         if ($save === false) {
             $this->currentUnitSession = $unitSession;
@@ -178,7 +177,7 @@ class RunSession extends Model {
             // User tried to access an already ended run session, logout
             return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
         }
-       
+
         if ($this->run->testingStudy) {
             return $this->executeTest();
         }
@@ -192,7 +191,7 @@ class RunSession extends Model {
             $this->position = $position;
             $this->save();
         }
-        
+
         $currentUnitSession = $this->getCurrentUnitSession();
         // If there is a referenceUnitSession then it is sent by the queue
         if ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id == $currentUnitSession->id && !$executeReferenceUnit) {
@@ -204,8 +203,8 @@ class RunSession extends Model {
         }
 
         $unitSession = $currentUnitSession;
-        
-        formr_log('Current Unit Is ' . ($unitSession ? $unitSession->runUnit->type : ''));
+
+        formr_log('Current Unit Is ' . ($unitSession ? $unitSession->runUnit->type : ''), $this->id);
         if (!$unitSession && $this->position === $this->run->getFirstPosition()) {
             // We are in the first unit of the run
             return $this->moveOn(true);
@@ -247,48 +246,48 @@ class RunSession extends Model {
     }
 
     protected function executeUnitSession() {
-        formr_log("Execute {$this->currentUnitSession->runUnit->type}");
+        formr_log("Execute {$this->currentUnitSession->runUnit->type}", $this->id);
         $result = $this->currentUnitSession->execute();
+        formr_log($result, $this->id . $this->currentUnitSession->runUnit->type);
 
-        if (isset($result['queued'])) {
+        if (isset($result['end_session'])) {
+            formr_log("END {$this->currentUnitSession->runUnit->type}", $this->id);
+            $this->currentUnitSession->end();
+        } elseif (!empty($result['expired'])) {
+            formr_log("EXPIRE {$this->currentUnitSession->runUnit->type}", $this->id);
+            $this->currentUnitSession->expire();
+        } elseif (isset($result['queue'])) {
+            formr_log($result['queue'], 'QUEUED');
             $this->currentUnitSession->queue();
+            return ['body' => array_val($result, 'content')];
         }
 
-        if (isset($result['wait_opencpu'])) {
+        if (isset($result['wait_opencpu']) || isset($result['wait_user'])) {
             return ['body' => ''];
         }
 
-        if (isset($result['output'])) {
-            if (isset($result['output']['end_session'])) {
-                $this->currentUnitSession->end();
-                formr_log("END {$this->currentUnitSession->runUnit->type}");
+        if (isset($result['redirect'])) {
+            // move on in the run before redirecting to external service (except for surveys)
+            if ($this->currentUnitSession->runUnit->type !== 'Survey') {
+                $this->moveOn(false, false);
             }
+            return $result;
+        }
 
-            if (isset($result['output']['expired'])) {
-                $this->currentUnitSession->expire();
-            }
-            
-            if (isset($result['output']['redirect'])) {
-                // move on in the run before redirecting to external service (except for surveys)
-                if ($this->currentUnitSession->runUnit->type !== 'Survey') {
-                    $this->moveOn(false, false);
-                }
-                return $result['output'];
-            }
+        if (isset($result['move_on'])) {
+            return $this->moveOn();
+        }
 
-            if (isset($result['output']['move_on'])) {
-                return $this->moveOn();
-            }
+        if (isset($result['run_to'])) {
+            return $this->runTo($result['run_to']);
+        }
 
-            if (isset($result['output']['run_to'])) {
-                return $this->runTo($result['output']['run_to']);
-            }
-
-            if (isset($result['output']['end_run_session'])) {
-                $this->end();
-            }
-
-            return $result['output'];
+        if (isset($result['end_run_session'])) {
+            $this->end();
+        }
+        
+        if (isset($result['content'])) {
+            return ['body' => $result['content']];
         } elseif (isset($result['move_on'])) {
             // @TODO end unit then move on
             return $this->moveOn();
@@ -374,7 +373,7 @@ class RunSession extends Model {
 
         return $this->currentUnitSession;
     }
-    
+
     public function endCurrentUnitSession($reason = null) {
         if ($us = $this->getCurrentUnitSession()) {
             $this->currentUnitSession = $us;
@@ -384,10 +383,10 @@ class RunSession extends Model {
             } else {
                 $this->currentUnitSession->end($reason);
             }
-            
+
             return true;
         }
-        
+
         return false;
     }
 
@@ -544,7 +543,7 @@ class RunSession extends Model {
     public function executeTest() {
         return $this->executeUnitSession();
     }
-    
+
     public function canReceiveMails() {
         if ($this->no_email === null) {
             return true;
