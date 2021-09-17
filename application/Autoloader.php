@@ -68,6 +68,7 @@ class Autoload {
         $paths = array(
             APPLICATION_PATH . "{$class}.php",
             APPLICATION_PATH . "Controller/{$class}.php",
+            APPLICATION_PATH . "Model/Item/{$class}.php",
             APPLICATION_PATH . "Model/RunUnit/{$class}.php",      
             APPLICATION_PATH . "Model/{$class}.php",
             APPLICATION_PATH . "View/{$class}.php",
