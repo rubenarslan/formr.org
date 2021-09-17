@@ -612,7 +612,6 @@ class StudyRenderer {
     }
 
     public function studyCompleted() {
-        formr_log('get progress ' . $this->getStudyProgress());
         return $this->getStudyProgress() === 1;
     }
     
