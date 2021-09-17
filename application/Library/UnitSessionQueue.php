@@ -152,7 +152,7 @@ class UnitSessionQueue extends Queue {
     protected function getRun($runId) {
         $run = $this->getCache('run', $runId);
         if (!$run) {
-            $run = new Run($null, $runId);
+            $run = new Run(null, $runId);
             $this->setCache('run', $runId, $run);
         }
         return $run;
