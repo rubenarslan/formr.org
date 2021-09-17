@@ -79,13 +79,6 @@ class External extends RunUnit {
         return !$this->isR($address);
     }
 
-    private function makeAddress(UnitSession $us, $address) {
-        $login_link = run_url($us->runSession->getRun()->name, null, array('code' => $us->runSession->session));
-        $address = str_replace("{{login_link}}", $login_link, $address);
-        $address = str_replace("{{login_code}}", $us->runSession->session, $address);
-        return $address;
-    }
-
     public function test(UnitSession $unitSession) {
         if ($this->isR($this->address)) {
             if ($results = $this->getSampleSessions()) {
@@ -109,7 +102,7 @@ class External extends RunUnit {
      }
 
     public function getUnitSessionExpirationData(UnitSession $unitSession) {
-        $data = ['queued' => UnitSessionQueue::QUEUED_TO_END];
+        $data = [];
         $expire = (int) $this->expire_after;
         if ($expire) {
             $last = $unitSession->created;
@@ -122,6 +115,7 @@ class External extends RunUnit {
                 $data['expired'] = true;
             } else {
                 $data['expires'] = $expire_ts;
+                $data['queued'] = UnitSessionQueue::QUEUED_TO_END;
             }
         }
         

@@ -159,7 +159,7 @@ class Survey extends RunUnit {
                 $surveyHelper = new SurveyHelper(new Request(array_merge($_POST, $_FILES)), $this);
                 $surveyHelper->savePageItems();
                 if (($renderSurvey = $surveyHelper->renderSurvey()) !== false) {
-                    return ['body' => $renderSurvey, 'log' => $this->getLogMessage('survey_filling_out')];
+                    return ['content' => $renderSurvey, 'log' => $this->getLogMessage('survey_filling_out')];
                 } else {
                     // Survey ended
                     return ['end_session' => true, 'move_on' => true, 'log' => $this->getLogMessage('survey_completed')];
@@ -179,12 +179,12 @@ class Survey extends RunUnit {
             if ($renderer->studyCompleted()) {
                 return ['end_session' => true, 'move_on' => true, 'log' => $this->getLogMessage('survey_completed')];
             } else {
-                return ['body' => $renderer->render()];
+                return ['content' => $renderer->render()];
             }
         } catch (Exception $e) {
             $data = [
                 'log' => $this->getLogMessage('error_survey', $e->getMessage()),
-                'body' => '',
+                'content' => '',
             ];
             formr_log_exception($e, __CLASS__);
             return $data;

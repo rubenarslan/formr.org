@@ -92,13 +92,9 @@ class Page extends RunUnit {
             return $output;
         }
         
-        $runSession = $unitSession->runSession;
-        if ($runSession->id) {
-           $runSession->end();
-        }
-        
-        $output['body'] = do_run_shortcodes($this->body_parsed, $runSession->getRun()->name, $runSession->session);
-        $output['end_session'] = $output['expired'] = true;
+        $output['content'] = do_run_shortcodes($this->body_parsed, $unitSession->runSession->getRun()->name, $unitSession->runSession->session);
+        $output['end_session'] = true;
+        $output['end_run_session'] = true;
         $output['log'] = $this->getLogMessage('ended');
         
         return $output;
