@@ -564,7 +564,6 @@ class UnitSession extends Model {
             $select .= " FROM `$results_table` ";
 
             $q = $select . $joins . $where . ";";
-            formr_log($q);
             $get_results = $this->db->prepare($q);
             if ($runSession->id === null) {
                 $get_results->bindValue(':session_id', $this->id);

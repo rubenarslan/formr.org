@@ -166,7 +166,7 @@ class EmailQueue extends Queue {
         
         if($session_id) {
             $this->db->exec(
-                'UPDATE `survey_unit_sessions SET `result` = :result, `result_log` = :resultlog WHERE `id` = :session_id',
+                'UPDATE `survey_unit_sessions` SET `result` = :result, `result_log` = :resultlog WHERE `id` = :session_id',
                 ['session_id' => $session_id, 'result' => $result, 'resultlog' => $result_log]
             );
         }
