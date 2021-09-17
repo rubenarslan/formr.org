@@ -174,7 +174,7 @@ class Survey extends RunUnit {
                 }
             }
 
-            $renderer = new StudyRenderer($study, $unitSession);
+            $renderer = new SpreadsheetRenderer($study, $unitSession);
             $renderer->processItems();
             if ($renderer->studyCompleted()) {
                 return ['end_session' => true, 'move_on' => true, 'log' => $this->getLogMessage('survey_completed')];

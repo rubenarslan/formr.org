@@ -40,9 +40,9 @@ if (php_sapi_name() != 'cli') {
 $settings['version'] = FORMR_VERSION;
 
 // Load application autoloader
-$autoloader = require_once APPLICATION_PATH . 'Library/Autoloader.php';
+$autoloader = require_once APPLICATION_PATH . 'Autoloader.php';
 // Include helper functions
-require_once APPLICATION_PATH . 'Library/Functions.php';
+require_once APPLICATION_PATH . 'Functions.php';
 // Initialize Config
 Config::initialize($settings);
 
