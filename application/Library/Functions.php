@@ -1724,3 +1724,7 @@ function get_db_non_user_tables() {
         'shuffle' => array("unit_id", "created", "group"),
     ];
 }
+
+function get_db_non_session_tables() {
+    return ['survey_users', 'survey_run_sessions', 'survey_unit_sessions'];
+}

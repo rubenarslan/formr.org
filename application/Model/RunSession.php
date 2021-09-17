@@ -259,7 +259,6 @@ class RunSession extends Model {
         }
 
         if (isset($result['output'])) {
-            formr_log($result['output'], $this->currentUnitSession->runUnit->type);
             if (isset($result['output']['end_session'])) {
                 $this->currentUnitSession->end();
                 formr_log("END {$this->currentUnitSession->runUnit->type}");
@@ -270,8 +269,10 @@ class RunSession extends Model {
             }
             
             if (isset($result['output']['redirect'])) {
-                // move on in the run before redirecting to external service
-                $this->moveOn(false, false);
+                // move on in the run before redirecting to external service (except for surveys)
+                if ($this->currentUnitSession->runUnit->type !== 'Survey') {
+                    $this->moveOn(false, false);
+                }
                 return $result['output'];
             }
 
@@ -371,11 +372,12 @@ class RunSession extends Model {
             $this->currentUnitSession = $this->getCurrentUnitSession();
         }
 
-        $this->currentUnitSession;
+        return $this->currentUnitSession;
     }
     
     public function endCurrentUnitSession($reason = null) {
-        if ($this->getCurrentUnitSession()) {
+        if ($us = $this->getCurrentUnitSession()) {
+            $this->currentUnitSession = $us;
             $type = $this->currentUnitSession->runUnit->type;
             if ($type == 'Survey' || $type == 'External') {
                 $this->currentUnitSession->expire();

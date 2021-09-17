@@ -252,14 +252,14 @@ class Email extends RunUnit {
 
         if ($error !== null) {
             $this->errors['log'] = $this->getLogMessage('error_send_eligible', $error);
-            $error = "Session: {$this->session}:\n {$error}";
+            $error = "Session: {$unitSession->runSession->session}:\n {$error}";
             alert(nl2br($error), 'alert-danger');
             return false;
         }
 
         if ($warning !== null) {
             $this->messages['log'] = $this->getLogMessage(null, $warning);
-            $warning = "Session: {$this->session}:\n {$warning}";
+            $warning = "Session: {$unitSession->runSession->session}:\n {$warning}";
             alert(nl2br($warning), 'alert-info');
         }
 
