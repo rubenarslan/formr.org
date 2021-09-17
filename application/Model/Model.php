@@ -43,6 +43,9 @@ class Model {
     protected function assignProperties(array $props) {
         foreach ($props as $prop => $value) {
             if (property_exists($this, $prop)) {
+                if ($value === '') {
+                    $value = null;
+                }
                 $this->{$prop} = $value;
             }
         }
@@ -65,7 +68,6 @@ class Model {
         $this->assignProperties($data);
         $this->save();
     }
-
 
     protected function toArray() {
         return [];
