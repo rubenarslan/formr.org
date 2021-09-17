@@ -9,7 +9,7 @@
  * @TODO update displaycount?
  *
  */
-class SurveyHelper {
+class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
 
     /**
      *

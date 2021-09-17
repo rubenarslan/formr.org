@@ -5,7 +5,7 @@
  *
  * @author ctata
  */
-class StudyRenderer {
+class SpreadsheetRenderer {
 
     /**
      * 
