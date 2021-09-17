@@ -164,9 +164,9 @@ class SurveyStudy extends Model {
      *
      * @return boolean
      */
-    public function createFromFile($file) {
+    public function createFromFile($file, $options) {
         // Create the corresponding entry in survey_units to get the ID
-        $id = RunUnitFactory::make(new Run(), ['type' => 'Survey'])->create()->id;
+        $id = RunUnitFactory::make(new Run(), ['type' => 'Survey'])->create($options)->id;
         $this->assignProperties($file);
         
         $this->id = $id;
@@ -188,6 +188,78 @@ class SurveyStudy extends Model {
         return true;
     }
     
+    public static function createFromData($data, $options = []) {
+        unset($options['survey_data']);
+        if (empty($data->name) || empty($data->items)) {
+            return false;
+        }
+        
+        $study = self::loadByUserAndName(Site::getCurrentUser(), $data->name);
+        if ($study->valid) {
+            // Survey exists so use existing data
+            $unit = [
+                'id'=> $study->id,
+                'study_id' => $study->id,
+                'type' => 'Survey',
+                'importing' => true,
+            ];
+            $options['add_to_run'] = true;
+
+            RunUnitFactory::make($options['run'], $unit)->create($options);
+        } else {
+            $study = new SurveyStudy();
+            $file = ['name' => $data->name .'xlsx'];
+            unset($options['is_import']);
+            if (!$study->createFromFile($file, $options)) {
+                return false;
+            }
+            
+            // save settings
+            $data->settings = isset($data->settings) ? $data->settings : [];
+            $data->settings = array_merge([
+                'maximum_number_displayed' => 0,
+                'displayed_percentage_maximum' => 100,
+                'add_percentage_points' => 0,
+            ], $data->settings);
+            $study->assignProperties($data->settings);
+            $study->is_new = true;
+            $study->save();
+        }
+        
+        // Mock SpreadSheetReader to use existing mechanism of creating survey items
+        $reader = new SpreadsheetReader();
+        foreach ($data->items as $item) {
+            if (!empty($item->choices) && !empty($item->choice_list)) {
+                foreach ($item->choices as $name => $label) {
+                    $reader->choices[] = array(
+                        'list_name' => $item->choice_list,
+                        'name' => $name,
+                        'label' => $label,
+                    );
+                }
+                unset($item->choices);
+            }
+            $reader->addSurveyItem((array) $item);
+        }
+
+        if ($study->saveUploadedItemsFromReader($reader)) {
+            if (!empty($study->warnings)) {
+                alert('<ul><li>' . implode("</li><li>", $study->warnings) . '</li></ul>', 'alert-warning');
+            }
+
+            if (!empty($study->messages)) {
+                alert('<ul><li>' . implode("</li><li>", $study->messages) . '</li></ul>', 'alert-info');
+            }
+
+            return true;
+        } else {
+            alert('<ul><li>' . implode("</li><li>", $study->errors) . '</li></ul>', 'alert-danger');
+            return false;
+        }
+
+        return $study;
+    }
+
     public function uploadItems($file, $can_delete = false, $is_new = false) {
         umask(0002);
         ini_set('memory_limit', Config::get('memory_limit.survey_upload_items'));
@@ -199,19 +271,7 @@ class SurveyStudy extends Model {
 
         $this->messages[] = "Items sheet ({$filename}) uploaded to survey <b>{$this->name}</b>.";
 
-        if (preg_match('/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.json$/', $filepath)) {
-            // upload via JSON
-            $reader = new JsonReader();
-        } else {
-            // upload via Spreadsheet
-            $reader = new SpreadsheetReader();
-        }
-
-        if (!$reader || !is_object($reader)) {
-            alert('Spreadsheet object could not be created!', 'alert-danger');
-            return false;
-        }
-
+        $reader = new SpreadsheetReader();
         $reader->readItemTableFile($filepath);
         
         $this->errors = array_merge($this->errors, $reader->errors);

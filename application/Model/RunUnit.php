@@ -87,7 +87,7 @@ class RunUnit extends Model {
         $this->run = $run;
         $this->assignProperties($props);
         
-        if ($this->id && empty($props['mock'])) {
+        if ($this->id && empty($props['importing'])) {
             $this->find($this->id, $this->special, $props);
         }
     }
@@ -102,7 +102,12 @@ class RunUnit extends Model {
         $this->assignProperties($props);
         
         if ($this->id) {
-            return $this->modify($props);
+            $this->modify($props);
+            if (!empty($props['add_to_run'])) {
+                $this->addToRun();
+            }
+            
+            return $this;
         } else {
             $id = $this->db->insert('survey_units', array(
                 'type' => $this->type,
@@ -122,7 +127,7 @@ class RunUnit extends Model {
             $this->position = 10;
         }
 
-        if ($this->special && $this->run) {
+        if ($this->special && $this->run->id) {
             $run_unit_id = $this->db->insert('survey_run_special_units', array(
                 'id' => $this->id,
                 'run_id' => $this->run->id,
@@ -139,7 +144,6 @@ class RunUnit extends Model {
         }
 
         $this->run_unit_id = $run_unit_id ?? 0;
-        
         return $this;
     }
     

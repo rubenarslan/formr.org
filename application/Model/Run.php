@@ -925,6 +925,7 @@ class Run extends Model {
         $createdUnits = array();
 
         foreach ($units as $unit) {
+            $options = [];
             if (isset($unit->position) && !empty($unit->type)) {
                 $unit->position = $start_position + $unit->position;
                 // for some reason Endpage replaces Page
@@ -933,10 +934,9 @@ class Run extends Model {
                 }
 
                 if (strpos($unit->type, 'Survey') !== false) {
-                    // @TODO create study and add study_id to UNIT
-                    $unit->survey_data;
-                    formr_log($unit); die('OK');
-                    $unit->mock = true;
+                    $options = (array) $unit;
+                    $options['importing'] = true;
+                    $options['run'] = $this;
                 }
 
                 if (strpos($unit->type, 'Skip') !== false) {
@@ -953,7 +953,7 @@ class Run extends Model {
 
                 $unit = (array) $unit;
                 $unitObj = RunUnitFactory::make($this, (array) $unit);
-                $unitObj->create();
+                $unitObj->create($options);
                 
                 if ($unitObj->valid) {
                     $createdUnits[$unitObj->position] = $unitObj->displayForRun(Site::getInstance()->renderAlerts());
