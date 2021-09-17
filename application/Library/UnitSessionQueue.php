@@ -180,9 +180,6 @@ class UnitSessionQueue extends Queue {
      * @param mixed $execResults
      */
     public static function addItem(UnitSession $unitSession, RunUnit $runUnit, $data, $execResults = null) {
-        $helper = UnitSessionHelper::getInstance();
-        //$data = $helper->getUnitSessionExpiration($unitSession, $runUnit, $execResults);
-        
         if (!empty($data['expires'])) {
             $db = DB::getInstance();
             $db->update('survey_unit_sessions', array(
