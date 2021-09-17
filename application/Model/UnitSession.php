@@ -14,34 +14,20 @@ class UnitSession extends Model {
     public $expired;
     public $meta;
     public $queueable = 1;
-
     /**
      * @var RunSession
      */
     public $runSession;
-
     /**
      * @var RunUnit
      */
     public $runUnit;
+    
+    public $validatedStudyItems = [];
+    
     protected $execResults = [];
-
-    /**
-     * @var Item[];
-     */
-    protected $unanswered = [];
-    protected $toRender = [];
-    protected $validatedItems = [];
-    protected $progressCounts = array(
-        'progress' => 0,
-        'already_answered' => 0,
-        'not_answered' => 0,
-        'hidden_but_rendered' => 0,
-        'not_rendered' => 0,
-        'visible_on_current_page' => 0,
-        'hidden_but_rendered_on_current_page' => 0,
-        'not_answered_on_current_page' => 0
-    );
+    
+    
 
     /**
      * A UnitSession needs a RunUnit to operate and belongs to a RunSession
@@ -274,456 +260,6 @@ class UnitSession extends Model {
         return $nr_display_items === $nr_items;
     }
 
-    public function processSurveyStudyRequest() {
-        try {
-            $run = $this->runSession->getRun();
-            $study = $this->runUnit->surveyStudy;
-
-            $request = new Request($_POST);
-            if (Request::isHTTPPostRequest() && !Session::canValidateRequestToken($request)) {
-                return ['redirect' => run_url($run->name)];
-            }
-
-            $this->createSurveyStudyRecord();
-
-            // Use SurveyHelper if study is configured to use pages
-            if ($this->runUnit->surveyStudy->use_paging) {
-                $surveyHelper = new SurveyHelper(new Request(array_merge($_POST, $_FILES)), $this);
-                $surveyHelper->savePageItems();
-                if (($renderSurvey = $surveyHelper->renderSurvey()) !== false) {
-                    return array('body' => $renderSurvey);
-                } else {
-                    $this->result = "survey_completed";
-                    $this->logResult();
-                    // Survey ended
-                    return ['end_session' => true, 'move_on' => true];
-                }
-            }
-
-            // POST items only if request is a post request
-            if (Request::isHTTPPostRequest()) {
-                $posted = $this->updateSurveyStudyRecord(array_merge($request->getParams(), $_FILES));
-                if ($posted) {
-                    $this->result = "survey_filling_out";
-                    $this->logResult();
-                    return ['redirect' => run_url($run->name)];
-                }
-            }
-
-            $loops = 0;
-            while (($items = $this->getNextStudyItems())) {
-                // exit loop if it has ran more than x times and log remaining items
-                $loops++;
-                if ($loops > Config::get('allowed_empty_pages', 80)) {
-                    alert('Too many empty pages in this survey. Please alert an administrator.', 'alert-danger');
-                    formr_log("Survey::exec() '{$run->name} > {$study->name}' terminated with an infinite loop for items: ");
-                    formr_log(array_keys($items));
-                    break;
-                }
-                // process automatic values (such as get, browser)
-                $items = $this->processAutomaticItems($items);
-                // process showifs, dynamic values for these items
-                $items = $this->processDynamicValuesAndShowIfs($items);
-                // If no items survived all the processing then move on
-                if (!$items) {
-                    continue;
-                }
-                $lastItem = end($items);
-
-                // If no items ended up to be on the page but for a submit button, make it hidden and continue
-                // else render processed items
-                if (count($items) == 1 && $lastItem->type === 'submit') {
-                    $sess_item = array(
-                        'session_id' => $this->id,
-                        'item_id' => $lastItem->id,
-                    );
-                    $this->db->update('survey_items_display', array('hidden' => 1), $sess_item);
-                    continue;
-                } else {
-                    $this->toRender = $this->processDynamicLabelsAndChoices($items);
-                    break;
-                }
-            }
-
-            if ($this->getStudyProgress() === 1) {
-                $this->result = "survey_completed";
-                $this->logResult();
-                $this->end();
-                return ['end_session' => true, 'move_on' => true];
-            }
-
-            $renderedItems = $this->getRenderedStudyItems();
-            $renderer = new FormRenderer($this, $renderedItems, $this->validatedItems, $this->errors, $this->progressCounts);
-
-            return ['body' => $renderer->render()];
-        } catch (Exception $e) {
-            $this->result = "error_survey";
-            $this->result_log = $e->getMessage();
-            $this->logResult();
-            formr_log_exception($e, __CLASS__);
-            return ['body' => ''];
-        }
-    }
-
-    /**
-     * Get the next items to be possibly displayed in the survey
-     *
-     * @return array Returns items that can be possibly shown on current page
-     */
-    protected function getNextStudyItems() {
-        $this->unanswered = [];
-
-        $select = $this->db->select('
-				`survey_items`.id,
-				`survey_items`.study_id,
-				`survey_items`.type,
-				`survey_items`.choice_list,
-				`survey_items`.type_options,
-				`survey_items`.name,
-				`survey_items`.label,
-				`survey_items`.label_parsed,
-				`survey_items`.optional,
-				`survey_items`.class,
-				`survey_items`.showif,
-				`survey_items`.value,
-
-				`survey_items_display`.displaycount, 
-				`survey_items_display`.session_id,
-				`survey_items_display`.`display_order`,
-				`survey_items_display`.`hidden`,
-				`survey_items_display`.answered')
-                ->from('survey_items')
-                ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-                ->where('(survey_items.study_id = :study_id) AND 
-				     (survey_items_display.saved IS null) AND 
-				     (survey_items_display.hidden IS NULL OR survey_items_display.hidden = 0)')
-                ->order('`survey_items_display`.`display_order`', 'asc')
-                ->order('survey_items.`order`', 'asc') // only needed for transfer
-                ->order('survey_items.id', 'asc');
-
-        $get_items = $select->bindParams(array('session_id' => $this->id, 'study_id' => $this->runUnit->surveyStudy->id))->statement();
-
-        // We initialise item factory with no choice list because we don't know which choices will be used yet.
-        // This assumes choices are not required for show-ifs and dynamic values (hope so)
-        $itemFactory = new ItemFactory(array());
-        $pageItems = array();
-        $inPage = true;
-
-        while ($item = $get_items->fetch(PDO::FETCH_ASSOC)) {
-            /* @var $oItem Item */
-            $oItem = $itemFactory->make($item);
-            if (!$oItem) {
-                continue;
-            }
-
-            $this->unanswered[$oItem->name] = $oItem;
-
-            // If no user input is required and item can be on current page, then save it to be shown
-            if ($inPage) {
-                $pageItems[$oItem->name] = $oItem;
-            }
-
-            if ($oItem->type === 'submit') {
-                $inPage = false;
-            }
-        }
-
-        return $pageItems;
-    }
-
-    /**
-     * All items that don't require connecting to openCPU and don't require user input are posted immediately.
-     * Examples: get parameters, browser, ip.
-     *
-     * @param Item[] $items
-     * @return array Returns items that may have to be sent to openCPU or be rendered for user input
-     */
-    protected function processAutomaticItems($items) {
-        $hiddenItems = array();
-        foreach ($items as $name => $item) {
-            if (!$item) {
-                continue;
-            }
-
-            if (!$item->requiresUserInput() && !$item->needsDynamicValue()) {
-                $hiddenItems[$name] = $item->getComputedValue();
-                unset($items[$name]);
-                continue;
-            }
-        }
-
-        // save these values
-        if ($hiddenItems) {
-            $this->updateSurveyStudyRecord($hiddenItems, true);
-        }
-
-        // return possibly shortened item array
-        return $items;
-    }
-
-    /**
-     * Process show-ifs and dynamic values for a given set of items in survey
-     * @note: All dynamic values are processed (even for those we don't know if they will be shown)
-     *
-     * @param Item[] $items
-     * @return array
-     */
-    protected function processDynamicValuesAndShowIfs(&$items) {
-        // In this loop we gather all show-ifs and dynamic-values that need processing and all values.
-        $code = array();
-        $study = $this->runUnit->surveyStudy;
-
-        /* @var $item Item */
-        foreach ($items as $name => &$item) {
-            if (!$item) {
-                continue;
-            }
-
-            // 1. Check item's show-if
-            $showif = $item->getShowIf();
-            if ($showif) {
-                $siname = "si.{$name}";
-                $showif = str_replace("\n", "\n\t", $showif);
-                $code[$siname] = "{$siname} = (function(){
-	{$showif}
-})()";
-            }
-
-            // 2. Check item's value
-            if ($item->needsDynamicValue()) {
-                $val = str_replace("\n", "\n\t", $item->getValue($study));
-                $code[$name] = "{$name} = (function(){
-{$val}
-})()";
-                if ($showif) {
-                    $code[$name] = "if({$siname}) {
-	" . $code[$name] . "
-}";
-                }
-                // If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as string
-            }
-        }
-
-        if (!$code) {
-            return $items;
-        }
-
-        $ocpu_session = opencpu_multiparse_showif($this, $code, true);
-        if (!$ocpu_session || $ocpu_session->hasError()) {
-            notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
-            foreach ($items as $name => &$item) {
-                $item->alwaysInvalid();
-            }
-        } else {
-            print_hidden_opencpu_debug_message($ocpu_session, "OpenCPU debugger for dynamic values and showifs.");
-            $results = $ocpu_session->getJSONObject();
-            $updateVisibility = $this->db->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
-            $updateVisibility->bindValue(":session_id", $this->id);
-
-            $save = array();
-
-            $definitelyShownItems = 0;
-            foreach ($items as $item_name => &$item) {
-                // set show-if visibility for items
-                $siname = "si.{$item->name}";
-                $isVisible = $item->setVisibility(array_val($results, $siname));
-                // three possible states: 1 = hidden, 0 = shown, null = depends on JS on the page, render anyway
-                if ($isVisible === null) {
-                    // we only render it, if there are some items before it on which its display could depend
-                    // otherwise it's hidden for good
-                    $hidden = $definitelyShownItems > 0 ? null : 1;
-                } else {
-                    $hidden = (int) !$isVisible;
-                }
-                $updateVisibility->bindValue(":item_id", $item->id);
-                $updateVisibility->bindValue(":hidden", $hidden);
-                $updateVisibility->execute();
-
-                if ($hidden === 1) { // gone for good
-                    unset($items[$item_name]); // we remove items that are definitely hidden from consideration
-                    continue; // don't increment counter
-                } else {
-                    // set dynamic values for items
-                    $val = array_val($results, $item->name, null);
-                    $item->setDynamicValue($val);
-                    // save dynamic value
-                    // if a. we have a value b. this item does not require user input (e.g. calculate)
-                    if (array_key_exists($item->name, $results) && !$item->requiresUserInput()) {
-                        $save[$item->name] = $item->getComputedValue();
-                        unset($items[$item_name]); // we remove items that are immediately written from consideration
-                        continue; // don't increment counter
-                    }
-                }
-                $definitelyShownItems++; // track whether there are any items certain to be shown
-            }
-            $this->updateSurveyStudyRecord($save, false);
-        }
-
-        return $items;
-    }
-
-    protected function processDynamicLabelsAndChoices(&$items) {
-        $study = $this->runUnit->surveyStudy;
-
-        // Gather choice lists
-        $lists_to_fetch = $strings_to_parse = array();
-        $session_labels = array();
-
-        foreach ($items as $name => &$item) {
-            if (!$item) {
-                continue;
-            }
-
-            if ($item->choice_list) {
-                $lists_to_fetch[] = $item->choice_list;
-            }
-
-            $vars = ($item->type == 'note_iframe') ? $this->getRunData($item->label, $study->name) : [];
-            if ($item->needsDynamicLabel($vars)) {
-                $items[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
-                $strings_to_parse[] = $item->label;
-            }
-        }
-
-        // gather and format choice_lists and save all choice labels that need parsing
-        $choices = $study->getChoices($lists_to_fetch, null);
-        $choice_lists = array();
-        foreach ($choices as $i => $choice) {
-            if ($choice['label_parsed'] === null) {
-                $choices[$i]['label_parsed'] = opencpu_string_key(count($strings_to_parse));
-                $strings_to_parse[] = $choice['label'];
-            }
-
-            if (!isset($choice_lists[$choice['list_name']])) {
-                $choice_lists[$choice['list_name']] = array();
-            }
-            $choice_lists[$choice['list_name']][$choice['name']] = $choices[$i]['label_parsed'];
-        }
-
-        // Now that we have the items and the choices, If there was anything left to parse, we do so here!
-        if ($strings_to_parse) {
-            $parsed_strings = opencpu_multistring_parse($this, $strings_to_parse);
-            // Replace parsed strings in $choice_list array
-            opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
-            // Replace parsed strings in unanswered items array
-            opencpu_substitute_parsed_strings($items, $parsed_strings);
-        }
-
-        // Merge parsed choice lists into items
-        foreach ($items as $name => &$item) {
-            $choice_list = $item->choice_list;
-            if (isset($choice_lists[$choice_list])) {
-                $list = $choice_lists[$choice_list];
-                $list = array_filter($list, 'is_formr_truthy');
-                $items[$name]->setChoices($list);
-            }
-            //$items[$name]->refresh($item, array('label_parsed'));
-            $session_labels[$name] = $item->label_parsed;
-        }
-
-        Session::set('labels', $session_labels);
-        return $items;
-    }
-
-    protected function getRenderedStudyItems() {
-        $study = $this->runUnit->surveyStudy;
-
-        $this->db->beginTransaction();
-
-        $view_query = "
-			UPDATE `survey_items_display`
-			SET displaycount = COALESCE(displaycount,0) + 1, created = COALESCE(created, NOW())
-			WHERE item_id = :item_id AND session_id = :session_id";
-        $view_update = $this->db->prepare($view_query);
-        $view_update->bindValue(":session_id", $this->id);
-
-        $itemsDisplayed = 0;
-
-        $renderedItems = array();
-
-        try {
-            foreach ($this->toRender as &$item) {
-                if ($study->maximum_number_displayed && $study->maximum_number_displayed === $itemsDisplayed) {
-                    break;
-                } else if ($item->isRendered()) {
-                    // if it's rendered, we send it along here or update display count
-                    $view_update->bindParam(":item_id", $item->id);
-                    $view_update->execute();
-
-                    if (!$item->hidden) {
-                        $itemsDisplayed++;
-                    }
-
-                    $renderedItems[] = $item;
-                }
-            }
-
-            $this->db->commit();
-        } catch (Exception $e) {
-            $this->db->rollBack();
-            formr_log_exception($e, __CLASS__);
-        }
-
-        return $renderedItems;
-    }
-
-    protected function getStudyProgress() {
-        $study = $this->runUnit->surveyStudy;
-
-        $answered = $this->db->select(array('COUNT(`survey_items_display`.saved)' => 'count', 'study_id', 'session_id'))
-                ->from('survey_items')
-                ->leftJoin('survey_items_display', 'survey_items_display.session_id = :session_id', 'survey_items.id = survey_items_display.item_id')
-                ->where('survey_items_display.session_id IS NOT NULL')
-                ->where('survey_items.study_id = :study_id')
-                ->where("survey_items.type NOT IN ('submit')")
-                ->where("`survey_items_display`.saved IS NOT NULL")
-                ->bindParams(array('session_id' => $this->id, 'study_id' => $study->id))
-                ->fetch();
-
-        $this->progressCounts['already_answered'] = $answered['count'];
-
-        /** @var Item $item */
-        foreach ($this->unanswered as $item) {
-            // count only rendered items, not skipped ones
-            if ($item && $item->isRendered()) {
-                $this->progressCounts['not_answered']++;
-            }
-            // count those items that were hidden but rendered (ie. those relying on missing data for their showif)
-            if ($item && $item->isHiddenButRendered()) {
-                $this->progressCounts['hidden_but_rendered']++;
-            }
-        }
-        /** @var Item $item */
-        foreach ($this->toRender as $item) {
-            // On current page, count only rendered items, not skipped ones
-            if ($item && $item->isRendered()) {
-                $this->progressCounts['visible_on_current_page']++;
-            }
-            // On current page, count those items that were hidden but rendered (ie. those relying on missing data for their showif)
-            if ($item && $item->isHiddenButRendered()) {
-                $this->progressCounts['hidden_but_rendered_on_current_page']++;
-            }
-        }
-
-        $this->progressCounts['not_answered_on_current_page'] = $this->progressCounts['not_answered'] - $this->progressCounts['visible_on_current_page'];
-
-        $all_items = $this->progressCounts['already_answered'] + $this->progressCounts['not_answered'];
-
-        if ($all_items !== 0) {
-            $this->progressCounts['progress'] = $this->progressCounts['already_answered'] / $all_items;
-        } else {
-            $this->errors[] = _('Something went wrong, there are no items in this survey!');
-            $this->progressCounts['progress'] = 0;
-        }
-
-        // if there only hidden items, that have no way of becoming visible (no other items)
-        if ($this->progressCounts['not_answered'] === $this->progressCounts['hidden_but_rendered']) {
-            $this->progressCounts['progress'] = 1;
-        }
-
-        return $this->progressCounts['progress'];
-    }
-
     /**
      * Create a study record entry for this session. This is called only when
      * operating on a Survey unit
@@ -809,12 +345,12 @@ class UnitSession extends Model {
             return false;
         }
 
-        if (isset($posted["_item_views"]["shown"])):
+        if (isset($posted["_item_views"]["shown"])) {
             $posted["_item_views"]["shown"] = array_filter($posted["_item_views"]["shown"]);
             $posted["_item_views"]["shown_relative"] = array_filter($posted["_item_views"]["shown_relative"]);
             $posted["_item_views"]["answered"] = array_filter($posted["_item_views"]["answered"]);
             $posted["_item_views"]["answered_relative"] = array_filter($posted["_item_views"]["answered_relative"]);
-        endif;
+        }
 
         /**
          * The concept of 'save all possible data' is not so correct
@@ -856,7 +392,7 @@ class UnitSession extends Model {
         }
 
         if (!empty($this->errors)) {
-            $this->validatedItems = $items;
+            $this->validatedStudyItems = $items;
             return false;
         }
 
@@ -919,9 +455,9 @@ class UnitSession extends Model {
                 $item_answered = $survey_items_display->execute();
 
                 if (!$item_answered) {
-                    throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$study->results_table}' (FieldType: {$this->unanswered[$name]->getResultField()})");
+                    throw new Exception("Survey item '$name' could not be saved with value '$value' in table '{$study->results_table}'");
                 }
-                unset($this->unanswered[$name]); //?? FIX ME
+
             } //endforeach
             // Update results table in one query
             if ($update_data) {
@@ -931,7 +467,9 @@ class UnitSession extends Model {
                 );
                 $this->db->update($study->results_table, $update_data, $update_where);
             }
+            
             $this->db->commit();
+            return true;
         } catch (Exception $e) {
             $this->db->rollBack();
             notify_user_error($e, 'An error occurred while trying to save your survey data. Please notify the author of this survey with this date and time');
@@ -939,8 +477,7 @@ class UnitSession extends Model {
             //$redirect = false;
             return false;
         }
-
-        return true;
+        
     }
 
     public function isExecutedByCron() {
@@ -997,7 +534,7 @@ class UnitSession extends Model {
 
             $variables = implode(', ', $variables);
             $select = "SELECT $variables";
-            if ($runSession->id === null && !in_array($results_table, get_db_non_user_tables())) { // todo: what to do with session_id tables in faketestrun
+            if ($runSession->id === null && !in_array($results_table, get_db_non_session_tables())) { // todo: what to do with session_id tables in faketestrun
                 $where = " WHERE `$results_table`.session_id = :session_id"; // just for testing surveys
             } else {
                 $where = " WHERE  `survey_run_sessions`.id = :run_session_id";
@@ -1006,7 +543,7 @@ class UnitSession extends Model {
                 }
             }
 
-            if (!in_array($results_table, get_db_non_user_tables())) {
+            if (!in_array($results_table, get_db_non_session_tables())) {
                 $joins = "
 					LEFT JOIN `survey_unit_sessions` ON `$results_table`.session_id = `survey_unit_sessions`.id
 					LEFT JOIN `survey_run_sessions` ON `survey_run_sessions`.id = `survey_unit_sessions`.run_session_id
@@ -1027,6 +564,7 @@ class UnitSession extends Model {
             $select .= " FROM `$results_table` ";
 
             $q = $select . $joins . $where . ";";
+            formr_log($q);
             $get_results = $this->db->prepare($q);
             if ($runSession->id === null) {
                 $get_results->bindValue(':session_id', $this->id);
@@ -1105,7 +643,8 @@ class UnitSession extends Model {
         $surveys = $this->runSession->getRun()->getAllSurveys();
 
         // also add some "global" formr tables
-        $non_user_tables = array_keys(get_db_non_user_tables());
+        $nu_tables = get_db_non_user_tables();
+        $non_user_tables = array_keys($nu_tables);
         $tables = $non_user_tables;
         $table_ids = $non_user_tables;
         $results_tables = array_combine($non_user_tables, $non_user_tables);
@@ -1143,8 +682,8 @@ class UnitSession extends Model {
         foreach ($matches as $study_id => $table_name) {
 
             // generate a search set of variable names for each study
-            if (array_key_exists($table_name, get_db_non_user_tables())) {
-                $variable_names_in_table[$table_name] = get_db_non_user_tables()[$table_name];
+            if (array_key_exists($table_name, $nu_tables)) {
+                $variable_names_in_table[$table_name] = $nu_tables[$table_name];
             } else {
                 $items = $this->db->select('name')->from('survey_items')
                         ->where(['study_id' => $study_id])
