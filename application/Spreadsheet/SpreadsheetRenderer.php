@@ -423,6 +423,7 @@ class SpreadsheetRenderer {
                 $updateVisibility->execute();
 
                 if ($hidden === 1) { // gone for good
+                    unset($item->parent_attributes['data-show']);
                     unset($items[$item_name]); // we remove items that are definitely hidden from consideration
                     continue; // don't increment counter
                 } else {

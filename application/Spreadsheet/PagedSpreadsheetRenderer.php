@@ -11,55 +11,21 @@
  */
 class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
 
-    /**
-     *
-     * @var Request 
-     */
-    protected $request;
-
-    /**
-     * @var Run
-     */
-    protected $run;
-
-    /**
-     * @var SurveyStudy
-     */
-    protected $survey;
-
-    /**
-     *
-     * @var DB
-     */
-    protected $db;
-
-    /**
-     *
-     * @var UnitSession
-     */
-    protected $unitSession;
-    protected $errors = array();
     protected $message = null;
     protected $maxPage = null;
     protected $postedValues = array();
     protected $answeredItems = array();
+    protected $completed = false;
+    protected $rendered = null;
 
     const FMR_PAGE_ELEMENT = 'fmr_unit_page_element';
-
-    public function __construct(Request $rq, UnitSession $us) {
-        $this->request = $rq;
-        $this->unitSession = $us;
-        $this->survey = $this->unitSession->runUnit->surveyStudy;
-        $this->run = $this->unitSession->runUnit->run;
-        $this->db = $this->unitSession->getDbConnection();
-    }
 
     /**
      * Returns HTML page to be rendered for Survey or FALSE if survey ended
      *
      * @return string|boolean
      */
-    public function renderSurvey() {
+    public function processItems() {
         if (!Request::getGlobals('pageNo')) {
             $pageNo = $this->getCurrentPage();
             $this->redirectToPage($pageNo);
@@ -77,16 +43,24 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
         }
 
         if ($pageNo > $this->getMaxPage()) {
-            $this->survey->end();
-            return false;
+            $this->completed = true;
+            return null;
         }
 
         $formAction = ''; //run_url($this->run->name, $pageNo);
 
-        $this->survey->rendered_items = $this->getPageItems($pageNo);
+        $this->renderedItems = $this->getPageItems($pageNo);
         $pageElement = $this->getPageElement($pageNo);
         Session::delete('is-survey-post');
-        return $this->survey->render($formAction, $pageElement);
+        $this->rendered = parent::render($formAction, $pageElement);
+    }
+    
+    public function studyCompleted() {
+        return $this->completed;
+    }
+    
+    public function render() {
+        return $this->rendered;
     }
 
     /**
@@ -160,7 +134,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
 
         $select->bindParams(array(
             'session_id' => $this->unitSession->id,
-            'study_id' => $this->survey->id,
+            'study_id' => $this->study->id,
             'page' => $pageNo,
         ));
         $stmt = $select->statement();
@@ -367,183 +341,6 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
             return $row['page'];
         }
         return false;
-    }
-
-    /**
-     * All items that don't require connecting to openCPU and don't require user input are posted immediately.
-     * Examples: get parameters, browser, ip.
-     *
-     * @param Item[] $items
-     * @return array Returns items that may have to be sent to openCPU or be rendered for user input
-     */
-    protected function processAutomaticItems($items) {
-        $hiddenItems = array();
-        foreach ($items as $name => $item) {
-            if (!$item->needsDynamicValue() && !$item->requiresUserInput()) {
-                $hiddenItems[$name] = $item->getComputedValue();
-                //unset($items[$name]);
-                continue;
-            }
-        }
-
-        // save these values
-        if ($hiddenItems) {
-            $this->saveSuryeyItems($hiddenItems, false);
-        }
-
-        // return possibly shortened item array
-        return $items;
-    }
-
-    /**
-     * Process show-ifs and dynamic values for a given set of items in survey
-     * @note: All dynamic values are processed (even for those we don't know if they will be shown)
-     *
-     * @param Item[] $items
-     * @return array
-     */
-    protected function processDynamicValuesAndShowIfs(&$items) {
-        // In this loop we gather all show-ifs and dynamic-values that need processing and all values.
-        $code = array();
-        $save = array();
-
-        /* @var $item Item */
-        foreach ($items as $name => &$item) {
-            // 1. Check item's show-if
-            $showif = $item->getShowIf();
-            if ($showif) {
-                $siname = "si.{$name}";
-                $showif = str_replace("\n", "\n\t", $showif);
-                $code[$siname] = "{$siname} = (function(){ \n {$showif} \n})()";
-            }
-
-            // 2. Check item's value
-            if ($item->needsDynamicValue()) {
-                $val = str_replace("\n", "\n\t", $item->getValue($this->survey));
-                $code[$name] = "{$name} = (function(){ \n {$val} \n })()";
-                if ($showif) {
-                    $code[$name] = "if({$siname}) { \n {$code[$name]} \n }";
-                }
-                // If item is to be shown (rendered), return evaluated dynamic value, else keep dynamic value as string
-            }
-        }
-
-        if (!$code) {
-            return $items;
-        }
-
-        $ocpu_session = opencpu_multiparse_showif($this->unitSession, $code, true);
-        if (!$ocpu_session || $ocpu_session->hasError()) {
-            notify_user_error(opencpu_debug($ocpu_session), "There was a problem evaluating showifs using openCPU.");
-            foreach ($items as $name => &$item) {
-                $item->alwaysInvalid();
-            }
-        } else {
-            print_hidden_opencpu_debug_message($ocpu_session, "OpenCPU debugger for dynamic values and showifs.");
-            $results = $ocpu_session->getJSONObject();
-            $updateVisibility = $this->db->prepare("UPDATE `survey_items_display` SET hidden = :hidden WHERE item_id = :item_id AND session_id = :session_id");
-            $updateVisibility->bindValue(":session_id", $this->unitSession->id);
-
-            $definitelyShownItems = 0;
-            foreach ($items as $item_name => &$item) {
-                // set show-if visibility for items
-                $siname = "si.{$item->name}";
-                $isVisible = $item->setVisibility(array_val($results, $siname));
-
-                // three possible states: 1 = hidden, 0 = shown, null = depends on JS on the page, render anyway
-                if ($isVisible === null) {
-                    // we only render it, if there are some items before it on which its display could depend
-                    // otherwise it's hidden for good
-                    $hidden = $definitelyShownItems > 0 ? null : 1;
-                } else {
-                    $hidden = (int) !$isVisible;
-                }
-                $item->hidden = $hidden;
-                $updateVisibility->bindValue(':item_id', $item->id);
-                $updateVisibility->bindValue(':hidden', $hidden);
-                $updateVisibility->execute();
-
-                if ($hidden === 1) { // gone for good
-                    //unset($items[$item_name]); // we remove items that are definitely hidden from consideration
-                    unset($item->parent_attributes['data-show']);
-                    $item->hidden = null;
-                    $item->hide();
-                    continue; // don't increment counter
-                } else {
-                    // set dynamic values for items
-                    $val = array_val($results, $item->name, null);
-                    $item->setDynamicValue($val);
-                    // save dynamic value
-                    // if a. we have a value b. this item does not require user input (e.g. calculate)
-                    if (array_key_exists($item->name, $results) && !$item->requiresUserInput()) {
-                        $save[$item->name] = $item->getComputedValue();
-                        //unset($items[$item_name]); // we remove items that are immediately written from consideration
-                        continue; // don't increment counter
-                    }
-                    $this->markItemAsShown($item);
-                }
-                $definitelyShownItems++; // track whether there are any items certain to be shown
-            }
-            $this->saveSuryeyItems($save, false);
-        }
-
-        return $items;
-    }
-
-    protected function processDynamicLabelsAndChoices(&$items) {
-        // Gather choice lists
-        $lists_to_fetch = $strings_to_parse = array();
-        $session_labels = array();
-        foreach ($items as $name => &$item) {
-            if ($item->choice_list) {
-                $lists_to_fetch[] = $item->choice_list;
-            }
-
-            $vars = $item->type == 'note_iframe' ? $this->getRunData($item->label, $this->survey->name) : [];
-            if ($item->needsDynamicLabel($vars)) {
-                $items[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
-                $strings_to_parse[] = $item->label;
-            }
-        }
-
-        // gather and format choice_lists and save all choice labels that need parsing
-        $choices = $this->survey->getChoices($lists_to_fetch, null);
-        $choice_lists = array();
-        foreach ($choices as $i => $choice) {
-            if ($choice['label_parsed'] === null) {
-                $choices[$i]['label_parsed'] = opencpu_string_key(count($strings_to_parse));
-                $strings_to_parse[] = $choice['label'];
-            }
-
-            if (!isset($choice_lists[$choice['list_name']])) {
-                $choice_lists[$choice['list_name']] = array();
-            }
-            $choice_lists[$choice['list_name']][$choice['name']] = $choices[$i]['label_parsed'];
-        }
-
-        // Now that we have the items and the choices, If there was anything left to parse, we do so here!
-        if ($strings_to_parse) {
-            $parsed_strings = opencpu_multistring_parse($this->unitSession, $strings_to_parse);
-            // Replace parsed strings in $choice_list array
-            opencpu_substitute_parsed_strings($choice_lists, $parsed_strings);
-            // Replace parsed strings in unanswered items array
-            opencpu_substitute_parsed_strings($items, $parsed_strings);
-        }
-
-        // Merge parsed choice lists into items
-        foreach ($items as $name => &$item) {
-            $choice_list = $item->choice_list;
-            if (isset($choice_lists[$choice_list])) {
-                $list = $choice_lists[$choice_list];
-                $list = array_filter($list, 'is_formr_truthy');
-                $items[$name]->setChoices($list);
-            }
-            $session_labels[$name] = $item->label_parsed;
-            //$items[$name]->refresh($item, array('label_parsed'));
-        }
-
-        Session::set('labels', $session_labels);
-        return $items;
     }
 
     /**
