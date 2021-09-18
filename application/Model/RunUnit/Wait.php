@@ -3,28 +3,11 @@
 class Wait extends Pause {
 
     public $type = "Wait";
-    
     public $icon = "fa-hourglass-half";
+    protected $default_relative_to = 'FALSE';
 
-   public function __construct(Run $run, array $props = []) {
+    public function __construct(Run $run, array $props = []) {
         parent::__construct($run, $props);
-   }
-
-    protected function getPreviousUnitSessionCreateDate() {
-        if (empty($this->run_session->unit_session->id)) {
-            return null;
-        }
-
-        $id = (int) $this->run_session->unit_session->id;
-        $run_session_id = $this->run_session->id;
-        
-        $q = "SELECT id, created FROM survey_unit_sessions WHERE id < {$id} AND run_session_id = {$run_session_id} ORDER BY id DESC LIMIT 1";
-        $result = $this->dbh->query($q, true)->fetch(PDO::FETCH_ASSOC);
-        if (!$result) {
-            return null;
-        }
-
-        return $result['created'];
     }
 
     protected function parseRelativeTo() {
@@ -37,17 +20,34 @@ class Wait extends Pause {
         if ($this->has_wait_minutes && !$this->has_relative_to) {
             // If user specified waiting minutes but did not specify relative to which timestamp,
             // we imply we are waiting relative to when the user arrived at the previous unit
-            $relative_to = $this->getPreviousUnitSessionCreateDate();
-            $this->relative_to = $relative_to ? json_encode($relative_to) : 'FALSE';
+            $this->relative_to = $this->default_relative_to;
             $this->has_relative_to = true;
         }
 
         return $this->has_relative_to;
     }
 
+    protected function setDefaultRelativeTo(UnitSession $unitSession = null) {
+        if ($unitSession && $this->has_wait_minutes && !$this->has_relative_to) {
+            // Get previous unit session creation date
+            $q = "SELECT id, created FROM survey_unit_sessions WHERE id < {$unitSession->id} AND run_session_id = {$unitSession->runSession->id} ORDER BY id DESC LIMIT 1";
+            $result = $this->db->query($q, true)->fetch(PDO::FETCH_ASSOC);
+            if (!$result) {
+                $this->default_relative_to = json_encode($result['created']);
+                return;
+            }
+        }
+    }
+
+    public function getUnitSessionExpirationData(UnitSession $unitSession) {
+        $this->setDefaultRelativeTo($unitSession);
+        return parent::getUnitSessionExpirationData($unitSession);
+    }
+
     public function getUnitSessionOutput(UnitSession $unitSession) {
         $output = [];
         $expiration = $this->getUnitSessionExpirationData($unitSession);
+        $output['wait_opencpu'] = !empty($expiration['check_failed']);
 
         if (empty($expiration['expired']) && !$unitSession->isExecutedByCron() && empty($expiration['check_failed'])) {
             $output['end_session'] = true;
@@ -59,10 +59,10 @@ class Wait extends Pause {
             $output['log'] = $this->getLogMessage('wait_ended');
         } else {
             // maybe errors
-            $output['wait_opencpu'] = true;
+            $output['wait_user'] = true;
         }
-        
+
         return $output;
     }
-}
 
+}

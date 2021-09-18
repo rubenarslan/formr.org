@@ -471,8 +471,8 @@ class Run extends Model {
 
     public function getReminderSession($reminder_id, $session, $run_session_id) {
         // create a unit_session here and get a session_id and pass it when making the unit
-        $runUnit = RunUnitFactory::make($this, ['id' => (int)$reminder_id]);
-        $runSession = new RunSession($session, $this, ['id' => (int) $run_session_id]);
+        $runUnit = RunUnitFactory::make($this, ['id' => $reminder_id]);
+        $runSession = new RunSession($session, $this, ['id' => $run_session_id]);
         $runSession->createUnitSession($runUnit, false);
         
         return $runSession;
@@ -705,8 +705,15 @@ class Run extends Model {
         }
 
         $runUnit = (new Survey($this, $data))->load();
-        $runSession = $this->makeTestRunSession();
-        $runSession->createUnitSession($runUnit);
+        $runSession = RunSession::getTestSession($this);
+        if (!isset($data['unit_session_id'])) {
+            $runSession->createUnitSession($runUnit);
+            $data['unit_session_id'] = $runSession->currentUnitSession->id;
+            Session::set('test_study_data', $data);
+        } else {
+            $unitSession = new UnitSession($runSession, $runUnit, ['id' => $data['unit_session_id'], 'load'=> true]);
+            $runSession->currentUnitSession = $unitSession;
+        }
         $output = $runSession->execute();
         
         if (!$output) {
@@ -722,36 +729,6 @@ class Run extends Model {
         }
         
         return compact("output", "runSession");
-    }
-
-    public function makeTestRunSession($testing = 1) {
-        $animal_name = AnimalName::haikunate(["tokenLength" => 0, "delimiter" => "",]) . "XXX";
-        $animal_name = str_replace(" ", "", $animal_name);
-        $test_code = crypto_token(48 - floor(3 / 4 * strlen($animal_name)));
-        $test_code = $animal_name . substr($test_code, 0, 64 - strlen($animal_name));
-        $run_session = new RunSession($test_code, $this); // does this user have a session?
-        $run_session->create($test_code, $testing);
-
-        return $run_session;
-    }
-
-    public function addNamedRunSession($name, $testing = 0) {
-        $name = str_replace(" ", "_", $name);
-        if ($name && !preg_match('/^[a-zA-Z0-9_-~]{0,32}$/', $name)) {
-            alert("Invalid characters in suggested name. Only a-z, numbers, _ - and ~ are allowed. Spaces are automatically replaced by a _.", 'alert-danger');
-            return false;
-        }
-
-        if ($name) {
-            $name .= 'XXX';
-        }
-
-        $new_code = crypto_token(48 - floor(3 / 4 * strlen($name)));
-        $new_code = $name . substr($new_code, 0, 64 - strlen($name));
-        $run_session = new RunSession($new_code, $this); // does this user have a session?
-        $run_session->create($new_code, $testing);
-
-        return $run_session;
     }
 
     public function exec(User $user) {

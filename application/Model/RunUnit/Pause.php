@@ -17,6 +17,7 @@ class Pause extends RunUnit {
     protected $has_relative_to = false;
     protected $has_wait_minutes = false;
     protected $relative_to_result = null;
+    protected $default_relative_to = 'tail(survey_unit_sessions$created,1)';
 
     /**
      * An array of unit's exportable attributes
@@ -99,7 +100,7 @@ class Pause extends RunUnit {
         if ($this->has_wait_minutes && !$this->has_relative_to) {
             // If user specified waiting minutes but did not specify relative to which timestamp,
             // we imply we are waiting relative to when the user arrived at the pause
-            $this->relative_to = 'tail(survey_unit_sessions$created,1)';
+            $this->relative_to = $this->default_relative_to;
             $this->has_relative_to = true;
         }
 
@@ -261,23 +262,22 @@ class Pause extends RunUnit {
     }
 
     public function test() {
-        $output = '';
         $results = $this->getSampleSessions();
         if (!$results) {
-            return $output;
+            $this->noTestSession();
+            return null;
         }
 
         // take the first sample session
-        $sess = current($results);
-        $this->run_session_id = $sess['id'];
+        $unitSession = current($results);
 
-
-        $output .= "<h3>Pause message</h3>";
-        $output .= $this->getParsedBodyAdmin($this->body);
+        $output = "<h3>Pause message</h3>";
+        $output .= $this->getParsedBody($this->body, $unitSession, ['admin' => true]);
+        $this->setDefaultRelativeTo($unitSession);
 
         if ($this->parseRelativeTo()) {
             $output .= "<h3>Pause relative to</h3>";
-            $opencpu_vars = $this->getUserDataInRun($this->relative_to);
+            $opencpu_vars = $unitSession->getRunData($this->relative_to);
             $session = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json', null, true);
             $output .= opencpu_debug($session);
         }
@@ -306,16 +306,13 @@ class Pause extends RunUnit {
 			';
 
             $rows = '';
-            foreach ($results as $row) {
-                $this->run_session_id = $row['id'];
-                $runSession = new RunSession($row['session'], $this->run);
-                $runSession->unit_session = new UnitSession($this->db, $this->run_session_id, $this->id);
-                $this->run_session = $runSession;
-
+            foreach ($results as $unitSession) {
+                $expired = $this->getUnitSessionExpirationData($unitSession);
+                $pause_over = !empty($expired['check_failed']) ? 'check_failed' : !empty($expired['expired']);
                 $rows .= Template::replace($row_tpl, array(
-                    'session' => $row['session'],
-                    'position' => $row['position'],
-                    'pause_over' => stringBool($this->checkWhetherPauseIsOver()),
+                    'session' => $unitSession->runSession->session,
+                    'position' => $unitSession->runSession->position,
+                    'pause_over' => stringBool($pause_over),
                     'relative_to' => stringBool($this->relative_to_result),
                 ));
             }
@@ -337,6 +334,10 @@ class Pause extends RunUnit {
             'content' => $body, 
             'log' => $this->getLogMessage('pause_waiting')
         ];
+    }
+    
+    protected function setDefaultRelativeTo(UnitSession $unitSession = null) {
+        
     }
 
 }

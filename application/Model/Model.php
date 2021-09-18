@@ -40,16 +40,18 @@ class Model {
         $this->cron = Site::runningInConsole();
     }
     
-    protected function assignProperties(array $props) {
-        foreach ($props as $prop => $value) {
-            if (property_exists($this, $prop)) {
-                if ($value === '') {
-                    $value = null;
+    protected function assignProperties($props) {
+        if ($props && is_array($props)) {
+            foreach ($props as $prop => $value) {
+                if (property_exists($this, $prop)) {
+                    if ($value === '') {
+                        $value = null;
+                    }
+                    $this->{$prop} = $value;
                 }
-                $this->{$prop} = $value;
             }
         }
-        
+
         return $props;
     }
     

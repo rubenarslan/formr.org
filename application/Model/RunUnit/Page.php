@@ -2,10 +2,6 @@
 
 class Page extends RunUnit {
 
-    protected $body = '';
-    
-    protected $body_parsed = '';
-
     public $title;
     public $type = 'Endpage';
     public $icon = "fa-stop";
@@ -62,11 +58,12 @@ class Page extends RunUnit {
     }
 
     public function test() {
-        // @TODO
-        // - Create a random session to get body
-        // - Move session to this unit
-        // - Execute the session
-        //return $this->getParsedBodyAdmin($this->body);
+        if (($testSession = $this->getTestSession($this->body)) === false) {
+            // knitting needed but no test session to use data
+            return;
+        }
+
+        return $this->getParsedBody($this->body, $testSession, ['admin' => true]);
     }
     
     public function find($id, $special = false, $props = []) {

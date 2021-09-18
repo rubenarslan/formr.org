@@ -64,6 +64,9 @@ class RunUnit extends Model {
 
     public $icon = "fa-user";
 
+    protected $body = '';
+    
+    protected $body_parsed = '';
 
     /**
      * 
@@ -226,49 +229,59 @@ plot(cars)
         return 'admin/run/units/' . $tpl;
     }
 
-    /** @TODO move to RUN and pass unit **/
+    /**
+     * Get random unit sessions that have passed this unit
+     * 
+     * @return \UnitSession[]
+     */
     protected function getSampleSessions() {
-        $current_position = -9999999;
-        if (isset($this->unit['position'])) {
-            $current_position = $this->unit['position'];
-        }
-        $results = $this->db->select('session, id, position')
+        // Select a maximum of 20 random sessions that are on or have passed this unit
+        $results = [];
+        $rs = [];
+        $rows = $this->db->select('session, id, position')
                         ->from('survey_run_sessions')
                         ->order('position', 'desc')->order('RAND')
-                        ->where(array('run_id' => $this->run_id, 'position >=' => $current_position))
+                        ->where(array('run_id' => $this->run->id, 'position >=' => $this->position))
                         ->limit(20)->fetchAll();
+        
+        foreach ($rows as $row) {
+            if (!isset($rs[$row['id']])) {
+                $rs[$row['id']] = new RunSession($row['session'], $this->run, ['id' => $row['id']]);
+            }
 
-        if (!$results) {
-            alert('No data to compare to yet. Create some test data by sending guinea pigs through the run using the "Test run" function on the left.', 'alert-info');
-            return false;
+            $unitSession = (new UnitSession($rs[$row['id']], $this))->load();
+            if ($unitSession->id) {
+                $results[] = $unitSession;
+            }
         }
+
         return $results;
     }
 
-    /** @TODO move to RUN  and pass unit **/
+    /**
+     * Get a random unit session that has past this unit
+     * 
+     * @return UnitSession|null
+     */
     protected function grabRandomSession() {
-        if ($this->run_session_id === NULL) {
-            $current_position = -9999999;
-            if (isset($this->unit['position'])) {
-                $current_position = $this->unit['position'];
-            }
-
-            $temp_user = $this->db->select('session, id, position')
+        // Select a random run session that has past this unit's position
+        $row = $this->db->select('session, id, position')
                     ->from('survey_run_sessions')
                     ->order('position', 'desc')->order('RAND')
-                    ->where(array('run_id' => $this->run_id, 'position >=' => $current_position))
+                    ->where(['run_id' => $this->run->id, 'position >=' => $this->position])
                     ->limit(1)
                     ->fetch();
-
-            if (!$temp_user) {
-                alert('No data to compare to yet. Create some test data by sending guinea pigs through the run using the "Test run" function on the left.', 'alert-info');
-                return false;
-            }
-
-            $this->run_session_id = $temp_user['id'];
+        if (!$row) {
+            return null;
+        }
+        
+        $runSession = new RunSession($row['session'], $this->run, ['id' => $row['id']]);
+        $unitSession = (new UnitSession($runSession, $this))->load();
+        if (!$unitSession->id) {
+            return null;
         }
 
-        return $this->run_session_id;
+        return $unitSession;
     }
 
     public function getUnitSessionsCount() {
@@ -438,17 +451,12 @@ plot(cars)
     }
     
     public function getParsedBody($source = null, UnitSession $unitSession = null, $options = []) {
-
         $email_embed = array_val($options, 'email_embed');
         if (!knitting_needed($source)) {
-            if ($email_embed) {
-                return ['body' => $this->body_parsed, 'images' => []];
-            } else {
-                return $this->body_parsed;
-            }
+            return $email_embed ? ['body' => $this->body_parsed, 'images' => []] : $this->body_parsed;
         }
         
-        $admin = array_val($options, 'admin');
+        $admin = array_val($options, 'admin', false);
         $isCron = $this->isCron();
         $sessionId = $unitSession->id;
 
@@ -501,7 +509,7 @@ plot(cars)
             notify_user_error(opencpu_debug($ocpu), 'There was a computational error.');
             return false;
         } elseif ($admin) {
-            return $ocpu;
+            return opencpu_debug($ocpu);
         } else {
             $this->messages['log'] = $this->getLogMessage('success_knitted');
             
@@ -542,8 +550,39 @@ plot(cars)
             return $report;
         }
     }
+    
+    public function getParsedText($source, UnitSession $unitSession = null, $options = []) {
+        $admin = array_val($options, 'admin', false);
+        if (!knitting_needed($source) || $unitSession === null) {
+            return $source;
+        }
+        
+        $ocpu_vars = $unitSession->getRunData($source);
+        if (!$admin) {
+            return opencpu_knit_plaintext($source, $ocpu_vars, false);
+        } else {
+            return opencpu_debug(opencpu_knit_plaintext($source, $ocpu_vars, true));
+        }
+    }
 
     public function getLogMessage($result, $result_log = null) {
         return compact('result', 'result_log');
+    }
+
+    protected function getTestSession($source) {
+        if (!knitting_needed($source)) {
+            return null;
+        }
+        
+        if (!($session = $this->grabRandomSession())) {
+            $this->noTestSession();
+            return false;
+        }
+        
+        return $session;
+    }
+    
+    protected function noTestSession() {
+        return alert('No data to compare to yet. Create some test data by sending guinea pigs through the run using the "Test run" function on the left.', 'alert-info');
     }
 }
