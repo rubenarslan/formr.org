@@ -9,9 +9,20 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
     protected $answeredItems = array();
     protected $completed = false;
     protected $rendered = null;
+    
+    public $redirect = null;
 
     const FMR_PAGE_ELEMENT = 'fmr_unit_page_element';
+    /**
+     * 
+     * @var Request
+     */
+    protected $request;
 
+    public function setRequest(Request $request) {
+        $this->request = $request;
+    }
+    
     /**
      * Returns HTML page to be rendered for Survey or FALSE if survey ended
      *
@@ -20,7 +31,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
     public function processItems() {
         if (!Request::getGlobals('pageNo')) {
             $pageNo = $this->getCurrentPage();
-            $this->redirectToPage($pageNo);
+            return $this->redirectToPage($pageNo);
         }
 
         $pageNo = $this->getCurrentPage();
@@ -31,7 +42,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
         // Check if user is allowed to enter this page
         if ($prev = $this->emptyPreviousPageExists($pageNo)) {
             //alert('There are missing responses in your survey. Please proceed from here', 'alert-warning');
-            $this->redirectToPage($prev);
+            return $this->redirectToPage($prev);
         }
 
         if ($pageNo > $this->getMaxPage()) {
@@ -51,7 +62,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
         return $this->completed;
     }
     
-    public function render() {
+    public function render($form_action = null, $form_append = null) {
         return $this->rendered;
     }
 
@@ -59,13 +70,8 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
      * Save posted page item for specified Unit Session
      *
      */
-    public function savePageItems() {
-        if (!Request::isHTTPPostRequest()) {
-            // Accept only POST requests
-            return;
-        }
-
-        if ($this->request->getParam(self::FMR_PAGE_ELEMENT) != $this->getCurrentPage()) {
+    public function getPostedItems() {
+        if (!Request::isHTTPPostRequest() || $this->request->getParam(self::FMR_PAGE_ELEMENT) != $this->getCurrentPage()) {
             throw new Exception('Invalid Survey Page');
         }
 
@@ -98,12 +104,8 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
         }
 
         unset($this->postedValues['fmr_unit_page_element']);
-        $save = $this->saveSuryeyItems($this->postedValues);
-        if ($save) {
-            Session::set('is-survey-post', true);
-            $currPage++;
-            $this->redirectToPage($currPage);
-        }
+
+        return ['posted' => $this->postedValues, 'next_page' => $this->getPageUrl($currPage + 1)];
     }
 
     /**
@@ -196,9 +198,11 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
             $this->saveSuryeyItems($pageItems, false);
             Session::set('is-survey-post', true);
             $pageNo++;
-            $this->redirectToPage($pageNo);
+            return $this->redirectToPage($pageNo);
         }
-        return $pageItems;
+        
+        $this->toRender = $pageItems;
+        return $this->getRenderedStudyItems();
     }
 
     protected function getCurrentPage() {
@@ -386,9 +390,9 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
         return false;
     }
 
-    private function redirectToPage($page) {
-        $redirect = $this->getPageUrl($page);
-        redirect_to($redirect);
+    public function redirectToPage($page) {
+        $this->redirect = $this->getPageUrl($page);
+        //redirect_to($redirect);
     }
 
     private function getPageUrl($page) {

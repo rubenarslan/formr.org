@@ -540,7 +540,8 @@ class UnitSession extends Model {
 
             $variables = implode(', ', $variables);
             $select = "SELECT $variables";
-            if ($runSession->id === null && !in_array($results_table, get_db_non_session_tables())) { // todo: what to do with session_id tables in faketestrun
+
+            if (($runSession->id === null || $runSession->isTestingStudy()) && !in_array($results_table, get_db_non_session_tables())) { // todo: what to do with session_id tables in faketestrun
                 $where = " WHERE `$results_table`.session_id = :session_id"; // just for testing surveys
             } else {
                 $where = " WHERE  `survey_run_sessions`.id = :run_session_id";
@@ -570,8 +571,9 @@ class UnitSession extends Model {
             $select .= " FROM `$results_table` ";
 
             $q = $select . $joins . $where . ";";
+
             $get_results = $this->db->prepare($q);
-            if ($runSession->id === null) {
+            if ($runSession->id === null|| $runSession->isTestingStudy()) {
                 $get_results->bindValue(':session_id', $this->id);
             } else {
                 $get_results->bindValue(':run_session_id', $runSession->id);

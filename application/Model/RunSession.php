@@ -256,7 +256,7 @@ class RunSession extends Model {
         
         $result = $this->currentUnitSession->execute();
         
-        formr_log($result, $this->id . $this->currentUnitSession->runUnit->type);
+        //formr_log($result, $this->id . $this->currentUnitSession->runUnit->type);
 
         if (!empty($result['end_session'])) {
             formr_log("END {$this->currentUnitSession->runUnit->type}", $this->id);
@@ -600,6 +600,10 @@ class RunSession extends Model {
         $run_session->create($new_code, $testing);
 
         return $run_session;
+    }
+    
+    public function isTestingStudy() {
+        return $this->run->testingStudy || $this->id === -1;
     }
 
 }
