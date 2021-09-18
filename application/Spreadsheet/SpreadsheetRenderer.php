@@ -427,6 +427,9 @@ class SpreadsheetRenderer {
                     unset($items[$item_name]); // we remove items that are definitely hidden from consideration
                     continue; // don't increment counter
                 } else {
+                    if ($hidden === 0) {
+                        $item->parent_attributes['data-show'] = "'true'";
+                    }
                     // set dynamic values for items
                     $val = array_val($results, $item->name, null);
                     $item->setDynamicValue($val);

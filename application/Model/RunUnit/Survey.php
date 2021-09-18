@@ -171,8 +171,7 @@ class Survey extends RunUnit {
 
     protected function processStudy($request, $study, $unitSession) {
         if (Request::isHTTPPostRequest()) {
-            $posted = $unitSession->updateSurveyStudyRecord(array_merge($request->getParams(), $_FILES));
-            if ($posted) {
+            if ($unitSession->updateSurveyStudyRecord(array_merge($request->getParams(), $_FILES))) {
                 return ['redirect' => run_url($unitSession->runSession->getRun()->name), 'log' => $this->getLogMessage('survey_filling_out')];
             }
         }
@@ -188,7 +187,21 @@ class Survey extends RunUnit {
 
     protected function processPagedStudy($request, $study, $unitSession) {
         $renderer = new PagedSpreadsheetRenderer($study, $unitSession);
+        $renderer->setRequest($request);
+        
+        if (Request::isHTTPPostRequest()) {
+            $options = $renderer->getPostedItems();
+            if ($unitSession->updateSurveyStudyRecord($options['posted'])) {
+                Session::set('is-survey-post', true); // FIX ME
+                return ['redirect' => $options['next_page'], 'log' => $this->getLogMessage('survey_filling_out')];
+            }
+        }
+        
         $renderer->processItems();
+        if ($renderer->redirect) {
+            return ['redirect' => $renderer->redirect];
+        }
+        
         if ($renderer->studyCompleted()) {
             return ['end_session' => true, 'move_on' => true, 'log' => $this->getLogMessage('survey_completed')];
         } else {
