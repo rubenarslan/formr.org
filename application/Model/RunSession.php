@@ -227,6 +227,11 @@ class RunSession extends Model {
      * @return type
      */
     public function moveOn($starting = false, $execute = true) {
+        if ($this->run->testingStudy) {
+            // nothing to move on to
+            return null;
+        }
+        
         if (!$starting) {
             $this->position = $this->run->getNextPosition($this->position);
             if ($this->position !== null) {
@@ -246,8 +251,11 @@ class RunSession extends Model {
     }
 
     protected function executeUnitSession() {
+
         formr_log("Execute {$this->currentUnitSession->runUnit->type}", $this->id);
+        
         $result = $this->currentUnitSession->execute();
+        
         formr_log($result, $this->id . $this->currentUnitSession->runUnit->type);
 
         if (!empty($result['end_session'])) {
@@ -262,7 +270,7 @@ class RunSession extends Model {
             return ['body' => array_val($result, 'content')];
         }
 
-        if (isset($result['wait_opencpu']) || isset($result['wait_user'])) {
+        if (!empty($result['wait_opencpu']) || !empty($result['wait_user'])) {
             return ['body' => ''];
         }
 
@@ -562,6 +570,36 @@ class RunSession extends Model {
         }
 
         return false;
+    }
+    
+    public static function getTestSession(Run $run) {
+        $animal_name = AnimalName::haikunate(["tokenLength" => 0, "delimiter" => "",]) . "XXX";
+        $animal_name = str_replace(" ", "", $animal_name);
+        $test_code = crypto_token(48 - floor(3 / 4 * strlen($animal_name)));
+        $test_code = $animal_name . substr($test_code, 0, 64 - strlen($animal_name));
+        $run_session = new RunSession($test_code, $run);
+        $run_session->create($test_code, true);
+
+        return $run_session;
+    }
+    
+    public static function getNamedSession(Run $run, $name, $testing = 0) {
+        $name = str_replace(" ", "_", $name);
+        if ($name && !preg_match('/^[a-zA-Z0-9_-~]{0,32}$/', $name)) {
+            alert("Invalid characters in suggested name. Only a-z, numbers, _ - and ~ are allowed. Spaces are automatically replaced by a _.", 'alert-danger');
+            return false;
+        }
+
+        if ($name) {
+            $name .= 'XXX';
+        }
+
+        $new_code = crypto_token(48 - floor(3 / 4 * strlen($name)));
+        $new_code = $name . substr($new_code, 0, 64 - strlen($name));
+        $run_session = new RunSession($new_code, $run); // does this user have a session?
+        $run_session->create($new_code, $testing);
+
+        return $run_session;
     }
 
 }

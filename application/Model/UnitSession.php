@@ -59,7 +59,7 @@ class UnitSession extends Model {
             
             $this->id = $this->db->insert('survey_unit_sessions', $session);
             formr_log("Inserted {$this->runUnit->type} " . $this->id);
-            if ($this->run_session_id !== null && $new_current_unit) {
+            if ($this->runSession->id !== null && $new_current_unit) {
                 $this->runSession->currentUnitSession = $this;
                 $this->db->update('survey_run_sessions', ['current_unit_session_id' => $this->id], ['id' => $this->runSession->id]);
 
@@ -81,21 +81,20 @@ class UnitSession extends Model {
     public function load() {
         $columns = 'id, unit_id, run_session_id, created, expires, queued, result, result_log, ended, expired';
         if ($this->id !== null) {
-            $vars = $this->db->findRow('survey_unit_sessions', ['id' => $this->id], $columns);
+            $vars = $this->db->findRow('survey_unit_sessions', ['id' => (int)$this->id], $columns);
         } else {
-            $vars = $this->db->select($columns)
-                    ->from('survey_unit_sessions')
-                    ->where(['run_session_id' => $this->run_session_id, 'unit_id' => $this->unit_id])
-                    ->where('ended IS NULL AND expired IS NULL')
-                    ->order('created', 'desc')->limit(1)
-                    ->fetch();
+            $run_session_id = $this->runSession ? $this->runSession->id : $this->run_session_id;
+            $unit_id = $this->runUnit ? $this->runUnit->id : $this->unit_id;
+            $vars = $this->db->findRow('survey_unit_sessions', ['run_session_id' => $run_session_id, 'unit_id' => $unit_id], $columns);
         }
         
-        if ($vars['unit_id'] && !$this->runUnit) {
+        if (!empty($vars['unit_id']) && !$this->runUnit) {
             $this->runUnit = RunUnitFactory::make($this->runSession->getRun(), ['id' => $vars['unit_id']]);
         }
 
         $this->assignProperties($vars);
+        
+        return $this;
     }
 
     public function __sleep() {
@@ -721,11 +720,6 @@ class UnitSession extends Model {
         $variables = opencpu_formr_variables($q);
 
         return compact("matches", "matches_results_tables", "matches_variable_names", "token_add", "variables");
-    }
-    
-    public function getParsedText($source) {
-        $ocpu_vars = $this->getRunData($source);
-        return opencpu_knit_plaintext($source, $ocpu_vars, false);
     }
 
 }

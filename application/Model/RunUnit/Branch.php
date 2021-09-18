@@ -68,9 +68,9 @@ class Branch extends RunUnit {
 
     public function test() {
         $results = $this->getSampleSessions();
-        $output = '';
         if (!$results) {
-            return $output;
+            $this->noTestSession();
+            return null;
         }
 
         $test_tpl = '
@@ -92,28 +92,27 @@ class Branch extends RunUnit {
 			<tr>
 		';
 
-        $this->run_session_id = current($results)['id'];
-        $opencpu_vars = $this->getUserDataInRun($this->condition);
+        // take the first sample session
+        $unitSession = current($results);
+        $opencpu_vars = $unitSession->getRunData($this->condition);
         $ocpu_session = opencpu_evaluate($this->condition, $opencpu_vars, 'text', null, true);
-        $output .= opencpu_debug($ocpu_session, null, 'text');
+        $output = opencpu_debug($ocpu_session, null, 'text');
 
         // Maybe there is a way that we prevent 'calling opencpu' in a loop by gathering what is needed to be evaluated
         // at opencpu in some 'box' and sending one request (also create new func in formr R package to open this box, evaluate what is inside and return the box)
         $rows = '';
-        foreach ($results as $row) {
-            $this->run_session_id = $row['id'];
-            $opencpu_vars = $this->getUserDataInRun($this->condition);
+        foreach ($results as $unitSession) {
+            $opencpu_vars = $unitSession->getRunData($this->condition);
             $eval = opencpu_evaluate($this->condition, $opencpu_vars);
             $rows .= Template::replace($row_tpl, array(
-                'session' => $row['session'],
-                'position' => $row['position'],
+                'session' => $unitSession->runSession->session,
+                'position' => $unitSession->runSession->position,
                 'result' => stringBool($eval),
             ));
         }
 
         $output .= Template::replace($test_tpl, array('rows' => $rows));
-        $this->run_session_id = null;
-        
+
         return $output;
     }
 

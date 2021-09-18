@@ -123,7 +123,7 @@ class Email extends RunUnit {
         if ($this->subject_parsed === null) {
             if (knitting_needed($this->subject)) {
                 if ($unitsession !== null) {
-                    $this->subject_parsed = $unitsession->getParsedText($this->subject);
+                    $this->subject_parsed = $this->getParsedText($this->subject, $unitsession);
                 } else {
                     return false;
                 }
@@ -357,16 +357,16 @@ class Email extends RunUnit {
     }
 
     public function test() {
-        $output = '';
-        if (!$this->grabRandomSession()) {
-            return $output;
+        if (!($unitSession = $this->grabRandomSession())) {
+            $this->noTestSession();
+            return null;
         }
-
+ 
         $user = Site::getCurrentUser();
         $receiver = $user->getEmail();
 
-        $output .= "<h4>Recipient</h4>";
-        $recipient_field = $this->getRecipientField('', true);
+        $output = "<h4>Recipient</h4>";
+        $recipient_field = $this->getRecipientField($unitSession, true);
         if ($recipient_field instanceof OpenCPU_Session) {
             $output .= opencpu_debug($recipient_field, null, 'text');
         } else {
@@ -375,16 +375,16 @@ class Email extends RunUnit {
 
         $output .= "<h4>Subject</h4>";
         if (knitting_needed($this->subject)) {
-            $output .= $this->getParsedTextAdmin($this->subject);
+            $output .= $this->getParsedText($this->subject, $unitSession, ['admin' => true]);
         } else {
-            $output .= $this->getSubject();
+            $output .= $this->getSubject($unitSession);
         }
 
         $output .= "<h4>Body</h4>";
-        $output .= $this->getParsedBodyAdmin($this->body);
+        $output .= $this->getParsedBody($this->body, $unitSession, ['admin' => true]);
 
         $output .= "<h4>Attempt to send email</h4>";
-        if ($this->sendMail($receiver)) {
+        if ($this->sendMail($unitSession, $receiver)) {
             $output .= "<p>An email was sent to your own email address (" . h($receiver) . ").</p>";
         } else {
             $output .= "<p>No email sent.</p>";
@@ -392,7 +392,7 @@ class Email extends RunUnit {
 
         $results = $this->getSampleSessions();
         if ($results) {
-            if ($this->recipient_field === null OR trim($this->recipient_field) == '') {
+            if (empty($this->recipient_field)) {
                 $this->recipient_field = 'survey_users$email';
             }
 
@@ -416,21 +416,20 @@ class Email extends RunUnit {
 			';
 
             $rows = '';
-            foreach ($results as $row) {
-                $this->run_session_id = $row['id'];
-                $email = stringBool($this->getRecipientField());
+            foreach ($results as $unitSession) {
+                $email = stringBool($this->getRecipientField($unitSession));
                 $class = filter_var($email, FILTER_VALIDATE_EMAIL) ? '' : 'text-warning';
                 $rows .= Template::replace($row_tpl, array(
-                            'session' => $row['session'],
-                            'position' => $row['position'],
+                            'session' => $unitSession->runSession->session,
+                            'position' => $unitSession->runSession->position,
                             'result' => stringBool($email),
                             'class' => $class,
                 ));
             }
 
-            $output .= Template::replace($test_tpl, array('rows' => $rows));
+            $output .= Template::replace($test_tpl, ['rows' => $rows]);
         }
-        $this->run_session_id = null;
+
         return $output;
     }
 

@@ -79,26 +79,28 @@ class External extends RunUnit {
         return !$this->isR($address);
     }
 
-    public function test(UnitSession $unitSession) {
+    public function test() {
+        $unitSession = $this->grabRandomSession();
         if ($this->isR($this->address)) {
-            if ($results = $this->getSampleSessions()) {
-                if (!$results) {
-                    return false;
-                }
-
-                $this->run_session_id = current($results)['id'];
-
-                $opencpu_vars = $unitSession->getRunData($this->address);
-                $ocpu_session = opencpu_evaluate($this->address, $opencpu_vars, '', null, true);
-                $output = opencpu_debug($ocpu_session, null, 'text');
-            } else {
-                $output = '';
+            if (!$unitSession) {
+                $this->noTestSession();
+                return;
             }
+            
+            $opencpu_vars = $unitSession->getRunData($this->address);
+            $ocpu_session = opencpu_evaluate($this->address, $opencpu_vars, '', null, true);
+            $output = opencpu_debug($ocpu_session, null, 'text');
         } else {
-            $output = Template::replace('<a href="%{address}">%{address}</a>', array('address' => $this->address));
+            $output = Template::replace('<a href="%{address}">%{address}</a>', ['address' => $this->address]);
+        }
+        
+        $run_name = $session = null;
+        if (!empty($unitSession)) {
+            $run_name = $unitSession->runSession->getRun()->name;
+            $session = $unitSession->runSession->session;
         }
 
-        return do_run_shortcodes($output, $unitSession->runSession->getRun()->name, $unitSession->runSession->session);
+        return do_run_shortcodes($output, $run_name, $session);
      }
 
     public function getUnitSessionExpirationData(UnitSession $unitSession) {

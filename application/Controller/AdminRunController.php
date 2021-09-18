@@ -210,7 +210,7 @@ class AdminRunController extends AdminController {
     }
 
     private function createNewTestCodeAction() {
-        $run_session = $this->run->makeTestRunSession();
+        $run_session = RunSession::getTestSession($this->run);
         $sess = $run_session->session;
         $animal = substr($sess, 0, strpos($sess, "XXX"));
         $sess_url = run_url($this->run->name, null, array('code' => $sess));
@@ -226,7 +226,7 @@ class AdminRunController extends AdminController {
     private function createNewNamedSessionAction() {
         if (Request::isHTTPPostRequest()) {
             $code_name = $this->request->getParam('code_name');
-            $run_session = $this->run->addNamedRunSession($code_name);
+            $run_session = RunSession::getNamedSession($this->run, $code_name);
 
             if ($run_session) {
                 $sess = $run_session->session;
