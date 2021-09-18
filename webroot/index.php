@@ -41,8 +41,10 @@ try {
 	$router = Router::getInstance()->route();
 	$router->execute();
 } catch (Exception $e) {
-	formr_log_exception($e);
-	$msg = date('Y-m-d H:i:s') . "\n {$e->getMessage()}. \nPlease let the administrators and know what you were trying to do and provide this message's date & time.";
+    $code = strtoupper(AnimalName::haikunate());
+    formr_log_exception($e, $code);
+    $msg = DEBUG ? $code. ' ' . $e->getMessage() : 'An Unexpected Error Occured. CODE ' . $code;
+	$msg = date('Y-m-d H:i:s') . "\n {$msg}. \nPlease let the administrators and know what you were trying to do and provide this message's code, date & time.";
 	formr_error(500, 'Internal Server Error', nl2br($msg), 'Fatal Error', false);
 }
 
