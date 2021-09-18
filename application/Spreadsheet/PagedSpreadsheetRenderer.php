@@ -1,14 +1,6 @@
 <?php
 
-/**
- * Helper class to handle custom survey execution
- *
- * @TODO what should happen if max items displayed is exceeded.
- * A user selecting using this paging option should not even need that setting.
- * 
- * @TODO update displaycount?
- *
- */
+
 class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
 
     protected $message = null;
@@ -256,7 +248,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
             'pageProgress' => 1 / $maxPage,
             'page' => $currentPage,
             'maxPage' => $maxPage,
-            'pageItems' => count($this->survey->rendered_items),
+            'pageItems' => count($this->renderedItems),
             'answeredItems' => count($this->answeredItems),
         );
         return $data;
