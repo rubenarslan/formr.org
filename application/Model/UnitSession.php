@@ -491,7 +491,7 @@ class UnitSession extends Model {
     }
 
     /**
-     * Get data associated with this unit sessoin based on query text
+     * Get data associated with this unit session based on query text
      *
      * @param string $q Query text to search for variables
      * @param string $required

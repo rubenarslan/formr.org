@@ -5,7 +5,7 @@ class ApiHelper {
     /**
      * @var DB
      */
-    protected $fdb;
+    protected $db;
 
     /**
      * @var Request
@@ -37,7 +37,7 @@ class ApiHelper {
     protected $error = array();
 
     public function __construct(Request $request, DB $db) {
-        $this->fdb = $db;
+        $this->db = $db;
         $this->request = $request;
         $this->user = OAuthHelper::getInstance()->getUserByAccessToken($this->request->getParam('access_token'));
     }
@@ -68,7 +68,7 @@ class ApiHelper {
         }
         
         // If sessions are still not available then run is empty
-        if (!$this->fdb->count('survey_run_sessions', array('run_id' => $run->id), 'id')) {
+        if (!$this->db->count('survey_run_sessions', array('run_id' => $run->id), 'id')) {
             $this->setData(Response::STATUS_NOT_FOUND, 'Empty Run', null, 'No sessions were found in this run.');
             return $this;
         }
@@ -144,7 +144,7 @@ class ApiHelper {
             return $this;
         }
 
-        $run = new Run($this->fdb, $request->run->name);
+        $run = new Run($request->run->name);
         if (!$run->valid) {
             $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run');
             return $this;
@@ -154,7 +154,7 @@ class ApiHelper {
             $session_code = $request->run->session;
             $run_session = new RunSession($session_code, null);
 
-            if ($run_session->session !== NULL) {
+            if ($run_session->id) {
                 $run_session->endLastExternal();
                 $this->setData(Response::STATUS_OK, 'OK', array('success' => 'external unit ended'));
             } else {
@@ -191,7 +191,7 @@ class ApiHelper {
             return false;
         }
 
-        $run = new Run($this->fdb, $request->run->name);
+        $run = new Run($request->run->name);
         if (!$run->valid || !$this->user) {
             $this->setData(Response::STATUS_NOT_FOUND, 'Not Found', null, 'Invalid Run or run/user not found');
             return false;
@@ -249,7 +249,7 @@ class ApiHelper {
     private function getSurveyResults(Run $run, $survey_name, $survey_items = null, $sessions = null) {
         $results = array();
         $query = $query = $this->buildSurveyResultsQuery($run, $survey_name, $survey_items, $sessions);
-        $stmt = $this->fdb->query($query, true);
+        $stmt = $this->db->query($query, true);
 
         while (($row = $stmt->fetch(PDO::FETCH_ASSOC))) {
             $session_id = $row['session_id'];
@@ -273,7 +273,7 @@ class ApiHelper {
         $params = array(
             'run_id' => $run->id,
             'user_id' => $this->user->id,
-            'survey_name' => $this->fdb->quote($survey_name),
+            'survey_name' => $this->db->quote($survey_name),
             'WHERE_survey_items' => null,
             'WHERE_run_sessions' => null,
         );
@@ -296,7 +296,7 @@ class ApiHelper {
         if ($survey_items && is_string($survey_items)) {
             $itms = array();
             foreach (explode(',', $survey_items) as $itm) {
-                $itms[] = $this->fdb->quote(trim($itm));
+                $itms[] = $this->db->quote(trim($itm));
             }
             $params['WHERE_survey_items'] = ' AND survey_items.name IN (' . implode(',', $itms) . ') ';
         }

@@ -93,7 +93,7 @@ class Cron {
             $runs = $this->db->select('name')->from('survey_runs')->where('cron_active = 1')->order('cron_fork', 'DESC')->fetchAll();
 
             foreach ($runs as $run_data) {
-                $run = new Run($this->db, $run_data['name']);
+                $run = new Run($run_data['name']);
                 if (!$run->valid) {
                     alert("This run '{$run_data['name']}' caused problems", 'alert-danger');
                     continue;
