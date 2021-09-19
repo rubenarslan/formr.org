@@ -202,7 +202,7 @@ class AdminAjaxController {
         $dbh = $this->dbh;
         $run_session = new RunSession($this->request->getParam('session'), $run);
 
-        $unit_session = $run_session->getUnitSession();
+        $unit_session = $run_session->getCurrentUnitSession();
         if ($unit_session) {
             $deleted = $dbh->delete('survey_unit_sessions', array('id' => $unit_session->id));
             if ($deleted) {

@@ -153,8 +153,9 @@ class RunSession extends Model {
      * @return \RunSession
      */
     public function createUnitSession(RunUnit $unit, $setAsCurrent = true, $save = true) {
-        formr_log("=======================================");
-        formr_log("CREATE {$unit->type}", $this->id);
+        $this->debug('--', true);
+        $this->debug("CREATE {$unit->type}", true);
+        
         $unitSession = new UnitSession($this, $unit);
         if ($save === false) {
             $this->currentUnitSession = $unitSession;
@@ -162,6 +163,8 @@ class RunSession extends Model {
         }
 
         $this->currentUnitSession = $unitSession->create($setAsCurrent);
+        
+        $this->debug("Created");
         return $this;
     }
 
@@ -195,25 +198,25 @@ class RunSession extends Model {
         $currentUnitSession = $this->getCurrentUnitSession();
         // If there is a referenceUnitSession then it is sent by the queue
         if ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id == $currentUnitSession->id && !$executeReferenceUnit) {
+            $this->debug("END");
             $this->endCurrentUnitSession();
             return $this->moveOn();
         } elseif ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id != $currentUnitSession->id) {
+            // if $currenUnitSession is not identical to the $referenceUnitSession sent by queue then something went terribly bad
             UnitSessionQueue::removeItem($referenceUnitSession->id);
             return $this->moveOn();
         }
 
-        $unitSession = $currentUnitSession;
-
-        formr_log('Current Unit Is ' . ($unitSession ? $unitSession->runUnit->type : ''), $this->id);
-        if (!$unitSession && $this->position === $this->run->getFirstPosition()) {
+        $this->debug('Current Unit Is ' . ($currentUnitSession ? $currentUnitSession->runUnit->type : ''), true);
+        if (!$currentUnitSession && $this->position === $this->run->getFirstPosition()) {
             // We are in the first unit of the run
             return $this->moveOn(true);
-        } elseif (!$unitSession) {
+        } elseif (!$currentUnitSession) {
             // We maybe all previous unit sessions have ended so move on
             return $this->moveOn();
         } else {
             // Currently active unit session. Should most likey be a survey or pause
-            $this->currentUnitSession = $unitSession;
+            $this->currentUnitSession = $currentUnitSession;
         }
 
         return $this->executeUnitSession();
@@ -233,6 +236,7 @@ class RunSession extends Model {
         }
         
         if (!$starting) {
+            $this->currentUnitSession = null;
             $this->position = $this->run->getNextPosition($this->position);
             if ($this->position !== null) {
                 $this->save();
@@ -252,20 +256,19 @@ class RunSession extends Model {
 
     protected function executeUnitSession() {
 
-        formr_log("Execute {$this->currentUnitSession->runUnit->type}", $this->id);
+        $this->debug("Execute");
         
         $result = $this->currentUnitSession->execute();
-        
-        //formr_log($result, $this->id . $this->currentUnitSession->runUnit->type);
+        $this->debug($result, true);
 
         if (!empty($result['end_session'])) {
-            formr_log("END {$this->currentUnitSession->runUnit->type}", $this->id);
+            $this->debug("END");
             $this->currentUnitSession->end();
         } elseif (!empty($result['expired'])) {
-            formr_log("EXPIRE {$this->currentUnitSession->runUnit->type}", $this->id);
+            $this->debug("EXPIRE");
             $this->currentUnitSession->expire();
         } elseif (isset($result['queue'])) {
-            formr_log($result['queue'], 'QUEUED');
+            $this->debug('QUEUE');
             $this->currentUnitSession->queue();
             return ['body' => array_val($result, 'content')];
         }
@@ -296,10 +299,9 @@ class RunSession extends Model {
         
         if (isset($result['content'])) {
             return ['body' => $result['content']];
-        } elseif (isset($result['move_on'])) {
-            return $this->moveOn();
         }
 
+        return ['body' => 'FORMR_END'];
     }
 
     public function getUnitIdAtPosition($position) {
@@ -342,6 +344,12 @@ class RunSession extends Model {
     }
 
     public function getCurrentUnitSession() {
+        if ($this->currentUnitSession) {
+            $this->debug("Using current unit session at {$this->position} [{$this->currentUnitSession->id}]", true);
+            return $this->currentUnitSession;
+        }
+
+        $this->debug("Getting current unit session at {$this->position} [0]", true);
         $query = $this->db->select('
 			`survey_unit_sessions`.unit_id,
 			`survey_unit_sessions`.id,
@@ -364,25 +372,17 @@ class RunSession extends Model {
 
         if ($row) {
             $u = $row;
-            $u['id'] = (int) $u['unit_id'];
+            $u['id'] = $u['unit_id'];
             $unit = RunUnitFactory::make($this->run, $u);
-            return new UnitSession($this, $unit, $row);
+            $this->currentUnitSession = new UnitSession($this, $unit, $row);
+            return $this->currentUnitSession;
         } else {
             return false;
         }
     }
 
-    public function getUnitSession() {
-        if (!$this->currentUnitSession) {
-            $this->currentUnitSession = $this->getCurrentUnitSession();
-        }
-
-        return $this->currentUnitSession;
-    }
-
     public function endCurrentUnitSession($reason = null) {
-        if ($us = $this->getCurrentUnitSession()) {
-            $this->currentUnitSession = $us;
+        if ($this->getCurrentUnitSession()) {
             $type = $this->currentUnitSession->runUnit->type;
             if ($type == 'Survey' || $type == 'External') {
                 $this->currentUnitSession->expire();
@@ -602,6 +602,22 @@ class RunSession extends Model {
     
     public function isTestingStudy() {
         return $this->run->testingStudy || $this->id === -1;
+    }
+    
+    protected function debug($messsage = '', $only = false) {
+        if (!DEBUG) {
+            return;
+        }
+        if (is_array($messsage)) {
+             unset($messsage['content']);
+        }
+        $messsage = print_r($messsage, true);
+
+        if ($this->currentUnitSession && $only === false) {
+            formr_log("{$messsage} {$this->currentUnitSession->runUnit->type} [{$this->currentUnitSession->id}]", $this->id);
+        } else {
+            formr_log($messsage);
+        }
     }
 
 }

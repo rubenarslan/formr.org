@@ -259,15 +259,6 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
     }
 
     /**
-     * Get current unit session accessing the Survey
-     *
-     * @return UnitSession
-     */
-    protected function getUnitSession() {
-        return $this->unitSession;
-    }
-
-    /**
      * 
      * @return Submit_Item
      */

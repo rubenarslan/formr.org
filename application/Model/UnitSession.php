@@ -58,7 +58,6 @@ class UnitSession extends Model {
             ]);
             
             $this->id = $this->db->insert('survey_unit_sessions', $session);
-            formr_log("Inserted {$this->runUnit->type} " . $this->id);
             if ($this->runSession->id !== null && $new_current_unit) {
                 $this->runSession->currentUnitSession = $this;
                 $this->db->update('survey_run_sessions', ['current_unit_session_id' => $this->id], ['id' => $this->runSession->id]);
@@ -112,10 +111,8 @@ class UnitSession extends Model {
         }
 
         if (($output = $this->runUnit->getUnitSessionOutput($this))) {
-            if (!empty($output['log'])) {
-                $this->assignProperties($output['log']);
-                $this->logResult();
-            }
+            $this->logOutput($output);
+            unset($output['log']);
             
             foreach ($output as $key => $value) {
                 $this->execResults[$key] = $value;
@@ -127,12 +124,9 @@ class UnitSession extends Model {
 
     protected function isExpired() {
         $expirationData = $this->runUnit->getUnitSessionExpirationData($this);
-
-        if (!empty($expirationData['log'])) {
-            $this->assignProperties($expirationData['log']);
-            $this->logResult();
-        }
+        $this->logOutput($expirationData);
         unset($expirationData['log']);
+        
         $this->execResults = array_merge($this->execResults, $expirationData);
             
         if ($this->runUnit instanceof Pause || $this->runUnit instanceof Branch) {
@@ -156,6 +150,13 @@ class UnitSession extends Model {
                 'expires' => $expirationData['expires'],
                 'queued' => $expirationData['queued'],
             ];
+        }
+    }
+    
+    protected function logOutput ($output) {
+        if (!empty($output['log'])) {
+            $this->assignProperties($output['log']);
+            $this->logResult();
         }
     }
 

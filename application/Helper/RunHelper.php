@@ -98,7 +98,7 @@ class RunHelper {
         $session = $this->request->session;
         $run_session = new RunSession($session, $run);
 
-        $unit_session = $run_session->getUnitSession();
+        $unit_session = $run_session->getCurrentUnitSession();
         if ($unit_session):
             $deleted = $this->db->delete('survey_unit_sessions', array('id' => $unit_session->id));
             if ($deleted):
