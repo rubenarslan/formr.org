@@ -297,11 +297,9 @@ class RunSession extends Model {
         if (isset($result['content'])) {
             return ['body' => $result['content']];
         } elseif (isset($result['move_on'])) {
-            // @TODO end unit then move on
             return $this->moveOn();
         }
 
-        // @TODO Check if run session should be ended here
     }
 
     public function getUnitIdAtPosition($position) {

@@ -46,51 +46,6 @@ class SurveyStudy extends Model {
     protected $can_delete = false;
     protected $is_new = false;
 
-    /*
-    public $run_name = null;
-    public $items = array();
-    public $items_validated = array();
-    public $session = null;
-    
-    public $run_session_id = null;
-    public $settings = array();
-    public $valid = false;
-    public $public = false;
-    public $errors = array();
-    public $validation_errors = array();
-    public $messages = array();
-    public $warnings = array();
-    public $position;
-    public $rendered_items = array();
-    private $SPR;
-    public $openCPU = null;
-    
-    private $confirmed_deletion = false;
-    private $created_new = false;
-    public $item_factory = null;
-    public $unanswered = array();
-    public $to_render = array();
-    public $study_name_pattern = "/[a-zA-Z][a-zA-Z0-9_]{2,64}/";
-    private $result_count = null;
-     */
-
-    /**
-     * Counts for progress computation
-     * @var int {collection}
-     */
-    /*
-    public $progress = 0;
-    public $progress_counts = array(
-        'already_answered' => 0,
-        'not_answered' => 0,
-        'hidden_but_rendered' => 0,
-        'not_rendered' => 0,
-        'visible_on_current_page' => 0,
-        'hidden_but_rendered_on_current_page' => 0,
-        'not_answered_on_current_page' => 0
-    );
-     * */
-
 
     /**
      * You can initiate a survey by using the ID or passing a couple of options to be used in finding the survey

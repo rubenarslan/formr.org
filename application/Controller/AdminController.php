@@ -29,7 +29,7 @@ class AdminController extends Controller {
         $osf->setAccessToken($token);
 
         if (Request::isHTTPPostRequest() && $this->request->getParam('osf_action') === 'export-run') {
-            $run = new Run($this->fdb, $this->request->getParam('formr_project'));
+            $run = new Run($this->request->getParam('formr_project'));
             $osf_project = $this->request->getParam('osf_project');
             if (!$run->valid || !$osf_project) {
                 throw new Exception('Invalid Request');
