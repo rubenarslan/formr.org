@@ -14,26 +14,36 @@ class RunSession extends Model {
     public $deactivated = 0;
     public $no_email;
     public $testing = 0;
-
     /**
      * 
      * @var Run
      */
     protected $run;
-
     /**
      * 
      * @var User
      */
     public $user;
     protected $table = 'survey_run_sessions';
-
     /**
      * Currently active unit session;
      *
      * @var UnitSession
      */
     public $currentUnitSession;
+    /**
+     * Cache for unit ids in various positions
+     * 
+     * @var array
+     */
+    protected $positionedUnitIds = [];
+    /** Maximum number of recursions to happen during a run session execution; */
+    const MAX_EXECUTION_COUNT = 20;
+    /**
+     * Current number of execution counts while recursive
+     * @var int
+     */
+    protected $executionCount = 0;
 
     /**
      * A RunSession should always be initiated with a Run and a User
@@ -138,7 +148,7 @@ class RunSession extends Model {
             'session' => $session,
             'created' => mysql_now(),
             'testing' => $testing
-                ), array('user_id'));
+        ), array('user_id'));
 
         $this->session = $session;
         return $this->load();
@@ -180,6 +190,10 @@ class RunSession extends Model {
             // User tried to access an already ended run session, logout
             return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
         }
+        
+        if ($this->executionCount > self::MAX_EXECUTION_COUNT) {
+            return $this->spam();
+        }
 
         if ($this->run->testingStudy) {
             return $this->executeTest();
@@ -198,7 +212,7 @@ class RunSession extends Model {
         $currentUnitSession = $this->getCurrentUnitSession();
         // If there is a referenceUnitSession then it is sent by the queue
         if ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id == $currentUnitSession->id && !$executeReferenceUnit) {
-            $this->debug("END");
+            $this->debug("END-q");
             $this->endCurrentUnitSession();
             return $this->moveOn();
         } elseif ($referenceUnitSession && $currentUnitSession && $referenceUnitSession->id != $currentUnitSession->id) {
@@ -255,7 +269,7 @@ class RunSession extends Model {
     }
 
     protected function executeUnitSession() {
-
+        $this->executionCount++;
         $this->debug("Execute");
         
         $result = $this->currentUnitSession->execute();
@@ -305,10 +319,11 @@ class RunSession extends Model {
     }
 
     public function getUnitIdAtPosition($position) {
-        return $this->db->findValue('survey_run_units', [
-                    'run_id' => $this->run->id,
-                    'position' => $position],
-                        'unit_id');
+        if (empty($this->positionedUnitIds[$position])) {
+            $this->positionedUnitIds[$position] = $this->db->findValue('survey_run_units', ['run_id' => $this->run->id, 'position' => $position], 'unit_id');
+        }
+
+        return $this->positionedUnitIds[$position];
     }
 
     public function forceTo($position) {
@@ -417,6 +432,15 @@ class RunSession extends Model {
         }
 
         return false;
+    }
+    
+    public function spam() {
+        $this->debug('SPAM');
+        $this->endCurrentUnitSession('spam_' . $this->executionCount);
+        $this->end();
+
+        alert('This session is spamming us. Please fix your run definition', 'alert-danger');
+        return ['body' => 'FORMR_SPAM'];
     }
 
     public function setTestingStatus($status = 0) {
@@ -611,12 +635,12 @@ class RunSession extends Model {
         if (is_array($messsage)) {
              unset($messsage['content']);
         }
-        $messsage = print_r($messsage, true);
+        $messsage = "(Count {$this->executionCount}) " . print_r($messsage, true);
 
         if ($this->currentUnitSession && $only === false) {
             formr_log("{$messsage} {$this->currentUnitSession->runUnit->type} [{$this->currentUnitSession->id}]", $this->id);
         } else {
-            formr_log($messsage);
+            formr_log($messsage, $this->id);
         }
     }
 
