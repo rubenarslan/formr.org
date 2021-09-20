@@ -270,10 +270,10 @@ class AdminAjaxController {
 
         if (($run_unit_id = $this->request->getParam('run_unit_id'))) {
             $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams());
-            formr_log($unit);
             if (!$unit) {
                 formr_error(404, 'Not Found', 'Requested Run Unit was not found');
             }
+            
             $sess_key = __METHOD__ . $unit->id;
             $results = $unit->getUnitSessionsCount();
             
