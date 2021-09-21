@@ -574,7 +574,7 @@ class UnitSession extends Model {
             $q = $select . $joins . $where . ";";
 
             $get_results = $this->db->prepare($q);
-            if ($runSession->id === null|| $runSession->isTestingStudy()) {
+            if ($runSession->id === null || $runSession->isTestingStudy()) {
                 $get_results->bindValue(':session_id', $this->id);
             } else {
                 $get_results->bindValue(':run_session_id', $runSession->id);

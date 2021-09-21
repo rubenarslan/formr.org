@@ -73,8 +73,6 @@ class Run extends Model {
     );
     public $renderedDescAndFooterAlready = false;
 
-    public $testingStudy = false;
-
     /**
      *
      * @var RunSession
@@ -91,7 +89,6 @@ class Run extends Model {
             $this->valid = true;
             $this->user_id = -1;
             $this->id = -1;
-            $this->testingStudy = true;
             return true;
         }
 
@@ -691,7 +688,7 @@ class Run extends Model {
         return $g_users;
     }
 
-    private function isStudyTest() {
+    public function isStudyTest() {
         return $this->name === self::TEST_RUN;
     }
 
@@ -701,7 +698,7 @@ class Run extends Model {
         }
         
         if (isset($data['unit_id'])) {
-            $data['id'] = (int) $data['unit_id'];
+            $data['id'] = $data['unit_id'];
         }
 
         $runUnit = (new Survey($this, $data))->load();
@@ -735,7 +732,7 @@ class Run extends Model {
         if (!$this->valid) {
             formr_error(404, 'Not Found', __("Run '%s' is broken or does not exist.", $this->name), 'Study Not Found');
             return false;
-        } elseif ($this->name == self::TEST_RUN) {
+        } elseif ($this->isStudyTest()) {
             $test = $this->testStudy();
             extract($test);
         } else {
@@ -800,9 +797,6 @@ class Run extends Model {
             if ($animal_end === false) {
                 $animal_end = 10;
             }
-
-            //$js .= '<script src="' . asset_url('assets/' . (DEBUG ? 'js' : 'minified') . '/run_users.js') . '"></script>';
-            //$js[] = DEBUG ? asset_url('common/js/run_users.js') : asset_url('build/js/run_users.min.js');
 
             $run_content .= Template::get('admin/run/monkey_bar', array(
                         'user' => $user,
