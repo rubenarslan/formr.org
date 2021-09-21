@@ -66,9 +66,7 @@ class Survey extends RunUnit {
 
     public function getStudy($force = true) {
         if ($force || ($this->surveyStudy == null && $this->unit_id)) {
-            $this->surveyStudy = null;
-            $study = new SurveyStudy($this->unit_id);
-            $this->surveyStudy = $study;
+            $this->surveyStudy = new SurveyStudy($this->unit_id);
         }
 
         return $this->surveyStudy;

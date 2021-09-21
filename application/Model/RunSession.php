@@ -64,9 +64,7 @@ class RunSession extends Model {
             $this->load();
         }
 
-        if (!$this->valid && !$run->testingStudy) {
-            // Run session is not yet in database, create one for this run
-        } elseif ($run->testingStudy) {
+        if ($run->isStudyTest()) {
             // User is just testing the survey so we only need a dummy run session since data is not saved
             $this->id = -1;
             $this->testing = true;
@@ -195,7 +193,7 @@ class RunSession extends Model {
             return $this->spam();
         }
 
-        if ($this->run->testingStudy) {
+        if ($this->run->isStudyTest()) {
             return $this->executeTest();
         }
         // Get the initial position if this run session hasn't executed before
@@ -244,7 +242,7 @@ class RunSession extends Model {
      * @return type
      */
     public function moveOn($starting = false, $execute = true) {
-        if ($this->run->testingStudy) {
+        if ($this->run->isStudyTest()) {
             // nothing to move on to
             return null;
         }
@@ -625,7 +623,7 @@ class RunSession extends Model {
     }
     
     public function isTestingStudy() {
-        return $this->run->testingStudy || $this->id === -1;
+        return $this->run->isStudyTest() || $this->id === -1;
     }
     
     protected function debug($messsage = '', $only = false) {

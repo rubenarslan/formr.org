@@ -403,7 +403,7 @@ plot(cars)
         }
 
         if ($unit === false) { // or maybe we've got a problem
-            if ($this->run->testingStudy && $this->unit_id) {
+            if ($this->run->isStudyTest() && $this->unit_id) {
                 return $this;
             }
             alert("Missing unit! $id", 'alert-danger');
