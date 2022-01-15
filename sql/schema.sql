@@ -2,7 +2,8 @@
 -- Database: `formr`
 -- Schema Updated: 10.05.2021
 --
-
+CREATE DATABASE IF NOT EXISTS formr CHARSET=utf8 COLLATE utf8_unicode_ci;
+USE formr;
 
 --
 -- Table structure for table `oauth_access_tokens`
@@ -203,22 +204,20 @@ CREATE TABLE `survey_run_sessions` (
   `ended` datetime DEFAULT NULL,
   `last_access` datetime DEFAULT NULL,
   `position` smallint(6) DEFAULT NULL,
-  `current_unit_id` int(10) unsigned DEFAULT NULL,
-  `deactivated` tinyint(1) DEFAULT '0',
+  `current_unit_session_id` int(10) unsigned DEFAULT NULL,
+  `deactivated` tinyint(1) DEFAULT 0,
   `no_email` int(11) DEFAULT NULL,
-  `testing` tinyint(1) DEFAULT '0',
+  `testing` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `run_session` (`session`,`run_id`),
   UNIQUE KEY `run_user` (`user_id`,`run_id`),
   KEY `fk_survey_run_sessions_survey_runs1_idx` (`run_id`),
   KEY `fk_survey_run_sessions_survey_users1_idx` (`user_id`),
-  KEY `fk_survey_run_sessions_survey_units1_idx` (`current_unit_id`),
+  KEY `fk_survey_run_sessions_survey_units1_idx` (`current_unit_session_id`),
   KEY `position` (`position`),
   CONSTRAINT `fk_survey_run_sessions_survey_runs1` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
-  CONSTRAINT `fk_survey_run_sessions_survey_units1` FOREIGN KEY (`current_unit_id`) REFERENCES `survey_units` (`id`) ON DELETE SET NULL ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_run_sessions_survey_users1` FOREIGN KEY (`user_id`) REFERENCES `survey_users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-
+) ENGINE=InnoDB AUTO_INCREMENT=115 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
 -- Table structure for table `survey_unit_sessions`
 --
@@ -228,6 +227,10 @@ CREATE TABLE `survey_unit_sessions` (
   `unit_id` int(10) unsigned NOT NULL,
   `run_session_id` int(11) DEFAULT NULL,
   `created` datetime NOT NULL,
+  `expires` datetime DEFAULT NULL,
+  `queued` tinyint(3) NOT NULL DEFAULT 0,
+  `result` varchar(40) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `result_log` text COLLATE utf8_unicode_ci DEFAULT NULL,
   `ended` datetime DEFAULT NULL,
   `expired` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -235,10 +238,11 @@ CREATE TABLE `survey_unit_sessions` (
   KEY `fk_survey_sessions_survey_units1_idx` (`unit_id`),
   KEY `fk_survey_unit_sessions_survey_run_sessions1_idx` (`run_session_id`),
   KEY `ended` (`ended`),
+  KEY `queued_expires` (`queued`,`expires`),
+  KEY `results` (`created`,`result`,`run_session_id`),
   CONSTRAINT `fk_survey_sessions_survey_units1` FOREIGN KEY (`unit_id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_unit_sessions_survey_run_sessions1` FOREIGN KEY (`run_session_id`) REFERENCES `survey_run_sessions` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-
+) ENGINE=InnoDB AUTO_INCREMENT=11206 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 --
 -- Table structure for table `shuffle`
@@ -272,30 +276,6 @@ CREATE TABLE `survey_branches` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 --
--- Table structure for table `survey_cron_log`
---
-
-CREATE TABLE `survey_cron_log` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `run_id` int(10) unsigned NOT NULL,
-  `created` datetime DEFAULT NULL,
-  `ended` datetime DEFAULT NULL,
-  `sessions` int(10) unsigned DEFAULT NULL,
-  `skipforwards` int(10) unsigned DEFAULT NULL,
-  `skipbackwards` int(10) unsigned DEFAULT NULL,
-  `pauses` int(10) unsigned DEFAULT NULL,
-  `emails` int(10) unsigned DEFAULT NULL,
-  `shuffles` int(10) unsigned DEFAULT NULL,
-  `errors` int(10) unsigned DEFAULT NULL,
-  `warnings` int(10) unsigned DEFAULT NULL,
-  `notices` int(10) unsigned DEFAULT NULL,
-  `message` mediumtext COLLATE utf8_unicode_ci,
-  PRIMARY KEY (`id`),
-  KEY `fk_survey_cron_log_survey_runs1_idx` (`run_id`),
-  CONSTRAINT `fk_survey_cron_log_survey_runs1` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-
---
 -- Table structure for table `survey_email_accounts`
 --
 
@@ -312,12 +292,12 @@ CREATE TABLE `survey_email_accounts` (
   `username` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
   `password` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
   `auth_key` text COLLATE utf8_unicode_ci NOT NULL,
-  `deleted` int(1) NOT NULL DEFAULT '0',
+  `deleted` int(1) NOT NULL DEFAULT 0,
+  `status` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `fk_survey_emails_survey_users1_idx` (`user_id`),
   CONSTRAINT `fk_email_user` FOREIGN KEY (`user_id`) REFERENCES `survey_users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
 -- Table structure for table `survey_emails`
 --
@@ -349,31 +329,19 @@ CREATE TABLE `survey_email_log` (
   `email_id` int(10) unsigned DEFAULT NULL,
   `created` datetime NOT NULL,
   `recipient` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
-  `sent` tinyint(1) NOT NULL DEFAULT '1',
+  `account_id` int(10) unsigned DEFAULT NULL,
+  `subject` varchar(355) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `message` text COLLATE utf8_unicode_ci DEFAULT NULL,
+  `meta` text COLLATE utf8_unicode_ci DEFAULT NULL,
+  `status` tinyint(1) DEFAULT NULL,
+  `sent` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `fk_survey_email_log_survey_emails1_idx` (`email_id`),
   KEY `fk_survey_email_log_survey_unit_sessions1_idx` (`session_id`),
+  KEY `account_status` (`account_id`,`status`),
   CONSTRAINT `fk_survey_email_log_survey_emails1` FOREIGN KEY (`email_id`) REFERENCES `survey_emails` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION,
   CONSTRAINT `fk_survey_email_log_survey_unit_sessions1` FOREIGN KEY (`session_id`) REFERENCES `survey_unit_sessions` (`id`) ON DELETE SET NULL ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-
---
--- Table structure for table `survey_email_queue`
---
-
-CREATE TABLE `survey_email_queue` (
-  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `account_id` int(10) unsigned NOT NULL,
-  `subject` varchar(355) COLLATE utf8_unicode_ci NOT NULL,
-  `message` text COLLATE utf8_unicode_ci NOT NULL,
-  `recipient` varchar(100) COLLATE utf8_unicode_ci NOT NULL,
-  `created` datetime NOT NULL,
-  `meta` text COLLATE utf8_unicode_ci NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `account_id` (`account_id`),
-  CONSTRAINT `survey_email_queue_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `survey_email_accounts` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 --
 -- Table structure for table `survey_externals`
@@ -538,10 +506,10 @@ CREATE TABLE `survey_pauses` (
   `id` int(10) unsigned NOT NULL,
   `wait_until_time` time DEFAULT NULL,
   `wait_until_date` date DEFAULT NULL,
-  `wait_minutes` int(11) DEFAULT NULL,
-  `relative_to` mediumtext COLLATE utf8_unicode_ci,
-  `body` mediumtext COLLATE utf8_unicode_ci,
-  `body_parsed` mediumtext COLLATE utf8_unicode_ci,
+  `wait_minutes` decimal(13,2) DEFAULT NULL,
+  `relative_to` mediumtext COLLATE utf8_unicode_ci DEFAULT NULL,
+  `body` mediumtext COLLATE utf8_unicode_ci DEFAULT NULL,
+  `body_parsed` mediumtext COLLATE utf8_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `fk_survey_breaks_survey_run_items1_idx` (`id`),
   CONSTRAINT `fk_survey_breaks_survey_run_items1` FOREIGN KEY (`id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -673,19 +641,6 @@ CREATE TABLE `survey_uploaded_files` (
   CONSTRAINT `fk_survey_uploaded_files_survey_runs1` FOREIGN KEY (`run_id`) REFERENCES `survey_runs` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
-CREATE TABLE `survey_sessions_queue` (
-  `unit_session_id` bigint(20) unsigned NOT NULL,
-  `run_session_id` int(10) unsigned NOT NULL,
-  `unit_id` int(10) unsigned NOT NULL,
-  `created` int(10) unsigned NOT NULL,
-  `expires` int(10) unsigned NOT NULL,
-  `run` varchar(45) COLLATE utf8_unicode_ci NOT NULL,
-  `counter` int(10) unsigned NOT NULL DEFAULT '0',
-  `execute` tinyint(1) unsigned NOT NULL DEFAULT '1',
-   PRIMARY KEY (`unit_session_id`),
-   KEY `run_session_id` (`run_session_id`,`unit_id`),
-   KEY `expires` (`expires`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 CREATE TABLE `survey_settings` (
   `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
