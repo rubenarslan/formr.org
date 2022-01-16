@@ -2,6 +2,7 @@
 -- Database: `formr`
 -- Schema Updated: 10.05.2021
 --
+SET NAMES utf8mb4;
 CREATE DATABASE IF NOT EXISTS formr CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE formr;
 
