@@ -13,8 +13,8 @@ $settings['database'] = array(
 	'password' => 'password',
 	'database' => 'database',
 	'prefix' => '',
-	'encoding' => 'utf8',
-	'unix_socket' => '/Applications/MAMP/tmp/mysql/mysql.sock',
+	'encoding' => 'utf8mb',
+	'unix_socket' => '',
 );
 
 // OpenCPU instance settings
