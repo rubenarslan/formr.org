@@ -55,17 +55,17 @@ class DB {
         $options = array(
             'host' => $params['host'],
             'dbname' => $params['database'],
-            'charset' => 'utf8',
+            'charset' => $params['charset'],
         );
         if (!empty($params['port'])) {
             $options['port'] = $params['port'];
         }
 
-        $dsn = 'mysql:' . http_build_query($options, null, ';');
+        $dsn = 'mysql:' . http_build_query($options, '', ';');
         $this->PDO = new PDO($dsn, $params['login'], $params['password'], array(
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8',
+            PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES '.$options['charset'],
         ));
 
         $dt = new DateTime();
