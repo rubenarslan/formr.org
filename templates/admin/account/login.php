@@ -36,7 +36,7 @@
                                     <div class="login-form">
                                         <span class="close"><a href="<?= site_url() ?>">&times</a></span>
                                         <div>
-                                            <a href="<?= site_url() ?>" class="login-form-logo"><span>f</span>orm<span>{`r}</span></a>
+                                            <a href="<?= site_url() ?>" class="login-form-logo"><?=Config::get('brand')?></a>
                                         </div>
                                         
                                         <h2>Login to your Account</h2>

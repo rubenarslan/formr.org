@@ -197,3 +197,7 @@ $settings['disabled_features'] = array(
     // RUN.controller_method_name
     // SURVEY.controller_method_name
 );
+
+# Brand
+$settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
+$settings['brand_long'] = '<b>formr</b> survey framework';
