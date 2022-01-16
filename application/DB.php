@@ -55,7 +55,7 @@ class DB {
         $options = array(
             'host' => $params['host'],
             'dbname' => $params['database'],
-            'charset' => $params['charset'],
+            'charset' => $params['encoding'],
         );
         if (!empty($params['port'])) {
             $options['port'] = $params['port'];
@@ -65,7 +65,7 @@ class DB {
         $this->PDO = new PDO($dsn, $params['login'], $params['password'], array(
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES '.$options['charset'],
+            PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES '.$options['encoding'],
         ));
 
         $dt = new DateTime();
