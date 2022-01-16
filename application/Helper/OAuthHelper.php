@@ -120,7 +120,7 @@ class OAuthHelper {
         if (!$user_id) {
             return false;
         }
-        return new User($db, $user_id);
+        return new User($user_id, null);
     }
 
     /**

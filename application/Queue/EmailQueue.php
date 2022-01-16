@@ -159,27 +159,21 @@ class EmailQueue extends Queue {
     }
 
     protected function logResult($session_id, $email_id, $status_code, $result, $result_log = null) {
-        $this->db->exec('UPDATE `survey_email_log` 
-                            SET `status` = :status_code, 
-                                `sent` = NOW()
-                            WHERE `id` = :id', array(
-                                'id' => $email_id,
-                                'status_code' => $status_code));
+        $this->db->exec(
+            'UPDATE `survey_email_log` SET `status` = :status_code, `sent` = NOW() WHERE `id` = :id', 
+            ['id' => $email_id, 'status_code' => $status_code]
+        );
+        
         if($session_id) {
-            $this->db->exec('UPDATE `survey_unit_sessions` 
-                                    SET `result` = :result, 
-                                        `result_log` = :resultlog
-                                    WHERE `id` = :session_id', array(
-                                        'session_id' => $session_id,
-                                        'result' => $result,
-                                        'resultlog' => $result_log));
+            $this->db->exec(
+                'UPDATE `survey_unit_sessions` SET `result` = :result, `result_log` = :resultlog WHERE `id` = :session_id',
+                ['session_id' => $session_id, 'result' => $result, 'resultlog' => $result_log]
+            );
         }
     }
     
     protected function deactivateAccount($account_id) {
-        $this->db->exec('UPDATE `survey_email_accounts` 
-        SET `status` = -1 
-        WHERE id = :id', array("id" => (int) $account_id));
+        $this->db->exec('UPDATE `survey_email_accounts` SET `status` = -1 WHERE id = :id', array("id" => (int) $account_id));
     }
 
     /**
@@ -299,32 +293,6 @@ class EmailQueue extends Queue {
         
         $emailAccountsStatement->closeCursor();
         return true;
-    }
-
-    /**
-     * Register email send failure and/or remove expired emails
-     *
-     * @param array $email @array(id, subject, message, recipient, created, meta)
-     * @param array $account @array(account_id, `from`, from_name, host, port, tls, username, password, auth_key)
-     */
-    protected function registerFailure($email, $account) {
-        $id = $email['id'];
-        if (!isset($this->failures[$id])) {
-            $this->failures[$id] = 0;
-        }
-        $this->failures[$id] ++;
-        if ($this->failures[$id] > $this->itemTries || (time() - strtotime($email['created'])) > $this->itemTtl) {
-            $this->db->exec('DELETE FROM survey_email_queue WHERE id = ' . (int) $id);
-            try {
-                $mailer = Site::getInstance()->makeAdminMailer();
-                $mailer->Subject = 'formr: E-mailing problem';
-                $mailer->msgHTML(Template::get_replace('email/email-queue-problem.ftpl', $email));
-                $mailer->addAddress($account['from']);
-                $mailer->send();
-            } catch (Exception $e) {
-                formr_log_exception($e);
-            }
-        }
     }
 
     protected function clearFiles($files) {

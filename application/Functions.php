@@ -133,7 +133,7 @@ function formr_error($code = 500, $title = 'Bad Request', $text = 'Request could
 }
 
 function formr_error_feature_unavailable() {
-     formr_error('503', 'Feature Unavailable', 'Sorry this feature is temporarily unavailable. Please try again later', '', 'javascript:history.back();', 'Go Back');
+    formr_error('503', 'Feature Unavailable', 'Sorry this feature is temporarily unavailable. Please try again later', '', 'javascript:history.back();', 'Go Back');
 }
 
 function h($text) {
@@ -592,7 +592,7 @@ function empty_column($col, $arr) {
     foreach ($arr AS $row):
         if (!(empty($row->$col)) OR // not empty column? (also treats 0 and empty strings as empty)
                 $last != $row->$col OR // any variation in this column?
-                ! (!is_array($row->$col) AND trim($row->$col) == '')):
+                !(!is_array($row->$col) AND trim($row->$col) == '')):
             $empty = false;
             break;
         endif;
@@ -948,7 +948,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 	' . $variables . '
 	' . $code . '
 })() }');
-    
+
     $uri = '/base/R/identity/' . $return_format;
     try {
         $session = OpenCPU::getInstance()->post($uri, $params);
@@ -1091,7 +1091,7 @@ function opencpu_knit_iframe($source, $variables = null, $return_session = false
         $show_errors = 'TRUE';
         $show_warnings = 'TRUE';
     }
- 
+
     $yaml = "";
     $yaml_lines = '/^\-\-\-/um';
     if (preg_match_all($yaml_lines, $source) >= 2) {
@@ -1120,7 +1120,6 @@ opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',err
 # &nbsp;
 
 " . $footer_text;
-
 
     $params = array('text' => "'" . addslashes($source) . "'");
 
@@ -1182,7 +1181,7 @@ function opencpu_knitadmin($source, $variables = null, $return_session = false) 
         $show_errors = 'TRUE';
         $show_warnings = 'TRUE';
     }
-    
+
     $source = '```{r settings,warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F}
 library(knitr); library(formr)
 opts_chunk$set(warning=' . $show_warnings . ',message=' . $show_warnings . ',error=' . $show_errors . ',echo=F)
@@ -1235,16 +1234,17 @@ function opencpu_string_key_parsing($strings) {
 /**
  * Parse a bulk of strings in ocpu
  *
- * @param Survey $survey Current survey containing strings that are beigin parsed
+ * @param UnitSession $unitSession Unit session containing the data needed
  * @param array $string_templates An array of strings to be parsed
  * @return array Returns an array of parsed labels indexed by the label-key to be substituted
  */
-function opencpu_multistring_parse(Survey $survey, array $string_templates) {
+function opencpu_multistring_parse(UnitSession $unitSession, array $string_templates) {
+    $survey = $unitSession->runUnit->surveyStudy;
     $markdown = implode(OpenCPU::STRING_DELIMITER, $string_templates);
-    $opencpu_vars = $survey->getUserDataInRun($markdown, $survey->name);
+    $opencpu_vars = $unitSession->getRunData($markdown, $survey->name);
     $session = opencpu_knitdisplay($markdown, $opencpu_vars, true, $survey->name);
 
-    if ($session AND ! $session->hasError()) {
+    if ($session AND!$session->hasError()) {
         print_hidden_opencpu_debug_message($session, "OpenCPU debugger for dynamic values and showifs.");
         $parsed_strings = $session->getJSONObject();
         $strings = explode(OpenCPU::STRING_DELIMITER_PARSED, $parsed_strings);
@@ -1277,7 +1277,8 @@ function opencpu_substitute_parsed_strings(array &$array, array $parsed_strings)
     }
 }
 
-function opencpu_multiparse_showif(Survey $survey, array $showifs, $return_session = false) {
+function opencpu_multiparse_showif(UnitSession $unitSession, array $showifs, $return_session = false) {
+    $survey = $unitSession->runUnit->surveyStudy;
     $code = "(function() {with(tail({$survey->name}, 1), {\n";
     $code .= "formr.showifs = list();\n";
     $code .= "within(formr.showifs,  { \n";
@@ -1285,16 +1286,17 @@ function opencpu_multiparse_showif(Survey $survey, array $showifs, $return_sessi
     $code .= "})\n";
     $code .= "})})()\n";
 
-    $variables = $survey->getUserDataInRun($code, $survey->name);
+    $variables = $unitSession->getRunData($code, $survey->name);
     return opencpu_evaluate($code, $variables, 'json', null, $return_session);
 }
 
-function opencpu_multiparse_values(Survey $survey, array $values, $return_session = false) {
+function opencpu_multiparse_values(UnitSession $unitSession, array $values, $return_session = false) {
+    $survey = $unitSession->runUnit->surveyStudy;
     $code = "(function() {with(tail({$survey->name}, 1), {\n";
     $code .= "list(\n" . implode(",\n", $values) . "\n)";
     $code .= "})})()\n";
 
-    $variables = $survey->getUserDataInRun($code, $survey->name);
+    $variables = $unitSession->getRunData($code, $survey->name);
     return opencpu_evaluate($code, $variables, 'json', null, $return_session);
 }
 
@@ -1339,7 +1341,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
             }
 
             $urls = $session->getResponsePathsAsLinks();
-            if (!$session->hasError() AND ! empty($urls)) {
+            if (!$session->hasError() AND!empty($urls)) {
                 $locations = '';
                 foreach ($urls AS $path => $link) {
                     $path = str_replace('/ocpu/tmp/' . $session->getKey(), '', $path);
@@ -1373,6 +1375,33 @@ function opencpu_log($msg) {
         $log .= $msg;
     }
     error_log($log . "\n", 3, get_log_file('opencpu.log'));
+}
+
+function opencpu_formr_variables($q) {
+    $variables = [];
+    if (preg_match("/\btime_passed\b/", $q)) {
+        $variables[] = 'formr_last_action_time';
+    }
+    if (preg_match("/\bnext_day\b/", $q)) {
+        $variables[] = 'formr_last_action_date';
+    }
+    if (strstr($q, '.formr$login_code') !== false) {
+        $variables[] = 'formr_login_code';
+    }
+    if (preg_match("/\buser_id\b/", $q)) {
+        $variables[] = 'user_id';
+    }
+    if (strstr($q, '.formr$login_link') !== false) {
+        $variables[] = 'formr_login_link';
+    }
+    if (strstr($q, '.formr$nr_of_participants') !== false) {
+        $variables[] = 'formr_nr_of_participants';
+    }
+    if (strstr($q, '.formr$session_last_active') !== false) {
+        $variables[] = 'formr_session_last_active';
+    }
+
+    return $variables;
 }
 
 function pre_htmlescape($str) {
@@ -1462,6 +1491,7 @@ function google_download_survey_sheet($survey_name, $google_link) {
             'tmp_name' => $destination_file,
             'size' => filesize($destination_file),
             'google_id' => $google_id,
+            'google_file_id' => $google_id,
             'google_link' => google_get_sheet_link($google_id),
             'google_download_link' => $google_download_link,
         );
@@ -1674,4 +1704,27 @@ function secstofactor($seconds) {
         }
     }
     return array($seconds, 'seconds');
+}
+
+function knitting_needed($source) {
+    if (mb_strpos($source, '`r ') !== false || mb_strpos($source, '```{r') !== false) {
+        return true;
+    }
+    return false;
+}
+
+function get_db_non_user_tables() {
+    return [
+        'survey_users' => array("created", "modified", "user_code", "email", "email_verified", "mobile_number", "mobile_verified"),
+        'survey_run_sessions' => array("session", "created", "last_access", "position", "current_unit_id", "deactivated", "no_email"),
+        'survey_unit_sessions' => array("created", "ended", 'expired', "unit_id", "position", "type"),
+        'externals' => array("created", "ended", 'expired', "position"),
+        'survey_items_display' => array("created", "answered_time", "answered", "displaycount", "item_id"),
+        'survey_email_log' => array("email_id", "created", "recipient"),
+        'shuffle' => array("unit_id", "created", "group"),
+    ];
+}
+
+function get_db_non_session_tables() {
+    return ['survey_users', 'survey_run_sessions', 'survey_unit_sessions'];
 }

@@ -61,7 +61,7 @@
                                             <i class="fa fa-info-circle"></i> Do you want a certain number of items on each page? We prefer speciyfing pages manually (by adding submit buttons items when we want a pagebreaks) because this gives us greater manual control
                                         </span>
                                         <span class="col-md-6 nlp" style="padding-left: 0px;">
-                                            <input type="number" class="form-control" name="maximum_number_displayed" value="<?= h($study->settings['maximum_number_displayed']) ?>" min="0" />
+                                            <input type="number" class="form-control" name="maximum_number_displayed" value="<?= h($study->maximum_number_displayed) ?>" min="0" />
                                         </span>
 
 
@@ -72,7 +72,7 @@
                                             <i class="fa fa-info-circle"></i> Instant validation means that users will be alerted if their survey input is invalid right after entering their information. Otherwise, validation messages will only be shown once the user tries to submit.
                                         </span>
                                         <div class="checkbox">
-                                            <label> <input type="checkbox" name="enable_instant_validation" value="1" <?php if ($study->settings['enable_instant_validation']) echo 'checked="checked"'; ?>> <strong>Enable</strong> </label>
+                                            <label> <input type="checkbox" name="enable_instant_validation" value="1" <?php if ($study->enable_instant_validation) echo 'checked="checked"'; ?>> <strong>Enable</strong> </label>
                                         </div>
                                     </td>
                                 </tr>
@@ -86,9 +86,9 @@
                                         <div class="form-group " style="padding-left: 0px;">
                                             <div class="input-group">
                                                 <div class="input-group-addon"> from </div>
-                                                <input type="number" class="form-control" name="add_percentage_points" value="<?= h($study->settings['add_percentage_points']) ?>" min="0" max="100" />
+                                                <input type="number" class="form-control" name="add_percentage_points" value="<?= h($study->add_percentage_points) ?>" min="0" max="100" />
                                                 <div class="input-group-addon"> to</div>
-                                                <input type="number" class="form-control" name="displayed_percentage_maximum" value="<?= h($study->settings['displayed_percentage_maximum']) ?>" min="0" max="100" />	<div class="input-group-addon"> %</div>
+                                                <input type="number" class="form-control" name="displayed_percentage_maximum" value="<?= h($study->displayed_percentage_maximum) ?>" min="0" max="100" />	<div class="input-group-addon"> %</div>
                                             </div>
                                         </div>
                                     </td>
@@ -103,7 +103,7 @@
                                             <strong class="text-red">You can't change this settings once you select this option.</strong>
                                         </span>
                                         <div class="checkbox">
-                                            <label> <input type="checkbox" name="unlinked" value="1" <?php if ($study->settings['unlinked']) echo 'checked="checked"'; ?>> <strong>Unlink Survey</strong> </label>
+                                            <label> <input type="checkbox" name="unlinked" value="1" <?php if ($study->unlinked) echo 'checked="checked"'; ?>> <strong>Unlink Survey</strong> </label>
                                         </div>
                                     </td>
                                     <td>
@@ -113,9 +113,9 @@
                                             <strong class="text-red">You can't change this settings once you select this option.</strong>
                                         </span>
                                         <div class="checkbox">
-                                            <label> <input type="checkbox" name="hide_results" value="1" <?php if ($study->settings['hide_results']) echo 'checked="checked"'; ?>> <strong>Disable</strong> </label>
+                                            <label> <input type="checkbox" name="hide_results" value="1" <?php if ($study->hide_results) echo 'checked="checked"'; ?>> <strong>Disable</strong> </label>
                                         </div>
-                                        <input type="hidden" class="form-control" name="google_file_id" value="<?= h($study->settings['google_file_id']) ?>" />
+                                        <input type="hidden" class="form-control" name="google_file_id" value="<?= h($study->google_file_id) ?>" />
                                     </td>
                                 </tr>
                                 <tr><td colspan="2"><h4>Survey access window</h4></td></tr>
@@ -131,10 +131,10 @@
                                         <div class="form-group " style="padding-left: 0px;">
                                             <div class="input-group">
                                                 <div class="input-group-addon"> Start editing within </div>
-                                                <input type="number" class="form-control" name="expire_invitation_after" value="<?= h($study->settings['expire_invitation_after']) ?>" min="0" max="3153600" size="20" />
+                                                <input type="number" class="form-control" name="expire_invitation_after" value="<?= h($study->expire_invitation_after) ?>" min="0" max="3153600" size="20" />
                                                 <div class="input-group-addon"> minutes</div>
                                                 <div class="input-group-addon"> finishing editing within </div>
-                                                <input type="number" class="form-control" name="expire_invitation_grace" value="<?= h($study->settings['expire_invitation_grace']) ?>" min="0" max="3153600" size="20" />
+                                                <input type="number" class="form-control" name="expire_invitation_grace" value="<?= h($study->expire_invitation_grace) ?>" min="0" max="3153600" size="20" />
                                                 <div class="input-group-addon"> minutes after the access window closed</div>
                                             </div>
 
@@ -149,7 +149,7 @@
                                         </span>
                                         <div class="form-group col-md-3 nlp" style="padding-left: 0px;">
                                             <div class="input-group">
-                                                <input type="number" class="form-control" name="expire_after" value="<?= h($study->settings['expire_after']) ?>" min="0" max="3153600" size="20" />
+                                                <input type="number" class="form-control" name="expire_after" value="<?= h($study->expire_after) ?>" min="0" max="3153600" size="20" />
                                                 <div class="input-group-addon"> Minutes</div>
                                             </div>
                                         </div>
@@ -166,7 +166,7 @@
                                             <strong class="text-red">You can't change this settings once you select this option.</strong>
                                         </span>
                                         <div class="checkbox">
-                                            <label> <input type="checkbox" name="use_paging" value="1" <?php if ($study->settings['use_paging']) echo 'checked="checked"'; ?>> <strong>Enable Paging</strong> </label>
+                                            <label> <input type="checkbox" name="use_paging" value="1" <?php if ($study->use_paging) echo 'checked="checked"'; ?>> <strong>Enable Paging</strong> </label>
                                         </div>
                                     </td>
                                 </tr>

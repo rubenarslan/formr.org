@@ -1,4 +1,5 @@
 <?php
+
 use PHPMailer\PHPMailer\PHPMailer;
 
 class Site {
@@ -175,7 +176,7 @@ class Site {
                     // but if he's logged in we should alert them
                     alert("You switched sessions, because you came here with a login link and were already logged in as someone else.", 'alert-info');
                 }
-                $user = new User(DB::getInstance(), null, $login_code);
+                $user = new User(null, $login_code);
             // a special case are admins. if they are not already logged in, verified through password, they should not be able to obtain access so easily. but because we only create a mock user account, this is no problem. the admin flags are only set/privileges are only given if they legitimately log in
             endif;
         } elseif (isset($_GET['run_name']) && isset($user->user_code)) {
@@ -274,14 +275,14 @@ class Site {
             if (!empty($user->id)) { // logged in user
                 // refresh user object if not expired
                 $expiry = Config::get('expire_registered_session');
-                $user = new User($db, $user->id, $user->user_code);
+                $user = new User($user->id, $user->user_code);
                 // admins have a different expiry, can only be lower
                 if ($user->isAdmin()) {
                     $expiry = Config::get('expire_admin_session');
                 }
             } elseif (!empty($user->user_code)) { // visitor
                 // refresh user object
-                $user = new User($db, null, $user->user_code);
+                $user = new User(null, $user->user_code);
             }
         }
 
@@ -290,7 +291,7 @@ class Site {
         }
 
         if (empty($user->user_code)) {
-            $user = new User($db, null, null);
+            $user = new User(null, null);
         }
 
         return $user;
@@ -352,6 +353,10 @@ class Site {
         }
         
         return $settings;
+    }
+    
+    public static function runningInConsole() {
+        return php_sapi_name() === "cli";
     }
 
 }

@@ -54,8 +54,11 @@ class AdminRunController extends AdminController {
             } elseif ($run_name == Run::TEST_RUN || Router::isWebRootDir($run_name) || in_array($run_name, Config::get('reserved_run_names', array())) || Run::nameExists($run_name)) {
                 $error = __('The run name "%s" is already taken. Please choose another name', $run_name);
             } else {
-                $run = new Run($this->fdb, null);
-                $run->create(array('run_name' => $run_name, 'user_id' => $this->user->id));
+                $run = new Run();
+                $run->create([
+                    'run_name' => $run_name,
+                    'user_id' => $this->user->id
+                ]);
                 if ($run->valid) {
                     alert("<strong>Success.</strong> Run '{$run->name}' was created.", 'alert-success');
                     $this->request->redirect(admin_run_url($run->name));
@@ -207,7 +210,7 @@ class AdminRunController extends AdminController {
     }
 
     private function createNewTestCodeAction() {
-        $run_session = $this->run->makeTestRunSession();
+        $run_session = RunSession::getTestSession($this->run);
         $sess = $run_session->session;
         $animal = substr($sess, 0, strpos($sess, "XXX"));
         $sess_url = run_url($this->run->name, null, array('code' => $sess));
@@ -223,7 +226,7 @@ class AdminRunController extends AdminController {
     private function createNewNamedSessionAction() {
         if (Request::isHTTPPostRequest()) {
             $code_name = $this->request->getParam('code_name');
-            $run_session = $this->run->addNamedRunSession($code_name);
+            $run_session = RunSession::getNamedSession($this->run, $code_name);
 
             if ($run_session) {
                 $sess = $run_session->session;
@@ -562,7 +565,7 @@ class AdminRunController extends AdminController {
             return;
         }
 
-        $run = new Run($this->fdb, $name);
+        $run = new Run($name);
         if (!$run->valid) {
             formr_error(404, 'Not Found', 'Requested Run does not exist or has been moved');
         } elseif (!$this->user->created($run)) {
@@ -632,7 +635,6 @@ class AdminRunController extends AdminController {
         $redirect = $this->request->redirect ? admin_run_url($this->run->name, $this->request->redirect) : admin_run_url($this->run->name);
         $unit = $this->createRunUnit();
         if ($unit->valid) {
-            $unit->addToRun($this->run->id, $unit->position);
             alert('Run unit created', 'alert-success');
         } else {
             alert('An unexpected error occured. Unit could not be created', 'alert-danger');

@@ -29,7 +29,7 @@ class AdminController extends Controller {
         $osf->setAccessToken($token);
 
         if (Request::isHTTPPostRequest() && $this->request->getParam('osf_action') === 'export-run') {
-            $run = new Run($this->fdb, $this->request->getParam('formr_project'));
+            $run = new Run($this->request->getParam('formr_project'));
             $osf_project = $this->request->getParam('osf_project');
             if (!$run->valid || !$osf_project) {
                 throw new Exception('Invalid Request');
@@ -37,11 +37,10 @@ class AdminController extends Controller {
 
             $unitIds = $run->getAllUnitTypes();
             $units = array();
-            $factory = new RunUnitFactory();
 
             /* @var RunUnit $u */
             foreach ($unitIds as $u) {
-                $unit = $factory->make($this->fdb, null, $u, null, $run);
+                $unit = RunUnitFactory::make($run, $u);
                 $ex_unit = $unit->getExportUnit();
                 $ex_unit['unit_id'] = $unit->id;
                 $units[] = (object) $ex_unit;
@@ -109,21 +108,14 @@ class AdminController extends Controller {
     }
 
     public function createRunUnit($id = null) {
-        $dbh = $this->fdb;
-        $run = $this->run;
-        $unit_factory = new RunUnitFactory();
-        $unit_data = array(
-            'type' => $this->request->type,
-            'position' => (int) $this->request->position,
-            'special' => $this->request->special,
-        );
-        $unit_data = array_merge($this->request->getParams(), $unit_data, RunUnit::getDefaults($this->request->type), RunUnit::getDefaults($this->request->special));
+        $data = array_merge($this->request->getParams(), RunUnit::getDefaults($this->request->type), RunUnit::getDefaults($this->request->special));
         if ($id) {
-            $unit_data['unit_id'] = $id;
+            $data['id'] = $id;
         }
-        $unit = $unit_factory->make($dbh, null, $unit_data, null, $run);
-        $unit->create($unit_data);
-        return $unit;
+
+        $unit = RunUnitFactory::make($this->run, $data);
+        
+        return $unit->create($data);
     }
 
 }

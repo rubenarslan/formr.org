@@ -67,7 +67,7 @@ class AdminAjaxController {
 
         $unit = $this->controller->createRunUnit();
         if ($unit->valid) {
-            $unit->addToRun($this->controller->run->id, $unit->position);
+            //$unit->addToRun($this->controller->run->id, $unit->position);
             alert('<strong>Success.</strong> ' . ucfirst($unit->type) . ' unit was created.', 'alert-success');
             $content = $unit->displayForRun($this->site->renderAlerts());
         } else {
@@ -86,16 +86,12 @@ class AdminAjaxController {
             formr_error(406, 'Not Acceptable');
         }
 
-        $run = $this->controller->run;
-        $dbh = $this->dbh;
+       $run = $this->controller->run;
 
-        if ($run_unit_id = $this->request->getParam('run_unit_id')) {
-            $special = $this->request->getParam('special');
-
-            $unit_info = $run->getUnitAdmin($run_unit_id, $special);
-            $unit_factory = new RunUnitFactory();
-            $unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
-
+        if ($id = $this->request->getParam('unit_id')) {
+            $params = $this->request->getParams();
+            $params['id'] = (int) $id;
+            $unit = RunUnitFactory::make($run, $params);
             $content = $unit->displayForRun();
         } else {
             $this->response->setStatusCode(500, 'Bad Request');
@@ -124,15 +120,14 @@ class AdminAjaxController {
         }
 
         $run = $this->controller->run;
+        
         // find the last email unit
-        $email = $run->getReminder($this->request->getParam('reminder'), $this->request->getParam('session'), $this->request->getParam('run_session_id'));
-        $email->run_session = new RunSession($this->dbh, $run->id, null, $this->request->getParam('session'), $run);
-        if ($email->exec() !== false) {
+        $emailSession = $run->getReminderSession($this->request->getParam('reminder'), $this->request->getParam('session'), $this->request->getParam('run_session_id'));
+        if ($emailSession->execute() === false) {
             alert('<strong>Something went wrong with the reminder.</strong> Run: ' . $run->name, 'alert-danger');
         } else {
             alert('Reminder sent!', 'alert-success');
         }
-        $email->end();
 
         if (Request::isAjaxRequest()) {
             $content = $this->site->renderAlerts();
@@ -146,7 +141,7 @@ class AdminAjaxController {
         $run = $this->controller->run;
         $dbh = $this->dbh;
 
-        $run_session = new RunSession($dbh, $run->id, null, $this->request->getParam('session'), $run);
+        $run_session = new RunSession($this->request->getParam('session'), $run);
 
         $status = $this->request->getParam('toggle_on') ? 1 : 0;
         $run_session->setTestingStatus($status);
@@ -163,7 +158,7 @@ class AdminAjaxController {
         $run = $this->controller->run;
         $dbh = $this->dbh;
 
-        $runSession = new RunSession($dbh, $run->id, 'cron', $this->request->str('session'), $run);
+        $runSession = new RunSession($this->request->str('session'), $run);
         $position = $this->request->int('new_position');
 
         if (!$runSession->forceTo($position)) {
@@ -187,9 +182,9 @@ class AdminAjaxController {
         $run = $this->controller->run;
         $dbh = $this->dbh;
 
-        $run_session = new RunSession($dbh, $run->id, null, $_GET['session'], $run);
+        $run_session = new RunSession($_GET['session'], $run);
 
-        if (!$run_session->endUnitSession()) {
+        if (!$run_session->endCurrentUnitSession()) {
             alert('<strong>Something went wrong with the unpause.</strong> in run ' . $run->name, 'alert-danger');
             $this->response->setStatusCode(500, 'Bad Request');
         }
@@ -205,9 +200,9 @@ class AdminAjaxController {
     private function ajaxSnipUnitSession() {
         $run = $this->controller->run;
         $dbh = $this->dbh;
-        $run_session = new RunSession($dbh, $run->id, null, $this->request->getParam('session'), $run);
+        $run_session = new RunSession($this->request->getParam('session'), $run);
 
-        $unit_session = $run_session->getUnitSession();
+        $unit_session = $run_session->getCurrentUnitSession();
         if ($unit_session) {
             $deleted = $dbh->delete('survey_unit_sessions', array('id' => $unit_session->id));
             if ($deleted) {
@@ -274,17 +269,14 @@ class AdminAjaxController {
         $dbh = $this->dbh;
 
         if (($run_unit_id = $this->request->getParam('run_unit_id'))) {
-            $special = $this->request->getParam('special');
-
-            $unit_info = $run->getUnitAdmin($run_unit_id, $special);
-            $unit_factory = new RunUnitFactory();
-            /* @var $unit RunUnit */
-            $unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams());
             if (!$unit) {
                 formr_error(404, 'Not Found', 'Requested Run Unit was not found');
             }
+            
             $sess_key = __METHOD__ . $unit->id;
-            $results = $unit->howManyReachedItNumbers();
+            $results = $unit->getUnitSessionsCount();
+            
             $has_sessions = $results && (array_val($results, 'begun') || array_val($results, 'finished') || array_val($results, 'expired'));
 
             if ($has_sessions && !Session::get($sess_key)) {
@@ -292,7 +284,7 @@ class AdminAjaxController {
                 $content = 'warn';
                 return $this->response->setContent($content);
             } elseif (!$has_sessions || (Session::get($sess_key) === $unit->id && $this->request->getParam('confirm') === 'yes')) {
-                if ($unit->removeFromRun($special)) {
+                if ($unit->removeFromRun($this->request->getParam('special'))) {
                     alert('<strong>Success.</strong> Unit with ID ' . $this->request->run_unit_id . ' was deleted.', 'alert-success');
                 } else {
                     $this->response->setStatusCode(500, 'Bad Request');
@@ -382,17 +374,19 @@ class AdminAjaxController {
         }
 
         $run = $this->controller->run;
-        $dbh = $this->dbh;
         $content = '';
 
-        $unit_factory = new RunUnitFactory();
-        if ($run_unit_id = $this->request->getParam('run_unit_id')) {
-            $special = $this->request->getParam('special');
-            $unit_info = $run->getUnitAdmin($run_unit_id, $special);
+        if ($id = $this->request->getParam('unit_id')) {
+            $params = $this->request->getParams();
+            $params['id'] = (int) $id;
+            if (!empty($params['position']) && is_array($params['position'])) {
+                $params['position'] = array_shift($params['position']);
+            }
 
-            $unit = $unit_factory->make($dbh, null, $unit_info, null, $run);
-            $unit->create($_POST);
-            if ($unit->valid && ($unit->hadMajorChanges() || !empty($this->site->alerts))) {
+            $unit = RunUnitFactory::make($run, $params);
+            $unit->create($params);
+
+            if ($unit->valid) {
                 $content = $unit->displayForRun($this->site->renderAlerts());
             }
         } else {
@@ -431,13 +425,8 @@ class AdminAjaxController {
             formr_error(406, 'Not Acceptable');
         }
 
-        $run = new Run($this->dbh, $this->controller->run->name);
-
         if ($run_unit_id = $this->request->getParam('run_unit_id')) {
-            $special = $this->request->getParam('special');
-            $unit = $run->getUnitAdmin($run_unit_id, $special);
-            $unit_factory = new RunUnitFactory();
-            $unit = $unit_factory->make($this->dbh, null, $unit, null, $run);
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams());
             $test_content = $unit->test();
             $content = $this->site->renderAlerts();
             $content .= $test_content;
@@ -473,13 +462,11 @@ class AdminAjaxController {
             $run = $this->controller->run;
             $count = 0;
             foreach ($sessions as $sess) {
-                $runSession = new RunSession($this->dbh, $run->id, null, $sess, $run);
-                $email = $run->getReminder($this->request->int('reminder'), $sess, $runSession->id);
-                $email->run_session = $runSession;
-                if ($email->exec() === false) {
+                $emailSession = $run->getReminderSession($this->request->int('reminder'), $sess, $runSession->id);
+                if ($emailSession->execute() !== false) {
                     $count++;
                 }
-                $email->end();
+                //$email->end();
             }
 
             if ($count) {
