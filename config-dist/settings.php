@@ -82,8 +82,9 @@ $settings['web_dir'] = APPLICATION_ROOT . 'webroot';
 
 // Setup settings for application that can overwrite defaults in /define_root.php
 $settings['define_root'] = array(
-		//'protocol' => 'http://',
+		//'protocol' => 'https://',
 		//'doc_root' => 'localhost/formr.org/',
+		//'study_domain' => 'localhost/formr.org/',
 		//'server_root' => APPLICATION_ROOT . '/',
 		//'online' => false,
 		//'testing' => true
@@ -196,4 +197,3 @@ $settings['disabled_features'] = array(
     // RUN.controller_method_name
     // SURVEY.controller_method_name
 );
-		
