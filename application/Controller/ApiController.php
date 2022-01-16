@@ -30,6 +30,8 @@ class ApiController extends Controller {
      */
     protected $oauthServer;
 
+    protected $unrestrictedActions = ['end-last-external'];
+    
     public function __construct(Site &$site) {
         parent::__construct($site);
         $this->initialize();
@@ -186,8 +188,7 @@ class ApiController extends Controller {
     }
 
     protected function authenticate($action) {
-        $publicActions = array("end-last-external");
-        if (!in_array($action, $publicActions)) {
+        if (!in_array($action, $this->unrestrictedActions)) {
             $this->oauthServer = Site::getOauthServer();
             // Handle a request to a resource and authenticate the access token
             // Ex: curl http://formr.org/api/post/action-name -d 'access_token=YOUR_TOKEN'

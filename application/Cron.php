@@ -93,7 +93,7 @@ class Cron {
             $runs = $this->db->select('name')->from('survey_runs')->where('cron_active = 1')->order('cron_fork', 'DESC')->fetchAll();
 
             foreach ($runs as $run_data) {
-                $run = new Run($this->db, $run_data['name']);
+                $run = new Run($run_data['name']);
                 if (!$run->valid) {
                     alert("This run '{$run_data['name']}' caused problems", 'alert-danger');
                     continue;
@@ -137,7 +137,7 @@ class Cron {
         $run->getOwner();
         while ($row = $sessions->fetch(PDO::FETCH_ASSOC)) {
             $session = $row['session'];
-            $runSession = new RunSession($this->db, $run->id, 'cron', $session, $run);
+            $runSession = new RunSession($session, $run);
             $types = $runSession->execute(); // start looping thru their units.
             $i++;
 

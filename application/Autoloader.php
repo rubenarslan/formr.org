@@ -66,16 +66,22 @@ class Autoload {
 
         $class = $this->classNameToPath($class);
         $paths = array(
+            APPLICATION_PATH . "{$class}.php",
             APPLICATION_PATH . "Controller/{$class}.php",
-            APPLICATION_PATH . "Library/{$class}.php",
+            APPLICATION_PATH . "Model/RunUnit/{$class}.php", 
+            APPLICATION_PATH . "Model/Item/{$class}.php",
             APPLICATION_PATH . "Model/{$class}.php",
             APPLICATION_PATH . "View/{$class}.php",
             APPLICATION_PATH . "Helper/{$class}.php",
+            APPLICATION_PATH . "Queue/{$class}.php",
+            APPLICATION_PATH . "Services/{$class}.php",
+            APPLICATION_PATH . "Spreadsheet/{$class}.php",
         );
 
         foreach ($paths as $path) {
             if (file_exists($path) && is_readable($path)) {
                 $file = $path;
+                break;
             }
         }
 

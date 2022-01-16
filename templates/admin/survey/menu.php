@@ -30,7 +30,7 @@
     <div class="box-body no-padding context-menu">
         <ul class="nav nav-pills nav-stacked">
             <li><a target="_blank" href="<?= admin_study_url($study->name, 'access') ?>" class="hastooltip" title="Simply click this link to test this survey. But remember that it's not in the broader context of a run, so if you refer to other surveys, that will cause problems."><i class="fa fa-play"></i> Test Survey</a></li>
-            <?php if (!$study->settings['hide_results']): ?>
+            <?php if (!$study->hide_results): ?>
                 <li><a href="<?= admin_study_url($study->name, 'show_results') ?>"><i class="fa fa-file-text-o"></i> Show Results</a></li>
                 <li class="dropdown"><a  href="#" data-toggle="dropdown" aria-expanded="false" class="dropdown-toggle"><i class="fa fa-save"></i> Export Results</a>
                     <ul class="dropdown-menu">
@@ -70,8 +70,8 @@
 if (empty($resultCount)) {
     $resultCount = $study->getResultCount();
 }
-if (trim($study->settings['google_file_id']) && (int) $resultCount['real_users'] === 0):
-    $google_link = google_get_sheet_link($study->settings['google_file_id']);
+if (trim($study->google_file_id) && (int) $resultCount['real_users'] === 0):
+    $google_link = google_get_sheet_link($study->google_file_id);
     ?>
     <form class="" action="<?= admin_study_url($study->name, 'upload_items') ?>" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="#">
         <input type="hidden" name="study_id" value="<?= $study->id ?>">
