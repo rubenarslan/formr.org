@@ -65,7 +65,7 @@ class DB {
         $this->PDO = new PDO($dsn, $params['login'], $params['password'], array(
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES '.$options['encoding'],
+            PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES '.$options['charset'],
         ));
 
         $dt = new DateTime();
