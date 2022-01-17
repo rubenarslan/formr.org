@@ -17,12 +17,6 @@
 			"email": "cyril.tata@gmail.com",
 			"homepage": "https://github.com/cyriltata",
 			"role": "Developer"
-		},
-        {
-			"name": "Matthias P. Walther",
-			"email": "m.walther@wwu.de",
-			"homepage": "https://github.com/mpw-wwu",
-			"role": "Developer"
 		}
 	],
     "require": {
