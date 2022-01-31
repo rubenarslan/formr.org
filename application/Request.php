@@ -32,7 +32,7 @@ class Request {
      * @param mixed $value
      */
     public function __set($name, $value) {
-        $this->data[$name] = self::stripslashes(self::stripControlChars($value));
+        $this->data[$name] = self::stripControlChars($value);
     }
 
     /**
@@ -76,7 +76,7 @@ class Request {
      * @param array|mixed|string $value
      * @return array|mixed|string
      */
-    public function stripControlChars($value) {
+    public static function stripControlChars($value) {
         if (is_array($value)) {
             foreach ($value as $key => $val) {
                 $value[$key] = self::stripControlChars($val);
@@ -212,7 +212,7 @@ class Request {
         return isset(self::$globals[$key]) ? self::$globals[$key] : $default;
     }
 
-    private static function stripslashes($value) {
+    public static function stripslashes($value) {
         // skip objects (object.toString() results in wrong output)
         if (!is_object($value) && !is_array($value)) {
             $value = stripslashes($value);
