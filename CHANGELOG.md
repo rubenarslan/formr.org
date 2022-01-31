@@ -2,6 +2,9 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.19.9] - 31.01.2022
+* Minor bug fixes
+
 ## [0.18.0] - 27.05.2017
 ### Added
 - A new queuing system to process run sessions
