@@ -192,9 +192,11 @@ class RunSession {
 
                 if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id != $this->unit_session->id) {
                     // dead queue item, remove from queue
-                    formr_log("Dead queue item " . $referenceUnitSession->id, " mismatch " . $this->unit_session->id);
-                    formr_log($referenceUnitSession);
-                    formr_log($this->unit_session);
+                    if (DEBUG) {
+                        formr_log("Dead queue item " . $referenceUnitSession->id, " mismatch " . $this->unit_session->id);
+                        formr_log($referenceUnitSession);
+                        formr_log($this->unit_session);
+                    }
                     $referenceUnitSession = null;
                 } else if ($referenceUnitSession && $this->unit_session && $referenceUnitSession->id == $this->unit_session->id && !$executeReferenceUnit) {
                     # if we are calling this from the queue and the session is still current
