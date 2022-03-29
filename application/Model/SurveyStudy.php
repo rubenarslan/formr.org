@@ -120,6 +120,7 @@ class SurveyStudy extends Model {
      * @return boolean
      */
     public function createFromFile($file, $options) {
+
         // Create the corresponding entry in survey_units to get the ID
         $id = RunUnitFactory::make(new Run(), ['type' => 'Survey'])->create($options)->id;
         $this->assignProperties($file);
@@ -150,6 +151,7 @@ class SurveyStudy extends Model {
         }
         
         $study = self::loadByUserAndName(Site::getCurrentUser(), $data->name);
+
         if ($study->valid) {
             // Survey exists so use existing data
             $unit = [
@@ -163,7 +165,7 @@ class SurveyStudy extends Model {
             RunUnitFactory::make($options['run'], $unit)->create($options);
         } else {
             $study = new SurveyStudy();
-            $file = ['name' => $data->name .'xlsx'];
+            $file = ['name' => $data->name .'.xlsx'];
             unset($options['is_import']);
             if (!$study->createFromFile($file, $options)) {
                 return false;
