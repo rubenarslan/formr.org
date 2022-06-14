@@ -781,14 +781,14 @@ class Run extends Model {
 
         $run_content = '';
 
-        if (!$this->renderedDescAndFooterAlready && trim($this->description_parsed)) {
+        if (!$this->renderedDescAndFooterAlready && !empty($this->description_parsed)) {
             $run_content .= $this->description_parsed;
         }
 
         if (isset($output['body'])) {
             $run_content .= $output['body'];
         }
-        if (!$this->renderedDescAndFooterAlready && trim($this->footer_text_parsed)) {
+        if (!$this->renderedDescAndFooterAlready && !empty($this->footer_text_parsed)) {
             $run_content .= $this->footer_text_parsed;
         }
 

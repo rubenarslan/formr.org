@@ -189,6 +189,10 @@ class RunController extends Controller {
     }
 
     private function getPrivateActionMethod($action) {
+        if ($action === null) {
+            return false;
+        }
+
         $actionName = $this->getPrivateAction($action, '-', true) . 'Action';
         if (!method_exists($this, $actionName)) {
             return false;

@@ -237,6 +237,11 @@ class Site {
             // if $id is null, get from current session
             $session = Session::get('current_run_session_code');
         }
+        
+        if (!$session) {
+            return null;
+        }
+
         $id = md5($session);
         return isset($this->runSessions[$id]) ? $this->runSessions[$id] : null;
     }
