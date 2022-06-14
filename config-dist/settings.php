@@ -198,6 +198,15 @@ $settings['disabled_features'] = array(
     // SURVEY.controller_method_name
 );
 
-# Brand
+// Brand
 $settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
 $settings['brand_long'] = '<b>formr</b> survey framework';
+
+// Settings for PHP session
+$settings['php_session'] = array(
+    'path' => '/',
+    'domain' => '.formr.org',
+    'secure' => true,
+    'httponly' => true,
+    //'lifetime' => 36000,
+);

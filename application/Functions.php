@@ -137,6 +137,10 @@ function formr_error_feature_unavailable() {
 }
 
 function h($text) {
+    if (!$text) {
+        return null;
+    }
+    
     return htmlspecialchars($text);
 }
 
