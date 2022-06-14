@@ -20,6 +20,10 @@ class External extends RunUnit {
     public function __construct(Run $run, array $props = []) {
         parent::__construct($run, $props);
 
+        if (isset($props['external_link'])) {
+            $this->address = $props['external_link'];
+        }
+        
         if ($this->id) {
             $vars = $this->db->findRow('survey_externals', array('id' => $this->id), 'id, address, api_end, expire_after');
             if ($vars) {
