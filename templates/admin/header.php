@@ -35,7 +35,7 @@
                 <nav class="navbar navbar-static-top">
                     <div class="container-fluid">
                         <div class="navbar-header">
-                            <a href="<?= admin_url(); ?>" class="navbar-brand"><b>form</b>{`r}</a>
+                            <a href="<?= admin_url(); ?>" class="navbar-brand"><?=Config::get('brand')?></a>
                             <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar-collapse">
                                 <i class="fa fa-bars"></i>
                             </button>
