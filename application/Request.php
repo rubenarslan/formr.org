@@ -201,7 +201,12 @@ class Request {
     }
 
     public static function isAjaxRequest() {
-        return strtolower(env('HTTP_X_REQUESTED_WITH')) === 'xmlhttprequest';
+        $env = env('HTTP_X_REQUESTED_WITH');
+        if (!$env) {
+            return false;
+        }
+        
+        return strtolower($env) === 'xmlhttprequest';
     }
 
     public static function setGlobals($key, $value) {
