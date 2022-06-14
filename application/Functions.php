@@ -752,7 +752,7 @@ function run_url($name = '', $action = '', $params = array()) {
     $domain = trim(Config::get('define_root.doc_root'), "\/\\");
     $subdomain = null;
     if (Config::get('use_study_subdomains')) {
-        $domain = str_replace('www.', '', $domain);
+        $domain = Config::get('define_root.study_domain', $domain); # use different domain for studies if set
         $subdomain = strtolower($name) . '.';
     } else {
         $domain .= '/' . $name;

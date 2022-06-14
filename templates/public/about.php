@@ -8,12 +8,12 @@ Template::loadChild('public/header');
             <div class="col-md-6 col-md-offset-3 text-center">
                 <h2 class="fmr-lead animate-box">about formr</h2>
                 <p class="fmr-sub-lead animate-box">
-                    formr was made by <a href="https://www.psych.uni-goettingen.de/en/biopers/team/arslan">Ruben C. Arslan</a> and <a href="https://www.psych.uni-goettingen.de/de/it/team/cyril-tata/cyril-s-tata">Cyril S. Tata</a>. <a href="https://www.uni-muenster.de/Psychologie.td/personen/index.html">Matthias P. Walther</a> recently joined the team.
+                    The open source software was created by <a href="https://rubenarslan.github.io/">Ruben C. Arslan</a> and is being maintained and developed jointly with <a href="https://www.psych.uni-goettingen.de/de/it/team/cyril-tata/cyril-s-tata">Cyril S. Tata</a>.
                 </p>
             </div>
         </div>
         <div class="row">
-            <div class="col-md-4 col-xs-4">
+            <div class="col-md-4 col-xs-4 col-xs-offset-2">
                 <div class="pull-right text-center">
                     <img src="<?= asset_url('build/img/cyril.jpg'); ?>" class="img-responsive img-circle team" alt="Cyril Tata">
                     <hr />
@@ -25,13 +25,6 @@ Template::loadChild('public/header');
                     <img src="<?= asset_url('build/img/ruben.jpg'); ?>" class="img-responsive img-circle team" alt="Ruben Arslan">
                     <hr />
                     <h3>Ruben</h3>
-                </div>
-            </div>
-            <div class="col-md-4 col-xs-4">
-                <div class="pull-left text-center">
-                    <img src="<?= asset_url('build/img/walther.jpg'); ?>" class="img-responsive img-circle team" alt="Matthias Walther">
-                    <hr />
-                    <h3>Matthias</h3>
                 </div>
             </div>
 

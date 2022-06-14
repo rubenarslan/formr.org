@@ -13,8 +13,8 @@ $settings['database'] = array(
 	'password' => 'password',
 	'database' => 'database',
 	'prefix' => '',
-	'encoding' => 'utf8',
-	'unix_socket' => '/Applications/MAMP/tmp/mysql/mysql.sock',
+	'encoding' => 'utf8mb',
+	'unix_socket' => '',
 );
 
 // OpenCPU instance settings
@@ -82,8 +82,9 @@ $settings['web_dir'] = APPLICATION_ROOT . 'webroot';
 
 // Setup settings for application that can overwrite defaults in /define_root.php
 $settings['define_root'] = array(
-		//'protocol' => 'http://',
+		//'protocol' => 'https://',
 		//'doc_root' => 'localhost/formr.org/',
+		//'study_domain' => 'localhost/formr.org/',
 		//'server_root' => APPLICATION_ROOT . '/',
 		//'online' => false,
 		//'testing' => true
@@ -196,4 +197,7 @@ $settings['disabled_features'] = array(
     // RUN.controller_method_name
     // SURVEY.controller_method_name
 );
-		
+
+# Brand
+$settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
+$settings['brand_long'] = '<b>formr</b> survey framework';

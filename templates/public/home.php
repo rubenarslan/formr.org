@@ -8,7 +8,7 @@
         <div class="fmr-intro js-fullheight">
             <div class="fmr-intro-text">
                 <div class="fmr-center-position">
-                    <h2 class="animate-box"><b>formr</b> survey framework</h2>
+                    <h2 class="animate-box"><?=Config::get('brand_long')?></h2>
                     <?php Template::loadChild('public/alerts'); ?>
                     <h3>chain simple surveys into long runs, use the power of R to generate pretty feedback and complex designs</h3>
                     <p><a href="<?= site_url('register'); ?>" class="btn btn-primary btn-lg btn-raised btn-material-pink">Sign up (it's all free)</a></p>

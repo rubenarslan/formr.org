@@ -119,8 +119,8 @@ class SurveyStudy extends Model {
      *
      * @return boolean
      */
-    public function createFromFile($file, $options) {
 
+    public function createFromFile($file, $options = []) {
         // Create the corresponding entry in survey_units to get the ID
         $id = RunUnitFactory::make(new Run(), ['type' => 'Survey'])->create($options)->id;
         $this->assignProperties($file);
