@@ -191,7 +191,7 @@ class Site {
 
     public function makeTitle() {
         global $title;
-        if (trim($title)) {
+        if ($title && trim($title)) {
             return $title;
         }
 
