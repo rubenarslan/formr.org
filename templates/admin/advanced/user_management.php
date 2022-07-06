@@ -33,8 +33,8 @@
                                             <a href="mailto:<?= h($userx['email']) ?>"><?= $userx['email'] ?></a>
                                             <?php echo $userx['email_verified'] ? ' <i class="fa fa-check-circle-o"></i>' : ' <i class="fa fa-envelope-o"></i>'; ?>
                                         </td>
-                                        <td><small class="hastooltip" title="<?= $userx['created'] ?>"><?= timetostr(strtotime($userx['created'])) ?></small></td>
-                                        <td><small class="hastooltip" title="<?= $userx['modified'] ?>"><?= timetostr(strtotime($userx['modified'])) ?></small></td>
+                                        <td><small class="hastooltip" title="<?= $userx['created'] ?>"><?= timetostr(strtotime((string)$userx['created'])) ?></small></td>
+                                        <td><small class="hastooltip" title="<?= $userx['modified'] ?>"><?= timetostr(strtotime((string)$userx['modified'])) ?></small></td>
                                         <td>
                                             <form class="form-inline form-ajax" action="<?= site_url('admin/advanced/ajax_admin') ?>" method="post">
                                                 <span class="input-group" style="width:160px">

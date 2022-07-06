@@ -170,14 +170,15 @@ class SurveyStudy extends Model {
             if (!$study->createFromFile($file, $options)) {
                 return false;
             }
-            
+
             // save settings
-            $data->settings = isset($data->settings) ? $data->settings : [];
+            $data->settings = isset($data->settings) ? (array) $data->settings : [];
             $data->settings = array_merge([
                 'maximum_number_displayed' => 0,
                 'displayed_percentage_maximum' => 100,
                 'add_percentage_points' => 0,
-            ], $data->settings);
+
+                ], $data->settings);
             $study->assignProperties($data->settings);
             $study->is_new = true;
             $study->save();
@@ -415,7 +416,7 @@ class SurveyStudy extends Model {
                     throw new Exception("Results table name conflict. This shouldn't happen. Please alert the formr admins");
                 }
                 // step 2
-                $this->messages[] = "The results table was newly created, because there were no results and test sessions.";
+                $this->messages[] = "The results table '{$this->results_table}' was newly created, because there were no results and test sessions.";
                 // if there is no results table or no existing data at all, drop table, create anew
                 // i.e. where possible prefer nuclear option
                 $new_syntax = $this->getResultsTableSyntax($result_columns);

@@ -322,7 +322,7 @@ class Site {
             $options['port'] = $db_config['port'];
         }
 
-        $dsn = 'mysql:' . http_build_query($options, null, ';');
+        $dsn = 'mysql:' . http_build_query($options, '', ';');
         $username = $db_config['login'];
         $password = $db_config['password'];
 

@@ -536,7 +536,7 @@ class Run extends Model {
 
         $updates = array();
         foreach ($posted as $name => $value) {
-            $value = trim($value);
+            $value = trim((string)$value);
 
             if (!in_array($name, $this->run_settings)) {
                 $this->errors[] = "Invalid setting " . h($name);
