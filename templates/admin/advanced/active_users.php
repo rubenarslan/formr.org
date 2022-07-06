@@ -36,8 +36,8 @@
                                                 <?php echo $userx['email_verified'] ? ' <i class="fa fa-check-circle-o"></i>' : ' <i class="fa fa-envelope-o"></i>'; ?>
                                             <?php endif; ?>
                                         </td>
-                                        <td><small class="hastooltip" title="<?= $userx['created'] ?>"><?= timetostr(strtotime($userx['created'])) ?></small></td>
-                                        <td><small class="hastooltip" title="<?= $userx['modified'] ?>"><?= timetostr(strtotime($userx['modified'])) ?></small></td>
+                                        <td><small class="hastooltip" title="<?= $userx['created'] ?>"><?= timetostr(strtotime((string)$userx['created'])) ?></small></td>
+                                        <td><small class="hastooltip" title="<?= $userx['modified'] ?>"><?= timetostr(strtotime((string)$userx['modified'])) ?></small></td>
                                         <td>
                                             <?php 
                                                 echo h($userx['run_name']);
@@ -46,7 +46,7 @@
                                             ?>
                                         </td>
                                         <td><?= $userx['number_of_users_in_run'] ?></td>
-                                        <td><small class="hastooltip" title="<?= $userx['last_edit'] ?>"><?= timetostr(strtotime($userx['last_edit'])) ?></small></td>
+                                        <td><small class="hastooltip" title="<?= $userx['last_edit'] ?>"><?= timetostr(strtotime((string)$userx['last_edit'])) ?></small></td>
                                     </tr>
                                     <?php endwhile; ?>
                                 </tbody>
