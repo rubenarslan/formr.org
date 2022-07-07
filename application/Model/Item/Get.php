@@ -36,13 +36,14 @@ class Get_Item extends Item {
 
     public function validateInput($reply) {
         $this->reply = $reply;
-
         if (!$this->optional && (($reply === null || $reply === false || $reply === array() || $reply === '') || (is_array($reply) && count($reply) === 1 && current($reply) === ''))) {
             // missed a required field
-            $this->error = $this->label_parsed;
+            $this->error = 'error: ' . $this->label_parsed;
+            $reply = null;
         } elseif ($this->optional && $reply == '') {
             $reply = null;
         }
+        
         return $reply;
     }
 
