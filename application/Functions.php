@@ -1409,6 +1409,7 @@ function opencpu_formr_variables($q) {
 }
 
 function pre_htmlescape($str) {
+    $str = (string) $str;
     return '<pre>' . htmlspecialchars($str) . '</pre>';
 }
 
