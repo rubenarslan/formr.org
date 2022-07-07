@@ -744,7 +744,7 @@ class Run extends Model {
                     ($this->public >= 1 && $runSession->id) || // already enrolled
                     ($this->public >= 2)) { // anyone with link can access
                 if ($runSession->id === null) {
-                    $runSession->create($user->user_code, (int) $user->created($this));  // generating access code for those who don't have it but need it
+                    $runSession->create($user->user_code, (int) $user->created($this));
                 }
 
                 Session::globalRefresh();

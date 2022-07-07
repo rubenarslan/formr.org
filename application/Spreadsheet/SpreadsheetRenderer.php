@@ -336,8 +336,11 @@ class SpreadsheetRenderer {
         }
 
         // save these values
-        if ($hiddenItems && $this->unitSession->updateSurveyStudyRecord($hiddenItems, true)) {
+        $updated = $this->unitSession->updateSurveyStudyRecord($hiddenItems, true);
+        if ($hiddenItems && $updated) {
             $this->answered($hiddenItems);
+        } elseif ($hiddenItems && !$updated) {
+            $items = array_merge($items, $this->unitSession->validatedStudyItems);
         }
 
         // return possibly shortened item array

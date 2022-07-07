@@ -205,7 +205,7 @@ $settings['brand_long'] = '<b>formr</b> survey framework';
 // Settings for PHP session
 $settings['php_session'] = array(
     'path' => '/',
-    'domain' => '.formr.org',
+    'domain' => '.formr.org', // prefer env('SERVER_NAME') if using subdomains for run URLs
     'secure' => true,
     'httponly' => true,
     //'lifetime' => 36000,
