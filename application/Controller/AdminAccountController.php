@@ -4,7 +4,6 @@ class AdminAccountController extends Controller {
 
     public function __construct(Site &$site) {
         parent::__construct($site);
-
         if (!Request::isAjaxRequest()) {
             $default_assets = get_default_assets('admin');
             $this->registerAssets($default_assets);
@@ -86,6 +85,8 @@ class AdminAccountController extends Controller {
             if ($this->user->login($info)) {
                 alert('<strong>Success!</strong> You were logged in!', 'alert-success');
                 Session::set('user', serialize($this->user));
+                Session::setAdminCookie($this->user);
+
                 $redirect = $this->user->isAdmin() ? 'admin' : 'admin/account';
                 $this->request->redirect($redirect);
             } else {

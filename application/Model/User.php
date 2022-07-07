@@ -53,7 +53,7 @@ class User extends Model {
     }
 
     public function loggedIn() {
-        return $this->logged_in;
+        return Session::getAdminCookie() && $this->logged_in;
     }
 
     public function isCron() {
@@ -235,6 +235,7 @@ class User extends Model {
     function logout() {
         $this->logged_in = false;
         $this->id = null;
+        Session::deleteAdminCookie();
         Session::destroy();
     }
 
