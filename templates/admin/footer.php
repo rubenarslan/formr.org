@@ -1,9 +1,10 @@
 
             <footer class="main-footer">
-                <!-- To the right -->
-                <div class="pull-right hidden-xs"></div>
-                <!-- Default to the left -->
-                <strong>Copyright &copy; <?= date('Y') ?> <a href="<?= site_url(); ?>">formr</a></strong>
+                <div class="pull-right hidden-xs">Copyright &copy; <?= date('Y') ?> formr - <?= FORMR_VERSION ?></div>
+                <ul class="nav navbar-nav">
+                    <li><a href="https://github.com/rubenarslan/formr.org"><i class="fa fa-github-alt fa-fw"></i> Github repository </a></li>
+                    <li><a href="https://github.com/rubenarslan/formr"><i class="fa fa-github-alt fa-fw"></i> R package on Github </a></li>
+                </ul>
             </footer>
 
         </div>
