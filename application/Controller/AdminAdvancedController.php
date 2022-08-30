@@ -201,19 +201,29 @@ class AdminAdvancedController extends Controller {
         }
     }
 
-    public function settingsAction() {
+    public function contentSettingsAction() {
         if (Request::isHTTPPostRequest()) {
             $allowedSettings = array(
-                'content:publications', 'content:footerimprint', 
-                'links:policyurl', 'links:logourl', 'links:logolink', 
+                // 'true' set for checkboxes
+                'content:about:show' => true,
+                'content:docu:show' => true, 'content:docu:service_email',
+                'content:studies:show' => true,
+                'content:publications:show' => true, 'content:publications:html',
+                'footer:link:policyurl', 'footer:link:logourl', 'footer:link:logolink', 'footer:imprint',
                 'js:cookieconsent'
             );
-            
-            foreach ($allowedSettings as $setting) {
+
+            foreach ($allowedSettings as $setting => $is_checkbox) {
+                if ($is_checkbox !== true) {
+                    $setting = $is_checkbox;
+                }
+                
                 if (($value = $this->request->getParam($setting)) !== null) {
                     $this->fdb->insert_update('survey_settings', array('setting' => $setting, 'value' => $value));
                 }
             }
+            
+            $this->fdb->insert_update('survey_settings', array('setting' => 'content.about.show', 'value' => 'true'));
 
             alert('Settings saved', 'alert-success');
             $this->sendResponse($this->site->renderAlerts());
