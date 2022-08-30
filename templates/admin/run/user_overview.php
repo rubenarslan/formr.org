@@ -131,7 +131,7 @@
                                         <td>
                                                 <?php
                                                 $label_class = "label-default";
-                                                if (strpos($user['result'], "error")!==false) $label_class = "label-danger";
+                                                if (strpos((string)$user['result'], "error")!==false) $label_class = "label-danger";
                                                 else if (!empty($user['result_log'])) $label_class = "label-warning";
                                                 ?>
 

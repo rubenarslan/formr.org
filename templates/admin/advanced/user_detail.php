@@ -96,7 +96,7 @@
                                             <td>
                                                 <?php
                                                 $label_class = "label-default";
-                                                if (strpos($row['result'], "error")!==false) $label_class = "label-danger";
+                                                if (strpos((string)$row['result'], "error")!==false) $label_class = "label-danger";
                                                 else if (!empty($row['result_log'])) $label_class = "label-warning";
                                                 ?>
 
