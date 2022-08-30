@@ -44,7 +44,7 @@
                                         <?= Template::loadChild('public/alerts') ?>
 
                                         <div style="margin-top: 55px;">
-
+                                            <?php if (Site::getSettings('signup:allow', 'true') === 'true'): ?>
                                             <form class="" id="register" name="register" method="post" action="">
                                                 <div class="form-group label-floating">
                                                     <label class="control-label" for="email"><i class="fa fa-envelope"></i> Email</label>
@@ -66,6 +66,9 @@
 
                                                 <button type="submit" class="btn btn-sup btn-material-pink btn-raised"><i class="fa fa-pencil fa-fw"></i> Sign Up</button>
                                             </form>
+                                            <?php else: ?>
+                                            <div> <?php echo Site::getSettings('signup:message', '') ?></div>
+                                            <?php endif; ?>
                                         </div>
 
                                     </div>

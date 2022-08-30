@@ -210,6 +210,7 @@ class AdminAdvancedController extends Controller {
                 'content:studies:show' => true,
                 'content:publications:show' => true, 'content:publications:html',
                 'footer:link:policyurl', 'footer:link:logourl', 'footer:link:logolink', 'footer:imprint',
+                'signup:allow','signup:message',
                 'js:cookieconsent'
             );
 
