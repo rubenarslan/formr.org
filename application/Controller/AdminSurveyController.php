@@ -147,6 +147,11 @@ class AdminSurveyController extends AdminController {
                     alert("Unable to download the file at '{$this->request->google_sheet}'", 'alert-danger');
                     return $this->request->redirect(admin_study_url($study->name, 'upload_items'));
                 }
+                
+                if ($study->google_file_id != $file['google_file_id']) {
+                    $study->google_file_id = $file['google_file_id'];
+                    $study->save();
+                }
             } elseif (isset($_FILES['uploaded'])) {
                 // Excel file was uploaded
                 $file = $_FILES['uploaded'];
