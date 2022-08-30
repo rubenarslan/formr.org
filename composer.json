@@ -20,7 +20,7 @@
 		}
 	],
     "require": {
-        "php": ">=7.2.0",
+        "php": ">=8.0",
         "erusev/parsedown": "1.*",
         "erusev/parsedown-extra": "0.*",
         "ircmaxell/password-compat": "1.*",

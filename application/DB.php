@@ -514,21 +514,27 @@ class DB {
      * {inherit PDO doc}
      */
     public function beginTransaction() {
-        return $this->PDO->beginTransaction();
+        if (!$this->PDO->inTransaction()) {
+            return $this->PDO->beginTransaction();
+        }
     }
 
     /**
      * {inherit PDO doc}
      */
     public function commit() {
-        return $this->PDO->commit();
+        if ($this->PDO->inTransaction()) {
+            return $this->PDO->commit();
+        }
     }
 
     /**
      * {inherit PDO doc}
      */
     public function rollBack() {
-        return $this->PDO->rollBack();
+        if ($this->PDO->inTransaction()) {
+            return $this->PDO->rollBack();
+        }
     }
 
     public function getTableDefinition($table, $property = null) {

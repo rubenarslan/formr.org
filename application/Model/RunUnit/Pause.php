@@ -91,8 +91,8 @@ class Pause extends RunUnit {
     }
 
     protected function parseRelativeTo() {
-        $this->relative_to = trim($this->relative_to);
-        $this->wait_minutes = trim($this->wait_minutes);
+        $this->relative_to = trim((string) $this->relative_to);
+        $this->wait_minutes = trim((string) $this->wait_minutes);
         $this->has_wait_minutes = !($this->wait_minutes === null || $this->wait_minutes == '');
         $this->has_relative_to = !($this->relative_to === null || $this->relative_to == '');
 

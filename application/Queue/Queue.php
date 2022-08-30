@@ -102,7 +102,7 @@ class Queue {
     protected function rested() {
         static $last_access;
         if (!is_null($last_access) && $this->loopInterval > ($usleep = (microtime(true) - $last_access))) {
-            usleep(1000000 * ($this->loopInterval - $usleep));
+            usleep((int) round(1000000 * ($this->loopInterval - $usleep)));
         }
 
         $last_access = microtime(true);

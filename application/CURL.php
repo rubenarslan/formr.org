@@ -205,7 +205,7 @@ class CURL {
     public static function urljoin($url, $params = array(), $quote_style = ENT_NOQUOTES) {
         if ($params) {
             $amp = $quote_style == ENT_QUOTES ? '&amp;' : '&';
-            $args = http_build_query($params, null, $amp);
+            $args = http_build_query($params, '', $amp);
             if ($args) {
                 $q = strstr($url, '?') ? $amp : '?';
                 $url .= $q . $args;

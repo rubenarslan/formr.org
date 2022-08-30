@@ -55,6 +55,7 @@
                         <table class="table table-hover">
                             <?php
                             $print_header = true;
+                            
                             foreach ($results as $row) {
                                 unset($row['study_id']);
                                 if ($print_header) {
@@ -68,10 +69,10 @@
                                 }
 
                                 if (isset($row['created'])):
-                                    $row['created'] = '<abbr title="' . $row['created'] . '">' . timetostr(strtotime($row['created'])) . '</abbr>';
-                                    $row['ended'] = '<abbr title="' . $row['ended'] . '">' . timetostr(strtotime($row['ended'])) . '</abbr>';
-                                    $row['modified'] = '<abbr title="' . $row['modified'] . '">' . timetostr(strtotime($row['modified'])) . '</abbr>';
-                                    $row['expired'] = '<abbr title="' . $row['expired'] . '">' . timetostr(strtotime($row['expired'])) . '</abbr>';
+                                    $row['created'] = '<abbr title="' . $row['created'] . '">' . timetostr(strtotime((string)$row['created'])) . '</abbr>';
+                                    $row['ended'] = '<abbr title="' . $row['ended'] . '">' . timetostr(strtotime((string)$row['ended'])) . '</abbr>';
+                                    $row['modified'] = '<abbr title="' . $row['modified'] . '">' . timetostr(strtotime((string)$row['modified'])) . '</abbr>';
+                                    $row['expired'] = '<abbr title="' . $row['expired'] . '">' . timetostr(strtotime((string)$row['expired'])) . '</abbr>';
                                 endif;
                                 echo '<tr>';
                                 foreach ($row as $cell) {

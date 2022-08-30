@@ -126,7 +126,7 @@
                                             <small><?php echo $user['created']; ?></small>
                                         </td>
                                         <td>
-                                            <small class="hastooltip" title="<?php echo $user['last_access']; ?>"> <?php echo timetostr(strtotime($user['last_access'])); ?></small>
+                                            <small class="hastooltip" title="<?php echo $user['last_access']; ?>"> <?php echo timetostr(strtotime((string)$user['last_access'])); ?></small>
                                         </td>
                                         <td>
                                                 <?php
@@ -137,7 +137,7 @@
 
                                                 <small class="label <?=$label_class?> hastooltip" title="<?php echo h($user['result_log']); ?>"><?php echo $user['result'];?></small>
                                                 <?php if(!empty( $user['expires'])) { ?>
-                                                <small class="label label-info hastooltip" title="<?php echo $user['expires']; ?>">expires in <?php echo timetostr(strtotime($user['expires'])); ?></small>
+                                                <small class="label label-info hastooltip" title="<?php echo $user['expires']; ?>">expires in <?php echo timetostr(strtotime((string)$user['expires'])); ?></small>
                                                 <?php 
                                                 }
                                                 ?>

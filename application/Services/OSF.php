@@ -125,7 +125,7 @@ class OSF {
         }
 
         // pack params urlencoded instead of array, or curl will use multipart/form-data as Content-Type
-        $token_params = http_build_query($token_params, null, '&');
+        $token_params = http_build_query($token_params, '', '&');
         // TODO: To access API service after access token expired, need to get another access token with refresh token.
         $result = $this->getAccessToken($token_params);
         if (isset($result['expires'])) {

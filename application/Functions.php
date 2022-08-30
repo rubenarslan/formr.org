@@ -137,6 +137,10 @@ function formr_error_feature_unavailable() {
 }
 
 function h($text) {
+    if (!$text) {
+        return null;
+    }
+    
     return htmlspecialchars($text);
 }
 
@@ -590,9 +594,9 @@ function empty_column($col, $arr) {
     $empty = true;
     $last = null;
     foreach ($arr AS $row):
-        if (!(empty($row->$col)) OR // not empty column? (also treats 0 and empty strings as empty)
-                $last != $row->$col OR // any variation in this column?
-                !(!is_array($row->$col) AND trim($row->$col) == '')):
+        if (!(empty($row->$col)) || // not empty column? (also treats 0 and empty strings as empty)
+                $last != $row->$col || // any variation in this column?
+                !(!is_array($row->$col) && trim((string)$row->$col) == '')):
             $empty = false;
             break;
         endif;
@@ -749,7 +753,7 @@ function run_url($name = '', $action = '', $params = array()) {
     }
 
     $protocol = Config::get('define_root.protocol');
-    $domain = trim(Config::get('define_root.doc_root'), "\/\\");
+    $domain = trim(Config::get('define_root.doc_root', ''), "\/\\");
     $subdomain = null;
     if (Config::get('use_study_subdomains')) {
         $domain = Config::get('define_root.study_domain', $domain); # use different domain for studies if set
@@ -1405,6 +1409,7 @@ function opencpu_formr_variables($q) {
 }
 
 function pre_htmlescape($str) {
+    $str = (string) $str;
     return '<pre>' . htmlspecialchars($str) . '</pre>';
 }
 
@@ -1440,7 +1445,7 @@ function shutdown_formr_org() {
 }
 
 function remove_tag_wrapper($text, $tag = 'p') {
-    $text = trim($text);
+    $text = trim((string)$text);
     if (preg_match("@^<{$tag}>(.+)</{$tag}>$@", $text, $matches)) {
         $text = isset($matches[1]) ? $matches[1] : $text;
     }
