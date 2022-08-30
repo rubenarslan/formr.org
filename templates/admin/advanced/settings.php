@@ -21,6 +21,7 @@
                                 <li><a href="#studies-page" data-toggle="tab" aria-expanded="true">Studies Page</a></li>
                                 <li><a href="#publications-page" data-toggle="tab" aria-expanded="true">Publications Page</a></li>
                                 <li><a href="#footer-page" data-toggle="tab" aria-expanded="true">Footer</a></li>
+                                <li><a href="#signup-page" data-toggle="tab" aria-expanded="true">Sign-Ups</a></li>
                                 <li><a href="#js-page" data-toggle="tab" aria-expanded="false">JavaScript Configuration</a></li>
                             </ul>
                             <div class="tab-content">
@@ -38,6 +39,9 @@
                                 </div>
                                 <div class="tab-pane" id="footer-page">
                                     <?php Template::loadChild('admin/advanced/settings/footer'); ?>
+                                </div>
+                                <div class="tab-pane" id="signup-page">
+                                    <?php Template::loadChild('admin/advanced/settings/signup'); ?>
                                 </div>
                                 <div class="tab-pane" id="js-page">
                                     <?php Template::loadChild('admin/advanced/settings/js'); ?>
