@@ -27,6 +27,12 @@ class Site {
      * @var RunSession[]
      */
     protected $runSessions = array();
+    
+    /**
+     * 
+     * @var array
+     */
+    protected static $settings = array();
 
     protected function __construct() {
         $this->updateRequestObject();
@@ -343,6 +349,10 @@ class Site {
     }
     
     public static function getSettings($setting = null, $default = null) {
+        if (self::$settings) {
+            return $setting !== null ? array_val(self::$settings, $setting, $default) : self::$settings;
+        }
+
         $db = DB::getInstance();
         if ($setting !== null) {
             $value = trim($db->findValue('survey_settings', array('setting' => $setting), 'value'));
@@ -356,6 +366,8 @@ class Site {
         foreach ($rows as $row) {
             $settings[$row['setting']] = $row['value'];
         }
+        
+        self::$settings = $settings;
         
         return $settings;
     }
