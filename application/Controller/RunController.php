@@ -115,7 +115,7 @@ class RunController extends Controller {
         $this->user = $this->loginUser();
         $cookie = $this->getRunCookie();
         $cookie->destroy();
-        Session::destroy();
+        Session::destroy(false);
         $hint = 'Session Ended';
         $text = 'Your session was successfully closed! You can restart a new session by clicking the link below.';
         $url = run_url($this->run->name);

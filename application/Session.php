@@ -37,8 +37,10 @@ class Session {
         session_start();
     }
 
-    public static function destroy() {
-        self::deleteAdminCookie();
+    public static function destroy($with_admin = true) {
+        if ($with_admin === true) {
+            self::deleteAdminCookie();
+        }
         setcookie(session_name(), '', time() - 3600, '/');
         session_unset();
         session_destroy();
