@@ -761,7 +761,7 @@ class SurveyStudy extends Model {
         ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));
 
         $count = $this->getResultCount();
-        if ($this->settings['unlinked']) {
+        if ($this->unlinked) {
             if ($count['real_users'] > 0) {
                 alert("<strong>You cannot see the long-form results yet.</strong> It will only be possible after 10 real users have registered.", 'alert-warning');
             }
@@ -820,7 +820,7 @@ class SurveyStudy extends Model {
     }
 
     public function getResultsByItemsPerSession($items = array(), $filter = null, array $paginate = null, $rstmt = false) {
-        if ($this->settings['unlinked']) {
+        if ($this->unlinked) {
             return array();
         }
         ini_set('memory_limit', Config::get('memory_limit.survey_get_results'));

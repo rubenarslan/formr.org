@@ -63,8 +63,8 @@
                                     // printing table rows
                                     $last_sess = null;
                                     foreach ($results as $row):
-                                        $row['created'] = '<abbr title="' . $row['created'] . '">' . timetostr(strtotime($row['created'])) . '</abbr>';
-                                        $row['shown'] = '<abbr title="' . $row['shown'] . ' relative: ' . $row['shown_relative'] . '">' . timetostr(strtotime($row['shown'])) . '</abbr> ';
+                                        $row['created'] = '<abbr title="' . $row['created'] . '">' . timetostr(strtotime((string)$row['created'])) . '</abbr>';
+                                        $row['shown'] = '<abbr title="' . $row['shown'] . ' relative: ' . $row['shown_relative'] . '">' . timetostr(strtotime((string)$row['shown'])) . '</abbr> ';
 
                                         if ($row['hidden'] === 1) {
                                             $row['shown'] .= "<small><em>not shown</em></small>";
@@ -80,8 +80,8 @@
                                             $short_session = substr($row['session'], 0, $animal_end);
                                             $row['session'] = '<small><abbr class="abbreviated_session" title="Click to show the full session" data-full-session="' . $row['session'] . '">' . $short_session . '…</abbr></small>';
                                         }
-                                        $row['saved'] = '<abbr title="' . $row['saved'] . '">' . timetostr(strtotime($row['saved'])) . '</abbr>';
-                                        $row['answered'] = '<abbr title="' . $row['answered'] . ' relative: ' . $row['answered_relative'] . '">' . timetostr(strtotime($row['answered'])) . '</abbr>';
+                                        $row['saved'] = '<abbr title="' . $row['saved'] . '">' . timetostr(strtotime((string)$row['saved'])) . '</abbr>';
+                                        $row['answered'] = '<abbr title="' . $row['answered'] . ' relative: ' . $row['answered_relative'] . '">' . timetostr(strtotime((string)$row['answered'])) . '</abbr>';
                                         unset($row['shown_relative'], $row['answered_relative'], $row['item_id'], $row['display_order'], $row['hidden']);
 
                                         // open row

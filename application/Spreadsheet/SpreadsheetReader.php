@@ -516,7 +516,7 @@ class SpreadsheetReader {
         $rowCount = $worksheet->getHighestDataRow();
 
         for ($i = 1; $i <= $colCount; $i++) {
-            $colName = mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue());
+            $colName = mb_strtolower((string)$worksheet->getCellByColumnAndRow($i, 1)->getValue());
             if (in_array($colName, $this->choices_columns)) {
                 $columns[$i] = $colName;
             } else {
@@ -571,7 +571,7 @@ class SpreadsheetReader {
                     continue; // not a column of interest
                 }
                 $colName = $columns[$colNumber];
-                $cellValue = hardTrueFalse(Normalizer::normalize($cell->getValue(), Normalizer::FORM_C));
+                $cellValue = hardTrueFalse(Normalizer::normalize((string)$cell->getValue(), Normalizer::FORM_C));
                 $cellValue = trim($cellValue);
 
                 if ($colName == 'list_name') {
@@ -673,7 +673,7 @@ class SpreadsheetReader {
 
         $blankColCount = 0; // why should this be set to 1 by default? 
         for ($i = 1; $i <= $colCount; $i++) {
-            $colName = trim(mb_strtolower($worksheet->getCellByColumnAndRow($i, 1)->getValue()));
+            $colName = trim(mb_strtolower((string)$worksheet->getCellByColumnAndRow($i, 1)->getValue()));
             if (!$colName) {
                 $blankColCount++;
                 continue;
@@ -732,7 +732,7 @@ class SpreadsheetReader {
                     continue; // dont overwrite set columns
                 }
 
-                $cellValue = trim(hardTrueFalse(Normalizer::normalize($cell->getValue(), Normalizer::FORM_C)));
+                $cellValue = trim(hardTrueFalse(Normalizer::normalize((string)$cell->getValue(), Normalizer::FORM_C)));
 
                 if ($colName == 'name') {
                     if (!$cellValue) {
