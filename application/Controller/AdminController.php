@@ -91,10 +91,12 @@ class AdminController extends Controller {
     }
 
     protected function header() {
-        if (!$this->user->loggedIn()) {
+        if (!($cookie = Session::getAdminCookie())) {
             alert('You need to login to access the admin section', 'alert-warning');
             $this->request->redirect('login');
         }
+        
+        $this->user = new User($cookie[0], $cookie[1]);
 
         if (!$this->user->isAdmin()) {
             $docLink = site_url('documentation/#get_started');

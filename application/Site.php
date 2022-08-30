@@ -191,7 +191,7 @@ class Site {
 
     public function makeTitle() {
         global $title;
-        if (trim($title)) {
+        if ($title && trim($title)) {
             return $title;
         }
 
@@ -237,6 +237,11 @@ class Site {
             // if $id is null, get from current session
             $session = Session::get('current_run_session_code');
         }
+        
+        if (!$session) {
+            return null;
+        }
+
         $id = md5($session);
         return isset($this->runSessions[$id]) ? $this->runSessions[$id] : null;
     }
@@ -317,7 +322,7 @@ class Site {
             $options['port'] = $db_config['port'];
         }
 
-        $dsn = 'mysql:' . http_build_query($options, null, ';');
+        $dsn = 'mysql:' . http_build_query($options, '', ';');
         $username = $db_config['login'];
         $password = $db_config['password'];
 

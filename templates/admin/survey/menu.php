@@ -70,7 +70,7 @@
 if (empty($resultCount)) {
     $resultCount = $study->getResultCount();
 }
-if (trim($study->google_file_id) && (int) $resultCount['real_users'] === 0):
+if (trim((string)$study->google_file_id) && (int) $resultCount['real_users'] === 0):
     $google_link = google_get_sheet_link($study->google_file_id);
     ?>
     <form class="" action="<?= admin_study_url($study->name, 'upload_items') ?>" enctype="multipart/form-data"  id="upload_items" name="upload_items" method="post" action="#">

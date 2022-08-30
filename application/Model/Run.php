@@ -536,7 +536,7 @@ class Run extends Model {
 
         $updates = array();
         foreach ($posted as $name => $value) {
-            $value = trim($value);
+            $value = trim((string)$value);
 
             if (!in_array($name, $this->run_settings)) {
                 $this->errors[] = "Invalid setting " . h($name);
@@ -744,7 +744,7 @@ class Run extends Model {
                     ($this->public >= 1 && $runSession->id) || // already enrolled
                     ($this->public >= 2)) { // anyone with link can access
                 if ($runSession->id === null) {
-                    $runSession->create($user->user_code, (int) $user->created($this));  // generating access code for those who don't have it but need it
+                    $runSession->create($user->user_code, (int) $user->created($this));
                 }
 
                 Session::globalRefresh();
@@ -781,14 +781,14 @@ class Run extends Model {
 
         $run_content = '';
 
-        if (!$this->renderedDescAndFooterAlready && trim($this->description_parsed)) {
+        if (!$this->renderedDescAndFooterAlready && !empty($this->description_parsed)) {
             $run_content .= $this->description_parsed;
         }
 
         if (isset($output['body'])) {
             $run_content .= $output['body'];
         }
-        if (!$this->renderedDescAndFooterAlready && trim($this->footer_text_parsed)) {
+        if (!$this->renderedDescAndFooterAlready && !empty($this->footer_text_parsed)) {
             $run_content .= $this->footer_text_parsed;
         }
 

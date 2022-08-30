@@ -45,6 +45,7 @@ class RunController extends Controller {
         unset($run_vars['css'], $run_vars['js']);
 
         $this->setView('run/index', array_merge($run_vars, $assset_vars));
+
         return $this->sendResponse();
     }
 
@@ -189,6 +190,10 @@ class RunController extends Controller {
     }
 
     private function getPrivateActionMethod($action) {
+        if ($action === null) {
+            return false;
+        }
+
         $actionName = $this->getPrivateAction($action, '-', true) . 'Action';
         if (!method_exists($this, $actionName)) {
             return false;
@@ -262,7 +267,6 @@ class RunController extends Controller {
         if (isset($_GET['run_name']) && isset($_GET['code']) && strlen($_GET['code']) == 64) {
             // user came in with login code
             $loginCode = $_GET['code'];
-            //} elseif (($cookie = $this->getRunCookie()) && $cookie->exists() && $cookie->getData('code')) {
         } elseif ($user = Site::getInstance()->getSessionUser()) {
             // try to get user from cookie
             $loginCode = $user->user_code;

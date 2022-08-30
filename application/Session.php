@@ -18,6 +18,7 @@ class Session {
     const REQUEST_TOKENS = '_formr_request_tokens';
     const REQUEST_USER_CODE = '_formr_code';
     const REQUEST_NAME = '_formr_cookie';
+    const ADMIN_COOKIE = 'formr_user';
 
     public static function configure($config = array()) {
         self::$lifetime = Config::get('session_cookie_lifetime');
@@ -37,6 +38,7 @@ class Session {
     }
 
     public static function destroy() {
+        self::deleteAdminCookie();
         setcookie(session_name(), '', time() - 3600, '/');
         session_unset();
         session_destroy();
@@ -84,7 +86,7 @@ class Session {
         } else {
             $tokens[$token] = 1;
         }
-        
+
         setcookie(self::REQUEST_TOKENS_COOKIE, $token, 0, self::$path, self::$domain, self::$secure, self::$httponly);
         self::set(self::REQUEST_TOKENS, $tokens);
         return $token;
@@ -102,5 +104,40 @@ class Session {
         }
         return false;
     }
+    
+    public static function setCookie($name, $value, $expires = 0) {
+        return setcookie($name, $value, time() + $expires, self::$path, self::$domain, self::$secure, self::$httponly);
+    }
+    
+    public static function deleteCookie($name) {
+        return setcookie($name, '', time() - 3600, self::$path, self::$domain, self::$secure, self::$httponly);
+    }
+  
+    public static function setAdminCookie(User $admin) {
+        $data = [$admin->id, $admin->user_code, time()];
+        $cookie = self::setCookie(self::ADMIN_COOKIE, Crypto::encrypt($data, '-'), self::$lifetime);
+        if (!$cookie) {
+            formr_error(505, 'Invalid Token', 'Unable to set admin token');
+        }
+        
+        Session::set('admin', $data);
+    }
+    
+    public static function getAdminCookie() {
+        $cookie = array_val($_COOKIE, self::ADMIN_COOKIE);
+        if ($cookie) {
+            $cookie_data = explode('-', Crypto::decrypt($cookie));
+            $session_data = Session::get('admin', []);
+            if ($cookie_data && $session_data && $cookie_data[0] == $session_data[0]) {
+                return $session_data;
+            }
+        }
+    }
+
+    public static function deleteAdminCookie() {
+        self::deleteCookie(self::ADMIN_COOKIE);
+    }
+    
+    
 
 }
