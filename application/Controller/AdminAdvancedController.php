@@ -206,7 +206,7 @@ class AdminAdvancedController extends Controller {
             $allowedSettings = array(
                 // 'true' set for checkboxes
                 'content:about:show' => true,
-                'content:docu:show' => true, 'content:docu:service_email',
+                'content:docu:show' => true, 'content:docu:support_email',
                 'content:studies:show' => true,
                 'content:publications:show' => true, 'content:publications',
                 'footer:link:policyurl', 'footer:link:logourl', 'footer:link:logolink', 'footer:imprint',
