@@ -1,5 +1,6 @@
 <?php
-define('FORMR_VERSION', 'v0.19.10');
+
+define('FORMR_VERSION', 'v0.20.0-dev');
 
 define('APPLICATION_ROOT', __DIR__ . '/');
 define('INCLUDE_ROOT', APPLICATION_ROOT);
@@ -95,5 +96,9 @@ function __formr_setup($settings = array()) {
 	register_shutdown_function('shutdown_formr_org');
 }
 
+// Bootstrap setup
 __formr_setup($settings);
+
+// Check if maintenance is ongoing
+formr_check_maintenance();
 

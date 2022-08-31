@@ -185,6 +185,10 @@ $settings['reserved_run_names'] = array('api', 'test', 'delegate');
 // Restart all server daemon whenever this flag is changed
 $settings['in_maintenance'] = false;
 
+// Configure IP addresses that can still access the application even in maintenance mode
+// Example ['192.18.2.3', '192.18.3.4']
+$settings['maintenance_ips'] = ['134.76.2.248'];
+
 // curl settings that override the default settings in the CURL class
 // Use exact PHP constants as defined in http://php.net/manual/en/function.curl-setopt.php
 $settings['curl'] = array(

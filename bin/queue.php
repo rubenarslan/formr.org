@@ -15,10 +15,7 @@ require_once dirname(__FILE__) . '/../setup.php';
  * --batch-limit : For the unit session queue this is the number of items to fetch per SQL query (defaults to 1000)
  * --max-sessions: Maximum number of unit sessions the UnitSession queue is allowed to process
  */
-// Check if maintenance is going on
-if (Config::get('in_maintenance')) {
-    formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenance Mode', false);
-}
+
 //@todo explain variables
 $opts = getopt('t:a:o:p:n:b:l:');
 
