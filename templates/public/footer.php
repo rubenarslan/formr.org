@@ -44,8 +44,10 @@
 			<div class="col-md-2 col-sm-6 col-xs-12 animate-box">
 				<div class="fmr-footer-widget">
 					<ul class="fmr-links">
-						<li><a href="<?= array_val($settings, 'footer:link:logolink') ?>" target="_blank"><img src="<?= array_val($settings, 'footer:link:logourl') ?>" alt="LOGO"></a></li>
-					</ul>
+                        <?php if (array_val($settings, 'footer:link:logourl')): ?>
+                            <li><a href="<?= array_val($settings, 'footer:link:logolink') ?>" target="_blank"><img src="<?= array_val($settings, 'footer:link:logourl') ?>" alt="LOGO"></a></li>
+                        <?php endif; ?>
+                    </ul>
 				</div>
 			</div>
 
