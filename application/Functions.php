@@ -1733,3 +1733,11 @@ function get_db_non_user_tables() {
 function get_db_non_session_tables() {
     return ['survey_users', 'survey_run_sessions', 'survey_unit_sessions'];
 }
+
+function formr_check_maintenance() {
+    $ip = env('REMOTE_ADDR');
+    
+    if (Config::get('in_maintenance') && !in_array($ip, Config::get('maintenance_ips', []))) {
+        formr_error(503, 'Service Unavailable', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenance Mode', false);
+    }
+}
