@@ -18,7 +18,7 @@
         </div>
         <div class="form-group  col-md-12">
             <label>Publications (HTML Content)</label>
-            <textarea data-editor="html" placeholder="Publications (HTML Content)" name="content:publications:html" rows="40" cols="80" class="big_ace_editor form-control"><?= h(array_val($settings, 'content:publications:html')); ?></textarea>
+            <textarea data-editor="html" placeholder="Publications (HTML Content)" name="content:publications" rows="40" cols="80" class="big_ace_editor form-control"><?= h(array_val($settings, 'content:publications')); ?></textarea>
                                             
         </div>
     </div>
