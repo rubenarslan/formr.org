@@ -282,7 +282,10 @@ class RunSession extends Model {
         } elseif (isset($result['queue'])) {
             $this->debug('QUEUE');
             $this->currentUnitSession->queue();
-            return ['body' => array_val($result, 'content')];
+            return [
+                'body' => array_val($result, 'content'),
+                'redirect' => array_val($result, 'redirect')
+            ];
         }
 
         if (!empty($result['wait_opencpu']) || !empty($result['wait_user'])) {
