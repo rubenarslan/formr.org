@@ -340,6 +340,7 @@ class SpreadsheetRenderer {
         if ($hiddenItems && $updated) {
             $this->answered($hiddenItems);
         } elseif ($hiddenItems && !$updated) {
+            $this->validationErrors = $this->unitSession->errors;
             $items = array_merge($items, $this->unitSession->validatedStudyItems);
         }
 
