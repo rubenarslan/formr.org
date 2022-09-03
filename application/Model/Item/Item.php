@@ -233,7 +233,7 @@ class Item {
             $this->js_showif = preg_replace("/\s*stringr::str_length\(([a-zA-Z0-9_'\"]+)\)/", "$1.length", $this->js_showif);
             $this->js_showif = preg_replace("/\s*is.na\(([a-zA-Z0-9_'\"]+)\)/", "(typeof($1) === 'undefined')", $this->js_showif);
 
-            if (strstr($this->showif, "//js_only") !== false) {
+            if ($this->showif && strstr($this->showif, "//js_only") !== false) {
                 $this->setVisibility(array(null));
             }
         }
@@ -480,14 +480,14 @@ class Item {
     }
 
     public function getShowIf() {
-        if (strstr($this->showif, "//js_only") !== false) {
+        if ($this->showif && strstr($this->showif, "//js_only") !== false) {
             return "NA";
         }
 
         if ($this->hidden !== null) {
             return false;
         }
-        if (trim($this->showif) != "") {
+        if (trim((string)$this->showif) != "") {
             return $this->showif;
         }
         return false;
