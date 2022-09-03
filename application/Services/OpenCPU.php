@@ -55,6 +55,8 @@ class OpenCPU {
                 $this->{$property} = $value;
             }
         }
+
+        $this->curl_opts = array_merge($this->curl_opts, array_val($config, 'curl_opts', array()));
     }
 
     /**
