@@ -1,5 +1,6 @@
 <?php
-define('FORMR_VERSION', 'v0.19.10');
+
+define('FORMR_VERSION', 'v0.20.0');
 
 define('APPLICATION_ROOT', __DIR__ . '/');
 define('INCLUDE_ROOT', APPLICATION_ROOT);
@@ -25,6 +26,9 @@ $settings['routes'] = array(
 	'run'            => 'RunController'
 );
 
+// Include helper functions
+require_once APPLICATION_PATH . 'Functions.php';
+
 // Load application settings
 /* @var $settings array */
 require_once APPLICATION_ROOT . 'config-dist/settings.php';
@@ -40,9 +44,8 @@ if (php_sapi_name() != 'cli') {
 $settings['version'] = FORMR_VERSION;
 
 // Load application autoloader
-$autoloader = require_once APPLICATION_PATH . 'Library/Autoloader.php';
-// Include helper functions
-require_once APPLICATION_PATH . 'Library/Functions.php';
+$autoloader = require_once APPLICATION_PATH . 'Autoloader.php';
+
 // Initialize Config
 Config::initialize($settings);
 
@@ -93,5 +96,9 @@ function __formr_setup($settings = array()) {
 	register_shutdown_function('shutdown_formr_org');
 }
 
+// Bootstrap setup
 __formr_setup($settings);
+
+// Check if maintenance is ongoing
+formr_check_maintenance();
 

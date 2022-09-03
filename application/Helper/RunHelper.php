@@ -44,7 +44,7 @@ class RunHelper {
         }
 
         if ($this->request->session) {
-            $this->runSession = new RunSession($this->db, $this->run->id, null, $this->request->session, $this->run);
+            $this->runSession = new RunSession($this->request->session, $this->run);
         }
     }
 
@@ -65,13 +65,12 @@ class RunHelper {
     }
 
     public function remind() {
-        $email = $this->run->getReminder($this->request->reminder_id, $this->request->session, $this->request->run_session_id);
-        if ($email->exec() !== false) {
+        $emailSession = $this->run->getReminderSession($this->request->reminder_id, $this->request->session, $this->request->run_session_id);
+        if ($emailSession->execute() === false) {
             $this->errors[] = 'Something went wrong with the reminder. in run ' . $this->run->name;
-            $email->end();
             return false;
         }
-        $email->end();
+
         $this->message = 'Reminder sent';
         return true;
     }
@@ -97,9 +96,9 @@ class RunHelper {
     public function snipUnitSession() {
         $run = $this->run;
         $session = $this->request->session;
-        $run_session = new RunSession($this->db, $run->id, null, $session, $run);
+        $run_session = new RunSession($session, $run);
 
-        $unit_session = $run_session->getUnitSession();
+        $unit_session = $run_session->getCurrentUnitSession();
         if ($unit_session):
             $deleted = $this->db->delete('survey_unit_sessions', array('id' => $unit_session->id));
             if ($deleted):

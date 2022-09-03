@@ -13,8 +13,8 @@ $settings['database'] = array(
 	'password' => 'password',
 	'database' => 'database',
 	'prefix' => '',
-	'encoding' => 'utf8',
-	'unix_socket' => '/Applications/MAMP/tmp/mysql/mysql.sock',
+	'encoding' => 'utf8mb',
+	'unix_socket' => '',
 );
 
 // OpenCPU instance settings
@@ -82,8 +82,9 @@ $settings['web_dir'] = APPLICATION_ROOT . 'webroot';
 
 // Setup settings for application that can overwrite defaults in /define_root.php
 $settings['define_root'] = array(
-		//'protocol' => 'http://',
+		//'protocol' => 'https://',
 		//'doc_root' => 'localhost/formr.org/',
+		//'study_domain' => 'localhost/formr.org/',
 		//'server_root' => APPLICATION_ROOT . '/',
 		//'online' => false,
 		//'testing' => true
@@ -184,6 +185,10 @@ $settings['reserved_run_names'] = array('api', 'test', 'delegate');
 // Restart all server daemon whenever this flag is changed
 $settings['in_maintenance'] = false;
 
+// Configure IP addresses that can still access the application even in maintenance mode
+// Example ['192.18.2.3', '192.18.3.4']
+$settings['maintenance_ips'] = ['134.76.2.248'];
+
 // curl settings that override the default settings in the CURL class
 // Use exact PHP constants as defined in http://php.net/manual/en/function.curl-setopt.php
 $settings['curl'] = array(
@@ -196,4 +201,16 @@ $settings['disabled_features'] = array(
     // RUN.controller_method_name
     // SURVEY.controller_method_name
 );
-		
+
+// Brand
+$settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
+$settings['brand_long'] = '<b>formr</b> survey framework';
+
+// Settings for PHP session
+$settings['php_session'] = array(
+    'path' => '/',
+    'domain' => '.formr.org', // prefer env('SERVER_NAME') if using subdomains for run URLs
+    'secure' => true,
+    'httponly' => true,
+    //'lifetime' => 36000,
+);

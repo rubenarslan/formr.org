@@ -37,14 +37,14 @@
                                     <div class="login-form">
                                         <span class="close"><a href="<?= site_url() ?>">&times</a></span>
                                         <div>
-                                            <a href="<?= site_url() ?>" class="login-form-logo"><span>f</span>orm<span>{`r}</span></a>
+                                            <a href="<?= site_url() ?>" class="login-form-logo"><?=Config::get('brand')?></a>
                                         </div>
 
                                         <h2>Sign-up to formr. It's free!</h2>
                                         <?= Template::loadChild('public/alerts') ?>
 
                                         <div style="margin-top: 55px;">
-
+                                            <?php if (Site::getSettings('signup:allow', 'true') === 'true'): ?>
                                             <form class="" id="register" name="register" method="post" action="">
                                                 <div class="form-group label-floating">
                                                     <label class="control-label" for="email"><i class="fa fa-envelope"></i> Email</label>
@@ -66,6 +66,9 @@
 
                                                 <button type="submit" class="btn btn-sup btn-material-pink btn-raised"><i class="fa fa-pencil fa-fw"></i> Sign Up</button>
                                             </form>
+                                            <?php else: ?>
+                                            <div> <?php echo Site::getSettings('signup:message', '') ?></div>
+                                            <?php endif; ?>
                                         </div>
 
                                     </div>

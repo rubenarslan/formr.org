@@ -2,13 +2,8 @@
 require_once dirname(__FILE__) . '/../setup.php';
 
 // Start formr session
-Session::configure();
+Session::configure(Config::get('php_session', []));
 Session::start();
-
-// Check if maintenance is going on
-if (Config::get('in_maintenance')) {
-	formr_error(404, 'Not Found', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenance Mode', false);
-}
 
 // Define SITE object
 /** @var Site $site */
@@ -41,8 +36,10 @@ try {
 	$router = Router::getInstance()->route();
 	$router->execute();
 } catch (Exception $e) {
-	formr_log_exception($e);
-	$msg = date('Y-m-d H:i:s') . "\n {$e->getMessage()}. \nPlease let the administrators and know what you were trying to do and provide this message's date & time.";
+    $code = strtoupper(AnimalName::haikunate());
+    formr_log_exception($e, $code);
+    $msg = DEBUG ? $code. ' ' . $e->getMessage() : 'An Unexpected Error Occured. CODE ' . $code;
+	$msg = date('Y-m-d H:i:s') . "\n {$msg}. \nPlease let the administrators and know what you were trying to do and provide this message's code, date & time.";
 	formr_error(500, 'Internal Server Error', nl2br($msg), 'Fatal Error', false);
 }
 

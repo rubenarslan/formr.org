@@ -70,7 +70,7 @@ class AdminAdvancedController extends Controller {
     private function setAdminLevel($user_id, $level) {
         $level = (int) $level;
         $allowed_levels = array(0, 1, 100);
-        $user = new User($this->fdb, $user_id, null);
+        $user = new User($user_id, null);
 
         if (!in_array($level, $allowed_levels) || !$user->email) {
             alert('<strong>Level not supported or could not be assigned to user</strong>', 'alert-danger');
@@ -89,7 +89,7 @@ class AdminAdvancedController extends Controller {
     }
 
     private function apiUserManagement($user_id, $user_email, $action) {
-        $user = new User($this->fdb, $user_id, null);
+        $user = new User($user_id, null);
         $content = array();
 
         if ($user->email !== $user_email) {
@@ -186,8 +186,7 @@ class AdminAdvancedController extends Controller {
             $qs = $this->request->page ? '/?page=' . $this->request->page : null;
             $this->request->redirect('admin/advanced/runs-management' . $qs);
         } elseif ($id = $this->request->int('id')) {
-            $runName = $this->fdb->findValue('survey_runs', array('id' => $id), 'name');
-            $run = new Run($this->fdb, $runName);
+            $run = new Run(null, $id);
             if (!$run->valid) {
                 formr_error(404, 'Not Found', 'Run Not Found');
             }
@@ -202,19 +201,30 @@ class AdminAdvancedController extends Controller {
         }
     }
 
-    public function settingsAction() {
+    public function contentSettingsAction() {
         if (Request::isHTTPPostRequest()) {
             $allowedSettings = array(
-                'content:publications', 'content:footerimprint', 
-                'links:policyurl', 'links:logourl', 'links:logolink', 
+                // 'true' set for checkboxes
+                'content:about:show' => true,
+                'content:docu:show' => true, 'content:docu:support_email',
+                'content:studies:show' => true,
+                'content:publications:show' => true, 'content:publications',
+                'footer:link:policyurl', 'footer:link:logourl', 'footer:link:logolink', 'footer:imprint',
+                'signup:allow','signup:message',
                 'js:cookieconsent'
             );
-            
-            foreach ($allowedSettings as $setting) {
+
+            foreach ($allowedSettings as $setting => $is_checkbox) {
+                if ($is_checkbox !== true) {
+                    $setting = $is_checkbox;
+                }
+                
                 if (($value = $this->request->getParam($setting)) !== null) {
                     $this->fdb->insert_update('survey_settings', array('setting' => $setting, 'value' => $value));
                 }
             }
+            
+            $this->fdb->insert_update('survey_settings', array('setting' => 'content.about.show', 'value' => 'true'));
 
             alert('Settings saved', 'alert-success');
             $this->sendResponse($this->site->renderAlerts());
