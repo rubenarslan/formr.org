@@ -67,6 +67,10 @@ function print_hidden_opencpu_debug_message($ocpu_req, $public_message = '') {
 }
 
 function redirect_to($location = '', $params = array()) {
+	if (formr_in_console()) {
+		return;
+	}
+
     $location = str_replace(PHP_EOL, '', $location);
     if (strpos($location, 'index') !== false) {
         $location = '';
@@ -984,7 +988,7 @@ function opencpu_evaluate($code, $variables = null, $return_format = 'json', $co
 function shortcut_without_opencpu($code, $data) {
     if ($code === 'tail(survey_unit_sessions$created,1)') {
         return array(end($data['datasets']['survey_unit_sessions']['created']));
-    } elseif (preg_match("/^([a-zA-Z0-9_]+)\\\$([a-zA-Z0-9_]+)$/", $code, $matches)) {
+    } elseif (preg_match("/^([a-zA-Z0-9_]+)\\\$([a-zA-Z0-9_]+)$/", (string)$code, $matches)) {
         $survey = $matches[1];
         $variable = $matches[2];
         if (!empty($data['datasets'][$survey][$variable]) && count($data['datasets'][$survey][$variable]) == 1) {
@@ -1098,7 +1102,7 @@ function opencpu_knit_iframe($source, $variables = null, $return_session = false
 
     $yaml = "";
     $yaml_lines = '/^\-\-\-/um';
-    if (preg_match_all($yaml_lines, $source) >= 2) {
+    if (preg_match_all($yaml_lines, (string)$source) >= 2) {
         $parts = preg_split($yaml_lines, $source, 3);
         $yaml = "---" . $parts[1] . "---\n\n";
         $source = $parts[2];
@@ -1383,25 +1387,25 @@ function opencpu_log($msg) {
 
 function opencpu_formr_variables($q) {
     $variables = [];
-    if (preg_match("/\btime_passed\b/", $q)) {
+    if (preg_match("/\btime_passed\b/", (string)$q)) {
         $variables[] = 'formr_last_action_time';
     }
-    if (preg_match("/\bnext_day\b/", $q)) {
+    if (preg_match("/\bnext_day\b/", (string)$q)) {
         $variables[] = 'formr_last_action_date';
     }
-    if (strstr($q, '.formr$login_code') !== false) {
+    if (strstr((string)$q, '.formr$login_code') !== false) {
         $variables[] = 'formr_login_code';
     }
-    if (preg_match("/\buser_id\b/", $q)) {
+    if (preg_match("/\buser_id\b/", (string)$q)) {
         $variables[] = 'user_id';
     }
-    if (strstr($q, '.formr$login_link') !== false) {
+    if (strstr((string)$q, '.formr$login_link') !== false) {
         $variables[] = 'formr_login_link';
     }
-    if (strstr($q, '.formr$nr_of_participants') !== false) {
+    if (strstr((string)$q, '.formr$nr_of_participants') !== false) {
         $variables[] = 'formr_nr_of_participants';
     }
-    if (strstr($q, '.formr$session_last_active') !== false) {
+    if (strstr((string)$q, '.formr$session_last_active') !== false) {
         $variables[] = 'formr_session_last_active';
     }
 
@@ -1740,4 +1744,8 @@ function formr_check_maintenance() {
     if (Config::get('in_maintenance') && !in_array($ip, Config::get('maintenance_ips', []))) {
         formr_error(503, 'Service Unavailable', 'This website is currently undergoing maintenance. Please try again later.', 'Maintenance Mode', false);
     }
+}
+
+function formr_in_console() {
+	return php_sapi_name() === 'cli';
 }

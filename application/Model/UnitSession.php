@@ -680,7 +680,7 @@ class UnitSession extends Model {
             $study_id = $table_ids[$index];
 
             // For preg_match, study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
-            if ($table_name == $token_add OR preg_match("/\b$table_name\b/", $q)) {
+            if ($table_name == $token_add || preg_match("/\b$table_name\b/", (string)$q)) {
                 $matches[$study_id] = $table_name;
                 $matches_results_tables[$table_name] = $results_tables[$table_name];
             }
