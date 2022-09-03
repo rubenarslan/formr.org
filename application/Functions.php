@@ -71,7 +71,7 @@ function redirect_to($location = '', $params = array()) {
 		return;
 	}
 
-    $location = str_replace(PHP_EOL, '', $location);
+    $location = str_replace(PHP_EOL, '', (string)$location);
     if (strpos($location, 'index') !== false) {
         $location = '';
     }

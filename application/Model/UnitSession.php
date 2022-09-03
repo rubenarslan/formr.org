@@ -451,8 +451,10 @@ class UnitSession extends Model {
                     $answered_relative = null;
                 }
 
+				$answer = $item->getReply($value);
+				$answer = is_array($answer) ? current($answer) : $answer;
                 $survey_items_display->bindValue(":item_id", $item->id);
-                $survey_items_display->bindValue(":answer", $item->getReply($value));
+                $survey_items_display->bindValue(":answer", $answer);
                 $survey_items_display->bindValue(":hidden", $item->skip_validation ? (int) $item->hidden : 0); // an item that was answered has to have been shown
                 $survey_items_display->bindValue(":saved", mysql_now());
                 $survey_items_display->bindParam(":shown", $shown);
