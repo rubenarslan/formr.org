@@ -80,7 +80,7 @@ at [formr.org](https://formr.org).
 The following requirements should be installed on the system you intend to install formr on:
 
 * [Git](http://git-scm.com/) (for installation)
-* PHP ≥ 7.2
+* PHP ≥ 8.1
 	* composer
 	* php-curl
 	* php-fpm (often: php7.x-fpm e. g. php7.2-fpm)
@@ -90,7 +90,6 @@ The following requirements should be installed on the system you intend to insta
 	* php-xml
 	* php-gd
 	* php-intl
-	* php-xml
 	* pandoc (not needed in `develop` branch for libsodium23)
 * Apache >= 2.4
 * MySQL / MariaDB >= 5.6
