@@ -33,7 +33,7 @@ class RangeTicks_Item extends Number_Item {
         // Set actual choices based on defined range and step
         $this->choices = array();
         for ($i = $this->input_attributes['min']; $i <= $this->input_attributes['max']; $i = $i + $this->input_attributes['step']) {
-            $this->choices[$i] = $i;
+            $this->choices[(string)$i] = $i;
         }
     }
 

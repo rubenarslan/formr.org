@@ -324,7 +324,7 @@ class Item {
             $this->val_errors[] = "{$this->name}: The type column must not be empty.";
         }
 
-        $defined_classes = array_map('trim', explode(" ", $this->class));
+        $defined_classes = array_map('trim', explode(" ", (string)$this->class));
         $missing_classes = array_diff($defined_classes, $this->allowed_classes);
         if (count($missing_classes) > 0) {
             $this->val_warnings[] = "'{$this->name}' You used CSS classes that aren't part of the standard set (but maybe you defined them yourself): " . implode(", ", $missing_classes);

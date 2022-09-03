@@ -108,7 +108,7 @@ class Session {
     }
     
     public static function setCookie($name, $value, $expires = 0) {
-        return setcookie($name, $value, time() + $expires, self::$path, self::$domain, self::$secure, self::$httponly);
+        return setcookie($name, $value, time() + $expires, self::$path, (string)self::$domain, self::$secure, self::$httponly);
     }
     
     public static function deleteCookie($name) {
