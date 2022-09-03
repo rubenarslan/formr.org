@@ -56,7 +56,7 @@ class OpenCPU {
             }
         }
 
-        $this->curl_opts = array_merge($this->curl_opts, array_val($config, 'curl_opts', array()));
+        $this->curl_opts = $this->curl_opts + array_val($config, 'curl_opts', array());
     }
 
     /**
