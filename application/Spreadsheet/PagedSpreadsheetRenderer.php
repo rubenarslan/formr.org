@@ -383,7 +383,7 @@ class PagedSpreadsheetRenderer extends SpreadsheetRenderer {
 
     public function redirectToPage($page) {
         $this->redirect = $this->getPageUrl($page);
-        //redirect_to($redirect);
+        return [];
     }
 
     private function getPageUrl($page) {
