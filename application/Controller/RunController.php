@@ -3,6 +3,7 @@
 class RunController extends Controller {
 
     public function __construct(Site &$site) {
+        
         parent::__construct($site);
         if (!Request::isAjaxRequest()) {
             $default_assets = get_default_assets('site');
@@ -35,11 +36,16 @@ class RunController extends Controller {
 
         $run_vars = $this->run->exec($this->user);
         $run_vars['bodyClass'] = 'fmr-run';
+        
+        if (!empty($run_vars['redirect'])) {
+            return $this->request->redirect($run_vars['redirect']);
+        }
 
         $assset_vars = $this->filterAssets($run_vars);
         unset($run_vars['css'], $run_vars['js']);
 
         $this->setView('run/index', array_merge($run_vars, $assset_vars));
+
         return $this->sendResponse();
     }
 
@@ -64,7 +70,7 @@ class RunController extends Controller {
         }
 
         // People who have no session in the run need not set anything
-        $session = new RunSession($this->fdb, $run->id, 'cron', $this->user->user_code, $run);
+        $session = new RunSession($this->user->user_code, $run);
         if (!$session->id) {
             formr_error(401, 'Unauthorized', 'You cannot create settings in a study you have not participated in.');
         }
@@ -109,10 +115,18 @@ class RunController extends Controller {
         $this->user = $this->loginUser();
         $cookie = $this->getRunCookie();
         $cookie->destroy();
-        Session::destroy();
+        Session::destroy(false);
         $hint = 'Session Ended';
         $text = 'Your session was successfully closed! You can restart a new session by clicking the link below.';
-        formr_error(200, 'OK', $text, $hint, run_url($this->run->name), 'Start New Session');
+        $url = run_url($this->run->name);
+        if ($this->request->prev) {
+            //If user is loggin out from a test session, show button to create another test session
+            $prevRunSesson = new RunSession($this->request->prev, $this->run);
+            if ($prevRunSesson->testing) {
+                $url = admin_run_url($this->run->name, 'create_new_test_code');
+            }
+        }
+        formr_error(200, 'OK', $text, $hint, $url, 'Start New Session');
     }
 
     protected function monkeyBarAction($action = '') {
@@ -158,7 +172,7 @@ class RunController extends Controller {
 
     private function getRun() {
         $name = $this->request->str('run_name');
-        $run = new Run($this->fdb, $name);
+        $run = new Run($name);
         if ($name !== Run::TEST_RUN && Config::get('use_study_subdomains') && !FMRSD_CONTEXT) {
             //throw new Exception('Invalid Study Context');
             // Redirect existing users to run's sub-domain URL and QSA
@@ -176,6 +190,10 @@ class RunController extends Controller {
     }
 
     private function getPrivateActionMethod($action) {
+        if ($action === null) {
+            return false;
+        }
+
         $actionName = $this->getPrivateAction($action, '-', true) . 'Action';
         if (!method_exists($this, $actionName)) {
             return false;
@@ -249,7 +267,6 @@ class RunController extends Controller {
         if (isset($_GET['run_name']) && isset($_GET['code']) && strlen($_GET['code']) == 64) {
             // user came in with login code
             $loginCode = $_GET['code'];
-            //} elseif (($cookie = $this->getRunCookie()) && $cookie->exists() && $cookie->getData('code')) {
         } elseif ($user = Site::getInstance()->getSessionUser()) {
             // try to get user from cookie
             $loginCode = $user->user_code;
@@ -258,7 +275,8 @@ class RunController extends Controller {
             // new user just entering the run;
             $loginCode = null;
         }
-        return new User($this->fdb, $id, $loginCode);
+        
+        return new User($id, $loginCode);
     }
 
 }

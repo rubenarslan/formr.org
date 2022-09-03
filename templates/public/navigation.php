@@ -7,15 +7,27 @@
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
             </button>
-            <a class="navbar-brand" href="<?php echo site_url(); ?>"><span>f</span>orm<span>{`r}</span></a>
+            <a class="navbar-brand" href="<?php echo site_url(); ?>"><?=Config::get('brand')?></a>
         </div>
 
+        <?php $settings = Site::getSettings(); ?>
         <div class="collapse navbar-collapse" id="formr-nav">
             <ul class="nav navbar-nav">
-                <li><a href="<?php echo site_url('about'); ?>">About</a></li>
-                <li><a href="<?php echo site_url('documentation'); ?>">Documentation</a></li>
-                <li><a href="<?php echo site_url('studies'); ?>">Studies</a></li>
-                <li><a href="<?php echo site_url('publications'); ?>">Publications</a></li>
+                <?php if (array_val($settings, 'content:about:show', 'true') === 'true'): ?>
+                    <li><a href="<?php echo site_url('about'); ?>">About</a></li>
+                <?php endif; ?>
+                
+                <?php if (array_val($settings, 'content:docu:show', 'true') === 'true'): ?>
+                    <li><a href="<?php echo site_url('documentation'); ?>">Documentation</a></li>
+                <?php endif; ?>
+                
+                <?php if (array_val($settings, 'content:studies:show', 'true') === 'true'): ?>
+                    <li><a href="<?php echo site_url('studies'); ?>">Studies</a></li>
+                <?php endif; ?>
+                
+                <?php if (array_val($settings, 'content:publications:show', 'true') === 'true'): ?>
+                    <li><a href="<?php echo site_url('publications'); ?>">Publications</a></li>
+                <?php endif; ?>
             </ul>
             <ul class="nav navbar-nav navbar-right">
                 <?php if (!empty($user) && $user->loggedIn()): ?>

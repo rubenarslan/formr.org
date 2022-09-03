@@ -1,3 +1,5 @@
+<?php $settings = Site::getSettings(); ?>
+
 <footer id="fmr-footer">
 	<div class="container">
 		<div class="row row-bottom-padded-md">
@@ -6,9 +8,13 @@
 					<h3>formr</h3>
 					<ul class="fmr-links">
 						<li><a href="<?= site_url('about')?>">About</a></li>
-						<li><a href="<?= site_url('documentation')?>">Documentation</a></li>
-						<li><a href="<?= site_url('studies')?>">Studies</a></li>
-						<li><a href="<?= Site::getSettings('links:policyurl') ?>" target="_blank">Privacy Policy</a></li>
+						<?php if (array_val($settings, 'content:docu:show', 'true') === 'true'): ?>
+                            <li><a href="<?php echo site_url('documentation'); ?>">Documentation</a></li>
+                        <?php endif; ?>
+						<?php if (array_val($settings, 'content:studies:show', 'true') === 'true'): ?>
+                            <li><a href="<?php echo site_url('studies'); ?>">Studies</a></li>
+                        <?php endif; ?>
+						<li><a href="<?= array_val($settings, 'footer:link:policyurl') ?>" target="_blank">Privacy Policy</a></li>
 					</ul>
 				</div>
 			</div>
@@ -17,7 +23,9 @@
 				<div class="fmr-footer-widget">
 					<h3>Get support</h3>
 					<ul class="fmr-links">
-						<li><a href="<?= site_url('documentation#help')?>">How to get help</a></li>
+                        <?php if (array_val($settings, 'content:docu:show', 'true') === 'true'): ?>
+                            <li><a href="<?= site_url('documentation#help')?>">How to get help</a></li>
+                        <?php endif; ?>
 						<li><a href="https://groups.google.com/d/forum/formr">formr google group</a></li>
 						<li><a href="https://github.com/rubenarslan/formr.org">formr github</a></li>
 					</ul>
@@ -28,7 +36,7 @@
 				<div class="fmr-footer-widget">
 					<h3>Imprint</h3>
 					<p>
-						<?= nl2br(Site::getSettings('content:footerimprint')) ?>
+						<?= nl2br(array_val($settings, 'footer:imprint')) ?>
 					</p>
 				</div>
 			</div>
@@ -36,8 +44,10 @@
 			<div class="col-md-2 col-sm-6 col-xs-12 animate-box">
 				<div class="fmr-footer-widget">
 					<ul class="fmr-links">
-						<li><a href="<?= Site::getSettings('links:logolink') ?>" target="_blank"><img src="<?= Site::getSettings('links:logourl') ?>" alt="Uni Göttingen logo"></a></li>
-					</ul>
+                        <?php if (array_val($settings, 'footer:link:logourl')): ?>
+                            <li><a href="<?= array_val($settings, 'footer:link:logolink') ?>" target="_blank"><img src="<?= array_val($settings, 'footer:link:logourl') ?>" alt="LOGO"></a></li>
+                        <?php endif; ?>
+                    </ul>
 				</div>
 			</div>
 

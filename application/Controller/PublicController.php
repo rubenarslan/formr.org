@@ -16,16 +16,27 @@ class PublicController extends Controller {
     }
 
     public function documentationAction() {
+        if (Site::getSettings('content:docu:show', 'true') !== 'true') {
+            formr_error(403, 'Not Public', 'Page cannot be displayed');
+        }
         $this->setView('public/documentation', array('headerClass' => 'fmr-small-header'));
         return $this->sendResponse();
     }
 
     public function studiesAction() {
+        if (Site::getSettings('content:studies:show', 'true') !== 'true') {
+            formr_error(403, 'Not Public', 'Page cannot be displayed');
+        }
+        
         $this->setView('public/studies', array('runs' => RunHelper::getPublicRuns()));
         return $this->sendResponse();
     }
 
     public function aboutAction() {
+        if (Site::getSettings('content:about:show', 'true') !== 'true') {
+            formr_error(403, 'Not Public', 'Page cannot be displayed');
+        }
+        
         $this->setView('public/about', array(
             'bodyClass' => 'fmr-about',
             'headerClass' => 'fmr-small-header'
@@ -34,6 +45,10 @@ class PublicController extends Controller {
     }
 
     public function publicationsAction() {
+        if (Site::getSettings('content:publications:show', 'true') !== 'true') {
+            formr_error(403, 'Not Public', 'Page cannot be displayed');
+        }
+        
         $this->setView('public/publications', array('headerClass' => 'fmr-small-header'));
         return $this->sendResponse();
     }

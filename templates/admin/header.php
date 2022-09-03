@@ -35,7 +35,7 @@
                 <nav class="navbar navbar-static-top">
                     <div class="container-fluid">
                         <div class="navbar-header">
-                            <a href="<?= admin_url(); ?>" class="navbar-brand"><b>form</b>{`r}</a>
+                            <a href="<?= admin_url(); ?>" class="navbar-brand"><?= Config::get('brand') ?></a>
                             <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar-collapse">
                                 <i class="fa fa-bars"></i>
                             </button>
@@ -79,22 +79,21 @@
                                     </ul>
                                 </li>
                                 <li><a href="<?php echo admin_url('mail'); ?>"><i class="fa fa-envelope"></i> <span>Mail Accounts</span></a></li>
+                                <?php if ($user->isSuperAdmin()): ?>
                                 <li class="dropdown">
                                     <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-cogs"></i> Advanced <span class="caret"></span></a>
                                     <ul class="dropdown-menu" role="menu">
-                                        <li><a href="https://github.com/rubenarslan/formr.org"><i class="fa fa-github-alt fa-fw"></i> Github repository </a></li>
-                                        <li><a href="https://github.com/rubenarslan/formr"><i class="fa fa-github-alt fa-fw"></i> R package on Github </a></li>
-                                        <?php if ($user->isSuperAdmin()): ?>
-                                            <li><a href="<?php echo site_url('admin/advanced/settings'); ?>"><i class="fa fa-cog fa-fw"></i> Global Settings</a></li>
-                                            <li><a href="<?php echo site_url('admin/advanced/user_management'); ?>"><i class="fa fa-users fa-fw"></i> Manage Admins</a></li>
-                                            <li><a href="<?php echo site_url('admin/advanced/user_details'); ?>"><i class="fa fa-users fa-fw"></i> Manage User Details</a></li>
-                                            <li><a href="<?php echo site_url('admin/advanced/active_users'); ?>"><i class="fa fa-users fa-fw"></i> Active Admins</a></li>
-                                            <li><a href="<?php echo site_url('admin/advanced/info'); ?>"><i class="fa fa-list fa-fw"></i> PHP Info</a></li>
-                                            <li><a href="<?php echo site_url('admin/advanced/runs_management'); ?>"><i class="fa fa-list fa-fw"></i> Manage Runs</a></li>
-                                            <li><a href="<?php echo site_url('admin/advanced/cron_log'); ?>"><i class="fa fa-list fa-fw"></i> Cron Log</a></li>
-                                        <?php endif; ?>
+                                       <li><a href="<?php echo site_url('admin/advanced/content_settings'); ?>"><i class="fa fa-cog fa-fw"></i> Content Settings</a></li>
+                                       <li><a href="<?php echo site_url('admin/advanced/user_management'); ?>"><i class="fa fa-users fa-fw"></i> Manage Admins</a></li>
+                                       <li><a href="<?php echo site_url('admin/advanced/user_details'); ?>"><i class="fa fa-users fa-fw"></i> Manage User Details</a></li>
+                                       <li><a href="<?php echo site_url('admin/advanced/active_users'); ?>"><i class="fa fa-users fa-fw"></i> Active Admins</a></li>
+                                       <li><a href="<?php echo site_url('admin/advanced/info'); ?>"><i class="fa fa-list fa-fw"></i> PHP Info</a></li>
+                                       <li><a href="<?php echo site_url('admin/advanced/runs_management'); ?>"><i class="fa fa-list fa-fw"></i> Manage Runs</a></li>
+                                       <li><a href="<?php echo site_url('admin/advanced/cron_log'); ?>"><i class="fa fa-list fa-fw"></i> Cron Log</a></li>
+                                        
                                     </ul>
                                 </li>
+                                <?php endif; ?>
                             </ul>
                             <?php endif; ?>
 

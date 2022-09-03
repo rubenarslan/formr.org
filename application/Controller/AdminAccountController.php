@@ -4,7 +4,6 @@ class AdminAccountController extends Controller {
 
     public function __construct(Site &$site) {
         parent::__construct($site);
-
         if (!Request::isAjaxRequest()) {
             $default_assets = get_default_assets('admin');
             $this->registerAssets($default_assets);
@@ -86,6 +85,8 @@ class AdminAccountController extends Controller {
             if ($this->user->login($info)) {
                 alert('<strong>Success!</strong> You were logged in!', 'alert-success');
                 Session::set('user', serialize($this->user));
+                Session::setAdminCookie($this->user);
+
                 $redirect = $this->user->isAdmin() ? 'admin' : 'admin/account';
                 $this->request->redirect($redirect);
             } else {
@@ -125,7 +126,7 @@ class AdminAccountController extends Controller {
         }
 
         if ($this->request->isHTTPPostRequest() && $site->request->str('email') && filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
-            if (!Session::canValidateRequestToken($site->request)) {
+            if (!Session::canValidateRequestToken($site->request) || Site::getSettings('signup:allow', 'true') !== 'true') {
                 alert('Could not process your request please try again later', 'alert-danger');
                 return $this->request->redirect('register');
             }

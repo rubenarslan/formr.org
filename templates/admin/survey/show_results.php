@@ -17,14 +17,14 @@
                     <div class="box-header with-border">
                         <h3 class="box-title">Survey Results <small> <?= (int) $resultCount['finished'] ?> complete, <?= (int) $resultCount['begun'] ?> begun, <?= (int) $resultCount['testers'] ?> testers </small></h3>
                         <div class="pull-right">
-                            <?php if (!$study->settings['hide_results']): ?>
+                            <?php if (!$study->hide_results): ?>
                                 <a href="#" data-toggle="modal" data-target="#download-items" class="btn btn-primary"><i class="fa fa-save"></i> Export</a>
                                 <a href="<?php echo admin_study_url($study->name, 'show_itemdisplay'); ?>" class="btn btn-primary"><i class="fa fa-file-text-o"></i> Detailed Results</a>
                             <?php endif; ?>
                         </div>
                     </div>
 
-                    <?php if ($study->settings['hide_results']): ?>
+                    <?php if ($study->hide_results): ?>
                         <div class="col-md-12">
                             <p>&nbsp;</p>
                             <p class="callout callout-warning"><i class="fa fa-warning"></i> Displaying results has been disabled for this survey.</p>
@@ -55,6 +55,7 @@
                         <table class="table table-hover">
                             <?php
                             $print_header = true;
+                            
                             foreach ($results as $row) {
                                 unset($row['study_id']);
                                 if ($print_header) {
@@ -68,10 +69,10 @@
                                 }
 
                                 if (isset($row['created'])):
-                                    $row['created'] = '<abbr title="' . $row['created'] . '">' . timetostr(strtotime($row['created'])) . '</abbr>';
-                                    $row['ended'] = '<abbr title="' . $row['ended'] . '">' . timetostr(strtotime($row['ended'])) . '</abbr>';
-                                    $row['modified'] = '<abbr title="' . $row['modified'] . '">' . timetostr(strtotime($row['modified'])) . '</abbr>';
-                                    $row['expired'] = '<abbr title="' . $row['expired'] . '">' . timetostr(strtotime($row['expired'])) . '</abbr>';
+                                    $row['created'] = '<abbr title="' . $row['created'] . '">' . timetostr(strtotime((string)$row['created'])) . '</abbr>';
+                                    $row['ended'] = '<abbr title="' . $row['ended'] . '">' . timetostr(strtotime((string)$row['ended'])) . '</abbr>';
+                                    $row['modified'] = '<abbr title="' . $row['modified'] . '">' . timetostr(strtotime((string)$row['modified'])) . '</abbr>';
+                                    $row['expired'] = '<abbr title="' . $row['expired'] . '">' . timetostr(strtotime((string)$row['expired'])) . '</abbr>';
                                 endif;
                                 echo '<tr>';
                                 foreach ($row as $cell) {

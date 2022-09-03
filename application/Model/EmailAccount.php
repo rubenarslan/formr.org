@@ -2,7 +2,7 @@
 
 use PHPMailer\PHPMailer\PHPMailer;
 
-class EmailAccount {
+class EmailAccount extends Model {
 
     public $id = null;
     public $user_id = null;
@@ -16,8 +16,9 @@ class EmailAccount {
 
     const AK_GLUE = ':fmr:';
 
-    public function __construct($fdb, $id, $user_id) {
-        $this->dbh = $fdb;
+    public function __construct($id, $user_id) {
+        parent::__construct();
+        
         $this->id = (int) $id;
         $this->user_id = (int) $user_id;
 
@@ -27,7 +28,7 @@ class EmailAccount {
     }
 
     protected function load() {
-        $this->account = $this->dbh->findRow('survey_email_accounts', array('id' => $this->id));
+        $this->account = $this->db->findRow('survey_email_accounts', array('id' => $this->id));
         if ($this->account) {
             $this->valid = true;
             $this->user_id = (int) $this->account['user_id'];
@@ -40,7 +41,7 @@ class EmailAccount {
     }
 
     public function create() {
-        $this->id = $this->dbh->insert('survey_email_accounts', array('user_id' => $this->user_id, 'auth_key' => ''));
+        $this->id = $this->db->insert('survey_email_accounts', array('user_id' => $this->user_id, 'auth_key' => ''));
         $this->load();
         return $this->id;
     }
@@ -74,7 +75,7 @@ class EmailAccount {
 			SET `from` = :fromm, `from_name` = :from_name, `host` = :host, `port` = :port, `tls` = :tls, `username` = :username, `password` = :password, `auth_key` = :auth_key, `status` = 0
 			WHERE id = :id LIMIT 1";
 
-        $this->dbh->exec($query, $params);
+        $this->db->exec($query, $params);
         $this->load();
         return true;
     }
@@ -132,15 +133,15 @@ class EmailAccount {
     }
 
     public function invalidate() {
-        return $this->dbh->update('survey_email_accounts', array('status' => -1), array('id' => $this->id));
+        return $this->db->update('survey_email_accounts', array('status' => -1), array('id' => $this->id));
     }
 
     public function validate() {
-        return $this->dbh->update('survey_email_accounts', array('status' => 1), array('id' => $this->id));
+        return $this->db->update('survey_email_accounts', array('status' => 1), array('id' => $this->id));
     }
 
     public function delete() {
-        return $this->dbh->update('survey_email_accounts', array('deleted' => 1), array('id' => $this->id));
+        return $this->db->update('survey_email_accounts', array('deleted' => 1), array('id' => $this->id));
     }
 
 }

@@ -3,18 +3,18 @@
 <?php if ($studies): ?>
 
     <div class="form-group">
-        <select class="select2" name="unit_id" style="width:300px">
+        <select class="select2" name="study_id" style="width:300px">
             <option value=""></option>
             <?php
             foreach ($studies as $study):
                 $study = (object) $study;
-                $selected = $survey->id == $study->id ? 'selected = "selected"' : '';
+                $selected = ($survey && $survey->id == $study->id) ? 'selected = "selected"' : '';
                 ?>
                 <option value="<?= $study->id ?>" <?= $selected ?>><?= $study->name ?></option>
             <?php endforeach; ?>
         </select>
 
-        <?php if ($survey->id): ?>
+        <?php if ($survey && $survey->id): ?>
             <p>
                 <?= (int) $resultCount['finished'] ?> complete <a href="<?= admin_study_url($survey->name, 'show_results') ?>">results</a>,
                 <?= (int) $resultCount['begun'] ?> begun <abbr class="hastooltip" title="Median duration participants needed to complete the survey">(in ~ <?= $time ?>m)</abbr>
