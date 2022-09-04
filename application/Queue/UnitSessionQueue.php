@@ -11,16 +11,14 @@ class UnitSessionQueue extends Queue {
 
     protected $logFile = 'session-queue.log';
     
-    protected $list_type = null;
-    
     const QUEUED_TO_EXECUTE = 1;
     const QUEUED_TO_END = 2;
     const QUEUED_NOT = 0;
     const QUEUED_SUPERCEDED = -9;
 
     public function __construct(DB $db, array $config) {
+		$this->list_type = array_val($config, 'list_type', null);
         parent::__construct($db, $config);
-		$this->list_type = array_val($this->config, 'list_type', null);
     }
 
     public function run() {
@@ -89,8 +87,7 @@ class UnitSessionQueue extends Queue {
             //LIMIT {$this->limit} OFFSET {$this->offset}";
                   
         if ($this->debug) {
-//            $this->dbg($query . ' queued: ' . $queued);
-//            $this->dbg($this->list_type);
+            $this->dbg($query . ' queued: ' . $queued);
         }
         
         return $this->db->rquery($query, array('queued' => $queued));
@@ -98,6 +95,8 @@ class UnitSessionQueue extends Queue {
 
     protected function processQueue() {
         $sessionsStmt = $this->getSessionsStatement();
+		
+		$this->dbg('Count: ' . $sessionsStmt->rowCount());
         if ($sessionsStmt->rowCount() <= 0) {
             $sessionsStmt->closeCursor();
             return false;
@@ -125,8 +124,8 @@ class UnitSessionQueue extends Queue {
             // This action might end or expire a session, thereby removing it from queue
             // or session might be re-queued to expire in x minutes
             $unitSession = new UnitSession($runSession, null, ['id' => $session['id'], 'load' => true]);
-            $runSession->execute($unitSession,  $session['queued'] == self::QUEUED_TO_EXECUTE);
-            
+            $execution = $runSession->execute($unitSession,  $session['queued'] == self::QUEUED_TO_EXECUTE);
+
             if ($this->debug) {
                 $this->dbg('Proccessed: ' . print_r($session, 1));
             }

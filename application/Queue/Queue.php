@@ -41,8 +41,9 @@ class Queue {
     protected $sleep = 15;
     protected $logFile = 'queue.log';
     protected $name = 'Formr-Queue';
+	protected $list_type = 'none';
 
-    /**
+	/**
      * Configuration passed to queue
      *
      * @var array
@@ -90,7 +91,7 @@ class Queue {
             $str = vsprintf(array_shift($args), $args);
         }
 
-        $proccess = "{$this->process_num}/{$this->num_processes}";
+        $proccess = "{$this->process_num}/{$this->num_processes} - {$this->list_type}";
         $str = date('Y-m-d H:i:s') . ' ' . $this->name . '['.$proccess.']: ' . $str . PHP_EOL;
         if (DEBUG) {
             echo $str;

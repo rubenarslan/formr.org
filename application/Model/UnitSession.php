@@ -451,8 +451,13 @@ class UnitSession extends Model {
                     $answered_relative = null;
                 }
 
+				$answer = $item->getReply($value);
+				if (is_array($answer)) {
+					$answer = json_encode($answer);
+				}
+
                 $survey_items_display->bindValue(":item_id", $item->id);
-                $survey_items_display->bindValue(":answer", $item->getReply($value));
+                $survey_items_display->bindValue(":answer", $answer);
                 $survey_items_display->bindValue(":hidden", $item->skip_validation ? (int) $item->hidden : 0); // an item that was answered has to have been shown
                 $survey_items_display->bindValue(":saved", mysql_now());
                 $survey_items_display->bindParam(":shown", $shown);
@@ -680,7 +685,7 @@ class UnitSession extends Model {
             $study_id = $table_ids[$index];
 
             // For preg_match, study name appears as word, matches nrow(survey), survey$item, survey[row,], but not survey_2
-            if ($table_name == $token_add OR preg_match("/\b$table_name\b/", $q)) {
+            if ($table_name == $token_add || preg_match("/\b$table_name\b/", (string)$q)) {
                 $matches[$study_id] = $table_name;
                 $matches_results_tables[$table_name] = $results_tables[$table_name];
             }
