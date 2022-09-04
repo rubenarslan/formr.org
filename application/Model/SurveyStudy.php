@@ -494,7 +494,12 @@ class SurveyStudy extends Model {
 
             // if the parsed label is constant or exists
             if (!knitting_needed($item->label) && !$item->label_parsed) {
-                $markdown = $reader->parsedown->text($item->label);
+				try {
+					$markdown = $reader->parsedown->text($item->label);
+				} catch (Exception $e) {
+					formr_log_exception($e, 'PARSEDOWN.TEXT');
+					$markdown = $item->label;
+				}
                 $item->label_parsed = $markdown;
                 if (mb_substr_count($markdown, "</p>") === 1 AND preg_match("@^<p>(.+)</p>$@", trim($markdown), $matches)) {
                     $item->label_parsed = $matches[1];

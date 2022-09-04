@@ -432,7 +432,7 @@ class RunSession extends Model {
         $updated = $this->db->exec($query, array('id' => $this->id));
 
         if ($updated === 1) {
-            $this->ended = true;
+            $this->ended = mysql_datetime();
             return true;
         }
 

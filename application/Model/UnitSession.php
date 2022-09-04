@@ -452,7 +452,10 @@ class UnitSession extends Model {
                 }
 
 				$answer = $item->getReply($value);
-				$answer = is_array($answer) ? current($answer) : $answer;
+				if (is_array($answer)) {
+					$answer = json_encode($answer);
+				}
+
                 $survey_items_display->bindValue(":item_id", $item->id);
                 $survey_items_display->bindValue(":answer", $answer);
                 $survey_items_display->bindValue(":hidden", $item->skip_validation ? (int) $item->hidden : 0); // an item that was answered has to have been shown
