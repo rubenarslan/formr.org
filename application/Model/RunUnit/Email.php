@@ -198,13 +198,13 @@ class Email extends RunUnit {
         if ($this->recipient == null) {
             //formr_log("Email recipient could not be determined from this field definition " . $this->recipient_field);
             alert("We could not find an email recipient. Session: {$unitSession->runSession->session}", 'alert-danger');
-            $this->errors['log'] = $this-$this->getLogMessage('no_recipient', 'We could not find an email recipient');
+            $this->errors['log'] = $this->getLogMessage('no_recipient', 'We could not find an email recipient');
             return false;
         }
 
         if ($this->account_id === null) {
             alert("The study administrator (you?) did not set up an email account. <a href='" . admin_url('mail') . "'>Do it now</a> and then select the account in the email dropdown.", 'alert-danger');
-            $this->errors['log'] = $this-$this->getLogMessage('no_recipient', "The study administrator (you?) did not set up an email account.");
+            $this->errors['log'] = $this->getLogMessage('no_recipient', "The study administrator (you?) did not set up an email account.");
             return false;
         }
 

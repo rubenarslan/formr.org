@@ -185,6 +185,10 @@ class RunSession extends Model {
      */
     public function execute(UnitSession $referenceUnitSession = null, $executeReferenceUnit = false) {
         if ($this->ended) {
+			if (formr_in_console()) {
+				$referenceUnitSession->end('ended_by_queue_rse');
+				UnitSessionQueue::removeItem($referenceUnitSession->id);
+			}
             // User tried to access an already ended run session, logout
             return redirect_to(run_url($this->run->name, 'logout', ['prev' => $this->session]));
         }
@@ -202,7 +206,7 @@ class RunSession extends Model {
             return false;
         }
 
-        if (!$this->position) {
+        if ($this->position === null) {
             $this->position = $position;
             $this->save();
         }
@@ -428,7 +432,7 @@ class RunSession extends Model {
         $updated = $this->db->exec($query, array('id' => $this->id));
 
         if ($updated === 1) {
-            $this->ended = true;
+            $this->ended = mysql_datetime();
             return true;
         }
 
