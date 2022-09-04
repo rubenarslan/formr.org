@@ -2,6 +2,8 @@
 <?php
 require_once dirname(__FILE__) . '/../setup.php';
 
+Session::configure(Config::get('php_session', []));
+
 /**
  * Usage:
  * - php queue.php
