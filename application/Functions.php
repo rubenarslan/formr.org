@@ -514,7 +514,7 @@ function human_filesize($bytes, $decimals = 2) {
 }
 
 function cr2nl($string) {
-    return str_replace("\r\n", "\n", $string);
+    return str_replace("\r\n", "\n", (string)$string);
 }
 
 function time_point($line, $file) {
@@ -1439,11 +1439,12 @@ function shutdown_formr_org() {
         $errfile = $error["file"];
         $errline = $error["line"];
         $errstr = $error["message"];
+        $code = strtoupper(AnimalName::haikunate());
 
         $msg = "A fatal error occured and your request could not be completed. Contact site admins with these details \n";
-        $msg .= "Error [$errno] in $errfile line $errline \n $errstr";
-        //alert($msg, 'alert-danger');
-
+        $msg .= "Error [$errno] in $errfile line $errline \n $code";
+  
+        formr_log("$msg \n $errstr", $code);
         formr_error(500, 'Internal Server Error', nl2br($msg), 'Fatal Error');
     }
 }
@@ -1716,9 +1717,14 @@ function secstofactor($seconds) {
 }
 
 function knitting_needed($source) {
+	if (!$source) {
+		return false;
+	}
+	
     if (mb_strpos($source, '`r ') !== false || mb_strpos($source, '```{r') !== false) {
         return true;
     }
+
     return false;
 }
 
