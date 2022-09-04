@@ -165,6 +165,7 @@ class SpreadsheetRenderer {
         }
 
         $prog = round($prog);
+		$user = Site::getCurrentUser();
 
         $tpl_vars = array(
             'action' => $action,
@@ -175,7 +176,7 @@ class SpreadsheetRenderer {
             'name_user_code' => Session::REQUEST_USER_CODE,
             'name_cookie' => Session::REQUEST_NAME,
             'request_tokens' => Session::getRequestToken(), //$cookie->getRequestToken(),
-            'user_code' => h(Site::getCurrentUser()->user_code), //h($cookie->getData('code')),
+            'user_code' => $user ? h($user->user_code) : '', //h($cookie->getData('code')),
             'cookie' => '', //$cookie->getFile(),
             'progress' => $prog,
             'add_percentage_points' => $this->study->add_percentage_points,

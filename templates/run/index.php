@@ -9,7 +9,7 @@
         <div id="fmr-page" class="fmr-about">
             <div class="container run-container">
                 <div class="row">
-                    <div class="col-lg-12 run_position_<?php echo $run_session->position; ?> run_unit_type_<?php echo $run_session->currentUnitSession->runUnit->type; ?> run_content">	
+                    <div class="col-lg-12 run_position_<?php echo $run_session->position; ?> run_unit_type_<?php echo $run_session->currentUnitSession ? $run_session->currentUnitSession->runUnit->type : 'missing'; ?> run_content">	
                         <header class="run_content_header">
                             <?php if ($run->header_image_path): ?>
                                 <img src="<?php echo $run->header_image_path; ?>" alt="<?php echo $run->name; ?> header image">

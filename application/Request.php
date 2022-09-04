@@ -193,11 +193,13 @@ class Request {
     }
 
     public static function isHTTPPostRequest() {
-        return strtolower($_SERVER['REQUEST_METHOD']) === 'post';
+		$method = array_val($_SERVER, 'REQUEST_METHOD');
+        return strtolower($method) === 'post';
     }
 
     public static function isHTTPGetRequest() {
-        return strtolower($_SERVER['REQUEST_METHOD']) === 'get';
+		$method = array_val($_SERVER, 'REQUEST_METHOD');
+        return strtolower($method) === 'get';
     }
 
     public static function isAjaxRequest() {
