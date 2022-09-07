@@ -76,7 +76,7 @@ class RunHelper {
     }
 
     public function nextInRun() {
-        if (!$this->runSession->endUnitSession()) {
+        if ($this->runSession->currentUnitSession && !$this->runSession->currentUnitSession->end('moved')) {
             $this->errors[] = 'Unable to move to next unit in run ' . $this->run->name;
             return false;
         }

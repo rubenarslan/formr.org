@@ -128,7 +128,7 @@ class Pause extends RunUnit {
                 $result = $unitSession->created;
             } else {
                 $opencpu_vars = $unitSession->getRunData($this->relative_to);
-                $result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
+				$result = opencpu_evaluate($this->relative_to, $opencpu_vars, 'json');
                 if ($result === null) {
                     $data['check_failed'] = true;
                     $data['log'] = $this->getLogMessage('error_pause_relative_to', 'OpenCPU R error. Fix code.');

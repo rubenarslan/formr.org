@@ -57,7 +57,7 @@
                                         </td>
                                         <td>
                                             q. <abbr title="<?= $email['created']?>"> <?= timetostr(strtotime($email['created'])) ?></abbr><br>
-                                            s. <abbr title="<?= $email['sent']?>"> <?= timetostr(strtotime($email['sent'])) ?></abbr>
+                                            s. <abbr title="<?= $email['sent']?>"> <?= $email['sent'] ? timetostr(strtotime($email['sent'])) : null ?></abbr>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>

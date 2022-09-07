@@ -30,7 +30,7 @@
                                         <?= $user_overview['users_waiting'] ?> <abbr title="inactive for at least a week">waiting</abbr> users
                                     </small>
                                 </h4>
-                                <?php echo $overview_script->parseBodySpecial(); ?>
+                                <?php echo $overview_script->getParsedBody(); ?>
                             </div>
                         <?php else: ?>
                             <p> <a href="<?= admin_run_url($run->name, 'settings') ?>"class="btn btn-default"><i class="fa fa-plus-circle"></i> Add an overview script</a></p>
