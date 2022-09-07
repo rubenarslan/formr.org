@@ -22,7 +22,7 @@
                             <?php Template::loadChild('public/alerts'); ?>
 
                             <div class="form-group">
-                                <p class="control-label hastooltip" for="empty_confirm" title="this is required to avoid accidental deletions">Type the run's name to confirm that you want to delete all existing <span class="badge badge-success"><?= $users['sessions'] ?></span> users who progressed on average to position <span class="badge"><?= round($users['avg_position'], 2) ?></span>.</p>
+                                <p class="control-label hastooltip" for="empty_confirm" title="this is required to avoid accidental deletions">Type the run's name to confirm that you want to delete all existing <span class="badge badge-success"><?= $users['sessions'] ?></span> users who progressed on average to position <span class="badge"><?= round((float)$users['avg_position'], 2) ?></span>.</p>
                                 <p>You should only use this feature before the study goes live, to get rid of testing remnants! Please backup your survey data individually before emptying a run.</p>
 
                             </div>

@@ -425,6 +425,9 @@ class DB {
             if (isset($types[$i]) && isset($this->types[$types[$i]])) {
                 $type = $this->types[$types[$i]];
             }
+			if (is_array($value)) {
+				$value = json_encode($value);
+			}
             $stmt->bindValue(($numeric ? $i + 1 : self::pkey($key)), $value, $type);
             $i++;
         }

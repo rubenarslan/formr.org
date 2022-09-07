@@ -23,7 +23,7 @@
 
                             <h4>Type run name to confirm it's deletion</h4>
                             <div class="form-group">
-                                <p class="control-label hastooltip" for="delete_confirm" title="this is required to avoid accidental deletions">Type the run's name to confirm that you want delete all existing <span class="badge badge-success"><?= $users['sessions'] ?></span> users who progressed on average to position <span class="badge"><?= round($users['avg_position'], 2) ?></span></p>
+                                <p class="control-label hastooltip" for="delete_confirm" title="this is required to avoid accidental deletions">Type the run's name to confirm that you want delete all existing <span class="badge badge-success"><?= $users['sessions'] ?></span> users who progressed on average to position <span class="badge"><?= round((float)$users['avg_position'], 2) ?></span></p>
                             </div>
                             <div class="form-group">
                                 <div class="controls">
