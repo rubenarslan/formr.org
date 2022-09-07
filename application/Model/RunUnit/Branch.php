@@ -135,9 +135,9 @@ class Branch extends RunUnit {
             $result = $eval;
         } else {
             // If execution returned a timestamp in the future, then branching evaluates to FALSE
-            if (($time = strtotime($eval)) && $time > time()) {
+            if ($eval && ($time = strtotime($eval)) && $time > time()) {
                 $result = false;
-            } elseif (($time = strtotime($eval)) && $time <= time()) {
+            } elseif ($eval && ($time = strtotime($eval)) && $time <= time()) {
                 $result = true;
             } else {
                 $result = (bool) $eval;

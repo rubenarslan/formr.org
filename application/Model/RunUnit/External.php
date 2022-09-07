@@ -73,7 +73,7 @@ class External extends RunUnit {
     }
 
     private function isR($address) {
-        if (substr($address, 0, 4) == "http") {
+        if (substr((string)$address, 0, 4) == "http") {
             return false;
         }
         return true;
