@@ -4,7 +4,7 @@ class Wait extends Pause {
 
     public $type = "Wait";
     public $icon = "fa-hourglass-half";
-    protected $default_relative_to = 'FALSE';
+    //protected $default_relative_to = 'FALSE';
 
     public function __construct(Run $run, array $props = []) {
         parent::__construct($run, $props);
@@ -14,7 +14,7 @@ class Wait extends Pause {
         $this->relative_to = trim((string)$this->relative_to);
         $this->wait_minutes = trim((string)$this->wait_minutes);
         $this->has_wait_minutes = !($this->wait_minutes === null || $this->wait_minutes == '');
-        $this->has_relative_to = !($this->relative_to === null || $this->relative_to == '');
+        $this->has_relative_to = !($this->relative_to === null || $this->relative_to == '' || !$this->relative_to);
 
         // disambiguate what user meant
         if ($this->has_wait_minutes && !$this->has_relative_to) {
@@ -23,16 +23,19 @@ class Wait extends Pause {
             $this->relative_to = $this->default_relative_to;
             $this->has_relative_to = true;
         }
-
-        return $this->has_relative_to;
+		
+		return $this->has_relative_to;
     }
 
     protected function setDefaultRelativeTo(UnitSession $unitSession = null) {
+		//formr_log(!$this->has_relative_to && !$this->has_relative_to, 'setDefaultRelativeTo');
+		
         if ($unitSession && $this->has_wait_minutes && !$this->has_relative_to) {
             // Get previous unit session creation date
             $q = "SELECT id, created FROM survey_unit_sessions WHERE id < {$unitSession->id} AND run_session_id = {$unitSession->runSession->id} ORDER BY id DESC LIMIT 1";
             $result = $this->db->query($q, true)->fetch(PDO::FETCH_ASSOC);
-            if (!$result) {
+			
+            if ($result) {
                 $this->default_relative_to = json_encode($result['created']);
                 return;
             }
@@ -48,7 +51,7 @@ class Wait extends Pause {
         $output = [];
         $expiration = $this->getUnitSessionExpirationData($unitSession);
         $output['wait_opencpu'] = !empty($expiration['check_failed']);
-
+		
         if (empty($expiration['expired']) && !$unitSession->isExecutedByCron() && empty($expiration['check_failed'])) {
             $output['end_session'] = true;
             $output['run_to'] = $this->body;
