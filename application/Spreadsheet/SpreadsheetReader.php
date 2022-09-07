@@ -326,7 +326,7 @@ class SpreadsheetReader {
         $filename = $study->name;
 
         try {
-            $objPhpSpreadsheet = $this->getSheetsFromArrays($items, $choices, $study->settings);
+            $objPhpSpreadsheet = $this->getSheetsFromArrays($items, $choices, $study->getSettings());
             $objWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($objPhpSpreadsheet, 'Xlsx');
 
             header('Content-Disposition: attachment;filename="' . $filename . '.xlsx"');
@@ -348,7 +348,7 @@ class SpreadsheetReader {
         $filename = $study->name;
 
         try {
-            $objPhpSpreadsheet = $this->getSheetsFromArrays($items, $choices, $study->settings);
+            $objPhpSpreadsheet = $this->getSheetsFromArrays($items, $choices, $study->getSettings());
 
             $objWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($objPhpSpreadsheet, 'Xls');
 

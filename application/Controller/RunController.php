@@ -38,7 +38,7 @@ class RunController extends Controller {
 		if (!$run_vars) {
 			formr_error(500, 'Invalid Execution', 'The execution generated no output');
 		}
-
+		
         $run_vars['bodyClass'] = 'fmr-run';
         
         if (!empty($run_vars['redirect'])) {
