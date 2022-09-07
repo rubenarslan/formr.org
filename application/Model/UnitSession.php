@@ -104,11 +104,16 @@ class UnitSession extends Model {
         $this->execResults = [];
         // Check if session has expired by getting relevant unit data
         if ($this->isExpired()) {
-            $this->execResults['expired'] =true;
+            $this->execResults['expired'] = true;
             $this->execResults['move_on'] = true;
             $this->execResults['end_session'] = true;
             return $this->execResults;
         }
+		
+		if (!empty($this->execResults['end_session'])) {
+			$this->execResults['move_on'] = true;
+			return $this->execResults;
+		}
 
         if (($output = $this->runUnit->getUnitSessionOutput($this))) {
             $this->logOutput($output);
@@ -142,7 +147,7 @@ class UnitSession extends Model {
             return false;
         } elseif(!empty($expirationData['end_session'])) {
             $this->execResults['end_session'] = true;
-            return true;
+            return false; // ended NOT expired
         } elseif ($expirationData['expires'] < time()) {
             return true;
         } elseif ($expirationData['queued']) {
@@ -173,9 +178,13 @@ class UnitSession extends Model {
     public function expire() {
         $unit = $this->runUnit;
         if ($unit->type === 'Survey') {
-            $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `expired` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
+            $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
             $params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
-            $this->db->exec($query, $params);
+			try {
+				$this->db->exec($query, $params);
+			} catch (Exception $e) {
+				//formr_log_exception($e, 'RESULTS_TABLE: ' . $unit->surveyStudy->results_table);
+			}
         }
                 
         $expired = $this->db->exec(
@@ -280,7 +289,7 @@ class UnitSession extends Model {
 
         if (!$this->db->table_exists($study->results_table)) {
             alert('A results table for this survey could not be found', 'alert-danger');
-            throw new Exception("Results table '{$this->results_table}' not found!");
+            throw new Exception("Results table '{$study->results_table}' not found!");
         }
 
         $entry = array(
@@ -290,7 +299,7 @@ class UnitSession extends Model {
         if (!$this->db->entry_exists($study->results_table, $entry)) {
             $entry['created'] = mysql_now();
             $this->db->insert($study->results_table, $entry);
-            
+
             $this->result = 'survey_started';
             $this->logResult();
         } else {
@@ -391,7 +400,11 @@ class UnitSession extends Model {
                 if ($item->error) {
                     $this->errors[$item_name] = $item->error;
                 } else {
-                    $update_data[$item_name] = $item->getReply($validInput);
+					$answer = $item->getReply($validInput);
+					if (is_array($answer)) {
+						$answer = json_encode($answer);
+					}
+                    $update_data[$item_name] = $answer;
                 }
                 $item->value_validated = $item_value;
                 $items[$item_name] = $item;

@@ -316,7 +316,7 @@ class Item {
             $this->val_errors[] = "'{$this->name}' You defined duplicated choices (" . h($dups) . ") for this item.";
         }
 
-        if (!preg_match('/^[A-Za-z][A-Za-z0-9_]+$/', $this->name)) {
+        if (!preg_match('/^[A-Za-z][A-Za-z0-9_]+$/', (string)$this->name)) {
             $this->val_errors[] = "'{$this->name}' The variable name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore. It needs to start with a letter. You cannot use spaces, dots, or dashes.";
         }
 

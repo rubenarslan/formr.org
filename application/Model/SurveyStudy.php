@@ -266,6 +266,10 @@ class SurveyStudy extends Model {
     }
 
     protected function resultsTableExists() {
+		if (!$this->results_table) {
+			return false;
+		}
+
         return $this->db->table_exists($this->results_table);
     }
     
@@ -603,6 +607,7 @@ class SurveyStudy extends Model {
 		  `created` DATETIME NULL DEFAULT NULL ,
 		  `modified` DATETIME NULL DEFAULT NULL ,
 		  `ended` DATETIME NULL DEFAULT NULL ,
+		  `expired` DATETIME NULL DEFAULT NULL ,
 	
 		  $columns_string
 

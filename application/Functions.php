@@ -1662,7 +1662,7 @@ function do_run_shortcodes($text, $run_name, $sess_code) {
     $login_link = Template::replace($link_tpl, array('url' => $login_url, 'text' => 'Login Link'));
     $logout_link = Template::replace($link_tpl, array('url' => $logout_url, 'text' => 'Logout Link'));
 
-    $text = str_replace("{{login_link}}", $login_link, $text);
+    $text = str_replace("{{login_link}}", $login_link, (string)$text);
     $text = str_replace("{{login_url}}", $login_url, $text);
     $text = str_replace("{{login_code}}", urlencode($sess_code), $text);
     $text = str_replace("{{settings_link}}", $settings_link, $text);
