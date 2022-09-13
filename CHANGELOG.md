@@ -2,6 +2,12 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.20.4] - 13.09.2022
+### Fixed
+* Restart database transactions in case of lock wait timeout or deadlock.
+* Check for orphan unit sessions before executing
+* Deprecation warnings
+
 ## [v0.20.1] - 04.09.2022
 ### Fixed
 * Deprecation warnings.
