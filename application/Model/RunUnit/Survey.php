@@ -35,7 +35,7 @@ class Survey extends RunUnit {
 
         parent::create($options);
 
-        if (!empty($options['study_id'])) {
+        if (!empty($options['study_id']) && $this->db->entry_exists('survey_studies', ['id' => (int)$options['study_id']])) {
             $this->unit_id = (int) $options['study_id'];
             $this->surveyStudy = $this->getStudy(true);
         }
