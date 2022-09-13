@@ -20,6 +20,7 @@ class Get_Item extends Item {
         $this->input_attributes['value'] = '';
         $request = new Request($_GET);
         $value = $request->getParam($this->get_var);
+
         if ($value !== null && $value !== "") {
             $this->input_attributes['value'] = $value;
             $this->value = $value;
