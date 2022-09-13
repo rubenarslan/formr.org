@@ -333,7 +333,7 @@ class User extends Model {
             return false;
         }
 
-        if (password_verify($token, $verify_data['email_verification_hash'])) {
+        if (password_verify($token, (string)$verify_data['email_verification_hash'])) {
             $this->db->update('survey_users', array('email_verification_hash' => null, 'email_verified' => 1), array('email' => $email), array('int', 'int'));
             alert('Your email was successfully verified!', 'alert-success');
 

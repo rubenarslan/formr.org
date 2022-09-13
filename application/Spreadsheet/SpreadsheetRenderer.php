@@ -475,7 +475,7 @@ class SpreadsheetRenderer {
             }
 
             $vars = ($item->type == 'note_iframe') ? $this->unitSession->getRunData($item->label, $study->name) : [];
-            if ($item->needsDynamicLabel($vars)) {
+            if ($item->needsDynamicLabel($vars, $study->name)) {
                 $items[$name]->label_parsed = opencpu_string_key(count($strings_to_parse));
                 $strings_to_parse[] = $item->label;
             }

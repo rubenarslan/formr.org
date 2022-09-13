@@ -81,9 +81,16 @@ class RunUnit extends Model {
      */
     public $export_attribs = array('type', 'description', 'position', 'special');
 
-    /**
+	/**
+	 * 
+	 * @var boolean If set to True unit would try to generate output again for a session
+	 */
+	protected $retryOutput = true;
+	
+	/**
      * 
      * @param Run $run
+	 * @param array $props
      */
     public function __construct(Run $run, array $props = []) {
         parent::__construct();
