@@ -248,7 +248,7 @@ class AdminAjaxController {
         if ($deleted) {
             alert('<strong>Success.</strong> You deleted this unit session.', 'alert-success');
         } else {
-            alert('<strong>Couldn\'t delete.</strong> Sorry. <pre>' . print_r($del->errorInfo(), true) . '</pre>', 'alert-danger');
+            alert('<strong>Couldn\'t delete.</strong> ', 'alert-danger');
             $this->response->setStatusCode(500, 'Bad Request');
         }
 

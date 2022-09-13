@@ -312,7 +312,7 @@ class Item {
         } elseif ($this->hasChoices && ($this->choice_list === null && count($this->choices) === 0) && $this->type !== "select_or_add_multiple") {
             $this->val_errors[] = "'{$this->name}' You forgot to define choices for this item.";
         } elseif ($this->hasChoices && count(array_unique($this->choices)) < count($this->choices)) {
-            $dups = implode(array_diff_assoc($this->choices, array_unique($this->choices)), ", ");
+            $dups = implode(", ", array_diff_assoc($this->choices, array_unique($this->choices)));
             $this->val_errors[] = "'{$this->name}' You defined duplicated choices (" . h($dups) . ") for this item.";
         }
 
@@ -475,7 +475,7 @@ class Item {
         $this->input_attributes['class'] .= " always_invalid";
     }
 
-    public function needsDynamicLabel($vars = []) {
+    public function needsDynamicLabel($vars = [], $context = null) {
         return $this->label_parsed === null;
     }
 

@@ -26,10 +26,11 @@ class UnitSession extends Model {
     public $validatedStudyItems = [];
     
     protected $execResults = [];
-    
-    
+	
+	protected $table = 'survey_unit_sessions';
 
-    /**
+
+	/**
      * A UnitSession needs a RunUnit to operate and belongs to a RunSession
      *
      * @param RunSession $runSession
@@ -74,7 +75,7 @@ class UnitSession extends Model {
             $this->db->rollBack();
         }
 
-        return $this;
+        return $this->load();
     }
 
     public function load() {
@@ -88,10 +89,13 @@ class UnitSession extends Model {
         }
         
         if (!empty($vars['unit_id']) && !$this->runUnit) {
-            $this->runUnit = RunUnitFactory::make($this->runSession->getRun(), ['id' => $vars['unit_id']]);
+			$this->runUnit = RunUnitFactory::make($this->runSession->getRun(), ['id' => $vars['unit_id']]);
         }
 
-        $this->assignProperties($vars);
+		if ($vars) {
+			$this->assignProperties($vars);
+			$this->valid = true;
+		}
         
         return $this;
     }
@@ -106,7 +110,6 @@ class UnitSession extends Model {
         if ($this->isExpired()) {
             $this->execResults['expired'] = true;
             $this->execResults['move_on'] = true;
-            $this->execResults['end_session'] = true;
             return $this->execResults;
         }
 		
@@ -177,9 +180,10 @@ class UnitSession extends Model {
 
     public function expire() {
         $unit = $this->runUnit;
+
         if ($unit->type === 'Survey') {
-            $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
-            $params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
+            $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `expired` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
+			$params = ['session_id' => $this->id, 'study_id' => $unit->surveyStudy->id];
 			try {
 				$this->db->exec($query, $params);
 			} catch (Exception $e) {
@@ -201,6 +205,7 @@ class UnitSession extends Model {
 
     public function end($reason = null) {
         $unit = $this->runUnit;
+		
         if ($unit->type == "Survey" || $unit->type == "External") {
             if ($unit->type == "Survey") {
                 $query = "UPDATE `{$unit->surveyStudy->results_table}` SET `ended` = NOW() WHERE `session_id` = :session_id AND `study_id` = :study_id AND `ended` IS null";
@@ -286,8 +291,12 @@ class UnitSession extends Model {
     public function createSurveyStudyRecord() {
         /** @var SurveyStudy $study */
         $study = $this->runUnit->surveyStudy;
+		
+		if (!$this->db->entry_exists($this->table, ['id' => $this->id])) {
+			formr_error(404, 'Unit Session Not Found. Please contact study author');
+		}
 
-        if (!$this->db->table_exists($study->results_table)) {
+        if (!$study->results_table || !$this->db->table_exists($study->results_table)) {
             alert('A results table for this survey could not be found', 'alert-danger');
             throw new Exception("Results table '{$study->results_table}' not found!");
         }
@@ -592,7 +601,7 @@ class UnitSession extends Model {
             $q = $select . $joins . $where . ";";
 
             $get_results = $this->db->prepare($q);
-            if ($runSession->id === null || $runSession->isTestingStudy()) {
+            if (($runSession->id === null || $runSession->isTestingStudy()) && !in_array($results_table, get_db_non_session_tables())) {
                 $get_results->bindValue(':session_id', $this->id);
             } else {
                 $get_results->bindValue(':run_session_id', $runSession->id);

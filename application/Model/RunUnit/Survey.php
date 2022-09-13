@@ -17,6 +17,11 @@ class Survey extends RunUnit {
     public $type = "Survey";
     public $export_attribs = array('type', 'description', 'position', 'special');
 
+	/**
+	 * 
+	 * @param Run $run
+	 * @param array $props
+	 */
     public function __construct(Run $run = null, array $props = []) {
         parent::__construct($run, $props);
     }
@@ -175,11 +180,20 @@ class Survey extends RunUnit {
                 return $this->processStudy($request, $study, $unitSession);
             }
         } catch (Exception $e) {
+			$this->db->logLastStatement($e);
+
+			if ($this->db->retryTransaction($e) && $this->retryOutput) {
+				$this->retryOutput = false;
+				sleep(rand(1, 4));
+				return $this->getUnitSessionOutput($unitSession);
+			}
+
             $data = [
                 'log' => $this->getLogMessage('error_survey', $e->getMessage()),
                 'content' => '',
             ];
-            formr_log_exception($e, __CLASS__);
+
+            formr_log_exception($e, __CLASS__ . '-' . $e->getCode());
             return $data;
         }
     }

@@ -48,8 +48,13 @@ class DB {
      * @var PDO
      */
     protected $PDO;
+	/**
+	 * 
+	 * @var array(PDOStatement, array)
+	 */
+	protected $lastStatement;
 
-    protected function __construct() {
+	protected function __construct() {
         $params = (array) Config::get('database');
 
         $options = array(
@@ -88,6 +93,7 @@ class DB {
         $data = self::parseWhereBindParams($params);
         $params = $data['params'];
         $stmt = $this->PDO->prepare($query);
+		$this->lastStatement = [$stmt, $params];
         $stmt->execute($params);
         if ($fetchcol) {
             return $stmt->fetchColumn();
@@ -110,6 +116,7 @@ class DB {
             $data = self::parseWhereBindParams($data);
             $params = $data['params'];
             $sth = $this->PDO->prepare($query);
+			$this->lastStatement = [$sth, $params];
             $sth->execute($params);
             return $sth->rowCount();
         }
@@ -139,6 +146,7 @@ class DB {
      */
     public function rquery($query, $params = array()) { //secured query with prepare and execute
         $stmt = $this->PDO->prepare($query);
+		$this->lastStatement = [$stmt, $params];
         $stmt->execute($params);
 
         return $stmt;
@@ -153,6 +161,7 @@ class DB {
     public function num_rows($query) {
         # create a prepared statement
         $stmt = $this->PDO->prepare($query);
+		$this->lastStatement = [$stmt, null];
         $stmt->execute();
         return $stmt->rowCount();
     }
@@ -242,6 +251,7 @@ class DB {
         }
 
         $stmt = $this->PDO->prepare($query);
+		$this->lastStatement = [$stmt, $params];
         $stmt->execute($params);
         return $stmt->fetchColumn();
     }
@@ -283,6 +293,7 @@ class DB {
         /* @var $stmt PDOStatement */
         $stmt = $this->PDO->prepare($query);
         $stmt = $this->bindValues($stmt, $data, array_values($types), false, true);
+		$this->lastStatement = [$stmt, $data];
         $stmt->execute();
         return $this->lastInsertId();
     }
@@ -358,6 +369,7 @@ class DB {
         $stmt = $this->PDO->prepare($query);
         $stmt = $this->bindValues($stmt, $data, array_values($data_types), true, true);
         $stmt = $this->bindValues($stmt, $where, array_values($where_types));
+		$this->lastStatement = [$stmt, $data];
         $stmt->execute();
         return $stmt->rowCount();
     }
@@ -372,6 +384,7 @@ class DB {
         /* @var $stmt PDOStatement */
         $stmt = $this->PDO->prepare($query);
         $stmt = $this->bindValues($stmt, $data, array_values($types), false, true);
+		$this->lastStatement = [$stmt, $data];
         $stmt->execute();
         return $stmt->rowCount();
     }
@@ -558,6 +571,18 @@ class DB {
         return $filtered;
     }
 
+    public function retryTransaction(Exception $e) {
+        return strstr($e->getMessage(), 'try restarting transaction') !== false;
+    }
+    
+    public function logLastStatement(Exception $e) {
+        $interestingCodes = ['HY000', '23000', '40001'];
+        if (in_array($e->getCode(), $interestingCodes) && $this->lastStatement) {
+			formr_log($this->lastStatement[0]->queryString, 'MySQL_QUERY');
+			formr_log($this->lastStatement[1], 'MySQL_PARAMS');
+		}
+    }
+
 }
 
 class DB_Select {
@@ -728,6 +753,7 @@ class DB_Select {
                 $stmt->bindValue($key, $value);
             }
         }
+
         $stmt->execute();
         return $stmt;
     }

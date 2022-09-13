@@ -191,7 +191,13 @@ class RunSession extends Model {
 				$referenceUnitSession->end('ended_by_queue_rse');
 				UnitSessionQueue::removeItem($referenceUnitSession->id);
 			} elseif ($this->current_unit_session_id) {
-				$this->currentUnitSession = new UnitSession($this, null, ['id' => $this->current_unit_session_id, 'load' => true]);
+				$this->currentUnitSession = new UnitSession($this, null, [
+					'id' => $this->current_unit_session_id, 
+					'load' => true
+				]);
+				if (!$this->currentUnitSession->runUnit) {
+					formr_error(404, 'Run Unit Not Found', 'The Run Unit you are trying to access may have been deleted');
+				}
 				return $this->executeUnitSession();
 			}
 			
