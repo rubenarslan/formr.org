@@ -472,7 +472,7 @@ class Run extends Model {
         $runSession = new RunSession($session, $this, ['id' => $run_session_id]);
         $runSession->createUnitSession($runUnit, false);
         
-        return $runSession;
+        return $runSession->currentUnitSession;
     }
 
     public function getCustomCSS() {
