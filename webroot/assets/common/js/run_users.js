@@ -142,6 +142,8 @@
     }
 
     function userDelete(e) {
+        /*jshint validthis:true */
+        
         var userId = parseInt($(this).data('user'), 10);
         var userEmail = $(this).data('email');
         if (!userId || !userEmail) {
