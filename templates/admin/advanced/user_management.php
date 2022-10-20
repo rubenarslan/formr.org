@@ -25,6 +25,7 @@
                         </form>
                     </div>
                     <div class="box-body table-responsive">
+                        <?php Template::loadChild('public/alerts'); ?>
                         <?php if ($pdoStatement->rowCount()): ?>
                             <table class='table table-striped'>
                                 <thead>
@@ -33,7 +34,7 @@
                                         <th>Created</th>
                                         <th>Modified</th>
                                         <th>Admin</th>
-                                        <th>API Access</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -58,6 +59,7 @@
                                         </td>
                                         <td>
                                             <button type="button" class="btn api-btn hastooltip" title="Manage API Access" data-user="<?= $userx['id'] ?>" data-email="<?= h($userx['email']) ?>"><i class="fa fa-cloud"></i></button>
+                                            <button type="button" class="btn del-btn hastooltip" title="Delete User" data-user="<?= $userx['id'] ?>" data-email="<?= h($userx['email']) ?>"><i class="fa fa-trash"></i></button>
                                         </td>
                                     </tr>
                                     <?php endwhile; ?>
@@ -81,36 +83,62 @@
 </div>
 
 <script id="tpl-user-api" type="text/formr">
-    <div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="UserAPI" aria-hidden="true">
-    <div class="modal-dialog">
-    <div class="modal-content">
-    <div class="modal-header">
-    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
-    <h3>API Access %{user}</h3>
-    </div>
-    <div class="modal-body">
-    <table class="table table-striped table-bordered">
-    <tr>
-    <td><b>Client ID</b></td><td>%{client_id}</td>
-    </tr>
-    <tr>
-    <td><b>Client Secret</b></td><td>%{client_secret}</td>
-    </tr>
-    <tr>
-    <td><b>R command</b></td><td><pre><code class="r">formr_api_access_token("%{client_id}", "%{client_secret}")</code></pre></td>
-    </tr>
-    </table>
-    <div class="clearfix"></div>
-    </div>
-    <div class="modal-footer">
-    <button class="btn btn-success api-create" aria-hidden="true">Create Credentials</button>
-    <button class="btn btn-default api-change" aria-hidden="true">Change Secret</button>
-    <button class="btn btn-danger api-delete" aria-hidden="true">Revoke Credentials</button>
-    <button class="btn api-close" data-dismiss="modal" aria-hidden="true">Close</button>
-    </div>
-    </div>
-    </div>
-    </div>
+<div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="UserAPI" aria-hidden="true">
+   <div class="modal-dialog">
+      <div class="modal-content">
+         <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h3>API Access %{user}</h3>
+         </div>
+         <div class="modal-body">
+            <table class="table table-striped table-bordered">
+               <tr>
+                  <td><b>Client ID</b></td>
+                  <td>%{client_id}</td>
+               </tr>
+               <tr>
+                  <td><b>Client Secret</b></td>
+                  <td>%{client_secret}</td>
+               </tr>
+               <tr>
+                  <td><b>R command</b></td>
+                  <td>
+                     <pre><code class="r">formr_api_access_token("%{client_id}", "%{client_secret}")</code></pre>
+                  </td>
+               </tr>
+            </table>
+            <div class="clearfix"></div>
+         </div>
+         <div class="modal-footer">
+            <button class="btn btn-success api-create" aria-hidden="true">Create Credentials</button>
+            <button class="btn btn-default api-change" aria-hidden="true">Change Secret</button>
+            <button class="btn btn-danger api-delete" aria-hidden="true">Revoke Credentials</button>
+            <button class="btn api-close" data-dismiss="modal" aria-hidden="true">Close</button>
+         </div>
+      </div>
+   </div>
+</div>
+</script>
+<script id="tpl-user-delete" type="text/formr">
+<div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="UserDelete" aria-hidden="true">
+   <div class="modal-dialog">
+      <div class="modal-content">
+         <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h3>Delete Account '%{user}'</h3>
+         </div>
+         <div class="modal-body">
+            <h4>Are you sure you want to delete this account and all associated data?</h4>
+            <div class="alert alert-danger">This action is irreversible and all the collected data for this user would be deleted.</div>
+            <div class="clearfix"></div>
+         </div>
+         <div class="modal-footer">
+            <button class="btn btn-danger user-delete" aria-hidden="true">Yes</button>
+            <button class="btn user-close" data-dismiss="modal" aria-hidden="true">Cancel</button>
+         </div>
+      </div>
+   </div>
+</div>
 </script>
 <script type="text/javascript">
     var saAjaxUrl = <?php echo json_encode(site_url('admin/advanced/ajax_admin')); ?>

@@ -141,6 +141,32 @@
         }).modal('show');
     }
 
+    function userDelete(e) {
+        var userId = parseInt($(this).data('user'), 10);
+        var userEmail = $(this).data('email');
+        if (!userId || !userEmail) {
+            return;
+        }
+
+        var data = {user_id: userId, user_email: userEmail, user_delete: true};
+        var $modal = $($.parseHTML(getHTMLTemplate('tpl-user-delete', {user: ' (' + data.user_email + ')'})));
+        $modal.on('shown.bs.modal', function () {
+            $modal.find('.user-delete').click(function () {
+                postdata(saAjaxUrl, data, function (response) {
+                    if (response && response.success) {
+                        $modal.modal('hide');
+                        document.location.reload(true);
+                    }
+
+                });
+            });
+
+        }).on('hidden.bs.modal', function () {
+            $modal.remove();
+        }).modal('show');
+
+    }
+    
     function deleteUserSession(e) {
         /*jshint validthis:true */
         var $btn = $(this);
@@ -392,6 +418,7 @@
             $(this).find('.fa').addClass('fa-stop').removeClass('fa-play');
         });
         $('.api-btn').click(userAPIAccess);
+        $('.del-btn').click(userDelete);
         $('.sessions-search-switch').click(toggleSessionSearch);
         if ($(".hidden_debug_message").length > 0) {
             $(".show_hidden_debugging_messages").click(function () {

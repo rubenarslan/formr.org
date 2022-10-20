@@ -157,10 +157,15 @@ class Run extends Model {
             alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
             return true;
         } catch (Exception $e) {
-            formr_log_exception($e, __CLASS__);
+            formr_log_exception($e, __METHOD__);
             alert(__('Could not delete run %s. This is probably because there are still run units present. For safety\'s sake you\'ll first need to delete each unit individually.', $this->name), 'alert-danger');
             return false;
         }
+    }
+
+    public function deleteUnits() {
+        $this->db->delete('survey_run_special_units', array('run_id' => $this->id));
+        $this->db->delete('survey_run_units', array('run_id' => $this->id));
     }
 
     public function togglePublic($public) {
