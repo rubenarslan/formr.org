@@ -13,6 +13,16 @@
                 <div class="box box-primary">
                     <div class="box-header with-border">
                         <h3 class="box-title">Formr Users </h3>
+                        <form action="" method="post" class="form-inline pull-right">
+                            <label class="sr-only">Name</label>
+                            <div id="search-session" style="display: inline-block; position: relative;">
+                                <div class="input-group single ">
+                                    <div class="input-group-addon">SEARCH <i class="fa fa-user"></i></div>
+                                    <input name="email" value="<?= $search_email ?>" type="text" class="form-control" placeholder="Enter Email" style="width: 250px;">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-default"><i class="fa fa-search"></i></button>
+                        </form>
                     </div>
                     <div class="box-body table-responsive">
                         <?php if ($pdoStatement->rowCount()): ?>
@@ -30,7 +40,7 @@
                                     <?php while ($userx = $pdoStatement->fetch(PDO::FETCH_ASSOC)): ?>
                                     <tr>
                                         <td>
-                                            <a href="mailto:<?= h($userx['email']) ?>"><?= $userx['email'] ?></a>
+                                            <a href="mailto:<?= h($userx['email']) ?>"><?= formr_search_highlight($search_email, $userx['email']) ?></a>
                                             <?php echo $userx['email_verified'] ? ' <i class="fa fa-check-circle-o"></i>' : ' <i class="fa fa-envelope-o"></i>'; ?>
                                         </td>
                                         <td><small class="hastooltip" title="<?= $userx['created'] ?>"><?= timetostr(strtotime((string)$userx['created'])) ?></small></td>

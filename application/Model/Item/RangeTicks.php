@@ -6,7 +6,7 @@
 class RangeTicks_Item extends Number_Item {
 
     public $type = 'range_ticks';
-    public $input_attributes = array('type' => 'range', 'step' => 1);
+    public $input_attributes = array('type' => 'range', 'step' => 1, 'min' => 0, 'max' => 100);
     protected $labels = array();
     protected $left_label = '';
     protected $right_labeel = '';
