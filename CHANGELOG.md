@@ -2,6 +2,14 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.20.5] - 20.10.2022
+### Added
+* User search by email in admin
+* User deletion
+
+### Fixed
+* Various bug fixes
+
 ## [v0.20.4] - 13.09.2022
 ### Fixed
 * Restart database transactions in case of lock wait timeout or deadlock.
