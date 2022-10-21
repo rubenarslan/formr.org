@@ -70,6 +70,10 @@ class Model {
         $this->assignProperties($data);
         $this->save();
     }
+    
+    public function delete() {
+        $this->db->delete($this->table, ['id' => $this->id]);
+    }
 
     protected function toArray() {
         return [];
@@ -81,5 +85,19 @@ class Model {
     
     public function isCron() {
         return $this->cron;
+    }
+
+    public function refresh($options) {
+        if (!$this->table) {
+            return null;
+        }
+
+        $row = $this->db->findRow($this->table, $options);
+        if ($row) {
+            $this->assignProperties($row);
+            return $this;
+        }
+        
+        return null;
     }
 }

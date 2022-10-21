@@ -1,25 +1,13 @@
 <?php
 
-class AdminAdvancedController extends Controller {
-
-    public function __construct(Site &$site) {
-        parent::__construct($site);
-        if (!$this->user->isSuperAdmin()) {
-            formr_error(403, 'Unauthorized', 'You do not have access to this area');
-        }
-        if (!Request::isAjaxRequest()) {
-            $default_assets = get_default_assets('admin');
-            $this->registerAssets($default_assets);
-            $this->registerAssets('ace');
-        }
-    }
+class AdminAdvancedController extends AdminController {
 
     public function indexAction() {
         $this->request->redirect('/');
     }
 
     public function infoAction() {
-        $this->setView('admin/advanced/info');
+        $this->setView('advanced/info');
         return $this->sendResponse();
     }
 
@@ -30,7 +18,7 @@ class AdminAdvancedController extends Controller {
 
         $ocpu_time = $ocpu->post('/base/R/Sys.time/json')->getRawResult();
 
-        $this->setView('admin/advanced/timing', array(
+        $this->setView('advanced/timing', array(
             "php" => mysql_datetime(), 
             "db" => $db_time, 
             "ocpu" => $ocpu_time));
@@ -38,12 +26,12 @@ class AdminAdvancedController extends Controller {
     }
 
     public function testOpencpuAction() {
-        $this->setView('admin/advanced/test_opencpu');
+        $this->setView('advanced/test_opencpu');
         return $this->sendResponse();
     }
 
     public function testOpencpuSpeedAction() {
-        $this->setView('admin/advanced/test_opencpu_speed');
+        $this->setView('advanced/test_opencpu_speed');
         return $this->sendResponse();
     }
 
@@ -63,6 +51,37 @@ class AdminAdvancedController extends Controller {
             $content = $this->apiUserManagement($request->user_id, $request->user_email, $request->api_action);
             $this->response->setContentType('application/json');
             $this->response->setJsonContent($content);
+            return $this->sendResponse();
+        }
+
+        if ($request->user_delete) {
+            $user = (new User())->refresh(['id' => (int)$request->user_id, 'email' => $request->user_email]);
+            if ($user->isSuperAdmin()) {
+                alert('A super administrator cannot be deleted. Set admin level to 1 or below to delete', 'alert-danger');
+                $this->response->setContentType('application/json');
+                $this->response->setJsonContent(['success' => true]);
+                return $this->sendResponse();
+            }
+            
+            $runs = $user->getRuns();
+            foreach ($runs as $row) {
+                $run = new Run(null, $row['id']);
+                $run->emptySelf();
+                $run->deleteUnits();
+                $run->delete();
+            }
+            
+            $studies = $user->getStudies('id DESC', null, 'id');
+            foreach ($studies as $row) {
+                $study = new SurveyStudy($row['id']);
+                $study->delete();
+            }
+            
+            $user->delete();
+
+            alert('User and associated data have been deleted.', 'alert-success');
+            $this->response->setContentType('application/json');
+            $this->response->setJsonContent(['success' => true]);
             return $this->sendResponse();
         }
     }
@@ -139,7 +158,7 @@ class AdminAdvancedController extends Controller {
             $parse = $file;
         }
 
-        $this->setView('admin/advanced/cron_log_parsed', array(
+        $this->setView('advanced/cron_log_parsed', array(
             'files' => $files,
             'parse' => $parse,
             'parser' => $parser,
@@ -155,14 +174,14 @@ class AdminAdvancedController extends Controller {
 
     public function userManagementAction() {
         $table = UserHelper::getUserManagementTablePdoStatement($this->request->getParams());
-        $this->setView('admin/advanced/user_management', $table);
+        $this->setView('advanced/user_management', $table);
 
         return $this->sendResponse();
     }
 
     public function activeUsersAction() {
         $table = UserHelper::getActiveUsersTablePdoStatement();
-        $this->setView('admin/advanced/active_users', array(
+        $this->setView('advanced/active_users', array(
             'pdoStatement' => $table['pdoStatement'],
             'pagination' => $table['pagination'],
             'status_icons' => array(0 => 'fa-eject', 1 => 'fa-volume-off', 2 => 'fa-volume-down', 3 => 'fa-volume-up')
@@ -190,13 +209,13 @@ class AdminAdvancedController extends Controller {
             if (!$run->valid) {
                 formr_error(404, 'Not Found', 'Run Not Found');
             }
-            $this->setView('admin/advanced/runs_management_queue', array(
+            $this->setView('advanced/runs_management_queue', array(
                 'stmt' => UnitSessionQueue::getRunItems($run),
                 'run' => $run,
             ));
             return $this->sendResponse();
         } else {
-            $this->setView('admin/advanced/runs_management', RunHelper::getRunsManagementTablePdoStatement());
+            $this->setView('advanced/runs_management', RunHelper::getRunsManagementTablePdoStatement());
             return $this->sendResponse();
         }
     }
@@ -230,7 +249,7 @@ class AdminAdvancedController extends Controller {
             $this->sendResponse($this->site->renderAlerts());
         }
 
-        $this->setView('admin/advanced/settings', array('settings' => Site::getSettings()));
+        $this->setView('advanced/settings', array('settings' => Site::getSettings()));
         return $this->sendResponse();
     }
     public function userDetailsAction() {
@@ -283,7 +302,7 @@ class AdminAdvancedController extends Controller {
             $users[$i] = $userx;
         }
 
-        $this->setView('admin/advanced/user_detail', array(
+        $this->setView('advanced/user_detail', array(
             'users' => $users,
             'pagination' => $table['pagination'],
             'position_lt' => $queryparams['position_operator'],
