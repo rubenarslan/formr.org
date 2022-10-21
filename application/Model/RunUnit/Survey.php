@@ -180,8 +180,6 @@ class Survey extends RunUnit {
                 return $this->processStudy($request, $study, $unitSession);
             }
         } catch (Exception $e) {
-			$this->db->logLastStatement($e);
-
 			if ($this->db->retryTransaction($e) && $this->retryOutput) {
 				$this->retryOutput = false;
 				sleep(rand(1, 4));
@@ -194,6 +192,8 @@ class Survey extends RunUnit {
             ];
 
             formr_log_exception($e, __CLASS__ . '-' . $e->getCode());
+            $this->db->logLastStatement($e);
+
             return $data;
         }
     }
