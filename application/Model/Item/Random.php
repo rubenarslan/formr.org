@@ -3,7 +3,7 @@
 class Random_Item extends Number_Item {
 
     public $type = 'random';
-    public $input_attributes = array('type' => 'hidden', 'step' => 1);
+    public $input_attributes = array('type' => 'hidden', 'step' => 1, 'min' => 0, 'max' => 10000000);
     public $mysql_field = 'INT UNSIGNED DEFAULT NULL';
     public $no_user_input_required = true;
 

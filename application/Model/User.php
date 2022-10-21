@@ -16,6 +16,8 @@ class User extends Model {
     public $admin = false;
     public $referrer_code = null;
     // todo: time zone, etc.
+    
+    protected $table = "survey_users";
 
     public function __construct($id = null, $user_code = null, $options = []) {
         parent::__construct();
