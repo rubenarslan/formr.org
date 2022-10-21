@@ -105,7 +105,7 @@ class AdminController extends Controller {
         }
 
         if ($this->site->inSuperAdminArea() && !$this->user->isSuperAdmin()) {
-            formr_error(403, 'Forbidden', 'Sorry! Only super admins have access to this section.');
+            formr_error(403, 'Unauthorized', 'You are not authorized to access this section.');
         }
     }
 

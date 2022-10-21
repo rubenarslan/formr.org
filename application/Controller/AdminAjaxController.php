@@ -462,7 +462,7 @@ class AdminAjaxController {
             $run = $this->controller->run;
             $count = 0;
             foreach ($sessions as $sess) {
-                $emailSession = $run->getReminderSession($this->request->int('reminder'), $sess, $runSession->id);
+                $emailSession = $run->getReminderSession($this->request->int('reminder'), $sess, null);
                 if ($emailSession->execute() !== false) {
                     $count++;
                 }
@@ -470,7 +470,7 @@ class AdminAjaxController {
             }
 
             if ($count) {
-                alert("{$count} session(s) have been sent the reminder '{$email->getSubject()}'", 'alert-success');
+                alert("{$count} session(s) have been sent the reminder '{$emailSession->runUnit->getSubject($emailSession)}'", 'alert-success');
                 $res['success'] = true;
             } else {
                 $res['error'] = $this->site->renderAlerts();

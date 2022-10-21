@@ -28,6 +28,7 @@ class UserHelper {
         $stmt->execute();
 
         return array(
+            'search_email' => $params['email'] ?? '',
             'pdoStatement' => $stmt,
             'pagination' => $pagination,
         );
