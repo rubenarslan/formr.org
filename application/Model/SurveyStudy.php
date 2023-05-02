@@ -291,6 +291,7 @@ class SurveyStudy extends Model {
            'google_file_id' => $this->google_file_id, 
            'unlinked' => $this->unlinked,
            'hide_results' => $this->hide_results,
+           'use_paging' => $this->use_paging,
            'created' => $this->created,
            'modified' => $this->modified,
         ];
