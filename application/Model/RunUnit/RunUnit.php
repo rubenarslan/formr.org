@@ -62,7 +62,7 @@ class RunUnit extends Model {
     
     public $unit_id = null;
 
-    public $icon = "fa-user";
+    public $icon = "fa-question";
 
     protected $body = '';
     
@@ -227,7 +227,7 @@ plot(cars)
         return array_val($defaults, $type, array());
     }
 
-    protected function getTemplatePath($tpl = null) {
+    public function getTemplatePath($tpl = null) {
         $tpl = $tpl ?? strtolower($this->type);
         if ($tpl === 'page') {
             $tpl = 'endpage';
@@ -440,6 +440,12 @@ plot(cars)
         $row = DB::getInstance()->findRow('survey_run_units', ['id' => $id]);
         if ($row) {
             $run = new Run(null, $row['run_id']);
+            if (!$row['unit_id'] && isset($params['ignore_missing'])) {
+                $row['run_unit_id'] = $id;
+                $row['id'] = null;
+                return new RunUnit($run, $row);
+            }
+
             $params = array_merge($params, ['id' => $row['unit_id']]);
             return RunUnitFactory::make($run, $params);
         }
