@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.20.6] - 02.05.2023
+### Fixed
+* Display a warning message for orphaned run units and enable deletion.
+* Other minor bug fixes
+
 ## [v0.20.5] - 20.10.2022
 ### Added
 * User search by email in admin
