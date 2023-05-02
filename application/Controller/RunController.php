@@ -207,7 +207,7 @@ class RunController extends Controller {
 
     private function filterAssets($assets) {
         $vars = array();
-        if ($this->run->use_material_design === true || $this->request->str('tmd') === 'true') {
+        if ($this->run->use_material_design || $this->request->str('tmd') === 'true') {
             if (DEBUG) {
                 $this->unregisterAssets('site:custom');
                 $this->registerAssets('bootstrap-material-design');
