@@ -93,6 +93,11 @@ class AdminAjaxController {
             $params['id'] = (int) $id;
             $unit = RunUnitFactory::make($run, $params);
             $content = $unit->displayForRun();
+        } elseif($this->request->getParam('run_unit_id')) {
+            $unit = RunUnit::findByRunUnitId($this->request->getParam('run_unit_id'), ['ignore_missing' => true]);
+            $unit->type = 'missing';
+            $dialog = Template::get($unit->getTemplatePath('missing'));
+            $content = $unit->displayForRun($dialog);
         } else {
             $this->response->setStatusCode(500, 'Bad Request');
             $msg = '<strong>Sorry.</strong> Missing run unit.';
@@ -269,9 +274,20 @@ class AdminAjaxController {
         $dbh = $this->dbh;
 
         if (($run_unit_id = $this->request->getParam('run_unit_id'))) {
-            $unit = RunUnit::findByRunUnitId($run_unit_id, $this->request->getParams());
+
+            $params = $this->request->getParams();
+            $params['ignore_missing'] = true;
+            $unit = RunUnit::findByRunUnitId($run_unit_id, $params);
+
             if (!$unit) {
                 formr_error(404, 'Not Found', 'Requested Run Unit was not found');
+            }
+
+            if (!$unit->id) {
+                // Just delete orphan units. @TODO investigate why orphan units happen
+                $unit->removeFromRun($this->request->getParam('special'));
+                alert('<strong>Success.</strong> Unit with ID ' . $this->request->run_unit_id . ' was deleted.', 'alert-success');
+                return $this->response->setContent($this->site->renderAlerts());
             }
             
             $sess_key = __METHOD__ . $unit->id;
