@@ -280,7 +280,7 @@ class Site {
         $user = null;
 
         if (($usr = Session::get('user'))) {
-            $user = unserialize($usr);
+            $user = unserialize($usr, ['allowed_classes' => [User::class]]);
             // This segment basically checks whether the user-specific expiry time was met
             // If user session is expired, user is logged out and redirected
             if (!empty($user->id)) { // logged in user
