@@ -147,7 +147,7 @@
         optional
     </dt>
     <dd>
-        Nearly all items are mandatory by default. By using <code>*</code> in this column, you can turns items optional instead. Using <code>!</code> requires a response to items that are optional by default (check, check_button).
+        Nearly all items are mandatory by default. By using <code>*</code> in this column, you can turn items optional instead. Using <code>!</code> requires a response to items that are optional by default (check, check_button).
     </dd>
     <dt>
         value
