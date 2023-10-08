@@ -1,5 +1,8 @@
 <?php
-
+// todo:
+// differentiate calls into those that need auth and those that don't
+// in the call function, check whether opencpu server was set up with auth
+// 
 class OpenCPU {
 
     protected $baseUrl = 'https://public.opencpu.org';
