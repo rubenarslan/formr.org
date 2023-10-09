@@ -1335,7 +1335,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
             if ($session->hasError()) {
                 $debug['Response'] = pre_htmlescape($session->getError());
             } else {
-                if (($files = $session->getFiles("knit.html"))) {
+                if (($files = $session->getPublicFiles("knit.html"))) {
                     $iframesrc = $files['knit.html'];
                     $debug['Response'] = '
 					<p>
@@ -1348,7 +1348,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
                 }
             }
 
-            $urls = $session->getResponsePathsAsLinks();
+            $urls = $session->getResponsePaths();
             if (!$session->hasError() AND!empty($urls)) {
                 $locations = '';
                 foreach ($urls AS $path => $link) {
