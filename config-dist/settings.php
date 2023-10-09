@@ -25,6 +25,7 @@ $settings['opencpu_instance'] = array(
 );
 // (used in admin/test_opencpu)
 $settings['alternative_opencpu_instance'] = array(
+	'local_url' => 'http://opencpu:8004',
 	'base_url' => 'https://public.opencpu.org',
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
