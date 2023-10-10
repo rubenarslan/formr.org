@@ -1335,7 +1335,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
             if ($session->hasError()) {
                 $debug['Response'] = pre_htmlescape($session->getError());
             } else {
-                if (($files = $session->getPublicFiles("knit.html"))) {
+                if (($files = $session->getFiles("knit.html"))) {
                     $iframesrc = $files['knit.html'];
                     $debug['Response'] = '
 					<p>
