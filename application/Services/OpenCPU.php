@@ -326,24 +326,6 @@ class OpenCPU_Session {
         return $files;
     }
 
-    /**
-     * Get absolute URLs of all resources in the response
-     *
-     * @return array
-     */
-    public function getResponsePaths() {
-        if (!$this->key || $this->isJSONResult()) {
-            return null;
-        }
-
-        $result = explode("\n", $this->raw_result);
-        $files = array();
-        foreach ($result as $id => $path) {
-            $files[$id] = $this->getResponsePath($path);
-        }
-        return $files;
-    }
-
     public function getLocation() {
         return $this->location;
     }
