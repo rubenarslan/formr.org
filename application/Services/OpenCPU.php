@@ -5,8 +5,8 @@
 // 
 class OpenCPU {
 
-    protected $localUrl = 'http://opencpu:8004';
-    protected $publicUrl = 'https://public.opencpu.org';
+    protected $localUrl = null;
+    protected $publicUrl = null;
     protected $libUri = '/ocpu/library';
     protected $last_message = null;
     protected $rLibPath = '/usr/local/lib/R/site-library';
@@ -56,7 +56,7 @@ class OpenCPU {
         foreach ($config as $key => $value) {
             $property = lcfirst(preg_replace('/\s+/', '', ucwords(str_replace('_', ' ', $key))));
             if (property_exists($this, $property)) {
-                $this->{$property} = $value;
+                $this->{$property} = rtrim($value,"/").'/';
             }
         }
 
@@ -306,6 +306,11 @@ class OpenCPU_Session {
     public function getFiles($match = '/files/', $baseUrl = null) {
         if (!$this->key) {
             return null;
+        }
+
+        if($baseUrl !== null) {
+            $baseUrl = str_replace($this->caller()->getLocalUrl(), 
+                        $this->caller()->getPublicUrl(), $baseUrl);
         }
 
         $files = array();
