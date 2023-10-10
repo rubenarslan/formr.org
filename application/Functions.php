@@ -1348,7 +1348,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
                 }
             }
 
-            $urls = $session->getResponsePaths();
+            $urls = $session->getFiles();
             if (!$session->hasError() AND!empty($urls)) {
                 $locations = '';
                 foreach ($urls AS $path => $link) {
