@@ -56,7 +56,7 @@ class OpenCPU {
         foreach ($config as $key => $value) {
             $property = lcfirst(preg_replace('/\s+/', '', ucwords(str_replace('_', ' ', $key))));
             if (property_exists($this, $property)) {
-                $this->{$property} = rtrim($value,"/").'/';
+                $this->{$property} = rtrim($value, "/");
             }
         }
 
