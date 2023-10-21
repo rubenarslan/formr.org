@@ -82,7 +82,7 @@ class ApiController extends Controller {
         $user = Site::getCurrentUser();
         if (!$user->loggedIn()) {
             alert('You need to login to access this section', 'alert-warning');
-            redirect_to('login');
+            redirect_to('admin/account/login');
         }
 
         $osfconfg = Config::get('osf');
