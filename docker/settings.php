@@ -33,10 +33,10 @@ $settings['email'] = array(
     'host' => 'smtp.sendgrid.net',
     'port' => 587,
     'tls' => true,
-    'from' => 'service@vaengr.de',
+    'from' => 'CHANGEME',
     'from_name' => 'Formr',
     'username' => 'apikey',
-    'password' => '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',
+    'password' => 'CHANGEME',
     // use db queue for emailing
     'use_queue' => false,
     // Number of seconds for which deamon loop should rest before getting next batch
