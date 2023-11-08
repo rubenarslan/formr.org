@@ -34,3 +34,4 @@ webroot/assets/bower_components
 webroot/assets/lib/bower_components
 /bin/migra.php
 /*.key
+./docker/db/*
