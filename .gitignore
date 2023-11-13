@@ -30,7 +30,7 @@ nohup.out
 webroot/*.html
 webroot/assets/*.mp4
 webroot/assets/*.html
-webroot/assets/bower_components
 webroot/assets/lib/bower_components
 /bin/migra.php
 /*.key
+formr.feature_dockerprep.version
