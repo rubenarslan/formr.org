@@ -59,6 +59,12 @@ class OpenCPU {
                 $this->{$property} = rtrim($value, "/");
             }
         }
+        
+        if(!empty($config["base_url"]) && empty($config['public_url'])
+            && empty($config['local_url'])) {
+            $this->localUrl = $config["base_url"];
+            $this->publicUrl = $config["base_url"];
+        }
 
         $this->curl_opts = $this->curl_opts + array_val($config, 'curl_opts', array());
     }
