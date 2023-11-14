@@ -34,3 +34,5 @@ webroot/assets/bower_components
 webroot/assets/lib/bower_components
 /bin/migra.php
 /*.key
+webroot/study
+bin/create-named-sessions.php

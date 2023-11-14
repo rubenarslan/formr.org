@@ -56,7 +56,7 @@ Template::loadChild('acp_nav');
                 <?php echo _("Username:"); ?>
             </label>
             <div class="controls">
-                <input class="form-control" required type="text" placeholder="maybe your_study_team@gmail.com" name="username" id="username" value="<?= $acc->account['username']; ?>">
+                <input class="form-control" type="text" placeholder="maybe your_study_team@gmail.com" name="username" id="username" value="<?= $acc->account['username']; ?>">
             </div>
         </div>
 
