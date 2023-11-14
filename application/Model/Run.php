@@ -155,6 +155,7 @@ class Run extends Model {
         try {
             $this->db->delete('survey_runs', array('id' => $this->id));
             alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
+            $this->deleteFiles();
             return true;
         } catch (Exception $e) {
             formr_log_exception($e, __METHOD__);
@@ -299,6 +300,16 @@ class Run extends Model {
             @unlink($physicalfile);
         }
         return $deleted;
+    }
+
+    public function deleteFiles() {
+        $where = array('run_id' => (int) $this->id);
+        $files = $this->db->find('survey_uploaded_files', $where, ['cols' => ['id', 'new_file_path']]);
+        foreach ($files as $file) {
+            $physicalfile = APPLICATION_ROOT . "webroot/" . $file['new_file_path'];
+            @unlink($physicalfile);
+            $this->db->delete('survey_uploaded_files', ['id' => $file['id']]);
+        }
     }
 
     public static function nameExists($name) {
