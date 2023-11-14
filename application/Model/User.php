@@ -408,4 +408,24 @@ class User extends Model {
         return array();
     }
 
+    public function delete() {
+        $runs = $this->getRuns();
+        foreach ($runs as $row) {
+            $run = new Run(null, $row['id']);
+            $run->emptySelf();
+            $run->deleteUnits();
+            $run->delete();
+        }
+            
+        $studies = $this->getStudies('id DESC', null, 'id');
+        foreach ($studies as $row) {
+            $study = new SurveyStudy($row['id']);
+            $study->delete();
+        }
+            
+        $this->db->delete('survey_email_accounts', ['user_id' => $this->id]);
+
+        return parent::delete();
+    }
+
 }
