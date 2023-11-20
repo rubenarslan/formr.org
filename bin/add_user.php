@@ -37,5 +37,6 @@ $inserted = $db->insert('survey_users', array(
 	'password' => $config['hash'],
 	'user_code' => crypto_token(48),
 	'referrer_code' => "created from host",
+	'email_verified' => 1,
 	'admin' => $config['level']
 ));
