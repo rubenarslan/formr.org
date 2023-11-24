@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  NAME: eliasheithecker/opencpu
+  NAME: timed-and-secured-assets/opencpu
   
 jobs:
   build:
