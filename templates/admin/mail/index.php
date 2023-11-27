@@ -101,7 +101,7 @@ Template::loadChild('admin/header');
                             <div class="form-group">
                                 <label class="col-sm-2 control-label">Username</label>
                                 <div class="col-sm-10">
-                                    <input name="username" value="<?= array_val($acc->account, 'username') ?>" type="text" class="form-control" placeholder="Username" autocomplete="off" required />
+                                    <input name="username" value="<?= array_val($acc->account, 'username') ?>" type="text" class="form-control" placeholder="Username" autocomplete="off" />
                                 </div>
                             </div>
                             <div class="form-group">

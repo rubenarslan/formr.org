@@ -2,6 +2,12 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [v0.20.7] - 02.05.2023
+### Fixed
+* Adding SMTP accounts that do not support password
+### Added
+* User account deletion
+
 ## [v0.20.6] - 02.05.2023
 ### Fixed
 * Display a warning message for orphaned run units and enable deletion.

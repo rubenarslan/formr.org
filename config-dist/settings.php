@@ -214,3 +214,12 @@ $settings['php_session'] = array(
     'httponly' => true,
     //'lifetime' => 36000,
 );
+
+
+// Settings for creating the context used in the 'copy' function when copying images from the opencpu server to formr
+$settings['copy_context'] = array(
+	'ssl' => array(
+		"verify_peer" => false,
+		"verify_peer_name" => false,
+	)
+);

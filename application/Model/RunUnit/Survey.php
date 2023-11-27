@@ -125,10 +125,12 @@ class Survey extends RunUnit {
 			// This uses "finishing editing within"
 			$first_active = $this->getUnitSessionFirstVisit($unitSession);
 			$first_submit = $this->getUnitSessionFirstVisit($unitSession, 'survey_items_display.saved != "' . $invitation_sent . '"');
+
 			if ($last_active && $last_active != $invitation_sent && 
 				$grace_period !== 0 && 
 				$first_active != null && strtotime($first_active) &&
-				$first_submit != null && strtotime($first_submit)	
+				$first_submit != null && strtotime($first_submit) &&
+                strtotime($first_submit) - strtotime($invitation_sent) > 2
 			) {
 				$expires = strtotime($first_submit) + ($grace_period * 60);
             }

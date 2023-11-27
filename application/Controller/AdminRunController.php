@@ -212,15 +212,9 @@ class AdminRunController extends AdminController {
     private function createNewTestCodeAction() {
         $run_session = RunSession::getTestSession($this->run);
         $sess = $run_session->session;
-        $animal = substr($sess, 0, strpos($sess, "XXX"));
         $sess_url = run_url($this->run->name, null, array('code' => $sess));
 
-        if (Config::get('use_study_subdomains')) {
-            $this->request->redirect($sess_url);
-        } else {
-            alert("You've created a <a target='_blank' href='".$sess_url."'>new guinea pig, ".h($animal)."</a>. Use this guinea pig to move through the run like a normal user with special powers (accessibly via the monkey bar at the bottom right). As a guinea pig, you can see more detailed error messages than real users, so it is easier to e.g. debug R problems. If you want someone else to be the guinea pig, just forward them this link: <br><textarea readonly cols='60' rows='3' class='copy_clipboard readonly-textarea'>" . h($sess_url) . "</textarea>", "alert-info");
-            $this->request->redirect(admin_run_url($this->run->name, 'user_overview'));
-        }
+        $this->request->redirect($sess_url);
     }
 
     private function createNewNamedSessionAction() {
@@ -394,7 +388,7 @@ class AdminRunController extends AdminController {
         );
 
         foreach ($studies as $study) {
-            $survey = Survey::loadById($study['id']);
+            $survey = SurveyStudy::loadById($study['id']);
             $backupFile = $dir . '/' . $this->run->name . '-' . $survey->name . '.tab';
             $backup = $SPR->exportTSV($survey->getResults(null, null, null, $this->run->id, true), $survey->name, $backupFile);
             if (!$backup) {
