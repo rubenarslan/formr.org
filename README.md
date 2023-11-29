@@ -68,9 +68,9 @@ Combined with norm data etc. you can tailor feedback to the user's input, e.g. s
 
 ## Installation
 
-If you want to test formr, you can simply clone this repository and follow the [instructions](https://github.com/rubenarslan/formr.org/blob/master/INSTALLATION.md).
+If you want to test formr or contribute to its development, follow our [instructions](https://github.com/rubenarslan/formr.org/blob/master/INSTALLATION.md).
 
-If you need help, consult our [mailing list](https://groups.google.com/forum/#!forum/formr).
+The setup instructions are not suitable for production, i.e. running a secure formr installation on the public web.
 
 #### Credit
 See [formr.org/about](https://formr.org/about) for funding and contact info.
