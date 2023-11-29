@@ -53,10 +53,6 @@ $settings['email'] = array(
 	'smtp_options' => array(),
 );
 
-// should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
-$settings['display_errors_when_live'] = 0;
-$settings['display_errors'] = 0;
-
 // Timezone
 $settings['timezone'] = 'Europe/Berlin';
 
@@ -92,6 +88,8 @@ $settings['define_root'] = array(
 		//'testing' => true
 );
 
+// Codes listed here can be entered in the sign-up box to turn
+// users into admins automatically (upon email confirmation)
 $settings['referrer_codes'] = array();
 
 // Cron settings
@@ -186,6 +184,10 @@ $settings['reserved_run_names'] = array('api', 'test', 'delegate');
 // If this is set to true, then users will see a maintenance message and cron jobs will not run
 // Restart all server daemon whenever this flag is changed
 $settings['in_maintenance'] = false;
+
+// should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
+$settings['display_errors_when_live'] = 0;
+$settings['display_errors'] = 0;
 
 // Configure IP addresses that can still access the application even in maintenance mode
 // Example ['192.18.2.3', '192.18.3.4']
