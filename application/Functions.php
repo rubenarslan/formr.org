@@ -1086,6 +1086,21 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
     }
 }
 
+/**
+ * Replaces html image tags with data URIs
+ *
+ * @param $matches array The matches from preg_replace_callback
+ * @return string The data URI to replace the matched image tag
+ */
+function replaceImgTags(array $matches): string {
+    [, $pre, $url, $post] = $matches;
+    $imageData = base64_encode(file_get_contents($url));
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = finfo_buffer($finfo, $url);
+    $dataUri = "data:$mime;base64,$imageData";
+    return "<img{$pre}src=\"$dataUri\"$post>";
+}
+
 function opencpu_knit_iframe($source, $variables = null, $return_session = false, $context = null, $description = '', $footer_text = '') {
     if (!is_string($variables)) {
         $variables = opencpu_define_vars($variables, $context);

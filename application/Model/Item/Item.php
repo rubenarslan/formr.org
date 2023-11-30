@@ -429,13 +429,14 @@ class Item {
 				</div>
 			</div>
 		';
-        return Template::replace($template, array(
+        $ret = Template::replace($template, array(
                     'classes_wrapper' => implode(' ', $this->classes_wrapper),
                     'parent_attributes' => self::_parseAttributes($this->parent_attributes),
                     'item_content' => $this->render_inner() . $this->render_item_view_input(),
                     'title' => h($this->js_showif),
                     'name' => h($this->name),
         ));
+        return preg_replace_callback('/<img([^>]*)src=\"([^\"]*)\"([^>]*)>/', 'replaceImgTags', $ret);
     }
 
     public function render_error_tip() {
