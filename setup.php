@@ -75,8 +75,10 @@ function __formr_setup($settings = array()) {
 	error_reporting(-1);
 	if (DEBUG > 0) {
 		ini_set('display_errors', 1);
-	}
-
+	} else {
+		ini_set('display_errors',  0);
+ 	}
+	
 	ini_set("log_errors", 1);
 	ini_set("error_log", get_log_file('errors.log'));
 	ini_set('session.gc_maxlifetime', $settings['session_cookie_lifetime']);
