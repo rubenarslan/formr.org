@@ -11,6 +11,7 @@ class Mc_Item extends Item {
     public $input_attributes = array('type' => 'radio');
     public $mysql_field = 'TINYINT UNSIGNED DEFAULT NULL';
     protected $hasChoices = true;
+    protected $label_first = "";
 
     public function validateInput($reply) {
         if (!($this->optional && $reply == '') && !empty($this->choices) && // check

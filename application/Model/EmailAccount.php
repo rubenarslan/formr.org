@@ -112,7 +112,7 @@ class EmailAccount extends Model {
         } else {
             $mail->SMTPSecure = 'ssl';
         }
-        if (isset($this->account['username'])) {
+        if (!empty($this->account['username'])) {
             $mail->SMTPAuth = true; // turn on SMTP authentication
             $mail->Username = $this->account['username']; // SMTP username
             $mail->Password = $this->account['password']; // SMTP password

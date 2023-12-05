@@ -34,3 +34,5 @@ webroot/assets/lib/bower_components
 /bin/migra.php
 /*.key
 formr.feature_dockerprep.version
+webroot/study
+bin/create-named-sessions.php
