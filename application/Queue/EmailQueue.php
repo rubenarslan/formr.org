@@ -128,7 +128,7 @@ class EmailQueue extends Queue {
             } else {
                 $mailer->SMTPSecure = 'ssl';
             }
-            if (isset($account['username'])) {
+            if (!empty($account['username'])) {
                 $mailer->Username = $account['username'];
                 $mailer->Password = $account['password'];
             } else {
@@ -208,7 +208,13 @@ class EmailQueue extends Queue {
         if (!empty($meta['embedded_images'])) {
             foreach ($meta['embedded_images'] as $imageId => $image) {
                 $localImage = APPLICATION_ROOT . 'tmp/formrEA' . uniqid() . $imageId;
-                copy($image, $localImage);
+                $context = null;
+                if ($context_options = Config::get('copy_context')) {
+                    $context = stream_context_create($context_options);
+                }
+
+                copy($image, $localImage, $context);
+
                 $files[] = $localImage;
                 if (!$mailer->addEmbeddedImage($localImage, $imageId, $imageId, 'base64', 'image/png')) {
                     $this->dbg("Unable to attach image: " . $mailer->ErrorInfo . ".\n {$debugInfo}");

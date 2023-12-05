@@ -53,6 +53,11 @@ $settings['email'] = array(
 	'smtp_options' => array(),
 );
 
+// should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
+$settings['display_errors_when_live'] = 0;
+$settings['display_errors'] = 0;
+$settings['error_to_stderr'] = 0;
+
 // Timezone
 $settings['timezone'] = 'Europe/Berlin';
 
@@ -185,10 +190,6 @@ $settings['reserved_run_names'] = array('api', 'test', 'delegate');
 // Restart all server daemon whenever this flag is changed
 $settings['in_maintenance'] = false;
 
-// should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
-$settings['display_errors_when_live'] = 0;
-$settings['display_errors'] = 0;
-
 // Configure IP addresses that can still access the application even in maintenance mode
 // Example ['192.18.2.3', '192.18.3.4']
 $settings['maintenance_ips'] = [];
@@ -217,4 +218,13 @@ $settings['php_session'] = array(
     'secure' => true,
     'httponly' => true,
     //'lifetime' => 36000,
+);
+
+
+// Settings for creating the context used in the 'copy' function when copying images from the opencpu server to formr
+$settings['copy_context'] = array(
+	'ssl' => array(
+		"verify_peer" => false,
+		"verify_peer_name" => false,
+	)
 );
