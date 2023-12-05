@@ -27,7 +27,11 @@ function formr_log_exception(Exception $e, $prefix = '', $debug_data = null) {
 }
 
 function get_log_file($filename) {
-    return APPLICATION_ROOT . "tmp/logs/$filename";
+    if(Config::get('error_to_stderr') == 1) {
+        return "php://stderr";
+    } else {
+        return APPLICATION_ROOT . "tmp/logs/$filename";
+    }
 }
 
 function alert($msg, $class = 'alert-warning', $dismissable = true) { // shorthand

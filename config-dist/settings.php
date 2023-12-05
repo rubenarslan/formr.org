@@ -54,6 +54,7 @@ $settings['email'] = array(
 // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
 $settings['display_errors_when_live'] = 0;
 $settings['display_errors'] = 0;
+$settings['error_to_stderr'] = 0;
 
 // Timezone
 $settings['timezone'] = 'Europe/Berlin';
