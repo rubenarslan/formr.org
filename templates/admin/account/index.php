@@ -57,6 +57,7 @@
                     <ul class="nav nav-tabs">
                         <li class="active"><a href="#settings" data-toggle="tab" aria-expanded="true">Account Settings</a></li>
                         <li class=""><a href="#api" data-toggle="tab" aria-expanded="false">API Credentials</a></li>
+                        <li class=""><a href="#data" data-toggle="tab" aria-expanded="false">Manage collected data</a></li>
                     </ul>
                     <div class="tab-content">
                         <div class="tab-pane active" id="settings">
@@ -127,6 +128,19 @@
                                 </table>
                                 <p> &nbsp; </p>
                             <?php endif; ?>
+                        </div>
+                        <div class="tab-pane" id="data">
+                            <form method="post" action="">
+                                <div class="col-md-5 no-padding confirm-changes">
+                                    <label class="control-label" for="pass"><i class="fa fa-check-circle"></i> Delete Account and all associated data</label>
+                                    <div class="input-group input-group">
+                                        <input class="form-control" id="deleteAcc" name="confirm-delete" placeholder="Type 'yes'">
+                                        <span class="input-group-btn">
+                                        <button type="submit" name="deleteAccBtn" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Delete Account</button>
+                                        </span>
+                                    </div>
+                                </div>
+                            </form>
                         </div>
                         <!-- /.tab-pane -->
                     </div>

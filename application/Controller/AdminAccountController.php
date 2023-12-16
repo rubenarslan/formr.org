@@ -21,6 +21,20 @@ class AdminAccountController extends Controller {
             $redirect = false;
             $oldEmail = $this->user->email;
 
+            if (isset($_POST['deleteAccBtn'])) {
+                if($this->request->str('confirm-delete')=="yes"){
+                    //Delete Account
+                    
+                    alert('<strong>Success!</strong> Your account was deleted!', 'alert-success');
+                    $this->logoutAction();
+                    return;
+                }else{
+                    alert('Please type "yes" to confirm!', 'alert-danger');
+                    $this->setView('admin/account/index', $vars);
+                    return $this->sendResponse();
+                }
+            }
+
             // Change basic info + email
             $change = $this->user->changeData($this->request->str('password'), $this->request->getParams());
             if (!$change) {
