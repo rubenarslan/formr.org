@@ -154,6 +154,7 @@ CREATE TABLE `survey_runs` (
   `user_id` int(10) unsigned NOT NULL,
   `created` datetime DEFAULT NULL,
   `modified` datetime DEFAULT NULL,
+  `expiresOn` datetime DEFAULT NULL,
   `name` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `api_secret_hash` varchar(255) CHARACTER SET latin1 COLLATE latin1_bin DEFAULT NULL,
   `cron_active` tinyint(1) DEFAULT '0',
@@ -650,4 +651,3 @@ CREATE TABLE `survey_settings` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `setting` (`setting`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
