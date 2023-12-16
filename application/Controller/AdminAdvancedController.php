@@ -66,9 +66,7 @@ class AdminAdvancedController extends AdminController {
             $runs = $user->getRuns();
             foreach ($runs as $row) {
                 $run = new Run(null, $row['id']);
-                $run->emptySelf();
-                $run->deleteUnits();
-                $run->delete();
+                $run->deleteFullRun();
             }
             
             $studies = $user->getStudies('id DESC', null, 'id');

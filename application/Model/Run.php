@@ -153,7 +153,7 @@ class Run extends Model {
 
     public function delete() {
         try {
-            $this->db->delete('survey_runs', array('id' => $this->id));
+            $this->db->delete('survey_runs', array('id' => $this->id)); //TODO: delete full run
             alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
             return true;
         } catch (Exception $e) {
@@ -166,6 +166,17 @@ class Run extends Model {
     public function deleteUnits() {
         $this->db->delete('survey_run_special_units', array('run_id' => $this->id));
         $this->db->delete('survey_run_units', array('run_id' => $this->id));
+    }
+
+    public function deleteFullRun(): bool
+    {
+            $this->emptySelf();
+            $this->deleteUnits();
+            $files = $this->getUploadedFiles();
+            foreach($files as $file){
+                $this->deleteFile($file['id'],$file['original_file_name']);
+            }
+            return $this->delete();
     }
 
     public function togglePublic($public) {
