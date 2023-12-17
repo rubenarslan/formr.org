@@ -91,6 +91,10 @@
                                                 </div>
                                             </div>
                                             <div class="form-group">
+                                                <label for="expiresOn">Expires On</label>
+                                                <input class="form-control" type="date" name="expiresOn" id="expiresOn" placeholder="2023-12-16" value="<?= h($run->expiresOn); ?>" />
+                                            </div>
+                                            <div class="form-group">
                                                 <label title="Will be shown on every page of the run">Description</label>
                                                 <textarea data-editor="markdown" placeholder="Description" name="description" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->description); ?></textarea>
                                             </div>
