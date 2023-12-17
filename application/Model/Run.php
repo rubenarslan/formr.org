@@ -209,6 +209,7 @@ class Run extends Model {
             'cron_active' => 1,
             'use_material_design' => 1,
             'expire_cookie' => 0,
+            'expiresOn' => $options['expiresOn'],
             'public' => 0,
             'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
             'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
