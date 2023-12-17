@@ -47,7 +47,7 @@ RUN cp -r /var/www/formr.org/config-dist /var/www/formr.org/config
 RUN ln -s /var/www/formr.org/webroot /var/www/html/formr
 
 #Add cron configuration
-RUN ln -s /path/to/formr/config/formr_crontab /etc/cron.d/formr
+RUN ln -s /var/www/formr.org/config/formr_crontab /etc/cron.d/formr
 
 # Expose port 80 for apache2 server
 EXPOSE 80

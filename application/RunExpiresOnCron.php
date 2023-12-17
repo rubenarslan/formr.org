@@ -126,7 +126,7 @@ class RunExpiresOnCron {
         $mail = $this->site->makeAdminMailer();
         $mail->AddAddress($email);
         $mail->Subject = "formr: Reminder! Run {$run->name} will be deleted!";
-        $mail->Body = "The run {$run->name} will be deleted because it will expired in a few days}";
+        $mail->Body = "The run {$run->name} will be deleted because it will expired in a few days";
         if (!$mail->Send()) {
             $this->dbg("Error: ". $mail->ErrorInfo);
         }else{

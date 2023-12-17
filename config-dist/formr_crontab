@@ -10,4 +10,4 @@
 
 
 # Expiration Cron Job at 02:08 o'clock
-8 2 * * * www-data /var/www/formr/bin/cron-run-expires-on.php >/dev/null
+8 2 * * * www-data /var/www/formr.org/bin/cron-run-expires-on.php >/dev/null
