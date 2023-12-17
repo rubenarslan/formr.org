@@ -92,7 +92,7 @@
                                             </div>
                                             <div class="form-group">
                                                 <label for="expiresOn">Expires On</label>
-                                                <input class="form-control" type="date" name="expiresOn" id="expiresOn" placeholder="2023-12-16">
+                                                <input class="form-control" type="date" name="expiresOn" id="expiresOn" placeholder="2023-12-16" value="<?= h($run->expiresOn); ?>" />
                                             </div>
                                             <div class="form-group">
                                                 <label title="Will be shown on every page of the run">Description</label>

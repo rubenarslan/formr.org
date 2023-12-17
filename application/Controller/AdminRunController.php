@@ -55,16 +55,16 @@ class AdminRunController extends AdminController {
             } elseif ($run_name == Run::TEST_RUN || Router::isWebRootDir($run_name) || in_array($run_name, Config::get('reserved_run_names', array())) || Run::nameExists($run_name)) {
                 $error = __('The run name "%s" is already taken. Please choose another name', $run_name);
             } elseif (!$expiresOn){
-                $error = 'The expiry date must be in a valid format.';
+                $error = 'The expiration date must be in a valid format.';
             } elseif ($expiresOn < date('Y-m-d', time())){
-                $error = 'The expiry date cant be in the past.';
+                $error = 'The expiration date cant be in the past.';
             } elseif ($expiresOn > date('Y-m-d', strtotime('+2 years'))){
-                $error = 'The expiry date should be within the next two years at the latest.';
+                $error = 'The expiration date should be within the next two years at the latest.';
             } else {
                 $run = new Run();
                 $run->create([
                     'run_name' => $run_name,
-                    'expiresOn' => ($expiresOn+' 00:00:00'),
+                    'expiresOn' => date('Y-m-d H:i:s', strtotime($expiresOn)),
                     'user_id' => $this->user->id
                 ]);
                 if ($run->valid) {
