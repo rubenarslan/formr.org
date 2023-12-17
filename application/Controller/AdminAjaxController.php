@@ -431,6 +431,7 @@ class AdminAjaxController {
         } else {
             alert("<strong>Error:</strong> {$saveSettingsReturn}", 'alert-danger');
         }
+        
 
         $content = $this->site->renderAlerts();
         return $this->response->setContent($content);
