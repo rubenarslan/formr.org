@@ -600,8 +600,9 @@ class Run extends Model {
                     $value = $asset_path;
                 }
             }
-
-            $updates[$name] = $value;
+            if($name!='expiresOn'){
+                $updates[$name] = $value;
+            }
         }
 
         $error = '';
