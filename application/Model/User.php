@@ -408,4 +408,28 @@ class User extends Model {
         return array();
     }
 
+    public function carefulDelete(){
+        if ($this->isSuperAdmin()) {
+            return 'A super administrator cannot be deleted. Set admin level to 1 or below to delete';
+        }
+        
+        $runs = $this->getRuns();
+        foreach ($runs as $row) {
+            $run = new Run(null, $row['id']);
+            $run->emptySelf();
+            $run->deleteUnits();
+            $run->delete();
+        }
+        
+        $studies = $this->getStudies('id DESC', null, 'id');
+        foreach ($studies as $row) {
+            $study = new SurveyStudy($row['id']);
+            $study->delete();
+        }
+        
+        $this->delete();
+
+        return '';
+    }
+
 }
