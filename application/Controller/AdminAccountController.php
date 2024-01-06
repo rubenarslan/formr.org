@@ -24,7 +24,8 @@ class AdminAccountController extends Controller {
             if (isset($_POST['deleteAccBtn'])) {
                 if($this->request->str('confirm-delete')=="yes"){
                     //Delete Account
-                    
+                    $this->user->carefulDelete();
+
                     alert('<strong>Success!</strong> Your account was deleted!', 'alert-success');
                     $this->logoutAction();
                     return;
