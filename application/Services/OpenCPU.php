@@ -336,6 +336,11 @@ class OpenCPU_Session {
         return $this->location;
     }
 
+    public function getPublicLocation() {
+        return str_replace($this->caller()->getLocalUrl(), 
+                        $this->caller()->getPublicUrl(), $this->location);
+    }
+
     public function getObject($name = 'json', $params = array()) {
         if (!$this->key) {
             return null;
@@ -349,7 +354,7 @@ class OpenCPU_Session {
         }
         if (is_string($object)) {
             $object = str_replace($this->ocpu->getRLibPath(), $this->getPublicUrl() . $this->ocpu->getLibUri(), $object);
-            return str_replace($this->ocpu->getRTempPublicUrl(), $this->getLocation() . 'files/', $object);
+            return str_replace($this->ocpu->getRTempPublicUrl(), $this->getPublicLocation() . 'files/', $object);
         }
 
         return $object;
@@ -369,7 +374,7 @@ class OpenCPU_Session {
         if (is_array($json) && array_key_exists(0, $json)) {
             if (is_string($json[0])) {
                 $string = str_replace($this->ocpu->getRLibPath(), $this->getLocalUrl() . $this->ocpu->getLibUri(), $json[0]);
-                return str_replace($this->ocpu->getRTempPublicUrl(), $this->getLocation() . 'files/', $string);
+                return str_replace($this->ocpu->getRTempPublicUrl(), $this->getPublicLocation() . 'files/', $string);
             }
             return $json[0];
         }
