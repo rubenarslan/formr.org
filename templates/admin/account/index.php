@@ -131,14 +131,15 @@
                         </div>
                         <div class="tab-pane" id="data">
                             <form method="post" action="">
-                                <div class="col-md-5 no-padding confirm-changes">
-                                    <label class="control-label" for="pass"><i class="fa fa-check-circle"></i> Delete Account and all associated data</label>
-                                    <div class="input-group input-group">
-                                        <input class="form-control" id="deleteAcc" name="confirm-delete" placeholder="Type 'yes'">
-                                        <span class="input-group-btn">
-                                        <button type="submit" name="deleteAccBtn" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Delete Account</button>
-                                        </span>
-                                    </div>
+                                <h4 class="lead"> <i class="fa fa-user"></i> Data management</h4>
+                                <label class="control-label" for="pass"><i class="fa fa-check-circle"></i> Delete your account and all associated data</label>
+                                <div class="input-group input-group">
+                                    <input class="form-control" type="password" id="deleteAcc" name="confirm-delete" autocomplete="new-password" placeholder="Type 'yes' to confirm">
+                                    <span class="input-group-btn">
+                                      <button type="submit" name="deleteAccBtn" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Delete account</button>
+                                    </span>
+                                </div>
+                                <div class="clearfix"></div>
                                 </div>
                             </form>
                         </div>
