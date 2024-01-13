@@ -37,7 +37,7 @@ RUN ln -s /var/www/formr.org/webroot /var/www/html/formr
 RUN chown -R www-data:www-data /var/www/formr.org
 
 # Install dependencies
-RUN cd /var/www/formr.org && \
+RUN cd /var/www/formr.org && composer update && \
     composer install
 
 # Duplicate config-dist folder to config folder
