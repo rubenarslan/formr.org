@@ -1086,6 +1086,16 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
     }
 }
 
+function isImage($fileName): bool {
+    $image_file_endings = array('.jpg', '.png', '.gif', '.tif');
+    foreach ($image_file_endings as $file_ending) {
+        if (str_ends_with($fileName, $file_ending)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Replaces an html image tag with data URI
  *
