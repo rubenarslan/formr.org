@@ -1087,18 +1087,22 @@ function opencpu_knit2html($source, $return_format = 'json', $self_contained = 1
 }
 
 /**
- * Replaces html image tags with data URIs
+ * Replaces an html image tag with data URI
  *
- * @param $matches array The matches from preg_replace_callback
- * @return string The data URI to replace the matched image tag
+ * @param $matches array The matches from preg_replace_callback [full match, group 1, group 2, group 3]
+ * @return string The replaced image tag with data URI
  */
 function replaceImgTags(array $matches): string {
     [, $pre, $url, $post] = $matches;
+    // if url is relative -> file should be in webroot
+    if (!str_contains($url, '://')) {
+        $url = APPLICATION_ROOT . 'webroot/' . $url;
+    }
     $imageData = base64_encode(file_get_contents($url));
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $mime = finfo_buffer($finfo, $url);
     $dataUri = "data:$mime;base64,$imageData";
-    return "<img{$pre}src=\"$dataUri\"$post>";
+    return "<img{$pre}src='$dataUri'$post>";
 }
 
 function opencpu_knit_iframe($source, $variables = null, $return_session = false, $context = null, $description = '', $footer_text = '') {
