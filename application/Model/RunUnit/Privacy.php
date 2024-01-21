@@ -105,6 +105,7 @@ class Privacy extends RunUnit {
                     $output['end_session'] = true;
                     $output['move_on'] = true;
                     $output['log'] = $this->getLogMessage('privacy_accepted');
+                    return $output;
                 } else {
                     // TODO: Show error message
                     $output['log'] = $this->getLogMessage('privacy_rejected');
