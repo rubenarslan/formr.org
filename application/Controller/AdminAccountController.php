@@ -98,9 +98,23 @@ class AdminAccountController extends Controller {
                 'password' => $this->request->str('password'),
             );
             if ($this->user->login($info)) {
-                // temporary store user info in session until we confirm 2FA
-                Session::set('user_temp', serialize($this->user));
-                $this->request->redirect('admin/account/twoFactor');
+
+                //TODO: check if 2FA is enabled for user
+                if(true) {
+                    // 2fa enabled, redirect to 2fa page
+                    // temporary store user info in session until we confirm 2FA
+                    Session::set('user_temp', serialize($this->user));
+                    $this->request->redirect('admin/account/twoFactor');
+                } else {
+                    // 2fa not enabled, log user in
+                    alert('<strong>Success!</strong> You were logged in!', 'alert-success');
+                    Session::set('user', serialize($this->user));
+                    Session::setAdminCookie($this->user);
+
+                    $redirect = $this->user->isAdmin() ? 'admin' : 'admin/account';
+                    $this->request->redirect($redirect);
+                }
+
             } else {
                 alert(implode($this->user->errors), 'alert-danger');
             }
