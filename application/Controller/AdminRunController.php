@@ -690,6 +690,10 @@ class AdminRunController extends AdminController {
                 'title' => 'Add Survey',
                 'icon' => 'fa-pencil-square',
             ),
+            'Privacy' => array(
+                'title' => 'Add Privacy Statement',
+                'icon' => 'fa-vcard',
+            ),
             'External' => array(
                 'title' => 'Add External Link',
                 'icon' => 'fa-external-link-square',

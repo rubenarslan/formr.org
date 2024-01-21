@@ -500,6 +500,20 @@ CREATE TABLE `survey_pages` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
+-- Table structure for table `survey_privacy`
+--
+
+CREATE TABLE `survey_privacy` (
+  `id` int(10) unsigned NOT NULL,
+  `body` mediumtext COLLATE utf8mb4_unicode_ci,
+  `body_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `label` mediumtext COLLATE utf8mb4_unicode_ci,
+  PRIMARY KEY (`id`),
+  KEY `fk_survey_privacy_survey_run_items1_idx` (`id`),
+  CONSTRAINT `fk_privacy_unit` FOREIGN KEY (`id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
 -- Table structure for table `survey_pauses`
 --
 
