@@ -1,5 +1,7 @@
 <?php
 
+use RobThree\Auth\TwoFactorAuth;
+
 class AdminAccountController extends Controller {
 
     public function __construct(Site &$site) {
@@ -126,9 +128,11 @@ class AdminAccountController extends Controller {
     }
 
     public function twoFactorAction() {
+        $tfa = new TwoFactorAuth();
         $this->registerAssets('bootstrap-material-design');
         if($this->request->str('2facode')){
-            //TODO: check 2FA code with secret stored in db
+            //TODO: check 2FA code with secret stored in db, simple if for now
+            // if($tfa->verifyCode($secret, $this->request->str('2facode'))) {
             if($this->request->str('2facode') == '123456'){
                 $this->user = unserialize(Session::get('user_temp'));
                 Session::set('user', serialize($this->user));
@@ -192,6 +196,18 @@ class AdminAccountController extends Controller {
         $this->registerAssets('bootstrap-material-design');
         $this->setView('admin/account/register');
         return $this->sendResponse();
+    }
+
+    public function setupTwoFactorAction() {
+        if (!$this->user->loggedIn()) {
+            alert('You need to be logged in to setup 2FA.', 'alert-info');
+            $this->request->redirect('login');
+        }
+        $tfa = new TwoFactorAuth();
+        Session::set('2fa_secret', $tfa->createSecret());
+        $this->registerAssets('bootstrap-material-design');
+        $this->setView('admin/account/setup_two_factor');
+        return $this->sendResponse();   
     }
 
     public function verifyEmailAction() {

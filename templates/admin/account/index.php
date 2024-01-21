@@ -62,54 +62,61 @@
                     <div class="tab-content">
                         <div class="tab-pane active" id="settings">
                             <form method="post" action="">
-                            <h4 class="lead"> <i class="fa fa-user"></i> Basic Information</h4>
+                                <h4 class="lead"> <i class="fa fa-user"></i> Basic Information</h4>
 
-                            <div class="form-group  col-md-6">
-                                <label class="control-label"> First Name </label>
-                                <input class="form-control" name="first_name" value="<?= h($user->first_name) ?>" autocomplete="off">
-                            </div>
-                            <div class="form-group  col-md-6">
-                                <label class="control-label"> Last Name </label>
-                                <input class="form-control" name="last_name" value="<?= h($user->last_name) ?>" autocomplete="off">
-                            </div>
-                            <div class="form-group  col-md-12">
-                                <label class="control-label"> Affiliation </label>
-                                <input class="form-control" name="affiliation"  value="<?= h($user->affiliation) ?>" autocomplete="off">
-                            </div>
-                            <div class="clearfix"></div>
-
-                            <h3 class="lead"> <i class="fa fa-lock"></i> Login Details (changes are effective immediately)</h3>
-                            <div class="alert alert-warning col-md-7" style="font-size: 16px;">
-                                <i class="fa fa-warning"></i> &nbsp; If you do not intend to change your password, please leave the password fields empty.
-                            </div>
-                            <div class="clearfix"></div>
-                            
-                            <div class="form-group ">
-                                <label class="control-label" for="email"><i class="fa fa-envelope-o fa-fw"></i> New Email</label>
-                                <input class="form-control" type="email" id="email" name="new_email" value="<?= h($user->email) ?>" autocomplete="new-password">
-                            </div>
-                            
-                            <div class="form-group ">
-                                <label class="control-label" for="pass2"><i class="fa fa-key fa-fw"></i> Enter New Password (Choose a secure phrase)</label>
-                                <input class="form-control" type="password" id="pass2" name="new_password" autocomplete="new-password">
-                            </div>
-                            <div class="form-group ">
-                                <label class="control-label" for="pass3"><i class="fa fa-key fa-fw"></i> Confirm New Password</label>
-                                <input class="form-control" type="password" id="pass3" name="new_password_c" autocomplete="new-password">
-                            </div>
-                            <p>&nbsp;</p>
-                            
-                            <div class="col-md-5 no-padding confirm-changes">
-                                <label class="control-label" for="pass"><i class="fa fa-check-circle"></i> Enter Old Password to Save Changes</label>
-                                <div class="input-group input-group">
-                                    <input class="form-control" type="password" id="pass" name="password" autocomplete="new-password" placeholder="Old Password">
-                                    <span class="input-group-btn">
-                                      <button type="submit" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Save Changes</button>
-                                    </span>
+                                <div class="form-group  col-md-6">
+                                    <label class="control-label"> First Name </label>
+                                    <input class="form-control" name="first_name" value="<?= h($user->first_name) ?>" autocomplete="off">
                                 </div>
-                            </div>
-                            <div class="clearfix"></div>
-                        </form>
+                                <div class="form-group  col-md-6">
+                                    <label class="control-label"> Last Name </label>
+                                    <input class="form-control" name="last_name" value="<?= h($user->last_name) ?>" autocomplete="off">
+                                </div>
+                                <div class="form-group  col-md-12">
+                                    <label class="control-label"> Affiliation </label>
+                                    <input class="form-control" name="affiliation"  value="<?= h($user->affiliation) ?>" autocomplete="off">
+                                </div>
+                                <div class="clearfix"></div>
+
+                                <h3 class="lead"> <i class="fa fa-lock"></i> Login Details (changes are effective immediately)</h3>
+                                <div class="alert alert-warning col-md-7" style="font-size: 16px;">
+                                    <i class="fa fa-warning"></i> &nbsp; If you do not intend to change your password, please leave the password fields empty.
+                                </div>
+                                <div class="clearfix"></div>
+                                
+                                <div class="form-group ">
+                                    <label class="control-label" for="email"><i class="fa fa-envelope-o fa-fw"></i> New Email</label>
+                                    <input class="form-control" type="email" id="email" name="new_email" value="<?= h($user->email) ?>" autocomplete="new-password">
+                                </div>
+                                
+                                <div class="form-group ">
+                                    <label class="control-label" for="pass2"><i class="fa fa-key fa-fw"></i> Enter New Password (Choose a secure phrase)</label>
+                                    <input class="form-control" type="password" id="pass2" name="new_password" autocomplete="new-password">
+                                </div>
+                                <div class="form-group ">
+                                    <label class="control-label" for="pass3"><i class="fa fa-key fa-fw"></i> Confirm New Password</label>
+                                    <input class="form-control" type="password" id="pass3" name="new_password_c" autocomplete="new-password">
+                                </div>
+                                <p>&nbsp;</p>
+                                
+                                <div class="col-md-5 no-padding confirm-changes">
+                                    <label class="control-label" for="pass"><i class="fa fa-check-circle"></i> Enter Old Password to Save Changes</label>
+                                    <div class="input-group input-group">
+                                        <input class="form-control" type="password" id="pass" name="password" autocomplete="new-password" placeholder="Old Password">
+                                        <span class="input-group-btn">
+                                        <button type="submit" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Save Changes</button>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="clearfix"></div>
+                            </form>
+                            <form>
+                                <h4 class="lead"> <i class="fa fa-user"></i> Login security</h4>
+                                <div class="form-group  col-md-6">
+                                    <button type="submit" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Setup 2FA</button>
+                                </div>
+                                <div class="clearfix"></div>
+                            </form>
                         </div>
 
                         <div class="tab-pane" id="api">
