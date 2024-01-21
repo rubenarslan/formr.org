@@ -98,12 +98,9 @@ class AdminAccountController extends Controller {
                 'password' => $this->request->str('password'),
             );
             if ($this->user->login($info)) {
-                alert('<strong>Success!</strong> You were logged in!', 'alert-success');
-                Session::set('user', serialize($this->user));
-                Session::setAdminCookie($this->user);
-
-                $redirect = $this->user->isAdmin() ? 'admin' : 'admin/account';
-                $this->request->redirect($redirect);
+                // temporary store user info in session until we confirm 2FA
+                Session::set('user_temp', serialize($this->user));
+                $this->request->redirect('admin/account/twoFactor');
             } else {
                 alert(implode($this->user->errors), 'alert-danger');
             }
@@ -111,6 +108,25 @@ class AdminAccountController extends Controller {
 
         $this->registerAssets('bootstrap-material-design');
         $this->setView('admin/account/login', array('alerts' => $this->site->renderAlerts()));
+        return $this->sendResponse();
+    }
+
+    public function twoFactorAction() {
+        $this->registerAssets('bootstrap-material-design');
+        if($this->request->str('2facode')){
+            //TODO: check 2FA code with secret stored in db
+            if($this->request->str('2facode') == '123456'){
+                $this->user = unserialize(Session::get('user_temp'));
+                Session::set('user', serialize($this->user));
+                Session::setAdminCookie($this->user);
+                SESSION::delete('user_temp');
+
+                $this->request->redirect('admin');
+            } else {
+                alert('Please enter a correct 2FA code!', 'alert-danger');
+            }
+        }
+        $this->setView('admin/account/two_factor', array('alerts' => $this->site->renderAlerts()));
         return $this->sendResponse();
     }
 
