@@ -110,7 +110,7 @@
                                 </div>
                                 <div class="clearfix"></div>
                             </form>
-                            <form>
+                            <form method="post" action="<?= admin_url('account/setupTwoFactor') ?>">
                                 <h4 class="lead"> <i class="fa fa-user"></i> Login security</h4>
                                 <div class="form-group  col-md-6">
                                     <button type="submit" class="btn btn-raised btn-primary btn-flat"><i class="fa fa-save"></i> Setup 2FA</button>

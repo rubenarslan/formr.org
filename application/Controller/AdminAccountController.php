@@ -203,8 +203,26 @@ class AdminAccountController extends Controller {
             alert('You need to be logged in to setup 2FA.', 'alert-info');
             $this->request->redirect('login');
         }
+
+        //TODO: check if 2FA is already enabled for user
+        
         $tfa = new TwoFactorAuth();
-        Session::set('2fa_secret', $tfa->createSecret());
+
+        if($this->request->str('code')) {
+            $secret = Session::get('2fa_secret');
+            $result = $tfa->verifyCode($secret, $this->request->str('code'));
+            if($result) {
+                //TODO: store $secret in db
+                Session::delete('2fa_secret');
+                alert('2FA setup successfully!', 'alert-success');
+                $this->request->redirect('admin/account');
+            } else {
+                alert('Wrong 2FA code, try again!', 'alert-danger');
+            }
+        } else {
+            Session::set('2fa_secret', $tfa->createSecret());
+        }
+
         $this->registerAssets('bootstrap-material-design');
         $this->setView('admin/account/setup_two_factor');
         return $this->sendResponse();   

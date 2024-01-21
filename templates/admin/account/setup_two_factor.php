@@ -52,7 +52,7 @@
                                                 echo '<img width="80%" src="'.(new QRCode)->render($data).'" alt="QR Code for 2FA code" />';
                                             ?><br/>
                                             Secret: <?= Session::get('2fa_secret') ?>
-                                            <form>
+                                            <form id="2faSetup" name="2faSetup" method="post" action="<?= admin_url('account/setupTwoFactor') ?>">
                                                 <input type="text" name="code" placeholder="Enter code for confirmation" />
                                                 <input type="submit" value="Enable 2FA" />
                                             </form>
