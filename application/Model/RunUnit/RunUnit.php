@@ -2,7 +2,7 @@
 
 class RunUnitFactory {
 
-    const SupportedUnits = array('Survey', 'Pause', 'Email', 'External', 'Page', 'SkipBackward', 'SkipForward', 'Shuffle', 'Wait');
+    const SupportedUnits = array('Survey', 'Privacy', 'Pause', 'Email', 'External', 'Page', 'SkipBackward', 'SkipForward', 'Shuffle', 'Wait');
 
     /**
      * Create a RunUnit object based on supported types
