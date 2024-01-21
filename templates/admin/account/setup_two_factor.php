@@ -1,3 +1,6 @@
+<?php
+    use chillerlan\QRCode\QRCode;
+?>
 <!DOCTYPE html>
 <html>
     <head>
@@ -44,6 +47,10 @@
                                         <?= Template::loadChild('public/alerts') ?>
 
                                         <div style="margin-top: 55px;">
+                                            <?php
+                                                $data = 'otpauth://totp/test?secret=' . Session::get('2fa_secret') . '&issuer=formr';
+                                                echo '<img width="80%" src="'.(new QRCode)->render($data).'" alt="QR Code for 2FA code" />';
+                                            ?><br/>
                                             Secret: <?= Session::get('2fa_secret') ?>
                                             <form>
                                                 <input type="text" name="code" placeholder="Enter code for confirmation" />
