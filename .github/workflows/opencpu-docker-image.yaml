@@ -1,0 +1,91 @@
+name: OpenCPU Docker Image CI
+
+on:
+  push:
+    branches: [ "*" ]
+    paths:
+      - 'docker/opencpu'
+      - '.github/workflows/opencpu-docker-image.yaml'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  NAME: timed-and-secured-assets/opencpu
+  
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Enviroment
+        run: |
+          echo "IMAGE_TAG=$REGISTRY/$NAME:${GITHUB_REF##*/}" >> "$GITHUB_ENV"
+      
+      - name: Cache Packages
+        uses: actions/cache@v1
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+          
+      - name: Docker Build
+        run: docker image build . -f ./docker/opencpu/Dockerfile --tag $IMAGE_TAG
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{github.actor}}
+          password: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Docker Push
+        run: docker push $IMAGE_TAG
+  scout:
+    needs: [build]
+    name: Dependency Analysis
+    # Deaktiviert, da DOCKER_USER nicht gesetzt
+    if: false
+    
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Setup Enviroment
+        run: |
+          echo "IMAGE_TAG=$REGISTRY/$NAME:${GITHUB_REF##*/}" >> "$GITHUB_ENV"
+          
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{github.actor}}
+          password: ${{secrets.GITHUB_TOKEN}}
+          
+      - name: Docker Pull
+        run: docker pull $IMAGE_TAG
+          
+      - name: Login to docker.io # Needed for docker scout
+        uses: docker/login-action@v1
+        with:
+          registry: docker.io
+          username: ${{secrets.DOCKER_USERNAME}}
+          password: ${{secrets.DOCKER_PASSWORD}}
+
+      - name: Analyze for critical and high CVEs
+        id: docker-scout-cves
+        uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: ${{ env.IMAGE_TAG }}
+          sarif-file: sarif.output.json
+          summary: true
+      
+      - name: Upload SARIF result
+        id: upload-sarif
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: sarif.output.json
+          category: OPENCPU
+    
