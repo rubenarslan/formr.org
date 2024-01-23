@@ -349,6 +349,42 @@ class Run extends Model {
         return null;
     }
 
+    public function getPrivacyUnitId() {
+        $select = $this->db->select(array('unit_id', ));
+        $select->from('survey_run_units');
+        $select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
+        $select->join('survey_privacy', 'survey_privacy.id = survey_units.id');
+        $select->where(array('run_id' => $this->id));
+
+        return $select->fetchColumn();
+    }
+
+    public function getPrivacyField($field) {
+        if ($privacyUnitId = $this->getPrivacyUnitId()) {
+            $select = $this->db->select(array($field));
+            $select->from('survey_privacy');
+            $select->where(array('id' => $this->getPrivacyUnitId()));
+
+            return $select->fetchColumn();
+        }
+        return false;
+    }
+
+    public function hasPrivacy() {
+        return !empty($this->getPrivacyUnitId());
+    }
+
+    public function hasToS() {
+        if ($privacyUnitId = $this->getPrivacyUnitId()) {
+            $select = $this->db->select(array('has_tos'));
+            $select->from('survey_privacy');
+            $select->where(array('id' => $privacyUnitId));
+
+            return $select->fetchColumn();
+        }
+        return false;
+    }
+
     public function getAllUnitTypes() {
         $select = $this->db->select(array('survey_run_units.id' => 'run_unit_id', 'unit_id', 'position', 'type', 'description'));
         $select->from('survey_run_units');
@@ -795,6 +831,15 @@ class Run extends Model {
         }
         if (!$this->renderedDescAndFooterAlready && !empty($this->footer_text_parsed)) {
             $run_content .= $this->footer_text_parsed;
+            if ($this->hasPrivacy()) {
+                $run_url = run_url($this->name) . '?show-privacy-page=';
+                $run_content .= '<br><div class="privacy-footer">
+                    <a href="' . $run_url . 'Privacy" target="_blank">Privacy</a>';
+                if ($this->hasToS()) {
+                    $run_content .= ' | <a href="' . $run_url . 'ToS" target="_blank">Terms of Service</a>';
+                }
+                $run_content .= ' | <a href="' . $run_url . 'Imprint" target="_blank">Imprint</a></div>';
+            }
         }
 
         if ($runSession->isTesting()) {

@@ -505,9 +505,17 @@ CREATE TABLE `survey_pages` (
 
 CREATE TABLE `survey_privacy` (
   `id` int(10) unsigned NOT NULL,
-  `body` mediumtext COLLATE utf8mb4_unicode_ci,
-  `body_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
-  `label` mediumtext COLLATE utf8mb4_unicode_ci,
+  `privacy` mediumtext COLLATE utf8mb4_unicode_ci,
+  `privacy_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `privacy_label` mediumtext COLLATE utf8mb4_unicode_ci,
+  `privacy_label_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `has_tos` tinyint(1) NOT NULL DEFAULT '0',
+  `tos` mediumtext COLLATE utf8mb4_unicode_ci,
+  `tos_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `tos_label` mediumtext COLLATE utf8mb4_unicode_ci,
+  `tos_label_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `imprint` mediumtext COLLATE utf8mb4_unicode_ci,
+  `imprint_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id`),
   KEY `fk_survey_privacy_survey_run_items1_idx` (`id`),
   CONSTRAINT `fk_privacy_unit` FOREIGN KEY (`id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
