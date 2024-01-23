@@ -4,19 +4,31 @@ class Privacy extends RunUnit {
 
     public $type = 'Privacy';
     public $icon = "fa-vcard";
-    protected $label = '';
+
+    protected $privacy = '';
+    protected $privacy_parsed = '';
+    protected $privacy_label = '';
+    protected $privacy_label_parsed = '';
+    protected $has_tos = 0;
+    protected $tos = '';
+    protected $tos_parsed = '';
+    protected $tos_label = '';
+    protected $tos_label_parsed = '';
+    protected $imprint = '';
+    protected $imprint_parsed = '';
 
     /**
      * An array of unit's exportable attributes
      * @var array
      */
-    public $export_attribs = array('type', 'description', 'position', 'special', 'body', 'label');
+    public $export_attribs = array('type', 'description', 'position', 'special', 'privacy', 'privacy_label', 'has_tos', 'tos', 'tos_label', 'imprint');
 
     public function __construct(Run $run, array $props = []) {
         parent::__construct($run, $props);
 
         if ($this->id) {
-            $vars = $this->db->findRow('survey_privacy', array('id' => $this->id), 'body, body_parsed, label');
+            $cols = 'privacy, privacy_parsed, privacy_label, privacy_label_parsed, has_tos, tos, tos_parsed, tos_label, tos_label_parsed, imprint, imprint_parsed';
+            $vars = $this->db->findRow('survey_privacy', array('id' => $this->id), $cols);
             if ($vars) {
                 array_walk($vars, "emptyNull");
                 $vars['valid'] = true;
@@ -30,15 +42,35 @@ class Privacy extends RunUnit {
         parent::create($options);
 
         $parsedown = new ParsedownExtra();
-        $this->body_parsed = $parsedown
+        $this->privacy_parsed = $parsedown
             ->setBreaksEnabled(true)
-            ->text($this->body); // transform upon insertion into db instead of at runtime
+            ->text($this->privacy); // transform upon insertion into db instead of at runtime
+        $this->privacy_label_parsed = $parsedown
+            ->setBreaksEnabled(true)
+            ->text($this->privacy_label); // transform upon insertion into db instead of at runtime
+        $this->tos_parsed = $parsedown
+            ->setBreaksEnabled(true)
+            ->text($this->tos); // transform upon insertion into db instead of at runtime
+        $this->tos_label_parsed = $parsedown
+            ->setBreaksEnabled(true)
+            ->text($this->tos_label); // transform upon insertion into db instead of at runtime
+        $this->imprint_parsed = $parsedown
+            ->setBreaksEnabled(true)
+            ->text($this->imprint); // transform upon insertion into db instead of at runtime
 
         $this->db->insert_update('survey_privacy', array(
             'id' => $this->id,
-            'body' => $this->body,
-            'body_parsed' => $this->body_parsed,
-            'label' => $this->label,
+            'privacy' => $this->privacy,
+            'privacy_parsed' => $this->privacy_parsed,
+            'privacy_label' => $this->privacy_label,
+            'privacy_label_parsed' => $this->privacy_label_parsed,
+            'has_tos' => (trim($this->tos) != '') ? 1 : 0,
+            'tos' => $this->tos,
+            'tos_parsed' => $this->tos_parsed,
+            'tos_label' => $this->tos_label,
+            'tos_label_parsed' => $this->tos_label_parsed,
+            'imprint' => $this->imprint,
+            'imprint_parsed' => $this->imprint_parsed,
         ));
 
         $this->db->commit();
@@ -50,8 +82,11 @@ class Privacy extends RunUnit {
     public function displayForRun($prepend = '') {
         $dialog = Template::get($this->getTemplatePath(), array(
             'prepend' => $prepend,
-            'body' => $this->body,
-            'label' => $this->label,
+            'privacy' => $this->privacy,
+            'privacy_label' => $this->privacy_label,
+            'tos' => $this->tos,
+            'tos_label' => $this->tos_label,
+            'imprint' => $this->imprint,
         ));
 
         return $this->runDialog($dialog);
@@ -63,29 +98,27 @@ class Privacy extends RunUnit {
 
     public function test() {
         $template = '
-            %{body}
-            <br>
-            <label for="privacy">
-                <input type="hidden" name="privacy" value="0">
-                <input type="checkbox" name="privacy" value="1" required>
+            <label for="%{name}">
+                <input type="hidden" name="%{name}" value="0">
+                <input type="checkbox" name="%{name}" value="1" required>
                 %{label}
             </label>
             <br>
-            <input type="submit" value="Continue">
-            <br>
         ';
 
-        if (($testSession = $this->getTestSession($this->body)) === false) {
-            // knitting needed but no test session to use data
-            return;
-        }
-
-        $this->body_parsed = $this->getParsedBody($this->body, $testSession, ['admin' => true]);
-
-        return Template::replace($template, [
-            'body' => $this->body_parsed,
-            'label' => $this->label,
+        $content = Template::replace($template, [
+            'name' => 'privacy',
+            'label' => $this->prepareLabel($this->privacy_label_parsed),
         ]);
+        if ($this->has_tos) {
+            $content .= Template::replace($template, [
+                'name' => 'tos',
+                'label' => $this->prepareLabel($this->tos_label_parsed),
+            ]);
+        }
+        $content .= '<input type="submit" value="Continue">
+            <br>';
+        return $content;
     }
 
     public function find($id, $special = false, $props = []) {
@@ -99,51 +132,56 @@ class Privacy extends RunUnit {
         $output = [];
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            if (!empty($_POST['privacy'])) {
-                if ($_POST['privacy'] == '1') {
-                    // TODO: Set privacy to true
+            if (!empty($_POST['privacy']) && !($this->has_tos && empty($_POST['tos']))) {
+                if ($_POST['privacy'] == '1' && !($this->has_tos && $_POST['tos'] == '0')) {
+                    // TODO: Save privacy: 1, tos: $this->has_tos ? 1 : 0
                     $output['end_session'] = true;
                     $output['move_on'] = true;
-                    $output['log'] = $this->getLogMessage('privacy_accepted');
+                    $output['log'] = $this->getLogMessage('privacy_tos_accepted');
                     return $output;
                 } else {
-                    // TODO: Show error message
-                    $output['log'] = $this->getLogMessage('privacy_rejected');
+                    alert('There was an error in your request. Please retry after ticking the required boxes.');
+                    $output['log'] = $this->getLogMessage('privacy_tos_rejected');
                 }
             } else {
-                // TODO: Show error message
-                $output['log'] = $this->getLogMessage('privacy_error');
+                alert('There was an error in your request. Please try again.');
+                $output['log'] = $this->getLogMessage('privacy_tos_request_incomplete');
             }
         }
 
-        $this->body_parsed = $this->getParsedBody($this->body, $unitSession);
-
-        if ($this->body_parsed === false) {
-            $output['wait_opencpu'] = true; // wait for openCPU to be fixed!
-            $output['log'] = array_val($this->errors, 'log', []);
-            return $output;
-        }
+        $output['content'] = '<form action="" method="post">';
 
         $template = '
-            %{body}
-            <br>
-            <form action="" method="post">
-                <label for="privacy">
-                    <input type="hidden" name="privacy" value="0">
-                    <input type="checkbox" name="privacy" value="1" required>
-                    %{label}
-                </label>
-                <br>
-                <input type="submit" value="Continue">
-            </form>
-            <br>
-        ';
+            <label for="%{name}">
+                <input type="hidden" name="%{name}" value="0">
+                <input type="checkbox" name="%{name}" value="1" required>
+                %{label}
+            </label>
+            <br>';
 
-        $output['content'] = Template::replace($template, [
-            'body' => $this->body_parsed,
-            'label' => $this->label,
+        $output['content'] .= Template::replace($template, [
+            'name' => 'privacy',
+            'label' => $this->prepareLabel($this->privacy_label_parsed),
         ]);
 
+        if ($this->has_tos) {
+            $output['content'] .= Template::replace($template, [
+                'name' => 'tos',
+                'label' => $this->prepareLabel($this->tos_label_parsed),
+            ]);
+        }
+
+        $output['content'] .= '<input type="submit" value="Continue">
+            </form>
+            <br>';
+
         return $output;
+    }
+
+    private function prepareLabel($label) {
+        $run_url = run_url($this->run->name) . '?show-privacy-page=';
+        $label = preg_match('/<p>([\s\S]*)<\/p>/', $label, $matches) ? $matches[1] : $label;
+        $label = str_replace('}"', '}" target="_blank"', $label);
+        return str_replace(array('{privacy-url}', '{tos-url}'), array($run_url . 'Privacy', $run_url . 'ToS'), $label);
     }
 }
