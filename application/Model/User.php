@@ -432,4 +432,17 @@ class User extends Model {
         return '';
     }
 
+    public function is2FAenabled(){
+        return !($this->get2FASecret()=='');
+    }
+
+    public function get2FASecret(){
+        $secret = $this->db->find('survey_users', array('id' => $this->id), array('cols' => '2fa_code'));
+        return $secret[0]['2fa_code'];
+    }
+
+    public function set2FASecret($secret){
+        $this->db->update('survey_users', array('2fa_code' => $secret), array('id'=> $this->id), array('varchar(16)'));
+    }
+
 }

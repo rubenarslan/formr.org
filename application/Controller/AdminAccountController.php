@@ -100,9 +100,7 @@ class AdminAccountController extends Controller {
                 'password' => $this->request->str('password'),
             );
             if ($this->user->login($info)) {
-
-                //TODO: check if 2FA is enabled for user
-                if(true) {
+                if($this->user->is2FAenabled()) {
                     // 2fa enabled, redirect to 2fa page
                     // temporary store user info in session until we confirm 2FA
                     Session::set('user_temp', serialize($this->user));
@@ -131,9 +129,7 @@ class AdminAccountController extends Controller {
         $tfa = new TwoFactorAuth();
         $this->registerAssets('bootstrap-material-design');
         if($this->request->str('2facode')){
-            //TODO: check 2FA code with secret stored in db, simple if for now
-            // if($tfa->verifyCode($secret, $this->request->str('2facode'))) {
-            if($this->request->str('2facode') == '123456'){
+            if($tfa->verifyCode($this->user->get2FASecret(), $this->request->str('2facode'))) {
                 $this->user = unserialize(Session::get('user_temp'));
                 Session::set('user', serialize($this->user));
                 Session::setAdminCookie($this->user);
@@ -203,8 +199,6 @@ class AdminAccountController extends Controller {
             alert('You need to be logged in to setup 2FA.', 'alert-info');
             $this->request->redirect('login');
         }
-
-        //TODO: check if 2FA is already enabled for user
         
         $tfa = new TwoFactorAuth();
 
@@ -212,7 +206,7 @@ class AdminAccountController extends Controller {
             $secret = Session::get('2fa_secret');
             $result = $tfa->verifyCode($secret, $this->request->str('code'));
             if($result) {
-                //TODO: store $secret in db
+                $this->user->set2FAsecret(Session::get('2fa_secret'));
                 Session::delete('2fa_secret');
                 alert('2FA setup successfully!', 'alert-success');
                 $this->request->redirect('admin/account');
