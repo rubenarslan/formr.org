@@ -110,7 +110,7 @@
                                     </form>
                                     <div class="clear clearfix"></div>
                                 </div>
-                                <div class="tab-pane active" id="privacy">
+                                <div class="tab-pane" id="privacy">
                                     <form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
                                         <p class="pull-right">
                                             <input type="submit" name="submit_settings" value="Save" class="btn btn-primary save_settings">
@@ -123,15 +123,15 @@
                                         </p>
                                         <div class="col-md-12">
                                             <div class="form-group">
-                                                <label title="Used by the Privacy Run Unit">Privacy Policy</label>
+                                                <label title="Used by the Privacy Run Unit">Privacy Policy (<a href="<?php echo run_url($run->name, 'show-privacy-page=privacy-policy'); ?>">View</a>)</label>
                                                 <textarea data-editor="markdown" placeholder="Privacy Policy" name="privacy" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->privacy); ?></textarea>
                                             </div>
                                             <div class="form-group">
-                                                <label title="Used by the Privacy Run Unit">Terms of Service</label>
+                                                <label title="Used by the Privacy Run Unit">Terms of Service (<a href="<?php echo run_url($run->name, 'show-privacy-page=terms-of-service'); ?>">View</a>)</label>
                                                 <textarea data-editor="markdown" placeholder="Terms of Service" name="tos" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->tos); ?></textarea>
                                             </div>
                                             <div class="form-group">
-                                                <label title="Used by the Privacy Run Unit">Imprint</label>
+                                                <label title="Used by the Privacy Run Unit">Imprint (<a href="<?php echo run_url($run->name, 'show-privacy-page=imprint'); ?>">View</a>)</label>
                                                 <textarea data-editor="markdown" placeholder="Imprint" name="imprint" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->imprint); ?></textarea>
                                             </div>
                                         </div>
