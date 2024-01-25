@@ -57,6 +57,7 @@ class Privacy extends RunUnit {
     public function displayForRun($prepend = '') {
         $dialog = Template::get($this->getTemplatePath(), array(
             'prepend' => $prepend,
+            'run' => $this->run,
             'privacy_label' => $this->privacy_label,
             'tos_label' => $this->tos_label,
         ));
@@ -112,19 +113,27 @@ class Privacy extends RunUnit {
         $output = [];
 
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            if (!empty($_POST['privacy']) && !($this->run->hasToS() && empty($_POST['tos']))) {
-                if ($_POST['privacy'] == '1' && !($this->run->hasToS() && $_POST['tos'] == '0')) {
+            if (!($this->run->hasPrivacy() && empty($_POST['privacy'])) && !($this->run->hasToS() && empty($_POST['tos']))) {
+                if (!($this->run->hasPrivacy() && $_POST['privacy'] == '0') && !($this->run->hasToS() && $_POST['tos'] == '0')) {
                     $output['end_session'] = true;
                     $output['move_on'] = true;
-                    $output['log'] = $this->getLogMessage('privacy_tos_accepted');
+                    $message = 'privacy policy: ';
+                    $message .= $_POST['privacy'] ? 'accepted' : 'not set';
+                    $message .= ', terms of service: ';
+                    $message .= $_POST['tos'] ? 'accepted' : 'not set';
+                    $output['log'] = $this->getLogMessage('privacy_tos_consent', $message);
                     return $output;
                 } else {
-                    alert('There was an error in your request. Please retry after ticking the required boxes.');
-                    $output['log'] = $this->getLogMessage('privacy_tos_rejected');
+                    $message = $this->run->hasPrivacy()? 'privacy policy' : '';
+                    $message .= $this->run->hasPrivacy() && $this->run->hasToS()? ' and ' : '';
+                    $message .= $this->run->hasToS()? 'terms of service' : '';
+                    alert('You must accept the ' . $message . ' to continue.');
                 }
             } else {
-                alert('There was an error in your request. Please try again.');
-                $output['log'] = $this->getLogMessage('privacy_tos_request_incomplete');
+                $message = $this->run->hasPrivacy()? 'privacy policy' : '';
+                $message .= $this->run->hasPrivacy() && $this->run->hasToS()? ' and ' : '';
+                $message .= $this->run->hasToS()? 'terms of service' : '';
+                alert('You must accept the ' . $message . ' to continue.');
             }
         }
 
@@ -159,7 +168,7 @@ class Privacy extends RunUnit {
             </form>
             <br>';
         } else {
-            $output['content'] .= 'The survey administrator forgot to set a privacy policy or terms of service. Please contact them about this issue.';
+            alert('The survey administrator forgot to set a privacy policy or terms of service. Please contact them about this issue.', 'alert-danger');
         }
 
         return $output;
