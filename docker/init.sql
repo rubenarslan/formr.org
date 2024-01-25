@@ -4,7 +4,7 @@
 
 --
 -- Database: `formr`
--- Schema Updated: 10.05.2021
+-- Schema Updated: 25.01.2024
 --
 SET NAMES utf8mb4;
 CREATE DATABASE IF NOT EXISTS formr CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -175,6 +175,12 @@ CREATE TABLE `survey_runs` (
   `header_image_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `footer_text` mediumtext COLLATE utf8mb4_unicode_ci,
   `footer_text_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `privacy` mediumtext COLLATE utf8mb4_unicode_ci,
+  `privacy_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `tos` mediumtext COLLATE utf8mb4_unicode_ci,
+  `tos_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `imprint` mediumtext COLLATE utf8mb4_unicode_ci,
+  `imprint_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
   `custom_css_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `custom_js_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `osf_project_id` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -509,19 +515,12 @@ CREATE TABLE `survey_pages` (
 
 CREATE TABLE `survey_privacy` (
   `id` int(10) unsigned NOT NULL,
-  `privacy` mediumtext COLLATE utf8mb4_unicode_ci,
-  `privacy_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
   `privacy_label` mediumtext COLLATE utf8mb4_unicode_ci,
   `privacy_label_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
-  `has_tos` tinyint(1) NOT NULL DEFAULT '0',
-  `tos` mediumtext COLLATE utf8mb4_unicode_ci,
-  `tos_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
   `tos_label` mediumtext COLLATE utf8mb4_unicode_ci,
   `tos_label_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
-  `imprint` mediumtext COLLATE utf8mb4_unicode_ci,
-  `imprint_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id`),
-  KEY `fk_survey_privacy_survey_run_items1_idx` (`id`),
+  KEY `fk_survey_privacy_survey_units1_idx` (`id`),
   CONSTRAINT `fk_privacy_unit` FOREIGN KEY (`id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

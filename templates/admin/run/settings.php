@@ -23,6 +23,7 @@
                         <div class="nav-tabs-custom">
                             <ul class="nav nav-tabs">
                                 <li class="active"><a href="#settings" data-toggle="tab" aria-expanded="true">General</a></li>
+                                <li><a href="#privacy" data-toggle="tab" aria-expanded="false">Privacy</a></li>
                                 <li><a href="#css" data-toggle="tab" aria-expanded="false">CSS</a></li>
                                 <li><a href="#js" data-toggle="tab" aria-expanded="false">JS</a></li>
                                 <li><a href="#service_message" data-toggle="tab" aria-expanded="false">Service message</a></li>
@@ -105,6 +106,34 @@
 
 
 
+                                        </div>
+                                    </form>
+                                    <div class="clear clearfix"></div>
+                                </div>
+                                <div class="tab-pane active" id="privacy">
+                                    <form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <p class="pull-right">
+                                            <input type="submit" name="submit_settings" value="Save" class="btn btn-primary save_settings">
+                                        </p>
+                                        <h4><i class="fa fa-vcard"></i> Privacy</h4>
+                                        <p>
+                                            The following settings are used by the Privacy Run Unit. They are used to inform users about the privacy policy, terms of service and imprint of your study.
+                                            These are required by law in some countries. Add a Privacy Consent Unit to your run to make use of these settings.
+                                            You can use Markdown to format the text.
+                                        </p>
+                                        <div class="col-md-12">
+                                            <div class="form-group">
+                                                <label title="Used by the Privacy Run Unit">Privacy Policy</label>
+                                                <textarea data-editor="markdown" placeholder="Privacy Policy" name="privacy" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->privacy); ?></textarea>
+                                            </div>
+                                            <div class="form-group">
+                                                <label title="Used by the Privacy Run Unit">Terms of Service</label>
+                                                <textarea data-editor="markdown" placeholder="Terms of Service" name="tos" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->tos); ?></textarea>
+                                            </div>
+                                            <div class="form-group">
+                                                <label title="Used by the Privacy Run Unit">Imprint</label>
+                                                <textarea data-editor="markdown" placeholder="Imprint" name="imprint" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->imprint); ?></textarea>
+                                            </div>
                                         </div>
                                     </form>
                                     <div class="clear clearfix"></div>

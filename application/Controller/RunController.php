@@ -59,25 +59,20 @@ class RunController extends Controller {
 
     private function showPrivacyAction() {
         $page = $this->request->str('show-privacy-page');
-        $supported_pages = array('Privacy', 'ToS', 'Imprint');
+        $supported_pages = array('privacy-policy', 'terms-of-service', 'imprint');
 
         if (!in_array($page, $supported_pages)) {
             formr_error(404, 'Not Found', 'The requested URL was not found');
         }
 
-        $run_vars = [];
-        $run_vars['title'] = $this->run->title . ' - ' . $page;
-        $run_vars['run_content'] = $this->run->getPrivacyField(strtolower($page) . '_parsed');
-        if (!$run_vars) {
-            formr_error(500, 'Invalid Execution', 'The execution generated no output');
-        }
+        global $title;
+        $title = $this->run->title . ' / ' . ucwords(str_replace('-', ' ', $page));
+        $run_vars = array(
+            'run_content' => $this->run->getParsedPrivacyField($page),
+            'bodyClass' => 'fmr-run',
+        );
 
-        $run_vars['bodyClass'] = 'fmr-run';
-
-        $assset_vars = $this->filterAssets($run_vars);
-        unset($run_vars['css'], $run_vars['js']);
-
-        $this->setView('run/index', array_merge($run_vars, $assset_vars));
+        $this->setView('run/index', $run_vars);
 
         return $this->sendResponse();
     }

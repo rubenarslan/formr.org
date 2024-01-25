@@ -47,6 +47,9 @@ class Run extends Model {
     public $osf_project_id = null;
     public $footer_text = null;
     public $public_blurb = null;
+    public $privacy = null;
+    public $tos = null;
+    public $imprint = null;
     public $use_material_design = false;
     public $expire_cookie = 0;
     public $expire_cookie_value = 0;
@@ -62,11 +65,15 @@ class Run extends Model {
     protected $description_parsed = null;
     protected $footer_text_parsed = null;
     protected $public_blurb_parsed = null;
+    protected $privacy_parsed = null;
+    protected $tos_parsed = null;
+    protected $imprint_parsed = null;
     protected $api_secret_hash = null;
     protected $owner = null;
     protected $run_settings = array(
         "header_image_path", "title", "description",
-        "footer_text", "public_blurb", "custom_css",
+        "footer_text", "public_blurb", "privacy",
+        "tos", "imprint", "custom_css",
         "custom_js", "cron_active", "osf_project_id",
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
@@ -108,7 +115,7 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, imprint, imprint_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
 
@@ -349,40 +356,25 @@ class Run extends Model {
         return null;
     }
 
-    public function getPrivacyUnitId() {
-        $select = $this->db->select(array('unit_id', ));
-        $select->from('survey_run_units');
-        $select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
-        $select->join('survey_privacy', 'survey_privacy.id = survey_units.id');
-        $select->where(array('run_id' => $this->id));
-
-        return $select->fetchColumn();
-    }
-
-    public function getPrivacyField($field) {
-        if ($privacyUnitId = $this->getPrivacyUnitId()) {
-            $select = $this->db->select(array($field));
-            $select->from('survey_privacy');
-            $select->where(array('id' => $this->getPrivacyUnitId()));
-
-            return $select->fetchColumn();
-        }
-        return false;
+    public function getParsedPrivacyField($field) {
+        return match ($field) {
+            'privacy-policy' => $this->privacy_parsed,
+            'terms-of-service' => $this->tos_parsed,
+            'imprint' => $this->imprint_parsed,
+            default => "",
+        };
     }
 
     public function hasPrivacy() {
-        return !empty($this->getPrivacyUnitId());
+        return trim($this->privacy) !== '';
     }
 
     public function hasToS() {
-        if ($privacyUnitId = $this->getPrivacyUnitId()) {
-            $select = $this->db->select(array('has_tos'));
-            $select->from('survey_privacy');
-            $select->where(array('id' => $privacyUnitId));
+        return trim($this->tos) !== '';
+    }
 
-            return $select->fetchColumn();
-        }
-        return false;
+    public function hasImprint() {
+        return trim($this->imprint) !== '';
     }
 
     public function getAllUnitTypes() {
@@ -564,6 +556,18 @@ class Run extends Model {
         if (isset($posted['footer_text'])) {
             $posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']);
             $this->run_settings[] = 'footer_text_parsed';
+        }
+        if (isset($posted['privacy'])) {
+            $posted['privacy_parsed'] = $parsedown->text($posted['privacy']);
+            $this->run_settings[] = 'privacy_parsed';
+        }
+        if (isset($posted['tos'])) {
+            $posted['tos_parsed'] = $parsedown->text($posted['tos']);
+            $this->run_settings[] = 'tos_parsed';
+        }
+        if (isset($posted['imprint'])) {
+            $posted['imprint_parsed'] = $parsedown->text($posted['imprint']);
+            $this->run_settings[] = 'imprint_parsed';
         }
 
         $cookie_units = array_keys($this->expire_cookie_units);
@@ -831,14 +835,21 @@ class Run extends Model {
         }
         if (!$this->renderedDescAndFooterAlready && !empty($this->footer_text_parsed)) {
             $run_content .= $this->footer_text_parsed;
+            $privacy_pages = [];
+            $run_url = run_url($this->name) . '?show-privacy-page=';
             if ($this->hasPrivacy()) {
-                $run_url = run_url($this->name) . '?show-privacy-page=';
-                $run_content .= '<br><div class="privacy-footer">
-                    <a href="' . $run_url . 'Privacy" target="_blank">Privacy</a>';
-                if ($this->hasToS()) {
-                    $run_content .= ' | <a href="' . $run_url . 'ToS" target="_blank">Terms of Service</a>';
-                }
-                $run_content .= ' | <a href="' . $run_url . 'Imprint" target="_blank">Imprint</a></div>';
+                $privacy_pages[] = '<a href="' . $run_url . 'privacy-policy" target="_blank">Privacy Policy</a>';
+            }
+            if ($this->hasToS()) {
+                $privacy_pages[] = '<a href="' . $run_url . 'terms-of-service" target="_blank">Terms of Service</a>';
+            }
+            if ($this->hasImprint()) {
+                $privacy_pages[] = '<a href="' . $run_url . 'imprint" target="_blank">Imprint</a>';
+            }
+            if (!empty($privacy_pages)) {
+                $run_content .= '<br><div class="privacy-footer">';
+                $run_content .= implode(' | ', $privacy_pages);
+                $run_content .= '</div>';
             }
         }
 
@@ -893,6 +904,9 @@ class Run extends Model {
             'description' => $this->description,
             'footer_text' => $this->footer_text,
             'public_blurb' => $this->public_blurb,
+            'privacy' => $this->privacy,
+            'tos' => $this->tos,
+            'imprint' => $this->imprint,
             'cron_active' => (int) $this->cron_active,
             'custom_js' => $this->getCustomJS(),
             'custom_css' => $this->getCustomCSS(),
