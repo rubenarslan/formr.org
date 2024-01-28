@@ -202,7 +202,15 @@ class AdminAccountController extends Controller {
         
         $tfa = new TwoFactorAuth();
 
-        if($this->request->str('code')) {
+        if($this->request->str('reset_code')) {
+            if($tfa->verifyCode($this->user->get2FASecret(), $this->request->str('reset_code'))) {
+                $this->user->set2FAsecret('');
+                alert('2FA reset successfully!', 'alert-success');
+                $this->request->redirect('admin/account');
+            } else {
+                alert('Wrong 2FA code, try again!', 'alert-danger');
+            }
+        } else if($this->request->str('code')) {
             $secret = Session::get('2fa_secret');
             $result = $tfa->verifyCode($secret, $this->request->str('code'));
             if($result) {
@@ -218,7 +226,11 @@ class AdminAccountController extends Controller {
         }
 
         $this->registerAssets('bootstrap-material-design');
-        $this->setView('admin/account/setup_two_factor');
+        if($this->user->is2FAenabled()) {
+            $this->setView('admin/account/reset_two_factor', array('alerts' => $this->site->renderAlerts(), 'username' => $this->user->email));
+        } else {
+            $this->setView('admin/account/setup_two_factor', array('alerts' => $this->site->renderAlerts()) );
+        }
         return $this->sendResponse();   
     }
 
