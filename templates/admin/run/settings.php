@@ -123,15 +123,15 @@
                                         </p>
                                         <div class="col-md-12">
                                             <div class="form-group">
-                                                <label title="Used by the Privacy Run Unit">Privacy Policy (<a href="<?php echo run_url($run->name, 'show-privacy-page=privacy-policy'); ?>">View</a>)</label>
+                                                <label title="Used by the Privacy Run Unit">Privacy Policy (<a href="<?php echo run_url($run->name, '', ['show-privacy-page' => 'privacy-policy']); ?>" target="_blank">View</a>)</label>
                                                 <textarea data-editor="markdown" placeholder="Privacy Policy" name="privacy" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->privacy); ?></textarea>
                                             </div>
                                             <div class="form-group">
-                                                <label title="Used by the Privacy Run Unit">Terms of Service (<a href="<?php echo run_url($run->name, 'show-privacy-page=terms-of-service'); ?>">View</a>)</label>
+                                                <label title="Used by the Privacy Run Unit">Terms of Service (<a href="<?php echo run_url($run->name, '', ['show-privacy-page' => 'terms-of-service']); ?>" target="_blank">View</a>)</label>
                                                 <textarea data-editor="markdown" placeholder="Terms of Service" name="tos" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->tos); ?></textarea>
                                             </div>
                                             <div class="form-group">
-                                                <label title="Used by the Privacy Run Unit">Imprint (<a href="<?php echo run_url($run->name, 'show-privacy-page=imprint'); ?>">View</a>)</label>
+                                                <label title="Used by the Privacy Run Unit">Imprint (<a href="<?php echo run_url($run->name, '', ['show-privacy-page' => 'imprint']); ?>" target="_blank">View</a>)</label>
                                                 <textarea data-editor="markdown" placeholder="Imprint" name="imprint" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->imprint); ?></textarea>
                                             </div>
                                         </div>
