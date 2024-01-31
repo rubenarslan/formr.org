@@ -557,6 +557,10 @@ class Run extends Model {
             $posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']);
             $this->run_settings[] = 'footer_text_parsed';
         }
+        if ((isset($posted['privacy']) || isset($posted['tos'])) &&
+            !$this->hasPrivacyUnit()) {
+            alert("You have a privacy policy or terms of service, but you don't ask for the users consent. Please add a Privacy Consent unit to your run.");
+        }
         if (isset($posted['privacy'])) {
             $posted['privacy_parsed'] = $parsedown->text($posted['privacy']);
             $this->run_settings[] = 'privacy_parsed';
