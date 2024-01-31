@@ -179,6 +179,11 @@ class Run extends Model {
         if (!in_array($public, range(0, 3))) {
             return false;
         }
+        if ((!$this->hasPrivacy() || !$this->hasImprint()) && $public > 0) {
+            alert('You cannot make this run public because it does not have a privacy policy or imprint. Set them first in the settings tab.', 'alert-danger');
+            $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
+            return false;
+        }
 
         $updated = $this->db->update('survey_runs', array('public' => $public), array('id' => $this->id));
         return $updated !== false;
@@ -363,6 +368,15 @@ class Run extends Model {
             'imprint' => $this->imprint_parsed,
             default => "",
         };
+    }
+
+    public function hasPrivacyUnit() {
+        $select = $this->db->select(array('unit_id'));
+        $select->from('survey_run_units');
+        $select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
+        $select->where(array('run_id' => $this->id, 'type' => 'Privacy'));
+
+        return $select->fetchColumn() !== false;
     }
 
     public function hasPrivacy() {
@@ -560,6 +574,10 @@ class Run extends Model {
         if ((isset($posted['privacy']) || isset($posted['tos'])) &&
             !$this->hasPrivacyUnit()) {
             alert("You have a privacy policy or terms of service, but you don't ask for the users consent. Please add a Privacy Consent unit to your run.");
+        }
+        if (((isset($posted['privacy']) && trim($posted['privacy']) == '') || (isset($posted['imprint']) && trim($posted['imprint']) == '')) && $this->public > 0) {
+            alert("This run is public, but you have removed the privacy policy and imprint. We've set it to private for you. Add a privacy policy and imprint before setting the run to public again.", 'alert-danger');
+            $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
         }
         if (isset($posted['privacy'])) {
             $posted['privacy_parsed'] = $parsedown->text($posted['privacy']);
