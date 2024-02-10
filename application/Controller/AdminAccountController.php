@@ -227,9 +227,9 @@ class AdminAccountController extends Controller {
 
         $this->registerAssets('bootstrap-material-design');
         if($this->user->is2FAenabled()) {
-            $this->setView('admin/account/reset_two_factor', array('alerts' => $this->site->renderAlerts(), 'username' => $this->user->email));
+            $this->setView('admin/account/reset_two_factor', array('alerts' => $this->site->renderAlerts()));
         } else {
-            $this->setView('admin/account/setup_two_factor', array('alerts' => $this->site->renderAlerts()) );
+            $this->setView('admin/account/setup_two_factor', array('alerts' => $this->site->renderAlerts(), 'username' => $this->user->email));
         }
         return $this->sendResponse();   
     }

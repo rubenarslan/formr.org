@@ -46,9 +46,10 @@
                                         <h2>Setup Two Factor</h2>
                                         <?= Template::loadChild('public/alerts') ?>
 
-                                        <div style="margin-top: 55px;">
+                                        <div style="margin-top: 15px;">
+                                            <p>Scan the QR code below with your 2FA app (e.g. Google Authenticator) and enter the code displayed in the app to enable 2FA.</p>
                                             <?php
-                                                $data = 'otpauth://totp/test?secret=' . Session::get('2fa_secret') . '&issuer=formr';
+                                                $data = 'otpauth://totp/' . $username . '?secret=' . Session::get('2fa_secret') . '&issuer=' . site_url();
                                                 echo '<img width="80%" src="'.(new QRCode)->render($data).'" alt="QR Code for 2FA code" />';
                                             ?><br/>
                                             Secret: <?= Session::get('2fa_secret') ?>
