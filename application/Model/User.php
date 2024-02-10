@@ -1,4 +1,5 @@
 <?php
+use RobThree\Auth\TwoFactorAuth;
 
 class User extends Model {
 
@@ -452,6 +453,34 @@ class User extends Model {
 
     public function set2FABackupCodes($codes){
         $this->db->update('survey_users', array('backup_codes' => $codes), array('id'=> $this->id), array('varchar(255)'));
+    }
+
+    public function verify2FACode($code){
+        $backup_codes = $this->get2FABackupCodes();
+        if($backup_codes != "") {
+            // no backup codes saved
+            $backup_codes_aray = explode(';', $backup_codes);
+            if (in_array($code, $backup_codes_aray)){
+                $key = array_search($code, $backup_codes_aray);
+                unset($backup_codes_aray[$key]);
+                $this->set2FABackupCodes(implode(';', $backup_codes_aray));
+                return true;
+            }
+        }
+        $secret = $this->get2FASecret();
+        $tfa = new TwoFactorAuth();
+        return $tfa->verifyCode($secret, $code);
+    }
+
+    public function generateAndSet2FABackupCodes(){
+        $codes = [];
+        for ($i = 0; $i < 10; $i++) {
+            $randomBytes = random_bytes(3);
+            $code = strtoupper(bin2hex($randomBytes));
+            array_push($codes, $code);
+        }
+        $this->set2FABackupCodes(implode(';', $codes));
+        return $codes;
     }
 
 }

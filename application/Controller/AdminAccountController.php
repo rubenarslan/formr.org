@@ -126,10 +126,9 @@ class AdminAccountController extends Controller {
     }
 
     public function twoFactorAction() {
-        $tfa = new TwoFactorAuth();
         $this->registerAssets('bootstrap-material-design');
         if($this->request->str('2facode')){
-            if($tfa->verifyCode($this->user->get2FASecret(), $this->request->str('2facode'))) {
+            if($this->user->verify2FACode($this->request->str('2facode'))) {
                 $this->user = unserialize(Session::get('user_temp'));
                 Session::set('user', serialize($this->user));
                 Session::setAdminCookie($this->user);
@@ -194,16 +193,6 @@ class AdminAccountController extends Controller {
         return $this->sendResponse();
     }
 
-    private function generateBackupCodes() {
-        $codes = [];
-        for ($i = 0; $i < 10; $i++) {
-            $randomBytes = random_bytes(3);
-            $code = strtoupper(bin2hex($randomBytes));
-            array_push($codes, $code);
-        }
-        return $codes;
-    }
-
     public function setupTwoFactorAction() {
         if (!$this->user->loggedIn()) {
             alert('You need to be logged in to setup 2FA.', 'alert-info');
@@ -213,8 +202,9 @@ class AdminAccountController extends Controller {
         $tfa = new TwoFactorAuth();
 
         if($this->request->str('reset_code')) {
-            if($tfa->verifyCode($this->user->get2FASecret(), $this->request->str('reset_code'))) {
+            if($this->user->verify2FACode($this->request->str('reset_code'))) {
                 $this->user->set2FAsecret('');
+                $this->user->set2FABackupCodes('');
                 alert('2FA reset successfully!', 'alert-success');
                 $this->request->redirect('admin/account');
             } else {
@@ -224,11 +214,11 @@ class AdminAccountController extends Controller {
             $secret = Session::get('2fa_secret');
             $result = $tfa->verifyCode($secret, $this->request->str('code'));
             if($result) {
+                $backupCodes = join(' ', $this->user->generateAndSet2FABackupCodes());
                 $this->user->set2FAsecret(Session::get('2fa_secret'));
-                $this->user->set2FAbackupCodes(join(";", $this->generateBackupCodes()));
                 Session::delete('2fa_secret');
                 alert('2FA setup successfully!', 'alert-success');
-                alert('Please <b>save</b> your 2FA backup codes! These are only shown <b>ONCE</b> <br/>' . join(";", $this->generateBackupCodes()), 'alert-warning');
+                alert('Please <b>save</b> your 2FA backup codes! These are only shown <b>ONCE</b> <br/>' . $backupCodes, 'alert-warning');
                 $this->request->redirect('admin/account');
             } else {
                 alert('Wrong 2FA code, try again!', 'alert-danger');
