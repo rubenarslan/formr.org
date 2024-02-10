@@ -194,6 +194,16 @@ class AdminAccountController extends Controller {
         return $this->sendResponse();
     }
 
+    private function generateBackupCodes() {
+        $codes = [];
+        for ($i = 0; $i < 10; $i++) {
+            $randomBytes = random_bytes(3);
+            $code = strtoupper(bin2hex($randomBytes));
+            array_push($codes, $code);
+        }
+        return $codes;
+    }
+
     public function setupTwoFactorAction() {
         if (!$this->user->loggedIn()) {
             alert('You need to be logged in to setup 2FA.', 'alert-info');
@@ -215,8 +225,10 @@ class AdminAccountController extends Controller {
             $result = $tfa->verifyCode($secret, $this->request->str('code'));
             if($result) {
                 $this->user->set2FAsecret(Session::get('2fa_secret'));
+                $this->user->set2FAbackupCodes(join(";", $this->generateBackupCodes()));
                 Session::delete('2fa_secret');
                 alert('2FA setup successfully!', 'alert-success');
+                alert('Please <b>save</b> your 2FA backup codes! These are only shown <b>ONCE</b> <br/>' . join(";", $this->generateBackupCodes()), 'alert-warning');
                 $this->request->redirect('admin/account');
             } else {
                 alert('Wrong 2FA code, try again!', 'alert-danger');
