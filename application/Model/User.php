@@ -445,4 +445,13 @@ class User extends Model {
         $this->db->update('survey_users', array('2fa_code' => $secret), array('id'=> $this->id), array('varchar(16)'));
     }
 
+    public function get2FABackupCodes(){
+        $codes = $this->db->find('survey_users', array('id' => $this->id), array('cols' => 'backup_codes'));
+        return $codes[0]['backup_codes'];
+    }
+
+    public function set2FABackupCodes($codes){
+        $this->db->update('survey_users', array('backup_codes' => $codes), array('id'=> $this->id), array('varchar(255)'));
+    }
+
 }
