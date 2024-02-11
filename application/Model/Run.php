@@ -270,10 +270,35 @@ class Run extends Model {
             } else {
                 $new_file_path = 'assets/tmp/admin/' . crypto_token(33, true) . $this->file_endings[$mime];
             }
-
+            
+            $fileSaved = false;
+            
             // save file
-            $destination_dir = APPLICATION_ROOT . 'webroot/' . $new_file_path;
-            if (move_uploaded_file($files['tmp_name'][$i], $destination_dir)) {
+            $destination_path = APPLICATION_ROOT . 'webroot/' . $new_file_path;
+            if (move_uploaded_file($files['tmp_name'][$i], $destination_path)) {
+                $fileSaved = true;
+            } else {
+                $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
+            }
+            
+            if($fileSaved) {
+                // generate watermark version of image via python script
+                if ($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif') {
+                    $scriptPath = APPLICATION_ROOT . 'scripts/watermark.py';
+                    $originalImage = escapeshellarg($destination_path);
+                    $watermarkedImage = $destination_path . '_watermarked' . $this->file_endings[$mime];
+                    //TODO: change method according to settings in run
+                    //TODO: change watermark text according to settings in run
+                    $cmd = "/usr/bin/python3 $scriptPath embed -i $originalImage -o " . escapeshellarg($watermarkedImage) . " -w 'formr.org' -m 'text'";
+                    exec($cmd, $output, $return_var);
+                    if ($return_var === 0 && count($output) === 2) {
+                        $new_file_path = $watermarkedImage;
+                        //TODO: save the method-specific output to the database (should be an int array that represents a matrix)
+                        $watermark_data = $output[1];
+                    } else {
+                        $this->errors[] = __("Unable to watermark uploaded file '%s'.", $files['name'][$i]);
+                    }
+                }
                 $this->db->insert_update('survey_uploaded_files', array(
                     'run_id' => $this->id,
                     'created' => mysql_now(),
@@ -282,8 +307,6 @@ class Run extends Model {
                         ), array(
                     'modified' => mysql_now()
                 ));
-            } else {
-                $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
             }
         }
 
