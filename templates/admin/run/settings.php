@@ -29,6 +29,7 @@
                                 <li><a href="#reminder" data-toggle="tab" aria-expanded="false">Reminder</a></li>
                                 <li><a href="#overview_script" data-toggle="tab" aria-expanded="false">Overview</a></li>
                                 <li><a href="#osf" data-toggle="tab" aria-expanded="false">OSF</a></li>
+                                <li><a href="#watermark" data-toggle="tab" aria-expanded="false">Watermarks</a></li>
                             </ul>
                             <div class="tab-content">
                                 <div class="tab-pane active" id="settings">
@@ -83,7 +84,7 @@
                                                             <select name="expire_cookie_unit" class="form-control" style="padding: 0; border: none; height: 30px;">
                                                                 <option value=""> Select Units.. </option>
                                                                 <?php foreach ($run->expire_cookie_units as $unit => $label): ?>
-                                                                    <option value="<?= $unit ?>" <?php echo $run->expire_cookie_unit === $unit ? 'selected="selected"' : '' ?>> <?= $label ?> </option>
+                                                                        <option value="<?= $unit ?>" <?php echo $run->expire_cookie_unit === $unit ? 'selected="selected"' : '' ?>> <?= $label ?> </option>
                                                                 <?php endforeach; ?>
                                                             </select>
                                                         </div>
@@ -154,17 +155,17 @@
                                                 <li><i class="fa-li fa fa-lg fa-stop"></i> You can also use this message to end a study, so that no new users will be admitted and old users who are not finished cannot go on.</li>
                                             </ul>
                                             <?php if (empty($service_messages)): ?>
-                                                <a href="<?= admin_run_url($run->name, 'create_run_unit?type=Page&special=ServiceMessagePage&redirect=settings:::service_message') ?>" class="btn btn-default pull-right add_run_unit"><i class="fa fa-plus"></i> Add Service Message</a>
+                                                    <a href="<?= admin_run_url($run->name, 'create_run_unit?type=Page&special=ServiceMessagePage&redirect=settings:::service_message') ?>" class="btn btn-default pull-right add_run_unit"><i class="fa fa-plus"></i> Add Service Message</a>
                                             <?php endif; ?>
                                         </div>
                                         <div class="clearfix"></div>
                                         <div class="row special-units  reminder-cells">
                                             <?php foreach ($service_messages as $message): ?>
-                                                <div class="col-md-11 single_unit_display">
-                                                    <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($message['html_units']); ?>'>
-                                                        <div class="run_units"></div>
-                                                    </form>
-                                                </div>
+                                                    <div class="col-md-11 single_unit_display">
+                                                        <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($message['html_units']); ?>'>
+                                                            <div class="run_units"></div>
+                                                        </form>
+                                                    </div>
                                             <?php endforeach; ?>
                                         </div>
                                     </div>
@@ -182,13 +183,13 @@
                                         <div class="clearfix"></div>
                                         <div class="row special-units  reminder-cells">
                                             <?php foreach ($reminders as $reminder): ?>
-                                                <div class="col-md-6 single_unit_display">
-                                                    <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($reminder['html_units']); ?>'>
+                                                    <div class="col-md-6 single_unit_display">
+                                                        <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($reminder['html_units']); ?>'>
 
-                                                        <a href="<?= admin_run_url($run->name, 'delete_run_unit?type=Email&special=ReminderEmail&redirect=settings:::reminder&unit_id=' . $reminder['id']) ?>" class="reminder-delete remove_unit_from_run" data-action="<?php echo admin_run_url($run->name); ?>" data-id="<?php echo $reminder['id']; ?>"><i class="fa fa-2x fa-trash"></i></a>
-                                                        <div class="run_units"></div>
-                                                    </form>
-                                                </div>
+                                                            <a href="<?= admin_run_url($run->name, 'delete_run_unit?type=Email&special=ReminderEmail&redirect=settings:::reminder&unit_id=' . $reminder['id']) ?>" class="reminder-delete remove_unit_from_run" data-action="<?php echo admin_run_url($run->name); ?>" data-id="<?php echo $reminder['id']; ?>"><i class="fa fa-2x fa-trash"></i></a>
+                                                            <div class="run_units"></div>
+                                                        </form>
+                                                    </div>
                                             <?php endforeach; ?>
                                         </div>
                                     </div>
@@ -207,17 +208,17 @@
         qplot(survey_name$created) # plot entries by startdate</code></pre></li>
                                             </ul>
                                             <?php if (empty($overview_scripts)): ?>
-                                                <a href="<?= admin_run_url($run->name, 'create_run_unit?type=Page&special=OverviewScriptPage&redirect=settings:::overview_script') ?>" class="btn btn-default pull-right add_run_unit"><i class="fa fa-plus"></i> Add Overview Script</a>
+                                                    <a href="<?= admin_run_url($run->name, 'create_run_unit?type=Page&special=OverviewScriptPage&redirect=settings:::overview_script') ?>" class="btn btn-default pull-right add_run_unit"><i class="fa fa-plus"></i> Add Overview Script</a>
                                             <?php endif; ?>
                                         </div>
                                         <div class="clearfix"></div>
                                         <div class="row special-units  reminder-cells">
                                             <?php foreach ($overview_scripts as $script): ?>
-                                                <div class="col-md-11 single_unit_display">
-                                                    <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($script['html_units']); ?>'>
-                                                        <div class="run_units"></div>
-                                                    </form>
-                                                </div>
+                                                    <div class="col-md-11 single_unit_display">
+                                                        <form class="form-horizontal edit_run" enctype="multipart/form-data" name="edit_run" method="post" action="<?php echo admin_run_url($run->name); ?>" data-units='<?php echo json_encode($script['html_units']); ?>'>
+                                                            <div class="run_units"></div>
+                                                        </form>
+                                                    </div>
                                             <?php endforeach; ?>
                                         </div>
                                     </div>
@@ -227,70 +228,93 @@
                                     <div class="col-md-12">
                                         <div class="single_unit_display">
                                             <?php if (empty($osf_token)): ?>
-                                                <p>
-                                                    <br /><br />
-                                                    <a href="<?php echo site_url('api/osf/login?redirect=admin/run/' . $run->name . '/settings'); ?>" class="btn btn-default"><i class="fa fa-link"></i> Connect to the &nbsp;<img src="<?= asset_url('build/img/osf-icon.png') ?>" alt="OSF Icon" /> <b>Open Science Framework</b></a>
-                                                </p>
+                                                    <p>
+                                                        <br /><br />
+                                                        <a href="<?php echo site_url('api/osf/login?redirect=admin/run/' . $run->name . '/settings'); ?>" class="btn btn-default"><i class="fa fa-link"></i> Connect to the &nbsp;<img src="<?= asset_url('build/img/osf-icon.png') ?>" alt="OSF Icon" /> <b>Open Science Framework</b></a>
+                                                    </p>
                                             <?php else: ?>
-                                                <br /><br />
-                                                <div class="panel panel-default" id="panel1">
-                                                    <div class="panel-heading">
-                                                        <h4 class="panel-title">
-                                                            <a data-toggle="collapse" data-target="#collapseOne"  href="#collapseOne"><i class="fa fa-cloud-upload"></i> Export run structure to OSF project </a>
-                                                        </h4>
-                                                    </div>
-                                                    <div id="collapseOne" class="panel-collapse collapse in">
-                                                        <div class="panel-body">
-                                                            <form action="<?php echo admin_url('osf'); ?>" method="post" >
+                                                    <br /><br />
+                                                    <div class="panel panel-default" id="panel1">
+                                                        <div class="panel-heading">
+                                                            <h4 class="panel-title">
+                                                                <a data-toggle="collapse" data-target="#collapseOne"  href="#collapseOne"><i class="fa fa-cloud-upload"></i> Export run structure to OSF project </a>
+                                                            </h4>
+                                                        </div>
+                                                        <div id="collapseOne" class="panel-collapse collapse in">
+                                                            <div class="panel-body">
+                                                                <form action="<?php echo admin_url('osf'); ?>" method="post" >
 
-                                                                <div class="alert alert-info alert-dismissible">
-                                                                    <a href="#" class="close" data-dismiss="alert" aria-label="close" title="close">&times;</a>
-                                                                    <i class="fa fa-exclamation-circle"></i> In order to be able to export your <i>run</i> structure to the Open Science Framework,
-                                                                    you will first need to create a project on the OSF platform, and then select the corresponding project from the list below.
-                                                                    You may need to refresh this page to see a list of newly created projects.
-                                                                </div>
+                                                                    <div class="alert alert-info alert-dismissible">
+                                                                        <a href="#" class="close" data-dismiss="alert" aria-label="close" title="close">&times;</a>
+                                                                        <i class="fa fa-exclamation-circle"></i> In order to be able to export your <i>run</i> structure to the Open Science Framework,
+                                                                        you will first need to create a project on the OSF platform, and then select the corresponding project from the list below.
+                                                                        You may need to refresh this page to see a list of newly created projects.
+                                                                    </div>
 
-                                                                <table class="table table-responsive">
-                                                                    <thead>
-                                                                        <tr>
-                                                                            <th>Select OSF Project</th>
-                                                                            <th><a class="btn btn-default pull-right" href="<?php echo Config::get('osf.site_url'); ?>" target="_blank"><img src="<?= asset_url('build/img/osf-icon.png') ?>" alt="OSF Icon" /> Create an OSF project</a></th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        <tr>
-                                                                            <td>
-                                                                                <div class="input-group">
-                                                                                    <span class="input-group-addon"><i class="fa fa-rocket"></i></span>
-                                                                                    <div class="form-group">
-                                                                                        <select name="osf_project" class="form-control">
-                                                                                            <option value="">....</option>
-                                                                                            <?php
-                                                                                            foreach ($osf_projects as $project):
-                                                                                                $selected = $project['id'] == $osf_project ? 'selected="selected"' : null
-                                                                                                ?>
-                                                                                                <option value="<?= $project['id']; ?>" <?= $selected ?>><?= $project['name']; ?> </option>
-                                                                                            <?php endforeach; ?>
-                                                                                        </select>          
+                                                                    <table class="table table-responsive">
+                                                                        <thead>
+                                                                            <tr>
+                                                                                <th>Select OSF Project</th>
+                                                                                <th><a class="btn btn-default pull-right" href="<?php echo Config::get('osf.site_url'); ?>" target="_blank"><img src="<?= asset_url('build/img/osf-icon.png') ?>" alt="OSF Icon" /> Create an OSF project</a></th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            <tr>
+                                                                                <td>
+                                                                                    <div class="input-group">
+                                                                                        <span class="input-group-addon"><i class="fa fa-rocket"></i></span>
+                                                                                        <div class="form-group">
+                                                                                            <select name="osf_project" class="form-control">
+                                                                                                <option value="">....</option>
+                                                                                                <?php
+                                                                                                foreach ($osf_projects as $project):
+                                                                                                    $selected = $project['id'] == $osf_project ? 'selected="selected"' : null
+                                                                                                        ?>
+                                                                                                        <option value="<?= $project['id']; ?>" <?= $selected ?>><?= $project['name']; ?> </option>
+                                                                                                <?php endforeach; ?>
+                                                                                            </select>          
+                                                                                        </div>
                                                                                     </div>
-                                                                                </div>
-                                                                            </td>
-                                                                            <td class="col-md-5">
-                                                                                <input type="hidden" name="formr_project" value="<?php echo $run->name; ?>" />
-                                                                                <input type="hidden" name="osf_action" value="export-run" />
-                                                                                <input type="hidden" name="redirect" value="admin/run/<?= $run->name ?>/settings#osf" />
-                                                                                <button type="submit" class="btn btn-primary btn-large"><i class="fa fa-mail-forward"></i> Export</button>
-                                                                            </td>
-                                                                        </tr>
-                                                                    </tbody>
-                                                                </table>
-                                                            </form>
-                                                        </div>	
+                                                                                </td>
+                                                                                <td class="col-md-5">
+                                                                                    <input type="hidden" name="formr_project" value="<?php echo $run->name; ?>" />
+                                                                                    <input type="hidden" name="osf_action" value="export-run" />
+                                                                                    <input type="hidden" name="redirect" value="admin/run/<?= $run->name ?>/settings#osf" />
+                                                                                    <button type="submit" class="btn btn-primary btn-large"><i class="fa fa-mail-forward"></i> Export</button>
+                                                                                </td>
+                                                                            </tr>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </form>
+                                                            </div>	
+                                                        </div>
                                                     </div>
-                                                </div>
                                             <?php endif; ?>
                                         </div>
                                     </div>
+                                    <div class="clear clearfix"></div>
+                                </div>
+                                <div class="tab-pane" id="watermark">
+                                    <form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
+                                        <div class="col-md-12">
+                                            <div class="single_unit_display">
+                                                <h4>Watermarks</h4>
+                                                <div class="form-group">
+                                                    <label title="Select to chose which watermarking method should be applied">Enable watermarks</label><div with="1rem" ></div>
+                                                    <select name="watermark_mode" class="form-control" style="padding: 0; border: none; height: 30px;" >
+                                                        <option value="none">None</option>
+                                                        <option value="visible">Visible</option>
+                                                        <option value="visible_sift">Visible + SIFT (Invisible)</option>
+                                                        <option value="visible_other">Visible + Other (Invisible)</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label title="Change the invisible watermark content">Watermark content</label>
+                                                    <input type="text" maxlength="255" placeholder="WatermarkContent" name="content" class="form-control" value="" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </form>
                                     <div class="clear clearfix"></div>
                                 </div>
                             </div>
