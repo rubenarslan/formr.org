@@ -287,21 +287,30 @@ class Run extends Model {
             }
             
             if($fileSaved) {
-                // generate watermark version of image via python script
-                if ($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif') {
+                // generate watermark version of image via python script if enabled in settings
+                if ($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif' && $this->watermark_method >= 2 ) {
                     $scriptPath = APPLICATION_ROOT . 'scripts/watermark.py';
                     $originalImage = escapeshellarg($destination_path);
-                    // $watermarkedImage = $destination_path . '_watermarked' . $this->file_endings[$mime];
                     $watermarkedImage = $destination_path; // overwrite original file
-                    //TODO: change method according to settings in run
-                    //TODO: change watermark text according to settings in run
-                    $cmd = "/usr/bin/python3 $scriptPath embed -i $originalImage -o " . escapeshellarg($watermarkedImage) . " -w 'formr.org' -m 'text'";
+                    $content = escapeshellarg($this->watermark_content);
+
+                    // watermarking method, default to sift method
+                    $method = "sift";
+                    if($this->watermark_method === 3 || $this->watermark_method === 5) {
+                        $method = "blind";
+                    }
+
+                    $cmd = "/usr/bin/python3 $scriptPath embed -i $originalImage -o " . escapeshellarg($watermarkedImage) . " -w '$content' -m '$method'";
                     exec($cmd, $output, $return_var);
+
+                    // cli returns 0 if successful, 1 if failed and 2 lines of output if successful
                     if ($return_var === 0 && count($output) === 2) {
+                        // watermarking was successful
                         $new_file_path = $watermarkedImage;
                         //TODO: save the method-specific output to the database (should be an int array that represents a matrix)
                         $watermark_content = $output[1];
                     } else {
+                        // watermarking failed
                         $this->errors[] = __("Unable to watermark uploaded file '%s'.", $files['name'][$i]);
                     }
                 }
