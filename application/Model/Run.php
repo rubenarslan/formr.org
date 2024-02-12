@@ -307,8 +307,12 @@ class Run extends Model {
                     if ($return_var === 0 && count($output) === 2) {
                         // watermarking was successful
                         $new_file_path = $watermarkedImage;
-                        //TODO: save the method-specific output to the database (should be an int array that represents a matrix)
                         $watermark_content = $output[1];
+
+                        // write additional watermark data to file (used for later detection of the watermark)
+                        $file = fopen($new_file_path . "_watermarkdata", 'w');
+                        fwrite($file, $watermark_content);
+                        fclose($file);
                     } else {
                         // watermarking failed
                         $this->errors[] = __("Unable to watermark uploaded file '%s'.", $files['name'][$i]);
