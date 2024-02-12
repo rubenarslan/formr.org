@@ -286,7 +286,8 @@ class Run extends Model {
                 if ($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif') {
                     $scriptPath = APPLICATION_ROOT . 'scripts/watermark.py';
                     $originalImage = escapeshellarg($destination_path);
-                    $watermarkedImage = $destination_path . '_watermarked' . $this->file_endings[$mime];
+                    // $watermarkedImage = $destination_path . '_watermarked' . $this->file_endings[$mime];
+                    $watermarkedImage = $destination_path; // overwrite original file
                     //TODO: change method according to settings in run
                     //TODO: change watermark text according to settings in run
                     $cmd = "/usr/bin/python3 $scriptPath embed -i $originalImage -o " . escapeshellarg($watermarkedImage) . " -w 'formr.org' -m 'text'";
