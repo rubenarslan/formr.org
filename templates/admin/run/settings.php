@@ -301,19 +301,24 @@
                                                 <h4>Watermarks</h4>
                                                 <div class="form-group">
                                                     <label title="Select to chose which watermarking method should be applied">Enable watermarks</label><div with="1rem" ></div>
-                                                    <select name="watermark_mode" class="form-control" style="padding: 0; border: none; height: 30px;" >
-                                                        <option value="none">None</option>
-                                                        <option value="visible">Visible</option>
-                                                        <option value="visible_sift">Visible + SIFT (Invisible)</option>
-                                                        <option value="visible_other">Visible + Other (Invisible)</option>
+                                                    <select name="watermark_method" class="form-control" style="padding: 0; border: none; height: 30px;" >
+                                                        <option <?php echo $run->watermark_method === "none" ? "selected" : '' ?> value="none">None</option>
+                                                        <option <?php echo $run->watermark_method === "only_visible" ? "selected" : '' ?> value="only_visible">Only visible</option>
+                                                        <option <?php echo $run->watermark_method === "only_sift" ? "selected" : '' ?> value="only_sift">Only sift</option>
+                                                        <option <?php echo $run->watermark_method === "only_blind" ? "selected" : '' ?> value="only_blind">Only blind</option>
+                                                        <option <?php echo $run->watermark_method === "visible_and_sift" ? "selected" : '' ?> value="visible_and_sift">Visible and sift</option>
+                                                        <option <?php echo $run->watermark_method === "visible_and_blind" ? "selected" : '' ?> value="visible_and_blind">Visible and blind</option>
                                                     </select>
                                                 </div>
                                                 <div class="form-group">
-                                                    <label title="Change the invisible watermark content">Watermark content</label>
-                                                    <input type="text" maxlength="255" placeholder="WatermarkContent" name="content" class="form-control" value="" />
+                                                    <label title="Change the invisible watermark content">Watermark content (max 255 chars)</label>
+                                                    <input type="text" maxlength="255" placeholder="WatermarkContent" name="watermark_content" class="form-control" value="<?= h($run->watermark_content); ?>" />
                                                 </div>
                                             </div>
                                         </div>
+                                        <p class="pull-right">
+                                            <input type="submit" name="submit_settings" value="Save" class="btn btn-primary save_settings">
+                                        </p>
                                     </form>
                                     <div class="clear clearfix"></div>
                                 </div>

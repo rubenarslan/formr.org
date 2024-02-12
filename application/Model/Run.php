@@ -59,6 +59,8 @@ class Run extends Model {
         'months' => 'Months',
         'years' => 'Years',
     );
+    public $watermark_method = 0;
+    public $watermark_content = "";
     protected $description_parsed = null;
     protected $footer_text_parsed = null;
     protected $public_blurb_parsed = null;
@@ -70,6 +72,7 @@ class Run extends Model {
         "custom_js", "cron_active", "osf_project_id",
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
+        "watermark_method", "watermark_content"
     );
     public $renderedDescAndFooterAlready = false;
 
@@ -108,7 +111,7 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, watermark_method, watermark_content";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
 
@@ -201,6 +204,8 @@ class Run extends Model {
             'public' => 0,
             'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
             'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
+            'watermark_method' => "none",
+            'watermark_content' => "formr.org",
         ));
         $this->id = $this->db->pdo()->lastInsertId();
         $this->name = $name;
@@ -295,7 +300,7 @@ class Run extends Model {
                     if ($return_var === 0 && count($output) === 2) {
                         $new_file_path = $watermarkedImage;
                         //TODO: save the method-specific output to the database (should be an int array that represents a matrix)
-                        $watermark_data = $output[1];
+                        $watermark_content = $output[1];
                     } else {
                         $this->errors[] = __("Unable to watermark uploaded file '%s'.", $files['name'][$i]);
                     }

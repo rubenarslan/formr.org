@@ -182,6 +182,8 @@ CREATE TABLE `survey_runs` (
   `cron_fork` tinyint(3) unsigned NOT NULL DEFAULT '1',
   `use_material_design` tinyint(1) NOT NULL DEFAULT '0',
   `expire_cookie` INT UNSIGNED NOT NULL DEFAULT '0',
+  `watermark_method` ENUM('none', 'only_visible', 'only_sift', 'only_blind', 'visible_and_sift', 'visible_and_blind') NOT NULL DEFAULT 'none',
+  `watermark_content` varchar(255) NOT NULL DEFAULT "formr.org";
   PRIMARY KEY (`id`),
   KEY `fk_runs_survey_users1_idx` (`user_id`),
   KEY `fk_survey_runs_survey_units1_idx` (`reminder_email`),
