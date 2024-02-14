@@ -1,0 +1,25 @@
+Dear %{user},
+<br /><br />
+We hope this email finds you well. This is an automated message to inform you that one run you created is set to expire soon.
+<br /><br />
+Survey Details:
+<br /><br />
+Run Title: %{title}<br />
+Expiry Date: %{expiryDate}<br />
+<br /><br />
+We want to remind you that you have the option to extend the expiry date of your run.
+Otherwise the run will be automatically deleted on %{expiryDate} due to privacy considerations for survey participants.
+Extending the expiry date is a feature designed with participant privacy in mind. Typically, extending the survey duration requires acceptance from the participants.
+<br /><br />
+Steps to Extend Expiry Date:<br /><br />
+
+1. Log in to your user account.<br />
+2. Navigate to the dashboard of your run.<br />
+3. Go to Settings<br />
+4. Adjust the expiry date according to your requirements.<br />
+
+Thank you for your cooperation and understanding. If you have any further questions, feel free to reach out to us.
+
+<br /><br />
+Best in Binary,<br />
+formr robots

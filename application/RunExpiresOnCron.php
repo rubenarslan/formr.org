@@ -99,7 +99,11 @@ class RunExpiresOnCron {
         $mail = $this->site->makeAdminMailer();
         $mail->AddAddress($email);
         $mail->Subject = "formr: Run {$run->name} automatically deleted";
-        $mail->Body = "The run {$run->name} was deleted because it was expired}";
+        $mail->Body = Template::get_replace('email/auto-delete-notification.ftpl', array(
+            'user' => $run->getOwner()->user_code,
+            'title' => $run->title,
+            'expiryDate' => $run->expiresOn,
+        ));
         if (!$mail->Send()) {
             $this->dbg("Error: ". $mail->ErrorInfo);
         }else{
@@ -123,10 +127,15 @@ class RunExpiresOnCron {
             ->fetchAll();
     }
     private function sendReminder(Run $run, string $email){
+        $owner = $run->getOwner();
         $mail = $this->site->makeAdminMailer();
         $mail->AddAddress($email);
         $mail->Subject = "formr: Reminder! Run {$run->name} will be deleted!";
-        $mail->Body = "The run {$run->name} will be deleted because it will expired in a few days";
+        $mail->Body = Template::get_replace('email/auto-delete-reminder.ftpl', array(
+            'user' => $owner->first_name . " " . $owner->last_name,
+            'title' => $run->title,
+            'expiryDate' => $run->expiresOn,
+        ));
         if (!$mail->Send()) {
             $this->dbg("Error: ". $mail->ErrorInfo);
         }else{

@@ -157,7 +157,11 @@ class Run extends Model {
 
     public function delete() {
         try {
-            $this->db->delete('survey_runs', array('id' => $this->id)); //TODO: delete full run
+            $files = $this->getUploadedFiles();
+            $this->db->delete('survey_runs', array('id' => $this->id));
+            foreach($files as $file){
+                $this->deleteFile($file['id'],$file['original_file_name']);
+            }
             alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
             return true;
         } catch (Exception $e) {
