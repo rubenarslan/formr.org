@@ -693,6 +693,10 @@ class AdminRunController extends AdminController {
 
     private function getUnitAddButtons() {
         return array(
+            'Privacy' => array(
+                'title' => 'Add Privacy Consent',
+                'icon' => 'fa-vcard',
+            ),
             'Survey' => array(
                 'title' => 'Add Survey',
                 'icon' => 'fa-pencil-square',
