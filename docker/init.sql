@@ -132,6 +132,8 @@ CREATE TABLE `survey_users` (
   `mobile_verification_hash` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `mobile_verified` tinyint(1) DEFAULT '0',
   `referrer_code` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `2fa_code` varchar(16) DEFAULT '',
+  `backup_codes` varchar(69) DEFAULT '',
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_code_UNIQUE` (`user_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
