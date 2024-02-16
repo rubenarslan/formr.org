@@ -1,6 +1,6 @@
 --
 -- Database: `formr`
--- Schema Updated: 10.05.2021
+-- Schema Updated: 25.01.2024
 --
 SET NAMES utf8mb4;
 CREATE DATABASE IF NOT EXISTS formr CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -128,6 +128,8 @@ CREATE TABLE `survey_users` (
   `mobile_verification_hash` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `mobile_verified` tinyint(1) DEFAULT '0',
   `referrer_code` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  '2fa_code' varchar(16) DEFAULT '',
+  'backup_codes' varchar(69) DEFAULT '',
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_code_UNIQUE` (`user_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -154,6 +156,7 @@ CREATE TABLE `survey_runs` (
   `user_id` int(10) unsigned NOT NULL,
   `created` datetime DEFAULT NULL,
   `modified` datetime DEFAULT NULL,
+  `expiresOn` datetime DEFAULT NULL,
   `name` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `api_secret_hash` varchar(255) CHARACTER SET latin1 COLLATE latin1_bin DEFAULT NULL,
   `cron_active` tinyint(1) DEFAULT '0',
@@ -171,6 +174,12 @@ CREATE TABLE `survey_runs` (
   `header_image_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `footer_text` mediumtext COLLATE utf8mb4_unicode_ci,
   `footer_text_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `privacy` mediumtext COLLATE utf8mb4_unicode_ci,
+  `privacy_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `tos` mediumtext COLLATE utf8mb4_unicode_ci,
+  `tos_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `imprint` mediumtext COLLATE utf8mb4_unicode_ci,
+  `imprint_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
   `custom_css_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `custom_js_path` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `osf_project_id` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -500,6 +509,21 @@ CREATE TABLE `survey_pages` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
+-- Table structure for table `survey_privacy`
+--
+
+CREATE TABLE `survey_privacy` (
+  `id` int(10) unsigned NOT NULL,
+  `privacy_label` mediumtext COLLATE utf8mb4_unicode_ci,
+  `privacy_label_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  `tos_label` mediumtext COLLATE utf8mb4_unicode_ci,
+  `tos_label_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
+  PRIMARY KEY (`id`),
+  KEY `fk_survey_privacy_survey_run_items1_idx` (`id`),
+  CONSTRAINT `fk_privacy_unit` FOREIGN KEY (`id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
 -- Table structure for table `survey_pauses`
 --
 
@@ -650,4 +674,3 @@ CREATE TABLE `survey_settings` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `setting` (`setting`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
