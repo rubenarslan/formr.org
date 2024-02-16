@@ -29,9 +29,6 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-          
-      - name: Docker Build
-        run: docker image build . -f ./Dockerfile --tag $IMAGE_TAG
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
@@ -39,6 +36,14 @@ jobs:
           registry: ghcr.io
           username: ${{github.actor}}
           password: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: $IMAGE_TAG
 
       - name: Docker Push
         run: docker push $IMAGE_TAG
