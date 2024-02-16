@@ -46,8 +46,12 @@ RUN cp -r /var/www/formr.org/config-dist /var/www/formr.org/config
 # fixes the missing assets
 RUN ln -s /var/www/formr.org/webroot /var/www/html/formr
 
+#Add CRON
+RUN apt-get install -y cron
+RUN ln -s /var/www/formr.org/config/formr_crontab /etc/cron.d/formr
+
 # Expose port 80 for apache2 server
 EXPOSE 80
 
 # Start apache2 and mysql service
-CMD service apache2 start && service mysql start && sleep infinity
+CMD service apache2 start && service mysql start && systemctl enable cron && cron && sleep infinity

@@ -7,3 +7,7 @@
 # **IMPORTANT** If any of these is activated, then make sure the deamon is NOT running in the background or you might get duplicate run processes.
 #*/10 * * * * www-data /var/www/formr/bin/cron.php >/dev/null
 #*/10 * * * * www-data /var/www/formr/bin/deamon.php -c >/dev/null
+
+
+# Expiration Cron Job at 02:08 o'clock
+8 2 * * * www-data /var/www/formr.org/bin/cron-run-expires-on.php >/dev/null

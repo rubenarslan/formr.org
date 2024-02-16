@@ -92,6 +92,10 @@
                                                 </div>
                                             </div>
                                             <div class="form-group">
+                                                <label for="expiresOn">Expires On</label>
+                                                <input class="form-control" type="date" name="expiresOn" id="expiresOn" placeholder="2023-12-16" value="<?= h($run->expiresOn); ?>" />
+                                            </div>
+                                            <div class="form-group">
                                                 <label title="Will be shown on every page of the run">Description</label>
                                                 <textarea data-editor="markdown" placeholder="Description" name="description" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->description); ?></textarea>
                                             </div>
@@ -131,21 +135,21 @@
                                                     You should also provide information about how users can contact you to request information about the data you have collected about them, and how they can request that you delete that data.
                                                     For more information and a template, see <a href="https://gdpr.eu/privacy-notice/">the guide at gdpr.eu</a>.
                                                 </p>
-                                                <label title="Used by the Privacy Run Unit">Privacy Policy (<a href="<?php echo run_url($run->name, '', ['show-privacy-page' => 'privacy-policy']); ?>" target="_blank">View</a>)</label>
+                                                <label title="Used by the Privacy Run Unit">Privacy Policy (<a href="<?php echo site_url($run->name, ['show-privacy-page' => 'privacy-policy']); ?>" target="_blank">View</a>)</label>
                                                 <textarea data-editor="markdown" placeholder="Privacy Policy" name="privacy" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->privacy); ?></textarea>
                                             </div>
                                             <div class="form-group">
                                                 <p>
                                                     Your Terms of Service should contain information about how users are allowed to use your study, and what they are not allowed to do.
                                                 </p>
-                                                <label title="Used by the Privacy Run Unit">Terms of Service (<a href="<?php echo run_url($run->name, '', ['show-privacy-page' => 'terms-of-service']); ?>" target="_blank">View</a>)</label>
+                                                <label title="Used by the Privacy Run Unit">Terms of Service (<a href="<?php echo site_url($run->name, ['show-privacy-page' => 'terms-of-service']); ?>" target="_blank">View</a>)</label>
                                                 <textarea data-editor="markdown" placeholder="Terms of Service" name="tos" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->tos); ?></textarea>
                                             </div>
                                             <div class="form-group">
                                                 <p>
                                                     Your Imprint should contain information about who is responsible for the study, and how they can be contacted.
                                                 </p>
-                                                <label title="Used by the Privacy Run Unit">Imprint (<a href="<?php echo run_url($run->name, '', ['show-privacy-page' => 'imprint']); ?>" target="_blank">View</a>)</label>
+                                                <label title="Used by the Privacy Run Unit">Imprint (<a href="<?php echo site_url($run->name, ['show-privacy-page' => 'imprint']); ?>" target="_blank">View</a>)</label>
                                                 <textarea data-editor="markdown" placeholder="Imprint" name="imprint" rows="10" cols="80" class="big_ace_editor form-control"><?= h($run->imprint); ?></textarea>
                                             </div>
                                         </div>

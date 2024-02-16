@@ -47,16 +47,24 @@ class AdminRunController extends AdminController {
     public function addRunAction() {
         if ($this->request->isHTTPPostRequest()) {
             $run_name = $this->request->str('run_name');
+            $expiresOn = $this->request->str('expiresOn');
             if (!$run_name) {
                 $error = 'You have to specify a run name';
             } elseif (!preg_match("/^[a-zA-Z][a-zA-Z0-9-]{2,255}$/", $run_name)) {
                 $error = 'The run name can contain <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the hyphen(-) (at least 2 characters, at most 255). It needs to start with a letter.';
             } elseif ($run_name == Run::TEST_RUN || Router::isWebRootDir($run_name) || in_array($run_name, Config::get('reserved_run_names', array())) || Run::nameExists($run_name)) {
                 $error = __('The run name "%s" is already taken. Please choose another name', $run_name);
+            } elseif (!$expiresOn){
+                $error = 'The expiration date must be in a valid format.';
+            } elseif ($expiresOn < date('Y-m-d', time())){
+                $error = 'The expiration date cant be in the past.';
+            } elseif ($expiresOn > date('Y-m-d', strtotime('+2 years'))){
+                $error = 'The expiration date should be within the next two years at the latest.';
             } else {
                 $run = new Run();
                 $run->create([
                     'run_name' => $run_name,
+                    'expiresOn' => date('Y-m-d H:i:s', strtotime($expiresOn)),
                     'user_id' => $this->user->id
                 ]);
                 if ($run->valid) {

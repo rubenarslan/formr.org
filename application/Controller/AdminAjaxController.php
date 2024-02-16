@@ -427,12 +427,13 @@ class AdminAjaxController {
 
         $run = $this->controller->run;
         $post = new Request($_POST);
-        if ($run->saveSettings($post->getParams())) {
+        $saveSettingsReturn = $run->saveSettings($post->getParams());
+        if (!$saveSettingsReturn) {
             alert('Settings saved', 'alert-success');
         } else {
-            $this->response->setStatusCode(500, 'Bad Request');
-            alert('<strong>Error.</strong> ' . implode(".\n", $run->errors), 'alert-danger');
+            alert("<strong>Error:</strong> {$saveSettingsReturn}", 'alert-danger');
         }
+        
 
         $content = $this->site->renderAlerts();
         return $this->response->setContent($content);

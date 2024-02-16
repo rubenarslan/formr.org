@@ -65,6 +65,22 @@ class AdminAdvancedController extends AdminController {
                 return $this->sendResponse();
             }
 
+            $runs = $user->getRuns();
+            foreach ($runs as $row) {
+                $run = new Run(null, $row['id']);
+                $run->emptySelf();
+                $run->deleteUnits();
+                $run->delete();
+            }
+
+            $studies = $user->getStudies('id DESC', null, 'id');
+            foreach ($studies as $row) {
+                $study = new SurveyStudy($row['id']);
+                $study->delete();
+            }
+
+            $user->delete();
+
             alert('User and associated data have been deleted.', 'alert-success');
             $this->response->setContentType('application/json');
             $this->response->setJsonContent(['success' => true]);
