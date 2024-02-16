@@ -28,7 +28,7 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
+
       - name: Cache Packages
         uses: actions/cache@v1
         with:
@@ -48,11 +48,9 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: false
+          push: true
           tags: ${{ env.IMAGE_TAG }}
 
-      - name: Docker Push
-        run: docker push $IMAGE_TAG
   scout:
     needs: [build]
     name: Dependency Analysis
