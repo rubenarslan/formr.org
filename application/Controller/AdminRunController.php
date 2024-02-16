@@ -270,6 +270,13 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
+    private function viewImageAction() {
+        $original = $this->request->str('original');
+        $new = $this->request->str('new');
+        $this->setView('run/view_image', array('original' => $original, 'new' => $new));
+        return $this->sendResponse();
+    }
+
     private function deleteFileAction() {
         $id = $this->request->int('id');
         $filename = $this->request->str('file');
@@ -694,6 +701,10 @@ class AdminRunController extends AdminController {
 
     private function getUnitAddButtons() {
         return array(
+            'Privacy' => array(
+                'title' => 'Add Privacy Consent',
+                'icon' => 'fa-vcard',
+            ),
             'Survey' => array(
                 'title' => 'Add Survey',
                 'icon' => 'fa-pencil-square',

@@ -382,6 +382,8 @@ class AdminAjaxController {
         if (!$run->togglePublic($pub)) {
             $this->response->setStatusCode(500, 'Bad Request');
         }
+        $content = $this->site->renderAlerts();
+        return $this->response->setContent($content);
     }
 
     private function ajaxSaveRunUnit() {
