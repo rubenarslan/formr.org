@@ -673,16 +673,17 @@ class Run extends Model {
 
         $error = '';
 
-        if (!$posted['expiresOn']){
-            $error = 'The expiration date must be in a valid format.';
-        } elseif ($posted['expiresOn'] < date('Y-m-d', time())){
-            $error = 'The expiration date cant be in the past.';
-        } elseif ($posted['expiresOn'] > date('Y-m-d', strtotime('+2 years'))){
-            $error = 'The expiration date should be within the next two years at the latest.';
-        } else {
-            $updates['expiresOn'] = $posted['expiresOn'];
+        if(isset($posted['expiresOn'])){
+            if (!$posted['expiresOn']){
+                $error = 'The expiration date must be in a valid format.';
+            } elseif ($posted['expiresOn'] < date('Y-m-d', time())){
+                $error = 'The expiration date cant be in the past.';
+            } elseif ($posted['expiresOn'] > date('Y-m-d', strtotime('+2 years'))){
+                $error = 'The expiration date should be within the next two years at the latest.';
+            } else {
+                $updates['expiresOn'] = $posted['expiresOn'];
+            }
         }
-
 
         if ($updates) {
             $updates['modified'] = mysql_now();
