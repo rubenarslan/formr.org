@@ -43,7 +43,7 @@ jobs:
           context: ./opencpu
           platforms: linux/amd64,linux/arm64
           push: false
-          tags: $IMAGE_TAG
+          tags: ${{ env.IMAGE_TAG }}
 
       - name: Docker Push
         run: docker push $IMAGE_TAG
