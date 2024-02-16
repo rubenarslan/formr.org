@@ -4,7 +4,7 @@ services:
   formr_server:
     container_name: formr_server
 #   build: ../.
-    image: <$DB_IMAGE>
+    image: <$FORMR_IMAGE>
     ports:
       - 80:80
     networks:
@@ -16,7 +16,7 @@ services:
       - opencpu
   formr_db:
     container_name: formr_db
-    image: <$FORMR_IMAGE>
+    image: <$DB_IMAGE>
     networks:
       - default
     restart: always
