@@ -4,14 +4,14 @@ from requests import get
 #Docker Images
 formr_docker_image = "ghcr.io/timed-and-secured-assets/formr.org:master"
 opencpu_docker_image = "ghcr.io/timed-and-secured-assets/formr.org:master"
-mysql_docker_image = "mysql:latest"
+db_docker_image = "mysql:latest"
 
 #Github-Links
 repo_url = "https://github.com/timed-and-secured-assets/formr.org"
-github_raw_generic_settings_url = "https://raw.githubusercontent.com/timed-and-secured-assets/formr.org/feature/anleitung/config-dist/settings.php" 
-github_raw_create_user_url = ""
-github_raw_generic_docker_compose_url = ""
-github_raw_sql_schema_url = ""
+github_raw_generic_settings_url = "https://raw.githubusercontent.com/timed-and-secured-assets/formr.org/feature/anleitung/run/genericSettings.php"
+github_raw_create_user_url = "https://raw.githubusercontent.com/timed-and-secured-assets/formr.org/feature/anleitung/run/create-formr-user.sql"
+github_raw_generic_docker_compose_url = "https://raw.githubusercontent.com/timed-and-secured-assets/formr.org/feature/anleitung/run/generic-docker-compose.yaml"
+github_raw_sql_schema_url = "https://raw.githubusercontent.com/timed-and-secured-assets/formr.org/feature/anleitung/sql/schema.sql"
 
 #Script Settings
 dir_name = "formr_run"
@@ -34,23 +34,24 @@ if not os.path.exists(dir_name):
 
 os.chdir(dir_name)
 
-#Download generic_settings
-r = get(github_raw_generic_settings_url)
-print(r.content)
-open('settings.php', 'a').write(r.text)
+#Download generic_settings and replace Env
+setting_text = get(github_raw_generic_settings_url).text
 
-#Download generic compose
-r = get(github_raw_generic_docker_compose_url)
-print(r.content)
-open('docker-compose.yaml', 'a').write(r.text)
+open('settings.php', 'a').write(setting_text)
+
+#Download generic compose and replace Env
+compose_text = get(github_raw_generic_docker_compose_url).text
+compose_text.replace('<$DB_ROOT_PASSWORD>', db_root_passwd)
+compose_text.replace('<$DB_IMAGE>', db_docker_image)
+compose_text.replace('<$FORMR_IMAGE>', formr_docker_image)
+compose_text.replace('<$OPENCPU_IMAGE>', opencpu_docker_image)
+open('docker-compose.yaml', 'a').write(compose_text)
 
 #Download generic create user sql
-r = get(github_raw_generic_docker_compose_url)
-print(r.content)
-open('create_user.sql', 'a').write(r.text)
+create_user_text = get(github_raw_create_user_url).text
+open('create_user.sql', 'a').write(create_user_text)
 
 #Download sql schema
-r = get(github_raw_sql_schema_url)
-print(r.content)
-open('schema.sql', 'a').write(r.text)
+schema_text = get(github_raw_sql_schema_url).text
+open('schema.sql', 'a').write(create_user_text)
 
