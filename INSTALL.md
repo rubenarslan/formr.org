@@ -33,7 +33,26 @@ You can use the Dockerfile ```./Dockerfile``` to build your own Image
 Before we can run Formr we need to set some configurations:
 
 ### Settings.php
-You need to change the ```./docker/settings.php```. We recommend that you read through the
+You need to change the ```./docker/settings.php```. We recommend that you go through the hole file, but here are the most important changes:
+
+#### Database Settings
+
+```php
+// Database Settings
+$settings['database'] = array(
+	'datasource' => 'Database/Mysql',
+	'persistent' => false,
+	'host' => 'formr_db',
+	'login' => 'user',
+	'password' => 'password',
+	'database' => 'formr_db',
+	'prefix' => '',
+	'encoding' => 'utf8mb',
+	'unix_socket' => '',
+);
+```
+
+
 
 ## Run
 
