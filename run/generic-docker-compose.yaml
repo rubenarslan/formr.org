@@ -3,7 +3,7 @@ name: formr
 services:
   formr_server:
     container_name: formr_server
-#   build: ../.
+    #build: ../.
     image: <$FORMR_IMAGE>
     ports:
       - 80:80
@@ -26,7 +26,7 @@ services:
     volumes:
       - ./db:/var/lib/mysql
       - ./schema.sql:/docker-entrypoint-initdb.d/a_schema.sql
-      - ./create-formr-user.sql:/docker-entrypoint-initdb.d/b_create-user.sql
+      - ./create_user.sql:/docker-entrypoint-initdb.d/b_create-user.sql
   opencpu:
     container_name: opencpu
     #build: ../opencpu
