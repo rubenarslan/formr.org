@@ -166,6 +166,16 @@ services:
 
 ## Run
 
+### Start
+````bash
+docker compose up -d
+````
+
+### Stop
+````bash
+docker compose stop
+````
+
 ## Developer Information
 ### Docker Compose
 We recommend that you use the ```./create-config.py``` to create all the config files and then change the following:
@@ -182,12 +192,24 @@ To
 ````
 inside the ```docker-compose.yaml```
 
+You can force a rebuild with
+```bash
+docker compose up --build formr_server -d
+```
+
 ### Troubleshooting
 
+#### Terminal Access
 You can access the terminal of a container with
 ```bash
 docker-compose exec <Continer_Name> bash
 ```
+#### Formr Logs
+```bash
+docker-compose exec formr_server bash
+cd /var/www/formr.org/tmp/logs
+```
+
 
 # Manual
 
