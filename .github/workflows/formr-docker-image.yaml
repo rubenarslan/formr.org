@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Enviroment
+      - name: Setup Environment
         run: |
           echo "IMAGE_TAG=$REGISTRY/$NAME:${GITHUB_REF##*/}" >> "$GITHUB_ENV"
             
@@ -54,8 +54,6 @@ jobs:
   scout:
     needs: [build]
     name: Dependency Analysis
-    #Dealtiviert, da DOCER_USERNAME & DOCKER_PASSWORD gesetzt werden müssen
-    if: false
     
     runs-on: ubuntu-latest
 
