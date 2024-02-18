@@ -47,6 +47,9 @@ class Run extends Model {
     public $osf_project_id = null;
     public $footer_text = null;
     public $public_blurb = null;
+    public $privacy = null;
+    public $tos = null;
+    public $imprint = null;
     public $use_material_design = false;
     public $expire_cookie = 0;
     public $expire_cookie_value = 0;
@@ -64,17 +67,23 @@ class Run extends Model {
     protected $description_parsed = null;
     protected $footer_text_parsed = null;
     protected $public_blurb_parsed = null;
+    protected $privacy_parsed = null;
+    protected $tos_parsed = null;
+    protected $imprint_parsed = null;
     protected $api_secret_hash = null;
     protected $owner = null;
     protected $run_settings = array(
         "header_image_path", "title", "description",
-        "footer_text", "public_blurb", "custom_css",
+        "footer_text", "public_blurb", "privacy",
+        "tos", "imprint", "custom_css",
         "custom_js", "cron_active", "osf_project_id",
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
-        "watermark_method", "watermark_content"
+        "expiresOn",
+        "watermark_method", "watermark_content",
     );
     public $renderedDescAndFooterAlready = false;
+    public $expiresOn = null;
 
     /**
      *
@@ -111,9 +120,11 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, watermark_method, watermark_content";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, imprint, imprint_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, expiresOn, watermark_method, watermark_content";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
+
+        $vars['expiresOn'] = date('Y-m-d', strtotime($vars['expiresOn']));
 
         if ($vars) {
             $this->assignProperties($vars);
@@ -156,7 +167,11 @@ class Run extends Model {
 
     public function delete() {
         try {
+            $files = $this->getUploadedFiles();
             $this->db->delete('survey_runs', array('id' => $this->id));
+            foreach($files as $file){
+                $this->deleteFile($file['id'],$file['original_file_name']);
+            }
             alert("<strong>Success.</strong> Successfully deleted run '{$this->name}'.", 'alert-success');
             return true;
         } catch (Exception $e) {
@@ -171,8 +186,24 @@ class Run extends Model {
         $this->db->delete('survey_run_units', array('run_id' => $this->id));
     }
 
+    public function deleteFullRun(): bool
+    {
+            $this->emptySelf();
+            $this->deleteUnits();
+            $files = $this->getUploadedFiles();
+            foreach($files as $file){
+                $this->deleteFile($file['id'],$file['original_file_name']);
+            }
+            return $this->delete();
+    }
+
     public function togglePublic($public) {
         if (!in_array($public, range(0, 3))) {
+            return false;
+        }
+        if ((!$this->hasPrivacy() || !$this->hasImprint()) && $public > 0) {
+            alert('You cannot make this run public because it does not have a privacy policy or imprint. Set them first in the settings tab.', 'alert-danger');
+            $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
             return false;
         }
 
@@ -201,6 +232,7 @@ class Run extends Model {
             'cron_active' => 1,
             'use_material_design' => 1,
             'expire_cookie' => 0,
+            'expiresOn' => $options['expiresOn'],
             'public' => 0,
             'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
             'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
@@ -275,9 +307,9 @@ class Run extends Model {
             } else {
                 $new_file_path = 'assets/tmp/admin/' . crypto_token(33, true) . $this->file_endings[$mime];
             }
-            
+
             $fileSaved = false;
-            
+
             // save file
             $destination_path = APPLICATION_ROOT . 'webroot/' . $new_file_path;
             if (move_uploaded_file($files['tmp_name'][$i], $destination_path)) {
@@ -285,7 +317,7 @@ class Run extends Model {
             } else {
                 $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
             }
-            
+
             if($fileSaved) {
                 // generate watermark version of image via python script if enabled in settings
                 if ($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif' && $this->watermark_method != "none" ) {
@@ -389,6 +421,36 @@ class Run extends Model {
         }
 
         return null;
+    }
+
+    public function getParsedPrivacyField($field) {
+        return match ($field) {
+            'privacy-policy' => $this->privacy_parsed,
+            'terms-of-service' => $this->tos_parsed,
+            'imprint' => $this->imprint_parsed,
+            default => "",
+        };
+    }
+
+    public function hasPrivacyUnit() {
+        $select = $this->db->select(array('unit_id'));
+        $select->from('survey_run_units');
+        $select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
+        $select->where(array('run_id' => $this->id, 'type' => 'Privacy'));
+
+        return $select->fetchColumn() !== false;
+    }
+
+    public function hasPrivacy() {
+        return trim($this->privacy) !== '';
+    }
+
+    public function hasToS() {
+        return trim($this->tos) !== '';
+    }
+
+    public function hasImprint() {
+        return trim($this->imprint) !== '';
     }
 
     public function getAllUnitTypes() {
@@ -558,7 +620,6 @@ class Run extends Model {
     public function saveSettings($posted) {
         $parsedown = new ParsedownExtra();
         $parsedown->setBreaksEnabled(true);
-        $successes = array();
         if (isset($posted['description'])) {
             $posted['description_parsed'] = $parsedown->text($posted['description']);
             $this->run_settings[] = 'description_parsed';
@@ -570,6 +631,26 @@ class Run extends Model {
         if (isset($posted['footer_text'])) {
             $posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']);
             $this->run_settings[] = 'footer_text_parsed';
+        }
+        if ((isset($posted['privacy']) || isset($posted['tos'])) &&
+            !$this->hasPrivacyUnit()) {
+            alert("You have a privacy policy or terms of service, but you don't ask for the users consent. Please add a Privacy Consent unit to your run.");
+        }
+        if (((isset($posted['privacy']) && trim($posted['privacy']) == '') || (isset($posted['imprint']) && trim($posted['imprint']) == '')) && $this->public > 0) {
+            alert("This run is public, but you have removed the privacy policy and imprint. We've set it to private for you. Add a privacy policy and imprint before setting the run to public again.", 'alert-danger');
+            $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
+        }
+        if (isset($posted['privacy'])) {
+            $posted['privacy_parsed'] = $parsedown->text($posted['privacy']);
+            $this->run_settings[] = 'privacy_parsed';
+        }
+        if (isset($posted['tos'])) {
+            $posted['tos_parsed'] = $parsedown->text($posted['tos']);
+            $this->run_settings[] = 'tos_parsed';
+        }
+        if (isset($posted['imprint'])) {
+            $posted['imprint_parsed'] = $parsedown->text($posted['imprint']);
+            $this->run_settings[] = 'imprint_parsed';
         }
 
         $cookie_units = array_keys($this->expire_cookie_units);
@@ -627,8 +708,23 @@ class Run extends Model {
                     $value = $asset_path;
                 }
             }
+            if($name!='expiresOn'){
+                $updates[$name] = $value;
+            }
+        }
 
-            $updates[$name] = $value;
+        $error = '';
+
+        if(isset($posted['expiresOn'])){
+            if (!$posted['expiresOn']){
+                $error = 'The expiration date must be in a valid format.';
+            } elseif ($posted['expiresOn'] < date('Y-m-d', time())){
+                $error = 'The expiration date cant be in the past.';
+            } elseif ($posted['expiresOn'] > date('Y-m-d', strtotime('+2 years'))){
+                $error = 'The expiration date should be within the next two years at the latest.';
+            } else {
+                $updates['expiresOn'] = $posted['expiresOn'];
+            }
         }
 
         if ($updates) {
@@ -636,11 +732,7 @@ class Run extends Model {
             $this->db->update('survey_runs', $updates, array('id' => $this->id));
         }
 
-        if (!in_array(false, $successes)) {
-            return true;
-        }
-
-        return false;
+        return $error;
     }
 
     public function getAllSurveys() {
@@ -837,6 +929,22 @@ class Run extends Model {
         }
         if (!$this->renderedDescAndFooterAlready && !empty($this->footer_text_parsed)) {
             $run_content .= $this->footer_text_parsed;
+            $privacy_pages = [];
+            $run_url = run_url($this->name) . '?show-privacy-page=';
+            if ($this->hasPrivacy()) {
+                $privacy_pages[] = '<a href="' . $run_url . 'privacy-policy" target="_blank">Privacy Policy</a>';
+            }
+            if ($this->hasToS()) {
+                $privacy_pages[] = '<a href="' . $run_url . 'terms-of-service" target="_blank">Terms of Service</a>';
+            }
+            if ($this->hasImprint()) {
+                $privacy_pages[] = '<a href="' . $run_url . 'imprint" target="_blank">Imprint</a>';
+            }
+            if (!empty($privacy_pages)) {
+                $run_content .= '<br><div class="privacy-footer">';
+                $run_content .= implode(' | ', $privacy_pages);
+                $run_content .= '</div>';
+            }
         }
 
         if ($runSession->isTesting()) {
@@ -890,6 +998,9 @@ class Run extends Model {
             'description' => $this->description,
             'footer_text' => $this->footer_text,
             'public_blurb' => $this->public_blurb,
+            'privacy' => $this->privacy,
+            'tos' => $this->tos,
+            'imprint' => $this->imprint,
             'cron_active' => (int) $this->cron_active,
             'custom_js' => $this->getCustomJS(),
             'custom_css' => $this->getCustomCSS(),

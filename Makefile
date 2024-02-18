@@ -33,6 +33,7 @@ install_files:
 
 	install -d -m 0755 $(CONFIG_DIR)
 	chmod 0755 $(INSTALL_DIR)/bin/cron.php
+	chmod 0755 $(INSTALL_DIR)/bin/cron-run-expires-on.php
 	[ -d $(CONFIG_DIR) ] && cp -R $(INSTALL_DIR)/config_default/* $(CONFIG_DIR)/
 
 	[ ! -f $(SYS_CRON_TAB) ] && cp $(CRON_TAB) $(SYS_CRON_TAB)
@@ -59,6 +60,7 @@ update_files:
 
 	cd $(INSTALL_DIR) && $(COMPOSER) install
 	@chmod 0755 $(INSTALL_DIR)/bin/cron.php
+	@chmod 0755 $(INSTALL_DIR)/bin/cron-run-expires-on.php
 
 init:
 	@type git >/dev/null 2>&1 || { echo >&2 "'git' is required but it's not installed. Aborting..."; exit 1; }

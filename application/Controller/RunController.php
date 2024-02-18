@@ -34,6 +34,10 @@ class RunController extends Controller {
 
         //Request::setGlobals('COOKIE', $this->setRunCookie());
 
+        if ($this->request->str('show-privacy-page')) {
+            return $this->showPrivacyAction();
+        }
+
         $run_vars = $this->run->exec($this->user);
 		if (!$run_vars) {
 			formr_error(500, 'Invalid Execution', 'The execution generated no output');
@@ -49,6 +53,26 @@ class RunController extends Controller {
         unset($run_vars['css'], $run_vars['js']);
 
         $this->setView('run/index', array_merge($run_vars, $assset_vars));
+
+        return $this->sendResponse();
+    }
+
+    private function showPrivacyAction() {
+        $page = $this->request->str('show-privacy-page');
+        $supported_pages = array('privacy-policy', 'terms-of-service', 'imprint');
+
+        if (!in_array($page, $supported_pages)) {
+            formr_error(404, 'Not Found', 'The requested URL was not found');
+        }
+
+        global $title;
+        $title = $this->run->title . ' / ' . ucwords(str_replace('-', ' ', $page));
+        $run_vars = array(
+            'run_content' => $this->run->getParsedPrivacyField($page),
+            'bodyClass' => 'fmr-run',
+        );
+
+        $this->setView('run/index', $run_vars);
 
         return $this->sendResponse();
     }
