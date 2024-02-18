@@ -28,6 +28,7 @@
                                 <li><i class="fa-li fa fa-cloud-upload"></i> We do not prevent users from sharing the links with others.
                                     If your users see an image/video, there is no way of preventing them from re-sharing it, if you're not looking over their shoulders.<br>
                                     Users can always take a photo of the screen, even if you could prevent screenshots. Hence, we saw no point in generating single-use links for the images (so that users can't share the picture directly). Please be aware of this and don't use formr to show confidential information in an un-supervised setting. However, because the links are large random numbers, it's fairly safe to use formr to upload confidential information to be shown in the lab, the images cannot be discovered by people who don't have access to the study.</li>
+                                <li><i class="fa-li fa fa-info"></i> You can embed a watermark into your uploaded images. The watermark may help you identify your images and prove ownership. For more information and to enable a watermark, refer to the settings page of this run. If a human-invisible watermark is embedded, you will need a key to extract it. You can find the key in the table below for each image if a watermark was embedded in it.</li>
                             </ul>
                         </div>
 
@@ -49,6 +50,7 @@
                                         <th>File Name</th>
                                         <th>Created</th>
                                         <th>Actions</th>
+                                        <th>Watermark Key</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -65,6 +67,16 @@
                                                     <a href="javascript:void(0);" data-url="<?php echo asset_url($row['new_file_path']); ?>" class="btn btn-sm btn-primary copy-url"><i class="fa fa-copy"></i> Copy URL</a>
                                                 <?php endif; ?>
                                                 <a href="<?php echo admin_run_url($run->name, 'delete_file', array('file' => $row['original_file_name'], 'id' => $row['id'])); ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this file?');"><i class="fa fa-trash"></i> Delete File</a>
+                                            </td>
+                                            <td>
+                                                <?php
+                                                $watermark_data_path = APPLICATION_ROOT . 'webroot/' . $row['new_file_path'] . "_watermarkdata";
+                                                if (!file_exists($watermark_data_path)) {
+                                                    echo "not invisibly watermarked";
+                                                }
+                                                $watermark_data = file_get_contents($watermark_data_path);
+                                                echo $watermark_data;
+                                                ?>
                                             </td>
                                         </tr>
                                     <?php } ?>

@@ -320,7 +320,7 @@ class Run extends Model {
 
             if($fileSaved) {
                 // generate watermark version of image via python script if enabled in settings
-                if ($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif' && $this->watermark_method != "none" ) {
+                if (($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif') && ($this->watermark_method != "none" && $this->watermark_method != "only_visible") ) {
                     $scriptPath = '/var/www/formr.org/scripts/watermark/main.py';
                     $originalImage = escapeshellarg($destination_path);
                     $watermarkedImage = $destination_path; // overwrite original file
