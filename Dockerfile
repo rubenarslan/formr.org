@@ -30,6 +30,11 @@ RUN echo "<Directory /var/www/html>" >> /etc/apache2/sites-enabled/000-default.c
 # mount is problematic because we create a symlink to the webroot directory in the build step.
 COPY . /var/www/formr.org/
 
+# Install python dependencies (Without venv to avoid issues with exec)
+RUN cd /var/www/formr.org && \
+    python3 -m pip install --upgrade pip \
+    python3 -m pip install -r requirements.txt
+
 # Create symbolic link to webroot
 RUN ln -s /var/www/formr.org/webroot /var/www/html/formr
 
