@@ -288,15 +288,15 @@ class Run extends Model {
             
             if($fileSaved) {
                 // generate watermark version of image via python script if enabled in settings
-                if ($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif' && $this->watermark_method >= 2 ) {
-                    $scriptPath = APPLICATION_ROOT . 'scripts/watermark/main.py';
+                if ($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif' && $this->watermark_method != "none" ) {
+                    $scriptPath = '/var/www/formr.org/scripts/watermark/main.py';
                     $originalImage = escapeshellarg($destination_path);
                     $watermarkedImage = $destination_path; // overwrite original file
                     $content = escapeshellarg($this->watermark_content);
 
                     // watermarking method, default to sift method
                     $method = "sift";
-                    if($this->watermark_method === 3 || $this->watermark_method === 5) {
+                    if(str_contains($this->watermark_method, "blind")) {
                         $method = "blind";
                     }
 
@@ -315,7 +315,7 @@ class Run extends Model {
                         fclose($file);
                     } else {
                         // watermarking failed
-                        $this->errors[] = __("Unable to watermark uploaded file '%s'.", $files['name'][$i]);
+                        $this->errors[] = __("Unable to watermark uploaded file '%s'.", $cmd);
                     }
                 }
                 $this->db->insert_update('survey_uploaded_files', array(
