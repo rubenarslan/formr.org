@@ -31,7 +31,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Docker Build
-        run: docker image build . -f ./docker/opencpu/Dockerfile --tag $IMAGE_TAG
+        run: docker image build . -f ./opencpu/Dockerfile --tag $IMAGE_TAG
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1

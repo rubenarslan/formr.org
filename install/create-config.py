@@ -1,20 +1,30 @@
 import os
 from requests import get
 
+formr = "timed-and-secured-assets/formr.org"
+opencpu = "timed-and-secured-assets/opencpu"
+
+#Get newest Release
+releases = get("https://api.github.com/repos/"+formr+"/releases").json()
+if(len(releases) > 0):
+    version = releases[0]["tag_name"]
+else:
+    version = "master-snapshot"
+
 #Docker Images
-formr_docker_image = "ghcr.io/timed-and-secured-assets/formr.org:master"
-opencpu_docker_image = "ghcr.io/timed-and-secured-assets/opencpu:master"
+formr_docker_image = "ghcr.io/"+formr+":"+version
+opencpu_docker_image = "ghcr.io/"+opencpu+":"+version
 db_docker_image = "mysql:latest"
 
 #Github-Links
-repo_url = "https://github.com/timed-and-secured-assets/formr.org"
-github_raw_generic_settings_url = "https://raw.githubusercontent.com/timed-and-secured-assets/formr.org/feature/anleitung/run/genericSettings.php"
-github_raw_create_user_url = "https://raw.githubusercontent.com/timed-and-secured-assets/formr.org/feature/anleitung/run/create-formr-user.sql"
-github_raw_generic_docker_compose_url = "https://raw.githubusercontent.com/timed-and-secured-assets/formr.org/feature/anleitung/run/generic-docker-compose.yaml"
-github_raw_sql_schema_url = "https://raw.githubusercontent.com/timed-and-secured-assets/formr.org/feature/anleitung/sql/schema.sql"
+repo_url = "https://github.com/"+formr
+github_raw_generic_settings_url = "https://raw.githubusercontent.com/"+formr+"/feature/anleitung/config-dist/settings.php"
+github_raw_create_user_url = "https://raw.githubusercontent.com/"+formr+"/feature/anleitung/run/create-formr-user.sql"
+github_raw_generic_docker_compose_url = "https://raw.githubusercontent.com/"+formr+"/feature/anleitung/run/generic-docker-compose.yaml"
+github_raw_sql_schema_url = "https://raw.githubusercontent.com/"+formr+"/feature/anleitung/sql/schema.sql"
 
 #Script Settings
-dir_name = "formr_run"
+dir_name = "formr_docker"
 
 #Functions
 def createDockerCompose(db_root_passwd):
@@ -66,7 +76,7 @@ print("""
  / __/ /_/ / /  / / / / / / /    
 /_/  \____/_/  /_/ /_/ /_/_/     
       
-Install Script
+Create Config Script
 """)
 
 print("""
@@ -154,6 +164,9 @@ if(not opencpu_in_docker):
     print("\nThe docker-compose.yaml still contains the opencpu service. You need to delete that!")
 
 print("""
+This script only sets the minimum of configurations, which are nessesary to run formr. We highly recommend, that you go through the hole settings.php - especially if you
+are hosting formr for production.
+      
 -------------------
 ### What's next?
 -------------------
