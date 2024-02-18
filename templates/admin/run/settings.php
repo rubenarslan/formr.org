@@ -30,7 +30,7 @@
                                 <li><a href="#reminder" data-toggle="tab" aria-expanded="false">Reminder</a></li>
                                 <li><a href="#overview_script" data-toggle="tab" aria-expanded="false">Overview</a></li>
                                 <li><a href="#osf" data-toggle="tab" aria-expanded="false">OSF</a></li>
-                                <li><a href="#watermark" data-toggle="tab" aria-expanded="false">Watermarks</a></li>
+                                <li><a href="#watermark" data-toggle="tab" aria-expanded="false">Invisible watermarks</a></li>
                             </ul>
                             <div class="tab-content">
                                 <div class="tab-pane active" id="settings">
@@ -345,14 +345,13 @@
                                     <form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
                                         <div class="col-md-12">
                                             <div class="single_unit_display">
-                                                <h4>Watermarks</h4>
-                                                <p>You can embed a watermark into your uploaded images. The watermark
-                                                    may help you identify your images and prove ownership.</p>
-                                                <p>You can choose between a visible and a human-invisible watermark. For
-                                                    the invisible watermark, there are two methods: SIFT and Blind. The
-                                                    SIFT approach may distort the image less but holds less information
-                                                    (up to 31 chars, only ASCII chars) and requires an image-specific
-                                                    key for extraction later. The Blind approach might distort the image
+                                                <h4>Invisible watermarks</h4>
+                                                <p>You can embed a human-invisible watermark into your uploaded images.
+                                                    The watermark may help you identify your images and prove ownership.
+                                                    For the watermark, there are two methods: SIFT and Blind. The SIFT
+                                                    approach may distort the image less but holds less information (up
+                                                    to 31 chars, only ASCII chars) and requires an image-specific key
+                                                    for extraction later. The Blind approach might distort the image
                                                     more but holds more information (up to 255 chars) and uses a fixed
                                                     key for later extraction.</p>
                                                 <p>To extract an invisible watermark, you first need the watermark key,
@@ -366,11 +365,8 @@
                                                     <label title="Select to chose which watermarking method should be applied">Enable watermarks</label><div with="1rem" ></div>
                                                     <select name="watermark_method" class="form-control" style="padding: 0; border: none; height: 30px;" >
                                                         <option <?php echo $run->watermark_method === "none" ? "selected" : '' ?> value="none">None</option>
-                                                        <option <?php echo $run->watermark_method === "only_visible" ? "selected" : '' ?> value="only_visible">Only visible</option>
-                                                        <option <?php echo $run->watermark_method === "only_sift" ? "selected" : '' ?> value="only_sift">Only sift</option>
-                                                        <option <?php echo $run->watermark_method === "only_blind" ? "selected" : '' ?> value="only_blind">Only blind</option>
-                                                        <option <?php echo $run->watermark_method === "visible_and_sift" ? "selected" : '' ?> value="visible_and_sift">Visible and sift</option>
-                                                        <option <?php echo $run->watermark_method === "visible_and_blind" ? "selected" : '' ?> value="visible_and_blind">Visible and blind</option>
+                                                        <option <?php echo $run->watermark_method === "only_sift" ? "selected" : '' ?> value="only_sift">SIFT</option>
+                                                        <option <?php echo $run->watermark_method === "only_blind" ? "selected" : '' ?> value="only_blind">Blind</option>
                                                     </select>
                                                 </div>
                                                 <div class="form-group">
