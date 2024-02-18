@@ -289,7 +289,7 @@ class Run extends Model {
             if($fileSaved) {
                 // generate watermark version of image via python script if enabled in settings
                 if ($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif' && $this->watermark_method >= 2 ) {
-                    $scriptPath = APPLICATION_ROOT . 'scripts/watermark.py';
+                    $scriptPath = APPLICATION_ROOT . 'scripts/watermark/main.py';
                     $originalImage = escapeshellarg($destination_path);
                     $watermarkedImage = $destination_path; // overwrite original file
                     $content = escapeshellarg($this->watermark_content);

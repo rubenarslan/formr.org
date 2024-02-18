@@ -31,7 +31,7 @@ RUN echo "<Directory /var/www/html>" >> /etc/apache2/sites-enabled/000-default.c
 COPY . /var/www/formr.org/
 
 # Install python dependencies (Without venv to avoid issues with exec)
-RUN cd /var/www/formr.org && \
+RUN cd /var/www/formr.org/scripts/watermark/ && \
     python3 -m pip install --upgrade pip \
     python3 -m pip install -r requirements.txt
 
