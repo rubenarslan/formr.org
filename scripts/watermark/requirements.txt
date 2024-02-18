@@ -1,0 +1,7 @@
+numpy==1.26.4
+opencv-python==4.9.0.80
+pillow==10.2.0
+pypng==0.20220715.0
+PyWavelets==1.5.0
+qrcode==7.4.2
+typing_extensions==4.10.0rc1

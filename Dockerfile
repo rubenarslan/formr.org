@@ -6,10 +6,10 @@
 FROM ubuntu:23.04
 
 # Update apt repository
-RUN apt update
+RUN apt-get update
 
 # Install dependencies
-RUN apt install -y git php apache2 mysql-server composer php-curl php-fpm php-mbstring php-mysql php-zip php-xml php-gd php-intl php-xml pandoc
+RUN apt-get install -y --fix-missing git php apache2 mysql-server composer php-curl php-fpm php-mbstring php-mysql php-zip php-xml php-gd php-intl php-xml pandoc libgl1-mesa-glx
 
 #Composer error
 ENV COMPOSER_ALLOW_SUPERUSER=1
@@ -25,10 +25,17 @@ RUN echo "<Directory /var/www/html>" >> /etc/apache2/sites-enabled/000-default.c
     echo "    allow from all" >> /etc/apache2/sites-enabled/000-default.conf && \
     echo "</Directory>" >> /etc/apache2/sites-enabled/000-default.conf
 
+RUN apt-get install python3-pip -y
+
 # Copy formr source into the container
 # TODO: Think about another way to avoid a rebuild for changes to apply. Currently a volume 
 # mount is problematic because we create a symlink to the webroot directory in the build step.
 COPY . /var/www/formr.org/
+
+# Install python dependencies (Without venv to avoid issues with exec, ignore the crazy flag)
+RUN cd /var/www/formr.org/scripts/watermark/ && \
+    pip install --upgrade pip --break-system-packages \
+    pip install -r requirements.txt --break-system-packages
 
 # Create symbolic link to webroot
 RUN ln -s /var/www/formr.org/webroot /var/www/html/formr

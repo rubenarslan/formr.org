@@ -62,6 +62,8 @@ class Run extends Model {
         'months' => 'Months',
         'years' => 'Years',
     );
+    public $watermark_method = 0;
+    public $watermark_content = "";
     protected $description_parsed = null;
     protected $footer_text_parsed = null;
     protected $public_blurb_parsed = null;
@@ -78,6 +80,7 @@ class Run extends Model {
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
         "expiresOn",
+        "watermark_method", "watermark_content",
     );
     public $renderedDescAndFooterAlready = false;
     public $expiresOn = null;
@@ -117,7 +120,7 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, imprint, imprint_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, expiresOn";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, imprint, imprint_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, expiresOn, watermark_method, watermark_content";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
 
@@ -233,6 +236,8 @@ class Run extends Model {
             'public' => 0,
             'footer_text' => "Remember to add your contact info here! Contact the [study administration](mailto:email@example.com) in case of questions.",
             'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
+            'watermark_method' => "none",
+            'watermark_content' => "formr.org",
         ));
         $this->id = $this->db->pdo()->lastInsertId();
         $this->name = $name;
@@ -303,9 +308,47 @@ class Run extends Model {
                 $new_file_path = 'assets/tmp/admin/' . crypto_token(33, true) . $this->file_endings[$mime];
             }
 
+            $fileSaved = false;
+
             // save file
-            $destination_dir = APPLICATION_ROOT . 'webroot/' . $new_file_path;
-            if (move_uploaded_file($files['tmp_name'][$i], $destination_dir)) {
+            $destination_path = APPLICATION_ROOT . 'webroot/' . $new_file_path;
+            if (move_uploaded_file($files['tmp_name'][$i], $destination_path)) {
+                $fileSaved = true;
+            } else {
+                $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
+            }
+
+            if($fileSaved) {
+                // generate watermark version of image via python script if enabled in settings
+                if (($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif') && $this->watermark_method != "none") {
+                    $scriptPath = '/var/www/formr.org/scripts/watermark/main.py';
+                    $originalImage = escapeshellarg($destination_path);
+                    $watermarkedImage = $destination_path; // overwrite original file
+                    $content = escapeshellarg($this->watermark_content);
+
+                    // watermarking method, default to sift method
+                    $method = "sift";
+                    if(str_contains($this->watermark_method, "blind")) {
+                        $method = "blind";
+                    }
+
+                    $cmd = "/usr/bin/python3 $scriptPath embed -i $originalImage -o " . escapeshellarg($watermarkedImage) . " -w '$content' -m '$method'";
+                    exec($cmd, $output, $return_var);
+
+                    // cli returns 0 if successful, 1 if failed and 2 lines of output if successful
+                    if ($return_var === 0 && count($output) === 2) {
+                        // watermarking was successful
+                        $watermark_content = $output[1];
+
+                        // write additional watermark data to file (used for later detection of the watermark)
+                        $file = fopen($watermarkedImage . "_watermarkdata", 'w');
+                        fwrite($file, $watermark_content);
+                        fclose($file);
+                    } else {
+                        // watermarking failed
+                        $this->errors[] = __("Unable to watermark uploaded file '%s'.", $files['name'][$i]);
+                    }
+                }
                 $this->db->insert_update('survey_uploaded_files', array(
                     'run_id' => $this->id,
                     'created' => mysql_now(),
@@ -314,8 +357,6 @@ class Run extends Model {
                         ), array(
                     'modified' => mysql_now()
                 ));
-            } else {
-                $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
             }
         }
 
