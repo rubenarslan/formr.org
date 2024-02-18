@@ -21,7 +21,7 @@ jobs:
 
       - name: Setup Environment
         run: |
-          echo "IMAGE_TAG=$REGISTRY/$NAME:${GITHUB_REF##*/}" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=$REGISTRY/$NAME:${GITHUB_REF##*/}-snapshot" >> "$GITHUB_ENV"
             
       - name: Cache Packages
         uses: actions/cache@v1
