@@ -1,8 +1,10 @@
 version: '3'
+name: formr
 services:
   formr_server:
     container_name: formr_server
-    build: ../.
+    #build: ../.
+    image: <$FORMR_IMAGE>
     ports:
       - 80:80
     networks:
@@ -11,20 +13,23 @@ services:
       - ./settings.php:/var/www/formr.org/config/settings.php
     depends_on:
       - formr_db
+      - opencpu
   formr_db:
     container_name: formr_db
-    image: mysql:latest
+    image: <$DB_IMAGE>
     networks:
       - default
     restart: always
     environment:
       - MYSQL_DATABASE=formr
-      - MYSQL_ROOT_PASSWORD=mauFJcuf5dhRMQrjj
+      - MYSQL_ROOT_PASSWORD=<$DB_ROOT_PASSWORD>
     volumes:
       - ./db:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./schema.sql:/docker-entrypoint-initdb.d/a_schema.sql
+      - ./create_user.sql:/docker-entrypoint-initdb.d/b_create-user.sql
   opencpu:
     container_name: opencpu
-    build: ../opencpu
+    #build: ../opencpu
+    image: <$OPENCPU_IMAGE>
     networks:
       - default
