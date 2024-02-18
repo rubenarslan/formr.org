@@ -338,11 +338,10 @@ class Run extends Model {
                     // cli returns 0 if successful, 1 if failed and 2 lines of output if successful
                     if ($return_var === 0 && count($output) === 2) {
                         // watermarking was successful
-                        $new_file_path = $watermarkedImage;
                         $watermark_content = $output[1];
 
                         // write additional watermark data to file (used for later detection of the watermark)
-                        $file = fopen($new_file_path . "_watermarkdata", 'w');
+                        $file = fopen($watermarkedImage . "_watermarkdata", 'w');
                         fwrite($file, $watermark_content);
                         fclose($file);
                     } else {
