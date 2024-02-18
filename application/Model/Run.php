@@ -315,7 +315,7 @@ class Run extends Model {
                         fclose($file);
                     } else {
                         // watermarking failed
-                        $this->errors[] = __("Unable to watermark uploaded file '%s'.", $cmd);
+                        $this->errors[] = __("Unable to watermark uploaded file '%s'.", $files['name'][$i]);
                     }
                 }
                 $this->db->insert_update('survey_uploaded_files', array(
