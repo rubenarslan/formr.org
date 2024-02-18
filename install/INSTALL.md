@@ -41,7 +41,7 @@ Before running Formr you need to set some configurations.
 
 ### Script (recommended)
 
-You can use the ```./create-config.py``` script to create the needed config files. We highly recommend this, even if you are building your own images.
+You can use the ```./create-config.py``` [script](https://github.com/timed-and-secured-assets/formr.org/blob/master/install/create-config.py) to create the needed config files. We highly recommend this, even if you are building your own images.
 
 Down below are the steps, which are performed by the script.
 
