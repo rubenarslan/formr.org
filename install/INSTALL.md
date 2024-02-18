@@ -46,7 +46,7 @@ You can use the ```./create-config.py``` script to create the needed config file
 Down below are the steps, which are performed by the script.
 
 ### Settings.php
-You need to change the ```./docker/settings.php```. We recommend that you go through the hole file, but here are the most important changes:
+You need to change the ```./docker/settings.php```. We recommend that you go through the whole file, but here are the most important changes:
 
 #### Database
 
@@ -89,7 +89,7 @@ $settings['email'] = array(
     'smtp_options' => array(),
 );
 ````
-#### Referrer-Code 
+#### Referrer-Code
 
 ````php
 $settings['referrer_codes'] = array('<$REFERRER_CODE>');
@@ -110,7 +110,7 @@ $settings['php_session'] = array(
 
 ### Database set-up
 
-You need to run the ```/sql/schema.sql``` on your Database and then the following script (in that order).
+You need to run the ```/sql/schema.sql``` on your database and then the following script (in that order).
 
 ```sql
 -- The Database 'formr' has to be initialized before performing this script.
@@ -122,7 +122,7 @@ FLUSH PRIVILEGES;
 ```
 
 ### Docker-Compose
-To run formr with docker, you need modify the following:
+To run formr with docker, you need to modify the following:
 
 ```yaml
 version: '3'
@@ -168,9 +168,9 @@ services:
 
 ## Developer Information
 ### Docker Compose
-We recommend that you use the ```./create-config.py``` to create the all the config files and then change the following:
+We recommend that you use the ```./create-config.py``` to create all the config files and then change the following:
 
-From 
+From
 ````yaml
     #build: ../.
     image: <$FORMR_IMAGE>
@@ -182,7 +182,7 @@ To
 ````
 inside the ```docker-compose.yaml```
 
-### Troubleshooting 
+### Troubleshooting
 
 You can access the terminal of a container with
 ```bash
@@ -276,8 +276,8 @@ The following requirements should be installed on the system you intend to insta
 * PHP ≥ 8.1
   * composer
   * php-curl
-  * php-fpm (often: php7.x-fpm e. g. php7.2-fpm)
-  * php-mbstring (often: php7.x-mbstring e. g. php7.2-mbstring)
+  * php-fpm (often: php7.x-fpm e. g. php7.2-fpm)
+  * php-mbstring (often: php7.x-mbstring e. g. php7.2-mbstring)
   * php-mysql
   * php-zip
   * php-xml
@@ -323,7 +323,7 @@ Make sure apache2 and php7.x-fpm run.
 
 #### 1. Clone the Git repository and checkout the *desired* release (version)
 
-The suggested file structure is as follows: Place formr.org's folder, e. g. `/var/www`, accessible for apache's user e. g. `www-data` and to create a symlink to the webroot.
+The suggested file structure is as follows: Place formr.org's folder, e. g. `/var/www`, accessible for apache's user e. g. `www-data` and to create a symlink to the webroot.
 
 You'll need [Git](http://git-scm.com/) (a version management software). After installing it, navigate to the folder where you want to place formr and run
 ```sh
@@ -352,7 +352,7 @@ At this point you should have your formr files present in the installation direc
     composer install
 ```
 
- 
+
 #### 2. Create an empty MySQL database
 
 Login to mysql server with a user that has appropriate privileges and execute these commands to create the database

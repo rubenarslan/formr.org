@@ -83,4 +83,4 @@ jobs:
           context: ./opencpu
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.IMAGE_TAG_OPENCPU }}
+          tags: ${{ env.IMAGE_TAG }}

@@ -15,13 +15,12 @@ else:
 formr_docker_image = "ghcr.io/"+formr+":"+version
 opencpu_docker_image = "ghcr.io/"+opencpu+":"+version
 db_docker_image = "mysql:latest"
-
 #Github-Links
 repo_url = "https://github.com/"+formr
-github_raw_generic_settings_url = "https://raw.githubusercontent.com/"+formr+"/feature/anleitung/config-dist/settings.php"
-github_raw_create_user_url = "https://raw.githubusercontent.com/"+formr+"/feature/anleitung/run/create-formr-user.sql"
-github_raw_generic_docker_compose_url = "https://raw.githubusercontent.com/"+formr+"/feature/anleitung/run/generic-docker-compose.yaml"
-github_raw_sql_schema_url = "https://raw.githubusercontent.com/"+formr+"/feature/anleitung/sql/schema.sql"
+github_raw_generic_settings_url = "https://raw.githubusercontent.com/"+formr+"/master/config-dist/settings.php"
+github_raw_create_user_url = "https://raw.githubusercontent.com/"+formr+"/master/install/create-formr-user.sql"
+github_raw_generic_docker_compose_url = "https://raw.githubusercontent.com/"+formr+"/master/install/generic-docker-compose.yaml"
+github_raw_sql_schema_url = "https://raw.githubusercontent.com/"+formr+"/master/sql/schema.sql"
 
 #Script Settings
 dir_name = "formr_docker"
