@@ -351,10 +351,10 @@
                                                 <p>You can choose between a visible and a human-invisible watermark. For
                                                     the invisible watermark, there are two methods: SIFT and Blind. The
                                                     SIFT approach may distort the image less but holds less information
-                                                    (up to 31 chars) and requires an image-specific key for extraction
-                                                    later. The Blind approach might distort the image more but holds
-                                                    more information (up to 255 chars) and uses a fixed key for later
-                                                    extraction.</p>
+                                                    (up to 31 chars, only ASCII chars) and requires an image-specific
+                                                    key for extraction later. The Blind approach might distort the image
+                                                    more but holds more information (up to 255 chars) and uses a fixed
+                                                    key for later extraction.</p>
                                                 <p>To extract an invisible watermark, you first need the watermark key,
                                                     which can be found on the Upload Files page. With this key and the
                                                     image from which you want to extract the watermark, refer to
