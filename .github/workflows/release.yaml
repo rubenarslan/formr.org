@@ -1,4 +1,4 @@
-name: Formr Docker Image CI
+name: Release Workflow
 
 on:
   release:
