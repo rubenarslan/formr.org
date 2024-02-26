@@ -680,3 +680,6 @@ CREATE TABLE `survey_settings` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `setting` (`setting`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE survey_runs
+    ADD watermark_path varchar(255) DEFAULT 'non';

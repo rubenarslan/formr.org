@@ -29,6 +29,8 @@
         "paragonie/halite": "^4",
         "phpoffice/phpspreadsheet": "^1.24",
         "phpmailer/phpmailer": "6.*",
+		"ext-gd": "*",
+        "phpmailer/phpmailer": "6.*",
 		"robthree/twofactorauth": "2.1.0",
 		"chillerlan/php-qrcode": "^5.0"
     },

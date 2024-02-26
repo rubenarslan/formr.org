@@ -30,7 +30,7 @@
                                 <li><a href="#reminder" data-toggle="tab" aria-expanded="false">Reminder</a></li>
                                 <li><a href="#overview_script" data-toggle="tab" aria-expanded="false">Overview</a></li>
                                 <li><a href="#osf" data-toggle="tab" aria-expanded="false">OSF</a></li>
-                                <li><a href="#watermark" data-toggle="tab" aria-expanded="false">Invisible watermarks</a></li>
+                                <li><a href="#watermark" data-toggle="tab" aria-expanded="false">Watermarks</a></li>
                             </ul>
                             <div class="tab-content">
                                 <div class="tab-pane active" id="settings">
@@ -345,6 +345,17 @@
                                     <form class="form-horizontal" enctype="multipart/form-data"  id="run_settings" method="post" action="<?php echo admin_run_url($run->name, 'ajax_save_settings'); ?>">
                                         <div class="col-md-12">
                                             <div class="single_unit_display">
+                                                <div class="form-group">
+                                                    <label title="Select to chose which watermarking method should be applied">Enable watermarks</label><div with="1rem" ></div>
+                                                    <select name="watermark_method" class="form-control" style="padding: 0; border: none; height: 30px;" >
+                                                        <option <?php echo $run->watermark_method === "none" ? "selected" : '' ?> value="none">None</option>
+                                                        <option <?php echo $run->watermark_method === "only_visible" ? "selected" : '' ?> value="only_visible">Only visible</option>
+                                                        <option <?php echo $run->watermark_method === "only_sift" ? "selected" : '' ?> value="only_sift">Only Sift</option>
+                                                        <option <?php echo $run->watermark_method === "only_blind" ? "selected" : '' ?> value="only_blind">Only Blind</option>
+                                                        <option <?php echo $run->watermark_method === "visible_and_sift" ? "selected" : '' ?> value="visible_and_sift">Visible and Sift</option>
+                                                        <option <?php echo $run->watermark_method === "visible_and_blind" ? "selected" : '' ?> value="visible_and_blind">Visible and Blind</option>
+                                                    </select>
+                                                </div>
                                                 <h4>Invisible watermarks</h4>
                                                 <p>You can embed a human-invisible watermark into your uploaded images.
                                                     The watermark may help you identify your images and prove ownership.
@@ -361,23 +372,29 @@
                                                     and follow the instructions in the README file. This step may
                                                     require some technical skills. For assistance, refer to the
                                                     administrators.</p>
-                                                <div class="form-group">
-                                                    <label title="Select to chose which watermarking method should be applied">Enable watermarks</label><div with="1rem" ></div>
-                                                    <select name="watermark_method" class="form-control" style="padding: 0; border: none; height: 30px;" >
-                                                        <option <?php echo $run->watermark_method === "none" ? "selected" : '' ?> value="none">None</option>
-                                                        <option <?php echo $run->watermark_method === "only_sift" ? "selected" : '' ?> value="only_sift">SIFT</option>
-                                                        <option <?php echo $run->watermark_method === "only_blind" ? "selected" : '' ?> value="only_blind">Blind</option>
-                                                    </select>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label title="Change the invisible watermark content">Invisible Watermark content (max 255 chars)</label>
-                                                    <input type="text" maxlength="255" placeholder="WatermarkContent" name="watermark_content" class="form-control" value="<?= h($run->watermark_content); ?>" />
-                                                </div>
+                                                <label title="Change the invisible watermark content">Invisible Watermark content (max 255 chars)</label>
+                                                <input type="text" maxlength="255" placeholder="WatermarkContent" name="watermark_content" class="form-control" value="<?= h($run->watermark_content); ?>" />
+
+                                                <h4>Visible watermarks</h4>
+                                                <p>You can embed your uploaded images with a visible watermark.
+                                                    The visible watermark is intended to identify the owner of the image
+                                                    and may act as a deterrent for survey users to limit the sharing of the images.
+                                                    By default, images are protected with a watermark predetermined by the system administrator.
+                                                    However, you also have the option to protect your images with a customized watermark.
+                                                </p>
+                                                <label title="Upload customized Watermark">Here you can upload your customized Watermark:</label>
                                             </div>
                                         </div>
                                         <p class="pull-right">
                                             <input type="submit" name="submit_settings" value="Save" class="btn btn-primary save_settings">
                                         </p>
+                                    </form>
+                                    <form action="<?= admin_run_url($run->name, 'upload_watermark') ?>" class="dropzone form-inline" enctype="multipart/form-data"  id="upload_files" name="upload_files" method="post">
+                                        <div class="input-group">
+                                            <input required multiple type="file" accept="video/*,image/*,audio/*,text/*" name="uploaded_files[]" id="uploaded_files"/>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-default"><i class="fa fa-upload"></i> Upload all files</button>
                                     </form>
                                     <div class="clear clearfix"></div>
                                 </div>

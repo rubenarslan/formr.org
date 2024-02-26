@@ -80,7 +80,7 @@ class Run extends Model {
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
         "expiresOn",
-        "watermark_method", "watermark_content",
+        "watermark_method", "watermark_content", "watermark_path",
     );
     public $renderedDescAndFooterAlready = false;
     public $expiresOn = null;
@@ -120,7 +120,7 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, imprint, imprint_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, expiresOn, watermark_method, watermark_content";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, imprint, imprint_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie, expiresOn, watermark_method, watermark_content, watermark_path";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
 
@@ -238,6 +238,7 @@ class Run extends Model {
             'footer_text_parsed' => "Remember to add your contact info here! Contact the <a href='mailto:email@example.com'>study administration</a> in case of questions.",
             'watermark_method' => "none",
             'watermark_content' => "formr.org",
+            'watermark_path' => "non",
         ));
         $this->id = $this->db->pdo()->lastInsertId();
         $this->name = $name;
@@ -266,7 +267,42 @@ class Run extends Model {
         'text/csv' => '.csv', 'text/css' => '.css', 'text/tab-separated-values' => '.tsv', 'text/plain' => '.txt'
     );
 
+    public function getWatermarkPath() {
+        return $this->db->select('watermark_path')
+            ->from('survey_runs')
+            ->where(array('id' => $this->id))
+            ->fetchAll();
+    }
+
     public function uploadFiles($files) {
+        function blendWatermarkWithImage($scaledWatermark, $image, $overlayX, $overlayY, $scaledWatermarkWidth, $scaledWatermarkHight){
+            for ($x = 0; $x < $scaledWatermarkWidth; $x++) {
+                for ($y = 0; $y < $scaledWatermarkHight; $y++) {
+
+                    $watermarkPixel = imagecolorat($scaledWatermark, $x, $y);
+                    $imagePixel = imagecolorat($image, $overlayX + $x, $overlayY + $y);
+
+                    $imageR = ($imagePixel >> 16) & 0xFF;
+                    $imageG = ($imagePixel >> 8) & 0xFF;
+                    $imageB = $imagePixel & 0xFF;
+                    $imageAlpha = ($imagePixel >> 24) & 0xFF;
+
+                    $watermarkAlpha = ($watermarkPixel >> 24) & 0xFF;
+
+                    $imageFactor = 0.1;
+                    $watermarkFactor = 1 - $imageFactor;
+
+                    $newR = (int)($imageFactor * $imageR + $watermarkFactor * (($watermarkPixel >> 16) & 0xFF));
+                    $newG = (int)($imageFactor * $imageG + $watermarkFactor * (($watermarkPixel >> 8) & 0xFF));
+                    $newB = (int)($imageFactor * $imageB + $watermarkFactor * ($watermarkPixel & 0xFF));
+
+                    $newColor = imagecolorallocatealpha($scaledWatermark, $newR, $newG, $newB, $watermarkAlpha);
+                    imagesetpixel($scaledWatermark, $x, $y, $newColor);
+                }
+            }
+            return $scaledWatermark;
+        }
+
         $max_size_upload = Config::get('admin_maximum_size_of_uploaded_files');
         // make lookup array
         $existing_files = $this->getUploadedFiles();
@@ -317,49 +353,177 @@ class Run extends Model {
             } else {
                 $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
             }
-
             if($fileSaved) {
-                // generate watermark version of image via python script if enabled in settings
-                if (($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif') && $this->watermark_method != "none") {
-                    $scriptPath = '/var/www/formr.org/scripts/watermark/main.py';
-                    $originalImage = escapeshellarg($destination_path);
-                    $watermarkedImage = $destination_path; // overwrite original file
-                    $content = escapeshellarg($this->watermark_content);
 
-                    // watermarking method, default to sift method
-                    $method = "sift";
-                    if(str_contains($this->watermark_method, "blind")) {
-                        $method = "blind";
-                    }
+                $this->db->update('survey_runs', array(
+                    'watermark_path' => (string) $this->getWatermarkPath()[0]['watermark_path']
+                ), array(
+                    'id' => 1 // Annahme: Die Spalte 'id' identifiziert den aktuellen Lauf
+                ));
 
-                    $cmd = "/usr/bin/python3 $scriptPath embed -i $originalImage -o " . escapeshellarg($watermarkedImage) . " -w '$content' -m '$method'";
-                    exec($cmd, $output, $return_var);
 
-                    // cli returns 0 if successful, 1 if failed and 2 lines of output if successful
-                    if ($return_var === 0 && count($output) === 2) {
-                        // watermarking was successful
-                        $watermark_content = $output[1];
+                if (($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif') && ($this->watermark_method == 'only_visible'
+                        || $this->watermark_method == 'visible_and_sift' || $this->watermark_method == 'visible_and_blind')) {
+                    if ($this->getWatermarkPath()[0]['watermark_path'] == 'non') {
 
-                        // write additional watermark data to file (used for later detection of the watermark)
-                        $file = fopen($watermarkedImage . "_watermarkdata", 'w');
-                        fwrite($file, $watermark_content);
-                        fclose($file);
-                    } else {
-                        // watermarking failed
-                        $this->errors[] = __("Unable to watermark uploaded file '%s'.", $files['name'][$i]);
+                        $image = imagecreatefrompng($destination_path);
+                        $default_watermark = APPLICATION_ROOT . 'webroot/assets/watermark/default_uni_muenster.png';
+                        $watermark = imagecreatefrompng($default_watermark);
+
+                        $imageWidth = imagesx($image);
+                        $imageHeight = imagesy($image);
+
+                        $watermarkWidth = imagesx($watermark);
+                        $watermarkHeight = imagesy($watermark);
+
+                        $overlayX = $imageWidth - $watermarkWidth - round($imageWidth * 0.02);
+                        $overlayY = $imageHeight - $watermarkHeight - round($imageWidth * 0.02);
+
+                        imagecopy($image, $watermark, $overlayX, $overlayY, 0, 0, $watermarkWidth, $watermarkHeight);
+                        imagepng($image, $destination_path);
+                      } else {
+                        $image = imagecreatefrompng($destination_path);
+                        $imageWidth = imagesx($image);
+                        $imageHeight = imagesy($image);
+
+                        $watermarkPathArray = $this->getWatermarkPath();
+                        $watermarkPath = (string)$watermarkPathArray[0]['watermark_path'];
+                        $watermark = imagecreatefrompng($watermarkPath);
+
+                        $watermarkWidth = imagesx($watermark);
+                        $watermarkHeight = imagesy($watermark);
+
+
+                        $targetWidth = round($imageWidth * 0.1); // 10% der Breite des Hauptbildes
+                        $targetHeight = round($targetWidth * ($watermarkHeight / $watermarkWidth)); // Beibehaltung der Proportionen
+
+                        $scaledWatermark = imagescale($watermark, $targetWidth, $targetHeight);
+
+                        $scaledWatermarkWidth = imagesx($scaledWatermark);
+                        $scaledWatermarkHight = imagesy($scaledWatermark);
+
+
+                        $overlayX = $imageWidth - $targetWidth - round($imageWidth * 0.02);
+                        $overlayY = $imageHeight - $targetHeight - round($imageWidth * 0.02);
+
+                        $scaledWatermark = blendWatermarkWithImage($scaledWatermark, $image, $overlayX, $overlayY, $scaledWatermarkWidth, $scaledWatermarkHight);
+
+                        imagecopy($image, $scaledWatermark, $overlayX, $overlayY, 0, 0, $targetWidth, $targetHeight);
+                        imagepng($image, $destination_path);
+
                     }
                 }
+
+
+                    // generate watermark version of image via python script if enabled in settings
+                    if (($mime === 'image/jpeg' || $mime === 'image/png' || $mime === 'image/gif') && ($this->watermark_method == 'only_sift' ||
+                        $this->watermark_method == 'only_blind' || $this->watermark_method == 'visible_and_sift' || $this->watermark_method == 'visible_and_blind')) {
+                        $scriptPath = '/var/www/formr.org/scripts/waermark/main.py';
+                        $originalImage = escapeshellarg($destination_path);
+                        $watermarkedImage = $destination_path; // overwrite original file
+                        $content = escapeshellarg($this->watermark_content);
+
+                        // watermarking method, default to sift method
+                        $method = "sift";
+                        if(str_contains($this->watermark_method, "blind")) {
+                            $method = "blind";
+                        }
+
+                        $cmd = "/usr/bin/python3 $scriptPath embed -i $originalImage -o " . escapeshellarg($watermarkedImage) . " -w '$content' -m '$method'";
+                        exec($cmd, $output, $return_var);
+
+                        // cli returns 0 if successful, 1 if failed and 2 lines of output if successful
+                        if ($return_var === 0 && count($output) === 2) {
+                            // watermarking was successful
+                            $watermark_content = $output[1];
+
+                            // write additional watermark data to file (used for later detection of the watermark)
+                            $file = fopen($watermarkedImage . "_watermarkdata", 'w');
+                            fwrite($file, $watermark_content);
+                            fclose($file);
+                        } else {
+                            // watermarking failed
+                            $this->errors[] = __("Unable to watermark uploaded file '%s'.", $files['name'][$i]);
+                        }
+                    }
+
                 $this->db->insert_update('survey_uploaded_files', array(
                     'run_id' => $this->id,
                     'created' => mysql_now(),
                     'original_file_name' => $original_file_name,
                     'new_file_path' => $new_file_path,
-                        ), array(
+                ), array(
                     'modified' => mysql_now()
                 ));
+
             }
+
         }
 
+        return empty($this->errors);
+    }
+
+    public function uploadWatermark($files) {
+
+        $max_size_upload = Config::get('admin_maximum_size_of_uploaded_files');
+        // make lookup array
+        $existing_files = $this->getUploadedFiles();
+        $files_by_names = array();
+        foreach ($existing_files as $existing_file) {
+            $files_by_names[$existing_file['original_file_name']] = $existing_file['new_file_path'];
+        }
+
+        // loop through files and modify them if necessary
+        for ($i = 0; $i < count($files['tmp_name']); $i++) {
+            // validate if any error occured on upload
+            if ($files['error'][$i]) {
+                $this->errors[] = __("An error occured uploading file '%s'. ERROR CODE: PFUL-%d", $files['name'][$i], $files['error'][$i]);
+                continue;
+            }
+
+            // validate file size
+            $size = (int) $files['size'][$i];
+            if (!$size || ($size > $max_size_upload * 1048576)) {
+                $this->errors[] = __("The file '%s' is too big or the size could not be determined. The allowed maximum size is %d megabytes.", $files['name'][$i], round($max_size_upload, 2));
+                continue;
+            }
+
+            // validate mime type
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->file($files['tmp_name'][$i]);
+            if (!isset($this->file_endings[$mime])) {
+                $this->errors[] = __('The file "%s" has the MIME type %s and is not allowed to be uploaded.', $files['name'][$i], $mime);
+                continue;
+            }
+
+            // validation was OK
+            $original_file_name = $files['name'][$i];
+            if (isset($files_by_names[$original_file_name])) {
+                // override existing path
+                $new_file_path = $files_by_names[$original_file_name];
+                $this->messages[] = __('The file "%s" was overriden.', $original_file_name);
+            } else {
+                $new_file_path = 'assets/tmp/admin/' . crypto_token(33, true) . $this->file_endings[$mime];}
+
+            $fileSaved = false;
+
+            // save file
+            $destination_path = APPLICATION_ROOT . 'webroot/' . $new_file_path;
+            if (move_uploaded_file($files['tmp_name'][$i], $destination_path)) {
+                $fileSaved = true;
+            } else {
+                $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
+            }
+            if($fileSaved) {
+
+                $this->db->update('survey_runs', array(
+                    'watermark_path' => $destination_path
+                ), array(
+                    'id' => $this->id
+                ));
+            }
+
+        }
         return empty($this->errors);
     }
 

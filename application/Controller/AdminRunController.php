@@ -270,6 +270,30 @@ class AdminRunController extends AdminController {
         return $this->sendResponse();
     }
 
+    private function uploadWatermarkAction() {
+        $run = $this->run;
+
+        if (!empty($_FILES['uploaded_files'])) {
+            if ($run->uploadWatermark($_FILES['uploaded_files'])) {
+                alert('<strong>Success.</strong> The files were uploaded.', 'alert-success');
+                if (!empty($run->messages)) {
+                    alert(implode(' ', $run->messages), 'alert-info');
+                }
+
+                $this->request->redirect(admin_run_url($run->name, 'settings#watermark'));
+            } else {
+                alert('<strong>Sorry, files could not be uploaded.</strong><br /> ' . nl2br(implode("\n", $run->errors)), 'alert-danger');
+            }
+        } elseif ($this->request->isHTTPPostRequest()) {
+            alert('The size of your request exceeds the allowed limit. Please report this to administrators indicating the size of your files.', 'alert-danger');
+        }
+            // http://localhost/formr/admin/run/run25/settings#watermark
+        $this->setView('run/settings');
+        return $this->sendResponse();
+    }
+
+
+
     private function viewImageAction() {
         $original = $this->request->str('original');
         $new = $this->request->str('new');
