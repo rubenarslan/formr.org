@@ -19,12 +19,14 @@ $settings['database'] = array(
 
 // OpenCPU instance settings
 $settings['opencpu_instance'] = array(
-	'base_url' => 'https://public.opencpu.org',
+	'local_url' => 'http://opencpu:8004',
+	'public_url' => 'https://public.opencpu.org',
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
 // (used in admin/test_opencpu)
 $settings['alternative_opencpu_instance'] = array(
-	'base_url' => 'https://public.opencpu.org',
+	'local_url' => 'http://opencpu:8004',
+	'public_url' => 'https://public.opencpu.org',
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
 
@@ -38,7 +40,7 @@ $settings['email'] = array(
 	'username' => 'email@example.com',
 	'password' => 'password',
 	// use db queue for emailing
-	'use_queue' => false,
+	'use_queue' => true,
 	// Number of seconds for which deamon loop should rest before getting next batch
 	'queue_loop_interval' => 10,
 	// Number of seconds to expire (i.e delete) a queue item if it failed to get delivered
@@ -54,6 +56,7 @@ $settings['email'] = array(
 // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
 $settings['display_errors_when_live'] = 0;
 $settings['display_errors'] = 0;
+$settings['error_to_stderr'] = 0;
 
 // Timezone
 $settings['timezone'] = 'Europe/Berlin';
@@ -82,7 +85,7 @@ $settings['web_dir'] = APPLICATION_ROOT . 'webroot';
 
 // Setup settings for application that can overwrite defaults in /define_root.php
 $settings['define_root'] = array(
-		//'protocol' => 'https://',
+		'protocol' => 'https://',
 		//'doc_root' => 'localhost/formr.org/',
 		//'study_domain' => 'localhost/formr.org/',
 		//'server_root' => APPLICATION_ROOT . '/',
@@ -90,6 +93,8 @@ $settings['define_root'] = array(
 		//'testing' => true
 );
 
+// Codes listed here can be entered in the sign-up box to turn
+// users into admins automatically (upon email confirmation)
 $settings['referrer_codes'] = array();
 
 // Cron settings
@@ -148,7 +153,7 @@ $settings['unit_session'] = array(
 	// @see http://php.net/manual/en/function.strtotime.php
 	'queue_expiration_extension' => '+10 minutes',
 	// use db queue for processing unit sessions
-	'use_queue' => false,
+	'use_queue' => true,
 	// Log debug messages
 	'debug' => false,
 );
@@ -172,10 +177,10 @@ $settings['encryption_key_file'] = null;
 
 // Use this config item to enable the apache X-Sendfile header. @see https://tn123.org/mod_xsendfile/
 // Before using this, make sure xsendfile is installed and configured correctly with apache
-$settings['use_xsendfile'] = false;
+$settings['use_xsendfile'] = true;
 
 // Use sub domains for studies
-$settings['use_study_subdomains'] = false;
+$settings['use_study_subdomains'] = true;
 
 // Reserved run names which users are not allowed to use
 $settings['reserved_run_names'] = array('api', 'test', 'delegate');
@@ -187,7 +192,7 @@ $settings['in_maintenance'] = false;
 
 // Configure IP addresses that can still access the application even in maintenance mode
 // Example ['192.18.2.3', '192.18.3.4']
-$settings['maintenance_ips'] = ['134.76.2.248'];
+$settings['maintenance_ips'] = [];
 
 // curl settings that override the default settings in the CURL class
 // Use exact PHP constants as defined in http://php.net/manual/en/function.curl-setopt.php

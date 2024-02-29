@@ -743,7 +743,7 @@ class SpreadsheetReader {
                         }
                         unset($data[$rowNumber]);
                         continue 2; // Skip row with no item name
-                    } elseif (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/', $cellValue)) {
+                    } elseif (!preg_match('/^[a-zA-Z][a-zA-Z0-9_]{1,64}$/', $cellValue)) {
                         $this->errors[] = __("The variable name '%s' is invalid. It has to be between 1 and 64 characters. It needs to start with a letter and can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $cellValue);
                     }
 
