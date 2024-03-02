@@ -761,16 +761,16 @@ function run_url($name = '', $action = '', $params = array()) {
     }
 
     $protocol = Config::get('define_root.protocol');
-    $domain = trim(Config::get('define_root.doc_root', ''), "\/\\");
-    $subdomain = null;
     # use different domain for studies if set, independent of wildcard subdomain setting
-    $domain = Config::get('define_root.study_domain', $domain); 
+    $domain = trim(Config::get('study_domain', ''), "*\/\\");
+    $subdomain = null;
+    
     if (Config::get('use_study_subdomains')) {
-        $subdomain = strtolower($name) . '.';
+        $subdomain = strtolower($name);
     } else {
         $domain .= '/' . $name;
     }
-    
+
     $url = $protocol . $subdomain . $domain;
     if ($action) {
         $action = trim($action, "\/\\");

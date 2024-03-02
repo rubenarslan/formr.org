@@ -11,7 +11,8 @@ class Session {
     protected static $lifetime;
     protected static $path = '/';
     protected static $domain = null;
-    protected static $secure = false;
+    protected static $admin_domain = null;
+    protected static $secure = true;
     protected static $httponly = true;
     
     const REQUEST_TOKENS_COOKIE = 'formr_token';
@@ -23,9 +24,19 @@ class Session {
     public static function configure($config = array()) {
         self::$lifetime = Config::get('session_cookie_lifetime');
         self::$secure = SSL;
-        foreach ($config as $key => $value) {
-            self::${$key} = $value;
-        }
+
+        self::$admin_domain = Config::get('admin_domain');
+//       $study_domain = trim(Config::get('study_domain', ''), "*\/\\");
+//       $subdomain = null;
+//       # use different domain for studies if set, independent of wildcard subdomain setting
+//       if (Config::get('use_study_subdomains')) {
+//           $subdomain = strtolower($name);
+//           self::$path = '/';
+//       } else {
+//           self::$path = '/' . $name;
+//       }
+        self::$path = dirname($_SERVER["REQUEST_URI"]);
+        self::$domain = SERVER_NAME;        
     }
 
     /**
@@ -107,8 +118,8 @@ class Session {
         return false;
     }
     
-    public static function setCookie($name, $value, $expires = 0) {
-        return setcookie($name, $value, time() + $expires, self::$path, (string)self::$domain, self::$secure, self::$httponly);
+    public static function setCookie($name, $value, $expires = 0, $path = "/", $domain) {
+        return setcookie($name, $value, time() + $expires, $path, $domain, self::$secure, self::$httponly);
     }
     
     public static function deleteCookie($name) {
@@ -117,7 +128,8 @@ class Session {
   
     public static function setAdminCookie(User $admin) {
         $data = [$admin->id, $admin->user_code, time()];
-        $cookie = self::setCookie(self::ADMIN_COOKIE, Crypto::encrypt($data, '-'), self::$lifetime);
+        $cookie = self::setCookie(self::ADMIN_COOKIE, Crypto::encrypt($data, '-'), self::$lifetime,
+            "/admin", self::$admin_domain);
         if (!$cookie) {
             formr_error(505, 'Invalid Token', 'Unable to set admin token');
         }
