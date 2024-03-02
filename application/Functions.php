@@ -760,7 +760,7 @@ function run_url($name = '', $action = '', $params = array()) {
         return site_url('run/' . $name . '/' . $action);
     }
 
-    $protocol = Config::get('define_root.protocol');
+    $protocol = Config::get('protocol');
     # use different domain for studies if set, independent of wildcard subdomain setting
     $domain = trim(Config::get('study_domain', ''), "*\/\\");
     $subdomain = null;

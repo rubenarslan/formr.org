@@ -35,8 +35,11 @@ class Session {
 //       } else {
 //           self::$path = '/' . $name;
 //       }
-        self::$path = dirname($_SERVER["REQUEST_URI"]);
-        self::$domain = SERVER_NAME;        
+//      doing something like the commented out below quickly leads to multiple session cookies with different paths, which conflict or something
+//        self::$path = '/' . strtok($_SERVER["REQUEST_URI"], "/");
+        self::$path = '/';
+        self::$domain = SERVER_NAME;
+//        print_r(SERVER_NAME); die;
     }
 
     /**
@@ -129,7 +132,7 @@ class Session {
     public static function setAdminCookie(User $admin) {
         $data = [$admin->id, $admin->user_code, time()];
         $cookie = self::setCookie(self::ADMIN_COOKIE, Crypto::encrypt($data, '-'), self::$lifetime,
-            "/admin", self::$admin_domain);
+            "/", self::$admin_domain);
         if (!$cookie) {
             formr_error(505, 'Invalid Token', 'Unable to set admin token');
         }

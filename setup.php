@@ -59,13 +59,12 @@ function __formr_setup($settings = array()) {
 	$doc_root = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] . '/' : '/';
 	$online = true;
 
-	// Maybe dev env contains $settings['define_root'] so use these
 	if (!empty($settings['protocol'])) {
 		$protocol = $settings['protocol'];
 	}
 
 	define('WEBROOT', $protocol . $doc_root);
-	define('SERVER_NAME', $doc_root);
+	define('SERVER_NAME', isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '');
 	define('ONLINE', $online);
 	define('SSL', $protocol === "https://");
 	define('RUNROOT', WEBROOT);
