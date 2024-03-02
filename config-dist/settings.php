@@ -3,6 +3,19 @@
 /**
  * Formr.org configuration
  */
+// Use sub domains for studies
+$settings['use_study_subdomains'] = true;
+$settings['admin_domain'] = "www.example.com";
+# ideally not the same domain as the admin domain, for study subdomains use *.example.com
+$settings['study_domain'] = "*.example.com";
+$settings['protocol'] = "https://";
+
+// Codes listed here can be entered in the sign-up box to turn
+// users into admins automatically (upon email confirmation)
+$settings['referrer_codes'] = array();
+
+// Timezone
+$settings['timezone'] = 'Europe/Berlin';
 
 // Database Settings
 $settings['database'] = array(
@@ -58,9 +71,6 @@ $settings['display_errors_when_live'] = 0;
 $settings['display_errors'] = 0;
 $settings['error_to_stderr'] = 0;
 
-// Timezone
-$settings['timezone'] = 'Europe/Berlin';
-
 // Session expiration related settings
 // (for unregistered users. in seconds (defaults to a year))
 $settings['expire_unregistered_session'] = 365 * 24 * 60 * 60;
@@ -82,20 +92,6 @@ $settings['survey_upload_dir'] = APPLICATION_ROOT . 'tmp/backups/surveys';
 
 // application webroot
 $settings['web_dir'] = APPLICATION_ROOT . 'webroot';
-
-// Setup settings for application that can overwrite defaults in /define_root.php
-$settings['define_root'] = array(
-		'protocol' => 'https://',
-		//'doc_root' => 'localhost/formr.org/',
-		//'study_domain' => 'localhost/formr.org/',
-		//'server_root' => APPLICATION_ROOT . '/',
-		//'online' => false,
-		//'testing' => true
-);
-
-// Codes listed here can be entered in the sign-up box to turn
-// users into admins automatically (upon email confirmation)
-$settings['referrer_codes'] = array();
 
 // Cron settings
 $settings['cron'] = array(
@@ -179,9 +175,6 @@ $settings['encryption_key_file'] = null;
 // Before using this, make sure xsendfile is installed and configured correctly with apache
 $settings['use_xsendfile'] = true;
 
-// Use sub domains for studies
-$settings['use_study_subdomains'] = true;
-
 // Reserved run names which users are not allowed to use
 $settings['reserved_run_names'] = array('api', 'test', 'delegate');
 
@@ -210,16 +203,6 @@ $settings['disabled_features'] = array(
 // Brand
 $settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
 $settings['brand_long'] = '<b>formr</b> survey framework';
-
-// Settings for PHP session
-$settings['php_session'] = array(
-    'path' => '/',
-    'domain' => '.formr.org', // prefer env('SERVER_NAME') if using subdomains for run URLs
-    'secure' => true,
-    'httponly' => true,
-    //'lifetime' => 36000,
-);
-
 
 // Settings for creating the context used in the 'copy' function when copying images from the opencpu server to formr
 $settings['copy_context'] = array(

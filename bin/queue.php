@@ -2,7 +2,7 @@
 <?php
 require_once dirname(__FILE__) . '/../setup.php';
 
-Session::configure(Config::get('php_session', []));
+Session::configure([]);
 
 /**
  * Usage:
