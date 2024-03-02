@@ -128,8 +128,8 @@ CREATE TABLE `survey_users` (
   `mobile_verification_hash` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `mobile_verified` tinyint(1) DEFAULT '0',
   `referrer_code` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  '2fa_code' varchar(16) DEFAULT '',
-  'backup_codes' varchar(69) DEFAULT '',
+  `2fa_code` varchar(16) DEFAULT '',
+  `backup_codes` varchar(69) DEFAULT '',
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_code_UNIQUE` (`user_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -188,7 +188,7 @@ CREATE TABLE `survey_runs` (
   `use_material_design` tinyint(1) NOT NULL DEFAULT '0',
   `expire_cookie` INT UNSIGNED NOT NULL DEFAULT '0',
   `watermark_method` ENUM('none', 'only_visible', 'only_sift', 'only_blind', 'visible_and_sift', 'visible_and_blind') NOT NULL DEFAULT 'none',
-  `watermark_content` varchar(255) NOT NULL DEFAULT "formr.org";
+  `watermark_content` varchar(255) NOT NULL DEFAULT "formr.org",
   PRIMARY KEY (`id`),
   KEY `fk_runs_survey_users1_idx` (`user_id`),
   KEY `fk_survey_runs_survey_units1_idx` (`reminder_email`),
@@ -521,7 +521,7 @@ CREATE TABLE `survey_privacy` (
   `tos_label` mediumtext COLLATE utf8mb4_unicode_ci,
   `tos_label_parsed` mediumtext COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id`),
-  KEY `fk_survey_privacy_survey_run_items1_idx` (`id`),
+  KEY `fk_survey_privacy_survey_units1_idx` (`id`),
   CONSTRAINT `fk_privacy_unit` FOREIGN KEY (`id`) REFERENCES `survey_units` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

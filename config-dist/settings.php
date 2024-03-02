@@ -6,20 +6,20 @@
 
 // Database Settings
 $settings['database'] = array(
-	'datasource' => 'Database/Mysql',
-	'persistent' => false,
-	'host' => 'localhost',
-	'login' => 'user',
-	'password' => 'password',
-	'database' => 'database',
-	'prefix' => '',
-	'encoding' => 'utf8mb',
-	'unix_socket' => '',
+    'datasource' => 'Database/Mysql',
+    'persistent' => false,
+    'host' => '<$DB_HOST>',
+    'login' => '<$DB_USERNAME>',
+    'password' => '<$DB_PASSWORD>',
+    'database' => 'formr',
+    'prefix' => '',
+    'encoding' => 'utf8',
+    'unix_socket' => '',
 );
 
 // OpenCPU instance settings
 $settings['opencpu_instance'] = array(
-	'base_url' => 'https://public.opencpu.org',
+	'base_url' => '<$OPEN_CPU_URL>',
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
 // (used in admin/test_opencpu)
@@ -30,25 +30,25 @@ $settings['alternative_opencpu_instance'] = array(
 
 // email SMTP and queueing configuration
 $settings['email'] = array(
-	'host' => 'smtp.example.com',
-	'port' => 587,
-	'tls' => true,
-	'from' => 'email@example.com',
-	'from_name' => 'Formr',
-	'username' => 'email@example.com',
-	'password' => 'password',
-	// use db queue for emailing
-	'use_queue' => false,
-	// Number of seconds for which deamon loop should rest before getting next batch
-	'queue_loop_interval' => 10,
-	// Number of seconds to expire (i.e delete) a queue item if it failed to get delivered
-	'queue_item_ttl' => 20*60,
-	// Number of times to retry an item before deleting
-	'queue_item_tries' => 4,
+    'host' => '<$SMTP_HOST>',
+    'port' => 587,
+    'tls' => true,
+    'from' => '<$SMTP_SEND_FROM>',
+    'from_name' => '<$SMTP_SEND_NAME>',
+    'username' => '<$SMTP_USER>',
+    'password' => '<$SMTP_PASSWORD>',
+    // use db queue for emailing
+    'use_queue' => false,
+    // Number of seconds for which deamon loop should rest before getting next batch
+    'queue_loop_interval' => 10,
+    // Number of seconds to expire (i.e delete) a queue item if it failed to get delivered
+    'queue_item_ttl' => 20*60,
+    // Number of times to retry an item before deleting
+    'queue_item_tries' => 4,
     // an array of account IDs to skip when processing mail queue
     'queue_skip_accounts' => array(),
-	// SMTP options for phpmailer
-	'smtp_options' => array(),
+    // SMTP options for phpmailer
+    'smtp_options' => array(),
 );
 
 // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
@@ -83,14 +83,14 @@ $settings['web_dir'] = APPLICATION_ROOT . 'webroot';
 // Setup settings for application that can overwrite defaults in /define_root.php
 $settings['define_root'] = array(
 		//'protocol' => 'https://',
-		//'doc_root' => 'localhost/formr.org/',
+		'doc_root' => 'localhost/formr/',
 		//'study_domain' => 'localhost/formr.org/',
 		//'server_root' => APPLICATION_ROOT . '/',
 		//'online' => false,
 		//'testing' => true
 );
 
-$settings['referrer_codes'] = array();
+$settings['referrer_codes'] = array('<$REFERRER_CODE>');
 
 // Cron settings
 $settings['cron'] = array(
@@ -208,9 +208,11 @@ $settings['brand_long'] = '<b>formr</b> survey framework';
 
 // Settings for PHP session
 $settings['php_session'] = array(
-    'path' => '/',
-    'domain' => '.formr.org', // prefer env('SERVER_NAME') if using subdomains for run URLs
-    'secure' => true,
-    'httponly' => true,
+    'path' => '/formr',
+    'domain' => 'localhost', // prefer env('SERVER_NAME') if using subdomains for run URLs
+    'secure' => false,
+    'httponly' => false,
     //'lifetime' => 36000,
 );
+
+$settings['signup:allow'] = 'true';
