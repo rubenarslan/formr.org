@@ -1,6 +1,6 @@
 <?php
 
-define('FORMR_VERSION', 'v0.20.7');
+define('FORMR_VERSION', 'v0.21.0');
 
 define('APPLICATION_ROOT', __DIR__ . '/');
 define('INCLUDE_ROOT', APPLICATION_ROOT);
@@ -60,11 +60,12 @@ function __formr_setup($settings = array()) {
 	$online = true;
 
 	// Maybe dev env contains $settings['define_root'] so use these
-	if (!empty($settings['define_root'])) {
-		extract($settings['define_root']);
+	if (!empty($settings['protocol'])) {
+		$protocol = $settings['protocol'];
 	}
 
 	define('WEBROOT', $protocol . $doc_root);
+	define('SERVER_NAME', $doc_root);
 	define('ONLINE', $online);
 	define('SSL', $protocol === "https://");
 	define('RUNROOT', WEBROOT);
