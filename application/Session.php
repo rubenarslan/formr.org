@@ -97,7 +97,7 @@ class Session {
         }
 
         setcookie(self::REQUEST_TOKENS_COOKIE, $token, 
-            ['lifetime' => 0, 
+            ['expires' => 0, 
             'path' => self::$path, 
             'domain' => self::$domain, 
             'secure' => self::$secure,
@@ -114,7 +114,7 @@ class Session {
             // a valid request token dies after it's validity is retrived :P
             unset($tokens[$token]);
             setcookie(self::REQUEST_TOKENS_COOKIE, '', 
-                ['lifetime' => -3600, 
+                ['expires' => -3600, 
                 'path' => self::$path, 
                 'domain' => self::$domain, 
                 'secure' => self::$secure,
@@ -128,7 +128,7 @@ class Session {
     
     public static function setCookie($name, $value, $expires = 0, $path = "/", $domain = '') {
         return setcookie($name, $value, 
-                ['lifetime' => time() + $expires, 
+                ['expires' => time() + $expires, 
                 'path' => $path, 
                 'domain' => $domain, 
                 'secure' => self::$secure,
@@ -138,7 +138,7 @@ class Session {
     
     public static function deleteCookie($name) {
         return setcookie($name, '',
-            ['lifetime' => time() - 3600, 
+            ['expires' => time() - 3600, 
             'path' => self::$path, 
             'domain' => self::$domain, 
             'secure' => self::$secure,
