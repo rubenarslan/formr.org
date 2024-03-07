@@ -2,7 +2,7 @@
 require_once dirname(__FILE__) . '/../setup.php';
 
 // Start formr session
-Session::configure(Config::get('php_session', []));
+Session::configure([]);
 Session::start();
 
 // Define SITE object

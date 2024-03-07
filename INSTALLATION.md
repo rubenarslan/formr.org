@@ -9,8 +9,6 @@ To install formr locally, either to test it out, or to contribute to development
 You can find detailed instructions here:
 https://github.com/rubenarslan/formr_dev_docker
 
-The installation instructions detailed below are for a Debian 9 Environment but can be modified accordingly for other platforms.
-
 ## Production
 If you want to run formr in production, you have to be aware of multiple best practices.
 
