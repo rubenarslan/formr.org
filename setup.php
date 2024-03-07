@@ -1,6 +1,6 @@
 <?php
 
-define('FORMR_VERSION', 'v0.20.7');
+define('FORMR_VERSION', 'v0.21.0');
 
 define('APPLICATION_ROOT', __DIR__ . '/');
 define('INCLUDE_ROOT', APPLICATION_ROOT);
@@ -59,12 +59,12 @@ function __formr_setup($settings = array()) {
 	$doc_root = isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] . '/' : '/';
 	$online = true;
 
-	// Maybe dev env contains $settings['define_root'] so use these
-	if (!empty($settings['define_root'])) {
-		extract($settings['define_root']);
+	if (!empty($settings['protocol'])) {
+		$protocol = $settings['protocol'];
 	}
 
 	define('WEBROOT', $protocol . $doc_root);
+	define('SERVER_NAME', isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '');
 	define('ONLINE', $online);
 	define('SSL', $protocol === "https://");
 	define('RUNROOT', WEBROOT);
@@ -75,8 +75,10 @@ function __formr_setup($settings = array()) {
 	error_reporting(-1);
 	if (DEBUG > 0) {
 		ini_set('display_errors', 1);
-	}
-
+	} else {
+		ini_set('display_errors',  0);
+ 	}
+	
 	ini_set("log_errors", 1);
 	ini_set("error_log", get_log_file('errors.log'));
 	ini_set('session.gc_maxlifetime', $settings['session_cookie_lifetime']);
