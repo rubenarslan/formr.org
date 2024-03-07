@@ -1,8 +1,12 @@
 <?php
-
+// todo:
+// differentiate calls into those that need auth and those that don't
+// in the call function, check whether opencpu server was set up with auth
+// 
 class OpenCPU {
 
-    protected $baseUrl = 'https://public.opencpu.org';
+    protected $localUrl = null;
+    protected $publicUrl = null;
     protected $libUri = '/ocpu/library';
     protected $last_message = null;
     protected $rLibPath = '/usr/local/lib/R/site-library';
@@ -52,38 +56,33 @@ class OpenCPU {
         foreach ($config as $key => $value) {
             $property = lcfirst(preg_replace('/\s+/', '', ucwords(str_replace('_', ' ', $key))));
             if (property_exists($this, $property)) {
-                $this->{$property} = $value;
+                $this->{$property} = rtrim($value, "/");
             }
+        }
+        
+        if(!empty($config["base_url"]) && empty($config['public_url'])
+            && empty($config['local_url'])) {
+            $this->localUrl = $config["base_url"];
+            $this->publicUrl = $config["base_url"];
         }
 
         $this->curl_opts = $this->curl_opts + array_val($config, 'curl_opts', array());
     }
 
-    /**
-     * @param string $baseUrl
-     */
-    public function setBaseUrl($baseUrl) {
-        if ($baseUrl) {
-            $baseUrl = rtrim($baseUrl, "/");
-            $this->baseUrl = $baseUrl;
-        }
+    public function getPublicUrl() {
+        return $this->publicUrl;
     }
 
-    public function getBaseUrl() {
-        return $this->baseUrl;
+    public function getLocalUrl() {
+        return $this->localUrl;
     }
 
     public function getRLibPath() {
         return $this->rLibPath;
     }
 
-    public function getRTempBaseUrl() {
+    public function getRTempPublicUrl() {
         return self::TEMP_BASE_URL;
-    }
-
-    public function setLibUrl($libUri) {
-        $libUri = trim($libUri, "/");
-        $this->libUri = '/' . $libUri;
     }
 
     public function getLibUri() {
@@ -135,9 +134,9 @@ class OpenCPU {
      * @throws OpenCPU_Exception
      */
     private function call($uri = '', $params = array(), $method = CURL::HTTP_METHOD_GET) {
-        if ($uri && strstr($uri, $this->baseUrl) === false) {
+        if ($uri && strstr($uri, $this->localUrl) === false) {
             $uri = "/" . ltrim($uri, "/");
-            $url = $this->baseUrl . $this->libUri . $uri;
+            $url = $this->localUrl . $this->libUri . $uri;
         } else {
             $url = $uri;
         }
@@ -168,7 +167,7 @@ class OpenCPU {
             return new OpenCPU_Session(null, null, $results, $this);
         } elseif ($this->curl_info['http_code'] < 200 || $this->curl_info['http_code'] > 302) {
             if (!$results) {
-                $results = "OpenCPU server '{$this->baseUrl}' could not be contacted";
+                $results = "OpenCPU server '{$this->publicUrl}' could not be contacted";
             }
             throw new OpenCPU_Exception($results, $this->curl_info['http_code']);
         }
@@ -307,12 +306,17 @@ class OpenCPU_Session {
      * Get an array of files present in current session
      *
      * @param string $match You can match only files with some slug in the path name
-     * @param string $baseURL URL segment to prepend to paths
+     * @param string $localUrl URL segment to prepend to paths
      * @return array
      */
-    public function getFiles($match = '/files/', $baseURL = null) {
+    public function getFiles($match = '/files/', $baseUrl = null) {
         if (!$this->key) {
             return null;
+        }
+
+        if($baseUrl !== null) {
+            $baseUrl = str_replace($this->caller()->getLocalUrl(), 
+                        $this->caller()->getPublicUrl(), $baseUrl);
         }
 
         $files = array();
@@ -323,38 +327,7 @@ class OpenCPU_Session {
             }
 
             $id = basename($path);
-            $files[$id] = $baseURL ? $baseURL . $path : $this->getResponsePath($path);
-        }
-        return $files;
-    }
-
-    /**
-     * Get absolute URLs of all resources in the response
-     *
-     * @return array
-     */
-    public function getResponsePaths() {
-        if (!$this->key || $this->isJSONResult()) {
-            return null;
-        }
-
-        $result = explode("\n", $this->raw_result);
-        $files = array();
-        foreach ($result as $id => $path) {
-            $files[$id] = $this->getResponsePath($path);
-        }
-        return $files;
-    }
-
-    public function getResponsePathsAsLinks() {
-        if (!$this->key || $this->isJSONResult()) {
-            return null;
-        }
-
-        $result = explode("\n", $this->raw_result);
-        $files = array();
-        foreach ($result as $path) {
-            $files[$path] = $this->getResponsePath($path);
+            $files[$id] = $baseUrl ? $baseUrl . $path : $this->getResponsePath($path);
         }
         return $files;
     }
@@ -363,8 +336,9 @@ class OpenCPU_Session {
         return $this->location;
     }
 
-    public function getFileURL($path) {
-        return $this->getResponsePath('/files/' . $path);
+    public function getPublicLocation() {
+        return str_replace($this->caller()->getLocalUrl(), 
+                        $this->caller()->getPublicUrl(), $this->location);
     }
 
     public function getObject($name = 'json', $params = array()) {
@@ -379,8 +353,8 @@ class OpenCPU_Session {
             $object = $this->getJSONObject($object);
         }
         if (is_string($object)) {
-            $object = str_replace($this->ocpu->getRLibPath(), $this->getBaseUrl() . $this->ocpu->getLibUri(), $object);
-            return str_replace($this->ocpu->getRTempBaseUrl(), $this->getLocation() . 'files/', $object);
+            $object = str_replace($this->ocpu->getRLibPath(), $this->getPublicUrl() . $this->ocpu->getLibUri(), $object);
+            return str_replace($this->ocpu->getRTempPublicUrl(), $this->getPublicLocation() . 'files/', $object);
         }
 
         return $object;
@@ -399,8 +373,8 @@ class OpenCPU_Session {
         // if decoded object is a non-empty array, get it's first element
         if (is_array($json) && array_key_exists(0, $json)) {
             if (is_string($json[0])) {
-                $string = str_replace($this->ocpu->getRLibPath(), $this->getBaseUrl() . $this->ocpu->getLibUri(), $json[0]);
-                return str_replace($this->ocpu->getRTempBaseUrl(), $this->getLocation() . 'files/', $string);
+                $string = str_replace($this->ocpu->getRLibPath(), $this->getLocalUrl() . $this->ocpu->getLibUri(), $json[0]);
+                return str_replace($this->ocpu->getRTempPublicUrl(), $this->getPublicLocation() . 'files/', $string);
             }
             return $json[0];
         }
@@ -464,12 +438,16 @@ class OpenCPU_Session {
         return $this->caller()->getResponseHeaders();
     }
 
-    public function getBaseUrl() {
-        return $this->caller()->getBaseUrl();
+    public function getPublicUrl() {
+        return $this->caller()->getPublicUrl();
+    }
+
+    public function getLocalUrl() {
+        return $this->caller()->getLocalUrl();
     }
 
     protected function getResponsePath($path) {
-        return $this->caller()->getBaseUrl() . $path;
+        return $this->caller()->getPublicUrl() . $path;
     }
 
 }

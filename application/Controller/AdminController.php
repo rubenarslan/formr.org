@@ -93,7 +93,7 @@ class AdminController extends Controller {
     protected function header() {
         if (!($cookie = Session::getAdminCookie())) {
             alert('You need to login to access the admin section', 'alert-warning');
-            $this->request->redirect('login');
+            $this->request->redirect('admin/account/login');
         }
         
         $this->user = new User($cookie[0], $cookie[1]);

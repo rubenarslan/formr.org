@@ -13,7 +13,7 @@ class AdminAccountController extends Controller {
     public function indexAction() {
         if (!$this->user->loggedIn()) {
             alert('You need to be logged in to go here.', 'alert-info');
-            $this->request->redirect('login');
+            $this->request->redirect('admin/account/login');
         }
 
         $vars = array('showform' => false);
@@ -128,7 +128,7 @@ class AdminAccountController extends Controller {
         if ($this->request->isHTTPPostRequest() && $site->request->str('email') && filter_var($this->request->str('email'), FILTER_VALIDATE_EMAIL)) {
             if (!Session::canValidateRequestToken($site->request) || Site::getSettings('signup:allow', 'true') !== 'true') {
                 alert('Could not process your request please try again later', 'alert-danger');
-                return $this->request->redirect('register');
+                return $this->request->redirect('admin/account/register');
             }
 
 
@@ -156,13 +156,13 @@ class AdminAccountController extends Controller {
 
         if ($this->request->isHTTPGetRequest() && $this->request->str('token')) {
             $user->resendVerificationEmail($this->request->str('token'));
-            $this->request->redirect('login');
+            $this->request->redirect('admin/account/login');
         } elseif (!$verification_token || !$email) {
             alert("You need to follow the link you received in your verification mail.");
-            $this->request->redirect('login');
+            $this->request->redirect('admin/account/login');
         } else {
             $user->verifyEmail($email, $verification_token);
-            $this->request->redirect('login');
+            $this->request->redirect('admin/account/login');
         };
     }
 
@@ -188,7 +188,7 @@ class AdminAccountController extends Controller {
 
         if ($this->request->isHTTPGetRequest() && (!$this->request->str('email') || !$this->request->str('reset_token')) && !$this->request->str('ok')) {
             alert('You need to follow the link you received in your password reset mail');
-            $this->request->redirect('forgot_password');
+            $this->request->redirect('admin/account/forgot-password');
         } elseif ($this->request->isHTTPPostRequest()) {
             $postRequest = new Request($_POST);
             $info = array(
@@ -198,7 +198,7 @@ class AdminAccountController extends Controller {
                 'new_password_confirm' => $postRequest->str('new_password_c'),
             );
             if (($done = $user->resetPassword($info))) {
-                $this->request->redirect('forgot_password');
+                $this->request->redirect('admin/account/forgot-password');
             }
         }
 

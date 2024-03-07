@@ -27,7 +27,11 @@ function formr_log_exception(Exception $e, $prefix = '', $debug_data = null) {
 }
 
 function get_log_file($filename) {
-    return APPLICATION_ROOT . "tmp/logs/$filename";
+    if(Config::get('error_to_stderr') == 1) {
+        return "php://stderr";
+    } else {
+        return APPLICATION_ROOT . "tmp/logs/$filename";
+    }
 }
 
 function alert($msg, $class = 'alert-warning', $dismissable = true) { // shorthand
@@ -756,15 +760,17 @@ function run_url($name = '', $action = '', $params = array()) {
         return site_url('run/' . $name . '/' . $action);
     }
 
-    $protocol = Config::get('define_root.protocol');
-    $domain = trim(Config::get('define_root.doc_root', ''), "\/\\");
+    $protocol = Config::get('protocol');
+    # use different domain for studies if set, independent of wildcard subdomain setting
+    $domain = trim(Config::get('study_domain', ''), "*\/\\");
     $subdomain = null;
+    
     if (Config::get('use_study_subdomains')) {
-        $domain = Config::get('define_root.study_domain', $domain); # use different domain for studies if set
-        $subdomain = strtolower($name) . '.';
+        $subdomain = strtolower($name);
     } else {
         $domain .= '/' . $name;
     }
+
     $url = $protocol . $subdomain . $domain;
     if ($action) {
         $action = trim($action, "\/\\");
@@ -1348,7 +1354,7 @@ function opencpu_debug($session, OpenCPU $ocpu = null, $rtype = 'json') {
                 }
             }
 
-            $urls = $session->getResponsePathsAsLinks();
+            $urls = $session->getFiles();
             if (!$session->hasError() AND!empty($urls)) {
                 $locations = '';
                 foreach ($urls AS $path => $link) {
