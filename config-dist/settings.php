@@ -83,6 +83,25 @@ $settings['session_cookie_lifetime'] = max($settings['expire_unregistered_sessio
 
 // Maximum size allowed for uploaded files in MB
 $settings['admin_maximum_size_of_uploaded_files'] = 50;
+$settings['allowed_file_endings_for_run_upload'] = array(
+	'image/jpeg' => 'jpg', 
+	'image/png' => 'png', 
+	'image/gif' => 'gif', 
+	'image/tiff' => 'tif',
+	'video/mpeg' => 'mpg', 
+	'video/quicktime' => 'mov', 
+	'video/x-flv' => 'flv', 
+	'video/x-f4v' => 'f4v', 
+	'video/x-msvideo' => 'avi',
+	'audio/mpeg' => 'mp3',
+	'application/pdf' => 'pdf',
+	'text/csv' => 'csv', 
+	'text/javascript' => 'js', 
+	'text/css' => 'css', 
+	'text/tab-separated-values' => 'tsv', 
+	'text/plain' => 'txt',
+	'text/html' => 'html'
+);
 
 // Directory for exported runs
 $settings['run_exports_dir'] = APPLICATION_ROOT . 'documentation/run_components';
