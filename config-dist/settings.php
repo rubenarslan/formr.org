@@ -43,7 +43,8 @@ $settings['alternative_opencpu_instance'] = array(
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
 
-// email SMTP and queueing configuration
+// email SMTP and queueing configuration for emails sent by the formr app itself
+// for example for email confirmation and password reset
 $settings['email'] = array(
 	'host' => 'smtp.example.com',
 	'port' => 587,
@@ -64,6 +65,18 @@ $settings['email'] = array(
     'queue_skip_accounts' => array(),
 	// SMTP options for phpmailer
 	'smtp_options' => array(),
+);
+
+// email SMTP and queueing configuration for emails sent by formr admins in studies
+// maybe not be the same as the formr app email
+$settings['default_admin_email'] = array(
+	'host' => NULL,
+	'port' => NULL,
+	'tls' => true,
+	'from' => NULL,
+	'from_name' => NULL,
+	'username' => NULL,
+	'password' => NULL
 );
 
 // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged

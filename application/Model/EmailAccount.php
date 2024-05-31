@@ -58,6 +58,7 @@ class EmailAccount extends Model {
             'port' => $this->account['port'],
             'tls' => $this->account['tls'],
             'username' => $this->account['username'],
+            'reply_to' => $this->account['reply_to'],
             'password' => $old_password,
         );
 
@@ -72,7 +73,7 @@ class EmailAccount extends Model {
         $params['password'] = '';
 
         $query = "UPDATE `survey_email_accounts` 
-			SET `from` = :fromm, `from_name` = :from_name, `host` = :host, `port` = :port, `tls` = :tls, `username` = :username, `password` = :password, `auth_key` = :auth_key, `status` = 0
+			SET `from` = :fromm, `from_name` = :from_name, `host` = :host, `port` = :port, `tls` = :tls, `username` = :username, `reply_to` = :reply_to, `password` = :password, `auth_key` = :auth_key, `status` = 0
 			WHERE id = :id LIMIT 1";
 
         $this->db->exec($query, $params);
@@ -122,7 +123,12 @@ class EmailAccount extends Model {
         }
         $mail->From = $this->account['from'];
         $mail->FromName = $this->account['from_name'];
-        $mail->AddReplyTo($this->account['from'], $this->account['from_name']);
+        if(!empty($this->account['reply_to'])) {
+            $mail->AddReplyTo($this->account['reply_to'], $this->account['from_name']);
+        } else {
+            $mail->AddReplyTo($this->account['from'], $this->account['from_name']);
+        }
+
         $mail->CharSet = "utf-8";
         $mail->WordWrap = 65; // set word wrap to 65 characters
         if (is_array(Config::get('email.smtp_options'))) {
