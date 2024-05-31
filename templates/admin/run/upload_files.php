@@ -29,6 +29,7 @@
                                 <li><i class="fa-li fa fa-cloud-upload"></i> We do not prevent users from sharing the links with others. 
                                     If your users see an image/video, there is no way of preventing them from re-sharing it, if you're not looking over their shoulders.<br>
                                     Users can always take a photo of the screen, even if you could prevent screenshots. Hence, we saw no point in generating single-use links for the images (so that users can't share the picture directly). Please be aware of this and don't use formr to show confidential information in an un-supervised setting. However, because the links are large random numbers, it's fairly safe to use formr to upload confidential information to be shown in the lab, the images cannot be discovered by people who don't have access to the study.</li>
+                                <li><i class="fa-li fa fa-file"></i>The following file types are allowed: <?php echo  implode(", ", Config::get('allowed_file_endings_for_run_upload')); ?></li>
                             </ul>
                         </div>
 

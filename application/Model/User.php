@@ -295,6 +295,36 @@ class User extends Model {
         return true;
     }
 
+    public function enableDefaultEmailaccount() {
+        $default_email = Config::get('default_admin_email');
+        
+        if ($default_email !== null && $default_email['host'] !== null) {
+            // Create a new EmailAccount instance
+            $emailAccount = new EmailAccount(null, $this->id);
+            
+            // Prepare the settings array
+            $settings = array(
+                'from' => $default_email['from'],
+                'from_name' => $default_email['from_name'],
+                'host' => $default_email['host'],
+                'port' => $default_email['port'],
+                'tls' => $default_email['tls'],
+                'username' => $default_email['username'],
+                'password' => $default_email['password'],
+                'reply_to' => $this->email
+            );
+            
+            // Create the email account
+            $emailAccount->create();
+            
+            // Change settings to the new default email configuration
+            $emailAccount->changeSettings($settings);
+            $emailAccount->validate();
+            alert("You have been set up with an email account to programmatically send emails from {$default_email['from']}!", 'alert-success');
+        }
+    }
+    
+
     public function resetPassword($info) {
         $email = array_val($info, 'email');
         $token = array_val($info, 'reset_token');
@@ -328,25 +358,34 @@ class User extends Model {
         return false;
     }
 
-    public function verifyEmail($email, $token) {
+    public function setVerified($email) {
+        $this->db->update('survey_users', array('email_verification_hash' => null, 'email_verified' => 1), array('email' => $email), array('int', 'int'));
+        alert('Your email was successfully verified!', 'alert-success');
+
         $verify_data = $this->db->findRow('survey_users', array('email' => $email), array('email_verification_hash', 'referrer_code'));
+
+        if (in_array($verify_data['referrer_code'], Config::get('referrer_codes'))) {
+            $this->db->update('survey_users', array('admin' => 1), array('email' => $email));
+            $this->id = (int) $this->db->findValue('survey_users', array('email' => $email), array('id'));
+            $this->load();
+            $this->enableDefaultEmailaccount();
+
+            alert('You now have the rights to create your own studies!', 'alert-success');
+        } else {
+            alert('Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.', 'alert-danger');
+            return false;
+        }
+        return true;
+    }
+
+    public function verifyEmail($email, $token) {
+        $verify_data = $this->db->findRow('survey_users', array('email' => $email), array('email_verification_hash'));
         if (!$verify_data) {
             alert('Incorrect token or email address.', 'alert-danger');
             return false;
         }
-
         if (password_verify($token, (string)$verify_data['email_verification_hash'])) {
-            $this->db->update('survey_users', array('email_verification_hash' => null, 'email_verified' => 1), array('email' => $email), array('int', 'int'));
-            alert('Your email was successfully verified!', 'alert-success');
-
-            if (in_array($verify_data['referrer_code'], Config::get('referrer_codes'))) {
-                $this->db->update('survey_users', array('admin' => 1), array('email' => $email));
-                alert('You now have the rights to create your own studies!', 'alert-success');
-            }
-            return true;
-        } else {
-            alert('Your email verification token was invalid or oudated. Please try copy-pasting the link in your email and removing any spaces.', 'alert-danger');
-            return false;
+            return $this->setVerified($email);
         }
     }
 
