@@ -27,8 +27,8 @@ $users = $db->count('survey_users');
 
 print("$users exist already");
 
-if($config['level'] > 0 && $users > 0) {
-	throw new Exception("Cannot create admins when users already exist");
+if($config['level'] > 1 && $users > 0) {
+	print("Cannot create superadmins when users already exist");
 }
 
 $inserted = $db->insert('survey_users', array(
