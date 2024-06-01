@@ -34,13 +34,13 @@
                             <div class="row">
                                 <div class="fmr-intro-text">
                                     <div class="container top-alerts"><?= Template::loadChild('public/alerts') ?></div>
-                                    <div class="login-form">
+                                    <div class="login-form" style="height:750px">
                                         <span class="close"><a href="<?= site_url() ?>">&times</a></span>
                                         <div>
                                             <a href="<?= site_url() ?>" class="login-form-logo"><?=Config::get('brand')?></a>
                                         </div>
 
-                                        <h2>Sign-up to formr. It's free!</h2>
+                                        <h2>Sign up!</h2>
                                         <?= Template::loadChild('public/alerts') ?>
 
                                         <div style="margin-top: 55px;">
@@ -61,14 +61,17 @@
                                                 </div>
                                                 
                                                 <div>
-                                                    <p>If you don't have a referral token, sign up first and then write us an <a title=" We're excited to have people try this out, so you'll get a test account, if you're human. But let us know a little about what you plan to do (and sign up first)." class="schmail" href="mailto:accounts@formr.org?subject=<?= rawurlencode("formr private beta"); ?>&amp;body=<?= rawurlencode(Template::get('email/reg-account.ftpl')); ?>">email</a> to ask for the right to create studies. If you have a token, you'll be able to create studies once you confirm your email address.</p>
+                                                    <p>If you have a valid token, you'll be able to create studies once you confirm your email address. If you don't have a valid token, sign up first and then write an email to this instance's administrator at <?php $support_email = Site::getSettings('content:docu:support_email', 'no@email.provided'); ?><a href="mailto:<?= $support_email ?>"><?= $support_email ?></a>.</p>
                                                 </div>
+                                                <div> <?php echo Site::getSettings('signup:message', '') ?></div>
 
                                                 <button type="submit" class="btn btn-sup btn-material-pink btn-raised"><i class="fa fa-pencil fa-fw"></i> Sign Up</button>
                                             </form>
-                                            <?php else: ?>
-                                            <div> <?php echo Site::getSettings('signup:message', '') ?></div>
                                             <?php endif; ?>
+                                            <p>&nbsp;</p>
+                                            <p>Already signed up?</p>
+                                            <p><a href="<?php echo admin_url('account/login'); ?>" class="btn btn-sup btn-material-pink btn-raised">Sign In</a></p>
+
                                         </div>
 
                                     </div>
