@@ -222,74 +222,123 @@ class Run extends Model {
                         ->fetchAll();
     }
 
-    public $file_endings = array(
-        'image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/tiff' => '.tif',
-        'video/mpeg' => '.mpg', 'video/quicktime' => '.mov', 'video/x-flv' => '.flv', 'video/x-f4v' => '.f4v', 'video/x-msvideo' => '.avi',
-        'audio/mpeg' => '.mp3',
-        'application/pdf' => '.pdf',
-        'text/csv' => '.csv', 'text/css' => '.css', 'text/tab-separated-values' => '.tsv', 'text/plain' => '.txt'
-    );
-
     public function uploadFiles($files) {
         $max_size_upload = Config::get('admin_maximum_size_of_uploaded_files');
+        $allowed_file_endings = Config::get('allowed_file_endings_for_run_upload');
+    
         // make lookup array
         $existing_files = $this->getUploadedFiles();
         $files_by_names = array();
         foreach ($existing_files as $existing_file) {
             $files_by_names[$existing_file['original_file_name']] = $existing_file['new_file_path'];
         }
-
+    
+        // Generate a random directory name for this batch
+        $batch_directory = 'assets/tmp/admin/' . crypto_token(15, true) . '/';
+    
+        // Ensure the batch directory exists
+        $destination_dir = APPLICATION_ROOT . 'webroot/' . $batch_directory;
+        if (!is_dir($destination_dir)) {
+            mkdir($destination_dir, 0777, true);
+        }
+    
         // loop through files and modify them if necessary
         for ($i = 0; $i < count($files['tmp_name']); $i++) {
-            // validate if any error occured on upload
+            // validate if any error occurred on upload
             if ($files['error'][$i]) {
-                $this->errors[] = __("An error occured uploading file '%s'. ERROR CODE: PFUL-%d", $files['name'][$i], $files['error'][$i]);
+                $this->errors[] = __("An error occurred uploading file '%s'. ERROR CODE: PFUL-%d", $files['name'][$i], $files['error'][$i]);
                 continue;
             }
-
+    
             // validate file size
             $size = (int) $files['size'][$i];
             if (!$size || ($size > $max_size_upload * 1048576)) {
                 $this->errors[] = __("The file '%s' is too big or the size could not be determined. The allowed maximum size is %d megabytes.", $files['name'][$i], round($max_size_upload, 2));
                 continue;
             }
-
-            // validate mime type
+    
+            // validate mime type and file ending
             $finfo = new finfo(FILEINFO_MIME_TYPE);
             $mime = $finfo->file($files['tmp_name'][$i]);
-            if (!isset($this->file_endings[$mime])) {
-                $this->errors[] = __('The file "%s" has the MIME type %s and is not allowed to be uploaded.', $files['name'][$i], $mime);
+            $original_file_name = $files['name'][$i];
+            $file_extension = pathinfo($original_file_name, PATHINFO_EXTENSION);
+    
+            // Adjust validation for ambiguous types
+            if ($mime == 'text/plain' || $mime == "text/x-asm") {
+                // Add additional cases for other ambiguous MIME types
+                switch ($file_extension) {
+                    case 'css':
+                        $mime = 'text/css';
+                        break;
+                    case 'js':
+                        $mime = 'text/javascript';
+                        break;
+                    case 'svg':
+                        $mime = 'image/svg+xml';
+                        break;
+                    case 'html':
+                        $mime = 'text/html';
+                        break;
+                    case 'xml':
+                        $mime = 'application/xml';
+                        break;
+                    case 'md':
+                        $mime = 'text/markdown';
+                        break;
+                    case 'yaml':
+                    case 'yml':
+                        $mime = 'application/x-yaml';
+                        break;
+                    case 'json':
+                        $mime = 'application/json';
+                        break;
+                    case 'rtf':
+                        $mime = 'application/rtf';
+                        break;
+                    case 'php':
+                        $mime = 'application/x-httpd-php';
+                        break;
+                    case 'sh':
+                        $mime = 'application/x-sh';
+                        break;
+                }
+            }
+    
+            if (!isset($allowed_file_endings[$mime]) || $allowed_file_endings[$mime] !== $file_extension) {
+                $this->errors[] = __('The file "%s" has an invalid file extension %s. Expected %s for MIME type %s.', $original_file_name, $file_extension, $allowed_file_endings[$mime], $mime);
+                continue;
+            }
+    
+            // Sanitize file name to remove control characters
+            $sanitized_file_name = preg_replace('/[\x00-\x1F\x7F]/u', '', $original_file_name);  // Remove control characters
+            $new_file_path = $batch_directory . $sanitized_file_name;
+
+            // Ensure the destination path is within the intended directory
+            $intended_path = $destination_dir . $sanitized_file_name;
+            if (strpos(realpath(dirname($intended_path)), realpath($destination_dir)) !== 0) {
+                $this->errors[] = __("The file '%s' could not be uploaded due to an invalid file path.", $sanitized_file_name);
                 continue;
             }
 
-            // validation was OK
-            $original_file_name = $files['name'][$i];
-            if (isset($files_by_names[$original_file_name])) {
-                // override existing path
-                $new_file_path = $files_by_names[$original_file_name];
-                $this->messages[] = __('The file "%s" was overriden.', $original_file_name);
-            } else {
-                $new_file_path = 'assets/tmp/admin/' . crypto_token(33, true) . $this->file_endings[$mime];
-            }
-
             // save file
-            $destination_dir = APPLICATION_ROOT . 'webroot/' . $new_file_path;
-            if (move_uploaded_file($files['tmp_name'][$i], $destination_dir)) {
+            if (move_uploaded_file($files['tmp_name'][$i], $destination_dir . $original_file_name)) {
                 $this->db->insert_update('survey_uploaded_files', array(
                     'run_id' => $this->id,
                     'created' => mysql_now(),
                     'original_file_name' => $original_file_name,
                     'new_file_path' => $new_file_path,
-                        ), array(
+                ), array(
                     'modified' => mysql_now()
                 ));
+                $this->messages[] = __('The file "%s" was successfully uploaded.', $original_file_name);
             } else {
                 $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
             }
         }
-
+    
         return empty($this->errors);
     }
+    
 
     public function deleteFile($id, $filename) {
         $where = array('id' => (int) $id, 'original_file_name' => $filename);

@@ -70,6 +70,29 @@ class AdminAdvancedController extends AdminController {
             $this->response->setJsonContent(['success' => true]);
             return $this->sendResponse();
         }
+
+        if ($request->verify_email_manually) {
+            $user = (new User())->refresh(['id' => (int)$request->user_id, 'email' => $request->user_email]);
+            
+            $user->setVerified($request->user_email);
+
+            alert('User email address has been manually set to verified.', 'alert-success');
+            $this->response->setContentType('application/json');
+            $this->response->setJsonContent(['success' => true]);
+            return $this->sendResponse();
+        }
+
+        if ($request->add_default_email_access) {
+            $user = (new User())->refresh(['id' => (int)$request->user_id, 'email' => $request->user_email]);
+            
+            $user->enableDefaultEmailaccount();
+
+            alert('User has been given access to the default email sending account.', 'alert-success');
+            $this->response->setContentType('application/json');
+            $this->response->setJsonContent(['success' => true]);
+            return $this->sendResponse();
+        }
+
     }
 
     private function setAdminLevel($user_id, $level) {
