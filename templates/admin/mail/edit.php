@@ -70,6 +70,15 @@ Template::loadChild('acp_nav');
         </div>
 
         <div class="form-group">
+            <label class="control-label" for="reply_to">
+                <?php echo _("Reply-To:"); ?>
+            </label>
+            <div class="controls">
+                <input class="form-control" value="<?= array_val($acc->account, 'reply_to') ?>" type="text" placeholder="Reply-To (optional)" name="reply_to" id="reply_to" value="">
+            </div>
+        </div>
+
+        <div class="form-group">
             <div class="controls">
                 <input class="btn" required type="submit" value="<?php echo _("Save account"); ?>">
                 <input class="btn" name='test_account' required type="submit" value="Test" title="Sends a test mail to a random mailinator address">
