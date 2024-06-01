@@ -43,7 +43,8 @@ $settings['alternative_opencpu_instance'] = array(
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
 
-// email SMTP and queueing configuration
+// email SMTP and queueing configuration for emails sent by the formr app itself
+// for example for email confirmation and password reset
 $settings['email'] = array(
 	'host' => 'smtp.example.com',
 	'port' => 587,
@@ -66,6 +67,18 @@ $settings['email'] = array(
 	'smtp_options' => array(),
 );
 
+// email SMTP and queueing configuration for emails sent by formr admins in studies
+// maybe not be the same as the formr app email
+$settings['default_admin_email'] = array(
+	'host' => NULL,
+	'port' => NULL,
+	'tls' => true,
+	'from' => NULL,
+	'from_name' => NULL,
+	'username' => NULL,
+	'password' => NULL
+);
+
 // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
 $settings['display_errors_when_live'] = 0;
 $settings['display_errors'] = 0;
@@ -83,6 +96,25 @@ $settings['session_cookie_lifetime'] = max($settings['expire_unregistered_sessio
 
 // Maximum size allowed for uploaded files in MB
 $settings['admin_maximum_size_of_uploaded_files'] = 50;
+$settings['allowed_file_endings_for_run_upload'] = array(
+	'image/jpeg' => 'jpg', 
+	'image/png' => 'png', 
+	'image/gif' => 'gif', 
+	'image/tiff' => 'tif',
+	'video/mpeg' => 'mpg', 
+	'video/quicktime' => 'mov', 
+	'video/x-flv' => 'flv', 
+	'video/x-f4v' => 'f4v', 
+	'video/x-msvideo' => 'avi',
+	'audio/mpeg' => 'mp3',
+	'application/pdf' => 'pdf',
+	'text/csv' => 'csv', 
+	'text/javascript' => 'js', 
+	'text/css' => 'css', 
+	'text/tab-separated-values' => 'tsv', 
+	'text/plain' => 'txt',
+	'text/html' => 'html'
+);
 
 // Directory for exported runs
 $settings['run_exports_dir'] = APPLICATION_ROOT . 'documentation/run_components';

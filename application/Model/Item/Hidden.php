@@ -3,7 +3,7 @@
 class Hidden_Item extends Item {
 
     public $type = 'hidden';
-    public $mysql_field = 'TEXT DEFAULT NULL';
+    public $mysql_field = 'MEDIUMTEXT DEFAULT NULL';
     public $input_attributes = array('type' => 'hidden');
     public $optional = 1;
 

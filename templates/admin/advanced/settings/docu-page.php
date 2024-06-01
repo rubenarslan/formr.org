@@ -18,7 +18,7 @@
             </div>
         </div>
         <div class="form-group  col-md-6">
-            <label class="control-label"> Support E-mail </label>
+            <label class="control-label"> Administrator email address </label>
             <input class="form-control user-success" name="content:docu:support_email" value="<?= h(array_val($settings, 'content:docu:support_email', 'provide@email.in')); ?>" autocomplete="off">
             <p>Users would send requests to this email for admin accounts.</p>
         </div>

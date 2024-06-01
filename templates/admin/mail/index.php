@@ -80,7 +80,7 @@ Template::loadChild('admin/header');
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label class="col-sm-2 control-label">SMTP Port</label>
+                                <label class="col-sm-2 control-label" title="Usually 587, sometimes 465, or 25">SMTP Port</label>
                                 <div class="col-sm-10">
                                     <input name="port" value="<?= array_val($acc->account, 'port') ?>" type="number" class="form-control" placeholder="25" required>
                                 </div>
@@ -104,6 +104,17 @@ Template::loadChild('admin/header');
                                     <input name="username" value="<?= array_val($acc->account, 'username') ?>" type="text" class="form-control" placeholder="Username" autocomplete="off" />
                                 </div>
                             </div>
+
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label" for="reply_to" title="If you specify the Reply-To argument, responses to emails sent with this account will automatically be addressed to this Reply-To address.">
+                                    <?php echo _("Reply-To:"); ?>
+                                </label>
+                                <div class="col-sm-10">
+                                    <input class="form-control" value="<?= array_val($acc->account, 'reply_to') ?>" type="text" placeholder="Reply-To (optional)" name="reply_to" id="reply_to" value="">
+                                </div>
+                            </div>
+
+
                             <div class="form-group">
                                 <label class="col-sm-2 control-label">Password</label>
                                 <div class="col-sm-10">
