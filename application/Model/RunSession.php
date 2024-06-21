@@ -130,10 +130,10 @@ class RunSession extends Model {
         if ($this->run->id === -1) {
             return false;
         }
-
+        $code_rule = Config::get("user_code_regular_expression");
         if ($session !== null) {
-            if (strlen($session) != 64) {
-                alert("<strong>Error.</strong> Session tokens need to be exactly 64 characters long.", 'alert-danger');
+            if (!preg_match($code_rule, $session)) {
+                alert("<strong>Error.</strong> Session tokens needs to match $code_rule", 'alert-danger');
                 return false;
             }
         } else {
