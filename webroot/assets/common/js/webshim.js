@@ -29,7 +29,7 @@ webshim.setOptions({
     'forms-ext': {
         types: 'range date time number month color',
         customDatalist: true,
-        replaceUI: {range: true, color: true, date: true, month: true},
+        replaceUI: {range: true, color: true, date: true, month: true, number: true},
 		widgets: {
 			'startView': 1,
 			'openOnFocus': true,

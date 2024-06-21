@@ -39,12 +39,37 @@ class Timezone_Item extends SelectOne_Item {
     }
 
     protected function render_input() {
-        $tpl = '
+        $tpl = "
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+    // Get the browser's timezone
+    let timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Replace '/' with ' - ' to match the format in the select options
+    timezone = timezone.replace(/\//g, ' - ');
+
+    // Get the select element by its name attribute
+    const selectElement = document.querySelector('select[name=\"timezone\"]');
+    const options = selectElement.options;
+
+    // Find the option that matches the browser's timezone and select it
+    for (let i = 0; i < options.length; i++) {
+        if (options[i].text.includes(timezone)) {
+            options[i].selected = true;
+
+            // Trigger change event for select2 to update UI
+            const event = new Event('change', { bubbles: true });
+            selectElement.dispatchEvent(event);
+            break;
+        }
+    }
+});
+</script>
 			<select %{select_attributes}>
 				%{empty_option}
 				%{options}
 			</select>
-		';
+		";
 
         $options = '';
         foreach ($this->choices as $value => $option) {
