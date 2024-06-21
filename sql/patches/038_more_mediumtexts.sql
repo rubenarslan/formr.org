@@ -1,0 +1,1 @@
+ALTER TABLE `survey_items` CHANGE `value` `value` mediumtext COLLATE utf8mb4_unicode_ci;

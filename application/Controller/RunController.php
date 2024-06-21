@@ -268,7 +268,8 @@ class RunController extends Controller {
         $id = null;
 
         // came here with a login link
-        if (isset($_GET['run_name']) && isset($_GET['code']) && strlen($_GET['code']) == 64) {
+        $code_rule = Config::get("user_code_regular_expression");
+        if (isset($_GET['run_name']) && isset($_GET['code']) && preg_match($code_rule, $_GET['code'])) {
             // user came in with login code
             $loginCode = $_GET['code'];
         } elseif ($user = Site::getInstance()->getSessionUser()) {
