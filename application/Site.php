@@ -170,7 +170,9 @@ class Site {
 
     public function loginUser($user) {
         // came here with a login link
-        if (isset($_GET['run_name']) && isset($_GET['code']) && strlen($_GET['code']) == 64) {
+        $code_rule = Config::get("user_code_regular_expression");
+        pr($_GET['code']);die;
+        if (isset($_GET['run_name']) && isset($_GET['code']) && preg_match($code_rule, $_GET['code'])) {
             $login_code = $_GET['code'];
             // this user came here with a session code that he wasn't using before. 
             // this will always be true if the user is 
