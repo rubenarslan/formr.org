@@ -84,7 +84,7 @@ $settings['display_errors_when_live'] = 0;
 $settings['display_errors'] = 0;
 $settings['error_to_stderr'] = 0;
 
-$settings['user_code_regular_expression'] = "/^[A-Za-z0-9+]{64}$/";
+$settings['user_code_regular_expression'] = "/^[A-Za-z0-9+-_~]{64}$/";
 
 // Session expiration related settings
 // (for unregistered users. in seconds (defaults to a year))
