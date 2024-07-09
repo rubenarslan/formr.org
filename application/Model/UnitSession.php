@@ -723,9 +723,17 @@ class UnitSession extends Model {
                 $items = $this->db->select('name')->from('survey_items')
                         ->where(['study_id' => $study_id])
                         ->where("type NOT IN ('mc_heading', 'note', 'submit', 'block', 'note_iframe')")
+                        ->where("name != 'iteration'")
                         ->fetchAll();
 
                 $variable_names_in_table[$table_name] = array("created", "modified", "ended"); // should avoid modified, sucks for caching
+                $res_table = $results_tables[$table_name];
+                $has_iter = $this->db->prepare("DESCRIBE `$res_table` `iteration`");
+                $has_iter->execute();
+                if($has_iter->fetch(PDO::FETCH_ASSOC) !== false) {
+                    $variable_names_in_table[$table_name][] = "iteration";
+                }
+        
                 foreach ($items as $res) {
                     $variable_names_in_table[$table_name][] = $res['name']; // search set for user defined tables
                 }
