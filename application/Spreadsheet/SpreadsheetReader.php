@@ -747,7 +747,7 @@ class SpreadsheetReader {
                         $this->errors[] = __("The variable name '%s' is invalid. It has to be between 1 and 64 characters. It needs to start with a letter and can only contain the characters from <strong>a</strong> to <strong>Z</strong>, <strong>0</strong> to <strong>9</strong> and the underscore.", $cellValue);
                     }
 
-                    if (in_array($cellValue, array('session_id', 'created', 'modified', 'ended', 'id', 'study_id'))) {
+                    if (in_array($cellValue, array('session_id', 'created', 'modified', 'ended', 'id', 'study_id', 'iteration'))) {
                         $this->errors[] = __("Row %s: variable name '%s' is not permitted.", $rowNumber, $cellValue);
                     }
 

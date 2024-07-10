@@ -605,6 +605,7 @@ class SurveyStudy extends Model {
 		CREATE TABLE `{$this->results_table}` (
 		  `session_id` INT UNSIGNED NOT NULL ,
 		  `study_id` INT UNSIGNED NOT NULL ,
+          `iteration` INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
 		  `created` DATETIME NULL DEFAULT NULL ,
 		  `modified` DATETIME NULL DEFAULT NULL ,
 		  `ended` DATETIME NULL DEFAULT NULL ,
@@ -704,10 +705,7 @@ class SurveyStudy extends Model {
                   );
                  */
             } else {
-                $columns = array('survey_run_sessions.session', "`{$results_table}`.`created`", "`{$results_table}`.`modified`", "`{$results_table}`.`ended`, `survey_unit_sessions`.`expired`");
-            }
-            foreach ($items as $item) {
-                $columns[] = "{$results_table}.{$item}";
+                $columns = array('survey_run_sessions.session', "`{$results_table}`.*");
             }
 
             $select = $this->db->select($columns)
@@ -957,7 +955,7 @@ class SurveyStudy extends Model {
             return true;
         } elseif ($run_id !== null) {
             //@todo implement deleting results only for a particular run
-            $this->error[] = 'Deleting run specific results for a survey is not yet implemented';
+            $this->errors[] = 'Deleting run specific results for a survey is not yet implemented';
             return false;
         } elseif ($this->backupResults()) {
             $delete = $this->db->query("TRUNCATE TABLE `{$this->results_table}`");

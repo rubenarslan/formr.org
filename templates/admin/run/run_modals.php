@@ -30,7 +30,7 @@
 						</div>
 						<div class="col-md-6">
 							<div class="form-group checkbox">
-								<label><input type="checkbox" name="include_survey_details" value="true"> Include Survey Details </label>
+								<label><input type="checkbox" name="include_survey_details" value="true" checked> Include survey items </label>
 							</div>
 						</div>
 						<div class="clearfix"></div>
