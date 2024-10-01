@@ -47,6 +47,8 @@ class Run extends Model {
     public $osf_project_id = null;
     public $footer_text = null;
     public $public_blurb = null;
+    public $privacy = null;
+    public $tos = null;
     public $use_material_design = false;
     public $expire_cookie = 0;
     public $expire_cookie_value = 0;
@@ -62,11 +64,14 @@ class Run extends Model {
     protected $description_parsed = null;
     protected $footer_text_parsed = null;
     protected $public_blurb_parsed = null;
+    protected $privacy_parsed = null;
+    protected $tos_parsed = null;
     protected $api_secret_hash = null;
     protected $owner = null;
     protected $run_settings = array(
         "header_image_path", "title", "description",
-        "footer_text", "public_blurb", "custom_css",
+        "footer_text", "public_blurb", "privacy",
+        "tos", "custom_css",
         "custom_js", "cron_active", "osf_project_id",
         "use_material_design", "expire_cookie",
         "expire_cookie_value", "expire_cookie_unit",
@@ -108,7 +113,7 @@ class Run extends Model {
             return;
         }
 
-        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
+        $columns = "id, user_id, created, modified, name, api_secret_hash, public, cron_active, cron_fork, locked, header_image_path, title, description, description_parsed, footer_text, footer_text_parsed, public_blurb, public_blurb_parsed, privacy, privacy_parsed, tos, tos_parsed, custom_css_path, custom_js_path, osf_project_id, use_material_design, expire_cookie";
         $where = $this->id ? array('id' => $this->id) : array('name' => $this->name);
         $vars = $this->db->findRow('survey_runs', $where, $columns);
 
@@ -173,6 +178,12 @@ class Run extends Model {
         if (!in_array($public, range(0, 3))) {
             return false;
         }
+        $require_privacy = Config::get("require_privacy_policy", false);
+        if ($require_privacy AND !$this->hasPrivacy() && $public > 0) {
+            alert('You cannot make this run public because it does not have a privacy policy. Set them first in the settings tab.', 'alert-warning');
+            $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
+            return false;
+        }
 
         $updated = $this->db->update('survey_runs', array('public' => $public), array('id' => $this->id));
         return $updated !== false;
@@ -206,6 +217,13 @@ class Run extends Model {
         $this->id = $this->db->pdo()->lastInsertId();
         $this->name = $name;
         $this->load();
+
+        $owner = $this->getOwner();
+        $privacy_url = run_url($name, "privacy");
+        $tos_url = run_url($name, "terms_of_service");
+        $settings_url = run_url($name, "settings");
+        $footer = "Contact the [study administration](mailto:{$owner->email}) in case of questions. [Privacy Policy]($privacy_url). [Terms of Service]($tos_url). [Settings]($settings_url).";
+        $this->saveSettings(array("footer_text" => $footer));
 
         // create default run service message
         $props = RunUnit::getDefaults('ServiceMessagePage');
@@ -409,6 +427,31 @@ class Run extends Model {
         return null;
     }
 
+    public function getParsedPrivacyField($field) {
+        return match ($field) {
+            'privacy-policy' => $this->privacy_parsed,
+            'terms-of-service' => $this->tos_parsed,
+            default => "",
+        };
+    }
+
+    public function hasPrivacyUnit() {
+        $select = $this->db->select(array('unit_id'));
+        $select->from('survey_run_units');
+        $select->join('survey_units', 'survey_units.id = survey_run_units.unit_id');
+        $select->where(array('run_id' => $this->id, 'type' => 'Privacy'));
+
+        return $select->fetchColumn() !== false;
+    }
+
+    public function hasPrivacy() {
+        return $this->privacy !== null AND trim($this->privacy) !== '';
+    }
+
+    public function hasToS() {
+        return $this->tos !== null AND trim($this->tos) !== '';
+    }
+
     public function getAllUnitTypes() {
         $select = $this->db->select(array('survey_run_units.id' => 'run_unit_id', 'unit_id', 'position', 'type', 'description'));
         $select->from('survey_run_units');
@@ -588,6 +631,19 @@ class Run extends Model {
         if (isset($posted['footer_text'])) {
             $posted['footer_text_parsed'] = $parsedown->text($posted['footer_text']);
             $this->run_settings[] = 'footer_text_parsed';
+        }
+        $require_privacy = Config::get("require_privacy_policy", false);
+        if ($require_privacy AND ((isset($posted['privacy']) && trim($posted['privacy']) == '')) && $this->public > 0) {
+            alert("This run is public, but you have removed the privacy policy. We've set it to private for you. Add a privacy policy before setting the run to public again.", 'alert-danger');
+            $this->db->update('survey_runs', array('public' => 0), array('id' => $this->id));
+        }
+        if (isset($posted['privacy'])) {
+            $posted['privacy_parsed'] = $parsedown->text($posted['privacy']);
+            $this->run_settings[] = 'privacy_parsed';
+        }
+        if (isset($posted['tos'])) {
+            $posted['tos_parsed'] = $parsedown->text($posted['tos']);
+            $this->run_settings[] = 'tos_parsed';
         }
 
         $cookie_units = array_keys($this->expire_cookie_units);
@@ -855,6 +911,20 @@ class Run extends Model {
         }
         if (!$this->renderedDescAndFooterAlready && !empty($this->footer_text_parsed)) {
             $run_content .= $this->footer_text_parsed;
+            $privacy_pages = [];
+            $run_url = run_url($this->name) . '?show-privacy-page=';
+            if ($this->hasPrivacy()) {
+                $privacy_pages[] = '<a href="' . $run_url . 'privacy-policy" target="_blank">Privacy Policy</a>';
+            }
+            if ($this->hasToS()) {
+                $privacy_pages[] = '<a href="' . $run_url . 'terms-of-service" target="_blank">Terms of Service</a>';
+            }
+
+            if (!empty($privacy_pages)) {
+                $run_content .= '<br><div class="privacy-footer">';
+                $run_content .= implode(' | ', $privacy_pages);
+                $run_content .= '</div>';
+            }
         }
 
         if ($runSession->isTesting()) {
@@ -908,6 +978,8 @@ class Run extends Model {
             'description' => $this->description,
             'footer_text' => $this->footer_text,
             'public_blurb' => $this->public_blurb,
+            'privacy' => $this->privacy,
+            'tos' => $this->tos,
             'cron_active' => (int) $this->cron_active,
             'custom_js' => $this->getCustomJS(),
             'custom_css' => $this->getCustomCSS(),

@@ -29,10 +29,11 @@
                                 <h5>Publicness: &nbsp; </h5>
                                 <span class="btn-group">
 
-                                    <a href="<?= admin_run_url($run->name, 'ajax_run_public_toggle?public=0') ?>" class="btn btn-default public-toggle hastooltip <?= ($run->public == 0) ? 'btn-checked' : '' ?>" title="" data-original-title="Only you can access.">
-                                        <i class="fa fa-eject"></i>
+                                    <a href="<?= admin_run_url($run->name, 'ajax_run_public_toggle?public=0') ?>" class="btn btn-default public-toggle hastooltip <?= ($run->public == 0) ? 'btn-checked' : '' ?>" title="" 
+                                    data-original-title="Only you and test users can access the study.">
+                                    <i class="fa fa-eject"></i>
                                     </a>
-                                    <a href="<?= admin_run_url($run->name, 'ajax_run_public_toggle?public=1') ?>" class="btn btn-default public-toggle hastooltip <?= ($run->public == 1) ? 'btn-checked' : '' ?>" title="" data-original-title="You and people who have an access code can access (no new users can enrol).">
+                                    <a href="<?= admin_run_url($run->name, 'ajax_run_public_toggle?public=1') ?>" class="btn btn-default public-toggle hastooltip <?= ($run->public == 1) ? 'btn-checked' : '' ?>" title="" data-original-title="You and people who already have an access code can access (no new users can enrol).">
                                         <i class="fa fa-volume-off"></i>
                                     </a>
                                     <a href="<?= admin_run_url($run->name, 'ajax_run_public_toggle?public=2') ?>" class="btn btn-default public-toggle hastooltip <?= ($run->public == 2) ? 'btn-checked' : '' ?> " title="" data-original-title="People who have the link can access.">
