@@ -23,7 +23,7 @@ Template::loadChild('public/header', array(
                             <tr>
                                 <td>
                                     <b>Email subscription</b> <br />
-                                    <i>Subscribe / Unsubscribe to receiving emails from this study</i>
+                                    <i>Control whether you will receive emails through this study</i>
                                 </td>
                                 <td>
                                     <select name="no_email" class="form-control">

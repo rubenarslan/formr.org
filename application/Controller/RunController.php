@@ -45,10 +45,54 @@ class RunController extends Controller {
             return $this->request->redirect($run_vars['redirect']);
         }
 
-        $assset_vars = $this->filterAssets($run_vars);
+        $asset_vars = $this->filterAssets($run_vars);
         unset($run_vars['css'], $run_vars['js']);
 
-        $this->setView('run/index', array_merge($run_vars, $assset_vars));
+        $this->setView('run/index', array_merge($run_vars, $asset_vars));
+
+        return $this->sendResponse();
+    }
+
+    private function privacyAction() {
+        $this->run = $this->getRun();
+        $run_name = $this->site->request->run_name;
+
+        if (!$this->run->valid) {
+            formr_error(404, 'Not Found', 'Requested Run does not exist or has been moved');
+        }
+
+        if(!$this->run->hasPrivacy()) {
+            $this->request->redirect(run_url($run_name, ''));
+        }
+
+        $run_vars = array(
+            'run_content' => $this->run->getParsedPrivacyField('privacy-policy'),
+            'bodyClass' => 'fmr-run',
+        );
+
+        $this->setView('run/static_page', $run_vars);
+
+        return $this->sendResponse();
+    }
+
+    private function terms_of_serviceAction() {
+        $this->run = $this->getRun();
+        $run_name = $this->site->request->run_name;
+
+        if (!$this->run->valid) {
+            formr_error(404, 'Not Found', 'Requested Run does not exist or has been moved');
+        }
+
+        if(!$this->run->hasToS()) {
+            $this->request->redirect(run_url($run_name, ''));
+        }
+
+        $run_vars = array(
+            'run_content' => $this->run->getParsedPrivacyField('terms-of-service'),
+            'bodyClass' => 'fmr-run',
+        );
+
+        $this->setView('run/static_page', $run_vars);
 
         return $this->sendResponse();
     }

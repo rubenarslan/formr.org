@@ -84,7 +84,11 @@ $settings['display_errors_when_live'] = 0;
 $settings['display_errors'] = 0;
 $settings['error_to_stderr'] = 0;
 
+// What regular expression should the user codes match? Make sure your RegEx allows 64 character base64 like ^[A-Za-z0-9+-_~]{64}, as these are the codes formr generates. You can generate shorter/longer codes yourself though.
 $settings['user_code_regular_expression'] = "/^[A-Za-z0-9+-_~]{64}$/";
+
+// Should studies be required to have a non-empty privacy policy before they can go live/public?
+$settings['require_privacy_policy'] = false;
 
 // Session expiration related settings
 // (for unregistered users. in seconds (defaults to a year))

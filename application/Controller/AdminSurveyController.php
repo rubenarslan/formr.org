@@ -92,6 +92,16 @@ class AdminSurveyController extends AdminController {
         if (empty($file['name'])) {
             return false;
         }
+
+        // Define the list of allowed extensions
+        $allowedExtensions = array('xls', 'xlsx', 'ods', 'xml', 'txt', 'csv');
+        // Get the file extension
+        $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        // Check if the extension is in the allowed list
+        if(!in_array($fileExtension, $allowedExtensions)){
+            alert("<strong>Error:</strong> The format must be one of .xls, .xlsx, .ods, .xml, .txt, or .csv.", 'alert-danger');
+            return false;
+        }
         
         $name = preg_filter("/^([a-zA-Z][a-zA-Z0-9_]{2,64})(-[a-z0-9A-Z]+)?\.[a-z]{3,4}$/", "$1", basename($file['name']));
         if (!preg_match("/[a-zA-Z][a-zA-Z0-9_]{2,64}/", (string)$name)) {
