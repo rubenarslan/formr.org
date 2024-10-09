@@ -2,7 +2,7 @@
 
 class Crypto {
 
-    const KEY_FILE = APPPLICATION_CRYPTO_KEY_FILE;
+    const KEY_FILE = APPLICATION_CRYPTO_KEY_FILE;
 
     private static $key = null;
 

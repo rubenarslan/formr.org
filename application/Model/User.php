@@ -364,7 +364,8 @@ class User extends Model {
 
         $verify_data = $this->db->findRow('survey_users', array('email' => $email), array('email_verification_hash', 'referrer_code'));
 
-        if (in_array($verify_data['referrer_code'], Config::get('referrer_codes'))) {
+        if (Site::getSettings("signup:enable_referral_token", 'true') === 'true' &&
+            in_array($verify_data['referrer_code'], Config::get('referrer_codes'))) {
             $this->db->update('survey_users', array('admin' => 1), array('email' => $email));
             $this->id = (int) $this->db->findValue('survey_users', array('email' => $email), array('id'));
             $this->load();

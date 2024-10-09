@@ -2,12 +2,15 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [v0.21.5] - 01.10.2024
+## [v0.22.0] - 01.10.2024
+### Fixed
+* superadmin OpenCPU timing graph
+* 
 ### Added
 * compliance work
   * added special user*facing static pages for privacy policy and terms of service
   * added an option to require that a privacy policy exists before studies go public
-  * improved default footer text/imprint to include admin email address, links to privacy policy, ToS, settings
+  * improved default footer text/imprint to include admin email address, links to privacy policy, ToS, settings, make referral tokens optional
 
 ## [v0.21.4] - 10.07.2024
 ### Fixed

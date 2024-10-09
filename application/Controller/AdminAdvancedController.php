@@ -147,7 +147,7 @@ class AdminAdvancedController extends AdminController {
         } elseif ($action === 'change') {
             $client = OAuthHelper::getInstance()->refreshToken($user);
             if (!$client) {
-                $content = array('success' => false, 'message' => 'An error occured refereshing API secret.');
+                $content = array('success' => false, 'message' => 'An error occured refreshing API secret.');
             } else {
                 $client['user'] = $user->email;
                 $content = array('success' => true, 'data' => $client);
@@ -230,30 +230,35 @@ class AdminAdvancedController extends AdminController {
     }
 
     public function contentSettingsAction() {
+
+
         if (Request::isHTTPPostRequest()) {
             $allowedSettings = array(
                 // 'true' set for checkboxes
+                'require_privacy_policy' => true,
                 'content:about:show' => true,
-                'content:docu:show' => true, 'content:docu:support_email',
+                'content:docu:show' => true, 
+                'content:docu:support_email',
                 'content:studies:show' => true,
-                'content:publications:show' => true, 'content:publications',
-                'footer:link:policyurl', 'footer:link:logourl', 'footer:link:logolink', 'footer:imprint',
-                'signup:allow','signup:message',
-                'js:cookieconsent'
+                'content:publications:show' => true, 
+                'content:publications' => false,
+                'content:terms_of_service' => false,
+                'footer:link:policyurl' => false, 
+                'footer:link:logourl' => false, 
+                'footer:link:logolink' => false, 
+                'footer:imprint' => false,
+                'signup:enable_referral_token' => true,
+                'signup:allow' => true,
+                'signup:message' => false,
+                'js:cookieconsent' => false
             );
 
             foreach ($allowedSettings as $setting => $is_checkbox) {
-                if ($is_checkbox !== true) {
-                    $setting = $is_checkbox;
-                }
-                
                 if (($value = $this->request->getParam($setting)) !== null) {
                     $this->fdb->insert_update('survey_settings', array('setting' => $setting, 'value' => $value));
                 }
             }
             
-            $this->fdb->insert_update('survey_settings', array('setting' => 'content.about.show', 'value' => 'true'));
-
             alert('Settings saved', 'alert-success');
             $this->sendResponse($this->site->renderAlerts());
         }
