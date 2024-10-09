@@ -49,11 +49,15 @@ Template::loadChild('public/header');
                     <h3><i class="fa fa-fw fa-quote-left"></i> Citation</h3>
                     <div class="alert alert-info">
                         <p>
-                            If you are publishing research conducted using formr, <strong>please cite</strong> 
+                            If you are publishing research conducted using formr, <strong>please cite</strong> the paper and cite or at least mention the version of the software that was active when you ran your study (see Zenodo DOI below).
                         </p>
                         <blockquote>
 							Arslan, R. C., Walther, M. P., &amp; Tata, C. S. (2020). formr: A study framework allowing for automated feedback generation and complex longitudinal experience-sampling studies using R. <i>Behavior Research Methods</i>, 52, 376–387. <a href="https://doi.org/10.3758/s13428-019-01236-y" target="_blank">https://doi.org/10.3758/s13428-019-01236-y</a>
 						</blockquote>
+
+                        <blockquote>
+                        Arslan, R.C., &amp; Tata, C.S. (<?php echo date("Y"); ?>). formr: A study framework allowing for automated feedback generation and complex longitudinal experience sampling studies using R. (version <?php echo Config::get('version'); ?>). <a href="https://zenodo.org/badge/latestdoi/11849439"><img src="https://zenodo.org/badge/11849439.svg" alt="DOI"></a>
+                        </blockquote>
                     </div>
                     <p>
                         Cite the version that was active while you ran your study. Zenodo will keep backups of each major release, so that the software used for your study is preserved when we update it and if Github ceases to exist. This ensures reproducibility and allows us to trace papers affected by major bugs, should we discover any in the future. 
@@ -63,7 +67,7 @@ Template::loadChild('public/header');
                             If you used the accompanying R package, you should cite it too, because it is independent of the rest of the software and independently versioned.
                         </p>
                         <blockquote>
-                            Arslan, R.C. (2017). formr R package (Version 0.4.1). <a href="https://zenodo.org/badge/latestdoi/19236374"><img src="https://zenodo.org/badge/19236374.svg" alt="DOI"></a>
+                            Arslan, R.C. (<?php echo date("Y"); ?>). formr R package (Version 0.10.0). <a href="https://zenodo.org/badge/latestdoi/19236374"><img src="https://zenodo.org/badge/19236374.svg" alt="DOI"></a>
                         </blockquote>
                     </div>
 
