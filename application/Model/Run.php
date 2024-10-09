@@ -233,11 +233,29 @@ class Run extends Model {
     }
 
     public function getUploadedFiles() {
-        return $this->db->select('id, created, original_file_name, new_file_path')
+        return $this->db->select('id, created, modified, original_file_name, new_file_path')
                         ->from('survey_uploaded_files')
                         ->where(array('run_id' => $this->id))
                         ->order('created', 'desc')
                         ->fetchAll();
+    }
+
+    private $batch_directory;
+
+    private function makeBatchDirectory() {
+        if (!isset($this->batch_directory)) {
+            // Generate a random directory name for this batch
+            $this->batch_directory = 'assets/tmp/admin/' . crypto_token(15, true) . '/';
+    
+            // Ensure the batch directory exists
+            $local_path = APPLICATION_ROOT . 'webroot/';
+            $destination_dir = $local_path . $this->batch_directory;
+            if (!is_dir($destination_dir)) {
+                mkdir($destination_dir, 0777, true);
+            }
+        }
+    
+        return $this->batch_directory;
     }
 
     public function uploadFiles($files) {
@@ -251,14 +269,8 @@ class Run extends Model {
             $files_by_names[$existing_file['original_file_name']] = $existing_file['new_file_path'];
         }
     
-        // Generate a random directory name for this batch
-        $batch_directory = 'assets/tmp/admin/' . crypto_token(15, true) . '/';
-    
         // Ensure the batch directory exists
-        $destination_dir = APPLICATION_ROOT . 'webroot/' . $batch_directory;
-        if (!is_dir($destination_dir)) {
-            mkdir($destination_dir, 0777, true);
-        }
+        $local_path = APPLICATION_ROOT . 'webroot/' ;
     
         // loop through files and modify them if necessary
         for ($i = 0; $i < count($files['tmp_name']); $i++) {
@@ -326,20 +338,29 @@ class Run extends Model {
                 $this->errors[] = __('The file "%s" has an invalid file extension %s. Expected %s for MIME type %s.', $original_file_name, $file_extension, $allowed_file_endings[$mime], $mime);
                 continue;
             }
-    
-            // Sanitize file name to remove control characters
-            $sanitized_file_name = preg_replace('/[\x00-\x1F\x7F]/u', '', $original_file_name);  // Remove control characters
-            $new_file_path = $batch_directory . $sanitized_file_name;
 
-            // Ensure the destination path is within the intended directory
-            $intended_path = $destination_dir . $sanitized_file_name;
-            if (strpos(realpath(dirname($intended_path)), realpath($destination_dir)) !== 0) {
-                $this->errors[] = __("The file '%s' could not be uploaded due to an invalid file path.", $sanitized_file_name);
-                continue;
+            // Keep old file path if a file of the same name has been uploaded before
+            if(array_key_exists($original_file_name, $files_by_names)) {
+                $new_file_path = $files_by_names[$original_file_name]; // web, below webroot
+                $local_file_path = $local_path . $new_file_path;
+            } else {
+            // New path name if file name is new
+                $batch_directory = $this->makeBatchDirectory();
+                $destination_dir = $local_path . $batch_directory;
+                // Sanitize file name to remove control characters
+                $sanitized_file_name = preg_replace('/[\x00-\x1F\x7F]/u', '', $original_file_name);  // Remove control characters
+
+                // Ensure the destination path is within the intended directory
+                $new_file_path = $batch_directory . $sanitized_file_name;
+                $local_file_path = $local_path . $new_file_path;
+                if (strpos(realpath(dirname($local_file_path)), realpath($destination_dir)) !== 0) {
+                    $this->errors[] = __("The file '%s' could not be uploaded due to an invalid file path.", $sanitized_file_name);
+                    continue;
+                }
             }
 
             // save file
-            if (move_uploaded_file($files['tmp_name'][$i], $destination_dir . $original_file_name)) {
+            if (move_uploaded_file($files['tmp_name'][$i], $local_file_path)) {
                 $this->db->insert_update('survey_uploaded_files', array(
                     'run_id' => $this->id,
                     'created' => mysql_now(),
@@ -348,7 +369,7 @@ class Run extends Model {
                 ), array(
                     'modified' => mysql_now()
                 ));
-                $this->messages[] = __('The file "%s" was successfully uploaded.', $original_file_name);
+                $this->messages[] = __('The file "%s" was successfully uploaded to %s.', $original_file_name, $new_file_path);
             } else {
                 $this->errors[] = __("Unable to move uploaded file '%s' to storage location.", $files['name'][$i]);
             }

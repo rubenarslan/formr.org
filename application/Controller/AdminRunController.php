@@ -238,7 +238,8 @@ class AdminRunController extends AdminController {
     private function uploadFilesAction() {
         $run = $this->run;
 
-        if (!empty($_FILES['uploaded_files'])) {
+        if (!empty($_FILES['uploaded_files']) && 
+            $this->request->int("confirm_rights") === 1) {
             if ($run->uploadFiles($_FILES['uploaded_files'])) {
                 alert('<strong>Success.</strong> The files were uploaded.', 'alert-success');
                 if (!empty($run->messages)) {
