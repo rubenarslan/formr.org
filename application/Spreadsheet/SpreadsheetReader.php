@@ -32,6 +32,7 @@ class SpreadsheetReader {
         $objPhpSpreadsheet = $this->objectFromArray($array);
 
         $objWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($objPhpSpreadsheet, 'Csv');
+        /** @var \PhpOffice\PhpSpreadsheet\Writer\Csv $objWriter */
         $objWriter->setDelimiter("\t");
         $objWriter->setEnclosure("");
 
@@ -63,7 +64,7 @@ class SpreadsheetReader {
     /**
      * 
      * @param PDOStatement $stmt
-     * @return \PhpOffice\PhpSpreadsheet\Spreadsheet;
+     * @return \PhpOffice\PhpSpreadsheet\Spreadsheet
      */
     protected function objectFromPDOStatement(PDOStatement $stmt) {
         $PhpSpreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -175,6 +176,7 @@ class SpreadsheetReader {
 
         try {
             $phpSpreadsheet = $this->objectFromPDOStatement($stmt);
+            /** @var \PhpOffice\PhpSpreadsheet\Writer\Csv $phpSpreadsheetWriter */
             $phpSpreadsheetWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($phpSpreadsheet, 'Csv');
             $phpSpreadsheetWriter->setDelimiter("\t");
             $phpSpreadsheetWriter->setEnclosure("");
@@ -203,6 +205,7 @@ class SpreadsheetReader {
 
         try {
             $phpSpreadsheet = $this->objectFromPDOStatement($stmt);
+            /** @var \PhpOffice\PhpSpreadsheet\Writer\Csv $phpSpreadsheetWriter */
             $phpSpreadsheetWriter = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($phpSpreadsheet, 'Csv');
             $phpSpreadsheetWriter->setDelimiter(';');
             $phpSpreadsheetWriter->setEnclosure('"');
@@ -512,11 +515,14 @@ class SpreadsheetReader {
         //  Get worksheet dimensions
         // non-allowed columns will be ignored, allows to specify auxiliary information if needed
         $skippedColumns = $columns = array();
+        $lastListName = null;
         $colCount = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($worksheet->getHighestDataColumn());
         $rowCount = $worksheet->getHighestDataRow();
 
         for ($i = 1; $i <= $colCount; $i++) {
-            $colName = mb_strtolower((string)$worksheet->getCellByColumnAndRow($i, 1)->getValue());
+            $cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i) . '1';
+            $colName = mb_strtolower((string)$worksheet->getCell($cellCoordinate)->getValue());
+
             if (in_array($colName, $this->choices_columns)) {
                 $columns[$i] = $colName;
             } else {
@@ -673,7 +679,9 @@ class SpreadsheetReader {
 
         $blankColCount = 0; // why should this be set to 1 by default? 
         for ($i = 1; $i <= $colCount; $i++) {
-            $colName = trim(mb_strtolower((string)$worksheet->getCellByColumnAndRow($i, 1)->getValue()));
+            $cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i) . '1';
+            $colName = mb_strtolower((string)$worksheet->getCell($cellCoordinate)->getValue());
+
             if (!$colName) {
                 $blankColCount++;
                 continue;

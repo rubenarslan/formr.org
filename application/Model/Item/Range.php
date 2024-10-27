@@ -5,6 +5,9 @@ class Range_Item extends Number_Item {
     public $type = 'range';
     public $input_attributes = array('type' => 'range', 'min' => 0, 'max' => 100, 'step' => 1);
     public $mysql_field = 'INT UNSIGNED DEFAULT NULL';
+    public $lower_text;
+    public $upper_text;
+
     protected $hasChoices = true;
 
     protected function setMoreOptions() {

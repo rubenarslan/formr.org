@@ -4,6 +4,7 @@ class Timezone_Item extends SelectOne_Item {
 
     public $mysql_field = 'VARCHAR(255)';
     public $choice_list = '*';
+    public $offsets;
 
     protected function chooseResultFieldBasedOnChoices() {
         
