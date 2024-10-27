@@ -1,4 +1,4 @@
-<phpunit bootstrap="../application/Library/Autoloader.php" >
+<phpunit bootstrap="../setup.php" >
     <testsuites>
         <testsuite name="formr Unit Tests">
             <directory>.</directory>

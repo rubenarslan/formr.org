@@ -1,7 +1,5 @@
 <?php
 
-require_once('../application/Library/Config.php');
-
 /*
  * Test Config class
  */

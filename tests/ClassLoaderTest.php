@@ -1,8 +1,5 @@
 <?php
 
-require_once('../setup.php');
-require_once('../application/Library/DB.php');
-
 /**
  * Test Autoloder class
  */

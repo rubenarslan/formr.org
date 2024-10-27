@@ -1,7 +1,5 @@
 <?php
 
-require_once('../setup.php');
-
 class FirstTest extends PHPUnit\Framework\TestCase {
 
     private function checkPageForPHPErrors($address) {

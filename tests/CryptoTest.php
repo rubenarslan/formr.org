@@ -1,7 +1,5 @@
 <?php
 
-require_once '../setup.php';
-
 class CryptoTest extends \PHPUnit\Framework\TestCase {
 
     public function testEncryptDecryptArray() {
