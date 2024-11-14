@@ -23,11 +23,13 @@
                         <div class="callout callout-primary">
                             <ul class="fa-ul fa-ul-more-padding">
                                 <li><i class="fa-li fa fa-files-o"></i> Choose as many files as you'd like.</li>
+                                <li><i class="fa-li fa fa-lock"></i> You have to have the necessary rights to upload the file here. Do not upload pictures of people without their consent, respect the license conditions of software etc.</li>
                                 <li><i class="fa-li fa fa-link"></i> You will be able to browse them by name here, but you'll have to copy a randomly-generated link to embed them.</li> 
                                 <li><i class="fa-li fa fa-image"></i>	To embed images, use the following Markdown syntax: <code>![image description for blind users](image link)</code>, so in a concrete example <code>![Picture of a guitar](https://formr.org/assets/tmp/admin/mkWpDTv5Um2ijGs1SJbH1uw9Bn2ctysD8N3tbkuwalOM.png)</code>. You can embed images anywhere you can use Markdown (e.g. in item and choice labels, feedback, emails).</li>
                                 <li><i class="fa-li fa fa-cloud-upload"></i> We do not prevent users from sharing the links with others. 
                                     If your users see an image/video, there is no way of preventing them from re-sharing it, if you're not looking over their shoulders.<br>
                                     Users can always take a photo of the screen, even if you could prevent screenshots. Hence, we saw no point in generating single-use links for the images (so that users can't share the picture directly). Please be aware of this and don't use formr to show confidential information in an un-supervised setting. However, because the links are large random numbers, it's fairly safe to use formr to upload confidential information to be shown in the lab, the images cannot be discovered by people who don't have access to the study.</li>
+                                <li><i class="fa-li fa fa-file"></i>The following file types are allowed: <?php echo  implode(", ", Config::get('allowed_file_endings_for_run_upload')); ?></li>
                             </ul>
                         </div>
 

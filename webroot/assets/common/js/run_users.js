@@ -168,6 +168,46 @@
         }).modal('show');
 
     }
+
+    function verifyEmailManually(e) {
+        /*jshint validthis:true */
+        
+        var userId = parseInt($(this).data('user'), 10);
+        var userEmail = $(this).data('email');
+        if (!userId || !userEmail) {
+            return;
+        }
+        var $btn = $(this);
+
+        var data = {user_id: userId, user_email: userEmail, verify_email_manually: true};
+        postdata(saAjaxUrl, data, function (response) {
+            if (response && response.success) {
+                $btn.css("border-color", "green");
+                $btn.css("color", "green");
+                $btn.off('click');
+            }
+        });
+    }
+    
+    function addDefaultEmailAccess(e) {
+        /*jshint validthis:true */
+        
+        var userId = parseInt($(this).data('user'), 10);
+        var userEmail = $(this).data('email');
+        if (!userId || !userEmail) {
+            return;
+        }
+        var $btn = $(this);
+
+        var data = {user_id: userId, user_email: userEmail, add_default_email_access: true};
+        postdata(saAjaxUrl, data, function (response) {
+            if (response && response.success) {
+                $btn.css("border-color", "green");
+                $btn.css("color", "green");
+                $btn.off('click');
+            }
+        });
+    }
     
     function deleteUserSession(e) {
         /*jshint validthis:true */
@@ -420,6 +460,8 @@
             $(this).find('.fa').addClass('fa-stop').removeClass('fa-play');
         });
         $('.api-btn').click(userAPIAccess);
+        $('.verify-email-btn').click(verifyEmailManually);
+        $('.add-email-btn').click(addDefaultEmailAccess);
         $('.del-btn').click(userDelete);
         $('.sessions-search-switch').click(toggleSessionSearch);
         if ($(".hidden_debug_message").length > 0) {

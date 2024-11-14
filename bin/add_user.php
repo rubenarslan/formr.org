@@ -27,16 +27,16 @@ $users = $db->count('survey_users');
 
 print("$users exist already");
 
-if($config['level'] > 0 && $users > 0) {
-	throw new Exception("Cannot create admins when users already exist");
+if($config['level'] > 1 && $users > 0) {
+	print("Cannot create superadmins when users already exist");
+} else {
+	$inserted = $db->insert('survey_users', array(
+		'email' => $config['email'],
+		'created' => mysql_now(),
+		'password' => $config['hash'],
+		'user_code' => crypto_token(48),
+		'referrer_code' => "created from host",
+		'email_verified' => 1,
+		'admin' => $config['level']
+	));
 }
-
-$inserted = $db->insert('survey_users', array(
-	'email' => $config['email'],
-	'created' => mysql_now(),
-	'password' => $config['hash'],
-	'user_code' => crypto_token(48),
-	'referrer_code' => "created from host",
-	'email_verified' => 1,
-	'admin' => $config['level']
-));

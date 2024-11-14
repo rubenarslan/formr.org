@@ -10,9 +10,10 @@ class Session {
     protected static $name = 'formr_session';
     protected static $lifetime;
     protected static $path = '/';
-    protected static $domain = null;
-    protected static $secure = false;
+    protected static $domain = ''; // strictest domain matching is leaving domain empty
+    protected static $secure = true;
     protected static $httponly = true;
+    protected static $samesite = 'Strict';
     
     const REQUEST_TOKENS_COOKIE = 'formr_token';
     const REQUEST_TOKENS = '_formr_request_tokens';
@@ -23,9 +24,9 @@ class Session {
     public static function configure($config = array()) {
         self::$lifetime = Config::get('session_cookie_lifetime');
         self::$secure = SSL;
-        foreach ($config as $key => $value) {
-            self::${$key} = $value;
-        }
+
+        self::$path = '/';
+        self::$domain = '';
     }
 
     /**
@@ -33,7 +34,13 @@ class Session {
      */
     public static function start() {
         session_name(self::$name);
-        session_set_cookie_params(self::$lifetime, self::$path, self::$domain, self::$secure, self::$httponly);
+        session_set_cookie_params([
+            "lifetime" => self::$lifetime, 
+            "path" => self::$path, 
+            "domain" => self::$domain, 
+            "secure" => self::$secure, 
+            "httponly" => self::$httponly,
+            "samesite" => self::$samesite]);
         session_start();
     }
 
@@ -89,7 +96,13 @@ class Session {
             $tokens[$token] = 1;
         }
 
-        setcookie(self::REQUEST_TOKENS_COOKIE, $token, 0, self::$path, self::$domain, self::$secure, self::$httponly);
+        setcookie(self::REQUEST_TOKENS_COOKIE, $token, 
+            ['expires' => 0, 
+            'path' => self::$path, 
+            'domain' => self::$domain, 
+            'secure' => self::$secure,
+            'httponly' => self::$httponly,
+            'samesite' => self::$samesite]);
         self::set(self::REQUEST_TOKENS, $tokens);
         return $token;
     }
@@ -100,24 +113,45 @@ class Session {
         if (!empty($tokens[$token]) && array_val($_COOKIE, self::REQUEST_TOKENS_COOKIE) == $token) {
             // a valid request token dies after it's validity is retrived :P
             unset($tokens[$token]);
-            setcookie(self::REQUEST_TOKENS_COOKIE, '', -3600, self::$path, self::$domain, self::$secure, self::$httponly);
+            setcookie(self::REQUEST_TOKENS_COOKIE, '', 
+                ['expires' => -3600, 
+                'path' => self::$path, 
+                'domain' => self::$domain, 
+                'secure' => self::$secure,
+                'httponly' => self::$httponly,
+                'samesite' => self::$samesite]);
             self::set(self::REQUEST_TOKENS, $tokens);
             return true;
         }
         return false;
     }
     
-    public static function setCookie($name, $value, $expires = 0) {
-        return setcookie($name, $value, time() + $expires, self::$path, (string)self::$domain, self::$secure, self::$httponly);
+    public static function setCookie($name, $value, $expires = 0, $path = "/", $domain = '') {
+        return setcookie($name, $value, 
+                ['expires' => time() + $expires, 
+                'path' => $path, 
+                'domain' => $domain, 
+                'secure' => self::$secure,
+                'httponly' => self::$httponly,
+                'samesite' => self::$samesite]);
     }
     
     public static function deleteCookie($name) {
-        return setcookie($name, '', time() - 3600, self::$path, self::$domain, self::$secure, self::$httponly);
+        return setcookie($name, '',
+            ['expires' => time() - 3600, 
+            'path' => self::$path, 
+            'domain' => self::$domain, 
+            'secure' => self::$secure,
+            'httponly' => self::$httponly,
+            'samesite' => self::$samesite]);
     }
   
     public static function setAdminCookie(User $admin) {
         $data = [$admin->id, $admin->user_code, time()];
-        $cookie = self::setCookie(self::ADMIN_COOKIE, Crypto::encrypt($data, '-'), self::$lifetime);
+        $cookie = self::setCookie(self::ADMIN_COOKIE, 
+            Crypto::encrypt($data, '-'), 
+            self::$lifetime,
+            "/", '');
         if (!$cookie) {
             formr_error(505, 'Invalid Token', 'Unable to set admin token');
         }

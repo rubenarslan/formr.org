@@ -3,6 +3,19 @@
 /**
  * Formr.org configuration
  */
+// Use sub domains for studies
+$settings['use_study_subdomains'] = true;
+$settings['admin_domain'] = "www.example.com";
+# ideally not the same domain as the admin domain, for study subdomains use *.example.com
+$settings['study_domain'] = "*.example.com";
+$settings['protocol'] = "https://";
+
+// Codes listed here can be entered in the sign-up box to turn
+// users into admins automatically (upon email confirmation)
+$settings['referrer_codes'] = array();
+
+// Timezone
+$settings['timezone'] = 'Europe/Berlin';
 
 // Database Settings
 $settings['database'] = array(
@@ -30,7 +43,8 @@ $settings['alternative_opencpu_instance'] = array(
 	'r_lib_path' => '/usr/local/lib/R/site-library'
 );
 
-// email SMTP and queueing configuration
+// email SMTP and queueing configuration for emails sent by the formr app itself
+// for example for email confirmation and password reset
 $settings['email'] = array(
 	'host' => 'smtp.example.com',
 	'port' => 587,
@@ -53,13 +67,24 @@ $settings['email'] = array(
 	'smtp_options' => array(),
 );
 
+// email SMTP and queueing configuration for emails sent by formr admins in studies
+// maybe not be the same as the formr app email
+$settings['default_admin_email'] = array(
+	'host' => NULL,
+	'port' => NULL,
+	'tls' => true,
+	'from' => NULL,
+	'from_name' => NULL,
+	'username' => NULL,
+	'password' => NULL
+);
+
 // should PHP and MySQL errors be displayed to the users when formr is not running locally? If 0, they are only logged
 $settings['display_errors_when_live'] = 0;
 $settings['display_errors'] = 0;
 $settings['error_to_stderr'] = 0;
 
-// Timezone
-$settings['timezone'] = 'Europe/Berlin';
+$settings['user_code_regular_expression'] = "/^[A-Za-z0-9+-_~]{64}$/";
 
 // Session expiration related settings
 // (for unregistered users. in seconds (defaults to a year))
@@ -73,6 +98,25 @@ $settings['session_cookie_lifetime'] = max($settings['expire_unregistered_sessio
 
 // Maximum size allowed for uploaded files in MB
 $settings['admin_maximum_size_of_uploaded_files'] = 50;
+$settings['allowed_file_endings_for_run_upload'] = array(
+	'image/jpeg' => 'jpg', 
+	'image/png' => 'png', 
+	'image/gif' => 'gif', 
+	'image/tiff' => 'tif',
+	'video/mpeg' => 'mpg', 
+	'video/quicktime' => 'mov', 
+	'video/x-flv' => 'flv', 
+	'video/x-f4v' => 'f4v', 
+	'video/x-msvideo' => 'avi',
+	'audio/mpeg' => 'mp3',
+	'application/pdf' => 'pdf',
+	'text/csv' => 'csv', 
+	'text/javascript' => 'js', 
+	'text/css' => 'css', 
+	'text/tab-separated-values' => 'tsv', 
+	'text/plain' => 'txt',
+	'text/html' => 'html'
+);
 
 // Directory for exported runs
 $settings['run_exports_dir'] = APPLICATION_ROOT . 'documentation/run_components';
@@ -82,20 +126,6 @@ $settings['survey_upload_dir'] = APPLICATION_ROOT . 'tmp/backups/surveys';
 
 // application webroot
 $settings['web_dir'] = APPLICATION_ROOT . 'webroot';
-
-// Setup settings for application that can overwrite defaults in /define_root.php
-$settings['define_root'] = array(
-		'protocol' => 'https://',
-		//'doc_root' => 'localhost/formr.org/',
-		//'study_domain' => 'localhost/formr.org/',
-		//'server_root' => APPLICATION_ROOT . '/',
-		//'online' => false,
-		//'testing' => true
-);
-
-// Codes listed here can be entered in the sign-up box to turn
-// users into admins automatically (upon email confirmation)
-$settings['referrer_codes'] = array();
 
 // Cron settings
 $settings['cron'] = array(
@@ -179,9 +209,6 @@ $settings['encryption_key_file'] = null;
 // Before using this, make sure xsendfile is installed and configured correctly with apache
 $settings['use_xsendfile'] = true;
 
-// Use sub domains for studies
-$settings['use_study_subdomains'] = true;
-
 // Reserved run names which users are not allowed to use
 $settings['reserved_run_names'] = array('api', 'test', 'delegate');
 
@@ -210,16 +237,6 @@ $settings['disabled_features'] = array(
 // Brand
 $settings['brand'] = '<span>f</span>orm<span>{`r}</span>';
 $settings['brand_long'] = '<b>formr</b> survey framework';
-
-// Settings for PHP session
-$settings['php_session'] = array(
-    'path' => '/',
-    'domain' => '.formr.org', // prefer env('SERVER_NAME') if using subdomains for run URLs
-    'secure' => true,
-    'httponly' => true,
-    //'lifetime' => 36000,
-);
-
 
 // Settings for creating the context used in the 'copy' function when copying images from the opencpu server to formr
 $settings['copy_context'] = array(

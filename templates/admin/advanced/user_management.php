@@ -1,4 +1,7 @@
-<?php Template::loadChild('admin/header'); ?>
+<?php Template::loadChild('admin/header');
+$default_email = Config::get('default_admin_email');
+$has_default_email= $default_email !== null && $default_email['host'] !== null;
+?>
 
 <div class="content-wrapper">
     <!-- Content Header (Page header) -->
@@ -59,6 +62,8 @@
                                         </td>
                                         <td>
                                             <button type="button" class="btn api-btn hastooltip" title="Manage API Access" data-user="<?= $userx['id'] ?>" data-email="<?= h($userx['email']) ?>"><i class="fa fa-cloud"></i></button>
+                                            <?php echo  $has_default_email ? '<button type="button" class="btn add-email-btn hastooltip" title="Add default email account" data-user="'. $userx['id']. '" data-email="'. h($userx['email']).'"><i class="fa fa-plus"></i> <i class="fa fa-envelope"></i></button>' :'' ?>
+                                            <?php echo $userx['email_verified'] ? '' : '<button type="button" class="btn verify-email-btn hastooltip" title="Verify email address manually" data-user="'. $userx['id']. '" data-email="'. h($userx['email']).'"><i class="fa fa-envelope"></i><i class="fa fa-check"></i></button>' ?>
                                             <button type="button" class="btn del-btn hastooltip" title="Delete User" data-user="<?= $userx['id'] ?>" data-email="<?= h($userx['email']) ?>"><i class="fa fa-trash"></i></button>
                                         </td>
                                     </tr>

@@ -57,6 +57,8 @@
                                                 <button type="submit" class="btn btn-sup btn-material-pink btn-raised">Sign In</button>
                                                 <p>&nbsp;</p>
                                                 <a href="<?php echo admin_url('account/forgot-password'); ?>"><strong>Forgot password?</strong></a>
+                                                <p>&nbsp;</p>
+                                                <a href="<?php echo admin_url('account/register'); ?>" class="btn btn-sup btn-material-pink btn-raised">Sign Up</a>
                                             </form>
                                         </div>
 
